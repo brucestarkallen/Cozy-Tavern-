@@ -20,7 +20,8 @@
  */
 
 import { houseFetch } from './relay.js'; /* M353: a provider that refuses a page is carried by the house */
-import { lateSystemRefused, rememberLateSystemRefused } from './latesystem.js'; /* M385 */
+import { lateSystemRefused, rememberLateSystemRefused } from './latesystem.js';
+import { withUserFirst } from './userfirst.js'; /* M510-38 */ /* M385 */
 import { measureStream, speedWords, pickAnthropic, SPEED_ASK, SPEED_MAX_TOKENS } from './speed.js'; /* M373 */
 import { reportedContext } from './room.js'; /* M289 */
 import { readSSE } from './sse.js';
@@ -137,7 +138,8 @@ function requestBody(connection, blocks, legacySystem, messages, opts = {}) {
      * and 5.1 and Mythos 5 and 5.1 take a "system" message right after a user turn as a mid-conversation system message
      * (platform.claude.com/docs/en/build-with-claude/mid-conversation-system-messages); Sonnet 5 and older models refuse
      * it. It is sent as a system message, and a model that refuses it is remembered and sent a user message instead. */
-    messages: pf.messages.map((m) => withImagePart(m && m.role === 'system' && lateSystemRefused(connection) ? { ...m, role: 'user' } : m, 'anthropic')),
+    /* M510-38: Claude's first message must be the user's — a request opening on the teller's words gets his one line first */
+    messages: withUserFirst(pf.messages).map((m) => withImagePart(m && m.role === 'system' && lateSystemRefused(connection) ? { ...m, role: 'user' } : m, 'anthropic')),
     stream: true,
   };
   if (typeof connection.temperature === 'number') body.temperature = connection.temperature;

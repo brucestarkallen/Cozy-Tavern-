@@ -65,6 +65,7 @@ const SHELL = [
   'js/engine/usage.js',
   'js/ui/usage.js',
   'js/providers/latesystem.js',
+  'js/providers/userfirst.js', /* M510-38 */
   'js/providers/speed.js',
   'js/assemble/plain.js',
   'js/assemble/laws.js', /* M510 */

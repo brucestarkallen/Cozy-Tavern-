@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-037)
+# Cozy Tavern — handoff for the next session (state at m510-038)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1079,4 +1079,11 @@ founding design lives in AGENTS.md's first entries.)
   changed on purpose: the notes word for word from the first user message to the last system block, and the one move of
   his in front — nothing else. Laws M510-37; A1, M12-coverage and nineteen laws that read the notes as the first message
   read them from the system (tests/harness/lib.mjs notesOf).
+- M510-38 — HIS WORDS WHERE HE PUT THEM; HIS TURN FIRST ONLY WHERE A HOUSE INSISTS (providers/userfirst.js): the builder
+  puts every own-words entry at its landmark — "before the pages" right after the briefing, before the first story page;
+  "before your message" right before his message, first turn included — and never ends a request on the teller's words.
+  It adds no line of its own. "(Our story begins.)" (STORY_BEGINS) comes from the provider: Claude always (its first
+  message must be the user's); any OpenAI-shaped house only after it refuses a conversation that opens on the assistant
+  (ORDER_REFUSAL), remembered for that model at that address (connection.userFirstFor), as a refused late system message
+  is. A house that takes it gets nothing added. Laws M510-38; M466-3/4, M481 and DOM-118 restated.
 

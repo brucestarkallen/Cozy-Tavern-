@@ -168,8 +168,7 @@ export function ownWordsFor(settings, voice) {
  * plain words now: whose notes these are, what they are for, and that none of it is the story's text
  * (which is all the tag was for — so the briefing is never mistaken for a page and echoed). Exported:
  * anything that must recognise the briefing asks for this, never for a literal. */
-/* M510-37: the one line of his that opens a tale whose first page is the teller's own */
-export const STORY_BEGINS = '(Our story begins.)';
+export { STORY_BEGINS } from '../providers/userfirst.js'; /* M510-38: the line lives with the providers that add it */
 export const STATE_MARKER = 'Where things stand right now — the writer’s own notes, kept for him by his story app. They are for you alone: none of this is the story’s text, and none of it is ever quoted or mentioned on the page.';
 
 /* M7 budgets (see header): slot 4's whole section, and each invited card's
@@ -1054,8 +1053,9 @@ export function buildRequest({
    * page still read user → assistant; with the notes above the story in the system, it would open on the storyteller —
    * and the window of thirty usually does (thirty back from his move lands on a page of the teller's). A strict house
    * refuses a conversation that opens on the assistant, and every model reads it oddly. So the window steps back to the
-   * move of his that led to that page (the small window always has, lastPagesOf); and a tale that opens on the teller's
-   * own page, with no move of his before it, is opened by one line of his: "(Our story begins.)" */
+   * move of his that led to that page (the small window always has, lastPagesOf). A tale that opens on the teller's own
+   * page opens on it here — the provider puts one line of his in front only where the house insists (M510-38,
+   * providers/userfirst.js) */
   let storyWindow = smallWindow || win.window;
   if (!smallWindow && storyWindow.length && storyWindow[0] && storyWindow[0].role === 'assistant') {
     const at = pages.indexOf(storyWindow[0]);
@@ -1064,7 +1064,6 @@ export function buildRequest({
     if (at > 0 && pages[from] && pages[from].role === 'user') storyWindow = pages.slice(from, at).concat(storyWindow);
   }
   const wire = storyWindow.map((m) => ({ role: m.role, content: m.content }));
-  if (wire.length && wire[0].role === 'assistant') wire.unshift({ role: 'user', content: STORY_BEGINS });
   const historyText = wire.map((m) => m.content).join('\n');
   let historySource;
   if (win.mode === 'keeper') {
@@ -1153,18 +1152,16 @@ export function buildRequest({
     if (beforeYours.length) {
       let at = -1;
       for (let i = out.length - 1; i >= 0; i -= 1) if (out[i] && out[i].role === 'user' && out[i] !== stateInjection) { at = i; break; }
-      /* his message is the very first one (a tale's first turn): the entry steps behind it rather than open the request —
-       * nothing of the house's stands above his first message (M510-37: with the notes above the story in the system,
-       * this is every first turn now) */
-      if (at === 0) at = 1;
+      /* M510-38: on a tale's first turn too, the entry stands where he put it — right before his message, even when that
+       * opens the request on the teller's words; a house that insists on his turn first gets one line of his in front
+       * (providers/userfirst.js), and no request ends on the teller's words (Claude would take them for a started reply) */
       if (at === -1) out.push(...beforeYours); else out.splice(at, 0, ...beforeYours);
     }
     const beforePages = ownWords.filter((w) => w.place === 'before-pages').map(asMessage);
     if (beforePages.length) {
       /* with no notes message to follow, an assistant entry would open the request — a thing strict houses refuse
        * (the first turn must be the user's); it steps behind his first page instead, ahead of any entry placed above */
-      const front = out[0] && out[0].role === 'user' && beforePages.some((m) => m.role === 'assistant') ? 1 : 0; /* M510-37: the notes are no message now */
-      out.splice(front, 0, ...beforePages);
+      out.splice(0, 0, ...beforePages); /* M510-38: right after the briefing (the system), before the first story page — where he put it */
     }
     out.push(...ownWords.filter((w) => w.place === 'after-your-message').map(asMessage));
   }

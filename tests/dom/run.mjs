@@ -5744,6 +5744,9 @@ test('DOM-110 USAGE AND COST, IN SETTINGS: what the calls took today, over 7 and
   const { dayKey, addToDay, USAGE_PREFIX } = await import('../../js/engine/usage.js');
   const conn = await db.connections.add({ name: 'Claude', label: 'Claude', type: 'anthropic', baseUrl: 'https://api.anthropic.com', apiKey: 'k', model: 'claude-opus-5-5', priceIn: 3, priceOut: 15 });
   const connId = conn && conn.id ? conn.id : (await db.connections.list()).find((c) => c.label === 'Claude').id;
+  /* the books of every other day go first: a walk that runs across midnight wrote its earlier calls into yesterday's book,
+   * and the averages (a month's spend over the days since the first one used) halved — the one day seeded is the whole story */
+  for (const k of ((await db.settings.keys()) || []).filter((k) => String(k).startsWith(USAGE_PREFIX))) await db.settings.delete(k);
   await db.settings.set(USAGE_PREFIX + dayKey(Date.now()), addToDay({}, { connId, connName: 'Claude', model: 'claude-opus-5-5', inTok: 2000000, outTok: 100000 }));
   await openSettings();
   click(q('[data-room="storyteller"]'));
@@ -6099,10 +6102,8 @@ test('DOM-118 HIS OWN-VOICE WORDS, THROUGH THE REAL APP: added in Settings, kept
   assert(at !== -1, 'his words are in the request, the name filled in: ' + msgs.map((m) => m.role).join(' '));
   eq(msgs[at].role, 'assistant', 'as the storyteller’s own message');
   const his = msgs.findIndex((m) => m.role === 'user' && /I look at the door\./.test(String(m.content)));
-  /* M510-37: a tale's first turn — his message opens the request (the notes ride above the story, in the system), and
-   * nothing of the house's stands above it: the entry steps behind it (the M466-4 law) */
-  eq(his, 1, 'his first message opens the story, right after the system');
-  eq(at, his + 1, 'on the first turn, right after his message — never above it');
+  /* M510-38: on a tale's first turn too, the entry stands where he put it — right before his message */
+  eq(at, his - 1, 'right before his message, on the first turn too');
   await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 20000);
   /* the next turn: the entry stands where he put it, right before his message */
   const fromMid = house.state.calls.length;

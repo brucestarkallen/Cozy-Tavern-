@@ -1,5 +1,6 @@
 /* M466 — words in the storyteller's own voice: each entry rides at its landmark with its role; off or empty, not one
  * byte moves; a model named reasoner takes no two of a role in a row. And the shelves' new row field. */
+import { withUserFirst, STORY_BEGINS } from '../../js/providers/userfirst.js'; /* M510-38 */
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
 import { buildRequest, ownWordsFor, OWN_WORDS_PLACES } from '../../js/assemble/stack.js';
@@ -54,13 +55,15 @@ test('M466-3 each entry lands at its landmark, with its role, and the pages them
   const front = at(req, 'FRONT-MARK'); const mid = at(req, 'MID-MARK'); const tail = at(req, 'TAIL-MARK');
   const firstPage = at(req, 'I walk in.'); const lastPage = at(req, 'I sit down and wait.'); const note = at(req, 'NOTE-MARK');
   assert(front !== -1 && mid !== -1 && tail !== -1, 'all three ride: ' + roles(req));
-  assert(front < at(req, 'The door swung.') && front === firstPage + 1, 'with no notes message, behind his first page and before the first storyteller page (an assistant message never opens a request): ' + roles(req));
+  assert(front === 0 && front < firstPage && front < at(req, 'The door swung.'), 'M510-38: right after the briefing (the system), before the first story page — where he put it; a house that insists on his turn first gets his one line from the provider: ' + roles(req));
   eq(req.messages[front].role, 'assistant', 'the storyteller’s own words are an assistant message');
   eq(req.messages[mid].role, 'assistant');
   eq(mid, lastPage - 1, 'right before his message of this turn');
   eq(req.messages[tail].role, 'user', 'his words are a user message');
   assert(tail > lastPage && tail < note, 'after his message, before the closing words: ' + roles(req));
-  eq(req.messages[0].role, 'user', 'a user message opens the request');
+  { const strictWire = withUserFirst(req.messages);
+    eq(strictWire[0].role, 'user', 'a house that insists on his turn first: his one line opens it (M510-38, from the provider)');
+    eq(strictWire[0].content, STORY_BEGINS); }
   eq(req.messages[lastPage].content, 'I sit down and wait.', 'his page is his page');
   eq(req.messages[firstPage].content, 'I walk in.');
   /* every entry is a receipt row of its own, naming its place, and is in the request (M259-46) */
@@ -70,13 +73,15 @@ test('M466-3 each entry lands at its landmark, with its role, and the pages them
   assert(rows[0].source.includes('before the first story page'), 'the row says where: ' + rows[0].source);
 });
 
-test('M466-4 an entry with nothing to stand before goes last, never before the notes; a first turn with no state message still takes the front one', () => {
+test('M466-4 (M510-38) on a tale’s first turn every entry stands where he put it — the front one first, the other right before his message; his message is never behind the teller’s words at the end', () => {
   const req = buildRequest({ story, messages: [{ id: 'u1', role: 'user', text: 'First words.' }], settings: { frameText: 'F', ownWords: [{ place: 'before-your-message', text: 'MID-MARK' }, { place: 'before-pages', text: 'FRONT-MARK' }] },
     state: emptyState(), modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { mode: 'keeper', window: 30, budgetTokens: 200000 } });
-  const first = at(req, 'First words.');
-  eq(first, 0, 'his one page opens the request: ' + roles(req));
-  eq(at(req, 'FRONT-MARK'), 1, 'the front entry steps behind it (never an assistant message first)');
-  eq(at(req, 'MID-MARK'), 2, 'the one meant to stand before his message has nothing to stand before — it follows');
+  /* M510-38: the notes ride above the story in the system, so nothing of the house's is a message here; a house that
+   * insists on his turn first gets one line of his in front, from the provider (providers/userfirst.js) */
+  eq(at(req, 'FRONT-MARK'), 0, 'the front entry: right after the briefing, before the first story page: ' + roles(req));
+  eq(at(req, 'MID-MARK'), 1, 'the other: right before his message');
+  eq(at(req, 'First words.'), 2, 'his message after them');
+  assert(req.messages[req.messages.length - 1].role !== 'assistant', 'the request never ends on the teller’s words');
 });
 
 test('M466-5 a model named reasoner takes no two of a role in a row — folded, order kept; deepseek-chat is left as built', async () => {
@@ -124,5 +129,5 @@ test('M481 the receipt shows each own-voice row AT ITS LANDMARK — before "The 
   assert(at('Own words — mid') > at('The story so far') && at('Own words — mid') < at('The note at the end'), 'the mid row after the pages, before the note');
   assert(at('Own words — tail') > at('Own words — mid') && at('Own words — tail') < at('The note at the end'), 'the tail row after the mid, before the note');
   const msgs = req.messages;
-  eq(msgs.findIndex((m) => /FRONT-MARK/.test(m.content)), msgs.findIndex((m) => /I walk in\./.test(m.content)) + 1, 'the wire as M466-3 holds (no notes message here: the front entry steps behind his first page)');
+  eq(msgs.findIndex((m) => /FRONT-MARK/.test(m.content)), 0, 'the wire as M466-3 holds (M510-38: the front entry opens the story, before his first page)');
 });

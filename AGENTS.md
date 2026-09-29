@@ -12908,3 +12908,23 @@ looked for them as a user message still prove what they proved. Proof against th
 on the nine fixtures under both persona names, the four system seats, every other message, every receipt row that
 existed and the total are byte for byte; the notes moved word for word; at most his one move stands in front.
 
+# M510-38 — his words where he put them; his turn first only where a house insists
+He asked, to confirm: "the storyteller's own words, after the ledger's briefing and before the first story page — will
+it put a user message 'our story begins'? And if the house does not refuse, no 'our story begins' — automatic?" That is
+the right design, and it was not what M510-37 left: its builder kept an own-words entry in the teller's voice from opening
+the request by stepping it BEHIND his first page — and on a tale's first turn, behind his only message, so the request
+ENDED on the teller's words (Claude takes a request ending on the assistant as a reply already begun). Now: the builder
+puts each entry at its landmark and adds nothing — "before the pages" right after the briefing (the system) and before
+the first story page; "before your message" right before his message, first turn included; the request never ends on the
+teller's words. Whether a line of his must open it is the provider's to know (providers/userfirst.js): Claude, always —
+its API wants the first message to be the user's; an OpenAI-shaped house, only once it has refused a conversation opening
+on the assistant (ORDER_REFUSAL: "roles must alternate", "the first message must be from the user"…), remembered for that
+model at that address (connection.userFirstFor), exactly as a refused late system message is (latesystem.js); a house that
+takes it gets nothing added. The builder's own "(Our story begins.)" for a tale opening on the teller's page moved there
+too. Laws M510-38 (the builder, a house that takes it, a strict house refusing once then remembered, Claude always);
+M466-3, M466-4, M481 and DOM-118 now state the entries at their landmarks.
+And a walk that ran across midnight: DOM-110 seeded one day of usage and read the per-day average; the walk's own calls
+before midnight had gone into yesterday's book, the average spanned two days and halved, DOM-110 failed with Settings
+still open, and DOM-113/114 waited in vain behind it. DOM-110 now clears every other day's usage book before seeding its
+day — the check no longer depends on the hour the walk runs.
+

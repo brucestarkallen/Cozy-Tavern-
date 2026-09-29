@@ -17,6 +17,7 @@
 import { knobsOf, KNOB_FIELDS, knobRefused } from './knobs.js'; /* M510: the rest of the dials */
 import { houseFetch } from './relay.js'; /* M353: a provider that refuses a page is carried by the house */
 import { lateSystemRefused, rememberLateSystemRefused } from './latesystem.js'; /* M380, M385 */
+import { userFirstRequired, rememberUserFirst, withUserFirst, opensOnAssistant, ORDER_REFUSAL } from './userfirst.js'; /* M510-38 */
 import { measureStream, speedWords, pickOpenAI, SPEED_ASK, SPEED_MAX_TOKENS } from './speed.js'; /* M373 */
 
 /* M376: the least room a THINKING page is given — the same floor the workers already keep for a thinking model */
@@ -411,7 +412,8 @@ export function createOpenAIProvider(connection) {
       if (systemText) wire.push({ role: 'system', content: systemText });
     }
     /* M380: a system message after the story (the post-history words) — sent as a user one to a house that once refused it */
-    for (const m of messages) wire.push(withImagePart(m && m.role === 'system' && lateSystemRefused(connection) ? { ...m, role: 'user' } : m, 'openai'));
+    /* M510-38: a house that once refused a conversation opening on the assistant gets his one line first */
+    for (const m of (userFirstRequired(connection) ? withUserFirst(messages) : messages)) wire.push(withImagePart(m && m.role === 'system' && lateSystemRefused(connection) ? { ...m, role: 'user' } : m, 'openai'));
     /* M466: DEEPSEEK'S REASONER TAKES NO TWO OF A ROLE IN A ROW ("deepseek-reasoner does not support successive user or
      * assistant messages", a 400) — deepseek-chat and every other house take them. His own-voice entries (an assistant
      * message beside a storyteller page) and the state message beside his first page would meet that wall; for a
@@ -487,6 +489,13 @@ export function createOpenAIProvider(connection) {
       const fourHundred = out.status === 400 || out.status === 422;
       /* M380: A HOUSE THAT TAKES NO SYSTEM MESSAGE AFTER THE STORY says so once, is remembered, and the same turn goes again
        * with those words as a user message — his setting stands wherever it is taken */
+      /* M510-38: A HOUSE THAT WANTS HIS TURN FIRST says so once (the order of the turns, in its words), is remembered for this
+       * model at this address, and the same turn goes again opened by his one line */
+      if (fourHundred && opensOnAssistant(wire) && !userFirstRequired(connection) && ORDER_REFUSAL.test(detail)) {
+        await rememberUserFirst(connection);
+        wire.splice(0, wire.length, ...withUserFirst(wire)); /* the same array the next attempt is built from */
+        continue;
+      }
       const lateSystem = wire.some((m, i) => i > 0 && m && m.role === 'system');
       if (fourHundred && lateSystem && !lateSystemRefused(connection) && /system/i.test(detail)) {
         await rememberLateSystemRefused(connection); /* M385: for THIS model at this address */

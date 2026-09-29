@@ -873,3 +873,39 @@ test('M510-37 THE NOTES ABOVE THE STORY, IN THE SYSTEM (his word: "I have never 
   const small = buildRequest({ story: {}, messages: pages(20), settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: st, modules: mods, memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 }, smallPlan: { ...PLAN, intense: false } });
   assert(notesOf(small) && !small.messages.some((m) => /Where things stand|here\. This is where things stand/.test(String(m.content))), 'a small model’s notes too');
 });
+
+test('M510-38 HIS WORDS WHERE HE PUT THEM; HIS TURN FIRST ONLY WHERE A HOUSE INSISTS: the teller’s own words before the pages open the story; Claude always gets "(Our story begins.)" in front of a request that opens on the assistant, any other house only after it refuses (remembered for that model), and a house that takes it gets nothing added', async () => {
+  const { STORY_BEGINS, withUserFirst, opensOnAssistant, ORDER_REFUSAL } = await import('../../js/providers/userfirst.js');
+  const mods = [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }];
+  const first = buildRequest({ story: {}, messages: [{ id: 'u1', role: 'user', text: '#story Hulk wakes.' }], settings: { ownWords: [{ id: 'w', on: true, name: 'n', role: 'teller', place: 'before-pages', text: 'OWN-WORDS Hulk still here.' }] }, state: yard(), modules: mods, memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 } });
+  eq(first.messages.map((m) => m.role).join(' '), 'assistant user', 'the teller’s own words first, then his #story — where he put them, nothing added by the builder');
+  const greet = buildRequest({ story: {}, messages: [{ id: 'a0', role: 'assistant', text: '[Gate — Monday | 09:00]\n\nThe gate stood open.' }, { id: 'u1', role: 'user', text: 'I walk in.' }], settings: {}, state: yard(), modules: mods, memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 } });
+  eq(greet.messages[0].role, 'assistant', 'a tale that opens on the teller’s page opens on it, in the builder');
+  assert(opensOnAssistant([{ role: 'system', content: 's' }, { role: 'assistant', content: 'a' }]) && withUserFirst([{ role: 'system', content: 's' }, { role: 'assistant', content: 'a' }])[1].content === STORY_BEGINS, 'the line goes after the system, before the teller');
+  eq(withUserFirst([{ role: 'user', content: 'u' }]).length, 1, 'a request already opening on his turn is left as it is');
+  assert(ORDER_REFUSAL.test('Conversation roles must alternate user/assistant/user/assistant/...') && ORDER_REFUSAL.test('The first message must be from the user') && !ORDER_REFUSAL.test('Unknown parameter: min_p'), 'a refusal about the order is known by its words');
+  /* an OpenAI-shaped house: takes it — nothing added; refuses it — his line, once, remembered */
+  const { db: store } = await import('../../js/store.js');
+  const msgs = [{ role: 'assistant', content: 'OWN-WORDS' }, { role: 'user', content: 'I walk in.' }];
+  const easy = thinkingHouse({ answer: '{"ok":true}' });
+  await withHouse(easy, () => callWorker(CONN, { system: 's', messages: msgs }));
+  eq(easy.calls[0].body.messages.filter((m) => m.role !== 'system')[0].content, 'OWN-WORDS', 'a house that takes it: nothing added');
+  const strictConn = await store.connections.add({ ...CONN, id: undefined, label: 'Strict house' });
+  const inner = thinkingHouse({ answer: '{"ok":true}' });
+  const seen = [];
+  const strict = { calls: inner.calls, fetch: async (url, opts) => { const body = JSON.parse(opts.body); seen.push(body); const firstTurn = body.messages.find((m) => m.role !== 'system'); if (firstTurn && firstTurn.role === 'assistant') return new Response(JSON.stringify({ error: { message: 'Conversation roles must alternate user/assistant/user/assistant/...' } }), { status: 400, headers: { 'content-type': 'application/json' } }); return inner.fetch(url, opts); } };
+  const out = await withHouse(strict, () => callWorker(strictConn, { system: 's', messages: msgs }));
+  eq(out.text, '{"ok":true}', 'the strict house: the turn went again and answered');
+  eq(seen.length, 2, 'refused once, then answered');
+  eq(seen[1].messages.filter((m) => m.role !== 'system')[0].content, STORY_BEGINS, 'opened by his one line');
+  const back = (await store.connections.list()).find((c) => c.id === strictConn.id);
+  assert(back && typeof back.userFirstFor === 'string' && back.userFirstFor.length, 'remembered for that model at that address');
+  const again = thinkingHouse({ answer: '{"ok":true}' });
+  await withHouse(again, () => callWorker(back, { system: 's', messages: msgs }));
+  eq(again.calls[0].body.messages.filter((m) => m.role !== 'system')[0].content, STORY_BEGINS, 'and asked that way from then on — no refusal first');
+  /* Claude: always his turn first */
+  const claudeHouse = thinkingHouse({ answer: 'ok' });
+  await withHouse(claudeHouse, () => callWorker({ id: 'c-claude', type: 'anthropic', baseUrl: 'https://api.anthropic.com', apiKey: 'k', model: 'claude-opus-5-5', label: 'Claude' }, { system: 's', messages: msgs }).catch(() => null));
+  const claudeBody = (claudeHouse.calls[0] || {}).body || {};
+  assert(Array.isArray(claudeBody.messages) && claudeBody.messages[0] && claudeBody.messages[0].role === 'user' && JSON.stringify(claudeBody.messages[0].content).includes(STORY_BEGINS), 'Claude: his one line first, always: ' + JSON.stringify(claudeBody.messages && claudeBody.messages[0]).slice(0, 120));
+});
