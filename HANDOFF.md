@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-058)
+# Cozy Tavern — handoff for the next session (state at m510-059)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1237,4 +1237,8 @@ founding design lives in AGENTS.md's first entries.)
   the record (hybridRoom = max(since + 1, min(HYBRID_RECENT_CHARS, recordChars / 2))), the older half in the brief; every
   line since the essentials in full; only essentials more than twice the room behind give way to the whole record. Law
   M510-58; M510-52 restated.
+- M510-59 — THE FOLD SIZE DOES NOT MATTER. The older lines called back (word-matched and smart picks) rode whole with no
+  room of their own; with a fold of 30 pages a line, ten whole lines ballooned the memory (a 600-page story: 28,000 tokens
+  at 30 pages a fold vs 15,500 at 6, measured on m510-058). HYBRID_RECALL_CHARS = 16,000 (~4,000 tokens): the smart picks
+  first, then the word-matched, at least one always; shown in page order. Now 12,500–16,000 at every fold size. Law M510-59.
 

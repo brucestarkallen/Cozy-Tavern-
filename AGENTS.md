@@ -13219,3 +13219,10 @@ to keep the brief from repeating a whole small record, the full-detail part is a
 design — the older half in the essentials, the newer half in full) and never past its ~8,000-token room; every line since
 the essentials rides in full; only essentials far behind the record give way to the whole record. Law M510-58.
 
+# M510-59 — the fold size does not matter
+He asked whether folding every 10, 20 or 30 pages matters. Measured a 600-page story at each fold size: the brief, the
+newest lines and the people's lines each have a room, but the older lines called back (up to six by words, four by the
+smart recall) rode WHOLE with no room of their own — a 30-page line is a stretch of story of its own, and ten of them made
+the memory 28,000 tokens (6-page folds: 15,500). They now share a room of ~4,000 tokens (HYBRID_RECALL_CHARS), the smart
+recall's picks first, at least one always, in page order: 12,500–16,000 tokens at every fold size. Law M510-59.
+

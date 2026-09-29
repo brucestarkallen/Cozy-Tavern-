@@ -481,6 +481,10 @@ export const HYBRID_RECENT_CHARS = 32000;    /* about 8,000 tokens of the record
 export const HYBRID_PRESENT_EACH = 6;        /* the newest lines naming each person here */
 export const HYBRID_PRESENT_CHARS = 24000;   /* about 6,000 tokens */
 export const HYBRID_RECALL_LINES = 6;        /* older lines this scene names, whole */
+/* M510-59: and never more than this, whatever a line holds — his fold may be 10, 20 or 30 pages a line, and ten whole
+ * lines of 30 pages each would be a record of their own. About 4,000 tokens; the smart recall's picks first (read for
+ * what his move means), then the word-matched ones; at least the first always rides. */
+export const HYBRID_RECALL_CHARS = 16000;
 /* who is in the scene besides the MC, and a whole-word pattern for each (the full name, or the first name alone) */
 function namesHere(state) {
   const mc = String(mcNameOf(state) || '').trim().toLowerCase();
@@ -1019,7 +1023,15 @@ export function buildRequest({
       .sort((a, b) => a.span[0] - b.span[0])
       .map((n) => '(pages ' + (n.span[0] + 1) + '–' + (n.span[1] + 1) + ') ' + n.text.trim());
     recallSmart = named.length;
-    recalledOlder = [...byWords, ...named].join('\n');
+    const within = [];
+    let used = 0;
+    for (const line of [...named, ...byWords]) {
+      if (within.length && used + line.length + 1 > HYBRID_RECALL_CHARS) continue;
+      within.push(line);
+      used += line.length + 1;
+    }
+    recallSmart = named.filter((l) => within.includes(l)).length;
+    recalledOlder = within.sort((a, b) => Number((a.match(/\(pages (\d+)/) || [0, 0])[1]) - Number((b.match(/\(pages (\d+)/) || [0, 0])[1])).join('\n');
   }
   /* M510-22: THE PLANS STANDING — laid out on the page, kept whole by the plans keeper until carried out: part by part, with
    * the exact words to be said. A summary retells history; a plan is what is still to happen, and every part of it matters. */

@@ -1246,3 +1246,23 @@ test('M510-58 THE HYBRID ALWAYS STARTS (his word, angry and right: "the essentia
     assert(full <= Math.ceil(count / 2) && full >= 1, count + ' lines: at most half in full (' + full + ')');
   }
 });
+
+test('M510-59 THE FOLD SIZE DOES NOT MATTER (his question: "what if my fold is every 10, 20 or 30 pages?"): the older lines called back have a room of their own (~4,000 tokens) — whole lines of 30 pages each once made the memory balloon (28,000 tokens for a 600-page story, measured on m510-058); now any fold size stays about the same; the smart picks go first; at least one always rides', async () => {
+  const { HYBRID_RECALL_CHARS } = await import('../../js/assemble/stack.js');
+  const st = { ...applyMutations({ ...emptyState(), page: 600 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state, page: 600 };
+  const mods = [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }];
+  const msgs = pages(10); msgs.push({ id: 'ux', role: 'user', text: 'Rukia asks about the attendant and the drills and the gate.' });
+  const sizes = [];
+  for (const batch of [6, 30]) {
+    const count = Math.floor(600 / batch);
+    const nodes = []; for (let i = 0; i < count; i += 1) nodes.push({ id: 'b' + i, span: [i * batch, i * batch + batch - 1], level: 1, text: 'Line ' + i + ': Rukia at the gate; the attendant and the drills. ' + 'the drills went on and the bells rang with it. '.repeat(Math.round(batch * 420 / 48)) });
+    const r = buildRequest({ story: {}, messages: msgs, settings: {}, state: st, modules: mods, memory: nodes.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallEssentials: { text: '- [Day 1–100] (pages 1–600) Jovan trains.', upTo: count * batch - 1 }, recallPicked: ['b1', 'b2', 'b3', 'b4'] });
+    const notes = notesOf(r);
+    const earlier = notes.slice(notes.indexOf('In full, earlier moments'), notes.indexOf('Plans standing') === -1 ? undefined : notes.indexOf('Plans standing'));
+    assert(earlier.length > 0, 'fold every ' + batch + ': older moments still called back');
+    const rows = Object.fromEntries(r.receipt.slots.map((s) => [s.name, s.tokens]));
+    sizes.push(rows['What remains'] + rows['Who’s here, in the record']);
+  }
+  assert(sizes[1] <= sizes[0] * 1.3, 'a 30-page fold is about the size of a 6-page fold: ' + sizes.join(' vs ') + ' tokens');
+  assert(HYBRID_RECALL_CHARS === 16000, 'the room for lines called back: about 4,000 tokens');
+});
