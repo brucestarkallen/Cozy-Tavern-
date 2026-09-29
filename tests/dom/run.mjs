@@ -7295,7 +7295,7 @@ test('DOM-147 SMART RECALL THROUGH THE APP (M510-50): with the essentials made, 
     await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked');
     const teller = house.state.calls.slice(from).find((c) => !c.isWorker);
     eq(picks, 1, 'the picker was asked once, before the page');
-    assert(/From the older record, word for word[\s\S]*SMART-LINE: Jovan told every captain/.test(notesInBody(teller.body)), 'the line it named rides word for word in the storyteller’s request');
+    assert(/In full, earlier moments this scene touches[\s\S]*SMART-LINE: Jovan told every captain/.test(notesInBody(teller.body)), 'the line it named rides word for word in the storyteller’s request');
     await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 20000);
     await db.settings.set('smartRecall', false);
     const from2 = house.state.calls.length; const picks2 = picks;

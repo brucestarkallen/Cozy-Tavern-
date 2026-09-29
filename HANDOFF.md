@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-050)
+# Cozy Tavern — handoff for the next session (state at m510-051)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1173,4 +1173,12 @@ founding design lives in AGENTS.md's first entries.)
   means. Only indexed numbers count; slow (8 s), failing or unsure → none, the page goes on. The named lines ride WHOLE
   under "From the older record, word for word" beside the word-match ones (never twice); the receipt's source line says
   how many the smart recall picked. Laws M510-50, DOM-147.
+- M510-51 — OUR STORY SO FAR, ONE PART READ ONE WAY (the frontier hybrid only; the small model and the whole-record path
+  are as they were). One part, placed after canon and before On their mind and the state of things: a line saying how to
+  read it (brief → full; the full line is right over the brief, the pages over both; every line is its own pages' past),
+  "In brief, from the beginning (pages 1–N)" (the essentials), "In full, just before the pages you have (pages a–b)" (the
+  newest lines, each "(pages a–b)"), "In full, earlier moments this scene touches — the people here, and what my move is
+  about" (who's-here lines and recalled lines — word-matched and smart — one list, in page order, never twice), then the
+  plans. Gone: "the N older lines are in the essentials above, each kept whole on the device", and the three separate
+  headings. Law M510-51; M510-48/49/50 and DOM-147 read the new part.
 

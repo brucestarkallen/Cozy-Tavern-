@@ -13108,3 +13108,21 @@ shown in Usage. Laws M510-50 (reads for meaning; only indexed numbers, at most f
 whole; the receipt), DOM-147 (through the app: asked before the page, the named line in the storyteller's request; off →
 never asked).
 
+# M510-51 — our story so far, one part read one way
+He read the raw request: "does the storyteller understand 'The newest of the record, word for word (the 54 older lines are
+in the essentials above, each kept whole on the device)'? How is 54 chosen? 'What the record holds of who is here, word
+for word'? 'From the older record, word for word — lines this scene names (each is about its own pages, not this one)'?
+Even I am confused. Is the order logical? Is there bloat — doesn't the people ledger already say who is who?"
+He was right. The storyteller got four headings with four vocabularies, a count (the lines past the newest-lines room,
+~8,000 tokens by size — meaningless to a storyteller), a phone it cannot see, two lists that were one thing (older lines
+chosen because a person here is in them, and older lines chosen because the scene means them), the newest lines with no
+pages, and all of it AFTER the state of things, so the past stood between the present and the pages.
+Now the frontier hybrid sends ONE part, "Our story so far", right after canon: a sentence saying how to read it (first the
+whole story in brief, then in full the stretch just before the pages and the earlier moments this scene touches; where
+the brief and a full line differ the full line is right, and the pages are right over both; every line is the past of its
+own pages); "In brief, from the beginning (pages 1–N)"; "In full, just before the pages you have (pages a–b)", each line
+with its pages; "In full, earlier moments this scene touches — the people here, and what my move is about", one list in the
+order it happened, never twice; then the plans. On their mind and the state of things follow — the present, nearest the
+pages. Not bloat: On their mind is who they are and what they feel now; these lines are what happened, and when. The small
+model's request and the whole-record path (before the essentials) are unchanged. Law M510-51.
+
