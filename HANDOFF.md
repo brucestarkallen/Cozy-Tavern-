@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-042)
+# Cozy Tavern — handoff for the next session (state at m510-043)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1108,4 +1108,13 @@ founding design lives in AGENTS.md's first entries.)
   banner's own tale to its handler (all eleven stop handlers took the tale open at the tap). bannerKnowsTales() is told the
   open tale and the shelf's titles by chat.js. DOM-143 reproduces his report (origin with nine unread pages, its reader
   held, a branch at his first message) — failed on m510-040, passes now.
+- M510-43 — WHOLE-APP AUDIT. (1) "Put the earlier words back" did not stick: the stored-page mend (mendPagesOnOpen, once
+  per tale per BUILD, and "Mend the pages' marks") finished the page again and took the note off again. unmend now keeps
+  keptText (the words he put back); mendAllPages leaves a page alone while it still reads them. DOM-140 checks it (failed
+  on m510-042). (2) A gap-filler run with nothing to do armed the full wait: fillLedgerGap and fillRecordGap set their
+  "filled at" before looking, so a real gap seen just after can wait a minute (a likely cause of DOM-135's rare timeout).
+  A five-second wait after a no-op was tried and taken back (the first walk with it lost DOM-131); the waits stand as
+  they were. Kept: the ledger light counts "behind" exactly as the reader counts unread pages (a page read ahead of the
+  mark is read) — it no longer shows behind while the reader finds nothing. (3) DOM-144 proves a tale
+  opened while a page is written: the page lands whole in its own tale; the other shows and gets nothing (no fault).
 

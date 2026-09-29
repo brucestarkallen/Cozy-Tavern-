@@ -2039,7 +2039,12 @@ export function initChat(ctx) {
         told = assistants.length;
         const st = await loadState(storyId);
         const readTo = readMark(st); /* M276: how far the ledger has READ, not the turn's stamp */
-        ledgerBehind = told > 0 && readTo < told - 1;
+        /* M510-43: behind means a page unread — the same count the reader keeps (a page read ahead of the mark is read):
+         * the light and the reader never disagree, so a run that finds nothing is never asked for again and again */
+        const ahead = new Set(Array.isArray(st && st.readAhead) ? st.readAhead : []);
+        let unreadPages = 0;
+        for (let k = readTo + 1; k < told; k += 1) if (!ahead.has(k)) unreadPages += 1;
+        ledgerBehind = told > 0 && unreadPages > 0;
         const mem = await loadMemory(storyId);
         const window = windowFor(mem, await db.settings.get('memoryWindow')); /* M317: the same window the keeper folds by */
         const batch = cleanBatch(await db.settings.get('memoryBatch'));
@@ -2859,6 +2864,7 @@ export function initChat(ctx) {
     for (const page of pages) {
       const before = String(pageText(page) || '');
       if (!before.trim()) continue;
+      if (typeof page.keptText === 'string' && page.keptText === before) continue; /* M510-43: the words he put back stay as he put them */
       const t = tidyPage(before, { mc: mcOfTale, finish: !page.ooc }); /* M510-34: finished too — never an out-of-character answer */
       if (t.text === before) continue;
       const patch = { text: t.text };
@@ -2977,7 +2983,11 @@ export function initChat(ctx) {
     const all = await db.messages.list(story.id);
     const page = all.find((m) => m.id === messageId);
     if (!page || !page.mended) return;
-    const patch = { text: page.mended.before, mended: null };
+    /* M510-43: HIS WORDS BACK, FOR GOOD. The mend of stored pages runs once per build on every tale (mendPagesOnOpen) and
+     * by hand ("Mend the pages' marks"): a page he put back was finished again by the next build — the note he wanted
+     * kept came off again, silently. The words he put back are remembered (keptText) and the stored-page mend leaves that
+     * page alone while it still reads them; a new version of it (a swipe, an edit) is his to have mended again. */
+    const patch = { text: page.mended.before, mended: null, keptText: page.mended.before };
     if (Array.isArray(page.swipes) && page.swipes.length) {
       const idx = Number.isFinite(page.swipeIdx) ? Math.min(page.swipes.length - 1, Math.max(0, page.swipeIdx)) : page.swipes.length - 1;
       const swipes = page.swipes.slice();

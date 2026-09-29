@@ -601,7 +601,9 @@ test('M254: green means read, folded and waiting on nothing — and a third coat
     'and knows when the house is still at work');
   assert(/onWorkerChange\(\(\) => \{/.test(chat), 'the light follows the work, not the redraw');
   /* M276: declared beside `behind` so the light can send the reader to the pages it missed */
-  assert(/ledgerBehind = told > 0 && readTo < told - 1;/.test(chat) && /if \(ledgerBehind && !busy && !trouble\) fillLedgerGap\(storyId\);/.test(chat), 'the ledger must have read every page told');
+  /* M510-43: "behind" is any page the reader has not read — counted as the reader counts (a page read ahead of the mark is
+   * read); the old line counted such a page unread, and the light showed behind while the reader found nothing */
+  assert(/for \(let k = readTo \+ 1; k < told; k \+= 1\) if \(!ahead\.has\(k\)\) unreadPages \+= 1;/.test(chat) && /ledgerBehind = told > 0 && unreadPages > 0;/.test(chat) && /if \(ledgerBehind && !busy && !trouble\) fillLedgerGap\(storyId\);/.test(chat), 'the ledger must have read every page told');
   /* M275: declared beside `behind` so the light can send the keeper to a gap it sees */
   assert(/recordBehind = Boolean\(dueRange\(pages\.length, window, mem\.nodes, batch\)\);/.test(chat) && /if \(recordBehind && !busy && !trouble\) fillRecordGap\(storyId\);/.test(chat),
     'and the record must have nothing due');

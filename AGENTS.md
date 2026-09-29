@@ -12979,3 +12979,22 @@ names its own, as the missed-pages reader does); on any other tale the banner re
 pages the ledger missed"; app.js repaints it the moment the open tale changes; Stop hands the banner's tale to its
 handler. DOM-143 passes: the branch shows the origin's name and its count of nine, and Stop stops the origin's readers.
 
+# M510-43 — whole-app audit before a new session
+He: "final audit — not just this session; brainstorm for bugs." Hunted across the app. Found and fixed:
+1. HIS WORDS BACK, FOR GOOD. The drawer's "Put the earlier words back" (unmend) restored a finished page — and the next
+   build's stored-page mend (mendPagesOnOpen runs once per tale per VERSION; "Mend the pages' marks" by hand) finished it
+   again: the note he chose to keep came off again, silently, with every update. unmend now records keptText (the words
+   put back) and mendAllPages leaves the page alone while it still reads them; a new version (a swipe, an edit) is
+   mended as any page. DOM-140 now runs the stored-page mend after the put-back (failed on m510-042, passes).
+2. (NOT CHANGED — read, tried, taken back) A RUN THAT DID NOTHING ARMS THE WHOLE WAIT. fillLedgerGap and fillRecordGap stamp "filled at" before they look; a run
+   that found nothing to read or fold left the full minute's wait armed, so a real gap seen moments later waited up to a
+   minute for its reader — a likely cause of DOM-135's rare 30-second timeout (not reproduced on demand). A five-second
+   wait after a run with nothing to do was tried and TAKEN BACK: the first whole walk with it lost DOM-131 (a retry's
+   readers), which had never failed before — more runs of the gap-fillers in the idle moments of a busy tale. The waits
+   stay as they were; the rare delay is the known cost. KEPT from this item: the ledger light now counts "behind"
+   exactly as the reader counts unread pages (a page read ahead of the mark counts as read) — before, a ledger whose
+   remaining pages were all read ahead showed behind while the reader found nothing: with the shorter wait that would
+   have been a loop; now the two cannot disagree.
+Probed and sound: a tale opened while a page is being written (DOM-144 — the page lands whole in its own tale; the tale
+opened meanwhile shows and gets nothing).
+

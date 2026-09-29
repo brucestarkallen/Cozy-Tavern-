@@ -7022,6 +7022,12 @@ test('DOM-140 THE PAGE FINISHED, IN THE APP (M510-34): a page that ends in an em
     await env.ctx.chat.unmend(page.id);
     const back = (await db.messages.list(st.id)).find((m) => m.id === page.id);
     assert(back.text.endsWith('What will you do next? Let me know!') && !back.mended, 'a tap puts it back');
+    /* M510-43: and it stays back — the stored-page mend (every new build runs it on every tale; "Mend the pages' marks"
+     * by hand) leaves the words he put back alone; on m510-042 it took the note off again */
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.ctx.chat.mendAllPages({ quiet: true });
+    const after = (await db.messages.list(st.id)).find((m) => m.id === page.id);
+    assert(after.text.endsWith('What will you do next? Let me know!') && !after.mended, 'the mend of stored pages leaves his words: ' + after.text.slice(-60));
   } finally { house.state.storyAnswer = prior; }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
@@ -7148,6 +7154,45 @@ test('DOM-143 A BANNER BELONGS TO ITS TALE (M510-42, his report: "I branch to th
     house.state.workerAnswer = prior;
     await tick(300);
     for (const id of [branchId, origin.id]) if (id) await db.stories.remove(id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-144 ANOTHER TALE OPENED WHILE A PAGE IS WRITTEN (final audit): the page goes on being written for ITS tale — the tale opened meanwhile shows nothing of it, gets nothing of it, and the page lands whole in the tale it was asked for', async () => {
+  const before = errors.length;
+  const a = await db.stories.create({ title: 'Tale being written' });
+  const b = await db.stories.create({ title: 'Tale opened meanwhile' });
+  const PAGE = '[The hall — Monday, March 3, 2025 | 09:00 | clear]\n\nPAGE-OF-A: the door swung open onto the long hall, and the lamps were already lit.';
+  let release = () => {};
+  const held = new Promise((r) => { release = r; });
+  const prior = house.state.storyAnswer;
+  house.state.storyAnswer = () => held.then(() => PAGE);
+  const openTale = async (id) => { if (env.ctx.chat && typeof env.ctx.chat.openStory === 'function') await env.ctx.chat.openStory(id); else { env.window.__cozy.setActiveStoryId(id); await env.window.__cozy.chat.renderThread({ structural: true }); } };
+  try {
+    await env.ctx.chat.refreshStories(true);
+    await openTale(a.id);
+    await until(async () => (await storyId()) === a.id, 'tale A open', 10000);
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'I open the door.'); submit(q('#composer'));
+    await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked for A');
+    await openTale(b.id); /* the app's own open — the shelf may be showing another shelf's tales */
+    await until(async () => (await storyId()) === b.id, 'tale B open while A is written', 10000);
+    await tick(200);
+    const thread = () => (q('#thread') || q('.thread') || env.document.body).textContent;
+    assert(!/I open the door\./.test(thread()) && !q('.msg-pending'), 'B shows nothing of A’s turn');
+    release();
+    await until(async () => (await db.messages.list(a.id)).some((m) => m.role === 'assistant' && /PAGE-OF-A/.test(m.text || '')), 'A’s page lands in A', 20000);
+    await until(() => !env.ctx.chat.isBusy(), 'the house free again', 20000);
+    await tick(300);
+    eq((await db.messages.list(b.id)).length, 0, 'B got nothing of it');
+    assert(!/PAGE-OF-A/.test(thread()), 'and B’s thread shows none of it');
+  } finally {
+    release();
+    house.state.storyAnswer = prior;
+    await tick(200);
+    for (const id of [a.id, b.id]) await db.stories.remove(id).catch(() => {});
     await env.ctx.chat.refreshStories(true).catch(() => {});
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
