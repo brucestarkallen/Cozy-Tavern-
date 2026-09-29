@@ -13260,3 +13260,14 @@ turn with no directive is a story turn" — so the storyteller was told to wait 
 typed "#q" read as a story turn by that sentence. It now says: a command typed as his whole message means what SHORTCUTS
 says. Unedited saved rulebooks follow (SHIPPED_BEFORE += '1icfhkj'). Law M510-62; M85-2 restated.
 
+# M510-63 — a person by every name that is only theirs
+He asked how "Who's here, in the record" is chosen and whether it is smart. How: for each person in the scene (the
+ledger's "Here now", the MC left out), the record's own lines that name them — their newest six (a small model: five),
+the lines already riding in full skipped, a room of ~6,000 tokens shared fairly (each keeps their newest), in time order.
+It is a finder by name, not a judge of meaning: the meaning is the smart recall's (M510-50) and the timeline is the
+essentials'. Found: it knew a person by their whole name or first name only — in his Bleach story people are called by
+the family name ("Zaraki", "Captain Hitsugaya"), and those lines were never found. Now any part of a name counts (a title
+never), a part other than the first only when no other name the ledger knows shares it: "Zaraki" is Kenpachi's; "Kuchiki"
+alone is neither Rukia's nor Byakuya's. The small model's paragraphs of the recent pages use the same finder. Law
+M510-63.
+

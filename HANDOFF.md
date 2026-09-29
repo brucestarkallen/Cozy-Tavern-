@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-062)
+# Cozy Tavern — handoff for the next session (state at m510-063)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1261,4 +1261,9 @@ founding design lives in AGENTS.md's first entries.)
   SHORTCUTS says. SHIPPED_BEFORE core-craft += '1icfhkj'. The app still parses commands for its own bookkeeping only (an
   out-of-character answer is not story; #story writes the brief; a window opens; the referee's overrides; the chip). Law
   M510-62; M85-2 restated.
+- M510-63 — A PERSON BY EVERY NAME THAT IS ONLY THEIRS (stack.js nameAsWord(name, known), knownNames(state)). "Who's here,
+  in the record" (and the small model's "in the recent pages") found a person by whole name or first name only; lines
+  saying "Zaraki" or "Captain Hitsugaya" were never found. Now any part of the name counts (titles never), a part other
+  than the first only when no other name the ledger knows (present, characters, knowledge, the MC) shares it — "Kuchiki"
+  alone is neither Rukia's nor Byakuya's. Law M510-63.
 

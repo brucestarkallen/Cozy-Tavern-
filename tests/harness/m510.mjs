@@ -1289,3 +1289,16 @@ test('M510-62 THE COMMANDS LIVE IN THE INSTRUCTIONS (his question: "isn\'t the s
   eq(String(users[users.length - 1].content), '#q', 'his #q reaches the storyteller as he typed it');
   assert(!JSON.stringify(r).includes('IGNORED-DIRECTIVE'), 'no directive of the house’s rides on the turn');
 });
+
+test('M510-63 A PERSON BY EVERY NAME THAT IS ONLY THEIRS (his question: "how is who\'s here, in the record chosen — is it smart?"): a record line that says only "Zaraki" is Kenpachi Zaraki\'s; "Captain Hitsugaya" is Toshiro Hitsugaya\'s; a family name two known people share ("Kuchiki") is neither\'s alone; a title is never a name', async () => {
+  const { recordOfWhoIsHere } = await import('../../js/assemble/stack.js');
+  const st = { ...applyMutations({ ...emptyState(), page: 200 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Kenpachi Zaraki' }, { type: 'presence.enter', name: 'Toshiro Hitsugaya' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state, page: 200, characters: { 'Byakuya Kuchiki': { core: 'Captain of the 6th' } } };
+  const line = (i, text) => ({ id: 'l' + i, span: [i * 4, i * 4 + 3], level: 1, text });
+  const nodes = [line(0, 'Zaraki laughed and named noon for the duel.'), line(1, 'Captain Hitsugaya froze the courtyard.'), line(2, 'Kuchiki watched from the gate and said nothing.'), line(3, 'The captains met; every captain came.'), line(4, 'Rukia corrected his stance.')];
+  const r = recordOfWhoIsHere(nodes, st, { each: 6, cap: 24000 });
+  assert(/Zaraki laughed/.test(r.text) && r.who.includes('Kenpachi Zaraki'), 'a line that says only "Zaraki" is his');
+  assert(/Captain Hitsugaya froze/.test(r.text) && r.who.includes('Toshiro Hitsugaya'), 'a family name after a title is his');
+  assert(!/Kuchiki watched/.test(r.text), 'a family name Rukia and Byakuya share is not given to either');
+  assert(!/every captain came/.test(r.text), 'a title is never a name');
+  assert(/Rukia corrected/.test(r.text) && r.who.includes('Rukia Kuchiki'), 'her first name is hers');
+});

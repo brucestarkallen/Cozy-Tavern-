@@ -7415,11 +7415,14 @@ test('DOM-150 AN EDITED #q IS READ AGAIN (M510-61, his report: "I branch at a #q
     assert(/I greet Rukia at the gate\./.test(sent) && !/^#q\b/.test(sent), 'asked again, the storyteller is sent his edited words — not #q: ' + sent.slice(0, 80));
     await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'free again', 20000);
     /* and an out-of-character question edited into a move is a story turn */
+    await tick(400);
     click(q('.msg-act[data-act="edit"]', userPages()[0]));
     const box2 = await until(() => q('.edit-box', userPages()[0]), 'his edit box again');
     type(box2, '#question Who is Rukia to Byakuya?');
     click(q('.edit-row .btn', userPages()[0]));
     await until(async () => (await db.messages.list(st.id)).find((m) => m.role === 'user').ooc === true, 'edited into a question: out of character');
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house settled after the edit', 20000);
+    await tick(400); /* an edit re-draws the thread; the next edit opens on the page as it stands */
     click(q('.msg-act[data-act="edit"]', userPages()[0]));
     const box3 = await until(() => q('.edit-box', userPages()[0]), 'his edit box a third time');
     type(box3, 'I ask Rukia to walk with me.');

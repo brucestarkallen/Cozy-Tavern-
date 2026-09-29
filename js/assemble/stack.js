@@ -493,14 +493,36 @@ function namesHere(state) {
 }
 /* a title is not a name: "Lord Varen" is found as "Lord Varen" or "Varen" — never "Lord", which is every lord */
 const TITLES = new Set(['lord', 'lady', 'sir', 'dame', 'captain', 'duke', 'duchess', 'count', 'countess', 'baron', 'baroness', 'king', 'queen', 'prince', 'princess', 'lieutenant', 'commander', 'general', 'master', 'mistress', 'mr', 'mrs', 'ms', 'miss', 'dr', 'doctor', 'father', 'mother', 'brother', 'sister', 'uncle', 'aunt', 'saint', 'emperor', 'empress', 'marquis', 'marquess', 'earl', 'viscount', 'sergeant', 'major', 'colonel', 'professor', 'elder', 'chief', 'high', 'grand', 'old', 'young', 'little', 'big', 'the']);
-function nameAsWord(name) {
+/* M510-63: A PERSON BY EVERY NAME THAT IS ONLY THEIRS. His question: how is "who's here, in the record" chosen — is it
+ * smart? It found a person by their whole name or their first name. In his Bleach story people are called by the family
+ * name — "Zaraki", "Hitsugaya", "Captain Kuchiki" — and a record line that says only "Zaraki" was never found for Kenpachi
+ * Zaraki. Now each part of the name counts too (a title never: "Captain" is every captain) — but only a part no one else
+ * the ledger knows shares: "Kuchiki" is Rukia's and Byakuya's both, so a line with "Kuchiki" alone is neither's. */
+function nameAsWord(name, known = []) {
   const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const words = name.split(/\s+/);
+  const words = String(name || '').split(/\s+/).filter(Boolean);
   let k = 0;
   while (k < words.length - 1 && TITLES.has(words[k].toLowerCase().replace(/\.$/, ''))) k += 1;
-  const first = words[k];
-  const parts = first && first.length >= 3 && first !== name ? [name, first] : [name];
-  return new RegExp('(?<![\\p{L}\\p{N}])(?:' + parts.map(esc).join('|') + ')(?![\\p{L}\\p{N}])', 'u');
+  const core = words.slice(k);
+  const others = (Array.isArray(known) ? known : []).filter((o) => typeof o === 'string' && o.trim() && o.toLowerCase() !== String(name).toLowerCase());
+  const shared = (w) => others.some((o) => o.split(/\s+/).some((x) => x.toLowerCase() === w.toLowerCase()));
+  const parts = new Set([name]);
+  if (core.length && core.join(' ') !== name) parts.add(core.join(' '));
+  core.forEach((w, i) => {
+    if (w.length < 3 || TITLES.has(w.toLowerCase().replace(/\.$/, ''))) return;
+    if (i === 0 || !shared(w)) parts.add(w); /* the first name as before; any other part only when it is theirs alone */
+  });
+  return new RegExp('(?<![\\p{L}\\p{N}])(?:' + [...parts].sort((a, b) => b.length - a.length).map(esc).join('|') + ')(?![\\p{L}\\p{N}])', 'u');
+}
+/* everyone the ledger knows by name — who a shared family name might belong to */
+function knownNames(state) {
+  const s = state || {};
+  const out = new Set();
+  for (const p of (Array.isArray(s.present) ? s.present : [])) { const n = typeof p === 'string' ? p : p && p.name; if (n) out.add(n); }
+  for (const n of Object.keys((s.characters && typeof s.characters === 'object') ? s.characters : {})) out.add(n);
+  for (const n of Object.keys((s.knowledge && typeof s.knowledge === 'object') ? s.knowledge : {})) out.add(n);
+  const mc = mcNameOf(s); if (mc && mc !== 'the player') out.add(mc);
+  return [...out];
 }
 
 /* M510-23: WHO'S HERE, IN THE RECENT PAGES — the pages between the eight a small model reads whole and the record's reach
@@ -526,7 +548,7 @@ export function pagesOfWhoIsHere(pages, state, { from = 0, to = 0, each = RECENT
   }
   const picked = new Set(); const who = [];
   for (const name of here) {
-    const re = nameAsWord(name);
+    const re = nameAsWord(name, knownNames(state));
     let n = 0;
     for (let j = paras.length - 1; j >= 0 && n < each; j -= 1) if (re.test(paras[j].text)) { picked.add(paras[j]); n += 1; }
     if (n) who.push(name);
@@ -534,7 +556,7 @@ export function pagesOfWhoIsHere(pages, state, { from = 0, to = 0, each = RECENT
   const render = (p) => '- (page ' + p.page + ') ' + p.text;
   let chosen = [...picked].sort((a, b) => (a.page - b.page) || (a.k - b.k));
   while (chosen.length && chosen.map(render).join('\n').length > cap) chosen = chosen.slice(1);
-  return { text: chosen.map(render).join('\n'), who: who.filter((n) => chosen.some((p) => nameAsWord(n).test(p.text))), texts: chosen.map((p) => p.text) };
+  return { text: chosen.map(render).join('\n'), who: who.filter((n) => chosen.some((p) => nameAsWord(n, knownNames(state)).test(p.text))), texts: chosen.map((p) => p.text) };
 }
 
 export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRESENT_LINES_EACH, cap = PRESENT_RECORD_CHARS } = {}) {
@@ -542,7 +564,7 @@ export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRE
   const lines = (Array.isArray(nodes) ? nodes : []).filter((n) => n && !n.empty && !n.correction && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span)).sort((a, b) => a.span[0] - b.span[0]);
   const picked = new Set(); const who = [];
   for (const name of here) {
-    const re = nameAsWord(name);
+    const re = nameAsWord(name, knownNames(state));
     let n = 0;
     for (let i = lines.length - 1; i >= 0 && n < each; i -= 1) {
       if (!re.test(lines[i].text) || skip(lines[i])) continue;
@@ -556,7 +578,8 @@ export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRE
    * newest few and let the oldest go first — someone last named fifty pages back (the captain the scene turns on) lost
    * every line to people named yesterday. Now the lines go from whoever still has the most, oldest first, so each person
    * keeps their newest line as long as the room can hold one each; past that, the oldest. */
-  const namedIn = (l) => here.filter((name) => nameAsWord(name).test(l.text));
+  const knownHere = knownNames(state);
+  const namedIn = (l) => here.filter((name) => nameAsWord(name, knownHere).test(l.text));
   while (chosen.length && chosen.map(render).join('\n').length > cap) {
     const count = new Map();
     for (const l of chosen) for (const name of namedIn(l)) count.set(name, (count.get(name) || 0) + 1);
