@@ -47,7 +47,7 @@ import { db, shelvesOf } from '../store.js';
 import { createProvider } from '../providers/index.js';
 import { contextOf } from '../providers/room.js'; /* M285: one answer for the model's room */
 import { learnContext, learnContextWithin } from '../providers/detect.js'; /* M289: the provider's own word on its room */
-import { buildRequest, pageText, windowPlan, heatedNow } from '../assemble/stack.js';
+import { buildRequest, pageText, windowPlan, heatedNow, HYBRID_RECENT_CHARS } from '../assemble/stack.js'; /* M510-50: the newest lines' room */
 import { beginWork, waitVisibly, bannerKnowsTales } from './workbanner.js'; /* M203: what the house is doing; M510-42: whose */
 import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
@@ -82,6 +82,7 @@ import { mineLeak, mineWord, mineCutAt, soundCount } from '../assemble/plain.js'
 import { plannerAsk, runPlanner, loadPlan, planEntry, loadPlans, keepSound, planKey, hashText, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper */
 import { lawsOf } from '../assemble/laws.js'; /* M510 */
 import { runEssentials, loadEssentials } from '../agents/essentials.js'; /* M510-15: the story's essentials */
+import { pickRecall } from '../agents/recallpick.js'; /* M510-50: smart recall */
 import { runPlans, loadPlansBook } from '../agents/plans.js'; /* M510-22: the plans, kept whole until carried out */
 import { lastPagesOf } from '../assemble/stack.js'; /* M510 */
 import { renderStateFacts as planFacts, stateView as planStateView } from '../engine/state.js'; /* M510: what the helper reads */
@@ -4405,6 +4406,20 @@ export function initChat(ctx) {
       /* M510-48: the essentials and the plans ride for every storyteller (the hybrid, always on) */
       smallEssentials = await loadEssentials(story.id);
       smallPlansBook = await loadPlansBook(story.id);
+      /* M510-50: SMART RECALL — a frontier storyteller with the essentials made, and the switch on: a worker names the older
+       * record lines his move means (they ride word for word); never more than 8 seconds; slower or unsure, none */
+      let recallPicked = [];
+      if (settingsValues.smallModelNow !== true && smallEssentials && smallEssentials.text && (await db.settings.get('smartRecall')) !== false && windowInfo && Array.isArray(windowInfo.nodes) && windowInfo.nodes.length) {
+        try {
+          const pickConn = await resolveWorkerConnection(story, 'recall');
+          const byAge = [...windowInfo.nodes].filter((n) => n && typeof n.text === 'string' && Array.isArray(n.span)).sort((a, b) => b.span[0] - a.span[0]);
+          const newest = new Set(); let room = HYBRID_RECENT_CHARS;
+          for (const n of byAge) { room -= n.text.length + 3; if (room < 0) break; newest.add(n.id); }
+          const lastA = [...history].reverse().find((m) => m && m.role === 'assistant' && !m.hidden);
+          const out = await pickRecall({ connection: pickConn, essentials: smallEssentials.text, nodes: windowInfo.nodes, move: userText, lastPage: lastA ? pageText(lastA) : '', mc: mcName(state), skip: (n) => newest.has(n.id) });
+          recallPicked = out.ids;
+        } catch (err) { recallPicked = []; }
+      }
       const probeReceipt = buildRequest({
         story, messages: history, settings: settingsValues, state, modules: selected, memory: '',
         cast: invitedCast, lore: loreText, loreFired, window: windowInfo, directive,
@@ -4414,7 +4429,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, /* M510; M510-15; M510-22 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, /* M510; M510-15; M510-22; M510-50 */
         sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
@@ -4462,7 +4477,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         canonNote, /* M346: canon verification's note, at the top of the briefing */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, /* M510; M510-15; M510-22 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, /* M510; M510-15; M510-22; M510-50 */
         sensorNote, /* M356: the sensors' one line, in the closing words */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),

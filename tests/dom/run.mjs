@@ -3075,7 +3075,7 @@ test('DOM-57 a reply that thinks aloud, STREAMED as a model streams it (a few ch
     const sys = body ? String(((body.messages || [])[0] || {}).content || '') : '';
     /* every worker's system opens with the house's fiction frame; the storyteller's never does (a worker counted as the
      * storyteller made this scenario fail once, by timing alone) */
-    const worker = /^\s*This is fiction craft/i.test(sys) || /condense the record of a long collaborative story|keep the essentials of a long collaborative story|keep the plans of a long collaborative story|keep the ledger|world beyond the page|character scribe|memory keeper|second reader|continuity reader|mend a story|narrative-state tracker|audit one record li|housekeeper of a cozy tavern/i.test(sys);
+    const worker = /^\s*This is fiction craft/i.test(sys) || /pick the older record lines of a long collaborative story|condense the record of a long collaborative story|keep the essentials of a long collaborative story|keep the plans of a long collaborative story|keep the ledger|world beyond the page|character scribe|memory keeper|second reader|continuity reader|mend a story|narrative-state tracker|audit one record li|housekeeper of a cozy tavern/i.test(sys);
     if (!script || !body || worker || !/chat\/completions|\/messages/.test(String(url))) return housed(url, opts);
     asks.push(body);
     const m = script(asks.length, body);
@@ -7264,6 +7264,48 @@ test('DOM-146 "MAKE THE ESSENTIALS AGAIN" (final audit): the essentials book has
   } finally {
     house.state.workerAnswer = prior;
     if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); }
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-147 SMART RECALL THROUGH THE APP (M510-50): with the essentials made, the picker reads his move before the page and the older line it names rides word for word in the storyteller’s request; with the switch off, the picker is never asked', async () => {
+  const before = errors.length;
+  const DEFAULT = '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}';
+  const st = await db.stories.create({ title: 'smart recall tale' });
+  const nodes = [];
+  for (let i = 0; i < 60; i += 1) nodes.push({ id: 'sr' + i, span: [i * 4, i * 4 + 3], level: 1, at: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(40) + (i === 3 ? 'SMART-LINE: Jovan told every captain he serves Head Captain Yamamoto as his personal attendant.' : '') });
+  await db.settings.set('memory:' + st.id, { window: 30, nodes });
+  await db.settings.set('essentials:' + st.id, { text: '- [Day 1 · the Seireitei] (pages 1–240) Jovan arrives; serves Yamamoto; trains; the duel is set for noon, and the whole division waits on it.', print: 'kept', upTo: 239, at: 1 });
+  const prior = house.state.workerAnswer;
+  let picks = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (/pick the older record lines of a long collaborative story/.test(sys)) { picks += 1; const user = String((body.messages || []).map((m) => m.content).join('\n')); const m = user.match(/(\d+)\. \(pages \d+–\d+\) Line 3:/); return '{"lines":[' + (m ? m[1] : '') + ']}'; }
+    return typeof prior === 'function' ? prior(body, sys) : (prior || DEFAULT);
+  };
+  const priorSwitch = await db.settings.get('smartRecall');
+  try {
+    await db.settings.delete('smartRecall');
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'Byakuya asks who my uncle is, in front of the whole division.'); submit(q('#composer'));
+    await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked');
+    const teller = house.state.calls.slice(from).find((c) => !c.isWorker);
+    eq(picks, 1, 'the picker was asked once, before the page');
+    assert(/From the older record, word for word[\s\S]*SMART-LINE: Jovan told every captain/.test(notesInBody(teller.body)), 'the line it named rides word for word in the storyteller’s request');
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 20000);
+    await db.settings.set('smartRecall', false);
+    const from2 = house.state.calls.length; const picks2 = picks;
+    type(q('#composer-input'), 'I wait for his answer.'); submit(q('#composer'));
+    await until(() => house.state.calls.slice(from2).some((c) => !c.isWorker), 'asked again');
+    eq(picks, picks2, 'switched off: the picker is never asked');
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the second page landed', 20000);
+  } finally {
+    house.state.workerAnswer = prior;
+    if (priorSwitch == null) await db.settings.delete('smartRecall'); else await db.settings.set('smartRecall', priorSwitch);
     await db.stories.remove(st.id).catch(() => {});
     await env.ctx.chat.refreshStories(true).catch(() => {});
   }

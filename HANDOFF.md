@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-049)
+# Cozy Tavern — handoff for the next session (state at m510-050)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1166,4 +1166,11 @@ founding design lives in AGENTS.md's first entries.)
   essentials again" (chat.remakeEssentials → runEssentials force), shown whenever there is a record; its words and the
   plans book's and The workers' no longer say "small model". Checked, sound: a frontier storyteller gets no closing
   recall glimpses (anchorLine is the small model's), so nothing is said twice. Laws M510-49, DOM-146.
+- M510-50 — SMART RECALL (agents/recallpick.js; Settings → How much the story remembers → "Smart recall", on unless he
+  turns it off — setting smartRecall; worker row 'recall'). For a frontier storyteller with the essentials made: before
+  the page, a worker reads his move and the last page against the essentials and an index of the OLDER record lines
+  (numbered, pages, first 220 characters — the newest lines' room skipped) and names up to 4 by number, for what the move
+  means. Only indexed numbers count; slow (8 s), failing or unsure → none, the page goes on. The named lines ride WHOLE
+  under "From the older record, word for word" beside the word-match ones (never twice); the receipt's source line says
+  how many the smart recall picked. Laws M510-50, DOM-147.
 

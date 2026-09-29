@@ -228,6 +228,7 @@ export function initSettings(ctx) {
     colourSpeech: document.getElementById('colour-speech'),
     showStarters: document.getElementById('show-starters'),
     memoryKeeper: document.getElementById('memory-keeper'),
+    smartRecall: document.getElementById('smart-recall'), /* M510-50 */
     memoryWindow: document.getElementById('memory-window'),
     memoryBatch: document.getElementById('memory-batch'),
     memorySqueeze: document.getElementById('memory-squeeze'),
@@ -1681,6 +1682,7 @@ export function initSettings(ctx) {
   async function renderMemory() {
     const keeperOn = await db.settings.get('memoryKeeper');
     els.memoryKeeper.checked = keeperOn !== false;
+    if (els.smartRecall) els.smartRecall.checked = (await db.settings.get('smartRecall')) !== false; /* M510-50: on unless he turned it off */
     const window = cleanWindow(await db.settings.get('memoryWindow'));
     els.memoryWindow.value = String(window);
     els.memoryWindowValue.textContent = String(window);
@@ -1726,6 +1728,7 @@ export function initSettings(ctx) {
   els.memoryKeeper.addEventListener('change', async () => {
     await db.settings.set('memoryKeeper', els.memoryKeeper.checked);
   });
+  if (els.smartRecall) els.smartRecall.addEventListener('change', async () => { await db.settings.set('smartRecall', els.smartRecall.checked); }); /* M510-50 */
 
   els.memoryWindow.addEventListener('input', () => {
     els.memoryWindowValue.textContent = els.memoryWindow.value;
@@ -2683,7 +2686,7 @@ export function initSettings(ctx) {
     'theme', 'colourSpeech', 'showStarters', 'masthead', 'showThinking',
     'memoryKeeper', 'memoryWindow', 'memoryBatch', 'memorySqueeze', 'continuityCheck', 'mendPages',
     'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply', 'hkReasoning', 'turnsShown',
-    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'sensorsOn', 'groundingPhrase', 'afterRole', 'notesRole', /* M399: canon's switch is each story's own, not a setting of the house */
+    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'sensorsOn', 'groundingPhrase', 'afterRole', 'notesRole', 'smartRecall', /* M399: canon's switch is each story's own, not a setting of the house */
     'speechColours', 'shelfSort', 'ledgerFolds', 'settingsFolds', /* M466/M468: the coats' own colours and the rooms' shapes go back; his own words (ownWords) are his writing and stay */
     'conceptToBrief', /* M479 */
     'frameText', 'noteText', 'frameOn', 'noteOn', 'frameEcho', 'frameOnSmall', 'noteOnSmall', 'ownWordsOnSmall', /* M509-14: the two switches ride the book */

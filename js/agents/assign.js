@@ -18,6 +18,7 @@ export const WORKER_ROWS = [
   ['sensors', 'The sensors — read each finished page and answer a few narrow questions about it (a decisions model such as Jev belongs here)'],
   ['planner', 'The planning helper — for a small model: reads the whole story after each page and writes down what the next page needs'],
   ['plans', 'The plans keeper — writes a plan down the moment a page lays it out — who does what, on what signal — and keeps it whole until it is carried out'],
+  ['recall', 'The smart recall — before each page, reads your move against the story’s timeline and names the older record lines it means (they ride word for word)'],
   ['essentials', 'The essentials keeper — streamlines your whole record (Summaryception) into the story’s essentials whenever it grows'],
   ['showrunner', 'The showrunners — the director and the editor'],
   ['housekeeper', 'The housekeeper — the one you talk to, who tidies everything'],

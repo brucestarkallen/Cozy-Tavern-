@@ -625,6 +625,7 @@ export function buildRequest({
   smallPlan = null, smallIntense = false, lastSound = null, /* M510: the small request — the helper's plan, whether the scene is heated, what the last page sounded like */
   smallPlansBook = null, /* M510-22: the plans standing, kept whole ({plans}) */
   smallEssentials = null, /* M510-15: the story's essentials, streamlined from the whole record ({text, upTo}) */
+  recallPicked = [], /* M510-50: the ids of the older record lines the smart recall named for this page */
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -955,6 +956,7 @@ export function buildRequest({
   /* M510-48: HIS "RESEARCH IT AND INJECT IT" — the older lines this scene names (the last pages and his move: the M344
    * scoring, a name that is everywhere counting for nothing), given whole under their own pages, for the teller to weigh */
   let recalledOlder = '';
+  let recallSmart = 0; /* M510-50 */
   if (hybridB) {
     const lastUserH = [...(Array.isArray(messages) ? messages : [])].reverse().find((m) => m && m.role === 'user' && !m.hidden);
     const sceneH = [...recentPages, lastUserH ? String(lastUserH.text || '') : ''].filter(Boolean);
@@ -963,7 +965,16 @@ export function buildRequest({
     const older = recordNodes.filter((n) => !already(n.text.trim()));
     const picked = recallFromRecord(older, sceneH, { ignore: namesH, max: HYBRID_RECALL_LINES });
     const wholeOf = (hit) => { const node = hit ? older.find((n) => n.span[0] + 1 === hit.from && n.span[1] + 1 === hit.to) : null; return node ? '(pages ' + hit.from + '–' + hit.to + ') ' + node.text.trim() : ''; }; /* the recall cuts a line to a glimpse — the line itself rides whole */
-    recalledOlder = (Array.isArray(picked) ? picked : []).map(wholeOf).filter(Boolean).join('\n');
+    const byWords = (Array.isArray(picked) ? picked : []).map(wholeOf).filter(Boolean);
+    /* M510-50: and the lines the smart recall named — his move read for what it means, not only its words; each the
+     * record's own line, never said twice */
+    const named = (Array.isArray(recallPicked) ? recallPicked : [])
+      .map((id) => older.find((n) => n.id === id))
+      .filter((n) => n && !byWords.some((t) => t.includes(n.text.trim())))
+      .sort((a, b) => a.span[0] - b.span[0])
+      .map((n) => '(pages ' + (n.span[0] + 1) + '–' + (n.span[1] + 1) + ') ' + n.text.trim());
+    recallSmart = named.length;
+    recalledOlder = [...byWords, ...named].join('\n');
     if (recalledOlder) stateParts.push('From the older record, word for word — lines this scene names (each is about its own pages, not this one):\n' + recalledOlder);
   }
   /* M510-22: THE PLANS STANDING — laid out on the page, kept whole by the plans keeper until carried out: part by part, with
@@ -985,7 +996,7 @@ export function buildRequest({
   if (hybridB) {
     /* M510-48: the hybrid, for a frontier storyteller — the essentials, the newest lines word for word, the older lines named */
     pushSlot('Story essentials', essentialsText, 'your whole record (Summaryception), streamlined by the essentials keeper — a timeline of the whole story; every detailed line stays on the device');
-    pushSlot('What remains', [hybridRecent && hybridRecent.text, recalledOlder].filter(Boolean).join('\n'), 'the record’s newest lines word for word' + (recalledOlder ? ', and the older lines this scene names, whole' : '') + ' — the rest is in the essentials above', hybridRecent && hybridRecent.rested ? hybridRecent.rested + ' older lines ride in the essentials, kept whole on the device' : '');
+    pushSlot('What remains', [hybridRecent && hybridRecent.text, recalledOlder].filter(Boolean).join('\n'), 'the record’s newest lines word for word' + (recalledOlder ? ', and the older lines this scene names, whole' + (recallSmart ? ' (' + recallSmart + ' picked by the smart recall for what your move means)' : '') : '') + ' — the rest is in the essentials above', hybridRecent && hybridRecent.rested ? hybridRecent.rested + ' older lines ride in the essentials, kept whole on the device' : '');
   } else if (memoryText && !smallB) {
     pushSlot('What remains', memoryText, 'what the keeper has folded of the older pages');
   } else if (essentialsText) {

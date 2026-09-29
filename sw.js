@@ -74,6 +74,7 @@ const SHELL = [
   'js/agents/sensors.js',
   'js/agents/planner.js', /* M510 */
   'js/agents/essentials.js', /* M510-15 */
+  'js/agents/recallpick.js', /* M510-50 */
   'js/agents/plans.js', /* M510-22 */
   'js/assemble/planbook.js', /* M510-22 */
   'js/canon/host.js',

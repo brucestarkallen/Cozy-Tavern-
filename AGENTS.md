@@ -13091,3 +13091,20 @@ plans books, and The workers, said "small model" — they say what is true now. 
 book has one button, "Make the essentials again" — the keeper asked now, from the whole record, whatever it kept (shown
 whenever there is a record, before the first page has made them too). Laws M510-49; DOM-146.
 
+# M510-50 — smart recall: smart, yet careful
+He: "recall matches words — 'uncle' won't bring back a line that only says 'attendant'. Can the AI smartly think: Bruce
+probably means this from the record, so I should inject it? Is it designed to be smart yet careful?" It was not: the
+recall was words only (M344's scoring). Now, for a frontier storyteller whose essentials exist and with the switch on
+(Settings → How much the story remembers → "Smart recall", on unless he turns it off), a worker is asked before each page:
+it reads his move and the last page against the story's timeline (the essentials) and an index of the older record lines
+— numbered, with their pages and first 220 characters; the lines already riding as the newest are left out — and names up
+to four by number, reading for what the move MEANS (a question about a family tie → the line where his standing was told).
+Careful by construction: it only names numbers; what rides is the record's own line, word for word, so nothing the worker
+writes reaches the storyteller; a number not in the index is ignored; it waits at most 8 seconds — slower, failing or
+unsure, and the page goes on with the word-match recall alone. The named lines ride beside the word-matched ones under
+"From the older record, word for word", never twice; the receipt's source line says how many the smart recall picked.
+Cost: one small worker call a page (the timeline, the index, the last page and his move) on the worker's connection —
+shown in Usage. Laws M510-50 (reads for meaning; only indexed numbers, at most four; slow or failing → none; the named line
+whole; the receipt), DOM-147 (through the app: asked before the page, the named line in the storyteller's request; off →
+never asked).
+

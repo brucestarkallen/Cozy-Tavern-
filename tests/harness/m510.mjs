@@ -1110,3 +1110,31 @@ test('M510-49 (final audit of the hybrid) NO HOLE, FAIR ROOM, MADE AGAIN BY HAND
   assert(forced.wrote && asked === 2, 'asked by hand: made again (' + asked + ' asks)');
   await store.settings.delete(ESSENTIALS_KEY(sid));
 });
+
+test('M510-50 SMART RECALL (his word: "can the AI smartly think: Bruce probably means this from the record — smart, yet careful?"): a worker names older record lines by number for what his move MEANS (a family tie → the line where his standing was told); only numbers in the index count, at most four; slow or failing, none — and the page goes on; the named lines ride whole, the record’s own words', async () => {
+  const { pickRecall, readPick, recallIndex, PICK_MAX } = await import('../../js/agents/recallpick.js');
+  const nodes = [
+    { id: 'a', span: [0, 5], level: 1, text: 'At the captains’ meeting Jovan tells every captain he serves as Head Captain Yamamoto’s personal attendant.' },
+    { id: 'b', span: [6, 11], level: 1, text: 'Jovan and Rukia share tea at the Kuchiki manor.' },
+    { id: 'c', span: [12, 17], level: 1, text: 'Jovan tells the Thirteenth Division he is only a recruit.' },
+    { id: 'd', span: [18, 23], level: 1, text: 'Zaraki names noon for the duel.' },
+  ];
+  eq(recallIndex(nodes).map((x) => x.n + ':' + x.id).join(' '), '1:a 2:b 3:c 4:d', 'numbered oldest first');
+  eq(JSON.stringify(readPick('{"lines":[1,9,1,3,2,4,4]}', 4)), '[1,3,2,4]', 'only numbers in the index, each once, at most ' + PICK_MAX);
+  eq(JSON.stringify(readPick('Line 1, I think.', 4)), '[]', 'no JSON: none');
+  let seen = null;
+  const smart = async (conn, { system, user }) => { seen = { system, user }; return '{"lines":[1,3]}'; };
+  const out = await pickRecall({ connection: CONN, essentials: '[Seireitei] Jovan arrives…', nodes, move: 'Byakuya asks who my uncle is, in front of the whole division.', lastPage: 'The division gathered.', mc: 'Jovan', callLLM: smart });
+  eq(out.ids.join(','), 'a,c', 'the lines it named, by id');
+  assert(/THE WRITER'S NEWEST MOVE:\nByakuya asks who my uncle is/.test(seen.user) && /1\. \(pages 1–6\) At the captains’ meeting/.test(seen.user) && /Think about what the move means, not only the words/.test(seen.system), 'it reads his move, the index, and is told to read for meaning');
+  const slow = await pickRecall({ connection: CONN, nodes, move: 'x', timeoutMs: 600, callLLM: () => new Promise((r) => setTimeout(() => r('{"lines":[1]}'), 3000)) });
+  assert(slow.ids.length === 0 && slow.why === 'took too long', 'slow: none, and the page goes on');
+  const broken = await pickRecall({ connection: CONN, nodes, move: 'x', callLLM: async () => { throw new Error('down'); } });
+  assert(broken.ids.length === 0 && broken.why === 'could not ask', 'failing: none');
+  /* the builder: the named line rides whole under the older lines */
+  const st = { ...applyMutations({ ...emptyState(), page: 300 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Training yard' }, { type: 'presence.enter', name: 'Jovan' }]).state, page: 300 };
+  const many = []; for (let i = 0; i < 60; i += 1) many.push({ id: 'n' + i, span: [i * 4, i * 4 + 3], level: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(40) /* no word of the scene: only the smart recall can name it */ + (i === 3 ? 'SMART-MARK: Jovan tells the captains he serves Yamamoto.' : '') });
+  const r = buildRequest({ story: {}, messages: pages(12), settings: {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: many.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: many }, smallEssentials: { text: '[Seireitei] (pages 1–240) essentials', upTo: 239 }, recallPicked: ['n3'] });
+  assert(/From the older record, word for word[\s\S]*\(pages 13–16\) Line 3:[\s\S]*SMART-MARK/.test(notesOf(r)), 'the named line rides whole, under its pages');
+  assert(/1 picked by the smart recall/.test(r.receipt.slots.find((s) => s.name === 'What remains').source), 'the receipt says the smart recall picked it (the row’s source line)');
+});
