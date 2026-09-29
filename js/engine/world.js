@@ -586,7 +586,12 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
     const own = p.newest.filter((f) => !sharedKeys.has(norm(f)));
     const ownOld = p.recalled.filter((f) => !sharedKeys.has(norm(f)));
     if (!own.length && !ownOld.length && p.rest <= 0) continue;
-    lines.push(p.key + ' knows' + (own.length ? ': ' + own.join('; ') + '.' : ' what is shared above.')
+    /* the final audit: a belief written as one (M510-48: "believes X — untrue: Y") reads as one, not "knows: believes" */
+    const isBelief = (f) => /^believes\b/i.test(f);
+    const beliefs = own.filter(isBelief).map((f) => f.replace(/^believes\s+/i, ''));
+    const knownOwn = own.filter((f) => !isBelief(f));
+    lines.push(p.key + (knownOwn.length || !beliefs.length ? ' knows' + (knownOwn.length ? ': ' + knownOwn.join('; ') + '.' : ' what is shared above.') : '')
+      + (beliefs.length ? (knownOwn.length || !beliefs.length ? ' ' + p.key.split(/\s+/)[0] : '') + ' believes: ' + beliefs.join('; ') + '.' : '')
       + (ownOld.length ? ' From much earlier — each is about ITS OWN moment, not this scene; use one only where it truly fits: ' + ownOld.join('; ') + '.' : '')
       + (p.rest > 0 ? ' (and ' + p.rest + ' older ' + (p.rest === 1 ? 'thing' : 'things') + ' they know, kept in the ledger)' : ''));
   }
@@ -803,7 +808,7 @@ export function renderWorldBrief(brief, turnNow, pageNow) {
   if (age > BRIEF_STALE_TURNS) return '';
   const out = [];
   /* M321: said as one person briefing another — it read like an order to a renderer */
-  out.push('Meanwhile, beyond this scene' + (age > 1 ? ' (as of ' + age + ' turns ago)' : '') + ' — the world keeps moving while the page looks elsewhere. Let any of this arrive the way the world itself would (someone turns up, news reaches them, a consequence lands), never as something you were told:');
+  out.push('Meanwhile, beyond this scene' + (age > 1 ? ' (as of ' + age + ' pages ago)' : '') + ' — the world keeps moving while the page looks elsewhere. Let any of this arrive the way the world itself would (someone turns up, news reaches them, a consequence lands), never as something you were told:');
   if (brief.pressure.length) {
     out.push('What could reach this scene, and when:');
     for (const p of brief.pressure) out.push('  - ' + p);
@@ -882,12 +887,16 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
    * word patterns are compiled once per name, not once per fact (tests/perf_send.py: thousands of compilations a send) */
   const books = Object.entries(safe).map(([other, list]) => [other, (Array.isArray(list) ? list : []).map((k) => {
     const fact = String(k.fact || '').trim();
-    if (!fact) return null;
+    /* the final audit: a belief is no one else's blind spot; and a fact the knower was told is SHOWN, for someone who has
+     * not found it out, as the fact itself ("was told Jovan serves…" read as if Rukia had been told) — the tests below
+     * still read it as it was written (a telling is private, not a public moment) */
+    if (!fact || /^believes\b/i.test(fact)) return null;
+    const shown = fact.replace(/^(?:was told|were told|learned|learnt|found out)\s+(?:that\s+)?(?=\p{Lu})/u, ''); /* only a telling whose news follows as a sentence ("was told Jovan serves…"); "heard X say…" and "saw X do…" keep their verb — without it the sentence breaks */
     const age = Number.isFinite(turn) && Number.isFinite(k.atTurn) ? turn - k.atTurn : null;
     const atTurn = Number.isFinite(k.atTurn) ? k.atTurn : null;
     const words = factWords(fact);
     const score = sceneWords.size ? [...words].filter((w) => sceneWords.has(w) && !common.has(w)).length : 0;
-    return { fact, age, words, score, atTurn };
+    return { fact, shown, age, words, score, atTurn };
   }).filter((f) => f && (f.score >= 2 || (f.age != null && f.age <= BLIND_RECENT_PAGES)))]); /* near the scene, or recent */
   for (const name of names) {
     if (name.trim().toLowerCase() === mcKey || (mc && samePersonName(name, mc))) continue; /* the main character is the writer's — under any form of his name (M449: "Oda" in the scene is Jovan Oda) */
@@ -897,12 +906,12 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
     const found = [];
     for (const [other, list] of books) {
       if (other === mineKey || other.trim().toLowerCase() === name.trim().toLowerCase() || samePersonName(other, name)) continue; /* M449: their own lines under another form of their name are theirs — never "Rukia hasn't found out (Rukia knows)" */
-      for (const { fact, age, words, score, atTurn } of list) {
+      for (const { fact, shown, age, words, score, atTurn } of list) {
         if (selfRes.some((re) => re.test(fact))) continue; /* about them: they were there */
         if (typeof wasThere === 'function' && publicMoment(fact) && wasThere(name, atTurn)) continue; /* M509-15: the whole room saw it, and they were in the room */
         if (mine.some((m) => sameFact(m.fact, fact) || overlap(m.words, words) >= 0.6)) continue; /* they hold it, in these words or others */
         if (found.some((f) => sameFact(f.fact, fact) || overlap(f.words, words) >= 0.6)) continue; /* once is enough */
-        found.push({ fact: fact.replace(/\.+$/, ''), from: other, age, score, words });
+        found.push({ fact: (shown || fact).replace(/\.+$/, ''), from: other, age, score, words });
       }
     }
     found.sort((a, b) => (b.score - a.score) || ((a.age == null ? 1e9 : a.age) - (b.age == null ? 1e9 : b.age)));

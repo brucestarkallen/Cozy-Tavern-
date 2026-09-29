@@ -13126,3 +13126,23 @@ order it happened, never twice; then the plans. On their mind and the state of t
 pages. Not bloat: On their mind is who they are and what they feel now; these lines are what happened, and when. The small
 model's request and the whole-record path (before the essentials) are unchanged. Law M510-51.
 
+# M510-52 — the whole request read top to bottom, as the storyteller
+He: "audit everything — the order good and not confusing, no redundancy or bloat, coherent, natural, and don't break the
+persona." Read one full frontier request (Hulk telling Bruce's Bleach story) top to bottom. Found and fixed:
+- ORDER. Before the essentials exist (and whenever the record fits the full-detail room whole), the whole record still
+  rode AFTER the people and the state of things, under "What remains of the older pages" — the past between the present
+  and the pages, and a different place and name from the hybrid's. Now every frontier request has one order: canon → our
+  story so far (whole or hybrid) → the plans → On their mind → the state of things → the rest; the whole record is named
+  "Our story so far, in full — everything before the pages you have, in the order it happened".
+- TWICE. A record that fits the full-detail room was sent in full AND as the brief — the story said twice. Now no brief;
+  the receipt's Story essentials row says why ("your whole record fits in full…"). Stale essentials: the whole record,
+  no brief.
+- UNNATURAL. "Rukia Kuchiki knows: believes Jovan is only a recruit" → "Rukia Kuchiki believes: Jovan is only a recruit —
+  untrue: …". "Rukia hasn't found out: was told Jovan serves Yamamoto…" (as though she had been told) → "Rukia hasn't
+  found out: Jovan serves Yamamoto…" — only for a telling whose news follows as a sentence; "heard X say…" and "saw X do…"
+  keep their verb (stripped, the sentence broke: three laws caught it — M508-4, M509-1, M509-15). A belief is no one's
+  blind spot. Ages said in one unit: pages ("Last noted N pages ago", "as of N pages ago" — were "turns").
+- PERSONA. Checked: the frame stands first; the notes open in the writer's voice ("Hulk — Bruce here…") and every part
+  added in this session speaks as his notes (no "the house", no device, no counts); the closing is his note.
+Law M510-52; the laws that named "turns ago" say pages; M510-48/49 name the whole record's new heading.
+

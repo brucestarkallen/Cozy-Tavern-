@@ -703,7 +703,7 @@ function ageWords(entry, turn) {
  * its age. */
 export function stateLabel(entry, turn) {
   const ago = ageWords(entry, turn);
-  if (ago > FRESH_TURNS) return 'Last noted ' + ago + ' turns ago: ';
+  if (ago > FRESH_TURNS) return 'Last noted ' + ago + ' pages ago: '; /* the final audit: pages, as every other part says */
   return 'Now: ';
 }
 

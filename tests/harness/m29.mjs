@@ -81,7 +81,7 @@ test('M29-4 the brief: normalized, capped, empty is empty, stale is silent, lead
   assert(!/What has ripened/.test(text), 'empty parts are omitted');
   eq(renderWorldBrief(normalizeBrief({ pressure: [], ripe: [], twb: null }, 7), 8), '', 'an empty brief says nothing');
   eq(renderWorldBrief(b, 7 + BRIEF_STALE_TURNS + 1), '', 'a stale brief says nothing');
-  assert(/as of 3 turns ago/.test(renderWorldBrief(b, 10)), 'an aging brief says its age');
+  assert(/as of 3 pages ago/.test(renderWorldBrief(b, 10)), 'an aging brief says its age');
   eq(normalizeBrief(null), null);
 });
 

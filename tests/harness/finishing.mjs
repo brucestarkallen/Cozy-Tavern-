@@ -115,13 +115,13 @@ test('M12 tiers: full cards cap at 6, mention-recall at 3, the roster at 12', ()
 
 test('M12 aging: “now” becomes “last noted N turns ago” past twenty turns', () => {
   eq(stateLabel(person('', 'x', '', [], 39), 40), 'Now: ', 'fresh is now');
-  eq(stateLabel(person('', 'x', '', [], 10), 40), 'Last noted 30 turns ago: ', 'aged past twenty admits it');
+  eq(stateLabel(person('', 'x', '', [], 10), 40), 'Last noted 30 pages ago: ', 'aged past twenty admits it (in pages, as every other part says)');
   const state = emptyState();
   state.turn = 40;
   state.characters = { Mira: person('steady', 'By the fire', '', [], 10) };
   state.present = [{ name: 'Mira' }];
   const out = renderPeopleTiers(state, { recentPages: [], rotation: 0 });
-  assert(out.text.includes('Last noted 30 turns ago:'), 'the card wears its age');
+  assert(out.text.includes('Last noted 30 pages ago:'), 'the card wears its age');
 });
 
 /* ---------- the coverage law ---------- */

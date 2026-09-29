@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-051)
+# Cozy Tavern — handoff for the next session (state at m510-052)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1181,4 +1181,12 @@ founding design lives in AGENTS.md's first entries.)
   about" (who's-here lines and recalled lines — word-matched and smart — one list, in page order, never twice), then the
   plans. Gone: "the N older lines are in the essentials above, each kept whole on the device", and the three separate
   headings. Law M510-51; M510-48/49/50 and DOM-147 read the new part.
+- M510-52 — THE WHOLE REQUEST READ TOP TO BOTTOM, AS THE STORYTELLER. For a frontier storyteller the notes are: canon →
+  our story so far (the hybrid part, or — before the essentials exist, or when the record fits the full-detail room whole
+  — "Our story so far, in full — everything before the pages you have, in the order it happened") → plans → On their mind
+  → the state of things → lore, world, director, editor, eye. No brief beside a record that fits in full (the receipt's
+  Story essentials row says why). A belief reads "Rukia believes: …" (renderKnowledge), never "knows: believes". A blind
+  spot SHOWS a telling as its news ("was told Jovan serves…" → "Jovan serves…", only when a capital-led sentence follows;
+  "heard X say…" keeps its verb) while its tests still read the fact as written; a belief is no one's blind spot. Every
+  age is in pages ("Last noted N pages ago", the world's "as of N pages ago"). The small model's request is unchanged.
 

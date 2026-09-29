@@ -934,13 +934,18 @@ export function buildRequest({
    * what they cover and the newest lines — every line folded since them rides word for word; and when those alone are
    * more than twice the newest lines' room, the essentials are stale and the whole record rides, as before they existed */
   const sinceChars = essentialsText ? sinceEssentials.length : 0;
-  const hybridB = !smallB && Boolean(essentialsText) && sinceChars <= HYBRID_RECENT_CHARS * 2;
-  if (essentialsText && !hybridB) stateParts.push('What our story holds, in essentials:\n' + essentialsText); /* the small model's (and stale essentials') own heading */
+  /* the final audit: a record that fits the full-detail room whole rides whole — the brief beside it would only say it all
+   * twice; so does a record whose essentials are far behind (below) — a stale brief beside the whole record, twice again */
   const recordNodes = (Array.isArray(windowInfo && windowInfo.nodes) ? windowInfo.nodes : [])
     .filter((n) => n && !n.empty && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span));
+  /* measured on the record's own lines — the text the page code hands over may already be cut to the room (a small
+   * context), and a record cut short is exactly the one the essentials must stand in for (DOM-147 caught it) */
+  const recordChars = recordNodes.reduce((sum, n) => sum + n.text.trim().length + 3, 0);
+  const fitsWhole = !smallB && recordChars <= Math.max(HYBRID_RECENT_CHARS, sinceChars + 1);
+  const hybridB = !smallB && Boolean(essentialsText) && sinceChars <= HYBRID_RECENT_CHARS * 2 && !fitsWhole;
+  if (essentialsText && smallB) stateParts.push('What our story holds, in essentials:\n' + essentialsText); /* the small model's own heading */
   const hybridRecent = hybridB && memoryText ? newestLines(memoryText, Math.max(HYBRID_RECENT_CHARS, sinceChars + 1)) : null;
-  if (memoryText && !smallB && !hybridB) stateParts.push('What remains of the older pages:\n' + memoryText);
-  else if (smallRecord && smallRecord.text) stateParts.push((essentialsText ? 'Folded since the essentials were made' : 'What remains of the older pages' + (smallRecord.rested ? ' (the newest of them; ' + smallRecord.rested + ' older lines rest outside this page)' : '')) + ':\n' + smallRecord.text);
+  if (smallB && smallRecord && smallRecord.text) stateParts.push((essentialsText ? 'Folded since the essentials were made' : 'What remains of the older pages' + (smallRecord.rested ? ' (the newest of them; ' + smallRecord.rested + ' older lines rest outside this page)' : '')) + ':\n' + smallRecord.text);
   /* M510-21: WHO'S HERE, IN THE RECORD — his idea: while someone is in the scene, the record's own lines that name them ride
    * word for word; once they are gone, not any more. Bounded, the newest few per person (recordOfWhoIsHere): someone who
    * is always there is named in nearly every line, and all of them would be the whole record again. Lines already riding
@@ -978,7 +983,7 @@ export function buildRequest({
   /* M510-22: THE PLANS STANDING — laid out on the page, kept whole by the plans keeper until carried out: part by part, with
    * the exact words to be said. A summary retells history; a plan is what is still to happen, and every part of it matters. */
   const standingText = renderStanding(smallPlansBook); /* M510-48: every storyteller, whenever a plan stands */
-  if (standingText && !hybridB) stateParts.push('Plans standing — laid out on the page, kept whole until carried out:\n' + standingText);
+  if (standingText && smallB) stateParts.push('Plans standing — laid out on the page, kept whole until carried out:\n' + standingText); /* the small model's own place */
   /* M510-51: OUR STORY SO FAR, ONE PART, READ IN ONE WAY — his look at the raw request: "does the storyteller understand
    * 'the 54 older lines are in the essentials above, each kept whole on the device'? 'What the record holds of who is here'?
    * 'lines this scene names (each is about its own pages)'? even I am confused". Four headings, each with its own
@@ -1006,6 +1011,15 @@ export function buildRequest({
     ].filter(Boolean).join('\n\n');
     const at = canonText && stateParts.includes(canonText) ? stateParts.indexOf(canonText) + 1 : 0;
     stateParts.splice(at, 0, block);
+  } else if (!smallB && (memoryText || standingText)) {
+    /* the final audit: the whole record (before the essentials exist, or when it fits in full) stands where the hybrid does
+     * and is named as it is — the past first, then the plans, then the people and the state of things now */
+    const block = [
+      memoryText ? 'Our story so far, in full — everything before the pages you have, in the order it happened:\n' + memoryText : '',
+      standingText ? 'Plans standing — laid out on the page, kept whole until carried out:\n' + standingText : '',
+    ].filter(Boolean).join('\n\n');
+    const at = canonText && stateParts.includes(canonText) ? stateParts.indexOf(canonText) + 1 : 0;
+    stateParts.splice(at, 0, block);
   }
   if (loreText) stateParts.push('The lore shelf, woken by the latest pages:\n' + loreText);
   if (worldText) stateParts.push(worldText); /* the brief leads with its own name; M510-12: a small model reads it too */
@@ -1025,6 +1039,8 @@ export function buildRequest({
     pushSlot('What remains', [hybridRecent && hybridRecent.text, recalledOlder].filter(Boolean).join('\n'), 'the record’s newest lines word for word' + (recalledOlder ? ', and the older lines this scene names, whole' + (recallSmart ? ' (' + recallSmart + ' picked by the smart recall for what your move means)' : '') : '') + ' — the rest is in the essentials above', hybridRecent && hybridRecent.rested ? hybridRecent.rested + ' older lines ride in the essentials, kept whole on the device' : '');
   } else if (memoryText && !smallB) {
     pushSlot('What remains', memoryText, 'what the keeper has folded of the older pages');
+    /* the final audit: essentials made but not sent — say why on their row */
+    if (essentialsText) pushSlot('Story essentials', '', '', fitsWhole ? 'your whole record fits in full — the brief beside it would say it twice' : 'the essentials are far behind the record — your storyteller reads the whole record until they are made again');
   } else if (essentialsText) {
     /* M510-15: the essentials stand for the record; only what was folded since rides as it is */
     pushSlot('Story essentials', essentialsText, 'your whole record (Summaryception), streamlined by the essentials keeper — the detailed lines come back when your move names them (small model)');

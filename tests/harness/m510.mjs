@@ -1064,11 +1064,11 @@ test('M510-48 THE HYBRID, ALWAYS ON (his word: "even a frontier model needs info
   msgs.push({ id: 'ux', role: 'user', text: 'Byakuya asks me whose attendant I really am, in front of the whole Thirteenth Division.' });
   const args = (essentials) => ({ story: {}, messages: msgs, settings: {}, state: st, modules: mods, memory: nodes.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallEssentials: essentials, smallPlansBook: { plans: [{ id: 'p1', title: 'The duel with Zaraki', whose: 'Jovan', aim: 'prove he is fit to be captain', parts: [{ who: 'Jovan', does: 'meets Zaraki at noon' }], status: 'standing' }] } });
   const whole = buildRequest(args(null));
-  assert(/What remains of the older pages:/.test(notesOf(whole)) && /Line 0:/.test(notesOf(whole)), 'before the essentials exist: the whole record, as always');
+  assert(/Our story so far, in full — everything before the pages you have/.test(notesOf(whole)) && /Line 0:/.test(notesOf(whole)), 'before the essentials exist: the whole record, as always');
   const hybrid = buildRequest(args({ text: '[Seireitei · spring] (pages 1–240) Jovan arrives; serves as Yamamoto’s personal attendant (told the captains); trains with the Thirteenth.', upTo: 239 }));
   const notes = notesOf(hybrid);
   assert(/In brief, from the beginning \(pages 1–240\):\n\[Seireitei/.test(notes), 'the essentials: the whole story as a timeline, with the pages it covers (M510-51)');
-  assert(/In full, just before the pages you have \(pages \d+–240\)/.test(notes) && /Line 119:/.test(notes) && !/What remains of the older pages:/.test(notes), 'the newest lines word for word — not the whole record');
+  assert(/In full, just before the pages you have \(pages \d+–240\)/.test(notes) && /Line 119:/.test(notes) && !/Our story so far, in full — everything before the pages you have/.test(notes), 'the newest lines word for word — not the whole record');
   assert(!/Line 1: /.test(notes.split('In full, earlier moments')[0]), 'the oldest lines are not in the newest part');
   assert(/In full, earlier moments this scene touches[^\n]*\n[\s\S]*personal attendant/.test(notes), 'the older line this scene names (his move: attendant) comes back WHOLE: ' + (notes.match(/In full, earlier moments[\s\S]{0,300}/) || [''])[0].slice(0, 300));
   assert(/Plans standing[\s\S]*The duel with Zaraki/.test(notes), 'the plans standing ride for a frontier storyteller');
@@ -1094,7 +1094,7 @@ test('M510-49 (final audit of the hybrid) NO HOLE, FAIR ROOM, MADE AGAIN BY HAND
   assert(/In brief, from the beginning/.test(recent) && nodes.slice(50).every((n) => recent.includes(n.text.slice(0, 20) + ' ') || recent.includes('Line ' + n.id.slice(1) + ':')), 'every line folded since the essentials rides word for word');
   /* made through line 5 only (the keeper failing since): ~100,000 characters folded since — more than twice the room: the whole record */
   const stale = notesOf(build(nodes[5].span[1]));
-  assert(/What remains of the older pages:/.test(stale) && !/In full, just before the pages you have/.test(stale), 'essentials far behind give way to the whole record (' + HYBRID_RECENT_CHARS * 2 + ' characters the limit)');
+  assert(/Our story so far, in full — everything before the pages you have/.test(stale) && !/In full, just before the pages you have/.test(stale), 'essentials far behind give way to the whole record (' + HYBRID_RECENT_CHARS * 2 + ' characters the limit)');
   /* fair: Byakuya named only in line 5, Rukia in the ten newest — a room for two long lines keeps one each */
   const fair = recordOfWhoIsHere(nodes, st, { each: 6, cap: long(0).length * 2 + 400 });
   assert(/Byakuya named Jovan a liar/.test(fair.text) && /Rukia sparred beside Jovan/.test(fair.text), 'each person here keeps their newest line: ' + fair.lines + ' lines');
@@ -1158,4 +1158,31 @@ test('M510-51 OUR STORY SO FAR, ONE PART READ ONE WAY (his look at the raw reque
   assert(firsts.every((p, i) => i === 0 || firsts[i - 1] < p), 'in the order they happened, never twice: ' + firsts.join(', '));
   const recentBlock = notes.slice(at('In full, just before'), at('In full, earlier moments')).split('\n').slice(1).filter((l) => l.startsWith('- '));
   assert(recentBlock.length && recentBlock.every((l) => /^- \(pages \d+–\d+\) Line \d+:/.test(l)), 'the stretch just before the pages: each line with its own pages too');
+});
+
+test('M510-52 (the whole request read top to bottom, as the storyteller) PAST, PLANS, PRESENT — NOTHING TWICE, NOTHING UNNATURAL: the whole record stands where the hybrid does, named plainly, after canon and before the people; no brief beside a record that fits in full; a belief reads "believes", never "knows: believes"; a blind spot shows the fact, never the knower\'s "was told", and a belief is no one\'s blind spot; every age is in pages', async () => {
+  const { renderKnowledge, blindSpots, renderBlindSpots } = await import('../../js/engine/world.js');
+  let st = applyMutations({ ...emptyState(), page: 300 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Thirteenth Division yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Byakuya Kuchiki' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state;
+  st = { ...st, page: 300, knowledge: { 'Rukia Kuchiki': [{ fact: 'believes Jovan is only a recruit — untrue: Jovan is the new captain', atTurn: 299 }], 'Byakuya Kuchiki': [{ fact: 'was told Jovan serves Yamamoto as his personal attendant', atTurn: 299 }] } };
+  const small = []; for (let i = 0; i < 10; i += 1) small.push({ id: 's' + i, span: [i * 6, i * 6 + 5], level: 1, text: '[Day ' + (i + 1) + '] Jovan trains with the Thirteenth.' });
+  const build = (essentials) => buildRequest({ story: {}, messages: pages(6), settings: { tellerName: 'Hulk', writerName: 'Bruce' }, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: small.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: small }, smallEssentials: essentials, smallPlansBook: { plans: [{ id: 'p', title: 'The duel with Zaraki', whose: 'Jovan', aim: 'prove himself', parts: [{ who: 'Jovan', does: 'meets Zaraki at noon' }], status: 'standing' }] } });
+  for (const essentials of [null, { text: '- [Day 1–10] (pages 1–60) Jovan trains.', upTo: 59 }]) {
+    const r = build(essentials);
+    const notes = notesOf(r);
+    const at = (t) => notes.indexOf(t);
+    assert(at('Our story so far, in full — everything before the pages you have') !== -1 && at('Our story so far, in full') < at('Plans standing') && at('Plans standing') < at('The ground: '), (essentials ? 'with' : 'without') + ' essentials: the whole record after canon, then the plans, then the state of things now');
+    assert(!/In brief, from the beginning|What our story holds, in essentials/.test(notes), (essentials ? 'with essentials but a record that fits in full: no brief beside it' : 'no essentials: no brief'));
+    if (essentials) assert(/fits in full/.test(r.receipt.slots.find((s) => s.name === 'Story essentials').reason), 'the receipt says why the essentials did not ride');
+  }
+  /* "fits in full" is the record's own size, not the text handed over (cut to a small context's room): a long record cut
+   * short is the one the essentials stand in for */
+  const big = []; for (let i = 0; i < 60; i += 1) big.push({ id: 'b' + i, span: [i * 4, i * 4 + 3], level: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(40) });
+  const cut = buildRequest({ story: {}, messages: pages(6), settings: {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: big.slice(-3).map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: big }, smallEssentials: { text: '- [Day 1–60] (pages 1–240) Jovan trains.', upTo: 239 } });
+  assert(/In brief, from the beginning/.test(notesOf(cut)), 'a long record handed over cut short: the hybrid, with its brief');
+  const kn = renderKnowledge(st.knowledge, ['Rukia Kuchiki', 'Byakuya Kuchiki'], Infinity);
+  assert(/Rukia Kuchiki believes: Jovan is only a recruit — untrue: Jovan is the new captain\./.test(kn) && !/knows: believes/.test(kn), 'a belief reads as a belief: ' + kn);
+  const spots = renderBlindSpots(blindSpots(st.knowledge, ['Rukia Kuchiki', 'Byakuya Kuchiki', 'Jovan'], { turn: 300, mc: 'Jovan' }));
+  assert(/Rukia Kuchiki hasn’t found out: Jovan serves Yamamoto as his personal attendant \(Byakuya Kuchiki knows\)/.test(spots) && !/hasn’t found out: was told/.test(spots), 'the blind spot shows the fact: ' + spots);
+  assert(!/Byakuya Kuchiki hasn’t found out: (?:believes )?Jovan is only a recruit/.test(spots), 'a belief is no one’s blind spot');
+  /* ages in pages: the people's own law says it (finishing.mjs, "Last noted 30 pages ago") */
 });
