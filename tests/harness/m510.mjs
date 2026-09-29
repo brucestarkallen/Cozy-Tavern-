@@ -951,3 +951,34 @@ test('M510-40 (final audit) THE STEP BACK TO HIS MOVE NEVER OVERFLOWS: with the 
   const roomy = buildRequest({ story: {}, messages: mk(-1), settings: {}, state: { ...yard(), page: 6 }, modules: mods, memory: '', window: { keeperOn: false, budgetTokens: 22000 } });
   assert(tokensOf(roomy) <= 22000 && roomy.messages[0].role === 'user', 'a short move that fits is stepped back: ' + roomy.messages[0].role + ' ' + tokensOf(roomy));
 });
+
+test('M510-41 THE DAY TURNS AT HIS MIDNIGHT (his question: "does it know which day it is, and when a day is done? it feels stuck"): every call is written into the book of the day it FINISHED on, by the device’s own clock — a minute before midnight is yesterday’s, a minute after is today’s; "Today" is the day the view is drawn; the averages count the days since the first one used', async () => {
+  const { summarize, USAGE_PREFIX } = await import('../../js/engine/usage.js');
+  const { db: store } = await import('../../js/store.js');
+  const usageKeys = async () => ((await store.settings.keys()) || []).filter((k) => String(k).startsWith(USAGE_PREFIX));
+  for (const k of await usageKeys()) await store.settings.delete(k);
+  const realNow = Date.now;
+  const lateNight = new Date(2026, 8, 29, 23, 59, 30).getTime();
+  const pastMidnight = new Date(2026, 8, 30, 0, 0, 30).getTime();
+  const written = async (day) => { for (let i = 0; i < 200; i += 1) { if (await store.settings.get(USAGE_PREFIX + day)) return true; await new Promise((r) => setTimeout(r, 10)); } return false; };
+  try {
+    Date.now = () => lateNight;
+    await withHouse(thinkingHouse({ answer: '{"ok":1}' }), () => callWorker(CONN, { system: 's', user: 'before midnight' }));
+    assert(await written('2026-09-29'), 'the call at 23:59:30 is in the 29th’s book');
+    Date.now = () => pastMidnight;
+    await withHouse(thinkingHouse({ answer: '{"ok":2}' }), () => callWorker(CONN, { system: 's', user: 'after midnight' }));
+    assert(await written('2026-09-30'), 'the call at 00:00:30 is in the 30th’s book');
+  } finally { Date.now = realNow; }
+  const books = {};
+  for (const k of await usageKeys()) books[String(k).slice(USAGE_PREFIX.length)] = await store.settings.get(k);
+  const at = (d, h, m) => new Date(2026, 8, d, h, m).getTime();
+  const justAfter = summarize(books, [], at(30, 0, 5));
+  eq(justAfter.today.total.calls, 1, 'drawn at 00:05, Today is the 30th — one call');
+  eq(justAfter.week.total.calls, 2, 'the last 7 days hold both');
+  eq(justAfter.days, 2, 'the average counts two days (the 29th and today)');
+  eq(summarize(books, [], at(29, 23, 59)).today.total.calls, 1, 'drawn at 23:59 on the 29th, Today is the 29th — its one call');
+  const nextMorning = summarize(books, [], new Date(2026, 9, 1, 9, 0).getTime());
+  eq(nextMorning.today.total.calls, 0, 'the next morning starts empty');
+  eq(nextMorning.week.total.calls, 2, 'and the week still holds both');
+  for (const k of await usageKeys()) await store.settings.delete(k);
+});

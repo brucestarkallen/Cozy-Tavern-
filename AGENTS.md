@@ -12956,3 +12956,14 @@ presets and own words (his writing); the page finisher probed with second-person
 "You wonder whether she saw it too. Did she?"), a narrative question, speech with a question and a letter — all kept —
 and "What do you do?", an offer to continue and an OOC note — taken off (9 of 9).
 
+# Law M510-41 — the day turns at his midnight (a question, no fault found)
+He asked whether the usage "knows which day it is and when a day is done — it feels stuck". Traced end to end, no fault:
+every call (the storyteller's and every worker's) passes relay.js → meter.js watchUsage, which reads the stream's own
+branch to its end (a stopped stream is counted as far as it went) and writes the call into the book of the day it
+FINISHED on — engine/usage.js dayKey, the device's local date (getFullYear/getMonth/getDate; nothing reckons in UTC);
+"Today" is the local day at the moment the view is drawn, and Settings redraws the room it opens on (and then every
+other) each time it opens. What stands still by design: "Your busiest day" (a peak — it moves only when a day beats it)
+and the per-day/week/month averages (the last 30 days' spend over the days since the first one used). Law M510-41 runs
+two calls through the provider and the meter a minute either side of local midnight and draws the summary at 00:05,
+23:59 and the next morning. Test only — no code changed.
+
