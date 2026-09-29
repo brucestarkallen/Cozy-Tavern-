@@ -12928,3 +12928,18 @@ before midnight had gone into yesterday's book, the average spanned two days and
 still open, and DOM-113/114 waited in vain behind it. DOM-110 now clears every other day's usage book before seeding its
 day — the check no longer depends on the hour the walk runs.
 
+# M510-39 — his switch for the notes' role; the woken rules always in the system
+He: "best for me to have a switch whether the notes are user or assistant — but the modules as system, because they are
+indeed instructions. The notes I mean: the brief, the tracker and the rest." Two things. (1) The rules a scene wakes
+(Active modules: fight rules, how a fight sounds, the intimacy and sound rules…) are instructions: they left the notes
+and ride in the system as their own block, seat 4, whatever the notes' role. (2) Settings → The frame → "The notes before
+the story ride as": part of the system message (the default — seat 5, after the rules), a user message (his notes, opened
+"Bruce here. This is where things stand…"), or an assistant message (the storyteller's own notebook, opened "Hulk's
+notebook — where things stand in our story right now…", voice.js notebookOpening; isBriefing knows it). In the two message
+modes the brief and who's here leave the system and travel in that one message ("What this story is about:", "Who's
+here:"), before the story; his "before the pages" own words stand right after it. A request that then opens on the
+assistant gets his one line first only where a house insists (M510-38). The setting rides every request (chat.js), the
+small model's too, and the backup. Laws M510-39 (all three roles, the rules always system, his own words after the
+notes, the small request), DOM-142 (the switch in Settings, the notebook on the wire, back to the system); A4 and M386-4
+count the seats; lib.mjs notesOf and the walk's reader find the notes by their opening.
+

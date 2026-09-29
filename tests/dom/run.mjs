@@ -2181,7 +2181,7 @@ test('DOM-37 a housekeeper re-ink is a re-ink: the record line over the page is 
 /* M510-37: the notes ride above the story, in the system — in a provider's body, the system message(s) (or the system
  * array) after the frame and the craft; in a built request, the last system block. This returns them from their opening
  * words on ('' when none rode). */
-const NOTES_OPEN = /(^|\n\n)((?:[^\n]{0,80}? — )?(?:[^\n]{0,60} here\. This is where things stand in our story right now|where things stand right now: the writer’s own notes|Where things stand right now — the writer’s own notes))/;
+const NOTES_OPEN = /(^|\n\n)((?:[^\n]{0,80}? — )?(?:[^\n]{0,60} here\. This is where things stand in our story right now|where things stand right now: the writer’s own notes|Where things stand right now — the writer’s own notes|[^\n]{0,60}notebook — where things stand in our story right now))/;
 const notesInBody = (body) => {
   const b = body || {};
   const parts = [];
@@ -7070,6 +7070,45 @@ test('DOM-141 THE STORYTELLER’S VOICE, SAVED, IN SETTINGS (M510-35/36): save �
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+
+test('DOM-142 THE NOTES’ ROLE, HIS SWITCH, IN SETTINGS (M510-39): "The notes before the story ride as" → the storyteller’s own notebook — the next request opens on the assistant’s notebook and the system carries no notes; back to the system, and they ride there again', async () => {
+  const before = errors.length;
+  const priorRole = await db.settings.get('notesRole');
+  const st = await db.stories.create({ title: 'Notes role tale' });
+  await db.stories.update(st.id, { brief: 'A quiet harbour town.' }); /* create() keeps a title only — the brief is its own write */
+  try {
+    await openSettings();
+    const pick = q('#notes-role');
+    assert(pick && [...pick.options].map((o) => o.value).join(' ') === 'system user assistant', 'the three choices stand');
+    eq(pick.value, priorRole === 'user' || priorRole === 'assistant' ? priorRole : 'system', 'it shows what is kept');
+    pick.value = 'assistant'; pick.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(async () => (await db.settings.get('notesRole')) === 'assistant', 'kept');
+    await closeSettings();
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'I walk down to the harbour.'); submit(q('#composer'));
+    await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked');
+    const body = house.state.calls.slice(from).find((c) => !c.isWorker).body;
+    const firstTurn = body.messages.find((m) => m.role !== 'system');
+    assert(firstTurn && firstTurn.role === 'assistant' && /notebook — where things stand in our story right now/.test(String(firstTurn.content)) && /A quiet harbour town\./.test(String(firstTurn.content)), 'the storyteller’s own notebook opens the story, the brief in it: ' + String(firstTurn && firstTurn.content).slice(0, 120));
+    assert(!notesInBody({ messages: body.messages.filter((m) => m.role === 'system') }), 'and the system carries no notes');
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 20000);
+    await db.settings.set('notesRole', 'system');
+    const from2 = house.state.calls.length;
+    type(q('#composer-input'), 'I wait.'); submit(q('#composer'));
+    await until(() => house.state.calls.slice(from2).some((c) => !c.isWorker), 'asked again');
+    const body2 = house.state.calls.slice(from2).find((c) => !c.isWorker).body;
+    assert(/where things stand/i.test(notesInBody(body2)) && body2.messages.find((m) => m.role !== 'system').role === 'user', 'back in the system, and the story opens on his page');
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the second page landed', 20000);
+  } finally {
+    if (priorRole == null) await db.settings.delete('notesRole'); else await db.settings.set('notesRole', priorRole);
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
 
 console.log('Cozy Tavern — the dom walk');
 await runAll();

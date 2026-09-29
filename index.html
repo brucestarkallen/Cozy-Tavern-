@@ -389,6 +389,15 @@
             <textarea id="note-story" rows="4" spellcheck="false" aria-label="The note at the end, just for this story" placeholder="Leave empty and the story borrows the one above."></textarea>
             <div class="row"><button id="btn-save-note-story" class="btn" type="button">Keep it</button><button id="btn-copy-note-story" class="text-btn" type="button">Copy the words</button><span id="note-story-saved" class="quiet" hidden>Kept.</span></div>
           </div>
+          <!-- M510-39: the role of the notes before the story -->
+          <label class="stack-label" for="notes-role">The notes before the story ride as
+            <select id="notes-role">
+              <option value="system">Part of the system message (like a preset’s instructions above the chat)</option>
+              <option value="user">A user message — your notes, before the story</option>
+              <option value="assistant">An assistant message — the storyteller’s own notebook, before the story</option>
+            </select>
+          </label>
+          <p class="quiet">The notes are the brief, who’s here, the tracker (what’s on their mind, the state of things), the story’s record, canon and the rest that briefs the storyteller. The rules a scene wakes always ride in the system — they are instructions. Where a model refuses a conversation that opens on the storyteller, one line of yours opens it: “(Our story begins.)”.</p>
           <!-- M380: the role of everything sent after his message -->
           <label class="stack-label" for="after-role">Sent after your message as
             <select id="after-role">

@@ -164,7 +164,7 @@ test('M386-4 WHO’S HERE IS THE CAST: a canon person the ledger has in the scen
   /* the frame rides as the system; the briefing is the last system block (M510-37: above the story, never a user message
    * above his), after the frame and before every page of the story */
   assert(req.systemBlocks[0] && /You are Iron Man/.test(req.systemBlocks[0].text), 'the frame is the system');
-  eq(req.systemBlocks.map((b) => b.text).indexOf(briefing.content), 4, 'after the frame, before every page');
+  eq(req.systemBlocks.map((b) => b.text).indexOf(briefing.content), 5, 'after the frame and the woken rules (M510-39), before every page');
 }));
 
 test('M386-5 EVERY LEVER, FOR THE STORY IN HAND: always here and never are one list each; the story’s wiki is a decree that lets another universe go; notes, the story position, forget, look again and the preview run the extension’s own functions', async () => withWiki(async () => {

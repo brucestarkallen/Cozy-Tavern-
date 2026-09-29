@@ -3735,6 +3735,7 @@ export function initChat(ctx) {
       tellerPerson: await db.settings.get('tellerPerson'), /* M334: 'first' | 'second' | unset = follow the frame */
       groundingPhrase: await db.settings.get('groundingPhrase'), /* M358: the first words of its thinking */
       afterRole: await db.settings.get('afterRole'), /* M380: what follows his message rides as system (default) or user */
+      notesRole: await db.settings.get('notesRole'), /* M510-39: the notes before the story — system (default), user or assistant */
       ownWords: await db.settings.get('ownWords'), /* M466: words in the storyteller's own voice, placed where he chose */
     };
   }

@@ -148,10 +148,17 @@ export function briefingOpening(voice) {
   if (v.teller) return v.teller + ' — where things stand right now: the writer’s own notes, kept for him by his story app. They are for you alone: none of this is the story’s text, and none of it is ever quoted or mentioned on the page.';
   return NEUTRAL_BRIEFING;
 }
+/* M510-39: THE STORYTELLER'S OWN NOTEBOOK — the opening of the notes when he sends them as an assistant message: the teller
+ * keeping his own notes, in his own voice */
+export function notebookOpening(voice) {
+  const v = voice || {};
+  return (v.teller ? v.teller + '’s notebook' : 'My notebook') + ' — where things stand in our story right now. None of this is the story’s text: I keep it so I never lose the thread, and none of it is ever quoted or mentioned on the page.';
+}
 /* any opening the briefing can carry begins one of these ways — for whoever must recognise the briefing */
 export function isBriefing(content) {
   const s = String(content || '');
-  return s.startsWith(NEUTRAL_BRIEFING.slice(0, 28)) || /^(?:[^\n]{1,40} — )?(?:[^\n]{1,40} here\. This is where things stand in our story right now|where things stand right now)/.test(s);
+  return s.startsWith(NEUTRAL_BRIEFING.slice(0, 28)) || /^(?:[^\n]{1,40} — )?(?:[^\n]{1,40} here\. This is where things stand in our story right now|where things stand right now)/.test(s)
+    || /^(?:[^\n]{1,40}’s notebook|My notebook) — where things stand in our story right now/.test(s); /* M510-39 */
 }
 
 

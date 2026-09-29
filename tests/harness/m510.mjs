@@ -909,3 +909,32 @@ test('M510-38 HIS WORDS WHERE HE PUT THEM; HIS TURN FIRST ONLY WHERE A HOUSE INS
   const claudeBody = (claudeHouse.calls[0] || {}).body || {};
   assert(Array.isArray(claudeBody.messages) && claudeBody.messages[0] && claudeBody.messages[0].role === 'user' && JSON.stringify(claudeBody.messages[0].content).includes(STORY_BEGINS), 'Claude: his one line first, always: ' + JSON.stringify(claudeBody.messages && claudeBody.messages[0]).slice(0, 120));
 });
+
+test('M510-39 HIS SWITCH FOR THE NOTES’ ROLE (his word: "the notes as user or assistant — but the modules as system, they are indeed instructions; the notes are the brief, the tracker and the rest"): the woken rules always ride in the system; the notes — brief and who’s here with them — ride as system (default), his user message, or the storyteller’s own notebook, before the story', async () => {
+  const { withUserFirst, STORY_BEGINS } = await import('../../js/providers/userfirst.js');
+  const st = yard();
+  const mods = [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }, { mod: { id: 'fight-acoustics', name: 'How a fight sounds', text: 'FIGHT-SOUND-RULE: both lanes, every beat.' }, reason: 'a fight' }];
+  const own = [{ id: 'w', on: true, name: 'n', role: 'teller', place: 'before-pages', text: 'OWN-WORDS Hulk still here.' }];
+  const build = (notesRole, extra = {}) => buildRequest({ story: { brief: 'BRIEF-MARK: a Bleach story.', castNotes: 'CAST-MARK: Rukia, lieutenant.' }, messages: pages(6), settings: { notesRole, tellerName: 'Hulk', writerName: 'Bruce', ownWords: own, ...extra }, state: st, modules: mods, memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 } });
+  const texts = (r) => r.systemBlocks.map((b) => b.text);
+  for (const role of ['system', 'user', 'assistant']) {
+    const r = build(role === 'system' ? undefined : role);
+    const sys = texts(r).join('\n');
+    assert(/FIGHT-SOUND-RULE/.test(r.systemBlocks[4].text), role + ': the woken rules ride in the system, their own block');
+    assert(!r.messages.some((m) => /FIGHT-SOUND-RULE/.test(String(m.content))), role + ': never in a message');
+    if (role === 'system') {
+      assert(/BRIEF-MARK/.test(r.systemBlocks[2].text) && /CAST-MARK/.test(r.systemBlocks[3].text) && /where things stand/i.test(r.systemBlocks[5].text), 'system: the brief, who’s here and the notes in the system, after the rules');
+      assert(!/FIGHT-SOUND-RULE/.test(r.systemBlocks[5].text), 'the notes no longer carry the rules');
+      eq(r.messages[0].content, 'OWN-WORDS Hulk still here.', 'system: his own words open the story, right after the briefing');
+    } else {
+      const notes = r.messages[0];
+      eq(notes.role, role, role + ': one message before the story');
+      assert(/What this story is about:\nBRIEF-MARK/.test(notes.content) && /Who’s here:\n[\s\S]*CAST-MARK/.test(notes.content) && !/BRIEF-MARK|CAST-MARK/.test(sys), role + ': the brief and who’s here travel with the notes, out of the system');
+      assert(role === 'assistant' ? /^Hulk’s notebook — where things stand in our story right now/.test(notes.content) : /^Hulk — Bruce here\. This is where things stand/.test(notes.content), role + ': opened in its voice: ' + notes.content.slice(0, 60));
+      eq(r.messages[1].content, 'OWN-WORDS Hulk still here.', role + ': his own words right after the notes, before the first story page');
+      if (role === 'assistant') eq(withUserFirst(r.messages)[0].content, STORY_BEGINS, 'assistant: a house that insists gets his one line first, from the provider');
+    }
+  }
+  const small = build('assistant', { smallModelNow: true, frameOn: false, noteOn: false });
+  eq(small.messages[0].role, 'assistant', 'a small model’s notes follow the switch too');
+});

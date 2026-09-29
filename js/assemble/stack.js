@@ -98,7 +98,7 @@ import { sceneAnchor, recallFromRecord, recallLine, recallFromPages, recallPages
 import { shortcutsText } from '../commands.js'; /* M379 */
 import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main character's name never scores a recall */
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
-import { voiceOf, inVoice, toTeller, briefingOpening, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave, withCardNames } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
+import { voiceOf, inVoice, toTeller, briefingOpening, notebookOpening, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave, withCardNames } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView, findPersonKey, PEOPLE_BUDGET, PRESENT_CARDS_MAX, RECALL_MAX } from '../engine/people.js';
 import { lawsOf, lawsNamed, joinLaws, lawKey, ALWAYS_LAWS, SOUND_LAWS, LOAD_BEARING, FIGHT_LAWS, typedCombat } from './laws.js'; /* M510: his craft, law by law */
 import { renderPlan, renderSounds } from './planwords.js'; /* M510: the planning helper's plan, in his voice */
@@ -894,7 +894,8 @@ export function buildRequest({
    * It leads the story-state, just before the state of things. */
   if (peopleText) stateParts.push('On their mind:\n' + peopleText);
   if (facts) stateParts.push(facts);
-  if (activeText) stateParts.push(activeText);
+  /* M510-39: the rules a scene wakes are instructions — they ride in the system, their own block after who's here, never in
+   * the notes (whatever role he gives the notes) */
   /* M510-15: THE STORY'S ESSENTIALS — his design: the whole record streamlined (agents/essentials.js), always in front of
    * a small model; the record's own lines only when a move names them (the recall after the plan), and only the few lines
    * folded since the essentials were made ride as they stand. No essentials yet: the record's newest lines (M510-14). */
@@ -1127,7 +1128,28 @@ export function buildRequest({
    * twice before the story began — on a tale's first turn, two user turns in a row, the notes and his #story. They are
    * the last system block now (never cached — the frame and the craft stay the stable prefix before them), so the wire
    * reads as a preset does: system above, then the story, then his move. */
-  if (stateInjection) systemBlocks.push({ text: stateInjection.content, cache: false });
+  /* M510-39: HIS SWITCH FOR THE NOTES' ROLE — "the notes as user or assistant, but the modules as system: they are indeed
+   * instructions; the notes are the brief, the tracker and the rest". Seat 4 is the woken rules, always system. The notes —
+   * the brief, who's here, and everything that briefs (on their mind, the state of things, the record, canon, the
+   * director's and editor's words, the eye…) — ride as he sets them: in the system (the default, seat 5, after the rules),
+   * or as ONE message before the story, his (user) or the storyteller's own notebook (assistant). A request that then
+   * opens on the assistant gets his one line first only where a house insists (providers/userfirst.js). */
+  const notesRole = safeSettings.notesRole === 'user' || safeSettings.notesRole === 'assistant' ? safeSettings.notesRole : 'system';
+  systemBlocks.push({ text: activeText || '', cache: false });
+  let notesMessage = null;
+  if (notesRole === 'system') {
+    if (stateInjection) systemBlocks.push({ text: stateInjection.content, cache: false });
+  } else {
+    const opening = briefingOpening(voice);
+    const told = stateInjection && stateInjection.content.startsWith(opening) ? stateInjection.content.slice(opening.length).replace(/^\n+/, '') : (stateInjection ? stateInjection.content : '');
+    const briefText = systemBlocks[2] && typeof systemBlocks[2].text === 'string' ? systemBlocks[2].text.trim() : '';
+    const hereText = systemBlocks[3] && typeof systemBlocks[3].text === 'string' ? systemBlocks[3].text.trim() : '';
+    const parts = [briefText ? 'What this story is about:\n' + briefText : '', hereText ? 'Who’s here:\n' + hereText : '', told].filter(Boolean);
+    if (parts.length) notesMessage = { role: notesRole, content: (notesRole === 'assistant' ? notebookOpening(voice) : opening) + '\n\n' + parts.join('\n\n') };
+    systemBlocks[2] = { ...systemBlocks[2], text: '' };
+    systemBlocks[3] = { ...systemBlocks[3], text: '' };
+  }
+  if (notesMessage) out.push(notesMessage);
   out.push(...wire);
   /* M379: THE CONTINUE NUDGE IS HIS OWN MESSAGE. He sent nothing (or tapped Continue): "Go on." used to ride in a second
    * message after the story, from the house; it now stands in HIS place — the one user message of this turn — and only
@@ -1151,7 +1173,7 @@ export function buildRequest({
     const beforeYours = ownWords.filter((w) => w.place === 'before-your-message').map(asMessage);
     if (beforeYours.length) {
       let at = -1;
-      for (let i = out.length - 1; i >= 0; i -= 1) if (out[i] && out[i].role === 'user' && out[i] !== stateInjection) { at = i; break; }
+      for (let i = out.length - 1; i >= 0; i -= 1) if (out[i] && out[i].role === 'user' && out[i] !== notesMessage) { at = i; break; }
       /* M510-38: on a tale's first turn too, the entry stands where he put it — right before his message, even when that
        * opens the request on the teller's words; a house that insists on his turn first gets one line of his in front
        * (providers/userfirst.js), and no request ends on the teller's words (Claude would take them for a started reply) */
@@ -1161,7 +1183,7 @@ export function buildRequest({
     if (beforePages.length) {
       /* with no notes message to follow, an assistant entry would open the request — a thing strict houses refuse
        * (the first turn must be the user's); it steps behind his first page instead, ahead of any entry placed above */
-      out.splice(0, 0, ...beforePages); /* M510-38: right after the briefing (the system), before the first story page — where he put it */
+      out.splice(notesMessage ? 1 : 0, 0, ...beforePages); /* M510-38: right after the briefing (the system, or the notes' own message — M510-39), before the first story page — where he put it */
     }
     out.push(...ownWords.filter((w) => w.place === 'after-your-message').map(asMessage));
   }

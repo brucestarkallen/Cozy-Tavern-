@@ -58,8 +58,9 @@ test('A4: cache breakpoint sits at the END of slot 2, slots 3-4 non-cached', () 
   const story = { brief: 'a brief' };
   const modules = [{ mod: { id: 'core-craft', text: 'the craft text' }, reason: 'the rulebook' }];
   const r = buildRequest({ story, messages: pages(2), settings: { frameText: 'frame words' }, state: { present: [{ name: 'Mira' }] }, modules, memory: '', cast: [], window: { keeperOn: true } });
-  eq(r.systemBlocks.length, 5, 'the four seats, then the notes — above the story, in the system (M510-37)');
-  eq(r.systemBlocks[4].cache, false, 'the notes are never cached — the frame and the craft stay the stable prefix');
+  eq(r.systemBlocks.length, 6, 'the four seats, the woken rules (M510-39), then the notes — above the story, in the system (M510-37)');
+  eq(r.systemBlocks[4].cache, false, 'the woken rules are never cached');
+  eq(r.systemBlocks[5].cache, false, 'the notes are never cached — the frame and the craft stay the stable prefix');
   assert(r.systemBlocks[0].cache === true && r.systemBlocks[1].cache === true, 'slots 1-2 cached');
   assert(r.systemBlocks[2].cache === false && r.systemBlocks[3].cache === false, 'slots 3-4 NOT cached');
 });

@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-038)
+# Cozy Tavern — handoff for the next session (state at m510-039)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1086,4 +1086,12 @@ founding design lives in AGENTS.md's first entries.)
   message must be the user's); any OpenAI-shaped house only after it refuses a conversation that opens on the assistant
   (ORDER_REFUSAL), remembered for that model at that address (connection.userFirstFor), as a refused late system message
   is. A house that takes it gets nothing added. Laws M510-38; M466-3/4, M481 and DOM-118 restated.
+- M510-39 — HIS SWITCH FOR THE NOTES' ROLE (Settings → The frame → "The notes before the story ride as"; setting
+  notesRole: system (default) | user | assistant). The woken rules (Active modules) are instructions: always system, their
+  own block — seat 4 (never in the notes). The notes — the brief and who's here travelling with them, on their mind, the
+  state of things, the record, canon, the director's and editor's words, the eye, the small model's parts — ride as seat 5
+  of the system (default), or as ONE message before the story: his (user, briefingOpening) or the storyteller's own
+  notebook (assistant, voice.js notebookOpening), seats 2–3 then empty. "Before the pages" own words stand right after
+  that message. An assistant-first request gets "(Our story begins.)" only where a house insists (M510-38). Laws M510-39,
+  DOM-142; A4 and M386-4 count the seats.
 

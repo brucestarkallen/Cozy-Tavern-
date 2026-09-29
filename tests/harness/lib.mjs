@@ -19,4 +19,4 @@ export async function runAll() {
 }
 
 /* M510-37: the notes ride as the last system block (above the story, never cached) — no longer a user message first */
-export const notesOf = (r) => { const b = ((r && r.systemBlocks) || []).slice(4).find((x) => x && typeof x.text === 'string' && x.text); return b ? b.text : ''; };
+export const notesOf = (r) => { const b = ((r && r.systemBlocks) || []).slice(4).find((x) => x && typeof x.text === 'string' && /where things stand/i.test(x.text)); return b ? b.text : ''; }; /* M510-39: seat 4 is the woken rules; the notes follow */
