@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-054)
+# Cozy Tavern — handoff for the next session (state at m510-055)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1207,4 +1207,13 @@ founding design lives in AGENTS.md's first entries.)
   richer, else newer, stays; other keys and names become aliases; redirect map) runs on the copy a branch receives
   (carryCanonMemory) and on the drawer's list. The note to the storyteller already wrote one block per character (M-ext
   seenEntities). Law M510-54, DOM-148 (failed on m510-053: "got 2").
+- M510-55 — WHAT THE STORYTELLER SAW, IN THE ORDER IT WAS SENT. stack.js orderAsSent(slots, systemBlocks, out) runs last:
+  each row that rode stands where its own words stand in the request (system blocks, then messages; a line's "- (pages
+  a–b)" prefix ignored when looking; the closing's parts — plan, sounds, frame said again, note, nudge — looked for from
+  the end, since the frame said again is also the first system block's words); a row that did not ride stands beside the
+  row before it in EVERY_ROW (now in the sent order: frame, craft, brief, who's here, active modules, canon, story in
+  short, essentials, what remains, who's here in the recent pages, who's here in the record, plans, on their mind, the
+  state of things, …). The record rows' explanations name the words they are sent under ("sent as “Our story so far — In
+  brief…”"); the pages' row is "The pages, word for word" (was "The story so far", which now named the record in the
+  raw). Law M510-55; M510-23 and M21-B read the new order.
 

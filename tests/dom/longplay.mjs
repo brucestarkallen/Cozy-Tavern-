@@ -254,7 +254,7 @@ test('LONG-4 the context handed to the storyteller stays flat: turns 60-89 cost 
   console.log('    tokens per turn — turns 25-45 mean ' + Math.round(ma) + ', turns 60-89 mean ' + Math.round(mb) + ', max ' + maxB);
   assert(mb <= ma * 1.15, 'flat: late turns cost no more than ' + Math.round(ma * 1.15) + ', got ' + Math.round(mb));
   assert(maxB <= ma * 1.25, 'no late turn balloons: ' + maxB);
-  const win = receipts[receipts.length - 1].slots.find((s) => s.name === 'The story so far');
+  const win = receipts[receipts.length - 1].slots.find((s) => s.name === 'The pages, word for word');
   const src = String(win && win.source || '');
   /* the carried count is the FIRST number, in every form the receipt takes:
    * "N of T pages", "the last N of T pages", "all T pages word for word" */

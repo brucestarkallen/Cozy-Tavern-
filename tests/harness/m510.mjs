@@ -620,7 +620,7 @@ test('M510-23 WHO’S HERE, IN THE RECENT PAGES (his duchy): the storyteller’s
   const row = small.receipt.slots.find((s) => s.name === 'Who’s here, in the recent pages');
   assert(row && row.tokens > 0 && /Lord Varen/.test(row.reason) && /Lady Mira/.test(row.reason), 'its row, naming whom');
   const names = small.receipt.slots.map((s) => s.name);
-  eq(names.indexOf('Who’s here, in the recent pages'), names.indexOf('Who’s here, in the record') + 1, 'in its place among the rows');
+  assert(names.indexOf('Who’s here, in the recent pages') > names.indexOf('What remains') && names.indexOf('Who’s here, in the recent pages') < names.indexOf('On their mind'), 'in its place among the rows — as it is sent, inside our story so far, before the people (M510-55)');
   const gone = { ...applyMutations({ ...emptyState(), page: 40 }, base).state, page: 40 };
   assert(!notesOf(mk(true, gone)).includes('What the recent pages hold'), 'gone from the scene, gone from the page');
   const normal = mk(false, here);
@@ -1195,4 +1195,22 @@ test('M510-54 ONE PERSON, ONE ENTRY (his report: "canon verification shows the c
   eq(redirect.rukia, 'rukia kuchiki', 'the let-go key points at the kept one');
   assert(cache['rukia kuchiki'].aliases.includes('Midget') && cache['rukia kuchiki'].aliases.includes('rukia'), 'names kept as aliases');
   eq(Object.keys(src).length, 5, 'the cache handed in is not touched');
+});
+
+test('M510-55 WHAT THE STORYTELLER SAW, IN THE ORDER IT WAS SENT (his word: "the order of things and the explanation inside don\'t look like the raw"): every row that rode stands where its words stand in the request — the system first, then the notes (canon, our story so far, the plans, the people, the state of things), the pages, the closing; a row that did not ride stands beside the row it would follow; the record\'s rows name the words they are sent under; the pages are "The pages, word for word", not "the story so far"', async () => {
+  const st = { ...applyMutations({ ...emptyState(), page: 300 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Thirteenth Division yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state, page: 300 };
+  const big = []; for (let i = 0; i < 60; i += 1) big.push({ id: 'b' + i, span: [i * 4, i * 4 + 3], level: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(40) + (i === 9 ? 'Rukia Kuchiki corrects his stance.' : '') });
+  const mods = [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }, { mod: { id: 'fight-acoustics', name: 'How a fight sounds', text: 'Both lanes, every beat.' }, reason: 'a fight' }];
+  const r = buildRequest({ story: { brief: 'A Bleach story.' }, messages: pages(8), settings: { frameText: 'I am Hulk.', noteText: 'Keep it LOUD.', noteOn: true }, state: st, modules: mods, memory: big.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: big }, smallEssentials: { text: '- [Day 1–60] (pages 1–240) Jovan trains.', upTo: 239 }, smallPlansBook: { plans: [{ id: 'p', title: 'The duel', whose: 'Jovan', aim: 'win', parts: [{ who: 'Jovan', does: 'fights' }], status: 'standing' }] } });
+  const rows = r.receipt.slots;
+  const rode = rows.filter((s) => s.tokens > 0).map((s) => s.name);
+  const expect = ['The frame', 'The craft', 'The brief', 'Active modules', 'Story essentials', 'What remains', 'Plans standing', 'The state of things', 'The pages, word for word', 'The note at the end'];
+  const got = rode.filter((n) => expect.includes(n));
+  eq(got.join(' → '), expect.filter((n) => rode.includes(n)).join(' → '), 'the rows that rode, in the order they were sent');
+  const wire = [...r.systemBlocks.map((b) => b.text), ...r.messages.map((m) => String(m.content))].join('\n');
+  assert(/sent as “Our story so far — In brief, from the beginning”/.test(rows.find((s) => s.name === 'Story essentials').source), 'the brief’s row names what it is sent under');
+  assert(/sent inside “Our story so far” as “In full, just before the pages you have”/.test(rows.find((s) => s.name === 'What remains').source) && /In full, just before the pages you have/.test(wire), 'and the record’s — words the raw request holds');
+  assert(rows.some((s) => s.name === 'The pages, word for word' && s.tokens > 0) && !rows.some((s) => s.name === 'The story so far'), 'the pages are named as what they are');
+  const at = (n) => rows.findIndex((s) => s.name === n);
+  assert(at('Who’s here, in the recent pages') > at('What remains') && at('Who’s here, in the recent pages') < at('On their mind'), 'a row that did not ride stands where it would have (with the story so far, before the people)');
 });

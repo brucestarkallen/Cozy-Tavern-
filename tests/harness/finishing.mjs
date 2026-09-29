@@ -145,7 +145,7 @@ test('M12 coverage: the receipt says when the window widened past its size', () 
     story: {}, messages: pages(45), settings: { noteText: '' }, state: {}, modules: [],
     memory: '', window: { keeperOn: true, window: 30, nodes: [] },
   });
-  const slot = r.receipt.slots.find((s) => s.name === 'The story so far');
+  const slot = r.receipt.slots.find((s) => s.name === 'The pages, word for word');
   assert(/still unfolded by the keeper/.test(slot.source), 'the extension is honest on the receipt');
   eq(r.messages.length, 45, 'every page rides when nothing is covered');
   const covered = buildRequest({

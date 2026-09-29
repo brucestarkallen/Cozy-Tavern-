@@ -18,23 +18,23 @@ test('A1: keeper on — slot 8 carries ONLY the last 30 pages', () => {
   eq(hist.length, 31, 'window is 30, opened on his page');
   eq(r.messages[0].role, 'user', 'the story opens on his page');
   assert(hist[0].content.startsWith('page 14') && hist[1].content.startsWith('page 15'), 'the window of thirty starts at page 15 — opened by his move on page 14 that led to it');
-  assert(/last 30 of 45/.test(slot(r, 'The story so far').source), 'receipt reports counts');
+  assert(/last 30 of 45/.test(slot(r, 'The pages, word for word').source), 'receipt reports counts');
 });
 
 test('A1: window boundary holds under the size; custom window honored', () => {
   const r = buildRequest({ story: {}, messages: pages(10), settings: {}, state: {}, modules: [], memory: '', window: { keeperOn: true, window: 4 } });
   const hist = r.messages.filter((m) => String(m.content).startsWith('page '));
   eq(hist.length, 4, 'custom window of 4');
-  assert(slot(r, 'The story so far').source.startsWith('the last 4 of 10'), 'receipt names cutoff');
+  assert(slot(r, 'The pages, word for word').source.startsWith('the last 4 of 10'), 'receipt names cutoff');
 });
 
 test('A1: keeper off — token-budgeted cutoff with an honest receipt line', () => {
   /* M379: the room is sized from the house's own words (they grew by the shortcuts), plus a little for pages — so the law
    * tested is the honest cutoff line, never a guess at how big the standing words are */
   const whole = buildRequest({ story: {}, messages: pages(40), settings: {}, state: {}, modules: [], memory: '', window: { keeperOn: false, budgetTokens: 10000000 } });
-  const fixed = whole.receipt.slots.filter((x) => x.name !== 'The story so far').reduce((n, x) => n + x.tokens, 0);
+  const fixed = whole.receipt.slots.filter((x) => x.name !== 'The pages, word for word').reduce((n, x) => n + x.tokens, 0);
   const r = buildRequest({ story: {}, messages: pages(40), settings: {}, state: {}, modules: [], memory: '', window: { keeperOn: false, budgetTokens: fixed + 120 } });
-  const s = slot(r, 'The story so far');
+  const s = slot(r, 'The pages, word for word');
   assert(/pages carried word for word, the rest rests/.test(s.source), 'honest cutoff line: ' + s.source);
   const carried = parseInt(s.source, 10);
   assert(carried > 0 && carried < 40, 'a budgeted subset rides');
@@ -159,6 +159,6 @@ test('M162: the coverage law reaches back only as far as the room allows', () =>
     settings: {}, state: {}, modules: [], memory: 'the record',
     window: { keeperOn: true, window: 30, nodes, budgetTokens: 20000 },
   });
-  const slot8 = r.receipt.slots.find((s) => s.name === 'The story so far');
+  const slot8 = r.receipt.slots.find((s) => s.name === 'The pages, word for word');
   assert(/no line yet and would not fit the room/.test(slot8.source), 'the receipt names them: ' + slot8.source);
 });

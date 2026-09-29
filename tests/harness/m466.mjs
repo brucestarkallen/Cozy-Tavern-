@@ -125,8 +125,8 @@ test('M481 the receipt shows each own-voice row AT ITS LANDMARK — before "The 
   ] });
   const names = req.receipt.slots.map((s) => s.name);
   const at = (n) => names.indexOf(n);
-  assert(at('Own words — front') !== -1 && at('Own words — front') < at('The story so far'), 'the front row before the pages: ' + names.join(' | '));
-  assert(at('Own words — mid') > at('The story so far') && at('Own words — mid') < at('The note at the end'), 'the mid row after the pages, before the note');
+  assert(at('Own words — front') !== -1 && at('Own words — front') < at('The pages, word for word'), 'the front row before the pages: ' + names.join(' | '));
+  assert(at('Own words — mid') > at('The pages, word for word') && at('Own words — mid') < at('The note at the end'), 'the mid row after the pages, before the note');
   assert(at('Own words — tail') > at('Own words — mid') && at('Own words — tail') < at('The note at the end'), 'the tail row after the mid, before the note');
   const msgs = req.messages;
   eq(msgs.findIndex((m) => /FRONT-MARK/.test(m.content)), 0, 'the wire as M466-3 holds (M510-38: the front entry opens the story, before his first page)');

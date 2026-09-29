@@ -1781,7 +1781,7 @@ test('M259-46: every part the receipt lists is in the request — nothing counte
     'The state of things': ['PLACE-MARK'], 'Active modules': ['MODULE-MARK'], 'What remains': ['MEMORY-MARK'],
     'The lore shelf': ['LORE-MARK'], 'The world\u2019s word': ['WORLD-MARK'], 'The director\u2019s note': ['DIRECTOR-MARK'],
     'The editor\u2019s eye': ['EDITOR-MARK'], 'The house\u2019s eye': ['EYE-MARK'], 'The house has ruled': ['RULING-MARK'],
-    'The story so far': ['HISTORY-MARK'], 'The note at the end': ['NOTE-MARK'], 'The house heard': ['DIRECTIVE-MARK'],
+    'The pages, word for word': ['HISTORY-MARK'], 'The note at the end': ['NOTE-MARK'], 'The house heard': ['DIRECTIVE-MARK'],
   };
   const listed = (req.receipt.slots || []).filter((s) => s.tokens > 0);
   /* M379: a house command's law is no longer a part of the request (it lives in the standing words, with the shortcuts) */

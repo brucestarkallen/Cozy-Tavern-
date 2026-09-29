@@ -13173,3 +13173,15 @@ and one entry answers; bridge.js mergeCanonTwins merges the twins already kept (
 other's key and names become aliases) on the copy a branch receives and in the drawer's list. Both her names find the one
 entry. Law M510-54; DOM-148.
 
+# M510-55 — What the storyteller saw, in the order it was sent
+He: "why does What the storyteller saw show the order of things and the explanations inside not like the raw?" The rows
+stood in the order the builder counted them (and a fixed list, EVERY_ROW, from before the request was rebuilt): On their
+mind and the state of things before the record, the woken rules after the notes — while the raw request had moved on
+(the notes in the system, our story so far after canon, the woken rules their own block). And two names collided: the
+receipt called the last pages "The story so far" while the raw request's "Our story so far" is the record. Now the rows are
+ordered by where their own words stand in the request as sent (orderAsSent — the rows only move; a row that did not ride
+stands beside the row it would follow; the closing's parts are looked for from the end), EVERY_ROW is the sent order, the
+record rows say what they are sent under ("sent as “Our story so far — In brief, from the beginning”", "sent inside “Our
+story so far” as “In full, just before the pages you have”"…), the state of things says it is sent nearest the pages, and
+the pages' row is "The pages, word for word". Law M510-55.
+
