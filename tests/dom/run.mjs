@@ -7312,6 +7312,40 @@ test('DOM-147 SMART RECALL THROUGH THE APP (M510-50): with the essentials made, 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-148 ONE RUKIA (M510-54): a canon memory that kept the same wiki page under two names ("rukia" and "rukia kuchiki" — a branch carried a stale miss, found again) shows her once in the drawer; and a branch starts with her once', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'two Rukias' });
+  const twin = (name, ts, extra = {}) => ({ name, wiki: 'bleach', kind: 'character', found: true, sections: { physical: 'Black, chin-length hair; violet eyes.', affiliation: 'Thirteenth Division' }, aliases: [], ts, ...extra });
+  await db.settings.set('canonOn:' + st.id, true);
+  await db.settings.set('canonMeta:' + st.id, { canon_grounding_wiki: 'bleach', canon_grounding_wiki_ok: { wikis: 'bleach', name: 'x', fp: '(manual)', manual: true }, canon_grounding_cache: { 'rukia': twin('Rukia Kuchiki', 2), 'rukia kuchiki': twin('Rukia Kuchiki', 1), 'byakuya kuchiki': twin('Byakuya Kuchiki', 3, { sections: { physical: 'Long black hair.' } }) } });
+  let branch = null;
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); }
+    click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer');
+    await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(400);
+    const room = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === 'What canon says');
+    assert(room, 'the canon room stands');
+    const rows = (name) => [...room.querySelectorAll('details.canon-card')].filter((d) => { const sum = d.querySelector('summary'); return sum && sum.textContent.includes(name); }).length; /* each person is a card */
+    eq(rows('Rukia Kuchiki'), 1, 'Rukia drawn once');
+    eq(rows('Byakuya Kuchiki'), 1, 'and Byakuya once');
+    click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away');
+    const { carryCanonMemory } = await import('../../js/canon/bridge.js');
+    branch = await db.stories.create({ title: 'two Rukias — a branch' });
+    await carryCanonMemory(st.id, branch.id, { fromTheTail: false });
+    const kept = ((await db.settings.get('canonMeta:' + branch.id)) || {}).canon_grounding_cache || {};
+    eq(Object.values(kept).filter((e) => e && e.found && e.name === 'Rukia Kuchiki').length, 1, 'the branch starts with her once');
+    const { canonEntryFor } = await import('../../js/canon/bridge.js');
+    const byShort = canonEntryFor(kept, 'Rukia', ['Rukia']); const byFull = canonEntryFor(kept, 'Rukia Kuchiki', ['Rukia Kuchiki']);
+    assert(byShort && byFull && byShort.key === byFull.key, 'both her names find the one entry: ' + (byShort && byShort.key) + ' / ' + (byFull && byFull.key));
+  } finally {
+    for (const id of [st.id, branch && branch.id]) if (id) { await db.settings.delete('canonOn:' + id).catch(() => {}); await db.settings.delete('canonMeta:' + id).catch(() => {}); await db.stories.remove(id).catch(() => {}); }
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

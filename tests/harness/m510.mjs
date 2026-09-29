@@ -1186,3 +1186,13 @@ test('M510-52 (the whole request read top to bottom, as the storyteller) PAST, P
   assert(!/Byakuya Kuchiki hasn’t found out: (?:believes )?Jovan is only a recruit/.test(spots), 'a belief is no one’s blind spot');
   /* ages in pages: the people's own law says it (finishing.mjs, "Last noted 30 pages ago") */
 });
+
+test('M510-54 ONE PERSON, ONE ENTRY (his report: "canon verification shows the characters twice — after I branch to the start of the scene there are two Rukias"): the same wiki page kept under two keys is one person — the richer (else newer) stays, the other key and name join its aliases; a miss and other people are untouched', async () => {
+  const { mergeCanonTwins } = await import('../../js/canon/bridge.js');
+  const src = { 'rukia': { name: 'Rukia Kuchiki', wiki: 'bleach', found: true, sections: { physical: 'x' }, ts: 5 }, 'rukia kuchiki': { name: 'Rukia Kuchiki', wiki: 'bleach', found: true, sections: { physical: 'x', rank: 'y' }, ts: 1, aliases: ['Midget'] }, 'byakuya': { name: 'Byakuya Kuchiki', wiki: 'bleach', found: true, sections: { physical: 'z' }, ts: 2 }, 'kon': { name: 'kon', found: false, reason: 'no-page' }, 'rukia (other wiki)': { name: 'Rukia Kuchiki', wiki: 'other', found: true, sections: { a: 1 }, ts: 9 } };
+  const { cache, redirect } = mergeCanonTwins(src);
+  eq(Object.keys(cache).sort().join(', '), 'byakuya, kon, rukia (other wiki), rukia kuchiki', 'one Rukia per wiki page; the miss and Byakuya stand');
+  eq(redirect.rukia, 'rukia kuchiki', 'the let-go key points at the kept one');
+  assert(cache['rukia kuchiki'].aliases.includes('Midget') && cache['rukia kuchiki'].aliases.includes('rukia'), 'names kept as aliases');
+  eq(Object.keys(src).length, 5, 'the cache handed in is not touched');
+});

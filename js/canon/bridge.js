@@ -887,6 +887,33 @@ export async function canonWithdraw(storyId) {
  * branch. What the auto-tracker derived FROM the pages (a story position it advanced to, the positions it passed, the
  * current setting) belongs to the timeline: a branch from an older page lets it go and the tracker finds it again as
  * the branch's own story moves. */
+/* M510-54: ONE PERSON, ONE ENTRY — found entries of the same wiki page (the same name, the same wiki) kept under two keys
+ * (before M510-54 a name looked up again under another form wrote the page again) are one person: the newest-read one
+ * stays, the other keys and names join its aliases. Returns { cache, redirect } — redirect maps a let-go key to the kept one.
+ * Pure: the cache handed in is not touched. */
+export function mergeCanonTwins(cache) {
+  const src = cache && typeof cache === 'object' ? cache : {};
+  const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+  const out = {}; const redirect = {}; const byPerson = new Map();
+  const richness = (e) => Object.values((e && e.sections) || {}).filter(Boolean).length;
+  for (const [k, e] of Object.entries(src)) {
+    if (!e || typeof e !== 'object' || !e.found) { out[k] = e; continue; }
+    const id = norm(e.wiki) + '|' + norm(e.name);
+    const kept = byPerson.get(id);
+    if (!kept) { byPerson.set(id, k); out[k] = { ...e }; continue; }
+    const a = out[kept];
+    const keepNew = richness(e) > richness(a) || (richness(e) === richness(a) && (Number(e.ts) || 0) > (Number(a.ts) || 0));
+    const winner = keepNew ? { ...e } : a; const loser = keepNew ? a : e; const loserKey = keepNew ? kept : k; const winnerKey = keepNew ? k : kept;
+    winner.aliases = [...new Set([...(winner.aliases || []), ...(loser.aliases || []), loser.name, loserKey].filter((x) => x && norm(x) !== norm(winner.name)))];
+    delete out[loserKey];
+    out[winnerKey] = winner;
+    byPerson.set(id, winnerKey);
+    redirect[loserKey] = winnerKey;
+    for (const [from, to] of Object.entries(redirect)) if (to === loserKey) redirect[from] = winnerKey;
+  }
+  return { cache: out, redirect };
+}
+
 export async function carryCanonMemory(fromId, toId, { fromTheTail = false } = {}) {
   if (!fromId || !toId) return false;
   /* M399: a branch keeps its story's own switch — on where the story had it on, off where it did not */
@@ -895,6 +922,8 @@ export async function carryCanonMemory(fromId, toId, { fromTheTail = false } = {
   const saved = live || (await db.settings.get(canonMetaKey(fromId)));
   if (!saved || typeof saved !== 'object' || !Object.keys(saved).length) return false;
   const { summaryception, ...copy } = JSON.parse(JSON.stringify(saved));
+  /* M510-54: a branch starts with each person once */
+  if (copy.canon_grounding_cache && typeof copy.canon_grounding_cache === 'object') copy.canon_grounding_cache = mergeCanonTwins(copy.canon_grounding_cache).cache;
   if (!fromTheTail) {
     const arc = copy.canon_grounding_arc;
     if (arc && typeof arc === 'object' && arc.mode === 'begun') delete copy.canon_grounding_arc;

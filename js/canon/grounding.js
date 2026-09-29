@@ -1773,6 +1773,20 @@ async function ensureGrounded(name, trusted = false) {
                 // at note time for exactly the pair that's on screen.
                 const relRaw = extractSectionRaw(wikitext, ["relationships", "relationship"], 4000);
                 const kind = (charSignal || charSection) ? "character" : "place";
+                // COZY M510-54: ONE PERSON, ONE ENTRY. A name looked up again under another form ("Rukia" after "Rukia
+                // Kuchiki" — a stale miss carried into a branch, found the second time) landed on the page already kept and
+                // wrote it again under the new key: two Rukias in the drawer. The same page of the same wiki is the same
+                // person — the new name joins its aliases, the miss under that name goes, and the one entry answers.
+                const twinKey = Object.keys(c).find((k2) => k2 !== key && c[k2] && c[k2].found && c[k2].sections && normName(c[k2].name) === normName(title) && String(c[k2].wiki || "") === String(wiki || ""));
+                if (twinKey) {
+                    const twin = c[twinKey];
+                    twin.aliases = [...new Set([...(twin.aliases || []), ...aliases, name].filter((a) => a && normName(a) !== normName(twin.name)))];
+                    twin.ts = Date.now();
+                    if (c[key] && !c[key].found) delete c[key];
+                    saveCache();
+                    debug(`✓ ${title} again, as "${name}" — the same person: kept once`);
+                    return twin;
+                }
                 c[key] = { name: title, sections, aliases, relRaw, rel: {}, wiki, kind, found: true, ts: Date.now() };
                 // LLM curation runs in the BACKGROUND — this turn ships the regex
                 // sections immediately, the dossier upgrades every turn after.

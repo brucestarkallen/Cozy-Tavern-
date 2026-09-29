@@ -13161,3 +13161,15 @@ just before the ones you have"; "In full, earlier moments with the people here";
 state of things; the helper's plan still closes the request in his voice (and its "Set against Jovan: Jovan" now says his
 name once). A belief is held "since about N pages ago", not "learned". The frontier request is untouched (9 of 9).
 
+# M510-54 — one person, one canon entry
+His report: "why in canon verification are the characters duplicated? I branched the chat to the start of the scene and
+now there are two Rukias." Reproduced (DOM-148 on m510-053: the drawer drew Rukia twice). The canon cache is keyed by the
+name that was looked up. The same wiki page found under a second name — "rukia" when "rukia kuchiki" was kept (the branch
+copies the canon memory whole, a stale miss for the short name with it; looked up again in the branch, it found her page)
+— was written again under the new key. The note to the storyteller already wrote one block per character; the drawer
+listed every entry, and a branch copied both. Now: at the source (canon/grounding.js), a page found that a kept entry of
+the same wiki already holds joins that entry — the new name goes into its aliases, the miss under that name is let go —
+and one entry answers; bridge.js mergeCanonTwins merges the twins already kept (the richer, else the newer, stays; the
+other's key and names become aliases) on the copy a branch receives and in the drawer's list. Both her names find the one
+entry. Law M510-54; DOM-148.
+

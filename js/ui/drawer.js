@@ -57,7 +57,7 @@ import { pageText } from '../assemble/stack.js';
 import { withCardNames, cleanName } from '../assemble/voice.js'; /* M435 */
 import { mcName } from '../engine/duels.js'; /* M435: whose name {{user}} is */
 import { db } from '../store.js';
-import { canonLibrary, addToLibrary, canonOn, canonMeta, canonLast, canonEntryFor, ledgerOf, canonSavedWikis, canonPinnedKeys, canonNotes } from '../canon/bridge.js'; /* M386: what canon says; M395: its own notes */
+import { mergeCanonTwins, canonLibrary, addToLibrary, canonOn, canonMeta, canonLast, canonEntryFor, ledgerOf, canonSavedWikis, canonPinnedKeys, canonNotes } from '../canon/bridge.js'; /* M386: what canon says; M395: its own notes */
 import { overlayFor, throughLens, lensHeld } from '../agents/canonlens.js'; /* M392: canon through his story */
 import { isHere, samePersonName } from '../engine/names.js'; /* M396/M398: one answer to "the same person?" */
 
@@ -1331,7 +1331,9 @@ function canonSaysPanel(ctx) {
     }
     const meta = await canonMeta(story.id);
     const state = await loadStateFresh(story.id);
-    const cache = meta.canon_grounding_cache && typeof meta.canon_grounding_cache === 'object' ? meta.canon_grounding_cache : {};
+    /* M510-54: each person once — the same page kept under two keys is drawn as one */
+    const twins = mergeCanonTwins(meta.canon_grounding_cache && typeof meta.canon_grounding_cache === 'object' ? meta.canon_grounding_cache : {});
+    const cache = twins.cache;
     const entries = Object.entries(cache).filter(([, e]) => e && typeof e === 'object');
     const found = entries.filter(([, e]) => e.found);
     const misses = entries.filter(([, e]) => !e.found && (e.reason === 'no-page' || e.reason === 'meta-page' || e.reason === 'not-character' || e.reason === 'no-facts'));

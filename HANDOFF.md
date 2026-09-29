@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-053)
+# Cozy Tavern — handoff for the next session (state at m510-054)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1200,4 +1200,11 @@ founding design lives in AGENTS.md's first entries.)
   of the older pages (… N older lines rest outside this page)", "What the record holds of who is here", "What the recent
   pages hold of who is here" at the tail. A belief's age reads "since about N pages ago". The plan's "Set against Jovan:
   Jovan" says him once. Laws M510-6/13/16/17/21/23 restated.
+- M510-54 — ONE PERSON, ONE CANON ENTRY. The canon cache is keyed by the name looked up; the same wiki page found again
+  under another name ("rukia" after "rukia kuchiki" — a stale miss carried into a branch, looked up again) was written a
+  second time: two Rukias in the drawer. Now: grounding.js merges a newly found page into a kept entry of the same wiki
+  and name (the new name joins its aliases; a miss under that name goes); bridge.js mergeCanonTwins(cache) (pure; the
+  richer, else newer, stays; other keys and names become aliases; redirect map) runs on the copy a branch receives
+  (carryCanonMemory) and on the drawer's list. The note to the storyteller already wrote one block per character (M-ext
+  seenEntities). Law M510-54, DOM-148 (failed on m510-053: "got 2").
 
