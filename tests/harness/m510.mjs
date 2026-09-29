@@ -490,7 +490,7 @@ test('M510-20 EVERY ROW, EVERY PAGE: "What the storyteller saw" names every part
     eq(silent.map((s) => s.name).join(', '), '', label + ': every empty row says why');
   }
   const row = (r, n) => r.receipt.slots.find((s) => s.name === n);
-  assert(/^being made|^the memory keeper is off/.test(row(mk(false), 'Story essentials').reason) && /^small model only/.test(row(mk(false), 'The plan for this page').reason), 'on the normal model: the essentials are every storyteller’s now (M510-48), the plan the small model’s');
+  assert(/^being made|^not made yet|^the memory keeper is off/.test(row(mk(false), 'Story essentials').reason) && /^small model only/.test(row(mk(false), 'The plan for this page').reason), 'on the normal model: the essentials are every storyteller’s now (M510-48), the plan the small model’s — its row says exactly where they stand (M510-57)');
   assert(/not made yet — the record is still empty: the memory keeper folds pages once they are older than its 30-page window/.test(row(mk(true), 'Story essentials').reason), 'his first scene: ' + row(mk(true), 'Story essentials').reason);
   const withRecord = mk(true, { memory: '- Jovan arrived.', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: [{ span: [0, 5], text: 'Jovan arrived.', level: 1, at: 1 }] } });
   assert(/^being made/.test(row(withRecord, 'Story essentials').reason), 'a record, no essentials yet: being made');
@@ -526,7 +526,7 @@ test('M510-21 WHO’S HERE, IN THE RECORD (his idea, bounded): while someone is 
   const row = small.receipt.slots.find((s) => s.name === 'Who’s here, in the record');
   assert(row && row.tokens > 0 && /Rukia Kuchiki/.test(row.reason), 'with its row: ' + JSON.stringify(row && row.reason));
   const normal = mk(false, here);
-  assert(!/What the record holds of who is here/.test(notesOf(normal)) && /essentials are still being made/.test(normal.receipt.slots.find((s) => s.name === 'Who’s here, in the record').reason), 'the frontier model, before its essentials are made, reads the whole record — its row says so (M510-48)');
+  assert(!/What the record holds of who is here/.test(notesOf(normal)) && /every line about the people here is in it|essentials are still being made/.test(normal.receipt.slots.find((s) => s.name === 'Who’s here, in the record').reason), 'the frontier model, before its essentials are made, reads the whole record — its row says so, exactly (M510-48/57)');
 });
 
 
@@ -1213,4 +1213,15 @@ test('M510-55 WHAT THE STORYTELLER SAW, IN THE ORDER IT WAS SENT (his word: "the
   assert(rows.some((s) => s.name === 'The pages, word for word' && s.tokens > 0) && !rows.some((s) => s.name === 'The story so far'), 'the pages are named as what they are');
   const at = (n) => rows.findIndex((s) => s.name === n);
   assert(at('Who’s here, in the recent pages') > at('What remains') && at('Who’s here, in the recent pages') < at('On their mind'), 'a row that did not ride stands where it would have (with the story so far, before the people)');
+});
+
+test('M510-57 THE RECEIPT EXPLAINS EXACTLY (his word: "make sure the explanation is good"): before the essentials exist, their row says when they are made and what is sent meanwhile — in the raw request\'s own words; with the whole record sent, "Who\'s here, in the record" says every line about them is in it (not "or…"); the pages\' row points to "Our story so far"', async () => {
+  const st = { ...applyMutations({ ...emptyState(), page: 300 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state, page: 300 };
+  const big = []; for (let i = 0; i < 60; i += 1) big.push({ id: 'b' + i, span: [i * 4, i * 4 + 3], level: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(40) });
+  const r = buildRequest({ story: {}, messages: pages(20), settings: {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: big.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: big } });
+  const row = (n) => r.receipt.slots.find((s) => s.name === n);
+  assert(/when the story opens, and after each page/.test(row('Story essentials').reason) && /“Our story so far, in full”/.test(row('Story essentials').reason), 'the essentials’ row: when they are made, and what is sent meanwhile, in the raw’s words');
+  assert(/Our story so far, in full — everything before the pages you have/.test(notesOf(r)), 'which is what the raw says');
+  eq(row('Who’s here, in the record').reason, 'your whole record is sent in full — every line about the people here is in it', 'no "or"');
+  assert(/are in Our story so far \(the What remains row\)/.test(row('The pages, word for word').source), 'the pages’ row points to what the raw calls it: ' + row('The pages, word for word').source);
 });

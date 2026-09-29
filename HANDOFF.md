@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-056)
+# Cozy Tavern — handoff for the next session (state at m510-057)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1225,4 +1225,10 @@ founding design lives in AGENTS.md's first entries.)
   opening a story to look asks no model). DOM-149: a frontier story with a long record and no essentials — opening
   it makes them and the next page is sent with "Our story so far — In brief…"; with them let go, the page's own chain
   makes them again (failed on m510-055: "waited too long for opening the story made its essentials").
+- M510-57 — THE RECEIPT EXPLAINS EXACTLY. Audited every memory row in six situations (frontier: no essentials, hybrid,
+  fits whole, stale; small: with and without essentials). Three made exact: "Story essentials" before they exist says
+  when they are made (when the story opens, and after each page) and what is sent meanwhile in the raw's words ("Our story
+  so far, in full" — the What remains row); with the whole record sent, "Who's here, in the record" says every line about
+  the people here is in it (was "…— or the essentials are still being made…"); the pages' row points to "Our story so far
+  (the What remains row)". Law M510-57.
 

@@ -570,7 +570,7 @@ function emptyWhy(name, c) {
   const noPlan = 'no plan was ready for this page — it went as the full request';
   switch (name) {
     case 'The story in short': return !c.small ? 'small model only — your storyteller reads the pages themselves' : !c.planned ? noPlan : 'not written yet — the planning helper writes it with each plan';
-    case 'Story essentials': return !c.small ? (!c.keeperOn ? 'the memory keeper is off for this story — there is no record to streamline' : 'being made — the essentials keeper streamlines the record in the background; until then the whole record rides under What remains')
+    case 'Story essentials': return !c.small ? (!c.keeperOn ? 'the memory keeper is off for this story — there is no record to streamline' : !c.hasRecord ? 'not made yet — the record is still empty: the memory keeper folds pages once they are older than its ' + c.keeperWindow + '-page window' : 'being made — the essentials keeper streamlines your record in the background (when the story opens, and after each page); until then your whole record is sent in full, as “Our story so far, in full” (the What remains row)')
       : !c.planned ? noPlan + ', with the whole record'
       : !c.keeperOn ? 'the memory keeper is off for this story — there is no record to streamline'
       : !c.hasRecord ? 'not made yet — the record is still empty: the memory keeper folds pages once they are older than its ' + c.keeperWindow + '-page window'
@@ -1098,6 +1098,8 @@ export function buildRequest({
     pushSlot('What remains', [hybridRecent && hybridRecent.text, recalledOlder].filter(Boolean).join('\n'), 'sent inside “Our story so far” as “In full, just before the pages you have” and “In full, earlier moments this scene touches”: the record’s newest lines word for word' + (recalledOlder ? ', and the older lines this scene names, whole' + (recallSmart ? ' (' + recallSmart + ' picked by the smart recall for what your move means)' : '') : '') + ' — the rest is in the essentials above', hybridRecent && hybridRecent.rested ? hybridRecent.rested + ' older lines ride in the essentials, kept whole on the device' : '');
   } else if (memoryText && !smallB) {
     pushSlot('What remains', memoryText, 'sent as “Our story so far, in full”, after canon: everything the keeper has folded of the older pages');
+    /* the final audit: with the whole record sent, every line about the people here is in it — said so, not guessed at */
+    pushSlot('Who’s here, in the record', '', '', 'your whole record is sent in full — every line about the people here is in it');
     /* the final audit: essentials made but not sent — say why on their row */
     if (essentialsText) pushSlot('Story essentials', '', '', fitsWhole ? 'your whole record fits in full — the brief beside it would say it twice' : 'the essentials are far behind the record — your storyteller reads the whole record until they are made again');
   } else if (essentialsText) {
@@ -1251,13 +1253,13 @@ export function buildRequest({
       : '';
     if (win.extended > 0) {
       historySource = (win.resting > 0
-        ? `${win.carried} of ${win.total} pages word for word — ${win.extended} past the usual window, still unfolded by the keeper; the older ${win.resting} rest in What remains`
+        ? `${win.carried} of ${win.total} pages word for word — ${win.extended} past the usual window, still unfolded by the keeper; the older ${win.resting} are in Our story so far (the What remains row)`
         : `${win.carried} of ${win.total} pages word for word — ${win.extended} past the usual window, still unfolded by the keeper`) + held;
     } else if (win.uncovered > 0) {
       historySource = `the last ${win.carried} of ${win.total} pages word for word` + held;
     } else {
       historySource = win.resting > 0
-        ? `the last ${win.carried} of ${win.total} pages word for word — the older ${win.resting} rest in What remains`
+        ? `the last ${win.carried} of ${win.total} pages word for word — the older ${win.resting} are in Our story so far (the What remains row)`
         : `all ${win.total} pages word for word`;
     }
   } else if (win.squeezed) {

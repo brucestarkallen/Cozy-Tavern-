@@ -13198,3 +13198,14 @@ open stay the small model's (the plans keeper reads every page after it is writt
 opening a story just to look asks no model). DOM-149 reproduces his case (failed on m510-055) and also proves
 the after-page path.
 
+# M510-57 — why the essentials did not start, and the receipt explains exactly
+He asked why it went wrong — fine before, a regression after the reorder audit — and to make sure the explanation is
+good. The truth, from the history: it was never the reorder. Since M510-48 the essentials keeper ran for every storyteller
+after each page (the page chain's step 9), but the other door — opening a story — still stopped at the small model's gate
+(planAhead), and a page is built before its own chain runs. So a frontier story's first page after an update always went
+with the whole record; only a later page could use the essentials. It showed as a regression when he opened his story
+after the reorder releases and looked before playing a page. M510-56 opened that door (DOM-149).
+Then every memory row's explanation, audited in six situations; three made exact (the essentials' row says when they are
+made and what the raw sends meanwhile; "Who's here, in the record" no longer guesses with "or"; the pages' row points to
+"Our story so far"). Law M510-57.
+
