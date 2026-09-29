@@ -9,6 +9,7 @@ import { sceneParagraphs, voicePassage, pickVoicePage, voiceSampleOf, wornPhrase
 import { plannerAsk, readPlan } from '../../js/agents/planner.js';
 import { renderPlan } from '../../js/assemble/planwords.js';
 import { finalizeReceipt } from '../../js/assemble/receipt.js';
+import { refereeWhyWords } from '../../js/agents/referee.js';
 import { emptyState } from '../../js/engine/state.js';
 import { applyMutations } from '../../js/engine/apply.js';
 
@@ -111,3 +112,23 @@ test('M512-6 A PAGE KNOWS WHO WROTE IT: each new page\'s receipt says whether a 
   eq(finalizeReceipt({ slots: [] }, { small: false }).small, false, 'big');
   eq('small' in finalizeReceipt({ slots: [] }, {}), false, 'unknown stays unsaid');
 });
+
+test('M513-1 WHY NOTHING WAS RULED (his question with a small storyteller: "why does the referee seem not to work — no outcome, no The house has ruled?" — it worked; the row said the same line whatever the reason): the row says exactly why — off, only talk, no attempt, out of character, "# no roll", or the referee failing — and a ruling still rides as it did', () => {
+  eq(refereeWhyWords({ status: 'ruled', why: 'a lone check' }), '', 'ruled: nothing to explain');
+  assert(/only spoken words/.test(refereeWhyWords({ status: 'no-check', why: 'only dialogue' })), 'only talk');
+  assert(/nothing in your move was an attempt that could fail/.test(refereeWhyWords({ status: 'no-check', why: 'no attempt' })), 'no attempt');
+  assert(/out-of-character/.test(refereeWhyWords({ status: 'no-check', why: 'out of character' })), 'out of character');
+  assert(/# no roll/.test(refereeWhyWords({ status: 'skipped', why: 'no roll — the writer said so' })), 'no roll');
+  assert(/ran out of its 12 seconds/.test(refereeWhyWords({ status: 'degraded', why: 'timed out' })), 'timed out');
+  assert(/no usable answer, twice/.test(refereeWhyWords({ status: 'degraded', why: 'no usable answer' })), 'no usable answer');
+  assert(/stumbled/.test(refereeWhyWords(null)), 'no step at all');
+  const row = (r) => r.receipt.slots.find((x) => x.name === 'The house has ruled');
+  const off = buildRequest({ story: {}, messages: turns(3), settings: { refereeOn: false }, state: yard(), modules: [], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 } });
+  assert(/the referee is off \(Settings → The referee\)/.test(row(off).reason) && !row(off).tokens, 'off: said so');
+  const talk = buildRequest({ story: {}, messages: turns(3), settings: {}, state: yard(), modules: [], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 }, refereeWhy: refereeWhyWords({ status: 'no-check', why: 'only dialogue' }) });
+  assert(/only spoken words/.test(row(talk).reason) && !row(talk).tokens, 'only talk: said so');
+  const ruled = buildRequest({ story: {}, messages: turns(3), settings: {}, state: yard(), modules: [], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 }, ruling: 'About what Jovan is trying — the disarm: it works.', refereeWhy: '' });
+  assert(row(ruled).tokens > 0 && /About what Jovan is trying/.test(wireOf(ruled)), 'a ruling rides as it did');
+  assert(!/only spoken words|the referee is off/.test(wireOf(talk)) && !/the referee is off/.test(wireOf(off)), 'the reasons are the receipt\'s — never on the wire');
+});
+

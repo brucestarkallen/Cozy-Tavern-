@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m512-001)
+# Cozy Tavern — handoff for the next session (state at m513-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1318,4 +1318,13 @@ founding design lives in AGENTS.md's first entries.)
   worn phrases said once in his voice, each person's way of talking in the plan. Costs on the send (desktop): picking the
   passage 1.6 ms on a 600-page story (15 ms with no big page to take it from), the worn phrases ~12 ms (read once a send).
   Laws M512-1…6 (tests/harness/m512.mjs), walk DOM-169; the frontier request identical to m511-001 (24 of 24).
+- M513-1 — WHY NOTHING WAS RULED. His question with a small storyteller: "why does the referee seem not to work — no outcome,
+  no The house has ruled?" It worked: walk DOM-170 sends a chancy move through the app with a small storyteller — the
+  referee rules and the outcome rides first in the small storyteller's closing words, on its row. The referee rules only
+  on an attempt (gatePasses: an attempt phrase or a gate verb) and on every beat of a fight; talk, an out-of-character
+  line and "# no roll" get no ruling, for every storyteller. The fault was the row: it said "nothing settled by the
+  referee for this page" whatever the reason. Now referee.js refereeWhyWords(step) says exactly why (off, only spoken
+  words, no attempt, out of character, # no roll, ran out of its 12 seconds, no usable answer twice, no connection) and
+  chat.js hands it to buildRequest (refereeWhy) for the row — receipt only, never the wire (the frontier request is still
+  m511-001's, 24 of 24). Law M513-1.
 

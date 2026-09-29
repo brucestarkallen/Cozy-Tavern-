@@ -949,6 +949,28 @@ function commitRef(state, entry) {
  * Returns {state, ruling, status, why}:
  *   ruling = {kind, tier, words, directive, at} or null
  *   status = 'ruled' | 'no-check' | 'replayed' | 'degraded' | 'skipped'      */
+/* M513: WHY NOTHING WAS RULED, IN HIS WORDS — his question with a small storyteller: "why does the referee seem not to
+ * work — no outcome, no 'The house has ruled'?" It worked (walk DOM-170); but the receipt's row said the same line whatever
+ * the reason — off, only talk, no attempt, out of character, "# no roll", or the referee failing — and he could not tell
+ * which. For the receipt only; the storyteller never reads it. */
+export function refereeWhyWords(step) {
+  const s = step && typeof step === 'object' ? step : null;
+  if (!s) return 'the referee stumbled on this page — your storyteller decided the outcome';
+  const why = String(s.why || '');
+  if (s.status === 'ruled' || s.status === 'replayed') return '';
+  if (s.status === 'skipped') return 'you wrote “# no roll” — no roll this page';
+  if (s.status === 'no-check') {
+    if (/only dialogue/.test(why)) return 'your move was only spoken words — the referee rules on an attempt (a strike, a grab, a dodge, “I try to…”), never on talk';
+    if (/out of character/.test(why)) return 'an out-of-character line — the referee never rules on one';
+    if (/nothing to score/.test(why)) return 'the referee read your move and found nothing in it to score';
+    return 'nothing in your move was an attempt that could fail — the referee rules on a strike, a grab, a dodge, “I try to…”, and on every beat of a fight';
+  }
+  if (/timed out|outwaited|timeout/.test(why)) return 'the referee ran out of its 12 seconds on this page — your storyteller decided the outcome';
+  if (/no worker connection/.test(why)) return 'the referee had no connection to ask — your storyteller decided the outcome';
+  if (/no usable answer|identity checks/.test(why)) return 'the referee’s model gave no usable answer, twice — your storyteller decided the outcome';
+  return 'the referee could not rule on this page (' + (why || 'it stumbled') + ') — your storyteller decided the outcome';
+}
+
 export async function refereeStep({ connection, userText, userId, history, state, settings, signal, callLLM, brief = '', castNotes = '' } = {}) {
   try {
     if (!state || typeof state !== 'object') return { state, ruling: null, status: 'degraded', why: 'no state' };

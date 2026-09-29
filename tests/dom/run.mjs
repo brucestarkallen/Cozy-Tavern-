@@ -7017,6 +7017,64 @@ test('DOM-169 THE SMALL MODEL AT ITS BEST, THROUGH THE APP (M512): a small story
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-170 THE REFEREE WITH A SMALL STORYTELLER, IN THE APP: a chancy move is ruled by the referee and the settled outcome reaches the small storyteller first in its closing words, on its receipt row "The house has ruled" — the same as for the big storyteller', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const H = (n) => '[Ravenwood courtyard — Monday, September 7, 2026 | 08:' + String(n % 60).padStart(2, '0') + ' | clear | gi | at the gate]\n\n';
+  const st = await db.stories.create({ title: 'the small referee' });
+  await db.stories.update(st.id, { keeper: false, brief: 'Jovan duels Kaelen, the fourth seat of Ravenwood.' });
+  for (let i = 0; i < 3; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'I circle, move ' + i + '.' }); await db.messages.append(st.id, { role: 'assistant', text: H(i) + 'Kaelen raised his practice sword. "Then show me."' }); }
+  const ledger = applyMutations({ ...emptyState(), page: 3 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Ravenwood courtyard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Kaelen' }]).state;
+  ledger.characters = { Kaelen: { core: 'Kaelen, fourth seat of Ravenwood; a careful swordsman.', state: 'sword raised', threads: [] } };
+  ledger.sheet = { ...ledger.sheet, playerName: 'Jovan', actors: { Jovan: { default: 6, domains: { melee: 7 } }, Kaelen: { default: 5, domains: { melee: 6 } } } };
+  await saveState(st.id, { ...ledger, page: 3, readTo: 3, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  const refSys = /You are the referee of a story|referee of a one-on-one duel/;
+  const PLAN = { scene: 'The duel at the gate.', people: [{ name: 'Kaelen', now: 'sword raised', wants: 'to win', against: '' }], unknown: [], pressing: [], earlier: [], laws: ['MC Agency'], intense: true, loud: true, sounds: ['*clang*'], leaveTo: 'what Jovan does next', story: 'Jovan duels Kaelen.' };
+  house.state.storyAnswer = () => H(9) + 'Steel rang in the courtyard.';
+  house.state.workerAnswer = (body, sys) => {
+    if (refSys.test(sys)) return JSON.stringify({ check: true, actor: 'Jovan', action: 'feint low, then the disarm', kind: 'actor', domain: 'melee', opposition: 'Kaelen', tier: 'peer', circumstance: 0, stakes: 'his sword' });
+    if (/You prepare a storyteller for the next page/.test(String(sys || ''))) return JSON.stringify(PLAN);
+    if (/You keep the cast sheet of a story/.test(String(sys || ''))) return JSON.stringify({ player_story_name: 'Jovan', actors: [{ name: 'Jovan', default: 6, domains: { melee: 7 } }, { name: 'Kaelen', default: 5, domains: { melee: 6 } }] });
+    return '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}';
+  };
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers', 40000); return house.state.calls.slice(from); };
+  const sysOf = (c) => (Array.isArray(c.body.messages) ? c.body.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n') : String(c.body.system || ''));
+  const was = await db.settings.get('refereeOn');
+  const activeId = await tellerConnectionId();
+  try {
+    await db.settings.delete('refereeOn');
+    await db.connections.update(activeId, { smallModel: true });
+    await env.ctx.chat.refreshQuickSwitch();
+    await send('I watch his feet.'); /* the helper plans after this page */
+    const calls = await send('I try to disarm Kaelen with a feint low.');
+    assert(calls.some((c) => c.isWorker && refSys.test(sysOf(c))), 'the referee was asked');
+    const told = calls.find((c) => !c.isWorker);
+    const wire = JSON.stringify(told.body.messages);
+    assert(/What I have in mind for this page/.test(wire), 'the small storyteller\'s request (its plan)');
+    const closing = String(told.body.messages[told.body.messages.length - 1].content || '');
+    assert(/[Aa]bout what Jovan is trying — feint low, then the disarm: /.test(closing), 'the settled outcome reaches the small storyteller in its closing words: ' + closing.slice(0, 200));
+    const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    const row = page.receipt && page.receipt.slots.find((x) => x.name === 'The house has ruled');
+    assert(row && row.tokens > 0, 'on its receipt row: ' + JSON.stringify(row));
+    /* M513: a page with nothing to rule says exactly why on the same row */
+    await send('"I will not draw today."'); /* only spoken words — the referee's gate reads it as talk */
+    const talkPage = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    const talkRow = talkPage.receipt && talkPage.receipt.slots.find((x) => x.name === 'The house has ruled');
+    assert(talkRow && !talkRow.tokens && /only spoken words/.test(talkRow.reason), 'only talk: the row says why nothing was ruled: ' + JSON.stringify(talkRow));
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.connections.update(activeId, { smallModel: null });
+    await env.ctx.chat.refreshQuickSwitch();
+    if (was === false) await db.settings.set('refereeOn', false); else await db.settings.delete('refereeOn');
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();

@@ -711,6 +711,7 @@ export function buildRequest({
   smallEssentials = null, /* M510-15: the story's essentials, streamlined from the whole record ({text, upTo}) */
   recallPicked = [], /* M510-50: the ids of the older record lines the smart recall named for this page */
   voiceSample = null, /* M512: a passage of the story at its best ({text}) — for a small storyteller only */
+  refereeWhy = '', /* M513: why the referee settled nothing this page — its receipt row says it */
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -1237,6 +1238,10 @@ export function buildRequest({
   }
   if (rulingText && safeSettings.refereeOn !== false) {
     pushSlot('The house has ruled', rulingText, 'the referee’s settled outcome for this turn — first in the closing words, right after your page');
+  } else if (safeSettings.refereeOn === false) {
+    pushSlot('The house has ruled', '', '', 'the referee is off (Settings → The referee) — your storyteller decides every outcome'); /* M513: said exactly */
+  } else if (typeof refereeWhy === 'string' && refereeWhy.trim()) {
+    pushSlot('The house has ruled', '', '', refereeWhy.trim()); /* M513: why nothing was settled this page */
   }
 
   /* --- 9. The note at the end --- (resolved before slot 8 so the window

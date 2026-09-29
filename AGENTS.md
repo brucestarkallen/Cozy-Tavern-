@@ -13332,3 +13332,19 @@ and "OOC (…)" were read as the tail of the law before them and rode only when 
 - The frontier request is identical to m511-001 (24 fixtures: hybrid, whole record, canon, fight, OOC, first page, notes as
   user and as assistant, under three name pairs). Laws M512-1…6; walk DOM-169 sends a real small turn (fails on m511-001).
 
+# M513-1 — why nothing was ruled
+His question, playing with a small storyteller: "is something wrong with the small mode? Why does the referee seem not to
+work — no outcome, no The house has ruled?" Traced through the send path: the referee runs before every story page but an
+out-of-character one, whatever the storyteller (no small-model condition anywhere on its path), and its outcome rides
+first in the closing words of both requests. Proven through the app: walk DOM-170 — a small storyteller, a chancy move
+("I try to disarm Kaelen with a feint low"): the referee is asked, the outcome rides in the small storyteller's closing
+words and on its receipt row. What was wrong is what he could see: the referee rules only on an attempt (its gate: an
+attempt phrase or a gate verb) and on every beat of a fight — talk, an out-of-character line and "# no roll" get no ruling
+by design — and the row "The house has ruled" said "nothing settled by the referee for this page" for every one of those,
+and for the referee switched off, and for the referee failing. Now referee.js refereeWhyWords(step) turns the step's own
+status into the reason, the send path hands it to the builder (refereeWhy), and the row says it: the referee is off; your
+move was only spoken words; nothing in it was an attempt that could fail; an out-of-character line; "# no roll"; the
+referee ran out of its 12 seconds; its model gave no usable answer, twice; it had no connection. Receipt only — the
+storyteller's request is untouched (the frontier request identical to m511-001, 24 of 24). Law M513-1; walk DOM-170 checks
+a talk-only page's row through the app.
+

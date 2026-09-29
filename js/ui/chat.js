@@ -66,7 +66,7 @@ import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/stat
 import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
-import { refereeStep, maybeSeedSheet } from '../agents/referee.js';
+import { refereeStep, maybeSeedSheet, refereeWhyWords } from '../agents/referee.js';
 import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom, putBackMistakenMends, fixedCharsOf } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
@@ -4292,6 +4292,7 @@ export function initChat(ctx) {
       if (!ooc && lastUser) {
         state.page = history.filter((m) => m && m.role === 'assistant' && !m.hidden).length;
       }
+      let refereeWhy = ooc ? 'an out-of-character question — the referee never rules on one' : ''; /* M513: why nothing was ruled, for the receipt */
       if (!ooc && lastUser) {
         const { signal, done } = workerSignal(12000); /* the referee's 12s budget */
         try {
@@ -4316,6 +4317,7 @@ export function initChat(ctx) {
               brief: story.brief || '', castNotes: story.castNotes || '', /* M345: the referee reads who these people are */
             });
             state = (step && step.state) || state;
+            refereeWhy = refereeWhyWords(step); /* M513 */
             if (step && step.ruling) {
               state = { ...state, pendingVerdict: { ...step.ruling, forUser: lastUser.id }, lastVerdict: step.ruling }; /* M345: whose page it settles */
             }
@@ -4330,6 +4332,7 @@ export function initChat(ctx) {
           }
         } catch (err) {
           /* a failed ruling never blocks the turn */
+          refereeWhy = refereeWhyWords({ status: 'degraded', why: err && err.message === 'timeout' ? 'timed out' : (err && err.message) || 'stumbled' }); /* M513 */
           await noteWorkerRun(story.id, 'referee', {
             ok: false,
             why: err && err.message === 'timeout' ? 'outwaited' : (err && err.message) || 'stumbled',
@@ -4457,7 +4460,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, /* M510; M510-15; M510-22; M510-50; M512 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, /* M510; M510-15; M510-22; M510-50; M512; M513 */
         sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
@@ -4505,7 +4508,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         canonNote, /* M346: canon verification's note, at the top of the briefing */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, /* M510; M510-15; M510-22; M510-50; M512 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, /* M510; M510-15; M510-22; M510-50; M512; M513 */
         sensorNote, /* M356: the sensors' one line, in the closing words */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
