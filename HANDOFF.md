@@ -1,6 +1,18 @@
-# Cozy Tavern — handoff for the next session (state at m511-001)
+# Cozy Tavern — handoff for the next session (state at m512-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
+   no old LLM repetition"; a mode that never touches the frontier request — proven byte-for-byte, 24 of 24 fixtures).
+   A small page carries laws.js PROSE_LAWS (ten of his prose laws, his words) beside ALWAYS_LAWS (Real People, Real
+   Record now among them) and the helper's picks (the helper is no longer offered what always rides); OOC rides on an
+   out-of-character turn. laws.js LAW_START reads a name with commas or a closing aside — four laws had been read as the
+   tail of the law before them; lawKey drops the aside. smallprose.js: the story's voice (a passage of the newest page a
+   BIG storyteller wrote, older than the eight sent whole — receipt.small says who wrote a page; else the page that
+   repeats the others least) rides at the end of the craft block (seat 2 stands) with its own row "The story’s voice";
+   the turns of phrase the last pages keep using are said once at the end of the plan (never names, places, small
+   words or a stretched sound; the longest stretch, as written, cut at twelve words); the plan says how each person
+   talks (planner "voice"). Walk DOM-169 proves it through the send button (fails on m511-001); tellerConnectionId() —
+   a walk run alone has no active connection set, and "mark the active one small" marked nothing.
 00. M511 (after a platform crash cut the m510 session short; nothing of the crash reached GitHub — m510-063 was whole).
    A BRANCH COPIES ITS PAGES WHOLE: chat.js branchFrom writes each page with db.messages.copy (store.js), never through
    messages.append — append is the maker of NEW pages and keeps only the fields it lists (a field on a page never
@@ -1300,4 +1312,10 @@ founding design lives in AGENTS.md's first entries.)
   Send (tests/perf_send.py, SENDS=2, 6x, four runs each, keeper off — the changed paths do not run there): request
   1027 ms mean on m510-063 vs 1087 on m511, done 1788 vs 1774 — within the VM's noise; the profile has none of M511's
   functions among its top self-time.
+- M512-1 — THE SMALL MODEL AT ITS BEST. Measured on m511: a calm small page carried 12 laws and none of his prose laws; its
+  only example of the story's voice was its own last eight pages; nothing looked for repetition. Now: ten prose laws on
+  every small page (the craft block ~3,650 → ~5,000 tokens), the story's voice held up from a big storyteller's page, the
+  worn phrases said once in his voice, each person's way of talking in the plan. Costs on the send (desktop): picking the
+  passage 1.6 ms on a 600-page story (15 ms with no big page to take it from), the worn phrases ~12 ms (read once a send).
+  Laws M512-1…6 (tests/harness/m512.mjs), walk DOM-169; the frontier request identical to m511-001 (24 of 24).
 

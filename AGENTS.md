@@ -13307,3 +13307,28 @@ three — the branch's own eye writes its findings the moment the branch is whol
 page at a time); it now checks that every version the device kept holds all the carried pages (3 of 3). paint_magma.py
 has failed since M465's coats (identical on m510-063; not a gate; its contrast line is the disabled "◂").
 
+# M512-1 — the small model at its best
+His order: "your job is making the smaller model the best, so when the time comes and I only use a small model it's so much
+fun — realistic, beautiful prose, natural, no old LLM repetition". Measured on m511-001 before any change: a calm small page
+carried twelve laws and not one of his prose laws (the helper picks for the scene's logic); the small model's only example
+of how the story sounds was its own last eight pages, so a slip once written was copied forward; nothing looked for the
+same words coming back page after page. And under it, a root fault: the law reader took a name with commas or a closing
+aside for prose — "Banned Constructs (narration only)", "CORE Voice Fixed, Register Dynamic", "Real People, Real Record"
+and "OOC (…)" were read as the tail of the law before them and rode only when that law happened to be picked.
+- laws.js: LAW_START reads commas and one closing aside; lawKey drops the aside ("Banned Constructs" is the law);
+  PROSE_LAWS (Show Never Interpret, Plain Prose Default, Dialogue Subtext, Voice Fingerprints, CORE Voice Fixed, Attentional
+  Salience, Anti Repetition Structural, Shape Follows Spine, Signature Bits Burn, Banned Constructs) ride on every small
+  page in his craft's words; ALWAYS_LAWS gains Real People, Real Record; OOC rides on an out-of-character turn; the helper
+  is offered only the laws a scene adds.
+- smallprose.js (pure): the story's voice — a passage (one to three paragraphs, speech and narration, within 1,400
+  characters, word for word, no header, window or screen) of the newest page a BIG storyteller wrote, older than the eight
+  sent whole (a page's receipt now says small: true/false; before M512, the model named or the plan it rode with); else
+  the page that repeats the others least. It rides at the end of the craft block, in his voice, for its sound only, on its
+  own receipt row ("The story’s voice"). The worn phrases — every stretch of four words or more a sentence shares with
+  another page, its longest form, as written — are said once at the end of the plan: "A few turns of phrase keep coming
+  back on the last pages — … Say those things in new words this time, or leave them out." Never a name, a place, small
+  words alone or a stretched sound.
+- planner.js / planwords.js: the helper says how each person here talks (from their own lines), and the plan says it.
+- The frontier request is identical to m511-001 (24 fixtures: hybrid, whole record, canon, fight, OOC, first page, notes as
+  user and as assistant, under three name pairs). Laws M512-1…6; walk DOM-169 sends a real small turn (fails on m511-001).
+

@@ -84,7 +84,8 @@ import { lawsOf } from '../assemble/laws.js'; /* M510 */
 import { runEssentials, loadEssentials } from '../agents/essentials.js'; /* M510-15: the story's essentials */
 import { pickRecall } from '../agents/recallpick.js'; /* M510-50: smart recall */
 import { runPlans, loadPlansBook } from '../agents/plans.js'; /* M510-22: the plans, kept whole until carried out */
-import { lastPagesOf } from '../assemble/stack.js'; /* M510 */
+import { lastPagesOf, SMALL_PAGES } from '../assemble/stack.js'; /* M510 */
+import { voiceSampleOf } from '../assemble/smallprose.js'; /* M512: how the story sounds at its best, for a small storyteller */
 import { renderStateFacts as planFacts, stateView as planStateView } from '../engine/state.js'; /* M510: what the helper reads */
 import { renderPeopleTiers as planPeople, peopleView as planPeopleView } from '../engine/people.js'; /* M510 */
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
@@ -4409,12 +4410,26 @@ export function initChat(ctx) {
       const sensorNote = ooc ? '' : await takeWordForTurn(story.id); /* M356/M357: a reading's word, or what the house saw in the last page */
       /* M510: THE SMALL REQUEST'S PLAN — the one the helper made after the page this turn follows (Try again finds the
        * plan for the page before the one it replaces); none yet → the whole request goes, as before */
-      let smallPlan = null; let smallIntense = false; let lastSound = null; let smallEssentials = null; let smallPlansBook = null;
+      let smallPlan = null; let smallIntense = false; let lastSound = null; let smallEssentials = null; let smallPlansBook = null; let voiceSample = null; /* M512 */
       if (settingsValues.smallModelNow === true) {
         const before = [...visiblePages(history)].reverse().find((m) => m && m.role === 'assistant' && !m.ooc && pageText(m).trim());
         smallPlan = await loadPlan(story.id, planKey(before)); /* M510-6: the plan of the page this follows, mended or not */
         smallIntense = heatedNow(selected, state, userText); /* M510-3: from what woke (his own imported rules too) and the ledger's own intimate mode; M510-7: his words starting a fight */
         lastSound = ((await loadPlans(story.id)) || {}).lastSound || null;
+        /* M512: A PASSAGE OF THE STORY AT ITS BEST — the newest page a big storyteller wrote (older than the pages sent
+         * whole); a page's receipt says which (small, from M512; before it, the model named, or the plan it rode with) */
+        try {
+          const smallModels = new Set(((await db.connections.list()) || []).filter((c) => c && c.smallModel === true).map((c) => String(c.model || '')).filter(Boolean));
+          const bigHand = (m) => {
+            const r = m && m.receipt;
+            if (!r || typeof r !== 'object') return false;
+            if (typeof r.small === 'boolean') return !r.small;
+            if (Array.isArray(r.slots) && r.slots.some((x) => x && x.name === 'The plan for this page' && x.tokens > 0)) return false;
+            return Boolean(r.model) && !smallModels.has(String(r.model));
+          };
+          const told = visiblePages(history).filter((m) => m && m.role === 'assistant' && !m.ooc);
+          voiceSample = voiceSampleOf(told.map((m) => ({ text: pageText(m), big: bigHand(m) })), { skipNewest: SMALL_PAGES });
+        } catch (err) { voiceSample = null; }
       }
       /* M510-48: the essentials and the plans ride for every storyteller (the hybrid, always on) */
       smallEssentials = await loadEssentials(story.id);
@@ -4442,7 +4457,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, /* M510; M510-15; M510-22; M510-50 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, /* M510; M510-15; M510-22; M510-50; M512 */
         sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
@@ -4490,7 +4505,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         canonNote, /* M346: canon verification's note, at the top of the briefing */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, /* M510; M510-15; M510-22; M510-50 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, /* M510; M510-15; M510-22; M510-50; M512 */
         sensorNote, /* M356: the sensors' one line, in the closing words */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
@@ -4835,6 +4850,7 @@ export function initChat(ctx) {
           model: connection.model || '',
           effort: reasoning.effort === 'off' ? '' : reasoning.effort,
           prefill: result.prefill && result.prefill.words ? result.prefill.words : '',
+          small: smallTeller, /* M512 */
         });
         /* M329: a seed that steered nothing is said once for that connection — the receipt says it every turn */
         /* M370: a banner only about a seed HE set (his own prefill). The grounding phrase is never announced — it is his

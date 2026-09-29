@@ -18,7 +18,7 @@
 import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { parseFirstObject } from './jsonutil.js';
-import { lawsOf } from '../assemble/laws.js';
+import { lawsOf, lawKey, ALWAYS_LAWS, PROSE_LAWS } from '../assemble/laws.js';
 import { renderPlan, renderSounds } from '../assemble/planwords.js'; /* the plan's words — pure, the assembler's too */
 export { renderPlan, renderSounds };
 
@@ -60,14 +60,17 @@ const key = (s) => String(s == null ? '' : s).toLowerCase().normalize('NFC').rep
 
 /* the helper's instructions — a worker's, never on the storyteller's wire */
 export function plannerAsk({ craft = '', brief = '', castNotes = '', facts = '', people = '', record = '', lore = '', world = '', director = '', pages = [], mc = '', lastSound = '' } = {}) {
-  const names = lawsOf(craft).filter((l) => !l.preamble).map((l) => l.section + ' › ' + l.name);
+  /* M512: the laws every small page carries anyway (the always-laws and his prose laws) are not offered — its twelve picks
+   * go to what THIS scene adds */
+  const riding = new Set([...ALWAYS_LAWS, ...PROSE_LAWS].map(lawKey));
+  const names = lawsOf(craft).filter((l) => !l.preamble && !riding.has(lawKey(l.name))).map((l) => l.section + ' › ' + l.name);
   const system = [
     'You prepare a storyteller for the next page of a long collaborative story. You do not write the page. You read everything the storyteller would need, then write down briefly and concretely what the next page must keep in front of it.',
     'Answer with ONE JSON object and nothing else, in exactly this shape:',
-    '{"story":"","scene":"","people":[{"name":"","now":"","wants":"","against":""}],"unknown":[{"name":"","fact":""}],"pressing":[""],"earlier":[""],"laws":[""],"intense":false,"loud":true,"loudWhy":"","sounds":[""],"leaveTo":""}',
+    '{"story":"","scene":"","people":[{"name":"","now":"","wants":"","against":"","voice":""}],"unknown":[{"name":"","fact":""}],"pressing":[""],"earlier":[""],"laws":[""],"intense":false,"loud":true,"loudWhy":"","sounds":[""],"leaveTo":""}',
     'story — the whole story so far the way a person remembers it, in plain sentences, under 180 words: who these people are to each other, what has happened that still matters, how things came to stand where they stand. Keep what the later pages depend on; let go of what no longer matters.',
     'scene — one or two plain sentences: where we are and what is happening this moment.',
-    'people — only people present in the scene right now, never the main character. now: what they are doing or feeling this moment. wants: what they want right now. against: what they are set against the main character over, or "" — someone hostile stays hostile; nobody softens because he showed up.',
+    'people — only people present in the scene right now, never the main character. now: what they are doing or feeling this moment. wants: what they want right now. against: what they are set against the main character over, or "" — someone hostile stays hostile; nobody softens because he showed up. voice: how they talk, in a few words that read after "talks" — drawn from their own lines on the pages: their words, their rhythm, what they call people ("in clipped, formal sentences; calls him Captain"); "" if they have not spoken yet.',
     'unknown — facts that people present have NOT learned (the ledger names them), so the page never lets them know.',
     'pressing — up to four threads or pressures bearing on this scene now. earlier — up to three facts from earlier in the story that matter here and could be forgotten.',
     'laws — up to twelve laws from the list below that matter for THIS scene, each written exactly as its name after the ›.',
@@ -115,8 +118,8 @@ export function readPlan(raw, { present = [], mc = '', lawNames = [] } = {}) {
   for (const p of Array.isArray(j.people) ? j.people : []) {
     const name = p && resolve(p.name);
     if (!name || isHim(name) || people.some((x) => x.name === name)) continue;
-    const entry = { name, now: clip(p.now), wants: clip(p.wants), against: clip(p.against) };
-    if (entry.now || entry.wants || entry.against) people.push(entry);
+    const entry = { name, now: clip(p.now), wants: clip(p.wants), against: clip(p.against), voice: clip(p.voice, 160) }; /* M512: how they talk */
+    if (entry.now || entry.wants || entry.against || entry.voice) people.push(entry);
     if (people.length >= MAX_PEOPLE) break;
   }
   const unknown = [];

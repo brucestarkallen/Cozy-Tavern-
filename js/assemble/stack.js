@@ -100,7 +100,8 @@ import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main chara
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
 import { voiceOf, inVoice, toTeller, briefingOpening, notebookOpening, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave, withCardNames } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView, findPersonKey, PEOPLE_BUDGET, PRESENT_CARDS_MAX, RECALL_MAX } from '../engine/people.js';
-import { lawsOf, lawsNamed, joinLaws, lawKey, ALWAYS_LAWS, SOUND_LAWS, LOAD_BEARING, FIGHT_LAWS, typedCombat } from './laws.js'; /* M510: his craft, law by law */
+import { wornPhrases } from './smallprose.js'; /* M512: the turns of phrase the last pages keep using */
+import { lawsOf, lawsNamed, joinLaws, lawKey, ALWAYS_LAWS, PROSE_LAWS, SOUND_LAWS, LOAD_BEARING, FIGHT_LAWS, typedCombat } from './laws.js'; /* M510: his craft, law by law */
 import { renderPlan, renderSounds } from './planwords.js'; /* M510: the planning helper's plan, in his voice */
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
@@ -613,7 +614,7 @@ export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRE
 /* M510-20: every part the house can send, in the order it rides — the receipt names each one every page */
 /* M510-55: in the order the request is sent now — the system's blocks, then the notes (canon, our story so far, the
  * plans, the people, the state of things, the rest), the pages, his move, the closing */
-export const EVERY_ROW = ['The frame', 'The craft', 'The brief', 'Who’s here', 'Active modules', 'What canon says', 'The story in short', 'Story essentials', 'What remains', 'Who’s here, in the recent pages', 'Earlier moments, in full', 'Plans standing', 'On their mind', 'The state of things', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The pages, word for word', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
+export const EVERY_ROW = ['The frame', 'The craft', 'The story’s voice', 'The brief', 'Who’s here', 'Active modules', 'What canon says', 'The story in short', 'Story essentials', 'What remains', 'Who’s here, in the recent pages', 'Earlier moments, in full', 'Plans standing', 'On their mind', 'The state of things', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The pages, word for word', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
 function emptyWhy(name, c) {
   const noPlan = 'no plan was ready for this page — it went as the full request';
   switch (name) {
@@ -641,6 +642,7 @@ function emptyWhy(name, c) {
     /* rows that always stand, when they came empty */
     case 'The brief': return 'no brief written for this story';
     case 'Who’s here': return 'no cast notes written, and no character card for anyone here';
+    case 'The story’s voice': return !c.small ? 'small model only — your storyteller writes in its own voice' : !c.planned ? noPlan : 'no page yet older than the ones sent word for word — a passage is held up once the story has one'; /* M512 */
     case 'Active modules': return 'nothing woke besides the craft';
     case 'What remains': return !c.keeperOn ? 'the memory keeper is off for this story' : 'the record is still empty — the memory keeper folds pages once they are older than its ' + c.keeperWindow + '-page window';
     case 'The pages, word for word': return 'the first page — nothing written yet';
@@ -708,6 +710,7 @@ export function buildRequest({
   smallPlansBook = null, /* M510-22: the plans standing, kept whole ({plans}) */
   smallEssentials = null, /* M510-15: the story's essentials, streamlined from the whole record ({text, upTo}) */
   recallPicked = [], /* M510-50: the ids of the older record lines the smart recall named for this page */
+  voiceSample = null, /* M512: a passage of the story at its best ({text}) — for a small storyteller only */
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -797,11 +800,20 @@ export function buildRequest({
   const fightNow = selected.some((s) => s && s.mod && (s.mod.whenKey === 'combat' || s.mod.id === 'contested-resolution')) || Boolean(state && state.mode && state.mode.combat) || Boolean(state && (state.duel || state.battle || state.war)) || typedCombat(typedNow);
   /* M510-26/27: how a fight sounds rides as its own woken rule now (modules.js 'fight-acoustics'), for every storyteller */
   const fightSection = smallB && fightNow ? lawsNamed(smallLaws, FIGHT_LAWS) : [];
+  /* M512: an out-of-character question carries his OOC law (its own law now — it was read as the tail of Story Drivers) */
+  const oocTurn = (() => { const u = [...history].reverse().find((m) => m && m.role === 'user' && !m.hidden); return Boolean(u && (u.ooc === true || /^\s*(?:#question|\(\(|\/\/)/.test(String(u.text || '')))); })();
   const craftForTurn = smallB
-    ? joinLaws([...lawsNamed(smallLaws, [...ALWAYS_LAWS, ...(Array.isArray(smallPlan.laws) ? smallPlan.laws : [])].filter((n) => !soundKeys.has(lawKey(n)))), ...sceneSection, ...fightSection])
+    ? joinLaws([...lawsNamed(smallLaws, [...ALWAYS_LAWS, ...PROSE_LAWS, ...(oocTurn ? ['OOC'] : []), ...(Array.isArray(smallPlan.laws) ? smallPlan.laws : [])].filter((n) => !soundKeys.has(lawKey(n)))), ...sceneSection, ...fightSection]) /* M512: his prose laws on every small page */
     : craftText;
   const craftWhole = [craftForTurn, shortcuts, starterStanding].filter((t) => typeof t === 'string' && t.trim()).join('\n\n');
-  pushSlot('The craft', craftWhole, smallB ? 'the laws this scene needs, word for word, with the shortcuts — small model' : 'the rulebook, with the shortcuts', craft ? craft.reason : '');
+  pushSlot('The craft', craftWhole, smallB ? 'the laws this scene needs and your prose laws, word for word, with the shortcuts — small model' : 'the rulebook, with the shortcuts', craft ? craft.reason : '');
+  /* M512: HOW OUR STORY SOUNDS AT ITS BEST — a small model writes like what it read last, and it read only its own last
+   * eight pages: a slip once written was copied forward. A passage from the story's own pages (the newest a big model
+   * wrote, older than the pages sent whole; else the page that repeats the rest least — smallprose.js) rides with the
+   * craft, for its sound alone. Said in his voice; never for the frontier storyteller. */
+  const sampleText = smallB && voiceSample && typeof voiceSample.text === 'string' ? voiceSample.text.trim() : '';
+  const voiceWords = sampleText ? 'How our story sounds at its best — a passage from our own pages, here only for its sound: the rhythm, the plain concrete detail, the way people talk. It is not part of this scene; never repeat its lines.\n\n' + sampleText : '';
+  pushSlot('The story’s voice', voiceWords, voiceWords ? 'a passage from your story’s own pages, for how it sounds — ' + (voiceSample.big ? 'the newest page your big storyteller wrote, older than the pages sent whole' : 'the page that repeats the others least') + ' (small model)' : '');
 
   /* --- 3. The brief --- */
   const brief = typeof safeStory.brief === 'string' ? safeStory.brief : '';
@@ -885,7 +897,7 @@ export function buildRequest({
   /* Positional stability: slots 1–4 always emit four blocks in law order
    * (empty text included) so receipts and tests can read them by seat;
    * the PROVIDERS drop empty blocks when they map to the wire. */
-  const systemBlocks = [frameText, craftWhole]
+  const systemBlocks = [frameText, voiceWords ? craftWhole + '\n\n' + voiceWords : craftWhole] /* M512: the voice rides with the craft (its seat stays the second) */
     .map((text) => (typeof text === 'string' ? text : ''))
     .map((text) => ({ text, cache: true }))
     .concat(
@@ -1475,6 +1487,15 @@ export function buildRequest({
        * back by HIS MESSAGE alone: the eight pages it already has would call back every paragraph that repeats the scene */
       const middle = recallPagesLine((recallFromPages(pages, [lastUserB ? String(lastUserB.text || '') : ''], { ignore: namesB, from: coveredUntil(windowInfo && windowInfo.nodes), to: pages.length - (smallWindow ? smallWindow.length : 0) })));
       if (middle) anchorLine += '\n' + middle;
+    }
+    /* M512: THE TURNS OF PHRASE THE LAST PAGES KEEP USING — a small model's old habit: the same four or five words written
+     * page after page. Found in code on the pages this request carries (smallprose.js wornPhrases: four words or more, in
+     * two pages or more, never a name, a place, small words alone or a stretched sound) and said once, in his voice: the
+     * thing may be said, in new words, or not at all. */
+    {
+      const placeWords = state && typeof state.place === 'string' ? [state.place] : [];
+      const worn = wornPhrases((smallWindow || []).filter((m) => m && m.role === 'assistant').map((m) => String(m.content || '')), { names: [...knownNames(state), ...placeWords] });
+      if (worn.length) anchorLine += '\nA few turns of phrase keep coming back on the last pages — ' + worn.map((phrase) => '“' + phrase + '”').join(', ') + '. Say those things in new words this time, or leave them out.';
     }
     if (smallIntense === true || smallPlan.intense === true) {
       const wentQuiet = Boolean(lastSound && lastSound.intense === true && !lastSound.effects && !lastSound.voiced);

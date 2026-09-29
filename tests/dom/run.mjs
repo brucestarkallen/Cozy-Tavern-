@@ -66,6 +66,8 @@ const walkDefaultWorker = (body, sys) => {
 house.state.workerAnswer = walkDefaultWorker;
 
 const errorsSince = (n) => errors.slice(n);
+/* M512: the storyteller's connection as resolveConnection finds it for a story with none of its own: the active one, else the first */
+const tellerConnectionId = async () => { const all = await db.connections.list(); const wanted = await db.settings.get('activeConnectionId'); return (all.find((c) => c.id === wanted) || all[0]).id; };
 const assistantPages = () => qa('.msg-assistant');
 const userPages = () => qa('.msg-user');
 const bodyText = (node) => node.querySelector('.msg-body').textContent;
@@ -4070,7 +4072,7 @@ test('DOM-74 THE PAGE THAT BEGAN PLAYING HIM, IN THE APP (M510): with a small mo
   house.state.storyAnswer = () => H + scene.repeat(3) + '"Fine," Jovan said, and he stepped back from the fire. Kaelen raised the practice sword and waited.';
   const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0, 'readers', 40000); return house.state.calls.slice(from).filter((c) => !c.isWorker); };
   const newest = async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
-  const activeId = await db.settings.get('activeConnectionId');
+  const activeId = await tellerConnectionId(); /* M512: the storyteller's connection as the app resolves it — never an unset setting (the tick then marked nothing) */
   try {
     /* a storyteller without the tick: the page stands as it came */
     const offCalls = await send('I walk to the gate.');
@@ -6938,7 +6940,7 @@ test('DOM-138 A BATTLE PLAN, KEPT WHOLE, THROUGH THE APP (M510-22): laid out on 
   house.state.plansAnswer = () => { plansCalls += 1; return plansCalls === 1 ? JSON.stringify(BATTLE) : '{"new":[],"progress":[],"closed":[]}'; };
   house.state.workerAnswer = (body, sys) => (/You prepare a storyteller for the next page/.test(String(sys || '')) ? JSON.stringify(PLAN) : (typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}')));
   house.state.storyAnswer = () => '[The war tent — Monday, March 3, 2025 | 21:00 | wind | armour | at the map]\n\nThe lamp swung over the map. Artos traced the line of the front with one finger, and Arsif counted the wagons of the false convoy under his breath while Daros said nothing at all.';
-  const activeId = await db.settings.get('activeConnectionId');
+  const activeId = await tellerConnectionId(); /* M512: the storyteller's connection as the app resolves it — never an unset setting (the tick then marked nothing) */
   const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0, 'readers', 40000); return house.state.calls.slice(from); };
   try {
     await db.connections.update(activeId, { smallModel: true });
@@ -6961,6 +6963,54 @@ test('DOM-138 A BATTLE PLAN, KEPT WHOLE, THROUGH THE APP (M510-22): laid out on 
     assert(/Plans standing — laid out on the page, kept whole until carried out/.test(wire) && wire.includes('Arsif — takes the fake gold convoy into the forest, then runs, leaving it') && wire.includes('“Retreat! Protect the gold convoy!”'), 'the small storyteller reads it word for word');
   } finally {
     house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker; house.state.plansAnswer = prior.plans;
+    await db.connections.update(activeId, { smallModel: null });
+    await env.ctx.chat.refreshQuickSwitch();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-169 THE SMALL MODEL AT ITS BEST, THROUGH THE APP (M512): a small storyteller\'s request carries his prose laws, a passage of the story as its big storyteller wrote it (older than the eight pages sent whole), each person\'s way of talking, and the turns of phrase the last pages keep using — and the page it writes is marked as a small storyteller\'s', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const st = await db.stories.create({ title: 'the rail at noon' });
+  await db.stories.update(st.id, { keeper: false, extraction: false });
+  const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the Tenth Division courtyard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia' }, { type: 'presence.enter', name: 'Zaraki' }]).state;
+  const Hd = (i) => '[The Tenth Division courtyard — Monday, March 3, 2025 | 12:' + String(10 + i).padStart(2, '0') + ' | noon | haori | at the rail]\n\n';
+  const BIG = 'BIG-VOICE The noon wind came off the wall and pushed dust across the stones. Rukia kept her hand on the rail though the wood was hot enough to hurt, and along the gallery the captains had stopped pretending to talk.\n\n"You are not going to fight him," she said. It was not a question. "Tell me you remember what you promised me on the bridge, with the lanterns out and nobody to hear it but us."\n\nZaraki laughed once, a short bark, and the bells in his hair answered him.';
+  for (let i = 0; i < 12; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'I wait, move ' + i + '.' });
+    const big = i === 2;
+    await db.messages.append(st.id, { role: 'assistant', text: Hd(i) + (big ? BIG : 'The courtyard held its breath while the dust lifted in the noon wind and settled again across the stones. Zaraki grinned, page ' + i + '.'), receipt: { v: 1, slots: [], model: big ? 'big-teller' : 'small-teller', small: !big } });
+  }
+  await saveState(st.id, { ...ledger, page: 12, readTo: 12, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  const PLAN = { scene: 'Noon at the rail.', people: [{ name: 'Rukia', now: 'at the rail', wants: 'him to refuse', against: '', voice: 'in clipped, formal sentences; calls him Captain' }], unknown: [], pressing: [], earlier: [], laws: ['MC Agency'], intense: false, loud: false, sounds: [], leaveTo: 'what Jovan answers', story: 'Jovan leads the Thirteenth.' };
+  house.state.workerAnswer = (body, sys) => (/You prepare a storyteller for the next page/.test(String(sys || '')) ? JSON.stringify(PLAN) : (typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}')));
+  house.state.storyAnswer = () => Hd(30) + 'Rukia did not look at him. "Captain. The bell."';
+  /* the storyteller's connection as the app resolves it — the story's own, the active one, else the first (a walk run
+   * alone has no active one set: marking "the active" marked nothing, and the turn went to the big storyteller) */
+  const activeId = await tellerConnectionId();
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0, 'readers', 40000); return house.state.calls.slice(from); };
+  try {
+    await db.connections.update(activeId, { smallModel: true });
+    await env.ctx.chat.refreshQuickSwitch();
+    await send('I look at the bells.'); /* the helper plans after this page */
+    const calls = await send('I tell Zaraki I will not draw today.');
+    const told = calls.find((c) => !c.isWorker);
+    const wire = JSON.stringify(told.body.messages);
+    assert(/What I have in mind for this page/.test(wire) && !/Ruin Awareness = /.test(wire) && !/Symmetry Law = /.test(wire), 'the small storyteller\'s request — the plan, and only the laws this page needs');
+    assert(/Show Never Interpret = /.test(wire) && /Anti Repetition Structural = /.test(wire) && /Voice Fingerprints = /.test(wire) && /Banned Constructs \(narration only\) = /.test(wire), 'his prose laws ride on the small page');
+    assert(/How our story sounds at its best — a passage from our own pages/.test(wire) && /BIG-VOICE The noon wind came off the wall/.test(wire), 'the story as its big storyteller wrote it');
+    assert(/talks in clipped, formal sentences; calls him Captain/.test(wire), 'how Rukia talks, in the plan');
+    assert(/A few turns of phrase keep coming back on the last pages — “the courtyard held its breath while the dust lifted in the noon…”/.test(wire), 'the turns of phrase the last pages keep using — the longest, cut at twelve words: ' + (wire.match(/A few turns of phrase[^\n]{0,200}/) || [''])[0]);
+    const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    eq(page.receipt && page.receipt.small, true, 'the page it wrote is marked as a small storyteller\'s');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
     await db.connections.update(activeId, { smallModel: null });
     await env.ctx.chat.refreshQuickSwitch();
   }

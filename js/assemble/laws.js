@@ -6,7 +6,10 @@
  * exact words. This file cuts the craft into those laws and puts chosen ones back together in the craft's own order,
  * each under its section's own heading. Not one word of a law is changed. Pure. */
 const HEADING = /^#{1,4}[ \t]+(.+?)[ \t]*$/;
-const LAW_START = /^[ \t]*([A-Z][A-Za-z0-9’'&/\-]*(?:[ \t]+[A-Za-z0-9’'&/\-]+){0,7})[ \t]+=[ \t]/;
+/* M512: a law's name may carry commas ("Real People, Real Record", "CORE Voice Fixed, Register Dynamic") and one closing
+ * aside in brackets ("Banned Constructs (narration only)", "OOC (input starts with #question)") — four of his laws were
+ * read as the tail of the law before them, and rode (for a small model) only when that law happened to be chosen */
+const LAW_START = /^[ \t]*([A-Z][A-Za-z0-9’'&/\-,]*(?:[ \t]+[A-Za-z0-9’'&/\-,]+){0,7}(?:[ \t]+\([^()\n]{1,60}\))?)[ \t]+=[ \t]/;
 
 /* Every law, in order: {name, section, preamble, text, index}. A section's own opening lines (before its first law)
  * are a law named after the section — "The Telling" is kept whole that way. */
@@ -33,7 +36,8 @@ export function lawsOf(text) {
   return out.map((law, index) => ({ ...law, index }));
 }
 
-export const lawKey = (s) => String(s == null ? '' : s).toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
+/* M512: its closing aside is not part of its name — "Banned Constructs" and "Banned Constructs (narration only)" are one law */
+export const lawKey = (s) => String(s == null ? '' : s).toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim().replace(/\s*\([^()]*\)$/, '').trim();
 
 /* the laws whose names are asked for (a section's name brings its opening lines) */
 export function lawsNamed(list, names) {
@@ -62,7 +66,13 @@ export function joinLaws(chosen) {
  * one obvious step; The 3 Part Trace: the ledger's "who knows what" first, then the three questions, all fail → cut it).
  * The frontier model reads the whole list of who knows what (on a long tale, thousands of tokens); a small model reads
  * the scene's part of it and carries the RULE, so no one knows what no page gave them, listed or not. */
-export const ALWAYS_LAWS = ['The Telling', 'Header Protocol', 'MC Agency', 'MC Dialogue Is Literal', 'Every MC Action Is An Attempt', 'Intent Horizon', 'Epistemic Law', 'The 3 Part Trace', 'Exposed', 'Marks On The Page', 'The Window Beyond The Page', 'Readable Media'];
+export const ALWAYS_LAWS = ['The Telling', 'Header Protocol', 'MC Agency', 'MC Dialogue Is Literal', 'Every MC Action Is An Attempt', 'Intent Horizon', 'Epistemic Law', 'The 3 Part Trace', 'Exposed', 'Marks On The Page', 'The Window Beyond The Page', 'Readable Media', 'Real People, Real Record']; /* M512: his "real people from the real record" — its own law now (it was read as the tail of Identity Words Check) */
+/* M512: THE PROSE A SMALL MODEL ALWAYS CARRIES — his word: "realistic, beautiful prose, natural, no old LLM repetition". A
+ * small model's page carried his craft's always-laws and the helper's picks — and the helper picks for the scene's logic:
+ * on a calm page not one of his prose laws rode (measured: 12 laws, 0 of prose). These ride on every small page, in his
+ * craft's own words: what makes prose alive (show, plain, subtext), what keeps people distinct (voice), and what keeps a
+ * long story from repeating itself (structure, detail, bits, the banned constructs). */
+export const PROSE_LAWS = ['Show Never Interpret', 'Plain Prose Default', 'Dialogue Subtext', 'Voice Fingerprints', 'CORE Voice Fixed, Register Dynamic', 'Attentional Salience', 'Anti Repetition Structural', 'Shape Follows Spine', 'Signature Bits Burn', 'Banned Constructs'];
 /* his two sound laws — said right before the page whenever the scene is a fight, sex, torture or a raw peak */
 export const SOUND_LAWS = ['Sound As Onomatopoeia', 'High Intensity Scenes'];
 /* the laws a small request cannot stand without: if his craft no longer holds them by these names, the small request

@@ -77,6 +77,7 @@ const SHELL = [
   'js/agents/recallpick.js', /* M510-50 */
   'js/agents/plans.js', /* M510-22 */
   'js/assemble/planbook.js', /* M510-22 */
+  'js/assemble/smallprose.js', /* M512: the story's voice and the worn phrases, for a small storyteller */
   'js/canon/host.js',
   'js/canon/bridge.js',
   'js/canon/grounding.js',
