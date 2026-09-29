@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-040)
+# Cozy Tavern — handoff for the next session (state at m510-042)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1101,4 +1101,11 @@ founding design lives in AGENTS.md's first entries.)
   Law M510-40. Checked and sound: the backup takes every setting (his presets, notesRole) and every connection field
   (userFirstFor); reset leaves his presets (his writing) and resets notesRole; the page finisher keeps second-person
   narration, narrative questions, speech and letters, and takes off only notes to him (9 of 9 in a probe).
+- M510-42 — A BANNER BELONGS TO ITS TALE (ui/workbanner.js): one banner serves the house, and work goes on in its own
+  tale after he opens another. beginWork(what, stop, tale) keeps the tale (the open one at begin unless named — the
+  missed-pages reader names its own); on another tale the banner says whose work it is ("“Title” — Reading the pages the
+  ledger missed"), repaintWork() redraws it when the open tale changes (app.js setActiveStoryId), and Stop hands the
+  banner's own tale to its handler (all eleven stop handlers took the tale open at the tap). bannerKnowsTales() is told the
+  open tale and the shelf's titles by chat.js. DOM-143 reproduces his report (origin with nine unread pages, its reader
+  held, a branch at his first message) — failed on m510-040, passes now.
 

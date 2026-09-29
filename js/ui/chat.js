@@ -48,7 +48,7 @@ import { createProvider } from '../providers/index.js';
 import { contextOf } from '../providers/room.js'; /* M285: one answer for the model's room */
 import { learnContext, learnContextWithin } from '../providers/detect.js'; /* M289: the provider's own word on its room */
 import { buildRequest, pageText, windowPlan, heatedNow } from '../assemble/stack.js';
-import { beginWork, waitVisibly } from './workbanner.js'; /* M203: what the house is doing */
+import { beginWork, waitVisibly, bannerKnowsTales } from './workbanner.js'; /* M203: what the house is doing; M510-42: whose */
 import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
@@ -472,6 +472,8 @@ export function initChat(ctx) {
    * shelf id (or 'loose') to true. */
   const SHELF_COLLAPSED_KEY = 'shelfCollapsed';
 
+  /* M510-42: the banner names a tale that is not the one open — the titles are the shelf's own */
+  bannerKnowsTales({ openTale: () => ctx.getActiveStoryId(), titleOf: (id) => { const t = (stories || []).find((x) => x && x.id === id); return t ? String(t.title || '') : ''; } });
   async function refreshStories(keepActive) {
     stories = (await db.stories.list()).filter((st) => !(st && st.building && typeof st.building === 'object')); /* M332: a branch still being made is not on the shelf */
     /* M311: a shelf whose row was lost is put back before the shelf is drawn — the tales still name it.
@@ -1891,7 +1893,7 @@ export function initChat(ctx) {
   }
 
   async function rescanLedger() {
-    const banner = beginWork('Reading the pages again', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
+    const banner = beginWork('Reading the pages again', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
     const pages = (await db.messages.list(story.id)).filter((m) => !m.hidden);
@@ -1908,7 +1910,7 @@ export function initChat(ctx) {
   /* M45: found the world, by hand — from the brief, the cast notes, the
    * cards and the lore, regardless of the fingerprint. */
   async function foundNow() {
-    const banner = beginWork('Founding the world from the brief', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
+    const banner = beginWork('Founding the world from the brief', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
     const connection = await resolveWorkerConnection(story, 'founder');
@@ -1930,7 +1932,7 @@ export function initChat(ctx) {
    * record. Summaryception has had this per snippet for years. */
   async function redoRecordLine(nodeId, detailOnly) {
     const banner = beginWork(detailOnly ? 'Reading the detail again' : 'Reading these pages again',
-      () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped'); });
+      (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
     const connection = await resolveWorkerConnection(story, 'keeper');
@@ -2174,7 +2176,7 @@ export function initChat(ctx) {
         const unread = (st) => { const mark = readMark(st); const ahead = new Set(Array.isArray(st && st.readAhead) ? st.readAhead : []); let c = 0; for (let k = mark + 1; k < told.length; k += 1) if (!ahead.has(k)) c += 1; return c; };
         const total = unread(await loadState(storyId));
         if (!total) return { silent: true };
-        const banner = beginWork('Reading the pages the ledger missed', () => { const s = storyId; if (s) stoppedByHand(s); banner.failed('Stopped — what was read is kept; the rest are read when the house is idle again'); });
+        const banner = beginWork('Reading the pages the ledger missed', () => { const s = storyId; if (s) stoppedByHand(s); banner.failed('Stopped — what was read is kept; the rest are read when the house is idle again'); }, storyId); /* M510-42: this tale's readers, whichever tale is open */
         let read = 0;
         banner.step(0, total, 'page');
         for (let i = 0; i < 2000 && !stale(); i += 1) {
@@ -2285,7 +2287,7 @@ export function initChat(ctx) {
   });
 
   async function summarizeNow() {
-    const banner = beginWork('Folding what is due', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — press it again to carry on'); });
+    const banner = beginWork('Folding what is due', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — press it again to carry on'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
     if ((await db.settings.get('memoryKeeper')) === false) {
@@ -2323,7 +2325,7 @@ export function initChat(ctx) {
   }
 
   async function rebuildRecordNow() {
-    const banner = beginWork('Rebuilding the record', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
+    const banner = beginWork('Rebuilding the record', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
     const connection = await resolveWorkerConnection(story, 'keeper');
@@ -2351,7 +2353,7 @@ export function initChat(ctx) {
      * one path that used it — "the scribe needs a connection" — threw a
      * ReferenceError out of the click instead of saying so. Lint does not
      * catch a temporal-dead-zone use inside a function body. */
-    const banner = beginWork('Rebuilding the people', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
+    const banner = beginWork('Rebuilding the people', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
     const connection = await resolveWorkerConnection(story, 'scribe');
@@ -2397,7 +2399,7 @@ export function initChat(ctx) {
     return true;
   }
   async function restoreRecordNow() {
-    const banner = beginWork('Putting the old record back', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
+    const banner = beginWork('Putting the old record back', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
     const ok = await restoreRecord(story.id);
@@ -2405,7 +2407,7 @@ export function initChat(ctx) {
     return ok;
   }
   async function restorePeopleNow() {
-    const banner = beginWork('Putting the people back', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
+    const banner = beginWork('Putting the people back', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
     const ok = await restorePeople(story.id);
@@ -2415,7 +2417,7 @@ export function initChat(ctx) {
 
   /* M50: rebuild every standing by hand — from the brief, the record and the pages. */
   async function rebuildStandingsNow() {
-    const banner = beginWork('Rebuilding every standing', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
+    const banner = beginWork('Rebuilding every standing', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
     const connection = await resolveWorkerConnection(story, 'auditor');
@@ -2803,7 +2805,7 @@ export function initChat(ctx) {
   }
 
   async function auditNow() {
-    const banner = beginWork('Auditing the ledger', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
+    const banner = beginWork('Auditing the ledger', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
     const story = await activeStory();
     if (!story) return false;
     const connection = await resolveWorkerConnection(story, 'auditor');
@@ -2823,7 +2825,7 @@ export function initChat(ctx) {
    * runs now, by hand, on the brief and the pages as they stand; a considered rating of the seeder's still only rises
    * (growth), and a number he set by hand is never touched. */
   async function weighCast() {
-    const banner = beginWork('Weighing the cast', () => { const s = ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — the sheet is as it was'); });
+    const banner = beginWork('Weighing the cast', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — the sheet is as it was'); });
     const story = await activeStory();
     if (!story) return false;
     if (!(await refereeSettings()).on) { banner.failed('The referee is off — the sheet is the referee’s'); return false; }

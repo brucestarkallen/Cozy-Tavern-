@@ -12967,3 +12967,15 @@ and the per-day/week/month averages (the last 30 days' spend over the days since
 two calls through the provider and the meter a minute either side of local midnight and draws the summary at 00:05,
 23:59 and the next morning. Test only — no code changed.
 
+# M510-42 — a banner belongs to its tale
+His report: "when I branch to the start of my message there's still a banner — something about the ledger missing
+pages, 1 of 9 — while the tale is literally empty." Reproduced (DOM-143 on m510-040): an origin whose readers were
+catching up on nine unread pages; he branches at his first message; the branch has no page at all — and the banner,
+one for the whole house, went on showing the origin's "Reading the pages the ledger missed · page 1 of 9" with no tale
+named. The branch was not wrong and the origin's work was right to go on; the banner never said whose it was. And its
+Stop was worse: all eleven stop handlers looked up the tale OPEN at the tap — in the branch, Stop stopped nothing of the
+origin's. Now beginWork(what, stop, tale) keeps the banner's tale (the tale open when the work began, unless the work
+names its own, as the missed-pages reader does); on any other tale the banner reads "“Nine pages unread” — Reading the
+pages the ledger missed"; app.js repaints it the moment the open tale changes; Stop hands the banner's tale to its
+handler. DOM-143 passes: the branch shows the origin's name and its count of nine, and Stop stops the origin's readers.
+

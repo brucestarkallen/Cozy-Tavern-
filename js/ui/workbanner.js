@@ -28,6 +28,9 @@ let stopEl = null;
 let clearTimer = 0;
 let token = 0;
 let onStop = null;
+let taleOfBanner = null; /* M510-42: the tale whose work the banner shows */
+let knows = { openTale: () => null, titleOf: () => '' };
+let lastPaint = null;
 
 function parts() {
   if (el && el.isConnected) return true;
@@ -39,19 +42,38 @@ function parts() {
   if (stopEl && !stopEl.dataset.wired) {
     stopEl.dataset.wired = '1';
     stopEl.addEventListener('click', () => {
-      if (typeof onStop === 'function') { const f = onStop; onStop = null; f(); }
+      if (typeof onStop === 'function') { const f = onStop; onStop = null; f(taleOfBanner); } /* M510-42: its own tale */
     });
   }
   return Boolean(el && whatEl && countEl && fillEl);
 }
 
+/* M510-42: A BANNER BELONGS TO ITS TALE. His report: "I branch to the start of my message and a banner still says it is
+ * reading the pages the ledger missed, 1 of 9 — while the tale is literally empty." One banner serves the whole house,
+ * and the work goes on in its own tale after he opens another (the origin's readers, catching up) — so the empty branch
+ * showed the origin's count, naming no tale, and its Stop stopped whatever tale was OPEN at the tap. Now each banner
+ * knows its tale: on another tale it says whose work it is ("“Bleach” — Reading the pages the ledger missed"), it is
+ * repainted the moment the open tale changes, and Stop stops its own tale's work. */
+const ask = (fn, arg) => { try { return fn(arg); } catch (err) { return null; } };
+export function bannerKnowsTales(k) { knows = { ...knows, ...(k || {}) }; }
+function whatShown(what) {
+  const open = ask(knows.openTale);
+  if (!what || !taleOfBanner || !open || taleOfBanner === open) return what || '';
+  const title = String(ask(knows.titleOf, taleOfBanner) || '').trim();
+  return (title ? '“' + title + '”' : 'Another tale') + ' — ' + what;
+}
+/* the open tale changed: the banner on show says again whose work it is */
+export function repaintWork() {
+  if (lastPaint && el && el.isConnected && !el.hidden) { whatEl.textContent = whatShown(lastPaint); }
+}
 function paint(what, count, pct, state) {
   if (!parts()) return;
   clearTimeout(clearTimer);
   el.hidden = false;
   el.classList.toggle('is-waiting', state === 'waiting');
   el.classList.toggle('is-done', state === 'done');
-  whatEl.textContent = what || '';
+  lastPaint = what || '';
+  whatEl.textContent = whatShown(what);
   countEl.textContent = count || '';
   if (Number.isFinite(pct)) fillEl.style.width = Math.max(0, Math.min(100, pct)) + '%';
 }
@@ -59,10 +81,11 @@ function paint(what, count, pct, state) {
 /* Begin a piece of work. Returns a handle; every method on it is a no-op once
  * a newer piece of work has begun, so two actions can never fight over the
  * banner. */
-export function beginWork(what, stop) {
+export function beginWork(what, stop, tale) {
   const mine = ++token;
   const live = () => mine === token;
   onStop = typeof stop === 'function' ? stop : null;
+  taleOfBanner = (typeof tale === 'string' && tale) ? tale : (ask(knows.openTale) || null); /* M510-42: the tale whose work this is */
   paint(what, '', 0, 'running');
   if (stopEl) stopEl.hidden = !onStop;
   return {

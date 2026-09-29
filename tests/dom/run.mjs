@@ -7110,6 +7110,49 @@ test('DOM-142 THE NOTES’ ROLE, HIS SWITCH, IN SETTINGS (M510-39): "The notes b
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-143 A BANNER BELONGS TO ITS TALE (M510-42, his report: "I branch to the start of my message and a banner still says it is reading the pages the ledger missed, 1 of 9 — while the tale is literally empty"): the origin’s readers catching up on nine pages go on after he branches at his first message; in the empty branch the banner names the origin, and its Stop stops the origin’s readers', async () => {
+  const before = errors.length;
+  const DEFAULT = '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}';
+  const { emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const origin = await db.stories.create({ title: 'Nine pages unread' });
+  const H = '[The yard — Monday, March 3, 2025 | 09:00 | clear]\n\n';
+  for (let i = 0; i < 10; i += 1) {
+    await db.messages.append(origin.id, { role: 'user', text: 'I cross the yard, step ' + i + '.' });
+    await db.messages.append(origin.id, { role: 'assistant', text: H + 'Page ' + i + ' of the yard. Rukia waited by the gate, arms folded.' });
+  }
+  const st = applyMutations({ ...emptyState() }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The yard' }, { type: 'presence.enter', name: 'Jovan' }]).state;
+  await db.settings.set('state:' + origin.id, { ...st, page: 0, readTo: 0 });
+  let release = () => {};
+  const held = new Promise((r) => { release = r; });
+  const prior = house.state.workerAnswer;
+  house.state.workerAnswer = (body, sys) => (/You keep the ledger/.test(sys) ? held.then(() => DEFAULT) : (typeof prior === 'function' ? prior(body, sys) : (prior || DEFAULT))); /* the ledger reader, by its own first words */
+  let branchId = null;
+  try {
+    await env.ctx.chat.refreshStories(true);
+    env.window.__cozy.setActiveStoryId(origin.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    const what = () => ((q('#work-banner') && !q('#work-banner').hidden && q('#work-banner-what')) || { textContent: '' }).textContent;
+    await until(() => /^Reading the pages the ledger missed/.test(what()), 'the origin’s readers at work, in the origin: ' + what(), 40000);
+    await showAllPages();
+    click(q('.msg-act[data-act="branch"]', userPages()[0]));
+    await until(async () => (await storyId()) !== origin.id, 'the branch is open', 20000);
+    branchId = await storyId();
+    eq((await db.messages.list(branchId)).filter((m) => m.role === 'assistant' && !m.hidden).length, 0, 'the branch at his first message is empty of pages');
+    await until(() => /^“Nine pages unread” — Reading the pages the ledger missed/.test(what()), 'in the empty branch, the banner names the origin: ' + what(), 10000);
+    assert(/of 9/.test(q('#work-banner-count').textContent), 'counting the origin’s nine: ' + q('#work-banner-count').textContent);
+    click(q('#work-banner-stop'));
+    await until(() => /Stopped/.test(what()), 'Stop stops the origin’s readers: ' + what(), 10000);
+  } finally {
+    release();
+    house.state.workerAnswer = prior;
+    await tick(300);
+    for (const id of [branchId, origin.id]) if (id) await db.stories.remove(id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 console.log('Cozy Tavern — the dom walk');
 await runAll();
 process.exit(process.exitCode || 0);

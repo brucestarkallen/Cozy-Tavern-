@@ -3,6 +3,7 @@
  * and the shared context handed to each UI module.
  */
 
+import { repaintWork } from './ui/workbanner.js'; /* M510-42 */
 import { repairStoryPlaceholder } from './ui/placeholder.js'; /* M382 */
 import { sweepSent } from './sent.js'; /* M347: a gone tale's kept words go with it */
 import { db } from './store.js';
@@ -124,6 +125,7 @@ function getActiveStoryId() {
 function setActiveStoryId(id) {
   activeStoryId = id;
   db.settings.set('activeStoryId', id).catch(() => {});
+  repaintWork(); /* M510-42: a banner at work for another tale says whose it is */
 }
 
 /* ---------- shared context ---------- */
