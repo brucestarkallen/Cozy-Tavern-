@@ -311,8 +311,9 @@
           <h3>The frame</h3>
           <p class="quiet">The standing word given to the storyteller before anything else. It shapes every tale.</p>
           <!-- M510-35: the storyteller's voice, saved — switch between Hulk, Batman, Iron Man… -->
-          <div class="stack voice-presets" id="voice-presets">
-            <p class="stack-label">Presets — the storyteller’s voice, saved together</p>
+          <!-- M510-45: folded until he opens it ("it makes everything crowded"); the count and the one in use show folded -->
+          <details class="stack voice-presets" id="voice-presets">
+            <summary class="stack-label">Presets — the storyteller’s voice, saved together<span class="quiet voice-presets-count" id="voice-presets-count"></span></summary>
             <p class="quiet">Who is telling and your name, the grounding phrase, how the teller thinks, the frame and the note for every story, and your own words — switched in one tap.</p>
             <ul id="voice-preset-list" class="voice-preset-list"></ul>
             <div class="row">
@@ -320,7 +321,7 @@
               <button type="button" id="btn-voice-preset-save" class="btn">Save as new preset</button>
             </div>
             <p class="quiet" id="voice-preset-note"></p>
-          </div>
+          </details>
           <!-- M327: who tells, and who listens -->
           <div class="row names-row">
             <label class="stack-label">Who is telling

@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-044)
+# Cozy Tavern — handoff for the next session (state at m510-045)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1123,4 +1123,9 @@ founding design lives in AGENTS.md's first entries.)
   called back; shared facts said once; "(and N older things they know, kept in the ledger)"; never shed whole. Measured:
   11 people 7,493 → 3,823 tokens; 20 people 13,515 → 3,521; a few people unchanged. Only the storyteller's whole view —
   the housekeeper and every worker read as before. Law M510-44.
+- M510-45 — THE PRESETS FOLD. Settings → The frame → the presets box is a <details> (#voice-presets), closed until he
+  opens it; its line says "· N saved · using “Hulk”" folded; the open state is read once at Settings' start and kept on
+  every toggle (setting voicePresetsOpen) — never re-read on a redraw. Every id inside is unchanged; nothing about a
+  saved preset is written by the fold. DOM-141 opens it first; DOM-145: twelve saved presets — folded and counted, all
+  twelve rows with their four buttons when opened, remembered across Settings, the stored presets byte for byte.
 

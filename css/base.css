@@ -1234,3 +1234,7 @@ body.plain-speech .thought { font-style: italic; }
 .voice-preset-row .row { flex-wrap: wrap; gap: 0.35rem; margin-top: 0.25rem; }
 .voice-preset-row.in-use .voice-preset-name { font-weight: 600; }
 .voice-preset-rename { width: 100%; }
+
+/* M510-45: the presets fold — its line says the count and the one in use */
+.voice-presets > summary { cursor: pointer; }
+.voice-presets-count { font-weight: 400; }

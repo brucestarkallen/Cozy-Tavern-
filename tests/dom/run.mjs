@@ -7034,7 +7034,7 @@ test('DOM-140 THE PAGE FINISHED, IN THE APP (M510-34): a page that ends in an em
 
 test('DOM-141 THE STORYTELLER’S VOICE, SAVED, IN SETTINGS (M510-35/36): save “Hulk”, change the voice, save “Batman”; Hulk’s row → Use (the frame box and the teller’s name are Hulk’s again); Batman’s row → Rename to “Dark Knight”; → Delete; everything he had is put back after', async () => {
   const before = errors.length;
-  const KEYS = ['tellerName', 'writerName', 'groundingPhrase', 'tellerPerson', 'frameText', 'noteText', 'ownWords', 'voicePresets', 'voicePresetActive'];
+  const KEYS = ['tellerName', 'writerName', 'groundingPhrase', 'tellerPerson', 'frameText', 'noteText', 'ownWords', 'voicePresets', 'voicePresetActive', 'voicePresetsOpen'];
   const kept = {};
   for (const k of KEYS) kept[k] = await db.settings.get(k);
   const priorConfirm = env.window.confirm;
@@ -7043,12 +7043,17 @@ test('DOM-141 THE STORYTELLER’S VOICE, SAVED, IN SETTINGS (M510-35/36): save �
   const tap = (li, act) => click(li.querySelector('button[data-act="' + act + '"]'));
   try {
     await openSettings();
+    /* M510-45: the presets fold closed until he opens it */
+    const fold = q('#voice-presets');
+    assert(fold && fold.tagName === 'DETAILS' && !fold.open, 'the presets are folded as Settings opens');
+    fold.open = true; fold.dispatchEvent(new env.window.Event('toggle'));
     const typeIn = (id, words, ev = 'input') => { const box = q(id); box.value = words; box.dispatchEvent(new env.window.Event(ev, { bubbles: true })); };
     typeIn('#frame-global', 'I am Hulk. I tell Bruce stories. LOUD.');
     typeIn('#teller-name', 'Hulk', 'change');
     typeIn('#voice-preset-name', 'Hulk');
     click(q('#btn-voice-preset-save'));
     await until(() => rowOf('Hulk'), 'Hulk’s row');
+    await until(() => /· 1 saved · using “Hulk”/.test(q('#voice-presets-count').textContent), 'the fold’s line: how many, and the one in use — ' + q('#voice-presets-count').textContent);
     const hulkRow = rowOf('Hulk');
     for (const act of ['use', 'update', 'rename', 'delete']) assert(hulkRow.querySelector('button[data-act="' + act + '"]'), 'the row has ' + act);
     typeIn('#frame-global', 'I am Batman. I tell it in the dark.');
@@ -7194,6 +7199,41 @@ test('DOM-144 ANOTHER TALE OPENED WHILE A PAGE IS WRITTEN (final audit): the pag
     await tick(200);
     for (const id of [a.id, b.id]) await db.stories.remove(id).catch(() => {});
     await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-145 HIS MANY SAVED PRESETS, FOLDED (M510-45): twelve saved presets — the fold is closed as Settings opens and its line says "12 saved"; opened, all twelve rows stand; it stays as he left it across Settings; and not one saved preset is changed by any of it', async () => {
+  const before = errors.length;
+  const KEYS = ['voicePresets', 'voicePresetActive', 'voicePresetsOpen'];
+  const kept = {};
+  for (const k of KEYS) kept[k] = await db.settings.get(k);
+  const many = [];
+  for (let i = 1; i <= 12; i += 1) many.push({ id: 'vp-seed-' + i, name: 'Voice ' + i, voice: { tellerName: 'Teller ' + i, writerName: 'Bruce', groundingPhrase: null, tellerPerson: null, frameText: 'I am teller ' + i + '. ' + 'A long frame line. '.repeat(40), noteText: 'Note ' + i, ownWords: null }, savedAt: 1790000000000 + i });
+  await db.settings.set('voicePresets', many);
+  await db.settings.delete('voicePresetsOpen');
+  const stored = JSON.stringify(await db.settings.get('voicePresets'));
+  try {
+    await openSettings();
+    const fold = q('#voice-presets');
+    await until(() => /· 12 saved/.test(q('#voice-presets-count').textContent), 'the fold’s line counts them: ' + q('#voice-presets-count').textContent);
+    /* folded — as it opens on a fresh start, or as he folded it (the walk's DOM-141 left it open in this same session) */
+    if (fold.open) { fold.open = false; fold.dispatchEvent(new env.window.Event('toggle')); }
+    await until(async () => (await db.settings.get('voicePresetsOpen')) !== true, 'folded, and remembered (never opened: nothing kept at all)');
+    assert(!fold.open && /· 12 saved/.test(q('#voice-presets-count').textContent), 'folded, its line still counting twelve — nothing crowded');
+    fold.open = true; fold.dispatchEvent(new env.window.Event('toggle'));
+    await until(async () => (await db.settings.get('voicePresetsOpen')) === true, 'opened, and remembered');
+    eq(qa('#voice-preset-list .voice-preset-row').length, 12, 'all twelve rows stand');
+    for (const act of ['use', 'update', 'rename', 'delete']) eq(qa('#voice-preset-list button[data-act="' + act + '"]').length, 12, 'each with its ' + act);
+    await closeSettings();
+    await openSettings();
+    await until(() => q('#voice-presets').open === true, 'open again, as he left it');
+    q('#voice-presets').open = false; q('#voice-presets').dispatchEvent(new env.window.Event('toggle'));
+    await until(async () => (await db.settings.get('voicePresetsOpen')) === false, 'folded again, and remembered');
+    eq(JSON.stringify(await db.settings.get('voicePresets')), stored, 'every saved preset exactly as it was');
+  } finally {
+    await closeSettings();
+    for (const k of KEYS) { if (kept[k] == null) await db.settings.delete(k); else await db.settings.set(k, kept[k]); }
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

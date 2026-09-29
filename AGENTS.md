@@ -13012,3 +13012,15 @@ after: 11 people 3,823 tokens, 20 people 3,521, every person still named; a scen
 exactly as before. Only the storyteller's whole view (stateView) changes — the housekeeper's whole ledger and every
 worker's view are as they were. Law M510-44.
 
+# M510-45 — the presets fold
+He: "give the saved frame, notes and voice a drop-down — it makes everything crowded. Be careful: I already saved many."
+The presets box in Settings → The frame is now a fold (<details id="voice-presets">), closed until he opens it, like the
+busiest day in Usage (M510-30). Folded, its line still says how many are saved and which one his voice matches
+("Presets — the storyteller's voice, saved together · 12 saved · using “Hulk”"). Opened, everything is as it was: a row
+per preset with Use, Update, Rename and Delete, "Save as new preset" under them. It stays as he left it (voicePresetsOpen,
+read once when Settings starts and saved on every toggle — re-reading it on each redraw would close it under his finger
+while the toggle's own save was still on its way). His saved presets: the fold writes nothing to them — every id inside
+is unchanged and the only new key is the fold's own. DOM-145 seeds twelve presets with long frames: folded and counted,
+twelve rows with their four buttons when opened, remembered across Settings, and the stored presets byte for byte as
+they were. DOM-141 now opens the fold first, as he would.
+

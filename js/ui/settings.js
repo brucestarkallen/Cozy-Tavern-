@@ -153,6 +153,8 @@ export function initSettings(ctx) {
     writerName: document.getElementById('writer-name'),
     groundingPhrase: document.getElementById('grounding-phrase'), /* M358 */
     voicePresetList: document.getElementById('voice-preset-list'), /* M510-35/36 */
+    voicePresetsBox: document.getElementById('voice-presets'), /* M510-45: the fold */
+    voicePresetsCount: document.getElementById('voice-presets-count'),
     voicePresetName: document.getElementById('voice-preset-name'),
     voicePresetNote: document.getElementById('voice-preset-note'),
     afterRole: document.getElementById('after-role'), /* M380 */
@@ -2977,6 +2979,14 @@ export function initSettings(ctx) {
       list.appendChild(li);
     }
     presetNote(said || (match ? 'Using “' + match.name + '”.' : (all.length ? 'Your voice right now is not saved in any preset — “Save as new preset” keeps it.' : '')));
+    /* M510-45: folded, the line still says how many are saved and which is in use */
+    if (els.voicePresetsCount) els.voicePresetsCount.textContent = all.length ? ' · ' + all.length + ' saved' + (match ? ' · using “' + match.name + '”' : '') : ' · none saved yet';
+  }
+  /* M510-45: the fold stays as he left it — read once, kept on every toggle (never re-read on a redraw, which would
+   * close it again under his finger while the toggle's own save was still on its way) */
+  if (els.voicePresetsBox) {
+    db.settings.get('voicePresetsOpen').then((v) => { els.voicePresetsBox.open = v === true; }).catch(() => {});
+    els.voicePresetsBox.addEventListener('toggle', () => { db.settings.set('voicePresetsOpen', els.voicePresetsBox.open).catch(() => {}); });
   }
   async function usePresetNow(p) {
     await keepVoiceBoxes();
