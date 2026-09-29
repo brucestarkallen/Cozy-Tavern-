@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-061)
+# Cozy Tavern — handoff for the next session (state at m510-062)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1253,4 +1253,12 @@ founding design lives in AGENTS.md's first entries.)
   msg.text — typed and ooc stayed, so Try again sent "#q" again. chat.js finish(keep): for his message, parseCommand(new
   words) sets typed (a shortcut kept → the new typed words; none → gone) and ooc (a question → true; not → gone). DOM-150
   reproduces (on m510-060 the storyteller was sent "#q" after the edit).
+- M510-62 — THE COMMANDS LIVE IN THE INSTRUCTIONS. Since M379 each #command's law rides once with the rulebook
+  (commands.js shortcutsText → "SHORTCUTS.") and his typed words are sent; no directive is sent on the turn (stack.js
+  `void directive`). The rulebook's own "The Commands" law still said a command "arrives with its own law as the house's
+  directive for THAT turn … a turn with no directive is a story turn" — telling the storyteller to wait for something that
+  never comes, and to treat a typed #q as a story turn. It now says a command typed as his whole message means what
+  SHORTCUTS says. SHIPPED_BEFORE core-craft += '1icfhkj'. The app still parses commands for its own bookkeeping only (an
+  out-of-character answer is not story; #story writes the brief; a window opens; the referee's overrides; the chip). Law
+  M510-62; M85-2 restated.
 

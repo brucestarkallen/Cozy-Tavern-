@@ -47,8 +47,9 @@ test('M85-1 the people half of the NSFW law rides in the craft always; the rende
 });
 
 test('M85-2 the page’s marks, readable media, the laws the pass alone had carried — and what is situational stays OUT of the prefix', async () => {
-  /* the craft says only that a command's law arrives with its turn */
-  assert(/The Commands = /.test(CRAFT_TEXT) && /arrives with its own law as the house's directive for THAT turn/.test(CRAFT_TEXT), 'the pointer');
+  /* the craft points to where a command's law is (M510-62: since M379 each command's law rides once with the rulebook as
+   * SHORTCUTS and his typed words are sent — no directive arrives on the turn, as the old pointer said) */
+  assert(/The Commands = /.test(CRAFT_TEXT) && /means what SHORTCUTS, with these laws, says it means/.test(CRAFT_TEXT) && !/arrives with its own law as the house's directive/.test(CRAFT_TEXT), 'the pointer');
   for (const gone of ['Q The Next Scene = ', 'Party Gate = ', 'RIGHT NOW (MC walks into it)', 'Complexity Ratchet', 'Cut Away Quarantine = ', '[Location — Day, Time]']) {
     assert(!CRAFT_TEXT.includes(gone), 'situational law is not in the prefix: ' + gone);
   }

@@ -1278,3 +1278,14 @@ test('M510-60 (the deep audit, read as the storyteller) THE REFERENCE BEFORE THE
     assert(!/the pages you have|my move is about/.test(notes) && /the pages that follow/.test(notes) && /what the newest move is about/.test(notes), (notesRole || 'system') + ': the headings hold in this voice');
   }
 });
+
+test('M510-62 THE COMMANDS LIVE IN THE INSTRUCTIONS (his question: "isn\'t the shortcut already inside the main instructions? #commands shouldn\'t be embedded in the frontend"): a typed "#q" reaches the storyteller as he typed it; its meaning rides once with the rulebook as SHORTCUTS; the rulebook\'s own law points there (no per-turn directive, which it used to promise); the app reads a command only for its own bookkeeping', async () => {
+  const msgs = pages(6); msgs.push({ id: 'uq', role: 'user', text: '#q', typed: '#q' });
+  const r = buildRequest({ story: {}, messages: msgs, settings: {}, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 }, directive: 'IGNORED-DIRECTIVE' });
+  const craftBlock = r.systemBlocks[1].text;
+  assert(/SHORTCUTS\. When the writer’s whole message is one of these/.test(craftBlock) && /^#q — /m.test(craftBlock), 'the meaning of #q rides with the rulebook');
+  assert(/The Commands = [^\n]*means what SHORTCUTS, with these laws, says it means/.test(craftBlock), 'and the rulebook’s own law points to it');
+  const users = r.messages.filter((m) => m.role === 'user');
+  eq(String(users[users.length - 1].content), '#q', 'his #q reaches the storyteller as he typed it');
+  assert(!JSON.stringify(r).includes('IGNORED-DIRECTIVE'), 'no directive of the house’s rides on the turn');
+});

@@ -13247,3 +13247,16 @@ Now an edited message of his is what it now says: the command is read from the n
 shortcut kept → the new typed words; none → gone) and so does the out-of-character mark. DOM-150 reproduces his case
 (on m510-060 the storyteller was sent "#q" after the edit) and walks a "#question" edited in and out.
 
+# M510-62 — the commands live in the instructions
+He: "isn't the shortcut already inside the main instructions? The #commands shouldn't be embedded in the frontend."
+Checked: they are in the instructions. Since M379 every command's meaning is said once, with the rulebook ("SHORTCUTS.
+When the writer's whole message is one of these…", commands.js shortcutsText), and what he types ("#q") is what the
+storyteller is sent; the house sends no instruction of its own on the turn. The app still reads a command, but only for
+its own bookkeeping, never to tell the model anything: an out-of-character question's answer must not be read as story
+(no ledger reading, no record, no referee); #story writes the new tale's brief; #Put TWB opens the window; # roll / # no
+roll settle the referee; the composer's chip shows what the house understood. Found on the way: the rulebook's own "The
+Commands" law was left from before M379 — "a command arrives with its own law as the house's directive for THAT turn; a
+turn with no directive is a story turn" — so the storyteller was told to wait for a directive that never comes, and a
+typed "#q" read as a story turn by that sentence. It now says: a command typed as his whole message means what SHORTCUTS
+says. Unedited saved rulebooks follow (SHIPPED_BEFORE += '1icfhkj'). Law M510-62; M85-2 restated.
+
