@@ -1009,3 +1009,48 @@ test('M510-44 WHO KNOWS WHAT HAS A ROOM OF ITS OWN IN THE WHOLE VIEW (his Bleach
   assert(few.kw.length < KNOWLEDGE_WHOLE_CHARS && few.people.every((n) => few.kw.includes(n)), 'a scene of a few is under the room — told whole, as before');
   assert(typeof renderKnowledge === 'function');
 });
+
+test('M510-46 "TAKE A COPY" / "BRING A COPY BACK" — EVERYTHING, AND ONLY THE COPY: every store round-trips byte for byte (tales, pages, every setting — presets, the notes role, usage books, ledgers, records — and every connection with its keys and prices); and with the tavern’s server running, the house’s next push takes no device row back over the restore (a connection or a setting made after the copy stayed gone)', async () => {
+  const { db: store, keepWhatWasNeverLetGo } = await import('../../js/store.js');
+  const { restoreSpeaksFor } = await import('../../js/sync.js');
+  const tale = await store.stories.create({ title: 'Copy test tale' });
+  await store.messages.append(tale.id, { role: 'user', text: 'I walk in.' });
+  await store.messages.append(tale.id, { role: 'assistant', text: '[Gate — Monday | 09:00]\n\nThe gate stood open.', keptText: 'x' });
+  await store.settings.set('voicePresets', [{ id: 'vp-1', name: 'Hulk', voice: { frameText: 'I am Hulk.' }, savedAt: 1 }]);
+  await store.settings.set('notesRole', 'assistant');
+  await store.settings.set('usage:2026-09-29', { rows: [{ connId: 'c', model: 'm', inTok: 5, outTok: 2, calls: 1 }] });
+  await store.settings.set('state:' + tale.id, { page: 0, place: 'Gate' });
+  await store.settings.set('memory:' + tale.id, { nodes: [{ id: 'n1', text: 'a line' }] });
+  const conn = await store.connections.add({ label: 'Kimi', type: 'openai', baseUrl: 'https://api.example', apiKey: 'sk-SECRET', model: 'k3', priceIn: 1, priceOut: 3, userFirstFor: 'k3@https://api.example' });
+  const snap = async () => {
+    const byKey = (a, k) => [...a].sort((x, y) => String(x[k]).localeCompare(String(y[k])));
+    const keys = await store.settings.keys();
+    const settings = []; for (const k of keys) settings.push({ key: k, value: await store.settings.get(k) });
+    const msgs = []; for (const s of await store.stories.list()) msgs.push(...(await store.messages.list(s.id)));
+    return JSON.stringify({ settings: byKey(settings, 'key'), connections: byKey(await store.connections.list(), 'id'), stories: byKey(await store.stories.list(), 'id'), messages: byKey(msgs, 'id') });
+  };
+  const before = await snap();
+  const copy = await store.exportAll();
+  /* the tavern moves on after the copy: a new tale, a changed setting, a new connection, one let go */
+  const later = await store.stories.create({ title: 'Made after the copy' });
+  await store.settings.set('notesRole', 'user');
+  await store.settings.set('madeAfterTheCopy', true);
+  const laterConn = await store.connections.add({ label: 'After', type: 'openai', baseUrl: 'https://after', apiKey: 'k', model: 'x' });
+  await store.connections.remove(conn.id);
+  const held = { keys: await store.settings.keys(), conns: (await store.connections.list()).map((c) => c.id) };
+  await store.importAll(copy);
+  eq(await snap(), before, 'after the restore every store is exactly the copy — nothing of after it, nothing lost');
+  assert(!(await store.stories.list()).some((s) => s.id === later.id), 'the tale made after the copy is gone from here');
+  eq((await store.connections.list()).find((c) => c.id === conn.id).apiKey, 'sk-SECRET', 'keys included');
+  /* the server's house book still holds what was made after the copy */
+  const after = { keys: await store.settings.keys(), conns: (await store.connections.list()).map((c) => c.id) };
+  const spoke = restoreSpeaksFor(held, after).map((k) => (k.startsWith('conn:') ? k.slice(5) : k));
+  const house = (settings, connections) => ({ kind: 'house', stories: [], settings, connections });
+  const local = house([{ key: 'notesRole', value: 'assistant' }], [{ id: conn.id }]);
+  const device = house([{ key: 'notesRole', value: 'user' }, { key: 'madeAfterTheCopy', value: true }], [{ id: conn.id }, { id: laterConn.id }]);
+  const blind = keepWhatWasNeverLetGo(local, device, []);
+  assert(blind.adopt.settings.some((r) => r.key === 'madeAfterTheCopy') && blind.adopt.connections.some((c) => c.id === laterConn.id), 'as it was: the device’s rows came back over the restore');
+  const told = keepWhatWasNeverLetGo(local, device, spoke);
+  eq(told.adopt.settings.length + told.adopt.connections.length, 0, 'now: the restore spoke for every row it replaced — nothing comes back');
+  await store.stories.remove(tale.id).catch(() => {});
+});

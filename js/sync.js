@@ -32,6 +32,19 @@ export function decideBoot(localJson, serverJson) {
   return 'none';
 }
 
+/* M510-46: the rows a restore spoke for — every settings key and connection held before it or after it (a device row
+ * the restore let go is never taken back in by the house's push, M311). Pure, harness-tested. */
+export async function rowsHeld(db) {
+  return { keys: (await db.settings.keys()) || [], conns: ((await db.connections.list()) || []).map((c) => c && c.id).filter(Boolean) };
+}
+export function restoreSpeaksFor(before, after) {
+  const keys = new Set();
+  for (const side of [before, after]) {
+    for (const key of (side && Array.isArray(side.keys) ? side.keys : [])) if (typeof key === 'string' && key && !/^bookStamp:/.test(key) && key !== 'booksStamp' && key !== 'booksPushing') keys.add(key);
+    for (const id of (side && Array.isArray(side.conns) ? side.conns : [])) if (typeof id === 'string' && id) keys.add('conn:' + id);
+  }
+  return [...keys];
+}
 export async function initSync(ctx) {
   const status = { backed: false, words: 'in this browser only' };
   /* M155: BOOKS PER STORY, like SillyTavern. A worker keeps one file per
@@ -264,7 +277,29 @@ export async function initSync(ctx) {
   const PROBE_ONLY = /^(?:detectedContext|detectedFor|detectTriedFor|detectTriedAt|identFor|identTriedFor|identTriedAt|modelHf|modelEfforts|viaRelay|learnedFor|learnedAt|learnedEfforts|learnedDrop|learnedOffThinks|reasoningDownAt|reasoningDownShape|reasoningDownRechecked|prefillDownAt|prefillDownShape|systemAfterRefusedFor|systemAfterRefused)$/;
   wrap(ctx.db.connections, 'update', ([id, patch]) => { if (patch && typeof patch === 'object' && Object.keys(patch).length && Object.keys(patch).every((k) => PROBE_ONLY.test(k))) return; noteKey('conn:' + id); mark('_house'); });
   wrap(ctx.db.connections, 'remove', ([id]) => { noteKey('conn:' + id); mark('_house'); });
-  wrap(ctx.db, 'importAll', () => { for (const id of knownIds) mark(id); mark('_house'); });
+  /* M510-46: A RESTORE SPEAKS FOR EVERY ROW IT REPLACED. "Bring a copy back" replaces everything here — but with the
+   * tavern's server running, the house's next push is held against the device's copy (M311) and every house row the
+   * device held that this browser lacked "and did not itself let go" was taken back in: a connection or a setting made
+   * after the copy was taken came back over the restore. And the books pushed were the tales known BEFORE it (knownIds
+   * never refreshed), so the restored tales waited for the next boot. Now the restore notes every settings key and
+   * connection it touched — before and after — as this browser's own word, learns the tales it now holds, and pushes
+   * them and the house. */
+  if (ctx.db && typeof ctx.db.importAll === 'function') {
+    const restore = ctx.db.importAll.bind(ctx.db);
+    ctx.db.importAll = async (...args) => {
+      let before = { keys: [], conns: [] };
+      try { before = await rowsHeld(ctx.db); } catch (err) { /* the restore goes on */ }
+      const out = await restore(...args);
+      try {
+        const after = await rowsHeld(ctx.db);
+        for (const key of restoreSpeaksFor(before, after)) noteKey(key);
+        knownIds = new Set((await ctx.db.stories.list()).map((s) => s.id));
+      } catch (err) { /* the push still goes */ }
+      for (const id of knownIds) mark(id);
+      mark('_house');
+      return out;
+    };
+  }
   /* M182: THE BOOKS ANNOUNCE THEMSELVES, AND THE ROOM LISTENS. serve.py holds
    * the one copy every browser shares and streams a line when a book changes;
    * this pulls just that book and refreshes in place. No polling, no reload,

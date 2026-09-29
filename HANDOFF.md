@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m510-045)
+# Cozy Tavern — handoff for the next session (state at m510-046)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 0. CLOSED (M506) — BRANCH WHILE A READER IS STILL OUT. It was cause (a): M66's `exact = exact || Boolean(carried)` overrode
@@ -1128,4 +1128,15 @@ founding design lives in AGENTS.md's first entries.)
   every toggle (setting voicePresetsOpen) — never re-read on a redraw. Every id inside is unchanged; nothing about a
   saved preset is written by the fold. DOM-141 opens it first; DOM-145: twelve saved presets — folded and counted, all
   twelve rows with their four buttons when opened, remembered across Settings, the stored presets byte for byte.
+- M510-46 — A RESTORE SPEAKS FOR EVERY ROW IT REPLACED (js/sync.js rowsHeld, restoreSpeaksFor; the importAll wrap):
+  with serve.py running, the house's push after "Bring a copy back" took back every device house row the browser lacked
+  (M311 keepWhatWasNeverLetGo) — a connection or a setting made after the copy came back over the restore — and pushed
+  the tales known BEFORE it. Now the restore notes every settings key and connection held before or after it as this
+  browser's word, refreshes knownIds, and pushes the restored tales and the house. Law M510-46 (every store round-trips
+  byte for byte, keys included; nothing adopted back; the fault shown on the blind merge).
+- OPEN (not done): in his setup "Take a copy" is the SERVER's zip of the books folder (api/backup/now; five kept, one a
+  day by itself), and "Bring a copy back" reads only the browser's .json — there is no in-app restore of the zip. A right
+  restore must replace the device's books AND leave the browser holding exactly them (pullNow keeps browser-only tales,
+  which boot then pushes back). Needs: a server restore endpoint (safety zip first, path-guarded extraction), and a
+  browser flow that clears its own tales not in the copy before the whole pull.
 

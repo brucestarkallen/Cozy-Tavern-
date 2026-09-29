@@ -13024,3 +13024,21 @@ is unchanged and the only new key is the fold's own. DOM-145 seeds twelve preset
 twelve rows with their four buttons when opened, remembered across Settings, and the stored presets byte for byte as
 they were. DOM-141 now opens the fold first, as he would.
 
+# M510-46 — a restore speaks for every row it replaced (and the zip that cannot be brought back yet)
+He asked whether Take a copy / Bring a copy back is "good and perfect" and takes every setting. Checked: the database is
+four stores (settings, connections, stories, messages) and the browser's copy (exportAll) takes all four whole — every
+setting row (house and per-tale: presets, the notes' role, usage books, ledgers, records, checkpoints), every connection
+with its key, prices and what was learned of it. Nothing he sets lives outside them (localStorage holds only the sync's
+own marks). Bring a copy back checks every row before it touches anything, then replaces all four in one transaction.
+Found: with serve.py running, the house's push after a restore is held against the device's house (M311) and every house
+row the device had that the browser lacked "and did not itself let go" was adopted back — so a connection or setting
+made after the copy came back over the restore; and knownIds was never refreshed, so the tales pushed were the ones held
+BEFORE it. Fixed in sync.js: the restore notes every key and connection held before or after it as this browser's own
+word (restoreSpeaksFor), learns the tales it now holds, and pushes them with the house. Law M510-46: every store
+round-trips byte for byte (keys included); on the blind merge the device's newer rows come back (the fault), with the
+restore's word nothing does.
+OPEN: in his setup Take a copy is the server's zip of the books folder (serve.py M310: also one a day by itself, five
+kept, in <data>/backups) — and Bring a copy back reads only a browser .json. The zip has no in-app way back yet; a right
+one must replace the device's books and leave the browser holding exactly them (pullNow keeps browser-only tales, and
+boot pushes those back).
+
