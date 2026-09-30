@@ -4504,6 +4504,7 @@ export function initChat(ctx) {
        * plan for the page before the one it replaces); none yet → the whole request goes, as before */
       let smallPlan = null; let smallIntense = false; let lastSound = null; let smallEssentials = null; let smallPlansBook = null; let voiceSample = null; /* M512 */
       let loudNow = false; /* M519: the last pages drowned in sounds and dashes */
+      let quietNow = false; /* M519-5: the last page, with people in it, let almost no one speak */
       const canonStartNow = canonStartWords(await db.settings.get(CANON_START_KEY(story.id))); /* M516: where our story began in its canon */
       if (settingsValues.smallModelNow === true) {
         const before = [...visiblePages(history)].reverse().find((m) => m && m.role === 'assistant' && !m.ooc && pageText(m).trim());
@@ -4517,6 +4518,15 @@ export function initChat(ctx) {
           const recentTold = visiblePages(history).filter((m) => m && m.role === 'assistant' && !m.ooc).slice(-3);
           const textures = recentTold.map((m) => { const t = pageTexture(pageText(m)); return { soundPer100: t.soundPer100, dashPer100: t.dashPer100 }; });
           loudNow = tooLoudNow(textures, { wasLoud: keptPlans.loud === true });
+        }
+        /* M519-5: the house's eye found the last page almost silent (its Dialogue Ratio note, under the craft's floor) while
+         * someone besides him was in the scene — the next small page is told the people here talk */
+        {
+          const lastA = [...history].reverse().find((m) => m && m.role === 'assistant' && !m.hidden);
+          const ratio = lastA && Array.isArray(lastA.findings) ? lastA.findings.find((f) => f && f.law === 'Dialogue Ratio' && /Spoken dialogue is \d+%/.test(String(f.words || ''))) : null;
+          const share = ratio ? Number((String(ratio.words).match(/Spoken dialogue is (\d+)%/) || [])[1]) : NaN;
+          const others = (Array.isArray(state && state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter((n) => n && n !== mcName(state));
+          quietNow = Number.isFinite(share) && share < 6 && others.length > 0;
         }
         /* M512: A PASSAGE OF THE STORY AT ITS BEST — the newest page a big storyteller wrote (older than the pages sent
          * whole); a page's receipt says which (small, from M512; before it, the model named, or the plan it rode with) */
@@ -4559,7 +4569,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, quietPage: quietNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
         sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
@@ -4607,7 +4617,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         canonNote, /* M346: canon verification's note, at the top of the briefing */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, quietPage: quietNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
         sensorNote, /* M356: the sensors' one line, in the closing words */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),

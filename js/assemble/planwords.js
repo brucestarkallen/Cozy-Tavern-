@@ -43,7 +43,7 @@ export function renderPlan(plan, { voice = null, anchor = [], cores = {}, mc = '
  * for a sound in every paragraph: it is told, once, to let the prose carry it — a sound only where a blow truly lands or a
  * cry truly breaks, once, not strung out; a dash only where a voice truly breaks off. The same words close a calm page. */
 export function breathWords() {
-  return 'The last pages drowned in sounds and dashes, and the telling went under them. This page breathes: whole, plain sentences carry it; a sound only where a blow truly lands or a cry truly breaks — once, never strung out; a dash only where a voice truly breaks off.';
+  return 'The last pages drowned in sounds and dashes, and the telling went under them. This page breathes: whole, plain sentences carry it; a sound only where a blow truly lands or a cry truly breaks — once, never strung out; a dash only where a voice truly breaks off. The people here still talk, in their own words.'; /* M519-5: the breath never means silence — a page of narration alone is its own failure */
 }
 export function renderSounds(plan, { voice = null, laws = '', wentQuiet = false, tooLoud = false } = {}) {
   if (tooLoud) return voice && voice.teller ? toTeller(breathWords(), voice) : breathWords(); /* M519-2: the breath alone — his sound laws ("braided in the same sentences via em-dashes", with their dash-strung example) wait until the pages are back inside the band */
@@ -58,5 +58,12 @@ export function renderSounds(plan, { voice = null, laws = '', wentQuiet = false,
   const head = out.join(' ');
   const said = voice && voice.teller ? toTeller(head, voice) : head;
   return [said, laws].filter((t) => String(t || '').trim()).join('\n');
+}
+
+/* M519-5: THE PEOPLE HERE TALK. The house's eye measures each page's spoken share (lint.js Dialogue Ratio — a note for his
+ * eyes, "Worth a look", never sent on); a small model that let a page with people in it go almost silent is told once, on
+ * the next page, in plain words. */
+export function talkWords() {
+  return 'The last page barely let anyone speak. The people here talk this time — in their own voices, their own words.';
 }
 

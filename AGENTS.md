@@ -13529,3 +13529,14 @@ the story begins at, so the timeline is right from the first page; it runs whate
 waiting line said "canon", the word of the switch he had turned off. It now says "Checking which series your story is
 from…". Lint 0; walk DOM-172/173/174 green; frontier request identical (24 of 24).
 
+# M519-5 — the people here talk
+His question in small mode: "Worth a look: spoken dialogue is 1% of the page; the craft's band is 20–50% unless the scene is
+empty of people — does this mean the next scene fixes it?" No: the house's eye (lint.js) writes the Dialogue Ratio as a
+note, shown to him in the drawer as "Worth a look" — only "Drifted" warnings are sent on (houseEyeWords), so the next page
+was told nothing. And the page may have been M519's own doing: the breath asked for "whole, plain sentences" and thinned the
+voiced sound-lines (which the eye counts as speech) without saying anyone still talks. Now, for a small storyteller: the
+breath ends "The people here still talk, in their own words."; and a last page the eye found under 6% spoken, with someone
+besides him in the scene (the ledger's presence), makes the next page's closing say once, plainly, "The last page barely
+let anyone speak. The people here talk this time — in their own voices, their own words." The eye's own note stays his.
+Law M519-5; walk DOM-178. Harness 1068/1068, walk 178/178, long play 8/8, lint 0; frontier request identical (24 of 24).
+

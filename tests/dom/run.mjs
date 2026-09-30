@@ -7450,6 +7450,46 @@ test('DOM-177 HIS STORY AS IT STANDS (M519-2): five drowned pages written BEFORE
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-178 A PAGE WITH PEOPLE IN IT, ALMOST SILENT (M519-5): the house\'s eye notes the spoken share for him ("Worth a look" — never sent on); a small storyteller\'s next page is told once, plainly, that the people here talk', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const st = await db.stories.create({ title: 'the quiet yard' });
+  await db.stories.update(st.id, { keeper: false, extraction: false });
+  const Hd = (i) => '[The yard — Monday, March 3, 2025 | 09:' + String(10 + i).padStart(2, '0') + ' | clear | haori | by the rail]\n\n';
+  await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+  await db.messages.append(st.id, { role: 'assistant', text: Hd(0) + 'Rukia watched.' });
+  const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia' }]).state;
+  await saveState(st.id, { ...ledger, page: 1, readTo: 1, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const PLAN = { scene: 'A quiet morning.', people: [{ name: 'Rukia', now: 'at the rail', wants: 'to talk', against: '' }], unknown: [], pressing: [], earlier: [], laws: ['MC Agency'], intense: false, loud: false, sounds: [], leaveTo: 'what Jovan says', story: 'Jovan and Rukia.' };
+  const SILENT = Hd(1) + 'The morning came up grey over the wall and the dust lay still on the stones. Rukia kept her hand on the rail and looked at the far gate for a long while, and the wind moved the edge of her sleeve and nothing else. '.repeat(6);
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  let n = 0;
+  house.state.storyAnswer = () => { n += 1; return n === 1 ? SILENT : Hd(2) + '"Noon," Rukia said. "Not before."'; };
+  house.state.workerAnswer = (body, sys) => (/You prepare a storyteller for the next page/.test(String(sys || '')) ? JSON.stringify(PLAN) : (typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}')));
+  const activeId = await tellerConnectionId();
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers', 40000); return house.state.calls.slice(from).find((c) => !c.isWorker); };
+  try {
+    await db.connections.update(activeId, { smallModel: true });
+    await env.ctx.chat.refreshQuickSwitch();
+    await send('I look at Rukia.');
+    const silent = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    assert((silent.findings || []).some((f) => f.law === 'Dialogue Ratio' && f.severity === 'note' && /Spoken dialogue is 0%/.test(f.words)), 'the eye noted the silent page for him: ' + JSON.stringify(silent.findings));
+    const next = await send('I ask her about noon.');
+    const closing = String(next.body.messages[next.body.messages.length - 1].content);
+    assert(/The last page barely let anyone speak\. The people here talk this time/.test(closing), 'the next small page is told the people here talk');
+    assert(!/Spoken dialogue is 0%/.test(JSON.stringify(next.body.messages)), 'the eye\'s own note is still his, never sent');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.connections.update(activeId, { smallModel: null });
+    await env.ctx.chat.refreshQuickSwitch();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();

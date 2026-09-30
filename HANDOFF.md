@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m519-004)
+# Cozy Tavern — handoff for the next session (state at m519-005)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1425,4 +1425,11 @@ founding design lives in AGENTS.md's first entries.)
   both off: the M516 placement runs on every #story (the helper's own knowledge of the series, no wiki), whatever canon
   verification is set to. Its waiting line said "Placing your story in its canon…"; it now says "Checking which series
   your story is from…" (the toast after stays: "Your story begins in <series> — <arc>."). Walk DOM-172/173/174 green.
+- M519-5 — "Worth a look: spoken dialogue is 1% of the page" (small mode). The eye's Dialogue Ratio is a NOTE — shown to him
+  in the drawer, never sent (houseEyeWords sends warns only), so nothing told the next page. Two changes, small model
+  only: the breath (M519) now ends "The people here still talk, in their own words." (a page of narration alone is its
+  own failure — and the brake's thinned sound-lines had counted as speech); and when the last page carries that note
+  under 6% with someone besides him present, the next small page's closing says once "The last page barely let anyone
+  speak. The people here talk this time — in their own voices, their own words." (chat.js quietNow → stack.js
+  quietPage → planwords.js talkWords). Law M519-5; walk DOM-178.
 

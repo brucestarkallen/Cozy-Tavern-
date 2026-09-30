@@ -3,7 +3,11 @@
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
 import { pageTexture, tooLoud, calmPage, SOUND_BAND, DASH_BAND } from '../../js/assemble/smallprose.js';
-import { renderSounds, breathWords } from '../../js/assemble/planwords.js';
+import { renderSounds, breathWords, talkWords } from '../../js/assemble/planwords.js';
+import { buildRequest } from '../../js/assemble/stack.js';
+import { CRAFT_TEXT } from '../../js/assemble/craft.js';
+import { emptyState } from '../../js/engine/state.js';
+import { applyMutations } from '../../js/engine/apply.js';
 
 const H = '[The courtyard — Monday | 12:04 | noon | haori | at the rail]\n\n';
 const SPAM = H + 'Zaraki lunged—steel—steel—steel—and Jovan met it. *CLANG* *CLANG* *CLANG* "Hah—HAH—hah—HAH—hah—!" Zaraki roared—roared—roared, and the yard shook.\n\n"Nngh—ahh—AHHH—" Jovan gritted—gritted—his teeth. *thud* *thud* *thud*\n\n"Gkh—!"\n\n"Hah—!"\n\n"Ahh—!"\n\nThe blades rang—rang—rang. "I—can\'t—stop—it—now—" Rukia whispered—whispered.';
@@ -48,3 +52,18 @@ test('M519-4 THE BREATH, NOT A SOUND IN EVERY PARAGRAPH: too loud, the heated pa
   assert(!/braided in the same sentences via em-dashes/.test(breath), 'and his sound laws wait until the pages are back inside the band (M519-2)');
   assert(/braided in the same sentences via em-dashes/.test(renderSounds(plan, { laws: 'High Intensity Scenes = action, sound, dialogue braided in the same sentences via em-dashes' })), 'not too loud: they ride as before');
 });
+
+const PLAN = { scene: 'Kaelen has called Jovan out in front of the yard.', people: [{ name: 'Kaelen', now: 'circling with his staff', wants: 'to humble Jovan', against: 'the seat Jovan was given' }], unknown: [{ name: 'Rukia Kuchiki', fact: 'Jovan met the captain last night' }], pressing: ['the captain is watching'], earlier: ['Kaelen lost to Jovan once'], laws: ['Combat Calibration', 'Voice Fingerprints'], intense: true, loud: true, loudWhy: 'the whole yard is watching', sounds: ['*CRACK!*', '"Gkh—!"'], leaveTo: 'the staff comes down at him' };
+test('M519-5 THE BREATH NEVER MEANS SILENCE, AND A SILENT PAGE IS HEARD: the breath says the people here still talk; when the eye found the last page almost silent with people in it, the next small page is told once, plainly, that they talk — never the big storyteller', () => {
+  assert(/The people here still talk, in their own words\./.test(breathWords()), 'the breath keeps speech');
+  const st = applyMutations({ ...emptyState(), page: 9 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia' }]).state;
+  const msgs = [{ id: 'u1', role: 'user', text: 'I wait.' }, { id: 'a1', role: 'assistant', text: '[The yard — Monday | 09:00]\n\nThe wind moved.' }, { id: 'u2', role: 'user', text: 'I ask Rukia about noon.' }];
+  const build = (settings, quietPage) => buildRequest({ story: { brief: 'Bleach.' }, messages: msgs, settings, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: false }, smallPlan: { ...PLAN, intense: false }, quietPage });
+  const small = build({ smallModelNow: true }, true);
+  const closing = String(small.messages[small.messages.length - 1].content);
+  assert(closing.includes(talkWords()), 'the small storyteller is told the people here talk');
+  assert(!String(build({ smallModelNow: true }, false).messages.slice(-1)[0].content).includes(talkWords()), 'not when the page was not silent');
+  const big = build({}, true);
+  assert(!JSON.stringify(big.messages).includes(talkWords()) && !big.systemBlocks.some((b) => b.text.includes(talkWords())), 'never the big storyteller');
+});
+

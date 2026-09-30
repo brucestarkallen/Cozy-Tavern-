@@ -103,7 +103,7 @@ import { renderPeopleTiers, peopleView, findPersonKey, PEOPLE_BUDGET, PRESENT_CA
 import { wornPhrases, calmPage } from './smallprose.js'; /* M512: the turns of phrase the last pages keep using; M519: the loud pages eased in the copy it reads */
 import { canonOffPages } from './canonpages.js'; /* M518: canon on their own page — the note goes quiet on what the cards carry */
 import { lawsOf, lawsNamed, joinLaws, lawKey, ALWAYS_LAWS, PROSE_LAWS, PEOPLE_LAWS, SOUND_LAWS, LOAD_BEARING, FIGHT_LAWS, typedCombat } from './laws.js'; /* M510: his craft, law by law */
-import { renderPlan, renderSounds, breathWords } from './planwords.js'; /* M510: the planning helper's plan, in his voice */
+import { renderPlan, renderSounds, breathWords, talkWords } from './planwords.js'; /* M510: the planning helper's plan, in his voice */
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
 
@@ -719,6 +719,7 @@ export function buildRequest({
   worldGround = '', /* M517: the automatic brief — the world of the story, beside his own brief in its seat */
   canonOnPages = false, /* M518: canon's lasting lines ride on each person's card — the note leaves out what the cards carry */
   tooLoud = false, /* M519: the last pages drowned in sounds and dashes — a small storyteller is told to breathe, and reads its pages eased */
+  quietPage = false, /* M519-5: the last page, with people in it, let almost no one speak */
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -1537,6 +1538,8 @@ export function buildRequest({
     } else if (tooLoud) {
       soundsLine = voice && voice.teller ? toTeller(breathWords(), voice) : breathWords(); /* M519: a calm page that drowned too */
     }
+    /* M519-5: the last page, with people in it, went almost silent — said once, plainly */
+    if (quietPage) soundsLine = [soundsLine, voice && voice.teller ? toTeller(talkWords(), voice) : talkWords()].filter(Boolean).join('\n');
     /* M519: and right where it writes next, a few lines of the story as it reads when it is right — the passage held up
      * with the craft (M512), its first paragraph; only while the pages are too loud */
     if (tooLoud && sampleText) {
