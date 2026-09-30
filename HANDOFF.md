@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m519-003)
+# Cozy Tavern — handoff for the next session (state at m519-004)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1421,4 +1421,8 @@ founding design lives in AGENTS.md's first entries.)
   Automatic. Its row now shows only while canon verification is on, and says so. (3) Automatic/Manual is this story's
   brief; "New stories start Automatic" is the default for stories made from now on. Walk DOM-69 checks the legacy row
   follows canon's switch.
+- M519-4 — the story-start check is not canon verification. He saw a "canon" banner with canon verification and legacy
+  both off: the M516 placement runs on every #story (the helper's own knowledge of the series, no wiki), whatever canon
+  verification is set to. Its waiting line said "Placing your story in its canon…"; it now says "Checking which series
+  your story is from…" (the toast after stays: "Your story begins in <series> — <arc>."). Walk DOM-172/173/174 green.
 

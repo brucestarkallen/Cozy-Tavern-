@@ -13522,3 +13522,10 @@ canon verification is on, and its words say what it does and does not change. (3
 Automatic" — this story's brief vs the default for stories made from now on (answered; no change). Walk DOM-69 checks the
 legacy row follows canon's switch. Harness 1067/1067, walk 177/177, lint 0; frontier request identical (24 of 24).
 
+# M519-4 — the story-start check is not canon verification
+His question: "with canon verification off and legacy off, why is there a canon banner?" Because the start check (M516) is
+its own helper: on every #story it asks the helper model, from its own knowledge — no wiki — which series and which moment
+the story begins at, so the timeline is right from the first page; it runs whatever canon verification is set to. Its
+waiting line said "canon", the word of the switch he had turned off. It now says "Checking which series your story is
+from…". Lint 0; walk DOM-172/173/174 green; frontier request identical (24 of 24).
+

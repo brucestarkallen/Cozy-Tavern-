@@ -5389,7 +5389,7 @@ export function initChat(ctx) {
             const concept = opening.trim().replace(/^#story\s*/i, '').trim();
             const placer = await resolveWorkerConnection(story, 'founder');
             const { signal, done } = workerSignal(30000);
-            showComposerNote('Placing your story in its canon…'); /* the first page waits for it — said, so the wait is not a silence */
+            showComposerNote('Checking which series your story is from…'); /* the first page waits for it — said, so the wait is not a silence; M519-4: not "canon" — it is not canon verification (it runs with that switch off too) */
             let got = null;
             try { got = await placeInCanon({ connection: placer, concept, brief: story.brief || '', signal }); } finally { done(); hideComposerNote(); }
             if (got && got.start) {
