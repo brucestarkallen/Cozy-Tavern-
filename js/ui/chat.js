@@ -83,7 +83,7 @@ import { plannerAsk, runPlanner, loadPlan, planEntry, loadPlans, keepSound, keep
 import { lawsOf } from '../assemble/laws.js'; /* M510 */
 import { runEssentials, loadEssentials } from '../agents/essentials.js'; /* M510-15: the story's essentials */
 import { pickRecall } from '../agents/recallpick.js'; /* M510-50: smart recall */
-import { runPlans, loadPlansBook } from '../agents/plans.js'; /* M510-22: the plans, kept whole until carried out */
+import { runPlans, loadPlansBook, pageRewritten } from '../agents/plans.js'; /* M510-22: the plans, kept whole until carried out; M528: a rewritten page read again */
 import { lastPagesOf, SMALL_PAGES } from '../assemble/stack.js'; /* M510 */
 import { voiceSampleOf, pageTexture, tooLoud as tooLoudNow } from '../assemble/smallprose.js'; /* M512: how the story sounds at its best, for a small storyteller; M519: the brake on sounds and dashes */
 import { CANON_START_KEY, placeInCanon, canonStartWords } from '../agents/canonstart.js'; /* M516: where our story began in its canon */
@@ -2648,6 +2648,10 @@ export function initChat(ctx) {
       startFingerprint: startWords ? fp(startWords) : '',
       briefChanged: Boolean(have && (have.briefFp || '') !== fp(String(fresh.brief || '').trim())), /* M518-2: he rewrote his brief */
       briefFingerprint: fp(String(fresh.brief || '').trim()),
+      /* M528: A PAGE THE WORLD CAME FROM WAS REWRITTEN (his edit, a swipe of an older page): the record's lines over the pages
+       * the world was last looked at no longer read the same — it looks again at what changed */
+      recordPrint: fp(nodes.filter((n) => n.span[1] < covered).map((n) => n.text).join('\n')),
+      recordChanged: Boolean(have && have.recordPrint && Number.isFinite(have.recordLines) && fp(nodes.filter((n) => n.span[1] < have.recordLines).map((n) => n.text).join('\n')) !== have.recordPrint && covered >= have.recordLines),
     };
     if (stale()) return { silent: true };
     const out = await runGround({ connection, have, input, recordLines: covered, force, signal });
@@ -5834,7 +5838,7 @@ export function initChat(ctx) {
     const history = await db.messages.list(story.id);
     const msg = history.find((m) => m && m.id === pageId);
     if (!msg) return false;
-    { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
+    { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) { await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); await pageRewritten(story.id, k); } } /* M528: the plans keeper reads it again */
     if (msg.role === 'assistant' && story.extraction !== false && !msg.ooc) {
       const before = history.slice(0, history.indexOf(msg));
       const lastUser = [...before].reverse().find((m) => m && m.role === 'user');

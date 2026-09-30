@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m527-001)
+# Cozy Tavern — handoff for the next session (state at m528-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1511,4 +1511,15 @@ founding design lives in AGENTS.md's first entries.)
   from the same pages; last write stands). Laws M527-1; walk DOM-183 (fails on m526-001). DOM-173/182 now expect the
   placement from the page after. NOTE: DOM-79 passes in the walk's own order but fails run alone — on m526 too (a
   pre-existing test-order dependence, not the app).
+- M528 — THE DEEP AUDIT, THIRD PASS (a page rewritten by hand; a message deleted from the middle). Traced the edit door
+  (pageReinked: the page's record line let go and refilled; the last page re-read from its boundary, an older one replayed
+  from it; his own message sent to the auditor) and the delete path (replayFrom with the pages after shifted). Two stores
+  did not follow a hand edit: the plans keeper checked only the last page it had read — an edited earlier page is now read
+  again (plans.js pageRewritten, from pageReinked); the automatic world looked again only for new pages, a new arc, a new
+  start, his brief or pages taken back — it now also looks again when the record's lines over the pages it came from no
+  longer read the same (recordPrint / recordChanged). A middle deletion: the record shrinks — the world is rebuilt
+  (M526), the essentials not sent until remade (M527), the plans book mended (M527); the canon start follows a changed or
+  deleted first line (M526/M527). Laws M528-1/2; walk DOM-184. DOM-79 (the grounding phrase) still passes only in the
+  walk's order — not the frame (tried, reverted); the phrase is read fresh at each send (gatherSettings); cause not found
+  this pass. Test isolation only — the app path it checks passes in the walk.
 

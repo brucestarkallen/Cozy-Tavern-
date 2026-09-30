@@ -7689,6 +7689,53 @@ test('DOM-183 PAGES TAKEN BACK, AND A TALE WITH NO #STORY LINE (M527 — the dee
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-184 HE REWRITES AN OLDER PAGE BY HAND (M528 — the deep audit): the plans keeper reads that page again, and the world of an automatic brief looks again at what the rewritten page changed', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { GROUND_KEY } = await import('../../js/agents/worldground.js');
+  const { PLANS_KEY } = await import('../../js/agents/plans.js');
+  const { saveMemory } = await import('../../js/agents/memory.js');
+  const st = await db.stories.create({ title: 'rewritten by hand' });
+  await db.stories.update(st.id, { briefMode: 'automatic', keeper: false });
+  for (let i = 0; i < 4; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'I go on ' + i + '.' }); await db.messages.append(st.id, { role: 'assistant', text: '[The keep — Monday | 2' + i + ':00]\n\nPage ' + i + (i === 1 ? ': Kenjaku fell at the barrier.' : '.') }); }
+  const nodes = [0, 1, 2, 3, 4, 5, 6, 7].map((k) => ({ id: 'n' + k, level: 0, span: [k, k], text: k === 3 ? 'Kenjaku fell at the barrier.' : 'Line ' + k + '.' }));
+  await saveMemory(st.id, { nodes, v: 1 });
+  const fp = (t) => { let h = 5381; const x = String(t || ''); for (let i = 0; i < x.length; i += 1) h = ((h << 5) + h + x.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+  await db.settings.set(GROUND_KEY(st.id), { parts: { world: 'The keep.', standing: 'KENJAKU-FELL: the Culling Game ended.' }, recordLines: 8, recordPrint: fp(nodes.map((n) => n.text).join('\n')), by: 'helper', at: Date.now() });
+  await db.settings.set(PLANS_KEY(st.id), { readTo: 7, readHash: 'x', plans: [] });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { worker: house.state.workerAnswer };
+  let world = 0; let plansRead = '';
+  house.state.workerAnswer = (body, sys) => {
+    if (/You keep the world of a story/.test(String(sys || ''))) {
+      world += 1;
+      /* answered the way it is asked: a later look gives the parts that changed; a fresh build (the record went back while
+       * the replay refolds) gives the whole */
+      return /Change a part ONLY if/.test(String(sys || '')) ? JSON.stringify({ changed: { standing: 'The Culling Game goes on; Kenjaku lives.' } }) : JSON.stringify({ world: 'The keep.', standing: 'The Culling Game goes on; Kenjaku lives.' });
+    }
+    if (/plans? (?:keeper|laid out)|"new":\[/i.test(String(sys || '')) && /Kenjaku/.test(JSON.stringify(body))) plansRead = JSON.stringify(body);
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+  };
+  try {
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the opened tale settled', 40000);
+    const a = assistantPages()[1];
+    click(q('.msg-act[data-act="edit"]', a));
+    const box = await until(() => q('.edit-box', a), 'the edit box');
+    type(box, '[The keep — Monday | 21:00]\n\nPage 1: Kenjaku escaped the barrier, alive.');
+    click(q('.edit-row button:not(.text-btn)', a));
+    await until(() => !q('.edit-box', a) || !a.isConnected, 'the page re-inked');
+    const book = await db.settings.get(PLANS_KEY(st.id));
+    eq(book.readTo, 2, 'the plans keeper\'s reading went back to the edited page (the page before it)');
+    await until(() => world >= 1, 'the world looked again at what the rewritten page changed', 40000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers settled', 40000);
+    assert(/Kenjaku lives/.test(JSON.stringify(await db.settings.get(GROUND_KEY(st.id)))), 'and the world says what the page now says');
+  } finally {
+    house.state.workerAnswer = prior.worker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();

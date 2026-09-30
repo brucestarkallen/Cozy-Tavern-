@@ -13675,3 +13675,21 @@ Continuing his order ("continue until everything is done"): every store added si
   1077/1077, walk 183/183, long play 8/8, lint 0; the frontier request identical (24 of 24). DOM-79 depends on the walk's
   order (fails alone on m526 too) — the app is not at fault; noted for a later test-isolation pass.
 
+# M528 — the deep audit, third pass
+A page rewritten by hand and a message deleted from the middle, against everything derived from pages. The edit door
+(pageReinked) lets the page's record line go (refilled by the keeper), re-reads the last page from its boundary or replays an
+older one from it; a deletion replays with the pages after shifted.
+- The plans keeper (M510-22) checked only the last page it had read; an edited earlier page — where a plan was laid out,
+  carried out or dropped — was never read again. plans.js pageRewritten (called from pageReinked) sends its reading back
+  to the edited page.
+- The automatic brief's world (M517) looked again only for new pages, a new arc, a new start, his brief, or pages taken
+  back (M526); a hand edit of a page it came from left it saying what the page no longer said. It now keeps a print of the
+  record's lines over the pages it was looked at over (recordPrint) and looks again when they no longer read the same.
+- A middle deletion shrinks the record: the world is rebuilt (M526), the essentials are not sent until remade (M527), the
+  plans book mends itself (M527), the canon start follows a changed or deleted first line (M526/M527) — all holding.
+- Laws M528-1/2; walk DOM-184 (his hand edit of an older page: the plans keeper's reading goes back, the world looks again
+  and says what the page now says). DOM-79's order dependence: not the frame (tried and reverted — it still failed alone);
+  the phrase is read fresh at each send; not found this pass, test isolation only.
+- Gates: harness 1079/1079, walk 184/184, long play 8/8, lint 0 (170 warnings, as before); the frontier request identical (24
+  of 24).
+

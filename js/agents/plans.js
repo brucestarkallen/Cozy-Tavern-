@@ -136,3 +136,13 @@ export async function runPlans({ connection, storyId, pages, mc = '', signal, ca
   }
   return { wrote: false, why: 'its answer could not be used' };
 }
+
+/* M528: A PAGE REWRITTEN BY HAND IS READ AGAIN. The keeper checked only the last page it had read; an edited earlier page —
+ * where a plan was laid out, carried out or dropped — was never read again. Its reading goes back to that page. */
+export async function pageRewritten(storyId, pageIndex) {
+  if (!storyId || !Number.isInteger(pageIndex) || pageIndex < 0) return;
+  const book = await loadPlansBook(storyId);
+  if (book.readTo < pageIndex) return; /* not read yet — it will be */
+  await db.settings.set(PLANS_KEY(storyId), { ...book, readTo: pageIndex - 1, readHash: '' });
+}
+
