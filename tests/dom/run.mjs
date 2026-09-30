@@ -2971,7 +2971,7 @@ test('DOM-54 a prefill that would switch the thinking off says so — on the car
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-55 what stops the thinking for EVERY model says so on the turn it bites: the tale’s own level, and the hidden-thinking tick (M319)', async () => {
+test('DOM-55 what stops the thinking for EVERY model — the tale’s own level Off, and the tick that hides it — never says so in a banner over his page (M521: \'it breaks my immersion\'); the page and its receipt keep what happened', async () => {
   const before = errors.length;
   const activeBefore = await db.settings.get('activeConnectionId');
   const shownBefore = await db.settings.get('showThinking');
@@ -2990,7 +2990,7 @@ test('DOM-55 what stops the thinking for EVERY model says so on the turn it bite
     await until(async () => (await db.messages.list(a.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the page', 15000);
     const wire = house.state.calls.slice(from).find((c) => !c.isWorker).body;
     eq(JSON.stringify(wire.thinking), '{"type":"disabled"}', 'fixture: the tale’s Off is what reached the wire, whatever the connection’s dial says');
-    await until(() => /has its OWN thinking level, and it says Off/.test(toasts()), 'the house says why there is no thinking: ' + toasts(), 5000);
+    await tick(300); assert(!/OWN thinking level|refused its thinking|none came back|thinking seed was sent/.test(toasts()), 'M521: no banner over his page about thinking — the tale\'s own Off is kept on the receipt: ' + toasts());
     /* (2) thinking asked for and kept — and hidden by the tick */
     await db.settings.set('showThinking', false);
     const b = await db.stories.create({ title: 'hidden thinking' });
@@ -3003,7 +3003,7 @@ test('DOM-55 what stops the thinking for EVERY model says so on the turn it bite
     const wire2 = house.state.calls.slice(from).find((c) => !c.isWorker).body;
     eq(wire2.reasoning_effort, 'high', 'fixture: thinking was asked for');
     assert(((await db.messages.list(b.id)).find((m) => m.role === 'assistant') || {}).thinking, 'and kept on the page');
-    await until(() => /DID think on this page — it is hidden/.test(toasts()), 'the house says the thinking is there, and hidden: ' + toasts(), 5000);
+    await tick(300); assert(!/DID think on this page|OWN thinking level|none came back/.test(toasts()), 'M521: no banner that the thinking is hidden — his own tick hides it, silently: ' + toasts());
   } finally {
     house.state.thinkFirst = priorThink;
     if (shownBefore == null) await db.settings.delete('showThinking'); else await db.settings.set('showThinking', shownBefore);
@@ -3966,7 +3966,7 @@ test('DOM-71 KIMI K3 BEHIND SYNTHETIC’S ALIAS, IN THE APP: “syn:large:vision
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-72 THINKING ASKED FOR AND NONE CAME BACK: the page says so once, and “Test” on the connection answers which it is — this level, this address, or a model whose words are kept from him (M351)', async () => {
+test('DOM-72 THINKING ASKED FOR AND NONE CAME BACK: no banner over his page (M521) — the receipt keeps it (M348), and “Test” on the connection answers why', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
   /* its own connection: the house says this once per connection and level, and DOM-71 already spent the house one at “low” */
@@ -4000,7 +4000,7 @@ test('DOM-72 THINKING ASKED FOR AND NONE CAME BACK: the page says so once, and �
     type(q('#composer-input'), 'Do you think we can live on Mars?'); submit(q('#composer'));
     await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 2 && !env.ctx.chat.isBusy(), 'the page', 30000);
     await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000);
-    assert(said.some((w) => /Thinking was asked for at “low” and none came back/.test(w)), 'the page says so: ' + said.join(' | '));
+    assert(!said.some((w) => /Thinking was asked for|none came back/.test(w)), 'M521: no banner over his page — the receipt keeps it: ' + said.join(' | '));
     const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
     eq(page.receipt && page.receipt.noThought, true, 'and the receipt keeps it (M348)');
     /* the one tap that answers which it is */

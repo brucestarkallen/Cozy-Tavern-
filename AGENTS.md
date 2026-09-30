@@ -13561,3 +13561,15 @@ right.
   she was whispered to, with the reason in the test. Harness 1070/1070, walk 178/178, long play 8/8, lint 0; the frontier
   request identical (24 of 24).
 
+# M521-1 — no thinking banners during play
+His word: "it's so stupid and it bothers my immersion — the model setting is set to think, the output doesn't think, and
+there's a banner that breaks my immersion." Five one-time banners in chat.js (sayOnce — an in-memory set, so each came back
+once every session, per connection): thinking asked for and none came back (M351), thinking kept but hidden by his own
+tick (M319), the story's own thinking level Off overriding the connection, a connection that once refused its thinking
+settings, and a thinking seed that steered nothing (M329). All five were diagnostics over his page — his standing rule is a
+finished product with no debug messaging. All five are removed, with sayOnce itself and the values and imports only they
+used (connLevel, taleLevel, reasoningIsDown, reasonStyle, EFFORT_RANK in chat.js). Nothing is lost: each page's receipt still
+keeps noThought (M348), its effort and its prefill line, in What the storyteller saw. Walk DOM-55 and DOM-72 now check that
+no such banner appears (and DOM-72 that the receipt keeps it). Harness 1070/1070, walk 178/178, long play 8/8, lint 0
+(170 warnings, as before); the frontier request identical (24 of 24).
+

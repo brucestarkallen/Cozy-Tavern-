@@ -110,7 +110,7 @@ import { loadRules, currentRules, applyRules } from '../regex.js'; /* M30: the r
 import { renderHtmlProse, looksHtml } from './richhtml.js'; /* M31: display rules may dress the page in HTML */
 import { download } from './download.js';
 import { storyToMarkdown, storyToJsonl, storyExportBasename } from './storyexport.js';
-import { EFFORT_RANK, effectiveReasoningOf, reasoningIsDown, reasonStyle, seedContinues } from '../providers/effort.js';
+import { effectiveReasoningOf, seedContinues } from '../providers/effort.js';
 /* M10's showrunners ride the send path too (the episode mark is stripped
  * from the prose before the page is saved, and their standing texts join
  * the assembled tail). M15 audit found these names used below but never
@@ -3864,8 +3864,6 @@ export function initChat(ctx) {
   let cutOldPages = true;
   db.settings.get('cutBeforeHeader').then((v) => { cutOldPages = v !== false; }).catch(() => {});
   const sentPage = (text, role) => (role === 'assistant' && cutOldPages ? pageOnly(text) : text);
-  const saidOnce = new Set();
-  function sayOnce(key, words) { if (saidOnce.has(key)) return; saidOnce.add(key); toast(words); }
   function effectiveReasoning(connection, story) {
     return effectiveReasoningOf(connection, story); /* M308: pure, in effort.js — the story's level no longer drops the connection's thinking room */
   }
@@ -4662,12 +4660,8 @@ export function initChat(ctx) {
        * (2) "Show what the storyteller weighed" unticked hides thinking that was asked for and kept;
        * (3) a connection that once answered 400 to its thinking settings rides without them. Each now
        * says so on the turn it bites — once for each cause, never a nag. */
-      try {
-        const connLevel = connection && connection.reasoning && typeof connection.reasoning.effort === 'string' ? connection.reasoning.effort : '';
-        const taleLevel = story && typeof story.reasoningEffort === 'string' && EFFORT_RANK.includes(story.reasoningEffort) ? story.reasoningEffort : '';
-        if (taleLevel === 'off' && connLevel && connLevel !== 'off') sayOnce('tale-off:' + story.id, 'This story has its OWN thinking level, and it says Off — so the connection’s “' + connLevel + '” is not used here. Settings → The thinking voice → “Just for this story” → Follow the connection.');
-        else if (reasoning.effort !== 'off' && reasoningIsDown(connection, reasonStyle(connection))) sayOnce('refused:' + connection.id, 'This connection once refused its thinking settings, so they ride unsent. It is asked again by itself a day after that refusal — or now, if you re-save the connection.');
-      } catch (err) { /* a word of explanation is never worth a thrown turn */ }
+      /* M521: NO BANNER DURING PLAY — his word: "it's so stupid and breaks my immersion". The three causes above were each said
+       * in a banner over his page; what the page was sent and what came back is on its receipt (What the storyteller saw). */
 
       /* M378: A NEW TRY CLEARS THE THINKING A STOP LEFT BEHIND — AT ONCE. After a Stop mid-thinking the cut thinking is
        * kept on the page, whole and copyable (M301); it was let go only when the NEXT PAGE landed, so "Try again" showed
@@ -4935,13 +4929,9 @@ export function initChat(ctx) {
         if (cutLead) { const cut = splitAtHeader(full); if (cut.lead) { leadThinking += (leadThinking ? '\n\n' : '') + cut.lead; full = cut.page; } }
         provThinking = result.thinking || provThinking; /* M323: the provider's own thinking, whole — what M120 below asks about */
         thinking = (result.thinking || provThinking) + (leadThinking ? ((result.thinking || provThinking) ? '\n\n' : '') + leadThinking : '');
-        if (!showThinking && String(thinking || '').trim()) sayOnce('hidden', 'The storyteller DID think on this page — it is hidden because “Show what the storyteller weighed” is unticked (Settings → The thinking voice).'); /* M319 */
-        /* M351: THE OTHER WAY ROUND — thinking was asked for and NONE came back. The writer set Low and saw a page with
-         * no thinking at all, and nothing in the house said a word about it: the receipt knew (M348) and the page did
-         * not. Said once per connection, never a nag, and it points at the one tap that answers which it is. */
-        if (showThinking && reasoning.effort !== 'off' && !String(thinking || '').trim()) {
-          sayOnce('nothought:' + (connection.id || '') + ':' + reasoning.effort, 'Thinking was asked for at “' + reasoning.effort + '” and none came back from the model. Settings → the connection → Test says whether this address gives any at all, or only at a higher level.');
-        }
+        /* M351 said, in a banner over his page, when thinking was asked for and none came back (and M319 when it came back
+         * hidden by his own tick). M521: his word — "it's so stupid and breaks my immersion": no banner during play; the
+         * receipt keeps it (noThought, M348), in What the storyteller saw. */
         stopThinkClock();
         finishReason = result.finishReason || null;
         /* M347: what the storyteller was sent for this page, word for word — each part, and the request as the model took
@@ -4967,7 +4957,7 @@ export function initChat(ctx) {
         /* M329: a seed that steered nothing is said once for that connection — the receipt says it every turn */
         /* M370: a banner only about a seed HE set (his own prefill). The grounding phrase is never announced — it is his
          * persona's words, and a note about its plumbing is exactly the machinery he keeps out of sight. */
-        if (result.prefill && result.prefill.seeded && result.prefill.working === false && !seeded.prefill) sayOnce('seed-nothing:' + (connection.id || ''), 'Your thinking seed was sent, but no thinking came back from this model — a seed steers nothing here. (“What the storyteller saw” on a page says what the prefill did on that turn.)');
+        /* M521: and a seed that steered nothing is on the receipt too (its prefill line) — never a banner */
       } catch (err) {
         stopPainting(); /* M164: no frame lands into a page that is gone */
         /* M160: the thinking clock used to be stopped only when the writer

@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m520-001)
+# Cozy Tavern — handoff for the next session (state at m521-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1443,4 +1443,11 @@ founding design lives in AGENTS.md's first entries.)
   pocketed, hidden, unnoticed, when no one was looking, behind someone's back…) is not the room's (world.js COVERT_MARK).
   A whisper seen is still seen. M509-15's expectation now leaves Rukia out of the bow she was whispered to (explained in
   the test). Laws M520-1/2.
+- M521-1 — NO THINKING BANNERS DURING PLAY. His word: "it's so stupid and breaks my immersion — the model is set to think,
+  the output has no thinking, and there's a banner." chat.js raised five one-time banners over his page (sayOnce, an
+  in-memory set — so again every session): thinking asked for and none came back (M351), thinking kept but hidden by his
+  tick (M319), the story's own thinking level Off (M308-era), a connection that once refused its thinking settings, and a
+  seed that steered nothing (M329). All five are gone, with sayOnce and the values and imports only they used; what
+  happened stays on the page's receipt (noThought, effort, prefill — What the storyteller saw). DOM-55 and DOM-72 now
+  check that no such banner appears.
 
