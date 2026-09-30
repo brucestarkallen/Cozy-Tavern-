@@ -13462,3 +13462,13 @@ beside it. In the smart mode (brief Automatic, "Legacy canon verification" off, 
 - Gates: harness 1062/1062, walk 175/175, long play 8/8, lint 0 errors (170 warnings, as before); contrast, twobrowsers,
   mend_marks green.
 
+# M518-2 — his own brief and the automatic world
+His question: "I already made my own Bleach brief — what happens when I turn on Automatic?" His brief rides first, as he
+wrote it; the world is built with his brief as a source and told never to repeat it. Two gaps closed: (1) nothing told the
+storyteller which to trust if the world and his brief ever disagreed — now, when his brief rides above, the world opens
+"The world of our story, as it stands (the brief above is right wherever the two differ):"; (2) a rewritten brief did not
+wake the world (it looked again only after 24 pages or a canon change), so it could repeat or contradict what he had just
+written — now a changed brief is a reason to look (briefFp), at once when he keeps it in Settings and in the chain after a
+page, and only the parts his new words touch are rewritten. Law M518-2; DOM-174 now edits the brief and sees the world
+looked at again. Harness 1063/1063, walk 175/175, long play 8/8, lint 0; the frontier request in Manual identical (24/24).
+

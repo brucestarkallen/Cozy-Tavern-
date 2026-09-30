@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m518-001)
+# Cozy Tavern — handoff for the next session (state at m518-002)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1387,4 +1387,10 @@ founding design lives in AGENTS.md's first entries.)
   shed stays in the note; a block with nothing left loses its name). In any other mode the cards are as before and a
   page's kept lines are never sent (M386). Laws M518-1…3; walk DOM-175 on the simulated Bleach wiki (kept on Rukia's
   page; the next request says each lasting line once, on her card; legacy puts the note back whole, the card as before).
+- M518-2 — HIS OWN BRIEF AND THE AUTOMATIC WORLD. His question: "I already made my own Bleach brief — what happens when I
+  turn on Automatic?" His brief rides first, untouched; the world is built with it as a source and never repeats it. Now
+  also: when his brief rides above, the world opens "…as it stands (the brief above is right wherever the two differ):";
+  and a rewritten brief makes the world look again — at once when he keeps it in Settings (remakeGround), and in the
+  chain (briefFp fingerprint, a reason to look like a new arc or start) — so it never repeats or contradicts what he
+  just wrote. Law M518-2; walk DOM-174 (the brief edited → the world asked again → shown).
 

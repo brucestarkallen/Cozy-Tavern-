@@ -45,13 +45,13 @@ test('M517-4 IN THE BRIEF\'S SEAT, AFTER HIS WORDS — for the big and the small
   const msgs = [{ id: 'u1', role: 'user', text: 'I raise my blade.' }];
   for (const settings of [{}, { tellerName: 'Hulk', writerName: 'Bruce' }]) {
     const r = buildRequest({ story: { brief: 'HIS-OWN-BRIEF.' }, messages: msgs, settings, state: null, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: false }, worldGround: words });
-    eq(r.systemBlocks[2].text, 'HIS-OWN-BRIEF.\n\n' + words, 'his words, then the world, in the brief seat');
+    eq(r.systemBlocks[2].text, 'HIS-OWN-BRIEF.\n\n' + words.replace('The world of our story, as it stands:', 'The world of our story, as it stands (the brief above is right wherever the two differ):'), 'his words, then the world, in the brief seat — his brief named right where they differ (M518-2)');
     const row = r.receipt.slots.find((s) => s.name === 'The world');
     assert(row && row.tokens > 0 && wireOf(r).includes(row.text), 'its own row, as sent');
     eq(r.receipt.slots.find((s) => s.name === 'The brief').text, 'HIS-OWN-BRIEF.', 'the brief row is his words alone');
   }
   const noBrief = buildRequest({ story: {}, messages: msgs, settings: {}, state: null, modules: [], memory: '', window: { keeperOn: false }, worldGround: words });
-  eq(noBrief.systemBlocks[2].text, words, 'no brief of his: the world alone');
+  eq(noBrief.systemBlocks[2].text, words, 'no brief of his: the world alone, its plain opening');
   const manual = buildRequest({ story: { brief: 'HIS-OWN-BRIEF.' }, messages: msgs, settings: {}, state: null, modules: [], memory: '', window: { keeperOn: false } });
   eq(manual.systemBlocks[2].text, 'HIS-OWN-BRIEF.', 'Manual: his words only');
   assert(/the brief is Manual/.test(manual.receipt.slots.find((s) => s.name === 'The world').reason), 'and the row says why');
@@ -66,3 +66,13 @@ test('M517-5 CANON STOPS REPEATING THE WORLD: with the world riding, canon\'s no
   eq(canonWithoutWorld(begun), 'Yuki Tsukumo:\n  x', 'the "just beginning" shape too');
   eq(canonWithoutWorld('Yuki Tsukumo:\n  x'), 'Yuki Tsukumo:\n  x', 'no position: untouched');
 });
+
+test('M518-2 HIS BRIEF CHANGED, THE WORLD LOOKS AGAIN: a rewritten brief is a reason to look (like a new arc or a new start), not only pages folded — the world then takes out what his new words say; nothing changed and too few pages, it is not looked at', async () => {
+  const conn = { id: 'x' };
+  const have = { parts: PARTS, recordLines: 10, briefFp: 'old' };
+  eq((await runGround({ connection: conn, have, recordLines: 11, input: { briefChanged: false } })).why, 'the world has not moved', 'same brief, too few pages: not looked at');
+  let looked = false;
+  try { const r = await runGround({ connection: conn, have, recordLines: 11, input: { briefChanged: true, briefFingerprint: 'new' } }); looked = r.why !== 'the world has not moved'; } catch (err) { looked = true; /* it went to ask — this harness has no model to answer */ }
+  assert(looked, 'a rewritten brief: it looks again');
+});
+

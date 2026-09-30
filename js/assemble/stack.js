@@ -826,7 +826,8 @@ export function buildRequest({
   const ownBrief = typeof safeStory.brief === 'string' ? safeStory.brief : '';
   pushSlot('The brief', ownBrief, ownBrief.trim() ? 'this story' : '');
   /* M517: the world rides in the brief's seat, after his own words — written once, rewritten only where the world moved */
-  const groundText = typeof worldGround === 'string' ? worldGround.trim() : '';
+  /* M518-2: his brief is right wherever the two differ — said in the world's own opening when his brief rides above it */
+  const groundText = ((g) => (g && ownBrief.trim() ? g.replace(/^The world of our story, as it stands:/, 'The world of our story, as it stands (the brief above is right wherever the two differ):') : g))(typeof worldGround === 'string' ? worldGround.trim() : '');
   const brief = [ownBrief.trim() ? ownBrief : '', groundText].filter(Boolean).join('\n\n');
   pushSlot('The world', groundText, groundText ? 'the automatic brief — the world of your story as it stands, rewritten only where it changed; Settings → This story → The brief' : '');
 

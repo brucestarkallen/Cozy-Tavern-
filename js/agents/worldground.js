@@ -150,20 +150,20 @@ export async function runGround({ connection, have = null, input = {}, recordLin
   if (!connection) return { wrote: false, why: 'no connection' };
   if (have && have.by === 'writer' && !force) return { wrote: false, why: 'his own words stand' };
   const fresh = !have || !have.parts || force;
-  if (!fresh && recordLines - (Number(have.recordLines) || 0) < GROUND_EVERY && !input.arcChanged && !input.startChanged) return { wrote: false, why: 'the world has not moved' };
+  if (!fresh && recordLines - (Number(have.recordLines) || 0) < GROUND_EVERY && !input.arcChanged && !input.startChanged && !input.briefChanged) return { wrote: false, why: 'the world has not moved' }; /* M518-2: his brief changed — the world looks again, so it never repeats or contradicts what he just wrote */
   const ask = fresh ? groundAsk(input) : groundUpdateAsk({ ground: have, ...input });
   let text = '';
   try { ({ text } = await callWorker(connection, { system: withFictionFrame(ask.system), user: ask.user, maxTokens: 2200, signal })); } catch (err) { throw err; }
   if (fresh) {
     const parts = readGround(text);
     if (!parts) return { wrote: false, why: 'its answer could not be used' };
-    return { wrote: true, ground: { parts, recordLines, arcTitle: (input.arc && input.arc.title) || '', start: input.startFingerprint || '', by: 'helper', at: Date.now() } };
+    return { wrote: true, ground: { parts, recordLines, arcTitle: (input.arc && input.arc.title) || '', start: input.startFingerprint || '', briefFp: input.briefFingerprint || '', by: 'helper', at: Date.now() } };
   }
   const changed = readGroundPatch(text);
   if (!changed) return { wrote: false, why: 'its answer could not be used' };
   const parts = fit({ ...have.parts, ...changed });
   const moved = Object.keys(changed).some((k) => (have.parts[k] || '') !== (parts[k] || ''));
-  return { wrote: true, changed: moved, ground: { ...have, parts, recordLines, arcTitle: (input.arc && input.arc.title) || have.arcTitle || '', start: input.startFingerprint || have.start || '', at: Date.now() } };
+  return { wrote: true, changed: moved, ground: { ...have, parts, recordLines, arcTitle: (input.arc && input.arc.title) || have.arcTitle || '', start: input.startFingerprint || have.start || '', briefFp: input.briefFingerprint || '', at: Date.now() } };
 }
 
 /* M517: with the world in the brief's seat, canon's per-page note stops repeating the story's position in canon (its

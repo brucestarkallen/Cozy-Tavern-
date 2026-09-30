@@ -7212,7 +7212,12 @@ test('DOM-174 THE AUTOMATIC BRIEF, IN THE APP (M517): Automatic in Settings writ
   let asked = 0;
   house.state.storyAnswer = () => '[Tengen\'s barrier — Monday | 23:59]\n\nSteel rang.';
   house.state.workerAnswer = (body, sys) => {
-    if (/You keep the world of a story/.test(String(sys || ''))) { asked += 1; return JSON.stringify({ world: 'WORLD-SETTING ' + asked + ': modern Japan, hidden sorcerers.', where: 'The Culling Game arc; START-FACT.', powers: 'Cursed energy.', factions: 'Jujutsu High; Kenjaku.', places: 'Tengen\'s barrier.', standing: 'The Culling Game is underway.' }); }
+    if (/You keep the world of a story/.test(String(sys || ''))) {
+      asked += 1;
+      /* a later look is answered the way it is asked — only the parts that changed */
+      if (/Change a part ONLY if the world itself changed/.test(String(sys || ''))) return JSON.stringify({ changed: { world: 'WORLD-SETTING ' + asked + ': modern Japan, hidden sorcerers; Jovan now leads the Ninth.' } });
+      return JSON.stringify({ world: 'WORLD-SETTING ' + asked + ': modern Japan, hidden sorcerers.', where: 'The Culling Game arc; START-FACT.', powers: 'Cursed energy.', factions: 'Jujutsu High; Kenjaku.', places: 'Tengen\'s barrier.', standing: 'The Culling Game is underway.' });
+    }
     return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
   };
   const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers', 40000); return house.state.calls.slice(from); };
@@ -7226,7 +7231,7 @@ test('DOM-174 THE AUTOMATIC BRIEF, IN THE APP (M517): Automatic in Settings writ
     eq((await db.stories.get(st.id)).briefMode, 'automatic', 'the story is Automatic');
     await closeSettings();
     let wire = briefSeat(await send('I raise my blade.'));
-    assert(/HIS-BRIEF: Jovan Oda, a hidden special grade\.\\n\\nThe world of our story, as it stands:\\nThe setting — WORLD-SETTING 1/.test(wire), 'his words, then the world, in the brief seat');
+    assert(/HIS-BRIEF: Jovan Oda, a hidden special grade\.\\n\\nThe world of our story, as it stands \(the brief above is right wherever the two differ\):\\nThe setting — WORLD-SETTING 1/.test(wire), 'his words, then the world, in the brief seat — his brief named right where they differ');
     assert(!/Where our story began in Jujutsu Kaisen/.test(wire), 'the canon start is folded into the world — not said twice');
     eq(asked, 1, 'the page after did not ask again — the record has not grown');
     await openSettings();
@@ -7240,6 +7245,12 @@ test('DOM-174 THE AUTOMATIC BRIEF, IN THE APP (M517): Automatic in Settings writ
     await openSettings();
     click(q('#btn-rebuild-world-ground'));
     await until(() => /WORLD-SETTING 2/.test(q('#world-ground-story').value), 'rebuilt from the story', 15000);
+    /* M518-2: he rewrites his brief — the world looks again at once */
+    q('#brief-story').value = 'HIS-BRIEF: Jovan Oda, a hidden special grade — and captain of the Ninth now.';
+    q('#brief-story').dispatchEvent(new env.window.Event('input', { bubbles: true }));
+    click(q('#btn-save-brief'));
+    await until(() => asked === 3, 'the world looked again when his brief changed', 15000);
+    await until(() => /WORLD-SETTING 3/.test(q('#world-ground-story').value), 'and shows it', 15000);
     click(q('#brief-mode-manual'));
     q('#brief-mode-manual').dispatchEvent(new env.window.Event('change', { bubbles: true }));
     await until(async () => (await db.stories.get(st.id)).briefMode === 'manual', 'Manual', 5000);

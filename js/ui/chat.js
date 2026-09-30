@@ -2646,6 +2646,8 @@ export function initChat(ctx) {
       arcChanged: Boolean(have && arc && have.arcTitle !== arc.title),
       startChanged: Boolean(have && startWords && have.start !== fp(startWords)),
       startFingerprint: startWords ? fp(startWords) : '',
+      briefChanged: Boolean(have && (have.briefFp || '') !== fp(String(fresh.brief || '').trim())), /* M518-2: he rewrote his brief */
+      briefFingerprint: fp(String(fresh.brief || '').trim()),
     };
     if (stale()) return { silent: true };
     const out = await runGround({ connection, have, input, recordLines: covered, force, signal });

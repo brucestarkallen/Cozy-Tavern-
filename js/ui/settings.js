@@ -1312,6 +1312,10 @@ export function initSettings(ctx) {
     await db.stories.update(story.id, { brief: els.briefStory.value });
     flash('brief-saved');
     await briefChanged(story, before, els.briefStory.value);
+    /* M518-2: with the brief Automatic, the world looks again at once — only what his new words now say is taken out of it */
+    if (story.briefMode === 'automatic' && before !== els.briefStory.value && ctx.chat && typeof ctx.chat.remakeGround === 'function') {
+      ctx.chat.remakeGround({ force: false }).then(async () => { if (els.ground && !typedBoxes.has(els.ground)) els.ground.value = groundWords(await db.settings.get(GROUND_KEY(story.id))); }).catch(() => {});
+    }
   });
   /* M517: THE BRIEF'S TWO MODES — Manual: his own words only. Automatic: his words and the world of the story, written by
    * the world keeper now (not after the next page) and kept up to date only where the world changed. */
