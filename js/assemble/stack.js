@@ -101,6 +101,7 @@ import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: 
 import { voiceOf, inVoice, toTeller, briefingOpening, notebookOpening, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave, withCardNames } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView, findPersonKey, PEOPLE_BUDGET, PRESENT_CARDS_MAX, RECALL_MAX } from '../engine/people.js';
 import { wornPhrases } from './smallprose.js'; /* M512: the turns of phrase the last pages keep using */
+import { canonOffPages } from './canonpages.js'; /* M518: canon on their own page — the note goes quiet on what the cards carry */
 import { lawsOf, lawsNamed, joinLaws, lawKey, ALWAYS_LAWS, PROSE_LAWS, PEOPLE_LAWS, SOUND_LAWS, LOAD_BEARING, FIGHT_LAWS, typedCombat } from './laws.js'; /* M510: his craft, law by law */
 import { renderPlan, renderSounds } from './planwords.js'; /* M510: the planning helper's plan, in his voice */
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
@@ -716,6 +717,7 @@ export function buildRequest({
   refereeWhy = '', /* M513: why the referee settled nothing this page — its receipt row says it */
   canonStart = '', /* M516: where our story began in its canon, and what was true then — his note, every page */
   worldGround = '', /* M517: the automatic brief — the world of the story, beside his own brief in its seat */
+  canonOnPages = false, /* M518: canon's lasting lines ride on each person's card — the note leaves out what the cards carry */
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -926,7 +928,11 @@ export function buildRequest({
   /* M510-12: for a small model, whoever the world's word names (on their way, at the party) is recalled like someone the
    * latest pages named — their card rides, so it knows who they are and why they come */
   const worldEarly = typeof worldBrief === 'string' ? worldBrief.trim() : '';
-  const people = renderPeopleTiers(state, { recentPages: smallB && worldEarly ? [...recentPages, worldEarly] : recentPages, rotation: history.length, view: smallB ? SMALL_PEOPLE_VIEW : peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || ''), scenePages, seatsInState: stateView(windowInfo && windowInfo.budgetTokens).whole }); /* M281: in the room the storyteller has; M282: the brief weighs who matters; M292: a seat said once */
+  /* M518: canon's lines ride on the cards only where canon's note is trimmed against them (canonOnPages) — in any other
+   * mode the cards are what they always were, and a page's kept canon lines are not sent at all (M386: canon off sends
+   * nothing of it) */
+  const peopleState = canonOnPages || !state || !state.characters ? state : { ...state, characters: Object.fromEntries(Object.entries(state.characters).map(([k, e]) => [k, e && typeof e === 'object' && Array.isArray(e.canon) ? (({ canon: _c, ...rest }) => rest)(e) : e])) };
+  const people = renderPeopleTiers(peopleState, { recentPages: smallB && worldEarly ? [...recentPages, worldEarly] : recentPages, rotation: history.length, view: smallB ? SMALL_PEOPLE_VIEW : peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || ''), scenePages, seatsInState: stateView(windowInfo && windowInfo.budgetTokens).whole }); /* M281: in the room the storyteller has; M282: the brief weighs who matters; M292: a seat said once */
   const peopleText = people ? people.text : '';
   /* M510-11: THE STORY IN SHORT — a small model reads eight pages; the rest of the tale reached it only as the plan's
    * three facts from earlier. The helper keeps the whole story the way a person remembers it (under 180 words, rewritten
@@ -1011,7 +1017,8 @@ export function buildRequest({
    * Its label goes: here it is one part of the writer's own notes. Empty (the switch off) = nothing. */
   /* M356: the sensors' one line — what the readings noticed drifting, said as the writer would say it, once */
   const sensorLine = typeof sensorNote === 'string' && sensorNote.trim() ? toTeller(sensorNote.trim(), voice) : '';
-  const canonText = typeof canonNote === 'string' && canonNote.trim() ? canonNote.trim().replace(/^[^\n]{0,42}'s note — /, '').replace(/^./, (c) => c.toUpperCase()) : '';
+  const canonWhole = typeof canonNote === 'string' && canonNote.trim() ? canonNote.trim().replace(/^[^\n]{0,42}'s note — /, '').replace(/^./, (c) => c.toUpperCase()) : '';
+  const canonText = canonOnPages && canonWhole ? canonOffPages(canonWhole, peopleText) : canonWhole; /* M518 */
   /* M516: WHERE OUR STORY BEGAN IN CANON — the moment a #story began at, and what was true of that world then (asked
    * once, alone: agents/canonstart.js). A storyteller that knows every fact still writes each person at their strongest
    * memory ("Yuta — abroad"); this is the timestamp. It rides for every storyteller, big or small, beside canon's note. */

@@ -88,8 +88,9 @@ import { lastPagesOf, SMALL_PAGES } from '../assemble/stack.js'; /* M510 */
 import { voiceSampleOf } from '../assemble/smallprose.js'; /* M512: how the story sounds at its best, for a small storyteller */
 import { CANON_START_KEY, placeInCanon, canonStartWords } from '../agents/canonstart.js'; /* M516: where our story began in its canon */
 import { GROUND_KEY, runGround, groundWords, canonWithoutWorld } from '../agents/worldground.js'; /* M517: the automatic brief — the world, written once */
+import { canonBlocks, lastingLines } from '../assemble/canonpages.js'; /* M518: canon on their own page */
 import { renderStateFacts as planFacts, stateView as planStateView } from '../engine/state.js'; /* M510: what the helper reads */
-import { renderPeopleTiers as planPeople, peopleView as planPeopleView } from '../engine/people.js'; /* M510 */
+import { renderPeopleTiers as planPeople, peopleView as planPeopleView, findPersonKey } from '../engine/people.js'; /* M510; M518: a canon block's person in the ledger */
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
@@ -4471,6 +4472,30 @@ export function initChat(ctx) {
       const groundNow = story.briefMode === 'automatic' ? groundWords(await db.settings.get(GROUND_KEY(story.id))) : '';
       const canonLegacy = (await db.settings.get('canonLegacy')) === true;
       const canonNote = ((n) => (groundNow && !canonLegacy ? canonWithoutWorld(n) : n))(canonPending ? ((await canonPending) || '') : ''); /* M346: its windows have closed — whatever it holds rides */
+      /* M518: CANON ON THEIR OWN PAGE — in the same mode, what canon says of each person that lasts (who they are, their
+       * nature, how they talk) is kept on their page, replaced whenever canon's lens says otherwise; their card carries it
+       * and the builder leaves out of canon's note exactly what the cards carry. Only a page that exists; never a secret,
+       * never this scene's lines. The ledger is written from a fresh read, so a reader's write in the meantime stands. */
+      const canonOnPages = Boolean(groundNow && !canonLegacy && canonNote);
+      if (canonOnPages) {
+        try {
+          const chars = (state && state.characters) || {};
+          const muts = [];
+          for (const b of canonBlocks(canonNote)) {
+            const key = findPersonKey(chars, b.name);
+            if (!key) continue;
+            const lasting = lastingLines(b.lines);
+            const had = Array.isArray(chars[key].canon) ? chars[key].canon : [];
+            if (lasting.length && !(had.length === lasting.length && had.every((l, i) => l === lasting[i]))) muts.push({ type: 'people.canon', name: key, lines: lasting });
+          }
+          if (muts.length) {
+            state = applyMutations(state, muts).state;
+            const fresh = await loadState(story.id);
+            const kept = applyMutations(fresh, muts);
+            if (kept.applied.length) await saveState(story.id, kept.state);
+          }
+        } catch (err) { /* the note then rides whole — nothing is lost */ }
+      }
       /* M356: what the sensors noticed, once — taken and let go, so it never rides twice */
       const sensorNote = ooc ? '' : await takeWordForTurn(story.id); /* M356/M357: a reading's word, or what the house saw in the last page */
       /* M510: THE SMALL REQUEST'S PLAN — the one the helper made after the page this turn follows (Try again finds the
@@ -4523,7 +4548,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518 */
         sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
@@ -4571,7 +4596,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         canonNote, /* M346: canon verification's note, at the top of the briefing */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518 */
         sensorNote, /* M356: the sensors' one line, in the closing words */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),

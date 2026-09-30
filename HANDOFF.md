@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m517-001)
+# Cozy Tavern — handoff for the next session (state at m518-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1376,6 +1376,15 @@ founding design lives in AGENTS.md's first entries.)
   (canonWithoutWorld) unless Settings → Canon verification → "Legacy canon verification" is ticked. "New stories start
   Automatic" sets it for #story tales and the shelf's New story. A branch carries the mode, the canon start and the world.
   Laws M517-1…5; walk DOM-174; M43-2 now reads the whole of branchFrom (its fixed 15,000-character window cut off the
-  re-read call when five lines were added above it). Not built: the per-person half — canon's people blocks still ride
-  every page they are on screen (their page and canon's block both), as before.
+  re-read call when five lines were added above it). The per-person half is M518 (below).
+- M518-1 — CANON ON THEIR OWN PAGE (the per-person half). Same mode (brief Automatic, legacy off, canon on): before the
+  request is built, each canon person's LASTING lines in canon's note (assemble/canonpages.js lastingLines: Identity or
+  the prose brief, Personality, Background, Relationships, Powers & Abilities, Trivia, Voice — never Appearance, Facts,
+  Abilities, Context, With…, Now, and never a Secret) are kept on their page (apply.js 'people.canon', journaled, only on
+  a page that exists, replaced whole when canon's lens says otherwise, written from a fresh read of the ledger); their
+  card carries them ("From canon:", people.js cardText — shed for room before "Between you"); the builder then leaves
+  out of canon's note exactly the lines the people section carries (canonOffPages — exact lines only, so a line a card
+  shed stays in the note; a block with nothing left loses its name). In any other mode the cards are as before and a
+  page's kept lines are never sent (M386). Laws M518-1…3; walk DOM-175 on the simulated Bleach wiki (kept on Rukia's
+  page; the next request says each lasting line once, on her card; legacy puts the note back whole, the card as before).
 

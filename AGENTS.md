@@ -13439,6 +13439,26 @@ the essentials (never retold); each PERSON on their own page (never listed).
   again before the record grows → his correction rides → rebuilt → Manual sends only his words, the canon start back on
   its own). M43-2 reads the whole of branchFrom now. Browser proofs contrast, twobrowsers and bootpull green. The frontier
   request with no world is identical to m511-001 (24 of 24).
-- Not built in this pass: the per-person half of the design — canon's people blocks still ride every page a canon person
-  is on screen, beside their page.
+- The per-person half followed in M518.
+
+# M518-1 — canon on their own page
+The per-person half of his design ("each person stays on their own page — canon writes them onto it once, then only speaks
+for what the page is missing"). Canon's note writes a block per canon person on screen, every page; her ledger page rode
+beside it. In the smart mode (brief Automatic, "Legacy canon verification" off, canon on):
+- assemble/canonpages.js: canonBlocks (a line "Name:" and its indented lines), lastingLines (who they are — Identity or the
+  curator's prose brief — Personality, Background, Relationships, Powers & Abilities, Trivia, Voice; never this scene's
+  Appearance, Facts, Abilities, Context, With… or Now, never a Secret), canonOffPages (the note without each lasting line
+  that rides, word for word, in the same request's people section; a person with nothing left loses their name line).
+- apply.js 'people.canon': a page keeps canon's lasting lines (at most eight, 2,400 characters), journaled with its
+  take-back, only on a page that exists, replaced whole when canon's lens says otherwise, nothing written when unchanged.
+- people.js cardText: the card carries them under "From canon:"; a card past its room lets them go before "Between you"
+  (the note then keeps them — the trim is by exact line).
+- chat.js: before the build, the lasting lines of each block go onto the pages (the request's own state, and the store from
+  a fresh read so a reader's write in the meantime stands); both builds get canonOnPages.
+- stack.js: in any other mode the cards leave a page's kept canon lines out (M386: canon off sends nothing of it), so
+  Manual and legacy requests are exactly as before (the frontier proof, 24 of 24).
+- Laws M518-1…3; walk DOM-175 on the simulated Bleach wiki: after the first page Rukia's lasting lines are on her page; the
+  next request says each of them once, on her card; with the legacy switch the note is whole again and the card as it was.
+- Gates: harness 1062/1062, walk 175/175, long play 8/8, lint 0 errors (170 warnings, as before); contrast, twobrowsers,
+  mend_marks green.
 

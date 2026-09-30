@@ -750,12 +750,16 @@ function cardText(name, entry, turn, cap, here = null, lookWords = null) {
   const allEnds = Array.isArray(entry.threads) ? entry.threads : [];
   const threads = allEnds.slice(-3).reverse();
   let ends = threads.length ? 'Loose ends: ' + threads.join('; ') + (allEnds.length > 3 ? ' (and ' + (allEnds.length - 3) + ' older)' : '') : '';
-  const build = () => [head, now, arc, ends].filter(Boolean).join('\n');
+  /* M518: what canon says of them that lasts, kept on their page — its lines as canon's note wrote them, so the note can
+   * leave out exactly what this card carries */
+  let canon = Array.isArray(entry.canon) && entry.canon.length ? 'From canon:\n' + entry.canon.join('\n') : '';
+  const build = () => [head, now, arc, ends, canon].filter(Boolean).join('\n');
   /* M266: WHOLE LINES, NEVER A CUT MID-SENTENCE. The card was chopped at its
    * cap wherever that fell. Now a card past its room lets go of whole lines —
    * the loose ends first, then how things stand between you; who they are and
    * where they are always ride whole. */
   if (cap && build().length > cap) ends = '';
+  if (cap && build().length > cap) canon = ''; /* M518: a card past its room lets canon's lines go before how things stand between you — canon's note then keeps them */
   if (cap && build().length > cap) arc = '';
   return build();
 }

@@ -1107,6 +1107,26 @@ const HANDLERS = {
     return { words, undo: { kind: 'people.restore', name: result.key, before } };
   },
 
+  /* M518: CANON ON THEIR OWN PAGE. With the story's brief on Automatic (and the legacy switch off), what canon says of
+   * a person that lasts — who they are, their personality, how they talk, their background — is kept on their page, as
+   * canon's note wrote it for this story (already through the lens: nothing this story changed, nothing it has not
+   * reached), so their card carries it and canon's note stops repeating it on every page. Replaced whole each time canon's
+   * lens says otherwise; never a secret, never this scene's lines. Only on a page that already exists. */
+  'people.canon'(state, m) {
+    const key = findPersonKey(state.characters, m.name);
+    if (!key || !state.characters || !state.characters[key]) return { why: 'no page for ' + String(m.name || 'them') + ' yet' };
+    const lines = (Array.isArray(m.lines) ? m.lines : []).map((l) => String(l == null ? '' : l).replace(/\s+$/, '')).filter((l) => l.trim()).slice(0, 8);
+    let total = 0;
+    const kept = [];
+    for (const l of lines) { const cut = l.length > 700 ? l.slice(0, 699) + '…' : l; if (total + cut.length > 2400) break; kept.push(cut); total += cut.length; }
+    const had = Array.isArray(state.characters[key].canon) ? state.characters[key].canon : [];
+    if (had.length === kept.length && had.every((l, i) => l === kept[i])) return { why: 'canon says of them what their page already holds' };
+    const before = cloneMap({ [key]: state.characters[key] })[key];
+    const { canon: _was, ...rest } = state.characters[key];
+    state.characters = { ...state.characters, [key]: kept.length ? { ...rest, canon: kept } : rest };
+    return { words: key + ' — what canon says of them is kept on their page.', undo: { kind: 'people.restore', name: key, before } };
+  },
+
   /* M72: the scribe's delta, journaled. Same laws as the merge it replaced
    * (engine/people.js mergeDeltas): the persona redirect, the MC
    * record-only law, the contamination guard, thread/unthread. One delta
