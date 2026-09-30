@@ -1519,7 +1519,8 @@ founding design lives in AGENTS.md's first entries.)
   start, his brief or pages taken back — it now also looks again when the record's lines over the pages it came from no
   longer read the same (recordPrint / recordChanged). A middle deletion: the record shrinks — the world is rebuilt
   (M526), the essentials not sent until remade (M527), the plans book mended (M527); the canon start follows a changed or
-  deleted first line (M526/M527). Laws M528-1/2; walk DOM-184. DOM-79 (the grounding phrase) still passes only in the
-  walk's order — not the frame (tried, reverted); the phrase is read fresh at each send (gatherSettings); cause not found
-  this pass. Test isolation only — the app path it checks passes in the walk.
+  deleted first line (M526/M527). Laws M528-1/2; walk DOM-184. DOM-79 (the grounding phrase): found — it was flaky, not
+  order-bound (alone it failed about one run in three): its send took the first request on its model, and the plans keeper
+  (M510-48, every storyteller) on the same model sometimes landed first and was checked as the storyteller's. It (and the one
+  other scenario with that helper) now leaves helpers out; six runs alone, six passes.
 

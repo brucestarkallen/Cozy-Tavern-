@@ -13692,4 +13692,9 @@ older one from it; a deletion replays with the pages after shifted.
   the phrase is read fresh at each send; not found this pass, test isolation only.
 - Gates: harness 1079/1079, walk 184/184, long play 8/8, lint 0 (170 warnings, as before); the frontier request identical (24
   of 24).
+- The last open item, found: DOM-79 was flaky, not order-bound — run alone it failed about one time in three. Its send took
+  the first request made on its connection's model; the plans keeper (M510-48, asked for every storyteller) runs on the same
+  model, sometimes landed in the calls first, and was checked as the storyteller's request (no grounding phrase in a
+  helper's words). It and the one other scenario with the same helper now leave helpers out (the house marks them). Six runs
+  alone: six passes; the whole walk 184/184. The app was right all along.
 
