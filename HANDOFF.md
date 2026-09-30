@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m524-001)
+# Cozy Tavern — handoff for the next session (state at m526-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1484,4 +1484,17 @@ founding design lives in AGENTS.md's first entries.)
   And a standing's number is the ledger's alone: people.js withoutStandingNumbers leaves "P=-12" out of what is written to a
   person's page (people.note) and out of their card (cardText) — exactly as it was when no such number is in the words.
   Laws M524-1…3; walk DOM-180.
+- M525/M526 — THE DEEP AUDIT (his order: "everything I do has a contingency and heals itself — make it foolproof"). Audited
+  first: the rows each tale writes, against the list that says a row is a tale's (store.js STORY_PREFIXES — the house book
+  leaves a gone tale's rows out by it, the boot sweep lets them go by it). Eight kinds the list never learned: plans,
+  standingPlans, essentials, pagesMended, canonStart, worldGround, canonGroundingSettings (canon's per-story settings) and
+  hkNotes (the housekeeper's notes) — a gone tale's copy of each rode _house.json on every push and was never swept. The
+  last two were found by a behavioural law, not the search: walk DOM-181, run LAST, takes every tale the walk made, lets
+  their story rows go, and requires that none of their rows rides the house book and the boot sweep takes them all — a new
+  per-tale key the list lacks fails it. Then two contingencies (M526): a world last looked at over more pages than the
+  record now covers (pages taken back) is not sent and is written again (worldground.js rolledBack; chat.js send path);
+  and where the story began is asked again when his #story line changed (canonStart conceptFp). Walk DOM-182.
+  STILL TO AUDIT (continue on "Continue"): swipe/retry/edit/delete/rewind against every store added since M510 (plans,
+  standing plans, essentials, textures), the quick switch between storytellers mid-heat (loud state), import of
+  SillyTavern chats into a canon story, sync of a branch between two devices while its world is being written.
 

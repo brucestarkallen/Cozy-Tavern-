@@ -7589,6 +7589,48 @@ test('DOM-180 A BLOCK OF TAGS AFTER THE PAGE (M524 — his report: "<npc> <the m
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-182 CONTINGENCIES THAT HEAL THEMSELVES (M526 — the deep audit): a world last looked at over pages since taken back is not sent, and is written again from the story as it stands; where the story began is asked again when his #story line changes', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { GROUND_KEY } = await import('../../js/agents/worldground.js');
+  const { CANON_START_KEY } = await import('../../js/agents/canonstart.js');
+  const { hashText } = await import('../../js/agents/planner.js');
+  const st = await db.stories.create({ title: 'taken back' });
+  await db.stories.update(st.id, { briefMode: 'automatic', keeper: false, extraction: false });
+  await db.messages.append(st.id, { role: 'user', text: 'jujutsu kaisen Jovan', typed: '#story jujutsu kaisen Jovan' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[The barrier — Monday | 21:00]\n\nPage one.' });
+  /* the world was last looked at over forty pages; the story now stands at one (pages taken back) */
+  await db.settings.set(GROUND_KEY(st.id), { parts: { world: 'OLD-WORLD.', standing: 'TAKEN-BACK: Kenjaku fell.' }, recordLines: 40, by: 'helper', at: Date.now() });
+  /* where it began, placed from an older line */
+  await db.settings.set(CANON_START_KEY(st.id), { series: 'Bleach', arc: 'Soul Society arc', moment: 'OLD-START', when: '', facts: [], conceptFp: hashText('bleach Jovan'), at: Date.now() });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  let placed = 0; let worlds = 0;
+  house.state.storyAnswer = () => '[The barrier — Monday | 21:30]\n\nPage two.';
+  house.state.workerAnswer = (body, sys) => {
+    if (/You place a story in its canon/.test(String(sys || ''))) { placed += 1; return JSON.stringify({ canon: true, series: 'Jujutsu Kaisen', arc: 'Culling Game arc', moment: 'NEW-START at the barrier', when: 'December 2018', facts: ['Yuta is back.'] }); }
+    if (/You keep the world of a story/.test(String(sys || ''))) { worlds += 1; return JSON.stringify({ world: 'FRESH-WORLD: the barrier stands.', standing: 'The Culling Game is underway.' }); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+  };
+  try {
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'I hold the line.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 2 && !env.ctx.chat.isBusy(), 'the page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers', 40000);
+    const told = house.state.calls.slice(from).find((c) => Array.isArray(c.body.messages) && /You are telling a story/.test(JSON.stringify(c.body.messages[0] || '')));
+    const wire = JSON.stringify(told.body);
+    assert(!/TAKEN-BACK|OLD-WORLD/.test(wire), 'the world from pages taken back was not sent');
+    eq(placed, 1, 'his #story line changed: where it began was asked again');
+    assert(/NEW-START at the barrier/.test(wire) && !/OLD-START/.test(wire), 'and the page carried the new start');
+    await until(async () => /FRESH-WORLD/.test(JSON.stringify(await db.settings.get(GROUND_KEY(st.id)))), 'the world written again from the story as it stands', 20000);
+    assert(!/TAKEN-BACK/.test(JSON.stringify(await db.settings.get(GROUND_KEY(st.id)))), 'the taken-back world is gone');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();
@@ -8083,5 +8125,27 @@ test('DOM-150 AN EDITED #q IS READ AGAIN (M510-61, his report: "I branch at a #q
 
 
 console.log('Cozy Tavern — the dom walk');
+test('DOM-181 EVERY ROW A TALE WRITES GOES WITH THE TALE (M525 — the deep audit): after every scenario above, each tale\'s own rows (its plans, essentials, canon start, world, marks, ledgers…) are recognised as that tale\'s — a tale whose story row is gone (another device, an older build) leaves not one row behind at the next boot sweep, and none of them rides the house book', async () => {
+  const before = errors.length;
+  const tales = (await db.stories.list()).map((t) => t.id);
+  assert(tales.length >= 3, 'the walk made its tales: ' + tales.length);
+  const allKeys = async () => { const d = await new Promise((res, rej) => { const r = globalThis.indexedDB.open('cozytavern.v1'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); return new Promise((res, rej) => { const t = d.transaction('settings', 'readonly'); const q2 = t.objectStore('settings').getAllKeys(); q2.onsuccess = () => { if (typeof d.close === 'function') d.close(); res(q2.result); }; q2.onerror = () => rej(q2.error); }); };
+  const theirs = (keys) => keys.filter((k) => typeof k === 'string' && /^[A-Za-z]+:/.test(k) && tales.some((id) => k.endsWith(':' + id)));
+  const had = theirs(await allKeys());
+  const kinds = [...new Set(had.map((k) => k.slice(0, k.indexOf(':'))))].sort();
+  assert(had.length > 0, 'the tales wrote their rows');
+  /* the story rows go — as when another device let the tales go, or an older build lost them — the rows stay behind */
+  await new Promise((res, rej) => { const r = globalThis.indexedDB.open('cozytavern.v1'); r.onsuccess = () => { const d = r.result; const t = d.transaction('stories', 'readwrite'); for (const id of tales) t.objectStore('stories').delete(id); t.oncomplete = () => { if (typeof d.close === 'function') d.close(); res(); }; t.onerror = () => rej(t.error); }; r.onerror = () => rej(r.error); });
+  const houseBefore = JSON.stringify(JSON.parse(await db.exportHouse()).settings.map((r) => r.key));
+  const left = theirs(await allKeys());
+  eq(left.length, had.length, 'fixture: the rows are still there, their tales gone');
+  const leaking = kinds.filter((k) => new RegExp('"' + k + ':').test(houseBefore));
+  eq(leaking.join(', '), '', 'none of a gone tale\'s rows rides the house book (kinds written: ' + kinds.join(', ') + ')');
+  await db.sweepOrphans();
+  const stayed = theirs(await allKeys());
+  eq([...new Set(stayed.map((k) => k.slice(0, k.indexOf(':'))))].join(', '), '', 'the boot sweep lets every one of them go');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

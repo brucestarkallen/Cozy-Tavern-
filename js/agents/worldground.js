@@ -149,7 +149,11 @@ export function groundWords(ground) {
 export async function runGround({ connection, have = null, input = {}, recordLines = 0, force = false, signal } = {}) {
   if (!connection) return { wrote: false, why: 'no connection' };
   if (have && have.by === 'writer' && !force) return { wrote: false, why: 'his own words stand' };
-  const fresh = !have || !have.parts || force;
+  /* M526: THE STORY WENT BACK. Pages taken back (a rewind, a deleted page, a swipe that undid a fold) leave the record
+   * covering fewer pages than the world was last looked at — the world may hold what those pages did. It is written
+   * again from the story as it now stands (never his own words). */
+  const rolledBack = Boolean(have && have.parts && Number.isFinite(have.recordLines) && recordLines < have.recordLines);
+  const fresh = !have || !have.parts || force || rolledBack;
   if (!fresh && recordLines - (Number(have.recordLines) || 0) < GROUND_EVERY && !input.arcChanged && !input.startChanged && !input.briefChanged) return { wrote: false, why: 'the world has not moved' }; /* M518-2: his brief changed — the world looks again, so it never repeats or contradicts what he just wrote */
   const ask = fresh ? groundAsk(input) : groundUpdateAsk({ ground: have, ...input });
   let text = '';

@@ -791,7 +791,14 @@ const STORY_PREFIXES = ['state', 'memory', 'lore', 'workers', 'snapshots', 'snap
   /* M389: the audit found two tales' rows the list never learned — canon verification's memory (M346) and the sensors'
    * readings (M356): a gone tale's copy rode the house book on every push and was never swept */
   'canonMeta', 'sensors',
-  'canonOn' /* M399: each story's own canon switch */];
+  'canonOn', /* M399: each story's own canon switch */
+  /* M525: the deep audit found six more the list never learned — a gone tale's copy of each rode the house book on every
+   * push and no boot ever swept it: the small storyteller's plans (M510) and standing plans (M510-22), the story's
+   * essentials (M510-15), the once-a-build page mend mark (M488), where it began in its canon (M516), and the world as it
+   * stands (M517). Walk DOM-181 now proves it by behaviour: every row any tale of the walk wrote goes with the tale. */
+  'plans', 'standingPlans', 'essentials', 'pagesMended', 'canonStart', 'worldGround',
+  'canonGroundingSettings', /* M525: canon verification's own settings, kept per story (bridge.js storySettingsKey) — found by DOM-181, not by the search */
+  'hkNotes' /* M525: the housekeeper's notes per story — found by DOM-181 over the whole walk */];
 const STORY_PREFIXED = new RegExp('^(?:' + STORY_PREFIXES.join('|') + '):.+$');
 
 /* M160: every tale-shaped row whose tale is gone, let go for good. Stores

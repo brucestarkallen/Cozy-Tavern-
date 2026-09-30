@@ -13634,3 +13634,24 @@ copied its numbers into the people's pages) and sent back to the storyteller as 
   it; the readers and the next request never see it). Harness 1076/1076, walk 180/180, long play 8/8, lint 0; mend_marks
   green; the frontier request identical (24 of 24).
 
+# M525/M526 — the deep audit, first pass
+His order: "deep audit everything — foolproof means everything I do has a contingency, and the app finds it and heals itself
+(like the branch) — no bugs." First pass, by what he does:
+- M525 — a tale's rows. store.js STORY_PREFIXES (what the house book leaves out for a gone tale, what the boot sweep lets go)
+  had not learned eight kinds added since M389: plans, standingPlans, essentials, pagesMended, canonStart, worldGround,
+  canonGroundingSettings (canon's per-story settings, via bridge.js storySettingsKey) and hkNotes (the housekeeper's notes).
+  A gone tale's copy of each rode _house.json on every push and was never swept. The last two were found only by the
+  behavioural law written for this — walk DOM-181, run last: every tale the walk made loses its story row, and not one of its
+  rows may ride the house book or survive the boot sweep. A per-tale key added later without the list fails it.
+- M526 — two contingencies that now heal: (1) pages taken back (rewind, delete, a swipe that undid a fold) left the automatic
+  brief's world holding what those pages did — a world looked at over more pages than the record now covers is not sent,
+  and is written again from the story as it stands (worldground.js runGround rolledBack; chat.js send path); (2) where the
+  story began (M516) is asked again when his #story line changes (the line's fingerprint kept with it; never over his own
+  correction). Walk DOM-182.
+- Checked and holding: a branch from any page (M523), the canon switch and memory on a branch (M386), a tale's deletion (by
+  suffix, M160), sync of a living tale's rows (by suffix), the M519 brake after a branch or a switch (judged from the pages).
+- Gates: harness 1076/1076, walk 182/182, long play 8/8, lint 0 (170 warnings, as before); twobrowsers and bootpull green;
+  the frontier request identical (24 of 24).
+- Still to audit (the next pass): swipe/retry/edit/delete/rewind against every store added since M510; the storyteller
+  switched mid-heat; a SillyTavern import into a canon story; a branch synced to another device while its world is written.
+

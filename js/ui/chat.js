@@ -4469,7 +4469,17 @@ export function initChat(ctx) {
       /* M517: THE AUTOMATIC BRIEF — with the story's brief on Automatic, the world rides in the brief's seat (his own brief
        * beside it); the canon start is one of its sources, so it is not said twice; canon's note stops repeating the story's
        * position in canon (the legacy switch keeps it whole) */
-      const groundNow = story.briefMode === 'automatic' ? groundWords(await db.settings.get(GROUND_KEY(story.id))) : '';
+      const groundNow = story.briefMode === 'automatic' ? await (async () => {
+        const kept = await db.settings.get(GROUND_KEY(story.id));
+        /* M526: a world last looked at over more pages than the record now covers (pages taken back) is not sent — it may
+         * hold what those pages did; the world keeper writes it again after this page */
+        if (kept && kept.by !== 'writer' && Number.isFinite(kept.recordLines)) {
+          const nodesNow = ((await loadMemory(story.id)) || {}).nodes || [];
+          const coveredNow = nodesNow.filter((n) => n && !n.empty && Array.isArray(n.span)).reduce((mx, n) => Math.max(mx, n.span[1] + 1), 0);
+          if (coveredNow < kept.recordLines) return '';
+        }
+        return groundWords(kept);
+      })() : '';
       const canonLegacy = (await db.settings.get('canonLegacy')) === true;
       const canonNote = ((n) => (groundNow && !canonLegacy ? canonWithoutWorld(n) : n))(canonPending ? ((await canonPending) || '') : ''); /* M346: its windows have closed — whatever it holds rides */
       /* M518: CANON ON THEIR OWN PAGE — in the same mode, what canon says of each person that lasts (who they are, their
@@ -5392,18 +5402,22 @@ export function initChat(ctx) {
           const told = pages.some((m) => m && m.role === 'assistant');
           const opening = parsed.kind === 'story' && !told ? String(text) : (() => { const first = pages.find((m) => m && m.role === 'user' && !m.hidden); const words = first ? String(first.typed || first.text || '') : ''; return /^\s*#story\b/i.test(words) ? words : ''; })();
           const had = await db.settings.get(key);
-          const due = !had || (had.tried && !had.series && !had.words && !had.none && Date.now() - had.tried > 6 * 3600 * 1000); /* a failed ask is tried again after six hours — never on every page */
+          const conceptNow = opening ? opening.trim().replace(/^#story\s*/i, '').trim() : '';
+          /* M526: his #story line changed (edited, or the tale's first move replaced) — where it began is asked again, from
+           * the new line; never over his own correction */
+          const moved = Boolean(had && !had.words && had.conceptFp && conceptNow && had.conceptFp !== hashText(conceptNow));
+          const due = !had || moved || (had.tried && !had.series && !had.words && !had.none && Date.now() - had.tried > 6 * 3600 * 1000); /* a failed ask is tried again after six hours — never on every page */
           if (opening && due) {
-            const concept = opening.trim().replace(/^#story\s*/i, '').trim();
+            const concept = conceptNow;
             const placer = await resolveWorkerConnection(story, 'founder');
             const { signal, done } = workerSignal(30000);
             showComposerNote('Checking which series your story is from…'); /* the first page waits for it — said, so the wait is not a silence; M519-4: not "canon" — it is not canon verification (it runs with that switch off too) */
             let got = null;
             try { got = await placeInCanon({ connection: placer, concept, brief: story.brief || '', signal }); } finally { done(); hideComposerNote(); }
             if (got && got.start) {
-              await db.settings.set(key, { ...got.start, ...(told ? { when: '' } : {}), at: Date.now() });
+              await db.settings.set(key, { ...got.start, ...(told ? { when: '' } : {}), conceptFp: hashText(concept), at: Date.now() }); /* M526: the line it was placed from */
               toast('Your story begins in ' + got.start.series + (got.start.arc ? ' — ' + got.start.arc : '') + '.'); /* M519-3: said plainly, once — no directions on his screen */
-            } else if (got && got.none) await db.settings.set(key, { none: true, at: Date.now() });
+            } else if (got && got.none) await db.settings.set(key, { none: true, conceptFp: hashText(concept), at: Date.now() });
             else await db.settings.set(key, { tried: Date.now() }); /* no answer: not asked again on the next page */
           }
         } catch (err) { /* the page goes on without it */ }
