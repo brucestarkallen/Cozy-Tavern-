@@ -13572,4 +13572,9 @@ used (connLevel, taleLevel, reasoningIsDown, reasonStyle, EFFORT_RANK in chat.js
 keeps noThought (M348), its effort and its prefill line, in What the storyteller saw. Walk DOM-55 and DOM-72 now check that
 no such banner appears (and DOM-72 that the receipt keeps it). Harness 1070/1070, walk 178/178, long play 8/8, lint 0
 (170 warnings, as before); the frontier request identical (24 of 24).
+- M521-2: asked "so I can see these thinking errors in What the storyteller saw?", the receipt was checked cause by cause:
+  "thinking <level>", "no thinking came back from the model" (M348) and the seed's own prefill line were there; the story's
+  own thinking level Off and a connection that refused its thinking settings were not. Both are now kept on the page's
+  receipt (thinkWhy) and shown in its footer. DOM-55 checks the story-level Off. Harness 1070/1070, walk 178/178, lint 0;
+  frontier request identical (24 of 24).
 

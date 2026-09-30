@@ -357,6 +357,7 @@ export function openReceipt(receipt, extraction, findings) {
   if (firsts.length) parts.push(firsts.join(' · '));
   if (receipt.effort) parts.push('thinking ' + receipt.effort);
   if (receipt.noThought) parts.push('no thinking came back from the model'); /* M348 */
+  if (receipt.thinkWhy) parts.push(receipt.thinkWhy); /* M521-2: the story's own level Off, or thinking settings a connection refused */
   if (typeof receipt.durationMs === 'number') parts.push(fmtSeconds(receipt.durationMs) + ' all told');
   if (typeof receipt.totalTokens === 'number') parts.push('~' + receipt.totalTokens + ' tokens sent');
   if (receipt.prefill) parts.push(receipt.prefill); /* M329: did the prefill work, on this turn */

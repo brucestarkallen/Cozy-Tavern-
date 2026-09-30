@@ -2991,6 +2991,8 @@ test('DOM-55 what stops the thinking for EVERY model — the tale’s own level 
     const wire = house.state.calls.slice(from).find((c) => !c.isWorker).body;
     eq(JSON.stringify(wire.thinking), '{"type":"disabled"}', 'fixture: the tale’s Off is what reached the wire, whatever the connection’s dial says');
     await tick(300); assert(!/OWN thinking level|refused its thinking|none came back|thinking seed was sent/.test(toasts()), 'M521: no banner over his page about thinking — the tale\'s own Off is kept on the receipt: ' + toasts());
+    const pageA = (await db.messages.list(a.id)).find((m) => m.role === 'assistant');
+    eq((pageA.receipt || {}).thinkWhy, 'no thinking asked for — this story\u2019s own thinking level is Off', 'M521-2: the receipt says why (What the storyteller saw)');
     /* (2) thinking asked for and kept — and hidden by the tick */
     await db.settings.set('showThinking', false);
     const b = await db.stories.create({ title: 'hidden thinking' });

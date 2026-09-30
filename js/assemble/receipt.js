@@ -22,7 +22,7 @@ export function estimateTokens(text) {
 }
 
 export function finalizeReceipt(draft, timings) {
-  const { ttftMs, tfftMs, durationMs, model, effort, prefill, sentId, noThought, small } = timings || {};
+  const { ttftMs, tfftMs, durationMs, model, effort, prefill, sentId, noThought, small, thinkWhy } = timings || {};
   const safe = draft && typeof draft === 'object' ? draft : {};
   const slots = Array.isArray(safe.slots) ? safe.slots : [];
   return {
@@ -53,5 +53,7 @@ export function finalizeReceipt(draft, timings) {
     ...(noThought === true ? { noThought: true } : {}),
     /* M512: written by a small storyteller or not — which of the story's pages show its voice at its best */
     ...(typeof small === 'boolean' ? { small } : {}),
+    /* M521-2: why no thinking was asked for or sent — said here, never in a banner over the page */
+    ...(typeof thinkWhy === 'string' && thinkWhy ? { thinkWhy } : {}),
   };
 }

@@ -110,7 +110,7 @@ import { loadRules, currentRules, applyRules } from '../regex.js'; /* M30: the r
 import { renderHtmlProse, looksHtml } from './richhtml.js'; /* M31: display rules may dress the page in HTML */
 import { download } from './download.js';
 import { storyToMarkdown, storyToJsonl, storyExportBasename } from './storyexport.js';
-import { effectiveReasoningOf, seedContinues } from '../providers/effort.js';
+import { EFFORT_RANK, effectiveReasoningOf, reasoningIsDown, reasonStyle, seedContinues } from '../providers/effort.js';
 /* M10's showrunners ride the send path too (the episode mark is stripped
  * from the prose before the page is saved, and their standing texts join
  * the assembled tail). M15 audit found these names used below but never
@@ -4660,8 +4660,15 @@ export function initChat(ctx) {
        * (2) "Show what the storyteller weighed" unticked hides thinking that was asked for and kept;
        * (3) a connection that once answered 400 to its thinking settings rides without them. Each now
        * says so on the turn it bites — once for each cause, never a nag. */
-      /* M521: NO BANNER DURING PLAY — his word: "it's so stupid and breaks my immersion". The three causes above were each said
-       * in a banner over his page; what the page was sent and what came back is on its receipt (What the storyteller saw). */
+      /* M521: NO BANNER DURING PLAY — his word: "it's so stupid and breaks my immersion". The causes above were each said in a
+       * banner over his page; now the two a receipt did not yet say are said on it (M521-2), in What the storyteller saw. */
+      let thinkWhy = '';
+      try {
+        const connLevel = connection && connection.reasoning && typeof connection.reasoning.effort === 'string' ? connection.reasoning.effort : '';
+        const taleLevel = story && typeof story.reasoningEffort === 'string' && EFFORT_RANK.includes(story.reasoningEffort) ? story.reasoningEffort : '';
+        if (taleLevel === 'off' && connLevel && connLevel !== 'off') thinkWhy = 'no thinking asked for — this story\u2019s own thinking level is Off';
+        else if (reasoning.effort !== 'off' && reasoningIsDown(connection, reasonStyle(connection))) thinkWhy = 'thinking settings not sent — this connection refused them once';
+      } catch (err) { thinkWhy = ''; }
 
       /* M378: A NEW TRY CLEARS THE THINKING A STOP LEFT BEHIND — AT ONCE. After a Stop mid-thinking the cut thinking is
        * kept on the page, whole and copyable (M301); it was let go only when the NEXT PAGE landed, so "Try again" showed
@@ -4953,6 +4960,7 @@ export function initChat(ctx) {
           effort: reasoning.effort === 'off' ? '' : reasoning.effort,
           prefill: result.prefill && result.prefill.words ? result.prefill.words : '',
           small: smallTeller, /* M512 */
+          thinkWhy, /* M521-2 */
         });
         /* M329: a seed that steered nothing is said once for that connection — the receipt says it every turn */
         /* M370: a banner only about a seed HE set (his own prefill). The grounding phrase is never announced — it is his

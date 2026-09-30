@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m521-001)
+# Cozy Tavern — handoff for the next session (state at m521-002)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1450,4 +1450,9 @@ founding design lives in AGENTS.md's first entries.)
   seed that steered nothing (M329). All five are gone, with sayOnce and the values and imports only they used; what
   happened stays on the page's receipt (noThought, effort, prefill — What the storyteller saw). DOM-55 and DOM-72 now
   check that no such banner appears.
+- M521-2 — the receipt says every cause. Two of the five removed banners had no line on the receipt: the story's own thinking
+  level Off, and a connection that once refused its thinking settings. Now the page's receipt keeps thinkWhy ("no thinking
+  asked for — this story's own thinking level is Off" / "thinking settings not sent — this connection refused them
+  once"), shown in the footer of What the storyteller saw beside "thinking <level>", "no thinking came back from the
+  model" and the prefill line. DOM-55 checks it.
 
