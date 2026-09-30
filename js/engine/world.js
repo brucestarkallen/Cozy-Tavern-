@@ -344,7 +344,11 @@ export function addKnowledge(knowledge, name, fact, atTurn) {
   for (const [other, theirs] of Object.entries(next)) {
     if (other === key || !Array.isArray(theirs)) continue;
     const held = theirs.find((k) => k && (sameFact(k.fact, what) || (near(k.atTurn) && sameFact(k.fact, what, { fuzzy: true }))));
-    if (held) { canon = held.fact; break; }
+    /* M522: THE LONGER STAYS, HOUSE-WIDE TOO. A wording someone else holds is taken only when it says at least as much —
+     * never to shrink a fuller line back to an older, shorter one. The auditor setting a shared line right ("…a place at his
+     * side" → "…a place at his side if they kneel and give up the paladin") had its correction turned back into the old
+     * words for each person in turn, because the others still held them; the whole party kept the wrong line. */
+    if (held && !(factKey(what).length > factKey(held.fact).length && factKey(what).includes(factKey(held.fact)))) { canon = held.fact; break; }
   }
   /* M92: the same fact in different clothes is the same fact — quotes and
    * apostrophes normalized, punctuation gone, one fact wholly inside another

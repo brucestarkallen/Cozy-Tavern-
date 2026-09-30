@@ -964,7 +964,13 @@ const HANDLERS = {
     const list = key && state.knowledge && Array.isArray(state.knowledge[key]) ? state.knowledge[key] : [];
     if (!list.length) return { why: (key || name) + ' has nothing written down to let go' };
     const want = factKey(fact);
-    const keep = list.filter((k) => !(sameFact(k.fact, fact) || (want.length >= 12 && factKey(k.fact).includes(want))));
+    /* M522: the fallback for a line quoted clipped covers MOST of that line — never a fuller line that merely contains the
+     * words being let go. Letting go of "…a place at his side" took the corrected "…a place at his side if they kneel…" with
+     * it, and the whole party forgot the moment. The exact line first; the clipped quote only when no exact line stands. */
+    const exact = list.filter((k) => factKey(k.fact) === want);
+    const keep = exact.length
+      ? list.filter((k) => factKey(k.fact) !== want)
+      : list.filter((k) => !(sameFact(k.fact, fact) && factKey(k.fact).length <= Math.max(want.length / 0.8, want.length + 12)) && !(want.length >= 12 && factKey(k.fact).includes(want) && want.length >= factKey(k.fact).length * 0.8));
     if (keep.length === list.length) return { why: 'no line of what ' + key + ' knows answers to “' + fact.slice(0, 80) + '”' };
     const before = list.map((k) => ({ ...k }));
     const gone = list.length - keep.length;
@@ -982,7 +988,10 @@ const HANDLERS = {
     const before = state.knowledge && Array.isArray(state.knowledge[key]) ? state.knowledge[key].map((k) => ({ ...k })) : null;
     const next = addKnowledge(state.knowledge, key, fact, storyTurn(state));
     const after = next[key] || [];
-    if (before && after.length === before.length) return { why: key + ' already knows that' };
+    /* M522: a line made fuller in place (the same fact, more of it) is a change that landed — not "already knows that",
+     * which threw the fuller wording away */
+    const fuller = before && after.length === before.length && after.some((k, i) => before[i] && k.fact !== before[i].fact);
+    if (before && after.length === before.length && !fuller) return { why: key + ' already knows that' };
     state.knowledge = next;
     return { words: key + ' now knows: ' + fact.replace(/\.+$/, '') + '.', undo: { kind: 'knowledge.restore', name: key, before } };
   },

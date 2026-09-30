@@ -219,7 +219,7 @@ test('M509-15 a moment the whole room saw is in every book in the room, and nobo
   const muts = [{ type: 'knowledge.add', name: 'Shunsui', fact: 'watched Jovan Oda bow a final time and then whisper to Rukia at two paces' }, { type: 'knowledge.add', name: 'Rukia', fact: 'heard Jovan say, close, that he is afraid' }, { type: 'presence.leave', name: 'the cook' }];
   const out = broadcastPublicMoments(st, muts, null);
   const bow = out.filter((m) => m.type === 'knowledge.add' && /bow a final time/.test(m.fact)).map((m) => m.name).sort();
-  eq(bow.join(','), 'Kensei,Shunsui', 'the room has it — not the main character, not the one leaving, and (M520) not Rukia: the moment is ABOUT her (whispered to), and a watcher\'s view of it in her own book was what the auditor found scrambled; she is nobody\'s blind spot either way (the render\'s room rule, below)');
+  eq(bow.join(','), 'Kensei,Rukia,Shunsui', 'the room has it — not the main character, not the one leaving; Rukia, whispered to, was there and saw it (M522: only the one who DID it is left out — here Jovan, the main character)');
   eq(out.filter((m) => /afraid/.test(m.fact)).map((m) => m.name).join(','), 'Rukia', 'the whisper stays hers');
   /* at the render, for books already written: a witness’s public fact is nobody’s blind spot who was in the room then
    * (the room walked in on page 5, the ground was set on page 10, the moment was on page 12, Late Vale walked in on 14) */

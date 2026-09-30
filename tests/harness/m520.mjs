@@ -28,6 +28,9 @@ test('M520-1 A MOMENT THE ROOM SAW GOES TO THE ROOM — never into the book of t
   eq(holders(out, /slip a vial/), 'the mage', 'the poisoning stays with the one who caught it — not the paladin who drank it, not the room');
   assert(!out.some((m) => m.type === 'knowledge.add' && m.name === 'the hero'), 'never the main character');
   eq(out.filter((m) => m.type === 'knowledge.add').length, 14, 'fourteen lines where twenty were written (m519): six that the auditor would have to take back are never written');
+  /* M522: named is not the one who did it — the demon prince's offer to them all is every listener's, the paladin's too */
+  const offer = broadcastPublicMoments(chapel(), [{ type: 'knowledge.add', name: 'the mage', fact: 'heard the demon prince offer all of them — even the paladin — a place at his side, aloud before the whole company' }], null);
+  eq(holders(offer, /demon prince offer/), 'the assassin, the mage, the paladin, the priestess', 'every listener, the paladin named among them');
 });
 
 test('M520-2 WHAT IS A HIDDEN ACT: done secretly, slipped, palmed, pocketed, hidden, unnoticed, when no one was looking, behind someone\'s back — not a whisper seen (the room saw him lean in), not a plain act', () => {

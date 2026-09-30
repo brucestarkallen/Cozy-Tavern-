@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m521-002)
+# Cozy Tavern — handoff for the next session (state at m522-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1455,4 +1455,15 @@ founding design lives in AGENTS.md's first entries.)
   asked for — this story's own thinking level is Off" / "thinking settings not sent — this connection refused them
   once"), shown in the footer of What the storyteller saw beside "thinking <level>", "no thinking came back from the
   model" and the prefill line. DOM-55 checks it.
+- M522-1 — THE AUDITOR CAN SET A SHARED LINE RIGHT. His report: five findings on "heard the demon prince offer all of
+  them…" — "Seen; its change did not hold (the hero already knows that)", "(no line of what the paladin knows answers to
+  …)", 6 refused. Reproduced (tests/harness/m522.mjs): correcting a line five people share could not land — M484's
+  house-wide wording turned each person's corrected line back into the old words the others still held, and "let go" took
+  any line that merely contained the old words; by order, the party kept the wrong line, or forgot the moment entirely.
+  Now: world.js addKnowledge takes another's wording only when it says at least as much (the longer stays, house-wide);
+  apply.js knowledge.forget takes the exact line first, a clipped quote only for a line it covers ≥80%; a line made
+  fuller in place is a landed change (not "already knows that", which threw it away). And extractor.js broadcast leaves
+  out only the one who DID the moment (the name right after "saw"/"heard"…), never someone merely named — the paladin,
+  named in the demon prince's offer, hears it too (M509-15's original "Kensei,Rukia,Shunsui" restored). Laws M522-1…3;
+  M520-1 extended.
 

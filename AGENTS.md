@@ -13578,3 +13578,24 @@ no such banner appears (and DOM-72 that the receipt keeps it). Harness 1070/1070
   receipt (thinkWhy) and shown in its footer. DOM-55 checks the story-level Off. Harness 1070/1070, walk 178/178, lint 0;
   frontier request identical (24 of 24).
 
+# M522-1 — the auditor can set a shared line right
+His report: the auditor's findings on "heard the demon prince offer all of them…" for the hero, priestess, paladin, assassin
+and mage all read "Seen; its change did not hold" — "(the hero already knows that)", "(no line of what the paladin knows
+answers to 'heard the demon prince…')" — six refused. Reproduced with the auditor's own tools (knowledge.forget of the old
+wording, knowledge.add of the corrected one, for each of the five): on m521 the correction could never land. By person, each
+corrected line was turned back into the old words (M484's one-wording-house-wide took the wording the others still held) —
+the party kept the wrong line; with the writes first, each add was "already knows that" and each let-go then took the line
+that merely CONTAINED the old words — the whole party forgot the moment.
+- world.js addKnowledge: another holder's wording is taken only when it says at least as much — the longer stays,
+  house-wide as within one person (M92).
+- apply.js knowledge.forget: the exact line first; a clipped quote only lets go of a line it covers at least four-fifths
+  of — never a fuller line that merely contains the words.
+- apply.js knowledge.add: a line made fuller in place is a landed change — "already knows that" had thrown the fuller
+  wording away.
+- extractor.js broadcastPublicMoments (M520 refined): only the one who DID the moment — the name right after "saw",
+  "watched", "heard"… — is left out of its copies; someone merely named in it is not ("heard the demon prince offer all of
+  them — even the paladin — a place" is the paladin's too; the auditor then had nothing to add). M509-15's original
+  expectation (Rukia, whispered to, has the bow she saw) is restored.
+- Laws M522-1…3 (both orders end with all five holding the corrected line, the paladin too); M520-1 gains the demon prince's
+  offer. Harness 1073/1073, walk 178/178, long play 8/8, lint 0; the frontier request identical (24 of 24).
+

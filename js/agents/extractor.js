@@ -522,18 +522,22 @@ export function broadcastPublicMoments(state, mutations, here) {
     for (const m of list) if (m && m.type === 'presence.enter' && typeof m.name === 'string') add(m.name);
   }
   if (room.length < 2) return list;
-  /* M520: A MOMENT ABOUT SOMEONE IS NOT WRITTEN INTO THEIR OWN BOOK FROM ANOTHER'S EYES. "Saw the paladin hesitate at the
+  /* M520: A MOMENT SOMEONE DID IS NOT WRITTEN INTO THEIR OWN BOOK FROM ANOTHER'S EYES. "Saw the paladin hesitate at the
    * gate" went into the paladin's book; "heard the priestess pray aloud" into the priestess's — the auditor found a party's
-   * books scrambled, each holding facts that belonged to another, and set 27 lines right. They know what they did; and a
-   * moment is nobody's blind spot who was in the room (the render's own rule, M509-15). By their whole name or its first
-   * word ("the paladin" is "paladin"; "Rukia Kuchiki" is "Rukia"), never a shared family name alone. */
+   * books scrambled and set 27 lines right. M522: only the one who DID it — the name right after the seeing or hearing
+   * ("saw the paladin…", "heard the demon prince offer…") — never someone merely named in it: "heard the demon prince offer
+   * all of them — even the paladin — a place at his side" is the paladin's to know too (the auditor then tried to give it to
+   * him, and could not). By their whole name or its first word ("the paladin" is "paladin"). */
+  const DOER = /^(?:saw|watched|witnessed|observed|looked on as|was there when|heard|overheard|listened to|listened as)\s+(?:as\s+)?(?:the\s+)?(.*)$/i;
   const about = (name, fact) => {
+    const m = DOER.exec(String(fact || '').trim());
+    if (!m) return false;
+    const rest = m[1];
     const words = String(name || '').replace(/^\s*the\s+/i, '').split(/\s+/).filter(Boolean);
     if (!words.length) return false;
     const esc = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const whole = new RegExp('(^|[^\\p{L}\\p{N}])' + words.map(esc).join('\\s+') + '($|[^\\p{L}\\p{N}])', 'iu');
-    const first = new RegExp('(^|[^\\p{L}\\p{N}])' + esc(words[0]) + '($|[^\\p{L}\\p{N}])', 'iu');
-    return whole.test(fact) || (words[0].length >= 3 && first.test(fact));
+    const lead = (w) => new RegExp('^' + w + '(?:[’\']s)?($|[^\\p{L}\\p{N}])', 'iu');
+    return lead(words.map(esc).join('\\s+')).test(rest) || (words[0].length >= 3 && lead(esc(words[0])).test(rest));
   };
   const out = list.slice();
   for (const f of facts) {
