@@ -53,3 +53,39 @@ test('M529-3 A STOP REACHES BOTH LANES — the job in flight in each is aborted 
   assert(out2.filter((o) => o && o.stale).length >= 2, 'a story switch leaves both lanes\' waiting work behind: ' + JSON.stringify(out2));
   setSideBySide(false);
 });
+
+import { setTooManyHandler, refusedAsTooMany, sideBySideOn, setSleepForHarness } from '../../js/agents/queue.js';
+
+test('M530-1 THE PROVIDER TURNS AWAY TWO AT ONCE: with both lanes in flight, a call refused as too many puts the house back to one at a time by itself — the handler is told once, the side lane\'s waiting workers join the main lane in order, and the refused call is tried again and lands', async () => {
+  switchWorkerStory('t-429');
+  setSideBySide(true);
+  setSleepForHarness(() => Promise.resolve()); /* the waits between tries, instant here */
+  const told = [];
+  setTooManyHandler((err) => told.push(err.status));
+  const log = [];
+  let tries = 0;
+  const refusedOnce = { name: 'keeper', lane: 'side', run: async () => { tries += 1; log.push('keeper>' + tries); await wait(30); if (tries === 1) throw Object.assign(new Error('Too Many Requests'), { status: 429 }); log.push('<keeper'); return { silent: true }; } };
+  const all = [enqueueWork('t-429', { ...job(log, 'extractor', 200), lane: 'main' }), enqueueWork('t-429', refusedOnce), enqueueWork('t-429', { ...job(log, 'essentials', 20), lane: 'side' }), enqueueWork('t-429', { ...job(log, 'scribe', 20), lane: 'main' })];
+  const out = await Promise.all(all);
+  eq(sideBySideOn(), false, 'back to one at a time');
+  eq(JSON.stringify(told), '[429]', 'the handler was told once');
+  assert(out.every((o) => o && o.ok), 'every worker landed: ' + JSON.stringify(out));
+  assert(log.includes('<keeper') && tries === 2, 'the refused call was tried again and landed');
+  assert(log.indexOf('<scribe') < log.indexOf('essentials>'), 'the side lane\'s waiting worker joined the main lane, after what was already there: ' + log.join(' '));
+  setTooManyHandler(null);
+  setSleepForHarness((ms) => new Promise((r) => setTimeout(r, ms))); /* the real waits back, for every law after this one */
+  setSideBySide(false);
+});
+
+test('M530-2 NOT EVERY REFUSAL IS "TOO MANY AT ONCE": a 429 with only one lane in flight leaves two at once on; the words that mean too many are known', async () => {
+  switchWorkerStory('t-429b');
+  setSideBySide(true);
+  setSleepForHarness(() => Promise.resolve());
+  let n = 0;
+  await enqueueWork('t-429b', { name: 'keeper', lane: 'side', run: async () => { n += 1; if (n === 1) throw Object.assign(new Error('busy'), { status: 429 }); return { silent: true }; } });
+  eq(sideBySideOn(), true, 'one in flight: a plain busy, not a refusal of two');
+  for (const yes of [{ status: 429 }, { message: 'Too many concurrent requests' }, { message: 'rate limit exceeded' }]) eq(refusedAsTooMany(yes), true, JSON.stringify(yes));
+  for (const no of [{ status: 500 }, { message: 'timeout' }, { status: 401 }]) eq(refusedAsTooMany(no), false, JSON.stringify(no));
+  setSideBySide(false);
+  setSleepForHarness((ms) => new Promise((r) => setTimeout(r, ms)));
+});

@@ -13721,3 +13721,15 @@ faster — "a setting to use more than one request at once"; the highest standar
   walk DOM-185. Harness 1082/1082, walk 185/185, long play 8/8, lint 0 (170 warnings, as before); contrast green; the
   frontier request identical (24 of 24).
 
+# M530 — the fallback for two at once
+His question: "and what if I don't know how much concurrency my provider can take — is there a fallback when I switch it
+on?" He cannot know, so the house finds out: with both of a story's lanes in flight, a worker's call refused as too many
+(status 429, or a refusal that says concurrent, too many requests or rate limit — queue.js refusedAsTooMany) puts the house
+back to one at a time by itself: the side lane's waiting workers join the main lane in their order, the refused call is tried
+again as any refused call is, and app.js's handler keeps the switch off and records why, which Settings says under the switch
+("Your workers' provider turned away two requests at once… back to one at a time. Turn it on again to try once more.");
+turning it on again clears the note. A 429 with only one lane in flight is an ordinary busy and changes nothing.
+Laws M530-1/2 (the fall back with every worker landing and the order kept; a lone busy left alone; the words that mean too
+many); walk DOM-186 (a provider serving one request at a time: back to one at a time, all landed, switch off, the note).
+Harness 1084/1084, walk 186/186, long play 8/8, lint 0; contrast green; the frontier request identical (24 of 24).
+

@@ -3,7 +3,7 @@
  * and the shared context handed to each UI module.
  */
 
-import { setSideBySide } from './agents/queue.js'; /* M529 */
+import { setSideBySide, setTooManyHandler } from './agents/queue.js'; /* M529; M530 */
 import { repaintWork } from './ui/workbanner.js'; /* M510-42 */
 import { repairStoryPlaceholder } from './ui/placeholder.js'; /* M382 */
 import { sweepSent } from './sent.js'; /* M347: a gone tale's kept words go with it */
@@ -216,6 +216,15 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
   try { await repairStoryPlaceholder(); } catch (err) { /* the next boot tries again */ }
   try { if (typeof db.sweepOrphans === 'function') await db.sweepOrphans(); } catch (err) { /* the shelf is no worse for it */ }
   try { setSideBySide((await db.settings.get('helpersSideBySide')) === true); } catch (err) { /* one at a time, as it ships */ } /* M529: two workers at once, as he left it */
+  /* M530: a provider that turns away two at once puts the house back to one at a time — kept, and said where the switch is */
+  setTooManyHandler((err) => {
+    db.settings.set('helpersSideBySide', false).catch(() => {});
+    db.settings.set('helpersSideBySideTurnedOff', { at: Date.now(), why: err && err.status ? 'it answered ' + err.status + ' (too many requests)' : 'it refused a second request at once' }).catch(() => {});
+    const box = document.getElementById('helpers-side-by-side');
+    if (box) box.checked = false;
+    const said = document.getElementById('helpers-side-by-side-note');
+    if (said) { said.hidden = false; said.textContent = 'Your workers’ provider turned away two requests at once, so they are back to one at a time. Turn it on again to try once more.'; }
+  });
   await applyStoredTheme();
 
   /* M97, once: the housekeeper's own thinking dial was set against the old

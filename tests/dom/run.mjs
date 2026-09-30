@@ -7773,6 +7773,45 @@ test('DOM-185 TWO WORKERS AT ONCE (M529 — his question: "can the workers be fa
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-186 A PROVIDER THAT TAKES ONE REQUEST AT A TIME (M530 — his question: "what if I don\'t know how much my provider can do — is there a fallback when I switch it on?"): two workers at once, and the provider turns the second away as too many — the house goes back to one at a time by itself, every worker still lands, the switch is off, and Settings says why', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning, sideBySideOn, setSideBySide } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'one at a time' });
+  await db.stories.update(st.id, { briefMode: 'automatic' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { worker: house.state.workerAnswer, plans: house.state.plansAnswer };
+  /* a provider that serves one request at a time: a second while one is out is answered 429 */
+  let out = 0;
+  const one = (v) => { if (out > 0) { const e = new Error('Too Many Requests'); e.status = 429; return Promise.reject(e); } out += 1; return new Promise((r) => setTimeout(() => { out -= 1; r(v); }, 200)); };
+  house.state.workerAnswer = (body, sys) => one(typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}'));
+  house.state.plansAnswer = () => one('{"new":[],"progress":[],"closed":[]}');
+  const priorFetch = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => { try { return await priorFetch(url, opts); } catch (e) { if (e && e.status === 429) return { ok: false, status: 429, headers: new Headers(), json: async () => ({ error: { message: 'Too Many Requests' } }), text: async () => '{"error":{"message":"Too Many Requests"}}' }; throw e; } };
+  try {
+    await openSettings();
+    const b = await until(() => q('#helpers-side-by-side'), 'the switch');
+    b.checked = true; b.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(async () => (await db.settings.get('helpersSideBySide')) === true, 'on', 5000);
+    await closeSettings();
+    type(q('#composer-input'), 'I arrive.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the page', 30000);
+    type(q('#composer-input'), 'I look around.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 2 && !env.ctx.chat.isBusy(), 'the page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the workers', 120000);
+    eq(sideBySideOn(), false, 'back to one at a time by itself');
+    eq(await db.settings.get('helpersSideBySide'), false, 'the switch is kept off');
+    await openSettings();
+    assert(!q('#helpers-side-by-side').checked, 'shown off');
+    assert(!q('#helpers-side-by-side-note').hidden && /back to one at a time/.test(q('#helpers-side-by-side-note').textContent), 'and Settings says why: ' + q('#helpers-side-by-side-note').textContent);
+    await closeSettings();
+  } finally {
+    globalThis.fetch = priorFetch;
+    house.state.workerAnswer = prior.worker; house.state.plansAnswer = prior.plans;
+    setSideBySide(false); await db.settings.set('helpersSideBySide', false); await db.settings.delete('helpersSideBySideTurnedOff');
+  }
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();

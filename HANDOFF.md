@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m529-001)
+# Cozy Tavern — handoff for the next session (state at m530-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1537,4 +1537,11 @@ founding design lives in AGENTS.md's first entries.)
   essentials, placer, ground, plans — they read the pages and the record and write only their own books; the ledger's
   readers, the canon worker and the planner stay in the main lane), applied at boot (app.js) and on the switch (settings).
   Measured with each helper answering in 0.25 s: 2.6 s → 2.08 s per page. Laws M529-1…3; walk DOM-185.
+- M530 — THE FALLBACK FOR TWO AT ONCE. His question: "what if I don't know how much my provider can do — is there a
+  fallback when I switch it on?" Now: with both of a story's lanes in flight, a worker's call refused as too many (429, or
+  a refusal that says concurrent / too many requests / rate limit — queue.js refusedAsTooMany) puts the house back to one
+  at a time by itself (backToOneAtATime: the side lane's waiting workers join the main lane in order; the refused call is
+  tried again like any refused call), and app.js's handler keeps the switch off (helpersSideBySide false) and records why
+  (helpersSideBySideTurnedOff), said under the switch in Settings; turning it on again clears it. A 429 with only one lane in
+  flight is a plain busy and leaves it on. Laws M530-1/2; walk DOM-186 (a provider serving one request at a time).
 

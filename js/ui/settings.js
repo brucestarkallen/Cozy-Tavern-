@@ -1358,8 +1358,17 @@ export function initSettings(ctx) {
   {
     const box = document.getElementById('helpers-side-by-side');
     if (box) {
-      (async () => { box.checked = (await db.settings.get('helpersSideBySide')) === true; })();
-      box.addEventListener('change', async () => { await db.settings.set('helpersSideBySide', box.checked === true); setSideBySide(box.checked === true); });
+      const note = document.getElementById('helpers-side-by-side-note');
+      (async () => {
+        box.checked = (await db.settings.get('helpersSideBySide')) === true;
+        const off = await db.settings.get('helpersSideBySideTurnedOff'); /* M530: why it went back to one at a time */
+        if (note && off && !box.checked) { note.hidden = false; note.textContent = 'Your workers’ provider turned away two requests at once (' + (off.why || 'too many requests') + '), so they are back to one at a time. Turn it on again to try once more.'; }
+      })();
+      box.addEventListener('change', async () => {
+        await db.settings.set('helpersSideBySide', box.checked === true);
+        setSideBySide(box.checked === true);
+        if (box.checked) { await db.settings.delete('helpersSideBySideTurnedOff'); if (note) note.hidden = true; }
+      });
     }
   }
   if (els.canonLegacy) {

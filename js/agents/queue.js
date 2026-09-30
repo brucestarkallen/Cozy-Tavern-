@@ -49,6 +49,30 @@ let sideBySide = false;
 export function setSideBySide(on) { sideBySide = on === true; }
 export function sideBySideOn() { return sideBySide; }
 const laneOf = (storyId, job) => (sideBySide && job && job.lane === 'side' ? storyId + SIDE : storyId);
+
+/* M530: WHEN THE PROVIDER TURNS AWAY TWO AT ONCE. He cannot know how many requests at once his workers' provider takes.
+ * With both of a story's lanes in flight, a call turned away as "too many" (429; a refusal that says concurrent, too many
+ * or rate limit) puts the house back to ONE AT A TIME by itself: the side lane's waiting workers join the main lane in order,
+ * the refused call is tried again as any refused call is, and the handler the app gave (app.js) keeps the switch off and
+ * says why where the switch is. Nothing is lost; it only goes back to how it always ran. */
+let onTooMany = null;
+export function setTooManyHandler(fn) { onTooMany = typeof fn === 'function' ? fn : null; }
+export function refusedAsTooMany(err) {
+  const msg = String((err && err.message) || '');
+  return Boolean(err && (err.status === 429 || /concurren|too many requests|too many simultaneous|rate.?limit/i.test(msg)));
+}
+function backToOneAtATime(storyId, err) {
+  if (!sideBySide) return;
+  sideBySide = false;
+  const side = queues.get(storyId + SIDE) || [];
+  if (side.length) {
+    const main = queues.get(storyId) || [];
+    for (const j of side.splice(0, side.length)) { j.lane = storyId; main.push(j); }
+    queues.set(storyId, main);
+    drain(storyId);
+  }
+  if (onTooMany) { try { onTooMany(err); } catch (e) { /* the handler's trouble is not the queue's */ } }
+}
 const lanesOf = (storyId) => [storyId, storyId + SIDE];
 
 export function stopWork(storyId) {
@@ -234,6 +258,8 @@ async function runJob(job) {
       }
       markWorkerRunning(storyId, name, false);
       lastErr = err;
+      /* M530: two in flight for this story, and this one turned away as too many — back to one at a time */
+      if (sideBySide && refusedAsTooMany(err) && stopping.has(storyId) && stopping.has(storyId + SIDE)) backToOneAtATime(storyId, err);
       if (isStale()) return { ok: false, stale: true, why: 'left behind' };
     }
   }
