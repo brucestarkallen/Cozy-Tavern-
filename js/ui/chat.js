@@ -5914,17 +5914,15 @@ export function initChat(ctx) {
     let exact = false;
     let chainStillRunning = false;
     let fromTheTail = false;
+    let groundAnew = false; /* M523: the world is written again for a branch from an earlier page */
     try {
     const carry = {};
     for (const key of BRANCH_CARRY) {
       if (story[key] !== undefined && story[key] !== null) carry[key] = story[key];
     }
     if (Object.keys(carry).length) await db.stories.update(branch.id, carry);
-    /* M516/M517: the same world — where it began in its canon, and the world as it stands — goes with the branch */
-    for (const keyOf of [CANON_START_KEY, GROUND_KEY]) {
-      const kept = await db.settings.get(keyOf(story.id));
-      if (kept) await db.settings.set(keyOf(branch.id), kept);
-    }
+    /* M516: where it began in its canon goes with the branch — the start is the same start */
+    { const kept = await db.settings.get(CANON_START_KEY(story.id)); if (kept) await db.settings.set(CANON_START_KEY(branch.id), kept); }
     const idMap = {};
     for (const m of pages) {
       const page = { ...m };
@@ -6088,6 +6086,10 @@ export function initChat(ctx) {
     /* M386: a branch keeps its canon — the series it found, the wiki he named, his pins, blocks and notes; what the
      * tracker derived from later pages (an advanced story position, the current setting) only from the newest page */
     await carryCanonMemory(story.id, branch.id, { fromTheTail });
+    /* M523: THE WORLD AS IT STANDS IS THE WORLD AT THE BRANCH. Carried whole, a branch from an early page kept "what stands in
+     * the world now" from pages it never had (a war won, a city fallen). It goes with the branch only from the newest page,
+     * or as his own words; otherwise the branch's world is written again from the branch's own pages, once it stands. */
+    { const kept = await db.settings.get(GROUND_KEY(story.id)); if (kept && (fromTheTail || kept.by === 'writer')) await db.settings.set(GROUND_KEY(branch.id), kept); else groundAnew = Boolean(kept); }
     await db.stories.update(branch.id, { building: false }); /* M332: whole — from here it is a tale like any other (and this write sends it to the device) */
     } catch (err) {
       /* M332: a branch that could not be finished is not left half-made */
@@ -6098,6 +6100,12 @@ export function initChat(ctx) {
     }
     ctx.setActiveStoryId(branch.id);
     await refreshStories(true);
+    if (groundAnew) {
+      const branchStory = (await db.stories.get(branch.id)) || branch;
+      const promise = enqueueWork(branch.id, { name: 'ground', run: async ({ signal, stale }) => groundNext(branchStory, { signal, stale, force: true }) });
+      noteWork(branch.id, promise);
+      promise.catch(() => {});
+    }
     await renderThread({ structural: true, opening: true });
     closePanel();
     toast(`The tale forks here — “${branch.title}” waits on the shelf.`);

@@ -188,7 +188,7 @@ test('M72-8 the rewind is the fold; the replay is sequenced; a writer’s page d
   const walk = readFileSync(new URL('../dom/run.mjs', import.meta.url), 'utf8');
   assert(/'swipe-new-old', 'edit-last', 'delete-user-mid', 'send', 'delete-tail', 'send'/.test(walk), 'the invariant walk drives the new cases');
   assert(/the standing ledger is the last page’s/.test(walk), 'and checks the ledger as it stands, not only the branches');
-  const br = c.slice(c.indexOf('async function branchFrom('), c.indexOf('async function branchFrom(') + 15000); /* M332: the function grew (the building mark, its catch); M506: and again */
+  const br = ((at) => c.slice(at, c.indexOf('\n  async function ', at + 10)))(c.indexOf('async function branchFrom(')); /* M523: the whole of branchFrom, to its end — its fixed 15,000-character window (grown by hand in M332, M50x) cut the checks off again when M523 added lines above them */
   assert(/carriedNow\.refHistory = /.test(br) && /msgId: idMap\[e\.msgId\]/.test(br), 'the branch re-keys the referee’s timeline');
 });
 

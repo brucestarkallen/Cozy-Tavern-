@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m522-001)
+# Cozy Tavern — handoff for the next session (state at m523-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1466,4 +1466,12 @@ founding design lives in AGENTS.md's first entries.)
   out only the one who DID the moment (the name right after "saw"/"heard"…), never someone merely named — the paladin,
   named in the demon prince's offer, hears it too (M509-15's original "Kensei,Rukia,Shunsui" restored). Laws M522-1…3;
   M520-1 extended.
+- M523-1 — BRANCH AT THE START. His question: "can I just branch at the start of the chat and the settings and canon will
+  work?" Traced what a branch carries: the story row (brief, briefMode, frame/note, connection, thinking level, workers…),
+  canon verification's switch and memory (M386, the tracker's later positions dropped from an earlier page), the ledger
+  at the page, the record's covered lines, lore, the canon start — and the world (M517) WHOLE, which from an early page
+  held "what stands in the world now" from pages the branch never had. Now the world goes with a branch only from the
+  newest page or as his own words; otherwise the branch's world is written again from its own pages (groundNext, force)
+  right after it opens. Walk DOM-179 (fails on m522-001). M43 and M72's branch laws now read the whole of branchFrom (a
+  fixed 15,000-character window again cut their checks off).
 

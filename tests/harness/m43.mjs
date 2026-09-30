@@ -38,7 +38,7 @@ test('M43-2 a branch carries its checkpoint: the ledger after the branch page, t
 
 test('M112-1 a branch taken while the readers are still on the newest page re-reads that page itself; an origin\'s chain is never touched', () => {
   const c = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  const b = c.slice(c.indexOf('async function branchFrom('), c.indexOf('async function branchFrom(') + 15000); /* M332: the function grew */
+  const b = ((at) => c.slice(at, c.indexOf('\n  async function ', at + 10)))(c.indexOf('async function branchFrom(')); /* M523: the whole of branchFrom, to its end — a fixed 15,000-character window cut off the re-read call when lines were added above it (as M43-2 in M517) */
   assert(/chainStillRunning = \(await pendingWork\(story\.id, 8000\)\) === false && workInFlight\(story\.id\);/ /* M332: declared above the branch's try, assigned here; M506: a settled tale is not "still running" */.test(b), 'the wait says whether the chain settled — and only a reader still out means still running (M506)');
   assert(/\} else if \(fromTheTail\) \{\s*carried = nowState;\s*exact = true;/.test(b) && /if \(fromTheTail && chainStillRunning\) \{[\s\S]*?exact = false;\s*mustReread = true;/.test(b), 'the newest page is exact only once the readers landed (the behaviour: walk DOM-127)');
   assert(/if \(fromTheTail && chainStillRunning\) \{\s*startBackgroundWork\(branchStory, last, lastUser \? pageText\(lastUser\) : '', \{ deep: false, audit: true \}\)/.test(b), 'a light re-read of the last page, not the deep one');

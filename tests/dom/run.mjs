@@ -7492,6 +7492,62 @@ test('DOM-178 A PAGE WITH PEOPLE IN IT, ALMOST SILENT (M519-5): the house\'s eye
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-179 BRANCH AT THE START, AND EVERYTHING COMES ALONG (M523 — his question: "can I just branch at the start of the chat and the settings and canon will work, without starting a new story and copy-pasting?"): the brief, its mode, where it began in canon and canon verification\'s switch go with the branch; the world as it stands does NOT (it held what the later pages did) — it is written again from the branch\'s own pages, and the branch\'s first page carries that; from the newest page the world goes whole', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { GROUND_KEY } = await import('../../js/agents/worldground.js');
+  const { CANON_START_KEY } = await import('../../js/agents/canonstart.js');
+  const { canonOn, setCanonOn } = await import('../../js/canon/bridge.js');
+  const st = await db.stories.create({ title: 'the long road' });
+  await db.stories.update(st.id, { brief: 'HIS-BRIEF: the hero and his party.', briefMode: 'automatic', keeper: false, extraction: false });
+  await db.settings.set(CANON_START_KEY(st.id), { series: 'Jujutsu Kaisen', arc: 'Culling Game arc', moment: 'Kenjaku attacks the barrier', when: '', facts: ['START-FACT'] });
+  await db.settings.set(GROUND_KEY(st.id), { parts: { world: 'ORIGINAL-WORLD.', standing: 'LATER-STATE: the Culling Game ended when Kenjaku fell.' }, recordLines: 40, by: 'helper', at: Date.now() });
+  await setCanonOn(st.id, true);
+  for (let i = 0; i < 4; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'I go on ' + i + '.' }); await db.messages.append(st.id, { role: 'assistant', text: '[The barrier — Monday | 2' + i + ':00]\n\nPage ' + i + '.' }); }
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  let asked = 0;
+  house.state.storyAnswer = () => '[The barrier — Monday | 21:30]\n\nThe branch goes on.';
+  house.state.workerAnswer = (body, sys) => {
+    if (/You keep the world of a story/.test(String(sys || ''))) { asked += 1; return JSON.stringify({ world: 'BRANCH-WORLD: the barrier stands.', standing: 'The Culling Game is underway.' }); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+  };
+  try {
+    /* branch at the start — the first page */
+    click(q('.msg-act[data-act="branch"]', assistantPages()[0]));
+    const b = await until(async () => { const id = await storyId(); return id && id !== st.id ? id : null; }, 'the branch is open', 15000);
+    const bs = await db.stories.get(b);
+    eq(bs.brief, 'HIS-BRIEF: the hero and his party.', 'his brief came along');
+    eq(bs.briefMode, 'automatic', 'and its mode');
+    eq(((await db.settings.get(CANON_START_KEY(b))) || {}).series, 'Jujutsu Kaisen', 'where it began in canon came along');
+    eq(await canonOn(b), true, 'canon verification\'s switch came along');
+    await until(async () => /BRANCH-WORLD/.test(JSON.stringify(await db.settings.get(GROUND_KEY(b)))), 'the branch\'s world is written from its own pages', 20000);
+    assert(!/LATER-STATE/.test(JSON.stringify(await db.settings.get(GROUND_KEY(b)))), 'never the later pages\' world');
+    await until(() => queuedCount(b) === 0 && !workIsRunning(b), 'the branch settled', 30000);
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'I take another road.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(b)).filter((m) => m.role === 'assistant').length >= 2 && !env.ctx.chat.isBusy(), 'the branch\'s page', 30000);
+    /* the storyteller's own request — canon verification's own model calls are not the house's workers (DOM-69) */
+    const told = house.state.calls.slice(from).find((c) => Array.isArray(c.body.messages) && /You are telling a story/.test(JSON.stringify(c.body.messages[0] || '')));
+    const wire = JSON.stringify(told.body);
+    assert(/BRANCH-WORLD/.test(wire) && !/LATER-STATE/.test(wire) && /HIS-BRIEF/.test(wire), 'its first page carries the branch\'s own world, beside his brief');
+    /* from the newest page, the world goes whole */
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(() => assistantPages().length === 4, 'the origin, its four pages');
+    const asks = asked;
+    click(q('.msg-act[data-act="branch"]', assistantPages()[3]));
+    const b2 = await until(async () => { const id = await storyId(); return id && id !== st.id && id !== b ? id : null; }, 'the second branch', 15000);
+    await until(async () => /LATER-STATE/.test(JSON.stringify(await db.settings.get(GROUND_KEY(b2)))), 'from the newest page: the world whole', 10000);
+    await tick(500);
+    eq(asked, asks, 'and nothing had to be written again');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();

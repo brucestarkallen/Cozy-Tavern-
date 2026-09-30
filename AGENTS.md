@@ -13599,3 +13599,17 @@ that merely CONTAINED the old words — the whole party forgot the moment.
 - Laws M522-1…3 (both orders end with all five holding the corrected line, the paladin too); M520-1 gains the demon prince's
   offer. Harness 1073/1073, walk 178/178, long play 8/8, lint 0; the frontier request identical (24 of 24).
 
+# M523-1 — branch at the start
+His question: "everything is foolproof right? I can just branch the chat at the start and the settings and canon will work —
+no new story, no copy-paste?" Traced what a branch carries before answering: the story row (brief, briefMode, frame and note
+overrides, cast notes, connection, thinking level, workers, keeper, extraction, audit, mend, world agent, project), canon
+verification's switch and memory (M386 carryCanonMemory — what the tracker derived from later pages is dropped when the branch
+is from an earlier page), the ledger's checkpoint at that page, the record's lines for the pages carried, lore, and the canon
+start (M516). One thing was wrong: the world (M517) was carried whole — from an early page it held "what stands in the world
+now" as of pages the branch never had ("the Culling Game ended when Kenjaku fell"). Now it goes with a branch only from the
+newest page, or when it is his own words; otherwise the branch's world is written again from the branch's own pages as soon as
+the branch opens. Walk DOM-179: branch at the first page — brief, mode, canon start and canon's switch came along; the world
+is the branch's own, and its first page carries it beside his brief; from the newest page the world goes whole with nothing
+asked again (fails on m522-001). M43-1 and M72's branch laws read the whole of branchFrom now (the fixed window cut them off
+again). Harness 1073/1073, walk 179/179, long play 8/8, lint 0; twobrowsers and bootpull green; frontier identical (24/24).
+
