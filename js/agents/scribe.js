@@ -65,6 +65,13 @@ const SYSTEM_PROMPT = [
   '           the page left genuinely open.',
   '  unthread — a loose end that closed, worded as it was written before.',
   '',
+  'A PERSON WITH NO PAGE GETS ONE (M514). Everyone named who acts or speaks on this page and',
+  'has no page above gets their page now — this is not "sparse", it is the first line of the',
+  'ledger that will remember them: a core (who they are — role, nature, voice — only as the page,',
+  'the brief or the real record shows it, a line or two), their state if they are in the scene,',
+  'their arc if the page moved how they stand with the main character. Never the main',
+  'character\u2019s core. A nameless extra (a guard, a clerk, "the crowd") gets no page.',
+  '',
   'CLOSE WHAT THE PAGE ANSWERED (M227). Before you write anything, read the',
   'loose ends already open on each person above and ask of EVERY one: did this',
   'page answer it? A question asked and then answered, an introduction promised',
@@ -163,8 +170,30 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
       .map((p) => (p && p.name ? findPersonKey(chars, p.name) || p.name : '')).filter(Boolean)
       .filter((k) => k !== mc && !(chars[k] && typeof chars[k].state === 'string' && chars[k].state.trim()));
   })();
+  /* M514: A PERSON WITH NO PAGE GETS ONE. His word: "the people ledger on #story doesn't fill up by itself — I have to
+   * rebuild the people". The scribe was asked only "what shifted?" — on a new tale, with "Nothing is written on the
+   * character pages yet", and told to write a core "rarely": the people of the opening got a now at most, or nothing,
+   * until "Rebuild the people from the pages". Whoever the ledger knows (here, or standing with the main character) with
+   * no page at all is named, to be given one now; noNow keeps the rest. */
+  const noPage = (() => {
+    const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
+    const mc = mcKey(state);
+    const known = [
+      ...(Array.isArray(state && state.present) ? state.present.map((p) => (p && p.name ? p.name : '')) : []),
+      ...Object.keys((state && state.relationships && typeof state.relationships === 'object') ? state.relationships : {}),
+    ].map((n) => String(n || '').trim()).filter(Boolean);
+    const out = [];
+    for (const n of known) {
+      if (findPersonKey(chars, n)) continue;
+      if (mc && (n === mc || findPersonKey({ [mc]: 1 }, n))) continue;
+      if (!out.some((o) => findPersonKey({ [o]: 1 }, n))) out.push(n);
+    }
+    return out;
+  })();
+  const noNowWithPage = noNow.filter((n) => !noPage.some((o) => findPersonKey({ [o]: 1 }, n)));
   const user = [
-    ...(noNow.length ? ['IN THE SCENE WITH NO NOW YET \u2014 for each one this page shows, write their state now (what they are doing this minute, from the page): ' + noNow.join(', '), ''] : []),
+    ...(noPage.length ? ['NO CHARACTER PAGE YET: ' + noPage.join(', ') + ' \u2014 open a page for each one this page shows: their core (who they are, as the page and the brief show it), and their state if they are in the scene.', ''] : []), /* the names first, plainly */
+    ...(noNowWithPage.length ? ['IN THE SCENE WITH NO NOW YET \u2014 for each one this page shows, write their state now (what they are doing this minute, from the page): ' + noNowWithPage.join(', '), ''] : []),
     ...(String(brief || '').trim() ? ['The writer\u2019s brief \u2014 who these people are; it outranks every page:', '"""', writerText(brief, BRIEF_ROOM, 'brief'), '"""', ''] : []),
     ...(String(castNotes || '').trim() ? ['The writer\u2019s cast notes:', '"""', writerText(castNotes, CAST_ROOM, 'cast notes'), '"""', ''] : []),
     /* M386: "written from the REAL RECORD" — handed to it at last (canon verification on, and someone here is canon) */

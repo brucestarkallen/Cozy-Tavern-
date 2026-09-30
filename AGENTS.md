@@ -13348,3 +13348,22 @@ referee ran out of its 12 seconds; its model gave no usable answer, twice; it ha
 storyteller's request is untouched (the frontier request identical to m511-001, 24 of 24). Law M513-1; walk DOM-170 checks
 a talk-only page's row through the app.
 
+# M514-1 — a person with no page gets one
+His word: "why doesn't the people ledger fill up by itself on #story — why do I need to rebuild the people?" Traced: the
+readers do run after a #story page (it is not out of character), the page reader seats who is here, and the drawer's
+People panel lists every character page — so the pages were never written. The per-page scribe is an updater: its law
+said "update — sparsely, only where something truly shifted" and "core — write it rarely", and its question was "What
+shifted on the character pages, if anything?" beside "Nothing is written on the character pages yet". M408 had it write a
+now for people here with none — so the opening's people got a now at most, or nothing, and a core only when "Rebuild the
+people from the pages" (a reader that writes whole pages) was pressed by hand. The drawer's own words promised "the scribe
+writes one for everyone who acts on a page".
+- scribe.js: its law now opens with A PERSON WITH NO PAGE GETS ONE (a core — who they are, only as the page, the brief or
+  the real record shows it; a now if they are here; an arc if the page moved how they stand; never the main character's
+  core; no page for a nameless extra), and buildScribeMessages names them, names first: "NO CHARACTER PAGE YET: Rukia
+  Kuchiki, Kenpachi Zaraki — open a page for each one this page shows…" — everyone the ledger knows (here, or standing
+  with the main character) who has no page; M408's now-line asks the rest. Not only #story: any new face on any page.
+- Laws M514-1 (an opening: the names, never the main character, not asked twice; the law in its instructions), M514-2 (a
+  later page: only the new; someone standing with him counts; nothing asked once everyone has a page). Walk DOM-171: a
+  #story opening in a fresh tale — the page reader seats Rukia and Zaraki, the scribe is asked for them by name, their
+  pages stand with a core, no rebuild. It fails on m513-001 (the scribe was never asked).
+

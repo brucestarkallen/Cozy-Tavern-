@@ -311,8 +311,10 @@ test('DOM-11 settings: the rooms render; the regex shelf adds a rule, tries it, 
   await until(() => !q('#regex-import-note').hidden && /brought home/.test(q('#regex-import-note').textContent), 'the import note', 10000);
   assert((await db.settings.get('regexRules')).some((r) => r.id === 'st-abc' && r.mode === 'display'), 'the imported rule is stored: ' + JSON.stringify((await db.settings.get('regexRules')).map((r) => r.id)));
   /* the workers room and the world switch */
-  assert(q('#world-agent').checked, 'the world agent is on by default');
-  assert(q('#colour-speech').checked, 'speech colour is on by default');
+  /* M514: the boxes are filled after the store answers (settings.js awaits each value) — read once they are, not before:
+   * under a loaded machine the check ran first and failed with speech colour on (a race in the test, not in the room) */
+  await until(() => q('#world-agent').checked, 'the world agent is on by default', 5000);
+  await until(() => q('#colour-speech').checked, 'speech colour is on by default', 5000);
   await closeSettings();
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
@@ -7071,6 +7073,43 @@ test('DOM-170 THE REFEREE WITH A SMALL STORYTELLER, IN THE APP: a chancy move is
     await db.connections.update(activeId, { smallModel: null });
     await env.ctx.chat.refreshQuickSwitch();
     if (was === false) await db.settings.set('refereeOn', false); else await db.settings.delete('refereeOn');
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-171 THE PEOPLE OF A #STORY OPENING GET THEIR PAGES BY THEMSELVES (M514 — his word: "the people ledger on #story doesn\'t fill up — I have to rebuild the people"): the page reader seats who is here, the scribe is asked by name to open a page for each of them, and their pages stand in the drawer with no rebuild', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { loadState } = await import('../../js/engine/state.js');
+  const st = await db.stories.create({ title: 'a new #story' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  let scribeAsked = '';
+  house.state.storyAnswer = () => '[Thirteenth Division barracks — Monday, March 3, 2025 | 09:00 | clear | haori | at the door]\n\nRukia Kuchiki bowed stiffly. "Captain." Behind her, Kenpachi Zaraki leaned in the doorway and grinned.';
+  house.state.workerAnswer = (body, sys) => {
+    const s = String(sys || '');
+    const u = Array.isArray(body.messages) ? body.messages.filter((m) => m.role === 'user').map((m) => m.content).join('\n') : '';
+    if (/You keep the ledger for a slow, warm story/.test(s)) return JSON.stringify({ mutations: [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }, { type: 'presence.enter', name: 'Kenpachi Zaraki' }] });
+    if (/You keep the character pages of a slow, warm story/.test(s)) {
+      scribeAsked = u;
+      /* a reader answers what it is asked: pages for the people it is told have none */
+      const m = u.match(/NO CHARACTER PAGE YET: (.+?) — open a page/);
+      const names = m ? m[1].split(/,\s*/).map((x) => x.trim()).filter(Boolean) : [];
+      return JSON.stringify({ deltas: names.flatMap((n) => [{ name: n, field: 'core', text: n + ', as the opening shows them.' }, { name: n, field: 'state', text: 'In the barracks, at the door.' }]) });
+    }
+    return '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}';
+  };
+  try {
+    type(q('#composer-input'), '#story Jovan joins the Thirteenth Division as its new captain');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the opening page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000);
+    assert(/NO CHARACTER PAGE YET/.test(scribeAsked) && /Rukia Kuchiki/.test(scribeAsked) && /Kenpachi Zaraki/.test(scribeAsked) && !/NO CHARACTER PAGE YET[^\n]*Jovan/.test(scribeAsked), 'the scribe is asked, by name, to open a page for each new person — never the main character');
+    const chars = (await loadState(st.id)).characters || {};
+    assert(chars['Rukia Kuchiki'] && /as the opening shows/.test(chars['Rukia Kuchiki'].core || '') && chars['Kenpachi Zaraki'] && chars['Kenpachi Zaraki'].core, 'their pages stand, with a core, without a rebuild: ' + JSON.stringify(Object.keys(chars)));
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

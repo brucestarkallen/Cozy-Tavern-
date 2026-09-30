@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m513-001)
+# Cozy Tavern — handoff for the next session (state at m514-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1327,4 +1327,13 @@ founding design lives in AGENTS.md's first entries.)
   words, no attempt, out of character, # no roll, ran out of its 12 seconds, no usable answer twice, no connection) and
   chat.js hands it to buildRequest (refereeWhy) for the row — receipt only, never the wire (the frontier request is still
   m511-001's, 24 of 24). Law M513-1.
+- M514-1 — A PERSON WITH NO PAGE GETS ONE. His word: "the people ledger on #story doesn't fill up by itself — I have to
+  rebuild the people". The per-page scribe (agents/scribe.js) was asked only "what shifted on the character pages?" and
+  told to write a core "rarely": on a new tale ("Nothing is written on the character pages yet") the people of the opening
+  got a now at most, or nothing, until "Rebuild the people from the pages" — whose reader writes whole pages. Now its
+  law says a person with no page gets one (a core, a now if here, an arc if the page moved it; never the main character's
+  core; no page for a nameless extra), and buildScribeMessages names them first: "NO CHARACTER PAGE YET: <names> — open a
+  page for each one this page shows…" — everyone the ledger knows (here, or standing with the main character) with no
+  page; the M408 now-line keeps the rest. Not only #story: any new face on any page. Laws M514-1/2; walk DOM-171 (a
+  #story opening in a fresh tale fills the people with no rebuild — fails on m513-001).
 
