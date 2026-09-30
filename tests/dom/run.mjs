@@ -7182,10 +7182,11 @@ test('DOM-173 A TALE BEGUN WITH #STORY BEFORE M516 IS PLACED ON ITS NEXT PAGE (h
   };
   const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); return house.state.calls.slice(from); };
   try {
-    const calls = await send('I ask Yuki where Yuta is.');
-    eq(asked, 1, 'placed once, from its first #story');
+    await send('I ask Yuki where Yuta is.');
+    eq(asked, 1, 'placed once, from its first #story — in the background, the page never waiting for it (M527)');
+    const calls = await send('I ask again.');
     const wire = JSON.stringify(calls.find((c) => !c.isWorker).body.messages);
-    assert(/Where our story began in Jujutsu Kaisen: Culling Game arc — Kenjaku attacks Tengen's barrier\./.test(wire) && /Yuta Okkotsu is back in Japan/.test(wire) && !/December 2018/.test(wire), 'on that very page, its own clock left alone');
+    assert(/Where our story began in Jujutsu Kaisen: Culling Game arc — Kenjaku attacks Tengen's barrier\./.test(wire) && /Yuta Okkotsu is back in Japan/.test(wire) && !/December 2018/.test(wire), 'from the page after, its own clock left alone');
     await send('I keep my blade up.');
     eq(asked, 1, 'never asked again');
     /* a helper that answers nothing: remembered as tried, not asked on every page */
@@ -7621,12 +7622,69 @@ test('DOM-182 CONTINGENCIES THAT HEAL THEMSELVES (M526 — the deep audit): a wo
     const told = house.state.calls.slice(from).find((c) => Array.isArray(c.body.messages) && /You are telling a story/.test(JSON.stringify(c.body.messages[0] || '')));
     const wire = JSON.stringify(told.body);
     assert(!/TAKEN-BACK|OLD-WORLD/.test(wire), 'the world from pages taken back was not sent');
-    eq(placed, 1, 'his #story line changed: where it began was asked again');
-    assert(/NEW-START at the barrier/.test(wire) && !/OLD-START/.test(wire), 'and the page carried the new start');
+    eq(placed, 1, 'his #story line changed: where it began was asked again (in the background — M527)');
+    const from2 = house.state.calls.length;
+    type(q('#composer-input'), 'I hold again.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 3 && !env.ctx.chat.isBusy(), 'the page after', 30000);
+    const told2 = house.state.calls.slice(from2).find((c2) => Array.isArray(c2.body.messages) && /You are telling a story/.test(JSON.stringify(c2.body.messages[0] || '')));
+    const wire2 = JSON.stringify(told2.body);
+    assert(!/OLD-START/.test(wire2), 'the old start is not sent');
+    assert(/NEW-START at the barrier/.test(((await db.settings.get(CANON_START_KEY(st.id))) || {}).moment || ''), 'the new start is kept');
+    assert(house.state.calls.some((c3) => c3.isWorker && /You keep the world of a story/.test(JSON.stringify(c3.body)) && /NEW-START at the barrier/.test(JSON.stringify(c3.body))), 'and the world (which carries the start for an automatic brief) was written from it');
     await until(async () => /FRESH-WORLD/.test(JSON.stringify(await db.settings.get(GROUND_KEY(st.id)))), 'the world written again from the story as it stands', 20000);
     assert(!/TAKEN-BACK/.test(JSON.stringify(await db.settings.get(GROUND_KEY(st.id)))), 'the taken-back world is gone');
   } finally {
     house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-183 PAGES TAKEN BACK, AND A TALE WITH NO #STORY LINE (M527 — the deep audit): a small storyteller\'s next page after a rewind carries neither the essentials made over pages that are gone nor a plan born on them; a tale with no #story line is placed once, from its brief and its first page', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { ESSENTIALS_KEY } = await import('../../js/agents/essentials.js');
+  const { PLANS_KEY } = await import('../../js/agents/plans.js');
+  const { CANON_START_KEY } = await import('../../js/agents/canonstart.js');
+  const st = await db.stories.create({ title: 'the rewound road' });
+  await db.stories.update(st.id, { keeper: false, extraction: false, brief: 'A Bleach story: Jovan joins the Thirteenth Division.' });
+  for (let i = 0; i < 2; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'I walk ' + i + '.' }); await db.messages.append(st.id, { role: 'assistant', text: '[Seireitei — Monday | 0' + i + ':00]\n\nRukia waited at the gate of the Thirteenth.' }); }
+  const ledger = applyMutations({ ...emptyState(), page: 2 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the gate' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia' }]).state;
+  await saveState(st.id, { ...ledger, page: 2, readTo: 2, tidiedGen: 999 });
+  /* what forty pages once left, before they were taken back */
+  await db.settings.set(ESSENTIALS_KEY(st.id), { text: 'GONE-ESSENTIALS: Jovan killed Aizen on page 38.', print: 'x', upTo: 39, at: Date.now() });
+  await db.settings.set(PLANS_KEY(st.id), { readTo: 39, readHash: 'x', plans: [{ title: 'GONE-PLAN: storm Las Noches', status: 'standing', from: 30, to: 35, parts: [], goal: 'storm it' }, { title: 'Guard the gate', status: 'standing', from: 1, to: 1, parts: [], goal: 'guard' }] });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  let placed = 0;
+  house.state.storyAnswer = () => '[Seireitei — Monday | 02:00]\n\nThe gate held.';
+  house.state.workerAnswer = (body, sys) => {
+    if (/You place a story in its canon/.test(String(sys || ''))) { placed += 1; assert(/Thirteenth Division/.test(JSON.stringify(body)), 'placed from its brief and first page'); return JSON.stringify({ canon: true, series: 'Bleach', arc: 'Soul Society arc', moment: 'Jovan arrives at the Thirteenth', when: '', facts: ['Ukitake leads the Thirteenth.'] }); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+  };
+  const activeId = await tellerConnectionId();
+  try {
+    await db.connections.update(activeId, { smallModel: true });
+    await env.ctx.chat.refreshQuickSwitch();
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the helpers of the opened tale', 40000);
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'I guard the gate.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 3 && !env.ctx.chat.isBusy(), 'the page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers', 40000);
+    const told = house.state.calls.slice(from).find((c) => !c.isWorker && Array.isArray(c.body.messages) && JSON.stringify(c.body.messages).includes('I guard the gate.'));
+    const wire = JSON.stringify(told.body);
+    assert(!/GONE-ESSENTIALS/.test(wire), 'the essentials made over pages that are gone were not sent');
+    assert(!/GONE-PLAN/.test(wire), 'nor a plan born on them');
+    eq(placed, 1, 'a tale with no #story line was placed once');
+    eq(((await db.settings.get(CANON_START_KEY(st.id))) || {}).series, 'Bleach', 'and kept');
+    const book = await db.settings.get(PLANS_KEY(st.id));
+    assert(!book.plans.some((p) => /GONE-PLAN/.test(p.title)) && book.plans.some((p) => /Guard the gate/.test(p.title)), 'the plans keeper mended its book: ' + JSON.stringify(book.plans.map((p) => p.title)));
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.connections.update(activeId, { smallModel: null });
+    await env.ctx.chat.refreshQuickSwitch();
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

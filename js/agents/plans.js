@@ -106,8 +106,16 @@ export function applyPlansAnswer(book, answer, { from = null, to = null, at = Da
 /* one reading: the pages not read yet (a page since rewritten is read again) */
 export async function runPlans({ connection, storyId, pages, mc = '', signal, callLLM = callWorker } = {}) {
   if (!connection || !storyId) return { wrote: false, why: 'no connection' };
-  const book = await loadPlansBook(storyId);
+  let book = await loadPlansBook(storyId);
   const list = (Array.isArray(pages) ? pages : []).filter((p) => p && typeof p.text === 'string');
+  /* M527: PAGES TAKEN BACK. The book was read to a page that no longer stands (a rewind, a deleted page): a plan born on
+   * those pages goes, one they closed stands again, and reading goes on from the page that stands last. */
+  if (book.readTo >= list.length) {
+    const plans = book.plans.filter((p) => !(Number.isFinite(p.from) && p.from >= list.length)).map((p) => (Number.isFinite(p.closedAt) && p.closedAt >= list.length ? (({ outcome: _o, closedAt: _c, ...rest }) => ({ ...rest, status: 'standing' }))(p) : p));
+    const last = list[list.length - 1];
+    book = { plans, readTo: list.length - 1, readHash: hashOf(last ? last.text : '') };
+    await db.settings.set(PLANS_KEY(storyId), book);
+  }
   let start = book.readTo >= 0 ? book.readTo + 1 : Math.max(0, list.length - CATCH_UP_PAGES);
   if (book.readTo >= 0 && list[book.readTo] && hashOf(list[book.readTo].text) !== book.readHash) start = book.readTo; /* rewritten since read */
   let slice = list.slice(Math.min(start, list.length)).filter((p) => p.text.trim());

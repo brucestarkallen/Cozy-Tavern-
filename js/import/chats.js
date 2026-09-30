@@ -124,6 +124,7 @@ export async function importAsStory(parsed) {
     throw new Error('There’s nothing to bring over.');
   }
   const story = await db.stories.create({ title: parsed.title });
+  if ((await db.settings.get('briefModeNew')) === 'automatic') { await db.stories.update(story.id, { briefMode: 'automatic' }); story.briefMode = 'automatic'; } /* M527: an imported tale is a new story too */
   /* M9 (B17): the pages land in ONE transaction — the import is atomic per
    * story; a full shelf or a bent row can't leave half a tale behind. If
    * the write fails, the empty cover goes too. */

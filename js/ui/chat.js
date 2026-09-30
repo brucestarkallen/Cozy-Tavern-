@@ -2656,6 +2656,35 @@ export function initChat(ctx) {
     if (!have || force) return { detail: 'wrote the world of the story — the brief is automatic' };
     return out.changed ? { detail: 'the world changed — rewrote the parts that moved' } : { silent: true };
   }
+  /* M527: the placing of a tale already under way — the same rules as the send path's (M516/M526): its #story line, else
+   * (a SillyTavern chat brought in, a tale begun before #story) its brief and its first page; once, again when that line
+   * changed, a failed ask again after six hours; never over his own correction; its own clock left alone (no canon date) */
+  async function placeNext(story, { signal, stale = () => false } = {}) {
+    const fresh = (await db.stories.get(story.id)) || story;
+    const key = CANON_START_KEY(story.id);
+    const pages = await db.messages.list(story.id);
+    if (!pages.some((m) => m && m.role === 'assistant')) return { silent: true };
+    const first = pages.find((m) => m && m.role === 'user' && !m.hidden);
+    const words = first ? String(first.typed || first.text || '') : '';
+    let concept = /^\s*#story\b/i.test(words) ? words.trim().replace(/^#story\s*/i, '').trim() : '';
+    if (!concept) {
+      const firstPage = pages.find((m) => m && m.role === 'assistant' && !m.hidden);
+      concept = [String(fresh.brief || '').trim(), firstPage ? String(pageText(firstPage) || '').slice(0, 1500) : ''].filter(Boolean).join('\n\n');
+    }
+    if (!concept) return { silent: true };
+    const had = await db.settings.get(key);
+    const moved = Boolean(had && !had.words && had.conceptFp && had.conceptFp !== hashText(concept));
+    const due = !had || moved || (had.tried && !had.series && !had.words && !had.none && Date.now() - had.tried > 6 * 3600 * 1000);
+    if (!due || stale()) return { silent: true };
+    const placer = await resolveWorkerConnection(fresh, 'founder');
+    if (!placer) return { silent: true };
+    const got = await placeInCanon({ connection: placer, concept, brief: fresh.brief || '', signal });
+    if (stale()) return { silent: true };
+    if (got && got.start) { await db.settings.set(key, { ...got.start, when: '', conceptFp: hashText(concept), at: Date.now() }); return { detail: 'placed the story in its canon — ' + got.start.series + (got.start.arc ? ', ' + got.start.arc : '') }; }
+    if (got && got.none) { await db.settings.set(key, { none: true, conceptFp: hashText(concept), at: Date.now() }); return { silent: true }; }
+    await db.settings.set(key, { tried: Date.now() });
+    return { silent: true };
+  }
   /* M517: "Rebuild from the story" (and switching the brief to Automatic) — the world keeper asked now */
   async function remakeGround({ force = true } = {}) {
     const story = await activeStory();
@@ -3792,11 +3821,18 @@ export function initChat(ctx) {
       if (stale()) return { silent: true };
       return essentialsNext(story, { signal, stale });
     });
-    /* 9b. M517: THE WORLD KEEPER — after the essentials, for a story whose brief is Automatic: the world, only if it moved */
+    /* 9b. M527: WHERE A TALE UNDER WAY BEGAN — placed once after a page (its #story line, else its brief and first page),
+     * asked again when that line changed; its answer rides from the next page. Never before the storyteller's request. */
+    enqueue('placer', async ({ signal, stale }) => {
+      if (stale()) return { silent: true };
+      return placeNext(story, { signal, stale });
+    }); /* before the world keeper: the world is written from the newest start */
+    /* 9c. M517: THE WORLD KEEPER — after the essentials, for a story whose brief is Automatic: the world, only if it moved */
     enqueue('ground', async ({ signal, stale }) => {
       if (stale()) return { silent: true };
       return groundNext(story, { signal, stale });
     });
+
     /* 10. M510-22: THE PLANS KEEPER — the page just written, read for a plan laid out, moved on or ended. Small model only. */
     enqueue('plans', async ({ signal, stale }) => {
       if (stale()) return { silent: true };
@@ -4522,10 +4558,17 @@ export function initChat(ctx) {
         /* M519-2: judged from the very pages it is about to read, not only from what was measured after each new page — a story
          * whose loud pages were written before the brake existed (his, five scenes in) is braked on its very next page */
         {
-          const keptPlans = (await loadPlans(story.id)) || {};
-          const recentTold = visiblePages(history).filter((m) => m && m.role === 'assistant' && !m.ooc).slice(-3);
-          const textures = recentTold.map((m) => { const t = pageTexture(pageText(m)); return { soundPer100: t.soundPer100, dashPer100: t.dashPer100 }; });
-          loudNow = tooLoudNow(textures, { wasLoud: keptPlans.loud === true });
+          /* M527: the brake's hold is read from the pages too — walked over the last ten, as each page would have been judged —
+           * so a page swiped away, deleted, or left behind by a branch holds nothing: only the pages that stand decide */
+          const told = visiblePages(history).filter((m) => m && m.role === 'assistant' && !m.ooc).slice(-10);
+          let held = false;
+          const seen = [];
+          for (const m of told) {
+            const t = pageTexture(pageText(m));
+            seen.push({ soundPer100: t.soundPer100, dashPer100: t.dashPer100 });
+            held = tooLoudNow(seen.slice(-3), { wasLoud: held });
+          }
+          loudNow = held;
         }
         /* M519-5: the house's eye found the last page almost silent (its Dialogue Ratio note, under the craft's floor) while
          * someone besides him was in the scene — the next small page is told the people here talk */
@@ -4553,7 +4596,19 @@ export function initChat(ctx) {
       }
       /* M510-48: the essentials and the plans ride for every storyteller (the hybrid, always on) */
       smallEssentials = await loadEssentials(story.id);
+      /* M527: essentials made over more pages than the record now covers (pages taken back) may tell what those pages did —
+       * not sent; the record's own lines stand in, and the essentials keeper makes them again after this page */
+      if (smallEssentials && Number.isFinite(smallEssentials.upTo)) {
+        const nodesNow = ((await loadMemory(story.id)) || {}).nodes || [];
+        const coveredNow = nodesNow.filter((n) => n && !n.empty && Array.isArray(n.span)).reduce((mx, n) => Math.max(mx, n.span[1] + 1), 0);
+        if (smallEssentials.upTo >= coveredNow) smallEssentials = null;
+      }
       smallPlansBook = await loadPlansBook(story.id);
+      /* M527: a plan born on a page since taken back is not standing — it is not sent (the plans keeper mends its book) */
+      if (smallPlansBook && Array.isArray(smallPlansBook.plans)) {
+        const standingNow = visiblePages(history).length;
+        smallPlansBook = { ...smallPlansBook, plans: smallPlansBook.plans.filter((p) => !(Number.isFinite(p.from) && p.from >= standingNow)).map((p) => (Number.isFinite(p.closedAt) && p.closedAt >= standingNow ? { ...p, status: 'standing', outcome: undefined, closedAt: undefined } : p)) };
+      }
       /* M510-50: SMART RECALL — a frontier storyteller with the essentials made, and the switch on: a worker names the older
        * record lines his move means (they ride word for word); never more than 8 seconds; slower or unsure, none */
       let recallPicked = [];
@@ -5407,18 +5462,26 @@ export function initChat(ctx) {
            * the new line; never over his own correction */
           const moved = Boolean(had && !had.words && had.conceptFp && conceptNow && had.conceptFp !== hashText(conceptNow));
           const due = !had || moved || (had.tried && !had.series && !had.words && !had.none && Date.now() - had.tried > 6 * 3600 * 1000); /* a failed ask is tried again after six hours — never on every page */
-          if (opening && due) {
+          if (opening && due && !told) {
             const concept = conceptNow;
-            const placer = await resolveWorkerConnection(story, 'founder');
-            const { signal, done } = workerSignal(30000);
-            showComposerNote('Checking which series your story is from…'); /* the first page waits for it — said, so the wait is not a silence; M519-4: not "canon" — it is not canon verification (it runs with that switch off too) */
-            let got = null;
-            try { got = await placeInCanon({ connection: placer, concept, brief: story.brief || '', signal }); } finally { done(); hideComposerNote(); }
-            if (got && got.start) {
-              await db.settings.set(key, { ...got.start, ...(told ? { when: '' } : {}), conceptFp: hashText(concept), at: Date.now() }); /* M526: the line it was placed from */
-              toast('Your story begins in ' + got.start.series + (got.start.arc ? ' — ' + got.start.arc : '') + '.'); /* M519-3: said plainly, once — no directions on his screen */
-            } else if (got && got.none) await db.settings.set(key, { none: true, conceptFp: hashText(concept), at: Date.now() });
-            else await db.settings.set(key, { tried: Date.now() }); /* no answer: not asked again on the next page */
+            /* the placing itself — one helper's answer, kept under the tale (the start, or "no canon", or tried) */
+            const place = async (signal) => {
+              const placer = await resolveWorkerConnection(story, 'founder');
+              const got = await placeInCanon({ connection: placer, concept, brief: story.brief || '', signal });
+              if (got && got.start) {
+                await db.settings.set(key, { ...got.start, ...(told ? { when: '' } : {}), conceptFp: hashText(concept), at: Date.now() }); /* M526: the line it was placed from */
+                if (!told) toast('Your story begins in ' + got.start.series + (got.start.arc ? ' — ' + got.start.arc : '') + '.'); /* M519-3: said plainly, once */
+              } else if (got && got.none) await db.settings.set(key, { none: true, conceptFp: hashText(concept), at: Date.now() });
+              else await db.settings.set(key, { tried: Date.now() }); /* no answer: not asked again on the next page */
+            };
+            if (!told) {
+              /* a #story opening a tale: its first page waits for it (up to its ceiling), said so the wait is not a silence */
+              const { signal, done } = workerSignal(30000);
+              showComposerNote('Checking which series your story is from…'); /* M519-4: not "canon" — it is not canon verification */
+              try { await place(signal); } finally { done(); hideComposerNote(); }
+            }
+            /* M527: a tale already under way is placed by the page chain after its next page (placeNext) — never before or
+             * beside the storyteller's own request */
           }
         } catch (err) { /* the page goes on without it */ }
       }

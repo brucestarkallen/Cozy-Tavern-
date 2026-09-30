@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m526-001)
+# Cozy Tavern — handoff for the next session (state at m527-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1497,4 +1497,18 @@ founding design lives in AGENTS.md's first entries.)
   STILL TO AUDIT (continue on "Continue"): swipe/retry/edit/delete/rewind against every store added since M510 (plans,
   standing plans, essentials, textures), the quick switch between storytellers mid-heat (loud state), import of
   SillyTavern chats into a canon story, sync of a branch between two devices while its world is being written.
+- M527 — THE DEEP AUDIT, SECOND PASS (pages taken back; a tale with no #story line; the storyteller switched; imports; sync).
+  Found and healed: (1) essentials made over more pages than the record now covers were still sent after a rewind — not
+  sent now (the record's lines stand in) and remade after the page; (2) a standing plan born on a page taken back was
+  still sent — not sent, and the plans keeper mends its book (plans.js runPlans: born after the end gone, closed after it
+  standing again, reading from the page that stands last); (3) the brake's hold (M519) was kept state a swiped or deleted
+  page could hold — now walked over the last ten pages that stand, as each would have been judged; (4) an imported
+  SillyTavern chat ignored "New stories start Automatic" — follows it; (5) a tale with no #story line (imported, older)
+  was never placed in its canon — placed once by the page chain (placeNext, before the world keeper so the world is
+  written from the newest start), from its brief and first page; a tale under way is never placed before or beside the
+  storyteller's request (only a #story opening a fresh tale waits for it). Checked and holding: the switch to a small
+  storyteller plans at once (planAhead, M510); a branch syncing while its world is written (each device's world is built
+  from the same pages; last write stands). Laws M527-1; walk DOM-183 (fails on m526-001). DOM-173/182 now expect the
+  placement from the page after. NOTE: DOM-79 passes in the walk's own order but fails run alone — on m526 too (a
+  pre-existing test-order dependence, not the app).
 

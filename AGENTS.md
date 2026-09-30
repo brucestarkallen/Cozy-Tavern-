@@ -13655,3 +13655,23 @@ His order: "deep audit everything — foolproof means everything I do has a cont
 - Still to audit (the next pass): swipe/retry/edit/delete/rewind against every store added since M510; the storyteller
   switched mid-heat; a SillyTavern import into a canon story; a branch synced to another device while its world is written.
 
+# M527 — the deep audit, second pass
+Continuing his order ("continue until everything is done"): every store added since M510, against what he does.
+- Pages taken back (rewind, a deleted page, a swipe that undid a fold): the essentials (M510-15) made over more pages than the
+  record now covers were still sent — now not sent (the record's own lines stand in) and remade by the keeper after the
+  page; a standing plan (M510-22) born on a page taken back was still sent — now filtered at the send, and the plans keeper
+  mends its book (a plan born after the end gone, one closed after it standing again, reading on from the page that stands
+  last — no model asked); the sound brake's hold (M519) lived in kept state a swiped-away page could hold — now walked
+  over the last ten pages that stand, each judged as it would have been.
+- An imported SillyTavern chat (import/chats.js) ignored "New stories start Automatic" — it follows it now.
+- A tale with no #story line (an imported chat, a tale begun before #story) was never placed in its canon (M516) — now
+  placed once by the page chain (placeNext), from its brief and first page; asked again when its line changes (M526). The
+  placer runs before the world keeper in the chain, so the world is written from the newest start. Only a #story opening a
+  fresh tale is placed before its first page; a tale under way never waits for it (the first try, in the background of the
+  send, crossed the storyteller's request — DOM-79 and DOM-131 caught it).
+- Checked and holding: a switch to a small storyteller plans at once (planAhead); a branch syncing to the other device while
+  its world is written (both build from the same pages; the last write stands; before it lands the start rides alone).
+- Laws M527-1; walk DOM-183 (fails on m526-001); DOM-173 and DOM-182 now expect the start from the page after. Harness
+  1077/1077, walk 183/183, long play 8/8, lint 0; the frontier request identical (24 of 24). DOM-79 depends on the walk's
+  order (fails alone on m526 too) — the app is not at fault; noted for a later test-isolation pass.
+
