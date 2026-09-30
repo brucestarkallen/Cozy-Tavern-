@@ -193,6 +193,7 @@ import './m516.mjs'; /* M516: where our story began in its canon — asked once 
 import './m517.mjs'; /* M517: the automatic brief — the world, written once, rewritten only where it moved */
 import './m518.mjs'; /* M518: canon on their own page — the note goes quiet on what the cards carry */
 import './m519.mjs'; /* M519: when the sound drowns the story — the brake, the breath, the mirror eased */
+import './m520.mjs'; /* M520: who knows what, unscrambled — no moment in its own subject's book, no hidden act in the room's */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

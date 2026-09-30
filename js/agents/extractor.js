@@ -522,11 +522,25 @@ export function broadcastPublicMoments(state, mutations, here) {
     for (const m of list) if (m && m.type === 'presence.enter' && typeof m.name === 'string') add(m.name);
   }
   if (room.length < 2) return list;
+  /* M520: A MOMENT ABOUT SOMEONE IS NOT WRITTEN INTO THEIR OWN BOOK FROM ANOTHER'S EYES. "Saw the paladin hesitate at the
+   * gate" went into the paladin's book; "heard the priestess pray aloud" into the priestess's — the auditor found a party's
+   * books scrambled, each holding facts that belonged to another, and set 27 lines right. They know what they did; and a
+   * moment is nobody's blind spot who was in the room (the render's own rule, M509-15). By their whole name or its first
+   * word ("the paladin" is "paladin"; "Rukia Kuchiki" is "Rukia"), never a shared family name alone. */
+  const about = (name, fact) => {
+    const words = String(name || '').replace(/^\s*the\s+/i, '').split(/\s+/).filter(Boolean);
+    if (!words.length) return false;
+    const esc = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const whole = new RegExp('(^|[^\\p{L}\\p{N}])' + words.map(esc).join('\\s+') + '($|[^\\p{L}\\p{N}])', 'iu');
+    const first = new RegExp('(^|[^\\p{L}\\p{N}])' + esc(words[0]) + '($|[^\\p{L}\\p{N}])', 'iu');
+    return whole.test(fact) || (words[0].length >= 3 && first.test(fact));
+  };
   const out = list.slice();
   for (const f of facts) {
     const holders = new Set(list.filter((m) => m && m.type === 'knowledge.add' && m.fact === f.fact).map((m) => String(m.name).trim().toLowerCase()));
     for (const n of room) {
       if (holders.has(n.toLowerCase()) || [...holders].some((h) => samePersonName(h, n))) continue;
+      if (about(n, f.fact)) continue;
       out.push({ type: 'knowledge.add', name: n, fact: f.fact, ...(f.at ? { at: f.at } : {}) });
       holders.add(n.toLowerCase());
     }

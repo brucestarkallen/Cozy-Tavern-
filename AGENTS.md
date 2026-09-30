@@ -13540,3 +13540,24 @@ besides him in the scene (the ledger's presence), makes the next page's closing 
 let anyone speak. The people here talk this time — in their own voices, their own words." The eye's own note stays his.
 Law M519-5; walk DOM-178. Harness 1068/1068, walk 178/178, long play 8/8, lint 0; frontier request identical (24 of 24).
 
+# M520-1 — who knows what, unscrambled
+His report: "the auditor ran — found 1 thing, set 27 right: the ledger's knowledge lines for the hero, priestess, paladin,
+assassin and mage are scrambled — each holds facts that belong to another… can this be prevented before the auditor saw
+it?" Reproduced with his party (one page's five witness lines): the page reader's room-sharing rule (M509-15:
+broadcastPublicMoments) wrote twenty lines — a line public by its first word ("saw", "watched", "heard … aloud") went
+into every book in the room, INCLUDING the book of the person the moment was about ("saw the paladin hesitate" in the
+paladin's; "saw the mage's hand glow" in the mage's; "heard the priestess pray aloud" in the priestess's), and a hidden act
+one pair of eyes caught went to everyone ("watched the assassin slip a vial into the paladin's cup when no one was looking"
+— to the priestess, the assassin himself and the paladin who drank it). Those are the lines his auditor then had to set
+right.
+- extractor.js: a public moment is never copied into the book of the one it is about (by their whole name or its first word;
+  "the paladin" is "paladin"; never a shared family name alone). They know what they did, and a moment is nobody's blind
+  spot who was in the room (the render's own rule stands).
+- world.js publicMoment: a SEEN line is the room's unless it carries a mark of a hidden act (COVERT_MARK: secretly,
+  covertly, furtively, slipped, palmed, pocketed, hid/hidden, concealed, sleight, unnoticed, unseen, when no one was
+  looking, behind someone's back, under the table, out of sight…). A whisper seen is still seen (the room saw him lean in).
+- Measured on his party: twenty lines became fourteen — the six that would have been set right are never written; the
+  altar cracking (seen by all) is still in all four books. Laws M520-1/2; M509-15 (m508.mjs) leaves Rukia out of the bow
+  she was whispered to, with the reason in the test. Harness 1070/1070, walk 178/178, long play 8/8, lint 0; the frontier
+  request identical (24 of 24).
+

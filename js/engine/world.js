@@ -861,12 +861,17 @@ const overlap = (a, b) => { if (!a.size || !b.size) return 0; let n = 0; for (co
 const PUBLIC_MARK = /\b(?:in front of (?:the )?(?:whole |entire |full )?(?:courtyard|room|hall|crowd|assembly|table|court|company|everyone|them all)|aloud|out loud|shouted|bellowed|roared|announced|declared|proclaimed|before the (?:whole )?(?:assembly|court|crowd|room|hall|table)|in open (?:court|courtyard|assembly)|to the (?:whole )?(?:room|courtyard|crowd|hall)|for all to hear|everyone (?:heard|saw)|the whole (?:room|courtyard|hall|crowd) (?:heard|saw))\b/i;
 const SEEN_START = /^(?:saw|watched|witnessed|observed|looked on as|was there when)\b/i;
 const PRIVATE_MARK = /\b(?:whisper(?:ed|s|ing)?|close|quietly|softly|low(?:ered)?|under (?:his|her|their) breath|in (?:his|her|their) ear|privately|in private|aside|alone|only (?:he|she|they)|so (?:only|no one else)|out of earshot|behind (?:closed doors|the door)|between (?:them|the two)|in confidence|told (?:him|her) alone|when no one|no one else (?:heard|saw)|nobody else)\b/i;
+/* M520: A HIDDEN ACT IS NOT THE ROOM'S. "Watched the assassin slip a vial into the paladin's cup when no one was looking" was
+ * public by its first word ("watched") and went into every book in the room — the paladin's own among them, blind to the
+ * poison he just drank. What one witness caught done in secret stays that witness's. (A whisper SEEN is still seen: the
+ * room saw him lean in — M509-15.) */
+const COVERT_MARK = /\b(?:secret(?:ly)?|covert(?:ly)?|furtive(?:ly)?|stealth(?:ily)?|surreptitious(?:ly)?|discreet(?:ly)?|slip(?:s|ped|ping)?|palm(?:s|ed|ing)?|pocket(?:s|ed|ing)?|hid(?:e|es|den|ing)?|conceal(?:s|ed|ing)?|sleight|unnoticed|unseen|undetected|when no one (?:was )?looking|while no one (?:was )?looking|behind (?:his|her|their|its) back|under the table|out of sight|no one else (?:saw|noticed))\b/i;
 export function publicMoment(fact) {
   const t = String(fact || '').trim();
   if (!t) return false;
   /* what was SEEN was seen by the room — "watched him whisper to her" tells the room he whispered, not what; what was
    * HEARD is public only when the fact says it was said before all, and never when it carries a mark of privacy */
-  if (SEEN_START.test(t)) return true;
+  if (SEEN_START.test(t)) return !COVERT_MARK.test(t); /* M520: a hidden act one pair of eyes caught is not the room's */
   return PUBLIC_MARK.test(t) && !PRIVATE_MARK.test(t);
 }
 export function blindSpots(knowledge, present, { scenePages = [], turn = null, mc = '', per = BLIND_PER_PERSON, wasThere = null } = {}) {

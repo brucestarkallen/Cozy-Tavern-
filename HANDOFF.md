@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m519-005)
+# Cozy Tavern — handoff for the next session (state at m520-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1432,4 +1432,15 @@ founding design lives in AGENTS.md's first entries.)
   under 6% with someone besides him present, the next small page's closing says once "The last page barely let anyone
   speak. The people here talk this time — in their own voices, their own words." (chat.js quietNow → stack.js
   quietPage → planwords.js talkWords). Law M519-5; walk DOM-178.
+- M520-1 — WHO KNOWS WHAT, UNSCRAMBLED. His auditor "set 27 right: the knowledge lines for the hero, priestess, paladin,
+  assassin and mage are scrambled — each holds facts that belong to another". Reproduced (tests/harness/m520.mjs): the page
+  reader's room-sharing rule (extractor.js broadcastPublicMoments, M509-15) copied any "saw…/watched…" line into every book
+  in the room — into the book of the very person it was about ("saw the paladin hesitate" for the paladin; "heard the
+  priestess pray aloud" for the priestess), and a hidden act to everyone ("watched the assassin slip a vial into the
+  paladin's cup when no one was looking" — to the paladin who drank it). Five witness lines became twenty; six were lines
+  the auditor must take back. Now: a moment is never copied into the book of the one it is about (whole name or its first
+  word — never a shared family name alone), and a SEEN line with a mark of a hidden act (secretly, slipped, palmed,
+  pocketed, hidden, unnoticed, when no one was looking, behind someone's back…) is not the room's (world.js COVERT_MARK).
+  A whisper seen is still seen. M509-15's expectation now leaves Rukia out of the bow she was whispered to (explained in
+  the test). Laws M520-1/2.
 
