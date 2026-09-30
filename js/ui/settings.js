@@ -52,6 +52,7 @@ import { loadRules, saveRules, tryRule, applyRules, builtinOriginal, importSilly
 import { pageText } from '../assemble/stack.js';
 import { renderUsage } from './usage.js'; /* M457 */
 import { CANON_START_KEY, canonStartWords } from '../agents/canonstart.js'; /* M516: where our story began in its canon */
+import { GROUND_KEY, groundWords } from '../agents/worldground.js'; /* M517: the automatic brief */
 
 let workerRowsGeneration = 0;
 
@@ -176,6 +177,9 @@ export function initSettings(ctx) {
     noteStoryName: document.getElementById('note-story-name'),
     briefStory: document.getElementById('brief-story'),
     canonStart: document.getElementById('canon-start-story'), /* M516 */
+    briefManual: document.getElementById('brief-mode-manual'), briefAutomatic: document.getElementById('brief-mode-automatic'), /* M517 */
+    briefModeNew: document.getElementById('brief-mode-new'), groundBox: document.getElementById('world-ground-box'), ground: document.getElementById('world-ground-story'),
+    canonLegacy: document.getElementById('canon-legacy'),
     briefFromConcept: document.getElementById('btn-brief-from-concept'), /* M479 */
     conceptToBrief: document.getElementById('concept-to-brief'), /* M479 */
     briefStoryName: document.getElementById('brief-story-name'),
@@ -1130,7 +1134,7 @@ export function initSettings(ctx) {
    * whose kept value was changed by another hand while Settings stood open (a housekeeper card on the brief, a name
    * the ripple carried), which a stale box must not write back over */
   const typedBoxes = new Set();
-  for (const box of [els.frameGlobal, els.noteGlobal, els.frameStory, els.noteStory, els.briefStory, els.castStory, els.canonStart]) {
+  for (const box of [els.frameGlobal, els.noteGlobal, els.frameStory, els.noteStory, els.briefStory, els.castStory, els.canonStart, els.ground]) {
     if (box) box.addEventListener('input', () => typedBoxes.add(box));
   }
   /* a box he kept with its own button is no draft any more (a later change by another hand is then drawn, never
@@ -1141,7 +1145,7 @@ export function initSettings(ctx) {
     if (btn && box) btn.addEventListener('click', () => { copyToClipboard(box.value || '', btn); });
   }
   for (const [id, boxes] of [['btn-save-frame', [els.frameGlobal]], ['btn-save-note', [els.noteGlobal]], ['btn-save-frame-story', [els.frameStory]],
-    ['btn-save-note-story', [els.noteStory]], ['btn-save-brief', [els.briefStory]], ['btn-save-cast', [els.castStory]], ['btn-save-canon-start', [els.canonStart]]]) {
+    ['btn-save-note-story', [els.noteStory]], ['btn-save-brief', [els.briefStory]], ['btn-save-cast', [els.castStory]], ['btn-save-canon-start', [els.canonStart]], ['btn-save-world-ground', [els.ground]]]) {
     const button = document.getElementById(id);
     if (button) button.addEventListener('click', () => { for (const b of boxes) typedBoxes.delete(b); });
   }
@@ -1157,6 +1161,7 @@ export function initSettings(ctx) {
         [els.briefStory, async () => (story && story.brief) || '', 'btn-save-brief', same],
         [els.castStory, async () => (story && story.castNotes) || '', 'btn-save-cast', same],
         [els.canonStart, async () => (story ? canonStartWords(await db.settings.get(CANON_START_KEY(story.id))) : ''), 'btn-save-canon-start', same], /* M516 */
+        [els.ground, async () => (story ? groundWords(await db.settings.get(GROUND_KEY(story.id))) : ''), 'btn-save-world-ground', same], /* M517 */
       ];
       const pressed = new Set();
       for (const [box, kept, id, mine] of boxes) {
@@ -1210,6 +1215,13 @@ export function initSettings(ctx) {
     if (!drafting(els.briefStory)) els.briefStory.value = (story && story.brief) || '';
     if (!drafting(els.castStory)) els.castStory.value = (story && story.castNotes) || '';
     if (els.canonStart && !drafting(els.canonStart)) els.canonStart.value = story ? canonStartWords(await db.settings.get(CANON_START_KEY(story.id))) : ''; /* M516 */
+    /* M517: the brief's two modes, the world as it stands, and the default for new stories */
+    const automatic = Boolean(story && story.briefMode === 'automatic');
+    if (els.briefManual) { els.briefManual.checked = !automatic; els.briefManual.disabled = !story; }
+    if (els.briefAutomatic) { els.briefAutomatic.checked = automatic; els.briefAutomatic.disabled = !story; }
+    if (els.groundBox) els.groundBox.hidden = !automatic;
+    if (els.ground && !drafting(els.ground)) els.ground.value = story ? groundWords(await db.settings.get(GROUND_KEY(story.id))) : '';
+    if (els.briefModeNew) els.briefModeNew.checked = (await db.settings.get('briefModeNew')) === 'automatic';
     const hasStory = Boolean(story);
     els.frameStory.disabled = !hasStory;
     els.noteStory.disabled = !hasStory;
@@ -1301,6 +1313,46 @@ export function initSettings(ctx) {
     flash('brief-saved');
     await briefChanged(story, before, els.briefStory.value);
   });
+  /* M517: THE BRIEF'S TWO MODES — Manual: his own words only. Automatic: his words and the world of the story, written by
+   * the world keeper now (not after the next page) and kept up to date only where the world changed. */
+  const setBriefMode = async (mode) => {
+    const story = await activeStory();
+    if (!story) return;
+    await db.stories.update(story.id, { briefMode: mode });
+    if (els.groundBox) els.groundBox.hidden = mode !== 'automatic';
+    if (mode === 'automatic' && !(await db.settings.get(GROUND_KEY(story.id))) && ctx.chat && typeof ctx.chat.remakeGround === 'function') {
+      if (els.ground) els.ground.placeholder = 'Writing the world of your story…';
+      await ctx.chat.remakeGround({ force: false });
+      if (els.ground && !typedBoxes.has(els.ground)) els.ground.value = groundWords(await db.settings.get(GROUND_KEY(story.id))); /* never over words he is typing */
+      if (els.ground) els.ground.placeholder = 'Written after the next page.';
+    }
+  };
+  if (els.briefManual) els.briefManual.addEventListener('change', () => { if (els.briefManual.checked) setBriefMode('manual'); });
+  if (els.briefAutomatic) els.briefAutomatic.addEventListener('change', () => { if (els.briefAutomatic.checked) setBriefMode('automatic'); });
+  if (els.briefModeNew) els.briefModeNew.addEventListener('change', async () => { await db.settings.set('briefModeNew', els.briefModeNew.checked ? 'automatic' : 'manual'); });
+  document.getElementById('btn-save-world-ground').addEventListener('click', async () => {
+    const story = await activeStory();
+    if (!story) return;
+    const words = String(els.ground.value || '').trim();
+    const had = (await db.settings.get(GROUND_KEY(story.id))) || {};
+    if (words) await db.settings.set(GROUND_KEY(story.id), { ...had, words, by: 'writer', at: Date.now() });
+    else await db.settings.delete(GROUND_KEY(story.id));
+    flash('world-ground-saved');
+  });
+  document.getElementById('btn-rebuild-world-ground').addEventListener('click', async () => {
+    const story = await activeStory();
+    if (!story || !(ctx.chat && typeof ctx.chat.remakeGround === 'function')) return;
+    els.ground.value = '';
+    els.ground.placeholder = 'Writing the world of your story…';
+    await ctx.chat.remakeGround({ force: true });
+    els.ground.value = groundWords(await db.settings.get(GROUND_KEY(story.id)));
+    els.ground.placeholder = 'Written after the next page.';
+    typedBoxes.delete(els.ground);
+  });
+  if (els.canonLegacy) {
+    (async () => { els.canonLegacy.checked = (await db.settings.get('canonLegacy')) === true; })();
+    els.canonLegacy.addEventListener('change', async () => { await db.settings.set('canonLegacy', els.canonLegacy.checked === true); });
+  }
   /* M516: where our story began in its canon — his words stand as he writes them; emptied and kept, nothing rides */
   document.getElementById('btn-save-canon-start').addEventListener('click', async () => {
     const story = await activeStory();

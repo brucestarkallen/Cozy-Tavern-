@@ -79,6 +79,7 @@ const SHELL = [
   'js/assemble/planbook.js', /* M510-22 */
   'js/assemble/smallprose.js', /* M512: the story's voice and the worn phrases, for a small storyteller */
   'js/agents/canonstart.js', /* M516: where a #story began in its canon */
+  'js/agents/worldground.js', /* M517: the automatic brief — the world, written once */
   'js/canon/host.js',
   'js/canon/bridge.js',
   'js/canon/grounding.js',

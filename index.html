@@ -428,6 +428,18 @@
             <textarea id="brief-story" rows="5" spellcheck="false" aria-label="What this story is about" placeholder="A quiet tale about…"></textarea>
             <div class="row"><button id="btn-save-brief" class="btn" type="button">Keep it</button><span id="brief-saved" class="quiet" hidden>Kept.</span></div>
           </div>
+          <!-- M517: the automatic brief — Manual is his own words; Automatic adds the world of the story, written once and
+               rewritten only where the world changed -->
+          <div class="row brief-mode" role="radiogroup" aria-label="The brief">
+            <label class="radio-row"><input type="radio" name="brief-mode" id="brief-mode-manual" value="manual"> Manual — my own words only</label>
+            <label class="radio-row"><input type="radio" name="brief-mode" id="brief-mode-automatic" value="automatic"> Automatic — my words, and the world of the story kept for me</label>
+          </div>
+          <div id="world-ground-box" hidden>
+            <p class="quiet">The world of this story as it stands — the setting, where in canon it is, how power works, who holds power, the places that matter and what stands now — built from your story (and canon, when it is on), and rewritten only where the world itself changed. People are not listed here: each keeps their own page. Correct it and keep, and your words stand until you rebuild it.</p>
+            <textarea id="world-ground-story" rows="8" spellcheck="false" aria-label="The world of this story" placeholder="Written after the next page."></textarea>
+            <div class="row"><button id="btn-save-world-ground" class="btn" type="button">Keep it</button><button id="btn-rebuild-world-ground" class="text-btn" type="button">Rebuild from the story</button><span id="world-ground-saved" class="quiet" hidden>Kept.</span></div>
+          </div>
+          <div class="row"><label class="radio-row"><input type="checkbox" id="brief-mode-new"> New stories start Automatic</label></div>
           <!-- M516: where a #story began in its canon — asked once when a #story opens the tale; his correction stands -->
           <h3>Where our story began</h3>
           <p class="quiet">When a #story opens a tale set in an existing series, the helper asks once where in its canon it begins, and what was true of that world at that moment — never anything after. It rides with every page, for every storyteller. Correct it here; empty it and keep, and nothing rides.</p>
@@ -712,6 +724,8 @@
           <div class="row">
             <label class="radio-row"><input type="checkbox" id="canon-on"> Canon verification</label>
           </div>
+          <!-- M517: the proven note, kept — with an automatic brief the note stops repeating the story's position in canon -->
+          <div class="row"><label class="radio-row"><input type="checkbox" id="canon-legacy"> Legacy canon verification — the whole note every page, as before, even with an automatic brief</label></div>
           <div id="canon-controls" class="canon-controls"></div>
         </section>
 

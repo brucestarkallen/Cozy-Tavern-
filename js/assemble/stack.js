@@ -614,7 +614,7 @@ export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRE
 /* M510-20: every part the house can send, in the order it rides — the receipt names each one every page */
 /* M510-55: in the order the request is sent now — the system's blocks, then the notes (canon, our story so far, the
  * plans, the people, the state of things, the rest), the pages, his move, the closing */
-export const EVERY_ROW = ['The frame', 'The craft', 'The story’s voice', 'The brief', 'Who’s here', 'Active modules', 'Where our story began', 'What canon says', 'The story in short', 'Story essentials', 'What remains', 'Who’s here, in the recent pages', 'Earlier moments, in full', 'Plans standing', 'On their mind', 'The state of things', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The pages, word for word', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
+export const EVERY_ROW = ['The frame', 'The craft', 'The story’s voice', 'The brief', 'The world', 'Who’s here', 'Active modules', 'Where our story began', 'What canon says', 'The story in short', 'Story essentials', 'What remains', 'Who’s here, in the recent pages', 'Earlier moments, in full', 'Plans standing', 'On their mind', 'The state of things', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The pages, word for word', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
 function emptyWhy(name, c) {
   const noPlan = 'no plan was ready for this page — it went as the full request';
   switch (name) {
@@ -643,6 +643,7 @@ function emptyWhy(name, c) {
     /* rows that always stand, when they came empty */
     case 'The brief': return 'no brief written for this story';
     case 'Who’s here': return 'no cast notes written, and no character card for anyone here';
+    case 'The world': return 'the brief is Manual — only your own words ride (Settings → This story → The brief)'; /* M517 */
     case 'The story’s voice': return !c.small ? 'small model only — your storyteller writes in its own voice' : !c.planned ? noPlan : 'no page yet older than the ones sent word for word — a passage is held up once the story has one'; /* M512 */
     case 'Active modules': return 'nothing woke besides the craft';
     case 'What remains': return !c.keeperOn ? 'the memory keeper is off for this story' : 'the record is still empty — the memory keeper folds pages once they are older than its ' + c.keeperWindow + '-page window';
@@ -714,6 +715,7 @@ export function buildRequest({
   voiceSample = null, /* M512: a passage of the story at its best ({text}) — for a small storyteller only */
   refereeWhy = '', /* M513: why the referee settled nothing this page — its receipt row says it */
   canonStart = '', /* M516: where our story began in its canon, and what was true then — his note, every page */
+  worldGround = '', /* M517: the automatic brief — the world of the story, beside his own brief in its seat */
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -819,8 +821,12 @@ export function buildRequest({
   pushSlot('The story’s voice', voiceWords, voiceWords ? 'a passage from your story’s own pages, for how it sounds — ' + (voiceSample.big ? 'the newest page your big storyteller wrote, older than the pages sent whole' : 'the page that repeats the others least') + ' (small model)' : '');
 
   /* --- 3. The brief --- */
-  const brief = typeof safeStory.brief === 'string' ? safeStory.brief : '';
-  pushSlot('The brief', brief, brief.trim() ? 'this story' : '');
+  const ownBrief = typeof safeStory.brief === 'string' ? safeStory.brief : '';
+  pushSlot('The brief', ownBrief, ownBrief.trim() ? 'this story' : '');
+  /* M517: the world rides in the brief's seat, after his own words — written once, rewritten only where the world moved */
+  const groundText = typeof worldGround === 'string' ? worldGround.trim() : '';
+  const brief = [ownBrief.trim() ? ownBrief : '', groundText].filter(Boolean).join('\n\n');
+  pushSlot('The world', groundText, groundText ? 'the automatic brief — the world of your story as it stands, rewritten only where it changed; Settings → This story → The brief' : '');
 
   /* --- 4. Who's here: the cast notes, who is in the scene right now, and
    * (M7) the invited cards of whoever is present — each description trimmed

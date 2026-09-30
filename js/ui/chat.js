@@ -87,6 +87,7 @@ import { runPlans, loadPlansBook } from '../agents/plans.js'; /* M510-22: the pl
 import { lastPagesOf, SMALL_PAGES } from '../assemble/stack.js'; /* M510 */
 import { voiceSampleOf } from '../assemble/smallprose.js'; /* M512: how the story sounds at its best, for a small storyteller */
 import { CANON_START_KEY, placeInCanon, canonStartWords } from '../agents/canonstart.js'; /* M516: where our story began in its canon */
+import { GROUND_KEY, runGround, groundWords, canonWithoutWorld } from '../agents/worldground.js'; /* M517: the automatic brief — the world, written once */
 import { renderStateFacts as planFacts, stateView as planStateView } from '../engine/state.js'; /* M510: what the helper reads */
 import { renderPeopleTiers as planPeople, peopleView as planPeopleView } from '../engine/people.js'; /* M510 */
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
@@ -2611,6 +2612,56 @@ export function initChat(ctx) {
     if (out.wrote) return { detail: 'streamlined the whole record into the story’s essentials' };
     return out.why === 'its answer could not be used' ? { detail: 'its answer could not be used' } : { silent: true };
   }
+  /* M517: THE WORLD KEEPER — for a story whose brief is Automatic: built once from everything the story has, then looked at
+   * again only when the record has grown (GROUND_EVERY more pages folded), the story's position in canon moved, or its canon start
+   * changed — and then only the parts of the world that changed are rewritten. His own correction stands unless he asks
+   * for it to be rebuilt (force). */
+  async function groundNext(story, { signal, stale = () => false, force = false } = {}) {
+    const fresh = (await db.stories.get(story.id)) || story;
+    if (fresh.briefMode !== 'automatic') return { silent: true };
+    const connection = await resolveWorkerConnection(fresh, 'essentials');
+    if (!connection) return { silent: true };
+    const key = GROUND_KEY(story.id);
+    const have = (await db.settings.get(key)) || null;
+    const mem = await loadMemory(story.id);
+    const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).filter((n) => n && !n.empty && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span)).sort((a, b) => a.span[0] - b.span[0]);
+    const state = await loadState(story.id);
+    const pages = await db.messages.list(story.id);
+    const first = pages.find((m) => m && m.role === 'user' && !m.hidden);
+    const opening = first ? String(first.typed || first.text || '') : '';
+    const concept = /^\s*#story\b/i.test(opening) ? opening.replace(/^\s*#story\s*/i, '').trim() : '';
+    const startWords = canonStartWords(await db.settings.get(CANON_START_KEY(story.id)));
+    let arc = null;
+    try { if (await canonOn(story.id)) { const meta = await canonMeta(story.id); const a = meta && meta.canon_grounding_arc; if (a && typeof a === 'object' && a.summary) arc = { title: String(a.title || ''), summary: String(a.summary || '') }; } } catch (err) { arc = null; }
+    const ess = await loadEssentials(story.id);
+    const covered = nodes.length ? Math.max(...nodes.map((n) => n.span[1])) + 1 : 0; /* pages folded into the record — they only grow */
+    const since = have && Number.isFinite(have.recordLines) ? nodes.filter((n) => n.span[1] >= have.recordLines) : nodes.slice(-12);
+    const fp = (t) => { let h = 5381; const x = String(t || ''); for (let i = 0; i < x.length; i += 1) h = ((h << 5) + h + x.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+    const input = {
+      concept, brief: String(fresh.brief || ''), canonStart: startWords, arc,
+      ledger: { place: state && state.place, factions: state && state.factions, worldBrief: state && state.worldBrief },
+      essentials: ess && typeof ess.text === 'string' ? ess.text : '',
+      recent: since.slice(-12).map((n) => n.text),
+      arcChanged: Boolean(have && arc && have.arcTitle !== arc.title),
+      startChanged: Boolean(have && startWords && have.start !== fp(startWords)),
+      startFingerprint: startWords ? fp(startWords) : '',
+    };
+    if (stale()) return { silent: true };
+    const out = await runGround({ connection, have, input, recordLines: covered, force, signal });
+    if (stale() || !out.wrote) return out.why === 'its answer could not be used' ? { detail: 'its answer could not be used' } : { silent: true };
+    await db.settings.set(key, out.ground);
+    if (!have || force) return { detail: 'wrote the world of the story — the brief is automatic' };
+    return out.changed ? { detail: 'the world changed — rewrote the parts that moved' } : { silent: true };
+  }
+  /* M517: "Rebuild from the story" (and switching the brief to Automatic) — the world keeper asked now */
+  async function remakeGround({ force = true } = {}) {
+    const story = await activeStory();
+    if (!story) return { ok: false };
+    const promise = enqueueWork(story.id, { name: 'ground', run: async ({ signal, stale }) => groundNext(story, { signal, stale, force }) });
+    noteWork(story.id, promise);
+    try { await promise; } catch (err) { /* the book says what stands */ }
+    return { ok: true };
+  }
   /* final audit: "Make the essentials again" — the essentials keeper asked now, from the whole record, whatever it kept */
   async function remakeEssentials() {
     const story = await activeStory();
@@ -3738,6 +3789,11 @@ export function initChat(ctx) {
       if (stale()) return { silent: true };
       return essentialsNext(story, { signal, stale });
     });
+    /* 9b. M517: THE WORLD KEEPER — after the essentials, for a story whose brief is Automatic: the world, only if it moved */
+    enqueue('ground', async ({ signal, stale }) => {
+      if (stale()) return { silent: true };
+      return groundNext(story, { signal, stale });
+    });
     /* 10. M510-22: THE PLANS KEEPER — the page just written, read for a plan laid out, moved on or ended. Small model only. */
     enqueue('plans', async ({ signal, stale }) => {
       if (stale()) return { silent: true };
@@ -4409,7 +4465,12 @@ export function initChat(ctx) {
       ]);
       /* M287: the request is built once without the record and measured; the
        * record takes what is truly left (recordRoom, fixedChars). */
-      const canonNote = canonPending ? ((await canonPending) || '') : ''; /* M346: its windows have closed — whatever it holds rides */
+      /* M517: THE AUTOMATIC BRIEF — with the story's brief on Automatic, the world rides in the brief's seat (his own brief
+       * beside it); the canon start is one of its sources, so it is not said twice; canon's note stops repeating the story's
+       * position in canon (the legacy switch keeps it whole) */
+      const groundNow = story.briefMode === 'automatic' ? groundWords(await db.settings.get(GROUND_KEY(story.id))) : '';
+      const canonLegacy = (await db.settings.get('canonLegacy')) === true;
+      const canonNote = ((n) => (groundNow && !canonLegacy ? canonWithoutWorld(n) : n))(canonPending ? ((await canonPending) || '') : ''); /* M346: its windows have closed — whatever it holds rides */
       /* M356: what the sensors noticed, once — taken and let go, so it never rides twice */
       const sensorNote = ooc ? '' : await takeWordForTurn(story.id); /* M356/M357: a reading's word, or what the house saw in the last page */
       /* M510: THE SMALL REQUEST'S PLAN — the one the helper made after the page this turn follows (Try again finds the
@@ -4462,7 +4523,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: canonStartNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517 */
         sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
@@ -4510,7 +4571,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         canonNote, /* M346: canon verification's note, at the top of the briefing */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: canonStartNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517 */
         sensorNote, /* M356: the sensors' one line, in the closing words */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
@@ -5215,6 +5276,7 @@ export function initChat(ctx) {
         const oneLine = text.replace(/\s+/g, ' ').trim().replace(/^#\S+\s+(?=\S)/, '');
         const title = oneLine.length > 40 ? oneLine.slice(0, 40).trimEnd() + '…' : oneLine;
         story = await db.stories.create({ title });
+        if ((await db.settings.get('briefModeNew')) === 'automatic') { await db.stories.update(story.id, { briefMode: 'automatic' }); story.briefMode = 'automatic'; } /* M517: new stories start as he chose */
         ctx.setActiveStoryId(story.id);
         await refreshStories(true);
         toast(`“${story.title}” is begun.`);
@@ -5770,6 +5832,7 @@ export function initChat(ctx) {
     'reasoningEffort', 'extraction', 'keeper', 'continuity', 'castIds',
     'projectId', /* M55: a branch stays on its project's shelf */
     'workerConnections', 'mend', 'audit', 'worldAgent',
+    'briefMode', /* M517: Manual or Automatic */
   ];
 
   async function branchFrom(messageId) {
@@ -5810,6 +5873,11 @@ export function initChat(ctx) {
       if (story[key] !== undefined && story[key] !== null) carry[key] = story[key];
     }
     if (Object.keys(carry).length) await db.stories.update(branch.id, carry);
+    /* M516/M517: the same world — where it began in its canon, and the world as it stands — goes with the branch */
+    for (const keyOf of [CANON_START_KEY, GROUND_KEY]) {
+      const kept = await db.settings.get(keyOf(story.id));
+      if (kept) await db.settings.set(keyOf(branch.id), kept);
+    }
     const idMap = {};
     for (const m of pages) {
       const page = { ...m };
@@ -6469,6 +6537,7 @@ export function initChat(ctx) {
     /* M16: the tale may begin already resting on a shelf. */
     const shelfId = els.newShelfPick ? els.newShelfPick.value : '';
     const story = await db.stories.create({ title: els.newTitle.value, projectId: shelfId || undefined });
+    if ((await db.settings.get('briefModeNew')) === 'automatic') { await db.stories.update(story.id, { briefMode: 'automatic' }); story.briefMode = 'automatic'; } /* M517: new stories start as he chose */
     els.newForm.hidden = true;
     ctx.setActiveStoryId(story.id);
     await refreshStories(true);
@@ -6750,6 +6819,7 @@ export function initChat(ctx) {
     restorePeopleNow,
     unmend,
     remakeEssentials, /* final audit */
+    remakeGround, /* M517 */
     renderPromptChips,
     refreshStories,
     renderThread,

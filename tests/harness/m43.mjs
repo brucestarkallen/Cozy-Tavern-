@@ -13,7 +13,7 @@ test('M43-1 no chip on a mended page; the take-back lives in the drawer', () => 
 
 test('M43-2 a branch carries its checkpoint: the ledger after the branch page, the snapshots, the versions, the record’s lines, the lore', () => {
   const c = chat();
-  const b = c.slice(c.indexOf('async function branchFrom('), c.indexOf('async function branchFrom(') + 15000) /* M72, M91, M127, M332: the window grew */;
+  const b = ((at) => c.slice(at, c.indexOf('\n  async function ', at + 10)))(c.indexOf('async function branchFrom(')); /* M517: the whole of branchFrom, to its end — a fixed window (15,000 characters, grown by hand in M72, M91, M127, M332) cut off the re-read call when five lines were added above it */
   assert(/carried = await versionStateFor\(story\.id, target\.id, idx\);/.test(b), 'the version checkpoint first');
   assert(/const hit = snaps\.find\(\(e\) => e\.id === nextUser\.id\);/.test(b), 'else the next turn’s boundary');
   /* M66: never a LATER state — the nearest earlier checkpoint, else a clean ledger plus a re-reading */

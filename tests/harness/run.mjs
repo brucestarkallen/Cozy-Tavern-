@@ -190,6 +190,7 @@ import './m512.mjs'; /* M512: the small model at its best — his prose laws, th
 import './m514.mjs'; /* M514: a person with no page gets one — the people of a #story opening fill in by themselves */
 import './m515.mjs'; /* M515: how people really take it — his laws on reactions on every small page; each person under pressure */
 import './m516.mjs'; /* M516: where our story began in its canon — asked once on a #story, carried every page */
+import './m517.mjs'; /* M517: the automatic brief — the world, written once, rewritten only where it moved */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

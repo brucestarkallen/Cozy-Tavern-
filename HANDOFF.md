@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m516-002)
+# Cozy Tavern — handoff for the next session (state at m517-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1362,4 +1362,20 @@ founding design lives in AGENTS.md's first entries.)
   that first #story (its typed words), before that page; its own clock already stands, so the canon date is left out. A
   helper that gives nothing is remembered as tried (canonStart {tried}) and asked again only after six hours — never on
   every page. Walk DOM-173.
+- M517-1 — THE AUTOMATIC BRIEF (his design). Settings → This story → The brief: Manual (his words only — as always) or
+  Automatic (his words, then "The world of our story, as it stands" — six parts: the setting, where in canon, how power
+  works, who holds power, the places that matter, what stands now; never people, never events retold). agents/
+  worldground.js; kept as worldGround:<id> on the story (story.briefMode 'automatic'); rides in the brief's seat (system
+  block 2, big and small alike) with its own row "The world". Built at once when he switches (Settings awaits
+  chat.remakeGround), then looked at again only after 24 more pages are folded into the record (pages, not lines — lines
+  merge as the record layers), or when canon's story position or the canon start changes — and then only the parts that
+  moved are asked for and replaced; held to 700 characters a part and 4,200 in all. Sources: his #story line, his brief
+  (never repeated), the canon start, canon's story position (when canon is on), the ledger's place/factions/worldBrief,
+  the essentials, the newest record lines. His correction (Keep it) stands until "Rebuild from the story". With a world
+  riding, the canon start is not sent on its own (it is a source), and canon's note drops its story-position lines
+  (canonWithoutWorld) unless Settings → Canon verification → "Legacy canon verification" is ticked. "New stories start
+  Automatic" sets it for #story tales and the shelf's New story. A branch carries the mode, the canon start and the world.
+  Laws M517-1…5; walk DOM-174; M43-2 now reads the whole of branchFrom (its fixed 15,000-character window cut off the
+  re-read call when five lines were added above it). Not built: the per-person half — canon's people blocks still ride
+  every page they are on screen (their page and canon's block both), as before.
 

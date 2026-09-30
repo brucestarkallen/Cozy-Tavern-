@@ -13417,3 +13417,28 @@ the app asked where in its canon a #story begins; canon verification's story pos
   every page. Walk DOM-173 (placed once, on that page, no date; a failed ask not repeated). Harness 1054/1054, walk
   173/173, long play 8/8, lint 0.
 
+# M517-1 — the automatic brief
+His design: "instead of always injecting the wiki like a madman — a brief button: Manual is the normal brief, Automatic is
+AI-curated ground (world building) from canon verification, the ledger, the folds and the essentials… usable without canon;
+my worry is redundancy and a mountain of tokens; keep the old canon verification as a legacy switch." Built as one home
+per fact: the WORLD in the brief's seat (written once, rewritten only where the world moved); the STORY in the record and
+the essentials (never retold); each PERSON on their own page (never listed).
+- agents/worldground.js: groundAsk (the first build, from everything the story has), groundUpdateAsk (only the parts that
+  changed), readGround / readGroundPatch (strict; 700 characters a part, 4,200 in all; a one-line answer is not a world),
+  groundWords ("The world of our story, as it stands:" then six labelled parts; his own words when he corrected it),
+  runGround (his words stand unless rebuilt; not looked at until 24 more pages are folded, or the canon position or the
+  canon start changed), canonWithoutWorld (canon's note without its story-position lines — both shapes; anything else
+  left whole).
+- chat.js: groundNext (the chain's 'ground' job after the essentials, and remakeGround for Settings), the send path
+  (world in the brief seat for a story on Automatic; the canon start not said twice; canon's note trimmed unless
+  canonLegacy), new stories follow "New stories start Automatic", a branch carries briefMode, canonStart and worldGround.
+- stack.js: worldGround rides after his own brief in system block 2; row "The world" (Manual says why it is empty).
+- Settings: the two modes (radio), the world box (Keep it / Rebuild from the story), the new-story default, and Canon
+  verification → Legacy canon verification.
+- Laws M517-1…5; walk DOM-174 (switch → written at once → rides after his words, the canon start folded in → not asked
+  again before the record grows → his correction rides → rebuilt → Manual sends only his words, the canon start back on
+  its own). M43-2 reads the whole of branchFrom now. Browser proofs contrast, twobrowsers and bootpull green. The frontier
+  request with no world is identical to m511-001 (24 of 24).
+- Not built in this pass: the per-person half of the design — canon's people blocks still ride every page a canon person
+  is on screen, beside their page.
+

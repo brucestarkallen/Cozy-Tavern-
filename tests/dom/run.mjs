@@ -7197,6 +7197,63 @@ test('DOM-173 A TALE BEGUN WITH #STORY BEFORE M516 IS PLACED ON ITS NEXT PAGE (h
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-174 THE AUTOMATIC BRIEF, IN THE APP (M517): Automatic in Settings writes the world at once; it rides in the brief seat after his words, the canon start folded into it; the next pages do not ask again until the record grows; his correction stands and "Rebuild from the story" writes it again; Manual sends only his words', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { GROUND_KEY } = await import('../../js/agents/worldground.js');
+  const { CANON_START_KEY } = await import('../../js/agents/canonstart.js');
+  const st = await db.stories.create({ title: 'the automatic world' });
+  await db.stories.update(st.id, { brief: 'HIS-BRIEF: Jovan Oda, a hidden special grade.' });
+  await db.settings.set(CANON_START_KEY(st.id), { series: 'Jujutsu Kaisen', arc: 'Culling Game arc', moment: 'Kenjaku attacks Tengen\'s barrier', when: '', facts: ['START-FACT'] });
+  for (let i = 0; i < 2; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'I wait ' + i + '.' }); await db.messages.append(st.id, { role: 'assistant', text: '[Tengen\'s barrier — Monday | 23:5' + i + ']\n\nYuki watched.' }); }
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  let asked = 0;
+  house.state.storyAnswer = () => '[Tengen\'s barrier — Monday | 23:59]\n\nSteel rang.';
+  house.state.workerAnswer = (body, sys) => {
+    if (/You keep the world of a story/.test(String(sys || ''))) { asked += 1; return JSON.stringify({ world: 'WORLD-SETTING ' + asked + ': modern Japan, hidden sorcerers.', where: 'The Culling Game arc; START-FACT.', powers: 'Cursed energy.', factions: 'Jujutsu High; Kenjaku.', places: 'Tengen\'s barrier.', standing: 'The Culling Game is underway.' }); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+  };
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers', 40000); return house.state.calls.slice(from); };
+  const briefSeat = (calls) => { const told = calls.find((c) => !c.isWorker); return JSON.stringify(told.body.messages); };
+  try {
+    await openSettings();
+    click(q('#brief-mode-automatic'));
+    q('#brief-mode-automatic').dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(() => /WORLD-SETTING 1/.test(q('#world-ground-story').value), 'the world written at once and shown', 15000);
+    assert(!q('#world-ground-box').hidden, 'its box shows with Automatic');
+    eq((await db.stories.get(st.id)).briefMode, 'automatic', 'the story is Automatic');
+    await closeSettings();
+    let wire = briefSeat(await send('I raise my blade.'));
+    assert(/HIS-BRIEF: Jovan Oda, a hidden special grade\.\\n\\nThe world of our story, as it stands:\\nThe setting — WORLD-SETTING 1/.test(wire), 'his words, then the world, in the brief seat');
+    assert(!/Where our story began in Jujutsu Kaisen/.test(wire), 'the canon start is folded into the world — not said twice');
+    eq(asked, 1, 'the page after did not ask again — the record has not grown');
+    await openSettings();
+    q('#world-ground-story').value = 'HIS-WORLD: the Culling Game, his way.';
+    q('#world-ground-story').dispatchEvent(new env.window.Event('input', { bubbles: true }));
+    click(q('#btn-save-world-ground'));
+    await tick(150);
+    await closeSettings();
+    wire = briefSeat(await send('I step closer.'));
+    assert(/HIS-WORLD: the Culling Game, his way\./.test(wire) && !/WORLD-SETTING/.test(wire), 'his correction rides');
+    await openSettings();
+    click(q('#btn-rebuild-world-ground'));
+    await until(() => /WORLD-SETTING 2/.test(q('#world-ground-story').value), 'rebuilt from the story', 15000);
+    click(q('#brief-mode-manual'));
+    q('#brief-mode-manual').dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(async () => (await db.stories.get(st.id)).briefMode === 'manual', 'Manual', 5000);
+    assert(q('#world-ground-box').hidden, 'the world box hides with Manual');
+    await closeSettings();
+    wire = briefSeat(await send('I hold my ground.'));
+    assert(!/The world of our story, as it stands/.test(wire) && /HIS-BRIEF/.test(wire) && /Where our story began in Jujutsu Kaisen/.test(wire), 'Manual: his words only, and the canon start rides on its own again');
+    assert(await db.settings.get(GROUND_KEY(st.id)), 'the world is kept for when he switches back');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();
