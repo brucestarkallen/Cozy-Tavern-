@@ -39,7 +39,14 @@ export function renderPlan(plan, { voice = null, anchor = [], cores = {}, mc = '
 }
 
 /* the sound of this page, right before it is written — only for a fight, sex, torture or a raw peak */
-export function renderSounds(plan, { voice = null, laws = '', wentQuiet = false } = {}) {
+/* M519: THE BREATH. When the last pages drowned in sound and dashes (smallprose.js tooLoud), the heated page is not asked
+ * for a sound in every paragraph: it is told, once, to let the prose carry it — a sound only where a blow truly lands or a
+ * cry truly breaks, once, not strung out; a dash only where a voice truly breaks off. The same words close a calm page. */
+export function breathWords() {
+  return 'The last pages drowned in sounds and dashes, and the telling went under them. This page breathes: whole, plain sentences carry it; a sound only where a blow truly lands or a cry truly breaks — once, never strung out; a dash only where a voice truly breaks off.';
+}
+export function renderSounds(plan, { voice = null, laws = '', wentQuiet = false, tooLoud = false } = {}) {
+  if (tooLoud) { const said = voice && voice.teller ? toTeller(breathWords(), voice) : breathWords(); return [said, laws].filter((t) => String(t || '').trim()).join('\n'); }
   const out = [];
   if (wentQuiet) out.push('The last page went quiet where it should have been heard — not this one.');
   /* M510-4: "stifled, bitten back, half-escaped" was written back to him as a page of lone "Mmf—" and "Ah—": muffled is

@@ -13472,3 +13472,26 @@ written — now a changed brief is a reason to look (briefFp), at once when he k
 page, and only the parts his new words touch are rewritten. Law M518-2; DOM-174 now edits the brief and sees the world
 looked at again. Harness 1063/1063, walk 175/175, long play 8/8, lint 0; the frontier request in Manual identical (24/24).
 
+# M519-1 — when the sound drowns the story
+His word, with a small storyteller: "once the dashes and the sounds start, it basically spams them — I literally can't read
+it; the masterful writing is gone and it keeps that repeating structure. Code? A second AI to fix? Something on the model?
+Test it: five scenes of ongoing spam — can the sixth break and be beautiful?"
+Traced: the app itself pushed one way only. Every heated small page closed on "continuous, long, repeated sounds braided
+through every beat" and "Every paragraph: a voiced line that stretches or repeats" (planwords.js renderSounds), with a word
+added when a page went quiet and nothing when it went too loud; and a small model writes like its own last eight pages, so
+once they were strung with "Hah—HAH—hah—", "*CLANG* *CLANG*" and "I—can't—stop—", every page copied the one before.
+Not a second model rewriting pages (his page is never touched, and it would add a wait to every page); not only the
+connection's penalties (they cannot outweigh an instruction to put a sound in every paragraph). The brake, in code:
+- smallprose.js pageTexture (sounds and dashes per hundred words, at least 150 words counted, the header left out),
+  tooLoud (with a hold — no flip-flop), calmPage (the eased copy); planner.js keepTexture (the last three pages and the
+  decision, kept after each small page); planwords.js breathWords and renderSounds({ tooLoud }).
+- While too loud: the breath instead of "every paragraph" (also on a calm page), the story's voice passage's first
+  paragraph right after it, the helper told to name at most two sounds, the model's copy of its recent pages eased; the
+  receipt's pages row says they were eased. Released when a page comes back well inside the band.
+- Measured, the request for the sixth page after five drowned ones: on m518-002 the pages it read carried 8 sounds and 18
+  dashes per hundred words and it was asked for a sound in every paragraph; now 2 and 5.3 (inside the band), no such
+  demand, the breath, and the story at its best in front of it. Laws M519-1…4; walk DOM-176 through the app (his five
+  pages kept exactly as written; a clean sixth page makes the seventh his heated page again).
+- Gates: harness 1067/1067, walk 176/176, long play 8/8, lint 0 errors (170 warnings, as before); the frontier request
+  identical (24 of 24).
+

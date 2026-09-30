@@ -7347,6 +7347,60 @@ test('DOM-175 CANON ON THEIR OWN PAGE, IN THE APP (M518): with the brief Automat
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-176 FIVE SCENES DROWNED IN SOUNDS AND DASHES, THEN THE SIXTH (M519 — his test): a small storyteller writes five heated pages strung with "Hah—HAH—hah—", "*CLANG* *CLANG*" and "I—can\'t—stop—"; the request for the sixth carries no "every paragraph" demand, tells it to breathe, shows the story as it reads when it is right, and hands it its own pages eased (inside the band) — his pages kept exactly as written; when the sixth comes back clean, the seventh is his heated page again', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { pageTexture } = await import('../../js/assemble/smallprose.js');
+  const st = await db.stories.create({ title: 'the loud yard' });
+  await db.stories.update(st.id, { keeper: false, extraction: false });
+  const Hd = (i) => '[The courtyard — Monday, March 3, 2025 | 12:' + String(10 + i).padStart(2, '0') + ' | noon | haori | at the rail]\n\n';
+  const BIG = 'BIG-VOICE The noon wind came off the wall and pushed dust across the stones. Rukia kept her hand on the rail though the wood was hot enough to hurt, and along the gallery the captains had stopped pretending to talk.\n\n"You are not going to fight him," she said. It was not a question. "Tell me you remember what you promised me on the bridge, with the lanterns out and nobody to hear it but the two of us."\n\nZaraki laughed once, a short bark, and the bells in his hair answered him. He rolled the hilt under his palm as if it were a stone he meant to throw.';
+  for (let i = 0; i < 3; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'I wait ' + i + '.' }); await db.messages.append(st.id, { role: 'assistant', text: Hd(i) + (i === 0 ? BIG : 'Rukia watched the yard.'), receipt: { v: 1, slots: [], model: i === 0 ? 'big' : 'small', small: i !== 0 } }); }
+  const ledger = applyMutations({ ...emptyState(), page: 3 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the courtyard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Zaraki' }]).state;
+  await saveState(st.id, { ...ledger, page: 3, readTo: 3, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const PLAN = { scene: 'The duel.', people: [{ name: 'Zaraki', now: 'swinging', wants: 'a real fight', against: '' }], unknown: [], pressing: [], earlier: [], laws: ['MC Agency'], intense: true, loud: true, sounds: ['"Hah—HAH—"', '*CLANG*'], leaveTo: 'what Jovan does', story: 'Jovan duels Zaraki.' };
+  const SPAM = (i) => Hd(10 + i) + ('Zaraki lunged—steel—steel—steel—and Jovan met it. *CLANG* *CLANG* *CLANG* "Hah—HAH—hah—HAH—hah—!" Zaraki roared—roared—roared, and the yard shook.\n\n"Nngh—ahh—AHHH—" Jovan gritted—gritted—his teeth. *thud* *thud* *thud*\n\n"Gkh—!"\n\n"Hah—!"\n\n"Ahh—!"\n\nThe blades rang—rang—rang. "I—can\'t—stop—it—now—" Rukia whispered—whispered.\n\n').repeat(3) + 'Page ' + i + '.';
+  const CLEAN = Hd(30) + 'Jovan stepped inside the arc of the blade and let it pass. The wind took the dust off the stones. Zaraki grinned, slower now, and for the first time he looked at Jovan the way a man looks at a door he means to open. *CLANG* — once, and the yard went quiet.';
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  let page = 0;
+  house.state.storyAnswer = () => { page += 1; return page <= 5 ? SPAM(page) : CLEAN; };
+  house.state.workerAnswer = (body, sys) => (/You prepare a storyteller for the next page/.test(String(sys || '')) ? JSON.stringify(PLAN) : (typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}')));
+  const activeId = await tellerConnectionId();
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers', 40000); return house.state.calls.slice(from).find((c) => !c.isWorker); };
+  try {
+    await db.connections.update(activeId, { smallModel: true });
+    await env.ctx.chat.refreshQuickSwitch();
+    await send('I draw.'); /* the helper plans after this page */
+    page = 0;
+    for (let i = 1; i <= 5; i += 1) await send('I strike, move ' + i + '.');
+    const stored = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').slice(-5);
+    assert(stored.every((m, k) => m.text === SPAM(k + 1)), 'his five pages are kept exactly as written');
+    const sixth = await send('I press the attack.');
+    const msgs = sixth.body.messages;
+    const closing = String(msgs[msgs.length - 1].content);
+    assert(!/Every paragraph: a voiced line that stretches or repeats/.test(closing), 'the sixth is not asked for a sound in every paragraph');
+    assert(/This page breathes: whole, plain sentences carry it/.test(closing), 'it is told to breathe');
+    assert(/How our story reads when it is right:\nBIG-VOICE The noon wind/.test(closing), 'and shown the story as it reads when it is right');
+    const read = msgs.filter((m) => m.role === 'assistant').map((m) => String(m.content)).filter((t) => /Zaraki lunged/.test(t));
+    const was = pageTexture(SPAM(1));
+    const tex = read.map(pageTexture);
+    assert(read.length >= 3 && tex.every((t) => t.soundPer100 <= was.soundPer100 * 0.4 && t.dashPer100 <= was.dashPer100 * 0.4), 'the pages it reads of its own are eased — less than half the sounds and dashes: ' + JSON.stringify({ was, read: tex[0] }));
+    assert(read.every((t) => !/steel—steel|roared—roared|\*CLANG\* \*CLANG\*|HAH—hah|stop—it—now/.test(t) && !/"Gkh—!"\s*\n\n\s*"Hah—!"/.test(t)), 'and none of the strung-out patterns are left to copy');
+    const seventh = await send('I hold.');
+    const closing7 = String(seventh.body.messages[seventh.body.messages.length - 1].content);
+    assert(/Every paragraph: a voiced line that stretches or repeats/.test(closing7) && !/This page breathes/.test(closing7), 'the sixth came back clean: the seventh is his heated page again');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.connections.update(activeId, { smallModel: null });
+    await env.ctx.chat.refreshQuickSwitch();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();

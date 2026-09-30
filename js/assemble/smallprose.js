@@ -193,3 +193,79 @@ function wornUncached(pages, { names, max, minPages, least, longest }) {
     return proper.has(f.words[0]) ? shown : shown.charAt(0).toLowerCase() + shown.slice(1); /* a name keeps its capital */
   });
 }
+
+/* M519: WHEN THE SOUND DROWNS THE STORY. His word: "once the dashes and the sounds start, the small model spams them until
+ * I literally can't read it — the masterful writing is gone, and it keeps that repeating structure." Two things kept it
+ * going: every heated page was asked for "a voiced line that stretches or repeats" in EVERY paragraph (with a word when a
+ * page went quiet, and none when it went too loud), and the small model's only example of how to write was its own last
+ * eight pages — once they were strung with "Hah—HAH—hah—" and "I—can't—", each page copied the last.
+ *   pageTexture(text)   how thick a page is with sounds and dashes, per hundred words
+ *   tooLoud(textures)   the last pages past the band (the newest well past it, or two of the last three past it); once
+ *                       loud, it stays so until the newest page is back under 70% of the band
+ *   calmPage(text)      the same page with its strung-out sounds and dash chains eased — for the copy a small model
+ *                       reads of its own recent pages while it is too loud; his stored page is never touched */
+export const SOUND_BAND = 5;   /* sounds per hundred words a page may carry and still read */
+export const DASH_BAND = 6;    /* dashes per hundred words */
+
+/* the sounds of a page: contact sounds in asterisks, voiced lines that are sound more than words, and drawn-out letters */
+/* a line that is only sound — interjections and drawn-out letters, nothing a person says in words */
+const SOUND_WORD = /^(?:[a-z]*([a-z])\1\1[a-z]*|a+h+|o+h+|h+a+h*|h+e+h|n+g*h+|n+n+g*|g+k+h*|g+u+h|k+u+h|u+g+h+|a+r+g+h+|g+a+h+|m+|h+m+|t+c+h|u+h+|o+o+f|o+w+|e+h+|h+n+g*|k+h+|h+a+a+h*)$/i;
+const SOUNDY = (inner) => { const toks = String(inner || '').split(/[—–…\s!?.,~-]+/).filter(Boolean); return toks.length > 0 && toks.every((w) => SOUND_WORD.test(w)); };
+const VOICED = (inner) => /([a-z])\1\1/i.test(inner) || /^[^a-z]*[A-Za-z]{1,7}[—–-]+[!?.…]*[^a-z]*$/i.test(inner) || /(?:\b[A-Za-z]{1,5}[—–…]+[\s!?.]*){2,}/.test(inner) || /^(?:[a-z]{1,4}[—–…!]+\s*)+$/i.test(inner);
+export function pageTexture(text) {
+  const t = sceneParagraphs(text).join('\n\n');
+  const words = (t.match(WORD) || []).length || 1;
+  const effects = (t.match(/(^|[^*\w])\*(?!\s)[^*\n]{1,48}?(?<!\s)\*(?!\*)/g) || []).length;
+  const voiced = [...t.matchAll(/[“"]([^”"\n]{1,48})[”"]/g)].filter((m) => VOICED(m[1].trim())).length;
+  const drawn = (t.replace(/[“"][^”"\n]{1,48}[”"]/g, ' ').match(/\b[A-Za-z]*([a-z])\1\1[A-Za-z]*\b/gi) || []).length; /* "Ahhh", "Nnngh" outside a voiced line */
+  const dashes = (t.match(/[—–]|--/g) || []).length;
+  const base = Math.max(words, 150); /* a short page is not judged loud for two sounds in forty words */
+  const per = (n) => Math.round((n * 1000) / base) / 10;
+  return { words, sounds: effects + voiced + drawn, dashes, soundPer100: per(effects + voiced + drawn), dashPer100: per(dashes) };
+}
+
+const past = (x, k = 1) => x && (x.soundPer100 > SOUND_BAND * k || x.dashPer100 > DASH_BAND * k);
+export function tooLoud(textures, { wasLoud = false } = {}) {
+  const list = (Array.isArray(textures) ? textures : []).filter(Boolean).slice(-3);
+  if (!list.length) return false;
+  const newest = list[list.length - 1];
+  if (wasLoud) return past(newest, 0.7); /* it eases only when the newest page is well back inside the band */
+  return past(newest, 1.5) || list.filter((x) => past(x)).length >= 2;
+}
+
+export function calmPage(text) {
+  let t = String(text == null ? '' : text);
+  /* the same word said over and over with dashes — "roared—roared—roared", "steel—steel—steel—" — once */
+  t = t.replace(/\b([\w’']+)(?:[—–]\1\b)+/gi, '$1');
+  /* a sound said over and over — "Hah—HAH—hah—Hah—" — is said twice */
+  t = t.replace(/\b([A-Za-z]{1,8})((?:[—–]|-{2}|…|\.{3})[!?]*)(?:\s*\1(?:[—–]|-{2}|…|\.{3})[!?]*){2,}/gi, (m, w, sep) => w + sep + w.toUpperCase() + sep);
+  /* a chain of broken fragments — "I—can't—stop—it—", "Nngh—ahh—AHHH—" — keeps its first two */
+  t = t.replace(/(\b[\w’']{1,12}[—–])(\s*[\w’']{1,12}[—–]){2,}/g, (m) => m.split(/(?<=[—–])/).slice(0, 2).join(''));
+  /* the same sound in asterisks again and again — *thud* *thud* *thud* — once */
+  t = t.replace(/(\*[^*\n]{1,40}\*)(?:[\s,.!]*\1)+/gi, '$1');
+  /* two or more lines of nothing but sound in a row keep the first */
+  t = t.replace(/((?:^|\n\n)\s*(?:["“][^"”\n]{1,40}["”]|\*[^*\n]{1,40}\*)[!?.]*[ \t]*)(?:\n\n\s*(?:["“][^"”\n]{1,40}["”]|\*[^*\n]{1,40}\*)[!?.]*[ \t]*)+(?=\n\n|$)/g, '$1');
+  /* the breath it is asked for, shown: a paragraph keeps its first sound — the others (asterisked sounds, lines that are
+   * sound more than words) go; a sentence with three dashes or more keeps its first, the rest become commas. Real speech
+   * and a sentence's own dash or pair of dashes are left as they are. */
+  t = t.split(/(\n\s*\n)/).map((para) => {
+    if (/^\s*$/.test(para)) return para;
+    let heard = false;
+    let out = para.replace(/(\*(?!\s)[^*\n]{1,48}?(?<!\s)\*(?!\*))|([“"])([^”"\n]{1,48})([”"])/g, (m, star, q1, inner, q2) => {
+      const sound = Boolean(star) || SOUNDY(String(inner || '').trim()); /* only a line of pure sound — "Wait—" is speech and stays */
+      if (!sound) return m;
+      if (heard) return '';
+      heard = true;
+      return m;
+    });
+    out = out.replace(/[^.!?\n]*[.!?]?/g, (sentence) => {
+      const parts = sentence.split(/([“"][^”"\n]*[”"])/); /* speech keeps its own dashes */
+      const outside = parts.filter((x, i) => i % 2 === 0).join('');
+      if ((outside.match(/[—–]/g) || []).length < 3) return sentence;
+      let first = true;
+      return parts.map((x, i) => (i % 2 ? x : x.replace(/[—–]/g, () => { if (first) { first = false; return '—'; } return ', '; }))).join('');
+    });
+    return out.replace(/[ \t]{2,}/g, ' ').replace(/\s+([,.!?])/g, '$1').replace(/,\s*,/g, ',').trim() ? out.replace(/[ \t]{2,}/g, ' ').replace(/ +([,.!?])/g, '$1') : '';
+  }).join('');
+  return t.replace(/\n{3,}/g, '\n\n');
+}

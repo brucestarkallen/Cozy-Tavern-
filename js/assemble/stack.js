@@ -100,10 +100,10 @@ import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main chara
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
 import { voiceOf, inVoice, toTeller, briefingOpening, notebookOpening, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave, withCardNames } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView, findPersonKey, PEOPLE_BUDGET, PRESENT_CARDS_MAX, RECALL_MAX } from '../engine/people.js';
-import { wornPhrases } from './smallprose.js'; /* M512: the turns of phrase the last pages keep using */
+import { wornPhrases, calmPage } from './smallprose.js'; /* M512: the turns of phrase the last pages keep using; M519: the loud pages eased in the copy it reads */
 import { canonOffPages } from './canonpages.js'; /* M518: canon on their own page — the note goes quiet on what the cards carry */
 import { lawsOf, lawsNamed, joinLaws, lawKey, ALWAYS_LAWS, PROSE_LAWS, PEOPLE_LAWS, SOUND_LAWS, LOAD_BEARING, FIGHT_LAWS, typedCombat } from './laws.js'; /* M510: his craft, law by law */
-import { renderPlan, renderSounds } from './planwords.js'; /* M510: the planning helper's plan, in his voice */
+import { renderPlan, renderSounds, breathWords } from './planwords.js'; /* M510: the planning helper's plan, in his voice */
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
 
@@ -718,6 +718,7 @@ export function buildRequest({
   canonStart = '', /* M516: where our story began in its canon, and what was true then — his note, every page */
   worldGround = '', /* M517: the automatic brief — the world of the story, beside his own brief in its seat */
   canonOnPages = false, /* M518: canon's lasting lines ride on each person's card — the note leaves out what the cards carry */
+  tooLoud = false, /* M519: the last pages drowned in sounds and dashes — a small storyteller is told to breathe, and reads its pages eased */
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -1334,6 +1335,12 @@ export function buildRequest({
       smallWindow = smallWindow.slice(cut);
     }
   }
+  /* M519: THE MIRROR EASED. A small model writes like its own last pages; once they are strung with sounds and dashes,
+   * each page copies the last. While they are too loud, the copy it reads of its own pages has the strung-out sounds and
+   * dash chains eased (smallprose.js calmPage: a sound said twice, not ten times; a chain of broken words kept to its
+   * first two; the same asterisked sound once; a run of sound-only lines, one). His stored pages are never touched. */
+  const eased = Boolean(smallWindow && tooLoud);
+  if (eased) smallWindow = smallWindow.map((m) => (m && m.role === 'assistant' && typeof m.content === 'string' ? { ...m, content: calmPage(m.content) } : m));
   /* M510-37: THE STORY OPENS ON HIS PAGE. With the notes a user message in front, a window that began on the teller's
    * page still read user → assistant; with the notes above the story in the system, it would open on the storyteller —
    * and the window of thirty usually does (thirty back from his move lands on a page of the teller's). A strict house
@@ -1393,7 +1400,7 @@ export function buildRequest({
   ownRows('before-pages');
   if (safeSettings.ownWordsHeldForSmall === true) pushSlot('Own words', '', '', 'not sent to the small model — its switch in Settings (“Send them to a small model”) is off'); /* M510-9 */
   if (smallWindow) historySource = 'the last ' + smallWindow.filter((m) => m.role === 'assistant').length + ' pages word for word — small model; the planning helper read the whole story';
-  pushSlot('The pages, word for word', historyText, win.total ? historySource : '');
+  pushSlot('The pages, word for word', historyText, win.total ? historySource + (eased ? ' — their strung-out sounds and dashes eased while the pages are too loud (your pages are kept as written)' : '') : '');
   ownRows('before-your-message');
   ownRows('after-your-message');
 
@@ -1526,7 +1533,15 @@ export function buildRequest({
     }
     if (smallIntense === true || smallPlan.intense === true) {
       const wentQuiet = Boolean(lastSound && lastSound.intense === true && !lastSound.effects && !lastSound.voiced);
-      soundsLine = renderSounds(smallPlan, { voice, laws: joinLaws(lawsNamed(smallLaws, SOUND_LAWS)), wentQuiet });
+      soundsLine = renderSounds(smallPlan, { voice, laws: joinLaws(lawsNamed(smallLaws, SOUND_LAWS)), wentQuiet, tooLoud });
+    } else if (tooLoud) {
+      soundsLine = voice && voice.teller ? toTeller(breathWords(), voice) : breathWords(); /* M519: a calm page that drowned too */
+    }
+    /* M519: and right where it writes next, a few lines of the story as it reads when it is right — the passage held up
+     * with the craft (M512), its first paragraph; only while the pages are too loud */
+    if (tooLoud && sampleText) {
+      const first = sampleText.split(/\n\s*\n/)[0].trim().slice(0, 600);
+      if (first) soundsLine = [soundsLine, 'How our story reads when it is right:\n' + first].filter(Boolean).join('\n');
     }
   } else if (safeSettings.smallModelNow === true) {
     /* M344: the scene's words = the last pages AND what the writer just wrote; the record's lines come from the window's nodes */

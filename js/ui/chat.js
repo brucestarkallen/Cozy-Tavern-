@@ -79,13 +79,13 @@ import { makeHeaderGate, splitAtHeader, pageOnly } from './headergate.js';
 import { tidyPage, readHeader, partParagraphs } from './pageshape.js'; /* M340: the page made whole before it is kept; M510-17 */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName, isMcAlias } from '../engine/duels.js';
 import { mineLeak, mineWord, mineCutAt, soundCount } from '../assemble/plain.js'; /* M510: the cut where a page began playing him; the sounds a page carried */
-import { plannerAsk, runPlanner, loadPlan, planEntry, loadPlans, keepSound, planKey, hashText, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper */
+import { plannerAsk, runPlanner, loadPlan, planEntry, loadPlans, keepSound, keepTexture, planKey, hashText, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper; M519: the texture kept */
 import { lawsOf } from '../assemble/laws.js'; /* M510 */
 import { runEssentials, loadEssentials } from '../agents/essentials.js'; /* M510-15: the story's essentials */
 import { pickRecall } from '../agents/recallpick.js'; /* M510-50: smart recall */
 import { runPlans, loadPlansBook } from '../agents/plans.js'; /* M510-22: the plans, kept whole until carried out */
 import { lastPagesOf, SMALL_PAGES } from '../assemble/stack.js'; /* M510 */
-import { voiceSampleOf } from '../assemble/smallprose.js'; /* M512: how the story sounds at its best, for a small storyteller */
+import { voiceSampleOf, pageTexture, tooLoud as tooLoudNow } from '../assemble/smallprose.js'; /* M512: how the story sounds at its best, for a small storyteller; M519: the brake on sounds and dashes */
 import { CANON_START_KEY, placeInCanon, canonStartWords } from '../agents/canonstart.js'; /* M516: where our story began in its canon */
 import { GROUND_KEY, runGround, groundWords, canonWithoutWorld } from '../agents/worldground.js'; /* M517: the automatic brief — the world, written once */
 import { canonBlocks, lastingLines } from '../assemble/canonpages.js'; /* M518: canon on their own page */
@@ -2589,7 +2589,7 @@ export function initChat(ctx) {
     const director = renderDirectorNote(await loadDirector(story.id)) || '';
     const kept = await loadPlans(story.id);
     const ls = kept && kept.lastSound;
-    const lastSound = ls && ls.intense ? 'The last page was a fight or a heated scene; it carried ' + (ls.effects || 0) + ' contact sounds and ' + (ls.voiced || 0) + ' voiced sounds' + (!ls.effects && !ls.voiced ? ' — it went quiet where it should have been heard.' : '.') : '';
+    const lastSound = (kept && kept.loud === true ? 'The last pages drowned in sounds and dashes — name at most two sounds this time, only at the peak. ' : '') + (ls && ls.intense ? 'The last page was a fight or a heated scene; it carried ' + (ls.effects || 0) + ' contact sounds and ' + (ls.voiced || 0) + ' voiced sounds' + (!ls.effects && !ls.voiced ? ' — it went quiet where it should have been heard.' : '.') : ''); /* M519: the loud word first, then the heated page's count */
     const pages = lastPagesOf(pagesAll, PLAN_PAGES).map((m) => (m.role === 'user' ? 'The writer: ' : '') + pageText(m)); /* thirty of the storyteller's pages, his messages between them */
     const mc = mcName(state);
     const present = (Array.isArray(state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean);
@@ -4503,12 +4503,14 @@ export function initChat(ctx) {
       /* M510: THE SMALL REQUEST'S PLAN — the one the helper made after the page this turn follows (Try again finds the
        * plan for the page before the one it replaces); none yet → the whole request goes, as before */
       let smallPlan = null; let smallIntense = false; let lastSound = null; let smallEssentials = null; let smallPlansBook = null; let voiceSample = null; /* M512 */
+      let loudNow = false; /* M519: the last pages drowned in sounds and dashes */
       const canonStartNow = canonStartWords(await db.settings.get(CANON_START_KEY(story.id))); /* M516: where our story began in its canon */
       if (settingsValues.smallModelNow === true) {
         const before = [...visiblePages(history)].reverse().find((m) => m && m.role === 'assistant' && !m.ooc && pageText(m).trim());
         smallPlan = await loadPlan(story.id, planKey(before)); /* M510-6: the plan of the page this follows, mended or not */
         smallIntense = heatedNow(selected, state, userText); /* M510-3: from what woke (his own imported rules too) and the ledger's own intimate mode; M510-7: his words starting a fight */
         lastSound = ((await loadPlans(story.id)) || {}).lastSound || null;
+        loudNow = ((await loadPlans(story.id)) || {}).loud === true; /* M519 */
         /* M512: A PASSAGE OF THE STORY AT ITS BEST — the newest page a big storyteller wrote (older than the pages sent
          * whole); a page's receipt says which (small, from M512; before it, the model named, or the plan it rode with) */
         try {
@@ -4550,7 +4552,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
         sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
@@ -4598,7 +4600,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         canonNote, /* M346: canon verification's note, at the top of the briefing */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
         sensorNote, /* M356: the sensors' one line, in the closing words */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
@@ -5019,6 +5021,9 @@ export function initChat(ctx) {
           /* M510: what the page sounded like, for the helper's next plan (a heated page that went quiet is heard) */
           const heard = soundCount(full);
           await keepSound(story.id, { intense: smallIntense === true || Boolean(smallPlan && smallPlan.intense), effects: heard.effects, voiced: heard.voiced });
+          /* M519: how thick the page was with sounds and dashes — the brake the next page is built with */
+          const tex = pageTexture(full);
+          await keepTexture(story.id, { soundPer100: tex.soundPer100, dashPer100: tex.dashPer100 }, tooLoudNow);
         } catch (err) { /* a reading of the page is never worth the page */ }
       }
 

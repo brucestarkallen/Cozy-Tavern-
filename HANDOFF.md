@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m518-002)
+# Cozy Tavern — handoff for the next session (state at m519-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1393,4 +1393,18 @@ founding design lives in AGENTS.md's first entries.)
   and a rewritten brief makes the world look again — at once when he keeps it in Settings (remakeGround), and in the
   chain (briefFp fingerprint, a reason to look like a new arc or start) — so it never repeats or contradicts what he
   just wrote. Law M518-2; walk DOM-174 (the brief edited → the world asked again → shown).
+- M519-1 — WHEN THE SOUND DROWNS THE STORY. His word: "once the dashes and the sounds start, the small model spams them
+  until I can't read it, and it keeps that repeating structure." Two causes, both the app's: every heated small page was
+  asked for "a voiced line that stretches or repeats" in EVERY paragraph (a word when a page went quiet, none when it went
+  too loud), and the small model's only example was its own last eight pages. Now (small model only): each page's
+  texture is kept (smallprose.js pageTexture — sounds and dashes per hundred words, at least 150 words counted;
+  planner.js keepTexture, the last three); tooLoud decides with a hold (newest past 1.5× the band, or two of three past
+  it; released only when the newest is under 70% of it). While too loud: the sounds line becomes the breath
+  (planwords.js breathWords — whole plain sentences, a sound only where a blow lands or a cry breaks, once), also on a
+  calm page; the first paragraph of the story's voice passage rides with it ("How our story reads when it is right");
+  the helper is told to name at most two sounds; and the copy of its own recent pages the model reads is eased
+  (calmPage: a word repeated with dashes once, a strung sound short, a chain of fragments its first two, the same
+  asterisked sound once, a run of sound-only lines one, one pure sound a paragraph, a dash-strung sentence its first dash
+  — speech and ordinary prose exactly as written). His stored pages are never touched. Laws M519-1…4; walk DOM-176 (his
+  test: five drowned scenes, then the sixth request; a clean sixth page gives the seventh his heated page again).
 

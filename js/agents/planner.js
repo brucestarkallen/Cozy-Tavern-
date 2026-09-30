@@ -185,6 +185,15 @@ export async function keepSound(storyId, sound) {
   const kept = await loadPlans(storyId);
   await db.settings.set(PLAN_KEY(storyId), { ...kept, lastSound: sound && typeof sound === 'object' ? sound : null });
 }
+/* M519: how thick the newest pages were with sounds and dashes (the last three), and whether the story is too loud now —
+ * decided with the last decision in hand, so it eases only when a page is well back inside the band */
+export async function keepTexture(storyId, texture, decide) {
+  const kept = await loadPlans(storyId);
+  const textures = [...(Array.isArray(kept.textures) ? kept.textures : []), texture].filter(Boolean).slice(-3);
+  const loud = typeof decide === 'function' ? decide(textures, { wasLoud: kept.loud === true }) === true : false;
+  await db.settings.set(PLAN_KEY(storyId), { ...kept, textures, loud });
+  return loud;
+}
 
 /* One reading: ask, read the answer as data, keep it under the page it was made after. An answer that cannot be used is
  * asked for once more in the same run with a plain word about why (the world agent's way), then let go — {plan: null}
