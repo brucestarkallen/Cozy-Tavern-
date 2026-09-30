@@ -3843,6 +3843,7 @@ test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it s
     eq((await until(() => q('#canon-on'), 'the switch', 10000)).checked, false, 'it ships OFF');
     await closeSettings();
     await setCanon(true, 'bleach');
+    await openSettings(); assert(!q('#canon-legacy-row').hidden, 'M519-3: the legacy switch shows with canon on'); await closeSettings();
     const on = await send('I bow to Rukia and ask her to teach me kido.');
     const briefing = notesInMessages(on.messages) ? { content: notesInMessages(on.messages) } : null; /* M510-37 */
     assert(briefing, 'the briefing rode: ' + on.messages.map((m) => m.role + ':' + String(m.content).slice(0, 80)).join(' || '));
@@ -3850,6 +3851,7 @@ test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it s
     assert(/What canon says about the people here/.test(briefing.content) && /Violet|Black, chin-length/.test(briefing.content), 'the briefing opens with what canon says of Rukia: ' + String(briefing.content).slice(0, 300));
     assert(wikiAsked.includes('bleach.fandom.com'), 'the series’ wiki was asked');
     await setCanon(false);
+    await openSettings(); assert(q('#canon-legacy-row').hidden, 'M519-3: and hides with canon off — it has nothing to change'); await closeSettings();
     const asked = wikiAsked.length;
     const off = await send('I try the incantation again.');
     assert(!/What canon says about the people here|Violet|chin-length/.test(JSON.stringify(off.messages)), 'OFF: nothing of it is sent');

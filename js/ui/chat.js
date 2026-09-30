@@ -5394,7 +5394,7 @@ export function initChat(ctx) {
             try { got = await placeInCanon({ connection: placer, concept, brief: story.brief || '', signal }); } finally { done(); hideComposerNote(); }
             if (got && got.start) {
               await db.settings.set(key, { ...got.start, ...(told ? { when: '' } : {}), at: Date.now() });
-              toast('Placed in ' + got.start.series + (got.start.arc ? ' — ' + got.start.arc : '') + '. Settings → This story shows it, and takes a correction.');
+              toast('Your story begins in ' + got.start.series + (got.start.arc ? ' — ' + got.start.arc : '') + '.'); /* M519-3: said plainly, once — no directions on his screen */
             } else if (got && got.none) await db.settings.set(key, { none: true, at: Date.now() });
             else await db.settings.set(key, { tried: Date.now() }); /* no answer: not asked again on the next page */
           }

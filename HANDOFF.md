@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m519-002)
+# Cozy Tavern — handoff for the next session (state at m519-003)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1414,4 +1414,11 @@ founding design lives in AGENTS.md's first entries.)
   page (older loud pages alone never re-trigger it once released); and while braked the breath rides ALONE — his sound
   laws ("action, sound, dialogue braided in the same sentences via em-dashes", with a dash-strung example) wait until the
   pages are back inside the band. Walk DOM-177 (fails on m519-001).
+- M519-3 — his three questions. (1) The banner at a story's start is the canon placement (M516): "Placing your story in
+  its canon…" while the first page waits, then a toast — now plain: "Your story begins in Jujutsu Kaisen — Culling Game
+  arc." (it pointed him to Settings; directions on his screen are not his way). (2) "Legacy canon verification" never
+  turns canon off — canon's own switch does; legacy only keeps canon's whole note every page when the brief is
+  Automatic. Its row now shows only while canon verification is on, and says so. (3) Automatic/Manual is this story's
+  brief; "New stories start Automatic" is the default for stories made from now on. Walk DOM-69 checks the legacy row
+  follows canon's switch.
 

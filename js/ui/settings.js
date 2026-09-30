@@ -1842,6 +1842,7 @@ export function initSettings(ctx) {
       const story = await activeStory();
       els.canonOn.disabled = !story;
       els.canonOn.checked = story ? await canonOn(story.id) : false;
+      { const row = document.getElementById('canon-legacy-row'); if (row) row.hidden = !els.canonOn.checked; } /* M519-3: shown only with canon on — off, it has nothing to change */
       const lab = els.canonOn.closest('label');
       if (lab && lab.lastChild && lab.lastChild.nodeType === 3) lab.lastChild.textContent = story ? ' Canon verification — for “' + (story.title || 'this story') + '”' : ' Canon verification — open a story to switch it on for it';
     }
@@ -1874,6 +1875,7 @@ export function initSettings(ctx) {
     const story = await activeStory(); /* M399: this story's switch, and only this story's */
     if (!story) { els.canonOn.checked = false; return; }
     await setCanonOn(story.id, els.canonOn.checked);
+    { const row = document.getElementById('canon-legacy-row'); if (row) row.hidden = !els.canonOn.checked; } /* M519-3 */
     if (!els.canonOn.checked) { try { await canonWithdraw(story.id); } catch (err) { /* its next page withdraws them */ } }
     await drawCanon();
   });

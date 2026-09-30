@@ -13510,3 +13510,15 @@ paragraph and carried his "High Intensity Scenes" law with its dash-strung examp
 - Laws M519-2/4 extended; DOM-176 and DOM-177. Harness 1067/1067, walk 177/177, long play 8/8, lint 0; frontier request
   identical (24 of 24).
 
+# M519-3 — three questions, and what they showed
+(1) "When I start a story, what's the banner with canon-setting wording?" — the M516 placement: "Placing your story in its
+canon…" while the first page waits, then a toast that ended "Settings → This story shows it, and takes a correction". A
+direction on his screen is not his way (he is a passive user of a finished app): the toast is now only what happened — "Your
+story begins in Jujutsu Kaisen — Culling Game arc." (2) "If Legacy canon verification is off, is canon off — no wiki?" —
+no: canon's own switch decides the wiki; legacy only decides, for a story whose brief is Automatic, whether canon's note
+goes whole every page (the old way) or trimmed (the story's position in the world, each person's lasting lines on their
+page). The confusion was the control's: it sat there with canon off, where it changes nothing. Its row now shows only while
+canon verification is on, and its words say what it does and does not change. (3) Brief Automatic vs "New stories start
+Automatic" — this story's brief vs the default for stories made from now on (answered; no change). Walk DOM-69 checks the
+legacy row follows canon's switch. Harness 1067/1067, walk 177/177, lint 0; frontier request identical (24 of 24).
+
