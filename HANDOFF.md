@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m528-001)
+# Cozy Tavern — handoff for the next session (state at m529-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1523,4 +1523,18 @@ founding design lives in AGENTS.md's first entries.)
   order-bound (alone it failed about one run in three): its send took the first request on its model, and the plans keeper
   (M510-48, every storyteller) on the same model sometimes landed first and was checked as the storyteller's. It (and the one
   other scenario with that helper) now leaves helpers out; six runs alone, six passes.
+- M529 — HIS SEVEN-POINT ORDER (no redundancy, the storyteller's reading, the reader's eye, speed, faster workers, the
+  highest standard). Measured, not assumed: (1–2) a rich turn's whole request searched for any run of eight words said in
+  two parts — only the natural overlap of one event in the record, the essentials, who-knows-what and the world's "what
+  stands"; each fact has its home. (3) The order read as the storyteller: frame, craft, brief + world, the notes (canon on
+  the people here — first by M386's own decision — the story so far in brief then in full, the people, the ground), the
+  pages, his move; "On their mind" and "The ground" are the least plain names — left, they are his long-standing labels and
+  every request's. (5) Speed at a 6× CPU slowdown: the send's request out 1.89 s median (m518: 1.96 s), his page on screen
+  ~0.14 s; the rooms within budget (a cold first reading re-measured 12 and 8 ms); the housekeeper's streaming within
+  budget. (6) BUILT: "Two workers at once" (Settings → The workers, off as it ships — exactly one lane then): queue.js
+  lanes (setSideBySide; a job's lane 'side' runs in the story's second lane; queuedCount, workIsRunning and stopWork see
+  both; each lane's job in flight has its own stop; a story switch purges both), chat.js SIDE_JOBS (keeper, sensors,
+  essentials, placer, ground, plans — they read the pages and the record and write only their own books; the ledger's
+  readers, the canon worker and the planner stay in the main lane), applied at boot (app.js) and on the switch (settings).
+  Measured with each helper answering in 0.25 s: 2.6 s → 2.08 s per page. Laws M529-1…3; walk DOM-185.
 

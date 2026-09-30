@@ -3,6 +3,7 @@
  * and the shared context handed to each UI module.
  */
 
+import { setSideBySide } from './agents/queue.js'; /* M529 */
 import { repaintWork } from './ui/workbanner.js'; /* M510-42 */
 import { repairStoryPlaceholder } from './ui/placeholder.js'; /* M382 */
 import { sweepSent } from './sent.js'; /* M347: a gone tale's kept words go with it */
@@ -214,6 +215,7 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
    * It is detected exactly, and put back to what he typed — once, on the first boot of this version. */
   try { await repairStoryPlaceholder(); } catch (err) { /* the next boot tries again */ }
   try { if (typeof db.sweepOrphans === 'function') await db.sweepOrphans(); } catch (err) { /* the shelf is no worse for it */ }
+  try { setSideBySide((await db.settings.get('helpersSideBySide')) === true); } catch (err) { /* one at a time, as it ships */ } /* M529: two workers at once, as he left it */
   await applyStoredTheme();
 
   /* M97, once: the housekeeper's own thinking dial was set against the old

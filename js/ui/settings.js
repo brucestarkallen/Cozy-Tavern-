@@ -53,6 +53,7 @@ import { pageText } from '../assemble/stack.js';
 import { renderUsage } from './usage.js'; /* M457 */
 import { CANON_START_KEY, canonStartWords } from '../agents/canonstart.js'; /* M516: where our story began in its canon */
 import { GROUND_KEY, groundWords } from '../agents/worldground.js'; /* M517: the automatic brief */
+import { setSideBySide } from '../agents/queue.js'; /* M529 */
 
 let workerRowsGeneration = 0;
 
@@ -1353,6 +1354,14 @@ export function initSettings(ctx) {
     els.ground.placeholder = 'Written after the next page.';
     typedBoxes.delete(els.ground);
   });
+  /* M529: two workers at once — kept, and handed to the queue at once */
+  {
+    const box = document.getElementById('helpers-side-by-side');
+    if (box) {
+      (async () => { box.checked = (await db.settings.get('helpersSideBySide')) === true; })();
+      box.addEventListener('change', async () => { await db.settings.set('helpersSideBySide', box.checked === true); setSideBySide(box.checked === true); });
+    }
+  }
   if (els.canonLegacy) {
     (async () => { els.canonLegacy.checked = (await db.settings.get('canonLegacy')) === true; })();
     els.canonLegacy.addEventListener('change', async () => { await db.settings.set('canonLegacy', els.canonLegacy.checked === true); });

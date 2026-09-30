@@ -13698,3 +13698,26 @@ older one from it; a deletion replays with the pages after shifted.
   helper's words). It and the one other scenario with the same helper now leave helpers out (the house marks them). Six runs
   alone: six passes; the whole walk 184/184. The app was right all along.
 
+# M529 — his seven-point order, and two workers at once
+His order: no redundancy between the parts; every part understandable to the storyteller, in the right order, named
+naturally; the prose and the living world as the reader meets them; everything fast, the UI without stutter; the workers
+faster — "a setting to use more than one request at once"; the highest standard.
+- Redundancy, measured (a rich turn's whole request, every eight-word run said in two parts): only the natural overlap of one
+  event in the record's lines, the essentials, who-knows-what and the world's "what stands". Each fact has one home.
+- The storyteller's order: frame, craft, his brief and the world, the notes (canon on the people here first — M386's own
+  decision — the story so far in brief then in full, the people, the ground), the pages, his move. The least plain names,
+  "On their mind" and "The ground", are left: his long-standing labels and every request's.
+- Speed, measured at a 6× CPU slowdown on the heavy fixtures: the send's request out 1.89 s median (m518: 1.96 s — no
+  regression), his page on screen ~0.14 s, the rooms within budget (a first cold reading re-measured 12 and 8 ms), the
+  housekeeper streaming within budget.
+- BUILT, "Two workers at once" (Settings → The workers; off as it ships, when there is exactly one lane and nothing changes):
+  queue.js lanes — setSideBySide; a job whose lane is 'side' runs in the story's second lane; queuedCount, workIsRunning
+  and stopWork see both lanes; each lane's job in flight has its own stop; a story switch purges both. chat.js SIDE_JOBS:
+  the record keeper, the sensors, the essentials, the placer, the world keeper and the plans keeper (they read the pages and
+  the record and write only their own books); the ledger's readers, the checkpoint, canon and the planner stay in the main
+  lane. Applied at boot (app.js, a static import — M15's ghost-call law caught a dynamic one) and on the switch.
+- Measured in the walk with each helper answering in a quarter second: a page's workers 2.6 s one at a time, 2.08 s two at
+  once. Laws M529-1…3 (off is one lane as before; on overlaps with each lane in order; a stop and a story switch reach both);
+  walk DOM-185. Harness 1082/1082, walk 185/185, long play 8/8, lint 0 (170 warnings, as before); contrast green; the
+  frontier request identical (24 of 24).
+

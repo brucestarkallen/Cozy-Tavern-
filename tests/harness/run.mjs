@@ -198,6 +198,7 @@ import './m522.mjs'; /* M522: the auditor can set a shared line right — the lo
 import './m524.mjs'; /* M524: a block of tags after the page — off at the door, the wire and the mend; standings stay the ledger's */
 import './m527.mjs'; /* M527: the deep audit, second pass — what pages taken back leave behind */
 import './m528.mjs'; /* M528: the deep audit, third pass — a page rewritten by hand */
+import './m529.mjs'; /* M529: two workers at once — the side lane */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

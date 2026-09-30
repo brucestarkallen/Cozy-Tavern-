@@ -36,12 +36,28 @@ const queues = new Map();   // storyId -> job[]
  * everything still queued for that story, and is honest about it: the work
  * already done stands (a part-built record is kept and resumed, M205), and
  * the banner says it was stopped by hand, not that it failed. */
-const stopping = new Map();   // storyId -> a live abort for the job in flight
+const stopping = new Map();   // lane (a story's id, or its side lane) -> a live abort for the job in flight
+
+/* M529: HELPERS SIDE BY SIDE. His question: "can the workers be faster — a setting to use more than one request at once?"
+ * The page chain ran one helper at a time: the page's readers of the ledger, then the record keeper, the essentials, the
+ * plans keeper, the sensors, the placer and the world keeper — each waiting for the one before. The second group reads the
+ * pages and the record and writes only its own books; with his switch on it runs in a lane of its own, beside the ledger's
+ * readers, so a page's helpers finish in the time of the longer lane, not the sum of both. Off (as it ships), there is one
+ * lane and every helper runs as it always has. */
+const SIDE = '\u0001side';
+let sideBySide = false;
+export function setSideBySide(on) { sideBySide = on === true; }
+export function sideBySideOn() { return sideBySide; }
+const laneOf = (storyId, job) => (sideBySide && job && job.lane === 'side' ? storyId + SIDE : storyId);
+const lanesOf = (storyId) => [storyId, storyId + SIDE];
 
 export function stopWork(storyId) {
   if (!storyId) return false;
-  const list = queues.get(storyId);
-  const queued = list ? list.length : 0;
+  let queued = 0;
+  let wasLive = false;
+  for (const lane of lanesOf(storyId)) {
+  const list = queues.get(lane);
+  queued += list ? list.length : 0;
   /* M293: A DROPPED JOB IS SETTLED, NEVER LEFT HANGING. The queue was emptied
    * and the promises of the jobs in it were never resolved — so every
    * pendingWork() for that tale waited its whole ceiling on the first of them
@@ -56,13 +72,15 @@ export function stopWork(storyId) {
       try { job.resolve({ ok: false, stopped: true, why: 'stopped by hand' }); } catch (err) { /* a resolver that can't settle is no one's trouble */ }
     }
   }
-  const live = stopping.get(storyId);
+  const live = stopping.get(lane);
   if (live && typeof live.abort === 'function') { try { live.abort(); } catch (err) { /* fine */ } }
-  return Boolean(live) || queued > 0;
+  wasLive = wasLive || Boolean(live);
+  }
+  return wasLive || queued > 0;
 }
 
 export function workIsRunning(storyId) {
-  return Boolean(stopping.get(storyId)) || Boolean((queues.get(storyId) || []).length);
+  return lanesOf(storyId).some((lane) => Boolean(stopping.get(lane)) || Boolean((queues.get(lane) || []).length));
 }
 const running = new Map();  // storyId -> boolean
 
@@ -136,13 +154,14 @@ export function enqueueWork(storyId, job) {
   if (!storyId || !job || typeof job.run !== 'function') {
     return Promise.resolve({ ok: false, why: 'misshapen' });
   }
-  const entry = { ...job, storyId, epoch };
-  let list = queues.get(storyId);
-  if (!list) { list = []; queues.set(storyId, list); }
+  const lane = laneOf(storyId, job);
+  const entry = { ...job, storyId, lane, epoch };
+  let list = queues.get(lane);
+  if (!list) { list = []; queues.set(lane, list); }
   return new Promise((resolve) => {
     entry.resolve = resolve;
     list.push(entry);
-    drain(storyId);
+    drain(lane);
   });
 }
 
@@ -166,6 +185,7 @@ async function drain(storyId) {
 
 async function runJob(job) {
   const { storyId, name } = job;
+  const laneKey = job.lane || storyId; /* M529: each lane's job in flight has its own stop */
   const isStale = () => job.epoch !== epoch;
   /* A job queued for a story the writer has since left never starts. */
   if (isStale()) return { ok: false, stale: true, why: 'left behind' };
@@ -179,7 +199,7 @@ async function runJob(job) {
     const { signal, done, renew, abort } = workerSignal();
     /* M208: the writer's own stop reaches the call in flight */
     let stoppedByHand = false;
-    stopping.set(storyId, { abort: () => { stoppedByHand = true; abort(); } });
+    stopping.set(laneKey, { abort: () => { stoppedByHand = true; abort(); } });
     markWorkerRunning(storyId, name, true); /* M46: "reading now…" on the workers line */
     try {
       /* M207: a job that works in rounds renews its leash each round */
@@ -202,12 +222,12 @@ async function runJob(job) {
        * and the light, which looks the moment a worker settles, read the result
        * before this one — green for an instant after a job that stopped partway. */
       markWorkerRunning(storyId, name, false);
-      stopping.delete(storyId);
+      stopping.delete(laneKey);
       return { ok: true, value };
     } catch (err) {
       done();
       if (stoppedByHand) {
-        stopping.delete(storyId);
+        stopping.delete(laneKey);
         markWorkerRunning(storyId, name, false);
         await noteWorkerRun(storyId, name, { ok: false, detail: 'stopped by hand' });
         return { ok: false, stopped: true, why: 'stopped by hand' };
@@ -224,8 +244,7 @@ async function runJob(job) {
 
 /* Harness window: how many jobs wait on a story's channel. */
 export function queuedCount(storyId) {
-  const list = queues.get(storyId);
-  return list ? list.length : 0;
+  return lanesOf(storyId).reduce((n, lane) => n + ((queues.get(lane) || []).length), 0);
 }
 
 export function currentEpoch() {

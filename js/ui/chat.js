@@ -89,6 +89,7 @@ import { voiceSampleOf, pageTexture, tooLoud as tooLoudNow } from '../assemble/s
 import { CANON_START_KEY, placeInCanon, canonStartWords } from '../agents/canonstart.js'; /* M516: where our story began in its canon */
 import { GROUND_KEY, runGround, groundWords, canonWithoutWorld } from '../agents/worldground.js'; /* M517: the automatic brief — the world, written once */
 import { canonBlocks, lastingLines } from '../assemble/canonpages.js'; /* M518: canon on their own page */
+const SIDE_JOBS = new Set(['keeper', 'sensors', 'essentials', 'placer', 'ground', 'plans']); /* M529: the helpers that may run beside the ledger's readers */
 import { renderStateFacts as planFacts, stateView as planStateView } from '../engine/state.js'; /* M510: what the helper reads */
 import { renderPeopleTiers as planPeople, peopleView as planPeopleView, findPersonKey } from '../engine/people.js'; /* M510; M518: a canon block's person in the ledger */
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
@@ -3140,7 +3141,10 @@ export function initChat(ctx) {
     /* M134: the clock as the chain begins — the world link measures how far this page moved it */
     const chainClock = { before: null };
     const enqueue = (name, run) => {
-      const promise = enqueueWork(story.id, { name, run: chainJob(run, () => (chainGen.get(story.id) || 0) !== gen) }); /* M259: the leash's renew rides through */
+      /* M529: the record keeper, the sensors, the essentials, the placer, the world keeper and the plans keeper read the pages
+       * and the record and write only their own books — with two workers at once they run in their own lane */
+      const lane = SIDE_JOBS.has(name) ? 'side' : 'main';
+      const promise = enqueueWork(story.id, { name, lane, run: chainJob(run, () => (chainGen.get(story.id) || 0) !== gen) }); /* M259: the leash's renew rides through */
       noteWork(story.id, promise);
       return promise;
     };

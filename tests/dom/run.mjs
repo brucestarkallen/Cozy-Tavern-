@@ -7736,6 +7736,43 @@ test('DOM-184 HE REWRITES AN OLDER PAGE BY HAND (M528 — the deep audit): the p
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-185 TWO WORKERS AT ONCE (M529 — his question: "can the workers be faster, a setting for more than one request at once?"): switched on in Settings → The workers, a page\'s workers finish sooner (measured, each helper answering in a quarter second), every one of them still lands, and it is kept', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning, sideBySideOn } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'two at once' });
+  await db.stories.update(st.id, { briefMode: 'automatic' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { worker: house.state.workerAnswer, plans: house.state.plansAnswer };
+  const slow = (v) => new Promise((r) => setTimeout(() => r(v), 250));
+  house.state.workerAnswer = (body, sys) => slow(typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}'));
+  house.state.plansAnswer = () => slow('{"new":[],"progress":[],"closed":[]}');
+  const box = async (on) => { await openSettings(); const b = await until(() => q('#helpers-side-by-side'), 'the switch'); if (b.checked !== on) { b.checked = on; b.dispatchEvent(new env.window.Event('change', { bubbles: true })); } await until(async () => ((await db.settings.get('helpersSideBySide')) === true) === on, 'kept', 5000); await closeSettings(); };
+  const turn = async (words) => {
+    const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length;
+    type(q('#composer-input'), words); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000);
+    const t0 = Date.now();
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the page\'s workers', 90000);
+    return Date.now() - t0;
+  };
+  try {
+    await box(false);
+    await turn('I arrive.'); /* the first page founds the ledger — not measured */
+    const one = await turn('I look around.');
+    await box(true);
+    eq(sideBySideOn(), true, 'the queue has it at once');
+    const two = await turn('I look around again.');
+    assert(two < one * 0.85, 'the workers finished sooner side by side: one at a time ' + one + ' ms, two at once ' + two + ' ms');
+    eq(errorsSince(before).length, 0, 'every worker landed without an error');
+    assert((await db.settings.get('helpersSideBySide')) === true, 'kept for next time');
+  } finally {
+    house.state.workerAnswer = prior.worker; house.state.plansAnswer = prior.plans;
+    await box(false);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();
