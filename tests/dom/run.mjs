@@ -7548,6 +7548,47 @@ test('DOM-179 BRANCH AT THE START, AND EVERYTHING COMES ALONG (M523 — his ques
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-180 A BLOCK OF TAGS AFTER THE PAGE (M524 — his report: "<npc> <the mage> <wound>… <standing>P=-15 … </npc>" at the end of a page): a page that arrives with one is kept without it, and nothing of it reaches the readers or the next request; a page kept with one before this is mended when the tale opens, with the words it took kept for a take-back', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const H = '[The throne room — Night, March 3 | 23:10 | cold | armor | before the throne]\n\n';
+  const PROSE = 'The demon prince smiled and said nothing for a long while, and the hall held its breath with him. '.repeat(4) + 'Every ounce of the night\'s patience folding into one committed arc.';
+  const TAIL = '\n\n<npc>\n<the mage>\n<wound>left arm severed (severe, 8m, untreated, arterial)\n<standing>P=-15 (terror-wrapped hatred)\n</the mage>\n<the hero>\n<standing>P=-12 (the paladin, then the arm)\n</the hero>\n</npc>';
+  /* a tale with a page kept before M524, carrying the block */
+  const st = await db.stories.create({ title: 'the throne' });
+  await db.stories.update(st.id, { keeper: false, extraction: false });
+  await db.messages.append(st.id, { role: 'user', text: 'I face the throne.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + PROSE + TAIL });
+  const prior = { story: house.state.storyAnswer };
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await env.ctx.chat.openStory(st.id).catch(() => {});
+    await until(async () => { const p = (await db.messages.list(st.id)).find((m) => m.role === 'assistant'); return p && !/<npc>/.test(p.text); }, 'the kept page mended when the tale opened', 15000);
+    const mended = (await db.messages.list(st.id)).find((m) => m.role === 'assistant');
+    assert(mended.text.endsWith('one committed arc.') && mended.mended && /<npc>/.test(mended.mended.before), 'it ends on its prose, and the words it took are kept for a take-back');
+    /* a page that arrives with one */
+    house.state.storyAnswer = () => H + PROSE + TAIL;
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'I step forward.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 2 && !env.ctx.chat.isBusy(), 'the page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers', 40000);
+    const saved = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    assert(!/<npc>|<standing>|P=-15/.test(saved.text) && saved.text.endsWith('one committed arc.'), 'kept without it');
+    const readers = house.state.calls.slice(from).filter((c) => c.isWorker).map((c) => JSON.stringify(c.body));
+    assert(readers.length && readers.every((b) => !/<standing>P=-15/.test(b)), 'the readers never read it');
+    const from2 = house.state.calls.length;
+    house.state.storyAnswer = () => H + 'The hall waited.';
+    type(q('#composer-input'), 'I wait.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 3 && !env.ctx.chat.isBusy(), 'the next page', 30000);
+    const told = house.state.calls.slice(from2).find((c) => !c.isWorker && Array.isArray(c.body.messages));
+    assert(!/<npc>|<standing>/.test(JSON.stringify(told.body)), 'and the next request carries none of it');
+  } finally {
+    house.state.storyAnswer = prior.story;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();

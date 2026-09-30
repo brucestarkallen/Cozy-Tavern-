@@ -13613,3 +13613,24 @@ is the branch's own, and its first page carries it beside his brief; from the ne
 asked again (fails on m522-001). M43-1 and M72's branch laws read the whole of branchFrom now (the fixed window cut them off
 again). Harness 1073/1073, walk 179/179, long play 8/8, lint 0; twobrowsers and bootpull green; frontier identical (24/24).
 
+# M524-1 — a block of tags after the page
+His report: the end of a page, raw in the editor — "<npc> <the mage> <wound>left arm severed at the shoulder by the demon's
+ring-bite (severe, 8m, untreated, arterial) <standing>P=-15 (…)</the mage> <the priestess> <standing>P=-10 (…)
+</the priestess> <the hero> <standing>P=-12 (…)</the hero></npc>" — and on the page the same words bare; the housekeeper
+found it a second copy of the ledger with its numbers already wrong (priestess -10 where the ledger held -18, hero -12 for
+-17, the arm "8m" old for "just now"), and the people's ARC lines carrying the wrong numbers. His question: the provider, or
+the frontend? Neither the provider's doing: the storyteller invented a tracker in angle brackets (his craft forbids it —
+System Stays Backstage: no tracker blocks; Marks On The Page: nothing after the prose), and the house took off only the
+shapes it already knew ({PULSE}/{WATCHLIST}/{VOICES}, the Plot Momentum block) — so it was saved, read by the readers (who
+copied its numbers into the people's pages) and sent back to the storyteller as its own past page.
+- regex.js TAG_TAIL_SOURCE — one pattern: a block opening with a tag of the storyteller's own making (never real HTML: div,
+  span, p, b, i, table, details…), with tags inside it, standing at the very end of the page. Two house rules on it
+  (builtin-tag-tail at the door, before the page is saved and read; builtin-tag-tail-wire on the older pages sent), and the
+  mend of pages already kept (pageshape.js finishPage — once a build when a tale opens, M488; the words taken kept for a
+  take-back). A block mid-page is left to the eye.
+- people.js withoutStandingNumbers: a standing is the ledger's number — "P=-12 (…)" is left out of what a reader writes to a
+  person's page (apply.js people.note) and out of their card (cardText); words with no such number come back exactly.
+- Laws M524-1…3; walk DOM-180 (a kept page with the block mended on opening, with its take-back; a new page kept without
+  it; the readers and the next request never see it). Harness 1076/1076, walk 180/180, long play 8/8, lint 0; mend_marks
+  green; the frontier request identical (24 of 24).
+

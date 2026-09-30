@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m523-001)
+# Cozy Tavern — handoff for the next session (state at m524-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1474,4 +1474,14 @@ founding design lives in AGENTS.md's first entries.)
   newest page or as his own words; otherwise the branch's world is written again from its own pages (groundNext, force)
   right after it opens. Walk DOM-179 (fails on m522-001). M43 and M72's branch laws now read the whole of branchFrom (a
   fixed 15,000-character window again cut their checks off).
+- M524-1 — A BLOCK OF TAGS AFTER THE PAGE. His page ended "<npc> <the mage> <wound>left arm severed… <standing>P=-15 (…)
+  </the mage> … </npc>" (shown raw in the editor, as bare text on the page); the housekeeper found its numbers already
+  wrong against the ledger, and the people's ARC lines carrying them. Not the provider: the storyteller invented a tracker
+  (the craft forbids it — System Stays Backstage, Marks On The Page), and the house took off only the shapes it knew. Now
+  one pattern (regex.js TAG_TAIL_SOURCE — a block of the storyteller's own tags, with tags inside, at the very end of a
+  page; real HTML a page may carry never taken) is used at the door (house rule, page mode), on the wire (older pages sent)
+  and in the mend of kept pages (pageshape.js finishPage — once a build on opening; the words taken kept for a take-back).
+  And a standing's number is the ledger's alone: people.js withoutStandingNumbers leaves "P=-12" out of what is written to a
+  person's page (people.note) and out of their card (cardText) — exactly as it was when no such number is in the words.
+  Laws M524-1…3; walk DOM-180.
 

@@ -735,7 +735,20 @@ function seriesLookWords(state, name) {
   return out;
 }
 
+/* M524: A STANDING IS THE LEDGER'S NUMBER, NEVER A PAGE'S WORDS. A tracker a storyteller wrote on a page ("<standing>P=-12
+ * (the paladin, then the arm…)") was read into the people's pages as "P=-12 (…)", while the ledger held -17 — two numbers for
+ * one standing, the stale one riding in the card. A standing written as a number inside a person's page (P=, R=, S= with a
+ * signed figure) is left out of what is written and of what the card says; the words beside it stay. */
+const STANDING_NUMBER = /(^|[\s(\[;,])[PRS]\s*[=:]\s*[+\u2212-]?\d{1,3}\b[ \t]*/g;
+export function withoutStandingNumbers(text) {
+  if (text == null || typeof text !== 'string') return text;
+  STANDING_NUMBER.lastIndex = 0;
+  if (!STANDING_NUMBER.test(text)) return text; /* words with no such number come back exactly as they were */
+  STANDING_NUMBER.lastIndex = 0;
+  return text.replace(STANDING_NUMBER, '$1').replace(/\(\s*\)/g, '').replace(/[ \t]+([,.;:)])/g, '$1').replace(/[ \t]{2,}/g, ' ').trim();
+}
 function cardText(name, entry, turn, cap, here = null, lookWords = null) {
+  entry = { ...entry, core: withoutStandingNumbers(entry.core), state: withoutStandingNumbers(entry.state), arc: withoutStandingNumbers(entry.arc), threads: Array.isArray(entry.threads) ? entry.threads.map(withoutStandingNumbers).filter(Boolean) : entry.threads }; /* M524 */
   const core = entry.core ? cardCore(entry.core, lookWords) : '';
   const head = name + (core ? ' — ' + core : '');
   /* M408: never a blank now for someone here — what the ledger knows for certain (where they stand in the scene) until

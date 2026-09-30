@@ -45,7 +45,7 @@ import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TO
 import { seat, findSeat, isDeadSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight } from './duels.js';
-import { setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
+import { withoutStandingNumbers, setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
 import { samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
@@ -1141,7 +1141,8 @@ const HANDLERS = {
    * record-only law, the contamination guard, thread/unthread. One delta
    * per mutation so every write has its own line and its own take-back. */
   'people.note'(state, m) {
-    const { characters, changes, dropped } = mergeDeltas(state, state.characters, [{ name: m.name, field: m.field, text: m.text }], storyTurn(state));
+    const noted = typeof m.text === 'string' ? withoutStandingNumbers(m.text) : m.text; /* M524: a standing's number is the ledger's, never a page's words */
+    const { characters, changes, dropped } = mergeDeltas(state, state.characters, [{ name: m.name, field: m.field, text: noted }], storyTurn(state));
     if (!changes.length) return { why: (dropped[0] && dropped[0].why) || 'the note said nothing new' };
     const key = changes[0].name;
     const before = state.characters && state.characters[key] ? cloneMap({ [key]: state.characters[key] })[key] : null;

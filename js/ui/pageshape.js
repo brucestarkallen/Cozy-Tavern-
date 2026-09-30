@@ -19,6 +19,7 @@
  *      never changed — only brackets, the place the ledger already holds, and white space.
  *   3. a display rule for the five-field header (regex-styles.js), for the one page where nobody knows the place yet.
  * Pure: no store, no DOM. */
+import { TAG_TAIL_SOURCE } from '../regex.js'; /* M524 */
 import { isHeaderLine } from './headergate.js';
 import { normalizeWindowMark, WINDOW_LINE } from '../engine/window.js'; /* M467; M510-34 */
 
@@ -303,6 +304,16 @@ export function finishPage(text, { mc = '' } = {}) {
     }
   }
   let page = lines.join('\n').replace(/\n{3,}/g, '\n\n').replace(/\s+$/, '');
+  /* M524: a block of tags the storyteller invented after the page (<npc> <the mage> <standing>P=-15… </npc>) — the same
+   * pattern as the house's own rule at the door (regex.js TAG_TAIL_SOURCE), here for the pages kept before it */
+  {
+    const tm = new RegExp(TAG_TAIL_SOURCE, 'i').exec(page);
+    if (tm && page.slice(0, tm.index).replace(/\s+/g, ' ').trim().length >= 200) {
+      removed.push(tm[0].trim().slice(0, 900));
+      page = page.slice(0, tm.index).replace(/\s+$/, '');
+      did.push('tags');
+    }
+  }
   const paras = page.split(/\n[ \t]*\n/);
   const taken = [];
   while (paras.length > 1 && taken.length < 4) {

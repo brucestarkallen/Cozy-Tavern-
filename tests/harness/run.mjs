@@ -195,6 +195,7 @@ import './m518.mjs'; /* M518: canon on their own page — the note goes quiet on
 import './m519.mjs'; /* M519: when the sound drowns the story — the brake, the breath, the mirror eased */
 import './m520.mjs'; /* M520: who knows what, unscrambled — no moment in its own subject's book, no hidden act in the room's */
 import './m522.mjs'; /* M522: the auditor can set a shared line right — the longer wording stays, letting go takes the line meant */
+import './m524.mjs'; /* M524: a block of tags after the page — off at the door, the wire and the mend; standings stay the ledger's */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

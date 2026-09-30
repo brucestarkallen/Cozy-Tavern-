@@ -51,6 +51,9 @@ export const VOICE_WORDS = {
   both: 'both voices',
 };
 
+/* M524: one pattern for a block of tags after the page — the door (page), the wire, and the mend of pages already kept */
+export const TAG_TAIL_SOURCE = '\\n*<(?!(?:div|span|p|br|b|i|em|strong|u|s|small|sub|sup|font|table|tr|td|th|thead|tbody|ul|ol|li|img|a|h[1-6]|details|summary|blockquote|pre|code|hr|center|section|article|header|footer|style|script|mark|q|cite|abbr|figure|figcaption|audio|video|source|iframe)\\b)([a-z][\\w-]*)>(?=[\\s\\S]*?<[a-z][\\w -]{0,40}>)[\\s\\S]*?<\\/\\1>\\s*$';
+
 const HOUSE_RULES = [
   {
     id: 'builtin-preset-header',
@@ -89,6 +92,24 @@ const HOUSE_RULES = [
     note: '{PULSE}…{/PULSE}, {WATCHLIST}…{/WATCHLIST} and {VOICES}…{/VOICES} — state the ledger keeps and voices the world agent writes (M97: read in the drawer, never on the page). A storyteller that writes them is copying old pages; they are taken off at the door.',
   },
   {
+    /* M524: A TAG BLOCK AFTER THE PAGE. A storyteller invented its own tracker — "<npc> <the mage> <wound>left arm severed…
+     * <standing>P=-15 (…)</the mage> … </npc>" — at the end of a page: a second copy of the ledger in angle brackets, its
+     * numbers already wrong (P=-10 where the ledger held -18), and the page's readers copied them into the people's pages.
+     * The house took off only the shapes it knew ({PULSE}, the Plot Momentum block). Any block of tags of its own making,
+     * with tags inside it, standing at the very end of a page, is machinery, not prose: gone at the door. HTML a page may
+     * truly carry (a readable-media block, a div, a table) is never taken. */
+    id: 'builtin-tag-tail',
+    name: 'A block of tags after the page',
+    find: TAG_TAIL_SOURCE,
+    flags: 'i',
+    replace: '',
+    on: 'storyteller',
+    mode: 'page',
+    enabled: true,
+    builtin: true,
+    note: 'M524: a tracker a storyteller invents in angle brackets at the end of a page (<npc>, <status>, <stats>… with tags inside) — the ledger keeps all of it; its copy is taken off before the page is saved and read.',
+  },
+  {
     id: 'builtin-bold-marks',
     name: 'Bold marks off the page',
     find: '(?<!\\*)\\*\\*(?!\\*)([^*\\n]{1,200}?)(?<!\\*)\\*\\*(?!\\*)',
@@ -123,6 +144,18 @@ const HOUSE_RULES = [
     enabled: true,
     builtin: true,
     note: 'M106: the same blocks stripped from the pages the storyteller is SENT — old pages that still carry them (from before the house) taught the model to write them again.',
+  },
+  {
+    id: 'builtin-tag-tail-wire',
+    name: 'A block of tags after the page, off the wire',
+    find: TAG_TAIL_SOURCE,
+    flags: 'i',
+    replace: '',
+    on: 'storyteller',
+    mode: 'wire',
+    enabled: true,
+    builtin: true,
+    note: 'M524: the same block taken off the older pages the storyteller is SENT — a page saved with one before M524 would teach it to write another.',
   },
 ];
 
