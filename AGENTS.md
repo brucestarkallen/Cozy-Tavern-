@@ -13410,4 +13410,10 @@ the app asked where in its canon a #story begins; canon verification's story pos
 - Laws M516-1…3; walk DOM-172 (a #story in a fresh tale: the placer asked once, before the first page; the first request
   carries it; Settings shows it; his correction rides instead). Without a canon start the frontier request is identical to
   m511-001 (24 of 24).
+- M516-2: his own Jujutsu Kaisen tale began with a #story before this existed — the app sees a tale whose first message
+  was a #story and no canon start, and places it on its next page, once, from that first #story, before that page is
+  written; the tale's clock already stands (his was set to "Nov 22, 2018"), so the canon date is left out and only what
+  was true then rides. A helper that answers nothing is remembered as tried and asked again after six hours, never on
+  every page. Walk DOM-173 (placed once, on that page, no date; a failed ask not repeated). Harness 1054/1054, walk
+  173/173, long play 8/8, lint 0.
 

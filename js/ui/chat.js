@@ -5274,21 +5274,28 @@ export function initChat(ctx) {
        * series, the arc, the moment, and what was true of that world then (never after). A storyteller that knows every
        * fact writes each person at their strongest memory ("Yuta — abroad") without it. The first page waits for it (up
        * to its ceiling); a failed ask never blocks the page, and a story set in no canon is remembered as such. */
-      if (parsed.kind === 'story' && !parsed.hidden) {
+      /* …and a tale that BEGAN with a #story before this was asked (his Jujutsu Kaisen tale) is placed on its next page, from
+       * that first #story — once; its own clock already stands, so the canon date is left out (the facts are what it lacked) */
+      if (!parsed.hidden && !parsed.ooc) {
         try {
           const key = CANON_START_KEY(story.id);
-          const told = (await db.messages.list(story.id)).some((m) => m && m.role === 'assistant');
-          if (!told && !(await db.settings.get(key))) {
-            const concept = String(text).trim().replace(/^#story\s*/i, '').trim();
+          const pages = await db.messages.list(story.id);
+          const told = pages.some((m) => m && m.role === 'assistant');
+          const opening = parsed.kind === 'story' && !told ? String(text) : (() => { const first = pages.find((m) => m && m.role === 'user' && !m.hidden); const words = first ? String(first.typed || first.text || '') : ''; return /^\s*#story\b/i.test(words) ? words : ''; })();
+          const had = await db.settings.get(key);
+          const due = !had || (had.tried && !had.series && !had.words && !had.none && Date.now() - had.tried > 6 * 3600 * 1000); /* a failed ask is tried again after six hours — never on every page */
+          if (opening && due) {
+            const concept = opening.trim().replace(/^#story\s*/i, '').trim();
             const placer = await resolveWorkerConnection(story, 'founder');
             const { signal, done } = workerSignal(30000);
             showComposerNote('Placing your story in its canon…'); /* the first page waits for it — said, so the wait is not a silence */
             let got = null;
             try { got = await placeInCanon({ connection: placer, concept, brief: story.brief || '', signal }); } finally { done(); hideComposerNote(); }
             if (got && got.start) {
-              await db.settings.set(key, { ...got.start, at: Date.now() });
+              await db.settings.set(key, { ...got.start, ...(told ? { when: '' } : {}), at: Date.now() });
               toast('Placed in ' + got.start.series + (got.start.arc ? ' — ' + got.start.arc : '') + '. Settings → This story shows it, and takes a correction.');
             } else if (got && got.none) await db.settings.set(key, { none: true, at: Date.now() });
+            else await db.settings.set(key, { tried: Date.now() }); /* no answer: not asked again on the next page */
           }
         } catch (err) { /* the page goes on without it */ }
       }

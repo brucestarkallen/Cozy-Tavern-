@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m516-001)
+# Cozy Tavern — handoff for the next session (state at m516-002)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1358,4 +1358,8 @@ founding design lives in AGENTS.md's first entries.)
   Settings → This story shows it and keeps his correction (his words then ride as written; emptied and kept, nothing).
   Laws M516-1…3; walk DOM-172 (asked once before the first page, carried, corrected). The walk's house knows the placer
   ("place a story in its canon") is a helper.
+- M516-2 — a tale that BEGAN with a #story before M516 (his Jujutsu Kaisen tale) is placed on its next page, once, from
+  that first #story (its typed words), before that page; its own clock already stands, so the canon date is left out. A
+  helper that gives nothing is remembered as tried (canonStart {tried}) and asked again only after six hours — never on
+  every page. Walk DOM-173.
 

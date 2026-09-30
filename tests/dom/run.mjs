@@ -7160,6 +7160,43 @@ test('DOM-172 WHERE OUR STORY BEGAN IN CANON, IN THE APP (M516 — his word: "#s
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-173 A TALE BEGUN WITH #STORY BEFORE M516 IS PLACED ON ITS NEXT PAGE (his Jujutsu Kaisen tale): once, from its first #story, before that page — its own clock left alone (no canon date) — and a helper that gives nothing is not asked again on the next page', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { CANON_START_KEY } = await import('../../js/agents/canonstart.js');
+  const st = await db.stories.create({ title: 'an older culling game' });
+  await db.messages.append(st.id, { role: 'user', text: 'jujutsu kaisen Jovan parries the blow meant for Yuki', typed: '#story jujutsu kaisen Jovan parries the blow meant for Yuki' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[Tengen\'s barrier — Thursday, November 22, 2018 | 23:50 | cold | haori | before Yuki]\n\nSteel rang.' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  let asked = 0; let answer = 'place';
+  house.state.storyAnswer = () => '[Tengen\'s barrier — Thursday, November 22, 2018 | 23:52 | cold | haori | before Yuki]\n\nYuki stared at him.';
+  house.state.workerAnswer = (body, sys) => {
+    if (/You place a story in its canon/.test(String(sys || ''))) { asked += 1; return answer === 'place' ? JSON.stringify({ canon: true, series: 'Jujutsu Kaisen', arc: 'Culling Game arc', moment: 'Kenjaku attacks Tengen\'s barrier', when: 'December 2018', facts: ['Yuta Okkotsu is back in Japan.'] }) : 'no idea'; }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+  };
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); return house.state.calls.slice(from); };
+  try {
+    const calls = await send('I ask Yuki where Yuta is.');
+    eq(asked, 1, 'placed once, from its first #story');
+    const wire = JSON.stringify(calls.find((c) => !c.isWorker).body.messages);
+    assert(/Where our story began in Jujutsu Kaisen: Culling Game arc — Kenjaku attacks Tengen's barrier\./.test(wire) && /Yuta Okkotsu is back in Japan/.test(wire) && !/December 2018/.test(wire), 'on that very page, its own clock left alone');
+    await send('I keep my blade up.');
+    eq(asked, 1, 'never asked again');
+    /* a helper that answers nothing: remembered as tried, not asked on every page */
+    await db.settings.delete(CANON_START_KEY(st.id));
+    answer = 'nothing';
+    await send('I watch Kenjaku.');
+    await send('I step closer.');
+    eq(asked, 2, 'a failed ask is not repeated page after page');
+    assert((await db.settings.get(CANON_START_KEY(st.id))).tried, 'remembered as tried');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();
