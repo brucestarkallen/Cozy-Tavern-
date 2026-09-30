@@ -13495,3 +13495,18 @@ connection's penalties (they cannot outweigh an instruction to put a sound in ev
 - Gates: harness 1067/1067, walk 176/176, long play 8/8, lint 0 errors (170 warnings, as before); the frontier request
   identical (24 of 24).
 
+# M519-2 — his story as it stands
+His question: "so I just try the next scene (scene 6)?" Traced on his own story before answering: its five drowned pages
+were written before M519, so no texture was ever measured or kept for them, and m519-001 decided "too loud" only from what
+keepTexture had kept after each new page — scene 6 would have gone out with the old demand. Walk DOM-177 reproduces it (five
+loud pages from before the brake, nothing kept) and failed on m519-001: the closing still asked for a sound in every
+paragraph and carried his "High Intensity Scenes" law with its dash-strung example ("He thrust deeper—"AHH—!"—her nails…").
+- chat.js: "too loud" is judged at send time from the last three pages the model is about to read (pageTexture), with the
+  kept decision as the hold.
+- smallprose.js tooLoud: only a loud newest page can set it off (newest past 1.5× the band, or past the band with another
+  of the last three); older loud pages alone never re-trigger it once a clean page released it.
+- planwords.js renderSounds: while too loud, the breath rides alone — his sound laws wait until the pages are back inside
+  the band.
+- Laws M519-2/4 extended; DOM-176 and DOM-177. Harness 1067/1067, walk 177/177, long play 8/8, lint 0; frontier request
+  identical (24 of 24).
+

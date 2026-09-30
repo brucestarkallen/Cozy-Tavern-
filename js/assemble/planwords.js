@@ -46,7 +46,7 @@ export function breathWords() {
   return 'The last pages drowned in sounds and dashes, and the telling went under them. This page breathes: whole, plain sentences carry it; a sound only where a blow truly lands or a cry truly breaks — once, never strung out; a dash only where a voice truly breaks off.';
 }
 export function renderSounds(plan, { voice = null, laws = '', wentQuiet = false, tooLoud = false } = {}) {
-  if (tooLoud) { const said = voice && voice.teller ? toTeller(breathWords(), voice) : breathWords(); return [said, laws].filter((t) => String(t || '').trim()).join('\n'); }
+  if (tooLoud) return voice && voice.teller ? toTeller(breathWords(), voice) : breathWords(); /* M519-2: the breath alone — his sound laws ("braided in the same sentences via em-dashes", with their dash-strung example) wait until the pages are back inside the band */
   const out = [];
   if (wentQuiet) out.push('The last page went quiet where it should have been heard — not this one.');
   /* M510-4: "stifled, bitten back, half-escaped" was written back to him as a page of lone "Mmf—" and "Ah—": muffled is

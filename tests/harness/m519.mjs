@@ -23,6 +23,8 @@ test('M519-2 THE BRAKE, WITH ITS HOLD: the newest page far past the band, or two
   const mild = { soundPer100: SOUND_BAND + 1, dashPer100: 1 };
   eq(tooLoud([p, p, mild]), false, 'one page a little past it is not');
   eq(tooLoud([p, mild, mild]), true, 'two of three a little past it are');
+  eq(tooLoud([mild, mild, p]), false, 'a clean newest page does not set it off, whatever came before');
+  eq(tooLoud([s, s, p]), false, 'nor after a drowned stretch, once released');
   eq(tooLoud([s, s, { soundPer100: SOUND_BAND * 0.8, dashPer100: 1 }], { wasLoud: true }), true, 'held: a page just under the band does not release it');
   eq(tooLoud([s, s, p], { wasLoud: true }), false, 'released: a page well inside the band');
 });
@@ -41,6 +43,8 @@ test('M519-4 THE BREATH, NOT A SOUND IN EVERY PARAGRAPH: too loud, the heated pa
   const plan = { intense: true, loud: true, sounds: ['"Hah—HAH—"', '*CLANG*'] };
   const normal = renderSounds(plan, {});
   assert(/Every paragraph: a voiced line that stretches or repeats/.test(normal) && /The sounds here/.test(normal), 'not too loud: his heated page as before');
-  const breath = renderSounds(plan, { tooLoud: true });
+  const breath = renderSounds(plan, { tooLoud: true, laws: 'High Intensity Scenes = action, sound, dialogue braided in the same sentences via em-dashes' });
   assert(breath.startsWith(breathWords()) && !/Every paragraph/.test(breath) && !/The sounds here/.test(breath), 'too loud: the breath');
+  assert(!/braided in the same sentences via em-dashes/.test(breath), 'and his sound laws wait until the pages are back inside the band (M519-2)');
+  assert(/braided in the same sentences via em-dashes/.test(renderSounds(plan, { laws: 'High Intensity Scenes = action, sound, dialogue braided in the same sentences via em-dashes' })), 'not too loud: they ride as before');
 });

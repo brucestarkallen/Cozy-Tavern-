@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m519-001)
+# Cozy Tavern — handoff for the next session (state at m519-002)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1407,4 +1407,11 @@ founding design lives in AGENTS.md's first entries.)
   asterisked sound once, a run of sound-only lines one, one pure sound a paragraph, a dash-strung sentence its first dash
   — speech and ordinary prose exactly as written). His stored pages are never touched. Laws M519-1…4; walk DOM-176 (his
   test: five drowned scenes, then the sixth request; a clean sixth page gives the seventh his heated page again).
+- M519-2 — his story as it stands. Asked "so I just try scene 6?", the brake was traced on HIS story: its five loud pages
+  were written before the brake existed, so nothing was measured or kept, and m519-001 (deciding from what keepTexture
+  had kept) would have sent scene 6 the old "every paragraph" demand. Now the send path judges from the very pages the
+  model is about to read (the last three), with the kept decision as the hold; tooLoud is set off only by a loud newest
+  page (older loud pages alone never re-trigger it once released); and while braked the breath rides ALONE — his sound
+  laws ("action, sound, dialogue braided in the same sentences via em-dashes", with a dash-strung example) wait until the
+  pages are back inside the band. Walk DOM-177 (fails on m519-001).
 

@@ -7384,6 +7384,7 @@ test('DOM-176 FIVE SCENES DROWNED IN SOUNDS AND DASHES, THEN THE SIXTH (M519 —
     const closing = String(msgs[msgs.length - 1].content);
     assert(!/Every paragraph: a voiced line that stretches or repeats/.test(closing), 'the sixth is not asked for a sound in every paragraph');
     assert(/This page breathes: whole, plain sentences carry it/.test(closing), 'it is told to breathe');
+    assert(!/braided in the same sentences via em-dashes/.test(closing), 'his sound laws wait while it is too loud');
     assert(/How our story reads when it is right:\nBIG-VOICE The noon wind/.test(closing), 'and shown the story as it reads when it is right');
     const read = msgs.filter((m) => m.role === 'assistant').map((m) => String(m.content)).filter((t) => /Zaraki lunged/.test(t));
     const was = pageTexture(SPAM(1));
@@ -7393,6 +7394,52 @@ test('DOM-176 FIVE SCENES DROWNED IN SOUNDS AND DASHES, THEN THE SIXTH (M519 —
     const seventh = await send('I hold.');
     const closing7 = String(seventh.body.messages[seventh.body.messages.length - 1].content);
     assert(/Every paragraph: a voiced line that stretches or repeats/.test(closing7) && !/This page breathes/.test(closing7), 'the sixth came back clean: the seventh is his heated page again');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.connections.update(activeId, { smallModel: null });
+    await env.ctx.chat.refreshQuickSwitch();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-177 HIS STORY AS IT STANDS (M519-2): five drowned pages written BEFORE the brake existed (nothing measured, nothing kept) — the very next page is braked, judged from the pages it is about to read', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { PLAN_KEY } = await import('../../js/agents/planner.js');
+  const st = await db.stories.create({ title: 'an older loud yard' });
+  await db.stories.update(st.id, { keeper: false, extraction: false });
+  const Hd = (i) => '[The courtyard — Monday, March 3, 2025 | 12:' + String(10 + i).padStart(2, '0') + ' | noon | haori | at the rail]\n\n';
+  const SPAM = (i) => Hd(i) + ('Zaraki lunged—steel—steel—steel—and Jovan met it. *CLANG* *CLANG* *CLANG* "Hah—HAH—hah—HAH—hah—!" Zaraki roared—roared—roared, and the yard shook.\n\n"Nngh—ahh—AHHH—" Jovan gritted—gritted—his teeth. *thud* *thud* *thud*\n\n"Gkh—!"\n\n"Hah—!"\n\n"Ahh—!"\n\n').repeat(3) + 'Page ' + i + '.';
+  for (let i = 0; i < 5; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'I strike, move ' + i + '.' }); await db.messages.append(st.id, { role: 'assistant', text: SPAM(i) }); }
+  const ledger = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the courtyard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Zaraki' }]).state;
+  await saveState(st.id, { ...ledger, page: 5, readTo: 5, tidiedGen: 999 });
+  const PLAN = { scene: 'The duel.', people: [{ name: 'Zaraki', now: 'swinging', wants: 'a real fight', against: '' }], unknown: [], pressing: [], earlier: [], laws: ['MC Agency'], intense: true, loud: true, sounds: ['"Hah—HAH—"'], leaveTo: 'what Jovan does', story: 'Jovan duels Zaraki.' };
+  /* a plan kept for the newest page, as the helper would have left it — and no texture, no decision: nothing was measured */
+  const last = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+  const { planKey } = await import('../../js/agents/planner.js');
+  await db.settings.set(PLAN_KEY(st.id), { plans: { [planKey(last)]: { plan: PLAN, at: Date.now(), hash: '' } }, lastSound: null });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  house.state.storyAnswer = () => Hd(30) + 'Jovan stepped inside the arc of the blade and let it pass.';
+  house.state.workerAnswer = (body, sys) => (/You prepare a storyteller for the next page/.test(String(sys || '')) ? JSON.stringify(PLAN) : (typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}')));
+  const activeId = await tellerConnectionId();
+  try {
+    await db.connections.update(activeId, { smallModel: true });
+    await env.ctx.chat.refreshQuickSwitch();
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'I press the attack.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > 5 && !env.ctx.chat.isBusy(), 'the sixth page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers', 40000);
+    const told = house.state.calls.slice(from).find((c) => !c.isWorker);
+    const closing = String(told.body.messages[told.body.messages.length - 1].content);
+    assert(/What I have in mind for this page/.test(JSON.stringify(told.body.messages)), 'the small storyteller\'s request (its plan)');
+    assert(/This page breathes/.test(closing) && !/Every paragraph: a voiced line/.test(closing), 'braked on the very next page: ' + closing.slice(-300));
+    assert(!/braided in the same sentences via em-dashes/.test(closing), 'his sound laws, with their dash-strung example, wait while it is too loud');
+    assert(!JSON.stringify(told.body.messages).includes('roared—roared—roared'), 'and it reads its own pages eased');
   } finally {
     house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
     await db.connections.update(activeId, { smallModel: null });

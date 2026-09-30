@@ -230,7 +230,7 @@ export function tooLoud(textures, { wasLoud = false } = {}) {
   if (!list.length) return false;
   const newest = list[list.length - 1];
   if (wasLoud) return past(newest, 0.7); /* it eases only when the newest page is well back inside the band */
-  return past(newest, 1.5) || list.filter((x) => past(x)).length >= 2;
+  return past(newest, 1.5) || (past(newest) && list.filter((x) => past(x)).length >= 2); /* a clean newest page never sets it off — older loud pages alone do not */
 }
 
 export function calmPage(text) {

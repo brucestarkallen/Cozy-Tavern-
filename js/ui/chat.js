@@ -4510,7 +4510,14 @@ export function initChat(ctx) {
         smallPlan = await loadPlan(story.id, planKey(before)); /* M510-6: the plan of the page this follows, mended or not */
         smallIntense = heatedNow(selected, state, userText); /* M510-3: from what woke (his own imported rules too) and the ledger's own intimate mode; M510-7: his words starting a fight */
         lastSound = ((await loadPlans(story.id)) || {}).lastSound || null;
-        loudNow = ((await loadPlans(story.id)) || {}).loud === true; /* M519 */
+        /* M519-2: judged from the very pages it is about to read, not only from what was measured after each new page — a story
+         * whose loud pages were written before the brake existed (his, five scenes in) is braked on its very next page */
+        {
+          const keptPlans = (await loadPlans(story.id)) || {};
+          const recentTold = visiblePages(history).filter((m) => m && m.role === 'assistant' && !m.ooc).slice(-3);
+          const textures = recentTold.map((m) => { const t = pageTexture(pageText(m)); return { soundPer100: t.soundPer100, dashPer100: t.dashPer100 }; });
+          loudNow = tooLoudNow(textures, { wasLoud: keptPlans.loud === true });
+        }
         /* M512: A PASSAGE OF THE STORY AT ITS BEST — the newest page a big storyteller wrote (older than the pages sent
          * whole); a page's receipt says which (small, from M512; before it, the model named, or the plan it rode with) */
         try {
