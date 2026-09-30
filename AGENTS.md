@@ -13389,3 +13389,25 @@ Bend… — all in his craft, none ever guaranteed), so each model's own lean de
   the small storyteller through the send button. M512-2's example of a law only a scene adds is now Symmetry Law
   (Character Gravity rides on every small page).
 
+# M516-1 — where our story began in canon
+His word, with Kimi K3 (which answers "who does Yuta fight in Sendai?" rightly): "#story jujutsu kaisen — Jovan Oda… he
+sees Yuki about to die, parries it, and stands in front of her. It confuses every timeline: Yuta abroad, the Zenin clan not
+destroyed by Maki." A known fact with the wrong timestamp: asked alone, a model places the moment; writing a scene, it
+reaches for each person's strongest memory ("Yuta — studying abroad"), and the page reader then writes the wrong date into
+the ledger as canon (his storyteller's thinking: "Nov 22, 2018… the Culling Game hasn't been announced yet"). Nothing in
+the app asked where in its canon a #story begins; canon verification's story position is off unless switched on and set.
+- agents/canonstart.js: one question, asked alone, when a #story opens a tale with no page yet (before the first page, on
+  the founder's connection, up to 30 seconds — "Placing your story in its canon…"; a failure never blocks the page):
+  the series, the arc, the moment, the canon date, and up to twenty facts TRUE AT THAT MOMENT — above all the states that
+  changed earlier and a storyteller might still picture the old way (back from abroad, a clan wiped out, a seal, a death),
+  never anything after the moment, never his own character, nothing canon does not establish.
+- Kept per tale (canonStart:<id>; {none} for a story set in no canon, so it is never asked again). It rides in the notes
+  beside canon's note — every page, every storyteller, big and small — on its own row, "Where our story began", as his
+  own note: "Where our story began in Jujutsu Kaisen: Culling Game arc — … (December 2018). By then, in canon: … Nothing in
+  canon after this moment has happened here — from it on, only our own pages decide."
+- Settings → This story → "Where our story began" shows it and keeps his correction (his words ride as he wrote them;
+  emptied and kept, nothing rides), kept like his other boxes when he leaves the room.
+- Laws M516-1…3; walk DOM-172 (a #story in a fresh tale: the placer asked once, before the first page; the first request
+  carries it; Settings shows it; his correction rides instead). Without a canon start the frontier request is identical to
+  m511-001 (24 of 24).
+

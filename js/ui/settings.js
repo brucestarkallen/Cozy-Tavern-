@@ -51,6 +51,7 @@ import { VERSION } from '../version.js';
 import { loadRules, saveRules, tryRule, applyRules, builtinOriginal, importSillyTavernRegex, MODE_WORDS, VOICE_WORDS } from '../regex.js'; /* M30: the regex shelf; M31: bring your SillyTavern regex */
 import { pageText } from '../assemble/stack.js';
 import { renderUsage } from './usage.js'; /* M457 */
+import { CANON_START_KEY, canonStartWords } from '../agents/canonstart.js'; /* M516: where our story began in its canon */
 
 let workerRowsGeneration = 0;
 
@@ -174,6 +175,7 @@ export function initSettings(ctx) {
     noteStory: document.getElementById('note-story'),
     noteStoryName: document.getElementById('note-story-name'),
     briefStory: document.getElementById('brief-story'),
+    canonStart: document.getElementById('canon-start-story'), /* M516 */
     briefFromConcept: document.getElementById('btn-brief-from-concept'), /* M479 */
     conceptToBrief: document.getElementById('concept-to-brief'), /* M479 */
     briefStoryName: document.getElementById('brief-story-name'),
@@ -1128,7 +1130,7 @@ export function initSettings(ctx) {
    * whose kept value was changed by another hand while Settings stood open (a housekeeper card on the brief, a name
    * the ripple carried), which a stale box must not write back over */
   const typedBoxes = new Set();
-  for (const box of [els.frameGlobal, els.noteGlobal, els.frameStory, els.noteStory, els.briefStory, els.castStory]) {
+  for (const box of [els.frameGlobal, els.noteGlobal, els.frameStory, els.noteStory, els.briefStory, els.castStory, els.canonStart]) {
     if (box) box.addEventListener('input', () => typedBoxes.add(box));
   }
   /* a box he kept with its own button is no draft any more (a later change by another hand is then drawn, never
@@ -1139,7 +1141,7 @@ export function initSettings(ctx) {
     if (btn && box) btn.addEventListener('click', () => { copyToClipboard(box.value || '', btn); });
   }
   for (const [id, boxes] of [['btn-save-frame', [els.frameGlobal]], ['btn-save-note', [els.noteGlobal]], ['btn-save-frame-story', [els.frameStory]],
-    ['btn-save-note-story', [els.noteStory]], ['btn-save-brief', [els.briefStory]], ['btn-save-cast', [els.castStory]]]) {
+    ['btn-save-note-story', [els.noteStory]], ['btn-save-brief', [els.briefStory]], ['btn-save-cast', [els.castStory]], ['btn-save-canon-start', [els.canonStart]]]) {
     const button = document.getElementById(id);
     if (button) button.addEventListener('click', () => { for (const b of boxes) typedBoxes.delete(b); });
   }
@@ -1154,6 +1156,7 @@ export function initSettings(ctx) {
         [els.noteStory, async () => (story && story.noteOverride) || '', 'btn-save-note-story', same],
         [els.briefStory, async () => (story && story.brief) || '', 'btn-save-brief', same],
         [els.castStory, async () => (story && story.castNotes) || '', 'btn-save-cast', same],
+        [els.canonStart, async () => (story ? canonStartWords(await db.settings.get(CANON_START_KEY(story.id))) : ''), 'btn-save-canon-start', same], /* M516 */
       ];
       const pressed = new Set();
       for (const [box, kept, id, mine] of boxes) {
@@ -1206,6 +1209,7 @@ export function initSettings(ctx) {
     if (!drafting(els.noteStory)) els.noteStory.value = (story && story.noteOverride) || '';
     if (!drafting(els.briefStory)) els.briefStory.value = (story && story.brief) || '';
     if (!drafting(els.castStory)) els.castStory.value = (story && story.castNotes) || '';
+    if (els.canonStart && !drafting(els.canonStart)) els.canonStart.value = story ? canonStartWords(await db.settings.get(CANON_START_KEY(story.id))) : ''; /* M516 */
     const hasStory = Boolean(story);
     els.frameStory.disabled = !hasStory;
     els.noteStory.disabled = !hasStory;
@@ -1233,6 +1237,7 @@ export function initSettings(ctx) {
     document.getElementById('btn-save-frame-story').disabled = !hasStory;
     document.getElementById('btn-save-note-story').disabled = !hasStory;
     document.getElementById('btn-save-brief').disabled = !hasStory;
+    document.getElementById('btn-save-canon-start').disabled = !hasStory; if (els.canonStart) els.canonStart.disabled = !hasStory; /* M516 */
     document.getElementById('btn-save-cast').disabled = !hasStory;
     sayPerson(); /* M334 */
   }
@@ -1295,6 +1300,15 @@ export function initSettings(ctx) {
     await db.stories.update(story.id, { brief: els.briefStory.value });
     flash('brief-saved');
     await briefChanged(story, before, els.briefStory.value);
+  });
+  /* M516: where our story began in its canon — his words stand as he writes them; emptied and kept, nothing rides */
+  document.getElementById('btn-save-canon-start').addEventListener('click', async () => {
+    const story = await activeStory();
+    if (!story) return;
+    const words = String(els.canonStart.value || '').trim();
+    if (words) await db.settings.set(CANON_START_KEY(story.id), { words, by: 'writer', at: Date.now() });
+    else await db.settings.set(CANON_START_KEY(story.id), { none: true, by: 'writer', at: Date.now() });
+    flash('canon-start-saved');
   });
   document.getElementById('btn-save-cast').addEventListener('click', async () => {
     const story = await activeStory();

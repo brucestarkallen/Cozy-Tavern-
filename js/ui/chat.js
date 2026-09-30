@@ -86,6 +86,7 @@ import { pickRecall } from '../agents/recallpick.js'; /* M510-50: smart recall *
 import { runPlans, loadPlansBook } from '../agents/plans.js'; /* M510-22: the plans, kept whole until carried out */
 import { lastPagesOf, SMALL_PAGES } from '../assemble/stack.js'; /* M510 */
 import { voiceSampleOf } from '../assemble/smallprose.js'; /* M512: how the story sounds at its best, for a small storyteller */
+import { CANON_START_KEY, placeInCanon, canonStartWords } from '../agents/canonstart.js'; /* M516: where our story began in its canon */
 import { renderStateFacts as planFacts, stateView as planStateView } from '../engine/state.js'; /* M510: what the helper reads */
 import { renderPeopleTiers as planPeople, peopleView as planPeopleView } from '../engine/people.js'; /* M510 */
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
@@ -4414,6 +4415,7 @@ export function initChat(ctx) {
       /* M510: THE SMALL REQUEST'S PLAN — the one the helper made after the page this turn follows (Try again finds the
        * plan for the page before the one it replaces); none yet → the whole request goes, as before */
       let smallPlan = null; let smallIntense = false; let lastSound = null; let smallEssentials = null; let smallPlansBook = null; let voiceSample = null; /* M512 */
+      const canonStartNow = canonStartWords(await db.settings.get(CANON_START_KEY(story.id))); /* M516: where our story began in its canon */
       if (settingsValues.smallModelNow === true) {
         const before = [...visiblePages(history)].reverse().find((m) => m && m.role === 'assistant' && !m.ooc && pageText(m).trim());
         smallPlan = await loadPlan(story.id, planKey(before)); /* M510-6: the plan of the page this follows, mended or not */
@@ -4460,7 +4462,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, /* M510; M510-15; M510-22; M510-50; M512; M513 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: canonStartNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516 */
         sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       }).receipt;
@@ -4508,7 +4510,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         canonNote, /* M346: canon verification's note, at the top of the briefing */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, /* M510; M510-15; M510-22; M510-50; M512; M513 */
+        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: canonStartNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516 */
         sensorNote, /* M356: the sensors' one line, in the closing words */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
@@ -5266,6 +5268,29 @@ export function initChat(ctx) {
         /* M21: the shelf preview follows the newest page, even before the
          * storyteller answers. */
         await refreshPreview(story.id);
+      }
+
+      /* M516: WHERE OUR STORY BEGAN IN CANON — asked once, alone, when a #story opens a tale that has no page yet: the
+       * series, the arc, the moment, and what was true of that world then (never after). A storyteller that knows every
+       * fact writes each person at their strongest memory ("Yuta — abroad") without it. The first page waits for it (up
+       * to its ceiling); a failed ask never blocks the page, and a story set in no canon is remembered as such. */
+      if (parsed.kind === 'story' && !parsed.hidden) {
+        try {
+          const key = CANON_START_KEY(story.id);
+          const told = (await db.messages.list(story.id)).some((m) => m && m.role === 'assistant');
+          if (!told && !(await db.settings.get(key))) {
+            const concept = String(text).trim().replace(/^#story\s*/i, '').trim();
+            const placer = await resolveWorkerConnection(story, 'founder');
+            const { signal, done } = workerSignal(30000);
+            showComposerNote('Placing your story in its canon…'); /* the first page waits for it — said, so the wait is not a silence */
+            let got = null;
+            try { got = await placeInCanon({ connection: placer, concept, brief: story.brief || '', signal }); } finally { done(); hideComposerNote(); }
+            if (got && got.start) {
+              await db.settings.set(key, { ...got.start, at: Date.now() });
+              toast('Placed in ' + got.start.series + (got.start.arc ? ' — ' + got.start.arc : '') + '. Settings → This story shows it, and takes a correction.');
+            } else if (got && got.none) await db.settings.set(key, { none: true, at: Date.now() });
+          }
+        } catch (err) { /* the page goes on without it */ }
       }
 
       await generate({ directive: parsed.directive, ooc: parsed.ooc });

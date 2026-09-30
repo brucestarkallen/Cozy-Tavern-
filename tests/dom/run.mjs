@@ -7116,6 +7116,50 @@ test('DOM-171 THE PEOPLE OF A #STORY OPENING GET THEIR PAGES BY THEMSELVES (M514
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-172 WHERE OUR STORY BEGAN IN CANON, IN THE APP (M516 — his word: "#story jujutsu kaisen … it confuses every timeline: Yuta abroad, the Zenin clan not destroyed by Maki"): a #story opening a fresh tale asks the helper once, alone, before the first page; the storyteller\'s first request carries the moment and what was true then; Settings shows it and his correction rides instead', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'the culling game' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  const order = [];
+  house.state.storyAnswer = () => { order.push('storyteller'); return '[Tengen\'s barrier — December 2018 | 23:50 | cold | haori | before Yuki]\n\nSteel met cursed energy an inch from her throat.'; };
+  house.state.workerAnswer = (body, sys) => {
+    if (/You place a story in its canon/.test(String(sys || ''))) { order.push('placer'); return JSON.stringify({ canon: true, series: 'Jujutsu Kaisen', arc: 'Culling Game arc', moment: 'Kenjaku attacks Tengen\'s barrier as Yuki Tsukumo stands against him', when: 'December 2018', facts: ['Yuta Okkotsu is back in Japan and has fought in the Sendai Colony.', 'The Zenin clan was wiped out by Maki Zenin after Shibuya.'] }); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+  };
+  const from = house.state.calls.length;
+  try {
+    type(q('#composer-input'), '#story jujutsu kaisen Jovan Oda — he sees Yuki about to die and parries it');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the opening page', 40000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000);
+    eq(order.slice(0, 2).join(' → '), 'placer → storyteller', 'asked once, before the first page');
+    const told = house.state.calls.slice(from).find((c) => !c.isWorker);
+    const wire = JSON.stringify(told.body.messages);
+    assert(/Where our story began in Jujutsu Kaisen: Culling Game arc — Kenjaku attacks Tengen/.test(wire) && /Yuta Okkotsu is back in Japan/.test(wire) && /Zenin clan was wiped out by Maki/.test(wire), 'the first request carries the moment and what was true then');
+    await openSettings();
+    await until(() => /Where our story began in Jujutsu Kaisen/.test(q('#canon-start-story').value), 'Settings shows it', 5000);
+    q('#canon-start-story').value = 'Where our story began: the Culling Game, after Sendai — HIS-CORRECTION.';
+    click(q('#btn-save-canon-start'));
+    await tick(150);
+    await closeSettings();
+    const from2 = house.state.calls.length;
+    type(q('#composer-input'), 'I keep my blade up.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 2 && !env.ctx.chat.isBusy(), 'the second page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000);
+    const told2 = house.state.calls.slice(from2).find((c) => !c.isWorker);
+    const wire2 = JSON.stringify(told2.body.messages);
+    assert(/HIS-CORRECTION/.test(wire2) && !/Kenjaku attacks Tengen/.test(wire2), 'his correction rides instead');
+    eq(order.filter((o) => o === 'placer').length, 1, 'asked once — never again on the pages after');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();

@@ -614,7 +614,7 @@ export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRE
 /* M510-20: every part the house can send, in the order it rides — the receipt names each one every page */
 /* M510-55: in the order the request is sent now — the system's blocks, then the notes (canon, our story so far, the
  * plans, the people, the state of things, the rest), the pages, his move, the closing */
-export const EVERY_ROW = ['The frame', 'The craft', 'The story’s voice', 'The brief', 'Who’s here', 'Active modules', 'What canon says', 'The story in short', 'Story essentials', 'What remains', 'Who’s here, in the recent pages', 'Earlier moments, in full', 'Plans standing', 'On their mind', 'The state of things', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The pages, word for word', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
+export const EVERY_ROW = ['The frame', 'The craft', 'The story’s voice', 'The brief', 'Who’s here', 'Active modules', 'Where our story began', 'What canon says', 'The story in short', 'Story essentials', 'What remains', 'Who’s here, in the recent pages', 'Earlier moments, in full', 'Plans standing', 'On their mind', 'The state of things', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The pages, word for word', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
 function emptyWhy(name, c) {
   const noPlan = 'no plan was ready for this page — it went as the full request';
   switch (name) {
@@ -630,6 +630,7 @@ function emptyWhy(name, c) {
     case 'The plan for this page': return !c.small ? 'small model only — the planning helper writes one for a small storyteller' : noPlan + ', with the scene said once more';
     case 'The sounds': return !c.small ? 'small model only — on a heated page' : !c.planned ? noPlan + ', with the whole craft' : 'a calm page — no sound laws needed';
     case 'On their mind': return 'no one’s page to show — the ledger has no one in it yet';
+    case 'Where our story began': return 'not a story set in an existing canon — or it began before a #story asked where (it asks once, when a #story opens the tale)';
     case 'What canon says': return 'canon verification is off';
     case 'The sensors’ word': return 'nothing from the sensors — off, or nothing drifting';
     case 'The world’s word': return 'nothing from the world agent — off, or nothing new out of sight';
@@ -712,6 +713,7 @@ export function buildRequest({
   recallPicked = [], /* M510-50: the ids of the older record lines the smart recall named for this page */
   voiceSample = null, /* M512: a passage of the story at its best ({text}) — for a small storyteller only */
   refereeWhy = '', /* M513: why the referee settled nothing this page — its receipt row says it */
+  canonStart = '', /* M516: where our story began in its canon, and what was true then — his note, every page */
 }) {
   const safeStory = story || {};
   const safeSettings = settings || {};
@@ -1004,6 +1006,11 @@ export function buildRequest({
   /* M356: the sensors' one line — what the readings noticed drifting, said as the writer would say it, once */
   const sensorLine = typeof sensorNote === 'string' && sensorNote.trim() ? toTeller(sensorNote.trim(), voice) : '';
   const canonText = typeof canonNote === 'string' && canonNote.trim() ? canonNote.trim().replace(/^[^\n]{0,42}'s note — /, '').replace(/^./, (c) => c.toUpperCase()) : '';
+  /* M516: WHERE OUR STORY BEGAN IN CANON — the moment a #story began at, and what was true of that world then (asked
+   * once, alone: agents/canonstart.js). A storyteller that knows every fact still writes each person at their strongest
+   * memory ("Yuta — abroad"); this is the timestamp. It rides for every storyteller, big or small, beside canon's note. */
+  const canonStartText = typeof canonStart === 'string' ? canonStart.trim() : '';
+  if (canonStartText) stateParts.push(canonStartText);
   if (canonText) stateParts.push(canonText);
   /* M281: THE PEOPLE RIDE. The character ledger's block was built, and counted
    * on the receipt as "On their mind", since M12 — and never put in the
@@ -1216,6 +1223,7 @@ export function buildRequest({
     const called = earlierCalled ? earlierCalled + (earlierCalled === 1 ? ' older line' : ' older lines') + ' your newest move brings up' + (recallSmart ? ' (' + recallSmart + ' of them named by the smart recall for what your move means)' : '') : '';
     pushSlot('Earlier moments, in full', earlierRows, (hybridB ? 'sent inside “Our story so far” as “In full, earlier moments that matter now”: ' : 'sent inside “Our story so far” as “In full, earlier moments with the people here”: ') + [ofPeople, called].filter(Boolean).join('; and '), presentRecord && presentRecord.who ? presentRecord.who.join(', ') : '');
   }
+  if (canonStartText) pushSlot('Where our story began', canonStartText, 'the helper placed your #story in its canon — the moment, and what was true of that world then; Settings → This story to correct it');
   if (canonText) pushSlot('What canon says', canonText, 'canon verification — the series’ wiki on the canon people in this scene');
   else if (canonOn) pushSlot('What canon says', '', '', canonWhy || 'canon verification gave no note this turn');
   if (sensorLine) pushSlot('The sensors’ word', sensorLine, 'what the readings noticed drifting — one line, once'); /* M356 */

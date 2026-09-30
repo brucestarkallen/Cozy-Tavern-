@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m515-001)
+# Cozy Tavern — handoff for the next session (state at m516-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1346,4 +1346,16 @@ founding design lives in AGENTS.md's first entries.)
   bound to, "never a villain's glee nor a saint's softness unless that is truly them"), which the plan says after how
   they talk. The frontier request identical to m511-001 (24 of 24). Laws M515-1/2; walk DOM-169 checks both reach the
   small storyteller through the app.
+- M516-1 — WHERE OUR STORY BEGAN IN CANON. His word: "#story jujutsu kaisen — Jovan Oda… he sees Yuki about to die and
+  parries it. It confuses every timeline: Yuta abroad, the Zenin clan not destroyed by Maki" (Kimi K3, which answers "who
+  does Yuta fight in Sendai?" rightly). A fact known, its moment not: in a scene a model reaches for each person's
+  strongest memory, and the ledger then writes the wrong date down as canon (his thinking showed "Nov 22, 2018, the
+  Culling Game not yet announced"). Now agents/canonstart.js asks ONCE, alone, when a #story opens a tale with no page
+  yet (chat.js send, before the first page; the founder's connection; up to 30 s; a failure never blocks the page): the
+  series, the arc, the moment, the canon date, and up to twenty facts true AT that moment — the states that changed
+  earlier said as they stand, nothing after it, never his own character. Kept as canonStart:<id> ({none} for a story in
+  no canon); it rides in the notes beside canon's note, every page, every storyteller, row "Where our story began";
+  Settings → This story shows it and keeps his correction (his words then ride as written; emptied and kept, nothing).
+  Laws M516-1…3; walk DOM-172 (asked once before the first page, carried, corrected). The walk's house knows the placer
+  ("place a story in its canon") is a helper.
 
