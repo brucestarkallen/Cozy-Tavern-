@@ -24,6 +24,7 @@ export function renderPlan(plan, { voice = null, anchor = [], cores = {}, mc = '
     if (p.now) bits.push(p.now.replace(/[.]+$/, ''));
     if (p.wants) bits.push('wants ' + p.wants.replace(/^(?:to\s+)?wants?\s+/i, '').replace(/[.]+$/, ''));
     if (p.voice) bits.push('talks ' + p.voice.replace(/^(?:talks|speaks)\s+/i, '').replace(/[.]+$/, '')); /* M512: how they talk — a small model gives everyone one voice unless it is told theirs */
+    if (p.pressed) bits.push('under pressure, ' + p.pressed.replace(/^under pressure,?\s*/i, '').replace(/[.]+$/, '')); /* M515: how they act when what they hold dear is threatened — theirs, not the model's lean */
     let line = p.name + core + (bits.length ? ' — ' + bits.join('; ') + '.' : '.');
     /* M510-53: "Set against Jovan: Jovan" said his name twice — what they are set against, only when it is more than him */
     if (p.against) { const what = p.against.replace(/[.]+$/, '').trim(); line += /^(?:him|me)$/i.test(what) || what.toLowerCase() === String(him || '').toLowerCase() ? ' Set against ' + him + ' — and that holds this page.' : ' Set against ' + him + ': ' + what + ' — and that holds this page.'; }

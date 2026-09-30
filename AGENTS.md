@@ -13367,3 +13367,25 @@ writes one for everyone who acts on a page".
   #story opening in a fresh tale — the page reader seats Rukia and Zaraki, the scribe is asked for them by name, their
   pages stand with a core, no rebuild. It fails on m513-001 (the scribe was never asked).
 
+# M515-1 — how people really take it
+His word, testing two small models (Gemma 31B, Qwen 27B) in a medieval war story: his main character threatened to
+execute a captain's soldier; one model's captain smiled, said "yes, kill him" like a maniac and agreed the man deserved
+it; the other's only begged "no, don't do it" — "one makes everyone crazy evil, the other makes everyone jelly good guys.
+What I mean is beautiful realistic reaction." Measured: a small page carried twelve always-laws, his prose laws and the
+helper's scene picks — and not one of his laws on how people react (Character Gravity, Stakes Web, The World Does Not
+Bend… — all in his craft, none ever guaranteed), so each model's own lean decided every person.
+- laws.js PEOPLE_LAWS ride on every small page, word for word: Character Gravity (a person reacts from their own centre, in
+  their own language — a sadist's respect is obsession, never warmth), A Person Is Not Their CORE (range and
+  contradiction, never one note), Stakes Web (the room's bonds — the captain and his soldier), The World Does Not Bend
+  (interests diverge; nobody softens, praises or agrees without a reason; an offence is remembered), Concession Is Earned
+  Not Banned (people do give way, when it costs less than fighting), Weight Is Not Defused (a heavy moment is not made
+  light). They pull against both leans at once. The helper is no longer offered them.
+- planner.js asks, for each person here, "pressed": how THIS person acts when what they hold dear is threatened, from who
+  they are and what they are bound to — "never a villain's glee nor a saint's softness unless that is truly them"; the
+  plan says it ("…; talks in clipped soldier's orders; under pressure, bargains through his teeth for his men, and
+  remembers it."). The helper plans before his move, so it cannot know the threat — it hands the small model each
+  person's truth under any threat.
+- The frontier request identical to m511-001 (24 of 24). Laws M515-1/2; walk DOM-169 checks the laws and the line reach
+  the small storyteller through the send button. M512-2's example of a law only a scene adds is now Symmetry Law
+  (Character Gravity rides on every small page).
+

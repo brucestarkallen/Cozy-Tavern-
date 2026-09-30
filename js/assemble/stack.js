@@ -101,7 +101,7 @@ import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: 
 import { voiceOf, inVoice, toTeller, briefingOpening, notebookOpening, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave, withCardNames } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView, findPersonKey, PEOPLE_BUDGET, PRESENT_CARDS_MAX, RECALL_MAX } from '../engine/people.js';
 import { wornPhrases } from './smallprose.js'; /* M512: the turns of phrase the last pages keep using */
-import { lawsOf, lawsNamed, joinLaws, lawKey, ALWAYS_LAWS, PROSE_LAWS, SOUND_LAWS, LOAD_BEARING, FIGHT_LAWS, typedCombat } from './laws.js'; /* M510: his craft, law by law */
+import { lawsOf, lawsNamed, joinLaws, lawKey, ALWAYS_LAWS, PROSE_LAWS, PEOPLE_LAWS, SOUND_LAWS, LOAD_BEARING, FIGHT_LAWS, typedCombat } from './laws.js'; /* M510: his craft, law by law */
 import { renderPlan, renderSounds } from './planwords.js'; /* M510: the planning helper's plan, in his voice */
 import { SLOT_BUDGET as SLOT7_BUDGET } from '../agents/memory.js';
 const LORE_BUDGET = 3000; /* M34: the lore shelf's own room in slot 7 */
@@ -804,10 +804,10 @@ export function buildRequest({
   /* M512: an out-of-character question carries his OOC law (its own law now — it was read as the tail of Story Drivers) */
   const oocTurn = (() => { const u = [...history].reverse().find((m) => m && m.role === 'user' && !m.hidden); return Boolean(u && (u.ooc === true || /^\s*(?:#question|\(\(|\/\/)/.test(String(u.text || '')))); })();
   const craftForTurn = smallB
-    ? joinLaws([...lawsNamed(smallLaws, [...ALWAYS_LAWS, ...PROSE_LAWS, ...(oocTurn ? ['OOC'] : []), ...(Array.isArray(smallPlan.laws) ? smallPlan.laws : [])].filter((n) => !soundKeys.has(lawKey(n)))), ...sceneSection, ...fightSection]) /* M512: his prose laws on every small page */
+    ? joinLaws([...lawsNamed(smallLaws, [...ALWAYS_LAWS, ...PROSE_LAWS, ...PEOPLE_LAWS, ...(oocTurn ? ['OOC'] : []), ...(Array.isArray(smallPlan.laws) ? smallPlan.laws : [])].filter((n) => !soundKeys.has(lawKey(n)))), ...sceneSection, ...fightSection]) /* M512: his prose laws on every small page */
     : craftText;
   const craftWhole = [craftForTurn, shortcuts, starterStanding].filter((t) => typeof t === 'string' && t.trim()).join('\n\n');
-  pushSlot('The craft', craftWhole, smallB ? 'the laws this scene needs and your prose laws, word for word, with the shortcuts — small model' : 'the rulebook, with the shortcuts', craft ? craft.reason : '');
+  pushSlot('The craft', craftWhole, smallB ? 'the laws this scene needs, your prose laws and your laws on how people react, word for word, with the shortcuts — small model' : 'the rulebook, with the shortcuts', craft ? craft.reason : '');
   /* M512: HOW OUR STORY SOUNDS AT ITS BEST — a small model writes like what it read last, and it read only its own last
    * eight pages: a slip once written was copied forward. A passage from the story's own pages (the newest a big model
    * wrote, older than the pages sent whole; else the page that repeats the rest least — smallprose.js) rides with the

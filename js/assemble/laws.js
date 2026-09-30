@@ -73,6 +73,14 @@ export const ALWAYS_LAWS = ['The Telling', 'Header Protocol', 'MC Agency', 'MC D
  * craft's own words: what makes prose alive (show, plain, subtext), what keeps people distinct (voice), and what keeps a
  * long story from repeating itself (structure, detail, bits, the banned constructs). */
 export const PROSE_LAWS = ['Show Never Interpret', 'Plain Prose Default', 'Dialogue Subtext', 'Voice Fingerprints', 'CORE Voice Fixed, Register Dynamic', 'Attentional Salience', 'Anti Repetition Structural', 'Shape Follows Spine', 'Signature Bits Burn', 'Banned Constructs'];
+/* M515: HOW PEOPLE REALLY TAKE IT — his word, after two small models: "one makes everyone crazy evil, the other makes
+ * everyone jelly good guys — I mean beautiful, realistic reactions". Threatened with the execution of his own soldier,
+ * one small model's captain smiled and cheered it; another's only pleaded. A small page carried none of his laws on how
+ * people react (the helper picks for the scene), so each model's own lean wrote every person. These ride on every small
+ * page, in his craft's words, and they pull both ways: a person reacts from their own centre and their bonds (a captain
+ * does not cheer his soldier's death), interests diverge and nobody softens without a reason, and people still concede
+ * when conceding costs less — heavy moments are not made light. */
+export const PEOPLE_LAWS = ['Character Gravity', 'A Person Is Not Their CORE', 'Stakes Web', 'The World Does Not Bend', 'Concession Is Earned Not Banned', 'Weight Is Not Defused'];
 /* his two sound laws — said right before the page whenever the scene is a fight, sex, torture or a raw peak */
 export const SOUND_LAWS = ['Sound As Onomatopoeia', 'High Intensity Scenes'];
 /* the laws a small request cannot stand without: if his craft no longer holds them by these names, the small request

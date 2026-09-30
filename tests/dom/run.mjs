@@ -6990,7 +6990,7 @@ test('DOM-169 THE SMALL MODEL AT ITS BEST, THROUGH THE APP (M512): a small story
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
-  const PLAN = { scene: 'Noon at the rail.', people: [{ name: 'Rukia', now: 'at the rail', wants: 'him to refuse', against: '', voice: 'in clipped, formal sentences; calls him Captain' }], unknown: [], pressing: [], earlier: [], laws: ['MC Agency'], intense: false, loud: false, sounds: [], leaveTo: 'what Jovan answers', story: 'Jovan leads the Thirteenth.' };
+  const PLAN = { scene: 'Noon at the rail.', people: [{ name: 'Rukia', now: 'at the rail', wants: 'him to refuse', against: '', voice: 'in clipped, formal sentences; calls him Captain', pressed: 'goes cold and formal, and does not forgive it' }], unknown: [], pressing: [], earlier: [], laws: ['MC Agency'], intense: false, loud: false, sounds: [], leaveTo: 'what Jovan answers', story: 'Jovan leads the Thirteenth.' };
   house.state.workerAnswer = (body, sys) => (/You prepare a storyteller for the next page/.test(String(sys || '')) ? JSON.stringify(PLAN) : (typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}')));
   house.state.storyAnswer = () => Hd(30) + 'Rukia did not look at him. "Captain. The bell."';
   /* the storyteller's connection as the app resolves it — the story's own, the active one, else the first (a walk run
@@ -7008,6 +7008,8 @@ test('DOM-169 THE SMALL MODEL AT ITS BEST, THROUGH THE APP (M512): a small story
     assert(/Show Never Interpret = /.test(wire) && /Anti Repetition Structural = /.test(wire) && /Voice Fingerprints = /.test(wire) && /Banned Constructs \(narration only\) = /.test(wire), 'his prose laws ride on the small page');
     assert(/How our story sounds at its best — a passage from our own pages/.test(wire) && /BIG-VOICE The noon wind came off the wall/.test(wire), 'the story as its big storyteller wrote it');
     assert(/talks in clipped, formal sentences; calls him Captain/.test(wire), 'how Rukia talks, in the plan');
+    assert(/under pressure, goes cold and formal, and does not forgive it/.test(wire), 'how Rukia acts under pressure, in the plan (M515)');
+    assert(/The World Does Not Bend = /.test(wire) && /Stakes Web = /.test(wire) && /Character Gravity = /.test(wire), 'his laws on how people react ride on the small page (M515)');
     assert(/A few turns of phrase keep coming back on the last pages — “the courtyard held its breath while the dust lifted in the noon…”/.test(wire), 'the turns of phrase the last pages keep using — the longest, cut at twelve words: ' + (wire.match(/A few turns of phrase[^\n]{0,200}/) || [''])[0]);
     const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
     eq(page.receipt && page.receipt.small, true, 'the page it wrote is marked as a small storyteller\'s');

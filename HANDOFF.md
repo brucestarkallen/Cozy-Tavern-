@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m514-001)
+# Cozy Tavern — handoff for the next session (state at m515-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1336,4 +1336,14 @@ founding design lives in AGENTS.md's first entries.)
   page for each one this page shows…" — everyone the ledger knows (here, or standing with the main character) with no
   page; the M408 now-line keeps the rest. Not only #story: any new face on any page. Laws M514-1/2; walk DOM-171 (a
   #story opening in a fresh tale fills the people with no rebuild — fails on m513-001).
+- M515-1 — HOW PEOPLE REALLY TAKE IT. His word, after Gemma 31B and Qwen 27B in a medieval war story: "one small model
+  makes everyone crazy evil, the other makes everyone jelly good guys — I mean beautiful, realistic reactions" (threatened
+  with his soldier's execution, one captain smiled and cheered it; the other only pleaded — "don't do it" is not the goal
+  either). A small page carried none of his laws on how people react, so each model's own lean wrote every person. Now
+  laws.js PEOPLE_LAWS ride on every small page in his words (Character Gravity, A Person Is Not Their CORE, Stakes Web,
+  The World Does Not Bend, Concession Is Earned Not Banned, Weight Is Not Defused; ~850 tokens) — they pull both ways —
+  and the helper says how each person here acts under pressure (planner "pressed": from who they are and what they are
+  bound to, "never a villain's glee nor a saint's softness unless that is truly them"), which the plan says after how
+  they talk. The frontier request identical to m511-001 (24 of 24). Laws M515-1/2; walk DOM-169 checks both reach the
+  small storyteller through the app.
 
