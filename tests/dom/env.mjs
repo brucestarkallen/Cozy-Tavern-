@@ -81,6 +81,15 @@ export function makeHouse() {
       } });
       return { ok: true, status: 200, headers: new Headers(), body, clone() { return this; }, async json() { return {}; }, async text() { return ''; } };
     }
+    /* M545: a storyteller that thinks to the end and writes nothing — the stop reason the walk chooses */
+    if (!isWorker && state.thinkThenNothing) {
+      return sse([
+        { choices: [{ delta: { reasoning_content: 'The hall is dim; she is waiting. ' } }] },
+        { choices: [{ delta: { reasoning_content: "Let's write." } }] },
+        ...(state.thinkThenNothing === 'none' ? [] : [{ choices: [{ delta: {}, finish_reason: state.thinkThenNothing }] }]),
+        'data: [DONE]\n\n',
+      ]);
+    }
     /* M46: a thinking storyteller — reasoning_content first, then prose, when asked.
      * M77: the housekeeper too, when the walk asks (state.hkThink). */
     if ((!isWorker && state.thinkFirst) || (state.hkThink && /housekeeper of a cozy tavern/i.test(sys))) {

@@ -8145,6 +8145,30 @@ test('DOM-193 TALKED ABOUT IS NOT HERE (M541 — his Ravenwood evening: "Claire 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-194 THINKING, THEN NOTHING — THE PROVIDER\'S OWN REASON (M545 — his report: "the thinking is perfect, ends at let\'s write, then a red note says ask again — this is not coincidence"): out of room, a filter, an empty end and a closed connection are each named; the page is never asked for again by itself', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'thought, then nothing' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const cases = [['length', /used all of its room thinking and had none left to write the page/], ['content_filter', /provider blocked the page after the thinking \(its reason: content_filter\)/], ['stop', /provider ended its answer after the thinking with no page in it \(its reason: stop\)/], ['none', /connection closed after the thinking before the page came/]];
+  try {
+    for (const [finish, said] of cases) {
+      house.state.thinkThenNothing = finish;
+      const from = house.state.calls.length;
+      type(q('#composer-input'), 'I knock (' + finish + ').'); submit(q('#composer'));
+      const note = await until(() => [...qa('.msg-note')].find((n) => said.test(n.textContent)), 'the note for ' + finish, 20000);
+      assert(note.querySelector('.msg-act.retry'), 'with its Ask again');
+      await until(() => !env.ctx.chat.isBusy(), 'settled');
+      eq(house.state.calls.slice(from).filter((c) => !c.isWorker).length, 1, finish + ': asked once — never again by itself');
+      note.remove();
+    }
+    eq((await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length, 0, 'no empty page kept');
+  } finally {
+    house.state.thinkThenNothing = null;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();

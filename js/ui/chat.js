@@ -1454,6 +1454,24 @@ export function initChat(ctx) {
     return article;
   }
 
+  /* M545: WHY A PAGE CAME BACK EMPTY, IN THE PROVIDER'S OWN WORD. His storyteller thought to the end ("…let's write") and
+   * the house said only "The storyteller went quiet — nothing came back": every empty page got the same words, though the
+   * provider says why it stopped. Out of room (length / max_tokens: the thinking spent the whole room before the page could
+   * begin), blocked by the provider's filter, an answer ended with nothing in it, or a connection that closed with no stop
+   * reason at all — each is named, and the page is never asked for again by itself: "Ask again" is his. */
+  function emptyPageWhy(finish, thoughtText) {
+    const why = typeof finish === 'string' ? finish.trim() : '';
+    const thought = typeof thoughtText === 'string' && thoughtText.trim().length > 0;
+    if (/max_tokens|length/i.test(why)) {
+      return thought
+        ? 'The storyteller used all of its room thinking and had none left to write the page — the provider stopped it for length. A larger Max tokens on this connection, or less thinking, gives the page room. Ask again when you like.'
+        : 'The provider stopped the answer for length before any page came — the room on this connection is too small for a page. Ask again when you like.';
+    }
+    if (/content_filter|safety|blocked|prohibited|refus|recitation|spii|policy/i.test(why)) return 'The provider blocked the page' + (thought ? ' after the thinking' : '') + ' (its reason: ' + why + '). Nothing was cut by the house. Ask again when you like.';
+    if (why) return 'The provider ended its answer' + (thought ? ' after the thinking' : '') + ' with no page in it (its reason: ' + why + '). Nothing was cut by the house. Ask again when you like.';
+    return 'The connection closed' + (thought ? ' after the thinking' : '') + ' before the page came — the provider gave no reason. Ask again when you like.';
+  }
+
   /* B9: an empty completion gets a kind note AND a way to ask again. */
   function retryNoteNode(text, retry) {
     const article = noteNode(text);
@@ -5318,7 +5336,7 @@ export function initChat(ctx) {
          * assistant / assistant). A failed version is asked for again as a
          * version, through the same door the ▸ uses. */
         els.thread.appendChild(retryNoteNode(
-          failedWords || 'The storyteller went quiet — nothing came back. Say the word and I’ll ask again.',
+          failedWords || emptyPageWhy(finishReason, thinking), /* M545: the provider's own reason, never a guess */
           async () => {
             if (!swipeTarget) { retryAsk(); return; }
             const standing = (await db.messages.list(story.id)).find((m) => m.id === swipeTarget.id);

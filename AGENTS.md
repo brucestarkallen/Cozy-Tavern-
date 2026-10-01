@@ -13992,3 +13992,20 @@ several helpers each decide who is where, and not every door was held to the new
   kitchen let go when the page has him upstairs, kept when the page has him in the kitchen). Harness 1094/1094, walk 193/193, long
   play 8/8, lint 0; the frontier request identical (24 of 24).
 
+# M545 — why a page came back empty, and what sits after the pages
+His questions: "1. Does Cozy Tavern have any injection again, especially at depth 0, 1 or 2 in normal mode, besides the note, the frame
+and the voice? 2. Why does my AI think, end its thinking with 'let's write', and then a red note says ask again — thinking but no output?
+Provider or Cozy Tavern? This seems not to be coincidence. Let me retry manually if something has errors."
+- (1) Measured: a normal-mode request built with every optional part switched on. After the pages (depth 0) the house places only the
+  referee's ruling — on a turn whose move it ruled — and the sensors' one line — only with The sensors switched on (Settings → The
+  sensors; off as it ships). The director's note, the editor's eye, the house's eye, the world's word, canon, the people and the ledger
+  sit in the system blocks before the pages. His own: the note at the end, the frame said again, his #directives.
+- (2) An empty page after thinking is the provider's: the stream carried thinking and then no prose. The house said "The storyteller
+  went quiet — nothing came back" for every such page, though the provider sends its reason for stopping. chat.js emptyPageWhy names
+  it: length / max_tokens — the thinking used the whole room before the page could begin (raise Max tokens or lower the thinking); a
+  filter's reason (content_filter, safety, blocked, …) — the provider blocked the page; any other reason — the provider ended with no
+  page; no reason at all — the connection closed. "Ask again" stays his; nothing is re-asked by itself (M377).
+- Walk DOM-194: the house thinks ("…Let's write.") and writes nothing, for each of length, content_filter, stop and a closed stream —
+  the note names each, carries Ask again, and the storyteller was asked exactly once; no empty page kept. Harness 1094/1094, walk
+  194/194, long play 8/8, lint 0; the frontier request identical (24 of 24).
+

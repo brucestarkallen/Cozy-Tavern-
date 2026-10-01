@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m544-001)
+# Cozy Tavern — handoff for the next session (state at m545-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1675,4 +1675,13 @@ founding design lives in AGENTS.md's first entries.)
   to the ledger's here-and-now; (3) the auditor saw stale places in the room ("Jovan … in the kitchen" while upstairs) and
   could change nothing (M128) — it may now let such a place go when none of its words are on the newest page
   (auditorScope, presence.update with position '' only). Laws M544-1…3.
+- M545 — WHY A PAGE CAME BACK EMPTY, AND WHAT SITS AFTER THE PAGES. His questions: (1) is anything injected near the end
+  (depth 0–2) in normal mode, besides his note, the frame said again and the voice? Measured with every optional part on:
+  after the pages, the house places only the referee's ruling (a turn whose move it ruled) and the sensors' one line (only
+  with The sensors switched on — off as it ships); the director's note, the editor's eye, the house's eye, the world's word,
+  canon, the people and the ledger all sit before the pages. (2) "the thinking is perfect, ends at 'let's write', then a red
+  note says ask again" — the note said "went quiet" for every empty page although the provider says why it stopped. Now
+  chat.js emptyPageWhy names it from the stop reason: out of room (length/max_tokens — the thinking spent the room), blocked
+  by the provider's filter, ended with nothing, or the connection closed with no reason; never asked again by itself.
+  Walk DOM-194 (env.mjs thinkThenNothing).
 
