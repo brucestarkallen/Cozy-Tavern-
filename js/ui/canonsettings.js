@@ -36,7 +36,7 @@ const SAYING = [
   ['dynamicNote', 'Smart dynamic order 🌊', 'What this scene needs of each person comes first.'],
   ['relationDynamics', 'Per-pair dynamics', 'Who they are to each other person in the scene — the “With …” lines.'],
   ['smartExpansion', 'Smarter AI 🧠', 'The places, groups and things around them ride too.'],
-  ['reportUnverified', 'Say what is NOT in canon ⌀', 'A name the story asks about that no wiki page has is said plainly, so nothing is borrowed for it.'],
+  /* M538: "Say what is NOT in canon" is gone — a failed lookup is never told to the storyteller (his word: be silent) */
   ['arcInject', 'Where our story is rides too', 'The canon arc the story stands in — what has happened and what has not.'],
   ['autoArc', 'It follows the story by itself 📖', 'A page that begins a canon event moves where our story is.'],
   ['composerMode', '✒ Advanced — a model writes it as flowing prose', 'Its facts are checked against what was looked up before it may be used; on the pages where canon changes, the page waits for it.'],

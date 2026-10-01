@@ -333,7 +333,7 @@ const defaultSettings = {
     // Fires only for names in the CURRENT player message; the persona, the
     // active card, and blocklisted names are exempt (the story's own principals
     // are known-original by construction, and blocked means absent).
-    reportUnverified: true,
+    reportUnverified: false, /* M538: off — a failed lookup is never told to the storyteller as a fact about the story */
     // ✒ ADVANCED: the AI writes the note as fluid storyteller prose. The code
     // still gathers and verifies every fact exactly as before; the model only
     // REWRITES the presentation, and a validator checks the result (every cast
@@ -2772,6 +2772,8 @@ function orderLinesByNeed(lines, need) {
  * EXISTED (lore that failed the untrusted character gate), and a transient
  * error is never cached at all — neither is evidence of absence.
  */
+/* M538: Cozy Tavern never sends the ⌀ "not in canon" line, whatever a setting says */
+const HOST_SILENCES_MISSES = true;
 /* M537: one slip from a found name's word — a typo, never a different word (the first letter kept; one edit for a word of four
  * to six letters, two from seven) */
 function editDistance(a, b) {
@@ -3478,7 +3480,12 @@ function relevantCanonNote(sceneMsgs, castNames, arc = undefined, extras = {}) {
     // (interceptor, preview, post-generation rebuilds) carries it by
     // construction instead of each call site remembering to.
     let unvBlock = "";
-    if (s.reportUnverified !== false && extras.userMsg) {
+    /* M538: CANON SPEAKS ONLY OF WHAT IT FOUND. His word: "if it's not canon then just be silent — why inject something, and
+     * even something wrong". The ⌀ line told the storyteller that what a lookup MISSED — "Zenin clan" (the wiki's own page
+     * spells it Zen'in), "Gojo Satorou" (a typo) — was "original to this story… never import outside facts": an instruction
+     * built on a failed search, and wrong whenever the search was. A miss proves nothing about the story's world; in Cozy
+     * Tavern it is never sent. (The lookups it missed stay in canon's own room, for his eyes.) */
+    if (!HOST_SILENCES_MISSES && s.reportUnverified !== false && extras.userMsg) {
         let principals = [];
         try { const c = getContext(); principals = [c.name1, c.name2]; } catch (e) { /* harness: no ST context */ }
         const unv = unverifiedNamed(extras.userMsg, store, activeWikis(),

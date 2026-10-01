@@ -4539,7 +4539,8 @@ test('DOM-85 CANON VERIFICATION, WHOLE, IN THE APP: every lever of the extension
     if (!sw.checked) { sw.checked = true; sw.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
     await until(() => q('#canon-physical') && q('#canon-castAuditor') && q('#canon-relationDynamics'), 'its levers, drawn', 15000);
     const levers = q('#canon-controls').textContent;
-    for (const name of ['Cast Auditor', 'Per-pair dynamics', 'Prose briefs', 'Smarter AI', '✒ Advanced', 'LLM-curated dossiers', 'Parser self-test', 'Smart dynamic order', 'Say what is NOT in canon', 'Find each story’s wiki by itself']) assert(levers.includes(name), 'Settings has “' + name + '”');
+    assert(!/Say what is NOT in canon/.test(levers), 'M538: the not-in-canon switch is gone — a failed lookup is never told to the storyteller');
+    for (const name of ['Cast Auditor', 'Per-pair dynamics', 'Prose briefs', 'Smarter AI', '✒ Advanced', 'LLM-curated dossiers', 'Parser self-test', 'Smart dynamic order', 'Find each story’s wiki by itself']) assert(levers.includes(name), 'Settings has “' + name + '”');
     eq(qa('#canon-controls textarea').length >= 8, true, 'the words it uses, and his notes for every story');
     await closeSettings();
     /* 2. the story's wiki, named in its own ledger room — a decree for this story */
@@ -7971,6 +7972,10 @@ test('DOM-189 CANON FOR THE PEOPLE THE LEDGER HAS HERE, NAMED OR NOT (his screen
     const { canonWhy } = await import('../../js/canon/bridge.js');
     assert(/still reading when the page was asked for/.test(canonWhy({ since: Date.now() + 60000 })), 'a report from before this turn is not its reason');
     assert(!/still reading/.test(canonWhy({ since: 1 })), 'this turn\'s own report gives its own reason');
+    /* M538: a name no wiki page has is never told to the storyteller as "not in canon — treat as original" */
+    await db.settings.set('canonGroundingSettings:' + st.id, { ...((await db.settings.get('canonGroundingSettings:' + st.id)) || {}), reportUnverified: true }); /* even with an old setting still on */
+    const asked = await send('Have you met Takeshi Moriyama of the Zenin clan?');
+    assert(!/Not found in this story|treat these as original/.test(JSON.stringify(asked.messages)), 'canon says nothing of what it could not find');
   } finally {
     globalThis.fetch = priorFetch;
     if (was === true) await db.settings.set('canonOn:' + st.id, true); else await db.settings.delete('canonOn:' + st.id);

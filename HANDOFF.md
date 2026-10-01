@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m537-001)
+# Cozy Tavern — handoff for the next session (state at m538-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1612,4 +1612,12 @@ founding design lives in AGENTS.md's first entries.)
   different person sharing the family name) and a name the wiki truly lacks are still reported. Law M537-1
   (unverifiedNamedForHarness). DOM-187 now waits until the first blow's page helpers are idle a whole second (the chain
   queues as it goes — a post-fight weighing of its own had landed in the next blow's window in the full walk).
+- M538 — CANON SPEAKS ONLY OF WHAT IT FOUND. His word (furious): "why is there injection to my storyteller… 'Not found in
+  this story's canon sources: Zenin clan — treat as original to this story' … if it's not canon then just be silent; why
+  inject something, and even something wrong". The ⌀ line (grounding.js unvBlock) turned a FAILED wiki lookup into an
+  instruction to the storyteller — wrong whenever the search was (the wiki spells it Zen'in; "Gojo Satorou" was a typo).
+  Now it is never sent in Cozy Tavern (grounding.js HOST_SILENCES_MISSES, whatever a stored setting says), its default is
+  off, and its switch is gone from canon's room ("Say what is NOT in canon"). The misses stay in canon's own room for his
+  eyes. Walk DOM-189 (a missed name with ask intent, an old setting still on: nothing sent — fails on m535), DOM-73-era
+  lever list updated.
 

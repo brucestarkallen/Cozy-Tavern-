@@ -13862,3 +13862,19 @@ instruction to the storyteller) let a missed lookup go only when every word of i
   idle for a whole second — the chain enqueues as it goes, and its own post-fight weighing (M11) had landed inside the next
   blow's window. Harness 1087/1087, walk 190/190, long play 8/8, lint 0; the frontier request identical (24 of 24).
 
+# M538 — canon speaks only of what it found
+His word, with his storyteller's thinking pasted ("the brief says 'Zenin clan' is NOT found in this story's canon sources, treat
+as original to this story… but the ledger has Ogi Zenin as a canon character"): "Who designed this! Why is there injection to my
+storyteller? If it's not canon, just be silent — why inject something, and even something wrong. It makes it 'the Zenin clan is
+not real'."
+- The ⌀ line (grounding.js relevantCanonNote → unvBlock: "Not found in this story's canon sources: … — treat these as original to
+  this story or not established in canon. Never import outside facts for them…") turned a failed wiki lookup into an instruction
+  — and a lookup misses for reasons that say nothing about the story (the wiki's page is "Zen'in", a typo, a redirect, a group
+  that is not a character page). Twice in a day it told the storyteller a canon thing was not canon.
+- Cozy Tavern never sends it now (HOST_SILENCES_MISSES — whatever a stored setting says, so an old "on" cannot bring it back);
+  the extension's default is off; the switch "Say what is NOT in canon ⌀" is removed from canon's room. What a lookup missed
+  stays in canon's own room (its reasons), for his eyes only. M537's typo test stays (it only shaped this line).
+- Walk DOM-189 extended: a capitalized, asked-about name no wiki page has, with the old setting forced on — nothing of it in the
+  storyteller's request (fails on m535); the canon room's lever list no longer has the switch. Harness 1087/1087, walk 190/190,
+  long play 8/8, lint 0; the frontier request identical (24 of 24).
+
