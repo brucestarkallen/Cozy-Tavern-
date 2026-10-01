@@ -326,10 +326,16 @@ const notes = [];
  * writer, with nineteen canon faces looked up and fifteen in the scene, could not tell whether canon ran. The
  * extension keeps its own account of the last generation: what it injected, from which cast, and the last error of
  * its reader. Read here, said on the receipt, never sent. */
-export function canonWhy() {
+export function canonWhy({ since = 0 } = {}) {
   let report = null;
   try { report = groundingMod && typeof groundingMod.lastInjectionReport === 'function' ? groundingMod.lastInjectionReport() : null; } catch (err) { report = null; }
   if (!report) return 'canon verification gave no note this turn';
+  /* M534: THE REASON IS THIS TURN'S, OR NONE. The extension keeps one report — its LAST run, wherever it ran (another tale's
+   * page, a preview in its room, a reset when a tale was entered). His receipt said "canon found no canon face to speak of in
+   * the latest pages (scene scan)" with nine canon people in the scene: a report that was not this turn's (a reset one reads
+   * as an empty scan). A report older than this turn's ask, or with no source at all, is not its reason — the honest word
+   * is that canon had not finished reading for this page, and what it finds rides with the next one. */
+  if ((since && Number(report.at || 0) < since) || !report.source) return 'canon was still reading when the page was asked for — what it finds rides with the next page';
   if (report.error) return 'canon’s reader stumbled — ' + String(report.error).slice(0, 160);
   if (report.note) return 'canon built a note (' + (report.source || 'scene scan') + ') but it was not ready when the page was asked for — it rides with the next page';
   return 'canon found no canon face to speak of in the latest pages (' + (report.source || 'scene scan') + ')';

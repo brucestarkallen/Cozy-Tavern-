@@ -7891,6 +7891,91 @@ test('DOM-188 THE OPENING MOVES FEELINGS (M532 — his report: "every time, How 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-189 CANON FOR THE PEOPLE THE LEDGER HAS HERE, NAMED OR NOT (his screenshot: the drawer lists nine canon people in the scene; the receipt said "canon found no canon face to speak of in the latest pages")', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const H = '[Soul Society training ground — Monday, September 7, 2026 | 09:00 | clear | shihakusho | kneeling]\n\n';
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const st = await db.stories.create({ title: 'Soul Society' });
+  await db.stories.update(st.id, { keeper: false, brief: 'A Bleach story. Jovan, a new Shinigami, trains under Rukia Kuchiki.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I kneel on the training ground.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + 'Rukia Kuchiki folded her arms. "Again."' });
+  const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state;
+  ledger.characters = { 'Rukia Kuchiki': { core: 'His instructor.', state: 'drilling him', threads: [] } };
+  await saveState(st.id, { ...ledger, page: 1, readTo: 1, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const wikiAsked = [];
+  const priorFetch = globalThis.fetch;
+  globalThis.fetch = (url, opts) => {
+    if (!/fandom\.com|wiki\.gg/.test(String(url))) return priorFetch(url, opts);
+    const u = new URL(String(url));
+    wikiAsked.push(u.hostname);
+    const ok = (obj) => Promise.resolve({ ok: true, status: 200, json: async () => obj, text: async () => JSON.stringify(obj) });
+    if (u.hostname !== 'bleach.fandom.com') return ok({});
+    const titles = u.searchParams.get('titles'); const page = u.searchParams.get('page'); const sr = u.searchParams.get('srsearch');
+    if (u.searchParams.get('list') === 'recentchanges') return ok({ query: { recentchanges: [{ timestamp: '2026-09-01T00:00:00Z' }] } });
+    if (sr) return ok({ query: { search: /rukia/i.test(sr) ? [{ title: 'Rukia Kuchiki' }] : [] } });
+    if (titles) return /rukia/i.test(titles) ? ok({ query: { pages: { 7: { pageid: 7, title: 'Rukia Kuchiki' } } } }) : ok({ query: { pages: { '-1': { title: titles, missing: '' } } } });
+    if (page && /rukia/i.test(page)) return ok({ parse: { title: 'Rukia Kuchiki', wikitext: { '*': "{{Infobox Character\n| name = Rukia Kuchiki\n| hair = Black, chin-length\n| eyes = Violet\n}}\n'''Rukia Kuchiki''' is a Shinigami.\n== Personality ==\nRukia is stern and proud." } } });
+    return ok({});
+  };
+  /* the storyteller's own request — the one that carries the briefing (the extension's own model calls, its parser and
+   * its dossier writer, speak in prompts this walk's house does not know as workers, so "not a worker" is not enough) */
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); const told = house.state.calls.slice(from).find((c) => Array.isArray(c.body.messages) && Boolean(notesInBody(c.body))); assert(told, 'the storyteller was asked'); return told.body; };
+  const setCanon = async (on, wiki) => {
+    await openSettings();
+    const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
+    if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 5000);
+    await closeSettings();
+    /* M457: where to look is each story's own — named, as he names it, in the story's own room (the app's own bridge) */
+    if (typeof wiki === 'string') {
+      { if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); } click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); } /* opened fresh for THIS story: an open drawer shows the story it was opened for */
+      await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(300);
+      const inRoom = (sel) => { const r = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && x.querySelector('h3').textContent.trim() === 'What canon says'); return r ? r.querySelector(sel) : null; };
+      const box = await until(() => inRoom('#canon-story-wiki'), 'the story’s wiki box', 10000);
+      box.value = wiki;
+      submit(box.closest('form'));
+      const { canonMeta } = await import('../../js/canon/bridge.js');
+      await until(async () => String((await canonMeta(st.id)).canon_grounding_wiki || '').includes(wiki), 'the story’s wiki kept', 15000);
+      click(q('#btn-ledger')); await until(() => q('#drawer').hidden, 'the drawer closed');
+    }
+  };
+  const was = await db.settings.get('canonOn:' + st.id);
+  try {
+    await setCanon(true, 'bleach');
+    await send('I bow to Rukia and ask her to teach me kido.'); /* she is looked up, named */
+    const quiet = await send('I keep my eyes on the training posts and say nothing.'); /* she is still here; her name is not on these lines */
+    const body = JSON.stringify(quiet.messages);
+    const sent = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    const row = ((sent.receipt || {}).slots || []).find((x) => x.name === 'What canon says');
+    assert(/Rukia Kuchiki:|Violet|Black, chin-length/.test(body), 'canon speaks of Rukia, here by the ledger, though these lines do not name her');
+    /* his mode: the brief Automatic, the legacy switch off — canon's lasting lines live on her page */
+    const { GROUND_KEY } = await import('../../js/agents/worldground.js');
+    await db.stories.update(st.id, { briefMode: 'automatic' });
+    await db.settings.set(GROUND_KEY(st.id), { parts: { world: 'The Soul Society.', powers: 'Zanpakuto and kido.' }, recordLines: 0, by: 'helper', at: Date.now() });
+    const smart1 = await send('I watch the posts.');
+    const smart2 = await send('I breathe and wait.');
+    const lastPage = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    const row2 = ((lastPage.receipt || {}).slots || []).find((x) => x.name === 'What canon says');
+    const people2 = ((lastPage.receipt || {}).slots || []).find((x) => x.name === 'On their mind');
+    assert(row2 && row2.tokens > 0, 'his mode (brief Automatic, legacy off): canon still speaks this page — the scene\'s lines');
+    assert(/From canon:/.test(JSON.stringify(smart2.messages)), 'and her lasting lines ride on her card');
+    /* M534: the reason a receipt gives for no note is this turn's, or the honest "still reading" — never an older run's */
+    const { canonWhy } = await import('../../js/canon/bridge.js');
+    assert(/still reading when the page was asked for/.test(canonWhy({ since: Date.now() + 60000 })), 'a report from before this turn is not its reason');
+    assert(!/still reading/.test(canonWhy({ since: 1 })), 'this turn\'s own report gives its own reason');
+  } finally {
+    globalThis.fetch = priorFetch;
+    if (was === true) await db.settings.set('canonOn:' + st.id, true); else await db.settings.delete('canonOn:' + st.id);
+    await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();

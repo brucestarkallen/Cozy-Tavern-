@@ -13788,3 +13788,22 @@ fight). Swept by class, not by symptom:
   read before M532 are filled by one "Rebuild the people from the pages" — not run by itself (it rewrites people pages).
   Harness 1084/1084, walk 188/188, long play 8/8, lint 0; the frontier request identical (24 of 24).
 
+# M534 — canon's reason is this turn's
+His screenshots: The People → "What canon says of each — the people in the scene first" listing Hitsugaya, Kurotsuchi, Isane,
+Hirako, Muguruma, Suì-Fēng, Zaraki, Lisa, Byakuya, each "in the scene" with their dossier; and the page's receipt: "What canon
+says — not part of this turn — canon found no canon face to speak of in the latest pages (scene scan)". His question: "I
+thought the new system doesn't inject but uses the established ledger?"
+- What each shows: the drawer's list is canon verification's memory — what it looked up for each person, kept and shown in
+  its room whatever a page was sent. The page's request in his mode (brief Automatic, legacy off) carries canon in two
+  places: each person's lasting lines on their card ("On their mind" → "From canon:", M518) and canon's own row with only
+  the scene's lines.
+- Reproduced (walk DOM-189, the simulated Bleach wiki): Rukia here by the ledger, not named on the latest lines — canon speaks
+  of her in both modes (Manual 161 tokens; Automatic + legacy off 136 tokens, her lasting lines on her card).
+- The fault: the receipt's reason for an empty note was read from the extension's one last-run report — whichever run came
+  last (another tale's page, a preview, a reset when a tale is entered, which reads as an empty scan with no source). bridge.js
+  canonWhy({ since }) gives a report's reason only when it is this turn's (stamped after the turn asked — chat.js
+  canonAskedAt) and has a source; otherwise "canon was still reading when the page was asked for — what it finds rides with
+  the next page" (canon's own window, maxBlockMs, lets a slow lookup land a page late, by design).
+- Walk DOM-189 (both modes; the honest reason). Harness 1084/1084, walk 189/189, long play 8/8, lint 0; the frontier
+  request identical (24 of 24).
+

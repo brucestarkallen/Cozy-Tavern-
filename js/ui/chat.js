@@ -4373,6 +4373,7 @@ export function initChat(ctx) {
       /* M346: CANON VERIFICATION runs as SillyTavern runs it — its interceptor before the page, holding the turn only as
        * long as its own windows allow (it finishes in the background and the next page gets it). Beside the referee,
        * not after it. OFF (as it ships) or an out-of-character turn: never called, not one byte. */
+      const canonAskedAt = Date.now(); /* M534: a canon report older than this is not this turn's */
       const canonPending = (!ooc && lastUser && (await canonOn(story.id)))
         ? (async () => {
           const canonConnection = await resolveWorkerConnection(story, 'canon');
@@ -4665,7 +4666,7 @@ export function initChat(ctx) {
         worldBrief: renderWorldBrief(state.worldBrief, state.turn, state.page),
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
-        canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
+        canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy({ since: canonAskedAt }) : '', /* M486; M534: this turn's reason, or none */
         smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, quietPage: quietNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
         sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
@@ -4713,7 +4714,7 @@ export function initChat(ctx) {
          * and this call never handed the ruling on — the storyteller never once read it. */
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         canonNote, /* M346: canon verification's note, at the top of the briefing */
-        canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy() : '', /* M486 */
+        canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy({ since: canonAskedAt }) : '', /* M486; M534: this turn's reason, or none */
         smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, quietPage: quietNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
         sensorNote, /* M356: the sensors' one line, in the closing words */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */

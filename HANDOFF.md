@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m533-001)
+# Cozy Tavern — handoff for the next session (state at m534-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1575,4 +1575,14 @@ founding design lives in AGENTS.md's first entries.)
   the scribe, the canon parser, the placer and the world keeper all run from the first page. Walk DOM-188 extended (the
   opening's wound; a first-person premise not refereed). Old tales whose openings were read before M532: one "Rebuild the
   people from the pages" fills them (not run by itself — it rewrites people pages).
+- M534 — CANON'S REASON IS THIS TURN'S. His screenshots: the drawer's "What canon says of each" listing nine canon people
+  in the scene, while the receipt said "What canon says — not part of this turn — canon found no canon face to speak of
+  in the latest pages (scene scan)". Reproduced both of his modes (walk DOM-189, the simulated Bleach wiki): with Rukia
+  here by the ledger and not named on the latest lines, canon speaks of her (Manual: 161 tokens; his mode, Automatic +
+  legacy off: 136 tokens of the scene's lines, and her lasting lines on her card under "From canon:"). The receipt's
+  reason came from the extension's ONE last-run report (another tale's page, a preview in its room, or a reset when a
+  tale is entered — a reset reads as an empty scan). bridge.js canonWhy({ since }) now gives a report's reason only when
+  it is this turn's (stamped after the turn asked) and has a source; otherwise "canon was still reading when the page was
+  asked for — what it finds rides with the next page". The drawer's list is canon's memory of each person, not what a
+  page was sent.
 
