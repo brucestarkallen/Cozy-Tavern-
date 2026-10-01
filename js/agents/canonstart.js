@@ -82,7 +82,10 @@ export async function placeInCanon({ connection, concept, brief = '', signal } =
   if (!connection || !String(concept || '').trim()) return null;
   const ask = canonStartAsk({ concept, brief });
   let text = '';
-  try { ({ text } = await callWorker(connection, { system: withFictionFrame(ask.system), user: ask.user, maxTokens: 1600, signal })); } catch (err) { return null; }
+  /* M536: A CALL THAT FAILED IS NOT AN ANSWER. With his connection lost mid-check, the failure was written down as "tried" and
+   * nothing asked again for six hours — Try again did not restart it. A failed call (no network, an error, the ceiling
+   * reached) comes back as { failed: true } and is written down as nothing, so the next chance asks again. */
+  try { ({ text } = await callWorker(connection, { system: withFictionFrame(ask.system), user: ask.user, maxTokens: 1600, signal })); } catch (err) { return { failed: true }; }
   if (/"canon"\s*:\s*false/.test(String(text || ''))) return { none: true };
   const start = readCanonStart(text);
   return start ? { start } : null;

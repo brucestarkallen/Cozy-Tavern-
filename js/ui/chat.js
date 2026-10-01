@@ -2687,6 +2687,7 @@ export function initChat(ctx) {
     if (stale()) return { silent: true };
     if (got && got.start) { await db.settings.set(key, { ...got.start, when: '', conceptFp: hashText(concept), at: Date.now() }); return { detail: 'placed the story in its canon — ' + got.start.series + (got.start.arc ? ', ' + got.start.arc : '') }; }
     if (got && got.none) { await db.settings.set(key, { none: true, conceptFp: hashText(concept), at: Date.now() }); return { silent: true }; }
+    if (got && got.failed) return { silent: true }; /* M536: a failed call is not an answer — the next page's chain asks again */
     await db.settings.set(key, { tried: Date.now() });
     return { silent: true };
   }
@@ -4325,6 +4326,29 @@ export function initChat(ctx) {
         }
         history = fullHistory.slice(0, at);
       }
+      /* M536: WHERE THE STORY BEGINS, CHECKED WHERE ITS FIRST PAGE IS BUILT. A #story opening a tale is placed before its first
+       * page — here, not only on the send, so a Try again after a lost connection restarts the check (said, so the wait is
+       * not a silence; its own ceiling; a failed call written down as nothing, so the next chance asks again). */
+      if (!ooc && !history.some((m) => m && m.role === 'assistant' && !m.hidden)) {
+        try {
+          const firstUser = history.find((m) => m && m.role === 'user' && !m.hidden);
+          const words = firstUser ? String(firstUser.typed || '') : '';
+          const key = CANON_START_KEY(story.id);
+          const had = await db.settings.get(key);
+          const concept = /^\s*#story\b/i.test(words) ? words.trim().replace(/^#story\s*/i, '').trim() : '';
+          const moved = Boolean(had && !had.words && had.conceptFp && concept && had.conceptFp !== hashText(concept));
+          if (concept && (!had || moved)) {
+            const placer = await resolveWorkerConnection(story, 'founder');
+            const w = workerSignal(30000);
+            showComposerNote('Checking which series your story is from…'); /* M519-4: not "canon" — it is not canon verification */
+            let got = null;
+            try { got = await placeInCanon({ connection: placer, concept, brief: story.brief || '', signal: w.signal }); } finally { w.done(); hideComposerNote(); }
+            if (got && got.start) { await db.settings.set(key, { ...got.start, conceptFp: hashText(concept), at: Date.now() }); toast('Your story begins in ' + got.start.series + (got.start.arc ? ' — ' + got.start.arc : '') + '.'); }
+            else if (got && got.none) await db.settings.set(key, { none: true, conceptFp: hashText(concept), at: Date.now() });
+            else if (!(got && got.failed)) await db.settings.set(key, { tried: Date.now() });
+          }
+        } catch (err) { /* the page goes on without it */ }
+      }
       const settingsValues = { ...(await gatherSettings()), refereeOn: (await db.settings.get('refereeOn')) !== false }; /* M345: the switch reaches the assembler */
       /* M339: THE SWITCH — "let a model that cannot think, think on its page". OFF (as it ships): not one byte of any request
        * changes. ON: on a turn whose connection has its thinking OFF (a story page, never an out-of-character answer) the
@@ -5479,47 +5503,8 @@ export function initChat(ctx) {
         await refreshPreview(story.id);
       }
 
-      /* M516: WHERE OUR STORY BEGAN IN CANON — asked once, alone, when a #story opens a tale that has no page yet: the
-       * series, the arc, the moment, and what was true of that world then (never after). A storyteller that knows every
-       * fact writes each person at their strongest memory ("Yuta — abroad") without it. The first page waits for it (up
-       * to its ceiling); a failed ask never blocks the page, and a story set in no canon is remembered as such. */
-      /* …and a tale that BEGAN with a #story before this was asked (his Jujutsu Kaisen tale) is placed on its next page, from
-       * that first #story — once; its own clock already stands, so the canon date is left out (the facts are what it lacked) */
-      if (!parsed.hidden && !parsed.ooc) {
-        try {
-          const key = CANON_START_KEY(story.id);
-          const pages = await db.messages.list(story.id);
-          const told = pages.some((m) => m && m.role === 'assistant');
-          const opening = parsed.kind === 'story' && !told ? String(text) : (() => { const first = pages.find((m) => m && m.role === 'user' && !m.hidden); const words = first ? String(first.typed || first.text || '') : ''; return /^\s*#story\b/i.test(words) ? words : ''; })();
-          const had = await db.settings.get(key);
-          const conceptNow = opening ? opening.trim().replace(/^#story\s*/i, '').trim() : '';
-          /* M526: his #story line changed (edited, or the tale's first move replaced) — where it began is asked again, from
-           * the new line; never over his own correction */
-          const moved = Boolean(had && !had.words && had.conceptFp && conceptNow && had.conceptFp !== hashText(conceptNow));
-          const due = !had || moved || (had.tried && !had.series && !had.words && !had.none && Date.now() - had.tried > 6 * 3600 * 1000); /* a failed ask is tried again after six hours — never on every page */
-          if (opening && due && !told) {
-            const concept = conceptNow;
-            /* the placing itself — one helper's answer, kept under the tale (the start, or "no canon", or tried) */
-            const place = async (signal) => {
-              const placer = await resolveWorkerConnection(story, 'founder');
-              const got = await placeInCanon({ connection: placer, concept, brief: story.brief || '', signal });
-              if (got && got.start) {
-                await db.settings.set(key, { ...got.start, ...(told ? { when: '' } : {}), conceptFp: hashText(concept), at: Date.now() }); /* M526: the line it was placed from */
-                if (!told) toast('Your story begins in ' + got.start.series + (got.start.arc ? ' — ' + got.start.arc : '') + '.'); /* M519-3: said plainly, once */
-              } else if (got && got.none) await db.settings.set(key, { none: true, conceptFp: hashText(concept), at: Date.now() });
-              else await db.settings.set(key, { tried: Date.now() }); /* no answer: not asked again on the next page */
-            };
-            if (!told) {
-              /* a #story opening a tale: its first page waits for it (up to its ceiling), said so the wait is not a silence */
-              const { signal, done } = workerSignal(30000);
-              showComposerNote('Checking which series your story is from…'); /* M519-4: not "canon" — it is not canon verification */
-              try { await place(signal); } finally { done(); hideComposerNote(); }
-            }
-            /* M527: a tale already under way is placed by the page chain after its next page (placeNext) — never before or
-             * beside the storyteller's own request */
-          }
-        } catch (err) { /* the page goes on without it */ }
-      }
+      /* M516/M536: where a #story's tale begins in its canon is checked where its first page is built (generate() — a send,
+       * a Try again or a reroll alike); a tale already under way is placed by the page chain (placeNext, M527) */
 
       await generate({ directive: parsed.directive, ooc: parsed.ooc });
       stories = await db.stories.list();

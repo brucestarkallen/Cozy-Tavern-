@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m535-001)
+# Cozy Tavern — handoff for the next session (state at m536-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1595,4 +1595,12 @@ founding design lives in AGENTS.md's first entries.)
   elsewhere the newest page does not show; apply.js walkedBackOverTheWorld puts right the walk-ins already made (a walk-in
   that let go of a seat the world wrote ON THE SAME PAGE, for someone the newest page does not keep → presence.leave and the
   seat back), on opening (with the other open-time repairs) and after every page. Laws M535-1/2.
+- M536 — THE CHECK RESTARTS AFTER A LOST CONNECTION. His questions: where does "Checking which series your story is
+  from…" go (the start is kept per tale — Settings → This story → "Where our story began", and it rides with every page:
+  its own row, or inside the world for an Automatic brief); and "if I lose my internet during it and press retry, it is gone
+  and does not restart — bug?" Yes: placeInCanon turned a failed call into "no answer", which was written down as tried
+  (asked again only after six hours), and the check ran only on the send, so Try again never reached it. Now a failed call
+  is { failed: true } and written down as nothing (generate's check and the chain's placeNext alike), and the opening's check
+  runs in generate() where its first page is built — a send, a Try again or a reroll alike; send()'s old copy is gone.
+  Walk DOM-190 (fails on m535-001).
 

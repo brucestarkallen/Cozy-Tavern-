@@ -13829,3 +13829,21 @@ and the auditor's report: "Byakuya Kuchiki came into the scene. The elsewhere no
 - Laws M535-1/2 (the refusals; the repair, and what it leaves alone). Harness 1086/1086, walk 189/189, long play 8/8, lint
   0; the frontier request identical (24 of 24).
 
+# M536 — the check restarts after a lost connection
+His questions: "when I start a new story, Checking which series your story is from… — where is this information put? And if
+I lose my internet during it and press retry, it is gone and not restarting — is it a bug?"
+- Where it goes: the start is kept under the tale (canonStart:<id>) — shown and correctable in Settings → This story →
+  "Where our story began" — and rides with every page: its own receipt row "Where our story began", or inside "The world of
+  our story" when the brief is Automatic.
+- The bug, read in the code: canonstart.js placeInCanon turned a FAILED call (no network, an error, the ceiling) into the same
+  null as an unusable answer, and the caller wrote that down as { tried } — asked again only after six hours; and the check
+  lived in send() only, so Try again (which builds the page without a send) never reached it, and the chain's placeNext then
+  found "tried" and waited.
+- Now: a failed call comes back { failed: true } and is written down as nothing — in the opening's check and in placeNext —
+  so the next chance asks again; an unusable answer is still kept as tried. The opening's check runs in generate(), where the
+  first page is built — a send, a Try again and a reroll alike ("Checking which series your story is from…" while it waits);
+  send()'s old copy is removed.
+- Walk DOM-190 (offline during the check: nothing written, no page; back online, Try again checks again, keeps it, and the
+  first page carries it — fails on m535-001); DOM-172/173/182/183 still green. Harness 1086/1086, walk 190/190, long play 8/8,
+  lint 0; the frontier request identical (24 of 24).
+

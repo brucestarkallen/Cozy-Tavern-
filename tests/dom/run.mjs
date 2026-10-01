@@ -7976,6 +7976,44 @@ test('DOM-189 CANON FOR THE PEOPLE THE LEDGER HAS HERE, NAMED OR NOT (his screen
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-190 THE CONNECTION DROPS WHILE THE SERIES IS BEING CHECKED (M536 — his report: "if I lose my internet during Checking which series your story is from… and press retry, it is gone and does not restart"): a failed check is written down as nothing, and Try again checks again before the first page', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { CANON_START_KEY } = await import('../../js/agents/canonstart.js');
+  const st = await db.stories.create({ title: 'offline opening' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  let placed = 0;
+  house.state.storyAnswer = () => '[Tengen\'s barrier — Monday, December 4, 2018 | 23:50 | cold | haori | before Yuki]\n\nSteel rang an inch from her throat.';
+  house.state.workerAnswer = (body, sys) => {
+    if (/You place a story in its canon/.test(String(sys || ''))) { placed += 1; return JSON.stringify({ canon: true, series: 'Jujutsu Kaisen', arc: 'Culling Game arc', moment: 'Kenjaku attacks Tengen\'s barrier', when: 'December 2018', facts: ['Yuta Okkotsu is back in Japan.'] }); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+  };
+  const priorFetch = globalThis.fetch;
+  let offline = true;
+  globalThis.fetch = async (url, opts) => { if (offline && !/api\/books/.test(String(url))) throw new TypeError('Failed to fetch'); return priorFetch(url, opts); };
+  try {
+    type(q('#composer-input'), '#story jujutsu kaisen Jovan saves Yuki from Kenjaku'); submit(q('#composer'));
+    await until(() => !env.ctx.chat.isBusy(), 'the send gave up while offline', 60000);
+    eq((await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length, 0, 'no page while offline');
+    assert(!(await db.settings.get(CANON_START_KEY(st.id))), 'the failed check was written down as nothing');
+    offline = false;
+    const from = house.state.calls.length;
+    const tryAgain = await until(() => q('.msg-act[data-act="try again"]', userPages()[0]), 'Try again on his #story');
+    click(tryAgain);
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the first page, back online', 40000);
+    eq(placed, 1, 'Try again checked the series again');
+    eq(((await db.settings.get(CANON_START_KEY(st.id))) || {}).series, 'Jujutsu Kaisen', 'and kept it');
+    const told = house.state.calls.slice(from).find((c) => !c.isWorker && Array.isArray(c.body.messages) && /You are telling a story/.test(JSON.stringify(c.body.messages[0] || '')));
+    assert(told && /Where our story began in Jujutsu Kaisen/.test(JSON.stringify(told.body)), 'and the first page carried it');
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers', 40000);
+  } finally {
+    globalThis.fetch = priorFetch;
+    house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
+  }
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();
