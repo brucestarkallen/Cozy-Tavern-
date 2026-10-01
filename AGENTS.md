@@ -13900,3 +13900,18 @@ can it not see the scene and think Ogi Zenin is not important, instead of blindl
   one; "I bow to Kuchiki" and "Rukia" do); DOM-178 follows the new line. Harness 1087/1087, walk 191/191, long play 8/8, lint 0;
   the frontier request identical (24 of 24).
 
+# M540 — short names are the same day
+His report: the ledger's clock "Saturday, January 1, 2000 — 11:15" while the scene's header said "Mariner's Lane, Ravenwood — Thu,
+Aug 20, 2026 | 11:15" — "is this a regression?" Reproduced: the header reader (state.js headerMutations) recognised only whole
+weekday and month names; "Thu, Aug 20, 2026" gave the place and the hour and no date, and a clock with no date of its own reads
+as January 1, 2000. Not a regression: m518 reads it the same, and a build from about a hundred and forty releases back set no
+clock at all from it — his storyteller is the first to write short names.
+- headerMutations: months in short form ("Aug", "Sept.") wherever a month is read, with its day number; a short weekday ("Thu,",
+  "Sat.") only where a date follows it, so a place that begins like one ("Sun Temple", "Mar Vista Pier") stays a place; the day
+  before the month ("20 Aug 2026"); a date before the place. A story's own calendar (M455: "Sunday, Hanami 5, 1001 AG") is
+  unchanged.
+- His tale heals when it opens: the open-time repair (healLedgerOnOpen) sets the clock from the newest page's header.
+- Law M540-1 (his header and the tricky cases); walk DOM-192 (his clock as he saw it, put right on opening — the repair skips a
+  tale made a minute ago or with its readers off, by design). Harness 1088/1088, walk 192/192, long play 8/8, lint 0; the
+  frontier request identical (24 of 24).
+

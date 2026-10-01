@@ -8092,6 +8092,25 @@ test('DOM-191 A FAMILY NAME USED FOR THE FAMILY NAMES NO ONE (M539 — his quest
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-192 HIS CLOCK, PUT RIGHT ON OPENING (M540 — his ledger read "Saturday, January 1, 2000 — 11:15" while the page said "Thu, Aug 20, 2026"): a tale whose clock never got its date because the headers wrote short names has it from the newest page\'s header when it opens', async () => {
+  const before = errors.length;
+  const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const st = await db.stories.create({ title: 'ravenwood' });
+  await db.stories.update(st.id, { keeper: false, createdAt: Date.now() - 3600000 }); /* a tale of his — the open-time repair leaves a tale made a minute ago, and a tale whose readers are off, to its own chain */
+  await db.messages.append(st.id, { role: 'user', text: 'I walk the lane.' });
+  await db.messages.append(st.id, { role: 'assistant', text: "[Mariner's Lane, Ravenwood — Thu, Aug 20, 2026 | 11:15 | overcast | jacket | by the railing]\n\nThe gulls cried over the harbour." });
+  const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: "Mariner's Lane, Ravenwood" }, { type: 'presence.enter', name: 'Jovan' }, { type: 'clock.set', hour: 11, minute: 15 }]).state;
+  await saveState(st.id, { ...ledger, page: 1, readTo: 1, tidiedGen: 999 });
+  const was = (await loadState(st.id)).clock || {};
+  eq(was.label, 'Saturday, January 1, 2000 — 11:15', 'fixture: his clock as he saw it');
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await env.ctx.chat.openStory(st.id).catch(() => {});
+  await until(async () => ((await loadState(st.id)).clock || {}).label === 'Thursday, August 20, 2026 — 11:15', 'the clock reads Thursday, August 20, 2026 — 11:15', 15000);
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();

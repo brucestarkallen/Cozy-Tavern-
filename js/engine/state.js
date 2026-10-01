@@ -1120,6 +1120,13 @@ export function journalKey(e) {
  * audit after audit). The house reads the line itself. Returns the
  * mutations the header warrants; nothing when the line is not a header. */
 const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+/* M540: SHORT NAMES ARE THE SAME DAY. His storyteller writes "[Mariner's Lane, Ravenwood — Thu, Aug 20, 2026 | 11:15 | …]":
+ * the header reader knew only whole names ("Thursday, August 20"), so it took the hour and no date, and the ledger's clock
+ * read "Saturday, January 1, 2000 — 11:15". Short months and weekdays are read now — a short weekday only where a date
+ * follows it (so "Sun Temple" stays a place), a month only with its day number. */
+const MONTH_SRC = '(?:' + MONTHS.join('|') + '|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)\\.?';
+const SHORT_DAY_SRC = '(?:mon|tues|tue|wed|thurs|thur|thu|fri|sat|sun)\\.?';
+const monthNumber = (word) => ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'].indexOf(String(word || '').toLowerCase().slice(0, 3)) + 1;
 export function headerMutations(pageText) {
   const first = String(pageText || '').split('\n').map((l) => l.trim()).find((l) => l.length);
   if (!first || !/^\[.+\]$/.test(first)) return [];
@@ -1133,7 +1140,8 @@ export function headerMutations(pageText) {
    * month with a number, or a numeric date) — and the header's place replacing the page reader's fuller one would
    * otherwise count as a move every page and clear where everyone stands. */
   const isDatePart = (t) => new RegExp('\\b(' + ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].join('|') + ')\\b', 'i').test(t)
-    || new RegExp('\\b(' + MONTHS.join('|') + ')\\s+\\d{1,2}', 'i').test(t) || new RegExp('\\b\\d{1,2}(st|nd|rd|th)?\\s+(' + MONTHS.join('|') + ')\\b', 'i').test(t)
+    || new RegExp('^\\s*' + SHORT_DAY_SRC + '\\s*,?\\s+(?:' + MONTH_SRC + '\\s+\\d{1,2}|\\d{1,2})(?![\\p{L}\\p{N}])', 'iu').test(t) /* M540 */
+    || new RegExp('\\b' + MONTH_SRC + '\\s+\\d{1,2}(?![\\p{L}\\p{N}:])', 'iu').test(t) || new RegExp('\\b\\d{1,2}(st|nd|rd|th)?\\s+' + MONTH_SRC + '(?![\\p{L}])', 'iu').test(t)
     || /^\d{1,4}[\/.-]\d{1,2}/.test(t);
   /* M417: A DATE OR AN HOUR FIRST IS NOT A PLACE. "[Monday, June 1 — 10th Division HQ — training courtyard | 10:40]" set the
    * ground to "Monday, June 1" (only a later part was ever asked whether it was a date) — a move to a place that is a
@@ -1146,7 +1154,11 @@ export function headerMutations(pageText) {
   const leadsWithDate = (t) => new RegExp('^' + WEEKDAY + '\\b\\s*,?\\s*(?:\\p{Lu}[\\p{L}\'’-]*\\s+\\d{1,2}(?![\\p{L}\\p{N}])|(?:' + MONTHS.join('|') + ')\\s+\\d{1,2}(?![\\p{L}\\p{N}])|\\d{1,2}(?:st|nd|rd|th)?(?![\\p{L}\\p{N}])|(?:morning|afternoon|evening|night|noon|midnight|dawn|dusk)$|$)', 'iu').test(t)
     || new RegExp('^(?:' + MONTHS.join('|') + ')\\s+\\d{1,2}(?![\\p{L}\\p{N}])', 'iu').test(t)
     || new RegExp('^\\d{1,2}(?:st|nd|rd|th)?\\s+(?:' + MONTHS.join('|') + ')\\b', 'i').test(t)
-    || /^\d{1,4}[\/.-]\d{1,2}/.test(t) || /^\d{1,2}:\d{2}\b/.test(t);
+    || /^\d{1,4}[\/.-]\d{1,2}/.test(t) || /^\d{1,2}:\d{2}\b/.test(t)
+    /* M540: a short weekday with its date, a short month with its day, the day before a short month */
+    || new RegExp('^' + SHORT_DAY_SRC + '\\s*,?\\s+(?:' + MONTH_SRC + '\\s+\\d{1,2}|\\d{1,2})(?![\\p{L}\\p{N}])', 'iu').test(t)
+    || new RegExp('^' + MONTH_SRC + '\\s+\\d{1,2}(?![\\p{L}\\p{N}])', 'iu').test(t)
+    || new RegExp('^\\d{1,2}(?:st|nd|rd|th)?\\s+' + MONTH_SRC + '(?![\\p{L}])', 'iu').test(t);
   let start = 0;
   while (start < dash.length - 1 && leadsWithDate(dash[start].trim())) start += 1;
   const dateAt = dash.findIndex((t, i) => i > start && isDatePart(t));
@@ -1165,10 +1177,13 @@ export function headerMutations(pageText) {
   const dateWords = placeTaken
     ? [...dash.slice(0, start), ...(dateAt > start ? dash.slice(dateAt) : start > 0 ? [] : dash.slice(1))].join(' ') + ' ' + parts.slice(1).join(' ')
     : inner;
-  const dm = dateWords.match(new RegExp('(' + MONTHS.join('|') + ')\\s+(\\d{1,2}),?\\s+(\\d{4})', 'i'));
+  /* M540: "Aug 20, 2026", "August 20th, 2026", "20 Aug 2026" alike */
+  const md = dateWords.match(new RegExp('(' + MONTH_SRC + ')\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})', 'iu'));
+  const dmy = md ? null : dateWords.match(new RegExp('(\\d{1,2})(?:st|nd|rd|th)?\\s+(' + MONTH_SRC + ')\\s*,?\\s+(\\d{4})', 'iu'));
+  const dm = md ? [md[0], md[1], md[2], md[3]] : dmy ? [dmy[0], dmy[2], dmy[1], dmy[3]] : null;
   const tm = (parts.slice(1).join(' ') + ' ' + head).match(/\b(\d{1,2}):(\d{2})\b/);
-  if (dm && tm) {
-    const month = MONTHS.indexOf(dm[1].toLowerCase()) + 1;
+  if (dm && tm && monthNumber(dm[1].replace(/\.$/, '')) > 0) {
+    const month = monthNumber(dm[1].replace(/\.$/, ''));
     out.push({ type: 'clock.set', year: Number(dm[3]), month, day: Number(dm[2]), hour: Number(tm[1]), minute: Number(tm[2]) });
   } else if (tm && Number(tm[1]) <= 23 && Number(tm[2]) <= 59) {
     /* M455: THE HEADER'S HOUR IS THE HOUR, WHATEVER CALENDAR THE STORY KEEPS. Only a real month's date let a header set

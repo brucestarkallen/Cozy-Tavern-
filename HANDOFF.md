@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m539-001)
+# Cozy Tavern — handoff for the next session (state at m540-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1629,4 +1629,11 @@ founding design lives in AGENTS.md's first entries.)
   carry (EVERY_ROW) for claims that could be wrong: the ⌀ "not in canon" line is gone (M538); the M519-5 nudge ("The people
   here talk this time") could push speech through a silence the scene calls for — now "Where the moment gives the people
   here anything to say, they say it". Walk DOM-191 (castNamedInForHarness on canon's live memory); DOM-178's line updated.
+- M540 — SHORT NAMES ARE THE SAME DAY. His ledger: "Saturday, January 1, 2000 — 11:15" while the page said "Mariner's Lane,
+  Ravenwood — Thu, Aug 20, 2026 | 11:15". The header reader (state.js headerMutations) knew only whole weekday and month
+  names, so a storyteller writing "Thu, Aug 20, 2026" set the hour and no date — the clock's empty date reads 2000-01-01.
+  Not a regression: m518 and an M400-era build read it the same (the M400 one set no clock at all). Now short months
+  ("Aug", "Sept.") and short weekdays read (a short weekday only where a date follows, so "Sun Temple" and "Mar Vista Pier"
+  stay places), and a day-first date ("20 Aug 2026"). His tale is put right when it opens (healLedgerOnOpen's header
+  clock). Law M540-1; walk DOM-192.
 
