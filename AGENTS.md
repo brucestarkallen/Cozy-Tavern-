@@ -13878,3 +13878,25 @@ not real'."
   storyteller's request (fails on m535); the canon room's lever list no longer has the switch. Harness 1087/1087, walk 190/190,
   long play 8/8, lint 0; the frontier request identical (24 of 24).
 
+# M539 — a family name used for the family names no one; no nudge that forces speech
+His questions: "1. Is there any injection, or something stupid, that could break my system? 2. Why does canon say Ogi Zenin —
+can it not see the scene and think Ogi Zenin is not important, instead of blindly using 'Zenin'?"
+- (2) Canon's tiers put "characters the player just named" above everything but pins (grounding.js castNamedIn). It read a
+  name word owned by exactly one cached person as that person — so "the Zenin clan" named Ogi Zenin, the only Zenin in canon's
+  memory, and he rode at the top of the note. groupUseAt now reads the words around each occurrence: "<name> clan / family /
+  household / house / estate / compound / elders / heirs / bloodline / line / branch / members / retainers / guards", "the
+  <name>s", "house/clan/family of <name>" are the group, not a person. A person called by their family name alone ("I bow to
+  Kuchiki") still counts; their own name always does. The parser (when on) still reads the scene for who matters.
+- (1) Every part a page can carry (EVERY_ROW) was gone through for claims made from a guess. The one that asserted something
+  false about the story — canon's ⌀ "not in canon, treat as original" — is gone (M538). The rest: the story's own record (the
+  ledger's people, places, standings, who knows what, the record and its essentials) — as true as the ledger, which the
+  readers and the auditor keep and the self-heals repair; helpers' own knowledge (where the story began, the automatic
+  world) — correctable in Settings → This story; measured nudges (the sound brake's breath, worn phrases) — only when measured;
+  craft drift notes from the page checker (formatting marks, a header, an echoed line, his character given words) — about
+  the page's form, not the world. One nudge could do harm: M519-5's "The people here talk this time" could push talk through a
+  silence the scene calls for (hiding, a held breath) — it now reads "Where the moment gives the people here anything to say,
+  they say it — in their own voices, their own words."
+- Walk DOM-191 (with Rukia Kuchiki in canon's memory: "the Kuchiki clan elders", "the Kuchikis", "the house of Kuchiki" name no
+  one; "I bow to Kuchiki" and "Rukia" do); DOM-178 follows the new line. Harness 1087/1087, walk 191/191, long play 8/8, lint 0;
+  the frontier request identical (24 of 24).
+

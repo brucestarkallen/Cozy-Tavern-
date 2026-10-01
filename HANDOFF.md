@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m538-001)
+# Cozy Tavern — handoff for the next session (state at m539-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1620,4 +1620,13 @@ founding design lives in AGENTS.md's first entries.)
   off, and its switch is gone from canon's room ("Say what is NOT in canon"). The misses stay in canon's own room for his
   eyes. Walk DOM-189 (a missed name with ask intent, an old setting still on: nothing sent — fails on m535), DOM-73-era
   lever list updated.
+- M539 — A FAMILY NAME USED FOR THE FAMILY NAMES NO ONE; NO NUDGE THAT FORCES SPEECH. His questions: "is there any
+  injection that is stupid and could break my system?" and "why does canon say Ogi Zenin — can't it see the scene, instead of
+  blindly using 'Zenin'?" (1) canon's "named by you" tier (grounding.js castNamedIn — it outranks the parser) took one word
+  owned by one cached person for that person: "the Zenin clan" named Ogi Zenin, the only Zenin in canon's memory. Now an
+  occurrence used for the group — "<name> clan/family/house/elders/heirs/members…", "the <name>s", "house of <name>" — is
+  not a reference (groupUseAt); a person named by surname, or by name, still counts. (2) The sweep of every part a page can
+  carry (EVERY_ROW) for claims that could be wrong: the ⌀ "not in canon" line is gone (M538); the M519-5 nudge ("The people
+  here talk this time") could push speech through a silence the scene calls for — now "Where the moment gives the people
+  here anything to say, they say it". Walk DOM-191 (castNamedInForHarness on canon's live memory); DOM-178's line updated.
 

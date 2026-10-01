@@ -2665,6 +2665,17 @@ function nameTokenOwners() {
  * holds for any language and any typing style, which capitalisation never did.
  * Returned in order of first mention, so the note follows the sentence.
  */
+/* M539: the word at [i, i+len) in the lower-cased text is used for a family or a house, not a person */
+const GROUP_AFTER = /^(?:'s)?\s+(?:clan|clans|family|families|household|house|houses|estate|compound|elders?|heirs?|bloodline|lineage|line|branch|main family|head family|members?|retainers?|guards?)\b/u;
+function groupUseAt(lower, i, len) {
+    const after = lower.slice(i + len, i + len + 40);
+    const before = lower.slice(Math.max(0, i - 24), i);
+    if (GROUP_AFTER.test(after)) return true;                 // "Zenin clan", "Zenin elders"
+    if (/^s\b/u.test(after) && /\bthe\s+$/u.test(before)) return true; // "the Zenins"
+    if (/\b(?:house|clan|family)\s+of\s+$/u.test(before)) return true; // "house of Zenin"
+    return false;
+}
+export function castNamedInForHarness(text) { return castNamedIn(text); } /* exported for the harness (M539) */
 function castNamedIn(text) {
     const raw = String(text || "");
     if (!raw.trim()) return [];
@@ -2683,8 +2694,17 @@ function castNamedIn(text) {
                 if (t.length < 3 || NOISE_WORDS.has(t) || COMMON_LOWERCASE.has(t)) continue;
                 if (STOPWORDS.has(t[0].toUpperCase() + t.slice(1))) continue;
                 if (owner.get(t) !== e.name) continue;          // shared token — never a reference
-                const m = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegex(t)}(?![\\p{L}\\p{N}])`, "iu").exec(lower);
-                if (m) { at = m.index; break; }
+                /* M539: A FAMILY NAME USED FOR THE FAMILY IS NOT ONE OF THEM. "The Zenin clan" named Ogi Zenin — the only Zenin
+                 * the cache held — as if he typed Ogi: a single word owned by one cached person was taken for that person,
+                 * even where the words around it make it the clan ("the Zenin clan", "Zenin elders", "the Zenins", "house of
+                 * Zenin"). An occurrence used for the group is not a reference; only an occurrence that names a person counts. */
+                const re = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegex(t)}(?![\\p{L}\\p{N}])`, "giu");
+                let m;
+                while ((m = re.exec(lower))) {
+                    if (groupUseAt(lower, m.index, t.length)) continue;
+                    at = m.index; break;
+                }
+                if (at >= 0) break;
             }
         }
         if (at >= 0) hits.push({ name: e.name, at });

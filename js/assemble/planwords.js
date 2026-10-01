@@ -64,6 +64,6 @@ export function renderSounds(plan, { voice = null, laws = '', wentQuiet = false,
  * eyes, "Worth a look", never sent on); a small model that let a page with people in it go almost silent is told once, on
  * the next page, in plain words. */
 export function talkWords() {
-  return 'The last page barely let anyone speak. The people here talk this time — in their own voices, their own words.';
+  return 'The last page barely let anyone speak. Where the moment gives the people here anything to say, they say it — in their own voices, their own words.'; /* M539: never a push to talk through a silence the scene calls for (a hiding place, a held breath) */
 }
 
