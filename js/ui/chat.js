@@ -97,7 +97,7 @@ import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebu
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
 import { polishConcept } from '../agents/concept.js'; /* M478: a #story concept becomes the brief, its grammar set right */
-import { renderWorldBrief, threadHousekeeping } from '../engine/world.js';
+import { renderWorldBrief, threadHousekeeping, voicesBeyondTheRoom } from '../engine/world.js'; /* M544 */
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
 import { castForStory, castNamesFor } from '../import/cards.js';
 import { loadLore, matchLoreDetailed, saveLore } from '../import/lorebook.js';
@@ -3483,7 +3483,7 @@ export function initChat(ctx) {
        * the masthead); a read that heard none clears a stale block from an
        * earlier version of the page. */
       if (result && result.note === 'ok' && !stale() && (await stillThere(story.id, msg.id))) {
-        const voices = result.brief && Array.isArray(result.brief.voices) ? result.brief.voices : [];
+        const voices = voicesBeyondTheRoom(result.brief && Array.isArray(result.brief.voices) ? result.brief.voices : [], await loadState(story.id)); /* M544: never a voice from someone in the room */
         await reink(story.id, msg.id, { voices });
         notify(story.id); /* M97: the drawer's "Voices, elsewhere" listens */
       }

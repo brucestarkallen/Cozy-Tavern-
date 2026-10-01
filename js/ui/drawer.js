@@ -41,7 +41,7 @@ import { applyMutations, undoLast, undoEntry, MODE_WORDS } from '../engine/apply
 import { renderClock, REAL_MONTHS, REAL_DAYS } from '../engine/clock.js';
 import { SEV_WORDS } from '../engine/bodies.js';
 import { axisWords, historyWords, AXES } from '../engine/relationships.js';
-import { isMc, seatForPerson, lastSeenTurn } from '../engine/people.js'; /* M541 */
+import { isMc, seatForPerson, lastSeenTurn, lastEnteredTurn } from '../engine/people.js'; /* M541; M544 */
 import { seatLine, seatOrder, seatNowWords } from '../engine/offscreen.js'; /* M300; M304: one line, one order and one wording for a seat */
 import { storyTurn as storyTurnOf } from '../engine/apply.js'; /* M291: how long ago a page was last written */
 import { listCast, attachToStory, detachFromStory, castNamesFor } from '../import/cards.js';
@@ -2081,7 +2081,7 @@ function peoplePanel(ctx) {
       } else if (seatNow) addLine('Now (elsewhere): ' + seatNow);
       /* M294: a note older than a couple of pages says so for everyone — the one here and the
        * main character too; "Now:" over a thirty-page-old line hid a page that was not being kept */
-      else if (typeof c.state === 'string' && c.state.trim()) addLine(((isHere || mine) ? (ago > 2 ? 'Last noted ' + ago + (ago === 1 ? ' page' : ' pages') + ' ago: ' : 'Now: ') : (((seenAgo) => (seenAgo > 2 ? 'Last seen ' + seenAgo + ' pages ago: ' : 'Last seen just now: '))(Math.max(0, turnNow - lastSeenTurn(state, name))))) + c.state.trim());
+      else if (typeof c.state === 'string' && c.state.trim() && !(isHere && !mine && (Number.isFinite(c.updatedAtTurn) ? c.updatedAtTurn : 0) < lastEnteredTurn(state, name))) addLine(((isHere || mine) ? (ago > 2 ? 'Last noted ' + ago + (ago === 1 ? ' page' : ' pages') + ' ago: ' : 'Now: ') : (((seenAgo) => (seenAgo > 2 ? 'Last seen ' + seenAgo + ' pages ago: ' : 'Last seen just now: '))(Math.max(0, turnNow - lastSeenTurn(state, name))))) + c.state.trim());
       /* M408: someone here is never without a now — what the scene knows for certain until a reader writes more */
       else if (isHere && !mine) { const spot = (state.present || []).find((p) => p && samePersonName(p.name, name)); addLine('Now: here' + (spot && spot.position ? ' — ' + spot.position : '')); } /* M409: no promise, no delay — what the scene knows */
       if (typeof c.arc === 'string' && c.arc.trim()) addLine('Between you: ' + c.arc.trim());

@@ -736,7 +736,30 @@ export function saysAllIsWell(issue) {
   return ALL_IS_WELL.test(fix) || (ALL_IS_WELL.test(what) && !/\bbut\b/i.test(what));
 }
 
+/* M544: A PLACE IN THE ROOM THE PAGE LEFT BEHIND. His auditor saw "the ledger's 'Here now' still describes Jovan Wells as being
+ * in the kitchen with the cordless taken out of his hand, but the pages show him upstairs at the door of Rias's room" — and
+ * could change nothing: a place in the room is the page reader's to write (M128), so the finding stood as "Seen, left as the
+ * story has it" and the storyteller went on reading him in the kitchen. The one safe repair is the auditor's to make: when it
+ * reports someone's place in the room as wrong and none of that place's own words are on the newest page, the old place is
+ * let go (no new one is written — the page reader writes the new one from the page). */
+const PLACE_STOP = new Set(['about', 'after', 'again', 'along', 'around', 'before', 'behind', 'below', 'beside', 'between', 'their', 'there', 'these', 'those', 'under', 'where', 'which', 'while', 'with', 'still', 'other', 'every', 'being']);
+function placeWordsOnPage(position, told) {
+  const words = String(position || '').toLowerCase().match(/[\p{L}']{5,}/gu) || [];
+  const own = words.filter((w) => !PLACE_STOP.has(w));
+  if (!own.length) return true; /* nothing to judge by — leave it */
+  const text = String(told || '').toLowerCase();
+  return own.some((w) => text.includes(w));
+}
 export function auditorScope(issues, state, { header = [], page = '' } = {}) {
+  if (page && Array.isArray(issues)) {
+    const told = narrationOf(scenePartOf(page));
+    issues = issues.map((issue) => (issue && Array.isArray(issue.mutations) ? { ...issue, mutations: issue.mutations.map((m) => {
+      if (!(m && m.type === 'presence.update' && typeof m.name === 'string' && typeof m.position === 'string' && m.position.trim())) return m;
+      const entry = (Array.isArray(state && state.present) ? state.present : []).find((p) => p && typeof p.name === 'string' && isHere({ present: [p] }, m.name));
+      const was = entry && typeof entry.position === 'string' ? entry.position : '';
+      return was && !placeWordsOnPage(was, told) ? { type: 'presence.update', name: entry.name, position: '', staleClear: true } : m;
+    }) } : issue));
+  }
   const headerPlace = ((Array.isArray(header) ? header : []).find((x) => x && x.type === 'place.set') || {}).name || '';
   const mc = String((state && state.sheet && state.sheet.playerName) || '').trim().toLowerCase();
   const said = Array.isArray(header) ? header : [];
@@ -750,6 +773,7 @@ export function auditorScope(issues, state, { header = [], page = '' } = {}) {
   const seats = (state && state.offscreen && typeof state.offscreen === 'object') ? state.offscreen : {};
   const moment = (m) => {
     if (!m || typeof m !== 'object' || typeof m.type !== 'string') return true;
+    if (m.type === 'presence.update') return !m.staleClear; /* M544: only the letting-go of a place the page left behind */
     if (!AUDITOR_TYPES.has(m.type)) return true;
     /* the header line is the truth for the ground and the hour (M131): the
      * auditor may bring the ledger TO it, never move it anywhere else */

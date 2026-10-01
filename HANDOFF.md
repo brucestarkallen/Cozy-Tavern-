@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m543-001)
+# Cozy Tavern — handoff for the next session (state at m544-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1664,4 +1664,15 @@ founding design lives in AGENTS.md's first entries.)
   on someone the ledger has here (or the main character, by duels.js mcName) is not told (renderWorldBrief, called with the
   ledger from chat.js) and does not wake the window's craft rule (modules.js worldWindow). M29-10's source check follows the
   new call. Law M543-1 (through listModules + selectModules, as the app loads them).
+- M544 — THE SWEEP OF WHERE-EVERYONE-IS (his order: "audit everything step by step — do I need to keep telling the same
+  thing?"). Every door that says who is where was gone through. Holding: only apply.js moves people (no direct writes to
+  present/offscreen anywhere else); offscreen.set refuses anyone here; presence.enter lets a seat go; the world agent cannot
+  move people in or out (WORLD_TYPES); the founder cannot; the send path keeps window-only names out; the page reader's and
+  the auditor's walk-ins are held to the newest page (M535/M541); the window (M543). Fixed now: (1) the world's VOICES
+  ("people the main character cannot hear") kept a line from someone standing in the room — world.js voicesBeyondTheRoom,
+  applied where the voices are kept on the page; (2) a present person's card (and drawer line) said "Now:" from a page note
+  written before they last walked in ("at the corner of Mariner's Lane…") — people.js lastEnteredTurn; such a note gives way
+  to the ledger's here-and-now; (3) the auditor saw stale places in the room ("Jovan … in the kitchen" while upstairs) and
+  could change nothing (M128) — it may now let such a place go when none of its words are on the newest page
+  (auditorScope, presence.update with position '' only). Laws M544-1…3.
 

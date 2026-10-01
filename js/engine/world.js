@@ -813,6 +813,21 @@ export function windowOnSomeoneHere(brief, state) {
   const mc = mcName(state);
   return Boolean(mc && mc !== 'the player' && samePersonName(mc, who));
 }
+/* M544: THE VOICES ARE PEOPLE HE CANNOT HEAR. The same fault as the window (M543): the world agent's voices — "people the main
+ * character cannot currently hear" — were kept as they came, so a line from someone standing in the room with him could sit
+ * under the page as if overheard from elsewhere. A voice whose speaker is here (or is the main character) is not kept. */
+export function voicesBeyondTheRoom(voices, state) {
+  const list = Array.isArray(voices) ? voices : [];
+  if (!state || typeof state !== 'object') return list;
+  const present = Array.isArray(state.present) ? state.present : [];
+  const mc = mcName(state);
+  return list.filter((v) => {
+    const who = String((v && v.speaker) || '').replace(/^->\s*/, '').trim();
+    if (!who) return true;
+    if (present.some((p) => p && typeof p.name === 'string' && samePersonName(p.name, who))) return false;
+    return !(mc && mc !== 'the player' && samePersonName(mc, who));
+  });
+}
 export function renderWorldBrief(brief, turnNow, pageNow, state = null) {
   if (!brief || typeof brief !== 'object') return '';
   if (brief.empty) return '';

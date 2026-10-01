@@ -13969,3 +13969,26 @@ they were away can walk in before the next page is asked for.
   the world's word unchanged — through listModules and selectModules, as the app loads them. Harness 1091/1091, walk 193/193, long play
   8/8, lint 0; the frontier request identical (24 of 24).
 
+# M544 — the sweep of where everyone is
+His order: "please audit everything step by step — do I need to keep telling the same thing?" Today's reports (M535 the auditor's
+walk-ins, M541 the reader's walk-ins and "last seen", M542 the roster, M543 the window) were one weakness through different doors:
+several helpers each decide who is where, and not every door was held to the newest page. Every door was gone through.
+- Holding, checked in the code: only apply.js moves people — no other code writes state.present or state.offscreen; offscreen.set
+  refuses anyone here and presence.enter lets their seat go (never both); the world agent cannot move anyone in or out (WORLD_TYPES:
+  seats, threads, knowledge, factions, pages); the founder cannot (NOT_THE_FOUNDERS); the send path keeps out walk-ins seen only in a
+  window (onlyInWindow); the page reader's walk-ins of someone seated elsewhere (M541) and the auditor's walk-ins (M535) and leaves
+  (M541) answer to the newest page; the open-time repairs read the telling (hereByTheNewestPage, wrongWalkIns, goneByTheirOwnPage,
+  walkedBackOverTheWorld); a ground that moves lets every place in the room go (M261).
+- Fixed: (1) the voices under the page — "people the main character cannot currently hear" — were kept as the world agent wrote them,
+  so a line from someone in the room could read as overheard elsewhere; world.js voicesBeyondTheRoom drops a voice whose speaker is
+  here or is the main character, where chat.js keeps the voices on the page. (2) A present person's card said "Now:" from their page's
+  note even when it was written before they last walked in (his paste: "Claire Stone — here … Now: at the corner of Mariner's Lane
+  and Larkspur"); people.js lastEnteredTurn (one pass over the journal per ledger) — a note older than their last entry gives way to
+  what the ledger knows of them here, on the card and in the drawer. (3) His auditor report: "'Here now' still describes Jovan Wells
+  as being in the kitchen … the pages show him upstairs" — "Seen, left as the story has it": a place in the room is the page reader's
+  (M128), so the auditor could change nothing and the storyteller kept reading him in the kitchen. auditorScope now turns such a
+  finding into letting the old place go — only when none of that place's own words are on the newest page; it never writes a new one.
+- Laws M544-1…3 (a voice from Rias in the hall dropped, Vanessa's kept; Claire's pre-entry note not her now, a later note is; Jovan's
+  kitchen let go when the page has him upstairs, kept when the page has him in the kitchen). Harness 1094/1094, walk 193/193, long
+  play 8/8, lint 0; the frontier request identical (24 of 24).
+

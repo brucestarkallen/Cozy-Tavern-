@@ -713,6 +713,26 @@ function seenPages(state) {
   seenByLedger.set(state, { length: journal.length, map });
   return map;
 }
+/* M544: the latest page someone was written INTO the scene (one pass, kept per ledger, as above) */
+const enteredByLedger = new WeakMap();
+export function lastEnteredTurn(state, key) {
+  if (!state || typeof state !== 'object') return 0;
+  const journal = Array.isArray(state.journal) ? state.journal : [];
+  let had = enteredByLedger.get(state);
+  if (!had || had.length !== journal.length) {
+    const map = new Map();
+    for (const j of journal) {
+      const m = j && j.m;
+      if (!m || m.type !== 'presence.enter' || typeof m.name !== 'string' || !Number.isInteger(j.p)) continue;
+      map.set(m.name, Math.max(map.get(m.name) || 0, j.p + 1));
+    }
+    had = { length: journal.length, map };
+    enteredByLedger.set(state, had);
+  }
+  let at = 0;
+  for (const [name, turn] of had.map) if (turn > at && samePersonName(name, key)) at = turn;
+  return at;
+}
 export function lastSeenTurn(state, key) {
   const entry = state && state.characters && typeof state.characters === 'object' ? state.characters[key] : null;
   let at = Number.isFinite(entry && entry.updatedAtTurn) ? entry.updatedAtTurn : 0;
@@ -779,7 +799,11 @@ function cardText(name, entry, turn, cap, here = null, lookWords = null) {
   const head = name + (core ? ' — ' + core : '');
   /* M408: never a blank now for someone here — what the ledger knows for certain (where they stand in the scene) until
    * a reader writes more */
-  const now = entry.state ? stateLabel(entry, turn) + entry.state : (here ? 'Now: here' + (here.position ? ' — ' + here.position : '') + '.' : '');
+  /* M544: A NOTE FROM BEFORE THEY CAME IN IS NOT THEIR NOW. A person here whose page's now was written before they last
+   * walked into the scene ("at the corner of Mariner's Lane and Larkspur, phone out" — written while she was away) is told
+   * by what the ledger knows of them here, not by where they were. */
+  const noteFromBefore = Boolean(here && Number.isFinite(here.enteredAt) && here.enteredAt > 0 && (Number.isFinite(entry.updatedAtTurn) ? entry.updatedAtTurn : 0) < here.enteredAt);
+  const now = entry.state && !noteFromBefore ? stateLabel(entry, turn) + entry.state : (here ? 'Now: here' + (here.position ? ' — ' + here.position : '') + '.' : '');
   let arc = entry.arc ? 'Between you: ' + entry.arc : '';
   /* M306: THE CARD SHOWED THE THREE OLDEST LOOSE ENDS, NEVER THE NEWEST. The list
    * is kept oldest first (a new one is pushed on the end, and a full list lets
@@ -1076,7 +1100,8 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   for (const key of cardKeys) {
     if (!keys.includes(key)) continue;
     /* M408: the scene's own entry for them (their position), for a card with no now yet */
-    const here = (Array.isArray(state && state.present) ? state.present : []).find((p) => p && p.name && (findPersonKey(characters, p.name) || p.name) === key) || null;
+    const hereEntry = (Array.isArray(state && state.present) ? state.present : []).find((p) => p && p.name && (findPersonKey(characters, p.name) || p.name) === key) || null;
+    const here = hereEntry ? { ...hereEntry, enteredAt: lastEnteredTurn(state, key) } : null; /* M544 */
     sections.push({ shed: 0, text: cardText(key, characters[key], turn, undefined, here, seriesLookWords(state, key)) }); /* M462 */
     tiers.cards += 1;
   }
