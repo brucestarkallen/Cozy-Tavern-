@@ -13747,3 +13747,22 @@ engine used its plain rating for an unknown fighter (duels.js ENGINE_DEFAULTS.de
   attack with nobody weighed: weighed before the page — fails on m530-001). Harness 1084/1084, walk 187/187, long play 8/8,
   lint 0; the frontier request identical (24 of 24).
 
+# M532 — the GM's eye, and the opening's feelings
+His word: "for fights the seeding is supposed to be my GM — each time enemies come it rates them as the GM thinks is
+logical for my story" and "is this a bug: every time, How they feel about you is empty and I need to rebuild the people,
+especially on #story".
+- The GM's eye: the pre-fight weighing (M531) weighs the main character and everyone here who is not on the sheet before the
+  referee rules — an enemy who walks into a fight is rated then, for this story. It now leaves out only someone the last
+  weighing already saw here and left off the sheet (sheet.seenPresent — a crowd, a voice), so nothing is weighed before
+  every blow; the seeder's own timing (from the first page; after a fight lets go; a new face after a few pages) stands.
+- The opening's feelings — a bug of the M514 kind: the young ledger's page reader (extractor.js systemPrompt, founding)
+  was told to found a place, a room, a clock and the main character, and nothing about standings or knowledge; the later
+  pages move a standing only on something NEW. So a #story opening's own moment (he saves Yuki from her death) was never
+  counted, and How they feel toward you stood empty until "Rebuild the people from the pages". The founding law now asks
+  rel.shift for anyone whose feelings the opening plainly moves (read through their own nature, by the standings law;
+  rel.set only where the brief or the prose says where a standing already stands; a stranger the page does not move stays
+  0/0/0) and knowledge.add for what someone plainly learned on the page.
+- Walk DOM-188 (a #story where he saves Yuki: the reader is asked, her standing stands after the first page, no rebuild);
+  DOM-187 extended (a crowd left off the sheet is not weighed again before the next blow). Harness 1084/1084, walk
+  188/188, long play 8/8, lint 0; the frontier request identical (24 of 24).
+

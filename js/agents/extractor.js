@@ -195,7 +195,13 @@ function systemPrompt({ mc, founding }) {
       '  - presence.enter for EVERY person the pages put in the scene, the main character included, with position/attire only if shown;',
       '  - clock.set only if the pages fix a date and hour (never guess a date; if only the hour is known, leave the clock alone);',
       '  - mc.set if the main character is not yet known;',
-      '  - mode.set for a mood the pages plainly show (socialField for a crowded public place, intimate, combat, travel, group).',
+      '  - mode.set for a mood the pages plainly show (socialField for a crowded public place, intimate, combat, travel, group);',
+      /* M532: THE OPENING MOVES FEELINGS TOO. A #story opening — he saves Yuki from her death — was founded as a place and a
+       * room and nothing else: the young ledger's law named no standing, the later pages move a standing only on something
+       * NEW, and "How they feel toward you" stood empty until he rebuilt the people by hand. The opening is read as any page
+       * is for what it does to people. */
+      '  - rel.shift for anyone whose feelings toward the main character this opening plainly moves (he saves them, spares them, threatens, humiliates or betrays them), read through their own nature, by THE STANDINGS below; rel.set only where the brief or the prose says where a standing already stands (old friends, a long enmity) — a stranger the page does not move stays at 0/0/0;',
+      '  - knowledge.add for what someone here plainly learned on this page (a name heard, a power seen, a secret told).',
       'On a young ledger an empty answer is almost always wrong: the scene exists, so someone is somewhere. Write the founding down.',
     ].join('\n')
     : [

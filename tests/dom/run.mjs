@@ -7821,7 +7821,7 @@ test('DOM-187 A FIGHT NEVER STARTS WITH AN UNWEIGHED FIGHTER (M531 — his repor
   await db.stories.update(st.id, { brief: 'Jovan Oda, a special grade sorcerer nobody knows, against Kenpachi Zaraki.' });
   await db.messages.append(st.id, { role: 'user', text: 'I step into the yard.' });
   await db.messages.append(st.id, { role: 'assistant', text: '[The yard — Monday, March 3, 2025 | 12:00 | noon | haori | facing Zaraki]\n\nZaraki grinned and drew.' });
-  const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Kenpachi Zaraki' }]).state;
+  const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Kenpachi Zaraki' }, { type: 'presence.enter', name: 'the watching crowd' }]).state;
   await saveState(st.id, { ...ledger, page: 1, readTo: 1, tidiedGen: 999 });
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
@@ -7830,7 +7830,7 @@ test('DOM-187 A FIGHT NEVER STARTS WITH AN UNWEIGHED FIGHTER (M531 — his repor
   house.state.storyAnswer = () => { order.push('page'); return '[The yard — Monday, March 3, 2025 | 12:01 | noon | haori | blades crossed]\n\nSteel met steel.'; };
   house.state.workerAnswer = (body, sys) => {
     if (/You keep the cast sheet of a story/.test(String(sys || ''))) { order.push('weighed'); return JSON.stringify({ player_story_name: 'Jovan', actors: [{ name: 'Jovan', default: 9, domains: { melee: 9 } }, { name: 'Kenpachi Zaraki', default: 9, domains: { melee: 10 } }] }); }
-    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+    return '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}'; /* the readers bring no one in — the house's default answer seats a person of another scenario */
   };
   try {
     await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the opened tale settled', 30000);
@@ -7842,6 +7842,44 @@ test('DOM-187 A FIGHT NEVER STARTS WITH AN UNWEIGHED FIGHTER (M531 — his repor
     const actors = Object.keys(sheet.actors || {});
     assert(actors.some((n) => /Jovan/.test(n)) && actors.some((n) => /Zaraki/.test(n)), 'both fighters on the sheet: ' + actors.join(', '));
     await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers', 40000);
+    /* M532: the crowd the weighing saw and left off does not call it again before the next blow */
+    const at = order.length;
+    type(q('#composer-input'), 'I strike again.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 3 && !env.ctx.chat.isBusy(), 'the next page', 60000);
+    const beforePage = order.slice(at, order.indexOf('page', at));
+    assert(!beforePage.includes('weighed'), 'no weighing before the next blow for the crowd the first one saw and left off: ' + order.slice(at).join(' → ')); /* (a weighing AFTER a fight ends is the seeder's own, M11) */
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers', 40000);
+  } finally {
+    house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-188 THE OPENING MOVES FEELINGS (M532 — his report: "every time, How they feel about you is empty and I need to rebuild the people, especially on #story"): the young ledger\'s reader is asked what the opening does to people\'s feelings — he saves Yuki, and her standing is there after the first page, no rebuild', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { loadState } = await import('../../js/engine/state.js');
+  const st = await db.stories.create({ title: 'the opening' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  let askedForFeelings = false;
+  house.state.storyAnswer = () => '[Tengen\'s barrier — Monday, December 4, 2018 | 23:50 | cold | haori | before Yuki]\n\nJovan caught the blow an inch from her throat. Yuki stared at him, alive.';
+  house.state.workerAnswer = (body, sys) => {
+    if (/THE LEDGER IS YOUNG/.test(String(sys || ''))) {
+      askedForFeelings = /rel\.shift for anyone whose feelings toward the main character this opening plainly moves/.test(String(sys || ''));
+      return JSON.stringify({ mutations: [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Tengen\'s barrier' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Yuki Tsukumo' }, { type: 'rel.shift', name: 'Yuki Tsukumo', axis: 'p', delta: 20, cause: 'he caught the blow that would have killed her' }] });
+    }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+  };
+  try {
+    type(q('#composer-input'), '#story jujutsu kaisen Jovan saves Yuki from Kenjaku'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the opening page', 40000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000);
+    assert(askedForFeelings, 'the young ledger’s reader was asked what the opening does to feelings');
+    const rel = ((await loadState(st.id)) || {}).relationships || {};
+    const yuki = Object.keys(rel).find((k) => /Yuki/.test(k));
+    assert(yuki && rel[yuki].p === 20, 'her standing stands after the first page: ' + JSON.stringify(rel));
   } finally {
     house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
   }

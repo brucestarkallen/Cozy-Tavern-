@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m531-001)
+# Cozy Tavern — handoff for the next session (state at m532-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1551,4 +1551,15 @@ founding design lives in AGENTS.md's first entries.)
   gatePasses — an attempt, or a fight under way) while the main character or someone here is not on the sheet, weighs them
   FIRST (maybeSeedSheet, forced, 45 s ceiling, "Weighing everyone before the fight…"; a failure never holds the page).
   M345-3's expectation now seeds from the first page (explained in the test). Walk DOM-187 (fails on m530-001).
+- M532 — THE GM'S EYE AND THE OPENING'S FEELINGS. His word: "for fights the seeding is supposed to be my GM — each time
+  enemies come it rates them as the GM thinks is logical for my story" — and "every time How they feel about you is empty
+  and I have to rebuild the people, especially on #story". (1) The pre-fight weighing (M531) now leaves out only someone
+  the last weighing already saw here and left off the sheet (a crowd, a voice — sheet.seenPresent), so a crowd never calls a
+  weighing before every blow, while a NEW face (an enemy who just walked in) is weighed before the blow (DOM-187 showed it:
+  a person seated by another scenario's reader was weighed at once). (2) The young ledger's page reader (extractor.js
+  founding law) named no standing — a #story opening was founded as a place and a room only, and later pages move a
+  standing only on something new, so the opening's moment (he saves Yuki) was never counted until a rebuild. The founding
+  law now asks rel.shift for anyone the opening plainly moves (rel.set only where the brief or prose says where a standing
+  already stands; a stranger the page does not move stays 0/0/0) and knowledge.add for what someone plainly learned.
+  Walk DOM-188 (the opening's standing after the first page); DOM-187 extended (the crowd).
 

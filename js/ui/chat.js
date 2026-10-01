@@ -4417,7 +4417,10 @@ export function initChat(ctx) {
               const fightOn = Boolean((state.duel && state.duel.active) || (state.battle && state.battle.active) || (state.war && state.war.active));
               const goes = gatePasses(userText, refSettings.sensitivity || 'normal', { inFight: fightOn }).pass;
               const here = (Array.isArray(state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean);
-              const unweighed = [mcName(state), ...here].filter((n, i, all) => n && n !== 'the player' && all.indexOf(n) === i && !findActorKeySamePerson(state, n));
+              /* M532: someone the last weighing already saw here and left off the sheet (a crowd, a voice, a bystander) does not
+               * call a weighing before every blow; a NEW face — an enemy who just walked in — does, as a GM would */
+              const seenBefore = new Set(((state.sheet && Array.isArray(state.sheet.seenPresent)) ? state.sheet.seenPresent : []).map((n) => String(n).toLowerCase()));
+              const unweighed = [mcName(state), ...here].filter((n, i, all) => n && n !== 'the player' && all.indexOf(n) === i && !findActorKeySamePerson(state, n) && !(n !== mcName(state) && seenBefore.has(String(n).toLowerCase())));
               if (goes && workerConnection && unweighed.length && history.some((m) => m && m.role === 'assistant' && !m.hidden)) {
                 const w = workerSignal(45000);
                 showComposerNote('Weighing everyone before the fight…');
