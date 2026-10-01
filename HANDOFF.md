@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m540-001)
+# Cozy Tavern — handoff for the next session (state at m541-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1636,4 +1636,17 @@ founding design lives in AGENTS.md's first entries.)
   ("Aug", "Sept.") and short weekdays read (a short weekday only where a date follows, so "Sun Temple" and "Mar Vista Pier"
   stay places), and a day-first date ("20 Aug 2026"). His tale is put right when it opens (healLedgerOnOpen's header
   clock). Law M540-1; walk DOM-192.
+- M541 — TALKED ABOUT IS NOT HERE; LAST SEEN IS WHEN THEY WERE THERE. His Ravenwood evening: Claire (drove off) still in
+  "Who's here" in a blouse with no position; the auditor's turn-17 reading named Aurora, Claire and Chloe as gone but only
+  Aurora's leave landed; Aurora "last seen 8 pages ago" the page she left. Traced: (1) the page reader (its own walk-in, or
+  its board — hereFromBoard) wrote Claire back in when Rias TALKED about her, letting the world's seat go; (2) the auditor's
+  M403 rule ("anyone named in the recent pages without going stays") refused her leave — it could not tell talked-about from
+  standing-there; (3) "last seen" counted from her page's last rewrite (updatedAtTurn), in the drawer and in the roster the
+  storyteller reads. Now: extractor.js holds a walk-in of someone the world seated elsewhere to the newest page's telling
+  (shown outside the spoken lines, not going at its end — M535's test); auditor.js may take out someone the last two story
+  pages name only inside spoken lines (notToldHere; not named at all is silence and stays — M402/M403-1 green); people.js
+  lastSeenTurn = the later of the page's rewrite and the last time the journal wrote them in/moved/out (one pass over the
+  journal per ledger — the first version cost ~175 ms per drawer render on a 2,000-line journal and made DOM-11c/DOM-135
+  time out in two full walks; measured 873 ms → 81 ms for 5 renders × 60 people). Not a regression (DOM-193 fails on
+  m535). Law M541-1; walk DOM-193.
 

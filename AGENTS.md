@@ -13915,3 +13915,28 @@ clock at all from it — his storyteller is the first to write short names.
   tale made a minute ago or with its readers off, by design). Harness 1088/1088, walk 192/192, long play 8/8, lint 0; the
   frontier request identical (24 of 24).
 
+# M541 — talked about is not here; last seen is when they were there
+His report, with the drawer pasted: Jovan home at 8 Mariner's Lane; "Claire Stone — here … Now: at the corner of Mariner's Lane and
+Larkspur, phone out…" and in Who's here "Claire Stone — a pale blue sleeveless blouse…" (no place to stand); "Chloe Maxwell — at the
+front door, knocking"; Aurora "last seen 8 pages ago"; the world agent's report (Aurora back inside number 10, Claire at the corner,
+Chloe on the porch at number 8) and the auditor's turn-17 reading ("Aurora, Claire and Chloe are not in the upstairs hall scene;
+only Jovan and Rias are present") with only "Aurora Sterling stepped out of the scene" landed.
+- The page reader wrote Claire back in on a page where Rias only TALKED about her (its own presence.enter, or its board restated
+  through hereFromBoard), and the walk-in let the world's seat go. extractor.js now holds a walk-in of someone the world seated
+  elsewhere to the newest page's own telling: shown outside the spoken lines (shownOnPage on narrationOf) and not going at its end
+  (goneAtTheEnd) — the test the auditor's walk-ins are held to (M535). A real return ("Claire came back up the stairs") still lands.
+- The auditor's M403 rule — a leave lands only if the latest pages show the going, or the person has been unnamed for eight pages —
+  refused Claire's and Chloe's leaves: they were NAMED (talked about; knocking). auditor.js notToldHere: someone the last two story
+  pages name only inside spoken lines, never in the telling, may be taken out. Someone not named at all is silence and stays (M402;
+  M403-1's quiet captains at the duel still stay — it failed on the first, broader version of this rule, which was narrowed).
+  Chloe, whom the telling shows knocking at the house's own front door, stays "at the front door, knocking".
+- "Last seen N pages ago" counted from when a person's page was last rewritten (updatedAtTurn): Aurora, written up on page 9 and in
+  the room until the page she left, read "last seen 8 pages ago" — in the drawer and in the roster the storyteller reads ("last seen
+  8 turns ago"). people.js lastSeenTurn: the later of that and the last page the journal wrote them in, moved them, or wrote them out.
+  The drawer's absent line now reads "Last seen just now:" / "Last seen N pages ago:" from it; present people keep "Last noted".
+- Performance, measured and fixed: the first lastSeenTurn scanned the whole journal per person, twice in the drawer — 873 ms for 5
+  renders × 60 people over a 2,000-line journal; two full walks timed out once each (DOM-11c, DOM-135). Now one pass per ledger
+  (kept in a WeakMap while the ledger object lives), one look per person: 81 ms for the same.
+- Not a regression: the same evening walks Claire back in on m535 (DOM-193). Law M541-1; walk DOM-193. Harness 1089/1089, walk
+  193/193, long play 8/8, lint 0; the frontier request identical (24 of 24).
+

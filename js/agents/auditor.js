@@ -446,10 +446,17 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       return false;
     };
     const longSilent = (n) => visible.length >= 8 && !windowTexts.some((t) => nameOnPage(t, n));
+    /* M541: TALKED ABOUT IS NOT HERE. "Anyone named in the recent pages without going stays" kept Claire in the room after she
+     * drove off — Rias was talking about her. The newest story page's own telling (outside the spoken lines) not showing them,
+     * nor the page before it, is not being in the scene: the auditor may take them out. */
+    /* (named only inside the spoken lines — never in the telling — is talked about; not named at all is silence, and silence is
+     * not leaving: M402, the quiet ones at the duel stay) */
+    const notToldHere = (n) => lastTexts.length > 0 && lastTexts.some((t) => nameOnPage(scenePartOf(t), n))
+      && lastTexts.every((t) => !shownOnPage(fresh, narrationOf(scenePartOf(t)), n));
     const kept = [];
     for (const issue of read.issues) {
       if (!issue || !Array.isArray(issue.mutations) || !issue.mutations.length) { kept.push(issue); continue; }
-      const muts = issue.mutations.filter((m) => !(m && m.type === 'presence.leave' && !showsGoing(m.name) && !longSilent(m.name)));
+      const muts = issue.mutations.filter((m) => !(m && m.type === 'presence.leave' && !showsGoing(m.name) && !longSilent(m.name) && !notToldHere(m.name)));
       if (!muts.length && !(issue.pages && issue.fix)) continue; /* a finding that was only a refused leave is no finding */
       kept.push({ ...issue, mutations: muts });
     }

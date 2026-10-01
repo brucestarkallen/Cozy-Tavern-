@@ -8111,6 +8111,40 @@ test('DOM-192 HIS CLOCK, PUT RIGHT ON OPENING (M540 — his ledger read "Saturda
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-193 TALKED ABOUT IS NOT HERE (M541 — his Ravenwood evening: "Claire already gone, why is she still here?"): with Claire seated by the world at the corner of Mariner\'s Lane and Larkspur, a page where Rias only talks about her does not walk her back in — even when the page reader writes her in', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const st = await db.stories.create({ title: 'ravenwood evening' });
+  await db.stories.update(st.id, { createdAt: Date.now() - 3600000 });
+  await db.messages.append(st.id, { role: 'user', text: 'I go upstairs.' });
+  await db.messages.append(st.id, { role: 'assistant', text: "[8 Mariner's Lane — upstairs hall — Thu, Aug 20, 2026 | 18:38 | dusk | white tee | at Rias's door]\n\nRias waited at her door with her arms folded." });
+  let ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan Wells' }, { type: 'place.set', name: "8 Mariner's Lane — upstairs hall" }, { type: 'presence.enter', name: 'Jovan Wells' }, { type: 'presence.enter', name: 'Rias Wells' }]).state;
+  ledger = applyMutations({ ...ledger, page: 1 }, [{ type: 'offscreen.set', name: 'Claire Stone', location: "the corner of Mariner's Lane and Larkspur", activity: 'phone out, one line to Aurora half-typed' }]).state;
+  await saveState(st.id, { ...ledger, page: 1, readTo: 1, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  house.state.storyAnswer = () => "[8 Mariner's Lane — upstairs hall — Thu, Aug 20, 2026 | 18:40 | dusk | white tee | at Rias's door]\n\nRias did not move from the jamb. \"Claire drove off the second Aurora went home,\" she said. \"So it's you and me. Talk.\"";
+  house.state.workerAnswer = (body, sys) => {
+    if (/You keep the ledger for a slow, warm story/.test(String(sys || ''))) return JSON.stringify({ mutations: [{ type: 'presence.enter', name: 'Claire Stone', attire: 'a pale blue sleeveless blouse' }], here: ['Jovan Wells', 'Rias Wells', 'Claire Stone'] });
+    return '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}';
+  };
+  try {
+    type(q('#composer-input'), 'I wait for her to speak.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 2 && !env.ctx.chat.isBusy(), 'the page', 40000);
+    for (let quiet = 0; quiet < 10;) { await tick(100); quiet = (queuedCount(st.id) === 0 && !workIsRunning(st.id)) ? quiet + 1 : 0; }
+    const now = await loadState(st.id);
+    const here = (now.present || []).map((p) => p.name);
+    assert(!here.includes('Claire Stone'), 'Claire, only talked about, is not here: ' + here.join(', '));
+    assert(Object.keys(now.offscreen || {}).some((k) => /Claire/.test(k)), 'and the world\'s seat for her stands');
+  } finally {
+    house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();

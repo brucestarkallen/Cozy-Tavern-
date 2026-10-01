@@ -202,6 +202,7 @@ import './m529.mjs'; /* M529: two workers at once — the side lane */
 import './m535.mjs'; /* M535: the captains who left stay gone — the auditor's walk-ins held to the newest page, and put right */
 import './m537.mjs'; /* M537: a misspelling of someone found is not "not found" */
 import './m540.mjs'; /* M540: short names are the same day */
+import './m541.mjs'; /* M541: last seen is when they were last in the scene */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

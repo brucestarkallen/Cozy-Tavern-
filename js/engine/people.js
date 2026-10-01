@@ -693,6 +693,32 @@ export function migrateCharacters(characters) {
 /* ---------- speaking the ledger: the tiered injection ---------- */
 
 /* How long since the ledger last heard of them, in plain words. */
+/* M541: WHEN SOMEONE WAS LAST SEEN IS WHEN THEY WERE LAST IN THE SCENE. "Last seen 8 pages ago" stood over Aurora, who had
+ * stood in the room until that very page — the age counted from when her own page was last rewritten. The later of that and
+ * the last time the ledger wrote her in, moved her, or wrote her out (the journal, page by page). */
+/* one pass over the journal per ledger (kept while the ledger object lives): each name the room was written with → the latest
+ * page it was written on — so a drawer of fifty people reads the journal once, not fifty times */
+const seenByLedger = new WeakMap();
+function seenPages(state) {
+  if (!state || typeof state !== 'object') return new Map();
+  const journal = Array.isArray(state.journal) ? state.journal : [];
+  const had = seenByLedger.get(state);
+  if (had && had.length === journal.length) return had.map;
+  const map = new Map();
+  for (const j of journal) {
+    const m = j && j.m;
+    if (!m || typeof m.type !== 'string' || !m.type.startsWith('presence.') || typeof m.name !== 'string' || !Number.isInteger(j.p)) continue;
+    map.set(m.name, Math.max(map.get(m.name) || 0, j.p + 1));
+  }
+  seenByLedger.set(state, { length: journal.length, map });
+  return map;
+}
+export function lastSeenTurn(state, key) {
+  const entry = state && state.characters && typeof state.characters === 'object' ? state.characters[key] : null;
+  let at = Number.isFinite(entry && entry.updatedAtTurn) ? entry.updatedAtTurn : 0;
+  for (const [name, turn] of seenPages(state)) if (turn > at && samePersonName(name, key)) at = turn;
+  return at;
+}
 function ageWords(entry, turn) {
   const at = Number.isFinite(entry && entry.updatedAtTurn) ? entry.updatedAtTurn : 0;
   const ago = Math.max(0, (Number.isFinite(turn) ? turn : 0) - at);
@@ -1111,7 +1137,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   if (rosterPool.length) {
     const shown = rosterPool.slice(0, lim.roster);
     const agoOf = (k) => {
-      const ago = ageWords(characters[k], turn);
+      const ago = Math.max(0, turn - lastSeenTurn(state, k)); /* M541: last in the scene, not last rewritten */
       return ago > 0 ? 'last seen ' + ago + (ago === 1 ? ' turn' : ' turns') + ' ago' : 'with us just now';
     };
     const more = rosterPool.length - shown.length;

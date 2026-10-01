@@ -509,6 +509,21 @@ export async function extractTurn(args = {}) {
     /* M444: a note let go of someone the page shows is her walking in; and the room, restated, writes in whoever is missing */
     read.mutations = clearsThatArrive(args.state, read.mutations, scenePartOf(args.assistantText));
     read.mutations = [...read.mutations, ...hereFromBoard(args.state, read.here, args.assistantText, read.mutations)];
+    /* M541: SOMEONE THE WORLD SEATED ELSEWHERE IS NOT WALKED BACK IN BY A MENTION. Claire drove off, the world seated her at
+     * the corner of Mariner's Lane and Larkspur, and the next page — Rias talking about her, the narration naming her text —
+     * wrote her back "here" (she stood in Who's here in a blouse with nowhere to stand, the world's seat let go). The page
+     * reader's walk-in of someone seated elsewhere stands only when the newest page's own telling shows them and does not
+     * show them going at its end — the test the auditor's walk-ins are held to (M535). */
+    if (args.state && args.state.offscreen && typeof args.state.offscreen === 'object') {
+      const told = narrationOf(scenePartOf(args.assistantText));
+      read.mutations = read.mutations.filter((m) => {
+        if (!m || m.type !== 'presence.enter' || typeof m.name !== 'string') return true;
+        if (isHere(args.state, m.name) || isMc(args.state, m.name)) return true;
+        const seated = Object.keys(args.state.offscreen).some((k) => samePersonName(k, m.name));
+        if (!seated) return true;
+        return shownOnPage(args.state, told, m.name) && !goneAtTheEnd(args.state, args.assistantText, m.name);
+      });
+    }
     /* M509-15: A MOMENT THE WHOLE ROOM SAW GOES INTO EVERY BOOK IN THE ROOM. The reader writes a public moment into one
      * witness's book — "watched Jovan bow… whisper to Rukia" for Shunsui alone — and every other book stands blind to it.
      * A fact that is public by its own words (engine/world.js publicMoment: seen, or said before all, with no mark of
