@@ -1311,7 +1311,7 @@ export function briefMark(brief, castNotes) {
 export function seedDue(state, pagesTold, { brief, castNotes } = {}) {
   const sheet = state && state.sheet && typeof state.sheet === 'object' ? state.sheet : { actors: {} };
   const actors = sheet.actors && typeof sheet.actors === 'object' ? sheet.actors : {};
-  if ((Number(pagesTold) || 0) < 2) return '';
+  if ((Number(pagesTold) || 0) < 1) return ''; /* M531: from the first page — a fight on the second page found nobody weighed */
   const names = Object.keys(actors);
   if (!names.length) return 'first';
   if (sheet.seedVersion !== SEED_VERSION) return 'heal';

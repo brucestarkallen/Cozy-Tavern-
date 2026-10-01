@@ -7812,6 +7812,42 @@ test('DOM-186 A PROVIDER THAT TAKES ONE REQUEST AT A TIME (M530 — his question
   }
 });
 
+test('DOM-187 A FIGHT NEVER STARTS WITH AN UNWEIGHED FIGHTER (M531 — his report: "on my first fight it basically just makes my MC 5 unknown"): his first attack, with nobody yet on the sheet, has everyone here weighed BEFORE the referee rules and the page is written — his character fights as the story has him, not as a plain 5', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const st = await db.stories.create({ title: 'the first fight' });
+  await db.stories.update(st.id, { brief: 'Jovan Oda, a special grade sorcerer nobody knows, against Kenpachi Zaraki.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I step into the yard.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[The yard — Monday, March 3, 2025 | 12:00 | noon | haori | facing Zaraki]\n\nZaraki grinned and drew.' });
+  const ledger = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Kenpachi Zaraki' }]).state;
+  await saveState(st.id, { ...ledger, page: 1, readTo: 1, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  const order = [];
+  house.state.storyAnswer = () => { order.push('page'); return '[The yard — Monday, March 3, 2025 | 12:01 | noon | haori | blades crossed]\n\nSteel met steel.'; };
+  house.state.workerAnswer = (body, sys) => {
+    if (/You keep the cast sheet of a story/.test(String(sys || ''))) { order.push('weighed'); return JSON.stringify({ player_story_name: 'Jovan', actors: [{ name: 'Jovan', default: 9, domains: { melee: 9 } }, { name: 'Kenpachi Zaraki', default: 9, domains: { melee: 10 } }] }); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+  };
+  try {
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the opened tale settled', 30000);
+    order.length = 0;
+    type(q('#composer-input'), 'I draw my blade and attack Zaraki.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 2 && !env.ctx.chat.isBusy(), 'the page', 60000);
+    assert(order.indexOf('weighed') !== -1 && order.indexOf('weighed') < order.indexOf('page'), 'weighed before the page: ' + order.join(' → '));
+    const sheet = ((await loadState(st.id)) || {}).sheet || {};
+    const actors = Object.keys(sheet.actors || {});
+    assert(actors.some((n) => /Jovan/.test(n)) && actors.some((n) => /Zaraki/.test(n)), 'both fighters on the sheet: ' + actors.join(', '));
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers', 40000);
+  } finally {
+    house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-139 COPY THE WORDS (M510-31): the frame and the note — the house’s and this story’s — and each of his own words copy as they stand in their boxes; the storyteller’s receipt has one Copy on each part’s row (DOM-70)', async () => {
   const before = errors.length;
   const clip = clipboardSpy();

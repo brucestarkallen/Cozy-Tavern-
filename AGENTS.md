@@ -13733,3 +13733,17 @@ Laws M530-1/2 (the fall back with every worker landing and the order kept; a lon
 many); walk DOM-186 (a provider serving one request at a time: back to one at a time, all landed, switch off, the note).
 Harness 1084/1084, walk 186/186, long play 8/8, lint 0; contrast green; the frontier request identical (24 of 24).
 
+# M531 — a fight never starts with an unweighed fighter
+His report: "is this a bug or not? Why does How they measure not seed itself? On my first fight it basically just makes my MC
+5 unknown." A bug. The sheet seeder (M11; Arbiter's seeder) was due only from the SECOND storyteller page, and it runs in the
+chain AFTER pages — so a fight begun on the first or second page reached the referee with nobody on the sheet, and the duel
+engine used its plain rating for an unknown fighter (duels.js ENGINE_DEFAULTS.defaultRating 5): his special grade fought as a 5.
+- referee.js seedDue: due from the first page.
+- chat.js send path: when this move goes to the referee by its own gate (gatePasses — an attempt, or a fight under way) and
+  the main character or someone here is not on the sheet (findActorKeySamePerson), they are weighed before the referee rules
+  (maybeSeedSheet, forced; its own 45-second ceiling; "Weighing everyone before the fight…" under the composer; a failed
+  weighing never holds the page) — once; after that the sheet holds them.
+- M345-3 (m345.mjs) now expects the first weighing from the first page, with the reason in the test. Walk DOM-187 (his first
+  attack with nobody weighed: weighed before the page — fails on m530-001). Harness 1084/1084, walk 187/187, long play 8/8,
+  lint 0; the frontier request identical (24 of 24).
+

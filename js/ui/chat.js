@@ -66,7 +66,7 @@ import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/stat
 import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
-import { refereeStep, maybeSeedSheet, refereeWhyWords } from '../agents/referee.js';
+import { refereeStep, maybeSeedSheet, refereeWhyWords, gatePasses } from '../agents/referee.js'; /* M531: the referee's own gate decides when fighters are weighed first */
 import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom, putBackMistakenMends, fixedCharsOf } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
@@ -77,7 +77,7 @@ import { voiceOf, groundingSeed } from '../assemble/voice.js'; /* M327: the two 
 import { noteTellerConnection } from '../agents/call.js'; /* M328 */
 import { makeHeaderGate, splitAtHeader, pageOnly } from './headergate.js';
 import { tidyPage, readHeader, partParagraphs } from './pageshape.js'; /* M340: the page made whole before it is kept; M510-17 */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
-import { mcName, isMcAlias } from '../engine/duels.js';
+import { mcName, isMcAlias, findActorKeySamePerson } from '../engine/duels.js'; /* M531: who is on the sheet already */
 import { mineLeak, mineWord, mineCutAt, soundCount } from '../assemble/plain.js'; /* M510: the cut where a page began playing him; the sounds a page carried */
 import { plannerAsk, runPlanner, loadPlan, planEntry, loadPlans, keepSound, keepTexture, planKey, hashText, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper; M519: the texture kept */
 import { lawsOf } from '../assemble/laws.js'; /* M510 */
@@ -4408,6 +4408,24 @@ export function initChat(ctx) {
           }
           if (refSettings.on) {
             const workerConnection = await resolveWorkerConnection(story, 'referee');
+            /* M531: A FIGHT NEVER STARTS WITH AN UNWEIGHED FIGHTER. His first fight came before the sheet had ever been
+             * weighed (the seeder waited for two pages, and ran after them): his main character fought as a 5 — the plain
+             * rating of someone unknown. Now, when this move goes to the referee (an attempt, or a fight under way) and the
+             * main character or someone here is not on the sheet, they are weighed first — once, said so the wait is not a
+             * silence, within its own ceiling; a weighing that fails never holds the page. */
+            try {
+              const fightOn = Boolean((state.duel && state.duel.active) || (state.battle && state.battle.active) || (state.war && state.war.active));
+              const goes = gatePasses(userText, refSettings.sensitivity || 'normal', { inFight: fightOn }).pass;
+              const here = (Array.isArray(state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean);
+              const unweighed = [mcName(state), ...here].filter((n, i, all) => n && n !== 'the player' && all.indexOf(n) === i && !findActorKeySamePerson(state, n));
+              if (goes && workerConnection && unweighed.length && history.some((m) => m && m.role === 'assistant' && !m.hidden)) {
+                const w = workerSignal(45000);
+                showComposerNote('Weighing everyone before the fight…');
+                try { await maybeSeedSheet({ connection: workerConnection, storyId: story.id, signal: w.signal, force: true, brief: story.brief || '', castNotes: story.castNotes || '' }); } finally { w.done(); hideComposerNote(); }
+                const weighed = await loadState(story.id);
+                if (weighed && weighed.sheet) state = { ...state, sheet: weighed.sheet, seedDueAfterFight: weighed.seedDueAfterFight };
+              }
+            } catch (err) { /* the fight goes on with what the sheet holds */ }
             const step = await refereeStep({
               connection: workerConnection,
               userText,

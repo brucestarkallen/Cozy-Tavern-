@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m530-001)
+# Cozy Tavern — handoff for the next session (state at m531-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1544,4 +1544,11 @@ founding design lives in AGENTS.md's first entries.)
   tried again like any refused call), and app.js's handler keeps the switch off (helpersSideBySide false) and records why
   (helpersSideBySideTurnedOff), said under the switch in Settings; turning it on again clears it. A 429 with only one lane in
   flight is a plain busy and leaves it on. Laws M530-1/2; walk DOM-186 (a provider serving one request at a time).
+- M531 — A FIGHT NEVER STARTS WITH AN UNWEIGHED FIGHTER. His report: "on my first fight it basically just makes my MC 5
+  unknown". The sheet seeder (How they measure) waited for two storyteller pages and ran after them, so a fight on the
+  first or second page was ruled with the engine's plain rating for an unknown fighter (duels.js defaultRating 5). Now:
+  seedDue weighs from the first page (referee.js), and the send path, when a move goes to the referee (its own gate —
+  gatePasses — an attempt, or a fight under way) while the main character or someone here is not on the sheet, weighs them
+  FIRST (maybeSeedSheet, forced, 45 s ceiling, "Weighing everyone before the fight…"; a failure never holds the page).
+  M345-3's expectation now seeds from the first page (explained in the test). Walk DOM-187 (fails on m530-001).
 

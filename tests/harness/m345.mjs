@@ -137,8 +137,8 @@ test('M345-5 HIM LEFT OUT = ASKED ONCE MORE, BY NAME: an answer without the main
 
 test('M345-6 WHEN THE SHEET IS WEIGHED: first pages, after a fight, a new face in the scene, the main character missing, and every hundred pages — never on a whim', () => {
   const st = ledger();
-  eq(seedDue(st, 1), '', 'too early');
-  eq(seedDue(st, 2), 'first', 'the first weighing');
+  eq(seedDue(st, 0), '', 'too early — no page yet');
+  eq(seedDue(st, 1), 'first', 'the first weighing, from the first page (M531: his first fight came on the second page with nobody weighed)');
   st.sheet.actors = { Jovan: { default: 6, _auto: true, seed: SEED_VERSION }, Kaelen: { default: 5, _auto: true, seed: SEED_VERSION }, Ivar: { default: 8, _auto: true, seed: SEED_VERSION } };
   st.sheet.seedVersion = SEED_VERSION;
   st.sheet.seededAtPage = 12;
