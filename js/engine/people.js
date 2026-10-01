@@ -1133,7 +1133,14 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
    * story stood. Now the nearest to the story are named first, and the rest
    * are counted, not hidden. (rotation is kept in the signature, unused.) */
   void rotation;
-  const rosterPool = offScene.filter((k) => !recalled.includes(k) && !important.includes(k)).sort(byWeight);
+  const rosterAll = offScene.filter((k) => !recalled.includes(k) && !important.includes(k)).sort(byWeight);
+  /* M542: ONCE, NOT TWICE. In the short roster ("Elsewhere in the tale: Aurora Sterling (with us just now), …") a person the
+   * world is tracking was named again beside the live line that already says where they are and what they are doing
+   * ("Elsewhere: Aurora Sterling — number 10, her bedroom window, …") — the same name twice, under two "Elsewhere" headings.
+   * When the seats ride in the ledger's own block, the short roster keeps only those the world is NOT tracking: the ones
+   * whose name and how long they have been away are all the storyteller has of them. (The longer roster keeps everyone — its
+   * line carries who they are, which the seat does not.) */
+  const rosterPool = (!shortLines && seatsInState) ? rosterAll.filter((k) => !awayNow(k)) : rosterAll;
   if (rosterPool.length) {
     const shown = rosterPool.slice(0, lim.roster);
     const agoOf = (k) => {

@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m541-001)
+# Cozy Tavern — handoff for the next session (state at m542-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1649,4 +1649,12 @@ founding design lives in AGENTS.md's first entries.)
   journal per ledger — the first version cost ~175 ms per drawer render on a 2,000-line journal and made DOM-11c/DOM-135
   time out in two full walks; measured 873 ms → 81 ms for 5 renders × 60 people). Not a regression (DOM-193 fails on
   m535). Law M541-1; walk DOM-193.
+- M542 — A TRACKED PERSON IS NAMED ONCE. His question: "is it smart, autonomous, self-healing, no bloat or redundancy, an
+  alive tracker?" Read in the real request (his Aurora case): the live tracker ("Elsewhere: Aurora Sterling — number 10, her
+  bedroom window, weighing whether to walk over at six fifty-five") AND the end-of-list roster ("Elsewhere in the tale: Aurora
+  Sterling (with us just now), …") named her — the roster leaves out tracked people only when seatsInState, which was set
+  only on the biggest budgets (stateView.whole) while the ledger block carries "Elsewhere:" at every budget it fits. Now
+  seatsInState is also true whenever the rendered ledger block has its "Elsewhere:" (stack.js), and the short roster keeps
+  only people the world is NOT tracking (people.js). Measured: 2,024 → 2,015 tokens on his case (one tracked person; the
+  saving grows with each tracked person who reached the roster); the 24 frontier fixtures identical. Law M542-1.
 

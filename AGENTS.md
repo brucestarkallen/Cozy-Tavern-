@@ -13940,3 +13940,17 @@ only Jovan and Rias are present") with only "Aurora Sterling stepped out of the 
 - Not a regression: the same evening walks Claire back in on m535 (DOM-193). Law M541-1; walk DOM-193. Harness 1089/1089, walk
   193/193, long play 8/8, lint 0; the frontier request identical (24 of 24).
 
+# M542 — a tracked person is named once
+His question: "just give me the conclusion — is it smart, autonomous, self-healing, with no bloat or redundancy, an alive simulation
+tracker, not wasting tokens?" Checked in the real request rather than said: for his Aurora (gone home, dinner planned) the storyteller
+read her three times — the world's live line ("Elsewhere: Aurora Sterling — number 10, her bedroom window, …"), her standing, and the
+end-of-list roster ("Elsewhere in the tale: Aurora Sterling (with us just now), Old Mr. Hale (last seen 19 turns ago)"). The roster was
+meant to leave tracked people to the ledger's "Elsewhere:" (seatsInState), but stack.js set that only when the budget was big enough
+for the ledger's whole view (stateView.whole), while the ledger block carries "Elsewhere:" at every budget it fits in.
+- stack.js: seatsInState is also true whenever the rendered ledger block has its "Elsewhere:" section.
+- people.js: the short roster keeps only the people the world is not tracking — for them the name and how long they have been away
+  is all the storyteller has. (The longer roster keeps everyone: its line carries who they are, which a seat does not.)
+- Measured on his case: 2,024 → 2,015 tokens (one tracked person; the saving grows with each tracked person who reached the roster);
+  Aurora named twice (her live line, her standing), the untracked mailman kept with "last seen 19 turns ago". The 24 frontier fixtures
+  are identical (none had a tracked person in the roster). Law M542-1. Harness 1090/1090, walk 193/193, long play 8/8, lint 0.
+
