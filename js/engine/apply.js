@@ -1847,6 +1847,37 @@ export function descriptorsApart(state) {
   }
   return out;
 }
+/* M535: WALKED BACK IN OVER THE WORLD'S OWN WORD. A walk-in that let go of a seat the world had written ON THE SAME PAGE
+ * (the auditor reading the names on the pages and putting a broken-up meeting back at the table) is put right: someone
+ * still "here" whose walk-in was such a one, and whom the newest page does not show — or shows going — goes back to the
+ * seat the world gave them. Read from the ledger's own log (the walk-in's take-back keeps the seat it let go) and the
+ * journal (the page each change was written on); never the main character, never someone the newest page keeps. */
+export function walkedBackOverTheWorld(state, pageText) {
+  const s = state && typeof state === 'object' ? state : {};
+  const present = Array.isArray(s.present) ? s.present : [];
+  const log = Array.isArray(s.log) ? s.log : [];
+  const journal = Array.isArray(s.journal) ? s.journal : [];
+  const pageOf = new Map(journal.map((j) => [j.id, j.p]));
+  const told = narrationOf(scenePartOf(pageText || ''));
+  const out = [];
+  for (const p of present) {
+    const name = p && typeof p.name === 'string' ? p.name : '';
+    if (!name || isMc(s, name)) continue;
+    /* their latest walk-in, if it let a seat go */
+    const walkIn = [...log].reverse().find((e) => e && e.undo && e.undo.kind === 'presence.remove' && samePersonName(String(e.undo.name || ''), name));
+    if (!walkIn || !walkIn.undo.offscreenBefore || !walkIn.undo.offscreenBefore.entry) continue;
+    const enteredOn = pageOf.get(walkIn.jid);
+    /* the seat it let go was written on that same page (the world's word for that page) */
+    const seatName = walkIn.undo.offscreenBefore.name;
+    const seatWrite = [...journal].reverse().find((j) => j && j.m && j.m.type === 'offscreen.set' && samePersonName(String(j.m.name || ''), String(seatName || name)) && j.id < (walkIn.jid || 0));
+    if (!seatWrite || !Number.isInteger(enteredOn) || seatWrite.p !== enteredOn) continue;
+    if (told.trim() && shownOnPage(s, told, name) && !goneAtTheEnd(s, pageText, name)) continue; /* the newest page keeps them */
+    const theirSeat = walkIn.undo.offscreenBefore.entry || {};
+    out.push({ type: 'presence.leave', name, cause: 'walked back in over the world’s own word; the newest page does not keep them' });
+    if (theirSeat.location) out.push({ type: 'offscreen.set', name, location: theirSeat.location, ...(theirSeat.activity ? { activity: theirSeat.activity } : {}) });
+  }
+  return out;
+}
 export function goneByTheirOwnPage(state, pageText) {
   const s = state && typeof state === 'object' ? state : {};
   const present = Array.isArray(s.present) ? s.present : [];

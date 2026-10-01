@@ -13807,3 +13807,25 @@ thought the new system doesn't inject but uses the established ledger?"
 - Walk DOM-189 (both modes; the honest reason). Harness 1084/1084, walk 189/189, long play 8/8, lint 0; the frontier
   request identical (24 of 24).
 
+# M535 — the captains who left stay gone
+His report, with a screenshot: "Who's here" — sixteen people: Jovan, Shunsui, Suì-Fēng "behind the second cushion at the
+table", Shinji, Lisa, Isane, Hitsugaya "seated at the table"… while everyone had already left; "the world agent is correct but
+the ledger is not": the world agent's report wrote Suì-Fēng "already gone out the side door to the 2nd Division road", Shinji
+"in the corridor past the tall doors with Rose", Lisa "at the corridor's far end", Isane "out through the outer corridor";
+and the auditor's report: "Byakuya Kuchiki came into the scene. The elsewhere note let go of Byakuya Kuchiki · Zaraki Kenpachi
+… · Kensei Muguruma … · Rose …".
+- Traced: the page reader let the captains go and the world seated each (offscreen.set refuses anyone still present — so they
+  were out). The auditor, whose rule asks "is everyone on the latest page in the ledger's presence?", read their NAMES on the
+  page that told the room emptying as presence and walked them all back in (presence.enter lets the seat go). Nothing held an
+  auditor's walk-in to the newest page.
+- auditor.js auditorScope: an auditor presence.enter is refused for someone the newest page shows going (goneAtTheEnd) and
+  for someone seated elsewhere whom the newest page does not show (shownOnPage); someone the newest page shows here may still
+  be brought in.
+- apply.js walkedBackOverTheWorld: a walk-in that let go of a seat the world wrote ON THE SAME PAGE (the ledger's log keeps
+  the seat a walk-in let go; the journal, the page each change was written on), for someone the newest page does not keep,
+  is put right — presence.leave, and the seat back. Run with the open-time repairs (his story is healed on opening) and after
+  every page. Never the main character; never someone the newest page keeps; never a walk-in on a later page than the seat
+  (their own coming back).
+- Laws M535-1/2 (the refusals; the repair, and what it leaves alone). Harness 1086/1086, walk 189/189, long play 8/8, lint
+  0; the frontier request identical (24 of 24).
+

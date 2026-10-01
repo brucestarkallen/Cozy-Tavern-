@@ -23,7 +23,7 @@ import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } fr
 import { samePlace } from '../engine/apply.js'; /* M403 */
 import { seatForPerson } from '../engine/people.js'; /* M398 */
 import { isHere, nameOnPage } from '../engine/names.js'; /* M398/M413; M414: named by the one answer */
-import { shownOnPage, personBookKey, groundTheTellingStandsOn } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
+import { shownOnPage, personBookKey, groundTheTellingStandsOn, narrationOf } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
 import { findRelationship } from '../engine/relationships.js';
 import { db } from '../store.js';
 import { callWorker } from './call.js';
@@ -754,6 +754,17 @@ export function auditorScope(issues, state, { header = [], page = '' } = {}) {
     if (m.type === 'place.set' && headerAgrees(m) !== true && !tellingMoves) return true; /* M453: an echoing header does not hold a ground the telling has left */
     if (m.type === 'people.note') return String(m.field || '').trim().toLowerCase() !== 'unthread';
     /* someone already here who "comes in" is a move — the page reader's */
+    /* M535: THE AUDITOR NEVER WALKS BACK IN SOMEONE THE NEWEST PAGE DOES NOT KEEP. His Bleach meeting broke up: the page
+     * reader let the captains go, the world agent wrote where each went (Suì-Fēng out the side door to the 2nd's road,
+     * Shinji down the corridor with Rose) — and the auditor, reading the names on the pages, wrote them all back "into the
+     * scene" and let their seats go: sixteen in "Who's here" with everyone gone. It may bring someone in only when the
+     * newest page shows them there and not leaving at its end; someone seated elsewhere the newest page does not show, or
+     * shows going, keeps their seat. */
+    if (m.type === 'presence.enter' && typeof m.name === 'string' && page) {
+      const told = narrationOf(scenePartOf(page));
+      if (goneAtTheEnd(state, page, m.name)) return true;
+      if (findSeat(seats, m.name) && !shownOnPage(state, told, m.name)) return true;
+    }
     if (m.type === 'presence.enter' && Array.isArray(state && state.present) && findPresent(state, m.name, { strict: true }) !== -1) return true; /* M444: "already here" asked the way entering asks it — Captain Kuchiki is not Rukia */
     if (m.type === 'people.set') {
       if (mc && String(m.name || '').trim().toLowerCase() === mc) return true;

@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m534-001)
+# Cozy Tavern — handoff for the next session (state at m535-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1585,4 +1585,14 @@ founding design lives in AGENTS.md's first entries.)
   it is this turn's (stamped after the turn asked) and has a source; otherwise "canon was still reading when the page was
   asked for — what it finds rides with the next page". The drawer's list is canon's memory of each person, not what a
   page was sent.
+- M535 — THE CAPTAINS WHO LEFT STAY GONE. His report (angry): sixteen Bleach captains in "Who's here" after the meeting
+  broke up, the world agent's report right (Suì-Fēng out the side door to the 2nd Division road, Shinji down the corridor
+  with Rose…), and the auditor's: "Byakuya Kuchiki came into the scene. The elsewhere note let go of Byakuya Kuchiki ·
+  Zaraki… · Kensei… · Rose…". The page reader had let them go and the world had seated each; the auditor — told "is
+  everyone on the latest page in the ledger's presence?" — read their NAMES on the page (the room emptying) as presence and
+  wrote them all back in, letting the world's seats go. No guard held its walk-ins to the newest page. Now: auditor.js
+  auditorScope refuses an auditor presence.enter for someone the newest page shows going (goneAtTheEnd) or someone seated
+  elsewhere the newest page does not show; apply.js walkedBackOverTheWorld puts right the walk-ins already made (a walk-in
+  that let go of a seat the world wrote ON THE SAME PAGE, for someone the newest page does not keep → presence.leave and the
+  seat back), on opening (with the other open-time repairs) and after every page. Laws M535-1/2.
 
