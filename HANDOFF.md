@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m536-001)
+# Cozy Tavern — handoff for the next session (state at m537-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1603,4 +1603,13 @@ founding design lives in AGENTS.md's first entries.)
   is { failed: true } and written down as nothing (generate's check and the chain's placeNext alike), and the opening's check
   runs in generate() where its first page is built — a send, a Try again or a reroll alike; send()'s old copy is gone.
   Walk DOM-190 (fails on m535-001).
+- M537 — A MISSPELLING OF SOMEONE FOUND IS NOT "NOT FOUND". His storyteller's thinking: "the canon note says 'Not found in
+  this story's canon sources: "Gojo Satorou" — treat these as original to this story…' Hmm, but actually the canon DOES list
+  Satoru Gojo. The name is slightly misspelled." Canon verification's not-found report (grounding.js unverifiedNamed) let a
+  miss go only when EVERY word of it was a word of someone found; "satorou" is not "satoru", so the misspelling became an
+  instruction to treat Gojo as an original character. Now a word one slip from a found name's word (first letter kept; one
+  edit for 4–6 letters, two from 7; Damerau) counts as that found canon, with at least one word exact — "Gojo Kenta" (a
+  different person sharing the family name) and a name the wiki truly lacks are still reported. Law M537-1
+  (unverifiedNamedForHarness). DOM-187 now waits until the first blow's page helpers are idle a whole second (the chain
+  queues as it goes — a post-fight weighing of its own had landed in the next blow's window in the full walk).
 

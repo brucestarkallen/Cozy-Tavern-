@@ -7843,6 +7843,9 @@ test('DOM-187 A FIGHT NEVER STARTS WITH AN UNWEIGHED FIGHTER (M531 — his repor
     assert(actors.some((n) => /Jovan/.test(n)) && actors.some((n) => /Zaraki/.test(n)), 'both fighters on the sheet: ' + actors.join(', '));
     await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers', 40000);
     /* M532: the crowd the weighing saw and left off does not call it again before the next blow */
+    /* the first blow's page chain truly done — idle for a whole second, not between two of its jobs (the chain enqueues as it
+     * goes; a weighing it runs after a fight lets go, M11, is its own and must not land in the next blow's window) */
+    for (let quiet = 0; quiet < 10;) { await tick(100); quiet = (queuedCount(st.id) === 0 && !workIsRunning(st.id)) ? quiet + 1 : 0; }
     const at = order.length;
     type(q('#composer-input'), 'I strike again.'); submit(q('#composer'));
     await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 3 && !env.ctx.chat.isBusy(), 'the next page', 60000);

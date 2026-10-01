@@ -13847,3 +13847,18 @@ I lose my internet during it and press retry, it is gone and not restarting — 
   first page carries it — fails on m535-001); DOM-172/173/182/183 still green. Harness 1086/1086, walk 190/190, long play 8/8,
   lint 0; the frontier request identical (24 of 24).
 
+# M537 — a misspelling of someone found is not "not found"
+His storyteller's thinking, pasted: "Wait — the canon note says 'Not found in this story's canon sources: "Gojo Satorou" — treat
+these as original to this story or not established in canon.' Hmm, but actually the canon DOES list Satoru Gojo. The name
+'Gojo Satorou' is slightly misspelled." Canon verification's not-found report (grounding.js unverifiedNamed — the ⌀ line, an
+instruction to the storyteller) let a missed lookup go only when every word of it was a word of a FOUND entry; one typo
+("satorou" for "satoru") made the misspelt Satoru Gojo an "original character" the storyteller had to argue down.
+- unverifiedNamed: a word one slip from a found name's word — the same first letter; one edit (insert, delete, change, swap)
+  for a word of four to six letters, two from seven — counts as owned by that found canon, as long as at least one word of
+  the name is exact. A name the wiki truly lacks is still reported; so is a different person who only shares a family name
+  ("Gojo Kenta").
+- Law M537-1 (his "Gojo Satorou" beside the found Satoru Gojo; a true miss; a shared family name), through
+  unverifiedNamedForHarness. DOM-187 (the full walk showed it once): it now waits until the first blow's page helpers are
+  idle for a whole second — the chain enqueues as it goes, and its own post-fight weighing (M11) had landed inside the next
+  blow's window. Harness 1087/1087, walk 190/190, long play 8/8, lint 0; the frontier request identical (24 of 24).
+

@@ -200,6 +200,7 @@ import './m527.mjs'; /* M527: the deep audit, second pass — what pages taken b
 import './m528.mjs'; /* M528: the deep audit, third pass — a page rewritten by hand */
 import './m529.mjs'; /* M529: two workers at once — the side lane */
 import './m535.mjs'; /* M535: the captains who left stay gone — the auditor's walk-ins held to the newest page, and put right */
+import './m537.mjs'; /* M537: a misspelling of someone found is not "not found" */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

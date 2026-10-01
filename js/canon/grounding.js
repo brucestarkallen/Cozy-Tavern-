@@ -2772,6 +2772,31 @@ function orderLinesByNeed(lines, need) {
  * EXISTED (lore that failed the untrusted character gate), and a transient
  * error is never cached at all — neither is evidence of absence.
  */
+/* M537: one slip from a found name's word — a typo, never a different word (the first letter kept; one edit for a word of four
+ * to six letters, two from seven) */
+function editDistance(a, b) {
+    const m = a.length, n = b.length;
+    if (Math.abs(m - n) > 2) return 3;
+    const d = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+    for (let j = 1; j <= n; j++) d[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+            if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+        }
+    }
+    return d[m][n];
+}
+function nearFoundToken(t, foundTokens) {
+    if (!t || t.length < 4) return false;
+    const room = t.length >= 7 ? 2 : 1;
+    for (const f of foundTokens) {
+        if (f.length < 4 || f[0] !== t[0]) continue;
+        if (editDistance(t, f) <= room) return true;
+    }
+    return false;
+}
+export function unverifiedNamedForHarness(userMsg, store, wikisCsv, excludes) { return unverifiedNamed(userMsg, store, wikisCsv, excludes); } /* exported for the harness (M537) */
 function unverifiedNamed(userMsg, store, wikisCsv, excludes = []) {
     if (!userMsg || !store) return [];
     const lcMsg = String(userMsg).toLowerCase();
@@ -2838,6 +2863,11 @@ function unverifiedNamed(userMsg, store, wikisCsv, excludes = []) {
         // a sentence fragment that once failed a lookup, not a thing the story
         // asked about.
         if (!toks.length || toks.every(t => NOISE_WORDS.has(t) || COMMON_LOWERCASE.has(t))) continue;
+        /* M537: A MISSPELLING OF SOMEONE FOUND IS NOT "NOT FOUND". He typed "Gojo Satorou"; the wiki's Satoru Gojo was found, but
+         * "satorou" is not "satoru", so the note told the storyteller to "treat Gojo Satorou as original to this story" — and its
+         * thinking had to argue the note down. A token one slip from a found one (two for a long word, the first letter kept)
+         * is owned by that found canon; at least one token must be exact, so a different name sharing nothing is still news. */
+        if (toks.every(t => foundTokens.has(t) || nearFoundToken(t, foundTokens)) && toks.some(t => foundTokens.has(t))) continue;
         if (toks.every(t => foundTokens.has(t))) continue;
         // Principals exclude by ANY shared token: the persona "Jovan" silences
         // "Jovan Kael" too — principals are few, and noise about the player
