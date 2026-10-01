@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m532-001)
+# Cozy Tavern — handoff for the next session (state at m533-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1562,4 +1562,17 @@ founding design lives in AGENTS.md's first entries.)
   law now asks rel.shift for anyone the opening plainly moves (rel.set only where the brief or prose says where a standing
   already stands; a stranger the page does not move stays 0/0/0) and knowledge.add for what someone plainly learned.
   Walk DOM-188 (the opening's standing after the first page); DOM-187 extended (the crowd).
+- M533 — THE SWEEP FOR THE SAME FAULTS (his order: "audit everything, make sure there are no bugs like these"). The classes:
+  (1) an opening read short — the young ledger's reader (extractor.js founding law) now asks every kind of change a later
+  page is read for: standings and knowledge (M532) and now hurts (body.injure / body.strain); its lines point "above" to
+  the shapes and the standings law, where they really sit in its prompt. (2) a helper that starts too late — every
+  page-count gate in the agents and the send path searched: only the worn-phrase finder (needs two pages by definition) and
+  the cadenced keepers (auditor, housekeeper, sensors' averages) remain, by design. (3) an updater that cannot create —
+  people pages (M514), standings (rel.shift creates), knowledge, seats, threads, factions, bodies, the sheet (M531/M532),
+  canon lines (the page after a first meeting) — each creates. (4) a step that runs before what it needs exists — the
+  referee and the sheet (M531), and the #story PREMISE: written in the first person it could pass the referee's gate and
+  be ruled against his own premise before anyone was weighed — now never refereed (the receipt says so). The world agent,
+  the scribe, the canon parser, the placer and the world keeper all run from the first page. Walk DOM-188 extended (the
+  opening's wound; a first-person premise not refereed). Old tales whose openings were read before M532: one "Rebuild the
+  people from the pages" fills them (not run by itself — it rewrites people pages).
 

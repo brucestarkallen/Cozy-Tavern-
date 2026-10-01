@@ -7867,19 +7867,24 @@ test('DOM-188 THE OPENING MOVES FEELINGS (M532 — his report: "every time, How 
   house.state.storyAnswer = () => '[Tengen\'s barrier — Monday, December 4, 2018 | 23:50 | cold | haori | before Yuki]\n\nJovan caught the blow an inch from her throat. Yuki stared at him, alive.';
   house.state.workerAnswer = (body, sys) => {
     if (/THE LEDGER IS YOUNG/.test(String(sys || ''))) {
-      askedForFeelings = /rel\.shift for anyone whose feelings toward the main character this opening plainly moves/.test(String(sys || ''));
-      return JSON.stringify({ mutations: [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Tengen\'s barrier' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Yuki Tsukumo' }, { type: 'rel.shift', name: 'Yuki Tsukumo', axis: 'p', delta: 20, cause: 'he caught the blow that would have killed her' }] });
+      askedForFeelings = /rel\.shift for anyone whose feelings toward the main character this opening plainly moves/.test(String(sys || '')) && /body\.injure \/ body\.strain for a hurt the pages plainly show/.test(String(sys || ''));
+      return JSON.stringify({ mutations: [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Tengen\'s barrier' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Yuki Tsukumo' }, { type: 'rel.shift', name: 'Yuki Tsukumo', axis: 'p', delta: 20, cause: 'he caught the blow that would have killed her' }, { type: 'body.injure', name: 'Yuki Tsukumo', what: 'a cut across the ribs from Kenjaku\'s first strike', sev: 2, treated: false }] });
     }
     return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
   };
   try {
-    type(q('#composer-input'), '#story jujutsu kaisen Jovan saves Yuki from Kenjaku'); submit(q('#composer'));
+    type(q('#composer-input'), '#story jujutsu kaisen — I draw my blade and parry Kenjaku\'s strike to save Yuki'); submit(q('#composer')); /* M533: first person, a gate verb — still the premise */
     await until(async () => (await db.messages.list(st.id)).some((m) => m.role === 'assistant') && !env.ctx.chat.isBusy(), 'the opening page', 40000);
     await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000);
     assert(askedForFeelings, 'the young ledger’s reader was asked what the opening does to feelings');
+    const opening = (await db.messages.list(st.id)).find((m) => m.role === 'assistant');
+    const ruled = ((opening.receipt || {}).slots || []).find((x) => x.name === 'The house has ruled');
+    assert(ruled && /your #story is the premise/.test(ruled.reason || ''), 'M533: the premise was never refereed, and the receipt says so: ' + JSON.stringify(ruled));
     const rel = ((await loadState(st.id)) || {}).relationships || {};
     const yuki = Object.keys(rel).find((k) => /Yuki/.test(k));
     assert(yuki && rel[yuki].p === 20, 'her standing stands after the first page: ' + JSON.stringify(rel));
+    const bodies = ((await loadState(st.id)) || {}).bodies || {};
+    assert(Object.keys(bodies).some((k) => /Yuki/.test(k) && JSON.stringify(bodies[k]).includes('ribs')), 'and the wound the opening shows is on her (M533): ' + JSON.stringify(bodies));
   } finally {
     house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
   }

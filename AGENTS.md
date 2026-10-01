@@ -13766,3 +13766,25 @@ especially on #story".
   DOM-187 extended (a crowd left off the sheet is not weighed again before the next blow). Harness 1084/1084, walk
   188/188, long play 8/8, lint 0; the frontier request identical (24 of 24).
 
+# M533 — the sweep for the same faults
+His order: "audit everything — make sure there are no bugs like these" (the empty standings on a #story, the unweighed first
+fight). Swept by class, not by symptom:
+- An opening read short: the young ledger's reader (extractor.js founding law) asked a place, a room, a clock and the main
+  character; M532 added standings and knowledge. The sweep found the third: the opening's own hurts (a wound the first page
+  shows) were not asked for either — body.injure / body.strain now are. Its new lines said the shapes and the standings law
+  were "below"; in its prompt they sit above it — now said so.
+- A helper that starts too late: every page-count gate in the agents and the send path was searched. Left, by design: the
+  worn-phrase finder (two pages by definition) and the cadenced keepers (the auditor, the housekeeper, the sensors' averages).
+- An updater that cannot create: people pages (M514), standings (rel.shift creates an entry), knowledge, seats, threads,
+  factions, bodies, the sheet (M531/M532), canon's lasting lines (the page after a first meeting) — each creates.
+- A step that runs before what it needs: the referee and the sheet (M531); and the #story premise — the referee's gate
+  passes first-person attempts, so "#story I draw my blade and parry Kenjaku's strike…" could be refereed against his own
+  premise before anyone was weighed. A #story move is never refereed now; the receipt says "your #story is the premise —
+  the referee rules from the first move after it". (Written in the third person, as he writes them, the gate already let
+  it pass — checked.)
+- Checked and holding from the first page: the world agent, the scribe (M514), canon verification's parser, the placer and
+  the world keeper (M527), the small storyteller's plan (planAhead), the brake (M519).
+- Walk DOM-188 extended (the opening's wound on her; a first-person premise not refereed). Old tales whose openings were
+  read before M532 are filled by one "Rebuild the people from the pages" — not run by itself (it rewrites people pages).
+  Harness 1084/1084, walk 188/188, long play 8/8, lint 0; the frontier request identical (24 of 24).
+

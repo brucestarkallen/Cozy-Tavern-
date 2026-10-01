@@ -4395,7 +4395,12 @@ export function initChat(ctx) {
         state.page = history.filter((m) => m && m.role === 'assistant' && !m.hidden).length;
       }
       let refereeWhy = ooc ? 'an out-of-character question — the referee never rules on one' : ''; /* M513: why nothing was ruled, for the receipt */
-      if (!ooc && lastUser) {
+      /* M533: A #STORY IS THE PREMISE, NOT A MOVE. Written in the first person ("#story I parry Kenjaku's blow…") it passed the
+       * referee's gate and could be ruled — against his own premise, before anyone was weighed. The referee rules from the
+       * first move after it. */
+      const premise = Boolean(lastUser && /^\s*#story\b/i.test(String(lastUser.typed || '')));
+      if (premise) refereeWhy = 'your #story is the premise — the referee rules from the first move after it';
+      if (!ooc && lastUser && !premise) {
         const { signal, done } = workerSignal(12000); /* the referee's 12s budget */
         try {
           const refSettings = await refereeSettings();
