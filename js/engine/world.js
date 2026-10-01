@@ -32,6 +32,7 @@
  */
 
 import { samePersonName } from './names.js'; /* M420: one answer to "the same person?" for who-knows-what */
+import { mcName } from './duels.js'; /* M543: the main character, by the one answer */
 
 export const THREAD_HEAT = ['hot', 'cold'];
 export const STANCES = ['toward', 'seeking', 'tense', 'busy', 'waiting'];
@@ -798,7 +799,21 @@ export function renderVoicesBlock(voices) {
  * that leaks onto the page. */
 export const BRIEF_STALE_TURNS = 4;
 
-export function renderWorldBrief(brief, turnNow, pageNow) {
+/* M543: THE WINDOW BEYOND THE PAGE IS ON SOMEONE BEYOND THE PAGE. His storyteller wrote a "World Beyond" window on a person
+ * standing in the same scene as his main character, on the same page: the world agent may name anyone for its window (twb),
+ * and it is kept until its next reading — someone it chose while away can walk in before the page is asked for. A window on
+ * someone the ledger has here now (or on the main character) is no window: the house does not open it, and the storyteller
+ * is not told of it. */
+export function windowOnSomeoneHere(brief, state) {
+  const t = brief && brief.twb;
+  const who = t && typeof t.who === 'string' ? t.who.trim() : '';
+  if (!who || !state || typeof state !== 'object') return false;
+  const present = Array.isArray(state.present) ? state.present : [];
+  if (present.some((p) => p && typeof p.name === 'string' && samePersonName(p.name, who))) return true;
+  const mc = mcName(state);
+  return Boolean(mc && mc !== 'the player' && samePersonName(mc, who));
+}
+export function renderWorldBrief(brief, turnNow, pageNow, state = null) {
   if (!brief || typeof brief !== 'object') return '';
   if (brief.empty) return '';
   /* M85: the voices are the reader's, never the storyteller's — a brief
@@ -821,7 +836,7 @@ export function renderWorldBrief(brief, turnNow, pageNow) {
     out.push('What has ripened out of sight, and whom it has reached:');
     for (const r of brief.ripe) out.push('  - ' + r);
   }
-  if (brief.twb) {
+  if (brief.twb && !windowOnSomeoneHere(brief, state)) { /* M543 */
     const t = brief.twb;
     out.push('A window into the world beyond is open this turn, if the scene has room for it — ' + [t.who, t.where].filter(Boolean).join(', ') + ': ' + t.changed + ' (write it only if it does something; enter late, leave early; nobody in the scene learns from it).');
   }

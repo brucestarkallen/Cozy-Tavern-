@@ -27,6 +27,7 @@
  * triggers (see js/import/sillytavern.js).
  */
 
+import { windowOnSomeoneHere } from '../engine/world.js'; /* M543 */
 import { typedCombat, FIGHT_SOUND_TEXT } from './laws.js'; /* M510-27: a fight begins in his words; how a fight sounds */
 import { CRAFT_TEXT, looksLikeImportedCraft } from './craft.js'; /* M36: the craft core */
 import { db } from '../store.js';
@@ -84,7 +85,7 @@ const PREDICATES = {
    * this turn (a TWB seed in the brief), so the cut-away's craft rides. */
   worldWindow: (state) => {
     const b = state && state.worldBrief;
-    const open = Boolean(b && !b.empty && b.twb && (b.twb.who || b.twb.changed));
+    const open = Boolean(b && !b.empty && b.twb && (b.twb.who || b.twb.changed)) && !windowOnSomeoneHere(b, state); /* M543: never on someone in the scene */
     return open ? { load: true, reason: 'the world agent opened a window beyond the page' } : { load: false, reason: '' };
   },
 

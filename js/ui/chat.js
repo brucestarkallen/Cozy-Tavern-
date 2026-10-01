@@ -2586,7 +2586,7 @@ export function initChat(ctx) {
     const people = (planPeople(state, { recentPages: recentText, rotation: pagesAll.length, view: planPeopleView(big), brief: String(fresh.brief || '') + '\n' + String(fresh.castNotes || '') }) || {}).text || '';
     const record = wholeRecord(await loadMemory(story.id), 400000);
     const lore = matchLoreDetailed(await loadLore(story.id), recentText).text || '';
-    const world = renderWorldBrief(state.worldBrief, state.turn, state.page) || '';
+    const world = renderWorldBrief(state.worldBrief, state.turn, state.page, state) || '';
     const director = renderDirectorNote(await loadDirector(story.id)) || '';
     const kept = await loadPlans(story.id);
     const ls = kept && kept.lastSound;
@@ -4687,7 +4687,7 @@ export function initChat(ctx) {
         cast: invitedCast, lore: loreText, loreFired, window: windowInfo, directive,
         directorNote: renderDirectorNote(directorState), editorEye: renderEditorNote(editorState),
         houseEye: (() => { const lastA = [...history].reverse().find((m) => m && m.role === 'assistant' && !m.hidden); return lastA ? houseEyeWords(lastA.findings) : ''; })(),
-        worldBrief: renderWorldBrief(state.worldBrief, state.turn, state.page),
+        worldBrief: renderWorldBrief(state.worldBrief, state.turn, state.page, state),
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy({ since: canonAskedAt }) : '', /* M486; M534: this turn's reason, or none */
@@ -4733,7 +4733,7 @@ export function initChat(ctx) {
          * for this one turn's silent recolor (never a standing nag). */
         houseEye: (() => { const lastA = [...history].reverse().find((m) => m && m.role === 'assistant' && !m.hidden); return lastA ? houseEyeWords(lastA.findings) : ''; })(),
         /* M29: the world agent's word for this turn. */
-        worldBrief: renderWorldBrief(state.worldBrief, state.turn, state.page),
+        worldBrief: renderWorldBrief(state.worldBrief, state.turn, state.page, state),
         /* M345: THE SETTLED OUTCOME REACHES THE STORYTELLER. Since M11 the referee ruled into the ledger and the drawer,
          * and this call never handed the ruling on — the storyteller never once read it. */
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),

@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m542-001)
+# Cozy Tavern — handoff for the next session (state at m543-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1657,4 +1657,11 @@ founding design lives in AGENTS.md's first entries.)
   seatsInState is also true whenever the rendered ledger block has its "Elsewhere:" (stack.js), and the short roster keeps
   only people the world is NOT tracking (people.js). Measured: 2,024 → 2,015 tokens on his case (one tracked person; the
   saving grows with each tracked person who reached the roster); the 24 frontier fixtures identical. Law M542-1.
+- M543 — THE WINDOW BEYOND THE PAGE IS ON SOMEONE BEYOND THE PAGE. His report: his storyteller's "World Beyond" window
+  showed a character standing in the same scene as his main character. The window's person comes from the world agent's
+  brief (twb), taken as it came (world.js normalizeBrief) and kept until its next reading — nothing checked the person was
+  away, and someone it chose while away can walk in before the page is asked for. Now world.js windowOnSomeoneHere: a window
+  on someone the ledger has here (or the main character, by duels.js mcName) is not told (renderWorldBrief, called with the
+  ledger from chat.js) and does not wake the window's craft rule (modules.js worldWindow). M29-10's source check follows the
+  new call. Law M543-1 (through listModules + selectModules, as the app loads them).
 

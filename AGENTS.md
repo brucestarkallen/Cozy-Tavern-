@@ -13954,3 +13954,18 @@ for the ledger's whole view (stateView.whole), while the ledger block carries "E
   Aurora named twice (her live line, her standing), the untracked mailman kept with "last seen 19 turns ago". The 24 frontier fixtures
   are identical (none had a tracked person in the roster). Law M542-1. Harness 1090/1090, walk 193/193, long play 8/8, lint 0.
 
+# M543 — the window beyond the page is on someone beyond the page
+His report: "why does my World Beyond show a character who is in the same scene and on the same page as my MC?" The window's person
+is the world agent's choice (its brief's twb: who, where, what changed), normalised as it came (world.js normalizeBrief) and kept until
+its next reading. Nothing checked that the person was away — the world agent may name someone in the room, and someone it chose while
+they were away can walk in before the next page is asked for.
+- world.js windowOnSomeoneHere(brief, state): the window's person is someone the ledger has here now, or the main character (duels.js
+  mcName — the one answer).
+- renderWorldBrief(brief, turn, page, state) leaves the window out of the world's word for such a person (the pressure, the ripened and
+  the voices still ride); chat.js passes the ledger at all three calls.
+- modules.js worldWindow: the window's craft rule ("A window is open this turn…") does not wake for such a person.
+- M29-10 checked chat.js's source for the old three-argument call; it now checks the call with the ledger (the brief still reaches the
+  request). Law M543-1 — Rias in the hall: no window, not told, the rule asleep; Aurora at number 10: the window and its rule; the rest of
+  the world's word unchanged — through listModules and selectModules, as the app loads them. Harness 1091/1091, walk 193/193, long play
+  8/8, lint 0; the frontier request identical (24 of 24).
+
