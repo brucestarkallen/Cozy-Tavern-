@@ -76,6 +76,7 @@ const SHELL = [
   'js/agents/essentials.js', /* M510-15 */
   'js/agents/recallpick.js', /* M510-50 */
   'js/agents/choices.js', /* M548: Choices matter */
+  'js/agents/canoncheck.js', /* M551: one check for what a helper wrote from memory */
   'js/agents/plans.js', /* M510-22 */
   'js/assemble/planbook.js', /* M510-22 */
   'js/assemble/smallprose.js', /* M512: the story's voice and the worn phrases, for a small storyteller */

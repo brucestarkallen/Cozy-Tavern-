@@ -14174,3 +14174,26 @@ stand there. Now:
 - Laws M550-1/2; walk DOM-201 (opening the tale: asked once with the facts and the wiki; the wrong fact let go, the note rides
   without it; opening again asks nothing; his own words never asked about) — fails with the check on opening taken out
   (checked).
+
+# M551 — one check for everything a helper wrote from memory about a canon
+His question after M550: "does this only fix the hierarchy, or everything that could go wrong? I can't have flex tape each
+time." M550 handed its check one line per person (who they are), so it caught titles and seats and little else. The class:
+two texts ride with every page and are written from a model's memory of a canon — where the story began (the founder) and
+the automatic brief's world (the world keeper). The ledger's writers (the founder, the scribe, the world beyond) are already
+handed canon verification's real record (M386); the storyteller reads "What canon says" for the people in the scene.
+- agents/canoncheck.js: ONE check. Material: everything the wiki says of every person canon verification looked up —
+  identity, summary, facts, abilities, ties, biography, through his story's lens — the people the claims name first, within
+  24,000 characters; and the wiki's summary of where the story stands. Every kind of fact is asked about: rank and seat, who
+  leads, alive or dead, where, ties and alliances, powers, what has happened by then. The same law: the wiki is the series'
+  end (an earlier moment's difference is not wrong); a fact the wiki does not mention is never wrong; a wrong fact is let go
+  silently; his own words never checked.
+- Where our story began (M550) now asks this check (canonstart.js delegates; the same prompt). The automatic brief's world is
+  checked a sentence at a time (worldCheckNext: the page chain after the world keeper, and on opening; only the wrong
+  sentences go, a part left empty goes; never his own words). Both are asked again whenever their words or the wiki's
+  material change — a person looked up later brings their facts in.
+- Not covered, precisely: a person canon verification has never looked up (not yet in a scene) has no material until they
+  are; places and events are judged only by what the people's pages and the arc summary say; the storyteller's own memory
+  while writing is grounded by canon verification's note for the people in the scene, nothing more; the check is a model —
+  it can miss a contradiction, and it can only take lines away, never add one.
+- Laws M551-1…3; walk DOM-203 (the world checked on opening — each sentence and all the wiki says, a death included; the
+  wrong sentence let go, the rest word for word; opening again asks nothing).

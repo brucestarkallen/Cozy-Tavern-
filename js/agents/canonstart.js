@@ -11,6 +11,7 @@
 
 import { callWorker } from './call.js';
 import { withFictionFrame } from './voice.js';
+import { claimsAsk, readClaimsCheck, checkClaims } from './canoncheck.js'; /* M551: one check */
 
 export const CANON_START_KEY = (storyId) => 'canonStart:' + storyId;
 const MAX_FACTS = 20;
@@ -103,45 +104,12 @@ export function startCheckPrint(start, wiki) {
   const facts = start && Array.isArray(start.facts) ? start.facts : [];
   return fpOf(facts.join('\n') + '\n--\n' + (Array.isArray(wiki) ? wiki : []).join('\n'));
 }
-const CHECK_SYSTEM = [
-  'You check the facts a helper wrote down from memory about the moment a story begins in its canon, against what the series\u2019 wiki says of the people in it.',
-  'The wiki\u2019s lines tell the series as it ENDS. Titles, seats and lives change over a series: a fact about an earlier moment can be true then and differ from the wiki\u2019s end — that is NOT wrong.',
-  'Mark a fact wrong only when the wiki\u2019s lines show it cannot be true at the story\u2019s moment: the moment is at or after the series\u2019 end (as the moment line says) and the wiki says otherwise — a title, a rank, a seat, who leads, who is alive or dead; or the fact gives someone a seat or a deed the wiki shows they never had at any point.',
-  'Never mark a fact wrong because the wiki does not mention it.',
-  'Answer with ONLY this JSON: {"wrong":[the numbers of the wrong facts]} — {"wrong":[]} when none is.',
-].join('\n');
+/* M551: ONE CHECK (agents/canoncheck.js) — the note's facts are asked about exactly as the world's are: every kind of fact,
+ * against everything the wiki says of the people looked up */
 export function startCheckAsk({ start, wiki = [] } = {}) {
-  const facts = start && Array.isArray(start.facts) ? start.facts : [];
-  const user = [
-    'WHERE THE STORY BEGINS: ' + [start && start.series, start && start.arc, start && start.moment].filter(Boolean).join(' — '),
-    '',
-    'THE FACTS WRITTEN DOWN FOR THAT MOMENT:',
-    ...facts.map((f, i) => (i + 1) + '. ' + f),
-    '',
-    'WHAT THE SERIES\u2019 WIKI SAYS OF THE PEOPLE IN IT (the series as it ends):',
-    ...(Array.isArray(wiki) ? wiki : []).map((w) => '- ' + w),
-    '',
-    'Which facts are wrong? JSON only.',
-  ].join('\n');
-  return { system: CHECK_SYSTEM, user };
+  return claimsAsk({ moment: [start && start.series, start && start.arc, start && start.moment].filter(Boolean).join(' — '), claims: start && Array.isArray(start.facts) ? start.facts : [], material: wiki });
 }
-/* its answer, read strictly: numbers of facts that exist, each once — anything else is no answer (nothing changes) */
-export function readStartCheck(raw, count) {
-  let obj = raw;
-  if (typeof raw === 'string') {
-    const a = raw.indexOf('{'); const b = raw.lastIndexOf('}');
-    if (a === -1 || b <= a) return null;
-    try { obj = JSON.parse(raw.slice(a, b + 1)); } catch { return null; }
-  }
-  if (!obj || typeof obj !== 'object' || !Array.isArray(obj.wrong)) return null;
-  const wrong = [];
-  for (const n of obj.wrong) {
-    const k = Number(n);
-    if (!Number.isInteger(k) || k < 1 || k > count) continue;
-    if (!wrong.includes(k - 1)) wrong.push(k - 1);
-  }
-  return { wrong: wrong.sort((x, y) => x - y) };
-}
+export function readStartCheck(raw, count) { return readClaimsCheck(raw, count); }
 /* the start without what the wiki shows wrong — his own words never touched */
 export function applyStartCheck(start, wrong, wiki) {
   if (!start || typeof start !== 'object' || (typeof start.words === 'string' && start.words.trim())) return start;
@@ -154,12 +122,6 @@ export function applyStartCheck(start, wrong, wiki) {
   return next;
 }
 /* never throws: { wrong } or null when it could not be had (nothing changes; it is asked again later) */
-export async function checkCanonStart({ connection, start, wiki = [], signal, callLLM = callWorker } = {}) {
-  const facts = start && Array.isArray(start.facts) ? start.facts : [];
-  if (!connection || !facts.length || !Array.isArray(wiki) || !wiki.length) return null;
-  try {
-    const ask = startCheckAsk({ start, wiki });
-    const answer = await callLLM(connection, { system: withFictionFrame(ask.system), user: ask.user, maxTokens: 600, signal });
-    return readStartCheck(typeof answer === 'string' ? answer : (answer && answer.text) || '', facts.length);
-  } catch (err) { return null; }
+export async function checkCanonStart({ connection, start, wiki = [], arc = null, signal, callLLM } = {}) {
+  return checkClaims({ connection, moment: [start && start.series, start && start.arc, start && start.moment].filter(Boolean).join(' — '), claims: start && Array.isArray(start.facts) ? start.facts : [], material: wiki, arc, signal, ...(callLLM ? { callLLM } : {}) });
 }

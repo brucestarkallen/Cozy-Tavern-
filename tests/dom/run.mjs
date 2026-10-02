@@ -9106,7 +9106,7 @@ test('DOM-201 WHERE OUR STORY BEGAN, CHECKED AGAINST THE WIKI, THROUGH THE APP (
   const { applyMutations } = await import('../../js/engine/apply.js');
   const { canonStartWords } = await import('../../js/agents/canonstart.js');
   const { queuedCount } = await import('../../js/agents/queue.js');
-  const CHECK_SYS = /check the facts a helper wrote down from memory/;
+  const CHECK_SYS = /facts a helper wrote down from memory/;
   const tale = async (title, start) => {
     const st = await db.stories.create({ title });
     await db.stories.update(st.id, { keeper: false, extraction: false });
@@ -9191,6 +9191,46 @@ test('DOM-202 AN AUTOMATIC BRIEF WRITTEN UNDER THE OLD RULES IS WRITTEN AGAIN ON
   } finally {
     house.state.workerAnswer = prior;
     for (const id of ids) await db.stories.remove(id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-203 THE AUTOMATIC BRIEF\'S WORLD, CHECKED AGAINST EVERYTHING THE WIKI SAYS, THROUGH THE APP (M551 — "not only the hierarchy, everything"): opening the tale asks the check once with each sentence of the world and all the wiki says of the people (a death included); the sentence it shows wrong is let go, the rest stand word for word; opening again asks nothing', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { GROUND_KEY, GROUND_RULES, groundWords } = await import('../../js/agents/worldground.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'the world after the war' });
+  await db.stories.update(st.id, { keeper: false, extraction: false, briefMode: 'automatic', brief: 'Bleach, after the war.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I walk in.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[Seireitei — Monday | 09:00 | clear | haori | the gate]\n\nThe gate stood open.' });
+  await saveState(st.id, { ...applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the gate' }, { type: 'presence.enter', name: 'Jovan' }]).state, page: 1, readTo: 1, tidiedGen: 999 });
+  await db.settings.set('canonOn:' + st.id, true);
+  await db.settings.set('canonMeta:' + st.id, { canon_grounding_cache: {
+    'yamamoto': { found: true, name: 'Genryūsai Shigekuni Yamamoto', dossier: { name: 'Genryūsai Shigekuni Yamamoto', identity: 'the former Captain-Commander of the Gotei 13', brief: 'He was killed by Yhwach during the invasion of the Seireitei.' } },
+  }, cozy_lens: {} });
+  await db.settings.set(GROUND_KEY(st.id), { parts: { factions: 'Yamamoto leads the Gotei 13 as Captain-Commander. The Quincy are scattered.', places: 'The Seireitei is being rebuilt.' }, recordLines: 0, by: 'helper', at: 1, rules: GROUND_RULES });
+  const prior = house.state.workerAnswer;
+  let asks = 0; let read = '';
+  house.state.workerAnswer = (body, sys) => {
+    if (/facts a helper wrote down from memory/.test(String(sys || ''))) { asks += 1; read = JSON.stringify(body.messages || body); return '{"wrong":[1]}'; }
+    return typeof prior === 'function' ? prior(body, sys) : (prior || '{"mutations":[]}');
+  };
+  const open = async () => { env.window.__cozy.setActiveStoryId(st.id); await env.window.__cozy.chat.renderThread({ structural: true, opening: true }); env.ctx.chat.planAhead(); await tick(300); await until(() => queuedCount(st.id) === 0 && !env.ctx.chat.isBusy(), 'the house at rest', 30000); };
+  try {
+    await open();
+    eq(asks, 1, 'asked once, on opening');
+    assert(read.includes('1. Yamamoto leads the Gotei 13 as Captain-Commander.') && read.includes('He was killed by Yhwach during the invasion of the Seireitei.'), 'each sentence, and all the wiki says — his death included');
+    const ground = await db.settings.get(GROUND_KEY(st.id));
+    eq(JSON.stringify(ground.parts), JSON.stringify({ factions: 'The Quincy are scattered.', places: 'The Seireitei is being rebuilt.' }), 'the wrong sentence let go, the rest word for word');
+    assert(!/Yamamoto leads/.test(groundWords(ground)), 'the world the storyteller reads');
+    await open();
+    eq(asks, 1, 'opening again asks nothing');
+  } finally {
+    house.state.workerAnswer = prior;
+    await db.stories.remove(st.id).catch(() => {});
     await env.ctx.chat.refreshStories(true).catch(() => {});
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
