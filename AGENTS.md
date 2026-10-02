@@ -14009,3 +14009,25 @@ Provider or Cozy Tavern? This seems not to be coincidence. Let me retry manually
   the note names each, carries Ask again, and the storyteller was asked exactly once; no empty page kept. Harness 1094/1094, walk
   194/194, long play 8/8, lint 0; the frontier request identical (24 of 24).
 
+# M546 — the final audit
+His word: "this is the final session — audit everything; I don't want any mistakes in your audit again; I want to enjoy and play
+perfectly."
+- Found and fixed: M540's fault in its other reader. The header gate (headergate.js looseHeader — a header line with no brackets: a
+  tale's first page, a model's own dress such as "**Mariner's Lane — Thu, Aug 20, 2026 — 11:15**") knew only whole day and month
+  names, so such a header in short names was not a header and the page's words streamed into the thinking. SHORT_DATE: a short month
+  with its day number, a short weekday only with a date after it ("Sun Temple" stays a place); a time-skip line that opens on a short
+  date is still not a header. Law M546-1. The other date readers: state.js (M540) reads short names; apply.js's weekday list serves a
+  story's own calendar (M455) only.
+- Added the invariants as a standing check — LONG-9, over every storyteller request of the ninety-turn long play and its final
+  ledger: no one both here and elsewhere; no window on someone here; no "not found in canon" line; no tracked person named again in
+  the roster; no standing numbers (P=…) on the wire; no "January 1, 2000" clock beside a dated header; no paragraph of 120+
+  characters said twice in one request. 92 requests checked, none broken; it prints what it read on the last request and fails if it
+  read no one here, so it cannot pass on nothing.
+- Checked and holding: every place that decides someone is "on the page" for presence reads the telling (narrationOf), not the
+  spoken lines — the auditor, the page reader, clearsThatArrive, the open-time repairs; the only reader of whole lines is the
+  departure finder, which looks for the going. Canon carries no other line that says something is not canon (the ⌀ line is the one,
+  silenced since M538). Speed, measured on today's code at a 6× CPU slowdown: the rooms within budget, the send (request out 1,453 ms,
+  first token 1,797 ms), the housekeeper's streaming within budget. Browser: the kept thinking, the page mark, the one-tale hold,
+  contrast — green.
+- Gates: harness 1095/1095, walk 194/194, long play 9/9, lint 0 (170 warnings, as before); the frontier request identical (24 of 24).
+

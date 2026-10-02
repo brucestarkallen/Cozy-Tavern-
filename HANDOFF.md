@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m545-001)
+# Cozy Tavern — handoff for the next session (state at m546-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
@@ -1684,4 +1684,15 @@ founding design lives in AGENTS.md's first entries.)
   chat.js emptyPageWhy names it from the stop reason: out of room (length/max_tokens — the thinking spent the room), blocked
   by the provider's filter, ended with nothing, or the connection closed with no reason; never asked again by itself.
   Walk DOM-194 (env.mjs thinkThenNothing).
+- M546 — THE FINAL AUDIT (his word: "this is the final session, audit everything, I want to enjoy and play perfectly").
+  Found and fixed: the header gate's loose-header reader (a header with no brackets — a first page, a model's own dress)
+  knew only whole day and month names (M540's fault in its other reader) — headergate.js SHORT_DATE, a short weekday only
+  with a date after it. Added: LONG-9, the final audit's invariants over every storyteller request of the ninety-turn long
+  play and its final ledger (no one both here and elsewhere; no window on someone here; no not-in-canon line; no tracked
+  person named twice; no standing numbers on the wire; no empty-date clock beside a dated header; no paragraph said twice
+  in one request) — 92 requests, none broken; the check prints what it read so it cannot pass on nothing. Checked and
+  holding: every presence decision reads the telling, not the spoken lines (shownOnPage callers); canon has no other line
+  that says something is not canon; speed — the rooms, the send (request out 1,453 ms, first token 1,797 ms at a 6×
+  slowdown) and the housekeeper's streaming within budget; the browser checks for kept thinking, the page mark, the one-tale
+  hold and contrast green. Law M546-1.
 

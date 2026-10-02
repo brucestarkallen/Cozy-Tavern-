@@ -392,7 +392,39 @@ test('LONG-6 the intimate rule wakes on the writer’s own words a beat before t
   eq(errors.length, 0, errors.slice(0, 5).join(' | '));
 });
 
+test('LONG-9 THE FINAL AUDIT\'S INVARIANTS, over every request of the ninety turns and the ledger at the end: no one both here and elsewhere; no window on someone here; nothing "not found in canon"; no tracked person named twice; no standing numbers on a card; no empty-date clock under a dated header; no paragraph said twice in one request', async () => {
+  const { loadState } = await import('../../js/engine/state.js');
+  const sid = env.window.__cozy.getActiveStoryId ? env.window.__cozy.getActiveStoryId() : null;
+  const st = sid ? await loadState(sid) : null;
+  const bad = [];
+  if (st) {
+    for (const p of st.present || []) if (Object.keys(st.offscreen || {}).some((k) => k.toLowerCase() === String(p.name).toLowerCase())) bad.push('both here and elsewhere at the end: ' + p.name);
+  }
+  const story = house.state.calls.filter((c) => !c.isWorker);
+  story.forEach((c, i) => {
+    const text = (Array.isArray(c.body.messages) ? c.body.messages : []).map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n') + '\n' + JSON.stringify(c.body.system || '');
+    const hereLine = (text.match(/Here now: ([^\n]*)/) || [])[1] || '';
+    const here = hereLine.split(/,\s*(?![^(]*\))/).map((x) => x.replace(/\s*\(.*$/, '').trim()).filter(Boolean);
+    const seated = (() => { const at = text.indexOf('\nElsewhere: '); if (at < 0) return []; const out = []; const lines = text.slice(at + 1).split('\n'); for (let j = 0; j < lines.length; j += 1) { const l = lines[j]; if (j > 0 && !/^[^\[\n:]{2,60} — /.test(l)) break; out.push(l.replace(/^Elsewhere: /, '').split(' — ')[0].trim()); } return out; })(); /* the block's own lines, one after another */
+    if (i === story.length - 1) console.log('    LONG-9 last request — here: ' + JSON.stringify(here) + ' · elsewhere: ' + JSON.stringify(seated.slice(0, 6)) + ' · roster: ' + JSON.stringify(((text.match(/Elsewhere in the tale:[^\n]*/) || [''])[0]).slice(0, 120)));
+    if (i === story.length - 1 && !here.length) bad.push('the check read no one here on the last request — the reading of "Here now" is broken');
+    for (const n of here) if (seated.includes(n)) bad.push('turn ' + i + ': ' + n + ' is both here and elsewhere');
+    const win = (text.match(/A window into the world beyond is open this turn[^\n]*?on ([^\n—.,]+)/) || [])[1];
+    if (win && here.some((n) => win.includes(n))) bad.push('turn ' + i + ': a window on ' + win + ', who is here');
+    if (/Not found in this story's canon sources|treat these as original to this story/.test(text)) bad.push('turn ' + i + ': a not-in-canon line');
+    const roster = (text.match(/Elsewhere in the tale:[^\n]*/) || [''])[0];
+    for (const n of seated) if (n && roster.includes(n)) bad.push('turn ' + i + ': ' + n + ' tracked and named again in the roster');
+    if (/\b[PRS]=[-+]?\d+/.test(text)) bad.push('turn ' + i + ': a standing number on the wire');
+    if (/January 1, 2000/.test(text) && /\|\s*\d{1,2}:\d{2}/.test(text) && /\b20(1|2)\d\b/.test(text)) bad.push('turn ' + i + ': an empty-date clock beside a dated header');
+    const paras = text.split(/\n{2,}/).map((p) => p.trim()).filter((p) => p.length >= 120);
+    const seen = new Set(); for (const p of paras) { if (seen.has(p)) { bad.push('turn ' + i + ': a paragraph said twice: ' + p.slice(0, 80)); break; } seen.add(p); }
+  });
+  eq(bad.length, 0, bad.slice(0, 8).join(' | '));
+  console.log('    LONG-9 checked ' + story.length + ' storyteller requests and the final ledger');
+});
+
 await runAll();
 /* M259: end with the run's own code, as the walk does — the page's timers kept this process
  * alive after the last law, so a script waiting on it never heard the result */
 process.exit(process.exitCode || 0);
+

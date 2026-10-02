@@ -206,6 +206,8 @@ import './m541.mjs'; /* M541: last seen is when they were last in the scene */
 import './m542.mjs'; /* M542: a tracked person is named once */
 import './m543.mjs'; /* M543: no window on someone in the scene */
 import './m544.mjs'; /* M544: voices beyond the room; a note from before they came in */
+import './m546.mjs'; /* M546: the header gate reads short names */
+import './m546.mjs'; /* M546: the header gate reads short names */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

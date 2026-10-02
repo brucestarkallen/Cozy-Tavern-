@@ -56,11 +56,15 @@ const WEEKDAY_OR_MONTH = /\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday
  * — 07:10" standing alone between two paragraphs — had that line taken for the header, and everything above it went to
  * the thinking. A time-skip line opens on the day or the hour; a header opens on the place. */
 const DATE_FIRST = new RegExp('^(?:' + WEEKDAY_OR_MONTH.source.replace(/^\\b\(\?:|\)\\b$/g, '') + ')\\b\\s*(?:,|\\d|$)');
+/* M546 (the final audit, M540's fault in its other reader): short names are the same day — "Thu, Aug 20, 2026". A short
+ * month counts with its day number after it; a short weekday with a date after it (so "Sun Temple" is never a date). */
+const SHORT_DATE = /\b(?:(?:Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\.?\s+\d{1,2}(?!\d)|(?:Mon|Tues?|Wed|Thu(?:rs?)?|Fri|Sat|Sun)\.?,?\s+(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)\.?\s+)?\d{1,2}(?!\d))/;
+const SHORT_DATE_FIRST = new RegExp('^' + SHORT_DATE.source.replace(/^\\b/, ''));
 function looseHeader(s) {
   const bare = s.replace(/^[ \t>*_#`]+/, '').replace(/[ \t*_`]+$/, '');
   const first = (bare.split(/\s*[—–|·,]\s*|\s+-\s+/)[0] || '').trim();
-  const placeFirst = /\p{L}{3,}/u.test(first) && !DATE_FIRST.test(first) && !HAS_TIME.test(first) && !/^\d/.test(first);
-  return bare.length >= 12 && bare.length <= 220 && !/[<>]/.test(bare) && HAS_TIME.test(bare) && WEEKDAY_OR_MONTH.test(bare)
+  const placeFirst = /\p{L}{3,}/u.test(first) && !DATE_FIRST.test(first) && !SHORT_DATE_FIRST.test(bare.slice(bare.indexOf(first))) && !HAS_TIME.test(first) && !/^\d/.test(first);
+  return bare.length >= 12 && bare.length <= 220 && !/[<>]/.test(bare) && HAS_TIME.test(bare) && (WEEKDAY_OR_MONTH.test(bare) || SHORT_DATE.test(bare))
     && !/[.!?"”’…:;,]$/.test(bare) && !/^["“]/.test(bare) && !LABEL.test(s) && placeFirst;
 }
 export function isHeaderLine(line) {
