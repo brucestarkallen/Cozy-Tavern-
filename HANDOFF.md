@@ -1695,4 +1695,7 @@ founding design lives in AGENTS.md's first entries.)
   that says something is not canon; speed — the rooms, the send (request out 1,453 ms, first token 1,797 ms at a 6×
   slowdown) and the housekeeper's streaming within budget; the browser checks for kept thinking, the page mark, the one-tale
   hold and contrast green. Law M546-1.
+  M546-2 (tests only): LONG-9 read "Here now" with the line's own full stop on the last name ("Person72."), so the last
+  person here was never compared against Elsewhere or the window; the stop is cut before the split (a name ending in
+  "Jr." keeps its own). Long play 9/9; the last request reads "Person72". No app change.
 

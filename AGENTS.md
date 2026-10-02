@@ -14030,4 +14030,10 @@ perfectly."
   first token 1,797 ms), the housekeeper's streaming within budget. Browser: the kept thinking, the page mark, the one-tale hold,
   contrast — green.
 - Gates: harness 1095/1095, walk 194/194, long play 9/9, lint 0 (170 warnings, as before); the frontier request identical (24 of 24).
+- M546-2 (tests only, next session's baseline): LONG-9 split "Here now: A, B, C." with the sentence's full stop left on the
+  last name — the run printed "Person72." — so the last person here was never compared with Elsewhere or the window (a
+  seeded "Here now: …, Renji." beside "Elsewhere: Renji": old read "Renji.", missed; new read "Renji", caught). The line's
+  own stop is cut before the split ("Robert Downey Jr.." → "Robert Downey Jr."). The app's own readers of the line
+  (anchor.js sceneAnchor, stack.js's small-model anchor) take the whole line and never split it — no app change. Baseline
+  at m546-001 before it: harness 1095/1095, walk 194/194, long play 9/9, lint 0; after: long play 9/9.
 

@@ -403,7 +403,7 @@ test('LONG-9 THE FINAL AUDIT\'S INVARIANTS, over every request of the ninety tur
   const story = house.state.calls.filter((c) => !c.isWorker);
   story.forEach((c, i) => {
     const text = (Array.isArray(c.body.messages) ? c.body.messages : []).map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n') + '\n' + JSON.stringify(c.body.system || '');
-    const hereLine = (text.match(/Here now: ([^\n]*)/) || [])[1] || '';
+    const hereLine = ((text.match(/Here now: ([^\n]*)/) || [])[1] || '').replace(/\.\s*$/, ''); /* the line's own full stop (state.js: here.join(', ') + '.') is not part of the last name — left on, the last person here was never compared */
     const here = hereLine.split(/,\s*(?![^(]*\))/).map((x) => x.replace(/\s*\(.*$/, '').trim()).filter(Boolean);
     const seated = (() => { const at = text.indexOf('\nElsewhere: '); if (at < 0) return []; const out = []; const lines = text.slice(at + 1).split('\n'); for (let j = 0; j < lines.length; j += 1) { const l = lines[j]; if (j > 0 && !/^[^\[\n:]{2,60} — /.test(l)) break; out.push(l.replace(/^Elsewhere: /, '').split(' — ')[0].trim()); } return out; })(); /* the block's own lines, one after another */
     if (i === story.length - 1) console.log('    LONG-9 last request — here: ' + JSON.stringify(here) + ' · elsewhere: ' + JSON.stringify(seated.slice(0, 6)) + ' · roster: ' + JSON.stringify(((text.match(/Elsewhere in the tale:[^\n]*/) || [''])[0]).slice(0, 120)));
