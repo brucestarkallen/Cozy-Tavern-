@@ -64,7 +64,7 @@ let workerRowsGeneration = 0;
  * ever the fallback of a page that has no rooms at all. */
 export const SETTINGS_ROOMS = [
   ['storyteller', 'Storyteller', ['section-connections', 'section-usage', 'section-workers', 'section-thinking']], /* M457 */
-  ['story', 'This story', ['section-brief', 'section-cast', 'section-frame', 'section-note', 'section-own-words', 'section-shelf']], /* M466 */
+  ['story', 'This story', ['section-brief', 'section-choices', 'section-cast', 'section-frame', 'section-note', 'section-own-words', 'section-shelf']], /* M466 */
   ['craft', 'The craft', ['section-rulebook', 'section-engine', 'section-regex']],
   ['world', 'People & lore', ['section-people', 'section-lore', 'section-oldchats']],
   ['readers', 'The readers', ['section-memory', 'section-referee', 'section-canon', 'section-sensors']], /* M356 */
@@ -183,6 +183,7 @@ export function initSettings(ctx) {
     canonLegacy: document.getElementById('canon-legacy'),
     briefFromConcept: document.getElementById('btn-brief-from-concept'), /* M479 */
     conceptToBrief: document.getElementById('concept-to-brief'), /* M479 */
+    choicesStory: document.getElementById('choices-story'), /* M548: Choices matter */
     briefStoryName: document.getElementById('brief-story-name'),
     castStory: document.getElementById('cast-story'),
     castStoryName: document.getElementById('cast-story-name'),
@@ -1220,6 +1221,7 @@ export function initSettings(ctx) {
     const automatic = Boolean(story && story.briefMode === 'automatic');
     if (els.briefManual) { els.briefManual.checked = !automatic; els.briefManual.disabled = !story; }
     if (els.briefAutomatic) { els.briefAutomatic.checked = automatic; els.briefAutomatic.disabled = !story; }
+    if (els.choicesStory) { els.choicesStory.checked = Boolean(story && story.choices === true); els.choicesStory.disabled = !story; } /* M548 */
     if (els.groundBox) els.groundBox.hidden = !automatic;
     if (els.ground && !drafting(els.ground)) els.ground.value = story ? groundWords(await db.settings.get(GROUND_KEY(story.id))) : '';
     if (els.briefModeNew) els.briefModeNew.checked = (await db.settings.get('briefModeNew')) === 'automatic';
@@ -1335,6 +1337,13 @@ export function initSettings(ctx) {
   if (els.briefManual) els.briefManual.addEventListener('change', () => { if (els.briefManual.checked) setBriefMode('manual'); });
   if (els.briefAutomatic) els.briefAutomatic.addEventListener('change', () => { if (els.briefAutomatic.checked) setBriefMode('automatic'); });
   if (els.briefModeNew) els.briefModeNew.addEventListener('change', async () => { await db.settings.set('briefModeNew', els.briefModeNew.checked ? 'automatic' : 'manual'); });
+  /* M548: Choices matter — this story's own switch; on, the newest page is offered its choices at once */
+  if (els.choicesStory) els.choicesStory.addEventListener('change', async () => {
+    const story = await activeStory();
+    if (!story) { els.choicesStory.checked = false; return; }
+    await db.stories.update(story.id, { choices: els.choicesStory.checked === true });
+    if (ctx.chat && typeof ctx.chat.choicesChanged === 'function') await ctx.chat.choicesChanged();
+  });
   document.getElementById('btn-save-world-ground').addEventListener('click', async () => {
     const story = await activeStory();
     if (!story) return;

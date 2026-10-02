@@ -209,6 +209,7 @@ import './m544.mjs'; /* M544: voices beyond the room; a note from before they ca
 import './m546.mjs'; /* M546: the header gate reads short names */
 import './m546.mjs'; /* M546: the header gate reads short names */
 import './m547.mjs'; /* M547: the smart recall for a small storyteller too */
+import './m548.mjs'; /* M548: Choices matter */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

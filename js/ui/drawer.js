@@ -51,6 +51,7 @@ import { applyRules, currentRules } from '../regex.js'; /* M97: the voices in th
 import { renderHtmlProse, looksHtml } from './richhtml.js';
 import { loadEssentials, recordOf } from '../agents/essentials.js'; /* M510-21: the story essentials, where he can read them */
 import { loadPlansBook } from '../agents/plans.js'; /* M510-22: the plans, kept whole */
+import { flowOf, choicesOn } from '../agents/choices.js'; /* M548: the paths he took */
 import { loadMemory, saveMemory, orderedLines, visiblePages, windowFor } from '../agents/memory.js'; /* M101: the record, read and mended by hand */
 import { carriedBy, SEAT_MENTION_PAGES, auditLineWords } from '../agents/auditor.js'; /* M104: why each person is carried; M259: what a report line says */
 import { pageText } from '../assemble/stack.js';
@@ -2622,6 +2623,51 @@ function plansPanel(ctx) {
   return wrap;
 }
 
+/* M548: CHOICES MATTER — THE PATHS HE TOOK, the flowchart: every turning point, newest first; the choice he took and what
+ * followed it; the ones he did not take, their outcomes never shown; his own way; the one waiting for his move */
+function choicesPanel(ctx) {
+  const wrap = document.createElement('div');
+  wrap.className = 'record-panel choices-panel';
+  const note = quietNote('');
+  const list = document.createElement('ul');
+  list.className = 'present-list record-list choices-list';
+  wrap.append(note, list);
+  const render = latestWins(async () => {
+    const story = await currentStory(ctx);
+    list.textContent = '';
+    if (!story) { note.textContent = 'Open a story and the paths you took will be here.'; return; }
+    const on = choicesOn(story);
+    const flow = flowOf(await db.messages.list(story.id));
+    if (!flow.length) {
+      note.textContent = on ? 'No turning point yet — when a page ends at one, its choices stand above where you type.' : 'Choices matter is off for this story — Settings → Choices matter.';
+      return;
+    }
+    note.textContent = flow.length + (flow.length === 1 ? ' turning point' : ' turning points') + ', the newest first. Where a choice you did not take would have led is never shown.' + (on ? '' : ' Choices matter is off now — nothing new is offered.');
+    for (const f of flow) {
+      const li = document.createElement('li');
+      li.className = 'present-row record-row choice-point';
+      const head = document.createElement('strong');
+      head.textContent = 'Page ' + f.page + (f.open ? ' — waiting for your move' : f.own ? ' — you went your own way' : '');
+      li.appendChild(head);
+      f.options.forEach((label, k) => {
+        const d = document.createElement('div');
+        d.className = 'quiet';
+        d.textContent = (f.took === k ? '✓ ' : f.open ? '· ' : '🔒 ') + label + (f.took === k && f.outcome ? ' — ' + f.outcome : '');
+        li.appendChild(d);
+      });
+      for (const e of f.echoes || []) {
+        const d = document.createElement('div');
+        d.className = 'quiet';
+        d.textContent = 'Left behind: ' + e.who + ' — ' + e.what;
+        li.appendChild(d);
+      }
+      list.appendChild(li);
+    }
+  });
+  render();
+  return wrap;
+}
+
 /* M148: draw a pending panel now */
 function drawPendingIn(panelsEl, ctx) {
   for (const sec of panelsEl.querySelectorAll('.ledger-panel[data-pending]')) {
@@ -2642,7 +2688,7 @@ const ROOM_OF = {
   'the-clock': 'scene', 'the-ruling': 'scene', 'how-they-measure': 'scene', 'whos-here': 'scene', 'the-mood': 'scene',
   'the-people': 'people', 'whats-true': 'people', 'what-canon-says': 'people', 'holding-up': 'people', 'on-their-mind': 'people',
   'elsewhere': 'world', 'the-world-beyond': 'world', 'voices': 'world',
-  'the-record': 'books', 'the-essentials': 'books', 'the-plans': 'books', 'what-changed': 'books', 'something-drifted': 'books', 'the-workers': 'books',
+  'the-record': 'books', 'the-essentials': 'books', 'the-plans': 'books', 'the-choices': 'books', 'what-changed': 'books', 'something-drifted': 'books', 'the-workers': 'books',
 };
 function roomOfPanel(id) { return ROOM_OF[id] || 'books'; }
 let drawerRoomNow = 'scene';
@@ -2746,6 +2792,11 @@ const PANELS = [
     id: 'the-plans',
     title: 'Plans — kept whole until carried out',
     render: (ctx) => plansPanel(ctx),
+  },
+  {
+    id: 'the-choices',
+    title: 'Choices — the paths you took',
+    render: (ctx) => choicesPanel(ctx),
   },
   {
     id: 'what-changed',

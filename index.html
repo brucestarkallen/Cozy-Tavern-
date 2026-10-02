@@ -96,6 +96,8 @@
           <!-- M22-E1: the prompt library — saved one-tap starters above
                the composer. Tap to use; long-press (or right-click) to
                change the words or let one go. -->
+          <!-- M548: Choices matter — at a turning point, only the choices' names; what each leads to was sealed before you see them -->
+          <div id="choice-row" class="choice-row" role="group" aria-label="Your choices" hidden></div>
           <div id="prompt-chips" class="prompt-chips" role="toolbar" aria-label="Saved starters"></div>
           <div id="attach-preview" class="attach-preview" hidden></div>
           <div id="ember-bar" class="ember-bar" role="presentation"><div id="ember-fill" class="ember-fill"></div></div>
@@ -449,6 +451,13 @@
           <div class="row"><button id="btn-brief-from-concept" class="text-btn" type="button">Write it from my #story concept</button></div>
           <p class="quiet">The first #story you sent on this tale becomes the brief, its spelling and grammar set right — every name, number and power kept exactly. A brief already written is replaced only after you say so.</p>
           <label class="radio-row"><input type="checkbox" id="concept-to-brief"> A #story concept becomes the brief by itself, when the brief is empty (off: a #story is just a #story — the button above is the only way)</label>
+        </section>
+
+        <!-- M548: Choices matter — like Detroit: Become Human; off, nothing changes anywhere -->
+        <section class="settings-section" id="section-choices">
+          <h3>Choices matter</h3>
+          <div class="row"><label class="radio-row"><input type="checkbox" id="choices-story"> Choices matter — like Detroit: Become Human</label></div>
+          <p class="quiet">On: when a page ends at a real turning point, two to four choices stand above where you type. What each one leads to is decided before you see them — by a helper that cannot know which you will pick — and kept from you. Tap one and your storyteller writes exactly what was sealed; it cannot soften it, and Try again keeps it. Type your own move and nothing is sealed. What your choices leave behind keeps coming back on later pages. Off: nothing is asked, nothing is shown, and your storyteller reads exactly what it always did.</p>
         </section>
 
         <!-- M16: the shelf it sits on — move a tale between shelves, or let
@@ -986,7 +995,7 @@
           <h3>Settings — six rooms</h3>
           <ul>
             <li><b>Storyteller</b> — connections (provider, key, model; <b>Copy</b> duplicates one for another model; <b>Use</b> makes it the storyteller’s), the workers (the backstage crew’s connection — the cheap one every reader rides on “The house choice”; give any worker hands of its own), thinking.</li>
-            <li><b>This story</b> — the brief (the premise; the brief wins over pages), cast notes, the frame, the note, the shelf.</li>
+            <li><b>This story</b> — the brief (the premise; the brief wins over pages), cast notes, the frame, the note, Choices matter (at a turning point, choices whose outcomes are sealed before you pick — off unless you turn it on), the shelf.</li>
             <li><b>The craft</b> — the rulebook (the craft, always on; situational rules that wake on the mood: intimate, contested, the window; pin any on), the engine dials, the regex shelf (your 🎨 display rules).</li>
             <li><b>People &amp; lore</b> — character cards to invite, the lore shelf (keyed entries served when their words appear), old SillyTavern chats.</li>
             <li><b>The readers</b> — the record (window size, batch), the second reader’s mending, the auditor’s cadence, the referee.</li>

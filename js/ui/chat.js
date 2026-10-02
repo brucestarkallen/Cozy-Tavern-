@@ -83,6 +83,7 @@ import { plannerAsk, runPlanner, loadPlan, planEntry, loadPlans, keepSound, keep
 import { lawsOf } from '../assemble/laws.js'; /* M510 */
 import { runEssentials, loadEssentials } from '../agents/essentials.js'; /* M510-15: the story's essentials */
 import { pickRecall } from '../agents/recallpick.js'; /* M510-50: smart recall */
+import { choicesOn, choiceAsk, makeChoices, offerOf, offerPatch, openOffer, takenRecord, takenOf, echoLines, echoesText, versionOf, CHOICE_PAGES } from '../agents/choices.js'; /* M548: Choices matter */
 import { runPlans, loadPlansBook, pageRewritten } from '../agents/plans.js'; /* M510-22: the plans, kept whole until carried out; M528: a rewritten page read again */
 import { lastPagesOf, SMALL_PAGES } from '../assemble/stack.js'; /* M510 */
 import { voiceSampleOf, pageTexture, tooLoud as tooLoudNow } from '../assemble/smallprose.js'; /* M512: how the story sounds at its best, for a small storyteller; M519: the brake on sounds and dashes */
@@ -301,6 +302,7 @@ export function initChat(ctx) {
     btnStop: document.getElementById('btn-stop'),
     composerNote: document.getElementById('composer-note'),
     composerChip: document.getElementById('composer-chip'),
+    choiceRow: document.getElementById('choice-row'), /* M548: the choices at a turning point */
     emberBar: document.getElementById('ember-bar'),
     emberFill: document.getElementById('ember-fill'),
     metaContext: document.getElementById('meta-context'),
@@ -1545,6 +1547,7 @@ export function initChat(ctx) {
   }
 
   async function renderThread({ structural = false, opening = false } = {}) {
+    drawChoices(); /* M548: another tale, or none — its own choices or none */
     if (!opening && els.thread.querySelector('textarea.edit-box')) {
       threadRedrawOwed = { structural: Boolean(structural || (threadRedrawOwed && threadRedrawOwed.structural)) };
       return;
@@ -1670,6 +1673,7 @@ export function initChat(ctx) {
     if (!healedNotes.has(story.id)) { healedNotes.add(story.id); takeBackHouseNotes(story).then(() => putBackAgainstBrief(story)); }
     healInterruptedBranches(); /* M332: once per load */
     if (!healedFuture.has(story.id)) { healedFuture.add(story.id); takeOutTheFuture(story); } /* M337 */
+    drawChoices(); /* M548 */
   }
 
   /* Re-render one page in place (an edit, a swipe, a worker's write-back). */
@@ -1778,6 +1782,91 @@ export function initChat(ctx) {
     const picked = pickWorkerConnection({ map, legacy, connections: all }, worker);
     if (picked) { learnContext(picked).catch(() => {}); return picked; } /* M289 */
     return resolveConnection(story);
+  }
+
+  /* M548: CHOICES MATTER (agents/choices.js). OFFER: after a page lands, a helper that cannot know which he will pick seals the
+   * choices of a turning point onto the page itself — outside the page chain, so no send ever waits for it, and written only
+   * if the page is still the newest, at the same version, with no move of his after it and the switch still on. A quiet page
+   * is kept as {turning:false}, so it is asked once. A fight under way is the referee's: nothing is offered then. */
+  const choicesAsking = new Map(); /* story id → the page and version being asked about */
+  async function offerChoices(storyIn) {
+    const sid = storyIn && storyIn.id;
+    if (!sid) return;
+    let key = '';
+    try {
+      const story = await db.stories.get(sid);
+      if (!choicesOn(story)) return;
+      const told = visiblePages(await db.messages.list(sid)).filter((m) => m && !m.hidden && !m.ooc);
+      const last = told[told.length - 1];
+      if (!last || last.role !== 'assistant' || !pageText(last).trim() || offerOf(last)) return;
+      key = last.id + ':' + versionOf(last);
+      if (choicesAsking.get(sid) === key) return;
+      const state = await loadState(sid);
+      if ((state.duel && state.duel.active) || (state.battle && state.battle.active) || (state.war && state.war.active)) return;
+      choicesAsking.set(sid, key);
+      const connection = await resolveWorkerConnection(story, 'choices');
+      if (!connection) return;
+      const big = 400000;
+      const recentText = told.slice(-3).map((m) => pageText(m));
+      const facts = planFacts(state, { ...planStateView(big), scenePages: recentText });
+      const people = (planPeople(state, { recentPages: recentText, rotation: told.length, view: planPeopleView(big), brief: String(story.brief || '') + '\n' + String(story.castNotes || '') }) || {}).text || '';
+      const essentials = ((await loadEssentials(sid)) || {}).text || '';
+      const before = lastPagesOf(told.slice(0, -1), CHOICE_PAGES).map((m) => (m.role === 'user' ? 'The writer: ' : '') + pageText(m));
+      const ask = choiceAsk({ brief: story.brief || '', essentials, facts, people, pages: before, newest: pageText(last), mc: mcName(state), echoes: echoLines(told) });
+      const w = workerSignal(); /* every helper's own ceiling: a call that hangs is let go, never waited on */
+      let read = null;
+      try { read = await makeChoices({ connection, ask, signal: w.signal }); } finally { w.done(); }
+      if (!read) return;
+      const now = await db.stories.get(sid);
+      if (!choicesOn(now)) return;
+      const fresh = visiblePages(await db.messages.list(sid)).filter((m) => m && !m.hidden && !m.ooc);
+      const tail = fresh[fresh.length - 1];
+      if (!tail || tail.id !== last.id || versionOf(tail) !== versionOf(last) || offerOf(tail)) return;
+      await db.messages.update(sid, last.id, offerPatch(tail, { ...read, at: Date.now() }));
+      if (ctx.getActiveStoryId() === sid) drawChoices();
+    } catch (err) { /* a choice is never worth a page */ } finally {
+      if (key && choicesAsking.get(sid) === key) choicesAsking.delete(sid);
+    }
+  }
+  /* DRAW: only their names, above where he types — on the newest page of the story, with no move of his after it, while
+   * nothing is being told; everything else hides them */
+  let drawingChoices = 0;
+  async function drawChoices() {
+    const row = els.choiceRow;
+    if (!row) return;
+    const ticket = (drawingChoices += 1);
+    const hide = () => { if (ticket === drawingChoices) { row.hidden = true; row.textContent = ''; } };
+    try {
+      if (busy) return hide();
+      const story = await activeStory();
+      if (!story || !choicesOn(story)) return hide();
+      const open = openOffer(await db.messages.list(story.id));
+      if (ticket !== drawingChoices) return;
+      if (!open || busy) return hide();
+      row.textContent = '';
+      open.offer.options.forEach((o, k) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'choice-btn';
+        b.textContent = o.label;
+        b.addEventListener('click', () => { takeChoice(open.page, k); });
+        row.appendChild(b);
+      });
+      row.hidden = false;
+    } catch (err) { hide(); }
+  }
+  /* TAKE: its move goes as his, the seal kept on his message; his own words in the composer stay where they are */
+  async function takeChoice(page, pick) {
+    if (busy) { toast('The storyteller is still busy — one moment.'); return; }
+    const story = await activeStory();
+    if (!story || !choicesOn(story)) { drawChoices(); return; }
+    const open = openOffer(await db.messages.list(story.id));
+    if (!open || open.page.id !== page.id || versionOf(open.page) !== versionOf(page)) { drawChoices(); return; }
+    const taken = takenRecord(open.page, open.offer, pick);
+    if (!taken) return;
+    const draft = els.input.value;
+    await send(taken.move, { choiceTaken: taken });
+    if (draft && !els.input.value) els.input.value = draft;
   }
 
   /* M547: THE SMART RECALL'S QUESTION (M510-50), asked for any storyteller — never throws; [] when it is off, when the
@@ -2792,6 +2881,7 @@ export function initChat(ctx) {
       }
       const kept = enqueueWork(story.id, { name: 'essentials', run: async ({ signal, stale }) => essentialsNext(story, { signal, stale }) }); /* M510-15 */
       noteWork(story.id, kept);
+      offerChoices(story); /* M548: a page that has none yet, with the switch on */
       /* the plans keeper reads each page after it is written (the page chain, every storyteller); asked on open only for a
        * small model, whose helper plans before the first send — opening a story to look at it asks no one else anything */
       if (small) {
@@ -3190,6 +3280,7 @@ export function initChat(ctx) {
   }
 
   function startBackgroundWork(story, msg, userText, { deep = false, audit = false, refound = false } = {}) {
+    offerChoices(story); /* M548: Choices matter — never in the chain, so no send waits for it */
     const gen = chainGen.get(story.id) || 0;
     /* M134: the clock as the chain begins — the world link measures how far this page moved it */
     const chainClock = { before: null };
@@ -4337,6 +4428,7 @@ export function initChat(ctx) {
    * opts.continueId — the hidden "Go on." user page this turn answers
    *                    (the nudge fires from it; it never renders) */
   async function generate(opts = {}) {
+    let choicesNow = false; let choiceNow = null; /* M548: Choices matter — the switch, and the choice he took on this move */
     const generateArgs = opts; /* M117: carried for the one re-ask a leak earns */
     const { directive = '', ooc = false, swipeTarget = null, replayAfter = false } = opts;
     let receipt = null;
@@ -4446,6 +4538,10 @@ export function initChat(ctx) {
        * nothing: no injection, and the story simply goes on. */
       const lastUser = [...history].reverse().find((m) => m && m.role === 'user');
       const userText = lastUser ? pageText(lastUser) : '';
+      /* M548: the choice he took, its seal whole (his words as sent) — none with the switch off, on an out-of-character turn,
+       * or when the move is his own */
+      choicesNow = !ooc && choicesOn(story);
+      choiceNow = choicesNow && lastUser ? takenOf(lastUser) : null;
       /* M346: CANON VERIFICATION runs as SillyTavern runs it — its interceptor before the page, holding the turn only as
        * long as its own windows allow (it finishes in the background and the next page gets it). Beside the referee,
        * not after it. OFF (as it ships) or an out-of-character turn: never called, not one byte. */
@@ -4482,7 +4578,8 @@ export function initChat(ctx) {
        * first move after it. */
       const premise = Boolean(lastUser && /^\s*#story\b/i.test(String(lastUser.typed || '')));
       if (premise) refereeWhy = 'your #story is the premise — the referee rules from the first move after it';
-      if (!ooc && lastUser && !premise) {
+      if (choiceNow) refereeWhy = 'you took a choice — what follows it was sealed before you chose, so the referee does not rule on it (Choices matter)'; /* M548 */
+      if (!ooc && lastUser && !premise && !choiceNow) {
         const { signal, done } = workerSignal(12000); /* the referee's 12s budget */
         try {
           const refSettings = await refereeSettings();
@@ -4738,6 +4835,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc), /* M345: the room is measured with the outcome that will ride */
         canonNote, /* M346 */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy({ since: canonAskedAt }) : '', /* M486; M534: this turn's reason, or none */
+        choicesOn: choicesNow, choiceTaken: choiceNow, choiceEchoes: choicesNow ? echoesText(choiceNow ? history.filter((m) => !(m && lastUser && m.id === lastUser.id)) : history) : '', /* M548 */
         smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, quietPage: quietNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
         sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
@@ -4786,6 +4884,7 @@ export function initChat(ctx) {
         ruling: rulingFor(state, lastUser && lastUser.id, ooc),
         canonNote, /* M346: canon verification's note, at the top of the briefing */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy({ since: canonAskedAt }) : '', /* M486; M534: this turn's reason, or none */
+        choicesOn: choicesNow, choiceTaken: choiceNow, choiceEchoes: choicesNow ? echoesText(choiceNow ? history.filter((m) => !(m && lastUser && m.id === lastUser.id)) : history) : '', /* M548 */
         smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, quietPage: quietNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
         sensorNote, /* M356: the sensors' one line, in the closing words */
         /* M30: wire-mode regex rules shape only what the storyteller is sent. */
@@ -5335,6 +5434,11 @@ export function initChat(ctx) {
          * moves only if the reader was already at its tail. */
         if (!inPlace && nearBottom()) scrollToBottom();
         await refreshPreview(story.id); // M21: the shelf hears the new page
+        /* M548: "Rukia will remember that." — once, when the page his choice led to lands */
+        if (choiceNow && !swipeTarget) {
+          const who = [...new Set((choiceNow.echoes || []).map((e) => e && e.who).filter(Boolean))];
+          if (who.length) toast((who.length === 1 ? who[0] : who.slice(0, -1).join(', ') + ' and ' + who[who.length - 1]) + ' will remember that.');
+        }
         stories = await db.stories.list();
         renderStoryList();
         if (ctx.onStoriesChanged) ctx.onStoriesChanged();
@@ -5388,6 +5492,7 @@ export function initChat(ctx) {
       if (els.emberBar) els.emberBar.classList.remove('live');
       focusComposerIfDesktop();
       refreshRetryFromStore(); /* M302: what "Try again" means now, read from the store */
+      drawChoices(); /* M548 */
     }
     return landed;
   }
@@ -5459,7 +5564,8 @@ export function initChat(ctx) {
   /* M8: the composer never swallows words. M9: the words are parsed for a
    * house command first (commands.js) — the chip says what the house
    * understood; the instruction rides the request hidden. */
-  async function send(text) {
+  async function send(text, extra = {}) {
+    const chosen = Boolean(extra && extra.choiceTaken); /* M548: a choice tapped — never his draft's place */
     /* M493: "#time" alone is no longer a turn — the header and The clock already say the hour, and it spent a page. Typed
      * out of habit it is answered here, from the ledger's clock, and nothing is sent. ("#time skip …" is a turn.) */
     if (/^\s*#time\s*$/i.test(String(text || ''))) {
@@ -5472,7 +5578,7 @@ export function initChat(ctx) {
     }
     /* M68: a send while the house is busy keeps the words and says so —
      * it used to drop them silently, a message that simply vanished. */
-    if (busy) { restoreComposer(text); toast('The storyteller is still busy — one moment.'); return; }
+    if (busy) { if (!chosen) restoreComposer(text); /* M548: a tapped choice never lands in the composer */ toast('The storyteller is still busy — one moment.'); return; }
     busy = true;
     try {
       let story = await activeStory();
@@ -5482,7 +5588,7 @@ export function initChat(ctx) {
       const connection = await resolveConnection(story);
       if (!connection) {
         showComposerNote('The tavern needs a storyteller first — add a connection, and these words will still be waiting.');
-        restoreComposer(text);
+        if (!chosen) restoreComposer(text); /* M548: a tapped choice never lands in the composer */
         return;
       }
       /* M391: A SHORTCUT OPENS NOTHING. "#story start the opening scene", typed in his Bleach story, opened a new tale
@@ -5502,9 +5608,9 @@ export function initChat(ctx) {
       }
       hideComposerNote();
       hideHearth();
-      els.input.value = '';
-      els.input.style.height = '';
+      if (!chosen) { els.input.value = ''; els.input.style.height = ''; }
       if (els.composerChip) els.composerChip.hidden = true;
+      drawChoices(); /* M548: busy now — the choices stand down */
 
       const parsed = parseCommand(text);
       /* M30: page-mode rules over the writer's own words (never a house
@@ -5522,13 +5628,15 @@ export function initChat(ctx) {
           /* M379: a shortcut is kept as he TYPED it too — that is what travels to the storyteller (its meaning is in the
            * standing words); the thread still shows what it always showed */
           typed: parsed.kind ? String(text).trim() : undefined,
+          /* M548: the choice he took, whole, with the words it went as — the seal holds while they are his words */
+          choiceTaken: chosen ? { ...extra.choiceTaken, words: cleanWords } : undefined,
         });
         if (imageToSend) setPendingImage(null);
       } catch (err) {
         /* B1: a full shelf never swallows the words — the writer keeps
          * them and hears why. */
         showComposerNote(err && err.message ? err.message : 'The page wouldn’t save.');
-        restoreComposer(text);
+        if (!chosen) restoreComposer(text); /* M548: a tapped choice never lands in the composer */
         return;
       }
       /* M478/M479/M480: A #STORY CONCEPT BECOMES THE BRIEF — by itself only with the switch ON (conceptToBrief, OFF by
@@ -5559,6 +5667,7 @@ export function initChat(ctx) {
       refreshEmber();
     } finally {
       busy = false;
+      drawChoices(); /* M548 */
     }
   }
 
@@ -6024,6 +6133,7 @@ export function initChat(ctx) {
     'projectId', /* M55: a branch stays on its project's shelf */
     'workerConnections', 'mend', 'audit', 'worldAgent',
     'briefMode', /* M517: Manual or Automatic */
+    'choices', /* M548: Choices matter — the switch goes with the tale; the choices themselves ride on its pages */
   ];
 
   async function branchFrom(messageId) {
@@ -6993,6 +7103,7 @@ export function initChat(ctx) {
     canonAct, /* M386 */
     canonTest, /* M386 */
     isBusy: () => Boolean(busy),
+    choicesChanged: async () => { const st = await activeStory(); if (st) offerChoices(st); await drawChoices(); }, /* M548: Settings → Choices matter */
     isReplaying,
     repairTimeline,
     rescanLedger,

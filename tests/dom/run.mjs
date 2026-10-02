@@ -8823,5 +8823,182 @@ test('DOM-196 THE SMART RECALL WAITS BESIDE THE REFEREE, NOT AFTER IT (M547): a 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+/* M548: a yard, Kaelen across from him, the sheet weighed (so the referee would rule on an attempt of his own) */
+async function choicesTale(title) {
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const st = await db.stories.create({ title });
+  await db.stories.update(st.id, { keeper: false, extraction: false });
+  const H = (n) => '[Ravenwood courtyard — Monday, September 7, 2026 | 08:' + String(n % 60).padStart(2, '0') + ' | clear | gi | at the gate]\n\n';
+  for (let i = 0; i < 3; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'I circle, move ' + i + '.' }); await db.messages.append(st.id, { role: 'assistant', text: H(i) + 'Kaelen raised his practice sword. "Then show me what the captain saw in you."' }); }
+  const ledger = applyMutations({ ...emptyState(), page: 3 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Ravenwood courtyard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Kaelen' }]).state;
+  ledger.characters = { Kaelen: { core: 'Kaelen, fourth seat of Ravenwood; proud, careful.', state: 'sword raised', threads: [] } };
+  ledger.sheet = { ...ledger.sheet, playerName: 'Jovan', actors: { Jovan: { default: 6, domains: { melee: 7 } }, Kaelen: { default: 5, domains: { melee: 6 } } } };
+  await saveState(st.id, { ...ledger, page: 3, readTo: 3, tidiedGen: 999 });
+  return { st, H };
+}
+const TURNING_SYS = /keep the turning points of a long collaborative story/;
+const SEALED = { turning: true, choices: [
+  { label: 'Tell him to stop', move: 'I tell Kaelen to put the sword down before someone gets hurt.', outcome: 'Kaelen laughs and lowers it — and the whole yard hears him call Jovan a coward.', echoes: [{ who: 'Kaelen', what: 'tells the yard that Jovan backed down' }] },
+  { label: 'Draw on him', move: 'I try to disarm Kaelen with a feint low.', outcome: 'Kaelen sees the feint coming: it is Jovan\'s practice sword that spins across the stones, and the yard goes quiet.', echoes: [{ who: 'Kaelen', what: 'will tell the captain that Jovan drew first' }] },
+  { label: 'Walk away', move: 'I turn my back on him and walk to the gate.', outcome: 'No one stops him; by evening the yard says the new seat runs.', echoes: [] },
+] };
+
+test('DOM-197 CHOICES MATTER, THROUGH THE APP (M548 — his ask: "like Detroit: Become Human — a switch; I don\'t know the outcome; decided beforehand so the storyteller can\'t bias it"): switched on in Settings, the newest page is offered its choices by a helper that is asked once; only their names stand above where he types; a tap sends the move as his, the storyteller is told the sealed outcome first in its closing words and the referee does not rule on it; "Kaelen will remember that."; Try again keeps the seal; what it set in motion rides on the next page; the flowchart shows the path taken and locks the others; a branch carries the switch and the seal; switched off, nothing is asked and nothing rides', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const { st, H } = await choicesTale('the choices at the gate');
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  const refSys = /You are the referee of a story|referee of a one-on-one duel/;
+  let turningAsks = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (TURNING_SYS.test(String(sys || ''))) { turningAsks += 1; return JSON.stringify(turningAsks === 1 ? SEALED : { turning: false }); }
+    if (refSys.test(String(sys || ''))) return JSON.stringify({ check: true, actor: 'Jovan', action: 'feint low, then the disarm', kind: 'actor', domain: 'melee', opposition: 'Kaelen', tier: 'peer', circumstance: 0, stakes: 'his sword' });
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}');
+  };
+  let told = 0;
+  house.state.storyAnswer = () => { told += 1; return H(10 + told) + 'The practice sword rang on the stones. (telling ' + told + ')'; };
+  const said = [];
+  const realToast = env.ctx.toast;
+  env.ctx.toast = (w) => { said.push(String(w)); return realToast ? realToast(w) : undefined; };
+  const sysOf = (c) => (Array.isArray(c.body.messages) ? c.body.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n') : String(c.body.system || ''));
+  const landed = async (had) => { await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant' && !m.hidden).length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0, 'readers', 40000); };
+  const pagesNow = async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant' && !m.hidden).length;
+  let branchId = null;
+  try {
+    const row = q('#choice-row');
+    assert(row && row.hidden, 'off: no choices stand');
+    eq(turningAsks, 0, 'off: the helper was never asked');
+    /* ON, in Settings → Choices matter */
+    await openSettings();
+    const box = q('#choices-story');
+    assert(box && !box.checked && !box.disabled, 'the switch, off, for this story');
+    click(box);
+    await until(async () => ((await db.stories.get(st.id)) || {}).choices === true, 'switched on for the story');
+    await closeSettings();
+    await until(() => !q('#choice-row').hidden && qa('#choice-row .choice-btn').length === 3, 'its choices stand above where he types', 20000);
+    eq(turningAsks, 1, 'the helper was asked once');
+    eq(qa('#choice-row .choice-btn').map((b) => b.textContent).join(' | '), 'Tell him to stop | Draw on him | Walk away', 'only their names');
+    assert(!q('#choice-row').textContent.includes('spins across the stones'), 'never what follows');
+    /* he taps one */
+    q('#composer-input').value = 'my half-written draft';
+    const from = house.state.calls.length; const had = await pagesNow();
+    click(qa('#choice-row .choice-btn')[1]);
+    await landed(had);
+    const calls = house.state.calls.slice(from);
+    const teller = calls.find((c) => !c.isWorker);
+    assert(teller, 'the storyteller was asked');
+    assert(!calls.some((c) => c.isWorker && refSys.test(sysOf(c))), 'the referee did not rule on a sealed choice');
+    const closing = String(teller.body.messages[teller.body.messages.length - 1].content || '');
+    assert(/^(?:[^\n]* — )?about the choice Jovan made — draw on him: Kaelen sees the feint coming: it is Jovan's practice sword that spins across the stones, and the yard goes quiet\./i.test(closing), 'the sealed outcome, first in its closing words: ' + closing.slice(0, 240));
+    assert(/What it leaves behind: Kaelen — will tell the captain that Jovan drew first\./.test(closing) && /It’s settled/.test(closing), 'what it leaves behind, settled');
+    assert(!JSON.stringify(teller.body.messages).includes('the whole yard hears him call Jovan a coward'), 'a choice not taken never reaches the storyteller');
+    const mine = (await db.messages.list(st.id)).filter((m) => m.role === 'user').pop();
+    eq(mine.text, 'I try to disarm Kaelen with a feint low.', 'its move went as his');
+    assert(mine.choiceTaken && mine.choiceTaken.words === mine.text && mine.choiceTaken.label === 'Draw on him', 'the seal, kept on his message');
+    eq(q('#composer-input').value, 'my half-written draft', 'his draft stays where it was');
+    assert(said.includes('Kaelen will remember that.'), 'the notice: ' + JSON.stringify(said));
+    const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    const choiceRow = page.receipt.slots.find((x) => x.name === 'Your choice');
+    assert(choiceRow && choiceRow.tokens > 0, 'its receipt row');
+    assert(/you took a choice/.test(page.receipt.slots.find((x) => x.name === 'The house has ruled').reason), 'and why the referee did not rule');
+    assert(q('#choice-row').hidden, 'the new page has no turning point: nothing stands');
+    /* Try again keeps the seal */
+    const fromTry = house.state.calls.length;
+    await until(() => q('#btn-retry') && !q('#btn-retry').hidden, 'Try again', 10000);
+    click(q('#btn-retry'));
+    await until(() => house.state.calls.slice(fromTry).some((c) => !c.isWorker), 'asked again', 30000);
+    await until(() => !env.ctx.chat.isBusy(), 'the page again', 30000);
+    const again = house.state.calls.slice(fromTry).find((c) => !c.isWorker);
+    assert(/about the choice Jovan made — draw on him: Kaelen sees the feint coming/i.test(String(again.body.messages[again.body.messages.length - 1].content)), 'Try again: the same seal');
+    assert(!house.state.calls.slice(fromTry).some((c) => c.isWorker && refSys.test(sysOf(c))), 'Try again: no referee either');
+    await until(() => queuedCount(st.id) === 0, 'readers', 40000);
+    /* his own move: what the choice set in motion rides, nothing is sealed */
+    const fromOwn = house.state.calls.length; const had2 = await pagesNow();
+    type(q('#composer-input'), 'I pick up the sword.'); submit(q('#composer'));
+    await landed(had2);
+    const own = house.state.calls.slice(fromOwn).find((c) => !c.isWorker);
+    const ownWire = JSON.stringify(own.body);
+    assert(/What my choices set in motion — each of these still stands and will come back:[^"]*\(page 3, when I chose to draw on him\) Kaelen — will tell the captain that Jovan drew first\./.test(ownWire), 'what it set in motion rides on the next page');
+    assert(!/about the choice Jovan made/i.test(String(own.body.messages[own.body.messages.length - 1].content)), 'his own move is not sealed');
+    /* the flowchart */
+    if (q('#drawer').hidden) { click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); }
+    await tick(300); await env.ctx.drawer.renderAllRooms(); await tick(400);
+    const panel = qa('#drawer-panels .ledger-panel').find((x) => x.querySelector('h3') && /Choices — the paths you took/.test(x.querySelector('h3').textContent));
+    assert(panel, 'the flowchart stands in the books');
+    await until(() => /✓ Draw on him/.test(panel.textContent), 'the path taken', 10000);
+    assert(/🔒 Tell him to stop/.test(panel.textContent) && /🔒 Walk away/.test(panel.textContent), 'the others locked');
+    assert(!panel.textContent.includes('call Jovan a coward') && panel.textContent.includes('spins across the stones'), 'what followed the one taken — never where the others led');
+    click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away');
+    /* a branch carries the switch, and the seal on its copy of his move */
+    const storiesBefore = (await db.stories.list()).length;
+    await showAllPages();
+    click(q('.msg-act[data-act="branch"]', assistantPages()[assistantPages().length - 1]));
+    await until(async () => (await db.stories.list()).length === storiesBefore + 1, 'the branch on the shelf', 20000);
+    await until(async () => (await storyId()) !== st.id, 'the branch is open', 20000);
+    branchId = await storyId();
+    await until(async () => !((await db.stories.get(branchId)) || {}).building, 'the branch whole', 20000);
+    eq(((await db.stories.get(branchId)) || {}).choices, true, 'the branch keeps Choices matter on');
+    assert((await db.messages.list(branchId)).some((m) => m.choiceTaken && m.choiceTaken.label === 'Draw on him'), 'and the seal on his move');
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(() => !env.ctx.chat.isBusy(), 'home again', 20000);
+    /* OFF: nothing is asked, nothing rides */
+    await openSettings();
+    click(q('#choices-story'));
+    await until(async () => ((await db.stories.get(st.id)) || {}).choices === false, 'switched off');
+    await closeSettings();
+    const asks = turningAsks; const fromOff = house.state.calls.length; const had3 = await pagesNow();
+    type(q('#composer-input'), 'I wait for the captain.'); submit(q('#composer'));
+    await landed(had3);
+    await tick(300);
+    eq(turningAsks, asks, 'off: the helper is never asked');
+    assert(q('#choice-row').hidden, 'off: nothing stands');
+    const offCall = house.state.calls.slice(fromOff).find((c) => !c.isWorker);
+    assert(!/What my choices set in motion|about the choice Jovan made/i.test(JSON.stringify(offCall.body)), 'off: not a word of it rides');
+    const offPage = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    assert(/^Choices matter is off/.test(offPage.receipt.slots.find((x) => x.name === 'Your choice').reason), 'its row says why');
+  } finally {
+    env.ctx.toast = realToast;
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    for (const id of [st.id, branchId]) if (id) await db.stories.remove(id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-198 CHOICES MATTER IS OFF UNTIL HE TURNS IT ON (M548): a tale that never switched it on asks no one, shows nothing, and its storyteller reads not a word of it — page after page', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const { st, H } = await choicesTale('no choices here');
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  let asks = 0;
+  house.state.workerAnswer = (body, sys) => { if (TURNING_SYS.test(String(sys || ''))) { asks += 1; return JSON.stringify(SEALED); } return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}'); };
+  house.state.storyAnswer = () => H(20) + 'The yard waited.';
+  try {
+    for (const words of ['I look at Kaelen.', 'I say nothing.']) {
+      const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length;
+      type(q('#composer-input'), words); submit(q('#composer'));
+      await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000);
+      await until(() => queuedCount(st.id) === 0, 'readers', 40000);
+      await tick(200);
+      const teller = house.state.calls.slice(from).find((c) => !c.isWorker);
+      assert(!/What my choices set in motion|about the choice/i.test(JSON.stringify(teller.body)), 'not a word of it rides');
+    }
+    eq(asks, 0, 'the helper was never asked');
+    assert(q('#choice-row').hidden, 'nothing stands above where he types');
+    assert(!(await db.messages.list(st.id)).some((m) => m.choiceOffer || m.choiceTaken), 'nothing is kept on any page');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

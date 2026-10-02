@@ -1,6 +1,12 @@
-# Cozy Tavern — handoff for the next session (state at m547-001)
+# Cozy Tavern — handoff for the next session (state at m548-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+00000. M548 — CHOICES MATTER (Settings → Choices matter, per story, OFF by default; agents/choices.js). Off must stay byte for byte
+   (law M548-6). The outcomes are sealed BEFORE he chooses by a helper that cannot know his pick — never let the storyteller
+   or any later step decide or soften them; the referee never rules on a sealed choice. The offer lives on the page
+   (choiceOffer, per version), the seal on his message (choiceTaken — store.append must keep it; it once did not), so
+   branches, take-backs, sync and backups carry them as they carry pages. The helper runs OUTSIDE the page chain: no send
+   waits for it. Walk DOM-197/198 run it through the app.
 0000. M547 — THE SMART RECALL READS HIS MOVE FOR A SMALL STORYTELLER TOO, AND WAITS BESIDE THE REFEREE. chat.js smartRecallFor
    is asked for every storyteller, started right after canon's question (beside the referee) and awaited just before the
    build — never move it back after them (DOM-196 measures the overlap). For a small one it is not offered what the small

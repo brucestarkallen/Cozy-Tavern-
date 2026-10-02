@@ -495,6 +495,10 @@ const messages = {
      * on the page, shown as a keepsake, and ridden on the wire only on its
      * own turn (the assembler's picture law). */
     if (msg.image && typeof msg.image === 'object' && msg.image.dataUrl) row.image = msg.image;
+    /* M548: Choices matter — the choice he took rides on HIS message (the seal, whole); the choices sealed for a page ride on
+     * the page (an append with an existing id re-inks it, as with the extraction) */
+    if (msg.choiceTaken && typeof msg.choiceTaken === 'object' && typeof msg.choiceTaken.outcome === 'string') row.choiceTaken = msg.choiceTaken;
+    if (msg.choiceOffer && typeof msg.choiceOffer === 'object') row.choiceOffer = msg.choiceOffer;
     /* M8: a page stopped by hand keeps this mark, so the "stopped
      * mid-sentence" label survives a reload. */
     if (msg.stopped === true) row.stopped = true;

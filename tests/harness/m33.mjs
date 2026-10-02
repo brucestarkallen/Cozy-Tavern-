@@ -50,7 +50,9 @@ test('M33-3 pages are found by the store’s order, never by comparing their ids
 
 test('M33-4 no story is begun before there is a storyteller to answer it', () => {
   const chat = src('js/ui/chat.js');
-  const send = chat.slice(chat.indexOf('  async function send(text) {'), chat.indexOf('  async function send(text) {') + 2500);
+  const at = chat.indexOf('  async function send(text'); /* M548: send gained a second, optional parameter (the choice he took) — the law is about the order inside, not the signature */
+  assert(at !== -1, 'the send is found');
+  const send = chat.slice(at, at + 3200);
   assert(send.indexOf('resolveConnection(story)') < send.indexOf('db.stories.create({ title })'), 'the storyteller is looked for first');
 });
 

@@ -14085,3 +14085,50 @@ apply it to the small mode, made better, without their code.
   at a time); the send (perf_send, CPU 6×): request out 1,369 ms, first token 1,665 ms (m546-001 on the same machine: 1,404
   / 1,728); 144 of 144 requests byte for byte what m546-001 built (every frontier request, with and without picks, and
   every small request with none — essentials or not, frame on or off, after-role system or user, three name pairs).
+
+# M548 — Choices matter (like Detroit: Become Human)
+His ask: "make choice matter like Detroit: Become Human, toggleable — off, everything back to normal, no injection, the persona
+untouched; I don't know the outcome — the choices decided beforehand so the storyteller can't bias it." Decided beforehand,
+yes: the only way the storyteller cannot lean an outcome toward the choice he made is that the outcome exists before he
+makes it, written by someone who cannot know which he will make.
+- The switch: Settings → Choices matter (this story's own, story.choices; a branch carries it — BRANCH_CARRY). Off, as it
+  ships: no helper is asked, nothing is shown, the request is byte for byte m547-001's (128 of 128: big and small
+  storytellers, essentials or not, frame on/off, after-role, names, with and without a ruling, and handed a stray choice and
+  echoes it must ignore); only the receipt has two rows more, saying it is off.
+- agents/choices.js: after a page lands (startBackgroundWork, and on open and on switching on — outside the page chain, so no
+  send ever waits for it; each call under the helpers' own ceiling), a helper reads the brief, the essentials, the ledger, the
+  people, the last pages and what his earlier choices set in motion, and decides whether the page ends at a real turning
+  point. If so it seals two to four choices: a name, the move (his first person), the outcome (what the people and the world
+  do in answer — never what he feels or does beyond the move; never whether a blow lands — that is the dice's) and up to two
+  echoes (who will remember it, what will follow). By the people's natures and the world's logic, never to please him; at
+  least one costs him something real. A quiet page is kept as {turning:false} (asked once); a fight under way is the
+  referee's (nothing offered). Read strictly: fewer than two whole choices is no answer. Kept on the page itself, per version
+  (choiceOffer), written only if the page is still the newest, at the same version, with no move of his after it.
+- Above where he types stand only their names (#choice-row). A tap sends the move as his (his draft stays in the composer),
+  the seal whole on HIS message (choiceTaken, kept by store append now). The send: the referee does not rule on it (its row
+  says why); the storyteller is told the outcome first in the closing words, where a ruling would be, in the referee's own
+  form and in his voice (toTeller): "About the choice Jovan made — draw on him: … What it leaves behind: … It's settled — tell
+  it just that way, in the story's own voice, and keep all of this between us." The choices not taken never reach it. Try
+  again keeps the seal; edit the move and it is his own move (the seal holds only while his words are the words sent). When
+  the page lands: "Kaelen will remember that." What a taken choice left behind rides in his notes on every later page, before
+  the people's minds: "What my choices set in motion — each of these still stands and will come back:" with the page and the
+  choice each came from (the newest within 2,400 characters). His own move takes nothing.
+- The drawer's books: "Choices — the paths you took" — every turning point, newest first: ✓ the choice taken and what
+  followed; 🔒 the others, where they led never shown; his own way; the one waiting for his move.
+- Found by the walk while building it: store.append keeps only the fields it lists, so the seal was dropped from his message
+  on every tap (the referee then ruled on a sealed choice). It keeps choiceTaken and choiceOffer now; the branch's copy and the
+  books' import keep every field already.
+- Laws M548-1…7 (the answer read strictly; the helper's question and a failing call; the seal kept and broken; the settled
+  line first in the closing, in his voice; what his choices set in motion; off is off; the choices he can take and the
+  flowchart). M548-3/5/7 fail with the seal's check taken out and M548-4 with the line taken out (checked). Walk DOM-197
+  (through the app: switched on in Settings, the helper asked once, only the names, a tap, no referee, the sealed line first
+  in the closing, the notice, Try again, what it set in motion on the next page, the flowchart, a branch, switched off) and
+  DOM-198 (never switched on: never asked, nothing shown, nothing rides). The buttons' words on their ground: 11.2:1 or more
+  in all nine coats.
+- Looked at in a real Chromium on a 412-pixel phone screen (hearth, magma, light): two to a row, inset as the composer is,
+  clear of the ember line; a long name wraps inside its button; the page never scrolls sideways.
+- Gates: harness 1106/1106, walk 198/198, long play 9/9, lint 0 (170 warnings, as before); every tests/*.py green (27, one
+  at a time); the send (perf_send, CPU 6×): request out 1,399 ms, first token 1,695 ms (m547-001: 1,369 / 1,665).
+  Old laws my change broke and why each was right to change: M105/M352 (the new section listed in its Settings room), M30-8
+  (the new module in the offline shell), M33-4 (it found the send by its exact old signature — the order it checks holds),
+  B1 (it reads the typed words coming back as the literal call — kept as that call).

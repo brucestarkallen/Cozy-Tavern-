@@ -98,6 +98,7 @@ import { sceneAnchor, recallFromRecord, recallLine, recallFromPages, recallPages
 import { shortcutsText } from '../commands.js'; /* M379 */
 import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main character's name never scores a recall */
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
+import { outcomeWords } from '../agents/choices.js'; /* M548: Choices matter — what the storyteller is told */
 import { voiceOf, inVoice, toTeller, briefingOpening, notebookOpening, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave, withCardNames } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView, findPersonKey, PEOPLE_BUDGET, PRESENT_CARDS_MAX, RECALL_MAX } from '../engine/people.js';
 import { wornPhrases, calmPage } from './smallprose.js'; /* M512: the turns of phrase the last pages keep using; M519: the loud pages eased in the copy it reads */
@@ -638,7 +639,7 @@ export function smallRecordWhole(nodes, essentials, state) {
 /* M510-20: every part the house can send, in the order it rides — the receipt names each one every page */
 /* M510-55: in the order the request is sent now — the system's blocks, then the notes (canon, our story so far, the
  * plans, the people, the state of things, the rest), the pages, his move, the closing */
-export const EVERY_ROW = ['The frame', 'The craft', 'The story’s voice', 'The brief', 'The world', 'Who’s here', 'Active modules', 'Where our story began', 'What canon says', 'The story in short', 'Story essentials', 'What remains', 'Who’s here, in the recent pages', 'Earlier moments, in full', 'Plans standing', 'On their mind', 'The state of things', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Own words', 'The pages, word for word', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
+export const EVERY_ROW = ['The frame', 'The craft', 'The story’s voice', 'The brief', 'The world', 'Who’s here', 'Active modules', 'Where our story began', 'What canon says', 'The story in short', 'Story essentials', 'What remains', 'Who’s here, in the recent pages', 'Earlier moments, in full', 'Plans standing', 'What your choices set in motion', 'On their mind', 'The state of things', 'The sensors’ word', 'The world’s word', 'The director’s note', 'The editor’s eye', 'The house’s eye', 'The house has ruled', 'Your choice', 'Own words', 'The pages, word for word', 'The plan for this page', 'The sounds', 'The frame, said again', 'The note at the end', 'The continue nudge'];
 function emptyWhy(name, c) {
   const noPlan = 'no plan was ready for this page — it went as the full request';
   switch (name) {
@@ -662,6 +663,8 @@ function emptyWhy(name, c) {
     case 'The editor’s eye': return 'nothing from the editor — off, or no standing critique';
     case 'The house’s eye': return 'nothing from the house’s eye — off, or no slips on the last page';
     case 'The house has ruled': return 'nothing settled by the referee for this page';
+    case 'Your choice': return !c.choicesOn ? 'Choices matter is off for this story (Settings → Choices matter)' : 'no choice taken on this move — your own words went as they are';
+    case 'What your choices set in motion': return !c.choicesOn ? 'Choices matter is off for this story (Settings → Choices matter)' : 'nothing yet — no choice you took has left anything behind';
     case 'Own words': return 'none — nothing set under Own words in Settings';
     case 'The frame, said again': return !c.frameOn ? 'the frame is off' : 'off — “Say it again at the end” in Settings';
     /* rows that always stand, when they came empty */
@@ -738,6 +741,9 @@ export function buildRequest({
   recallPicked = [], /* M510-50: the ids of the older record lines the smart recall named for this page */
   voiceSample = null, /* M512: a passage of the story at its best ({text}) — for a small storyteller only */
   refereeWhy = '', /* M513: why the referee settled nothing this page — its receipt row says it */
+  choicesOn = false, /* M548: Choices matter is on for this story (off: not one byte below changes) */
+  choiceTaken = null, /* M548: the choice he took on this move — sealed before he chose (agents/choices.js takenOf) */
+  choiceEchoes = '', /* M548: what his choices set in motion, as it rides (agents/choices.js echoesText) */
   canonStart = '', /* M516: where our story began in its canon, and what was true then — his note, every page */
   worldGround = '', /* M517: the automatic brief — the world of the story, beside his own brief in its seat */
   canonOnPages = false, /* M518: canon's lasting lines ride on each person's card — the note leaves out what the cards carry */
@@ -1033,6 +1039,10 @@ export function buildRequest({
   /* M11: the referee's ruling rides last in the dynamic tail — the freshest,
    * most binding word, sitting closest to the history it governs. */
   const rulingText = typeof ruling === 'string' ? ruling.trim() : '';
+  /* M548: CHOICES MATTER — the choice he took, settled before he chose, rides first in the closing words where the referee's
+   * ruling would (the referee does not rule on it); what his choices set in motion rides in his notes. Off: both empty. */
+  const choiceText = choicesOn === true && choiceTaken ? outcomeWords(choiceTaken, mcNameOf(state)) : '';
+  const echoText = choicesOn === true && typeof choiceEchoes === 'string' ? choiceEchoes.trim() : '';
   /* M29: the world agent's word — after the lore, before the showrunners:
    * it is a fact block about the world, and the director's note governs
    * what to do with it. */
@@ -1211,6 +1221,12 @@ export function buildRequest({
     const atLore = canonText && stateParts.includes(canonText) ? stateParts.indexOf(canonText) + 1 : 0;
     stateParts.splice(atLore, 0, lorePart);
   }
+  if (echoText) {
+    const peopleAt = peopleText ? stateParts.indexOf('On their mind:\n' + peopleText) : -1;
+    const factsAt = facts ? stateParts.indexOf(facts) : -1;
+    const at = peopleAt !== -1 ? peopleAt : factsAt;
+    if (at === -1) stateParts.push(echoText); else stateParts.splice(at, 0, echoText);
+  }
   if (worldText) stateParts.push(worldText); /* the brief leads with its own name; M510-12: a small model reads it too */
   if (directorText) stateParts.push(directorText); /* M495: it opens in his own words ("Episode 2 — where I want this episode to go") — no third party's label */
   if (editorText) stateParts.push(editorText); /* M495: "My notes on the telling…" — his, not an editor's */
@@ -1284,6 +1300,8 @@ export function buildRequest({
   if (eyeText) {
     pushSlot('The house’s eye', eyeText, 'the last page’s slips against the craft, checked in code — recolored this turn');
   }
+  if (echoText) pushSlot('What your choices set in motion', echoText, 'Choices matter — what the choices you took left behind, in your notes: it still stands and will come back');
+  if (choiceText) pushSlot('Your choice', toTeller(choiceText, voice), 'Choices matter — what follows the choice you took, sealed before you chose; first in the closing words, where a ruling would be');
   if (rulingText && safeSettings.refereeOn !== false) {
     pushSlot('The house has ruled', rulingText, 'the referee’s settled outcome for this turn — first in the closing words, right after your page');
   } else if (safeSettings.refereeOn === false) {
@@ -1618,7 +1636,8 @@ export function buildRequest({
    * storyteller reads, in that order — whatever else rides after his message (the referee's outcome, a switch's line)
    * comes BEFORE them. The repeat stood second, ahead of the switches, so a think-on-page line or the sensors' word
    * could sit between his instructions and his note. (M21 always meant it "just before the note at the end".) */
-  const closing = [rulingLine, directiveText, anchorLine, sensorLine, groundLine, thinkLine, soundsLine, echoOn ? frameText : '', hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
+  const choiceLine = choiceText ? toTeller(choiceText, voice) : ''; /* M548 */
+  const closing = [rulingLine, choiceLine, directiveText, anchorLine, sensorLine, groundLine, thinkLine, soundsLine, echoOn ? frameText : '', hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
   /* M380: WHAT FOLLOWS HIS MESSAGE IS A SYSTEM MESSAGE — SillyTavern's post-history instructions — unless he chooses
    * otherwise. As a user message it read as HIM writing a second message of instructions, and his teller answered it as
    * an assistant answers a user. */
@@ -1640,7 +1659,7 @@ export function buildRequest({
    * even if it's empty". A part that did not ride this page stands in its place as a row of 0 tokens that says why. The
    * wire is untouched: rows only. */
   fillEveryRow(slots, {
-    small: safeSettings.smallModelNow === true, planned: Boolean(smallB), frameOn,
+    small: safeSettings.smallModelNow === true, planned: Boolean(smallB), frameOn, choicesOn: choicesOn === true,
     keeperOn: Boolean(windowInfo && windowInfo.keeperOn), keeperWindow: windowInfo && Number.isFinite(windowInfo.window) ? windowInfo.window : 30,
     hasRecord: Boolean(String(memoryText || '').trim()),
   });
