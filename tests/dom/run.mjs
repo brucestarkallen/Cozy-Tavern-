@@ -9000,5 +9000,105 @@ test('DOM-198 CHOICES MATTER IS OFF UNTIL HE TURNS IT ON (M548): a tale that nev
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-199 HIS EDIT OF A TURNING POINT (M549 — "fool proof everything when I edit"): the choices sealed for a page he then rewrites by hand are let go and sealed again for the page as it now reads — the helper asked again, the new names stand; a turning point whose choice he already took keeps its offer when he edits it later (the path taken stays in the flowchart)', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const { flowOf } = await import('../../js/agents/choices.js');
+  const { st, H } = await choicesTale('the edited turning point');
+  await db.stories.update(st.id, { choices: true });
+  env.window.__cozy.setActiveStoryId(st.id);
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  const SECOND = { turning: true, choices: [
+    { label: 'Ask for the bell', move: 'I ask Kaelen to ring the bell for the captain.', outcome: 'Kaelen rings it, and the captain comes out angry.', echoes: [] },
+    { label: 'Laugh it off', move: 'I laugh and lower my sword.', outcome: 'The yard laughs with him; Kaelen does not.', echoes: [{ who: 'Kaelen', what: 'will not forget the laugh' }] },
+  ] };
+  let asks = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (TURNING_SYS.test(String(sys || ''))) { asks += 1; return JSON.stringify(asks === 1 ? SEALED : asks === 2 ? SECOND : { turning: false }); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}');
+  };
+  house.state.storyAnswer = () => H(40) + 'The bell rang twice.';
+  const names = () => qa('#choice-row .choice-btn').map((b) => b.textContent).join(' | ');
+  try {
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await env.ctx.chat.choicesChanged();
+    await until(() => names() === 'Tell him to stop | Draw on him | Walk away', 'the first choices stand', 20000);
+    /* he rewrites the turning point by hand */
+    await showAllPages();
+    const a = assistantPages()[assistantPages().length - 1];
+    click(q('.msg-act[data-act="edit"]', a));
+    const box = await until(() => q('.edit-box', a), 'the edit box');
+    type(box, H(9) + 'Kaelen lowered his practice sword and pointed at the bell tower. "Or we let the captain decide."');
+    click(q('.edit-row button:not(.text-btn)', a));
+    await until(() => names() === 'Ask for the bell | Laugh it off', 'sealed again for the page as it now reads: ' + names(), 20000);
+    eq(asks, 2, 'the helper was asked again, once');
+    const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant' && !m.hidden).pop();
+    eq(page.choiceOffer['0'].options.map((o) => o.label).join(' | '), 'Ask for the bell | Laugh it off', 'the page keeps the new seal');
+    /* he takes one; the next page is quiet; then he edits the old turning point — its taken path stands */
+    const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant' && !m.hidden).length;
+    click(qa('#choice-row .choice-btn')[1]);
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant' && !m.hidden).length > had && !env.ctx.chat.isBusy(), 'the page', 30000);
+    await until(() => queuedCount(st.id) === 0, 'readers', 40000);
+    await showAllPages();
+    const pages = assistantPages();
+    const old = pages[pages.length - 2];
+    click(q('.msg-act[data-act="edit"]', old));
+    const box2 = await until(() => q('.edit-box', old), 'the edit box again');
+    type(box2, H(9) + 'Kaelen lowered his sword and pointed at the bell tower, smiling. "Or we let the captain decide."');
+    click(q('.edit-row button:not(.text-btn)', old));
+    await tick(600);
+    await until(() => !env.ctx.chat.isBusy(), 'free', 20000);
+    eq(asks, 3, 'only the new page was asked about (quiet); the taken turning point was not asked again');
+    const flow = flowOf(await db.messages.list(st.id));
+    assert(flow.some((f) => f.took === 1 && f.options.join(' | ') === 'Ask for the bell | Laugh it off'), 'the path taken stands in the flowchart: ' + JSON.stringify(flow));
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-200 THE AUTOMATIC BRIEF IS HANDED THE WIKI FOR WHO HOLDS WHICH SEAT (M549 — his tale: "after TYBW, why does the brief say Zaraki is the Captain-Commander?"): through the app, the world keeper\'s request carries each canon person canon verification looked up, as the wiki has them, and the rule that its own memory is not material — and a seat his premise changed is not said', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const st = await db.stories.create({ title: 'after the war' });
+  await db.stories.update(st.id, { keeper: false, extraction: false, briefMode: 'automatic', brief: 'Bleach, after the Thousand-Year Blood War. Jovan Oda is the new captain of the 13th Division.' });
+  await db.messages.append(st.id, { role: 'user', text: '#story Bleach after TYBW — Jovan Oda takes the 13th.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[Seireitei — Monday | 09:00 | clear | haori | the 13th barracks]\n\nThe captains gathered.' });
+  await saveState(st.id, { ...applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: 'the 13th barracks' }, { type: 'presence.enter', name: 'Jovan Oda' }]).state, page: 1, readTo: 1, tidiedGen: 999 });
+  await db.settings.set('canonOn:' + st.id, true);
+  await db.settings.set('canonMeta:' + st.id, { canon_grounding_cache: {
+    'shunsui kyoraku': { found: true, name: 'Shunsui Kyōraku', dossier: { name: 'Shunsui Kyōraku', identity: 'the Captain-Commander of the Gotei 13 and captain of the 1st Division' } },
+    'kenpachi zaraki': { found: true, name: 'Kenpachi Zaraki', dossier: { name: 'Kenpachi Zaraki', identity: 'the captain of the 11th Division of the Gotei 13' } },
+    'rukia kuchiki': { found: true, name: 'Rukia Kuchiki', dossier: { name: 'Rukia Kuchiki', identity: 'the captain of the 13th Division of the Gotei 13' } },
+    'nobody': { found: false },
+  }, cozy_lens: {} });
+  const prior = house.state.workerAnswer;
+  let asked = null;
+  house.state.workerAnswer = (body, sys) => {
+    if (/keep the world of a story/.test(String(sys || ''))) { asked = { sys: String(sys), user: JSON.stringify(body.messages || body) }; return '{"world":"Soul Society after the war.","where":"","powers":"","factions":"The Gotei 13, led by Captain-Commander Shunsui Kyōraku.","places":"","standing":""}'; }
+    return typeof prior === 'function' ? prior(body, sys) : (prior || '{"mutations":[]}');
+  };
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await env.ctx.chat.remakeGround();
+    await until(() => asked, 'the world keeper asked', 20000);
+    assert(/Shunsui Kyōraku — the Captain-Commander of the Gotei 13 and captain of the 1st Division/.test(asked.user), 'the wiki\'s line for the Captain-Commander');
+    assert(/Kenpachi Zaraki — the captain of the 11th Division of the Gotei 13/.test(asked.user), 'and for Zaraki');
+    assert(/Your own memory of a canon is NOT material/.test(asked.sys), 'its own memory is not material');
+    assert(!/nobody/i.test(asked.user.replace(/Nobody/g, '')), 'a name the wiki did not find is not said');
+    const ground = await db.settings.get('worldGround:' + st.id);
+    assert(ground && ground.rules >= 2 && ground.parts && /Kyōraku/.test(ground.parts.factions), 'the world, written under the new rules');
+  } finally {
+    house.state.workerAnswer = prior;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

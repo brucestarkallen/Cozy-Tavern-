@@ -19,6 +19,7 @@ export const WORKER_ROWS = [
   ['planner', 'The planning helper — for a small model: reads the whole story after each page and writes down what the next page needs'],
   ['plans', 'The plans keeper — writes a plan down the moment a page lays it out — who does what, on what signal — and keeps it whole until it is carried out'],
   ['recall', 'The smart recall — before each page, reads your move against the story’s timeline and names the older record lines it means (they ride word for word)'],
+  ['choices', 'The choices keeper — Choices matter: at a turning point, writes the two to four choices and seals what each leads to, before you see them'], /* M549 */
   ['essentials', 'The essentials keeper — streamlines your whole record (Summaryception) into the story’s essentials whenever it grows'],
   ['showrunner', 'The showrunners — the director and the editor'],
   ['housekeeper', 'The housekeeper — the one you talk to, who tidies everything'],

@@ -83,6 +83,8 @@ import { plannerAsk, runPlanner, loadPlan, planEntry, loadPlans, keepSound, keep
 import { lawsOf } from '../assemble/laws.js'; /* M510 */
 import { runEssentials, loadEssentials } from '../agents/essentials.js'; /* M510-15: the story's essentials */
 import { pickRecall } from '../agents/recallpick.js'; /* M510-50: smart recall */
+import { throughLens, overlayFor } from '../agents/canonlens.js'; /* M549: the wiki's lines, seen through his story */
+import { GROUND_RULES } from '../agents/worldground.js'; /* M549 */
 import { choicesOn, choiceAsk, makeChoices, offerOf, offerPatch, openOffer, takenRecord, takenOf, echoLines, echoesText, versionOf, CHOICE_PAGES } from '../agents/choices.js'; /* M548: Choices matter */
 import { runPlans, loadPlansBook, pageRewritten } from '../agents/plans.js'; /* M510-22: the plans, kept whole until carried out; M528: a rewritten page read again */
 import { lastPagesOf, SMALL_PAGES } from '../assemble/stack.js'; /* M510 */
@@ -1828,6 +1830,20 @@ export function initChat(ctx) {
       if (key && choicesAsking.get(sid) === key) choicesAsking.delete(sid);
     }
   }
+  /* M549: HIS EDIT OF A PAGE WHOSE CHOICES STILL STAND OPEN — they were sealed for the page as it read; it reads otherwise
+   * now, so they are let go and sealed again for it. A page whose choice he already took keeps its offer (the seal is on
+   * his move; the paths taken stay in the flowchart). */
+  async function choicesAfterEdit(story, pageId) {
+    try {
+      const open = openOffer(await db.messages.list(story.id));
+      if (!open || open.page.id !== pageId) return;
+      const next = { ...(open.page.choiceOffer || {}) };
+      delete next[String(versionOf(open.page))];
+      await db.messages.update(story.id, pageId, { choiceOffer: next });
+      await drawChoices();
+      offerChoices(story);
+    } catch (err) { /* never worth a page */ }
+  }
   /* DRAW: only their names, above where he types — on the newest page of the story, with no move of his after it, while
    * nothing is being told; everything else hides them */
   let drawingChoices = 0;
@@ -2776,6 +2792,24 @@ export function initChat(ctx) {
     const startWords = canonStartWords(await db.settings.get(CANON_START_KEY(story.id)));
     let arc = null;
     try { if (await canonOn(story.id)) { const meta = await canonMeta(story.id); const a = meta && meta.canon_grounding_arc; if (a && typeof a === 'object' && a.summary) arc = { title: String(a.title || ''), summary: String(a.summary || '') }; } } catch (err) { arc = null; }
+    /* M549: WHO HOLDS WHICH SEAT, FROM THE WIKI. The world keeper wrote canon titles from its own memory (Zaraki as
+     * Captain-Commander after the war); it is handed the series' wiki lines instead — each canon person canon verification
+     * looked up, their identity as the wiki has it, seen through his story's lens (a seat his premise changed is not said) */
+    let wiki = [];
+    try {
+      if (await canonOn(story.id)) {
+        const meta = await canonMeta(story.id);
+        const cache = meta && meta.canon_grounding_cache && typeof meta.canon_grounding_cache === 'object' ? meta.canon_grounding_cache : {};
+        for (const [k, entry] of Object.entries(cache)) {
+          if (!entry || !entry.found || !entry.dossier) continue;
+          const seen = throughLens(entry, overlayFor(meta, entry));
+          const who = String((entry.dossier && entry.dossier.name) || entry.name || k).trim();
+          const id = String((seen.dossier && seen.dossier.identity) || '').replace(/\s+/g, ' ').trim();
+          if (who && id) wiki.push(who + ' — ' + id);
+        }
+        wiki = wiki.sort().slice(0, 40);
+      }
+    } catch (err) { wiki = []; }
     const ess = await loadEssentials(story.id);
     const covered = nodes.length ? Math.max(...nodes.map((n) => n.span[1])) + 1 : 0; /* pages folded into the record — they only grow */
     const since = have && Number.isFinite(have.recordLines) ? nodes.filter((n) => n.span[1] >= have.recordLines) : nodes.slice(-12);
@@ -2790,6 +2824,7 @@ export function initChat(ctx) {
       startFingerprint: startWords ? fp(startWords) : '',
       briefChanged: Boolean(have && (have.briefFp || '') !== fp(String(fresh.brief || '').trim())), /* M518-2: he rewrote his brief */
       briefFingerprint: fp(String(fresh.brief || '').trim()),
+      wiki, wikiFingerprint: fp(wiki.join('\n')), wikiChanged: Boolean(have && wiki.length && (have.wikiFp || '') !== fp(wiki.join('\n'))), /* M549 */
       /* M528: A PAGE THE WORLD CAME FROM WAS REWRITTEN (his edit, a swipe of an older page): the record's lines over the pages
        * the world was last looked at no longer read the same — it looks again at what changed */
       recordPrint: fp(nodes.filter((n) => n.span[1] < covered).map((n) => n.text).join('\n')),
@@ -2798,7 +2833,7 @@ export function initChat(ctx) {
     if (stale()) return { silent: true };
     const out = await runGround({ connection, have, input, recordLines: covered, force, signal });
     if (stale() || !out.wrote) return out.why === 'its answer could not be used' ? { detail: 'its answer could not be used' } : { silent: true };
-    await db.settings.set(key, out.ground);
+    await db.settings.set(key, { ...out.ground, rules: GROUND_RULES, wikiFp: input.wikiFingerprint }); /* M549 */
     if (!have || force) return { detail: 'wrote the world of the story — the brief is automatic' };
     return out.changed ? { detail: 'the world changed — rewrote the parts that moved' } : { silent: true };
   }
@@ -6105,6 +6140,7 @@ export function initChat(ctx) {
          * Queued AFTER the re-reading above, so the rename lands on the ledger
          * the re-read produced and is never rewound away. */
         if (updated && msg.role === 'assistant' && !msg.ooc) rippleAfterEdit(story, msg.id, pageText(msg), text);
+        if (updated && msg.role === 'assistant' && !msg.ooc) choicesAfterEdit(story, msg.id); /* M549 */
         toast('The page is re-inked.');
         /* M21: new words on the latest page mean a new preview. */
         await refreshPreview(story.id);

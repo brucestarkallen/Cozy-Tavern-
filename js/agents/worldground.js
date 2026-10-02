@@ -17,6 +17,7 @@ import { withFictionFrame } from './voice.js';
 export const GROUND_KEY = (storyId) => 'worldGround:' + storyId;
 export const GROUND_PART_CHARS = 700;      /* one part, at most */
 export const GROUND_MAX_CHARS = 4200;      /* the whole, about 1,000 tokens — it cannot grow without end */
+export const GROUND_RULES = 2;             /* M549: titles and seats from the material only — a world written before is written again */
 export const GROUND_EVERY = 24;            /* pages folded into the record since the last look before the world is looked at again
                                               (pages, not lines: the record's lines merge as it layers, its pages only grow) */
 
@@ -45,6 +46,7 @@ const RULES = [
   'Only what the material establishes; where it is silent, leave the part empty rather than invent.',
   'For a story set in an existing canon: nothing canon holds AFTER the story\u2019s present — no later event, no hint of it.',
   'His own brief is already in front of the storyteller: never repeat it — add only what it does not say.',
+  'A title, a rank, a seat, who leads a group, who is alive or dead: only as the material above says it. Your own memory of a canon is NOT material — where the material does not say who holds a seat, say nothing of it. The wiki\u2019s lines tell the series as it ENDS: for a story set at that point or after it (as where it began and where it stands say), they are right where anything else disagrees; for a story set earlier, a seat stands only as where it began or where it stands says it. His own brief and the story itself win over both.',
   'Each part a few plain lines, at most seven hundred characters; "" for a part with nothing to say.',
 ].join('\n');
 
@@ -59,12 +61,15 @@ const PART_WORDS = [
   'standing — what stands in the world now because of what happened: wars, treaties, seals, the fallen and the risen.',
 ].join('\n');
 
-function material({ concept = '', brief = '', canonStart = '', arc = null, ledger = {}, essentials = '', recent = [] } = {}) {
+function material({ concept = '', brief = '', canonStart = '', arc = null, ledger = {}, essentials = '', recent = [], wiki = [] } = {}) {
   const out = [];
   if (String(concept).trim()) out.push('HOW HE BEGAN THE STORY (his #story line):', String(concept).trim(), '');
   if (String(brief).trim()) out.push('HIS OWN BRIEF (already in front of the storyteller — do not repeat it):', String(brief).trim(), '');
   if (String(canonStart).trim()) out.push('WHERE THE STORY BEGAN IN ITS CANON:', String(canonStart).trim(), '');
   if (arc && arc.summary) out.push('WHERE THE STORY STANDS IN CANON NOW (' + clip(arc.title || '', 80) + '):', clip(arc.summary, 3000), '');
+  /* M549: who holds which seat, from the series' wiki — never the keeper's memory (it wrote Zaraki in as Captain-Commander) */
+  const wikiLines = (Array.isArray(wiki) ? wiki : []).map((t) => clip(t, 260)).filter(Boolean);
+  if (wikiLines.length) out.push('WHAT THE SERIES\u2019 WIKI SAYS OF THE PEOPLE IN THIS STORY (looked up — the series as it ends, seen through this story where it has been read; where this story says otherwise, the story wins):', ...wikiLines.map((t) => '- ' + t), '');
   const l = ledger && typeof ledger === 'object' ? ledger : {};
   const facts = [];
   if (l.place) facts.push('The scene is at: ' + clip(l.place, 120));
@@ -153,8 +158,10 @@ export async function runGround({ connection, have = null, input = {}, recordLin
    * covering fewer pages than the world was last looked at — the world may hold what those pages did. It is written
    * again from the story as it now stands (never his own words). */
   const rolledBack = Boolean(have && have.parts && Number.isFinite(have.recordLines) && recordLines < have.recordLines);
-  const fresh = !have || !have.parts || force || rolledBack;
-  if (!fresh && recordLines - (Number(have.recordLines) || 0) < GROUND_EVERY && !input.arcChanged && !input.startChanged && !input.briefChanged && !input.recordChanged) return { wrote: false, why: 'the world has not moved' }; /* M528: or a page it was built from was rewritten */ /* M518-2: his brief changed — the world looks again, so it never repeats or contradicts what he just wrote */
+  /* M549: a world written under the old rules (when a title could come from the keeper's memory) is written again, once */
+  const oldRules = Boolean(have && have.parts && have.rules !== GROUND_RULES);
+  const fresh = !have || !have.parts || force || rolledBack || oldRules;
+  if (!fresh && recordLines - (Number(have.recordLines) || 0) < GROUND_EVERY && !input.arcChanged && !input.startChanged && !input.briefChanged && !input.recordChanged && !input.wikiChanged) return { wrote: false, why: 'the world has not moved' }; /* M528: or a page it was built from was rewritten */ /* M518-2: his brief changed — the world looks again, so it never repeats or contradicts what he just wrote */
   const ask = fresh ? groundAsk(input) : groundUpdateAsk({ ground: have, ...input });
   let text = '';
   try { ({ text } = await callWorker(connection, { system: withFictionFrame(ask.system), user: ask.user, maxTokens: 2200, signal })); } catch (err) { throw err; }

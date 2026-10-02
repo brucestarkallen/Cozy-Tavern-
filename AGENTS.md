@@ -14132,3 +14132,27 @@ makes it, written by someone who cannot know which he will make.
   Old laws my change broke and why each was right to change: M105/M352 (the new section listed in its Settings room), M30-8
   (the new module in the offline shell), M33-4 (it found the send by its exact old signature — the order it checks holds),
   B1 (it reads the typed words coming back as the literal call — kept as that call).
+
+# M549 — the automatic brief's seats come from the wiki; the choices keeper has its own model
+His report: "the automatic brief says Zaraki is the Captain-Commander — after the war that is wrong."
+- Who writes it: the world keeper (agents/worldground.js, on the essentials keeper's model), from his #story line, his brief,
+  where the story began in canon (agents/canonstart.js, written by the founder's model from its own memory), the canon arc,
+  the ledger, the essentials and the newest record lines. Nothing it was handed said who holds which seat — and its part
+  "who holds power … who leads them" was filled from the model's memory, against its own rule. The canon start's facts are
+  the same kind: a model's memory of a canon, never looked up.
+- Now: the world keeper is handed the series' wiki lines — each canon person canon verification looked up, their identity
+  as the wiki has it, seen through his story's lens (a seat his premise changed is not said) — and told: a title, a rank, a
+  seat, who leads, who is alive or dead only as the material says; its own memory is not material; the wiki wins where
+  anything else disagrees, unless his brief or the story made it otherwise. A world written under the old rules is written
+  again once (GROUND_RULES 2; never over his own words); a change in the wiki's lines is looked at.
+- The choices keeper has its own row in Settings → The workers (its own model; none picked, the workers' own).
+- His edit of a page whose choices still stand open lets them go and seals them again for the page as it now reads; a
+  turning point whose choice he already took keeps its offer when he edits it later (walk DOM-199; it fails with the hook
+  taken out — checked).
+- The wiki's lines tell the series as it ENDS: for a story set at that point or after (his: after the war) they win on
+  seats; for a story set earlier a seat stands only as where it began or where it stands says it; his brief and the story
+  win over both. Walk DOM-200: through the app, the world keeper's request carries each looked-up canon person as the wiki
+  has them (Kyōraku the Captain-Commander, Zaraki the 11th's captain), never one the wiki did not find, and the rule.
+- Laws M549-1/2; the M517/M528 laws' worlds are marked as written under the current rules (they test what a later look
+  does, not the one-time rewrite). DOM-135 failed once while I ran laws beside the walk (contention); alone and in a clean
+  full walk it passes.

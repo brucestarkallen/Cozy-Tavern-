@@ -21,7 +21,7 @@ test('M517-1 THE WORLD, ASKED FROM EVERYTHING THE STORY HAS — his #story line,
 test('M517-2 READ STRICTLY, HELD TO ITS ROOM, SAID IN ORDER: each part at most ' + GROUND_PART_CHARS + ' characters, the whole at most ' + GROUND_MAX_CHARS + ' (the last parts give way); one line is not a world; his own words stand as he wrote them', () => {
   const g = readGround('Sure: ' + JSON.stringify(PARTS));
   eq(Object.keys(g).join(','), 'world,where,powers,factions,places,standing', 'all six, in order');
-  const words = groundWords({ parts: g });
+  const words = groundWords({ rules: 2 /* M549: a world written under the current rules */, parts: g });
   assert(words.startsWith('The world of our story, as it stands:\nThe setting — Modern Japan') && words.includes('\nWhere in canon — The Culling Game arc') && words.includes('\nWhat stands in the world now — The Culling Game is underway'), words.slice(0, 200));
   const huge = readGround(JSON.stringify(Object.fromEntries(Object.keys(PARTS).map((k) => [k, 'word '.repeat(400)]))));
   assert(Object.values(huge).every((v) => v.length <= GROUND_PART_CHARS) && Object.values(huge).join('').length <= GROUND_MAX_CHARS, 'held to its room');
@@ -30,18 +30,18 @@ test('M517-2 READ STRICTLY, HELD TO ITS ROOM, SAID IN ORDER: each part at most '
 });
 
 test('M517-3 ONLY WHAT MOVED: a later look asks only for the parts the world changed and replaces only those; nothing changed is nothing; his own correction is never overwritten unless he rebuilds; with fewer than ' + GROUND_EVERY + ' more pages folded into the record the world is not looked at', async () => {
-  const u = groundUpdateAsk({ ground: { parts: PARTS }, recent: ['Kenjaku fell at the barrier.'] });
+  const u = groundUpdateAsk({ ground: { rules: 2 /* M549: a world written under the current rules */, parts: PARTS }, recent: ['Kenjaku fell at the barrier.'] });
   assert(/Change a part ONLY if the world itself changed/.test(u.system) && u.user.includes('What stands in the world now — The Culling Game is underway') && u.user.includes('Kenjaku fell at the barrier.'), 'the ask');
   eq(JSON.stringify(readGroundPatch('{"changed":{"standing":"The Culling Game ended when Kenjaku fell."}}')), JSON.stringify({ standing: 'The Culling Game ended when Kenjaku fell.' }), 'only the part that moved');
   eq(JSON.stringify(readGroundPatch('{"changed":{}}')), '{}', 'nothing moved');
   eq(readGroundPatch('no'), null, 'no answer');
   const conn = { id: 'x' };
   eq((await runGround({ connection: conn, have: { by: 'writer', words: 'his', parts: PARTS }, recordLines: 99 })).why, 'his own words stand', 'his words are not overwritten');
-  eq((await runGround({ connection: conn, have: { parts: PARTS, recordLines: 10 }, recordLines: 10 + GROUND_EVERY - 1, input: {} })).why, 'the world has not moved', 'not looked at before the record grew enough');
+  eq((await runGround({ connection: conn, have: { rules: 2 /* M549: a world written under the current rules */, parts: PARTS, recordLines: 10 }, recordLines: 10 + GROUND_EVERY - 1, input: {} })).why, 'the world has not moved', 'not looked at before the record grew enough');
 });
 
 test('M517-4 IN THE BRIEF\'S SEAT, AFTER HIS WORDS — for the big and the small storyteller alike, on its own row exactly as sent; Manual (no world) sends nothing of it and the row says why', () => {
-  const words = groundWords({ parts: readGround(JSON.stringify(PARTS)) });
+  const words = groundWords({ rules: 2 /* M549: a world written under the current rules */, parts: readGround(JSON.stringify(PARTS)) });
   const msgs = [{ id: 'u1', role: 'user', text: 'I raise my blade.' }];
   for (const settings of [{}, { tellerName: 'Hulk', writerName: 'Bruce' }]) {
     const r = buildRequest({ story: { brief: 'HIS-OWN-BRIEF.' }, messages: msgs, settings, state: null, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: false }, worldGround: words });
@@ -69,7 +69,7 @@ test('M517-5 CANON STOPS REPEATING THE WORLD: with the world riding, canon\'s no
 
 test('M518-2 HIS BRIEF CHANGED, THE WORLD LOOKS AGAIN: a rewritten brief is a reason to look (like a new arc or a new start), not only pages folded — the world then takes out what his new words say; nothing changed and too few pages, it is not looked at', async () => {
   const conn = { id: 'x' };
-  const have = { parts: PARTS, recordLines: 10, briefFp: 'old' };
+  const have = { rules: 2 /* M549: a world written under the current rules */, parts: PARTS, recordLines: 10, briefFp: 'old' };
   eq((await runGround({ connection: conn, have, recordLines: 11, input: { briefChanged: false } })).why, 'the world has not moved', 'same brief, too few pages: not looked at');
   let looked = false;
   try { const r = await runGround({ connection: conn, have, recordLines: 11, input: { briefChanged: true, briefFingerprint: 'new' } }); looked = r.why !== 'the world has not moved'; } catch (err) { looked = true; /* it went to ask — this harness has no model to answer */ }

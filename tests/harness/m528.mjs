@@ -19,7 +19,7 @@ test('M528-1 A PAGE REWRITTEN BY HAND IS READ AGAIN FOR PLANS: the keeper\'s rea
 });
 
 test('M528-2 THE WORLD LOOKS AGAIN WHEN A PAGE IT CAME FROM WAS REWRITTEN (a reason to look, like a new arc or his brief changed); nothing rewritten and too few pages, it is not looked at', async () => {
-  const have = { parts: { world: 'W', standing: 'S' }, recordLines: 30, recordPrint: 'old' };
+  const have = { rules: 2 /* M549: a world written under the current rules */, parts: { world: 'W', standing: 'S' }, recordLines: 30, recordPrint: 'old' };
   eq((await runGround({ connection: { id: 'x' }, have, recordLines: 31, input: { recordChanged: false } })).why, 'the world has not moved', 'nothing rewritten: not looked at');
   let looked = false;
   try { const r = await runGround({ connection: { id: 'x' }, have, recordLines: 31, input: { recordChanged: true } }); looked = r.why !== 'the world has not moved'; } catch (err) { looked = true; }
