@@ -168,7 +168,24 @@ export async function loadPlan(storyId, forKey) {
 export async function planEntry(storyId, forKey) {
   const kept = await loadPlans(storyId);
   const hit = kept.plans && kept.plans[forKey];
-  return hit && hit.plan ? { plan: hit.plan, hash: typeof hit.hash === 'string' ? hit.hash : '' } : null;
+  const plan = hit ? planShape(hit.plan) : null; /* M553: read back through its shape — the request is built from it */
+  return plan ? { plan, hash: typeof hit.hash === 'string' ? hit.hash : '' } : null;
+}
+/* M553 (the audit): A KEPT PLAN IS READ BACK THROUGH ITS SHAPE. The small storyteller's request is built from the plan kept
+ * for the page (renderPlan reads p.now.replace, u.fact.replace…); a plan kept by an older build, a branch's copy, or a
+ * damaged row was handed over as it lay — one field of the wrong kind and the request could not be built: no page. Types
+ * only — names and laws were checked when it was written. Nothing that is no plan: null, and the page goes whole. */
+export function planShape(p) {
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
+  const str = (v, n = LINE) => clip(typeof v === 'string' ? v : '', n);
+  const strs = (v, max, n = LINE) => (Array.isArray(v) ? v : []).filter((x) => typeof x === 'string').map((x) => clip(x, n)).filter(Boolean).slice(0, max);
+  const people = (Array.isArray(p.people) ? p.people : []).filter((x) => x && typeof x === 'object' && typeof x.name === 'string' && x.name.trim())
+    .map((x) => ({ name: clip(x.name, 60), now: str(x.now), wants: str(x.wants), against: str(x.against), voice: str(x.voice, 160), pressed: str(x.pressed, 160) })).slice(0, MAX_PEOPLE);
+  const unknown = (Array.isArray(p.unknown) ? p.unknown : []).filter((u) => u && typeof u === 'object' && typeof u.name === 'string' && typeof u.fact === 'string' && u.name.trim() && u.fact.trim())
+    .map((u) => ({ name: clip(u.name, 60), fact: clip(u.fact) })).slice(0, MAX_UNKNOWN);
+  const plan = { story: str(p.story, 1600), scene: str(p.scene, 400), people, unknown, pressing: strs(p.pressing, MAX_PRESSING), earlier: strs(p.earlier, MAX_EARLIER), laws: strs(p.laws, MAX_LAWS, 160), intense: p.intense === true, loud: p.loud !== false, loudWhy: str(p.loudWhy, 120), sounds: strs(p.sounds, MAX_SOUNDS, CUE), leaveTo: str(p.leaveTo, 200) };
+  if (!plan.scene && !plan.people.length && !plan.laws.length) return null;
+  return plan;
 }
 /* M510-3: the newest are kept by ORDER, never by clock: two plans kept in the same millisecond tied on `at`, the sort kept
  * the older of them and let the newest go (the full harness caught it; alone it passed). A plan's key is re-set last, and

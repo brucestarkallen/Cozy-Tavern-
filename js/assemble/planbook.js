@@ -16,9 +16,11 @@ function pagesOf(p) {
 }
 
 export function renderPlan(p) {
-  const head = p.title + (p.by ? ' — ' + p.by + '’s plan' : '') + pagesOf(p) + (p.goal ? '. The aim: ' + p.goal.replace(/\.+$/, '') + '.' : '.');
-  const parts = p.parts.map((x, i) => '  ' + (i + 1) + '. ' + x.who + ' — ' + x.does.replace(/\.+$/, '') + (x.when ? ' (' + x.when.replace(/\.+$/, '') + ')' : '') + (x.done ? ' — done.' : '.'));
-  const words = Array.isArray(p.words) && p.words.length ? ['  The words to be said: ' + p.words.map((w) => '“' + w + '”').join('; ')] : [];
+  const t = (v) => (typeof v === 'string' ? v : ''); /* M553 (the audit): a kept plan of an older build or a damaged row never breaks the request */
+  const head = t(p.title) + (t(p.by) ? ' — ' + t(p.by) + '’s plan' : '') + pagesOf(p) + (t(p.goal) ? '. The aim: ' + t(p.goal).replace(/\.+$/, '') + '.' : '.');
+  const parts = p.parts.filter((x) => x && typeof x === 'object').map((x, i) => '  ' + (i + 1) + '. ' + t(x.who) + ' — ' + t(x.does).replace(/\.+$/, '') + (t(x.when) ? ' (' + t(x.when).replace(/\.+$/, '') + ')' : '') + (x.done ? ' — done.' : '.'));
+  const said = (Array.isArray(p.words) ? p.words : []).filter((w) => typeof w === 'string' && w.trim());
+  const words = said.length ? ['  The words to be said: ' + said.map((w) => '“' + w + '”').join('; ')] : [];
   return [head, ...parts, ...words].join('\n');
 }
 

@@ -73,7 +73,7 @@ export function canonStartWords(start) {
   if (typeof start.words === 'string' && start.words.trim()) return start.words.trim(); /* his own correction stands as he wrote it */
   if (!start.series || !start.moment) return '';
   const head = 'Where our story began in ' + start.series + ': ' + (start.arc ? start.arc + ' — ' : '') + start.moment.replace(/[.]+$/, '') + (start.when ? ' (' + start.when + ')' : '') + '.';
-  const facts = (start.facts || []).map((f) => '- ' + f.replace(/^[-•]\s*/, ''));
+  const facts = (Array.isArray(start.facts) ? start.facts : []).filter((f) => typeof f === 'string' && f.trim()).map((f) => '- ' + f.replace(/^[-•]\s*/, '')); /* M553: a fact of the wrong kind never breaks the note */
   return [head, ...(facts.length ? ['By then, in canon:', ...facts] : []), 'Nothing in canon after this moment has happened here — from it on, only our own pages decide.'].join('\n');
 }
 

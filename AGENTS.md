@@ -14222,3 +14222,29 @@ sync; canon; the workers; the UI; prompt examples; repairs on open). Done in thi
 - Not yet audited: the request, the send path, the ledger, the record, storage and sync, canon, the workers, the UI, and the
   history read whole.
 - Laws M552-1…3; walk DOM-204.
+
+# M553 — the audit, part 2
+- K, THE REPAIRS ON OPEN, each traced to what made the damage: mendPagesOnOpen (M488 — the repair runs on every page as it
+  arrives; the open pass is for pages an older build kept), healLedgerOnOpen (M452 — the same room laws the readers keep
+  after every page, chat.js 3658–3660), takeOutTheFuture (M337 — the branch applies dropTheFuture to whatever ledger it
+  carries; the open pass is for branches made before), putBackAgainstBrief and putBackMistakenMends (M330/M331/M268 — the
+  house no longer writes corrections or mends against the brief; the open pass puts back what was), healGhosts (M485 —
+  names resolve to the person since M482/M484; on load for older ledgers), healInterruptedBranches (a crash mid-branch),
+  repairTimeline (Summaryception's own check), healFold (a design: heals derived, not stamped), healStaleRefusal (a
+  provider's answer learned again), sweepOrphans and sweepSent (rows of tales let go). Every one repairs what an older build
+  or a crash left; none repairs damage the code still makes. One limit stands, as M337 wrote it: a branch near the tail of a
+  tale from BEFORE the journal carries undated later values (standings, seats, presence, pages) — only such old tales.
+- B, THE WORDS THE STORYTELLER READS — real requests built in three modes (frontier with frame and names; a small
+  storyteller with a plan; a sealed choice, its echoes, where it began and the world) and every line outside his craft and
+  his frame read for the house's own words (helper, worker, ledger, receipt, settings, switch, JSON, model, AI, token,
+  Cozy, app, reader, auditor, keeper, sealed, the feature names) and for system-style words (the writer, instruction,
+  you must, IMPORTANT, NOTE:, the user, OOC): none. With the frame off, the notes open "the writer's own notes, kept for
+  him by his story app" (M509-14's design — no persona then to keep).
+- FOUND: WHAT IS READ BACK FROM STORAGE WAS NOT READ THROUGH ITS SHAPE. The small storyteller's request is built from the
+  plan kept for the page; loadPlan handed it over as it lay, and renderPlan reads p.now.replace, u.fact.replace — a plan
+  an older build kept, a branch's copy or a damaged row with one field of the wrong kind, and the request could not be
+  built: no page. The same in the plans book's words (x.does.replace on a part without one) and in where our story began
+  (f.replace on a fact that is not text). Now a kept plan passes planShape (types only — names and laws were checked when it
+  was written; nothing that is a plan: null, and the page goes whole), and the plans book and the note say what is whole
+  and leave the rest out.
+- Laws M553-1/2.
