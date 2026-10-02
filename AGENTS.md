@@ -14197,3 +14197,28 @@ handed canon verification's real record (M386); the storyteller reads "What cano
   it can miss a contradiction, and it can only take lines away, never add one.
 - Laws M551-1…3; walk DOM-203 (the world checked on opening — each sentence and all the wiki says, a death included; the
   wrong sentence let go, the rest word for word; opening again asks nothing).
+
+# M552 — the audit, part 1 (his order: "audit everything, no flex tape")
+Plan kept outside the repo (areas A–K: this session's code; the request; the send path; the ledger; the record; storage and
+sync; canon; the workers; the UI; prompt examples; repairs on open). Done in this part:
+- A, THIS SESSION'S OWN CODE, line by line — three faults, fixed: (1) the choices helper could be asked twice for one page
+  (two callers both passed the check while the other was still reading the ledger — the page is claimed before any wait
+  now); (2) a page he stopped mid-way was offered choices (half a page is no turning point); (3) the world keeper wrote back,
+  from its memory, a line the wiki check had let go — and the check let it go again every few pages (it is handed what the
+  wiki already showed wrong). A double tap on a choice was already sent once (send's own busy check) — the new guard only
+  hides the row at once; DOM-204 holds the behaviour.
+- J, THE HOUSE'S PROMPT EXAMPLES NAMED HIS PEOPLE — the class M95 cleaned up after the fact, by name: the ledger reader's
+  instructions for EVERY story carried his Bleach premise ("believes Jovan is only a recruit — untrue: Jovan is the new
+  captain of the 13th Division"), and Jovan (his main character), Zaraki, Rukia, Kaelen, Kaiser, Rias, Claire, Kim, Alexia
+  and Aurora stood in the world beyond's, the second reader's, the essentials keeper's, the housekeeper's, the founder's,
+  the choices keeper's and the craft's own examples. A worker that echoes an example writes it down as a fact — and an echo
+  of his own MC's name could never be caught. Now the house's examples use two names that are nobody's (Orrin Vale, Tamsin
+  Hale), the leak cleanup knows them (let go unless his brief or cast names them), and law M552-1 fails if any house prompt
+  names his people again. His own Summaryception prompts (the record's, word for word) and the craft's list of names an NPC
+  is never given keep theirs.
+- K, REPAIRS ON OPEN, inventoried (mendPagesOnOpen, healLedgerOnOpen, takeOutTheFuture, putBackAgainstBrief, healFold,
+  repairTimeline, putBackMistakenMends, healGhosts, healStaleRefusal, sweepOrphans, sweepSent): each says it repairs what an
+  older build or a crash left. Whether each one's producer is fixed is NOT yet verified — the next part.
+- Not yet audited: the request, the send path, the ledger, the record, storage and sync, canon, the workers, the UI, and the
+  history read whole.
+- Laws M552-1…3; walk DOM-204.

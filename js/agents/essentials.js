@@ -41,13 +41,13 @@ export function recordOf(nodes) {
  * fold, but much more concise — cut what is unimportant (talking to the postman, a crowd saying something), keep the time
  * and the place, because time and place make a story coherent; like human memory: everything still there, much more
  * coherent and efficient; and when something is mentioned, the detailed line comes back." So the essentials are record
- * lines — "[Sept 1, 08:24 · the Wells kitchen] (pages 3–9) Jovan did X → Kaelen did Y; …" — one line standing for a
+ * lines — "[Sept 1, 08:24 · the Wells kitchen] (pages 3–9) Orrin Vale did X → Tamsin Hale did Y; …" — one line standing for a
  * stretch that belongs together, oldest first. (M510-15 wrote four headed sections instead.) */
 export function essentialsAsk({ record = '', brief = '', mc = '' } = {}) {
   const system = [
     'You condense the record of a long collaborative story into its essentials: the same record, told again shorter — the way a person remembers a story, with everything that matters still there.',
     'You are given the whole record, oldest first. Each line stands for a stretch of pages: a prefix with its time and place, like "[Sept 1, 08:24 · the Wells kitchen]", then short phrases separated by semicolons.',
-    'Write the essentials in THE SAME FORMAT: lines, oldest first, one per line, each opening with its time-and-place prefix and the pages it stands for, then short phrases separated by semicolons — "[Sept 1, 08:24 · the Wells kitchen] (pages 3–9) Jovan did X → Kaelen did Y; …".',
+    'Write the essentials in THE SAME FORMAT: lines, oldest first, one per line, each opening with its time-and-place prefix and the pages it stands for, then short phrases separated by semicolons — "[Sept 1, 08:24 · the Wells kitchen] (pages 3–9) Orrin Vale did X → Tamsin Hale did Y; …".',
     'One essentials line may stand for several record lines that belong together — one scene, one stretch of days; its prefix is where and when that stretch began, and its pages run from the first to the last.',
     'Cut what nothing later depends on: small talk, errands, passers-by and crowds, weather and atmosphere, repeated reactions.',
     'Keep, always: decisions and what caused them (→), who did what to whom, promises, oaths and threats (their exact words in "double quotes", 15 words at most), debts, secrets and who knows them, wounds, bonds and grudges, first meetings and first times, and every correction — written as the fact now stands.',

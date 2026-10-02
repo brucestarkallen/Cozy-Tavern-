@@ -70,7 +70,7 @@ export function choiceAsk({ brief = '', essentials = '', facts = '', people = ''
     'Read the newest page. Decide whether it ends at a real turning point for ' + who + ': a moment where what ' + who + ' does next will change how someone sees him, what happens to someone, or which way the story goes. Most pages are not one — a quiet beat, small talk, a walk, a fight already under way. If it is not, answer {"turning":false}.',
     'If it is, write two to four choices ' + who + ' could take from exactly where the page ends — different in kind, never one choice said four ways. For each:',
     '- "label": two to six words, the way a game shows a choice ("Tell her the truth", "Say nothing", "Walk away").',
-    '- "move": what ' + who + ' does, the way he writes his own moves — the first person, one or two sentences ("I tell Rukia the truth about the attendant.").',
+    '- "move": what ' + who + ' does, the way he writes his own moves — the first person, one or two sentences ("I tell Tamsin Hale the truth about the attendant.").',
     '- "outcome": what follows, decided now, before he chooses — what the people and the world do in answer, what it costs him or wins him, what can no longer be undone. One to three sentences. Never what ' + who + ' feels, thinks, says or does beyond the move.',
     '- "echoes": up to two things it leaves behind that will matter later — {"who":"a name","what":"what they will remember, or do"}.',
     'Seal every outcome by the people — their natures, what they know, what they want — and by the world\'s own logic, never by what would please him. A kind choice can go badly; a hard one can work. At least one choice costs him something real. No outcome may break what the ledger says.',

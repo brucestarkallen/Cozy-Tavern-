@@ -68,7 +68,7 @@ test('M75-4 the prompt is decisive and shows the worked brief example; the house
   const src = readFileSync(new URL('../../js/agents/housekeeper.js', import.meta.url), 'utf8');
   const prompt = src.slice(src.indexOf('const SYSTEM_PROMPT = ['), src.indexOf("].join('\\n');", src.indexOf('const SYSTEM_PROMPT = [')));
   assert(/BE DECISIVE\. When the writer asks for a change, the block that makes it is in/.test(prompt));
-  assert(/Alexia \(20\), the eldest/.test(prompt) && /"replace":"Alexia \(19\), the eldest"/.test(prompt), 'the worked example');
+  assert(/Tamsin Hale \(20\), the eldest/.test(prompt) && /"replace":"Tamsin Hale \(19\), the eldest"/.test(prompt), 'the worked example (M552: its names are the house\'s own example names, never his people)');
   assert(/A fact the brief already states is REPLACED where it stands/.test(prompt));
   const ui = readFileSync(new URL('../../js/ui/housekeeper.js', import.meta.url), 'utf8');
   const rc = ui.slice(ui.indexOf('async function resolveWorkerConnection('), ui.indexOf('async function resolveWorkerConnection(') + 1400);

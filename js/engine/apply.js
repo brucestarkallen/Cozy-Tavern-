@@ -1310,7 +1310,7 @@ export const JOURNAL_CAP = 1500; /* M147: ~250 turns of a busy ledger (was 6000 
 /* M95: the placeholders the workers' prompts use in their examples, and the
  * example names of older coats that a model could still have learned to echo. */
 export const PLACEHOLDER_NAMES = ['name', 'other name', 'new name', 'name surname', 'main character', 'a public figure', 'old words', 'new words'];
-export const RETIRED_EXAMPLE_NAMES = ['kris jenner', 'kendall jenner', 'dmitri volkov', 'aurora sterling'];
+export const RETIRED_EXAMPLE_NAMES = ['kris jenner', 'kendall jenner', 'dmitri volkov', 'aurora sterling', 'orrin vale', 'tamsin hale']; /* M552: the house's two example names — never from his own stories (his MC and his Bleach premise were the examples), and let go wherever a worker echoes them as if they were the story's */
 export function placeholderIn(mutation) {
   const fields = ['name', 'owner', 'title'];
   for (const f of fields) {

@@ -131,7 +131,7 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     'show is still THERE, living this very minute in their own nature: reacting to what the scene just did,',
     'weighing what to do about it, busy with their own business in the room. For EACH of them write their now',
     'with people.set field "state": one line of what they are doing and weighing — "at the rail, hat tipped low,',
-    'one hand drifting toward his sword, weighing whether to stop it before Zaraki dies" — true to their core and',
+    'one hand drifting toward his sword, weighing whether to stop it before Orrin Vale dies" — true to their core and',
     'to where the scene stands. Never an instruction to anyone, never a line of dialogue, never moved out of the',
     'scene; the page decides whether they act. Someone the page DID show is the scribe\'s to write, not yours.',
     '',

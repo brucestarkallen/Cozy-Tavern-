@@ -198,7 +198,7 @@ export function buildStatedStandingsMessages({ brief = '', castNotes = '', mc = 
     '— shapes like "(P:65 R:30 S:5)" or "P:65, R:30, S:5" — and say WHOSE stance it is and TOWARD WHOM.',
     'Read the structure the way a person would: a block usually opens with a person\'s name, then lines',
     'about them; a line like "→ MAIN CHARACTER: … (P:65 R:30 S:5)" inside NAME\'s block is NAME\'s stance toward',
-    'MAIN CHARACTER; a line like "→ Claire: … (P:60 R:0 S:0)" in the same block is NAME\'s stance toward Claire —',
+    'MAIN CHARACTER; a line like "→ Tamsin Hale: … (P:60 R:0 S:0)" in the same block is NAME\'s stance toward Tamsin Hale —',
     'NOT toward the main character, so leave it out. "CORE:", "ARC:", "NOTES:" are section labels, never',
     'people. A family, a school, a faction is not a person. Output ONLY stances toward the main character.',
     '',

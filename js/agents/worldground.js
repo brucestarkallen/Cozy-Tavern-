@@ -61,7 +61,7 @@ const PART_WORDS = [
   'standing — what stands in the world now because of what happened: wars, treaties, seals, the fallen and the risen.',
 ].join('\n');
 
-function material({ concept = '', brief = '', canonStart = '', arc = null, ledger = {}, essentials = '', recent = [], wiki = [] } = {}) {
+function material({ concept = '', brief = '', canonStart = '', arc = null, ledger = {}, essentials = '', recent = [], wiki = [], foundWrong = [] } = {}) {
   const out = [];
   if (String(concept).trim()) out.push('HOW HE BEGAN THE STORY (his #story line):', String(concept).trim(), '');
   if (String(brief).trim()) out.push('HIS OWN BRIEF (already in front of the storyteller — do not repeat it):', String(brief).trim(), '');
@@ -70,6 +70,10 @@ function material({ concept = '', brief = '', canonStart = '', arc = null, ledge
   /* M549: who holds which seat, from the series' wiki — never the keeper's memory (it wrote Zaraki in as Captain-Commander) */
   const wikiLines = (Array.isArray(wiki) ? wiki : []).map((t) => clip(t, 260)).filter(Boolean);
   if (wikiLines.length) out.push('WHAT THE SERIES\u2019 WIKI SAYS OF THE PEOPLE IN THIS STORY (looked up — the series as it ends, seen through this story where it has been read; where this story says otherwise, the story wins):', ...wikiLines.map((t) => '- ' + t), '');
+  /* M552 (the audit): lines the wiki check let go (agents/canoncheck.js) — never written back: the keeper's next look wrote
+   * the same wrong line again from its memory, and the check let it go again, every few pages */
+  const wrong = (Array.isArray(foundWrong) ? foundWrong : []).map((t) => clip(t, 300)).filter(Boolean);
+  if (wrong.length) out.push('LINES ALREADY SHOWN WRONG BY THE SERIES\u2019 WIKI \u2014 never write these again, nor anything that says the same:', ...wrong.map((t) => '- ' + t), '');
   const l = ledger && typeof ledger === 'object' ? ledger : {};
   const facts = [];
   if (l.place) facts.push('The scene is at: ' + clip(l.place, 120));

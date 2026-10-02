@@ -1801,12 +1801,15 @@ export function initChat(ctx) {
       if (!choicesOn(story)) return;
       const told = visiblePages(await db.messages.list(sid)).filter((m) => m && !m.hidden && !m.ooc);
       const last = told[told.length - 1];
-      if (!last || last.role !== 'assistant' || !pageText(last).trim() || offerOf(last)) return;
+      /* M552 (the audit): a page he stopped mid-way ends nowhere — no turning point is read into half a page */
+      if (!last || last.role !== 'assistant' || last.stopped || !pageText(last).trim() || offerOf(last)) return;
+      /* M552 (the audit): the page is claimed BEFORE any wait — two callers at once (a page landing and a story opening) both
+       * passed the check while the other was still reading the ledger, and the helper was asked twice */
+      if (choicesAsking.get(sid) === last.id + ':' + versionOf(last)) return;
       key = last.id + ':' + versionOf(last);
-      if (choicesAsking.get(sid) === key) return;
+      choicesAsking.set(sid, key);
       const state = await loadState(sid);
       if ((state.duel && state.duel.active) || (state.battle && state.battle.active) || (state.war && state.war.active)) return;
-      choicesAsking.set(sid, key);
       const connection = await resolveWorkerConnection(story, 'choices');
       if (!connection) return;
       const big = 400000;
@@ -1873,8 +1876,15 @@ export function initChat(ctx) {
     } catch (err) { hide(); }
   }
   /* TAKE: its move goes as his, the seal kept on his message; his own words in the composer stay where they are */
+  let takingChoice = false; /* M552 (the audit): a double tap on a phone sent the move twice */
   async function takeChoice(page, pick) {
+    if (takingChoice) return;
     if (busy) { toast('The storyteller is still busy — one moment.'); return; }
+    takingChoice = true;
+    if (els.choiceRow) els.choiceRow.hidden = true;
+    try { await takeChoiceNow(page, pick); } finally { takingChoice = false; drawChoices(); }
+  }
+  async function takeChoiceNow(page, pick) {
     const story = await activeStory();
     if (!story || !choicesOn(story)) { drawChoices(); return; }
     const open = openOffer(await db.messages.list(story.id));
@@ -2809,6 +2819,7 @@ export function initChat(ctx) {
       briefChanged: Boolean(have && (have.briefFp || '') !== fp(String(fresh.brief || '').trim())), /* M518-2: he rewrote his brief */
       briefFingerprint: fp(String(fresh.brief || '').trim()),
       wiki, wikiFingerprint: fp(wiki.join('\n')), wikiChanged: Boolean(have && wiki.length && (have.wikiFp || '') !== fp(wiki.join('\n'))), /* M549 */
+      foundWrong: have && Array.isArray(have.droppedWorld) ? have.droppedWorld.slice(-30) : [], /* M552: what the wiki already showed wrong is never written back */
       /* M528: A PAGE THE WORLD CAME FROM WAS REWRITTEN (his edit, a swipe of an older page): the record's lines over the pages
        * the world was last looked at no longer read the same — it looks again at what changed */
       recordPrint: fp(nodes.filter((n) => n.span[1] < covered).map((n) => n.text).join('\n')),

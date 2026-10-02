@@ -9236,5 +9236,50 @@ test('DOM-203 THE AUTOMATIC BRIEF\'S WORLD, CHECKED AGAINST EVERYTHING THE WIKI 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-204 THE AUDIT OF CHOICES MATTER (M552): a double tap on a choice sends it once — one move, one page; a page he stopped mid-way is offered no choices', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const { st, H } = await choicesTale('two taps');
+  await db.stories.update(st.id, { choices: true });
+  env.window.__cozy.setActiveStoryId(st.id);
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  let asks = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (TURNING_SYS.test(String(sys || ''))) { asks += 1; return JSON.stringify(asks === 1 ? SEALED : { turning: false }); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}');
+  };
+  house.state.storyAnswer = () => H(50) + 'He walked to the gate.';
+  try {
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await env.ctx.chat.choicesChanged();
+    await until(() => qa('#choice-row .choice-btn').length === 3 && !q('#choice-row').hidden, 'the choices stand', 20000);
+    const from = house.state.calls.length;
+    const had = (await db.messages.list(st.id)).length;
+    const b = qa('#choice-row .choice-btn')[2];
+    click(b); click(b);
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant' && !m.hidden).length >= 4 && !env.ctx.chat.isBusy(), 'the page', 30000);
+    await until(() => queuedCount(st.id) === 0, 'readers', 40000);
+    await tick(300);
+    const after = await db.messages.list(st.id);
+    eq(after.filter((m) => m.choiceTaken).length, 1, 'one move');
+    eq(after.length - had, 2, 'one move and one page');
+    eq(house.state.calls.slice(from).filter((c) => !c.isWorker).length, 1, 'the storyteller asked once');
+    /* a page he stopped mid-way */
+    const asked = asks;
+    await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+    await db.messages.append(st.id, { role: 'assistant', text: H(51) + 'Kaelen began to', stopped: true });
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await env.ctx.chat.choicesChanged();
+    await tick(500);
+    eq(asks, asked, 'no turning point is read into half a page');
+    assert(q('#choice-row').hidden, 'nothing stands');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);
