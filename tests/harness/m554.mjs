@@ -27,7 +27,7 @@ test('M554-2 A SHEET WEIGHED UNDER THE OLD GUIDE IS WEIGHED AGAIN, ONCE — and 
   st.sheet = { playerName: 'Jovan Wessex', seedVersion: SEED_VERSION - 1, seededAtPage: 29, actors: {
     'Jovan Wessex': { default: 5, domains: { melee: 5, intellect: 8 }, _auto: true, seed: SEED_VERSION - 1 },
     'Ivar van Emreis': { default: 8, domains: { melee: 8, shadow: 8 }, _auto: true, seed: SEED_VERSION - 1 },
-    'Mira': { default: 6, domains: { craft: 9 }, hand: true },
+    'Mira': { default: 6, domains: { craft: 9 }, _hand: true },
   } };
   eq(seedDue(st, 30, {}), 'heal', 'weighed again once');
   const r = mergeSeed(st, { actors: [{ name: 'Jovan Wessex', default: 7, domains: { melee: 8, intellect: 8 } }, { name: 'Ivar van Emreis', default: 8, domains: { melee: 8 } }, { name: 'Mira', default: 2, domains: { craft: 1 } }] }, { heal: true });

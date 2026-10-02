@@ -14269,3 +14269,20 @@ sync; canon; the workers; the UI; prompt examples; repairs on open). Done in thi
    (seatAtScene) already held "outside X" as not at X. Someone written in before this is taken out by the auditor's next
    look (it is told the same, and that someone "here" the pages only show at a distance is an error).
 - Laws M554-1…3.
+
+# M555 — "Weigh them again changes nothing — Jovan is still 5"; "the headmaster is rated 4 — why can't the AI act as a smart GM?"
+- HIS HAND MEANT NO HAND. isHandKept (M345, Arbiter's port) held any entry WITHOUT the helper's mark as the writer's own —
+  in Arbiter he could set a rating in its panel. Cozy has no such panel: nothing anywhere sets a rating by hand. So an entry
+  an older build wrote (a sheet from before the mark, or a path that left it off) was frozen against every weighing, the
+  automatic ones and "Weigh them again" alike. Only an explicit mark (_hand) keeps a rating now.
+- "WEIGH THEM AGAIN" WEIGHS FRESH (mergeSeed byHand): his press sets what the weighing names, up or down; an art it left
+  unnamed this time keeps its number (his ice is not lost for being left off once). The house's own weighings (after a
+  fight, a new face, a while since) still only let a considered rating rise; a heal of an older seeder's sheet is still the
+  one whole replace (M475). Found while building it: the new option was first named `fresh`, the very name of the rating
+  inside the loop — every weighing replaced (down); the M345/M472 laws caught it.
+- THE SHARP GAME MASTER (SEED_SYSTEM): where the pages have not shown someone's measure, their place in the world sets it,
+  read as the world's own people would: where power decides rank, rank tells power — a headmaster of mages is a master mage
+  (8-9 in their art), never a clerk with a title; standing that rests on politics or money is rated in that; the pages move
+  them from there. SEED_VERSION 4: every sheet weighed again once.
+- NOTE FOR HIM: these reach his sheet after `cozytavern` — a press of "Weigh them again" before updating runs the old rules.
+- Laws M555-1…3 (and M554-2's hand mark is the explicit one).

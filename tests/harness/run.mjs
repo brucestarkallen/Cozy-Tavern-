@@ -216,6 +216,7 @@ import './m551.mjs'; /* M551: one check for what a helper wrote from memory */
 import './m552.mjs'; /* M552: the audit — the house's examples, the world keeper's memory of what was wrong */
 import './m553.mjs'; /* M553: the audit, part 2 — what is read back from storage passes through its shape */
 import './m554.mjs'; /* M554: the sheet by evidence; who is in the scene, one definition */
+import './m555.mjs'; /* M555: Weigh them again weighs fresh; the sharp game master; his hand means his hand */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

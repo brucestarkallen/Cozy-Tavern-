@@ -357,6 +357,8 @@ export const SEED_SYSTEM = [
   'You keep the cast sheet of a story: how capable each person is, 0-10, at the things that decide contests — and the lasting harm or gear that changes it.',
   RATING_GUIDE,
   'CALIBRATE TO THE STORY\'S OWN HIERARCHY: if the setting has ranks, tiers, classes or a pecking order (school rankings, tournament seeding, dueling classes, a military chain, a stated power scale), place each person WITHIN it — someone at or near the top belongs at 7-9 even when words like "student" or "young" make them sound junior. Read the ranking, not the job title — but what a person has DONE on the page outranks the rank they hold (M554). Where the brief states a person\'s level, the brief stands.',
+  /* M555: his report — the academy's headmaster rated 4 (earth 5): "why can't the AI imagine and act as a smart GM?" */
+  'RATE AS A SHARP GAME MASTER WOULD: where the pages have not yet shown someone\'s measure, their place in the world sets it, read the way the world\'s own people would read it. In a world where power decides rank, rank tells you power: the head of an academy of mages, a sect elder, a guild master, a captain, a famed hero or a living legend stands among the strongest of that world in what their place rests on — a headmaster of mages is a master mage (8-9 in their art), never a clerk with a title — while someone whose standing rests on politics or money alone is rated in that. What the pages then show moves them from there.',
   'Rate each person at their CURRENT level as of the newest page. If the story shows someone has trained, grown or unlocked new power since <sheet> was written, rate the new, higher level.',
   'Domains are lowercase single words — melee, ranged, stealth, social, athletics, intellect, willpower, pilot, craft; others only when the story clearly needs them. 2-4 per person is plenty.',
   'A POWER IS A DOMAIN OF ITS OWN: when the brief or the pages give a person a sorcery, a cursed technique, a summoning, a psychic art, a martial school, a signature weapon art — name it as its own domain (one word where you can: sorcery, summoning, cursed, psionics) and rate it as the story shows it, up to 10 for someone the brief calls the strongest of their world. NEVER fold a power into melee; a sorcerer with melee 4 and sorcery 10 is right, a sorcerer with melee 4 and no sorcery is wrong. The referee rolls a person\'s act in the domain it rests on, so a power left off the sheet is a power that does not exist in a fight.',
@@ -1295,7 +1297,7 @@ export async function refereeStep({ connection, userText, userId, history, state
 
 /* M345: the sheet's own stamp. 1 = the blind seeder (M11..M344) — a sheet it made is read again, whole, the next time
  * the seeder runs (the app repairs what it can detect). */
-export const SEED_VERSION = 3; /* M554: weighed again once under the guide that rates by evidence — a sheet made before rated the main character below what he showed */
+export const SEED_VERSION = 4; /* M554: weighed again once under the guide that rates by evidence; M555: and as a sharp game master reads a person's place in the world */
 export const SEED_EVERY = 100;        /* Arbiter's fallback timer: a long quiet stretch still refreshes growth */
 export const SEED_NEW_FACE_GAP = 3;   /* pages between re-seeds called by someone in the scene the sheet does not have */
 export const SEED_MAX_TOKENS = 8000;  /* a large cast needs room to answer (the old 600 cut a big sheet off mid-list) */
@@ -1303,7 +1305,11 @@ const SEED_MAX_ACTORS = 80;           /* runaway guard, never a size a real cast
 const PLAIN_SELF = /^(?:you|i|me|myself|player|the player|writer|the writer|narrator|the narrator|storyteller|the storyteller)$/i;
 
 const lower = (x) => String(x || '').trim().toLowerCase();
-const isHandKept = (e) => Boolean(e && (e._hand || (!e._auto && !e._estimated)));
+/* M555: KEPT BY HIS HAND MEANS HIS HAND. Arbiter (M345's port) let the writer set a rating in its own panel, and an entry
+ * with no helper's mark was his. Cozy has no such panel — nothing anywhere sets a rating by hand — so an entry without the
+ * mark was an older build's (a sheet from before the mark, or a path that left it off), and the old test froze it against
+ * every weighing: "Weigh them again" changed nothing, Jovan stayed 5. Only an explicit mark (_hand) keeps a rating now. */
+const isHandKept = (e) => Boolean(e && e._hand === true);
 
 /* why the sheet wants a seeding now — '' when it does not */
 /* M474: the brief's mark — the cast is weighed again when the brief or the cast notes change (a skill raised in the
@@ -1452,7 +1458,7 @@ function notAPerson(state, name) {
  *   - heal: a sheet the blind seeder made is re-read whole — its numbers replaced, its misfiled conditions let go, and
  *     its entries for people the ledger does not know dropped.
  * Returns {touched, mcMissing}. */
-export function mergeSeed(state, parsed, { heal = false } = {}) {
+export function mergeSeed(state, parsed, { heal = false, byHand = false } = {}) { /* M555: byHand — his "Weigh them again" */
   state.sheet = state.sheet && typeof state.sheet === 'object' ? state.sheet : { actors: {}, playerName: '' };
   if (!state.sheet.actors || typeof state.sheet.actors !== 'object') state.sheet.actors = {};
   const actors = state.sheet.actors;
@@ -1504,7 +1510,7 @@ export function mergeSeed(state, parsed, { heal = false } = {}) {
      * with no seed stamp) were REPLACED by a weighing and lost their domains (a summoning 9 gone, melee 4 in its
      * place). A replace is a heal's — and an ESTIMATE's: a guess made in a fight gives way to a considered rating,
      * up or down (M345-4), so an estimated foe is never held above what the story shows. */
-    if (existing && existing._auto && !existing._estimated && !heal) {
+    if (existing && existing._auto && !existing._estimated && !heal && !byHand) {
       /* growth: a considered rating of this seeder's only ever rises */
       if (fresh.default > (Number(existing.default) || 0)) existing.default = fresh.default;
       existing.domains = existing.domains && typeof existing.domains === 'object' ? existing.domains : {};
@@ -1516,7 +1522,10 @@ export function mergeSeed(state, parsed, { heal = false } = {}) {
       touched += 1;
       continue;
     }
-    const entry = { default: fresh.default, domains: fresh.domains, _auto: true, seed: SEED_VERSION };
+    /* M555: HIS "WEIGH THEM AGAIN" (byHand) sets what the weighing names, up or down, and an art it left unnamed this time keeps
+     * its number (never an estimate's) — his ice is not lost for being left off once; a heal is still the one whole replace */
+    const kept = byHand && !heal && existing && typeof existing === 'object' && !existing._estimated && existing.domains && typeof existing.domains === 'object' ? existing.domains : {}; /* a heal is the one whole replace (M475) */
+    const entry = { default: fresh.default, domains: { ...kept, ...fresh.domains }, _auto: true, seed: SEED_VERSION };
     const conds = [...otherHands, ...lasting].slice(-8);
     if (conds.length) entry.conditions = conds;
     if (existing && Number.isFinite(Number(existing.poise))) entry.poise = existing.poise;
@@ -1568,13 +1577,16 @@ export async function maybeSeedSheet({ connection, storyId, signal, callLLM, bri
     const fresh = await loadState(storyId);
     if (!fresh) return { ok: false };
     const heal = why === 'heal';
-    let result = mergeSeed(fresh, parsed, { heal });
+    /* M555: "Weigh them again" by hand weighs FRESH — the sheet takes what the weighing names, up or down (never a mark of his
+     * hand); the weighings the house runs by itself still only let a considered rating rise */
+    const freshByHand = force === true && !heal;
+    let result = mergeSeed(fresh, parsed, { heal, byHand: freshByHand });
     if (result.mcMissing) {
       /* the main character left out: asked once more, by name */
       if (typeof renew === 'function') renew(240000);
       user += '\n\nYou left out ' + mcName(fresh) + ' — the main character. Answer again with the whole sheet, ' + mcName(fresh) + ' first.';
       const again = await callReferee(connection, withFictionFrame(SEED_SYSTEM), user, signal, callLLM, SEED_MAX_TOKENS, (o) => Array.isArray(o.actors) || (o.actors && typeof o.actors === 'object'));
-      if (again) result = mergeSeed(fresh, again, { heal: false });
+      if (again) result = mergeSeed(fresh, again, { heal: false, byHand: freshByHand });
     }
     fresh.sheet.seedVersion = SEED_VERSION;
     fresh.sheet.seededAtPage = storyTurn(fresh);
