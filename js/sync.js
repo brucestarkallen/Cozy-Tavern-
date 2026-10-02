@@ -1,5 +1,6 @@
 import { dropCaches } from './store.js';
 import { notify as notifyState } from './engine/state.js'; /* M182: the ledger's panels wake on a live pull */
+import { queuedCount, workIsRunning } from './agents/queue.js'; /* M557: a tale its readers are still writing is never let go */
 /* M24 — the tavern keeps its own books.
  * When the little server answers (Termux / any `serve.py` run), every tale is
  * mirrored to a real file on the device (~/.cozytavern/books.json, rotated).
@@ -147,6 +148,26 @@ export async function initSync(ctx) {
    * runner keeps going while anything is dirty, so a mark made during a push
    * rides the same drain, and every caller awaits a promise that is only
    * done when the shelf is clean. */
+  /* M557: what did not land, how many times, and when it goes again */
+  const failedPushes = new Map(); /* id -> { tries, timer, told } */
+  const pushLater = { now: null }; /* the push, once it is defined below */
+  const pushAgainLater = (id, f) => {
+    const was = failedPushes.get(id) || { tries: 0, timer: null, told: false };
+    was.tries += 1;
+    clearTimeout(was.timer);
+    const wait = Math.min(600000, 20000 * Math.pow(2, Math.min(was.tries - 1, 5)));
+    was.timer = setTimeout(() => { dirty.add(id); if (pushLater.now) pushLater.now(); }, wait);
+    failedPushes.set(id, was);
+    if (was.tries >= 3 && !was.told && typeof ctx.toast === 'function') {
+      was.told = true;
+      const code = f && Number.isFinite(f.status) ? f.status : -1;
+      const what = id === '_house' ? 'Your settings and connections' : 'A tale you wrote in';
+      const reason = code === 413 ? 'it has grown past what the device takes in one piece'
+        : code === 0 ? 'the tavern on your phone is not answering (is Termux still running?)'
+          : 'the device would not take it' + (code > 0 ? ' (' + code + ')' : '');
+      ctx.toast(what + ' could not be saved to the device yet — ' + reason + '. It is safe in this browser, and the house keeps trying.');
+    }
+  };
   let holding = false; /* M510-47: while the device's restored copy is read in, nothing of this browser's is pushed */
   const pushNow = () => {
     if (holding) { dirty.clear(); return Promise.resolve(); }
@@ -159,7 +180,16 @@ export async function initSync(ctx) {
           dirty.clear();
           const began = Date.now();
           const r = await ask({ kind: 'push', ids, expect: 'pushed', mine: { _house: mineFor('_house') } }); /* M311: what this browser itself let go — everything else the device holds is kept */
-          for (const id of (r && Array.isArray(r.ids)) ? r.ids : []) pushedAt.set(id, began);
+          for (const id of (r && Array.isArray(r.ids)) ? r.ids : []) { pushedAt.set(id, began); const f = failedPushes.get(id); if (f) clearTimeout(f.timer); failedPushes.delete(id); }
+          /* M557: A PUSH THAT DID NOT LAND IS PUSHED AGAIN. The ids were taken off the dirty list before the push, and a book
+           * the device did not take (the server down — Termux reaped — a timeout, a refusal) was simply dropped: it went
+           * to the device only when that tale was written again, and the open tale and the house's own settings could sit
+           * in this browser alone. Now each one is tried again, later and later (20 s, doubling, at most ten minutes), and
+           * when one keeps not landing he is told once, in plain words, that it is safe here and not yet on the device. */
+          const landed = new Set((r && Array.isArray(r.ids)) ? r.ids : []);
+          const held = new Set([...((r && Array.isArray(r.waiting)) ? r.waiting : []), ...((r && Array.isArray(r.refused)) ? r.refused : []), ...((r && Array.isArray(r.gone)) ? r.gone : [])]); /* held back, taken from the device, or no longer here */
+          const why = new Map(((r && Array.isArray(r.failed)) ? r.failed : []).map((f) => [f.id, f]));
+          for (const id of ids) if (!landed.has(id) && !held.has(id)) pushAgainLater(id, why.get(id) || { status: r && r.kind === 'error' ? 0 : -1 });
           /* M430: a tale held back while it is still being made is not lost to the device: letting go of `building`
            * (its last write) sends it at once — the stories.update wrap below */
         }
@@ -167,6 +197,7 @@ export async function initSync(ctx) {
     })();
     return running;
   };
+  pushLater.now = pushNow;
   const schedule = () => { clearTimeout(timer); timer = setTimeout(pushNow, 20000); };
   const mark = (id) => { if (id) { dirty.add(id); schedule(); noteWroteHere(id); } };
   /* M181: PROSE GOES TO THE DEVICE AT ONCE. Every write waited on the same
@@ -457,7 +488,10 @@ export async function initSync(ctx) {
     if (!status.backed || busyNow() || dirty.size || running) return null; /* nothing being written, nothing waiting, no push in flight */
     const active = ctx.getActiveStoryId();
     const rows = await ctx.db.stories.list();
-    const next = rows.find((st) => st && !st.shallow && st.id !== active && !dirty.has(st.id) && !evictSkip.has(st.id));
+    /* M557 (the audit): never a tale whose readers are still at work. "Busy" was the storyteller alone — after he switched
+     * tales, the last one's readers went on writing its ledger, and a write landing between the device's proof and the
+     * letting-go was let go with it, never pushed */
+    const next = rows.find((st) => st && !st.shallow && st.id !== active && !dirty.has(st.id) && !evictSkip.has(st.id) && queuedCount(st.id) === 0 && !workIsRunning(st.id));
     if (!next) return null;
     const answer = await ask({ kind: 'evict', id: next.id, expect: 'evicted' });
     if (answer && answer.ok) { dropCaches(); if (ctx.chat && typeof ctx.chat.refreshStories === 'function') { try { await ctx.chat.refreshStories(true); } catch (err) { /* the shelf redraws on its next change */ } } return { id: next.id, ok: true, pages: answer.pages }; }

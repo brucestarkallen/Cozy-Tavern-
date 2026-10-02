@@ -14302,3 +14302,26 @@ stayed low, nudged a point at most. M555's fixes (fresh by hand, the GM rule) co
   first full walk failed it at its last step: the store held the new numbers (7, melee 8), but the drawer had remembered
   another room from an earlier scenario, and a panel of a room not open is drawn only when its room is — the test now
   opens the sheet's own room, the way he presses the button. 205/205.
+
+# M557 — the audit, part 3 (saving and sync): a push that did not land was never pushed again
+Read: serve.py's book writes (a held lock, the missing log pages folded in, a temp file fsync'd and replaced atomically, the
+old copy kept beside it), the worker's push and eviction, the page side's push queue.
+- FOUND (proven): pushNow takes the ids off the dirty list BEFORE the push, and a book the device did not take — the server
+  not answering (Termux reaped on a phone), a timeout, a refusal — was simply dropped. It reached the device only when that
+  tale was written again: the open tale (never let go, so never pushed by the eviction's safety net) and the house's own
+  settings could sit in this browser alone. tests/pushretry.py, a real browser: a tale pushed whole, the server stopped, a
+  page written, the server started again, NO further write — on m556 the page never reached the device (120 s); now it
+  lands by itself (18 s).
+  · sync-worker.js putBook says what the device answered (0 when it did not answer at all) and never throws — one book that
+    failed no longer stops the rest of the push; the push's answer names what did not land and why.
+  · sync.js pushAgainLater: each book that did not land goes again, later and later (20 s, doubling, at most ten minutes);
+    after three misses in a row he is told once, in plain words, that it is safe in this browser and not yet on the device
+    — the server not answering (is Termux still running?), the book grown past what the device takes in one piece, or a
+    refusal and its number. A book that lands clears its count.
+- FOUND (read, not provable by a test here): "busy" before letting a tale go from this browser (M313) was the storyteller
+  alone — after he switched tales, the last tale's readers went on writing its ledger, and a write that landed between the
+  device's proof and the letting-go was let go with it, never pushed. A tale with queued or running work is never let go now.
+- Not changed: the device server's writes (sound); the eviction's proof (every row and page compared with the device's).
+- Read again before the push: a tale no longer here (nothing to export) was counted as "did not land" and would have been
+  tried forever, with a false warning after three tries — the push now names it gone, and it is never tried again. The retry
+  helpers are defined before the push that uses them (lint back to 170 warnings, 0 errors).

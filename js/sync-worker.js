@@ -42,8 +42,12 @@ async function putBook(id, json, base) {
   /* M206: what this browser had already taken in, so the device can tell a
    * page the writer DELETED from one this browser has simply never seen. */
   if (base) headers['x-cozy-base'] = base;
-  const res = await fetch(api('api/books/one/' + encodeURIComponent(id)), { method: 'POST', headers, body: json, signal: AbortSignal.timeout(LEASH) });
-  return res.ok;
+  /* M557: what the device answered (0: it did not answer at all) — a push that did not land is pushed again, and the
+   * room is told why when it keeps not landing */
+  try {
+    const res = await fetch(api('api/books/one/' + encodeURIComponent(id)), { method: 'POST', headers, body: json, signal: AbortSignal.timeout(LEASH) });
+    return { ok: res.ok, status: res.status };
+  } catch (err) { return { ok: false, status: 0 }; }
 }
 const stampOf = (json) => (/"exportedAt"\s*:\s*"([^"]+)"/.exec(String(json).slice(0, 4096)) || [])[1] || '';
 const snapshotAtOf = (json) => (/"snapshotAt"\s*:\s*"([^"]*)"/.exec(String(json).slice(0, 4096)) || [])[1] || ''; /* M507 */
@@ -135,7 +139,7 @@ async function notePushing(id, stamp) {
   } catch (err) { /* bookkeeping only */ }
 }
 
-async function pushIds(ids, mine = {}, waiting = []) {
+async function pushIds(ids, mine = {}, waiting = [], failed = [], refusedOut = [], gone = []) {
   const done = [];
   const refused = [];
   for (const id of ids) {
@@ -144,15 +148,17 @@ async function pushIds(ids, mine = {}, waiting = []) {
      * `building` (sync.js stories.update) */
     if (id !== HOUSE) { const row = await db.stories.get(id); if (row && row.building && typeof row.building === 'object') { waiting.push(id); continue; } }
     let json = id === HOUSE ? await db.exportHouse() : await db.exportStory(id);
-    if (!json) continue;
+    if (!json) { gone.push(id); continue; } /* M557: a tale no longer here has nothing to push — never tried again */
     if (id === HOUSE) json = await houseForPush(json, (mine && mine[HOUSE]) || []);
     if (id !== HOUSE && await wouldEmptyTheBook(id, json)) { refused.push(id); continue; }
     const base = id === HOUSE ? '' : await db.settings.get('bookStamp:' + id);
     await notePushing(id, stampOf(json));
-    const landed = await putBook(id, json, base);
-    if (landed) { await db.settings.set('bookStamp:' + id, stampOf(json)); done.push(id); }
+    const put = await putBook(id, json, base);
+    const landed = put.ok;
+    if (landed) { await db.settings.set('bookStamp:' + id, stampOf(json)); done.push(id); } else failed.push({ id, status: put.status, bytes: json.length });
     await notePushing(id, null); /* settled either way: the stamp says so now, or the push did not land */
   }
+  refusedOut.push(...refused);
   if (refused.length) {
     /* the browser is the one that is wrong here — take the device's copy */
     for (const id of refused) { try { await db.settings.delete('bookStamp:' + id); } catch (err) { /* fine */ } }
@@ -222,9 +228,9 @@ self.onmessage = async (e) => {
   const reply = (m) => self.postMessage(rid === undefined ? m : { ...m, rid });
   try {
     if (msg.kind === 'push') {
-      const waiting = [];
-      const ids = await pushIds(Array.isArray(msg.ids) ? msg.ids : [], msg.mine || {}, waiting);
-      reply({ kind: 'pushed', ok: true, ids, waiting });
+      const waiting = []; const failed = []; const refused = []; const gone = [];
+      const ids = await pushIds(Array.isArray(msg.ids) ? msg.ids : [], msg.mine || {}, waiting, failed, refused, gone);
+      reply({ kind: 'pushed', ok: true, ids, waiting, failed, refused, gone }); /* M557: what did not land, and why */
       return;
     }
     if (msg.kind === 'pull') {
@@ -277,7 +283,7 @@ self.onmessage = async (e) => {
         if (!ok) {
           const whole = (async () => {
             const json = await db.exportStory(msg.id);
-            if (json && await putBook(msg.id, json)) await db.settings.set('bookStamp:' + msg.id, stampOf(json));
+            if (json && (await putBook(msg.id, json)).ok) await db.settings.set('bookStamp:' + msg.id, stampOf(json));
           })().finally(() => { if (wholeInFlight.get(msg.id) === whole) wholeInFlight.delete(msg.id); });
           wholeInFlight.set(msg.id, whole);
           await whole;
