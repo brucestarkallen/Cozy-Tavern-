@@ -47,7 +47,7 @@ import { db, shelvesOf } from '../store.js';
 import { createProvider } from '../providers/index.js';
 import { contextOf } from '../providers/room.js'; /* M285: one answer for the model's room */
 import { learnContext, learnContextWithin } from '../providers/detect.js'; /* M289: the provider's own word on its room */
-import { buildRequest, pageText, windowPlan, heatedNow, HYBRID_RECENT_CHARS } from '../assemble/stack.js'; /* M510-50: the newest lines' room */
+import { buildRequest, pageText, windowPlan, heatedNow, HYBRID_RECENT_CHARS, smallRecordWhole } from '../assemble/stack.js'; /* M510-50: the newest lines' room; M547: what a small storyteller reads whole */
 import { beginWork, waitVisibly, bannerKnowsTales } from './workbanner.js'; /* M203: what the house is doing; M510-42: whose */
 import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
@@ -1778,6 +1778,40 @@ export function initChat(ctx) {
     const picked = pickWorkerConnection({ map, legacy, connections: all }, worker);
     if (picked) { learnContext(picked).catch(() => {}); return picked; } /* M289 */
     return resolveConnection(story);
+  }
+
+  /* M547: THE SMART RECALL'S QUESTION (M510-50), asked for any storyteller — never throws; [] when it is off, when the
+   * essentials are not made or are made over more pages than the record now covers (M527: pages taken back), when the
+   * record is empty, or when the worker is slow, failing or unsure. Kept out of its index: the lines the request will
+   * carry word for word anyway — the newest of the record for a frontier storyteller (M510-50); for a small one, the
+   * lines since the essentials and the newest with the people here (assemble/stack.js smallRecordWhole). */
+  async function smartRecallFor({ story, history, userText, state, small = false }) {
+    try {
+      if ((await db.settings.get('smartRecall')) === false) return [];
+      const essentials = await loadEssentials(story.id);
+      if (!essentials || typeof essentials.text !== 'string' || !essentials.text.trim()) return [];
+      const mem = await loadMemory(story.id);
+      const nodes = mem && Array.isArray(mem.nodes) ? mem.nodes : [];
+      if (!nodes.length) return [];
+      if (Number.isFinite(essentials.upTo)) {
+        const covered = nodes.filter((n) => n && !n.empty && Array.isArray(n.span)).reduce((mx, n) => Math.max(mx, n.span[1] + 1), 0);
+        if (essentials.upTo >= covered) return [];
+      }
+      const pickConn = await resolveWorkerConnection(story, 'recall');
+      let skip;
+      if (small) {
+        const whole = smallRecordWhole(nodes, essentials, state);
+        skip = (n) => whole.has(n);
+      } else {
+        const byAge = [...nodes].filter((n) => n && typeof n.text === 'string' && Array.isArray(n.span)).sort((a, b) => b.span[0] - a.span[0]);
+        const newest = new Set(); let room = HYBRID_RECENT_CHARS;
+        for (const n of byAge) { room -= n.text.length + 3; if (room < 0) break; newest.add(n.id); }
+        skip = (n) => newest.has(n.id);
+      }
+      const lastA = [...(Array.isArray(history) ? history : [])].reverse().find((m) => m && m.role === 'assistant' && !m.hidden);
+      const out = await pickRecall({ connection: pickConn, essentials: essentials.text, nodes, move: userText, lastPage: lastA ? pageText(lastA) : '', mc: mcName(state), skip });
+      return Array.isArray(out && out.ids) ? out.ids : [];
+    } catch (err) { return []; }
   }
 
   /* Refresh the receipt affordance on a message already on the page, so
@@ -4422,6 +4456,11 @@ export function initChat(ctx) {
           return canonBeforeSend({ story, state, messages: history, connection: canonConnection, type: swipeTarget ? 'swipe' : 'normal' });
         })().catch(() => '')
         : null;
+      /* M547: THE SMART RECALL IS ASKED HERE, BESIDE THE REFEREE AND CANON — it reads only his move, the last page, the
+       * essentials and the record, none of which they change — and its answer is taken just before the request is built
+       * (below). Asked there, after them, its wait came on top of theirs; now it runs while they do. For every storyteller
+       * — a small one too (M547): its helper planned before his move, and his words alone matched the old lines. */
+      const recallPending = smartRecallFor({ story, history, userText, state, small: settingsValues.smallModelNow === true });
       /* M21: TRUE rollback — the boundary snapshot. Before the referee and
        * the worker chain commit anything for this turn, the state as it
        * stands is keyed by this turn's user-message id, so a later rewind
@@ -4686,20 +4725,10 @@ export function initChat(ctx) {
         const standingNow = visiblePages(history).length;
         smallPlansBook = { ...smallPlansBook, plans: smallPlansBook.plans.filter((p) => !(Number.isFinite(p.from) && p.from >= standingNow)).map((p) => (Number.isFinite(p.closedAt) && p.closedAt >= standingNow ? { ...p, status: 'standing', outcome: undefined, closedAt: undefined } : p)) };
       }
-      /* M510-50: SMART RECALL — a frontier storyteller with the essentials made, and the switch on: a worker names the older
-       * record lines his move means (they ride word for word); never more than 8 seconds; slower or unsure, none */
-      let recallPicked = [];
-      if (settingsValues.smallModelNow !== true && smallEssentials && smallEssentials.text && (await db.settings.get('smartRecall')) !== false && windowInfo && Array.isArray(windowInfo.nodes) && windowInfo.nodes.length) {
-        try {
-          const pickConn = await resolveWorkerConnection(story, 'recall');
-          const byAge = [...windowInfo.nodes].filter((n) => n && typeof n.text === 'string' && Array.isArray(n.span)).sort((a, b) => b.span[0] - a.span[0]);
-          const newest = new Set(); let room = HYBRID_RECENT_CHARS;
-          for (const n of byAge) { room -= n.text.length + 3; if (room < 0) break; newest.add(n.id); }
-          const lastA = [...history].reverse().find((m) => m && m.role === 'assistant' && !m.hidden);
-          const out = await pickRecall({ connection: pickConn, essentials: smallEssentials.text, nodes: windowInfo.nodes, move: userText, lastPage: lastA ? pageText(lastA) : '', mc: mcName(state), skip: (n) => newest.has(n.id) });
-          recallPicked = out.ids;
-        } catch (err) { recallPicked = []; }
-      }
+      /* M510-50: SMART RECALL — with the essentials made and the switch on, a worker names the older record lines his move
+       * means (they ride word for word); never more than 8 seconds; slower or unsure, none. M547: asked beside the referee
+       * (smartRecallFor, above) for every storyteller; its answer is taken here. */
+      const recallPicked = (await recallPending) || [];
       const probeReceipt = buildRequest({
         story, messages: history, settings: settingsValues, state, modules: selected, memory: '',
         cast: invitedCast, lore: loreText, loreFired, window: windowInfo, directive,

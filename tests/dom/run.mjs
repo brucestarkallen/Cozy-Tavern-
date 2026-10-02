@@ -8685,5 +8685,143 @@ test('DOM-181 EVERY ROW A TALE WRITES GOES WITH THE TALE (M525 — the deep audi
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+/* M547: the record a smart-recall scenario stands on — forty lines over pages 1–160, the essentials over 1–120 (so 31–40
+ * are "since then"); line 3 names no one in the scene, line 7 names Rukia (here), lines 30–39 are the newest */
+async function smartRecallTale(title, { here = 'Rukia', long = false } = {}) {
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const st = await db.stories.create({ title });
+  await db.stories.update(st.id, { keeper: false, extraction: false });
+  const nodes = [];
+  for (let i = 0; i < 40; i += 1) {
+    let text = 'Line ' + i + ': the drills went on and the bells rang over the courtyard, morning after morning.';
+    if (i === 3) text = 'Line 3: SMALL-LINE: Jovan told every captain that the old attendant of the manor raised him, and asked them to leave it there.';
+    if (i === 7) text = 'Line 7: RUKIA-LINE: ' + here + ' kept the division\'s ledger of debts and showed it to no one.';
+    if (i >= 30) text = 'Line ' + i + ': SINCE-LINE-' + i + ': the rematch was set for the first snow.';
+    if (long) text += ' ' + 'the bells rang again and the yard stood in its rows. '.repeat(40); /* a frontier storyteller reads the newest ~32,000 characters whole: long lines leave older ones for the picker */
+    nodes.push({ id: 'srs' + i, span: [i * 4, i * 4 + 3], level: 1, at: 1, text });
+  }
+  await db.settings.set('memory:' + st.id, { window: 30, nodes });
+  await db.settings.set('essentials:' + st.id, { text: '- [Day 1 · the Seireitei] (pages 1–120) Jovan arrives; serves the Tenth; trains; the rematch waits.', print: 'kept', upTo: 119, at: 1 });
+  const H = (n) => '[The Tenth Division courtyard — Monday, March 3, 2025 | 12:' + String(10 + n).padStart(2, '0') + ' | noon | haori | at the rail]\n\n';
+  for (let i = 0; i < 4; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'I wait, move ' + i + '.' });
+    await db.messages.append(st.id, { role: 'assistant', text: H(i) + here + ' kept her hand on the rail while the dust lifted in the noon wind, page ' + i + '.' });
+  }
+  const ledger = applyMutations({ ...emptyState(), page: 4 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the Tenth Division courtyard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: here }]).state;
+  await saveState(st.id, { ...ledger, page: 4, readTo: 4, tidiedGen: 999 });
+  return { st, H };
+}
+const PICK_SYS = /pick the older record lines of a long collaborative story/;
+const sysTextOf = (c) => (Array.isArray(c.body.messages) ? c.body.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n') : String(c.body.system || ''));
+const userTextOf = (c) => (Array.isArray(c.body.messages) ? c.body.messages.filter((m) => m.role === 'user').map((m) => String(m.content)).join('\n') : '');
+
+test('DOM-195 SMART RECALL FOR A SMALL STORYTELLER, THROUGH THE APP (M547 — his find: a site promising "infinite context, nothing missing" searches what you just typed by meaning; the small storyteller had only the words): the picker reads his move before the page and the older line it names rides whole in the small storyteller\'s closing words; the lines the small request already carries in full (since the essentials, and with the people here) are never offered to it; the receipt says so; switched off, it is never asked', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const { st, H } = await smartRecallTale('small recall tale');
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  const PLAN = { scene: 'Noon at the rail; the captains are listening.', people: [{ name: 'Rukia', now: 'at the rail', wants: 'him to answer plainly', against: '', voice: 'in clipped, formal sentences', pressed: 'goes quiet' }], unknown: [], pressing: [], earlier: [], laws: ['MC Agency'], intense: false, loud: false, sounds: [], leaveTo: 'what Jovan says', story: 'Jovan serves the Tenth.' };
+  let pickAsks = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (PICK_SYS.test(String(sys || ''))) { pickAsks += 1; const m = userTextOf({ body }).match(/(\d+)\. \(pages \d+–\d+\) Line 3: SMALL-LINE/); return '{"lines":[' + (m ? m[1] : '') + ']}'; }
+    if (/You prepare a storyteller for the next page/.test(String(sys || ''))) return JSON.stringify(PLAN);
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}');
+  };
+  house.state.storyAnswer = () => H(30) + 'Rukia did not look at him. "Captain. The bell."';
+  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0, 'readers', 40000); return house.state.calls.slice(from); };
+  const priorSwitch = await db.settings.get('smartRecall');
+  const activeId = await tellerConnectionId();
+  try {
+    await db.settings.delete('smartRecall');
+    await db.connections.update(activeId, { smallModel: true });
+    await env.ctx.chat.refreshQuickSwitch();
+    await send('I look at the bells.'); /* the helper plans after this page */
+    const asksBefore = pickAsks;
+    const calls = await send('Byakuya asks who my uncle is, in front of the whole division.');
+    eq(pickAsks - asksBefore, 1, 'the picker was asked once for this page');
+    const pickAt = calls.findIndex((c) => c.isWorker && PICK_SYS.test(sysTextOf(c)));
+    const tellAt = calls.findIndex((c) => !c.isWorker);
+    assert(pickAt !== -1 && tellAt !== -1 && pickAt < tellAt, 'asked before the page: pick ' + pickAt + ', storyteller ' + tellAt);
+    const index = userTextOf(calls[pickAt]);
+    assert(/Line 3: SMALL-LINE/.test(index), 'the older line is offered to it');
+    assert(!/SINCE-LINE/.test(index), 'never the lines since the essentials — the small storyteller reads them in full');
+    assert(!/RUKIA-LINE/.test(index), 'never a line with the people here — read in full while they are here');
+    const told = calls[tellAt];
+    const wire = JSON.stringify(told.body.messages);
+    assert(/What I have in mind for this page/.test(wire), 'the small storyteller\'s request (its plan)');
+    const closing = String(told.body.messages[told.body.messages.length - 1].content || '');
+    assert(/\(pages 13–16\) Line 3: SMALL-LINE: Jovan told every captain that the old attendant of the manor raised him, and asked them to leave it there\./.test(closing), 'the line it named rides whole, with its pages, in the closing words: ' + closing.slice(-500));
+    eq(wire.split('SMALL-LINE').length - 1, 1, 'said once in the whole request');
+    console.log('    DOM-195 the small storyteller read: ' + (closing.match(/And from our story so far[^\n]*/) || ['(no recall sentence)'])[0].slice(0, 400));
+    const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    const row = page.receipt && page.receipt.slots.find((x) => x.name === 'The plan for this page');
+    assert(row && /with 1 older line named by the smart recall for what your move means/.test(row.source), 'the receipt says so: ' + (row && row.source));
+    await db.settings.set('smartRecall', false);
+    const asks2 = pickAsks;
+    const calls2 = await send('I answer him plainly.');
+    eq(pickAsks, asks2, 'switched off: the picker is never asked');
+    assert(!JSON.stringify(calls2.find((c) => !c.isWorker).body.messages).includes('SMALL-LINE'), 'and nothing it would have named rides');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.connections.update(activeId, { smallModel: null });
+    await env.ctx.chat.refreshQuickSwitch();
+    if (priorSwitch == null) await db.settings.delete('smartRecall'); else await db.settings.set('smartRecall', priorSwitch);
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-196 THE SMART RECALL WAITS BESIDE THE REFEREE, NOT AFTER IT (M547): a fight move whose referee and picker each take 1.5 seconds reaches the storyteller in about 1.5 seconds, not 3 — the picker is asked while the referee is still out', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { st, H } = await smartRecallTale('the waiting fight', { here: 'Kaelen', long: true });
+  const ledger = await loadState(st.id);
+  ledger.sheet = { ...(ledger.sheet || {}), playerName: 'Jovan', actors: { Jovan: { default: 6, domains: { melee: 7 } }, Kaelen: { default: 5, domains: { melee: 6 } } } };
+  await saveState(st.id, ledger);
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const D = 1500;
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  const refSys = /You are the referee of a story|referee of a one-on-one duel/;
+  const at = { ref: [], pick: [] };
+  const later = (v) => new Promise((resolve) => setTimeout(() => resolve(v), D));
+  house.state.workerAnswer = (body, sys) => {
+    if (refSys.test(String(sys || ''))) { at.ref.push(Date.now()); return later(JSON.stringify({ check: true, actor: 'Jovan', action: 'feint low, then the disarm', kind: 'actor', domain: 'melee', opposition: 'Kaelen', tier: 'peer', circumstance: 0, stakes: 'his sword' })); }
+    if (PICK_SYS.test(String(sys || ''))) { at.pick.push(Date.now()); return later('{"lines":[]}'); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}');
+  };
+  house.state.storyAnswer = () => H(31) + 'Steel rang in the courtyard.';
+  const priorRef = await db.settings.get('refereeOn'); const priorSwitch = await db.settings.get('smartRecall');
+  try {
+    await db.settings.delete('refereeOn'); await db.settings.delete('smartRecall');
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+    const from = house.state.calls.length;
+    const t0 = Date.now();
+    type(q('#composer-input'), 'I try to disarm Kaelen with a feint low.'); submit(q('#composer'));
+    await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked', 30000);
+    const took = Date.now() - t0;
+    eq(at.ref.length, 1, 'the referee was asked');
+    eq(at.pick.length, 1, 'the picker was asked');
+    assert(at.pick[0] < at.ref[0] + D, 'the picker was asked while the referee was still out: ' + (at.pick[0] - at.ref[0]) + ' ms after it');
+    console.log('    DOM-196: referee and picker ' + D + ' ms each — the storyteller was asked after ' + took + ' ms');
+    assert(took < 2 * D, 'one wait, not two: ' + took + ' ms (two in a row would be ' + 2 * D + ' ms or more)');
+    await until(async () => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 30000);
+    await until(() => queuedCount(st.id) === 0, 'readers', 40000);
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    if (priorRef == null) await db.settings.delete('refereeOn'); else await db.settings.set('refereeOn', priorRef);
+    if (priorSwitch == null) await db.settings.delete('smartRecall'); else await db.settings.set('smartRecall', priorSwitch);
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

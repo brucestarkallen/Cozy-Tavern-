@@ -14050,3 +14050,38 @@ perfectly."
   1,728 ms. restore_zip failed once only while another test of mine held its port (8097 is six tests' default) — alone,
   green. No app change.
 
+# M547 — the small storyteller hears what his move means
+His find: arcquill.com ("AI Dungeon Master with no context limits… an AI that actually remembers") — investigate it, and
+apply it to the small mode, made better, without their code.
+- What it is, from their own engineering blog (two posts of 2026-04-05) and changelog: no growing chat log; every turn a
+  fresh context from five layers — game state, a relationship web filtered by what the character knows, a hidden DM plan,
+  journal and turn memories matched to the input by meaning (vector search), the entities the input names — turn memories
+  condensed after 20 turns, secret facts and knowledge depth, a validator after each turn. Their own recall benchmark
+  scores pass / soft-pass / fail: retrieval can miss, and "never misses" is not something that design promises.
+- Cozy already had each layer (the ledger and people pages; who knows what and the blind spots; the plans keeper and the
+  threads; the record and the essentials; the auditor and the second reader; the referee) but one, in the small mode: his
+  NEW move was matched to the older record by its words alone (M344's scoring). The smart recall (M510-50), which reads
+  the move for what it means, was asked for a frontier storyteller only, and the small model's helper plans before his
+  move.
+- Built: the smart recall for a small storyteller too. chat.js smartRecallFor asks it for every storyteller (the switch,
+  the essentials, M527's check — as before). For a small one, the lines it is not offered are the ones the small request
+  already carries in full — the lines since the essentials and the newest with the people here (stack.js smallRecordWhole,
+  read through the small branch's own doors; law M547-3 holds the two together). The small branch puts the named lines
+  beside the word-matched ones in the closing words ("And from our story so far, each from its own time — …"): whole,
+  with the detail kept beneath them, oldest first, never twice (a line the words found as a glimpse rides whole instead),
+  within SMALL_PICK_CHARS (6,000 characters; the first named line always). The receipt's "The plan for this page" says
+  how many it named. No picks: the small request byte for byte as before (M547-1).
+- And sooner, for every storyteller: the smart recall is asked beside the referee and canon (canon's own pattern since
+  M346) and its answer taken just before the build — it was asked after them, its wait on top of theirs. DOM-196: the
+  referee and the picker 1.5 s each, the storyteller asked after 1,610 ms; on m546-001 the picker was asked 1,526 ms after
+  the referee (about 3 s in all).
+- Laws M547-1…4 (the named line rides whole, once, with its detail and its pages; lines already riding, lines gone and no
+  picks change nothing; a glimpse becomes whole; the room; what is not offered is exactly the full lines; the frontier
+  untouched); walk DOM-195 (a small storyteller through the app: asked before the page, the since and with-the-people lines
+  never in its index, the line whole in the closing words, the receipt, off → never asked) and DOM-196 (the wait beside the
+  referee). Both walk scenarios fail on m546-001, and M547-1/2 fail with the merge taken out and M547-3 with the helper's
+  room changed (checked).
+- Gates: harness 1099/1099, walk 196/196, long play 9/9, lint 0 (170 warnings, as before); every tests/*.py green (27, one
+  at a time); the send (perf_send, CPU 6×): request out 1,369 ms, first token 1,665 ms (m546-001 on the same machine: 1,404
+  / 1,728); 144 of 144 requests byte for byte what m546-001 built (every frontier request, with and without picks, and
+  every small request with none — essentials or not, frame on or off, after-role system or user, three name pairs).

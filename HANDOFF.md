@@ -1,6 +1,13 @@
-# Cozy Tavern — handoff for the next session (state at m546-001)
+# Cozy Tavern — handoff for the next session (state at m547-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
+0000. M547 — THE SMART RECALL READS HIS MOVE FOR A SMALL STORYTELLER TOO, AND WAITS BESIDE THE REFEREE. chat.js smartRecallFor
+   is asked for every storyteller, started right after canon's question (beside the referee) and awaited just before the
+   build — never move it back after them (DOM-196 measures the overlap). For a small one it is not offered what the small
+   request carries in full (stack.js smallRecordWhole — the small branch's own doors; law M547-3 fails if they part); the
+   lines it names ride whole, with their detail, beside the word-matched ones in the closing words, within
+   SMALL_PICK_CHARS. No picks = the small request byte for byte as before. Why: his find, arcquill.com — its "no context
+   limits" is per-turn retrieval by meaning; Cozy had every one of its layers except this one, in the small mode.
 000. M512 — THE SMALL MODEL AT ITS BEST (his order: "make the smaller model the best — realistic, beautiful prose, natural,
    no old LLM repetition"; a mode that never touches the frontier request — proven byte-for-byte, 24 of 24 fixtures).
    A small page carries laws.js PROSE_LAWS (ten of his prose laws, his words) beside ALWAYS_LAWS (Real People, Real

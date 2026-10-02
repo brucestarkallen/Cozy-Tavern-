@@ -612,6 +612,29 @@ export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRE
   return { text: chosen.map(render).join('\n'), who, lines: chosen.length, nodes: chosen };
 }
 
+/* M547: WHAT THE SMALL STORYTELLER ALREADY READS OF THE RECORD WORD FOR WORD — the lines the smart recall need not name
+ * for it: the record's lines since the essentials, as many as their room holds ("In full, since then"), and the newest
+ * lines with the people here ("In full, earlier moments with the people here"). Read through the very doors the small
+ * branch goes through (newestLines, recordOfWhoIsHere, the same skip), so the two never part — law M547-2 holds them
+ * together. Nothing without the essentials: the smart recall is never asked then. */
+export const SMALL_PICK_CHARS = 6000; /* about 1,500 tokens: the lines the smart recall names, whole, for a small storyteller */
+export function smallRecordWhole(nodes, essentials, state) {
+  const out = new Set();
+  const text = essentials && typeof essentials.text === 'string' ? essentials.text.trim() : '';
+  if (!text) return out;
+  const upTo = Number.isFinite(essentials.upTo) ? essentials.upTo : -1;
+  const list = Array.isArray(nodes) ? nodes : [];
+  const since = list
+    .filter((n) => n && !n.empty && !n.correction && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span) && n.span[0] > upTo)
+    .sort((a, b) => a.span[0] - b.span[0]).map((n) => '- ' + recordLine(n)).join('\n');
+  const riding = since ? newestLines(since, SMALL_RECORD_CHARS) : null;
+  const rides = (n) => Boolean(riding && riding.text && riding.text.includes(n.text.trim()));
+  for (const n of list) if (n && typeof n.text === 'string' && n.text.trim() && rides(n)) out.add(n);
+  const present = recordOfWhoIsHere(list, state, { skip: (n) => n.span[0] > upTo || rides(n) });
+  for (const n of present.nodes) out.add(n);
+  return out;
+}
+
 /* M510-20: every part the house can send, in the order it rides — the receipt names each one every page */
 /* M510-55: in the order the request is sent now — the system's blocks, then the notes (canon, our story so far, the
  * plans, the people, the state of things, the rest), the pages, his move, the closing */
@@ -1087,6 +1110,7 @@ export function buildRequest({
   let recentRows = ''; let earlierRows = ''; let earlierCalled = 0; let smallSinceRows = ''; /* M511: each part's lines exactly as they ride — the receipt's words */
   let recalledNodes = []; /* M511: the older lines called back, as the record's own lines (each rendered as it rides) */
   let recallSmart = 0; /* M510-50 */
+  let recallSmartSmall = 0; /* M547: the lines it named that ride for a small storyteller */
   if (hybridB) {
     const lastUserH = [...(Array.isArray(messages) ? messages : [])].reverse().find((m) => m && m.role === 'user' && !m.hidden);
     const sceneH = [...recentPages, lastUserH ? String(lastUserH.text || '') : ''].filter(Boolean);
@@ -1516,7 +1540,33 @@ export function buildRequest({
       const lastUserB = [...(Array.isArray(messages) ? messages : [])].reverse().find((m) => m && m.role === 'user' && !m.hidden);
       const sceneNowB = [...recentPages, lastUserB ? String(lastUserB.text || '') : ''].filter(Boolean);
       const namesB = [...(Array.isArray(state && state.present) ? state.present.map((p) => (typeof p === 'string' ? p : p && p.name)) : []), mcNameOf(state)].filter(Boolean);
-      const recallB = recallLine(recallFromRecord(windowInfo && windowInfo.nodes, sceneNowB, { ignore: namesB }));
+      const byWordsB = recallFromRecord(windowInfo && windowInfo.nodes, sceneNowB, { ignore: namesB });
+      /* M547: AND WHAT HIS MOVE MEANS. The smart recall (M510-50) read his move for its meaning for a frontier storyteller
+       * only; a small one had the words alone ("uncle" never brought back a line that says "attendant"), and its helper
+       * planned before his move. Now the lines it names ride here too, whole, with the detail kept beneath them — never a
+       * line this request already carries in full (since the essentials, or with the people here); a line the words
+       * found as a glimpse rides whole instead, once; at most SMALL_PICK_CHARS (the first named line always). No picks:
+       * the very words as before. */
+      const allB = Array.isArray(windowInfo && windowInfo.nodes) ? windowInfo.nodes : [];
+      const ridingB = (n) => Boolean((smallRecord && smallRecord.text && smallRecord.text.includes(n.text.trim())) || (presentRecord && Array.isArray(presentRecord.nodes) && presentRecord.nodes.includes(n)));
+      const wholeB = (n) => n.text.replace(/\s+/g, ' ').trim() + (typeof n.detail === 'string' && n.detail.trim() ? ' — detail worth keeping: ' + n.detail.replace(/\s+/g, ' ').trim() : '');
+      const namedB = [];
+      let roomB = SMALL_PICK_CHARS;
+      for (const id of (Array.isArray(recallPicked) ? recallPicked : [])) {
+        const n = allB.find((x) => x && x.id === id);
+        if (!n || n.empty || n.correction || typeof n.text !== 'string' || !n.text.trim() || !Array.isArray(n.span) || ridingB(n) || namedB.includes(n)) continue;
+        const size = wholeB(n).length;
+        if (namedB.length && size > roomB) continue;
+        namedB.push(n);
+        roomB -= size;
+      }
+      recallSmartSmall = namedB.length;
+      const sameSpanB = (r, n) => r.from === n.span[0] + 1 && r.to === n.span[1] + 1;
+      const recalledB = [
+        ...byWordsB.filter((r) => !namedB.some((n) => sameSpanB(r, n))),
+        ...namedB.map((n) => ({ from: n.span[0] + 1, to: n.span[1] + 1, text: wholeB(n) })),
+      ].sort((a, b) => a.from - b.from);
+      const recallB = recallLine(recalledB);
       if (recallB) anchorLine += '\n' + recallB;
       /* M510-13: and the pages between the record's reach and the eight — neither whole nor folded for a small model. Called
        * back by HIS MESSAGE alone: the eight pages it already has would call back every paragraph that repeats the scene */
@@ -1575,7 +1625,7 @@ export function buildRequest({
   /* M510: the plan and the sounds wear receipt rows of their own, where they ride — just before his two */
   {
     const rows = [];
-    if (smallB && anchorLine) rows.push({ name: 'The plan for this page', tokens: estimateTokens(anchorLine), source: 'the planning helper read the whole story and wrote what this scene needs — small model', reason: '', text: anchorLine });
+    if (smallB && anchorLine) rows.push({ name: 'The plan for this page', tokens: estimateTokens(anchorLine), source: 'the planning helper read the whole story and wrote what this scene needs — small model' + (recallSmartSmall ? '; with ' + recallSmartSmall + (recallSmartSmall === 1 ? ' older line' : ' older lines') + ' named by the smart recall for what your move means, word for word' : ''), reason: '', text: anchorLine });
     if (soundsLine) rows.push({ name: 'The sounds', tokens: estimateTokens(soundsLine), source: 'your two sound laws, word for word, and the sounds of this scene — a fight, sex or a raw peak', reason: '', text: soundsLine });
     if (rows.length) {
       let at = slots.findIndex((s) => s.name === 'The frame, said again' || s.name === 'The note at the end');
