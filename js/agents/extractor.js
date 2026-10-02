@@ -34,6 +34,7 @@
  * The M3 names (noteExtraction / pendingExtraction) remain as aliases —
  * they were the published contract. */
 
+import { HERE_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
 import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, samePlace, seatAtScene } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
@@ -192,7 +193,7 @@ function systemPrompt({ mc, founding }) {
       'that line is the truth for place.set and clock.set (all five numbers are in it), and the attire',
       'and position are the main character\'s (presence.enter with them):',
       '  - place.set for the ground the scene stands on (a booth at McDonald\'s, a chapel, a train car — the place the prose puts them);',
-      '  - presence.enter for EVERY person the pages put in the scene, the main character included, with position/attire only if shown;',
+      '  - presence.enter for EVERY person the pages put in the scene (sharing his space — never someone only seen at a distance), the main character included, with position/attire only if shown;',
       '  - clock.set only if the pages fix a date and hour (never guess a date; if only the hour is known, leave the clock alone);',
       '  - mc.set if the main character is not yet known;',
       '  - mode.set for a mood the pages plainly show (socialField for a crowded public place, intimate, combat, travel, group);',
@@ -255,7 +256,7 @@ function systemPrompt({ mc, founding }) {
     '"here" names EVERYONE in the scene at the END of this page, by the names the ledger uses: the main',
     'character, everyone the page shows there, and everyone on the ledger\'s "Here now" line whom the page did',
     'not show leaving (quiet is not gone). Never someone only spoken of or remembered, heard on a phone or seen',
-    'on a screen, and never anyone in the window. Whoever you name here that the ledger has not written in is',
+    'on a screen, and never anyone in the window. ' + HERE_MEANS + ' Whoever you name here that the ledger has not written in is',
     'written in; nobody is taken out for being left off — a leaving is still presence.leave, shown on the page.',
     '',
     'The only mutations that exist:',

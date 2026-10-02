@@ -14248,3 +14248,24 @@ sync; canon; the workers; the UI; prompt examples; repairs on open). Done in thi
   was written; nothing that is a plan: null, and the page goes whole), and the plans book and the note say what is whole
   and leave the rest out.
 - Laws M553-1/2.
+
+# M554 — "why does the AI make my MC weak?"; "Claire on the street is on who's here"
+1. THE CAST SHEET (agents/referee.js SEED_SYSTEM; the referee rules from it). His sheet: Jovan Wessex 5 for anything not
+   listed, melee 5 — while the pages show him parrying the strongest student, Ivar van Emreis, 8 (melee 8, +1 for his
+   conduit). Read in the code: the guide said "doubt means lower" for everyone (the main character included) and "a named
+   rival… is a PEER of the player or stronger unless the story plainly shows otherwise", and its hierarchy rule closed on
+   "The brief outranks every page" — so the school's ranking and the brief's silence outweighed what he DID. Now: what a
+   person has done on the page is the strongest evidence (someone who holds their own against a fighter rated N is near N in
+   that domain, whatever their rank or age); the main character is rated by exactly the same evidence as anyone — never
+   lower for being his, never higher; a rival is his peer or stronger only until the pages show how they compare; the
+   brief stands where it states a level. SEED_VERSION 3: every sheet weighed under the old guide is weighed again, once
+   (his own hand never weighed over). The ruling then reads the fair numbers.
+2. WHO IS HERE (agents/herewords.js HERE_MEANS — one definition, handed to the page reader, the auditor and the world
+   beyond). The page reader was told "everyone the page shows there", the auditor "everyone on the latest page" — someone
+   the page only showed down the street, through a window, was written in as if she stood in the room. Here means sharing
+   his space: the same room or open spot, near enough to talk face to face, or face to face across an open door or window
+   (at his door, she is here); someone only seen at a distance — the street outside while he is indoors, across the road,
+   the next room, behind a closed door — is where she is, seated there, until one goes to the other. The code's own rule
+   (seatAtScene) already held "outside X" as not at X. Someone written in before this is taken out by the auditor's next
+   look (it is told the same, and that someone "here" the pages only show at a distance is an error).
+- Laws M554-1…3.

@@ -206,7 +206,13 @@ const TIER_LIST = 'trivial, easy, moderate, hard, extreme, mook, trained, elite,
 const RATING_GUIDE = [
   'Ratings are 0-10, by effective threat, for ANY kind of combatant — a person, a beast, a monster, a machine, an alien: 2 untrained, 4 trained, 5 a competent professional, 6 a veteran, 7 elite, 8 a master, 9 legendary, 10 apex.',
   'Rate a creature by how dangerous it is, not its species: a feral dog 3, a trained warhound 5, a dire beast 7, an ancient dragon or apex monster 9-10.',
-  'Ruthlessly honest: most ordinary people are 3-5 at most things, and doubt means lower — but a named rival, antagonist or boss the player faces in a serious fight is a PEER of the player or stronger unless the story plainly shows otherwise.',
+  /* M554: HIS REPORT — "why does the AI love to make my MC weak? he's a powerhouse — he parries the strongest student, and
+   * the sheet says melee 5 against the strongest's 8." The guide leaned one way: doubt meant lower for everyone (the main
+   * character included), while a rival was the player's peer or STRONGER by default — and the hierarchy rule below set
+   * the ranking and the brief over every page, so what he DID on the page counted least. Evidence decides now, the same
+   * for everyone. */
+  'Honest, by evidence: most ordinary people are 3-5 at most things. What a person has DONE on the page is the strongest evidence there is — someone who holds their own against a fighter rated N is near N in that domain, whatever their rank, title or age; a prodigy the story shows outclassing their peers is rated as what they showed.',
+  'The main character is rated by exactly the same evidence as everyone else: never lower for being the one the writer plays, never higher. A named rival or antagonist whose measure the pages have not shown yet is the main character\'s peer or stronger; once the pages show how they compare, the pages decide.',
 ].join(' ');
 
 const JSON_ONLY = 'Output one raw JSON object and nothing else. No prose, no markdown, no code fences.';
@@ -350,7 +356,7 @@ export const WAR_SYSTEM = [
 export const SEED_SYSTEM = [
   'You keep the cast sheet of a story: how capable each person is, 0-10, at the things that decide contests — and the lasting harm or gear that changes it.',
   RATING_GUIDE,
-  'CALIBRATE TO THE STORY\'S OWN HIERARCHY: if the setting has ranks, tiers, classes or a pecking order (school rankings, tournament seeding, dueling classes, a military chain, a stated power scale), place each person WITHIN it — someone at or near the top belongs at 7-9 even when words like "student" or "young" make them sound junior. Read the ranking, not the job title. The brief outranks every page.',
+  'CALIBRATE TO THE STORY\'S OWN HIERARCHY: if the setting has ranks, tiers, classes or a pecking order (school rankings, tournament seeding, dueling classes, a military chain, a stated power scale), place each person WITHIN it — someone at or near the top belongs at 7-9 even when words like "student" or "young" make them sound junior. Read the ranking, not the job title — but what a person has DONE on the page outranks the rank they hold (M554). Where the brief states a person\'s level, the brief stands.',
   'Rate each person at their CURRENT level as of the newest page. If the story shows someone has trained, grown or unlocked new power since <sheet> was written, rate the new, higher level.',
   'Domains are lowercase single words — melee, ranged, stealth, social, athletics, intellect, willpower, pilot, craft; others only when the story clearly needs them. 2-4 per person is plenty.',
   'A POWER IS A DOMAIN OF ITS OWN: when the brief or the pages give a person a sorcery, a cursed technique, a summoning, a psychic art, a martial school, a signature weapon art — name it as its own domain (one word where you can: sorcery, summoning, cursed, psionics) and rate it as the story shows it, up to 10 for someone the brief calls the strongest of their world. NEVER fold a power into melee; a sorcerer with melee 4 and sorcery 10 is right, a sorcerer with melee 4 and no sorcery is wrong. The referee rolls a person\'s act in the domain it rests on, so a power left off the sheet is a power that does not exist in a fight.',
@@ -1289,7 +1295,7 @@ export async function refereeStep({ connection, userText, userId, history, state
 
 /* M345: the sheet's own stamp. 1 = the blind seeder (M11..M344) — a sheet it made is read again, whole, the next time
  * the seeder runs (the app repairs what it can detect). */
-export const SEED_VERSION = 2;
+export const SEED_VERSION = 3; /* M554: weighed again once under the guide that rates by evidence — a sheet made before rated the main character below what he showed */
 export const SEED_EVERY = 100;        /* Arbiter's fallback timer: a long quiet stretch still refreshes growth */
 export const SEED_NEW_FACE_GAP = 3;   /* pages between re-seeds called by someone in the scene the sheet does not have */
 export const SEED_MAX_TOKENS = 8000;  /* a large cast needs room to answer (the old 600 cut a big sheet off mid-list) */

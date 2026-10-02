@@ -3760,7 +3760,7 @@ test('DOM-68 THE WRITER’S CAST SHEET AND THE REFEREE, IN THE APP: a sheet the 
     eq(Object.keys(sheet.actors)[0] === 'Jovan' || Boolean(sheet.actors.Jovan), true, 'Jovan is on his sheet');
     eq(sheet.actors.Jovan.default, 6, 'weighed');
     assert(!sheet.actors.Kaelen.conditions, 'Kaelen no longer wears Jovan’s bag: ' + JSON.stringify(sheet.actors.Kaelen));
-    eq(sheet.seedVersion, 2, 'stamped');
+    eq(sheet.seedVersion, (await import('../../js/agents/referee.js')).SEED_VERSION, 'stamped with the seeder\'s current version (M554: 3)');
     /* the drawer names him first, as "you" */
     /* OFF */
     await openSettings(); if (q('[data-room="story"]')) click(q('[data-room="story"]'));

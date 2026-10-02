@@ -19,6 +19,7 @@
  *     -> {applied, rejected, issues, note} | null
  */
 
+import { HERE_MEANS } from './herewords.js'; /* M554 */
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
 import { samePlace } from '../engine/apply.js'; /* M403 */
 import { seatForPerson } from '../engine/people.js'; /* M398 */
@@ -108,9 +109,9 @@ function law({ mc }) {
     '    page\'s own telling plainly stands somewhere else (a duel on a courtyard\'s sand under a header naming an',
     '    assembly hall) is an echo of a wrong ledger, not the page\'s word: set the ground to where the telling stands,',
     '    in the words the story used for that place.',
-    '  - WHO IS HERE: is everyone on the latest page in the ledger\'s presence, and is everyone marked',
+    '  - WHO IS HERE: is everyone the latest page puts IN THE SCENE in the ledger\'s presence, and is everyone marked',
     '    present actually still in the scene? Someone who left pages ago and is still "here" is an',
-    '    error; someone who arrived and is not listed is an error.',
+    '    error; someone who arrived and is not listed is an error; someone "here" whom the pages only show at a distance is an error (seat them where they are). ' + HERE_MEANS,
     '  - THE ABSENT: does each seat match where the pages last put that person? A person the pages',
     '    show in the scene still seated elsewhere is an error (presence.enter — it lets the note go). A named person the pages',
     '    or the brief establish who has no seat and no page is missing (people.set, offscreen.set).',

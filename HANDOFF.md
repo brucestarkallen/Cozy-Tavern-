@@ -1,4 +1,4 @@
-# Cozy Tavern — handoff for the next session (state at m553-001)
+# Cozy Tavern — handoff for the next session (state at m554-001)
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 00000. M548 — CHOICES MATTER (Settings → Choices matter, per story, OFF by default; agents/choices.js). Off must stay byte for byte

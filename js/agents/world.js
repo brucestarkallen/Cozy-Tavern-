@@ -42,6 +42,7 @@
  *     non-reasoning model does this well when the law is this explicit.
  */
 
+import { HERE_MEANS } from './herewords.js'; /* M554 */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { db } from '../store.js';
 import { callWorker } from './call.js';
@@ -154,6 +155,7 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     'their elsewhere note, and the house writes them in. Anyone the page shows IN the scene is in it, whatever the',
     'list below says — never seat them elsewhere; one the ledger has not written in at all, seat at the ground in',
     'its own words (the ledger\'s "The ground:" line), and the house writes them in.',
+    HERE_MEANS + ' So someone the page shows at a distance is seated where they are — the street outside, across the road, the next room.',
     'Nobody is seated where the scene itself is: someone at that place is in the scene, or on the way to it',
     '("toward", with an ETA). Another room of the same building is elsewhere — name that room. Only someone on',
     'their way has an arrival.',
