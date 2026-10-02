@@ -359,7 +359,7 @@ export const SEED_SYSTEM = [
   'CALIBRATE TO THE STORY\'S OWN HIERARCHY: if the setting has ranks, tiers, classes or a pecking order (school rankings, tournament seeding, dueling classes, a military chain, a stated power scale), place each person WITHIN it — someone at or near the top belongs at 7-9 even when words like "student" or "young" make them sound junior. Read the ranking, not the job title — but what a person has DONE on the page outranks the rank they hold (M554). Where the brief states a person\'s level, the brief stands.',
   /* M555: his report — the academy's headmaster rated 4 (earth 5): "why can't the AI imagine and act as a smart GM?" */
   'RATE AS A SHARP GAME MASTER WOULD: where the pages have not yet shown someone\'s measure, their place in the world sets it, read the way the world\'s own people would read it. In a world where power decides rank, rank tells you power: the head of an academy of mages, a sect elder, a guild master, a captain, a famed hero or a living legend stands among the strongest of that world in what their place rests on — a headmaster of mages is a master mage (8-9 in their art), never a clerk with a title — while someone whose standing rests on politics or money alone is rated in that. What the pages then show moves them from there.',
-  'Rate each person at their CURRENT level as of the newest page. If the story shows someone has trained, grown or unlocked new power since <sheet> was written, rate the new, higher level.',
+  'Rate each person at their CURRENT level as of the newest page. When <sheet> shows numbers, they are the last weighing: rate the new, higher level wherever the story shows someone has trained, grown or unlocked new power since. When <sheet> shows names only, weigh every one of them afresh from the brief and the story — what they were rated before is not yours to guess at.',
   'Domains are lowercase single words — melee, ranged, stealth, social, athletics, intellect, willpower, pilot, craft; others only when the story clearly needs them. 2-4 per person is plenty.',
   'A POWER IS A DOMAIN OF ITS OWN: when the brief or the pages give a person a sorcery, a cursed technique, a summoning, a psychic art, a martial school, a signature weapon art — name it as its own domain (one word where you can: sorcery, summoning, cursed, psionics) and rate it as the story shows it, up to 10 for someone the brief calls the strongest of their world. NEVER fold a power into melee; a sorcerer with melee 4 and sorcery 10 is right, a sorcerer with melee 4 and no sorcery is wrong. The referee rolls a person\'s act in the domain it rests on, so a power left off the sheet is a power that does not exist in a fight.',
   'ONE PERSON, ONE LINE, BY THE NAME THE STORY USES: a title, an epithet or a full formal name ("Eight-Handled Sword Divergent Sila Divine General Mahoraga") is the same person as the short name the pages use ("Mahoraga") — never a second entry.',
@@ -1297,7 +1297,7 @@ export async function refereeStep({ connection, userText, userId, history, state
 
 /* M345: the sheet's own stamp. 1 = the blind seeder (M11..M344) — a sheet it made is read again, whole, the next time
  * the seeder runs (the app repairs what it can detect). */
-export const SEED_VERSION = 4; /* M554: weighed again once under the guide that rates by evidence; M555: and as a sharp game master reads a person's place in the world */
+export const SEED_VERSION = 5; /* M556: weighed again once, blind to the old numbers */ /* M554: weighed again once under the guide that rates by evidence; M555: and as a sharp game master reads a person's place in the world */
 export const SEED_EVERY = 100;        /* Arbiter's fallback timer: a long quiet stretch still refreshes growth */
 export const SEED_NEW_FACE_GAP = 3;   /* pages between re-seeds called by someone in the scene the sheet does not have */
 export const SEED_MAX_TOKENS = 8000;  /* a large cast needs room to answer (the old 600 cut a big sheet off mid-list) */
@@ -1377,7 +1377,11 @@ export function seedPeople(state, brief = '', room = 60000) {
   return lines.join('\n');
 }
 
-function seedSheetBlock(state) {
+/* M556: HIS REPORT — "I chose a different model and everything is still the same". Every weighing was handed the last
+ * sheet's NUMBERS ("Jovan Wessex: default 5, melee 5…") and told to rate a rise only when the story shows growth — so any
+ * model copied them back (melee crept 5 → 6) and a rating that began low stayed low. A weighing he asks for, and the heal
+ * of an older sheet, now see only who is rated and what they carry — never a number — and weigh each one from the story. */
+function seedSheetBlock(state, { numbers = true } = {}) {
   const actors = (state.sheet && state.sheet.actors) || {};
   const mc = mcName(state);
   const keys = Object.keys(actors).sort((a, b) => (isMcAlias(state, b) ? 1 : 0) - (isMcAlias(state, a) ? 1 : 0));
@@ -1386,6 +1390,7 @@ function seedSheetBlock(state) {
     if (!a || typeof a !== 'object') return '';
     const doms = a.domains && typeof a.domains === 'object' ? Object.entries(a.domains).filter(([, v]) => Number.isFinite(v)).map(([d, v]) => d + ' ' + v) : [];
     const kept = Array.isArray(a.conditions) ? a.conditions.filter((c) => c && c.name).map((c) => c.name + ' ' + (c.mod >= 0 ? '+' : '') + c.mod + (c.domain ? ' ' + c.domain : '')) : [];
+    if (!numbers) return name + (isMcAlias(state, name) && mc !== 'the player' ? ' (the main character)' : '') + (kept.length ? ' | carries: ' + kept.join('; ') : '');
     return name + (isMcAlias(state, name) && mc !== 'the player' ? ' (the main character)' : '') + ': default ' + (Number.isFinite(a.default) ? a.default : '?')
       + (doms.length ? ', ' + doms.join(', ') : '') + (kept.length ? ' | carries: ' + kept.join('; ') : '') + (isHandKept(a) ? ' — kept by the writer’s hand' : '');
   }).filter(Boolean);
@@ -1393,7 +1398,7 @@ function seedSheetBlock(state) {
 }
 
 /* the seeder's whole reading, sized to the worker's room */
-export function buildSeedUser({ state, pages = [], brief = '', castNotes = '', record = '', room = 300000 } = {}) {
+export function buildSeedUser({ state, pages = [], brief = '', castNotes = '', record = '', room = 300000, blind = false } = {}) {
   const mc = mcName(state);
   const share = (part) => Math.max(4000, Math.floor(room * part));
   const player = mc === 'the player'
@@ -1418,7 +1423,7 @@ export function buildSeedUser({ state, pages = [], brief = '', castNotes = '', r
   const cut = (t, n) => { const s = String(t || ''); return s.length > n ? s.slice(s.length - n) : s; };
   return [
     '<player>\n' + player + '\n</player>',
-    '<sheet>\n' + seedSheetBlock(state) + '\n</sheet>',
+    '<sheet>\n' + seedSheetBlock(state, { numbers: !blind }) + '\n</sheet>',
     String(brief || '').trim() ? '<brief>\n' + writerText(brief, Math.min(BRIEF_ROOM, share(0.15)), 'brief') + '\n</brief>' : null,
     String(castNotes || '').trim() ? '<cast_notes>\n' + writerText(castNotes, Math.min(CAST_ROOM, share(0.08)), 'cast notes') + '\n</cast_notes>' : null,
     '<people>\n' + (seedPeople(state, String(brief || '') + '\n' + String(castNotes || ''), share(0.2)) || '(no pages written yet)') + '\n</people>',
@@ -1569,7 +1574,8 @@ export async function maybeSeedSheet({ connection, storyId, signal, callLLM, bri
     let record = '';
     try { record = recordFor(await loadMemory(storyId), 1, 120000); } catch (err) { record = ''; }
     const room = Math.max(40000, Math.min(400000, Math.floor(contextOf(connection) * 3 * 0.55)));
-    let user = buildSeedUser({ state, pages: messages.slice(-40), brief, castNotes, record, room });
+    const blind = why === 'heal' || force === true; /* M556: by hand, or healing an older sheet — weighed from the story, never from the old numbers */
+    let user = buildSeedUser({ state, pages: messages.slice(-40), brief, castNotes, record, room, blind });
     if (typeof renew === 'function') renew(240000);
     let parsed = await callReferee(connection, withFictionFrame(SEED_SYSTEM), user, signal, callLLM, SEED_MAX_TOKENS, (o) => Array.isArray(o.actors) || (o.actors && typeof o.actors === 'object'));
     if (!parsed) return { ok: false, why: 'no usable answer' };

@@ -14286,3 +14286,19 @@ sync; canon; the workers; the UI; prompt examples; repairs on open). Done in thi
   them from there. SEED_VERSION 4: every sheet weighed again once.
 - NOTE FOR HIM: these reach his sheet after `cozytavern` — a press of "Weigh them again" before updating runs the old rules.
 - Laws M555-1…3 (and M554-2's hand mark is the explicit one).
+
+# M556 — "are you pranking me? I chose a different model and everything is still the same"
+His sheet after M555: Jovan 5 for anything not listed, melee 6 (it was 5) — whatever model weighed it. The cause, in the
+code: every weighing was handed the last sheet's NUMBERS ("Jovan Wessex (the main character): default 5, melee 5, …") and
+told to rate a rise only where the story shows growth since. So every model copied them back — a number that began low
+stayed low, nudged a point at most. M555's fixes (fresh by hand, the GM rule) could not show through an anchor like that.
+- A weighing he asks for ("Weigh them again") and the heal of an older sheet are weighed BLIND to the old numbers:
+  <sheet> shows who is rated and what they carry, never a number, and the helper weighs each one from the brief and the
+  story (SEED_SYSTEM says what each kind of <sheet> means). The house's own weighings (after a fight, a new face) still see
+  the last sheet and only let a considered rating rise — the stability between his presses.
+- SEED_VERSION 5: every sheet is weighed once more, blind, on the next page after the update.
+- Law M556; walk DOM-205 — through the drawer, as he does it (the scene room open, his press): the helper is asked with no
+  old number in front of it, and the drawer shows the new numbers (it fails with the old numbers shown — checked). The
+  first full walk failed it at its last step: the store held the new numbers (7, melee 8), but the drawer had remembered
+  another room from an earlier scenario, and a panel of a room not open is drawn only when its room is — the test now
+  opens the sheet's own room, the way he presses the button. 205/205.

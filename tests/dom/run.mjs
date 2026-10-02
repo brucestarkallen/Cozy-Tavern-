@@ -9281,5 +9281,64 @@ test('DOM-204 THE AUDIT OF CHOICES MATTER (M552): a double tap on a choice sends
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-205 "WEIGH THEM AGAIN", THROUGH THE DRAWER (M556 — his report: "I chose a different model and everything is still the same"): the press asks the helper with no old number in front of it — only who is rated and what they carry — and the drawer shows the new numbers', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { SEED_VERSION } = await import('../../js/agents/referee.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'the weighing' });
+  await db.stories.update(st.id, { keeper: false, extraction: false });
+  await db.messages.append(st.id, { role: 'user', text: 'I parry Ivar.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[the academy yard — Monday | 09:00]\n\nJovan turned the strongest student\u2019s blade aside, twice.' });
+  const s = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan Wessex' }, { type: 'place.set', name: 'the academy yard' }, { type: 'presence.enter', name: 'Jovan Wessex' }, { type: 'presence.enter', name: 'Ivar van Emreis' }]).state;
+  s.sheet = { playerName: 'Jovan Wessex', seedVersion: SEED_VERSION, seededAtPage: 1, seenPresent: ['Jovan Wessex', 'Ivar van Emreis'], actors: {
+    'Jovan Wessex': { default: 5, domains: { melee: 6, ice: 7 }, _auto: true, seed: SEED_VERSION },
+    'Ivar van Emreis': { default: 8, domains: { melee: 8 }, _auto: true, seed: SEED_VERSION },
+  } };
+  await saveState(st.id, { ...s, page: 1, readTo: 1, tidiedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = house.state.workerAnswer;
+  let asked = '';
+  house.state.workerAnswer = (body, sys) => {
+    if (/You keep the cast sheet of a story/.test(String(sys || '')) && /Jovan Wessex/.test(JSON.stringify(body.messages || body))) { asked = JSON.stringify(body.messages || body); return JSON.stringify({ player_story_name: 'Jovan Wessex', actors: [{ name: 'Jovan Wessex', default: 7, domains: { melee: 8, ice: 8 } }, { name: 'Ivar van Emreis', default: 8, domains: { melee: 8 } }] }); }
+    return typeof prior === 'function' ? prior(body, sys) : (prior || '{"mutations":[]}');
+  };
+  try {
+    /* opened fresh for THIS tale — a drawer an earlier scenario left open still listens to that tale's ledger */
+    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away first'); }
+    click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer');
+    /* as he does: the room the sheet stands in, open — the drawer remembers the room an earlier scenario left open, and a
+     * panel of a room not open is drawn only when its room is (M105) */
+    await until(() => q('.drawer-rooms .nav-chip[data-room="scene"]'), 'the scene room');
+    click(q('.drawer-rooms .nav-chip[data-room="scene"]')); await tick(400);
+    const panel = () => qa('#drawer-panels .ledger-panel').find((x) => /How each of them measures|No one is weighed yet/.test(x.textContent));
+    await until(() => panel(), 'the cast sheet in the drawer', 10000);
+    assert(/Jovan Wessex \(you\) — 5 of 10/.test(panel().textContent), 'before: ' + panel().textContent.slice(0, 200));
+    const btn = [...panel().querySelectorAll('button')].find((b) => b.textContent === 'Weigh them again');
+    assert(btn, 'the button');
+    click(btn);
+    await until(() => asked, 'the helper asked', 20000);
+    const sheetShown = (asked.match(/<sheet>\\n([\s\S]*?)\\n<\/sheet>/) || [])[1] || '';
+    assert(/Jovan Wessex \(the main character\)/.test(sheetShown) && !/default 5|melee 6|melee 8/.test(sheetShown), 'no old number in front of it: ' + sheetShown);
+    await until(() => queuedCount(st.id) === 0, 'the weighing done', 30000);
+    try {
+      await until(() => panel() && /Jovan Wessex \(you\) — 7 of 10/.test(panel().textContent) && /melee 8/.test(panel().textContent), 'the drawer shows the new numbers', 20000);
+    } catch (err) {
+      const { loadState } = await import('../../js/engine/state.js');
+      const stored = ((await loadState(st.id)).sheet || {}).actors || {};
+      const p = panel();
+      throw new Error(err.message + ' | stored: ' + JSON.stringify(stored['Jovan Wessex']) + ' | active is this tale: ' + ((await storyId()) === st.id) + ' | drawer open: ' + !q('#drawer').hidden + ' | panel: ' + (p ? p.textContent.replace(/How each of them measures[^.]*\.[^.]*\.[^.]*\./, '').slice(0, 300) : 'none'));
+    }
+    click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away');
+  } finally {
+    house.state.workerAnswer = prior;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);
