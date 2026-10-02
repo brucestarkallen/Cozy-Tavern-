@@ -91,3 +91,75 @@ export async function placeInCanon({ connection, concept, brief = '', signal } =
   return start ? { start } : null;
 }
 
+
+/* M550: WHERE OUR STORY BEGAN, CHECKED AGAINST THE WIKI. The facts above are a model's memory of a canon, written once, never
+ * looked up — and they ride with every page. His Bleach tale, after the war: "Zaraki is the Captain-Commander". When canon
+ * verification has looked people up, those facts are checked against the wiki's own lines for them: a fact the wiki shows
+ * cannot be true at the story's moment is let go (silence — nothing is asserted in its place). The wiki tells the series as
+ * it ENDS, so a fact about an earlier moment that differs from the end is NOT wrong (seats change over a series). Never his
+ * own correction: his words stand as he wrote them. Checked again only when the facts or the wiki's lines change. */
+const fpOf = (t) => { let h = 5381; const x = String(t || ''); for (let i = 0; i < x.length; i += 1) h = ((h << 5) + h + x.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+export function startCheckPrint(start, wiki) {
+  const facts = start && Array.isArray(start.facts) ? start.facts : [];
+  return fpOf(facts.join('\n') + '\n--\n' + (Array.isArray(wiki) ? wiki : []).join('\n'));
+}
+const CHECK_SYSTEM = [
+  'You check the facts a helper wrote down from memory about the moment a story begins in its canon, against what the series\u2019 wiki says of the people in it.',
+  'The wiki\u2019s lines tell the series as it ENDS. Titles, seats and lives change over a series: a fact about an earlier moment can be true then and differ from the wiki\u2019s end — that is NOT wrong.',
+  'Mark a fact wrong only when the wiki\u2019s lines show it cannot be true at the story\u2019s moment: the moment is at or after the series\u2019 end (as the moment line says) and the wiki says otherwise — a title, a rank, a seat, who leads, who is alive or dead; or the fact gives someone a seat or a deed the wiki shows they never had at any point.',
+  'Never mark a fact wrong because the wiki does not mention it.',
+  'Answer with ONLY this JSON: {"wrong":[the numbers of the wrong facts]} — {"wrong":[]} when none is.',
+].join('\n');
+export function startCheckAsk({ start, wiki = [] } = {}) {
+  const facts = start && Array.isArray(start.facts) ? start.facts : [];
+  const user = [
+    'WHERE THE STORY BEGINS: ' + [start && start.series, start && start.arc, start && start.moment].filter(Boolean).join(' — '),
+    '',
+    'THE FACTS WRITTEN DOWN FOR THAT MOMENT:',
+    ...facts.map((f, i) => (i + 1) + '. ' + f),
+    '',
+    'WHAT THE SERIES\u2019 WIKI SAYS OF THE PEOPLE IN IT (the series as it ends):',
+    ...(Array.isArray(wiki) ? wiki : []).map((w) => '- ' + w),
+    '',
+    'Which facts are wrong? JSON only.',
+  ].join('\n');
+  return { system: CHECK_SYSTEM, user };
+}
+/* its answer, read strictly: numbers of facts that exist, each once — anything else is no answer (nothing changes) */
+export function readStartCheck(raw, count) {
+  let obj = raw;
+  if (typeof raw === 'string') {
+    const a = raw.indexOf('{'); const b = raw.lastIndexOf('}');
+    if (a === -1 || b <= a) return null;
+    try { obj = JSON.parse(raw.slice(a, b + 1)); } catch { return null; }
+  }
+  if (!obj || typeof obj !== 'object' || !Array.isArray(obj.wrong)) return null;
+  const wrong = [];
+  for (const n of obj.wrong) {
+    const k = Number(n);
+    if (!Number.isInteger(k) || k < 1 || k > count) continue;
+    if (!wrong.includes(k - 1)) wrong.push(k - 1);
+  }
+  return { wrong: wrong.sort((x, y) => x - y) };
+}
+/* the start without what the wiki shows wrong — his own words never touched */
+export function applyStartCheck(start, wrong, wiki) {
+  if (!start || typeof start !== 'object' || (typeof start.words === 'string' && start.words.trim())) return start;
+  const facts = Array.isArray(start.facts) ? start.facts : [];
+  const drop = new Set(Array.isArray(wrong) ? wrong : []);
+  const kept = facts.filter((_, i) => !drop.has(i));
+  const gone = facts.filter((_, i) => drop.has(i));
+  const next = { ...start, facts: kept, dropped: [...(Array.isArray(start.dropped) ? start.dropped : []), ...gone] };
+  next.checkedFp = startCheckPrint(next, wiki);
+  return next;
+}
+/* never throws: { wrong } or null when it could not be had (nothing changes; it is asked again later) */
+export async function checkCanonStart({ connection, start, wiki = [], signal, callLLM = callWorker } = {}) {
+  const facts = start && Array.isArray(start.facts) ? start.facts : [];
+  if (!connection || !facts.length || !Array.isArray(wiki) || !wiki.length) return null;
+  try {
+    const ask = startCheckAsk({ start, wiki });
+    const answer = await callLLM(connection, { system: withFictionFrame(ask.system), user: ask.user, maxTokens: 600, signal });
+    return readStartCheck(typeof answer === 'string' ? answer : (answer && answer.text) || '', facts.length);
+  } catch (err) { return null; }
+}

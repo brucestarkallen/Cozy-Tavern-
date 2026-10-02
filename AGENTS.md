@@ -14156,3 +14156,21 @@ His report: "the automatic brief says Zaraki is the Captain-Commander — after 
 - Laws M549-1/2; the M517/M528 laws' worlds are marked as written under the current rules (they test what a later look
   does, not the one-time rewrite). DOM-135 failed once while I ran laws beside the walk (contention); alone and in a clean
   full walk it passes.
+
+# M550 — where our story began, checked against the wiki
+His question after M549: "is it done or not?" — not yet: the note "where our story began in canon" (agents/canonstart.js,
+the founder's model, from its own memory, once) rides with every page and was never looked up; the same wrong seat could
+stand there. Now:
+- checkStartNext (chat.js; the page chain after the placing, before the world keeper; and on opening a tale): with canon
+  verification on and people looked up, the note's facts are checked against the wiki's lines (wikiLinesFor — one home, read
+  by the world keeper too) by the canon worker's model. A fact the wiki shows cannot be true at the story's moment is let go
+  (silence — nothing asserted in its place; kept aside as `dropped`, never said). The wiki tells the series as it ENDS: a
+  seat at an earlier moment that differs from the end is not wrong; a fact the wiki does not mention is never wrong. Never
+  his own correction. Asked again only when the facts or the wiki's lines change (checkedFp of what was kept).
+- Opening a tale asks only what is due to be REPAIRED (otherwise it still asks no one): the check above while unchecked,
+  and an automatic brief written under the old rules, written again once — so the very next page reads the seats right
+  (walk DOM-202; his own words never). DOM-179's world fixture is marked as written under the current rules (a branch of an
+  older world is written again once, which that scenario is not about).
+- Laws M550-1/2; walk DOM-201 (opening the tale: asked once with the facts and the wiki; the wrong fact let go, the note rides
+  without it; opening again asks nothing; his own words never asked about) — fails with the check on opening taken out
+  (checked).

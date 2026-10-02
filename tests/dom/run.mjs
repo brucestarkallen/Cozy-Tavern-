@@ -7503,7 +7503,7 @@ test('DOM-179 BRANCH AT THE START, AND EVERYTHING COMES ALONG (M523 — his ques
   const st = await db.stories.create({ title: 'the long road' });
   await db.stories.update(st.id, { brief: 'HIS-BRIEF: the hero and his party.', briefMode: 'automatic', keeper: false, extraction: false });
   await db.settings.set(CANON_START_KEY(st.id), { series: 'Jujutsu Kaisen', arc: 'Culling Game arc', moment: 'Kenjaku attacks the barrier', when: '', facts: ['START-FACT'] });
-  await db.settings.set(GROUND_KEY(st.id), { parts: { world: 'ORIGINAL-WORLD.', standing: 'LATER-STATE: the Culling Game ended when Kenjaku fell.' }, recordLines: 40, by: 'helper', at: Date.now() });
+  await db.settings.set(GROUND_KEY(st.id), { parts: { world: 'ORIGINAL-WORLD.', standing: 'LATER-STATE: the Culling Game ended when Kenjaku fell.' }, recordLines: 40, by: 'helper', at: Date.now(), rules: 2 /* M549: written under the current rules — an older world is written again once, which is not what this scenario is about */ });
   await setCanonOn(st.id, true);
   for (let i = 0; i < 4; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'I go on ' + i + '.' }); await db.messages.append(st.id, { role: 'assistant', text: '[The barrier — Monday | 2' + i + ':00]\n\nPage ' + i + '.' }); }
   env.window.__cozy.setActiveStoryId(st.id);
@@ -9095,6 +9095,102 @@ test('DOM-200 THE AUTOMATIC BRIEF IS HANDED THE WIKI FOR WHO HOLDS WHICH SEAT (M
   } finally {
     house.state.workerAnswer = prior;
     await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-201 WHERE OUR STORY BEGAN, CHECKED AGAINST THE WIKI, THROUGH THE APP (M550 — his tale after the war: the note said Zaraki is the Captain-Commander): opening the tale asks the check once with the facts and the wiki\'s lines; the fact it shows wrong is let go and the note rides without it; opening again asks nothing; a tale whose note he corrected himself is never asked', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { canonStartWords } = await import('../../js/agents/canonstart.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const CHECK_SYS = /check the facts a helper wrote down from memory/;
+  const tale = async (title, start) => {
+    const st = await db.stories.create({ title });
+    await db.stories.update(st.id, { keeper: false, extraction: false });
+    await db.messages.append(st.id, { role: 'user', text: '#story Bleach after the war — Jovan Oda joins the Seireitei.' });
+    await db.messages.append(st.id, { role: 'assistant', text: '[Seireitei — Monday | 09:00 | clear | haori | the 13th barracks]\n\nThe captains gathered.' });
+    await saveState(st.id, { ...applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: 'the 13th barracks' }, { type: 'presence.enter', name: 'Jovan Oda' }]).state, page: 1, readTo: 1, tidiedGen: 999 });
+    await db.settings.set('canonOn:' + st.id, true);
+    await db.settings.set('canonMeta:' + st.id, { canon_grounding_cache: {
+      'kenpachi zaraki': { found: true, name: 'Kenpachi Zaraki', dossier: { name: 'Kenpachi Zaraki', identity: 'the captain of the 11th Division of the Gotei 13' } },
+      'shunsui kyoraku': { found: true, name: 'Shunsui Kyōraku', dossier: { name: 'Shunsui Kyōraku', identity: 'the Captain-Commander of the Gotei 13 and captain of the 1st Division' } },
+    }, cozy_lens: {} });
+    await db.settings.set('canonStart:' + st.id, start);
+    return st;
+  };
+  const START = { series: 'Bleach', arc: 'after the Thousand-Year Blood War', moment: 'ten years after the war', facts: ['Ichigo has a son, Kazui.', 'Kenpachi Zaraki is the Captain-Commander of the Gotei 13.', 'Renji leads the 6th Division.'], conceptFp: 'x', at: 1 };
+  const prior = house.state.workerAnswer;
+  let asks = 0; let read = '';
+  house.state.workerAnswer = (body, sys) => {
+    if (CHECK_SYS.test(String(sys || ''))) { asks += 1; read = JSON.stringify(body.messages || body); return '{"wrong":[2]}'; }
+    return typeof prior === 'function' ? prior(body, sys) : (prior || '{"mutations":[]}');
+  };
+  const ids = [];
+  const open = async (st) => { env.window.__cozy.setActiveStoryId(st.id); await env.window.__cozy.chat.renderThread({ structural: true, opening: true }); env.ctx.chat.planAhead(); await tick(300); await until(() => queuedCount(st.id) === 0 && !env.ctx.chat.isBusy(), 'the house at rest', 30000); };
+  try {
+    const st = await tale('after the war', START); ids.push(st.id);
+    await open(st);
+    eq(asks, 1, 'the check was asked once, on opening');
+    assert(read.includes('2. Kenpachi Zaraki is the Captain-Commander of the Gotei 13.') && read.includes('Shunsui Kyōraku — the Captain-Commander of the Gotei 13'), 'with the facts and the wiki\'s lines');
+    const kept = await db.settings.get('canonStart:' + st.id);
+    eq(kept.facts.join(' | '), 'Ichigo has a son, Kazui. | Renji leads the 6th Division.', 'the wrong fact let go');
+    const note = canonStartWords(kept);
+    assert(!/Zaraki/.test(note) && /Where our story began in Bleach/.test(note), 'the note that rides with every page, without it: ' + note);
+    await open(st);
+    eq(asks, 1, 'opening again asks nothing — checked as it stands');
+    const mine = await tale('his own words', { ...START, words: 'Where our story began: my own words — Zaraki leads, in this telling.' }); ids.push(mine.id);
+    await open(mine);
+    eq(asks, 1, 'his own correction is never asked about');
+    eq((await db.settings.get('canonStart:' + mine.id)).words, 'Where our story began: my own words — Zaraki leads, in this telling.', 'and stands as he wrote it');
+  } finally {
+    house.state.workerAnswer = prior;
+    for (const id of ids) await db.stories.remove(id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-202 AN AUTOMATIC BRIEF WRITTEN UNDER THE OLD RULES IS WRITTEN AGAIN ON OPENING, ONCE (M550 — so the very next page reads the seats right): opening asks the world keeper once and the world is kept under the new rules; opening again asks nothing; a world in his own words is never asked about', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { GROUND_KEY, GROUND_RULES } = await import('../../js/agents/worldground.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const tale = async (title, ground) => {
+    const st = await db.stories.create({ title });
+    await db.stories.update(st.id, { keeper: false, extraction: false, briefMode: 'automatic', brief: 'Bleach, after the war.' });
+    await db.messages.append(st.id, { role: 'user', text: 'I walk in.' });
+    await db.messages.append(st.id, { role: 'assistant', text: '[Seireitei — Monday | 09:00 | clear | haori | the gate]\n\nThe gate stood open.' });
+    await saveState(st.id, { ...applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the gate' }, { type: 'presence.enter', name: 'Jovan' }]).state, page: 1, readTo: 1, tidiedGen: 999 });
+    await db.settings.set(GROUND_KEY(st.id), ground);
+    return st;
+  };
+  const prior = house.state.workerAnswer;
+  let asks = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (/You keep the world of a story/.test(String(sys || ''))) { asks += 1; return '{"world":"Soul Society after the war.","where":"","powers":"","factions":"The Gotei 13.","places":"","standing":""}'; }
+    return typeof prior === 'function' ? prior(body, sys) : (prior || '{"mutations":[]}');
+  };
+  const ids = [];
+  const open = async (st) => { env.window.__cozy.setActiveStoryId(st.id); await env.window.__cozy.chat.renderThread({ structural: true, opening: true }); env.ctx.chat.planAhead(); await tick(300); await until(() => queuedCount(st.id) === 0 && !env.ctx.chat.isBusy(), 'the house at rest', 30000); };
+  try {
+    const old = await tale('an older world', { parts: { factions: 'Zaraki leads the Gotei 13 as Captain-Commander.' }, recordLines: 0, by: 'helper', at: 1 }); ids.push(old.id);
+    await open(old);
+    eq(asks, 1, 'opening asked the world keeper once');
+    const now = await db.settings.get(GROUND_KEY(old.id));
+    assert(now.rules === GROUND_RULES && !/Zaraki/.test(JSON.stringify(now.parts)), 'written again under the new rules: ' + JSON.stringify(now));
+    await open(old);
+    eq(asks, 1, 'opening again asks nothing');
+    const his = await tale('his own world', { parts: { factions: 'Zaraki leads, in my telling.' }, recordLines: 0, by: 'writer', at: 1 }); ids.push(his.id);
+    await open(his);
+    eq(asks, 1, 'his own words are never asked about');
+    eq((await db.settings.get(GROUND_KEY(his.id))).parts.factions, 'Zaraki leads, in my telling.', 'and stand as he wrote them');
+  } finally {
+    house.state.workerAnswer = prior;
+    for (const id of ids) await db.stories.remove(id).catch(() => {});
     await env.ctx.chat.refreshStories(true).catch(() => {});
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));

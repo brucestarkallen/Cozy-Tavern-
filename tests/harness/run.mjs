@@ -211,6 +211,7 @@ import './m546.mjs'; /* M546: the header gate reads short names */
 import './m547.mjs'; /* M547: the smart recall for a small storyteller too */
 import './m548.mjs'; /* M548: Choices matter */
 import './m549.mjs'; /* M549: the automatic brief's seats from the wiki; the choices keeper's own model */
+import './m550.mjs'; /* M550: where our story began, checked against the wiki */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

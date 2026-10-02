@@ -89,10 +89,10 @@ import { choicesOn, choiceAsk, makeChoices, offerOf, offerPatch, openOffer, take
 import { runPlans, loadPlansBook, pageRewritten } from '../agents/plans.js'; /* M510-22: the plans, kept whole until carried out; M528: a rewritten page read again */
 import { lastPagesOf, SMALL_PAGES } from '../assemble/stack.js'; /* M510 */
 import { voiceSampleOf, pageTexture, tooLoud as tooLoudNow } from '../assemble/smallprose.js'; /* M512: how the story sounds at its best, for a small storyteller; M519: the brake on sounds and dashes */
-import { CANON_START_KEY, placeInCanon, canonStartWords } from '../agents/canonstart.js'; /* M516: where our story began in its canon */
+import { CANON_START_KEY, placeInCanon, canonStartWords, checkCanonStart, applyStartCheck, startCheckPrint } from '../agents/canonstart.js'; /* M516: where our story began in its canon; M550: checked against the wiki */
 import { GROUND_KEY, runGround, groundWords, canonWithoutWorld } from '../agents/worldground.js'; /* M517: the automatic brief — the world, written once */
 import { canonBlocks, lastingLines } from '../assemble/canonpages.js'; /* M518: canon on their own page */
-const SIDE_JOBS = new Set(['keeper', 'sensors', 'essentials', 'placer', 'ground', 'plans']); /* M529: the helpers that may run beside the ledger's readers */
+const SIDE_JOBS = new Set(['keeper', 'sensors', 'essentials', 'placer', 'startcheck', 'ground', 'plans']); /* M529: the helpers that may run beside the ledger's readers */
 import { renderStateFacts as planFacts, stateView as planStateView } from '../engine/state.js'; /* M510: what the helper reads */
 import { renderPeopleTiers as planPeople, peopleView as planPeopleView, findPersonKey } from '../engine/people.js'; /* M510; M518: a canon block's person in the ledger */
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
@@ -2792,24 +2792,7 @@ export function initChat(ctx) {
     const startWords = canonStartWords(await db.settings.get(CANON_START_KEY(story.id)));
     let arc = null;
     try { if (await canonOn(story.id)) { const meta = await canonMeta(story.id); const a = meta && meta.canon_grounding_arc; if (a && typeof a === 'object' && a.summary) arc = { title: String(a.title || ''), summary: String(a.summary || '') }; } } catch (err) { arc = null; }
-    /* M549: WHO HOLDS WHICH SEAT, FROM THE WIKI. The world keeper wrote canon titles from its own memory (Zaraki as
-     * Captain-Commander after the war); it is handed the series' wiki lines instead — each canon person canon verification
-     * looked up, their identity as the wiki has it, seen through his story's lens (a seat his premise changed is not said) */
-    let wiki = [];
-    try {
-      if (await canonOn(story.id)) {
-        const meta = await canonMeta(story.id);
-        const cache = meta && meta.canon_grounding_cache && typeof meta.canon_grounding_cache === 'object' ? meta.canon_grounding_cache : {};
-        for (const [k, entry] of Object.entries(cache)) {
-          if (!entry || !entry.found || !entry.dossier) continue;
-          const seen = throughLens(entry, overlayFor(meta, entry));
-          const who = String((entry.dossier && entry.dossier.name) || entry.name || k).trim();
-          const id = String((seen.dossier && seen.dossier.identity) || '').replace(/\s+/g, ' ').trim();
-          if (who && id) wiki.push(who + ' — ' + id);
-        }
-        wiki = wiki.sort().slice(0, 40);
-      }
-    } catch (err) { wiki = []; }
+    const wiki = await wikiLinesFor(story.id); /* M549: who holds which seat, from the wiki — never the keeper's memory */
     const ess = await loadEssentials(story.id);
     const covered = nodes.length ? Math.max(...nodes.map((n) => n.span[1])) + 1 : 0; /* pages folded into the record — they only grow */
     const since = have && Number.isFinite(have.recordLines) ? nodes.filter((n) => n.span[1] >= have.recordLines) : nodes.slice(-12);
@@ -2840,6 +2823,45 @@ export function initChat(ctx) {
   /* M527: the placing of a tale already under way — the same rules as the send path's (M516/M526): its #story line, else
    * (a SillyTavern chat brought in, a tale begun before #story) its brief and its first page; once, again when that line
    * changed, a failed ask again after six hours; never over his own correction; its own clock left alone (no canon date) */
+  /* M549/M550: THE WIKI'S LINES — each canon person canon verification looked up, their identity as the wiki has it (the
+   * series as it ends), seen through his story's lens (a seat his premise changed is not said); none with canon off. One
+   * home, read by the world keeper (the automatic brief) and by the check of where the story began. */
+  async function wikiLinesFor(storyId) {
+    try {
+      if (!(await canonOn(storyId))) return [];
+      const meta = await canonMeta(storyId);
+      const cache = meta && meta.canon_grounding_cache && typeof meta.canon_grounding_cache === 'object' ? meta.canon_grounding_cache : {};
+      const lines = [];
+      for (const [k, entry] of Object.entries(cache)) {
+        if (!entry || !entry.found || !entry.dossier) continue;
+        const seen = throughLens(entry, overlayFor(meta, entry));
+        const who = String((entry.dossier && entry.dossier.name) || entry.name || k).trim();
+        const id = String((seen.dossier && seen.dossier.identity) || '').replace(/\s+/g, ' ').trim();
+        if (who && id) lines.push(who + ' — ' + id);
+      }
+      return lines.sort().slice(0, 40);
+    } catch (err) { return []; }
+  }
+  /* M550: WHERE THE STORY BEGAN, CHECKED AGAINST THE WIKI (agents/canonstart.js) — a fact the wiki shows cannot be true at the
+   * story's moment is let go; never his own correction; asked only when the facts or the wiki's lines changed since */
+  async function checkStartNext(story, { signal, stale = () => false } = {}) {
+    const key = CANON_START_KEY(story.id);
+    const start = await db.settings.get(key);
+    if (!start || (typeof start.words === 'string' && start.words.trim()) || !start.series || !Array.isArray(start.facts) || !start.facts.length) return { silent: true };
+    const wiki = await wikiLinesFor(story.id);
+    if (!wiki.length) return { silent: true };
+    const print = startCheckPrint(start, wiki);
+    if (start.checkedFp === print || stale()) return { silent: true };
+    const fresh = (await db.stories.get(story.id)) || story;
+    const connection = await resolveWorkerConnection(fresh, 'canon');
+    if (!connection) return { silent: true };
+    const out = await checkCanonStart({ connection, start, wiki, signal });
+    if (stale() || !out) return { silent: true }; /* no answer: asked again later */
+    const now = await db.settings.get(key);
+    if (!now || (typeof now.words === 'string' && now.words.trim()) || startCheckPrint(now, wiki) !== print) return { silent: true }; /* changed meanwhile */
+    await db.settings.set(key, applyStartCheck(now, out.wrong, wiki));
+    return out.wrong.length ? { detail: 'checked where the story began against the wiki — let go of ' + out.wrong.length + (out.wrong.length === 1 ? ' line' : ' lines') + ' it shows cannot be true' } : { silent: true };
+  }
   async function placeNext(story, { signal, stale = () => false } = {}) {
     const fresh = (await db.stories.get(story.id)) || story;
     const key = CANON_START_KEY(story.id);
@@ -2917,6 +2939,16 @@ export function initChat(ctx) {
       const kept = enqueueWork(story.id, { name: 'essentials', run: async ({ signal, stale }) => essentialsNext(story, { signal, stale }) }); /* M510-15 */
       noteWork(story.id, kept);
       offerChoices(story); /* M548: a page that has none yet, with the switch on */
+      /* M550: on open, only what is due to be REPAIRED — opening a tale to look at it otherwise asks no one: where it began,
+       * checked against the wiki (asks only while unchecked); and an automatic brief written under the old rules (when a seat
+       * could come from the keeper's memory) written again, once — so the very next page already reads them right */
+      const checked = enqueueWork(story.id, { name: 'startcheck', run: async ({ signal, stale }) => checkStartNext(story, { signal, stale }) });
+      noteWork(story.id, checked);
+      const world = story.briefMode === 'automatic' ? await db.settings.get(GROUND_KEY(story.id)) : null;
+      if (world && world.parts && world.by !== 'writer' && world.rules !== GROUND_RULES) {
+        const ground = enqueueWork(story.id, { name: 'ground', run: async ({ signal, stale }) => groundNext(story, { signal, stale }) });
+        noteWork(story.id, ground);
+      }
       /* the plans keeper reads each page after it is written (the page chain, every storyteller); asked on open only for a
        * small model, whose helper plans before the first send — opening a story to look at it asks no one else anything */
       if (small) {
@@ -4014,6 +4046,11 @@ export function initChat(ctx) {
       if (stale()) return { silent: true };
       return placeNext(story, { signal, stale });
     }); /* before the world keeper: the world is written from the newest start */
+    /* 9b2. M550: where it began, checked against the wiki's lines — before the world keeper reads it */
+    enqueue('startcheck', async ({ signal, stale }) => {
+      if (stale()) return { silent: true };
+      return checkStartNext(story, { signal, stale });
+    });
     /* 9c. M517: THE WORLD KEEPER — after the essentials, for a story whose brief is Automatic: the world, only if it moved */
     enqueue('ground', async ({ signal, stale }) => {
       if (stale()) return { silent: true };
