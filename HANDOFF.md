@@ -392,6 +392,7 @@ Full history of every law and fix: AGENTS.md (M1 … M385). (There is no SPEC.md
 founding design lives in AGENTS.md's first entries.)
 
 ## Run the tests before any commit (all three; all must be green)
+- The real-browser tests share default ports (8097 is six tests') — run them ONE AT A TIME, or give each COZY_TEST_PORT.
 - `node tests/harness/run.mjs` — 893 checks on the engines, assembler, workers, laws (run it detached: it takes longer than one 300 s tool call).
 - `bash tests/audit_lint.sh --quiet` — the lint audit (0 errors at M274; warnings reviewed there).
 - `python3 tests/paint_coats.py` — every coat on a seeded ledger, every text surface held to AA (M465); run it for any change to a coat, to css/ledger.css or to the drawer's markup.
@@ -1698,4 +1699,7 @@ founding design lives in AGENTS.md's first entries.)
   M546-2 (tests only): LONG-9 read "Here now" with the line's own full stop on the last name ("Person72."), so the last
   person here was never compared against Elsewhere or the window; the stop is cut before the split (a name ending in
   "Jr." keeps its own). Long play 9/9; the last request reads "Person72". No app change.
+  Also tests only: perf_rooms.py waits for the app to settle (settled(): no fixed sleep — the boot's one reload of its own
+  had landed mid-measure on a slower machine) and pushes the seeded books before its reload; paint_magma.py reads the room
+  after the page mark rests (its pill had been read as the glow since M466). Every tests/*.py green at m546-001.
 

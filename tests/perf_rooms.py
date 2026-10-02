@@ -93,6 +93,29 @@ async ({ open, close, settle }) => {
 """
 
 
+def settled(page, loads, quiet=4.0, limit=180.0):
+    """The app is up and no reload of its own is coming. A boot that took books in from the device reloads the page ONCE
+    by itself (sync.js settle) — after start() has already gone on far enough to set window.__cozy, so __cozy alone is no
+    proof. Wait for __cozy, then for `quiet` seconds with no page load begun; a load in that time means the reload came,
+    and the wait starts over on the new page. (A fixed sleep of 15 s was too short on a slower machine: the reload landed
+    in the middle of the measuring and the run died with 'Execution context was destroyed'.)"""
+    t_end = time.time() + limit
+    while time.time() < t_end:
+        n = len(loads)
+        try:
+            page.wait_for_function('() => Boolean(window.__cozy && window.__cozy.chat) && !document.getElementById("boot-veil")', timeout=max(1000, int((t_end - time.time()) * 1000)))
+        except Exception:
+            pass  # a reload in the middle of the wait takes the page with it; look again
+        page.wait_for_timeout(int(quiet * 1000))  # Playwright's own wait: a load event in it is heard (a bare sleep hears nothing until the next call)
+        if len(loads) == n:
+            try:
+                if page.evaluate('() => Boolean(window.__cozy && window.__cozy.chat)'):
+                    return
+            except Exception:
+                pass
+    raise RuntimeError('the app never settled within %ds' % limit)
+
+
 def main():
     shutil.rmtree(DATA, ignore_errors=True)
     os.makedirs(DATA, exist_ok=True)
@@ -107,18 +130,18 @@ def main():
             page = ctx.new_page()
             errors = []
             page.on('pageerror', lambda e: errors.append(str(e)))
+            loads = []
+            page.on('load', lambda *_: loads.append(time.time()))
             page.goto('http://127.0.0.1:%s/' % PORT)
-            page.wait_for_selector('#composer-input', timeout=30000)
-            page.wait_for_timeout(5000)  # the first open may reload itself once when its books arrive; seed after it has settled
-            page.wait_for_selector('#composer-input', timeout=30000)
+            settled(page, loads)  # the first open may reload itself once when its books arrive; seed after it has settled
             seeded = page.evaluate(SEED, {'pages': PAGES, 'people': PEOPLE, 'facts': FACTS, 'lib': {'tales': LIB_TALES, 'mb': LIB_MB}})
             out['library_mb'] = round(LIB_TALES * LIB_MB)
             out['state_bytes'] = seeded['stateBytes']
-            page.wait_for_timeout(4000)   # let the seeded books reach the device (the push follows the writes)
+            # the seeded books reach the device before the reload — the house's own push, awaited (was a 4 s guess)
+            page.evaluate("async () => { await window.__cozy.booksStatus.pushAll(); }")
             page.reload()
-            page.wait_for_selector('#composer-input', timeout=30000)
-            page.wait_for_timeout(15000)  # a boot whose books arrive late reloads the page ONCE by itself; measure after it
-            page.wait_for_selector('#composer-input', timeout=30000)
+            settled(page, loads)  # a boot whose books arrive late reloads the page ONCE by itself; measure after it
+            out['loads'] = len(loads)
             cdp = ctx.new_cdp_session(page)
             cdp.send('Emulation.setCPUThrottlingRate', {'rate': THROTTLE})
             # one read of the ledger, alone

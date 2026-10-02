@@ -90,6 +90,10 @@ try:
         wear('magma')
         page.evaluate("() => { const t = document.getElementById('thread'); t.scrollTop = t.scrollHeight; }")
         page.wait_for_timeout(300)
+        # M466's page mark shows for a moment after a scroll, then rests at opacity 0 — the room as the writer reads it.
+        # Read before it rested, its pill (bright words on its own box) was taken for the room's light and for the ground
+        # behind the swipe arrows: three false fails ever since M466 put it on .thread-wrap.
+        page.wait_for_function("() => { const m = document.getElementById('page-mark'); return !m || m.hidden || (!m.classList.contains('show') && getComputedStyle(m).opacity === '0'); }", timeout=10000)
         page.screenshot(path='/tmp/magma-story.png')
         # the words hidden, so the pixels read are the room's own
         page.add_style_tag(content=".measure-bare .thread > *, .measure-bare .composer-zone > * { visibility: hidden !important; }")

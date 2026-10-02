@@ -14036,4 +14036,17 @@ perfectly."
   own stop is cut before the split ("Robert Downey Jr.." → "Robert Downey Jr."). The app's own readers of the line
   (anchor.js sceneAnchor, stack.js's small-model anchor) take the whole line and never split it — no app change. Baseline
   at m546-001 before it: harness 1095/1095, walk 194/194, long play 9/9, lint 0; after: long play 9/9.
+- M546-2, the real-browser checks (every tests/*.py, one at a time, at m546-001): green except two, both the tests' own:
+  perf_rooms died 2 runs of 3 with "Execution context was destroyed" — it waited a fixed 15 s for the boot's one reload of
+  its own (sync.js settle, after a pull) and on a slower machine the reload landed mid-measure. Now settled(): __cozy up,
+  then 4 s with no page load (Playwright's own wait, so a load in it is heard), else again on the new page; and the seeded
+  books are pushed (booksStatus.pushAll, awaited) before the reload instead of a 4 s guess. 4 runs of 4 green with no reload
+  of its own (loads 2); with the old 4 s flow the reload still comes and settled() waits it out (2 of 2, loads 3). Worst
+  open+close 364-462 ms (budget 1200), open during the push 521-574 ms, loadState 44-65 ms. paint_magma had failed three
+  ways since M466 (it is not in the gate list): it read the room while the page mark's pill still showed after its
+  scroll — the pill's words were the "hottest pixel" rgb(220,215,204), lifted the bottom quarter to L 0.0071, and stood
+  behind the ◂ arrow (4.1:1). It now waits for the mark to rest (opacity 0, as he sees it a second after a scroll): hottest
+  rgb(63,19,11), bottom quarter 0.0056, the lowest word 6.4:1 — green. The send alone: request out 1,404 ms, first token
+  1,728 ms. restore_zip failed once only while another test of mine held its port (8097 is six tests' default) — alone,
+  green. No app change.
 
