@@ -1711,13 +1711,13 @@ function measurePanel(ctx) {
       li.className = 'present-row measure-row';
       const words = document.createElement('span');
       const standing = Number.isFinite(actor.default) ? actor.default : 5;
-      /* M473: the headline number is the rating for anything NOT listed — said so, since a summoner's 3 beside his summoning 9 read as "only 3" */
-      words.textContent = name + (isMc(state, name) ? ' (you)' : '') + ' — ' + standing + ' of 10 for anything not listed';
+      /* M558: what they are known for FIRST, the strongest first, and the number for everything else LAST — "Jovan — 5 of 10
+       * for anything not listed" read as his power (M473 had said so in words; it still read as "only 5") */
+      const domains = actor.domains && typeof actor.domains === 'object' ? actor.domains : {};
+      const best = Object.entries(domains).filter(([, v]) => Number.isFinite(v)).sort((a, b) => b[1] - a[1]).map(([d, v]) => d + ' ' + v);
+      words.textContent = name + (isMc(state, name) ? ' (you)' : '') + ' — ' + (best.length ? best.join(' · ') + ' · everything else ' + standing : standing + ' of 10 at everything');
       li.appendChild(words);
       const extras = [];
-      const domains = actor.domains && typeof actor.domains === 'object' ? actor.domains : {};
-      const domainBits = Object.entries(domains).map(([d, v]) => d + ' ' + v);
-      if (domainBits.length) extras.push('known for ' + domainBits.join(', '));
       if (Array.isArray(actor.conditions) && actor.conditions.length) {
         extras.push(actor.conditions.map((c) => c.name + (c.mod ? ' (' + (c.mod > 0 ? '+' : '') + c.mod + ')' : '')).join('; '));
       }

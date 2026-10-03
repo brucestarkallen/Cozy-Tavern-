@@ -14325,3 +14325,29 @@ old copy kept beside it), the worker's push and eviction, the page side's push q
 - Read again before the push: a tale no longer here (nothing to export) was counted as "did not land" and would have been
   tried forever, with a false warning after three tries — the push now names it gone, and it is never tried again. The retry
   helpers are defined before the push that uses them (lint back to 170 warnings, 0 errors).
+
+# M558 — "how is 5 of 10 calculated? why is my MC weak — he parried Ivar"; and what a closed tab still owed
+1. THE MASK, RATED. His brief: Jovan Wessex, officially an E-tier, "publicly known as the younger sibling who barely
+   fights", "deliberately understates his own ability", ice and fire affinities CONCEALED, an awakened form CONCEALED; on
+   the page he parried a prince and Ivar. After M556's blind weighing: melee 6, "5 for anything not listed"; Ivar, top of
+   the rankings, 9 at everything. M554's "where the brief states a person's level, the brief stands" read "E-tier" as his
+   level, and M555's "rank tells you power" read the ranking — the mask both times. Now (SEED_SYSTEM): TRUE ABILITY, NEVER
+   THE MASK — the sheet decides contests, so it rates what each can truly do when it counts, never a public rank, a
+   reputation or a pretended level; when the brief or the pages say someone hides, conceals, understates or seals their
+   power, the truth is rated, concealed arts included; a rank tells power only where nothing says otherwise; the brief
+   stands where it states a TRUE level. And DEFAULT — what someone does outside their arts — sits two to four below their
+   best, never at their peak (Ivar 9 at everything was a default gone wrong). SEED_VERSION 6: weighed again once, blind.
+2. "5 OF 10" READ AS HIS POWER. The drawer led with the number for everything not listed ("Jovan — 5 of 10 for anything not
+   listed", M473's wording). It now leads with what each is known for, strongest first, and says the rest last: "Jovan
+   Wessex (you) — ice 8 · formula 8 · intellect 8 · stealth 7 · melee 6 · fire 5 · everything else 5".
+3. WHAT A CLOSED TAB STILL OWED (the gap M557 named). The dirty list lived only while the page was open; a push that did not
+   land and a tab closed before the tavern answered again left the change in this browser alone until that tale was
+   written again (the boot pushes only tales the device has no book of). Each mark is now kept in this browser's
+   localStorage until its push lands (or there is nothing to pay: held back by a restore, taken from the device, gone), and
+   the next start pushes what is still owed. tests/pushretry.py phase 2: the server stopped, a page written, the tab closed,
+   the server started, the app opened, no further write — on m557 never (90 s); now 2 s.
+- Found by tests/branchrefresh.py while gating it: the page's sync wrapper left the sync's OWN bookkeeping out of a SET (a
+  book's stamp, the pushes in flight) but not out of a DELETE — a deleted stamp marked its tale changed, and with the owed
+  list kept that now meant a push nothing had asked for at the next start (the stamp the boot had just adopted, moved). One
+  rule for both now (ownKey).
+- Laws M558; walk DOM-205 reads the new wording; tests/pushretry.py both phases.

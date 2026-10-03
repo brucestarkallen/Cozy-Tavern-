@@ -148,6 +148,15 @@ export async function initSync(ctx) {
    * runner keeps going while anything is dirty, so a mark made during a push
    * rides the same drain, and every caller awaits a promise that is only
    * done when the shelf is clean. */
+  /* M558: WHAT IS OWED TO THE DEVICE OUTLIVES THE TAB. The dirty list lived only while the page was open: a change whose push
+   * did not land, and the tab then closed (or the phone reaped it) before the tavern answered again, sat in this browser
+   * alone until that tale was written again — the boot pushes only tales the device has no book of. Each mark is kept in
+   * this browser's localStorage until its push lands, and the next start pushes whatever is still owed. */
+  const OWED_KEY = 'cozyPushOwed';
+  const owedRead = () => { try { const o = JSON.parse(localStorage.getItem(OWED_KEY) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (err) { return {}; } };
+  const owedWrite = (o) => { try { if (Object.keys(o).length) localStorage.setItem(OWED_KEY, JSON.stringify(o)); else localStorage.removeItem(OWED_KEY); } catch (err) { /* a browser without room keeps the list in memory only */ } };
+  const owe = (id) => { if (!id) return; const o = owedRead(); if (!o[id]) { o[id] = Date.now(); owedWrite(o); } };
+  const paid = (ids) => { const o = owedRead(); let moved = false; for (const id of ids) if (o[id]) { delete o[id]; moved = true; } if (moved) owedWrite(o); };
   /* M557: what did not land, how many times, and when it goes again */
   const failedPushes = new Map(); /* id -> { tries, timer, told } */
   const pushLater = { now: null }; /* the push, once it is defined below */
@@ -170,7 +179,7 @@ export async function initSync(ctx) {
   };
   let holding = false; /* M510-47: while the device's restored copy is read in, nothing of this browser's is pushed */
   const pushNow = () => {
-    if (holding) { dirty.clear(); return Promise.resolve(); }
+    if (holding) { paid([...dirty]); dirty.clear(); return Promise.resolve(); } /* M558: the device's restored copy is what stands — nothing of this browser's is owed */
     if (running) return running;
     if (!dirty.size) return Promise.resolve();
     running = (async () => {
@@ -181,6 +190,7 @@ export async function initSync(ctx) {
           const began = Date.now();
           const r = await ask({ kind: 'push', ids, expect: 'pushed', mine: { _house: mineFor('_house') } }); /* M311: what this browser itself let go — everything else the device holds is kept */
           for (const id of (r && Array.isArray(r.ids)) ? r.ids : []) { pushedAt.set(id, began); const f = failedPushes.get(id); if (f) clearTimeout(f.timer); failedPushes.delete(id); }
+          paid([...((r && Array.isArray(r.ids)) ? r.ids : []), ...((r && Array.isArray(r.refused)) ? r.refused : []), ...((r && Array.isArray(r.gone)) ? r.gone : [])]); /* M558 */
           /* M557: A PUSH THAT DID NOT LAND IS PUSHED AGAIN. The ids were taken off the dirty list before the push, and a book
            * the device did not take (the server down — Termux reaped — a timeout, a refusal) was simply dropped: it went
            * to the device only when that tale was written again, and the open tale and the house's own settings could sit
@@ -199,7 +209,7 @@ export async function initSync(ctx) {
   };
   pushLater.now = pushNow;
   const schedule = () => { clearTimeout(timer); timer = setTimeout(pushNow, 20000); };
-  const mark = (id) => { if (id) { dirty.add(id); schedule(); noteWroteHere(id); } };
+  const mark = (id) => { if (id) { dirty.add(id); owe(id); schedule(); noteWroteHere(id); } };
   /* M181: PROSE GOES TO THE DEVICE AT ONCE. Every write waited on the same
    * twenty-second debounce, so a page the writer had just read sat only in
    * the browser for twenty seconds — and a browser whose data is cleared in
@@ -214,6 +224,7 @@ export async function initSync(ctx) {
   const markNow = (id) => {
     if (!id) return;
     dirty.add(id);
+    owe(id); /* M558 */
     noteWroteHere(id);
     clearTimeout(timer);
     Promise.resolve().then(pushNow);
@@ -227,6 +238,7 @@ export async function initSync(ctx) {
       status.backed = true; status.words = 'on this device, in files — one book per tale';
       noteElsewhere(b.recent, { unlessMine: true });
       if (b.pulled > 0) { dropCaches(); location.reload(); return true; }
+      { const owed = Object.keys(owedRead()); if (owed.length) { for (const id of owed) dirty.add(id); clearTimeout(timer); Promise.resolve().then(pushNow); } } /* M558: what an earlier tab still owed */
     } else if (b && b.kind === 'boot' && !b.reachable && !localHasStories && ctx.toast) {
       /* M156: say which of the two it is — an old server answers 404 to the books' list */
       ctx.toast(b.status === 404
@@ -268,8 +280,11 @@ export async function initSync(ctx) {
     const orig = obj[name].bind(obj);
     obj[name] = (...args) => { const out = orig(...args); try { pick(args, out); } catch (err) { /* fine */ } return out; };
   };
-  wrap(ctx.db.settings, 'set', ([key]) => { if (/^bookStamp:/.test(key) || key === 'booksStamp' || key === 'booksPushing') return; noteKey(key); const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
-  wrap(ctx.db.settings, 'delete', ([key]) => { noteKey(key); const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
+  /* M558: the sync's own bookkeeping (a book's stamp, the pushes in flight) is never a change of a tale's — for a delete as
+   * for a set: a deleted stamp marked its tale owed, and the next start pushed a book nothing had changed */
+  const ownKey = (key) => /^bookStamp:/.test(key) || key === 'booksStamp' || key === 'booksPushing';
+  wrap(ctx.db.settings, 'set', ([key]) => { if (ownKey(key)) return; noteKey(key); const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
+  wrap(ctx.db.settings, 'delete', ([key]) => { if (ownKey(key)) return; noteKey(key); const id = storyOfKey(key); mark(id && knownIds.has(id) ? id : '_house'); });
   wrap(ctx.db.stories, 'create', (args, out) => { Promise.resolve(out).then((st) => { if (st && st.id) { knownIds.add(st.id); mark(st.id); mark('_house'); } }); });
   /* M430: A BRANCH GOES TO THE DEVICE THE MOMENT IT IS WHOLE (chat.js branchFrom lets go of `building` after its last row)
    * — at once, like a page, never twenty seconds later with the device holding nothing of it (or, before M430, a half) */

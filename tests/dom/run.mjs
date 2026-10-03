@@ -9315,7 +9315,7 @@ test('DOM-205 "WEIGH THEM AGAIN", THROUGH THE DRAWER (M556 — his report: "I ch
     click(q('.drawer-rooms .nav-chip[data-room="scene"]')); await tick(400);
     const panel = () => qa('#drawer-panels .ledger-panel').find((x) => /How each of them measures|No one is weighed yet/.test(x.textContent));
     await until(() => panel(), 'the cast sheet in the drawer', 10000);
-    assert(/Jovan Wessex \(you\) — 5 of 10/.test(panel().textContent), 'before: ' + panel().textContent.slice(0, 200));
+    assert(/Jovan Wessex \(you\) — ice 7 · melee 6 · everything else 5/.test(panel().textContent), 'before — what he is known for first, the strongest first; everything else last (M558): ' + panel().textContent.slice(0, 260));
     const btn = [...panel().querySelectorAll('button')].find((b) => b.textContent === 'Weigh them again');
     assert(btn, 'the button');
     click(btn);
@@ -9324,7 +9324,7 @@ test('DOM-205 "WEIGH THEM AGAIN", THROUGH THE DRAWER (M556 — his report: "I ch
     assert(/Jovan Wessex \(the main character\)/.test(sheetShown) && !/default 5|melee 6|melee 8/.test(sheetShown), 'no old number in front of it: ' + sheetShown);
     await until(() => queuedCount(st.id) === 0, 'the weighing done', 30000);
     try {
-      await until(() => panel() && /Jovan Wessex \(you\) — 7 of 10/.test(panel().textContent) && /melee 8/.test(panel().textContent), 'the drawer shows the new numbers', 20000);
+      await until(() => panel() && /Jovan Wessex \(you\) — melee 8 · ice 8 · everything else 7/.test(panel().textContent), 'the drawer shows the new numbers', 20000);
     } catch (err) {
       const { loadState } = await import('../../js/engine/state.js');
       const stored = ((await loadState(st.id)).sheet || {}).actors || {};

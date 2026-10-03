@@ -84,6 +84,32 @@ try:
         print('  the page written while it was down reached the device after %s s' % landed)
         if landed is None:
             fails.append('the page written while the server was down never reached the device (120 s, no further write)')
+        # M558: the tab closes BEFORE the tavern answers again — the next start pushes what is still owed
+        srv.terminate(); srv.wait(timeout=10)
+        print('  phase 2: the server stopped again')
+        page.evaluate("""async (sid) => { const { db } = await import('/js/store.js');
+          await db.messages.append(sid, { role: 'user', text: 'I close the door.' });
+          await db.messages.append(sid, { role: 'assistant', text: '[the gate — Monday | 21:10]\\n\\nOWED-THROUGH-A-RESTART was the last thing said.' });
+          await window.__cozy.booksStatus.pushAll(); }""", sid)
+        page.wait_for_timeout(1500)
+        page.close()
+        print('  the tab closed while the server was down')
+        srv = start()
+        page2 = ctx.new_page()
+        page2.on('pageerror', lambda e: errors.append(str(e)))
+        page2.goto(BASE, wait_until='load')
+        print('  the app opened again — no further write')
+        owed = None
+        t1 = time.time()
+        while time.time() - t1 < 90:
+            got = device_book(sid)
+            if got and 'OWED-THROUGH-A-RESTART' in json.dumps(got):
+                owed = round(time.time() - t1, 1)
+                break
+            time.sleep(2)
+        print('  what the closed tab still owed reached the device after %s s' % owed)
+        if owed is None:
+            fails.append('a page whose push failed before the tab closed never reached the device after the next start (90 s, no further write)')
         if errors:
             fails.append('page errors: ' + ' | '.join(errors[:3]))
         b.close()
