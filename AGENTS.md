@@ -14577,3 +14577,23 @@ page whole, though a page of the story changes a few of them.
   old server the copy held the .bak1s.
 - What stays doubled on purpose: the five daily zips (each a whole copy — that is what a backup is), and one previous
   version of each book on the device (.bak1).
+
+# M572 — the audit, part 11: the remaining helpers' instructions, read in full as sent
+Read whole, as each model receives them: the scribe, the founder, the second reader, the planner, the plans keeper, the
+canon lens, the essentials keeper, the recall picker, the tidy, the rebuild reader, the canon tidy, the sensors, the
+director and the editor (and the housekeeper's promises about what the house does by itself, each checked in the code:
+the founder does re-read a changed brief — its fingerprint, the page chain).
+- THE SCRIBE: (1) its real-record rule had been set down INSIDE the field list, between "arc — how they stand with the main
+  character" and the arc's own last line ("Only when something on the page moved it, and name the beat.") — which then read
+  as belonging to the real record; (2) that rule said "invent only where the record is silent", beside every other rule
+  of the scribe's ("only as the page, the brief or the real record shows it"; "only what the prose explicitly shows"), and
+  with no word that its own memory of a canon is not material (M549/M564's law for the others); (3) "A PERSON WITH NO
+  PAGE GETS ONE: everyone named who acts or speaks" (M514) stood against "PASSERS-THROUGH GET NO PAGE … with no name or a
+  throwaway one" (M57) for a named driver or clerk. The rule is its own paragraph after the fields now, only what the page
+  and the brief show where the record is silent or absent, and the M514 rule excepts the passer-through.
+- THE SECOND READER: a stray fragment of an older edit — "…there is no finding. could not know. `fix` is…" — stood in
+  the middle of its untold-knowledge rule. Gone.
+- Read and sound: the founder (stated, never invented; the real record given since M564), the planner, the plans keeper,
+  the canon lens, the essentials keeper, the recall picker, the tidy, the rebuild reader, the canon tidy, the sensors, the
+  director and the editor.
+- Law M572 (it fails on the instructions as they were — checked).

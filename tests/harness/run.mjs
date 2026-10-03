@@ -229,6 +229,7 @@ import './m565.mjs'; /* M565: the essentials of a long tale, in parts */
 import './m566.mjs'; /* M566: the brief held to the shared room in every helper */
 import './m568.mjs'; /* M568: a world part of the wrong kind is left out */
 import './m570.mjs'; /* M570: the ledger's pages shared between checkpoints */
+import './m572.mjs'; /* M572: the scribe's and the second reader's instructions read whole */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

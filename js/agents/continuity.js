@@ -99,7 +99,7 @@ const SYSTEM_PROMPT = [
   'before this one) shows a true way they came to know it (told, seen, overheard; a guess said AS a guess), that',
   'is a warn: name who, and what they could not know. The ledger\'s lists can miss a telling — when the story so',
   'far shows them learning it, they know it, and there is no finding.',
-  'could not know. `fix` is the nearest TRUE way, in a short phrase: the person the ledger says knows',
+  '`fix` is the nearest TRUE way, in a short phrase: the person the ledger says knows', /* M572: a stray "could not know." stood here, left by an older edit */
   'it told them ("Tamsin Hale told her the time"), or, when nothing supports their knowing, that they do not',
   'know it and ask, guess or find out on the page instead. Never a finding: a character lying or',
   'bluffing on purpose with the scene giving a reason; common knowledge of the setting; anything said or',
