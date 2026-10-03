@@ -27,7 +27,11 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 # (The browser stays a working copy; this file is the truth.)
 DATA_DIR = os.environ.get('COZY_DATA_DIR') or os.path.join(os.path.expanduser('~'), '.cozytavern')
 BOOKS = os.path.join(DATA_DIR, 'books.json')
-MAX_BOOK_BYTES = 64 * 1024 * 1024  # 64MB of tales is a library, not a nightstand
+# M569: HIS TALE OUTGREW IT. A tale's book carries its pages AND up to 180 copies of its ledger (120 checkpoints for
+# rewinds and branches, 60 for a page's versions) — measured: a cast of 120 people in 180 copies is a 67.6 MB book, over
+# the old 64 MB, and the device refused it on every push (silently, until M557 said so). Parsing a book that size costs
+# this server ~180 MB more memory and half a second; 256 MB leaves a long tale years of room and stays inside a phone.
+MAX_BOOK_BYTES = 256 * 1024 * 1024
 
 
 def _ver():

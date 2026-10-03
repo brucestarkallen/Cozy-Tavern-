@@ -14520,3 +14520,18 @@ The auditor's instructions (14,291 characters) read whole, as the model receives
 - The handoff's known limits read again (the model's own prose; a branch past ~250 turns with pruned checkpoints re-read
   deep, with a toast; two browsers at once, last push wins on the ledger): none is a fault the house can mend.
 - Law M568.
+
+# M569 — "it has grown past what the device takes in one piece" — why
+His toast (M557's own words) for a tale. The device server (serve.py) refused any book over 64 MB, and a tale's book is its
+pages AND up to 180 copies of its ledger (SNAP_CAP 120 checkpoints for rewinds and branches, VERSION_CAP 60 for a page's
+versions). Measured: a cast of 120–140 people in 180 copies is a 68–73 MB book. Every push of such a tale was refused —
+silently until M557 (no retry, no word), so a long tale with a big cast may not have reached the device for a while.
+- serve.py MAX_BOOK_BYTES 256 MB. Measured on the real server (tests/bigbook.py): a 73.1 MB book taken (200) and read back
+  whole; the server's peak memory 290 MB. On the old server the same push is refused (the line closed mid-body).
+- The warning says which tale, in plain words: "“The long war” isn't saved to your phone yet: it is too big for the save
+  on your phone (over 256 MB). It is safe in this browser, and the app keeps trying." (the other two reasons likewise).
+- STILL TRUE, the next fault to mend: the book is big because each of the 180 ledger copies is WHOLE — consecutive
+  checkpoints share nearly every person's page and are stored again in full. M314 banked the journal and the log (shared
+  once per tale); the ledger's own pages are not shared yet. Not changed here — it is a change to how every checkpoint is
+  stored and read back, with its own migration.
+- tests/bigbook.py.

@@ -170,11 +170,17 @@ export async function initSync(ctx) {
     if (was.tries >= 3 && !was.told && typeof ctx.toast === 'function') {
       was.told = true;
       const code = f && Number.isFinite(f.status) ? f.status : -1;
-      const what = id === '_house' ? 'Your settings and connections' : 'A tale you wrote in';
-      const reason = code === 413 ? 'it has grown past what the device takes in one piece'
-        : code === 0 ? 'the tavern on your phone is not answering (is Termux still running?)'
-          : 'the device would not take it' + (code > 0 ? ' (' + code + ')' : '');
-      ctx.toast(what + ' could not be saved to the device yet — ' + reason + '. It is safe in this browser, and the house keeps trying.');
+      /* M569: in plain words, and which tale — "a tale you wrote in… grown past what the device takes in one piece" told him
+       * nothing he could use */
+      const say = (title) => {
+        const what = id === '_house' ? 'Your settings and connections' : (title ? '“' + title + '”' : 'One of your tales');
+        const reason = code === 413 ? 'it is too big for the save on your phone (over 256 MB)'
+          : code === 0 ? 'the tavern on your phone is not answering — is Termux still running?'
+            : 'your phone refused the save' + (code > 0 ? ' (' + code + ')' : '');
+        ctx.toast(what + ' isn’t saved to your phone yet: ' + reason + '. It is safe in this browser, and the app keeps trying.');
+      };
+      if (id === '_house' || !ctx.db || !ctx.db.stories) say('');
+      else ctx.db.stories.get(id).then((st) => say(st && st.title ? String(st.title) : '')).catch(() => say(''));
     }
   };
   let holding = false; /* M510-47: while the device's restored copy is read in, nothing of this browser's is pushed */
