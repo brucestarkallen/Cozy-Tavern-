@@ -14383,3 +14383,17 @@ the brief: the people further down unseen). No instruction can make a model rate
 - SEED_VERSION 7: every sheet weighed again once, seeing the whole story.
 - Checked while here: the workers think when his connection says so (M231/M233) — the weighing is not forced off.
 - Law M560; walk DOM-205 reads the evidence in the drawer.
+
+# M561 — "it should watch all the pages, as much as the story remembers; the WHOLE essentials, the WHOLE brief, the detailed fold summary — without context how would it know someone's power, or that someone is injured?"
+1. THE WEIGHING (buildSeedUser) fills its OWN model's room (the context × 3 characters × 0.8, up to 1.2 million — it was a
+   0.55 slice capped at 400,000) in the order a game master reads: the whole brief (cut only when it alone would pass 60% of
+   the room, and then said to be), the whole story in brief (both ends kept when it must be shortened), the cast notes, who
+   everyone is, what their bodies carry, what is locked true — then the DETAILED RECORD, whole when it fits (it was cut to
+   its newest 120,000 characters, then to a 13% share), else its newest part (the story in brief holds the oldest) — and then
+   EVERY page that still fits, newest first, whole (it was the newest forty messages). On a large model: all of it.
+2. THE RULING of each move (buildRefereeUser, on the send path) reads the brief at the workers' whole room (40,000 — it was
+   12,000), the whole story in brief (the essentials, up to 40,000, both ends kept), each person's evidence beside their
+   numbers ("— why: parried Ivar in the opening scene"), and who is hurt (the ledger's bodies, the sheet's conditions — kept
+   current after every page). Not the detailed record: that is what the weighing reads to set the numbers; on every move it
+   would slow every page.
+- Laws M561-1/2; walk DOM-206 (his move's ruling, through the send path: the story in brief, the evidence, the cracked rib).

@@ -221,6 +221,7 @@ import './m556.mjs'; /* M556: a weighing he asks for is blind to the old numbers
 import './m558.mjs'; /* M558: the truth, never the mask; defaults below the best */
 import './m559.mjs'; /* M559: a person's loose ends no longer forget */
 import './m560.mjs'; /* M560: the weighing sees the whole story and says why */
+import './m561.mjs'; /* M561: the whole brief, the whole story in brief, the record and every page that fits */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

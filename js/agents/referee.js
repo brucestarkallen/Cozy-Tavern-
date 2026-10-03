@@ -40,7 +40,7 @@ import { loadState, saveState, notify } from '../engine/state.js';
 import { findPersonKey, importanceOf } from '../engine/people.js'; /* M345: the seeder and the referee read who people ARE */
 import { renderBodies } from '../engine/bodies.js';
 import { renderCanon } from '../engine/canon.js';
-import { writerText, wholePage, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js';
+import { writerText, wholePage, BRIEF_ROOM } from '../engine/whole.js';
 import { loadMemory, recordFor } from './memory.js';
 import { loadEssentials } from './essentials.js'; /* M560: the whole story, told shorter, for the cast's weighing */
 import { contextOf } from '../providers/room.js';
@@ -435,7 +435,12 @@ const pageText = wirePageText;
  * whole sheet, the character card and the memory, and a full window. Here: the player block, the whole sheet (the
  * main character first), who is in the scene with their pages' first lines and what their bodies carry, the brief,
  * and the newest pages whole — the action itself never counted twice. */
-const REF_BRIEF_ROOM = 12000;
+/* M561: HIS ORDER — "without context how would it know someone's power, or that someone is injured?" The ruling read the
+ * brief cut at 12,000 characters and the newest eight pages. It reads the brief at the workers' whole room now, the story in
+ * brief (the essentials — the whole story, told shorter), and each person's evidence on the sheet beside the numbers; who is
+ * hurt it reads from the ledger's bodies and the sheet's conditions, kept current after every page. */
+const REF_BRIEF_ROOM = BRIEF_ROOM;
+const REF_STORY_ROOM = 40000;
 const REF_PAGES = 8;
 const REF_PAGE_CAP = 3000;
 
@@ -455,7 +460,8 @@ function sheetBlock(state) {
     const conds = Array.isArray(a.conditions) && a.conditions.length
       ? ' | ' + a.conditions.map((c) => c.name + ' ' + (c.mod >= 0 ? '+' : '') + c.mod + (c.domain ? ' ' + c.domain : '')).join(', ')
       : '';
-    lines.push(name + (isMcAlias(state, name) && mcName(state) !== 'the player' ? ' (the player)' : '') + ': ' + (parts.join(', ') || 'unrated') + conds);
+    const why = typeof a.why === 'string' && a.why.trim() ? ' — why: ' + a.why.trim().slice(0, 240) : ''; /* M561: the evidence the weighing named */
+    lines.push(name + (isMcAlias(state, name) && mcName(state) !== 'the player' ? ' (the player)' : '') + ': ' + (parts.join(', ') || 'unrated') + conds + why);
   }
   return lines.length ? lines.join('\n') : '(empty — no one is rated yet)';
 }
@@ -487,7 +493,7 @@ function hereBlock(state) {
   return [lines.join('\n'), bodies && bodies.trim() ? 'What their bodies carry:\n' + bodies.slice(0, 3000) : '', locked && locked.trim() ? 'Locked true:\n' + locked.slice(0, 3000) : ''].filter(Boolean).join('\n');
 }
 
-export function buildRefereeUser({ state, userText, history, fightLine, brief = '', castNotes = '' }) {
+export function buildRefereeUser({ state, userText, history, fightLine, brief = '', castNotes = '', essentials = '' }) {
   const mc = mcName(state);
   const player = mc === 'the player'
     ? 'The player character is not named yet. The text in <action> is written BY the player: "I" and "you" in it both mean the player acting.'
@@ -499,6 +505,7 @@ export function buildRefereeUser({ state, userText, history, fightLine, brief = 
     '<sheet>\n' + sheetBlock(state) + '\n</sheet>',
     here ? '<here>\n' + here + '\n</here>' : null,
     material ? '<brief>\n' + material + '\n</brief>' : null,
+    String(essentials || '').trim() ? '<story_in_brief>\n' + (essentials.length <= REF_STORY_ROOM ? essentials.trim() : essentials.slice(0, REF_STORY_ROOM / 2) + '\n…\n' + essentials.slice(essentials.length - REF_STORY_ROOM / 2)) + '\n</story_in_brief>' : null, /* M561: the whole story, told shorter */
     fightLine ? '<fight>' + fightLine + '</fight>' : null,
     '<recent>\n' + recentBlock(history, state, userText) + '\n</recent>',
     '<action>' + clip(userText, 2000) + '</action>',
@@ -987,7 +994,7 @@ export function refereeWhyWords(step) {
   return 'the referee could not rule on this page (' + (why || 'it stumbled') + ') — your storyteller decided the outcome';
 }
 
-export async function refereeStep({ connection, userText, userId, history, state, settings, signal, callLLM, brief = '', castNotes = '' } = {}) {
+export async function refereeStep({ connection, userText, userId, history, state, settings, signal, callLLM, brief = '', castNotes = '', essentials = '' } = {}) {
   try {
     if (!state || typeof state !== 'object') return { state, ruling: null, status: 'degraded', why: 'no state' };
     const eng = engineSettings(settings);
@@ -1070,7 +1077,7 @@ export async function refereeStep({ connection, userText, userId, history, state
         return { state, ruling: null, status: 'degraded', why: 'no worker connection' };
       }
       const fightLine = renderFightLine(state);
-      const user = buildRefereeUser({ state, userText: text, history, fightLine, brief, castNotes });
+      const user = buildRefereeUser({ state, userText: text, history, fightLine, brief, castNotes, essentials });
       const system = withFictionFrame(inWar ? WAR_SYSTEM : inBattle ? BATTLE_SYSTEM : inDuel ? DUEL_SYSTEM : ADJ_SYSTEM);
       const normalize = inWar ? normalizeWarAdj : inBattle ? normalizeBattleAdj : inDuel ? normalizeDuelAdj : normalizeAdj;
       const raw = await callReferee(connection, system, user, signal, callLLM);
@@ -1414,41 +1421,54 @@ function seedSheetBlock(state, { numbers = true } = {}) {
  * story's essentials (the whole story told shorter, oldest first), the brief at twice the room, and the record's room; and
  * it must write, for each person, the evidence its numbers rest on — shown under them in the drawer. */
 export function buildSeedUser({ state, pages = [], brief = '', castNotes = '', record = '', essentials = '', room = 300000, blind = false } = {}) {
+  /* M561: HIS ORDER — "it should watch all the pages, as much as the story remembers; the WHOLE essentials, the WHOLE brief,
+   * the detailed fold summary — without context how would it know someone's power, or that someone is injured?" Fixed
+   * shares cut each part to a slice of the room whatever the rest needed. Now the room is filled in the order a game
+   * master reads: the whole brief, the cast notes and the whole story in brief first (each cut only when it alone would
+   * not fit), who everyone is, what their bodies carry, then the detailed record — whole when it fits, else its newest part
+   * (the story in brief already holds the oldest) — and then every page that still fits, newest first, whole. */
   const mc = mcName(state);
-  const share = (part) => Math.max(4000, Math.floor(room * part));
   const player = mc === 'the player'
     ? 'The main character is not named in the ledger yet. The writer\'s pages below are the main character acting; name them as the story does (player_story_name) and put them first.'
-    : 'The main character — the person the writer plays — is ' + mc + '. Every page labelled "' + mc + ' (the writer)" below is ' + mc + ' acting: "I", "me" and "you" in it are ' + mc + '. Put ' + mc + ' first in "actors", under exactly the name "' + mc + '".';
+    : 'The main character — the person the writer plays — is ' + mc + '. Every page labelled "' + mc + ' (the writer)" below is ' + mc + ' acting: "I", "me" and "you" in it are ' + mc + '. Put ' + mc + ' first in "actors", under that name.';
+  const cut = (t, n) => { const x = String(t || ''); return x.length > n ? x.slice(x.length - n) : x; };
+  const bothEnds = (t, n) => { const x = String(t || ''); if (x.length <= n) return x; const h = Math.floor(n / 2); return x.slice(0, h) + '\n…\n' + x.slice(x.length - (n - h)); };
+  let left = Math.max(40000, room);
+  const keep = (text) => { left -= text.length + 2; return text; };
+  const head = [keep('<player>\n' + player + '\n</player>'), keep('<sheet>\n' + seedSheetBlock(state, { numbers: !blind }) + '\n</sheet>')];
+  const whole = (tag, text, most, label, how = 'brief') => {
+    const t = String(text || '').trim();
+    if (!t) return null;
+    const room1 = Math.max(4000, Math.floor(most));
+    const body = t.length <= room1 ? t : (how === 'ends' ? bothEnds(t, room1) : writerText(t, room1, label));
+    return keep('<' + tag + '>\n' + body + '\n</' + tag + '>');
+  };
+  const briefPart = whole('brief', brief, left * 0.6, 'brief');
+  const storyPart = whole('story_in_brief', essentials, left * 0.4, 'story in brief', 'ends');
+  const castPart = whole('cast_notes', castNotes, left * 0.3, 'cast notes');
+  const peoplePart = keep('<people>\n' + (seedPeople(state, String(brief || '') + '\n' + String(castNotes || ''), Math.max(4000, Math.floor(left * 0.35))) || '(no pages written yet)') + '\n</people>');
+  const bodies = (() => { try { return renderBodies(state.bodies, state.clock && state.clock.minutes, storyTurn(state)); } catch (err) { return ''; } })();
+  const locked = (() => { try { return state.canon && typeof state.canon === 'object' ? renderCanon(state.canon, Object.keys(state.canon)) : ''; } catch (err) { return ''; } })();
+  const bodiesPart = bodies && bodies.trim() ? keep('<bodies>\n' + cut(bodies, 12000) + '\n</bodies>') : null;
+  const lockedPart = locked && locked.trim() ? keep('<locked>\n' + cut(locked, 12000) + '\n</locked>') : null;
+  /* the detailed record: whole when it fits beside a page or two; else its newest part */
+  const rec = String(record || '').trim();
+  const recordRoom = Math.max(4000, Math.floor(left * 0.6));
+  const recordPart = rec ? keep('<record>\n' + (rec.length <= recordRoom ? rec : cut(rec, recordRoom)) + '\n</record>') : null;
+  /* and every page that still fits, newest first, whole */
   const told = [];
-  let used = 0;
-  const budget = share(0.22); /* M560: the brief's room doubled and the story in brief are paid for here */
   for (let i = pages.length - 1; i >= 0; i -= 1) {
     const m = pages[i];
     if (!m || m.hidden) continue;
     const words = wholePage(pageText(m), 6000);
     if (!words.trim()) continue;
     const line = (m.role === 'user' ? (mc === 'the player' ? 'The writer' : mc + ' (the writer)') : 'The story') + ':\n' + words;
-    if (used + line.length > budget && told.length) break;
+    if (line.length + 2 > left && told.length) break;
     told.push(line);
-    used += line.length;
+    left -= line.length + 2;
   }
   told.reverse();
-  const bodies = (() => { try { return renderBodies(state.bodies, state.clock && state.clock.minutes, storyTurn(state)); } catch (err) { return ''; } })();
-  const locked = (() => { try { return state.canon && typeof state.canon === 'object' ? renderCanon(state.canon, Object.keys(state.canon)) : ''; } catch (err) { return ''; } })();
-  const cut = (t, n) => { const s = String(t || ''); return s.length > n ? s.slice(s.length - n) : s; };
-  const bothEnds = (t, n) => { const s = String(t || ''); if (s.length <= n) return s; const h = Math.floor(n / 2); return s.slice(0, h) + '\n…\n' + s.slice(s.length - (n - h)); };
-  return [
-    '<player>\n' + player + '\n</player>',
-    '<sheet>\n' + seedSheetBlock(state, { numbers: !blind }) + '\n</sheet>',
-    String(brief || '').trim() ? '<brief>\n' + writerText(brief, Math.min(BRIEF_ROOM, share(0.3)), 'brief') + '\n</brief>' : null,
-    String(essentials || '').trim() ? '<story_in_brief>\n' + bothEnds(essentials, share(0.12)) + '\n</story_in_brief>' : null, /* M560: the whole story, oldest first — the opening never the first to go */
-    String(castNotes || '').trim() ? '<cast_notes>\n' + writerText(castNotes, Math.min(CAST_ROOM, share(0.08)), 'cast notes') + '\n</cast_notes>' : null,
-    '<people>\n' + (seedPeople(state, String(brief || '') + '\n' + String(castNotes || ''), share(0.2)) || '(no pages written yet)') + '\n</people>',
-    bodies && bodies.trim() ? '<bodies>\n' + cut(bodies, 8000) + '\n</bodies>' : null,
-    locked && locked.trim() ? '<locked>\n' + cut(locked, 8000) + '\n</locked>' : null,
-    String(record || '').trim() ? '<record>\n' + cut(record, share(0.13)) + '\n</record>' : null,
-    '<pages>\n' + (told.join('\n\n') || '(none yet)') + '\n</pages>',
-  ].filter(Boolean).join('\n\n');
+  return [...head, briefPart, storyPart, castPart, peoplePart, bodiesPart, lockedPart, recordPart, '<pages>\n' + (told.join('\n\n') || '(none yet)') + '\n</pages>'].filter(Boolean).join('\n\n');
 }
 
 function normalizeLasting(list) {
@@ -1591,12 +1611,12 @@ export async function maybeSeedSheet({ connection, storyId, signal, callLLM, bri
     const why = seedDue(state, told, { brief, castNotes }) || (force ? 'asked by hand' : '');
     if (!why) return { ok: false, why: 'not due' };
     let record = '';
-    try { record = recordFor(await loadMemory(storyId), 1, 120000); } catch (err) { record = ''; }
-    const room = Math.max(40000, Math.min(400000, Math.floor(contextOf(connection) * 3 * 0.55)));
+    try { record = recordFor(await loadMemory(storyId), 1, 1200000); } catch (err) { record = ''; } /* M561: the detailed record whole; the room decides what rides */
+    const room = Math.max(40000, Math.min(1200000, Math.floor(contextOf(connection) * 3 * 0.8))); /* M561: what its own model holds — the answer and the instructions keep the rest */
     const blind = why === 'heal' || force === true; /* M556: by hand, or healing an older sheet — weighed from the story, never from the old numbers */
     let essentials = '';
     try { const e = await loadEssentials(storyId); essentials = e && typeof e.text === 'string' ? e.text : ''; } catch (err) { essentials = ''; }
-    let user = buildSeedUser({ state, pages: messages.slice(-40), brief, castNotes, record, essentials, room, blind });
+    let user = buildSeedUser({ state, pages: messages, brief, castNotes, record, essentials, room, blind }); /* M561: every page offered; the room decides */
     if (typeof renew === 'function') renew(240000);
     let parsed = await callReferee(connection, withFictionFrame(SEED_SYSTEM), user, signal, callLLM, SEED_MAX_TOKENS, (o) => Array.isArray(o.actors) || (o.actors && typeof o.actors === 'object'));
     if (!parsed) return { ok: false, why: 'no usable answer' };

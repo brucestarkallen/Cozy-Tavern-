@@ -4753,6 +4753,7 @@ export function initChat(ctx) {
               settings: refSettings,
               signal,
               brief: story.brief || '', castNotes: story.castNotes || '', /* M345: the referee reads who these people are */
+              essentials: await loadEssentials(story.id).then((e) => (e && typeof e.text === 'string' ? e.text : '')).catch(() => ''), /* M561: and the whole story, told shorter */
             });
             state = (step && step.state) || state;
             refereeWhy = refereeWhyWords(step); /* M513 */

@@ -9343,5 +9343,48 @@ test('DOM-205 "WEIGH THEM AGAIN", THROUGH THE DRAWER (M556 — his report: "I ch
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-206 THE RULING READS THE WHOLE STORY, THROUGH THE APP (M561 — his order: "without context how would it know someone\'s power, or that someone is injured?"): his move\'s ruling is asked with the story in brief, each person\'s evidence beside the numbers, and who is hurt', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { ESSENTIALS_KEY } = await import('../../js/agents/essentials.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const st = await db.stories.create({ title: 'the ruling reads' });
+  await db.stories.update(st.id, { keeper: false, extraction: false, brief: 'Jovan Wessex (16), E-tier in name only; he hides his skill. Ivar van Emreis, the strongest student.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I step into the yard.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[the academy yard — Monday | 09:00]\n\nIvar waited, blade low.' });
+  const s = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan Wessex' }, { type: 'place.set', name: 'the academy yard' }, { type: 'presence.enter', name: 'Jovan Wessex' }, { type: 'presence.enter', name: 'Ivar van Emreis' }, { type: 'body.injure', name: 'Ivar van Emreis', what: 'a cracked rib', severity: 'moderate' }]).state;
+  s.sheet = { playerName: 'Jovan Wessex', seedVersion: (await import('../../js/agents/referee.js')).SEED_VERSION, seededAtPage: 1, seenPresent: ['Jovan Wessex', 'Ivar van Emreis'], actors: {
+    'Jovan Wessex': { default: 6, domains: { melee: 8 }, why: 'parried Ivar in the opening scene', _auto: true },
+    'Ivar van Emreis': { default: 7, domains: { melee: 8 }, why: 'the strongest student', _auto: true },
+  } };
+  await saveState(st.id, { ...s, page: 1, readTo: 1, tidiedGen: 999 });
+  await db.settings.set(ESSENTIALS_KEY(st.id), { text: '- (pages 1-2) RULING-ESS: Jovan parried Ivar\u2019s first strike at the gate.', upTo: 1, at: Date.now() });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  let ruled = '';
+  house.state.workerAnswer = (body, sys) => {
+    if (/You are the referee of a story/.test(String(sys || '')) && /I lunge at Ivar/.test(JSON.stringify(body.messages || body))) { ruled = JSON.stringify(body.messages || body); return '{"check":false}'; }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}');
+  };
+  house.state.storyAnswer = () => '[the academy yard — Monday | 09:01]\n\nSteel met steel.';
+  try {
+    type(q('#composer-input'), 'I lunge at Ivar.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 2 && !env.ctx.chat.isBusy(), 'the page', 30000);
+    assert(ruled, 'the ruling was asked');
+    const u = ruled.replace(/\\n/g, '\n');
+    assert(/<story_in_brief>[\s\S]*RULING-ESS: Jovan parried Ivar/.test(u), 'the whole story, told shorter');
+    assert(/why: parried Ivar in the opening scene/.test(u), 'his evidence beside his numbers');
+    assert(/cracked rib/.test(u), 'who is hurt');
+    await until(() => queuedCount(st.id) === 0, 'readers', 40000);
+  } finally {
+    house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);
