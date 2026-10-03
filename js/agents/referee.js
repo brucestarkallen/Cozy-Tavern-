@@ -30,6 +30,7 @@
  * Nothing here ever throws into the chat path.
  */
 
+import { djb2 } from '../engine/fingerprint.js'; /* M575 */
 import { parseFirstObject } from './jsonutil.js';
 import { isHere } from '../engine/names.js'; /* M398 */
 import { pageText as wirePageText } from '../assemble/stack.js'; /* M174: the one reader of a page's words */
@@ -190,11 +191,7 @@ export function gatePasses(text, sensitivity, opts) {
  * real change of words is (M9's wording-stability law, carried forward). */
 export function userMessageHash(text) {
   const s = String(text || '').trim().replace(/\s+/g, ' ').toLowerCase();
-  let h = 5381;
-  for (let i = 0; i < s.length; i += 1) {
-    h = (((h << 5) + h) + s.charCodeAt(i)) >>> 0;
-  }
-  return 'm' + h.toString(36) + 'x' + s.length;
+  return 'm' + djb2(s).toString(36) + 'x' + s.length; /* M575: the one fingerprint */
 }
 
 /* ==================================================================== */

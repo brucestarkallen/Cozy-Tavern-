@@ -9,6 +9,7 @@
  * can correct it in Settings (This story).
  * Pure: the question, the reader, the words. The call is chat.js's. */
 
+import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { callWorker } from './call.js';
 import { withFictionFrame } from './voice.js';
 import { claimsAsk, readClaimsCheck, checkClaims } from './canoncheck.js'; /* M551: one check */
@@ -99,7 +100,7 @@ export async function placeInCanon({ connection, concept, brief = '', signal } =
  * cannot be true at the story's moment is let go (silence — nothing is asserted in its place). The wiki tells the series as
  * it ENDS, so a fact about an earlier moment that differs from the end is NOT wrong (seats change over a series). Never his
  * own correction: his words stand as he wrote them. Checked again only when the facts or the wiki's lines change. */
-const fpOf = (t) => { let h = 5381; const x = String(t || ''); for (let i = 0; i < x.length; i += 1) h = ((h << 5) + h + x.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+const fpOf = (t) => fingerprint36(String(t || '')); /* M575 */
 export function startCheckPrint(start, wiki) {
   const facts = start && Array.isArray(start.facts) ? start.facts : [];
   return fpOf(facts.join('\n') + '\n--\n' + (Array.isArray(wiki) ? wiki : []).join('\n'));

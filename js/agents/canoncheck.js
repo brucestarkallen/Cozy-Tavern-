@@ -12,6 +12,7 @@
  * differs from the end is not wrong; a claim the wiki does not mention is never wrong. His own words are never checked.
  * Checked again whenever the claims or the wiki's material change (a person looked up later brings them in).
  * Pure but for checkClaims (one worker call). */
+import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { callWorker } from './call.js';
 import { withFictionFrame } from './voice.js';
 import { lensStatements, throughLens, overlayFor } from './canonlens.js';
@@ -20,7 +21,7 @@ export const PERSON_CHARS = 1600;   /* what the wiki says of one person, at most
 export const MATERIAL_CHARS = 24000; /* all of it, about 6,000 tokens — the people the claims name first */
 
 const clip = (t, n) => { const s = String(t || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : s; };
-const fpOf = (t) => { let h = 5381; const x = String(t || ''); for (let i = 0; i < x.length; i += 1) h = ((h << 5) + h + x.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+const fpOf = (t) => fingerprint36(String(t || '')); /* M575 */
 const fold = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 /* EVERYTHING THE WIKI SAYS OF THE PEOPLE LOOKED UP — one line each, "Name — what it says; …", through the lens; the people

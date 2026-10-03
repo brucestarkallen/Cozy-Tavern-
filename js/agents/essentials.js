@@ -12,6 +12,7 @@
  *
  * Only for a tale whose storyteller is a small model. An answer that cannot be used is asked for once more, then the
  * essentials already kept stand. A failure to reach the model throws — the queue's retries are for that. */
+import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { contextOf } from '../providers/room.js'; /* M565: the record told in parts that fit its model */
@@ -23,7 +24,7 @@ export const ESSENTIALS_MAX_CHARS = 16000;   /* about 4,000 tokens — the whole
 export const ESSENTIALS_MAX_TOKENS = 5000;
 export const ESSENTIALS_TRIES = 2;
 
-const fp = (t) => { let h = 5381; const s = String(t == null ? '' : t); for (let i = 0; i < s.length; i += 1) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+const fp = (t) => fingerprint36(t);
 
 /* the record's lines in its own order (a correction reads last), and a fingerprint of all of them */
 /* one record line as the keeper reads it (M565: shared with the parts) */

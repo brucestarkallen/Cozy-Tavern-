@@ -37,6 +37,7 @@
  * for next time.
  */
 
+import { shownTextPatch } from '../engine/pagepatch.js'; /* M575 */
 import { parseLenient } from './jsonutil.js'; /* M439 */
 import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M283 */
 import { db } from '../store.js';
@@ -892,7 +893,7 @@ export function visiblePages(history) {
 /* One past the last page any node covers. */
 export function coveredEnd(mem) {
   const nodes = mem && Array.isArray(mem.nodes) ? mem.nodes : [];
-  return nodes.length ? Math.max(...nodes.map((n) => n.span[1])) + 1 : 0;
+  return nodes.reduce((mx, n) => Math.max(mx, n.span[1] + 1), 0); /* M575: no spread of a whole record into Math.max */
 }
 
 /* Every page index some node covers. */
@@ -974,13 +975,7 @@ export async function putBackMistakenMends(storyId) {
   const back = [];
   for (const page of all) {
     if (!page || !page.mended || typeof page.mended.before !== 'string' || !snippetIsWrong(page.mended.why)) continue;
-    const patch = { text: page.mended.before, mended: null };
-    if (Array.isArray(page.swipes) && page.swipes.length) {
-      const idx = Number.isFinite(page.swipeIdx) ? Math.min(page.swipes.length - 1, Math.max(0, page.swipeIdx)) : page.swipes.length - 1;
-      const swipes = page.swipes.slice();
-      swipes[idx] = { ...swipes[idx], text: page.mended.before };
-      patch.swipes = swipes;
-    }
+    const patch = shownTextPatch(page, page.mended.before, { mended: null }); /* M575: one home */
     await db.messages.update(storyId, page.id, patch);
     back.push(page.id);
     try {

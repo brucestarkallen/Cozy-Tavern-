@@ -27,6 +27,7 @@
  * triggers (see js/import/sillytavern.js).
  */
 
+import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { windowOnSomeoneHere } from '../engine/world.js'; /* M543 */
 import { typedCombat, FIGHT_SOUND_TEXT } from './laws.js'; /* M510-27: a fight begins in his words; how a fight sounds */
 import { CRAFT_TEXT, looksLikeImportedCraft } from './craft.js'; /* M36: the craft core */
@@ -324,12 +325,7 @@ export const SHIPPED_BEFORE = {
   nsfw: ['95zud8', '1wkzq1s', '1pp0p8w'], /* "When The Scene Turns Intimate" as it shipped through M510-2, at M510-3, at M510-4 */
   'core-craft': ['1gzud8e', '99fpod', '1icfhkj'], /* M510-29: the craft as it shipped through M510-28, with its Banned Words; M510-48: as it shipped through M510-47, before Exposed; M510-62: through M510-61, when The Commands still spoke of a per-turn directive */
 };
-export function fingerprint(text) {
-  let h = 5381;
-  const s = String(text == null ? '' : text);
-  for (let i = 0; i < s.length; i += 1) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
-  return (h >>> 0).toString(36);
-}
+export function fingerprint(text) { return fingerprint36(text); } /* M575: one fingerprint */
 export function followsBuiltin(builtin, forkText) {
   if (typeof forkText !== 'string') return true;
   if (forkText === builtin.text) return true;

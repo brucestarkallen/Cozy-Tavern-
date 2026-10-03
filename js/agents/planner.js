@@ -15,6 +15,7 @@
  *
  * Only for a tale whose storyteller is a small model (the connection's own tick). Kept per tale, keyed to the page it
  * was made after, the last few kept — so Try again finds the plan for the page before it. */
+import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M566 */
@@ -37,12 +38,7 @@ const LINE = 280;
 const CUE = 60;
 
 /* a page's own fingerprint: which page, which version, which words — an edited page is a new page to plan after */
-export function hashText(t) {
-  let h = 5381;
-  const s = String(t == null ? '' : t);
-  for (let i = 0; i < s.length; i += 1) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
-  return (h >>> 0).toString(36);
-}
+export function hashText(t) { return fingerprint36(t); } /* M575: one fingerprint */
 /* M510-6: A PLAN FOLLOWS ITS PAGE (id and version), NOT ITS EXACT WORDS. Keyed to the words, any mend after the helper
  * read the page — the second reader's smallest edit, a thought mended on open, his own touch-up — left the next send
  * with no plan and the small model back on the whole story. The words' fingerprint rides beside the plan instead: the

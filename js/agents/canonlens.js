@@ -18,6 +18,7 @@
  * have). Canon's own memory stays canon (the extension's cache); the lens is this story's, kept in its canon memory
  * (cozy_lens) and applied where the note is written (Canon Grounding v0.67.0's host lens), where the workers are handed
  * the record, and in the room — which shows what was held back, and why. */
+import { lengthKey } from '../engine/fingerprint.js'; /* M575 */
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
@@ -29,12 +30,7 @@ export const LENS_KEY = 'cozy_lens';
 const clip = (t, n) => { const s = String(t || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : s; };
 const sentences = (t) => String(t || '').replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+(?=[A-Z0-9"“(])/).map((x) => x.trim()).filter(Boolean);
 const words = (t) => new Set(String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 2));
-function hash(s) {
-  let h = 5381;
-  const t = String(s || '');
-  for (let i = 0; i < t.length; i += 1) h = ((h << 5) + h + t.charCodeAt(i)) >>> 0;
-  return t.length + ':' + h.toString(36);
-}
+function hash(s) { return lengthKey(String(s || '')); } /* M575: one fingerprint */
 
 /* Every canon statement about who this person is — what the note (and the workers' record) could say of them. */
 export function lensStatements(entry) {

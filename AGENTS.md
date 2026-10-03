@@ -14637,3 +14637,22 @@ from a string, every link or image address set from data, every page id put into
   recall, the ledger mark, the gap fillers (backoff, the other hand), the hand-pressed rebuilds and restores.
 - A note: DOM-53 fails when run in a subset (here, and on m573 alike) — it depends on the scenarios before it; whole, the
   walk passes it.
+
+# M575 — the line-by-line audit, part 2 (his order: no redundancies, no duplicates)
+Read: ui/chat.js lines 2600–3420 (the hand-pressed rebuilds and restores, the brief's wins, the house's notes taken back,
+the quick switch, the planner's, the essentials', the world's and the canon checks' chain steps, planAhead, the future
+taken out, interrupted branches, the brief's put-back, the ripple of an edit, the audit and the weighing by hand, the marks
+mended, the brief from a concept, the mends and their undoing).
+- ONE FINGERPRINT (engine/fingerprint.js): the same djb2 lines were written out nine times — the world keeper's chain
+  step, the essentials, the canon checks, the start's check, the plans keeper, the planner, the rule modules, and (with the
+  length in front) the canon lens and the canon tidy — and the referee's message fingerprint was the same algorithm again.
+  One home (djb2, fingerprint36, lengthKey); law M575 holds every old copy against it on a corpus (empty, long, accented,
+  emoji, a hundred thousand characters): the very same answers, so no stored fingerprint moves. The founder's own variant
+  (an xor) is a different algorithm and stays — changing it would found every tale again.
+- ONE SHOWN-VERSION CHANGE (engine/pagepatch.js shownTextPatch): changing a page's words AND the version it shows was
+  written out five times (the brief's put-back, the marks mended, a mend, a mend let go, a mistaken mend put back). One
+  home; law M575-3.
+- A WHOLE TALE SPREAD INTO Math.max (mendAround over every message; groundNext and the record's covered end over every
+  record line): a very long tale overflows a call's arguments. A loop or a reduce now; the spreads left are over a few
+  items (a person's wounds, a day's models).
+- The offline shell lists the two new modules (M30-8 caught them missing).

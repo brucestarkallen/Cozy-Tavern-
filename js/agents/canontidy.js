@@ -14,6 +14,7 @@
  *     breaks either is refused and the page stays as it was;
  *   - journaled like any change ("What changed and why" takes it back); each core is asked about once — a memo in the
  *     story's canon memory, by the core's own words, so a core written afresh is looked at afresh. */
+import { lengthKey } from '../engine/fingerprint.js'; /* M575 */
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
@@ -73,12 +74,7 @@ function recordText(entry) {
 }
 
 /* a core's own words, as the memo knows it */
-function coreKey(core) {
-  let h = 5381;
-  const s = String(core || '');
-  for (let i = 0; i < s.length; i += 1) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
-  return s.length + ':' + h.toString(36);
-}
+function coreKey(core) { return lengthKey(String(core || '')); } /* M575: one fingerprint */
 
 /* The pages that repeat the record, for one ledger and its canon memory: someone canon knows, a core no hand wrote, at
  * least four of its words and two in five of them the series' own — and not already asked about in these words. */

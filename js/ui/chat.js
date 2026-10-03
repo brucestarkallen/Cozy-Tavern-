@@ -40,6 +40,8 @@
  *    fresh (referee.refereeStep).
  */
 
+import { shownTextPatch } from '../engine/pagepatch.js'; /* M575 */
+import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { tidyPeople, tidyDue, tidyRunWords } from '../agents/tidy.js'; /* M291: the character pages, tidied once */
 import { windowCutAt } from '../engine/window.js'; /* M467 */
 import { streamText } from './streamtext.js'; /* M279 */
@@ -2811,9 +2813,9 @@ export function initChat(ctx) {
     try { if (await canonOn(story.id)) { const meta = await canonMeta(story.id); const a = meta && meta.canon_grounding_arc; if (a && typeof a === 'object' && a.summary) arc = { title: String(a.title || ''), summary: String(a.summary || '') }; } } catch (err) { arc = null; }
     const wiki = await wikiLinesFor(story.id); /* M549: who holds which seat, from the wiki — never the keeper's memory */
     const ess = await loadEssentials(story.id);
-    const covered = nodes.length ? Math.max(...nodes.map((n) => n.span[1])) + 1 : 0; /* pages folded into the record — they only grow */
+    const covered = nodes.reduce((mx, n) => Math.max(mx, n.span[1] + 1), 0); /* pages folded into the record — they only grow */ /* M575: no spread */
     const since = have && Number.isFinite(have.recordLines) ? nodes.filter((n) => n.span[1] >= have.recordLines) : nodes.slice(-12);
-    const fp = (t) => { let h = 5381; const x = String(t || ''); for (let i = 0; i < x.length; i += 1) h = ((h << 5) + h + x.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+    const fp = (t) => fingerprint36(String(t || '')); /* M575: one fingerprint */
     const input = {
       concept, brief: String(fresh.brief || ''), canonStart: startWords, arc,
       ledger: { place: state && state.place, factions: state && state.factions, worldBrief: state && state.worldBrief },
@@ -3085,11 +3087,7 @@ export function initChat(ctx) {
         const before = earlier.get(m.id); const now = pageText(m);
         const change = factChange(before, now);
         if (!change || !againstTheBrief(setDown, change.removed, change.added)) continue;
-        const patch = { text: before, mended: null };
-        if (Array.isArray(m.swipes) && m.swipes.length) {
-          const idx = Number.isFinite(m.swipeIdx) ? Math.min(m.swipes.length - 1, Math.max(0, m.swipeIdx)) : m.swipes.length - 1;
-          const swipes = m.swipes.slice(); swipes[idx] = { ...swipes[idx], text: before }; patch.swipes = swipes;
-        }
+        const patch = shownTextPatch(m, before, { mended: null }); /* M575: one home */
         await db.messages.update(story.id, m.id, patch);
         /* (M44-6 counts the four moments a page's line is let go by their literal; this fifth is named apart) */
         try { const vis = visiblePages(await db.messages.list(story.id)); const holeAt = vis.findIndex((x) => x.id === m.id); if (holeAt !== -1) { const record = await loadMemory(story.id); await saveMemory(story.id, memoryWithoutPage(record, holeAt)); } } catch (err) { /* the keeper's next pass covers it */ }
@@ -3250,14 +3248,8 @@ export function initChat(ctx) {
       if (typeof page.keptText === 'string' && page.keptText === before) continue; /* M510-43: the words he put back stay as he put them */
       const t = tidyPage(before, { mc: mcOfTale, finish: !page.ooc }); /* M510-34: finished too — never an out-of-character answer */
       if (t.text === before) continue;
-      const patch = { text: t.text };
+      const patch = shownTextPatch(page, t.text); /* M575: one home */
       if (Array.isArray(t.removed) && t.removed.length && !page.mended) patch.mended = { before, why: tidyWhy(t.removed), at: Date.now() };
-      if (Array.isArray(page.swipes) && page.swipes.length) {
-        const idx = Number.isFinite(page.swipeIdx) ? Math.min(page.swipes.length - 1, Math.max(0, page.swipeIdx)) : page.swipes.length - 1;
-        const swipes = page.swipes.slice();
-        swipes[idx] = { ...swipes[idx], text: t.text };
-        patch.swipes = swipes;
-      }
       await db.messages.update(story.id, page.id, patch);
       mended += 1;
     }
@@ -3317,13 +3309,7 @@ export function initChat(ctx) {
 
   async function applyMend(storyId, page, after, why) {
     const before = String(page.text || '');
-    const patch = { text: after, mended: { before, why: String(why || '').slice(0, 4000), at: Date.now() } }; /* M268: the reason whole */
-    if (Array.isArray(page.swipes) && page.swipes.length) {
-      const idx = Number.isFinite(page.swipeIdx) ? Math.min(page.swipes.length - 1, Math.max(0, page.swipeIdx)) : page.swipes.length - 1;
-      const swipes = page.swipes.slice();
-      swipes[idx] = { ...swipes[idx], text: after };
-      patch.swipes = swipes;
-    }
+    const patch = shownTextPatch(page, after, { mended: { before, why: String(why || '').slice(0, 4000), at: Date.now() } }); /* M268: the reason whole; M575: one home */
     await db.messages.update(storyId, page.id, patch);
     /* M90: the record line covering a mended page is let go, so the keeper
      * folds it again from the corrected words — or the record keeps narrating
@@ -3340,7 +3326,7 @@ export function initChat(ctx) {
     if (!(await mendOn(story))) return [];
     const all = await db.messages.list(story.id);
     const wanted = new Set(pageIds);
-    const last = Math.max(...all.map((m, i) => (wanted.has(m.id) ? i : -1)));
+    let last = -1; for (let i = 0; i < all.length; i += 1) if (wanted.has(all[i].id)) last = i; /* M575: no spread of a whole tale into Math.max */
     if (last === -1) return [];
     const pages = all.slice(Math.max(0, last - reach), last + 1).filter((m) => !m.hidden);
     const mem = await loadMemory(story.id);
@@ -3370,13 +3356,7 @@ export function initChat(ctx) {
      * by hand ("Mend the pages' marks"): a page he put back was finished again by the next build — the note he wanted
      * kept came off again, silently. The words he put back are remembered (keptText) and the stored-page mend leaves that
      * page alone while it still reads them; a new version of it (a swipe, an edit) is his to have mended again. */
-    const patch = { text: page.mended.before, mended: null, keptText: page.mended.before };
-    if (Array.isArray(page.swipes) && page.swipes.length) {
-      const idx = Number.isFinite(page.swipeIdx) ? Math.min(page.swipes.length - 1, Math.max(0, page.swipeIdx)) : page.swipes.length - 1;
-      const swipes = page.swipes.slice();
-      swipes[idx] = { ...swipes[idx], text: page.mended.before };
-      patch.swipes = swipes;
-    }
+    const patch = shownTextPatch(page, page.mended.before, { mended: null, keptText: page.mended.before }); /* M575: one home */
     await db.messages.update(story.id, page.id, patch);
     await rerenderMessage(story.id, page.id);
     toast('The earlier words are back.');

@@ -232,6 +232,7 @@ import './m570.mjs'; /* M570: the ledger's pages shared between checkpoints */
 import './m572.mjs'; /* M572: the scribe's and the second reader's instructions read whole */
 import './m573.mjs'; /* M573: every wiki request has a time limit */
 import './m574.mjs'; /* M574: the line-by-line audit, part 1 */
+import './m575.mjs'; /* M575: one fingerprint */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

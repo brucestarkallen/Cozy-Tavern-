@@ -11,6 +11,7 @@
  * model told the story is found too). Only while a small model tells the tale. An answer that cannot be used is asked
  * for once more, then let go WITHOUT moving on — the same pages are read again after the next page. A failure to reach
  * the model throws — the queue's retries are for that. */
+import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { parseFirstObject } from './jsonutil.js';
@@ -26,7 +27,7 @@ export const KEEP_FINISHED = 12;
 
 const clip = (s, n) => { const t = String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t; };
 const titleKey = (t) => clip(t, 200).toLowerCase().replace(/^(?:the|a|an)\s+/, '').replace(/[^\p{L}\p{N} ]/gu, '').trim();
-const hashOf = (t) => { let h = 5381; const s = String(t == null ? '' : t); for (let i = 0; i < s.length; i += 1) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
+const hashOf = (t) => fingerprint36(t);
 
 export async function loadPlansBook(storyId) {
   const b = await db.settings.get(PLANS_KEY(storyId));
