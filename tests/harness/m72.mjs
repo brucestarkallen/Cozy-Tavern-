@@ -176,7 +176,7 @@ test('M72-8 the rewind is the fold; the replay is sequenced; a writer’s page d
   const del = c.slice(c.indexOf('async function deleteMessage('), c.indexOf('async function deleteMessage(') + 3600);
   assert(/if \(gone && gone\.role === 'assistant'\) \{/.test(del), 'a writer’s page let go shifts no storyteller page');
   assert(/await foldTo\(story, goneK - 1\);/.test(del), 'the tail page let go folds the ledger back now');
-  assert(del.indexOf('await db.messages.remove(story.id, id);') < del.indexOf('ledgerWork = replayFrom') && del.indexOf('ledgerWork = replayFrom') < del.indexOf("querySelector(`.msg[data-id"), 'the ledger work is claimed before any rendering');
+  assert(del.indexOf('await db.messages.remove(story.id, id);') < del.indexOf('ledgerWork = replayFrom') && del.indexOf('ledgerWork = replayFrom') < del.indexOf("querySelector('.msg[data-id") /* M574: the id is escaped now (cssId) */, 'the ledger work is claimed before any rendering');
   const sw = c.slice(c.indexOf('async function swipeTo('), c.indexOf('async function swipeRegenerate('));
   assert(sw.indexOf('if (!last) replayFrom(story, msg.id, { changed: true });') < sw.indexOf('await rerenderMessage(story.id, msg.id);'), 'a walked version on an older page claims its replay before rendering');
   const sr = c.slice(c.indexOf('async function swipeRegenerate('), c.indexOf('async function swipeRegenerate(') + 3000);

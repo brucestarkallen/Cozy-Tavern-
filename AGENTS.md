@@ -14616,3 +14616,24 @@ the founder does re-read a changed brief — its fingerprint, the page chain).
   share): one real fault — a school's titles were not titles: "Headmaster Vane" found no page and became a second Aldric
   Vane. headmaster, headmistress, principal, instructor, chancellor and vice are ranks now (never "Dean" or "Warden" —
   first names). Law M573-2.
+
+# M574 — the line-by-line audit, part 1 (his order: every line, until done)
+A ledger of every file kept outside the repo (122 files, 64,113 lines, 47,196 of code). Read this part: ui/chat.js lines
+1–2600 (code lines; its comments set aside), ui/richhtml.js whole; and three sweeps across the app — every HTML written
+from a string, every link or image address set from data, every page id put into a selector.
+- A PAGE'S STYLE COULD REACH A SERVER (ui/richhtml.js scrubStyle): url( was refused, but a CSS escape spelled it past the
+  check ("\75 rl(" is url( to the browser), and image-set( / image( / cross-fade( / element( take an address with no url(
+  at all — a page from a model or a wiki could make the app call any server. Those four and a backslash are refused too;
+  ordinary styling stands. Law M574-2.
+- A SOURCE LINK COULD RUN SCRIPT (chat.js sourcesNode): a page's sources were linked as the provider handed them — a
+  "javascript:" address would have run in the tavern's own page, where his connections and keys live. Only http(s) opens.
+- THE REBUILT PEOPLE NEVER REACHED THE CHECKPOINT (chat.js rebuildPeopleNow, since M507): it patched the turn's checkpoint
+  and version ledger IN PLACE and saved them — and the save's "written already" test is by identity (the very object it
+  handed out), so both writes were skipped. A new object each now; law M574-1 holds both the fix and why.
+- A page id put into a selector unescaped in four places (one place already escaped it): an id carried in from an
+  imported tale with a quote in it broke every lookup of that page. One helper (cssId) escapes them all.
+- Read and sound otherwise: the shelf (sorting by recency is the store's own order), the tale's row and its menus, the
+  hearth, the thread's drawing and redrawing, the thinking and cut-thinking notes, the choices row and its taking, smart
+  recall, the ledger mark, the gap fillers (backoff, the other hand), the hand-pressed rebuilds and restores.
+- A note: DOM-53 fails when run in a subset (here, and on m573 alike) — it depends on the scenarios before it; whole, the
+  walk passes it.

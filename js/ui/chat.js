@@ -343,6 +343,9 @@ export function initChat(ctx) {
   /* B18: what the thread last rendered, so new pages can simply append. */
   let lastRender = { storyId: null, ids: [] };
 
+  /* M574 (the audit): an id put into a selector is escaped — a page id carried in from an imported tale with a quote in
+   * it broke every lookup of that page; CSS.escape where the browser has it */
+  const cssId = (v) => (typeof CSS !== 'undefined' && CSS && typeof CSS.escape === 'function' ? CSS.escape(String(v)) : String(v).replace(/["\\]/g, '\\$&'));
   function toast(words) {
     if (ctx.toast) ctx.toast(words);
   }
@@ -1206,10 +1209,13 @@ export function initChat(ctx) {
     const list = document.createElement('ul');
     list.className = 'sources-list';
     for (const s of sources) {
+      /* M574 (the audit): only a web address opens — a source the provider handed back as "javascript:…" would have run in
+       * the tavern's own page, where his connections and their keys live */
+      if (!s || typeof s.url !== 'string' || !/^https?:\/\//i.test(s.url.trim())) continue;
       const li = document.createElement('li');
       const link = document.createElement('a');
       link.className = 'sources-link';
-      link.href = s.url;
+      link.href = s.url.trim();
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
       link.textContent = s.title || s.url;
@@ -1685,7 +1691,7 @@ export function initChat(ctx) {
     if (!story || story.id !== storyId) return;
     const history = await db.messages.list(storyId);
     const msg = history.find((m) => m.id === messageId);
-    const node = els.thread.querySelector(`.msg[data-id="${messageId}"]`);
+    const node = els.thread.querySelector('.msg[data-id="' + cssId((messageId)) + '"]');
     if (!msg || msg.hidden) {
       if (node) node.remove();
       return;
@@ -1933,7 +1939,7 @@ export function initChat(ctx) {
   /* Refresh the receipt affordance on a message already on the page, so
    * late-arriving worker notes (extraction, drift findings) can speak. */
   function refreshReceiptNode(msg) {
-    const node = els.thread.querySelector(`.msg[data-id="${msg.id}"]`);
+    const node = els.thread.querySelector('.msg[data-id="' + cssId((msg.id)) + '"]');
     if (node && msg.receipt) {
       const old = node.querySelector('.msg-receipt');
       if (old) old.remove();
@@ -2552,13 +2558,15 @@ export function initChat(ctx) {
         const snaps = await loadSnapshots(story.id);
         let touched = false;
         for (const e of snaps) {
-          if (e && lastUser && e.id === lastUser.id && e.snap) { e.snap.characters = JSON.parse(JSON.stringify(rebuilt.characters || {})); touched = true; }
+          /* M574 (the audit): a NEW checkpoint object — changed in place, the save saw the very object it had handed out (M507's
+           * "written already" test is by identity) and skipped it: the rebuilt people never reached the checkpoint */
+          if (e && lastUser && e.id === lastUser.id && e.snap) { e.snap = { ...e.snap, characters: JSON.parse(JSON.stringify(rebuilt.characters || {})) }; touched = true; }
         }
         if (touched) await saveSnapshots(story.id, snaps);
         if (last) {
           const idx = Number.isFinite(last.swipeIdx) ? last.swipeIdx : 0;
           const all = await loadVersionStates(story.id);
-          if (all[last.id + ':' + idx]) { all[last.id + ':' + idx].characters = JSON.parse(JSON.stringify(rebuilt.characters || {})); await writeVersionStates(story.id, all); }
+          if (all[last.id + ':' + idx]) { all[last.id + ':' + idx] = { ...all[last.id + ':' + idx], characters: JSON.parse(JSON.stringify(rebuilt.characters || {})) }; await writeVersionStates(story.id, all); } /* M574: a new object, the same reason */
         }
       } catch (err) { /* the ledger itself is rebuilt; the checkpoints follow when they can */ }
       /* M214: a stalled run is not a rebuilt one — the record rebuild has
@@ -6185,7 +6193,7 @@ export function initChat(ctx) {
     const history = await db.messages.list(story.id);
     const msg = history.find((m) => m.id === messageId);
     if (!msg) return;
-    const node = els.thread.querySelector(`.msg[data-id="${messageId}"]`);
+    const node = els.thread.querySelector('.msg[data-id="' + cssId((messageId)) + '"]');
     if (!node) return;
     const body = node.querySelector('.msg-body');
     if (!body) return;
@@ -6746,7 +6754,7 @@ export function initChat(ctx) {
         })();
       }
     }
-    const node = els.thread.querySelector(`.msg[data-id="${id}"]`);
+    const node = els.thread.querySelector('.msg[data-id="' + cssId((id)) + '"]');
     if (node) node.remove();
     lastRender.ids = lastRender.ids.filter((x) => x !== id);
     /* M21: with the page gone, the preview re-reads the page before it. */

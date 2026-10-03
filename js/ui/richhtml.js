@@ -27,7 +27,11 @@ export const ALLOWED_TAGS = new Set([
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'section', 'article', 'header', 'footer', 'figure', 'figcaption',
 ]);
 const ALLOWED_ATTRS = new Set(['style', 'class', 'open', 'title']);
-const REACHING = /url\s*\(|expression\s*\(|@import|javascript:|behavior\s*:|-moz-binding/i;
+/* M574 (the audit): a style may never reach outside the page. url( was refused, but a CSS escape spelled it past the
+ * check (\75 rl( is url( once the browser reads it), and image-set( / image( / cross-fade( / element( take an address
+ * with no url( at all — a page from a model or a wiki could make the app call any server. A backslash (no styling a
+ * page needs) and those four are refused too. */
+const REACHING = /url\s*\(|image-set\s*\(|image\s*\(|cross-fade\s*\(|element\s*\(|expression\s*\(|@import|javascript:|behavior\s*:|-moz-binding|\\/i;
 
 /* Does this text carry a tag the thread would render? A lone '<' in prose
  * ("he said 3 < 4") is not a tag. */
