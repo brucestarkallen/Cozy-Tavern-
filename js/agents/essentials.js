@@ -15,6 +15,7 @@
 import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { contextOf } from '../providers/room.js'; /* M565: the record told in parts that fit its model */
+import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M566 */
 
 export const ESSENTIALS_KEY = (storyId) => 'essentials:' + storyId;
 /* M510-16: the same room the record's newest lines had (M510-14, about 4,000 tokens) — now spent on the whole story */
@@ -61,7 +62,7 @@ export function essentialsAsk({ record = '', brief = '', mc = '' } = {}) {
   ].join('\n');
   const user = [
     mc ? 'The main character (the writer plays him): ' + mc : '',
-    brief ? 'What this story is about, in the writer\'s words:\n' + brief : '',
+    brief ? 'What this story is about, in the writer\'s words:\n' + writerText(brief, BRIEF_ROOM, 'brief') : '',
     'The record, oldest first:\n' + record,
   ].filter(Boolean).join('\n\n');
   return { system, user };
@@ -136,7 +137,7 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
   if (!rec.lines.length) return { wrote: false, why: 'no record yet' };
   const kept = await loadEssentials(storyId);
   if (kept && kept.print === rec.print && !force) return { wrote: false, why: 'unchanged' }; /* final audit: made again by hand, whatever the print */
-  const room = Math.max(20000, Math.floor(contextOf(connection) * 3 * 0.6));
+  const room = Math.max(20000, Math.floor(contextOf(connection) * 3 * 0.6) - Math.min(String(brief || '').length, BRIEF_ROOM)); /* M566: the brief rides beside each part */
   const parts = recordParts(rec.lines, room);
   const total = rec.lines.reduce((t, n) => t + recordLine(n).length + 1, 0) || 1;
   const told = [];

@@ -17,6 +17,7 @@
  * was made after, the last few kept — so Try again finds the plan for the page before it. */
 import { db } from '../store.js';
 import { callWorker } from './call.js';
+import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M566 */
 import { parseFirstObject } from './jsonutil.js';
 import { lawsOf, lawKey, ALWAYS_LAWS, PROSE_LAWS, PEOPLE_LAWS } from '../assemble/laws.js';
 import { renderPlan, renderSounds } from '../assemble/planwords.js'; /* the plan's words — pure, the assembler's too */
@@ -82,7 +83,7 @@ export function plannerAsk({ craft = '', brief = '', castNotes = '', facts = '',
   ].join('\n');
   const user = [
     'The main character — the writer plays him; his words, thoughts and choices are never written for him: ' + (mc || 'the main character'),
-    brief ? 'What this story is about, in the writer’s words:\n' + brief : '',
+    brief ? 'What this story is about, in the writer’s words:\n' + writerText(brief, BRIEF_ROOM, 'brief') : '',
     castNotes ? 'Who is in it, in the writer’s words:\n' + castNotes : '',
     facts ? 'The ledger — the state of things right now:\n' + facts : '',
     people ? 'The people’s pages:\n' + people : '',

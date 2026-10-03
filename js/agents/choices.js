@@ -13,6 +13,7 @@
  * every later page as what his choices set in motion. Everything lives on the pages, so a branch, a take-back, an export
  * and the device's books carry it exactly as they carry the pages. */
 import { callWorker } from './call.js';
+import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M566: the brief held to the workers' shared room */
 import { parseFirstObject } from './jsonutil.js';
 
 export const CHOICES_MIN = 2;          /* one "choice" is no choice */
@@ -79,7 +80,7 @@ export function choiceAsk({ brief = '', essentials = '', facts = '', people = ''
     'Answer with ONLY this JSON: {"turning":true,"choices":[{"label":"","move":"","outcome":"","echoes":[{"who":"","what":""}]}]} — or {"turning":false}.',
   ].join('\n');
   const user = [
-    'THE STORY\'S BRIEF:', String(brief || '').trim() || '(none)', '',
+    'THE STORY\'S BRIEF:', writerText(String(brief || ''), BRIEF_ROOM, 'brief') || '(none)', '',
     'THE STORY SO FAR, IN BRIEF:', String(essentials || '').trim() || '(not made yet)', '',
     'WHERE THINGS STAND (the ledger):', String(facts || '').trim() || '(nothing yet)', '',
     'THE PEOPLE:', String(people || '').trim() || '(no one written yet)', '',

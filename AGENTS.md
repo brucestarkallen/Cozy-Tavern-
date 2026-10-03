@@ -14470,3 +14470,23 @@ the same text, the same print), so no tale's essentials are made again for this.
   M330; their writer, addCorrection, has no caller left) — the line is harmless where none stand. The messages shown to him:
   swept for words that mean nothing to a writer (JSON, undefined, null, HTTP, parse, queue, a milestone number) — none.
 - Laws M565-1/2.
+
+# M566 — the audit, part 8: what each helper sends, held to what its model holds
+The essentials' fault (M565 — a request past its model's room refused every time, the helper silently stopping) looked for
+in every helper: which send long material without holding it to a room.
+- THE BRIEF RAW in three helpers — the choices keeper (M548, mine), the planner, the essentials keeper — however long his
+  brief; every other helper holds it to the workers' shared room (BRIEF_ROOM, 40,000) with its "the brief continues" note.
+  Held the same way now. The essentials' parts leave room for the brief beside them.
+- THE PLANNER'S RECORD was cut at 400,000 characters whatever the planner's model holds — past a 128,000-token model's room
+  on a very long tale, and refused there (the small storyteller's page then went whole, without its plan). Now what the
+  planner's own model holds (its context × 3 × 0.45, between 40,000 and 400,000), the newest kept and the cut said (M306).
+  Read, not run by a test here: the cap's expression in planNext.
+- Checked and bounded already: the recall picker's index (each line's head clipped), the auditor's and the page reader's
+  inputs (their rooms and lean steps), the weighing (its own model's room, M561), the ruling (M562).
+- CANON VERIFICATION, ONE ENGINE, ONE STORY AT A TIME (canon/bridge.js enterStory: the engine's context is global, and a
+  different story fires the engine's own "chat changed" — its per-chat memory reset, the wiki checked again). The page
+  chain's canon step (canonAfterPage) entered ITS tale whatever tale was open by then: after he switched tales the engine
+  was moved to the old one, and a send in the open tale could run while it stood there. A tale no longer open is left alone
+  now — the next page sent in it looks up who it needs first. Read, not run by a test here (the walk's canon scenarios run
+  on one tale); the lens work (canonLensLedger) never enters the engine and was already safe.
+- Law M566.

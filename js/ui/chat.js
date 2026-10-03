@@ -2752,7 +2752,7 @@ export function initChat(ctx) {
     const recentText = pagesAll.slice(-3).map((m) => pageText(m));
     const facts = planFacts(state, { ...planStateView(big), scenePages: recentText });
     const people = (planPeople(state, { recentPages: recentText, rotation: pagesAll.length, view: planPeopleView(big), brief: String(fresh.brief || '') + '\n' + String(fresh.castNotes || '') }) || {}).text || '';
-    const record = wholeRecord(await loadMemory(story.id), 400000);
+    const record = wholeRecord(await loadMemory(story.id), Math.min(400000, Math.max(40000, Math.floor(contextOf(connection) * 3 * 0.45)))); /* M566: what the planner's own model holds — the newest kept, the cut said */
     const lore = matchLoreDetailed(await loadLore(story.id), recentText).text || '';
     const world = renderWorldBrief(state.worldBrief, state.turn, state.page, state) || '';
     const director = renderDirectorNote(await loadDirector(story.id)) || '';
@@ -4127,6 +4127,12 @@ export function initChat(ctx) {
     enqueue('canon', async ({ stale }) => {
       try {
         if (stale() || !(await canonOn(story.id))) return { silent: true };
+        /* M566 (the audit): canon verification is one engine, one story at a time (his extension was built for SillyTavern's
+         * one open chat). This step switched it to ITS tale whatever tale was open by then — he had moved on, the engine
+         * reset its per-chat memory for the old tale, and a send in the open tale could run while the engine still stood in
+         * the other. A tale no longer open is left alone: the next page sent in it looks up who it needs before it is written. */
+        const open = await activeStory();
+        if (!open || open.id !== story.id) return { silent: true };
         const connection = await resolveWorkerConnection(story, 'canon');
         await canonAfterPage({ story, state: await loadState(story.id), messages: visiblePages(await db.messages.list(story.id)), connection });
       } catch (err) { /* its trouble is its own */ }
