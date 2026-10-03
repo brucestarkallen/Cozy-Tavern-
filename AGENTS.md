@@ -14351,3 +14351,18 @@ old copy kept beside it), the worker's push and eviction, the page side's push q
   list kept that now meant a push nothing had asked for at the next start (the stamp the boot had just adopted, moved). One
   rule for both now (ownKey).
 - Laws M558; walk DOM-205 reads the new wording; tests/pushretry.py both phases.
+
+# M559 — the audit, part 4: a person's loose ends no longer forget (M305's fault, in its third book)
+Read for the audit: every cap in the ledger engine (engine/*.js) — which ones let a kept fact go. M305 had found that a cap
+which lets the OLDEST go is the old seat cap's fault again, and fixed it in two books (who-knows-what kept whole; the world's
+threads 8 → 40). A third book kept the same eight: each person's own loose ends (people.js THREADS_MAX) — "owes Jovan a
+favour", page 10, went the moment an eighth newer one came, and every reader then read that person as if it had never been;
+the ghost fold (healGhosts) cut a merged list to eight; and loading kept the OLDEST eight where adding keeps the newest.
+Now forty, as the world's threads; the ghost fold uses the same room; loading keeps the newest. What each reader is shown was
+never the whole list (the storyteller reads the newest and what bears on the scene). The other caps read are for display or
+are bounded logs (the change log's 200, the sheet's eight conditions, the cards shown) — none lets a kept fact go.
+Also read for the audit: the referee's contested check (resolveCheck: rating minus rating, the circumstance, composure and
+his fight style's own bonus — even-handed; what made him weak was the sheet, M554–M558) and the history's own open items
+(97 lines marked not covered, not verified or not yet changed: the "not verified" are live providers this container cannot
+reach; the rest were closed by later milestones, M305's among them — except this third book).
+- Law M559; M134-1's list is filled past the new room with ends that mean different things.

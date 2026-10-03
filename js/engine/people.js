@@ -43,7 +43,13 @@ export const CORE_CAP = 4000;
 export const STATE_CAP = 4000;
 export const ARC_CAP = 4000;
 export const THREAD_CAP = 1000;
-export const THREADS_MAX = 8;
+/* M559 (the audit): A PERSON'S LOOSE ENDS NO LONGER FORGET. M305 found that a cap which lets the OLDEST go is the old seat
+ * cap's fault again — a secret pushed out by twelve trifles, a rival's dormant plan deleted by a ninth thread — and fixed it in
+ * two books (who-knows-what kept whole; the world's threads 8 → 40). A third book had the same eight: each person's own
+ * loose ends ("owes Jovan a favour", page 10) went the moment an eighth newer one came — and the storyteller, the scribe and
+ * the auditor then read that person as if it had never been. Forty, as the world's threads: what is shown to each reader was
+ * never the whole list (the storyteller reads the newest and what bears on the scene). */
+export const THREADS_MAX = 40;
 export const RECALL_CARD_CAP = 2000;
 /* Tier laws (SPEC.md M12). */
 export const PRESENT_CARDS_MAX = 6;
@@ -593,7 +599,7 @@ export function healGhosts(state) {
     const ghost = characters[k]; const real = characters[holder];
     const ends = [...(Array.isArray(real.threads) ? real.threads : [])];
     for (const t of Array.isArray(ghost.threads) ? ghost.threads : []) if (!ends.some((e) => sameLooseEnd(e, t))) ends.push(t);
-    if (ends.length) real.threads = ends.slice(-8);
+    if (ends.length) real.threads = ends.slice(-THREADS_MAX); /* M559: the same room as everywhere else */
     if (!real.state && ghost.state) real.state = ghost.state;
     if (!real.arc && ghost.arc) real.arc = ghost.arc;
     if (off[k] && !off[holder]) off[holder] = off[k];
@@ -683,7 +689,7 @@ export function migrateCharacters(characters) {
     person.threads = (Array.isArray(entry.threads) ? entry.threads : [])
       .filter((t) => typeof t === 'string' && t.trim())
       .map((t) => t.trim())
-      .slice(0, THREADS_MAX);
+      .slice(-THREADS_MAX); /* M559: past the room, the newest stand (the add path lets the oldest go — loading did the reverse) */
     person.updatedAtTurn = Number.isFinite(entry.updatedAtTurn) ? Math.floor(entry.updatedAtTurn) : 0;
     out[key] = person;
   }

@@ -827,9 +827,13 @@ test('M134-1 loose ends close on sense and the list evicts the oldest; the hourâ
   eq(r.characters.Alexia.threads.length, 0, 'closed on sense: ' + JSON.stringify(r.dropped));
   let full = {};
   const ends = ['owes Rias an apology for the party', 'must return the borrowed violin by Sunday', 'wants the coach to notice her footwork', 'has hidden the letter from her mother', 'promised Chloe a photo before Saturday', 'never told Aurora about the scholarship', 'keeps the dock key on a ribbon nobody knows', 'is saving for the train to Lisbon in June', 'suspects Caleb of reading her messages', 'has to choose between debate and cheer'];
+  /* M559: the room is forty now (it was eight) â€” the list is filled past it with ends that mean different things */
+  const W = ['amber','basalt','cobalt','dune','ember','fjord','garnet','harbor','iris','juniper','kestrel','lagoon','marble','nectar','onyx','pewter','quartz','raven','saffron','tundra','umber','velvet','willow','xenon','yarrow','zephyr','acorn','bramble','citrine','delta','eagle','falcon','glacier','heron','indigo','jasper','kelp','lilac','mesa','nutmeg','opal','plume','quiver','reef','sable','thistle','urchin','vapor','walnut','yew'];
+  const V = ['polish','bury','sell','paint','find','mend','carry','hide','trade','sharpen','burn','plant','seal','borrow','weigh','count','return','forge','study','guard','ferry','chart','brew','gather','sketch','buckle','tether','harvest','gild','trace','smuggle','cradle','salt','varnish','unearth','barter','kindle','lacquer','muzzle','nurse','oil','pickle','quench','rinse','stitch','tan','unravel','vouch','whittle','yoke'];
+  for (let i = 0; ends.length < THREADS_MAX + 2; i += 1) ends.push(V[i] + 's the ' + W[i]);
   for (let i = 0; i < THREADS_MAX + 2; i += 1) full = mergeDeltas({ turn: i }, full, [{ name: 'Kim', field: 'thread', text: ends[i] }], i).characters;
   eq(full.Kim.threads.length, THREADS_MAX, 'the list holds its cap');
-  assert(/debate and cheer/.test(full.Kim.threads[full.Kim.threads.length - 1]) && !/apology for the party/.test(full.Kim.threads.join('|')), 'the newest stays, the oldest went');
+  assert(full.Kim.threads[full.Kim.threads.length - 1] === ends[ends.length - 1] && !/apology for the party/.test(full.Kim.threads.join('|')), 'the newest stays, the oldest went');
   const { hourLaw, buildWorldMessages } = await import('../../js/agents/world.js');
   assert(/THE SMALL HOURS \(23:00\)/.test(hourLaw({ minutes: 23 * 60 + 10 })), hourLaw({ minutes: 23 * 60 + 10 }));
   eq(hourLaw({ minutes: 14 * 60 }), '');

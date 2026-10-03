@@ -219,6 +219,7 @@ import './m554.mjs'; /* M554: the sheet by evidence; who is in the scene, one de
 import './m555.mjs'; /* M555: Weigh them again weighs fresh; the sharp game master; his hand means his hand */
 import './m556.mjs'; /* M556: a weighing he asks for is blind to the old numbers */
 import './m558.mjs'; /* M558: the truth, never the mask; defaults below the best */
+import './m559.mjs'; /* M559: a person's loose ends no longer forget */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');
