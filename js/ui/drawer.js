@@ -1721,6 +1721,7 @@ function measurePanel(ctx) {
       if (Array.isArray(actor.conditions) && actor.conditions.length) {
         extras.push(actor.conditions.map((c) => c.name + (c.mod ? ' (' + (c.mod > 0 ? '+' : '') + c.mod + ')' : '')).join('; '));
       }
+      if (typeof actor.why === 'string' && actor.why.trim()) extras.push('why: ' + actor.why.trim()); /* M560: the evidence the weighing named for these numbers */
       if (extras.length) {
         const small = document.createElement('small');
         small.textContent = extras.join(' — ');

@@ -9297,12 +9297,14 @@ test('DOM-205 "WEIGH THEM AGAIN", THROUGH THE DRAWER (M556 — his report: "I ch
     'Ivar van Emreis': { default: 8, domains: { melee: 8 }, _auto: true, seed: SEED_VERSION },
   } };
   await saveState(st.id, { ...s, page: 1, readTo: 1, tidiedGen: 999 });
+  const { ESSENTIALS_KEY } = await import('../../js/agents/essentials.js');
+  await db.settings.set(ESSENTIALS_KEY(st.id), { text: '- [Day 1 · the gate] (pages 1-2) OPENING-FEAT: Jovan parried Ivar\u2019s first strike before anyone saw him move.', upTo: 1, at: Date.now() }); /* M560: the whole story, told shorter */
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   const prior = house.state.workerAnswer;
   let asked = '';
   house.state.workerAnswer = (body, sys) => {
-    if (/You keep the cast sheet of a story/.test(String(sys || '')) && /Jovan Wessex/.test(JSON.stringify(body.messages || body))) { asked = JSON.stringify(body.messages || body); return JSON.stringify({ player_story_name: 'Jovan Wessex', actors: [{ name: 'Jovan Wessex', default: 7, domains: { melee: 8, ice: 8 } }, { name: 'Ivar van Emreis', default: 8, domains: { melee: 8 } }] }); }
+    if (/You keep the cast sheet of a story/.test(String(sys || '')) && /Jovan Wessex/.test(JSON.stringify(body.messages || body))) { asked = JSON.stringify(body.messages || body); return JSON.stringify({ player_story_name: 'Jovan Wessex', actors: [{ name: 'Jovan Wessex', why: 'parried Ivar in the opening scene', default: 7, domains: { melee: 8, ice: 8 } }, { name: 'Ivar van Emreis', why: 'the strongest student', default: 8, domains: { melee: 8 } }] }); }
     return typeof prior === 'function' ? prior(body, sys) : (prior || '{"mutations":[]}');
   };
   try {
@@ -9322,9 +9324,10 @@ test('DOM-205 "WEIGH THEM AGAIN", THROUGH THE DRAWER (M556 — his report: "I ch
     await until(() => asked, 'the helper asked', 20000);
     const sheetShown = (asked.match(/<sheet>\\n([\s\S]*?)\\n<\/sheet>/) || [])[1] || '';
     assert(/Jovan Wessex \(the main character\)/.test(sheetShown) && !/default 5|melee 6|melee 8/.test(sheetShown), 'no old number in front of it: ' + sheetShown);
+    assert(/<story_in_brief>[\s\S]*OPENING-FEAT: Jovan parried Ivar/.test(asked.replace(/\\n/g, '\n')), 'the whole story, told shorter, is in front of it (M560): ' + asked.slice(0, 200));
     await until(() => queuedCount(st.id) === 0, 'the weighing done', 30000);
     try {
-      await until(() => panel() && /Jovan Wessex \(you\) — melee 8 · ice 8 · everything else 7/.test(panel().textContent), 'the drawer shows the new numbers', 20000);
+      await until(() => panel() && /Jovan Wessex \(you\) — melee 8 · ice 8 · everything else 7/.test(panel().textContent) && /why: parried Ivar in the opening scene/.test(panel().textContent), 'the drawer shows the new numbers, and why (M560)', 20000);
     } catch (err) {
       const { loadState } = await import('../../js/engine/state.js');
       const stored = ((await loadState(st.id)).sheet || {}).actors || {};

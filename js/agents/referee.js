@@ -42,6 +42,7 @@ import { renderBodies } from '../engine/bodies.js';
 import { renderCanon } from '../engine/canon.js';
 import { writerText, wholePage, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js';
 import { loadMemory, recordFor } from './memory.js';
+import { loadEssentials } from './essentials.js'; /* M560: the whole story, told shorter, for the cast's weighing */
 import { contextOf } from '../providers/room.js';
 import { db } from '../store.js';
 import {
@@ -363,6 +364,7 @@ export const SEED_SYSTEM = [
    * for everything. The sheet decides contests; it is the truth, never the mask. */
   'TRUE ABILITY, NEVER THE MASK: this sheet decides what happens in a contest, so rate what each person can TRULY do when it counts — never their public rank, their reputation, what others believe of them, or the level they pretend to be. When the brief or the pages say someone hides, conceals, understates or seals their power (a low official tier, "barely fights", a concealed affinity, a sealed form), rate the truth — their concealed arts included; the official tier is only what others believe. A rank tells power only where nothing says otherwise.',
   'DEFAULT is how a person fares at something they are NOT known for — almost always two to four below their best domains, never their peak: a master of one art is ordinary outside it. A sheet where the strong are 9 at everything has its defaults wrong.',
+  'FIRST THE EVIDENCE, THEN THE NUMBER (M560). For each person, before any number: find in the WHOLE story — <brief> (its history and growth), <story_in_brief>, <record>, <pages> — every contest they took part in and every feat: whom they held their own against, beat or lost to, and in what; what the brief says of their true ability. A feat is a floor: someone who parried a fighter rated N moved and struck at N in that moment. Then the numbers. Give each person a "why": one short line naming the evidence their numbers rest on (a feat, a contest, the brief\'s words) — never a rank or a reputation alone.',
   /* M555: his report — the academy's headmaster rated 4 (earth 5): "why can't the AI imagine and act as a smart GM?" */
   'RATE AS A SHARP GAME MASTER WOULD: where the pages have not yet shown someone\'s measure, their place in the world sets it, read the way the world\'s own people would read it. In a world where power decides rank, rank tells you power: the head of an academy of mages, a sect elder, a guild master, a captain, a famed hero or a living legend stands among the strongest of that world in what their place rests on — a headmaster of mages is a master mage (8-9 in their art), never a clerk with a title — while someone whose standing rests on politics or money alone is rated in that. What the pages then show moves them from there.',
   'Rate each person at their CURRENT level as of the newest page. When <sheet> shows numbers, they are the last weighing: rate the new, higher level wherever the story shows someone has trained, grown or unlocked new power since. When <sheet> shows names only, weigh every one of them afresh from the brief and the story — what they were rated before is not yours to guess at.',
@@ -374,7 +376,7 @@ export const SEED_SYSTEM = [
   'Include EVERY named person in <people> and <brief> — allies, rivals, mentors, family, anyone who recurs — not only those on the newest pages. A large cast is expected; nobody is dropped to save space. Merge obvious duplicates and aliases into one entry, under the name <people> uses.',
   'People and creatures ONLY: never an entry for a place, a school, a house, a clan, a faction, a team, an organisation or a title.',
   JSON_ONLY,
-  '{ "player_story_name": string|null, "actors": [ { "name": string, "default": 0-10, "domains": {"melee": 0-10, …}, "lasting": [ {"name": string, "mod": int, "domain": string|null, "gear": true|false} ] } ] }',
+  '{ "player_story_name": string|null, "actors": [ { "name": string, "why": string, "default": 0-10, "domains": {"melee": 0-10, …}, "lasting": [ {"name": string, "mod": int, "domain": string|null, "gear": true|false} ] } ] }',
 ].join('\n');
 
 /* ==================================================================== */
@@ -1303,7 +1305,7 @@ export async function refereeStep({ connection, userText, userId, history, state
 
 /* M345: the sheet's own stamp. 1 = the blind seeder (M11..M344) — a sheet it made is read again, whole, the next time
  * the seeder runs (the app repairs what it can detect). */
-export const SEED_VERSION = 6; /* M558: weighed again once — the truth, never the mask; defaults below the best */ // /* M556: weighed again once, blind to the old numbers */ /* M554: weighed again once under the guide that rates by evidence; M555: and as a sharp game master reads a person's place in the world */
+export const SEED_VERSION = 7; /* M560: weighed again once, seeing the whole story and saying why */ // /* M558: weighed again once — the truth, never the mask; defaults below the best */ // /* M556: weighed again once, blind to the old numbers */ /* M554: weighed again once under the guide that rates by evidence; M555: and as a sharp game master reads a person's place in the world */
 export const SEED_EVERY = 100;        /* Arbiter's fallback timer: a long quiet stretch still refreshes growth */
 export const SEED_NEW_FACE_GAP = 3;   /* pages between re-seeds called by someone in the scene the sheet does not have */
 export const SEED_MAX_TOKENS = 8000;  /* a large cast needs room to answer (the old 600 cut a big sheet off mid-list) */
@@ -1404,7 +1406,14 @@ function seedSheetBlock(state, { numbers = true } = {}) {
 }
 
 /* the seeder's whole reading, sized to the worker's room */
-export function buildSeedUser({ state, pages = [], brief = '', castNotes = '', record = '', room = 300000, blind = false } = {}) {
+/* M560: HIS QUESTION — "why can't it think like a human GM, from the pages and the brief? Jovan parried Ivar in the OPENING
+ * scene and it rates his melee 4." Read in the code: the weighing was never shown that scene. It read the newest forty
+ * messages (the opening of a long tale is older), the record cut to its NEWEST part (the oldest lines — the opening — went
+ * first), and the brief cut at 15% of its room (on a smaller model, most of the brief: the people further down unseen). Its
+ * instructions were rewritten four times (M554–M558) while it still could not see the evidence. Now it is handed the
+ * story's essentials (the whole story told shorter, oldest first), the brief at twice the room, and the record's room; and
+ * it must write, for each person, the evidence its numbers rest on — shown under them in the drawer. */
+export function buildSeedUser({ state, pages = [], brief = '', castNotes = '', record = '', essentials = '', room = 300000, blind = false } = {}) {
   const mc = mcName(state);
   const share = (part) => Math.max(4000, Math.floor(room * part));
   const player = mc === 'the player'
@@ -1412,7 +1421,7 @@ export function buildSeedUser({ state, pages = [], brief = '', castNotes = '', r
     : 'The main character — the person the writer plays — is ' + mc + '. Every page labelled "' + mc + ' (the writer)" below is ' + mc + ' acting: "I", "me" and "you" in it are ' + mc + '. Put ' + mc + ' first in "actors", under exactly the name "' + mc + '".';
   const told = [];
   let used = 0;
-  const budget = share(0.3);
+  const budget = share(0.22); /* M560: the brief's room doubled and the story in brief are paid for here */
   for (let i = pages.length - 1; i >= 0; i -= 1) {
     const m = pages[i];
     if (!m || m.hidden) continue;
@@ -1427,15 +1436,17 @@ export function buildSeedUser({ state, pages = [], brief = '', castNotes = '', r
   const bodies = (() => { try { return renderBodies(state.bodies, state.clock && state.clock.minutes, storyTurn(state)); } catch (err) { return ''; } })();
   const locked = (() => { try { return state.canon && typeof state.canon === 'object' ? renderCanon(state.canon, Object.keys(state.canon)) : ''; } catch (err) { return ''; } })();
   const cut = (t, n) => { const s = String(t || ''); return s.length > n ? s.slice(s.length - n) : s; };
+  const bothEnds = (t, n) => { const s = String(t || ''); if (s.length <= n) return s; const h = Math.floor(n / 2); return s.slice(0, h) + '\n…\n' + s.slice(s.length - (n - h)); };
   return [
     '<player>\n' + player + '\n</player>',
     '<sheet>\n' + seedSheetBlock(state, { numbers: !blind }) + '\n</sheet>',
-    String(brief || '').trim() ? '<brief>\n' + writerText(brief, Math.min(BRIEF_ROOM, share(0.15)), 'brief') + '\n</brief>' : null,
+    String(brief || '').trim() ? '<brief>\n' + writerText(brief, Math.min(BRIEF_ROOM, share(0.3)), 'brief') + '\n</brief>' : null,
+    String(essentials || '').trim() ? '<story_in_brief>\n' + bothEnds(essentials, share(0.12)) + '\n</story_in_brief>' : null, /* M560: the whole story, oldest first — the opening never the first to go */
     String(castNotes || '').trim() ? '<cast_notes>\n' + writerText(castNotes, Math.min(CAST_ROOM, share(0.08)), 'cast notes') + '\n</cast_notes>' : null,
     '<people>\n' + (seedPeople(state, String(brief || '') + '\n' + String(castNotes || ''), share(0.2)) || '(no pages written yet)') + '\n</people>',
     bodies && bodies.trim() ? '<bodies>\n' + cut(bodies, 8000) + '\n</bodies>' : null,
     locked && locked.trim() ? '<locked>\n' + cut(locked, 8000) + '\n</locked>' : null,
-    String(record || '').trim() ? '<record>\n' + cut(record, share(0.2)) + '\n</record>' : null,
+    String(record || '').trim() ? '<record>\n' + cut(record, share(0.13)) + '\n</record>' : null,
     '<pages>\n' + (told.join('\n\n') || '(none yet)') + '\n</pages>',
   ].filter(Boolean).join('\n\n');
 }
@@ -1505,6 +1516,7 @@ export function mergeSeed(state, parsed, { heal = false, byHand = false } = {}) 
       }
     }
     const fresh = { default: clampInt(item.default, 0, 10, ENGINE_DEFAULTS.defaultRating), domains };
+    const why = typeof item.why === 'string' ? item.why.replace(/\s+/g, ' ').trim().slice(0, 240) : ''; /* M560: the evidence the numbers rest on */
     const lasting = normalizeLasting(item.lasting || item.conditions);
     const key = findActorKeyExact(state, name) || findActorKeySamePerson(state, name);
     const existing = key ? actors[key] : null;
@@ -1524,6 +1536,7 @@ export function mergeSeed(state, parsed, { heal = false, byHand = false } = {}) 
     if (existing && existing._auto && !existing._estimated && !heal && !byHand) {
       /* growth: a considered rating of this seeder's only ever rises */
       if (fresh.default > (Number(existing.default) || 0)) existing.default = fresh.default;
+      if (why) existing.why = why;
       existing.domains = existing.domains && typeof existing.domains === 'object' ? existing.domains : {};
       for (const [d, v] of Object.entries(fresh.domains)) if (existing.domains[d] === undefined || v > existing.domains[d]) existing.domains[d] = v;
       existing.seed = SEED_VERSION; /* M475: considered by this seeder now, whatever made it */
@@ -1536,7 +1549,7 @@ export function mergeSeed(state, parsed, { heal = false, byHand = false } = {}) 
     /* M555: HIS "WEIGH THEM AGAIN" (byHand) sets what the weighing names, up or down, and an art it left unnamed this time keeps
      * its number (never an estimate's) — his ice is not lost for being left off once; a heal is still the one whole replace */
     const kept = byHand && !heal && existing && typeof existing === 'object' && !existing._estimated && existing.domains && typeof existing.domains === 'object' ? existing.domains : {}; /* a heal is the one whole replace (M475) */
-    const entry = { default: fresh.default, domains: { ...kept, ...fresh.domains }, _auto: true, seed: SEED_VERSION };
+    const entry = { default: fresh.default, domains: { ...kept, ...fresh.domains }, _auto: true, seed: SEED_VERSION, ...(why ? { why } : {}) };
     const conds = [...otherHands, ...lasting].slice(-8);
     if (conds.length) entry.conditions = conds;
     if (existing && Number.isFinite(Number(existing.poise))) entry.poise = existing.poise;
@@ -1581,7 +1594,9 @@ export async function maybeSeedSheet({ connection, storyId, signal, callLLM, bri
     try { record = recordFor(await loadMemory(storyId), 1, 120000); } catch (err) { record = ''; }
     const room = Math.max(40000, Math.min(400000, Math.floor(contextOf(connection) * 3 * 0.55)));
     const blind = why === 'heal' || force === true; /* M556: by hand, or healing an older sheet — weighed from the story, never from the old numbers */
-    let user = buildSeedUser({ state, pages: messages.slice(-40), brief, castNotes, record, room, blind });
+    let essentials = '';
+    try { const e = await loadEssentials(storyId); essentials = e && typeof e.text === 'string' ? e.text : ''; } catch (err) { essentials = ''; }
+    let user = buildSeedUser({ state, pages: messages.slice(-40), brief, castNotes, record, essentials, room, blind });
     if (typeof renew === 'function') renew(240000);
     let parsed = await callReferee(connection, withFictionFrame(SEED_SYSTEM), user, signal, callLLM, SEED_MAX_TOKENS, (o) => Array.isArray(o.actors) || (o.actors && typeof o.actors === 'object'));
     if (!parsed) return { ok: false, why: 'no usable answer' };

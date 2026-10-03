@@ -14366,3 +14366,20 @@ his fight style's own bonus — even-handed; what made him weak was the sheet, M
 (97 lines marked not covered, not verified or not yet changed: the "not verified" are live providers this container cannot
 reach; the rest were closed by later milestones, M305's among them — except this third book).
 - Law M559; M134-1's list is filled past the new room with ends that mean different things.
+
+# M560 — "why can't it think like a human GM? he parried Ivar in the OPENING scene and it rates his melee 4"
+He asked whether this is flex tape. It was: M554, M555, M556 and M558 rewrote the weighing's INSTRUCTIONS four times, each
+proven only by its words being sent — while the weighing still could not SEE the evidence. Read in the code
+(buildSeedUser): it was shown the newest forty messages (the opening of a long tale is older than that), the record cut to its
+NEWEST part (the oldest lines — the opening — went first), and the brief cut at 15% of its room (on a smaller model most of
+the brief: the people further down unseen). No instruction can make a model rate a feat it was never shown.
+- It is now handed <story_in_brief> — the essentials, the whole story told shorter, oldest first; when it must be shortened
+  both ends stand, so the opening is never the first to go — and the brief at twice the room (a 20,000-character brief rides
+  whole at a 120,000 room; it was cut at 18,000). The pages and the record pay for it.
+- FIRST THE EVIDENCE, THEN THE NUMBER: for each person it finds, in the whole story, every contest and feat (whom they held
+  their own against, beat or lost to, and in what; what the brief says of their true ability) — a feat is a floor — and only
+  then rates; and it must say WHY: one line of evidence per person, kept on the sheet and shown under them in the drawer
+  ("why: parried Ivar in the opening scene"), so he can see what it read, and where it misread.
+- SEED_VERSION 7: every sheet weighed again once, seeing the whole story.
+- Checked while here: the workers think when his connection says so (M231/M233) — the weighing is not forced off.
+- Law M560; walk DOM-205 reads the evidence in the drawer.
