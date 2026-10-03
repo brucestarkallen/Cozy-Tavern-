@@ -39,7 +39,7 @@ const WORDS_CAP = 200;
 /* ---------- the prompt (human-voiced, kept in the code) ---------- */
 
 const SYSTEM_PROMPT = [
-  'You are the continuity reader for a slow, warm story told between two writers.',
+  'You are the continuity reader for a story told between two writers.',
   'A page has just been finished. Your whole job is to compare it against what is',
   'written down — the locked truths about the characters, and the ledgers of the',
   'scene — and note where the page disagrees with them.',
@@ -90,7 +90,7 @@ const SYSTEM_PROMPT = [
   'WHAT THE WRITER ASKED FOR ON HIS TURN (shown below) is the story: a page doing what he',
   'asked — a word, a language, an act, a way of speaking — is never drift.',
   '',
-  'UNTOLD KNOWLEDGE — the one case where what is NOT written counts (M338). The ledger lists, for the',
+  'UNTOLD KNOWLEDGE — the one case where what is NOT written counts. The ledger lists, for the',
   /* M416: the marker is the storyteller's own notes' words (engine/world.js BLIND_LINE), read from the one home */
   'people here, what each HAS learned ("knows:") and what no page has shown them learning ("' + BLIND_LINE.trim() + '" \u2014',
   'the same words the storyteller\u2019s notes use). When a character on this page STATES or ACTS ON one of the',

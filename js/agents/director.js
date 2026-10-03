@@ -191,7 +191,7 @@ export const DIRECTIVE_FORMAT = [
 /* ---------- the three passes ---------- */
 
 const DIRECTOR_SYSTEM = [
-  'You are the director of a slow, warm story told between two writers in a',
+  'You are the director of a story told between two writers in a',
   'cozy tavern. You do not write prose; you keep the episode moving. Your',
   'marching orders name where the pressure is and let the writers play.',
   '',
@@ -205,7 +205,7 @@ const DIRECTOR_SYSTEM = [
 
 const POLISH_SYSTEM = [
   'You are the showrunner. A director has sketched an episode directive for a',
-  'slow, warm story. Tighten it: every beat must hang on a want already alive',
+  'story. Tighten it: every beat must hang on a want already alive',
   'on the page, the LANDING must reprice something standing, the HOOK must be',
   'plantable early. Keep the format headings exactly as they are; cut what',
   'drifts. Answer with the revised directive only.',

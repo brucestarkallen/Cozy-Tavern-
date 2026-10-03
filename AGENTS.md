@@ -14425,3 +14425,21 @@ his own words are that narratively the one who parried can be a little stronger,
 - Laws M562 (the order, the relative sense, the middle not the floor, nothing stacked, the better fighter once); M554-1,
   M555-3, M558, M560, M561-2 read the one procedure now; walk DOM-206: the ruling reads the evidence and the cracked rib, and
   not the whole story.
+
+# M563 — the audit, part 5: every helper's request read as the model receives it
+Every request builder of every helper (32 of them: the page reader, the auditor, the scribe, the world beyond, the founder,
+the second reader, the memory keeper, the canon helpers, the planner, the plans and choices keepers, the essentials and world
+keepers, the recall picker, the referee, the tidy…) built with a filled ledger, and the whole of what is sent scanned:
+- MILESTONE NUMBERS IN THE MODEL'S OWN WORDS — the history of patches spoken to the model, meaningless to it: "(M372)" in the
+  auditor's and the page reader's rules, "(M256 — every one of these…)", "(M338)" in the second reader's, "(M291)" in the
+  founder's and the scribe's, "(M514)", "(M227)", "(M54 — the writer's own laws)" in the scribe's and the world beyond's,
+  "(M304)", "(M500)", "(M366)", "(M367, M368)" in the world beyond's. Gone; every rule kept word for word otherwise.
+- THE GENRE, TOLD WRONG: ten helpers were told the story is "a slow, warm story" or "a slow story" — the page reader, the
+  scribe, the auditor, the founder, the world beyond, the second reader, the director, the editor, the housekeeper. His
+  tales are fights, wars and tournaments; a reader told the story is slow and warm is told what to expect. "A story told
+  between two writers" now, everywhere.
+- Read through, as sent, with nothing found against the rest: the page reader's instructions (12,430 characters) and the
+  world beyond's (19,006) — one voice each, no rule contradicting another, no section asked for and not given ("<fetch>" is
+  their own way to ask for more, not a section owed to them).
+- Law M563 (every builder built; no milestone number, no genre framing in anything sent); M372-2 reads the rule, not its
+  number; the walk's test house knows the helpers by their new opening words.

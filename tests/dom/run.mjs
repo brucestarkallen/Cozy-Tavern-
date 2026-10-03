@@ -4562,7 +4562,7 @@ test('DOM-85 CANON VERIFICATION, WHOLE, IN THE APP: every lever of the extension
     /* the workers told to write from the real record are handed it, on the wire */
     /* the scribe is recognized by its own opening words (an earlier draft looked for "character scribe", matched
      * nothing, and let the world agent's call satisfy the check alone) */
-    const scribeCall = one.calls.find((c) => /You keep the character pages of a slow, warm story/.test(JSON.stringify(c.body)));
+    const scribeCall = one.calls.find((c) => /You keep the character pages of a story/.test(JSON.stringify(c.body)));
     assert(scribeCall, 'the scribe was asked on this page');
     assert(/What the series itself says of its people/.test(JSON.stringify(scribeCall.body)) && /Rukia Kuchiki —/.test(JSON.stringify(scribeCall.body)), 'the scribe is handed the real record');
     const worldCall = one.calls.find((c) => /world beyond the page/i.test(JSON.stringify(c.body)));
@@ -4846,7 +4846,7 @@ test('DOM-89 “READ AGAIN” REBUILDS THE LEDGER, NEVER THE PAGE — and the re
       const user = String((body.messages || []).filter((m) => m.role === 'user').pop()?.content || '');
       return JSON.stringify({ verdicts: [...user.matchAll(/^(\d+)\. (.+)$/gm)].map((m) => ({ n: Number(m[1]), verdict: /current Captain|captaincy|married|Ichika/i.test(m[2]) ? 'changed' : 'holds' })) });
     }
-    if (/You keep the character pages of a slow, warm story/.test(String(sys))) scribeSaw.push(JSON.stringify(body));
+    if (/You keep the character pages of a story/.test(String(sys))) scribeSaw.push(JSON.stringify(body));
     return priorWorker(body, sys);
   };
   const was = await db.settings.get('canonOn:' + st.id);
@@ -7097,8 +7097,8 @@ test('DOM-171 THE PEOPLE OF A #STORY OPENING GET THEIR PAGES BY THEMSELVES (M514
   house.state.workerAnswer = (body, sys) => {
     const s = String(sys || '');
     const u = Array.isArray(body.messages) ? body.messages.filter((m) => m.role === 'user').map((m) => m.content).join('\n') : '';
-    if (/You keep the ledger for a slow, warm story/.test(s)) return JSON.stringify({ mutations: [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }, { type: 'presence.enter', name: 'Kenpachi Zaraki' }] });
-    if (/You keep the character pages of a slow, warm story/.test(s)) {
+    if (/You keep the ledger for a story/.test(s)) return JSON.stringify({ mutations: [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }, { type: 'presence.enter', name: 'Kenpachi Zaraki' }] });
+    if (/You keep the character pages of a story/.test(s)) {
       scribeAsked = u;
       /* a reader answers what it is asked: pages for the people it is told have none */
       const m = u.match(/NO CHARACTER PAGE YET: (.+?) — open a page/);
@@ -8128,7 +8128,7 @@ test('DOM-193 TALKED ABOUT IS NOT HERE (M541 — his Ravenwood evening: "Claire 
   const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
   house.state.storyAnswer = () => "[8 Mariner's Lane — upstairs hall — Thu, Aug 20, 2026 | 18:40 | dusk | white tee | at Rias's door]\n\nRias did not move from the jamb. \"Claire drove off the second Aurora went home,\" she said. \"So it's you and me. Talk.\"";
   house.state.workerAnswer = (body, sys) => {
-    if (/You keep the ledger for a slow, warm story/.test(String(sys || ''))) return JSON.stringify({ mutations: [{ type: 'presence.enter', name: 'Claire Stone', attire: 'a pale blue sleeveless blouse' }], here: ['Jovan Wells', 'Rias Wells', 'Claire Stone'] });
+    if (/You keep the ledger for a story/.test(String(sys || ''))) return JSON.stringify({ mutations: [{ type: 'presence.enter', name: 'Claire Stone', attire: 'a pale blue sleeveless blouse' }], here: ['Jovan Wells', 'Rias Wells', 'Claire Stone'] });
     return '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}';
   };
   try {

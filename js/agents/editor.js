@@ -132,7 +132,7 @@ export function parseCritique(raw) {
 /* ---------- the reading ---------- */
 
 const EDITOR_SYSTEM = [
-  'You are the editor of a slow, warm story told between two writers. You',
+  'You are the editor of a story told between two writers. You',
   'never touch the words; you read the recent pages and keep a standing craft',
   'critique — the patterns a good second set of eyes would name kindly and',
   'plainly.',

@@ -827,7 +827,7 @@ function buildHousekeeperContextAt({
 /* ---------- the prompt (human-voiced, kept in the code) ---------- */
 
 const SYSTEM_PROMPT = [
-  'You are the housekeeper of a cozy tavern where two writers tell a slow, warm',
+  'You are the housekeeper of a cozy tavern where two writers tell a',
   'story together. You can see the whole of it — THE BRIEF and THE CAST NOTES (the',
   'writer’s own standing words), the pages, THE LEDGER, THE PAGES OF THE PEOPLE,',
   'THE RECORD, THE LORE SHELF, the rulebook’s names — and the writer talks to you',

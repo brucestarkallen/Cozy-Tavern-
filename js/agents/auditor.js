@@ -82,7 +82,7 @@ const VOCABULARY = [
 
 function law({ mc }) {
   return [
-    'You are the auditor of the ledger for a slow story told between two writers. The ledger is the',
+    'You are the auditor of the ledger for a story told between two writers. The ledger is the',
     'house\'s memory of the scene and the world; the other readers each keep one part of it. You read',
     'ALL of it at once and hold it against three truths, in this order of authority:',
     '  1. THE BRIEF — what the writer established: who people are, their names, families, roles, the',
@@ -147,7 +147,7 @@ function law({ mc }) {
     '    something still hanging for the rest of the tale.',
     '  - WHO KNOWS WHAT: a present person who plainly witnessed something on the latest pages with no',
     '    knowledge line for it (knowledge.add).',
-    '  - WHAT THE LEDGER SAYS HAPPENED (M372): every line that says who did what, to whom, or with whose',
+    '  - WHAT THE LEDGER SAYS HAPPENED: every line that says who did what, to whom, or with whose',
     '    thing — a call, a message, a phone, a key, a gift, a blow, a promise — held against the pages the',
     '    way a careful reader reads them: following the sequence across pages, not one line alone. The phone',
     '    in her hand is HER phone even when a later line only says "the phone"; a call that comes again to',

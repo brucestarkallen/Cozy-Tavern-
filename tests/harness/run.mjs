@@ -223,6 +223,7 @@ import './m559.mjs'; /* M559: a person's loose ends no longer forget */
 import './m560.mjs'; /* M560: the weighing sees the whole story and says why */
 import './m561.mjs'; /* M561: the whole brief, the whole story in brief, the record and every page that fits */
 import './m562.mjs'; /* M562: one game master's procedure; the better fighter counted once; the ruling quick */
+import './m563.mjs'; /* M563: every helper's request, as the model receives it */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

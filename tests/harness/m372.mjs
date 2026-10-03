@@ -30,10 +30,10 @@ test('M372-2 THE AUDITOR IS ASKED WHO DID WHAT WITH WHOSE THING, read across the
   const built = buildAuditorMessages({ state: applyMutations({ ...emptyState(), page: 9 }, [{ type: 'mc.set', name: 'Jovan' }]).state, brief: '', castNotes: '', record: '', pages: [] });
   const brief = String((built && (built.system || (built.messages && built.messages[0] && built.messages[0].content))) || '').replace(/\s+/g, ' ');
   assert(brief.length > 1000, 'the brief was built: ' + brief.length);
-  assert(/WHAT THE LEDGER SAYS HAPPENED \(M372\)/.test(brief), 'the check is in the auditor’s brief');
+  assert(/WHAT THE LEDGER SAYS HAPPENED: every line that says who did what/.test(brief), 'the check is in the auditor’s brief (M563: without the milestone number the model never needed)');
   assert(/The phone in her hand is HER phone even when a later line only says/.test(brief), 'with his own case as its example');
   assert(/knowledge\.forget of the wrong fact with knowledge\.add of the right one/.test(brief), 'and the means to fix it');
   assert(/The pages are never rewritten — the story stands as written; the ledger is what reads it wrong/.test(brief), 'never the page');
   const first = extractorSource.replace(/\s+/g, ' ');
-  assert(/WHOSE AND WHO \(M372\)/.test(first) && /never guessed toward the main character/.test(first), 'the first reader is told the same, so the wrong line is not written at all');
+  assert(/WHOSE AND WHO: when a line says who called whom/.test(first) && /never guessed toward the main character/.test(first), 'the first reader is told the same, so the wrong line is not written at all (M563: the rule, not its milestone number)');
 });

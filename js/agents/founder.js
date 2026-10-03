@@ -36,7 +36,7 @@ const MAX_TOKENS = 6000;
 
 const VOCABULARY = [
   'mc.set {"type":"mc.set","name":"MAIN CHARACTER"} — the main character, when the brief makes it plain and the ledger does not know',
-  'people.set {"type":"people.set","name":"NAME","field":"core","text":"the main character\'s childhood friend; lives next door; ex-idol; reads rooms performatively"} — one core per named person the brief, the cast notes, the cards or the lore establish (never the main character\'s core or arc); field "arc" for how they stand with the main character when stated; who they are in their life (school year, age, role, family, home) belongs in their core, never in "state"; field "state" ONLY for where they are and what they are doing when the story opens, when stated (M291)',
+  'people.set {"type":"people.set","name":"NAME","field":"core","text":"the main character\'s childhood friend; lives next door; ex-idol; reads rooms performatively"} — one core per named person the brief, the cast notes, the cards or the lore establish (never the main character\'s core or arc); field "arc" for how they stand with the main character when stated; who they are in their life (school year, age, role, family, home) belongs in their core, never in "state"; field "state" ONLY for where they are and what they are doing when the story opens, when stated',
   'rel.set {"type":"rel.set","name":"NAME","p":40,"r":25,"s":10,"cause":"the brief says NAME has loved MAIN CHARACTER since school"} — a standing is how a person stands TOWARD THE MAIN CHARACTER and nothing else (AXIS LOCK): only when the brief states a bond or history between that person and the main character, and the cause names the main character. A person who has never met the main character has no standing (zero, no line). Feelings toward ANYONE ELSE (a crush on NAME, a grudge against NAME) are NOT standings — they go in that person\'s page (core or arc) as words',
   'canon.lock {"type":"canon.lock","name":"NAME","key":"hair","value":"black, waist-length"} — the five canonical features (hair, eyes, build, height, skin tone) and scars when stated; one lock per fact',
   'faction.set {"type":"faction.set","name":"the studio","stance":"…","agenda":"…"} — every group the brief gives a stance or an agenda',
@@ -52,7 +52,7 @@ export const NOT_THE_FOUNDERS = new Set(['place.set', 'clock.set', 'clock.advanc
 
 function law({ mc }) {
   return [
-    'You found the ledger for a slow story told between two writers. The writer has written what the',
+    'You found the ledger for a story told between two writers. The writer has written what the',
     'world is before a single page exists: a brief, notes on the cast, character cards, a shelf of lore.',
     'Your job is to turn what is STATED there into the ledger — the house\'s memory — so the story begins',
     'with the world already standing: every named person with a page, every stated bond as a standing,',
