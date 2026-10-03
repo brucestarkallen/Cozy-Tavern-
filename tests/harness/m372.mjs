@@ -33,7 +33,7 @@ test('M372-2 THE AUDITOR IS ASKED WHO DID WHAT WITH WHOSE THING, read across the
   assert(/WHAT THE LEDGER SAYS HAPPENED: every line that says who did what/.test(brief), 'the check is in the auditor’s brief (M563: without the milestone number the model never needed)');
   assert(/The phone in her hand is HER phone even when a later line only says/.test(brief), 'with his own case as its example');
   assert(/knowledge\.forget of the wrong fact with knowledge\.add of the right one/.test(brief), 'and the means to fix it');
-  assert(/The pages are never rewritten — the story stands as written; the ledger is what reads it wrong/.test(brief), 'never the page');
+  assert(/For a misreading like this the pages are never rewritten — the story stands as written; the ledger is what read it wrong/.test(brief), 'never the page, for a misreading (M567: scoped — a page that breaks the brief is mended, below)');
   const first = extractorSource.replace(/\s+/g, ' ');
   assert(/WHOSE AND WHO: when a line says who called whom/.test(first) && /never guessed toward the main character/.test(first), 'the first reader is told the same, so the wrong line is not written at all (M563: the rule, not its milestone number)');
 });

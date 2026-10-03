@@ -2615,10 +2615,8 @@ export function initChat(ctx) {
   /* M90: THE BRIEF WINS, resolved by the house. An audit issue with
    * pages:true and a fix is a page that contradicted the brief: the pages
    * within reach are mended by the smallest edit (the mender; take-back
-   * chips), and a [Correction] line joins the record so every later fold and
-   * every later turn carries the brief's truth even where no safe edit was
-   * found (the storyteller recolors forward — Canon Definition, Drift
-   * Recovery). Nothing here waits for a hand. */
+   * chips). Since M330 no [Correction] line is written — the brief itself rides every turn and the ledger holds the
+   * lock. Nothing here waits for a hand. */
   /* M259: a page's number, as the page index and the fetch server count it
    * (1-based among the pages that are not hidden) */
   async function pageNumberOf(storyId, messageId) {

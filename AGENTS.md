@@ -14490,3 +14490,19 @@ in every helper: which send long material without holding it to a room.
   now — the next page sent in it looks up who it needs first. Read, not run by a test here (the walk's canon scenarios run
   on one tale); the lens work (canonLensLedger) never enters the engine and was already safe.
 - Law M566.
+
+# M567 — the audit, part 9: the auditor's instructions read through as sent
+The auditor's instructions (14,291 characters) read whole, as the model receives them, against what the house does.
+- TWO RULES THAT CONTRADICTED EACH OTHER: under "what the ledger says happened" it read "The pages are never rewritten — the
+  story stands as written" (M372: a misreading of who did what is the ledger's to fix, never the page's), and under "the brief
+  wins" — "the house then mends the pages by the smallest edit". Both are true, for different cases; said flat, the first
+  forbade the second. The first is scoped now: "For a misreading like this the pages are never rewritten… (a page that breaks
+  the BRIEF is another matter, below)".
+- A PROMISE THE HOUSE NO LONGER KEEPS: "the house… writes a correction into the record" — nothing has written one since M330
+  (resolveBriefWins mends the page; the brief rides every turn; the ledger holds the lock). Said as it is now. The code's own
+  comment over resolveBriefWins said the same old thing; corrected too.
+- Every other promise the helpers are given about what the house does, checked against the code: the header line written
+  into the ledger (the auditor), someone shown on the page kept out of the second reader's findings, the arrival written in
+  once the world beyond clears an elsewhere note (M444), a passer-through let go (M57) — each holds. The drawer's list of
+  helper runs is newest first (his rule: activity by recency).
+- M372-2 reads the scoped sentence.
