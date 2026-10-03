@@ -817,6 +817,20 @@ function isMediaTitle(t) {
         || String(t).includes("/"); // subpages
 }
 
+// M573 (Cozy, the audit): EVERY WIKI REQUEST HAS A TIME LIMIT. A request to a wiki that accepts the line and never
+// answers (a phone between towers) stayed pending as long as the browser let it — canon verification waiting on it while
+// its turn window closed and later lookups queued behind. Twenty seconds, then it is a failed lookup like any other (the
+// engine already reads a failure as "nothing found yet" and looks again later).
+const WIKI_TIMEOUT_MS = 20000;
+function wikiFetch(url) {
+    try {
+        if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") return fetch(url, { signal: AbortSignal.timeout(WIKI_TIMEOUT_MS) });
+        const c = new AbortController();
+        const t = setTimeout(() => { try { c.abort(); } catch (e) {} }, WIKI_TIMEOUT_MS);
+        return fetch(url, { signal: c.signal }).finally(() => clearTimeout(t));
+    } catch (e) { return fetch(url); }
+}
+
 async function findPageTitle(wiki, name) {
     // 1) Exact-title lookup first. A character's page is almost always titled with
     //    their name, so this avoids search returning a subpage ("X/Relationships")
@@ -827,7 +841,7 @@ async function findPageTitle(wiki, name) {
     try {
         const exactName = name.replace(/\S+/g, w => w[0].toUpperCase() + w.slice(1));
         const u = `${apiBase(wiki)}?action=query&titles=${encodeURIComponent(exactName)}&redirects=1&format=json&origin=*`;
-        const r = await fetch(u);
+        const r = await wikiFetch(u);
         if (r.ok) {
             const d = await r.json();
             const p = Object.values(d?.query?.pages || {})[0];
@@ -841,7 +855,7 @@ async function findPageTitle(wiki, name) {
     //    character name resolves to the CHARACTER page, not the "(Light Novel)" or
     //    "(Anime)" series pages that also match the query.
     const url = `${apiBase(wiki)}?action=query&list=search&srlimit=8&format=json&origin=*&srsearch=${encodeURIComponent(name)}`;
-    const res = await fetch(url);
+    const res = await wikiFetch(url);
     if (!res.ok) throw new Error(`search HTTP ${res.status}`);
     const hits = (await res.json())?.query?.search || [];
     const usable = hits.filter(h => !isMediaTitle(h.title));
@@ -859,7 +873,7 @@ async function findPageTitle(wiki, name) {
 
 async function fetchWikitext(wiki, title) {
     const url = `${apiBase(wiki)}?action=parse&prop=wikitext&format=json&origin=*&page=${encodeURIComponent(title)}`;
-    const res = await fetch(url);
+    const res = await wikiFetch(url);
     if (!res.ok) throw new Error(`parse HTTP ${res.status}`);
     const data = await res.json();
     return data?.parse?.wikitext?.["*"] || "";
@@ -869,7 +883,7 @@ async function fetchExtract(wiki, title) {
     // Plain-text article extract — used to recover facts that live in prose
     // (e.g. an "Appearance" paragraph) rather than in infobox fields.
     const url = `${apiBase(wiki)}?action=query&prop=extracts&explaintext=1&redirects=1&format=json&origin=*&titles=${encodeURIComponent(title)}`;
-    const res = await fetch(url);
+    const res = await wikiFetch(url);
     if (!res.ok) throw new Error(`extract HTTP ${res.status}`);
     const data = await res.json();
     const pages = data?.query?.pages || {};
@@ -1993,7 +2007,7 @@ async function groundArc(query, opts = {}) {
             let exact = null;
             try {
                 const cap = query.replace(/\S+/g, w => w[0].toUpperCase() + w.slice(1));
-                const r = await fetch(`${apiBase(wiki)}?action=query&titles=${encodeURIComponent(cap)}&redirects=1&format=json&origin=*`);
+                const r = await wikiFetch(`${apiBase(wiki)}?action=query&titles=${encodeURIComponent(cap)}&redirects=1&format=json&origin=*`);
                 if (r.ok) {
                     const p = Object.values((await r.json())?.query?.pages || {})[0];
                     if (p && p.pageid && !("missing" in p)) exact = p.title;
@@ -2005,7 +2019,7 @@ async function groundArc(query, opts = {}) {
             // character page becomes the pinned "story position". A structural exact hit
             // skips the search entirely.
             if (!exact || !structural.test(exact)) {
-                const res = await fetch(`${apiBase(wiki)}?action=query&list=search&srlimit=8&format=json&origin=*&srsearch=${encodeURIComponent(query)}`);
+                const res = await wikiFetch(`${apiBase(wiki)}?action=query&list=search&srlimit=8&format=json&origin=*&srsearch=${encodeURIComponent(query)}`);
                 if (res.ok) {
                     const hits = ((await res.json())?.query?.search || []).map(h => h.title);
                     const best = pickArcHit(hits, query);
@@ -4342,7 +4356,7 @@ function chatWikiOk() {
 async function fetchSearchTitles(wikiSpec, name) {
     try {
         const url = `${apiBase(wikiSpec)}?action=query&list=search&srlimit=3&format=json&origin=*&srsearch=${encodeURIComponent(name)}`;
-        const res = await fetch(url);
+        const res = await wikiFetch(url);
         if (!res || !res.ok) return null;
         const data = await res.json();
         const arr = data?.query?.search;
@@ -4352,7 +4366,7 @@ async function fetchSearchTitles(wikiSpec, name) {
 async function fetchLastEdit(wikiSpec) {
     try {
         const url = `${apiBase(wikiSpec)}?action=query&list=recentchanges&rclimit=1&rcprop=timestamp&format=json&origin=*`;
-        const res = await fetch(url);
+        const res = await wikiFetch(url);
         if (!res || !res.ok) return null;
         const data = await res.json();
         return data?.query?.recentchanges?.[0]?.timestamp || null;

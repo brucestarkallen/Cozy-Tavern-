@@ -107,6 +107,8 @@ const SHIPPED_WIKI = 'the-eminence-in-shadow';
 
 let ready = null;
 let lastStory = null;
+/* M573: which story the one engine stands in now — read only (the walk holds a tale left behind to it, DOM-207) */
+export function canonStandsIn() { return lastStory; }
 
 /* ---------- M457: EACH STORY ITS OWN CANON SETTINGS; ONE LIBRARY OF WIKIS FOR ALL ----------
  * He: "where to look and everything on the setting supposed to be saved in each story, not on every story". The

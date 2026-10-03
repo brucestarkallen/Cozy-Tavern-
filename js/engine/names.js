@@ -74,6 +74,9 @@ const TITLE_KIND = {
   aunt: 'kin', uncle: 'kin', grandma: 'kin', grandpa: 'kin',
   father: 'order', mother: 'order', sister: 'order', brother: 'order',
   coach: 'role', master: 'role', elder: 'role',
+  /* M573 (the audit): a school's own titles — "Headmaster Vane" found no page and became a second Aldric Vane. Kept to the
+   * words that are never a first name (no "Dean", no "Warden"). Ranks among themselves: a headmaster is not an instructor. */
+  headmaster: 'rank', headmistress: 'rank', principal: 'rank', instructor: 'rank', chancellor: 'rank', vice: 'rank',
 };
 const TITLE_SAME = { mister: 'mr', missus: 'mrs', madame: 'madam', mme: 'madam', mlle: 'miss', doctor: 'dr', professor: 'prof', auntie: 'aunt', granny: 'grandma' };
 /* own keys only: a word like "constructor" is a name, never Object.prototype's */

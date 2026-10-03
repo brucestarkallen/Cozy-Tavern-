@@ -9386,5 +9386,54 @@ test('DOM-206 THE RULING READS THE WHOLE STORY, THROUGH THE APP (M561 — his or
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-207 CANON VERIFICATION STAYS WITH THE TALE THAT IS OPEN (M566): a tale left behind while its readers still work never moves the one engine back to it — after he moved to another tale and sent a page there, the engine still stands in the open tale', async () => {
+  const before = errors.length;
+  const { canonStandsIn } = await import('../../js/canon/bridge.js');
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const mk = async (title, line) => {
+    const st = await db.stories.create({ title });
+    await db.stories.update(st.id, { brief: 'A tale for the canon engine.' });
+    await db.messages.append(st.id, { role: 'user', text: 'I begin.' });
+    await db.messages.append(st.id, { role: 'assistant', text: '[the gate — Monday | 09:00]\n\n' + line });
+    await db.settings.set('canonOn:' + st.id, true);
+    return st;
+  };
+  const A = await mk('the tale left behind', 'TALE-A-OPENING the gate stood open.');
+  const B = await mk('the tale opened', 'TALE-B-OPENING the bell rang.');
+  const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  let release; const held = new Promise((r) => { release = r; });
+  let holding = false;
+  house.state.workerAnswer = (body, sys) => {
+    const said = JSON.stringify(body.messages || body);
+    if (/keep the ledger/.test(String(sys || '')) && /TALE-A-PAGE/.test(said) && !holding) { holding = true; return held.then(() => '{"mutations":[]}'); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}');
+  };
+  house.state.storyAnswer = (body) => (/TALE-B-MOVE/.test(JSON.stringify(body)) ? '[the gate — Monday | 09:05]\n\nTALE-B-PAGE the bell rang twice.' : '[the gate — Monday | 09:05]\n\nTALE-A-PAGE the gate creaked.');
+  try {
+    env.window.__cozy.setActiveStoryId(A.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    type(q('#composer-input'), 'I walk through. TALE-A-MOVE'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(A.id)).some((m) => /TALE-A-PAGE/.test(m.text || '')) && !env.ctx.chat.isBusy(), 'tale A\u2019s page', 30000);
+    await until(() => holding, 'tale A\u2019s reader held', 20000);
+    /* he moves to the other tale and sends there while A's readers are still at work */
+    env.window.__cozy.setActiveStoryId(B.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    type(q('#composer-input'), 'I ring it again. TALE-B-MOVE'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(B.id)).some((m) => /TALE-B-PAGE/.test(m.text || '')) && !env.ctx.chat.isBusy(), 'tale B\u2019s page', 30000);
+    await until(() => queuedCount(B.id) === 0, 'tale B\u2019s own readers done first — its own canon step stands the engine in B', 40000);
+    eq(canonStandsIn(), B.id, 'the engine stands in the open tale');
+    release();
+    await until(() => queuedCount(A.id) === 0, 'tale A\u2019s readers done', 40000);
+    await tick(500);
+    eq(canonStandsIn(), B.id, 'and still does once the tale left behind has finished its work');
+  } finally {
+    release();
+    house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
+    await db.stories.remove(A.id).catch(() => {}); await db.stories.remove(B.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

@@ -14597,3 +14597,22 @@ the founder does re-read a changed brief — its fingerprint, the page chain).
   the canon lens, the essentials keeper, the recall picker, the tidy, the rebuild reader, the canon tidy, the sensors, the
   director and the editor.
 - Law M572 (it fails on the instructions as they were — checked).
+
+# M573 — the audit, part 12: "do everything"
+- THE CANON GUARD, PROVEN BY A TEST (it had only been read): walk DOM-207 — two tales with canon verification on; the first
+  tale's readers held mid-work while he moves to the second and sends a page there; the second tale's own work finishes;
+  the first is let go. The engine stands in the open tale throughout (bridge.js canonStandsIn — read only). With M566's
+  guard taken out, the same test sees the engine moved back to the tale left behind — checked.
+- THE SMALL STORYTELLER'S REQUEST, built whole (a plan, the essentials, the record, who is here in the pages and the record,
+  the sounds of a fight) and every sentence of 50+ characters compared across its 24 parts: none rides twice; each part's
+  room held. The plan, recall, choices and the plan-less fallback are held by M510/M547/M548's laws and DOM tests.
+- THE CANON ENGINE (his extension, vendored): every wiki request had no time limit — a wiki that accepted the line and never
+  answered (a phone between towers) left canon verification waiting as long as the browser allowed, its turn window closed
+  and later lookups queued behind. Twenty seconds now (wikiFetch), then it is a failed lookup like any other (the engine
+  already reads one as "not found yet" and looks again later). Law M573.
+- THE HISTORY'S CLUSTERS (662 milestones read by their headings): names and people pages 101, who is here 62, the record
+  52, thinking 40, sync 35, checkpoints 32, canon 28, the sheet 24, the brief 19. The largest, names, probed with his kind
+  of names (Kuchiki shared by two, Kyōraku without its mark, titles before and ranks after, honorifics, a first name two
+  share): one real fault — a school's titles were not titles: "Headmaster Vane" found no page and became a second Aldric
+  Vane. headmaster, headmistress, principal, instructor, chancellor and vice are ranks now (never "Dean" or "Warden" —
+  first names). Law M573-2.
