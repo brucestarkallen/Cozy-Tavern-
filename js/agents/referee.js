@@ -40,7 +40,7 @@ import { loadState, saveState, notify } from '../engine/state.js';
 import { findPersonKey, importanceOf } from '../engine/people.js'; /* M345: the seeder and the referee read who people ARE */
 import { renderBodies } from '../engine/bodies.js';
 import { renderCanon } from '../engine/canon.js';
-import { writerText, wholePage, BRIEF_ROOM } from '../engine/whole.js';
+import { writerText, wholePage } from '../engine/whole.js';
 import { loadMemory, recordFor } from './memory.js';
 import { loadEssentials } from './essentials.js'; /* M560: the whole story, told shorter, for the cast's weighing */
 import { contextOf } from '../providers/room.js';
@@ -204,16 +204,12 @@ export function userMessageHash(text) {
 const TIER_LIST = 'trivial, easy, moderate, hard, extreme, mook, trained, elite, formidable, inferior, peer, superior';
 
 /* M345: Arbiter v0.42's rating scale, for ANY combatant — a person, a beast, a monster, a machine */
+/* M562: THE SCALE, AND ONLY THE SCALE — what each number means. How a game master weighs a person lives in SEED_SYSTEM below, in
+ * one procedure (M554–M560 had stacked their rules here and there; the rank was spoken of three times, three ways). */
 const RATING_GUIDE = [
   'Ratings are 0-10, by effective threat, for ANY kind of combatant — a person, a beast, a monster, a machine, an alien: 2 untrained, 4 trained, 5 a competent professional, 6 a veteran, 7 elite, 8 a master, 9 legendary, 10 apex.',
   'Rate a creature by how dangerous it is, not its species: a feral dog 3, a trained warhound 5, a dire beast 7, an ancient dragon or apex monster 9-10.',
-  /* M554: HIS REPORT — "why does the AI love to make my MC weak? he's a powerhouse — he parries the strongest student, and
-   * the sheet says melee 5 against the strongest's 8." The guide leaned one way: doubt meant lower for everyone (the main
-   * character included), while a rival was the player's peer or STRONGER by default — and the hierarchy rule below set
-   * the ranking and the brief over every page, so what he DID on the page counted least. Evidence decides now, the same
-   * for everyone. */
-  'Honest, by evidence: most ordinary people are 3-5 at most things. What a person has DONE on the page is the strongest evidence there is — someone who holds their own against a fighter rated N is near N in that domain, whatever their rank, title or age; a prodigy the story shows outclassing their peers is rated as what they showed.',
-  'The main character is rated by exactly the same evidence as everyone else: never lower for being the one the writer plays, never higher. A named rival or antagonist whose measure the pages have not shown yet is the main character\'s peer or stronger; once the pages show how they compare, the pages decide.',
+  'Most ordinary people are 3-5 at most things; weigh anyone by what the story shows of them — never lower or higher for being the one the player faces.',
 ].join(' ');
 
 const JSON_ONLY = 'Output one raw JSON object and nothing else. No prose, no markdown, no code fences.';
@@ -233,7 +229,7 @@ const GUARD_RULE = '- playerGuard / counterPath: read the ESTABLISHED story, not
 /* M345: Arbiter v0.36 — a wound that is only narrated does nothing */
 const COND_RECONCILE_RULE = '- Lasting damage MUST be registered, never merely narrated: if the recent story shows EITHER side carrying an UNREGISTERED persistent state — impaled, a maimed or unusable limb, heavy blood loss, pinned under wreckage, poisoned, disarmed — file condition_change for it NOW as a catch-up, even if it arose beats ago. A registered wound lowers that fighter\'s effective rating every beat; an unregistered one does nothing, leaving a half-dead foe fighting at full strength. NEVER pour lasting damage into circumstance: circumstance is ONLY what is transient about THIS beat beyond what registered conditions already cover — re-awarding a registered wound as circumstance counts it twice.';
 const DIRTY_RULE = '- circumstance is PHYSICAL advantage only: position, momentum, surprise, preparation, an exposed target, terrain, impairment, haste. NEVER penalize a move for being illegal, a foul, dirty, dishonourable, unsporting or immoral, and never mention rules, sanctions or penalties — you do not know this world\'s rules; whether a move is allowed is the story\'s to tell, not yours to score. A dirty move that gives a real physical edge (a groin kick, sand in the eyes, a sucker punch) is POSITIVE circumstance. Judge only what works.';
-const TWO_SIDED_RULE = '- circumstance is TWO-SIDED and impartial: weigh what the opposition is doing as much as the player. If the opposition has the better position, has set a trap, is pressing an advantage, or is simply the more dangerous fighter seizing control, that is NEGATIVE circumstance for the player even when the player\'s own move is sound. A good move into a worse position still nets negative. Judge as a neutral observer, never from the player\'s hopes.';
+const TWO_SIDED_RULE = '- circumstance is TWO-SIDED and impartial: weigh what the opposition is doing as much as the player. If the opposition has the better position, has set a trap, or is pressing an advantage it has earned this beat, that is NEGATIVE circumstance for the player even when the player\'s own move is sound — but never because they are the better fighter: the ratings already carry that, and counting it here would count it twice. A good move into a worse position still nets negative. Judge as a neutral observer, never from the player\'s hopes.';
 const OPPONENT_RULE = '- The opposition is WHOEVER the story says the player is up against in <recent>/<action>; use that name, with the <sheet> spelling when they are on it. Never substitute a different sheet name because it is familiar. The opposition is NEVER the player: no part of the player\'s name — given name or surname — is ever the opposition or an opponent. The opposition is a PERSON or a creature — never a place, a school, a house, a faction or an organisation.';
 const OPP_RATING_FIELD = '"opponent_rating": null, or a 0-10 estimate — ONLY when a fight opens against someone NOT in <sheet>, from the scene and what is said of them. ' + RATING_GUIDE;
 const TEAM_ROSTER_FIELD = (name) => '"' + name + '": array of named characters on that side THIS message puts in the fight, the player left out. Short names; "Bandit x3" style counts for unnamed groups.';
@@ -354,22 +350,27 @@ export const WAR_SYSTEM = [
  * record — so it guessed. It is told now (<player>), shown what the ledger knows (the brief, every person's page,
  * their bodies, the record, the newest pages whole), and asked the way Arbiter v0.42 asks: the story's own hierarchy,
  * the whole named cast, the current level, people only. */
+/* M562: ONE GAME MASTER'S PROCEDURE. His question: "is the referee already instructed to reason logically, creatively and
+ * narratively — not 'the strongest student, so make him OP', not 'the main character parried, so still make him weaker'?
+ * Narratively he can be slightly stronger, equal, slightly weaker or weaker." Read as the model reads it, it was not: rules
+ * from M345 to M560 stacked one after another — the rank spoken of three times three ways (calibrate to the hierarchy; the
+ * truth never the mask; rank tells you power), milestone numbers in the model's own words, and "a feat is a floor" — a
+ * parry made someone the parried man's equal whatever carried it. Now one procedure, in the order a game master weighs. */
 export const SEED_SYSTEM = [
-  'You keep the cast sheet of a story: how capable each person is, 0-10, at the things that decide contests — and the lasting harm or gear that changes it.',
+  'You keep the cast sheet of a story, as its game master: how capable each person truly is, 0-10, at the things that decide contests, and what lasting harm or gear changes that. The referee rolls every contest from these numbers, so set them as a sharp, fair game master who has read the whole story would.',
   RATING_GUIDE,
-  'CALIBRATE TO THE STORY\'S OWN HIERARCHY: if the setting has ranks, tiers, classes or a pecking order (school rankings, tournament seeding, dueling classes, a military chain, a stated power scale), place each person WITHIN it — someone at or near the top belongs at 7-9 even when words like "student" or "young" make them sound junior. Read the ranking, not the job title — but what a person has DONE on the page outranks the rank they hold (M554). Where the brief states a person\'s TRUE level, the brief stands — a public rank the brief says is a mask is not that level (M558).',
-  /* M558: his brief — Jovan Wessex, officially an E-tier, "publicly known as the younger sibling who barely fights",
-   * "deliberately understates his own ability", ice and fire affinities CONCEALED, an awakened form CONCEALED; he parried a
-   * prince and Ivar. The sheet read the mask: melee 6, "5 for anything not listed" — and Ivar, the top of the rankings, 9
-   * for everything. The sheet decides contests; it is the truth, never the mask. */
-  'TRUE ABILITY, NEVER THE MASK: this sheet decides what happens in a contest, so rate what each person can TRULY do when it counts — never their public rank, their reputation, what others believe of them, or the level they pretend to be. When the brief or the pages say someone hides, conceals, understates or seals their power (a low official tier, "barely fights", a concealed affinity, a sealed form), rate the truth — their concealed arts included; the official tier is only what others believe. A rank tells power only where nothing says otherwise.',
-  'DEFAULT is how a person fares at something they are NOT known for — almost always two to four below their best domains, never their peak: a master of one art is ordinary outside it. A sheet where the strong are 9 at everything has its defaults wrong.',
-  'FIRST THE EVIDENCE, THEN THE NUMBER (M560). For each person, before any number: find in the WHOLE story — <brief> (its history and growth), <story_in_brief>, <record>, <pages> — every contest they took part in and every feat: whom they held their own against, beat or lost to, and in what; what the brief says of their true ability. A feat is a floor: someone who parried a fighter rated N moved and struck at N in that moment. Then the numbers. Give each person a "why": one short line naming the evidence their numbers rest on (a feat, a contest, the brief\'s words) — never a rank or a reputation alone.',
-  /* M555: his report — the academy's headmaster rated 4 (earth 5): "why can't the AI imagine and act as a smart GM?" */
-  'RATE AS A SHARP GAME MASTER WOULD: where the pages have not yet shown someone\'s measure, their place in the world sets it, read the way the world\'s own people would read it. In a world where power decides rank, rank tells you power: the head of an academy of mages, a sect elder, a guild master, a captain, a famed hero or a living legend stands among the strongest of that world in what their place rests on — a headmaster of mages is a master mage (8-9 in their art), never a clerk with a title — while someone whose standing rests on politics or money alone is rated in that. What the pages then show moves them from there.',
-  'Rate each person at their CURRENT level as of the newest page. When <sheet> shows numbers, they are the last weighing: rate the new, higher level wherever the story shows someone has trained, grown or unlocked new power since. When <sheet> shows names only, weigh every one of them afresh from the brief and the story — what they were rated before is not yours to guess at.',
-  'Domains are lowercase single words — melee, ranged, stealth, social, athletics, intellect, willpower, pilot, craft; others only when the story clearly needs them. 2-4 per person is plenty.',
+  'HOW TO WEIGH EACH PERSON, in this order:',
+  '1. Read all of it first: <brief> (their true ability, history and growth), <story_in_brief>, <record>, <pages>.',
+  '2. What they have DONE weighs most. Take every contest and feat in its context — was the other side all-out or holding back, one exchange or a long fight, won by skill, by preparation, by surprise or by luck? A feat measures them against that person in that art: someone who parried a fighter rated 8 is near 8 there — a little above, level, a little below, or well below when preparation or luck carried it; the whole story decides which.',
+  '3. The truth, never the mask: rate what they can truly do when it counts — never their public rank, their reputation, what others believe of them, or the level they pretend to be. Concealed or sealed arts are rated; a low official tier the brief says is a mask is only what others believe.',
+  '4. Where the story has not shown their measure yet, their place in the world sets it, read as the world\'s own people would read it: where power decides rank, rank tells power (the head of an academy of mages is a master mage, 8-9 in their art; a school\'s strongest student sits near its top); where standing rests on politics or money, rate that. What the pages show then moves them from there.',
+  '5. The numbers agree with each other the way the story does: near-equal rivals sit within a point of each other; someone who clearly outclasses another sits two or more above. Where the brief states a person\'s true level, it stands.',
+  '6. The main character is weighed by exactly the same evidence as everyone else — never lower for being the one the writer plays, never higher. Where the evidence leaves room, rate the middle of what it allows, never its floor.',
+  'DEFAULT is how a person fares at things they are NOT known for — usually two to four below their best, never their peak: a master of one art is ordinary outside it.',
   'A POWER IS A DOMAIN OF ITS OWN: when the brief or the pages give a person a sorcery, a cursed technique, a summoning, a psychic art, a martial school, a signature weapon art — name it as its own domain (one word where you can: sorcery, summoning, cursed, psionics) and rate it as the story shows it, up to 10 for someone the brief calls the strongest of their world. NEVER fold a power into melee; a sorcerer with melee 4 and sorcery 10 is right, a sorcerer with melee 4 and no sorcery is wrong. The referee rolls a person\'s act in the domain it rests on, so a power left off the sheet is a power that does not exist in a fight.',
+  'Domains are lowercase single words — melee, ranged, stealth, social, athletics, intellect, willpower, pilot, craft; others when the story needs them. Give each person the arts they truly have — usually two to six.',
+  'Rate each person at their CURRENT level as of the newest page. When <sheet> shows numbers, they are the last weighing: move a number where the story since shows growth, harm or a truth that weighing missed. When <sheet> shows names only, weigh every one afresh from the brief and the story — what they were rated before is not yours to guess at.',
+  '"why": for each person, one short line naming the evidence their numbers rest on — a feat in its context, a contest, the brief\'s words — never a rank or a reputation alone.',
   'ONE PERSON, ONE LINE, BY THE NAME THE STORY USES: a title, an epithet or a full formal name ("Eight-Handled Sword Divergent Sila Divine General Mahoraga") is the same person as the short name the pages use ("Mahoraga") — never a second entry.',
   '"lasting": ONLY what the story has established that changes what a person can DO in a contest — a wound still carried, an illness, a curse, exhaustion that lasts, or signature gear (a masterwork blade, enchanted armour). NEVER clothing, a disguise, a mask, a look, a mood or a habit. mod -4..+3 (harm negative, good gear positive); domain = the ONE domain it touches (a sword: melee), null for the whole body; gear true for equipment. File each on the person who actually carries it.',
   'WHO IS WHO: <player> names the main character — the person the writer plays. The writer\'s pages ARE that person acting: "I", "me" and "you" in them mean the main character, never anyone else, and anything the writer\'s pages do or wear is the main character\'s. The FIRST entry in "actors" is always the main character, under exactly the name <player> gives. Never make an entry for "you", "I", "the player" or "the writer".',
@@ -435,12 +436,13 @@ const pageText = wirePageText;
  * whole sheet, the character card and the memory, and a full window. Here: the player block, the whole sheet (the
  * main character first), who is in the scene with their pages' first lines and what their bodies carry, the brief,
  * and the newest pages whole — the action itself never counted twice. */
-/* M561: HIS ORDER — "without context how would it know someone's power, or that someone is injured?" The ruling read the
- * brief cut at 12,000 characters and the newest eight pages. It reads the brief at the workers' whole room now, the story in
- * brief (the essentials — the whole story, told shorter), and each person's evidence on the sheet beside the numbers; who is
- * hurt it reads from the ledger's bodies and the sheet's conditions, kept current after every page. */
-const REF_BRIEF_ROOM = BRIEF_ROOM;
-const REF_STORY_ROOM = 40000;
+/* M562: THE RULING STAYS QUICK — it stands between his move and the page. M561 handed it the brief at 40,000 and the story in
+ * brief at 40,000: measured with a 30,000-character brief, a 25,000-character story in brief and 26 people, its request grew
+ * from ~6,500 tokens to ~18,000, every move. A game master at the table consults his notes, not the book: the weighing reads
+ * the whole story (in the background, never before a page) and writes each person's numbers WITH the evidence they rest on;
+ * the ruling reads those notes (the numbers and the "why" beside them), who is hurt (the bodies, the sheet's conditions — kept
+ * current after every page), who is here, the brief's first 12,000 and the newest eight pages. ~7,500 tokens. */
+const REF_BRIEF_ROOM = 12000;
 const REF_PAGES = 8;
 const REF_PAGE_CAP = 3000;
 
@@ -493,7 +495,7 @@ function hereBlock(state) {
   return [lines.join('\n'), bodies && bodies.trim() ? 'What their bodies carry:\n' + bodies.slice(0, 3000) : '', locked && locked.trim() ? 'Locked true:\n' + locked.slice(0, 3000) : ''].filter(Boolean).join('\n');
 }
 
-export function buildRefereeUser({ state, userText, history, fightLine, brief = '', castNotes = '', essentials = '' }) {
+export function buildRefereeUser({ state, userText, history, fightLine, brief = '', castNotes = '' }) {
   const mc = mcName(state);
   const player = mc === 'the player'
     ? 'The player character is not named yet. The text in <action> is written BY the player: "I" and "you" in it both mean the player acting.'
@@ -505,7 +507,6 @@ export function buildRefereeUser({ state, userText, history, fightLine, brief = 
     '<sheet>\n' + sheetBlock(state) + '\n</sheet>',
     here ? '<here>\n' + here + '\n</here>' : null,
     material ? '<brief>\n' + material + '\n</brief>' : null,
-    String(essentials || '').trim() ? '<story_in_brief>\n' + (essentials.length <= REF_STORY_ROOM ? essentials.trim() : essentials.slice(0, REF_STORY_ROOM / 2) + '\n…\n' + essentials.slice(essentials.length - REF_STORY_ROOM / 2)) + '\n</story_in_brief>' : null, /* M561: the whole story, told shorter */
     fightLine ? '<fight>' + fightLine + '</fight>' : null,
     '<recent>\n' + recentBlock(history, state, userText) + '\n</recent>',
     '<action>' + clip(userText, 2000) + '</action>',
@@ -994,7 +995,7 @@ export function refereeWhyWords(step) {
   return 'the referee could not rule on this page (' + (why || 'it stumbled') + ') — your storyteller decided the outcome';
 }
 
-export async function refereeStep({ connection, userText, userId, history, state, settings, signal, callLLM, brief = '', castNotes = '', essentials = '' } = {}) {
+export async function refereeStep({ connection, userText, userId, history, state, settings, signal, callLLM, brief = '', castNotes = '' } = {}) {
   try {
     if (!state || typeof state !== 'object') return { state, ruling: null, status: 'degraded', why: 'no state' };
     const eng = engineSettings(settings);
@@ -1077,7 +1078,7 @@ export async function refereeStep({ connection, userText, userId, history, state
         return { state, ruling: null, status: 'degraded', why: 'no worker connection' };
       }
       const fightLine = renderFightLine(state);
-      const user = buildRefereeUser({ state, userText: text, history, fightLine, brief, castNotes, essentials });
+      const user = buildRefereeUser({ state, userText: text, history, fightLine, brief, castNotes });
       const system = withFictionFrame(inWar ? WAR_SYSTEM : inBattle ? BATTLE_SYSTEM : inDuel ? DUEL_SYSTEM : ADJ_SYSTEM);
       const normalize = inWar ? normalizeWarAdj : inBattle ? normalizeBattleAdj : inDuel ? normalizeDuelAdj : normalizeAdj;
       const raw = await callReferee(connection, system, user, signal, callLLM);
@@ -1312,7 +1313,7 @@ export async function refereeStep({ connection, userText, userId, history, state
 
 /* M345: the sheet's own stamp. 1 = the blind seeder (M11..M344) — a sheet it made is read again, whole, the next time
  * the seeder runs (the app repairs what it can detect). */
-export const SEED_VERSION = 7; /* M560: weighed again once, seeing the whole story and saying why */ // /* M558: weighed again once — the truth, never the mask; defaults below the best */ // /* M556: weighed again once, blind to the old numbers */ /* M554: weighed again once under the guide that rates by evidence; M555: and as a sharp game master reads a person's place in the world */
+export const SEED_VERSION = 8; /* M562: weighed again once, by one game master's procedure */
 export const SEED_EVERY = 100;        /* Arbiter's fallback timer: a long quiet stretch still refreshes growth */
 export const SEED_NEW_FACE_GAP = 3;   /* pages between re-seeds called by someone in the scene the sheet does not have */
 export const SEED_MAX_TOKENS = 8000;  /* a large cast needs room to answer (the old 600 cut a big sheet off mid-list) */

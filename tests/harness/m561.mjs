@@ -26,12 +26,12 @@ test('M561-1 THE WEIGHING FILLS ITS MODEL\'S ROOM AS A GAME MASTER READS: on a l
   assert(small.length < 60000, 'and it stays inside its room: ' + small.length);
 });
 
-test('M561-2 THE RULING READS THE WHOLE BRIEF, THE WHOLE STORY IN BRIEF, WHO IS HURT, AND EACH PERSON\'S EVIDENCE BESIDE THE NUMBERS', () => {
+test('M561-2 / M562 THE RULING READS THE GAME MASTER\'S NOTES, AND STAYS QUICK: each person\'s numbers with the evidence beside them, who is hurt, the brief\'s first 12,000 and the newest pages — never the whole story on every move (the weighing reads that, in the background)', () => {
   const s = { ...st, sheet: { playerName: 'Jovan Wessex', actors: { 'Jovan Wessex': { default: 6, domains: { melee: 8 }, why: 'parried Ivar in the opening scene', _auto: true }, 'Ivar van Emreis': { default: 7, domains: { melee: 8 }, why: 'the strongest student', _auto: true } } } };
   const shortBrief = 'BRIEF-START ' + 'b'.repeat(30000) + ' BRIEF-END';
-  const u = buildRefereeUser({ state: s, userText: 'I lunge at Ivar.', history: pages.slice(-4), brief: shortBrief, essentials });
-  assert(u.includes('BRIEF-END'), 'a 30,000-character brief rides whole (it was cut at 12,000)');
-  assert(/<story_in_brief>[\s\S]*ESS-OPENING[\s\S]*ESS-NEWEST/.test(u), 'the whole story, told shorter');
+  const u = buildRefereeUser({ state: s, userText: 'I lunge at Ivar.', history: pages.slice(-16), brief: shortBrief });
   assert(/Jovan Wessex \(the player\): default 6, melee 8 — why: parried Ivar in the opening scene/.test(u), 'his evidence beside his numbers');
   assert(/cracked rib/.test(u), 'who is hurt');
+  assert(u.includes('BRIEF-START') && !u.includes('BRIEF-END') && !/<story_in_brief>/.test(u), 'the brief\'s first part, no story in brief');
+  assert(u.length < 45000, 'a quick request: ' + u.length + ' characters');
 });

@@ -17,9 +17,9 @@ import { applyMutations } from '../../js/engine/apply.js';
 
 test('M554-1 THE CAST SHEET RATES BY WHAT EACH PERSON HAS DONE — the main character by the same evidence as anyone, never lower for being his; a rival is his peer or stronger only until the pages show how they compare; what a person did on the page outranks the rank they hold', () => {
   assert(!/doubt means lower/.test(SEED_SYSTEM), 'doubt no longer means lower for the main character');
-  assert(/What a person has DONE on the page is the strongest evidence there is — someone who holds their own against a fighter rated N is near N in that domain/.test(SEED_SYSTEM), 'evidence first');
-  assert(/The main character is rated by exactly the same evidence as everyone else: never lower for being the one the writer plays, never higher/.test(SEED_SYSTEM), 'him by the same evidence');
-  assert(/what a person has DONE on the page outranks the rank they hold/.test(SEED_SYSTEM) && !/The brief outranks every page\./.test(SEED_SYSTEM), 'the page outranks the rank; the brief stands where it states a level');
+  assert(/What they have DONE weighs most/.test(SEED_SYSTEM), 'evidence first (M562: one procedure)');
+  assert(/weighed by exactly the same evidence as everyone else — never lower for being the one the writer plays, never higher/.test(SEED_SYSTEM), 'him by the same evidence');
+  assert(!/The brief outranks every page\./.test(SEED_SYSTEM) && /Where the brief states a person\'s true level, it stands/.test(SEED_SYSTEM), 'the brief stands where it states a true level');
 });
 
 test('M554-2 A SHEET WEIGHED UNDER THE OLD GUIDE IS WEIGHED AGAIN, ONCE — and the new weighing takes his numbers where the evidence puts them (up or down), never over the writer\'s own hand', () => {

@@ -14,7 +14,7 @@ test('M560 THE WEIGHING SEES THE WHOLE STORY AND SAYS WHY: the story in brief ri
   const u = buildSeedUser({ state: st, pages: [], brief, essentials, record: 'R', room: 120000, blind: true });
   assert(/<story_in_brief>[\s\S]*OPENING: Jovan parried Ivar/.test(u), 'the opening stands, though the story in brief was shortened');
   assert(u.includes('IVAR-AT-THE-END'), 'a 20,000-character brief rides whole at a 120,000 room (it was cut at 18,000)');
-  assert(/FIRST THE EVIDENCE, THEN THE NUMBER/.test(SEED_SYSTEM) && /A feat is a floor: someone who parried a fighter rated N moved and struck at N in that moment/.test(SEED_SYSTEM) && /"why": string/.test(SEED_SYSTEM), 'evidence first; the why asked for');
+  assert(/1\. Read all of it first/.test(SEED_SYSTEM) && /Take every contest and feat in its context/.test(SEED_SYSTEM) && /a little above, level, a little below, or well below when preparation or luck carried it/.test(SEED_SYSTEM) && /"why": string/.test(SEED_SYSTEM), 'evidence first, read in its context (M562: a parry is not equality by itself); the why asked for');
   const s = { ...emptyState(), mc: { name: 'Jovan Wessex' } };
   s.sheet = { playerName: 'Jovan Wessex', actors: { 'Jovan Wessex': { default: 5, domains: { melee: 4 }, _auto: true, seed: SEED_VERSION } } };
   mergeSeed(s, { actors: [{ name: 'Jovan Wessex', why: 'parried Ivar (melee 8) in the opening scene; his brief says he hides his skill', default: 6, domains: { melee: 8 } }] }, { byHand: true });

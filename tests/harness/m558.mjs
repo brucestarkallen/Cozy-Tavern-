@@ -7,9 +7,9 @@ import { test, assert } from './lib.mjs';
 import { SEED_SYSTEM, SEED_VERSION } from '../../js/agents/referee.js';
 
 test('M558 THE SHEET RATES THE TRUTH, NEVER THE MASK — a public rank, a reputation, a pretended level are what others believe; concealed arts are rated; a rank tells power only where nothing says otherwise; a default sits below the best, never at the peak', () => {
-  assert(/TRUE ABILITY, NEVER THE MASK/.test(SEED_SYSTEM) && /never their public rank, their reputation, what others believe of them, or the level they pretend to be/.test(SEED_SYSTEM), 'the truth');
-  assert(/hides, conceals, understates or seals their power \(a low official tier, "barely fights", a concealed affinity, a sealed form\), rate the truth — their concealed arts included/.test(SEED_SYSTEM), 'concealed power, rated');
-  assert(/A rank tells power only where nothing says otherwise/.test(SEED_SYSTEM) && /a public rank the brief says is a mask is not that level/.test(SEED_SYSTEM), 'a rank, a mask');
-  assert(/DEFAULT is how a person fares at something they are NOT known for — almost always two to four below their best domains, never their peak/.test(SEED_SYSTEM), 'defaults below the best');
+  assert(/The truth, never the mask/.test(SEED_SYSTEM) && /never their public rank, their reputation, what others believe of them, or the level they pretend to be/.test(SEED_SYSTEM), 'the truth');
+  assert(/Concealed or sealed arts are rated; a low official tier the brief says is a mask is only what others believe/.test(SEED_SYSTEM), 'concealed power, rated; the mask');
+  assert(/Where the story has not shown their measure yet, their place in the world sets it/.test(SEED_SYSTEM), 'a rank tells power only where the story has not shown it');
+  assert(/DEFAULT is how a person fares at things they are NOT known for — usually two to four below their best, never their peak/.test(SEED_SYSTEM), 'defaults below the best');
   assert(SEED_VERSION >= 6, 'weighed again once');
 });

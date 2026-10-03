@@ -9374,7 +9374,7 @@ test('DOM-206 THE RULING READS THE WHOLE STORY, THROUGH THE APP (M561 — his or
     await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 2 && !env.ctx.chat.isBusy(), 'the page', 30000);
     assert(ruled, 'the ruling was asked');
     const u = ruled.replace(/\\n/g, '\n');
-    assert(/<story_in_brief>[\s\S]*RULING-ESS: Jovan parried Ivar/.test(u), 'the whole story, told shorter');
+    assert(!/<story_in_brief>/.test(u), 'never the whole story on every move — the weighing reads it, in the background (M562)');
     assert(/why: parried Ivar in the opening scene/.test(u), 'his evidence beside his numbers');
     assert(/cracked rib/.test(u), 'who is hurt');
     await until(() => queuedCount(st.id) === 0, 'readers', 40000);

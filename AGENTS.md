@@ -14397,3 +14397,31 @@ the brief: the people further down unseen). No instruction can make a model rate
    current after every page). Not the detailed record: that is what the weighing reads to set the numbers; on every move it
    would slow every page.
 - Laws M561-1/2; walk DOM-206 (his move's ruling, through the send path: the story in brief, the evidence, the cracked rib).
+
+# M562 — "is the referee instructed to reason logically, creatively, narratively — and still fast?"
+Read as the model receives it (SEED_SYSTEM printed whole, 6,841 characters), the weighing's instruction was NOT one
+reasoning: rules from M345 to M560 stood one after another — the rank spoken of three times, three ways ("calibrate to the
+story's own hierarchy", "the truth, never the mask", "rank tells you power"), milestone numbers in the model's own words
+("(M554)", "(M558)"), and "a feat is a floor": a parry made the parrier the parried man's equal whatever carried it — where
+his own words are that narratively the one who parried can be a little stronger, level, a little weaker or weaker.
+1. ONE PROCEDURE, in a game master's order (5,967 characters): read all of it first; what they have DONE weighs most, each
+   contest and feat in its context (all-out or holding back, one exchange or a long fight, skill, preparation, surprise or
+   luck) — a parry of an 8 puts someone near 8 there, a little above, level, a little below, or well below when preparation
+   or luck carried it, the whole story deciding; the truth, never the mask; where nothing is shown yet, their place in the
+   world (where power decides rank, rank tells power); numbers that agree with each other the way the story does (near-equal
+   rivals within a point, a clear outclassing two or more); the main character by exactly the same evidence; where the
+   evidence leaves room, the middle of what it allows, never its floor. The scale (RATING_GUIDE) is the scale alone. Two to
+   six arts per person (it said two to four). Weighed again once (SEED_VERSION 8).
+2. THE BETTER FIGHTER WAS COUNTED TWICE in every duel, battle and war beat: the shared TWO_SIDED_RULE told the ruling that an
+   opponent who "is simply the more dangerous fighter seizing control" is NEGATIVE circumstance for the player — on top of
+   the dice, which already roll rating against rating. A weaker side lost more than its ratings said, every beat. Now the
+   tilt is position, a trap, a momentum earned THIS beat — never the better fighter: the ratings carry that once.
+3. THE RULING STAYS QUICK. M561 had handed each move's ruling the brief at 40,000 and the story in brief at 40,000 —
+   measured on a 30,000-character brief, a 25,000-character story in brief and 26 people: ~6,500 tokens before M561, ~18,200
+   with it, on the path between his move and the page. A game master at the table reads his notes, not the book: the
+   weighing reads the whole story in the background and writes each person's evidence beside their numbers; the ruling reads
+   those notes, who is hurt, who is here, the brief's first 12,000 and the newest eight pages: ~7,500 tokens (the evidence
+   lines are the thousand more).
+- Laws M562 (the order, the relative sense, the middle not the floor, nothing stacked, the better fighter once); M554-1,
+  M555-3, M558, M560, M561-2 read the one procedure now; walk DOM-206: the ruling reads the evidence and the cracked rib, and
+  not the whole story.

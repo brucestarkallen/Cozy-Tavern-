@@ -43,6 +43,6 @@ test('M555-2 "WEIGH THEM AGAIN" WEIGHS FRESH — what the weighing says stands, 
 });
 
 test('M555-3 RATED AS A SHARP GAME MASTER WOULD: someone whose measure the pages have not shown is set by their place in the world — a headmaster of mages is a master mage, not a clerk with a title — and a sheet weighed before is weighed again once', () => {
-  assert(/RATE AS A SHARP GAME MASTER WOULD/.test(SEED_SYSTEM) && /a headmaster of mages is a master mage \(8-9 in their art\), never a clerk with a title/.test(SEED_SYSTEM) && /In a world where power decides rank, rank tells you power/.test(SEED_SYSTEM), 'the rule');
+  assert(/as a sharp, fair game master who has read the whole story would/.test(SEED_SYSTEM) && /the head of an academy of mages is a master mage, 8-9 in their art/.test(SEED_SYSTEM) && /where power decides rank, rank tells power/.test(SEED_SYSTEM), 'the rule (M562: one procedure)');
   assert(SEED_VERSION >= 4, 'weighed again once');
 });
