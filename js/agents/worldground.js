@@ -150,7 +150,7 @@ export function groundWords(ground) {
   if (!ground || typeof ground !== 'object') return '';
   if (typeof ground.words === 'string' && ground.words.trim()) return ground.words.trim();
   const parts = ground.parts && typeof ground.parts === 'object' ? ground.parts : {};
-  const lines = GROUND_PARTS.filter(([k]) => parts[k]).map(([k, label]) => label + ' — ' + parts[k]);
+  const lines = GROUND_PARTS.filter(([k]) => typeof parts[k] === 'string' && parts[k].trim()).map(([k, label]) => label + ' — ' + parts[k].trim()); /* M568: a part of the wrong kind (an older build, a damaged row) is left out, never "[object Object]" */
   return lines.length ? ['The world of our story, as it stands:', ...lines].join('\n') : '';
 }
 

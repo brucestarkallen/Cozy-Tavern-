@@ -14506,3 +14506,17 @@ The auditor's instructions (14,291 characters) read whole, as the model receives
   once the world beyond clears an elsewhere note (M444), a passer-through let go (M57) — each holds. The drawer's list of
   helper runs is newest first (his rule: activity by recency).
 - M372-2 reads the scoped sentence.
+
+# M568 — the audit, part 10: the screens; what is read back, once more
+- THE SCREENS (his rules 13–15): every button label in the app swept (144 distinct). A label on several buttons means the
+  same everywhere ("Keep it", "Not now", "Copy the words", "Copy the thinking"). Two words stand for letting an item go —
+  "Let go" (a connection, a rule, a word list) and "Let it go" (a seat, a chip, a kept item) — and DOM-41's check of the
+  connection row holds "Let go" as he named it, so neither is renamed without his word. Every message that hands him
+  something to do swept: nine, and each is a choice only he can make (a new build to load, a helper to stop or wait for)
+  — no detection that leaves its repair to him. The drawer's list of helper runs is newest first.
+- READ BACK THROUGH ITS KIND (M553's rule, once more): the automatic brief's world printed a part of the wrong kind as
+  "[object Object]" into what the storyteller reads, and the wiki check read it as a sentence. Only text is said and
+  checked now; anything else is left as it lay.
+- The handoff's known limits read again (the model's own prose; a branch past ~250 turns with pruned checkpoints re-read
+  deep, with a toast; two browsers at once, last push wins on the ledger): none is a fault the house can mend.
+- Law M568.

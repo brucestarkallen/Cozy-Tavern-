@@ -227,6 +227,7 @@ import './m563.mjs'; /* M563: every helper's request, as the model receives it *
 import './m564.mjs'; /* M564: the founder is handed the real record */
 import './m565.mjs'; /* M565: the essentials of a long tale, in parts */
 import './m566.mjs'; /* M566: the brief held to the shared room in every helper */
+import './m568.mjs'; /* M568: a world part of the wrong kind is left out */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

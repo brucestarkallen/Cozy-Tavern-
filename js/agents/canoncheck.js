@@ -114,13 +114,14 @@ export function sentencesOf(text) {
 }
 export function worldClaims(parts) {
   const out = [];
-  for (const [k, v] of Object.entries(parts && typeof parts === 'object' ? parts : {})) sentencesOf(v).forEach((s, i) => out.push({ part: k, i, text: s }));
+  for (const [k, v] of Object.entries(parts && typeof parts === 'object' ? parts : {})) if (typeof v === 'string') sentencesOf(v).forEach((s, i) => out.push({ part: k, i, text: s })); /* M568: only text is checked */
   return out;
 }
 export function worldWithout(parts, claims, wrong) {
   const drop = new Set((Array.isArray(wrong) ? wrong : []).map((n) => claims[n]).filter(Boolean).map((c) => c.part + '|' + c.i));
   const next = {};
   for (const [k, v] of Object.entries(parts && typeof parts === 'object' ? parts : {})) {
+    if (typeof v !== 'string') { next[k] = v; continue; } /* M568: not text — left as it lay, for groundWords to leave out */
     const kept = sentencesOf(v).filter((s, i) => !drop.has(k + '|' + i));
     if (kept.length) next[k] = kept.join(' ');
   }
