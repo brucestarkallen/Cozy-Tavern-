@@ -14443,3 +14443,13 @@ keepers, the recall picker, the referee, the tidy…) built with a filled ledger
   their own way to ask for more, not a section owed to them).
 - Law M563 (every builder built; no milestone number, no genre framing in anything sent); M372-2 reads the rule, not its
   number; the walk's test house knows the helpers by their new opening words.
+
+# M564 — the audit, part 6: the founder was told to use a record it was never given
+Every helper told to write canon people "from the real record" checked against what its builder hands it (his rule: a
+worker told to use something it never receives will invent it). The scribe, the auditor and the world beyond have been
+handed canon verification's record since M386. The FOUNDER — who writes everyone's first page when a tale begins — was told
+"a real person or a character from an established canon is written from the real record — true name, family, role" and was
+never handed it: it wrote them from its memory (the seat, the family, the rank — Zaraki's kind of error, in the people's own
+pages, read by the storyteller from the first page). It is handed the record now, from both founding paths, and told that
+where none is given only the material counts — its own memory of a canon is not material.
+- Law M564.

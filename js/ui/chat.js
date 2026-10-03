@@ -2092,7 +2092,7 @@ export function initChat(ctx) {
     const promise = enqueueWork(story.id, { name: 'founder', run: async ({ signal, stale }) => {
       const cast = await castForStory(story);
       const lore = await loadLore(story.id);
-      const result = await foundWorld({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', cast, lore, signal, stale });
+      const result = await foundWorld({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', cast, lore, signal, stale, canonRecord: await canonRecordOf(story) }); /* M564: the real record it is told to write canon people from */
       return { silent: false, detail: founderRunWords(result), raw: result && result.raw };
     } });
     noteWork(story.id, promise);
@@ -3431,7 +3431,7 @@ export function initChat(ctx) {
       const connection = await resolveWorkerConnection(story, 'founder');
       if (!connection) return { silent: true };
       if (stale()) return { silent: true };
-      const result = await foundWorld({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', cast, lore, signal, stale });
+      const result = await foundWorld({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', cast, lore, signal, stale, canonRecord: await canonRecordOf(story) }); /* M564: the real record it is told to write canon people from */
       return { silent: false, detail: founderRunWords(result), raw: result && result.raw };
     });
 

@@ -65,7 +65,8 @@ function law({ mc }) {
     '    the story will invent as it goes. A page needs at least a core; give it the substance (role,',
     '    relation to the main character, what they want, what they are like), compact.',
     '  - THE REAL RECORD: a real person or a character from an established canon is written from the',
-    '    real record — true name, family, role — unless the brief says otherwise.',
+    '    real record given below — true name, family, role — unless the brief says otherwise. Where no record',
+    '    is given for them, only what the material states: your own memory of a canon is not material.',
     '  - SEALED IS SEALED: what the brief says nobody knows, or a person does not know, gets no',
     '    knowledge line for that person. Public records are what people work from.',
     '  - AXIS LOCK: a standing (rel.set) exists ONLY from a person toward the main character. Before any',
@@ -259,7 +260,7 @@ export function founderFingerprint({ brief = '', castNotes = '', cast = [], lore
 }
 
 /* Exported for the harness. */
-export function buildFounderMessages({ state, brief = '', castNotes = '', cast = [], lore = [] }) {
+export function buildFounderMessages({ state, brief = '', castNotes = '', cast = [], lore = [], canonRecord = '' }) {
   const known = mcName(state);
   const mc = known && known !== 'the player' ? known : '';
   const cards = (Array.isArray(cast) ? cast : []).map((c) => {
@@ -287,6 +288,10 @@ export function buildFounderMessages({ state, brief = '', castNotes = '', cast =
     'WHAT THE LEDGER ALREADY SAYS (found once before; write only what it lacks or gets wrong):',
     facts,
     '',
+    /* M564 (the audit): told to write canon people "from the real record", the founder was never handed it — it wrote them
+     * from its memory (the seat, the family, the rank: Zaraki's kind of error, in the people's own pages). The others that
+     * are told the same (the scribe, the auditor, the world beyond) have had it since M386. */
+    ...(String(canonRecord || '').trim() ? ['WHAT THE SERIES ITSELF SAYS OF ITS PEOPLE HERE (their real record — the brief outranks it):', FENCE, String(canonRecord).trim(), FENCE, ''] : []),
     'Found the world. JSON only.',
   ].join('\n');
   return { system: withFictionFrame(law({ mc })), user, hasMaterial: Boolean(String(brief || '').trim() || String(castNotes || '').trim() || cards || shelf) };
@@ -308,10 +313,10 @@ export function parseFounderAnswer(raw) {
 }
 
 /* The contract. */
-export async function foundWorld({ connection, storyId, brief = '', castNotes = '', cast = [], lore = [], signal, stale } = {}) {
+export async function foundWorld({ connection, storyId, brief = '', castNotes = '', cast = [], lore = [], signal, stale, canonRecord = '' } = {}) {
   if (!connection || typeof connection !== 'object' || !storyId) return null;
   const state = await loadState(storyId);
-  const prompt = buildFounderMessages({ state, brief, castNotes, cast, lore });
+  const prompt = buildFounderMessages({ state, brief, castNotes, cast, lore, canonRecord });
   if (!prompt.hasMaterial) return null;
   let read = null; let raw = ''; let user = prompt.user;
   for (let attempt = 0; attempt < 2; attempt += 1) {
