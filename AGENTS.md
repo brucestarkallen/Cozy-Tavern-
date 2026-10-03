@@ -14453,3 +14453,20 @@ never handed it: it wrote them from its memory (the seat, the family, the rank �
 pages, read by the storyteller from the first page). It is handed the record now, from both founding paths, and told that
 where none is given only the material counts — its own memory of a canon is not material.
 - Law M564.
+
+# M565 — the audit, part 7: the essentials of a long tale
+The essentials (the whole story told shorter) now feed the cast's weighing, the small storyteller, the choices and the recall
+picker — read for what a long tale does to them (agents/essentials.js runEssentials):
+- The keeper was handed the WHOLE record in one request, however long: a record past its model's room was refused every
+  time, and the essentials were never made again — the story in brief standing still while the tale went on.
+- Its answer was cut at 16,000 characters keeping the OLDEST lines: a telling that ran over lost its NEWEST stretch — where
+  the story stands now — and the finish reason ("cut off by the answer's room") was never read.
+Now a record past its model's room is told in parts (recordParts), oldest first, each part given its share of the 16,000 by
+its size and told it is part i of n; a telling over its share, or cut off, is asked again tighter ("the oldest stretches
+shorter, every stretch still there, the newest whole"); the last answer stands, held to its share at a line's end. A record
+that fits is one request, as before. The record's own text and fingerprint are unchanged (checked against the last build:
+the same text, the same print), so no tale's essentials are made again for this.
+- Also read: the [Correction] lines the auditor is told supersede come from older records only (nothing writes them since
+  M330; their writer, addCorrection, has no caller left) — the line is harmless where none stand. The messages shown to him:
+  swept for words that mean nothing to a writer (JSON, undefined, null, HTTP, parse, queue, a milestone number) — none.
+- Laws M565-1/2.

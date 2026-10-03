@@ -14,6 +14,7 @@
  * essentials already kept stand. A failure to reach the model throws — the queue's retries are for that. */
 import { db } from '../store.js';
 import { callWorker } from './call.js';
+import { contextOf } from '../providers/room.js'; /* M565: the record told in parts that fit its model */
 
 export const ESSENTIALS_KEY = (storyId) => 'essentials:' + storyId;
 /* M510-16: the same room the record's newest lines had (M510-14, about 4,000 tokens) — now spent on the whole story */
@@ -24,6 +25,10 @@ export const ESSENTIALS_TRIES = 2;
 const fp = (t) => { let h = 5381; const s = String(t == null ? '' : t); for (let i = 0; i < s.length; i += 1) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36); };
 
 /* the record's lines in its own order (a correction reads last), and a fingerprint of all of them */
+/* one record line as the keeper reads it (M565: shared with the parts) */
+export function recordLine(n) {
+  return '- ' + (n.correction ? '' : '(pages ' + (n.span[0] + 1) + (n.span[1] !== n.span[0] ? '–' + (n.span[1] + 1) : '') + ') ') + n.text.trim() + (typeof n.detail === 'string' && n.detail.trim() ? ' — ' + n.detail.trim() : '');
+}
 export function recordOf(nodes) {
   const lines = (Array.isArray(nodes) ? nodes : [])
     .filter((n) => n && !n.empty && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span))
@@ -33,7 +38,7 @@ export function recordOf(nodes) {
       return (a.span[0] - b.span[0]) || ((b.level || 1) - (a.level || 1)) || ((a.at || 0) - (b.at || 0));
     });
   const upTo = lines.reduce((m, n) => (!n.correction && Number.isFinite(n.span[1]) ? Math.max(m, n.span[1]) : m), -1);
-  const text = lines.map((n) => '- ' + (n.correction ? '' : '(pages ' + (n.span[0] + 1) + (n.span[1] !== n.span[0] ? '–' + (n.span[1] + 1) : '') + ') ') + n.text.trim() + (typeof n.detail === 'string' && n.detail.trim() ? ' — ' + n.detail.trim() : '')).join('\n');
+  const text = lines.map(recordLine).join('\n');
   return { lines, text, upTo, print: fp(text) };
 }
 
@@ -64,7 +69,7 @@ export function essentialsAsk({ record = '', brief = '', mc = '' } = {}) {
 
 /* the answer, read as lines: no fences, no preface before the first line, clipped at a line's end; too little to be the
  * essentials — or no line at all — is refused */
-export function readEssentials(raw) {
+export function readEssentials(raw, cap = ESSENTIALS_MAX_CHARS) {
   const t = String(raw == null ? '' : raw).replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
   if (/^[[{]\s*["{\]]/.test(t)) return '';
   const lines = t.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -73,7 +78,7 @@ export function readEssentials(raw) {
   const kept = lines.slice(first).map((l) => (/^[-*•]\s*/.test(l) ? '- ' + l.replace(/^[-*•]\s*/, '') : '- ' + l));
   let text = kept.join('\n');
   if (text.length < 80) return '';
-  if (text.length > ESSENTIALS_MAX_CHARS) { const cut = text.lastIndexOf('\n', ESSENTIALS_MAX_CHARS); text = text.slice(0, cut > 0 ? cut : ESSENTIALS_MAX_CHARS); }
+  if (text.length > cap) { const cut = text.lastIndexOf('\n', cap); text = text.slice(0, cut > 0 ? cut : cap); }
   return text;
 }
 
@@ -83,22 +88,65 @@ export async function loadEssentials(storyId) {
 }
 
 /* one reading: when the record has changed since the essentials were made, make them again from the whole record */
+/* M565 (the audit): THE ESSENTIALS OF A LONG TALE. The keeper was handed the WHOLE record in one request, however long, and
+ * its answer was cut at 16,000 characters keeping the OLDEST lines: a record past its model's room was refused every time
+ * (the essentials never made again — the story in brief standing still while the tale went on), and a telling past the
+ * cap lost its NEWEST stretch, where the story stands now. Now a record past its model's room is told in parts, oldest
+ * first, each part given its share of the 16,000 by its size; a telling that runs over its share, or is cut off by the
+ * answer's room, is asked again tighter — the oldest stretches shorter, every stretch still there. A record that fits is
+ * told in one request, as before. */
+export function recordParts(lines, room) {
+  const parts = [];
+  let cur = []; let size = 0;
+  for (const n of lines) {
+    const t = recordLine(n);
+    if (cur.length && size + t.length + 1 > room) { parts.push(cur); cur = []; size = 0; }
+    cur.push(n); size += t.length + 1;
+  }
+  if (cur.length) parts.push(cur);
+  return parts;
+}
+async function tellPart({ connection, lines, part, parts, share, brief, mc, signal, callLLM }) {
+  const record = lines.map(recordLine).join('\n');
+  const ask = essentialsAsk({ record, brief, mc });
+  const partNote = parts > 1 ? '\n\nThis is part ' + (part + 1) + ' of ' + parts + ' of the record, oldest first — tell THIS part only; the others are told on their own. Tell it in at most ' + share + ' characters.' : '';
+  let user = ask.user + partNote;
+  /* an answer that is not the essentials is asked for once more (ESSENTIALS_TRIES in all, as ever); a telling over its share
+   * or cut off is asked once, tighter — and then the answer stands, held to its share at a line's end */
+  let unusable = 0; let tightened = false;
+  for (;;) {
+    const answer = await callLLM(connection, { system: ask.system, user, maxTokens: ESSENTIALS_MAX_TOKENS, signal });
+    const raw = typeof answer === 'string' ? answer : (answer && answer.text) || '';
+    const cutOff = Boolean(answer && typeof answer === 'object' && answer.finishReason === 'length');
+    const text = readEssentials(raw, share);
+    if (!text) {
+      unusable += 1;
+      if (unusable >= ESSENTIALS_TRIES) return '';
+      user = ask.user + partNote + '\n\nYour last answer was not the essentials asked for. Answer with the lines only, each opening with its time-and-place prefix.';
+      continue;
+    }
+    if ((!cutOff && raw.length <= share * 1.15) || tightened) return text;
+    tightened = true;
+    user = ask.user + partNote + '\n\nYour telling ran to ' + raw.length + ' characters' + (cutOff ? ' and was cut off' : '') + '. Tell it again within ' + share + ' characters: the oldest stretches shorter, every stretch still there, the newest whole.';
+  }
+}
 export async function runEssentials({ connection, storyId, nodes, brief = '', mc = '', signal, callLLM = callWorker, force = false } = {}) {
   if (!connection || !storyId) return { wrote: false, why: 'no connection' };
   const rec = recordOf(nodes);
   if (!rec.lines.length) return { wrote: false, why: 'no record yet' };
   const kept = await loadEssentials(storyId);
   if (kept && kept.print === rec.print && !force) return { wrote: false, why: 'unchanged' }; /* final audit: made again by hand, whatever the print */
-  const ask = essentialsAsk({ record: rec.text, brief, mc });
-  let user = ask.user;
-  for (let tries = 0; tries < ESSENTIALS_TRIES; tries += 1) {
-    const answer = await callLLM(connection, { system: ask.system, user, maxTokens: ESSENTIALS_MAX_TOKENS, signal });
-    const text = readEssentials(typeof answer === 'string' ? answer : (answer && answer.text) || '');
-    if (text) {
-      await db.settings.set(ESSENTIALS_KEY(storyId), { text, print: rec.print, upTo: rec.upTo, at: Date.now() });
-      return { wrote: true };
-    }
-    user = ask.user + '\n\nYour last answer was not the essentials asked for. Answer with the lines only, each opening with its time-and-place prefix.';
+  const room = Math.max(20000, Math.floor(contextOf(connection) * 3 * 0.6));
+  const parts = recordParts(rec.lines, room);
+  const total = rec.lines.reduce((t, n) => t + recordLine(n).length + 1, 0) || 1;
+  const told = [];
+  for (let i = 0; i < parts.length; i += 1) {
+    const size = parts[i].reduce((t, n) => t + recordLine(n).length + 1, 0);
+    const share = parts.length > 1 ? Math.max(2000, Math.floor(ESSENTIALS_MAX_CHARS * size / total)) : ESSENTIALS_MAX_CHARS;
+    const text = await tellPart({ connection, lines: parts[i], part: i, parts: parts.length, share, brief, mc, signal, callLLM });
+    if (!text) return { wrote: false, why: 'its answer could not be used' };
+    told.push(text);
   }
-  return { wrote: false, why: 'its answer could not be used' };
+  await db.settings.set(ESSENTIALS_KEY(storyId), { text: told.join('\n'), print: rec.print, upTo: rec.upTo, at: Date.now() });
+  return { wrote: true, parts: parts.length };
 }

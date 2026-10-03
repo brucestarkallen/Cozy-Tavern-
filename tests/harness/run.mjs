@@ -225,6 +225,7 @@ import './m561.mjs'; /* M561: the whole brief, the whole story in brief, the rec
 import './m562.mjs'; /* M562: one game master's procedure; the better fighter counted once; the ruling quick */
 import './m563.mjs'; /* M563: every helper's request, as the model receives it */
 import './m564.mjs'; /* M564: the founder is handed the real record */
+import './m565.mjs'; /* M565: the essentials of a long tale, in parts */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');
