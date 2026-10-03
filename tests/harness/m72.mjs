@@ -143,7 +143,7 @@ test('M72-7 the send path: the coming page stamps the turn, the boundary follows
   const gen = c.slice(c.indexOf('async function generate('), c.indexOf('async function retryAsk('));
   assert(/state\.page = history\.filter\(\(m\) => m && m\.role === 'assistant' && !m\.hidden\)\.length;/.test(gen), 'the coming page’s index is the stamp');
   assert(gen.indexOf('state.page = history.filter') < gen.indexOf('refereeStep'), 'set before the referee');
-  assert(gen.indexOf('refereeStep') < gen.indexOf('await snapshotState(story.id, lastUser.id, state)'), 'the boundary is taken after the referee commits');
+  assert(gen.indexOf('refereeStep') < gen.indexOf('snapshotState(story.id, lastUser.id, state') /* M570 */, 'the boundary is taken after the referee commits');
   assert(!/bumpChain/.test(gen), 'a send never turns the chain generation (the previous page’s readers must land)');
   /* stopped pages are read */
   assert(/if \(!ooc\) \{\n\s*startBackgroundWork\(story, saved, userText\);/.test(gen), 'a page stopped by hand is handed to the workers');

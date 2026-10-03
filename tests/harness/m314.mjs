@@ -35,7 +35,7 @@ test('M314-1 the stored checkpoints hold no journal and no log — and every rea
   assert(index.every((e) => typeof e.id === 'string' && !('snap' in e) && Number.isInteger(e.page)), 'the index holds names and pages, never a ledger');
   const stored = [];
   for (const e of index) stored.push({ snap: await db.settings.get('snap:' + e.id + ':' + sid) });
-  assert(stored.every((e) => e.snap && e.snap.slim === 2 && !('journal' in e.snap) && !('log' in e.snap) && Array.isArray(e.snap.jk) && Array.isArray(e.snap.lk)), 'stored as a ledger and two lists of keys');
+  assert(stored.every((e) => e.snap && e.snap.slim === 3 /* M570: the ledger's pages shared too */ && !('journal' in e.snap) && !('log' in e.snap) && Array.isArray(e.snap.jk) && Array.isArray(e.snap.lk)), 'stored as a ledger and two lists of keys');
   const fat = JSON.stringify(wholes).length;
   const slim = JSON.stringify(stored).length + JSON.stringify(await db.settings.get('ckptBank:' + sid)).length;
   assert(slim < fat * 0.75, 'smaller even on six pages, the bank counted in (a long tale saves far more — measured in AGENTS.md): ' + slim + ' against ' + fat + ' bytes');
@@ -66,7 +66,7 @@ test('M314-3 two versions of one page are sibling timelines: the same ids, diffe
   /* M507-6: the index names the versions; each lives in its own slim row */
   eq((await db.settings.get('versionState:' + vid)).join(','), 'a1:0,a1:1');
   const stored = { 'a1:0': await db.settings.get('ver:a1:0:' + vid), 'a1:1': await db.settings.get('ver:a1:1:' + vid) };
-  assert(stored['a1:0'].slim === 2 && stored['a1:1'].slim === 2);
+  assert(stored['a1:0'].slim === 3 /* M570: the ledger's pages shared too */ && stored['a1:1'].slim === 3 /* M570: the ledger's pages shared too */);
   const back = await wholeVersions(vid, stored);
   eq(canon(back['a1:0']), canon(v0), 'version 0: Liara’s entries, not Kim’s');
   eq(canon(back['a1:1']), canon(v1), 'version 1: Kim’s');
@@ -81,7 +81,7 @@ test('M314-4 a checkpoint stored whole by an older version reads as it is and is
   const read = await loadSnapshots(old);
   eq(canon(read[0].snap), canon(st), 'read as it is');
   await saveSnapshots(old, read);
-  assert((await db.settings.get('snap:turn1:' + old)).slim === 2 && !('snap' in (await db.settings.get('snapshots:' + old))[0]), 'banked from its next write, in its own row (M507)');
+  assert((await db.settings.get('snap:turn1:' + old)).slim === 3 /* M570: the ledger's pages shared too */ && !('snap' in (await db.settings.get('snapshots:' + old))[0]), 'banked from its next write, in its own row (M507)');
   eq(canon((await loadSnapshots(old))[0].snap), canon(st), 'with nothing lost');
   /* the bank loses one journal entry (a write that never landed) */
   const bank = await db.settings.get('ckptBank:' + old);

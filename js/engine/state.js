@@ -414,14 +414,14 @@ const deepCopy = (v) => (typeof structuredClone === 'function'
  * checkpoint or the re-read serve, as they already do. A checkpoint stored whole by an older version
  * reads as it is and is banked the next time its row is written. */
 const BANK_PREFIX = 'ckptBank:';
-export const BANK_CAP = 8000;
+export const BANK_CAP = 40000; /* M570: the ledger's own pages share the bank now (j, l and p) */
 function contentKey(obj) {
   const text = JSON.stringify(obj);
   let a = 0x811c9dc5; let b = 5381;
   for (let i = 0; i < text.length; i += 1) { const c = text.charCodeAt(i); a = Math.imul(a ^ c, 0x01000193) >>> 0; b = (Math.imul(b, 33) + c) >>> 0; }
   return a.toString(36) + '.' + b.toString(36) + '.' + text.length.toString(36);
 }
-function emptyBank() { return { j: {}, l: {} }; }
+function emptyBank() { return { j: {}, l: {}, p: {} }; }
 /* M507: THE BANK IS KEPT IN PARTS. One row held every journal and log entry of every checkpoint of the tale (543 KB on
  * the perf tale, growing to the cap) and was read, cloned and written whole on every send for the dozen entries the new
  * checkpoint adds. Now the base row ckptBank:<tale> (the row older stores already have) lists its parts, each part
@@ -433,19 +433,19 @@ const PART_CAP = 400; /* M507-6: smaller parts — a page's two appends rewrite 
 const bankKeysOf = new Map(); /* storyId -> Set of every key the bank holds (j and l) */
 async function bankBase(storyId) {
   const row = await db.settings.get(BANK_PREFIX + storyId);
-  const base = row && typeof row === 'object' && row.j && row.l ? { j: { ...row.j }, l: { ...row.l } } : emptyBank();
+  const base = row && typeof row === 'object' && row.j && row.l ? { j: { ...row.j }, l: { ...row.l }, p: { ...(row.p || {}) } } : emptyBank();
   base.parts = row && Array.isArray(row.parts) ? row.parts.filter((n) => Number.isInteger(n) && n > 0) : [];
   return base;
 }
 async function loadBank(storyId) {
   const base = await bankBase(storyId);
-  const bank = { j: base.j, l: base.l };
+  const bank = { j: base.j, l: base.l, p: base.p };
   const rows = await db.settings.getMany(base.parts.map((n) => BANK_PART(storyId, n)));
   for (const n of base.parts) {
     const part = rows.get(BANK_PART(storyId, n));
-    if (part && typeof part === 'object') { Object.assign(bank.j, part.j || {}); Object.assign(bank.l, part.l || {}); }
+    if (part && typeof part === 'object') { Object.assign(bank.j, part.j || {}); Object.assign(bank.l, part.l || {}); Object.assign(bank.p, part.p || {}); }
   }
-  bankKeysOf.set(storyId, new Set([...Object.keys(bank.j), ...Object.keys(bank.l)]));
+  bankKeysOf.set(storyId, new Set([...Object.keys(bank.j), ...Object.keys(bank.l), ...Object.keys(bank.p)]));
   return bank;
 }
 async function knownBankKeys(storyId) {
@@ -454,26 +454,27 @@ async function knownBankKeys(storyId) {
 }
 /* the new entries go to the newest part with room (the base row, when it has no parts yet and room), else a new part */
 async function bankAppend(storyId, fresh) {
-  const jn = Object.keys(fresh.j).length; const ln = Object.keys(fresh.l).length;
-  if (!jn && !ln) return;
+  const jn = Object.keys(fresh.j).length; const ln = Object.keys(fresh.l).length; const pn = Object.keys(fresh.p || {}).length;
+  if (!jn && !ln && !pn) return;
   const base = await bankBase(storyId);
   const known = bankKeysOf.get(storyId) || new Set();
-  const size = (b) => Object.keys(b.j || {}).length + Object.keys(b.l || {}).length;
-  if (!base.parts.length && size(base) + jn + ln <= PART_CAP) {
-    Object.assign(base.j, fresh.j); Object.assign(base.l, fresh.l);
-    await db.settings.set(BANK_PREFIX + storyId, { j: base.j, l: base.l, parts: [] });
+  const size = (b) => Object.keys(b.j || {}).length + Object.keys(b.l || {}).length + Object.keys(b.p || {}).length;
+  if (!base.parts.length && size(base) + jn + ln + pn <= PART_CAP) {
+    Object.assign(base.j, fresh.j); Object.assign(base.l, fresh.l); Object.assign(base.p, fresh.p || {});
+    await db.settings.set(BANK_PREFIX + storyId, { j: base.j, l: base.l, p: base.p, parts: [] });
   } else {
     let n = base.parts.length ? base.parts[base.parts.length - 1] : 0;
     let part = n ? (await db.settings.get(BANK_PART(storyId, n))) : null;
-    if (!part || typeof part !== 'object' || size(part) + jn + ln > PART_CAP) {
+    if (!part || typeof part !== 'object' || size(part) + jn + ln + pn > PART_CAP) {
       n += 1; part = emptyBank();
       base.parts.push(n);
-      await db.settings.set(BANK_PREFIX + storyId, { j: base.j, l: base.l, parts: base.parts });
+      await db.settings.set(BANK_PREFIX + storyId, { j: base.j, l: base.l, p: base.p, parts: base.parts });
     }
-    await db.settings.set(BANK_PART(storyId, n), { j: { ...(part.j || {}), ...fresh.j }, l: { ...(part.l || {}), ...fresh.l } });
+    await db.settings.set(BANK_PART(storyId, n), { j: { ...(part.j || {}), ...fresh.j }, l: { ...(part.l || {}), ...fresh.l }, p: { ...(part.p || {}), ...(fresh.p || {}) } });
   }
   for (const k of Object.keys(fresh.j)) known.add(k);
   for (const k of Object.keys(fresh.l)) known.add(k);
+  for (const k of Object.keys(fresh.p || {})) known.add(k);
   bankKeysOf.set(storyId, known);
 }
 /* the bank rewritten whole — only when it is over its cap: what no stored checkpoint names any more goes */
@@ -485,9 +486,10 @@ async function bankRewrite(storyId, bank) {
   const flush = async () => { if (!count) return; n += 1; parts.push(n); await db.settings.set(BANK_PART(storyId, n), cur); cur = emptyBank(); count = 0; };
   for (const [k, e] of Object.entries(bank.j)) { cur.j[k] = e; count += 1; if (count >= PART_CAP) await flush(); }
   for (const [k, e] of Object.entries(bank.l)) { cur.l[k] = e; count += 1; if (count >= PART_CAP) await flush(); }
+  for (const [k, e] of Object.entries(bank.p || {})) { cur.p[k] = e; count += 1; if (count >= PART_CAP) await flush(); }
   await flush();
-  await db.settings.set(BANK_PREFIX + storyId, { j: {}, l: {}, parts });
-  bankKeysOf.set(storyId, new Set([...Object.keys(bank.j), ...Object.keys(bank.l)]));
+  await db.settings.set(BANK_PREFIX + storyId, { j: {}, l: {}, p: {}, parts });
+  bankKeysOf.set(storyId, new Set([...Object.keys(bank.j), ...Object.keys(bank.l), ...Object.keys(bank.p || {})]));
 }
 export function forgetBankCache(storyId) { if (storyId) bankKeysOf.delete(storyId); else bankKeysOf.clear(); }
 onDropCaches(() => { forgetBankCache(); handedOut.clear(); versionsHandedOut.clear(); }); /* a pull replaced rows under us: remember nothing of them */
@@ -496,27 +498,69 @@ onDropCaches(() => { forgetBankCache(); handedOut.clear(); versionsHandedOut.cle
  * again. Only while every key is in the bank being written: a branch saves its parent's checkpoints
  * into its OWN bank, which does not hold them yet. */
 const BUILT_FROM = new WeakMap();
-/* `known` is the set of keys the bank already holds; every entry not in it is put into `fresh` (j / l) for bankAppend */
+/* M570: THE LEDGER'S OWN PAGES ARE SHARED TOO. His tale's book outgrew the device (M569): a tale keeps up to 180 copies of
+ * its ledger (120 checkpoints, 60 version ledgers), and M314 banked only their journal and log — every copy still carried
+ * every person's page WHOLE, though one page of the story changes a few of them. Measured: 120 people in 180 copies, 68 MB.
+ * Now each entry of the ledger's books (a person's page, a standing, a seat, a canon lock, what one person knows, a faction,
+ * a body) is kept ONCE per tale in the bank's third shelf (p) under a key made from its content, and a checkpoint holds the
+ * names and their keys (pk); the books kept whole (threads, the sheet, what the world showed…) are banked whole (pw). Handed
+ * back, a checkpoint is the same whole ledger as before, every map its own object; an entry the bank has lost makes the
+ * checkpoint unusable (null) — never a ledger with a hole: the nearest other checkpoint or the re-read serves, as for a
+ * missing journal entry. slim 3; a slim-2 row reads as it is and is shared when it is written again (shareCheckpoints). */
+const SHARED_MAPS = ['characters', 'relationships', 'offscreen', 'canon', 'knowledge', 'factions', 'bodies'];
+const SHARED_WHOLE = ['threads', 'worldShown', 'sheet', 'worldBrief', 'refHistory', 'readAhead', 'canonLetGo'];
+function shareSections(known, fresh, rest, was) {
+  const pk = {}; const pw = {};
+  const have = (k) => known.has(k) || Object.prototype.hasOwnProperty.call(fresh.p, k);
+  for (const sec of SHARED_MAPS) {
+    const val = rest[sec];
+    if (!val || typeof val !== 'object' || Array.isArray(val)) continue;
+    if (was && was.sections && was.sections[sec] === val && was.pk && was.pk[sec] && Object.values(was.pk[sec]).every(have)) { pk[sec] = was.pk[sec]; delete rest[sec]; continue; }
+    const m = {};
+    for (const [name, entry] of Object.entries(val)) {
+      if (entry === undefined) continue;
+      const k = 'p' + contentKey(entry);
+      if (!have(k)) fresh.p[k] = entry;
+      m[name] = k;
+    }
+    pk[sec] = m; delete rest[sec];
+  }
+  for (const sec of SHARED_WHOLE) {
+    const val = rest[sec];
+    if (val === undefined || val === null || typeof val !== 'object') continue;
+    if (was && was.sections && was.sections[sec] === val && was.pw && was.pw[sec] && have(was.pw[sec])) { pw[sec] = was.pw[sec]; delete rest[sec]; continue; }
+    const k = 'w' + contentKey(val);
+    if (!have(k)) fresh.p[k] = val;
+    pw[sec] = k; delete rest[sec];
+  }
+  return { pk, pw };
+}
+/* `known` is the set of keys the bank already holds; every entry not in it is put into `fresh` (j / l / p) for bankAppend */
 function bankInto(known, fresh, state) {
-  if (!state || typeof state !== 'object' || state.slim === 2) return state;
+  if (!state || typeof state !== 'object' || state.slim === 2 || state.slim === 3) return state;
+  if (!fresh.p) fresh.p = {};
   const { journal, log, ...rest } = state;
   const was = BUILT_FROM.get(state);
-  if (was && was.journal === journal && was.log === log && was.jk.every((k) => known.has(k) || fresh.j[k]) && was.lk.every((p) => known.has(p[0]) || fresh.l[p[0]])) return { ...rest, slim: 2, jk: was.jk, lk: was.lk };
-  const jk = [];
-  for (const e of Array.isArray(journal) ? journal : []) { const k = contentKey(e); if (!known.has(k) && !fresh.j[k]) fresh.j[k] = e; jk.push(k); }
-  const lk = [];
-  for (const e of Array.isArray(log) ? log : []) {
-    if (!e || typeof e !== 'object') continue;
-    const { undone, ...core } = e;
-    const k = contentKey(core);
-    if (!known.has(k) && !fresh.l[k]) fresh.l[k] = core;
-    lk.push([k, undone === true]);
+  let jk; let lk;
+  if (was && was.journal === journal && was.log === log && was.jk.every((k) => known.has(k) || fresh.j[k]) && was.lk.every((p) => known.has(p[0]) || fresh.l[p[0]])) { jk = was.jk; lk = was.lk; }
+  else {
+    jk = [];
+    for (const e of Array.isArray(journal) ? journal : []) { const k = contentKey(e); if (!known.has(k) && !fresh.j[k]) fresh.j[k] = e; jk.push(k); }
+    lk = [];
+    for (const e of Array.isArray(log) ? log : []) {
+      if (!e || typeof e !== 'object') continue;
+      const { undone, ...core } = e;
+      const k = contentKey(core);
+      if (!known.has(k) && !fresh.l[k]) fresh.l[k] = core;
+      lk.push([k, undone === true]);
+    }
   }
-  return { ...rest, slim: 2, jk, lk };
+  const { pk, pw } = shareSections(known, fresh, rest, was);
+  return { ...rest, slim: 3, jk, lk, pk, pw };
 }
 function wholeFromBank(bank, snap) {
-  if (!snap || typeof snap !== 'object' || snap.slim !== 2) return snap;
-  const { slim, jk, lk, ...rest } = snap;
+  if (!snap || typeof snap !== 'object' || (snap.slim !== 2 && snap.slim !== 3)) return snap;
+  const { slim, jk, lk, pk, pw, ...rest } = snap;
   let journal = [];
   for (const k of Array.isArray(jk) ? jk : []) { const e = bank.j[k]; if (!e) { journal = []; break; } journal.push(e); }
   if (journal.length !== (Array.isArray(jk) ? jk.length : 0)) journal = [];
@@ -528,9 +572,20 @@ function wholeFromBank(bank, snap) {
     const { ts, words, ...more } = e;
     log.push({ ts, words, undone: pair[1] === true, ...more });
   }
+  const sections = {};
+  if (slim === 3) {
+    const pages = bank.p || {};
+    const has = (k) => Object.prototype.hasOwnProperty.call(pages, k);
+    for (const [sec, m] of Object.entries(pk && typeof pk === 'object' ? pk : {})) {
+      const obj = {};
+      for (const [name, k] of Object.entries(m && typeof m === 'object' ? m : {})) { if (!has(k)) return null; obj[name] = pages[k]; }
+      rest[sec] = obj; sections[sec] = obj;
+    }
+    for (const [sec, k] of Object.entries(pw && typeof pw === 'object' ? pw : {})) { if (!has(k)) return null; rest[sec] = pages[k]; sections[sec] = pages[k]; }
+  }
   const whole = { ...rest, journal, log };
   /* only a checkpoint rebuilt with nothing missing may be saved again by its keys */
-  if (journal.length === (Array.isArray(jk) ? jk.length : 0) && log.length === (Array.isArray(lk) ? lk.length : 0)) BUILT_FROM.set(whole, { jk, lk, journal, log });
+  if (journal.length === (Array.isArray(jk) ? jk.length : 0) && log.length === (Array.isArray(lk) ? lk.length : 0)) BUILT_FROM.set(whole, { jk, lk, journal, log, pk: pk || {}, pw: pw || {}, sections });
   return whole;
 }
 /* one writer at a time per tale: the boundary checkpoints and the version ledgers share the bank */
@@ -543,9 +598,14 @@ function withBank(storyId, fn) {
 }
 const VERSION_ROW = (storyId) => 'versionState:' + storyId;
 function keysUsedBy(row) {
-  const used = { j: new Set(), l: new Set() };
+  const used = { j: new Set(), l: new Set(), p: new Set() };
   const each = Array.isArray(row) ? row.map((e) => e && e.snap) : (row && typeof row === 'object' ? Object.values(row) : []);
-  for (const c of each) { if (!c || c.slim !== 2) continue; for (const k of c.jk || []) used.j.add(k); for (const p of c.lk || []) used.l.add(p[0]); }
+  for (const c of each) {
+    if (!c || (c.slim !== 2 && c.slim !== 3)) continue;
+    for (const k of c.jk || []) used.j.add(k); for (const p of c.lk || []) used.l.add(p[0]);
+    for (const m of Object.values(c.pk || {})) for (const k of Object.values(m || {})) used.p.add(k); /* M570 */
+    for (const k of Object.values(c.pw || {})) used.p.add(k);
+  }
   return used;
 }
 /* M507: every slim checkpoint of the tale, as stored — the boundary rows and the version rows — read only when the
@@ -563,14 +623,15 @@ async function storedCheckpoints(storyId) {
   return out.map((snap) => ({ snap }));
 }
 async function saveBank(storyId, known, fresh, rows) {
-  const total = known.size + Object.keys(fresh.j).length + Object.keys(fresh.l).length;
+  const total = known.size + Object.keys(fresh.j).length + Object.keys(fresh.l).length + Object.keys(fresh.p || {}).length;
   if (total <= BANK_CAP) { await bankAppend(storyId, fresh); return; }
   /* over the cap: the whole bank, and what no stored checkpoint names any more goes (every row is asked) */
   const bank = await loadBank(storyId);
-  Object.assign(bank.j, fresh.j); Object.assign(bank.l, fresh.l);
+  Object.assign(bank.j, fresh.j); Object.assign(bank.l, fresh.l); Object.assign(bank.p, fresh.p || {});
   const mine = keysUsedBy(rows); const theirs = keysUsedBy(await storedCheckpoints(storyId));
   for (const k of Object.keys(bank.j)) if (!mine.j.has(k) && !theirs.j.has(k)) delete bank.j[k];
   for (const k of Object.keys(bank.l)) if (!mine.l.has(k) && !theirs.l.has(k)) delete bank.l[k];
+  for (const k of Object.keys(bank.p)) if (!mine.p.has(k) && !theirs.p.has(k)) delete bank.p[k];
   await bankRewrite(storyId, bank);
 }
 
@@ -602,14 +663,14 @@ export async function loadSnapshots(storyId) {
     if (snap && typeof snap === 'object') list.push({ id: e.id, at: e.at, snap, stored: true });
   }
   let out = list;
-  if (list.some((e) => e.snap.slim === 2)) {
+  if (list.some((e) => e.snap.slim === 2 || e.snap.slim === 3)) {
     const bank = await loadBank(storyId);
-    out = list.map((e) => (e.snap.slim === 2 ? { ...e, snap: wholeFromBank(bank, e.snap) } : e));
+    out = list.map((e) => (e.snap.slim === 2 || e.snap.slim === 3 ? { ...e, slimWas: e.snap.slim, snap: wholeFromBank(bank, e.snap) } : e)).filter((e) => e.snap); /* M570: a checkpoint the bank cannot make whole is left out */
   }
   const seen = new Map();
-  for (const e of out) if (e.stored) seen.set(e.id, e.snap);
+  for (const e of out) if (e.stored && e.slimWas === 3) seen.set(e.id, e.snap); /* M570: a row stored before the pages were shared is written again (shared) the next time the list is */
   handedOut.set(storyId, seen);
-  return out.map(({ stored, ...e }) => e);
+  return out.map(({ stored, slimWas, ...e }) => e);
 }
 const indexEntryOf = (e, slim) => ({ id: e.id, at: Number.isFinite(e.at) ? e.at : Date.now(), page: Number.isInteger(slim && slim.page) ? slim.page : -1, seq: Number.isInteger(slim && slim.journalSeq) ? slim.journalSeq : 0 });
 /* the rows of checkpoints the index no longer names go — every snap: row of the tale is asked, not only the ones the
@@ -641,7 +702,10 @@ export function pruneSnapshots(list) {
   return [...kept, ...all.slice(all.length - SNAP_DENSE)].slice(-SNAP_CAP);
 }
 export async function saveSnapshots(storyId, list) {
-  await withBank(storyId, async () => {
+  await withBank(storyId, () => saveSnapshotsLocked(storyId, list));
+}
+async function saveSnapshotsLocked(storyId, list) {
+  {
     const known = await knownBankKeys(storyId); const add = emptyBank();
     const kept = pruneSnapshots((Array.isArray(list) ? list : []).filter((e) => e && typeof e.id === 'string' && e.snap && typeof e.snap === 'object'));
     const fresh = [];
@@ -659,7 +723,7 @@ export async function saveSnapshots(storyId, list) {
     await saveBank(storyId, known, add, fresh);
     await dropSnapshotRows(storyId, index.map((e) => e.id));
     await db.settings.set(SNAP_PREFIX + storyId, index);
-  });
+  }
 }
 /* M314: the version ledgers (one per version of a page, up to sixty a tale) are checkpoints too.
  * M507-6: ONE ROW PER VERSION LEDGER. The chain's checkpoint at the end of every page rewrote the one row that held all
@@ -688,7 +752,7 @@ export async function loadVersionStates(storyId) {
   const slim = await versionRowsSlim(storyId);
   const whole = await wholeVersions(storyId, slim);
   const seen = new Map();
-  for (const [k, v] of Object.entries(whole)) seen.set(k, v);
+  for (const [k, v] of Object.entries(whole)) if (slim[k] && slim[k].slim === 3) seen.set(k, v); /* M570: one stored before the pages were shared is written again, shared */
   versionsHandedOut.set(storyId, seen);
   return whole;
 }
@@ -698,10 +762,13 @@ export async function versionStateOf(storyId, key) {
   if (!keys.includes(key)) return null;
   const v = await db.settings.get(VERSION_ROW_OF(storyId, key));
   if (!v || typeof v !== 'object') return null;
-  return v.slim === 2 ? wholeFromBank(await loadBank(storyId), v) : v;
+  return v.slim === 2 || v.slim === 3 ? wholeFromBank(await loadBank(storyId), v) : v;
 }
 export async function saveVersionStates(storyId, all) {
-  await withBank(storyId, async () => {
+  await withBank(storyId, () => saveVersionStatesLocked(storyId, all));
+}
+async function saveVersionStatesLocked(storyId, all) {
+  {
     const known = await knownBankKeys(storyId); const add = emptyBank();
     const map = all && typeof all === 'object' ? all : {};
     const { keys: before } = await versionIndex(storyId);
@@ -720,7 +787,22 @@ export async function saveVersionStates(storyId, all) {
     await saveBank(storyId, known, add, fresh);
     await dropVersionRows(storyId, keys);
     await db.settings.set(VERSION_ROW(storyId), keys);
+  }
+}
+/* M570: A TALE'S CHECKPOINTS STORED BEFORE THE PAGES WERE SHARED are written again, shared — once per tale, on opening it,
+ * under the bank's own lock (a send's new checkpoint waits for it and is never lost to a list read before it). After it,
+ * his book holds each person's page once per change, not once per checkpoint. */
+export const CKPT_SHARED_KEY = (storyId) => 'ckptShared:' + storyId;
+export async function shareCheckpoints(storyId) {
+  if (!storyId || (await db.settings.get(CKPT_SHARED_KEY(storyId))) === 1) return false;
+  await withBank(storyId, async () => {
+    const list = await loadSnapshots(storyId);
+    if (list.length) await saveSnapshotsLocked(storyId, list);
+    const versions = await loadVersionStates(storyId);
+    if (Object.keys(versions).length) await saveVersionStatesLocked(storyId, versions);
+    await db.settings.set(CKPT_SHARED_KEY(storyId), 1);
   });
+  return true;
 }
 /* the hot path: the end of a page keeps ONE version ledger — its row, and the index grown by one key */
 export async function saveOneVersion(storyId, key, state) {
@@ -748,10 +830,10 @@ export async function saveOneVersion(storyId, key, state) {
 }
 export async function wholeVersions(storyId, all) {
   const map = all && typeof all === 'object' ? all : {};
-  if (!Object.values(map).some((v) => v && v.slim === 2)) return map;
+  if (!Object.values(map).some((v) => v && (v.slim === 2 || v.slim === 3))) return map;
   const bank = await loadBank(storyId);
   const out = {};
-  for (const [k, v] of Object.entries(map)) out[k] = wholeFromBank(bank, v);
+  for (const [k, v] of Object.entries(map)) { const w = wholeFromBank(bank, v); if (w) out[k] = w; } /* M570: one the bank cannot make whole is left out */
   return out;
 }
 
@@ -791,9 +873,14 @@ export async function restoreNearestSnapshot(storyId, order, turnId) {
  * `turnId` is that turn's user-message id; `state` is the already-loaded
  * state (loadState runs again when it isn't handed over). Re-keying the
  * same boundary simply re-takes the snapshot. */
-export async function snapshotState(storyId, turnId, state) {
+export async function snapshotState(storyId, turnId, state, { after = null } = {}) {
   if (!storyId || typeof turnId !== 'string' || !turnId) return;
-  const current = state && typeof state === 'object' ? state : await loadState(storyId);
+  /* M570: the copy is taken NOW, before the first wait — the send no longer waits for the keeping, and the ledger it was
+   * handed may move on while the bank is written */
+  const current = state && typeof state === 'object' ? (() => { const { journal, log, ...rest } = state; return { ...deepCopy(rest), journal: Array.isArray(journal) ? journal.slice() : journal, log: Array.isArray(log) ? log.slice() : log }; })() : await loadState(storyId);
+  /* M570: the send hands a promise: the keeping (banking every page of the ledger by its content) waits until the page has
+   * streamed, so it never shares the main thread with the request being built */
+  if (after && typeof after.then === 'function') { try { await after; } catch (err) { /* kept all the same */ } }
   let index = await snapshotIndex(storyId);
   if (index.some((e) => e.snap && typeof e.snap === 'object')) {
     /* a row from before M507: the list stored whole is moved to its own rows once, as it is stored (a slim entry is
@@ -817,8 +904,7 @@ export async function snapshotState(storyId, turnId, state) {
    * read, unbanked or rewritten. The copy is of the ledger WITHOUT its journal and log — the bank holds those by key. */
   await withBank(storyId, async () => {
     const known = await knownBankKeys(storyId); const add = emptyBank();
-    const { journal, log, ...rest } = current;
-    const slim = bankInto(known, add, { ...deepCopy(rest), journal, log });
+    const slim = bankInto(known, add, current); /* M570: `current` is this call's own copy already — never copied twice */
     const entry = indexEntryOf({ id: turnId, at: Date.now() }, slim);
     const list = index.filter((e) => e.id !== turnId).map((e) => ({ id: e.id, at: e.at, page: e.page, seq: e.seq }));
     list.push(entry);

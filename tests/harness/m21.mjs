@@ -188,7 +188,7 @@ test('M21-C: the rewind law is wired in chat.js — snapshot before the chain, r
   const chat = src('js/ui/chat.js');
   const gen = chat.slice(chat.indexOf('async function generate'));
   /* M72: the boundary is taken AFTER the referee commits — it carries the committed fate, so a swipe replays instead of rolling again */
-  assert(gen.indexOf('refereeStep') < gen.indexOf('await snapshotState'), 'the boundary is taken after the referee commits (M72)');
+  assert(gen.indexOf('refereeStep') < gen.indexOf('snapshotState(story.id, lastUser.id, state') /* M570: taken here, kept while the page is asked for */, 'the boundary is taken after the referee commits (M72)');
   assert(gen.indexOf('state.page = history.filter') < gen.indexOf('refereeStep'), 'the coming page stamps everything the turn writes before it lands (M72)');
   const regen = chat.slice(chat.indexOf('async function regenerateFrom'), chat.indexOf('/* ---------- swipes'));
   assert(regen.indexOf('rewindTo') < regen.indexOf('deleteFrom'), 'regenerate rewinds (exact or nearest, M44) before deleteFrom');

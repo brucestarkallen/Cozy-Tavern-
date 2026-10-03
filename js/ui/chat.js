@@ -53,7 +53,7 @@ import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
 import { renderClock } from '../engine/clock.js'; /* M493 */
-import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
+import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture, shareCheckpoints } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
 import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
@@ -3000,6 +3000,7 @@ export function initChat(ctx) {
         noteWork(story.id, ground);
       }
       const worldChecked = enqueueWork(story.id, { name: 'worldcheck', run: async ({ signal, stale }) => worldCheckNext(story, { signal, stale }) }); /* M551: asks only while unchecked */
+      shareCheckpoints(story.id).catch(() => {}); /* M570: a tale's older checkpoints shared once — its book shrinks; under the bank's own lock */
       noteWork(story.id, worldChecked);
       /* the plans keeper reads each page after it is written (the page chain, every storyteller); asked on open only for a
        * small model, whose helper plans before the first send — opening a story to look at it asks no one else anything */
@@ -4575,6 +4576,8 @@ export function initChat(ctx) {
     let leakedControl = false; /* M117: the provider let control tokens through */
     let ranPast = false; /* M469: the model ran past its end-of-turn and began the writer's next turn */
     let cutMine = false; /* M510: the small model began playing him, and the page ended there */
+    let releaseCheckpoint = () => {}; /* M570: the turn's checkpoint is kept once the page is done with the main thread — released on every path */
+    let checkpointPending = null; /* M570: and the next send never starts before it is kept */
     try {
       const story = await activeStory();
       if (!story) return;
@@ -4788,8 +4791,15 @@ export function initChat(ctx) {
        * (the rewound ledger used to have no commit, and a swipe rolled the
        * die again) and this turn's page stamp; a fold never re-arms the
        * ruling it holds. OOC turns do no state work and take no snapshot. */
+      /* M570: the checkpoint is TAKEN here (its copy of the ledger, before anything else moves) and KEPT while the page is
+       * asked for — measured, keeping it in front of the request cost the send ~500 ms at the phone-speed test once each
+       * person's page was banked by its content; the page lands only after it is kept (awaited below), so a Try again the
+       * moment the page lands finds this turn's own checkpoint. */
+      let checkpointing = null;
       if (!ooc && lastUser) {
-        await snapshotState(story.id, lastUser.id, state);
+        const after = new Promise((go) => { releaseCheckpoint = go; });
+        checkpointing = snapshotState(story.id, lastUser.id, state, { after }).catch(() => {});
+        checkpointPending = checkpointing;
       }
 
       const allModules = await listModules();
@@ -5490,6 +5500,7 @@ export function initChat(ctx) {
           if (tidied.did.length && receipt && typeof receipt === 'object') receipt = { ...receipt, shape: tidied.did };
         } catch (err) { /* the page as it came */ }
       }
+      releaseCheckpoint(); if (checkpointing) await checkpointing; /* M570: kept now — the page has streamed — and before it lands */
       if (full.trim()) {
         landed = true;
         if (swipeTarget) {
@@ -5620,6 +5631,8 @@ export function initChat(ctx) {
         pending.remove();
       }
     } finally {
+      releaseCheckpoint(); /* M570: a page that failed or was stopped still keeps its turn's checkpoint — kept before the house is free again, so a Try again finds it */
+      if (checkpointPending) { try { await checkpointPending; } catch (err) { /* kept or not, the house goes on */ } }
       abort = null;
       busy = false;
       els.btnStop.hidden = true;

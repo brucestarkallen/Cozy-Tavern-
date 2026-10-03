@@ -31,7 +31,7 @@ test('M507-1 a send writes ONE checkpoint row and the small index — every stor
   const index = await db.settings.get('snapshots:' + sid);
   eq(index.length, 8);
   assert(index.every((e) => !('snap' in e) && typeof e.id === 'string' && Number.isInteger(e.page) && Number.isFinite(e.at)), 'the index carries names, pages and times — never a ledger');
-  for (const k of rows) { const r = await db.settings.get(k); assert(r.slim === 2 && !('journal' in r) && !('log' in r) && Array.isArray(r.jk), 'a slim ledger: ' + k); }
+  for (const k of rows) { const r = await db.settings.get(k); assert(r.slim === 3 /* M570: the ledger's pages shared too */ && !('journal' in r) && !('log' in r) && Array.isArray(r.jk), 'a slim ledger: ' + k); }
   const back = await loadSnapshots(sid);
   eq(back.length, 8);
   for (let i = 0; i < 8; i += 1) eq(canon(back[i].snap), canon(wholes[i]), 'checkpoint ' + i + ' comes back whole, journal and log included');
@@ -58,7 +58,7 @@ test('M507-2 a row written whole before M507 (the list under snapshots:<tale>) r
   const index = await db.settings.get('snapshots:' + sid);
   eq(index.map((e) => e.id).join(','), 'old0,old1,old2,u3', 'the old ones and the new, in order');
   assert(index.every((e) => !('snap' in e)), 'the index holds no ledger any more');
-  for (const e of index) assert((await db.settings.get('snap:' + e.id + ':' + sid)).slim === 2, 'each in its own row: ' + e.id);
+  for (const e of index) assert((await db.settings.get('snap:' + e.id + ':' + sid)).slim === 3 /* M570: the ledger's pages shared too */, 'each in its own row: ' + e.id);
   eq(canon((await loadSnapshots(sid))[1].snap), canon(legacy[1].snap), 'an old checkpoint is the ledger it was');
   /* the cap */
   for (let i = 4; i < SNAP_CAP + 8; i += 1) { st.page = i; await snapshotState(sid, 'u' + i, st); }
@@ -77,7 +77,7 @@ test('M507-3 the bank in parts: a send appends its few entries to the newest par
   /* a young tale keeps everything in the base row until it fills */
   assert(base && base.j && Object.keys(base.j).length > 0 && Array.isArray(base.parts) && parts.length === base.parts.length, 'the base row lists its parts');
   /* a base row already full (a store from before M507 at its cap) is never rewritten again: the next entries go to a part */
-  const big = { j: {}, l: {}, parts: [] };
+  const big = { j: {}, l: {}, p: ((await db.settings.get('ckptBank:' + sid)) || {}).p || {}, parts: [] }; /* M570: the pages this build banked stay on their shelf */
   for (let i = 0; i < 1300; i += 1) big.j['fill' + i] = { id: i, p: 0, m: { type: 'noop' } };
   await db.settings.set('ckptBank:' + sid, big);
   const { forgetBankCache } = await import('../../js/engine/state.js'); forgetBankCache(sid);
@@ -156,5 +156,5 @@ test('M507-6 the end of a page keeps ONE version ledger in its own row: the newe
   const li = await db.settings.get('versionState:' + lid);
   assert(Array.isArray(li) && li.join(',') === 'L0:0,L1:0,L2:0,L3:0', 'the old ones and the new: ' + JSON.stringify(li));
   eq(canon(await versionStateOf(lid, 'L0:0')), canon(legacy['L0:0']), 'an old ledger is the ledger it was');
-  assert((await db.settings.get('ver:L2:0:' + lid)).slim === 2, 'in its own row, banked');
+  assert((await db.settings.get('ver:L2:0:' + lid)).slim === 3 /* M570: the ledger's pages shared too */, 'in its own row, banked');
 });

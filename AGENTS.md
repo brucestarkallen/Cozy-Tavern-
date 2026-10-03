@@ -14535,3 +14535,30 @@ silently until M557 (no retry, no word), so a long tale with a big cast may not 
   once per tale); the ledger's own pages are not shared yet. Not changed here — it is a change to how every checkpoint is
   stored and read back, with its own migration.
 - tests/bigbook.py.
+
+# M570 — the ledger's own pages shared between checkpoints (the book that outgrew the device, at its root)
+M569 let the device take a book up to 256 MB; the book was big for a reason: up to 180 copies of the ledger per tale (120
+checkpoints, 60 version ledgers), and M314 had banked only their journal and log — every copy still held every person's
+page whole, though a page of the story changes a few of them.
+- THE BANK'S THIRD SHELF (engine/state.js, slim 3): each entry of the ledger's books — characters, relationships, offscreen,
+  canon, knowledge, factions, bodies — is kept ONCE per tale under a key made from its content (p…), and the books kept
+  whole (threads, worldShown, the sheet, worldBrief, refHistory, readAhead, canonLetGo) once each (w…); a checkpoint holds
+  names and keys. Handed back it is the same whole ledger, each map its own object (every consumer that rebuilds from a
+  checkpoint deep-copies it first — the fold, the three restores). An entry the bank lost makes that checkpoint unusable
+  (left out), never a ledger with a hole — as a lost journal entry already did. The clean-up over the cap knows the shelf.
+- MEASURED: 120 checkpoints + 60 version ledgers of a 140-person ledger, three people changing a page: ~30.2 MB of copies
+  before, 1.5 MB for the whole book now. Laws M570-1..3 (exact roundtrip, stored once per change, a lost entry left out,
+  an older tale's rows shared once when opened — its book a quarter or less, every checkpoint and version ledger the same).
+- AN OLDER TALE is shared once (shareCheckpoints, on opening it, under the bank's own lock — a send's new checkpoint waits
+  and is never lost to a list read before it); flagged ckptShared:<tale> (a tale's row, STORY_PREFIXES).
+- THE SEND, MEASURED AND KEPT FAST: banking every page by its content made the send slower (perf_send at phone speed: the
+  request left at ~2,050 ms against m569's 1,514). Found by measurement, not guessed: the share on opening was ~150 ms of
+  it; the rest was the keeping sharing the main thread with the request being built. Now the send TAKES its checkpoint at
+  once (snapshotState copies the ledger before its first wait) and KEEPS it after the page has streamed (`after`): released
+  before the page lands (a Try again then finds this turn's own checkpoint) and in the send's finally (a page that failed
+  or was stopped keeps it too, and the house is free only once it is kept). Measured after: the request leaves at 1,240 ms,
+  the first word at 1,519 ms. Side by side on the same machine, m569 and m570 alternating, twice each: the request left at
+  1,731 / 1,868 ms on m569 and 1,453 / 1,406 ms on m570; the first word at 2,027 / 2,164 against 1,748 / 1,745 — the send
+  is faster than before the change. Law M570-4.
+- Laws M314-1/3/4, M507-1/2/6 read slim 3 (the new stored form); M507-3's full fake bank keeps the shelf this build wrote;
+  M21-C and M72-7 find the checkpoint call with its new argument.
