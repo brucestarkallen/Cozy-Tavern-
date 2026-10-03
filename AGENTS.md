@@ -14562,3 +14562,18 @@ page whole, though a page of the story changes a few of them.
   is faster than before the change. Law M570-4.
 - Laws M314-1/3/4, M507-1/2/6 read slim 3 (the new stored form); M507-3's full fake bank keeps the shelf this build wrote;
   M21-C and M72-7 find the checkpoint call with its new argument.
+
+# M571 — "why is there a size limit at all? does the automatic backup have duplicates?"
+- THE LIMIT IS A FUSE, AND HOW FAR IT IS NOW. serve.py reads a whole book into memory to fold in the pages appended since
+  the last push; without a cap, one broken or runaway save could take the server down for every tale. Measured: a 73 MB
+  book cost the server 290 MB of memory; 256 MB stays inside a phone. And since M570 a book grows with its pages, not with
+  180 copies of the ledger: measured, a 1,000-page tale (4 KB of prose and 8 KB of thinking a page, 140 people, all 120
+  checkpoints and 60 version ledgers) is 17.3 MB — 18 KB a page — so 256 MB is ~14,800 pages in ONE tale. Reached, the
+  warning names the tale and it stays safe in the browser (M569).
+- DUPLICATES IN THE SAFETY COPY, FOUND AND MENDED: the daily zip (make_backup, at start once a day, the newest five kept)
+  took the whole data folder — each book AND its .bak1 (the device's own guard against a write cut off mid-way: the book as
+  it was one push before). Every tale was in each safety copy twice. The .bak1/.bak2 files stay on the device and out of
+  the zip now (a safety copy is itself the earlier version). tests/backupdupes.py: each book once, byte for byte; on the
+  old server the copy held the .bak1s.
+- What stays doubled on purpose: the five daily zips (each a whole copy — that is what a backup is), and one previous
+  version of each book on the device (.bak1).

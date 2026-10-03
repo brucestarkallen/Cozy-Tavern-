@@ -842,6 +842,11 @@ def _library_files():
         for name in files:
             if name.endswith('.tmp'):
                 continue
+            # M571: a book's .bak1/.bak2 is this device's own guard against a write cut off mid-way — the copy of the
+            # book from the push before. Zipped too, every book was in each safety copy TWICE (it and its last
+            # version), five copies kept. A safety copy is itself the earlier version; its books are enough.
+            if name.endswith('.bak1') or name.endswith('.bak2'):
+                continue
             out.append(os.path.join(root, name))
     return sorted(out)
 
