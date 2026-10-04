@@ -14,6 +14,7 @@
  * and the real thinking control — no placeholders.
  */
 
+import { bannedPattern } from '../providers/structured.js'; /* M581 */
 import { readVoice, sameVoice, listPresets, savePreset, usePreset, removePreset, renamePreset } from '../engine/voicepresets.js'; /* M510-35/36 */
 import { copyWords as copyToClipboard } from './receiptview.js'; /* M510-31: copy that works on the phone's own address too */
 import { withMacros } from '../assemble/voice.js'; /* M361 */
@@ -117,6 +118,9 @@ export function initSettings(ctx) {
     prefillMode: document.getElementById('conn-prefill-mode'), /* M580 */
     prefillMin: document.getElementById('conn-prefill-min'),
     prefillModeNote: document.getElementById('conn-prefill-mode-note'),
+    prefillBanned: document.getElementById('conn-prefill-banned'), /* M581 */
+    prefillBannedRow: document.getElementById('conn-prefill-banned-row'),
+    prefillBannedNote: document.getElementById('conn-prefill-banned-note'),
     prefillFlag: document.getElementById('conn-prefill-flag'),
     prefillReasoning: document.getElementById('conn-prefill-reasoning'),
     apiKey: document.getElementById('conn-apikey'),
@@ -765,6 +769,8 @@ export function initSettings(ctx) {
       if (els.prefillMode) els.prefillMode.value = conn.prefillMode === 'structured' ? 'structured' : ''; /* M580 */
       if (els.prefillMin) els.prefillMin.value = Number.isFinite(conn.prefillMinChars) && conn.prefillMinChars > 0 ? String(conn.prefillMinChars) : '';
       if (els.prefillModeNote) els.prefillModeNote.hidden = !(els.prefillMode && els.prefillMode.value === 'structured');
+      if (els.prefillBanned) els.prefillBanned.value = typeof conn.prefillBanned === 'string' ? conn.prefillBanned : ''; /* M581 */
+      refreshBannedNote();
       if (els.prefillFlag) els.prefillFlag.value = typeof conn.prefillFlagField === 'string' ? conn.prefillFlagField : '';
       if (els.prefillReasoning) els.prefillReasoning.value = typeof conn.prefillReasoningField === 'string' ? conn.prefillReasoningField : '';
       /* The refusal memories speak plainly while they stand. */
@@ -801,6 +807,8 @@ export function initSettings(ctx) {
       if (els.prefillMode) els.prefillMode.value = ''; /* M580 */
       if (els.prefillMin) els.prefillMin.value = '';
       if (els.prefillModeNote) els.prefillModeNote.hidden = true;
+      if (els.prefillBanned) els.prefillBanned.value = ''; /* M581 */
+      refreshBannedNote();
       if (els.prefillFlag) els.prefillFlag.value = '';
       if (els.prefillReasoning) els.prefillReasoning.value = '';
       if (els.downNote) els.downNote.hidden = true;
@@ -861,7 +869,21 @@ export function initSettings(ctx) {
   if (els.prefill) els.prefill.addEventListener('input', refreshReasoningHint); /* M318 */
   for (const el of [els.prefillFlag, els.prefillReasoning]) if (el) el.addEventListener('input', refreshReasoningHint); /* M328 */
   if (els.prefillKeepThinking) els.prefillKeepThinking.addEventListener('change', refreshReasoningHint);
-  if (els.prefillMode) els.prefillMode.addEventListener('change', () => { if (els.prefillModeNote) els.prefillModeNote.hidden = els.prefillMode.value !== 'structured'; }); /* M580 */
+  if (els.prefillMode) els.prefillMode.addEventListener('change', () => { if (els.prefillModeNote) els.prefillModeNote.hidden = els.prefillMode.value !== 'structured'; refreshBannedNote(); }); /* M580 */
+  if (els.prefillBanned) els.prefillBanned.addEventListener('input', () => refreshBannedNote()); /* M581 */
+  /* M581: the banned words say, as they are typed, whether they ride — an exact pattern, or a list too long for one */
+  function refreshBannedNote() {
+    const structured = Boolean(els.prefillMode && els.prefillMode.value === 'structured');
+    if (els.prefillBannedRow) els.prefillBannedRow.hidden = !structured;
+    if (!els.prefillBannedNote) return;
+    const text = els.prefillBanned ? els.prefillBanned.value : '';
+    if (!structured || !text.trim()) { els.prefillBannedNote.hidden = true; return; }
+    const r = bannedPattern(text);
+    els.prefillBannedNote.hidden = false;
+    els.prefillBannedNote.textContent = r.tooBig
+      ? 'Too many for one exact pattern (' + r.words.length + ') — the list would not be sent. Keep it to the few that matter most.'
+      : r.words.length + (r.words.length === 1 ? ' word' : ' words') + ' — it cannot write ' + (r.words.length === 1 ? 'it' : 'any of them') + ' after your opening (any capitals). Claude routes on OpenRouter take no such list.';
+  }
   if (els.connReasoning) els.connReasoning.addEventListener('change', refreshReasoningHint);
 
   /* M22-D: "Test it" — the prefill probe. Sends a tiny exchange with the
@@ -996,6 +1018,7 @@ export function initSettings(ctx) {
     fields.prefillKeepThinking = els.prefillKeepThinking && !els.prefillKeepThinking.checked ? false : undefined;
     fields.prefillForWorkers = els.prefillWorkers && els.prefillWorkers.checked ? true : undefined;
     fields.prefillMode = els.prefillMode && els.prefillMode.value === 'structured' ? 'structured' : undefined; /* M580 */
+    fields.prefillBanned = els.prefillBanned && els.prefillBanned.value.trim() ? els.prefillBanned.value.trim() : undefined; /* M581 */
     fields.prefillMinChars = els.prefillMin && Number.isFinite(Number(els.prefillMin.value)) && Number(els.prefillMin.value) > 0 && els.prefillMin.value.trim() ? Math.min(10000, Math.round(Number(els.prefillMin.value))) : undefined;
     fields.prefillFlagField = els.prefillFlag && els.prefillFlag.value.trim() ? els.prefillFlag.value.trim() : undefined;
     fields.prefillReasoningField = els.prefillReasoning && els.prefillReasoning.value.trim() ? els.prefillReasoning.value.trim() : undefined;
@@ -1015,7 +1038,7 @@ export function initSettings(ctx) {
     if (editingId) {
       /* update() treats null as "let the dial go" (store.js, M8). */
       const patch = { ...fields };
-      for (const key of ['priceIn', 'priceOut', 'prefillMode', 'prefillMinChars', 'priceCached', 'temperature', 'topP', 'topK', 'minP', 'presencePenalty', 'frequencyPenalty', 'repetitionPenalty', 'stop', 'seed', 'smallModel', 'maxTokens', 'contextSize', 'reasoning', 'searchOn', 'searchMaxUses', 'prefill', 'prefillKeepThinking', 'prefillForWorkers', 'prefillFlagField', 'prefillReasoningField']) { /* M328: an unticked box or an emptied field lets its dial go too */
+      for (const key of ['priceIn', 'priceOut', 'prefillMode', 'prefillMinChars', 'prefillBanned', 'priceCached', 'temperature', 'topP', 'topK', 'minP', 'presencePenalty', 'frequencyPenalty', 'repetitionPenalty', 'stop', 'seed', 'smallModel', 'maxTokens', 'contextSize', 'reasoning', 'searchOn', 'searchMaxUses', 'prefill', 'prefillKeepThinking', 'prefillForWorkers', 'prefillFlagField', 'prefillReasoningField']) { /* M328: an unticked box or an emptied field lets its dial go too */
         if (patch[key] === undefined) patch[key] = null;
       }
       /* M22-A/D: the refusal memories stand until the model field

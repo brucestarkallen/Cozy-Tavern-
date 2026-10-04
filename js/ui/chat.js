@@ -40,6 +40,8 @@
  *    fresh (referee.refereeStep).
  */
 
+import { structuredPlanFor } from '../providers/openai.js'; /* M581: the opener asks only for a structured turn */
+import { callWorker } from '../agents/call.js';
 import { shownTextPatch, shownIndex } from '../engine/pagepatch.js'; /* M575, M576 */
 import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { tidyPeople, tidyDue, tidyRunWords } from '../agents/tidy.js'; /* M291: the character pages, tidied once */
@@ -5016,6 +5018,28 @@ export function initChat(ctx) {
        * model did last time, never remembered, never announced (M370). His OWN prefill wins on a page of the story; on an
        * out-of-character turn his prefill is a page's opening and stays off (as it always has), and the phrase rides. */
       /* M510: the frame switched off takes its phrase with it */
+      /* M581: THE OPENER ([[pg]] in a structured prefill) — another model writes the page's first few words; the storyteller
+       * must open with them (the schema holds it to them) and carry on. A model that would refuse at the first word is past
+       * that word before it begins. If the opener fails, [[pg]] is simply empty and the page goes on. */
+      if (!ooc && structuredPlanFor(connection) && /\[\[\s*pg\s*\]\]/i.test(String(connection.prefill || ''))) {
+        let opening = '';
+        try {
+          const openerConn = await resolveWorkerConnection(story, 'opener');
+          if (openerConn) {
+            showComposerNote('The opener is writing the first words…');
+            const w = workerSignal(45000);
+            try {
+              const asked = await callWorker(openerConn, {
+                system: systemBlocks.map((b) => (typeof b === 'string' ? b : b && b.text) || '').join('\n\n') + '\n\nWrite ONLY the first few words of the next reply — ten to fifteen words, in the story\u2019s own voice, no preamble, nothing after them.',
+                messages: messages.filter((m) => m && m.role !== 'system'), maxTokens: 120, signal: w.signal,
+              });
+              opening = String((asked && asked.text) || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/\[\[|\]\]/g, '').trim().split(/\n/)[0].split(/\s+/).slice(0, 15).join(' ');
+            } finally { w.done(); hideComposerNote(); }
+          }
+        } catch (err) { opening = ''; }
+        if (!opening) toast('The opener gave no first words — the page went on without them.');
+        connection = { ...connection, prefill: String(connection.prefill).replace(/\[\[\s*pg\s*\]\]/gi, opening) };
+      }
       const grounding = settingsValues.frameOn === false ? '' : groundingSeed(settingsValues);
       const ownPrefill = String(connection.prefill || '').trim();
       /* M375: and only where the provider truly continues a started thought — anywhere else the seed is an empty extra

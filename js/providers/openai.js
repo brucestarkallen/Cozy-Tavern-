@@ -15,7 +15,7 @@
  */
 
 import { db } from '../store.js'; /* M580: a structured refusal is remembered with its model */
-import { structuredSchema, makeStructuredDecoder, hiddenMatcher, asciiOnly, STRUCTURED_REFUSAL, MIN_AFTER_DEFAULT } from './structured.js'; /* M580 */
+import { structuredSchema, makeStructuredDecoder, hiddenMatcher, asciiOnly, STRUCTURED_REFUSAL, MIN_AFTER_DEFAULT, bannedPattern } from './structured.js'; /* M580, M581 */
 import { knobsOf, KNOB_FIELDS, knobRefused } from './knobs.js'; /* M510: the rest of the dials */
 import { houseFetch } from './relay.js'; /* M353: a provider that refuses a page is carried by the house */
 import { lateSystemRefused, rememberLateSystemRefused } from './latesystem.js'; /* M380, M385 */
@@ -166,9 +166,14 @@ export function structuredPlanFor(connection) {
   if (c.structuredDownAt && (!c.structuredDownModel || c.structuredDownModel === c.model)) return null;
   const reply = splitPrefill(String(c.prefill == null ? '' : c.prefill)).content;
   if (!reply.trim()) return null;
+  /* M581: the houses the extension itself never asks (their JSON answers are a mode, not a pattern): sent as written */
+  if (STRUCTURED_NEVER.test(String(c.baseUrl || ''))) return null;
   const minChars = Number.isFinite(c.prefillMinChars) && c.prefillMinChars > 0 ? c.prefillMinChars : MIN_AFTER_DEFAULT;
-  return { template: reply, schema: structuredSchema(reply, { minChars, ascii: asciiOnly(c) }), hidden: hiddenMatcher(reply) };
+  const ban = bannedPattern(String(c.prefillBanned || ''));
+  const note = ban.tooBig ? 'Your banned words are too many for one exact pattern (' + ban.words.length + ' given) — the page went without them; fewer words ride.' : '';
+  return { template: reply, schema: structuredSchema(reply, { minChars, ascii: asciiOnly(c), banned: asciiOnly(c) ? '' : ban.pattern }), hidden: hiddenMatcher(reply), note };
 }
+export const STRUCTURED_NEVER = /deepseek|moonshot|z\.ai|bigmodel|siliconflow|ai21|cometapi/i;
 function requestBody(connection, wireMessages, opts = {}) {
   /* M328: a retry that withholds the thinking params withholds the thinking SEED with them (a seed with no channel);
    * what follows the seed — a started reply — still rides */
@@ -502,7 +507,7 @@ export function createOpenAIProvider(connection) {
         lead = prefill.applied ? prefillLead(connection) : '';
         thoughtLead = prefill.applied && prefill.seed ? prefill.seed : '';
         sentPrefill = prefill.applied ? { seed: prefill.seed || '', content: prefill.content || '' } : { stayedHome: prefill.note || '' };
-        if (structured) { structuredNow = structured; lead = ''; thoughtLead = ''; sentPrefill = { structured: true, content: structured.template }; } /* M580: the model writes the opening itself — nothing is put back */
+        if (structured) { structuredNow = structured; lead = ''; thoughtLead = ''; sentPrefill = { structured: true, content: structured.template }; if (structured.note) notes.push(structured.note); } /* M580: the model writes the opening itself — nothing is put back */
         res = out;
         break;
       }

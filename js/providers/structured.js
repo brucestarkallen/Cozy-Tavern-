@@ -133,13 +133,16 @@ export function asciiOnly(conn) {
 
 export const MIN_AFTER_DEFAULT = 80;
 /* the schema his request carries: one string field that must open with the template and carry on at least minChars more */
-export function structuredSchema(text, { minChars = MIN_AFTER_DEFAULT, ascii = false } = {}) {
+export function structuredSchema(text, { minChars = MIN_AFTER_DEFAULT, ascii = false, banned = '' } = {}) {
   const tpl = readTemplate(text);
   const head = templatePattern(tpl.whole, { ascii });
   const least = Math.max(1, Math.min(10000, Math.round(Number.isFinite(minChars) ? minChars : MIN_AFTER_DEFAULT)));
+  /* M581: with banned words, what follows the opening is the exact "never contains one" pattern (no minimum then — a
+   * length cannot be laid over it in one pattern) */
   const pattern = tpl.mustEnd
     ? '^(?:' + head + ')\\s*$'
-    : ascii ? '^(?:' + head + ')[\\s\\S]+$' : '^(?:' + head + ')[\\s\\S]{' + least + ',}$';
+    : banned ? '^(?:' + head + ')(?:' + banned + ')$'
+      : ascii ? '^(?:' + head + ')[\\s\\S]+$' : '^(?:' + head + ')[\\s\\S]{' + least + ',}$';
   return {
     type: 'object',
     properties: { response: { type: 'string', pattern } },
@@ -238,3 +241,82 @@ export function unwrapStructured(text, { hidden = null } = {}) {
 
 /* the refusal of a house that takes no such answer, in its own words */
 export const STRUCTURED_REFUSAL = /response_format|json_schema|structured[ _-]?output|\bschema\b|pattern|require_parameters|no endpoints found|not support(?:ed)? .*(?:json|format)/i;
+
+/* ---------- banned words (M581): the continuation can never contain one ----------
+ * The extension bakes its list into the pattern with a trie of "safe steps" — and that construction lets words through:
+ * a step that diverges from a banned word's start swallows the next character as safe, so "oozone" carries "ozone",
+ * and "otapestry" carries "tapestry" (checked against its own regex). Written here exactly instead: the automaton that
+ * reads text and falls into a dead state on any banned word (Aho–Corasick: every state the longest suffix that is still
+ * a word's beginning), turned into ONE pattern for "everything the automaton accepts" by eliminating its states. Letters
+ * fold case ("ozone" bars "OZONE" too). A list whose pattern would grow past what a provider takes is refused whole,
+ * never cut. */
+export const BANNED_PATTERN_MAX = 60000;
+const charClassOf = (ch) => {
+  const lo = ch.toLowerCase(); const up = ch.toUpperCase();
+  const esc = (c) => (/[\\\]^-]/.test(c) ? '\\' + c : c);
+  if (lo !== up) return '[' + esc(lo) + esc(up) + ']';
+  return /[\\^$.*+?()[\]{}|/]/.test(ch) ? '\\' + ch : ch;
+};
+export function bannedPattern(words) {
+  const list = [...new Set((Array.isArray(words) ? words : String(words || '').split('\n')).map((w) => String(w || '').trim().toLowerCase()).filter(Boolean))];
+  if (!list.length) return { pattern: '', words: [] };
+  /* the trie */
+  const nodes = [{ next: new Map(), fail: 0, dead: false, depth: 0 }];
+  for (const w of list) {
+    let s = 0;
+    for (const ch of w) {
+      if (!nodes[s].next.has(ch)) { nodes.push({ next: new Map(), fail: 0, dead: false, depth: nodes[s].depth + 1 }); nodes[s].next.set(ch, nodes.length - 1); }
+      s = nodes[s].next.get(ch);
+    }
+    nodes[s].dead = true;
+  }
+  const alphabet = [...new Set(list.join(''))];
+  /* failure links, breadth first; a state whose suffix is a word is dead too */
+  const order = [];
+  const queue = [];
+  for (const [, t] of nodes[0].next) { nodes[t].fail = 0; queue.push(t); }
+  while (queue.length) {
+    const s = queue.shift(); order.push(s);
+    if (nodes[nodes[s].fail].dead) nodes[s].dead = true;
+    for (const [ch, t] of nodes[s].next) {
+      let f = nodes[s].fail;
+      while (f && !nodes[f].next.has(ch)) f = nodes[f].fail;
+      nodes[t].fail = nodes[f].next.has(ch) && nodes[f].next.get(ch) !== t ? nodes[f].next.get(ch) : 0;
+      queue.push(t);
+    }
+  }
+  const delta = (s, ch) => { let x = s; while (x && !nodes[x].next.has(ch)) x = nodes[x].fail; return nodes[x].next.has(ch) ? nodes[x].next.get(ch) : 0; };
+  const live = nodes.map((n, i) => i).filter((i) => !nodes[i].dead);
+  /* the edges between live states, as patterns; "any other character" goes home to the root */
+  const other = '[^' + alphabet.map((c) => { const lo = c.toLowerCase(); const up = c.toUpperCase(); const e = (x) => (/[\\\]^-]/.test(x) ? '\\' + x : x); return lo !== up ? e(lo) + e(up) : e(c); }).join('') + ']';
+  const S = -1; const F = -2;
+  const edges = new Map(); /* key "p>q" → array of alternative patterns */
+  const add = (p, q, re) => { const k = p + '>' + q; if (!edges.has(k)) edges.set(k, []); edges.get(k).push(re); };
+  add(S, 0, '');
+  for (const s of live) {
+    add(s, F, '');
+    add(s, 0, other);
+    for (const ch of alphabet) { const t = delta(s, ch); if (!nodes[t].dead) add(s, t, charClassOf(ch)); }
+  }
+  const alt = (arr) => { const u = [...new Set(arr)]; if (u.length === 1) return u[0]; const empty = u.includes(''); const rest = u.filter((x) => x !== ''); const body = rest.length === 1 ? rest[0] : '(?:' + rest.join('|') + ')'; return empty ? (rest.length === 1 && /^(?:\[[^\]]*\]|\\?.)$/.test(rest[0]) ? rest[0] + '?' : '(?:' + rest.join('|') + ')?') : body; };
+  const label = (p, q) => (edges.has(p + '>' + q) ? alt(edges.get(p + '>' + q)) : null);
+  const star = (re) => (!re ? '' : /^(?:\[[^\]]*\]|\\?.)$/.test(re) ? re + '*' : '(?:' + re + ')*');
+  const group = (re) => (!re || /^(?:\[[^\]]*\]|\\?.|\(\?:.*\)[*?]?)$/.test(re) && !/\|/.test(re.replace(/\((?:\?:)?[^()]*\)/g, '')) ? re : '(?:' + re + ')');
+  /* eliminate the deepest states first, the root last */
+  const elim = live.slice().sort((a, b) => nodes[b].depth - nodes[a].depth);
+  for (const q of elim) {
+    const loop = label(q, q);
+    const ins = []; const outs = [];
+    for (const k of edges.keys()) { const [a, b] = k.split('>').map(Number); if (b === q && a !== q) ins.push(a); if (a === q && b !== q) outs.push(b); }
+    for (const p of ins) for (const r of outs) {
+      const re = group(label(p, q)) + star(loop) + group(label(q, r));
+      add(p, r, re);
+      if (re.length > BANNED_PATTERN_MAX) return { pattern: '', words: list, tooBig: true };
+    }
+    for (const k of [...edges.keys()]) { const [a, b] = k.split('>').map(Number); if (a === q || b === q) edges.delete(k); }
+  }
+  const pattern = label(S, F) || '';
+  if (pattern.length > BANNED_PATTERN_MAX) return { pattern: '', words: list, tooBig: true };
+  try { new RegExp('^(?:' + pattern + ')$'); } catch (err) { return { pattern: '', words: list, tooBig: true }; }
+  return { pattern, words: list };
+}

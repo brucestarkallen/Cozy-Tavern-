@@ -14761,3 +14761,31 @@ it streams. Written for the house from the README and its behaviour — not copi
 - Laws M580-1..4 (the pattern and the slots; the decoder; the real provider; a refusal, its memory, another model asked
   again, a seed alone not structured). Walk DOM-209: chosen and kept in the form, a page through the app carries the
   schema and no assistant message, and lands.
+
+# M581 — the structured prefill finished: the extension's code read through, its safety checked, the rest built
+- SAFETY, read in its code (commit fb70547): the SillyTavern extension makes ONE network call — to SillyTavern's own local
+  backend (/api/backends/chat-completions/generate, for [[pg]]); no outside address, no eval, no key handling. The optional
+  proxy listens on 127.0.0.1 only and forwards to the official provider addresses it is configured with (OpenAI,
+  OpenRouter, Anthropic, Google); it keeps the [[pg]] key in its own config.yaml in plain text. Nothing in it sends a key
+  anywhere else. (Any proxy sees the key it forwards — a changed target or a modified copy could take it; the house needs
+  no proxy at all: it talks to the provider directly.)
+- BANNED WORDS, EXACT (structured.js bannedPattern): the extension's pattern lets words through — its own regex passes
+  "oozone" with "ozone" banned and "otapestry" with "tapestry" (run against its code). Here: the automaton that falls dead
+  on any banned word (Aho–Corasick, case folded), turned into one pattern by eliminating its states; checked against
+  thousands of random texts per list, no mismatch (law M581-1). The exact pattern grows fast — one word 345 characters,
+  two 2.9 k, three 14 k, four past the 60 k a provider takes — so a list too long is refused whole and said (live, in the
+  form, and on the turn), never cut or approximated. With banned words, the minimum after the opening is not enforced
+  (one pattern cannot hold both). Claude routes on OpenRouter take no list (their pattern must stay simple ASCII).
+- THE OPENER ([[pg]], chat.js generate): a new worker role, "The opener" (Settings → The workers): before a structured
+  turn whose prefill holds [[pg]], it is sent the story's own words and asked for only the first ten to fifteen words;
+  those words replace [[pg]] for this turn, and the storyteller's schema must open with them. No opener chosen, or no
+  answer: [[pg]] is empty and the page goes on (said). Walk DOM-210.
+- THE HOUSES THE EXTENSION NEVER ASKS (its own list): DeepSeek, Moonshot, Z.ai, SiliconFlow, AI21, CometAPI — their JSON
+  answers are a mode, not a pattern; a structured prefill on them goes as written (STRUCTURED_NEVER). Law M581-2.
+- NOT BUILT, and why: Continue's overlap (the house's "go on" sends no started reply — nothing to overlap); the OpenAI
+  Responses and Gemini request shapes (the house speaks neither); direct Claude (the proxy's way is a forced tool call
+  that cannot stream and cannot think — on a direct Claude connection the prefill as written still rides natively).
+- HIS QUESTION, checked in code: a prefill "<think>…" seeds the thinking; "<think>…</think> OK start now" seeds the
+  thinking AND starts the reply with "OK start now" — but "cut everything before the scene header" (on by default) moves
+  words before the [place — time] header into the thinking, so the page itself begins at the header (headergate
+  splitAtHeader, measured). To start the PAGE, start it with the header: "</think>[The gate — ".

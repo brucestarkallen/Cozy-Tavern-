@@ -9528,5 +9528,40 @@ test('DOM-209 THE STRUCTURED PREFILL, IN THE APP (M580): chosen in the connectio
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-210 THE OPENER, IN THE APP (M581): a structured prefill with [[pg]] — the opener writes the first words, and the storyteller\u2019s schema must open with them', async () => {
+  const before = errors.length;
+  const activeBefore = await db.settings.get('activeConnectionId');
+  const mapBefore = await db.settings.get('workerConnections');
+  const teller = await db.connections.add({ label: 'AAB structured teller', type: 'openai', baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'k', model: 'openai/gpt-5', prefill: '[The gate — [[pg]]', prefillMode: 'structured' });
+  const opener = await db.connections.add({ label: 'AAB opener', type: 'openai', baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'k', model: 'mistralai/mistral-large' });
+  await db.settings.set('activeConnectionId', teller.id);
+  await db.settings.set('workerConnections', { ...(mapBefore || {}), opener: opener.id });
+  const st = await db.stories.create({ title: 'the opener' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  house.state.workerAnswer = (body, sys) => (/Write ONLY the first few words of the next reply/.test(String(sys || '')) ? 'Kaelen drew his blade before anyone spoke' : (typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}')));
+  /* the opener's request carries the story's own words (so it knows the scene) — the test house hears it as the storyteller's; its instruction tells them apart */
+  house.state.storyAnswer = (body) => (/Write ONLY the first few words of the next reply/.test(JSON.stringify(body)) ? 'Kaelen drew his blade before anyone spoke' : '[The gate — Kaelen drew his blade before anyone spoke] OPENER-PAGE the bell rang.');
+  try {
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'I knock.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => /OPENER-PAGE/.test(m.text || '')) && !env.ctx.chat.isBusy(), 'the page', 30000);
+    const sent = house.state.calls.slice(from).find((c) => !c.isWorker && c.body && c.body.response_format);
+    assert(sent, 'the storyteller went structured');
+    const pattern = sent.body.response_format.json_schema.schema.properties.response.pattern;
+    assert(new RegExp(pattern).test('[The gate — Kaelen drew his blade before anyone spoke, and the bell rang twice over the yard as the gate swung wide and the captain stepped through the dust.'), 'the schema opens with the opener\u2019s words: ' + pattern.slice(0, 120));
+    assert(!/\[\[\s*pg\s*\]\]/i.test(pattern), 'the marker itself never reaches the model');
+  } finally {
+    house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
+    await db.settings.set('activeConnectionId', activeBefore);
+    await db.settings.set('workerConnections', mapBefore || {});
+    await db.connections.remove(teller.id).catch(() => {}); await db.connections.remove(opener.id).catch(() => {});
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

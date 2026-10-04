@@ -67,18 +67,49 @@ test('M580-3 THROUGH THE REAL PROVIDER: no assistant message is sent, the reques
 
 test('M580-4 A HOUSE THAT REFUSES IT says so once: the same turn goes again with the prefill as written, the refusal is kept for this model — and a thinking seed never rides a structured turn', async () => {
   /* on an address that takes a started reply (Moonshot), "as written" is the reply started for it; on a plain OpenRouter model it stays home — which is why the structured way exists */
-  const conn = await db.connections.add({ type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', apiKey: 'k', model: 'some/model', prefill: '[The Bluebird — ', prefillMode: 'structured' });
+  const conn = await db.connections.add({ type: 'openai', baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'k', model: 'moonshotai/some-model', prefill: '[The Bluebird — ', prefillMode: 'structured' }); /* a Moonshot model on OpenRouter: Moonshot's own fields, so "as written" starts the reply */
   const { out, calls } = await tell(conn, (n) => (n === 1 ? refuse('response_format json_schema is not supported for this model') : sseRaw(['Friday]'])));
   eq(calls.length, 2, 'asked twice');
   assert(!calls[1].body.response_format, 'the second time without the schema');
   eq(calls[1].body.messages[calls[1].body.messages.length - 1].role, 'assistant', 'and with the prefill as written');
   assert(out.notes.some((x) => /would not take a structured prefill/.test(x)), 'said');
   const kept = (await db.connections.list()).find((c) => c.id === conn.id);
-  assert(kept.structuredDownAt && kept.structuredDownModel === 'some/model', 'remembered for this model');
+  assert(kept.structuredDownAt && kept.structuredDownModel === 'moonshotai/some-model', 'remembered for this model');
   const other = await tell({ ...OR, model: 'some/other', prefill: '[x ', prefillMode: 'structured', structuredDownAt: kept.structuredDownAt, structuredDownModel: 'some/model' }, () => sseRaw(['{"response":"[x yes indeed, a page long enough to pass the minimum of eighty characters set by default here"}']));
   assert(Boolean(other.calls[0].body.response_format), 'another model on the connection is asked again');
   const again = await tell(kept, () => sseRaw(['Friday]']));
   assert(!again.calls[0].body.response_format, 'not asked again for this model');
   const seedOnly = await tell({ ...OR, prefill: '<think>Plan it first.', prefillMode: 'structured' }, () => sseRaw(['A page.']));
   assert(!seedOnly.calls[0].body.response_format, 'a seed alone has no opening to ask for — the turn goes as written');
+});
+
+test('M581-1 BANNED WORDS, EXACT: the continuation can never carry one — any capitals, inside longer words, after a near miss ("oozone", "otapestry" — what the extension\'s own pattern lets through), self-overlapping words; checked against thousands of random texts', async () => {
+  const { bannedPattern } = await import('../../js/providers/structured.js');
+  const contains = (t, ws) => ws.some((w) => t.toLowerCase().includes(w));
+  for (const ws of [['ozone'], ['ozone', 'tapestry'], ['aab'], ['ab', 'ca', 'bca'], ['—', 'gaze']]) {
+    const r = bannedPattern(ws);
+    assert(!r.tooBig && r.pattern, JSON.stringify(ws));
+    const re = new RegExp('^(?:' + r.pattern + ')$');
+    const alpha = [...new Set(ws.join('') + 'xy ')];
+    let seed = 7; const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    for (let n = 0; n < 4000; n += 1) {
+      let t = ''; const L = 1 + Math.floor(rnd() * 12);
+      for (let i = 0; i < L; i += 1) { let c = alpha[Math.floor(rnd() * alpha.length)]; if (rnd() < 0.2) c = c.toUpperCase(); t += c; }
+      eq(re.test(t), !contains(t, ws), JSON.stringify(ws) + ' on ' + JSON.stringify(t));
+    }
+  }
+  const one = new RegExp('^(?:' + bannedPattern(['ozone']).pattern + ')$');
+  assert(!one.test('oozone') && !one.test('the OZONE layer') && one.test('a zone of ozo'), 'the near misses');
+  assert(bannedPattern(['ozone', 'tapestry', 'elara', 'luminous', 'firmament', 'gaze', 'testament', 'whisper']).tooBig, 'a list too long for one exact pattern is refused whole, never cut');
+});
+
+test('M581-2 THE SCHEMA CARRIES THE BANNED WORDS; the houses the extension never asks (DeepSeek, Moonshot, Z.ai…) are sent as written; a list too long is said and left out', async () => {
+  const { structuredPlanFor } = await import('../../js/providers/openai.js');
+  const plan = structuredPlanFor({ type: 'openai', baseUrl: 'https://openrouter.ai/api/v1', model: 'openai/gpt-5', prefill: '[The gate — ', prefillMode: 'structured', prefillBanned: 'ozone' });
+  const re = new RegExp(plan.schema.properties.response.pattern);
+  assert(re.test('[The gate — the bell rang.') && !re.test('[The gate — the ozone hung.'), 'his opening, then never the word');
+  eq(structuredPlanFor({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat', prefill: '[x ', prefillMode: 'structured' }), null, 'DeepSeek: as written');
+  eq(structuredPlanFor({ type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', model: 'kimi-k3', prefill: '[x ', prefillMode: 'structured' }), null, 'Moonshot: as written');
+  const many = structuredPlanFor({ type: 'openai', baseUrl: 'https://openrouter.ai/api/v1', model: 'openai/gpt-5', prefill: '[x ', prefillMode: 'structured', prefillBanned: 'ozone\ntapestry\nelara\nluminous\nfirmament\ngaze\ntestament\nwhisper' });
+  assert(/too many for one exact pattern/.test(many.note) && /\[\\s\\S\]\{80,\}/.test(many.schema.properties.response.pattern), 'said, and the page goes with the plain minimum');
 });
