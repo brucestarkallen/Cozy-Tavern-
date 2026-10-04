@@ -14701,3 +14701,21 @@ waited for (waitForRebuild). Four did not keep them:
   and its giving back on failure, the branch (its carried ledger, its checkpoints and version ledgers, its record, lore,
   canon memory and world), delete (the record shifted, the tail folded or the rest replayed), the menus, the composer.
 - ui/chat.js and ui/richhtml.js are read whole (the ledger outside the repo marks them DONE).
+
+# M578 — the line-by-line audit, part 5: engine/apply.js and engine/state.js read whole
+Every handler of the ledger (the scene, the clock, presence, moods, bodies, standings, seats, canon locks, threads, what
+people know, factions, pages, the world's word, fights), the order mutations are applied in, the journal and the log, and
+every undo; state.js's load and save (each book read back through its shape — every sheet-level field the app uses is
+kept), the facts the storyteller reads, the header reader, the fold, the read marks, the future taken out.
+- FORGETTING A PERSON WAS NOT WHOLE (people.forget): one written only in the wounds (or only on the sheet) was "nothing
+  written" and could not be forgotten; their sheet entry was never taken; and the threads they owned were taken with them
+  but never given back by the undo. All three now; law M578-1.
+- THE MAIN CHARACTER'S REFUSAL POINTED AT A CONTROL THAT DOES NOT EXIST: "change it by hand in How they measure" — that
+  panel shows ratings and changes no name. A rename does (the name edited on a page carries everywhere, the main
+  character's with it; or the housekeeper's rename). The refusal says so; law M578-2.
+- THE DEPARTURE READER'S TITLES (goneAtTheEnd's RANKED) knew captain, lieutenant, master… but not the school titles M573
+  taught the name matcher — "Headmaster Vane leaves" was not read as someone else by rank. They are in it now.
+- Read and sound otherwise: copyState's deep copies, the mutation order (a leave before a seat for the same person), the
+  placeholder and example-name guards, the journal cap, the undo targets ("a later change touched the same thing"), every
+  restore; normalize (each book through its shape), renderStateFacts' shedding, headerMutations, journalReaches and
+  foldJournal, the read marks, dropTheFuture.

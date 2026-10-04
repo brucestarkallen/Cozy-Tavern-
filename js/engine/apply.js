@@ -310,7 +310,9 @@ const HANDLERS = {
     if (!state.sheet || typeof state.sheet !== 'object') state.sheet = { actors: {}, playerName: '' };
     const before = typeof state.sheet.playerName === 'string' ? state.sheet.playerName.trim() : '';
     if (before && before.toLowerCase() === name.toLowerCase()) return { ok: false, why: 'the main character is already known as ' + before, same: true }; /* M259: already so */
-    if (before) return { ok: false, why: 'the main character is already known as ' + before + ' — change it by hand in How they measure' };
+    /* M578 (the audit): the refusal pointed at "How they measure", where no control changes the name — a rename does (an edit
+     * of the name on a page carries it everywhere, the main character's name with it; or the housekeeper's rename) */
+    if (before) return { ok: false, why: 'the main character is already known as ' + before + ' — to change the name, change it on a page (it follows everywhere) or ask the housekeeper to rename them' };
     state.sheet = { ...state.sheet, playerName: name.slice(0, 60) };
     return {
       ok: true,
@@ -1054,8 +1056,15 @@ const HANDLERS = {
     const canonKey = Object.keys(state.canon || {}).find(same);
     const bodyKey = Object.keys(state.bodies || {}).find(same);
     const presentAt = (state.present || []).findIndex((p) => p && same(p.name));
-    if (!pageKey && !seatKey && !relKey && !knowKey && !canonKey && presentAt === -1) return { why: 'nothing is written of ' + name };
+    /* M578 (the audit): a person written ONLY in the bodies or on the sheet was "nothing written" and could not be forgotten;
+     * and the threads they owned were taken with them but never given back by the undo, nor their sheet entry taken at all */
+    const actors = state.sheet && state.sheet.actors && typeof state.sheet.actors === 'object' ? state.sheet.actors : {};
+    const actorKey = Object.keys(actors).find(same);
+    const owned = Array.isArray(state.threads) ? state.threads.filter((t) => t && typeof t === 'object' && same(t.owner)) : [];
+    if (!pageKey && !seatKey && !relKey && !knowKey && !canonKey && !bodyKey && !actorKey && presentAt === -1) return { why: 'nothing is written of ' + name };
     const before = {
+      threads: owned.length ? JSON.parse(JSON.stringify(state.threads)) : null,
+      actor: actorKey ? { key: actorKey, value: JSON.parse(JSON.stringify(actors[actorKey])) } : null,
       page: pageKey ? { key: pageKey, value: cloneMap({ [pageKey]: state.characters[pageKey] })[pageKey] } : null,
       seat: seatKey ? { key: seatKey, value: JSON.parse(JSON.stringify(state.offscreen[seatKey])) } : null,
       rel: relKey ? { key: relKey, value: JSON.parse(JSON.stringify(state.relationships[relKey])) } : null,
@@ -1071,7 +1080,8 @@ const HANDLERS = {
     if (canonKey) delete state.canon[canonKey];
     if (bodyKey) delete state.bodies[bodyKey];
     if (presentAt !== -1) state.present.splice(presentAt, 1);
-    if (Array.isArray(state.threads)) state.threads = state.threads.filter((t) => !(t && typeof t === 'object' && same(t.owner)));
+    if (owned.length) state.threads = state.threads.filter((t) => !(t && typeof t === 'object' && same(t.owner)));
+    if (actorKey) { const nextActors = { ...actors }; delete nextActors[actorKey]; state.sheet = { ...state.sheet, actors: nextActors }; }
     return { words: name + ' was never the story\'s — forgotten for good' + (m.cause ? ' (' + capText(m.cause, 1000) + ')' : '') + '.', undo: { kind: 'people.forgotten', name, before } };
   },
   'people.wake'(state, m) {
@@ -1603,7 +1613,7 @@ export function showsDeparture(sentence) {
  * after it that go on about them by a pronoun ("Rukia rose. She bowed once and left.") — only when neither names anyone
  * else, by name or by rank ("Rukia glanced at Kuchiki-taichō. He left." is his going). A later sentence that names them
  * without going means they are here; a page that never names them as themself does not show them going. */
-const RANKED = /\b(?:captain|lieutenant|commander|general|sergeant|officer|detective|mr|mrs|ms|miss|dr|lady|lord|sir|madam|master)\.?\s+\p{Lu}|\p{L}+-(?:taich|fukutaich|s[oō]taich|san\b|sama\b|kun\b|chan\b|dono\b|sensei\b|senpai\b)/iu;
+const RANKED = /\b(?:captain|lieutenant|commander|general|sergeant|officer|detective|mr|mrs|ms|miss|dr|lady|lord|sir|madam|master|headmaster|headmistress|principal|instructor|chancellor)\.?\s+\p{Lu}|\p{L}+-(?:taich|fukutaich|s[oō]taich|san\b|sama\b|kun\b|chan\b|dono\b|sensei\b|senpai\b)/iu;
 export function goneAtTheEnd(state, pageText, name) {
   const s = state && typeof state === 'object' ? state : {};
   const sentences = scenePartOf(pageText).split(/(?<=[.!?…])\s+|\n+/).map((x) => x.trim()).filter(Boolean);
@@ -2240,6 +2250,8 @@ function applyUndo(next, undo) {
       if (b.canon) next.canon[b.canon.key] = JSON.parse(JSON.stringify(b.canon.value));
       if (b.body) next.bodies[b.body.key] = JSON.parse(JSON.stringify(b.body.value));
       if (b.present) next.present.splice(Math.min(b.present.at, next.present.length), 0, { ...b.present.value });
+      if (b.threads) next.threads = JSON.parse(JSON.stringify(b.threads)); /* M578: their threads come back */
+      if (b.actor) next.sheet = { ...(next.sheet || {}), actors: { ...((next.sheet && next.sheet.actors) || {}), [b.actor.key]: JSON.parse(JSON.stringify(b.actor.value)) } };
       ok = true;
     } else if (undo.kind === 'people.restore') {
       const key = findPersonKey(next.characters, undo.name) || undo.name;
