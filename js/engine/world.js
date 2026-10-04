@@ -63,6 +63,11 @@ const THREADS_RENDER = 5;
  * five times the memory at about 5 KB a person a copy; what must outlast that
  * — a secret that defines how someone stands with the main character — is
  * the scribe's to write on their page (arc), which is never aged out. */
+/* M579 (the audit): past the guard a person's OLDEST facts are let go — and "what they haven't found out" is read from the
+ * facts others hold that they do not: a secret learned at page 10 and let go after sixty newer facts became a secret they
+ * "haven't found out", told to the storyteller as such. blindSpots never claims a fact older than what a full list still
+ * holds now (that person may well have known it). The guard itself stays: measured, 200 facts a person made the load's
+ * own clean-up (dedupeKnowledge, on every read of the ledger) ~121 ms against ~25 ms — on a phone, seconds a page. */
 export const KNOWLEDGE_GUARD = 60;    /* a person's facts, kept (was the newest 12) */
 const KNOWLEDGE_RENDER = 4;           /* a small room: the newest few */
 export const KNOWLEDGE_RECENT = 12;   /* a whole view: the newest shown for each person here */
@@ -940,12 +945,17 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
   for (const name of names) {
     if (name.trim().toLowerCase() === mcKey || (mc && samePersonName(name, mc))) continue; /* the main character is the writer's — under any form of his name (M449: "Oda" in the scene is Jovan Oda) */
     const mineKey = findKnowledgeKey(safe, name);
-    const mine = (mineKey ? safe[mineKey] : []).map((k) => ({ fact: k.fact, words: factWords(k.fact) }));
+    const mineList = mineKey ? safe[mineKey] : [];
+    const mine = mineList.map((k) => ({ fact: k.fact, words: factWords(k.fact) }));
+    /* M579: a list at the guard may have let older facts go — nothing older than its oldest kept fact is claimed unknown */
+    const keptTurns = mineList.map((k) => k && k.atTurn).filter((t) => Number.isFinite(t));
+    const horizon = mineList.length >= KNOWLEDGE_GUARD && keptTurns.length ? Math.min(...keptTurns) : -Infinity;
     const selfRes = [...new Set(name.toLowerCase().split(/\s+/).filter((w) => w.length >= 3))].map((w) => new RegExp('(^|[^\\p{L}])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}])', 'iu'));
     const found = [];
     for (const [other, list] of books) {
       if (other === mineKey || other.trim().toLowerCase() === name.trim().toLowerCase() || samePersonName(other, name)) continue; /* M449: their own lines under another form of their name are theirs — never "Rukia hasn't found out (Rukia knows)" */
       for (const { fact, shown, age, words, score, atTurn } of list) {
+        if (horizon > -Infinity && !(Number.isFinite(atTurn) && atTurn >= horizon)) continue; /* M579: older than what their full list still holds */
         if (selfRes.some((re) => re.test(fact))) continue; /* about them: they were there */
         if (typeof wasThere === 'function' && publicMoment(fact) && wasThere(name, atTurn)) continue; /* M509-15: the whole room saw it, and they were in the room */
         if (mine.some((m) => sameFact(m.fact, fact) || overlap(m.words, words) >= 0.6)) continue; /* they hold it, in these words or others */

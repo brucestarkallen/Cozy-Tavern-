@@ -14719,3 +14719,17 @@ kept), the facts the storyteller reads, the header reader, the fold, the read ma
   placeholder and example-name guards, the journal cap, the undo targets ("a later change touched the same thing"), every
   restore; normalize (each book through its shape), renderStateFacts' shedding, headerMutations, journalReaches and
   foldJournal, the read marks, dropTheFuture.
+
+# M579 — the line-by-line audit, part 6: engine/people.js, engine/names.js, engine/world.js read whole
+- A SECRET LEARNED LONG AGO WAS TOLD AS ONE THEY "HAVEN'T FOUND OUT" (world.js blindSpots). A person keeps their newest 60
+  facts (KNOWLEDGE_GUARD); past it the oldest are let go. "What they haven't found out" is read from the facts others
+  hold that they do not — so a secret learned at page 10 and let go after sixty newer facts became, for the storyteller,
+  a secret they had never learned (while someone with fewer facts still held it). Now nothing older than what a FULL
+  list still holds is claimed unknown to that person. Law M579 (and its negative control: without the horizon, the
+  long-ago secret is told as unknown). The guard itself stays at 60 — measured, 200 a person made the load's own
+  clean-up (dedupeKnowledge, run on every read of the ledger) ~121 ms against ~25 ms.
+- Read and sound: the person matcher (exact, folded, canon alias, near, part, cut short, whole word, same person — titles
+  and ranks kept apart), the notes merged onto pages, descriptors and roles resolved, ghosts healed into their holders,
+  the people the storyteller reads in tiers (cards, also here, named, important, roster) and their shedding; names
+  (titles, trailing ranks, one meaning, here); threads (one title, the cool-down, the cap that keeps the main character's
+  own), knowledge (one fact, near keys), factions, arrivals, the world's word and its voices.
