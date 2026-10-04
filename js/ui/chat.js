@@ -99,7 +99,7 @@ import { CANON_START_KEY, placeInCanon, canonStartWords, checkCanonStart, applyS
 import { GROUND_KEY, runGround, groundWords, canonWithoutWorld } from '../agents/worldground.js'; /* M517: the automatic brief — the world, written once */
 import { canonBlocks, lastingLines } from '../assemble/canonpages.js'; /* M518: canon on their own page */
 const SIDE_JOBS = new Set(['keeper', 'sensors', 'essentials', 'placer', 'startcheck', 'ground', 'worldcheck', 'plans']); /* M529: the helpers that may run beside the ledger's readers */
-import { renderStateFacts as planFacts, stateView as planStateView } from '../engine/state.js'; /* M510: what the helper reads */
+import { renderStateFacts as planFacts, stateView as planStateView, closeBy } from '../engine/state.js'; /* M510: what the helper reads; M589: who is close by */
 import { renderPeopleTiers as planPeople, peopleView as planPeopleView, findPersonKey } from '../engine/people.js'; /* M510; M518: a canon block's person in the ledger */
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
@@ -2775,7 +2775,8 @@ export function initChat(ctx) {
     const lastSound = (kept && kept.loud === true ? 'The last pages drowned in sounds and dashes — name at most two sounds this time, only at the peak. ' : '') + (ls && ls.intense ? 'The last page was a fight or a heated scene; it carried ' + (ls.effects || 0) + ' contact sounds and ' + (ls.voiced || 0) + ' voiced sounds' + (!ls.effects && !ls.voiced ? ' — it went quiet where it should have been heard.' : '.') : ''); /* M519: the loud word first, then the heated page's count */
     const pages = lastPagesOf(pagesAll, PLAN_PAGES).map((m) => (m.role === 'user' ? 'The writer: ' : '') + pageText(m)); /* thirty of the storyteller's pages, his messages between them */
     const mc = mcName(state);
-    const present = (Array.isArray(state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean);
+    /* M589: who is close by (behind the door he is at) may be planned too — a woman behind her door answers it */
+    const present = [...(Array.isArray(state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean), ...closeBy(state).map((n) => n.key)];
     const ask = plannerAsk({ craft, brief: fresh.brief || '', castNotes: fresh.castNotes || '', facts, people, record, lore, world, director, pages, mc, lastSound });
     if (stale()) return { silent: true };
     const { plan, raw } = await runPlanner({ connection, storyId: story.id, forKey, hash, ask, present, mc, lawNames, signal });

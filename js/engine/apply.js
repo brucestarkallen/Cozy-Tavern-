@@ -499,6 +499,10 @@ const HANDLERS = {
      * scene and was noted "last seen" at the very room she stood in. M414 made ENTERING strict and left leaving loose on
      * "only someone here can leave" — but someone standing in the scene unwritten can leave too. The strict answer, the
      * same as entering: a name the ledger knows as two people is nobody's to move. */
+    /* M589 (the audit, after his presence reports): THE SCENE IS WHERE THE MAIN CHARACTER IS. A reader that wrote him
+     * "stepping out" took him out of his own scene — who's here without him, the scene standing nowhere. When he goes,
+     * the scene's place goes with him (the page's header); he is never taken out of it. */
+    if (isMc(state, name)) return { why: 'the main character is where the scene is — when he goes, the scene\u2019s place changes with him; he never steps out of it', same: true };
     const at = findPresent(state, name, { strict: true });
     if (at === -1) return { why: findPresent(state, name) !== -1 ? '“' + name + '” could be more than one person the story knows — nobody here is taken out on it' : 'no one here answers to ' + name };
     const before = { ...state.present[at] };

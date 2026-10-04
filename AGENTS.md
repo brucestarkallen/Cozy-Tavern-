@@ -14957,3 +14957,14 @@ Four faults, mended:
   "a lover at P+2 with R at 0 is a wrong standing to restore") and the standings rebuild carry THE LEVELS too. The
   auditor runs after every page by default, so a tale already holding a love at P+2 is restored on its next pages
   without him asking. Laws M588-4/5.
+
+# M589 — the presence audit goes on (after his reports: every way the ledger can put a person in the wrong place)
+- THE MAIN CHARACTER NEVER STEPS OUT OF HIS OWN SCENE: presence.leave for him took him out of who's here — the scene stood
+  nowhere, with nobody in it to be the scene. Refused now: the scene is where he is; when he goes, the place changes
+  with him (the header). M304-1 (he is never seated) holds as before.
+- WHO IS CLOSE BY, ONE READING (state.js closeBy): the storyteller's facts and the small storyteller's planner read the
+  same list. The planner was held to people present only — so on the small model the woman behind his door could never
+  be planned to answer it; its people may now include someone close by "when what he does reaches them".
+- Checked and sound: a person is never present and seated at once (offscreen.set refuses one in the scene; presence.enter
+  lets a seat go); a seat written behind a door where the scene stands stays a seat (close by), never walked in.
+- Law M589.

@@ -966,6 +966,22 @@ export function stateView(budgetTokens) {
  * or act on it only once the page shows how they came to know; no telling that never happened), without the capitals
  * and the rulebook's "must" his teller read as a system talking */
 export const BLIND_HEAD = 'What they haven’t found out — no page has shown them learning these. They can still guess, suspect or be told on this page, but they speak of it or act on it only once the page shows how they came to know (who told them, what they saw); nobody remembers being told something they never were: ';
+/* M588/M589: WHO IS CLOSE BY — seated where the scene stands (behind the door he is at, in the next room): not in the scene,
+ * but right there. One reading, for the storyteller's facts and the small storyteller's planner alike. */
+export function closeBy(state) {
+  const s = state && typeof state === 'object' ? state : {};
+  const sceneName = s.place && typeof s.place.name === 'string' ? s.place.name : '';
+  if (!sceneName) return [];
+  const present = Array.isArray(s.present) ? s.present : [];
+  const out = [];
+  for (const [key, seated] of Object.entries(s.offscreen && typeof s.offscreen === 'object' ? s.offscreen : {})) {
+    if (!seated || typeof seated !== 'object' || typeof seated.location !== 'string' || !seated.location.trim()) continue;
+    if (seated.dead || seated.gone || isMc(s, key) || present.some((p) => p && typeof p.name === 'string' && samePersonName(p.name, key))) continue;
+    if (!(samePlace(seated.location, sceneName) || seatAtScene(seated.location, sceneName))) continue;
+    out.push({ key, location: seated.location.trim(), activity: seated.activity ? String(seated.activity).trim() : '' });
+  }
+  return out;
+}
 export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, scenePages = [], noFight = false } = {}) {
   if (!state || typeof state !== 'object') return '';
 
@@ -1090,18 +1106,9 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
    * among the Elsewhere list, and the attempt rule ("a present NPC may intercept") never reached her: she was not
    * present, so his walking in completed with nobody answering it. They stand in their own line now, kept as long as who
    * is here, so the storyteller knows who can hear, see or answer the door. */
-  const sceneName = state.place && typeof state.place.name === 'string' ? state.place.name : '';
-  const nearKeys = new Set();
-  const nearLines = [];
-  if (sceneName) {
-    for (const [key, seated] of Object.entries(state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {})) {
-      if (!seated || typeof seated !== 'object' || typeof seated.location !== 'string' || !seated.location.trim()) continue;
-      if (seated.dead || seated.gone || isMc(state, key) || present.some((p) => p && typeof p.name === 'string' && samePersonName(p.name, key))) continue;
-      if (!(samePlace(seated.location, sceneName) || seatAtScene(seated.location, sceneName))) continue;
-      nearKeys.add(key);
-      nearLines.push('- ' + key + ' — ' + seated.location.trim() + (seated.activity ? ' (' + String(seated.activity).trim() + ')' : ''));
-    }
-  }
+  const near = closeBy(state);
+  const nearKeys = new Set(near.map((n) => n.key));
+  const nearLines = near.map((n) => '- ' + n.key + ' — ' + n.location + (n.activity ? ' (' + n.activity + ')' : ''));
   if (nearLines.length) sections.push({ shed: 1, text: 'Close by — not in the scene, but right here (they can hear, see, or answer the door; the attempt rule reaches them too):\n' + nearLines.join('\n') });
   const farOffscreen = nearKeys.size ? Object.fromEntries(Object.entries(state.offscreen || {}).filter(([k]) => !nearKeys.has(k))) : state.offscreen;
   const elsewhere = renderOffscreen(farOffscreen, present, clockMinutes, whole ? 1000 : undefined, state.characters || {}); /* M396 */

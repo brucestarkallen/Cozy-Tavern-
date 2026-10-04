@@ -69,3 +69,15 @@ test('M588-5 THE STANDINGS REBUILD CARRIES THE LEVELS TOO — every helper that 
   const all = JSON.stringify(msgs);
   assert(/in love 55–75/.test(all) && /Romantic love is r, never p alone/.test(all), 'the rebuild carries the levels');
 });
+
+test('M589 THE MAIN CHARACTER NEVER STEPS OUT OF HIS OWN SCENE; and who is close by is one reading — the storyteller\'s facts and the small storyteller\'s planner alike may plan the woman behind the door', async () => {
+  const st = applyMutations({ ...emptyState() }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Rukia’s quarters' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'people.set', name: 'Rukia', field: 'core', text: 'x' }, { type: 'offscreen.set', name: 'Rukia', location: 'Rukia’s quarters', activity: 'behind the door' }]).state;
+  const out = applyMutations(st, [{ type: 'presence.leave', name: 'Jovan' }]);
+  eq(out.applied.length, 0, 'refused');
+  assert(out.state.present.some((p) => p.name === 'Jovan'), 'he is still in his scene');
+  const { closeBy } = await import('../../js/engine/state.js');
+  eq(closeBy(st).map((n) => n.key).join(','), 'Rukia', 'close by');
+  const { readPlan } = await import('../../js/agents/planner.js');
+  const plan = readPlan(JSON.stringify({ story: 's', scene: 'he knocks', people: [{ name: 'Rukia', now: 'hears his knock, heart racing', wants: 'to open it' }] }), { present: ['Jovan', 'Rukia'], mc: 'Jovan' });
+  eq(plan.people.map((p) => p.name).join(','), 'Rukia', 'the planner may plan her answer to the door');
+});
