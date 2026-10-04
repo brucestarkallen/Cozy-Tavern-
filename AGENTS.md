@@ -14953,3 +14953,7 @@ Four faults, mended:
   the page shows Jovan, Zaraki and Rukia, not him. Read again under M588 he stays at the 1st Division (where his own now
   puts him): the walk now checks he stands where the page and his now agree — here with the now let go, or seated at the
   1st Division with it standing — never both.
+- m588-002 — EVERY HELPER THAT WRITES A STANDING READS ONE SCALE: the auditor (its restoring of a wrongly-zeroed standing:
+  "a lover at P+2 with R at 0 is a wrong standing to restore") and the standings rebuild carry THE LEVELS too. The
+  auditor runs after every page by default, so a tale already holding a love at P+2 is restored on its next pages
+  without him asking. Laws M588-4/5.

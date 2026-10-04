@@ -52,3 +52,20 @@ test('M588-3 A STATED FEELING SETS ITS LEVEL, AND WHO IS CLOSE BY IS SHOWN: the 
   const { CRAFT_TEXT } = await import('../../js/assemble/craft.js');
   assert(/or one Close by \(behind the door he is at/.test(CRAFT_TEXT) && /Walking through someone's door is walking into THEIR space/.test(CRAFT_TEXT), 'the attempt rule reaches them');
 });
+
+test('M588-4 THE AUDITOR RESTORES A WRONG STANDING AT ITS LEVEL: a lover at P+2 with R at 0 is a standing to restore, with the same levels the reader and the founder carry', async () => {
+  const au = await import('../../js/agents/auditor.js');
+  const st0 = applyMutations({ ...emptyState() }, [{ type: 'mc.set', name: 'Jovan' }]).state;
+  const build = au.buildAuditorMessages || au.buildAuditMessages;
+  const msgs = build({ state: st0, brief: 'Rukia loves Jovan.', pages: [], record: '' });
+  const sys = String(msgs.system || (msgs.messages ? msgs.messages[0].content : '')) + JSON.stringify(msgs);
+  assert(/in love R 55–75/.test(sys) && /A lover at P\+2 with R at 0 is a wrong standing to restore/.test(sys), 'the auditor carries the levels');
+});
+
+test('M588-5 THE STANDINGS REBUILD CARRIES THE LEVELS TOO — every helper that writes a standing reads the same scale', async () => {
+  const au = await import('../../js/agents/auditor.js');
+  const st0 = applyMutations({ ...emptyState() }, [{ type: 'mc.set', name: 'Jovan' }]).state;
+  const msgs = au.buildRebuildMessages({ state: st0, brief: 'Rukia loves Jovan.', castNotes: '', record: '', pages: [], mc: 'Jovan' });
+  const all = JSON.stringify(msgs);
+  assert(/in love 55–75/.test(all) && /Romantic love is r, never p alone/.test(all), 'the rebuild carries the levels');
+});

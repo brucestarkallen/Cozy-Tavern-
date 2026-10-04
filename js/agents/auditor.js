@@ -133,7 +133,10 @@ function law({ mc }) {
     '    pages moved was earned on the page. THE OTHER WAY IS YOUR JOB: a standing at ZERO (or',
     '    missing) for a person the brief or the pages establish as bonded to the main character —',
     '    a childhood friend, a devoted sister, a lover — is an error; RESTORE it with rel.set at the',
-    '    level the brief\'s words warrant (cause: "the brief says …"). Lowering is what you may not do',
+    '    level the brief\'s words warrant (cause: "the brief says …") — THE LEVELS: in love R 55–75, a',
+    '    crush R 25–45, devoted R 75–90; friend P 25–45, close friend or family P 50–70; hatred P −50…−80;',
+    '    romantic love is R, never P alone. A lover at P+2 with R at 0 is a wrong standing to restore.',
+    '    Lowering is what you may not do',
     '    on judgment; raising a wrongly-zeroed standing is a correction you can prove. A standing',
     '    the PAGES have moved (its latest causes quote a beat) is never yours to set, up or down, and',
     '    how far a beat moved a standing is the page reader\'s to write, never yours.',
@@ -1075,6 +1078,11 @@ export function buildRebuildMessages({ state, brief, castNotes, record, pages, m
     'or the pages — write ONE rel.set with p, r, s and a cause that names the main character and quotes what',
     'earned it. Leave out anyone with no bond. Do not restate a person more than once. Digits the brief states',
     'are already written; you may still move them by what the pages have since shown.',
+    /* M588: the same levels the page reader, the founder and the auditor carry — a rebuild that wrote a love at P+2 rebuilt
+     * the same fault */
+    'THE LEVELS: r (romance) drawn to him 10–25, a crush 25–45, in love 55–75, devoted love 75–90; p (warmth)',
+    'acquaintance 5–15, friend 25–45, close friend or family 50–70, trusted with her life 75–90, dislike −15…−35,',
+    'hatred −50…−80; s (desire) drawn 15–35, wanting 40–60, burning 60+. Romantic love is r, never p alone.',
     '',
     'Answer with JSON ONLY: {"mutations":[{"type":"rel.set","name":"…","p":..,"r":..,"s":..,"cause":"…"}]}',
   ].join('\n');
