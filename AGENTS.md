@@ -14985,3 +14985,14 @@ no page, the SAME turn is asked again at once as written. A thinking seed that l
 more without the seed, said; his connection is left as it is (the next turn tries his seed again).
 - Law M590 (each case through the real provider: the words read, the page from the thinking channel, the retry as written,
   the retry without the seed).
+
+# M591 — "I'm not using prefill… is this the provider or Cozy?" (the same "thinking, no page" message)
+He uses no prefill — M590's causes were real but not his (M590's new paths run only with a prefill set, structured or a
+thinking seed; with none, none of them runs). His case was the HOUSE: the header gate (ui/headergate.js, the live reader
+that sends words before a scene header to the thinking box under "Anything written before the header is thinking, not
+page") dropped the page's LAST LINE when a reply's planning was only judged at its end — "Planning: … / Beat: …" then a
+short "Hey there!" with no line break after it: end() opened the page there, the one short line was HELD (a line is held
+until it is long enough to judge) and end() returned without handing it on. The page vanished and the house said
+"Nothing was cut by the house". Now whatever is held is handed on, on every path (law M591; it fails on the old gate).
+And the empty-page words never say "nothing was cut by the house" when the house moved every word into the thinking box —
+they say so, and name the setting.

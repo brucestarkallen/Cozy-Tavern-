@@ -321,10 +321,17 @@ export function makeHeaderGate({ onThinking, onProse, onGiveBack, onRestart, giv
     endIfOpen() { if (open) this.end(); },
     /* the stream is over: the finished text decides */
     end() {
-      if (open) { if (line.slice(lineOut)) { if (lineOut === 0) judge(true); hand(line.slice(lineOut)); line = ''; lineOut = 0; } return; }
-      const cut = splitAtHeader(buf);
-      if (cut.lead) { openAt(buf.length - cut.page.length); return; }
-      giveBack();
+      if (!open) {
+        const cut = splitAtHeader(buf);
+        if (!cut.lead) { giveBack(); return; }
+        openAt(buf.length - cut.page.length);
+      }
+      /* M591 (his report: "I just said hi — the provider ended its answer after the thinking with no page in it… Nothing was
+       * cut by the house"): THE LAST LINE IS ALWAYS HANDED ON. When the reply's lead was only judged at its end ("Planning:
+       * … / Beat: …" then a short "Hey there!" with no line break after it), the page was opened here — and its one short
+       * line was HELD (a line is held until it is long enough to judge) and the gate returned without ever handing it on:
+       * the page vanished and the house said nothing was cut. Whatever is held is handed on now, on every path. */
+      if (line.slice(lineOut)) { if (lineOut === 0) judge(true); hand(line.slice(lineOut)); line = ''; lineOut = 0; }
     },
     get waiting() { return !open; },
   };

@@ -237,6 +237,7 @@ import './m578.mjs'; /* M578: the line-by-line audit, part 5 */
 import './m580.mjs'; /* M580: the structured prefill */
 import './m584.mjs'; /* M584: the line-by-line audit, part 7 */
 import './m588.mjs'; /* M588: who is here, and where everyone else is */
+import './m591.mjs'; /* M591: the header gate never loses the last line */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

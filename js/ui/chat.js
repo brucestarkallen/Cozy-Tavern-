@@ -1475,9 +1475,14 @@ export function initChat(ctx) {
    * provider says why it stopped. Out of room (length / max_tokens: the thinking spent the whole room before the page could
    * begin), blocked by the provider's filter, an answer ended with nothing in it, or a connection that closed with no stop
    * reason at all — each is named, and the page is never asked for again by itself: "Ask again" is his. */
-  function emptyPageWhy(finish, thoughtText) {
+  function emptyPageWhy(finish, thoughtText, movedByHouse = '') {
     const why = typeof finish === 'string' ? finish.trim() : '';
     const thought = typeof thoughtText === 'string' && thoughtText.trim().length > 0;
+    /* M591: "Nothing was cut by the house" was said even when the house had moved every word into the thinking box (no
+     * scene header ever came, and his setting reads words before the header as thinking). Said as it is now. */
+    if (typeof movedByHouse === 'string' && movedByHouse.trim()) {
+      return 'Everything the storyteller wrote came before any scene header, so it went into the thinking box (Settings: “Anything written before the header is thinking, not page”) — there was no page after it. Ask again when you like.';
+    }
     if (/max_tokens|length/i.test(why)) {
       return thought
         ? 'The storyteller used all of its room thinking and had none left to write the page — the provider stopped it for length. A larger Max tokens on this connection, or less thinking, gives the page room. Ask again when you like.'
@@ -5609,7 +5614,7 @@ export function initChat(ctx) {
          * assistant / assistant). A failed version is asked for again as a
          * version, through the same door the ▸ uses. */
         els.thread.appendChild(retryNoteNode(
-          failedWords || emptyPageWhy(finishReason, thinking), /* M545: the provider's own reason, never a guess */
+          failedWords || emptyPageWhy(finishReason, thinking, leadThinking), /* M545: the provider's own reason, never a guess; M591: and the house's own part said */
           async () => {
             if (!swipeTarget) { retryAsk(); return; }
             const standing = (await db.messages.list(story.id)).find((m) => m.id === swipeTarget.id);
