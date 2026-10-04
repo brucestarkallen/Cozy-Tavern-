@@ -259,3 +259,25 @@ test('M590 "I SAID HI — THINKING, AND NO PAGE": the model\'s words are never d
   eq(d.out.text, 'Hi! The gate creaked open.', 'the page');
   assert(d.out.notes.some((n) => /The thinking seed left this model with no page/.test(n)), 'said');
 });
+
+test('M592 A WHOLE ANSWER ONLY IS JUDGED: Structured is never switched off for a model on a page cut short — by the provider\'s length, or by the house\'s own stall guard; an answer held as asked never is either', async () => {
+  const lengthCut = (list) => {
+    const t = list.map((d) => 'data: ' + JSON.stringify({ choices: [{ delta: d }] }) + '\n\n').join('') + 'data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'length' }] }) + '\n\ndata: [DONE]\n\n';
+    return { ok: true, status: 200, headers: new Headers({ 'content-type': 'text/event-stream' }), body: new ReadableStream({ start(c) { c.enqueue(enc(t)); c.close(); } }), clone() { return this; }, json: async () => ({}) };
+  };
+  /* [[end]] template: a page cut by length never reaches its end — not a refusal of the schema */
+  const conn = await db.connections.add({ ...OR, model: 'some/long-writer', prefill: 'Yes, the gate. [[end]]', prefillMode: 'structured' });
+  const a = await tell(conn, () => lengthCut([{ content: '{"response":"Yes, the gate' }]));
+  assert(!a.out.notes.some((n) => /did not hold/.test(n)), 'no "not held" on a length cut');
+  eq(((await db.connections.list()).find((c) => c.id === conn.id) || {}).structuredDownAt || null, null, 'Structured still on for it');
+  /* a stalled answer stopped by the house */
+  globalThis.__cozyStructuredStallMs = 50;
+  try {
+    const c2 = await db.connections.add({ ...OR, model: 'some/staller', prefill: '[x ', prefillMode: 'structured' });
+    let pulls = 0;
+    const body = new ReadableStream({ async pull(c) { pulls += 1; await new Promise((r) => setTimeout(r, 30)); if (pulls === 1) { c.enqueue(enc('data: ' + JSON.stringify({ choices: [{ delta: { content: '{"response":"[x the gate' } }] }) + '\n\n')); return; } if (pulls > 60) { c.close(); return; } c.enqueue(enc('data: ' + JSON.stringify({ choices: [{ delta: { content: '{' } }] }) + '\n\n')); } });
+    const b = await tell(c2, () => ({ ok: true, status: 200, headers: new Headers({ 'content-type': 'text/event-stream' }), body, clone() { return this; }, json: async () => ({}) }));
+    assert(!b.out.notes.some((n) => /did not hold/.test(n)), 'no "not held" on a stalled answer: ' + JSON.stringify(b.out.notes));
+    eq(((await db.connections.list()).find((c) => c.id === c2.id) || {}).structuredDownAt || null, null, 'Structured still on for it');
+  } finally { delete globalThis.__cozyStructuredStallMs; }
+});

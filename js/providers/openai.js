@@ -748,8 +748,12 @@ export function createOpenAIProvider(connection) {
           if (finishReason !== 'length') finishReason = 'stop';
         }
       }
+      /* M592 (his ask: "does your fix make my prefill not work?"): a schema is judged "not held" ONLY on an answer the model
+       * finished itself (its reason: stop) — a page cut short by the provider's length, or stopped by the house's own stall
+       * guard, is not a whole answer, and judging it would have switched Structured off for a model that keeps it */
       let held = true;
-      try { held = new RegExp(structuredNow.schema.properties.response.pattern).test(decoder.allWords() || full); } catch (err) { held = true; }
+      const judgeable = (finishReason === 'stop' || decoder.closed()) && !stalled; /* its text closed (the line let go then) is an answer finished too */
+      try { if (judgeable) held = new RegExp(structuredNow.schema.properties.response.pattern).test(decoder.allWords() || full); } catch (err) { held = true; }
       if (!held && (decoder.allWords() || full || thinking).trim()) {
         connection.structuredDownModel = connection.model || '';
         try { await markConnectionDown(connection, 'structuredDownAt'); } catch (err) { /* in hand for this turn */ }

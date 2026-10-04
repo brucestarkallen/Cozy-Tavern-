@@ -14996,3 +14996,12 @@ until it is long enough to judge) and end() returned without handing it on. The 
 "Nothing was cut by the house". Now whatever is held is handed on, on every path (law M591; it fails on the old gate).
 And the empty-page words never say "nothing was cut by the house" when the house moved every word into the thinking box —
 they say so, and name the setting.
+
+# M592 — "does your previous fix destroy or make any of my prefill not work?"
+Checked every path M590 and M591 touch, with a prefill in use. As written (a started reply, a thinking seed): unchanged
+unless a page comes back EMPTY (then the turn is asked once more without the seed; his connection is left as it is).
+Structured: the words are read more ways, nothing taken. ONE RISK FOUND AND CLOSED: M590 judged "the provider did not hold
+the schema" on any answer — so a page cut short by the provider's length (a template ending in [[end]] never reached its
+end) or stopped by the house's own 20-second stall guard would have switched Structured OFF for a model that holds it.
+Now only a whole answer is judged: one the model finished itself (its reason: stop) or whose text closed (law M592; it
+fails when every answer is judged — checked). M591 (the header gate's last line) touches the page only, in any mode.
