@@ -14968,3 +14968,20 @@ Four faults, mended:
 - Checked and sound: a person is never present and seated at once (offscreen.set refuses one in the scene; presence.enter
   lets a seat go); a seat written behind a door where the scene stands stays a seat (close by), never walked in.
 - Law M589.
+
+# M590 — "I just said hi and it can't give output" ("The provider ended its answer after the thinking with no page in it
+# (its reason: stop)" — on the provider's own chat it answers)
+Reproduced through the real provider, four ways a turn came back as thinking with no page:
+- STRUCTURED, THE SCHEMA NOT HELD, ANOTHER KEY: {"reply":"Hi!"} — the decoder waited for "response" and dropped the whole
+  answer at the end. Now its JSON is read for its words ("response" first, else its longest text), or kept as plain words.
+- STRUCTURED, THE JSON ANSWER IN THE THINKING CHANNEL (some reasoning routes put it there): taken out of the thinking and made
+  the page.
+- STRUCTURED, A <think> TEMPLATE NEVER CLOSED (nothing held it): everything went to the thinking box.
+- AS WRITTEN, A THINKING SEED THAT LEFT NO PAGE: the model thought on from his seed and stopped.
+And the faults beneath: every check ran BEFORE the decoder's last words were flushed (moved: flush first, then judge);
+a schema the provider does not hold was never noticed. Now: an answer that does not open as the template asks is a schema
+not held — remembered for the model as a refusal is (sent as written from then on), said once; and when such a turn has
+no page, the SAME turn is asked again at once as written. A thinking seed that left no page: the same turn asked once
+more without the seed, said; his connection is left as it is (the next turn tries his seed again).
+- Law M590 (each case through the real provider: the words read, the page from the thinking channel, the retry as written,
+  the retry without the seed).

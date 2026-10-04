@@ -15,7 +15,7 @@
  */
 
 import { db } from '../store.js'; /* M580: a structured refusal is remembered with its model */
-import { structuredSchema, makeStructuredDecoder, hiddenMatcher, asciiOnly, STRUCTURED_REFUSAL, MIN_AFTER_DEFAULT, bannedPattern, unwrapStructured, readTemplate } from './structured.js'; /* M580, M581, M587 */
+import { structuredSchema, makeStructuredDecoder, hiddenMatcher, asciiOnly, STRUCTURED_REFUSAL, MIN_AFTER_DEFAULT, bannedPattern, unwrapStructured, readTemplate } from './structured.js'; /* M580, M581, M587, M590 */
 import { knobsOf, KNOB_FIELDS, knobRefused } from './knobs.js'; /* M510: the rest of the dials */
 import { houseFetch } from './relay.js'; /* M353: a provider that refuses a page is carried by the house */
 import { lateSystemRefused, rememberLateSystemRefused } from './latesystem.js'; /* M380, M385 */
@@ -415,7 +415,7 @@ export function createOpenAIProvider(connection) {
     }
   }
 
-  async function streamChat({ systemBlocks: blocks, system, messages, signal: callerSignal, onToken }) {
+  async function streamChat({ systemBlocks: blocks, system, messages, signal: callerSignal, onToken, retryAs = null }) {
     /* M585: the turn's own line to the provider, tied to his Stop — so the house can cut it when an answer is complete
      * (a structured answer that closed): the provider stops writing (and billing), and the usage meter's copy of the
      * stream ends with it instead of reading the padding to the provider's end */
@@ -473,7 +473,7 @@ export function createOpenAIProvider(connection) {
      * ONE more time without them; then never again until the model field
      * changes. */
     let res = null;
-    let opts = {};
+    let opts = retryAs ? { ...retryAs } : {}; /* M590: a turn asked again the way that works carries how */
     /* M303: a refusal remembered for a spelling this connection no longer
      * speaks is let go before the turn — the house repairs what it can see */
     await healStaleRefusal(connection, reasonStyle(connection));
@@ -724,7 +724,52 @@ export function createOpenAIProvider(connection) {
       }
       return readStructured(); /* M585 */
     });
+    /* M590: every word flushed first — what the decoder and the splitters still hold is the page before anything is judged */
+    if (decoder) { const rest = decoder.end(); if (rest) structuredSplitter.feed(rest); structuredSplitter.end(); }
+    splitter.end();
     if (decoder && (decoder.closed() || stalled)) relay(); /* M585: the line cut — nothing more is wanted from it */
+    /* M590 (his report: "I just said hi and it can't give output — on the provider's own chat it's ok"): THE WORDS ARE
+     * NEVER LOST, AND A SCHEMA NOT HELD IS NOTICED. Three ways a structured turn came back as thinking with no page:
+     * the provider ignored the schema and the model answered under another key (now read, structured.js end()); the
+     * model put its JSON answer in the thinking channel (now taken out of the thinking and made the page); a template's
+     * <think> never closed because nothing held it (all of it went to the thinking box). Whatever the case, an answer
+     * that does not open as the template asks means this provider does not hold the schema for this model — it is
+     * remembered (as a refusal is) and the turn after goes as written; he is told once. */
+    if (structuredNow && decoder) {
+      if (!full.trim() && /\{\s*"(?:response|value|content|text)"\s*:/.test(thinking)) {
+        const at = thinking.search(/\{\s*"(?:response|value|content|text)"\s*:/);
+        const fromThought = unwrapStructured(thinking.slice(at), { hidden: structuredNow.hidden });
+        if (fromThought.trim()) {
+          const split = { t: '', p: '' };
+          const sp = makeThinkSplitter((ch, txt) => { if (ch === 'thinking') split.t += txt; else split.p += txt; });
+          sp.feed(fromThought); sp.end();
+          full = split.p.replace(/^\s+/, '');
+          thinking = thinking.slice(0, at).replace(/\s+$/, '') + (split.t ? (thinking.slice(0, at).trim() ? '\n\n' : '') + split.t : '');
+          if (finishReason !== 'length') finishReason = 'stop';
+        }
+      }
+      let held = true;
+      try { held = new RegExp(structuredNow.schema.properties.response.pattern).test(decoder.allWords() || full); } catch (err) { held = true; }
+      if (!held && (decoder.allWords() || full || thinking).trim()) {
+        connection.structuredDownModel = connection.model || '';
+        try { await markConnectionDown(connection, 'structuredDownAt'); } catch (err) { /* in hand for this turn */ }
+        try { await db.connections.update(connection.id, { structuredDownModel: connection.structuredDownModel }); } catch (err) { /* in hand */ }
+        notes.push('This model’s provider did not hold the structured prefill — its answer did not open as your template asks (so the prefill did nothing, and could leave the page in the thinking box). It is sent as written for this model from now on.');
+        if (!full.trim() && !retryAs) {
+          /* M590: and the page he is waiting for is asked again at once, as written — never left to an "Ask again" */
+          const again = await streamChat({ systemBlocks: blocks, system, messages, signal: callerSignal, onToken, retryAs: { suppressStructured: true } });
+          return { ...again, thinking: (thinking.trim() ? thinking.replace(/\s+$/, '') + '\n\n' : '') + (again.thinking || ''), notes: [...notes, ...(again.notes || [])] };
+        }
+      }
+    }
+    /* M590: A THINKING SEED THAT LEFT NO PAGE. A model handed his <think> seed thought on and ended (stop) with no page —
+     * on the provider's own chat, with no seed, it answers. The same turn is asked once more without the seed, and he is
+     * told; nothing is changed on his connection (the next turn tries his seed again — it may have been this page alone). */
+    if (!full.trim() && thinking.trim() && finishReason === 'stop' && !retryAs && sentPrefill && sentPrefill.seed && !structuredNow) {
+      notes.push('The thinking seed left this model with no page — it thought on from your seed and stopped. The page was asked again without the seed.');
+      const again = await streamChat({ systemBlocks: blocks, system, messages, signal: callerSignal, onToken, retryAs: { suppressPrefill: true } });
+      return { ...again, thinking: thinking.replace(/\s+$/, '') + '\n\n' + (again.thinking || ''), notes: [...notes, ...(again.notes || [])] };
+    }
     if (decoder && decoder.closed()) {
       /* M585: the answer's text closed. A page that ends on a sentence's close is complete; one that closed mid-sentence
        * (a bare quote ends a JSON string) is marked cut short and said, so Go on is offered for the rest */
@@ -735,8 +780,6 @@ export function createOpenAIProvider(connection) {
       finishReason = 'length';
       notes.push('The structured answer stopped making progress (it kept sending, but no more words came), so it was stopped — the words before were kept. Say “go on” to carry the page forward.');
     }
-    if (decoder) { const rest = decoder.end(); if (rest) structuredSplitter.feed(rest); structuredSplitter.end(); }
-    splitter.end();
     /* M160: A PAGE THE WIRE BROKE IS NEVER SHOWN AS WHOLE. An error frame
      * arriving mid-stream was thrown only when nothing had landed yet; with
      * prose already on the page the refusal was dropped on the floor, the

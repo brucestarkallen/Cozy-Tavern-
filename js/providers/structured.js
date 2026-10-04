@@ -232,8 +232,28 @@ export function makeStructuredDecoder({ hidden = null, holdMax = 6000 } = {}) {
       if (mode === 'string') decodeString(s);
       return release();
     },
-    end() { return release(true); },
+    end() {
+      /* M590 (his report: "I said hi — thinking, and no page"): an answer that opened with "{" but never named "response"
+       * (a provider that did not hold the schema: {"reply":"Hi!"}) was dropped whole at the end. Now: its JSON read for the
+       * one field that holds its words — "response" first, else its longest text — and, if it is no JSON at all, its words
+       * as they came. The model's words are never thrown away. */
+      if (mode === 'seek' && seekBuf.trim()) {
+        let got = '';
+        try {
+          const j = JSON.parse(seekBuf);
+          if (j && typeof j === 'object') {
+            if (typeof j.response === 'string') got = j.response;
+            else got = Object.values(j).filter((v) => typeof v === 'string').sort((a, b) => b.length - a.length)[0] || '';
+          }
+        } catch (err) { got = ''; }
+        words += got || seekBuf;
+        seekBuf = '';
+        mode = 'done';
+      }
+      return release(true);
+    },
     words() { return words.slice(hiddenDone ? hiddenCut : 0); },
+    allWords() { return words; }, /* M590: every word it wrote, the hidden part with them — what the schema held it to */
     wasJson() { return mode === 'string' || mode === 'done'; },
     closed() { return mode === 'done'; }, /* M585: the answer's text is complete — nothing after it is ever words */
     wordsSoFar() { return words.length; },

@@ -10,6 +10,10 @@ const sseRaw = (contents) => {
   const t = contents.map((c) => 'data: ' + JSON.stringify({ choices: [{ delta: { content: c } }] }) + '\n\n').join('') + 'data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n';
   return { ok: true, status: 200, headers: new Headers({ 'content-type': 'text/event-stream' }), body: new ReadableStream({ start(c) { c.enqueue(enc(t)); c.close(); } }), clone() { return this; }, json: async () => ({}) };
 };
+const sseRawFrames = (list) => {
+  const t = list.map((d) => 'data: ' + JSON.stringify({ choices: [{ delta: d }] }) + '\n\n').join('') + 'data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n';
+  return { ok: true, status: 200, headers: new Headers({ 'content-type': 'text/event-stream' }), body: new ReadableStream({ start(c) { c.enqueue(enc(t)); c.close(); } }), clone() { return this; }, json: async () => ({}) };
+};
 const refuse = (msg) => ({ ok: false, status: 400, headers: new Headers({ 'content-type': 'application/json' }), clone() { return this; }, json: async () => ({ error: { message: msg } }), text: async () => JSON.stringify({ error: { message: msg } }) });
 async function tell(conn, answer) {
   const calls = []; const prior = globalThis.fetch;
@@ -231,4 +235,27 @@ test('M587 THE PREFILL AUDIT: a helper never goes structured (nor carries a stru
   const p = prefillPlan({ type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', model: 'kimi-k3', prefill: '<think>nice iron man [[w:10-150]]</think>\n' });
   eq(p.seed, 'nice iron man', 'a template kept after switching back to As written: its seed up to the marker');
   eq(prefillPlan({ type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', model: 'kimi-k3', prefill: 'A plain [[weird]] bracket' }).content, 'A plain [[weird]] bracket', 'brackets that are no marker are his words');
+});
+
+test('M590 "I SAID HI — THINKING, AND NO PAGE": the model\'s words are never dropped (another key read; a JSON answer in the thinking channel made the page); a schema the provider did not hold is noticed, and an empty page is asked again at once, as written; a thinking seed that left no page is asked again without it', async () => {
+  const { fillPreset } = await import('../../js/providers/structured.js');
+  const frames = (list) => sseRawFrames(list);
+  const a = await tell({ ...OR, prefill: '[x ', prefillMode: 'structured' }, () => frames([{ reasoning: 'Thinking.' }, { content: '{"reply":"Hi! How are you doing today?"}' }]));
+  eq(a.out.text, 'Hi! How are you doing today?', 'another key: its words read');
+  assert(a.out.notes.some((n) => /did not hold the structured prefill/.test(n)), 'and the schema not held is said');
+  const b = await tell({ ...OR, prefill: '[x ', prefillMode: 'structured' }, () => frames([{ reasoning: 'Let me answer. {"response":"[x Hi there, the gate stood open and the bell rang across the empty yard as dawn broke over the wall."}' }]));
+  assert(b.out.text.startsWith('[x Hi there, the gate stood open'), 'the JSON in the thinking channel is the page: ' + b.out.text.slice(0, 40));
+  eq(b.out.thinking.trim(), 'Let me answer.', 'and leaves the thinking');
+  const c = await tell({ ...OR, prefill: fillPreset('think', 'nice iron man').prefill, prefillMode: 'structured' }, (n) => (n === 1 ? frames([{ content: '<think>nice iron man, I should greet him warmly' }]) : frames([{ content: '[The gate — Monday | 09:00]\n\nKaelen grinned at him.' }])));
+  eq(c.calls.length, 2, 'asked again at once');
+  assert(c.calls[0].body.response_format && !c.calls[1].body.response_format, 'the second time as written');
+  eq(c.out.text, '[The gate — Monday | 09:00]\n\nKaelen grinned at him.', 'the page');
+  const moon = { type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', apiKey: 'k', model: 'kimi-k3', prefill: '<think>nice iron man will make this good' };
+  const d = await tell(moon, (n) => (n === 1 ? frames([{ reasoning_content: 'nice iron man will make this good — and then I just keep thinking' }]) : frames([{ content: 'Hi! The gate creaked open.' }])));
+  eq(d.calls.length, 2, 'a seed that left no page: asked again');
+  const last = d.calls[0].body.messages[d.calls[0].body.messages.length - 1];
+  assert(last.role === 'assistant', 'the first time with his seed');
+  assert(d.calls[1].body.messages[d.calls[1].body.messages.length - 1].role === 'user', 'the second without it');
+  eq(d.out.text, 'Hi! The gate creaked open.', 'the page');
+  assert(d.out.notes.some((n) => /The thinking seed left this model with no page/.test(n)), 'said');
 });
