@@ -14678,3 +14678,26 @@ side helpers), the fold and rewind, the replay, the timeline repair, the resume 
 - Checked and right as it stands: the placer before the first page keeps the series' "when" while the page chain's
   placer clears it (M526–M527: a fresh tale begins at that moment; a tale under way has moved on from it); no side-lane
   helper writes the ledger, so the main lane's read-then-write is never overwritten.
+
+# M577 — the line-by-line audit, part 4: ui/chat.js read to its last line
+Read: lines 5760–7254 — send's end, Try again on his message and on a page, a version walked to, a new version, a page
+re-inked, the edit, branching, the menus, delete, read again, the shelf's panel, the composer, the starters, the module's
+surface. Every action that moves the ledger was checked against two guards: the house claimed (busy) and a rebuild
+waited for (waitForRebuild). Four did not keep them:
+- SENDING DID NOT WAIT FOR A REBUILD. Try again, a version, an edit, a branch and a delete all waited; a page sent while
+  the ledger was being rebuilt (an older page let go, edited, or walked to another version) only waited five seconds for
+  the queue — it was written over a ledger half-folded, and the rebuild's last write could land over its referee ruling.
+  It waits now, its words out of the composer while it does. Walk DOM-208: a rebuild held behind a reader; a page sent
+  then is not asked for until the rebuild is done, then asked once — without the fix the storyteller is asked mid-rebuild
+  (checked: "got 2, wanted 1").
+- WALKING TO ANOTHER VERSION DID NOT CLAIM THE HOUSE. The ledger moves between versions (the one left saved, the one
+  shown put back) over several waits; a page sent in between read it half-moved. Claimed now (swipeToNow).
+- AN EDIT KEPT WHILE A PAGE WAS BEING WRITTEN set the ledger back (or replayed it) under that page. It waits now, the
+  editor still open, with a word.
+- "READ AGAIN" DID NOT WAIT FOR A REBUILD. Its rewind bumps the chain, and a replay's last step that finds the chain
+  bumped stands down without putting the later pages' readings back — an older page edited, then "read again" pressed on
+  the newest, and those pages' effects were lost. It waits now.
+- Read and sound: Try again on a message and on a page (rewind, the record cut, the pages after let go), the new version
+  and its giving back on failure, the branch (its carried ledger, its checkpoints and version ledgers, its record, lore,
+  canon memory and world), delete (the record shifted, the tail folded or the rest replayed), the menus, the composer.
+- ui/chat.js and ui/richhtml.js are read whole (the ledger outside the repo marks them DONE).

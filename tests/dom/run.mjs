@@ -9435,5 +9435,51 @@ test('DOM-207 CANON VERIFICATION STAYS WITH THE TALE THAT IS OPEN (M566): a tale
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-208 A PAGE SENT WHILE THE LEDGER IS BEING REBUILT WAITS FOR IT (M577): an older page let go starts a rebuild held behind a reader; a page sent then does not reach the storyteller until the rebuild is done — and then it does, once', async () => {
+  const before = errors.length;
+  const st = await db.stories.create({ title: 'the rebuild and the send' });
+  for (let i = 1; i <= 3; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'Move ' + i + '.' });
+    await db.messages.append(st.id, { role: 'assistant', text: '[the gate — Monday | 09:0' + i + ']\n\nREBUILD-PAGE-' + i + ' the bell rang.' });
+  }
+  const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  let release; const held = new Promise((r) => { release = r; });
+  let holding = false;
+  house.state.workerAnswer = (body, sys) => {
+    if (!holding && /keep the ledger/.test(String(sys || ''))) { holding = true; return held.then(() => '{"mutations":[]}'); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}');
+  };
+  house.state.storyAnswer = '[the gate — Monday | 09:30]\n\nREBUILD-NEW-PAGE the bell rang again.';
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    /* a reader is set to work on the newest page, and held */
+    const msgs = await db.messages.list(st.id);
+    const newest = msgs.filter((m) => m.role === 'assistant').pop();
+    env.ctx.chat.pageReinked(st, newest.id);
+    await until(() => holding, 'a reader held', 20000);
+    /* an older page is let go: its rebuild waits behind the held reader */
+    const older = msgs.filter((m) => m.role === 'assistant')[0];
+    const del = [...env.document.querySelectorAll('.msg-act[data-act="delete"]')].find((b) => b.dataset.id === older.id);
+    del.click();
+    await until(() => env.ctx.chat.isReplaying(), 'the rebuild under way', 20000);
+    const asked = () => house.state.calls.filter((c) => !c.isWorker).length;
+    const askedBefore = asked();
+    type(q('#composer-input'), 'I ring it. REBUILD-MOVE'); submit(q('#composer'));
+    await tick(6500); /* past the send's own five-second wait for the queue — the rebuild is what it must wait for */
+    eq(asked(), askedBefore, 'the storyteller is not asked while the ledger is being rebuilt');
+    release();
+    await until(async () => (await db.messages.list(st.id)).some((m) => /REBUILD-NEW-PAGE/.test(m.text || '')) && !env.ctx.chat.isBusy(), 'the page, once the rebuild is done', 40000);
+    eq(asked(), askedBefore + 1, 'asked once');
+    eq(env.ctx.chat.isReplaying(), false);
+  } finally {
+    release();
+    house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

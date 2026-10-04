@@ -5683,6 +5683,15 @@ export function initChat(ctx) {
     }
     /* M68: a send while the house is busy keeps the words and says so —
      * it used to drop them silently, a message that simply vanished. */
+    /* M577 (the audit): a page sent while the ledger is being rebuilt (a page let go, an older page edited or walked to
+     * another version) waits for the rebuild, as Try again, a version, an edit, a branch and a delete already did — sent
+     * in the middle of it, the page was written over a ledger half-folded, and the rebuild's last write could land over the
+     * referee's ruling for it */
+    if (isReplaying() && !busy) {
+      if (!chosen) els.input.value = '';
+      const waited = await waitForRebuild();
+      if (!waited) { if (!chosen) restoreComposer(text); return; }
+    }
     if (busy) { if (!chosen) restoreComposer(text); /* M548: a tapped choice never lands in the composer */ toast('The storyteller is still busy — one moment.'); return; }
     busy = true;
     try {
@@ -5998,6 +6007,12 @@ export function initChat(ctx) {
       return;
     }
     if (next < 0) return;
+    /* M577 (the audit): the house is claimed while the ledger moves between versions — unclaimed, a page sent in that
+     * moment read the ledger half-moved (the version left saved, the version shown not yet put back) */
+    busy = true;
+    try { await swipeToNow(story, history, msg, idx, next); } finally { busy = false; drawChoices(); }
+  }
+  async function swipeToNow(story, history, msg, idx, next) {
     const shown = msg.swipes[next];
     const last = isLastAssistantPage(history, msg.id);
     /* M40: the version being left keeps the ledger it earned — the last page only (M67) */
@@ -6169,6 +6184,9 @@ export function initChat(ctx) {
     let done = false;
     const finish = async (keep) => {
       if (done) return;
+      /* M577 (the audit): kept while a page is being written, the edit would set the ledger back (or replay it) under the
+       * page being written — it waits, the editor still open, until the house is free */
+      if (keep && (busy || isReplaying())) { toast('The storyteller is still writing — keep your new words in a moment.'); return; }
       done = true;
       if (keep) {
         const text = editor.value;
@@ -6743,6 +6761,11 @@ export function initChat(ctx) {
    * record line is let go and refolded from the page's words. Off the send
    * path; the workers' line says what landed. */
   async function rereadPage(id, { quiet = false } = {}) {
+    if (busy) return;
+    /* M577 (the audit): "read again" waits for a rebuild in progress, as every other action does — its rewind bumps the
+     * chain, and a replay's last step that finds the chain bumped stands down without putting the later pages' readings
+     * back (an older page edited, then "read again" pressed on the newest: those pages' effects were lost) */
+    if (!(await waitForRebuild())) return;
     const story = await activeStory();
     if (!story || busy) return;
     const history = await db.messages.list(story.id);
