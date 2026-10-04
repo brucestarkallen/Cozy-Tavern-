@@ -110,6 +110,32 @@ genuinely chancy: the **referee** rolls a real die (in code, never by the
 model) against the state of the scene and rules the outcome as fact.
 "#roll I leap the gap", or a fight on, and the house has ruled.
 
+## Starting the storyteller's reply (the prefill)
+
+Settings → Storyteller → your connection → **Change** → *Start the reply for it*.
+
+**How it is sent — As written** (works everywhere a prefill works):
+- `Some words` — the reply starts with these words, already written.
+- `<think>Some words` — the model's *thinking* starts with these words (DeepSeek, Moonshot, OpenRouter).
+- `<think>Some words</think>[The gate — ` — both: the thinking starts with *Some words*, the reply with *[The gate — *.
+- Words written before the scene header line go into the thinking box while *Anything written before the header is
+  thinking, not page* is on (it is, unless you untick it) — so start the reply with the header if it should be on the page.
+
+**How it is sent — Structured** (OpenAI, and OpenRouter models that list "structured outputs"; DeepSeek and Moonshot
+always use As written): the reply must *begin* with your words, and the model writes them itself — it is not handed
+them, so it cannot refuse at the first word or skip them. The page looks exactly like a normal page.
+
+The easy way — **Ready-made template** (shown when Structured is chosen): pick one, type your words, press
+*Put it in the prefill box*, then *Keep it*.
+1. **Your words open every page, right after the scene header** — `[The yard — Monday | 09:00]` then your words, then the scene.
+2. **It plans first (you never see the plan), then writes the page** — your words are optional.
+3. **Another model starts every page (the opener)** — pick the opener in Settings → The workers.
+
+Writing your own: `[[keep]]` hides everything before it; `[[w:2-5]]` 2–5 words; `[[opt:A|B]]` one of these; `[[line]]`
+one line; `[[lines:2-4]]`; `[[num]]`; `[[number:1-100]]`; `[[emotion]]`; `[[name]]`; `[[action]]`; `[[thought]]`;
+`[[re:…]]` your own pattern; `[[pg]]` the opener's words; `[[end]]` the reply ends there. *Words it can never write* — up to
+about three, any capitals. *At least this many characters after it* — 80 unless you change it.
+
 ## Bringing your SillyTavern life
 
 In Settings, all of it read on this device, nothing uploaded:

@@ -14,7 +14,7 @@
  * and the real thinking control — no placeholders.
  */
 
-import { bannedPattern } from '../providers/structured.js'; /* M581 */
+import { bannedPattern, STRUCTURED_PRESETS, fillPreset, presetWords } from '../providers/structured.js'; /* M581, M583 */
 import { readVoice, sameVoice, listPresets, savePreset, usePreset, removePreset, renamePreset } from '../engine/voicepresets.js'; /* M510-35/36 */
 import { copyWords as copyToClipboard } from './receiptview.js'; /* M510-31: copy that works on the phone's own address too */
 import { withMacros } from '../assemble/voice.js'; /* M361 */
@@ -121,6 +121,14 @@ export function initSettings(ctx) {
     prefillBanned: document.getElementById('conn-prefill-banned'), /* M581 */
     prefillBannedRow: document.getElementById('conn-prefill-banned-row'),
     prefillBannedNote: document.getElementById('conn-prefill-banned-note'),
+    prefillPresets: document.getElementById('conn-prefill-presets'), /* M583 */
+    prefillPreset: document.getElementById('conn-prefill-preset'),
+    prefillWords: document.getElementById('conn-prefill-words'),
+    prefillWordsRow: document.getElementById('conn-prefill-words-row'),
+    prefillPresetGuide: document.getElementById('conn-prefill-preset-guide'),
+    prefillPresetExample: document.getElementById('conn-prefill-preset-example'),
+    btnPrefillPreset: document.getElementById('btn-prefill-preset'),
+    prefillPresetSaid: document.getElementById('conn-prefill-preset-said'),
     prefillFlag: document.getElementById('conn-prefill-flag'),
     prefillReasoning: document.getElementById('conn-prefill-reasoning'),
     apiKey: document.getElementById('conn-apikey'),
@@ -871,10 +879,39 @@ export function initSettings(ctx) {
   if (els.prefillKeepThinking) els.prefillKeepThinking.addEventListener('change', refreshReasoningHint);
   if (els.prefillMode) els.prefillMode.addEventListener('change', () => { if (els.prefillModeNote) els.prefillModeNote.hidden = els.prefillMode.value !== 'structured'; refreshBannedNote(); }); /* M580 */
   if (els.prefillBanned) els.prefillBanned.addEventListener('input', () => refreshBannedNote()); /* M581 */
+  /* M583: THE READY-MADE TEMPLATES — choose one, type your words, see what a page will look like, and one button writes
+   * the prefill for you (and sets it to Structured). Nothing is written until the button is pressed. */
+  if (els.prefillPreset && !els.prefillPreset.dataset.filled) {
+    els.prefillPreset.dataset.filled = '1';
+    for (const p of STRUCTURED_PRESETS) { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; els.prefillPreset.appendChild(o); }
+  }
+  function refreshPresetGuide() {
+    if (!els.prefillPreset) return;
+    const p = STRUCTURED_PRESETS.find((x) => x.id === els.prefillPreset.value);
+    if (els.prefillPresetSaid) els.prefillPresetSaid.hidden = true;
+    if (!p) { if (els.prefillPresetGuide) els.prefillPresetGuide.hidden = true; if (els.prefillPresetExample) els.prefillPresetExample.hidden = true; return; }
+    const words = els.prefillWords ? els.prefillWords.value : '';
+    if (els.prefillWordsRow) els.prefillWordsRow.firstChild.textContent = p.needsWords ? 'Your words' : (p.id === 'opener' ? 'Your words (not used by this one)' : 'Your words (optional)');
+    if (els.prefillPresetGuide) { els.prefillPresetGuide.hidden = false; els.prefillPresetGuide.textContent = p.guide + ' A page will look like this:'; }
+    if (els.prefillPresetExample) { els.prefillPresetExample.hidden = false; els.prefillPresetExample.textContent = p.example(presetWords(words)); }
+  }
+  if (els.prefillPreset) els.prefillPreset.addEventListener('change', refreshPresetGuide);
+  if (els.prefillWords) els.prefillWords.addEventListener('input', refreshPresetGuide);
+  if (els.btnPrefillPreset) els.btnPrefillPreset.addEventListener('click', () => {
+    const said = (t) => { if (els.prefillPresetSaid) { els.prefillPresetSaid.hidden = false; els.prefillPresetSaid.textContent = t; } };
+    if (!els.prefillPreset || !els.prefillPreset.value) { said('Choose a template first.'); return; }
+    const r = fillPreset(els.prefillPreset.value, els.prefillWords ? els.prefillWords.value : '');
+    if (r.error) { said(r.error); return; }
+    els.prefill.value = r.prefill;
+    els.prefill.dispatchEvent(new Event('input', { bubbles: true }));
+    if (els.prefillMode && els.prefillMode.value !== 'structured') { els.prefillMode.value = 'structured'; els.prefillMode.dispatchEvent(new Event('change', { bubbles: true })); }
+    said('Written into the prefill box — press Keep it to save.');
+  });
   /* M581: the banned words say, as they are typed, whether they ride — an exact pattern, or a list too long for one */
   function refreshBannedNote() {
     const structured = Boolean(els.prefillMode && els.prefillMode.value === 'structured');
     if (els.prefillBannedRow) els.prefillBannedRow.hidden = !structured;
+    if (els.prefillPresets) els.prefillPresets.hidden = !structured; /* M583: the templates are Structured's */
     if (!els.prefillBannedNote) return;
     const text = els.prefillBanned ? els.prefillBanned.value : '';
     if (!structured || !text.trim()) { els.prefillBannedNote.hidden = true; return; }

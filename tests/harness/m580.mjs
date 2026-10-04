@@ -123,3 +123,27 @@ test('M582 A STRUCTURED TEMPLATE THAT GOES AS WRITTEN NEVER SENDS ITS MARKERS: o
   eq(prefillLead({ ...c, prefill: '[The gate — [[pg]]' }), '[The gate — ', 'and the words put back in front of the page are the same');
   eq(prefillPlan({ ...c, prefillMode: undefined, prefill: 'Yuhuu [[line]]' }).content, 'Yuhuu [[line]]', 'As written: his words exactly as typed');
 });
+
+test('M583 THE READY-MADE TEMPLATES: each is written from his words, follows its own rule end to end (the reply matches, the hidden plan never shows, the page starts at its header), and his words can never become a marker', async () => {
+  const { STRUCTURED_PRESETS, fillPreset } = await import('../../js/providers/structured.js');
+  const { splitAtHeader } = await import('../../js/ui/headergate.js');
+  eq(STRUCTURED_PRESETS.map((p) => p.id).join(','), 'line,plan,opener');
+  const words = 'Yuhuu Hulk is here Bruce story is good';
+  const tail = ' — the shout rolled across the yard, and Kaelen lowered his blade, squinting at the gate where the dust still hung in the air.';
+  const replies = { line: '[The yard — Monday | 09:00]\n\n' + words + tail, plan: '<plan>The last page ended with: Kaelen at the gate. This page will: Jovan answers and the captain arrives</plan>\n[The yard — Monday | 09:00]\n\n' + words + tail };
+  for (const id of ['line', 'plan']) {
+    const pf = fillPreset(id, words).prefill;
+    assert(new RegExp(structuredSchema(pf).properties.response.pattern).test(replies[id]), id + ': the reply follows the rule');
+    const d = makeStructuredDecoder({ hidden: hiddenMatcher(pf) });
+    const raw = JSON.stringify({ response: replies[id] });
+    let shown = ''; for (let i = 0; i < raw.length; i += 7) shown += d.feed(raw.slice(i, i + 7)); shown += d.end();
+    const cut = splitAtHeader(shown);
+    eq(cut.lead, '', id + ': nothing moved into the thinking box');
+    assert(cut.page.startsWith('[The yard — Monday | 09:00]\n\n' + words), id + ': the page starts at the header, then his words');
+    assert(!/plan/.test(cut.page), id + ': no plan on the page');
+  }
+  eq(fillPreset('opener', 'ignored').prefill, '[[pg]]');
+  assert(/needs your words/.test(fillPreset('line', '  ').error), 'the first one asks for words');
+  eq(fillPreset('line', 'a [[w:9]] b]]').prefill, '[[line]]\n\na w:9 b', 'his words never become a marker');
+  eq(fillPreset('plan', '').prefill.endsWith('[[keep]]'), true, 'the plan without words: the page is the storyteller\u2019s own');
+});

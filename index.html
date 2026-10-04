@@ -286,6 +286,23 @@
                 <input type="number" id="conn-prefill-min" min="1" max="10000" step="1" placeholder="80" autocomplete="off">
               </label>
             </div>
+            <!-- M583: ready-made templates — pick one, type your words, and the house writes the prefill for you -->
+            <div id="conn-prefill-presets" class="stack-label" hidden>
+              <label class="stack-label">Ready-made template
+                <select id="conn-prefill-preset">
+                  <option value="">Choose one…</option>
+                </select>
+              </label>
+              <label class="stack-label" id="conn-prefill-words-row">Your words
+                <input type="text" id="conn-prefill-words" maxlength="600" autocomplete="off" spellcheck="true" placeholder="e.g. Yuhuu Hulk is here Bruce story is good">
+              </label>
+              <p id="conn-prefill-preset-guide" class="quiet" hidden></p>
+              <pre id="conn-prefill-preset-example" class="quiet preset-example" hidden></pre>
+              <div class="row">
+                <button type="button" id="btn-prefill-preset" class="text-btn">Put it in the prefill box</button>
+                <span id="conn-prefill-preset-said" class="quiet" hidden></span>
+              </div>
+            </div>
             <label id="conn-prefill-banned-row" hidden>Words it can never write after your opening (structured only — one per line)
               <textarea id="conn-prefill-banned" rows="2" spellcheck="false" placeholder="ozone&#10;tapestry"></textarea>
             </label>

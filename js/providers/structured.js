@@ -320,3 +320,45 @@ export function bannedPattern(words) {
   try { new RegExp('^(?:' + pattern + ')$'); } catch (err) { return { pattern: '', words: list, tooBig: true }; }
   return { pattern, words: list };
 }
+
+/* ---------- ready-made templates (M583) ----------
+ * His word: "create basically a preset — template 1 guide, template 2 guide, template 3 guide — I just put my words in …
+ * my subscription ends, I can't keep asking you how to put my words." Each template is filled from his own words (when it
+ * takes any) and written into the prefill box for him; the guide says what it does and shows what a page looks like. */
+export const STRUCTURED_PRESETS = Object.freeze([
+  {
+    id: 'line',
+    name: '1 — Your words open every page, right after the scene header',
+    needsWords: true,
+    guide: 'Every page: the storyteller writes its scene header line first, then your words exactly as you typed them, then carries on with the scene from there.',
+    build: (w) => '[[line]]\n\n' + w,
+    example: (w) => '[The training yard — Monday | 09:00]\n\n' + (w || 'Your words') + ' — and the scene carries on from here…',
+  },
+  {
+    id: 'plan',
+    name: '2 — It plans first (you never see the plan), then writes the page',
+    needsWords: false,
+    guide: 'Before every page the storyteller writes itself a short plan — how the last page ended and what this page will do — which you never see; then it writes the page. Helps it stay on track. Your words are optional: if you give some, they open the page right after the header.',
+    build: (w) => '<plan>The last page ended with: [[w:4-30]]. This page will: [[w:6-40]]</plan>\n[[keep]]' + (w ? '[[line]]\n\n' + w : ''),
+    example: (w) => '[The training yard — Monday | 09:00]\n\n' + (w ? w + ' — ' : '') + 'the page itself; the plan before it is never shown…',
+  },
+  {
+    id: 'opener',
+    name: '3 — Another model starts every page (the opener)',
+    needsWords: false,
+    guide: 'Another model — the one you pick in Settings → The workers → The opener (an uncensored model is the usual choice) — writes the first ten to fifteen words of every page; your storyteller must start with exactly those words and carry on. For a storyteller that refuses or waters scenes down. No words of yours are needed.',
+    build: () => '[[pg]]',
+    example: () => '[The gate — Monday | 09:00] Kaelen drew his blade before anyone spoke — and the storyteller carries on from the opener’s words…',
+  },
+]);
+/* his words, safe inside a template: no marker can be made of them (a "[[" or "]]" he typed is not a slot) */
+export function presetWords(words) {
+  return String(words == null ? '' : words).replace(/\[\[|\]\]/g, '').replace(/\s+$/g, '').replace(/^\s+/, '');
+}
+export function fillPreset(id, words) {
+  const p = STRUCTURED_PRESETS.find((x) => x.id === id);
+  if (!p) return { error: 'no such template' };
+  const w = presetWords(words);
+  if (p.needsWords && !w) return { error: 'This template needs your words — type them first.' };
+  return { prefill: p.build(w), example: p.example(w), guide: p.guide };
+}

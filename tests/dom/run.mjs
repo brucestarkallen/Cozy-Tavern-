@@ -220,6 +220,9 @@ test('DOM-8 branch shelves a new tale with the pages up to here; delete lets a p
   const before = errors.length;
   const sid = await storyId();
   const storiesBefore = (await db.stories.list()).length;
+  /* M583: DOM-7's version walk holds the house while it finishes moving the ledger (M577 — a page or a branch taken in that
+   * moment would read it half-moved); the branch is pressed once the house is free, as a hand would after the walk */
+  await until(() => !env.ctx.chat.isBusy() && !env.ctx.chat.isReplaying(), 'the house free after the version walk', 15000);
   click(q('.msg-act[data-act="branch"]', assistantPages()[0]));
   await until(async () => (await db.stories.list()).length === storiesBefore + 1, 'a new tale on the shelf');
   await until(async () => (await storyId()) !== sid, 'the branch is open');
@@ -6860,6 +6863,7 @@ test('DOM-135 THE DRAWER SAYS WHICH PAGE THE LEDGER BELONGS TO: even with the st
   try {
     house.state.workerAnswer = () => '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[],"issues":[]}';
     house.state.storyAnswer = () => H + 'The kettle ticked.';
+    globalThis.__cozyLedgerBackoffMs = 500; /* M583: the pause between looks for unread pages, shortened for the walk (a minute in the house) */
     type(q('#composer-input'), 'I put the kettle on.'); submit(q('#composer'));
     await until(() => assistantPages().length >= 1 && !env.ctx.chat.isBusy(), 'page one', 20000);
     await settled();
@@ -6873,7 +6877,16 @@ test('DOM-135 THE DRAWER SAYS WHICH PAGE THE LEDGER BELONGS TO: even with the st
     /* the line says "page 1 of 2 — the readers are on the rest" until the house reads the page by itself (it does, unasked),
      * then "page 2 of 2 — even with the story": the ledger is seen catching up, and even */
     const seenLines = new Set();
-    await until(() => { const t = (q('#ledger-standing') || {}).textContent || ''; seenLines.add(t); return /page 2 of 2 — even with the story/.test(t); }, 'the house read the page and the line says so: ' + [...seenLines].join(' | '), 30000);
+    try {
+      await until(() => { const t = (q('#ledger-standing') || {}).textContent || ''; seenLines.add(t); return /page 2 of 2 — even with the story/.test(t); }, 'the house read the page', 30000);
+    } catch (err) {
+      /* M583: a failure says what the house was doing — the lines seen, the read marks, the queue, the readers' shelf */
+      const stNow = await (await import('../../js/engine/state.js')).loadState(st.id);
+      const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+      const { loadWorkerStatus } = await import('../../js/agents/status.js');
+      const elsewhere = env.ctx.booksStatus && typeof env.ctx.booksStatus.wroteElsewhereAt === 'function' ? env.ctx.booksStatus.wroteElsewhereAt(st.id) : 'n/a';
+      throw new Error(err.message + ' — lines seen: ' + [...seenLines].join(' | ') + ' — readTo ' + stNow.readTo + ', readAhead ' + JSON.stringify(stNow.readAhead) + ', page ' + stNow.page + ' — queued ' + queuedCount(st.id) + ', running ' + workIsRunning(st.id) + ', busy ' + env.ctx.chat.isBusy() + ', replaying ' + env.ctx.chat.isReplaying() + ' — elsewhere ' + elsewhere + ' — shelf ' + JSON.stringify(await loadWorkerStatus(st.id)).slice(0, 300) + ' — house fail ' + JSON.stringify(house.state.fail));
+    }
     assert([...seenLines].some((t) => /page 1 of 2 — the readers are on the rest/.test(t) || /page 2 of 2/.test(t)), 'the line named the page throughout: ' + [...seenLines].join(' | '));
     click(q('#btn-drawer-close'));
   } finally { house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker; }
@@ -6969,6 +6982,7 @@ test('DOM-138 A BATTLE PLAN, KEPT WHOLE, THROUGH THE APP (M510-22): laid out on 
     const wire = JSON.stringify(told.body.messages);
     assert(/Plans standing — laid out on the page, kept whole until carried out/.test(wire) && wire.includes('Arsif — takes the fake gold convoy into the forest, then runs, leaving it') && wire.includes('“Retreat! Protect the gold convoy!”'), 'the small storyteller reads it word for word');
   } finally {
+    delete globalThis.__cozyLedgerBackoffMs;
     house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker; house.state.plansAnswer = prior.plans;
     await db.connections.update(activeId, { smallModel: null });
     await env.ctx.chat.refreshQuickSwitch();
@@ -9559,6 +9573,42 @@ test('DOM-210 THE OPENER, IN THE APP (M581): a structured prefill with [[pg]] �
     await db.connections.remove(teller.id).catch(() => {}); await db.connections.remove(opener.id).catch(() => {});
     await db.stories.remove(st.id).catch(() => {});
     await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-211 THE READY-MADE TEMPLATES, IN THE FORM (M583): choose one, type his words, see the guide and a page as it will look, press the button — the prefill box is written for him and set to Structured; kept', async () => {
+  const before = errors.length;
+  const conn = await db.connections.add({ label: 'AAB presets', type: 'openai', baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'k', model: 'openai/gpt-5' });
+  try {
+    await openSettings();
+    click(q('[data-room="storyteller"]'));
+    await until(() => q('#connection-pick') && [...q('#connection-pick').options].some((o) => o.value === conn.id), 'the picker', 10000);
+    q('#connection-pick').value = conn.id;
+    q('#connection-pick').dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(() => q('#connection-list .connection-name') && q('#connection-list .connection-name').textContent === 'AAB presets', 'its card', 10000);
+    click(qa('#connection-list .connection-card .row button').find((b) => /^Change$/.test(b.textContent.trim())));
+    await until(() => !q('#connection-form').hidden, 'the form', 10000);
+    assert(q('#conn-prefill-presets').hidden, 'the templates wait until Structured is chosen');
+    q('#conn-prefill-mode').value = 'structured'; q('#conn-prefill-mode').dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    assert(!q('#conn-prefill-presets').hidden, 'shown with Structured');
+    eq([...q('#conn-prefill-preset').options].map((o) => o.textContent.slice(0, 2)).join(','), 'Ch,1 ,2 ,3 ', 'three templates, numbered');
+    click(q('#btn-prefill-preset'));
+    eq(q('#conn-prefill-preset-said').textContent, 'Choose a template first.');
+    q('#conn-prefill-preset').value = 'line'; q('#conn-prefill-preset').dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    click(q('#btn-prefill-preset'));
+    assert(/needs your words/.test(q('#conn-prefill-preset-said').textContent), 'the first one asks for his words');
+    type(q('#conn-prefill-words'), 'Yuhuu Hulk is here Bruce story is good');
+    assert(/scene header line first, then your words/.test(q('#conn-prefill-preset-guide').textContent), 'the guide says what it does');
+    assert(q('#conn-prefill-preset-example').textContent.startsWith('[The training yard — Monday | 09:00]\n\nYuhuu Hulk is here Bruce story is good'), 'and shows a page as it will look');
+    click(q('#btn-prefill-preset'));
+    eq(q('#conn-prefill').value, '[[line]]\n\nYuhuu Hulk is here Bruce story is good', 'the prefill box written for him');
+    assert(/press Keep it/.test(q('#conn-prefill-preset-said').textContent), 'and told what is next');
+    submit(q('#connection-form'));
+    await until(async () => ((await db.connections.list()).find((c) => c.id === conn.id) || {}).prefill === '[[line]]\n\nYuhuu Hulk is here Bruce story is good', 'kept', 10000);
+    eq((await db.connections.list()).find((c) => c.id === conn.id).prefillMode, 'structured');
+  } finally {
+    await db.connections.remove(conn.id).catch(() => {});
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

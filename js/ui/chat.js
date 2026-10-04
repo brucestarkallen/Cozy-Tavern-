@@ -2335,13 +2335,16 @@ export function initChat(ctx) {
     return true;
   }
   const ledgerFilledAt = new Map();
+  /* M583: the pause between two looks for unread pages (a minute, doubling) — as the record's own (gapBackoffMs), a walk
+   * may shorten it; DOM-135 waited on the minute's chance and sometimes ran out of time */
+  const ledgerBackoffMs = () => (Number(globalThis.__cozyLedgerBackoffMs) > 0 ? Number(globalThis.__cozyLedgerBackoffMs) : 60000);
   const ledgerTries = new Map();
   const ledgerLookAgain = new Map(); /* M483 */
   async function fillLedgerGap(storyId) {
     try {
       if (otherHandAt(storyId)) return; /* M293: another browser's readers may still be at it */
       const tries = ledgerTries.get(storyId) || 0;
-      const waitLeft = Math.min(30 * 60000, 60000 * 2 ** tries) - (Date.now() - (ledgerFilledAt.get(storyId) || 0));
+      const waitLeft = Math.min(30 * 60000, ledgerBackoffMs() * 2 ** tries) - (Date.now() - (ledgerFilledAt.get(storyId) || 0));
       if (waitLeft > 0) {
         /* M483: the wait books its own look, as the record's gap does (M317) — the light went dark for the wait and
          * nothing looked again until a worker moved; he refreshed the page to see it green */

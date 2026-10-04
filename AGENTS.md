@@ -14805,3 +14805,30 @@ reply. prefillPlan and prefillLead (the words put back) read the same. As writte
   new tale on the shelf") and fails every time when run as DOM-2 + DOM-7 + DOM-8 alone — on m581's code exactly the same
   (checked), so it is a timing dependency of the scenario, not M582; the whole walk run again passed 210/210. Left for the
   audit's reading of the branch path.
+
+# M583 — ready-made templates for the structured prefill (his word: "template 1 guide, template 2 guide, template 3 guide,
+# I just put my words in… my subscription ends, I can't keep asking you how to put my words")
+- providers/structured.js STRUCTURED_PRESETS / fillPreset: 1 "Your words open every page, right after the scene header"
+  ([[line]], a blank line, his words); 2 "It plans first (you never see the plan), then writes the page" (a hidden plan of
+  4–30 and 6–40 words, [[keep]], then — if he gives words — the header line and his words); 3 "Another model starts every
+  page (the opener)" ([[pg]]). His words are made safe ("[[" and "]]" taken out — nothing he types becomes a marker).
+- The form (shown with Structured): Ready-made template, Your words (its label says when they are optional or unused), the
+  guide and a page as it will look (live), and "Put it in the prefill box" — nothing is written until it is pressed; it
+  sets Structured too and says to press Keep it.
+- Law M583: each template end to end (the reply follows its rule; streamed in pieces, the plan never shows; the page starts
+  at its header with his words; nothing moved into the thinking box). Walk DOM-211: the form used as he would.
+- README: "Starting the storyteller's reply (the prefill)" — As written, Structured, the templates and the markers, so
+  the house explains itself once the work stops.
+- THE TWO WALK SCENARIOS THAT FAILED NOW AND THEN, found out (m583-002):
+  · DOM-8 pressed "branch" the moment DOM-7's version walk had drawn its counter — but since M577 the walk HOLDS the house
+    until the ledger has moved (a branch taken in that moment would read it half-moved), so the branch was refused with
+    "still writing — one moment" and no tale came. It failed every time as DOM-2 + DOM-7 + DOM-8 alone. The scenario now
+    presses it once the house is free, as a hand would; the three pass together.
+  · DOM-135 waited 30 s for the house to read a page appended by hand — but the look for unread pages pauses a minute
+    (doubling) after the last one, so it ran out of time whenever the previous look was recent. The pause takes the same
+    walk knob the record's own pause has (globalThis.__cozyLedgerBackoffMs, as __cozyGapBackoffMs); the house keeps its
+    minute.
+  · DOM-135 now says, if it ever fails, what the house was doing (the lines it showed, the read marks, the queue, the
+    readers' shelf, whether the tale was marked written elsewhere). With that in it, the whole walk ran three times —
+    once right after the harness, as the gate runs it — and passed 211/211 each time; the failure was not seen again.
+- version.js -> m583-002.
