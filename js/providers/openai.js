@@ -14,6 +14,8 @@
  * durationMs = fetch start to stream end.
  */
 
+import { db } from '../store.js'; /* M580: a structured refusal is remembered with its model */
+import { structuredSchema, makeStructuredDecoder, hiddenMatcher, asciiOnly, STRUCTURED_REFUSAL, MIN_AFTER_DEFAULT } from './structured.js'; /* M580 */
 import { knobsOf, KNOB_FIELDS, knobRefused } from './knobs.js'; /* M510: the rest of the dials */
 import { houseFetch } from './relay.js'; /* M353: a provider that refuses a page is carried by the house */
 import { lateSystemRefused, rememberLateSystemRefused } from './latesystem.js'; /* M380, M385 */
@@ -29,7 +31,7 @@ import { withImagePart, transportError } from './wire.js';
  * rejection memory) and the storyteller prefill live in effort.js. */
 import {
   reasonStyle, effortFor, REASONING_REFUSAL, PREFILL_REFUSAL, hostIsOpenAI,
-  applyPrefill, prefillPlan, markConnectionDown, reasoningIsDown, healStaleRefusal, budgetFor, prefillLead, prefillGap, prefillProfile, deepseekBetaBase, healStalePrefillRefusal, thinkingLead,
+  applyPrefill, prefillPlan, markConnectionDown, splitPrefill, reasoningIsDown, healStaleRefusal, budgetFor, prefillLead, prefillGap, prefillProfile, deepseekBetaBase, healStalePrefillRefusal, thinkingLead,
  declaredEfforts, declaredWire, zaiWire, glmVersion, learnedFacts, learnFact, lessonFrom, fitEffort, alwaysThinks } from './effort.js';
 
 const DEFAULT_BASE = 'https://api.openai.com';
@@ -156,11 +158,25 @@ function makeThinkSplitter(emit) {
  * has refused (reasoningDownAt) sends nothing until its model changes.
  * M22-C: OpenRouter connections with searchOn ride plugins:[{id:'web'}].
  * M22-D: the prefill joins per the house's profile (effort.js). */
+/* M580: does this turn go out structured? Only when he chose it for this connection, there is an opening to ask for (the
+ * reply part of his prefill — a thinking seed has no place in a schema), and this model has not refused it */
+export function structuredPlanFor(connection) {
+  const c = connection || {};
+  if (c.prefillMode !== 'structured' || c.type === 'anthropic') return null;
+  if (c.structuredDownAt && (!c.structuredDownModel || c.structuredDownModel === c.model)) return null;
+  const reply = splitPrefill(String(c.prefill == null ? '' : c.prefill)).content;
+  if (!reply.trim()) return null;
+  const minChars = Number.isFinite(c.prefillMinChars) && c.prefillMinChars > 0 ? c.prefillMinChars : MIN_AFTER_DEFAULT;
+  return { template: reply, schema: structuredSchema(reply, { minChars, ascii: asciiOnly(c) }), hidden: hiddenMatcher(reply) };
+}
 function requestBody(connection, wireMessages, opts = {}) {
   /* M328: a retry that withholds the thinking params withholds the thinking SEED with them (a seed with no channel);
    * what follows the seed — a started reply — still rides */
   const asSent = opts.suppressReasoning && connection ? { ...connection, reasoningDownAt: Date.now(), reasoningDownShape: reasonStyle(connection) } : connection;
-  const pf = opts.suppressPrefill
+  /* M580: THE STRUCTURED PREFILL — his opening words asked of the model through the answer's schema, not handed to it as an
+   * assistant message (providers/structured.js). Nothing is appended to the conversation; the request carries the schema. */
+  const structured = !opts.suppressPrefill && !opts.suppressStructured ? structuredPlanFor(connection) : null;
+  const pf = opts.suppressPrefill || structured
     ? { messages: wireMessages, applied: false }
     : applyPrefill(wireMessages, asSent);
   const body = {
@@ -269,12 +285,19 @@ function requestBody(connection, wireMessages, opts = {}) {
   if (connection && connection.searchOn && style === 'openrouter') {
     body.plugins = [{ id: 'web' }];
   }
-  return { asked: { set, opened, suppressed }, body, prefill: opened && !suppressed ? { ...pf, note: [pf.note, 'Thinking was switched on (at its lightest) for this turn, so the thinking seed has a channel to land in.'].filter(Boolean).join(' ') } : pf };
+  if (structured) {
+    body.response_format = { type: 'json_schema', json_schema: { name: 'response', strict: true, schema: structured.schema } };
+    /* OpenRouter routes only to a provider that keeps the schema (otherwise one that ignores it may take the turn) */
+    if (/openrouter\.ai/i.test(String(connection.baseUrl || ''))) body.provider = { ...(body.provider && typeof body.provider === 'object' ? body.provider : {}), require_parameters: true };
+  }
+  return { structured, asked: { set, opened, suppressed }, body, prefill: opened && !suppressed ? { ...pf, note: [pf.note, 'Thinking was switched on (at its lightest) for this turn, so the thinking seed has a channel to land in.'].filter(Boolean).join(' ') } : pf };
 }
 
 /* M329: what the prefill did on this turn, in words — kept on the page's receipt ("What the storyteller saw") */
 function prefillReport(connection, sent, modelThought, full) {
   if (!String(connection && connection.prefill != null ? connection.prefill : '').trim()) return null;
+  /* M580: a structured turn — the opening was asked of the model through the answer's schema */
+  if (sent && sent.structured) return { applied: true, structured: true, words: 'The prefill went structured: the model wrote its opening itself, to the pattern “' + String(sent.content || '').slice(0, 80) + (String(sent.content || '').length > 80 ? '…' : '') + '”.' };
   if (!sent) return null;
   if (sent.stayedHome !== undefined) return { applied: false, words: 'The prefill was NOT sent' + (sent.stayedHome ? ' — ' + sent.stayedHome : '.') };
   const bits = [];
@@ -448,8 +471,9 @@ export function createOpenAIProvider(connection) {
     let sentWire = null; /* M347: the request exactly as the model took it (never the headers: the key stays home) */
     const wasRelay = Boolean(connection.viaRelay); /* M353: was the house already carrying this connection? */
     let askedPlan = null; /* M350: what was asked of the model's thinking on the turn it took */
+    let structuredNow = null; /* M580: the structured prefill this turn went out with, if any */
     for (let attempt = 0; attempt < 5 && !res; attempt += 1) { /* M318: the beta address may say no, and the ordinary one may still refuse a dial; M350: a refusal may teach twice (values, a field) before the last resort */
-      const { body, prefill, asked } = requestBody(connection, wire, opts);
+      const { body, prefill, asked, structured } = requestBody(connection, wire, opts);
       /* M510-25: THE USAGE, ASKED FOR — most OpenAI-compatible providers say what a streamed call used only when asked;
        * without it the meter could only estimate the page (≈) and never saw the cache. Asked here, on the send loop's own
        * streamed body — never in requestBody, whose other callers (the Test, the speed probe) send their own or none, and
@@ -478,6 +502,7 @@ export function createOpenAIProvider(connection) {
         lead = prefill.applied ? prefillLead(connection) : '';
         thoughtLead = prefill.applied && prefill.seed ? prefill.seed : '';
         sentPrefill = prefill.applied ? { seed: prefill.seed || '', content: prefill.content || '' } : { stayedHome: prefill.note || '' };
+        if (structured) { structuredNow = structured; lead = ''; thoughtLead = ''; sentPrefill = { structured: true, content: structured.template }; } /* M580: the model writes the opening itself — nothing is put back */
         res = out;
         break;
       }
@@ -487,6 +512,16 @@ export function createOpenAIProvider(connection) {
         detail = (j && j.error && j.error.message) || '';
       } catch (err) { /* not JSON — the status still tells a story */ }
       const fourHundred = out.status === 400 || out.status === 422;
+      /* M580: A HOUSE THAT TAKES NO STRUCTURED ANSWER says so once; remembered for this model, and the same turn goes again
+       * with the prefill as written (a started reply, or a thinking seed, where the house takes one) */
+      if (structured && (fourHundred || out.status === 404) && STRUCTURED_REFUSAL.test(detail || String(out.status))) {
+        connection.structuredDownModel = connection.model || '';
+        await markConnectionDown(connection, 'structuredDownAt');
+        try { await db.connections.update(connection.id, { structuredDownModel: connection.structuredDownModel }); } catch (err) { /* in hand for this turn */ }
+        notes.push('This model would not take a structured prefill (' + (detail ? detail.slice(0, 120) : out.status) + '), so the turn went with the prefill as written — and it is sent so for this model from now on.');
+        opts = { ...opts, suppressStructured: true };
+        continue;
+      }
       /* M380: A HOUSE THAT TAKES NO SYSTEM MESSAGE AFTER THE STORY says so once, is remembered, and the same turn goes again
        * with those words as a user message — his setting stands wherever it is taken */
       /* M510-38: A HOUSE THAT WANTS HIS TURN FIRST says so once (the order of the turns, in its words), is remembered for this
@@ -613,6 +648,9 @@ export function createOpenAIProvider(connection) {
     /* The tag splitter only listens while no native reasoning channel has
      * spoken (SPEC.md M8.5: V176 interop is the fallback, never the rule). */
     const splitter = makeThinkSplitter(emit);
+    /* M580: a structured answer is JSON — its words are read out of it as they stream (and the hidden part held back) */
+    const decoder = structuredNow ? makeStructuredDecoder({ hidden: structuredNow.hidden }) : null;
+    const prose = (text) => { const words = decoder ? decoder.feed(text) : text; if (!words) return; if (nativeThoughts) emit('prose', words); else splitter.feed(words); };
     await readSSE(res.body, (data) => {
       const piece = data && data.choices && data.choices[0];
       const delta = piece && piece.delta;
@@ -635,15 +673,13 @@ export function createOpenAIProvider(connection) {
           emit('thinking', thought);
         }
         const text = delta.content;
-        if (typeof text === 'string' && text) {
-          if (nativeThoughts) emit('prose', text);
-          else splitter.feed(text);
-        }
+        if (typeof text === 'string' && text) prose(text);
       }
       if (data && data.error) {
         refusal = data.error.message || 'The storyteller stumbled mid-sentence.';
       }
     });
+    if (decoder) { const rest = decoder.end(); if (rest) { if (nativeThoughts) emit('prose', rest); else splitter.feed(rest); } }
     splitter.end();
     /* M160: A PAGE THE WIRE BROKE IS NEVER SHOWN AS WHOLE. An error frame
      * arriving mid-stream was thrown only when nothing had landed yet; with

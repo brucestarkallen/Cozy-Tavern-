@@ -80,6 +80,7 @@ const SHELL = [
   'js/agents/herewords.js', /* M554: who is in the scene, one definition */
   'js/engine/fingerprint.js', /* M575: one fingerprint */
   'js/engine/pagepatch.js', /* M575: the shown version, changed in one place */
+  'js/providers/structured.js', /* M580: the structured prefill */
   'js/agents/plans.js', /* M510-22 */
   'js/assemble/planbook.js', /* M510-22 */
   'js/assemble/smallprose.js', /* M512: the story's voice and the worn phrases, for a small storyteller */

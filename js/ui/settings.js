@@ -114,6 +114,9 @@ export function initSettings(ctx) {
     prefillHint: document.getElementById('conn-prefill-hint'),
     prefillKeepThinking: document.getElementById('conn-prefill-keep-thinking'),
     prefillWorkers: document.getElementById('conn-prefill-workers'),
+    prefillMode: document.getElementById('conn-prefill-mode'), /* M580 */
+    prefillMin: document.getElementById('conn-prefill-min'),
+    prefillModeNote: document.getElementById('conn-prefill-mode-note'),
     prefillFlag: document.getElementById('conn-prefill-flag'),
     prefillReasoning: document.getElementById('conn-prefill-reasoning'),
     apiKey: document.getElementById('conn-apikey'),
@@ -759,6 +762,9 @@ export function initSettings(ctx) {
       els.prefill.value = typeof conn.prefill === 'string' ? conn.prefill : '';
       if (els.prefillKeepThinking) els.prefillKeepThinking.checked = conn.prefillKeepThinking !== false;
       if (els.prefillWorkers) els.prefillWorkers.checked = conn.prefillForWorkers === true;
+      if (els.prefillMode) els.prefillMode.value = conn.prefillMode === 'structured' ? 'structured' : ''; /* M580 */
+      if (els.prefillMin) els.prefillMin.value = Number.isFinite(conn.prefillMinChars) && conn.prefillMinChars > 0 ? String(conn.prefillMinChars) : '';
+      if (els.prefillModeNote) els.prefillModeNote.hidden = !(els.prefillMode && els.prefillMode.value === 'structured');
       if (els.prefillFlag) els.prefillFlag.value = typeof conn.prefillFlagField === 'string' ? conn.prefillFlagField : '';
       if (els.prefillReasoning) els.prefillReasoning.value = typeof conn.prefillReasoningField === 'string' ? conn.prefillReasoningField : '';
       /* The refusal memories speak plainly while they stand. */
@@ -792,6 +798,9 @@ export function initSettings(ctx) {
       els.prefill.value = '';
       if (els.prefillKeepThinking) els.prefillKeepThinking.checked = true;
       if (els.prefillWorkers) els.prefillWorkers.checked = false;
+      if (els.prefillMode) els.prefillMode.value = ''; /* M580 */
+      if (els.prefillMin) els.prefillMin.value = '';
+      if (els.prefillModeNote) els.prefillModeNote.hidden = true;
       if (els.prefillFlag) els.prefillFlag.value = '';
       if (els.prefillReasoning) els.prefillReasoning.value = '';
       if (els.downNote) els.downNote.hidden = true;
@@ -852,6 +861,7 @@ export function initSettings(ctx) {
   if (els.prefill) els.prefill.addEventListener('input', refreshReasoningHint); /* M318 */
   for (const el of [els.prefillFlag, els.prefillReasoning]) if (el) el.addEventListener('input', refreshReasoningHint); /* M328 */
   if (els.prefillKeepThinking) els.prefillKeepThinking.addEventListener('change', refreshReasoningHint);
+  if (els.prefillMode) els.prefillMode.addEventListener('change', () => { if (els.prefillModeNote) els.prefillModeNote.hidden = els.prefillMode.value !== 'structured'; }); /* M580 */
   if (els.connReasoning) els.connReasoning.addEventListener('change', refreshReasoningHint);
 
   /* M22-D: "Test it" — the prefill probe. Sends a tiny exchange with the
@@ -985,6 +995,8 @@ export function initSettings(ctx) {
     /* M328: the prefill's own dials — kept only when they differ from how a connection starts out */
     fields.prefillKeepThinking = els.prefillKeepThinking && !els.prefillKeepThinking.checked ? false : undefined;
     fields.prefillForWorkers = els.prefillWorkers && els.prefillWorkers.checked ? true : undefined;
+    fields.prefillMode = els.prefillMode && els.prefillMode.value === 'structured' ? 'structured' : undefined; /* M580 */
+    fields.prefillMinChars = els.prefillMin && Number.isFinite(Number(els.prefillMin.value)) && Number(els.prefillMin.value) > 0 && els.prefillMin.value.trim() ? Math.min(10000, Math.round(Number(els.prefillMin.value))) : undefined;
     fields.prefillFlagField = els.prefillFlag && els.prefillFlag.value.trim() ? els.prefillFlag.value.trim() : undefined;
     fields.prefillReasoningField = els.prefillReasoning && els.prefillReasoning.value.trim() ? els.prefillReasoning.value.trim() : undefined;
     /* M8.5/M22-A: the thinking voice — the full ladder, kept only when on.
@@ -1003,12 +1015,15 @@ export function initSettings(ctx) {
     if (editingId) {
       /* update() treats null as "let the dial go" (store.js, M8). */
       const patch = { ...fields };
-      for (const key of ['priceIn', 'priceOut', 'priceCached', 'temperature', 'topP', 'topK', 'minP', 'presencePenalty', 'frequencyPenalty', 'repetitionPenalty', 'stop', 'seed', 'smallModel', 'maxTokens', 'contextSize', 'reasoning', 'searchOn', 'searchMaxUses', 'prefill', 'prefillKeepThinking', 'prefillForWorkers', 'prefillFlagField', 'prefillReasoningField']) { /* M328: an unticked box or an emptied field lets its dial go too */
+      for (const key of ['priceIn', 'priceOut', 'prefillMode', 'prefillMinChars', 'priceCached', 'temperature', 'topP', 'topK', 'minP', 'presencePenalty', 'frequencyPenalty', 'repetitionPenalty', 'stop', 'seed', 'smallModel', 'maxTokens', 'contextSize', 'reasoning', 'searchOn', 'searchMaxUses', 'prefill', 'prefillKeepThinking', 'prefillForWorkers', 'prefillFlagField', 'prefillReasoningField']) { /* M328: an unticked box or an emptied field lets its dial go too */
         if (patch[key] === undefined) patch[key] = null;
       }
       /* M22-A/D: the refusal memories stand until the model field
        * changes — a new model (or a new address) tries again. */
       const stored = await db.connections.list().then((all) => all.find((c) => c.id === editingId));
+      if (stored && (stored.model !== fields.model || stored.baseUrl !== fields.baseUrl || (stored.prefillMode || '') !== (fields.prefillMode || ''))) {
+        patch.structuredDownAt = null; patch.structuredDownModel = null; /* M580 */
+      }
       if (stored && (stored.model !== fields.model || stored.baseUrl !== fields.baseUrl)) {
         patch.reasoningDownAt = null;
         patch.reasoningDownShape = null;

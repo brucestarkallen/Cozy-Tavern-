@@ -9481,5 +9481,52 @@ test('DOM-208 A PAGE SENT WHILE THE LEDGER IS BEING REBUILT WAITS FOR IT (M577):
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-209 THE STRUCTURED PREFILL, IN THE APP (M580): chosen in the connection form and kept; a page sent goes with the schema and no assistant message, and lands as a page', async () => {
+  const before = errors.length;
+  const activeBefore = await db.settings.get('activeConnectionId');
+  const conn = await db.connections.add({ label: 'AAB structured', type: 'openai', baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'k', model: 'openai/gpt-5' });
+  const was = {};
+  /* the form, as DOM-59 opens it */
+  await openSettings();
+  click(q('[data-room="storyteller"]'));
+  await until(() => q('#connection-pick') && [...q('#connection-pick').options].some((o) => o.value === conn.id), 'the picker', 10000);
+  q('#connection-pick').value = conn.id;
+  q('#connection-pick').dispatchEvent(new env.window.Event('change', { bubbles: true }));
+  await until(() => q('#connection-list .connection-name') && q('#connection-list .connection-name').textContent === 'AAB structured', 'its card', 10000);
+  click(qa('#connection-list .connection-card .row button').find((b) => /^Change$/.test(b.textContent.trim())));
+  await until(() => !q('#connection-form').hidden, 'the form', 10000);
+  type(q('#conn-prefill'), '[The gate — ');
+  q('#conn-prefill-mode').value = 'structured'; q('#conn-prefill-mode').dispatchEvent(new env.window.Event('change', { bubbles: true }));
+  assert(!q('#conn-prefill-mode-note').hidden, 'the note shows with the choice');
+  type(q('#conn-prefill-min'), '20');
+  submit(q('#connection-form'));
+  await until(async () => ((await db.connections.list()).find((c) => c.id === conn.id) || {}).prefillMode === 'structured', 'kept', 10000);
+  const stored = (await db.connections.list()).find((c) => c.id === conn.id);
+  eq(stored.prefillMinChars, 20, 'and its minimum');
+  await db.settings.set('activeConnectionId', conn.id);
+  env.window.location.hash = '#/'; await tick(300);
+  /* a page through the app */
+  const st = await db.stories.create({ title: 'structured' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = house.state.storyAnswer;
+  house.state.storyAnswer = '[The gate — Monday | 09:00]\n\nSTRUCTURED-PAGE the bell rang.';
+  try {
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'I knock.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => /STRUCTURED-PAGE/.test(m.text || '')) && !env.ctx.chat.isBusy(), 'the page', 30000);
+    const sent = house.state.calls.slice(from).find((c) => !c.isWorker);
+    assert(sent && sent.body && sent.body.response_format && sent.body.response_format.type === 'json_schema', 'the request carries the schema');
+    eq(sent.body.messages[sent.body.messages.length - 1].role === 'assistant', false, 'and no assistant message');
+  } finally {
+    house.state.storyAnswer = prior;
+    await db.settings.set('activeConnectionId', activeBefore);
+    await db.connections.remove(conn.id).catch(() => {});
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

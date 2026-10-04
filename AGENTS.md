@@ -14733,3 +14733,31 @@ kept), the facts the storyteller reads, the header reader, the fold, the read ma
   the people the storyteller reads in tiers (cards, also here, named, important, roster) and their shedding; names
   (titles, trailing ranks, one meaning, here); threads (one title, the cool-down, the cap that keeps the main character's
   own), knowledge (one fact, near keys), factions, arrivals, the world's word and its voices.
+
+# M580 — the structured prefill (his ask: github.com/aimicrocot/StructuredPrefill-Cheesedozer-Edition)
+WHAT IT IS. A prefill sent the usual way is an assistant message the model is HANDED and continues — newer models refuse it
+("Briolette didn't even have time to turnI'm sorry…"), ignore it, or reject the request (Opus 4.6 removed prefills). The
+StructuredPrefill technique asks for a JSON answer instead, whose one string field must MATCH A PATTERN that begins with
+his words — the model writes them ITSELF to satisfy the schema and carries on; the answer {"response":"…"} is unwrapped as
+it streams. Written for the house from the README and its behaviour — not copied: the repository carries no licence.
+- providers/structured.js: the template as a pattern (literal text escaped, newlines as \n, an ASCII-only pattern for
+  Claude routes on OpenRouter), the slots ([[w:2-5]], [[opt:a|b]], [[line]], [[lines:2-4]], [[free]], [[num]],
+  [[number:1-100]], [[emotion]], [[name]], [[action]], [[thought]], [[re:…]]), [[keep]] (written, never shown), [[end]]
+  (the reply ends there), the minimum after it; the streaming decoder (JSON split anywhere — an escape, a \u, the key —
+  gives exactly its words; an answer that is not JSON passes through; the hidden part is held back, then dropped).
+- providers/openai.js: per connection, "How it is sent: As written / Structured". Structured sends NO assistant message
+  and carries response_format json_schema (strict); on OpenRouter provider.require_parameters, so only a provider that
+  keeps the schema takes the turn. A house that refuses (400/422/404 naming the format, the schema, the pattern or "no
+  endpoints") is remembered for that model (structuredDownAt + structuredDownModel, let go when the model, the address
+  or the mode changes) and the same turn goes again with the prefill as written. Nothing is put in front of the page
+  (the model wrote the opening); the page's receipt says "The prefill went structured".
+- TWO MODES, AND WHAT COMBINES: "As written" is what M328 built (a started reply, a thinking seed, or both). "Structured"
+  is for the reply's opening only — a thinking seed rides an assistant message, which is exactly what a structured turn
+  does not send, so a seed is never sent structured (a <think> prefill alone goes as written). The model's own thinking
+  (its effort dial) is untouched either way; a visible plan can be written into the template and hidden with [[keep]].
+- NOT BUILT: the extension's banned-word lists (its pattern construction lets a word through where the word overlaps
+  itself, e.g. "aab" inside "aaab" — a correct one needs an automaton, not yet written), its second-model opener
+  ([[pg]]), Continue's overlap (the house's "go on" sends no started reply), the OpenAI Responses and Gemini shapes.
+- Laws M580-1..4 (the pattern and the slots; the decoder; the real provider; a refusal, its memory, another model asked
+  again, a seed alone not structured). Walk DOM-209: chosen and kept in the form, a page through the app carries the
+  schema and no assistant message, and lands.

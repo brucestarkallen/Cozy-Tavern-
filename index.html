@@ -273,6 +273,20 @@
             </label>
             <p class="quiet">Open it with <code>&lt;think&gt;</code> and it seeds the model’s THINKING instead of its reply — <code>&lt;think&gt;Right, where were we. Let me look at what Bruce just did…</code> — the model carries the thought on in your words, then writes the page itself. Anything after <code>&lt;/think&gt;</code> starts the reply, as before.</p>
             <p id="conn-prefill-hint" class="quiet" hidden></p>
+            <!-- M580: how the prefill is sent — as written (a started reply / a thinking seed) or structured (the model writes
+                 the opening itself, through the answer's schema; the StructuredPrefill technique) -->
+            <div class="row names-row">
+              <label class="stack-label">How it is sent
+                <select id="conn-prefill-mode">
+                  <option value="">As written — a started reply, or a thinking seed</option>
+                  <option value="structured">Structured — the model writes the opening itself</option>
+                </select>
+              </label>
+              <label class="stack-label">At least this many characters after it
+                <input type="number" id="conn-prefill-min" min="1" max="10000" step="1" placeholder="80" autocomplete="off">
+              </label>
+            </div>
+            <p id="conn-prefill-mode-note" class="quiet" hidden>Structured: the reply must begin with your words, and the model writes them itself — it is not handed them, so it cannot refuse at the first word or ignore them. Only addresses that take JSON-schema answers (OpenAI, and on OpenRouter the models that list structured outputs) can; one that refuses is remembered for its model and gets the prefill as written. A thinking seed (<code>&lt;think&gt;</code>) is not sent this way. Inside your words: <code>[[keep]]</code> hides everything before it; <code>[[w:2-5]]</code> words, <code>[[opt:a|b]]</code> one of these, <code>[[line]]</code>, <code>[[lines:2-4]]</code>, <code>[[num]]</code>, <code>[[number:1-100]]</code>, <code>[[emotion]]</code>, <code>[[name]]</code>, <code>[[action]]</code>, <code>[[thought]]</code>, <code>[[re:…]]</code>, and <code>[[end]]</code> to end the reply there.</p>
             <div class="row">
               <label class="radio-row"><input type="checkbox" id="conn-prefill-keep-thinking"> Keep the thinking open when a seed is sent</label>
             </div>
