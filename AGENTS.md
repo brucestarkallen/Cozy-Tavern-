@@ -15026,3 +15026,18 @@ elsewhere note go "when it no longer holds" — the very clear M588's always-som
   name — "Jovan pushed back his chair and walked out without a word" left Renji at the table "here". When the page ends on
   him going (mcWalksOff), the leaves stand named or not: the room is left behind him.
 - Laws M594, M594-2.
+
+# M595 — the line-by-line audit, part 10: the record keeper (agents/memory.js) read whole
+- THE RECORD'S PLAYER, ONE READING: the keeper's own fold named the main character from the ledger (mcName) — but "Fold
+  again" on a line (redoLine), the re-read of a squeezed line (rereadMergedLine) and the auditor's rewrite read a
+  'playerName' setting nothing in the house has ever written, so they always told the keeper "the player": the record
+  said "the player opened the gate" beside "Jovan Oda drew his blade" — a system word in the story so far. playerNameOf
+  (the ledger's main character) serves all four. Law M595.
+- DEAD WORDS GONE: houseLineFor — M316's worded marker ("(no line from the keeper… “Summarize now” on this line asks the
+  keeper again)") that named a button inside what the storyteller reads — had no caller since M330 made the mark
+  wordless; removed. addCorrection stays: only the tests use it, to build the old records M330's heal takes notes from.
+- Read and sound: the window and batches (dueRange folds the first uncovered pages, holes included), the fold ladder (a
+  silent model: the page alone, twice, then a wordless cover only if the model answers anything else), the cut and split
+  retries, the stale guards before every write (pages or record moved → nothing written), the squeeze by layers (only
+  adjacent lines with nothing but empty covers between), the verify/rewrite and the auditor's FIX/DETAIL (fixes applied
+  only when the right words are in the pages; the loss check's names and figures), redo/reread, catch-up.

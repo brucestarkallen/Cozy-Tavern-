@@ -28,3 +28,23 @@ test('M593 A VOICE PRESET KEPT UNDER AN ID THAT IS GONE, WITH NO NAME, IS NOTHIN
   const kept = await savePreset('Hulk night', { tellerName: 'Hulk' });
   assert(kept && kept.name === 'Hulk night', 'a named one is kept');
 });
+
+test('M595 THE RECORD NAMES THE MAIN CHARACTER IN EVERY PATH: "Fold again" on a line writes him by the ledger\'s name — never "the player" (it read a setting nothing writes)', async () => {
+  const { saveMemory, loadMemory, redoLine } = await import('../../js/agents/memory.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { db } = await import('../../js/store.js');
+  const st = await db.stories.create({ title: 'fold again' });
+  await db.messages.append(st.id, { role: 'user', text: 'I open the gate.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[The gate — Monday | 09:00]\n\nYou push the gate open.' });
+  await saveState(st.id, applyMutations({ ...emptyState() }, [{ type: 'mc.set', name: 'Jovan Oda' }]).state);
+  await saveMemory(st.id, { window: 30, nodes: [{ id: 'n1', span: [0, 1], text: 'old line', level: 1, at: 1 }] });
+  const asked = [];
+  const prior = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => { const b = JSON.parse(opts.body); asked.push(JSON.stringify(b.messages || b)); const enc = new TextEncoder(); const t = 'data: ' + JSON.stringify({ choices: [{ delta: { content: 'Jovan Oda pushes the gate open.' } }] }) + '\n\ndata: [DONE]\n\n'; return { ok: true, status: 200, headers: new Headers({ 'content-type': 'text/event-stream' }), body: new ReadableStream({ start(c) { c.enqueue(enc.encode(t)); c.close(); } }), clone() { return this; }, json: async () => ({ choices: [{ message: { content: 'Jovan Oda pushes the gate open.' } }] }) }; };
+  try {
+    await redoLine({ connection: { type: 'openai', baseUrl: 'https://x.example/v1', apiKey: 'k', model: 'm' }, storyId: st.id, nodeId: 'n1' });
+  } finally { globalThis.fetch = prior; }
+  assert(asked.length && /<player_name>Jovan Oda<\/player_name>/.test(asked[0]), 'the keeper is told the main character by name: ' + (asked[0] || '').slice(0, 160));
+  assert(!asked.some((a) => /<player_name>the player<\/player_name>/.test(a)), 'never "the player"');
+});

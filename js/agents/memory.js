@@ -61,17 +61,8 @@ async function keeperAlive(connection, signal) {
     return Boolean(String(text || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').trim());
   } catch (err) { return false; }
 }
-/* The house's line for a page the keeper's model will not write one for. It does NOT quote the page: every
- * later fold hands the keeper the record so far, and whatever made the model go blank on the page
- * (a provider's filter, most likely) would then sit in every request after it — one page's trouble
- * would become the whole record's (the first version quoted the page's opening words; its own test
- * showed the next batch going blank too). It says where and when, from the page's own header, and
- * that the page stands in the story as written. */
-export function houseLineFor(page) {
-  const head = String((page && page.text) || '').match(/^\s*\[([^\]\n]{3,200})\]/);
-  const where = head ? head[1].split('|').slice(0, 2).map((x) => x.trim()).filter(Boolean).join(', ') : '';
-  return '(no line from the keeper for this page' + (where ? ' — ' + where : '') + '; it stands in the story as written — “Summarize now” on this line asks the keeper again)';
-}
+/* M595 (the audit): M316's worded marker for a page the keeper gave no line (houseLineFor) is gone — M330 made the mark
+ * wordless and nothing called it since; its words named a button inside what the storyteller reads. */
 
 /* The laws of the ledger. */
 export const DEFAULT_WINDOW = 30;      /* pages kept word for word */
@@ -1080,6 +1071,13 @@ export function lossCheck(passage, lineText, detailText, knownNames = []) {
 }
 
 /* the people the ledger knows — the names the loss check must never let go */
+/* M595 (the audit): THE RECORD'S PLAYER IS THE LEDGER'S MAIN CHARACTER, everywhere. The keeper's own fold named him from
+ * the ledger (mcName) — but "Fold again" on a line, the re-read of a squeezed line and the auditor's rewrite read a
+ * 'playerName' setting nothing has ever written, so they always wrote "the player": the record said "the player opened
+ * the gate" beside "Jovan Oda drew his blade". One reading now. */
+async function playerNameOf(storyId) {
+  try { const known = mcName(await loadState(storyId)); return known && known !== 'the player' ? known : 'the player'; } catch (err) { return 'the player'; }
+}
 async function knownNamesOf(storyId) {
   try {
     const st = await db.settings.get('state:' + storyId);
@@ -1172,7 +1170,7 @@ async function audit(connection, storyId, node, sourceText, signal, knownNames =
       try {
         if (typeof renew === 'function') renew();
         const roomier = await callKeeper(connection, buildRewriteMessages({
-          playerName: (await db.settings.get('playerName')) || 'the player',
+          playerName: await playerNameOf(storyId),
           record: '',
           snippet: lineText,
           correction: 'The line below left these out, and they matter: ' + detail
@@ -1230,9 +1228,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
   let mem = await loadMemory(storyId);
   const window = windowFor(mem, await db.settings.get('memoryWindow')); /* M317 */
   mem.window = window;
-  const state = await loadState(storyId);
-  const known = mcName(state);
-  const playerName = known && known !== 'the player' ? known : 'the player';
+  const playerName = await playerNameOf(storyId);
 
   let changed = false;
 
@@ -1261,7 +1257,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
      * runs: the keeper's model is asked one harmless word to prove it is alive — if it is not, nothing
      * is written and the note says the keeper is not answering at all; (3) alive, so it is THIS PAGE it
      * will not summarise: the house writes a plain marker line for that one page (byHouse; where and when,
-     * never the page's words — see houseLineFor), said in the note, so the record moves on. "Summarize now" on that line asks the
+     * never the page's words — a wordless cover since M330), said in the note, so the record moves on. "Summarize now" on that line asks the
      * keeper again whenever the writer likes. */
     if (!text && pages.length > 1) {
       try {
@@ -1474,7 +1470,7 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
   const pages = history.slice(node.span[0], node.span[1] + 1);
   if (!pages.length) return { ok: false, why: 'the pages that line was written from are gone' };
 
-  const playerName = (await db.settings.get('playerName')) || 'the player';
+  const playerName = await playerNameOf(storyId);
   const knownNames = await knownNamesOf(storyId);
   const passage = passageOf(pages, playerName);
 
@@ -1537,7 +1533,7 @@ export async function rereadMergedLine({ connection, storyId, lineId, signal, re
   if (!node || !(node.level >= 2) || !Array.isArray(node.span) || node.span[0] < 0) return { ok: false, why: 'no squeezed line answers to that' };
   const history = visiblePages(await db.messages.list(storyId));
   const batch = cleanBatch(await db.settings.get('memoryBatch'));
-  const playerName = (await db.settings.get('playerName')) || 'the player';
+  const playerName = await playerNameOf(storyId);
   const knownNames = await knownNamesOf(storyId);
   const older = (mem.nodes || []).filter((n) => n && n.id !== lineId && Array.isArray(n.span) && n.span[1] < node.span[0]);
   const made = [];
