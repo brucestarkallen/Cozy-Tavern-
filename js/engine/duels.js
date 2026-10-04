@@ -29,6 +29,7 @@
  * trained (4).
  */
 
+import { isTitleWord } from './names.js'; /* M584 */
 import {
   clamp, probFromDelta, sliceOutcome, tieCheck, rngFloat,
   TIERS, TIER_RATINGS, EXCHANGE_EFFECTS, RECOVER_EFFECTS, STRATAGEM_EFFECTS,
@@ -124,10 +125,19 @@ export function findActorKey(state, name) {
   for (const key of Object.keys(actors)) {
     if (key.toLowerCase().trim() === target) return key;
   }
+  /* M584 (the audit): a part of a name that fits more than one sheet entry names no one — "Kuchiki" is Rukia AND Byakuya;
+   * the first key in the sheet's order was taken, and a fight could read the wrong person's skills */
   const toks = target.split(/[\s,]+/).filter(Boolean);
-  for (const key of Object.keys(actors)) {
-    const kt = key.toLowerCase().trim().split(/[\s,]+/).filter(Boolean);
-    if (toks.length && toks.every((t) => kt.includes(t))) return key;
+  const partial = toks.length ? Object.keys(actors).filter((key) => { const kt = key.toLowerCase().trim().split(/[\s,]+/).filter(Boolean); return toks.every((t) => kt.includes(t)); }) : [];
+  if (partial.length === 1) return partial[0];
+  if (partial.length > 1) return null;
+  /* M584: a title in front ("Captain Zaraki", "Headmaster Vane") is read past, as the ledger's own matcher does — unread, a
+   * ruling on "Captain Zaraki" found no sheet entry and fought him at the default */
+  const bare = toks.slice(); while (bare.length > 1 && isTitleWord(bare[0])) bare.shift();
+  if (bare.length && bare.length < toks.length) {
+    const titled = Object.keys(actors).filter((key) => { const kt = key.toLowerCase().trim().split(/[\s,]+/).filter(Boolean); return bare.every((t) => kt.includes(t)); });
+    if (titled.length === 1) return titled[0];
+    if (titled.length > 1) return null;
   }
   /* M471: THE SAME PERSON, THE OTHER WAY ROUND. The sheet held "Kaelen" and the referee named "Kaelen Stahl": the
    * first pass wants every word of the target in the key, so the fuller name found nobody — a second entry was made
@@ -139,6 +149,7 @@ export function findActorKey(state, name) {
    * "Guard captain Holt" is not "Guard". */
   const raw = String(name || '').trim().replace(/^(?:the|a|an)\s+/i, '').split(/[\s,]+/).filter(Boolean);
   const TITLE = /^(?:captain|lieutenant|commander|general|lord|lady|sir|dame|master|mistress|doctor|dr\.?|professor|prof\.?|mr\.?|mrs\.?|ms\.?|miss|king|queen|prince|princess|sergeant|officer|agent|detective|chief|elder|father|mother|sister|brother|saint|st\.?)$/i;
+  const longer = []; /* M584: every key the title or surname rule fits — one meaning, or none */
   for (const key of Object.keys(actors)) {
     const kt = key.trim().split(/[\s,]+/).filter(Boolean);
     const lower = (a) => a.map((w) => w.toLowerCase());
@@ -148,11 +159,19 @@ export function findActorKey(state, name) {
     const head = raw.slice(0, raw.length - kt.length);
     const surnameAdded = lower(raw.slice(0, kt.length)).join(' ') === lower(kt).join(' ') && tail.length <= 2 && tail.every((w) => /^[A-Z\p{Lu}]/u.test(w) && !TITLE.test(w));
     const titleFirst = lower(raw.slice(raw.length - kt.length)).join(' ') === lower(kt).join(' ') && head.length <= 2 && head.every((w) => TITLE.test(w));
-    if (surnameAdded || titleFirst) return key;
+    if (surnameAdded || titleFirst) longer.push(key);
   }
-  return null;
+  return longer.length === 1 ? longer[0] : null;
 }
 
+/* M584: does this name fit more than one sheet entry? ("Kuchiki" with Rukia and Byakuya on the sheet) — then a condition
+ * or an estimate for it is let go, never written onto a new "Kuchiki" beside them */
+export function actorNameIsAmbiguous(state, name) {
+  const actors = (state && state.sheet && state.sheet.actors) || {};
+  const toks = String(name || '').toLowerCase().trim().split(/[\s,]+/).filter(Boolean);
+  if (!toks.length || findActorKeyExact(state, name)) return false;
+  return Object.keys(actors).filter((key) => { const kt = key.toLowerCase().trim().split(/[\s,]+/).filter(Boolean); return toks.every((t) => kt.includes(t)); }).length > 1;
+}
 export function findActorKeyExact(state, name) {
   const actors = (state && state.sheet && state.sheet.actors) || {};
   const target = String(name || '').toLowerCase().trim();
@@ -180,11 +199,8 @@ export function findActorKeySamePerson(state, name) {
   for (const key of Object.keys(actors)) if (nrm(key) === target) return key;
   const tt = toks(name);
   if (!tt.length) return null;
-  for (const key of Object.keys(actors)) {
-    const kt = toks(key);
-    if (kt.length && (kt.every((w) => tt.includes(w)) || tt.every((w) => kt.includes(w)))) return key;
-  }
-  return null;
+  const hits = Object.keys(actors).filter((key) => { const kt = toks(key); return kt.length && (kt.every((w) => tt.includes(w)) || tt.every((w) => kt.includes(w))); });
+  return hits.length === 1 ? hits[0] : null; /* M584: one meaning, or none */
 }
 
 /* M345: ONE ENTRY FOR THE MAIN CHARACTER (Arbiter's reconcilePlayerEntries). Any sheet entry filed under a name that
@@ -355,16 +371,16 @@ function applyMoraleShock(state, b, allyBreaks, enemyBreaks, eng) {
 
 /* The live combatant record for a name inside whatever fight is running. */
 export function liveCombatant(state, name) {
-  const match = (u) => u && typeof u.name === 'string' && samePersonName(u.name, name);
-  if (state && state.duel) {
-    if (match(state.duel.player)) return state.duel.player;
-    if (match(state.duel.opp)) return state.duel.opp;
-  }
-  if (state && state.battle) {
-    for (const u of (state.battle.allies || [])) if (match(u)) return u;
-    for (const u of (state.battle.enemies || [])) if (match(u)) return u;
-  }
-  return null;
+  /* M584: the exact name first; a part of a name that fits two in the fight (two Kuchikis) names neither */
+  const units = [];
+  if (state && state.duel) units.push(state.duel.player, state.duel.opp);
+  if (state && state.battle) units.push(...(state.battle.allies || []), ...(state.battle.enemies || []));
+  const named = units.filter((u) => u && typeof u.name === 'string');
+  const want = String(name || '').trim().toLowerCase();
+  const exact = named.find((u) => u.name.trim().toLowerCase() === want);
+  if (exact) return exact;
+  const near = named.filter((u) => samePersonName(u.name, name));
+  return near.length === 1 ? near[0] : null;
 }
 
 /* M345: a domain in plain words, for anything the storyteller reads */
@@ -386,6 +402,7 @@ export function applyConditionChange(state, cc) {
   state.sheet = state.sheet && typeof state.sheet === 'object' ? state.sheet : { actors: {}, playerName: '' };
   if (!state.sheet.actors || typeof state.sheet.actors !== 'object') state.sheet.actors = {};
   let entry = findActor(state, name);
+  if (!entry && actorNameIsAmbiguous(state, name)) return null; /* M584: two people answer to it — no ghost entry */
   if (!entry) {
     let base = ENGINE_DEFAULTS.defaultRating;
     const live = liveCombatant(state, name);
@@ -450,7 +467,7 @@ export function persistFightEstimates(state) {
     let wrote = false;
     const put = (name, rating, domain) => {
       const key = safeKey(name);
-      if (!key || findActor(state, key)) return;
+      if (!key || findActor(state, key) || actorNameIsAmbiguous(state, key)) return; /* M584 */
       state.sheet = state.sheet && typeof state.sheet === 'object' ? state.sheet : { actors: {}, playerName: '' };
       if (!state.sheet.actors) state.sheet.actors = {};
       state.sheet.actors[key] = {

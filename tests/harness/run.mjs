@@ -235,6 +235,7 @@ import './m574.mjs'; /* M574: the line-by-line audit, part 1 */
 import './m575.mjs'; /* M575: one fingerprint */
 import './m578.mjs'; /* M578: the line-by-line audit, part 5 */
 import './m580.mjs'; /* M580: the structured prefill */
+import './m584.mjs'; /* M584: the line-by-line audit, part 7 */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

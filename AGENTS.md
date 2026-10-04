@@ -14832,3 +14832,17 @@ reply. prefillPlan and prefillLead (the words put back) read the same. As writte
     readers' shelf, whether the tale was marked written elsewhere). With that in it, the whole walk ran three times —
     once right after the harness, as the gate runs it — and passed 211/211 each time; the failure was not seen again.
 - version.js -> m583-002.
+
+# M584 — the line-by-line audit, part 7: engine/duels.js (lines 1–1180)
+- A FIGHT COULD READ THE WRONG PERSON'S SKILLS. The sheet's lookups (findActorKey, findActorKeySamePerson) and the live
+  fight's (liveCombatant) took the FIRST entry a part of a name fit: "Kuchiki" was whichever of Rukia and Byakuya stood
+  first on the sheet — a ruling on Byakuya could fight with Rukia's numbers, and a live fight could strike the wrong unit.
+  One meaning or none now (the ledger's own matcher has kept this rule since M414); the exact name always first.
+- A TITLE IN FRONT WAS NOT READ PAST: "Captain Zaraki" found no sheet entry ("Kenpachi Zaraki" has the same number of
+  words, so the surname/title rule never looked) and he fought at the default 5, not his 10. Leading titles are read past
+  with the ledger's one list of titles (names.js isTitleWord — "Headmaster Vane" too); still one meaning or none.
+- AND NO GHOST ENTRIES: a condition (applyConditionChange) or a fight estimate (persistFightEstimates) for a name two people
+  share is let go (actorNameIsAmbiguous) — no new "Kuchiki" entry beside Rukia and Byakuya.
+- Laws M584-1/2. Read and sound otherwise: the engine's defaults, composure and its morale shock, conditions and their
+  domains, the live rating, the duel (exchange, recovery, the sequence of strikes), units built (counts, estimates),
+  battles (joining, pairings, the main character's beat, the fall-back when he is down), war (command, strength).
