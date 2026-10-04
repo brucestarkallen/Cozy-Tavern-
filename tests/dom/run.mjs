@@ -9592,7 +9592,7 @@ test('DOM-211 THE READY-MADE TEMPLATES, IN THE FORM (M583): choose one, type his
     assert(q('#conn-prefill-presets').hidden, 'the templates wait until Structured is chosen');
     q('#conn-prefill-mode').value = 'structured'; q('#conn-prefill-mode').dispatchEvent(new env.window.Event('change', { bubbles: true }));
     assert(!q('#conn-prefill-presets').hidden, 'shown with Structured');
-    eq([...q('#conn-prefill-preset').options].map((o) => o.textContent.slice(0, 2)).join(','), 'Ch,1 ,2 ,3 ', 'three templates, numbered');
+    eq([...q('#conn-prefill-preset').options].map((o) => o.textContent.slice(0, 2)).join(','), 'Ch,1 ,2 ,3 ,4 ,5 ', 'five templates, numbered in order');
     click(q('#btn-prefill-preset'));
     eq(q('#conn-prefill-preset-said').textContent, 'Choose a template first.');
     q('#conn-prefill-preset').value = 'line'; q('#conn-prefill-preset').dispatchEvent(new env.window.Event('change', { bubbles: true }));

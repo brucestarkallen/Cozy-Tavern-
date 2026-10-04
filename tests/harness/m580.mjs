@@ -79,8 +79,14 @@ test('M580-4 A HOUSE THAT REFUSES IT says so once: the same turn goes again with
   assert(Boolean(other.calls[0].body.response_format), 'another model on the connection is asked again');
   const again = await tell(kept, () => sseRaw(['Friday]']));
   assert(!again.calls[0].body.response_format, 'not asked again for this model');
-  const seedOnly = await tell({ ...OR, prefill: '<think>Plan it first.', prefillMode: 'structured' }, () => sseRaw(['A page.']));
-  assert(!seedOnly.calls[0].body.response_format, 'a seed alone has no opening to ask for — the turn goes as written');
+  /* M586 (his ask: think AND be held to his words): in Structured a <think> opening is part of the template — the model writes
+   * the thought itself, may go on as long as it likes, then must close it and write the page */
+  const seedOnly = await tell({ ...OR, prefill: '<think>Plan it first.', prefillMode: 'structured' }, () => sseRaw(['{"response":"<think>Plan it first. Kaelen strikes.</think>\\n[The gate — Monday | 09:00]\\n\\nKaelen lunged at the gate, and the bell rang twice over the yard as the dust rose."}']));
+  assert(seedOnly.calls[0].body.response_format, 'a thinking opening goes structured');
+  const open = new RegExp(seedOnly.calls[0].body.response_format.json_schema.schema.properties.response.pattern);
+  assert(open.test('<think>Plan it first. Then more thought.</think>\n[The gate]\n\nKaelen lunged at the gate, and the bell rang twice over the yard as the dust rose high.'), 'it thinks on, closes, writes');
+  assert(!open.test('<think>Plan it first. And it never closes the thought at all, it just keeps going and going on and on.'), 'it must close the thought');
+  eq(seedOnly.out.thinking.trim(), 'Plan it first. Kaelen strikes.', 'the thought in the thinking box');
 });
 
 test('M581-1 BANNED WORDS, EXACT: the continuation can never carry one — any capitals, inside longer words, after a near miss ("oozone", "otapestry" — what the extension\'s own pattern lets through), self-overlapping words; checked against thousands of random texts', async () => {
@@ -127,7 +133,7 @@ test('M582 A STRUCTURED TEMPLATE THAT GOES AS WRITTEN NEVER SENDS ITS MARKERS: o
 test('M583 THE READY-MADE TEMPLATES: each is written from his words, follows its own rule end to end (the reply matches, the hidden plan never shows, the page starts at its header), and his words can never become a marker', async () => {
   const { STRUCTURED_PRESETS, fillPreset } = await import('../../js/providers/structured.js');
   const { splitAtHeader } = await import('../../js/ui/headergate.js');
-  eq(STRUCTURED_PRESETS.map((p) => p.id).join(','), 'line,plan,opener');
+  eq(STRUCTURED_PRESETS.map((p) => p.id).join(','), 'line,plan,opener,think,brainstorm');
   const words = 'Yuhuu Hulk is here Bruce story is good';
   const tail = ' — the shout rolled across the yard, and Kaelen lowered his blade, squinting at the gate where the dust still hung in the air.';
   const replies = { line: '[The yard — Monday | 09:00]\n\n' + words + tail, plan: '<plan>The last page ended with: Kaelen at the gate. This page will: Jovan answers and the captain arrives</plan>\n[The yard — Monday | 09:00]\n\n' + words + tail };
@@ -169,4 +175,26 @@ test('M585 A STRUCTURED ANSWER THAT NEVER ENDS IS NEVER WAITED ON: the moment it
   assert(cut.out.notes.some((x) => /closed in the middle of a sentence/.test(x)), 'and said');
   const pat = structuredSchema('Pick [[opt:a|b]] then [[w:2-4]] [[end]]').properties.response.pattern + structuredSchema('[x ', { ascii: true }).properties.response.pattern + structuredSchema('[x ').properties.response.pattern;
   assert(!/\\[sS]/.test(pat), 'no \\s or \\S anywhere: ' + pat);
+});
+
+test('M586 THINK AND THINK: a structured answer that opens with a <think> block (his thinking seed in his words, or a brainstorm held to its shape) has that block in the thinking box — beside the model\'s own native thinking when it has some — and the page is what follows', async () => {
+  const { fillPreset } = await import('../../js/providers/structured.js');
+  const conn = { type: 'openai', baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'k', model: 'openai/gpt-5', prefillMode: 'structured', prefill: fillPreset('think', 'nice iron man will make this good').prefill };
+  const reply = '<think>nice iron man will make this good — Kaelen is cornered, so the page should open on his breath before he swings at the gate</think>\n[The gate — Monday | 09:00]\n\nKaelen lunged at the gate and the bell rang across the yard.';
+  assert(new RegExp(structuredSchema(conn.prefill).properties.response.pattern).test(reply), 'the reply follows the rule');
+  const raw = JSON.stringify({ response: reply });
+  const pieces = []; for (let i = 0; i < raw.length; i += 11) pieces.push(raw.slice(i, i + 11));
+  const plain = await tell(conn, () => sseRaw(pieces));
+  assert(/^nice iron man will make this good — Kaelen is cornered/.test(plain.out.thinking.trim()), 'his seed and its thought in the thinking box: ' + plain.out.thinking.slice(0, 80));
+  assert(plain.out.text.startsWith('[The gate — Monday | 09:00]'), 'the page starts at its header: ' + plain.out.text.slice(0, 40));
+  assert(!/<\/?think>/.test(plain.out.text), 'no tags on the page');
+  /* with the model's own thinking first (a native channel), both are kept, in order */
+  const enc2 = (t) => new TextEncoder().encode(t);
+  const frames = [{ reasoning: 'Native thought: the user wants a fight scene.' }, ...pieces.map((c) => ({ content: c }))];
+  const body = frames.map((d) => 'data: ' + JSON.stringify({ choices: [{ delta: d }] }) + '\n\n').join('') + 'data: [DONE]\n\n';
+  const native = await tell(conn, () => ({ ok: true, status: 200, headers: new Headers({ 'content-type': 'text/event-stream' }), body: new ReadableStream({ start(c) { c.enqueue(enc2(body)); c.close(); } }), clone() { return this; }, json: async () => ({}) }));
+  assert(/^Native thought: the user wants a fight scene\.\n\nnice iron man will make this good/.test(native.out.thinking), 'its own thinking, then his: ' + JSON.stringify(native.out.thinking.slice(0, 90)));
+  assert(native.out.text.startsWith('[The gate — Monday | 09:00]'), 'the page the same');
+  const bs = fillPreset('brainstorm', '').prefill;
+  assert(new RegExp(structuredSchema(bs).properties.response.pattern).test('<think>\nlast page ended with: Kaelen at the gate, blade drawn\npath A: he swings first and opens the duel\npath B: he waits and lets Jovan speak\npath C: the captain arrives and stops them\ngoing with: path B, because the tension should build before the clash\n</think>\n[The gate — Monday | 09:00]\n\nKaelen waited, blade low, and let the silence stretch across the yard.'), 'the brainstorm form holds its shape');
 });

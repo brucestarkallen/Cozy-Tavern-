@@ -139,7 +139,10 @@ export const MIN_AFTER_DEFAULT = 80;
 /* the schema his request carries: one string field that must open with the template and carry on at least minChars more */
 export function structuredSchema(text, { minChars = MIN_AFTER_DEFAULT, ascii = false, banned = '' } = {}) {
   const tpl = readTemplate(text);
-  const head = templatePattern(tpl.whole, { ascii });
+  let head = templatePattern(tpl.whole, { ascii });
+  /* M586: a template that opens a <think> and never closes it — the model thinks on as long as it likes, then must close
+   * the thought and write the page after it */
+  if (/<think>/i.test(tpl.whole) && !/<\/think>/i.test(tpl.whole.slice(tpl.whole.search(/<think>/i)))) head += ANY + '*' + literalPattern('</think>');
   const least = Math.max(1, Math.min(10000, Math.round(Number.isFinite(minChars) ? minChars : MIN_AFTER_DEFAULT)));
   /* M581: with banned words, what follows the opening is the exact "never contains one" pattern (no minimum then — a
    * length cannot be laid over it in one pattern) */
@@ -355,6 +358,22 @@ export const STRUCTURED_PRESETS = Object.freeze([
     guide: 'Another model — the one you pick in Settings → The workers → The opener (an uncensored model is the usual choice) — writes the first ten to fifteen words of every page; your storyteller must start with exactly those words and carry on. For a storyteller that refuses or waters scenes down. No words of yours are needed.',
     build: () => '[[pg]]',
     example: () => '[The gate — Monday | 09:00] Kaelen drew his blade before anyone spoke — and the storyteller carries on from the opener’s words…',
+  },
+  {
+    id: 'think',
+    name: '4 — It thinks in your words first (in the thinking box), then writes the page',
+    needsWords: true,
+    guide: 'Your words are the start of its thinking — like a thinking prefill, but the model writes them itself, so it cannot skip them. It carries the thought on (10 to 150 words), and that thinking goes in the thinking box beside its own; then it writes the page. Works with its own thinking on or off.',
+    build: (w) => '<think>' + w + ' [[w:10-150]]</think>\n',
+    example: (w) => '(in the thinking box) ' + (w || 'Your words') + ' … and the model carries the thought on…\n\n(the page) [The training yard — Monday | 09:00]\n\nThe scene itself…',
+  },
+  {
+    id: 'brainstorm',
+    name: '5 — It weighs three paths and picks one (in the thinking box), then writes the page',
+    needsWords: false,
+    guide: 'Before every page the model fills in a short form in the thinking box — how the last page ended, three ways the scene could go and what each would cost, and which it picks and why — then writes the page. The form is held to its shape: it cannot skip a line. Your words are optional: if you give some, they open the page right after the header.',
+    build: (w) => '<think>\nlast page ended with: [[w:5-35]]\npath A: [[w:6-40]]\npath B: [[w:6-40]]\npath C: [[w:6-40]]\ngoing with: path [[opt:A|B|C]], because [[w:6-40]]\n</think>\n' + (w ? '[[line]]\n\n' + w : ''),
+    example: (w) => '(in the thinking box) last page ended with: …\npath A: … path B: … path C: …\ngoing with: path B, because …\n\n(the page) [The training yard — Monday | 09:00]\n\n' + (w ? w + ' — ' : '') + 'the scene, down the path it chose…',
   },
 ]);
 /* his words, safe inside a template: no marker can be made of them (a "[[" or "]]" he typed is not a slot) */

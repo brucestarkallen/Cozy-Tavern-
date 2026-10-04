@@ -14869,3 +14869,23 @@ nothing but the object's close, pads with whitespace until its token limit (the 
   them — the extension found the plain forms safest everywhere).
 - Law M585 (a stream that pads forever returns at once, the padding never read; a mid-sentence close cut short and said;
   no \s or \S in any pattern). M580-1 and M581-2 read the plain forms.
+
+# M586 — think AND think with the structured prefill (his word: "the reddit op can combine think and think with structured
+# prefill — this should be possible")
+How the extension's author does it (its README): a <thinking> block written INTO the template, its lines held by stubs —
+the model writes a structured thinking block itself before the page — beside the model's own native thinking. The house
+had said "a thinking seed is not sent structured" (M580): splitPrefill read a <think> opening as a SEED, so a structured
+template that began with one went as written. Now:
+- In Structured the WHOLE prefill is the template (openai.js structuredPlanFor): a <think>…</think> in it is a thinking block
+  the model must write itself; a <think> never closed lets it think on as long as it likes, then it must close the thought
+  and write the page (structured.js: the pattern gains (?:.|\n)*</think>).
+- The block goes in the THINKING BOX always (openai.js: a structured answer's words pass through their own think-splitter),
+  after the model's own native thinking when it has some (a blank line between); the line break after </think> is not
+  the page's. The page is what follows.
+- Two templates: 4 "It thinks in your words first (in the thinking box), then writes the page" (<think>his words
+  [[w:10-150]]</think>) — his thinking seed, written by the model itself; 5 "It weighs three paths and picks one (in the
+  thinking box), then writes the page" (the extension's brainstorm form, shorter). Numbered 1–5 in order.
+- Sent as written after all: a Structured template's thinking block rides as a seed up to its first marker (effort.js).
+- The form's note and the README say so. Law M586 (his seed and its thought in the thinking box, the page at its header,
+  no tags on the page; with native thinking first, both kept in order; the brainstorm form holds its shape); M580-4 now
+  holds the new rule (a <think> opening goes structured, must close, lands in the thinking box). Walk DOM-211 reads five.

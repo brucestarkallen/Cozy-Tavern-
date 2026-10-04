@@ -130,6 +130,13 @@ The easy way — **Ready-made template** (shown when Structured is chosen): pick
 1. **Your words open every page, right after the scene header** — `[The yard — Monday | 09:00]` then your words, then the scene.
 2. **It plans first (you never see the plan), then writes the page** — your words are optional.
 3. **Another model starts every page (the opener)** — pick the opener in Settings → The workers.
+4. **It thinks in your words first (in the thinking box), then writes the page** — your words start its thinking, like a
+   thinking prefill, but the model writes them itself. Works with its own thinking on or off: both go in the thinking box.
+5. **It weighs three paths and picks one (in the thinking box), then writes the page** — a short form it cannot skip.
+
+In Structured, a `<think>…</think>` at the start of your prefill is a thinking block the model must write itself (it goes in
+the thinking box, beside the model's own thinking); a `<think>` you never close lets it think as long as it likes, then
+it must close the thought and write the page.
 
 Writing your own: `[[keep]]` hides everything before it; `[[w:2-5]]` 2–5 words; `[[opt:A|B]]` one of these; `[[line]]`
 one line; `[[lines:2-4]]`; `[[num]]`; `[[number:1-100]]`; `[[emotion]]`; `[[name]]`; `[[action]]`; `[[thought]]`;

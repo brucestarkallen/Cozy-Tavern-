@@ -31,7 +31,7 @@ import { withImagePart, transportError } from './wire.js';
  * rejection memory) and the storyteller prefill live in effort.js. */
 import {
   reasonStyle, effortFor, REASONING_REFUSAL, PREFILL_REFUSAL, hostIsOpenAI,
-  applyPrefill, prefillPlan, markConnectionDown, splitPrefill, reasoningIsDown, healStaleRefusal, budgetFor, prefillLead, prefillGap, prefillProfile, deepseekBetaBase, healStalePrefillRefusal, thinkingLead,
+  applyPrefill, prefillPlan, markConnectionDown, reasoningIsDown, healStaleRefusal, budgetFor, prefillLead, prefillGap, prefillProfile, deepseekBetaBase, healStalePrefillRefusal, thinkingLead,
  declaredEfforts, declaredWire, zaiWire, glmVersion, learnedFacts, learnFact, lessonFrom, fitEffort, alwaysThinks } from './effort.js';
 
 const DEFAULT_BASE = 'https://api.openai.com';
@@ -164,7 +164,10 @@ export function structuredPlanFor(connection) {
   const c = connection || {};
   if (c.prefillMode !== 'structured' || c.type === 'anthropic') return null;
   if (c.structuredDownAt && (!c.structuredDownModel || c.structuredDownModel === c.model)) return null;
-  const reply = splitPrefill(String(c.prefill == null ? '' : c.prefill)).content;
+  /* M586: in Structured the WHOLE prefill is the template — a <think>…</think> in it is a thinking block the model must
+   * write itself (and the house puts in the thinking box), not a seed handed over: the way to think AND be held to his
+   * words in the same turn */
+  const reply = String(c.prefill == null ? '' : c.prefill).replace(/\s+$/, '');
   if (!reply.trim()) return null;
   /* M581: the houses the extension itself never asks (their JSON answers are a mode, not a pattern): sent as written */
   if (STRUCTURED_NEVER.test(String(c.baseUrl || ''))) return null;
@@ -662,7 +665,19 @@ export function createOpenAIProvider(connection) {
     const splitter = makeThinkSplitter(emit);
     /* M580: a structured answer is JSON — its words are read out of it as they stream (and the hidden part held back) */
     const decoder = structuredNow ? makeStructuredDecoder({ hidden: structuredNow.hidden }) : null;
-    const prose = (text) => { const words = decoder ? decoder.feed(text) : text; if (!words) return; if (nativeThoughts) emit('prose', words); else splitter.feed(words); };
+    /* M586: THINK AND THINK. A structured answer that opens with a <think>…</think> block (his template's — a thinking seed in
+     * his own words, or a brainstorm the schema holds to its shape) has that block put in the thinking box ALWAYS — beside
+     * the model's own native thinking when it has some (that came first; the block follows it, a blank line between) —
+     * and the page is what follows. The model thinks twice: in its own channel, and in his words. */
+    let structuredThinkSep = false;
+    let structuredProseBegun = false;
+    const structuredEmit = (channel, text) => {
+      if (channel === 'thinking' && !structuredThinkSep) { structuredThinkSep = true; if (thinking && !/\n\s*$/.test(thinking)) text = '\n\n' + text; }
+      if (channel === 'prose' && !structuredProseBegun) { text = text.replace(/^\s+/, ''); if (!text) return; structuredProseBegun = true; } /* the line break after </think> is not the page's */
+      emit(channel, text);
+    };
+    const structuredSplitter = decoder ? makeThinkSplitter(structuredEmit) : null;
+    const prose = (text) => { const words = decoder ? decoder.feed(text) : text; if (!words) return; if (structuredSplitter) structuredSplitter.feed(words); else if (nativeThoughts) emit('prose', words); else splitter.feed(words); };
     /* M585: A STRUCTURED ANSWER THAT NEVER ENDS. His report: "sometimes in the middle of the reply it's stuck… waited 14
      * minutes, it stopped at 40%". Two ways it happens, both known to the extension (its stream guard): the model closes
      * the answer's text early — a dialogue quote written bare instead of escaped ends a JSON string — and then, held by the
@@ -720,7 +735,7 @@ export function createOpenAIProvider(connection) {
       finishReason = 'length';
       notes.push('The structured answer stopped making progress (it kept sending, but no more words came), so it was stopped — the words before were kept. Say “go on” to carry the page forward.');
     }
-    if (decoder) { const rest = decoder.end(); if (rest) { if (nativeThoughts) emit('prose', rest); else splitter.feed(rest); } }
+    if (decoder) { const rest = decoder.end(); if (rest) structuredSplitter.feed(rest); structuredSplitter.end(); }
     splitter.end();
     /* M160: A PAGE THE WIRE BROKE IS NEVER SHOWN AS WHOLE. An error frame
      * arriving mid-stream was thrown only when nothing had landed yet; with

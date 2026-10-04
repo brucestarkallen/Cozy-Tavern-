@@ -544,8 +544,10 @@ export function prefillPlan(conn) {
   const text = String(conn && conn.prefill != null ? conn.prefill : '');
   if (!text.trim()) return { send: false, why: '' };
   const profile = prefillProfile(conn);
-  const { seed, content: written } = splitPrefill(text);
+  const { seed: seedWritten, content: written } = splitPrefill(text);
   const content = asWrittenOpening(conn, written); /* M582 */
+  /* M586: a Structured template's thinking block, sent as written, rides as a seed up to its first marker */
+  const seed = conn && conn.prefillMode === 'structured' && /\[\[/.test(seedWritten) ? seedWritten.slice(0, seedWritten.search(/\[\[[^\]\n]{1,400}\]\]/) === -1 ? undefined : seedWritten.search(/\[\[[^\]\n]{1,400}\]\]/)).replace(/\s+$/, '') : seedWritten;
   const fields = prefillFields(conn);
   const effort = conn && conn.reasoning && typeof conn.reasoning.effort === 'string' ? conn.reasoning.effort : '';
   const thinkingRefused = reasoningIsDown(conn, reasonStyle(conn));
