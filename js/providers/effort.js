@@ -210,6 +210,7 @@ export const PREFILL_REFUSAL = /assistant message prefill|must end with a user m
  * request on it either. The mark stands until the model field changes —
  * the settings form clears it then. Never throws: the turn's outcome is
  * already decided by the retry, the memory is a courtesy. */
+import { readTemplate } from './structured.js'; /* M582 */
 import { detectKey } from './room.js'; /* M348: what the model is, kept for that very model at that very address */
 import { db } from '../store.js';
 
@@ -484,6 +485,17 @@ export function splitPrefill(text) {
   return { seed: m[1].trim(), content: raw.slice(m[0].length).replace(/^\s+/, '') };
 }
 
+/* M582: A STRUCTURED TEMPLATE SENT AS WRITTEN. When a connection set to Structured goes as written this turn (an address
+ * that takes no schema, a model that refused it), its markers mean nothing to the model — "[[line]]", "[[w:5-20]]" or
+ * "[[keep]]" would have been sent as words and put at the head of his page. Only the plain words that open the shown part
+ * ride: the hidden part (before [[keep]]) and [[end]] are dropped, and the reply is started up to the first marker. */
+export function asWrittenOpening(conn, content) {
+  const text = String(content == null ? '' : content);
+  if (!conn || conn.prefillMode !== 'structured' || !/\[\[/.test(text)) return text;
+  const tpl = readTemplate(text);
+  const at = tpl.shown.search(/\[\[[^\]\n]{1,400}\]\]/);
+  return (at === -1 ? tpl.shown : tpl.shown.slice(0, at)).replace(/^\s+/, '');
+}
 /* keys that are part of the message itself: a flag named "content" would send content:true and destroy the prefill with it */
 export const RESERVED_FIELDS = Object.freeze(['role', 'content', 'name', 'tool_calls', 'tool_call_id', 'refusal', '__proto__', 'constructor', 'prototype']);
 /* a field name typed by hand: trimmed (" partial " is a key no provider reads), "none" for no field, and refused when unusable */
@@ -532,7 +544,8 @@ export function prefillPlan(conn) {
   const text = String(conn && conn.prefill != null ? conn.prefill : '');
   if (!text.trim()) return { send: false, why: '' };
   const profile = prefillProfile(conn);
-  const { seed, content } = splitPrefill(text);
+  const { seed, content: written } = splitPrefill(text);
+  const content = asWrittenOpening(conn, written); /* M582 */
   const fields = prefillFields(conn);
   const effort = conn && conn.reasoning && typeof conn.reasoning.effort === 'string' ? conn.reasoning.effort : '';
   const thinkingRefused = reasoningIsDown(conn, reasonStyle(conn));
@@ -593,7 +606,7 @@ export function prefillSilencesThinking(conn) {
 export function prefillLead(conn) {
   const text = String(conn && conn.prefill != null ? conn.prefill : '').replace(/\s+$/, '');
   if (!text.trim()) return '';
-  return splitPrefill(text).content; /* M328: whatever follows the seed — nothing at all for a pure thinking prefill */
+  return asWrittenOpening(conn, splitPrefill(text).content); /* M328: whatever follows the seed — nothing at all for a pure thinking prefill; M582: a structured template's plain words only */
 }
 /* M328: …and the words the THOUGHT was started with are part of the thought (the same law, the other channel) */
 export function thinkingLead(conn) {

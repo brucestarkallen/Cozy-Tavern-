@@ -14789,3 +14789,19 @@ it streams. Written for the house from the README and its behaviour — not copi
   thinking AND starts the reply with "OK start now" — but "cut everything before the scene header" (on by default) moves
   words before the [place — time] header into the thinking, so the page itself begins at the header (headergate
   splitAtHeader, measured). To start the PAGE, start it with the header: "</think>[The gate — ".
+
+# M582 — a structured template that goes as written never sends its markers
+Found while answering him ("start the page with 'Yuhuu Hulk is here…'?"): a connection set to Structured goes AS WRITTEN on
+an address that takes no schema (DeepSeek, Moonshot — always) or after a model refused it — and the template went with it
+word for word: "[[line]]", "[[w:5-20]]", "[[keep]]" and a hidden plan were sent as the start of the reply and put back at
+the head of his page. effort.js asWrittenOpening: for a Structured connection, only the plain words opening the shown part
+start the reply (the hidden part and [[end]] dropped, cut at the first slot); nothing plain before a slot → no started
+reply. prefillPlan and prefillLead (the words put back) read the same. As written mode is untouched. Law M582.
+- HIS QUESTION, measured in code: a plain opening "Yuhuu Hulk is here Bruce story is good" is written first and then the
+  scene header — so "Anything written before the header is thinking, not page" (on by default) moves it into the thinking
+  box. Structured with "[[line]]" then a blank line then his words: the model writes its header line first, then his
+  words, and nothing is moved (structuredSchema + splitAtHeader, checked).
+- A FLAKY SCENARIO, NOT THIS CHANGE: walk DOM-8 (branch, then delete) failed once in the whole walk ("waited too long for a
+  new tale on the shelf") and fails every time when run as DOM-2 + DOM-7 + DOM-8 alone — on m581's code exactly the same
+  (checked), so it is a timing dependency of the scenario, not M582; the whole walk run again passed 210/210. Left for the
+  audit's reading of the branch path.

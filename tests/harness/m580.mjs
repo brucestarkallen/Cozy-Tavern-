@@ -113,3 +113,13 @@ test('M581-2 THE SCHEMA CARRIES THE BANNED WORDS; the houses the extension never
   const many = structuredPlanFor({ type: 'openai', baseUrl: 'https://openrouter.ai/api/v1', model: 'openai/gpt-5', prefill: '[x ', prefillMode: 'structured', prefillBanned: 'ozone\ntapestry\nelara\nluminous\nfirmament\ngaze\ntestament\nwhisper' });
   assert(/too many for one exact pattern/.test(many.note) && /\[\\s\\S\]\{80,\}/.test(many.schema.properties.response.pattern), 'said, and the page goes with the plain minimum');
 });
+
+test('M582 A STRUCTURED TEMPLATE THAT GOES AS WRITTEN NEVER SENDS ITS MARKERS: on an address that takes no schema (or a model that refused it) only the plain words that open the shown part start the reply — the hidden part, [[end]] and every slot stay home', async () => {
+  const { prefillPlan, prefillLead } = await import('../../js/providers/effort.js');
+  const c = { type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', model: 'kimi-k3', prefillMode: 'structured' };
+  eq(prefillPlan({ ...c, prefill: '[[line]]\n\nYuhuu Hulk is here' }).send, false, 'nothing plain before the first marker: no started reply at all');
+  eq(prefillPlan({ ...c, prefill: '<plan>[[w:5-20]]</plan>\n[[keep]]\n[The gate — ' }).content, '[The gate —', 'the hidden plan never sent');
+  eq(prefillPlan({ ...c, prefill: '[The gate — [[pg]]' }).content, '[The gate — ', 'up to the marker');
+  eq(prefillLead({ ...c, prefill: '[The gate — [[pg]]' }), '[The gate — ', 'and the words put back in front of the page are the same');
+  eq(prefillPlan({ ...c, prefillMode: undefined, prefill: 'Yuhuu [[line]]' }).content, 'Yuhuu [[line]]', 'As written: his words exactly as typed');
+});
