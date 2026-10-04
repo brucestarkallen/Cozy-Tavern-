@@ -81,3 +81,26 @@ test('M589 THE MAIN CHARACTER NEVER STEPS OUT OF HIS OWN SCENE; and who is close
   const plan = readPlan(JSON.stringify({ story: 's', scene: 'he knocks', people: [{ name: 'Rukia', now: 'hears his knock, heart racing', wants: 'to open it' }] }), { present: ['Jovan', 'Rukia'], mc: 'Jovan' });
   eq(plan.people.map((p) => p.name).join(','), 'Rukia', 'the planner may plan her answer to the door');
 });
+
+test('M594 EVERY HELPER IS TOLD THE PRESENCE RULES THE LEDGER KEEPS: his walking away leaves her behind (the page reader writes it), and an elsewhere note is let go only for someone in the scene — anyone else is moved to where they are now', async () => {
+  const st0 = applyMutations({ ...emptyState() }, [{ type: 'mc.set', name: 'Jovan' }]).state;
+  const ex = (await import('../../js/agents/extractor.js')).buildExtractorMessages({ state: st0, userText: 'x', assistantText: 'y' });
+  const exSys = JSON.stringify(ex);
+  assert(/OR he walks away and leaves them behind/.test(exSys) && !/ONLY when the page SHOWS them leaving/.test(exSys), 'the page reader');
+  assert(/only for someone who is in the scene now/.test(exSys), 'its clear rule');
+  const wSrc = JSON.stringify((await import('../../js/agents/world.js')));
+  const all = [
+    JSON.stringify((await import('../../js/agents/auditor.js')).buildAuditorMessages({ state: st0, brief: '', pages: [], record: '' })),
+  ];
+  assert(all.every((t) => /a person the story keeps is always somewhere/.test(t)), 'the auditor');
+});
+
+test('M594-2 HE LEAVES WITHOUT A WORD: when the page ends on him going, the reader\'s leave of someone the page never names still stands — the room is left behind him', async () => {
+  const { extractTurn } = await import('../../js/agents/extractor.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const st = applyMutations({ ...emptyState(), page: 20 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the mess hall' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Renji' }]).state;
+  const page = '[the mess hall — Monday, March 3, 2025 | 12:30 | clear | uniform | by the door]\n\nThe argument had gone on long enough. Jovan pushed back his chair and walked out without a word.';
+  const answer = JSON.stringify({ mutations: [{ type: 'presence.leave', name: 'Renji', cause: 'he walked out; Renji stayed at the table' }], brief: { pressure: [], ripe: [], twb: null }, deltas: [] });
+  const read = await withHouse(thinkingHouse({ answer }), () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'I leave.', assistantText: page, pageNumber: 20 }));
+  assert(read.mutations.some((m) => m.type === 'presence.leave' && m.name === 'Renji'), 'Renji, never named on the page, is left behind: ' + JSON.stringify(read.mutations));
+});

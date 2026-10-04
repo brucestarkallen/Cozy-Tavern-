@@ -122,7 +122,7 @@ const VOCABULARY = [
   'place.set {"type":"place.set","name":"the chapel"} — the ground the scene stands on, only when first named or it truly moves',
   'clock.advance {"type":"clock.advance","minutes":30,"reason":"the walk to the chapel"} — when time clearly passes; minutes is a number',
   'presence.enter {"type":"presence.enter","name":"NAME","position":"by the fire","attire":"a travel cloak"} — position and attire only if shown',
-  'presence.leave {"type":"presence.leave","name":"OTHER NAME"} — ONLY when the page SHOWS them leaving (walks out, is carried off, vanishes); someone the page does not mention is quiet, not gone, and stays',
+  'presence.leave {"type":"presence.leave","name":"OTHER NAME"} — when someone stops sharing the main character\'s space: the page SHOWS them leaving (walks out, is carried off, vanishes), OR he walks away and leaves them behind (they stay where they were — never the main character himself: when he goes, the scene\'s place goes with him); someone the page does not mention is quiet, not gone, and stays',
   'presence.update {"type":"presence.update","name":"NAME","position":"at the window"} — when someone present moves or changes dress',
   /* M256: WHO KNOWS WHAT, FOR THE PEOPLE IN THE ROOM. knowledge.add appeared
    * NOWHERE in this file. The world agent has it, but the world agent is
@@ -149,7 +149,7 @@ const VOCABULARY = [
   'rel.shift {"type":"rel.shift","name":"OTHER NAME","axis":"p","delta":8,"cause":"she bandaged his hand without being asked"} — feelings toward the main character only; axis is p (warmth), r (romantic pull), or s (sensual charge); delta a small number, -20 to +20; cause REQUIRED, quoting the on-page beat that earned it',
   'rel.set {"type":"rel.set","name":"OTHER NAME","p":45,"r":60,"cause":"the page reveals she has loved him since they were children"} — when the page, the brief or the story\'s opening states a feeling that already exists (REVEALED, NOT EARNED, below) — never as a guess',
   'offscreen.set {"type":"offscreen.set","name":"NAME","location":"the chapel","activity":"lighting candles for the dead","agenda":"meaning to warn the abbot"} — only for a named character the prose shows leaving or shows elsewhere; never invent off-screen doings for someone the prose doesn’t mention',
-  'offscreen.clear {"type":"offscreen.clear","name":"NAME"} — when the prose says an elsewhere note no longer holds',
+  'offscreen.clear {"type":"offscreen.clear","name":"NAME"} — only for someone who is in the scene now (their elsewhere note is stale); for anyone else whose note no longer holds, write offscreen.set with where they are now — a person the story keeps is always somewhere',
 ].join('\n');
 
 /* M53: the writer's own law of the standings, given to the reader whole — it
@@ -496,7 +496,10 @@ export function mcWalksOff(pageText, mc) {
 export async function extractTurn(args = {}) {
   const read = await extractTurnRead(args);
   if (read && Array.isArray(read.mutations)) {
-    read.mutations = leavesTheyWereShown(read.mutations, String(args.userText || '') + '\n' + String(args.assistantText || ''));
+    /* M594: a leave needs its person named on the page — unless the page ends on HIM going: then everyone he walks away
+     * from is left behind, named or not ("He left without a word" leaves the room behind him) */
+    const mcGoing = Boolean(args.state && mcName(args.state) && mcName(args.state) !== 'the player' && mcWalksOff(args.assistantText, mcName(args.state)));
+    if (!mcGoing) read.mutations = leavesTheyWereShown(read.mutations, String(args.userText || '') + '\n' + String(args.assistantText || ''));
     /* M446: A LEAVING IS WHAT THE PAGE ENDS ON. Named on the page was enough (M402) — so a step out and back, a walk to
      * the window, or a slip took Rukia out while she stood beside him. A leave stands only when the last sentence of the
      * scene that names them as themself (with the sentences that go on about them) narrates them going

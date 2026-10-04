@@ -15005,3 +15005,24 @@ the schema" on any answer — so a page cut short by the provider's length (a te
 end) or stopped by the house's own 20-second stall guard would have switched Structured OFF for a model that holds it.
 Now only a whole answer is judged: one the model finished itself (its reason: stop) or whose text closed (law M592; it
 fails when every answer is judged — checked). M591 (the header gate's last line) touches the page only, in any mode.
+
+# M593 — the line-by-line audit, part 8: the rest of the ledger engine read whole
+duels.js (the directives — tracked and outcome-only, his mode, which stops at what happened and hands the rest back),
+bodies.js (one wound per body part, newest first), relationships.js, offscreen.js (newest first; arrivals ranked), canon.js,
+clock.js (the story's own day words kept; a real date replaces them), referee-math.js (Arbiter's dice, ported whole),
+whole.js (the auditor's view), usage.js, sentence.js, window.js, voicepresets.js. One fault:
+- voicepresets.js savePreset: kept under an id that is gone (deleted in another tab) with no name given, it read
+  all[-1].name and threw. Nothing to name it by — nothing saved now. Law M593.
+
+# M594 — the helpers are told the presence rules the ledger keeps (reading the page reader whole, part 9 of the audit)
+M588 let the reader's leave stand when HE walks away — but the reader's own vocabulary still said presence.leave "ONLY when
+the page SHOWS them leaving", so it was told never to write the leave M588 lets stand. And every helper was told to let an
+elsewhere note go "when it no longer holds" — the very clear M588's always-somewhere rule refuses for someone not here.
+- The page reader: presence.leave when someone stops sharing his space — they leave, OR he walks away and leaves them
+  behind (never him: when he goes, the scene's place goes with him); offscreen.clear only for someone in the scene now,
+  anyone else moved with offscreen.set to where they are.
+- The world helper, the auditor and the housekeeper: the same clear rule, in their words.
+- AND A LEAVE NEED NOT NAME ITS PERSON WHEN HE GOES: leavesTheyWereShown dropped every leave whose person the page did not
+  name — "Jovan pushed back his chair and walked out without a word" left Renji at the table "here". When the page ends on
+  him going (mcWalksOff), the leaves stand named or not: the room is left behind him.
+- Laws M594, M594-2.

@@ -41,6 +41,9 @@ export async function savePreset(name, voice, { id = null } = {}) {
   if (!clean && !id) return null;
   const all = await listPresets();
   const at = id ? all.findIndex((p) => p.id === id) : all.findIndex((p) => p.name.toLowerCase() === clean.toLowerCase());
+  /* M593 (the audit): kept under an id that is gone (deleted in another tab) with no name given — nothing to name it by; it
+   * read all[-1].name and threw */
+  if (at === -1 && !clean) return null;
   const values = {};
   for (const k of VOICE_FIELDS) values[k] = norm(voice ? voice[k] : null);
   const preset = { id: at >= 0 ? all[at].id : newId(), name: at >= 0 && !clean ? all[at].name : (clean || all[at].name), voice: values, savedAt: Date.now() };

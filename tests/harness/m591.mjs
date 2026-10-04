@@ -21,3 +21,10 @@ test('M591 THE LAST LINE IS ALWAYS HANDED ON: a reply whose planning was only ju
     eq(run('Plan: open warm.\n\n[The gate — Monday | 09:00]\n\nHey.', step).page, '[The gate — Monday | 09:00]\n\nHey.', 'a header after the plan: the page from the header, its last short line kept');
   }
 });
+
+test('M593 A VOICE PRESET KEPT UNDER AN ID THAT IS GONE, WITH NO NAME, IS NOTHING TO SAVE — never a throw', async () => {
+  const { savePreset } = await import('../../js/engine/voicepresets.js');
+  eq(await savePreset('', { tellerName: 'Hulk' }, { id: 'vp-gone' }), null);
+  const kept = await savePreset('Hulk night', { tellerName: 'Hulk' });
+  assert(kept && kept.name === 'Hulk night', 'a named one is kept');
+});

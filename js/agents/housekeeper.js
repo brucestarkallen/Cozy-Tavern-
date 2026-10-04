@@ -893,7 +893,7 @@ const SYSTEM_PROMPT = [
   '  mode.set/mode.clear {flag of combat|intimate|travel|socialField|isolation|group};',
   '  body.injure {name,what,sev 1-3,treated}; body.strain {name,what}; body.heal {name,what};',
   '  rel.shift {name,axis p|r|s,delta,cause}; rel.set {name,p?,r?,s?,cause}; rel.clear {name,cause};',
-  '  offscreen.set {name,location,activity,agenda?,stance?,etaMinutes?}; offscreen.clear {name};',
+  '  offscreen.set {name,location,activity,agenda?,stance?,etaMinutes?}; offscreen.clear {name} (only for someone in the scene — anyone else is moved with offscreen.set: a person the story keeps is always somewhere);',
   '  canon.lock {name,key,value}; canon.unlock {name,key};',
   '  thread.set {title,owner,heat,next}; thread.close {title};',
   '  knowledge.add {name,fact} — who knows what; knowledge.forget {name,fact} — a fact they',
