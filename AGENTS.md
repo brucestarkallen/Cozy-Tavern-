@@ -14917,3 +14917,39 @@ Four faults, mended:
 - DOM-135 FOUND OUT AT LAST (its new report did it: "readTo 1 … the readers are on the rest"): the house HAD read the page;
   the drawer's line was stale. Two draws close together each read the store, and when the older read answered last it
   wrote its stale line into the newest one. drawer.js numbers its draws — only the latest writes (standingSeq).
+
+# M588 — the ledger: who is here, where everyone else is, how they feel, and who answers the door (his four reports, each
+# traced to its root rather than patched where it showed)
+1. "MY MC WALKS AWAY FROM SOMEONE — SHE'S NOT AT HIS LOCATION — WHY IS SHE STILL HERE?" Three roots in the page reader's
+   leave filter (extractor.js extractTurn):
+   - a leave stood only when the page ended on HER going (M446) — so when HE walked off and she stayed, the reader's right
+     leave was thrown away. A leave now also stands when the page ends on him going (mcWalksOff: his name, whole or either
+     end of it, opening a clause with a going in the scene's last sentences — never as an object: "Kuchiki-taichō nodded
+     to Oda, then left" is the captain going);
+   - a move was "far" only when the two places shared no telling word — the academy's courtyard and its dormitory were
+     one room, and whoever stood in the courtyard rode along. Far now unless one name holds ALL the other's telling words
+     (one names less of the same place); a room of the same compound is another room;
+   - with no room named by the reader, the whole old room stood beside him on the new ground; now the newest page decides —
+     whoever it does not show there stayed at the old one.
+2. "I WALKED TO HER DOOR — SHE'S GONE FROM THE WORLD AND FROM WHO'S HERE — THE LEDGER DELETED HER." offscreen.clear let a
+   note go with nowhere else to stand. A PERSON THE STORY KEEPS IS ALWAYS SOMEWHERE (apply.js): her note goes only if she
+   is here (stale then), is moved by a new place (offscreen.set), or goes as she walks in (presence.enter); a note nobody's
+   page carries may still be let go.
+3. "SOMEONE LOVES MY MC — IN #STORY, THE BRIEF, THE PAGES — AND THE AI PUTS P+2." The page reader was told "typical ±1–5"
+   and rel.set "rarely, never as a guess": an existing love could only be inched toward. REVEALED, NOT EARNED: a feeling
+   that already exists, shown, is a rel.set at its level — and both the reader and the founder carry THE LEVELS (in love
+   R 55–75, a crush R 25–45, devoted R 75–90; friend P 25–45, close friend or family P 50–70; hatred P −50…−80; desire S
+   15–60+). Romantic love is R, never P alone. The founder's own example ("loved since school") now reads R 65, not 25.
+4. "HE WALKS THROUGH HER DOOR — SHE LOVES HIM — AND NOTHING HAPPENS; A SELF-FULFILLING PAGE." The attempt rule (craft:
+   "a present NPC may intercept") never reached someone behind the door — she was not present, and the storyteller was
+   not even told she was there (one line among Elsewhere, shed early). CLOSE BY (state.js renderStateFacts): everyone
+   seated where the scene stands has their own line, kept as long as who is here ("they can hear, see, or answer the
+   door"), never also in Elsewhere; the craft's attempt rule reaches "one Close by", and walking through someone's door is
+   walking into their space — whoever is behind it answers as themselves, by their nature and their standing. The craft
+   as it shipped through M587 (1ojr0f9) is known as shipped, so a tale holding it gets the new one.
+- Laws M588-1..3. Older laws moved to the new rules, each for a reason he gave: M509-12 (no room named: the page decides),
+  M509-13b (a room of the same compound is another room), M444-4 (Byakuya, only spoken of, keeps his note — never nowhere).
+- Walk DOM-93 ("read again" puts the ground back) asserted Kyōraku stayed on the sand with his assembly-hall now erased — but
+  the page shows Jovan, Zaraki and Rukia, not him. Read again under M588 he stays at the 1st Division (where his own now
+  puts him): the walk now checks he stands where the page and his now agree — here with the now let go, or seated at the
+  1st Division with it standing — never both.

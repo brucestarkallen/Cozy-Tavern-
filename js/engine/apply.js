@@ -854,6 +854,15 @@ const HANDLERS = {
       if (key) seated = { key, entry: state.offscreen[key] };
     }
     if (!seated) return { why: 'the ledger has no elsewhere note for ' + name };
+    /* M588 (his report: "my mc walks to her door and she's gone from the world AND from who's here — the ledger deleted
+     * her"): A PERSON IS ALWAYS SOMEWHERE. Letting a note go while she is not in the scene left her nowhere — the reader,
+     * seeing him at her door, let "in her quarters" go, and she was neither here nor anywhere. A note is let go only for
+     * someone who is here (it is stale then); anyone else keeps it until a new place is written for them (offscreen.set
+     * moves the note) or they walk in (presence.enter lets it go). */
+    /* a note nobody's page carries (a stray, a name the story never kept) may still be let go — only a person the story
+     * keeps is never left nowhere */
+    const keptPerson = Boolean(findPersonKey(state.characters || {}, seated.key) || findPersonKey(state.characters || {}, name));
+    if (keptPerson && !isHere(state, seated.key) && !isHere(state, name)) return { why: seated.key + ' keeps the elsewhere note — letting it go would leave them nowhere; write where they are now, or bring them into the scene', same: true };
     delete state.offscreen[seated.key];
     return {
       words: seated.key + '’s elsewhere note was let go.',

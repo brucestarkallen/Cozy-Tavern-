@@ -147,7 +147,7 @@ const VOCABULARY = [
   'body.strain {"type":"body.strain","name":"NAME","what":"the long climb"} — weariness short of injury, when the prose shows it',
   'body.heal {"type":"body.heal","name":"NAME","what":"forearm"} — only when the prose says a known hurt has healed',
   'rel.shift {"type":"rel.shift","name":"OTHER NAME","axis":"p","delta":8,"cause":"she bandaged his hand without being asked"} — feelings toward the main character only; axis is p (warmth), r (romantic pull), or s (sensual charge); delta a small number, -20 to +20; cause REQUIRED, quoting the on-page beat that earned it',
-  'rel.set {"type":"rel.set","name":"OTHER NAME","p":40,"cause":"the brief says they grew up together"} — rarely: only when the prose itself states where a standing starts, never as a guess',
+  'rel.set {"type":"rel.set","name":"OTHER NAME","p":45,"r":60,"cause":"the page reveals she has loved him since they were children"} — when the page, the brief or the story\'s opening states a feeling that already exists (REVEALED, NOT EARNED, below) — never as a guess',
   'offscreen.set {"type":"offscreen.set","name":"NAME","location":"the chapel","activity":"lighting candles for the dead","agenda":"meaning to warn the abbot"} — only for a named character the prose shows leaving or shows elsewhere; never invent off-screen doings for someone the prose doesn’t mention',
   'offscreen.clear {"type":"offscreen.clear","name":"NAME"} — when the prose says an elsewhere note no longer holds',
 ].join('\n');
@@ -168,6 +168,15 @@ const STANDINGS_LAW = [
   'and never on your reading of what she "really" thinks. A public defeat can raise R (he didn\'t defer',
   'to me); a gift can drop P (he\'s buying me); a cruel truth can raise P (he didn\'t lie). No revelation,',
   'no movement — flat is the default. Typical ±1–5; a major moment ±10–20.',
+  /* M588 (his report: "someone has romantic feelings for my MC — in #story, the brief, the pages — and the AI puts P+2"):
+   * a feeling that ALREADY EXISTS, revealed, is not a beat to inch toward — it is where the standing stands. */
+  'REVEALED, NOT EARNED: when the page (or the brief, or the story\'s opening) shows a feeling that ALREADY',
+  'EXISTS — she has loved him for years, he has always hated him, a sister\'s devotion — and the standing',
+  'does not show it, write rel.set at the level it shows, not a small shift on an empty book. The levels:',
+  'R (romance): drawn to him, curious 10–25; a crush, flustered, fond 25–45; in love 55–75; devoted love',
+  '75–90. P (warmth): acquaintance 5–15; friend 25–45; close friend or family 50–70; trusted with her life',
+  '75–90; dislike −15…−35; hatred −50…−80. S (desire): drawn to his body 15–35; wanting him 40–60; burning',
+  '60+. Romantic love is R — never P alone (P is friendship and trust; a lover usually has both).',
   'DISPOSITION NOT MOOD: the standing is the climate, the scene\'s emotion is the weather. Fear FOR him,',
   'worry, grief at his pain, embarrassment on his behalf are SYMPTOMS of warmth — they never subtract.',
   'Only fear OF him, disgust AT him, betrayal BY him lower P. A boundary or a limit she states ("can\'t',
@@ -467,6 +476,23 @@ export function hereFromBoard(state, here, assistantText, mutations = []) {
   return out;
 }
 
+/* M588: does the scene end on the main character going? His name (whole, or its first word) opening a clause — not after
+ * "to", "at", "with", "toward", "past", "behind", "for", "from" — with a going in the same sentence. */
+export function mcWalksOff(pageText, mc) {
+  const scene = narrationOf(scenePartOf(String(pageText || '')));
+  const sentences = scene.split(/(?<=[.!?…])\s+/).map((x) => x.trim()).filter(Boolean).slice(-3);
+  const parts = String(mc || '').trim().split(/\s+/).filter(Boolean);
+  const names = [...new Set([parts.join(' '), parts[0], parts.length > 1 ? parts[parts.length - 1] : ''].filter((n) => n && n.length >= 2))];
+  const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const GO = '(?:walked|walks|walk|strode|strides|headed|heads|went|goes|left|leaves|stalked|marched|stormed|slipped|stepped|turned)\\b[^.!?]{0,40}?\\b(?:away|off|out|on|back|toward|towards|to|into|from|down|up|through)\\b|\\b(?:left|leaves|departed|departs)\\b';
+  for (const sentence of sentences) {
+    for (const n of names) {
+      const re = new RegExp('(?:^|[,;—–]\\s*|\\band\\s+|\\bthen\\s+)(?<!\\b(?:to|at|with|toward|towards|past|behind|for|from|beside|by)\\s)' + esc(n) + '\\b(?:\\s+\\p{L}+){0,8}?\\s+' + '(?:' + GO + ')', 'iu');
+      if (re.test(sentence)) return true;
+    }
+  }
+  return false;
+}
 export async function extractTurn(args = {}) {
   const read = await extractTurnRead(args);
   if (read && Array.isArray(read.mutations)) {
@@ -483,10 +509,18 @@ export async function extractTurn(args = {}) {
     /* a header that names less of the same place ("13th Division Barracks" in the captain's office) is no move */
     const moved = Boolean(was && ground && !samePlace(ground, was) && !seatAtScene(was, ground));
     const cameAlong = (n) => (Array.isArray(read.here) ? read.here : []).some((h) => samePersonName(h, n));
+    /* M588 (his report: "my mc walks away from someone, she's not at his location, why is she still here?"): THE MAIN
+     * CHARACTER WALKING AWAY IS A LEAVING TOO. A leave stood only when the page ended on HER going (M446) — so when HE
+     * walked off and she stayed, the reader's right leave was thrown away. Now a leave also stands when the page ends on
+     * the main character going (goneAtTheEnd of him). */
+    const mcNow = args.state ? mcName(args.state) : '';
+    /* HE is the one going — his name as the subject of a going in the scene's last sentences ("Jovan turned his back on her
+     * and walked away"), never as its object ("Kuchiki-taichō nodded to Oda, then left" is the captain going) */
+    const mcGone = Boolean(args.state && mcNow && mcNow !== 'the player' && mcWalksOff(args.assistantText, mcNow));
     read.mutations = read.mutations.filter((m) => {
       if (!(m && m.type === 'presence.leave' && args.state)) return true;
       const n = String(m.name || '');
-      return moved ? !cameAlong(n) : goneAtTheEnd(args.state, args.assistantText, n);
+      return moved ? !cameAlong(n) : (goneAtTheEnd(args.state, args.assistantText, n) || (mcGone && !cameAlong(n)));
     });
     /* M509-12: THE CROWD DOES NOT RIDE TO THE NEW GROUND. When the page MOVES the ground and says who is in the new room
      * (its "here"), everyone else who was in the old room is left behind there — Jovan ran out of the Tenth's courtyard
@@ -498,12 +532,20 @@ export async function extractTurn(args = {}) {
     /* a move to another place altogether — not "the Tenth's courtyard" written "Tenth Division courtyard" (one place
      * matcher and the other both miss that), nor a room of the same compound: the two names share no telling word */
     const tellingWords = (t) => new Set(String(t || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').split(' ').filter((w) => w.length >= 4 && !/^(?:the|division|district|street|road|hall|house|room|floor|gate|north|south|east|west|upper|lower|inner|outer|main|back|front|side)$/.test(w)));
-    const farMove = moved && ![...tellingWords(was)].some((w) => tellingWords(ground).has(w));
-    if (farMove && args.state && Array.isArray(read.here) && read.here.length) {
+    /* M588: a move is "far" unless one name holds all the other's telling words (one names less of the same place —
+     * "the Tenth's courtyard" / "Tenth Division courtyard"). Sharing ONE word was read as the same place: the academy's
+     * courtyard and the academy's dormitory were one room, and whoever stood in the courtyard rode along to the dormitory. */
+    const wasW = tellingWords(was); const groundW = tellingWords(ground);
+    const holds = (a, b) => a.size > 0 && [...a].every((w) => b.has(w));
+    const farMove = moved && !holds(wasW, groundW) && !holds(groundW, wasW);
+    /* M588: and when the reader names nobody in the new room, the newest page is asked instead — whoever it does not show
+     * at the new ground stayed at the old one (an empty "here" used to keep the whole old room standing beside him) */
+    const shownHere = (n) => (Array.isArray(read.here) && read.here.length ? cameAlong(n) : shownOnPage(args.state, narrationOf(scenePartOf(args.assistantText)), n));
+    if (farMove && args.state) {
       const leaving = new Set(read.mutations.filter((m) => m && m.type === 'presence.leave').map((m) => String(m.name || '').trim().toLowerCase()));
       for (const p of (Array.isArray(args.state.present) ? args.state.present : [])) {
         const n = p && typeof p.name === 'string' ? p.name.trim() : '';
-        if (!n || isMc(args.state, n) || cameAlong(n) || leaving.has(n.toLowerCase())) continue;
+        if (!n || isMc(args.state, n) || shownHere(n) || leaving.has(n.toLowerCase())) continue;
         read.mutations.push({ type: 'presence.leave', name: n, cause: 'left behind at ' + was + ' when the scene moved to ' + ground });
       }
     }

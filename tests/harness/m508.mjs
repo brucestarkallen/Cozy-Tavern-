@@ -166,7 +166,8 @@ test('M509-12 the crowd does not ride to the new ground: when the page moves the
   /* the same page with NO room named leaves nobody behind — a reader that said nothing */
   const mute = JSON.stringify({ mutations: [], brief: { pressure: [], ripe: [], twb: null }, deltas: [] });
   const read2 = await withHouse(thinkingHouse({ answer: mute }), () => extractTurn({ connection: h.conn, state: st, userText: 'I run.', assistantText: page, pageNumber: 50 }));
-  eq(read2.mutations.filter((m) => m.type === 'presence.leave').length, 0, 'no room named, no leaves written');
+  /* M588 (his report: people stood "here" who were not where he was): with no room named, the newest page decides — the four it never shows at the new ground stay at the old one; the two it shows ride along */
+  eq(read2.mutations.filter((m) => m.type === 'presence.leave').map((m) => m.name).sort().join(','), 'Byakuya,Hachigorō,Renji Abarai,the cook', 'no room named: the page decides who came along');
   /* the dress */
   eq(withoutAttire('at the inner gate shadow, black, headband dark with sweat', 'black, headband dark with sweat'), 'at the inner gate shadow');
   eq(withoutAttire('at the veranda rail, hands on the wood', 'the Tenth’s armband'), 'at the veranda rail, hands on the wood');
@@ -199,7 +200,8 @@ test('M509-13b the crowd is left behind only on a move to another place altogeth
   eq(r1.mutations.filter((m) => m.type === 'presence.leave').length, 0, 'the same courtyard by another name: nobody left behind');
   const room = '[Tenth Division HQ — captain’s office — Sunday, Hanami 5, 1001 | 12:16 | clear | shihakushō | at the desk]\n\nThe office was cold.';
   const r2 = await withHouse(thinkingHouse({ answer }), () => extractTurn({ connection: h.conn, state: st, userText: 'I go in.', assistantText: room, pageNumber: 50 }));
-  eq(r2.mutations.filter((m) => m.type === 'presence.leave').length, 0, 'a room of the same compound: the reader’s own leaves only');
+  /* M588 (his report: people stood "here" who were not where he was): a room of the same compound IS another room — the captain's office does not hold the courtyard; the two the room does not name stay in the courtyard */
+  eq(r2.mutations.filter((m) => m.type === 'presence.leave').map((m) => m.name).sort().join(','), 'Renji Abarai,the cook', 'a room of the same compound: the two its room does not name stay behind');
   const far = '[the approach road to the Thirteenth — Sunday, Hanami 5, 1001 | 12:16 | clear | shihakushō | on the road]\n\nJovan ran.';
   const r3 = await withHouse(thinkingHouse({ answer }), () => extractTurn({ connection: h.conn, state: st, userText: 'I run.', assistantText: far, pageNumber: 50 }));
   eq(r3.mutations.filter((m) => m.type === 'presence.leave').map((m) => m.name).sort().join(','), 'Renji Abarai,the cook', 'another place altogether: the two the room does not name are left behind');

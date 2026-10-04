@@ -37,7 +37,7 @@ const MAX_TOKENS = 6000;
 const VOCABULARY = [
   'mc.set {"type":"mc.set","name":"MAIN CHARACTER"} — the main character, when the brief makes it plain and the ledger does not know',
   'people.set {"type":"people.set","name":"NAME","field":"core","text":"the main character\'s childhood friend; lives next door; ex-idol; reads rooms performatively"} — one core per named person the brief, the cast notes, the cards or the lore establish (never the main character\'s core or arc); field "arc" for how they stand with the main character when stated; who they are in their life (school year, age, role, family, home) belongs in their core, never in "state"; field "state" ONLY for where they are and what they are doing when the story opens, when stated',
-  'rel.set {"type":"rel.set","name":"NAME","p":40,"r":25,"s":10,"cause":"the brief says NAME has loved MAIN CHARACTER since school"} — a standing is how a person stands TOWARD THE MAIN CHARACTER and nothing else (AXIS LOCK): only when the brief states a bond or history between that person and the main character, and the cause names the main character. A person who has never met the main character has no standing (zero, no line). Feelings toward ANYONE ELSE (a crush on NAME, a grudge against NAME) are NOT standings — they go in that person\'s page (core or arc) as words',
+  'rel.set {"type":"rel.set","name":"NAME","p":50,"r":65,"s":20,"cause":"the brief says NAME has loved MAIN CHARACTER since school"} — a standing is how a person stands TOWARD THE MAIN CHARACTER and nothing else (AXIS LOCK): only when the brief states a bond or history between that person and the main character, and the cause names the main character. A person who has never met the main character has no standing (zero, no line). Feelings toward ANYONE ELSE (a crush on NAME, a grudge against NAME) are NOT standings — they go in that person\'s page (core or arc) as words',
   'canon.lock {"type":"canon.lock","name":"NAME","key":"hair","value":"black, waist-length"} — the five canonical features (hair, eyes, build, height, skin tone) and scars when stated; one lock per fact',
   'faction.set {"type":"faction.set","name":"the studio","stance":"…","agenda":"…"} — every group the brief gives a stance or an agenda',
   'offscreen.set {"type":"offscreen.set","name":"NAME","location":"…","activity":"…","agenda":"…","stance":"waiting|toward|seeking|tense|busy"} — where the brief places a named person who is NOT in the opening scene',
@@ -74,6 +74,11 @@ function law({ mc }) {
     '    history? No → no standing (they start at zero, exactly as strangers do). A feeling toward anyone',
     '    else — a crush on the sister, an ex\'s possessiveness, a rivalry — is written into that person\'s',
     '    page as words, never as numbers. A standing whose cause names another person is refused.',
+    /* M588: the levels a stated bond sets — "she loves him" founded at P+2 was a ledger that did not know its own story */
+    '  - THE LEVELS a stated bond sets (each axis -100..100): R (romance) drawn to him 10–25, a crush 25–45, in',
+    '    love 55–75, devoted love 75–90; P (warmth) acquaintance 5–15, friend 25–45, close friend or family',
+    '    50–70, trusted with her life 75–90, dislike −15…−35, hatred −50…−80; S (desire) drawn 15–35, wanting',
+    '    40–60, burning 60+. Romantic love is R — never P alone; a lover usually has both.',
     '  - The main character gets no page of their own beyond mc.set: their state and threads are the',
     '    story\'s to write.',
     '  - Do not narrate, do not summarize the brief. The SCENE is not yours: no place.set, no',

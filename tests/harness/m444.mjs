@@ -96,7 +96,7 @@ test('M444-3 THE ROOM, RESTATED ON EVERY PAGE — the page reader’s "here" wri
   eq(bare.mutations.filter((m) => m.type === 'presence.enter').length, 0, 'no board, no entries');
 });
 
-test('M444-4 CLEARED IS NEVER NOWHERE — the world agent lets Renji’s note go as the page shows him walk in: he is written in; Byakuya, only spoken of, is let go as it asked, never put in the room', async () => {
+test('M444-4 CLEARED IS NEVER NOWHERE — the world agent lets Renji’s note go as the page shows him walk in: he is written in; Byakuya, only spoken of, keeps his note (M588: never nowhere), never put in the room', async () => {
   const storyId = 'm444-world';
   const st = applyMutations(office(['Jovan Oda', 'Rukia Kuchiki']), [
     { type: 'offscreen.set', name: 'Renji Abarai', location: '6th Division Barracks — the training yard', activity: 'drilling', stance: 'busy' },
@@ -109,7 +109,9 @@ test('M444-4 CLEARED IS NEVER NOWHERE — the world agent lets Renji’s note go
   const after = await loadState(storyId);
   assert(after.present.some((p) => p.name === 'Renji Abarai'), 'Renji is in the scene: ' + JSON.stringify(after.present));
   assert(!after.offscreen['Renji Abarai'], 'and not elsewhere');
-  assert(!after.offscreen['Byakuya Kuchiki'] && !after.present.some((p) => /Byakuya/.test(p.name)), 'Byakuya, only spoken of, is let go — never written into the room');
+  /* M588 (his report: "she's gone from the world AND from who's here — the ledger deleted her"): a person the story keeps is
+   * never let go into nowhere — Byakuya, only spoken of, keeps his note, and is never written into the room */
+  assert(after.offscreen['Byakuya Kuchiki'] && /Captain's Office/.test(after.offscreen['Byakuya Kuchiki'].location) && !after.present.some((p) => /Byakuya/.test(p.name)), 'Byakuya, only spoken of, keeps his note — never nowhere, never in the room: ' + JSON.stringify(after.offscreen['Byakuya Kuchiki']));
   assert(result.applied.some((a) => /Renji Abarai came into the scene — the page shows them here/.test(a.words)), 'said why');
 });
 

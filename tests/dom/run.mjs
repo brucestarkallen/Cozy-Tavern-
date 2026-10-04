@@ -5248,7 +5248,7 @@ test('DOM-99 THE HOUSEKEEPER SCREEN KEEPS WHAT IS HIS: the director\u2019s three
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-93 "READ AGAIN" PUTS THE GROUND WHERE THE PAGE SAYS AND LETS GO OF THE NOW OF A PLACE LEFT — Kyōraku’s assembly-hall now goes, Rukia’s courtyard now stays, the page is untouched, and no card says "the next page" (M409)', async () => {
+test('DOM-93 "READ AGAIN" PUTS THE GROUND WHERE THE PAGE SAYS AND LETS GO OF THE NOW OF A PLACE LEFT — Kyōraku stands where the page and his now agree (M588), Rukia’s courtyard now stays, the page is untouched, and no card says "the next page" (M409)', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
   const { saveState, loadState, emptyState } = await import('../../js/engine/state.js');
@@ -5275,7 +5275,13 @@ test('DOM-93 "READ AGAIN" PUTS THE GROUND WHERE THE PAGE SAYS AND LETS GO OF THE
     await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000);
     const after = await loadState(st.id);
     assert(/10th Division HQ/.test(after.place.name), 'the ground is where the page says: ' + after.place.name);
-    assert(!/assembly hall/i.test(String(after.characters['Shunsui Kyōraku'].state || '')), 'Kyōraku’s assembly-hall now is gone: ' + after.characters['Shunsui Kyōraku'].state);
+    /* M588: the page shows Jovan, Zaraki and Rukia on the sand — not Kyōraku. Read again, he is no longer counted on the sand
+     * (whoever the page does not show stays at the old ground): he stands at the 1st Division, which is where his own now
+     * puts him — so either his assembly-hall now is let go (he is here) or he is seated there and it stands, never both */
+    const kyoHere = after.present.some((p) => /Kyōraku/.test(p.name));
+    const kyoNow = String(after.characters['Shunsui Kyōraku'].state || '');
+    const kyoSeat = after.offscreen['Shunsui Kyōraku'];
+    assert(kyoHere ? !/assembly hall/i.test(kyoNow) : Boolean(kyoSeat && /1st Division/.test(kyoSeat.location || '')), 'Kyōraku is where the page and his now agree: here ' + kyoHere + ', now ' + kyoNow + ', seat ' + JSON.stringify(kyoSeat));
     assert(/10th Division HQ rail/.test(String(after.characters['Rukia Kuchiki'].state || '')), 'Rukia’s courtyard now stays');
     eq((await db.messages.list(st.id)).find((m) => m.id === page.id).text, PAGE, 'the page is untouched');
     click(q('#btn-ledger'));

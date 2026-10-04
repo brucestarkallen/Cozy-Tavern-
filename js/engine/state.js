@@ -41,7 +41,8 @@
 
 import { db, onDropCaches, settingsKeysOf } from '../store.js'; /* M507: the bank's key cache hears a pull; M507-6: the tale's rows */
 import { renderClock } from './clock.js';
-import { samePersonName } from './names.js'; /* M509-15: was this person in the room */
+import { samePersonName } from './names.js';
+import { isMc } from './people.js'; /* M588 */ /* M509-15: was this person in the room */
 import { renderBodies, dedupeInjuries } from './bodies.js'; /* M485: the wounds folded on load */
 import { axisWords, AXES } from './relationships.js';
 import { renderOffscreen } from './offscreen.js';
@@ -49,7 +50,7 @@ import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge, blindS
 import { renderCanon } from './canon.js';
 import { renderFightLine, mcName } from './duels.js';
 import { migrateCharacters, healGhosts } from './people.js'; /* M485: the ghosts folded on load */
-import { storyTurn } from './apply.js';
+import { storyTurn, samePlace, seatAtScene } from './apply.js'; /* M588: who is close by */
 
 const KEY_PREFIX = 'state:';
 
@@ -1084,7 +1085,26 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   /* M86: the living world is not the first thing the budget drops — who is
    * moving toward the scene stands with the body ledger (shed 3); the
    * standings and the threads follow (4); the factions last (5). */
-  const elsewhere = renderOffscreen(state.offscreen, present, clockMinutes, whole ? 1000 : undefined, state.characters || {}); /* M396 */
+  /* M588 (his report: "my MC walked through her door — she loves him — and nobody did anything; a self-fulfilling page"):
+   * CLOSE BY. Someone seated where the scene now stands — behind the door he is at, in the next room — was only one line
+   * among the Elsewhere list, and the attempt rule ("a present NPC may intercept") never reached her: she was not
+   * present, so his walking in completed with nobody answering it. They stand in their own line now, kept as long as who
+   * is here, so the storyteller knows who can hear, see or answer the door. */
+  const sceneName = state.place && typeof state.place.name === 'string' ? state.place.name : '';
+  const nearKeys = new Set();
+  const nearLines = [];
+  if (sceneName) {
+    for (const [key, seated] of Object.entries(state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {})) {
+      if (!seated || typeof seated !== 'object' || typeof seated.location !== 'string' || !seated.location.trim()) continue;
+      if (seated.dead || seated.gone || isMc(state, key) || present.some((p) => p && typeof p.name === 'string' && samePersonName(p.name, key))) continue;
+      if (!(samePlace(seated.location, sceneName) || seatAtScene(seated.location, sceneName))) continue;
+      nearKeys.add(key);
+      nearLines.push('- ' + key + ' — ' + seated.location.trim() + (seated.activity ? ' (' + String(seated.activity).trim() + ')' : ''));
+    }
+  }
+  if (nearLines.length) sections.push({ shed: 1, text: 'Close by — not in the scene, but right here (they can hear, see, or answer the door; the attempt rule reaches them too):\n' + nearLines.join('\n') });
+  const farOffscreen = nearKeys.size ? Object.fromEntries(Object.entries(state.offscreen || {}).filter(([k]) => !nearKeys.has(k))) : state.offscreen;
+  const elsewhere = renderOffscreen(farOffscreen, present, clockMinutes, whole ? 1000 : undefined, state.characters || {}); /* M396 */
   if (elsewhere) sections.push({ shed: 3, text: 'Elsewhere: ' + elsewhere.split('\n').join('\n') });
 
   const factionLines = renderFactions(state.factions, whole ? Infinity : undefined);
