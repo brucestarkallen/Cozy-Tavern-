@@ -489,9 +489,12 @@ export function splitPrefill(text) {
  * that takes no schema, a model that refused it), its markers mean nothing to the model — "[[line]]", "[[w:5-20]]" or
  * "[[keep]]" would have been sent as words and put at the head of his page. Only the plain words that open the shown part
  * ride: the hidden part (before [[keep]]) and [[end]] are dropped, and the reply is started up to the first marker. */
+/* M587: a template's own markers — known by name — mean nothing As written either (a template picked under Structured and
+ * the mode switched back would send "[[w:10-150]]" as words) */
+export const TEMPLATE_MARKER = /\[\[\s*(?:keep|end|stop|eos|pg|w|words|opt|options|line|lines|free|num|number|emotion|mood|name|action|thought|re|regex)\b[^\]\n]{0,400}\]\]/i;
 export function asWrittenOpening(conn, content) {
   const text = String(content == null ? '' : content);
-  if (!conn || conn.prefillMode !== 'structured' || !/\[\[/.test(text)) return text;
+  if (!conn || !(conn.prefillMode === 'structured' || TEMPLATE_MARKER.test(text)) || !/\[\[/.test(text)) return text;
   const tpl = readTemplate(text);
   const at = tpl.shown.search(/\[\[[^\]\n]{1,400}\]\]/);
   return (at === -1 ? tpl.shown : tpl.shown.slice(0, at)).replace(/^\s+/, '');
@@ -547,7 +550,7 @@ export function prefillPlan(conn) {
   const { seed: seedWritten, content: written } = splitPrefill(text);
   const content = asWrittenOpening(conn, written); /* M582 */
   /* M586: a Structured template's thinking block, sent as written, rides as a seed up to its first marker */
-  const seed = conn && conn.prefillMode === 'structured' && /\[\[/.test(seedWritten) ? seedWritten.slice(0, seedWritten.search(/\[\[[^\]\n]{1,400}\]\]/) === -1 ? undefined : seedWritten.search(/\[\[[^\]\n]{1,400}\]\]/)).replace(/\s+$/, '') : seedWritten;
+  const seed = conn && (conn.prefillMode === 'structured' || TEMPLATE_MARKER.test(seedWritten)) && /\[\[/.test(seedWritten) ? seedWritten.slice(0, seedWritten.search(/\[\[[^\]\n]{1,400}\]\]/) === -1 ? undefined : seedWritten.search(/\[\[[^\]\n]{1,400}\]\]/)).replace(/\s+$/, '') : seedWritten;
   const fields = prefillFields(conn);
   const effort = conn && conn.reasoning && typeof conn.reasoning.effort === 'string' ? conn.reasoning.effort : '';
   const thinkingRefused = reasoningIsDown(conn, reasonStyle(conn));

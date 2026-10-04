@@ -15,7 +15,7 @@
  */
 
 import { db } from '../store.js'; /* M580: a structured refusal is remembered with its model */
-import { structuredSchema, makeStructuredDecoder, hiddenMatcher, asciiOnly, STRUCTURED_REFUSAL, MIN_AFTER_DEFAULT, bannedPattern } from './structured.js'; /* M580, M581 */
+import { structuredSchema, makeStructuredDecoder, hiddenMatcher, asciiOnly, STRUCTURED_REFUSAL, MIN_AFTER_DEFAULT, bannedPattern, unwrapStructured, readTemplate } from './structured.js'; /* M580, M581, M587 */
 import { knobsOf, KNOB_FIELDS, knobRefused } from './knobs.js'; /* M510: the rest of the dials */
 import { houseFetch } from './relay.js'; /* M353: a provider that refuses a page is carried by the house */
 import { lateSystemRefused, rememberLateSystemRefused } from './latesystem.js'; /* M380, M385 */
@@ -330,7 +330,7 @@ export function createOpenAIProvider(connection) {
    * level, so the writer is told which it is: this LEVEL gives none, this ADDRESS gives none, or the words are hidden
    * though the model thought. A refusal teaches the house on the way (M350). */
   async function askOnce(effort, opts = {}) {
-    const { body } = requestBody({ ...connection, reasoning: { effort } }, [{ role: 'user', content: 'Answer with one word: ready.' }], opts);
+    const { body } = requestBody({ ...connection, reasoning: { effort } }, [{ role: 'user', content: 'Answer with one word: ready.' }], { ...opts, suppressStructured: true }); /* M587: a probe of the thinking never carries the page's schema — a refusal of the schema read as a refusal of a thinking field would teach the connection the wrong lesson */
     body.stream = false;
     body.max_tokens = 2000; /* room for thinking to start and a word to follow */
     delete body.plugins;
@@ -361,7 +361,7 @@ export function createOpenAIProvider(connection) {
   async function measure() {
     for (const withUsage of [true, false]) {
       try {
-        const { body } = requestBody(connection, [{ role: 'user', content: SPEED_ASK }], {});
+        const { body } = requestBody(connection, [{ role: 'user', content: SPEED_ASK }], { suppressStructured: true }); /* M587: the speed is the model's, not a schema's */
         body.stream = true;
         body.max_tokens = SPEED_MAX_TOKENS;
         delete body.plugins;
@@ -782,6 +782,41 @@ export function createOpenAIProvider(connection) {
   async function testPrefill() {
     const prefill = String(connection.prefill || '').trim();
     if (!prefill) return { ok: false, detail: 'There’s no prefill to try — write one first.' };
+    /* M587 (the prefill audit): "Test the prefill" on a Structured connection tested the WRONG way — it looked for an
+     * assistant message (which a structured turn never sends) and answered "no known way to start the reply". It asks the
+     * structured way now, with the very schema a page carries, and reads what came back. */
+    const plan = structuredPlanFor(connection);
+    if (plan) {
+      const { body: sbody } = requestBody(connection, [{ role: 'user', content: 'Write one short paragraph of a story — a gate at dawn.' }]);
+      sbody.stream = false;
+      sbody.max_tokens = 600;
+      delete sbody.plugins;
+      let sres;
+      try {
+        sres = await houseFetch(`${base}/v1/chat/completions`, { method: 'POST', headers: headersOf(connection), body: JSON.stringify(sbody) }, connection);
+      } catch (err) {
+        return { ok: false, detail: `Couldn’t reach ${name} — check the connection and try again.` };
+      }
+      if (!sres.ok) {
+        let detail = '';
+        try { const j = await sres.clone().json(); detail = (j && j.error && j.error.message) || ''; } catch (err) { /* the status speaks */ }
+        if (STRUCTURED_REFUSAL.test(detail || String(sres.status))) {
+          connection.structuredDownModel = connection.model || '';
+          await markConnectionDown(connection, 'structuredDownAt');
+          try { await db.connections.update(connection.id, { structuredDownModel: connection.structuredDownModel }); } catch (err) { /* in hand */ }
+          return { ok: false, detail: 'This model would not take a structured prefill (' + (detail ? detail.slice(0, 140) : sres.status) + ') — its pages will get the prefill as written.' };
+        }
+        return { ok: false, detail: `${name} refused the test (${sres.status})${detail ? ': ' + detail.slice(0, 140) : ''}.` };
+      }
+      let j = null;
+      try { j = await sres.json(); } catch (err) { j = null; }
+      const said = (j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '';
+      const words = unwrapStructured(said, { hidden: plan.hidden });
+      const opening = readTemplate(plan.template).shown.split(/\[\[/)[0].replace(/<\/?think>/g, '').trim();
+      const held = new RegExp(plan.schema.properties.response.pattern).test(unwrapStructured(said));
+      if (held) return { ok: true, detail: 'Structured works on this model — its answer opened ' + (opening ? 'with “' + opening.slice(0, 60) + '”' : 'as your template asks') + ': “' + words.replace(/\s+/g, ' ').slice(0, 120) + '…”' };
+      return { ok: false, detail: 'The model answered, but not in the shape asked (the provider did not hold it to the schema): “' + String(said).replace(/\s+/g, ' ').slice(0, 120) + '”. Its pages may not open with your words — As written may serve better here.' };
+    }
     const { body } = requestBody(connection, [
       { role: 'user', content: 'A' },
       { role: 'assistant', content: 'B' },

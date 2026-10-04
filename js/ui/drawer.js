@@ -114,6 +114,9 @@ function quietNote(text) {
  * to interleave DOM writes (doubled rows, lost order). latestWins wraps a
  * render so a call during a run is remembered and re-run once, fresh, when
  * the run settles. */
+/* M587: the ledger line's draws, numbered — only the latest one's reading is written */
+let standingSeq = 0;
+
 export function latestWins(fn) {
   let running = false;
   let queued = false;
@@ -2922,11 +2925,17 @@ export function initDrawer(ctx) {
     standing.textContent = '…';
     panelsEl.appendChild(standing);
     if (storyId) {
+      /* M587 (DOM-135, found out): THE NEWEST READING WINS. Two draws close together (the drawer opening, then the change
+       * that the house read the missed page) each read the store; when the older read answered LAST it wrote its stale line
+       * ("page 1 of 2 — the readers are on the rest") over the newer one — into the newest line, which it took for its own.
+       * Each draw is numbered; only the latest writes. */
+      const seq = (standingSeq += 1);
       Promise.all([loadStateFresh(storyId), db.messages.list(storyId)]).then(([st, msgs]) => {
+        if (seq !== standingSeq) return; /* a newer draw has read since */
         const pages = (Array.isArray(msgs) ? msgs : []).filter((m) => m && m.role === 'assistant' && !m.hidden && !m.ooc).length;
-        const line = document.getElementById('ledger-standing') || standing; /* the newest line, if a redraw replaced this one */
+        const line = document.getElementById('ledger-standing') || standing;
         if (line && ctx.getActiveStoryId() === storyId) line.textContent = ledgerStandingWords(st, pages);
-      }).catch(() => { standing.textContent = ''; });
+      }).catch(() => { if (seq === standingSeq) standing.textContent = ''; });
     } else standing.textContent = '';
     /* M105: the ledger in four rooms, one open at a time — the scene, the
      * people, the world, the books — instead of sixteen panels in one scroll.

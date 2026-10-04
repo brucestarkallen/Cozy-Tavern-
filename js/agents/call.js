@@ -70,6 +70,11 @@ export function workerConnection(connection, { maxTokens, effort, temperature } 
    * prefill the story's: then it stays home, unless the connection says "Workers riding this connection get
    * it too". */
   if (c.prefillForWorkers !== true && c.id && c.id === tellerConnectionId) delete c.prefill;
+  /* M587 (the prefill audit): A STRUCTURED TEMPLATE IS A PAGE'S SHAPE, NEVER A HELPER'S. A helper on a connection set to
+   * Structured (his storyteller's with "workers get it too" ticked, or the opener's own) would have had its JSON answer
+   * forced to open with the story's words — every ledger reading, every summary broken. A helper never goes structured,
+   * and never carries a structured template as written either. */
+  if (c.prefillMode === 'structured') { delete c.prefillMode; delete c.prefill; delete c.prefillBanned; delete c.prefillMinChars; }
   /* M510: A WORKER'S JSON NEVER RIDES A PENALTY OR A STOP TEXT — the one override his law allows, a floor against
    * corruption: a penalty pushes the model off the quotes and keys it has already written, and a stop text can end the
    * object mid-way. The rest of his dials (top-k, min-p, a seed) still ride. */

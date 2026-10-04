@@ -13,7 +13,7 @@ const sseRaw = (contents) => {
 const refuse = (msg) => ({ ok: false, status: 400, headers: new Headers({ 'content-type': 'application/json' }), clone() { return this; }, json: async () => ({ error: { message: msg } }), text: async () => JSON.stringify({ error: { message: msg } }) });
 async function tell(conn, answer) {
   const calls = []; const prior = globalThis.fetch;
-  globalThis.fetch = async (url, opts) => { calls.push({ url: String(url), body: JSON.parse(opts.body) }); return answer(calls.length); };
+  globalThis.fetch = async (url, opts) => { calls.push({ url: String(url), body: JSON.parse(opts.body) }); return answer(calls.length, opts); };
   let out = null; const shown = { thinking: '', prose: '' };
   try { out = await createProvider(conn).streamChat({ system: 's', messages: [{ role: 'user', content: 'u' }], onToken: ({ channel, text }) => { if (shown[channel] !== undefined) shown[channel] += text; } }); } finally { globalThis.fetch = prior; }
   return { out, calls, shown };
@@ -127,7 +127,8 @@ test('M582 A STRUCTURED TEMPLATE THAT GOES AS WRITTEN NEVER SENDS ITS MARKERS: o
   eq(prefillPlan({ ...c, prefill: '<plan>[[w:5-20]]</plan>\n[[keep]]\n[The gate — ' }).content, '[The gate —', 'the hidden plan never sent');
   eq(prefillPlan({ ...c, prefill: '[The gate — [[pg]]' }).content, '[The gate — ', 'up to the marker');
   eq(prefillLead({ ...c, prefill: '[The gate — [[pg]]' }), '[The gate — ', 'and the words put back in front of the page are the same');
-  eq(prefillPlan({ ...c, prefillMode: undefined, prefill: 'Yuhuu [[line]]' }).content, 'Yuhuu [[line]]', 'As written: his words exactly as typed');
+  eq(prefillPlan({ ...c, prefillMode: undefined, prefill: 'Yuhuu [[weird]]' }).content, 'Yuhuu [[weird]]', 'As written: his words exactly as typed (brackets that are no marker)');
+  eq(prefillPlan({ ...c, prefillMode: undefined, prefill: 'Yuhuu [[line]]' }).content, 'Yuhuu ', 'M587: a template\u2019s own marker means nothing As written either');
 });
 
 test('M583 THE READY-MADE TEMPLATES: each is written from his words, follows its own rule end to end (the reply matches, the hidden plan never shows, the page starts at its header), and his words can never become a marker', async () => {
@@ -156,21 +157,24 @@ test('M583 THE READY-MADE TEMPLATES: each is written from his words, follows its
 
 test('M585 A STRUCTURED ANSWER THAT NEVER ENDS IS NEVER WAITED ON: the moment its text closes the stream is let go (a stream that pads with whitespace forever returns at once, the page whole); a text that closed mid-sentence is marked cut short and said; no shorthand classes in any pattern', async () => {
   const conn = { type: 'openai', baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'k', model: 'openai/gpt-5', prefill: '[x ', prefillMode: 'structured', prefillMinChars: 5 };
+  /* like a real fetch, the endless stream ends when its request is cut (the signal) — the house must cut it */
   const endless = (first) => {
-    let sent = 0; let pulls = 0;
+    let sent = 0; let pulls = 0; let signal = null;
     const frames = first.map((c) => 'data: ' + JSON.stringify({ choices: [{ delta: { content: c } }] }) + '\n\n');
-    const body = new ReadableStream({ pull(c) { pulls += 1; if (sent < frames.length) { c.enqueue(enc(frames[sent])); sent += 1; return; } c.enqueue(enc('data: ' + JSON.stringify({ choices: [{ delta: { content: '   \n' } }] }) + '\n\n')); } });
-    return { res: { ok: true, status: 200, headers: new Headers({ 'content-type': 'text/event-stream' }), body, clone() { return this; }, json: async () => ({}) }, pulls: () => pulls };
+    const body = new ReadableStream({ async pull(c) { pulls += 1; await new Promise((r) => setTimeout(r, 1)); if (signal && signal.aborted) { c.error(new Error('aborted')); return; } if (sent < frames.length) { c.enqueue(enc(frames[sent])); sent += 1; return; } c.enqueue(enc('data: ' + JSON.stringify({ choices: [{ delta: { content: '   \n' } }] }) + '\n\n')); } });
+    const res = { ok: true, status: 200, headers: new Headers({ 'content-type': 'text/event-stream' }), body, clone() { return this; }, json: async () => ({}) };
+    return { answer: (n, opts) => { signal = opts && opts.signal; return res; }, pulls: () => pulls, cut: () => Boolean(signal && signal.aborted) };
   };
   const a = endless(['{"response":"[x Kaelen lunged at the gate', ' and the bell rang.', '"}']);
   const t0 = Date.now();
-  const { out } = await tell(conn, () => a.res);
+  const { out } = await tell(conn, a.answer);
   assert(Date.now() - t0 < 5000, 'returned at once, not at the provider\u2019s end');
   eq(out.text, '[x Kaelen lunged at the gate and the bell rang.');
   eq(out.finishReason, 'stop', 'whole');
   assert(a.pulls() < 20, 'the padding was never read: ' + a.pulls() + ' reads');
+  assert(a.cut(), 'and the request itself was cut (the provider stops writing; the meter\u2019s copy ends)');
   const b = endless(['{"response":"[x Kaelen lunged at the gate and said, ', '"}']);
-  const cut = await tell(conn, () => b.res);
+  const cut = await tell(conn, b.answer);
   eq(cut.out.finishReason, 'length', 'closed mid-sentence: cut short');
   assert(cut.out.notes.some((x) => /closed in the middle of a sentence/.test(x)), 'and said');
   const pat = structuredSchema('Pick [[opt:a|b]] then [[w:2-4]] [[end]]').properties.response.pattern + structuredSchema('[x ', { ascii: true }).properties.response.pattern + structuredSchema('[x ').properties.response.pattern;
@@ -197,4 +201,34 @@ test('M586 THINK AND THINK: a structured answer that opens with a <think> block 
   assert(native.out.text.startsWith('[The gate — Monday | 09:00]'), 'the page the same');
   const bs = fillPreset('brainstorm', '').prefill;
   assert(new RegExp(structuredSchema(bs).properties.response.pattern).test('<think>\nlast page ended with: Kaelen at the gate, blade drawn\npath A: he swings first and opens the duel\npath B: he waits and lets Jovan speak\npath C: the captain arrives and stops them\ngoing with: path B, because the tension should build before the clash\n</think>\n[The gate — Monday | 09:00]\n\nKaelen waited, blade low, and let the silence stretch across the yard.'), 'the brainstorm form holds its shape');
+});
+
+test('M587 THE PREFILL AUDIT: a helper never goes structured (nor carries a structured template); the connection probes never carry the page\'s schema; "Test the prefill" on a Structured connection asks the structured way and reads the answer (a refusal remembered); a template\'s markers are never sent As written', async () => {
+  const { workerConnection } = await import('../../js/agents/call.js');
+  const w = workerConnection({ id: 'c-w', prefill: '[[line]]\n\nYuhuu', prefillMode: 'structured', prefillBanned: 'ozone', prefillMinChars: 80 });
+  assert(!w.prefill && !w.prefillMode && !w.prefillBanned, 'a helper rides plain');
+  /* the probes */
+  const conn = { ...OR, id: 'c-probe', prefill: '[x ', prefillMode: 'structured' };
+  const sent = [];
+  const prior = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => { const body = JSON.parse(opts.body); sent.push(body); if (body.stream) return sseRaw(['ready']); return { ok: true, status: 200, headers: new Headers({ 'content-type': 'application/json' }), clone() { return this; }, json: async () => ({ choices: [{ message: { content: JSON.stringify({ response: '[x the gate stood open at dawn and the bell rang twice across the empty yard below the wall.' }) } }] }) }; };
+  try {
+    await createProvider(conn).test().catch(() => {});
+    assert(sent.length && sent.every((b) => !b.response_format), 'the connection test and its probes carry no schema (' + sent.length + ' asked)');
+    sent.length = 0;
+    const t = await createProvider(conn).testPrefill();
+    assert(sent.length === 1 && sent[0].response_format, 'the prefill test asks the structured way');
+    assert(t.ok && /Structured works on this model/.test(t.detail), t.detail);
+  } finally { globalThis.fetch = prior; }
+  const refusing = await db.connections.add({ ...OR, model: 'some/refuser', prefill: '[x ', prefillMode: 'structured' });
+  globalThis.fetch = async () => refuse('response_format json_schema is not supported');
+  try {
+    const t = await createProvider(refusing).testPrefill();
+    assert(!t.ok && /would not take a structured prefill/.test(t.detail), t.detail);
+    eq(((await db.connections.list()).find((c) => c.id === refusing.id) || {}).structuredDownModel, 'some/refuser', 'remembered');
+  } finally { globalThis.fetch = prior; }
+  const { prefillPlan } = await import('../../js/providers/effort.js');
+  const p = prefillPlan({ type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', model: 'kimi-k3', prefill: '<think>nice iron man [[w:10-150]]</think>\n' });
+  eq(p.seed, 'nice iron man', 'a template kept after switching back to As written: its seed up to the marker');
+  eq(prefillPlan({ type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', model: 'kimi-k3', prefill: 'A plain [[weird]] bracket' }).content, 'A plain [[weird]] bracket', 'brackets that are no marker are his words');
 });

@@ -14889,3 +14889,31 @@ template that began with one went as written. Now:
 - The form's note and the README say so. Law M586 (his seed and its thought in the thinking box, the page at its header,
   no tags on the page; with native thinking first, both kept in order; the brainstorm form holds its shape); M580-4 now
   holds the new rule (a <think> opening goes structured, must close, lands in the thinking box). Walk DOM-211 reads five.
+
+# M587 — the prefill audit (his ask: "audit everything about the prefill, make sure everything works")
+Every path a prefill takes, As written and Structured, read and checked against the code: the plan per address (effort.js),
+the wire (applyPrefill), the words put back (prefillLead), the native Claude path (anthropic.js — the same rules), the
+helpers (call.js workerConnection), the connection's probes, the opener, go-on, out-of-character turns, the fall-backs.
+Four faults, mended:
+- A HELPER COULD GO STRUCTURED: a helper on a Structured connection (his storyteller's with "workers riding this connection
+  get it too", or the opener's own) had its JSON answer forced to open with the story's words — every ledger reading
+  broken. A helper never goes structured and never carries a structured template (workerConnection drops all four).
+- THE PROBES CARRIED THE PAGE'S SCHEMA: "Test" (the thinking probe) and the speed measure sent the schema; a refusal of the
+  schema was read as a refusal of a thinking field and could teach the connection the wrong lesson (learnFact drop). They
+  send none now.
+- "TEST THE PREFILL" TESTED THE WRONG WAY on a Structured connection: it looked for an assistant message (never sent
+  structured) and answered "no known way to start the reply". It asks the structured way with the very schema a page
+  carries, reads the answer, and says so — or that the model refused (remembered for it) or answered out of shape.
+- A TEMPLATE'S MARKERS WENT AS WORDS after switching back to As written: "[[w:10-150]]" sent in a thinking seed. Known
+  markers (keep, end, pg, w, opt, line, lines, free, num, number, emotion, mood, name, action, thought, re) are never
+  sent As written; brackets that are no marker stay his words (effort.js TEMPLATE_MARKER).
+- Law M587; M585's endless stream now ends when its request is cut (as a real fetch's does) and the law checks the house
+  cut it — the stream left running had starved the laws after it; M582 reads the marker rule.
+- "IT TAKES LONG TO FINISH" — what is ours and what is not: the endless padding is gone (M585: let go on close, the line
+  cut, 20 s stall guard). What remains is the provider's: an answer held to a pattern streams slower on many providers;
+  the FIRST request with a new schema is slower (it is compiled — and [[pg]] makes every turn's schema new, plus the
+  opener's own call, up to 45 s); banned words make the schema large; on OpenRouter only providers that keep the schema
+  take the turn.
+- DOM-135 FOUND OUT AT LAST (its new report did it: "readTo 1 … the readers are on the rest"): the house HAD read the page;
+  the drawer's line was stale. Two draws close together each read the store, and when the older read answered last it
+  wrote its stale line into the newest one. drawer.js numbers its draws — only the latest writes (standingSeq).
