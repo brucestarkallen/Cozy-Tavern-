@@ -40,6 +40,7 @@
  *    fresh (referee.refereeStep).
  */
 
+import { splitPrefill } from '../providers/effort.js'; /* M585: a go-on turn keeps only the thinking seed */
 import { structuredPlanFor } from '../providers/openai.js'; /* M581: the opener asks only for a structured turn */
 import { callWorker } from '../agents/call.js';
 import { shownTextPatch, shownIndex } from '../engine/pagepatch.js'; /* M575, M576 */
@@ -5024,7 +5025,15 @@ export function initChat(ctx) {
       /* M581: THE OPENER ([[pg]] in a structured prefill) — another model writes the page's first few words; the storyteller
        * must open with them (the schema holds it to them) and carry on. A model that would refuse at the first word is past
        * that word before it begins. If the opener fails, [[pg]] is simply empty and the page goes on. */
-      if (!ooc && structuredPlanFor(connection) && /\[\[\s*pg\s*\]\]/i.test(String(connection.prefill || ''))) {
+      /* M585: "GO ON" CARRIES THE PAGE FORWARD — it is not a new page's opening. The reply's prefill (as written or
+       * structured) would make the continuation begin again with his opening words; on a go-on turn only his thinking seed
+       * rides. (His report of a structured page stuck at 40%: "go on" is how the rest is asked for.) */
+      const goingOn = Boolean(lastUser && lastUser.hidden && String(lastUser.text || '').trim().toLowerCase() === 'continue');
+      if (goingOn && String(connection.prefill || '').trim()) {
+        const seedOnly = splitPrefill(String(connection.prefill)).seed;
+        connection = { ...connection, prefill: seedOnly ? '<think>' + seedOnly : '' };
+      }
+      if (!ooc && !goingOn && structuredPlanFor(connection) && /\[\[\s*pg\s*\]\]/i.test(String(connection.prefill || ''))) {
         let opening = '';
         try {
           const openerConn = await resolveWorkerConnection(story, 'opener');

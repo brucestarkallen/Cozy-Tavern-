@@ -14846,3 +14846,26 @@ reply. prefillPlan and prefillLead (the words put back) read the same. As writte
 - Laws M584-1/2. Read and sound otherwise: the engine's defaults, composure and its morale shock, conditions and their
   domains, the live rating, the duel (exchange, recovery, the sequence of strikes), units built (counts, estimates),
   battles (joining, pairings, the main character's beat, the fall-back when he is down), war (command, strength).
+
+# M585 — a structured page stuck mid-way, "beeping" for 14 minutes at 40%
+His report. Two ways a structured answer never ends — both met by the extension too (its stream guard):
+(1) the model writes a dialogue quote BARE instead of escaped — that ends the JSON string — and then, held by the schema to
+nothing but the object's close, pads with whitespace until its token limit (the words stop at 40%; the stream goes on);
+(2) it thrashes against the pattern, sending characters that never become words. Three faults of ours made it a wait:
+- THE READER NEVER LET GO: sse.js read every stream to its end. A listener may now answer 'stop'; the moment a structured
+  answer's text closes, the stream is let go (openai.js readStructured), and the page is whole as it stands.
+- THE METER KEPT READING: the usage meter tees the stream and reads its own copy to the end — so even a let-go stream
+  kept the line open and the provider writing (and billing) the padding; and awaiting the cancel of a teed branch waits
+  for the other branch too (the spec) — that wait never ended. Each page request now has its own line tied to his Stop,
+  cut when the answer is complete or stalled (the provider stops; both copies end); the cancel is never awaited.
+- A STALLED ANSWER WAS NEVER STOPPED: a structured answer whose words have not grown for 20 s while it keeps sending is
+  stopped, its words kept, the page marked cut short and said (a walk knob, __cozyStructuredStallMs).
+- A text that closed MID-SENTENCE (it does not end on . ! ? … a quote * ) ]) is marked cut short and said, so Go on is
+  offered; one that ends on a sentence's close is whole.
+- GO ON NEVER RE-OPENS: "go on" carries the page forward — the reply's prefill (as written or structured) made the
+  continuation begin again with his opening words. On a go-on turn (the hidden "continue") only his thinking seed rides,
+  and the opener is not asked.
+- NO SHORTHAND CLASSES: every pattern the house writes uses (?:.|\n) and [\t \r\n], never \s or \S (Claude's routes refuse
+  them — the extension found the plain forms safest everywhere).
+- Law M585 (a stream that pads forever returns at once, the padding never read; a mid-sentence close cut short and said;
+  no \s or \S in any pattern). M580-1 and M581-2 read the plain forms.

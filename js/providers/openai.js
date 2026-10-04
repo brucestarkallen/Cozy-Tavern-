@@ -412,7 +412,14 @@ export function createOpenAIProvider(connection) {
     }
   }
 
-  async function streamChat({ systemBlocks: blocks, system, messages, signal, onToken }) {
+  async function streamChat({ systemBlocks: blocks, system, messages, signal: callerSignal, onToken }) {
+    /* M585: the turn's own line to the provider, tied to his Stop — so the house can cut it when an answer is complete
+     * (a structured answer that closed): the provider stops writing (and billing), and the usage meter's copy of the
+     * stream ends with it instead of reading the padding to the provider's end */
+    const line = new AbortController();
+    const signal = line.signal;
+    const relay = () => { try { line.abort(); } catch (err) { /* already cut */ } };
+    if (callerSignal) { if (callerSignal.aborted) relay(); else callerSignal.addEventListener('abort', relay, { once: true }); }
     /* System mapping (SPEC.md M2, widened M9 for A4): the cache:true blocks
      * concatenate into a single LEADING system message — the stable prefix
      * that provider-side caching keys on. Blocks marked cache:false (M9:
@@ -656,6 +663,23 @@ export function createOpenAIProvider(connection) {
     /* M580: a structured answer is JSON — its words are read out of it as they stream (and the hidden part held back) */
     const decoder = structuredNow ? makeStructuredDecoder({ hidden: structuredNow.hidden }) : null;
     const prose = (text) => { const words = decoder ? decoder.feed(text) : text; if (!words) return; if (nativeThoughts) emit('prose', words); else splitter.feed(words); };
+    /* M585: A STRUCTURED ANSWER THAT NEVER ENDS. His report: "sometimes in the middle of the reply it's stuck… waited 14
+     * minutes, it stopped at 40%". Two ways it happens, both known to the extension (its stream guard): the model closes
+     * the answer's text early — a dialogue quote written bare instead of escaped ends a JSON string — and then, held by the
+     * schema to nothing but the object's close, pads with whitespace until its token limit; or it thrashes against the
+     * pattern, sending characters that never become words. Now: the moment the text closes, the stream is let go and the
+     * page is whole as it stands (Go on asks for more); and a structured answer whose words have not grown for 20 seconds
+     * while it keeps sending is stopped, its words kept, the page marked cut short and said. */
+    let rawSinceWords = 0; let wordsAt = Date.now(); let wordsLen = 0; let stalled = false;
+    const STALL_MS = Number(globalThis.__cozyStructuredStallMs) > 0 ? Number(globalThis.__cozyStructuredStallMs) : 20000;
+    const readStructured = () => {
+      if (!decoder) return undefined;
+      if (decoder.closed()) return 'stop';
+      const n = decoder.wordsSoFar();
+      if (n > wordsLen) { wordsLen = n; wordsAt = Date.now(); rawSinceWords = 0; return undefined; }
+      if (Date.now() - wordsAt > STALL_MS && rawSinceWords > 400) { stalled = true; return 'stop'; }
+      return undefined;
+    };
     await readSSE(res.body, (data) => {
       const piece = data && data.choices && data.choices[0];
       const delta = piece && piece.delta;
@@ -678,12 +702,24 @@ export function createOpenAIProvider(connection) {
           emit('thinking', thought);
         }
         const text = delta.content;
-        if (typeof text === 'string' && text) prose(text);
+        if (typeof text === 'string' && text) { if (decoder) rawSinceWords += text.length; prose(text); }
       }
       if (data && data.error) {
         refusal = data.error.message || 'The storyteller stumbled mid-sentence.';
       }
+      return readStructured(); /* M585 */
     });
+    if (decoder && (decoder.closed() || stalled)) relay(); /* M585: the line cut — nothing more is wanted from it */
+    if (decoder && decoder.closed()) {
+      /* M585: the answer's text closed. A page that ends on a sentence's close is complete; one that closed mid-sentence
+       * (a bare quote ends a JSON string) is marked cut short and said, so Go on is offered for the rest */
+      if (/[.!?…"”'’*)\]~—–-]\s*$/.test(full)) { if (!finishReason) finishReason = 'stop'; }
+      else if (full.trim()) { finishReason = 'length'; notes.push('The structured answer closed in the middle of a sentence (a quote the model wrote bare ends its text) — the words before were kept. Say “go on” for the rest.'); }
+    }
+    if (stalled) {
+      finishReason = 'length';
+      notes.push('The structured answer stopped making progress (it kept sending, but no more words came), so it was stopped — the words before were kept. Say “go on” to carry the page forward.');
+    }
     if (decoder) { const rest = decoder.end(); if (rest) { if (nativeThoughts) emit('prose', rest); else splitter.feed(rest); } }
     splitter.end();
     /* M160: A PAGE THE WIRE BROKE IS NEVER SHOWN AS WHOLE. An error frame

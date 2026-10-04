@@ -34,7 +34,7 @@ test('M580-1 THE TEMPLATE AS A PATTERN: his words must open the answer exactly, 
   assert(!slots.test('Mood: calm. Pick: B. Roll 4. Said: far too many words here\n'), 'too many words fails');
   const t = readTemplate('<plan>[[w:3-9]]</plan>\n[[keep]]Kaelen [[end]]');
   eq(t.hidden, '<plan>[[w:3-9]]</plan>\n'); eq(t.shown, 'Kaelen '); eq(t.mustEnd, true);
-  assert(/\\s\*\$$/.test(structuredSchema('Yes. [[end]]').properties.response.pattern), 'ends where the template ends');
+  assert(/\[\\t \\r\\n\]\*\$$/.test(structuredSchema('Yes. [[end]]').properties.response.pattern), 'ends where the template ends (whitespace written plainly, M585)');
   eq(literalPattern('a(b)?\nc'), 'a\\(b\\)\\?\\nc', 'specials escaped, the newline as \\n');
   assert(/\\u2014/.test(structuredSchema('Bluebird — ', { ascii: true }).properties.response.pattern), 'an ASCII-only pattern for Claude routes');
 });
@@ -111,7 +111,7 @@ test('M581-2 THE SCHEMA CARRIES THE BANNED WORDS; the houses the extension never
   eq(structuredPlanFor({ type: 'openai', baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat', prefill: '[x ', prefillMode: 'structured' }), null, 'DeepSeek: as written');
   eq(structuredPlanFor({ type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', model: 'kimi-k3', prefill: '[x ', prefillMode: 'structured' }), null, 'Moonshot: as written');
   const many = structuredPlanFor({ type: 'openai', baseUrl: 'https://openrouter.ai/api/v1', model: 'openai/gpt-5', prefill: '[x ', prefillMode: 'structured', prefillBanned: 'ozone\ntapestry\nelara\nluminous\nfirmament\ngaze\ntestament\nwhisper' });
-  assert(/too many for one exact pattern/.test(many.note) && /\[\\s\\S\]\{80,\}/.test(many.schema.properties.response.pattern), 'said, and the page goes with the plain minimum');
+  assert(/too many for one exact pattern/.test(many.note) && /\(\?:\.\|\\n\)\{80,\}/.test(many.schema.properties.response.pattern), 'said, and the page goes with the plain minimum');
 });
 
 test('M582 A STRUCTURED TEMPLATE THAT GOES AS WRITTEN NEVER SENDS ITS MARKERS: on an address that takes no schema (or a model that refused it) only the plain words that open the shown part start the reply — the hidden part, [[end]] and every slot stay home', async () => {
@@ -146,4 +146,27 @@ test('M583 THE READY-MADE TEMPLATES: each is written from his words, follows its
   assert(/needs your words/.test(fillPreset('line', '  ').error), 'the first one asks for words');
   eq(fillPreset('line', 'a [[w:9]] b]]').prefill, '[[line]]\n\na w:9 b', 'his words never become a marker');
   eq(fillPreset('plan', '').prefill.endsWith('[[keep]]'), true, 'the plan without words: the page is the storyteller\u2019s own');
+});
+
+test('M585 A STRUCTURED ANSWER THAT NEVER ENDS IS NEVER WAITED ON: the moment its text closes the stream is let go (a stream that pads with whitespace forever returns at once, the page whole); a text that closed mid-sentence is marked cut short and said; no shorthand classes in any pattern', async () => {
+  const conn = { type: 'openai', baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'k', model: 'openai/gpt-5', prefill: '[x ', prefillMode: 'structured', prefillMinChars: 5 };
+  const endless = (first) => {
+    let sent = 0; let pulls = 0;
+    const frames = first.map((c) => 'data: ' + JSON.stringify({ choices: [{ delta: { content: c } }] }) + '\n\n');
+    const body = new ReadableStream({ pull(c) { pulls += 1; if (sent < frames.length) { c.enqueue(enc(frames[sent])); sent += 1; return; } c.enqueue(enc('data: ' + JSON.stringify({ choices: [{ delta: { content: '   \n' } }] }) + '\n\n')); } });
+    return { res: { ok: true, status: 200, headers: new Headers({ 'content-type': 'text/event-stream' }), body, clone() { return this; }, json: async () => ({}) }, pulls: () => pulls };
+  };
+  const a = endless(['{"response":"[x Kaelen lunged at the gate', ' and the bell rang.', '"}']);
+  const t0 = Date.now();
+  const { out } = await tell(conn, () => a.res);
+  assert(Date.now() - t0 < 5000, 'returned at once, not at the provider\u2019s end');
+  eq(out.text, '[x Kaelen lunged at the gate and the bell rang.');
+  eq(out.finishReason, 'stop', 'whole');
+  assert(a.pulls() < 20, 'the padding was never read: ' + a.pulls() + ' reads');
+  const b = endless(['{"response":"[x Kaelen lunged at the gate and said, ', '"}']);
+  const cut = await tell(conn, () => b.res);
+  eq(cut.out.finishReason, 'length', 'closed mid-sentence: cut short');
+  assert(cut.out.notes.some((x) => /closed in the middle of a sentence/.test(x)), 'and said');
+  const pat = structuredSchema('Pick [[opt:a|b]] then [[w:2-4]] [[end]]').properties.response.pattern + structuredSchema('[x ', { ascii: true }).properties.response.pattern + structuredSchema('[x ').properties.response.pattern;
+  assert(!/\\[sS]/.test(pat), 'no \\s or \\S anywhere: ' + pat);
 });

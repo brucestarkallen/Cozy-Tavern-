@@ -56,8 +56,12 @@ const range = (raw) => {
   const a = Number(m[1]); const b = m[2] === undefined ? a : Number(m[2]);
   return a <= b ? [a, b] : [b, a];
 };
-const WORD = '[^\\s]+';
-const PHRASE_WORD = '[^\\s"“”*()]+';
+/* M585: no shorthand classes (\\s, \\S) in any pattern the house writes — Claude's routes refuse them, and the extension
+ * found the plain forms safest everywhere: "any character" is (?:.|\\n), whitespace is [\\t \\r\\n] */
+const ANY = '(?:.|\\n)';
+const WS = '[\\t \\r\\n]';
+const WORD = '[^\\t \\r\\n]+';
+const PHRASE_WORD = '[^\\t \\r\\n"“”*()]+';
 const wordsPattern = (min, max, word = WORD) => {
   const lo = Math.max(1, min); const hi = Math.max(lo, max);
   return word + (hi === 1 ? '' : '(?: ' + word + '){' + (lo - 1) + ',' + (hi - 1) + '}');
@@ -140,9 +144,9 @@ export function structuredSchema(text, { minChars = MIN_AFTER_DEFAULT, ascii = f
   /* M581: with banned words, what follows the opening is the exact "never contains one" pattern (no minimum then — a
    * length cannot be laid over it in one pattern) */
   const pattern = tpl.mustEnd
-    ? '^(?:' + head + ')\\s*$'
+    ? '^(?:' + head + ')' + WS + '*$'
     : banned ? '^(?:' + head + ')(?:' + banned + ')$'
-      : ascii ? '^(?:' + head + ')[\\s\\S]+$' : '^(?:' + head + ')[\\s\\S]{' + least + ',}$';
+      : ascii ? '^(?:' + head + ')' + ANY + '+$' : '^(?:' + head + ')' + ANY + '{' + least + ',}$';
   return {
     type: 'object',
     properties: { response: { type: 'string', pattern } },
@@ -228,6 +232,8 @@ export function makeStructuredDecoder({ hidden = null, holdMax = 6000 } = {}) {
     end() { return release(true); },
     words() { return words.slice(hiddenDone ? hiddenCut : 0); },
     wasJson() { return mode === 'string' || mode === 'done'; },
+    closed() { return mode === 'done'; }, /* M585: the answer's text is complete — nothing after it is ever words */
+    wordsSoFar() { return words.length; },
   };
 }
 

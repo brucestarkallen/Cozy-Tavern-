@@ -16,19 +16,25 @@ export async function readSSE(body, onEvent) {
   let buf = '';
   let dataLines = [];
 
+  /* M585: the listener may say 'stop' — the answer it was reading is complete (or will never be): the stream is let go at
+   * once rather than read to the provider's end, which for a structured answer that ran away can be minutes */
+  let stopped = false;
   const dispatch = () => {
     if (!dataLines.length) return;
     const raw = dataLines.join('\n');
     dataLines = [];
     if (raw === '[DONE]') return;
     try {
-      onEvent(JSON.parse(raw));
+      if (onEvent(JSON.parse(raw)) === 'stop') stopped = true;
     } catch (err) {
       /* a keep-alive or partial frame; keep listening */
     }
   };
 
   for (;;) {
+    /* never awaited: a stream the usage meter copied (tee) settles its cancel only when the meter's copy ends too — the
+     * caller cuts the request itself for that */
+    if (stopped) { try { reader.cancel().catch(() => {}); } catch (err) { /* already closed */ } return 'stopped'; }
     const { done, value } = await reader.read();
     if (done) break;
     buf += decoder.decode(value, { stream: true });
@@ -37,7 +43,7 @@ export async function readSSE(body, onEvent) {
       let line = buf.slice(0, nl);
       buf = buf.slice(nl + 1);
       if (line.endsWith('\r')) line = line.slice(0, -1);
-      if (line === '') { dispatch(); continue; }
+      if (line === '') { dispatch(); if (stopped) break; continue; }
       if (line.startsWith(':')) continue; /* a comment/heartbeat */
       if (/^(?:data|event|id|retry):/.test(line)) {
         if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
