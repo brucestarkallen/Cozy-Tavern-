@@ -47,6 +47,7 @@
  *   {kind:'ledger', before, afterHash, words} ]}
  */
 
+import { shownTextPatch } from '../engine/pagepatch.js'; /* M576 */
 import { nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M288: the lean steps */
 import { samePersonName } from '../engine/names.js'; /* M398 */
 import { roomChars } from '../engine/pagecut.js'; /* M288: the housekeeper's room */
@@ -2327,18 +2328,7 @@ function applyLocated(text, located, replace) {
 }
 
 /* A page patch that keeps the swipes in step, the way a hand edit does. */
-function editPatchFor(msg, newText) {
-  const patch = { text: newText };
-  if (Array.isArray(msg.swipes) && msg.swipes.length) {
-    const idx = Number.isFinite(msg.swipeIdx)
-      ? Math.min(msg.swipes.length - 1, Math.max(0, msg.swipeIdx))
-      : msg.swipes.length - 1;
-    const swipes = msg.swipes.slice();
-    swipes[idx] = { ...swipes[idx], text: newText };
-    patch.swipes = swipes;
-  }
-  return patch;
-}
+function editPatchFor(msg, newText) { return shownTextPatch(msg, newText); } /* M576: the one rule (engine/pagepatch.js) */
 
 async function applyEditOp(storyId, p, batch) {
   const op = p.op;

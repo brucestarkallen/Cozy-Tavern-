@@ -15,6 +15,7 @@
  *
  * Only for a tale whose storyteller is a small model (the connection's own tick). Kept per tale, keyed to the page it
  * was made after, the last few kept — so Try again finds the plan for the page before it. */
+import { shownIndex } from '../engine/pagepatch.js'; /* M576 */
 import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { db } from '../store.js';
 import { callWorker } from './call.js';
@@ -45,7 +46,7 @@ export function hashText(t) { return fingerprint36(t); } /* M575: one fingerprin
  * send uses the plan of its page, and the helper reads the page again when its words have changed. */
 export function planKey(msg) {
   if (!msg || !msg.id) return 'the opening';
-  const version = Number.isFinite(msg.swipeIdx) ? msg.swipeIdx : 0;
+  const version = shownIndex(msg); /* M576: the version the page shows — the one rule */
   return msg.id + ':' + version;
 }
 

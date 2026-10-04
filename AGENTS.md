@@ -14656,3 +14656,25 @@ mended, the brief from a concept, the mends and their undoing).
   record line): a very long tale overflows a call's arguments. A loop or a reduce now; the spreads left are over a few
   items (a person's wounds, a day's models).
 - The offline shell lists the two new modules (M30-8 caught them missing).
+
+# M576 — the line-by-line audit, part 3
+Read: ui/chat.js lines 3420–5760 — the whole page chain (founder, the house's eye, the readers, the canon steps, the world,
+the scribe, the keeper, the second reader, the auditor, tidy, heal, canon tidy, the checkpoint, the seeder, sensors, the
+side helpers), the fold and rewind, the replay, the timeline repair, the resume on opening, and the send itself
+(generate: the placer before the first page, the referee, the checkpoint, the request, the stream, the landing, retry,
+"go on", send).
+- WHICH VERSION A PAGE SHOWS, ONE RULE (engine/pagepatch.js shownIndex / shownText): written out eight times — pageText,
+  the record's own copy of it, the choices' version, the shown-version change, four checkpoint keys — and READ BY ANOTHER
+  RULE in four more places (`swipeIdx` or 0): the resume on opening, the rebuilt people's version ledger, a branch's
+  carried checkpoint, and the planner's key. A page with versions and none chosen shows its newest; those four read 0 —
+  so the resume found no checkpoint for such a page and read it again on EVERY open (with its toast), the rebuilt people
+  missed its version ledger, and the plan was keyed to a version not shown. All read the one rule now; the edit's, the
+  swipe walk's and the housekeeper's shown-version changes use the one helper too. (The import's own normalising of a
+  tale from a file keeps its rule: it reads the file's fields, not a stored page.) Laws M576, M576-2; M510-5's fixture
+  takes pages as the app keeps them — a swipeIdx only ever stands beside its swipes.
+- ONE SET OF REQUEST ARGUMENTS (generate): the probe that sizes the record and the request itself had the same thirty
+  arguments written out twice — compared exactly, they differed only in the record — so one added to the one and not the
+  other would size the record against a request that is not the one sent. One object, used twice.
+- Checked and right as it stands: the placer before the first page keeps the series' "when" while the page chain's
+  placer clears it (M526–M527: a fresh tale begins at that moment; a tale under way has moved on from it); no side-lane
+  helper writes the ledger, so the main lane's read-then-write is never overwritten.

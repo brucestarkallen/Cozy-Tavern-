@@ -126,8 +126,10 @@ test('M510-5 THE PLANNING HELPER READS EVERYTHING, AND ITS ANSWER IS DATA: prese
   assert(await loadPlan('s-tie', 't5') && await loadPlan('s-tie', 't2') && !(await loadPlan('s-tie', 't1')), 'the newest four by order, whatever the clock says');
   /* M510-6: a plan follows its page, not its exact words — a mended page keeps its plan and is read again */
   const { planEntry, hashText } = await import('../../js/agents/planner.js');
-  eq(planKey({ id: 'a1', swipeIdx: 1 }), planKey({ id: 'a1', swipeIdx: 1 }), 'the same page, whatever its words');
-  assert(planKey({ id: 'a1', swipeIdx: 1 }) !== planKey({ id: 'a1', swipeIdx: 2 }), 'another version is another page');
+  /* M576: a page's versions as the app keeps them (a swipeIdx only ever stands beside its swipes) — the key is the version the page SHOWS */
+  const three = [{ text: 'a' }, { text: 'b' }, { text: 'c' }];
+  eq(planKey({ id: 'a1', swipes: three, swipeIdx: 1 }), planKey({ id: 'a1', swipes: three, swipeIdx: 1 }), 'the same page, whatever its words');
+  assert(planKey({ id: 'a1', swipes: three, swipeIdx: 1 }) !== planKey({ id: 'a1', swipes: three, swipeIdx: 2 }), 'another version is another page');
   await keepPlan('s-mend', planKey({ id: 'a1', swipeIdx: 0 }), PLAN, hashText('the words as read'));
   const entry = await planEntry('s-mend', planKey({ id: 'a1', swipeIdx: 0 }));
   assert(entry && entry.plan && entry.hash === hashText('the words as read') && entry.hash !== hashText('the words, mended'), 'the send still has its plan after a mend, and the helper can see the words changed');

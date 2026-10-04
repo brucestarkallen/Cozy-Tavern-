@@ -12,6 +12,7 @@
  * the seal is broken (it is his own move then). Typing his own move takes none. What a taken choice left behind rides on
  * every later page as what his choices set in motion. Everything lives on the pages, so a branch, a take-back, an export
  * and the device's books carry it exactly as they carry the pages. */
+import { shownIndex } from '../engine/pagepatch.js'; /* M576 */
 import { callWorker } from './call.js';
 import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M566: the brief held to the workers' shared room */
 import { parseFirstObject } from './jsonutil.js';
@@ -37,11 +38,7 @@ const endStop = (s) => { const t = String(s || '').trim(); return !t || /[.!?…
 const lowerFirst = (s) => { const t = String(s || '').trim(); return /^[A-Z][a-z]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t; };
 
 /* the version of a page as the thread shows it — the same choice pageText makes (the newest when none is picked) */
-export function versionOf(msg) {
-  const n = msg && Array.isArray(msg.swipes) ? msg.swipes.length : 0;
-  if (!n) return 0;
-  return Number.isFinite(msg.swipeIdx) ? Math.min(n - 1, Math.max(0, msg.swipeIdx)) : n - 1;
-}
+export function versionOf(msg) { return shownIndex(msg); } /* M576: the one rule */
 
 /* the offer kept on a page for the version it stands at — {turning:false} is kept too, so a quiet page is asked once */
 export function offerOf(page) {

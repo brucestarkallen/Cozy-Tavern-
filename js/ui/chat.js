@@ -40,7 +40,7 @@
  *    fresh (referee.refereeStep).
  */
 
-import { shownTextPatch } from '../engine/pagepatch.js'; /* M575 */
+import { shownTextPatch, shownIndex } from '../engine/pagepatch.js'; /* M575, M576 */
 import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { tidyPeople, tidyDue, tidyRunWords } from '../agents/tidy.js'; /* M291: the character pages, tidied once */
 import { windowCutAt } from '../engine/window.js'; /* M467 */
@@ -2566,7 +2566,7 @@ export function initChat(ctx) {
         }
         if (touched) await saveSnapshots(story.id, snaps);
         if (last) {
-          const idx = Number.isFinite(last.swipeIdx) ? last.swipeIdx : 0;
+          const idx = shownIndex(last); /* M576: the version the checkpoint step keyed (a page with versions and none chosen shows its newest) */
           const all = await loadVersionStates(story.id);
           if (all[last.id + ':' + idx]) { all[last.id + ':' + idx] = { ...all[last.id + ':' + idx], characters: JSON.parse(JSON.stringify(rebuilt.characters || {})) }; await writeVersionStates(story.id, all); } /* M574: a new object, the same reason */
         }
@@ -4028,9 +4028,7 @@ export function initChat(ctx) {
       /* M67: an older page owns no checkpoint — except during a replay, when the ledger at this point IS this page's */
       if (!replaying && !isLastAssistantPage(all, msg.id)) return { silent: true };
       const fresh = all.find((m) => m.id === msg.id);
-      const idx = fresh && Array.isArray(fresh.swipes) && fresh.swipes.length
-        ? (Number.isFinite(fresh.swipeIdx) ? Math.min(fresh.swipes.length - 1, Math.max(0, fresh.swipeIdx)) : fresh.swipes.length - 1)
-        : 0;
+      const idx = shownIndex(fresh); /* M576: the one rule */
       await saveVersionState(story.id, msg.id, idx, await loadState(story.id));
       return { silent: true };
     });
@@ -4416,9 +4414,7 @@ export function initChat(ctx) {
           const lastA = [...vis].reverse().find((m) => m.role === 'assistant');
           if (lastA) {
             const fresh = (await db.messages.list(story.id)).find((m) => m.id === lastA.id);
-            const idx = fresh && Array.isArray(fresh.swipes) && fresh.swipes.length
-              ? (Number.isFinite(fresh.swipeIdx) ? Math.min(fresh.swipes.length - 1, Math.max(0, fresh.swipeIdx)) : fresh.swipes.length - 1)
-              : 0;
+            const idx = shownIndex(fresh); /* M576: the one rule */
             if (fresh) await saveVersionState(story.id, lastA.id, idx, st);
           }
           pendingAudit.delete(story.id);
@@ -4476,7 +4472,7 @@ export function initChat(ctx) {
     const last = [...vis].reverse().find((m) => m.role === 'assistant');
     if (!last || last.ooc) return false;
     if (last.stopped || (typeof last.text === 'string' && !last.text.trim())) return false;
-    const idx = Number.isFinite(last.swipeIdx) ? last.swipeIdx : 0;
+    const idx = shownIndex(last); /* M576: the key the checkpoint step wrote — read by another rule, a page with versions and none chosen was "unfinished" on every open and read again */
     if (await versionStateFor(story.id, last.id, idx)) return false;
     /* a chain still running in THIS session is not unfinished */
     if (queuedCount(story.id) > 0) return false;
@@ -4959,8 +4955,11 @@ export function initChat(ctx) {
        * means (they ride word for word); never more than 8 seconds; slower or unsure, none. M547: asked beside the referee
        * (smartRecallFor, above) for every storyteller; its answer is taken here. */
       const recallPicked = (await recallPending) || [];
-      const probeReceipt = buildRequest({
-        story, messages: history, settings: settingsValues, state, modules: selected, memory: '',
+      /* M576: ONE SET OF ARGUMENTS for the two builds — the probe (to size the record) and the request itself had the same
+       * thirty arguments written out twice, differing only in the record; one added to the one and not the other would have
+       * sized the record against a request that is not the one sent */
+      const requestArgs = {
+        story, messages: history, settings: settingsValues, state, modules: selected,
         cast: invitedCast, lore: loreText, loreFired, window: windowInfo, directive,
         directorNote: renderDirectorNote(directorState), editorEye: renderEditorNote(editorState),
         houseEye: (() => { const lastA = [...history].reverse().find((m) => m && m.role === 'assistant' && !m.hidden); return lastA ? houseEyeWords(lastA.findings) : ''; })(),
@@ -4972,7 +4971,8 @@ export function initChat(ctx) {
         smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, quietPage: quietNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
         sensorNote, /* M356 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
-      }).receipt;
+      };
+      const probeReceipt = buildRequest({ ...requestArgs, memory: '' }).receipt;
       /* M264: the record rides in the room the storyteller's context leaves it */
       const recordCap = recordRoom({
         contextTokens: roomOf(connection),
@@ -4991,38 +4991,7 @@ export function initChat(ctx) {
           toast('The storyteller’s context is full: the oldest ' + full[1] + ' record ' + (full[1] === '1' ? 'line was' : 'lines were') + ' left out of this page. Squeezing “Only when the whole record would no longer fit” (Settings) folds them in instead.');
         }
       }
-      const { systemBlocks, messages, receipt: receiptDraft } = buildRequest({
-        story,
-        messages: history,
-        settings: settingsValues,
-        state,
-        modules: selected,
-        memory: memoryText,
-        cast: invitedCast,
-        lore: loreText,
-        loreFired,
-        window: windowInfo,
-        directive,
-        /* M10: the showrunners' standing texts — their own receipt-named
-         * slots in the dynamic tail, before history; empty = omitted. */
-        directorNote: renderDirectorNote(directorState),
-        editorEye: renderEditorNote(editorState),
-        /* M88: the house's eye — the LAST page's slips against the craft,
-         * for this one turn's silent recolor (never a standing nag). */
-        houseEye: (() => { const lastA = [...history].reverse().find((m) => m && m.role === 'assistant' && !m.hidden); return lastA ? houseEyeWords(lastA.findings) : ''; })(),
-        /* M29: the world agent's word for this turn. */
-        worldBrief: renderWorldBrief(state.worldBrief, state.turn, state.page, state),
-        /* M345: THE SETTLED OUTCOME REACHES THE STORYTELLER. Since M11 the referee ruled into the ledger and the drawer,
-         * and this call never handed the ruling on — the storyteller never once read it. */
-        ruling: rulingFor(state, lastUser && lastUser.id, ooc),
-        canonNote, /* M346: canon verification's note, at the top of the briefing */
-        canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy({ since: canonAskedAt }) : '', /* M486; M534: this turn's reason, or none */
-        choicesOn: choicesNow, choiceTaken: choiceNow, choiceEchoes: choicesNow ? echoesText(choiceNow ? history.filter((m) => !(m && lastUser && m.id === lastUser.id)) : history) : '', /* M548 */
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, quietPage: quietNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
-        sensorNote, /* M356: the sensors' one line, in the closing words */
-        /* M30: wire-mode regex rules shape only what the storyteller is sent. */
-        pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
-      });
+      const { systemBlocks, messages, receipt: receiptDraft } = buildRequest({ ...requestArgs, memory: memoryText }); /* M576: the same arguments, with the record */
 
       /* M6 consume-and-clear: the ruling rode into this turn's stack as a
        * fact; it clears now, so no later turn inherits it. */
@@ -6021,9 +5990,7 @@ export function initChat(ctx) {
       if (dir > 0 && msg.role === 'assistant') swipeRegenerate(msg);
       return;
     }
-    const idx = Number.isFinite(msg.swipeIdx)
-      ? Math.min(msg.swipes.length - 1, Math.max(0, msg.swipeIdx))
-      : msg.swipes.length - 1;
+    const idx = shownIndex(msg); /* M576: the one rule */
     const next = idx + dir;
     if (next >= msg.swipes.length) {
       /* Walking past the last version writes a new one (the old keep). */
@@ -6100,9 +6067,7 @@ export function initChat(ctx) {
       const historyNow = await db.messages.list(story.id);
       const leaving = await loadState(story.id);
       const lastPage = isLastAssistantPage(historyNow, msg.id);
-      const leavingIdx = Array.isArray(msg.swipes) && msg.swipes.length
-        ? (Number.isFinite(msg.swipeIdx) ? Math.min(msg.swipes.length - 1, Math.max(0, msg.swipeIdx)) : msg.swipes.length - 1)
-        : 0;
+      const leavingIdx = shownIndex(msg); /* M576: the one rule */
       if (lastPage) await saveVersionState(story.id, msg.id, leavingIdx, leaving);
       /* M21: TRUE rollback — swipe-creation restores the boundary too — for the
        * last page. An older page's new version never rewinds the later turns'
@@ -6220,14 +6185,7 @@ export function initChat(ctx) {
           if (msg.typed !== undefined) patch.typed = reread.kind && reread.kind !== 'question' ? String(text).trim() : undefined;
         }
         /* An edited shown swipe keeps the versions in step. */
-        if (Array.isArray(msg.swipes) && msg.swipes.length) {
-          const idx = Number.isFinite(msg.swipeIdx)
-            ? Math.min(msg.swipes.length - 1, Math.max(0, msg.swipeIdx))
-            : msg.swipes.length - 1;
-          const swipes = msg.swipes.slice();
-          swipes[idx] = { ...swipes[idx], text };
-          patch.swipes = swipes;
-        }
+        if (Array.isArray(msg.swipes) && msg.swipes.length) patch.swipes = shownTextPatch(msg, text).swipes; /* M576: the one rule */
         const updated = await db.messages.update(story.id, msg.id, patch);
         /* M44: the edited page's record line is let go (a hole, refilled).
          * The LAST storyteller page is re-read from the boundary before its
@@ -6390,9 +6348,7 @@ export function initChat(ctx) {
       if (hit) { carried = hit.snap; exact = true; }
     }
     if (!carried && target.role === 'assistant') {
-      const idx = Array.isArray(target.swipes) && target.swipes.length
-        ? (Number.isFinite(target.swipeIdx) ? Math.min(target.swipes.length - 1, Math.max(0, target.swipeIdx)) : target.swipes.length - 1)
-        : 0;
+      const idx = shownIndex(target); /* M576: the one rule */
       carried = await versionStateFor(story.id, target.id, idx);
     }
     if (!carried) {
@@ -6463,7 +6419,7 @@ export function initChat(ctx) {
       const lastCarried = [...pages].reverse().find((m) => m && m.role === 'assistant' && !m.hidden);
       if (lastCarried) {
         const bid = idMap[lastCarried.id] || lastCarried.id;
-        const idx = Number.isFinite(lastCarried.swipeIdx) ? lastCarried.swipeIdx : 0;
+        const idx = shownIndex(lastCarried); /* M576: the one rule */
         branchVersions[bid + ':' + idx] = JSON.parse(JSON.stringify(carried));
       }
     }

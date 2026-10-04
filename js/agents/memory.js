@@ -37,7 +37,7 @@
  * for next time.
  */
 
-import { shownTextPatch } from '../engine/pagepatch.js'; /* M575 */
+import { shownTextPatch, shownText } from '../engine/pagepatch.js'; /* M575, M576 */
 import { parseLenient } from './jsonutil.js'; /* M439 */
 import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M283 */
 import { db } from '../store.js';
@@ -340,14 +340,7 @@ export function partlyReadLines(mem, messages) {
 
 export const STORY_SO_FAR_MOST = 100;
 /* a page's shown words (its chosen swipe), as the assembler reads them */
-function pageTextOf(m) {
-  if (m && Array.isArray(m.swipes) && m.swipes.length) {
-    const i = Number.isFinite(m.swipeIdx) ? Math.min(m.swipes.length - 1, Math.max(0, m.swipeIdx)) : m.swipes.length - 1;
-    const sw = m.swipes[i];
-    if (sw && typeof sw.text === 'string') return sw.text;
-  }
-  return m && typeof m.text === 'string' ? m.text : (m && typeof m.content === 'string' ? m.content : '');
-}
+function pageTextOf(m) { return shownText(m); } /* M576: the one rule */
 export function storySoFar(messages, mem, messageId, { least = 4, most = STORY_SO_FAR_MOST, recordCap = Infinity } = {}) {
   const ordered = visiblePages(messages);
   const atSelf = ordered.findIndex((m) => m && m.id === messageId);

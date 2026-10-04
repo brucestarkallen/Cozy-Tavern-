@@ -38,3 +38,33 @@ test('M575-3 THE SHOWN VERSION IS CHANGED IN ONE PLACE: a page with versions has
   eq(shownTextPatch({ swipes: [{ text: 'a' }, { text: 'b' }] }, 'z').swipes[1].text, 'z', 'no index: the newest version');
   eq(shownTextPatch({ swipes: [{ text: 'a' }, { text: 'b' }], swipeIdx: 9 }, 'z').swipes[1].text, 'z', 'an index past the end: the last');
 });
+
+test('M576 WHICH VERSION A PAGE SHOWS, ONE RULE: pageText, the record\'s own reading, the choices\' version and the shown-version change all read the same version — the chosen one inside the list, the newest when none is chosen, 0 without versions', async () => {
+  const { shownIndex, shownText, shownTextPatch } = await import('../../js/engine/pagepatch.js');
+  const { pageText } = await import('../../js/assemble/stack.js');
+  const { versionOf } = await import('../../js/agents/choices.js');
+  const cases = [
+    [{ text: 'plain' }, 0, 'plain'],
+    [{ text: 'x', swipes: [{ text: 'a' }, { text: 'b' }] }, 1, 'b'],
+    [{ text: 'x', swipes: [{ text: 'a' }, { text: 'b' }], swipeIdx: 0 }, 0, 'a'],
+    [{ text: 'x', swipes: [{ text: 'a' }, { text: 'b' }], swipeIdx: 7 }, 1, 'b'],
+    [{ text: 'x', swipes: [{ text: 'a' }, { text: 'b' }], swipeIdx: -3 }, 0, 'a'],
+    [{ content: 'imported' }, 0, 'imported'],
+    [null, 0, ''],
+  ];
+  for (const [page, idx, words] of cases) {
+    eq(shownIndex(page), idx); eq(versionOf(page), idx);
+    eq(shownText(page), words); eq(pageText(page), words);
+  }
+  eq(shownTextPatch({ swipes: [{ text: 'a' }, { text: 'b' }], swipeIdx: 0 }, 'A').swipes[0].text, 'A');
+});
+
+test('M576-2 A PAGE WITH VERSIONS AND NONE CHOSEN IS KEYED BY THE VERSION IT SHOWS, everywhere — the plan\'s key and the checkpoint\'s key agree with pageText (read by another rule, the resume on opening found no checkpoint and read the page again on every open)', async () => {
+  const { planKey } = await import('../../js/agents/planner.js');
+  const { shownIndex } = await import('../../js/engine/pagepatch.js');
+  const page = { id: 'p9', swipes: [{ text: 'a' }, { text: 'b' }, { text: 'c' }] };
+  eq(planKey(page), 'p9:2', 'the newest, which is what shows');
+  eq(planKey({ ...page, swipeIdx: 0 }), 'p9:0');
+  eq(planKey({ id: 'p1', text: 'plain' }), 'p1:0');
+  eq(shownIndex(page), 2);
+});

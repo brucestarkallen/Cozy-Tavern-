@@ -91,6 +91,7 @@
  * Token estimate per slot = ceil(chars/4) (see assemble/receipt.js).
  */
 
+import { shownText } from '../engine/pagepatch.js'; /* M576 */
 import { renderStanding, standingPlans } from './planbook.js'; /* M510-22 */
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
@@ -216,18 +217,7 @@ export function keeperWindow(memory) {
 
 /* The text the wire and the thread agree on: the shown swipe when a page
  * has versions, else the plain text. Exported for the harness. */
-export function pageText(msg) {
-  if (msg && Array.isArray(msg.swipes) && msg.swipes.length) {
-    const idx = Number.isFinite(msg.swipeIdx)
-      ? Math.min(msg.swipes.length - 1, Math.max(0, msg.swipeIdx))
-      : msg.swipes.length - 1;
-    const swipe = msg.swipes[idx];
-    if (swipe && typeof swipe.text === 'string') return swipe.text;
-  }
-  return msg && typeof msg.text === 'string'
-    ? msg.text
-    : (msg && typeof msg.content === 'string' ? msg.content : '');
-}
+export function pageText(msg) { return shownText(msg); } /* M576: the one rule (engine/pagepatch.js) */
 
 const typedOf = (m) => (m && typeof m.typed === 'string' && m.typed.trim() ? m.typed.trim() : '');
 
