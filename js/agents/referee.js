@@ -1332,6 +1332,16 @@ export function briefMark(brief, castNotes) {
   for (let i = 0; i < s.length; i += 1) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
   return h.toString(36);
 }
+/* M615: WHO THE LAST WEIGHING SAW AND LEFT OFF — one answer for the page's own weighing and for the weighing before a
+ * fight. A sheet weighed before M615 was never shown anyone in the scene without a page, so such a name in its list was
+ * never seen at all: it is weighed once more, and from then on the list is true. */
+export function seenAndLeftOff(state) {
+  const sheet = state && state.sheet && typeof state.sheet === 'object' ? state.sheet : {};
+  const list = Array.isArray(sheet.seenPresent) ? sheet.seenPresent : [];
+  const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
+  const shown = sheet.seenShowsHere === true ? list : list.filter((n) => Object.keys(chars).some((k) => samePersonName(k, n)));
+  return new Set(shown.map(lower));
+}
 export function seedDue(state, pagesTold, { brief, castNotes } = {}) {
   const sheet = state && state.sheet && typeof state.sheet === 'object' ? state.sheet : { actors: {} };
   const actors = sheet.actors && typeof sheet.actors === 'object' ? sheet.actors : {};
@@ -1348,7 +1358,7 @@ export function seedDue(state, pagesTold, { brief, castNotes } = {}) {
     if (mc !== 'the player' && !findActorKeySamePerson(state, mc)) return 'the main character';
     const present = Array.isArray(state.present) ? state.present : [];
     /* someone the last weighing already saw here and left off (a crowd, a voice) does not call it again every page */
-    const seen = new Set(Array.isArray(sheet.seenPresent) ? sheet.seenPresent.map(lower) : []);
+    const seen = seenAndLeftOff(state); /* M615 */
     const newFace = present.map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean)
       .find((n) => !isMcAlias(state, n) && !findActorKeySamePerson(state, n) && !seen.has(lower(n)));
     if (newFace) return 'a new face';
@@ -1371,6 +1381,15 @@ export function seedPeople(state, brief = '', room = 60000) {
     let weight = 0;
     try { weight = importanceOf(state, name, brief, turn, { placeWords: [], lately: [] }); } catch (err) { weight = 0; }
     rows.push({ name, core, now, weight: weight + (here.has(lower(name)) ? 1000 : 0), here: here.has(lower(name)) });
+  }
+  /* M615: EVERYONE IN THE SCENE IS SHOWN TO THE WEIGHING, A PAGE OR NONE. It read the ledger's pages only — a summon
+   * called this page (his Mahoraga), a foe who just walked in, anyone the scribe has not yet given a page, was never put
+   * before it; and the weighing then marked everyone present as SEEN (M532), so they were never weighed by the house
+   * again — not after a page, not before a fight. */
+  for (const p of (Array.isArray(state && state.present) ? state.present : [])) {
+    const n = typeof p === 'string' ? p : p && p.name;
+    if (!n || isMcAlias(state, n) || rows.some((r) => samePersonName(r.name, n))) continue;
+    rows.push({ name: n, core: '', now: '', weight: 1000, here: true });
   }
   rows.sort((a, b) => (b.weight - a.weight) || a.name.localeCompare(b.name));
   const lines = [];
@@ -1636,6 +1655,7 @@ export async function maybeSeedSheet({ connection, storyId, signal, callLLM, bri
     fresh.sheet.seededAtPage = storyTurn(fresh);
     fresh.sheet.briefMark = briefMark(brief, castNotes); /* M474 */
     fresh.sheet.seenPresent = (Array.isArray(fresh.present) ? fresh.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean).slice(0, 40);
+    fresh.sheet.seenShowsHere = true; /* M615: everyone in it was shown to this weighing (seedPeople) */
     fresh.seedDueAfterFight = false;
     await saveState(storyId, fresh);
     notify(storyId);

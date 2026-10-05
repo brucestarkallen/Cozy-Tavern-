@@ -15393,3 +15393,21 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
 - GATES at m614-001 (one CPU): harness 1214/1214, walk 217/217, long play 9/9, lint 0 errors (170 warnings), perf_send,
   holdsone, cutthinking — EXIT 0 each.
 
+# M615 — his report: "the referee suddenly became stupid — I summoned Mahoraga against the villain: the weighing is not
+# automatic, it is still two people, and the referee does not even start the fight when I order Mahoraga to attack"
+- THE CAUSE (reproduced — law M615-1 fails on m614-001): THE WEIGHING WAS NEVER SHOWN A SUMMON. seedPeople put before it only
+  the people with a PAGE in the ledger; a summon called this page (his Mahoraga), a foe who just walked in — anyone the
+  scribe had not given a page — was never named to it. And after every weighing the house marked everyone PRESENT as seen
+  (M532, sheet.seenPresent: "seen and left off — a crowd, a voice"), so the summon was taken as considered and left off: the
+  page's own weighing ("a new face") and the weighing before a fight (M531) both passed it by for good. Unweighed, it stood
+  outside the sheet the referee reads — the regression of M470–M475 he named. M532 (Oct 1) made the false "seen" stick.
+- THE FIX: everyone in the scene is shown to the weighing, a page or none ("Mahoraga (in the scene) — no page written yet");
+  who the last weighing saw and left off has one answer (referee.js seenAndLeftOff, used by seedDue and by chat.js's
+  weighing before a fight); a sheet weighed before this was never shown the page-less, so such a name in its list is not
+  believed — he is weighed once more by the house, and the sheet is stamped (seenShowsHere, kept by state.js) so the list is
+  true from then on.
+- Measured beside it (not changed): the referee's gate passes "attack", "fight", "strike" orders, but not "kill", "crush",
+  "destroy", "take him down", "go, Mahoraga" — Arbiter's own verb list, ported as it is (M471); a fight already under way
+  scores every beat whatever the words.
+
+- GATES at m615-001 (one CPU): harness 1215/1215, walk 217/217, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking — EXIT 0 each.

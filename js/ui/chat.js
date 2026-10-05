@@ -71,7 +71,7 @@ import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/stat
 import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
-import { refereeStep, maybeSeedSheet, refereeWhyWords, gatePasses } from '../agents/referee.js'; /* M531: the referee's own gate decides when fighters are weighed first */
+import { refereeStep, maybeSeedSheet, refereeWhyWords, gatePasses, seenAndLeftOff } from '../agents/referee.js'; /* M531: the referee's own gate decides when fighters are weighed first */
 import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom, putBackMistakenMends, fixedCharsOf } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
@@ -4754,7 +4754,7 @@ export function initChat(ctx) {
               const here = (Array.isArray(state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean);
               /* M532: someone the last weighing already saw here and left off the sheet (a crowd, a voice, a bystander) does not
                * call a weighing before every blow; a NEW face — an enemy who just walked in — does, as a GM would */
-              const seenBefore = new Set(((state.sheet && Array.isArray(state.sheet.seenPresent)) ? state.sheet.seenPresent : []).map((n) => String(n).toLowerCase()));
+              const seenBefore = seenAndLeftOff(state); /* M615: one answer — honest for a sheet weighed before the weighing was shown everyone here */
               const unweighed = [mcName(state), ...here].filter((n, i, all) => n && n !== 'the player' && all.indexOf(n) === i && !findActorKeySamePerson(state, n) && !(n !== mcName(state) && seenBefore.has(String(n).toLowerCase())));
               if (goes && workerConnection && unweighed.length && history.some((m) => m && m.role === 'assistant' && !m.hidden)) {
                 const w = workerSignal(45000);
