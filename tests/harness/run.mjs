@@ -244,7 +244,8 @@ import './m608.mjs';
 import './m609.mjs';
 import './m612.mjs';
 import './m615.mjs';
-import './m616.mjs'; /* M604: things the story keeps; competence kept */
+import './m616.mjs';
+import './m619.mjs'; /* M604: things the story keeps; competence kept */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

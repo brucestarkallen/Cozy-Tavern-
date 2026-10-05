@@ -1,7 +1,7 @@
 # THE LINE-BY-LINE AUDIT — CHECKPOINT (read this first in a new session)
 
-**Where it stands:** m616-001 + M617 notes, Oct 5 2026. 119 of 122 files read whole and fixed —
-53,310 of 64,113 lines (39,106 of 47,196 code lines). Left: ui/settings.js from line 2300 (fix first: the rulebook and card forms join keepUnsaved), index.html, canon/grounding.js.
+**Where it stands:** m619-001, Oct 6 2026. All 122 of 122 files read whole and fixed —
+64,113 of 64,113 lines (47,196 of 47,196 code lines). The line-by-line audit is complete.
 (`DONE (Mxxx)` = read whole; `todo` = not yet). The full history of every fix is the tail of `AGENTS.md`
 (search `# M574` onward for the audit's own parts); `HANDOFF.md` says how to run the app and the tests.
 

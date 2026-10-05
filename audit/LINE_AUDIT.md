@@ -1,11 +1,11 @@
 # Line-by-line audit ledger — every file of the app, read whole, one at a time
-# Status at m616-001 + M617 notes (Oct 5 2026): 119 of 122 files DONE — 53,310 of 64,113 lines (39,106 of 47,196 code lines). ui/settings.js read to line 2300.
+# Status at m619-001 (Oct 6 2026): 122 of 122 files DONE — 64,113 of 64,113 lines (47,196 of 47,196 code lines). The line-by-line audit is complete.
 # Read a file whole with: python3 audit/show.py <file> <from> <to> [width]  (prints code lines, comments set aside;
 # read the prompt strings too — they are what a helper is told). Mark a file "DONE (Mxxx)" here when read whole and fixed.
 # The order to take the rest: audit/README.md, "What is left".
 # file | lines | code lines | status
 js/ui/chat.js | 7288 | 5304 | DONE (M574-M577)
-js/canon/grounding.js | 6365 | 4209 | todo
+js/canon/grounding.js | 6365 | 4209 | DONE (M619)
 js/agents/housekeeper.js | 3408 | 2716 | DONE (M601-M603)
 js/ui/settings.js | 3197 | 2701 | DONE (M618)
 js/ui/drawer.js | 3130 | 2625 | DONE (M617)

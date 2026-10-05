@@ -4423,6 +4423,13 @@ function verifyOrDiscoverWiki(opts = {}) {
     self.catch(() => {});   // a rejection here must never surface as unhandled
     return self;
 }
+/* M619: THE DISCOVERY ANSWER IS READ LIKE EVERY OTHER ANSWER HERE. It alone was parsed strictly (the whole answer as JSON, code
+ * fences stripped): a model that wrote "Here is the JSON:" before it, or thought aloud first, lost its franchise, slugs and
+ * canon names, and discovery fell back to the protagonist's name alone — "No wiki matched this story" on a story whose wiki
+ * it had just named. Read now with parseJsonCandidates (reasoning and fences set aside, the last whole object taken). */
+export function readDiscovery(out) {
+    return parseJsonCandidates(String(out || ""), "{", "}", (v) => v && typeof v === "object" && !Array.isArray(v));
+}
 async function discoverWikiOnce(opts = {}) {
     const myEpoch = chatEpoch;
     const s = settings();
@@ -4475,7 +4482,7 @@ async function discoverWikiOnce(opts = {}) {
         { maxTokens: 140, budgetMs: Math.min(Number(s.parserBudgetMs) || 30000, 15000) });
     if (myEpoch !== chatEpoch) return;
     let parsed = null;
-    try { parsed = JSON.parse(String(out || "").replace(/```json|```/gi, "").trim()); } catch (e) { /* fails safe */ }
+    parsed = readDiscovery(out); /* M619 */
     const probes = probeNamesFrom(parsed, probeName);
     // An ORIGINAL protagonist is in no wiki — so before touching candidates,
     // re-verify the ACTIVE config with the franchise's CANON names: a correct

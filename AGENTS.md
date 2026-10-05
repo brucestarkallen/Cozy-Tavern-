@@ -15461,3 +15461,22 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   reset, the quick nav and its folds, the voice presets).
 
 - GATES at m618-001 (one CPU): harness 1217/1217, walk 219/219 (run again whole after DOM-218 was made to find Mira's card by its own row — in the full walk another card stood first), long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking — EXIT 0 each.
+
+# M619 — the line-by-line audit, part 26 (the last file): canon verification read whole
+- THE WIKI DISCOVERY ANSWER IS READ WHOLE (reproduced — law M619-1 fails on m618-001: "Here is the JSON:" before the answer
+  read as nothing). canon/grounding.js discoverWikiOnce alone parsed its model's answer strictly (JSON.parse of the whole
+  text, fences stripped) — every other reader in the file uses its forgiving parseJsonCandidates (reasoning and fences set
+  aside, the last whole object taken). A model that wrote a word before the JSON, or thought aloud first, lost the
+  franchise, the wiki slugs and the canon names, and discovery fell back to the protagonist's name alone ("No wiki matched
+  this story"). Read now with parseJsonCandidates (readDiscovery). It was the file's only strict reader (grep: the other two
+  JSON.parse calls are inside the forgiving readers).
+- Read whole and sound: canon/grounding.js — the wiki fetch and the wikitext reader (infobox, sections, quotes, look,
+  distinguishing marks), ensureGrounded and its cache (one person once — twins merged; misses remembered by the wikis
+  searched), relations and related, Ask Canon, the arc and its spoiler guard, the cache lookups (a shared token names
+  no one), the note's assembly and its budgets, the composer and its validation, the dossier, the parser and its evidence
+  checks and auditor, wiki discovery, the turn's interceptor (epochs, serials, the wait ceilings), the post-reply scan,
+  the app-facing API. Its SillyTavern settings panel (addSettingsUI) is never built here — Cozy draws its own (ui/
+  canonsettings.js).
+- THE LINE-BY-LINE AUDIT IS COMPLETE: every one of the 122 files is read whole.
+
+- GATES at m619-001 (one CPU): harness 1218/1218, walk 219/219, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking — EXIT 0 each.
