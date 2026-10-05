@@ -15435,3 +15435,15 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   in the air: "Go, Mahoraga!" reaches it). The old gate laws (M11, M471) stand as they were — a calm scene is unchanged.
 
 - GATES at m616-001 (one CPU): harness 1217/1217, walk 217/217, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking — EXIT 0 each. M345-6 moved (a new face is weighed on the next page — SEED_NEW_FACE_GAP 1).
+
+# M617 (audit checkpoint, no code changed): the drawer and the housekeeper's screen read whole; Settings read to line 2300
+- Read whole and sound: ui/drawer.js (every room: the clock, who's here, the mood, what changed — take-backs by journal id,
+  holding up, how they feel toward you, elsewhere, the ruling and its account, what's true, what canon says, how they
+  measure, something drifted, the world beyond, the people, the workers, voices, the record, the essentials, the plans, the
+  choices; its rooms, folds, open and close) and ui/housekeeper.js (its cards land on arrival and can be taken back, edit by
+  hand before applying, its sessions, its stop, its draft kept when an answer fails).
+- FOUND, TO FIX NEXT (same class as M611): Settings' safety net (keepUnsaved — it saves typed words when Settings closes)
+  does not know the rulebook's "Read & change the words" form or the character card form: a rule or a card edited and left
+  without its Save is lost when Settings closes.
+- Left to read: ui/settings.js from line 2300, index.html, canon/grounding.js.
+

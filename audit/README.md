@@ -1,7 +1,7 @@
 # THE LINE-BY-LINE AUDIT — CHECKPOINT (read this first in a new session)
 
-**Where it stands:** m614-001, Oct 5 2026. 117 of 122 files read whole and fixed —
-48,596 of 64,113 lines (35,143 of 47,196 code lines). Left: ui/drawer.js from line 1000 (lines 1–1000 read in M614), ui/settings.js, ui/housekeeper.js, index.html, canon/grounding.js. Every helper (js/agents) and the request builder (js/assemble) are read. Every helper in js/agents is read. The ledger of every file is `audit/LINE_AUDIT.md`
+**Where it stands:** m616-001 + M617 notes, Oct 5 2026. 119 of 122 files read whole and fixed —
+53,310 of 64,113 lines (39,106 of 47,196 code lines). Left: ui/settings.js from line 2300 (fix first: the rulebook and card forms join keepUnsaved), index.html, canon/grounding.js.
 (`DONE (Mxxx)` = read whole; `todo` = not yet). The full history of every fix is the tail of `AGENTS.md`
 (search `# M574` onward for the audit's own parts); `HANDOFF.md` says how to run the app and the tests.
 
