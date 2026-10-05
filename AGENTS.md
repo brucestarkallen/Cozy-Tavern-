@@ -15319,4 +15319,9 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   thinking is on — the API's own requirement, the one floor his law allows; a system message after the story goes as a user
   message once the model refuses it, remembered per model; a refused thinking or prefill setting is dropped for that model
   until it changes) and providers/index.js. No code changed.
+- Read whole and sound (no code changed): providers/openai.js (every refusal is learned per model and the turn goes again
+  without what was refused, at most five tries; thinking floors only where the room would otherwise be all thinking) and
+  providers/effort.js; store.js (a page list hands out copies; a tale's rows go with the tale — every per-tale key this
+  house writes is on the sweep's list, peopleBackup and memoryBackup included); sync.js and sync-worker.js (every batched
+  checkpoint write is followed by its index write, which marks the tale's book for the device — nothing is left unpushed).
 

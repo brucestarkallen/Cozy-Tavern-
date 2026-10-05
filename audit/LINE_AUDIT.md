@@ -1,5 +1,5 @@
 # Line-by-line audit ledger — every file of the app, read whole, one at a time
-# Status at m609-001 (Oct 5 2026): 80 of 122 files DONE — 37,078 of 64,113 lines (26,595 of 47,196 code lines).
+# Status at m609-001 (Oct 5 2026): 85 of 122 files DONE — 40,621 of 64,113 lines (28,986 of 47,196 code lines).
 # Read a file whole with: python3 audit/show.py <file> <from> <to> [width]  (prints code lines, comments set aside;
 # read the prompt strings too — they are what a helper is told). Mark a file "DONE (Mxxx)" here when read whole and fixed.
 # The order to take the rest: audit/README.md, "What is left".
@@ -20,15 +20,15 @@ js/engine/state.js | 1490 | 1033 | DONE (M570, M578)
 serve.py | 1050 | 976 | todo
 js/agents/auditor.js | 1180 | 854 | DONE (M598, M599)
 js/engine/people.js | 1235 | 829 | DONE (M579)
-js/store.js | 1172 | 797 | todo
+js/store.js | 1172 | 797 | DONE (M609)
 js/canon/bridge.js | 983 | 733 | todo
 js/engine/world.js | 979 | 662 | DONE (M579)
-js/providers/openai.js | 782 | 577 | todo
+js/providers/openai.js | 782 | 577 | DONE (M609)
 js/agents/world.js | 652 | 503 | DONE (M597, M598)
 js/agents/extractor.js | 662 | 441 | DONE (M588, M594)
-js/providers/effort.js | 676 | 425 | todo
+js/providers/effort.js | 676 | 425 | DONE (M609)
 js/agents/director.js | 472 | 355 | DONE (M606)
-js/sync.js | 541 | 354 | todo
+js/sync.js | 541 | 354 | DONE (M609)
 js/regex-styles.js | 366 | 350 | todo
 js/ui/receiptview.js | 392 | 335 | todo
 js/assemble/modules.js | 488 | 316 | DONE (M609)
@@ -41,7 +41,7 @@ js/import/lorebook.js | 360 | 250 | todo
 js/ui/pageshape.js | 373 | 249 | todo
 js/agents/scribe.js | 354 | 239 | DONE (M607)
 js/app.js | 358 | 238 | todo
-js/sync-worker.js | 372 | 238 | todo
+js/sync-worker.js | 372 | 238 | DONE (M609)
 js/ui/headergate.js | 332 | 235 | todo
 js/import/cards.js | 309 | 223 | todo
 js/sent.js | 261 | 219 | todo
