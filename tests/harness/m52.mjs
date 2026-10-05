@@ -42,6 +42,9 @@ test('M52-2 the people are re-read six pages at a time with the record-so-far; d
   const house = { fetch: async (url, opts) => {
     const body = JSON.parse(opts.body); const user = body.messages[body.messages.length - 1].content;
     contexts.push(user);
+    /* M607: the rebuild reads the brief through the founder first; this wire answers it as a founder who finds no bond in
+     * words, so the brief's digits stay the standings' origin, as this law says */
+    if (/found the ledger/i.test(JSON.stringify(body))) return thinkingHouse({ answer: '{"mutations":[]}' }).fetch(url, opts);
     const first = /PLAYER page 0/.test(user);
     const answer = JSON.stringify({ deltas: [{ name: 'Rias', field: 'state', text: first ? 'at the door' : 'in the kitchen' }, { name: 'Jovan', field: 'core', text: 'should be refused' }], shifts: first ? [{ name: 'Rias', axis: 'p', delta: 5, cause: 'she hugged him' }, { name: 'Jovan', axis: 'p', delta: 9, cause: 'no' }] : [] });
     const h = thinkingHouse({ answer }); return h.fetch(url, opts);

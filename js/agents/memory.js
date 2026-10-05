@@ -1615,6 +1615,8 @@ export async function catchUpRecord({ connection, storyId, onProgress, onRetry, 
       const pauses = [1500, 4000, 9000, 20000, 45000, 90000];
       for (let a = 0; a < pauses.length; a += 1) {
         if (stale && stale()) return { ok: false, why: 'left behind' };
+        /* M607: a run whose call was cut off (his Stop, or the leash) waits for nothing, and never says the keeper was down */
+        if (signal && signal.aborted) return { ok: false, stalled: true, folded, batches: doneBatches, why: 'the run was cut short — press it again to carry on' };
         if (typeof onRetry === 'function') await onRetry({ ms: pauses[a], attempt: a + 1, of: pauses.length });
         else await new Promise((r) => setTimeout(r, pauses[a]));
         if (typeof renew === 'function' && !renew()) break;

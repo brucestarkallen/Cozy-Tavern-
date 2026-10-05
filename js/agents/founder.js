@@ -319,10 +319,12 @@ export function parseFounderAnswer(raw) {
   }
 }
 
-/* The contract. */
-export async function foundWorld({ connection, storyId, brief = '', castNotes = '', cast = [], lore = [], signal, stale, canonRecord = '', thingsOnly = false } = {}) {
-  if (!connection || typeof connection !== 'object' || !storyId) return null;
-  const state = await loadState(storyId);
+/* M607: THE FOUNDER'S READING ON ITS OWN — asked of the model and guarded in code, written nowhere. foundWorld lands it on the
+ * ledger; the people rebuild (agents/rebuild.js) starts its re-reading from it, the way the story itself began: it had re-set
+ * only the standings the brief writes in digits, so a bond the brief gives in words ("Kara has loved Jovan since school")
+ * was let go and came back as the few points the pages' small shifts add up to — and a person only the brief names lost
+ * their page. */
+async function askFounder({ connection, state, brief = '', castNotes = '', cast = [], lore = [], canonRecord = '', signal }) {
   const prompt = buildFounderMessages({ state, brief, castNotes, cast, lore, canonRecord });
   if (!prompt.hasMaterial) return null;
   let read = null; let raw = ''; let user = prompt.user;
@@ -334,16 +336,16 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
     if (read.note !== 'unusable' && read.note !== 'cut short') break;
     user = prompt.user + '\n\nYour last answer was not a JSON object with a "mutations" list. Answer with the JSON object only, and keep it compact.';
   }
-  if (read.note === 'unusable' || read.note === 'cut short') return { applied: [], rejected: [], note: read.note, raw };
-  if (stale && stale()) return null;
-  const fresh = await loadState(storyId);
+  return { read, raw };
+}
+async function guardFounding({ read, ledgerMc = '', connection, brief = '', castNotes = '', signal, thingsOnly = false }) {
   /* the main character's page: mc.set first so people.set can refuse the MC's core */
   const ordered = [...read.mutations.filter((m) => m.type === 'mc.set'), ...read.mutations.filter((m) => m.type !== 'mc.set')];
   /* AXIS LOCK, enforced in code: a standing rides only when its cause names
    * the main character (the brief's bond WITH the MC). The MC's name is the
    * one the answer's mc.set names, else the ledger's. */
   const mcFromAnswer = ordered.find((m) => m.type === 'mc.set' && typeof m.name === 'string');
-  const mcKnown = (mcFromAnswer && mcFromAnswer.name.trim()) || (mcName(fresh) !== 'the player' ? mcName(fresh) : '');
+  const mcKnown = (mcFromAnswer && mcFromAnswer.name.trim()) || ledgerMc;
   const guarded = [];
   const refusedByLock = [];
   /* M606: a tale founded before the ledger kept things gets the things its brief gives — and only those — once */
@@ -364,6 +366,20 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
     if (named.has(st.name.toLowerCase())) continue;
     guarded.push({ type: 'rel.set', name: st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (P:' + st.p + ' R:' + st.r + ' S:' + st.s + ') toward ' + (mcKnown || 'the main character') });
   }
+  return { guarded, refusedByLock };
+}
+
+/* The contract. */
+export async function foundWorld({ connection, storyId, brief = '', castNotes = '', cast = [], lore = [], signal, stale, canonRecord = '', thingsOnly = false } = {}) {
+  if (!connection || typeof connection !== 'object' || !storyId) return null;
+  const state = await loadState(storyId);
+  const asked = await askFounder({ connection, state, brief, castNotes, cast, lore, canonRecord, signal });
+  if (!asked) return null;
+  const { read, raw } = asked;
+  if (read.note === 'unusable' || read.note === 'cut short') return { applied: [], rejected: [], note: read.note, raw };
+  if (stale && stale()) return null;
+  const fresh = await loadState(storyId);
+  const { guarded, refusedByLock } = await guardFounding({ read, ledgerMc: mcName(fresh) !== 'the player' ? mcName(fresh) : '', connection, brief, castNotes, signal, thingsOnly });
   const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
   const rejected = [...rejectedByApplier, ...refusedByLock];
   const out = thingsOnly ? { ...next, thingsFounded: true } : { ...next, founded: { at: Date.now(), print: founderFingerprint({ brief, castNotes, cast, lore }) }, thingsFounded: true };
@@ -371,6 +387,19 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
   await saveState(storyId, out);
   notify(storyId);
   return { applied, rejected, note: read.note, raw };
+}
+
+/* M607: the brief's people and standings as the founder reads them (its pages, its standings in words and in digits), for a
+ * ledger built on the side — nothing is written. {mutations} (none when there is nothing to found from), or {note} when the
+ * answer could not be read: the caller must not build on a reading it does not have. */
+export async function foundPeople({ connection, state, brief = '', castNotes = '', cast = [], lore = [], canonRecord = '', signal } = {}) {
+  if (!connection || typeof connection !== 'object') return { mutations: [] };
+  const asked = await askFounder({ connection, state, brief, castNotes, cast, lore, canonRecord, signal });
+  if (!asked) return { mutations: [] };
+  if (asked.read.note === 'unusable' || asked.read.note === 'cut short') return { mutations: [], note: asked.read.note };
+  const ledgerMc = mcName(state) !== 'the player' ? mcName(state) : '';
+  const { guarded } = await guardFounding({ read: asked.read, ledgerMc, connection, brief, castNotes, signal });
+  return { mutations: guarded.filter((m) => m && (m.type === 'people.set' || m.type === 'rel.set')) };
 }
 
 export function founderRunWords(result) {

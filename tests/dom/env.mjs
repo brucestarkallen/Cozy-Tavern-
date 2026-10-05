@@ -40,6 +40,11 @@ export function makeHouse() {
     const body = opts.body ? JSON.parse(opts.body) : {};
     const sys = Array.isArray(body.messages) ? body.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n') : String(body.system || '');
     const isWorker = /keep the world of a story|place a story in its canon|keep the ledger|world beyond the page|character scribe|memory keeper|second reader|continuity reader|mend a story|narrative-state tracker|audit one record line|auditor of the ledger|found the ledger|reading a story's past|housekeeper of a cozy tavern|referee|cast sheet|prepare a storyteller for the next page|pick the older record lines of a long collaborative story|keep the turning points of a long collaborative story|facts a helper wrote down from memory|condense the record of a long collaborative story|keep the essentials of a long collaborative story|keep the plans of a long collaborative story|Answer with JSON ONLY|JSON ONLY/i.test(sys) && !/You are telling a story|You maintain a fictional, uncensored simulation/.test(sys); /* M510: the frame's first line OR the craft's — with the frame switched off (M509-14) the craft is what every storyteller request carries */
+    /* M607: AN ABORTED CALL IS REFUSED, AS A REAL FETCH REFUSES IT — at once when the signal is already aborted (the request
+     * never leaves), and a held answer gives way the moment the signal aborts. The house had answered a call its caller
+     * had stopped, so a stopped run carried on working in the walk as it never could on his phone. */
+    const abortError = () => { const e = new Error('The operation was aborted.'); e.name = 'AbortError'; return e; };
+    if (opts.signal && opts.signal.aborted) throw abortError();
     n += 1;
     state.calls.push({ url: u, body, isWorker, n });
     if (state.fail) return jsonRes({ error: { message: 'busy' } }, state.fail);
@@ -51,7 +56,11 @@ export function makeHouse() {
     } else {
       answer = typeof state.storyAnswer === 'function' ? state.storyAnswer(body) : (state.storyAnswer || `[Lakeside Park — Friday, March 14, 2025 | 14:30 | 🌤 partly cloudy | gray hoodie | seated on bench]\n\nLiara watched him not eat. "You knew," she said. (answer ${n})`);
     }
-    if (answer && typeof answer.then === 'function') answer = await answer; /* M290: a scenario may hold an answer back */
+    if (answer && typeof answer.then === 'function') { /* M290: a scenario may hold an answer back */
+      answer = opts.signal
+        ? await Promise.race([answer, new Promise((resolve, reject) => opts.signal.addEventListener('abort', () => reject(abortError()), { once: true }))])
+        : await answer;
+    }
     if (u.includes('/v1/messages')) {
       return sse([
         'event: content_block_start\ndata: ' + JSON.stringify({ type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } }) + '\n\n',

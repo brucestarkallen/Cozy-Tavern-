@@ -103,7 +103,7 @@ import { renderStateFacts as planFacts, stateView as planStateView, closeBy } fr
 import { renderPeopleTiers as planPeople, peopleView as planPeopleView, findPersonKey } from '../engine/people.js'; /* M510; M518: a canon block's person in the ledger */
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
-import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
+import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, healStampDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
 import { polishConcept } from '../agents/concept.js'; /* M478: a #story concept becomes the brief, its grammar set right */
 import { renderWorldBrief, threadHousekeeping, voicesBeyondTheRoom } from '../engine/world.js'; /* M544 */
@@ -2152,8 +2152,13 @@ export function initChat(ctx) {
    * stopped, up to three times. Nothing already done is redone. Turn it off
    * and the amber "Finish it" button is there instead. */
   const autoFinish = new Map();   // storyId+action -> attempts made
+  /* M607: A RUN HE STOPPED IS STOPPED. The record rebuild and Summarize now swallow their keeper's errors into a patient
+   * ladder, so his Stop came back as a run "the keeper could not be reached" for — its banner said "carrying on shortly"
+   * over his own "Stopped", and fifteen seconds later the house started it again (a Rebuild, from the first page, the
+   * record let go once more), three times over. A run whose signal he stopped by hand is never finished by the house. */
+  const stoppedRun = (signal) => Boolean(signal && signal.aborted && signal.reason && signal.reason.message === 'stopped by hand');
   async function maybeFinish(storyId, action, result) {
-    if (!storyId || !action || !result || !result.stalled) return;
+    if (!storyId || !action || !result || !result.stalled || result.stopped) return;
     if ((await db.settings.get('autoFinish')) === false) return;
     const key = storyId + ':' + action;
     const tried = autoFinish.get(key) || 0;
@@ -2512,6 +2517,7 @@ export function initChat(ctx) {
         onProgress: ({ batch: b, batches, folded, toFold }) => banner.step(b, batches, 'batch', folded + ' of ' + toFold + ' pages'),
         onRetry: ({ ms, attempt, of }) => waitVisibly(banner, ms, attempt, of),
       });
+      if (stoppedRun(signal)) { clearFinishCount(story.id, 'summarizeNow'); return { silent: false, detail: 'stopped by hand' + (r && Number.isFinite(r.folded) ? ' after folding ' + r.folded + ' pages' : '') }; }
       if (!r || r.ok === false) { banner.failed(r && r.why ? r.why : 'it stumbled'); maybeFinish(story.id, 'summarizeNow', r || { stalled: true }); }
       else if (r.nothingDue) banner.done('Nothing was due');
       else banner.done('Folded ' + r.folded + ' pages into ' + r.batches + ' ' + (r.batches === 1 ? 'line' : 'lines'));
@@ -2534,6 +2540,7 @@ export function initChat(ctx) {
         onProgress: ({ batch, batches, folded, toFold }) => banner.step(batch, batches, 'batch', folded + ' of ' + toFold + ' pages'),
         onRetry: ({ ms, attempt, of }) => waitVisibly(banner, ms, attempt, of),
       });
+      if (stoppedRun(signal)) { clearFinishCount(story.id, 'rebuildRecordNow'); return { silent: false, detail: 'stopped by hand' + (result && Number.isFinite(result.folded) ? ' at ' + result.folded + ' of ' + result.toFold + ' pages' : '') }; }
       if (result && result.stalled) {
         banner.failed('Stopped at ' + result.folded + ' of ' + result.toFold + ' pages — carrying on shortly');
         maybeFinish(story.id, 'rebuildRecordNow', result);
@@ -2557,7 +2564,7 @@ export function initChat(ctx) {
     const connection = await resolveWorkerConnection(story, 'scribe');
     if (!connection) { banner.failed('The scribe needs a connection first'); return false; }
     const promise = enqueueWork(story.id, { name: 'scribe', run: async ({ signal, stale, renew }) => {
-      const result = await rebuildPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew, onProgress: ({ read, total }) => banner.step(read, total, 'page') });
+      const result = await rebuildPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', cast: await castForStory(story), lore: await loadLore(story.id), canonRecord: await canonRecordOf(story), signal, stale, renew, onProgress: ({ read, total }) => banner.step(read, total, 'page') });
       /* M135: the rebuilt pages also land in the LAST turn's boundary snapshot and
        * the last page's checkpoint — so a retry, a swipe or a branch at the newest
        * page starts from the rebuilt pages, not the frozen ones. Older boundaries
@@ -2573,19 +2580,22 @@ export function initChat(ctx) {
         for (const e of snaps) {
           /* M574 (the audit): a NEW checkpoint object — changed in place, the save saw the very object it had handed out (M507's
            * "written already" test is by identity) and skipped it: the rebuilt people never reached the checkpoint */
-          if (e && lastUser && e.id === lastUser.id && e.snap) { e.snap = { ...e.snap, characters: JSON.parse(JSON.stringify(rebuilt.characters || {})) }; touched = true; }
+          /* M607: and the standings with them — the rebuild swaps both in, and a retry at the newest page brought the old
+           * standings back beside the new pages */
+          if (e && lastUser && e.id === lastUser.id && e.snap) { e.snap = { ...e.snap, characters: JSON.parse(JSON.stringify(rebuilt.characters || {})), relationships: JSON.parse(JSON.stringify(rebuilt.relationships || {})) }; touched = true; }
         }
         if (touched) await saveSnapshots(story.id, snaps);
         if (last) {
           const idx = shownIndex(last); /* M576: the version the checkpoint step keyed (a page with versions and none chosen shows its newest) */
           const all = await loadVersionStates(story.id);
-          if (all[last.id + ':' + idx]) { all[last.id + ':' + idx] = { ...all[last.id + ':' + idx], characters: JSON.parse(JSON.stringify(rebuilt.characters || {})) }; await writeVersionStates(story.id, all); } /* M574: a new object, the same reason */
+          if (all[last.id + ':' + idx]) { all[last.id + ':' + idx] = { ...all[last.id + ':' + idx], characters: JSON.parse(JSON.stringify(rebuilt.characters || {})), relationships: JSON.parse(JSON.stringify(rebuilt.relationships || {})) }; await writeVersionStates(story.id, all); } /* M574: a new object, the same reason */
         }
       } catch (err) { /* the ledger itself is rebuilt; the checkpoints follow when they can */ }
       /* M214: a stalled run is not a rebuilt one — the record rebuild has
        * checked this since M203 and the people rebuild had not, so its
        * banner closed with "The people were rebuilt" over a run the leash
        * had cut off. */
+      if (stoppedRun(signal)) { clearFinishCount(story.id, 'rebuildPeopleNow'); return { silent: false, detail: 'stopped by hand — the people stand as they were' }; }
       if (result && result.stalled) {
         banner.failed('Stopped at ' + result.read + ' of ' + result.total + ' pages — carrying on shortly');
         maybeFinish(story.id, 'rebuildPeopleNow', result);
@@ -3419,6 +3429,9 @@ export function initChat(ctx) {
      * state.founded). The extractor then founds the scene on top of it. */
     enqueue('founder', async ({ signal, stale }) => {
       if (story.extraction === false) return { silent: true };
+      /* M607: the old-ledger heal's stamp, for a ledger found clean BEFORE this page's helpers write (agents/rebuild.js
+       * healStampDue) — a story begun on this house is never re-read whole for a mark this house wrote itself */
+      try { const was = await loadState(story.id); if (!stale() && healStampDue(was)) await saveState(story.id, { ...was, healedGen: HEAL_GEN }); } catch (err) { /* asked again on the next page */ }
       /* M478: the brief as it stands NOW — a #story concept may have been written into it while the page was told */
       try { const now = await db.stories.get(story.id); if (now) { story.brief = now.brief; story.castNotes = now.castNotes; } } catch (err) { /* the copy in hand */ }
       const cast = await castForStory(story);
@@ -3968,7 +3981,7 @@ export function initChat(ctx) {
       if (!peopleHealDue(await loadState(story.id))) return { silent: true };
       const connection = await resolveWorkerConnection(story, 'scribe');
       if (!connection) return { silent: true };
-      const r = await rebuildPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal, stale, renew });
+      const r = await rebuildPeople({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', cast: await castForStory(story), lore: await loadLore(story.id), canonRecord: await canonRecordOf(story), signal, stale, renew });
       if (!r || r.stalled) return { silent: false, detail: 'began reading the people again from the pages (notes the old house cut short, or standings pushed back to the brief) — it starts again on the next page' };
       if (stale()) return { silent: true }; /* M290 */
       const after = await loadState(story.id);

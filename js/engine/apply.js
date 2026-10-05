@@ -1109,16 +1109,12 @@ const HANDLERS = {
     const from = normalizeName(m.from); const to = normalizeName(m.to);
     if (!from || !to) return { why: 'a rename needs the old name and the new' };
     if (from.toLowerCase() === to.toLowerCase()) return { why: 'the same name' };
-    const keys = ['characters', 'offscreen', 'relationships', 'knowledge', 'canon', 'bodies', 'present', 'threads', 'factions', 'sheet', 'things'];
+    const keys = ['characters', 'offscreen', 'relationships', 'knowledge', 'canon', 'bodies', 'present', 'threads', 'factions', 'sheet', 'things', 'duel', 'battle'];
     const before = {};
     for (const k of keys) before[k] = JSON.parse(JSON.stringify(state[k] === undefined ? null : state[k]));
     const { state: renamed, count } = renameInState(state, from, to);
     if (!count) return { why: 'nothing in the ledger is called ' + from };
-    for (const k of keys) if (renamed[k] !== undefined) state[k] = renamed[k];
-    /* M604: whose a thing is follows the name too */
-    for (const t of Object.values(state.things && typeof state.things === 'object' ? state.things : {})) {
-      if (t && typeof t.owner === 'string' && t.owner.toLowerCase() === from.toLowerCase()) t.owner = to;
-    }
+    for (const k of keys) if (renamed[k] !== undefined) state[k] = renamed[k]; /* M607: whose a thing is — and where it is said to be — now follow inside renameInState, counted */
     return { words: from + ' is ' + to + ' now — ' + count + ' ' + (count === 1 ? 'place' : 'places') + ' in the ledger follow' + (m.cause ? ' (' + capText(m.cause, 1000) + ')' : '') + '.', undo: { kind: 'people.renamed', before } };
   },
   /* M96: people.forget — a person who was never the story's (a leaked example,

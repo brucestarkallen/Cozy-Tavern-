@@ -95,8 +95,13 @@ export function repairJson(text) {
       if (esc) { out += ch; esc = false; continue; }
       if (ch === '\\') { out += ch; esc = true; continue; }
       if (ch === '"') { out += ch; inStr = false; continue; }
-      /* a raw newline or tab inside a string becomes a space */
-      if (ch === '\n' || ch === '\r' || ch === '\t') { out += ' '; continue; }
+      /* M607: A LINE BREAK INSIDE A STRING IS KEPT, written the way JSON writes one. It was made a space: a page the mender
+       * hands back whole, written with real line breaks, came back as ONE paragraph — its own size check then refused it
+       * (every line differed), so the fix never landed; a find spanning a paragraph matched nothing. Every ledger field
+       * folds its whitespace itself, so nothing else changes. */
+      if (ch === '\n') { out += '\\n'; continue; }
+      if (ch === '\r') { out += '\\r'; continue; }
+      if (ch === '\t') { out += '\\t'; continue; }
       out += ch;
       continue;
     }
@@ -107,8 +112,27 @@ export function repairJson(text) {
     out += ch;
   }
   /* trailing commas before a closing bracket or brace */
-  out = out.replace(/,\s*([}\]])/g, '$1');
-  return out;
+  /* M607: a trailing comma before a closing bracket goes — outside the strings only: the pattern ran over the strings too,
+   * so a value holding ", }" or ", ]" lost its comma */
+  let fixed = '';
+  let quoted = false;
+  let escaped = false;
+  for (let i = 0; i < out.length; i += 1) {
+    const ch = out[i];
+    if (quoted) {
+      fixed += ch;
+      if (escaped) escaped = false; else if (ch === '\\') escaped = true; else if (ch === '"') quoted = false;
+      continue;
+    }
+    if (ch === '"') { quoted = true; fixed += ch; continue; }
+    if (ch === ',') {
+      let j = i + 1;
+      while (j < out.length && /\s/.test(out[j])) j += 1;
+      if (out[j] === '}' || out[j] === ']') continue;
+    }
+    fixed += ch;
+  }
+  return fixed;
 }
 
 /* Parse leniently: strict first, then the repair pass. null on trouble. */

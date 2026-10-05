@@ -184,9 +184,14 @@ export function keepHolds(statement, keep) {
 export function overlayFrom(entry, statements, verdicts) {
   const by = new Map((verdicts || []).map((v) => [v.n, v]));
   const held = [];
+  let unjudged = 0;
   const kept = statements.map((x) => {
     const v = by.get(x.n);
-    if (!v || v.verdict === 'holds') return { ...x, out: x.text };
+    if (v && v.verdict === 'holds') return { ...x, out: x.text };
+    /* M607: A STATEMENT THE ANSWER NEVER JUDGED IS HELD BACK, NOT PASSED. It rode as "holds" — so a long dossier answered
+     * in part let canon's later states through (a rank not reached, a marriage his story never made), and the lens was
+     * kept as read for good. What it did not judge is silent until it is judged; the lens is asked again. */
+    if (!v) { unjudged += 1; held.push({ text: x.text, why: 'unjudged' }); return { ...x, out: '' }; }
     const part = keepHolds(x.text, v.keep) ? v.keep : '';
     held.push({ text: x.text, why: v.verdict, ...(part ? { kept: part } : {}) });
     return { ...x, out: part };
@@ -218,7 +223,7 @@ export function overlayFrom(entry, statements, verdicts) {
     if (Object.keys(sec).length) overlay.sections = sec;
   }
   if (entry.rel && typeof entry.rel === 'object') overlay.pairs = Object.fromEntries(Object.keys(entry.rel).map((who) => [who, ((of('pairs').find((x) => x.key === who)) || { out: '' }).out]));
-  return { overlay, held };
+  return { overlay, held, unjudged };
 }
 
 /* Lens these people for this story, now: one worker call each (at most `parallel` at once), each held to `deadlineMs`.
@@ -236,8 +241,10 @@ export async function lensPeople({ connection, meta, entries, premise, deadlineM
     try { res = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: MAX_TOKENS }); } catch (err) { return; }
     const verdicts = parseLens(res && res.text);
     if (!verdicts) return;
-    const { overlay, held } = overlayFrom(entry, statements, verdicts);
-    store[nameKey(entry)] = { fp: lensFingerprint(entry), key: lensKey(entry, premise), overlay, held, at: Date.now() };
+    const { overlay, held, unjudged } = overlayFrom(entry, statements, verdicts);
+    /* M607: a lens with a statement left unjudged is kept (what it judged applies, the rest held back) but never current —
+     * the next canon turn asks it again whole */
+    store[nameKey(entry)] = { fp: lensFingerprint(entry), key: unjudged ? '' : lensKey(entry, premise), overlay, held, at: Date.now() };
     done.push(entry.name);
     if (typeof onKept === 'function') { try { await onKept(); } catch (err) { /* kept on the next save */ } }
   };

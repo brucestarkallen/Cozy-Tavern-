@@ -1,5 +1,5 @@
 # Line-by-line audit ledger — every file of the app, read whole, one at a time
-# Status at m606-001 (Oct 5 2026): 28 of 122 files DONE — 27,424 of 64,113 lines (19,939 of 47,196 code lines).
+# Status at m607-001 (Oct 5 2026): 42 of 122 files DONE — 30,832 of 64,113 lines (22,372 of 47,196 code lines).
 # Read a file whole with: python3 audit/show.py <file> <from> <to> [width]  (prints code lines, comments set aside;
 # read the prompt strings too — they are what a helper is told). Mark a file "DONE (Mxxx)" here when read whole and fixed.
 # The order to take the rest: audit/README.md, "What is left".
@@ -35,32 +35,32 @@ js/assemble/modules.js | 488 | 316 | todo
 js/providers/anthropic.js | 417 | 308 | todo
 js/agents/continuity.js | 416 | 298 | DONE (M606)
 js/agents/founder.js | 376 | 288 | DONE (M606)
-js/agents/rebuild.js | 421 | 283 | todo
+js/agents/rebuild.js | 421 | 283 | DONE (M607)
 js/regex.js | 340 | 251 | todo
 js/import/lorebook.js | 360 | 250 | todo
 js/ui/pageshape.js | 373 | 249 | todo
-js/agents/scribe.js | 354 | 239 | todo
+js/agents/scribe.js | 354 | 239 | DONE (M607)
 js/app.js | 358 | 238 | todo
 js/sync-worker.js | 372 | 238 | todo
 js/ui/headergate.js | 332 | 235 | todo
 js/import/cards.js | 309 | 223 | todo
 js/sent.js | 261 | 219 | todo
-js/agents/sensors.js | 265 | 213 | todo
+js/agents/sensors.js | 265 | 213 | DONE (M607)
 js/assemble/smallprose.js | 272 | 210 | todo
 js/ui/canonsettings.js | 249 | 203 | todo
-js/agents/canonlens.js | 255 | 198 | todo
+js/agents/canonlens.js | 255 | 198 | DONE (M607)
 js/engine/bodies.js | 286 | 198 | DONE (M593)
-js/agents/planner.js | 235 | 186 | todo
-js/agents/ripple.js | 246 | 185 | todo
-js/agents/editor.js | 237 | 182 | todo
+js/agents/planner.js | 235 | 186 | DONE (M607)
+js/agents/ripple.js | 246 | 185 | DONE (M607)
+js/agents/editor.js | 237 | 182 | DONE (M607)
 js/engine/whole.js | 255 | 181 | DONE (M593)
 js/assemble/craft.js | 232 | 179 | todo
 sw.js | 217 | 179 | todo
-js/agents/canontidy.js | 228 | 178 | todo
+js/agents/canontidy.js | 228 | 178 | DONE (M607)
 js/engine/referee-math.js | 282 | 176 | DONE (M593)
-js/agents/choices.js | 217 | 174 | todo
-js/agents/queue.js | 279 | 174 | todo
-js/agents/tidy.js | 208 | 171 | todo
+js/agents/choices.js | 217 | 174 | DONE (M607)
+js/agents/queue.js | 279 | 174 | DONE (M607)
+js/agents/tidy.js | 208 | 171 | DONE (M607)
 js/import/sillytavern.js | 233 | 164 | todo
 js/ui/prose.js | 221 | 164 | todo
 js/agents/worldground.js | 201 | 155 | todo
@@ -91,10 +91,10 @@ js/engine/canon.js | 147 | 92 | DONE (M593)
 js/import/chats.js | 143 | 92 | todo
 js/tablock.js | 131 | 91 | todo
 js/agents/canonstart.js | 128 | 90 | todo
-js/agents/status.js | 160 | 87 | todo
-js/agents/jsonutil.js | 119 | 85 | todo
+js/agents/status.js | 160 | 87 | DONE (M607)
+js/agents/jsonutil.js | 119 | 85 | DONE (M607)
 js/providers/speed.js | 110 | 83 | todo
-js/agents/call.js | 184 | 78 | todo
+js/agents/call.js | 184 | 78 | DONE (M607)
 js/assemble/plainvoice.js | 98 | 71 | todo
 js/agents/recallpick.js | 84 | 65 | todo
 js/providers/relay.js | 85 | 63 | todo

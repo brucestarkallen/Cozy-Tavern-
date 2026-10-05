@@ -15210,3 +15210,69 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   run that did draw measured request 2,275 ms / worst long task 973 ms against budgets of 2,500 / 1,000. Not M606's; the
   other gates passed: harness 1196/1196, walk 211/211, long play 9/9, lint 0, holdsone and cutthinking green. M45-3's
   once-per-material guard reads the new line (and once more for a tale's things).
+
+# M607 — the line-by-line audit, part 17: the people rebuild, the old-ledger heal, the JSON mender, canon's lens, the rename, Stop
+- THE OLD-LEDGER HEAL FIRED ON NEW STORIES (reproduced through the app — walk DOM-212 fails on m606). M262/M266's heal re-reads
+  every person and standing of a story bearing the OLD auditor's mark ("set — the brief says" after a page beat) or the OLD
+  caps' cut notes — but its stamp (healedGen) was only ever written after a heal, so a story begun on this house stayed
+  unstamped for ever, and the marks are words this house still writes: the auditor restores a standing that is wrongly zero
+  with the cause "the brief says", a page reader may write that cause, a note may end on an ellipsis. The first such write
+  after any page beat re-read the whole story's people. Now rebuild.js healStampDue: a ledger found clean BEFORE a page's
+  helpers write (chat.js, the founder's step — the first of the chain) is stamped; a mark written later is this house's
+  own. A ledger carrying the old mark is never stamped clean — the heal still reads it (DOM-22 holds). The walk scenarios
+  that set healedGen:999 by hand were hiding this.
+- THE PEOPLE REBUILD LET A BOND IN WORDS GO (reproduced — law M607-1: Kara's romance 65 became 4 on m606; his "an established
+  love shown as +2"). rebuildPeople re-set only the standings the brief writes in DIGITS (readStatedStandings), so "Kara has
+  loved Jovan since school" was let go and came back as the pages' small shifts, and a person only the brief names lost
+  their page. Now it starts from the founder's own reading of the brief (founder.js foundPeople — askFounder + guardFounding,
+  split out of foundWorld with its behaviour byte for byte; people.set and rel.set only, written nowhere) and reads the pages
+  on top, the way the story began. A reading that cannot be used stops the run, which changes nothing (M607-2).
+- WHAT THE PAGES DO NOT SAY STAYS ON THE PAGE: a person's canon lines (people.canon) and a passer-through's retired mark were
+  let go with the old pages — keepWritersOwn carries both onto the re-read page of the same person (M607-1).
+- REBUILD BY HAND, THEN TRY AGAIN brought the old standings back: the newest boundary checkpoint and the newest page's
+  version checkpoint took the rebuilt pages but not the rebuilt standings (walk DOM-213; both checkpoints now take both).
+- ONE MEANING OR NONE IN THE REBUILD (rebuild.js oneKey): the exact name first, else the one loose match — two loose matches
+  are none. A hand-written line for "Kara" had landed on whichever Kara stood first; a page reader's "Kara" on the first
+  known Kara; a hand standing deleted every loose twin (M607-6). Used in keepWritersOwn, the carry, and the reader's resolve.
+- THE JSON MENDER (jsonutil.js repairJson) keeps a line break inside a string as JSON writes one (\n): it made it a space, so a
+  page the mender handed back whole with real line breaks came back as ONE paragraph, its size check refused it and the fix
+  never landed; a find across a paragraph matched nothing (M607-4). Every ledger field folds its whitespace itself (checked:
+  apply, bodies, offscreen, people, relationships, world, canon cleaners). A trailing comma goes only OUTSIDE strings — a
+  value holding ", }" lost its comma (M607-5).
+- The record rebuild's 400-round cap: a run that reached it with pages still due now says it is unfinished (stalled), so the
+  house carries it on; it said so only by its numbers.
+- Read and sound: call.js (his dials sent as set — temperature, effort only from a caller the writer chose, the floors that
+  keep an answer whole; the fallback; a first answer all thinking asked again with room), tidy.js (its once-only tidy is a
+  real repair of a current fault, a field he wrote by hand never touched, a core never shortened), the rest of rebuild.js.
+  Not touched: auditor.js rebuildStandings (no control calls it).
+- CANON'S LENS LET WHAT IT NEVER JUDGED THROUGH (reproduced — law M607-7: "She became captain of the 13th Division and
+  married Renji" rode on m606). canonlens.js overlayFrom read a statement the answer skipped as "holds", and the lens was
+  kept as read for good — so a long dossier answered in part let canon's later states into the note (his Bleach rule:
+  never canon's later events as fact). A statement left unjudged is held back now (why 'unjudged' — the drawer says "not
+  yet read through your story"), and a lens with one is kept but never current: the next canon turn asks it again whole.
+- A RENAME REACHES THE WHOLE LEDGER (law M607-8). ripple.js renameInState left the referee's cast sheet under the old name
+  (the renamed person fought unrated beside a stale entry in How they measure), a fight under way calling them by it, and
+  where a thing is said to be; a thing's owner followed only AFTER the count (apply.js), so a name only a thing held could
+  not be changed ("nothing in the ledger is called …"). Now sheet.actors is rekeyed, the duel's and the battle's names
+  follow, a thing's owner, place and note follow, all counted; people.rename's take-back covers the duel and the battle.
+- A RUN HE STOPPED IS STOPPED (reproduced through the app — walk DOM-214). The record rebuild and Summarize now swallow
+  their keeper's errors into a patient ladder, so his Stop came back as "the keeper could not be reached": the banner said
+  "carrying on shortly" over his "Stopped", and fifteen seconds later maybeFinish started the run again — a Rebuild from
+  the first page, the record let go once more — up to three times. Now: a cut-off call waits for nothing in either ladder
+  (rebuild.js, memory.js catchUpRecord); chat.js stoppedRun(signal) (the leash's 'stopped by hand' reason) ends the run as
+  stopped in all three actions — no finishing, no "carrying on", not left unfinished; maybeFinish refuses a result marked
+  stopped. After a stop the house's gap filler still folds the rest from where it stopped, as it always does.
+- THE WALK'S HOUSE REFUSES AN ABORTED CALL as a real fetch does (tests/dom/env.mjs): it had answered calls their caller had
+  stopped, so a stopped run carried on working in the walk as it never could on his phone.
+- Read and sound: scribe (its instructions and its doors agree; it is handed the brief, the cast notes and the canon
+  record its words name), sensors (off by default; one word per dip), planner (its names one meaning or none), editor,
+  canontidy (never adds a word, never loses a story word), choices, queue, status (the leash refuses a renew once cut).
+- Older laws moved, each with its reason beside it: M31-1 (the line break is kept; the ledger still writes one clean place
+  name), M259-25, M259-27, M52-2 (their wires never answered a founder; now one that finds no bond in words, so the digits
+  stay the origin those laws name), M207 (the people rebuild renews once more — before the brief is read; its call takes
+  the founder's material). Laws M607-1…9; walk DOM-212, DOM-213, DOM-214.
+- Older law M392-1 moved (with its reason beside it): "with no verdict, nothing is lost" let canon's later states ride as
+  current fact whenever an answer skipped them; an unjudged statement is now held back and the lens asked again (M607-7).
+- GATES at m607-001 (this machine has ONE CPU): harness 1205/1205, walk 214/214, long play 9/9, lint 0 errors (170 warnings),
+  perf_send, holdsone, cutthinking — EXIT 0 each.
+

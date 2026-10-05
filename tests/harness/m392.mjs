@@ -87,8 +87,11 @@ test('M392-1 THE LENS’S OWN LAW: every canon statement judged; what his story 
   assert(held.some((h) => /married to Renji/.test(h.text) && h.why === 'changed'), 'what was held back is kept, with why');
   eq(keepHolds(STATES[0], 'having previously served as its lieutenant under Jūshirō Ukitake'), true, 'a cut is allowed');
   eq(keepHolds(STATES[0], 'she serves as lieutenant under Oda'), false, 'a word the statement never had is not');
+  /* M607 moved this: a statement the answer never judged is held back, not passed. "Nothing is lost" let canon's later
+   * states ride as current fact whenever an answer skipped them — against his rule that canon is silent where it is
+   * unsure; the lens is then not current and is asked again on the next canon turn, so nothing is lost for good (M607-7) */
   const none = overlayFrom(e, st, []);
-  assert(none.overlay.facts.length === 3 && none.held.length === 0, 'with no verdict, nothing is lost');
+  assert(none.overlay.facts.length === 0 && none.held.length === st.length && none.held.every((h) => h.why === 'unjudged') && none.unjudged === st.length, 'with no verdict, nothing unjudged is said');
 });
 
 test('M392-2 HIS OODA/RUKIA STORY, LIVE: the page carries none of the captaincy, the marriage or the daughter — her sister, her sword and her friends ride; the lens is made once, again when his premise changes; the workers’ record says the same', async () => {

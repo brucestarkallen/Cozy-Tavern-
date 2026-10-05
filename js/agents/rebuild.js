@@ -10,10 +10,11 @@
  *     until nothing below the window is uncovered. The verifier and the
  *     detail auditor run on every line as they always do.
  *
- *   rebuildPeople({connection, storyId, brief, castNotes, onProgress, signal, stale})
+ *   rebuildPeople({connection, storyId, brief, castNotes, cast, lore, canonRecord, onProgress, signal, stale})
  *     The character pages and the standings are backed up
- *     (peopleBackup:<storyId>) and let go; the founder's digits are written
- *     as the standings' origin; then every batch of six pages is read in
+ *     (peopleBackup:<storyId>) and let go; the founder's reading of the brief
+ *     (its people, its standings in words and in digits — M607) is written
+ *     as their origin; then every batch of six pages is read in
  *     order with the record-so-far, the pages-so-far and the standings-so-
  *     far as context, and answers with the scribe's deltas (people.set) and
  *     the reader's shifts (rel.shift toward the main character, cause
@@ -35,7 +36,7 @@ import { renderRelationships } from '../engine/relationships.js';
 import { loadMemory, saveMemory, maybeSummarize, dueRange, cleanWindow, cleanBatch, visiblePages, DEFAULT_BATCH, recordLinesBefore } from './memory.js';
 import { pageText } from '../assemble/stack.js';
 import { wholePage, roomChars } from '../engine/pagecut.js'; /* M259: each page read to its end */
-import { readStatedStandings, samePersonLoose } from './founder.js';
+import { foundPeople, samePersonLoose } from './founder.js';
 
 const MAX_TOKENS = 3000;
 
@@ -131,6 +132,12 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
       for (let a = 0; a < pauses.length; a += 1) {
         const pause = pauses[a];
         if (stale && stale()) return null;
+        /* M607: a run whose call was cut off — his Stop, or the leash — waits for nothing: the leash refuses a renew once
+         * it is cut, and the wait drew "trying again" over his "Stopped" */
+        if (signal && signal.aborted) {
+          return { folded, toFold, lines: (await loadMemory(storyId)).nodes.length, stalled: true,
+            why: 'the run was cut short — press Rebuild to start again' };
+        }
         if (typeof onRetry === 'function') await onRetry({ ms: pause, attempt: a + 1, of: pauses.length });
         else await new Promise((r) => setTimeout(r, pause));
         if (typeof renew === 'function' && !renew()) {
@@ -161,7 +168,12 @@ export async function rebuildRecord({ connection, storyId, onProgress, onRetry, 
     folded = after.reduce((n, node) => n + (node.span[1] - node.span[0] + 1), 0);
     rounds += 1;
   }
-  return { folded, toFold, lines: (await loadMemory(storyId)).nodes.length };
+  /* M607: a run that reached its last round with pages still due is not finished — it said so only by its numbers */
+  const end = (await loadMemory(storyId)).nodes;
+  if (rounds >= 400 && dueRange(history.length, window, end, batch)) {
+    return { folded, toFold, lines: end.length, stalled: true, why: 'the story is longer than one run reads — it carries on shortly' };
+  }
+  return { folded, toFold, lines: end.length };
 }
 
 export async function restoreRecord(storyId) {
@@ -240,11 +252,19 @@ export function parseReaderAnswer(raw) {
  * page and standing — the writer's own words among them. A field he wrote by
  * hand (hand mark) is his, and so is a standing he set: they are kept over the
  * re-reading; his loose ends come first, the re-read ones after. */
+/* M607: ONE MEANING OR NONE — the exact name first, else the one name that loosely matches; two loose matches are none (the
+ * first of them was taken: a hand-written line for "Kara" landed on whichever Kara stood first). */
+export function oneKey(keys, name) {
+  const all = [...new Set(keys)];
+  if (all.includes(name)) return name;
+  const loose = all.filter((k) => samePersonLoose(k, name));
+  return loose.length === 1 ? loose[0] : null;
+}
 export function keepWritersOwn(live, rebuilt) {
   const characters = { ...((rebuilt && rebuilt.characters) || {}) };
   for (const [name, c] of Object.entries((live && live.characters) || {})) {
     if (!c || !c.hand || typeof c.hand !== 'object' || !Object.keys(c.hand).length) continue;
-    const key = Object.keys(characters).find((k) => samePersonLoose(k, name)) || name;
+    const key = oneKey(Object.keys(characters), name) || name;
     const base = characters[key];
     const into = base ? { ...base, threads: (base.threads || []).slice() } : { core: '', state: '', arc: '', threads: [], updatedAtTurn: c.updatedAtTurn };
     for (const f of ['core', 'state', 'arc']) if (c.hand[f]) into[f] = c[f] || '';
@@ -256,10 +276,23 @@ export function keepWritersOwn(live, rebuilt) {
     into.hand = { ...c.hand };
     characters[key] = into;
   }
+  /* M607: WHAT THE PAGES DO NOT SAY STAYS ON THE PAGE — what canon says of a person (canon's lens keeps it on their page) and
+   * the house's word that a passer-through has left the story are not notes a re-reading writes: they were let go with the
+   * old pages, and a retired passer-through came back as a kept person. They ride onto the re-read page of the same person. */
+  for (const [name, c] of Object.entries((live && live.characters) || {})) {
+    if (!c || typeof c !== 'object') continue;
+    const carry = {};
+    if (Array.isArray(c.canon) && c.canon.length) carry.canon = c.canon.slice();
+    if (c.retired) { carry.retired = c.retired; if (c.retiredAtTurn !== undefined) carry.retiredAtTurn = c.retiredAtTurn; }
+    if (!Object.keys(carry).length) continue;
+    const key = oneKey(Object.keys(characters), name);
+    if (key) characters[key] = { ...characters[key], ...carry };
+  }
   const relationships = { ...((rebuilt && rebuilt.relationships) || {}) };
   for (const [name, r] of Object.entries((live && live.relationships) || {})) {
     if (!r || r.hand !== true) continue;
-    for (const k of Object.keys(relationships)) if (k !== name && samePersonLoose(k, name)) delete relationships[k];
+    const twin = oneKey(Object.keys(relationships).filter((k) => k !== name), name);
+    if (twin) delete relationships[twin];
     relationships[name] = r;
   }
   return { characters, relationships };
@@ -299,8 +332,17 @@ export function oldAuditorRaised(state) {
 export function peopleHealDue(state) {
   return !(Number(state && state.healedGen) >= HEAL_GEN) && (oldAuditorRaised(state) || oldCutNotes(state));
 }
+/* M607: A LEDGER THIS HOUSE FINDS CLEAN IS NEVER HEALED. The stamp was only ever written after a heal, so a story begun on
+ * this house stayed unstamped for ever — and the marks the heal looks for are words this house still writes: the auditor
+ * restores a standing that is wrongly zero with the cause "the brief says", a page reader may write that cause too, and a
+ * note may end on an ellipsis. The first of those after any page beat re-read every person and every standing of a NEW
+ * story from its pages. The chat asks this before a page's helpers write anything (agents run after the founder's step),
+ * so a mark that appears later is this house's own. */
+export function healStampDue(state) {
+  return !(Number(state && state.healedGen) >= HEAL_GEN) && !oldAuditorRaised(state) && !oldCutNotes(state);
+}
 
-export async function rebuildPeople({ connection, storyId, brief = '', castNotes = '', onProgress, signal, stale, renew } = {}) {
+export async function rebuildPeople({ connection, storyId, brief = '', castNotes = '', cast = [], lore = [], canonRecord = '', onProgress, signal, stale, renew } = {}) {
   if (!connection || !storyId) return null;
   const state = await loadState(storyId);
   const mc = mcName(state) !== 'the player' ? mcName(state) : '';
@@ -321,10 +363,24 @@ export async function rebuildPeople({ connection, storyId, brief = '', castNotes
   ];
   let { state: s } = applyMutations(state, clear);
   s = { ...s, characters: {} };
-  /* the standings' origin: the writer's digits */
-  const digits = (await readStatedStandings({ connection, brief, castNotes, mc, signal }))
-    .map((st) => ({ type: 'rel.set', name: st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (P:' + st.p + ' R:' + st.r + ' S:' + st.s + ') toward ' + (mc || 'the main character') }));
-  ({ state: s } = applyMutations(s, digits));
+  /* M607: THE BRIEF FIRST, AS THE STORY BEGAN — its people and its standings, in words and in digits, as the founder reads
+   * them (agents/founder.js foundPeople); the pages are read on top. Only the digits were read here, so a bond the brief
+   * gives in words was let go and came back as the pages' small shifts, and a person only the brief names lost their
+   * page. A reading of the brief that cannot be used stops the run, which changes nothing: a re-reading built without the
+   * brief is the very loss. */
+  const allPages = visiblePages(await db.messages.list(storyId));
+  if (typeof renew === 'function' && !renew()) {
+    return { read: 0, total: allPages.length, applied: 0, refused: 0, digits: 0, stalled: true,
+      why: 'the run was cut short — press Rebuild to start again' };
+  }
+  const founding = await foundPeople({ connection, state: s, brief, castNotes, cast, lore, canonRecord, signal });
+  if (founding.note) {
+    return { read: 0, total: allPages.length, applied: 0, refused: 0, digits: 0, stalled: true,
+      why: 'the brief’s people and standings could not be read again — it starts again shortly' };
+  }
+  if (stale && stale()) return null;
+  ({ state: s } = applyMutations(s, founding.mutations));
+  const digits = founding.mutations.filter((m) => m.type === 'rel.set');
   /* M262: ON THE SIDE, SWAPPED IN WHOLE. The people and the standings were let
    * go and SAVED before the first page was read, then refilled batch by batch —
    * so for the length of a rebuild the storyteller wrote with half-empty
@@ -334,7 +390,7 @@ export async function rebuildPeople({ connection, storyId, brief = '', castNotes
    * in at once. A run cut short changes nothing. */
   let shadow = s;
 
-  const history = visiblePages(await db.messages.list(storyId)).map((m) => ({ role: m.role, text: pageText(m) }));
+  const history = allPages.map((m) => ({ role: m.role, text: pageText(m) }));
   const mem = await loadMemory(storyId);
   const batch = DEFAULT_BATCH;
   let read = 0;
@@ -356,7 +412,7 @@ export async function rebuildPeople({ connection, storyId, brief = '', castNotes
     /* a name the ledger already knows wins over the reader's spelling —
      * "Rias" lands on "Rias Wells", never beside her */
     const known = [...Object.keys(shadow.relationships || {}), ...Object.keys(shadow.characters || {})];
-    const resolve = (name) => known.find((k) => samePersonLoose(k, name)) || name;
+    const resolve = (name) => oneKey(known, name) || name;
     const mutations = [];
     for (const d of answer.deltas) {
       if (mc && samePersonLoose(d.name, mc) && d.field !== 'state') continue; /* the MC's core and arc are the story's */
@@ -416,5 +472,5 @@ export function rebuildPeopleWords(r) {
    * page 24 of 118 still read "rebuilt the people: read 24 of 118 pages",
    * which is a sentence that sounds like success. */
   if (r.stalled) return `the rebuild stopped at ${r.read} of ${r.total} pages — ${r.why}`;
-  return `rebuilt the people: read ${r.read} of ${r.total} pages six at a time — ${r.digits} standings from the brief’s digits, ${r.applied} changes from the pages` + (r.refused ? ` (${r.refused} refused)` : '');
+  return `rebuilt the people: read ${r.read} of ${r.total} pages six at a time — ${r.digits} standings from the brief, ${r.applied} changes from the pages` + (r.refused ? ` (${r.refused} refused)` : '');
 }

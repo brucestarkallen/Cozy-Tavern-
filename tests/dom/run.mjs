@@ -9621,5 +9621,136 @@ test('DOM-211 THE READY-MADE TEMPLATES, IN THE FORM (M583): choose one, type his
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-212 A STORY BEGUN ON THIS HOUSE IS NEVER RE-READ WHOLE FOR A MARK THE HOUSE WRITES ITSELF (M607): a page reader writes "the brief says" over a standing a page beat had moved — the old heal\u2019s mark — and the ledger, found clean before the page, was stamped, so nobody is re-read', async () => {
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const { saveState: saveLedger, emptyState: blankLedger } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { HEAL_GEN } = await import('../../js/agents/rebuild.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const st = await db.stories.create({ title: 'a story of this house' });
+  await db.messages.append(st.id, { role: 'user', text: 'I wave at Kara.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[Lakeside Park \u2014 Friday, March 14, 2025 | 14:30 | \u{1F324} | coat | standing]\n\nKara waves back.' });
+  let led = { ...blankLedger(), sheet: { actors: {}, playerName: 'Jovan' } };
+  led = applyMutations(led, [{ type: 'people.set', name: 'Kara', field: 'core', text: 'KARA AS THE HOUSE WROTE HER' }, { type: 'rel.set', name: 'Kara', p: 50, r: 65, cause: 'the brief says Kara has loved Jovan since school' }]).state;
+  led = applyMutations(led, [{ type: 'rel.shift', name: 'Kara', axis: 'r', delta: -25, cause: 'they quarrelled on the roof' }]).state;
+  await saveLedger(st.id, { ...led, page: 1, readTo: 1, tidiedGen: 999 }); /* this house's story: never stamped by a heal */
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => q('.msg-act[data-act="go on"]'), 'the tale renders with go on');
+  let reread = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (/keep the ledger/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'rel.set', name: 'Kara', p: 50, r: 65, s: 0, cause: 'the brief says Kara has loved Jovan since school' }] });
+    if (/reading a story's past/i.test(sys)) reread += 1;
+    return walkDefaultWorker(body, sys);
+  };
+  try {
+    click(q('.msg-act[data-act="go on"]'));
+    await until(async () => { const l = await db.settings.get('state:' + st.id); return l && l.relationships && l.relationships.Kara && l.relationships.Kara.r === 65; }, 'the page reader\u2019s restore to land (40 \u2192 65)', 40000);
+    await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !q('.msg-pending'), 'the chain to finish', 40000);
+  } finally {
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+  const ledger = await db.settings.get('state:' + st.id);
+  eq(ledger.healedGen, HEAL_GEN, 'the ledger, clean before the page, is stamped');
+  eq(reread, 0, 'no page was read again for the people');
+  assert(!(ledger.log || []).some((l) => /read again from the pages/.test(l.words)), 'and the log says nothing was re-read');
+  eq(ledger.characters.Kara.core, 'KARA AS THE HOUSE WROTE HER', 'her page stands as the house wrote it');
+  eq(ledger.relationships.Kara.r, 65, 'and her standing as the page left it');
+  assert((ledger.relationships.Kara.history || []).some((h) => /^set \u2014 the brief says/.test(h.cause)), 'the mark the old heal looks for is in her history — this house wrote it');
+});
+
+test('DOM-213 REBUILD THE PEOPLE BY HAND, THEN TRY AGAIN: the newest checkpoint carries the rebuilt standings with the rebuilt pages (M607) — and the brief\u2019s love in words is the rebuild\u2019s origin', async () => {
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { loadSnapshots, loadVersionStates } = await import('../../js/engine/state.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const st = await db.stories.create({ title: 'a rebuilt house' });
+  await db.stories.update(st.id, { brief: 'Jovan, 19. Kara has loved Jovan since school.' }); /* create() takes a title only */
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  type(q('#composer-input'), 'I wave at Kara.');
+  submit(q('#composer'));
+  await settled();
+  await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0, 'the first chain to finish', 40000);
+  house.state.workerAnswer = (body, sys) => {
+    if (/found the ledger/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'mc.set', name: 'Jovan' }, { type: 'rel.set', name: 'Kara', p: 40, r: 65, s: 5, cause: 'the brief says Kara has loved Jovan since school' }] });
+    if (/states in digits/i.test(sys)) return '{"standings":[]}';
+    if (/reading a story's past/i.test(sys)) return JSON.stringify({ deltas: [{ name: 'Kara', field: 'state', text: 'waving at Jovan' }], shifts: [{ name: 'Kara', axis: 'r', delta: 3, cause: 'she waved back at Jovan' }] });
+    return walkDefaultWorker(body, sys);
+  };
+  try {
+    await env.ctx.chat.rebuildPeopleNow();
+    await until(async () => { const l = await db.settings.get('state:' + st.id); return l && l.peopleRebuiltAt; }, 'the people to be rebuilt', 40000);
+    await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the rebuild to finish, its checkpoints with it', 40000);
+  } finally {
+    house.state.workerAnswer = walkDefaultWorker;
+  }
+  const ledger = await db.settings.get('state:' + st.id);
+  eq(ledger.relationships.Kara && ledger.relationships.Kara.r, 68, 'the brief\u2019s love (65) is the origin, the page moved it 3');
+  const vis = (await db.messages.list(st.id)).filter((m) => !m.hidden);
+  const lastUser = [...vis].reverse().find((m) => m.role === 'user');
+  const last = [...vis].reverse().find((m) => m.role === 'assistant');
+  const snap = (await loadSnapshots(st.id)).find((e) => e && e.id === lastUser.id);
+  assert(snap && snap.snap, 'the newest boundary checkpoint exists');
+  eq(snap.snap.relationships && snap.snap.relationships.Kara && snap.snap.relationships.Kara.r, 68, 'a Try again starts from the rebuilt standing');
+  eq(JSON.stringify(snap.snap.characters.Kara), JSON.stringify(ledger.characters.Kara), 'beside the rebuilt page');
+  const ver = Object.entries(await loadVersionStates(st.id)).find(([k]) => k.startsWith(last.id + ':'));
+  assert(ver, 'the newest page\u2019s own checkpoint exists');
+  eq(ver[1].relationships && ver[1].relationships.Kara && ver[1].relationships.Kara.r, 68, 'and the page\u2019s checkpoint holds it too');
+});
+
+test('DOM-214 REBUILD THE RECORD, THEN STOP: IT STAYS STOPPED (M607) — no "carrying on shortly" over his Stop, no rebuild started again by the house, the workers\u2019 line says he stopped it', async () => {
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { loadWorkerStatus } = await import('../../js/agents/status.js');
+  const { saveMemory } = await import('../../js/agents/memory.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const st = await db.stories.create({ title: 'A record he stopped' });
+  for (let i = 0; i < 20; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'I walk on, step ' + i + '.' });
+    await db.messages.append(st.id, { role: 'assistant', text: '[The yard \u2014 Monday, March 3, 2025 | 09:' + String(10 + i) + ' | clear]\n\nStep ' + i + ' of the long yard.' });
+  }
+  await db.settings.set('state:' + st.id, { ...(await import('../../js/engine/state.js')).emptyState(), page: 20, readTo: 39, tidiedGen: 999, healedGen: 999 });
+  await saveMemory(st.id, { window: 10, nodes: [] });
+  await db.settings.set('memoryBatch', 2);
+  let armed = false;
+  let keeperCalls = 0;
+  let release = () => {};
+  const held = new Promise((r) => { release = r; });
+  house.state.workerAnswer = (body, sys) => {
+    if (/narrative-state tracker/i.test(sys)) {
+      if (!armed) return 'Jovan walked the yard.';
+      keeperCalls += 1;
+      return keeperCalls === 1 ? held.then(() => 'Jovan walked the yard.') : 'Jovan walked on.';
+    }
+    return walkDefaultWorker(body, sys);
+  };
+  const what = () => ((q('#work-banner') && !q('#work-banner').hidden && q('#work-banner-what')) || { textContent: '' }).textContent;
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(() => !workIsRunning(st.id) && queuedCount(st.id) === 0, 'the opening\u2019s own work to settle', 40000);
+    armed = true;
+    await env.ctx.chat.rebuildRecordNow();
+    await until(() => keeperCalls === 1, 'the rebuild\u2019s first fold to be asked', 20000);
+    click(q('#work-banner-stop'));
+    await until(() => /Stopped/.test(what()), 'the banner to say Stopped: ' + what(), 10000);
+    release();
+    const { loadMemory } = await import('../../js/agents/memory.js');
+    await until(async () => { const r = (await loadWorkerStatus(st.id)).keeper; return r && /stopped by hand/.test(r.detail || ''); }, 'the stopped run to end', 30000);
+    assert(/Stopped/.test(what()) && !/trying again|carrying on/i.test(what()), 'the banner still says what he did: ' + what());
+    const rowAtStop = (await loadWorkerStatus(st.id)).keeper;
+    eq(Boolean(rowAtStop && rowAtStop.unfinished), false, 'the stopped run is not left as work for the house to finish: ' + JSON.stringify(rowAtStop));
+    const atStop = await loadMemory(st.id);
+    await tick(17000); /* the house's own finishing waits fifteen seconds before it carries a run on */
+    const later = await loadMemory(st.id);
+    eq(later.rebuiltAt, atStop.rebuiltAt, 'the rebuild was not started over (a rebuild lets the record go again and stamps it anew)');
+    assert(later.nodes.length >= atStop.nodes.length, 'what was folded is kept — the keeper only fills the rest, as it always does');
+    assert(!/carrying on/.test(what()), 'the banner never says it carries on: ' + what());
+  } finally {
+    release();
+    house.state.workerAnswer = walkDefaultWorker;
+    await db.settings.set('memoryBatch', undefined);
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

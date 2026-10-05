@@ -165,6 +165,24 @@ export function renameInState(state, from, to) {
   next.canon = rekey(next.canon, 'canon');
   next.bodies = rekey(next.bodies, 'bodies');
   if (next.sheet && same(next.sheet.playerName)) { next.sheet.playerName = to; n += 1; }
+  /* M607: THE REST OF THE LEDGER FOLLOWS THE NAME TOO. The referee's cast sheet (How they measure) stayed under the old name —
+   * the renamed person fought unrated beside a stale entry; a fight under way kept calling them by it; and a thing's owner
+   * followed only after this count, so a name only a thing held could not be changed. */
+  if (next.sheet && next.sheet.actors && typeof next.sheet.actors === 'object') next.sheet.actors = rekey(next.sheet.actors, 'actors');
+  const renameNames = (node, depth = 0) => {
+    if (!node || typeof node !== 'object' || depth > 6) return;
+    if (Array.isArray(node)) { for (const x of node) renameNames(x, depth + 1); return; }
+    for (const [k, v] of Object.entries(node)) {
+      if ((k === 'name' || k === 'who') && typeof v === 'string' && same(v)) { node[k] = to; n += 1; } else if (v && typeof v === 'object') renameNames(v, depth + 1);
+    }
+  };
+  renameNames(next.duel);
+  renameNames(next.battle);
+  for (const t of Object.values(next.things && typeof next.things === 'object' ? next.things : {})) {
+    if (!t || typeof t !== 'object') continue;
+    if (typeof t.owner === 'string' && same(t.owner)) { t.owner = to; n += 1; }
+    for (const k of ['where', 'note']) if (typeof t[k] === 'string' && hasWord(t[k], from)) { t[k] = replaceWord(t[k], from, to); n += 1; }
+  }
   for (const p of (next.present || [])) if (p && same(p.name)) { p.name = to; n += 1; }
   /* M163: and the scene never seats the same person twice after a merge. */
   if (Array.isArray(next.present)) {

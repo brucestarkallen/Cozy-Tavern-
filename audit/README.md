@@ -1,7 +1,7 @@
 # THE LINE-BY-LINE AUDIT — CHECKPOINT (read this first in a new session)
 
-**Where it stands:** m606-001 (commit after 16ca42f), Oct 5 2026. 28 of 122 files read whole and fixed —
-27,424 of 64,113 lines (19,939 of 47,196 code lines). The ledger of every file is `audit/LINE_AUDIT.md`
+**Where it stands:** m607-001, Oct 5 2026. 42 of 122 files read whole and fixed —
+30,832 of 64,113 lines (22,372 of 47,196 code lines). The ledger of every file is `audit/LINE_AUDIT.md`
 (`DONE (Mxxx)` = read whole; `todo` = not yet). The full history of every fix is the tail of `AGENTS.md`
 (search `# M574` onward for the audit's own parts); `HANDOFF.md` says how to run the app and the tests.
 
@@ -21,10 +21,8 @@ next file in the order below without asking.
 
 ## What is left — take it in this order
 
-1. The small helpers: `js/agents/rebuild.js`, `scribe.js`, `sensors.js`, `canonlens.js`, `planner.js`, `ripple.js`,
-   `editor.js`, `canontidy.js`, `choices.js`, `queue.js`, `tidy.js`, `worldground.js`, `lookup.js`, `plans.js`,
-   `essentials.js`, `lint.js`, `canoncheck.js`, `canonstart.js`, `status.js`, `jsonutil.js`, `call.js`, `recallpick.js`,
-   `concept.js`, `assign.js`, `voice.js`, `herewords.js`
+1. The small helpers: `worldground.js`, `lookup.js`, `plans.js`, `essentials.js`, `lint.js`, `canoncheck.js`,
+   `canonstart.js`, `recallpick.js`, `concept.js`, `assign.js`, `voice.js`, `herewords.js`
 2. The request: `js/assemble/stack.js`, `modules.js`, `smallprose.js`, `laws.js`, `craft.js` (the craft's words are his)
 3. The providers: the rest of `js/providers/openai.js`, `effort.js`, `anthropic.js`, `sse.js`, `meter.js`, the small ones
 4. Storage and sync: `js/store.js`, `js/sync.js`, `js/sync-worker.js`, `serve.py` (size limits already checked), `sw.js`

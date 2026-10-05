@@ -835,7 +835,7 @@ function onTheirMindPanel(ctx) {
   rebuild.type = 'button';
   rebuild.className = 'text-btn';
   rebuild.textContent = 'Rebuild the people from the pages';
-  rebuild.title = 'The character pages and every standing are backed up and let go; the brief’s digits become the standings’ origin; then the pages are re-read six at a time from the first, each batch with the record that covers the pages before it — Summaryception’s way, never the whole story at once.';
+  rebuild.title = 'The character pages and every standing are backed up and let go; the brief’s people and standings, in words and in digits, become their origin; then the pages are re-read six at a time from the first, each batch with the record that covers the pages before it — Summaryception’s way, never the whole story at once.';
   rebuild.addEventListener('click', async () => {
     if (!window.confirm('Rebuild the character pages and every standing from the pages, six at a time from the first? The old ones are kept and can be put back.')) return;
     if (ctx.chat && typeof ctx.chat.rebuildPeopleNow === 'function') await ctx.chat.rebuildPeopleNow();
@@ -1563,7 +1563,7 @@ function canonSaysPanel(ctx) {
           line('Kept hidden in the story:', list(d.secrets)),
           line('Around them:', (Array.isArray(d.related) ? d.related : []).map((r) => (r && r.name ? r.name + (r.why ? ' — ' + r.why : '') : '')).filter(Boolean).join('; ')),
           line('Also:', sec.trivia),
-          line('Not so in this story:', lensHeld(meta, e).map((h) => (h.kept ? '“' + h.text + '” (only “' + h.kept + '” holds)' : '“' + h.text + '”') + ' — ' + (h.why === 'later' ? 'not reached here' : 'your story changed it')).join(' · ')),
+          line('Not so in this story:', lensHeld(meta, e).map((h) => (h.kept ? '“' + h.text + '” (only “' + h.kept + '” holds)' : '“' + h.text + '”') + ' — ' + (h.why === 'later' ? 'not reached here' : h.why === 'unjudged' ? 'not yet read through your story' : 'your story changed it')).join(' · ')),
           overlayFor(meta, e) ? null : line('Not read through your story yet:', ledgerKeys.has(key) ? 'it is being read now.' : 'it will be, the first page they are in.'),
           line('Also called:', Array.isArray(e.aliases) ? e.aliases.filter((a) => a && a.toLowerCase() !== String(e.name || '').toLowerCase()).join(', ') : ''),
           line('From:', (e.wiki ? e.wiki + ' — ' : '') + 'looked up ' + (fmtWhenWords(e.ts) || 'a while ago')),

@@ -949,12 +949,15 @@ test('M207: a job that works in rounds renews its leash; a hung call is still cu
   assert(/const \{ signal, done, renew, abort \} = workerSignal\(\);/.test(queue), 'the queue takes a renew (and a stop)');
   assert(/job\.run\(\{ signal, stale: isStale, renew \}\)/.test(queue), 'and hands it to the job');
   const rb = readFileSync(new URL('../../js/agents/rebuild.js', import.meta.url), 'utf8');
-  eq((rb.match(/typeof renew === 'function' && !renew\(\)/g) || []).length, 3,
-    'the record rebuild renews each round and after each retry pause; the people rebuild each batch');
+  /* M607 moved this: the people rebuild now also renews before its first long call (the founder's reading of the brief) —
+   * so four, and the people rebuild's renews are counted by running it below */
+  eq((rb.match(/typeof renew === 'function' && !renew\(\)/g) || []).length, 4,
+    'the record rebuild renews each round and after each retry pause; the people rebuild before the brief and each batch');
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   assert(/run: async \(\{ signal, stale, renew \}\) => \{\s*\n\s*const result = await rebuildRecord\(\{\s*\n\s*connection, storyId: story\.id, signal, stale, renew,/.test(chat),
     'the record rebuild is handed it');
-  assert(/rebuildPeople\(\{ connection, storyId: story\.id, brief: story\.brief \|\| '', castNotes: story\.castNotes \|\| '', signal, stale, renew,/.test(chat),
+  /* M607 moved this: the people rebuild is also handed the cards, the lore and the canon record (the founder's material) */
+  assert(/rebuildPeople\(\{ connection, storyId: story\.id, brief: story\.brief \|\| '', castNotes: story\.castNotes \|\| '', cast: await castForStory\(story\), lore: await loadLore\(story\.id\), canonRecord: await canonRecordOf\(story\), signal, stale, renew,/.test(chat),
     'and so is the people rebuild');
 });
 

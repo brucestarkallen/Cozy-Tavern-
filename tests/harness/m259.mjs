@@ -864,6 +864,8 @@ test('M259-25: the old auditor\u2019s mark is found, the people are re-read on t
       seen.push(Object.keys(live.characters || {}).join(',') + '/' + ((live.relationships || {})['Old Friend'] || {}).p);
       return JSON.stringify({ deltas: [{ name: 'Mira', field: 'core', text: 'the innkeeper, read again' }], shifts: [{ name: 'Mira', axis: 'p', delta: 5, cause: 'she poured him drink number ' + seen.length }] });
     }
+    /* M607: the rebuild reads the brief through the founder first; this wire answers it as a founder who finds no bond */
+    if (/found the ledger/i.test(all)) return '{"mutations":[]}';
     return '{"standings":[]}';
   };
   const house = scriptedHouse(answer);
@@ -960,7 +962,8 @@ test('M259-27: what the writer wrote by hand stands through any re-reading', asy
   const answer = async (body) => (/reading a story/i.test(JSON.stringify(body))
     ? JSON.stringify({ deltas: [{ name: 'Mira', field: 'core', text: 'the reader\u2019s own reading' }, { name: 'Mira', field: 'state', text: 'at the door' }, { name: 'Tomas', field: 'core', text: 'a smith, read again' }],
       shifts: [{ name: 'Mira', axis: 'p', delta: 5, cause: 'she smiled at the page' }, { name: 'Tomas', axis: 'p', delta: 3, cause: 'he nodded' }] })
-    : '{"standings":[]}');
+    : /found the ledger/i.test(JSON.stringify(body)) ? '{"mutations":[]}' /* M607: the brief is read through the founder first */
+      : '{"standings":[]}');
   await withHouse(scriptedHouse(answer), () => rebuildPeople({ connection: CONN, storyId: sid, brief: 'b', stale: () => false }));
   const after = await loadState(sid);
   eq(after.characters.Mira.core, 'MY OWN WORDS: the innkeeper who hides a letter', 'the writer\u2019s own words stand');

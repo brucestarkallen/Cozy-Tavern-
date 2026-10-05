@@ -27,10 +27,13 @@ function withFetch(fn) {
   return { restore() { globalThis.fetch = real; } };
 }
 
-test('M31-1 the repair pass mends what cheap models break: comments, trailing commas, raw newlines in strings', () => {
+test('M31-1 the repair pass mends what cheap models break: comments, trailing commas, raw newlines in strings', async () => {
   const broken = '{ // the ledger\n "mutations": [ {"type":"place.set","name":"a booth\nat McDonald’s",}, ], /* done */ }';
   assert(parseLenient(broken), 'lenient parse succeeds');
-  eq(parseLenient(broken).mutations[0].name, 'a booth at McDonald’s', 'the raw newline became a space');
+  /* M607 moved this: the repair keeps a line break inside a string as the model wrote it (so a page the mender hands back
+   * whole keeps its paragraphs); the ledger folds a name's whitespace itself, so the place is still one clean line */
+  eq(parseLenient(broken).mutations[0].name, 'a booth\nat McDonald’s', 'the raw newline is kept, written as JSON writes one');
+  eq((await import('../../js/engine/apply.js')).applyMutations(emptyState(), parseLenient(broken).mutations).state.place.name, 'a booth at McDonald’s', 'and the ledger writes one clean name');
   eq(parseLenient('{"a":1}').a, 1, 'strict still first');
   eq(parseLenient('not json'), null);
   const r = parseExtractorAnswer('Here you go:\n```json\n{"mutations":[{"type":"presence.enter","name":"Liara"},]}\n```');
