@@ -1,7 +1,7 @@
 # THE LINE-BY-LINE AUDIT — CHECKPOINT (read this first in a new session)
 
-**Where it stands:** m609-001, Oct 5 2026. 85 of 122 files read whole and fixed —
-40,621 of 64,113 lines (28,986 of 47,196 code lines). Every helper (js/agents) and the request builder (js/assemble) are read. Every helper in js/agents is read. The ledger of every file is `audit/LINE_AUDIT.md`
+**Where it stands:** m610-001, Oct 5 2026. 89 of 122 files read whole and fixed —
+42,593 of 64,113 lines (30,625 of 47,196 code lines). Every helper (js/agents) and the request builder (js/assemble) are read. Every helper in js/agents is read. The ledger of every file is `audit/LINE_AUDIT.md`
 (`DONE (Mxxx)` = read whole; `todo` = not yet). The full history of every fix is the tail of `AGENTS.md`
 (search `# M574` onward for the audit's own parts); `HANDOFF.md` says how to run the app and the tests.
 
@@ -20,11 +20,10 @@ next file in the order below without asking.
 
 ## What is left — take it in this order
 
-1. Storage and sync: `serve.py` (size limits already checked), `sw.js` (store, sync and the sync worker are read)
-2. The UI: `js/ui/settings.js`, `drawer.js`, `housekeeper.js` (the UI of it), `receiptview.js`, `pageshape.js`,
-   `headergate.js`, `canonsettings.js`, the rest of `js/ui/*`, `index.html`
-3. Canon: `js/canon/bridge.js`, then `js/canon/grounding.js` (the vendored canon engine, ~4,200 code lines — last)
-4. Imports and the rest: `js/import/*`, `js/regex*.js`, `js/sent.js`, `js/app.js`
+1. The UI: `js/ui/settings.js`, `drawer.js`, `housekeeper.js` (the UI of it), `receiptview.js`,
+   `canonsettings.js`, the rest of `js/ui/*`, `index.html`
+2. Canon: `js/canon/bridge.js`, then `js/canon/grounding.js` (the vendored canon engine, ~4,200 code lines — last)
+3. Imports and the rest: `js/import/*`, `js/regex*.js`, `js/sent.js`, `js/app.js`
 
 `python3 audit/show.py <file> <from> <to> [width]` prints a file's code lines with comments set aside; read the prompt
 strings as well — they are what a helper or the storyteller is told.

@@ -15325,3 +15325,26 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   house writes is on the sweep's list, peopleBackup and memoryBackup included); sync.js and sync-worker.js (every batched
   checkpoint write is followed by its index write, which marks the tale's book for the device — nothing is left unpushed).
 
+# M610 — the line-by-line audit, part 20: storage and sync (serve.py, sw.js), the page shape (pageshape, headergate), and
+# a sweep of the screens' wiring
+- AN OPEN DRAWER FOLLOWS THE TALE THAT IS OPEN (reproduced — walk DOM-215 fails on m609-001: the drawer went on saying
+  "page 1 of 1" of the tale before). The house tells every listener when the shelf of tales changes (app.js
+  ctx.onStoriesChanged — its own words: "the drawer re-points its live subscription"), and the chat tells the drawer after
+  a record line is read again — but ctx.drawer never had onStoriesChanged, so an open drawer kept showing, and listening
+  to, the tale that was open before until something else redrew it. It has the hook now: its quiet redraw, which re-points
+  the subscription at the open tale.
+- THE SCREENS' WIRING, CHECKED WHOLE: every function the screens call on the chat exists (ctx.chat); every setting Settings
+  saves is read back (its three own — the folds, the room, the presets fold — by Settings itself); of the settings read
+  with no writer, two have their writer under a constant (modules, workerFallbackLast) and two have none at all: autoFinish
+  (the house always finishes what it started — there is no switch to turn it off, so it is always on) and hkStallSec (the
+  housekeeper's 300-second stall cut). Neither is a control he could miss; both left as they are.
+- Read whole and sound: serve.py (a whole push and a page append are one at a time under the book lock; a torn last log line
+  is skipped; a restore keeps a copy of the library first; a backup is read back before it is kept), sw.js (every file the
+  app loads is in its offline shell; the device's books never are), pageshape.js, headergate.js.
+- FOUND, NOT YET FIXED (next part, first): words typed into an own-words card (its name and its words) are kept only by its
+  "Keep it" — Settings' safety net (keepUnsaved, M426/M428), which presses Save for every other typed box when Settings
+  closes, does not know the cards, so words typed and left without "Keep it" are lost. The fix: the cards answer the same
+  net (ownwords.js keepTyped, called from keepUnsaved), "Keep it" staying the one way to keep them.
+- GATES at m610-001 (one CPU): harness 1213/1213, walk 215/215, long play 9/9, lint 0 errors (170 warnings), perf_send,
+  holdsone, cutthinking — EXIT 0 each.
+

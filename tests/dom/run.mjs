@@ -9752,5 +9752,33 @@ test('DOM-214 REBUILD THE RECORD, THEN STOP: IT STAYS STOPPED (M607) — no "car
   }
 });
 
+test('DOM-215 AN OPEN DRAWER FOLLOWS THE TALE THAT IS OPEN (M610): another tale opened while the ledger is out — the drawer shows its ledger, not the old tale\u2019s', async () => {
+  const { saveState: saveLedger, emptyState: blankLedger } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const mk = async (title, ground, n) => {
+    const st = await db.stories.create({ title });
+    for (let i = 0; i < n; i += 1) {
+      await db.messages.append(st.id, { role: 'user', text: 'I look around, ' + i + '.' });
+      await db.messages.append(st.id, { role: 'assistant', text: '[' + ground + ' \u2014 Monday, March 3, 2025 | 09:0' + i + ' | clear]\n\nThe place was quiet.' });
+    }
+    const led = applyMutations({ ...blankLedger(), sheet: { actors: {}, playerName: 'Jovan' } }, [{ type: 'place.set', name: ground }, { type: 'presence.enter', name: 'Jovan' }]).state;
+    await saveLedger(st.id, { ...led, page: n, readTo: 2 * n - 1, tidiedGen: 999, healedGen: 999 });
+    return st;
+  };
+  const a = await mk('Alpha tale', 'ALPHA-GROUND', 1);
+  const b = await mk('Beta tale', 'BETA-GROUND', 3);
+  const standing = () => (q('#ledger-standing') || { textContent: '' }).textContent;
+  env.window.__cozy.setActiveStoryId(a.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  click(q('#btn-ledger'));
+  await until(() => !q('#drawer').hidden && /page 1 of 1\b/.test(standing()), 'the drawer shows the first tale: ' + standing(), 15000);
+  env.window.__cozy.setActiveStoryId(b.id);
+  env.ctx.onStoriesChanged();
+  await until(() => /page 3 of 3\b/.test(standing()), 'the open drawer moves to the tale now open: ' + standing(), 15000);
+  click(q('#btn-ledger'));
+  await until(() => q('#drawer').hidden, 'the drawer closes');
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

@@ -1,5 +1,5 @@
 # Line-by-line audit ledger — every file of the app, read whole, one at a time
-# Status at m609-001 (Oct 5 2026): 85 of 122 files DONE — 40,621 of 64,113 lines (28,986 of 47,196 code lines).
+# Status at m610-001 (Oct 5 2026): 89 of 122 files DONE — 42,593 of 64,113 lines (30,625 of 47,196 code lines).
 # Read a file whole with: python3 audit/show.py <file> <from> <to> [width]  (prints code lines, comments set aside;
 # read the prompt strings too — they are what a helper is told). Mark a file "DONE (Mxxx)" here when read whole and fixed.
 # The order to take the rest: audit/README.md, "What is left".
@@ -17,7 +17,7 @@ index.html | 1241 | 1180 | todo
 js/agents/memory.js | 1652 | 1136 | DONE (M595)
 js/assemble/stack.js | 1677 | 1046 | DONE (M609)
 js/engine/state.js | 1490 | 1033 | DONE (M570, M578)
-serve.py | 1050 | 976 | todo
+serve.py | 1050 | 976 | DONE (M609)
 js/agents/auditor.js | 1180 | 854 | DONE (M598, M599)
 js/engine/people.js | 1235 | 829 | DONE (M579)
 js/store.js | 1172 | 797 | DONE (M609)
@@ -38,11 +38,11 @@ js/agents/founder.js | 376 | 288 | DONE (M606)
 js/agents/rebuild.js | 421 | 283 | DONE (M607)
 js/regex.js | 340 | 251 | todo
 js/import/lorebook.js | 360 | 250 | todo
-js/ui/pageshape.js | 373 | 249 | todo
+js/ui/pageshape.js | 373 | 249 | DONE (M609)
 js/agents/scribe.js | 354 | 239 | DONE (M607)
 js/app.js | 358 | 238 | todo
 js/sync-worker.js | 372 | 238 | DONE (M609)
-js/ui/headergate.js | 332 | 235 | todo
+js/ui/headergate.js | 332 | 235 | DONE (M609)
 js/import/cards.js | 309 | 223 | todo
 js/sent.js | 261 | 219 | todo
 js/agents/sensors.js | 265 | 213 | DONE (M607)
@@ -55,7 +55,7 @@ js/agents/ripple.js | 246 | 185 | DONE (M607)
 js/agents/editor.js | 237 | 182 | DONE (M607)
 js/engine/whole.js | 255 | 181 | DONE (M593)
 js/assemble/craft.js | 232 | 179 | DONE (M609)
-sw.js | 217 | 179 | todo
+sw.js | 217 | 179 | DONE (M609)
 js/agents/canontidy.js | 228 | 178 | DONE (M607)
 js/engine/referee-math.js | 282 | 176 | DONE (M593)
 js/agents/choices.js | 217 | 174 | DONE (M607)

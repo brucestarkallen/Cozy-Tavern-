@@ -3151,5 +3151,9 @@ export function initDrawer(ctx) {
    * and only then. */
 
   function renderAllRooms() { drawPendingIn(panelsEl, ctx); setTimeout(scheduleCounts, 400); /* M466 */ }
-  ctx.drawer = { open, close, toggle, renderAllRooms };
+  /* M610: THE DRAWER FOLLOWS THE TALE THAT IS OPEN. The house tells every listener when the shelf of tales changes
+   * (app.js ctx.onStoriesChanged — "the drawer re-points its live subscription") and the chat tells it after a record
+   * line is read again — but the drawer never had the hook, so an open drawer went on showing (and listening to) the tale
+   * that was open before until something else redrew it. Its quiet redraw re-points the subscription at the open tale. */
+  ctx.drawer = { open, close, toggle, renderAllRooms, onStoriesChanged() { quietRender(); } };
 }
