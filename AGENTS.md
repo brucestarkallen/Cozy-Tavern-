@@ -15368,3 +15368,14 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
 - GATES at m612-001 (one CPU): harness 1214/1214, walk 216/216, long play 9/9, lint 0 errors (170 warnings), perf_send,
   holdsone, cutthinking — EXIT 0 each.
 
+# M613 (audit checkpoint, no code changed): the small screens and the screens' writes
+- Read whole and sound: ui/pagemark, ui/workbanner, ui/usage, ui/receiptview (the raw request shows the body only — no
+  key), ui/welcome, ui/canonsettings, canon/host, regex-styles (all 26 of his style rules compile and run in under 50 ms
+  on a long page and on a hostile one — timed), version.
+- The screens' own writes, checked whole: every ledger write in the drawer reads the ledger fresh first (loadStateForWrite),
+  never a copy held across a wait; the housekeeper's screen writes only its notes, drafts and settings (its ledger changes
+  go through agents/housekeeper.js, read in M604); Settings' typed numbers are read as numbers or left unset (numOrUnset,
+  priceOrUnset), never saved as NaN or a silent zero.
+- Left for the next parts: ui/settings.js, ui/drawer.js and ui/housekeeper.js read line by line, index.html, and the
+  vendored canon/grounding.js.
+
