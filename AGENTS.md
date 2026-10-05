@@ -15315,4 +15315,8 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
 - Also read and sound (the small providers): sse, wire, knobs, userfirst, latesystem, order, detect, room, relay, meter, speed.
 - GATES at m609-001 (one CPU): harness 1213/1213, walk 214/214, long play 9/9, lint 0 errors (170 warnings), perf_send,
   holdsone, cutthinking — EXIT 0 each.
+- Also read and sound after the push: providers/anthropic.js (thinking forces temperature 1 and drops top_p only while
+  thinking is on — the API's own requirement, the one floor his law allows; a system message after the story goes as a user
+  message once the model refuses it, remembered per model; a refused thinking or prefill setting is dropped for that model
+  until it changes) and providers/index.js. No code changed.
 
