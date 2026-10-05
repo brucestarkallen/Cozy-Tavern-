@@ -15341,10 +15341,15 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
 - Read whole and sound: serve.py (a whole push and a page append are one at a time under the book lock; a torn last log line
   is skipped; a restore keeps a copy of the library first; a backup is read back before it is kept), sw.js (every file the
   app loads is in its offline shell; the device's books never are), pageshape.js, headergate.js.
-- FOUND, NOT YET FIXED (next part, first): words typed into an own-words card (its name and its words) are kept only by its
-  "Keep it" — Settings' safety net (keepUnsaved, M426/M428), which presses Save for every other typed box when Settings
-  closes, does not know the cards, so words typed and left without "Keep it" are lost. The fix: the cards answer the same
-  net (ownwords.js keepTyped, called from keepUnsaved), "Keep it" staying the one way to keep them.
 - GATES at m610-001 (one CPU): harness 1213/1213, walk 215/215, long play 9/9, lint 0 errors (170 warnings), perf_send,
+  holdsone, cutthinking — EXIT 0 each.
+
+# M611 — the line-by-line audit, part 21: the own-words cards and the speech colours
+- WORDS TYPED INTO AN OWN-WORDS CARD AND LEFT ARE KEPT (reproduced — walk DOM-216 fails on m610-001: the name he typed came
+  back ""). A card's name and words were kept only by its "Keep it"; Settings' safety net (keepUnsaved, M426/M428 — it
+  presses Save for every other typed box when Settings closes) did not know the cards. The cards answer the net now
+  (ownwords.js keepTyped, asked first by keepUnsaved); "Keep it" stays the one way to keep them by hand.
+- Read whole and sound: speechcolours.js (a colour that reads under 4.5:1 on the coat offers "Brighten it until it reads").
+- GATES at m611-001 (one CPU): harness 1213/1213, walk 216/216, long play 9/9, lint 0 errors (170 warnings), perf_send,
   holdsone, cutthinking — EXIT 0 each.
 

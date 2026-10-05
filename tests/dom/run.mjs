@@ -9780,5 +9780,23 @@ test('DOM-215 AN OPEN DRAWER FOLLOWS THE TALE THAT IS OPEN (M610): another tale 
   await until(() => q('#drawer').hidden, 'the drawer closes');
 });
 
+test('DOM-216 WORDS TYPED INTO AN OWN-WORDS CARD AND LEFT ARE KEPT (M611): Settings closes without "Keep it" pressed — the card\u2019s name and words are kept, as every other typed box is', async () => {
+  await db.settings.set('ownWords', []);
+  if (env.ctx.ownWords) await env.ctx.ownWords.reload();
+  click(q('#btn-own-words-add'));
+  const card = await until(() => q('#own-words-list .own-words-card'), 'a new card');
+  const name = card.querySelector('.own-words-name');
+  const words = card.querySelector('textarea');
+  type(name, 'Stay Iron Man');
+  type(words, 'Right. Tony here, still me.');
+  await env.ctx.settings.onHide();
+  const kept = await db.settings.get('ownWords');
+  const entry = (kept || [])[0] || {};
+  eq(entry.name, 'Stay Iron Man', 'the name he typed is kept');
+  eq(entry.text, 'Right. Tony here, still me.', 'and the words he typed');
+  await db.settings.set('ownWords', []);
+  if (env.ctx.ownWords) await env.ctx.ownWords.reload();
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

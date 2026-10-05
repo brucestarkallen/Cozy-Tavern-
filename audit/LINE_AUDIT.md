@@ -1,5 +1,5 @@
 # Line-by-line audit ledger — every file of the app, read whole, one at a time
-# Status at m610-001 (Oct 5 2026): 89 of 122 files DONE — 42,593 of 64,113 lines (30,625 of 47,196 code lines).
+# Status at m611-001 (Oct 5 2026): 91 of 122 files DONE — 42,948 of 64,113 lines (30,909 of 47,196 code lines).
 # Read a file whole with: python3 audit/show.py <file> <from> <to> [width]  (prints code lines, comments set aside;
 # read the prompt strings too — they are what a helper is told). Mark a file "DONE (Mxxx)" here when read whole and fixed.
 # The order to take the rest: audit/README.md, "What is left".
@@ -68,8 +68,8 @@ js/commands.js | 232 | 153 | todo
 js/ui/welcome.js | 216 | 153 | todo
 js/assemble/voice.js | 262 | 150 | DONE (M609)
 js/engine/names.js | 231 | 148 | DONE (M579)
-js/ui/ownwords.js | 176 | 142 | todo
-js/ui/speechcolours.js | 179 | 142 | todo
+js/ui/ownwords.js | 176 | 142 | DONE (M611)
+js/ui/speechcolours.js | 179 | 142 | DONE (M611)
 js/engine/clock.js | 218 | 141 | DONE (M593)
 js/import/v176map.js | 204 | 137 | todo
 js/engine/offscreen.js | 232 | 132 | DONE (M593)

@@ -1227,6 +1227,7 @@ export function initSettings(ctx) {
     if (button) button.addEventListener('click', () => { for (const b of boxes) typedBoxes.delete(b); });
   }
   async function keepUnsaved() {
+    try { if (ctx && ctx.ownWords && typeof ctx.ownWords.keepTyped === 'function') await ctx.ownWords.keepTyped(); } catch (err) { /* the rest is kept all the same */ } /* M611 */
     try {
       const story = await activeStory();
       const same = Boolean(story && promptSlotsStory && story.id === promptSlotsStory);

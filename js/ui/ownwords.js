@@ -169,7 +169,22 @@ export function initOwnWords(ctx) {
     render();
   })().catch(() => { render(); });
 
-  const api = { reload: async () => { entries = await loadOwnWords(); render(); } };
+  /* M611: WORDS TYPED AND LEFT ARE KEPT. "Keep it" was the only way the name and the words of a card were kept, and
+   * Settings' safety net (keepUnsaved — it presses Save for every other typed box when Settings closes) did not know the
+   * cards: words typed and left without "Keep it" were lost. The net asks here; "Keep it" stays the one way to keep them. */
+  async function keepTyped() {
+    let moved = false;
+    for (const box of list.querySelectorAll('.own-words-card')) {
+      const entry = entries.find((w) => w.id === box.dataset.id);
+      if (!entry) continue;
+      const n = box.querySelector('.own-words-name'); const t = box.querySelector('textarea');
+      const name = n ? n.value.trim() : entry.name; const text = t ? t.value : entry.text;
+      if (name !== entry.name || text !== entry.text) { entry.name = name; entry.text = text; moved = true; }
+    }
+    if (moved) await save();
+    return moved;
+  }
+  const api = { reload: async () => { entries = await loadOwnWords(); render(); }, keepTyped };
   if (ctx) ctx.ownWords = api;
   return api;
 }
