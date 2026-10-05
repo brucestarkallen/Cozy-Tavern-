@@ -1328,6 +1328,10 @@ export async function walkVersion(storyId, index, dir) {
   const at = Number.isInteger(turn.swipeIdx) ? turn.swipeIdx : turn.swipes.length - 1;
   const next = at + dir;
   if (next < 0 || next >= turn.swipes.length) return null;
+  /* M603 (the audit): the version left behind keeps what became of its cards. Once saved, a turn's cards and its version's
+   * copy are two copies — applying a card changed only the first, so walking away and back brought the version's old
+   * copy back with an applied card PENDING again, and Apply all could land it twice (a brief append, twice). */
+  if (turn.swipes[at] && typeof turn.swipes[at] === 'object') turn.swipes[at] = { ...turn.swipes[at], text: turn.text, thinking: turn.thinking, proposals: turn.proposals, raw: turn.raw };
   const v = turn.swipes[next];
   turn.text = v.text; turn.thinking = v.thinking; turn.proposals = v.proposals; turn.raw = v.raw; turn.swipeIdx = next;
   if (!turn.proposals) delete turn.proposals;
@@ -2569,7 +2573,11 @@ async function applyBriefOp(storyId, p, batch) {
   const current = typeof story[key] === 'string' ? story[key] : '';
   let next;
   if (typeof op.text === 'string') next = op.text;
-  else if (typeof op.append === 'string') next = (current.trim() ? current.replace(/\s+$/, '') + '\n\n' : '') + op.append;
+  else if (typeof op.append === 'string') {
+    /* M603: an append is checked again as it lands — whatever brought a card back, its words are never added twice */
+    if (normalizeWords(current).includes(normalizeWords(op.append))) return { ok: false, words: 'it already says that — nothing to add' };
+    next = (current.trim() ? current.replace(/\s+$/, '') + '\n\n' : '') + op.append;
+  }
   else {
     const located = locate(current, op.find);
     if (!located.ok) return { ok: false, words: located.reason };

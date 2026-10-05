@@ -15136,3 +15136,14 @@ same way", and staging finds an anchor in the line or its detail (locateInNode) 
   quotes — wrapped lists, briefs sent in an edits block, unreadable blocks kept as refused cards), message references
   (exact id, a unique prefix, a page number), the undo's checks for every kind (pages, rules, lore, the brief, the ledger
   by journal or by its slices), the model call (its own effort, the fallback connection), the page search.
+
+# M603 — the housekeeper read whole (part 15): a card applied came back PENDING after a walk between answer versions
+- Once saved, a housekeeper turn's cards and its answer version's copy of them are two copies (the browser's store keeps a
+  copy, never the object). Applying a card changed only the turn's own; walking to the other version and back brought the
+  version's old copy in — an applied card PENDING again, and Apply all could land it a second time (a brief append twice:
+  the staging guard against an append already there ran only when the card was made). walkVersion now writes the departing
+  version's text, thinking and cards back into it before it leaves; and an append is checked again as it lands. Law M603
+  (reproduces the two stored copies; fails on the old code — checked).
+- The rest of the housekeeper read whole and sound: the hashes behind every staleness and undo check, the ledger slice keys,
+  the journal undo, the saved conversations (sessions listed by their last use; new, branch at a turn, rename, delete keeps
+  one; edit/delete a turn; retry with its way back; answer versions kept and walked; the last exchange let go).

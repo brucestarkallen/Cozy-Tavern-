@@ -81,3 +81,33 @@ test('M602-2 THE RIPPLE FINDS OLD WORDS STILL STANDING IN A RECORD LINE\'S DETAI
   const out = rippleScan([{ id: '#abc', find: 'the blue scarf', replace: 'the red scarf' }], { messages: [], memory: { nodes: [{ id: 'n1', span: [0, 2], text: 'Jovan met Rukia.', detail: 'She wore the blue scarf.' }] }, state: {}, lore: [], story: {} });
   assert(out.length === 1 && out[0].where.some((w) => /the record line/.test(w)), 'found in the detail: ' + JSON.stringify(out));
 });
+test('M603 A CARD APPLIED STAYS APPLIED ACROSS THE HOUSEKEEPER\'S ANSWER VERSIONS, saved and walked back — and an append never lands twice', async () => {
+  const hk = await import('../../js/agents/housekeeper.js');
+  const { db } = await import('../../js/store.js');
+  const st = await db.stories.create({ title: 'versions of an answer' });
+  await db.stories.update(st.id, { brief: 'Jovan is sixteen.' });
+  const card = () => ({ id: 'a1', kind: 'brief', status: 'pending', label: 'the rival', op: { field: 'brief', append: 'Kaelen is his rival.' }, review: [] });
+  let session = await hk.loadSession(st.id);
+  session.turns = [{ role: 'writer', text: 'add the rival', ts: 1 }, { role: 'housekeeper', text: 'version one', ts: 2, proposals: [card()] }];
+  await hk.saveSession(st.id, session);
+  await hk.keepVersions(st.id, 1, { text: 'version zero', proposals: [] }); /* a second version beside it */
+  session = await hk.loadSession(st.id);
+  const res = await hk.applyProposal(session, st.id, 'a1');
+  assert(res.ok, res.words);
+  await hk.saveSession(st.id, session);
+  /* the browser's store keeps a copy, not the object: a turn's cards and its version's cards come back as two copies */
+  await hk.saveSessionRoot(st.id, JSON.parse(JSON.stringify(await hk.loadSessionRoot(st.id))));
+  const kept = (await hk.loadSessionRoot(st.id)).sessions[0].turns[1];
+  kept.swipes[kept.swipeIdx].proposals[0].status = 'pending'; /* as the stored copy stood: applying changed only the turn's own */
+  const root = await hk.loadSessionRoot(st.id);
+  root.sessions[0].turns[1] = kept;
+  await hk.saveSessionRoot(st.id, JSON.parse(JSON.stringify(root)));
+  await hk.walkVersion(st.id, 1, -1); /* away… */
+  session = await hk.walkVersion(st.id, 1, +1); /* …and back */
+  const back = session.turns[1].proposals.find((p) => p.id === 'a1');
+  eq(back.status, 'applied', 'still applied after the walk');
+  await hk.applyAllPending(session, st.id);
+  eq((await db.stories.get(st.id)).brief, 'Jovan is sixteen.\n\nKaelen is his rival.', 'added once');
+  const again = await hk.applyProposal({ turns: [{ proposals: [card()] }], batches: [] }, st.id, 'a1');
+  assert(!again.ok && /already says that/.test(again.words), 'an append that is already there is refused as it lands');
+});
