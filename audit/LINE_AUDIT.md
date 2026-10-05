@@ -1,5 +1,5 @@
 # Line-by-line audit ledger — every file of the app, read whole, one at a time
-# Status at m611-001 (Oct 5 2026): 91 of 122 files DONE — 42,948 of 64,113 lines (30,909 of 47,196 code lines).
+# Status at m612-001 (Oct 5 2026): 108 of 122 files DONE — 46,911 of 64,113 lines (33,751 of 47,196 code lines).
 # Read a file whole with: python3 audit/show.py <file> <from> <to> [width]  (prints code lines, comments set aside;
 # read the prompt strings too — they are what a helper is told). Mark a file "DONE (Mxxx)" here when read whole and fixed.
 # The order to take the rest: audit/README.md, "What is left".
@@ -21,7 +21,7 @@ serve.py | 1050 | 976 | DONE (M609)
 js/agents/auditor.js | 1180 | 854 | DONE (M598, M599)
 js/engine/people.js | 1235 | 829 | DONE (M579)
 js/store.js | 1172 | 797 | DONE (M609)
-js/canon/bridge.js | 983 | 733 | todo
+js/canon/bridge.js | 983 | 733 | DONE (M611)
 js/engine/world.js | 979 | 662 | DONE (M579)
 js/providers/openai.js | 782 | 577 | DONE (M609)
 js/agents/world.js | 652 | 503 | DONE (M597, M598)
@@ -36,15 +36,15 @@ js/providers/anthropic.js | 417 | 308 | DONE (M609)
 js/agents/continuity.js | 416 | 298 | DONE (M606)
 js/agents/founder.js | 376 | 288 | DONE (M606)
 js/agents/rebuild.js | 421 | 283 | DONE (M607)
-js/regex.js | 340 | 251 | todo
-js/import/lorebook.js | 360 | 250 | todo
+js/regex.js | 340 | 251 | DONE (M611)
+js/import/lorebook.js | 360 | 250 | DONE (M612)
 js/ui/pageshape.js | 373 | 249 | DONE (M609)
 js/agents/scribe.js | 354 | 239 | DONE (M607)
-js/app.js | 358 | 238 | todo
+js/app.js | 358 | 238 | DONE (M611)
 js/sync-worker.js | 372 | 238 | DONE (M609)
 js/ui/headergate.js | 332 | 235 | DONE (M609)
-js/import/cards.js | 309 | 223 | todo
-js/sent.js | 261 | 219 | todo
+js/import/cards.js | 309 | 223 | DONE (M612)
+js/sent.js | 261 | 219 | DONE (M611)
 js/agents/sensors.js | 265 | 213 | DONE (M607)
 js/assemble/smallprose.js | 272 | 210 | DONE (M609)
 js/ui/canonsettings.js | 249 | 203 | todo
@@ -61,17 +61,17 @@ js/engine/referee-math.js | 282 | 176 | DONE (M593)
 js/agents/choices.js | 217 | 174 | DONE (M607)
 js/agents/queue.js | 279 | 174 | DONE (M607)
 js/agents/tidy.js | 208 | 171 | DONE (M607)
-js/import/sillytavern.js | 233 | 164 | todo
-js/ui/prose.js | 221 | 164 | todo
+js/import/sillytavern.js | 233 | 164 | DONE (M612)
+js/ui/prose.js | 221 | 164 | DONE (M611)
 js/agents/worldground.js | 201 | 155 | DONE (M608)
-js/commands.js | 232 | 153 | todo
+js/commands.js | 232 | 153 | DONE (M611)
 js/ui/welcome.js | 216 | 153 | todo
 js/assemble/voice.js | 262 | 150 | DONE (M609)
 js/engine/names.js | 231 | 148 | DONE (M579)
 js/ui/ownwords.js | 176 | 142 | DONE (M611)
 js/ui/speechcolours.js | 179 | 142 | DONE (M611)
 js/engine/clock.js | 218 | 141 | DONE (M593)
-js/import/v176map.js | 204 | 137 | todo
+js/import/v176map.js | 204 | 137 | DONE (M612)
 js/engine/offscreen.js | 232 | 132 | DONE (M593)
 js/agents/lookup.js | 170 | 121 | DONE (M608)
 js/agents/plans.js | 149 | 117 | DONE (M608)
@@ -88,8 +88,8 @@ js/ui/usage.js | 108 | 98 | todo
 js/providers/meter.js | 111 | 97 | DONE (M609)
 js/ui/pagemark.js | 122 | 94 | todo
 js/engine/canon.js | 147 | 92 | DONE (M593)
-js/import/chats.js | 143 | 92 | todo
-js/tablock.js | 131 | 91 | todo
+js/import/chats.js | 143 | 92 | DONE (M612)
+js/tablock.js | 131 | 91 | DONE (M611)
 js/agents/canonstart.js | 128 | 90 | DONE (M608)
 js/agents/status.js | 160 | 87 | DONE (M607)
 js/agents/jsonutil.js | 119 | 85 | DONE (M607)
@@ -102,7 +102,7 @@ js/engine/voicepresets.js | 86 | 61 | DONE (M593)
 js/ui/richhtml.js | 98 | 59 | DONE (M574)
 js/assemble/laws.js | 114 | 56 | DONE (M608)
 js/canon/host.js | 71 | 53 | todo
-js/ui/streamtext.js | 61 | 48 | todo
+js/ui/streamtext.js | 61 | 48 | DONE (M611)
 js/assemble/planwords.js | 70 | 47 | DONE (M609)
 js/providers/room.js | 72 | 47 | DONE (M609)
 js/providers/detect.js | 59 | 41 | DONE (M609)
@@ -112,16 +112,16 @@ js/agents/concept.js | 56 | 36 | DONE (M608)
 js/providers/wire.js | 49 | 36 | DONE (M609)
 js/providers/knobs.js | 50 | 34 | DONE (M609)
 js/assemble/receipt.js | 60 | 33 | DONE (M608)
-js/ui/storyexport.js | 45 | 33 | todo
+js/ui/storyexport.js | 45 | 33 | DONE (M611)
 js/agents/assign.js | 44 | 28 | DONE (M608)
 js/providers/userfirst.js | 40 | 24 | DONE (M609)
 js/assemble/planbook.js | 30 | 20 | DONE (M608)
-js/ui/placeholder.js | 26 | 19 | todo
+js/ui/placeholder.js | 26 | 19 | DONE (M611)
 js/engine/sentence.js | 22 | 17 | DONE (M593)
 js/engine/window.js | 38 | 17 | DONE (M593)
-js/engine/pagecut.js | 40 | 16 | todo
+js/engine/pagecut.js | 40 | 16 | DONE (M611)
 js/providers/latesystem.js | 24 | 14 | DONE (M609)
-js/ui/download.js | 16 | 11 | todo
+js/ui/download.js | 16 | 11 | DONE (M611)
 js/providers/order.js | 25 | 10 | DONE (M609)
 js/agents/voice.js | 16 | 4 | DONE (M608)
 js/agents/herewords.js | 8 | 1 | DONE (M608)

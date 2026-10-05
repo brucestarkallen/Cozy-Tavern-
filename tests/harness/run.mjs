@@ -241,7 +241,8 @@ import './m591.mjs'; /* M591: the header gate never loses the last line */
 import './m604.mjs';
 import './m607.mjs';
 import './m608.mjs';
-import './m609.mjs'; /* M604: things the story keeps; competence kept */
+import './m609.mjs';
+import './m612.mjs'; /* M604: things the story keeps; competence kept */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

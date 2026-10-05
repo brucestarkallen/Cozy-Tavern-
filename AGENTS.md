@@ -15353,3 +15353,18 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
 - GATES at m611-001 (one CPU): harness 1213/1213, walk 216/216, long play 9/9, lint 0 errors (170 warnings), perf_send,
   holdsone, cutthinking — EXIT 0 each.
 
+# M612 — the line-by-line audit, part 23: the small files, the canon bridge, the importers
+- A SILLYTAVERN LOREBOOK'S SCAN DEPTH IS ITS scanDepth (reproduced — law M612-1 fails on m611-001: an entry exported with
+  SillyTavern's default insertion depth 4 listened to the last FOUR pages, and an entry's own scan depth was never read).
+  In SillyTavern's export "depth" is WHERE an entry is placed in the chat and "scanDepth" how far back it listens (null: the
+  book's own — two pages here). import/lorebook.js read "depth" as the scan depth; it reads scanDepth (and the scan_depth of
+  other formats) now, and the export writes scanDepth beside SillyTavern's own insertion depth. Lore imported before this
+  keeps the depth it was given (an entry's 4 cannot be told from a 4 he set by hand).
+- Read whole and sound: sent.js (what was sent, kept in shared pieces, the newest two hundred a tale), tablock.js (one tab
+  holds the pen), commands.js (a shortcut's law rides once with the rulebook — M379 — never as a message after his),
+  app.js, regex.js, prose.js, pagecut.js, download.js, placeholder.js, storyexport.js, streamtext.js, canon/bridge.js (canon
+  verification's own reader already sets a model's thinking aside — checked, so no fix there), import/cards.js.
+- Also read and sound: import/chats.js, import/sillytavern.js, import/v176map.js (every importer is now read).
+- GATES at m612-001 (one CPU): harness 1214/1214, walk 216/216, long play 9/9, lint 0 errors (170 warnings), perf_send,
+  holdsone, cutthinking — EXIT 0 each.
+

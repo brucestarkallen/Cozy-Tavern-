@@ -91,7 +91,11 @@ export function parseLorebook(jsonText) {
     if (secondaryKeys.length && row.selective === false) entry.selective = false;
     const logic = Number(row.selectiveLogic);
     if (secondaryKeys.length && [1, 2, 3].includes(logic)) entry.secondaryLogic = logic;
-    const depth = Number(row.scan_depth != null ? row.scan_depth : row.depth);
+    /* M612: HOW FAR BACK AN ENTRY LISTENS IS ITS SCAN DEPTH — SillyTavern writes it as scanDepth (null: the book's own, 2
+     * here). Its "depth" is something else: WHERE the entry is placed in the chat (4 by default). That insertion depth was
+     * read as the scan depth, so every imported entry listened to the last four pages, and an entry's own scan depth was
+     * never read at all. */
+    const depth = Number(row.scanDepth != null ? row.scanDepth : row.scan_depth);
     if (Number.isFinite(depth) && depth > 0) entry.depth = Math.floor(depth);
     entries.push(entry);
   });
@@ -330,11 +334,11 @@ export function loreToWorldbook(entries, name) {
       delayUntilRecursion: false,
       probability: 100,
       useProbability: false,
-      depth: Number.isFinite(e.depth) && e.depth > 0 ? Math.floor(e.depth) : 4,
+      depth: 4, /* M612: SillyTavern's insertion depth (its own default) — the scan depth rides as scanDepth below */
       group: '',
       groupOverride: false,
       groupWeight: 100,
-      scanDepth: null,
+      scanDepth: Number.isFinite(e.depth) && e.depth > 0 ? Math.floor(e.depth) : null,
       caseSensitive: null,
       matchWholeWords: null,
       useGroupScoring: null,
