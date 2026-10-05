@@ -52,7 +52,7 @@ import {
 import {
   ENGINE_DEFAULTS, engineSettings, mcName, isMcAlias, samePersonName,
   findActor, findActorKey, findActorKeyExact, findActorKeySamePerson, reconcilePlayerEntries, safeKey, ratingFor, tierRating, combatDomain,
-  composurePenalty, applyComposureChange,
+  composurePenalty, applyComposureChange, liveCombatant,
   passiveComposureRecovery, applyConditionChange,
   duelActive, battleActive, startDuel, resolveDuelExchange, resolveDuelSequence,
   resolveBattleRound, resolveWarRound,
@@ -1102,10 +1102,9 @@ export async function refereeStep({ connection, userText, userId, history, state
             : mcName(state) + ' steadies — ' + res.state + ' again; let it show.');
         }
       } else {
-        const unit = state.duel
-          ? [state.duel.player, state.duel.opp]
-          : state.battle ? [...(state.battle.allies || []), ...(state.battle.enemies || [])] : [];
-        const hit = (unit || []).find((u) => u && u.name && samePersonName(u.name, cc.who));
+        /* M600 (the audit — M584's pattern, found again): the first unit a part of a name fit took the toll ("Kuchiki" was
+         * whichever Kuchiki stood first); the fight's one lookup now — the exact name first, one meaning or none */
+        const hit = liveCombatant(state, cc.who);
         if (hit && typeof hit.composure === 'number') {
           hit.composure = clamp(hit.composure + cc.delta, 0, hit.composureMax || hit.composure);
         }

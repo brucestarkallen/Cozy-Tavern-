@@ -31,3 +31,24 @@ test('M584-2 A CONDITION OR AN ESTIMATE FOR A NAME TWO PEOPLE SHARE IS LET GO �
   persistFightEstimates(s2);
   assert(!s2.sheet.actors.Kuchiki, 'no estimate written for a shared name');
 });
+
+test('M600 A COMPOSURE TOLL NEVER LANDS ON THE WRONG KUCHIKI: the referee\'s toll on "Kuchiki" in a battle holding Rukia and Byakuya lands on neither; on "Byakuya" it lands on him — the fight\'s one lookup', async () => {
+  const { refereeStep } = await import('../../js/agents/referee.js');
+  const { startBattle, engineSettings } = await import('../../js/engine/duels.js');
+  const { emptyState } = await import('../../js/engine/state.js');
+  const base = () => {
+    const s = { ...emptyState(), sheet: { playerName: 'Jovan Oda', actors: { 'Rukia Kuchiki': { default: 6 }, 'Byakuya Kuchiki': { default: 9 }, 'Jovan Oda': { default: 7 } } } };
+    startBattle(s, { allies: ['Rukia Kuchiki'], enemies: ['Byakuya Kuchiki'], domain: 'melee' }, engineSettings({}));
+    return s;
+  };
+  /* the referee's own stand-in shape: the model's raw text */
+  const answer = (who) => async () => JSON.stringify({ exchange: false, combat_ended: false, action: 'stares him down', move: { kind: 'attack', target: null, circumstance: 0 }, why: null, joins: null, composure_change: { who, delta: -2 } });
+  const comp = (s, n) => [...s.battle.allies, ...s.battle.enemies].find((u) => u.name === n).composure;
+  const a = base(); const before = { r: comp(a, 'Rukia Kuchiki'), b: comp(a, 'Byakuya Kuchiki') };
+  const ra = await refereeStep({ connection: { type: 'openai', baseUrl: 'x', model: 'm' }, userText: 'I glare at them.', userId: 'u1', history: [], state: a, settings: {}, callLLM: answer('Kuchiki') });
+  eq(ra.status, 'ruled', 'the referee ruled (a lull) — the toll was read: ' + ra.why);
+  eq(comp(ra.state, 'Rukia Kuchiki'), before.r, 'Rukia untouched'); eq(comp(ra.state, 'Byakuya Kuchiki'), before.b, 'Byakuya untouched');
+  const b = base();
+  const rb = await refereeStep({ connection: { type: 'openai', baseUrl: 'x', model: 'm' }, userText: 'I glare at him.', userId: 'u2', history: [], state: b, settings: {}, callLLM: answer('Byakuya') });
+  eq(comp(rb.state, 'Byakuya Kuchiki'), before.b - 2, 'Byakuya takes it');
+});

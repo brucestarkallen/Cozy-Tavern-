@@ -775,7 +775,7 @@ export function joinFight(state, { allies, enemies }, eng) {
     const carry = (to, from, keys) => { for (const k of keys) if (from[k] !== undefined) to[k] = from[k]; };
     const mc = b.allies.find((u) => u && u.isPlayer);
     if (mc) carry(mc, duel.player, ['rating', 'poise', 'maxPoise', 'injuries', 'momentum', 'opening']);
-    const opp = b.enemies.find((u) => u && samePersonName(u.name, duel.opp.name));
+    const opp = b.enemies.find((u) => u && u.name === duel.opp.name) || b.enemies.find((u) => u && samePersonName(u.name, duel.opp.name)); /* M600: the exact name first */
     if (opp) carry(opp, duel.opp, ['rating', 'poise', 'maxPoise', 'injuries', 'momentum', 'opening', 'estimated', 'composure', 'composureMax']);
     b.round = duel.round || 0;
     b.grewFrom = 'duel';

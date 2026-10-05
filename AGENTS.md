@@ -15092,3 +15092,16 @@ the brief's love — R restored to 65, P left at 2. M48/M259's laws hold.
   stated-digits reader, the report (already-so and refused findings told apart), the scope (the moment is the page reader's:
   a ground or hour that disagrees with the header, a walk-in of someone seated and not shown, a seat already written —
   the world helper's), the all-is-well filter.
+
+# M600 — the line-by-line audit, part 12: the referee (agents/referee.js) read whole — M584's pattern, found twice more
+- A COMPOSURE TOLL ON THE FIRST KUCHIKI: the referee's composure change for anyone not the main character picked the first
+  fight unit a part of the name fit ("Kuchiki" — whichever Kuchiki stood first took the fear). It reads the fight's one
+  lookup now (duels.js liveCombatant: the exact name first, one meaning or none). Law M600 (it fails with the old lookup —
+  checked).
+- duels.js joinFight carried the duel's opponent into the new battle by the first unit a part of his name fit — the exact
+  name first now.
+- Read and sound otherwise: the attempt gate (words, verbs, positioning by sensitivity; dialogue and out-of-character text
+  stripped first), the hash of a message, the four instructions (a check, a duel, a battle, a war) and their normalizers
+  (rosters merged by person, the main character never his own opposition, a duel with companions made a battle), #p's
+  continued beat, the order reader (an order to attack is a move), the timeline (an edit replays from its snapshot, a
+  committed fate replays), the side notes, the rulings for duel, battle and war, the close and the lull.
