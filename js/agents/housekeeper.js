@@ -2697,7 +2697,9 @@ export async function applyAllPending(session, storyId) {
     }
   }
   const words = [];
-  const touched = { messages: false, state: false, modules: false };
+  /* M601 (the audit): lore and the brief too — "Apply all" and every card landing by itself (his default) dropped them, so a
+   * brief, cast-notes or lore change a card made never refreshed what shows them (his order: updates land without refreshing) */
+  const touched = { messages: false, state: false, modules: false, lore: false, story: false };
   let any = false;
   const edited = [];
   const missed = [];
@@ -2711,6 +2713,8 @@ export async function applyAllPending(session, storyId) {
         touched.messages = touched.messages || result.touched.messages;
         touched.state = touched.state || result.touched.state;
         touched.modules = touched.modules || result.touched.modules;
+        touched.lore = touched.lore || Boolean(result.touched.lore);
+        touched.story = touched.story || Boolean(result.touched.story);
       }
     }
     if (result.words) words.push(result.words);

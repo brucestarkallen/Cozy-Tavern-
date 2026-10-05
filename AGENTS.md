@@ -15105,3 +15105,17 @@ the brief's love — R restored to 65, P left at 2. M48/M259's laws hold.
   (rosters merged by person, the main character never his own opposition, a duel with companions made a battle), #p's
   continued beat, the order reader (an order to attack is a move), the timeline (an edit replays from its snapshot, a
   committed fate replays), the side notes, the rulings for duel, battle and war, the close and the lull.
+
+# M601 — the line-by-line audit, part 13: the housekeeper's apply engine read whole
+- "APPLY ALL" AND EVERY CARD THAT LANDS BY ITSELF (his default) dropped what they touched beyond pages, the ledger and the
+  rules: applyAllPending's tally held messages/state/modules only, though each applyProposal reports lore and story too — so
+  a brief, cast-notes or lore change made by a card never refreshed Settings or the story room (his standing order: updates
+  land without refreshing). It carries lore and story now. Law M601 (fails on the old tally — checked).
+- CHECKED, NOT CHANGED: the edit paths read msg.text where everything else reads the shown version — but the store
+  guarantees msg.text mirrors swipes[swipeIdx].text (store.js M9), so they are the same words; a law written for it passed
+  on the old code too and was not kept.
+- Read and sound: the staleness check (every target hashed at staging; a card whose anchor or target moved is set aside,
+  never applied over), the page edit (exact, whole, hide/show, bulk; a loose anchor that missed its words is said), the
+  ledger edit (his hand's fields marked byHand; journal ids kept for the undo), the rule edit and pin, the record edit
+  (text or its detail), the brief/cast-notes edit, the lore shelf (add refused when the name exists), applyProposal's claim
+  before any await and its rollback on a throw, undo's refusals when a target moved since.

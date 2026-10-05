@@ -48,3 +48,14 @@ test('M595 THE RECORD NAMES THE MAIN CHARACTER IN EVERY PATH: "Fold again" on a 
   assert(asked.length && /<player_name>Jovan Oda<\/player_name>/.test(asked[0]), 'the keeper is told the main character by name: ' + (asked[0] || '').slice(0, 160));
   assert(!asked.some((a) => /<player_name>the player<\/player_name>/.test(a)), 'never "the player"');
 });
+test('M601 "APPLY ALL" AND A CARD LANDING BY ITSELF SAY WHEN THEY CHANGED THE BRIEF OR THE LORE — so what shows them refreshes (they told only of pages, the ledger and the rules)', async () => {
+  const hk = await import('../../js/agents/housekeeper.js');
+  const { db } = await import('../../js/store.js');
+  const st = await db.stories.create({ title: 'brief by a card' });
+  await db.stories.update(st.id, { brief: 'Jovan is sixteen.' });
+  const session = { turns: [{ proposals: [{ id: 'b1', kind: 'brief', status: 'pending', label: 'the age', op: { field: 'brief', find: 'sixteen', replace: 'seventeen' }, review: [] }] }], batches: [] };
+  const res = await hk.applyAllPending(session, st.id);
+  assert(res.ok, res.words);
+  eq((await db.stories.get(st.id)).brief, 'Jovan is seventeen.');
+  eq(res.touched.story, true, 'the brief change is told, so the screens showing it refresh');
+});
