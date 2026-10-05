@@ -66,7 +66,7 @@ export function joinLaws(chosen) {
  * one obvious step; The 3 Part Trace: the ledger's "who knows what" first, then the three questions, all fail → cut it).
  * The frontier model reads the whole list of who knows what (on a long tale, thousands of tokens); a small model reads
  * the scene's part of it and carries the RULE, so no one knows what no page gave them, listed or not. */
-export const ALWAYS_LAWS = ['The Telling', 'Header Protocol', 'MC Agency', 'MC Dialogue Is Literal', 'Every MC Action Is An Attempt', 'Intent Horizon', 'Epistemic Law', 'The 3 Part Trace', 'Exposed', 'Marks On The Page', 'The Window Beyond The Page', 'Readable Media', 'Real People, Real Record']; /* M512: his "real people from the real record" — its own law now (it was read as the tail of Identity Words Check) */
+export const ALWAYS_LAWS = ['The Telling', 'Header Protocol', 'MC Agency', 'MC Dialogue Is Literal', 'Every MC Action Is An Attempt', 'Intent Horizon', 'Epistemic Law', 'The 3 Part Trace', 'Content Beyond Perception', 'Not Pathways Ever', 'NPCs Are Not Sherlock Holmes', 'Secret Identity Quarantine', 'Competence Is Kept', 'Exposed', 'Marks On The Page', 'The Window Beyond The Page', 'Readable Media', 'Real People, Real Record']; /* M605: his report — on the small model NPCs knew a masked hero's real name with no pathway: the identity quarantine and the pathway laws rode only when the helper happened to pick them */ /* M512: his "real people from the real record" — its own law now (it was read as the tail of Identity Words Check) */
 /* M512: THE PROSE A SMALL MODEL ALWAYS CARRIES — his word: "realistic, beautiful prose, natural, no old LLM repetition". A
  * small model's page carried his craft's always-laws and the helper's picks — and the helper picks for the scene's logic:
  * on a calm page not one of his prose laws rode (measured: 12 laws, 0 of prose). These ride on every small page, in his
@@ -80,7 +80,7 @@ export const PROSE_LAWS = ['Show Never Interpret', 'Plain Prose Default', 'Dialo
  * page, in his craft's words, and they pull both ways: a person reacts from their own centre and their bonds (a captain
  * does not cheer his soldier's death), interests diverge and nobody softens without a reason, and people still concede
  * when conceding costs less — heavy moments are not made light. */
-export const PEOPLE_LAWS = ['Character Gravity', 'A Person Is Not Their CORE', 'Stakes Web', 'The World Does Not Bend', 'Concession Is Earned Not Banned', 'Weight Is Not Defused'];
+export const PEOPLE_LAWS = ['Character Gravity', 'A Person Is Not Their CORE', 'Stakes Web', 'The World Does Not Bend', 'Default Stance To Strangers', 'Symmetry Law', 'Affection Is Not Anesthesia', 'Concession Is Earned Not Banned', 'Weight Is Not Defused']; /* M605: and his report that small-model people either curse one-sidedly or are polite beyond any human — the baseline (transactional indifference, not suspicion), the symmetry (no warm strangers, no hostile spawns) and love that still argues rode only by chance */
 /* his two sound laws — said right before the page whenever the scene is a fight, sex, torture or a raw peak */
 export const SOUND_LAWS = ['Sound As Onomatopoeia', 'High Intensity Scenes'];
 /* the laws a small request cannot stand without: if his craft no longer holds them by these names, the small request

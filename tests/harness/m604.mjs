@@ -70,3 +70,31 @@ test('M604-4 A THING WRITTEN NEVER TOUCHES THE LEDGER IT WAS WRITTEN FROM — th
   const cleared = applyMutations(st0, [{ type: 'thing.clear', name: 'the Batwing' }]).state;
   assert(st0.things['the Batwing'] && !cleared.things['the Batwing'], 'a clear too');
 });
+
+test('M605-1 ONE THING, ONE PAGE: "Batwing", "the Batwing" and "Bruce’s Batwing" are the same page; "Gordon’s case file" and "Barbara’s case file" are two; with two case files, "the case file" names neither', () => {
+  let st = applyMutations(gotham(), [{ type: 'thing.set', name: 'the Batwing', where: 'the roof', owner: 'Bruce Wayne' }]).state;
+  st = applyMutations(st, [{ type: 'thing.set', name: 'Bruce’s Batwing', where: 'the Batcave' }]).state;
+  st = applyMutations(st, [{ type: 'thing.set', name: 'Batwing', where: 'the Batcave pad', note: 'refuelling' }]).state;
+  eq(Object.keys(st.things).join(','), 'the Batwing', 'one page');
+  eq(st.things['the Batwing'].where, 'the Batcave pad');
+  st = applyMutations(st, [{ type: 'thing.set', name: 'Gordon’s case file', where: 'on Gordon’s desk' }, { type: 'thing.set', name: 'Barbara’s case file', where: 'in the Clocktower' }]).state;
+  assert(st.things['Gordon’s case file'] && st.things['Barbara’s case file'], 'two files, two pages');
+  const r = applyMutations(st, [{ type: 'thing.clear', name: 'the case file' }]);
+  eq(r.applied.length, 0, 'ambiguous — neither is cleared');
+});
+
+test('M605-2 THE SMALL STORYTELLER ALWAYS CARRIES THE LAWS ON SECRETS, PATHWAYS AND HOW PEOPLE TAKE A STRANGER — his report: on the small model NPCs knew a masked hero\'s real name, and people cursed one-sidedly or were polite beyond any human', async () => {
+  const { ALWAYS_LAWS, PEOPLE_LAWS, lawsOf, lawsNamed } = await import('../../js/assemble/laws.js');
+  const { CRAFT_TEXT } = await import('../../js/assemble/craft.js');
+  const all = lawsOf(CRAFT_TEXT);
+  for (const n of ['Secret Identity Quarantine', 'Not Pathways Ever', 'NPCs Are Not Sherlock Holmes', 'Content Beyond Perception', 'Competence Is Kept']) {
+    assert(ALWAYS_LAWS.includes(n), n + ' rides every small page');
+    eq(lawsNamed(all, [n]).length, 1, n + ' is a law the craft holds by that name');
+  }
+  for (const n of ['Default Stance To Strangers', 'Symmetry Law', 'Affection Is Not Anesthesia']) {
+    assert(PEOPLE_LAWS.includes(n), n + ' rides every small page');
+    eq(lawsNamed(all, [n]).length, 1, n + ' is a law the craft holds by that name');
+  }
+  const { plannerAsk } = await import('../../js/agents/planner.js');
+  assert(/a hidden identity \(a mask, a codename, a disguise\)/.test(plannerAsk({}).system), 'the planner writes a hidden identity down as unknown');
+});

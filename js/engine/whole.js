@@ -173,7 +173,9 @@ export function renderWholeLedger(state) {
     state.canon && typeof state.canon === 'object' ? renderCanon(state.canon, Object.keys(state.canon)) : '', '(nothing locked)');
   section('Factions — all of them:', renderAllFactions(state.factions), '(none)');
   /* M604: every thing the story keeps, and where */
-  section('Things — all of them (where each stands now):', Object.entries(state.things && typeof state.things === 'object' ? state.things : {}).filter(([, t]) => t && typeof t.where === 'string').map(([n, t]) => '- ' + n + (t.owner ? ' (' + t.owner + '’s)' : '') + ' — ' + t.where + (t.note ? ' (' + t.note + ')' : '')).join('\n'), '(none)');
+  /* M605: newest first; past eighty the oldest are counted, never listed — a long tale's things never swell a helper's view */
+  const thingRows = Object.entries(state.things && typeof state.things === 'object' ? state.things : {}).filter(([, t]) => t && typeof t.where === 'string').sort((a, b) => (Number(b[1].atTurn) || 0) - (Number(a[1].atTurn) || 0));
+  section('Things — newest first (where each stands now):', thingRows.slice(0, 80).map(([n, t]) => '- ' + n + (t.owner ? ' (' + t.owner + '’s)' : '') + ' — ' + t.where + (t.note ? ' (' + t.note + ')' : '')).join('\n') + (thingRows.length > 80 ? '\n(' + (thingRows.length - 80) + ' older things the story has not touched lately)' : ''), '(none)');
   return out.join('\n');
 }
 

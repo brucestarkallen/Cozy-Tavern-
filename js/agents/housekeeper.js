@@ -53,7 +53,7 @@ import { samePersonName } from '../engine/names.js'; /* M398 */
 import { roomChars } from '../engine/pagecut.js'; /* M288: the housekeeper's room */
 import { db } from '../store.js';
 import { loadState, saveState, notify } from '../engine/state.js';
-import { applyMutations, undoEntry, personBookKey } from '../engine/apply.js'; /* M421: a card's slice found as the card writes it */
+import { applyMutations, undoEntry, personBookKey, findThingKey } from '../engine/apply.js'; /* M421: a card's slice found as the card writes it */
 import { listModules, saveModule, removeModule } from '../assemble/modules.js';
 import { loadLore, saveLore } from '../import/lorebook.js'; /* M38: the housekeeper keeps the lore shelf too */
 import { loadMemory, saveMemory } from './memory.js'; /* M61: and the record */
@@ -1099,7 +1099,7 @@ export function ledgerSliceHash(state, key) {
   else if (kind === 'faction') slice = byName(st.factions);
   else if (kind === 'people') slice = byName(st.characters);
   else if (kind === 'combat') slice = { duel: st.duel || null, battle: st.battle || null, combat: Boolean(st.mode && st.mode.combat) };
-  else if (kind === 'thing') { const things = st.things && typeof st.things === 'object' ? st.things : {}; const k = Object.keys(things).find((x) => x.toLowerCase() === name); slice = k ? things[k] : null; } /* M604 */
+  else if (kind === 'thing') { const things = st.things && typeof st.things === 'object' ? st.things : {}; const k = findThingKey(things, name); slice = k ? things[k] : null; } /* M604; M605: found the way its own write finds it */
   else return stateHashOf(st);
   try { return hashText(JSON.stringify(slice === undefined ? null : slice)); } catch (err) { return hashText(''); }
 }

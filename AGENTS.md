@@ -15170,3 +15170,27 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
 - AND THE WORLD HELPER'S AGENDAS: built only from what their owner knows; a secret is never anyone's target without a lead
   a page already gave; it never invents the witness, the paper or the slip that would expose a careful keeper.
 - Laws M604-1..4.
+
+# M605 — his three asks after M604: is it smart without bloat and with no duplicates; why on the small model do NPCs know a
+# masked hero's real name with no pathway, and curse one-sidedly or stay polite beyond any human; make all of it the best
+1. THINGS, MEASURED AND TIGHTENED. The storyteller sees at most twelve (the scene's, then his own, then the lately touched) —
+   a long tale never swells its page. The helpers' whole view listed every thing; now the newest eighty, the rest counted.
+   DUPLICATES: one thing, one page — "Batwing", "the Batwing", "Bruce's Batwing" find the same page (apply.js thingKeyOf /
+   findThingKey: a leading article or possessive is not part of a name); "Gordon's case file" and "Barbara's case file"
+   stay two; with two case files, "the case file" names neither (one meaning or none); the housekeeper's slice finds a thing
+   the way its own write does; the page reader is told to use the name the Things list already gives.
+2. THE SMALL STORYTELLER. Its request carries a chosen set of laws: those every page needs, his prose laws, his laws on how
+   people react — and up to twelve the planning helper picks. The Secret Identity Quarantine, Not Pathways Ever (with its
+   Pathway Laundering), NPCs Are Not Sherlock Holmes, Content Beyond Perception and Competence Is Kept rode ONLY when the helper
+   happened to pick them — so a small model, with its own lean, let NPCs name a masked hero. And Default Stance To Strangers
+   (transactional indifference — not suspicion, not warmth), the Symmetry Law (no warm strangers, no hostile spawns — it rode
+   only in fights) and Affection Is Not Anesthesia rode by chance too — so each small model's lean wrote every person: one
+   all curses, one all courtesy. All eight ride every small page now (laws.js ALWAYS_LAWS / PEOPLE_LAWS): +1,400 tokens of
+   craft (19,531 whole → 7,315 small). And the planner always writes a hidden identity into "unknown" — who present does not
+   know the masked one is who he is, and the only name they may call him by.
+   Older laws moved for these reasons: M510-6 (the small craft under half the whole, was a third; Ruin Awareness stands for a
+   helper-only law, Pathway Laundering now rides), M512-2 (Injury Resolution is the scene-only example), M515-1 (every
+   people law is in the craft — nine now).
+- Walk DOM-67 and DOM-169 named Pathway Laundering and the Symmetry Law as laws a small page leaves to the helper — both ride now;
+  Ruin Awareness and Stagnation Forcing stand for a helper-only law.
+- Laws M605-1/2.

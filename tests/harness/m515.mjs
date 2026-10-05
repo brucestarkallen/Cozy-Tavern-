@@ -18,7 +18,7 @@ test('M515-1 HIS LAWS ON HOW PEOPLE REACT RIDE ON EVERY SMALL PAGE (a small mode
   const r = buildRequest({ story: { brief: 'Medieval warfare.' }, messages: turns(), settings: { smallModelNow: true }, state: camp(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: [] }, smallPlan: { ...PLAN, laws: ['MC Agency'], intense: false } });
   const craft = r.systemBlocks[1].text;
   for (const law of lawsNamed(lawsOf(CRAFT_TEXT), PEOPLE_LAWS)) assert(craft.includes(law.text), 'rides word for word: ' + law.name);
-  eq(lawsNamed(lawsOf(CRAFT_TEXT), PEOPLE_LAWS).length, 6, 'all six are in his craft');
+  eq(lawsNamed(lawsOf(CRAFT_TEXT), PEOPLE_LAWS).length, PEOPLE_LAWS.length, 'every one is in his craft'); /* M605: nine now — the stranger stance, symmetry and love that still argues joined */
   const asked = plannerAsk({ craft: CRAFT_TEXT, pages: ['a page'] });
   for (const n of PEOPLE_LAWS) assert(!asked.user.includes(' › ' + n), 'not offered to the helper: ' + n);
 });

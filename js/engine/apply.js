@@ -265,6 +265,32 @@ export function storyTurn(state) {
  * rejected — the meaning usually survives the trim. */
 /* M266: every limit below guards against a runaway answer; none is meant to
  * cut a note a reader wrote in earnest (they were 40–200, and cut them). */
+/* M605: a thing's name, bare — a leading article or possessive ("the", "a", "his", "Bruce's") is not part of it */
+export function thingKeyOf(name) {
+  return String(name == null ? '' : name).toLowerCase().normalize('NFC')
+    .replace(/^\s*(?:the|a|an|his|her|their|its|my|our|your)\s+/, '')
+    .replace(/^\s*[\p{L}\p{N}.'-]+(?:\s+[\p{L}\p{N}.'-]+)?['’]s\s+/u, '')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+}
+/* whose a name says a thing is ("Gordon's case file" → gordon) — "Gordon's case file" and "Barbara's case file" are two things */
+const possessorOf = (name) => { const m = /^\s*(?:the\s+)?([\p{L}\p{N}.'-]+(?:\s+[\p{L}\p{N}.'-]+)?)['’]s\s+/u.exec(String(name == null ? '' : name)); return m ? m[1].toLowerCase() : ''; };
+export function findThingKey(things, name) {
+  const map = things && typeof things === 'object' ? things : {};
+  const want = thingKeyOf(name);
+  if (!want) return null;
+  const exact = Object.keys(map).find((k) => k.toLowerCase() === String(name || '').trim().toLowerCase());
+  if (exact) return exact;
+  const whose = possessorOf(name);
+  const sameOwner = (k) => {
+    if (!whose) return true;
+    const theirs = possessorOf(k);
+    if (theirs) return theirs === whose;
+    const owner = map[k] && typeof map[k].owner === 'string' ? map[k].owner.toLowerCase() : '';
+    return !owner || owner === whose || owner.split(/\s+/).includes(whose) || whose.split(/\s+/).every((w) => owner.split(/\s+/).includes(w));
+  };
+  const hits = Object.keys(map).filter((k) => thingKeyOf(k) === want && sameOwner(k));
+  return hits.length === 1 ? hits[0] : null; /* one meaning or none — two case files, "the case file" names neither */
+}
 function capText(value, limit) {
   if (typeof value !== 'string') return '';
   const clean = value.trim().replace(/\s+/g, ' ');
@@ -1037,11 +1063,13 @@ const HANDLERS = {
   /* M604 (his report: "the Batwing was parked on that roof — then the storyteller staged an ambulance like a CW show"):
    * THINGS. What exists in the story and where it is NOW — a vehicle, a weapon, a device, an object that matters to what can
    * happen next — kept so nobody forgets a jet fifty yards away. One page per thing, by name; where it stands and whose. */
+  /* M605: one thing, one page — "Batwing", "the Batwing" and "Bruce's Batwing" find the same page (a leading article or
+   * possessive is not part of a thing's name) */
   'thing.set'(state, m) {
     const name = capText(normalizeName(m.name), 120);
     if (!name) return { why: 'a thing needs a name' };
     state.things = { ...(state.things && typeof state.things === 'object' && !Array.isArray(state.things) ? state.things : {}) };
-    const key = Object.keys(state.things).find((k) => k.toLowerCase() === name.toLowerCase()) || name;
+    const key = findThingKey(state.things, name) || name;
     const before = state.things[key] ? { ...state.things[key] } : null;
     const where = capText(m.where, 240);
     if (!where && !before) return { why: 'a new thing needs where it is — ' + name };
@@ -1057,7 +1085,7 @@ const HANDLERS = {
   'thing.clear'(state, m) {
     const name = capText(normalizeName(m.name), 120);
     const things = { ...(state.things && typeof state.things === 'object' ? state.things : {}) };
-    const key = Object.keys(things).find((k) => k.toLowerCase() === String(name || '').toLowerCase());
+    const key = findThingKey(things, name);
     if (!key) return { why: 'the ledger holds no thing called ' + (name || '?'), same: true };
     const before = { ...things[key] };
     delete things[key];

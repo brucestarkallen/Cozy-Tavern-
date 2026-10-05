@@ -3659,7 +3659,8 @@ test('DOM-67 THE SMALL-MODEL MODE, IN THE APP (M510): it lives on the connection
     const sw = JSON.stringify(small);
     const last = String(small.messages[small.messages.length - 1].content);
     assert(/^What I have in mind for this page — how things stood before my move above, so it is in front of you\./.test(last) && /Kara — waiting by the rail; wants an answer about last night\./.test(last) && /Right now — The hour: /.test(last), 'the plan, in his voice, last: ' + last.slice(0, 240));
-    assert(/Header Protocol = /.test(sw) && /Voice Fingerprints = /.test(sw) && !/Pathway Laundering = /.test(sw), 'the laws this scene needs, not the whole craft');
+    /* M605: Pathway Laundering rides every small page now (part of Not Pathways Ever) — Ruin Awareness stands for a law only the helper picks */
+    assert(/Header Protocol = /.test(sw) && /Voice Fingerprints = /.test(sw) && !/Ruin Awareness = /.test(sw), 'the laws this scene needs, not the whole craft');
     assert(!/PAGE-5\./.test(sw) && /PAGE-19\./.test(sw) && /Kara looked up from the water/.test(sw), 'the last eight pages word for word');
     assert(sizeOf(small) * 2 < sizeOf(first), 'far smaller: ' + sizeOf(first) + ' → ' + sizeOf(small) + ' tokens');
     /* M510-10: SWIPE RIGHT AND BACK — a new version of the last page, then back to the first: the ledger is that version's,
@@ -7029,7 +7030,8 @@ test('DOM-169 THE SMALL MODEL AT ITS BEST, THROUGH THE APP (M512): a small story
     const calls = await send('I tell Zaraki I will not draw today.');
     const told = calls.find((c) => !c.isWorker);
     const wire = JSON.stringify(told.body.messages);
-    assert(/What I have in mind for this page/.test(wire) && !/Ruin Awareness = /.test(wire) && !/Symmetry Law = /.test(wire), 'the small storyteller\'s request — the plan, and only the laws this page needs');
+    /* M605: the Symmetry Law rides every small page now — Stagnation Forcing stands for a law only the helper picks */
+    assert(/What I have in mind for this page/.test(wire) && !/Ruin Awareness = /.test(wire) && !/Stagnation Forcing = /.test(wire), 'the small storyteller\'s request — the plan, and only the laws this page needs');
     assert(/Show Never Interpret = /.test(wire) && /Anti Repetition Structural = /.test(wire) && /Voice Fingerprints = /.test(wire) && /Banned Constructs \(narration only\) = /.test(wire), 'his prose laws ride on the small page');
     assert(/How our story sounds at its best — a passage from our own pages/.test(wire) && /BIG-VOICE The noon wind came off the wall/.test(wire), 'the story as its big storyteller wrote it');
     assert(/talks in clipped, formal sentences; calls him Captain/.test(wire), 'how Rukia talks, in the plan');

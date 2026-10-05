@@ -140,10 +140,14 @@ test('M510-6 THE SMALL REQUEST (B): the laws this scene needs in his words, the 
   const small = build({ smallModelNow: true, frameOn: false, noteOn: false }, { smallPlan: { ...PLAN, intense: false }, smallIntense: false });
   const wire = wireOf(small);
   const craftOf = (r) => r.receipt.slots.find((s) => s.name === 'The craft').tokens;
-  assert(craftOf(small) * 3 < craftOf(full), 'the craft is the scene’s laws: ' + craftOf(full) + ' → ' + craftOf(small));
+  /* M605: under HALF of the whole craft (it was a third): the laws on secrets, pathways and competence, and on how people take a
+   * stranger, ride every small page now — each one's absence was a failure he reported on the small model (a masked hero's real
+   * name known with no pathway; people cursing one-sidedly or polite beyond any human); measured 19,531 → 7,315 tokens */
+  assert(craftOf(small) * 2 < craftOf(full), 'the craft is the scene’s laws: ' + craftOf(full) + ' → ' + craftOf(small));
   assert(small.receipt.totalTokens * 2 < full.receipt.totalTokens, 'the whole request is far smaller: ' + full.receipt.totalTokens + ' → ' + small.receipt.totalTokens);
   for (const line of ['Header Protocol = every story response begins with one line', 'MC Agency = ', 'Marks On The Page = prose renders as plain text', 'Combat Calibration = ', 'Voice Fingerprints = ']) assert(wire.includes(line), 'rides, in his words: ' + line);
-  for (const gone of ['Pathway Laundering = ', 'CASTNOTES-MARK', 'PAGE-0.', 'PAGE-11.']) assert(!wire.includes(gone), 'stays with the helper: ' + gone);
+  /* M605: Pathway Laundering is part of Not Pathways Ever, which rides every small page now — Ruin Awareness stands for a law only the helper picks */
+  for (const gone of ['Ruin Awareness = ', 'CASTNOTES-MARK', 'PAGE-0.', 'PAGE-11.']) assert(!wire.includes(gone), 'stays with the helper: ' + gone);
   assert(wire.includes('RECORD-MARK'), 'M510-14: the record rides');
   assert(wire.includes('WORLD-MARK'), 'M510-12: the world’s word rides');
   for (const kept of ['PAGE-12.', 'PAGE-19.', 'I raise my staff.']) assert(wire.includes(kept), 'the last eight pages and his message: ' + kept);

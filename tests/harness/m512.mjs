@@ -45,7 +45,7 @@ test('M512-2 HIS PROSE LAWS RIDE ON EVERY SMALL PAGE (measured on m511: a calm p
   assert(small({ craft: edited }).systemBlocks[1].text.includes('Show Never Interpret = HIS-OWN-WORDS: let the action carry it.'), 'his edited words, not a copy');
   const asked = plannerAsk({ craft: CRAFT_TEXT, pages: ['a page'] });
   for (const n of [...ALWAYS_LAWS, ...PROSE_LAWS]) assert(!asked.user.includes(' › ' + n), 'not offered to the helper: ' + n);
-  assert(asked.user.includes(' › Symmetry Law') && asked.user.includes(' › Combat Calibration'), 'the scene laws are still offered'); /* M515: Character Gravity now rides on every small page — the example is a law only a scene adds */
+  assert(asked.user.includes(' › Injury Resolution') && asked.user.includes(' › Combat Calibration'), 'the scene laws are still offered'); /* M605: Symmetry Law rides every small page now (his report on small-model people) — a law only a scene adds is the example */ /* M515: Character Gravity now rides on every small page — the example is a law only a scene adds */
   const f = frontier({ voiceSample: { text: 'SAMPLE-MARK a passage.', big: true } });
   assert(['Symmetry Law = ', 'Drift Recovery = ', 'Ruin Awareness = ', 'Strategic Persistence = '].every((l) => f.systemBlocks[1].text.includes(l)), 'the frontier storyteller reads the whole rulebook');
   assert(!wireOf(f).includes('SAMPLE-MARK') && !/turns of phrase keep coming back/.test(wireOf(f)), 'and nothing of the small model\'s');
