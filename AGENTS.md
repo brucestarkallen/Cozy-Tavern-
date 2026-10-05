@@ -15078,3 +15078,17 @@ which is the always-somewhere rule (and his: no caps in the world's logic).
   "[NO SEAT — seat them]", leaner lines past 70% of its room), the quiet ones in the room (their now only, never moved),
   the voices already spoken, the hour and jump laws, the two-try JSON read, the clears that arrive, the bare pages for
   newly seated people. Sound otherwise.
+
+# M599 — the auditor can restore what it is told to (the audit, reading the auditor whole: a worker's door refusing its task)
+M588-002 told the auditor "a lover at P+2 with R at 0 is a wrong standing to restore" — and its own guard (M259: "the pages
+moved this standing — the auditor restores only a standing that is zero") refused exactly that: P had been moved by a page,
+so the whole standing counted as the pages'. His rule for workers, kept: a worker told to do something its tools refuse
+will never do it. A standing is three axes now, to the guard: an axis the pages never moved that stands at zero is restored
+like a zero standing (the brief names the person, the cause quotes it); every axis the pages moved is stripped from the
+auditor's mutation — never raised, never lowered (M259's protection, per axis). Law M599: Rukia at P+2 (a page) and R 0,
+the brief's love — R restored to 65, P left at 2. M48/M259's laws hold.
+- The rest of the auditor read whole: the standing guards (lowering refused where earned or in the brief; starting one only
+  for the brief's people on a reason quoting it), the upkeep (seat identity, wakes, people, example-name leaks, seats), the
+  stated-digits reader, the report (already-so and refused findings told apart), the scope (the moment is the page reader's:
+  a ground or hour that disagrees with the header, a walk-in of someone seated and not shown, a seat already written —
+  the world helper's), the all-is-well filter.

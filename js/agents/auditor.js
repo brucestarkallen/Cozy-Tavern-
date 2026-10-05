@@ -517,6 +517,28 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
        * and "restored" them at the brief's level — which, for a standing the
        * pages had brought DOWN, erased what the story had earned. */
       const zero = !rel || (!(rel.p || 0) && !(rel.r || 0) && !(rel.s || 0));
+      /* M599 (the audit — a worker told to do what its door refuses): M588 told the auditor "a lover at P+2 with R at 0 is a
+       * wrong standing to restore", and this guard refused it — P had been moved by a page, so the whole standing counted as
+       * the pages'. A standing is three axes: an axis the pages never moved and that stands at zero is restored like a zero
+       * standing (the brief names the person, the cause quotes it), while every axis the pages moved is left exactly as it
+       * stands — never raised, never lowered. */
+      const axisEarned = (ax) => Boolean(rel) && Array.isArray(rel.history) && rel.history.some((h) => h && h.axis === ax && typeof h.cause === 'string' && !/^the brief\b|^set\b|^the founder\b/i.test(h.cause.trim()));
+      const given = (ax) => m[ax] !== undefined && m[ax] !== null && Number.isFinite(Number(m[ax]));
+      /* the axes the pages moved are left out of it (never raised, never lowered) — whatever the auditor wrote for them */
+      const restoresZeroAxes = m.type === 'rel.set' && Boolean(rel)
+        && ['p', 'r', 's'].some((ax) => given(ax) && Number(m[ax]) > 0 && !(rel[ax] || 0) && !axisEarned(ax));
+      if (rel && !zero && earned && !lowering && restoresZeroAxes) {
+        const cause = String(m.cause || '');
+        const named = material.includes(m.name.trim().toLowerCase());
+        const quotes = /\b(brief|cast notes?)\b/i.test(cause);
+        const bareCause = /^the (brief|cast notes?)(\s+(says|states|said))?\.?$/i.test(cause.trim());
+        if (named && quotes && !bareCause && !isMc(fresh, m.name)) {
+          /* only the zero, never-moved axes ride (in place, so the finding's report still knows its own mutation) */
+          for (const ax of ['p', 'r', 's']) if (!(given(ax) && !axisEarned(ax) && !(rel[ax] || 0))) delete m[ax];
+          guarded.push(m);
+          continue;
+        }
+      }
       if (rel && !zero && earned && !lowering) {
         keptStandings.push({ mutation: m, why: 'the pages moved this standing — the auditor restores only a standing that is zero', standing: true });
         continue;
