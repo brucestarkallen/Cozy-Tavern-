@@ -113,7 +113,7 @@ export function diffCritique(prev, next) {
  * critique stays as it was. */
 export function parseCritique(raw) {
   try {
-    const text = String(raw == null ? '' : raw).replace(/```(?:\w+)?/g, '');
+    const text = String(raw == null ? '' : raw).replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/```(?:\w+)?/g, ''); /* M608: a numbered thought is not a note */
     let northStar = '';
     const notes = [];
     for (const line of text.split('\n')) {

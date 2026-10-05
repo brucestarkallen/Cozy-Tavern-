@@ -15276,3 +15276,27 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
 - GATES at m607-001 (this machine has ONE CPU): harness 1205/1205, walk 214/214, long play 9/9, lint 0 errors (170 warnings),
   perf_send, holdsone, cutthinking — EXIT 0 each.
 
+# M608 — the line-by-line audit, part 18: the last small helpers (worldground, lookup, plans, essentials, lint, canoncheck,
+# canonstart, recallpick, concept, assign, voice, herewords) — every helper in js/agents is now read whole
+- FOUR READERS PARSED A HELPER'S ANSWER STRICTLY, from the first brace to the last: the world keeper (worldground.js
+  parseObject — "each part a few plain lines" invites a line break inside a part, and the whole world was lost: "its answer
+  could not be used"), the canon fact check (canoncheck.js readClaimsCheck — a check it could not read let every wrong fact
+  stand), the canon start (canonstart.js readCanonStart) and the smart recall's pick (recallpick.js readPick — the page went
+  without the lines it needed). Any thought, stray brace, line break in a string or trailing comma lost the answer. All four
+  read through jsonutil.js parseFirstObject now, with what the answer must hold (M608-1/2/3).
+- THREE READERS KEPT THE MODEL'S THINKING: the essentials (essentials.js readEssentials — a thought with a line opening "["
+  became the essentials' first lines, the story's timeline that rides every page), the #story concept polish (concept.js —
+  a short thought written into his BRIEF), the editor's notes (editor.js parseCritique — a numbered thought became a note).
+  A <think> span is taken out first, as every other reader does; the canon start's "canon": false is looked for in its
+  answer, never its thinking (M608-2/4).
+- THE HOUSE'S EYE KNEW HIM ONLY BY HIS FULL NAME (lint.js attributedTo): the ledger keeps "Jovan Oda", the page says "Jovan
+  said" — the ghost-dialogue check never fired for a main character with a surname. His first name counts too (M608-5).
+- A PAGE WRITTEN AGAIN TAKES BACK ITS PLAN (plans.js plansTakenBackFrom): Try again, an edit or a re-ink re-read the page but
+  kept the plan its OLD words laid out — a plan from words that no longer stand, beside the new ones'. What the page laid out
+  or closed is taken back before it is read again, as M527 did for pages taken back (M608-6).
+- Read and sound: lookup (askWithFetch ends after its rounds), assign, voice, herewords, the rest of plans and essentials.
+- Laws M608-1…6 — each fails on m607-001 (checked by putting every old reader back).
+- Also read and sound: js/assemble/laws.js (the craft cut into laws by "Name = …"), planbook.js, receipt.js, canonpages.js.
+- GATES at m608-001 (one CPU): harness 1211/1211, walk 214/214, long play 9/9, lint 0 errors (170 warnings), perf_send,
+  holdsone, cutthinking — EXIT 0 each.
+

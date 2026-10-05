@@ -13,6 +13,7 @@
  * Pure but for runGround (one worker call). */
 import { callWorker } from './call.js';
 import { withFictionFrame } from './voice.js';
+import { parseFirstObject } from './jsonutil.js'; /* M608: the forgiving reader every other helper uses */
 
 export const GROUND_KEY = (storyId) => 'worldGround:' + storyId;
 export const GROUND_PART_CHARS = 700;      /* one part, at most */
@@ -108,12 +109,12 @@ export function groundUpdateAsk({ ground = null, ...input } = {}) {
   };
 }
 
-function parseObject(raw) {
+/* M608: THE WORLD'S ANSWER IS READ AS EVERY HELPER'S IS — past any thinking, a fence, a stray brace in the prose, a line
+ * break inside a part ("each part a few plain lines"), a trailing comma. It was read from the first brace to the last
+ * and parsed strictly, so any of those lost the whole world: "its answer could not be used". */
+function parseObject(raw, want = null) {
   if (raw && typeof raw === 'object') return raw;
-  const t = String(raw || '');
-  const a = t.indexOf('{'); const b = t.lastIndexOf('}');
-  if (a === -1 || b <= a) return null;
-  try { return JSON.parse(t.slice(a, b + 1)); } catch { return null; }
+  return parseFirstObject(String(raw || ''), want);
 }
 
 /* the parts, clipped, and the whole held to its room (the last parts give way first) */
@@ -131,14 +132,14 @@ function fit(parts) {
 }
 
 export function readGround(raw) {
-  const o = parseObject(raw);
+  const o = parseObject(raw, (x) => GROUND_PARTS.some(([k]) => typeof x[k] === 'string'));
   if (!o || typeof o !== 'object') return null;
   const parts = fit(o);
   return Object.keys(parts).length >= 2 ? parts : null; /* a world of one line is not a world — the answer is not used */
 }
 
 export function readGroundPatch(raw) {
-  const o = parseObject(raw);
+  const o = parseObject(raw, (x) => x.changed && typeof x.changed === 'object');
   if (!o || typeof o !== 'object' || !o.changed || typeof o.changed !== 'object') return null;
   const changed = {};
   for (const [k] of GROUND_PARTS) if (Object.prototype.hasOwnProperty.call(o.changed, k)) changed[k] = clip(o.changed[k] || '');

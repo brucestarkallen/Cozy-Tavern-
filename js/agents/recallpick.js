@@ -9,6 +9,7 @@
  * reaches the storyteller. A number that is not in the index is ignored; at most PICK_MAX lines; and it waits at most
  * PICK_TIMEOUT_MS — slower, failing, or unsure, and the page goes with the word-match recall alone, as before. */
 import { callWorker } from './call.js';
+import { parseFirstObject } from './jsonutil.js'; /* M608 */
 
 export const PICK_MAX = 4;
 export const PICK_TIMEOUT_MS = 8000;
@@ -47,7 +48,9 @@ export function pickAsk({ essentials = '', index = [], move = '', lastPage = '',
 export function readPick(raw, count) {
   const t = String(raw == null ? '' : raw).replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
   let list = null;
-  try { const m = t.match(/\{[\s\S]*\}/); const j = m ? JSON.parse(m[0]) : null; if (j && Array.isArray(j.lines)) list = j.lines; } catch (err) { list = null; }
+  /* M608: read as every helper's answer is — it was parsed strictly from the first brace to the last, so a thought or a
+   * stray brace beside {"lines":[…]} lost the pick and the page went without the lines it needed */
+  { const j = parseFirstObject(t, (x) => Array.isArray(x.lines)); if (j) list = j.lines; }
   if (!Array.isArray(list)) return [];
   const out = [];
   for (const v of list) {

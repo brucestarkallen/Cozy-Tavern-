@@ -72,7 +72,8 @@ export function essentialsAsk({ record = '', brief = '', mc = '' } = {}) {
 /* the answer, read as lines: no fences, no preface before the first line, clipped at a line's end; too little to be the
  * essentials — or no line at all — is refused */
 export function readEssentials(raw, cap = ESSENTIALS_MAX_CHARS) {
-  const t = String(raw == null ? '' : raw).replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
+  /* M608: its thinking is not its answer — a thought with a line opening "[" became the first line of the essentials */
+  const t = String(raw == null ? '' : raw).replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
   if (/^[[{]\s*["{\]]/.test(t)) return '';
   const lines = t.split('\n').map((l) => l.trim()).filter(Boolean);
   const first = lines.findIndex((l) => /^(?:[-*•]\s*)?\[/.test(l) || /^(?:[-*•]\s*)?\(pages?\s/i.test(l));

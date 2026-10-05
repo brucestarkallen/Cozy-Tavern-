@@ -1,5 +1,5 @@
 # Line-by-line audit ledger — every file of the app, read whole, one at a time
-# Status at m607-001 (Oct 5 2026): 42 of 122 files DONE — 30,832 of 64,113 lines (22,372 of 47,196 code lines).
+# Status at m608-001 (Oct 5 2026): 58 of 122 files DONE — 32,412 of 64,113 lines (23,454 of 47,196 code lines).
 # Read a file whole with: python3 audit/show.py <file> <from> <to> [width]  (prints code lines, comments set aside;
 # read the prompt strings too — they are what a helper is told). Mark a file "DONE (Mxxx)" here when read whole and fixed.
 # The order to take the rest: audit/README.md, "What is left".
@@ -63,7 +63,7 @@ js/agents/queue.js | 279 | 174 | DONE (M607)
 js/agents/tidy.js | 208 | 171 | DONE (M607)
 js/import/sillytavern.js | 233 | 164 | todo
 js/ui/prose.js | 221 | 164 | todo
-js/agents/worldground.js | 201 | 155 | todo
+js/agents/worldground.js | 201 | 155 | DONE (M608)
 js/commands.js | 232 | 153 | todo
 js/ui/welcome.js | 216 | 153 | todo
 js/assemble/voice.js | 262 | 150 | todo
@@ -73,49 +73,49 @@ js/ui/speechcolours.js | 179 | 142 | todo
 js/engine/clock.js | 218 | 141 | DONE (M593)
 js/import/v176map.js | 204 | 137 | todo
 js/engine/offscreen.js | 232 | 132 | DONE (M593)
-js/agents/lookup.js | 170 | 121 | todo
-js/agents/plans.js | 149 | 117 | todo
+js/agents/lookup.js | 170 | 121 | DONE (M608)
+js/agents/plans.js | 149 | 117 | DONE (M608)
 js/engine/usage.js | 144 | 114 | DONE (M593)
 js/providers/index.js | 149 | 113 | todo
-js/agents/essentials.js | 154 | 111 | todo
-js/agents/lint.js | 174 | 108 | todo
+js/agents/essentials.js | 154 | 111 | DONE (M608)
+js/agents/lint.js | 174 | 108 | DONE (M608)
 js/assemble/anchor.js | 149 | 108 | todo
 js/assemble/plain.js | 170 | 106 | todo
 js/engine/relationships.js | 157 | 105 | DONE (M593)
 js/ui/workbanner.js | 151 | 105 | todo
-js/agents/canoncheck.js | 130 | 100 | todo
+js/agents/canoncheck.js | 130 | 100 | DONE (M608)
 js/ui/usage.js | 108 | 98 | todo
 js/providers/meter.js | 111 | 97 | todo
 js/ui/pagemark.js | 122 | 94 | todo
 js/engine/canon.js | 147 | 92 | DONE (M593)
 js/import/chats.js | 143 | 92 | todo
 js/tablock.js | 131 | 91 | todo
-js/agents/canonstart.js | 128 | 90 | todo
+js/agents/canonstart.js | 128 | 90 | DONE (M608)
 js/agents/status.js | 160 | 87 | DONE (M607)
 js/agents/jsonutil.js | 119 | 85 | DONE (M607)
 js/providers/speed.js | 110 | 83 | todo
 js/agents/call.js | 184 | 78 | DONE (M607)
 js/assemble/plainvoice.js | 98 | 71 | todo
-js/agents/recallpick.js | 84 | 65 | todo
+js/agents/recallpick.js | 84 | 65 | DONE (M608)
 js/providers/relay.js | 85 | 63 | todo
 js/engine/voicepresets.js | 86 | 61 | DONE (M593)
 js/ui/richhtml.js | 98 | 59 | DONE (M574)
-js/assemble/laws.js | 114 | 56 | todo
+js/assemble/laws.js | 114 | 56 | DONE (M608)
 js/canon/host.js | 71 | 53 | todo
 js/ui/streamtext.js | 61 | 48 | todo
 js/assemble/planwords.js | 70 | 47 | todo
 js/providers/room.js | 72 | 47 | todo
 js/providers/detect.js | 59 | 41 | todo
 js/providers/sse.js | 57 | 38 | todo
-js/assemble/canonpages.js | 62 | 37 | todo
-js/agents/concept.js | 56 | 36 | todo
+js/assemble/canonpages.js | 62 | 37 | DONE (M608)
+js/agents/concept.js | 56 | 36 | DONE (M608)
 js/providers/wire.js | 49 | 36 | todo
 js/providers/knobs.js | 50 | 34 | todo
-js/assemble/receipt.js | 60 | 33 | todo
+js/assemble/receipt.js | 60 | 33 | DONE (M608)
 js/ui/storyexport.js | 45 | 33 | todo
-js/agents/assign.js | 44 | 28 | todo
+js/agents/assign.js | 44 | 28 | DONE (M608)
 js/providers/userfirst.js | 40 | 24 | todo
-js/assemble/planbook.js | 30 | 20 | todo
+js/assemble/planbook.js | 30 | 20 | DONE (M608)
 js/ui/placeholder.js | 26 | 19 | todo
 js/engine/sentence.js | 22 | 17 | DONE (M593)
 js/engine/window.js | 38 | 17 | DONE (M593)
@@ -123,6 +123,6 @@ js/engine/pagecut.js | 40 | 16 | todo
 js/providers/latesystem.js | 24 | 14 | todo
 js/ui/download.js | 16 | 11 | todo
 js/providers/order.js | 25 | 10 | todo
-js/agents/voice.js | 16 | 4 | todo
-js/agents/herewords.js | 8 | 1 | todo
+js/agents/voice.js | 16 | 4 | DONE (M608)
+js/agents/herewords.js | 8 | 1 | DONE (M608)
 js/version.js | 10 | 1 | todo

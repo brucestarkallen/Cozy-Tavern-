@@ -1,7 +1,7 @@
 # THE LINE-BY-LINE AUDIT — CHECKPOINT (read this first in a new session)
 
-**Where it stands:** m607-001, Oct 5 2026. 42 of 122 files read whole and fixed —
-30,832 of 64,113 lines (22,372 of 47,196 code lines). The ledger of every file is `audit/LINE_AUDIT.md`
+**Where it stands:** m608-001, Oct 5 2026. 58 of 122 files read whole and fixed —
+32,412 of 64,113 lines (23,454 of 47,196 code lines). Every helper in js/agents is read. The ledger of every file is `audit/LINE_AUDIT.md`
 (`DONE (Mxxx)` = read whole; `todo` = not yet). The full history of every fix is the tail of `AGENTS.md`
 (search `# M574` onward for the audit's own parts); `HANDOFF.md` says how to run the app and the tests.
 
@@ -14,22 +14,20 @@ next file in the order below without asking.
 - The send path and the page UI: `js/ui/chat.js`, `js/ui/richhtml.js` (M574–M577)
 - The ledger engine, all of it: `js/engine/*` — apply, state, people, names, world, duels, bodies, relationships, offscreen,
   canon, clock, referee-math, whole, usage, sentence, window, voicepresets (M578–M579, M584, M593)
-- The helpers: `js/agents/extractor.js` (the page reader), `memory.js` (the record keeper), `world.js`, `auditor.js`,
-  `referee.js`, `housekeeper.js`, `director.js`, `continuity.js`, `founder.js` (M588–M606)
+- Every helper in `js/agents/` (M588–M608)
 - The prefill, both modes, every path: `js/providers/structured.js` and the prefill paths in `openai.js`/`effort.js`
   (M580–M592, M596) — the rest of openai.js/effort.js is still to read line by line
 
 ## What is left — take it in this order
 
-1. The small helpers: `worldground.js`, `lookup.js`, `plans.js`, `essentials.js`, `lint.js`, `canoncheck.js`,
-   `canonstart.js`, `recallpick.js`, `concept.js`, `assign.js`, `voice.js`, `herewords.js`
-2. The request: `js/assemble/stack.js`, `modules.js`, `smallprose.js`, `laws.js`, `craft.js` (the craft's words are his)
-3. The providers: the rest of `js/providers/openai.js`, `effort.js`, `anthropic.js`, `sse.js`, `meter.js`, the small ones
-4. Storage and sync: `js/store.js`, `js/sync.js`, `js/sync-worker.js`, `serve.py` (size limits already checked), `sw.js`
-5. The UI: `js/ui/settings.js`, `drawer.js`, `housekeeper.js` (the UI of it), `receiptview.js`, `pageshape.js`,
+1. The request: `js/assemble/stack.js`, `modules.js`, `smallprose.js`, `craft.js` (the craft's words are his), `voice.js`,
+   `anchor.js`, `plain.js`, `plainvoice.js`, `planwords.js` (laws, planbook, receipt, canonpages are read)
+2. The providers: the rest of `js/providers/openai.js`, `effort.js`, `anthropic.js`, `sse.js`, `meter.js`, the small ones
+3. Storage and sync: `js/store.js`, `js/sync.js`, `js/sync-worker.js`, `serve.py` (size limits already checked), `sw.js`
+4. The UI: `js/ui/settings.js`, `drawer.js`, `housekeeper.js` (the UI of it), `receiptview.js`, `pageshape.js`,
    `headergate.js`, `canonsettings.js`, the rest of `js/ui/*`, `index.html`
-6. Canon: `js/canon/bridge.js`, then `js/canon/grounding.js` (the vendored canon engine, ~4,200 code lines — last)
-7. Imports and the rest: `js/import/*`, `js/regex*.js`, `js/sent.js`, `js/app.js`
+5. Canon: `js/canon/bridge.js`, then `js/canon/grounding.js` (the vendored canon engine, ~4,200 code lines — last)
+6. Imports and the rest: `js/import/*`, `js/regex*.js`, `js/sent.js`, `js/app.js`
 
 `python3 audit/show.py <file> <from> <to> [width]` prints a file's code lines with comments set aside; read the prompt
 strings as well — they are what a helper or the storyteller is told.

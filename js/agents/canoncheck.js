@@ -15,6 +15,7 @@
 import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { callWorker } from './call.js';
 import { withFictionFrame } from './voice.js';
+import { parseFirstObject } from './jsonutil.js'; /* M608 */
 import { lensStatements, throughLens, overlayFor } from './canonlens.js';
 
 export const PERSON_CHARS = 1600;   /* what the wiki says of one person, at most */
@@ -83,11 +84,9 @@ export function claimsAsk({ moment = '', claims = [], material = [], arc = null,
 /* its answer, read strictly: numbers of facts that exist, each once — anything else is no answer (nothing changes) */
 export function readClaimsCheck(raw, count) {
   let obj = raw;
-  if (typeof raw === 'string') {
-    const a = raw.indexOf('{'); const b = raw.lastIndexOf('}');
-    if (a === -1 || b <= a) return null;
-    try { obj = JSON.parse(raw.slice(a, b + 1)); } catch { return null; }
-  }
+  /* M608: read as every helper's answer is (past any thinking or a stray brace) — it was parsed strictly from the first brace
+   * to the last, and a check that could not be read let every wrong fact stand */
+  if (typeof raw === 'string') obj = parseFirstObject(raw, (x) => Array.isArray(x.wrong));
   if (!obj || typeof obj !== 'object' || !Array.isArray(obj.wrong)) return null;
   const wrong = [];
   for (const n of obj.wrong) {

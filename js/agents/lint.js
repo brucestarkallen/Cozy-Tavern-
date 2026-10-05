@@ -57,7 +57,11 @@ function quotes(text) {
 
 /* Is this quote attributed to `mc` by a speech tag within reach of it? */
 function attributedTo(text, q, mc) {
-  const name = escapeRe(mc);
+  /* M608: HE IS CALLED BY HIS FIRST NAME. The ledger keeps his full name ("Jovan Oda") and the page says "Jovan said" — the
+   * ghost-dialogue check looked for the full name only, so for a main character with a surname it never fired */
+  const full = String(mc || '').trim();
+  const first = full.split(/\s+/)[0] || '';
+  const name = first && first.length >= 3 && first !== full ? '(?:' + escapeRe(full) + '|' + escapeRe(first) + ')' : escapeRe(full);
   const before = text.slice(Math.max(0, q.at - 90), q.at);
   const after = text.slice(q.end, q.end + 90);
   const tagAfter = new RegExp('^[\\s,—-]*(?:' + name + '\\s+(?:' + SPEECH_VERBS + ')|(?:' + SPEECH_VERBS + ')\\s+' + name + ')\\b', 'i');

@@ -46,7 +46,8 @@ export async function polishConcept({ connection, concept, signal }) {
   if (!connection) return { text: raw, polished: false };
   try {
     const { text } = await callWorker(connection, { system: withFictionFrame(SYSTEM), user: raw, maxTokens: 900, signal });
-    const out = String(text || '').replace(/^["“'\s]+|["”'\s]+$/g, '').trim();
+    /* M608: its thinking is not its answer — a short thought was written into his brief, which rides every page */
+    const out = String(text || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/^["“'\s]+|["”'\s]+$/g, '').trim();
     if (!acceptablePolish(raw, out)) return { text: raw, polished: false, refused: true };
     return { text: out, polished: out !== raw };
   } catch (err) {

@@ -105,6 +105,13 @@ export function applyPlansAnswer(book, answer, { from = null, to = null, at = Da
 }
 
 /* one reading: the pages not read yet (a page since rewritten is read again) */
+/* M608: what the pages from `cut` on said is taken back — a plan laid out on them goes, one they closed stands again. Used
+ * for pages taken back AND for a page rewritten in place (Try again, an edit, a re-ink): a plan the replaced words laid
+ * out stood on beside the new words' own, a plan from a timeline that never happened. */
+export function plansTakenBackFrom(plans, cut) {
+  return (Array.isArray(plans) ? plans : []).filter((p) => !(Number.isFinite(p.from) && p.from >= cut))
+    .map((p) => (Number.isFinite(p.closedAt) && p.closedAt >= cut ? (({ outcome: _o, closedAt: _c, ...rest }) => ({ ...rest, status: 'standing' }))(p) : p));
+}
 export async function runPlans({ connection, storyId, pages, mc = '', signal, callLLM = callWorker } = {}) {
   if (!connection || !storyId) return { wrote: false, why: 'no connection' };
   let book = await loadPlansBook(storyId);
@@ -112,13 +119,13 @@ export async function runPlans({ connection, storyId, pages, mc = '', signal, ca
   /* M527: PAGES TAKEN BACK. The book was read to a page that no longer stands (a rewind, a deleted page): a plan born on
    * those pages goes, one they closed stands again, and reading goes on from the page that stands last. */
   if (book.readTo >= list.length) {
-    const plans = book.plans.filter((p) => !(Number.isFinite(p.from) && p.from >= list.length)).map((p) => (Number.isFinite(p.closedAt) && p.closedAt >= list.length ? (({ outcome: _o, closedAt: _c, ...rest }) => ({ ...rest, status: 'standing' }))(p) : p));
+    const plans = plansTakenBackFrom(book.plans, list.length);
     const last = list[list.length - 1];
     book = { plans, readTo: list.length - 1, readHash: hashOf(last ? last.text : '') };
     await db.settings.set(PLANS_KEY(storyId), book);
   }
   let start = book.readTo >= 0 ? book.readTo + 1 : Math.max(0, list.length - CATCH_UP_PAGES);
-  if (book.readTo >= 0 && list[book.readTo] && hashOf(list[book.readTo].text) !== book.readHash) start = book.readTo; /* rewritten since read */
+  if (book.readTo >= 0 && list[book.readTo] && hashOf(list[book.readTo].text) !== book.readHash) { start = book.readTo; book = { ...book, plans: plansTakenBackFrom(book.plans, start) }; } /* rewritten since read — M608: what it said goes with it */
   let slice = list.slice(Math.min(start, list.length)).filter((p) => p.text.trim());
   if (!slice.length) return { wrote: false, why: 'nothing new to read' };
   while (slice.length > 1 && slice.reduce((n, p) => n + p.text.length, 0) > PAGES_MAX_CHARS) slice = slice.slice(1);
@@ -144,6 +151,6 @@ export async function pageRewritten(storyId, pageIndex) {
   if (!storyId || !Number.isInteger(pageIndex) || pageIndex < 0) return;
   const book = await loadPlansBook(storyId);
   if (book.readTo < pageIndex) return; /* not read yet — it will be */
-  await db.settings.set(PLANS_KEY(storyId), { ...book, readTo: pageIndex - 1, readHash: '' });
+  await db.settings.set(PLANS_KEY(storyId), { ...book, plans: plansTakenBackFrom(book.plans, pageIndex), readTo: pageIndex - 1, readHash: '' }); /* M608 */
 }
 
