@@ -1,4 +1,5 @@
 import { WINDOW_LINE } from '../engine/window.js'; /* M467 */
+import { hisNames } from '../assemble/plain.js'; /* M609: the names he is called by, one list for every guard */
 const WINDOW_LINE_ALL = new RegExp(WINDOW_LINE.source, 'gim');
 /* Cozy Tavern — agents/lint.js
  * M88: the house's eye — the craft's mechanical laws, checked in CODE on
@@ -56,12 +57,12 @@ function quotes(text) {
 }
 
 /* Is this quote attributed to `mc` by a speech tag within reach of it? */
-function attributedTo(text, q, mc) {
-  /* M608: HE IS CALLED BY HIS FIRST NAME. The ledger keeps his full name ("Jovan Oda") and the page says "Jovan said" — the
-   * ghost-dialogue check looked for the full name only, so for a main character with a surname it never fired */
-  const full = String(mc || '').trim();
-  const first = full.split(/\s+/)[0] || '';
-  const name = first && first.length >= 3 && first !== full ? '(?:' + escapeRe(full) + '|' + escapeRe(first) + ')' : escapeRe(full);
+function attributedTo(text, q, mc, others = []) {
+  /* M608/M609: HE IS CALLED BY HIS FIRST NAME, AND BY HIS FAMILY NAME. The ledger keeps "Jovan Oda" and the page says "Jovan
+   * said" or "Oda said" — the ghost-dialogue check looked for the full name only. plain.js hisNames: never a title, never a
+   * word another person's name holds. */
+  const names = hisNames(mc, others);
+  const name = names.length ? '(?:' + names.map(escapeRe).join('|') + ')' : escapeRe(String(mc || '').trim());
   const before = text.slice(Math.max(0, q.at - 90), q.at);
   const after = text.slice(q.end, q.end + 90);
   const tagAfter = new RegExp('^[\\s,—-]*(?:' + name + '\\s+(?:' + SPEECH_VERBS + ')|(?:' + SPEECH_VERBS + ')\\s+' + name + ')\\b', 'i');
@@ -81,7 +82,7 @@ function typedByWriter(quote, userText) {
   return hits >= Math.ceil(words.length * 0.6);
 }
 
-export function lintPage({ mc = '', userText = '', assistantText = '', ooc = false } = {}) {
+export function lintPage({ mc = '', userText = '', assistantText = '', ooc = false, others = [] } = {}) {
   const findings = [];
   const page = String(assistantText || '');
   if (!page.trim() || ooc) return { findings };
@@ -140,7 +141,7 @@ export function lintPage({ mc = '', userText = '', assistantText = '', ooc = fal
   /* Ghost Dialogue and No Echo */
   const qs = quotes(page);
   if (mc) {
-    const ghost = qs.find((q) => attributedTo(page, q, mc) && !typedByWriter(q.text, userText));
+    const ghost = qs.find((q) => attributedTo(page, q, mc, others) && !typedByWriter(q.text, userText));
     if (ghost) push('warn', 'Ghost Dialogue', `The page gives ${mc} words the writer did not type: "${ghost.text.slice(0, 80)}".`);
   }
   const typedQuotes = quotes(String(userText || ''));

@@ -3458,7 +3458,8 @@ export function initChat(ctx) {
       if (stale() || msg.ooc) return { silent: true };
       const st = await loadState(story.id);
       const known = mcName(st);
-      const { findings } = lintPage({ mc: known && known !== 'the player' ? known : '', userText, assistantText: pageText(msg), ooc: Boolean(msg.ooc) });
+      const notHim = Object.keys((st && st.characters) || {}).filter((n) => { try { return !isMcAlias(st, n); } catch (err) { return true; } }); /* M609: whose name words are theirs */
+      const { findings } = lintPage({ mc: known && known !== 'the player' ? known : '', userText, assistantText: pageText(msg), ooc: Boolean(msg.ooc), others: notHim });
       if (stale() || !(await stillThere(story.id, msg.id))) return { silent: true };
       const current = (await db.messages.list(story.id)).find((m) => m.id === msg.id);
       const others = Array.isArray(current && current.findings) ? current.findings.filter((f) => f && f.kind !== 'craft') : [];
@@ -5343,7 +5344,8 @@ export function initChat(ctx) {
         if (settingsValues.smallModelNow === true && full.trim()) {
           try {
             const alsoKnown = Object.keys((state && state.characters) || {}).filter((n) => { try { return isMcAlias(state, n); } catch (err) { return false; } });
-            const at = mineCutAt(full, { mc: mcName(state), also: alsoKnown, writerText: userText });
+            const notHim = Object.keys((state && state.characters) || {}).filter((n) => !alsoKnown.includes(n)); /* M609 */
+            const at = mineCutAt(full, { mc: mcName(state), also: alsoKnown, others: notHim, writerText: userText });
             const windowAt = windowCutAt(full);
             const scene = at > -1 ? full.slice(0, windowAt > -1 && windowAt < at ? windowAt : at).replace(/^\s*\[[^\]\n]*\]\s*/, '') : '';
             if (at > -1 && (windowAt === -1 || at < windowAt) && scene.trim().length >= 400) {
@@ -5460,7 +5462,8 @@ export function initChat(ctx) {
       if (settingsValues.smallModelNow === true && !stoppedByHand && full.trim()) {
         try {
           const alsoKnown = Object.keys((state && state.characters) || {}).filter((n) => { try { return isMcAlias(state, n); } catch (err) { return false; } });
-          const took = mineLeak(full, { mc: mcName(state), also: alsoKnown, writerText: userText });
+          const notHim = Object.keys((state && state.characters) || {}).filter((n) => !alsoKnown.includes(n)); /* M609 */
+          const took = mineLeak(full, { mc: mcName(state), also: alsoKnown, others: notHim, writerText: userText });
           /* M510: the "same words again" note is retired — it quoted the repeated phrase back to the model; the
            * connection's own repetition penalties (the dials M510 opened) do that job while the page is written */
           const word = took && !cutMine ? mineWord(took, mcName(state)) : '';

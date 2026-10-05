@@ -1,7 +1,7 @@
 # THE LINE-BY-LINE AUDIT — CHECKPOINT (read this first in a new session)
 
-**Where it stands:** m608-001, Oct 5 2026. 58 of 122 files read whole and fixed —
-32,412 of 64,113 lines (23,454 of 47,196 code lines). Every helper in js/agents is read. The ledger of every file is `audit/LINE_AUDIT.md`
+**Where it stands:** m609-001, Oct 5 2026. 78 of 122 files read whole and fixed —
+36,512 of 64,113 lines (26,174 of 47,196 code lines). Every helper (js/agents) and the request builder (js/assemble) are read. Every helper in js/agents is read. The ledger of every file is `audit/LINE_AUDIT.md`
 (`DONE (Mxxx)` = read whole; `todo` = not yet). The full history of every fix is the tail of `AGENTS.md`
 (search `# M574` onward for the audit's own parts); `HANDOFF.md` says how to run the app and the tests.
 
@@ -20,14 +20,12 @@ next file in the order below without asking.
 
 ## What is left — take it in this order
 
-1. The request: `js/assemble/stack.js`, `modules.js`, `smallprose.js`, `craft.js` (the craft's words are his), `voice.js`,
-   `anchor.js`, `plain.js`, `plainvoice.js`, `planwords.js` (laws, planbook, receipt, canonpages are read)
-2. The providers: the rest of `js/providers/openai.js`, `effort.js`, `anthropic.js`, `sse.js`, `meter.js`, the small ones
-3. Storage and sync: `js/store.js`, `js/sync.js`, `js/sync-worker.js`, `serve.py` (size limits already checked), `sw.js`
-4. The UI: `js/ui/settings.js`, `drawer.js`, `housekeeper.js` (the UI of it), `receiptview.js`, `pageshape.js`,
+1. The providers: the rest of `js/providers/openai.js`, `effort.js`, `anthropic.js`, `index.js` (the small ones are read)
+2. Storage and sync: `js/store.js`, `js/sync.js`, `js/sync-worker.js`, `serve.py` (size limits already checked), `sw.js`
+3. The UI: `js/ui/settings.js`, `drawer.js`, `housekeeper.js` (the UI of it), `receiptview.js`, `pageshape.js`,
    `headergate.js`, `canonsettings.js`, the rest of `js/ui/*`, `index.html`
-5. Canon: `js/canon/bridge.js`, then `js/canon/grounding.js` (the vendored canon engine, ~4,200 code lines — last)
-6. Imports and the rest: `js/import/*`, `js/regex*.js`, `js/sent.js`, `js/app.js`
+4. Canon: `js/canon/bridge.js`, then `js/canon/grounding.js` (the vendored canon engine, ~4,200 code lines — last)
+5. Imports and the rest: `js/import/*`, `js/regex*.js`, `js/sent.js`, `js/app.js`
 
 `python3 audit/show.py <file> <from> <to> [width]` prints a file's code lines with comments set aside; read the prompt
 strings as well — they are what a helper or the storyteller is told.

@@ -15300,3 +15300,19 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
 - GATES at m608-001 (one CPU): harness 1211/1211, walk 214/214, long play 9/9, lint 0 errors (170 warnings), perf_send,
   holdsone, cutthinking — EXIT 0 each.
 
+# M609 — the line-by-line audit, part 19: the request builder (js/assemble — stack, modules, smallprose, craft, voice, anchor,
+# plain, plainvoice, planwords) — every file of it is now read whole
+- THE GUARDS ON HIS CHARACTER KNEW ONLY HIS FULL NAME. The small model's two guards (plain.js mineCutAt — the page stops where
+  it began writing his words or thoughts; mineLeak — the next turn hears "leave him to me") and the house's eye (lint.js
+  Ghost Dialogue) looked for the ledger's full name, "Jovan Oda", while the page says "Jovan said" or "Oda said" (a Bleach
+  captain is called by his family name). M608 taught the eye his first name; now ONE list serves all three: plain.js hisNames
+  — the full name and each word of it, never a title, never a word another person's name in the ledger holds (his
+  stepsister's family name is hers too). The chat hands each guard the other people's names (notHim). Laws M609-1/2.
+- Read and sound: stack.js (the notes ride as system unless he chose otherwise — notesRole; the closing words after his
+  message as system unless afterRole; his own words where he placed them; the window, the hybrid record, the recall, the
+  receipt's rows in the order sent), modules.js (what wakes when; the picker is handed his words and his cast notes),
+  smallprose.js, anchor.js, voice.js, plainvoice.js, planwords.js, craft.js (the craft's words are his — only its code read).
+- Also read and sound (the small providers): sse, wire, knobs, userfirst, latesystem, order, detect, room, relay, meter, speed.
+- GATES at m609-001 (one CPU): harness 1213/1213, walk 214/214, long play 9/9, lint 0 errors (170 warnings), perf_send,
+  holdsone, cutthinking — EXIT 0 each.
+

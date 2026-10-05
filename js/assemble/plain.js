@@ -23,10 +23,26 @@
  * model lives behind it, so his frontier model's turn is byte-for-byte what it was before any of this existed. */
 
 /* his character's names — the story name he plays under, and the fuller forms of it the ledger knows */
-export function mineNames(mc, also = []) {
+import { nameCore, isTitleWord } from '../engine/names.js'; /* M609 */
+
+/* M609: THE NAMES HE IS CALLED BY ON A PAGE — his full name, and each word of it on its own: the first name the narration
+ * uses ("Jovan said") and the family name others call him by ("Oda said", "Captain Oda") — never a title, never a word that
+ * another person's name in the ledger also holds (a stepsister's family name is hers too). The guards looked for his FULL
+ * name only, so for a main character with a surname they never fired: "Jovan said" over "Jovan Oda" passed every one. */
+export function hisNames(mc, others = []) {
+  const full = String(mc || '').trim();
+  if (!full || full.toLowerCase() === 'the player') return [];
+  const out = [full];
+  const theirs = new Set();
+  for (const o of Array.isArray(others) ? others : []) for (const w of nameCore(o).split(/\s+/)) if (w) theirs.add(w);
+  const mine = nameCore(full).split(/\s+/).filter(Boolean);
+  if (mine.length > 1) for (const w of mine) if (w.length >= 3 && !isTitleWord(w) && !theirs.has(w) && !out.some((x) => x.toLowerCase() === w)) out.push(w);
+  return out;
+}
+export function mineNames(mc, also = [], others = []) {
   const out = [];
   const add = (n) => { const s = String(n || '').trim(); if (s && s.toLowerCase() !== 'the player' && !out.some((x) => x.toLowerCase() === s.toLowerCase())) out.push(s); };
-  add(mc);
+  for (const n of hisNames(mc, others)) add(n);
   for (const n of Array.isArray(also) ? also : []) add(n);
   return out;
 }
@@ -74,8 +90,8 @@ function sentenceAround(text, at) {
 /* Did this page take his character? Returns '' when it did not, else what it took, in words. Deliberately narrow: a
  * page may still SAY his name (he is in the scene, he is looked at, he is spoken to) — only his own speech, his own
  * inner life, and moves he did not make are his, and anything his own message already said is never counted. */
-export function mineLeak(page, { mc = '', also = [], writerText = '' } = {}) {
-  const names = mineNames(mc, also);
+export function mineLeak(page, { mc = '', also = [], others = [], writerText = '' } = {}) {
+  const names = mineNames(mc, also, others);
   if (!names.length) return '';
   const text = stripFurniture(page); /* M357: the header names his room, his coat and where he stands — never his doing */
   if (!text.trim()) return '';
@@ -127,8 +143,8 @@ function sentenceStartAt(text, at) {
  * in the storyteller's own words, and a paraphrase ("Jovan stepped inside the swing" for his "I dodge in") is not a theft
  * — cutting there would end a good page. Sensing and knowing (felt, knew) are the world reaching him, not his mind. */
 const THINKS = INNER.split('|').filter((v) => !['felt', 'feels', 'knew', 'knows'].includes(v)).join('|');
-export function mineCutAt(page, { mc = '', also = [], writerText = '' } = {}) {
-  const names = mineNames(mc, also);
+export function mineCutAt(page, { mc = '', also = [], others = [], writerText = '' } = {}) {
+  const names = mineNames(mc, also, others);
   const raw = String(page == null ? '' : page);
   if (!names.length || !raw.trim()) return -1;
   const text = blankRows(raw);
