@@ -59,3 +59,25 @@ test('M601 "APPLY ALL" AND A CARD LANDING BY ITSELF SAY WHEN THEY CHANGED THE BR
   eq((await db.stories.get(st.id)).brief, 'Jovan is seventeen.');
   eq(res.touched.story, true, 'the brief change is told, so the screens showing it refresh');
 });
+test('M602 TAKING BACK A CHANGE TO A RECORD LINE\'S DETAIL PUTS THE DETAIL BACK — never refused as "rewritten since", never the old detail written over the line', async () => {
+  const hk = await import('../../js/agents/housekeeper.js');
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  const { db } = await import('../../js/store.js');
+  const st = await db.stories.create({ title: 'a detail taken back' });
+  await saveMemory(st.id, { window: 30, nodes: [{ id: 'n1', span: [0, 3], level: 1, at: 1, text: 'Jovan met Rukia at the gate.', detail: 'Rukia wore the blue scarf.' }] });
+  /* staged as the house stages it: the anchor reviewed against the line before it lands */
+  const session = { turns: [{ proposals: [{ id: 'r1', kind: 'record', status: 'pending', label: 'the scarf', op: { nodeId: 'n1', find: 'blue scarf', replace: 'red scarf' }, review: [{ target: 'anchor:record:n1', find: 'blue scarf' }] }] }], batches: [] };
+  const res = await hk.applyProposal(session, st.id, 'r1');
+  assert(res.ok, res.words);
+  eq((await loadMemory(st.id)).nodes[0].detail, 'Rukia wore the red scarf.', 'the detail changed');
+  const back = await hk.undoLatest(session, st.id);
+  assert(back.ok, 'taken back: ' + back.words);
+  const nd = (await loadMemory(st.id)).nodes[0];
+  eq(nd.detail, 'Rukia wore the blue scarf.', 'the detail is back');
+  eq(nd.text, 'Jovan met Rukia at the gate.', 'the line itself untouched');
+});
+test('M602-2 THE RIPPLE FINDS OLD WORDS STILL STANDING IN A RECORD LINE\'S DETAIL — the detail is part of the line', async () => {
+  const { rippleScan } = await import('../../js/agents/housekeeper.js');
+  const out = rippleScan([{ id: '#abc', find: 'the blue scarf', replace: 'the red scarf' }], { messages: [], memory: { nodes: [{ id: 'n1', span: [0, 2], text: 'Jovan met Rukia.', detail: 'She wore the blue scarf.' }] }, state: {}, lore: [], story: {} });
+  assert(out.length === 1 && out[0].where.some((w) => /the record line/.test(w)), 'found in the detail: ' + JSON.stringify(out));
+});

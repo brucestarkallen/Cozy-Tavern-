@@ -2118,7 +2118,7 @@ export function rippleScan(edits, { messages, memory, state, lore, story } = {})
       if (where.length >= 8) break;
     }
     for (const nd of (memory && Array.isArray(memory.nodes) ? memory.nodes : [])) {
-      if (nd && typeof nd.text === 'string' && nd.text.includes(removed)) where.push('the record line ' + recordHandle(nd));
+      if (nd && ((typeof nd.text === 'string' && nd.text.includes(removed)) || (typeof nd.detail === 'string' && nd.detail.includes(removed)))) where.push('the record line ' + recordHandle(nd)); /* M602: its detail is part of it */
     }
     for (const [name, c] of Object.entries((state && state.characters) || {})) {
       if (c && (['core', 'state', 'arc'].some((k) => typeof c[k] === 'string' && c[k].includes(removed)) || (Array.isArray(c.threads) && c.threads.some((t) => String(t).includes(removed))))) where.push('the page of ' + name);
@@ -2244,7 +2244,10 @@ async function stalenessCheck(storyId, p) {
         const mem = await loadMemory(storyId);
         const nd = (mem.nodes || []).find((x) => x && x.id === rest.slice(7));
         if (!nd) return gone('that record line');
-        if (!locate(nd.text, r.find).ok) return anchorWords(r.find, 'that record line');
+        /* M602: the line OR its detail — the housekeeper is told it may repair the detail the same way, and staging finds an
+         * anchor in either (locateInNode); this check looked in the line's text alone, so every change to a detail was set
+         * aside as stale before it could land */
+        if (!locateInNode(nd, r.find).loc.ok) return anchorWords(r.find, 'that record line');
       } else if (rest.startsWith('mod:')) {
         const mods = await listModules();
         const mod = mods.find((m) => m && m.id === rest.slice(4));
@@ -2754,7 +2757,11 @@ export async function undoLatest(session, storyId) {
     } else if (item.kind === 'record') {
       const mem = await loadMemory(storyId);
       const nd = (mem.nodes || []).find((x) => x && x.id === item.nodeId);
-      if (!nd || hashText(nd.text) !== item.afterHash) {
+      /* M602 (the audit): a card may have changed the line's DETAIL (applyRecordOp's field) — its undo checked the line's text
+       * against the detail's hash (always refused: "rewritten since") and, had it run, would have written the old detail
+       * over the line's text. The field it changed is the field it checks and puts back. */
+      const field = item.field === 'detail' ? 'detail' : 'text';
+      if (!nd || hashText(String(nd[field] || '')) !== item.afterHash) {
         return { ok: false, refused: true, words: 'Not taken back — that record line has been rewritten since “' + batch.label + '” landed.' };
       }
     } else if (item.kind === 'lore') {
@@ -2794,7 +2801,8 @@ export async function undoLatest(session, storyId) {
       else await removeModule(item.moduleId); // lifts the fork; a builtin returns
     } else if (item.kind === 'record') {
       const mem = await loadMemory(storyId);
-      const nodes = (mem.nodes || []).map((x) => (x && x.id === item.nodeId ? { ...x, text: item.before } : x));
+      const field = item.field === 'detail' ? 'detail' : 'text';
+      const nodes = (mem.nodes || []).map((x) => (x && x.id === item.nodeId ? { ...x, [field]: item.before } : x));
       await saveMemory(storyId, { ...mem, nodes });
     } else if (item.kind === 'lore') {
       await saveLore(storyId, item.beforeShelf);

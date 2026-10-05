@@ -15119,3 +15119,20 @@ the brief's love — R restored to 65, P left at 2. M48/M259's laws hold.
   ledger edit (his hand's fields marked byHand; journal ids kept for the undo), the rule edit and pin, the record edit
   (text or its detail), the brief/cast-notes edit, the lore shelf (add refused when the name exists), applyProposal's claim
   before any await and its rollback on a throw, undo's refusals when a target moved since.
+
+# M602 — the line-by-line audit, part 14: the housekeeper read on — a record line's DETAIL could never be changed or taken back
+The housekeeper is told "the DETAIL beneath a line (• Detail worth keeping: …) is part of that line and may be repaired the
+same way", and staging finds an anchor in the line or its detail (locateInNode) — but:
+- THE CARD COULD NEVER LAND: the staleness check before applying looked for the anchor in the line's TEXT only, so every
+  change to a detail was set aside as stale ("the words it looked for are not in that record line now"). It reads the line
+  or its detail now (as anchorIsDead already did).
+- AND COULD NEVER BE TAKEN BACK: undo checked the line's text against the detail's hash (always "rewritten since") and,
+  had it passed, wrote the old detail over the line's text. Undo checks and puts back the field the card changed.
+- THE RIPPLE (other places old words still stand after a page edit) read record lines' text only; their detail too now (law
+  M602-2).
+- Law M602 (staged as the house stages it, with its anchor review: the detail changes, Take back restores it, the line's
+  text untouched; it fails on the old undo — checked).
+- Read and sound: the answer reader (blocks nested or unclosed, the JSON repair — raw newlines, trailing commas, curly
+  quotes — wrapped lists, briefs sent in an edits block, unreadable blocks kept as refused cards), message references
+  (exact id, a unique prefix, a page number), the undo's checks for every kind (pages, rules, lore, the brief, the ledger
+  by journal or by its slices), the model call (its own effort, the fallback connection), the page search.
