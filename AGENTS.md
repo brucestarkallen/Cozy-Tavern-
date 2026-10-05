@@ -15053,3 +15053,11 @@ on. Ask again when you like." / "The model thought on from your thinking prefill
 with no page after it (its reason: stop)…"). The schema-not-held memory stays (his Ask again goes as written); his
 prefill is left exactly as he set it. chat.js carries it in providerEmptyWhy, set right after the call. The M590 law
 now holds the rule (asked once; the empty page names the cause; the next ask goes as written).
+
+# M597 — Close by reads a room within reach (the audit, reading the world helper)
+The world helper is told "nobody is seated where the scene itself is… another room of the same building is elsewhere — name
+that room" — so the woman behind his door is written "Rukia's quarters — the bedroom" or "the next room". Close by (M588)
+matched only the scene's exact name, so she went to Elsewhere and the storyteller was never told she was right there.
+state.js nearTheScene: a seat holding the whole of the scene's place AND naming a spot within reach of it (a door, the next
+room, a bedroom, the hall, upstairs), or a seat written relative to the scene ("the next room", "behind the door"), is close
+by; another part of a big place ("Seireitei — the 6th Division barracks") or the compound's training yard is not. Law M597.

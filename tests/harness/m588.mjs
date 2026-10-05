@@ -104,3 +104,16 @@ test('M594-2 HE LEAVES WITHOUT A WORD: when the page ends on him going, the read
   const read = await withHouse(thinkingHouse({ answer }), () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'I leave.', assistantText: page, pageNumber: 20 }));
   assert(read.mutations.some((m) => m.type === 'presence.leave' && m.name === 'Renji'), 'Renji, never named on the page, is left behind: ' + JSON.stringify(read.mutations));
 });
+
+test('M597 CLOSE BY READS A ROOM WITHIN REACH, NOT ONLY THE SCENE\'S EXACT NAME: "Rukia’s quarters — behind the door", "— the bedroom", "the next room" are close by and shown so; another part of a big place ("Seireitei — the 6th Division") or the same compound\'s yard is not', async () => {
+  const { closeBy, renderStateFacts } = await import('../../js/engine/state.js');
+  const st = applyMutations({ ...emptyState() }, [
+    { type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Rukia’s quarters' }, { type: 'presence.enter', name: 'Jovan' },
+    { type: 'people.set', name: 'Rukia', field: 'core', text: 'x' }, { type: 'offscreen.set', name: 'Rukia', location: 'Rukia’s quarters — the bedroom', activity: 'behind the closed door, reading' },
+    { type: 'people.set', name: 'Kiyone', field: 'core', text: 'x' }, { type: 'offscreen.set', name: 'Kiyone', location: 'the next room', activity: 'sorting reports' },
+    { type: 'people.set', name: 'Renji', field: 'core', text: 'x' }, { type: 'offscreen.set', name: 'Renji', location: 'Seireitei — the 6th Division barracks' },
+  ]).state;
+  eq(closeBy(st).map((n) => n.key).sort().join(','), 'Kiyone,Rukia', 'the two within reach');
+  const facts = renderStateFacts(st);
+  assert(/Close by[\s\S]*Rukia — Rukia’s quarters — the bedroom/.test(facts) && /Elsewhere:[\s\S]*Renji/.test(facts) && !/Elsewhere:[\s\S]*Rukia/.test(facts), 'shown where they are: ' + facts.slice(0, 260));
+});

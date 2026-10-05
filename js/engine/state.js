@@ -968,6 +968,26 @@ export function stateView(budgetTokens) {
 export const BLIND_HEAD = 'What they haven’t found out — no page has shown them learning these. They can still guess, suspect or be told on this page, but they speak of it or act on it only once the page shows how they came to know (who told them, what they saw); nobody remembers being told something they never were: ';
 /* M588/M589: WHO IS CLOSE BY — seated where the scene stands (behind the door he is at, in the next room): not in the scene,
  * but right there. One reading, for the storyteller's facts and the small storyteller's planner alike. */
+/* M597 (the audit, reading the world helper): Close by caught only a seat written with the scene's exact name — the world
+ * helper is told to "name that room" for anyone in another room of the place ("Rukia's quarters — behind the door", "the
+ * next room"), and those went to Elsewhere, the storyteller never told she was right there. Close by now also takes a seat
+ * that holds the whole of the scene's place AND names a spot within reach of it (a door, the next room, the hall, upstairs
+ * — never just another part of a big place: "Seireitei — the 6th Division" is not behind his door), or a seat written
+ * relative to the scene itself ("the next room", "behind the door"). */
+const TELLING_RE = /[^\p{L}\p{N}]+/gu;
+const tellingSet = (t) => new Set(String(t || '').toLowerCase().replace(TELLING_RE, ' ').split(' ').filter((w) => w.length >= 4));
+const WITHIN_REACH = /\b(?:behind (?:the|her|his|their|a) (?:door|wall|curtain|screen)|the door|next room|next door|other room|back room|bedroom|bathroom|washroom|kitchen|hall(?:way)?|corridor|upstairs|downstairs|through the wall|adjoining|adjacent|in the back)\b/i;
+const RELATIVE_SPOT = /^\s*(?:just\s+)?(?:the\s+|a\s+)?(?:next room|room next door|other room|back room|next door|hallway|corridor|landing|behind the (?:door|wall)|upstairs|downstairs|through the wall)\b/i;
+export function nearTheScene(location, sceneName) {
+  const loc = String(location || '');
+  if (!loc.trim() || !String(sceneName || '').trim()) return false;
+  if (RELATIVE_SPOT.test(loc)) return true;
+  const sceneWords = tellingSet(sceneName);
+  if (!sceneWords.size) return false;
+  const locWords = tellingSet(loc);
+  if (![...sceneWords].every((w) => locWords.has(w))) return false;
+  return WITHIN_REACH.test(loc);
+}
 export function closeBy(state) {
   const s = state && typeof state === 'object' ? state : {};
   const sceneName = s.place && typeof s.place.name === 'string' ? s.place.name : '';
@@ -977,7 +997,7 @@ export function closeBy(state) {
   for (const [key, seated] of Object.entries(s.offscreen && typeof s.offscreen === 'object' ? s.offscreen : {})) {
     if (!seated || typeof seated !== 'object' || typeof seated.location !== 'string' || !seated.location.trim()) continue;
     if (seated.dead || seated.gone || isMc(s, key) || present.some((p) => p && typeof p.name === 'string' && samePersonName(p.name, key))) continue;
-    if (!(samePlace(seated.location, sceneName) || seatAtScene(seated.location, sceneName))) continue;
+    if (!(samePlace(seated.location, sceneName) || seatAtScene(seated.location, sceneName) || nearTheScene(seated.location, sceneName))) continue;
     out.push({ key, location: seated.location.trim(), activity: seated.activity ? String(seated.activity).trim() : '' });
   }
   return out;
