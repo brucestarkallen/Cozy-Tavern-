@@ -15041,3 +15041,15 @@ elsewhere note go "when it no longer holds" — the very clear M588's always-som
   retries, the stale guards before every write (pages or record moved → nothing written), the squeeze by layers (only
   adjacent lines with nothing but empty covers between), the verify/rewrite and the auditor's FIX/DETAIL (fixes applied
   only when the right words are in the pages; the loss check's names and figures), redo/reread, catch-up.
+
+# M596 — a failed page is never asked again by the house (his standing rule, which M590 broke)
+His rule, on record: when a page fails (an error, or thinking with no page after it), the app never re-asks by itself — it
+names the real cause and he asks again by hand ("let me just manually retry if something has errors"; M377 took the
+plan re-ask out for the same reason). M590 added two re-asks inside the provider: a structured turn whose schema was not
+held and came back empty was asked again at once as written; a thinking seed that left no page was asked again without
+the seed. Both are gone. The provider now hands back emptyWhy — the house's own reading of the empty page — and the
+empty-page note says it ("This model's provider did not hold the structured prefill… Its pages go as written from now
+on. Ask again when you like." / "The model thought on from your thinking prefill (the <think> words) and stopped there,
+with no page after it (its reason: stop)…"). The schema-not-held memory stays (his Ask again goes as written); his
+prefill is left exactly as he set it. chat.js carries it in providerEmptyWhy, set right after the call. The M590 law
+now holds the rule (asked once; the empty page names the cause; the next ask goes as written).

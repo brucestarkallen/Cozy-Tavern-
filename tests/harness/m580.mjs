@@ -237,7 +237,7 @@ test('M587 THE PREFILL AUDIT: a helper never goes structured (nor carries a stru
   eq(prefillPlan({ type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', model: 'kimi-k3', prefill: 'A plain [[weird]] bracket' }).content, 'A plain [[weird]] bracket', 'brackets that are no marker are his words');
 });
 
-test('M590 "I SAID HI — THINKING, AND NO PAGE": the model\'s words are never dropped (another key read; a JSON answer in the thinking channel made the page); a schema the provider did not hold is noticed, and an empty page is asked again at once, as written; a thinking seed that left no page is asked again without it', async () => {
+test('M590/M596 "I SAID HI — THINKING, AND NO PAGE": the model\'s words are never dropped (another key read; a JSON answer in the thinking channel made the page); a schema the provider did not hold is noticed and remembered; an empty page is never re-asked by the house — it names the cause (his rule)', async () => {
   const { fillPreset } = await import('../../js/providers/structured.js');
   const frames = (list) => sseRawFrames(list);
   const a = await tell({ ...OR, prefill: '[x ', prefillMode: 'structured' }, () => frames([{ reasoning: 'Thinking.' }, { content: '{"reply":"Hi! How are you doing today?"}' }]));
@@ -246,18 +246,20 @@ test('M590 "I SAID HI — THINKING, AND NO PAGE": the model\'s words are never d
   const b = await tell({ ...OR, prefill: '[x ', prefillMode: 'structured' }, () => frames([{ reasoning: 'Let me answer. {"response":"[x Hi there, the gate stood open and the bell rang across the empty yard as dawn broke over the wall."}' }]));
   assert(b.out.text.startsWith('[x Hi there, the gate stood open'), 'the JSON in the thinking channel is the page: ' + b.out.text.slice(0, 40));
   eq(b.out.thinking.trim(), 'Let me answer.', 'and leaves the thinking');
-  const c = await tell({ ...OR, prefill: fillPreset('think', 'nice iron man').prefill, prefillMode: 'structured' }, (n) => (n === 1 ? frames([{ content: '<think>nice iron man, I should greet him warmly' }]) : frames([{ content: '[The gate — Monday | 09:00]\n\nKaelen grinned at him.' }])));
-  eq(c.calls.length, 2, 'asked again at once');
-  assert(c.calls[0].body.response_format && !c.calls[1].body.response_format, 'the second time as written');
-  eq(c.out.text, '[The gate — Monday | 09:00]\n\nKaelen grinned at him.', 'the page');
+  /* M596 (his rule: a failed page is never re-asked by the house): the empty page names the cause; his Ask again goes as written */
+  const cConn = await db.connections.add({ ...OR, model: 'some/unheld', prefill: fillPreset('think', 'nice iron man').prefill, prefillMode: 'structured' });
+  const c = await tell(cConn, () => frames([{ content: '<think>nice iron man, I should greet him warmly' }]));
+  eq(c.calls.length, 1, 'asked once — never again by itself');
+  eq(c.out.text, '', 'no page');
+  assert(/did not hold the structured prefill/.test(c.out.emptyWhy || ''), 'the empty page says why: ' + c.out.emptyWhy);
+  const cAgain = await tell((await db.connections.list()).find((x) => x.id === cConn.id), () => frames([{ content: '[The gate — Monday | 09:00]\n\nKaelen grinned at him.' }]));
+  assert(!cAgain.calls[0].body.response_format, 'his Ask again goes as written (the model is remembered)');
   const moon = { type: 'openai', baseUrl: 'https://api.moonshot.ai/v1', apiKey: 'k', model: 'kimi-k3', prefill: '<think>nice iron man will make this good' };
-  const d = await tell(moon, (n) => (n === 1 ? frames([{ reasoning_content: 'nice iron man will make this good — and then I just keep thinking' }]) : frames([{ content: 'Hi! The gate creaked open.' }])));
-  eq(d.calls.length, 2, 'a seed that left no page: asked again');
-  const last = d.calls[0].body.messages[d.calls[0].body.messages.length - 1];
-  assert(last.role === 'assistant', 'the first time with his seed');
-  assert(d.calls[1].body.messages[d.calls[1].body.messages.length - 1].role === 'user', 'the second without it');
-  eq(d.out.text, 'Hi! The gate creaked open.', 'the page');
-  assert(d.out.notes.some((n) => /The thinking seed left this model with no page/.test(n)), 'said');
+  const d = await tell(moon, () => frames([{ reasoning_content: 'nice iron man will make this good — and then I just keep thinking' }]));
+  eq(d.calls.length, 1, 'a seed that left no page: asked once, never again by itself');
+  eq(d.calls[0].body.messages[d.calls[0].body.messages.length - 1].role, 'assistant', 'with his seed, as he set it');
+  eq(d.out.text, '', 'no page');
+  assert(/thought on from your thinking prefill/.test(d.out.emptyWhy || ''), 'the empty page names it: ' + d.out.emptyWhy);
 });
 
 test('M592 A WHOLE ANSWER ONLY IS JUDGED: Structured is never switched off for a model on a page cut short — by the provider\'s length, or by the house\'s own stall guard; an answer held as asked never is either', async () => {

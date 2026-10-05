@@ -415,7 +415,7 @@ export function createOpenAIProvider(connection) {
     }
   }
 
-  async function streamChat({ systemBlocks: blocks, system, messages, signal: callerSignal, onToken, retryAs = null }) {
+  async function streamChat({ systemBlocks: blocks, system, messages, signal: callerSignal, onToken }) {
     /* M585: the turn's own line to the provider, tied to his Stop — so the house can cut it when an answer is complete
      * (a structured answer that closed): the provider stops writing (and billing), and the usage meter's copy of the
      * stream ends with it instead of reading the padding to the provider's end */
@@ -473,7 +473,7 @@ export function createOpenAIProvider(connection) {
      * ONE more time without them; then never again until the model field
      * changes. */
     let res = null;
-    let opts = retryAs ? { ...retryAs } : {}; /* M590: a turn asked again the way that works carries how */
+    let opts = {};
     /* M303: a refusal remembered for a spelling this connection no longer
      * speaks is let go before the turn — the house repairs what it can see */
     await healStaleRefusal(connection, reasonStyle(connection));
@@ -686,6 +686,7 @@ export function createOpenAIProvider(connection) {
      * page is whole as it stands (Go on asks for more); and a structured answer whose words have not grown for 20 seconds
      * while it keeps sending is stopped, its words kept, the page marked cut short and said. */
     let rawSinceWords = 0; let wordsAt = Date.now(); let wordsLen = 0; let stalled = false;
+    let emptyWhy = ''; /* M596: why a page came back empty, when the house can tell — said, never re-asked */
     const STALL_MS = Number(globalThis.__cozyStructuredStallMs) > 0 ? Number(globalThis.__cozyStructuredStallMs) : 20000;
     const readStructured = () => {
       if (!decoder) return undefined;
@@ -759,20 +760,18 @@ export function createOpenAIProvider(connection) {
         try { await markConnectionDown(connection, 'structuredDownAt'); } catch (err) { /* in hand for this turn */ }
         try { await db.connections.update(connection.id, { structuredDownModel: connection.structuredDownModel }); } catch (err) { /* in hand */ }
         notes.push('This model’s provider did not hold the structured prefill — its answer did not open as your template asks (so the prefill did nothing, and could leave the page in the thinking box). It is sent as written for this model from now on.');
-        if (!full.trim() && !retryAs) {
-          /* M590: and the page he is waiting for is asked again at once, as written — never left to an "Ask again" */
-          const again = await streamChat({ systemBlocks: blocks, system, messages, signal: callerSignal, onToken, retryAs: { suppressStructured: true } });
-          return { ...again, thinking: (thinking.trim() ? thinking.replace(/\s+$/, '') + '\n\n' : '') + (again.thinking || ''), notes: [...notes, ...(again.notes || [])] };
-        }
+        /* M596 (his standing rule: a failed page is never asked again by itself — the house names the real cause and he
+         * asks again by hand): M590 re-asked at once here; now the empty page says why, and his Ask again goes as
+         * written, since the model is remembered */
+        if (!full.trim()) emptyWhy = 'This model’s provider did not hold the structured prefill — it wrote its thinking and no page in the shape your template asks. Its pages go as written from now on. Ask again when you like.';
       }
     }
     /* M590: A THINKING SEED THAT LEFT NO PAGE. A model handed his <think> seed thought on and ended (stop) with no page —
      * on the provider's own chat, with no seed, it answers. The same turn is asked once more without the seed, and he is
      * told; nothing is changed on his connection (the next turn tries his seed again — it may have been this page alone). */
-    if (!full.trim() && thinking.trim() && finishReason === 'stop' && !retryAs && sentPrefill && sentPrefill.seed && !structuredNow) {
-      notes.push('The thinking seed left this model with no page — it thought on from your seed and stopped. The page was asked again without the seed.');
-      const again = await streamChat({ systemBlocks: blocks, system, messages, signal: callerSignal, onToken, retryAs: { suppressPrefill: true } });
-      return { ...again, thinking: thinking.replace(/\s+$/, '') + '\n\n' + (again.thinking || ''), notes: [...notes, ...(again.notes || [])] };
+    /* M596: and the empty page names it — never re-asked by the house (his rule); his prefill is left as he set it */
+    if (!full.trim() && thinking.trim() && finishReason === 'stop' && sentPrefill && sentPrefill.seed && !structuredNow) {
+      emptyWhy = 'The model thought on from your thinking prefill (the <think> words) and stopped there, with no page after it (its reason: stop). Nothing was cut by the house. Ask again when you like.';
     }
     if (decoder && decoder.closed()) {
       /* M585: the answer's text closed. A page that ends on a sentence's close is complete; one that closed mid-sentence
@@ -815,6 +814,7 @@ export function createOpenAIProvider(connection) {
       finishReason,
       notes,
       prefill: prefillReport(connection, sentPrefill, modelThought, full),
+      ...(emptyWhy && !full.trim() ? { emptyWhy } : {}),
       sent: sentWire, /* M347 */
       sources: [],
       ttftMs: ttftMs === null ? durationMs : ttftMs,

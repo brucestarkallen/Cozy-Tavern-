@@ -5137,6 +5137,7 @@ export function initChat(ctx) {
       /* M322: what the provider sent as thinking, and what the reply itself said before its header */
       let provThinking = '';
       let leadThinking = '';
+      let providerEmptyWhy = ''; /* M596: the provider's own reading of an empty page, when it has one */
       let wholeReply = '';
       const cutLead = !ooc && (await db.settings.get('cutBeforeHeader')) !== false;
       cutOldPages = (await db.settings.get('cutBeforeHeader')) !== false;
@@ -5284,6 +5285,7 @@ export function initChat(ctx) {
             followTail();
           },
         });
+        providerEmptyWhy = (result && typeof result.emptyWhy === 'string') ? result.emptyWhy : '';
         if (gate) gate.end(); /* a reply with no header at all is handed back whole, as the page */
         full = result.text;
         wholeReply = String(result.text || ''); /* M325: the reply as it came — what the repair below judges and hands back */
@@ -5614,7 +5616,7 @@ export function initChat(ctx) {
          * assistant / assistant). A failed version is asked for again as a
          * version, through the same door the ▸ uses. */
         els.thread.appendChild(retryNoteNode(
-          failedWords || emptyPageWhy(finishReason, thinking, leadThinking), /* M545: the provider's own reason, never a guess; M591: and the house's own part said */
+          failedWords || providerEmptyWhy || emptyPageWhy(finishReason, thinking, leadThinking), /* M545: the provider's own reason, never a guess; M591: and the house's own part said; M596: the house's own reading when it has one */
           async () => {
             if (!swipeTarget) { retryAsk(); return; }
             const standing = (await db.messages.list(story.id)).find((m) => m.id === swipeTarget.id);
