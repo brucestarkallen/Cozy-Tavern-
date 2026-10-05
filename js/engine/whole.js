@@ -172,6 +172,8 @@ export function renderWholeLedger(state) {
   section('What is locked true:',
     state.canon && typeof state.canon === 'object' ? renderCanon(state.canon, Object.keys(state.canon)) : '', '(nothing locked)');
   section('Factions — all of them:', renderAllFactions(state.factions), '(none)');
+  /* M604: every thing the story keeps, and where */
+  section('Things — all of them (where each stands now):', Object.entries(state.things && typeof state.things === 'object' ? state.things : {}).filter(([, t]) => t && typeof t.where === 'string').map(([n, t]) => '- ' + n + (t.owner ? ' (' + t.owner + '’s)' : '') + ' — ' + t.where + (t.note ? ' (' + t.note + ')' : '')).join('\n'), '(none)');
   return out.join('\n');
 }
 

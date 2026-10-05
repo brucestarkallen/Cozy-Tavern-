@@ -81,6 +81,7 @@ export const emptyState = () => ({
   pendingVerdict: null,     // the referee's ruling, consumed by the next buildRequest (M6; the directive rides the "The house has ruled" tail slot in M11)
   lastVerdict: null,        // its echo, kept for the drawer's "The house has ruled" line (M6)
   factions: {},             // {[name]: {stance, agenda, move, atTurn}} — M29 engine/world.js
+  things: {},               // M604: {[name]: {where, owner?, note?, atTurn}} — what exists and where it is now (the Batwing on the roof)
   threads: [],              // [{title, owner, heat, next, atTurn}] — M29 engine/world.js
   knowledge: {},            // {[name]: [{fact, atTurn}]} — who knows what (M29)
   worldBrief: null,         // the world agent's word for the next turn (M29) — {pressure, ripe, twb, atTurn}
@@ -333,6 +334,7 @@ function normalize(saved) {
   next.offscreen = migrateOffscreen(saved.offscreen);
   next.groundWas = saved.groundWas && typeof saved.groundWas === 'object' && typeof saved.groundWas.name === 'string' && Number.isInteger(saved.groundWas.page) ? { name: saved.groundWas.name, page: saved.groundWas.page } : null; /* M304 */
   next.factions = saved.factions && typeof saved.factions === 'object' ? saved.factions : {};
+  next.things = saved.things && typeof saved.things === 'object' && !Array.isArray(saved.things) ? saved.things : {}; /* M604 */
   /* M29 (v7): knowledge and the world brief — no-loss; legacy string
    * threads keep rendering (renderStateFacts tolerates both shapes). */
   next.knowledge = dedupeKnowledge(saved.knowledge && typeof saved.knowledge === 'object' ? saved.knowledge : {}); /* M92: duplicates folded on load */
@@ -988,6 +990,25 @@ export function nearTheScene(location, sceneName) {
   if (![...sceneWords].every((w) => locWords.has(w))) return false;
   return WITHIN_REACH.test(loc);
 }
+/* M604: the things the storyteller is shown — at the scene's place first, then the main character's own wherever they are,
+ * then whatever a page touched in the last 30 pages; twelve at most (the whole list rides in the helpers' view) */
+export function renderThings(state, cap = 12) {
+  const s = state && typeof state === 'object' ? state : {};
+  const things = s.things && typeof s.things === 'object' ? s.things : {};
+  const scene = s.place && typeof s.place.name === 'string' ? s.place.name : '';
+  const now = storyTurn(s);
+  const rows = [];
+  for (const [name, t] of Object.entries(things)) {
+    if (!t || typeof t !== 'object' || typeof t.where !== 'string' || !t.where.trim()) continue;
+    const here = Boolean(scene) && (samePlace(t.where, scene) || seatAtScene(t.where, scene) || nearTheScene(t.where, scene) || [...tellingSet(scene)].every((w) => tellingSet(t.where).has(w)));
+    const his = typeof t.owner === 'string' && t.owner && isMc(s, t.owner);
+    const fresh = Number.isFinite(t.atTurn) && now - t.atTurn <= 30;
+    if (!here && !his && !fresh) continue;
+    rows.push({ name, t, rank: here ? 0 : his ? 1 : 2, at: Number.isFinite(t.atTurn) ? t.atTurn : 0 });
+  }
+  rows.sort((a, b) => (a.rank - b.rank) || (b.at - a.at));
+  return rows.slice(0, cap).map(({ name, t }) => '- ' + name + (t.owner ? ' (' + t.owner + '’s)' : '') + ' — ' + t.where.trim() + (t.note ? ' (' + t.note + ')' : '')).join('\n');
+}
 export function closeBy(state) {
   const s = state && typeof state === 'object' ? state : {};
   const sceneName = s.place && typeof s.place.name === 'string' ? s.place.name : '';
@@ -1131,6 +1152,10 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   const nearLines = near.map((n) => '- ' + n.key + ' — ' + n.location + (n.activity ? ' (' + n.activity + ')' : ''));
   if (nearLines.length) sections.push({ shed: 1, text: 'Close by — not in the scene, but right here (they can hear, see, or answer the door; the attempt rule reaches them too):\n' + nearLines.join('\n') });
   const farOffscreen = nearKeys.size ? Object.fromEntries(Object.entries(state.offscreen || {}).filter(([k]) => !nearKeys.has(k))) : state.offscreen;
+  /* M604: THINGS — what exists and where it stands now, kept as long as who is here: what is at this place, then his own,
+   * then what the story touched lately. Before writing how anyone gets anywhere or what they can do, this is what they have. */
+  const thingLines = renderThings(state);
+  if (thingLines) sections.push({ shed: 1, text: 'Things that matter — where each stands now (what they have to hand before anything is invented):\n' + thingLines });
   const elsewhere = renderOffscreen(farOffscreen, present, clockMinutes, whole ? 1000 : undefined, state.characters || {}); /* M396 */
   if (elsewhere) sections.push({ shed: 3, text: 'Elsewhere: ' + elsewhere.split('\n').join('\n') });
 

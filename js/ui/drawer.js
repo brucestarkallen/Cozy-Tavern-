@@ -1861,7 +1861,11 @@ function worldPanel(ctx) {
   const facHead = quietNote('Factions');
   const fac = document.createElement('ul');
   fac.className = 'present-list';
-  wrap.append(note, briefBox, threadsHead, threads, knowHead, know, facHead, fac);
+  /* M604: the things the story keeps — what exists and where it stands now, newest first */
+  const thingsHead = quietNote('Things');
+  const thingsList = document.createElement('ul');
+  thingsList.className = 'present-list';
+  wrap.append(note, briefBox, threadsHead, threads, knowHead, know, facHead, fac, thingsHead, thingsList);
 
   const line = (text, cls) => {
     const p = document.createElement('p');
@@ -1876,9 +1880,10 @@ function worldPanel(ctx) {
     threads.textContent = '';
     know.textContent = '';
     fac.textContent = '';
+    thingsList.textContent = '';
     if (!story) {
       note.textContent = 'Open a story and the world beyond its page will keep its book here.';
-      threadsHead.hidden = knowHead.hidden = facHead.hidden = true;
+      threadsHead.hidden = knowHead.hidden = facHead.hidden = thingsHead.hidden = true;
       return;
     }
     const state = await loadState(story.id);
@@ -1958,6 +1963,18 @@ function worldPanel(ctx) {
       li.className = 'log-row';
       li.textContent = name + ' — ' + [f.stance, f.agenda ? 'wants ' + f.agenda : '', f.move ? 'last move: ' + f.move : ''].filter(Boolean).join('; ');
       fac.appendChild(li);
+    }
+    /* things, newest first */
+    const things = state.things && typeof state.things === 'object' ? state.things : {};
+    const thingNames = Object.keys(things).filter((n) => things[n] && typeof things[n].where === 'string')
+      .sort((a, b) => (Number(things[b].atTurn) || 0) - (Number(things[a].atTurn) || 0));
+    thingsHead.hidden = !thingNames.length;
+    for (const name of thingNames) {
+      const t = things[name];
+      const li = document.createElement('li');
+      li.className = 'log-row';
+      li.textContent = name + (t.owner ? ' (' + t.owner + '’s)' : '') + ' — ' + t.where + (t.note ? ' (' + t.note + ')' : '');
+      thingsList.appendChild(li);
     }
   });
 

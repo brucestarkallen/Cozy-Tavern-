@@ -149,6 +149,8 @@ const VOCABULARY = [
   'rel.shift {"type":"rel.shift","name":"OTHER NAME","axis":"p","delta":8,"cause":"she bandaged his hand without being asked"} — feelings toward the main character only; axis is p (warmth), r (romantic pull), or s (sensual charge); delta a small number, -20 to +20; cause REQUIRED, quoting the on-page beat that earned it',
   'rel.set {"type":"rel.set","name":"OTHER NAME","p":45,"r":60,"cause":"the page reveals she has loved him since they were children"} — when the page, the brief or the story\'s opening states a feeling that already exists (REVEALED, NOT EARNED, below) — never as a guess',
   'offscreen.set {"type":"offscreen.set","name":"NAME","location":"the chapel","activity":"lighting candles for the dead","agenda":"meaning to warn the abbot"} — only for a named character the prose shows leaving or shows elsewhere; never invent off-screen doings for someone the prose doesn’t mention',
+  'thing.set {"type":"thing.set","name":"THE THING","where":"where it stands NOW","owner":"WHOSE (optional)","note":"its state, optional"} — a vehicle, weapon, device or object that matters to what can happen next (a jet parked on the roof, the case of cash in the trunk, the letter in her drawer): written when the page brings it in, and again when it moves or changes — never set dressing',
+  'thing.clear {"type":"thing.clear","name":"THE THING","cause":"…"} — when the page destroys it, uses it up or gives it out of the story',
   'offscreen.clear {"type":"offscreen.clear","name":"NAME"} — only for someone who is in the scene now (their elsewhere note is stale); for anyone else whose note no longer holds, write offscreen.set with where they are now — a person the story keeps is always somewhere',
 ].join('\n');
 

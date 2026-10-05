@@ -895,6 +895,7 @@ const SYSTEM_PROMPT = [
   '  rel.shift {name,axis p|r|s,delta,cause}; rel.set {name,p?,r?,s?,cause}; rel.clear {name,cause};',
   '  offscreen.set {name,location,activity,agenda?,stance?,etaMinutes?}; offscreen.clear {name} (only for someone in the scene — anyone else is moved with offscreen.set: a person the story keeps is always somewhere);',
   '  canon.lock {name,key,value}; canon.unlock {name,key};',
+  '  thing.set {name,where,owner?,note?} — a thing that matters and where it stands now; thing.clear {name,cause};',
   '  thread.set {title,owner,heat,next}; thread.close {title};',
   '  knowledge.add {name,fact} — who knows what; knowledge.forget {name,fact} — a fact they',
   '  do not know after all, or one written twice (quote it; every copy goes);',
@@ -1072,6 +1073,7 @@ export function ledgerTargetKey(m) {
   if (t === 'faction.set') return 'faction:' + name;
   if (t.startsWith('people.')) return 'people:' + name;
   if (t.startsWith('combat.')) return 'combat';
+  if (t.startsWith('thing.')) return 'thing:' + name; /* M604 */
   return 'state';
 }
 export function ledgerSliceHash(state, key) {
@@ -1097,6 +1099,7 @@ export function ledgerSliceHash(state, key) {
   else if (kind === 'faction') slice = byName(st.factions);
   else if (kind === 'people') slice = byName(st.characters);
   else if (kind === 'combat') slice = { duel: st.duel || null, battle: st.battle || null, combat: Boolean(st.mode && st.mode.combat) };
+  else if (kind === 'thing') { const things = st.things && typeof st.things === 'object' ? st.things : {}; const k = Object.keys(things).find((x) => x.toLowerCase() === name); slice = k ? things[k] : null; } /* M604 */
   else return stateHashOf(st);
   try { return hashText(JSON.stringify(slice === undefined ? null : slice)); } catch (err) { return hashText(''); }
 }

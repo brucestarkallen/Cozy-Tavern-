@@ -91,6 +91,7 @@ function copyState(state) {
     /* M29: the world beyond the page rides the same copy discipline. */
     knowledge: cloneMap(safe.knowledge),
     factions: cloneMap(safe.factions),
+    things: cloneMap(safe.things && typeof safe.things === 'object' && !Array.isArray(safe.things) ? safe.things : {}), /* M604: its own copy — never the ledger it was made from */
     threads: Array.isArray(safe.threads) ? safe.threads.map((t) => (t && typeof t === 'object' ? { ...t } : t)) : [],
     /* M12: the character ledger rides the same copy discipline. */
     characters: cloneMap(safe.characters),
@@ -1033,6 +1034,37 @@ const HANDLERS = {
     return { words, undo: { kind: 'faction.restore', name: key, before } };
   },
 
+  /* M604 (his report: "the Batwing was parked on that roof — then the storyteller staged an ambulance like a CW show"):
+   * THINGS. What exists in the story and where it is NOW — a vehicle, a weapon, a device, an object that matters to what can
+   * happen next — kept so nobody forgets a jet fifty yards away. One page per thing, by name; where it stands and whose. */
+  'thing.set'(state, m) {
+    const name = capText(normalizeName(m.name), 120);
+    if (!name) return { why: 'a thing needs a name' };
+    state.things = { ...(state.things && typeof state.things === 'object' && !Array.isArray(state.things) ? state.things : {}) };
+    const key = Object.keys(state.things).find((k) => k.toLowerCase() === name.toLowerCase()) || name;
+    const before = state.things[key] ? { ...state.things[key] } : null;
+    const where = capText(m.where, 240);
+    if (!where && !before) return { why: 'a new thing needs where it is — ' + name };
+    const next = { ...(before || {}), where: where || before.where };
+    const owner = capText(normalizeName(m.owner || ''), 120);
+    if (owner) next.owner = owner;
+    if (typeof m.note === 'string') { const note = capText(m.note, 300); if (note) next.note = note; else delete next.note; }
+    if (before && before.where === next.where && (before.owner || '') === (next.owner || '') && (before.note || '') === (next.note || '')) return { why: key + ' is already written so', same: true };
+    next.atTurn = storyTurn(state);
+    state.things[key] = next;
+    return { words: key + (next.owner ? ' (' + next.owner + '’s)' : '') + ' — ' + next.where.replace(/\.+$/, '') + '.', undo: { kind: 'thing.restore', name: key, before } };
+  },
+  'thing.clear'(state, m) {
+    const name = capText(normalizeName(m.name), 120);
+    const things = { ...(state.things && typeof state.things === 'object' ? state.things : {}) };
+    const key = Object.keys(things).find((k) => k.toLowerCase() === String(name || '').toLowerCase());
+    if (!key) return { why: 'the ledger holds no thing called ' + (name || '?'), same: true };
+    const before = { ...things[key] };
+    delete things[key];
+    state.things = things;
+    return { words: key + ' — gone from the story' + (m.cause ? ' (' + capText(m.cause, 160).replace(/\.+$/, '') + ')' : '') + '.', undo: { kind: 'thing.restore', name: key, before } };
+  },
+
   /* M57: a passer-through retires — kept, out of the roster and the drawer's
    * main list — and wakes the moment they are on a page again. */
   'people.retire'(state, m) {
@@ -1049,12 +1081,16 @@ const HANDLERS = {
     const from = normalizeName(m.from); const to = normalizeName(m.to);
     if (!from || !to) return { why: 'a rename needs the old name and the new' };
     if (from.toLowerCase() === to.toLowerCase()) return { why: 'the same name' };
-    const keys = ['characters', 'offscreen', 'relationships', 'knowledge', 'canon', 'bodies', 'present', 'threads', 'factions', 'sheet'];
+    const keys = ['characters', 'offscreen', 'relationships', 'knowledge', 'canon', 'bodies', 'present', 'threads', 'factions', 'sheet', 'things'];
     const before = {};
     for (const k of keys) before[k] = JSON.parse(JSON.stringify(state[k] === undefined ? null : state[k]));
     const { state: renamed, count } = renameInState(state, from, to);
     if (!count) return { why: 'nothing in the ledger is called ' + from };
     for (const k of keys) if (renamed[k] !== undefined) state[k] = renamed[k];
+    /* M604: whose a thing is follows the name too */
+    for (const t of Object.values(state.things && typeof state.things === 'object' ? state.things : {})) {
+      if (t && typeof t.owner === 'string' && t.owner.toLowerCase() === from.toLowerCase()) t.owner = to;
+    }
     return { words: from + ' is ' + to + ' now — ' + count + ' ' + (count === 1 ? 'place' : 'places') + ' in the ledger follow' + (m.cause ? ' (' + capText(m.cause, 1000) + ')' : '') + '.', undo: { kind: 'people.renamed', before } };
   },
   /* M96: people.forget — a person who was never the story's (a leaked example,
@@ -2259,6 +2295,11 @@ function applyUndo(next, undo) {
       const key = findKnowledgeKey(next.knowledge, undo.name) || undo.name;
       if (undo.before) next.knowledge[key] = undo.before.map((k) => ({ ...k }));
       else delete next.knowledge[key];
+      ok = true;
+    } else if (undo.kind === 'thing.restore') {
+      next.things = { ...(next.things && typeof next.things === 'object' ? next.things : {}) };
+      if (undo.before) next.things[undo.name] = { ...undo.before };
+      else delete next.things[undo.name];
       ok = true;
     } else if (undo.kind === 'faction.restore') {
       const key = findFactionKey(next.factions, undo.name) || undo.name;

@@ -71,6 +71,7 @@ const VOCABULARY = [
   '  (never to start or move a standing from a page — a beat is the page reader\'s, and the brief\'s digits are restored by the house; never one for the main character;',
   '  never one the brief sets toward someone else — the cause says what the brief sets toward the main character)',
   'offscreen.set {"type":"offscreen.set","name":"NAME","location":"…","activity":"…","agenda":"…","stance":"toward|seeking|tense|busy|waiting","etaMinutes":25} / offscreen.clear {"type":"offscreen.clear","name":"NAME"} (a clear only for someone in the scene now — anyone else gets offscreen.set with where they are: a person the story keeps is always somewhere)',
+  'thing.set {"type":"thing.set","name":"THE THING","where":"where it stands now","owner":"WHOSE"} / thing.clear {"type":"thing.clear","name":"THE THING","cause":"…"} (a vehicle, weapon or object the pages put somewhere — the Things list is what exists; correct where it stands when the pages say otherwise)',
   'canon.lock {"type":"canon.lock","name":"NAME","key":"hair","value":"black"} / canon.unlock {"type":"canon.unlock","name":"NAME","key":"hair"}',
   'thread.set {"type":"thread.set","title":"…","owner":"…","heat":"hot|cold","next":"…"} / thread.close {"type":"thread.close","title":"…"}',
   'knowledge.add {"type":"knowledge.add","name":"OTHER NAME","fact":"…"} / knowledge.forget {"type":"knowledge.forget","name":"NAME","fact":"the wrong line, as written"} — forget ONLY a line the pages contradict, and add the right one beside it',
@@ -749,6 +750,7 @@ export const AUDITOR_TYPES = new Set([
   'body.injure', 'body.heal', 'rel.set', 'offscreen.set', 'offscreen.clear',
   'canon.lock', 'canon.unlock', 'thread.set', 'thread.close', 'knowledge.add', 'knowledge.forget', /* M372: a wrong fact can be let go */
   'faction.set', 'people.set', 'people.note', 'people.forget',
+  'thing.set', 'thing.clear', /* M604: a thing in the wrong place, or one the pages destroyed */
 ]);
 /* M279: "stands as the pages moved it", "not the ledger's to zero" — thirteen such lines at turn 77 */
 const ALL_IS_WELL = /\b(stands? as written|stands? as the (?:pages|story) (?:have |has )?(?:moved|left|put|set) (?:it|them|her|him)|not (?:the ledger'?s|mine|the auditor'?s) to (?:zero|move|change|touch)|left as written|as the story has it|(?:is|are) (?:live and )?(?:correct|correctly \w+|complete|consistent|accurate|fine)|none is wrongly|nothing (?:is )?(?:wrong|stale|missing)|match(?:es)? the (?:brief|pages)|no canon contradicts|no (?:change|fix) (?:is )?needed)\b/i;

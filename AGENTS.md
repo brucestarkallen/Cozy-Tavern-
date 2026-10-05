@@ -15147,3 +15147,26 @@ same way", and staging finds an anchor in the line or its detail (locateInNode) 
 - The rest of the housekeeper read whole and sound: the hashes behind every staleness and undo check, the ledger slice keys,
   the journal undo, the saved conversations (sessions listed by their last use; new, branch at a turn, rename, delete keeps
   one; edit/delete a turn; retry with its way back; answer versions kept and walked; the last exchange let go).
+
+# M604 — his Batman report: the Batwing parked on the roof, then an ambulance, a bribable medic, a stretcher at the manor's gate
+# and Gordon at the door with a folder ("do you think Barbara is that stupid? Bruce? Alfred?")
+His own storyteller traced it (pasted): it forgot the Batwing it had parked fifty yards off in the first scene, wrote Alfred
+DRIVING to the roof, which forced a street handoff, a stretcher, witnesses — and then invented the paper trail in the same
+breath as its discovery "because I wanted Gordon at your door". Two roots on the house's side:
+- THE LEDGER KEPT NO THINGS. People, places, standings, wounds, threads, knowledge — but nowhere that the jet stood on that
+  roof, so nothing put it back in front of the storyteller when it mattered. THINGS now (state.things; apply.js thing.set
+  {name, where, owner?, note?} / thing.clear, each undoable, one page per thing, its own copy in every ledger copy — the
+  first version wrote into the map it was handed, and an earlier ledger changed under it; caught reading it back). The page
+  reader writes a vehicle, weapon, device or object that matters to what can happen next, and again when it moves; the
+  storyteller is shown "Things that matter — where each stands now" (what is at the scene first, then his own wherever they
+  are, then what a page touched lately; kept as long as who is here); the helpers' whole view lists all; the housekeeper and
+  the auditor can correct one; the drawer's world room lists them, newest first; a rename carries whose a thing is.
+- NOTHING SAID "USE WHAT THEY HAVE". The craft held Epistemic Law, NPCs Are Not Sherlock Holmes, Secret Identity Quarantine —
+  but no rule that a capable person's resources and care are kept. COMPETENCE IS KEPT (craft): before writing how anyone gets
+  anywhere, hides a wound, keeps a secret or covers a trail, look at what they HAVE (the Things line, the pages, the brief);
+  a careful person does it the careful way; a trail, witness or document found on a page must already exist on an EARLIER
+  page — inventing it in the same breath as its discovery is the leak in disguise. The craft as shipped through M603
+  (vqbgae) is known as shipped, so his tales get the new one.
+- AND THE WORLD HELPER'S AGENDAS: built only from what their owner knows; a secret is never anyone's target without a lead
+  a page already gave; it never invents the witness, the paper or the slip that would expose a careful keeper.
+- Laws M604-1..4.
