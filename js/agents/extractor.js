@@ -37,7 +37,7 @@
 import { HERE_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, samePlace, seatAtScene } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, samePlace, seatAtScene, mcWalksOff } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
 import { headerMutations } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc } from '../engine/people.js';
 import { publicMoment } from '../engine/world.js'; /* M509-15: a moment the whole room saw */
@@ -476,23 +476,7 @@ export function hereFromBoard(state, here, assistantText, mutations = []) {
   return out;
 }
 
-/* M588: does the scene end on the main character going? His name (whole, or its first word) opening a clause — not after
- * "to", "at", "with", "toward", "past", "behind", "for", "from" — with a going in the same sentence. */
-export function mcWalksOff(pageText, mc) {
-  const scene = narrationOf(scenePartOf(String(pageText || '')));
-  const sentences = scene.split(/(?<=[.!?…])\s+/).map((x) => x.trim()).filter(Boolean).slice(-3);
-  const parts = String(mc || '').trim().split(/\s+/).filter(Boolean);
-  const names = [...new Set([parts.join(' '), parts[0], parts.length > 1 ? parts[parts.length - 1] : ''].filter((n) => n && n.length >= 2))];
-  const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const GO = '(?:walked|walks|walk|strode|strides|headed|heads|went|goes|left|leaves|stalked|marched|stormed|slipped|stepped|turned)\\b[^.!?]{0,40}?\\b(?:away|off|out|on|back|toward|towards|to|into|from|down|up|through)\\b|\\b(?:left|leaves|departed|departs)\\b';
-  for (const sentence of sentences) {
-    for (const n of names) {
-      const re = new RegExp('(?:^|[,;—–]\\s*|\\band\\s+|\\bthen\\s+)(?<!\\b(?:to|at|with|toward|towards|past|behind|for|from|beside|by)\\s)' + esc(n) + '\\b(?:\\s+\\p{L}+){0,8}?\\s+' + '(?:' + GO + ')', 'iu');
-      if (re.test(sentence)) return true;
-    }
-  }
-  return false;
-}
+export { mcWalksOff } from '../engine/apply.js'; /* M598: one reading, kept with goneAtTheEnd — the auditor reads it too */
 export async function extractTurn(args = {}) {
   const read = await extractTurnRead(args);
   if (read && Array.isArray(read.mutations)) {

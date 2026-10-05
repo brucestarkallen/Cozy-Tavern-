@@ -117,3 +117,25 @@ test('M597 CLOSE BY READS A ROOM WITHIN REACH, NOT ONLY THE SCENE\'S EXACT NAME:
   const facts = renderStateFacts(st);
   assert(/Close by[\s\S]*Rukia — Rukia’s quarters — the bedroom/.test(facts) && /Elsewhere:[\s\S]*Renji/.test(facts) && !/Elsewhere:[\s\S]*Rukia/.test(facts), 'shown where they are: ' + facts.slice(0, 260));
 });
+
+test('M598 A PASSER-THROUGH STILL PASSES OUT OF THE STORY: the house\'s upkeep retires one nothing carries and then lets the seat go — the always-somewhere rule (M588) never keeps a seat for someone who has left the story', async () => {
+  const { seatHousekeeping } = await import('../../js/agents/auditor.js');
+  let st = applyMutations({ ...emptyState(), page: 200 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the yard' }, { type: 'presence.enter', name: 'Jovan' },
+    { type: 'people.set', name: 'Hideo the porter', field: 'core', text: 'a porter who carried one crate' }, { type: 'offscreen.set', name: 'Hideo the porter', location: 'the east gate', activity: 'unloading' }]).state;
+  st.offscreen['Hideo the porter'].atTurn = 1;
+  const muts = seatHousekeeping(st, { brief: '', castNotes: '', pages: [], castNames: [] });
+  assert(muts.findIndex((m) => m.type === 'people.retire') < muts.findIndex((m) => m.type === 'offscreen.clear'), 'retired first: ' + JSON.stringify(muts));
+  const r = applyMutations(st, muts);
+  assert(!r.state.offscreen['Hideo the porter'], 'the seat is let go: ' + JSON.stringify(r.rejected));
+  /* a kept person (not retired) still keeps hers */
+  const kept = applyMutations(st, [{ type: 'people.set', name: 'Rukia', field: 'core', text: 'x' }, { type: 'offscreen.set', name: 'Rukia', location: 'her quarters' }, { type: 'offscreen.clear', name: 'Rukia' }]).state;
+  assert(kept.offscreen.Rukia, 'a kept person is still never left nowhere');
+});
+
+test('M598-2 THE AUDITOR\'S LEAVE STANDS WHEN THE PAGE ENDS ON HIM GOING, as the page reader\'s does — and the walk-off test is one reading for both', async () => {
+  const { mcWalksOff } = await import('../../js/engine/apply.js');
+  const ex = await import('../../js/agents/extractor.js');
+  eq(ex.mcWalksOff, mcWalksOff, 'one reading');
+  assert(mcWalksOff('Rukia stayed by the fountain. Jovan turned his back on her and walked away toward the far gate.', 'Jovan'), 'he goes');
+  assert(!mcWalksOff('Kuchiki-taichō nodded to Oda, then left without a word.', 'Jovan Oda'), 'the captain goes, not him');
+});

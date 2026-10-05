@@ -865,7 +865,10 @@ const HANDLERS = {
      * moves the note) or they walk in (presence.enter lets it go). */
     /* a note nobody's page carries (a stray, a name the story never kept) may still be let go — only a person the story
      * keeps is never left nowhere */
-    const keptPerson = Boolean(findPersonKey(state.characters || {}, seated.key) || findPersonKey(state.characters || {}, name));
+    const pageKey = findPersonKey(state.characters || {}, seated.key) || findPersonKey(state.characters || {}, name);
+    /* M598: a person who has left the story (retired) is not kept — the house's upkeep retires a passer-through, then
+     * lets the seat go */
+    const keptPerson = Boolean(pageKey && !(state.characters[pageKey] && state.characters[pageKey].retired));
     if (keptPerson && !isHere(state, seated.key) && !isHere(state, name)) return { why: seated.key + ' keeps the elsewhere note — letting it go would leave them nowhere; write where they are now, or bring them into the scene', same: true };
     delete state.offscreen[seated.key];
     return {
@@ -1627,6 +1630,23 @@ export function showsDeparture(sentence) {
  * else, by name or by rank ("Rukia glanced at Kuchiki-taichō. He left." is his going). A later sentence that names them
  * without going means they are here; a page that never names them as themself does not show them going. */
 const RANKED = /\b(?:captain|lieutenant|commander|general|sergeant|officer|detective|mr|mrs|ms|miss|dr|lady|lord|sir|madam|master|headmaster|headmistress|principal|instructor|chancellor)\.?\s+\p{Lu}|\p{L}+-(?:taich|fukutaich|s[oō]taich|san\b|sama\b|kun\b|chan\b|dono\b|sensei\b|senpai\b)/iu;
+/* M588: does the scene end on the main character going? His name (whole, or its first word) opening a clause — not after
+ * "to", "at", "with", "toward", "past", "behind", "for", "from" — with a going in the same sentence. */
+export function mcWalksOff(pageText, mc) {
+  const scene = narrationOf(scenePartOf(String(pageText || '')));
+  const sentences = scene.split(/(?<=[.!?…])\s+/).map((x) => x.trim()).filter(Boolean).slice(-3);
+  const parts = String(mc || '').trim().split(/\s+/).filter(Boolean);
+  const names = [...new Set([parts.join(' '), parts[0], parts.length > 1 ? parts[parts.length - 1] : ''].filter((n) => n && n.length >= 2))];
+  const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const GO = '(?:walked|walks|walk|strode|strides|headed|heads|went|goes|left|leaves|stalked|marched|stormed|slipped|stepped|turned)\\b[^.!?]{0,40}?\\b(?:away|off|out|on|back|toward|towards|to|into|from|down|up|through)\\b|\\b(?:left|leaves|departed|departs)\\b';
+  for (const sentence of sentences) {
+    for (const n of names) {
+      const re = new RegExp('(?:^|[,;—–]\\s*|\\band\\s+|\\bthen\\s+)(?<!\\b(?:to|at|with|toward|towards|past|behind|for|from|beside|by)\\s)' + esc(n) + '\\b(?:\\s+\\p{L}+){0,8}?\\s+' + '(?:' + GO + ')', 'iu');
+      if (re.test(sentence)) return true;
+    }
+  }
+  return false;
+}
 export function goneAtTheEnd(state, pageText, name) {
   const s = state && typeof state === 'object' ? state : {};
   const sentences = scenePartOf(pageText).split(/(?<=[.!?…])\s+|\n+/).map((x) => x.trim()).filter(Boolean);

@@ -15061,3 +15061,20 @@ matched only the scene's exact name, so she went to Elsewhere and the storytelle
 state.js nearTheScene: a seat holding the whole of the scene's place AND naming a spot within reach of it (a door, the next
 room, a bedroom, the hall, upstairs), or a seat written relative to the scene ("the next room", "behind the door"), is close
 by; another part of a big place ("Seireitei — the 6th Division barracks") or the compound's training yard is not. Law M597.
+
+# M598 — a passer-through still passes out of the story (the audit, reading the world helper whole)
+The world helper gives every seated person a page (worldTurn: an offscreen.set for someone with no page writes a bare one) —
+so under M588's always-somewhere rule every seated person was "kept", and the house's own upkeep (seatHousekeeping) could no
+longer let a passer-through go: it wrote the clear BEFORE the retire, the clear was refused, and porters and drivers kept
+their seats forever. Now the upkeep retires first, then lets the seat go, and the clear handler counts a retired page as
+not kept (someone who has left the story is the one person the rule lets go of). A kept person is still never left
+nowhere. Law M598. The seat cap's clears still apply only to seats no page carries — for a kept person they are refused,
+which is the always-somewhere rule (and his: no caps in the world's logic).
+- THE AUDITOR'S LEAVE, THE SAME RULE: its leave filter (showsGoing / longSilent / notToldHere) threw away a leave when HE
+  walked away and she stayed, as the page reader's did before M588. mcWalksOff now lives in engine/apply.js beside
+  goneAtTheEnd (the page reader re-exports it) and the auditor's leave stands when the newest page ends on him going.
+  Law M598-2.
+- The world helper's code read whole: the stale seats (180 minutes / 12 pages), its people list (most important first,
+  "[NO SEAT — seat them]", leaner lines past 70% of its room), the quiet ones in the room (their now only, never moved),
+  the voices already spoken, the hour and jump laws, the two-try JSON read, the clears that arrive, the bare pages for
+  newly seated people. Sound otherwise.

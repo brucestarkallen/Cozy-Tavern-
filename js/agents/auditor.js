@@ -31,7 +31,7 @@ import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, headerMutations } from '../engine/state.js';
-import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf, showsDeparture, goneAtTheEnd } from '../engine/apply.js'; /* M444; M446: the departure reader, and who is gone at a page's end */
+import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf, showsDeparture, goneAtTheEnd, mcWalksOff } from '../engine/apply.js'; /* M444; M446: the departure reader, and who is gone at a page's end */
 import { findSeat } from '../engine/offscreen.js';
 import { findThread } from '../engine/world.js';
 /* M240: it was told to catch a healed wound and never shown the wounds.
@@ -456,12 +456,16 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
      * nor the page before it, is not being in the scene: the auditor may take them out. */
     /* (named only inside the spoken lines — never in the telling — is talked about; not named at all is silence, and silence is
      * not leaving: M402, the quiet ones at the duel stay) */
+    /* M598: the newest page ends on HIM going — whoever he walked away from is left behind; the auditor's leave stands, as
+     * the page reader's does (M588) */
+    const mcNowName = mcName(fresh);
+    const mcLeft = Boolean(lastTexts.length && mcNowName && mcNowName !== 'the player' && mcWalksOff(lastTexts[lastTexts.length - 1], mcNowName));
     const notToldHere = (n) => lastTexts.length > 0 && lastTexts.some((t) => nameOnPage(scenePartOf(t), n))
       && lastTexts.every((t) => !shownOnPage(fresh, narrationOf(scenePartOf(t)), n));
     const kept = [];
     for (const issue of read.issues) {
       if (!issue || !Array.isArray(issue.mutations) || !issue.mutations.length) { kept.push(issue); continue; }
-      const muts = issue.mutations.filter((m) => !(m && m.type === 'presence.leave' && !showsGoing(m.name) && !longSilent(m.name) && !notToldHere(m.name)));
+      const muts = issue.mutations.filter((m) => !(m && m.type === 'presence.leave' && !showsGoing(m.name) && !longSilent(m.name) && !notToldHere(m.name) && !mcLeft));
       if (!muts.length && !(issue.pages && issue.fix)) continue; /* a finding that was only a refused leave is no finding */
       kept.push({ ...issue, mutations: muts });
     }
@@ -921,9 +925,11 @@ export function seatHousekeeping(state, { brief = '', castNotes = '', pages = []
   for (const name of names) {
     const why = carried(name);
     if (why) { kept.push(name); continue; }
-    out.push({ type: 'offscreen.clear', name });
+    /* M598: retired FIRST, then the seat let go — a person who leaves the story is the one the always-somewhere rule
+     * (M588) lets go of; the other way round the clear came first and was refused, and passers-through kept seats */
     const page = state.characters && Object.keys(state.characters).find((k) => samePersonLoose(k, name));
     if (page && !state.characters[page].retired) out.push({ type: 'people.retire', name: page, cause: 'nothing carries them — no bond, no thread, not on the clock, not named for ' + SEAT_MENTION_PAGES + ' pages' });
+    out.push({ type: 'offscreen.clear', name });
   }
   /* the cap: the least reachable go first */
   if (kept.length > SEAT_CAP) {
