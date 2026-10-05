@@ -1,5 +1,5 @@
 # Line-by-line audit ledger — every file of the app, read whole, one at a time
-# Status at m612-001 + M613 notes (Oct 5 2026): 117 of 122 files DONE — 48,596 of 64,113 lines (35,143 of 47,196 code lines).
+# Status at m614-001 (Oct 5 2026): 117 of 122 files DONE — 48,596 of 64,113 lines (35,143 of 47,196 code lines).
 # Read a file whole with: python3 audit/show.py <file> <from> <to> [width]  (prints code lines, comments set aside;
 # read the prompt strings too — they are what a helper is told). Mark a file "DONE (Mxxx)" here when read whole and fixed.
 # The order to take the rest: audit/README.md, "What is left".

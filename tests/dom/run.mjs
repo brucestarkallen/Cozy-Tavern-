@@ -9798,5 +9798,54 @@ test('DOM-216 WORDS TYPED INTO AN OWN-WORDS CARD AND LEFT ARE KEPT (M611): Setti
   if (env.ctx.ownWords) await env.ctx.ownWords.reload();
 });
 
+test('DOM-217 AN EMPTY BOX IN THE DRAWER IS NOT A ZERO (M614): the hour alone moves the time of day and keeps the date; "Set it to" with no amount leaves a standing as it was; a refused hand edit says why', async () => {
+  const { saveState: saveLedger, emptyState: blankLedger } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const st = await db.stories.create({ title: 'Boxes left empty' });
+  await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[The gate \u2014 Friday, March 14, 2025 | 10:00 | clear]\n\nKara waited.' });
+  let led = { ...blankLedger(), sheet: { actors: {}, playerName: 'Jovan' } };
+  led = applyMutations(led, [{ type: 'clock.set', year: 2025, month: 3, day: 14, hour: 10, minute: 0 }, { type: 'people.set', name: 'Kara', field: 'core', text: 'his oldest friend' }, { type: 'rel.set', name: 'Kara', p: 40, r: 50, s: 0, cause: 'the brief says so' }]).state;
+  await saveLedger(st.id, { ...led, page: 1, readTo: 1, tidiedGen: 999, healedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const toasts = [];
+  const was = env.ctx.toast;
+  env.ctx.toast = (w) => { toasts.push(String(w)); };
+  try {
+    click(q('#btn-ledger'));
+    const clockForm = await until(() => q('#drawer .clock-set-form'), 'the clock form in the scene room', 15000);
+    type(clockForm.querySelector('input[aria-label="The clock\u2019s hour"]'), '15');
+    type(clockForm.querySelector('input[aria-label="The clock\u2019s minute"]'), '30');
+    submit(clockForm);
+    await until(async () => { const l = await db.settings.get('state:' + st.id); return l && l.clock && l.clock.minutes % 1440 === 15 * 60 + 30; }, 'the time of day to move to 15:30', 10000);
+    const l1 = await db.settings.get('state:' + st.id);
+    assert(/March 14, 2025/.test(l1.clock.label || ''), 'the date is kept: ' + l1.clock.label);
+    /* a date half typed: refused, and it says why — never the year 0 */
+    type(clockForm.querySelector('input[aria-label="The clock\u2019s month"]'), '6');
+    type(clockForm.querySelector('input[aria-label="The clock\u2019s day"]'), '2');
+    submit(clockForm);
+    await until(() => toasts.some((w) => /Not written/.test(w)), 'the refusal to be said: ' + JSON.stringify(toasts), 10000);
+    const l2 = await db.settings.get('state:' + st.id);
+    assert(/2025/.test(l2.clock.label || ''), 'the year is not 0: ' + l2.clock.label);
+    /* the standing form with no amount */
+    const chip = await until(() => [...document.querySelectorAll('#drawer .drawer-rooms .nav-chip')].find((c) => c.dataset.room === 'people'), 'the people room chip');
+    click(chip);
+    const relForm = await until(() => q('#drawer .relationships-editor form'), 'the standings form', 15000);
+    type(relForm.querySelector('input[aria-label="Whose feelings shifted"]'), 'Kara');
+    relForm.querySelector('select[aria-label="Shift it, or set it outright"]').value = 'set';
+    relForm.querySelector('select[aria-label="Which feeling moved"]').value = 'r';
+    type(relForm.querySelector('input[aria-label="The cause, in words \u2014 required"]'), 'a test');
+    submit(relForm);
+    await tick(600);
+    const l3 = await db.settings.get('state:' + st.id);
+    eq(l3.relationships.Kara.r, 50, 'the standing is as it was — an empty amount is no amount');
+  } finally {
+    env.ctx.toast = was;
+    if (!q('#drawer').hidden) click(q('#btn-ledger'));
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

@@ -15379,3 +15379,17 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
 - Left for the next parts: ui/settings.js, ui/drawer.js and ui/housekeeper.js read line by line, index.html, and the
   vendored canon/grounding.js.
 
+# M614 — the line-by-line audit, part 24: the drawer's hand forms
+- AN EMPTY BOX IN THE DRAWER IS NOT A ZERO (reproduced through the app — walk DOM-217 fails on m612-001: "Set the clock"
+  with only the hour and minute did nothing). Number('') is 0, so the clock form sent month 0 and day 0 for a date left
+  empty (refused, silently — though the ledger has "the hour only" since M455), a year left empty set the story to the
+  year 0, and the standings form's "Set it to" with the amount left empty ZEROED the standing. Now a box left empty is
+  left out: the hour and minute alone move the time of day and keep the date; a half-typed date is refused and says so;
+  an empty amount writes nothing.
+- A HAND EDIT THE LEDGER REFUSES SAYS WHY: the drawer's seventeen hand forms went quiet on a refusal (a date that lands on
+  no calendar, a name the ledger cannot find) — handMutate now tells him the ledger's own reason ("Not written — …").
+- Read so far in drawer.js: the hand-write door, the clock, who's here, the mood, what changed (take-backs by journal id),
+  holding up, on their minds (lines 1–1000). The rest of drawer.js is next.
+- GATES at m614-001 (one CPU): harness 1214/1214, walk 217/217, long play 9/9, lint 0 errors (170 warnings), perf_send,
+  holdsone, cutthinking — EXIT 0 each.
+

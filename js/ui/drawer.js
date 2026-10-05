@@ -94,10 +94,14 @@ async function handMutate(ctx, mutations) {
   const state = await loadStateForWrite(story.id);
   /* M263: a page or a standing written here is the writer's own */
   const mine = (Array.isArray(mutations) ? mutations : []).map((m) => (m && HAND_TYPES.has(m.type) ? { ...m, byHand: true } : m));
-  const { state: next, applied } = applyMutations(state, mine);
+  const { state: next, applied, rejected } = applyMutations(state, mine);
   if (applied.length) {
     await saveState(story.id, next);
     notify(story.id);
+  } else if (Array.isArray(rejected) && rejected.length && typeof ctx.toast === 'function') {
+    /* M614: A HAND EDIT THE LEDGER REFUSES SAYS WHY. The forms went quiet on a refusal — "Set the clock" with a date it
+     * could not land on, a name it could not find — and he was left to guess whether anything was written. */
+    ctx.toast('Not written — ' + String(rejected[0].why || 'the ledger would not take it'));
   }
   return applied;
 }
@@ -273,16 +277,19 @@ function clockPanel(ctx) {
   byHand.append(byHandSum, placeRow, customForm, setForm, calWrap);
   wrap.append(label, advanceRow, byHand);
 
+  /* M614: AN EMPTY BOX IS NOT A ZERO. Number('') is 0, so a year left empty set the story to the year 0, and an hour
+   * set with the date left empty (the ledger's own "the hour only" — M455) was refused as month 0. What he left empty
+   * is left out: the hour and minute alone move the time of day; a whole date sets the date. */
   function readFields() {
     const out = {};
-    for (const key of Object.keys(fields)) out[key] = Number(fields[key].value);
+    for (const key of Object.keys(fields)) { const raw = String(fields[key].value || '').trim(); if (raw !== '') out[key] = Number(raw); }
     return out;
   }
 
   setForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const v = readFields();
-    if (![v.year, v.month, v.day, v.hour, v.minute].every((n) => Number.isFinite(n))) return;
+    if (!Object.keys(v).length || !Object.values(v).every((n) => Number.isFinite(n))) return;
     await handMutate(ctx, [{ type: 'clock.set', ...v }]);
     render();
   });
@@ -896,9 +903,11 @@ function onTheirMindPanel(ctx) {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = nameInput.value.trim();
-    const amount = Number(amountInput.value);
+    const typedAmount = String(amountInput.value || '').trim();
+    const amount = Number(typedAmount);
     const cause = causeInput.value.trim();
-    if (!name || !Number.isFinite(amount) || !cause) return; // a cause, always
+    /* M614: an amount left empty is no amount — Number('') is 0, and "Set it to" with the box empty zeroed the standing */
+    if (!name || typedAmount === '' || !Number.isFinite(amount) || !cause) return; // a cause, always
     const axis = axisSelect.value;
     const mutation = modeSelect.value === 'set'
       ? { type: 'rel.set', name, [axis]: amount, cause }
