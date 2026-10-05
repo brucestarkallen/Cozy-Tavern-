@@ -4158,6 +4158,7 @@ export function initChat(ctx) {
     return {
       frameText: await db.settings.get('frameText'),
       noteText: await db.settings.get('noteText'),
+      noteAdds: await db.settings.get('noteAdds'), /* M620: his notes above the note at the end */
       /* M21: the frame's purpose line (on unless switched off) and its
        * end-of-request echo (off unless switched on). */
       frameOn: (await db.settings.get('frameOn')) !== false, /* M509-14 */

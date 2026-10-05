@@ -15480,3 +15480,19 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
 - THE LINE-BY-LINE AUDIT IS COMPLETE: every one of the 122 files is read whole.
 
 - GATES at m619-001 (one CPU): harness 1218/1218, walk 219/219, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking — EXIT 0 each.
+
+# M620 — his: "add a new section on notes so I can just easily add notes and it'll append above it"
+- NOTES ABOVE THE NOTE AT THE END: Settings → This story → The note at the end → "Notes above it — every story". A box and
+  "Add the note"; each note is listed with its switch ("Send this note"), its words, "Keep it" and "Let it go" (asks first).
+  Each note rides in the note at the end, ABOVE his own note, in the order he added them — the newest just above his note
+  (assemble/stack.js addedNotes; the receipt row says "your N notes above it, then the note for every story"). They ride
+  only while the note does ("Send the note at the end", and "Send the note to a small model" for a small one); an
+  unticked note is held back; with no note of his own they close the request alone. One settings row, "noteAdds"
+  (ui/noteadds.js), read by chat.js gatherSettings; a voice preset keeps them with the note (VOICE_FIELDS); Settings'
+  safety net keeps a note's changed words and a draft left in the box when Settings closes; the file is in the offline
+  shell (sw.js). "Reset every setting" keeps them, as it keeps his own words.
+- Laws M620-1/2/3 (the real request: order, the unticked held back, the receipt; only with the note; alone; unchanged
+  with none; a preset keeps them) and walk DOM-220 (added through Settings, one left in the box when Settings closes, both
+  above his note in the storyteller's last message).
+
+- GATES at m620-001 (one CPU): harness 1221/1221, walk 220/220, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking — EXIT 0 each.

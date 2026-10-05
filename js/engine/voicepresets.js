@@ -13,7 +13,7 @@ import { db } from '../store.js';
 
 export const PRESETS_KEY = 'voicePresets';
 export const PRESET_ACTIVE_KEY = 'voicePresetActive';
-export const VOICE_FIELDS = ['tellerName', 'writerName', 'groundingPhrase', 'tellerPerson', 'frameText', 'noteText', 'ownWords'];
+export const VOICE_FIELDS = ['tellerName', 'writerName', 'groundingPhrase', 'tellerPerson', 'frameText', 'noteText', 'ownWords', 'noteAdds']; /* M620: the notes above the note */
 
 const norm = (v) => (v === undefined || v === '' ? null : v);
 

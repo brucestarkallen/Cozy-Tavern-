@@ -1208,6 +1208,14 @@ body.plain-speech .thought { font-style: italic; }
 .own-words-choices label { font-size: 0.85rem; color: var(--text-2); }
 @media (max-width: 520px) { .own-words-choices { grid-template-columns: 1fr; } }
 .own-words-actions { justify-content: flex-start; }
+/* M620: the notes above the note at the end */
+.note-adds-list { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.6rem; }
+.note-add-card { display: flex; flex-direction: column; gap: 0.45rem; padding: 0.6rem 0.75rem; border: 1px solid var(--border-soft); border-left: 2px solid var(--ember-dim); border-radius: var(--r); }
+.note-add-card.is-off { opacity: 0.6; border-left-color: var(--border); }
+.note-add-head { display: flex; align-items: flex-start; gap: 0.6rem; }
+.note-add-head input[type="checkbox"] { margin-top: 0.55rem; flex: 0 0 auto; }
+.note-add-head textarea { flex: 1; min-width: 0; }
+.note-add-actions { justify-content: flex-start; }
 
 /* M136: the glossary reads like a book */
 .glossary h3 { margin: 1.2rem 0 0.4rem; font-size: 1rem; color: var(--ember); }

@@ -391,6 +391,13 @@ function resolveNote(storyOverride, globalText) {
   return { text: STARTER_NOTE, source: 'the starter text' };
 }
 
+/* M620: the notes he added above the note at the end — the ones ticked on, with words, in the order he added them */
+export function addedNotes(list) {
+  return (Array.isArray(list) ? list : [])
+    .filter((n) => n && typeof n === 'object' && n.on !== false && typeof n.text === 'string' && n.text.trim())
+    .map((n) => n.text.trim());
+}
+
 /* A turn counts as "just go on" when the last thing the other writer said
  * is empty, or a bare "continue". Only then does slot 10 speak. */
 function isContinueTurn(history) {
@@ -1304,7 +1311,14 @@ export function buildRequest({
    * law's keeper-off budget can count what the prefix already spent) */
   const notePicked = notePickedEarly;
   /* M379: the starter note is in the standing words now; only a note HE wrote stands at the end */
-  const note = notePicked.source === 'the starter text' ? { ...notePicked, text: '' } : { ...notePicked, text: inVoice(notePicked.text, voice) }; /* M327: "the other writer" is the writer, by name */
+  /* M620: HIS NOTES ABOVE IT. Each note he adds (Settings → The note at the end → Notes above it) rides in the note at the
+   * end, above his own note, in the order he added them — only while the note itself is sent (noteOn, and its small-model
+   * switch); one he unticks is held back. With no note of his own (the starter note lives in the standing words) they
+   * stand at the end alone. */
+  const noteAdds = noteOn ? addedNotes(safeSettings.noteAdds) : [];
+  const noteOwn = notePicked.source === 'the starter text' ? '' : notePicked.text;
+  const noteWhole = [...noteAdds, noteOwn].filter((t) => typeof t === 'string' && t.trim()).join('\n\n');
+  const note = { ...notePicked, text: noteWhole ? inVoice(noteWhole, voice) : '', source: noteAdds.length ? (noteAdds.length === 1 ? 'your note above it' : 'your ' + noteAdds.length + ' notes above it') + (noteOwn.trim() ? ', then the note ' + notePicked.source : '') : notePicked.source }; /* M327: "the other writer" is the writer, by name */
   const hasNote = Boolean(note.text && note.text.trim());
 
   /* --- 10. The continue nudge + M9 house commands --- */

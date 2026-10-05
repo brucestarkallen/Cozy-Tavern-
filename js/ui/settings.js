@@ -1243,6 +1243,7 @@ export function initSettings(ctx) {
   }
   async function keepUnsaved() {
     try { if (ctx && ctx.ownWords && typeof ctx.ownWords.keepTyped === 'function') await ctx.ownWords.keepTyped(); } catch (err) { /* the rest is kept all the same */ } /* M611 */
+    try { if (ctx && ctx.noteAdds && typeof ctx.noteAdds.keepTyped === 'function') await ctx.noteAdds.keepTyped(); } catch (err) { /* the rest is kept all the same */ } /* M620 */
     /* M618 */
     for (const form of [...typedForms]) {
       typedForms.delete(form);
@@ -3127,7 +3128,7 @@ export function initSettings(ctx) {
    * whatever is still pending for it first. */
   const ROOM_RENDERS = {
     storyteller: () => [renderConnections, () => renderUsage(document.getElementById('usage-box')), renderWorkers, renderThinking], /* M457 */
-    story: () => [loadPromptSlots, () => (ctx.ownWords && typeof ctx.ownWords.reload === 'function' ? ctx.ownWords.reload() : undefined), () => renderPresets()], /* M510-35: the presets with the voice they hold */ /* M466: his own-voice entries re-read with the room (a pull may have moved them) */
+    story: () => [loadPromptSlots, () => (ctx.ownWords && typeof ctx.ownWords.reload === 'function' ? ctx.ownWords.reload() : undefined), () => (ctx.noteAdds && typeof ctx.noteAdds.reload === 'function' ? ctx.noteAdds.reload() : undefined) /* M620 */, () => renderPresets()], /* M510-35: the presets with the voice they hold */ /* M466: his own-voice entries re-read with the room (a pull may have moved them) */
     craft: () => [renderRulebook, renderRegex],
     world: () => [renderCast, renderLore],
     readers: () => [renderMemory, renderReferee],
@@ -3234,6 +3235,7 @@ export function initSettings(ctx) {
     typedBoxes.delete(els.frameGlobal); typedBoxes.delete(els.noteGlobal);
     await loadPromptSlots();
     if (ctx.ownWords && typeof ctx.ownWords.reload === 'function') await ctx.ownWords.reload();
+    if (ctx.noteAdds && typeof ctx.noteAdds.reload === 'function') await ctx.noteAdds.reload(); /* M620: the notes above the note are the preset's too */
     await renderPresets('Using “' + p.name + '” — the frame, the note, the names and your own words are its now.');
   }
   async function updatePresetNow(p) {

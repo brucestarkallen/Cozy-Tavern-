@@ -9898,5 +9898,43 @@ test('DOM-219 RESET EVERY SETTING RESETS EVERY SETTING (M618): the preferences t
   }
 });
 
+test('DOM-220 NOTES ABOVE THE NOTE AT THE END (M620 — his: "a new section on notes so I can just easily add notes and it\u2019ll append above it"): added in Settings, one left in the box when Settings closes, both ride above his note in what the storyteller reads last', async () => {
+  const { saveState: saveLedger, emptyState: blankLedger } = await import('../../js/engine/state.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const noteWas = await db.settings.get('noteText');
+  await db.settings.set('noteText', 'HIS OWN NOTE');
+  await db.settings.set('noteAdds', []);
+  const st = await db.stories.create({ title: 'Notes above it' });
+  await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[The gate \u2014 Monday, March 3, 2025 | 09:00 | clear]\n\nThe gate was quiet.' });
+  await saveLedger(st.id, { ...blankLedger(), sheet: { actors: {}, playerName: 'Jovan' }, page: 1, readTo: 1, tidiedGen: 999, healedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  try {
+    await env.ctx.settings.onShow({ all: true });
+    type(q('#note-add-text'), 'FIRST ADDED NOTE');
+    click(q('#btn-note-add'));
+    await until(() => [...document.querySelectorAll('#note-adds-list .note-add-card textarea')].some((x) => x.value === 'FIRST ADDED NOTE'), 'the note is listed');
+    eq(q('#note-add-text').value, '', 'the box is empty again');
+    type(q('#note-add-text'), 'SECOND, LEFT IN THE BOX');
+    await env.ctx.settings.onHide();
+    await until(async () => ((await db.settings.get('noteAdds')) || []).length === 2, 'the note left in the box is kept when Settings closes');
+    await until(() => !workIsRunning(st.id) && queuedCount(st.id) === 0, 'settle', 30000);
+    const before = house.state.calls.length;
+    type(q('#composer-input'), 'I look around.');
+    submit(q('#composer'));
+    const teller = await until(() => house.state.calls.slice(before).find((c) => !c.isWorker), 'the storyteller request', 30000);
+    const msgs = teller.body.messages || [];
+    const last = String((msgs[msgs.length - 1] || {}).content || '');
+    assert(/FIRST ADDED NOTE\s+SECOND, LEFT IN THE BOX\s+HIS OWN NOTE$/.test(last), 'his notes ride above his note, in his order, his note last: ' + JSON.stringify(last.slice(-160)));
+    await until(() => !env.ctx.chat.isBusy(), 'the page lands', 30000);
+  } finally {
+    if (noteWas === undefined) await db.settings.delete('noteText'); else await db.settings.set('noteText', noteWas);
+    await db.settings.set('noteAdds', []);
+    if (env.ctx.noteAdds) await env.ctx.noteAdds.reload();
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

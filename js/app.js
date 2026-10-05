@@ -15,6 +15,7 @@ import { initHousekeeper } from './ui/housekeeper.js';
 import { initWelcome } from './ui/welcome.js';
 import { initPageMark } from './ui/pagemark.js'; /* M466: which page is under the eye */
 import { initOwnWords } from './ui/ownwords.js'; /* M466: words in the storyteller's own voice */
+import { initNoteAdds } from './ui/noteadds.js'; /* M620: notes above the note at the end */
 import { initSpeechColours } from './ui/speechcolours.js'; /* M466: the spoken lines' and thoughts' colours, per coat */
 import { applySpeechColours } from './ui/speechcolours.js'; /* M466: laid over the coat on every applyTheme (M14's init law reads one init a line) */
 import { VERSION } from './version.js';
@@ -250,6 +251,7 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
   initWelcome(ctx);
   initPageMark(ctx); /* M466 */
   initOwnWords(ctx); /* M466 */
+  initNoteAdds(ctx); /* M620 */
   initSpeechColours(ctx); /* M466 */
   /* M68: the house's context, reachable by the harness (and a curious writer) */
   window.__cozy = ctx;

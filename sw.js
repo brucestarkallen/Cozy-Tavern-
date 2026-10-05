@@ -118,6 +118,7 @@ const SHELL = [
   'js/ui/workbanner.js',
   'js/ui/pagemark.js', /* M466 */
   'js/ui/ownwords.js', /* M466 */
+  'js/ui/noteadds.js', /* M620 */
   'js/ui/speechcolours.js', /* M466 */
   'js/ui/richhtml.js',
   /* M30: the shell audit — every shipped module, kept honest by the harness */

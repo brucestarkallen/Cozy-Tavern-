@@ -418,6 +418,13 @@
           <div class="row">
             <label class="radio-row"><input type="checkbox" id="note-on-small"> Send the note to a small model</label>
           </div>
+          <!-- M620: notes he adds, riding above the note at the end -->
+          <label class="stack-label" for="note-add-text">Notes above it — every story</label>
+          <p class="quiet">Each note you add rides in the note at the end, above your note, in the order you added them — the newest just above it. Untick one to hold it back.</p>
+          <div id="note-adds-list" class="note-adds-list"></div>
+          <textarea id="note-add-text" rows="2" spellcheck="false" aria-label="A new note" placeholder="A new note — it rides above the note at the end"></textarea>
+          <div class="row"><button id="btn-note-add" class="btn" type="button">Add the note</button></div>
+
           <label class="stack-label" for="note-global">For every story</label>
           <textarea id="note-global" rows="5" spellcheck="false"></textarea>
           <div class="row"><button id="btn-save-note" class="btn" type="button">Keep it</button><button id="btn-copy-note" class="text-btn" type="button">Copy the words</button><span id="note-saved" class="quiet" hidden>Kept.</span></div>
