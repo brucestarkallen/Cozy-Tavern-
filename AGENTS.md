@@ -15442,8 +15442,22 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   measure, something drifted, the world beyond, the people, the workers, voices, the record, the essentials, the plans, the
   choices; its rooms, folds, open and close) and ui/housekeeper.js (its cards land on arrival and can be taken back, edit by
   hand before applying, its sessions, its stop, its draft kept when an answer fails).
-- FOUND, TO FIX NEXT (same class as M611): Settings' safety net (keepUnsaved — it saves typed words when Settings closes)
-  does not know the rulebook's "Read & change the words" form or the character card form: a rule or a card edited and left
-  without its Save is lost when Settings closes.
 - Left to read: ui/settings.js from line 2300, index.html, canon/grounding.js.
 
+# M618 — the line-by-line audit, part 25: Settings' safety net covers every form of typed words
+- WORDS TYPED INTO A RULE, A CARD OR A LORE ENTRY AND LEFT ARE KEPT (reproduced — walk DOM-218 fails on m616-001: the rule he
+  wrote was gone). Settings' safety net (keepUnsaved, M426/M428/M611) saved the frame, the note, the brief, the cast notes,
+  the canon start, the world ground and the own-words cards when Settings closed — but not the rulebook's rule form ("Read
+  & change the words"), the character card's form, the display rule form, or a lore entry's words (each kept only by its
+  own Save / Keep it). Open and typed into, each is now saved the way its own button saves it (requestSubmit — a form's own
+  checks still run; a lore entry's own Keep it). The connection form is left to its own Save: a half-made connection is
+  not words to keep.
+- RESET EVERY SETTING RESETS EVERY SETTING (reproduced — walk DOM-219 fails on m616-001): the reset list (M42) had never
+  learned the preferences that came after it — cut before the header, thinking on the page, a new story's brief mode,
+  legacy canon, the teller's person, the helpers side by side — so "Every setting is back at the house's recommended
+  default" was untrue for them. They are on the list now, and the helpers' live pace is set back with it (setSideBySide).
+- Read whole: ui/settings.js (every room: connections and their form, the workers, the record, the readers and the
+  referee, the preset import, the cast and its form, the lore shelf, the display rules, thinking, the house, backups,
+  reset, the quick nav and its folds, the voice presets).
+
+- GATES at m618-001 (one CPU): harness 1217/1217, walk 219/219 (run again whole after DOM-218 was made to find Mira's card by its own row — in the full walk another card stood first), long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking — EXIT 0 each.

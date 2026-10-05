@@ -7,13 +7,13 @@
 js/ui/chat.js | 7288 | 5304 | DONE (M574-M577)
 js/canon/grounding.js | 6365 | 4209 | todo
 js/agents/housekeeper.js | 3408 | 2716 | DONE (M601-M603)
-js/ui/settings.js | 3197 | 2701 | todo
+js/ui/settings.js | 3197 | 2701 | DONE (M618)
 js/ui/drawer.js | 3130 | 2625 | DONE (M617)
 js/engine/apply.js | 2266 | 1661 | DONE (M578)
 js/ui/housekeeper.js | 1584 | 1338 | DONE (M617)
 js/agents/referee.js | 1651 | 1218 | DONE (M600)
 js/engine/duels.js | 1501 | 1200 | DONE (M584, M593)
-index.html | 1241 | 1180 | todo
+index.html | 1241 | 1180 | DONE (M618)
 js/agents/memory.js | 1652 | 1136 | DONE (M595)
 js/assemble/stack.js | 1677 | 1046 | DONE (M609)
 js/engine/state.js | 1490 | 1033 | DONE (M570, M578)

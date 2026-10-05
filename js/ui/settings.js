@@ -1214,6 +1214,21 @@ export function initSettings(ctx) {
   for (const box of [els.frameGlobal, els.noteGlobal, els.frameStory, els.noteStory, els.briefStory, els.castStory, els.canonStart, els.ground]) {
     if (box) box.addEventListener('input', () => typedBoxes.add(box));
   }
+  /* M618: THE FORMS AND THE LORE ENTRIES ARE TYPED WORDS TOO. The rule form ("Read & change the words"), the character card's
+   * form, the display rule form and each lore entry kept their words only by their own Save / Keep it — the safety net
+   * below knew only the boxes above, so a rule rewritten, a card re-inked or an entry changed and left was lost when
+   * Settings closed. Open and typed, each is now saved the way its own button saves it (a form's own checks still run). */
+  const typedForms = new Set();
+  for (const form of [els.modForm, els.cardForm, els.regexForm]) {
+    if (!form) continue;
+    form.addEventListener('input', () => typedForms.add(form));
+    form.addEventListener('change', () => typedForms.add(form));
+    form.addEventListener('submit', () => typedForms.delete(form), true);
+  }
+  for (const btn of [els.btnModCancel, els.btnCardCancel, els.btnRegexCancel]) {
+    if (btn) btn.addEventListener('click', () => { const f = btn.closest('form'); if (f) typedForms.delete(f); });
+  }
+  const typedLore = new Set(); /* the Keep it button of each lore entry typed into */
   /* a box he kept with its own button is no draft any more (a later change by another hand is then drawn, never
    * written over) */
   /* M510-31: COPY THE WORDS — his frame and his notes, as they stand in their boxes, to paste elsewhere */
@@ -1228,6 +1243,16 @@ export function initSettings(ctx) {
   }
   async function keepUnsaved() {
     try { if (ctx && ctx.ownWords && typeof ctx.ownWords.keepTyped === 'function') await ctx.ownWords.keepTyped(); } catch (err) { /* the rest is kept all the same */ } /* M611 */
+    /* M618 */
+    for (const form of [...typedForms]) {
+      typedForms.delete(form);
+      if (!form || form.hidden || !form.isConnected) continue;
+      try { if (typeof form.requestSubmit === 'function') form.requestSubmit(); else form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); } catch (err) { /* its words stay in the form */ }
+    }
+    for (const keep of [...typedLore]) {
+      typedLore.delete(keep);
+      if (keep && keep.isConnected && !keep.disabled) { try { keep.click(); } catch (err) { /* its words stay in the entry */ } }
+    }
     try {
       const story = await activeStory();
       const same = Boolean(story && promptSlotsStory && story.id === promptSlotsStory);
@@ -2477,6 +2502,8 @@ export function initSettings(ctx) {
     });
     row.append(saveBtn, upBtn, downBtn, removeBtn);
     li.appendChild(row);
+    for (const box of [keysInput, content]) box.addEventListener('input', () => typedLore.add(saveBtn)); /* M618 */
+    saveBtn.addEventListener('click', () => typedLore.delete(saveBtn));
     return li;
   }
 
@@ -2866,6 +2893,9 @@ export function initSettings(ctx) {
     'conceptToBrief', /* M479 */
     'frameText', 'noteText', 'frameOn', 'noteOn', 'frameEcho', 'frameOnSmall', 'noteOnSmall', 'ownWordsOnSmall', /* M509-14: the two switches ride the book */
     'shelfCollapsed',
+    /* M618: preferences that came after this list and were never added to it — "Reset every setting" said every setting
+     * was back at its default while these stayed as he had set them */
+    'cutBeforeHeader', 'thinkOnPage', 'briefModeNew', 'canonLegacy', 'tellerPerson', 'helpersSideBySide', 'helpersSideBySideTurnedOff',
   ];
   async function resetSettings() {
     for (const key of RESET_KEYS) {
@@ -2889,6 +2919,7 @@ export function initSettings(ctx) {
     } catch (err) { /* a rulebook that will not read is left as it is */ }
     ctx.setTheme('dark');
     document.body.classList.remove('plain-speech');
+    setSideBySide(false); /* M618: the helpers' pace is a live switch too — back to one at a time, as the default */
     await onShow({ all: true });
     if (ctx.chat && typeof ctx.chat.renderPromptChips === 'function') ctx.chat.renderPromptChips();
     if (ctx.chat && typeof ctx.chat.renderThread === 'function') ctx.chat.renderThread({ structural: true });

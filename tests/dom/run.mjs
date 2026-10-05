@@ -9847,5 +9847,56 @@ test('DOM-217 AN EMPTY BOX IN THE DRAWER IS NOT A ZERO (M614): the hour alone mo
   }
 });
 
+test('DOM-218 WORDS TYPED INTO A RULE, A CARD OR A LORE ENTRY AND LEFT ARE KEPT (M618): Settings closes without their own Save pressed — the rule, the card and the entry are saved as their buttons would save them', async () => {
+  const { listModules, removeModule } = await import('../../js/assemble/modules.js');
+  const { saveCastMember, listCast, removeCastMember } = await import('../../js/import/cards.js');
+  const { saveLore, loadLore } = await import('../../js/import/lorebook.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const st = await db.stories.create({ title: 'Kept words' });
+  await saveLore(st.id, [{ id: 'l1', keys: ['oak'], content: 'The old oak.', enabled: true }]);
+  /* another card first on the shelf, as a walk that has imported cards before holds — the right card is found by its own row */
+  await saveCastMember({ id: 'card-other', name: 'Aaron', description: 'a ferryman', personality: '', scenario: '', firstMes: '', creatorNotes: '', alternateGreetings: [], source: 'json', importedAt: 1 });
+  await saveCastMember({ id: 'card-kept', name: 'Mira', description: 'an innkeeper', personality: '', scenario: '', firstMes: '', creatorNotes: '', alternateGreetings: [], source: 'json', importedAt: Date.now() });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.ctx.settings.onShow({ all: true });
+  try {
+    click(q('#btn-add-module'));
+    type(q('#mod-name'), 'Stay close');
+    type(q('#mod-text'), 'Keep the camera close on Jovan.');
+    const cardBtn = await until(() => { const row = [...document.querySelectorAll('#cast-list li')].find((li) => { const n = li.querySelector('.connection-name'); return n && n.textContent === 'Mira'; }); return row && [...row.querySelectorAll('button')].find((b) => /Read & change/.test(b.textContent)); }, 'Mira\u2019s card to change');
+    click(cardBtn);
+    type(q('#card-edit-description'), 'an innkeeper with a secret');
+    const loreBox = await until(() => q('#lore-list textarea.lore-content'), 'the lore entry');
+    type(loreBox, 'The old oak hides a door.');
+    await env.ctx.settings.onHide();
+    await tick(400);
+    const rule = (await listModules()).find((m) => m.name === 'Stay close');
+    assert(rule && /camera close on Jovan/.test(rule.text), 'the rule he wrote is kept');
+    eq(((await listCast()).find((c) => c.id === 'card-kept') || {}).description, 'an innkeeper with a secret', 'the card he re-inked is kept');
+    eq(((await loadLore(st.id))[0] || {}).content, 'The old oak hides a door.', 'the lore entry he changed is kept');
+    if (rule) await removeModule(rule.id);
+    eq(((await listCast()).find((c) => c.id === 'card-other') || {}).description, 'a ferryman', 'and the other card is untouched');
+  } finally {
+    await removeCastMember('card-kept');
+    await removeCastMember('card-other');
+  }
+});
+
+test('DOM-219 RESET EVERY SETTING RESETS EVERY SETTING (M618): the preferences that came after the reset list (cut before the header, thinking on the page, a new story\u2019s brief mode, legacy canon, the teller\u2019s person, the helpers side by side) go back to their defaults with the rest', async () => {
+  const keys = { cutBeforeHeader: false, thinkOnPage: true, briefModeNew: 'automatic', canonLegacy: true, tellerPerson: 'first', helpersSideBySide: true };
+  for (const [k, v] of Object.entries(keys)) await db.settings.set(k, v);
+  await db.settings.set('theme', 'magma');
+  const confirmWas = env.window.confirm;
+  env.window.confirm = () => true;
+  try {
+    click(q('#btn-reset-settings'));
+    await until(async () => (await db.settings.get('theme')) === undefined, 'the reset to run', 15000);
+    await tick(300);
+    for (const k of Object.keys(keys)) eq(await db.settings.get(k), undefined, k + ' is back at its default');
+  } finally {
+    env.window.confirm = confirmWas;
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);
