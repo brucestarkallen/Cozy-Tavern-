@@ -4750,12 +4750,17 @@ export function initChat(ctx) {
              * silence, within its own ceiling; a weighing that fails never holds the page. */
             try {
               const fightOn = Boolean((state.duel && state.duel.active) || (state.battle && state.battle.active) || (state.war && state.war.active));
-              const goes = gatePasses(userText, refSettings.sensitivity || 'normal', { inFight: fightOn }).pass;
+              const goes = gatePasses(userText, refSettings.sensitivity || 'normal', { inFight: fightOn, tense: Boolean(state.mode && state.mode.combat) }).pass; /* M616 */
               const here = (Array.isArray(state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean);
               /* M532: someone the last weighing already saw here and left off the sheet (a crowd, a voice, a bystander) does not
                * call a weighing before every blow; a NEW face — an enemy who just walked in — does, as a GM would */
               const seenBefore = seenAndLeftOff(state); /* M615: one answer — honest for a sheet weighed before the weighing was shown everyone here */
-              const unweighed = [mcName(state), ...here].filter((n, i, all) => n && n !== 'the player' && all.indexOf(n) === i && !findActorKeySamePerson(state, n) && !(n !== mcName(state) && seenBefore.has(String(n).toLowerCase())));
+              /* M616: ONLY THE MAIN CHARACTER IS WEIGHED ON THE WAIT BEFORE HIS PAGE (M531's own case — his first fight before the
+               * sheet was ever weighed). Anyone else not yet weighed — a summon just called, a foe just arrived — the referee rates
+               * on the spot, as it always could, and the house weighs them by itself right after the page (SEED_NEW_FACE_GAP 1):
+               * a weighing reads the whole story and could hold his page for most of a minute. `here` stays for the words below. */
+              void here;
+              const unweighed = [mcName(state)].filter((n, i, all) => n && n !== 'the player' && all.indexOf(n) === i && !findActorKeySamePerson(state, n) && !(n !== mcName(state) && seenBefore.has(String(n).toLowerCase())));
               if (goes && workerConnection && unweighed.length && history.some((m) => m && m.role === 'assistant' && !m.hidden)) {
                 const w = workerSignal(45000);
                 showComposerNote('Weighing everyone before the fight…');

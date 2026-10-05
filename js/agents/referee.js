@@ -142,6 +142,7 @@ export function stripDialogue(text) {
     .replace(/\u2018[^\u2019\n]{0,400}\u2019/g, ' ');
 }
 
+
 function verbHits(text, sensitivity) {
   const s = SENSITIVITY[sensitivity] || SENSITIVITY.normal;
   if (!s.verbs) return { hit: false, verb: null };
@@ -173,7 +174,16 @@ export function gatePasses(text, sensitivity, opts) {
   if (inFight) return { pass: true, reason: 'fight in progress — every beat is scored' };
   const raw = String(text || '');
   const meta = raw.replace(OOC_RE, ' ').trim();
-  if (!meta) return { pass: false, reason: 'out of character' };
+  if (!/[\p{L}\p{N}]/u.test(meta)) return { pass: false, reason: 'out of character' }; /* M616: nothing but OOC (and its stray brackets) is left */
+  /* a bare shortcut of his (#p, #pp, #q, #continue) or a bare "go on" carries no act of its own to rule out of a fight — its
+   * meaning lives in his instructions; in a fight #p is the last beat again (continuedBeat), with no call */
+  if (/^(?:#(?:p|pp|q|continue)|go\s+on|continue|keep\s+going)[.!…]*$/i.test(meta)) return { pass: false, reason: 'a shortcut — the story moves on' };
+  /* M616: A FIGHT IN THE AIR — HIS: "I just want no wait while everything is smart". When the house reads combat in the scene
+   * (mode.combat — the page reader sets it when a page plainly shows a fight brewing: a villain faced, blades out) the
+   * referee reads EVERY move, a model deciding whether anything is at stake: "I order Mahoraga to make him bleed", "kill
+   * him", "Go, Mahoraga!" all reach it. A calm scene keeps the instant word list below, so a quiet page never waits on the
+   * referee (measured: a model call before every page added its whole answer time — 2.6 s with a 2.5 s stand-in). */
+  if (opts && opts.tense) return { pass: true, reason: 'a fight is in the air — the referee reads every move' };
   const spoken = stripDialogue(meta);
   if (!spoken.trim()) return { pass: false, reason: 'only dialogue' };
   const s = SENSITIVITY[sensitivity] || SENSITIVITY.normal;
@@ -492,7 +502,13 @@ function hereBlock(state) {
   return [lines.join('\n'), bodies && bodies.trim() ? 'What their bodies carry:\n' + bodies.slice(0, 3000) : '', locked && locked.trim() ? 'Locked true:\n' + locked.slice(0, 3000) : ''].filter(Boolean).join('\n');
 }
 
-export function buildRefereeUser({ state, userText, history, fightLine, brief = '', castNotes = '' }) {
+/* M616: "How readily it rules" (his setting) said to the referee in words — the gate no longer reads it */
+export const READINESS_WORDS = {
+  conservative: 'The writer wants few rulings: rule only a clear attack or a genuinely dangerous attempt; anything else is the story\u2019s to tell.',
+  normal: 'Rule whenever something is genuinely at risk this beat \u2014 an attack, an order to attack, a dangerous attempt; a quiet beat is nothing.',
+  aggressive: 'Rule readily: an attack, an order, a dangerous attempt \u2014 and taking a position or readying a power when it is setting up a fight.',
+};
+export function buildRefereeUser({ state, userText, history, fightLine, brief = '', castNotes = '', readiness = 'normal' }) {
   const mc = mcName(state);
   const player = mc === 'the player'
     ? 'The player character is not named yet. The text in <action> is written BY the player: "I" and "you" in it both mean the player acting.'
@@ -506,6 +522,7 @@ export function buildRefereeUser({ state, userText, history, fightLine, brief = 
     material ? '<brief>\n' + material + '\n</brief>' : null,
     fightLine ? '<fight>' + fightLine + '</fight>' : null,
     '<recent>\n' + recentBlock(history, state, userText) + '\n</recent>',
+    '<how_readily>' + (READINESS_WORDS[readiness] || READINESS_WORDS.normal) + '</how_readily>',
     '<action>' + clip(userText, 2000) + '</action>',
   ].filter(Boolean).join('\n');
 }
@@ -1051,7 +1068,7 @@ export async function refereeStep({ connection, userText, userId, history, state
       return { state, ruling: null, status: 'skipped', why: 'no roll — the writer said so' };
     }
 
-    const gate = gatePasses(text, (settings && settings.sensitivity) || 'normal', { inFight: fightOn });
+    const gate = gatePasses(text, (settings && settings.sensitivity) || 'normal', { inFight: fightOn, tense: Boolean(state.mode && state.mode.combat) }); /* M616 */
     if (!gate.pass && !forceRoll) {
       passiveComposureRecovery(state, eng);
       commit(null);
@@ -1075,7 +1092,7 @@ export async function refereeStep({ connection, userText, userId, history, state
         return { state, ruling: null, status: 'degraded', why: 'no worker connection' };
       }
       const fightLine = renderFightLine(state);
-      const user = buildRefereeUser({ state, userText: text, history, fightLine, brief, castNotes });
+      const user = buildRefereeUser({ state, userText: text, history, fightLine, brief, castNotes, readiness: (settings && settings.sensitivity) || 'normal' }); /* M616 */
       const system = withFictionFrame(inWar ? WAR_SYSTEM : inBattle ? BATTLE_SYSTEM : inDuel ? DUEL_SYSTEM : ADJ_SYSTEM);
       const normalize = inWar ? normalizeWarAdj : inBattle ? normalizeBattleAdj : inDuel ? normalizeDuelAdj : normalizeAdj;
       const raw = await callReferee(connection, system, user, signal, callLLM);
@@ -1311,7 +1328,7 @@ export async function refereeStep({ connection, userText, userId, history, state
  * the seeder runs (the app repairs what it can detect). */
 export const SEED_VERSION = 8; /* M562: weighed again once, by one game master's procedure */
 export const SEED_EVERY = 100;        /* Arbiter's fallback timer: a long quiet stretch still refreshes growth */
-export const SEED_NEW_FACE_GAP = 3;   /* pages between re-seeds called by someone in the scene the sheet does not have */
+export const SEED_NEW_FACE_GAP = 1; /* M616: a new face is weighed by itself on the next page (was 3) — never on the wait before his page */   /* pages between re-seeds called by someone in the scene the sheet does not have */
 export const SEED_MAX_TOKENS = 8000;  /* a large cast needs room to answer (the old 600 cut a big sheet off mid-list) */
 const SEED_MAX_ACTORS = 80;           /* runaway guard, never a size a real cast reaches */
 const PLAIN_SELF = /^(?:you|i|me|myself|player|the player|writer|the writer|narrator|the narrator|storyteller|the storyteller)$/i;

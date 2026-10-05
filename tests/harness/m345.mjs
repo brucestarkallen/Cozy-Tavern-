@@ -2,6 +2,7 @@
  * and the referee's outcome never reached the storyteller at all. These laws run the product: the seeder's real
  * reading and merge (through the store and back), the heal of a sheet the blind seeder made, the referee's reading,
  * every outcome's words, and where the outcome rides on the wire — and that OFF sends nothing of it. */
+import { storyTurn as storyTurnOf } from '../../js/engine/apply.js'; /* M616 */
 import './idb-shim.mjs';
 import { test, assert, eq, notesOf } from './lib.mjs';
 import {
@@ -144,9 +145,12 @@ test('M345-6 WHEN THE SHEET IS WEIGHED: first pages, after a fight, a new face i
   st.sheet.seededAtPage = 12;
   eq(seedDue(st, 20), '', 'nothing new — nothing due');
   st.present.push({ name: 'Drakon' });
-  eq(seedDue(st, 20), '', 'a new face within three pages of the last weighing waits');
-  st.sheet.seededAtPage = 9;
-  eq(seedDue(st, 20), 'a new face', 'a new face in the scene is weighed');
+  /* M616 moved this: a new face is weighed by the house on the NEXT page (SEED_NEW_FACE_GAP 3 → 1) — the wait before his
+   * page no longer weighs anyone but the main character, so the house's own weighing comes sooner */
+  st.sheet.seededAtPage = storyTurnOf(st);
+  eq(seedDue(st, 20), '', 'a new face on the page of the last weighing waits for the next page');
+  st.sheet.seededAtPage = storyTurnOf(st) - 1;
+  eq(seedDue(st, 20), 'a new face', 'a new face in the scene is weighed on the next page');
   st.sheet.seenPresent = ['Drakon'];
   eq(seedDue(st, 20), '', 'but one the last weighing already saw here and left off does not call it again, page after page');
   st.sheet.seenPresent = [];

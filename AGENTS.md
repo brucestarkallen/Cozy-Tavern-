@@ -15411,3 +15411,27 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   scores every beat whatever the words.
 
 - GATES at m615-001 (one CPU): harness 1215/1215, walk 217/217, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking — EXIT 0 each.
+
+# M616 — his: "isn't the LLM smart, why does it need a dictionary to know when a fight starts?"; then, measured, "does it make
+# me wait?"; then: "I just want no wait while everything is smart"
+- WHY HIS EARLIER TEST WORKED AND THIS ONE DID NOT (measured): the word gate was run as it stood at M472, M475, M531 and now on
+  his words — "I order Mahoraga to make him bleed", "kill him", "crush", "destroy", "take him down", "Go, Mahoraga!" were
+  stopped by ALL of them; "attack", "fight", "strike" passed all of them. The gate never changed: in a fight already
+  running every beat goes to the referee whatever the words, so his order was judged when the fight was open and stopped
+  when it was the move that should open it — and Mahoraga was never weighed (M615).
+- MEASURED FIRST: the referee asked before EVERY page added its whole answer time to a calm page (2.6 s with a 2.5 s
+  stand-in, against 0.1 s with the word gate); and the weighing before a fight would have run on calm moves whenever a new
+  face was here — a call that reads the whole story. Neither shipped.
+- THE FIX — NO WAIT, AND SMART WHERE IT MATTERS: when the house reads a fight in the air (mode.combat — the page reader sets
+  it when a page plainly shows one brewing) the referee, a model, reads EVERY move (referee.js gatePasses opts.tense, from
+  both doors: chat.js before the page and refereeStep); a calm scene keeps the instant word list, so a quiet page never waits
+  on it. Out-of-character words and a bare shortcut (#p #pp #q #continue, "go on") never reach it out of a fight. "How readily
+  it rules" (his setting) is also said to the referee in words (buildRefereeUser <how_readily>).
+- NO WEIGHING ON THE WAIT BEFORE HIS PAGE BUT HIS OWN: the weighing before a page runs only when the main character is not yet
+  on the sheet (M531's own case — it weighs everyone here at once); a summon just called or a foe just arrived is rated by
+  the referee on the spot, as it always could, and weighed by the house right after the page (SEED_NEW_FACE_GAP 3 → 1).
+- Laws: M616-1 (a fight in the air: "I order Mahoraga to make him bleed" reaches the referee and opens a battle with Mahoraga
+  beside him — fails on m615-001, the gate never asked), M616-2 (a calm quiet move: no referee call, nothing ruled; a fight
+  in the air: "Go, Mahoraga!" reaches it). The old gate laws (M11, M471) stand as they were — a calm scene is unchanged.
+
+- GATES at m616-001 (one CPU): harness 1217/1217, walk 217/217, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking — EXIT 0 each. M345-6 moved (a new face is weighed on the next page — SEED_NEW_FACE_GAP 1).
