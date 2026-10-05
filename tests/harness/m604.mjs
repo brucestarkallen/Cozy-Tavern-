@@ -98,3 +98,29 @@ test('M605-2 THE SMALL STORYTELLER ALWAYS CARRIES THE LAWS ON SECRETS, PATHWAYS 
   const { plannerAsk } = await import('../../js/agents/planner.js');
   assert(/a hidden identity \(a mask, a codename, a disguise\)/.test(plannerAsk({}).system), 'the planner writes a hidden identity down as unknown');
 });
+
+test('M606 A TALE FOUNDED BEFORE THINGS GETS ITS BRIEF\'S THINGS ONCE — and only those: the founder\'s other writes are not read again, the founding mark stands, the once-only mark is kept', async () => {
+  const { foundWorld } = await import('../../js/agents/founder.js');
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  const { db } = await import('../../js/store.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const story = await db.stories.create({ title: 'Gotham' });
+  const founded = { ...gotham(), founded: { at: 1, print: 'BRIEF-PRINT' } };
+  await saveState(story.id, founded);
+  const answer = JSON.stringify({ mutations: [
+    { type: 'people.set', name: 'Alfred Pennyworth', field: 'core', text: 'a rewritten core that must not land' },
+    { type: 'thing.set', name: 'the Batwing', where: 'the Batcave hangar', owner: 'Bruce Wayne' },
+    { type: 'thing.set', name: 'the Batmobile', where: 'the Batcave', owner: 'Bruce Wayne' },
+  ] });
+  await withHouse(thinkingHouse({ answer }), () => foundWorld({ connection: HOUSES[0].conn, storyId: story.id, brief: 'Bruce Wayne is Batman; his Batwing and Batmobile wait in the Batcave beneath Wayne Manor.', thingsOnly: true }));
+  const st = await loadState(story.id);
+  eq(Object.keys(st.things).sort().join(','), 'the Batmobile,the Batwing', 'the brief\u2019s things');
+  assert(!st.characters || !st.characters['Alfred Pennyworth'], 'nothing else of the founding written');
+  eq(st.founded.print, 'BRIEF-PRINT', 'the founding mark stands');
+  eq(st.thingsFounded, true, 'once');
+  /* the director, as it is asked: its system words, caught on the way to the model */
+  const { writeDirective } = await import('../../js/agents/director.js');
+  let asked = '';
+  await writeDirective({ story: { title: 'Gotham', brief: '' }, messages: [], state: gotham(), mode: 'new', skipPolish: true, skipWatch: true, call: async (req) => { asked = String(req.system || ''); return { text: 'PREMISE — x' }; } });
+  assert(/No beat needs someone to learn what no page has given them/.test(asked), 'the director plans pressure through what the pages hold');
+});

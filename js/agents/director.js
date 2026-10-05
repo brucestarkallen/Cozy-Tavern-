@@ -201,14 +201,19 @@ const DIRECTOR_SYSTEM = [
   'Keep it to about 200 words. Anchor every beat in what someone on the page',
   'already wants — never invent a wanting out of thin air. Plain words, no',
   'markdown, the headings exactly as named above.',
+  /* M606 (his Batman report — a manufactured trail to put Gordon at the door): the director plans pressure too */
+  'No beat needs someone to learn what no page has given them (a secret identity, a hidden base, a private',
+  'act), and no beat needs a capable person to be careless: pressure comes through what the pages already',
+  'hold — never a witness, a paper trail or a slip invented so a confrontation can happen.',
 ].join('\n');
 
 const POLISH_SYSTEM = [
   'You are the showrunner. A director has sketched an episode directive for a',
   'story. Tighten it: every beat must hang on a want already alive',
   'on the page, the LANDING must reprice something standing, the HOOK must be',
-  'plantable early. Keep the format headings exactly as they are; cut what',
-  'drifts. Answer with the revised directive only.',
+  'plantable early. Cut any beat that needs someone to learn what no page gave',
+  'them or a capable person to be careless. Keep the format headings exactly as',
+  'they are; cut what drifts. Answer with the revised directive only.',
 ].join('\n');
 
 const WATCHER_SYSTEM = [

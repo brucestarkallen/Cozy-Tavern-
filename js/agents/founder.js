@@ -43,6 +43,8 @@ const VOCABULARY = [
   'offscreen.set {"type":"offscreen.set","name":"NAME","location":"…","activity":"…","agenda":"…","stance":"waiting|toward|seeking|tense|busy"} — where the brief places a named person who is NOT in the opening scene',
   'thread.set {"type":"thread.set","title":"…","owner":"…","heat":"hot|cold","next":"…"} — the premise\'s live agendas: who wants what, pushing toward the main character',
   'knowledge.add {"type":"knowledge.add","name":"NAME","fact":"…"} — what the brief says a person KNOWS (a secret they hold, a thing they witnessed) — and nothing the brief seals from them',
+  /* M606: what the world HAS from the start — so a jet, a car, a base the brief gives is in front of the storyteller from page one */
+  'thing.set {"type":"thing.set","name":"THE THING","where":"where the brief keeps it","owner":"WHOSE"} — a vehicle, base, weapon or device the brief gives someone (a jet, a car, a hidden base, a signature weapon): what they HAVE to hand; never set dressing',
 ].join('\n');
 
 /* M46: the scene is the extractor's. The founder founds the WORLD — never the
@@ -318,7 +320,7 @@ export function parseFounderAnswer(raw) {
 }
 
 /* The contract. */
-export async function foundWorld({ connection, storyId, brief = '', castNotes = '', cast = [], lore = [], signal, stale, canonRecord = '' } = {}) {
+export async function foundWorld({ connection, storyId, brief = '', castNotes = '', cast = [], lore = [], signal, stale, canonRecord = '', thingsOnly = false } = {}) {
   if (!connection || typeof connection !== 'object' || !storyId) return null;
   const state = await loadState(storyId);
   const prompt = buildFounderMessages({ state, brief, castNotes, cast, lore, canonRecord });
@@ -344,7 +346,8 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
   const mcKnown = (mcFromAnswer && mcFromAnswer.name.trim()) || (mcName(fresh) !== 'the player' ? mcName(fresh) : '');
   const guarded = [];
   const refusedByLock = [];
-  for (const m of ordered) {
+  /* M606: a tale founded before the ledger kept things gets the things its brief gives — and only those — once */
+  for (const m of (thingsOnly ? ordered.filter((x) => x && x.type === 'thing.set') : ordered)) {
     if (NOT_THE_FOUNDERS.has(m.type)) { refusedByLock.push({ mutation: m, why: 'the scene (its ground, hour, who is in it) is the extractor’s to found from the first page, not the founder’s' }); continue; }
     if (m.type === 'rel.set' || m.type === 'rel.shift') {
       const cause = String(m.cause || '').toLowerCase();
@@ -355,7 +358,7 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
   }
   /* M49: the writer's digits, applied in code — a rel.set per explicit
    * standing, whether or not the model wrote one */
-  const stated = await readStatedStandings({ connection, brief, castNotes, mc: mcKnown, signal });
+  const stated = thingsOnly ? [] : await readStatedStandings({ connection, brief, castNotes, mc: mcKnown, signal });
   const named = new Set(guarded.filter((m) => m.type === 'rel.set' && typeof m.name === 'string').map((m) => m.name.trim().toLowerCase()));
   for (const st of stated) {
     if (named.has(st.name.toLowerCase())) continue;
@@ -363,7 +366,7 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
   }
   const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
   const rejected = [...rejectedByApplier, ...refusedByLock];
-  const out = { ...next, founded: { at: Date.now(), print: founderFingerprint({ brief, castNotes, cast, lore }) } };
+  const out = thingsOnly ? { ...next, thingsFounded: true } : { ...next, founded: { at: Date.now(), print: founderFingerprint({ brief, castNotes, cast, lore }) }, thingsFounded: true };
   if (stale && stale()) return null;
   await saveState(storyId, out);
   notify(storyId);

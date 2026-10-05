@@ -57,7 +57,8 @@ test('M45-2 end to end: pages, standings, locks, factions, seats, threads and kn
 test('M45-3 the house runs the founder first, once per material, and by hand', () => {
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   assert(chat.indexOf("enqueue('founder'") < chat.indexOf("enqueue('extractor'"), 'before the extractor');
-  assert(/if \(st\.founded && st\.founded\.print === print && !refound\) return \{ silent: true \};/.test(chat), 'once per material');
+  /* M606: once per material — and once more, for its things alone, for a tale founded before the ledger kept things */
+  assert(/if \(st\.founded && st\.founded\.print === print && !refound && !thingsOnly\) return \{ silent: true \};/.test(chat), 'once per material');
   assert(/async function foundNow\(\)/.test(chat) && /foundNow,/.test(chat));
   assert(WORKER_NAMES[0] === 'founder' && WORKER_ROWS[0][0] === 'founder');
   const drawer = readFileSync(new URL('../../js/ui/drawer.js', import.meta.url), 'utf8');

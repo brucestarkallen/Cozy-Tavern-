@@ -335,6 +335,7 @@ function normalize(saved) {
   next.groundWas = saved.groundWas && typeof saved.groundWas === 'object' && typeof saved.groundWas.name === 'string' && Number.isInteger(saved.groundWas.page) ? { name: saved.groundWas.name, page: saved.groundWas.page } : null; /* M304 */
   next.factions = saved.factions && typeof saved.factions === 'object' ? saved.factions : {};
   next.things = saved.things && typeof saved.things === 'object' && !Array.isArray(saved.things) ? saved.things : {}; /* M604 */
+  if (saved.thingsFounded === true) next.thingsFounded = true; /* M606: the brief's things founded once */
   /* M29 (v7): knowledge and the world brief — no-loss; legacy string
    * threads keep rendering (renderStateFacts tolerates both shapes). */
   next.knowledge = dedupeKnowledge(saved.knowledge && typeof saved.knowledge === 'object' ? saved.knowledge : {}); /* M92: duplicates folded on load */

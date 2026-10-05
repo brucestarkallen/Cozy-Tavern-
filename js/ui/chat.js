@@ -3426,11 +3426,14 @@ export function initChat(ctx) {
       const print = founderFingerprint({ brief: story.brief || '', castNotes: story.castNotes || '', cast, lore });
       if (!print) return { silent: true };
       const st = await loadState(story.id);
-      if (st.founded && st.founded.print === print && !refound) return { silent: true };
+      /* M606: a tale founded before the ledger kept things is founded once more for its things alone (a jet, a car, a base the
+       * brief gives) — nothing else of the founding is read again */
+      const thingsOnly = Boolean(st.founded && st.founded.print === print && !refound && !st.thingsFounded);
+      if (st.founded && st.founded.print === print && !refound && !thingsOnly) return { silent: true };
       const connection = await resolveWorkerConnection(story, 'founder');
       if (!connection) return { silent: true };
       if (stale()) return { silent: true };
-      const result = await foundWorld({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', cast, lore, signal, stale, canonRecord: await canonRecordOf(story) }); /* M564: the real record it is told to write canon people from */
+      const result = await foundWorld({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', cast, lore, signal, stale, canonRecord: await canonRecordOf(story), thingsOnly }); /* M564: the real record it is told to write canon people from */
       return { silent: false, detail: founderRunWords(result), raw: result && result.raw };
     });
 

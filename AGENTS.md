@@ -15194,3 +15194,19 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
 - Walk DOM-67 and DOM-169 named Pathway Laundering and the Symmetry Law as laws a small page leaves to the helper — both ride now;
   Ruin Awareness and Stagnation Forcing stand for a helper-only law.
 - Laws M605-1/2.
+
+# M606 — the line-by-line audit, part 16 (the smaller helpers): the director, continuity, the founder
+- THE FOUNDER FOUNDS THINGS TOO: a vehicle, base, weapon or device the brief gives someone (the Batwing, the Batmobile, the
+  Batcave) — what they HAVE to hand from page one (thing.set in its vocabulary; never set dressing). A tale founded BEFORE
+  things existed is founded once more for its things alone (foundWorld thingsOnly — only thing.set lands; the founding
+  mark stands; state.thingsFounded keeps it to once, through every write and load). Law M606.
+- THE DIRECTOR (his opt-in episode marching orders) plans pressure too: no beat may need someone to learn what no page gave
+  them or a capable person to be careless; its polish cuts such a beat (his Batman report, again at its root).
+- Read and sound: continuity (locked truths, the untold-knowledge warn that already catches someone stating what they were
+  never shown learning, "where" findings left to the page, other scripts; the mender told the main character by name),
+  the director's store, its control-token and run-past cuts, its episode end.
+- THE SPEED CHECK AND THIS MACHINE: perf_send failed on this run — and on the pushed m605 code too, run the same way (checked
+  by stashing M606): the container restarted with ONE CPU (nproc 1), the reloaded page took over a minute to draw, and a
+  run that did draw measured request 2,275 ms / worst long task 973 ms against budgets of 2,500 / 1,000. Not M606's; the
+  other gates passed: harness 1196/1196, walk 211/211, long play 9/9, lint 0, holdsone and cutthinking green. M45-3's
+  once-per-material guard reads the new line (and once more for a tale's things).
