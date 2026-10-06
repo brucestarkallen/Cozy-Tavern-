@@ -58,6 +58,13 @@
 - IN THE WALK, NEVER CHECK A SETTINGS FIELD RIGHT AFTER openSettings(): Settings is SHOWN first and filled after (the open
   room, then the others one by one in the background), and the helper waits a fixed 150 ms. Wait for the field with
   until(). DOM-11c and the frame scenario did not, and DOM-11c failed once on one CPU for it (M639).
+- A GATE THAT FAILS ONCE AND PASSES ON A RERUN HAS NOT PASSED. Never write "timing", "rare" or "flaky" in these notes, and
+  never push on the rerun: read the failing report against the state, make the failure happen on purpose, and only then
+  call it the app's fault or the test's — and say which to the writer. M638 was pushed, and told to him as done, with
+  DOM-135 unexplained because this file called it "rare timing, cause not found"; it was a real fault in the drawer,
+  found within the hour once it was looked at (M639). He asked, rightly, why he had been told everything was good.
+  DOM-11c's one-off was then MEASURED, not argued: when Settings appears the brief's box still holds the old brief
+  (5 times of 5) and is filled 53 to 92 ms later on an idle machine — the walk's fixed 150 ms had no room on a busy one.
 - THE GATES: setsid bash audit/gates.sh <tag> & — harness, walk, long play, lint, perf_send, holdsone, cutthinking,
   notes_layout; push only when every one says EXIT 0.
 
