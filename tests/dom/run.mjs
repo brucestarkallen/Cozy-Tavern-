@@ -10265,8 +10265,9 @@ test('DOM-228 THE BENCHMARK (M632 — his: "choose the LLM that writes best; sco
   try {
     await env.ctx.settings.onShow({ all: true });
     const on = q('#bench-on'); on.checked = true; on.dispatchEvent(new env.window.Event('change'));
-    const judge = q('#bench-judge'); judge.value = firstId; judge.dispatchEvent(new env.window.Event('change'));
-    await until(async () => (await db.settings.get('benchOn')) === true && (await db.settings.get('benchJudgeId')) === firstId, 'the switch and the judge kept');
+    /* M633: "Graded by" is a tick per connection now */
+    const jt = [...document.querySelectorAll('#bench-judges input[type=checkbox]')].find((x) => x.value === firstId); jt.checked = true; jt.dispatchEvent(new env.window.Event('change'));
+    await until(async () => (await db.settings.get('benchOn')) === true && JSON.stringify(await db.settings.get('benchJudges')) === JSON.stringify([firstId]), 'the switch and the judge kept');
     await env.ctx.settings.onHide();
     type(q('#composer-input'), 'I look at the gate.'); submit(q('#composer'));
     await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the first page', 30000);
@@ -10299,7 +10300,64 @@ test('DOM-228 THE BENCHMARK (M632 — his: "choose the LLM that writes best; sco
     if (activeWas === undefined) await db.settings.delete('activeConnectionId'); else await db.settings.set('activeConnectionId', activeWas);
     await env.ctx.chat.refreshQuickSwitch();
     await db.settings.set('benchOn', false);
+    await db.settings.delete('benchJudges');
     await clearBench();
+  }
+});
+
+test('DOM-229 A BENCHMARK RUN ON DEMAND (M633 — his: "tick 1 to 4 connections, press it, a random story is written by each, the judges grade it; several judges averaged"): a page of his replayed to two storytellers at once, graded by two judges averaged, head to head by their majority; his tale untouched; the board and the last run show it', async () => {
+  const { saveState: saveLedger, emptyState: blankLedger } = await import('../../js/engine/state.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { clearBench } = await import('../../js/engine/bench.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  await clearBench();
+  await db.settings.delete('benchLastRun');
+  const add = async (label, model) => db.connections.add({ name: label, label, type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model, maxTokens: 800 });
+  const A = await add('Teller A', 'ma'), B = await add('Teller B', 'mb'), J1 = await add('Judge one', 'j1'), J2 = await add('Judge two', 'j2');
+  const st = await db.stories.create({ title: 'Replayed tale' });
+  await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[The gate \u2014 Monday, March 3, 2025 | 09:00 | clear]\n\nThe gate was quiet.' });
+  await saveLedger(st.id, { ...blankLedger(), sheet: { actors: {}, playerName: 'Jovan' }, page: 0, readTo: 0, tidiedGen: 999, healedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorWorker = house.state.workerAnswer, priorStory = house.state.storyAnswer;
+  house.state.storyAnswer = (body) => '[The gate \u2014 Monday, March 3, 2025 | 09:05 | clear]\n\n' + (body && body.model === 'mb' ? 'BETA: the wind rose and Kara turned toward him.' : body && body.model === 'ma' ? 'ALPHA: nothing moved.' : 'ORIGINAL: the gate stayed quiet.');
+  house.state.workerAnswer = (body, sys) => {
+    const u = JSON.stringify(body);
+    if (/You judge one page/.test(sys)) { const beta = /BETA:/.test(u); const strict = body && body.model === 'j1'; return JSON.stringify({ prose: 6, people: 6, agency: 8, continuity: 7, pull: 6, overall: beta ? (strict ? 8 : 6) : (strict ? 4 : 6), why: 'x' }); }
+    if (/Two storytellers each wrote/.test(sys)) { const a = u.indexOf('<page A>'), b = u.indexOf('<page B>'), m = u.indexOf('BETA:'); return JSON.stringify({ better: m > a && m < b ? 'A' : 'B' }); }
+    return walkDefaultWorker(body, sys);
+  };
+  try {
+    type(q('#composer-input'), 'I knock on the gate.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'his page, its request kept', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'its readers', 60000);
+    const pagesBefore = JSON.stringify((await db.messages.list(st.id)).map((m) => [m.id, m.text]));
+    await env.ctx.settings.onShow({ all: true });
+    const tick = (box, id) => { const t = [...document.querySelectorAll('#' + box + ' input[type=checkbox]')].find((x) => x.value === id); t.checked = true; t.dispatchEvent(new env.window.Event('change')); };
+    tick('bench-takers', A.id); await tick && await new Promise((r) => setTimeout(r, 50));
+    tick('bench-takers', B.id); await new Promise((r) => setTimeout(r, 50));
+    tick('bench-judges', J1.id); await new Promise((r) => setTimeout(r, 50));
+    tick('bench-judges', J2.id);
+    await until(async () => { const tk = await db.settings.get('benchTakers'); const jd = await db.settings.get('benchJudges'); return Array.isArray(tk) && tk.length === 2 && Array.isArray(jd) && jd.length === 2; }, 'the storytellers and judges ticked');
+    click(q('#btn-bench-run'));
+    await until(() => /^Done/.test(q('#bench-progress').textContent), 'the run: ' + (q('#bench-progress') || {}).textContent, 60000);
+    const run = await db.settings.get('benchLastRun');
+    eq(run.results.map((r) => r.name + ' ' + r.overall + ' ' + r.win + '-' + r.loss).join(' | '), 'Teller B 7 1-0 | Teller A 5 0-1', 'B first: two judges averaged (8 and 6), and it won head to head by their majority');
+    /* a random page of HIS stories — in a whole walk, any tale that kept its page's request */
+    const chosenTale = (await db.stories.list()).find((s) => s.id === run.story.id);
+    assert(chosenTale && (await db.messages.list(chosenTale.id)).some((m) => m.role === 'assistant' && m.receipt && m.receipt.sentId), 'a page of one of his stories, replayed: ' + run.story.title);
+    assert(/BETA:/.test(run.results[0].text) && /ALPHA:/.test(run.results[1].text), 'each storyteller wrote its own page');
+    eq(JSON.stringify((await db.messages.list(st.id)).map((m) => [m.id, m.text])), pagesBefore, 'his tale is untouched');
+    const lastCards = [...document.querySelectorAll('#bench-last .bench-run-row')];
+    eq(lastCards.map((c) => c.dataset.writer).join(','), B.id + ',' + A.id, 'the last run shown, B first');
+    assert([...document.querySelectorAll('#bench-board .bench-row')].some((r) => r.dataset.writer === B.id), 'and on the board');
+    await env.ctx.settings.onHide();
+  } finally {
+    house.state.workerAnswer = priorWorker; house.state.storyAnswer = priorStory;
+    await db.settings.delete('benchTakers'); await db.settings.delete('benchJudges'); await db.settings.delete('benchLastRun');
+    await clearBench();
+    for (const c of [A, B, J1, J2]) await db.connections.remove(c.id).catch(() => {});
   }
 });
 

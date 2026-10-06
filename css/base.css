@@ -1241,6 +1241,12 @@ body.plain-speech .thought { font-style: italic; }
 .bench-line { margin-top: 0.15rem; }
 .bench-score { font-size: 1.05rem; }
 .bench-axes { margin-top: 0.2rem; font-size: 0.82rem; line-height: 1.4; }
+/* M633: the judges and the storytellers to test — one tick each */
+.bench-picks { display: flex; flex-direction: column; gap: 0.15rem; margin: 0.3rem 0 0.5rem; }
+.bench-picks .radio-row { padding: 0.15rem 0; overflow-wrap: anywhere; }
+.bench-last { display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.4rem; }
+.bench-last details { margin-top: 0.25rem; }
+.bench-last .bench-page { white-space: pre-wrap; font-size: 0.85rem; line-height: 1.45; margin-top: 0.3rem; max-height: 22rem; overflow-y: auto; }
 .usage-table th, .usage-table td { padding: 4px 6px; text-align: left; border-bottom: 1px solid rgba(128, 128, 128, 0.25); }
 .usage-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .usage-total td { font-weight: 600; }

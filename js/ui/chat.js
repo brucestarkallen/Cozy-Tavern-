@@ -40,7 +40,8 @@
  *    fresh (referee.refereeStep).
  */
 
-import { gradePage, duelPages } from '../agents/judge.js'; /* M632: the benchmark */
+import { gradeWithJudges, duelWithJudges } from '../agents/benchrun.js'; /* M632/M633: the benchmark — several judges, averaged */
+import { benchJudgeIds } from './benchview.js'; /* M633 */
 import { recordGrade, recordDuel, writerKey } from '../engine/bench.js'; /* M632 */
 import { splitPrefill } from '../providers/effort.js'; /* M585: a go-on turn keeps only the thinking seed */
 import { structuredPlanFor } from '../providers/openai.js'; /* M581: the opener asks only for a structured turn */
@@ -4483,9 +4484,11 @@ export function initChat(ctx) {
     enqueue('judge', async ({ signal, stale }) => {
       try {
         if (stale() || (await db.settings.get('benchOn')) !== true || msg.role !== 'assistant' || msg.ooc) return { silent: true };
-        const judgeId = await db.settings.get('benchJudgeId');
-        const connection = (judgeId ? (await db.connections.list()).find((c) => c.id === judgeId) : null) || await resolveWorkerConnection(story, 'continuity'); /* a judge let go: the readers' own */
-        if (!connection) return { silent: true };
+        /* M633: every judge he ticked; none (or every one let go) — the readers' own connection */
+        const ids = await benchJudgeIds();
+        let judges = (await db.connections.list()).filter((c) => ids.includes(c.id));
+        if (!judges.length) { const own = await resolveWorkerConnection(story, 'continuity'); if (own) judges = [own]; }
+        if (!judges.length) return { silent: true };
         const all = visiblePages(await db.messages.list(story.id));
         const at = all.findIndex((m) => m.id === msg.id);
         const cur = at >= 0 ? all[at] : null;
@@ -4499,7 +4502,7 @@ export function initChat(ctx) {
         try { notes = planFacts(await loadState(story.id)); } catch (err) { notes = ""; }
         const ctxWords = { before: before ? pageText(before) : '', move: move ? pageText(move) : '', notes };
         const page = pageText(cur);
-        const grade = await gradePage({ connection, ...ctxWords, page, signal });
+        const grade = await gradeWithJudges(judges, ctxWords, page, signal);
         if (stale()) return { silent: true };
         let detail = '';
         if (grade && Number.isFinite(grade.overall)) {
@@ -4514,7 +4517,7 @@ export function initChat(ctx) {
           const rival = [...swipes.slice(0, shownAt)].reverse().find((sw) => sw && writerKey(sw.receipt) && writerKey(sw.receipt) !== writer);
           if (shown && rival) {
             const y = writerKey(rival.receipt);
-            const duel = await duelPages({ connection, ...ctxWords, x: page, y: String(rival.text || ''), signal });
+            const duel = await duelWithJudges(judges, ctxWords, page, String(rival.text || ''), signal);
             if (duel && !stale()) {
               await recordDuel({ x: writer, y, xLabel: receipt.label || receipt.model || '', yLabel: (rival.receipt && (rival.receipt.label || rival.receipt.model)) || '', winner: duel.winner, why: duel.why, duelKey: story.id + ':' + cur.id + ':' + (receipt.ts || 0) + ':' + ((rival.receipt && rival.receipt.ts) || rival.ts || 0) });
               detail += (detail ? ' · ' : '') + (duel.winner === 'tie' ? 'a tie' : duel.winner === 'x' ? 'won' : 'lost') + ' head to head';
@@ -7688,6 +7691,8 @@ export function initChat(ctx) {
     return canonSelfTest({ story, state: await loadState(story.id), messages: await db.messages.list(story.id), connection });
   }
 
+  /* M633: the readers' own connection — the benchmark's judge when he ticked none */
+  ctx.readersConnection = async () => resolveWorkerConnection((await activeStory()) || {}, 'continuity');
   ctx.chat = {
     openStory, /* M189: so a fetch-on-open can be exercised by a test */
     jumpToPage, /* M622: a search hit opens its tale at its page */

@@ -15768,3 +15768,27 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   the board too: a card per storyteller fits its room at 360, 412 and 900 px (a table ran 456 px into a 380 px room).
 
 - GATES at m632-001 (one CPU): harness 1239/1239, walk 228/228, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout (now with the board) — EXIT 0 each.
+
+# M633 — his: "a manual random benchmark: I tick 1 to 4 connections, press it, a random story is written by each — one by
+# one or all — and graded; and several judges, averaged, because I mostly use one model all the time"
+- A RUN ON DEMAND (Settings → Storyteller → Benchmark → "Run a benchmark now"): he ticks up to four storytellers and
+  presses "Run the benchmark". The "random story" is a random page of HIS stories — its moment exactly as its storyteller
+  was sent it (js/sent.js keeps every page's request: his frame, the craft, the ledger's notes, the record, the pages) —
+  so each model is tested on the story he actually plays, not on a scene made up for the test. Each ticked storyteller
+  writes that page from that same request, all at once (agents/benchrun.js: the kept request — OpenAI's messages or
+  Anthropic's system and messages — read back to the house's own shape; the original's prefill left off, each writes
+  with its own connection's settings; a plan before the header set aside, as the page's gate does). Nothing of his tales
+  is touched. Every judge grades every page against the moment as it was sent; every pair is judged head to head, blind,
+  both ways round. A Stop button; the progress said as it goes; the last run kept with each page to read; the results
+  join the board.
+- SEVERAL JUDGES: "Graded by" is a tick per connection; every ticked judge grades, the grades averaged axis by axis; in a
+  head to head every judge votes (each having read the pair both ways round) and the majority stands, an even split a tie.
+  None ticked: the readers' own connection. The everyday grading uses the same judges. (The one judge of M632 is read as
+  the list when no list is set.)
+- Law M633-1 (a kept request read back from both providers' shapes, the late system words in place, the prefill left
+  off); walk DOM-229 (through the app: his page's request kept, two storytellers ticked and two judges, the run — B ranked
+  first on the two judges' average (8 and 6 → 7) and the winner of the head to head by their majority, each page its own
+  writer's, his tale untouched, the last run and the board showing it).
+
+- DOM-228 moved to the judges' ticks; DOM-229 takes any of his tales as the random page (in a whole walk another tale kept its request too).
+- GATES at m633-001 (one CPU): harness 1240/1240, walk 229/229 (run again whole after the two walks were corrected), long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.

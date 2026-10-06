@@ -122,6 +122,7 @@ const SHELL = [
   'js/ui/search.js', /* M622 */
   'js/engine/search.js', /* M622 */
   'js/agents/judge.js', /* M632 */
+  'js/agents/benchrun.js', /* M633 */
   'js/engine/bench.js', /* M632 */
   'js/ui/benchview.js', /* M632 */
   'js/ui/speechcolours.js', /* M466 */

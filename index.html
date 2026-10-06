@@ -367,10 +367,23 @@
         <!-- M632: the benchmark — which storyteller writes best -->
         <section class="settings-section" id="section-bench">
           <h3>Benchmark — which storyteller writes best</h3>
-          <p class="quiet">Every page can be graded as it lands — prose, people, your character's agency, continuity, pull, 0 to 10 — by the judge you choose, against the moment it answers (the page before, your move, where things stand); nothing to copy or paste. When one moment has pages from two storytellers (switch the storyteller, then ask for another take with → on the page), the judge also reads the two side by side, blind, both ways round. Each storyteller's score is the average of its pages, and the board ranks them.</p>
+          <p class="quiet">Every page can be graded as it lands — prose, people, your character's agency, continuity, pull, 0 to 10 — by the judges you tick (their grades averaged), against the moment it answers (the page before, your move, where things stand); nothing to copy or paste. When one moment has pages from two storytellers (switch the storyteller, then ask for another take with → on the page), the judge also reads the two side by side, blind, both ways round. Each storyteller's score is the average of its pages, and the board ranks them.</p>
           <div class="row"><label class="radio-row"><input type="checkbox" id="bench-on"> Grade every page</label></div>
-          <label class="stack-label" for="bench-judge">Graded by</label>
-          <select id="bench-judge" aria-label="The connection that grades the pages"></select>
+          <!-- M633: several judges, their grades averaged -->
+          <span class="stack-label">Graded by — tick one or more; their grades are averaged</span>
+          <div id="bench-judges" class="bench-picks"></div>
+          <!-- M633: a run on demand — a random moment of his stories, written by each storyteller he ticks -->
+          <details class="stack bench-run" id="bench-run" open>
+            <summary class="stack-label">Run a benchmark now</summary>
+            <p class="quiet">A random page of your stories — its moment exactly as the storyteller was sent it — is written again by each storyteller you tick (up to four, all at once); every judge grades each page, and every pair is judged head to head, blind, both ways round. Your stories are not touched. The results join the board.</p>
+            <div id="bench-takers" class="bench-picks"></div>
+            <div class="row">
+              <button id="btn-bench-run" class="btn" type="button">Run the benchmark</button>
+              <button id="btn-bench-stop" class="text-btn" type="button" hidden>Stop</button>
+            </div>
+            <p id="bench-progress" class="quiet" hidden></p>
+            <div id="bench-last" class="bench-last"></div>
+          </details>
           <div id="bench-board" class="bench-board"></div>
           <div class="row"><button id="btn-bench-clear" class="text-btn" type="button">Clear the scores</button></div>
         </section>
