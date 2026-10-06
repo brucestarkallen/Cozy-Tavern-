@@ -7126,22 +7126,52 @@ export function initChat(ctx) {
     if (!story || busy) return;
     if (!(await waitForRebuild())) return;
     if (busy) return;
-    /* One page lets go — never conflated with rewrite-from-here. */
-    const ok = window.confirm('Let this page go? The ones around it stay exactly as written.');
+    /* M635: HIS MESSAGE GOES WITH THE PAGE THAT ANSWERED IT — his: "when I delete my message, the output should be gone
+     * too". The × on his message let only his words go and left the storyteller's answer standing under the page before
+     * it. A message of his now goes with everything that answered it — the storyteller's page (every version of it), a
+     * page that carried on from it, and a hidden "go on" between them — up to his next message; the × on a storyteller's
+     * page still lets that one page go. */
+    const allNow = await db.messages.list(story.id);
+    const target = allNow.find((m) => m.id === id);
+    const answers = [];
+    if (target && target.role === 'user' && !target.hidden) {
+      for (let i = allNow.indexOf(target) + 1; i < allNow.length; i += 1) {
+        const m = allNow[i];
+        if (m.role === 'user' && !m.hidden) break;
+        answers.push(m);
+      }
+    }
+    const told = answers.filter((m) => m.role === 'assistant' && !m.hidden).length;
+    const ok = window.confirm(told
+      ? (told === 1 ? 'Let your message go, and the page that answered it?' : 'Let your message go, and the ' + told + ' pages that answered it?') + ' The pages around them stay exactly as written.'
+      : 'Let this page go? The ones around it stay exactly as written.');
     if (!ok) return;
-    /* M44: the record slides with the pages — the line covering this page
+    /* the answers first, the last of them first (a storyteller page let go folds the ledger back to the page before it,
+     * exactly — so the newest goes first); his own words last (a writer's page let go moves no storyteller page) */
+    for (const m of [...answers].reverse()) await letOnePageGo(story, m.id);
+    await letOnePageGo(story, id);
+    /* M21: with the page gone, the preview re-reads the page before it. */
+    await refreshPreview(story.id);
+    renderStoryList();
+    refreshEmber();
+    toast(told ? (told === 1 ? 'Your message and its answer are gone.' : 'Your message and the pages that answered it are gone.') : 'The page is gone.');
+  }
+  /* One page lets go — never conflated with rewrite-from-here. */
+  async function letOnePageGo(story, id) {
+    /* M44: the record slides with the pages -- the line covering this page
      * is let go, the lines above it move down one */
     const allBefore = await db.messages.list(story.id);
     const visBefore = visiblePages(allBefore);
     const kGone = visBefore.findIndex((m) => m.id === id);
     const after = kGone !== -1 ? visBefore.slice(kGone + 1).find((m) => m) : null;
     const goneBoundary = boundaryFor(allBefore, id); /* the turn the page belonged to */
+    void goneBoundary;
     if (kGone !== -1) await saveMemory(story.id, memoryAfterDeletion(await loadMemory(story.id), kGone));
     await db.messages.remove(story.id, id);
     await forgetCheckpoints(story.id, [id]); /* M107 */
     const gone = visBefore[kGone];
     /* M72: the ledger work is claimed right after the store write, before any
-     * rendering. A WRITER'S page let go moves no storyteller page — the
+     * rendering. A WRITER'S page let go moves no storyteller page -- the
      * ledger's stamps stand (the record slid above; the referee prunes its
      * own timeline by message id); replaying from k = -1 used to shift every
      * stamp down by one. A storyteller page in the middle replays from the
@@ -7171,14 +7201,8 @@ export function initChat(ctx) {
     const node = els.thread.querySelector('.msg[data-id="' + cssId((id)) + '"]');
     if (node) node.remove();
     lastRender.ids = lastRender.ids.filter((x) => x !== id);
-    /* M21: with the page gone, the preview re-reads the page before it. */
-    await refreshPreview(story.id);
-    renderStoryList();
-    refreshEmber();
-    toast('The page is gone.');
     if (ledgerWork) await ledgerWork.catch(() => {});
   }
-
   els.thread.addEventListener('click', async (e) => {
     const btn = e.target.closest('.msg-act');
     if (!btn) return;

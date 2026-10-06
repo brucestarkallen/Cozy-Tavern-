@@ -173,7 +173,9 @@ test('M72-8 the rewind is the fold; the replay is sequenced; a writer’s page d
     const body = c.slice(c.indexOf('async function ' + fn + '('), c.indexOf('async function ' + fn + '(') + 700);
     assert(/await waitForRebuild\(\)/.test(body), fn + ' waits for a rebuild instead of refusing');
   }
-  const del = c.slice(c.indexOf('async function deleteMessage('), c.indexOf('async function deleteMessage(') + 3600);
+  /* M635 moved this: the one-page delete lives in letOnePageGo now — deleteMessage lets his message go with its answer
+   * through it, one page at a time (walk DOM-231 runs it) */
+  const del = c.slice(c.indexOf('async function letOnePageGo('), c.indexOf('async function letOnePageGo(') + 3600);
   assert(/if \(gone && gone\.role === 'assistant'\) \{/.test(del), 'a writer’s page let go shifts no storyteller page');
   assert(/await foldTo\(story, goneK - 1\);/.test(del), 'the tail page let go folds the ledger back now');
   assert(del.indexOf('await db.messages.remove(story.id, id);') < del.indexOf('ledgerWork = replayFrom') && del.indexOf('ledgerWork = replayFrom') < del.indexOf("querySelector('.msg[data-id") /* M574: the id is escaped now (cssId) */, 'the ledger work is claimed before any rendering');

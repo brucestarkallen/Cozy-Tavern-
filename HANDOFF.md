@@ -1,6 +1,28 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m634-001)
+# Cozy Tavern — handoff for the next session (state at m635-001)
+
+## THE SESSION OF OCT 6 2026 (M607–M635), IN ONE PLACE — read this, then AGENTS.md's tail (# M607 onward)
+- THE LINE-BY-LINE AUDIT IS COMPLETE (M619): all 122 files read whole (audit/LINE_AUDIT.md). Every fault found was
+  reproduced with a law or a walk that fails on the version before, fixed, and gated.
+- WHAT HE ASKED FOR AND GOT (each in AGENTS.md under its number): notes above/below his note with their own role (M620,
+  M623); the house's thinking note — HIS OWN PASS from his craft (B, TRIGGERS, L; never "let someone act every page",
+  never "the house" in its words — inVoice turns that into the writer's notebook), on by default, movable, switchable,
+  put back in one tap, never on an out-of-character turn, held from a small model with the note's small switch off (M622,
+  M624, M629, M631); his note's switch is his note's alone (M624); bulk delete, bulk move, giant projects (M621, M630);
+  search inside every tale, the device searching the tales only it holds (M622); the header given the ledger's spot, an
+  area-only header no move, attire/position a reading not a change, glued stray script taken off (M626–M628); a branch
+  sets its scene's setting at once (M625); the benchmark — every page graded against its moment by the judges he ticks,
+  head to head blind both ways, a run on demand replaying a random page of HIS stories to up to four storytellers, live
+  per-storyteller progress, time limits, a kept run that continues (M632–M634); his message deleted with its answer (M635).
+- HIS RULES THAT BIT THIS SESSION: a law that reads source text breaks when code moves (M72-8 did) — prefer walks; a walk
+  run alone needs its own connection (DOM-82/135 needed one); the walk's stand-in server knows a reader by phrases in
+  its system words (tests/dom/env.mjs isWorker — a new reader needs its phrase there); the real-browser checks
+  (tests/notes_layout.py in the gates) are the only ones that see layout — jsdom lays nothing out.
+- KNOWN AND NOT FOUND: DOM-135 fails rarely by timing (its report shows the page read late); its cause is not found, and a
+  guessed fix was taken out for want of evidence (M628's notes).
+- THE GATES: setsid bash audit/gates.sh <tag> & — harness, walk, long play, lint, perf_send, holdsone, cutthinking,
+  notes_layout; push only when every one says EXIT 0.
 
 ## READ THIS FIRST — HIS STORYTELLER'S PERSONA IS THE THING THAT BREAKS
 00000. M548 — CHOICES MATTER (Settings → Choices matter, per story, OFF by default; agents/choices.js). Off must stay byte for byte

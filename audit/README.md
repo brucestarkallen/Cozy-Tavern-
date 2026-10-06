@@ -1,7 +1,7 @@
 # THE LINE-BY-LINE AUDIT — CHECKPOINT (read this first in a new session)
 
-**Where it stands:** m619-001, Oct 6 2026. All 122 of 122 files read whole and fixed —
-64,113 of 64,113 lines (47,196 of 47,196 code lines). The line-by-line audit is complete.
+**Where it stands:** m635-001, Oct 6 2026. All 122 of 122 files read whole and fixed (M619); the session after it
+added features M620–M635, each gated, with two whole-session audits (M629, M635).
 (`DONE (Mxxx)` = read whole; `todo` = not yet). The full history of every fix is the tail of `AGENTS.md`
 (search `# M574` onward for the audit's own parts); `HANDOFF.md` says how to run the app and the tests.
 

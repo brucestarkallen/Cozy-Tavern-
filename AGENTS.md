@@ -15813,3 +15813,23 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   asks the slow one again and NOT the fast one, grades both, judges the pair; the finished run lets its state go).
 
 - GATES at m634-001 (one CPU): harness 1241/1241, walk 230/230, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.
+
+# M635 — his: "1. when I delete my message, its output should be gone too; 2. audit everything of the whole session — I am
+# moving to a new session"
+- HIS MESSAGE GOES WITH ITS ANSWER (walk DOM-231 fails on m634-001: the answer stayed). The × on his message let only his
+  words go. It now lets go everything that answered it, up to his next message — the storyteller's page (every version of
+  it), a page that carried on from it, a hidden "go on" between them — each through the same one-page delete
+  (letOnePageGo: the record slides, the checkpoints go, a middle page replays the ledger from the next, the last page
+  folds it back exactly), the newest first; the question says what goes ("Let your message go, and the page that
+  answered it?"). The × on a storyteller's page still lets that one page go.
+- THE SESSION'S LAST AUDIT (M630–M635, ~1,130 app lines since M629's audit, re-read as code): the giant projects' store
+  and section, bulk move, the thinking note's triggers and its put-back, the benchmark (receipts naming their connection,
+  the judge's prompts in the fiction frame, the board, several judges averaged, the run: a kept request read back from
+  either provider's shape, each storyteller's live line, the time limits, the kept run state and Continue) and the new
+  delete. Checked and sound: a resumed run finds its page by its kept request and says so if that page's request was
+  let go (kept: the newest two hundred pages a tale); pair keys split on ":" hold (connection ids carry none); a hidden
+  message deleted touches no record line; a delete waits for the page's readers (pendingWork) as before; every new
+  setting is the house's own row (synced with the house book; Reset leaves them, as his own words); no debug output.
+
+- M72-8 moved to the one-page delete (letOnePageGo), where its logic now lives.
+- GATES at m635-001 (one CPU): harness 1241/1241, walk 231/231, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.

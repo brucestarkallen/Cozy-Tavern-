@@ -10423,5 +10423,44 @@ test('DOM-230 A RUN SAYS HOW IT GOES, AND A STOPPED RUN CONTINUES (M634 — his:
   }
 });
 
+test('DOM-231 HIS MESSAGE GOES WITH ITS ANSWER (M635 — his: "when I delete my message, the output should be gone too"): the × on his last message lets it and the page that answered it go, the ledger folding back to the page before; the × on a storyteller page still lets only that page go', async () => {
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const st = await db.stories.create({ title: 'Delete with its answer' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorStory = house.state.storyAnswer;
+  let n = 0;
+  house.state.storyAnswer = () => { n += 1; return '[The gate \u2014 Monday, March 3, 2025 | 09:0' + n + ' | clear]\n\nPAGE ' + n + ': the gate was quiet.'; };
+  const confirmWas = env.window.confirm;
+  const asked = [];
+  env.window.confirm = (w) => { asked.push(String(w)); return true; };
+  try {
+    for (const words of ['I wait.', 'I knock.', 'I call out.']) {
+      type(q('#composer-input'), words); submit(q('#composer'));
+      await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === n && !env.ctx.chat.isBusy(), 'page ' + n, 30000);
+      await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'its readers', 60000);
+    }
+    const before = await db.messages.list(st.id);
+    const lastUser = [...before].reverse().find((m) => m.role === 'user');
+    const node = [...document.querySelectorAll('.msg-user')].find((x) => x.dataset.id === lastUser.id);
+    click(q('.msg-act[data-act="delete"]', node));
+    await until(async () => (await db.messages.list(st.id)).length === before.length - 2, 'his message and its answer gone', 30000);
+    const now = await db.messages.list(st.id);
+    eq(now.map((m) => m.role + ':' + (m.role === 'user' ? m.text : (m.text || '').replace(/^\[[^\]]*\]\s*/, '').slice(0, 7))).join(' | '), 'user:I wait. | assistant:PAGE 1: | user:I knock. | assistant:PAGE 2:', 'the two before stand as written');
+    assert(/Let your message go, and the page that answered it\?/.test(asked[0]), 'it said what goes: ' + asked[0]);
+    await until(async () => { const s = await db.settings.get('state:' + st.id); return s && s.clock && Number.isFinite(s.clock.minutes) && s.clock.minutes % 1440 === 9 * 60 + 2; }, 'the ledger back at the page before (09:02)', 15000);
+    /* a storyteller page alone */
+    const pageTwo = [...document.querySelectorAll('.msg-assistant')].pop();
+    click(q('.msg-act[data-act="delete"]', pageTwo));
+    await until(async () => (await db.messages.list(st.id)).length === now.length - 1, 'one page gone', 30000);
+    eq((await db.messages.list(st.id)).map((m) => m.role).join(','), 'user,assistant,user', 'only the storyteller page went — his message stays');
+    assert(/Let this page go\?/.test(asked[1]), 'and it said so: ' + asked[1]);
+  } finally {
+    env.window.confirm = confirmWas;
+    house.state.storyAnswer = priorStory;
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);
