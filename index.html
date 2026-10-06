@@ -67,15 +67,27 @@
         </form>
         <!-- M16: a shelf gathers tales that belong together. -->
         <button id="btn-new-shelf" class="text-btn shelf-new" type="button">A new shelf</button>
+        <!-- M630: a giant project holds shelves -->
+        <button id="btn-new-giant" class="text-btn shelf-new" type="button">A new giant project</button>
         <!-- M621: bulk delete — choose tales, or whole shelves with their tales, and delete them at once -->
         <button id="btn-bulk-delete" class="text-btn shelf-new" type="button">Bulk delete</button>
+        <!-- M630: bulk move — choose tales and move them onto a shelf, or shelves into a giant project -->
+        <button id="btn-bulk-move" class="text-btn shelf-new" type="button">Bulk move</button>
         <div id="choose-bar" class="choose-bar" hidden>
           <span id="choose-count" class="lbl">Tick the tales to delete — or a shelf, whole</span>
           <div class="row">
             <button id="btn-delete-chosen" class="btn" type="button" disabled>Delete the chosen</button>
+            <select id="choose-move" aria-label="Move the chosen to" hidden></select>
             <button id="btn-choose-done" class="text-btn" type="button">Not now</button>
           </div>
         </div>
+        <form id="new-giant-form" class="new-story-form" hidden>
+          <input id="new-giant-name" type="text" maxlength="60" placeholder="Name the giant project…" autocomplete="off" aria-label="A name for the new giant project">
+          <div class="row">
+            <button type="submit" class="btn">Keep it</button>
+            <button type="button" id="btn-cancel-giant" class="text-btn">Not now</button>
+          </div>
+        </form>
         <!-- M466: the shelves and tales in the order he chooses -->
         <label class="shelf-sort-row"><span class="lbl">Sorted</span>
           <select id="shelf-sort" aria-label="How the shelves and tales are sorted">

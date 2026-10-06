@@ -302,6 +302,12 @@ export function initChat(ctx) {
     chooseCount: document.getElementById('choose-count'),
     btnDeleteChosen: document.getElementById('btn-delete-chosen'),
     btnChooseDone: document.getElementById('btn-choose-done'),
+    btnBulkMove: document.getElementById('btn-bulk-move'), /* M630 */
+    chooseMove: document.getElementById('choose-move'),
+    btnNewGiant: document.getElementById('btn-new-giant'),
+    newGiantForm: document.getElementById('new-giant-form'),
+    newGiantName: document.getElementById('new-giant-name'),
+    btnCancelGiant: document.getElementById('btn-cancel-giant'),
     newShelfForm: document.getElementById('new-shelf-form'),
     newShelfName: document.getElementById('new-shelf-name'),
     btnCancelShelf: document.getElementById('btn-cancel-shelf'),
@@ -353,6 +359,10 @@ export function initChat(ctx) {
   let choosing = false;
   const chosenTales = new Set();
   const chosenShelves = new Set();
+  /* M630: what the choosing is for — "Bulk delete" or "Bulk move" (his: "add bulk change pages to another project"); one
+   * button, one meaning: each opens the choosing with its own action in the bar */
+  let chooseFor = 'delete';
+  let giants = []; /* M630: giant projects — each holds shelves (store.js giants) */
   const SHELF_SORT_KEY = 'shelfSort';
   const SHELF_SORTS = new Set(['played', 'name', 'newest']);
   let shelfSort = 'played';
@@ -522,6 +532,7 @@ export function initChat(ctx) {
     } catch (err) { /* the shelf still draws */ }
     /* M16: the shelves gather alongside their tales. */
     projects = await db.projects.list();
+    giants = await db.giants.list(); /* M630 */
     shelfCollapsed = (await db.settings.get(SHELF_COLLAPSED_KEY)) || {};
     { const s = await db.settings.get(SHELF_SORT_KEY); shelfSort = SHELF_SORTS.has(s) ? s : 'played'; if (els.shelfSort && els.shelfSort.value !== shelfSort) els.shelfSort.value = shelfSort; } /* M466 */
     /* M14: page counts ride the shelf rows; the byStory index counts
@@ -762,6 +773,100 @@ export function initChat(ctx) {
     else if (shelfSort === 'newest') out.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     return out; /* 'played': as the store hands them — last played first */
   }
+  /* M630: giant projects stand in the shelves' own order — last played, by name, or newest; an empty one last */
+  function sortGiants(list, inGiant) {
+    const played = (g) => (inGiant.get(g.id) || []).reduce((m, sh) => Math.max(m, sh.stories.reduce((x, st) => Math.max(x, st.updatedAt || 0), 0)), 0);
+    const out = [...list];
+    if (shelfSort === 'name') out.sort((a, b) => byName(a.name, b.name));
+    else if (shelfSort === 'newest') out.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    else out.sort((a, b) => played(b) - played(a));
+    return out;
+  }
+  function giantSection(giant, shelves, activeId) {
+    const key = 'giant:' + giant.id;
+    const collapsed = shelfCollapsed[key] === true;
+    const section = document.createElement('li');
+    section.className = 'shelf giant' + (collapsed ? ' collapsed' : '');
+    section.dataset.giant = giant.id;
+    const head = document.createElement('div');
+    head.className = 'shelf-head';
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'shelf-toggle lbl';
+    toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    toggle.setAttribute('aria-label', collapsed ? `Open the giant project "${giant.name}"` : `Fold the giant project "${giant.name}"`);
+    const caret = document.createElement('span');
+    caret.className = 'shelf-caret';
+    caret.textContent = collapsed ? '▸' : '▾';
+    const label = document.createElement('span');
+    label.className = 'shelf-name';
+    label.textContent = giant.name;
+    const badge = document.createElement('span');
+    badge.className = 'shelf-badge';
+    badge.textContent = shelves.length ? (shelves.length === 1 ? 'one shelf' : shelves.length + ' shelves') : 'no shelf yet';
+    toggle.append(caret, label, badge);
+    toggle.addEventListener('click', () => toggleShelf(key));
+    if (choosing) {
+      /* every shelf in it, whole */
+      const pick = document.createElement('input');
+      pick.type = 'checkbox';
+      pick.className = 'choose-pick';
+      pick.checked = shelves.length > 0 && shelves.every((sh) => chosenShelves.has(sh.project.id));
+      pick.disabled = !shelves.length;
+      pick.setAttribute('aria-label', `Choose every shelf in "${giant.name}", whole`);
+      pick.addEventListener('change', () => {
+        for (const sh of shelves) {
+          const whole = stories.filter((st) => st.projectId === sh.project.id);
+          for (const st of whole) { if (pick.checked) chosenTales.add(st.id); else chosenTales.delete(st.id); }
+          if (pick.checked) chosenShelves.add(sh.project.id); else chosenShelves.delete(sh.project.id);
+        }
+        renderStoryList();
+      });
+      head.append(pick, toggle);
+    } else {
+      const renameBtn = document.createElement('button');
+      renameBtn.type = 'button';
+      renameBtn.className = 'story-mini';
+      renameBtn.title = 'Rename the giant project';
+      renameBtn.setAttribute('aria-label', `Rename the giant project "${giant.name}"`);
+      renameBtn.textContent = '✎';
+      renameBtn.addEventListener('click', async () => {
+        const next = typeof window.prompt === 'function' ? window.prompt('A new name for the giant project', giant.name) : null;
+        if (next === null || !String(next).trim() || String(next).trim() === giant.name) return;
+        await db.giants.rename(giant.id, next);
+        await refreshStories(true);
+      });
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'story-mini';
+      removeBtn.title = 'Take the giant project down';
+      removeBtn.setAttribute('aria-label', `Take down the giant project "${giant.name}" — its shelves stay`);
+      removeBtn.textContent = '×';
+      removeBtn.addEventListener('click', async () => {
+        if (!window.confirm(`Take down the giant project "${giant.name}"? Its shelves and their tales stay — the shelves simply stand on their own.`)) return;
+        await db.giants.remove(giant.id);
+        await refreshStories(true);
+        toast(`"${giant.name}" is taken down — its shelves stand on their own.`);
+        if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+      });
+      head.append(toggle, renameBtn, removeBtn);
+    }
+    section.appendChild(head);
+    if (!collapsed) {
+      const inner = document.createElement('ul');
+      inner.className = 'giant-shelves';
+      if (!shelves.length) {
+        const p = document.createElement('li');
+        p.className = 'quiet giant-empty';
+        p.textContent = 'No shelf in it yet — "Bulk move" puts shelves in.';
+        inner.appendChild(p);
+      }
+      for (const { project, stories: onShelf } of shelves) inner.appendChild(shelfSection(project, onShelf, activeId));
+      section.appendChild(inner);
+    }
+    return section;
+  }
+
   function sortShelves(shelves) {
     const played = (s) => s.stories.reduce((m, st) => Math.max(m, st.updatedAt || 0), 0);
     const out = [...shelves];
@@ -880,17 +985,76 @@ export function initChat(ctx) {
   function drawChooseBar() {
     if (els.chooseBar) els.chooseBar.hidden = !choosing;
     if (els.btnBulkDelete) els.btnBulkDelete.hidden = choosing;
+    if (els.btnBulkMove) els.btnBulkMove.hidden = choosing; /* M630 */
     const tales = stories.filter((s) => chosenTales.has(s.id)).length;
     const shelves = projects.filter((p) => chosenShelves.has(p.id)).length;
+    const verb = chooseFor === 'move' ? 'move' : 'delete';
     if (els.chooseCount) {
       els.chooseCount.textContent = !tales && !shelves
-        ? 'Tick the tales to delete — or a shelf, whole'
+        ? 'Tick the tales to ' + verb + ' — or a shelf, whole'
         : (tales === 1 ? 'One tale' : tales + ' tales') + ' chosen' + (shelves ? ' · ' + (shelves === 1 ? 'one shelf' : shelves + ' shelves') + ' whole' : '');
     }
-    if (els.btnDeleteChosen) els.btnDeleteChosen.disabled = !tales && !shelves;
+    if (els.btnDeleteChosen) { els.btnDeleteChosen.hidden = chooseFor !== 'delete'; els.btnDeleteChosen.disabled = !tales && !shelves; }
+    if (els.chooseMove) {
+      els.chooseMove.hidden = chooseFor !== 'move';
+      if (chooseFor === 'move' && choosing) drawMovePicker(tales, shelves);
+    }
   }
-  function setChoosing(on) {
+  /* M630: where the chosen can go — the tales onto a shelf (or off every shelf), the shelves into a giant project (or
+   * out of one); each choice says what it moves */
+  function drawMovePicker(tales, shelves) {
+    const sel = els.chooseMove;
+    sel.textContent = '';
+    const first = document.createElement('option');
+    first.value = '';
+    first.textContent = 'Move the chosen to…';
+    sel.appendChild(first);
+    const giantName = (id) => (giants.find((g) => g.id === id) || {}).name || '';
+    const onto = document.createElement('optgroup');
+    onto.label = tales ? 'The chosen tales, onto a shelf' : 'Tales onto a shelf (none chosen)';
+    const shelfOpt = (value, words) => { const o = document.createElement('option'); o.value = value; o.textContent = words; o.disabled = !tales; onto.appendChild(o); };
+    shelfOpt('shelf:', 'Off every shelf (loose)');
+    for (const p of projects.filter((x) => x.archived !== true)) shelfOpt('shelf:' + p.id, (p.giantId && giantName(p.giantId) ? giantName(p.giantId) + ' › ' : '') + (p.name || 'a shelf'));
+    sel.appendChild(onto);
+    const into = document.createElement('optgroup');
+    into.label = shelves ? 'The chosen shelves, into a giant project' : 'Shelves into a giant project (choose a shelf whole)';
+    const giantOpt = (value, words) => { const o = document.createElement('option'); o.value = value; o.textContent = words; o.disabled = !shelves; into.appendChild(o); };
+    giantOpt('giant:', 'Out of their giant project');
+    for (const g of giants) giantOpt('giant:' + g.id, g.name);
+    sel.appendChild(into);
+    sel.value = '';
+  }
+  async function moveChosen(where) {
+    const ids = stories.filter((s) => chosenTales.has(s.id)).map((s) => s.id);
+    const shelves = projects.filter((p) => chosenShelves.has(p.id));
+    if (where.startsWith('shelf:')) {
+      const to = where.slice('shelf:'.length);
+      if (!ids.length) return;
+      const shelf = projects.find((p) => p.id === to);
+      const there = to ? `onto the shelf "${shelf ? shelf.name : 'a shelf'}"` : 'off every shelf (loose)';
+      if (!window.confirm(`Move ${ids.length === 1 ? 'one tale' : ids.length + ' tales'} ${there}?`)) return;
+      let moved = 0;
+      for (const id of ids) { try { await db.stories.update(id, { projectId: to || null }); moved += 1; } catch (err) { /* the rest still move */ } }
+      choosing = false; chosenTales.clear(); chosenShelves.clear();
+      await refreshStories(true);
+      toast(`${moved === 1 ? 'One tale' : moved + ' tales'} moved ${there}.`);
+    } else if (where.startsWith('giant:')) {
+      const to = where.slice('giant:'.length);
+      if (!shelves.length) return;
+      const giant = giants.find((g) => g.id === to);
+      const there = to ? `into the giant project "${giant ? giant.name : 'a giant project'}"` : 'out of their giant project';
+      if (!window.confirm(`Put ${shelves.length === 1 ? 'one shelf' : shelves.length + ' shelves'} ${there}? Their tales stay on them.`)) return;
+      let moved = 0;
+      for (const p of shelves) { try { if (await db.projects.update(p.id, { giantId: to || null })) moved += 1; } catch (err) { /* the rest still move */ } }
+      choosing = false; chosenTales.clear(); chosenShelves.clear();
+      await refreshStories(true);
+      toast(`${moved === 1 ? 'One shelf' : moved + ' shelves'} put ${there}.`);
+    }
+    if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+  }
+  function setChoosing(on, intent = 'delete') {
     choosing = on === true;
+    chooseFor = intent === 'move' ? 'move' : 'delete'; /* M630 */
     chosenTales.clear();
     chosenShelves.clear();
     renderStoryList();
@@ -1012,7 +1176,16 @@ export function initChat(ctx) {
     /* M466: shelves put to rest keep their tales and wait in their own corner; the rest stand in the chosen order */
     const shelvesUp = sortShelves(grouped.shelves.filter((s) => s.project.archived !== true));
     const shelvesResting = sortShelves(grouped.shelves.filter((s) => s.project.archived === true));
-    for (const { project, stories: onShelf } of shelvesUp) {
+    /* M630: a shelf standing in a giant project is drawn inside it; a giant project's shelves keep the shelves' order */
+    const giantIds = new Set(giants.map((g) => g.id));
+    const inGiant = new Map();
+    const alone = [];
+    for (const sh of shelvesUp) {
+      const gid = sh.project.giantId;
+      if (gid && giantIds.has(gid)) { if (!inGiant.has(gid)) inGiant.set(gid, []); inGiant.get(gid).push(sh); } else alone.push(sh);
+    }
+    for (const g of sortGiants(giants, inGiant)) els.list.appendChild(giantSection(g, inGiant.get(g.id) || [], activeId));
+    for (const { project, stories: onShelf } of alone) {
       els.list.appendChild(shelfSection(project, onShelf, activeId));
     }
     if (grouped.loose.length || !projects.length) {
@@ -7201,7 +7374,19 @@ export function initChat(ctx) {
 
   /* M16: "A new shelf" — a small inline form beside the new-story one. */
   /* M621: bulk delete */
-  if (els.btnBulkDelete) els.btnBulkDelete.addEventListener('click', () => setChoosing(true));
+  if (els.btnBulkDelete) els.btnBulkDelete.addEventListener('click', () => setChoosing(true, 'delete'));
+  /* M630: bulk move, and a giant project */
+  if (els.btnBulkMove) els.btnBulkMove.addEventListener('click', () => setChoosing(true, 'move'));
+  if (els.chooseMove) els.chooseMove.addEventListener('change', () => { const v = els.chooseMove.value; if (v) moveChosen(v).catch((err) => toast('The move stopped: ' + (err && err.message ? err.message : String(err)))).finally(() => { if (els.chooseMove) els.chooseMove.value = ''; }); });
+  if (els.btnNewGiant) els.btnNewGiant.addEventListener('click', () => { els.newGiantForm.hidden = false; els.newGiantName.value = ''; els.newGiantName.focus(); });
+  if (els.btnCancelGiant) els.btnCancelGiant.addEventListener('click', () => { els.newGiantForm.hidden = true; });
+  if (els.newGiantForm) els.newGiantForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const giant = await db.giants.create({ name: els.newGiantName.value });
+    els.newGiantForm.hidden = true;
+    await refreshStories(true);
+    toast(`"${giant.name}" stands — "Bulk move" puts shelves in it.`);
+  });
   if (els.btnChooseDone) els.btnChooseDone.addEventListener('click', () => setChoosing(false));
   if (els.btnDeleteChosen) els.btnDeleteChosen.addEventListener('click', () => { deleteChosen().catch((err) => toast('The delete stopped: ' + (err && err.message ? err.message : String(err)))); });
 

@@ -15703,3 +15703,22 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   output left; every new tick is sized (measured in a real browser earlier).
 
 - GATES at m629-001 (one CPU): harness 1236/1236, walk 225/225, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.
+
+# M630 — his: "1. add bulk change pages to another project; 2. add a giant project to store multiple projects inside"
+- BULK MOVE: "Bulk move" (beside "Bulk delete" — one button, one meaning: each opens the choosing with its own action)
+  opens the same choosing (a tick on every tale and shelf; a shelf ticked whole is every tale on it). The bar's picker,
+  "Move the chosen to…", says what each choice moves: "The chosen tales, onto a shelf" (every waking shelf, named
+  "Giant project › Shelf" when it stands in one, or "Off every shelf (loose)") and "The chosen shelves, into a giant
+  project" (or "Out of their giant project"; offered only for shelves chosen whole). One question, then the move; the tale
+  keeps its pages and everything with them — only its shelf changes (db.stories.update projectId), as the single ⇄ does.
+- GIANT PROJECTS: "A new giant project" makes one (store.js giants — one settings row, riding the house book like the
+  shelves); a shelf stands in one by its giantId. The shelf list draws each giant project as a section with its shelves a
+  step in, in the shelves' own order (last played, by name, newest — sortGiants), folding like a shelf; its head renames
+  (✎) and takes it down (× — its shelves and their tales stay, standing on their own); in the choosing its tick chooses
+  every shelf in it whole. A shelf naming a giant project that is gone stands on its own.
+- Law M630-1 (the store: made, renamed, shelves in it, taken down leaving shelves and tales); walk DOM-226 (tales moved
+  onto a shelf at once, the unchosen left; a giant project made in the form, a shelf put in whole and drawn inside it;
+  taken down, the shelf alone with its tale). Measured in a real browser at phone width: ticks 18 px, the picker 234 px,
+  the giant project's shelves a step in.
+
+- GATES at m630-001 (one CPU): harness 1237/1237, walk 226/226, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.

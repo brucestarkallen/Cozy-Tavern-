@@ -10158,5 +10158,62 @@ test('DOM-225 A SMALL STORYTELLER IS NOT SENT THE ADDED NOTES WHILE ITS NOTE SWI
   }
 });
 
+test('DOM-226 BULK MOVE AND GIANT PROJECTS (M630 — his: "bulk change pages to another project" and "a giant project to store multiple projects inside"): tales moved onto a shelf at once; a giant project made, a shelf put in it whole and drawn inside it; taken down, the shelf stands alone with its tales', async () => {
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const shelfA = await db.projects.create({ name: 'Move shelf A' });
+  const shelfB = await db.projects.create({ name: 'Move shelf B' });
+  const t1 = await db.stories.create({ title: 'Move tale one' });
+  const t2 = await db.stories.create({ title: 'Move tale two' });
+  const t3 = await db.stories.create({ title: 'Move tale three', projectId: shelfA.id });
+  for (const s of [t1, t2, t3]) await db.messages.append(s.id, { role: 'user', text: 'A line.' });
+  await env.ctx.chat.refreshStories(true);
+  const rowOf = (title) => [...document.querySelectorAll('#story-list li.story-item')].find((li) => (li.querySelector('.story-title') || {}).textContent === title);
+  const shelfOf = (name) => [...document.querySelectorAll('#story-list li.shelf')].find((li) => !li.classList.contains('giant') && (li.querySelector('.shelf-name') || {}).textContent === name);
+  const confirmWas = env.window.confirm;
+  env.window.confirm = () => true;
+  try {
+    /* 1. tales onto a shelf, at once */
+    click(q('#btn-bulk-move'));
+    await until(() => !q('#choose-bar').hidden && !q('#choose-move').hidden && q('#btn-delete-chosen').hidden, 'the choosing, for a move');
+    for (const title of ['Move tale one', 'Move tale two']) {
+      const pick = await until(() => rowOf(title) && rowOf(title).querySelector('.choose-pick'), title);
+      pick.checked = true; pick.dispatchEvent(new env.window.Event('change'));
+    }
+    await until(() => /2 tales chosen/.test(q('#choose-count').textContent), 'two chosen');
+    const sel = q('#choose-move');
+    sel.value = 'shelf:' + shelfB.id; sel.dispatchEvent(new env.window.Event('change'));
+    await until(async () => (await db.stories.get(t1.id)).projectId === shelfB.id && (await db.stories.get(t2.id)).projectId === shelfB.id, 'both onto shelf B', 10000);
+    eq((await db.stories.get(t3.id)).projectId, shelfA.id, 'the unchosen tale stays where it was');
+    await until(() => q('#choose-bar').hidden, 'the choosing closes');
+    /* 2. a giant project, a shelf put in it whole */
+    click(q('#btn-new-giant'));
+    type(q('#new-giant-name'), 'Every run');
+    submit(q('#new-giant-form'));
+    const giantLi = await until(() => [...document.querySelectorAll('#story-list li.shelf.giant')].find((li) => (li.querySelector('.shelf-name') || {}).textContent === 'Every run'), 'the giant project stands');
+    const giantId = giantLi.dataset.giant;
+    click(q('#btn-bulk-move'));
+    const shelfPick = await until(() => shelfOf('Move shelf A') && shelfOf('Move shelf A').querySelector('.shelf-head .choose-pick'), 'shelf A\u2019s tick');
+    shelfPick.checked = true; shelfPick.dispatchEvent(new env.window.Event('change'));
+    const sel2 = q('#choose-move');
+    await until(() => [...sel2.querySelectorAll('option')].some((o) => o.value === 'giant:' + giantId && !o.disabled), 'the giant project offered for a chosen shelf');
+    sel2.value = 'giant:' + giantId; sel2.dispatchEvent(new env.window.Event('change'));
+    await until(async () => ((await db.projects.list()).find((p) => p.id === shelfA.id) || {}).giantId === giantId, 'shelf A is in it', 10000);
+    await until(() => { const g = [...document.querySelectorAll('#story-list li.shelf.giant')].find((li) => li.dataset.giant === giantId); return g && /Move shelf A/.test(g.textContent); }, 'drawn inside the giant project');
+    eq((await db.stories.get(t3.id)).projectId, shelfA.id, 'its tale still on it');
+    /* 3. taken down: the shelf stands alone, its tale with it */
+    const g2 = [...document.querySelectorAll('#story-list li.shelf.giant')].find((li) => li.dataset.giant === giantId);
+    const takeDown = [...g2.querySelectorAll(':scope > .shelf-head button')].find((b) => /Take down the giant project/.test(b.getAttribute('aria-label') || ''));
+    click(takeDown);
+    await until(async () => !(await db.giants.list()).some((g) => g.id === giantId), 'taken down', 10000);
+    eq(((await db.projects.list()).find((p) => p.id === shelfA.id) || {}).giantId || null, null, 'the shelf stands on its own');
+    eq((await db.stories.get(t3.id)).projectId, shelfA.id, 'and its tale is still on it');
+  } finally {
+    env.window.confirm = confirmWas;
+    for (const s of [t1, t2, t3]) await db.stories.remove(s.id).catch(() => {});
+    for (const p of [shelfA, shelfB]) await db.projects.remove(p.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true);
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

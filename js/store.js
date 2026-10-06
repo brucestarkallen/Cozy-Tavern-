@@ -649,6 +649,43 @@ const messages = {
  * rides backups like every other setting — no schema change. */
 const PROJECTS_KEY = 'projects';
 
+/* M630: GIANT PROJECTS — his: "add a giant project to store multiple projects inside". One settings row ("giants"), each
+ * {id, name, createdAt}; a shelf stands in one by its giantId (projects.update). Taking a giant project down never takes a
+ * shelf or a tale with it: its shelves stand on their own again (the M16 law for a shelf and its tales, one level up). */
+const GIANTS_KEY = 'giants';
+const giants = {
+  async list() {
+    const rows = await settings.get(GIANTS_KEY);
+    return (Array.isArray(rows) ? rows : [])
+      .filter((g) => g && typeof g === 'object' && typeof g.id === 'string' && g.id)
+      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  },
+  async create({ name } = {}) {
+    const rows = await giants.list();
+    const row = { id: uid(), name: (name && name.trim()) || 'A giant project', createdAt: Date.now() };
+    await settings.set(GIANTS_KEY, [...rows, row]);
+    return row;
+  },
+  async rename(id, name) {
+    const rows = await giants.list();
+    const row = rows.find((g) => g.id === id);
+    if (!row) return undefined;
+    const next = (name && name.trim()) || row.name;
+    await settings.set(GIANTS_KEY, rows.map((g) => (g.id === id ? { ...g, name: next } : g)));
+    return { ...row, name: next };
+  },
+  async remove(id) {
+    const rows = await giants.list();
+    const next = rows.filter((g) => g.id !== id);
+    if (next.length === rows.length) return false;
+    await settings.set(GIANTS_KEY, next);
+    for (const shelf of await projects.list()) {
+      if (shelf.giantId === id) await projects.update(shelf.id, { giantId: null });
+    }
+    return true;
+  },
+};
+
 const projects = {
   async list() {
     const rows = await settings.get(PROJECTS_KEY);
@@ -1158,6 +1195,7 @@ export const db = {
   stories,
   messages,
   projects,
+  giants, /* M630 */
   exportAll,
   importAll,
   exportStory,
