@@ -377,11 +377,21 @@
             <summary class="stack-label">Run a benchmark now</summary>
             <p class="quiet">A random page of your stories — its moment exactly as the storyteller was sent it — is written again by each storyteller you tick (up to four, all at once); every judge grades each page, and every pair is judged head to head, blind, both ways round. Your stories are not touched. The results join the board.</p>
             <div id="bench-takers" class="bench-picks"></div>
+            <!-- M634: an unfinished run continues where it stood -->
+            <div id="bench-unfinished" class="bench-unfinished" hidden>
+              <p id="bench-unfinished-words" class="quiet"></p>
+              <div class="row">
+                <button id="btn-bench-continue" class="btn" type="button">Continue the run</button>
+                <button id="btn-bench-drop" class="text-btn" type="button">Let it go</button>
+              </div>
+            </div>
             <div class="row">
               <button id="btn-bench-run" class="btn" type="button">Run the benchmark</button>
               <button id="btn-bench-stop" class="text-btn" type="button" hidden>Stop</button>
             </div>
             <p id="bench-progress" class="quiet" hidden></p>
+            <!-- M634: each storyteller's own line, live -->
+            <ul id="bench-status" class="bench-status" hidden></ul>
             <div id="bench-last" class="bench-last"></div>
           </details>
           <div id="bench-board" class="bench-board"></div>

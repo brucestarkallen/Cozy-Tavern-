@@ -7,7 +7,7 @@
 import { db } from '../store.js';
 import { AXES } from '../agents/judge.js';
 import { loadBench, boardRows, clearBench } from '../engine/bench.js';
-import { runBenchmark } from '../agents/benchrun.js'; /* M633 */
+import { runBenchmark, loadRunState, dropRunState } from '../agents/benchrun.js'; /* M633; M634: a run continues */
 
 export const BENCH_ON = 'benchOn';
 export const BENCH_JUDGE = 'benchJudgeId'; /* M632: one judge (read as the first of the list when the list is unset) */
@@ -30,6 +30,13 @@ export function initBench(ctx) {
   const stopBtn = document.getElementById('btn-bench-stop');
   const progress = document.getElementById('bench-progress');
   const lastBox = document.getElementById('bench-last');
+  const statusBox = document.getElementById('bench-status');
+  const unfinished = document.getElementById('bench-unfinished');
+  const unfinishedWords = document.getElementById('bench-unfinished-words');
+  const continueBtn = document.getElementById('btn-bench-continue');
+  const dropBtn = document.getElementById('btn-bench-drop');
+  let statuses = [];
+  let ticker = null;
   const board = document.getElementById('bench-board');
   const clear = document.getElementById('btn-bench-clear');
   if (!on || !judgesBox || !board) return null;
@@ -54,6 +61,47 @@ export function initBench(ctx) {
       box.appendChild(label);
     }
     if (!conns.length) { const p = document.createElement('p'); p.className = 'quiet'; p.textContent = 'No connection yet — add one above.'; box.appendChild(p); }
+  }
+
+  /* M634: each storyteller's line, with its own clock — redrawn each second while the run runs */
+  const clock = (ms) => { const t = Math.max(0, Math.round(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+  function drawStatus() {
+    if (!statusBox) return;
+    statusBox.hidden = !statuses.length;
+    statusBox.textContent = '';
+    for (const st of statuses) {
+      const li = document.createElement('li');
+      li.dataset.writer = st.id;
+      const who = document.createElement('strong');
+      who.textContent = st.name;
+      const step = document.createElement('span');
+      step.className = 'bench-step';
+      const since = st.since ? clock(Date.now() - st.since) : '';
+      const words = {
+        waiting: 'waiting',
+        asking: 'sent the page — waiting for its first word · ' + since,
+        thinking: 'thinking · ' + since,
+        writing: 'writing · ' + (st.prose || 0).toLocaleString() + ' characters so far · ' + since,
+        written: 'written' + (st.took ? ' in ' + clock(st.took) : ''),
+        failed: 'could not write it — ' + (st.note || 'no reason given'),
+        grading: 'being graded…',
+        graded: 'graded ' + (Number.isFinite(st.overall) ? st.overall.toFixed(1) : ''),
+        'not graded': 'the judges gave no grade',
+      }[st.step] || st.step;
+      step.textContent = ' — ' + words;
+      li.append(who, step);
+      statusBox.appendChild(li);
+    }
+  }
+  async function drawUnfinished() {
+    if (!unfinished) return;
+    const st = running ? null : await loadRunState();
+    unfinished.hidden = !st;
+    if (st && unfinishedWords) {
+      const wrote = Object.values(st.pages || {}).filter((p) => p && p.text).length;
+      const graded = Object.keys(st.graded || {}).length;
+      unfinishedWords.textContent = `An unfinished run — “${st.title || 'a tale'}”, page ${st.pageNumber}: ${wrote} of ${(st.takers || []).length} pages written, ${graded} graded. Continue it, and only what is missing is asked again.`;
+    }
   }
 
   function drawLast(run) {
@@ -104,6 +152,7 @@ export function initBench(ctx) {
       picks(takersBox, conns, Array.isArray(wanted) ? wanted : [], async (ids) => { await db.settings.set(BENCH_TAKERS, ids); }, 4);
     }
     drawLast(await db.settings.get('benchLastRun'));
+    await drawUnfinished(); /* M634 */
     const names = Object.fromEntries(conns.map((c) => [c.id, (c.label || c.model || 'a connection')]));
     const { grades, duels } = await loadBench();
     const rows = boardRows(grades, duels, names);
@@ -153,30 +202,55 @@ export function initBench(ctx) {
 
   on.addEventListener('change', async () => { await db.settings.set(BENCH_ON, on.checked); });
   /* M633: the run — the storytellers ticked, every judge ticked (none: the readers' own connection, as the house resolves it) */
-  if (runBtn) runBtn.addEventListener('click', async () => {
+  /* M634: one way to run, either fresh or continuing — the progress said as it goes, each storyteller's line live */
+  async function go(resume) {
     if (running) return;
-    const conns = await db.connections.list();
-    const want = await db.settings.get(BENCH_TAKERS);
-    const takers = conns.filter((c) => Array.isArray(want) && want.includes(c.id)).slice(0, 4);
-    const judgeIds = await benchJudgeIds();
-    let judges = conns.filter((c) => judgeIds.includes(c.id));
-    if (!judges.length && ctx && typeof ctx.readersConnection === 'function') { const r = await ctx.readersConnection(); if (r) judges = [r]; }
-    if (!takers.length) { if (progress) { progress.hidden = false; progress.textContent = 'Tick at least one storyteller to test.'; } return; }
-    if (!judges.length) { if (progress) { progress.hidden = false; progress.textContent = 'Tick a judge — no connection could grade.'; } return; }
+    let takers = [], judges = [];
+    if (!resume) {
+      const conns = await db.connections.list();
+      const want = await db.settings.get(BENCH_TAKERS);
+      takers = conns.filter((c) => Array.isArray(want) && want.includes(c.id)).slice(0, 4);
+      const judgeIds = await benchJudgeIds();
+      judges = conns.filter((c) => judgeIds.includes(c.id));
+      if (!judges.length && ctx && typeof ctx.readersConnection === 'function') { const r = await ctx.readersConnection(); if (r) judges = [r]; }
+      if (!takers.length) { if (progress) { progress.hidden = false; progress.textContent = 'Tick at least one storyteller to test.'; } return; }
+      if (!judges.length) { if (progress) { progress.hidden = false; progress.textContent = 'Tick a judge — no connection could grade.'; } return; }
+      if (await loadRunState()) {
+        if (typeof window.confirm === 'function' && !window.confirm('Start a new run? The unfinished one is let go.')) return;
+        await dropRunState();
+      }
+    }
     running = new AbortController();
-    runBtn.disabled = true; if (stopBtn) stopBtn.hidden = false;
-    if (progress) { progress.hidden = false; progress.textContent = 'Starting…'; }
+    runBtn.disabled = true; if (stopBtn) stopBtn.hidden = false; if (unfinished) unfinished.hidden = true;
+    if (progress) { progress.hidden = false; progress.textContent = resume ? 'Continuing…' : 'Starting…'; }
+    statuses = [];
+    clearInterval(ticker);
+    ticker = setInterval(drawStatus, 1000);
     try {
-      const run = await runBenchmark({ candidates: takers, judges, signal: running.signal, onProgress: (w) => { if (progress) progress.textContent = w; } });
+      const run = await runBenchmark({ candidates: takers, judges, resume, signal: running.signal,
+        onProgress: (w) => { if (progress) progress.textContent = w; },
+        onStatus: (list) => { statuses = list; drawStatus(); } });
       if (progress) progress.textContent = 'Done — ' + run.results.filter((r) => r.overall !== null).length + ' graded.';
+      statuses = []; drawStatus();
       drawLast(run);
       await draw();
     } catch (err) {
-      if (progress) progress.textContent = running && running.signal.aborted ? 'Stopped — nothing of it was kept but what finished.' : 'The run stopped: ' + (err && err.message ? err.message : String(err));
+      if (progress) progress.textContent = running && running.signal.aborted
+        ? 'Stopped — what finished is kept. "Continue the run" picks up where it stood.'
+        : 'The run stopped: ' + (err && err.message ? err.message : String(err)) + ' — what finished is kept; "Continue the run" asks only for what is missing.';
     } finally {
+      clearInterval(ticker); ticker = null;
       running = null;
       runBtn.disabled = false; if (stopBtn) stopBtn.hidden = true;
+      await drawUnfinished();
     }
+  }
+  if (runBtn) runBtn.addEventListener('click', () => { go(false).catch(() => {}); });
+  if (continueBtn) continueBtn.addEventListener('click', () => { go(true).catch(() => {}); });
+  if (dropBtn) dropBtn.addEventListener('click', async () => {
+    if (typeof window.confirm === 'function' && !window.confirm('Let the unfinished run go? What it graded stays on the board.')) return;
+    await dropRunState();
+    await drawUnfinished();
   });
   if (stopBtn) stopBtn.addEventListener('click', () => { if (running) running.abort(); });
   if (clear) clear.addEventListener('click', async () => {

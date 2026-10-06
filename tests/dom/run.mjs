@@ -10361,5 +10361,67 @@ test('DOM-229 A BENCHMARK RUN ON DEMAND (M633 — his: "tick 1 to 4 connections,
   }
 });
 
+test('DOM-230 A RUN SAYS HOW IT GOES, AND A STOPPED RUN CONTINUES (M634 — his: "I waited five minutes on a four-storyteller run — how do I know it is progressing? If I stop, can it continue or does it restart?"): each storyteller\u2019s own line, live; Stop keeps what finished; Continue asks only for what is missing', async () => {
+  const { saveState: saveLedger, emptyState: blankLedger } = await import('../../js/engine/state.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { clearBench } = await import('../../js/engine/bench.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  await clearBench();
+  await db.settings.delete('benchLastRun'); await db.settings.delete('benchRunState');
+  const add = async (label, model) => db.connections.add({ name: label, label, type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model, maxTokens: 800 });
+  const Fast = await add('Fast teller', 'fast'), Slow = await add('Slow teller', 'slow'), J = await add('The judge', 'jj');
+  const st = await db.stories.create({ title: 'A tale to replay' });
+  await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[The gate \u2014 Monday, March 3, 2025 | 09:00 | clear]\n\nThe gate was quiet.' });
+  await saveLedger(st.id, { ...blankLedger(), sheet: { actors: {}, playerName: 'Jovan' }, page: 0, readTo: 0, tidiedGen: 999, healedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorWorker = house.state.workerAnswer, priorStory = house.state.storyAnswer;
+  let hold = true; const asked = { fast: 0, slow: 0 };
+  house.state.storyAnswer = (body) => {
+    const H = '[The gate \u2014 Monday, March 3, 2025 | 09:05 | clear]\n\n';
+    if (body && body.model === 'fast') { asked.fast += 1; return H + 'FAST: the gate creaked.'; }
+    if (body && body.model === 'slow') { asked.slow += 1; return hold ? new Promise(() => {}) : H + 'SLOW: the wind rose.'; }
+    return H + 'ORIGINAL: quiet.';
+  };
+  house.state.workerAnswer = (body, sys) => {
+    if (/You judge one page/.test(sys)) return JSON.stringify({ prose: 6, people: 6, agency: 8, continuity: 7, pull: 6, overall: /SLOW:/.test(JSON.stringify(body)) ? 7 : 6, why: 'x' });
+    if (/Two storytellers each wrote/.test(sys)) { const u = JSON.stringify(body); const a = u.indexOf('<page A>'), b = u.indexOf('<page B>'), m = u.indexOf('SLOW:'); return JSON.stringify({ better: m > a && m < b ? 'A' : 'B' }); }
+    return walkDefaultWorker(body, sys);
+  };
+  try {
+    type(q('#composer-input'), 'I knock.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'his page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'its readers', 60000);
+    await db.settings.set('benchTakers', [Fast.id, Slow.id]); await db.settings.set('benchJudges', [J.id]);
+    await env.ctx.settings.onShow({ all: true });
+    click(q('#btn-bench-run'));
+    /* how it goes: each storyteller its own line */
+    await until(() => { const li = [...document.querySelectorAll('#bench-status li')]; const f = li.find((x) => x.dataset.writer === Fast.id), s = li.find((x) => x.dataset.writer === Slow.id); return f && s && /written in/.test(f.textContent) && /waiting for its first word|thinking|writing/.test(s.textContent); }, 'the fast one written, the slow one still at it — each said', 20000);
+    assert(!q('#btn-bench-stop').hidden, 'a Stop while it runs');
+    click(q('#btn-bench-stop'));
+    await until(() => /Stopped — what finished is kept/.test(q('#bench-progress').textContent), 'stopped, saying what is kept');
+    await until(() => !q('#bench-unfinished').hidden && /1 of 2 pages written/.test(q('#bench-unfinished').textContent), 'the unfinished run offered: ' + q('#bench-unfinished').textContent);
+    eq(asked.fast, 1, 'the fast one wrote once');
+    /* continue: only the slow one is asked again */
+    hold = false;
+    click(q('#btn-bench-continue'));
+    await until(() => /^Done/.test(q('#bench-progress').textContent), 'the run finished: ' + q('#bench-progress').textContent, 30000);
+    eq(asked.fast, 1, 'the fast one was NOT asked again');
+    eq(asked.slow, 2, 'the slow one was asked again, once');
+    const run = await db.settings.get('benchLastRun');
+    eq(run.results.map((r) => r.name + ' ' + r.overall + ' ' + r.win + '-' + r.loss).join(' | '), 'Slow teller 7 1-0 | Fast teller 6 0-1', 'both graded, the pair judged');
+    eq(await db.settings.get('benchRunState'), undefined, 'a finished run is let go');
+    assert(q('#bench-unfinished').hidden, 'and nothing is offered to continue');
+    await env.ctx.settings.onHide();
+  } finally {
+    hold = false;
+    house.state.workerAnswer = priorWorker; house.state.storyAnswer = priorStory;
+    await db.settings.delete('benchTakers'); await db.settings.delete('benchJudges'); await db.settings.delete('benchLastRun'); await db.settings.delete('benchRunState');
+    await clearBench();
+    for (const c of [Fast, Slow, J]) await db.connections.remove(c.id).catch(() => {});
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

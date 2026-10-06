@@ -15792,3 +15792,24 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
 
 - DOM-228 moved to the judges' ticks; DOM-229 takes any of his tales as the random page (in a whole walk another tale kept its request too).
 - GATES at m633-001 (one CPU): harness 1240/1240, walk 229/229 (run again whole after the two walks were corrected), long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.
+
+# M634 — his: "I've been waiting 5 minutes on a run of page 4, 4 storytellers — how do I know it is progressing? And if I
+# stop, can it continue or will it restart everything?"
+- WHY IT LOOKED STUCK: the run said one line while all four wrote ("… 4 storytellers write it at once…") and nothing more
+  until the SLOWEST was done — a thinking model on a long story can take minutes, a stalled one forever (there was no time
+  limit) — and Stop let everything go: a new run picked a new page and asked all four again.
+- NOW: each storyteller has its own line, live, with its own clock — "sent the page — waiting for its first word",
+  "thinking", "writing · 2,104 characters so far", "written in 1:52", "could not write it — …", "being graded…",
+  "graded 7.5" (writeWith reports the stream as it comes; the screen redraws each second). A storyteller that runs past
+  eight minutes, or a judge past three, is let go with "out of time" and the run goes on with the rest (limited()).
+- AND IT CONTINUES: the run is kept after every step (settings benchRunState — the page by its kept request, every page
+  written, every grade, every head to head). Stop (or a closed tab) keeps what finished; the panel then offers "An
+  unfinished run — …: 1 of 2 pages written, 0 graded" with "Continue the run" (only what is missing is asked: the same
+  page, the storytellers not yet written, the pages not yet graded, the pairs not yet judged) and "Let it go". A new "Run
+  the benchmark" over an unfinished run asks first. A finished run lets its state go.
+- Law M634-1 (the time limit: past its time ends and says so; the run's Stop ends every call; a call done in time is never
+  ended); walk DOM-230 (through the app: a fast and a held-back storyteller — the fast one "written in", the slow one
+  "waiting for its first word" — Stop keeps what finished and offers the unfinished run, "1 of 2 pages written"; Continue
+  asks the slow one again and NOT the fast one, grades both, judges the pair; the finished run lets its state go).
+
+- GATES at m634-001 (one CPU): harness 1241/1241, walk 230/230, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.

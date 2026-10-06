@@ -57,6 +57,7 @@ export async function pickMoment({ rnd = Math.random } = {}) {
       const notes = ((rec.slots || []).find((s) => s && s.name === 'The state of things') || {}).text || '';
       return {
         story: { id: story.id, title: story.title || 'a tale' },
+        sentId: pick.m.receipt.sentId, /* M634: how a kept run finds its page again */
         pageNumber: told.indexOf(pick) + 1,
         request,
         context: { before: before ? pageText(before) : '', move: move ? pageText(move) : '', notes },
@@ -67,9 +68,14 @@ export async function pickMoment({ rnd = Math.random } = {}) {
   return null;
 }
 
-export async function writeWith(connection, request, signal) {
+export async function writeWith(connection, request, signal, onStream = () => {}) {
   const provider = createProvider(connection);
-  const r = await provider.streamChat({ systemBlocks: request.systemBlocks, messages: request.messages, signal, onToken() { /* read whole */ } });
+  let prose = 0, thought = 0;
+  const r = await provider.streamChat({ systemBlocks: request.systemBlocks, messages: request.messages, signal, onToken({ channel, text } = {}) {
+    /* M634: its progress, as it comes — thinking first for a model that thinks, then the page's words */
+    if (channel === 'thinking') thought += String(text || '').length; else if (channel === 'prose') prose += String(text || '').length;
+    onStream({ prose, thought });
+  } });
   const said = String((r && r.text) || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').trim();
   return splitAtHeader(said).page.trim(); /* the page the house would keep: a plan before its header is thinking (M322) */
 }
@@ -96,41 +102,139 @@ export async function duelWithJudges(judges, context, x, y, signal) {
 
 const nameOf = (c) => (c && (c.label || c.model)) || 'a connection';
 
-export async function runBenchmark({ candidates = [], judges = [], signal, onProgress = () => {}, rnd = Math.random } = {}) {
-  const takers = candidates.filter(Boolean).slice(0, 4);
-  if (!takers.length) throw new Error('choose at least one storyteller to test');
-  if (!judges.length) throw new Error('no judge to grade with');
-  onProgress('Finding a moment of your stories to replay…');
-  const moment = await pickMoment({ rnd });
-  if (!moment) throw new Error('no page of yours has its request kept yet — write a page or two first');
-  const runId = 'run' + Date.now().toString(36);
-  onProgress(`From “${moment.story.title}”, page ${moment.pageNumber} — ${takers.length === 1 ? 'one storyteller writes it' : takers.length + ' storytellers write it at once'}…`);
-  const pages = await Promise.all(takers.map(async (c) => {
-    try { return { c, text: await writeWith(c, moment.request, signal) }; } catch (err) { if (signal && signal.aborted) throw err; return { c, text: '', failed: String((err && err.message) || err) }; }
-  }));
-  if (signal && signal.aborted) throw new Error('stopped');
-  const written = pages.filter((p) => p.text);
-  onProgress(`Grading ${written.length === 1 ? 'the page' : 'the ' + written.length + ' pages'} — ${judges.length === 1 ? 'one judge' : judges.length + ' judges'}…`);
-  for (const p of written) {
-    p.grade = await gradeWithJudges(judges, moment.context, p.text, signal);
-    if (p.grade) await recordGrade({ writer: p.c.id, label: nameOf(p.c), model: p.c.model || '', storyId: moment.story.id, pageKey: runId + ':' + p.c.id, scores: p.grade.scores, overall: p.grade.overall, why: p.grade.why, run: runId });
+/* M634: HIS: "I waited five minutes on a four-storyteller run — how do I know it is progressing? And if I stop, can it
+ * continue, or does everything restart?" The run said one line while all four wrote and nothing more until the slowest
+ * was done (a thinking model on a long story can take minutes; a stalled one, forever), and a Stop let everything go.
+ * Now: each storyteller's own line, live — thinking, writing (how much so far), done, failed or out of time — and the
+ * judging step by step; a storyteller (or a judge) that runs past its time is let go and the run goes on with the rest;
+ * and the run is KEPT after every step (benchRunState: the page, every page written, every grade, every head to head),
+ * so a stopped or interrupted run CONTINUES where it stood — only what is missing is asked again. */
+export const RUN_STATE = 'benchRunState';
+export const WRITE_LIMIT_MS = 8 * 60000;  /* a storyteller writing one page of a long story */
+export const JUDGE_LIMIT_MS = 3 * 60000;  /* a judge's one reading */
+
+/* a signal that ends with the run's own, or when its time is up */
+export function limited(signal, ms) {
+  const ctl = new AbortController();
+  const stop = () => ctl.abort(signal && signal.reason ? signal.reason : new Error('stopped'));
+  if (signal) { if (signal.aborted) stop(); else signal.addEventListener('abort', stop, { once: true }); }
+  const timer = setTimeout(() => ctl.abort(new Error('out of time')), ms);
+  return { signal: ctl.signal, done: () => { clearTimeout(timer); if (signal) signal.removeEventListener('abort', stop); }, timedOut: () => ctl.signal.aborted && !(signal && signal.aborted) };
+}
+const saveRun = (state) => db.settings.set(RUN_STATE, state);
+export async function loadRunState() { const s = await db.settings.get(RUN_STATE); return s && typeof s === 'object' && s.runId ? s : null; }
+export async function dropRunState() { await db.settings.delete(RUN_STATE); }
+
+/* the moment a kept run stood on, found again by its page's kept request */
+async function momentOf(state) {
+  const story = await db.stories.get(state.storyId);
+  const rec = await loadSent(state.sentId);
+  const body = rec && Array.isArray(rec.requests) && rec.requests[0] && rec.requests[0].body;
+  if (!story || !body) return null;
+  return { story: { id: story.id, title: story.title || 'a tale' }, pageNumber: state.pageNumber, request: neutralRequest(body), context: state.context };
+}
+
+export async function runBenchmark({ candidates = [], judges = [], signal, onProgress = () => {}, onStatus = () => {}, rnd = Math.random, resume = false } = {}) {
+  let state = resume ? await loadRunState() : null;
+  let moment;
+  if (state) {
+    moment = await momentOf(state);
+    if (!moment) { await dropRunState(); throw new Error('the page that run stood on is gone — start a new run'); }
+  } else {
+    const takers = candidates.filter(Boolean).slice(0, 4);
+    if (!takers.length) throw new Error('choose at least one storyteller to test');
+    if (!judges.length) throw new Error('no judge to grade with');
+    onProgress('Finding a page of your stories to replay…');
+    const picked = await pickMoment({ rnd });
+    if (!picked) throw new Error('no page of yours has its request kept yet — write a page or two first');
+    moment = picked;
+    state = {
+      runId: 'run' + Date.now().toString(36), at: Date.now(), storyId: picked.story.id, title: picked.story.title, pageNumber: picked.pageNumber,
+      sentId: picked.sentId, context: picked.context,
+      takers: takers.map((c) => c.id), judges: judges.map((c) => c.id), pages: {}, graded: {}, duels: {},
+    };
+    await saveRun(state);
   }
-  for (const p of written) { p.win = 0; p.loss = 0; p.tie = 0; }
+  const all = await db.connections.list();
+  const takers = state.takers.map((id) => all.find((c) => c.id === id)).filter(Boolean);
+  const judgeConns = state.judges.map((id) => all.find((c) => c.id === id)).filter(Boolean);
+  if (!judgeConns.length) throw new Error('none of the run\u2019s judges is a connection any more');
+  const status = new Map(takers.map((c) => [c.id, state.pages[c.id] ? { name: nameOf(c), step: state.pages[c.id].text ? 'written' : 'failed', note: state.pages[c.id].failed || '' } : { name: nameOf(c), step: 'waiting' }]));
+  const tellStatus = () => onStatus([...status.entries()].map(([id, v]) => ({ id, ...v })));
+  tellStatus();
+  /* 1. the pages — only the ones not written yet, all at once */
+  const toWrite = takers.filter((c) => !state.pages[c.id]);
+  if (toWrite.length) {
+    onProgress(`“${moment.story.title}”, page ${moment.pageNumber} — ${toWrite.length === 1 ? 'one storyteller is' : toWrite.length + ' storytellers are'} writing it…`);
+    await Promise.all(toWrite.map(async (c) => {
+      const started = Date.now();
+      status.set(c.id, { name: nameOf(c), step: 'asking', since: started }); tellStatus();
+      const lim = limited(signal, WRITE_LIMIT_MS);
+      try {
+        const text = await writeWith(c, moment.request, lim.signal, ({ prose, thought }) => {
+          status.set(c.id, { name: nameOf(c), step: prose ? 'writing' : 'thinking', since: started, prose, thought }); tellStatus();
+        });
+        state.pages[c.id] = text ? { text } : { text: '', failed: 'it answered with no page' };
+      } catch (err) {
+        if (signal && signal.aborted) return; /* stopped: nothing kept for it, it is asked again on Continue */
+        state.pages[c.id] = { text: '', failed: lim.timedOut() ? 'out of time after ' + Math.round(WRITE_LIMIT_MS / 60000) + ' minutes' : String((err && err.message) || err) };
+      } finally { lim.done(); }
+      const kept = state.pages[c.id];
+      status.set(c.id, { name: nameOf(c), step: kept ? (kept.text ? 'written' : 'failed') : 'waiting', note: kept && kept.failed ? kept.failed : '', took: Date.now() - started }); tellStatus();
+      await saveRun(state);
+    }));
+  }
+  if (signal && signal.aborted) throw new Error('stopped');
+  /* 2. the grades — only the pages not graded yet */
+  const written = takers.filter((c) => state.pages[c.id] && state.pages[c.id].text);
+  let g = 0;
+  for (const c of written) {
+    g += 1;
+    if (state.graded[c.id]) continue;
+    if (signal && signal.aborted) throw new Error('stopped');
+    onProgress(`Grading ${g} of ${written.length} — ${nameOf(c)}’s page, ${judgeConns.length === 1 ? 'one judge' : judgeConns.length + ' judges'}…`);
+    status.set(c.id, { ...status.get(c.id), step: 'grading' }); tellStatus();
+    const lim = limited(signal, JUDGE_LIMIT_MS);
+    let grade = null;
+    try { grade = await gradeWithJudges(judgeConns, moment.context, state.pages[c.id].text, lim.signal); } finally { lim.done(); }
+    if (signal && signal.aborted) throw new Error('stopped');
+    state.graded[c.id] = grade || { none: true };
+    if (grade) await recordGrade({ writer: c.id, label: nameOf(c), model: c.model || '', storyId: moment.story.id, pageKey: state.runId + ':' + c.id, scores: grade.scores, overall: grade.overall, why: grade.why, run: state.runId });
+    status.set(c.id, { ...status.get(c.id), step: grade ? 'graded' : 'not graded', overall: grade ? grade.overall : null }); tellStatus();
+    await saveRun(state);
+  }
+  /* 3. head to head — only the pairs not judged yet */
   const pairs = [];
   for (let i = 0; i < written.length; i += 1) for (let j = i + 1; j < written.length; j += 1) pairs.push([written[i], written[j]]);
   let n = 0;
   for (const [a, b] of pairs) {
-    if (signal && signal.aborted) throw new Error('stopped');
     n += 1;
-    onProgress(`Head to head ${n} of ${pairs.length} — ${nameOf(a.c)} and ${nameOf(b.c)}, blind, both ways round…`);
-    const d = await duelWithJudges(judges, moment.context, a.text, b.text, signal);
-    if (!d) continue;
-    await recordDuel({ x: a.c.id, y: b.c.id, xLabel: nameOf(a.c), yLabel: nameOf(b.c), winner: d.winner, why: d.why, duelKey: runId + ':' + a.c.id + ':' + b.c.id, run: runId });
-    if (d.winner === 'x') { a.win += 1; b.loss += 1; } else if (d.winner === 'y') { b.win += 1; a.loss += 1; } else { a.tie += 1; b.tie += 1; }
+    const key = a.id + ':' + b.id;
+    if (state.duels[key]) continue;
+    if (signal && signal.aborted) throw new Error('stopped');
+    onProgress(`Head to head ${n} of ${pairs.length} — ${nameOf(a)} and ${nameOf(b)}, blind, both ways round…`);
+    const lim = limited(signal, JUDGE_LIMIT_MS * 2);
+    let d = null;
+    try { d = await duelWithJudges(judgeConns, moment.context, state.pages[a.id].text, state.pages[b.id].text, lim.signal); } finally { lim.done(); }
+    if (signal && signal.aborted) throw new Error('stopped');
+    state.duels[key] = d ? { winner: d.winner } : { winner: 'none' };
+    if (d) await recordDuel({ x: a.id, y: b.id, xLabel: nameOf(a), yLabel: nameOf(b), winner: d.winner, why: d.why, duelKey: state.runId + ':' + key, run: state.runId });
+    await saveRun(state);
   }
-  const results = pages.map((p) => ({ id: p.c.id, name: nameOf(p.c), model: p.c.model || '', text: p.text, failed: p.failed || '', overall: p.grade ? p.grade.overall : null, scores: p.grade ? p.grade.scores : {}, win: p.win || 0, loss: p.loss || 0, tie: p.tie || 0 }))
-    .sort((p, q) => ((q.overall ?? -1) - (p.overall ?? -1)) || ((q.win - q.loss) - (p.win - p.loss)));
-  const run = { runId, at: Date.now(), story: moment.story, pageNumber: moment.pageNumber, judges: judges.map(nameOf), results };
+  /* the result, the run let go */
+  const results = takers.map((c) => {
+    const page = state.pages[c.id] || {};
+    const grade = state.graded[c.id] && !state.graded[c.id].none ? state.graded[c.id] : null;
+    let win = 0, loss = 0, tie = 0;
+    for (const [key, d] of Object.entries(state.duels)) {
+      const [x, y] = key.split(':');
+      if (x !== c.id && y !== c.id) continue;
+      if (d.winner === 'tie') tie += 1; else if ((d.winner === 'x' && x === c.id) || (d.winner === 'y' && y === c.id)) win += 1; else if (d.winner === 'x' || d.winner === 'y') loss += 1;
+    }
+    return { id: c.id, name: nameOf(c), model: c.model || '', text: page.text || '', failed: page.failed || '', overall: grade ? grade.overall : null, scores: grade ? grade.scores : {}, win, loss, tie };
+  }).sort((p, q) => ((q.overall ?? -1) - (p.overall ?? -1)) || ((q.win - q.loss) - (p.win - p.loss)));
+  const run = { runId: state.runId, at: Date.now(), story: moment.story, pageNumber: moment.pageNumber, judges: judgeConns.map(nameOf), results };
   await db.settings.set('benchLastRun', run);
+  await dropRunState();
   return run;
 }

@@ -19,3 +19,20 @@ test('M633-1 A KEPT REQUEST IS REPLAYED AS IT WAS SENT — OpenAI\u2019s message
   eq(an.messages.map((m) => m.role + ':' + m.content).join('|'), 'user:I wait.|assistant:Quiet.|user:I knock.', 'its messages, their text parts joined');
   assert(neutralRequest(null).messages.length === 0, 'nothing kept: nothing to replay');
 });
+
+test('M634-1 A STORYTELLER OR A JUDGE PAST ITS TIME IS LET GO, NOT WAITED FOR — the limit ends the one call, the run\u2019s own Stop ends every one, and a call done in time is left alone', async () => {
+  const { limited } = await import('../../js/agents/benchrun.js');
+  const short = limited(null, 30);
+  await new Promise((r) => setTimeout(r, 60));
+  assert(short.signal.aborted && short.timedOut(), 'past its time: ended, and said so');
+  short.done();
+  const run = new AbortController();
+  const one = limited(run.signal, 60000);
+  run.abort(new Error('stopped by hand'));
+  assert(one.signal.aborted && !one.timedOut(), 'the run stopped: ended, and not as out of time');
+  one.done();
+  const quick = limited(null, 50);
+  quick.done();
+  await new Promise((r) => setTimeout(r, 80));
+  assert(!quick.signal.aborted, 'done in time: never ended');
+});
