@@ -9,6 +9,7 @@ import {
   SENSORS, MODEL_SENSORS, sensorById, sensorShape, decisionsUrl, decisionsBody, decisionsState, decisionsRoom, chatAsk, readAnswers,
   packageFromRequest, packageFromPages, fitPackage, readPage, senseOf, sensePatch, dueSensor, sensorWordForTurn, loadSensors,
   sensorLine, openingKind, closingKind, impactCount, nameRun, longSpeeches, thoughtCount, constructsOf, TAIL, TAIL_OWN, SENSOR_GAP,
+  readPageFull, readingWords, slipNames, SAMPLE_READ,
 } from '../../js/agents/sensors.js';
 import { buildRequest } from '../../js/assemble/stack.js';
 import { PRESETS, normalizeBaseUrl } from '../../js/providers/index.js';
@@ -353,4 +354,52 @@ test('M636-7 A HOUSE THAT TAKES NO TWO TURNS OF ONE ROLE IN A ROW says so once, 
   await withHouse(again, () => callWorker(back, { system: 's', messages: msgs }));
   eq(again.calls.length, 1, 'and from then on it is asked that way — no refusal first');
   eq(again.calls[0].body.messages.filter((m) => m.role === 'assistant').length, 1, 'one message');
+});
+
+test('M638-1 EVERY TRY SAYS WHAT HAPPENED: a decisions address that works says how much it took in; one that refuses says its own reason; one that takes in too little is NOT USED; a model that answers with words is said to — never a silent nothing', async () => {
+  const res = (status, body) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+  const answers = Object.fromEntries(MODEL_SENSORS.map((s) => [s.id, { noul: s.id === 'accord' ? 0.9 : 0.05 }]));
+  const before = Array.from({ length: 10 }, (_, i) => ({ who: i % 2 ? 'teller' : 'writer', text: 'TURN-' + i + ' ' + filler(i + 50, 6000) }));
+  const args = { brief: 'A hard tale.', before, page: HEAD + '\n\nKaelen named a price.' };
+  const clef = { baseUrl: 'https://api.neuralwatt.com/v1', model: 'clef-flash', label: 'Clef Flash', apiKey: 'k' };
+  const seen = [];
+  const house = (status, body) => ({ calls: [], fetch: async (url, opts) => { seen.push({ url: String(url), body: JSON.parse(opts.body), auth: (opts.headers && (opts.headers.authorization || opts.headers.Authorization)) || '' }); return res(status, typeof body === 'function' ? body(JSON.parse(opts.body)) : body); } });
+  /* works: the address says how many tokens it took in — about what it was sent */
+  const ok = await withHouse(house(200, (sent) => ({ model: 'clef-flash', answers, usage: { input_tokens: Math.round(JSON.stringify(sent.state).length / 4) } })), () => readPageFull({ connection: clef, ...args }));
+  eq(ok.ok, true, 'it read the page');
+  eq(seen[0].url, 'https://api.neuralwatt.com/v1/systemone', 'at the decisions address of that connection');
+  eq(seen[0].auth, 'Bearer k', 'with its key');
+  eq(Object.keys(seen[0].body.state)[0], 'page_to_judge', 'the page first');
+  eq(Object.keys(ok.scores).length, MODEL_SENSORS.length, 'every statement answered');
+  assert(ok.sent > 10000 && Math.abs(ok.read - ok.sent) < 50, 'what it was sent, and what it says it took in: ' + ok.sent + ' / ' + ok.read);
+  const words = readingWords(ok, 'page 34');
+  assert(/^Working — Clef Flash read page 34: 18 answers in [\d.]+ s\. It was sent about [\d,]+ tokens and took in [\d,]+\./.test(words), 'said in one plain sentence: ' + words);
+  assert(/Slips it saw on that page: easy agreement\.$/.test(words), 'with what it saw');
+  eq(slipNames(ok.scores).join(','), 'easy agreement', 'by the law’s own name');
+  /* refuses: its own status and words */
+  const refused = await withHouse(house(401, { error: { message: 'Invalid API key' } }), () => readPageFull({ connection: clef, ...args }));
+  eq(refused.ok, false, 'no reading');
+  eq(refused.why, 'the address answered 401 — Invalid API key', 'the real reason');
+  eq(readingWords(refused, 'page 34'), 'Not working — Clef Flash could not read page 34: the address answered 401 — Invalid API key.', 'said plainly');
+  eq((await withHouse(house(403, { detail: 'Preview access required' }), () => readPageFull({ connection: clef, ...args }))).why, 'the address answered 403 — Preview access required', 'whatever field the address puts its reason in');
+  /* takes in too little (Cloudflare's own hosting: about two thousand tokens of any state): its answers are not used */
+  const cut = await withHouse(house(200, { result: { model: 'clef-flash', answers, usage: { input_tokens: 2392 } }, success: true }), () => readPageFull({ connection: { baseUrl: 'https://api.cloudflare.com/client/v4/accounts/abc/ai/run/@cf/cloudflare/clef-flash', model: 'clef-flash', label: 'Clef on Cloudflare', apiKey: 'k' }, ...args }));
+  eq(cut.ok, false, 'a reading made on a sliver of the story is no reading');
+  assert(/took in only about 2,392 of the [\d,]+ tokens it was sent — too little of the story to judge a page by/.test(cut.why), 'and it says how little: ' + cut.why);
+  /* an address that does not say how much it took in still reads; the sentence says it does not say */
+  const quiet = await withHouse(house(200, { answers }), () => readPageFull({ connection: clef, ...args }));
+  eq(quiet.ok && quiet.read, null, 'no count given');
+  assert(/this address does not say how many it took in/.test(readingWords(quiet, 'page 2')), 'said so');
+  /* an ordinary model */
+  const chat = { baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-v4-pro', label: 'DeepSeek', preset: 'deepseek' };
+  const fineAll = JSON.stringify(Object.fromEntries(MODEL_SENSORS.map((s) => [s.id, 0.05])));
+  const good = await readPageFull({ connection: chat, ...args, callLLM: async () => fineAll });
+  assert(good.ok && good.read === null && /^Working — DeepSeek read the page: 18 answers in [\d.]+ s\. That page’s own request was no longer kept, so it was read with the pages before it\. It saw no slip on that page\.$/.test(readingWords(good)), 'works, and says how it read: ' + readingWords(good));
+  eq((await readPageFull({ connection: chat, ...args, callLLM: async () => 'I would rather not judge this page.' })).why, 'the model answered, but not with the numbers it was asked for', 'words instead of numbers');
+  eq((await readPageFull({ connection: chat, ...args, callLLM: async () => { throw new Error('Insufficient Balance'); } })).why, 'Insufficient Balance', 'the provider’s own refusal');
+  eq((await readPageFull({ connection: null, ...args })).why, 'no model is set for the sensors', 'no connection');
+  eq((await readPageFull({ connection: chat, page: ' ' })).why, 'there is no page to read', 'no page');
+  /* the sample page reads like any other */
+  const sample = await readPageFull({ connection: chat, ...SAMPLE_READ, callLLM: async () => fineAll });
+  assert(sample.ok && /^Working — DeepSeek read a sample page: 18 answers/.test(readingWords(sample, 'a sample page')) && !/no longer kept/.test(readingWords(sample, 'a sample page')), 'a check with no story open: ' + readingWords(sample, 'a sample page'));
 });

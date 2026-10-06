@@ -22,8 +22,7 @@ import { loadState } from '../engine/state.js'; /* M361: whose name {{user}} is 
 import { mcName } from '../engine/duels.js'; /* M361 */
 import { readStandingWords, groupFindings, findingsText } from '../assemble/plainvoice.js'; /* M359, M360 */
 import { copyWords } from './receiptview.js'; /* M360: the flagged lines, in one tap */
-import { sensorLine } from '../agents/sensors.js'; /* M356; M636: a reading lives on its page */
-import { shownIndex } from '../engine/pagepatch.js'; /* M636 */
+import { loadWorkerStatus } from '../agents/status.js'; /* M638: what the sensors' last reading said */
 import { drawCanonControls } from './canonsettings.js'; /* M346; M386: every lever of canon verification */
 import { canonWithdraw, canonOn, setCanonOn } from '../canon/bridge.js'; /* M386: off, the series' truths leave the open story's ledger at once; M399: each story's own switch */
 import { db } from '../store.js';
@@ -271,6 +270,7 @@ export function initSettings(ctx) {
     sensorsOn: document.getElementById('sensors-on'), /* M356 */
     sensorReadings: document.getElementById('sensors-readings'),
     sensorsRole: document.getElementById('sensors-role'), /* M636 */
+    sensorsCheck: document.getElementById('btn-sensors-check'), /* M638 */
     canonControls: document.getElementById('canon-controls'), /* M386 */
     refereeSensitivity: document.getElementById('referee-sensitivity'),
     refereePreset: document.getElementById('referee-preset'),
@@ -1981,18 +1981,14 @@ export function initSettings(ctx) {
     if (els.sensorsOn) els.sensorsOn.checked = (await db.settings.get('sensorsOn')) === true;
     if (els.sensorsRole) { const role = await db.settings.get('sensorsRole'); els.sensorsRole.value = role === 'system' || role === 'user' || role === 'assistant' ? role : ''; } /* M636 */
     if (els.sensorReadings) {
-      /* M636: the newest page of the story in hand that has a reading — the numbers the checker gave it */
+      /* M638: what the sensors' last try on the story in hand said, in its own plain sentence (it works, with which model
+       * and what it saw — or it does not, and why), and how long ago */
       const story = await activeStory();
-      let line = '';
-      if (story) {
-        const told = (await db.messages.list(story.id)).filter((m) => m && !m.hidden && m.role === 'assistant' && !m.ooc);
-        for (let i = told.length - 1; i >= 0 && !line; i -= 1) {
-          const all = told[i].sense && typeof told[i].sense === 'object' ? told[i].sense : null;
-          const got = all ? all[String(shownIndex(told[i]))] : null;
-          if (got && got.scores) line = sensorLine(got.scores);
-        }
-      }
-      els.sensorReadings.textContent = line ? 'The newest page read — ' + line : 'No readings yet.';
+      const row = story ? ((await loadWorkerStatus(story.id)) || {}).sensors : null;
+      const said = row && typeof row.detail === 'string' && /^(?:Working|Not working) — /.test(row.detail) ? row.detail : '';
+      const mins = said ? Math.max(0, Math.round((Date.now() - row.at) / 60000)) : 0;
+      const ago = mins < 1 ? 'just now' : mins < 60 ? mins + (mins === 1 ? ' minute ago' : ' minutes ago') : mins < 1440 ? Math.round(mins / 60) + (Math.round(mins / 60) === 1 ? ' hour ago' : ' hours ago') : Math.round(mins / 1440) + (Math.round(mins / 1440) === 1 ? ' day ago' : ' days ago');
+      els.sensorReadings.textContent = said ? said + ' (' + ago + ')' : 'No reading yet for this story — “Check the sensors” reads its newest page now and says what happened.';
     }
     await drawCanon();
     els.refereeSensitivity.value = (await db.settings.get('refereeSensitivity')) || 'normal';
@@ -2020,6 +2016,15 @@ export function initSettings(ctx) {
     await drawCanon();
   });
   if (els.sensorsOn) els.sensorsOn.addEventListener('change', async () => { await db.settings.set('sensorsOn', els.sensorsOn.checked); }); /* M356 */
+  /* M638: "Check the sensors" — one reading, now, and what happened in one plain sentence */
+  if (els.sensorsCheck) els.sensorsCheck.addEventListener('click', async () => {
+    const was = els.sensorsCheck.textContent;
+    els.sensorsCheck.disabled = true; els.sensorsCheck.textContent = 'Reading…';
+    try {
+      const said = ctx.chat && typeof ctx.chat.checkSensors === 'function' ? await ctx.chat.checkSensors() : '';
+      if (els.sensorReadings) els.sensorReadings.textContent = said || 'Nothing came back — the check could not be made.';
+    } finally { els.sensorsCheck.disabled = false; els.sensorsCheck.textContent = was; }
+  });
   if (els.sensorsRole) els.sensorsRole.addEventListener('change', async () => { const v = els.sensorsRole.value; if (v === 'system' || v === 'user' || v === 'assistant') await db.settings.set('sensorsRole', v); else await db.settings.delete('sensorsRole'); }); /* M636 */
   els.refereeOn.addEventListener('change', async () => {
     await db.settings.set('refereeOn', els.refereeOn.checked);

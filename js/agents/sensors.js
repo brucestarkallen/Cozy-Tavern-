@@ -41,6 +41,7 @@ import { stripFurniture, soundCount } from '../assemble/plain.js';
 import { wornPhrases, sceneParagraphs } from '../assemble/smallprose.js';
 import { spokenShare } from './lint.js';
 import { hash53 } from '../sent.js';
+import { estimateTokens } from '../assemble/receipt.js';
 
 export const SENSOR_KEY = (storyId) => 'sensors:' + storyId;
 export const SENSE_FIELD = 'sense';
@@ -588,38 +589,101 @@ export function readAnswers(raw, shape, sensors = MODEL_SENSORS) {
   return out;
 }
 
-/* The reading of one page. Never throws; null when there is no reading. `kept` is the request the page was written
- * from (js/sent.js), when the page still holds it. */
-export async function readPage({ connection, kept = null, brief = '', castNotes = '', before = [], move = '', page = '', mc = '', signal, callLLM } = {}) {
+/* M638: THE READING OF ONE PAGE, AND — WHEN THERE IS NONE — WHY. His question: "how can I know the sensor, especially
+ * Clef, is working?" A reading that failed used to be nothing at all: a wrong key, an address that does not answer, a
+ * model that answers with words, all looked like "no readings yet". Now every try says what happened, in plain words:
+ *   {ok:true, scores, whole, dropped, shape, model, ms, sent, read}   — it read the page; `sent` is about how many
+ *       tokens it was handed, `read` how many a decisions house says it took in (null where the house does not say)
+ *   {ok:false, why, shape, model, ms}                                 — it did not, and why
+ * A DECISIONS HOUSE THAT READS LESS THAN HALF OF WHAT IT IS SENT (Cloudflare's own hosting took in about two thousand
+ * tokens of any state in October 2026) has not seen the story it is asked to judge the page against: its answers are
+ * NOT USED, and the reason says how much it read. Never throws. `kept` is the request the page was written from. */
+const plain = (v, n = 160) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+export async function readPageFull({ connection, kept = null, brief = '', castNotes = '', before = [], move = '', page = '', mc = '', signal, callLLM } = {}) {
+  const began = Date.now();
+  const model = plain(connection && (connection.label || connection.model), 80);
+  const shape = connection ? sensorShape(connection) : '';
+  const fail = (why) => ({ ok: false, why, shape, model, ms: Date.now() - began });
+  if (!connection) return fail('no model is set for the sensors');
+  if (!String(page || '').trim()) return fail('there is no page to read');
   try {
-    if (!connection || !String(page || '').trim()) return null;
-    const shape = sensorShape(connection);
     const pkg = packageFromRequest(kept) || packageFromPages({ brief, castNotes, before, move });
     const fit = fitPackage(pkg, page, shape === 'decisions' ? decisionsRoom(connection) : contextOf(connection));
     let raw = '';
-    if (typeof callLLM === 'function') {
-      raw = await callLLM({ shape, fit, body: shape === 'decisions' ? decisionsBody(connection, decisionsState(fit, { mc })) : chatAsk(fit, MODEL_SENSORS, { mc }) });
-    } else if (shape === 'decisions') {
-      const res = await houseFetch(decisionsUrl(connection), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', ...(connection.apiKey ? { authorization: 'Bearer ' + connection.apiKey } : {}) },
-        body: JSON.stringify(decisionsBody(connection, decisionsState(fit, { mc }))),
-        signal,
-      }, connection);
-      if (!res || !res.ok) return null;
-      raw = await res.json();
+    let sent = 0;
+    if (shape === 'decisions') {
+      const body = decisionsBody(connection, decisionsState(fit, { mc }));
+      sent = estimateTokens(JSON.stringify(body.state));
+      if (typeof callLLM === 'function') raw = await callLLM({ shape, fit, body });
+      else {
+        const res = await houseFetch(decisionsUrl(connection), {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...(connection.apiKey ? { authorization: 'Bearer ' + connection.apiKey } : {}) },
+          body: JSON.stringify(body),
+          signal,
+        }, connection);
+        if (!res) return fail('the address did not answer');
+        if (!res.ok) {
+          let detail = '';
+          try { const j = await res.clone().json(); const e = j && (j.error || j.detail || j.message || (Array.isArray(j.errors) && j.errors[0])); detail = e && typeof e === 'object' ? (e.message || JSON.stringify(e)) : e; } catch (err) { /* not JSON: the number still says something */ }
+          return fail('the address answered ' + res.status + (plain(detail) ? ' — ' + plain(detail) : ''));
+        }
+        raw = await res.json();
+      }
     } else {
       const ask = chatAsk(fit, MODEL_SENSORS, { mc });
-      const { text } = await callWorker(connection, { system: ask.system, user: ask.user, maxTokens: 600, signal });
-      raw = text || '';
+      sent = estimateTokens(ask.system) + estimateTokens(ask.user);
+      if (typeof callLLM === 'function') raw = await callLLM({ shape, fit, body: ask });
+      else { const { text } = await callWorker(connection, { system: ask.system, user: ask.user, maxTokens: 600, signal }); raw = text || ''; }
     }
     const scores = readAnswers(raw, shape);
-    if (!Object.keys(scores).length) return null;
-    return { scores, whole: Boolean(packageFromRequest(kept)), dropped: fit.dropped };
+    if (!Object.keys(scores).length) return fail(shape === 'decisions' ? 'the address answered, but with no answers to the questions' : 'the model answered, but not with the numbers it was asked for');
+    let read = null;
+    if (shape === 'decisions' && raw && typeof raw === 'object') {
+      const usage = (raw.usage && typeof raw.usage === 'object' ? raw.usage : null) || (raw.result && raw.result.usage && typeof raw.result.usage === 'object' ? raw.result.usage : null);
+      const n = usage ? Number(usage.input_tokens ?? usage.prompt_tokens) : NaN;
+      if (Number.isFinite(n) && n > 0) read = Math.round(n);
+    }
+    if (read !== null && sent > 3000 && read < sent * 0.5) {
+      return fail('this address took in only about ' + read.toLocaleString('en-US') + ' of the ' + sent.toLocaleString('en-US') + ' tokens it was sent — too little of the story to judge a page by, so its answers are not used');
+    }
+    return { ok: true, scores, whole: Boolean(packageFromRequest(kept)), dropped: fit.dropped, shape, model, ms: Date.now() - began, sent, read };
   } catch (err) {
-    return null;
+    if ((signal && signal.aborted) || (err && err.name === 'AbortError')) return fail('no answer within a minute');
+    return fail(plain(err && err.message, 200) || 'the call failed');
   }
 }
+/* the reading alone, or null — what the first callers and their laws ask for */
+export async function readPage(args = {}) {
+  const r = await readPageFull(args);
+  return r.ok ? { scores: r.scores, whole: r.whole, dropped: r.dropped } : null;
+}
+/* the slips a reading saw on its page, by their names — "easy agreement, one voice" */
+export function slipNames(scores) {
+  return MODEL_SENSORS.filter((s) => slipped(s, scores)).map((s) => s.name.toLowerCase());
+}
+/* WHAT HAPPENED, IN ONE PLAIN SENTENCE — for Settings and the drawer's line of workers. `what` names the page ("page 34",
+ * "a sample page"). */
+export function readingWords(r, what = 'the page') {
+  if (!r || typeof r !== 'object') return '';
+  const who = r.model || 'the sensors’ model';
+  if (!r.ok) return 'Not working — ' + who + ' could not read ' + what + ': ' + (r.why || 'the call failed') + '.';
+  const n = Object.keys(r.scores || {}).length;
+  const secs = (Math.max(0, r.ms || 0) / 1000).toFixed(1);
+  const slips = slipNames(r.scores);
+  const bits = ['Working — ' + who + ' read ' + what + ': ' + n + (n === 1 ? ' answer' : ' answers') + ' in ' + secs + ' s.'];
+  if (r.shape === 'decisions') bits.push(r.read !== null && r.read !== undefined ? 'It was sent about ' + Number(r.sent || 0).toLocaleString('en-US') + ' tokens and took in ' + Number(r.read).toLocaleString('en-US') + '.' : 'It was sent about ' + Number(r.sent || 0).toLocaleString('en-US') + ' tokens (this address does not say how many it took in).');
+  if (r.whole === false && what !== 'a sample page') bits.push('That page’s own request was no longer kept, so it was read with the pages before it.');
+  if (r.dropped) bits.push('The oldest ' + r.dropped + ' turns of the story did not fit this model’s room.');
+  bits.push(slips.length ? 'Slips it saw on that page: ' + slips.join(', ') + '.' : 'It saw no slip on that page.');
+  return bits.join(' ');
+}
+/* a page to try the sensors on when no story is open */
+export const SAMPLE_READ = {
+  brief: 'A quiet harbour town where nothing is free.',
+  before: [{ who: 'writer', text: 'I ask the ferryman what the crossing costs.' }],
+  page: '[The quay — Monday, March 3, 2025 | 09:00 | clear | coat | by the mooring rope]\n\nThe ferryman spat over the side and looked at the tide before he looked at him. “Two coppers,” he said, “and you row.”',
+};
 
 /* M357: what the house SAW in the page it just kept (his character taken — the small storyteller's guard) is a word for
  * the next turn too — said before the next page, never by sending that one back. It goes first when both are due. */

@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m637-001)
+# Cozy Tavern — handoff for the next session (state at m638-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -20,6 +20,11 @@
   every line ends with the craft's Drift Recovery (TAIL: the pages stand, nothing to fix or explain). A decisions model
   needs no mode: put its connection on the sensors' row (known by model name or address; a provider that refuses a web
   page goes through the house relay like any other).
+- M638: IS IT WORKING is answered by the app, never by him looking for it — every reading (and every failed one) is ONE
+  plain sentence (sensors.js readingWords) on the workers' line and in Settings → The sensors, and "Check the sensors"
+  reads the newest page now (a sample page with no story). A decisions address that takes in under half of what it is
+  sent is NOT USED and says so. The QUICK SWITCH keeps to the seven models he told with most lately (settings
+  quickRecent; the one telling the story always among them; "All models (N)…" puts the whole list on the same switch).
 - A new sensor needs: its law's name, `covers` if the house's eye already minds that law, `notSmall` if the small
   storyteller's planner or brake does, a `word` and an `own` that pass M636-8, and a true/false pair in M636-5 (counted)
   — try a counted measure on real-looking prose before trusting a fixture (the swivel counted "did not answer, but…").

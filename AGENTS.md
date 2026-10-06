@@ -15981,3 +15981,51 @@ need another mode.
 - version.js -> m637-001.
 - GATES at m637-001 (one CPU), on the tree that was pushed: harness 1244/1244, walk 231/231, long play 9/9, lint 0 errors
   (175 warnings, the count at m635), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.
+
+# M638 — "how can I know the sensor, especially Clef, is working?" and a Quick switch that fills the screen
+- A READING THAT FAILED WAS NOTHING AT ALL (my own choice at M636: "silent on any failure"). A wrong key, an address that
+  refuses, a model that answers with words, a decisions house without access — all of it looked like "No readings yet".
+  For a checker that works out of sight that is a control he cannot see: he had no way to know whether Clef read a page.
+  - sensors.js readPageFull: every try returns what happened — {ok, scores, whole, dropped, shape, model, ms, sent, read}
+    or {ok:false, why} with THE REAL REASON in plain words: the address's own status and message ("the address answered
+    401 — Invalid API key"; error / detail / message / errors[0], whichever it uses), "no answer within a minute", the
+    provider's own refusal, "the model answered, but not with the numbers it was asked for", "no model is set for the
+    sensors". readPage (the reading or null) stays for its first callers and laws.
+  - A DECISIONS ADDRESS SAYS HOW MUCH IT TOOK IN (usage.input_tokens, bare or under Cloudflare's `result`): `sent` is what
+    it was handed (the house's own estimate), `read` what it says it read. One that took in LESS THAN HALF of more than
+    3,000 tokens sent has not seen the story it judges the page against — its answers are NOT USED, and the reason says
+    how little it read. (Cloudflare's own hosting did exactly that in October 2026; a wrong reading for want of context
+    was his own worry.) An address that gives no count is used, and the sentence says it gives none.
+  - readingWords: ONE PLAIN SENTENCE — "Working — Clef Flash read page 34: 18 answers in 0.4 s. It was sent about 41,200
+    tokens and took in 41,180. Slips it saw on that page: easy agreement." / "Not working — Clef Flash could not read
+    page 34: the address answered 403 — Preview access required." chat.js sensePage writes it on the workers' line for
+    every try (as the benchmark's judge writes "could not grade": noted, never a failed run — the ledger's light is the
+    ledger's), and Settings → The readers → The sensors shows it with how long ago.
+  - "CHECK THE SENSORS" (the button under the switch; chat.js checkSensors): the newest page of the story in hand is read
+    NOW by the sensors' model and the sentence is shown at once; no story or no page — a sample page (SAMPLE_READ). With
+    the switch off the page is read and nothing is kept.
+- THE QUICK SWITCH LISTED EVERY CONNECTION — the storytellers he moves between, ones tried once, his workers' hands, a
+  decisions model: with dozens, a native picker that fills the phone's screen. With MORE THAN SEVEN connections it now
+  shows the seven he told with most lately — the one telling this story always among them — by name, and a last line
+  "All models (N)…" that puts the whole list on the same switch (opened at once where the browser lets a page do it,
+  else one more tap) until he has chosen or asks for "Fewer". Seven or fewer: all of them, as it was. What he tells with
+  is kept from now on (settings quickRecent — every choice through useConnection, the model he LEAVES as well as the one
+  he takes, and every page told); before the first of those it is read once from what is known: who told this story's
+  pages (receipt.connId), the house's choice, each tale's own storyteller. Nothing about the ONE model choice (M510-8)
+  changes: "All models…" and "Fewer" are not models and choose nothing.
+- LAWS: m356.mjs M638-1 (through a real provider call: the decisions address, its key, the page first; what was sent and
+  taken in; a 401 and a 403 in the address's own words; the sliver not used; no count given; an ordinary model's three
+  outcomes; no connection; no page; the sample). WALK DOM-75 (the sentence on the workers' line after a reading; Settings
+  shows it; "Check the sensors" failing says why and leaves the standing reading; working says so), DOM-232 (ten
+  connections: the short list by name, the whole list on the same switch changing nothing, a model chosen from it, the
+  one he left kept, seven at most, fewer), DOM-67 reaches a never-used connection through "All models…".
+- NOT DONE, AND WHY: no real provider in the session — the sentences are proven against the stand-in house answering as
+  a decisions address and as a chat model. DOM-67 fails when run ALONE (it needs an earlier scenario's connection) — it
+  does on m637 too, checked in a clean worktree.
+- version.js -> m638-001.
+- GATES at m638-001 (one CPU), on the tree that was pushed: harness 1245/1245, walk 232/232, long play 9/9, lint 0 errors
+  (175 warnings, the count at m635), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each. The first full run of
+  the walk on this change failed DOM-135 once (the report: the extractor had "read 1 page the ledger had missed" and the
+  line still stood at page 1 of 2 after thirty seconds — the rare timing fault the handoff already lists, cause not
+  found); the second full run passed it. Nothing in this change writes the ledger or runs in that scenario with the
+  sensors off, but that it is unrelated is not proven.

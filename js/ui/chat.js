@@ -66,7 +66,7 @@ import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wr
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent, loadSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it; M636: read back for the sensors */
-import { readPage, sensorWordForTurn, takePageWord, keepPageWord, sensorLine, senseOf, sensePatch, SENSOR_LOOK } from '../agents/sensors.js'; /* M356/M357; M636: a reading lives on its page, and the one line the readings earn */
+import { readPageFull, readingWords, SAMPLE_READ, sensorWordForTurn, takePageWord, keepPageWord, senseOf, sensePatch, SENSOR_LOOK } from '../agents/sensors.js'; /* M356/M357; M636: a reading lives on its page, and the one line the readings earn */
 import { twinsRefused } from '../providers/userfirst.js'; /* M636: a model that takes no two turns of one role in a row */
 import { onToast as onCanonToast } from '../canon/host.js';
 import { canonNote as keepCanonNote, canonWhy } from '../canon/bridge.js'; /* M395: canon's own notes go to its room, never onto the screen; M486: why it had nothing to say */
@@ -2176,40 +2176,72 @@ export function initChat(ctx) {
     const next = (senseTail.get(sid) || Promise.resolve()).then(() => sensePage(story, pageId)).catch(() => { /* never worth a page */ });
     senseTail.set(sid, next);
   }
-  /* the page that landed (by its id) — still read when he has already played on; with no id, the newest page */
-  async function sensePage(storyIn, pageId) {
+  /* the page that landed (by its id) — still read when he has already played on; with no id, the newest page.
+   * M638: EVERY TRY SAYS WHAT HAPPENED, in one plain sentence on the workers' line (sensors.js readingWords) — that the
+   * page was read, by which model, and what it saw; or that it was not, and why — and hands it back, so Settings'
+   * "Check the sensors" can say it at once. `check`: the page is read NOW whatever stands (a reading already there is
+   * taken again; with the switch off nothing is kept — Off keeps nothing). */
+  async function sensePage(storyIn, pageId, { check = false } = {}) {
     const sid = storyIn && storyIn.id;
-    if (!sid) return;
+    if (!sid) return null;
     let key = '';
     try {
-      if ((await db.settings.get('sensorsOn')) !== true) return;
+      const on = (await db.settings.get('sensorsOn')) === true;
+      if (!on && !check) return null;
       const story = await db.stories.get(sid);
-      if (!story) return;
+      if (!story) return null;
       const all = visiblePages(await db.messages.list(sid)).filter((m) => m && !m.hidden && !m.ooc);
-      const at = pageId ? all.findIndex((m) => m.id === pageId) : all.length - 1;
+      const at = pageId ? all.findIndex((m) => m.id === pageId) : all.map((m) => m.role).lastIndexOf('assistant');
       const last = at >= 0 ? all[at] : null;
-      if (!last || last.role !== 'assistant' || last.stopped || !pageText(last).trim()) return;
+      if (!last || last.role !== 'assistant' || !pageText(last).trim() || (last.stopped && !check)) return null;
       const words = pageText(last);
-      if (senseOf(last, versionOf(last), words)) return; /* this version, these words: read already */
-      if (sensing.get(sid) === last.id + ':' + versionOf(last)) return;
-      key = last.id + ':' + versionOf(last);
-      sensing.set(sid, key);
+      if (!check) {
+        if (senseOf(last, versionOf(last), words)) return null; /* this version, these words: read already */
+        if (sensing.get(sid) === last.id + ':' + versionOf(last)) return null;
+        key = last.id + ':' + versionOf(last);
+        sensing.set(sid, key);
+      }
+      const what = 'page ' + all.slice(0, at + 1).filter((m) => m.role === 'assistant').length;
       const connection = await resolveWorkerConnection(story, 'sensors');
-      if (!connection) return;
       const rec = last.receipt && last.receipt.sentId ? await loadSent(last.receipt.sentId) : null;
       const kept = rec && Array.isArray(rec.requests) && rec.requests[0] ? rec.requests[0].body : null;
       const before = all.slice(Math.max(0, at - 12), at).map((m) => ({ who: m.role === 'user' ? 'writer' : 'teller', text: pageText(m) }));
       const mc = mcName(await loadState(sid));
       const w = workerSignal(); /* every helper's own ceiling: a call that hangs is let go, never waited on */
       let read = null;
-      try { read = await readPage({ connection, kept, brief: story.brief || '', castNotes: story.castNotes || '', before, page: words, mc, signal: w.signal }); } finally { w.done(); }
-      if (!read) return;
-      const fresh = (await db.messages.list(sid)).find((m) => m && m.id === last.id);
-      if (!fresh || fresh.hidden || versionOf(fresh) !== versionOf(last) || pageText(fresh) !== words) return; /* the page moved on while it was read */
-      await db.messages.update(sid, last.id, sensePatch(fresh, versionOf(fresh), words, read.scores));
-      await noteWorkerRun(sid, 'sensors', { ok: true, detail: sensorLine(read.scores) + (read.whole ? '' : ' — read from the pages (this page’s request was not kept)') });
-    } catch (err) { /* a reading is never worth a page */ } finally {
+      try { read = await readPageFull({ connection, kept, brief: story.brief || '', castNotes: story.castNotes || '', before, page: words, mc, signal: w.signal }); } finally { w.done(); }
+      const said = readingWords(read, what);
+      if (read.ok && on) {
+        const fresh = (await db.messages.list(sid)).find((m) => m && m.id === last.id);
+        /* written only if the page still stands as it was read */
+        if (fresh && !fresh.hidden && versionOf(fresh) === versionOf(last) && pageText(fresh) === words) await db.messages.update(sid, last.id, sensePatch(fresh, versionOf(fresh), words, read.scores));
+      }
+      /* a reading that failed is said as plainly as one that worked — on the workers' line, as the benchmark's judge says
+       * "could not grade": the ledger's light is the ledger's, and a checker that is down is not a ledger out of step */
+      await noteWorkerRun(sid, 'sensors', { ok: true, detail: said });
+      return { ...read, words: said };
+    } catch (err) { return null; } finally {
       if (key && sensing.get(sid) === key) sensing.delete(sid);
+    }
+  }
+  /* M638: "CHECK THE SENSORS" (Settings → The readers → The sensors) — his question: "how can I know the sensor, especially
+   * Clef, is working?" The newest page of the story in hand is read now by the sensors' model and the answer is one plain
+   * sentence: it works (which model, how fast, how much a decisions address took in, what it saw), or it does not, and
+   * the real reason. With no story open, or no page yet, a sample page is read instead. */
+  async function checkSensors() {
+    try {
+      const story = await activeStory();
+      if (story) {
+        const told = await sensePage(story, null, { check: true });
+        if (told && told.words) return told.words;
+      }
+      const connection = await resolveWorkerConnection(story || null, 'sensors');
+      const w = workerSignal();
+      let read = null;
+      try { read = await readPageFull({ connection, ...SAMPLE_READ, signal: w.signal }); } finally { w.done(); }
+      return readingWords(read, 'a sample page');
+    } catch (err) {
+      return 'Not working — the check itself failed: ' + String((err && err.message) || err) + '.';
     }
   }
   /* M549: HIS EDIT OF A PAGE WHOSE CHOICES STILL STAND OPEN — they were sealed for the page as it read; it reads otherwise
@@ -3091,6 +3123,40 @@ export function initChat(ctx) {
    * was set, is let go). The switch SHOWS what the story he is in actually uses; Settings → "Who tells this story" stays
    * the one deliberate exception, and the switch shows it when it stands. */
   const connectionName = (c) => String((c && (c.label || c.model)) || 'a connection') + (isSmallModel(c) ? ' · small model' : '');
+  /* M638: THE QUICK SWITCH KEEPS TO THE MODELS HE TELLS WITH. His word: "I have so many models and my quick changing model
+   * is so cluttered, my whole screen full, overwhelmed." It listed EVERY connection — the storytellers he switches
+   * between, the ones he tried once, his workers' hands, a decisions model. With more than seven it now shows the seven
+   * he told with most lately (the one telling this story always among them), by name as before, and one last line —
+   * "All models (N)…" — that puts the whole list on the same switch until he has chosen (or asks for fewer). Seven or
+   * fewer connections: all of them, as it always was. What he tells with is kept from now on (settings quickRecent:
+   * every choice, every page told); before the first of those it is read from what is known — who told this story's
+   * pages, the house's choice, each tale's own storyteller. */
+  const QUICK_SHOWN = 7;
+  const QUICK_ALL = '__all';
+  const QUICK_FEW = '__few';
+  let quickAllFor = null; /* the story whose whole list he asked to see — until he chooses, asks for fewer, or opens another */
+  async function quickRecent(story) {
+    const kept = await db.settings.get('quickRecent');
+    if (Array.isArray(kept)) return kept.filter((x) => typeof x === 'string' && x);
+    const ids = [];
+    const add = (id) => { if (typeof id === 'string' && id && !ids.includes(id)) ids.push(id); };
+    try {
+      const msgs = story ? await db.messages.list(story.id) : [];
+      for (let i = msgs.length - 1; i >= 0 && ids.length < 20; i -= 1) add(msgs[i] && msgs[i].receipt && msgs[i].receipt.connId);
+      add(await db.settings.get('activeConnectionId'));
+      for (const st of await db.stories.list()) add(st && st.connectionId);
+    } catch (err) { /* what is known so far */ }
+    await db.settings.set('quickRecent', ids.slice(0, 20));
+    return ids;
+  }
+  async function noteQuickRecent(id) {
+    if (typeof id !== 'string' || !id) return;
+    try {
+      const list = await quickRecent(await activeStory());
+      if (list[0] === id) return;
+      await db.settings.set('quickRecent', [id, ...list.filter((x) => x !== id)].slice(0, 20));
+    } catch (err) { /* the list waits for the next choice */ }
+  }
   async function refreshQuickSwitch() {
     if (!els.quickSwitch || !els.quickSwitchWrap) return;
     try {
@@ -3098,24 +3164,56 @@ export function initChat(ctx) {
       const all = (await db.connections.list()).slice().sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), undefined, { sensitivity: 'base' }));
       if (!story || !all.length) { els.quickSwitchWrap.hidden = true; return; }
       const using = await resolveConnection(story); /* M510-8: what this story actually tells with */
+      if (quickAllFor && quickAllFor !== story.id) quickAllFor = null;
+      const whole = all.length <= QUICK_SHOWN || quickAllFor === story.id;
+      let shown = all;
+      if (!whole) {
+        const ids = [];
+        if (using) ids.push(using.id);
+        for (const id of await quickRecent(story)) { if (ids.length >= QUICK_SHOWN) break; if (!ids.includes(id) && all.some((c) => c.id === id)) ids.push(id); }
+        shown = all.filter((c) => ids.includes(c.id));
+      }
       els.quickSwitch.textContent = '';
-      for (const c of all) { const o = document.createElement('option'); o.value = c.id; o.textContent = connectionName(c); els.quickSwitch.appendChild(o); }
-      els.quickSwitch.value = using && all.some((c) => c.id === using.id) ? using.id : all[0].id;
+      for (const c of shown) { const o = document.createElement('option'); o.value = c.id; o.textContent = connectionName(c); els.quickSwitch.appendChild(o); }
+      if (all.length > QUICK_SHOWN) {
+        const o = document.createElement('option');
+        o.value = whole ? QUICK_FEW : QUICK_ALL;
+        o.textContent = whole ? 'Fewer — only the ones I tell with' : 'All models (' + all.length + ')…';
+        els.quickSwitch.appendChild(o);
+      }
+      els.quickSwitch.value = using && shown.some((c) => c.id === using.id) ? using.id : shown[0].id;
       els.quickSwitchWrap.hidden = false;
     } catch (err) { /* the switch waits for the next look */ }
   }
   async function useConnection(id) {
     if (typeof id !== 'string' || !id) return;
+    /* M638: the model he is leaving stays in reach (read before the choice changes) — switching between two is what the
+     * switch is for */
+    let leaving = null;
+    try { leaving = await resolveConnection(await activeStory()); } catch (err) { leaving = null; }
     await db.settings.set('activeConnectionId', id);
     const story = await activeStory();
     if (story && typeof story.connectionId === 'string' && story.connectionId) await db.stories.update(story.id, { connectionId: null });
+    quickAllFor = null; /* M638: chosen — the switch goes back to the few */
+    if (leaving && leaving.id !== id) await noteQuickRecent(leaving.id);
+    await noteQuickRecent(id);
     await refreshQuickSwitch();
     refreshEmber(); /* the room line is the new storyteller's */
     planAhead(); /* M510: a small model taking the tale gets its plan now, while he types */
   }
   if (els.quickSwitch) els.quickSwitch.addEventListener('change', async () => {
-    if (!(await activeStory())) return;
-    await useConnection(els.quickSwitch.value);
+    const story = await activeStory();
+    if (!story) return;
+    const picked = els.quickSwitch.value;
+    if (picked === QUICK_ALL || picked === QUICK_FEW) {
+      /* M638: not a model — the other list. Nothing about who tells the story changes: the switch shows the storyteller
+       * again, over the whole list (opened at once where the browser lets a page do that; else one more tap) or the few. */
+      quickAllFor = picked === QUICK_ALL ? story.id : null;
+      await refreshQuickSwitch();
+      if (picked === QUICK_ALL) { try { if (typeof els.quickSwitch.showPicker === 'function') els.quickSwitch.showPicker(); } catch (err) { /* one more tap shows it */ } }
+      return;
+    }
+    await useConnection(picked);
   });
   /* M510: THE PLANNING HELPER, READING AHEAD. After each page (the chain's last link), the moment the Quick switch or
    * Settings hands a tale to a small model, and on opening such a tale: the helper reads the whole story and keeps what
@@ -5013,6 +5111,7 @@ export function initChat(ctx) {
 
       let connection = await resolveConnection(story);
       noteTellerConnection(connection && connection.id); /* M328: the workers are told whose prefill is the story's */
+      noteQuickRecent(connection && connection.id); /* M638: a model that tells a page is one he tells with */
       /* M289: the provider's word on its room, waited for a moment on the first page */
       if (connection) connection = await learnContextWithin(connection, 1500);
       if (!connection) {
@@ -7798,6 +7897,7 @@ export function initChat(ctx) {
     briefFromConcept, /* M478/M479 */
     rippleAfterEdit,
     refreshQuickSwitch, /* M510: Settings tells the main screen when a storyteller or a connection changes */
+    checkSensors, /* M638: Settings' "Check the sensors" */
     useConnection, /* M510-8: the one model choice — the Quick switch, Settings' picker and "Use this one" */
     planAhead, /* M510: Settings hands a tale to a small model → the helper reads ahead */
     pageReinked, /* M296 */

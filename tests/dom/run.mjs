@@ -3684,7 +3684,9 @@ test('DOM-67 THE SMALL-MODEL MODE, IN THE APP (M510): it lives on the connection
     other = await db.connections.add({ label: 'Frontier', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'frontier-1' });
     await env.ctx.chat.refreshQuickSwitch();
     const sel = q('#quick-switch');
-    assert([...sel.options].some((o) => o.value === other.id && o.textContent === 'Frontier'), 'every connection is on it');
+    /* M638: with more than seven connections the switch keeps to the ones he tells with — the rest are one line away, on it */
+    if (![...sel.options].some((o) => o.value === other.id)) { sel.value = '__all'; sel.dispatchEvent(new env.window.Event('change', { bubbles: true })); await until(() => [...sel.options].some((o) => o.value === other.id), 'the whole list on the same switch', 10000); }
+    assert([...sel.options].some((o) => o.value === other.id && o.textContent === 'Frontier'), 'every connection can be reached from it');
     sel.value = other.id; sel.dispatchEvent(new env.window.Event('change', { bubbles: true }));
     await until(async () => (await db.settings.get('activeConnectionId')) === other.id && !(await db.stories.get(st.id)).connectionId, 'M510-8: the one model choice — the house’s, and this story follows it', 10000);
     const back = await send('We walk on.');
@@ -4128,7 +4130,8 @@ test('DOM-75 THE SENSORS IN THE APP (M356, rebuilt at M636): off, nothing is ask
   const lines = ['The cart rolled out at dawn.', 'A gull took the bread and nobody minded.', 'Rain found the gutters first.', 'Somewhere a shutter banged twice.', 'The well rope creaked under its bucket.', 'Smoke leaned east over the tannery.', 'Two dogs argued about a bone.'];
   let told = 0;
   /* the house answers the checker's own question with numbers, and every other ask with a page */
-  house.state.storyAnswer = (body) => { if (isChecker(body)) return JSON.stringify(scores); told += 1; return H + lines[told % lines.length] + ' PAGE-' + told + ' stands written.'; };
+  let wordsOnly = false; /* M638: a checker that answers with words instead of numbers */
+  house.state.storyAnswer = (body) => { if (isChecker(body)) return wordsOnly ? 'I would rather not judge this page.' : JSON.stringify(scores); told += 1; return H + lines[told % lines.length] + ' PAGE-' + told + ' stands written.'; };
   const wasOn = await db.settings.get('sensorsOn');
   const wasRole = await db.settings.get('sensorsRole');
   const pagesOf = async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant' && !m.hidden);
@@ -4169,6 +4172,22 @@ test('DOM-75 THE SENSORS IN THE APP (M356, rebuilt at M636): off, nothing is ask
     assert(first.indexOf(ask) > first.indexOf(tellerCall(first)), 'after the page, never on the way to it');
     eq(readingOf(p1[p1.length - 1]).accord, 0.9, 'its numbers are kept on the page it read');
     assert(!/agreeing with him too easily/.test(closingOf(first)), 'one page says nothing');
+    /* M638: IS IT WORKING — the reading is said in one plain sentence on the workers' line, and Settings shows it; "Check the
+     * sensors" reads the newest page now and says what happened, a failure as plainly as a success */
+    const { loadWorkerStatus } = await import('../../js/agents/status.js');
+    const noted = (await loadWorkerStatus(st.id)).sensors;
+    assert(noted && /^Working — .+ read page 3: \d+ answers in [\d.]+ s\./.test(noted.detail) && /Slips it saw on that page: easy agreement\./.test(noted.detail), 'it says it works, which page it read and what it saw: ' + (noted && noted.detail));
+    await openSettings();
+    click(q('[data-room="readers"]'));
+    await until(() => q('#sensors-readings') && /^Working — .+ read page 3: /.test(q('#sensors-readings').textContent), 'Settings says the sensors work, in that sentence: ' + (q('#sensors-readings') && q('#sensors-readings').textContent), 10000);
+    wordsOnly = true;
+    click(q('#btn-sensors-check'));
+    await until(() => /^Not working — .+ could not read page 3: the model answered, but not with the numbers it was asked for\.$/.test(q('#sensors-readings').textContent), 'a check that fails says why: ' + q('#sensors-readings').textContent, 15000);
+    eq(readingOf((await pagesOf()).slice(-1)[0]).accord, 0.9, 'and the reading that stood still stands');
+    wordsOnly = false;
+    click(q('#btn-sensors-check'));
+    await until(() => /^Working — .+ read page 3: /.test(q('#sensors-readings').textContent), 'and one that works says so: ' + q('#sensors-readings').textContent, 15000);
+    await closeSettings();
     const second = await send('I wait for his answer.');
     assert(!/agreeing with him too easily/.test(closingOf(second)), 'nor one slipping page');
     const third = await send('I hold his eye.');
@@ -4214,6 +4233,61 @@ test('DOM-75 THE SENSORS IN THE APP (M356, rebuilt at M636): off, nothing is ask
     if (wasOn === true) await db.settings.set('sensorsOn', true); else await db.settings.delete('sensorsOn');
     if (wasRole) await db.settings.set('sensorsRole', wasRole); else await db.settings.delete('sensorsRole');
     await closeSettings();
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-232 THE QUICK SWITCH KEEPS TO THE MODELS HE TELLS WITH (M638): with more than seven connections it shows the seven told with most lately — the one telling this story among them, by name — and “All models…”, which puts the whole list on the same switch until he has chosen', async () => {
+  const before = errors.length;
+  const made = [];
+  const wasActive = await db.settings.get('activeConnectionId');
+  const wasRecent = await db.settings.get('quickRecent');
+  const st = await db.stories.create({ title: 'the quick switch walk' });
+  const ev = () => new env.window.Event('change', { bubbles: true });
+  try {
+    for (const name of ['Qs Alpha', 'Qs Bravo', 'Qs Charlie', 'Qs Delta', 'Qs Echo', 'Qs Foxtrot', 'Qs Golf', 'Qs Hotel', 'Qs India', 'Qs Juliet']) made.push(await db.connections.add({ label: name, type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: name.toLowerCase().replace(/\s+/g, '-') }));
+    const total = (await db.connections.list()).length;
+    assert(total > 7, 'more connections than the switch keeps in reach');
+    await db.settings.set('quickRecent', [made[2].id, made[5].id, made[0].id]); /* Charlie, Foxtrot and Alpha told lately */
+    await db.settings.set('activeConnectionId', made[8].id);                    /* India tells the stories now */
+    await db.messages.append(st.id, { role: 'user', text: 'We begin.' });
+    await db.messages.append(st.id, { role: 'assistant', text: '[Gate — Monday | 09:00 | clear | coat | here]\n\nKaelen waited.' });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await env.ctx.chat.refreshQuickSwitch();
+    const sel = q('#quick-switch');
+    const names = () => [...sel.options].map((o) => o.textContent).join(' | ');
+    await until(() => !q('#quick-switch-wrap').hidden && sel.options.length === 5, 'the switch is on the main screen, short: ' + names(), 10000);
+    eq(names(), 'Qs Alpha | Qs Charlie | Qs Foxtrot | Qs India | All models (' + total + ')…', 'the ones told with lately and the one telling now, by name — then the way to the rest');
+    eq(sel.value, made[8].id, 'it shows who tells this story');
+    /* "All models…": the whole list on the same switch; nothing about who tells changes */
+    sel.value = '__all'; sel.dispatchEvent(ev());
+    await until(() => sel.options.length === total + 1, 'the whole list is on the same switch', 10000);
+    eq(sel.value, made[8].id, 'asking for the list changes nothing about who tells');
+    eq(await db.settings.get('activeConnectionId'), made[8].id, 'nor the house’s choice');
+    eq(sel.options[sel.options.length - 1].textContent, 'Fewer — only the ones I tell with', 'and a way back to the few');
+    /* a model never told with, chosen from the whole list */
+    sel.value = made[9].id; sel.dispatchEvent(ev());
+    await until(async () => (await db.settings.get('activeConnectionId')) === made[9].id, 'the model chosen from the whole list tells the stories', 10000);
+    await until(() => sel.options.length === 6, 'and the switch is back to the few: ' + names(), 10000);
+    eq(names(), 'Qs Alpha | Qs Charlie | Qs Foxtrot | Qs India | Qs Juliet | All models (' + total + ')…', 'with the one just chosen, and the one he left, among them');
+    eq(sel.value, made[9].id, 'showing the one that tells now');
+    eq((await db.settings.get('quickRecent'))[0], made[9].id, 'kept as the one told with most lately');
+    /* seven at most: the one told with longest ago steps off */
+    for (const i of [1, 3, 4, 6]) await env.ctx.chat.useConnection(made[i].id);
+    await until(() => sel.options.length === 8, 'seven models and the way to the rest: ' + names(), 10000);
+    eq(names(), 'Qs Bravo | Qs Charlie | Qs Delta | Qs Echo | Qs Golf | Qs India | Qs Juliet | All models (' + total + ')…', 'the seven told with most lately');
+    /* and back from the whole list without choosing */
+    sel.value = '__all'; sel.dispatchEvent(ev());
+    await until(() => sel.options.length === total + 1, 'the whole list again', 10000);
+    sel.value = '__few'; sel.dispatchEvent(ev());
+    await until(() => sel.options.length === 8, 'fewer again', 10000);
+    eq(await db.settings.get('activeConnectionId'), made[6].id, 'and still the same storyteller');
+  } finally {
+    if (wasActive) await db.settings.set('activeConnectionId', wasActive); else await db.settings.delete('activeConnectionId');
+    if (Array.isArray(wasRecent)) await db.settings.set('quickRecent', wasRecent); else await db.settings.delete('quickRecent');
+    for (const c of made) { try { await db.connections.remove(c.id); } catch (err) { /* gone */ } }
+    try { await env.ctx.chat.refreshQuickSwitch(); } catch (err) { /* the switch waits */ }
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
