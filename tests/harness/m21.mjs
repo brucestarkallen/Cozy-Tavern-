@@ -68,8 +68,10 @@ test('M21-B (M509-14): the frame rides slot 1 alone — the purpose line is gone
   assert(!off.messages.some((m) => String(m.content).includes('frame words')), 'off: nor echoed');
   eq(off.receipt.slots.find((s) => s.name === 'The frame').source, 'switched off', 'the receipt says so');
   assert(off.messages[off.messages.length - 1].content.endsWith('the note'), 'the note still stands at the end');
-  const noNote = buildRequest({ ...B_OPTS(), settings: { frameText: 'frame words', noteText: 'the note', noteOn: false } });
-  assert(!noNote.messages.some((m) => String(m.content).includes('the note')), 'note off: no note at the end');
+  /* M631: his note probed by words of its own — the house's thinking note (which rides by its own tick, M624) speaks of
+   * "the notes on where things stand", and 'the note' was found there */
+  const noNote = buildRequest({ ...B_OPTS(), settings: { frameText: 'frame words', noteText: 'HIS PERSONA NOTE', noteOn: false } });
+  assert(!noNote.messages.some((m) => String(m.content).includes('HIS PERSONA NOTE')), 'note off: no note at the end');
   assert(!noNote.systemBlocks.some((b) => /reread the last few exchanges/i.test(String(b.text))), 'note off: no starter note in the standing words either');
 });
 

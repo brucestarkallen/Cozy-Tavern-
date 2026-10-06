@@ -402,18 +402,31 @@ function resolveNote(storyOverride, globalText) {
  * it had the state re-checked (the house already did S, C and W — "you do not redo them"). Now it is HIS pass, said at
  * the end of the request where it is heard best after a long story: the beat and the last look, in plain words, each
  * pointing at the law of his craft it keeps (by its own name), answered to itself in shorthand — never on the page, so
- * no written reasoning to wait for. {{user}} is his character's story name. */
+ * no written reasoning to wait for. {{user}} is his character's story name.
+ * M631: HIS FAST PASS'S TRIGGERS, KEPT — his: "is the CoT literally the smartest and the best? Here are my old two" (the long
+ * seven-task pass and the Fast Pass S/C/W/B/TRIGGERS/L). The craft's own Pass is the Fast Pass with S, C and W handed to
+ * the house; it had folded the TRIGGERS line into the laws. Said again at the end, the TRIGGERS line comes back — one line
+ * each, only what fires, so nothing runs that the page does not call for — with the dice left to the referee (the settled
+ * outcome) and the trackers (PULSE, WATCHLIST, Plot Momentum) left out: Cozy's ledger and drawer are those. */
 export const HOUSE_COT_ID = 'house-cot';
-export const HOUSE_COT = `Before you write, run your pass to yourself — shorthand, a few words each, never on the page.
-B — the beat: what this turn is about, what it costs, where it stops. It stops where the turn goes back to {{user}}: an NPC asks and waits, or acts with weight; one phase of a fight or of sex lands in full; an arrival lands. It is not the last turn's shape again (Anti Repetition, Swap Test). Nothing at stake → a quiet, textured turn is the right pace; never manufacture one.
+export const HOUSE_COT = `Before you write, run your pass to yourself — shorthand, a few words each, never on the page. The state, the cast and the world are already in the notes on where things stand: read them, never redo them.
+B — the beat: what this turn is about, what it costs, where it stops — where the turn goes back to {{user}}: an NPC asks and waits, or acts with weight; one phase of a fight or of sex lands in full; an arrival lands. Not the last turn's shape again (Anti Repetition, Swap Test). Nothing at stake → a quiet, textured turn is the right pace; never manufacture one.
+TRIGGERS — only what fires, one line each:
+· someone here whose core would stop or help what {{user}} is doing → they reach for it, on the page (NPCs Can Interrupt MC);
+· an attack on {{user}} that turns on a power or limit of his not yet shown → stop before contact — the reveal is his (Incoming Threshold, MC Capability Authorship);
+· sex, a fight, an injury → the body's state carries and refuses what it must; a new stake is a new consent (Body Veto Root Rule, Escalation Resets Consent);
+· a body on the page → its features verified against canon, never invented over it (Appearance Verification);
+· a new person → made whole, from someone's life (NPC Creation);
+· a line crossed for good → its vertigo, in that person's own terms (Line-Cross Vertigo);
+· drift noticed → recolor going forward, never retcon (Drift Recovery).
 L — the last look:
 · the outcome matches the board — or the settled outcome above, exactly;
 · no choice, word, thought or feeling of {{user}}'s is taken; {{user}}'s stated action reaches only its own immediate result (Intent Horizon);
 · nobody acts on what they could not know — how does this one know it? (Information Quarantine);
-· whoever here would oppose, refuse, flee or step in, by their own core, does it now — nobody holds still because the scene is comfortable — and the room keeps its own life around them;
-· bodies are on the page: canon looks, contact with its sound, injury that stays; an intimate scene keeps the body's truth, unhurried, never faded out;
+· whoever here would oppose, refuse, flee or step in, by their own core, does it now — no one holds still for comfort — and the room keeps its own life;
+· an intimate scene keeps the body's truth and the resolution floor (Intimacy);
 · something already established serves before anything new is reached for (Unspent Material);
-· your bans bind the words (Banned Constructs, Plain Prose).
+· your bans bind the words (Banned Constructs, Plain Prose, Sound as Onomatopoeia at every contact beat).
 Then write the page.`;
 
 /* M622: the house's thinking note stands in his list unless he has it already — first, on — so the notes he never touched

@@ -10215,5 +10215,28 @@ test('DOM-226 BULK MOVE AND GIANT PROJECTS (M630 — his: "bulk change pages to 
   }
 });
 
+test('DOM-227 THE THINKING NOTE PUT BACK AFTER AN ACCIDENT (M631 — his: "a way to have the CoT back to the original if I change it by accident"): a slip of the finger shows "Put back the house\u2019s words" at once; one tap restores the house\u2019s words and keeps none of his', async () => {
+  const { HOUSE_COT } = await import('../../js/assemble/stack.js');
+  const was = await db.settings.get('noteAdds');
+  await db.settings.set('noteAdds', []);
+  try {
+    await env.ctx.settings.onShow({ all: true });
+    const card = await until(() => q('#note-adds-list .note-add-card[data-id="house-cot"]'), 'the house note\u2019s card');
+    const box = card.querySelector('textarea');
+    const back = [...card.querySelectorAll('button')].find((b) => /Put back the house/.test(b.textContent));
+    assert(back && back.hidden, 'the house\u2019s own words: nothing to put back');
+    type(box, HOUSE_COT.replace('Before you write', 'Before you wrote'));
+    assert(!back.hidden, 'an accidental change: the button is there at once, before any Keep it');
+    click(back);
+    await until(() => { const c = q('#note-adds-list .note-add-card[data-id="house-cot"]'); return c && c.querySelector('textarea').value === HOUSE_COT; }, 'the house\u2019s words again', 5000);
+    await until(async () => { const k = ((await db.settings.get('noteAdds')) || []).find((n) => n.id === 'house-cot'); return k && k.text === ''; }, 'and none of his words kept for it — it follows the house\u2019s', 5000);
+    await env.ctx.settings.onHide();
+    eq((((await db.settings.get('noteAdds')) || []).find((n) => n.id === 'house-cot') || {}).text, '', 'closing Settings keeps the house\u2019s words');
+  } finally {
+    if (was === undefined) await db.settings.delete('noteAdds'); else await db.settings.set('noteAdds', was);
+    if (env.ctx.noteAdds) await env.ctx.noteAdds.reload();
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

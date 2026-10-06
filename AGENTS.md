@@ -15722,3 +15722,23 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   the giant project's shelves a step in.
 
 - GATES at m630-001 (one CPU): harness 1237/1237, walk 226/226, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.
+
+# M631 — his: "1. a way to have the CoT back to the original if I change it by accident. 2. Is the CoT literally the
+# smartest and the best? Here are my old two (the seven-task Reasoning Instructions and the Fast Pass) — kinda slow."
+- PUT BACK AT ONCE (walk DOM-227 fails on m630-001): "Put back the house's words" showed only once his changed words were
+  kept; it now shows the moment the box differs from the house's words, and one tap restores them (his copy kept as none
+  of his own, so it follows the house's words as they improve).
+- HIS TWO, COMPARED, AND WHAT CAME OF IT: the seven-task pass makes the model rebuild every page what the house already
+  built (state, the cast ledger, the world, dice, the trackers PULSE/WATCHLIST/Plot Momentum that Cozy keeps in its ledger
+  and drawer, not on the page) — a ledger per task, every turn: that is its slowness, and its tracker and {{roll}} lines do
+  not apply here. The Fast Pass is the right shape; Cozy's craft already carries it as "The Pass" with S, C and W handed to
+  the house. The thinking note is that pass said again at the end — and it now keeps the Fast Pass's TRIGGERS line (only
+  what fires, one line each: NPCs Can Interrupt MC, Incoming Threshold / MC Capability Authorship, Body Veto Root Rule /
+  Escalation Resets Consent, Appearance Verification, NPC Creation, Line-Cross Vertigo, Drift Recovery — every name checked
+  in his craft), the dice left to the referee's settled outcome and no trackers. 393 words; laws M622-1/3 moved to it.
+- Its opening reads "The state, the cast and the world are already in the notes on where things stand" — never "the
+  house", which the voice swap (inVoice) turns into the writer's notebook in the closing words (law M345-9 caught the
+  first wording). 398 words.
+
+- M21-B's note probe moved (its 'the note' was found in the thinking note's "the notes on where things stand" — his note is probed by words of its own).
+- GATES at m631-001 (one CPU): harness 1237/1237, walk 227/227, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.

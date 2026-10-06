@@ -17,7 +17,7 @@ test('M622-1 THE HOUSE\u2019S THINKING NOTE RIDES BY DEFAULT — first above his
   assert(/Jovan Oda/.test(c) && !/\{\{user\}\}/.test(c), 'his character is named — no template left');
   assert(/run your pass to yourself — shorthand, a few words each, never on the page/.test(c), 'it is answered to itself, never written out');
   /* M624 moved this: the note is his own preset's pass now — the beat and the last look, pointing at his laws by name */
-  for (const must of [/no choice, word, thought or feeling of Jovan Oda's is taken/, /never manufacture one/, /Information Quarantine/, /Unspent Material/, /Intent Horizon/, /Anti Repetition, Swap Test/, /by their own core, does it now/, /never faded out/, /goes back to Jovan Oda/]) assert(must.test(c), 'it holds: ' + must);
+  for (const must of [/no choice, word, thought or feeling of Jovan Oda's is taken/, /never manufacture one/, /Information Quarantine/, /Unspent Material/, /Intent Horizon/, /Anti Repetition, Swap Test/, /by their own core, does it now/, /the body's truth and the resolution floor/, /Incoming Threshold/, /NPCs Can Interrupt MC/, /Body Veto Root Rule, Escalation Resets Consent/, /goes back to Jovan Oda/]) assert(must.test(c), 'it holds: ' + must);
   assert(!/let at least one/i.test(c), 'no one is made to act every page');
 });
 
@@ -33,11 +33,12 @@ test('M622-2 HIS CHOICE — switched off it is gone; moved after his notes it ri
   assert(last(back).includes(firstLine), 'put back: the house\u2019s words again');
 });
 
-test('M622-3 (as M624 changed it) IT STAYS LIGHT — under three hundred words; his pass’s two parts, the beat and the last look', () => {
+test('M622-3 (as M624 and M631 changed it) IT STAYS LIGHT — under four hundred words; his pass: the beat, the triggers that fire, the last look', () => {
   const words = HOUSE_COT.split(/\s+/).filter(Boolean).length;
-  assert(words < 300, 'words: ' + words);
-  assert(/^B — the beat:/m.test(HOUSE_COT) && /^L — the last look:/m.test(HOUSE_COT), 'the beat and the last look');
-  eq((HOUSE_COT.match(/^· /gm) || []).length, 7, 'seven points in the last look');
+  assert(words < 400, 'words: ' + words);
+  assert(/^B — the beat:/m.test(HOUSE_COT) && /^TRIGGERS — only what fires/m.test(HOUSE_COT) && /^L — the last look:/m.test(HOUSE_COT), 'the beat, the triggers, the last look');
+  eq((HOUSE_COT.match(/^· /gm) || []).length, 14, 'seven triggers and seven points in the last look');
+  assert(!/\{\{roll/.test(HOUSE_COT) && !/PULSE|WATCHLIST|Plot Momentum/.test(HOUSE_COT), 'no dice (the referee settles) and no trackers (the ledger keeps)');
 });
 
 test('M622-4 SEARCHING A TALE\u2019S PAGES — his words and the story\u2019s, never a hidden page; any case, across line breaks; the newest page first; twenty places kept with the whole count', async () => {

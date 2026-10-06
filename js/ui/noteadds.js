@@ -87,7 +87,7 @@ export function initNoteAdds(ctx) {
     keep.addEventListener('click', async () => {
       entry.text = keptFrom(entry, text.value);
       await save();
-      if (back) back.hidden = !String(entry.text || '').trim(); /* M629 (the session's audit): it showed only after a reload */
+      if (back) back.hidden = String(entry.text || '').trim() === '' && String(text.value || '').trim() === HOUSE_COT.trim(); /* M629/M631 */
       kept.hidden = false;
       setTimeout(() => { kept.hidden = true; }, 1600);
     });
@@ -123,9 +123,14 @@ export function initNoteAdds(ctx) {
       back.type = 'button';
       back.className = 'text-btn';
       back.textContent = 'Put back the house’s words';
-      back.hidden = !String(entry.text || '').trim();
+      /* M631: shown the moment the words differ from the house's — typed, kept, or left by Settings closing — so an
+       * accidental change is put right with one tap, before or after it is kept */
+      const differs = () => String(entry.text || '').trim() !== '' || String(text.value || '').trim() !== HOUSE_COT.trim();
+      back.hidden = !differs();
+      text.addEventListener('input', () => { back.hidden = !differs(); });
       back.addEventListener('click', async () => {
         entry.text = '';
+        text.value = HOUSE_COT;
         await save();
         render();
       });
