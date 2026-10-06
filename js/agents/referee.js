@@ -143,23 +143,75 @@ export function stripDialogue(text) {
 }
 
 
+/* M650 (the ledger audit, part seven — thirty-five real attempts and twenty-three quiet moves through this gate):
+ * THE GATE HEARS VERBS, NOT LETTERS. It matched any word that BEGAN like a gate verb, so in a calm scene the referee was
+ * called — a model's whole answer time before the page (M616 measured 2.6 s) — for "by the fire" (fire), "the drawer"
+ * (draw), "a pint" (pin), "calmly" (calm), "comfortable" (comfort), "slippers" (slip), "I loosen my tie" (loose); and for
+ * everyday turns of phrase whose verb is the gate's but whose act is not ("roll my eyes", "squeeze her hand", "lean on
+ * the counter", "strike up a conversation", "shoot her a look", "punch in the code", "pick up the cup", "throw on a
+ * jacket", "crack a smile", "draw the curtains", "kill time"). And it did NOT hear plain violence the list had no word
+ * for: "I slit his throat", "I kill him", "I pull the trigger", "I put a bullet in him", "I knock him out cold", "I snap
+ * her wrist" went to the storyteller unruled. Now a word is a gate verb only as one of that verb's own forms (stab,
+ * stabs, stabbed, stabbing; shoot, shot; throw, threw, thrown); the everyday phrases are set aside before the verbs
+ * are looked for; and the list knows the violence and the contests it lacked. */
+const IRREGULAR_FORMS = {
+  shoot: ['shot'], throw: ['threw', 'thrown'], strike: ['struck'], swing: ['swung'], draw: ['drew', 'drawn'], hide: ['hid', 'hidden'], steal: ['stole', 'stolen'],
+  fight: ['fought'], drive: ['drove', 'driven'], dive: ['dove'], slide: ['slid'], swim: ['swam', 'swum'], leap: ['leapt'], bind: ['bound'], sweep: ['swept'],
+  slit: ['slit'], bite: ['bit', 'bitten'], flee: ['fled'], fling: ['flung'], slay: ['slew', 'slain'], sneak: ['snuck'], outrun: ['outran', 'outrunning'], cast: ['cast'],
+};
+const EXTRA_VERBS = [
+  // violence the list had no word for
+  'kill', 'murder', 'assassinate', 'behead', 'decapitate', 'maim', 'cripple', 'slit', 'slay', 'bludgeon', 'throttle', 'smother', 'suffocate', 'drown', 'poison', 'drug',
+  'torch', 'electrocute', 'detonate', 'hurl', 'fling', 'ram', 'bite', 'claw', 'slap', 'smack', 'whip', 'lash', 'batter', 'subdue', 'restrain', 'seize', 'snatch', 'sever', 'slice', 'blast',
+  // flight and pursuit
+  'flee', 'escape', 'chase', 'pursue', 'outrun', 'outpace',
+  // powers
+  'unleash', 'summon', 'banish', 'hex', 'teleport', 'cast',
+  // crime and deceit
+  'cheat', 'swindle', 'rob', 'mug', 'kidnap', 'abduct', 'blackmail', 'extort', 'hack',
+];
+function formsOf(v) {
+  const out = new Set([v, v + 's', v + 'ing', v + 'ed']);
+  if (/(?:s|x|z|ch|sh)$/.test(v)) out.add(v + 'es');
+  if (/e$/.test(v)) { out.add(v + 'd'); out.add(v.slice(0, -1) + 'ing'); }
+  if (/[^aeiou]y$/.test(v)) { out.add(v.slice(0, -1) + 'ies'); out.add(v.slice(0, -1) + 'ied'); }
+  if (/[^aeiou][aeiou][bdgmnprt]$/.test(v)) { const c = v[v.length - 1]; out.add(v + c + 'ed'); out.add(v + c + 'ing'); }
+  for (const f of IRREGULAR_FORMS[v] || []) out.add(f);
+  return out;
+}
+const GATE_FORMS = new Map();
+for (const v of [...DEFAULT_VERBS, ...EXTRA_VERBS]) for (const f of formsOf(v)) if (!GATE_FORMS.has(f)) GATE_FORMS.set(f, v);
+/* turns of phrase whose verb is the gate's but whose act is not — set aside before the verbs are looked for */
+const PRON = "(?:me|him|her|them|us|you|my|his|their|your|our|the|a|an)";
+const EVERYDAY = new RegExp([
+  "\\broll(?:s|ed|ing)?\\s+" + PRON + "\\s+eyes\\b", "\\bsqueez(?:e|es|ed|ing)\\s+(?:[\\p{L}'’]+\\s+){0,2}(?:hand|hands|shoulder|arm|knee|fingers)\\b",
+  "\\b(?:on|at|behind|across|over|against|onto|off)\\s+the\\s+counter\\b", "\\b(?:the|a|by\\s+the|into\\s+the|at\\s+the)\\s+fire(?:place|side|light)?\\b(?!\\s+(?:at|on)\\b)",
+  "\\bstr(?:ike|ikes|uck|iking)\\s+up\\b", "\\bshoot(?:s|ing)?\\s+" + PRON + "\\s+(?:a|an)\\s+(?:look|glance|smile|grin|wink|text|message|glare)\\b", "\\bshot\\s+" + PRON + "\\s+(?:a|an)\\s+(?:look|glance|smile|grin|wink|text|message|glare)\\b",
+  "\\bpunch(?:es|ed|ing)?\\s+in\\b", "\\bpick(?:s|ed|ing)?\\s+(?:up|out|at)\\b", "\\bthr(?:ow|ows|ew|own|owing)\\s+(?:on|away|out)\\b",
+  "\\bcrack(?:s|ed|ing)?\\s+(?:a|an|open\\s+a)\\s+(?:smile|grin|joke|beer|window|book|egg)\\b", "\\bdr(?:aw|aws|ew|awn|awing)\\s+(?:the\\s+(?:curtains?|blinds|drapes)|a\\s+(?:bath|breath|picture|map|blank)|breath)\\b",
+  "\\bcharg(?:e|es|ed|ing)\\s+" + PRON + "\\s+(?:phone|laptop|battery|tablet)\\b", "\\bsw(?:eep|eeps|ept|eeping)\\s+the\\s+(?:floor|room|porch|steps|hearth)\\b",
+  "\\bslip(?:s|ped|ping)?\\s+(?:on|into|out\\s+of)\\s+(?:my|his|her|their|the|a|bed)\\b", "\\bkill(?:s|ed|ing)?\\s+(?:time|the\\s+(?:lights?|engine|mood))\\b", "\\bhid(?:e|es|ing)?\\s+(?:a|my|his|her)\\s+(?:smile|grin|yawn|blush)\\b",
+  "\\b(?:take|takes|took|taking)\\s+a\\s+seat\\b", "\\bspot\\s+of\\b", "\\bcounter(?:s|ed|ing)?\\s+with\\s+a\\s+(?:smile|grin|question|joke)\\b", "\\bbeat(?:s|ing)?\\s+the\\s+(?:eggs|batter|rug)\\b",
+  "\\bjump(?:s|ed|ing)?\\s+in\\s+the\\s+shower\\b", "\\bhit(?:s|ting)?\\s+the\\s+(?:showers?|hay|sack|road|books)\\b", "\\bdiv(?:e|es|ed|ing)\\s+into\\s+(?:the\\s+)?(?:work|a\\s+book|my\\s+(?:work|meal|food))\\b",
+].join('|'), 'giu');
+/* attempts told in a phrase, with no gate verb of their own */
+const ATTEMPT_PHRASE = /\bpull(?:s|ed|ing)?\s+the\s+trigger\b|\bput(?:s|ting)?\s+a\s+(?:bullet|round|knife|blade)\s+(?:in|into|through)\b|\bopen(?:s|ed|ing)?\s+fire\b|\bknock(?:s|ed|ing)?\b[^.!?]{0,40}?\b(?:out\s+cold|unconscious|senseless|out|down|flat)\b(?!\s+(?:on|at)\s+the\s+door)|\bsnap(?:s|ped|ping)?\s+(?:his|her|their|its|the|[\p{L}'’]+['’]s)\s+(?:neck|wrist|arm|leg|spine|ankle|jaw|collarbone|fingers?)\b|\bl(?:ie|ies|ied|ying)\s+(?:to\s+(?:him|her|them|the)|about\b|and\s+(?:say|tell|claim))|\bbring(?:s|ing)?\b[^.!?]{0,40}?\bdown\s+on\b|\bbrought\b[^.!?]{0,40}?\bdown\s+on\b|\bcut(?:s|ting)?\s+(?:the|his|her|their|its)\s+(?:rope|line|cord|wire|throat|bonds?|straps?|brake\s+line|power)\b|\bcatch(?:es|ing)?\s+the\s+falling\b|\bcaught\s+the\s+falling\b|\b(?:break|breaks|broke|breaking)\s+(?:his|her|their|its|the)\s+(?:nose|jaw|arm|leg|neck|grip|hold|guard|ribs?|fingers?)\b/iu;
+
 function verbHits(text, sensitivity) {
   const s = SENSITIVITY[sensitivity] || SENSITIVITY.normal;
   if (!s.verbs) return { hit: false, verb: null };
-  const words = String(text || '').toLowerCase().match(/[a-z'-]+/g) || [];
-  const inFight = false; // positioning handled by caller via gatePasses opts
+  const plain = String(text || '').replace(EVERYDAY, ' ');
+  const phrase = ATTEMPT_PHRASE.exec(plain);
+  if (phrase) return { hit: true, verb: phrase[0].trim().toLowerCase().split(/\s+/).slice(0, 3).join(' ') };
+  const words = plain.toLowerCase().match(/[a-z'-]+/g) || [];
   for (const w of words) {
-    const stem = w.replace(/(ing|ed|es|s)$/, '');
-    for (const v of DEFAULT_VERBS) {
-      const vstem = v.replace(/(ing|ed|es|s)$/, '');
-      if (w === v || stem === vstem || w.startsWith(vstem)) {
-        if (POSITIONING_VERBS.has(v)) {
-          if (s.positioning) return { hit: true, verb: v };
-          continue;
-        }
-        return { hit: true, verb: v };
-      }
+    const v = GATE_FORMS.get(w);
+    if (!v) continue;
+    if (POSITIONING_VERBS.has(v)) {
+      if (s.positioning) return { hit: true, verb: v };
+      continue;
     }
+    return { hit: true, verb: v };
   }
   return { hit: false, verb: null };
 }

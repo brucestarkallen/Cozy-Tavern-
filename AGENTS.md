@@ -16487,3 +16487,42 @@ Continuing M644–M648 by the same method.
 - GATES at m649-001 (one CPU), on the tree that was pushed: harness 1278/1278, walk 236/236, long play 9/9, lint 0 errors
   (179 warnings, as at m648), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each. That is the run AFTER the two
   faults above were set right (the run before it failed DOM-131, which is the failure run down above).
+
+# M650 — the ledger audit, part seven: the referee's arithmetic and gate, and a sighting handed over by name
+Continuing M644–M649 by the same method; the scene room's fight machinery had not been touched by the audit at all.
+- THE REFEREE'S ARITHMETIC (referee-math.js; a sweep, not a reading): the chance from a rating gap rises with the gap
+  everywhere and P(d)+P(−d)=1 (even: 0.5; a gap of 4: 0.909; of 8: 0.990); over 202,000 (chance, roll) pairs a better
+  roll never gives a worse tier, and the mirror law holds but at seven exact band edges of the grid (`<` on one side,
+  `>=` on its mirror — a roll never lands on one); an even fight's exchange is 44.00% his, 44.00% hers, 12.00%
+  neither; the damage of every tier at every margin is the mirror of its mirror; odd inputs (NaN, a chance over 1)
+  give a tier and never throw. Sound — nothing changed in it.
+- THE REFEREE'S GATE (referee.js gatePasses — in a CALM scene only what passes it is ever ruled on; in a fight, or with
+  one in the air, everything is). Fed thirty-five real attempts and twenty-three quiet moves:
+  - 12 of the 35 attempts were never sent: "I slit his throat", "I put a bullet in him", "I knock him out cold", "I snap
+    her wrist", "I pull the trigger", "I bring the bottle down on his head", "I lie and say I was home all night", "I
+    hack the terminal", "I outrun them", "I cut the rope", "I catch the falling vase", "I unleash Mahoraga on him" — a
+    first strike in a quiet room went to the storyteller unruled (and "I kill him" had no word at all).
+  - 6 of the 23 quiet moves WERE sent — a model's whole answer time before the page (M616 measured 2.6 s) — because a
+    word counted when it merely BEGAN like a gate verb ("by the fire", and "the drawer", "a pint", "calmly",
+    "comfortable", "slippers", "I loosen my tie" on the second battery) or was an everyday phrase on a gate verb
+    ("strike up a conversation", "shoot her a look", "punch in the code", "pick up the cup", "throw on a jacket").
+  - On a SECOND battery written before it was run (28 attempts, 34 quiet moves, none used to shape the rule): the old
+    gate missed 18 and sent 24; the new one misses 0 and sends 1.
+  Now a word is a gate verb only as one of that verb's own forms (stab / stabs / stabbed / stabbing; shoot / shot;
+  throw / threw / thrown; parry / parried); the everyday phrases are set aside before the verbs are looked for; the
+  list has the violence, flight, powers and crime it lacked; and attempts told in a phrase are heard ("pull the
+  trigger", "put a bullet in", "knock … out", "snap her wrist" — never "snap my fingers", "lie to / about / and say" —
+  never "lie down", "cut the rope" — never "cut the cake", "knock on the door" not at all). In a fight, with a fight in
+  the air, out of character and at the conservative setting, the gate is as it was (207 laws).
+- A SIGHTING IS HANDED TO THE WORLD AGENT BY NAME (world.js peopleForWorld): its law says a "last seen at …" note is to
+  be moved on "the first time you see one", but nobody with such a note was pointed at until it had gone stale by age.
+  Whoever stepped off the page with nowhere said to go is marked "[ONLY LAST SEEN — where did they go?]" the same page.
+  (Since M643/M644 a leaving usually says where; this is for the ones that could not.)
+- LAWS (m588.mjs): M650-1 (both batteries, each sentence, and what was always so), M650-2 (the mark: for her, not for
+  the one his leaving placed, the one seated, the one in the scene).
+- KNOWN AND LEFT: "I admire her charming smile" arms the gate — a verb's own form used as an adjective; one call's wait.
+- NOT AUDITED YET — the handoff's list. The audit is not finished and this entry does not say it is.
+- version.js -> m650-001.
+- GATES at m650-001 (one CPU), on the tree that was pushed: harness 1280/1280, walk 236/236, long play 9/9, lint 0 errors
+  (178 warnings — one fewer than m649: an unused variable went with the old gate), perf_send, holdsone, cutthinking,
+  notes_layout — EXIT 0 each, first run, no scenario failing.

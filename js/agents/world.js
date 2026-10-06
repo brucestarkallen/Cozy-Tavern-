@@ -164,6 +164,7 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     'friends, rivals, lovers, the writer’s own people, anyone with a standing, a thread, a locked truth or a',
     'history with the main character. The people list below marks whoever matters and has none',
     '("[NO SEAT — seat them]"): seat every one of them in this answer. A line reading "last seen at …" is',
+    '(its person is marked "[ONLY LAST SEEN — where did they go?]" in the people list)',
     'the HOUSE’S OWN NOTE of where someone stepped off the page — a sighting, not a life: the first time',
     'you see one, move that person on from it by the clock (the shift ended, she went home, he is asleep)',
     'with a real offscreen.set. There is no limit on how many people you may seat in one answer.',
@@ -351,10 +352,16 @@ export function peopleForWorld(state, { material = '', castNames = [], room = WO
     const noSeat = !here && !hasSeat && (weight >= IMPORTANT_AT || own(name));
     /* M365: a seat past its age is due for moving on, exactly like no seat */
     const stale = !here && hasSeat && (weight >= IMPORTANT_AT || own(name)) && seatIsStale(state, name);
-    rows.push({ name, core, now, weight, here, noSeat, stale, ago: stale ? agoWords(seatAge(state, name)) : '' });
+    /* M650 (the ledger audit, part seven): A SIGHTING IS HANDED OVER BY NAME. The law says a "last seen at …" note is the
+     * house's own and is to be moved on "the first time you see one" — but nothing pointed at the people who had one;
+     * they were marked only once the note had gone stale by its age, pages later. Whoever stepped off the page with
+     * nowhere said to go is marked now, the same page, as someone to place. */
+    const seat = hasSeat ? seatForPerson(state, name) : null;
+    const sighting = !here && Boolean(seat && seat.entry && seat.entry.lastSeen === true);
+    rows.push({ name, core, now, weight, here, noSeat, stale, sighting, ago: stale ? agoWords(seatAge(state, name)) : '' });
   }
   rows.sort((a, b) => (b.weight - a.weight) || a.name.localeCompare(b.name));
-  const mark = (r) => (r.here ? ' [in the scene]' : r.noSeat ? ' [NO SEAT — seat them]' : r.stale ? ' [last placed ' + (r.ago || 'long ago') + ' — where are they now?]' : '');
+  const mark = (r) => (r.here ? ' [in the scene]' : r.noSeat ? ' [NO SEAT — seat them]' : r.sighting ? ' [ONLY LAST SEEN — where did they go?]' : r.stale ? ' [last placed ' + (r.ago || 'long ago') + ' — where are they now?]' : '');
   const whole = (r) => r.name + mark(r) + ' — ' + [r.core, r.now && !seated.has(lower(r.name)) && !seatForPerson(state, r.name) ? 'last noted: ' + r.now : ''].filter(Boolean).join(' | ');
   const lean = (r) => { const first = (r.core || r.now).split(/(?<=[.!?])\s+/)[0] || ''; return r.name + mark(r) + ' — ' + (first.length > 240 ? first.slice(0, first.lastIndexOf(' ', 240)) + '…' : first); };
   const lines = [];

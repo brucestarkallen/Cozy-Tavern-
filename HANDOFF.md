@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m649-001)
+# Cozy Tavern — handoff for the next session (state at m650-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -102,11 +102,17 @@
   ledger: no broken word — now a law). Read and left as designed: the keeper's fold accepts a merged line under the
   shrink floor after one stricter retry (his Summaryception's own rule); a refusal there is now no line (M648), so the
   sources stay.
+  PART SEVEN (M650): THE REFEREE'S ARITHMETIC (a sweep of two hundred thousand chance-and-roll pairs: sound — the mirror
+  law holds but for seven exact band edges of the grid, an even fight is 44 / 44 / 12, damage mirrors for every tier),
+  THE REFEREE'S GATE (it matched any word that BEGAN like a gate verb and lacked plain violence: 12 of 35 real attempts
+  unruled, 6 of 23 quiet moves sent; on a second, unseen battery 18 of 28 and 24 of 34 — now 0 and 1), A SIGHTING
+  HANDED TO THE WORLD AGENT BY NAME. Known and left: "her charming smile" still arms the gate (a verb's own form used
+  as an adjective).
   STILL TO AUDIT THE SAME WAY: the keeper's fold run end to end with a stand-in keeper (the window's edge, promotions,
-  the self-audit's fixes); the world agent's threads and that a "last seen" note really is moved on (its prompt and a
-  stand-in answer); the auditor's remaining guards (auditor.js 740–900: each is a rule that overrules it — feed each
-  an ordinary case, as its leave and walk-in were); the referee and the seeder (the scene room's "ruling" and "how
-  they measure" were not touched by this audit at all). Method that found every fault of M641–M644: do
+  the self-audit's fixes); the world agent's threads (its prompt and a stand-in answer); the auditor's remaining guards
+  (auditor.js auditorScope: the ground, the hour, people.set, knowledge — feed each an ordinary case, as its leave and
+  walk-in were); the seeder's ratings (mergeSeed, seedDue) and the referee's own answers (normalizeAdj and its kin:
+  what a model's odd adjudication becomes). Method that found every fault of M641–M644: do
   not read the rule and nod — feed it thirty sentences as he writes them and count what it gets wrong.
 - A GATE THAT FAILS ONCE AND PASSES ON A RERUN HAS NOT PASSED. Never write "timing", "rare" or "flaky" in these notes, and
   never push on the rerun: read the failing report against the state, make the failure happen on purpose, and only then

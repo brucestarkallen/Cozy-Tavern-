@@ -774,3 +774,47 @@ test('M649-4 A FINDING THAT FINDS NOTHING IS NOT A FINDING: the second reader’
   eq(kept([{ words: 'N/A', severity: 'note' }, { words: real[3], severity: 'warn' }, { words: real[3] + '.', severity: 'warn' }, { words: 'No issues found', severity: 'note' }]).join(' | '), real[3], 'one real finding among nothings and its own echo: one finding');
   eq(parseContinuityAnswer('I’m sorry, but I can’t review this content.').findings.length, 0, 'a refusal in words is no finding');
 });
+
+/* M650 — the ledger audit, part seven: the referee's gate, and a sighting handed to the world agent by name. */
+test('M650-1 THE GATE HEARS VERBS, NOT LETTERS: in a calm scene every real attempt reaches the referee — in whatever form its verb takes, and the violence the list had no word for — and a quiet move does not (a word that merely begins like a gate verb, an everyday phrase)', async () => {
+  const { gatePasses } = await import('../../js/agents/referee.js');
+  const sent = (t) => gatePasses(t, 'normal', {}).pass;
+  const attempts = ['I slit his throat.', 'I drive my knee into his stomach.', 'I slam him against the wall.', 'I put a bullet in him.', 'I knock him out cold.', 'I headbutt him.', 'I tackle him to the floor.', 'I snap her wrist.',
+    'I blast him with a bolt of fire.', 'I bring the bottle down on his head.', 'I grab his collar and throw him out.', 'I choke him.', 'I pull the trigger.', 'I swing at him.', 'I sneak past the guard.', 'I pick his pocket.',
+    'I lie and say I was home all night.', 'I hack the terminal.', 'I climb the drainpipe.', 'I leap across the gap.', 'I pick the lock.', 'I wrestle the gun out of his hand.', 'I outrun them.', 'I forge his signature.',
+    'I slip the vial into her drink.', 'I shove past him and run.', 'I disarm her.', 'I pin him down.', 'I cut the rope.', 'I catch the falling vase.', 'I dodge.', 'I teleport behind him and strike.', 'I unleash Mahoraga on him.',
+    /* in other forms, and the second battery (none of them used to shape the rule) */
+    'I stabbed him twice.', 'I’m strangling her with the cord.', 'I shot the lock off.', 'I threw the knife at his back.', 'I kick the door in.', 'I tripped him as he ran.', 'I poison the wine.', 'I steal the ledger from his desk.',
+    'I chase the thief down the alley.', 'I summon my shikigami.', 'I blackmail the clerk.', 'I bite his hand.', 'I flee through the back window.', 'I ram the gate with the truck.', 'I slapped him.', 'I parried and countered.',
+    'I vault the fence.', 'I intimidate the guard into letting us pass.', 'I wrestle him off her.', 'I hurl the lamp at the window.', 'I break his nose.', 'I knocked the guard unconscious.', 'I kidnap the envoy.', 'I cast a barrier over the door.',
+    'I teleport us out.', 'I escape the handcuffs.', 'I kill him.'];
+  for (const t of attempts) eq(sent(t), true, 'an attempt: ' + t);
+  const quiet = ['I sit down and pour the tea.', 'I ask her what the crossing costs.', 'I nod.', 'I kiss her.', 'I walk to the window.', 'I laugh.', 'I tell him about the letter.', 'I go to bed.', 'I hit the showers.', 'I kill time until noon.',
+    'I strike up a conversation with the barman.', 'I shoot her a look.', 'I punch in the door code.', 'I pick up the cup.', 'I throw on a jacket.', 'I take a seat by the fire.', 'I beat the eggs.', 'I cut the bread.', 'I run a hand through my hair.',
+    'I grab my keys.', 'I break the silence.', 'I catch her eye.', '“I’ll kill him,” I say.',
+    'I open the drawer and take out a pen.', 'I order a pint and wait.', 'I calmly fold the letter.', 'I get comfortable on the couch.', 'I put on my slippers.', 'I loosen my tie.', 'I rolled my eyes at him.', 'I squeeze Rias’s hand.',
+    'I lean on the counter and wait.', 'I warm my hands by the fire.', 'I pick up the phone.', 'I threw on a coat and left.', 'I crack a smile.', 'I draw the curtains.', 'I charge my phone.', 'I sweep the floor.', 'I slip into bed beside her.',
+    'I knock on the door.', 'I snap my fingers.', 'I lie down on the bed.', 'I cut the cake.', 'I catch the bus.', 'I break for lunch.', 'I read the casebook.', 'I check the spare room.', 'I hang the picture.', 'I pass the pink salt.',
+    'I thank the driver.', 'I watch the sailboats.', 'I pet the dog.', 'I say goodnight and head upstairs.', 'I sit on the counter stool and order coffee.', 'I light the fire.'];
+  for (const t of quiet) eq(sent(t), false, 'a quiet move: ' + t);
+  /* what was always so still is */
+  eq(gatePasses('I sit down.', 'normal', { inFight: true }).pass, true, 'in a fight every beat is scored');
+  eq(gatePasses('I sit down.', 'normal', { tense: true }).pass, true, 'with a fight in the air the referee reads every move (M616)');
+  eq(gatePasses('(brb, phone)', 'normal', {}).pass, false, 'out of character is not an act');
+  eq(gatePasses('I try to open the window without waking her.', 'conservative', {}).pass, true, 'an attempt phrase arms even the conservative gate');
+  eq(gatePasses('I stab him.', 'conservative', {}).pass, false, 'which hears no bare verbs, as before');
+});
+
+test('M650-2 A SIGHTING IS HANDED TO THE WORLD AGENT BY NAME: someone who stepped off the page with nowhere said to go is marked for it at once — not someone the leaving placed, not someone seated, not someone in the scene', async () => {
+  const { peopleForWorld } = await import('../../js/agents/world.js');
+  const st = applyMutations({ ...emptyState(), page: 12 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen, 8 Mariner\u2019s Lane' }, { type: 'clock.set', year: 2025, month: 3, day: 3, hour: 21, minute: 40 },
+    ...['Jovan', 'Rias', 'Aunt Vera', 'Tom'].map((name) => ({ type: 'presence.enter', name })),
+    ...['Rias', 'Aunt Vera', 'Tom', 'Claire'].map((name) => ({ type: 'people.set', name, field: 'core', text: 'someone the story keeps' })), ...['Rias', 'Aunt Vera', 'Tom', 'Claire'].map((name) => ({ type: 'rel.set', name, p: 30, cause: 'family' })),
+    { type: 'presence.leave', name: 'Aunt Vera' }, { type: 'presence.leave', name: 'Tom', to: 'the roof of the Wells house', doing: 'mending it' }, { type: 'offscreen.set', name: 'Claire', location: 'the Bluebird Diner', activity: 'closing up' }]).state;
+  const out = peopleForWorld(st, {});
+  const text = typeof out === 'string' ? out : JSON.stringify(out);
+  const lineOf = (name) => (text.split(/\n|\\n/).find((l) => l.includes(name + ' ')) || '');
+  assert(/Aunt Vera \[ONLY LAST SEEN — where did they go\?\]/.test(lineOf('Aunt Vera')), 'she left with no word of where: marked, the same page — ' + lineOf('Aunt Vera'));
+  assert(!/ONLY LAST SEEN/.test(lineOf('Tom')) && !/ONLY LAST SEEN/.test(lineOf('Claire')), 'Tom (placed by his leaving) and Claire (seated) are not');
+  assert(/Rias \[in the scene\]/.test(lineOf('Rias')), 'Rias is in the scene');
+});
