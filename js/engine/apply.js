@@ -289,7 +289,26 @@ export function findThingKey(things, name) {
     return !owner || owner === whose || owner.split(/\s+/).includes(whose) || whose.split(/\s+/).every((w) => owner.split(/\s+/).includes(w));
   };
   const hits = Object.keys(map).filter((k) => thingKeyOf(k) === want && sameOwner(k));
-  return hits.length === 1 ? hits[0] : null; /* one meaning or none — two case files, "the case file" names neither */
+  if (hits.length === 1) return hits[0];
+  if (hits.length > 1) return null; /* one meaning or none — two case files, "the case file" names neither */
+  /* M647 (the ledger audit, part four — a letter and a key followed through eight changes): ONE THING, NAMED MORE OR
+   * LESS FULLY, IS ONE THING. "The sealed letter from the bank", then "the letter", then "Sealed letter" were three
+   * things — in her apron pocket, on the kitchen table and burning in the stove, all at once, read to the storyteller
+   * as three facts; and "the key" could not clear "the boathouse key". A name whose every word is in another's (or the
+   * other way round) names the same thing — when exactly ONE thing answers so, and the owners do not disagree. Two
+   * letters in the story and "the letter" names neither, as before; "the letter from Claire" and "the sealed letter
+   * from the bank" each have a word the other lacks, and are two. */
+  const kin = thingKin(map, name).filter(sameOwner);
+  return kin.length === 1 ? kin[0] : null;
+}
+/* every thing a name could mean, by its words: all of the name's words in the thing's, or the thing's in the name's */
+export function thingKin(things, name) {
+  const map = things && typeof things === 'object' ? things : {};
+  const wordsOf = (t) => thingKeyOf(t).split(' ').filter((w) => w && !/^(?:of|from|in|on|at|to|for|with|and|the|a|an)$/.test(w));
+  const mine = wordsOf(name);
+  if (!mine.length) return [];
+  const within = (a, b) => a.length > 0 && a.every((w) => b.includes(w));
+  return Object.keys(map).filter((k) => { const theirs = wordsOf(k); return within(mine, theirs) || within(theirs, mine); });
 }
 function capText(value, limit) {
   if (typeof value !== 'string') return '';
@@ -1095,7 +1114,11 @@ const HANDLERS = {
     const name = capText(normalizeName(m.name), 120);
     if (!name) return { why: 'a thing needs a name' };
     state.things = { ...(state.things && typeof state.things === 'object' && !Array.isArray(state.things) ? state.things : {}) };
-    const key = findThingKey(state.things, name) || name;
+    /* M647: a name that could be two things is the one whose owner the change names, when that settles it ("the letter",
+     * Rias's — of the bank's letter she holds and the one from Claire under his pillow); else it is a new thing, as before */
+    const askedOwner = capText(normalizeName(m.owner || ''), 120).toLowerCase();
+    const ownedKin = askedOwner ? thingKin(state.things, name).filter((k) => String((state.things[k] && state.things[k].owner) || '').toLowerCase() === askedOwner) : [];
+    const key = findThingKey(state.things, name) || (ownedKin.length === 1 ? ownedKin[0] : name);
     const before = state.things[key] ? { ...state.things[key] } : null;
     const where = capText(m.where, 240);
     if (!where && !before) return { why: 'a new thing needs where it is — ' + name };
@@ -1112,7 +1135,11 @@ const HANDLERS = {
     const name = capText(normalizeName(m.name), 120);
     const things = { ...(state.things && typeof state.things === 'object' ? state.things : {}) };
     const key = findThingKey(things, name);
-    if (!key) return { why: 'the ledger holds no thing called ' + (name || '?'), same: true };
+    if (!key) {
+      const could = thingKin(things, name);
+      if (could.length > 1) return { why: '“' + name + '” could be more than one thing the ledger holds — ' + could.slice(0, 4).join('; ') + ' — and none is let go on a guess' };
+      return { why: 'the ledger holds no thing called ' + (name || '?'), same: true };
+    }
     const before = { ...things[key] };
     delete things[key];
     state.things = things;
@@ -1631,12 +1658,24 @@ export function seatAtScene(location, sceneName) {
   const scene = String(sceneName || '').trim();
   const where = String(location || '').trim();
   if (!scene || !where) return false;
-  const parts = placeParts(scene);
-  const all = parts.flat();
+  const everyPart = placeParts(scene);
+  const all = everyPart.flat();
   /* M396's measure, kept: two words or more as written ("the Bluebird" is a spot, "Tokyo" is not) */
   if (!all.length || foldName(scene).split(' ').filter(Boolean).length < 2) return false;
-  if (parts.length === 1 && PLACE_REGION.has(all[all.length - 1])) return false;
-  const seatParts = placeParts(where);
+  if (everyPart.length === 1 && PLACE_REGION.has(all[all.length - 1])) return false;
+  /* M647 (the ledger audit, part four — eleven seats at this door): A STREET ADDRESS IS WHERE THE SPOT STANDS, NOT A SECOND
+   * SPOT. His ground is "Wells house kitchen, 8 Mariner's Lane": the rule that a seat must name EVERY part of the scene's
+   * place (M444, for "the Barracks — Captain's Office", where both parts ARE the room) asked a seat to recite the street
+   * number too — so "Wells house kitchen" was "elsewhere", and the world's seat put Aunt Vera in the very room the scene
+   * stood in, listed under Elsewhere and not in the room. A part that is an address (a number and a street, or a street
+   * by its word) or only an area need not be named; every other part still must. */
+  const STREET = /^(?:lane|street|st|road|rd|avenue|ave|boulevard|blvd|drive|way|row|alley|court|square|plaza|quay|pier|highway|route|terrace|crescent|close)$/;
+  const isAddress = (ws) => ws.length > 0 && (/^\d+[a-z]?$/.test(ws[0]) || STREET.test(ws[ws.length - 1])) ;
+  const spots = everyPart.filter((ws) => !isAddress(ws) && !(ws.length === 1 && PLACE_REGION.has(ws[0])));
+  const parts = spots.length ? spots : everyPart;
+  /* "the kitchen of the Wells house" is "the Wells house kitchen" */
+  const ofTurned = (ws) => { const at = ws.indexOf('of'); return at > 0 && at < ws.length - 1 ? [...ws.slice(at + 1), ...ws.slice(0, at)] : ws; };
+  const seatParts = placeParts(where).flatMap((ws) => { const t = ofTurned(ws); return t === ws ? [ws] : [ws, t]; });
   const named = (p) => seatParts.some((q) => {
     for (let i = 0; i + p.length <= q.length; i += 1) {
       if (!p.every((w, k) => q[i + k] === w)) continue;

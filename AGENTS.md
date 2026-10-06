@@ -16368,3 +16368,33 @@ Continuing M644/M645 by the same method.
   run again for that removal: nothing called the function.
 - BACKGROUND RUNS DO NOT OUTLIVE A REPLY HERE: a gate run still going when a reply ends is killed (twice this session).
   Start the gates early enough to finish inside the reply, detached, and poll in short calls.
+
+# M647 — the ledger audit, part four: loose ends, things, and a seat in the scene's own room
+Continuing M644–M646 by the same method.
+- LOOSE ENDS on a person's page (apply.js people.note thread / unthread; three open, closed eleven ways — exact, other
+  case, clipped, said as what happened, with "(closed)", reworded, by its heart, as the question answered): sound —
+  eight close the right one; the two too short to tell ("owes the ferryman", "the debt to the ferryman") and the
+  stranger are refused. Nothing changed.
+- THINGS (apply.js thing.set / thing.clear / findThingKey; a letter and a key through eight changes): ONE THING NAMED
+  THREE WAYS WAS THREE THINGS. "The sealed letter from the bank", then "the letter", then "Sealed letter": in her apron
+  pocket, on the kitchen table and burning in the stove at once, each read to the storyteller; and "the key" could not
+  clear "the boathouse key". A name whose every word is in another's (either way) is the same thing when exactly ONE
+  thing answers so (thingKin) and the owners do not disagree; two letters in the tale and "the letter" names neither —
+  unless the change says whose it is and that settles it; a clearing that could mean two is refused, and the refusal
+  names the two. M605's cases stand (an article or a possessor is not the name; Gordon's case file and Barbara's are
+  two).
+- A SEAT IN THE SCENE'S OWN ROOM (apply.js offscreen.set / seatAtScene; eleven seats against his kind of ground): the
+  door already walks in anyone the world seats where the scene is (M402) — but the test asked a seat to name EVERY
+  part of the scene's place (M444, right for "the Barracks — Captain's Office"), and his ground is "Wells house
+  kitchen, 8 Mariner's Lane": a seat that said "Wells house kitchen" had not recited the street number, so it was
+  "elsewhere" — Aunt Vera listed under Elsewhere at the very room the scene stood in, and not in the room. A part that
+  is a street address (a number and a street, or a street by its word) or only an area need not be named; every other
+  part still must. And "the kitchen of the Wells house" is the Wells house kitchen. Left as it is: "in the kitchen, at
+  the stove" with no house named stays a seat (the words do not say which kitchen).
+- LAWS (m588.mjs): M647-1 (the letter, the key, two letters, whose it is, M605's cases), M647-2 (the scene's own room
+  and what is elsewhere, for both kinds of ground; at the ledger's door). 122 laws that touch things and 305 that
+  touch seats or places stand; the place pairs of M645 are still 21 of 21.
+- NOT AUDITED YET — the handoff's list. The audit is not finished and this entry does not say it is.
+- version.js -> m647-001.
+- GATES at m647-001 (one CPU), on the tree that was pushed: harness 1271/1271, walk 236/236, long play 9/9, lint 0 errors
+  (179 warnings, as at m646), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, no scenario failing.

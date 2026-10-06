@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m646-001)
+# Cozy Tavern — handoff for the next session (state at m647-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -87,12 +87,15 @@
   is someone new of that family, but refusing it would give every "Mr. Wells" a second page; a nickname that only
   begins like a name ("Vivi" / "Vivian Arden") opens a second page — joining by a shared beginning would join Ria to
   Rias. Both err toward two pages, which the auditor can join; neither writes one person onto another.
+  PART FOUR (M647): LOOSE ENDS on a person's page (closing by sense, eleven wordings — sound), THINGS (one thing named
+  three ways was three things), SEATS AT THE LEDGER'S DOOR (a seat in the scene's own room was "elsewhere" whenever the
+  ground carried a street address — his own kind of ground).
   STILL TO AUDIT THE SAME WAY (a battery of ordinary inputs through each code rule, then each worker's answer shape for
-  a fact it is never asked for): the world agent's own writing (who it seats and when, the world's word, the threads it
-  opens — and that a "last seen" note really is moved on); the scribe's merge (people.js mergePeopleNotes: loose ends
-  closing by sense, a state that is really a core); the record keeper (what a fold keeps and drops); the auditor's
-  other refusals (auditor.js guards); things (thing.set / thing.clear); the books (essentials, plans, choices); the
-  second reader's findings. Method that found every fault of M641–M644: do
+  a fact it is never asked for): the world agent's own answers beyond its seats (the world's word and its window, the
+  threads it opens, that a "last seen" note really is moved on — these need the worker's prompt and a stand-in answer,
+  not only the door); the scribe's merge of a state that is really a core; the record keeper (memory.js — what a fold
+  keeps and drops, the window's edge); the auditor's other refusals (auditor.js guards); the books (essentials, plans,
+  choices); the second reader's findings. Method that found every fault of M641–M644: do
   not read the rule and nod — feed it thirty sentences as he writes them and count what it gets wrong.
 - A GATE THAT FAILS ONCE AND PASSES ON A RERUN HAS NOT PASSED. Never write "timing", "rare" or "flaky" in these notes, and
   never push on the rerun: read the failing report against the state, make the failure happen on purpose, and only then

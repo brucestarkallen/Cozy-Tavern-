@@ -588,3 +588,49 @@ test('M646-4 ONE PERSON, ONE PAGE — AND TWO PEOPLE, TWO: a short name one lett
   eq(after.characters.Mina.core, 'the harbourmaster’s daughter; counts everything', 'Mina’s page is untouched');
   eq(Object.keys(after.knowledge).join(',') + ' | ' + Object.keys(after.relationships).join(','), 'Mira | Mira', 'and what Mira knows and feels is hers, not Mina’s');
 });
+
+/* M647 — the ledger audit, part four: things. */
+test('M647-1 ONE THING, NAMED MORE OR LESS FULLY, IS ONE THING: a letter named three ways is in one place at a time; a second letter is a second thing; a short name clears the one thing it can mean, and never one of two on a guess', () => {
+  let st = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen' }]).state;
+  const go = (m) => { const r = applyMutations(st, [m]); st = r.state; return r; };
+  const things = () => Object.entries(st.things || {}).map(([k, v]) => k + ' @ ' + v.where + (v.note ? ' {' + v.note + '}' : '')).join(' || ');
+  go({ type: 'thing.set', name: 'the sealed letter from the bank', where: 'in Rias’s apron pocket', owner: 'Rias' });
+  go({ type: 'thing.set', name: 'the letter', where: 'on the kitchen table', owner: 'Rias', note: 'opened' });
+  eq(things(), 'the sealed letter from the bank @ on the kitchen table {opened}', 'named shorter: the same letter, moved — under the name the ledger holds');
+  go({ type: 'thing.set', name: 'Sealed letter', where: 'in the stove, burning' });
+  eq(things(), 'the sealed letter from the bank @ in the stove, burning {opened}', 'named a third way: still one letter, in one place');
+  go({ type: 'thing.set', name: 'the boathouse key', where: 'on the nail by the back door', owner: 'Tom' });
+  go({ type: 'thing.set', name: 'the letter from Claire', where: 'under Jovan’s pillow', owner: 'Jovan' });
+  eq(Object.keys(st.things).join(' | '), 'the sealed letter from the bank | the boathouse key | the letter from Claire', 'a letter with a word of its own is a second letter');
+  /* two letters now: "the letter" alone names neither… */
+  const guess = go({ type: 'thing.clear', name: 'the letter', cause: 'burned' });
+  eq(guess.applied.length, 0, 'not let go on a guess');
+  assert(/could be more than one thing the ledger holds — the sealed letter from the bank; the letter from Claire/.test(guess.rejected[0].why), 'and the ledger says which two: ' + guess.rejected[0].why);
+  /* …unless whose it is settles it */
+  go({ type: 'thing.set', name: 'the letter', where: 'ash in the grate', owner: 'Rias' });
+  eq(st.things['the sealed letter from the bank'].where + ' | ' + Object.keys(st.things).length, 'ash in the grate | 3', '“the letter”, Rias’s: the bank’s — no fourth thing');
+  eq(go({ type: 'thing.clear', name: 'the key', cause: 'dropped in the harbour' }).applied.length, 1, '“the key” is the boathouse key, the only key there is');
+  assert(!st.things['the boathouse key'], 'and it is gone');
+  eq(go({ type: 'thing.clear', name: 'the oar', cause: 'snapped' }).applied.length, 0, 'a thing the ledger never held is not cleared');
+  /* M605's own cases stand: an article or a possessor is not the name; two owners are two things */
+  let b = applyMutations({ ...emptyState(), page: 2 }, [{ type: 'thing.set', name: 'the Batwing', where: 'on the roof of the GCPD', owner: 'Bruce' }, { type: 'thing.set', name: 'Bruce’s Batwing', where: 'over the harbour' },
+    { type: 'thing.set', name: 'Gordon’s case file', where: 'on his desk' }, { type: 'thing.set', name: 'Barbara’s case file', where: 'in her bag' }]).state;
+  eq(Object.keys(b.things).join(' | ') + ' @ ' + b.things['the Batwing'].where, 'the Batwing | Gordon’s case file | Barbara’s case file @ over the harbour', 'one Batwing; two case files');
+  eq(applyMutations(b, [{ type: 'thing.clear', name: 'the case file', cause: 'shredded' }]).applied.length, 0, '“the case file” names neither of two');
+});
+
+test('M647-2 ELSEWHERE IS NEVER THE ROOM THE SCENE STANDS IN — for a ground written with its street address too: a seat that names the room is her walking in; another room, the porch, outside the window, the house at large are elsewhere; a compound’s other room still is (M444)', async () => {
+  const { seatAtScene } = await import('../../js/engine/apply.js');
+  const K = 'Wells house kitchen, 8 Mariner\u2019s Lane';
+  for (const seat of ['Wells house kitchen', 'the Wells house kitchen, by the stove', 'the kitchen of the Wells house, 8 Mariner\u2019s Lane', 'in the Wells house kitchen']) eq(seatAtScene(seat, K), true, 'the scene’s own room: ' + seat);
+  for (const seat of ['upstairs in the Wells house', 'her room, Wells house', 'the back porch of the Wells house', 'outside the Wells house kitchen', 'the Wells house', '8 Mariner\u2019s Lane', 'the Bluebird Diner, Harbor Street', 'the kitchen of the Bluebird Diner']) eq(seatAtScene(seat, K), false, 'elsewhere: ' + seat);
+  const office = '13th Division Barracks — Captain\u2019s Office';
+  eq(seatAtScene('13th Division Barracks — Captain\u2019s Office, by the window', office), true, 'a compound and its room, both named: the scene');
+  for (const seat of ['13th Division Barracks', '13th Division Barracks — the third seats\u2019 office', '13th Division Barracks, the training yard']) eq(seatAtScene(seat, office), false, 'the compound alone, or another room of it, is elsewhere: ' + seat);
+  /* at the ledger's door: the world seats her in the scene's own room — she is in the scene, with no elsewhere note */
+  const st = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: K }, { type: 'presence.enter', name: 'Jovan' }, { type: 'people.set', name: 'Aunt Vera', field: 'core', text: 'runs the house' }]).state;
+  const inRoom = applyMutations(st, [{ type: 'offscreen.set', name: 'Aunt Vera', location: 'Wells house kitchen', activity: 'waiting' }]).state;
+  eq(inRoom.present.some((p) => p.name === 'Aunt Vera') + ' | ' + Boolean((inRoom.offscreen || {})['Aunt Vera']), 'true | false', 'seated where the scene is: in the scene, not “elsewhere” in the same room');
+  const up = applyMutations(st, [{ type: 'offscreen.set', name: 'Aunt Vera', location: 'upstairs in the Wells house', activity: 'asleep' }]).state;
+  eq(up.present.some((p) => p.name === 'Aunt Vera') + ' | ' + up.offscreen['Aunt Vera'].location, 'false | upstairs in the Wells house', 'another room of the house: elsewhere, as written');
+});
