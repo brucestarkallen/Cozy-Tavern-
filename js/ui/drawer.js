@@ -2940,6 +2940,12 @@ export function initDrawer(ctx) {
     if (storyId) {
       unsubscribe = subscribe(storyId, () => {
         if (!drawer.hidden) quietRender();
+        /* M639 (DOM-135, found): A CHANGE THAT LANDS WHILE THE DRAWER IS OPENING WAS LOST. open() draws, then waits a beat
+         * (90 to 700 ms, M150) before the drawer shows — and for that beat the drawer is still `hidden`, so a ledger write
+         * arriving in it was dropped here and nothing drew it afterwards: the drawer slid in showing the moment BEFORE the
+         * write (a reader finishing the last page left "the readers are on the rest" standing until some later change).
+         * It is remembered now, and drawn once the drawer has shown. */
+        else if (opening) changedWhileOpening = true;
       });
     }
 
@@ -3082,6 +3088,7 @@ export function initDrawer(ctx) {
     const openGeneration = ++closeGeneration;
     opening = true;
     wantOpen = true;
+    changedWhileOpening = false; /* M639: this opening's own */
     /* M150: the scene room's panels fill asynchronously (the clock's fields,
      * the standings, who's here); a fixed 140ms beat was not always the end
      * of it, and a first scroll that began while rows were still landing
@@ -3094,6 +3101,8 @@ export function initDrawer(ctx) {
       drawer.hidden = false;
       scrim.hidden = false;
       requestAnimationFrame(() => { drawer.classList.add('open'); document.body.classList.add('drawer-open'); });
+      /* M639: what changed during the beat is drawn now — through the quiet redraw, so never under the slide or his finger */
+      if (changedWhileOpening) { changedWhileOpening = false; quietRender(); }
     };
     if (typeof MutationObserver === 'function') {
       let quiet = null; let shown = false;
@@ -3116,6 +3125,7 @@ export function initDrawer(ctx) {
   let closeGeneration = 0;
   let opening = false; /* M144: a tap during the fill-beat closes, never opens twice */
   let wantOpen = false; /* M313: what the writer last asked for */
+  let changedWhileOpening = false; /* M639: the ledger changed during the beat before the drawer showed */
 
   function close() {
     const generation = ++closeGeneration;

@@ -1078,7 +1078,10 @@ test('DOM-11c the housekeeper sees the brief, stages a card, Apply changes the p
   click(applyBrief);
   await until(async () => /younger sister/.test((await db.stories.get(sid)).brief), 'the brief changed', 10000);
   await openSettings();
-  assert(/younger sister/.test(q('#brief-story').value), 'Settings shows the new brief');
+  /* M639: Settings is shown first and filled after (the open room, then the others in the background — app.js showView,
+   * settings.js onShow); the walk's openSettings waits a fixed 150 ms, and a check made right then read the field before
+   * the brief's room was filled (failed once in a full walk on one CPU). The law is that Settings SHOWS the new brief. */
+  await until(() => /younger sister/.test(q('#brief-story').value), 'Settings shows the new brief: ' + q('#brief-story').value.slice(0, 80), 10000);
   await closeSettings();
   click(q('#hk-undo'));
   await until(async () => /older sister/.test((await db.stories.get(sid)).brief), 'the brief taken back', 10000);
@@ -5184,7 +5187,7 @@ test('DOM-94 HIS WORDS ARE NEVER LOST ON THE WAY OUT: the frame, the note and th
     await until(async () => (await db.settings.get('noteText')) === 'Keep the duel fast.', 'the note kept', 8000);
     await until(async () => ((await db.stories.get(sid)) || {}).brief === 'Oda is the new captain of the 13th Division.', 'the brief kept', 8000);
     await openSettings(); await tick(400);
-    eq(q('#frame-global').value, 'You are Lothar, and you tell it by the fire.', 'and drawn back when Settings opens');
+    await until(() => q('#frame-global').value === 'You are Lothar, and you tell it by the fire.', 'and drawn back when Settings opens: ' + q('#frame-global').value.slice(0, 80), 10000); /* M639: filled after it shows, as above */
     eq(q('#brief-story').value, 'Oda is the new captain of the 13th Division.', 'the brief too');
   } finally {
     db.settings.set = set0; db.stories.update = upd0;
@@ -7039,6 +7042,36 @@ test('DOM-135 THE DRAWER SAYS WHICH PAGE THE LEDGER BELONGS TO: even with the st
     assert([...seenLines].some((t) => /page 1 of 2 — the readers are on the rest/.test(t) || /page 2 of 2/.test(t)), 'the line named the page throughout: ' + [...seenLines].join(' | '));
     click(q('#btn-drawer-close'));
   } finally { house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker; }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-233 A CHANGE THAT LANDS WHILE THE LEDGER IS OPENING IS STILL SHOWN (M639): the drawer draws, then waits a beat before it slides in — a reader that finishes the last page in that beat is not lost; the line that said “the readers are on the rest” becomes “even with the story” by itself', async () => {
+  const before = errors.length;
+  const { loadState, saveState, notify } = await import('../../js/engine/state.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const H = '[The kitchen — Monday, March 3, 2025 | 09:05 | clear | coat | by the stove]\n\n';
+  const st = await db.stories.create({ title: 'the opening beat' });
+  await db.stories.update(st.id, { extraction: false, keeper: false }); /* no reader of the house's own moves in this scenario: the change is made by hand, at a known moment */
+  await db.messages.append(st.id, { role: 'user', text: 'I put the kettle on.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + 'The kettle ticked.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+  await db.messages.append(st.id, { role: 'assistant', text: H + 'Nobody came.' });
+  const first = await loadState(st.id); first.readTo = 0; await saveState(st.id, first); /* page one read, page two not yet */
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy(), 'free', 20000);
+  if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the ledger closed', 5000); }
+  try {
+    const done = await loadState(st.id); done.readTo = 1; /* what a reader that has just finished page two writes */
+    click(q('#btn-ledger'));
+    const hiddenAtChange = q('#drawer').hidden; /* the beat before it slides in */
+    await saveState(st.id, done);
+    notify(st.id);
+    await until(() => !q('#drawer').hidden, 'the ledger shows', 5000);
+    await until(() => /page 2 of 2 — even with the story/.test((q('#ledger-standing') || {}).textContent || ''), 'the line catches up by itself (the change landed while the ledger was ' + (hiddenAtChange ? 'still opening' : 'open') + ') — it reads: ' + ((q('#ledger-standing') || {}).textContent || ''), 6000);
+  } finally {
+    click(q('#btn-drawer-close'));
+  }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 

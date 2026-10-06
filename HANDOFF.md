@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m638-001)
+# Cozy Tavern — handoff for the next session (state at m639-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -50,8 +50,14 @@
   run alone needs its own connection (DOM-82/135 needed one); the walk's stand-in server knows a reader by phrases in
   its system words (tests/dom/env.mjs isWorker — a new reader needs its phrase there); the real-browser checks
   (tests/notes_layout.py in the gates) are the only ones that see layout — jsdom lays nothing out.
-- KNOWN AND NOT FOUND: DOM-135 fails rarely by timing (its report shows the page read late); its cause is not found, and a
-  guessed fix was taken out for want of evidence (M628's notes).
+- DOM-135's RARE FAILURE WAS FOUND AND FIXED AT M639 (it was never the page "read late": the ledger HAD read it — readTo
+  is the page's index, 1 of two pages is both — and the drawer's line was stale). The drawer draws, then waits 90 to
+  700 ms before it shows; a ledger write landing in that beat was dropped because the drawer was still hidden, and
+  nothing drew it afterwards. Walk DOM-233 makes that happen on purpose. If DOM-135 ever fails again it is a NEW fault:
+  read its report against the state (readTo + 1 = pages read), not against the clock.
+- IN THE WALK, NEVER CHECK A SETTINGS FIELD RIGHT AFTER openSettings(): Settings is SHOWN first and filled after (the open
+  room, then the others one by one in the background), and the helper waits a fixed 150 ms. Wait for the field with
+  until(). DOM-11c and the frame scenario did not, and DOM-11c failed once on one CPU for it (M639).
 - THE GATES: setsid bash audit/gates.sh <tag> & — harness, walk, long play, lint, perf_send, holdsone, cutthinking,
   notes_layout; push only when every one says EXIT 0.
 

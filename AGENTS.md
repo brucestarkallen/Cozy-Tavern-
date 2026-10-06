@@ -16029,3 +16029,40 @@ need another mode.
   line still stood at page 1 of 2 after thirty seconds — the rare timing fault the handoff already lists, cause not
   found); the second full run passed it. Nothing in this change writes the ledger or runs in that scenario with the
   sensors off, but that it is unrelated is not proven.
+
+# M639 — the ledger drawer could show the moment before the last write (DOM-135's "rare timing" failure, found)
+From the writer, on being told that DOM-135 had failed once and passed once: "I'm confused — is everything OK and I don't
+need to worry about anything, or not?" A failure nobody can explain is not an answer to that. It was run down.
+- WHAT THE FAILING REPORT REALLY SAID. "readTo 1" with two pages on the shelf, and the extractor's note "read 1 page the
+  ledger had missed": readTo is the INDEX of the newest page read (state.js readMark; ledgerStandingWords adds one), so
+  the ledger HAD read both pages. It was the drawer's line — "The ledger stands at page 1 of 2 — the readers are on the
+  rest." — that was stale. Every earlier note on this scenario (M583, M587, M628, the handoff's "the page read late")
+  read that number as "one page read".
+- THE CAUSE. drawer.js open() draws the rooms and then waits for them to go quiet (90 ms, 700 at most — M144/M150) before
+  the drawer slides in; for that beat the drawer is still `hidden`. The drawer's one subscription to the ledger's changes
+  did `if (!drawer.hidden) quietRender()` — so a write that landed IN the beat was dropped, and nothing drew it later.
+  The drawer then showed the ledger as it stood just before that write, until some other change came: after the LAST
+  write of a page's readers there is none, so it could stand wrong until he closed and opened it or played on. In
+  DOM-135 the house reads the missed page about when the drawer is reopened; when the read's end fell in the beat, the
+  line never moved and the scenario ran out its thirty seconds. Nothing was wrong in the ledger or the story at any time.
+- THE FIX: a change that arrives while the drawer is opening is remembered (changedWhileOpening) and drawn once the
+  drawer has shown — through the quiet redraw, so never under the slide or his finger. One subscription in the whole UI
+  (searched): one place.
+- LAW: walk DOM-233 does it on purpose — the ledger button is pressed, and in the beat before the drawer shows a reader's
+  write lands (readTo to the last page, by hand, with the house's own readers off for that tale so the moment is known);
+  the line must become "page 2 of 2 — even with the story" by itself. On m638 it stays "page 1 of 2 — the readers are on
+  the rest" for good (run and seen); with the fix it catches up. DOM-135 itself is unchanged.
+- This had nothing to do with M636–M638 (the sensors, the Quick switch): the drawer's subscription is from M105/M144.
+- THE FIRST FULL WALK ON THIS FIX FAILED A DIFFERENT SCENARIO ONCE — DOM-11c, "Settings shows the new brief". Run down the
+  same way, not rerun and hoped: the brief WAS changed (the scenario's own wait before it had passed); app.js showView
+  shows Settings first and settings.js onShow fills it after — the open room, then every other room one at a time in the
+  background — while the walk's openSettings() waits a fixed 150 ms and DOM-11c read the field right then. On one busy
+  CPU the brief's room had not been filled yet. A fault of the walk, not of the app (the field is always set, unless he
+  is typing in it — M426). The whole walk was searched for a check made right after openSettings(): four; two read a
+  value the fill sets (DOM-11c's brief, the frame scenario's frame) and now wait for it with until(); two read a switch
+  whose shipped state is what they expect and are left. The handoff says never to check a Settings field that way.
+- version.js -> m639-001.
+- GATES at m639-001 (one CPU), on the tree that was pushed: harness 1245/1245, walk 233/233 (DOM-11c, DOM-135 and the new
+  DOM-233 among them), long play 9/9, lint 0 errors (179 warnings: four more than m638, all "used before it was defined"
+  for the new flag in drawer.js, the way that file already declares opening, closeGeneration and render), perf_send,
+  holdsone, cutthinking, notes_layout — EXIT 0 each.
