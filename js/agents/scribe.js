@@ -24,7 +24,7 @@ import { seatForPerson } from '../engine/people.js'; /* M398 */
 import { isHere, nameOnPage } from '../engine/names.js'; /* M398/M412; M414: named by the one answer */
 import { wholePage, writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M259: the page read to its end; M283: the writer's own, to the room */
 import { loadState, saveState, notify } from '../engine/state.js';
-import { renderPeopleTiers, peopleView, mcKey, findPersonKey } from '../engine/people.js';
+import { renderPeopleTiers, peopleView, mcKey, findPersonKey, thinsCore } from '../engine/people.js';
 import { applyMutations } from '../engine/apply.js'; /* M72: the scribe writes through the journal */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
@@ -342,9 +342,19 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   const shownOnPage = (name) => nameOnPage(pageWords, name); /* M414: the one answer — never a title or "the" */
   const kept = deltas.filter((d) => !(d && d.field === 'state' && !isHere(fresh, d.name) && seatForPerson(fresh, d.name)))
     .filter((d) => !(d && d.field === 'state' && isHere(fresh, d.name) && !shownOnPage(d.name) && !(findPersonKey(fresh.characters || {}, d.name) && shownOnPage(findPersonKey(fresh.characters || {}, d.name)))));
-  const { state: next, applied, rejected } = applyMutations(fresh, kept.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text })));
+  /* M648: who someone is, is added to — never thinned (people.js thinsCore) */
+  const thinned = [];
+  const sound = kept.filter((d) => {
+    if (!(d && d.field === 'core')) return true;
+    const key = findPersonKey(fresh.characters || {}, d.name);
+    const standing = key && fresh.characters[key] ? fresh.characters[key].core : '';
+    if (!thinsCore(standing, d.text)) return true;
+    thinned.push({ delta: { type: 'people.note', name: d.name, field: 'core', text: d.text }, why: 'who ' + key + ' is stands as written — a nature is added to, never thinned to “' + String(d.text).trim().slice(0, 60) + '”' });
+    return false;
+  });
+  const { state: next, applied, rejected } = applyMutations(fresh, sound.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text })));
   const changes = applied.map((a) => ({ name: nameFromWords(a.words, a.mutation.name), field: a.mutation.field }));
-  const dropped = rejected.map((r) => ({ delta: r.mutation, why: r.why }));
+  const dropped = [...rejected.map((r) => ({ delta: r.mutation, why: r.why })), ...thinned];
   if (!changes.length) return { changes, dropped, note };
   if (stale && stale()) return null;
   await saveState(storyId, next);

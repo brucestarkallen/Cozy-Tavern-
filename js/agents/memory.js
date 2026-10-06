@@ -522,7 +522,31 @@ export function parseMemoryAnswer(raw) {
     text = text.replace(/```(?:\w+)?/g, '').trim();
     if (!text) return '';
     if (/^\(?\s*no new state\s*\)?\.?$/i.test(text)) return '(no new state)';
-    text = text.replace(/\s*\n+\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    /* M648 (the ledger audit, part five — fourteen kinds of answer through this door): WHAT IS KEPT IS THE LINE, AND ONLY
+     * A LINE. Whatever came back with ten letters in it was stored as a line of "Our story so far… established canon":
+     * a REFUSAL IN WORDS ("I'm sorry, but I can't help with summarizing this content.") became the record of six pages —
+     * the pages marked covered, their story gone from the record, and the apology read to the storyteller on every turn
+     * (M316 caught only a refusal that came back blank); a question back ("Could you provide the passage…?") the same;
+     * and a good line kept its wrapping — "Here is the summary of the passage:", "Summary:", quotation marks, bullets,
+     * "Let me know if you would like a shorter version!". The wrapping is taken off; an answer that is a refusal or a
+     * question to the house is no line at all (''), which the caller already knows how to carry: the page is asked
+     * alone, then proven alive, then marked without words (M316, M330). */
+    {
+      const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+      const bulleted = lines.length > 1 && lines.every((l) => /^(?:[-*•–]|\d+[.)])\s+/.test(l));
+      text = bulleted ? lines.map((l) => l.replace(/^(?:[-*•–]|\d+[.)])\s+/, '').replace(/[.;]+$/, '')).join('; ') + '.' : lines.join(' ');
+    }
+    text = text.replace(/\s{2,}/g, ' ').trim();
+    for (let i = 0; i < 3; i += 1) {
+      const before = text;
+      text = text.replace(/^(?:(?:sure|okay|ok|certainly|of course|absolutely|understood)[,!.]?\s+)?(?:here(?:['’]s| is| are)\b[^:]{0,80}:|as an ai\b[^:]{0,80}:|(?:the\s+)?(?:summary|record line|line|record|state|output|answer)\s*:)\s*/i, '').trim();
+      text = text.replace(/^(?:sure|okay|ok|certainly|of course|absolutely|understood)[,!.]\s+(?=\p{Lu})/u, '').trim();
+      const q = text.match(/^(["“«'‘])([\s\S]*?)(["”»'’])$/u);
+      if (q && q[2].length > 10 && !/["“”«»]/.test(q[2])) text = q[2].trim();
+      if (text === before) break;
+    }
+    text = text.replace(/\s+(?:let me know|would you like|i hope (?:this|that)|feel free to|if you(?:['’]d| would) like|is there anything|do you want me)\b[\s\S]*$/i, '').trim();
+    if (/^(?:i['’]?m (?:sorry|afraid|unable|not able)|i am (?:sorry|afraid|unable|not able)|sorry[,.]|i (?:can(?:['’]?t|not)|won['’]?t|will not|must decline|do(?: not|n['’]?t) feel comfortable|apologi[sz]e)\b|unfortunately,? i\b|as an ai\b|(?:could|can|would) you (?:please )?(?:provide|share|clarify|paste|send)\b|please (?:provide|share|paste|send)\b|what (?:passage|text|content|story)\b|there (?:is|was) no (?:passage|text|content)\b|no (?:passage|text|content) (?:was|has been) provided)/i.test(text) && text.split(/;\s+/).filter((p) => p.trim()).length < 3) return ''; /* a real line is phrases; an apology is not */
     if (text.length < 10) return '';
     /* M235: A LINE CUT MID-WORD IS A LINE THAT LIES. The writer's own record
      * ends "...and graded Jo…" — a name severed in half, and everything that

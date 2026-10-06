@@ -634,3 +634,66 @@ test('M647-2 ELSEWHERE IS NEVER THE ROOM THE SCENE STANDS IN — for a ground wr
   const up = applyMutations(st, [{ type: 'offscreen.set', name: 'Aunt Vera', location: 'upstairs in the Wells house', activity: 'asleep' }]).state;
   eq(up.present.some((p) => p.name === 'Aunt Vera') + ' | ' + up.offscreen['Aunt Vera'].location, 'false | upstairs in the Wells house', 'another room of the house: elsewhere, as written');
 });
+
+/* M648 — the ledger audit, part five: the record keeper's door. */
+test('M648-1 WHAT THE KEEPER STORES IS THE LINE, AND ONLY A LINE: a refusal in words or a question back is no line at all (never a line of “Our story so far”); a good line loses its wrapping — a preamble, a label, quotation marks, bullets, chatter after it', async () => {
+  const { parseMemoryAnswer } = await import('../../js/agents/memory.js');
+  const line = 'Jovan reached the Wells house in rain; Aunt Vera took the bank letter from Rias and locked it in the dresser; Tom swore to mend the roof before the storm; Rias owes the ferryman two coppers.';
+  eq(parseMemoryAnswer(line), line, 'a clean line is kept as it is');
+  for (const [how, raw] of [['a preamble', 'Here is the summary of the passage:\n\n' + line], ['“Sure, here’s…”', 'Sure, here’s the line: ' + line], ['a label', 'Summary: ' + line], ['quotation marks', '"' + line + '"'], ['curly quotation marks', '“' + line + '”'],
+    ['thinking in front', '<think>The passage covers the arrival.</think>\n' + line], ['a code fence', '```\n' + line + '\n```'], ['chatter after it', line + '\n\nLet me know if you would like a shorter version!'], ['talk about itself', 'As an AI language model, I will now summarize: ' + line]]) {
+    eq(parseMemoryAnswer(raw), line, how + ' is taken off');
+  }
+  eq(parseMemoryAnswer('- Jovan reached the Wells house in rain\n- Aunt Vera took the bank letter from Rias\n- Tom swore to mend the roof before the storm'), 'Jovan reached the Wells house in rain; Aunt Vera took the bank letter from Rias; Tom swore to mend the roof before the storm.', 'a bullet list is the line, its phrases joined');
+  for (const refusal of ['I’m sorry, but I can’t help with summarizing this content.', 'I\'m sorry, but I can\'t help with that.', 'I cannot continue with this request as it involves explicit material. Is there something else I can help with?', 'Sorry, I can’t assist with that request.',
+    'I am unable to summarize this passage.', 'As an AI, I must decline to process this content.', 'Unfortunately, I can’t summarize this.', 'Could you provide the passage you would like me to summarize?', 'Please provide the text you want summarized.', 'There is no passage to summarize.']) {
+    eq(parseMemoryAnswer(refusal), '', 'no line: ' + refusal.slice(0, 44));
+  }
+  eq(parseMemoryAnswer('(no new state)'), '(no new state)', 'its own word for nothing new stands');
+  eq(parseMemoryAnswer('Day 3: Jovan reached the Wells house in rain; Aunt Vera took the letter; Tom swore to mend the roof.'), 'Day 3: Jovan reached the Wells house in rain; Aunt Vera took the letter; Tom swore to mend the roof.', 'a line that opens with its own words and a colon is not a label');
+  eq(parseMemoryAnswer('“Lock the back door,” Aunt Vera told them; Jovan stayed up with Rias; Tom went for the tar.'), '“Lock the back door,” Aunt Vera told them; Jovan stayed up with Rias; Tom went for the tar.', 'a line that opens with someone’s words keeps its quotation marks');
+  eq(parseMemoryAnswer('Sorry Tom had broken the oar; Rias forgave him by supper; Aunt Vera docked his pay; the ferry ran late.'), 'Sorry Tom had broken the oar; Rias forgave him by supper; Aunt Vera docked his pay; the ferry ran late.', 'a real line of phrases is never taken for an apology');
+});
+
+test('M648-2 WHO SOMEONE IS, IS ADDED TO — NEVER THINNED BY A WORKER: the page-keeping worker’s “a girl”, or a nature turned gentle, does not replace the core that stands (and the run says so); the same and more, or a fuller rewrite, is written; her “now” on the same answer is kept', async () => {
+  const { thinsCore } = await import('../../js/engine/people.js');
+  const rich = 'the ferryman’s niece; quick, proud, counts every coin; will not be pitied; lies badly and knows it';
+  eq(thinsCore(rich, 'a girl'), true, 'thinned to two words');
+  eq(thinsCore(rich, 'gentle and trusting, eager to please'), true, 'another nature, in fewer words');
+  eq(thinsCore(rich, rich + '; hums when she is afraid'), false, 'the same and more');
+  eq(thinsCore(rich, 'The ferryman’s niece — quick and proud, a counter of every coin who will not be pitied; she lies badly, knows it, and hums when she is afraid of the water.'), false, 'a fuller rewrite that keeps who she is');
+  eq(thinsCore('', 'a ferry pilot from the north shore'), false, 'a first core thins nothing');
+  eq(thinsCore(rich, ''), false, 'nothing offered is nothing to judge');
+  const { scribeTurn } = await import('../../js/agents/scribe.js');
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  const { db } = await import('../../js/store.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const page = '[Wells house kitchen — Monday, March 3, 2025 | 21:40 | rain | sweater | at the table]\n\nRias stirred the pot and did not look up. “You’re dripping on my floor.”';
+  const run = async (deltas) => {
+    const story = await db.stories.create({ title: 'who she is ' + deltas.length + Math.random() });
+    await saveState(story.id, applyMutations({ ...emptyState(), page: 9 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rias' }, { type: 'people.set', name: 'Rias', field: 'core', text: rich }]).state);
+    const out = await withHouse(thinkingHouse({ answer: JSON.stringify({ deltas }) }), () => scribeTurn({ connection: HOUSES[0].conn, storyId: story.id, userText: 'I come in from the rain.', assistantText: page }));
+    return { out, page: (await loadState(story.id)).characters.Rias };
+  };
+  const thin = await run([{ name: 'Rias', field: 'core', text: 'a girl' }, { name: 'Rias', field: 'state', text: 'At the stove, stirring, not looking up.' }]);
+  eq(thin.page.core, rich, 'her nature stands as written');
+  eq(thin.page.state, 'At the stove, stirring, not looking up.', 'and her now, sent beside it, is kept');
+  assert(thin.out.dropped.some((d) => d.delta.field === 'core' && /a nature is added to, never thinned to “a girl”/.test(d.why)), 'the run says what it did not write, and why: ' + JSON.stringify(thin.out.dropped));
+  const drift = await run([{ name: 'Rias', field: 'core', text: 'gentle and trusting, eager to please' }]);
+  eq(drift.page.core, rich, 'a nature turned gentle in fewer words does not replace her');
+  const more = await run([{ name: 'Rias', field: 'core', text: rich + '; hums when she is afraid' }]);
+  eq(more.page.core, rich + '; hums when she is afraid', 'the same and more is written');
+});
+
+test('M648-3 THE WORLD’S WORD KEEPS ONLY WHAT IS A LINE: one string is a list of one; “nothing new”, “none”, “N/A”, “…” are not pressures; no line twice; no line or window still carrying the prompt’s placeholders; a window that is an apology is no window', async () => {
+  const { normalizeBrief } = await import('../../js/engine/world.js');
+  const twb = { who: 'the harbour clerk', where: 'the harbour office', changed: 'counted the day’s tickets twice and found one too many' };
+  const kept = (brief) => { const b = normalizeBrief(brief, 10, 9); return b.pressure.join(' | ') + ' // ' + b.ripe.join(' | ') + ' // ' + (b.twb ? b.twb.who : '—') + (b.empty ? ' // EMPTY' : ''); };
+  eq(kept({ pressure: ['the storm is a day off', 'the bank wants its letter back'], ripe: ['Tom has the tar and no ladder'], twb }), 'the storm is a day off | the bank wants its letter back // Tom has the tar and no ladder // the harbour clerk', 'as asked: kept as it was');
+  eq(kept({ pressure: 'the storm is a day off', ripe: 'Tom has the tar and no ladder', twb }), 'the storm is a day off // Tom has the tar and no ladder // the harbour clerk', 'a string where a list belongs is a list of one — not thrown away');
+  eq(kept({ pressure: ['nothing new', 'No change.'], ripe: ['none', 'N/A', '…', '-', 'unchanged'], twb: { who: 'none', where: '', changed: '' } }), ' //  // — // EMPTY', '“nothing new” and its kin are nothing');
+  eq(kept({ pressure: ['the storm is a day off', 'The storm is a day off.'], ripe: [], twb: null }), 'the storm is a day off //  // —', 'the same line twice is one line');
+  eq(kept({ pressure: ['NAME wants OTHER NAME gone', 'the ferry is late'], ripe: ['MAIN CHARACTER owes NEW NAME'], twb: { who: 'NAME', where: 'somewhere', changed: 'did something' } }), 'the ferry is late //  // —', 'a line or a window still carrying a placeholder names no one');
+  eq(kept({ pressure: [], ripe: [], twb: { who: 'the clerk', where: 'the office', changed: 'I’m sorry, but I can’t continue this scene.' } }), ' //  // — // EMPTY', 'a window that is the worker excusing itself is no window');
+  eq(kept({ pressure: ['Rias will not name the man who paid her', 'Nothing in the harbour moves without the clerk’s stamp'], ripe: [], twb: null }), 'Rias will not name the man who paid her | Nothing in the harbour moves without the clerk’s stamp //  // —', 'real lines that merely hold those words are kept');
+});

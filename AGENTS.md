@@ -16398,3 +16398,41 @@ Continuing M644–M646 by the same method.
 - version.js -> m647-001.
 - GATES at m647-001 (one CPU), on the tree that was pushed: harness 1271/1271, walk 236/236, long play 9/9, lint 0 errors
   (179 warnings, as at m646), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, no scenario failing.
+
+# M648 — the ledger audit, part five: the record keeper's door, a person's nature, and the world's word
+Continuing M644–M647 by the same method.
+- THE RECORD KEEPER'S DOOR (memory.js parseMemoryAnswer; fourteen kinds of answer): whatever came back with ten letters in
+  it was stored as a line of "Our story so far… established canon". A REFUSAL IN WORDS — "I'm sorry, but I can't help
+  with summarizing this content." — became the record of six pages: the pages marked covered, their story gone from
+  the record, the apology read to the storyteller on every turn (M316 caught only a refusal that came back BLANK). A
+  question back ("Could you provide the passage…?") the same. And a good line kept its wrapping: "Here is the summary
+  of the passage:", "Summary:", quotation marks round the whole of it, a bullet list, "Let me know if you would like a
+  shorter version!", "As an AI language model, I will now summarize:". The wrapping is taken off; an answer that opens
+  as a refusal or a question to the house and is not a line of phrases is NO line ('') — which the caller already
+  carries: the page asked alone, the model proven alive, the page marked without words (M316, M330). A line that opens
+  with its own words and a colon ("Day 3: …"), with someone's spoken words, or with "Sorry Tom had broken the oar; …"
+  (a real line of phrases) is kept as it is.
+- A PERSON'S NATURE (people's pages through the workers that write them): at the ledger's door a core is simply replaced
+  — right for the writer's hand and the auditor. But the page-keeping worker, told to write a core "rarely", could
+  send "a girl" over "the ferryman's niece; quick, proud, counts every coin; will not be pitied", or "gentle and
+  trusting, eager to please": the drift Character Gravity forbids, written into the ledger. people.js thinsCore: a core
+  that keeps less than three-fifths of the telling words of the one that stands AND says less is a thinning; the
+  scribe's path (scribe.js) and the world agent's (world.js, which may give a core only to someone new) drop it, and the
+  scribe's run says what it did not write and why. The same and more, or a fuller rewrite, is written.
+- THE WORLD'S WORD (world.js normalizeBrief; eight kinds of note): a pressure given as one string instead of a list of
+  one was thrown away whole; "nothing new", "none", "N/A", "…" were kept as pressures and read to the storyteller as
+  the state of the world; the same line twice was kept twice; a line or a window still carrying the prompt's own
+  placeholders ("NAME wants OTHER NAME gone") was kept; a window whose words were the worker excusing itself was kept.
+  All cleaned at the one door. A real line that merely holds such a word ("Rias will not name the man…", "Nothing in
+  the harbour moves without…") is kept.
+- A PROBE OF MINE THAT WAS WRONG (and is not a finding): a "now" for someone seated elsewhere, sent straight to the
+  ledger's door, is written — but no worker reaches the door that way; the scribe's own path drops it (M130/M398) and
+  the world agent's is held by M401. Nothing changed there.
+- LAWS (m588.mjs): M648-1 (the keeper's door, each wrapping, ten refusals, the lines that must be kept), M648-2 (the
+  rule, and through the page-keeping worker's whole call: "a girl" and the gentle nature dropped and said so, her now
+  kept, the same-and-more written), M648-3 (the world's word). 269 laws that touch the record, 379 that touch the two
+  workers and 275 that touch the world's word stand.
+- NOT AUDITED YET — the handoff's list. The audit is not finished and this entry does not say it is.
+- version.js -> m648-001.
+- GATES at m648-001 (one CPU), on the tree that was pushed: harness 1274/1274, walk 236/236, long play 9/9, lint 0 errors
+  (179 warnings, as at m647), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.

@@ -49,7 +49,7 @@ import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
-import { findPersonKey, importanceOf, IMPORTANT_AT, placeWords, isMc, namedInText, seatForPerson } from '../engine/people.js'; /* M304: who matters, as the storyteller's own people block weighs it */
+import { findPersonKey, thinsCore, importanceOf, IMPORTANT_AT, placeWords, isMc, namedInText, seatForPerson } from '../engine/people.js'; /* M304: who matters, as the storyteller's own people block weighs it */
 import { isHere, samePersonName, nameOnPage } from '../engine/names.js'; /* M396/M401: one answer to "the same person?"; M414: one answer to "named on the page?" */
 import { storyTurn } from '../engine/apply.js';
 import { applyMutations, clearsThatArrive, scenePartOf } from '../engine/apply.js'; /* M444: cleared is never nowhere */
@@ -597,6 +597,13 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
    * the world agent" — and the applier then wrote that stub straight over
    * the smith's real core. Proven: a page that read "the smith — slow to
    * anger, quicker than he looks" became eight words of housekeeping. */
+  /* M648: the world agent may give a core only to a NEW person (its own law) — one for someone whose nature already stands
+   * is written only if it does not thin it (people.js thinsCore) */
+  read.mutations = read.mutations.filter((m) => {
+    if (!(m && m.type === 'people.set' && String(m.field || '').trim() === 'core' && m.open !== true && typeof m.text === 'string')) return true;
+    const key = findPersonKey(fresh.characters || {}, m.name);
+    return !(key && fresh.characters[key] && thinsCore(fresh.characters[key].core, m.text));
+  });
   const hasPage = (name) => Boolean(findPersonKey(fresh.characters || {}, name));
   const pagesInAnswer = new Set(read.mutations.filter((m) => m.type === 'people.set' && typeof m.name === 'string').map((m) => m.name.trim().toLowerCase()));
   const withPages = [];

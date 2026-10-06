@@ -739,16 +739,32 @@ function describeMinutes(m) {
 
 export function normalizeBrief(raw, atTurn, atPage) {
   if (!raw || typeof raw !== 'object') return null;
-  const lines = (v) => (Array.isArray(v) ? v : [])
-    .map((s) => cleanText(typeof s === 'string' ? s : (s && (s.text || s.words || s.line)), 1000))
-    .filter(Boolean)
-    .slice(0, BRIEF_LINES);
+  /* M648 (the ledger audit, part five — eight kinds of world note through this door): ONLY WHAT IS A LINE IS KEPT AS ONE.
+   * A pressure given as one string instead of a list of one was thrown away whole (the world "stood still" on a page
+   * it had something to say about); "nothing new", "none", "N/A", "…" were kept as pressures and read to the
+   * storyteller as the state of the world; the same line twice was kept twice; and a line still carrying the prompt's
+   * own placeholders ("NAME wants OTHER NAME gone") was kept as if it named someone. */
+  const NOTHING = /^(?:none|nothing(?: new| changed| to (?:add|report|note))?|no (?:change|changes|new (?:pressure|developments?)|updates?)|n\/?a|nil|null|unchanged|same(?: as before)?|todo|tbd)\.?$/i;
+  const PLACEHOLDER = /\b(?:OTHER NAME|NEW NAME|NAME SURNAME|MAIN CHARACTER|QUIET NAME)\b|(?:^|\s)NAME(?:\s|['’]s|$)/;
+  const lines = (v) => {
+    const out = [];
+    for (const item of (Array.isArray(v) ? v : typeof v === 'string' ? [v] : [])) {
+      const text = cleanText(typeof item === 'string' ? item : (item && (item.text || item.words || item.line)), 1000);
+      if (!text || !/\p{L}/u.test(text) || NOTHING.test(text) || PLACEHOLDER.test(text)) continue;
+      const key = text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+      if (out.some((o) => o.key === key)) continue;
+      out.push({ key, text });
+    }
+    return out.slice(0, BRIEF_LINES).map((o) => o.text);
+  };
   const pressure = lines(raw.pressure);
   const ripe = lines(raw.ripe);
   let twb = null;
   const t = raw.twb;
   if (t && typeof t === 'object' && (cleanText(t.who) || cleanText(t.changed))) {
     twb = { who: cleanText(t.who, 120), where: cleanText(t.where, 500), changed: cleanText(t.changed, 1000) };
+    /* M648: a window that is a placeholder, "nothing", or the worker excusing itself is no window */
+    if (PLACEHOLDER.test(twb.who + ' ' + twb.changed) || NOTHING.test(twb.changed) || (!twb.changed && NOTHING.test(twb.who)) || /^(?:i['’]?m sorry|i am sorry|sorry,|i can(?:['’]?t|not)\b|as an ai\b)/i.test(twb.changed)) twb = null;
   }
   const voices = normalizeVoices(raw.voices);
   const at = Number.isFinite(atTurn) ? atTurn : null;

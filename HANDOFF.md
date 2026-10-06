@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m647-001)
+# Cozy Tavern — handoff for the next session (state at m648-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -90,12 +90,17 @@
   PART FOUR (M647): LOOSE ENDS on a person's page (closing by sense, eleven wordings — sound), THINGS (one thing named
   three ways was three things), SEATS AT THE LEDGER'S DOOR (a seat in the scene's own room was "elsewhere" whenever the
   ground carried a street address — his own kind of ground).
-  STILL TO AUDIT THE SAME WAY (a battery of ordinary inputs through each code rule, then each worker's answer shape for
-  a fact it is never asked for): the world agent's own answers beyond its seats (the world's word and its window, the
-  threads it opens, that a "last seen" note really is moved on — these need the worker's prompt and a stand-in answer,
-  not only the door); the scribe's merge of a state that is really a core; the record keeper (memory.js — what a fold
-  keeps and drops, the window's edge); the auditor's other refusals (auditor.js guards); the books (essentials, plans,
-  choices); the second reader's findings. Method that found every fault of M641–M644: do
+  PART FIVE (M648): THE RECORD KEEPER'S DOOR (fourteen kinds of answer: a refusal in words was stored as the record of six
+  pages), A PERSON'S NATURE (a worker's thin or drifted core replaced the one that stood), THE WORLD'S WORD (a string
+  for a list thrown away; "nothing new" kept as a pressure). A PROBE THAT WAS WRONG, kept here so it is not repeated:
+  a "now" sent straight to the ledger's door for someone seated elsewhere IS written — but the workers do not go
+  through the door bare; the scribe's own path drops it (scribe.js, M130/M398) and the world agent's its own (M401).
+  Probe a rule through the path that really calls it.
+  STILL TO AUDIT THE SAME WAY: the keeper's FOLD (memory.js — what a merge of lines keeps and drops, the shrink guard,
+  the window's edge) with a stand-in keeper; the world agent's threads and that a "last seen" note really is moved on
+  (its prompt and a stand-in answer, not only the door); the auditor's other refusals (auditor.js guards); the books
+  (essentials, plans, choices — each stores a model's text: feed each door a refusal and chatter, as the keeper's was);
+  the second reader's findings. Method that found every fault of M641–M644: do
   not read the rule and nod — feed it thirty sentences as he writes them and count what it gets wrong.
 - A GATE THAT FAILS ONCE AND PASSES ON A RERUN HAS NOT PASSED. Never write "timing", "rare" or "flaky" in these notes, and
   never push on the rerun: read the failing report against the state, make the failure happen on purpose, and only then

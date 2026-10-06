@@ -148,6 +148,27 @@ function titlesDiffer(a, b) {
   return Boolean(x && y && x !== y) || titlesConflict(a, b);
 }
 
+/* M648 (the ledger audit, part five — a person's page at the ledger's door): WHO SOMEONE IS, IS ADDED TO — NEVER THINNED BY A
+ * WORKER. A core is "their stable nature… what never really changes", and the page-keeping worker is told to write it
+ * rarely; but whatever it sent REPLACED what stood: "the ferryman's niece; quick, proud, counts every coin; will not be
+ * pitied" became "a girl" in one answer, or "gentle and trusting, eager to please" — the drift his craft's Character
+ * Gravity forbids, written into the ledger and read back to the storyteller as who she is. A worker's core that keeps
+ * less than three-fifths of the telling words of the core that stands AND says less than it does is a thinning: it is
+ * not written (the worker's own path drops it and says so). A core that keeps what stood and adds, or a fuller
+ * rewrite, is written as before; the writer's own hand, the auditor (who restores a core to the brief) and a rebuild
+ * are not held to this. */
+export function thinsCore(standing, offered) {
+  const old = String(standing || '').trim();
+  const neu = String(offered || '').trim();
+  if (!old || !neu) return false;
+  const telling = (t) => new Set(t.toLowerCase().split(/[^\p{L}\p{N}'’-]+/u).map((w) => w.replace(/['’]s$/, '')).filter((w) => w.length >= 4));
+  const was = telling(old);
+  if (!was.size) return false;
+  const now = telling(neu);
+  let kept = 0;
+  for (const w of was) if (now.has(w)) kept += 1;
+  return kept / was.size < 0.6 && neu.length < old.length;
+}
 function nearName(a, b) {
   const x = foldName(a).split(' ').filter(Boolean);
   const y = foldName(b).split(' ').filter(Boolean);
