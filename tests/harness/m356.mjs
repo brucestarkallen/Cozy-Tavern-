@@ -451,3 +451,25 @@ test('M640-2 THE ROLE OF THE ONE LINE: his choice — but the storyteller’s ow
   eq(sensorRoleFor('system', { small: true }), 'system', 'and a system message');
   eq(sensorRoleFor(undefined) + '|' + sensorRoleFor('') + '|' + sensorRoleFor('teller') + '|' + sensorRoleFor(7), '|||', 'nothing chosen, or a word that is no role: as it ships');
 });
+
+test('M642-3 ONE NOTE AT A TIME FOR A STORY’S SHELF OF WORKERS: two workers noting at the same moment both keep their rows (the sensors note outside the chain), and a row that just turned fine is not put back to “stumbled” by the other’s write', async () => {
+  const { noteWorkerRun, loadWorkerStatus } = await import('../../js/agents/status.js');
+  const a = await db.stories.create({ title: 'two notes at once' });
+  await Promise.all([noteWorkerRun(a.id, 'sensors', { ok: true, detail: 'Working — read page 3' }), noteWorkerRun(a.id, 'extractor', { ok: true, detail: 'wrote 2 changes' })]);
+  eq(Object.keys(await loadWorkerStatus(a.id)).sort().join(','), 'extractor,sensors', 'both rows are kept');
+  for (const order of [['sensors', 'extractor'], ['extractor', 'sensors']]) {
+    const b = await db.stories.create({ title: 'a stale failure ' + order[0] });
+    await noteWorkerRun(b.id, 'extractor', { ok: false, why: 'the provider was busy' });
+    const notes = { sensors: { ok: true, detail: 'Working — read page 3' }, extractor: { ok: true, detail: 'wrote 2 changes' } };
+    await Promise.all(order.map((n) => noteWorkerRun(b.id, n, notes[n])));
+    const shelf = await loadWorkerStatus(b.id);
+    eq(shelf.extractor.ok + ':' + shelf.extractor.why + ':' + Boolean(shelf.sensors), 'true::true', 'the page reader is fine and the sensors’ row stands, whichever noted first (' + order.join(' then ') + ')');
+  }
+  /* many at once, across two stories: every row lands */
+  const c = await db.stories.create({ title: 'many' });
+  const names = ['extractor', 'world', 'scribe', 'keeper', 'sensors', 'auditor'];
+  await Promise.all([...names.map((n) => noteWorkerRun(c.id, n, { ok: true, detail: n })), noteWorkerRun(a.id, 'world', { ok: true, detail: 'other story' })]);
+  const many = await loadWorkerStatus(c.id);
+  eq(names.filter((n) => many[n] && many[n].detail === n).length, names.length, 'six notes at once: six rows, each its own words — ' + Object.keys(many).join(','));
+  assert((await loadWorkerStatus(a.id)).world && (await loadWorkerStatus(a.id)).sensors, 'and another story’s shelf is its own');
+});

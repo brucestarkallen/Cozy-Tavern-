@@ -100,7 +100,20 @@ export const RAW_CAP = 2000;
  * writer, who had been asleep, had no way to tell. A run that did real work
  * and did not reach the end is a THIRD thing: unfinished. It carries what it
  * would take to finish, so the house (or the writer) can pick it up. */
-export async function noteWorkerRun(storyId, name, { ok, why, detail, raw, unfinished, resume } = {}) {
+/* M642: ONE NOTE AT A TIME FOR A STORY'S SHELF. A note reads the whole shelf, changes its own row and writes the shelf
+ * back — two notes at the same moment each read the shelf as it stood, and the second write threw the first one's row
+ * away (run on purpose: the sensors and the page reader noting together left one row of the two; a row that had just
+ * turned from "stumbled" to fine could as well be put back to "stumbled"). The chain's own workers never collide — they
+ * run one after another — but the sensors note outside the chain since M638, and two lanes side by side (M529) note
+ * side by side. Every note now waits for the one before it. */
+const noteTail = new Map();
+export function noteWorkerRun(storyId, name, what = {}) {
+  const key = String(storyId || '');
+  const next = (noteTail.get(key) || Promise.resolve()).then(() => writeWorkerNote(storyId, name, what)).catch(() => { /* the ledger of workers never makes work of its own */ });
+  noteTail.set(key, next);
+  return next;
+}
+async function writeWorkerNote(storyId, name, { ok, why, detail, raw, unfinished, resume } = {}) {
   try {
     if (!storyId || !WORKER_NAMES.includes(name)) return;
     const shelf = (await loadWorkerStatus(storyId)) || {};

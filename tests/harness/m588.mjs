@@ -233,3 +233,58 @@ test('M641-3 THROUGH THE READER ITSELF: on a later page the reader is sent the n
   assert(read.mutations.some((m) => m.type === 'rel.set' && m.name === 'Yuki Tsukumo' && m.p === 50), 'and its decision is in the reading: ' + JSON.stringify(read.mutations));
   eq(applyMutations(st, read.mutations).state.relationships['Yuki Tsukumo'].p, 50, 'the ledger holds it');
 });
+
+/* M642 — his question: "why, most of the time, 'no longer knows' — it needs the auditor to make things right? Why not from
+ * their own worker?" */
+test('M642-1 WHO SAW IT IS THE READER’S OWN ANSWER: a fact with its "who" is written for exactly those people — a line each; "everyone here" is the room the page opened with and still holds; the main character never; the one who did it never; a line written the old way is left as it was', async () => {
+  const { parseExtractorAnswer, settleWitnesses, broadcastPublicMoments } = await import('../../js/agents/extractor.js');
+  const st = applyMutations({ ...emptyState(), page: 9 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The Thirteenth’s yard' },
+    ...['Jovan', 'Rukia', 'Renji', 'Captain Ukitake', 'Sentaro'].map((name) => ({ type: 'presence.enter', name }))]).state;
+  const here = ['Jovan', 'Rukia', 'Renji', 'Captain Ukitake', 'Kiyone'];
+  const answer = JSON.stringify({ mutations: [
+    { type: 'presence.enter', name: 'Kiyone' },                                                                                   /* she walks in at the end */
+    { type: 'presence.leave', name: 'Sentaro', cause: 'he went for the tea after the captain spoke' },
+    { type: 'knowledge.add', who: ['everyone here', 'Sentaro'], fact: 'heard Captain Ukitake announce that Jovan leads the patrol' }, /* said to the yard; Sentaro heard it before he went */
+    { type: 'knowledge.add', who: ['Rukia'], fact: 'saw the fresh bandage on Jovan’s hand' },                                      /* only she noticed */
+    { type: 'knowledge.add', who: ['Rukia', 'Jovan'], fact: 'heard Renji mutter that he does not trust the new man' },             /* he is never written for */
+    { type: 'knowledge.add', who: 'everyone here', fact: 'watched Kiyone hand the captain a sealed message' },                     /* her own act; she came in for it */
+    { type: 'knowledge.add', name: 'Renji', fact: 'was told the east gate is unguarded tonight' },                                 /* the old way: one name */
+  ], resolved: [], here });
+  const read = parseExtractorAnswer(answer);
+  const settled = broadcastPublicMoments(st, settleWitnesses(st, read.mutations, read.here), read.here);
+  const books = {};
+  for (const m of settled) if (m.type === 'knowledge.add') (books[m.name] = books[m.name] || []).push(m.fact);
+  const knows = (name) => (books[name] || []).map((f) => f.split(' ').slice(0, 3).join(' ')).sort().join(' | ');
+  eq(knows('Rukia'), 'heard Captain Ukitake | heard Renji mutter | saw the fresh | watched Kiyone hand', 'Rukia: all four she was there for');
+  eq(knows('Renji'), 'heard Captain Ukitake | was told the | watched Kiyone hand', 'Renji: what the yard heard and saw, and what he alone was told — not the bandage only Rukia noticed, not his own mutter');
+  eq(knows('Captain Ukitake'), 'watched Kiyone hand', 'the captain: not his own announcement; the message he was handed, yes');
+  eq(knows('Sentaro'), 'heard Captain Ukitake', 'Sentaro, who left after it: the announcement, by name');
+  eq(knows('Kiyone'), '', 'Kiyone, who walked in at the end: nothing she was not there for, and not her own act');
+  eq(knows('Jovan'), '', 'the main character is never written for');
+  assert(settled.filter((m) => m.type === 'knowledge.add').every((m) => typeof m.name === 'string' && m.name && m.room === undefined), 'every line has its one person; no “everyone” is left unsettled');
+  const after = applyMutations(st, settled).state;
+  eq(Object.keys(after.knowledge).sort().join(','), 'Captain Ukitake,Renji,Rukia,Sentaro', 'and that is what the ledger holds');
+  /* the same page read the old way — one name a fact — is shared by the old rule, as it always was (nothing regresses for a reader that has not learned the new word) */
+  const old = broadcastPublicMoments(st, settleWitnesses(st, [{ type: 'knowledge.add', name: 'Rukia', fact: 'saw the fresh bandage on Jovan’s hand' }], here), here);
+  assert(old.filter((m) => m.type === 'knowledge.add').length > 1, 'the old rule copies a “saw…” line round the room — the guess the reader’s own “who” replaces');
+  /* shapes a reader may give */
+  eq(parseExtractorAnswer(JSON.stringify({ mutations: [{ type: 'knowledge.add', name: 'Rukia', who: [{ name: 'Renji' }, 'rukia'], fact: 'f' }] })).mutations.map((m) => m.name).join(','), 'Rukia,Renji', 'a name beside the list joins it once; a witness given as an object is read');
+  eq(parseExtractorAnswer(JSON.stringify({ mutations: [{ type: 'knowledge.add', who: 'Everyone here', fact: 'f' }] })).mutations[0].room, true, '“everyone here” waits for the room');
+  for (const phrase of ['everyone', 'Everybody here', 'everyone present', 'all here', 'all of them', 'everyone in the yard']) eq(parseExtractorAnswer(JSON.stringify({ mutations: [{ type: 'knowledge.add', who: phrase, fact: 'f' }] })).mutations[0].room, true, '“' + phrase + '” is the room');
+  eq(parseExtractorAnswer(JSON.stringify({ mutations: [{ type: 'knowledge.add', who: ['All Might', 'Allen', 'Everyone Else Inc'], fact: 'f' }] })).mutations.map((m) => m.name + (m.room ? '!' : '')).join(','), 'All Might,Allen,Everyone Else Inc', 'a name that merely begins like it is a person');
+  eq(JSON.stringify(parseExtractorAnswer(JSON.stringify({ mutations: [{ type: 'knowledge.add', name: 'Rukia', fact: 'f' }] })).mutations), JSON.stringify([{ type: 'knowledge.add', name: 'Rukia', fact: 'f' }]), 'a line with no “who” is untouched');
+});
+
+test('M642-2 THROUGH THE READER ITSELF: it is told that who saw it is its own to decide, and what it decides is the reading — a thing one person noticed stays that person’s', async () => {
+  const { extractTurn } = await import('../../js/agents/extractor.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const st = applyMutations({ ...emptyState(), page: 9 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The Thirteenth’s yard' }, ...['Jovan', 'Rukia', 'Renji', 'Captain Ukitake'].map((name) => ({ type: 'presence.enter', name })), { type: 'rel.set', name: 'Rukia', p: 30, cause: 'x' }, { type: 'rel.set', name: 'Renji', p: -10, cause: 'x' }, { type: 'rel.set', name: 'Captain Ukitake', p: 20, cause: 'x' }]).state;
+  const page = '[The Thirteenth’s yard — Monday, March 3, 2025 | 09:30 | clear | shihakushō | by the rail]\n\nRukia’s eyes went to the fresh bandage on his hand; nobody else looked.';
+  const house = thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }, { type: 'knowledge.add', who: ['Rukia'], fact: 'saw the fresh bandage on Jovan’s hand' }], resolved: [], here: ['Jovan', 'Rukia', 'Renji', 'Captain Ukitake'] }) });
+  const read = await withHouse(house, () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'I rest my hand on the rail.', assistantText: page, pageNumber: 10 }));
+  const told = JSON.stringify(house.calls[0].body.messages);
+  assert(/WHO IS YOURS TO DECIDE, FROM THE PAGE/.test(told) && /\\"who\\":\[\\"NAME\\",\\"OTHER NAME\\"\]/.test(told) && /never someone who came in after it, had gone before it, or from whom it was kept/.test(told), 'the reader is told that who saw it is its own to decide, and how');
+  eq(read.mutations.filter((m) => m.type === 'knowledge.add').map((m) => m.name).join(','), 'Rukia', 'what only she noticed is hers alone — not copied round the room by its first word');
+  eq(JSON.stringify(read.mutations.find((m) => m.type === 'knowledge.add')), JSON.stringify({ type: 'knowledge.add', fact: 'saw the fresh bandage on Jovan’s hand', name: 'Rukia' }), 'and the line that goes to the ledger is the line as it has always been written — no mark left on it');
+  eq(Object.keys(applyMutations(st, read.mutations).state.knowledge).join(','), 'Rukia', 'and that is what the ledger holds');
+});

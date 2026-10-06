@@ -4178,6 +4178,9 @@ test('DOM-75 THE SENSORS IN THE APP (M356, rebuilt at M636): off, nothing is ask
     /* M638: IS IT WORKING — the reading is said in one plain sentence on the workers' line, and Settings shows it; "Check the
      * sensors" reads the newest page now and says what happened, a failure as plainly as a success */
     const { loadWorkerStatus } = await import('../../js/agents/status.js');
+    /* M642: the reading is written on the page first and the sentence noted a moment after — a look made between the two
+     * saw no sentence yet (it failed one full walk that way); the law is that the sentence IS there, so it is waited for */
+    await until(async () => Boolean((await loadWorkerStatus(st.id)).sensors), 'the sensors’ sentence on the workers’ line', 10000);
     const noted = (await loadWorkerStatus(st.id)).sensors;
     assert(noted && /^Working — .+ read page 3: \d+ answers in [\d.]+ s\./.test(noted.detail) && /Slips it saw on that page: easy agreement\./.test(noted.detail), 'it says it works, which page it read and what it saw: ' + (noted && noted.detail));
     await openSettings();
@@ -8096,6 +8099,48 @@ test('DOM-234 A STANDING THE OPENING DID NOT WRITE IS WRITTEN BY THE NEXT PAGE (
     type(q('#composer-input'), 'I finish the bowl.'); submit(q('#composer'));
     await settle(3);
     eq(askedOn.length, askedBefore, 'once written, the reader is not asked about her again');
+  } finally {
+    house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-235 WHO KNOWS WHAT IS WRITTEN AS THE PAGE READER DECIDED IT (M642 — his question: "why does it need the auditor to make things right, why not their own worker"): a thing one person noticed is in that person’s book alone, a thing said to the room is in the room’s books, and nothing is copied round by its first word', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { loadState } = await import('../../js/engine/state.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'who saw it' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  let pages = 0; let toldWho = false;
+  const H = '[The Thirteenth’s yard — Monday, March 3, 2025 | 09:';
+  house.state.storyAnswer = () => { pages += 1; return H + (10 + pages) + ' | clear | shihakushō | by the rail]\n\n' + (pages === 1 ? 'Jovan stood by the rail with Rukia, Renji and Captain Ukitake.' : 'Rukia’s eyes went to the fresh bandage on his hand; nobody else looked. “Jovan leads the patrol,” the captain told the yard.'); };
+  house.state.workerAnswer = (body, sys) => {
+    const system = String(sys || '');
+    if (/THE LEDGER IS YOUNG/.test(system)) return JSON.stringify({ mutations: [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The Thirteenth’s yard' }, ...['Jovan', 'Rukia', 'Renji', 'Captain Ukitake'].map((name) => ({ type: 'presence.enter', name })), { type: 'mode.snapshot', modes: [] }], resolved: [], here: ['Jovan', 'Rukia', 'Renji', 'Captain Ukitake'] });
+    if (/WHO IS YOURS TO DECIDE, FROM THE PAGE/.test(system) && pages === 2) {
+      toldWho = true;
+      return JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] },
+        { type: 'knowledge.add', who: ['Rukia'], fact: 'saw the fresh bandage on Jovan’s hand' },
+        { type: 'knowledge.add', who: 'everyone here', fact: 'heard Captain Ukitake tell the yard that Jovan leads the patrol' }], resolved: [], here: ['Jovan', 'Rukia', 'Renji', 'Captain Ukitake'] });
+    }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+  };
+  const settle = async (n) => { await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= n && !env.ctx.chat.isBusy(), 'page ' + n, 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); };
+  try {
+    type(q('#composer-input'), '#story bleach — I report to the Thirteenth’s yard'); submit(q('#composer'));
+    await settle(1);
+    type(q('#composer-input'), 'I rest my hand on the rail.'); submit(q('#composer'));
+    await settle(2);
+    assert(toldWho, 'the page reader was told that who saw it is its own to decide');
+    const know = ((await loadState(st.id)) || {}).knowledge || {};
+    const has = (name, re) => (know[name] || []).some((k) => re.test(k.fact));
+    assert(has('Rukia', /fresh bandage/), 'Rukia noticed the bandage: ' + JSON.stringify(know));
+    assert(!has('Renji', /fresh bandage/) && !has('Captain Ukitake', /fresh bandage/), 'nobody else has it — though the line begins with “saw”: ' + JSON.stringify(know));
+    assert(has('Rukia', /leads the patrol/) && has('Renji', /leads the patrol/), 'what the captain told the yard is in the yard’s books');
+    assert(!has('Captain Ukitake', /tell the yard/) && !know.Jovan, 'not in the book of the one who said it, and never the main character’s');
   } finally {
     house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
   }

@@ -16135,3 +16135,64 @@ ago it was fine, or sometimes it's not fine — how is this happening". (M532 ha
 - version.js -> m641-001.
 - GATES at m641-001 (one CPU), on the tree that was pushed: harness 1250/1250, walk 234/234, long play 9/9, lint 0 errors
   (179 warnings, as at m640), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
+
+# M642 — who knows what is the page reader's own to decide (why the auditor kept saying "no longer knows")
+His question: "I'm confused why, most of the time, 'no longer knows' — it needs the auditor to make things right? Why not
+from their own worker?" (At M520 he had asked the same of one audit: "can this be prevented before the auditor saw it?")
+- WHERE "NO LONGER KNOWS" COMES FROM: knowledge.forget, which only the auditor (and his housekeeper) may write, and which
+  the auditor is told to use for one thing — "a line the pages contradict". So every such line is the auditor taking out
+  a who-knows-what line that was WRITTEN WRONG by the worker before it.
+- WHO WROTE THEM WRONG: not the page reader's judgement — CODE. The reader was told to write a fact "for each of them" and
+  in practice named ONE witness; so M509-15 added broadcastPublicMoments: a fact whose words look public is copied into
+  every book in the room. "Looks public" is a keyword rule (world.js publicMoment): any line BEGINNING "saw / watched /
+  witnessed" is the whole room's; a heard line only if it happens to say "aloud", "announced", "before the whole court".
+  Wrong both ways, by construction: a bandage only Rukia noticed ("saw the fresh bandage…") went into every book in the
+  yard, and a thing the captain told the yard went to nobody but the one named, unless the reader's wording carried a
+  magic word. The auditor, who reads everything, then took the first kind out ("no longer knows") and put the second
+  kind in, audit after audit. M520 and M522 each patched the guess (the doer, hidden acts); the guess stayed.
+- THE CURE — the decision goes to the worker that has the page in front of it. The page reader's knowledge.add now says
+  WHO (extractor.js VOCABULARY, and item 3 of its law): "who" names EVERY person the page put it in front of, each by
+  name — close enough to see or hear it, awake, there when it happened (never someone who came in after it, had gone
+  before it, or from whom it was kept: a whisper is the two it passed between) — or "everyone here" for what happened
+  in front of the whole scene, meaning everyone in the scene when the page opened and still in it at its end; anyone
+  else who was there for it is added by name (["everyone here","NAME"]). Never the main character; never the one who did
+  or said it.
+  - parseExtractorAnswer: a fact with "who" becomes one line a witness (a name beside the list joins it once; a witness
+    given as an object is read; "everyone here" in its several phrasings — never a NAME that merely begins like it, "All
+    Might" is a person — waits for the room). settleWitnesses (in extractTurn, which alone knows the room): "everyone
+    here" is the room the page opened with and still holds (roomOfPage ∩ isHere; someone who walked in during the page is
+    the reader's to name — a person who knows what they were not there for is the worse slip), minus the one who did it
+    (didIt, M520/M522's own rule, now one definition); the main character is dropped; one line a witness.
+  - broadcastPublicMoments passes by every fact the reader decided. A line written the old way — one "name", no "who" —
+    is shared by the old rule exactly as before, so a reader that has not picked up the new word loses nothing.
+  - The mark that carries the decision (decided / room) is taken off before the lines leave extractTurn: what reaches the
+    ledger and its journal is {type, name, fact}, as it always was. VOCABULARY is private to extractor.js and only
+    chat.js calls extractTurn: no other worker is shown the word or has to read it (checked).
+- LAWS: m588.mjs M642-1 (a six-person page as a reader would answer it: the yard's announcement, a bandage one person
+  noticed, a mutter, a message handed over, a man who left after, a woman who walked in at the end, one old-style line —
+  each book checked by name; the old rule still copies an old-style "saw…" line; the phrasings; "All Might"), M642-2
+  (through extractTurn on a real provider call: the reader is told who is its to decide; the line reaches the ledger
+  unmarked). The older laws of the guess (M509-15 in m508.mjs, M520, M522) stand unchanged. WALK DOM-235, through the
+  app: the bandage in Rukia's book alone though its line begins with "saw"; the captain's word to the yard in the yard's
+  books, not his own, never the main character's.
+- NOT DONE, AND WHY: not run against his worker's model (no key in the session). What is proven: the reader is told, with
+  the shape of the answer, that who saw it is its own to decide, and whatever it answers is written exactly. A reader
+  that answers badly will still be set right by the auditor — that is the auditor's place: the rare slip, not every page.
+- THE FIRST FULL WALK ON THIS CHANGE FAILED DOM-75 ONCE ("it says it works…: undefined" — no sensors row on the workers'
+  shelf at the moment it looked). Run down, not rerun:
+  1. THE SCENARIO LOOKED TOO EARLY: sensePage writes the reading on the page and THEN notes the sentence; the scenario
+     waited for the reading and read the shelf at once. It now waits for the sentence. (A scratch run measured the
+     sentence already there at that instant three times of three on an idle machine — so that alone was not the answer.)
+  2. AND A REAL FAULT BEHIND IT, FOUND BY ASKING WHAT ELSE COULD LEAVE THE ROW MISSING: noteWorkerRun reads the whole
+     shelf, changes one row and writes the shelf back. Two notes at once each read the old shelf, and the second write
+     threw the first one's row away — made to happen on purpose with the real functions: the sensors and the page reader
+     noting together left ONE row of two; and a row that had just turned from "stumbled" to fine could be written back to
+     "stumbled" by the other's stale copy (the ledger's light reads those rows). The chain's workers never collide, but
+     the sensors have noted OUTSIDE the chain since M638 — my own change made this reachable on an ordinary quick send —
+     and two lanes side by side (M529) could always do it. status.js: every note for a story now waits for the one before
+     it (noteTail). Law M642-3 (m356.mjs): two at once keep both rows, in either order after a failure; six at once keep
+     six; another story's shelf is its own. It fails on the old function (one row).
+- version.js -> m642-001.
+- GATES at m642-001 (one CPU), on the tree that was pushed: harness 1253/1253, walk 235/235, long play 9/9, lint 0 errors
+  (179 warnings, as at m641), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each. That is the SECOND full run:
+  the first failed DOM-75 once, which is the failure run down above (two causes found, both fixed, one a real fault).

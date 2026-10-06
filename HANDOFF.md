@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m641-001)
+# Cozy Tavern — handoff for the next session (state at m642-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -62,6 +62,10 @@
   cure has been the same: hand it the things by NAME and make it answer for each in a slot of its own — the open threads
   (M280, "resolved") and the people with no standing (M641, "standings"). If something the ledger should hold "keeps
   being empty", look first at whether any reader is ever asked about that thing in particular.
+- WHEN THE AUDITOR KEEPS SETTING ONE KIND OF THING RIGHT, THAT KIND OF THING IS BEING WRITTEN WRONG UPSTREAM — find the
+  writer. For who-knows-what it was CODE guessing a witness list from a fact's first word (M509-15, patched at M520 and
+  M522); since M642 the page reader says "who" with every fact and code writes exactly that. Never add another keyword
+  rule to publicMoment: a line the reader decided is not guessed over, and the old rule is only for a line with no "who".
 - A GATE THAT FAILS ONCE AND PASSES ON A RERUN HAS NOT PASSED. Never write "timing", "rare" or "flaky" in these notes, and
   never push on the rerun: read the failing report against the state, make the failure happen on purpose, and only then
   call it the app's fault or the test's — and say which to the writer. M638 was pushed, and told to him as done, with

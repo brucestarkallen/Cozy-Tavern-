@@ -142,7 +142,7 @@ const VOCABULARY = [
    * burning in the ledger, read to the storyteller every turn as something
    * still hanging. */
   'thread.close {"type":"thread.close","title":"the title as the ledger holds it"} — a story thread THIS page resolved: the question answered, the plan abandoned, the promise kept, the thing found. Use the title the ledger shows, worded as it stands (each title is quoted on the thread list).',
-  'knowledge.add {"type":"knowledge.add","name":"NAME","fact":"that Orrin Vale lived in England"} — when someone in the scene LEARNS something that could matter later: a secret told, a name heard, a lie caught, a thing seen they were not meant to see. A LIE OR A COVER STORY THEY BELIEVE is written as what they believe AND that it is untrue — fact "believes Orrin Vale is only a recruit — untrue: Orrin Vale is the new captain of the guard" — and when the truth comes out in front of them, what they learned: "learned Orrin Vale is the new captain, not a recruit — he had told them otherwise". Only what THIS page put in front of them, and only where being told, or not told, could change what they do. WRITE IT IN THE PAGE\'S OWN TERMS: what was said, seen or overheard, exactly — "their mother" if the page said their mother, never "his stepmother" because you know the family; who said it to whom as the page has it; never what the person would conclude from it. A fact the page did not put in front of them is not knowledge, however likely.',
+  'knowledge.add {"type":"knowledge.add","who":["NAME","OTHER NAME"],"fact":"that Orrin Vale lived in England"} — when someone in the scene LEARNS something that could matter later: a secret told, a name heard, a lie caught, a thing seen they were not meant to see. A LIE OR A COVER STORY THEY BELIEVE is written as what they believe AND that it is untrue — fact "believes Orrin Vale is only a recruit — untrue: Orrin Vale is the new captain of the guard" — and when the truth comes out in front of them, what they learned: "learned Orrin Vale is the new captain, not a recruit — he had told them otherwise". Only what THIS page put in front of them, and only where being told, or not told, could change what they do. WRITE IT IN THE PAGE\'S OWN TERMS: what was said, seen or overheard, exactly — "their mother" if the page said their mother, never "his stepmother" because you know the family; who said it to whom as the page has it; never what the person would conclude from it. A fact the page did not put in front of them is not knowledge, however likely. WHO IS YOURS TO DECIDE, FROM THE PAGE: "who" names EVERY person the page put it in front of, each by name — close enough to see or hear it, awake, and there when it happened (never someone who came in after it, had gone before it, or from whom it was kept: a whisper is the two it passed between). Write "who":"everyone here" when it happened or was said in front of the whole scene: that means everyone who was in the scene when this page opened and is still in it at its end. Anyone else who was there for it — someone who walked in before it happened, someone who left after it — is added by name: "who":["everyone here","NAME"]. One witness is a list of one. Never the main character, and the one who did or said it is no witness of their own act.',
   'mode.snapshot {"type":"mode.snapshot","flags":["travel"]} — THE WHOLE BOARD, EVERY PAGE: every mood that holds at the END of this page, from: combat (a fight is on), intimate (sex or intimate touch is on), travel (in transit — a car, a train, a road; NOT once they have arrived and stepped out), socialField (a crowded public place full of voices), isolation (alone, far from help), group (in company of several). Anything you do not name is cleared. An empty list clears them all.',
   'body.injure {"type":"body.injure","name":"NAME","what":"left forearm fractured","sev":2,"treated":false} — only when a blow lands on-page; sev is 1 (a graze), 2 (a real wound), or 3 (severe); treated only if someone tends it on-page',
   'body.strain {"type":"body.strain","name":"NAME","what":"the long climb"} — weariness short of injury, when the prose shows it',
@@ -242,7 +242,7 @@ function systemPrompt({ mc, founding }) {
       '     crossing to the window: presence.update. Their old position is a lie',
       '     until you write the new one.',
       '  3. SOMEONE LEARNED SOMETHING. Anyone standing there who heard the answer,',
-      '     saw the handshake, caught the lie: knowledge.add, for each of them.',
+      '     saw the handshake, caught the lie: knowledge.add, every one of them named in its "who".',
       '  4. WHAT THE PAGE ANSWERED. A question asked and answered, a promise kept,',
       '     a plan abandoned — thread.close, the title exactly as the ledger quotes it.',
       'THE LEDGER ABOVE IS ALL OF IT — every standing, thread, line of who knows what',
@@ -463,6 +463,24 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
     const mutations = list.filter(
       (m) => m && typeof m === 'object' && typeof m.type === 'string' && m.type.trim()
     );
+    /* M642: WHO SAW IT IS THE READER'S OWN ANSWER. A knowledge.add that says "who" is written for exactly those people —
+     * one line each, marked `decided` so nothing downstream guesses again; "everyone here" waits (room: true) for the room
+     * this page ends with, which extractTurn knows. A line with only a "name", as the reader always wrote them, is left
+     * exactly as it was. */
+    for (let i = mutations.length - 1; i >= 0; i -= 1) {
+      const m = mutations[i];
+      if (m.type !== 'knowledge.add' || m.who === undefined || m.who === null) continue;
+      const { who, ...rest } = m;
+      /* the whole phrase, never a name that merely begins like it ("All Might" is a person) */
+      const EVERYONE = /^\s*(?:(?:everyone|everybody)(?:\s+(?:here|present|there|in\s+the\s+\p{L}+))?|all\s+(?:here|present|of\s+them))\s*$/iu;
+      const listed = (Array.isArray(who) ? who : [who]).map((n) => (typeof n === 'string' ? n : n && typeof n.name === 'string' ? n.name : '')).map((n) => String(n || '').trim()).filter((n) => n && n.length <= 80);
+      const wholeRoom = listed.some((n) => EVERYONE.test(n));
+      const names = [];
+      for (const n of [typeof rest.name === 'string' ? rest.name.trim() : '', ...listed.filter((x) => !EVERYONE.test(x))]) if (n && !names.some((x) => x.toLowerCase() === n.toLowerCase())) names.push(n);
+      const lines = names.map((n) => ({ ...rest, name: n, decided: true }));
+      if (wholeRoom) { const { name: _one, ...roomLine } = rest; lines.unshift({ ...roomLine, room: true, decided: true }); }
+      mutations.splice(i, 1, ...(lines.length ? lines : [rest]));
+    }
     /* M280: each title the page resolved closes its thread (once) */
     const closing = new Set(mutations.filter((m) => m.type === 'thread.close').map((m) => String(m.title || m.name || '').trim().toLowerCase()));
     for (const title of (Array.isArray(parsed.resolved) ? parsed.resolved : [])) {
@@ -632,14 +650,18 @@ export async function extractTurn(args = {}) {
      * privacy) is written for everyone in the room on this page — the page's own room when the reader named it, else
      * everyone present after this page's walk-ins and leaves — never the main character. A whisper stays with those the
      * reader gave it to. */
-    if (args.state) read.mutations = broadcastPublicMoments(args.state, read.mutations, read.here);
+    if (args.state) {
+      read.mutations = settleWitnesses(args.state, read.mutations, read.here); /* M642: what the reader itself decided */
+      read.mutations = broadcastPublicMoments(args.state, read.mutations, read.here);
+      /* the mark has done its work: what goes to the ledger and its journal is the line as it has always been written */
+      read.mutations = read.mutations.map((m) => { if (!m || m.decided === undefined) return m; const line = { ...m }; delete line.decided; delete line.room; return line; });
+    }
   }
   return read;
 }
-export function broadcastPublicMoments(state, mutations, here) {
-  const list = Array.isArray(mutations) ? mutations : [];
-  const facts = list.filter((m) => m && m.type === 'knowledge.add' && typeof m.fact === 'string' && typeof m.name === 'string' && publicMoment(m.fact));
-  if (!facts.length) return list;
+/* the room a page ends with: the reader's own "here" when it named one, else everyone present after this page's walk-ins
+ * and leaves — never the main character, never someone the same answer takes out */
+function roomOfPage(state, list, here) {
   const leaving = new Set(list.filter((m) => m && m.type === 'presence.leave').map((m) => String(m.name || '').trim().toLowerCase()));
   const room = [];
   const add = (n) => { const t = String(n || '').trim(); if (!t || isMc(state, t) || leaving.has(t.toLowerCase())) return; if (!room.some((r) => r === t || samePersonName(r, t))) room.push(t); };
@@ -648,30 +670,69 @@ export function broadcastPublicMoments(state, mutations, here) {
     for (const p of (Array.isArray(state.present) ? state.present : [])) add(p && p.name);
     for (const m of list) if (m && m.type === 'presence.enter' && typeof m.name === 'string') add(m.name);
   }
+  return room;
+}
+/* M520/M522: the one who DID a seen or heard moment — the name right after the seeing or hearing — by their whole name or
+ * its first word ("the paladin" is "paladin"); never someone merely named in it */
+const DOER = /^(?:saw|watched|witnessed|observed|looked on as|was there when|heard|overheard|listened to|listened as)\s+(?:as\s+)?(?:the\s+)?(.*)$/i;
+function didIt(name, fact) {
+  const m = DOER.exec(String(fact || '').trim());
+  if (!m) return false;
+  const rest = m[1];
+  const words = String(name || '').replace(/^\s*the\s+/i, '').split(/\s+/).filter(Boolean);
+  if (!words.length) return false;
+  const esc = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const lead = (w) => new RegExp('^' + w + '(?:[’\']s)?($|[^\\p{L}\\p{N}])', 'iu');
+  return lead(words.map(esc).join('\\s+')).test(rest) || (words[0].length >= 3 && lead(esc(words[0])).test(rest));
+}
+/* M642: WHO KNOWS WHAT IS THE PAGE READER'S OWN TO DECIDE — his question: "why, most of the time, 'no longer knows' — it
+ * needs the auditor to make things right? Why not from their own worker?" Because the reader named ONE witness and CODE
+ * guessed the rest from the fact's first word: every line beginning "saw" or "watched" went into every book in the room
+ * (a hand only Rukia noticed, in six books), and a thing said in front of everyone went to nobody else unless the line
+ * happened to say "aloud" or "before the whole court". Wrong both ways — and the auditor, who reads everything, then took
+ * lines out ("no longer knows") and put others in, audit after audit (M509-15, M520, M522 each patched the guess).
+ * The reader has the page in front of it. It now says, with every fact, WHO the page put it in front of ("who": names,
+ * or "everyone here"), and the house writes exactly that: a line a witness, the main character never, and for "everyone
+ * here" the room this page ends with — never the one who did it. A line the reader has decided is guessed over by
+ * nothing (broadcastPublicMoments passes it by). */
+export function settleWitnesses(state, mutations, here) {
+  const list = Array.isArray(mutations) ? mutations : [];
+  if (!list.some((m) => m && m.type === 'knowledge.add' && m.decided === true)) return list;
+  /* "everyone here": in the scene when the page opened AND still in it at its end — someone who walked in during the page
+   * may have come after it, and is the reader's to name (false knowledge is the worse slip: a person who knows what they
+   * were not there for) */
+  const stood = roomOfPage(state, list, here);
+  const before = stood.filter((n) => isHere(state, n));
+  const room = before.length ? before : stood;
+  const out = [];
+  const has = (name, fact) => out.some((m) => m.type === 'knowledge.add' && m.fact === fact && typeof m.name === 'string' && (m.name.toLowerCase() === name.toLowerCase() || samePersonName(m.name, name)));
+  for (const m of list) {
+    if (!m || m.type !== 'knowledge.add' || m.decided !== true) { out.push(m); continue; }
+    if (m.room === true) {
+      const { room: _wholeRoom, ...rest } = m;
+      for (const n of room) if (!didIt(n, m.fact) && !has(n, m.fact)) out.push({ ...rest, name: n });
+      continue;
+    }
+    if (typeof m.name !== 'string' || isMc(state, m.name) || has(m.name, m.fact)) continue; /* never him; one line a witness */
+    out.push(m);
+  }
+  return out;
+}
+export function broadcastPublicMoments(state, mutations, here) {
+  const list = Array.isArray(mutations) ? mutations : [];
+  /* M642: a line whose witnesses the reader named is never guessed over — only a line written the old way, with one name */
+  const settled = new Set(list.filter((m) => m && m.type === 'knowledge.add' && m.decided === true).map((m) => m.fact));
+  const facts = list.filter((m) => m && m.type === 'knowledge.add' && typeof m.fact === 'string' && typeof m.name === 'string' && !settled.has(m.fact) && publicMoment(m.fact));
+  if (!facts.length) return list;
+  const room = roomOfPage(state, list, here);
   if (room.length < 2) return list;
-  /* M520: A MOMENT SOMEONE DID IS NOT WRITTEN INTO THEIR OWN BOOK FROM ANOTHER'S EYES. "Saw the paladin hesitate at the
-   * gate" went into the paladin's book; "heard the priestess pray aloud" into the priestess's — the auditor found a party's
-   * books scrambled and set 27 lines right. M522: only the one who DID it — the name right after the seeing or hearing
-   * ("saw the paladin…", "heard the demon prince offer…") — never someone merely named in it: "heard the demon prince offer
-   * all of them — even the paladin — a place at his side" is the paladin's to know too (the auditor then tried to give it to
-   * him, and could not). By their whole name or its first word ("the paladin" is "paladin"). */
-  const DOER = /^(?:saw|watched|witnessed|observed|looked on as|was there when|heard|overheard|listened to|listened as)\s+(?:as\s+)?(?:the\s+)?(.*)$/i;
-  const about = (name, fact) => {
-    const m = DOER.exec(String(fact || '').trim());
-    if (!m) return false;
-    const rest = m[1];
-    const words = String(name || '').replace(/^\s*the\s+/i, '').split(/\s+/).filter(Boolean);
-    if (!words.length) return false;
-    const esc = (w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const lead = (w) => new RegExp('^' + w + '(?:[’\']s)?($|[^\\p{L}\\p{N}])', 'iu');
-    return lead(words.map(esc).join('\\s+')).test(rest) || (words[0].length >= 3 && lead(esc(words[0])).test(rest));
-  };
+  /* M520/M522: a moment someone did is not written into their own book from another's eyes (didIt, above) */
   const out = list.slice();
   for (const f of facts) {
     const holders = new Set(list.filter((m) => m && m.type === 'knowledge.add' && m.fact === f.fact).map((m) => String(m.name).trim().toLowerCase()));
     for (const n of room) {
       if (holders.has(n.toLowerCase()) || [...holders].some((h) => samePersonName(h, n))) continue;
-      if (about(n, f.fact)) continue;
+      if (didIt(n, f.fact)) continue;
       out.push({ type: 'knowledge.add', name: n, fact: f.fact, ...(f.at ? { at: f.at } : {}) });
       holders.add(n.toLowerCase());
     }
