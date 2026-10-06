@@ -145,7 +145,10 @@ export function initStorySearch(ctx) {
     if (e.key === 'Enter') { clearTimeout(timer); run(input.value).catch(() => {}); }
   });
 
-  const api = { run: (q) => { input.value = q; return run(q); }, close: () => { input.value = ''; closeResults(); } };
+  /* M629 (the session's audit): results standing while a tale is deleted, renamed or moved went stale — a tap on a deleted
+   * tale's place led nowhere; the house's word that the shelf changed searches again */
+  const refresh = () => { if (!box.hidden && searchKey(input.value).length >= SEARCH_MIN) run(input.value).catch(() => {}); };
+  const api = { run: (q) => { input.value = q; return run(q); }, close: () => { input.value = ''; closeResults(); }, refresh };
   if (ctx) ctx.search = api;
   return api;
 }

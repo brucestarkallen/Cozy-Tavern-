@@ -10025,12 +10025,18 @@ test('DOM-222 SEARCH INSIDE THE TALES (M622 — his: "a search section on the si
     click(hit);
     await until(() => env.window.__cozy.getActiveStoryId() === older.id, 'the tale opens');
     await until(() => [...document.querySelectorAll('#thread .msg')].some((n) => n.dataset.id === firstPage.id && n.classList.contains('search-hit')), 'its first page — far behind the three turns on screen — is shown and marked', 15000);
+    /* M629 (the session's audit): a tale deleted while its results stand leaves the results */
+    type(q('#story-search'), 'silver key');
+    await until(() => [...document.querySelectorAll('#search-results .search-tale-title')].some((n) => n.textContent === 'Search newer tale'), 'the results again', 15000);
+    await db.stories.remove(newer.id);
+    env.ctx.onStoriesChanged();
+    await until(() => !q('#search-results').hidden && ![...document.querySelectorAll('#search-results .search-tale-title')].some((n) => n.textContent === 'Search newer tale'), 'the deleted tale leaves the results', 15000);
     q('#story-search').dispatchEvent(new env.window.KeyboardEvent('keydown', { key: 'Escape' }));
     await until(() => q('#search-results').hidden && !q('#story-list').hidden && q('#story-search').value === '', 'Escape brings the shelf back');
   } finally {
     house.state.searchAnswer = null;
     if (turnsWas === undefined) await db.settings.delete('turnsShown'); else await db.settings.set('turnsShown', turnsWas);
-    for (const s of [older, newer, farAway]) await db.stories.remove(s.id);
+    for (const s of [older, newer, farAway]) await db.stories.remove(s.id).catch(() => {});
     await env.ctx.chat.refreshStories(true);
   }
 });
@@ -10106,6 +10112,49 @@ test('DOM-224 A HEADER THAT NAMES ONLY THE CITY IS NO MOVE, THROUGH THE APP (M62
   } finally {
     house.state.storyAnswer = prior;
     house.state.workerAnswer = priorWorker;
+  }
+});
+
+test('DOM-225 A SMALL STORYTELLER IS NOT SENT THE ADDED NOTES WHILE ITS NOTE SWITCH IS OFF (M629 — the session audit: M624 let them past "Send the note to a small model"); turned on, they ride; a storyteller that is not small gets them by their own ticks', async () => {
+  const { saveState: saveLedger, emptyState: blankLedger } = await import('../../js/engine/state.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const st = await db.stories.create({ title: 'small and its notes' });
+  await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[The gate \u2014 Monday, March 3, 2025 | 09:00 | clear]\n\nThe gate was quiet.' });
+  await saveLedger(st.id, { ...blankLedger(), sheet: { actors: {}, playerName: 'Jovan' }, page: 0, readTo: 0, tidiedGen: 999, healedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const activeId = await tellerConnectionId();
+  const was = { adds: await db.settings.get('noteAdds'), small: await db.settings.get('noteOnSmall') };
+  await db.settings.set('noteAdds', [{ id: 'a', on: true, text: 'A NOTE OF HIS' }]);
+  const tellerText = async (words) => {
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id) && !env.ctx.chat.isBusy(), 'quiet', 30000);
+    const from = house.state.calls.length;
+    type(q('#composer-input'), words); submit(q('#composer'));
+    const call = await until(() => house.state.calls.slice(from).find((c) => !c.isWorker), 'the storyteller request', 30000);
+    await until(() => !env.ctx.chat.isBusy(), 'the page', 30000);
+    return JSON.stringify(call.body.messages || []);
+  };
+  try {
+    await db.connections.update(activeId, { smallModel: true });
+    await env.ctx.chat.refreshQuickSwitch();
+    await db.settings.set('noteOnSmall', false);
+    const held = await tellerText('I look at the gate.');
+    assert(!/A NOTE OF HIS/.test(held) && !/run your pass to yourself/.test(held), 'a small model, its note switch off: neither his note nor the house\u2019s');
+    await db.settings.set('noteOnSmall', true);
+    const sent = await tellerText('I look again.');
+    assert(/A NOTE OF HIS/.test(sent) && /run your pass to yourself/.test(sent), 'its note switch on: both ride');
+    await db.connections.update(activeId, { smallModel: false });
+    await env.ctx.chat.refreshQuickSwitch();
+    await db.settings.set('noteOnSmall', false);
+    const big = await tellerText('I wait a while.');
+    assert(/A NOTE OF HIS/.test(big) && /run your pass to yourself/.test(big), 'not a small model: they ride by their own ticks, whatever the small switch says');
+  } finally {
+    await db.connections.update(activeId, { smallModel: false });
+    await env.ctx.chat.refreshQuickSwitch();
+    if (was.adds === undefined) await db.settings.delete('noteAdds'); else await db.settings.set('noteAdds', was.adds);
+    if (was.small === undefined) await db.settings.delete('noteOnSmall'); else await db.settings.set('noteOnSmall', was.small);
   }
 });
 

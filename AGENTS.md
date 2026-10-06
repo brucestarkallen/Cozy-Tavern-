@@ -15684,3 +15684,22 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   DOM-135's cause is still not found; it passed in the gate run and in the second whole run of this same code.
 
 - GATES at m628-001 (one CPU): harness 1236/1236, walk 224/224 (the whole walk, run again after the walk-side changes above), long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.
+
+# M629 — his: "audit everything in this session, make sure no bugs or regressions". Every app change since m606-001
+# (d834740 → cd08eb3: 42 files, ~1,360 lines) re-read as code, every interaction traced; four found, each reproduced:
+1. A SMALL STORYTELLER GOT THE ADDED NOTES PAST ITS NOTE SWITCH (regression of M624 — walk DOM-225 fails on m628-001). M510
+   holds the note family back from a small model unless "Send the note to a small model" is on (in his tests it made a
+   small model dumber); M624 gave his note's switch to his note alone and the added notes — the house's thinking note
+   among them — went to a small model regardless. chat.js now holds them for a small model with that switch off, and the
+   receipt says so ("More notes — not sent to the small model"). A storyteller that is not small: by their own ticks.
+2. THE RENAMING OF A GROUND HAD NO TAKE-BACK (M628 — law M628-2 extended fails on m628-001: undoEntry returned nothing).
+   place.set to the same spot named with its area returned no undo; it is taken back like any move now (the old name).
+3. THE HOUSE NOTE'S "PUT BACK THE HOUSE'S WORDS" showed only after a reload once his words were kept; it shows at once.
+4. SEARCH RESULTS WENT STALE when a tale was deleted, renamed or moved while they stood — a tap on a deleted tale's place
+   led nowhere. The shelf's change-signal (ctx.onStoriesChanged) searches again (walk DOM-222 extended).
+- Checked and sound (no change): state.mode is the flags object the referee's fight-in-the-air gate reads; ctx.toast exists
+  for the drawer's refusals; the weighing's page-less people sort after the here-people with pages; the header fix reads
+  the ground after the page reader and leaves a page he put back; the device's search answers over real HTTP; no debug
+  output left; every new tick is sized (measured in a real browser earlier).
+
+- GATES at m629-001 (one CPU): harness 1236/1236, walk 225/225, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.

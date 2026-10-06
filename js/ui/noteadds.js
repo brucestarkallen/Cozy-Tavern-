@@ -83,9 +83,11 @@ export function initNoteAdds(ctx) {
     kept.className = 'quiet';
     kept.hidden = true;
     kept.textContent = 'Kept.';
+    let back = null; /* the house note's "Put back the house's words" — shown the moment its words are his */
     keep.addEventListener('click', async () => {
       entry.text = keptFrom(entry, text.value);
       await save();
+      if (back) back.hidden = !String(entry.text || '').trim(); /* M629 (the session's audit): it showed only after a reload */
       kept.hidden = false;
       setTimeout(() => { kept.hidden = true; }, 1600);
     });
@@ -117,7 +119,7 @@ export function initNoteAdds(ctx) {
     down.addEventListener('click', () => { move(entries.indexOf(entry) + 1)().catch(() => {}); });
     if (house) {
       /* the house's note is switched off, never let go; his own words for it can be put back to the house's */
-      const back = document.createElement('button');
+      back = document.createElement('button');
       back.type = 'button';
       back.className = 'text-btn';
       back.textContent = 'Put back the house’s words';

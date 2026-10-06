@@ -52,7 +52,7 @@ import { db, shelvesOf } from '../store.js';
 import { createProvider } from '../providers/index.js';
 import { contextOf } from '../providers/room.js'; /* M285: one answer for the model's room */
 import { learnContext, learnContextWithin } from '../providers/detect.js'; /* M289: the provider's own word on its room */
-import { buildRequest, pageText, windowPlan, heatedNow, HYBRID_RECENT_CHARS, smallRecordWhole } from '../assemble/stack.js'; /* M510-50: the newest lines' room; M547: what a small storyteller reads whole */
+import { buildRequest, pageText, windowPlan, heatedNow, HYBRID_RECENT_CHARS, smallRecordWhole, addedNotes, HOUSE_COT_ID } from '../assemble/stack.js'; /* M510-50: the newest lines' room; M547: what a small storyteller reads whole */
 import { beginWork, waitVisibly, bannerKnowsTales } from './workbanner.js'; /* M203: what the house is doing; M510-42: whose */
 import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
@@ -4805,6 +4805,14 @@ export function initChat(ctx) {
       if (smallTeller) {
         settingsValues.frameOn = (await db.settings.get('frameOnSmall')) === true;
         settingsValues.noteOn = (await db.settings.get('noteOnSmall')) === true;
+        /* M629 (the session's audit): THE ADDED NOTES FOLLOW THE SMALL MODEL'S NOTE SWITCH TOO. M624 gave his note's switch to
+         * his note alone — right for every model — but it let the added notes (the house's thinking note among them) ride
+         * to a small model past "Send the note to a small model", which holds the note family back because in his tests it
+         * made a small model dumber (M510). Off, they are held; the receipt says so. */
+        if (!settingsValues.noteOn) {
+          if (addedNotes(settingsValues.noteAdds).length) settingsValues.noteAddsHeldForSmall = true;
+          settingsValues.noteAdds = [{ id: HOUSE_COT_ID, on: false }];
+        }
         if ((await db.settings.get('ownWordsOnSmall')) !== true) {
           /* M510-9: held back, and the receipt says so — his own-voice words did not vanish */
           if (Array.isArray(settingsValues.ownWords) && settingsValues.ownWords.some((w) => w && w.on !== false && String(w.text || '').trim())) settingsValues.ownWordsHeldForSmall = true;

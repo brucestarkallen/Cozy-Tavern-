@@ -386,7 +386,8 @@ const HANDLERS = {
       const gains = areasOf(name).some((a) => !areasOf(before).some((b) => samePlace(a, b)));
       if (!gains) return { ok: false, why: 'the scene already stands in ' + before, same: true };
       state.place = { name };
-      return { ok: true, words: 'The scene\u2019s ground is named in full: ' + name + '.' };
+      /* M629 (the session's audit): a renaming is taken back like any move — the old name again, nothing else to restore */
+      return { words: 'The scene\u2019s ground is named in full: ' + name + '.', undo: { kind: 'place', before, positions: [], mcState: null, groundWas: state.groundWas ? { ...state.groundWas } : null } };
     }
     /* M304: the ground the scene stood on when THIS PAGE began — whoever leaves on
      * a page that also moved the ground was certainly there, and only perhaps

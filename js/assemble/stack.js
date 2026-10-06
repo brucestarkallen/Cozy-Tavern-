@@ -1498,6 +1498,7 @@ export function buildRequest({
   const ownRows = (place) => { for (const w of ownWords) if (w.place === place) pushSlot('Own words — ' + w.name, w.text, (w.role === 'assistant' ? 'the storyteller’s own words' : w.role === 'user' ? 'your words' : 'the house’s words') + ', ' + OWN_WORDS_PLACES[w.place]); };
   ownRows('before-pages');
   if (safeSettings.ownWordsHeldForSmall === true) pushSlot('Own words', '', '', 'not sent to the small model — its switch in Settings (“Send them to a small model”) is off'); /* M510-9 */
+  if (safeSettings.noteAddsHeldForSmall === true) pushSlot('More notes', '', '', 'not sent to the small model — the note’s switch for a small model (“Send the note to a small model”) is off'); /* M629 */
   if (smallWindow) historySource = 'the last ' + smallWindow.filter((m) => m.role === 'assistant').length + ' pages word for word — small model; the planning helper read the whole story';
   pushSlot('The pages, word for word', historyText, win.total ? historySource + (eased ? ' — their strung-out sounds and dashes eased while the pages are too loud (your pages are kept as written)' : '') : '');
   ownRows('before-your-message');
