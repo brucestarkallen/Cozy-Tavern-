@@ -1,6 +1,25 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m635-001)
+# Cozy Tavern — handoff for the next session (state at m636-001)
+
+## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
+- Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
+  sensors' row under The workers — an ordinary model with room is the pick; Jev/Clef also answer) reads each page
+  OUTSIDE the page chain, handed the very request the page was written from (js/sent.js) and then the page; it answers
+  numbers only, kept ON the page (`sense[version]`). The house counts the rest in code (openings, endings, worn
+  phrases, spoken share, a blow with no sound). A slip on several standing pages earns ONE fixed line next turn, then
+  the law rests. NEVER add a sensor that orders the plot (cost, stakes, tension): his Symmetry Law bans it and he
+  flagged it himself. Never let a checker's own words reach the request. Never put the reader back in the chain.
+- "Sent as" (sensorsRole): like the closing words / system / user / the storyteller's own words (an assistant turn
+  right before his message, each law's `own` form). The fallbacks are the house's: no page to stand beside, a reasoner,
+  or a house remembered as taking no two turns of one role (userfirst.js twinsRefused — learned from its refusal, the
+  same turn goes again folded).
+- A new sensor needs: its law's name, `covers` if the house's eye or the small storyteller's planner already minds that
+  law, a `word` and an `own` that pass M636-8, and a true/false pair in M636-5 (counted) or a slot in the walk's scores.
+- A test fixture that repeats itself is caught by the phrases sensor (it was, twice): give fixture pages their own words.
+- Not run against a real provider in that session (no key there). If he reports a reading that looks wrong, replay the
+  page's kept request through readPage with callLLM logging the ask — do not ask him to look at anything.
+
 
 ## THE SESSION OF OCT 6 2026 (M607–M635), IN ONE PLACE — read this, then AGENTS.md's tail (# M607 onward)
 - THE LINE-BY-LINE AUDIT IS COMPLETE (M619): all 122 files read whole (audit/LINE_AUDIT.md). Every fault found was

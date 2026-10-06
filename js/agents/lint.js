@@ -82,6 +82,15 @@ function typedByWriter(quote, userText) {
   return hits >= Math.ceil(words.length * 0.6);
 }
 
+/* M636: THE SHARE OF A PAGE THAT IS SPOKEN — one measure, for the house's eye here and for the sensors; null on a page
+ * too short to judge. */
+export function spokenShare(text) {
+  const page = String(text || '');
+  const body = page.replace(/^\s*\[[^\n]*\]\s*\n/, '');
+  if (body.length <= 900) return null;
+  return quotes(page).reduce((s, q) => s + q.text.length, 0) / body.length;
+}
+
 export function lintPage({ mc = '', userText = '', assistantText = '', ooc = false, others = [] } = {}) {
   const findings = [];
   const page = String(assistantText || '');
@@ -153,10 +162,8 @@ export function lintPage({ mc = '', userText = '', assistantText = '', ooc = fal
   }
 
   /* Dialogue Ratio — a note, wide bounds, only on a page long enough to judge */
-  const body = page.replace(/^\s*\[[^\n]*\]\s*\n/, '');
-  if (body.length > 900) {
-    const spoken = qs.reduce((s, q) => s + q.text.length, 0);
-    const ratio = spoken / body.length;
+  const ratio = spokenShare(page);
+  if (ratio !== null) {
     if (ratio < 0.06) push('note', 'Dialogue Ratio', `Spoken dialogue is ${Math.round(ratio * 100)}% of the page; the craft's band is 20-50% unless the scene is empty of people.`);
     if (ratio > 0.75) push('note', 'Dialogue Ratio', `Spoken dialogue is ${Math.round(ratio * 100)}% of the page; the craft's band is 20-50%.`);
   }

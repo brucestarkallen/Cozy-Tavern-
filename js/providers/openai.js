@@ -19,7 +19,7 @@ import { structuredSchema, makeStructuredDecoder, hiddenMatcher, asciiOnly, STRU
 import { knobsOf, KNOB_FIELDS, knobRefused } from './knobs.js'; /* M510: the rest of the dials */
 import { houseFetch } from './relay.js'; /* M353: a provider that refuses a page is carried by the house */
 import { lateSystemRefused, rememberLateSystemRefused } from './latesystem.js'; /* M380, M385 */
-import { userFirstRequired, rememberUserFirst, withUserFirst, opensOnAssistant, ORDER_REFUSAL } from './userfirst.js'; /* M510-38 */
+import { userFirstRequired, rememberUserFirst, withUserFirst, opensOnAssistant, ORDER_REFUSAL, TWIN_REFUSAL, twinsRefused, rememberTwinsRefused, hasTwins, foldTwins } from './userfirst.js'; /* M510-38; M636 */
 import { measureStream, speedWords, pickOpenAI, SPEED_ASK, SPEED_MAX_TOKENS } from './speed.js'; /* M373 */
 
 /* M376: the least room a THINKING page is given — the same floor the workers already keep for a thinking model */
@@ -456,15 +456,8 @@ export function createOpenAIProvider(connection) {
      * assistant messages", a 400) — deepseek-chat and every other house take them. His own-voice entries (an assistant
      * message beside a storyteller page) and the state message beside his first page would meet that wall; for a
      * model named reasoner, neighbours of one role are folded into one message, a blank line between, order kept. */
-    if (/reasoner/i.test(String(connection && connection.model || ''))) {
-      for (let i = 1; i < wire.length; i += 1) {
-        const prev = wire[i - 1]; const cur = wire[i];
-        if (!prev || !cur || prev.role !== cur.role || prev.role === 'system' || typeof prev.content !== 'string' || typeof cur.content !== 'string') continue;
-        wire[i - 1] = { ...prev, content: prev.content + '\n\n' + cur.content };
-        wire.splice(i, 1);
-        i -= 1;
-      }
-    }
+    /* M636: …and any other house that has said so once (userfirst.js twinsRefused) — one fold, one definition */
+    if (/reasoner/i.test(String(connection && connection.model || '')) || twinsRefused(connection)) foldTwins(wire);
 
     const startedAt = Date.now();
     const notes = [];
@@ -544,6 +537,13 @@ export function createOpenAIProvider(connection) {
       if (fourHundred && opensOnAssistant(wire) && !userFirstRequired(connection) && ORDER_REFUSAL.test(detail)) {
         await rememberUserFirst(connection);
         wire.splice(0, wire.length, ...withUserFirst(wire)); /* the same array the next attempt is built from */
+        continue;
+      }
+      /* M636: A HOUSE THAT TAKES NO TWO TURNS OF ONE ROLE IN A ROW says so once, is remembered for this model at this
+       * address, and the same turn goes again with those neighbours as one message */
+      if (fourHundred && !twinsRefused(connection) && hasTwins(wire) && TWIN_REFUSAL.test(detail)) {
+        await rememberTwinsRefused(connection);
+        foldTwins(wire);
         continue;
       }
       const lateSystem = wire.some((m, i) => i > 0 && m && m.role === 'system');

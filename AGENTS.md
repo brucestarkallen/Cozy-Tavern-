@@ -15833,3 +15833,97 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
 
 - M72-8 moved to the one-page delete (letOnePageGo), where its logic now lives.
 - GATES at m635-001 (one CPU): harness 1241/1241, walk 231/231, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.
+
+# M636 — the sensors rebuilt: the craft's own laws, measured (and nothing that orders a story)
+From the writer (Oct 6 2026): "the current sensor said about anything against me, is anything at stake. This could maybe
+force unrealistic drama … which destroys the purpose of main instructions. What if we make it like: does the NPC
+interrupt MC logically, is the NPC's reaction realistic, is the number of dialogue logical, is onomatopoeia rendered,
+does it repeat the last scene…" — and: does it know the story as the storyteller does; nothing injected when nothing is
+wrong; never a wrong thing injected for want of context; "sent as system, user or assistant (fallback if assistant
+can't)"; and that it fights repetition. His storyteller reads these sensors only with their switch ON (it ships off).
+- WHAT WAS WRONG WITH M356 (each run on the real code before a line changed):
+  1. TWO OF ITS FIVE LINES ORDERED DRAMA. After two calm pages the storyteller was told "Nothing has cost him anything
+     for a while now — let something go against him", and next "The last pages have gone slack — put something at
+     stake". His craft's Symmetry Law bans exactly that ("manufactured cost", "escalation timers"; "never mandates
+     losses"; "a quiet, texture turn is correct pacing"). The extension it was ported from (mossyfield/ST-jeved, read
+     whole) needs 18 of the last 20 replies calm for the first and ships the second switched off. BOTH ARE GONE
+     (sensorById('cost') / ('tension') are null — law M636-4).
+  2. JEV THROUGH OPENROUTER NEVER ANSWERED: decisionsUrl made https://openrouter.ai/api/v1/api/alpha/decisions from the
+     address the app itself keeps (…/api/v1 — the preset, and what a typed …/api is normalised to). M356-1 passed only
+     because it fed …/api, a shape the app never stores. Every stored shape now reaches /api/alpha/decisions (M636-1).
+  3. CLEF WAS ASKED AS A CHAT MODEL (it cannot answer one), and Cloudflare's wrapped answer ({result:{answers}}) read as
+     empty. Clef is known by model and by address like Jev; Cloudflare, Neuralwatt, NanoGPT, TypeSafe addresses resolve.
+  4. READINGS WERE THE STORY'S LAST FOUR NUMBERS, tied to no page: two takes retried away kept counting ([0.1,0.1,0.6] →
+     "gone slack" though the page that stood read 0.60).
+  5. IT READ CLIPPED PAGES (three earlier pages cut to ~2,600 characters, the newest to ~6,100) and nothing of the
+     ledger or the record.
+- THE CHECKLIST (agents/sensors.js SENSORS; the order is the order of weight, the first law due is the one said):
+  read by a model — mine (his character left to him), knows (someone knew what they could not), world (contradicts
+  nothing established), accord (agreed/praised/yielded with no reason), pushed (opposed with no cause — the Symmetry
+  Law's other half), held (someone with a reason to step in stood still), same (the room reacted as one), swap (the
+  page could trade places with the last), tone; COUNTED BY THE HOUSE, no model — phrases (smallprose.wornPhrases over
+  the last five pages, a stretch on three of them, three such), opens (four pages opening the same way: speech, a sound,
+  a thought, He/She/They, or the NAME of someone the ledger knows — a capitalised word of a name it keeps, never merely
+  a capital, never "The…"), closes (four pages ending on a private thought or a sound — a question left for him is Stop
+  At The Slot and is never a kind), quiet / talky (lint's own spokenShare, four pages under 8% with people here / over
+  70%), sounds (two of the last three pages with four blows SHOWN — outside quoted speech — and no sound effect).
+  "Beautifully written" is not a sensor: it is taste, and a model's taste pulls purple.
+- WHAT A READING EARNS: a model law must slip on `need` of the last `window` pages AND on one of the newest two (a slip
+  that has stopped is not said); 0.5 ("cannot tell") is never a slip; a page with no reading is never a slip. Then ONE
+  fixed line — the law itself, his voice (`word`) — and the law rests `rest` pages. Said three times with the slip never
+  clearing, it is not said again until it clears once. The decision (dueSensor / sensorWordForTurn) is a reading of the
+  pages that STAND, keyed by how many stand (every story page of the tale — the keeper hides none of them): Try again of
+  a turn is told the same line; pages taken back unsay it. A law the house's eye already speaks of this turn is not said
+  twice (`covers`); a small storyteller's talk and sounds are its own planner's and brake's (M510, M519) —
+  quiet/talky/sounds are never said to it.
+- THE CHECKER IS HANDED WHAT THE STORYTELLER WAS HANDED: the request the page was written from, kept with the page
+  (js/sent.js, the newest 200 of a tale — the benchmark's source), as its instructions and its turns, then the page
+  (packageFromRequest → fitPackage → chatAsk). Only where the reader's room is smaller is it cut: oldest turns first,
+  then the HEAD of the instructions (frame and craft lead; brief and notes close it), the page last. No kept request:
+  the brief and the twelve turns before it (packageFromPages). Its answers are numbers (0..1) and nothing else — no
+  word of the checker's can reach the storyteller. A DECISIONS HOUSE gets the same package as a state with THE PAGE
+  FIRST (Cloudflare's own hosting read ~2,048 state tokens in Oct 2026 whatever it advertised — OpenRouter's note and a
+  Cloudflare forum measurement; what such a house loses is then the oldest of the story, never the page), cut to
+  decisionsRoom (his number; Jev 32,000; Clef 65,536, 262,144 on Neuralwatt).
+- WHERE IT RUNS: NOT in the page chain any more. A long read as link 7 held every helper behind it and the send's
+  courtesy wait (pendingWork, 5 s a link). chat.js queueSense/sensePage: started at the foot of startBackgroundWork once
+  the page's helpers are done, awaited by nothing, one reading at a time a story, THE PAGE THAT LANDED by its id (still
+  read when he has played on), a 60 s ceiling, silent on any failure. Written only if the page still stands as read.
+- WHERE A READING LIVES: on the page, `sense[<version>] = {at, print, scores}` (the choices keeper's shape, M548) —
+  another version (Try again), an edit (the print), a delete or a branch each do the right thing with no code of their
+  own; a branch carries its pages' readings (messages.copy). The story's row `sensors:<id>` keeps only pageWord (M357's
+  small-storyteller guard, untouched) and `said`; the first build's readings/spoken/word are let go on the first write.
+- THE ROLE OF THE ONE LINE (his ask; Settings → The readers → The sensors → "Sent as", setting `sensorsRole`): as it
+  ships, with the other words after his message (their role); a system message; a user message; or THE STORYTELLER'S OWN
+  WORDS — each law has an `own` form ("I have been letting people agree with your character too easily…") sent as an
+  assistant turn right before his message, beside its last page, where his own-voice entries stand (M466): never last
+  in a request, never opening one. FALLBACK, BY ITSELF: no page of its own to stand beside → after his message; a model
+  that takes no two turns of one role in a row (a reasoner by name, or a house that has said so) → after his message.
+- A HOUSE THAT TAKES NO TWO TURNS OF ONE ROLE IN A ROW (providers/userfirst.js TWIN_REFUSAL, twinsRefused, foldTwins;
+  openai.js): M466 knew DeepSeek's reasoner by name; any other house now says so once (a 400 naming successive /
+  consecutive / alternating roles while the wire has such neighbours), is remembered for that model at that address,
+  and the SAME turn goes again with the neighbours as one message — his own-voice entries are healed by it too.
+- lint.js spokenShare: the house's eye and the sensors share one measure (the eye's note is word for word what it was).
+- FOUND BY RE-READING THE NEW CODE, before any gate (none of these would have failed a test that existed): a page was
+  never read if he played on before its helpers finished (the reader took "the newest page") — it reads the page that
+  landed, by id; "Rain found the gutters" and, with a ledger that knows "the courier", every "The…" counted as a
+  name-opening; the sounds law would have asked a small storyteller for sounds against its own loudness brake; blows
+  only spoken of in dialogue counted as blows; pages landing in quick succession would have been read all at once.
+- LAWS: m356.mjs M636-1 (every stored address; Clef; both answers), M636-2 (the checker is handed the kept request, both
+  providers' shapes, the fallback, the cut, the decisions state page-first, never throws), M636-3 (a reading is its
+  version's and its words'), M636-4 (the decision: one page nothing, calm nothing, need-of-window, the newest two, 0.5,
+  weight, covers, rest, Try again, taken back, three times, through the store), M636-5 (every counted measure, true and
+  false), M636-6 (the four roles on the wire; never last; nothing due = not one byte), M636-7 (the twins refusal through
+  a real provider call), M636-8 (every line is the writer's note or the storyteller's thought — M495's words, none of the
+  machinery). M357-2 follows the renamed takePageWord; M563 hands chatAsk a package. WALK DOM-75, through the app: off
+  nothing asked; on, the checker's request holds the storyteller's own instructions, the brief, his move and the page;
+  the numbers on the page; three slipping pages → the line in the closing words; Try again → the same line; the next
+  turn rests; "Sent as" the storyteller's own → an assistant turn right before his message. It fails on m635.
+- NOT DONE, AND WHY: the checker was not run against a real model here (no key in the session; the sandbox reaches no
+  provider) — the wire is proven against the app's stand-in house and both providers' kept-request shapes. The counted
+  thresholds (8% / 70%, four blows, three worn stretches) are set from his craft's bands and the code's own measures,
+  not from a corpus of his pages.
+- version.js -> m636-001.
+- GATES at m636-001 (one CPU), on the tree that was pushed: harness 1244/1244, walk 231/231, long play 9/9, lint 0 errors
+  (175 warnings, the count at m635), perf_send, holdsone, cutthinking, notes_layout (which now measures the sensors'
+  "Sent as" drop-down in a real browser at 360/412/900 — 290/342/666 wide inside 328/380/704, no spill) — EXIT 0 each.

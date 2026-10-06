@@ -709,7 +709,7 @@ function emptyWhy(name, c) {
     case 'On their mind': return 'no one’s page to show — the ledger has no one in it yet';
     case 'Where our story began': return 'not a story set in an existing canon — or it began before a #story asked where (it asks once, when a #story opens the tale)';
     case 'What canon says': return 'canon verification is off';
-    case 'The sensors’ word': return 'nothing from the sensors — off, or nothing drifting';
+    case 'The sensors’ word': return 'nothing from the sensors — off, or nothing slipping';
     case 'The world’s word': return 'nothing from the world agent — off, or nothing new out of sight';
     case 'The director’s note': return 'nothing from the director — off, or no episode standing';
     case 'The editor’s eye': return 'nothing from the editor — off, or no standing critique';
@@ -786,7 +786,7 @@ function placeRow(slots, name) {
 
 export function buildRequest({
   story, messages, settings, state, modules, memory, cast, lore, loreFired,
-  window: windowInfo, directive, directorNote, editorEye, houseEye, ruling, worldBrief, pageFilter, canonNote = '', canonOn = false, canonWhy = '', sensorNote = '',
+  window: windowInfo, directive, directorNote, editorEye, houseEye, ruling, worldBrief, pageFilter, canonNote = '', canonOn = false, canonWhy = '', sensorNote = '', sensorOwn = '', sensorRole = '', /* M636: the same law as the storyteller's own words, and the role he chose for it */
   smallPlan = null, smallIntense = false, lastSound = null, /* M510: the small request — the helper's plan, whether the scene is heated, what the last page sounded like */
   smallPlansBook = null, /* M510-22: the plans standing, kept whole ({plans}) */
   smallEssentials = null, /* M510-15: the story's essentials, streamlined from the whole record ({text, upTo}) */
@@ -1334,7 +1334,6 @@ export function buildRequest({
   if (canonStartText) pushSlot('Where our story began', canonStartText, 'the helper placed your #story in its canon — the moment, and what was true of that world then; Settings → This story to correct it');
   if (canonText) pushSlot('What canon says', canonText, 'canon verification — the series’ wiki on the canon people in this scene');
   else if (canonOn) pushSlot('What canon says', '', '', canonWhy || 'canon verification gave no note this turn');
-  if (sensorLine) pushSlot('The sensors’ word', sensorLine, 'what the readings noticed drifting — one line, once'); /* M356 */
   /* M510-12: THE WORLD'S WORD RIDES FOR A SMALL MODEL TOO. M510-2 left it to the helper — and it is the one brief of
    * what could reach THIS scene (the party across town, who is on the way, and why) and the only word a window beyond
    * the page is written from: the window rule woke and asked for a cut-away the small model had never been told about. */
@@ -1577,6 +1576,18 @@ export function buildRequest({
       else out.push({ role: 'user', content: CONTINUE_NUDGE });
     }
   }
+  /* M636: THE SENSORS' WORD, IN THE ROLE HE CHOSE (Settings → The readers → The sensors → "Sent as"). As the storyteller's
+   * own words it is a turn of the storyteller's own right before his message — where his own-voice entries stand (M466),
+   * never the last thing in a request (a started reply) — and with no message of his to stand before, it is said in the
+   * closing words like any other. As a system or a user message, or left as it ships, it rides in the closing words. */
+  let sensorPlaced = false;
+  if (sensorLine && sensorRole === 'assistant' && typeof sensorOwn === 'string' && sensorOwn.trim()) {
+    let at = -1;
+    for (let i = out.length - 1; i >= 0; i -= 1) if (out[i] && out[i].role === 'user' && out[i] !== notesMessage) { at = i; break; }
+    if (at > 0 && out[at - 1] && out[at - 1].role === 'assistant') { out.splice(at, 0, { role: 'assistant', content: sensorOwn.trim() }); sensorPlaced = true; } /* beside a page of its own, or not at all */
+  }
+  const sensorSeg = sensorPlaced ? '' : sensorLine;
+  if (sensorLine) pushSlot('The sensors’ word', sensorPlaced ? sensorOwn.trim() : sensorLine, sensorPlaced ? 'a rule of your craft the last pages slipped from — one line, as the storyteller’s own words, right before your message' : 'a rule of your craft the last pages slipped from — one line, then it rests'); /* M356; M636 */
   /* M466: HIS OWN-VOICE ENTRIES LAND AT THEIR LANDMARKS. "before-pages": right after the state message (or first of all
    * when there is none); "before-your-message": right before the last user message — his page of this turn, or the
    * "Go on." standing in its place; "after-your-message": after everything of the story, before the closing message.
@@ -1707,7 +1718,7 @@ export function buildRequest({
    * comes BEFORE them. The repeat stood second, ahead of the switches, so a think-on-page line or the sensors' word
    * could sit between his instructions and his note. (M21 always meant it "just before the note at the end".) */
   const choiceLine = choiceText ? toTeller(choiceText, voice) : ''; /* M548 */
-  const closing = [rulingLine, choiceLine, directiveText, anchorLine, sensorLine, groundLine, thinkLine, soundsLine, echoOn ? frameText : ''].filter((t) => typeof t === 'string' && t.trim());
+  const closing = [rulingLine, choiceLine, directiveText, anchorLine, sensorSeg, groundLine, thinkLine, soundsLine, echoOn ? frameText : ''].filter((t) => typeof t === 'string' && t.trim());
   /* M380: WHAT FOLLOWS HIS MESSAGE IS A SYSTEM MESSAGE — SillyTavern's post-history instructions — unless he chooses
    * otherwise. As a user message it read as HIM writing a second message of instructions, and his teller answered it as
    * an assistant answers a user. */
@@ -1728,7 +1739,7 @@ export function buildRequest({
    * message as"); what stands next to the same role goes as one message, so the order is kept exactly and nothing is
    * split that need not be. */
   const segments = [
-    ...closing.map((text) => ({ role: afterRole, text })),
+    ...closing.map((text) => ({ role: text === sensorSeg && (sensorRole === 'system' || sensorRole === 'user') ? sensorRole : afterRole, text })), /* M636: the sensors' word in its own role */
     ...(hasNote ? [...notesAbove.map((n) => ({ role: n.role || afterRole, text: n.text })), ...(noteOwnText ? [{ role: afterRole, text: noteOwnText }] : []), ...notesBelow.map((n) => ({ role: n.role || afterRole, text: n.text }))] : []),
   ];
   for (const seg of segments) {

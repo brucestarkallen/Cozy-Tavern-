@@ -22,7 +22,8 @@ import { loadState } from '../engine/state.js'; /* M361: whose name {{user}} is 
 import { mcName } from '../engine/duels.js'; /* M361 */
 import { readStandingWords, groupFindings, findingsText } from '../assemble/plainvoice.js'; /* M359, M360 */
 import { copyWords } from './receiptview.js'; /* M360: the flagged lines, in one tap */
-import { loadSensors, sensorLine } from '../agents/sensors.js'; /* M356 */
+import { sensorLine } from '../agents/sensors.js'; /* M356; M636: a reading lives on its page */
+import { shownIndex } from '../engine/pagepatch.js'; /* M636 */
 import { drawCanonControls } from './canonsettings.js'; /* M346; M386: every lever of canon verification */
 import { canonWithdraw, canonOn, setCanonOn } from '../canon/bridge.js'; /* M386: off, the series' truths leave the open story's ledger at once; M399: each story's own switch */
 import { db } from '../store.js';
@@ -269,6 +270,7 @@ export function initSettings(ctx) {
     canonOn: document.getElementById('canon-on'), /* M346 */
     sensorsOn: document.getElementById('sensors-on'), /* M356 */
     sensorReadings: document.getElementById('sensors-readings'),
+    sensorsRole: document.getElementById('sensors-role'), /* M636 */
     canonControls: document.getElementById('canon-controls'), /* M386 */
     refereeSensitivity: document.getElementById('referee-sensitivity'),
     refereePreset: document.getElementById('referee-preset'),
@@ -1977,11 +1979,20 @@ export function initSettings(ctx) {
     }
     /* M356: the sensors — off as they ship, and what they have read so far, for the story in hand */
     if (els.sensorsOn) els.sensorsOn.checked = (await db.settings.get('sensorsOn')) === true;
+    if (els.sensorsRole) { const role = await db.settings.get('sensorsRole'); els.sensorsRole.value = role === 'system' || role === 'user' || role === 'assistant' ? role : ''; } /* M636 */
     if (els.sensorReadings) {
+      /* M636: the newest page of the story in hand that has a reading — the numbers the checker gave it */
       const story = await activeStory();
-      const kept = story ? await loadSensors(story.id) : null;
-      const line = kept ? sensorLine(kept) : '';
-      els.sensorReadings.textContent = line ? 'This story so far — ' + line : 'No readings yet.';
+      let line = '';
+      if (story) {
+        const told = (await db.messages.list(story.id)).filter((m) => m && !m.hidden && m.role === 'assistant' && !m.ooc);
+        for (let i = told.length - 1; i >= 0 && !line; i -= 1) {
+          const all = told[i].sense && typeof told[i].sense === 'object' ? told[i].sense : null;
+          const got = all ? all[String(shownIndex(told[i]))] : null;
+          if (got && got.scores) line = sensorLine(got.scores);
+        }
+      }
+      els.sensorReadings.textContent = line ? 'The newest page read — ' + line : 'No readings yet.';
     }
     await drawCanon();
     els.refereeSensitivity.value = (await db.settings.get('refereeSensitivity')) || 'normal';
@@ -2009,6 +2020,7 @@ export function initSettings(ctx) {
     await drawCanon();
   });
   if (els.sensorsOn) els.sensorsOn.addEventListener('change', async () => { await db.settings.set('sensorsOn', els.sensorsOn.checked); }); /* M356 */
+  if (els.sensorsRole) els.sensorsRole.addEventListener('change', async () => { const v = els.sensorsRole.value; if (v === 'system' || v === 'user' || v === 'assistant') await db.settings.set('sensorsRole', v); else await db.settings.delete('sensorsRole'); }); /* M636 */
   els.refereeOn.addEventListener('change', async () => {
     await db.settings.set('refereeOn', els.refereeOn.checked);
   });
@@ -2889,7 +2901,7 @@ export function initSettings(ctx) {
     'theme', 'colourSpeech', 'showStarters', 'masthead', 'showThinking',
     'memoryKeeper', 'memoryWindow', 'memoryBatch', 'memorySqueeze', 'continuityCheck', 'mendPages',
     'worldAgent', 'worldEffort', 'auditOn', 'auditEvery', 'hkContextPages', 'hkAutoApply', 'hkReasoning', 'turnsShown',
-    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'sensorsOn', 'groundingPhrase', 'afterRole', 'notesRole', 'smartRecall', /* M399: canon's switch is each story's own, not a setting of the house */
+    'refereeOn', 'refereeSensitivity', 'refereePreset', 'refereeFightStyle', 'sensorsOn', 'sensorsRole', 'groundingPhrase', 'afterRole', 'notesRole', 'smartRecall', /* M399: canon's switch is each story's own, not a setting of the house */
     'speechColours', 'shelfSort', 'ledgerFolds', 'settingsFolds', /* M466/M468: the coats' own colours and the rooms' shapes go back; his own words (ownWords) are his writing and stay */
     'conceptToBrief', /* M479 */
     'frameText', 'noteText', 'frameOn', 'noteOn', 'frameEcho', 'frameOnSmall', 'noteOnSmall', 'ownWordsOnSmall', /* M509-14: the two switches ride the book */

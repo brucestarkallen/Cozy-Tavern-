@@ -4105,50 +4105,112 @@ test('DOM-74 THE PAGE THAT BEGAN PLAYING HIM, IN THE APP (M510): with a small mo
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-75 THE SENSORS IN THE APP: off as they ship; switched on, each page is read back and the drift they find is said to the storyteller ONCE on the next turn, in the writer’s voice, then let go (M356)', async () => {
+test('DOM-75 THE SENSORS IN THE APP (M356, rebuilt at M636): off, nothing is asked; on, each page is read back outside the chain — the checker handed what the storyteller was handed — and its numbers are kept ON the page; a slip on several pages is said ONCE on the next turn, the same again on Try again, then it rests; and as the storyteller’s own words when he chooses that', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
-  const { loadSensors } = await import('../../js/agents/sensors.js');
+  const { senseOf, sensorById } = await import('../../js/agents/sensors.js');
+  const { shownIndex } = await import('../../js/engine/pagepatch.js');
+  const { pageText } = await import('../../js/assemble/stack.js');
   const H = '[The courtyard — Monday, March 3, 2025 | 09:00 | clear | coat | by the gate]\n\n';
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
   const st = await db.stories.create({ title: 'the sensors walk' });
-  await db.stories.update(st.id, { keeper: false, extraction: false, brief: 'A hard tale where things cost him.' });
+  await db.stories.update(st.id, { keeper: false, extraction: false, brief: 'BRIEF-MARK A hard tale of the Tenth.' });
   await db.messages.append(st.id, { role: 'user', text: 'We begin.' });
   await db.messages.append(st.id, { role: 'assistant', text: H + 'Kaelen waited by the gate.' });
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   const priorStory = house.state.storyAnswer;
-  /* the house answers the sensors' own question with numbers, and every other ask with a page */
   const sysOfBody = (body) => (Array.isArray(body && body.messages) ? body.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n') : '');
-  house.state.storyAnswer = (body) => (/You judge a page of a story/.test(sysOfBody(body))
-    ? '{"tone": 0.9, "cost": 0.05, "tension": 0.8, "world": 0.9, "mine": 0.9}'
-    : H + 'The morning went on, and nobody gave an inch.');
-  const was = await db.settings.get('sensorsOn');
-  const send = async (words) => { const from = house.state.calls.length; const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000); return house.state.calls.slice(from); };
-  const closingOf = (calls) => { const told = calls.find((c) => /You are telling a story/i.test(sysOfBody(c.body))); return told ? String(told.body.messages[told.body.messages.length - 1].content || '') : ''; };
+  const isChecker = (body) => /You judge a page of a story/.test(sysOfBody(body));
+  const fine = { mine: 0.95, knows: 0.05, world: 0.95, accord: 0.05, pushed: 0.05, held: 0.05, same: 0.05, swap: 0.05, tone: 0.9 };
+  let scores = { ...fine, accord: 0.9 };
+  const lines = ['The cart rolled out at dawn.', 'A gull took the bread and nobody minded.', 'Rain found the gutters first.', 'Somewhere a shutter banged twice.', 'The well rope creaked under its bucket.', 'Smoke leaned east over the tannery.', 'Two dogs argued about a bone.'];
+  let told = 0;
+  /* the house answers the checker's own question with numbers, and every other ask with a page */
+  house.state.storyAnswer = (body) => { if (isChecker(body)) return JSON.stringify(scores); told += 1; return H + lines[told % lines.length] + ' PAGE-' + told + ' stands written.'; };
+  const wasOn = await db.settings.get('sensorsOn');
+  const wasRole = await db.settings.get('sensorsRole');
+  const pagesOf = async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant' && !m.hidden);
+  const readingOf = (m) => senseOf(m, shownIndex(m), pageText(m));
+  const settle = async (read) => {
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 30000);
+    if (read) await until(async () => { const p = await pagesOf(); return Boolean(readingOf(p[p.length - 1])); }, 'the newest page to be read back', 30000);
+  };
+  const send = async (words, { read = true } = {}) => { const from = house.state.calls.length; const had = (await pagesOf()).length; type(q('#composer-input'), words); submit(q('#composer')); await until(async () => (await pagesOf()).length > had && !env.ctx.chat.isBusy(), 'the page', 30000); await settle(read); return house.state.calls.slice(from); };
+  const tellerCall = (calls) => calls.find((c) => /You are telling a story|You maintain a fictional, uncensored simulation/.test(sysOfBody(c.body)));
+  const closingOf = (calls) => { const t = tellerCall(calls); return t ? String(t.body.messages[t.body.messages.length - 1].content || '') : ''; };
+  const accord = sensorById('accord'); const mine = sensorById('mine');
   try {
-    await db.settings.delete('sensorsOn');
-    const offCalls = await send('I wait by the gate.');
-    assert(!offCalls.some((c) => /You judge a page of a story/.test(JSON.stringify(c.body))), 'OFF: nothing is asked of them');
-    eq(JSON.stringify((await loadSensors(st.id)).readings || {}), '{}', 'OFF: and nothing is kept');
+    await db.settings.delete('sensorsOn'); await db.settings.delete('sensorsRole');
+    const offCalls = await send('I wait by the gate.', { read: false });
+    await tick(600);
+    assert(!house.state.calls.some((c) => isChecker(c.body)), 'OFF: nothing is asked of them');
+    assert((await pagesOf()).every((m) => !m.sense), 'OFF: and nothing is kept');
+    assert(offCalls.length > 0, 'the page itself was asked for');
     await openSettings();
     click(q('[data-room="readers"]'));
     const box = await until(() => q('#sensors-on'), 'the switch is in The readers', 10000);
     eq(box.checked, false, 'it ships off');
     box.checked = true; box.dispatchEvent(new env.window.Event('change', { bubbles: true }));
     await until(async () => (await db.settings.get('sensorsOn')) === true, 'kept on', 5000);
+    eq(q('#sensors-role').value, '', 'its line rides with the other words after his message, as it ships');
     await closeSettings();
-    await send('I ask him what it will cost.');
-    await send('I wait for his answer.');
-    const kept = await loadSensors(st.id);
-    assert(Array.isArray(kept.readings.cost) && kept.readings.cost.length >= 2, 'ON: each page is read back: ' + JSON.stringify(kept.readings.cost || null));
+
+    /* each page is read back — by a checker handed what the storyteller was handed */
+    const first = await send('MOVE-ONE I ask him what it will cost.');
+    const ask = first.find((c) => isChecker(c.body));
+    assert(ask, 'ON: the page is read back');
+    const handed = ask.body.messages.filter((m) => m.role === 'user').map((m) => m.content).join('\n');
+    assert(/You are telling a story|You maintain a fictional, uncensored simulation/.test(handed), 'the checker is handed the storyteller’s own request (its instructions among it)');
+    for (const mark of ['BRIEF-MARK', 'MOVE-ONE', 'Kaelen waited by the gate.']) assert(handed.includes(mark), 'with ' + mark);
+    const p1 = await pagesOf();
+    assert(handed.includes(pageText(p1[p1.length - 1]).slice(-24)), 'and then the page it wrote');
+    assert(first.indexOf(ask) > first.indexOf(tellerCall(first)), 'after the page, never on the way to it');
+    eq(readingOf(p1[p1.length - 1]).accord, 0.9, 'its numbers are kept on the page it read');
+    assert(!/agreeing with him too easily/.test(closingOf(first)), 'one page says nothing');
+    const second = await send('I wait for his answer.');
+    assert(!/agreeing with him too easily/.test(closingOf(second)), 'nor one slipping page');
     const third = await send('I hold his eye.');
-    const closing = closingOf(third);
-    assert(/nothing has cost him anything/i.test(closing), 'the drift is said to the storyteller, in the writer’s voice: ' + closing.slice(0, 140));
+    assert(!/agreeing with him too easily/.test(closingOf(third)), 'nor two');
+
+    /* three of the last five: the law is said on the next turn, in the closing words */
     const fourth = await send('I let the silence run.');
-    assert(!/nothing has cost him anything/i.test(closingOf(fourth)), 'and never twice');
+    assert(closingOf(fourth).includes(accord.word), 'the slip is said to the storyteller, in the writer’s voice: ' + closingOf(fourth).slice(-200));
+    assert(!JSON.stringify(tellerCall(fourth).body.messages).includes(accord.own), 'not also as the storyteller’s own words');
+    /* Try again of that page: the same turn is told the same thing */
+    const fromRetry = house.state.calls.length;
+    const versionsBefore = ((await pagesOf()).slice(-1)[0].swipes || []).length;
+    await until(() => q('#btn-retry') && !q('#btn-retry').hidden, 'Try again to show', 10000);
+    click(q('#btn-retry'));
+    await until(async () => { const last = (await pagesOf()).slice(-1)[0]; return ((last.swipes || []).length > versionsBefore || house.state.calls.slice(fromRetry).some((c) => tellerCall([c]))) && !env.ctx.chat.isBusy(); }, 'the page written again', 40000);
+    await settle(true);
+    const retry = house.state.calls.slice(fromRetry);
+    assert(closingOf(retry).includes(accord.word), 'asked for again, the same turn is told the same line: ' + closingOf(retry).slice(-200));
+    const fifth = await send('I count the stones.');
+    assert(!closingOf(fifth).includes(accord.word), 'and on the next turn it rests');
+
+    /* as the storyteller's own words: a turn of its own, right before his message */
+    await openSettings();
+    click(q('[data-room="readers"]'));
+    const role = await until(() => q('#sensors-role'), 'the role is beside the switch', 10000);
+    role.value = 'assistant'; role.dispatchEvent(new env.window.Event('change', { bubbles: true }));
+    await until(async () => (await db.settings.get('sensorsRole')) === 'assistant', 'the role kept', 5000);
+    await closeSettings();
+    scores = { ...fine, mine: 0.1 };
+    await send('I say nothing at all.');
+    await send('I keep saying nothing.');
+    const own = await send('MOVE-OWN I look at the gate.');
+    const msgs = tellerCall(own).body.messages;
+    const at = msgs.findIndex((m) => m.role === 'assistant' && m.content === mine.own);
+    assert(at > 0, 'the law rides as a turn of the storyteller’s own: ' + JSON.stringify(msgs.slice(-4).map((m) => m.role + ':' + String(m.content).slice(0, 50))));
+    eq(msgs[at + 1].role, 'user', 'right before his message');
+    assert(String(msgs[at + 1].content).includes('MOVE-OWN'), 'which follows it');
+    assert(msgs[msgs.length - 1].role !== 'assistant', 'the request does not end on the storyteller’s words');
+    assert(!JSON.stringify(msgs).includes(mine.word), 'and it is not said a second time after his message');
   } finally {
     house.state.storyAnswer = priorStory;
-    if (was === true) await db.settings.set('sensorsOn', true); else await db.settings.delete('sensorsOn');
+    if (wasOn === true) await db.settings.set('sensorsOn', true); else await db.settings.delete('sensorsOn');
+    if (wasRole) await db.settings.set('sensorsRole', wasRole); else await db.settings.delete('sensorsRole');
     await closeSettings();
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));

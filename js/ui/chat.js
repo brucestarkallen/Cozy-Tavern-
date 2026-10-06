@@ -65,8 +65,9 @@ import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNe
 import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
-import { newSentId, keepSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it */
-import { readSensors, takeWordForTurn, keepPageWord, sensorLine } from '../agents/sensors.js'; /* M356/M357: the readings, and the one line they earn */
+import { newSentId, keepSent, loadSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it; M636: read back for the sensors */
+import { readPage, sensorWordForTurn, takePageWord, keepPageWord, sensorLine, senseOf, sensePatch, SENSOR_LOOK } from '../agents/sensors.js'; /* M356/M357; M636: a reading lives on its page, and the one line the readings earn */
+import { twinsRefused } from '../providers/userfirst.js'; /* M636: a model that takes no two turns of one role in a row */
 import { onToast as onCanonToast } from '../canon/host.js';
 import { canonNote as keepCanonNote, canonWhy } from '../canon/bridge.js'; /* M395: canon's own notes go to its room, never onto the screen; M486: why it had nothing to say */
 import { extractTurn, noteWork, pendingWork, workInFlight, isYoungLedger } from '../agents/extractor.js'; /* M506: workInFlight */
@@ -2160,6 +2161,55 @@ export function initChat(ctx) {
       if (ctx.getActiveStoryId() === sid) drawChoices();
     } catch (err) { /* a choice is never worth a page */ } finally {
       if (key && choicesAsking.get(sid) === key) choicesAsking.delete(sid);
+    }
+  }
+  /* M636: THE SENSORS READ THE PAGE THAT JUST LANDED (agents/sensors.js) — outside the page chain, so no helper and no
+   * send ever waits for it. The checker is handed the request the page was written from (js/sent.js; else the brief and
+   * the pages before it) and then the page; its answers are numbers, kept ON the page under the version read — written
+   * only if that page still stands as it was read. Off: nothing is asked. */
+  const sensing = new Map();
+  /* one reading at a time for a story: pages that landed in quick succession are read one after the other, never at once */
+  const senseTail = new Map();
+  function queueSense(story, pageId) {
+    const sid = story && story.id;
+    if (!sid) return;
+    const next = (senseTail.get(sid) || Promise.resolve()).then(() => sensePage(story, pageId)).catch(() => { /* never worth a page */ });
+    senseTail.set(sid, next);
+  }
+  /* the page that landed (by its id) — still read when he has already played on; with no id, the newest page */
+  async function sensePage(storyIn, pageId) {
+    const sid = storyIn && storyIn.id;
+    if (!sid) return;
+    let key = '';
+    try {
+      if ((await db.settings.get('sensorsOn')) !== true) return;
+      const story = await db.stories.get(sid);
+      if (!story) return;
+      const all = visiblePages(await db.messages.list(sid)).filter((m) => m && !m.hidden && !m.ooc);
+      const at = pageId ? all.findIndex((m) => m.id === pageId) : all.length - 1;
+      const last = at >= 0 ? all[at] : null;
+      if (!last || last.role !== 'assistant' || last.stopped || !pageText(last).trim()) return;
+      const words = pageText(last);
+      if (senseOf(last, versionOf(last), words)) return; /* this version, these words: read already */
+      if (sensing.get(sid) === last.id + ':' + versionOf(last)) return;
+      key = last.id + ':' + versionOf(last);
+      sensing.set(sid, key);
+      const connection = await resolveWorkerConnection(story, 'sensors');
+      if (!connection) return;
+      const rec = last.receipt && last.receipt.sentId ? await loadSent(last.receipt.sentId) : null;
+      const kept = rec && Array.isArray(rec.requests) && rec.requests[0] ? rec.requests[0].body : null;
+      const before = all.slice(Math.max(0, at - 12), at).map((m) => ({ who: m.role === 'user' ? 'writer' : 'teller', text: pageText(m) }));
+      const mc = mcName(await loadState(sid));
+      const w = workerSignal(); /* every helper's own ceiling: a call that hangs is let go, never waited on */
+      let read = null;
+      try { read = await readPage({ connection, kept, brief: story.brief || '', castNotes: story.castNotes || '', before, page: words, mc, signal: w.signal }); } finally { w.done(); }
+      if (!read) return;
+      const fresh = (await db.messages.list(sid)).find((m) => m && m.id === last.id);
+      if (!fresh || fresh.hidden || versionOf(fresh) !== versionOf(last) || pageText(fresh) !== words) return; /* the page moved on while it was read */
+      await db.messages.update(sid, last.id, sensePatch(fresh, versionOf(fresh), words, read.scores));
+      await noteWorkerRun(sid, 'sensors', { ok: true, detail: sensorLine(read.scores) + (read.whole ? '' : ' — read from the pages (this page’s request was not kept)') });
+    } catch (err) { /* a reading is never worth a page */ } finally {
+      if (key && sensing.get(sid) === key) sensing.delete(sid);
     }
   }
   /* M549: HIS EDIT OF A PAGE WHOSE CHOICES STILL STAND OPEN — they were sealed for the page as it read; it reads otherwise
@@ -4401,25 +4451,9 @@ export function initChat(ctx) {
       return { silent: true };
     });
 
-    /* 7. M356: THE SENSORS — the page that just landed is read back (the tone the brief asks for, whether anything went
-     * against him, whether anything is at stake, whether the world held, whether his character was left to him). Nothing
-     * is written to the story; what it earns is at most one line on the NEXT turn. Only with its own switch on. */
-    enqueue('sensors', async ({ signal, stale }) => {
-      try {
-        if (stale() || (await db.settings.get('sensorsOn')) !== true) return { silent: true };
-        const connection = await resolveWorkerConnection(story, 'sensors');
-        if (!connection) return { silent: true };
-        const told = visiblePages(await db.messages.list(story.id)).filter((m) => m && m.role === 'assistant' && !m.ooc);
-        const newest = told.length ? pageText(told[told.length - 1]) : '';
-        const before = told.slice(-4, -1).map((m) => pageText(m));
-        const read = await readSensors({
-          connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '',
-          pages: before, newest, mc: mcName(await loadState(story.id)), signal,
-        });
-        if (read) return { detail: sensorLine({ readings: read.readings }) };
-      } catch (err) { /* a reading is never worth a thrown turn */ }
-      return { silent: true };
-    });
+    /* 7. M356, as M636 moved it: THE SENSORS are no longer a link of this chain. Their reader is handed the whole request
+     * the page was written from — a long read — and a link here holds every helper behind it and the next send's wait.
+     * It is started at the foot of this chain (queueSense), once the page's helpers are done, awaited by nothing. */
 
     /* 8. M510: THE PLANNING HELPER — last, so it reads the ledger this page just wrote. Only for a small model. */
     enqueue('planner', async ({ signal, stale }) => {
@@ -4531,6 +4565,8 @@ export function initChat(ctx) {
         return { silent: false, detail: 'could not grade: ' + (err && err.message ? err.message : String(err)) };
       }
     });
+    /* M636: THE SENSORS, after every link above has been queued and once they are done — outside the chain (no send waits) */
+    pendingWork(story.id, 120000).then(() => queueSense(story, msg && msg.id)).catch(() => { /* a reading is never worth a page */ });
   }
 
   async function gatherSettings() {
@@ -5306,8 +5342,35 @@ export function initChat(ctx) {
           }
         } catch (err) { /* the note then rides whole — nothing is lost */ }
       }
-      /* M356: what the sensors noticed, once — taken and let go, so it never rides twice */
-      const sensorNote = ooc ? '' : await takeWordForTurn(story.id); /* M356/M357: a reading's word, or what the house saw in the last page */
+      /* M357: what the house saw in the last page (the small storyteller's guard), once — taken and let go.
+       * M636: else the ONE law the sensors find slipping on the pages that stand — read from the pages themselves, so a
+       * turn asked for again is told the same thing, a page taken back takes its part away, and with the switch off
+       * nothing is read and nothing is said. */
+      let sensorNote = ''; let sensorOwn = ''; let sensorRole = '';
+      if (!ooc) {
+        sensorNote = await takePageWord(story.id);
+        if (!sensorNote && (await db.settings.get('sensorsOn')) === true) {
+          const stand = visiblePages(history).filter((m) => m && m.role === 'assistant' && !m.ooc && !m.hidden && pageText(m).trim());
+          const lastStand = stand[stand.length - 1];
+          const due = await sensorWordForTurn(story.id, {
+            pages: stand.slice(-SENSOR_LOOK).map((m) => ({ text: pageText(m), scores: senseOf(m, versionOf(m), pageText(m)) })),
+            index: stand.length,
+            others: (Array.isArray(state && state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).some((n) => n && n !== mcName(state)),
+            names: Object.keys((state && state.characters) || {}),
+            /* one home for a law: what the house's eye says this turn is not said twice; and a small storyteller's talk and
+             * sounds are its own planner's and brake's to mind (M510, M519), never asked for here against them */
+            covered: [...(lastStand && Array.isArray(lastStand.findings) ? lastStand.findings : []).filter((f) => f && f.kind === 'craft' && f.severity === 'warn').map((f) => f.law), ...(settingsValues.smallModelNow === true ? ['Dialogue Ratio', 'Sound As Onomatopoeia'] : [])],
+          });
+          if (due) {
+            sensorNote = due.word; sensorOwn = due.own;
+            const asked = await db.settings.get('sensorsRole');
+            /* as the storyteller's own words only where a turn of its own can stand beside its page: a model that takes
+             * no two turns of one role in a row (a reasoner by name, or a house that has said so once) is told in the
+             * closing words instead */
+            sensorRole = asked === 'assistant' && (/reasoner/i.test(String((connection && connection.model) || '')) || twinsRefused(connection)) ? '' : (typeof asked === 'string' ? asked : '');
+          }
+        }
+      }
       /* M510: THE SMALL REQUEST'S PLAN — the one the helper made after the page this turn follows (Try again finds the
        * plan for the page before the one it replaces); none yet → the whole request goes, as before */
       let smallPlan = null; let smallIntense = false; let lastSound = null; let smallEssentials = null; let smallPlansBook = null; let voiceSample = null; /* M512 */
@@ -5391,7 +5454,7 @@ export function initChat(ctx) {
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy({ since: canonAskedAt }) : '', /* M486; M534: this turn's reason, or none */
         choicesOn: choicesNow, choiceTaken: choiceNow, choiceEchoes: choicesNow ? echoesText(choiceNow ? history.filter((m) => !(m && lastUser && m.id === lastUser.id)) : history) : '', /* M548 */
         smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, quietPage: quietNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
-        sensorNote, /* M356 */
+        sensorNote, sensorOwn, sensorRole, /* M356; M636 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       };
       const probeReceipt = buildRequest({ ...requestArgs, memory: '' }).receipt;

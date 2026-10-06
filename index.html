@@ -825,10 +825,20 @@
 
         <section class="settings-section" id="section-sensors">
           <h3>The sensors</h3>
-          <p class="quiet">After each page, a few narrow questions about it — does it match the tone the brief asks for, did anything go against you, is anything at stake, did the world hold, was your character left to you. Each answer is a number, kept over the last few pages. When one drifts, the storyteller is told ONE short line on the next turn, in your voice, and then it is dropped. Nothing is ever written into your story, and your page is never touched. A decisions model (Jev) is the cheapest thing to put behind it — give it its own row under The workers — but any model can answer. Off: nothing is asked and nothing is sent.</p>
+          <p class="quiet">After each page, a checker reads it in the background against a short list of your own craft’s rules — was your character left to you, did someone know what they could not know, did people agree or push back with no reason, did someone with a reason to step in stand still, did the page replay the last one. The house itself counts the rest: how the pages open and close, the turns of phrase they reuse, how much is spoken, a blow with no sound on it. One page changes nothing. When the same slip shows on several pages, the storyteller is told ONE fixed line on your next turn — the rule it has been slipping from — and then that rule rests. The checker only answers with numbers: no word of its own ever reaches your story, your page is never touched or asked for again, and with nothing slipping nothing is added. It reads what the storyteller was given for that page, so give it a model with room — its own row under The workers (a decisions model such as Jev or Clef answers too). Off: nothing is asked and nothing is sent.</p>
           <div class="row">
             <label class="radio-row"><input type="checkbox" id="sensors-on"> The sensors</label>
           </div>
+          <!-- M636: the role its one line is sent in -->
+          <label class="stack-label" for="sensors-role">Sent as
+            <select id="sensors-role">
+              <option value="">Like the other words after your message</option>
+              <option value="system">A system message</option>
+              <option value="user">A user message</option>
+              <option value="assistant">The storyteller’s own words (an assistant message, right before yours)</option>
+            </select>
+          </label>
+          <p class="quiet">As the storyteller’s own words, the line stands as a turn of its own beside the last page. A model that takes no two turns of one kind in a row is told after your message instead — the house sees to that by itself.</p>
           <p class="quiet" id="sensors-readings">No readings yet.</p>
         </section>
 

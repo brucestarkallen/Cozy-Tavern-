@@ -47,6 +47,17 @@ def main():
                 if not bench['rows'] or max(bench['rows']) > bench['room']:
                     ok = False
                     print('FAIL: the benchmark board runs past its room:', bench)
+                # M636: the sensors' "Sent as" — the drop-down keeps inside its section at every width
+                sense = page.evaluate("""() => {
+                  const n = document.getElementById('settings-quicknav'); if (n && n.openRoomFor) n.openRoomFor('section-sensors');
+                  const sec = document.getElementById('section-sensors'); const sel = document.getElementById('sensors-role');
+                  const a = sec.getBoundingClientRect(); const b = sel.getBoundingClientRect();
+                  return { room: Math.round(a.width), left: Math.round(b.left - a.left), width: Math.round(b.width), right: Math.round(b.right - a.right), options: sel.options.length, spill: sec.scrollWidth - sec.clientWidth, seen: b.width > 0 && b.height > 0 };
+                }""")
+                print('sensors', width, sense)
+                if not (sense['seen'] and sense['options'] == 4 and sense['width'] >= 150 and sense['left'] >= 0 and sense['right'] <= 1 and sense['spill'] <= 1):
+                    ok = False
+                    print('FAIL: the sensors’ role drop-down is hidden, squeezed or runs past its section:', sense)
                 if len(cards) < 2:
                     ok = False
                     print('FAIL: the house note and the added note should both stand')

@@ -8,7 +8,7 @@ import { db } from '../../js/store.js';
 import { stripFurniture, mineLeak, mineWord } from '../../js/assemble/plain.js';
 import { voiceOf, groundingOf, groundingLine, groundingSeed } from '../../js/assemble/voice.js';
 import { buildRequest } from '../../js/assemble/stack.js';
-import { keepPageWord, takeWordForTurn, loadSensors } from '../../js/agents/sensors.js';
+import { keepPageWord, takePageWord, loadSensors } from '../../js/agents/sensors.js';
 
 const HEAD = '[The courtyard — Monday, March 3, 2025 | 09:00 | clear | coat | by the gate]';
 const A = [
@@ -42,9 +42,9 @@ test('M357-2 IT IS SAID BEFORE THE NEXT PAGE, NOT BY SENDING THIS ONE BACK — o
   await keepPageWord(st.id, mineWord('gave him words of his own', 'Jovan'));
   const kept = await loadSensors(st.id);
   assert(/That last page gave him words of his own/.test(kept.pageWord), 'kept with the story');
-  const word = await takeWordForTurn(st.id);
+  const word = await takePageWord(st.id);
   assert(/Jovan is mine to play/.test(word), 'taken for the next turn: ' + word);
-  eq(await takeWordForTurn(st.id), '', 'and never twice');
+  eq(await takePageWord(st.id), '', 'and never twice');
   const r = buildRequest({ story: { brief: '' }, messages: [{ id: 'u1', role: 'user', text: 'I wait.' }], settings: { tellerName: 'Iron Man' }, state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 100000 }, directive: '', directorNote: '', editorEye: '', ruling: '', sensorNote: word });
   assert(r.messages[r.messages.length - 1].content.startsWith('Iron Man — that last page gave him'), 'and rides the closing words in his voice');
   /* the two asks that used to send a page back are gone, and so is the wire that carried it */

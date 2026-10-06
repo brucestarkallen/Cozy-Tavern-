@@ -23,7 +23,7 @@ test('M563 NO HELPER IS TOLD THE HISTORY OF ITS OWN PATCHES OR THE GENRE OF THE 
       else if (name === 'buildAuditMessages') r = fn('SRC', 'NOTE', 'PRIOR');
       else if (name === 'buildLensMessages') r = fn({ name: 'X', dossier: { identity: 'i' } }, [{ key: 'k', text: 't' }], 'PREMISE');
       else if (name === 'buildCanonTidyMessages') r = fn([{ name: 'X', text: 't' }]);
-      else if (name === 'chatAsk') r = fn(st);
+      else if (name === 'chatAsk') r = fn({ instructions: 'BRIEF', turns: [{ who: 'teller', text: 'Kaelen lunged.' }, { who: 'writer', text: 'I raise my sword.' }], page: 'NEWEST', dropped: 0 }); /* M636: the sensors' checker is handed what the storyteller was handed — a package, no longer a state */
       else r = fn(A);
       const sent = JSON.stringify(r);
       built += 1;

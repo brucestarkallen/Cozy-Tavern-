@@ -15,7 +15,7 @@ export const WORKER_ROWS = [
   ['auditor', 'The auditor — every few turns, the whole ledger against the brief, the pages and the record'],
   ['referee', 'The referee — rules on contested moments, fast and cold, and weighs the cast it rules from'],
   ['canon', 'Canon verification — reads who is in the scene and writes each canon person’s dossier from the series’ wiki'],
-  ['sensors', 'The sensors — read each finished page and answer a few narrow questions about it (a decisions model such as Jev belongs here)'],
+  ['sensors', 'The sensors — read each finished page against your craft’s rules, handed what the storyteller was handed (a model with room is the pick; a decisions model such as Jev or Clef also answers)'], /* M636 */
   ['planner', 'The planning helper — for a small model: reads the whole story after each page and writes down what the next page needs'],
   ['plans', 'The plans keeper — writes a plan down the moment a page lays it out — who does what, on what signal — and keeps it whole until it is carried out'],
   ['recall', 'The smart recall — before each page, reads your move against the story’s timeline and names the older record lines it means (they ride word for word)'],
