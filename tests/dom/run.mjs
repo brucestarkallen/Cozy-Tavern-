@@ -10073,5 +10073,36 @@ test('DOM-223 EACH NOTE\u2019S PLACE AND ROLE, CHOSEN IN SETTINGS (M623 — his:
   }
 });
 
+test('DOM-224 A HEADER THAT NAMES ONLY THE CITY IS NO MOVE, THROUGH THE APP (M627 — his: "the header says only New York City while my MC is at his friend\u2019s apartment"): after the page and its readers, the ground is still the apartment and his friend is still there', async () => {
+  const { saveState: saveLedger, emptyState: blankLedger } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const st = await db.stories.create({ title: 'Mark\u2019s place' });
+  await db.messages.append(st.id, { role: 'user', text: 'I knock on Mark\u2019s door.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[Mark\u2019s apartment — Monday, March 3, 2025 | 21:00 | rain on the windows | hoodie | at the door]\n\nMark let him in.' });
+  const led = applyMutations({ ...blankLedger(), sheet: { actors: {}, playerName: 'Jovan' } }, [{ type: 'place.set', name: 'Mark\u2019s apartment' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Mark' }, { type: 'mc.set', name: 'Jovan' }]).state;
+  await saveLedger(st.id, { ...led, page: 1, readTo: 1, tidiedGen: 999, healedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = house.state.storyAnswer;
+  const priorWorker = house.state.workerAnswer;
+  house.state.storyAnswer = () => '[New York City — Monday, March 3, 2025 | 21:10 | rain on the windows | hoodie | on the couch]\n\nJovan dropped onto the couch while Mark went for two beers from the fridge.';
+  /* the page reader as a real one reads this page: nobody moved anywhere (the walk's stock answer writes a diner) */
+  house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? JSON.stringify({ mutations: [{ type: 'presence.update', name: 'Jovan', position: 'on the couch' }], here: ['Jovan', 'Mark'] }) : walkDefaultWorker(body, sys));
+  try {
+    type(q('#composer-input'), 'I sit on the couch.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'its readers', 60000);
+    const after = await db.settings.get('state:' + st.id);
+    eq((after.place || {}).name, 'Mark\u2019s apartment', 'the ground is still the apartment, not the city');
+    assert((after.present || []).some((p) => p && p.name === 'Mark'), 'and his friend is still there with him');
+  } finally {
+    house.state.storyAnswer = prior;
+    house.state.workerAnswer = priorWorker;
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

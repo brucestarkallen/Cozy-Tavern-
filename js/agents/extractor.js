@@ -223,7 +223,9 @@ function systemPrompt({ mc, founding }) {
     : [
       'If the page opens with a bracketed header line — [Place — Day, Month DD, Year | HH:MM | weather |',
       'attire | position] — it is the truth for the hour (clock.set when the date or hour differs from',
-      'the ledger) and the ground (place.set when it moved). Its attire and position are the storyteller\'s',
+      'the ledger) and the ground (place.set when it moved) — but a header that names only the area round where',
+      'they already are (a city, a town, a district) is no move: the ground stays as the ledger holds it.',
+      'Its attire and position are the storyteller\'s',
       'READING of the ledger, never a change on their own: write the main character\'s attire or position',
       'only when this page or his move SHOWS it change (he changes, dresses, undresses, sits, moves) — a',
       'header that names another outfit or place to stand with nothing changing on the page is the',
@@ -498,7 +500,7 @@ export async function extractTurn(args = {}) {
      * waved them off from the diner door" as they walked home, M304): there a leave stands unless the page's own room
      * (its "here") says they came along. */
     const was = args.state && args.state.place && typeof args.state.place.name === 'string' ? args.state.place.name : '';
-    const ground = (headerMutations(args.assistantText).find((m) => m && m.type === 'place.set') || read.mutations.find((m) => m && m.type === 'place.set') || {}).name || '';
+    const ground = (headerMutations(args.assistantText, { ground: was }).find((m) => m && m.type === 'place.set') || read.mutations.find((m) => m && m.type === 'place.set') || {}).name || ''; /* M627 */
     /* a header that names less of the same place ("13th Division Barracks" in the captain's office) is no move */
     const moved = Boolean(was && ground && !samePlace(ground, was) && !seatAtScene(was, ground));
     const cameAlong = (n) => (Array.isArray(read.here) ? read.here : []).some((h) => samePersonName(h, n));

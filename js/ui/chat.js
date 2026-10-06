@@ -3692,7 +3692,8 @@ export function initChat(ctx) {
       /* M128: the header's ground and hour land in code, at the head of the
        * extractor's own writes — the same stamp, the same journal, the same
        * take-back — whatever the model remembered to write */
-      const fromHeader = (msg.role === 'assistant' && !msg.ooc) ? headerMutations(pageText(msg)) : [];
+      const groundBefore = ((await loadState(story.id)).place || {}).name || ''; /* M627: an area round it is no move */
+      const fromHeader = (msg.role === 'assistant' && !msg.ooc) ? headerMutations(pageText(msg), { ground: groundBefore }) : [];
       /* M129: a person who appears ONLY inside the page's window (*** The World
        * Beyond ***) is elsewhere by definition — a presence.enter for them is
        * refused here, whatever the model wrote (the window about Chloe's
@@ -3791,7 +3792,7 @@ export function initChat(ctx) {
       /* M409: THE PAGE'S HEADER IS THE GROUND. If the ledger's ground is not the one the latest page's header names (an
        * old audit moved it; a reader missed a move), it is put right here first — a journaled change — and every now is
        * judged against the page's ground. */
-      const headerGround = ((msg && msg.role === 'assistant' && !msg.ooc ? headerMutations(pageText(msg)) : []).find((m) => m && m.type === 'place.set') || {}).name || ''; /* this chain's own page */
+      const headerGround = ((msg && msg.role === 'assistant' && !msg.ooc ? headerMutations(pageText(msg), { ground: (fresh.place || {}).name || '' }) : []).find((m) => m && m.type === 'place.set') || {}).name || ''; /* M627 */ /* this chain's own page */
       if (headerGround) { const moved = applyMutations(fresh, [{ type: 'place.set', name: headerGround }]); if (moved.applied.length) fresh = moved.state; }
       /* M406: one person, two pages — joined first, so the nows below are read on the one page */
       const pageJoins = duplicatePages(fresh);

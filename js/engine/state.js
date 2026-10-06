@@ -50,7 +50,7 @@ import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge, blindS
 import { renderCanon } from './canon.js';
 import { renderFightLine, mcName } from './duels.js';
 import { migrateCharacters, healGhosts } from './people.js'; /* M485: the ghosts folded on load */
-import { storyTurn, samePlace, seatAtScene } from './apply.js'; /* M588: who is close by */
+import { storyTurn, samePlace, seatAtScene, broaderPlace } from './apply.js'; /* M588: who is close by; M627: an area is no move */
 
 const KEY_PREFIX = 'state:';
 
@@ -1287,7 +1287,8 @@ const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 
 const MONTH_SRC = '(?:' + MONTHS.join('|') + '|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)\\.?';
 const SHORT_DAY_SRC = '(?:mon|tues|tue|wed|thurs|thur|thu|fri|sat|sun)\\.?';
 const monthNumber = (word) => ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'].indexOf(String(word || '').toLowerCase().slice(0, 3)) + 1;
-export function headerMutations(pageText) {
+/* M627: { ground } — the ledger's ground before this page: a header place that only names the area round it is no move */
+export function headerMutations(pageText, { ground = '' } = {}) {
   const first = String(pageText || '').split('\n').map((l) => l.trim()).find((l) => l.length);
   if (!first || !/^\[.+\]$/.test(first)) return [];
   const inner = first.slice(1, -1);
@@ -1331,7 +1332,7 @@ export function headerMutations(pageText) {
    * against the wrong place. Only a time ("09:00") or a date ("06/01", "1 June") at the front is not a place. */
   const notAPlace = leadsWithDate(place) || /^\d{1,2}:\d{2}\b/.test(place) || /^\d{1,4}[\/.-]\d{1,2}/.test(place) || new RegExp('^\\d{1,2}(st|nd|rd|th)?\\s+(' + MONTHS.join('|') + ')\\b', 'i').test(place) || /^\d+$/.test(place);
   const placeTaken = Boolean(place && place.length <= 80 && !notAPlace);
-  if (placeTaken) out.push({ type: 'place.set', name: place });
+  if (placeTaken && !broaderPlace(place, ground)) out.push({ type: 'place.set', name: place }); /* M627 */
   /* M417: the date is read from everything that is not the place — a leading date part is the clock's, and a header that
    * is only a date ("[Monday, June 1, 2026 | 10:40]") still sets the clock */
   const dateWords = placeTaken

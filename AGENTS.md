@@ -15644,3 +15644,21 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
 - Laws M626-1/2 (fail on m625-001), M626-3 (the readers' requests carry the header rules).
 
 - GATES at m626-001 (one CPU): harness 1233/1233, walk 223/223, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.
+
+# M627 — his: "on my flash model the header's location is not detailed — only 'New York City' while my MC is at his
+# friend's apartment"
+- WHAT IT DID (reproduced through the app — walk DOM-224 fails on m626-001: the ground came back "New York City"): the
+  header's ground is written in code (M128 at the page reader's head, M131 its precedence, M409 "the page's header is the
+  ground", the auditor's M259) — so a city over an apartment was a MOVE: the ground went to the city, everyone the page did
+  not name was left behind at the apartment (M509-12), positions were cleared, and the next request told the storyteller he
+  stood in "New York City", which the next header repeated.
+- THE RULE (apply.js broaderPlace, by M396's own measure noOneSpot): a header place that is no one spot — one word, or a
+  town, a city or a district with nothing more — over a ground that IS a spot names only the area round it: no move, the
+  ground stays. headerMutations takes the ledger's ground ({ ground }) and leaves such a place.set out; every reader of the
+  header's ground hands it in (chat.js — the page reader's head and M409; auditor.js; extractor.js's moved/left-behind
+  judgment). A real move to such a place (a train to Tokyo) is still written by the page reader's own place.set, from the
+  page — it is told so, and the second reader names an area-only header as a slip for the mender (the page's line).
+- Law M627-1 (the rule through the header reader); walk DOM-224 (his case through the app: after the page and its readers
+  the ground is still the apartment and his friend is still there).
+
+- GATES at m627-001 (one CPU): harness 1234/1234, walk 224/224, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.

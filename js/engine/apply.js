@@ -1539,6 +1539,26 @@ const PLACE_IN = new Set(['in', 'at', 'inside', 'within', 'of']);
 const PLACE_WITHIN = new Set(['by', 'beside', 'near', 'against', 'behind', 'next', 'at', 'on', 'in', 'of', 'with', 'facing', 'opposite', 'under', 'along', 'acros', 'close', 'watching', 'standing', 'sitting', 'seated', 'waiting', 'leaning', 'kneeling', 'working', 'doorway', 'corner', 'window']);
 const placeWordsOf = (text) => foldName(text).split(' ').filter(Boolean).map((w) => (w.length > 3 && w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w)).filter((w) => !PLACE_FILL.has(w));
 const placeParts = (text) => String(text || '').split(/\s*(?:—|–|,|;|\(|\)|\s-\s)\s*/).map(placeWordsOf).filter((ws) => ws.length);
+/* M627: A HEADER THAT NAMES ONLY THE CITY IS NOT A MOVE — his: "on my flash model the header's location is not detailed,
+ * only 'New York City' while my MC is at his friend's apartment". The header's ground is written in code (M128/M131/M409),
+ * so "New York City" over "Mark's apartment" was read as a MOVE: the ground went to the city, everyone the page did not name
+ * was left behind at the apartment (M509-12), every position was cleared — and the next request told the storyteller he
+ * stood in "New York City". A place that is no one spot (one word, or a town, a city or a district with nothing more — M396's
+ * own measure) names only the area round a ground that IS a spot: it is not a move, and the ground stays. A real move
+ * there (he takes a train to Tokyo) is still written by the page reader's own place.set, from the page. */
+export function noOneSpot(name) {
+  const scene = String(name || '').trim();
+  if (!scene) return true;
+  const parts = placeParts(scene);
+  const all = parts.flat();
+  if (!all.length || foldName(scene).split(' ').filter(Boolean).length < 2) return true;
+  return parts.length === 1 && PLACE_REGION.has(all[all.length - 1]);
+}
+export function broaderPlace(headerPlace, ground) {
+  if (!headerPlace || !ground || samePlace(headerPlace, ground)) return false;
+  return noOneSpot(headerPlace) && !noOneSpot(ground);
+}
+
 export function seatAtScene(location, sceneName) {
   const scene = String(sceneName || '').trim();
   const where = String(location || '').trim();

@@ -70,6 +70,8 @@ const SYSTEM_PROMPT = [
   'when its attire or position for the main character disagrees with what the ledger holds for him,',
   'and neither this page nor his move shows any change (no dressing or undressing, no moving), that',
   'is a slip of the header — a warn, `fix` giving the ledger\'s attire or position in a few words.',
+  'So is a header whose place names only the area round the ledger\'s ground (a city or a district',
+  'for the apartment they are in) when the page shows no move — a warn, `fix` giving the ledger\'s ground.',
   'WHO IS WHERE IS THE PAGE\'S: who stands in the scene, who came or went, and where the absent are follow',
   'the page — the house keeps them from it. Someone the page shows here is here; never a finding.',
   '',

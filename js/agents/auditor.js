@@ -427,7 +427,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   /* M259: the latest STORY page's header line has already written the ground
    * and the hour in code (M128/M131) — the auditor never overrides it. */
   const latestStory = [...all].reverse().find((m) => m && m.role === 'assistant' && !m.ooc);
-  const header = latestStory ? headerMutations(pageText(latestStory)) : [];
+  const header = latestStory ? headerMutations(pageText(latestStory), { ground: (fresh.place || {}).name || '' }) : []; /* M627 */
   read.issues = auditorScope(read.issues, fresh, { header, page: latestStory ? pageText(latestStory) : '' }); /* M128: the moment never lands from an audit; M453: the page, for an echoing header */
   /* M403/M413: WHEN THE AUDITOR MAY TAKE SOMEONE OUT OF THE SCENE. It took Byakuya, Renji, Iba and the rest out in one
    * batch while they stood at the duel (M403) — and M403's first answer (only someone the latest pages NAME may be taken
