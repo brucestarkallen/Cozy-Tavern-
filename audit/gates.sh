@@ -9,5 +9,5 @@ cd "$REPO" && node tests/harness/run.mjs > /tmp/gates/${TAG}_harness.log 2>&1; e
 cd "$REPO/tests/dom" && node run.mjs > /tmp/gates/${TAG}_walk.log 2>&1; echo "EXIT $?" >> /tmp/gates/${TAG}_walk.log
 node longplay.mjs > /tmp/gates/${TAG}_long.log 2>&1; echo "EXIT $?" >> /tmp/gates/${TAG}_long.log
 cd "$REPO" && bash tests/audit_lint.sh > /tmp/gates/${TAG}_lint.log 2>&1; echo "EXIT $?" >> /tmp/gates/${TAG}_lint.log
-for t in perf_send holdsone cutthinking; do s=$(date +%s); timeout 600 python3 tests/$t.py > /tmp/gates/${TAG}_$t.log 2>&1; echo "$t EXIT $? ($(( $(date +%s)-s ))s)" >> /tmp/gates/${TAG}_browser.log; done
+for t in perf_send holdsone cutthinking notes_layout; do s=$(date +%s); timeout 600 python3 tests/$t.py > /tmp/gates/${TAG}_$t.log 2>&1; echo "$t EXIT $? ($(( $(date +%s)-s ))s)" >> /tmp/gates/${TAG}_browser.log; done
 echo ALLDONE > /tmp/gates/${TAG}_done

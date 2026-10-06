@@ -13,6 +13,10 @@
 import { db } from '../store.js';
 import { HOUSE_COT, HOUSE_COT_ID, withHouseNote } from '../assemble/stack.js'; /* M622: the house's thinking note */
 
+/* M623: where each note stands beside his note, and the role it goes as */
+const PLACES = [['above', 'Above my note'], ['below', 'Below my note']];
+const ROLES = [['', 'Like the note at the end'], ['system', 'A system message'], ['user', 'A user message']];
+
 export const NOTE_ADDS_KEY = 'noteAdds';
 
 function uid() { return 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -20,7 +24,7 @@ function uid() { return 'n' + Date.now().toString(36) + Math.random().toString(3
 export function cleanNoteAdds(list) {
   return withHouseNote((Array.isArray(list) ? list : [])
     .filter((n) => n && typeof n === 'object')
-    .map((n) => ({ id: typeof n.id === 'string' && n.id ? n.id : uid(), on: n.on !== false, text: typeof n.text === 'string' ? n.text : '', ...(n.id === HOUSE_COT_ID ? { builtin: true } : {}) })));
+    .map((n) => ({ id: typeof n.id === 'string' && n.id ? n.id : uid(), on: n.on !== false, text: typeof n.text === 'string' ? n.text : '', place: n.place === 'below' ? 'below' : 'above', role: n.role === 'system' || n.role === 'user' ? n.role : '', ...(n.id === HOUSE_COT_ID ? { builtin: true } : {}) })));
 }
 
 export async function loadNoteAdds() { return cleanNoteAdds(await db.settings.get(NOTE_ADDS_KEY)); }
@@ -39,7 +43,7 @@ export function initNoteAdds(ctx) {
   let entries = [];
 
   async function save() {
-    await db.settings.set(NOTE_ADDS_KEY, entries.map((n) => ({ id: n.id, on: n.on !== false, text: String(n.text || ''), ...(n.id === HOUSE_COT_ID ? { builtin: true } : {}) })));
+    await db.settings.set(NOTE_ADDS_KEY, entries.map((n) => ({ id: n.id, on: n.on !== false, text: String(n.text || ''), place: n.place === 'below' ? 'below' : 'above', role: n.role === 'system' || n.role === 'user' ? n.role : '', ...(n.id === HOUSE_COT_ID ? { builtin: true } : {}) })));
   }
 
   function card(entry) {
@@ -47,11 +51,15 @@ export function initNoteAdds(ctx) {
     box.className = 'note-add-card' + (entry.on ? '' : ' is-off');
     box.dataset.id = entry.id;
 
+    /* M623: the tick lives in a .radio-row label, as every other tick in Settings does — a bare one took the global
+     * form rule's full width and squeezed the note's words into a column one letter wide */
+    const onLabel = document.createElement('label');
+    onLabel.className = 'radio-row note-add-on';
     const on = document.createElement('input');
     on.type = 'checkbox';
     on.checked = entry.on !== false;
     on.setAttribute('aria-label', 'Send this note');
-    on.title = 'Send this note';
+    onLabel.append(on, document.createTextNode(' Send it'));
     on.addEventListener('change', async () => {
       entry.on = on.checked;
       box.classList.toggle('is-off', !on.checked);
@@ -136,14 +144,31 @@ export function initNoteAdds(ctx) {
 
     const head = document.createElement('div');
     head.className = 'note-add-head';
+    head.appendChild(onLabel);
     if (house) {
-      const name = document.createElement('div');
-      name.className = 'lbl note-add-name';
+      const name = document.createElement('span');
+      name.className = 'note-add-name';
       name.textContent = 'The house’s thinking note — a check the storyteller runs to itself before each page';
-      box.appendChild(name);
+      head.appendChild(name);
     }
-    head.append(on, text);
-    box.append(head, row);
+    /* M623: where it stands beside his note, and the role it goes as — kept the moment they change */
+    const choices = document.createElement('div');
+    choices.className = 'note-add-choices';
+    const pick = (label, options, value, onChange) => {
+      const wrap = document.createElement('label');
+      wrap.textContent = label;
+      const sel = document.createElement('select');
+      for (const [v, words] of options) { const o = document.createElement('option'); o.value = v; o.textContent = words; sel.appendChild(o); }
+      sel.value = value;
+      sel.addEventListener('change', async () => { onChange(sel.value); await save(); });
+      wrap.appendChild(sel);
+      return wrap;
+    };
+    choices.append(
+      pick('Where it stands', PLACES, entry.place === 'below' ? 'below' : 'above', (v) => { entry.place = v === 'below' ? 'below' : 'above'; }),
+      pick('Sent as', ROLES, entry.role === 'system' || entry.role === 'user' ? entry.role : '', (v) => { entry.role = v === 'system' || v === 'user' ? v : ''; }),
+    );
+    box.append(head, text, choices, row);
     return box;
   }
 

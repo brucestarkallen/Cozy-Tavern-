@@ -419,16 +419,20 @@ export function withHouseNote(list) {
   return [{ id: HOUSE_COT_ID, builtin: true, on: true, text: '' }, ...arr];
 }
 
-/* M620: the notes he added above the note at the end — the ones ticked on, with words, in the order he added them;
+/* M620: the notes he added at the note at the end — the ones ticked on, with words, in the order he set them;
  * M622: the house's thinking note among them in the place he gave it, its own words unless he wrote his — and never on
  * an out-of-character turn (#question, ((…)), //…): it plans a page, and an answer to him out of the story is not one
- * (his own notes ride as his note does) */
+ * (his own notes ride as his note does);
+ * M623: each note stands ABOVE his note or BELOW it, and goes as a system message, a user message, or like the note at
+ * the end ('' — the role "Sent after your message as" gives the closing words) */
+export const NOTE_PLACES = ['above', 'below'];
+export const NOTE_ROLES = ['', 'system', 'user'];
 export function addedNotes(list, { ooc = false } = {}) {
   return withHouseNote(list)
     .filter((n) => !(ooc && n.id === HOUSE_COT_ID))
     .map((n) => (n.id === HOUSE_COT_ID && !(typeof n.text === 'string' && n.text.trim()) ? { ...n, text: HOUSE_COT } : n))
     .filter((n) => n && n.on !== false && typeof n.text === 'string' && n.text.trim())
-    .map((n) => n.text.trim());
+    .map((n) => ({ text: n.text.trim(), place: n.place === 'below' ? 'below' : 'above', role: n.role === 'system' || n.role === 'user' ? n.role : '' }));
 }
 
 /* A turn counts as "just go on" when the last thing the other writer said
@@ -1348,10 +1352,18 @@ export function buildRequest({
    * end, above his own note, in the order he added them — only while the note itself is sent (noteOn, and its small-model
    * switch); one he unticks is held back. With no note of his own (the starter note lives in the standing words) they
    * stand at the end alone. */
-  const noteAdds = noteOn ? addedNotes(safeSettings.noteAdds, { ooc: oocTurn }) : [];
+  const noteAdds = noteOn ? addedNotes(safeSettings.noteAdds, { ooc: oocTurn }).map((n) => ({ ...n, text: inVoice(n.text, voice) })) : [];
   const noteOwn = notePicked.source === 'the starter text' ? '' : notePicked.text;
-  const noteWhole = [...noteAdds, noteOwn].filter((t) => typeof t === 'string' && t.trim()).join('\n\n');
-  const note = { ...notePicked, text: noteWhole ? inVoice(noteWhole, voice) : '', source: noteAdds.length ? (noteAdds.length === 1 ? 'your note above it' : 'your ' + noteAdds.length + ' notes above it') + (noteOwn.trim() ? ', then the note ' + notePicked.source : '') : notePicked.source }; /* M327: "the other writer" is the writer, by name */
+  /* M623: in the order they ride — the notes above his note, his note, the notes below it */
+  const notesAbove = noteAdds.filter((n) => n.place !== 'below');
+  const notesBelow = noteAdds.filter((n) => n.place === 'below');
+  const noteOwnText = noteOwn && noteOwn.trim() ? inVoice(noteOwn, voice) : '';
+  const noteWhole = [...notesAbove.map((n) => n.text), noteOwnText, ...notesBelow.map((n) => n.text)].filter((t) => typeof t === 'string' && t.trim()).join('\n\n');
+  const countWords = (k, where) => (k === 1 ? 'your note ' + where + ' it' : 'your ' + k + ' notes ' + where + ' it');
+  const noteSource = noteAdds.length
+    ? [notesAbove.length ? countWords(notesAbove.length, 'above') : '', noteOwnText ? 'the note ' + notePicked.source : '', notesBelow.length ? countWords(notesBelow.length, 'below') : ''].filter(Boolean).join(', then ')
+    : notePicked.source;
+  const note = { ...notePicked, text: noteWhole, source: noteSource }; /* M327: "the other writer" is the writer, by name */
   const hasNote = Boolean(note.text && note.text.trim());
 
   /* --- 10. The continue nudge + M9 house commands --- */
@@ -1674,7 +1686,7 @@ export function buildRequest({
    * comes BEFORE them. The repeat stood second, ahead of the switches, so a think-on-page line or the sensors' word
    * could sit between his instructions and his note. (M21 always meant it "just before the note at the end".) */
   const choiceLine = choiceText ? toTeller(choiceText, voice) : ''; /* M548 */
-  const closing = [rulingLine, choiceLine, directiveText, anchorLine, sensorLine, groundLine, thinkLine, soundsLine, echoOn ? frameText : '', hasNote ? note.text : ''].filter((t) => typeof t === 'string' && t.trim());
+  const closing = [rulingLine, choiceLine, directiveText, anchorLine, sensorLine, groundLine, thinkLine, soundsLine, echoOn ? frameText : ''].filter((t) => typeof t === 'string' && t.trim());
   /* M380: WHAT FOLLOWS HIS MESSAGE IS A SYSTEM MESSAGE — SillyTavern's post-history instructions — unless he chooses
    * otherwise. As a user message it read as HIM writing a second message of instructions, and his teller answered it as
    * an assistant answers a user. */
@@ -1690,7 +1702,20 @@ export function buildRequest({
     }
   }
   const afterRole = safeSettings.afterRole === 'user' ? 'user' : 'system';
-  if (closing.length) out.push({ role: afterRole, content: closing.join('\n\n') });
+  /* M623: HIS NOTES, EACH IN ITS PLACE AND ITS ROLE. The closing words, then the notes above his note, his note, the
+   * notes below it — each note as the system or user message he chose, or like the closing words (his "Sent after your
+   * message as"); what stands next to the same role goes as one message, so the order is kept exactly and nothing is
+   * split that need not be. */
+  const segments = [
+    ...closing.map((text) => ({ role: afterRole, text })),
+    ...(hasNote ? [...notesAbove.map((n) => ({ role: n.role || afterRole, text: n.text })), ...(noteOwnText ? [{ role: afterRole, text: noteOwnText }] : []), ...notesBelow.map((n) => ({ role: n.role || afterRole, text: n.text }))] : []),
+  ];
+  for (const seg of segments) {
+    const prev = out.length && out[out.length - 1].__closing ? out[out.length - 1] : null;
+    if (prev && prev.role === seg.role) prev.content += '\n\n' + seg.text;
+    else out.push({ role: seg.role, content: seg.text, __closing: true });
+  }
+  for (const m of out) if (m.__closing) delete m.__closing;
 
   /* M510-20: EVERY ROW, EVERY PAGE — his word: "put all of what the storyteller saw, so I know everything that's being put,
    * even if it's empty". A part that did not ride this page stands in its place as a row of 0 tokens that says why. The

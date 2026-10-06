@@ -1212,11 +1212,14 @@ body.plain-speech .thought { font-style: italic; }
 .note-adds-list { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.6rem; }
 .note-add-card { display: flex; flex-direction: column; gap: 0.45rem; padding: 0.6rem 0.75rem; border: 1px solid var(--border-soft); border-left: 2px solid var(--ember-dim); border-radius: var(--r); }
 .note-add-card.is-off { opacity: 0.6; border-left-color: var(--border); }
-.note-add-head { display: flex; align-items: flex-start; gap: 0.6rem; }
-.note-add-head input[type="checkbox"] { margin-top: 0.55rem; flex: 0 0 auto; }
-.note-add-head textarea { flex: 1; min-width: 0; }
+.note-add-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.note-add-on { padding: 0; flex: 0 0 auto; }
+.note-add-card textarea { width: 100%; box-sizing: border-box; }
+.note-add-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.note-add-choices label { font-size: 0.85rem; color: var(--text-2); display: flex; flex-direction: column; gap: 0.25rem; }
+@media (max-width: 520px) { .note-add-choices { grid-template-columns: 1fr; } }
 .note-add-actions { justify-content: flex-start; }
-.note-add-name { font-size: 0.8rem; color: var(--text-2); }
+.note-add-name { font-size: 0.85rem; color: var(--text-2); line-height: 1.35; flex: 1 1 12rem; }
 
 /* M136: the glossary reads like a book */
 .glossary h3 { margin: 1.2rem 0 0.4rem; font-size: 1rem; color: var(--ember); }

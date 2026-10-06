@@ -15553,3 +15553,26 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   out-of-character turn carries no thinking note.
 
 - GATES at m622-001 (one CPU): harness 1227/1227, walk 222/222, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking — EXIT 0 each.
+
+# M623 — his screenshot: "why is the UI fucked up? And why is there no setting to put it before or after the original
+# notes persona? And where is the setting to put it as a system or user message, for each of the notes?"
+- THE SQUEEZED CARD (reproduced in a real browser at his phone's width: the tick 315 px wide, the note's words 24 px —
+  his screenshot exactly). The notes card set its tick bare inside a flex row; the global form rule (base.css "input,
+  select, textarea { width: 100% }") gave the tick the whole row, and the words were squeezed to one letter a line. Every
+  other tick in Settings lives in a .radio-row label (".radio-row input { width: auto }") — the notes card's tick does
+  now ("Send it"), the words take the card's full width on their own line, and the house note's title is plain quiet
+  text. Every tick the code makes was checked: the rest are .radio-row or sized (the bulk-delete ticks: 18 px, measured).
+- EACH NOTE'S PLACE AND ROLE: every note (the house's thinking note included) has "Where it stands" — Above my note /
+  Below my note — and "Sent as" — Like the note at the end / A system message / A user message — kept the moment they
+  change. On the wire (stack.js): the closing words, the notes above his note, his note, the notes below it, each note in
+  its own role ('' follows "Sent after your message as"); neighbours of one role go as one message, so the order is kept
+  exactly. The receipt says where each stands ("your 2 notes above it, then the note for every story, then your note
+  below it"). The section is "More notes — every story".
+- A REAL-BROWSER CHECK IN THE GATES (tests/notes_layout.py, gates.sh): the real app in headless Chromium against the real
+  serve.py at 360, 412 and 900 px, a note added, every card MEASURED — its words at least 80% of the card, its tick a
+  tick, both choices there. It fails on m622 (words 24 px of a 342 px card) and holds now. The walk (jsdom) lays nothing
+  out and could not see it.
+- Laws M623-1/2 (place and role on the wire, merged by role, the receipt; the house note below his as a user message),
+  walk DOM-223 (both choices set in Settings reach the storyteller: his note, then the note as his user message, last).
+
+- GATES at m623-001 (one CPU): harness 1229/1229, walk 223/223, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.

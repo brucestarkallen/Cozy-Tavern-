@@ -10035,5 +10035,43 @@ test('DOM-222 SEARCH INSIDE THE TALES (M622 — his: "a search section on the si
   }
 });
 
+test('DOM-223 EACH NOTE\u2019S PLACE AND ROLE, CHOSEN IN SETTINGS (M623 — his: "no setting to put it before or after the original notes persona … system or user message for each of the notes"): "Where it stands: Below my note" and "Sent as: A user message" on a note — the storyteller reads his note, then that note as his user message, last', async () => {
+  const { saveState: saveLedger, emptyState: blankLedger } = await import('../../js/engine/state.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const noteWas = await db.settings.get('noteText');
+  await db.settings.set('noteText', 'HIS OWN NOTE');
+  await db.settings.set('noteAdds', [{ id: 'house-cot', on: false }]);
+  const st = await db.stories.create({ title: 'Notes placed' });
+  await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[The gate \u2014 Monday, March 3, 2025 | 09:00 | clear]\n\nThe gate was quiet.' });
+  await saveLedger(st.id, { ...blankLedger(), sheet: { actors: {}, playerName: 'Jovan' }, page: 1, readTo: 1, tidiedGen: 999, healedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  try {
+    await env.ctx.settings.onShow({ all: true });
+    type(q('#note-add-text'), 'A NOTE BELOW, AS MINE');
+    click(q('#btn-note-add'));
+    const card = await until(() => [...document.querySelectorAll('#note-adds-list .note-add-card')].find((c) => c.querySelector('textarea').value === 'A NOTE BELOW, AS MINE'), 'the new note\u2019s card');
+    const [where, role] = card.querySelectorAll('select');
+    where.value = 'below'; where.dispatchEvent(new env.window.Event('change'));
+    role.value = 'user'; role.dispatchEvent(new env.window.Event('change'));
+    await until(async () => ((await db.settings.get('noteAdds')) || []).some((n) => n.text === 'A NOTE BELOW, AS MINE' && n.place === 'below' && n.role === 'user'), 'both choices kept the moment they change');
+    await env.ctx.settings.onHide();
+    await until(() => !workIsRunning(st.id) && queuedCount(st.id) === 0, 'settle', 30000);
+    const before = house.state.calls.length;
+    type(q('#composer-input'), 'I look around.');
+    submit(q('#composer'));
+    const teller = await until(() => house.state.calls.slice(before).find((c) => !c.isWorker), 'the storyteller request', 30000);
+    const tail = (teller.body.messages || []).slice(-2).map((m) => m.role + ': ' + String(m.content));
+    eq(tail.join(' | '), 'system: HIS OWN NOTE | user: A NOTE BELOW, AS MINE', 'his note, then the note below it as a user message — last');
+    await until(() => !env.ctx.chat.isBusy(), 'the page lands', 30000);
+  } finally {
+    if (noteWas === undefined) await db.settings.delete('noteText'); else await db.settings.set('noteText', noteWas);
+    await db.settings.set('noteAdds', []);
+    if (env.ctx.noteAdds) await env.ctx.noteAdds.reload();
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);
