@@ -35,6 +35,7 @@ export function makeHouse() {
   let n = 0;
   const fetchImpl = async (url, opts = {}) => {
     const u = String(url);
+    if (/api\/books\/search/.test(u) && typeof state.searchAnswer === 'function') return jsonRes(state.searchAnswer(u)); /* M622: a scenario may answer the device's search */
     if (/api\/books/.test(u)) return jsonRes({}, 404);
     if (/\/v1\/models$/.test(u)) return jsonRes({ data: state.models || [] }); /* M289: a scenario may say what the house reports */
     const body = opts.body ? JSON.parse(opts.body) : {};

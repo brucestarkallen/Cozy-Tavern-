@@ -50,6 +50,11 @@
           <h2>Your stories</h2>
           <button id="btn-new-story" class="text-btn" type="button">Start a new story</button>
         </div>
+        <!-- M622: search inside every tale, the latest first -->
+        <div class="story-search-row">
+          <input id="story-search" type="search" placeholder="Search inside your tales…" autocomplete="off" spellcheck="false" aria-label="Search inside your tales">
+        </div>
+        <div id="search-results" class="search-results" hidden></div>
         <form id="new-story-form" class="new-story-form" hidden>
           <input id="new-story-title" type="text" maxlength="80" placeholder="Name the tale…" autocomplete="off" aria-label="A name for the new tale">
           <!-- M16: a new tale may begin already resting on a shelf. -->
@@ -429,7 +434,7 @@
           </div>
           <!-- M620: notes he adds, riding above the note at the end -->
           <label class="stack-label" for="note-add-text">Notes above it — every story</label>
-          <p class="quiet">Each note you add rides in the note at the end, above your note, in the order you added them — the newest just above it. Untick one to hold it back.</p>
+          <p class="quiet">Each note rides in the note at the end, above your note, in the order shown here — ▲ ▼ chooses where each one stands. The house’s thinking note stands first until you move it: a check the storyteller runs to itself before each page. Untick a note to hold it back.</p>
           <div id="note-adds-list" class="note-adds-list"></div>
           <textarea id="note-add-text" rows="2" spellcheck="false" aria-label="A new note" placeholder="A new note — it rides above the note at the end"></textarea>
           <div class="row"><button id="btn-note-add" class="btn" type="button">Add the note</button></div>

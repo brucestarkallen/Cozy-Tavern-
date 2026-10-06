@@ -11,18 +11,24 @@
  * the add box's draft included. Its switch is kept the moment it changes. Letting a note go asks first — it erases
  * words he wrote (M175's law). */
 import { db } from '../store.js';
+import { HOUSE_COT, HOUSE_COT_ID, withHouseNote } from '../assemble/stack.js'; /* M622: the house's thinking note */
 
 export const NOTE_ADDS_KEY = 'noteAdds';
 
 function uid() { return 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
 export function cleanNoteAdds(list) {
-  return (Array.isArray(list) ? list : [])
+  return withHouseNote((Array.isArray(list) ? list : [])
     .filter((n) => n && typeof n === 'object')
-    .map((n) => ({ id: typeof n.id === 'string' && n.id ? n.id : uid(), on: n.on !== false, text: typeof n.text === 'string' ? n.text : '' }));
+    .map((n) => ({ id: typeof n.id === 'string' && n.id ? n.id : uid(), on: n.on !== false, text: typeof n.text === 'string' ? n.text : '', ...(n.id === HOUSE_COT_ID ? { builtin: true } : {}) })));
 }
 
 export async function loadNoteAdds() { return cleanNoteAdds(await db.settings.get(NOTE_ADDS_KEY)); }
+
+/* M622: the words a card shows — the house's thinking note shows the house's words until he writes his own */
+const wordsOf = (entry) => (entry.id === HOUSE_COT_ID && !String(entry.text || '').trim() ? HOUSE_COT : String(entry.text || ''));
+/* and what is kept: the house's words, untouched, are kept as none of his own — so a better house note reaches him */
+const keptFrom = (entry, typed) => (entry.id === HOUSE_COT_ID && String(typed || '').trim() === HOUSE_COT.trim() ? '' : String(typed || ''));
 
 export function initNoteAdds(ctx) {
   const list = document.getElementById('note-adds-list');
@@ -33,7 +39,7 @@ export function initNoteAdds(ctx) {
   let entries = [];
 
   async function save() {
-    await db.settings.set(NOTE_ADDS_KEY, entries.map((n) => ({ id: n.id, on: n.on !== false, text: String(n.text || '') })));
+    await db.settings.set(NOTE_ADDS_KEY, entries.map((n) => ({ id: n.id, on: n.on !== false, text: String(n.text || ''), ...(n.id === HOUSE_COT_ID ? { builtin: true } : {}) })));
   }
 
   function card(entry) {
@@ -52,11 +58,12 @@ export function initNoteAdds(ctx) {
       await save();
     });
 
+    const house = entry.id === HOUSE_COT_ID;
     const text = document.createElement('textarea');
-    text.rows = 2;
+    text.rows = house ? 8 : 2;
     text.spellcheck = false;
-    text.value = entry.text;
-    text.setAttribute('aria-label', 'This note');
+    text.value = wordsOf(entry);
+    text.setAttribute('aria-label', house ? 'The house’s thinking note' : 'This note');
 
     const row = document.createElement('div');
     row.className = 'row note-add-actions';
@@ -69,25 +76,72 @@ export function initNoteAdds(ctx) {
     kept.hidden = true;
     kept.textContent = 'Kept.';
     keep.addEventListener('click', async () => {
-      entry.text = text.value;
+      entry.text = keptFrom(entry, text.value);
       await save();
       kept.hidden = false;
       setTimeout(() => { kept.hidden = true; }, 1600);
     });
-    const letGo = document.createElement('button');
-    letGo.type = 'button';
-    letGo.className = 'text-btn';
-    letGo.textContent = 'Let it go';
-    letGo.addEventListener('click', async () => {
-      if (typeof window.confirm === 'function' && !window.confirm('Let this note go? Its words are erased.')) return;
-      entries = entries.filter((n) => n.id !== entry.id);
+    /* M622: he chooses where each note stands — before or after the others */
+    const at = entries.indexOf(entry);
+    const move = (to) => async () => {
+      const from = entries.indexOf(entry);
+      if (from < 0 || to < 0 || to >= entries.length) return;
+      entries.splice(from, 1);
+      entries.splice(to, 0, entry);
       await save();
       render();
-    });
-    row.append(keep, letGo, kept);
+    };
+    const up = document.createElement('button');
+    up.type = 'button';
+    up.className = 'story-mini';
+    up.textContent = '▲';
+    up.title = 'Move it up — before the note above';
+    up.setAttribute('aria-label', 'Move this note up');
+    up.disabled = at <= 0;
+    up.addEventListener('click', () => { move(entries.indexOf(entry) - 1)().catch(() => {}); });
+    const down = document.createElement('button');
+    down.type = 'button';
+    down.className = 'story-mini';
+    down.textContent = '▼';
+    down.title = 'Move it down — after the note below';
+    down.setAttribute('aria-label', 'Move this note down');
+    down.disabled = at < 0 || at >= entries.length - 1;
+    down.addEventListener('click', () => { move(entries.indexOf(entry) + 1)().catch(() => {}); });
+    if (house) {
+      /* the house's note is switched off, never let go; his own words for it can be put back to the house's */
+      const back = document.createElement('button');
+      back.type = 'button';
+      back.className = 'text-btn';
+      back.textContent = 'Put back the house’s words';
+      back.hidden = !String(entry.text || '').trim();
+      back.addEventListener('click', async () => {
+        entry.text = '';
+        await save();
+        render();
+      });
+      row.append(keep, up, down, back, kept);
+    } else {
+      const letGo = document.createElement('button');
+      letGo.type = 'button';
+      letGo.className = 'text-btn';
+      letGo.textContent = 'Let it go';
+      letGo.addEventListener('click', async () => {
+        if (typeof window.confirm === 'function' && !window.confirm('Let this note go? Its words are erased.')) return;
+        entries = entries.filter((n) => n.id !== entry.id);
+        await save();
+        render();
+      });
+      row.append(keep, up, down, letGo, kept);
+    }
 
     const head = document.createElement('div');
     head.className = 'note-add-head';
+    if (house) {
+      const name = document.createElement('div');
+      name.className = 'lbl note-add-name';
+      name.textContent = 'The house’s thinking note — a check the storyteller runs to itself before each page';
+      box.appendChild(name);
+    }
     head.append(on, text);
     box.append(head, row);
     return box;
@@ -124,7 +178,7 @@ export function initNoteAdds(ctx) {
     for (const box of list.querySelectorAll('.note-add-card')) {
       const entry = entries.find((n) => n.id === box.dataset.id);
       const t = box.querySelector('textarea');
-      if (entry && t && t.value !== entry.text) { entry.text = t.value; moved = true; }
+      if (entry && t && t.value !== wordsOf(entry)) { entry.text = keptFrom(entry, t.value); moved = true; }
     }
     if (moved) await save();
     const added = await addFromDraft();

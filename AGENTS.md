@@ -15511,3 +15511,45 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   tales and their pages gone, the shelf down, the kept shelf and the unticked tales standing, none open).
 
 - GATES at m621-001 (one CPU): harness 1221/1221, walk 221/221, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking — EXIT 0 each.
+
+# M622 — his: "1. a search section on the sidebar so I can search words inside the story from the latest story to oldest;
+# 2. a default notes CoT that you make — I can move it before or after my other notes, switch it on or off; the best CoT,
+# still fast, reminding the instructions and still creative (MC agency, NSFW, NPCs acting before me, the world alive,
+# anatomy, appearance — just examples, don't parrot me)"
+- SEARCH INSIDE THE TALES: "Search inside your tales…" at the top of the story panel. Two letters and a short pause (or
+  Enter): every tale on his shelf is searched — the tales this browser holds from their own pages (the freshest copy), the
+  tales only the device holds (M313) through the device (serve.py search_books, GET api/books/search: each book folded
+  with its appended log, a cache keyed by the files' size and time). One reading on both sides (js/engine/search.js
+  searchPages / serve.py): his words and the story's, never a hidden page or the thinking, the phrase as typed in any case
+  across line breaks, the newest page first, a snippet either side with the match marked, twenty places kept per tale
+  with the whole count. Tales stand latest-played first; a tale the device holds that is not on his shelf is not shown;
+  the device silent, the held tales are still searched and the screen says so. A tap on a place opens the tale at that
+  page however far back it stands (chat.js jumpToPage opens the earlier turns it needs, centres the page, marks it a
+  moment). Escape or an empty box brings the shelf back.
+- THE HOUSE'S THINKING NOTE (the default CoT): it stands first in "Notes above it" (M620), on, until he moves it (▲ ▼ on
+  every note now choose where each stands) or unticks it; it can be rewritten in place, and "Put back the house's words"
+  returns it (his unedited copy follows the house's words as they improve — kept as none of his own). It is a check the
+  storyteller answers to itself in a few words — in its thinking if it thinks, silently if not — then writes only the page:
+  no written reasoning, so no wait. Nine checks, built from what long-form roleplay most often loses and what the
+  research and the best presets agree on (light post-history instructions beat heavy ones; a checklist of scene criteria;
+  agency and NPC autonomy; NPCs bounded by what they know; scaffold the scene's logic, never its sentences): the exact
+  scene state; his character's words, thoughts, feelings and choices his alone, and the settled outcome kept as settled;
+  each person's want and what they may know (no one reads his mind); someone acting before he can; the world alive
+  around them; bodies on the page (canon looks, blows that land and stay, intimacy explicit and unhurried, never faded
+  out); the standing instruction this moment tests hardest; one fresh true detail and no repeated phrase, opening or
+  beat; an ending that leaves him the move. {{user}} is his character's story name (withMacros). stack.js HOUSE_COT,
+  withHouseNote, addedNotes.
+- Laws M622-1..5 (the note rides first by default, his character named, nothing asking for written reasoning; off / moved
+  / rewritten / put back; under four hundred words, nine checks; the shared search; the device's search run as the real
+  serve.py on real book files with an appended log); walk DOM-222 (results latest first with the device's tale, a page far
+  behind the turns on screen opened and marked, Escape). M620-1/2 moved: the house note now stands among his notes by
+  default.
+- NEVER ON AN OUT-OF-CHARACTER TURN: the house's thinking note plans a page — on #question, ((…)) or //… it is not sent
+  (stack.js addedNotes { ooc }, from the request's own oocTurn); his own notes ride as his note does. Law M622-6.
+- Laws and walks moved with their reason (the thinking note now rides after his message by default): M9, M12, M354-1,
+  M379-1/2/3, M382-1, M342-1, M510-38, M510-40 and DOM-82 switch it off — each is about what else stands after his message
+  — and M384-1 now also checks the order with notes: ruling, switches, his repeated main instructions, the notes above his
+  note, his note last. DOM-220 counts his own notes (the house's stands in the list too). DOM-59 passes as it was: its
+  out-of-character turn carries no thinking note.
+
+- GATES at m622-001 (one CPU): harness 1227/1227, walk 222/222, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking — EXIT 0 each.

@@ -105,6 +105,93 @@ def _log_path(book_path):
     return book_path[:-len('.json')] + '.log'
 
 
+# M622: SEARCH EVERY TALE ON THE DEVICE. His word: "a search section on the sidebar so I can search words inside the
+# story, from the latest story to oldest". The browser holds only the tales it has opened (M313); the device holds them
+# all. Each book is read with its appended pages folded in (_merge_log), its visible pages kept flat and lower-cased in
+# a small cache keyed by the files' size and time, so a second search does not read the library again. The reading
+# mirrors js/engine/search.js searchPages: his words and the story's, no hidden page, the phrase as typed in any case
+# across line breaks, the newest page first, a snippet either side, twenty places kept per tale with the full count.
+_SEARCH_CACHE = {}
+_SEARCH_MIN = 2
+_SEARCH_KEPT = 20
+_SEARCH_AROUND = 70
+
+
+def _search_entry(book_path):
+    log_path = _log_path(book_path)
+    try:
+        st = os.stat(book_path)
+        lst = os.stat(log_path) if os.path.exists(log_path) else None
+    except OSError:
+        return None
+    stamp = (st.st_mtime_ns, st.st_size, lst.st_mtime_ns if lst else 0, lst.st_size if lst else 0)
+    held = _SEARCH_CACHE.get(book_path)
+    if held and held[0] == stamp:
+        return held[1]
+    try:
+        with open(book_path, 'rb') as f:
+            book = json.loads(_merge_log(f.read(), log_path))
+    except (OSError, ValueError):
+        return None
+    story = book.get('story') if isinstance(book.get('story'), dict) else {}
+    msgs = [m for m in (book.get('messages') or []) if isinstance(m, dict)]
+    msgs.sort(key=lambda m: m.get('ts') or 0)
+    pages = []
+    for m in msgs:
+        if m.get('hidden') is True or m.get('role') not in ('user', 'assistant'):
+            continue
+        flat = ' '.join(str(m.get('text') or '').split())
+        if flat:
+            pages.append((str(m.get('id') or ''), m.get('role'), flat, flat.lower()))
+    entry = {
+        'id': str(story.get('id') or os.path.basename(book_path)[:-len('.json')]),
+        'title': str(story.get('title') or ''),
+        'updatedAt': story.get('updatedAt') or 0,
+        'pages': pages,
+    }
+    _SEARCH_CACHE[book_path] = (stamp, entry)
+    return entry
+
+
+def search_books(query):
+    key = ' '.join(str(query or '').split()).lower()
+    if len(key) < _SEARCH_MIN:
+        return []
+    folder = os.path.join(DATA_DIR, 'books')
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        return []
+    out = []
+    for name in names:
+        if not name.endswith('.json') or name.startswith('_house'):
+            continue
+        entry = _search_entry(os.path.join(folder, name))
+        if not entry:
+            continue
+        count = 0
+        hits = []
+        for mid, role, flat, low in reversed(entry['pages']):
+            at = low.find(key)
+            if at < 0:
+                continue
+            count += 1
+            if len(hits) >= _SEARCH_KEPT:
+                continue
+            start = max(0, at - _SEARCH_AROUND)
+            end = min(len(flat), at + len(key) + _SEARCH_AROUND)
+            hits.append({
+                'id': mid, 'role': role,
+                'before': ('…' if start > 0 else '') + flat[start:at],
+                'match': flat[at:at + len(key)],
+                'after': flat[at + len(key):end] + ('…' if end < len(flat) else ''),
+            })
+        if count:
+            out.append({'id': entry['id'], 'title': entry['title'], 'updatedAt': entry['updatedAt'], 'count': count, 'hits': hits})
+    out.sort(key=lambda r: r['updatedAt'] or 0, reverse=True)
+    return out
+
+
 def _now_stamp():
     t = time.time()
     return time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime(t)) + ('.%03dZ' % int((t % 1) * 1000))
@@ -511,6 +598,12 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
             return
         if path == '/api/books/list':
             self._send_bytes(self._manifest())
+            return
+        if path == '/api/books/search':
+            # M622: every tale on the device, the latest first
+            from urllib.parse import urlparse, parse_qs
+            q = (parse_qs(urlparse(self.path).query).get('q') or [''])[0]
+            self._send_bytes(json.dumps({'ok': True, 'results': search_books(q)}).encode('utf-8'))
             return
         if path == '/api/recover/projects':
             # M311: the names of shelves, wherever this device still holds them

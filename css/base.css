@@ -1216,6 +1216,7 @@ body.plain-speech .thought { font-style: italic; }
 .note-add-head input[type="checkbox"] { margin-top: 0.55rem; flex: 0 0 auto; }
 .note-add-head textarea { flex: 1; min-width: 0; }
 .note-add-actions { justify-content: flex-start; }
+.note-add-name { font-size: 0.8rem; color: var(--text-2); }
 
 /* M136: the glossary reads like a book */
 .glossary h3 { margin: 1.2rem 0 0.4rem; font-size: 1rem; color: var(--ember); }

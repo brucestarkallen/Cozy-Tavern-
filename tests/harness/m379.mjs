@@ -9,8 +9,10 @@ import { shortcutsText, parseCommand } from '../../js/commands.js';
 
 const HEAD = '[Kitchen — Monday | 09:00]\n\n';
 const base = [{ id: 'u0', role: 'user', text: 'We begin.' }, { id: 'a0', role: 'assistant', text: HEAD + 'The kettle was cold.' }];
+/* M622: the house's thinking note rides by default — switched off here, this law is about what else stands after his message */
+const HOUSE_OFF = [{ id: 'house-cot', on: false }];
 const build = (msgs, { settings = { tellerName: 'Tony Stark', writerName: 'Bruce' }, directive = '' } = {}) => buildRequest({
-  story: { brief: '' }, messages: [...base, ...msgs], settings, state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [],
+  story: { brief: '' }, messages: [...base, ...msgs], settings: { noteAdds: HOUSE_OFF, ...settings }, state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [],
   window: { keeperOn: false, window: 30, budgetTokens: 1000000 }, directive, directorNote: '', editorEye: '', ruling: '',
 });
 const last = (r) => r.messages[r.messages.length - 1];
@@ -130,7 +132,7 @@ test('M380-3 A HOUSE THAT REFUSES A SYSTEM MESSAGE AFTER THE STORY is remembered
 test('M384-1 HIS TWO ALWAYS CLOSE IT: whatever else rides after his message comes first — the repeated main instructions, then his note, are the last two things the storyteller reads', () => {
   const r = buildRequest({
     story: { brief: '' }, messages: [...base, { id: 'u1', role: 'user', text: 'I swing at him.' }],
-    settings: { tellerName: 'Tony Stark', writerName: 'Bruce', frameText: 'MAIN: You are Tony Stark.', frameEcho: true, noteText: 'NOTE: keep it funny.' },
+    settings: { tellerName: 'Tony Stark', writerName: 'Bruce', frameText: 'MAIN: You are Tony Stark.', frameEcho: true, noteText: 'NOTE: keep it funny.', noteAdds: HOUSE_OFF /* M622: the notes above his note are switched off here; with them, below */ },
     state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 1000000 },
     directive: '', directorNote: '', editorEye: '', ruling: 'RULING: the blow lands.', sensorNote: 'SENSOR: something is at stake.',
   });
@@ -140,4 +142,15 @@ test('M384-1 HIS TWO ALWAYS CLOSE IT: whatever else rides after his message come
   eq(parts[parts.length - 1], 'NOTE: keep it funny.', 'his note is the very last thing');
   eq(parts[parts.length - 2], 'MAIN: You are Tony Stark.', 'his main instructions, repeated, right before it');
   assert(parts.findIndex((p) => /RULING/.test(p)) < parts.length - 2 && parts.findIndex((p) => /SENSOR/.test(p)) < parts.length - 2, 'the referee and the switches come before both');
+  /* M622 moved this law: his notes ride ABOVE his note (his word: "it'll append above it") — between the repeated main
+   * instructions and his note; the referee and the switches still come before all of it */
+  const withNotes = buildRequest({
+    story: { brief: '' }, messages: [...base, { id: 'u1', role: 'user', text: 'I swing at him.' }],
+    settings: { tellerName: 'Tony Stark', writerName: 'Bruce', frameText: 'MAIN: You are Tony Stark.', frameEcho: true, noteText: 'NOTE: keep it funny.', noteAdds: [{ id: 'a', on: true, text: 'ADDED NOTE' }] },
+    state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 1000000 },
+    directive: '', directorNote: '', editorEye: '', ruling: 'RULING: the blow lands.', sensorNote: 'SENSOR: something is at stake.',
+  });
+  const c = last(withNotes).content;
+  const at = (w) => c.indexOf(w);
+  assert(at('RULING') < at('SENSOR') && at('SENSOR') < at('MAIN: You are Tony Stark.') && at('MAIN: You are Tony Stark.') < at('Before you write') && at('Before you write') < at('ADDED NOTE') && at('ADDED NOTE') < at('NOTE: keep it funny.') && c.endsWith('NOTE: keep it funny.'), 'ruling, switches, his repeated main instructions, the notes above his note, his note last');
 });

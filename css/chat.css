@@ -142,6 +142,20 @@
 .choose-bar { display: flex; flex-direction: column; gap: 0.4rem; padding: 0.55rem 0.7rem; margin: 0.3rem 0 0.5rem; border: 1px solid var(--border-soft); border-left: 2px solid var(--ember-dim); border-radius: var(--r); }
 .choose-pick { flex: 0 0 auto; width: 1.1rem; height: 1.1rem; margin: 0 0.35rem 0 0.15rem; align-self: center; cursor: pointer; }
 .story-item.chosen { background: var(--surface-2); }
+/* M622: the shelf's search */
+.story-search-row { margin: 0.35rem 0 0.5rem; }
+.story-search-row input { width: 100%; box-sizing: border-box; }
+.search-results { display: flex; flex-direction: column; gap: 0.7rem; margin-bottom: 0.6rem; }
+.search-summary { margin: 0.1rem 0; }
+.search-tale { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.5rem 0.6rem; border: 1px solid var(--border-soft); border-radius: var(--r); }
+.search-tale-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; }
+.search-tale-title { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-hits { display: flex; flex-direction: column; gap: 0.3rem; }
+.search-hit-row { display: flex; flex-direction: column; align-items: flex-start; gap: 0.15rem; text-align: left; width: 100%; padding: 0.4rem 0.5rem; border: 0; border-radius: var(--r); background: var(--surface-2); color: var(--text-2); font: inherit; font-size: 0.85rem; line-height: 1.45; cursor: pointer; }
+.search-hit-row:hover { color: var(--text); }
+.search-who { font-size: 0.7rem; }
+.search-words mark { background: var(--ember-dim, rgba(255, 170, 60, 0.35)); color: var(--text); border-radius: 3px; padding: 0 1px; }
+.msg.search-hit { outline: 2px solid var(--ember-dim, rgba(255, 170, 60, 0.6)); outline-offset: 4px; border-radius: var(--r); transition: outline-color 0.6s; }
 
 /* ---------- the shelves (M16) ---------- */
 

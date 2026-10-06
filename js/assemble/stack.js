@@ -391,10 +391,43 @@ function resolveNote(storyOverride, globalText) {
   return { text: STARTER_NOTE, source: 'the starter text' };
 }
 
-/* M620: the notes he added above the note at the end — the ones ticked on, with words, in the order he added them */
-export function addedNotes(list) {
-  return (Array.isArray(list) ? list : [])
-    .filter((n) => n && typeof n === 'object' && n.on !== false && typeof n.text === 'string' && n.text.trim())
+/* M622: THE HOUSE'S THINKING NOTE — his: "add a default notes CoT … the best CoT but still fast, reminds about the
+ * instructions and still creative". A checklist the storyteller answers to itself before each page (in its thinking when
+ * it thinks, silently when it does not — no words of it on the page, so no wait for written reasoning), built on what
+ * long-form roleplay most often loses: the exact scene state, his character's agency (and the referee's settled outcome),
+ * what each person wants and may know, people who act before him, a world that moves, bodies on the page (canon looks,
+ * blows that land, intimacy written whole), the standing instructions this moment tests, one fresh true detail and no
+ * repeats, and an ending that hands him the move. It points at his instructions rather than restating them, and plans the
+ * scene's logic, never its sentences. {{user}} is his character's story name. */
+export const HOUSE_COT_ID = 'house-cot';
+export const HOUSE_COT = `Before you write, answer these to yourself in a few words each — in your thinking if you think, silently if you don't — then write only the page.
+1. Where and when are we, exactly? Who is here — where each one stands, what they wear and carry, what is hurt — as the last page and the notes on where things stand leave it.
+2. What did {{user}} just do or say, and nothing more? {{user}}’s words, thoughts, feelings and choices belong to {{user}} alone — write none of them. What the world does to {{user}} is yours to tell; a settled outcome above, when there is one, happens exactly as settled.
+3. What does each person here want right now, and what do they actually know — only what they saw, heard or were told? No one reads {{user}}’s mind.
+4. Who moves before {{user}} can answer? Let at least one of them act on their own want this page — interrupt, decide, reach, refuse, leave, lie, strike. No one waits politely for {{user}}’s next line.
+5. What else is alive around them — a sound, the weather, a passer-by, the hour turning, something from earlier coming back to collect?
+6. Bodies on the page: faces, build, hair and eyes as canon and the notes give them; posture, breath, sweat, the weight and texture of touch. A blow lands in flesh — impact, pain, an injury that stays. Intimacy is explicit and anatomical, unhurried and true to who they are — never faded out, never summed up.
+7. Which of your standing instructions does this exact moment test hardest? Name it to yourself, and keep it.
+8. What would surprise here and still be true to these people? Find one fresh, specific detail; repeat no phrase, opening or beat from the last pages.
+9. End inside a live moment that leaves {{user}} the next move — no recap, no question from outside the story.`;
+
+/* M622: the house's thinking note stands in his list unless he has it already — first, on — so the notes he never touched
+ * carry it, and a list he arranged keeps his order and his switch */
+export function withHouseNote(list) {
+  const arr = (Array.isArray(list) ? list : []).filter((n) => n && typeof n === 'object');
+  if (arr.some((n) => n.id === HOUSE_COT_ID)) return arr;
+  return [{ id: HOUSE_COT_ID, builtin: true, on: true, text: '' }, ...arr];
+}
+
+/* M620: the notes he added above the note at the end — the ones ticked on, with words, in the order he added them;
+ * M622: the house's thinking note among them in the place he gave it, its own words unless he wrote his — and never on
+ * an out-of-character turn (#question, ((…)), //…): it plans a page, and an answer to him out of the story is not one
+ * (his own notes ride as his note does) */
+export function addedNotes(list, { ooc = false } = {}) {
+  return withHouseNote(list)
+    .filter((n) => !(ooc && n.id === HOUSE_COT_ID))
+    .map((n) => (n.id === HOUSE_COT_ID && !(typeof n.text === 'string' && n.text.trim()) ? { ...n, text: HOUSE_COT } : n))
+    .filter((n) => n && n.on !== false && typeof n.text === 'string' && n.text.trim())
     .map((n) => n.text.trim());
 }
 
@@ -1315,7 +1348,7 @@ export function buildRequest({
    * end, above his own note, in the order he added them — only while the note itself is sent (noteOn, and its small-model
    * switch); one he unticks is held back. With no note of his own (the starter note lives in the standing words) they
    * stand at the end alone. */
-  const noteAdds = noteOn ? addedNotes(safeSettings.noteAdds) : [];
+  const noteAdds = noteOn ? addedNotes(safeSettings.noteAdds, { ooc: oocTurn }) : [];
   const noteOwn = notePicked.source === 'the starter text' ? '' : notePicked.text;
   const noteWhole = [...noteAdds, noteOwn].filter((t) => typeof t === 'string' && t.trim()).join('\n\n');
   const note = { ...notePicked, text: noteWhole ? inVoice(noteWhole, voice) : '', source: noteAdds.length ? (noteAdds.length === 1 ? 'your note above it' : 'your ' + noteAdds.length + ' notes above it') + (noteOwn.trim() ? ', then the note ' + notePicked.source : '') : notePicked.source }; /* M327: "the other writer" is the writer, by name */

@@ -883,9 +883,9 @@ test('M510-37 THE NOTES ABOVE THE STORY, IN THE SYSTEM (his word: "I have never 
 test('M510-38 HIS WORDS WHERE HE PUT THEM; HIS TURN FIRST ONLY WHERE A HOUSE INSISTS: the teller’s own words before the pages open the story; Claude always gets "(Our story begins.)" in front of a request that opens on the assistant, any other house only after it refuses (remembered for that model), and a house that takes it gets nothing added', async () => {
   const { STORY_BEGINS, withUserFirst, opensOnAssistant, ORDER_REFUSAL } = await import('../../js/providers/userfirst.js');
   const mods = [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }];
-  const first = buildRequest({ story: {}, messages: [{ id: 'u1', role: 'user', text: '#story Hulk wakes.' }], settings: { ownWords: [{ id: 'w', on: true, name: 'n', role: 'teller', place: 'before-pages', text: 'OWN-WORDS Hulk still here.' }] }, state: yard(), modules: mods, memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 } });
+  const first = buildRequest({ story: {}, messages: [{ id: 'u1', role: 'user', text: '#story Hulk wakes.' }], settings: { noteAdds: [{ id: 'house-cot', on: false }] /* M622 */, ownWords: [{ id: 'w', on: true, name: 'n', role: 'teller', place: 'before-pages', text: 'OWN-WORDS Hulk still here.' }] }, state: yard(), modules: mods, memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 } });
   eq(first.messages.map((m) => m.role).join(' '), 'assistant user', 'the teller’s own words first, then his #story — where he put them, nothing added by the builder');
-  const greet = buildRequest({ story: {}, messages: [{ id: 'a0', role: 'assistant', text: '[Gate — Monday | 09:00]\n\nThe gate stood open.' }, { id: 'u1', role: 'user', text: 'I walk in.' }], settings: {}, state: yard(), modules: mods, memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 } });
+  const greet = buildRequest({ story: {}, messages: [{ id: 'a0', role: 'assistant', text: '[Gate — Monday | 09:00]\n\nThe gate stood open.' }, { id: 'u1', role: 'user', text: 'I walk in.' }], settings: { noteAdds: [{ id: 'house-cot', on: false }] } /* M622 */, state: yard(), modules: mods, memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 } });
   eq(greet.messages[0].role, 'assistant', 'a tale that opens on the teller’s page opens on it, in the builder');
   assert(opensOnAssistant([{ role: 'system', content: 's' }, { role: 'assistant', content: 'a' }]) && withUserFirst([{ role: 'system', content: 's' }, { role: 'assistant', content: 'a' }])[1].content === STORY_BEGINS, 'the line goes after the system, before the teller');
   eq(withUserFirst([{ role: 'user', content: 'u' }]).length, 1, 'a request already opening on his turn is left as it is');
@@ -951,10 +951,10 @@ test('M510-40 (final audit) THE STEP BACK TO HIS MOVE NEVER OVERFLOWS: with the 
   const long = 'He speaks at length. '.repeat(3000);
   const mk = (longAt) => { const p = []; for (let i = 0; i < 6; i += 1) { p.push({ id: 'u' + i, role: 'user', text: i === longAt ? long : 'move ' + i }); p.push({ id: 'a' + i, role: 'assistant', text: 'page ' + i + ' ' + 'word '.repeat(300) }); } p.push({ id: 'ux', role: 'user', text: 'I wait.' }); return p; };
   const tokensOf = (r) => r.systemBlocks.reduce((s, b) => s + estimateTokens(b.text || ''), 0) + r.messages.reduce((s, m) => s + estimateTokens(String(m.content)), 0);
-  const tight = buildRequest({ story: {}, messages: mk(4), settings: {}, state: { ...yard(), page: 6 }, modules: mods, memory: '', window: { keeperOn: false, budgetTokens: 30000 } });
+  const tight = buildRequest({ story: {}, messages: mk(4), settings: { noteAdds: [{ id: 'house-cot', on: false }] } /* M622 */, state: { ...yard(), page: 6 }, modules: mods, memory: '', window: { keeperOn: false, budgetTokens: 30000 } });
   assert(tokensOf(tight) <= 30000, 'within the budget: ' + tokensOf(tight));
   eq(tight.messages[0].role, 'assistant', 'the window stays as it was cut — the provider opens it with his line where a house insists');
-  const roomy = buildRequest({ story: {}, messages: mk(-1), settings: {}, state: { ...yard(), page: 6 }, modules: mods, memory: '', window: { keeperOn: false, budgetTokens: 22000 } });
+  const roomy = buildRequest({ story: {}, messages: mk(-1), settings: { noteAdds: [{ id: 'house-cot', on: false }] } /* M622 */, state: { ...yard(), page: 6 }, modules: mods, memory: '', window: { keeperOn: false, budgetTokens: 22000 } });
   assert(tokensOf(roomy) <= 22000 && roomy.messages[0].role === 'user', 'a short move that fits is stepped back: ' + roomy.messages[0].role + ' ' + tokensOf(roomy));
 });
 

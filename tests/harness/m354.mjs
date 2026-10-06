@@ -10,8 +10,9 @@ import { emptyState } from '../../js/engine/state.js';
 import { applyMutations } from '../../js/engine/apply.js';
 
 const ledger = () => applyMutations({ ...emptyState(), page: 6 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the courtyard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Kaelen' }]).state;
+/* M622: the house's thinking note rides by default — switched off here, this law is about what else stands after his message */
 const build = (settings) => buildRequest({
-  story: { brief: 'A tale.' }, messages: [{ id: 'u1', role: 'user', text: 'I step into the courtyard.' }], settings,
+  story: { brief: 'A tale.' }, messages: [{ id: 'u1', role: 'user', text: 'I step into the courtyard.' }], settings: { noteAdds: [{ id: 'house-cot', on: false }], ...settings },
   state: ledger(), modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 100000 },
   directive: '', directorNote: '', editorEye: '', ruling: '',
 });

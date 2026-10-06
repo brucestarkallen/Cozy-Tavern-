@@ -142,14 +142,14 @@ test('M12 coverage: slot 8 never drops a page no summary node covers', () => {
 
 test('M12 coverage: the receipt says when the window widened past its size', () => {
   const r = buildRequest({
-    story: {}, messages: pages(45), settings: { noteText: '' }, state: {}, modules: [],
+    story: {}, messages: pages(45), settings: { noteText: '', noteAdds: [{ id: 'house-cot', on: false }] } /* M622 */, state: {}, modules: [],
     memory: '', window: { keeperOn: true, window: 30, nodes: [] },
   });
   const slot = r.receipt.slots.find((s) => s.name === 'The pages, word for word');
   assert(/still unfolded by the keeper/.test(slot.source), 'the extension is honest on the receipt');
   eq(r.messages.length, 45, 'every page rides when nothing is covered');
   const covered = buildRequest({
-    story: {}, messages: pages(45), settings: { noteText: '' }, state: {}, modules: [],
+    story: {}, messages: pages(45), settings: { noteText: '', noteAdds: [{ id: 'house-cot', on: false }] } /* M622 */, state: {}, modules: [],
     memory: '', window: { keeperOn: true, window: 30, nodes: [{ span: [0, 14] }] },
   });
   eq(covered.messages.length, 31, 'covered pages keep the 30-page window — opened on his page (M510-37)');

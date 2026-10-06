@@ -1159,6 +1159,33 @@ export function initChat(ctx) {
     if (story) mendPagesOnOpen(story).catch(() => {});
   }
 
+  /* M622: A SEARCH HIT OPENS ITS TALE AT ITS PAGE — shown however far back it stands (the thread draws the newest turns;
+   * "Show earlier" turns are opened to reach it), brought to the middle of the screen and marked for a moment. */
+  async function jumpToPage(storyId, messageId) {
+    if (!storyId || !messageId) return false;
+    if (ctx.getActiveStoryId() !== storyId) await openStory(storyId);
+    else closePanel();
+    const pages = (await db.messages.list(storyId)).filter((m) => m && !m.hidden);
+    const i = pages.findIndex((m) => m.id === messageId);
+    if (i < 0) { toast('That page is no longer in the tale.'); return false; }
+    const ts = Number(await db.settings.get('turnsShown'));
+    const turnsShown = Number.isFinite(ts) && ts > 0 ? ts : 30;
+    const need = Math.ceil((pages.length - i) / 2) - turnsShown;
+    if (need > (shownExtra.get(storyId) || 0)) {
+      shownExtra.set(storyId, need);
+      await renderThread({ structural: true });
+    }
+    /* after the thread has settled its own scroll (two frames), the page is brought into view */
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await new Promise((r) => setTimeout(r, 40));
+    const node = [...els.thread.querySelectorAll('.msg')].find((n) => n.dataset && n.dataset.id === messageId);
+    if (!node) return false;
+    if (typeof node.scrollIntoView === 'function') node.scrollIntoView({ block: 'center' });
+    node.classList.add('search-hit');
+    setTimeout(() => node.classList.remove('search-hit'), 2600);
+    return true;
+  }
+
   /* M488: THE PAGES' MARKS HEAL WHEN A STORY OPENS — nothing to press. The page repair runs when a page ARRIVES; a
    * page kept by an older build (a browser that had not taken the new coat yet) kept the marks it came with, and the
    * writer read a stray asterisk under a green light with a button he had to know about. Now, once per tale per
@@ -7399,6 +7426,7 @@ export function initChat(ctx) {
 
   ctx.chat = {
     openStory, /* M189: so a fetch-on-open can be exercised by a test */
+    jumpToPage, /* M622: a search hit opens its tale at its page */
     canonAct, /* M386 */
     canonTest, /* M386 */
     isBusy: () => Boolean(busy),

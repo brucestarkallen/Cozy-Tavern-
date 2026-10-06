@@ -9,7 +9,7 @@ import { repairStoryPlaceholder, STORY_PLACEHOLDER } from '../../js/ui/placehold
 
 const wireOf = async (storyId) => {
   const messages = await db.messages.list(storyId);
-  return buildRequest({ story: { brief: '' }, messages, settings: {}, state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 1000000 }, directive: '', directorNote: '', editorEye: '', ruling: '' }).messages;
+  return buildRequest({ story: { brief: '' }, messages, settings: { noteAdds: [{ id: 'house-cot', on: false }] } /* M622: the house's thinking note off — this law is about his typed words */, state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 1000000 }, directive: '', directorNote: '', editorEye: '', ruling: '' }).messages;
 };
 
 test('M382-1 WHAT HE TYPED SURVIVES THE STORE, and is what the storyteller is sent — a hidden shortcut included', async () => {

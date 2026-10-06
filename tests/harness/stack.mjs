@@ -67,7 +67,7 @@ test('A4: cache breakpoint sits at the END of slot 2, slots 3-4 non-cached', () 
 
 test('M9 (as M379 changed it): a house command’s law is never sent as a second message on its turn — the shortcuts are said once, in the standing words, and his typed words are the last message', () => {
   const msgs = [...pages(3), { id: 'cmd', role: 'user', text: '#p', typed: '#p' }];
-  const r = buildRequest({ story: {}, messages: msgs, settings: {}, state: {}, modules: [], memory: '', directive: 'Write a single beat only.', window: { keeperOn: true } });
+  const r = buildRequest({ story: {}, messages: msgs, settings: { noteAdds: [{ id: 'house-cot', on: false }] } /* M622: the house's thinking note off */, state: {}, modules: [], memory: '', directive: 'Write a single beat only.', window: { keeperOn: true } });
   assert(!JSON.stringify(r.messages).includes('Write a single beat only.'), 'the law is not on the wire');
   eq(r.messages[r.messages.length - 1].content, '#p', 'his own typed words are the last message');
   assert(/SHORTCUTS\. When the writer/.test(r.systemBlocks[1].text) && /#p — exactly ONE beat/.test(r.systemBlocks[1].text), 'the shortcut is explained in the standing words');

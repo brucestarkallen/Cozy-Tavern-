@@ -4376,11 +4376,14 @@ test('DOM-82 HIS MESSAGE IS THE LAST THING THE STORYTELLER READS: a shortcut goe
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
   const H = '[The kitchen — Monday, March 3, 2025 | 09:00 | clear | apron | by the stove]\n\n';
-  const kept = { frame: await db.settings.get('frameText'), writer: await db.settings.get('writerName'), note: await db.settings.get('noteText') };
+  const kept = { frame: await db.settings.get('frameText'), writer: await db.settings.get('writerName'), note: await db.settings.get('noteText'), adds: await db.settings.get('noteAdds') };
   const prior = house.state.storyAnswer;
   try {
     await db.settings.set('frameText', 'You are ENI, and LO is everything to you.\n\nYou write for LO; LO’s word is final.\n\nYou are telling a story with LO.');
     await db.settings.delete('noteText');
+    /* M622: the house's thinking note rides after his message by default — switched off here: this walk is about his
+     * shortcut and what else of the house's would follow it */
+    await db.settings.set('noteAdds', [{ id: 'house-cot', on: false }]);
     await openSettings();
     click(q('[data-room="story"]'));
     const writer = await until(() => q('#writer-name'), 'Your name', 10000);
@@ -4410,6 +4413,7 @@ test('DOM-82 HIS MESSAGE IS THE LAST THING THE STORYTELLER READS: a shortcut goe
     assert(/You write for LO; LO’s word is final\./.test(standing) && !/one man|goes by/.test(standing), 'his rules go as written, and nothing is added for a name');
   } finally {
     house.state.storyAnswer = prior;
+    if (kept.adds === undefined) await db.settings.delete('noteAdds'); else await db.settings.set('noteAdds', kept.adds); /* M622 */
     for (const [k, v] of [['frameText', kept.frame], ['writerName', kept.writer], ['noteText', kept.note]]) { if (typeof v === 'string') await db.settings.set(k, v); else await db.settings.delete(k); }
     await closeSettings();
   }
@@ -9919,7 +9923,7 @@ test('DOM-220 NOTES ABOVE THE NOTE AT THE END (M620 — his: "a new section on n
     eq(q('#note-add-text').value, '', 'the box is empty again');
     type(q('#note-add-text'), 'SECOND, LEFT IN THE BOX');
     await env.ctx.settings.onHide();
-    await until(async () => ((await db.settings.get('noteAdds')) || []).length === 2, 'the note left in the box is kept when Settings closes');
+    await until(async () => ((await db.settings.get('noteAdds')) || []).filter((n) => n && n.id !== 'house-cot').length === 2, 'the note left in the box is kept when Settings closes'); /* M622: the house's thinking note stands in the list too */
     await until(() => !workIsRunning(st.id) && queuedCount(st.id) === 0, 'settle', 30000);
     const before = house.state.calls.length;
     type(q('#composer-input'), 'I look around.');
@@ -9988,6 +9992,47 @@ test('DOM-221 BULK DELETE (M621 — his: "add bulk delete on chat or project"): 
   eq(env.window.__cozy.getActiveStoryId(), null, 'the open tale was among them: none is open now');
   await until(() => q('#choose-bar').hidden, 'the mode closes after the delete');
   await db.stories.remove(d.id); await db.stories.remove(e.id); await db.projects.remove(kept.id);
+});
+
+test('DOM-222 SEARCH INSIDE THE TALES (M622 — his: "a search section on the sidebar so I can search words inside the story, from the latest story to oldest"): the latest tale first, a tale only the device holds found through the device, a tap opens the tale at a page far back, Escape brings the shelf back', async () => {
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const turnsWas = await db.settings.get('turnsShown');
+  await db.settings.set('turnsShown', 3);
+  const older = await db.stories.create({ title: 'Search older tale' });
+  await db.messages.append(older.id, { role: 'user', text: 'I pocket the Silver\nKey quietly.' });
+  for (let i = 0; i < 12; i += 1) {
+    await db.messages.append(older.id, { role: 'assistant', text: '[The vault — Monday, March 3, 2025 | 09:' + String(10 + i) + ' | clear]\n\nThe vault hums, ' + i + '.' });
+    await db.messages.append(older.id, { role: 'user', text: 'I wait, ' + i + '.' });
+  }
+  await new Promise((r) => setTimeout(r, 15));
+  const newer = await db.stories.create({ title: 'Search newer tale' });
+  await db.messages.append(newer.id, { role: 'user', text: 'Where is the silver key?' });
+  await new Promise((r) => setTimeout(r, 15));
+  const farAway = await db.stories.create({ title: 'Search tale on the device' });
+  await db.stories.update(farAway.id, { shallow: true });
+  house.state.searchAnswer = () => ({ ok: true, results: [{ id: farAway.id, title: 'x', updatedAt: Date.now(), count: 1, hits: [{ id: 'far-1', role: 'assistant', before: 'the ', match: 'silver key', after: ' on the device' }] }, { id: 'not-on-his-shelf', title: 'gone', updatedAt: Date.now(), count: 1, hits: [{ id: 'g', role: 'user', before: '', match: 'silver key', after: '' }] }] });
+  await env.ctx.chat.refreshStories(true);
+  try {
+    type(q('#story-search'), 'silver key');
+    await until(() => !q('#search-results').hidden && q('#search-results .search-tale'), 'the results', 15000);
+    const titles = [...document.querySelectorAll('#search-results .search-tale-title')].map((n) => n.textContent);
+    eq(titles.join(' | '), 'Search tale on the device | Search newer tale | Search older tale', 'the latest tale first, the device\u2019s tale among them, a tale not on his shelf left out');
+    assert(q('#story-list').hidden, 'the shelf steps aside while results stand');
+    const olderCard = [...document.querySelectorAll('#search-results .search-tale')].find((c) => /older/.test(c.textContent));
+    const hit = olderCard.querySelector('.search-hit-row');
+    eq(hit.querySelector('mark').textContent, 'Silver Key', 'the match is marked as it is written, across the line break');
+    const firstPage = (await db.messages.list(older.id))[0];
+    click(hit);
+    await until(() => env.window.__cozy.getActiveStoryId() === older.id, 'the tale opens');
+    await until(() => [...document.querySelectorAll('#thread .msg')].some((n) => n.dataset.id === firstPage.id && n.classList.contains('search-hit')), 'its first page — far behind the three turns on screen — is shown and marked', 15000);
+    q('#story-search').dispatchEvent(new env.window.KeyboardEvent('keydown', { key: 'Escape' }));
+    await until(() => q('#search-results').hidden && !q('#story-list').hidden && q('#story-search').value === '', 'Escape brings the shelf back');
+  } finally {
+    house.state.searchAnswer = null;
+    if (turnsWas === undefined) await db.settings.delete('turnsShown'); else await db.settings.set('turnsShown', turnsWas);
+    for (const s of [older, newer, farAway]) await db.stories.remove(s.id);
+    await env.ctx.chat.refreshStories(true);
+  }
 });
 
 await runAll();

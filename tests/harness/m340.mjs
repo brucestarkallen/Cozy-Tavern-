@@ -45,7 +45,7 @@ test('M340-2 one unbroken block is parted where speech begins; thinking before a
 });
 
 test('M342-1 THE WRITER: "it breaks my persona… just normal as ever: my system instruction, then all normal, no persona-breaking words, then my first message." NOTHING about the page’s shape is said to the storyteller — on page one or any page; the repair is code, after the page arrives', () => {
-  const build = (settings) => buildRequest({ story: {}, messages: [{ id: 'u', role: 'user', text: 'I pour the coffee.' }], settings: { noteText: 'MY NOTE, AS I WROTE IT.', frameText: 'I am Tony Stark.', tellerName: 'Tony Stark', writerName: 'Bruce', ...settings }, state: { ...emptyState(), page: 0, sheet: { playerName: 'Jovan' } }, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, budgetTokens: 500000 } });
+  const build = (settings) => buildRequest({ story: {}, messages: [{ id: 'u', role: 'user', text: 'I pour the coffee.' }], settings: { noteAdds: [{ id: 'house-cot', on: false }] /* M622 */, noteText: 'MY NOTE, AS I WROTE IT.', frameText: 'I am Tony Stark.', tellerName: 'Tony Stark', writerName: 'Bruce', ...settings }, state: { ...emptyState(), page: 0, sheet: { playerName: 'Jovan' } }, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, budgetTokens: 500000 } });
   const first = build({});
   eq(JSON.stringify(build({ pageShapeNow: true })), JSON.stringify(first), 'the old switch-word moves nothing: there is nothing left for it to switch');
   const closing = first.messages[first.messages.length - 1].content;
