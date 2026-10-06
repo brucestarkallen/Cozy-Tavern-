@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m643-001)
+# Cozy Tavern — handoff for the next session (state at m644-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -70,6 +70,16 @@
   until M643 it did so on "Then she was gone, footsteps measured up the stairs" (a pronoun behind "Then", past a spoken
   line). Before trusting such a rule, run it on a sentence of his, as he wrote it. And a reader's change must carry the
   whole fact — a leaving says where they went ("to"), as a fact says who saw it ("who").
+- THE LEDGER AUDIT HE ORDERED (M644, "audit the whole ledger, each section, each pipeline") IS NOT FINISHED. Done, by
+  running ordinary sentences through the real rules: WHO IS HERE — leaving (showsDeparture / goneAtTheEnd) and walking
+  in (the M541 walk-in check). Both overruled a correct reader about half the time on plain prose; both now take the
+  page's own words from the reader ("shown") and verify them on the page (apply.js toldOnPage / quotedGoing). STILL TO
+  AUDIT THE SAME WAY (a battery of ordinary sentences through each code rule, then each reader's answer shape for a fact
+  it is never asked for): the header's place and clock (headerMutations, samePlace, seatAtScene, sameSpot, the far-move
+  rule); positions and dress going stale (presence.update is never asked per person); the world agent (seats, the
+  world's word, threads it opens); the scribe (people's pages, loose ends); the record keeper; the auditor's own
+  refusals; bodies and things; the books (essentials, plans, choices). Method that found every fault of M641–M644: do
+  not read the rule and nod — feed it thirty sentences as he writes them and count what it gets wrong.
 - A GATE THAT FAILS ONCE AND PASSES ON A RERUN HAS NOT PASSED. Never write "timing", "rare" or "flaky" in these notes, and
   never push on the rerun: read the failing report against the state, make the failure happen on purpose, and only then
   call it the app's fault or the test's — and say which to the writer. M638 was pushed, and told to him as done, with

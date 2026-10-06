@@ -1707,7 +1707,7 @@ export function narrationOf(text) {
  * sentence with a direction in it. A going is narrated: words in quotation marks are what someone says, and are set
  * aside; "left" is a going only when it is not a side ("to his left", "on the left", "her left hand"); "leave" is one
  * only when nothing says it did not or has not happened yet ("didn't leave", "wanted to leave"). */
-const GOING = /\b(?:(?:walk|stride|strode|stalk|storm|hurr(?:y|ie)|head|march|stomp|limp|wander|trudge|dash|rush|run|ran|file|flash[- ]?step|shunpo)\w*\s+(?:out|off|away|home|outside)\b|slip\w*\s+(?:out|off|away)\b|step\w*\s+(?:out|outside)\b|(?:go|goes|going|went|gone)\s+(?:out|off|home|away)\b|depart(?:s|ed|ing)?\b|exit(?:s|ed|ing)?\b(?!\s+(?:wound|strategy|interview))|(?:is|was|were|are)\s+gone\b|vanish(?:es|ed|ing)?\b|disappear(?:s|ed|ing)?\b|took\s+(?:his|her|their)\s+leave\b)/i;
+const GOING = /\b(?:(?:walk|stride|strode|stalk|storm|hurr(?:y|ie)|head|march|stomp|limp|wander|trudge|dash|rush|run|ran|file|flash[- ]?step|shunpo)\w*\s+(?:out|off|away|home|outside)\b|slip\w*\s+(?:out|off|away)\b|step\w*\s+(?:out|outside)\b|(?:go|goes|going|went|gone)\s+(?:out|off|home|away)\b|depart(?:s|ed|ing)?\b|exit(?:s|ed|ing)?\b(?!\s+(?:wound|strategy|interview))|(?:is|was|were|are)\s+gone\b(?!\s+(?:for\s+(?:a|the|one)\s+(?:moment|second|beat|breath|while|heartbeat)|quiet|pale|still|silent|cold|white|red|rigid|slack|soft|flat|hard|dark|dry|numb|from\s+(?:her|his|their)\s+(?:face|voice|eyes)))|vanish(?:es|ed|ing)?\b|disappear(?:s|ed|ing)?\b|took\s+(?:his|her|their)\s+leave\b|(?:flee|flees|fled|fleeing)\b(?!\s+(?:from\s+)?(?:her|his|their)\s+(?:face|cheeks|eyes|mind|voice|lips))|(?:drive|drives|drove|driving|ride|rides|rode|riding)\s+(?:off|away)\b|(?:cab|car|taxi|truck|carriage|coach|bus|train|van)\b[^.!?]{0,30}?\bpull(?:s|ed|ing)?\s+(?:away|out|off)\b|let(?:s|ting)?\s+(?:herself|himself|themselves)\s+out\b|duck(?:s|ed|ing)?\s+out\b|(?:sweep|sweeps|swept|sweeping)\s+(?:from|out\s+of)\s+the\s+\p{L}+|(?:go|goes|going|went|gone)\s+(?:upstairs|downstairs|up\s+the\s+stairs|down\s+the\s+stairs|(?:up\s+|off\s+)?to\s+bed)\b|footsteps\s+(?:fad|reced|retreat|dwindl)\w*|on\s+(?:the|her|his|their)\s+way\s+out\b|teleport(?:s|ed|ing)?\s+(?:away|out|off)\b)/iu;
 const LEAVE_WORD = /\b(leave|leaves|leaving|left)\b/gi;
 const SIDE_BEFORE = /(?:\b(?:to|on|at|by|from|toward|towards|onto|into)\s+(?:the|his|her|their|my|your|its|our)\s+|\b(?:his|her|their|my|your|its|the)\s+(?:far\s+|own\s+)?)$/i;
 const SIDE_AFTER = /^\s+(?:hand|hands|side|arm|arms|leg|legs|foot|feet|eye|eyes|ear|ears|shoulder|shoulders|hip|wing|flank|cheek|temple|wrist|knee|elbow|palm|fist|breast|chest|brow|thigh|ankle|heel|finger|fingers|thumb|pocket|sleeve|corner|edge|turn|fork|lane|half|rear|wall|window|hook|jab|cross|field|column|over|unsaid|unspoken|untouched|unanswered|unfinished|alone|intact|behind)\b/i;
@@ -1721,7 +1721,7 @@ const NOT_YET = /(?:\b(?:not|never|to|would|could|should|might|must|will|can|can
 const OUT_THE_DOOR = /\b(?:(?:is|was|were|are|and)\s+out\s+(?:the|of the)\s+(?:door|room|apartment|house|building|gate|hall|office)|step(?:s|ped|ping)?\s+into\s+the\s+(?:elevator|lift|car|cab|taxi|stairwell)|head(?:s|ed|ing)?\s+for\s+the\s+(?:elevator|lift|stairs|exit|door|front door)|(?:elevator|lift)\s+doors?\s+(?:close|closes|slide shut|shut)\s+on)\b/i;
 /* M497: a door shutting behind someone is a going only when they did not just come IN ("she steps in and the door shuts
  * behind her" is an arrival) */
-const DOOR_BEHIND = /\b(?:door|doors|gate)\s+(?:shuts?|closes?|clicks?|swings?)\s+(?:shut\s+)?(?:behind|after|on)\b/i;
+const DOOR_BEHIND = /\b(?:door|doors|gate)\s+(?:shuts?|closes?|closed|clicks?|clicked|swings?|swung|slams?|slammed|bangs?|banged)\s+(?:shut\s+)?(?:behind|after|on)\b/i; /* M644: and in the past tense his pages are told in */
 const CAME_IN = /\b(?:steps?|stepped|stepping|walks?|walked|comes?|came|coming|lets?|let)\s+(?:(?:herself|himself|themselves)\s+)?in\b|\b(?:enters?|entered|entering|arriv\w+)\b/i;
 export function showsDeparture(sentence) {
   const said = String(sentence || '').replace(/"[^"]*"|“[^”]*”|«[^»]*»|「[^」]*」/g, ' ');
@@ -1730,7 +1730,7 @@ export function showsDeparture(sentence) {
     const before = said.slice(0, m.index);
     const after = said.slice(m.index + m[0].length);
     const w = m[0].toLowerCase();
-    if (w === 'left') { if (SIDE_BEFORE.test(before) || SIDE_AFTER.test(after) || LEFT_PASSIVE.test(before) || LEFT_THING.test(after)) continue; }
+    if (w === 'left') { if (SIDE_BEFORE.test(before) || SIDE_AFTER.test(after) || LEFT_PASSIVE.test(before) || LEFT_THING.test(after) || /\b(?:almost|nearly|all\s+but|half|never\s+quite)\s+$/i.test(before)) continue; } /* M644: "almost left" is staying */
     else if (NOT_YET.test(before)) continue;
     return true;
   }
@@ -1762,6 +1762,32 @@ export function mcWalksOff(pageText, mc) {
     }
   }
   return false;
+}
+/* M644: THE PAGE'S OWN WORDS FOR THE GOING. showsDeparture is a list of ways to say "left", and a list is always short:
+ * of thirty ordinary goings it knew fifteen ("the door closed behind her", "went up to bed", "her footsteps faded up the
+ * stairs", "returned to her room", "let herself out", "drove off"… all missed) — and every miss threw away a leaving
+ * the page reader had read correctly, so the person stood in the scene on the ledger until the auditor found them
+ * "long silent". The reader now hands over the page's own words that show the going ("shown"), and the house checks
+ * what a house can check without understanding English: the words ARE on the page, in the telling of the scene (not in
+ * someone's mouth, not in a window), and nothing the page tells AFTER them names that person again (someone named
+ * again after going may have come back — the old rule decides those, as before). */
+const flatTold = (t) => String(t || '').replace(/[‘’ʼ`]/g, "'").replace(/[—–]/g, '-').replace(/\s+/g, ' ').trim().toLowerCase();
+/* Are these words in the page's own telling of the scene (not in someone's mouth, not in a window)? Where they END in
+ * that telling, or -1; with the telling itself, flattened, for whoever asks what comes after. */
+export function toldOnPage(pageText, shown) {
+  /* the reader's words, with whatever marks it put round them (the page's side is its telling only: words copied from
+   * someone's mouth are not found there) */
+  const quote = flatTold(String(shown || '').replace(/["“”«»「」『』]/g, ' ')).replace(/^[\s.,;:!?…'-]+|[\s.,;:!?…'-]+$/g, '');
+  const told = flatTold(narrationOf(scenePartOf(String(pageText || ''))));
+  if (quote.length < 8 || quote.split(' ').length < 2 || quote.length > 400) return { end: -1, told };
+  const at = told.lastIndexOf(quote);
+  return { end: at === -1 ? -1 : at + quote.length, told };
+}
+export function quotedGoing(state, pageText, name, shown) {
+  const { end, told } = toldOnPage(pageText, shown);
+  if (end === -1) return false;
+  const after = told.slice(end).replace(/^[^.!?…]*[.!?…]*/, ''); /* what the page tells once that sentence has ended */
+  return !shownOnPage(state && typeof state === 'object' ? state : {}, after, name);
 }
 export function goneAtTheEnd(state, pageText, name) {
   const s = state && typeof state === 'object' ? state : {};

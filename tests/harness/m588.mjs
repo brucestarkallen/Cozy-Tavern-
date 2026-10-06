@@ -345,3 +345,103 @@ test('M643-3 GONE AT THE END OF THE PAGE, AS A PAGE TELLS IT: the going told by 
   eq(gone('Aunt Vera set her cup in the sink. “I’m off,” Rias said. Then she was gone.'), false, 'nor a going that follows another woman’s line');
   eq(gone('Aunt Vera left the kitchen. Then Aunt Vera came back with the kettle and sat down.'), false, 'out and back: the last word on her is that she is here');
 });
+
+/* M644 — the audit of "who is here": the rule that decides whether a page shows someone going. */
+test('M644-1 A GOING, AS PAGES SAY IT: the old word list knows the past tense and the common ways out, and takes no staying for a going', async () => {
+  const { showsDeparture } = await import('../../js/engine/apply.js');
+  const gone = ['She left.', 'Then she was gone.', 'She disappeared down the hall.', 'The door closed behind her.', 'The door slammed behind her.', 'She slipped out without a word.',
+    'She excused herself and went up to bed.', 'She went upstairs.', 'She headed for the stairs.', 'Her footsteps faded up the stairs.', 'She stormed off.', 'She walked away.',
+    'She vanished into the crowd.', 'She stepped outside to take the call.', 'She took her leave.', 'She fled.', 'She went home.', 'She drove off.',
+    'She climbed into the cab and it pulled away.', 'She let herself out.', 'She ducked out the back.', 'She hurried off toward the gate.', 'She made her exit.', 'She strode out of the room.',
+    'She swept from the room.', 'She departed.', 'She teleported away.', 'She closed the door behind her on the way out.'];
+  for (const s of gone) eq(showsDeparture(s), true, 'a going: ' + s);
+  const here = ['She turned away.', 'She walked to the window.', 'She stepped closer.', 'She raised her left hand.', 'She left the cup on the table.', 'She stood up.', 'She looked away.',
+    'She leaned back in her chair.', 'She crossed the room and sat beside him.', 'She came back with the kettle.', 'She went quiet.', 'She went pale.', 'She left the question hanging.',
+    'She was gone for a moment in thought, then looked up.', 'She backed away a step.', 'She moved to the door and stood there, blocking it.', 'She walked him to the door.',
+    'She turned to go, then stopped.', 'She almost left.', 'She nearly left then and there, and stayed.', 'She did not leave.', 'The colour fled her face.', 'She pulled away from his touch.',
+    'She swept the floor.', 'She drove the point home.', 'She stepped in and the door closed behind her.', 'Her smile was gone quiet and small.', 'She went to the stove.'];
+  for (const s of here) eq(showsDeparture(s), false, 'a staying: ' + s);
+});
+
+test('M644-2 THE PAGE’S OWN WORDS FOR THE GOING: a leaving the reader backs with words that ARE in the page’s telling stands, however the page said it — never words that are only spoken, only in a window, not on the page, or followed by that person’s name again', async () => {
+  const { quotedGoing, goneAtTheEnd } = await import('../../js/engine/apply.js');
+  const st = applyMutations({ ...emptyState(), page: 12 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen, 8 Mariner\u2019s Lane' }, ...['Jovan', 'Aunt Vera', 'Rias', 'Tom'].map((name) => ({ type: 'presence.enter', name }))]).state;
+  const H = '[Wells house kitchen, 8 Mariner\u2019s Lane — Monday, March 3, 2025 | 21:40 | rain | sweater | at the table]\n\n';
+  const ways = [['She returned to her room.', 'returned to her room'], ['She retreated to the pantry and shut herself in.', 'retreated to the pantry'], ['She was carried out on a stretcher.', 'carried out on a stretcher'],
+    ['She was already halfway down the corridor, and then out of sight.', 'and then out of sight'], ['Her chair was empty before anyone looked up; the back door stood open on the rain.', 'the back door stood open on the rain']];
+  for (const [sentence, shown] of ways) {
+    const page = H + 'Aunt Vera set her cup in the sink. ' + sentence;
+    eq(goneAtTheEnd(st, page, 'Aunt Vera'), false, 'the word list does not know this way out: ' + sentence);
+    eq(quotedGoing(st, page, 'Aunt Vera', shown), true, 'the page’s own words carry it: “' + shown + '”');
+  }
+  const page = H + 'Aunt Vera set her cup in the sink. She returned to her room.';
+  eq(quotedGoing(st, page, 'Aunt Vera', '“Returned to her room…”'), true, 'quote marks, case and trailing dots around the words do not matter');
+  eq(quotedGoing(st, page, 'Aunt Vera', 'went back to her room'), false, 'words that are not the page’s are no evidence');
+  eq(quotedGoing(st, page, 'Aunt Vera', 'left'), false, 'one word is not a quotation');
+  eq(quotedGoing(st, page, 'Aunt Vera', ''), false, 'nor is nothing');
+  eq(quotedGoing(st, H + 'Aunt Vera set her cup in the sink. “She returned to her room,” Rias said.', 'Aunt Vera', 'returned to her room'), false, 'words someone only SAYS are not the telling');
+  eq(quotedGoing(st, H + 'Aunt Vera set her cup in the sink.\n\n*** The World Beyond ***\n\nAcross town a woman returned to her room.', 'Aunt Vera', 'returned to her room'), false, 'nor words in the window beyond the page');
+  eq(quotedGoing(st, H + 'Aunt Vera returned to her room. A minute later Aunt Vera came back with the kettle and sat down.', 'Aunt Vera', 'returned to her room'), false, 'named again after the going: she may be back — the old rule decides, and it keeps her here');
+  eq(goneAtTheEnd(st, H + 'Aunt Vera returned to her room. A minute later Aunt Vera came back with the kettle and sat down.', 'Aunt Vera'), false, 'as it does');
+});
+
+test('M644-3 THROUGH THE READER ITSELF: a leaving in words the list does not know is kept when the reader hands over the page’s words for it — and thrown away, as before, when it does not', async () => {
+  const { extractTurn } = await import('../../js/agents/extractor.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const st = applyMutations({ ...emptyState(), page: 12 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen, 8 Mariner\u2019s Lane' },
+    ...['Jovan', 'Aunt Vera', 'Rias', 'Tom'].map((name) => ({ type: 'presence.enter', name })), ...['Aunt Vera', 'Rias', 'Tom'].map((name) => ({ type: 'rel.set', name, p: 20, cause: 'family' }))]).state;
+  const page = '[Wells house kitchen, 8 Mariner\u2019s Lane — Monday, March 3, 2025 | 21:40 | rain | sweater | at the table]\n\nAunt Vera set her cup in the sink. “Goodnight, all of you.” She returned to her room, and the house settled.';
+  const reading = (leave) => withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }, leave], resolved: [], here: ['Jovan', 'Rias', 'Tom'] }) }), () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'I say goodnight.', assistantText: page, pageNumber: 13 }));
+  const backed = await reading({ type: 'presence.leave', name: 'Aunt Vera', shown: 'She returned to her room', to: 'her room upstairs in the Wells house' });
+  assert(backed.mutations.some((m) => m.type === 'presence.leave' && m.name === 'Aunt Vera'), 'backed by the page’s words: the leaving stands — ' + JSON.stringify(backed.mutations));
+  const done = applyMutations(st, backed.mutations).state;
+  eq(done.present.map((p) => p.name).sort().join(',') + ' | ' + done.offscreen['Aunt Vera'].location, 'Jovan,Rias,Tom | her room upstairs in the Wells house', 'she is out of the kitchen and in her room');
+  const bare = await reading({ type: 'presence.leave', name: 'Aunt Vera' });
+  assert(!bare.mutations.some((m) => m.type === 'presence.leave'), 'with no words for it the old list decides, and does not know “returned to her room” — which is why the reader is asked for them');
+  const told = JSON.stringify(thinkingHouse({ answer: '{}' }) && (await (async () => { const h = thinkingHouse({ answer: '{"mutations":[]}' }); await withHouse(h, () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'x', assistantText: page, pageNumber: 13 })); return h.calls[0].body.messages; })()));
+  assert(/\\"shown\\" is the page\\\\'s own words that show them going, COPIED EXACTLY|"shown\\" is the page/.test(told) || /COPIED EXACTLY from its telling/.test(told), 'the reader is told to hand over the page’s own words');
+});
+
+test('M644-4 THE AUDITOR’S LEAVING, THE SAME WAY: backed by the page’s words it stands and seats her where she went; unbacked, in words the list does not know, it is refused as before', async () => {
+  const { auditLedger } = await import('../../js/agents/auditor.js');
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  const { db } = await import('../../js/store.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const run = async (leave) => {
+    const story = await db.stories.create({ title: 'the aunt ' + (leave.shown ? 'quoted' : 'bare') });
+    await db.messages.append(story.id, { role: 'user', text: 'I say goodnight.' });
+    await db.messages.append(story.id, { role: 'assistant', text: '[Wells house kitchen, 8 Mariner\u2019s Lane — Monday, March 3, 2025 | 21:40 | rain | sweater | at the table]\n\nAunt Vera set her cup in the sink. “Goodnight, all of you.” She returned to her room, and the house settled.' });
+    await saveState(story.id, applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen, 8 Mariner\u2019s Lane' }, ...['Jovan', 'Aunt Vera', 'Rias'].map((name) => ({ type: 'presence.enter', name }))]).state);
+    const answer = JSON.stringify({ issues: [{ what: 'Aunt Vera went to her room and is still listed in the kitchen', fix: 'take her out', pages: false, mutations: [leave] }] });
+    await withHouse(thinkingHouse({ answer }), () => auditLedger({ connection: HOUSES[0].conn, storyId: story.id, brief: '' }));
+    return loadState(story.id);
+  };
+  const quoted = await run({ type: 'presence.leave', name: 'Aunt Vera', shown: 'She returned to her room', to: 'her room upstairs in the Wells house' });
+  eq(quoted.present.some((p) => p.name === 'Aunt Vera') + ' | ' + ((quoted.offscreen['Aunt Vera'] || {}).location || ''), 'false | her room upstairs in the Wells house', 'backed by the page: out of the scene, and where she went');
+  const bare = await run({ type: 'presence.leave', name: 'Aunt Vera' });
+  eq(bare.present.some((p) => p.name === 'Aunt Vera'), true, 'unbacked: refused, as before');
+});
+
+test('M644-5 SOMEONE WHO WALKS IN IS IN THE SCENE, HOWEVER THE TELLING NAMES HER: “his aunt came in”, a nickname, a name only in someone’s mouth while the telling says “she came in” — backed by the page’s own words the walk-in stands and her elsewhere note is let go; talked about is still not here', async () => {
+  const { extractTurn } = await import('../../js/agents/extractor.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const st = applyMutations({ ...emptyState(), page: 12 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen, 8 Mariner\u2019s Lane' },
+    ...['Jovan', 'Rias', 'Tom'].map((name) => ({ type: 'presence.enter', name })),
+    { type: 'people.set', name: 'Aunt Vera', field: 'core', text: 'his mother\u2019s sister; runs the house' }, { type: 'offscreen.set', name: 'Aunt Vera', location: 'upstairs in the Wells house', activity: 'asleep' },
+    ...['Rias', 'Tom', 'Aunt Vera'].map((name) => ({ type: 'rel.set', name, p: 20, cause: 'family' }))]).state;
+  const H = '[Wells house kitchen, 8 Mariner\u2019s Lane — Tuesday, March 4, 2025 | 07:10 | rain | sweater | at the table]\n\n';
+  const after = async (text, enter) => {
+    const read = await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }, enter], resolved: [], here: ['Jovan', 'Rias', 'Tom', 'Aunt Vera'] }) }), () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'I look up.', assistantText: H + text, pageNumber: 13 }));
+    const led = applyMutations(st, read.mutations).state;
+    return (led.present.some((p) => p.name === 'Aunt Vera') ? 'here' : 'not here') + ' / ' + (led.offscreen['Aunt Vera'] ? 'still seated upstairs' : 'no elsewhere note');
+  };
+  const enter = (shown) => ({ type: 'presence.enter', name: 'Aunt Vera', ...(shown ? { shown } : {}), position: 'at the back door' });
+  eq(await after('The back door opened and Aunt Vera came in, shaking rain from her coat.', enter()), 'here / no elsewhere note', 'named in the telling: as before, no words needed');
+  eq(await after('The back door opened and his aunt came in, shaking rain from her coat.', enter('his aunt came in, shaking rain from her coat')), 'here / no elsewhere note', '“his aunt came in”, backed by the page’s words');
+  eq(await after('The back door opened and Auntie came in, shaking rain from her coat.', enter('Auntie came in')), 'here / no elsewhere note', 'a nickname');
+  eq(await after('The back door opened. “Aunt Vera, you’re soaked,” Rias said, and went for a towel as she came in.', enter('went for a towel as she came in')), 'here / no elsewhere note', 'named only in someone’s mouth; the telling says she came in');
+  eq(await after('The back door opened and his aunt came in, shaking rain from her coat.', enter()), 'not here / still seated upstairs', 'with no words for it the name must be in the telling, as before — which is why the reader is asked for them');
+  eq(await after('Rias poured the tea. “Aunt Vera will be down soon,” she said.', enter('Aunt Vera will be down soon')), 'not here / still seated upstairs', 'talked about is not here: spoken words are not the telling');
+  eq(await after('Rias poured the tea and said nothing.', enter('his aunt came in')), 'not here / still seated upstairs', 'words that are not on the page are no evidence');
+  eq(await after('The back door opened and his aunt came in. She took one look at them, turned, and went back up the stairs; then she was gone.', enter('his aunt came in')), 'here / no elsewhere note', 'in and out again told only by “she” after no name of hers: the house cannot see whose going it is, and the walk-in stands');
+});

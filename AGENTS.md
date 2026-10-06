@@ -16232,3 +16232,46 @@ changed.
 - version.js -> m643-001.
 - GATES at m643-001 (one CPU), on the tree that was pushed: harness 1256/1256, walk 236/236, long play 9/9, lint 0 errors
   (179 warnings, as at m642), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
+
+# M644 — the ledger audit, part one: who is here (the rules that overruled the page reader on plain prose)
+His order: "audit the whole ledger, deep dive in each section and each pipeline, make sure everything is perfect, no bugs,
+efficient, the best ledger — my subscription is going to end." The audit is by EXECUTION: each code rule that stands
+between a reader and the ledger is fed ordinary sentences, as a storyteller writes them, and what it gets wrong is
+counted. Part one is the scene's own room — who is here — because every other section leans on it (who witnesses a thing,
+who is asked about a standing, who is "elsewhere", whose blind spots are told to the storyteller).
+- LEAVING. A reader's presence.leave is kept only if code agrees the page shows the going (M446). The judge was
+  showsDeparture, a list of ways to say "left". Fed thirty ordinary goings it knew FIFTEEN: "The door closed behind her"
+  (the list had only the present tense), "went up to bed", "Her footsteps faded up the stairs", "returned to her room",
+  "retreated to the kitchen", "let herself out", "ducked out the back", "drove off", "the cab pulled away", "fled",
+  "swept from the room", "carried out on a stretcher", "out of sight", "teleported away", "on the way out" — every miss
+  threw a correct leaving away, and the person stood in the scene on the ledger until the auditor found them "long
+  silent" and took them out with nowhere to put them (M643's "last seen at the kitchen"). And it took two stayings for
+  goings ("was gone for a moment in thought", "almost left").
+  - THE CURE IS NOT A LONGER LIST. The reader hands over THE PAGE'S OWN WORDS for the going ("shown", copied exactly), and
+    the house checks what a house can check without understanding English (apply.js toldOnPage / quotedGoing): the words
+    ARE in the page's telling of the scene — not in someone's mouth, not in a window — and nothing the page tells after
+    that sentence names the person again (named again, they may be back: the old rule decides, and keeps them). A
+    leaving stands when the old rule sees it OR the quotation holds — for the page reader (extractor.js) and for the
+    auditor (auditor.js), whose vocabularies both ask for "shown".
+  - The list itself, for an answer with no quotation: the past tense (closed / clicked / swung / slammed behind), went
+    upstairs / up to bed, footsteps fading, fled (never "the colour fled her face"), drove / rode off, a cab or car
+    pulling away (never "pulled away from his touch"), let herself out, ducked out, swept from the room, on the way out,
+    teleported away; and never "was gone for a moment", "gone quiet / pale", "almost / nearly left". 26 of the thirty
+    now, none of twenty-eight stayings; the four it still does not know are the kind only a reader can tell
+    ("returned to her room" — or to her seat?) and are the quotation's.
+- WALKING IN. The walk-in of someone the world had seated elsewhere stands only if the page's telling NAMES them (M541:
+  talked about is not here). Fed five ordinary arrivals with the reader saying "she is here" and writing presence.enter:
+  "The back door opened and his aunt came in" — thrown away; a nickname ("Auntie") — thrown away; her name only in
+  someone's mouth while the telling says "she came in" — thrown away. She stood "upstairs, asleep" on the ledger while
+  she shook the rain off in the kitchen. Same cure: presence.enter carries "shown", and words that ARE in the page's
+  telling stand in for her name. Talked about is still not here (spoken words are not the telling); words not on the
+  page are no evidence.
+- LAWS (m588.mjs): M644-1 (the sentence battery, both ways), M644-2 (a quoted going: five ways out the list does not know;
+  spoken only, in a window, not on the page, one word, named again after), M644-3 (through the page reader's whole call:
+  kept with the words, thrown away without — and the reader is told to give them), M644-4 (through the auditor's whole
+  call: backed, she is out and seated where she went; unbacked, refused), M644-5 (walking in, each way, and what must
+  stay out). All 208 laws that touch leaving stand.
+- NOT AUDITED YET — see the handoff's list. The audit is not finished and this entry does not say it is.
+- version.js -> m644-001.
+- GATES at m644-001 (one CPU), on the tree that was pushed: harness 1261/1261, walk 236/236, long play 9/9, lint 0 errors
+  (179 warnings, as at m643), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.

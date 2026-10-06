@@ -37,7 +37,7 @@
 import { HERE_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
 import { headerMutations } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey } from '../engine/people.js';
 import { findRelationship } from '../engine/relationships.js'; /* M641: who has no standing yet */
@@ -122,8 +122,8 @@ const VOCABULARY = [
   'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30} — only when the prose states or clearly fixes the time',
   'place.set {"type":"place.set","name":"the chapel"} — the ground the scene stands on, only when first named or it truly moves',
   'clock.advance {"type":"clock.advance","minutes":30,"reason":"the walk to the chapel"} — when time clearly passes; minutes is a number',
-  'presence.enter {"type":"presence.enter","name":"NAME","position":"by the fire","attire":"a travel cloak"} — position and attire only if shown',
-  'presence.leave {"type":"presence.leave","name":"OTHER NAME","to":"upstairs in the Wells house","doing":"going up to bed"} — when someone stops sharing the main character\'s space: the page SHOWS them leaving (walks out, is carried off, vanishes), OR he walks away and leaves them behind (they stay where they were — never the main character himself: when he goes, the scene\'s place goes with him); someone the page does not mention is quiet, not gone, and stays. WHERE THEY WENT IS YOURS TO SAY, FROM THE PAGE: "to" is where the page shows them going, said so it stands on its own — "upstairs in the Wells house", "the car outside the gate", "back to the Sixth\'s barracks" (never just "out" or "away", and never the scene\'s own ground); "doing" is what they went to do, when the page says. Leave "to" out only when the page shows them go with no sign of where, or when it is he who walked away from them: the house then notes where they were last seen',
+  'presence.enter {"type":"presence.enter","name":"NAME","shown":"his aunt came in, shaking rain from her coat","position":"by the fire","attire":"a travel cloak"} — position and attire only if shown; "shown" is the page\'s own words that show them arriving or being here, COPIED EXACTLY from its telling (never from what someone says aloud) — always give it when the telling does not use their name ("his aunt", "the captain", a nickname, "she")',
+  'presence.leave {"type":"presence.leave","name":"OTHER NAME","shown":"footsteps measured up the stairs","to":"upstairs in the Wells house","doing":"going up to bed"} — when someone stops sharing the main character\'s space: the page SHOWS them leaving (walks out, is carried off, vanishes), OR he walks away and leaves them behind (they stay where they were — never the main character himself: when he goes, the scene\'s place goes with him); someone the page does not mention is quiet, not gone, and stays. "shown" is the page\'s own words that show them going, COPIED EXACTLY from its telling (a few words are enough; never from what someone says aloud) — the house holds a leaving to the page by them. WHERE THEY WENT IS YOURS TO SAY, FROM THE PAGE: "to" is where the page shows them going, said so it stands on its own — "upstairs in the Wells house", "the car outside the gate", "back to the Sixth\'s barracks" (never just "out" or "away", and never the scene\'s own ground); "doing" is what they went to do, when the page says. Leave "to" out only when the page shows them go with no sign of where, or when it is he who walked away from them: the house then notes where they were last seen',
   'presence.update {"type":"presence.update","name":"NAME","position":"at the window"} — when someone present moves or changes dress',
   /* M256: WHO KNOWS WHAT, FOR THE PEOPLE IN THE ROOM. knowledge.add appeared
    * NOWHERE in this file. The world agent has it, but the world agent is
@@ -597,7 +597,8 @@ export async function extractTurn(args = {}) {
     read.mutations = read.mutations.filter((m) => {
       if (!(m && m.type === 'presence.leave' && args.state)) return true;
       const n = String(m.name || '');
-      return moved ? !cameAlong(n) : (goneAtTheEnd(args.state, args.assistantText, n) || (mcGone && !cameAlong(n)));
+      /* M644: …or the reader hands over the page's own words for it, and they hold (apply.js quotedGoing) */
+      return moved ? !cameAlong(n) : (goneAtTheEnd(args.state, args.assistantText, n) || quotedGoing(args.state, args.assistantText, n, m.shown) || (mcGone && !cameAlong(n)));
     });
     /* M509-12: THE CROWD DOES NOT RIDE TO THE NEW GROUND. When the page MOVES the ground and says who is in the new room
      * (its "here"), everyone else who was in the old room is left behind there — Jovan ran out of the Tenth's courtyard
@@ -641,7 +642,12 @@ export async function extractTurn(args = {}) {
         if (isHere(args.state, m.name) || isMc(args.state, m.name)) return true;
         const seated = Object.keys(args.state.offscreen).some((k) => samePersonName(k, m.name));
         if (!seated) return true;
-        return shownOnPage(args.state, told, m.name) && !goneAtTheEnd(args.state, args.assistantText, m.name);
+        /* M644: THE TELLING OFTEN DOES NOT USE THE NAME. "The back door opened and his aunt came in", "Auntie", a name only in
+         * someone's mouth while the telling says "she came in" — the walk-in of someone the world had seated elsewhere
+         * was thrown away on each, and she stood "upstairs, asleep" on the ledger while she shook the rain off in the
+         * kitchen. The reader hands over the page's own words that show her here ("shown"); words that ARE in the
+         * page's telling stand in for her name. Talked about is still not here (M541): spoken words are not the telling. */
+        return (shownOnPage(args.state, told, m.name) || toldOnPage(args.assistantText, m.shown).end !== -1) && !goneAtTheEnd(args.state, args.assistantText, m.name);
       });
     }
     /* M509-15: A MOMENT THE WHOLE ROOM SAW GOES INTO EVERY BOOK IN THE ROOM. The reader writes a public moment into one
