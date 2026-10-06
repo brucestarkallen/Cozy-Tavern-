@@ -380,6 +380,14 @@ const HANDLERS = {
      * all, re-set one the ledger already held and called it a fix.
      * M261: "The Wells Residence" and "Wells Residence" are one place. */
     if (typeof before === 'string' && samePlace(before, name)) return { ok: false, why: 'the scene already stands in ' + before, same: true };
+    /* M628: the same spot named with its area, or without it, is no move — everyone keeps where they stand; the fuller name
+     * is kept */
+    if (typeof before === 'string' && before && sameSpot(before, name)) {
+      const gains = areasOf(name).some((a) => !areasOf(before).some((b) => samePlace(a, b)));
+      if (!gains) return { ok: false, why: 'the scene already stands in ' + before, same: true };
+      state.place = { name };
+      return { ok: true, words: 'The scene\u2019s ground is named in full: ' + name + '.' };
+    }
     /* M304: the ground the scene stood on when THIS PAGE began — whoever leaves on
      * a page that also moved the ground was certainly there, and only perhaps
      * at the new one (presence.leave reads this for where they were last seen).
@@ -1554,6 +1562,19 @@ export function noOneSpot(name) {
   if (!all.length || foldName(scene).split(' ').filter(Boolean).length < 2) return true;
   return parts.length === 1 && PLACE_REGION.has(all[all.length - 1]);
 }
+/* M628: THE SAME SPOT, NAMED WITH OR WITHOUT ITS AREA — "Jovan's bedroom" and "Jovan's bedroom — New York City" are one
+ * ground: the spots each names are the same (the parts that are one spot; an area part — a city, a town, a district — is
+ * only where the spot stands). A ground named more fully is no move; a deeper room ("the Barracks — Captain's Office" from
+ * "the Barracks") names another spot, and stays a move. */
+const placePieces = (t) => String(t || '').split(/\s*(?:—|–|,|;|\s-\s)\s*/).map((x) => x.trim()).filter(Boolean);
+export function sameSpot(a, b) {
+  const spots = (t) => placePieces(t).filter((p) => !noOneSpot(p));
+  const x = spots(a), y = spots(b);
+  if (!x.length || !y.length || x.length !== y.length) return false;
+  return x.every((p) => y.some((q) => samePlace(p, q))) && y.every((q) => x.some((p) => samePlace(p, q)));
+}
+const areasOf = (t) => placePieces(t).filter((p) => noOneSpot(p));
+
 export function broaderPlace(headerPlace, ground) {
   if (!headerPlace || !ground || samePlace(headerPlace, ground)) return false;
   return noOneSpot(headerPlace) && !noOneSpot(ground);

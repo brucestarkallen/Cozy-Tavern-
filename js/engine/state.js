@@ -1287,6 +1287,29 @@ const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 
 const MONTH_SRC = '(?:' + MONTHS.join('|') + '|jan|feb|mar|apr|jun|jul|aug|sept|sep|oct|nov|dec)\\.?';
 const SHORT_DAY_SRC = '(?:mon|tues|tue|wed|thurs|thur|thu|fri|sat|sun)\\.?';
 const monthNumber = (word) => ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'].indexOf(String(word || '').toLowerCase().slice(0, 3)) + 1;
+/* M628: THE HEADER IS GIVEN THE SPOT — his: "does the header now fix itself when it is not detailed, like Jovan's bedroom?"
+ * A header whose place names only the area ("New York City") round the ground the ledger holds ("Jovan's bedroom") has that
+ * ground written into it, the area kept after it: "[Jovan's bedroom, New York City — Monday, …]". Read AFTER the page's
+ * reader, so the ground is where the page left them (a real move the reader wrote is the ground written in). Only an
+ * area-only place over a spot (broaderPlace); a place of the ledger's own words already holding the area is written as
+ * the ledger's alone. Pure: the page's words, or the same words when there is nothing to give. */
+export function headerWithGround(pageText, ground) {
+  const src = String(pageText == null ? '' : pageText);
+  const g = String(ground || '').replace(/[[\]|\n]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!g) return src;
+  const lines = src.split('\n');
+  const at = lines.findIndex((l) => l.trim().length);
+  if (at === -1 || !/^\[.+\]$/.test(lines[at].trim())) return src;
+  const set = headerMutations(lines[at]).find((m) => m && m.type === 'place.set');
+  const place = set && typeof set.name === 'string' ? set.name : '';
+  if (!place || !broaderPlace(place, g)) return src;
+  const from = lines[at].indexOf(place);
+  if (from === -1) return src;
+  const whole = g.toLowerCase().includes(place.toLowerCase()) ? g : g + ', ' + place; /* a comma, so the place stays one piece where the page draws it (📍), apart from the date */
+  lines[at] = lines[at].slice(0, from) + whole + lines[at].slice(from + place.length);
+  return lines.join('\n');
+}
+
 /* M627: { ground } — the ledger's ground before this page: a header place that only names the area round it is no move */
 export function headerMutations(pageText, { ground = '' } = {}) {
   const first = String(pageText || '').split('\n').map((l) => l.trim()).find((l) => l.length);

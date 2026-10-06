@@ -15662,3 +15662,25 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   the ground is still the apartment and his friend is still there).
 
 - GATES at m627-001 (one CPU): harness 1234/1234, walk 224/224, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.
+
+# M628 — his: "what I mean: does the header now fix itself when it is not detailed, like Jovan's bedroom?"
+- M627 kept the ledger right and left the header's own words to the second reader and the mender — a model's judgment,
+  not a guarantee. Now the house writes it in code: right after the page's reader, a header whose place names only the area
+  ("New York City") round the ground the ledger keeps ("Jovan's bedroom") is given that ground, the area after it with a
+  comma — "[Jovan's bedroom, New York City — Monday, …]" — so the page draws one place (📍) apart from the date (state.js
+  headerWithGround; chat.js after the masthead; the take-back chip holds the words it replaced; a page whose words he put
+  back himself is left alone). Read after the page's reader, so a real move it wrote is the ground written in.
+- THE SAME SPOT, WITH OR WITHOUT ITS AREA, IS ONE GROUND (apply.js sameSpot): place.set to the ground named with its area is
+  a renaming that keeps where everyone stands (a later header copying the fuller name moved nothing); the short name again
+  changes nothing; another room, or a deeper one ("the Barracks — Captain's Office"), is still a move. The page reader's own
+  move judgment (extractor.js) uses the same rule.
+- Laws M628-1/2; walk DOM-224 now also holds the page's header — stored and on screen — naming the apartment.
+- THE WALK, RUN WHOLE THREE TIMES ON THIS CODE, FAILED ONE DIFFERENT SCENARIO EACH TIME: DOM-224 (its own new check held the
+  header to one way of drawing it — display rules restyle it; it now holds the words), DOM-191 (a 5-second wait for a canon
+  switch to be kept ran out once on one CPU; it passed alone twice — both such waits are 15 s now, the save unchanged), and
+  DOM-135 (the known rare one: its report showed the page read — readTo 1 — by the time it looked, i.e. the reading came
+  late). A guess at DOM-135's cause (a look for unread pages that found the house at work and booked no other) was built,
+  and a walk made to force it PASSED WITHOUT the change — so the change and that walk were taken out: no evidence, no fix.
+  DOM-135's cause is still not found; it passed in the gate run and in the second whole run of this same code.
+
+- GATES at m628-001 (one CPU): harness 1236/1236, walk 224/224 (the whole walk, run again after the walk-side changes above), long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.

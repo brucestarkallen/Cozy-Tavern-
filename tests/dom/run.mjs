@@ -3828,7 +3828,7 @@ test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it s
     await openSettings();
     const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
     if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
-    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 5000);
+    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000); /* M628: 5 s ran out once in a full walk on one CPU (it passed alone, twice) — the switch's save is unchanged; the wait is the walk's */
     await closeSettings();
     /* M457: where to look is each story's own — named, as he names it, in the story's own room (the app's own bridge) */
     if (typeof wiki === 'string') {
@@ -7335,7 +7335,7 @@ test('DOM-175 CANON ON THEIR OWN PAGE, IN THE APP (M518): with the brief Automat
     await openSettings();
     const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
     if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
-    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 5000);
+    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000); /* M628: 5 s ran out once in a full walk on one CPU (it passed alone, twice) — the switch's save is unchanged; the wait is the walk's */
     await closeSettings();
     /* M457: where to look is each story's own — named, as he names it, in the story's own room (the app's own bridge) */
     if (typeof wiki === 'string') {
@@ -7959,7 +7959,7 @@ test('DOM-189 CANON FOR THE PEOPLE THE LEDGER HAS HERE, NAMED OR NOT (his screen
     await openSettings();
     const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
     if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
-    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 5000);
+    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000); /* M628: 5 s ran out once in a full walk on one CPU (it passed alone, twice) — the switch's save is unchanged; the wait is the walk's */
     await closeSettings();
     /* M457: where to look is each story's own — named, as he names it, in the story's own room (the app's own bridge) */
     if (typeof wiki === 'string') {
@@ -8086,7 +8086,7 @@ test('DOM-191 A FAMILY NAME USED FOR THE FAMILY NAMES NO ONE (M539 — his quest
     await openSettings();
     const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
     if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
-    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 5000);
+    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000); /* M628: 5 s ran out once in a full walk on one CPU (it passed alone, twice) — the switch's save is unchanged; the wait is the walk's */
     await closeSettings();
     /* M457: where to look is each story's own — named, as he names it, in the story's own room (the app's own bridge) */
     if (typeof wiki === 'string') {
@@ -10098,6 +10098,11 @@ test('DOM-224 A HEADER THAT NAMES ONLY THE CITY IS NO MOVE, THROUGH THE APP (M62
     const after = await db.settings.get('state:' + st.id);
     eq((after.place || {}).name, 'Mark\u2019s apartment', 'the ground is still the apartment, not the city');
     assert((after.present || []).some((p) => p && p.name === 'Mark'), 'and his friend is still there with him');
+    /* M628: and the page's own header is given the spot, the area after it */
+    await until(async () => /^\[Mark\u2019s apartment, New York City — Monday/.test(String((await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop().text || '')), 'the header names the apartment', 15000);
+    const shown = [...document.querySelectorAll('#thread .msg')].pop();
+    /* drawn as the page's header however the display rules dress it (the 📍 chip, or plain when a rule restyles it) */
+    assert(shown && /Mark\u2019s apartment, New York City/.test(shown.textContent) && /Monday, March 3, 2025/.test(shown.textContent), 'and the page on screen shows it: ' + (shown ? shown.textContent.slice(0, 120) : ''));
   } finally {
     house.state.storyAnswer = prior;
     house.state.workerAnswer = priorWorker;

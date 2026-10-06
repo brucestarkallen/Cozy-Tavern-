@@ -58,7 +58,7 @@ import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
 import { renderClock } from '../engine/clock.js'; /* M493 */
-import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture, shareCheckpoints } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
+import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, headerWithGround, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture, shareCheckpoints } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
 import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
@@ -3771,6 +3771,16 @@ export function initChat(ctx) {
         const stNow = await loadState(story.id);
         const mast = renderMasthead(stNow);
         if (mast) await reink(story.id, msg.id, { masthead: mast });
+        /* M628: a header that named only the area is given the ground the ledger keeps — in code, now, with the take-back */
+        const cur = (await db.messages.list(story.id)).find((m) => m.id === msg.id);
+        const said = cur ? pageText(cur) : '';
+        const given = cur && !cur.ooc && !(typeof cur.keptText === 'string' && cur.keptText === said) ? headerWithGround(said, (stNow.place || {}).name || '') : said;
+        if (cur && given !== said) {
+          const patch = shownTextPatch(cur, given);
+          if (!cur.mended) patch.mended = { before: said, why: 'the header named only the area — the house wrote in where the ledger has the scene', at: Date.now() };
+          await db.messages.update(story.id, msg.id, patch);
+          await rerenderMessage(story.id, msg.id);
+        }
       } catch { /* a masthead is a courtesy, never a crisis */ }
       const n = applied.length;
       const refusals = rejected.filter((r) => !(r && r.same)); /* M259: "already so" is not a refusal */
