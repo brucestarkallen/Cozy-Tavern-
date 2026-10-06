@@ -16275,3 +16275,51 @@ who is asked about a standing, who is "elsewhere", whose blind spots are told to
 - version.js -> m644-001.
 - GATES at m644-001 (one CPU), on the tree that was pushed: harness 1261/1261, walk 236/236, long play 9/9, lint 0 errors
   (179 warnings, as at m643), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
+
+# M645 — the ledger audit, part two: the header, the clock, the place, and elsewhere over time
+Continuing M644 by the same method — ordinary inputs fed through the real rules, and what they get wrong counted.
+- THE HEADER (state.js headerMutations; twenty-six ways a storyteller draws his line, and ten more through the arrival
+  repair): "9:40 PM" was read 09:40 and "12:15 AM" a quarter past noon — a storyteller keeping a twelve-hour clock had
+  the ledger's hour half a day off every evening; a date written 2025-03-03 set no date; "21.40" and "21h40" no hour.
+  The line's DRESS was taken for its words: a pin before the place made the ground "📍 Wells house kitchen", other
+  brackets "【Wells house kitchen". And the header had to be the page's first line with nothing after it: a line of
+  chatter before it, or the first words of the prose run on behind its bracket, and the ledger took no place and no hour
+  from that page. All read now (a bracketed aside with no bars in it is still not a header; an hour only in words —
+  "Late evening" — still sets none). M322-1's fixture line asserted that a short leak in front hides the header from
+  the house; it no longer does, and that line now says so (a longer one still does — the cut is what M322 is for).
+- THE CLOCK (apply.js, five sequences: dated across midnight; the hour alone across two midnights; minutes back and
+  forth; a twelve-hour evening into the small hours; his own calendar's words): every one right, once the hour is read
+  as written. Nothing changed there.
+- THE PLACE (apply.js samePlace / sameSpot / seatAtScene / broaderPlace; twenty-one pairs of "the ground the ledger
+  holds" and "the place a header names"): four read as a MOVE that were none — "Kitchen, Wells house" for "Wells house
+  kitchen, 8 Mariner's Lane"; "Wells house"; "Mariner's Lane, Ravenwood" (his own storyteller's kind of header, M540);
+  and "Tenth Division HQ" for "10th Division HQ". A false move renames the ground and lets every position go; the last
+  two were FAR moves by the rule's own measure (no telling word shared), so everyone the page did not name was LEFT
+  BEHIND at the place they were standing in. Now: ordinals in words and figures are one number (placeKey); and a place
+  whose every piece is either only an area or made wholly of the ground's own words is the same ground said otherwise
+  (withinGround) — no place.set from the header, no move in the reader's path, "already stands" at the ledger's door
+  (asked after M628's rule, which keeps a name that ADDS the spot's area — that law caught my first placing of it).
+  Another room, outside, another number: a move, as before. 21 of 21.
+- ELSEWHERE, AS IT IS READ OVER TIME (offscreen.js seatNowWords, world.js renderArrival; three people seated, the clock
+  moved from minutes to days): a want was said twice — "(meaning to meaning to walk home)" — for every seat whose
+  writer followed the page reader's OWN example ("agenda":"meaning to warn the abbot"); and an approach that never
+  landed was said for ever: "moving toward the main character, overdue by about 3 days — likely already here or
+  delayed". The want is said once; three hours past its hour an approach is no longer said (the note's age says the
+  rest).
+- LAWS (m588.mjs): M645-1 (the header, each form, and through the arrival repair), M645-2 (the place pairs; the ledger
+  keeps its ground and Rias her place at the stove), M645-3 (through the page reader's whole call: five people still
+  in the yard when the header writes "Tenth" or names only the Seireitei), M645-4 (elsewhere over time). 372 laws that
+  touch the header or the clock and 527 that touch a place stand.
+- NOT AUDITED YET — the handoff's list. The audit is not finished and this entry does not say it is.
+- A REGRESSION OF MY OWN, CAUGHT BY THE WALK AND RUN DOWN: the first full run failed DOM-128 ("her book reads on"), every
+  time. My first version of the header change WITHHELD place.set whenever the header's place was within the ground —
+  including the ground named exactly as it stands — and the page's upkeep (chat.js) reads that line to know the page
+  named its ground; without it the upkeep's fold of "the courier Hachigorō" in Kiyone's book never ran. The header now
+  ALWAYS hands on the ground the page names: as written when it is the ground's own name or a move; under the ledger's
+  own, fuller name when the header only said it otherwise (the ledger's door answers "already stands", and whoever asks
+  still sees the page name its ground). An area alone is still withheld, as M627 left it.
+- version.js -> m645-001.
+- GATES at m645-001 (one CPU), on the tree that was pushed: harness 1265/1265, walk 236/236, long play 9/9, lint 0 errors
+  (179 warnings, as at m644), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each. That is the run AFTER the
+  DOM-128 fix; the run before it is the failure described above. (A gate run started in the same tool call as a long
+  wait was killed by the call's own time limit at 84 scenarios — start gates detached and poll in short calls.)

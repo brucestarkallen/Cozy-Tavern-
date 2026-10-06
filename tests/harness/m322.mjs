@@ -19,7 +19,11 @@ const chunks = (s, n) => { const a = []; for (let i = 0; i < s.length; i += n) a
 test('M322-1 a reply that thinks aloud before its header: the thinking is thinking, the page begins at its header — and the house can read the ground and the hour again', () => {
   const whole = splitAtHeader(LEAK + PAGE);
   eq(whole.page, PAGE); eq(whole.lead, LEAK.trimEnd());
-  eq(headerMutations(LEAK + PAGE).length, 0, 'fixture: with the leak in front, the house could not read the header at all');
+  /* M645: the house now finds a header that stands within two lines of the top, so a SHORT leak no longer hides the ground
+   * and the hour from it (this line used to assert that it could not read them at all); a longer run of thinking still
+   * does — the cut is what gives the house, and the reader, the page */
+  eq(headerMutations(LEAK + PAGE).map((m) => m.type).join(','), 'place.set,clock.set', 'a short leak in front: the header is read where it stands');
+  eq(headerMutations('Let me think.\nFirst the beat.\nThen the room.\nThen the line.\n' + PAGE).length, 0, 'four lines of thinking in front: the house cannot read the header — until the cut');
   eq(headerMutations(whole.page).map((m) => m.type).join(','), 'place.set,clock.set', 'cut at the header, it reads the ground and the hour');
   /* as it streams, in pieces of every size — the same split, the thinking first */
   for (const n of [1, 3, 7, 40, 500]) {

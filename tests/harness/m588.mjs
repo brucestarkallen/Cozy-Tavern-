@@ -445,3 +445,97 @@ test('M644-5 SOMEONE WHO WALKS IN IS IN THE SCENE, HOWEVER THE TELLING NAMES HER
   eq(await after('Rias poured the tea and said nothing.', enter('his aunt came in')), 'not here / still seated upstairs', 'words that are not on the page are no evidence');
   eq(await after('The back door opened and his aunt came in. She took one look at them, turned, and went back up the stairs; then she was gone.', enter('his aunt came in')), 'here / no elsewhere note', 'in and out again told only by “she” after no name of hers: the house cannot see whose going it is, and the walk-in stands');
 });
+
+/* M645 — the ledger audit, part two: the header's place and hour. */
+test('M645-1 THE HEADER, AS A STORYTELLER DRAWS IT: a twelve-hour clock is read as its hour, a date written 2025-03-03 is a date, 21.40 and 21h40 are an hour; the line’s dress (pins, other brackets, bold) is not its words; and it is found after a line of chatter or with the prose run on behind it', async () => {
+  const { headerMutations } = await import('../../js/engine/state.js');
+  const { tidyPage } = await import('../../js/ui/pageshape.js');
+  const read = (header, { arrive = false } = {}) => {
+    let text = header + '\n\nShe looked up from the stove.';
+    if (arrive) { const r = tidyPage(text, { place: 'Wells house kitchen', mc: 'Jovan' }); text = typeof r === 'string' ? r : r.text; }
+    const m = headerMutations(text);
+    const p = m.find((x) => x.type === 'place.set'); const c = m.find((x) => x.type === 'clock.set');
+    return (p ? p.name : '—') + ' @ ' + (c ? (c.year ? [c.year, c.month, c.day].join('-') + ' ' : '') + String(c.hour).padStart(2, '0') + ':' + String(c.minute).padStart(2, '0') : '—');
+  };
+  const rest = ' | rain | sweater | at the table]';
+  eq(read('[Wells house kitchen, 8 Mariner\u2019s Lane — Monday, March 3, 2025 | 21:40' + rest), 'Wells house kitchen, 8 Mariner\u2019s Lane @ 2025-3-3 21:40', 'his own header, as it always read');
+  eq(read('[Wells house kitchen — Monday, March 3, 2025 | 9:40 PM' + rest), 'Wells house kitchen @ 2025-3-3 21:40', '9:40 PM is twenty to ten at night');
+  eq(read('[Wells house kitchen — Monday, March 3, 2025 | 9:40 p.m.' + rest), 'Wells house kitchen @ 2025-3-3 21:40', 'however it writes p.m.');
+  eq(read('[Wells house kitchen — Monday, March 3, 2025 | 9:40 AM' + rest), 'Wells house kitchen @ 2025-3-3 09:40', 'the morning stays the morning');
+  eq(read('[Wells house kitchen — Tuesday, March 4, 2025 | 12:15 AM' + rest), 'Wells house kitchen @ 2025-3-4 00:15', 'a quarter past midnight is not a quarter past noon');
+  eq(read('[Wells house kitchen — Monday, March 3, 2025 | 12:15 PM' + rest), 'Wells house kitchen @ 2025-3-3 12:15', 'and noon is noon');
+  eq(read('[Wells house kitchen — 2025-03-03 | 21:40' + rest), 'Wells house kitchen @ 2025-3-3 21:40', 'a date written year-month-day');
+  eq(read('[Wells house kitchen — Monday, March 3, 2025 | 21.40' + rest), 'Wells house kitchen @ 2025-3-3 21:40', '21.40');
+  eq(read('[Wells house kitchen — Monday, March 3, 2025 | 21h40' + rest), 'Wells house kitchen @ 2025-3-3 21:40', '21h40');
+  eq(read('[Wells house kitchen — Monday, March 3, 2025 | Late evening' + rest), 'Wells house kitchen @ —', 'an hour only in words sets no hour (and the place still stands)');
+  eq(read('[📍 Wells house kitchen — 🗓 Monday, March 3, 2025 | 🕘 21:40 | 🌧 rain | 👕 sweater | 🧍 at the table]'), 'Wells house kitchen @ 2025-3-3 21:40', 'a pin and a clock drawn before the parts are not the ground’s name');
+  eq(read('[10th Division HQ — training courtyard — Monday, June 1, 2026 | 10:40' + rest), '10th Division HQ — training courtyard @ 2026-6-1 10:40', 'a place that begins with a number is still a place (M409, M410)');
+  /* as the page arrives (the house's own repair first), in the shapes a model draws the line */
+  for (const drawn of ['**[Wells house kitchen — Monday, March 3, 2025 | 21:40' + rest + '**', 'Wells house kitchen — Monday, March 3, 2025 | 21:40' + rest.slice(0, -1), '【Wells house kitchen — Monday, March 3, 2025 | 21:40' + rest.slice(0, -1) + '】', '(Wells house kitchen — Monday, March 3, 2025 | 21:40' + rest.slice(0, -1) + ')', '### [Wells house kitchen — Monday, March 3, 2025 | 21:40' + rest]) {
+    eq(read(drawn, { arrive: true }), 'Wells house kitchen @ 2025-3-3 21:40', 'drawn as ' + drawn.slice(0, 26) + '…');
+  }
+  eq(headerMutations('Sure — here is the next page.\n\n[Wells house kitchen — Monday, March 3, 2025 | 21:40' + rest + '\n\nShe looked up.').map((m) => m.type).join(','), 'place.set,clock.set', 'a line of chatter before it: found on the next line');
+  eq(headerMutations('[Wells house kitchen — Monday, March 3, 2025 | 21:40' + rest + ' She looked up from the stove at once.').map((m) => m.type).join(','), 'place.set,clock.set', 'the prose run on behind its bracket: still read');
+  eq(headerMutations('[A bell rang.] She looked up.').length, 0, 'a bracketed aside with no bars in it, run on into prose, is not a header');
+  eq(headerMutations('She looked up.\n\n[Later that night]\n\nThe house was dark.').length, 0, 'nor is a bare bracketed line further down the page');
+});
+
+test('M645-2 THE SAME GROUND IN OTHER WORDS IS NO MOVE: reordered, less fully said, with its street and town, or with its number written out — while another room, outside, or another number is a move as before', async () => {
+  const { samePlace, seatAtScene, sameSpot, broaderPlace, withinGround } = await import('../../js/engine/apply.js');
+  const moves = (was, now) => Boolean(!samePlace(now, was) && !seatAtScene(was, now) && !sameSpot(now, was) && !broaderPlace(now, was) && !withinGround(now, was));
+  const K = 'Wells house kitchen, 8 Mariner\u2019s Lane';
+  for (const now of [K, 'Wells house kitchen', 'The Wells house kitchen', 'Kitchen, Wells house', 'Wells House Kitchen — 8 Mariner\u2019s Lane', '8 Mariner\u2019s Lane', 'Mariner\u2019s Lane, Ravenwood', 'Ravenwood', 'Wells house']) eq(moves(K, now), false, 'no move: ' + now);
+  for (const now of ['Wells house living room, 8 Mariner\u2019s Lane', 'Wells house, upstairs hallway', 'Wells house back porch', 'Mariner\u2019s Lane, outside the Wells house', 'The Bluebird Diner, Harbor Street', 'Jovan\u2019s car, Mariner\u2019s Lane']) eq(moves(K, now), true, 'a move: ' + now);
+  const T = '10th Division HQ — training courtyard';
+  eq(moves(T, 'Tenth Division HQ, training courtyard'), false, 'the number written out is the same number');
+  eq(samePlace('The Tenth Division HQ training courtyard', '10th Division HQ — training courtyard'), true, 'one place, by the ledger’s own measure');
+  eq(moves(T, '10th Division HQ'), false, 'the compound alone names no other spot');
+  eq(moves(T, '10th Division HQ — captain\u2019s office'), true, 'another room of it is');
+  eq(moves(T, '13th Division HQ — training courtyard'), true, 'another division is another place');
+  eq(moves(T, 'Thirteenth Division HQ — training courtyard'), true, 'in words too');
+  eq(moves('Jovan\u2019s bedroom', 'New York City'), false, 'a city round a room is no move (M627)');
+  eq(moves('Jovan\u2019s bedroom', 'Jovan\u2019s bathroom'), true, 'the next room is');
+  /* on the ledger: a header naming the street and the town over the kitchen sets no new ground, and keeps where everyone stands */
+  const { headerMutations } = await import('../../js/engine/state.js');
+  const st = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: K }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rias', position: 'at the stove' }]).state;
+  const muts = headerMutations('[Mariner\u2019s Lane, Ravenwood — Thu, Aug 20, 2026 | 11:15 | clear | sweater | at the table]\n\nRias stirred the pot.', { ground: K });
+  eq(muts.filter((m) => m.type === 'place.set').map((m) => m.name).join(' | '), K, 'the header’s place is only where the kitchen stands: what it hands on is the ledger’s own name for the ground (so the page still “names its ground” to whoever asks)');
+  eq(applyMutations(st, muts.filter((m) => m.type === 'place.set')).applied.length, 0, 'and at the ledger’s door that is no change');
+  const after = applyMutations(st, [...muts, { type: 'place.set', name: 'Kitchen, Wells house' }]).state;
+  eq(after.place.name + ' | ' + after.present.find((p) => p.name === 'Rias').position, K + ' | at the stove', 'the ground keeps its fuller name, and Rias is still at the stove');
+});
+
+test('M645-3 NOBODY IS LEFT BEHIND BY A HEADER’S WORDING: the number written out, or the street and town in place of the room — through the page reader’s whole call, the room stands as it was', async () => {
+  const { extractTurn } = await import('../../js/agents/extractor.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const yard = '10th Division HQ — training courtyard';
+  const st = applyMutations({ ...emptyState(), page: 30 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: yard }, ...['Jovan', 'Rukia', 'Renji', 'Hitsugaya', 'Matsumoto'].map((name) => ({ type: 'presence.enter', name })),
+    ...['Rukia', 'Renji', 'Hitsugaya', 'Matsumoto'].map((name) => ({ type: 'rel.set', name, p: 10, cause: 'comrades' }))]).state;
+  for (const header of ['[Tenth Division HQ, training courtyard — Monday, June 1, 2026 | 10:40 | clear | shihakushō | by the rail]', '[Seireitei — Monday, June 1, 2026 | 10:40 | clear | shihakushō | by the rail]']) {
+    const page = header + '\n\nRukia tightened her grip on the hilt and said nothing.';
+    /* a reader that names only the two the page shows — as cheap readers do */
+    const read = await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }], resolved: [], here: ['Jovan', 'Rukia'] }) }), () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'I wait.', assistantText: page, pageNumber: 31 }));
+    eq(read.mutations.filter((m) => m.type === 'presence.leave').length, 0, 'no one is taken out: ' + header.slice(0, 40));
+    const led = applyMutations(st, [...(await import('../../js/engine/state.js')).headerMutations(page, { ground: yard }), ...read.mutations]).state;
+    eq(led.place.name + ' | ' + led.present.length, yard + ' | 5', 'the ground and the five of them stand as they were');
+  }
+});
+
+test('M645-4 ELSEWHERE, AS THE STORYTELLER READS IT: a want is said once (never “meaning to meaning to…”), and an approach that never landed stops being said three hours past its hour — the note’s own age says the rest', async () => {
+  const { seatNowWords } = await import('../../js/engine/offscreen.js');
+  let st = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen' }, { type: 'clock.set', year: 2025, month: 3, day: 3, hour: 21, minute: 0 }, { type: 'presence.enter', name: 'Jovan' },
+    { type: 'offscreen.set', name: 'Rias', location: 'the Bluebird Diner', activity: 'closing up', agenda: 'meaning to walk home', etaMinutes: 20, stance: 'toward' }]).state;
+  const line = () => seatNowWords(st.offscreen.Rias, st.clock.minutes, { agenda: true, arrival: true });
+  eq(line(), 'the Bluebird Diner, closing up (meaning to walk home) — moving toward the main character, arriving in about 20 minutes', 'as she is seated: the want said once');
+  for (const [agenda, want] of [['to walk home', 'walk home'], ['walk home', 'walk home'], ['means to warn the abbot', 'warn the abbot'], ['She is planning to leave at dawn.', 'leave at dawn'], ['hoping to see him', 'see him']]) {
+    const s2 = applyMutations(st, [{ type: 'offscreen.set', name: 'Rias', location: 'the diner', agenda }]).state;
+    assert(seatNowWords(s2.offscreen.Rias, s2.clock.minutes, { agenda: true }).includes('(meaning to ' + want + ')'), '“' + agenda + '” is read as (meaning to ' + want + ')');
+  }
+  const at = (h, m, day = 3) => { st = applyMutations(st, [{ type: 'clock.set', year: 2025, month: 3, day, hour: h, minute: m }]).state; return line(); };
+  assert(/arriving in about 5 minutes/.test(at(21, 15)), 'nearer by the clock');
+  assert(/overdue by about 10 minutes — likely already here or delayed/.test(at(21, 30)), 'a little late is said');
+  assert(/overdue by about 2\.5 hours/.test(at(23, 50)), 'and for a while after');
+  const stale = at(8, 0, 4);
+  assert(!/overdue|toward|arriving/.test(stale) && /as of about 11 hours ago; likely elsewhere by now/.test(stale), 'half a day on, the approach is not said — only how old the note is: ' + stale);
+  assert(!/overdue|toward/.test(at(8, 0, 7)), 'nor three days on');
+});

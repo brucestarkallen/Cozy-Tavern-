@@ -389,6 +389,9 @@ const HANDLERS = {
       /* M629 (the session's audit): a renaming is taken back like any move — the old name again, nothing else to restore */
       return { words: 'The scene\u2019s ground is named in full: ' + name + '.', undo: { kind: 'place', before, positions: [], mcState: null, groundWas: state.groundWas ? { ...state.groundWas } : null } };
     }
+    /* M645: the same ground said in fewer or other words (every word of it the ground's own, or only an area round it) is
+     * no move either — asked AFTER the rule above, which keeps a name that adds the spot's area (M628) */
+    if (typeof before === 'string' && before && withinGround(name, before)) return { ok: false, why: 'the scene already stands in ' + before, same: true };
     /* M304: the ground the scene stood on when THIS PAGE began — whoever leaves on
      * a page that also moved the ground was certainly there, and only perhaps
      * at the new one (presence.leave reads this for where they were last seen).
@@ -1540,8 +1543,15 @@ export function strayBookKeys(state) {
 }
 
 /* M261: two names for one place — case, a leading "the", punctuation */
+/* M645: A NUMBER IS THE SAME NUMBER, IN WORDS OR IN FIGURES. "Tenth Division HQ" and "10th Division HQ" were two places:
+ * a storyteller that wrote the number out moved the scene, and (the two names sharing "no telling word") everyone the
+ * page did not name was left behind at the place they were standing in. Ordinals in words and in figures are one. */
+const ORDINAL_WORDS = ['zeroth', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth', 'eleventh', 'twelfth', 'thirteenth', 'fourteenth', 'fifteenth', 'sixteenth', 'seventeenth', 'eighteenth', 'nineteenth', 'twentieth'];
+const sameNumbers = (text) => String(text || '').toLowerCase()
+  .replace(/\b(\d+)(?:st|nd|rd|th)\b/g, '$1')
+  .replace(new RegExp('\\b(' + ORDINAL_WORDS.slice(1).join('|') + ')\\b', 'g'), (w) => String(ORDINAL_WORDS.indexOf(w)));
 function placeKey(name) {
-  return String(name || '').toLowerCase().replace(/^\s*the\s+/, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  return sameNumbers(name).replace(/^\s*the\s+/, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 export function samePlace(a, b) {
   const x = placeKey(a);
@@ -1593,6 +1603,28 @@ const areasOf = (t) => placePieces(t).filter((p) => noOneSpot(p));
 export function broaderPlace(headerPlace, ground) {
   if (!headerPlace || !ground || samePlace(headerPlace, ground)) return false;
   return noOneSpot(headerPlace) && !noOneSpot(ground);
+}
+/* M645: THE SAME GROUND IN OTHER WORDS IS NO MOVE (the audit's twenty-one pairs: four read as a move that were none).
+ * A header that says "Kitchen, Wells house", "Wells house", or "Mariner's Lane, Ravenwood" while the ledger holds
+ * "Wells house kitchen, 8 Mariner's Lane" names nothing the ground does not already hold: every piece of it is either
+ * only an area (a town, one word — M627's own measure) or made wholly of the ground's own words, in any order. That is
+ * the same ground, less fully or differently said — not a move: the ledger keeps its fuller name, nobody's position is
+ * let go, nobody is left behind. Another room ("Wells house living room"), outside ("outside the Wells house") or
+ * another number ("13th Division HQ") brings a word the ground does not hold, and is a move as before. */
+export function withinGround(placeNamed, ground) {
+  if (!placeNamed || !ground) return false;
+  const held = new Set(placeWordsOf(sameNumbers(ground)));
+  const pieces = placePieces(placeNamed);
+  if (!held.size || !pieces.length) return false;
+  let ofTheGround = 0;
+  for (const piece of pieces) {
+    const words = placeWordsOf(sameNumbers(piece));
+    if (!words.length) continue;
+    if (words.every((w) => held.has(w))) { ofTheGround += 1; continue; }
+    if (noOneSpot(piece)) continue; /* an area round it — where the spot stands */
+    return false;
+  }
+  return ofTheGround > 0;
 }
 
 export function seatAtScene(location, sceneName) {

@@ -711,7 +711,12 @@ export function renderArrival(entry, clockMinutes) {
       const delta = Math.round(at - clockMinutes);
       if (delta > 1) bits.push('arriving in about ' + describeMinutes(delta));
       else if (delta >= -1) bits.push('due now');
-      else bits.push('overdue by about ' + describeMinutes(-delta) + ' — likely already here or delayed');
+      /* M645: AN APPROACH THAT NEVER LANDED IS NOT SAID FOR EVER. "Moving toward the main character, overdue by about 3
+       * days — likely already here or delayed" rode the storyteller's list of who is elsewhere, page after page, for as
+       * long as nobody moved that person on. Three hours past its hour the approach is stale: nothing is said of it
+       * (the seat's own age says the rest: "as of 3 days ago; likely elsewhere by now"). */
+      else if (-delta <= 180) bits.push('overdue by about ' + describeMinutes(-delta) + ' — likely already here or delayed');
+      else return '';
     } else if (Number.isFinite(entry.etaMinutes)) {
       bits.push('about ' + describeMinutes(entry.etaMinutes) + ' away');
     }

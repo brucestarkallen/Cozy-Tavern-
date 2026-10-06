@@ -50,7 +50,7 @@ import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge, blindS
 import { renderCanon } from './canon.js';
 import { renderFightLine, mcName } from './duels.js';
 import { migrateCharacters, healGhosts } from './people.js'; /* M485: the ghosts folded on load */
-import { storyTurn, samePlace, seatAtScene, broaderPlace } from './apply.js'; /* M588: who is close by; M627: an area is no move */
+import { storyTurn, samePlace, seatAtScene, broaderPlace, withinGround } from './apply.js'; /* M588: who is close by; M627: an area is no move */
 
 const KEY_PREFIX = 'state:';
 
@@ -1312,13 +1312,30 @@ export function headerWithGround(pageText, ground) {
 
 /* M627: { ground } — the ledger's ground before this page: a header place that only names the area round it is no move */
 export function headerMutations(pageText, { ground = '' } = {}) {
-  const first = String(pageText || '').split('\n').map((l) => l.trim()).find((l) => l.length);
-  if (!first || !/^\[.+\]$/.test(first)) return [];
-  const inner = first.slice(1, -1);
+  /* M645 (the ledger audit, part two — twenty-six ordinary ways a storyteller draws this line, fed through it):
+   * THE HEADER IS FOUND WHERE IT STANDS. It had to be the page's first line and nothing else on it. A line of chatter
+   * before it ("Sure — here is the next page."), or the page's first words run on after its closing bracket, and the
+   * ledger took no place and no hour from that page at all. The header is the first line when that is a bracketed
+   * line; else a bracketed line with its bars (|) that opens the first line; else one standing alone within the next
+   * two lines. And the line's DRESS is not its words: other brackets round it (【…】, (…)), a pin or a clock drawn before
+   * a part (📍, 🕘) — the ground was written "📍 Wells house kitchen" and "【Wells house kitchen". */
+  const lines = String(pageText || '').split('\n').map((l) => l.trim()).filter((l) => l.length).slice(0, 3);
+  const undress = (l) => { const m = l.match(/^(?:【(.+)】|（(.+)）|\((.+)\))$/u); return m ? '[' + (m[1] || m[2] || m[3]).trim() + ']' : l; };
+  let first = '';
+  if (lines.length) {
+    const top = undress(lines[0]);
+    if (/^\[.+\]$/.test(top)) first = top;
+    else { const glued = top.match(/^\[([^\]\n]*\|[^\]\n]*)\]\s*\S/); if (glued) first = '[' + glued[1] + ']'; }
+    if (!first) for (const l of lines.slice(1)) { const u = undress(l); if (/^\[[^\]\n]*\|[^\]\n]*\]$/.test(u)) { first = u; break; } }
+  }
+  if (!first) return [];
+  const wrapped = first.slice(1, -1).trim().match(/^(?:【(.+)】|（(.+)）|\((.+\|.+)\))$/u); /* the arrival repair brackets a line it finds bare: "[【…】]" */
+  const bare = (t) => String(t || '').replace(/^[\s\p{Extended_Pictographic}\p{Emoji_Modifier}\uFE0F\u200D\p{So}]+/u, '').trim();
+  const inner = (wrapped ? (wrapped[1] || wrapped[2] || wrapped[3]) : first.slice(1, -1)).split('|').map((x) => bare(x)).join(' | ');
   const parts = inner.split('|').map((x) => x.trim());
   const out = [];
   const head = parts[0] || '';
-  const dash = head.split(/\s+[—–-]\s+/);
+  const dash = head.split(/\s+[—–-]\s+/).map((x) => bare(x)); /* M645: a mark drawn before the date is not the date's first word */
   /* M410: THE WHOLE PLACE, NOT ITS FIRST WORD-GROUP. "[10th Division HQ — training courtyard — Monday, June 1 …]" is the
    * courtyard, not just the HQ: the place is every part before the first that reads as a day or a date (a weekday, a
    * month with a number, or a numeric date) — and the header's place replacing the page reader's fuller one would
@@ -1355,7 +1372,11 @@ export function headerMutations(pageText, { ground = '' } = {}) {
    * against the wrong place. Only a time ("09:00") or a date ("06/01", "1 June") at the front is not a place. */
   const notAPlace = leadsWithDate(place) || /^\d{1,2}:\d{2}\b/.test(place) || /^\d{1,4}[\/.-]\d{1,2}/.test(place) || new RegExp('^\\d{1,2}(st|nd|rd|th)?\\s+(' + MONTHS.join('|') + ')\\b', 'i').test(place) || /^\d+$/.test(place);
   const placeTaken = Boolean(place && place.length <= 80 && !notAPlace);
-  if (placeTaken && !broaderPlace(place, ground)) out.push({ type: 'place.set', name: place }); /* M627 */
+  /* M627: an area round the ground is no move. M645: nor is the same ground said in fewer or other words — but the ground
+   * the page names is ALWAYS handed on, as it always was (the ledger's door answers "already stands"; the page's upkeep
+   * reads this line to know the page named its ground — DOM-128 failed when it was withheld): under the ledger's own,
+   * fuller name when the header only said it otherwise */
+  if (placeTaken && !broaderPlace(place, ground)) out.push({ type: 'place.set', name: !samePlace(place, ground) && withinGround(place, ground) ? String(ground).trim() : place }); /* said otherwise: the ledger's own, fuller name is what is handed on */
   /* M417: the date is read from everything that is not the place — a leading date part is the clock's, and a header that
    * is only a date ("[Monday, June 1, 2026 | 10:40]") still sets the clock */
   const dateWords = placeTaken
@@ -1365,18 +1386,31 @@ export function headerMutations(pageText, { ground = '' } = {}) {
   const md = dateWords.match(new RegExp('(' + MONTH_SRC + ')\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})', 'iu'));
   const dmy = md ? null : dateWords.match(new RegExp('(\\d{1,2})(?:st|nd|rd|th)?\\s+(' + MONTH_SRC + ')\\s*,?\\s+(\\d{4})', 'iu'));
   const dm = md ? [md[0], md[1], md[2], md[3]] : dmy ? [dmy[0], dmy[2], dmy[1], dmy[3]] : null;
-  const tm = (parts.slice(1).join(' ') + ' ' + head).match(/\b(\d{1,2}):(\d{2})\b/);
-  if (dm && tm && monthNumber(dm[1].replace(/\.$/, '')) > 0) {
-    const month = monthNumber(dm[1].replace(/\.$/, ''));
-    out.push({ type: 'clock.set', year: Number(dm[3]), month, day: Number(dm[2]), hour: Number(tm[1]), minute: Number(tm[2]) });
-  } else if (tm && Number(tm[1]) <= 23 && Number(tm[2]) <= 59) {
+  /* M645: THE HOUR AS IT IS WRITTEN. "9:40 PM" was read 09:40 and "12:15 AM" as a quarter past noon — a storyteller that
+   * keeps a twelve-hour clock had the ledger's hour half a day off every evening (and the day turning at noon); "21.40"
+   * and "21h40" set no hour at all, and a date written 2025-03-03 no date. */
+  const timeWords = parts.slice(1).join(' ') + ' ' + head;
+  let tm = timeWords.match(/\b(\d{1,2}):(\d{2})(?::\d{2})?\s?([ap])\.?\s?m\b\.?/i);
+  let hh = NaN; let mi = NaN;
+  if (tm && Number(tm[1]) >= 1 && Number(tm[1]) <= 12) { hh = (Number(tm[1]) % 12) + (/p/i.test(tm[3]) ? 12 : 0); mi = Number(tm[2]); }
+  else {
+    tm = timeWords.match(/\b(\d{1,2}):(\d{2})\b/);
+    if (tm) { hh = Number(tm[1]); mi = Number(tm[2]); }
+    else { tm = (parts[1] || '').match(/^\D{0,4}(\d{1,2})[h.](\d{2})(?![\d.])/i); if (tm) { hh = Number(tm[1]); mi = Number(tm[2]); } }
+  }
+  const iso = dm ? null : dateWords.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  const date = dm && monthNumber(dm[1].replace(/\.$/, '')) > 0 ? { year: Number(dm[3]), month: monthNumber(dm[1].replace(/\.$/, '')), day: Number(dm[2]) }
+    : iso && Number(iso[2]) >= 1 && Number(iso[2]) <= 12 && Number(iso[3]) >= 1 && Number(iso[3]) <= 31 ? { year: Number(iso[1]), month: Number(iso[2]), day: Number(iso[3]) } : null;
+  if (date && tm && hh <= 23 && mi <= 59) {
+    out.push({ type: 'clock.set', ...date, hour: hh, minute: mi });
+  } else if (tm && hh <= 23 && mi <= 59) {
     /* M455: THE HEADER'S HOUR IS THE HOUR, WHATEVER CALENDAR THE STORY KEEPS. Only a real month's date let a header set
      * the clock — so "[Tenth Division Courtyard — Sunday, Hanami 5, 1001 AG | 09:20 | …]" set nothing, the page reader
      * guessed the hour (a page behind: 09:19) and the day ("Thursday, March 5, 1001"). Now the time sets the clock, and
      * the day words the header wrote ride with it as the day. */
     const dayParts = [...dash.slice(0, start), ...(dateAt > start ? dash.slice(dateAt) : [])].map((x) => x.trim()).filter(Boolean);
     const dayWords = (placeTaken ? dayParts : [head.trim()]).join(' — ').replace(/\s+/g, ' ').trim();
-    out.push({ type: 'clock.set', hour: Number(tm[1]), minute: Number(tm[2]), ...(dayWords && dayWords.length <= 60 && !/^\d{1,2}:\d{2}$/.test(dayWords) ? { dayWords } : {}) });
+    out.push({ type: 'clock.set', hour: hh, minute: mi, ...(dayWords && dayWords.length <= 60 && !/^\d{1,2}:\d{2}$/.test(dayWords) ? { dayWords } : {}) });
   }
   return out;
 }

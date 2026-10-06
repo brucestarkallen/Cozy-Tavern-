@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m644-001)
+# Cozy Tavern — handoff for the next session (state at m645-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -73,12 +73,17 @@
 - THE LEDGER AUDIT HE ORDERED (M644, "audit the whole ledger, each section, each pipeline") IS NOT FINISHED. Done, by
   running ordinary sentences through the real rules: WHO IS HERE — leaving (showsDeparture / goneAtTheEnd) and walking
   in (the M541 walk-in check). Both overruled a correct reader about half the time on plain prose; both now take the
-  page's own words from the reader ("shown") and verify them on the page (apply.js toldOnPage / quotedGoing). STILL TO
-  AUDIT THE SAME WAY (a battery of ordinary sentences through each code rule, then each reader's answer shape for a fact
-  it is never asked for): the header's place and clock (headerMutations, samePlace, seatAtScene, sameSpot, the far-move
-  rule); positions and dress going stale (presence.update is never asked per person); the world agent (seats, the
-  world's word, threads it opens); the scribe (people's pages, loose ends); the record keeper; the auditor's own
-  refusals; bodies and things; the books (essentials, plans, choices). Method that found every fault of M641–M644: do
+  page's own words from the reader ("shown") and verify them on the page (apply.js toldOnPage / quotedGoing). PART TWO
+  (M645): THE HEADER (twelve-hour times, other date and time forms, the line's dress, a header not on the first line),
+  THE CLOCK (five sequences across midnight — sound), THE PLACE RULES (twenty-one pairs: the same ground in other words
+  was a move four times — withinGround, and numbers in words), ELSEWHERE AS IT IS READ OVER TIME (a want said twice; an
+  approach "overdue by 3 days"). Looked at and left: positions and dress have no age and are not restated a page — no
+  safe rule found (restating them a page churns the journal; the newest pages ride whole and say where people stand).
+  STILL TO AUDIT THE SAME WAY (a battery of ordinary inputs through each code rule, then each worker's answer shape for
+  a fact it is never asked for): the world agent's own writing (who it seats and when, the world's word, the threads it
+  opens — and that a "last seen" note really is moved on); the scribe (people's pages, loose ends, the fold in
+  people.js); the record keeper (what a fold keeps and drops); the auditor's other refusals (auditor.js guards);
+  bodies and things; the books (essentials, plans, choices); the second reader's findings. Method that found every fault of M641–M644: do
   not read the rule and nod — feed it thirty sentences as he writes them and count what it gets wrong.
 - A GATE THAT FAILS ONCE AND PASSES ON A RERUN HAS NOT PASSED. Never write "timing", "rare" or "flaky" in these notes, and
   never push on the rerun: read the failing report against the state, make the failure happen on purpose, and only then

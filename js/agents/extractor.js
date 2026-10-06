@@ -37,7 +37,7 @@
 import { HERE_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
 import { headerMutations } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey } from '../engine/people.js';
 import { findRelationship } from '../engine/relationships.js'; /* M641: who has no standing yet */
@@ -584,7 +584,7 @@ export async function extractTurn(args = {}) {
     const was = args.state && args.state.place && typeof args.state.place.name === 'string' ? args.state.place.name : '';
     const ground = (headerMutations(args.assistantText, { ground: was }).find((m) => m && m.type === 'place.set') || read.mutations.find((m) => m && m.type === 'place.set') || {}).name || ''; /* M627 */
     /* a header that names less of the same place ("13th Division Barracks" in the captain's office) is no move */
-    const moved = Boolean(was && ground && !samePlace(ground, was) && !seatAtScene(was, ground) && !sameSpot(ground, was)); /* M628: the same spot with its area named is no move */
+    const moved = Boolean(was && ground && !samePlace(ground, was) && !seatAtScene(was, ground) && !sameSpot(ground, was) && !withinGround(ground, was)); /* M628: the same spot with its area named is no move */
     const cameAlong = (n) => (Array.isArray(read.here) ? read.here : []).some((h) => samePersonName(h, n));
     /* M588 (his report: "my mc walks away from someone, she's not at his location, why is she still here?"): THE MAIN
      * CHARACTER WALKING AWAY IS A LEAVING TOO. A leave stood only when the page ended on HER going (M446) — so when HE

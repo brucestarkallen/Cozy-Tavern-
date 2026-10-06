@@ -155,7 +155,9 @@ export function seatNowWords(entry, clockMinutes, { agenda = false, arrival = fa
   let words = e.lastSeen === true
     ? 'last seen ' + (where ? 'at ' + where.replace(/^(at|in|on)\s+/i, '') : 'where the scene stood') + (what ? ', ' + what : '')
     : ([where, what].filter(Boolean).join(', ') || 'somewhere out of sight');
-  if (agenda && cleanText(e.agenda)) words += ' (meaning to ' + cleanText(e.agenda).replace(/^to\s+/i, '').replace(/\.+$/, '') + ')'; /* M484: never "meaning to to" */
+  /* M484: never "meaning to to". M645: nor "meaning to meaning to" — the page reader's own example writes the want as
+   * "meaning to warn the abbot", and every seat a reader wrote that way was read to the storyteller doubled */
+  if (agenda && cleanText(e.agenda)) words += ' (meaning to ' + cleanText(e.agenda).replace(/^(?:(?:(?:she|he|they)\s+)?(?:is|are|was|were)\s+)?(?:(?:meaning|means|meant|intending|intends|planning|plans|hoping|hopes|wanting|wants|going|trying|tries|waiting)\s+)?to\s+/i, '').replace(/\.+$/, '') + ')';
   if (arrival) { const approach = renderArrival(e, clockMinutes); if (approach) words += ' — ' + approach; }
   const age = seatAgeWords(e, clockMinutes);
   if (age) words += ' (' + age + ')';
