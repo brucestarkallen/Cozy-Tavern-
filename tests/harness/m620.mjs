@@ -17,9 +17,11 @@ test('M620-1 HIS NOTES RIDE ABOVE HIS NOTE AT THE END — in the order he added 
   eq(row.source, 'your 3 notes above it, then the note for every story', 'the receipt names them');
 });
 
-test('M620-2 THEY RIDE ONLY WITH THE NOTE — switched off, none of them; with no note of his own they stand at the end alone; none added, the note is as it was', () => {
+test('M620-2 (as M624 changed it) HIS NOTE\u2019S SWITCH IS HIS NOTE\u2019S — switched off, his added notes still ride; with no note of his own they stand at the end alone; none added, the note is as it was', () => {
+  /* M624 moved this: "Send the note at the end" is his note's switch alone — his added notes ride by their own ticks */
   const off = buildRequest({ ...OPTS(), settings: { noteText: 'MY NOTE', noteOn: false, noteAdds: ADDS } });
-  assert(!off.messages.some((m) => /Never write Jovan|End where Jovan|MY NOTE/.test(String(m.content))), 'note off: nothing of it');
+  assert(!off.messages.some((m) => /MY NOTE/.test(String(m.content))), 'his note off: his note is not sent');
+  assert(off.messages.some((m) => /Never write Jovan/.test(String(m.content))) && off.messages.some((m) => /End where Jovan/.test(String(m.content))), 'his added notes still ride');
   const alone = buildRequest({ ...OPTS(), settings: { noteAdds: ADDS } });
   assert(alone.messages[alone.messages.length - 1].content.endsWith('Never write Jovan\u2019s words.\n\nEnd where Jovan can act.'), 'no note of his own: his notes close the request');
   const plain = buildRequest({ ...OPTS(), settings: { noteText: 'MY NOTE' } });

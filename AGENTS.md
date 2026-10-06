@@ -15576,3 +15576,31 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   walk DOM-223 (both choices set in Settings reach the storyteller: his note, then the note as his user message, last).
 
 - GATES at m623-001 (one CPU): harness 1229/1229, walk 223/223, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.
+
+# M624 — his: "1. Can I still deactivate my persona note and activate the additional notes? 2. Did you design the CoT on
+# the whole instructions and my own preset, or parrot me and copy the internet? Does 'let someone interrupt' force everyone
+# to always interrupt? Does {{user}} break persona / follow the frame's names like Bruce? Did you actually analyse it?"
+- HIS NOTE'S SWITCH IS HIS NOTE'S: "Send the note at the end" (and its small-model twin) turned off EVERY note — his added
+  ones too. It governs his own note alone now; each added note rides by its own tick (stack.js: addedNotes no longer
+  gated by noteOn). M620-2 moved with that reason; the screen says which switch is whose.
+- THE THINKING NOTE, REWRITTEN FROM HIS PRESET. Honest account: M622's note was written from general practice and his
+  examples without reading his craft — and his craft already has its own pre-write pass (## The Pass: B — the beat,
+  L — the last look). Read against it (The Pass, The Turn, NPC Psychology, Information Quarantine, The Page), M622's note
+  duplicated that pass and contradicted it three times: point 4 made someone act EVERY page (his craft: "a quiet, textured
+  turn is correct pacing; never manufacture one"; "Hold Is Forbidden When" — only whoever's CORE would oppose, refuse,
+  resist, flee or intervene acts); point 8 asked for a fresh detail (Unspent Material: "reaching for something new when
+  something established would serve better is the forbidden move"); point 1 had the scene state re-checked (The Pass:
+  the house already did S, C and W — "you do not redo them"). The note is HIS pass now, said at the end of the request
+  where it is heard best after a long story: B — what the turn is about, what it costs, where it stops (his Intervention
+  Windows in plain words), not the last turn's shape (Anti Repetition, Swap Test), nothing at stake → a quiet textured turn;
+  L — the outcome matches the board or the settled outcome; nothing of {{user}}'s taken and his action reaching only its
+  own result (Intent Horizon); nobody acting on what they could not know (Information Quarantine); whoever's own core
+  would act acts now and the room keeps its life; bodies on the page, intimacy unhurried and never faded out; the
+  established before the new (Unspent Material); his bans (Banned Constructs, Plain Prose). 239 words (was 327), answered
+  in shorthand, never on the page. {{user}} becomes his character's story name (the ledger's), falling back to the
+  writer's name in his frame only before the ledger knows the character; it speaks to the storyteller as "you", with no
+  word of an assistant or a model in it.
+- Laws M622-1/3 moved to the pass's words (no "let at least one", "never manufacture one", his laws named, seven points
+  in the last look, under three hundred words).
+
+- GATES at m624-001 (one CPU): harness 1229/1229, walk 223/223, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.

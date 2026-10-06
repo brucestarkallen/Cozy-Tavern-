@@ -15,8 +15,10 @@ test('M622-1 THE HOUSE\u2019S THINKING NOTE RIDES BY DEFAULT — first above his
   const at = c.indexOf(firstLine), added = c.indexOf('ADDED'), mine = c.lastIndexOf('MY NOTE');
   assert(at >= 0 && at < added && added < mine, 'house note, then his added note, then his note: ' + [at, added, mine]);
   assert(/Jovan Oda/.test(c) && !/\{\{user\}\}/.test(c), 'his character is named — no template left');
-  assert(/write only the page/.test(c) && /silently if you don/.test(c), 'it is answered to itself, never written out');
-  for (const must of [/belong to Jovan Oda alone/, /act on their own want/, /only what they saw, heard or were told/, /alive around them/, /explicit and anatomical/, /standing instructions/, /repeat no phrase, opening or beat/, /leaves Jovan Oda the next move/]) assert(must.test(c), 'it holds: ' + must);
+  assert(/run your pass to yourself — shorthand, a few words each, never on the page/.test(c), 'it is answered to itself, never written out');
+  /* M624 moved this: the note is his own preset's pass now — the beat and the last look, pointing at his laws by name */
+  for (const must of [/no choice, word, thought or feeling of Jovan Oda's is taken/, /never manufacture one/, /Information Quarantine/, /Unspent Material/, /Intent Horizon/, /Anti Repetition, Swap Test/, /by their own core, does it now/, /never faded out/, /goes back to Jovan Oda/]) assert(must.test(c), 'it holds: ' + must);
+  assert(!/let at least one/i.test(c), 'no one is made to act every page');
 });
 
 test('M622-2 HIS CHOICE — switched off it is gone; moved after his notes it rides after them; his own words for it ride; put back, the house\u2019s words return', () => {
@@ -31,10 +33,11 @@ test('M622-2 HIS CHOICE — switched off it is gone; moved after his notes it ri
   assert(last(back).includes(firstLine), 'put back: the house\u2019s words again');
 });
 
-test('M622-3 IT STAYS LIGHT — under four hundred words, nine checks, every one a check and none a sentence for the page', () => {
+test('M622-3 (as M624 changed it) IT STAYS LIGHT — under three hundred words; his pass’s two parts, the beat and the last look', () => {
   const words = HOUSE_COT.split(/\s+/).filter(Boolean).length;
-  assert(words < 400, 'words: ' + words);
-  eq((HOUSE_COT.match(/^\d\. /gm) || []).length, 9, 'nine numbered checks');
+  assert(words < 300, 'words: ' + words);
+  assert(/^B — the beat:/m.test(HOUSE_COT) && /^L — the last look:/m.test(HOUSE_COT), 'the beat and the last look');
+  eq((HOUSE_COT.match(/^· /gm) || []).length, 7, 'seven points in the last look');
 });
 
 test('M622-4 SEARCHING A TALE\u2019S PAGES — his words and the story\u2019s, never a hidden page; any case, across line breaks; the newest page first; twenty places kept with the whole count', async () => {

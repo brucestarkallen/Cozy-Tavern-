@@ -392,24 +392,29 @@ function resolveNote(storyOverride, globalText) {
 }
 
 /* M622: THE HOUSE'S THINKING NOTE — his: "add a default notes CoT … the best CoT but still fast, reminds about the
- * instructions and still creative". A checklist the storyteller answers to itself before each page (in its thinking when
- * it thinks, silently when it does not — no words of it on the page, so no wait for written reasoning), built on what
- * long-form roleplay most often loses: the exact scene state, his character's agency (and the referee's settled outcome),
- * what each person wants and may know, people who act before him, a world that moves, bodies on the page (canon looks,
- * blows that land, intimacy written whole), the standing instructions this moment tests, one fresh true detail and no
- * repeats, and an ending that hands him the move. It points at his instructions rather than restating them, and plans the
- * scene's logic, never its sentences. {{user}} is his character's story name. */
+ * instructions and still creative".
+ * M624: REWRITTEN FROM HIS OWN PRESET — his: "are you designing the CoT on the whole instructions and my own preset, or
+ * just parroting me and copying the internet? Does 'let someone interrupt' force everyone always to interrupt?" The first
+ * one was written from general practice without reading his craft, and his craft already carries its own pre-write pass
+ * (## The Pass: B — the beat, L — the last look). It duplicated that pass and contradicted it three times: it made an
+ * NPC act EVERY page ("a quiet, textured turn is correct pacing; never manufacture one", "Hold Is Forbidden When" —
+ * only whoever's core would act); it asked for a fresh detail (Unspent Material: the established serves before the new);
+ * it had the state re-checked (the house already did S, C and W — "you do not redo them"). Now it is HIS pass, said at
+ * the end of the request where it is heard best after a long story: the beat and the last look, in plain words, each
+ * pointing at the law of his craft it keeps (by its own name), answered to itself in shorthand — never on the page, so
+ * no written reasoning to wait for. {{user}} is his character's story name. */
 export const HOUSE_COT_ID = 'house-cot';
-export const HOUSE_COT = `Before you write, answer these to yourself in a few words each — in your thinking if you think, silently if you don't — then write only the page.
-1. Where and when are we, exactly? Who is here — where each one stands, what they wear and carry, what is hurt — as the last page and the notes on where things stand leave it.
-2. What did {{user}} just do or say, and nothing more? {{user}}’s words, thoughts, feelings and choices belong to {{user}} alone — write none of them. What the world does to {{user}} is yours to tell; a settled outcome above, when there is one, happens exactly as settled.
-3. What does each person here want right now, and what do they actually know — only what they saw, heard or were told? No one reads {{user}}’s mind.
-4. Who moves before {{user}} can answer? Let at least one of them act on their own want this page — interrupt, decide, reach, refuse, leave, lie, strike. No one waits politely for {{user}}’s next line.
-5. What else is alive around them — a sound, the weather, a passer-by, the hour turning, something from earlier coming back to collect?
-6. Bodies on the page: faces, build, hair and eyes as canon and the notes give them; posture, breath, sweat, the weight and texture of touch. A blow lands in flesh — impact, pain, an injury that stays. Intimacy is explicit and anatomical, unhurried and true to who they are — never faded out, never summed up.
-7. Which of your standing instructions does this exact moment test hardest? Name it to yourself, and keep it.
-8. What would surprise here and still be true to these people? Find one fresh, specific detail; repeat no phrase, opening or beat from the last pages.
-9. End inside a live moment that leaves {{user}} the next move — no recap, no question from outside the story.`;
+export const HOUSE_COT = `Before you write, run your pass to yourself — shorthand, a few words each, never on the page.
+B — the beat: what this turn is about, what it costs, where it stops. It stops where the turn goes back to {{user}}: an NPC asks and waits, or acts with weight; one phase of a fight or of sex lands in full; an arrival lands. It is not the last turn's shape again (Anti Repetition, Swap Test). Nothing at stake → a quiet, textured turn is the right pace; never manufacture one.
+L — the last look:
+· the outcome matches the board — or the settled outcome above, exactly;
+· no choice, word, thought or feeling of {{user}}'s is taken; {{user}}'s stated action reaches only its own immediate result (Intent Horizon);
+· nobody acts on what they could not know — how does this one know it? (Information Quarantine);
+· whoever here would oppose, refuse, flee or step in, by their own core, does it now — nobody holds still because the scene is comfortable — and the room keeps its own life around them;
+· bodies are on the page: canon looks, contact with its sound, injury that stays; an intimate scene keeps the body's truth, unhurried, never faded out;
+· something already established serves before anything new is reached for (Unspent Material);
+· your bans bind the words (Banned Constructs, Plain Prose).
+Then write the page.`;
 
 /* M622: the house's thinking note stands in his list unless he has it already — first, on — so the notes he never touched
  * carry it, and a list he arranged keeps his order and his switch */
@@ -1352,7 +1357,9 @@ export function buildRequest({
    * end, above his own note, in the order he added them — only while the note itself is sent (noteOn, and its small-model
    * switch); one he unticks is held back. With no note of his own (the starter note lives in the standing words) they
    * stand at the end alone. */
-  const noteAdds = noteOn ? addedNotes(safeSettings.noteAdds, { ooc: oocTurn }).map((n) => ({ ...n, text: inVoice(n.text, voice) })) : [];
+  /* M624: "Send the note at the end" is HIS note's switch alone — his: "can I still deactivate my persona note and
+   * activate the additional notes?" Each added note rides by its own tick. */
+  const noteAdds = addedNotes(safeSettings.noteAdds, { ooc: oocTurn }).map((n) => ({ ...n, text: inVoice(n.text, voice) }));
   const noteOwn = notePicked.source === 'the starter text' ? '' : notePicked.text;
   /* M623: in the order they ride — the notes above his note, his note, the notes below it */
   const notesAbove = noteAdds.filter((n) => n.place !== 'below');
