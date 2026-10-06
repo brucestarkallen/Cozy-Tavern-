@@ -2196,6 +2196,7 @@ const WORKER_WORDS = {
   director: 'the director',
   editor: 'the editor',
   canon: 'canon verification', /* M386 */
+  judge: 'the benchmark judge', /* M632 */
 };
 
 function workersPanel(ctx) {

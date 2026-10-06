@@ -33,6 +33,20 @@ def main():
                   return { card: Math.round(c.getBoundingClientRect().width), words: w('textarea'), tick: w('input[type=checkbox]'), choices: c.querySelectorAll('select').length };
                 })""")
                 print('width', width, cards)
+                # M632: the benchmark's board — a card per storyteller, never wider than its room
+                bench = page.evaluate("""async () => {
+                  const db = (await import('/js/store.js')).db;
+                  await db.settings.set('benchGrades', [{ writer: 'model:a-very-long-model-name-from-a-provider', label: 'A storyteller with a long name', model: 'a-very-long-model-name-from-a-provider', pageKey: 'k1', scores: { prose: 7, people: 7, agency: 7, continuity: 7, pull: 7 }, overall: 7 }]);
+                  const n = document.getElementById('settings-quicknav'); if (n && n.openRoomFor) n.openRoomFor('section-bench');
+                  if (window.__cozy && window.__cozy.bench) await window.__cozy.bench.reload();
+                  const room = document.getElementById('section-bench').getBoundingClientRect().width;
+                  const rows = [...document.querySelectorAll('#bench-board .bench-row')].map((r) => r.scrollWidth);
+                  return { room: Math.round(room), rows };
+                }""")
+                print('bench', width, bench)
+                if not bench['rows'] or max(bench['rows']) > bench['room']:
+                    ok = False
+                    print('FAIL: the benchmark board runs past its room:', bench)
                 if len(cards) < 2:
                     ok = False
                     print('FAIL: the house note and the added note should both stand')

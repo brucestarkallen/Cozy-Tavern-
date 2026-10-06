@@ -64,7 +64,7 @@ let workerRowsGeneration = 0;
  * page (the room of the section after it, else the one before it), where a writer looks for it; the last room is only
  * ever the fallback of a page that has no rooms at all. */
 export const SETTINGS_ROOMS = [
-  ['storyteller', 'Storyteller', ['section-connections', 'section-usage', 'section-workers', 'section-thinking']], /* M457 */
+  ['storyteller', 'Storyteller', ['section-connections', 'section-bench', 'section-usage', 'section-workers', 'section-thinking']], /* M457; M632: the benchmark */
   ['story', 'This story', ['section-brief', 'section-choices', 'section-cast', 'section-frame', 'section-note', 'section-own-words', 'section-shelf']], /* M466 */
   ['craft', 'The craft', ['section-rulebook', 'section-engine', 'section-regex']],
   ['world', 'People & lore', ['section-people', 'section-lore', 'section-oldchats']],
@@ -3127,7 +3127,7 @@ export function initSettings(ctx) {
    * interactive the moment it appears. A room the writer switches to renders
    * whatever is still pending for it first. */
   const ROOM_RENDERS = {
-    storyteller: () => [renderConnections, () => renderUsage(document.getElementById('usage-box')), renderWorkers, renderThinking], /* M457 */
+    storyteller: () => [renderConnections, () => (ctx.bench && typeof ctx.bench.reload === 'function' ? ctx.bench.reload() : undefined) /* M632 */, () => renderUsage(document.getElementById('usage-box')), renderWorkers, renderThinking], /* M457 */
     story: () => [loadPromptSlots, () => (ctx.ownWords && typeof ctx.ownWords.reload === 'function' ? ctx.ownWords.reload() : undefined), () => (ctx.noteAdds && typeof ctx.noteAdds.reload === 'function' ? ctx.noteAdds.reload() : undefined) /* M620 */, () => renderPresets()], /* M510-35: the presets with the voice they hold */ /* M466: his own-voice entries re-read with the room (a pull may have moved them) */
     craft: () => [renderRulebook, renderRegex],
     world: () => [renderCast, renderLore],

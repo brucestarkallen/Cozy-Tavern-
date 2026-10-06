@@ -1232,6 +1232,15 @@ body.plain-speech .thought { font-style: italic; }
 .usage-periods { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 8px; }
 .usage-shown { overflow-x: auto; }
 .usage-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+/* M632: the benchmark's board — a card per storyteller */
+.bench-list { display: flex; flex-direction: column; gap: 0.55rem; margin: 0.6rem 0; }
+.bench-row { padding: 0.5rem 0.65rem; border: 1px solid var(--border-soft); border-radius: var(--r); }
+.bench-top { display: flex; gap: 0.5rem; align-items: baseline; }
+.bench-rank { font-weight: 700; color: var(--ember); flex: 0 0 auto; }
+.bench-who { font-weight: 600; overflow-wrap: anywhere; }
+.bench-line { margin-top: 0.15rem; }
+.bench-score { font-size: 1.05rem; }
+.bench-axes { margin-top: 0.2rem; font-size: 0.82rem; line-height: 1.4; }
 .usage-table th, .usage-table td { padding: 4px 6px; text-align: left; border-bottom: 1px solid rgba(128, 128, 128, 0.25); }
 .usage-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .usage-total td { font-weight: 600; }

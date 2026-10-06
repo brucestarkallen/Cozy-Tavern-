@@ -364,6 +364,17 @@
           </form>
         </section>
 
+        <!-- M632: the benchmark — which storyteller writes best -->
+        <section class="settings-section" id="section-bench">
+          <h3>Benchmark — which storyteller writes best</h3>
+          <p class="quiet">Every page can be graded as it lands — prose, people, your character's agency, continuity, pull, 0 to 10 — by the judge you choose, against the moment it answers (the page before, your move, where things stand); nothing to copy or paste. When one moment has pages from two storytellers (switch the storyteller, then ask for another take with → on the page), the judge also reads the two side by side, blind, both ways round. Each storyteller's score is the average of its pages, and the board ranks them.</p>
+          <div class="row"><label class="radio-row"><input type="checkbox" id="bench-on"> Grade every page</label></div>
+          <label class="stack-label" for="bench-judge">Graded by</label>
+          <select id="bench-judge" aria-label="The connection that grades the pages"></select>
+          <div id="bench-board" class="bench-board"></div>
+          <div class="row"><button id="btn-bench-clear" class="text-btn" type="button">Clear the scores</button></div>
+        </section>
+
         <section class="settings-section" id="section-usage">
           <h3>Usage and cost</h3>
           <p class="quiet">Every call to a model — the storyteller and every worker — counted as it lands: tokens in and out, per connection and model. Set each connection's prices in its editor above to see the money.</p>

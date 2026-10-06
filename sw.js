@@ -121,6 +121,9 @@ const SHELL = [
   'js/ui/noteadds.js', /* M620 */
   'js/ui/search.js', /* M622 */
   'js/engine/search.js', /* M622 */
+  'js/agents/judge.js', /* M632 */
+  'js/engine/bench.js', /* M632 */
+  'js/ui/benchview.js', /* M632 */
   'js/ui/speechcolours.js', /* M466 */
   'js/ui/richhtml.js',
   /* M30: the shell audit — every shipped module, kept honest by the harness */

@@ -40,6 +40,8 @@
  *    fresh (referee.refereeStep).
  */
 
+import { gradePage, duelPages } from '../agents/judge.js'; /* M632: the benchmark */
+import { recordGrade, recordDuel, writerKey } from '../engine/bench.js'; /* M632 */
 import { splitPrefill } from '../providers/effort.js'; /* M585: a go-on turn keeps only the thinking seed */
 import { structuredPlanFor } from '../providers/openai.js'; /* M581: the opener asks only for a structured turn */
 import { callWorker } from '../agents/call.js';
@@ -4472,6 +4474,60 @@ export function initChat(ctx) {
       } catch (err) { /* its trouble is its own */ }
       return { silent: true };
     });
+
+    /* 11. M632: THE BENCHMARK — his: "which of my models performs best and writes the best, most realistic quality". With
+     * "Grade every page" on, the judge he chose grades this page against the moment it answers (the page before, his move,
+     * where things stand), known by the connection that wrote it (its receipt); and when this moment holds pages from two
+     * storytellers (he switched and asked for another take, → on the page), the newest is read beside the last one by another, blind, both ways
+     * round. Last in the chain: nothing waits for it. */
+    enqueue('judge', async ({ signal, stale }) => {
+      try {
+        if (stale() || (await db.settings.get('benchOn')) !== true || msg.role !== 'assistant' || msg.ooc) return { silent: true };
+        const judgeId = await db.settings.get('benchJudgeId');
+        const connection = (judgeId ? (await db.connections.list()).find((c) => c.id === judgeId) : null) || await resolveWorkerConnection(story, 'continuity'); /* a judge let go: the readers' own */
+        if (!connection) return { silent: true };
+        const all = visiblePages(await db.messages.list(story.id));
+        const at = all.findIndex((m) => m.id === msg.id);
+        const cur = at >= 0 ? all[at] : null;
+        if (!cur || cur.ooc) return { silent: true };
+        const receipt = cur.receipt || {};
+        const writer = writerKey(receipt);
+        if (!writer) return { silent: true };
+        const move = [...all.slice(0, at)].reverse().find((m) => m && m.role === 'user');
+        const before = [...all.slice(0, at)].reverse().find((m) => m && m.role === 'assistant');
+        let notes = '';
+        try { notes = planFacts(await loadState(story.id)); } catch (err) { notes = ""; }
+        const ctxWords = { before: before ? pageText(before) : '', move: move ? pageText(move) : '', notes };
+        const page = pageText(cur);
+        const grade = await gradePage({ connection, ...ctxWords, page, signal });
+        if (stale()) return { silent: true };
+        let detail = '';
+        if (grade && Number.isFinite(grade.overall)) {
+          await recordGrade({ writer, label: receipt.label || '', model: receipt.model || '', storyId: story.id, pageKey: story.id + ':' + cur.id + ':' + (receipt.ts || cur.ts || 0), scores: grade.scores, overall: grade.overall, why: grade.why });
+          detail = 'graded ' + grade.overall.toFixed(1);
+        }
+        /* a duel: the newest page beside the last one this moment holds from ANOTHER storyteller */
+        const swipes = Array.isArray(cur.swipes) ? cur.swipes : [];
+        if (swipes.length > 1) {
+          const shownAt = Number.isInteger(cur.swipeIdx) ? cur.swipeIdx : swipes.length - 1;
+          const shown = swipes[shownAt];
+          const rival = [...swipes.slice(0, shownAt)].reverse().find((sw) => sw && writerKey(sw.receipt) && writerKey(sw.receipt) !== writer);
+          if (shown && rival) {
+            const y = writerKey(rival.receipt);
+            const duel = await duelPages({ connection, ...ctxWords, x: page, y: String(rival.text || ''), signal });
+            if (duel && !stale()) {
+              await recordDuel({ x: writer, y, xLabel: receipt.label || receipt.model || '', yLabel: (rival.receipt && (rival.receipt.label || rival.receipt.model)) || '', winner: duel.winner, why: duel.why, duelKey: story.id + ':' + cur.id + ':' + (receipt.ts || 0) + ':' + ((rival.receipt && rival.receipt.ts) || rival.ts || 0) });
+              detail += (detail ? ' · ' : '') + (duel.winner === 'tie' ? 'a tie' : duel.winner === 'x' ? 'won' : 'lost') + ' head to head';
+            }
+          }
+        }
+        if (ctx.bench && typeof ctx.bench.reload === 'function') ctx.bench.reload().catch(() => {});
+        return detail ? { silent: false, detail } : { silent: true };
+      } catch (err) {
+        if (signal && signal.aborted) return { silent: true };
+        return { silent: false, detail: 'could not grade: ' + (err && err.message ? err.message : String(err)) };
+      }
+    });
   }
 
   async function gatherSettings() {
@@ -5725,6 +5781,8 @@ export function initChat(ctx) {
           tfftMs: result.tfftMs,
           durationMs: result.durationMs,
           model: connection.model || '',
+          connId: connection.id || '', /* M632 */
+          label: connection.label || '',
           effort: reasoning.effort === 'off' ? '' : reasoning.effort,
           prefill: result.prefill && result.prefill.words ? result.prefill.words : '',
           small: smallTeller, /* M512 */

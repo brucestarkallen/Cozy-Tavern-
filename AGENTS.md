@@ -15742,3 +15742,29 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
 
 - M21-B's note probe moved (its 'the note' was found in the thinking note's "the notes on where things stand" — his note is probed by words of its own).
 - GATES at m631-001 (one CPU): harness 1237/1237, walk 227/227, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.
+
+# M632 — his: "a benchmark so I can choose the LLM that writes best: compare two, score each, a rank of averages — I love
+# ease of use, copy-paste would tire me; does context matter? You're smarter — I just want an easy reference"
+- THE DESIGN, CHOSEN FOR HIM: nothing to paste — every page is graded where it already is, against the moment it answers
+  (the page before, his move, where things stand: a page judged alone is judged wrong), by ONE judge he picks (one judge
+  for everyone, so the scores share a ruler). Absolute grades are noisy, so they are averaged per storyteller over every
+  page; the fair test is the same moment written by two storytellers — he switches the storyteller and asks for another
+  take (→ on the page): the judge reads both blind, in BOTH orders, and a win counts only when both orders agree (a
+  judge's lean to the first or second cancels; a disagreement is a tie). The board ranks by the average; head to head
+  stands beside it, and the screen says to trust it when the two disagree.
+- WHERE: Settings → Storyteller → "Benchmark — which storyteller writes best": "Grade every page" (off as it ships: a call
+  per page), "Graded by" (any connection; empty is the readers' own), the board (a card per storyteller: #rank, name and
+  model, its average, pages, head to head, "few pages yet" under five, its five averages — Prose, People, Agency,
+  Continuity, Pull), "Clear the scores".
+- HOW: the judge is the page chain's last job ("the benchmark judge" on the workers' line) — nothing waits for it. Each
+  page's receipt now names the connection that wrote it (connId, label); a page from before is known by its model. Grades
+  and duels are two settings rows (riding the house book), the newest 1,000 and 500; a page graded again replaces its
+  grade; one moment's pair is judged once. The judge's instructions wear the fiction frame every reader wears, so it grades
+  the explicit pages too. agents/judge.js, engine/bench.js, ui/benchview.js.
+- Laws M632-1/2 (the judge's answers read whole and kept to 0–10; the moment rides with the page; the board's averages,
+  ranks, head to head, regrade and one-judgment-per-pair); walk DOM-228 (through the app: a page graded as it lands by the
+  judge he chose, known by its connection; another take by a second storyteller graded and judged head to head blind both
+  ways — the better one wins; the board ranks it first with its score and its 1–0). The real-browser layout check now holds
+  the board too: a card per storyteller fits its room at 360, 412 and 900 px (a table ran 456 px into a 380 px room).
+
+- GATES at m632-001 (one CPU): harness 1239/1239, walk 228/228, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout (now with the board) — EXIT 0 each.

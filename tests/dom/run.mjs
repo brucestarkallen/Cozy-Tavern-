@@ -10238,5 +10238,70 @@ test('DOM-227 THE THINKING NOTE PUT BACK AFTER AN ACCIDENT (M631 — his: "a way
   }
 });
 
+test('DOM-228 THE BENCHMARK (M632 — his: "choose the LLM that writes best; score each, compare, rank; easy, no copy-paste"): graded as each page lands, by the judge he chose; a second storyteller\u2019s page for the same moment judged head to head, blind both ways; the board ranks them', async () => {
+  const { saveState: saveLedger, emptyState: blankLedger } = await import('../../js/engine/state.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { clearBench } = await import('../../js/engine/bench.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  await clearBench();
+  const firstId = await tellerConnectionId();
+  await db.connections.update(firstId, { label: 'First teller' });
+  const second = await db.connections.add({ name: 'second', label: 'Second teller', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm2', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'Benchmarked' });
+  await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[The gate \u2014 Monday, March 3, 2025 | 09:00 | clear]\n\nThe gate was quiet.' });
+  await saveLedger(st.id, { ...blankLedger(), sheet: { actors: {}, playerName: 'Jovan' }, page: 0, readTo: 0, tidiedGen: 999, healedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const priorWorker = house.state.workerAnswer, priorStory = house.state.storyAnswer;
+  const activeWas = await db.settings.get('activeConnectionId');
+  let tellerNow = 'FIRST';
+  house.state.storyAnswer = () => '[The gate \u2014 Monday, March 3, 2025 | 09:05 | clear]\n\n' + (tellerNow === 'SECOND' ? 'SECOND MARK: the wind rose and Kara turned.' : 'FIRST MARK: the gate stayed quiet.');
+  house.state.workerAnswer = (body, sys) => {
+    if (/You judge one page/.test(sys)) { const u = JSON.stringify(body); return JSON.stringify({ prose: 7, people: 7, agency: 9, continuity: 8, pull: /SECOND MARK/.test(u) ? 9 : 5, overall: /SECOND MARK/.test(u) ? 8 : 6, why: 'x' }); }
+    if (/Two storytellers each wrote/.test(sys)) { const u = JSON.stringify(body); const a = u.indexOf('<page A>'), b = u.indexOf('<page B>'); const m = u.indexOf('SECOND MARK'); return JSON.stringify({ better: m > a && m < b ? 'A' : 'B', why: 'the wind' }); }
+    return walkDefaultWorker(body, sys);
+  };
+  try {
+    await env.ctx.settings.onShow({ all: true });
+    const on = q('#bench-on'); on.checked = true; on.dispatchEvent(new env.window.Event('change'));
+    const judge = q('#bench-judge'); judge.value = firstId; judge.dispatchEvent(new env.window.Event('change'));
+    await until(async () => (await db.settings.get('benchOn')) === true && (await db.settings.get('benchJudgeId')) === firstId, 'the switch and the judge kept');
+    await env.ctx.settings.onHide();
+    type(q('#composer-input'), 'I look at the gate.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the first page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'its readers and the judge', 60000);
+    let book = await db.settings.get('benchGrades');
+    eq((book || []).length, 1, 'one page graded');
+    eq(book[0].writer, firstId, 'known by the connection that wrote it');
+    /* the second storyteller, the same moment */
+    tellerNow = 'SECOND';
+    await db.settings.set('activeConnectionId', second.id);
+    await env.ctx.chat.refreshQuickSwitch();
+    /* another take of the same page (→ on the page) — the first take stays beside it */
+    const pagesNow = assistantPages(); const lastPage = pagesNow[pagesNow.length - 1];
+    click(q('.swipe-bar .msg-act[data-act="swipe-next"]', lastPage));
+    await until(async () => { const last = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop(); return last && Array.isArray(last.swipes) && last.swipes.length === 2 && !env.ctx.chat.isBusy(); }, 'the second storyteller\u2019s page beside the first', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the judge again', 60000);
+    book = await db.settings.get('benchGrades');
+    eq((book || []).length, 2, 'both pages graded');
+    const duels = await db.settings.get('benchDuels');
+    eq((duels || []).length, 1, 'one head to head');
+    eq(duels[0].x + '>' + duels[0].winner, second.id + '>x', 'the second storyteller\u2019s page won, both ways round');
+    await env.ctx.settings.onShow({ all: true });
+    const rows = await until(() => { const r = [...document.querySelectorAll('#bench-board .bench-row')]; return r.length === 2 ? r : null; }, 'the board', 10000);
+    eq(rows[0].dataset.writer, second.id, 'ranked first: the better storyteller');
+    assert(/8\.0/.test(rows[0].textContent) && /1\u20130/.test(rows[0].textContent), 'its score and its head to head: ' + rows[0].textContent);
+    assert(/6\.0/.test(rows[1].textContent) && /0\u20131/.test(rows[1].textContent), 'the other: ' + rows[1].textContent);
+    await env.ctx.settings.onHide();
+  } finally {
+    house.state.workerAnswer = priorWorker; house.state.storyAnswer = priorStory;
+    if (activeWas === undefined) await db.settings.delete('activeConnectionId'); else await db.settings.set('activeConnectionId', activeWas);
+    await env.ctx.chat.refreshQuickSwitch();
+    await db.settings.set('benchOn', false);
+    await clearBench();
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);
