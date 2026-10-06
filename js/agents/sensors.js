@@ -502,13 +502,33 @@ export function decisionsUrl(conn) {
   return base + '/v1/systemone';
 }
 /* the room a decisions model has: his number; else what its family is known to hold */
-export function decisionsRoom(conn) {
+const roomKey = (conn) => String((conn && conn.model) || '').trim() + '@' + String((conn && conn.baseUrl) || '').trim().replace(/\/+$/, '');
+function listedRoom(conn) {
   if (conn && typeof conn.contextSize === 'number' && conn.contextSize > 0) return conn.contextSize;
   if (conn && Number(conn.detectedContext) > 0) return Math.floor(conn.detectedContext);
   const model = String((conn && conn.model) || '').toLowerCase();
   const url = String((conn && conn.baseUrl) || '').toLowerCase();
   if (/clef/.test(model) || /clef/.test(url)) return /neuralwatt/.test(url) ? 262144 : 65536;
   return 32000;
+}
+/* M640: …and never more than this address has SHOWN it takes in (sensesRoom, learned from its own count for this model at
+ * this address — see readPageFull): a listed room is a claim, the count is what happened. */
+export function decisionsRoom(conn) {
+  const listed = listedRoom(conn);
+  const shown = conn && conn.sensesRoomFor === roomKey(conn) ? Number(conn.sensesRoom) : 0;
+  return shown > 0 && shown < listed ? Math.floor(shown) : listed;
+}
+/* the least a decisions address must take in for its answers to count: the page, his move, and enough of the notes and
+ * the story to judge the page by */
+export const LEAST_ROOM = 16000;
+/* M640: the role the one line is sent in — his choice, except that it is the storyteller's OWN words only where a turn
+ * of its own can stand beside its page and be read as a note: not for a model that takes no two turns of one role in a
+ * row (a reasoner by name, or a house that has said so), and not for a small storyteller (its request is built another
+ * way, and it is the one most apt to copy a note as if it were a page). Those are told after his message instead. */
+export function sensorRoleFor(asked, { model = '', twins = false, small = false } = {}) {
+  const role = asked === 'system' || asked === 'user' || asked === 'assistant' ? asked : '';
+  if (role === 'assistant' && (/reasoner/i.test(String(model || '')) || twins === true || small === true)) return '';
+  return role;
 }
 const decisionsModel = (conn) => {
   const m = String((conn && conn.model) || '').trim();
@@ -608,12 +628,30 @@ export async function readPageFull({ connection, kept = null, brief = '', castNo
   if (!String(page || '').trim()) return fail('there is no page to read');
   try {
     const pkg = packageFromRequest(kept) || packageFromPages({ brief, castNotes, before, move });
-    const fit = fitPackage(pkg, page, shape === 'decisions' ? decisionsRoom(connection) : contextOf(connection));
-    let raw = '';
-    let sent = 0;
-    if (shape === 'decisions') {
+    const whole = Boolean(packageFromRequest(kept));
+    if (shape !== 'decisions') {
+      const fit = fitPackage(pkg, page, contextOf(connection));
+      const ask = chatAsk(fit, MODEL_SENSORS, { mc });
+      const sent = estimateTokens(ask.system) + estimateTokens(ask.user);
+      let raw = '';
+      if (typeof callLLM === 'function') raw = await callLLM({ shape, fit, body: ask });
+      else { const { text } = await callWorker(connection, { system: ask.system, user: ask.user, maxTokens: 600, signal }); raw = text || ''; }
+      const scores = readAnswers(raw, shape);
+      if (!Object.keys(scores).length) return fail('the model answered, but not with the numbers it was asked for');
+      return { ok: true, scores, whole, dropped: fit.dropped, shape, model, ms: Date.now() - began, sent, read: null };
+    }
+    /* A decisions address. M640: IT IS HANDED WHAT IT SHOWS IT TAKES IN. An address whose own count says it took in less
+     * than half of what it was sent has a smaller room than is listed for it. Where that room still holds enough to judge
+     * by (LEAST_ROOM), the same page is asked once more, cut to that room by the house's own order (the page, his move,
+     * the notes, the newest of the story) instead of by the address's blind cut — and the room is handed back
+     * (learnedRoom) to be kept for this model at this address. Where it does not, its answers are not used. */
+    let room = decisionsRoom(connection);
+    let learnedRoom = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const fit = fitPackage(pkg, page, room);
       const body = decisionsBody(connection, decisionsState(fit, { mc }));
-      sent = estimateTokens(JSON.stringify(body.state));
+      const sent = estimateTokens(JSON.stringify(body.state));
+      let raw = null;
       if (typeof callLLM === 'function') raw = await callLLM({ shape, fit, body });
       else {
         const res = await houseFetch(decisionsUrl(connection), {
@@ -630,24 +668,20 @@ export async function readPageFull({ connection, kept = null, brief = '', castNo
         }
         raw = await res.json();
       }
-    } else {
-      const ask = chatAsk(fit, MODEL_SENSORS, { mc });
-      sent = estimateTokens(ask.system) + estimateTokens(ask.user);
-      if (typeof callLLM === 'function') raw = await callLLM({ shape, fit, body: ask });
-      else { const { text } = await callWorker(connection, { system: ask.system, user: ask.user, maxTokens: 600, signal }); raw = text || ''; }
-    }
-    const scores = readAnswers(raw, shape);
-    if (!Object.keys(scores).length) return fail(shape === 'decisions' ? 'the address answered, but with no answers to the questions' : 'the model answered, but not with the numbers it was asked for');
-    let read = null;
-    if (shape === 'decisions' && raw && typeof raw === 'object') {
-      const usage = (raw.usage && typeof raw.usage === 'object' ? raw.usage : null) || (raw.result && raw.result.usage && typeof raw.result.usage === 'object' ? raw.result.usage : null);
-      const n = usage ? Number(usage.input_tokens ?? usage.prompt_tokens) : NaN;
-      if (Number.isFinite(n) && n > 0) read = Math.round(n);
-    }
-    if (read !== null && sent > 3000 && read < sent * 0.5) {
+      const scores = readAnswers(raw, shape);
+      if (!Object.keys(scores).length) return fail('the address answered, but with no answers to the questions');
+      let read = null;
+      if (raw && typeof raw === 'object') {
+        const usage = (raw.usage && typeof raw.usage === 'object' ? raw.usage : null) || (raw.result && raw.result.usage && typeof raw.result.usage === 'object' ? raw.result.usage : null);
+        const n = usage ? Number(usage.input_tokens ?? usage.prompt_tokens) : NaN;
+        if (Number.isFinite(n) && n > 0) read = Math.round(n);
+      }
+      const short = read !== null && sent > 3000 && read < sent * 0.5;
+      if (!short) return { ok: true, scores, whole, dropped: fit.dropped, shape, model, ms: Date.now() - began, sent, read, learnedRoom };
+      if (attempt === 0 && read >= LEAST_ROOM) { room = read; learnedRoom = read; continue; }
       return fail('this address took in only about ' + read.toLocaleString('en-US') + ' of the ' + sent.toLocaleString('en-US') + ' tokens it was sent — too little of the story to judge a page by, so its answers are not used');
     }
-    return { ok: true, scores, whole: Boolean(packageFromRequest(kept)), dropped: fit.dropped, shape, model, ms: Date.now() - began, sent, read };
+    return fail('the address did not take in what it was sent');
   } catch (err) {
     if ((signal && signal.aborted) || (err && err.name === 'AbortError')) return fail('no answer within a minute');
     return fail(plain(err && err.message, 200) || 'the call failed');
@@ -674,6 +708,7 @@ export function readingWords(r, what = 'the page') {
   const bits = ['Working — ' + who + ' read ' + what + ': ' + n + (n === 1 ? ' answer' : ' answers') + ' in ' + secs + ' s.'];
   if (r.shape === 'decisions') bits.push(r.read !== null && r.read !== undefined ? 'It was sent about ' + Number(r.sent || 0).toLocaleString('en-US') + ' tokens and took in ' + Number(r.read).toLocaleString('en-US') + '.' : 'It was sent about ' + Number(r.sent || 0).toLocaleString('en-US') + ' tokens (this address does not say how many it took in).');
   if (r.whole === false && what !== 'a sample page') bits.push('That page’s own request was no longer kept, so it was read with the pages before it.');
+  if (r.learnedRoom) bits.push('This address takes in about ' + Number(r.learnedRoom).toLocaleString('en-US') + ' tokens — less than is listed for it — so it is handed no more than that from now on.');
   if (r.dropped) bits.push('The oldest ' + r.dropped + ' turns of the story did not fit this model’s room.');
   bits.push(slips.length ? 'Slips it saw on that page: ' + slips.join(', ') + '.' : 'It saw no slip on that page.');
   return bits.join(' ');

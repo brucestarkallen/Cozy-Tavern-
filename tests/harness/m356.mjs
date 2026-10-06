@@ -9,7 +9,7 @@ import {
   SENSORS, MODEL_SENSORS, sensorById, sensorShape, decisionsUrl, decisionsBody, decisionsState, decisionsRoom, chatAsk, readAnswers,
   packageFromRequest, packageFromPages, fitPackage, readPage, senseOf, sensePatch, dueSensor, sensorWordForTurn, loadSensors,
   sensorLine, openingKind, closingKind, impactCount, nameRun, longSpeeches, thoughtCount, constructsOf, TAIL, TAIL_OWN, SENSOR_GAP,
-  readPageFull, readingWords, slipNames, SAMPLE_READ,
+  readPageFull, readingWords, slipNames, SAMPLE_READ, sensorRoleFor, LEAST_ROOM,
 } from '../../js/agents/sensors.js';
 import { buildRequest } from '../../js/assemble/stack.js';
 import { PRESETS, normalizeBaseUrl } from '../../js/providers/index.js';
@@ -402,4 +402,52 @@ test('M638-1 EVERY TRY SAYS WHAT HAPPENED: a decisions address that works says h
   /* the sample page reads like any other */
   const sample = await readPageFull({ connection: chat, ...SAMPLE_READ, callLLM: async () => fineAll });
   assert(sample.ok && /^Working — DeepSeek read a sample page: 18 answers/.test(readingWords(sample, 'a sample page')) && !/no longer kept/.test(readingWords(sample, 'a sample page')), 'a check with no story open: ' + readingWords(sample, 'a sample page'));
+});
+
+test('M640-1 A DECISIONS ADDRESS IS HANDED WHAT IT SHOWS IT TAKES IN: one whose own count says its room is smaller than listed is asked once more, cut to that room by the house’s own order, and the room is kept for that model at that address; one that takes in too little to judge by is still not used', async () => {
+  const res = (body) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+  const answers = Object.fromEntries(MODEL_SENSORS.map((s) => [s.id, { noul: 0.05 }]));
+  const before = Array.from({ length: 40 }, (_, i) => ({ who: i % 2 ? 'teller' : 'writer', text: 'TURN-' + i + ' ' + filler(i + 200, 6000) }));
+  const args = { brief: 'A hard tale.', before, page: HEAD + '\n\nPAGE-MARK Kaelen named a price.' };
+  const clef = { id: 'c1', baseUrl: 'https://api.neuralwatt.com/v1', model: 'clef-flash', label: 'Clef Flash', apiKey: 'k' };
+  const seen = [];
+  /* an address that takes in `real` tokens at most, and says how many it took */
+  const house = (real) => ({ calls: [], fetch: async (url, opts) => { const sent = JSON.parse(opts.body); const tokens = Math.round(JSON.stringify(sent.state).length / 4); seen.push({ tokens, state: sent.state }); return res({ answers, usage: { input_tokens: Math.min(real, tokens) } }); } });
+  eq(decisionsRoom(clef), 262144, 'listed for it');
+  const learned = await withHouse(house(20000), () => readPageFull({ connection: clef, ...args }));
+  eq(seen.length, 2, 'asked once, found short, asked once more');
+  assert(seen[0].tokens > 40000 && seen[1].tokens < 20000, 'the second asking is cut to the room it showed: ' + seen[0].tokens + ' then ' + seen[1].tokens);
+  for (const call of seen) assert(call.state.page_to_judge.includes('PAGE-MARK') && /TURN-38/.test(call.state.the_writers_move_it_answers), 'the page and his move are whole in both');
+  assert(JSON.stringify(seen[1].state).includes('TURN-39') && !JSON.stringify(seen[1].state).includes('TURN-0 '), 'what is left out is the oldest of the story — the house’s own cut, not the address’s');
+  eq(learned.ok, true, 'and that reading is used');
+  eq(learned.learnedRoom, 20000, 'the room it showed is handed back to be kept');
+  assert(learned.read === seen[1].tokens && learned.sent === seen[1].tokens, 'it took in all of the second asking');
+  assert(/This address takes in about 20,000 tokens — less than is listed for it — so it is handed no more than that from now on\./.test(readingWords(learned, 'page 9')), 'said plainly: ' + readingWords(learned, 'page 9'));
+  /* kept for that model at that address: the next page is cut to it at once */
+  const kept = { ...clef, sensesRoom: 20000, sensesRoomFor: 'clef-flash@https://api.neuralwatt.com/v1' };
+  eq(decisionsRoom(kept), 20000, 'the room it showed, from now on');
+  seen.length = 0;
+  const next = await withHouse(house(20000), () => readPageFull({ connection: kept, ...args }));
+  eq(seen.length + ':' + next.ok + ':' + next.learnedRoom, '1:true:null', 'one asking, used, nothing new to learn');
+  eq(decisionsRoom({ ...kept, model: 'clef' }), 262144, 'another model on that connection is not held to it');
+  eq(decisionsRoom({ ...kept, contextSize: 9000 }), 9000, 'his own smaller number still wins');
+  /* too little to judge by: not asked again, not used */
+  eq(LEAST_ROOM, 16000, 'the least that is enough');
+  seen.length = 0;
+  const sliver = await withHouse(house(2048), () => readPageFull({ connection: clef, ...args }));
+  eq(seen.length + ':' + sliver.ok, '1:false', 'asked once, and its answers are not used');
+  assert(/took in only about 2,048 of the [\d,]+ tokens it was sent — too little of the story to judge a page by/.test(sliver.why), sliver.why);
+  seen.length = 0;
+  const thin = await withHouse(house(9000), () => readPageFull({ connection: clef, ...args }));
+  eq(seen.length + ':' + thin.ok, '1:false', 'nine thousand is still too little');
+});
+
+test('M640-2 THE ROLE OF THE ONE LINE: his choice — but the storyteller’s own words only where a turn of its own can stand beside its page', () => {
+  eq(sensorRoleFor('assistant', { model: 'kimi-k3' }), 'assistant', 'his choice, where it can stand');
+  eq(sensorRoleFor('assistant', { model: 'deepseek-reasoner' }), '', 'a reasoner by name: after his message instead');
+  eq(sensorRoleFor('assistant', { model: 'kimi-k3', twins: true }), '', 'a house that has refused two turns of one role: after his message');
+  eq(sensorRoleFor('assistant', { model: 'glm-4.6', small: true }), '', 'a small storyteller: after his message');
+  eq(sensorRoleFor('user', { model: 'deepseek-reasoner', twins: true, small: true }), 'user', 'a user message is his choice anywhere');
+  eq(sensorRoleFor('system', { small: true }), 'system', 'and a system message');
+  eq(sensorRoleFor(undefined) + '|' + sensorRoleFor('') + '|' + sensorRoleFor('teller') + '|' + sensorRoleFor(7), '|||', 'nothing chosen, or a word that is no role: as it ships');
 });

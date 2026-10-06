@@ -16066,3 +16066,33 @@ need to worry about anything, or not?" A failure nobody can explain is not an an
   DOM-233 among them), long play 9/9, lint 0 errors (179 warnings: four more than m638, all "used before it was defined"
   for the new flag in drawer.js, the way that file already declares opening, closeGeneration and render), perf_send,
   holdsone, cutthinking, notes_layout — EXIT 0 each.
+
+# M640 — the audit he asked for after the platform crashed ("audit everything… does nothing break and create weird code")
+- THE REPO AFTER THE CRASH, checked from a FRESH CLONE of GitHub, not from the working copy: one branch (main), no stray
+  work branch; the five commits of the session in order on top of M635; 396 of 396 JS files parse, every JSON file
+  loads, the Python compiles; no conflict marker, no scratch file; and file for file the tree that had been gated (the
+  only difference from the working copy was Python's own cache). Nothing was half-written.
+- THE SESSION'S CODE, READ AGAIN WHOLE (sensors.js; the send path, the reader and the Quick switch in chat.js; the line's
+  place in stack.js; the two providers' change; Settings; the drawer). Two gaps found by reading, both fixed:
+  1. A DECISIONS ADDRESS WHOSE REAL ROOM IS SMALLER THAN LISTED WAS UNUSABLE UNTIL HE TYPED A NUMBER. M638 refused any
+     address that took in under half of what it was sent ("not used") — right for Cloudflare's two thousand tokens, but
+     an address that takes in, say, 20,000 of a listed 262,144 (Neuralwatt lists that for Clef; nobody has measured it)
+     would have said "Not working" on every page, and the only cure was his: detection handed to him as a task. Now the
+     address is HANDED WHAT IT SHOWS IT TAKES IN: where its own count is at least LEAST_ROOM (16,000 — the page, his
+     move and enough of the notes and the story to judge by), the same page is asked once more cut to that room by the
+     house's own order, the reading is used, and the room is kept on the connection for that model at that address
+     (sensesRoom / sensesRoomFor) so the next page is cut to it at once. Below that it is still not used, and says so.
+  2. THE STORYTELLER'S-OWN ROLE COULD REACH A SMALL STORYTELLER, whose request is built another way and who is the one
+     most apt to copy a note as a page. sensorRoleFor (sensors.js, one tested rule): assistant only where a turn of its
+     own can stand — not a reasoner, not a house that refused two turns of one role, not a small storyteller.
+- LAWS: m356.mjs M640-1 (asked, found short, asked again cut by the house's order with the page and his move whole in
+  both; the room handed back and kept; the next page one asking; another model on the connection not held to it; his own
+  smaller number wins; 2,048 and 9,000 not used), M640-2 (the role rule).
+- version.js -> m640-001.
+- GATES at m640-001 (one CPU), on the tree that was pushed: harness 1247/1247, walk 233/233, long play 9/9, lint 0 errors
+  (179 warnings, as at m639), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
+- IN A REAL BROWSER (Chromium, 412 px wide, the controls used as he would): twelve connections — the Quick switch shows the
+  four told with and "All models (12)…", inside the screen; "All models…" puts thirteen lines on it and changes nothing;
+  a model chosen from them tells the stories and joins the few with the one he left; "Check the sensors" on a connection
+  that cannot answer says "Not working — … could not read page 1: … that address could not be found." and the button
+  comes back; no page error.

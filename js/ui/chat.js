@@ -66,7 +66,7 @@ import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wr
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent, loadSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it; M636: read back for the sensors */
-import { readPageFull, readingWords, SAMPLE_READ, sensorWordForTurn, takePageWord, keepPageWord, senseOf, sensePatch, SENSOR_LOOK } from '../agents/sensors.js'; /* M356/M357; M636: a reading lives on its page, and the one line the readings earn */
+import { readPageFull, readingWords, SAMPLE_READ, sensorWordForTurn, sensorRoleFor, takePageWord, keepPageWord, senseOf, sensePatch, SENSOR_LOOK } from '../agents/sensors.js'; /* M356/M357; M636: a reading lives on its page, and the one line the readings earn */
 import { twinsRefused } from '../providers/userfirst.js'; /* M636: a model that takes no two turns of one role in a row */
 import { onToast as onCanonToast } from '../canon/host.js';
 import { canonNote as keepCanonNote, canonWhy } from '../canon/bridge.js'; /* M395: canon's own notes go to its room, never onto the screen; M486: why it had nothing to say */
@@ -2211,6 +2211,10 @@ export function initChat(ctx) {
       let read = null;
       try { read = await readPageFull({ connection, kept, brief: story.brief || '', castNotes: story.castNotes || '', before, page: words, mc, signal: w.signal }); } finally { w.done(); }
       const said = readingWords(read, what);
+      /* M640: what the address showed it takes in is kept for this model at this address — the next page is cut to it at once */
+      if (read.learnedRoom && connection && connection.id) {
+        try { await db.connections.update(connection.id, { sensesRoom: read.learnedRoom, sensesRoomFor: String(connection.model || '').trim() + '@' + String(connection.baseUrl || '').trim().replace(/\/+$/, '') }); } catch (err) { /* it is learned again on the next page */ }
+      }
       if (read.ok && on) {
         const fresh = (await db.messages.list(sid)).find((m) => m && m.id === last.id);
         /* written only if the page still stands as it was read */
@@ -5463,11 +5467,8 @@ export function initChat(ctx) {
           });
           if (due) {
             sensorNote = due.word; sensorOwn = due.own;
-            const asked = await db.settings.get('sensorsRole');
-            /* as the storyteller's own words only where a turn of its own can stand beside its page: a model that takes
-             * no two turns of one role in a row (a reasoner by name, or a house that has said so once) is told in the
-             * closing words instead */
-            sensorRole = asked === 'assistant' && (/reasoner/i.test(String((connection && connection.model) || '')) || twinsRefused(connection)) ? '' : (typeof asked === 'string' ? asked : '');
+            /* his choice — as the storyteller's own words only where that can stand (sensors.js sensorRoleFor) */
+            sensorRole = sensorRoleFor(await db.settings.get('sensorsRole'), { model: connection && connection.model, twins: twinsRefused(connection), small: settingsValues.smallModelNow === true });
           }
         }
       }
