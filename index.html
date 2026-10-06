@@ -62,6 +62,15 @@
         </form>
         <!-- M16: a shelf gathers tales that belong together. -->
         <button id="btn-new-shelf" class="text-btn shelf-new" type="button">A new shelf</button>
+        <!-- M621: bulk delete — choose tales, or whole shelves with their tales, and delete them at once -->
+        <button id="btn-bulk-delete" class="text-btn shelf-new" type="button">Bulk delete</button>
+        <div id="choose-bar" class="choose-bar" hidden>
+          <span id="choose-count" class="lbl">Tick the tales to delete — or a shelf, whole</span>
+          <div class="row">
+            <button id="btn-delete-chosen" class="btn" type="button" disabled>Delete the chosen</button>
+            <button id="btn-choose-done" class="text-btn" type="button">Not now</button>
+          </div>
+        </div>
         <!-- M466: the shelves and tales in the order he chooses -->
         <label class="shelf-sort-row"><span class="lbl">Sorted</span>
           <select id="shelf-sort" aria-label="How the shelves and tales are sorted">

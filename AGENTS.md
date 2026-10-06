@@ -15496,3 +15496,18 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   above his note in the storyteller's last message).
 
 - GATES at m620-001 (one CPU): harness 1221/1221, walk 220/220, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking — EXIT 0 each.
+
+# M621 — his: "add bulk delete on chat or project"
+- BULK DELETE on the shelf: "Bulk delete" (under "A new shelf") opens a choosing mode — a tick on every tale (a tap on the
+  row ticks it; nothing opens, the row's own buttons step aside) and on every shelf head. A shelf ticked WHOLE is every tale
+  on it, its resting ones too, and the shelf comes down after them; unticking one of its tales un-chooses the shelf (it is
+  no longer whole). The bar counts them ("3 tales chosen · one shelf whole"); "Delete the chosen" asks ONCE, naming the
+  count and the shelves ("Delete 3 tales for good? Their pages will be gone. The shelf “Old shelf” comes down with
+  them."), then deletes each tale the way the single × does (db.stories.remove — the device copy goes with it), stops
+  each one's helpers first (stopWork), and takes the shelves down; a page being written for the open tale is stopped as
+  his Stop would and let settle; the open tale among them leaves none open, as the single × does. "Not now" leaves with
+  nothing chosen. A single tale's × and a shelf's × (take down, tales stay) are unchanged.
+- Walk DOM-221 (through the app: Not now; a tale and a shelf ticked whole with its resting tale — one question, the three
+  tales and their pages gone, the shelf down, the kept shelf and the unticked tales standing, none open).
+
+- GATES at m621-001 (one CPU): harness 1221/1221, walk 221/221, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking — EXIT 0 each.

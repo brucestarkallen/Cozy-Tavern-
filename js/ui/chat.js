@@ -297,6 +297,11 @@ export function initChat(ctx) {
     btnCancelNew: document.getElementById('btn-cancel-story'),
     /* M16: the shelves — a new shelf begins from the sidebar. */
     btnNewShelf: document.getElementById('btn-new-shelf'),
+    btnBulkDelete: document.getElementById('btn-bulk-delete'), /* M621 */
+    chooseBar: document.getElementById('choose-bar'),
+    chooseCount: document.getElementById('choose-count'),
+    btnDeleteChosen: document.getElementById('btn-delete-chosen'),
+    btnChooseDone: document.getElementById('btn-choose-done'),
     newShelfForm: document.getElementById('new-shelf-form'),
     newShelfName: document.getElementById('new-shelf-name'),
     btnCancelShelf: document.getElementById('btn-cancel-shelf'),
@@ -342,6 +347,12 @@ export function initChat(ctx) {
   let showResting = false;
   /* M466: the resting shelves' corner, and how the shelves and tales are sorted (his choice, remembered) */
   let showRestingShelves = false;
+  /* M621: BULK DELETE — his word: "add bulk delete on chat or project". "Bulk delete" opens a choosing mode: a tick on every
+   * tale, and on every shelf head (a shelf ticked whole is every tale on it, resting ones too, and the shelf comes down
+   * after them); "Delete the chosen" asks once, naming the count, then deletes; "Not now" leaves. */
+  let choosing = false;
+  const chosenTales = new Set();
+  const chosenShelves = new Set();
   const SHELF_SORT_KEY = 'shelfSort';
   const SHELF_SORTS = new Set(['played', 'name', 'newest']);
   let shelfSort = 'played';
@@ -561,7 +572,7 @@ export function initChat(ctx) {
    * resting tale's row wakes instead of archiving. */
   function storyItem(story, activeId, opts = {}) {
     const li = document.createElement('li');
-    li.className = 'story-item' + (story.id === activeId ? ' active' : '') + (opts.resting ? ' resting' : '');
+    li.className = 'story-item' + (story.id === activeId ? ' active' : '') + (opts.resting ? ' resting' : '') + (choosing && chosenTales.has(story.id) ? ' chosen' : '');
 
     const openBtn = document.createElement('button');
     openBtn.type = 'button';
@@ -591,6 +602,18 @@ export function initChat(ctx) {
     meta.append(when, pages);
     if (previewNode) openBtn.append(title, previewNode, meta);
     else openBtn.append(title, meta);
+    if (choosing) {
+      /* M621: while choosing, a tap on the row ticks it — nothing opens, and the row's own buttons step aside */
+      const pick = document.createElement('input');
+      pick.type = 'checkbox';
+      pick.className = 'choose-pick';
+      pick.checked = chosenTales.has(story.id);
+      pick.setAttribute('aria-label', `Choose “${story.title}”`);
+      pick.addEventListener('change', () => chooseTale(story, pick.checked));
+      openBtn.addEventListener('click', () => chooseTale(story, !chosenTales.has(story.id)));
+      li.append(pick, openBtn);
+      return li;
+    }
     openBtn.addEventListener('click', () => openStory(story.id));
 
     const renameBtn = document.createElement('button');
@@ -779,6 +802,26 @@ export function initChat(ctx) {
     badge.textContent = total ? total + (total === 1 ? ' page' : ' pages') : 'unwritten';
     toggle.append(caret, label, badge);
     toggle.addEventListener('click', () => toggleShelf(key));
+    if (choosing) {
+      /* M621: the shelf whole — every tale on it (resting ones too), and a real shelf comes down after them */
+      const whole = project ? stories.filter((s) => s.projectId === project.id) : shelfStories;
+      const pick = document.createElement('input');
+      pick.type = 'checkbox';
+      pick.className = 'choose-pick';
+      pick.checked = project ? chosenShelves.has(project.id) : (whole.length > 0 && whole.every((s) => chosenTales.has(s.id)));
+      pick.disabled = !project && !whole.length;
+      pick.setAttribute('aria-label', project ? `Choose the shelf “${name}” whole — every tale on it` : 'Choose every loose tale');
+      pick.addEventListener('change', () => chooseShelf(project, whole, pick.checked));
+      head.append(pick, toggle);
+      section.appendChild(head);
+      if (!collapsed) {
+        const inner = document.createElement('ul');
+        inner.className = 'shelf-stories';
+        for (const story of sortTales(shelfStories)) inner.appendChild(storyItem(story, activeId));
+        section.appendChild(inner);
+      }
+      return section;
+    }
     head.appendChild(toggle);
 
     if (project) {
@@ -818,6 +861,71 @@ export function initChat(ctx) {
       section.appendChild(inner);
     }
     return section;
+  }
+
+  /* M621: choosing — a tale, a shelf whole, the bar's count, and the delete */
+  function chooseTale(story, on) {
+    if (on) chosenTales.add(story.id);
+    else {
+      chosenTales.delete(story.id);
+      if (story.projectId) chosenShelves.delete(story.projectId); /* a shelf with a tale left on it is no longer chosen whole */
+    }
+    renderStoryList();
+  }
+  function chooseShelf(project, whole, on) {
+    for (const s of whole) { if (on) chosenTales.add(s.id); else chosenTales.delete(s.id); }
+    if (project) { if (on) chosenShelves.add(project.id); else chosenShelves.delete(project.id); }
+    renderStoryList();
+  }
+  function drawChooseBar() {
+    if (els.chooseBar) els.chooseBar.hidden = !choosing;
+    if (els.btnBulkDelete) els.btnBulkDelete.hidden = choosing;
+    const tales = stories.filter((s) => chosenTales.has(s.id)).length;
+    const shelves = projects.filter((p) => chosenShelves.has(p.id)).length;
+    if (els.chooseCount) {
+      els.chooseCount.textContent = !tales && !shelves
+        ? 'Tick the tales to delete — or a shelf, whole'
+        : (tales === 1 ? 'One tale' : tales + ' tales') + ' chosen' + (shelves ? ' · ' + (shelves === 1 ? 'one shelf' : shelves + ' shelves') + ' whole' : '');
+    }
+    if (els.btnDeleteChosen) els.btnDeleteChosen.disabled = !tales && !shelves;
+  }
+  function setChoosing(on) {
+    choosing = on === true;
+    chosenTales.clear();
+    chosenShelves.clear();
+    renderStoryList();
+  }
+  async function deleteChosen() {
+    const ids = stories.filter((s) => chosenTales.has(s.id)).map((s) => s.id);
+    const shelves = projects.filter((p) => chosenShelves.has(p.id));
+    if (!ids.length && !shelves.length) return;
+    const shelfNames = shelves.map((p) => '“' + p.name + '”').join(', ');
+    const ask = ids.length
+      ? `Delete ${ids.length === 1 ? 'one tale' : ids.length + ' tales'} for good? Their pages will be gone.` + (shelves.length ? ` ${shelves.length === 1 ? 'The shelf' : 'The shelves'} ${shelfNames} come${shelves.length === 1 ? 's' : ''} down with them.` : '')
+      : `Take down ${shelves.length === 1 ? 'the shelf' : 'the shelves'} ${shelfNames}?`;
+    if (!window.confirm(ask)) return;
+    const activeId = ctx.getActiveStoryId();
+    /* a page being written for a tale he is deleting is stopped first, as his Stop would, and let settle */
+    if (busy && ids.includes(activeId)) {
+      if (abort) abort.abort();
+      for (let i = 0; i < 150 && busy; i += 1) await new Promise((r) => setTimeout(r, 100));
+    }
+    let gone = 0;
+    for (const id of ids) {
+      stopWork(id); /* its helpers' waiting and running work goes with it */
+      try { await db.stories.remove(id); gone += 1; } catch (err) { /* the rest still go */ }
+    }
+    let down = 0;
+    for (const p of shelves) { try { if (await db.projects.remove(p.id)) down += 1; } catch (err) { /* the rest still come down */ } }
+    choosing = false;
+    chosenTales.clear();
+    chosenShelves.clear();
+    if (ids.includes(activeId)) ctx.setActiveStoryId(null);
+    await refreshStories(true);
+    await renderThread({ structural: true, opening: true });
+    const said = [gone ? (gone === 1 ? 'One tale' : gone + ' tales') + ' deleted' : '', down ? (down === 1 ? 'one shelf' : down + ' shelves') + ' taken down' : ''].filter(Boolean).join(' · ');
+    toast((said.charAt(0).toUpperCase() + said.slice(1) || 'Nothing was deleted') + '.');
+    if (ctx.onStoriesChanged) ctx.onStoriesChanged();
   }
 
   /* M466: a shelf rests or wakes; its tales stay where they are and the open tale stays open */
@@ -891,6 +999,7 @@ export function initChat(ctx) {
    * tales, then the loose ones. shelvesOf keeps the recency order
    * stories.list() hands over. */
   function renderStoryList() {
+    drawChooseBar(); /* M621 */
     els.list.textContent = '';
     els.listEmpty.hidden = stories.length > 0;
     const activeId = ctx.getActiveStoryId();
@@ -7043,6 +7152,11 @@ export function initChat(ctx) {
   });
 
   /* M16: "A new shelf" — a small inline form beside the new-story one. */
+  /* M621: bulk delete */
+  if (els.btnBulkDelete) els.btnBulkDelete.addEventListener('click', () => setChoosing(true));
+  if (els.btnChooseDone) els.btnChooseDone.addEventListener('click', () => setChoosing(false));
+  if (els.btnDeleteChosen) els.btnDeleteChosen.addEventListener('click', () => { deleteChosen().catch((err) => toast('The delete stopped: ' + (err && err.message ? err.message : String(err)))); });
+
   els.btnNewShelf.addEventListener('click', () => {
     els.newShelfForm.hidden = false;
     els.newShelfName.value = '';

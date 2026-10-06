@@ -9936,5 +9936,59 @@ test('DOM-220 NOTES ABOVE THE NOTE AT THE END (M620 — his: "a new section on n
   }
 });
 
+test('DOM-221 BULK DELETE (M621 — his: "add bulk delete on chat or project"): a tale ticked, a shelf ticked whole (its resting tale too) — one question, then they are gone and the shelf is down; the rest stand; Not now leaves nothing chosen', async () => {
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const old = await db.projects.create({ name: 'Old shelf' });
+  const kept = await db.projects.create({ name: 'Kept shelf' });
+  const a = await db.stories.create({ title: 'Bulk A loose' });
+  const b = await db.stories.create({ title: 'Bulk B on old' });
+  const c = await db.stories.create({ title: 'Bulk C resting on old' });
+  const d = await db.stories.create({ title: 'Bulk D on kept' });
+  const e = await db.stories.create({ title: 'Bulk E loose, kept' });
+  await db.stories.update(b.id, { projectId: old.id });
+  await db.stories.update(c.id, { projectId: old.id, archived: true });
+  await db.stories.update(d.id, { projectId: kept.id });
+  for (const s of [a, b, d, e]) await db.messages.append(s.id, { role: 'user', text: 'A line.' });
+  await env.ctx.chat.refreshStories(true);
+  env.window.__cozy.setActiveStoryId(b.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await env.window.__cozy.chat.openStory(b.id);
+  const rowOf = (title) => [...document.querySelectorAll('#story-list li.story-item')].find((li) => (li.querySelector('.story-title') || {}).textContent === title);
+  const shelfPick = (name) => { const sec = [...document.querySelectorAll('#story-list li.shelf')].find((li) => (li.querySelector('.shelf-name') || {}).textContent === name); return sec && sec.querySelector('.shelf-head .choose-pick'); };
+  /* Not now leaves nothing chosen */
+  click(q('#btn-bulk-delete'));
+  await until(() => !q('#choose-bar').hidden && rowOf('Bulk A loose') && rowOf('Bulk A loose').querySelector('.choose-pick'), 'the choosing mode: a tick on every tale');
+  click(rowOf('Bulk A loose').querySelector('.story-open'));
+  await until(() => rowOf('Bulk A loose').classList.contains('chosen'), 'a tap on the row ticks it, nothing opens');
+  eq(env.window.__cozy.getActiveStoryId(), b.id, 'the open tale is still the open tale');
+  click(q('#btn-choose-done'));
+  await until(() => q('#choose-bar').hidden && rowOf('Bulk A loose') && !rowOf('Bulk A loose').querySelector('.choose-pick'), 'Not now: the mode closes');
+  /* choose, and delete */
+  click(q('#btn-bulk-delete'));
+  await until(() => rowOf('Bulk A loose') && rowOf('Bulk A loose').querySelector('.choose-pick') && !rowOf('Bulk A loose').querySelector('.choose-pick').checked, 'nothing is chosen from before');
+  const pickA = rowOf('Bulk A loose').querySelector('.choose-pick');
+  pickA.checked = true; pickA.dispatchEvent(new env.window.Event('change'));
+  const oldPick = await until(() => shelfPick('Old shelf'), 'the old shelf\u2019s tick');
+  oldPick.checked = true; oldPick.dispatchEvent(new env.window.Event('change'));
+  await until(() => /3 tales chosen · one shelf whole/.test(q('#choose-count').textContent), 'the bar counts them: ' + q('#choose-count').textContent);
+  const asked = [];
+  const confirmWas = env.window.confirm;
+  env.window.confirm = (w) => { asked.push(String(w)); return true; };
+  try {
+    click(q('#btn-delete-chosen'));
+    await until(async () => !(await db.stories.get(a.id)) && !(await db.stories.get(b.id)) && !(await db.stories.get(c.id)), 'the chosen tales are gone', 15000);
+  } finally { env.window.confirm = confirmWas; }
+  eq(asked.length, 1, 'one question for all of them');
+  assert(/Delete 3 tales for good\? Their pages will be gone\. The shelf “Old shelf” comes down with them\./.test(asked[0]), 'it names the count and the shelf: ' + asked[0]);
+  await until(async () => !(await db.projects.list()).some((p) => p.id === old.id), 'the shelf chosen whole is down');
+  assert(await db.stories.get(d.id), 'the tale on the kept shelf stands');
+  assert(await db.stories.get(e.id), 'the loose tale not chosen stands');
+  assert((await db.projects.list()).some((p) => p.id === kept.id), 'the kept shelf stands');
+  eq((await db.messages.list(b.id)).length, 0, 'a deleted tale\u2019s pages are gone');
+  eq(env.window.__cozy.getActiveStoryId(), null, 'the open tale was among them: none is open now');
+  await until(() => q('#choose-bar').hidden, 'the mode closes after the delete');
+  await db.stories.remove(d.id); await db.stories.remove(e.id); await db.projects.remove(kept.id);
+});
+
 await runAll();
 process.exit(process.exitCode || 0);
