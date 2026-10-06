@@ -8056,6 +8056,52 @@ test('DOM-187 A FIGHT NEVER STARTS WITH AN UNWEIGHED FIGHTER (M531 — his repor
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-234 A STANDING THE OPENING DID NOT WRITE IS WRITTEN BY THE NEXT PAGE (M641 — his report: "How they feel toward you after #story, twenty scenes and it keeps being empty"): the page reader is handed the people in the scene who have no standing, by name; what it decides stands in the ledger and shows in the panel', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { loadState } = await import('../../js/engine/state.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'the unwritten standing' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  let pages = 0; const askedOn = [];
+  house.state.storyAnswer = () => { pages += 1; return '[The ramen stall — Monday, December 4, 2018 | 12:' + (10 + pages) + ' | cold | haori | at the counter]\n\n' + (pages === 1 ? 'Jovan sat down beside Yuki at the counter.' : 'Yuki pushed her bowl across to him. “Eat. You look like death.”'); };
+  house.state.workerAnswer = (body, sys) => {
+    const said = String((body.messages || []).map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n'));
+    /* the opening's reader founds the room and writes NO standing — as his reader did */
+    if (/THE LEDGER IS YOUNG/.test(String(sys || ''))) return JSON.stringify({ mutations: [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The ramen stall' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Yuki Tsukumo' }, { type: 'mode.snapshot', modes: [] }], resolved: [], here: ['Jovan', 'Yuki Tsukumo'] });
+    /* a later page's reader decides a standing only when it is asked to, by name */
+    if (/NO STANDING IS WRITTEN YET/.test(said) && /\n1\. Yuki Tsukumo\n/.test(said)) { askedOn.push(pages); return JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }], resolved: [], here: ['Jovan', 'Yuki Tsukumo'], standings: [{ name: 'Yuki Tsukumo', p: 45, cause: 'she gives him her own bowl and scolds him like family' }] }); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+  };
+  const settle = async (n) => { await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= n && !env.ctx.chat.isBusy(), 'page ' + n, 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); };
+  try {
+    type(q('#composer-input'), '#story jujutsu kaisen — I sit down next to Yuki at the ramen stall'); submit(q('#composer'));
+    await settle(1);
+    eq(Object.keys(((await loadState(st.id)) || {}).relationships || {}).length, 0, 'after the opening: no standing written (the opening’s reader wrote none)');
+    type(q('#composer-input'), 'I thank her and eat.'); submit(q('#composer'));
+    await settle(2);
+    assert(askedOn.length >= 1, 'the next page’s reader was handed her name to decide');
+    const rel = ((await loadState(st.id)) || {}).relationships || {};
+    assert(rel['Yuki Tsukumo'] && rel['Yuki Tsukumo'].p === 45, 'her standing stands after the second page — no rebuild, nothing pressed: ' + JSON.stringify(rel));
+    click(q('#btn-ledger'));
+    const peopleRoom = await until(() => q('#drawer .drawer-rooms .nav-chip[data-room="people"]'), 'the people’s room of the ledger', 10000);
+    click(peopleRoom);
+    await until(() => { const list = q('#drawer .relationships-editor .present-list'); return list && /Yuki Tsukumo/.test(list.textContent); }, 'How they feel toward you shows her', 15000);
+    assert(!/No standings written yet/.test(q('#drawer .relationships-editor').textContent), 'and no longer says nothing is written');
+    click(q('#btn-drawer-close'));
+    /* decided: she is not asked about again */
+    const askedBefore = askedOn.length;
+    type(q('#composer-input'), 'I finish the bowl.'); submit(q('#composer'));
+    await settle(3);
+    eq(askedOn.length, askedBefore, 'once written, the reader is not asked about her again');
+  } finally {
+    house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-188 THE OPENING MOVES FEELINGS (M532 — his report: "every time, How they feel about you is empty and I need to rebuild the people, especially on #story"): the young ledger\'s reader is asked what the opening does to people\'s feelings — he saves Yuki, and her standing is there after the first page, no rebuild', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');

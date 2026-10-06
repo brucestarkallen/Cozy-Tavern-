@@ -37,9 +37,10 @@
 import { HERE_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, samePlace, seatAtScene, sameSpot, mcWalksOff } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
 import { headerMutations } from '../engine/state.js'; /* M446: did this page move the ground? */
-import { isMc } from '../engine/people.js';
+import { isMc, findPersonKey } from '../engine/people.js';
+import { findRelationship } from '../engine/relationships.js'; /* M641: who has no standing yet */
 import { publicMoment } from '../engine/world.js'; /* M509-15: a moment the whole room saw */
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
@@ -311,6 +312,7 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
   const mc = known && known !== 'the player' ? known : '';
   const onNow = Object.entries((state && state.mode) || {}).filter(([, v]) => v).map(([k]) => k);
   const FENCE = '"""';
+  const unwritten = founding ? [] : unwrittenStandings(state, scenePartOf(assistantText)); /* M641: the people here, or named on this page, whose standing was never written */
   const user = [
     'Here is what the ledger currently says:',
     facts,
@@ -358,9 +360,54 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
     '"""',
     '',
     ...(!founding ? openThreadsBlock(state) : []),
+    ...standingsBlock(unwritten), /* M641 */
     founding ? 'Found the ledger from these pages. JSON only.' : 'What changed, if anything? JSON only.',
   ].join('\n');
-  return { system: withFictionFrame(systemPrompt({ mc, founding }) + '\n\n' + fetchLaw({ rounds: EXTRACTOR_LOOKS, when: 'Look only when THIS page leans on something you were not shown — a person, a promise or a place from an earlier page, a name the brief defines further on. Most pages need no look.' })), user, founding, mc };
+  return { system: withFictionFrame(systemPrompt({ mc, founding }) + '\n\n' + fetchLaw({ rounds: EXTRACTOR_LOOKS, when: 'Look only when THIS page leans on something you were not shown — a person, a promise or a place from an earlier page, a name the brief defines further on. Most pages need no look.' })), user, founding, mc, standingsFor: unwritten };
+}
+
+/* M641: WHO HAS NO STANDING YET, EACH TO BE DECIDED — the open threads' own cure (M280, below), for the same fault. His
+ * report: "How they feel toward you, after #story — it's been twenty scenes and it keeps being empty… many versions ago it
+ * was fine, or sometimes it's not." The reader's own instructions kept it empty: a standing moves only when THE NEW PAGE
+ * reveals something ("flat is the default", "be conservative"), and the pages before it are "already read — nothing on
+ * them is yours to write". So a bond the opening's reader did not write — or one that simply shows itself over several
+ * pages, with no single page of revelation — could never be written afterwards by any page, however plain it was to
+ * anyone reading the story. Whether a tale had standings came down to how bold one reading of one page happened to be.
+ * The house knows exactly who is in the scene with him and has no standing: the reader is handed them BY NAME and
+ * answers for each, in a slot of its own — where the pages show a feeling toward him it is written (for this, the pages
+ * already read count), and where they show none it says so, and nothing is written. Strangers stay at nothing. */
+export function unwrittenStandings(state, pageText = '') {
+  const out = [];
+  const rels = state && state.relationships && typeof state.relationships === 'object' ? state.relationships : {};
+  const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
+  const take = (raw) => {
+    const name = String(raw || '').trim();
+    if (out.length >= 8 || !name || !/^\p{Lu}/u.test(name) || isMc(state, name)) return; /* a named person — never "the waitress", "two guards", or him */
+    /* "has a standing" exactly as the ledger's own door decides it (apply.js findPersonRel, M419) — a name that door would
+     * lead to someone's standing is never asked about, so a decision can only ever open a book, never write over one */
+    if (personBookKey(state, rels, name, (map, n) => { const f = findRelationship(map, n); return f ? f.key : null; })) return;
+    const key = findPersonKey(chars, name);
+    if (key && chars[key] && chars[key].retired) return;
+    if (out.some((n) => samePersonName(n, name))) return;
+    out.push(name);
+  };
+  /* everyone in the scene with him as the page begins… */
+  for (const p of Array.isArray(state && state.present) ? state.present : []) take(typeof p === 'string' ? p : p && p.name);
+  /* …and anyone the people's book knows whom THIS page names — the mother on the phone, the sister who texts: a person he
+   * deals with from afar is never "in the scene", and was never asked about at all */
+  const page = String(pageText || '');
+  if (page.trim()) for (const name of Object.keys(chars)) if (nameOnPage(page, name)) take(name);
+  return out;
+}
+export function standingsBlock(names) {
+  const list = (Array.isArray(names) ? names : []).filter((n) => typeof n === 'string' && n.trim());
+  if (!list.length) return [];
+  return [
+    'NO STANDING IS WRITTEN YET for these people, who are in the scene with him or named on this page — decide each one, in a fourth key of your answer, "standings":',
+    ...list.map((n, i) => (i + 1) + '. ' + n),
+    'One entry for each. {"name":"…","p":N,"r":N,"s":N,"cause":"what on the pages shows it"} when the pages above or this page show how they feel toward him — FOR THIS, the pages already read count: a bond that already exists (REVEALED, NOT EARNED, at its levels), or what their dealings with him have made of it so far. Leave out an axis that stands at zero. {"name":"…","none":"why"} when they have shown no feeling toward him at all — a stranger doing a job, a face in the room: strangers stay at nothing, and nothing is guessed.',
+    '',
+  ];
 }
 
 /* M280: THE OPEN THREADS, EACH TO BE DECIDED. Closing a thread the page
@@ -393,7 +440,7 @@ export function isYoungLedger(state) {
  * mutations kept only if they're objects with a string type — the rest of
  * the validation is the applier's job (engine/apply.js). Any trouble at all
  * resolves to {mutations:[]}. */
-export function parseExtractorAnswer(raw) {
+export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
   try {
     /* M26: reasoning models think out loud first — and their thinking often
      * contains braces, which used to steal the first-balanced-object parse
@@ -428,6 +475,23 @@ export function parseExtractorAnswer(raw) {
     const here = (Array.isArray(parsed.here) ? parsed.here : [])
       .map((h) => (typeof h === 'string' ? h : h && typeof h.name === 'string' ? h.name : ''))
       .map((h) => String(h || '').trim()).filter((h) => h && h.length <= 80);
+    /* M641: the standings it was asked to decide, each by name — one that shows a feeling is written where it stands
+     * (rel.set, its cause in words); a "none", an entry with no cause, or a name it was not asked about writes nothing */
+    const asked = (Array.isArray(standingsFor) ? standingsFor : []).filter((n) => typeof n === 'string' && n.trim());
+    if (asked.length) {
+      const moved = new Set(mutations.filter((m) => m.type === 'rel.set' || m.type === 'rel.shift').map((m) => String(m.name || '').trim().toLowerCase()));
+      for (const e of (Array.isArray(parsed.standings) ? parsed.standings : [])) {
+        if (!e || typeof e !== 'object' || typeof e.name !== 'string' || !e.name.trim()) continue;
+        const who = asked.find((n) => n.toLowerCase() === e.name.trim().toLowerCase()) || asked.find((n) => samePersonName(n, e.name));
+        if (!who || moved.has(who.toLowerCase())) continue;
+        const given = {};
+        for (const axis of ['p', 'r', 's']) { const v = e[axis] === null || e[axis] === '' || typeof e[axis] === 'boolean' ? NaN : Number(e[axis]); if (Number.isFinite(v) && v !== 0) given[axis] = v; }
+        const cause = typeof e.cause === 'string' ? e.cause.trim() : '';
+        if (!Object.keys(given).length || !cause) continue;
+        moved.add(who.toLowerCase());
+        mutations.push({ type: 'rel.set', name: who, ...given, cause });
+      }
+    }
     return { mutations, note: mutations.length ? 'ok' : 'empty', here };
   } catch (err) {
     return { mutations: [], note: 'unusable' };
@@ -660,7 +724,7 @@ async function extractTurnRead({ connection, state, userText, assistantText, bef
         isAnswer: (t) => { const r = parseExtractorAnswer(t); return r.note === 'ok' || r.note === 'empty'; },
         source: { storyId, story: story || { brief, castNotes } },
       });
-      read = parseExtractorAnswer(text);
+      read = parseExtractorAnswer(text, { standingsFor: prompt.standingsFor }); /* M641 */
       read.raw = text;
       if (finishReason === 'length') read.note = read.mutations.length ? read.note : 'cut short';
     } catch (err) {

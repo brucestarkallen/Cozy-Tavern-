@@ -16096,3 +16096,42 @@ need to worry about anything, or not?" A failure nobody can explain is not an an
   a model chosen from them tells the stories and joins the few with the one he left; "Check the sensors" on a connection
   that cannot answer says "Not working — … could not read page 1: … that address could not be found." and the button
   comes back; no page error.
+
+# M641 — "How they feel toward you" kept being empty after a #story (twenty scenes): nobody was ever asked
+His report: "Why 'how they feel toward you' after #story — it's been 20 scenes and it keeps being empty!!! many versions
+ago it was fine, or sometimes it's not fine — how is this happening". (M532 had cured the OPENING page only.)
+- FOUND BY TRACING THE WHOLE PATH, not the panel: the panel shows every entry of state.relationships (nothing filters it);
+  only people.forget, the writer's own rebuild and the auditor's narrow upkeep ever remove one (the upkeep was run on a
+  family that shares his surname — Vivi Arden, Mrs. Arden beside Jovan Arden — and clears none of them); apply refuses a
+  standing only for him, a bad axis, no amount, no cause, or a beat already counted. So an empty panel after twenty
+  scenes means NO READER EVER WROTE ONE — and the page reader's own instructions say why, in their own words: a standing
+  moves "ONLY when the page reveals something NEW… flat is the default"; "be conservative"; and of the pages before the
+  new one, "ALREADY READ — nothing on them is yours to write". A bond the opening's reader did not write, or one that
+  simply shows itself over several pages with no single page of revelation, could therefore never be written by ANY
+  later page. Whether a tale had standings came down to how bold one reading of one page happened to be — "sometimes
+  it's fine". The same fault, and the same cure, as the open threads at M280.
+- THE CURE (extractor.js): the house knows exactly who has no standing. On every page after the opening the reader is
+  handed them BY NAME — everyone in the scene with him as the page begins (unwrittenStandings: named people only, never
+  him, never "the waitress", never one the ledger's own door would lead to a standing — apply's personBookKey, so a
+  decision can only open a book, never write over one; never one the story has let go), and anyone the people's book
+  knows whom THIS page names in the scene part (the mother on the phone, the sister who texts — never "in the scene", so
+  never asked about at all before) — eight at most, and must answer for EACH in a fourth slot, "standings":
+  {"name","p","r","s","cause"} where the pages above or this page show how they feel toward him (for THIS the pages
+  already read count; REVEALED, NOT EARNED and its levels are the measure), or {"name","none":"why"} where they have
+  shown no feeling at all — strangers stay at nothing, nothing is guessed. parseExtractorAnswer turns a decided one into
+  rel.set (under the ledger's name for them, zero axes left out, the cause required); "none", no cause, all zero, a name
+  not asked, or a person the same answer already moved write nothing. A reader asked nothing has no such slot and its
+  message is what it always was. A tale already under way heals on its next page.
+- LAWS: m588.mjs M641-1 (who is named: the scene, the page's names from afar; not him, not one with a standing under a
+  shorter name, not a nameless face, not the retired; nothing asked when nothing is unwritten; the opening's own law
+  untouched), M641-2 (each decision read and applied; none / no cause / zero / unasked / twice / already moved; the slot
+  ignored when nothing was asked), M641-3 (through extractTurn on a real provider call, page twenty). WALK DOM-234: a
+  #story whose opening's reader writes no standing — the next page's reader is handed "1. Yuki Tsukumo", her standing
+  stands after page two with nothing pressed, the panel in The people shows her, and she is not asked about again. On
+  the reader as it was the scenario fails at "the next page's reader was handed her name" (run and seen).
+- NOT DONE, AND WHY: not run against his worker's model (no key in the session) — what is proven is that the reader is
+  now ASKED, by name, on every page, and that whatever it decides is written. Whether a given model decides well is the
+  model's reading; "Check the sensors" has no part in this.
+- version.js -> m641-001.
+- GATES at m641-001 (one CPU), on the tree that was pushed: harness 1250/1250, walk 234/234, long play 9/9, lint 0 errors
+  (179 warnings, as at m640), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.

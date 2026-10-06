@@ -159,3 +159,77 @@ test('M599 THE AUDITOR CAN RESTORE WHAT IT IS TOLD TO: a lover the brief names, 
   eq(rel.r, 65, 'R restored at the brief\u2019s level');
   eq(rel.p, 2, 'the P the page earned is left exactly as it stands (not raised to 40)');
 });
+
+/* M641 — his report: "How they feel toward you, after #story — twenty scenes and it keeps being empty… sometimes it's fine". */
+test('M641-1 WHO HAS NO STANDING YET: the people in the scene with him, by name — never him, never one who has a standing, never a face with no name', async () => {
+  const { unwrittenStandings, buildExtractorMessages } = await import('../../js/agents/extractor.js');
+  const st = applyMutations({ ...emptyState(), page: 3 }, [
+    { type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The ramen stall' },
+    { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Yuki Tsukumo' }, { type: 'presence.enter', name: 'Maki' }, { type: 'presence.enter', name: 'the waitress' },
+    { type: 'rel.set', name: 'Maki', p: 30, cause: 'they trained together for a year' },
+  ]).state;
+  eq(JSON.stringify(unwrittenStandings(st)), JSON.stringify(['Yuki Tsukumo']), 'only the named one whose standing was never written');
+  const page = '[The ramen stall — Monday, December 4, 2018 | 12:10 | cold | haori | at the counter]\n\nYuki pushed her bowl across to him. “Eat. You look like death.”';
+  const asked = buildExtractorMessages({ state: st, userText: 'I sit down.', assistantText: page, pageNumber: 4 });
+  eq(JSON.stringify(asked.standingsFor), JSON.stringify(['Yuki Tsukumo']), 'and the reader’s message carries who it was asked about');
+  assert(/NO STANDING IS WRITTEN YET for these people[^\n]*\n1\. Yuki Tsukumo\n/.test(asked.user), 'she is named to the reader, to be decided');
+  /* someone he deals with from afar: known to the people's book, named on this page, never "in the scene" */
+  const afar = applyMutations(st, [{ type: 'people.set', name: 'Mei Mei', field: 'core', text: 'a grade-one sorcerer who counts every yen' }, { type: 'people.set', name: 'Gojo', field: 'core', text: 'the strongest, and knows it' }]).state;
+  const call = page + '\n\nHis phone buzzed: Mei Mei, asking what the job had paid.';
+  eq(JSON.stringify(unwrittenStandings(afar, call)), JSON.stringify(['Yuki Tsukumo', 'Mei Mei']), 'the one in the scene, and the one this page names from afar — not Gojo, whom the page does not name');
+  eq(JSON.stringify(unwrittenStandings(afar, page)), JSON.stringify(['Yuki Tsukumo']), 'a page that names nobody else asks about nobody else');
+  assert(/\n2\. Mei Mei\n/.test(buildExtractorMessages({ state: afar, userText: 'I answer it.', assistantText: call, pageNumber: 5 }).user), 'and the reader is handed her too');
+  assert(!/^\d+\. Maki$/m.test(asked.user) && !/^\d+\. the waitress$/m.test(asked.user) && !/^\d+\. Jovan$/m.test(asked.user), 'nobody else is');
+  assert(/FOR THIS, the pages already read count/.test(asked.user) && /strangers stay at nothing, and nothing is guessed/.test(asked.user), 'the pages already read count for this, and a stranger stays at nothing');
+  assert(asked.user.indexOf('NO STANDING IS WRITTEN YET') > asked.user.indexOf('And the storyteller answered:'), 'asked after the page, with the other things to decide');
+  /* everyone decided: the reader is asked nothing of the kind, and its message is what it always was */
+  const done = applyMutations(st, [{ type: 'rel.set', name: 'Yuki Tsukumo', p: 55, cause: 'she feeds him and scolds him like family' }]).state;
+  eq(unwrittenStandings(done).length, 0, 'none left');
+  const plain = buildExtractorMessages({ state: done, userText: 'I sit down.', assistantText: page, pageNumber: 4 });
+  assert(!/NO STANDING IS WRITTEN YET/.test(plain.user) && !/"standings"/.test(plain.user), 'nothing is asked when nothing is unwritten');
+  /* a young ledger is founded by its own law (M532) — no list */
+  const young = buildExtractorMessages({ state: { ...emptyState() }, userText: '#story a duel', assistantText: page, pageNumber: 1 });
+  assert(!/NO STANDING IS WRITTEN YET/.test(young.user) && young.standingsFor.length === 0, 'the opening is read by the founding law');
+  /* someone the story let go is not asked about */
+  const retired = JSON.parse(JSON.stringify(st)); retired.characters['Yuki Tsukumo'] = { core: 'a special grade', state: '', arc: '', threads: [], updatedAtTurn: 1, retired: true };
+  eq(unwrittenStandings(retired).length, 0, 'a person the story has let go');
+});
+
+test('M641-2 EACH ONE DECIDED: a feeling the pages show is written where it stands, with its cause; "none" writes nothing; nothing is taken for a name that was not asked, nor without a cause, nor twice', async () => {
+  const { parseExtractorAnswer, unwrittenStandings } = await import('../../js/agents/extractor.js');
+  const st = applyMutations({ ...emptyState(), page: 3 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The ramen stall' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Yuki Tsukumo' }, { type: 'presence.enter', name: 'Todo' }]).state;
+  const asked = unwrittenStandings(st);
+  eq(asked.join(','), 'Yuki Tsukumo,Todo', 'two to decide');
+  const answer = (standings, mutations = []) => JSON.stringify({ mutations, resolved: [], here: ['Jovan', 'Yuki Tsukumo', 'Todo'], standings });
+  const read = parseExtractorAnswer(answer([
+    { name: 'Yuki', p: 55, r: 20, s: 0, cause: 'she has fed him and scolded him like family for three pages' },
+    { name: 'Todo', none: 'he has not looked up from his bowl' },
+    { name: 'A Stranger', p: 10, cause: 'made up' },
+  ]), { standingsFor: asked });
+  eq(JSON.stringify(read.mutations), JSON.stringify([{ type: 'rel.set', name: 'Yuki Tsukumo', p: 55, r: 20, cause: 'she has fed him and scolded him like family for three pages' }]), 'hers is written, under the name the ledger uses, the zero axis left out; his “none” and the stranger write nothing');
+  eq(read.note, 'ok', 'and that is a reading');
+  const after = applyMutations(st, read.mutations).state;
+  eq(after.relationships['Yuki Tsukumo'].p + '/' + after.relationships['Yuki Tsukumo'].r, '55/20', 'it stands in the ledger');
+  assert(/^set — she has fed him/.test(after.relationships['Yuki Tsukumo'].history[0].cause), 'with what showed it');
+  eq(unwrittenStandings(after).join(','), 'Todo', 'she is decided; he is asked about again when the pages have more to show');
+  eq(parseExtractorAnswer(answer([{ name: 'Todo', none: 'nothing yet' }]), { standingsFor: asked }).mutations.length, 0, 'none: nothing written');
+  eq(parseExtractorAnswer(answer([{ name: 'Todo', p: 15 }]), { standingsFor: asked }).mutations.length, 0, 'no cause: nothing written');
+  eq(parseExtractorAnswer(answer([{ name: 'Todo', p: 0, r: 0, s: 0, cause: 'neutral' }]), { standingsFor: asked }).mutations.length, 0, 'all at zero: nothing is kept at zero');
+  eq(parseExtractorAnswer(answer([{ name: 'Todo', p: 15, cause: 'x' }, { name: 'Todo', p: 40, cause: 'y' }]), { standingsFor: asked }).mutations.length, 1, 'one standing a person');
+  const both = parseExtractorAnswer(answer([{ name: 'Todo', p: 15, cause: 'x' }], [{ type: 'rel.shift', name: 'Todo', axis: 'p', delta: 5, cause: 'he laughed at his joke' }]), { standingsFor: asked });
+  eq(both.mutations.filter((m) => /^rel\./.test(m.type)).length, 1, 'a standing the page itself moved is not also set');
+  eq(parseExtractorAnswer(answer([{ name: 'Todo', p: 15, cause: 'x' }])).mutations.length, 0, 'a reader that was asked nothing has no such slot');
+});
+
+test('M641-3 THROUGH THE READER ITSELF: on a later page the reader is sent the names, and what it decides is in its reading', async () => {
+  const { extractTurn } = await import('../../js/agents/extractor.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const st = applyMutations({ ...emptyState(), page: 19 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The ramen stall' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Yuki Tsukumo' }]).state;
+  const page = '[The ramen stall — Monday, December 4, 2018 | 12:10 | cold | haori | at the counter]\n\nYuki pushed her bowl across to him. “Eat. You look like death.”';
+  const house = thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }], resolved: [], here: ['Jovan', 'Yuki Tsukumo'], standings: [{ name: 'Yuki Tsukumo', p: 50, cause: 'twenty scenes at his side, feeding him and scolding him' }] }) });
+  const read = await withHouse(house, () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'I sit down.', assistantText: page, pageNumber: 20 }));
+  const sent = JSON.stringify(house.calls[0].body.messages);
+  assert(/NO STANDING IS WRITTEN YET/.test(sent) && /1\. Yuki Tsukumo/.test(sent), 'the reader was sent her name to decide, on page twenty');
+  assert(read.mutations.some((m) => m.type === 'rel.set' && m.name === 'Yuki Tsukumo' && m.p === 50), 'and its decision is in the reading: ' + JSON.stringify(read.mutations));
+  eq(applyMutations(st, read.mutations).state.relationships['Yuki Tsukumo'].p, 50, 'the ledger holds it');
+});
