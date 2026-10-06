@@ -5357,9 +5357,10 @@ export function initChat(ctx) {
             index: stand.length,
             others: (Array.isArray(state && state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).some((n) => n && n !== mcName(state)),
             names: Object.keys((state && state.characters) || {}),
-            /* one home for a law: what the house's eye says this turn is not said twice; and a small storyteller's talk and
-             * sounds are its own planner's and brake's to mind (M510, M519), never asked for here against them */
-            covered: [...(lastStand && Array.isArray(lastStand.findings) ? lastStand.findings : []).filter((f) => f && f.kind === 'craft' && f.severity === 'warn').map((f) => f.law), ...(settingsValues.smallModelNow === true ? ['Dialogue Ratio', 'Sound As Onomatopoeia'] : [])],
+            /* one home for a law: what the house's eye says this turn is not said twice; and a small storyteller's talk,
+             * sounds and worn phrases are its own planner's and brake's to mind (M510, M519), never asked for here */
+            covered: (lastStand && Array.isArray(lastStand.findings) ? lastStand.findings : []).filter((f) => f && f.kind === 'craft' && f.severity === 'warn').map((f) => f.law),
+            small: settingsValues.smallModelNow === true,
           });
           if (due) {
             sensorNote = due.word; sensorOwn = due.own;

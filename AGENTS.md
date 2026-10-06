@@ -15927,3 +15927,57 @@ can't)"; and that it fights repetition. His storyteller reads these sensors only
 - GATES at m636-001 (one CPU), on the tree that was pushed: harness 1244/1244, walk 231/231, long play 9/9, lint 0 errors
   (175 warnings, the count at m635), perf_send, holdsone, cutthinking, notes_layout (which now measures the sensors'
   "Sent as" drop-down in a real browser at 360/412/900 — 290/342/666 wide inside 328/380/704, no spill) — EXIT 0 each.
+
+# M637 — the sensors, perfected: every drifting law of his craft that a page can show, one line at a time
+From the writer: "have you analysed deeply everything that could increase the quality of the storyteller from the sensor?
+And give the final perfected version according to you" — and: can a decision model (Clef, Jev) still be used, or does it
+need another mode.
+- A DECISIONS MODEL NEEDS NO MODE (checked on the live path, nothing changed for it): its connection goes on the sensors'
+  row; sensorShape knows it by model name (jev…, clef…) or address (/decisions, /systemone, Cloudflare's run address);
+  the call is houseFetch, so a provider that refuses a web page (TypeSafe, Neuralwatt, Cloudflare) goes through the
+  house's relay like any other (M353, any public https address). It is asked the same statements over the same package,
+  the page first, cut to its room. The worker call already honours the connection's own thinking (M233): a thinking
+  model on that row thinks; nothing here forces it on or off.
+- THE WHOLE CRAFT WAS GONE THROUGH, LAW BY LAW (221 named laws, listed by script from CRAFT_TEXT): which are already
+  minded by the ledger, the second reader, the auditor or the house's eye; which drift in a long story AND can be seen on
+  a page; which are taste. What M636 lacked, now added —
+  read by the checker: ahead (Intent Horizon: the page runs past his move), soft (Character Gravity / Sanitization Bias:
+  someone the brief makes hard written softer), comply (Erotic Momentum Is Not A Filter: going along at once, in bed),
+  orbit (NPC To NPC: everyone turned to him alone), voices (Voice Fingerprints: people sounding alike), debrief (therapy
+  speak / Dialogue Subtext: talking like a counsellor), gloss (Show Never Interpret: narration explaining what things
+  mean), throat (Action Priority: opening on atmosphere or recap), alive (Living Scene: a populated place shown empty);
+  counted by the house: constructs (Banned Constructs, in the narration alone — the "was not X, but Y" swivel in its
+  shapes, dashes on a calm page, trailing dots, sentences opening on And/But/Or, negated perception; a page is heavy at
+  five and twelve to a thousand narration words; the line NAMES the kinds the newest heavy page leans on, from fixed
+  words), paras (four paragraphs running that open on a known name or He/She/They), speeches (one spoken stretch of six
+  sentences), thoughts (more than two private thoughts a page). 28 laws: 18 statements, 10 counted.
+- EVERY STATEMENT NOW NAMES A SLIP (mine, world and tone asked the other way round at M636 — two senses of a number in
+  one question sheet is how a checker answers one of them backwards): a high number is the slip, for every law. A
+  reading carries v:2; M636's readings are not readings of these laws and are never counted (M636-3).
+- THE CHECKER IS TOLD: a slip is there only where it could point at the lines that show it; what one of his commands
+  (#…) allows, by the notes after his move, is allowed.
+- THE ORDER: tier 1 — mine, ahead, knows, world — is said first when due. Among the rest, the law said LONGEST AGO (never
+  said before all), so with several slipping each has its turn and none starves; the table's order breaks ties.
+- TWO TURNS OF QUIET AFTER ANY LINE (SENSOR_GAP): a correction needs room to show, and a line a page is the "injected
+  lint" of M321. Try again of the turn a line was said on is still told that same line, whatever else slips.
+- EVERY LINE ENDS WITH THE CRAFT'S DRIFT RECOVERY (TAIL / TAIL_OWN): "The pages we have stand as they are — nothing to
+  fix or explain, just from here on." Without it a corrected storyteller explains itself on the page or swings to the
+  other side (accord → pushed → accord).
+- A SMALL STORYTELLER (`small`, from smallModelNow) is never told quiet, talky, sounds or phrases: its planner and its
+  brake mind those (M510, M519) — `notSmall`, no longer borrowed law names in `covered`.
+- TRIED ON REAL-LOOKING PROSE, NOT ONLY FIXTURES (two faults found that way): a short one-beat page with fourteen banned
+  turns in ninety-eight narration words did not count (a 150-word floor — gone; five turns is five turns); "He did not
+  answer, but his jaw set" counted as the swivel (the pattern now needs the contrast's own shape). A clean page of the
+  same scene counts zero.
+- LAWS: m356.mjs M636-3 (an old-sense reading is none), M636-4 (every statement slips high; the absolute laws first;
+  longest-ago; the two-turn gap; Try again against a weightier law; the tail), M636-5 (paras, speeches, thoughts,
+  constructs — counted in narration only, dashes only when calm, the kinds named, nothing quoted; the swivel's shapes; a
+  short heavy page; small), M636-8 (every line's voice, its law, its shape; the tails; the four absolute laws). WALK
+  DOM-75 runs the new decision through the app (the own-words turn carries the tail).
+- NOT DONE, AND WHY: no run against a real model (no key in the session); the counted thresholds are from his craft's
+  own numbers and from prose written here to look like a drifting page, not from his pages. Left out on purpose:
+  page-length sameness (a reminder about length invites padding), slop names and banned words (his word at M510-29),
+  a check before the page (it would add a wait to every send), and anything that asks for an event.
+- version.js -> m637-001.
+- GATES at m637-001 (one CPU), on the tree that was pushed: harness 1244/1244, walk 231/231, long play 9/9, lint 0 errors
+  (175 warnings, the count at m635), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.

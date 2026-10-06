@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m636-001)
+# Cozy Tavern — handoff for the next session (state at m637-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -14,8 +14,15 @@
   right before his message, each law's `own` form). The fallbacks are the house's: no page to stand beside, a reasoner,
   or a house remembered as taking no two turns of one role (userfirst.js twinsRefused — learned from its refusal, the
   same turn goes again folded).
-- A new sensor needs: its law's name, `covers` if the house's eye or the small storyteller's planner already minds that
-  law, a `word` and an `own` that pass M636-8, and a true/false pair in M636-5 (counted) or a slot in the walk's scores.
+- M637 (the same day, his "give the final perfected version"): 28 laws (18 read by the checker, 10 counted), EVERY
+  STATEMENT NAMES A SLIP (high = the slip; a reading carries v:2 and an older one is ignored), tier 1 (mine, ahead,
+  knows, world) said first and the rest by who was said longest ago, TWO TURNS OF QUIET after any line (SENSOR_GAP), and
+  every line ends with the craft's Drift Recovery (TAIL: the pages stand, nothing to fix or explain). A decisions model
+  needs no mode: put its connection on the sensors' row (known by model name or address; a provider that refuses a web
+  page goes through the house relay like any other).
+- A new sensor needs: its law's name, `covers` if the house's eye already minds that law, `notSmall` if the small
+  storyteller's planner or brake does, a `word` and an `own` that pass M636-8, and a true/false pair in M636-5 (counted)
+  — try a counted measure on real-looking prose before trusting a fixture (the swivel counted "did not answer, but…").
 - A test fixture that repeats itself is caught by the phrases sensor (it was, twice): give fixture pages their own words.
 - Not run against a real provider in that session (no key there). If he reports a reading that looks wrong, replay the
   page's kept request through readPage with callLLM logging the ask — do not ask him to look at anything.

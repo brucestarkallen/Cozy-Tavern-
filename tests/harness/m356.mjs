@@ -8,7 +8,7 @@ import { db } from '../../js/store.js';
 import {
   SENSORS, MODEL_SENSORS, sensorById, sensorShape, decisionsUrl, decisionsBody, decisionsState, decisionsRoom, chatAsk, readAnswers,
   packageFromRequest, packageFromPages, fitPackage, readPage, senseOf, sensePatch, dueSensor, sensorWordForTurn, loadSensors,
-  sensorLine, openingKind, closingKind, impactCount,
+  sensorLine, openingKind, closingKind, impactCount, nameRun, longSpeeches, thoughtCount, constructsOf, TAIL, TAIL_OWN, SENSOR_GAP,
 } from '../../js/agents/sensors.js';
 import { buildRequest } from '../../js/assemble/stack.js';
 import { PRESETS, normalizeBaseUrl } from '../../js/providers/index.js';
@@ -28,7 +28,7 @@ const filler = (seed, n = 1100) => {
   return out.trim();
 };
 const page = (open, seed, close = '') => HEAD + '\n\n' + open + ' ' + filler(seed) + (close ? '\n\n' + close : '');
-const fine = { mine: 0.95, knows: 0.05, world: 0.95, accord: 0.05, pushed: 0.05, held: 0.05, same: 0.05, swap: 0.05, tone: 0.9 };
+const fine = Object.fromEntries(MODEL_SENSORS.map((s) => [s.id, 0.05])); /* every statement names a slip: low is no slip */
 const reads = (list) => list.map((scores, i) => ({ text: page(['The gate stood.', 'Kaelen laughed.', '“So,” she said.', 'It rained.'][i % 4], i + 1), scores }));
 const base = { story: { brief: '' }, state: null, modules: [], memory: '', cast: [], lore: '', loreFired: [], window: { keeperOn: false, window: 30, budgetTokens: 100000 }, directive: '', directorNote: '', editorEye: '', ruling: '' };
 
@@ -124,9 +124,11 @@ test('M636-3 A READING LIVES ON THE PAGE IT READ: under the version read, for th
   eq(senseOf(two, 0, text).mine, 0.9, 'the first version keeps its own');
   eq(senseOf(two, 1, 'Another take.').mine, 0.2, 'and the second its own');
   eq(senseOf({ id: 'x' }, 0, text), null, 'a page never read');
+  const older = sensePatch({ id: 'a2' }, 0, text, { mine: 0.95 }); delete older.sense[0].v;
+  eq(senseOf(older, 0, text), null, 'a reading made when a high number meant “his character was left to him” is not a reading of these laws');
 });
 
-test('M636-4 WHICH LAW IS DUE: one page earns nothing, several pages earn ONE fixed line; calm pages earn none; it rests, repeats on Try again, and stops when nothing changes', async () => {
+test('M636-4 WHICH LAW IS DUE: one page earns nothing, several pages earn ONE fixed line; calm pages earn none; the absolute laws first, then the one said longest ago; after any line two turns of quiet; it rests, repeats on Try again, and stops when nothing changes', async () => {
   eq(sensorById('cost'), null, 'no sensor asks for a cost');
   eq(sensorById('tension'), null, 'and none asks for something at stake');
   const calm = reads([fine, fine, fine, fine, fine, fine]);
@@ -137,15 +139,34 @@ test('M636-4 WHICH LAW IS DUE: one page earns nothing, several pages earn ONE fi
   const three = reads([fine, bad, fine, bad, fine, bad]);
   const due = dueSensor({ pages: three }).due;
   eq(due.id, 'accord', 'three of the last five: the law is due');
-  eq(due.word, sensorById('accord').word, 'its own fixed line, in the writer’s voice');
-  eq(due.own, sensorById('accord').own, 'and the same law as the storyteller’s own words');
+  assert(due.word.startsWith(sensorById('accord').word) && due.word.endsWith(TAIL), 'its own fixed line in the writer’s voice, and with it that the pages stand — nothing to fix or explain: ' + due.word);
+  assert(due.own.startsWith(sensorById('accord').own) && due.own.endsWith(TAIL_OWN), 'and the same as the storyteller’s own words');
   eq(dueSensor({ pages: reads([bad, bad, bad, fine, fine, fine]) }).due, null, 'a slip that has already stopped (the newest two pages clean) is not said');
   eq(dueSensor({ pages: reads([null, null, null, null, null, null]) }).due, null, 'pages with no reading are never a slip');
   eq(dueSensor({ pages: reads([fine, { accord: 0.5 }, { accord: 0.5 }, { accord: 0.5 }, { accord: 0.5 }, { accord: 0.5 }]) }).due, null, 'a checker that could not tell (0.5) says nothing');
-  const both = { ...fine, accord: 0.9, mine: 0.1 };
-  eq(dueSensor({ pages: reads([fine, both, fine, both, both, both]) }).due.id, 'mine', 'two laws slipping: only the weightier is said');
-  eq(dueSensor({ pages: reads([fine, both, fine, both, both, both]), covered: ['Ghost Dialogue'] }).due.id, 'accord', 'a law the house’s eye already speaks of this turn is not said twice');
-  /* it rests after it is said; the same turn asked again is told the same thing; pages taken back unsay it */
+  /* every statement names a slip: for every law, a high number on page after page is that law due — and nothing else */
+  for (const s of MODEL_SENSORS) { const slip = { ...fine, [s.id]: 0.95 }; eq(dueSensor({ pages: reads([slip, slip, slip, slip, slip, slip]) }).due.id, s.id, s.id + ' is said when it slips'); }
+  /* the absolute laws first */
+  const both = { ...fine, accord: 0.9, mine: 0.9 };
+  const bothPages = reads([fine, both, fine, both, both, both]);
+  eq(dueSensor({ pages: bothPages }).due.id, 'mine', 'his character before anything else');
+  eq(dueSensor({ pages: bothPages, covered: ['Ghost Dialogue'] }).due.id, 'accord', 'a law the house’s eye already speaks of this turn is not said twice');
+  /* among the others: the one said longest ago, so every slipping law has its turn */
+  const two = { ...fine, accord: 0.9, pushed: 0.9 };
+  const twoPages = reads([two, two, two, two, two, two]);
+  eq(dueSensor({ pages: twoPages, index: 20 }).due.id, 'accord', 'neither said yet: the weightier');
+  eq(dueSensor({ pages: twoPages, index: 20, said: { accord: { at: 2, runs: 1 } } }).due.id, 'pushed', 'the one never said goes before the one that was');
+  eq(dueSensor({ pages: twoPages, index: 20, said: { accord: { at: 2, runs: 1 }, pushed: { at: 9, runs: 1 } } }).due.id, 'accord', 'both said: the one said longest ago');
+  const withKnows = reads(Array.from({ length: 6 }, () => ({ ...two, knows: 0.9 })));
+  eq(dueSensor({ pages: withKnows, index: 20, said: { knows: { at: 15, runs: 1 } } }).due.id, 'knows', 'an absolute law past its rest goes before them all, however lately it was said');
+  /* after ANY line, two turns of quiet */
+  eq(SENSOR_GAP, 2, 'two turns');
+  eq(dueSensor({ pages: twoPages, index: 11, said: { accord: { at: 10, runs: 1 } } }).due, null, 'the turn after a line: nothing, though another law slips');
+  eq(dueSensor({ pages: twoPages, index: 12, said: { accord: { at: 10, runs: 1 } } }).due, null, 'nor the turn after that');
+  eq(dueSensor({ pages: twoPages, index: 13, said: { accord: { at: 10, runs: 1 } } }).due.id, 'pushed', 'then the next law has its turn (the first still rests)');
+  /* the same turn asked for again is told the same thing — even when a weightier law slips too */
+  eq(dueSensor({ pages: bothPages, index: 10, said: { accord: { at: 10, runs: 1 } } }).due.id, 'accord', 'Try again of the turn accord was said on: accord again');
+  /* a law rests after it is said; pages taken back unsay it; three times unchanged and it stops */
   eq(dueSensor({ pages: three, index: 6, said: { accord: { at: 6, runs: 1 } } }).due.id, 'accord', 'Try again of the same turn: the same line');
   eq(dueSensor({ pages: three, index: 7, said: { accord: { at: 6, runs: 1 } } }).due, null, 'the next page: it rests');
   eq(dueSensor({ pages: three, index: 12, said: { accord: { at: 6, runs: 1 } } }).due, null, 'still resting on the last page of its rest');
@@ -163,7 +184,7 @@ test('M636-4 WHICH LAW IS DUE: one page earns nothing, several pages earn ONE fi
   eq(await sensorWordForTurn(st.id, { pages: three, index: 7 }), null, 'and the next turn: nothing');
   eq(await sensorWordForTurn(st.id, { pages: calm, index: 8 }), null, 'nothing slipping: nothing said');
   eq((await loadSensors(st.id)).said.accord.runs, 0, 'and the slip is noted as cleared');
-  assert(/easy agreement \.90/.test(sensorLine(bad)) && /his to play \.95/.test(sensorLine(bad)), 'a reading reads in a line: ' + sensorLine(bad));
+  assert(/easy agreement \.90/.test(sensorLine(bad)) && /his to play \.05/.test(sensorLine(bad)), 'a reading reads in a line: ' + sensorLine(bad));
   /* a story the first build left a line waiting on: that line is never said, and what it kept is let go */
   const old = await db.stories.create({ title: 'from the first build' });
   await db.settings.set('sensors:' + old.id, { readings: { cost: [0.1, 0.1] }, spoken: {}, word: 'Nothing has cost him anything for a while now — let something go against him, and let it stand.', wordFrom: 'cost', pageWord: '' });
@@ -204,7 +225,7 @@ test('M636-5 WHAT THE HOUSE COUNTS BY ITSELF: how the pages open and close, the 
   eq(sensorById('quiet').test({ texts: silent, others: false }), false, 'alone, silence is not a slip');
   const hushed = silent.map((text) => ({ text, scores: fine }));
   eq(dueSensor({ pages: hushed, others: true }).due.id, 'quiet', 'said, with people here');
-  eq(dueSensor({ pages: hushed, others: true, covered: ['Dialogue Ratio', 'Sound As Onomatopoeia'] }).due, null, 'a small storyteller’s talk and sounds are its own planner’s to mind — never asked for here against them');
+  eq(dueSensor({ pages: hushed, others: true, small: true }).due, null, 'a small storyteller’s talk and sounds are its own planner’s to mind — never asked for here against them');
   eq(sensorById('talky').test({ texts: chatty }), true, 'four pages of almost nothing but talk');
   eq(sensorById('talky').test({ texts: silent }), false, 'and not the quiet ones');
   /* a blow with no sound */
@@ -222,6 +243,46 @@ test('M636-5 WHAT THE HOUSE COUNTS BY ITSELF: how the pages open and close, the 
   const said = dueSensor({ pages: wornPages.map((text) => ({ text, scores: fine })) }).due;
   eq(said.id, 'phrases', 'and it is the law said');
   for (const w of worn) assert(!said.word.includes(w.slice(0, 20)) && !said.own.includes(w.slice(0, 20)), 'the worn words are never quoted back');
+  eq(dueSensor({ pages: wornPages.map((text) => ({ text, scores: fine })), small: true }).due, null, 'a small storyteller’s planner already names its worn phrases — not said twice');
+  /* paragraph after paragraph opening on a name */
+  const named = (i) => HEAD + '\n\n' + ['Kaelen crossed the yard, take ' + i + '.', 'He set the bucket down.', 'Mira watched him from the step.', 'She said nothing for a while.', 'Kaelen wiped his hands.'].map((open, k) => open + ' ' + filler(i * 10 + k, 200)).join('\n\n');
+  const mixed = (i) => HEAD + '\n\n' + ['Kaelen crossed the yard, take ' + i + '.', 'The bucket rang on the stones.', 'Mira watched him from the step.', '“Well?” she said.', 'Rain came on.'].map((open, k) => open + ' ' + filler(i * 10 + k, 200)).join('\n\n');
+  eq(nameRun(named(1), ['Kaelen Voss', 'Mira']), 5, 'five paragraphs running open on a name or He / She');
+  eq(nameRun(mixed(1), ['Kaelen Voss', 'Mira']), 1, 'paragraphs that begin in different ways have no run');
+  eq(sensorById('paras').test({ texts: [named(1), named(2), mixed(3), named(4)], names: ['Kaelen Voss', 'Mira'] }), true, 'three of the last four pages');
+  eq(sensorById('paras').test({ texts: [named(1), mixed(2), mixed(3), named(4)], names: ['Kaelen Voss', 'Mira'] }), false, 'two is not a habit');
+  /* speeches */
+  const speech = (n) => '“' + Array.from({ length: n }, (_, k) => 'This is sentence number ' + (k + 1) + ' of what she has to say about the harvest.').join(' ') + '”';
+  eq(longSpeeches(page('It rained.', 1) + '\n\n' + speech(7)), 1, 'seven sentences with no beat is a speech');
+  eq(longSpeeches(page('It rained.', 1) + '\n\n' + speech(3) + ' She shrugged. ' + speech(3)), 0, 'two to four, a beat, two to four is how people talk');
+  eq(sensorById('speeches').test({ texts: [1, 2, 3, 4].map((i) => page('It rained.', i) + '\n\n' + speech(i === 2 ? 3 : 7)) }), true, 'speeches on three of the last four pages');
+  eq(sensorById('speeches').test({ texts: [1, 2, 3, 4].map((i) => page('It rained.', i) + '\n\n' + speech(3)) }), false, 'none: nothing');
+  /* private thoughts */
+  const thinks = (n) => page('It rained.', n) + '\n\n' + Array.from({ length: n }, (_, k) => '~t~*Thought ' + k + ' of hers.*~/t~ She looked away.').join(' ');
+  eq(thoughtCount(thinks(3)), 3, 'three private thoughts counted');
+  eq(sensorById('thoughts').test({ texts: [thinks(3), thinks(4), thinks(2), thinks(3)] }), true, 'more than two a page on three of the last four');
+  eq(sensorById('thoughts').test({ texts: [thinks(2), thinks(2), thinks(1), thinks(2)] }), false, 'two at most is the law kept');
+  /* the turns kept out of the narration — counted in the narration alone, dashes only on a calm page */
+  const turns = 'He was not angry, but tired. She waited — then left — without a word. And the door closed. But nobody moved. The lamp was not bright, but it held.';
+  const leaning = (i) => page('It rained.', i) + '\n\n' + turns;
+  const c = constructsOf(leaning(1));
+  eq([c.swivel, c.dashes, c.starts, c.heavy].join(','), '2,2,2,true', 'two “not this, but that”, two dashes, two sentences opening on And / But: a heavy page');
+  eq(constructsOf(page('It rained.', 1) + '\n\n“' + turns + '”').total, 0, 'the same turns in someone’s mouth are theirs — not counted');
+  const loud = constructsOf(leaning(1) + ' *CRACK!* *THUD!*');
+  eq(loud.dashes + ',' + loud.heavy, '0,false', 'where sounds are on the page, dashes are the craft’s own braiding — not counted');
+  eq(constructsOf(page('It rained.', 1)).heavy, false, 'plain narration is not heavy');
+  eq(constructsOf(HEAD + '\n\nHe did not answer, but his jaw set. She could not help but smile. Nothing but rain fell.').swivel, 0, 'an ordinary “did not…, but…” is not the turn');
+  eq(constructsOf(HEAD + '\n\nIt wasn’t anger. It was something quieter. The yard was not empty, but it felt that way. He came not with a threat but with a promise.').swivel, 3, 'the contrast set up to be knocked down is — in each of its shapes');
+  /* a short one-beat page, as real drifting narration reads */
+  const beat = HEAD + '\n\nThe morning was not cold, but it carried a weight — the kind that settled in the chest and stayed. Rukia did not look at him. She set the ledger down — carefully, deliberately — and squared its corners.\n\nIt wasn’t anger. It was something quieter. And it was worse.\n\nRenji shifted his weight... then stopped. But the silence stretched.';
+  const b1 = constructsOf(beat);
+  eq(b1.heavy, true, 'a short page thick with them is heavy: ' + JSON.stringify(b1));
+  eq(constructsOf(HEAD + '\n\nRukia set the ledger on the rail and squared its corners with two fingers. Below, the recruits ran the long side of the yard in pairs. A bell rang twice from the gate tower.\n\n“You are late,” she said.').total, 0, 'and clean narration has none');
+  eq(sensorById('constructs').test({ texts: [leaning(1), page('It rained.', 2), leaning(3), leaning(4)] }), true, 'heavy on three of the last four pages');
+  const told = dueSensor({ pages: [leaning(1), page('It rained.', 2), leaning(3), leaning(4)].map((text) => ({ text, scores: fine })) }).due;
+  eq(told.id, 'constructs', 'and it is the law said');
+  assert(told.word.includes('the “not this, but that” turn') && told.word.includes('dashes where nothing is racing') && told.word.includes('sentences that open on And or But') && !told.word.includes('trailing dots'), 'naming the turns the newest page leans on, and only those: ' + told.word);
+  assert(!told.word.includes('not angry') && !told.own.includes('not angry'), 'in fixed words — nothing of the page is quoted back');
 });
 
 test('M636-6 THE ONE LINE, IN THE ROLE HE CHOSE: after his message as it ships; a system or a user message; or the storyteller’s own words right before his message — never last, and nothing at all when nothing is due', () => {
@@ -261,10 +322,14 @@ test('M636-8 EVERY LINE A SENSOR CAN SAY READS AS THE WRITER’S OWN NOTE, OR AS
       assert(!persona.test(line), s.id + ' names the machinery: ' + line);
       assert(!/\n/.test(line), s.id + ': one line');
     }
-    assert(/^I |^My |^People have hardly spoken on my|^Something in my/.test(s.own), s.id + ': its own-words form is the storyteller speaking: ' + s.own);
-    assert(!/\bI have been\b|\bmy last pages\b/i.test(s.word), s.id + ': the writer’s form is the writer speaking: ' + s.word);
+    assert(/\bI (?:have|keep|hold|am|show|open|stop|vary|check)\b|\bMy (?:last pages|narration)\b|\bmy last pages\b/.test(s.own), s.id + ': its own-words form is the storyteller speaking: ' + s.own);
+    assert(!/\bI have been\b|\b[Mm]y last pages\b|\bMy narration\b|\byour (?:character|brief|move)\b/.test(s.word), s.id + ': the writer’s form is the writer speaking: ' + s.word);
+    assert(typeof s.law === 'string' && s.law.length > 3, s.id + ' is a law of his craft, by name');
+    if (s.kind === 'model') assert(s.op === 'above' && s.line >= 0.6 && s.need >= 2 && s.window >= s.need && s.rest >= 3, s.id + ': a statement that names a slip, said only when it shows on several pages');
   }
+  for (const tail of [TAIL, TAIL_OWN]) assert(!persona.test(tail) && /nothing to fix or explain/.test(tail), 'what is said with every line: the pages stand');
   eq(new Set(SENSORS.map((s) => s.id)).size, SENSORS.length, 'every sensor has its own name');
+  eq(SENSORS.filter((s) => s.tier === 1).map((s) => s.id).join(','), 'mine,ahead,knows,world', 'the absolute laws: his character, his move, what people can know, what is true');
 });
 
 test('M636-7 A HOUSE THAT TAKES NO TWO TURNS OF ONE ROLE IN A ROW says so once, is remembered, and the same turn goes again with the neighbours as one message', async () => {

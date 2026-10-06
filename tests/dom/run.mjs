@@ -4122,7 +4122,8 @@ test('DOM-75 THE SENSORS IN THE APP (M356, rebuilt at M636): off, nothing is ask
   const priorStory = house.state.storyAnswer;
   const sysOfBody = (body) => (Array.isArray(body && body.messages) ? body.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n') : '');
   const isChecker = (body) => /You judge a page of a story/.test(sysOfBody(body));
-  const fine = { mine: 0.95, knows: 0.05, world: 0.95, accord: 0.05, pushed: 0.05, held: 0.05, same: 0.05, swap: 0.05, tone: 0.9 };
+  const { MODEL_SENSORS } = await import('../../js/agents/sensors.js');
+  const fine = Object.fromEntries(MODEL_SENSORS.map((s) => [s.id, 0.05])); /* every statement names a slip: low is no slip */
   let scores = { ...fine, accord: 0.9 };
   const lines = ['The cart rolled out at dawn.', 'A gull took the bread and nobody minded.', 'Rain found the gutters first.', 'Somewhere a shutter banged twice.', 'The well rope creaked under its bucket.', 'Smoke leaned east over the tannery.', 'Two dogs argued about a bone.'];
   let told = 0;
@@ -4196,15 +4197,16 @@ test('DOM-75 THE SENSORS IN THE APP (M356, rebuilt at M636): off, nothing is ask
     role.value = 'assistant'; role.dispatchEvent(new env.window.Event('change', { bubbles: true }));
     await until(async () => (await db.settings.get('sensorsRole')) === 'assistant', 'the role kept', 5000);
     await closeSettings();
-    scores = { ...fine, mine: 0.1 };
+    scores = { ...fine, mine: 0.9 };
     await send('I say nothing at all.');
     await send('I keep saying nothing.');
     const own = await send('MOVE-OWN I look at the gate.');
     const msgs = tellerCall(own).body.messages;
-    const at = msgs.findIndex((m) => m.role === 'assistant' && m.content === mine.own);
+    const at = msgs.findIndex((m) => m.role === 'assistant' && String(m.content).startsWith(mine.own));
     assert(at > 0, 'the law rides as a turn of the storyteller’s own: ' + JSON.stringify(msgs.slice(-4).map((m) => m.role + ':' + String(m.content).slice(0, 50))));
     eq(msgs[at + 1].role, 'user', 'right before his message');
     assert(String(msgs[at + 1].content).includes('MOVE-OWN'), 'which follows it');
+    assert(/nothing to fix or explain on the page/.test(String(msgs[at].content)), 'with it, that the pages stand — nothing to fix or explain');
     assert(msgs[msgs.length - 1].role !== 'assistant', 'the request does not end on the storyteller’s words');
     assert(!JSON.stringify(msgs).includes(mine.word), 'and it is not said a second time after his message');
   } finally {
