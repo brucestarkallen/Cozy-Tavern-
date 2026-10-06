@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m642-001)
+# Cozy Tavern — handoff for the next session (state at m643-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -66,6 +66,10 @@
   writer. For who-knows-what it was CODE guessing a witness list from a fact's first word (M509-15, patched at M520 and
   M522); since M642 the page reader says "who" with every fact and code writes exactly that. Never add another keyword
   rule to publicMoment: a line the reader decided is not guessed over, and the old rule is only for a line with no "who".
+- A CODE RULE THAT OVERRULES A READER IS HELD TO HIS OWN PAGES. goneAtTheEnd (apply.js) may throw a reader's leaving away;
+  until M643 it did so on "Then she was gone, footsteps measured up the stairs" (a pronoun behind "Then", past a spoken
+  line). Before trusting such a rule, run it on a sentence of his, as he wrote it. And a reader's change must carry the
+  whole fact — a leaving says where they went ("to"), as a fact says who saw it ("who").
 - A GATE THAT FAILS ONCE AND PASSES ON A RERUN HAS NOT PASSED. Never write "timing", "rare" or "flaky" in these notes, and
   never push on the rerun: read the failing report against the state, make the failure happen on purpose, and only then
   call it the app's fault or the test's — and say which to the writer. M638 was pushed, and told to him as done, with

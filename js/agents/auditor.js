@@ -64,7 +64,7 @@ const CAST_CAP = 20000;
 const VOCABULARY = [
   'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30} — to the latest header line\'s own hour, or when the latest STORY page has none',
   'place.set {"type":"place.set","name":"the chapel"} — to the latest header line\'s own place, or when the latest STORY page has none',
-  'presence.enter {"type":"presence.enter","name":"NAME"} / presence.leave {"type":"presence.leave","name":"NAME"}',
+  'presence.enter {"type":"presence.enter","name":"NAME"} / presence.leave {"type":"presence.leave","name":"NAME","to":"where the pages show them going, said so it stands on its own — upstairs in the Wells house — and left out only when the pages show no sign of where"}', /* M643: whoever takes someone out of the scene says where they went */
   'mc.set {"type":"mc.set","name":"MAIN CHARACTER"} — only when the ledger has no main character',
   'body.injure {"type":"body.injure","name":"NAME","what":"…","sev":1-3} / body.heal {"type":"body.heal","name":"NAME","what":"…"}',
   'rel.set {"type":"rel.set","name":"…","p":..,"r":..,"s":..,"cause":"the brief says"} — only to restore a standing that is wrongly zero, or to zero one written for someone else',

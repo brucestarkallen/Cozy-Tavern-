@@ -16196,3 +16196,39 @@ from their own worker?" (At M520 he had asked the same of one audit: "can this b
 - GATES at m642-001 (one CPU), on the tree that was pushed: harness 1253/1253, walk 235/235, long play 9/9, lint 0 errors
   (179 warnings, as at m641), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each. That is the SECOND full run:
   the first failed DOM-75 once, which is the failure run down above (two causes found, both fixed, one a real fault).
+
+# M643 — she went upstairs, and her page said "last seen at the kitchen"
+His report: "Why — my MC's aunt leaving upstairs: 'Then she was gone, footsteps measured up the stairs, and the kitchen
+rearranged its weather around three of them.' But on the people: Now (elsewhere): last seen at Wells house kitchen,
+8 Mariner's Lane". Two faults, one behind the other; both run on his own sentence with the real functions before a line
+changed.
+- 1. THE READER'S LEAVING WAS THROWN AWAY BY CODE. extractTurn keeps a presence.leave only when goneAtTheEnd says the page
+  ends on that person going (M446). It looked at the last sentence that NAMES her and at the sentences after it only
+  while each BEGAN with a pronoun. His page names her ("Aunt Vera set her cup in the sink…"), has a spoken line, and
+  then tells the going as "Then she was gone, footsteps measured up the stairs": the run stopped at the spoken line and
+  at "Then" — goneAtTheEnd answered false, with and without the spoken line between. So on the ledger she stood in the
+  kitchen until another worker (the auditor) took her out later. Now the sentences after her name are still about her
+  when their telling — spoken words set aside — reaches she/he/they within its first words and names nobody else; a line
+  that is only speech is passed over. A walk across the room is still not a going; someone else's leaving after her
+  name is still not hers; out-and-back still ends with her here (law M643-3, nine cases).
+- 2. NOBODY COULD SAY WHERE SHE WENT. presence.leave carried a name and nothing else, for the page reader and the auditor
+  alike; apply wrote the one thing the house knew — "last seen at <the scene's ground>" (M304) — and left it to the world
+  agent to guess the rest on some later run. A separate offscreen.set was the only way to say it, a second change under
+  "be conservative" that a reader rarely writes. The fact now travels whole (as "who" does with a thing learned, M642):
+  presence.leave has "to" — where the page shows them going, said so it stands on its own ("upstairs in the Wells
+  house"; never "out", "away", or the scene's own ground) — and "doing" when the page says; extractor.js VOCABULARY and
+  the auditor's. apply.js seats them THERE, a real whereabouts (no lastSeen mark), and the ledger's line says "stepped
+  out of the scene — to upstairs in the Wells house". With no "to" (no sign of where, or it was he who walked away), a
+  "to" that is only the scene's ground, or an empty word, the sighting stands exactly as before.
+- On his example, before and after (the real apply): "Now (elsewhere): last seen at Wells house kitchen, 8 Mariner's
+  Lane" → "Now (elsewhere): upstairs in the Wells house, going up to bed".
+- LAWS: m588.mjs M643-1 (the seat for a "to"; the sighting for none / the ground / "away"; the main character never),
+  M643-2 (his page through extractTurn on a real provider call: the reader is told, the leaving is kept WITH its "to",
+  the ledger has her upstairs and the kitchen holds three), M643-3 (the rule itself). All 203 older laws that touch
+  leaving the scene stand. WALK DOM-236, his page through the app.
+- WHAT IS NOT HEALED BY ITSELF: a sighting already written (his aunt's line as it stands now) is moved on by the world
+  agent on its next run, as it always was, or let go when she walks back in; nothing re-reads the old page for it.
+- NOT DONE, AND WHY: not run against his worker's model (no key in the session).
+- version.js -> m643-001.
+- GATES at m643-001 (one CPU), on the tree that was pushed: harness 1256/1256, walk 236/236, long play 9/9, lint 0 errors
+  (179 warnings, as at m642), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.

@@ -8147,6 +8147,43 @@ test('DOM-235 WHO KNOWS WHAT IS WRITTEN AS THE PAGE READER DECIDED IT (M642 — 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-236 SOMEONE WHO GOES UPSTAIRS IS UPSTAIRS (M643 — his report: the page ends “Then she was gone, footsteps measured up the stairs…” and her page reads “last seen at Wells house kitchen”): the reader’s leaving is kept on a going told by a pronoun, it says where she went, and the ledger has her there', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { loadState } = await import('../../js/engine/state.js');
+  const { seatNowWords } = await import('../../js/engine/offscreen.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'up the stairs' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  let pages = 0; let toldWhere = false;
+  const H = '[Wells house kitchen, 8 Mariner’s Lane — Monday, March 3, 2025 | 21:';
+  house.state.storyAnswer = () => { pages += 1; return H + (40 + pages) + ' | rain | sweater | at the table]\n\n' + (pages === 1 ? 'Jovan sat at the kitchen table with Aunt Vera, Rias and Tom.' : 'Aunt Vera set her cup in the sink and looked at each of them in turn. “Lock the back door.” Then she was gone, footsteps measured up the stairs, and the kitchen rearranged its weather around three of them.'); };
+  house.state.workerAnswer = (body, sys) => {
+    const system = String(sys || '');
+    if (/THE LEDGER IS YOUNG/.test(system)) return JSON.stringify({ mutations: [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen, 8 Mariner’s Lane' }, ...['Jovan', 'Aunt Vera', 'Rias', 'Tom'].map((name) => ({ type: 'presence.enter', name })), { type: 'mode.snapshot', modes: [] }], resolved: [], here: ['Jovan', 'Aunt Vera', 'Rias', 'Tom'] });
+    if (/WHERE THEY WENT IS YOURS TO SAY, FROM THE PAGE/.test(system) && pages === 2) { toldWhere = true; return JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }, { type: 'presence.leave', name: 'Aunt Vera', to: 'upstairs in the Wells house', doing: 'going up to bed' }], resolved: [], here: ['Jovan', 'Rias', 'Tom'] }); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+  };
+  const settle = async (n) => { await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= n && !env.ctx.chat.isBusy(), 'page ' + n, 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); };
+  try {
+    type(q('#composer-input'), '#story a family supper at the Wells house'); submit(q('#composer'));
+    await settle(1);
+    type(q('#composer-input'), 'I say goodnight.'); submit(q('#composer'));
+    await settle(2);
+    assert(toldWhere, 'the page reader was told that where they went is its to say');
+    const led = (await loadState(st.id)) || {};
+    eq((led.present || []).map((p) => p.name).sort().join(','), 'Jovan,Rias,Tom', 'she is out of the scene — the kitchen holds the three of them');
+    const seat = (led.offscreen || {})['Aunt Vera'];
+    assert(seat && seat.lastSeen !== true, 'her whereabouts is a real one, not the house’s “last seen”: ' + JSON.stringify(seat));
+    eq(seatNowWords(seat, null).replace(/\s*\(as of[^)]*\)$/, ''), 'upstairs in the Wells house, going up to bed', 'and it reads as where the page sent her');
+  } finally {
+    house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-188 THE OPENING MOVES FEELINGS (M532 — his report: "every time, How they feel about you is empty and I need to rebuild the people, especially on #story"): the young ledger\'s reader is asked what the opening does to people\'s feelings — he saves Yuki, and her standing is there after the first page, no rebuild', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');

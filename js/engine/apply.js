@@ -551,15 +551,29 @@ const HANDLERS = {
      * where they went, earlier in this batch). The main character is never
      * seated. A take-back of the leaving takes this with it. */
     let seatAdded = null;
+    let went = '';
     if (!seatForPerson(state, before.name) && !isMc(state, before.name)) { /* M320 */
       const moved = state.groundWas && typeof state.groundWas === 'object' && state.groundWas.page === state.page && typeof state.groundWas.name === 'string' && state.groundWas.name.trim();
       const ground = moved ? state.groundWas.name.trim() : (state.place && typeof state.place.name === 'string' ? state.place.name.trim() : '');
-      state.offscreen = seat(state.offscreen, before.name, { location: ground || 'where the scene stood', activity: '', lastSeen: true }, clockMinutesOf(state), storyTurn(state));
+      /* M643: WHERE THEY WENT, WHEN THE PAGE SAID. His aunt's page ended "then she was gone, footsteps measured up the
+       * stairs" — and her page read "last seen at Wells house kitchen": the leaving carried a name and nothing else, so
+       * the house wrote the one thing it knew (where she was last seen) and left it to the world agent to guess the rest
+       * later. The reader that read the page now says it with the leaving ("to", and "doing" when the page says), and
+       * that is her whereabouts — a real one, not the house's sighting. With no "to" (the page showed no sign of where,
+       * or it was he who walked away), or a "to" that is only the scene's own ground, the sighting stands as before. */
+      const to = capText(m.to, 200);
+      const elsewhere = to && !(ground && samePlace(to, ground)) && !/^(?:out|away|off|gone|elsewhere|somewhere|nowhere|unknown)\.?$/i.test(to);
+      if (elsewhere) {
+        went = to.replace(/\.+$/, '');
+        state.offscreen = seat(state.offscreen, before.name, { location: went, activity: capText(m.doing, 200) }, clockMinutesOf(state), storyTurn(state));
+      } else {
+        state.offscreen = seat(state.offscreen, before.name, { location: ground || 'where the scene stood', activity: '', lastSeen: true }, clockMinutesOf(state), storyTurn(state));
+      }
       seatAdded = before.name;
     }
     const cause = capText(m.cause, 300);
     return {
-      words: before.name + ' stepped out of the scene' + (cause ? ' — ' + cause.replace(/\.+$/, '') : '') + '.',
+      words: before.name + ' stepped out of the scene' + (went ? ' — to ' + went : '') + (cause ? ' — ' + cause.replace(/\.+$/, '') : '') + '.',
       undo: { kind: 'presence.restore', before, index: at, ...(seatAdded ? { seatAdded } : {}) },
     };
   },
@@ -1763,7 +1777,18 @@ export function goneAtTheEnd(state, pageText, name) {
     if (!shownOnPage(s, sentences[i], name)) continue;
     const run = [sentences[i]];
     if (!someoneElse(sentences[i])) {
-      for (let j = i + 1; j < sentences.length && /^(?:she|he|they|her|his|their)\b/i.test(sentences[j]) && !someoneElse(sentences[j]); j += 1) run.push(sentences[j]);
+      /* M643: THE GOING IS OFTEN TOLD BY A PRONOUN, AND NOT AS THE SENTENCE'S FIRST WORD. His page: "Aunt Vera set her cup
+       * in the sink… “Lock the back door.” Then she was gone, footsteps measured up the stairs" — the run stopped at the
+       * spoken line and at "Then", her leaving was not seen, and the reader's own leave was thrown away: she stood in the
+       * kitchen on the ledger until another worker took her out pages later, with nowhere to put her. The sentences
+       * after her name are still about her when their telling (spoken words set aside) reaches "she / he / they" within
+       * its first words and names nobody else; a line that is only speech is passed over. */
+      for (let j = i + 1; j < sentences.length; j += 1) {
+        const told = narrationOf(sentences[j]).trim();
+        if (!told) continue;
+        if (someoneElse(sentences[j]) || !/^(?:\S+\s+){0,4}?(?:she|he|they|her|his|their)\b/i.test(told.replace(/^[\s“”"'‘’—–-]+/, ''))) break;
+        run.push(sentences[j]);
+      }
     }
     return run.some((t) => showsDeparture(t));
   }
