@@ -223,7 +223,11 @@ function systemPrompt({ mc, founding }) {
     : [
       'If the page opens with a bracketed header line — [Place — Day, Month DD, Year | HH:MM | weather |',
       'attire | position] — it is the truth for the hour (clock.set when the date or hour differs from',
-      'the ledger), the ground (place.set when it moved), and the main character\'s attire and position.',
+      'the ledger) and the ground (place.set when it moved). Its attire and position are the storyteller\'s',
+      'READING of the ledger, never a change on their own: write the main character\'s attire or position',
+      'only when this page or his move SHOWS it change (he changes, dresses, undresses, sits, moves) — a',
+      'header that names another outfit or place to stand with nothing changing on the page is the',
+      'header\'s slip; the ledger keeps what it holds.',
       '',
       'BEFORE YOU ANSWER, THE FOUR MOST OFTEN MISSED (every one of these',
       'was found by the auditor three turns late, in the writer\'s own tale):',

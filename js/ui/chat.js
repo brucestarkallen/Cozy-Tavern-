@@ -5649,7 +5649,9 @@ export function initChat(ctx) {
         try {
           const ground = state && state.place && typeof state.place.name === 'string' ? state.place.name : '';
           const untidied = full;
-          const tidied = tidyPage(full, { place: ground, mc: mcName(state) });
+          /* M626: his attire and position, as the ledger holds them before this page — for a header that left them out */
+          const mcEntry = (Array.isArray(state && state.present) ? state.present : []).find((p) => p && p.name && isMcAlias(state, p.name)) || {};
+          const tidied = tidyPage(full, { place: ground, mc: mcName(state), attire: typeof mcEntry.attire === 'string' ? mcEntry.attire : '', position: typeof mcEntry.position === 'string' ? mcEntry.position : '' });
           full = tidied.text;
           /* M510-34: what the finisher took off (an empty window, his storyteller's note to him at the end) is kept with the
            * page as its earlier words — the drawer lists it, and a tap puts it back */

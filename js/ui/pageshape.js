@@ -335,7 +335,37 @@ export function finishPage(text, { mc = '' } = {}) {
   return { text: page + (given.endsWith('\n') ? '\n' : ''), removed, did };
 }
 
-export function tidyPage(text, { place = '' , mc = '', finish = true } = {}) {
+/* M626: A STRAY OF ANOTHER SCRIPT GLUED TO THE FRONT OF AN ENGLISH WORD COMES OFF IN CODE — his: "sometimes there's stray
+ * Chinese or Japanese … basically normal alphabet with Chinese glued to 'eat'". A model trained on Chinese slips a token of
+ * its other language in front of the English word it meant ("吃eat"): the word itself is there, so the stray is noise and
+ * goes, here, with no model asked. Only that shape: one to four characters, right before a Latin letter, after a space or a
+ * mark (never inside a word), on a page that is Latin nearly whole (two hundred letters at least, four strays at most — a
+ * phrase a character speaks is longer, and stays). A stray that REPLACES a word ("to吃 the food") is not touched here: the
+ * house's eye names it and the mender writes the word it meant (M119). */
+const STRAY = '[\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Hangul}\\p{Script=Cyrillic}\\p{Script=Arabic}\\p{Script=Thai}\\p{Script=Hebrew}]';
+export function dropGluedStrays(text) {
+  const src = String(text == null ? '' : text);
+  const all = src.match(new RegExp(STRAY, 'gu')) || [];
+  if (!all.length || all.length > 4) return { text: src, changed: false };
+  if ((src.match(/\p{L}/gu) || []).length < 200) return { text: src, changed: false };
+  const out = src.replace(new RegExp('(?<![\\p{L}\\p{N}])' + STRAY + '{1,4}(?=\\p{Script=Latin})', 'gu'), '');
+  return { text: out, changed: out !== src };
+}
+
+/* M626: A HEADER THAT LEFT OUT THE MAIN CHARACTER'S ATTIRE AND POSITION GETS THEM FROM THE LEDGER — his: "sometimes it
+ * puts the header not detailed". The header is five fields — [Place — Date | HH:MM | weather | attire | position]; one that
+ * stops after the weather is given the two the ledger holds for him, the way a header that lost its place is given the
+ * ground (M340). Only a header of exactly three fields (where the two missing are surely those two); never a field written. */
+function withLedgerFields(inner, { attire = '', position = '' } = {}) {
+  const fields = String(inner).split('|').map((f) => f.trim());
+  if (fields.length !== 3) return null;
+  const clean = (v) => String(v || '').replace(/[[\]|\n]/g, ' ').replace(/\s+/g, ' ').trim();
+  const a = clean(attire), p = clean(position);
+  if (!a && !p) return null;
+  return [...fields, a || '—', p || '—'].join(' | ');
+}
+
+export function tidyPage(text, { place = '' , mc = '', finish = true, attire = '', position = '' } = {}) {
   /* M467: the window's marker in the exact form, whatever dressing the model gave it ("The World Beyond" bare, bold, a
    * heading) — marks only, the three words as they are — so the 🎨 box, the readers' cut and the lint all see it */
   const given = String(text == null ? '' : text);
@@ -344,8 +374,10 @@ export function tidyPage(text, { place = '' , mc = '', finish = true } = {}) {
   /* M510-34: the page finished — the empty or doubled window and the storyteller's note to him at the end, and nothing
    * else (never for an out-of-character answer: finish false) */
   const fin = finish ? finishPage(windowed, { mc }) : { text: windowed, removed: [], did: [] };
-  const src = fin.text;
+  const unglued = dropGluedStrays(fin.text); /* M626 */
+  const src = unglued.text;
   did.push(...fin.did);
+  if (unglued.changed) did.push('stray');
   const removed = fin.removed;
   const h = readHeader(src);
   if (!h) { /* M458/M476 — a text with no header keeps its line breaks here: this mend also runs over every stored page and
@@ -358,6 +390,7 @@ export function tidyPage(text, { place = '' , mc = '', finish = true } = {}) {
   let inner = h.inner;
   const ground = String(place || '').replace(/[\[\]|\n]/g, ' ').replace(/\s+/g, ' ').trim();
   if (h.missingPlace && ground) { inner = ground + ' — ' + inner; did.push('place'); }
+  { const filled = withLedgerFields(inner, { attire, position }); if (filled) { inner = filled; did.push('header'); } } /* M626 */
   if (!h.bracketed) did.push('brackets');
   let body = h.after.replace(/^\s*\n/, '').replace(/^\n+/, '');
   { const pp = partParagraphs(body); if (pp.changed) { body = pp.text; did.push('paragraphs'); } } /* M510-17: one mend, both branches */

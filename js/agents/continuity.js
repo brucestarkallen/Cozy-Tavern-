@@ -65,6 +65,11 @@ const SYSTEM_PROMPT = [
   'Drift is against what LASTS: the locked truths (hair,',
   'eyes, age, name, kin, origin, a scar), a wound the ledger holds open',
   'written as if it never was.',
+  /* M626: the header's own slip — his: "it puts the wrong outfit or position in the header" */
+  'THE HEADER LINE (the bracketed first line) is the storyteller\'s reading of the ledger, not story:',
+  'when its attire or position for the main character disagrees with what the ledger holds for him,',
+  'and neither this page nor his move shows any change (no dressing or undressing, no moving), that',
+  'is a slip of the header — a warn, `fix` giving the ledger\'s attire or position in a few words.',
   'WHO IS WHERE IS THE PAGE\'S: who stands in the scene, who came or went, and where the absent are follow',
   'the page — the house keeps them from it. Someone the page shows here is here; never a finding.',
   '',

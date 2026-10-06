@@ -15620,3 +15620,27 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   gets none, and the next page's pass looks, as before. Law M625-1 (fails on m624-001: the setting came back undefined).
 
 - GATES at m625-001 (one CPU): harness 1230/1230, walk 223/223, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.
+
+# M626 — his: "with a smaller flash model (~300B) the header is sometimes not detailed, with the wrong outfit or position —
+# fixed by mend page or what? And stray Chinese or Japanese in normal-alphabet text — a typo 'teat' for 'eat', or Chinese
+# glued to 'eat'."
+- WHY A WRONG ATTIRE STUCK: the page reader was told the header line "is the truth for … the main character's attire and
+  position" — so a small model's slip in the header went into the ledger, the next request's notes carried it, and the
+  next header repeated it (attire "persists until changed"). The header's PLACE and HOUR are still read in code
+  (headerMutations); its attire and position are now the storyteller's READING of the ledger, written as a change only when
+  the page or his move shows one (extractor.js, a later page's law; the young ledger's founding still takes them).
+- THE SLIP ON THE PAGE IS MENDED: the second reader (continuity.js) now names a header whose attire or position for the
+  main character disagrees with the ledger with no change shown on the page or in his move — a warn whose fix is the
+  ledger's words, mended by the mender like any other (his "mend page", by itself). Not in code: the ledger words an
+  outfit at length and the header in two to five words — only a reader can tell a slip from other wording.
+- A HEADER LEFT SHORT: a header that stops after the weather (three fields) is given his attire and position from the
+  ledger as it stood before the page, when the page lands (pageshape.js tidyPage, as a lost place is given the ground —
+  M340); a header that wrote them is never touched.
+- A STRAY OF ANOTHER SCRIPT GLUED TO THE FRONT OF AN ENGLISH WORD ("吃eat") comes off in code when the page lands (and in the
+  marks repair over stored pages): one to four characters, after a space or a mark, right before a Latin letter, on a page
+  Latin nearly whole (≥200 letters, ≤4 strays). A stray that REPLACES a word ("to吃 the food") is left for the house's eye
+  and the mender, who write the word it meant (M119); a phrase someone speaks (five or more) stays.
+- NOT CODE'S: a Latin typo like "teat" for "eat" is the model's sampling; no rule can tell it from a real word.
+- Laws M626-1/2 (fail on m625-001), M626-3 (the readers' requests carry the header rules).
+
+- GATES at m626-001 (one CPU): harness 1233/1233, walk 223/223, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.
