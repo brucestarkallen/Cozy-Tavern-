@@ -202,9 +202,19 @@ export function parseContinuityAnswer(raw) {
     if (!parsed) return { findings: [] };
     const list = parsed.findings;
     const findings = [];
+    /* M649 (the ledger audit, part six — nine kinds of answer through this door): A FINDING THAT FINDS NOTHING IS NOT A
+     * FINDING. "No continuity issues found.", "None", "The page is consistent with the ledger." and "Nothing drifted on
+     * this page." were each kept as a finding and shown under "Something drifted"; the same finding twice was kept
+     * twice. A real finding that merely begins with "No" ("No page shows Aunt Vera coming downstairs, yet…") is kept. */
+    const NOTHING_FOUND = /^(?:none|n\/?a|nil|nothing(?:\s+(?:drifted|to (?:report|flag|note)|found|wrong|amiss|new))?(?:\s+(?:on|in) this page)?|no\s+(?:continuity\s+|consistency\s+|canon\s+)?(?:issues?|problems?|errors?|drift|contradictions?|inconsistenc(?:y|ies)|findings?|concerns?)(?:\s+(?:were\s+|was\s+)?(?:found|detected|noted|here|to report))?(?:\s+(?:on|in) this page)?|(?:the|this) page is (?:fully |entirely )?consistent\b[^.]*|(?:all|everything) (?:is |looks |seems )?(?:consistent|in order|fine|good)\b[^.]*|(?:it |all )?checks out|consistent(?: with [^.]*)?)\.?$/i;
+    const seen = new Set();
     for (const item of list) {
       const words = cleanWords(item && item.words);
-      if (!words) continue;
+      /* …unless it goes on to say what IS wrong ("the page is consistent about the hour but puts the scene in the parlour") */
+      if (!words || (NOTHING_FOUND.test(words.trim()) && !/\b(?:but|though|although|except|however|yet|while|whereas)\b/i.test(words))) continue;
+      const sameAs = words.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+      if (seen.has(sameAs)) continue;
+      seen.add(sameAs);
       const finding = {
         words,
         severity: item && item.severity === 'warn' ? 'warn' : 'note',

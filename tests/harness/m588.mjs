@@ -697,3 +697,80 @@ test('M648-3 THE WORLD’S WORD KEEPS ONLY WHAT IS A LINE: one string is a list 
   eq(kept({ pressure: [], ripe: [], twb: { who: 'the clerk', where: 'the office', changed: 'I’m sorry, but I can’t continue this scene.' } }), ' //  // — // EMPTY', 'a window that is the worker excusing itself is no window');
   eq(kept({ pressure: ['Rias will not name the man who paid her', 'Nothing in the harbour moves without the clerk’s stamp'], ripe: [], twb: null }), 'Rias will not name the man who paid her | Nothing in the harbour moves without the clerk’s stamp //  // —', 'real lines that merely hold those words are kept');
 });
+
+/* M649 — the ledger audit, part six: the books' doors, and what the storyteller is told. */
+test('M649-1 THE ESSENTIALS KEEP THE LIST AND NOTHING AFTER IT: a refusal or a list that never starts is nothing; a preamble before it and chatter after it are not lines of it', async () => {
+  const { readEssentials } = await import('../../js/agents/essentials.js');
+  const list = ['(pages 1–6) Jovan reached the Wells house in rain and Aunt Vera took the bank letter from Rias.', '(pages 7–12) Tom swore to mend the roof before the storm; Rias owes the ferryman two coppers.'];
+  const want = list.map((l) => '- ' + l).join('\n');
+  eq(readEssentials(list.join('\n')), want, 'the list, as it is');
+  eq(readEssentials('Here are the essentials:\n\n' + list.join('\n')), want, 'a preamble before it is not a line of it');
+  eq(readEssentials(list.join('\n') + '\n\nLet me know if you’d like more detail on any of these!'), want, 'nor is chatter after it');
+  eq(readEssentials('- ' + list.join('\n- ') + '\n\nWould you like me to continue?'), want, 'bulleted, with a question after it');
+  eq(readEssentials('I’m sorry, but I can’t help with summarizing this content.'), '', 'a refusal is nothing');
+  eq(readEssentials('Could you provide the record you would like condensed?'), '', 'a question back is nothing');
+  eq(readEssentials('<think>[the list should start with pages]</think>\n' + list.join('\n')), want, 'its thinking is not its answer (M608)');
+});
+
+test('M649-2 WHAT THE STORYTELLER IS TOLD HOLDS NO BROKEN WORD: a ledger as a tale leaves it — full books, with the ragged edges real data has (an empty core, a seat with no place, a thread with no owner or next step, a standing on one axis) — is worded with no “undefined”, “null”, “NaN”, “[object Object]”, empty brackets or doubled dashes', async () => {
+  const { renderStateFacts, renderMasthead } = await import('../../js/engine/state.js');
+  const { renderWholeLedger } = await import('../../js/engine/whole.js');
+  const { renderPeopleTiers } = await import('../../js/engine/people.js');
+  const { renderWorldBrief } = await import('../../js/engine/world.js');
+  const st = applyMutations({ ...emptyState(), page: 40 }, [{ type: 'mc.set', name: 'Jovan Arden' }, { type: 'place.set', name: 'Wells house kitchen, 8 Mariner\u2019s Lane' }, { type: 'clock.set', year: 2025, month: 3, day: 3, hour: 21, minute: 40 },
+    { type: 'presence.enter', name: 'Jovan Arden', position: 'at the table', attire: 'a wet sweater' }, { type: 'presence.enter', name: 'Rias', position: 'at the stove' }, { type: 'presence.enter', name: 'Tom' },
+    { type: 'people.set', name: 'Rias', field: 'core', text: 'the ferryman\u2019s niece; quick, proud, counts every coin' }, { type: 'people.set', name: 'Rias', field: 'state', text: 'At the stove, stirring.' },
+    { type: 'people.set', name: 'Aunt Vera', field: 'core', text: 'runs the house' }, { type: 'people.note', name: 'Rias', field: 'thread', text: 'She still owes the ferryman two coppers.' },
+    { type: 'offscreen.set', name: 'Aunt Vera', location: 'upstairs in the Wells house', activity: '' }, { type: 'offscreen.set', name: 'Claire', location: '', activity: 'driving north' },
+    { type: 'rel.set', name: 'Rias', p: 30, r: 0, s: 0, cause: 'he paid her fare' }, { type: 'rel.shift', name: 'Tom', axis: 'p', delta: -5, cause: 'he broke the oar' },
+    { type: 'knowledge.add', name: 'Rias', fact: 'that Jovan carries a sealed letter from the bank' },
+    { type: 'thread.set', title: 'Who broke into the boathouse?', owner: 'Jovan Arden', heat: 'hot' }, { type: 'thread.set', title: 'The letter from the bank', owner: '', heat: 'cold', next: '' },
+    { type: 'body.injure', name: 'Jovan Arden', what: 'left hand cut', sev: 1, treated: true }, { type: 'body.strain', name: 'Tom', what: 'hauling nets since dawn' },
+    { type: 'thing.set', name: 'the sealed letter from the bank', where: 'in the dresser, locked', owner: 'Aunt Vera' }, { type: 'thing.set', name: 'the boathouse key', where: 'on the nail by the back door' },
+    { type: 'mode.snapshot', flags: [] }, { type: 'world.word', brief: { pressure: ['the storm is a day off'], ripe: [], twb: { who: 'the harbour clerk', where: '', changed: 'counted the tickets twice' } } }]).state;
+  const people = renderPeopleTiers(st, {});
+  const blocks = { 'the state of things': renderStateFacts(st, {}), 'the masthead': renderMasthead(st), 'the people': typeof people === 'string' ? people : JSON.stringify(people), 'the world’s word': renderWorldBrief(st.worldBrief, st.turn, st.page, st), 'the whole ledger': renderWholeLedger(st) };
+  for (const [name, text] of Object.entries(blocks)) {
+    const t = String(text == null ? '' : text);
+    assert(t.length > 40, name + ' is worded at all');
+    const broken = t.match(/undefined|\bnull\b|\bNaN\b|\[object Object\]|\(\s*\)|—\s*—|,\s*,|\(\s*,|,\s*\)/);
+    assert(!broken, name + ' holds a broken word: “' + (broken ? t.slice(Math.max(0, broken.index - 40), broken.index + 30) : '') + '”');
+  }
+  /* and the things the audit set right read as they should */
+  assert(/Close by[^\n]*\n- Aunt Vera — upstairs in the Wells house/.test(blocks['the state of things']), 'Aunt Vera, upstairs, is close by — not in the room');
+  assert(/Elsewhere: Claire — driving north/.test(blocks['the state of things']), 'a seat with no place says what it knows');
+  assert(/- the sealed letter from the bank \(Aunt Vera’s\) — in the dresser, locked/.test(blocks['the state of things']), 'the letter, where it is and whose');
+});
+
+test('M649-3 THE AUDITOR’S WALK-IN, HELD TO THE PAGE THE SAME WAY: someone seated elsewhere whom the newest page brings in as “his aunt” is walked in when the auditor hands over the page’s words for it — and still not on a name the page only speaks, nor on words that are not there', async () => {
+  const { auditLedger } = await import('../../js/agents/auditor.js');
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  const { db } = await import('../../js/store.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const run = async (text, enter) => {
+    const story = await db.stories.create({ title: 'the aunt comes in ' + Math.random() });
+    await db.messages.append(story.id, { role: 'user', text: 'I look up.' });
+    await db.messages.append(story.id, { role: 'assistant', text: '[Wells house kitchen — Tuesday, March 4, 2025 | 07:10 | rain | sweater | at the table]\n\n' + text });
+    await saveState(story.id, applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rias' },
+      { type: 'people.set', name: 'Aunt Vera', field: 'core', text: 'runs the house' }, { type: 'offscreen.set', name: 'Aunt Vera', location: 'upstairs in the Wells house', activity: 'asleep' }]).state);
+    const answer = JSON.stringify({ issues: [{ what: 'Aunt Vera came into the kitchen and is still listed upstairs', fix: 'write her in', pages: false, mutations: [enter] }] });
+    await withHouse(thinkingHouse({ answer }), () => auditLedger({ connection: HOUSES[0].conn, storyId: story.id, brief: '' }));
+    const led = await loadState(story.id);
+    return (led.present.some((p) => p.name === 'Aunt Vera') ? 'here' : 'not here') + ' / ' + ((led.offscreen || {})['Aunt Vera'] ? 'still seated upstairs' : 'no elsewhere note');
+  };
+  const came = 'The back door opened and his aunt came in, shaking rain from her coat.';
+  eq(await run(came, { type: 'presence.enter', name: 'Aunt Vera', shown: 'his aunt came in, shaking rain from her coat' }), 'here / no elsewhere note', 'backed by the page’s words: she is in the kitchen');
+  eq(await run(came, { type: 'presence.enter', name: 'Aunt Vera' }), 'not here / still seated upstairs', 'unbacked, and not named in the telling: refused, as before');
+  eq(await run('Rias poured the tea. “Aunt Vera will be down soon,” she said.', { type: 'presence.enter', name: 'Aunt Vera', shown: 'Aunt Vera will be down soon' }), 'not here / still seated upstairs', 'talked about is not here');
+  eq(await run('Rias poured the tea and said nothing.', { type: 'presence.enter', name: 'Aunt Vera', shown: 'his aunt came in' }), 'not here / still seated upstairs', 'words that are not on the page are no evidence');
+});
+
+test('M649-4 A FINDING THAT FINDS NOTHING IS NOT A FINDING: the second reader’s “no issues”, “none”, “the page is consistent”, “nothing drifted” are not shown as something that drifted; the same finding twice is one; a real finding that begins with “No” is kept', async () => {
+  const { parseContinuityAnswer } = await import('../../js/agents/continuity.js');
+  const kept = (findings) => parseContinuityAnswer(JSON.stringify({ findings })).findings.map((f) => f.words);
+  for (const words of ['No continuity issues found.', 'None', 'none.', 'N/A', 'Nothing drifted on this page.', 'Nothing to report', 'No issues', 'No contradictions were found on this page', 'The page is consistent with the ledger and the brief.', 'Everything is consistent.', 'All consistent', 'It checks out.']) eq(kept([{ words, severity: 'note' }]).length, 0, 'finds nothing: ' + words);
+  const real = ['Rias speaks of the bank letter though no page shows her learning of it', 'No page shows Aunt Vera coming downstairs, yet she pours the tea', 'Nothing explains how Tom got down from the roof between two lines', 'Tom is at the stove though the ledger has him on the roof', 'The page is consistent about the hour but puts the scene in the parlour, not the kitchen'];
+  for (const words of real) eq(kept([{ words, severity: 'warn' }]).join(''), words, 'a real finding: ' + words.slice(0, 40));
+  eq(kept([{ words: 'N/A', severity: 'note' }, { words: real[3], severity: 'warn' }, { words: real[3] + '.', severity: 'warn' }, { words: 'No issues found', severity: 'note' }]).join(' | '), real[3], 'one real finding among nothings and its own echo: one finding');
+  eq(parseContinuityAnswer('I’m sorry, but I can’t review this content.').findings.length, 0, 'a refusal in words is no finding');
+});

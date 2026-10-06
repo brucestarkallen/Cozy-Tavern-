@@ -16436,3 +16436,54 @@ Continuing M644–M647 by the same method.
 - version.js -> m648-001.
 - GATES at m648-001 (one CPU), on the tree that was pushed: harness 1274/1274, walk 236/236, long play 9/9, lint 0 errors
   (179 warnings, as at m647), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
+
+# M649 — the ledger audit, part six: the books' doors, the second reader's, the auditor's walk-in, and what is told
+Continuing M644–M648 by the same method.
+- THE ESSENTIALS (essentials.js readEssentials): a refusal or a list that never starts was already nothing (its lines must
+  open "[" or "(pages …"); a preamble before the list was already passed over. But everything AFTER the first line was
+  kept: "Let me know if you'd like more detail on any of these!" became one more line of the essentials, read to the
+  small storyteller as story. Chatter at the foot of the list is let go.
+- THE PLANS AND THE CHOICES (plans.js readPlansAnswer, choices.js): shaped answers with required parts — a refusal or
+  chatter is no answer. Sound; nothing changed.
+- THE SECOND READER (continuity.js parseContinuityAnswer; nine kinds of answer): A FINDING THAT FINDS NOTHING WAS KEPT AS
+  ONE. "No continuity issues found.", "None", "N/A", "The page is consistent with the ledger and the brief.", "Nothing
+  drifted on this page." were each a finding under "Something drifted"; the same finding twice was two. They are
+  dropped and folded. A real finding that merely begins that way ("No page shows Aunt Vera coming downstairs, yet she
+  pours the tea"; "The page is consistent about the hour but puts the scene in the parlour") is kept.
+- THE AUDITOR'S WALK-IN (auditor.js, M535's guard): someone seated elsewhere could be walked in only if the newest page's
+  telling NAMED them — the fault M644 cured for the page reader ("his aunt came in") stood for the auditor. Its
+  presence.enter takes "shown" too, and words that are in the page's telling stand in for the name; talked about is
+  still not here.
+- WHAT THE STORYTELLER IS TOLD: a ledger built as a tale leaves it — full books, with the ragged edges real data has (an
+  empty core, a seat with no place, a thread with no owner or next step, a standing on one axis, a window with no
+  place) — worded through every block (the state of things, the masthead, the people, the world's word, the whole
+  ledger for the readers): no "undefined", "null", "NaN", "[object Object]", empty brackets or doubled dashes
+  anywhere. Nothing to fix; it is a law now.
+- THE KEEPER'S FOLD, READ: two lines are merged into one; a merge under two-fifths of its sources is asked once more,
+  stricter, and then what came is accepted (his Summaryception's own rule — left). Before M648 a refusal there was
+  "what came": both sources replaced by an apology. It is no line now, and "a merge of nothing is not a promotion" —
+  the sources stay.
+- LAWS (m588.mjs): M649-1 (the essentials' door), M649-2 (no broken word in anything told; and the audit's own cures
+  read right in it), M649-3 (through the auditor's whole call: backed, she is in the kitchen; unbacked or only spoken
+  of, refused), M649-4 (the second reader's door, both ways).
+- NOT AUDITED YET — the handoff's list (the referee and the seeder not at all). The audit is not finished and this entry
+  does not say it is.
+- TWO FAULTS OF MY OWN IN THIS PART, both caught before main:
+  1. The law M649-4 failed on the rule as first written ("The page is consistent about the hour BUT puts the scene in
+     the parlour" was taken for a finding of nothing) — and I started the gates anyway: the check's result was hidden
+     behind a pipe (`… | grep | cut && next`), so the chain went on. A finding that goes on to say what is wrong (but,
+     though, except, however, yet…) is kept. NEVER chain a commit or a gate run after a test through a pipe: write the
+     result to a file and test for "0 failed" outright. (And never `pkill -f` a pattern that is in the command's own
+     text — it killed its own shell.)
+  2. THE WALK THEN FAILED DOM-131 ("the page reader landed page two's hour"), on a tree and on main alike once the
+     machine was busy — not my change, and not "timing" to be rerun: run down by measurement. A scratch copy gave the
+     hour TWENTY SECONDS and it never came, six times of six: the scenario starts holding "every later reader" the
+     moment page one has settled — but settled() waits for the page and the house, not for page one's READERS; one of
+     them still out was the one held, and page two's page reader waited behind it in the chain for ever. A fault in
+     the scenario (the app's chain is one after another by design). It now waits for page one's readers before it
+     holds, and waits for the hour instead of looking after a fixed 300 ms: 6 of 6, three with the CPU kept busy. No
+     other scenario holds "everything from now on" (each of the rest holds by a mark of its own — checked).
+- version.js -> m649-001.
+- GATES at m649-001 (one CPU), on the tree that was pushed: harness 1278/1278, walk 236/236, long play 9/9, lint 0 errors
+  (179 warnings, as at m648), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each. That is the run AFTER the two
+  faults above were set right (the run before it failed DOM-131, which is the failure run down above).

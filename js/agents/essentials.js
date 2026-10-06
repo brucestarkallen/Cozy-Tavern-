@@ -78,7 +78,12 @@ export function readEssentials(raw, cap = ESSENTIALS_MAX_CHARS) {
   const lines = t.split('\n').map((l) => l.trim()).filter(Boolean);
   const first = lines.findIndex((l) => /^(?:[-*•]\s*)?\[/.test(l) || /^(?:[-*•]\s*)?\(pages?\s/i.test(l));
   if (first === -1) return '';
-  const kept = lines.slice(first).map((l) => (/^[-*•]\s*/.test(l) ? '- ' + l.replace(/^[-*•]\s*/, '') : '- ' + l));
+  /* M649 (the ledger audit, part six): what follows the list is not part of it — "Let me know if you'd like more detail." was
+   * kept as one more line of the essentials and read to the small storyteller as story */
+  const chatter = /^(?:[-*•]\s*)?(?:let me know|would you like|i hope (?:this|that)|feel free|if you(?:['’]d| would) like|is there anything|do you want me|that(?:['’]s| is) (?:the|all)|here (?:is|are) the|note:|end of (?:list|summary))\b/i;
+  const body = lines.slice(first);
+  while (body.length && chatter.test(body[body.length - 1])) body.pop();
+  const kept = body.map((l) => (/^[-*•]\s*/.test(l) ? '- ' + l.replace(/^[-*•]\s*/, '') : '- ' + l));
   let text = kept.join('\n');
   if (text.length < 80) return '';
   if (text.length > cap) { const cut = text.lastIndexOf('\n', cap); text = text.slice(0, cut > 0 ? cut : cap); }

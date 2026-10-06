@@ -31,7 +31,7 @@ import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, headerMutations } from '../engine/state.js';
-import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf, showsDeparture, goneAtTheEnd, quotedGoing, mcWalksOff } from '../engine/apply.js'; /* M444; M446: the departure reader, and who is gone at a page's end */
+import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf, showsDeparture, goneAtTheEnd, quotedGoing, toldOnPage, mcWalksOff } from '../engine/apply.js'; /* M444; M446: the departure reader, and who is gone at a page's end */
 import { findSeat } from '../engine/offscreen.js';
 import { findThread } from '../engine/world.js';
 /* M240: it was told to catch a healed wound and never shown the wounds.
@@ -64,7 +64,7 @@ const CAST_CAP = 20000;
 const VOCABULARY = [
   'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30} — to the latest header line\'s own hour, or when the latest STORY page has none',
   'place.set {"type":"place.set","name":"the chapel"} — to the latest header line\'s own place, or when the latest STORY page has none',
-  'presence.enter {"type":"presence.enter","name":"NAME"} / presence.leave {"type":"presence.leave","name":"NAME","shown":"the page\'s own words that show them going, copied exactly","to":"where the pages show them going, said so it stands on its own — upstairs in the Wells house — and left out only when the pages show no sign of where"}', /* M643: whoever takes someone out of the scene says where they went; M644: and by which words of the page */
+  'presence.enter {"type":"presence.enter","name":"NAME","shown":"the page\'s own words that show them here, copied exactly — needed when the telling does not use their name"} / presence.leave {"type":"presence.leave","name":"NAME","shown":"the page\'s own words that show them going, copied exactly","to":"where the pages show them going, said so it stands on its own — upstairs in the Wells house — and left out only when the pages show no sign of where"}', /* M643: whoever takes someone out of the scene says where they went; M644: and by which words of the page */
   'mc.set {"type":"mc.set","name":"MAIN CHARACTER"} — only when the ledger has no main character',
   'body.injure {"type":"body.injure","name":"NAME","what":"…","sev":1-3} / body.heal {"type":"body.heal","name":"NAME","what":"…"}',
   'rel.set {"type":"rel.set","name":"…","p":..,"r":..,"s":..,"cause":"the brief says"} — only to restore a standing that is wrongly zero, or to zero one written for someone else',
@@ -829,7 +829,9 @@ export function auditorScope(issues, state, { header = [], page = '' } = {}) {
     if (m.type === 'presence.enter' && typeof m.name === 'string' && page) {
       const told = narrationOf(scenePartOf(page));
       if (goneAtTheEnd(state, page, m.name)) return true;
-      if (findSeat(seats, m.name) && !shownOnPage(state, told, m.name)) return true;
+      /* M649: …shown there by name, or by the page's own words the auditor hands over ("his aunt came in" — the telling
+       * often does not use the name; the page reader's walk-in has stood on such words since M644) */
+      if (findSeat(seats, m.name) && !shownOnPage(state, told, m.name) && toldOnPage(page, m.shown).end === -1) return true;
     }
     if (m.type === 'presence.enter' && Array.isArray(state && state.present) && findPresent(state, m.name, { strict: true }) !== -1) return true; /* M444: "already here" asked the way entering asks it — Captain Kuchiki is not Rukia */
     if (m.type === 'people.set') {

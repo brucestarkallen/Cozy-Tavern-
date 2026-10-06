@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m648-001)
+# Cozy Tavern — handoff for the next session (state at m649-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -96,11 +96,17 @@
   a "now" sent straight to the ledger's door for someone seated elsewhere IS written — but the workers do not go
   through the door bare; the scribe's own path drops it (scribe.js, M130/M398) and the world agent's its own (M401).
   Probe a rule through the path that really calls it.
-  STILL TO AUDIT THE SAME WAY: the keeper's FOLD (memory.js — what a merge of lines keeps and drops, the shrink guard,
-  the window's edge) with a stand-in keeper; the world agent's threads and that a "last seen" note really is moved on
-  (its prompt and a stand-in answer, not only the door); the auditor's other refusals (auditor.js guards); the books
-  (essentials, plans, choices — each stores a model's text: feed each door a refusal and chatter, as the keeper's was);
-  the second reader's findings. Method that found every fault of M641–M644: do
+  PART SIX (M649): THE BOOKS' DOORS (essentials kept chatter after its list; plans and choices are JSON-shaped and take
+  no refusal — sound), THE SECOND READER'S DOOR ("no issues found" was kept as a finding), THE AUDITOR'S WALK-IN (given
+  the page's-own-words path the page reader's has), and WHAT THE STORYTELLER IS TOLD (every block worded from a ragged
+  ledger: no broken word — now a law). Read and left as designed: the keeper's fold accepts a merged line under the
+  shrink floor after one stricter retry (his Summaryception's own rule); a refusal there is now no line (M648), so the
+  sources stay.
+  STILL TO AUDIT THE SAME WAY: the keeper's fold run end to end with a stand-in keeper (the window's edge, promotions,
+  the self-audit's fixes); the world agent's threads and that a "last seen" note really is moved on (its prompt and a
+  stand-in answer); the auditor's remaining guards (auditor.js 740–900: each is a rule that overrules it — feed each
+  an ordinary case, as its leave and walk-in were); the referee and the seeder (the scene room's "ruling" and "how
+  they measure" were not touched by this audit at all). Method that found every fault of M641–M644: do
   not read the rule and nod — feed it thirty sentences as he writes them and count what it gets wrong.
 - A GATE THAT FAILS ONCE AND PASSES ON A RERUN HAS NOT PASSED. Never write "timing", "rare" or "flaky" in these notes, and
   never push on the rerun: read the failing report against the state, make the failure happen on purpose, and only then

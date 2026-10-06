@@ -6827,13 +6827,18 @@ test('DOM-131 TRY AGAIN WHILE THE OLD PAGE’S LATER READERS (world agent, scrib
     type(q('#composer-input'), 'I put the kettle on.'); submit(q('#composer'));
     await until(() => assistantPages().length >= 1 && !env.ctx.chat.isBusy(), 'page one', 20000);
     await settled();
+    /* M649 (found by running a failed gate down, not by rerunning it): settled() waits for the page and the house — NOT
+     * for page one's READERS. When one of them was still out as the holding began, it was the one held: page two's page
+     * reader waited behind it in the chain, the hour never landed (twenty seconds were given it, six times of six), and
+     * "a later reader of page two is out" was a reader of page one. The scenario means page two's readers: page one's
+     * are waited for first. */
+    { const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js'); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'page one’s readers', 40000); }
     /* page two: its page reader answers at once; its later readers are held */
     hour = ['09', '20']; who = 'Tobin Ashcombe'; holdLate = true;
     type(q('#composer-input'), 'I wait.'); submit(q('#composer'));
     await until(() => assistantPages().length >= 2 && !env.ctx.chat.isBusy(), 'page two', 20000);
     await until(() => heldCalls > 0, 'a later reader of page two is out', 20000);
-    await tick(300);
-    assert(/09:20/.test(renderClock((await loadState(st.id)).clock)), 'the page reader landed page two’s hour');
+    await until(async () => /09:20/.test(renderClock((await loadState(st.id)).clock)), 'the page reader landed page two’s hour', 20000); /* waited for, not looked at after a fixed 300 ms */
     /* Try again while they are still out (the app waits five seconds for them, then rewinds) */
     hour = ['09', '30']; who = 'Nell Pike'; holdLate = false;
     click(q('#btn-retry'));
