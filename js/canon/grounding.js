@@ -4128,17 +4128,21 @@ function hostScenePlace() {
  * a place canon does not know leaves NO setting — never a wrong one. Nothing is looked
  * up here (a header's words are no evidence of a wiki page), and nothing is announced.
  */
-function followHostPlace() {
-    const place = String(hostScenePlace() || "").trim();
-    let want = "";
-    if (place) {
-        const parts = [place, ...place.split(/\s*(?:—|–|,|;|\s-\s|\()\s*/).map(x => x.replace(/\)$/, "").trim())]
-            .map(x => x.replace(/^the\s+/i, "").trim()).filter(x => x.length >= 3);
-        for (const part of parts) {
-            const hit = cacheEntryFor(part.toLowerCase());
-            if (hit && (hit.entry.kind === "place" || PLACE_WORDS.test(hit.entry.name))) { want = hit.key; break; }
-        }
+/* M625: the setting a place names, in a canon memory — one answer for the turn (followHostPlace, over the live memory)
+ * and for a branch made from an earlier page (the app's bridge, over the copy it is making) */
+export function settingKeyIn(store, place, find = (n) => cacheEntryIn(store, n)) {
+    const p = String(place || "").trim();
+    if (!p) return "";
+    const parts = [p, ...p.split(/\s*(?:—|–|,|;|\s-\s|\()\s*/).map(x => x.replace(/\)$/, "").trim())]
+        .map(x => x.replace(/^the\s+/i, "").trim()).filter(x => x.length >= 3);
+    for (const part of parts) {
+        const hit = find(part.toLowerCase());
+        if (hit && (hit.entry.kind === "place" || PLACE_WORDS.test(hit.entry.name))) return hit.key;
     }
+    return "";
+}
+function followHostPlace() {
+    const want = settingKeyIn(null, hostScenePlace(), (n) => cacheEntryFor(n));
     if ((chatSettingKey() || "") !== want) setChatPin("canon_grounding_setting", want);
 }
 
@@ -6317,6 +6321,7 @@ const HOST_API = Object.freeze({
     last: () => ({ text: lastInjection, at: lastInjectionAt, source: lastSource, reasons: lastReasons.slice() }),
     cache: () => cache(),
     entryFor: (name) => cacheEntryFor(String(name || "").toLowerCase()),
+    settingKeyIn: (store, place) => settingKeyIn(store, place), /* M625 */
     entryIn: (store, name) => { const hit = cacheEntryIn(store, String(name || "").toLowerCase()); return hit ? { key: hit.key, entry: hit.entry } : null; },
     forget: (key) => forgetEntry(key),
     lookAgain: (key) => lookEntryUpAgain(key),

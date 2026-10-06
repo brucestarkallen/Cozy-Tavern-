@@ -925,7 +925,8 @@ export function mergeCanonTwins(cache) {
 export async function carryCanonMemory(fromId, toId, { fromTheTail = false } = {}) {
   if (!fromId || !toId) return false;
   /* M399: a branch keeps its story's own switch — on where the story had it on, off where it did not */
-  if (await canonOn(fromId)) await setCanonOn(toId, true);
+  const on = await canonOn(fromId);
+  if (on) await setCanonOn(toId, true);
   const live = metas.get(fromId);
   const saved = live || (await db.settings.get(canonMetaKey(fromId)));
   if (!saved || typeof saved !== 'object' || !Object.keys(saved).length) return false;
@@ -937,6 +938,20 @@ export async function carryCanonMemory(fromId, toId, { fromTheTail = false } = {
     if (arc && typeof arc === 'object' && arc.mode === 'begun') delete copy.canon_grounding_arc;
     delete copy.canon_grounding_arc_reached;
     delete copy.canon_grounding_setting;
+    /* M625: WHERE THE SCENE IS, AT ONCE — his: "I branch at the start of the story and there is no line saying where the
+     * setting is right now". The setting the tale had came from its later pages and is not the branch's; the branch's own
+     * ledger (kept before this) knows where its scene is, and canon's memory knows that place — the same matching the
+     * turn uses (canon verification's settingKeyIn) puts it back now, rather than at the next page. */
+    try {
+      const st = await loadState(toId);
+      const place = st && st.place && typeof st.place.name === 'string' ? st.place.name : '';
+      if (place && on) {
+        if (!globalThis.CanonGrounding_api) await canonReady();
+        const a = globalThis.CanonGrounding_api;
+        const key = a && typeof a.settingKeyIn === 'function' ? a.settingKeyIn(copy.canon_grounding_cache || {}, place) : '';
+        if (key) copy.canon_grounding_setting = key;
+      }
+    } catch (err) { /* the next page's canon pass sets it, as before */ }
   }
   await db.settings.set(canonMetaKey(toId), copy);
   metas.delete(toId); /* the branch's own live object is read from what was just kept */

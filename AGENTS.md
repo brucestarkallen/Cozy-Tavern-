@@ -15604,3 +15604,19 @@ breath as its discovery "because I wanted Gordon at your door". Two roots on the
   in the last look, under three hundred words).
 
 - GATES at m624-001 (one CPU): harness 1229/1229, walk 223/223, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.
+
+# M625 — his: "I played with canon verification, then branched at the start of the story: is it normal that the ledger's
+# What canon says does not reset, and there is no line saying where the setting is right now? (the brief is there)"
+- WHAT A BRANCH KEEPS OF CANON, BY DESIGN (M386 carryCanonMemory, read): the wiki it found or he named, every person and
+  place it looked up (what the SERIES says of them — true at any page), the readings of each through his premise (the
+  lens reads the brief, the cast notes and his canon notes — the branch has the same ones), his pins (always here /
+  never) and his standing notes. What came from LATER pages is not carried to a branch from an earlier page: a story
+  position the tracker advanced by itself, the arcs reached, and the scene's setting. A position he set himself is his
+  decree and goes.
+- THE MISSING SETTING, REPAIRED: the branch's "Where the scene is" stood empty until the next page's canon pass set it
+  from the ledger. A branch from an earlier page now sets it at once from its own ledger's place (kept before canon's
+  memory is carried), by canon verification's own matching — one definition, settingKeyIn, used by the turn's
+  followHostPlace and by the branch (exported on its host API). Only where canon is on; a place canon has not looked up
+  gets none, and the next page's pass looks, as before. Law M625-1 (fails on m624-001: the setting came back undefined).
+
+- GATES at m625-001 (one CPU): harness 1230/1230, walk 223/223, long play 9/9, lint 0 errors, perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each.
