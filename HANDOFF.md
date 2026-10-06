@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m645-001)
+# Cozy Tavern — handoff for the next session (state at m646-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -79,11 +79,20 @@
   was a move four times — withinGround, and numbers in words), ELSEWHERE AS IT IS READ OVER TIME (a want said twice; an
   approach "overdue by 3 days"). Looked at and left: positions and dress have no age and are not restated a page — no
   safe rule found (restating them a page churns the journal; the newest pages ride whole and say where people stand).
+  PART THREE (M646): THREADS (closing by a title written thirteen ways — sound), BODIES (a healing that names the part;
+  weariness no longer said after a story day), WHO KNOWS WHAT at its door (twelve pairs: never a false merge — sound),
+  NAMES (twenty-three pairs: a short name one letter off was the same person — Mira/Mina, Jon/John, Kara/Lara).
+  Looked at and LEFT, with the reason: a title or rank before a family name finds the one person of that family the
+  ledger knows ("Mrs. Wells" → Tom Wells, "Captain Kuchiki" → Rukia Kuchiki, "Dr. Arden" → Vivi Arden) — wrong when it
+  is someone new of that family, but refusing it would give every "Mr. Wells" a second page; a nickname that only
+  begins like a name ("Vivi" / "Vivian Arden") opens a second page — joining by a shared beginning would join Ria to
+  Rias. Both err toward two pages, which the auditor can join; neither writes one person onto another.
   STILL TO AUDIT THE SAME WAY (a battery of ordinary inputs through each code rule, then each worker's answer shape for
   a fact it is never asked for): the world agent's own writing (who it seats and when, the world's word, the threads it
-  opens — and that a "last seen" note really is moved on); the scribe (people's pages, loose ends, the fold in
-  people.js); the record keeper (what a fold keeps and drops); the auditor's other refusals (auditor.js guards);
-  bodies and things; the books (essentials, plans, choices); the second reader's findings. Method that found every fault of M641–M644: do
+  opens — and that a "last seen" note really is moved on); the scribe's merge (people.js mergePeopleNotes: loose ends
+  closing by sense, a state that is really a core); the record keeper (what a fold keeps and drops); the auditor's
+  other refusals (auditor.js guards); things (thing.set / thing.clear); the books (essentials, plans, choices); the
+  second reader's findings. Method that found every fault of M641–M644: do
   not read the rule and nod — feed it thirty sentences as he writes them and count what it gets wrong.
 - A GATE THAT FAILS ONCE AND PASSES ON A RERUN HAS NOT PASSED. Never write "timing", "rare" or "flaky" in these notes, and
   never push on the rerun: read the failing report against the state, make the failure happen on purpose, and only then

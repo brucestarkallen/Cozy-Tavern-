@@ -539,3 +539,52 @@ test('M645-4 ELSEWHERE, AS THE STORYTELLER READS IT: a want is said once (never 
   assert(!/overdue|toward|arriving/.test(stale) && /as of about 11 hours ago; likely elsewhere by now/.test(stale), 'half a day on, the approach is not said — only how old the note is: ' + stale);
   assert(!/overdue|toward/.test(at(8, 0, 7)), 'nor three days on');
 });
+
+/* M646 — the ledger audit, part three: bodies, and a thread's own words. */
+test('M646-1 A HURT IS HEALED BY THE PART IT IS ON: “her forearm”, “the left forearm”, “her arm” find the wound on the left forearm; the other side, another part, or a word that merely sits inside another (“ear” in “forearm”) do not', async () => {
+  const base = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'clock.set', year: 2025, month: 3, day: 3, hour: 21, minute: 0 }, { type: 'presence.enter', name: 'Rias' },
+    { type: 'body.injure', name: 'Rias', what: 'left forearm cut to the bone', sev: 2, treated: true }, { type: 'body.injure', name: 'Rias', what: 'two ribs cracked', sev: 2, treated: false }]).state;
+  const heal = (what) => { const r = applyMutations(base, [{ type: 'body.heal', name: 'Rias', what }]); return r.applied.length ? r.state.bodies.Rias.injuries.filter((i) => i.healed).map((i) => i.what).join('|') : 'refused'; };
+  for (const what of ['forearm', 'her forearm', 'the left forearm', 'Left forearm', 'her arm', 'the cut', 'cut to the bone', 'left forearm cut to the bone']) eq(heal(what), 'left forearm cut to the bone', '“' + what + '” heals the forearm');
+  for (const what of ['her ribs', 'rib', 'the cracked ribs']) eq(heal(what), 'two ribs cracked', '“' + what + '” heals the ribs');
+  for (const what of ['right forearm', 'her right arm', 'her ankle', 'her ear', 'her leg', '']) eq(heal(what), 'refused', '“' + what + '” heals nothing she carries');
+  /* a limb named whole heals nothing when it carries two wounds — the ledger cannot tell which */
+  const two = applyMutations(base, [{ type: 'body.injure', name: 'Rias', what: 'left wrist sprained', sev: 1, treated: false }]).state;
+  eq(applyMutations(two, [{ type: 'body.heal', name: 'Rias', what: 'her arm' }]).applied.length, 0, 'two wounds on the arm: “her arm” names neither');
+  eq(applyMutations(two, [{ type: 'body.heal', name: 'Rias', what: 'her wrist' }]).applied.length, 1, 'the part itself still does');
+});
+
+test('M646-2 WEARINESS DOES NOT OUTLAST A STORY DAY: it is said the same night and the next evening, and no longer two days on — a wound keeps its age and is never let go by time', async () => {
+  const { renderBodies } = await import('../../js/engine/bodies.js');
+  const clock = (d, h) => ({ type: 'clock.set', year: 2025, month: 3, day: d, hour: h, minute: 0 });
+  let st = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }, clock(3, 21), { type: 'body.strain', name: 'Tom', what: 'the long climb up the cliff path' }, { type: 'body.injure', name: 'Rias', what: 'left forearm cut to the bone', sev: 2, treated: true }]).state;
+  const said = (c) => { st = applyMutations(st, [c]).state; return renderBodies(st.bodies, st.clock.minutes, st.page); };
+  assert(/Tom — worn: the long climb up the cliff path \(5h\)/.test(said(clock(4, 2))), 'the same night');
+  assert(/Tom — worn: the long climb/.test(said(clock(4, 20))), 'the next evening, within the day');
+  const later = said(clock(5, 22));
+  assert(!/Tom/.test(later), 'two days on, it is not said: ' + later);
+  assert(/Rias — left forearm cut to the bone \(a real wound, 2d, treated\)/.test(later), 'her wound is, with its age');
+  assert(/Rias — left forearm cut to the bone \(a real wound, 27d, treated\)/.test(said(clock(30, 21))), 'and a month on, still — only a healing lets a wound go');
+  eq(st.bodies.Tom.strain.length, 1, 'the ledger still holds what was written (a take-back, a rebuild); it is only no longer said');
+});
+
+test('M646-3 A THREAD’S CLOSING IS WORDED CLEANLY: a title that ends in a question mark is not given a full stop after it', () => {
+  const st = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'thread.set', title: 'Who broke into the boathouse?', owner: 'Jovan', heat: 'hot', next: 'ask the harbourmaster' }, { type: 'thread.set', title: 'Rias and the letter from the bank', owner: 'Rias', heat: 'hot', next: 'open it' }]).state;
+  eq(applyMutations(st, [{ type: 'thread.close', title: 'Who broke into the boathouse' }]).applied[0].words, 'A thread closed: Who broke into the boathouse?', 'no “?.”');
+  eq(applyMutations(st, [{ type: 'thread.close', title: '2. Rias and the letter from the bank (Rias)' }]).applied[0].words, 'A thread closed: Rias and the letter from the bank.', 'and a plain title ends as it did');
+});
+
+test('M646-4 ONE PERSON, ONE PAGE — AND TWO PEOPLE, TWO: a short name one letter off is another person (Mira is not Mina, Jon is not John, Kara is not Lara); a slip inside a long name, folded letters, a first name or a title before a name still find their person', async () => {
+  const { findPersonKey } = await import('../../js/engine/people.js');
+  const lands = (held, said) => findPersonKey(Object.fromEntries((Array.isArray(held) ? held : [held]).map((k) => [k, { core: 'x', state: '', arc: '', threads: [] }])), said) || 'a new page';
+  for (const [said, held] of [['Mira', 'Mina'], ['Tom', 'Tim'], ['Jon', 'John'], ['Rias', 'Ria'], ['Jovan', 'Jovana'], ['Kara', 'Lara'], ['Maria', 'Mario'], ['Jason', 'Mason'], ['Tim Wells', 'Tom Wells']]) eq(lands(held, said), 'a new page', said + ' is not ' + held);
+  for (const [said, held] of [['Hitsugayo', 'Hitsugaya'], ['Bartolomew', 'Bartholomew'], ['Rukia Kuchiky', 'Rukia Kuchiki'], ['Hachigoro', 'Hachigorō'], ['Sui-Feng', 'Suì-Fēng'], ['O\'Brien', 'O’Brien'], ['Rias', 'Rias Gremory'], ['Kara', 'Kara Zor-El'], ['Vera', 'Aunt Vera'], ['Captain Ukitake', 'Ukitake'], ['Mr. Wells', 'Tom Wells']]) eq(lands(held, said), held, said + ' is ' + held);
+  eq(lands(['Jon Kent', 'John Stewart'], 'Jon'), 'Jon Kent', 'with a Jon and a John both in the tale, “Jon” is Jon');
+  eq(lands(['Kara Zor-El', 'Lara Lor-Van'], 'Lara'), 'Lara Lor-Van', 'and “Lara” is Lara');
+  /* through the ledger's own door: the first note for Mira opens HER page and leaves Mina's as it was */
+  const st = applyMutations({ ...emptyState(), page: 3 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'people.set', name: 'Mina', field: 'core', text: 'the harbourmaster’s daughter; counts everything' }]).state;
+  const after = applyMutations(st, [{ type: 'people.set', name: 'Mira', field: 'core', text: 'a ferry pilot from the north shore' }, { type: 'knowledge.add', name: 'Mira', fact: 'that the ferry was late' }, { type: 'rel.set', name: 'Mira', p: 20, cause: 'he paid her fare' }]).state;
+  eq(Object.keys(after.characters).sort().join(','), 'Mina,Mira', 'two pages');
+  eq(after.characters.Mina.core, 'the harbourmaster’s daughter; counts everything', 'Mina’s page is untouched');
+  eq(Object.keys(after.knowledge).join(',') + ' | ' + Object.keys(after.relationships).join(','), 'Mira | Mira', 'and what Mira knows and feels is hers, not Mina’s');
+});

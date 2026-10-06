@@ -16323,3 +16323,48 @@ Continuing M644 by the same method — ordinary inputs fed through the real rule
   (179 warnings, as at m644), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each. That is the run AFTER the
   DOM-128 fix; the run before it is the failure described above. (A gate run started in the same tool call as a long
   wait was killed by the call's own time limit at 84 scenarios — start gates detached and poll in short calls.)
+
+# M646 — the ledger audit, part three: threads, bodies, who knows what at its door, and names
+Continuing M644/M645 by the same method.
+- THREADS (apply.js thread.close / findThread; three open threads, their titles written back thirteen ways — other case,
+  a full stop, quotation marks, with the owner or the next step as the list shows them, numbered, clipped, a leading
+  "The", a dropped question mark, the other apostrophe, reworded, and one that is no thread): sound — eleven close the
+  right thread, the reworded one and the stranger are refused. One wording slip: "A thread closed: Who broke into the
+  boathouse?." — a title ending in ? or ! takes no full stop now.
+- BODIES (bodies.js; one wound and one weariness through a life):
+  - A HEALING COULD NOT FIND ITS WOUND. "Her forearm" did not heal "left forearm cut to the bone" — the words had to sit
+    inside one another — so the reader's healing was refused and the wound was read to the storyteller a month on as "a
+    real wound, 26d". And the same looseness the other way: any run of letters matched, so "ear" was in "forearm". A
+    hurt is found by its exact words, by whole words with the possessives set aside, by the PART OF THE BODY it is on
+    (a named side must be the wound's side), or by the limb named whole when that limb carries one wound. Fourteen ways
+    to say it healed, each right.
+  - WEARINESS WAS READ FOR EVER. "Worn: the long climb up the cliff path (26d)". One story day after it was written, by
+    the story's clock, it is no longer said (it is still held: a take-back and a rebuild see it). A wound keeps its age
+    and is let go only by a healing — time alone never heals in this ledger, and the audit did not change that.
+- WHO KNOWS WHAT, at the ledger's door (apply.js knowledge.add / world.js addKnowledge; twelve pairs of facts): never a
+  false merge — "leaves at nine / at ten", "would / would not fix the roof", "with Claire / with Vivi", "Rias's mother
+  / Tom's mother", a lie believed and the truth learned all stay two lines. Two pairs that are one thing in other words
+  ("carries / is carrying") stay two lines: the safe side (M522 lost facts to a looser fold). Nothing changed.
+- NAMES (people.js findPersonKey — the door of every book kept by person: pages, standings, knowledge, bodies, seats;
+  twenty-three pairs): A SHORT NAME ONE LETTER OFF WAS THE SAME PERSON. The near-name slack made Mira into Mina, Tom into
+  Tim, Jon into John, Kara into Lara, Rias into Ria, Jovan into Jovana: the first note for the one landed on the
+  other's page and they were one from then on. (An older law asserted it outright: "Kira" finds "Mira" — "near-spellings
+  still match as they always did".) A slip is now forgiven only inside a word of six letters or more (two letters from
+  ten), in one word of the name, every other word the same: "Hitsugayo" is Hitsugaya, "Rukia Kuchiky" is Rukia
+  Kuchiki; "Tim Wells" is not Tom Wells. Folded letters, a first or last name, a name cut short, a title before a name
+  are found as before. The cost is known and accepted: a real slip in a short name ("Toma" for Tomas) opens a second
+  page, which can be joined; two people written as one cannot be told apart again. M164's and M238's fixtures leaned on
+  a short near-name and now use a long one (the laws themselves unchanged).
+- LAWS (m588.mjs): M646-1 (healing, each way, and what must be refused; two wounds on one limb), M646-2 (weariness over
+  time; the wound's age; still held), M646-3 (a thread's closing words), M646-4 (names: the look-alikes apart, the same
+  person found; a Jon and a John, a Kara and a Lara in one tale; Mira's first note opens her own page and Mina's is
+  untouched). 259 laws that touch bodies and 478 that touch people's pages or names stand.
+- NOT AUDITED YET — the handoff's list. The audit is not finished and this entry does not say it is.
+- version.js -> m646-001.
+- GATES at m646-001 (one CPU): harness 1269/1269, walk 236/236, long play 9/9, lint 0 errors, perf_send, holdsone,
+  cutthinking, notes_layout — EXIT 0 each, no scenario failing. After them ONE change: the function the names fix left
+  unused (people.js nameBound — lint counted 180 warnings for it, one more than m645's 179) was removed; lint was run
+  again (179) and the 478 laws that touch people's pages or names (all pass). The walk and the browser gates were not
+  run again for that removal: nothing called the function.
+- BACKGROUND RUNS DO NOT OUTLIVE A REPLY HERE: a gate run still going when a reply ends is killed (twice this session).
+  Start the gates early enough to finish inside the reply, detached, and poll in short calls.

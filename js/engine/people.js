@@ -119,11 +119,8 @@ export function boundedLevenshtein(a, b, bound) {
   return prev[t.length];
 }
 
-/* How near a near-name may be before the ledger calls it the same person:
- * short names get one letter of slack, longer ones two. */
-function nameBound(name) {
-  return String(name || '').length <= 5 ? 1 : 2;
-}
+/* How near a near-name may be before the ledger calls it the same person: see nearName, below (M646 — it used to be one
+ * letter of slack for a short name and two for a longer, which made Mira into Mina). */
 
 /* Resolve a spoken name to a ledger key: exact (case-insensitive) first,
  * then near-names within the bounded edit distance — but only when exactly
@@ -151,6 +148,21 @@ function titlesDiffer(a, b) {
   return Boolean(x && y && x !== y) || titlesConflict(a, b);
 }
 
+function nearName(a, b) {
+  const x = foldName(a).split(' ').filter(Boolean);
+  const y = foldName(b).split(' ').filter(Boolean);
+  if (!x.length || x.length !== y.length) return false;
+  let slips = 0;
+  for (let i = 0; i < x.length; i += 1) {
+    if (x[i] === y[i]) continue;
+    const short = Math.min(x[i].length, y[i].length);
+    if (short < 6) return false;
+    const bound = short >= 10 ? 2 : 1;
+    if (boundedLevenshtein(x[i], y[i], bound) > bound) return false;
+    slips += 1;
+  }
+  return slips === 1;
+}
 export function findPersonKey(characters, name) {
   const wanted = normalizeName(name).toLowerCase();
   if (!wanted) return '';
@@ -166,11 +178,14 @@ export function findPersonKey(characters, name) {
   if (sameLetters.length === 1) return sameLetters[0];
   const byCanon = keys.filter((k) => canonAliasOf(k, name));
   if (byCanon.length === 1) return byCanon[0];
-  const near = keys.filter((k) => {
-    if (titlesDiffer(k, wanted)) return false; /* M272 */
-    const bound = Math.min(nameBound(k), nameBound(wanted)) || 1;
-    return boundedLevenshtein(k.toLowerCase(), wanted, bound) <= bound;
-  });
+  /* M646 (the ledger audit, part three — twenty-three pairs of names through this door): A SHORT NAME ONE LETTER OFF IS
+   * ANOTHER NAME. The near-name slack (one letter for a short name, two for a longer) was meant for a slip of the pen —
+   * and it made Mira into Mina, Tom into Tim, Jon into John, Kara into Lara, Rias into Ria, Jovan into Jovana: the first
+   * note for the one landed on the other's page, and two people were one from then on (his own DC tale holds a Jon and a
+   * John, a Kara and a Lara). A slip is forgiven only inside a word long enough for it to BE a slip (six letters; two
+   * letters only from ten), in one word of the name, with every other word the same — "Tom Wells" and "Tim Wells" are
+   * brothers, "Hitsugaya" and "Hitsugayo" one man. */
+  const near = keys.filter((k) => !titlesDiffer(k, wanted) && nearName(k, wanted)); /* M272: a title tells two people apart */
   if (near.length === 1) return near[0];
 
   /* M238: A FIRST NAME IS THE SAME PERSON AS THEIR FULL NAME. Spelling

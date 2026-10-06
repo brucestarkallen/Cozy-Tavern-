@@ -1020,7 +1020,7 @@ const HANDLERS = {
     const at = findThread(before, title);
     if (at === -1) return { why: 'no thread called ' + title + ' is open' };
     state.threads = closeThread(state.threads, title);
-    return { words: 'A thread closed: ' + before[at].title + '.', undo: { kind: 'threads.restore', before } };
+    return { words: 'A thread closed: ' + before[at].title.replace(/[.\s]+$/, '') + (/[?!]$/.test(before[at].title.trim()) ? '' : '.'), undo: { kind: 'threads.restore', before } }; /* M646: never "…boathouse?." */
   },
 
   /* M272: A FACT LET GO — one the person does not know after all, or a copy

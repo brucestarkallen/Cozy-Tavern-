@@ -88,12 +88,29 @@ export function findInjury(body, what) {
   const wanted = cleanText(what).toLowerCase();
   if (!wanted) return null;
   const unhealed = body.injuries.filter((i) => i && !i.healed);
+  /* M646 (the ledger audit, part three): A HURT IS FOUND BY THE PART OF THE BODY IT IS ON. "Her forearm has healed" could
+   * not heal "left forearm cut to the bone" — the words had to sit inside one another, and "her" is not in the wound's —
+   * so the page reader's healing was refused and the wound was read to the storyteller a month on as "a real wound,
+   * 26d". The same part of the body is the same hurt (the ledger keeps one wound a part, M484): "her forearm", "the
+   * forearm", "left forearm" all find it; a side that is named must be the wound's side ("right forearm" does not heal
+   * the left). */
+  const bare = (t) => cleanText(t).toLowerCase().replace(/\b(?:her|his|their|my|your|its|the|a|an)\b/g, ' ').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  /* whole words only: "ear" is not in "forearm" (the old match took any run of letters, so an ear's healing closed a forearm's wound) */
+  const holds = (have, want) => Boolean(want) && (' ' + have + ' ').includes(' ' + want + ' ');
+  const part = bodyPartOf(wanted);
+  const sideOf = (p) => (/^(left|right)\s/.exec(p) || [])[1] || '';
+  const partOnly = (p) => p.replace(/^(?:left|right)\s+/, '');
+  const sidesAgree = (p, q) => !sideOf(p) || !sideOf(q) || sideOf(p) === sideOf(q);
+  /* a limb named whole ("her arm") finds the one wound on it */
+  const LIMBS = { arm: ['upper arm', 'forearm', 'elbow', 'wrist', 'bicep', 'arm'], leg: ['thigh', 'knee', 'shin', 'calf', 'ankle', 'leg'] };
+  const limb = Object.keys(LIMBS).find((k) => partOnly(part) === k);
+  const want = bare(wanted);
+  const onLimb = limb ? unhealed.filter((i) => { const p = bodyPartOf(i.what); return Boolean(p) && LIMBS[limb].includes(partOnly(p)) && sidesAgree(part, p); }) : [];
   return (
     unhealed.find((i) => cleanText(i.what).toLowerCase() === wanted) ||
-    unhealed.find((i) => {
-      const have = cleanText(i.what).toLowerCase();
-      return have.includes(wanted) || wanted.includes(have);
-    }) ||
+    unhealed.find((i) => { const have = bare(i.what); return holds(have, want) || holds(want, have); }) ||
+    (part ? unhealed.find((i) => { const p = bodyPartOf(i.what); return Boolean(p) && partOnly(p) === partOnly(part) && sidesAgree(part, p); }) : null) ||
+    (onLimb.length === 1 ? onLimb[0] : null) ||
     null
   );
 }
@@ -253,8 +270,13 @@ export function renderBodies(bodies, clockMinutes, turnCount) {
     if (!body || typeof body !== 'object') continue;
     const injuries = (Array.isArray(body.injuries) ? body.injuries : [])
       .filter((i) => i && !i.healed && cleanText(i.what));
+    /* M646: WEARINESS DOES NOT OUTLAST A DAY AND A NIGHT. "Worn: the long climb up the cliff path (26d)" was read to the
+     * storyteller for as long as nothing else was written of that body — weariness short of injury, by its own
+     * definition, is slept off. One story day after it was written (by the story's clock; where there is no clock it
+     * stays, as before) it is no longer said. A wound keeps its own age and is never let go by time. */
+    const nowMin = minutesOrNull(clockMinutes);
     const strain = (Array.isArray(body.strain) ? body.strain : [])
-      .filter((s) => s && cleanText(s.what));
+      .filter((s) => s && cleanText(s.what) && !(nowMin !== null && Number.isFinite(s.atMinutes) && nowMin - s.atMinutes > 24 * 60));
     let line = '';
     let recency = -Infinity;
     if (injuries.length) {

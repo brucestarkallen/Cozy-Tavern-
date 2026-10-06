@@ -89,20 +89,22 @@ test('M164: a seat under a near-name never stubs out the page it belongs to', as
   const { applyMutations } = await import('../../js/engine/apply.js');
   const { emptyState } = await import('../../js/engine/state.js');
   let st = emptyState();
-  st = applyMutations(st, [{ type: 'people.set', name: 'Tomas', field: 'core', text: 'the smith — slow to anger, quicker than he looks' }]).state;
+  /* M646: the smith was "Tomas" and the near-name "Toma" — a four-letter name one letter off, which the ledger no longer
+   * takes for the same man (Tom is not Tim). The law is unchanged; its near-name is now one the ledger still calls near. */
+  st = applyMutations(st, [{ type: 'people.set', name: 'Bartholomew', field: 'core', text: 'the smith — slow to anger, quicker than he looks' }]).state;
 
   /* the shape of the guard, as the world agent now asks it */
   const known = new Set(Object.keys(st.characters).map((k) => k.trim().toLowerCase()));
-  eq(known.has('toma'), false, 'an exact-key guard calls the near-name unknown');
-  eq(findPersonKey(st.characters, 'Toma'), 'Tomas', 'while the applier resolves it to the smith');
+  eq(known.has('bartolomew'), false, 'an exact-key guard calls the near-name unknown');
+  eq(findPersonKey(st.characters, 'Bartolomew'), 'Bartholomew', 'while the applier resolves it to the smith');
 
   const src = readFileSync(new URL('../../js/agents/world.js', import.meta.url), 'utf8');
   assert(/const hasPage = \(name\) => Boolean\(findPersonKey\(fresh\.characters \|\| \{\}, name\)\);/.test(src), 'the guard asks the applier’s own question');
   assert(!/known\.has\(key\)/.test(src), 'and the exact-key guard is gone');
 
   /* and the damage it used to do, held as a law */
-  const stubbed = applyMutations(st, [{ type: 'people.set', name: 'Toma', field: 'core', text: 'seated by the world agent' }]).state;
-  eq(stubbed.characters.Tomas.core, 'seated by the world agent', 'the applier really would write the stub over him — which is why the guard must resolve');
+  const stubbed = applyMutations(st, [{ type: 'people.set', name: 'Bartolomew', field: 'core', text: 'seated by the world agent' }]).state;
+  eq(stubbed.characters.Bartholomew.core, 'seated by the world agent', 'the applier really would write the stub over him — which is why the guard must resolve');
 });
 
 /* M164: the live paint re-dressed the WHOLE page every animation frame —
@@ -1958,7 +1960,11 @@ test('M238: a first name finds its person, and an ambiguous one refuses', async 
   eq(findPersonKey({ 'Rias Wells': {}, 'Jovan Wells': {} }, 'Wells'), '', 'and the same for a shared surname');
 
   /* a single-word page is not swallowed by an unrelated single-word name */
-  eq(findPersonKey({ Mira: {} }, 'Kira'), 'Mira', 'near-spellings still match as they always did');
+  /* M646: this line used to assert that "Kira" finds "Mira" — "near-spellings still match as they always did". Kira and
+   * Mira are two people; the slack that joined them joined Jon to John and Kara to Lara in his own tales. A slip is
+   * forgiven only inside a word long enough for it to be a slip. */
+  eq(findPersonKey({ Mira: {} }, 'Kira'), '', 'a short name one letter off is another person');
+  eq(findPersonKey({ Hitsugaya: {} }, 'Hitsugayo'), 'Hitsugaya', 'a slip inside a long name still finds its person');
   eq(findPersonKey({ Mira: {} }, 'Alexander'), '', 'while an unrelated name does not');
 });
 
