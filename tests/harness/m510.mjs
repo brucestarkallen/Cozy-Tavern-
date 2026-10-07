@@ -417,7 +417,9 @@ test('M510-17 THE STORY’S ESSENTIALS (his design): the whole record streamline
   assert(house.calls.length === 2 && JSON.stringify(house.calls[1].body).includes('OLDEST-LINE') && (await loadEssentials('s-ess')).upTo === 23, 'the record grew: made again from the whole record, never from the last essentials');
   const bad = thinkingHouse({ answer: '{"sorry": true}' });
   const failed = await withHouse(bad, () => runEssentials({ connection: CONN, storyId: 's-ess', nodes: [...grown, { span: [24, 29], text: 'A new fold.', level: 1, at: 5 }], mc: 'Jovan' }));
-  assert(!failed.wrote && bad.calls.length === 2 && (await loadEssentials('s-ess')).upTo === 23, 'an unusable answer: asked once more, then the essentials already kept stand');
+  /* M666: it was "asked once more" (two asks). He asked that a worker whose answer is not a summary be tried again as the
+   * others are; the essentials are asked three times now (ESSENTIALS_TRIES), and the count below follows that. */
+  assert(!failed.wrote && bad.calls.length === 3 && (await loadEssentials('s-ess')).upTo === 23, 'an unusable answer: asked twice more, then the essentials already kept stand');
   { const sys = essentialsAsk({ record: 'x' }).system; assert(/THE SAME FORMAT/.test(sys) && /\[Sept 1, 08:24 · the Wells kitchen\]/.test(sys) && /Cut what nothing later depends on: small talk, errands, passers-by and crowds/.test(sys) && /every correction/.test(sys) && /At most 2,000 words/.test(sys), 'M510-21: his format — the record’s own lines, told shorter; trivia cut; time and place kept; in the room the record’s newest lines had'); }
   const { readEssentials, ESSENTIALS_MAX_CHARS } = await import('../../js/agents/essentials.js');
   eq(ESSENTIALS_MAX_CHARS, 16000);

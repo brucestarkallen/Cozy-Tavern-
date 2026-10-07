@@ -54,6 +54,11 @@ const walkDefaultWorker = (body, sys) => {
     const hit = blocks.find((b) => b[2] === 'STORY' && /Kim/.test(b[3]));
     return hit ? JSON.stringify([{ index: Number(hit[1]), text: hit[3].replace('Kim', 'Kris') }]) : '[]';
   }
+  /* M666: the record keeper is answered with a LINE. The walk's default used to hand it the workers' JSON ("{"mutations":[]…"),
+   * which the keeper kept as a line of the record — the very thing his "an answer that is not a summary is asked for
+   * again" now rejects, so the house could no longer "fold the gap itself" in DOM-26. A stand-in for a keeper answers
+   * as a keeper does. */
+  if (/narrative-state tracker/i.test(sys)) return 'The scene turned again; the page moved on; nothing else changed.';
   if (/keep the ledger/i.test(sys)) return FOUNDING;
   if (/world beyond the page/i.test(sys)) return WORLD;
   if (/character scribe/i.test(sys)) return '{"deltas":[]}';
@@ -2923,11 +2928,11 @@ test('DOM-53 the light heals the record BY ITSELF and ends green: a tale folded 
     for (let i = 0; i < 24; i += 1) await db.messages.append(b.id, { role: i % 2 ? 'assistant' : 'user', text: 'Page ' + i + ': they talked on the porch about the letter and the fair.' });
     await saveState(b.id, { ...emptyState(), page: 11, readTo: 11, tidiedGen: 999 });
     let asks = 0;
-    house.state.workerAnswer = (body, sys) => { if (/memory keeper|narrative-state tracker/i.test(sys)) { asks += 1; return asks <= 2 ? '' : 'They talked on the porch about the letter and the fair; nothing else changed.'; } return priorWorker(body, sys); };
+    house.state.workerAnswer = (body, sys) => { if (/memory keeper|narrative-state tracker/i.test(sys)) { asks += 1; return asks <= 6 ? '' : 'They talked on the porch about the letter and the fair; nothing else changed.'; } return priorWorker(body, sys); }; /* M666: a run of the keeper asks three times for the batch and three for its first page alone — a stumble is the WHOLE run coming back empty (six asks), where it was two */
     globalThis.__cozyGapBackoffMs = 700;
     env.window.__cozy.setActiveStoryId(b.id);
     await env.window.__cozy.chat.renderThread({ structural: true });
-    await until(async () => asks >= 2 && queuedCount(b.id) === 0, 'the first repair, which folds nothing', 15000);
+    await until(async () => asks >= 6 && queuedCount(b.id) === 0, 'the first repair, which folds nothing', 15000);
     eq((await loadMemory(b.id)).nodes.length, 0, 'fixture: the first run folded nothing');
     /* from here NOTHING is pressed and no page is written */
     await until(async () => (await loadMemory(b.id)).nodes.length > 0, 'the keeper sent again by itself', 20000);

@@ -1987,13 +1987,20 @@ export function staleAfterJump(state, headerMutations) {
     .map((p) => ({ type: 'presence.update', name: p.name, ...(typeof p.position === 'string' && p.position.trim() ? { position: '' } : {}), ...(typeof p.attire === 'string' && p.attire.trim() ? { attire: '' } : {}), cause: 'hours have passed since' }));
 }
 const tellingOf = (t) => new Set(String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 3 && !/^(?:the|and|with|his|her|their|its|still|now|into|onto|from|over|under|near|beside|behind|front|side|back|that|this|has|have|had|was|were|are|for|one|two|out|off)$/.test(w)));
+/* M666 — HIS PASTED AUDIT: "the presence list still holds the hooded girl with her hood up, but the latest page shows her hood
+ * pushed back" — found by the auditor, and its own repair REFUSED ("1 refused"). The refusal was this rule, as M660
+ * wrote it: a restatement counted as "the same thing in other words" when half its words were the old ones — and "a
+ * crude grey wool servant's cloak, hood pushed back off her head" shares nearly all of them with "…hood up". A real
+ * change inside a long description was thrown away, the reader's and the auditor's alike. The test is now what the
+ * rule was for: a restatement is new when it SAYS SOMETHING THE LEDGER DOES NOT — at least one telling word the old
+ * line lacks ("pushed", "back"); the same place or dress in fewer or reordered words ("armored still", "by the door of
+ * the entrance hall") adds none, and is still no change. */
 const trulyOther = (old, neu) => {
   const a = tellingOf(old); const b = tellingOf(neu);
   if (!b.size) return false;
   if (!a.size) return true;
-  let shared = 0;
-  for (const w of b) if (a.has(w)) shared += 1;
-  return shared / Math.min(a.size, b.size) < 0.5;
+  for (const w of b) if (!a.has(w)) return true;
+  return false;
 };
 export function restatedPresence(state, notes, mutations, pageText = '') {
   const out = [];

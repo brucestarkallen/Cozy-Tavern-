@@ -16972,3 +16972,66 @@ asked the right question of it. Each was held against what the house actually st
 - version.js -> m665-001.
 - GATES at m665-001 (one CPU), on the tree that was pushed: harness 1306/1306, walk 241/241, long play 9/9, lint 0 errors
   (178 warnings, as at m664), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
+
+# M666 — two audits he pasted (the tavern walked into the alley; a hood refused), and "try again" for the keeper
+His message: two auditor runs — the first "found 18, set 18 right", the second "found 3, set 4 right, 1 refused" — and:
+"can this be made sure and not need the auditor"; and, never yet seen by him: "if fold or plot essential gives not a
+summary — gibberish, the AI breaking character, 'I can't help with this' — it automatically tries again, same as all
+other workers."
+- WHAT THE AUDITS SHOW, AND WHY (read from the code against his own lines):
+  1. "the presence list still holds Salla 'here' in the service alley … the pages last put her behind the casks in the
+     Gilded Eel" — and the old campaigner — IN BOTH RUNS. The crowd was left behind only on a FAR move (two place names
+     sharing no telling word, M509-12/M588). The Eel → the lane outside it → the alley off that lane: each name shares
+     a word with the last, so the whole tavern walked along. extractor.js: a NEAR move leaves people behind too, when
+     the page names its room ("here") and they are not in it — a near move being a place NAMED BY ITS NEIGHBOUR ("the
+     lane OUTSIDE the Gilded Eel", "the service alley OFF the lane": a word of place standing before the neighbour's
+     own name). The same place said more fully ("the Tenth's courtyard" / "Tenth Division courtyard"; "The Gilded
+     Eel, off Harbor Street") is no move and leaves nobody.
+  2. Taken out by the first audit, they were "here" again for the second: a walk-in of someone seated elsewhere stands
+     when the telling SHOWS them, and the telling names Salla calling from the tavern. Now, when the reader names the
+     room as the page ends and a SEATED person is not in it, its own presence.enter for them is not kept (a newcomer
+     with no seat is written in as before). And the reader is HANDED BY NAME whoever the page names that the ledger
+     keeps elsewhere, with where it has them and the one question — face to face with him, or seen/heard/calling from
+     there (namedFromAfarBlock; the world agent had the cast of the page since M660, the reader did not).
+  3. "1 refused": the auditor's own repair of "hood up" → "hood pushed back off her head". The refusal was MY rule of
+     M660 — a restatement sharing half its words with the old line was "the same thing in other words". A real change
+     inside a long description was thrown away, the reader's and the auditor's alike. apply.js trulyOther: a
+     restatement is new when it says something the ledger does not (one telling word the old line lacks); the same in
+     fewer or reordered words is still no change. M660's and M661's laws stand under it.
+  4. Four threads closed in one audit ("…the bell has rung and gone", "…has heard the rear table out"): the reader is
+     handed the open threads by name and asked which this page RESOLVED; these were not answered so much as left
+     behind. The block now says what resolved means — answered, ended, or left behind for good. WORDS ONLY: whether
+     his model closes them now is not something this session could test.
+  NOT DONE from the same audits: what someone overheard from close by (three knowledge lines the auditor wrote — the
+  new block tells the reader to name them in "who", nothing checks it), and where a thing lies (the rose).
+- "TRY AGAIN" (memory.js keeperLine / notASummary; essentials.js): a refusal was asked for again only on the keeper's
+  NEXT run and then covered without words; a refused merge waited for the next run; and an answer that was words but
+  not a summary was KEPT. Every ask of the keeper for a line — a batch, one page alone, a merge, "Summarize now", the
+  catch-up — is made up to three times in the same run until it is a line; "not a summary" is: an assistant talking
+  ("as an AI", "I'd be happy to", "out of character"), a page of story (it opens on a header with an hour), not words
+  (under six letters in ten), or nothing of what it was asked to sum up in it. The plot essentials already asked
+  twice; three now. When every try fails, what happened before still happens (the page asked alone, the keeper
+  proven alive, the page covered).
+  - A check for "one word over and over" was written and taken out: two older laws (M34-5, and my M657-1) keep their
+    sample lines as one word repeated, and it could not tell those from a loop.
+- LAWS (m588.mjs): M666-1 (his scene: the near move, the block, the wrong walk-in, the hood, a newcomer still written
+  in), M666-2 (the keeper's line, the fold and the essentials against a model that misbehaves three ways).
+- TWO THINGS THE FIRST GATE RUN CAUGHT. (a) M509-13b: my first near-move rule was "the ground moved and the room is named" —
+  and "the Tenth's courtyard" written "Tenth Division courtyard" left two people behind in the same courtyard. That
+  law was right and the rule too broad; it is narrowed to a place named by its neighbour, as above, and my own law now
+  plays exactly that case (it had been passing on the far-move rule alone). (b) M510-17 counted the essentials' asks
+  as two; they are three now, by his request, and its count follows.
+- AND A THIRD, IN THE WALK: DOM-26 ("a gap in the record is folded by the house itself"). The walk's default stand-in answered
+  the record keeper with the workers' JSON blob, and the keeper had been KEEPING that as a line of the record; the new
+  check rejects it ("it is not words"), so the gap never folded. The stand-in now answers a keeper as a keeper does
+  (tests/dom/run.mjs walkDefaultWorker). Run alone, DOM-26 and DOM-27 fail for want of the walk's earlier setup — they
+  are judged by the whole walk only.
+- AND A FOURTH, THE NEXT WALK: DOM-53 ("a keeper that stumbles once is sent again"). Its stand-in came back empty for TWO asks
+  — the whole of a run as it was (the batch, then its first page alone) — and expected "the first run folded nothing".
+  A run asks six times now (three and three), so the keeper recovered inside the first run: what he asked for. The
+  scenario's stumble is the whole run coming back empty (six asks); what it proves — the house sends the keeper again
+  by itself, no page written, no button pressed — is unchanged.
+- version.js -> m666-001.
+- GATES at m666-001 (one CPU), on the tree that was pushed: harness 1308/1308, walk 241/241, long play 9/9, lint 0 errors
+  (181 warnings — three more than m665, from this entry's code), perf_send, holdsone, cutthinking, notes_layout — EXIT 0
+  each. This is the FOURTH run: the first three failed M509-13b and M510-17, then DOM-26, then DOM-53, as told above.

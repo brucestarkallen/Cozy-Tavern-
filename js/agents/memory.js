@@ -492,6 +492,44 @@ export function buildFoldMessages(nodes, { playerName = 'the player', record = '
 let lastKeeperWasTruncated = false;
 export function keeperWasTruncated() { return lastKeeperWasTruncated; }
 
+/* M666 — HIS: "if fold or plot essential gives not a summary — gibberish, or the AI breaking character, or 'I can't help with
+ * this' — it automatically tries again, same as all other workers." What stood: a refusal was no line (M648) and was
+ * asked for again only on the NEXT run of the keeper, then covered without words after a few; a merge that was refused
+ * waited for the next run; and an answer that was words but NOT A SUMMARY — a page of story written on, an assistant
+ * talking about itself, noise — was a line of ten letters or more, and was KEPT. Now:
+ *   notASummary — an answer is not a summary when it speaks as an assistant ("as an AI", "I'd be happy to", "out of
+ *     character"), when it is a page of story (it opens on a header line with an hour), when it is not words (under
+ *     six letters in ten), or when NOTHING of what it was asked to sum up is in it (not one telling word of the pages,
+ *     or of the lines being merged). (A rule for "one word over and over" was written and taken out again: two older
+ *     laws keep their fixtures' lines as one word repeated, and it could not tell those from a loop.)
+ *   keeperLine — every ask of the keeper for a line (a batch of pages, one page alone, a merge, "Summarize now", the
+ *     catch-up) is made up to KEEPER_TRIES times in the same run, until what comes back is a line. What it does when
+ *     every try fails is what it did before: the page asked alone, the keeper proven alive, the page covered. */
+export const KEEPER_TRIES = 3;
+const telling4 = (t) => new Set(String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 4));
+export function notASummary(text, sourceText = '') {
+  const t = String(text || '').trim();
+  if (!t || t === '(no new state)') return '';
+  if (/\b(?:as an ai\b|(?:an? )?(?:large )?language model|i(?:['’]?m| am) (?:claude|chatgpt|gpt|deepseek|gemini|an ai|an assistant|just an ai)|i(?:['’]d| would) be happy to|out of character|\(ooc\b|\booc:)/i.test(t)) return 'it speaks as an assistant, not as the record';
+  if (/^\s*\[[^\]\n]{4,}\|\s*\d{1,2}[:.h]\d{2}/.test(t)) return 'it is a page of story, not a line of the record';
+  const solid = t.replace(/\s+/g, '');
+  const letters = (solid.match(/[\p{L}\p{N}]/gu) || []).length;
+  if (solid.length >= 20 && letters / solid.length < 0.6) return 'it is not words';
+  const src = telling4(sourceText);
+  if (src.size >= 8) { const mine = [...telling4(t)]; if (mine.length >= 5 && !mine.some((w) => src.has(w))) return 'nothing of what it was asked to sum up is in it'; }
+  return '';
+}
+async function keeperLine(connection, prompt, signal, sourceText, renew) {
+  let raw = ''; let text = '';
+  for (let attempt = 0; attempt < KEEPER_TRIES; attempt += 1) {
+    if (attempt > 0 && typeof renew === 'function') renew();
+    raw = await callKeeper(connection, prompt, signal);
+    text = parseMemoryAnswer(raw);
+    if (text && !notASummary(text, sourceText)) return { raw, text, tries: attempt + 1 };
+    text = '';
+  }
+  return { raw, text: '', tries: KEEPER_TRIES };
+}
 async function callKeeper(connection, prompt, signal) {
   const { text, finishReason } = await sharedCall(connection, {
     system: prompt.system,
@@ -1290,8 +1328,8 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
      * dead at batch 3 of 16 and read "nothing to rebuild". */
     if (typeof renew === 'function' && !renew()) { lastKeeperTrouble = 'its turn was over before it could ask'; break; }
     let pages = history.slice(range[0], range[1]);
-    const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) }), signal);
-    let text = parseMemoryAnswer(raw);
+    const pagesText = pages.map((p) => String((p && p.text) || '')).join('\n');
+    let { raw, text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) }), signal, pagesText, renew); /* M666: asked again, in this run, until it is a line */
     let byHouse = false;
     /* M316: THE RECORD CAN NEVER STAY STUCK ON A PAGE. A keeper that answered with nothing was read as "went
      * quiet — these pages wait for next time", and next time it asked the very same pages the very same
@@ -1308,7 +1346,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     if (!text && pages.length > 1) {
       try {
         if (typeof renew === 'function') renew();
-        const alone = parseMemoryAnswer(await callKeeper(connection, buildMemoryMessages(pages.slice(0, 1), { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) }), signal));
+        const alone = (await keeperLine(connection, buildMemoryMessages(pages.slice(0, 1), { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) }), signal, String((pages[0] && pages[0].text) || ''), renew)).text; /* M666 */
         if (alone) { text = alone; pages = pages.slice(0, 1); range[1] = range[0] + 1; }
       } catch (err) { /* counted as one more silence below */ }
     }
@@ -1452,14 +1490,14 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     const absorbed = between(toMerge[0], toMerge[toMerge.length - 1]).map((n) => n.id); /* empty marker lines the merge takes in */
     const record = recordFor(mem, level + 1, keeperRecordCap(connection));
     if (typeof renew === 'function') renew();
-    let raw = await callKeeper(connection, buildFoldMessages(toMerge, { playerName, record }), signal);
-    let text = parseMemoryAnswer(raw);
+    const sourcesText = toMerge.map((node) => String(node.text || '')).join('\n');
+    let { raw, text } = await keeperLine(connection, buildFoldMessages(toMerge, { playerName, record }), signal, sourcesText, renew); /* M666: a merge that is not a merge is asked for again, now */
     const sourcesLen = toMerge.reduce((a, node) => a + node.text.length, 0);
     if (text && text !== '(no new state)' && text.length < sourcesLen * SHRINK_FLOOR) {
       /* the shrink guard: once more, stricter; then accept what came */
       raw = await callKeeper(connection, buildFoldMessages(toMerge, { playerName, record, strict: true }), signal);
       const again = parseMemoryAnswer(raw);
-      if (again && again !== '(no new state)' && again.length > text.length) text = again;
+      if (again && again !== '(no new state)' && again.length > text.length && !notASummary(again, sourcesText)) text = again;
     }
     if (!text || text === '(no new state)') break; /* a merge of nothing is not a promotion */
     const ids = new Set(toMerge.map((node) => node.id));
@@ -1525,9 +1563,8 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
     /* the lines BEFORE this one are its prior context, exactly as they were
      * when it was first written — never the lines that come after it */
     const before = { ...mem, nodes: (mem.nodes || []).filter((n) => n && Array.isArray(n.span) && n.span[1] < node.span[0]) };
-    const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor(before, 1, keeperRecordCap(connection)) }), signal);
-    const text = parseMemoryAnswer(raw);
-    if (!text) return { ok: false, why: 'the keeper gave nothing back' };
+    const { raw, text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor(before, 1, keeperRecordCap(connection)) }), signal, pages.map((p) => String((p && p.text) || '')).join('\n'), renew); /* M666 */
+    if (!text) return { ok: false, why: 'the keeper gave nothing that is a line of the record, in ' + KEEPER_TRIES + ' tries' };
     mem = await loadMemory(storyId);
     const fresh = (mem.nodes || []).find((n) => n && n.id === nodeId);
     if (!fresh) return { ok: false, why: 'that line moved while the keeper was reading' };
@@ -1588,9 +1625,8 @@ export async function rereadMergedLine({ connection, storyId, lineId, signal, re
     const pages = history.slice(a, b + 1);
     if (!pages.length) return { ok: false, why: 'the pages behind that line are gone' };
     if (typeof renew === 'function') renew();
-    const raw = await callKeeper(connection, buildMemoryMessages(pages, { playerName, record: recordFor({ ...mem, nodes: [...older, ...made] }, 1, keeperRecordCap(connection)) }), signal);
-    const text = parseMemoryAnswer(raw);
-    if (!text) return { ok: false, why: 'the keeper gave nothing back' };
+    const { raw, text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor({ ...mem, nodes: [...older, ...made] }, 1, keeperRecordCap(connection)) }), signal, pages.map((p) => String((p && p.text) || '')).join('\n'), renew); /* M666 */
+    if (!text) return { ok: false, why: 'the keeper gave nothing that is a line of the record, in ' + KEEPER_TRIES + ' tries' };
     made.push(text === '(no new state)'
       ? { id: nodeId(), span: [a, b], text: '', level: 1, at: Date.now(), empty: true, whole: true }
       : { id: nodeId(), span: [a, b], text, level: 1, at: Date.now(), whole: true });

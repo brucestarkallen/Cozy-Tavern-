@@ -1524,3 +1524,105 @@ test('M665-2 A REFUSAL ALREADY SAVED AS A RECORD LINE IS TAKEN OUT WHEN THE RECO
     assert(mem.nodes.some((n) => n.id === 'a') && mem.nodes.some((n) => n.correction), 'the lines that were real are the same lines');
   } finally { globalThis.fetch = prior; if (keptWindow === undefined) await db.settings.delete('memoryWindow'); else await db.settings.set('memoryWindow', keptWindow); if (keptBatch === undefined) await db.settings.delete('memoryBatch'); else await db.settings.set('memoryBatch', keptBatch); }
 });
+
+/* M666 — his pasted audits: Salla and the old campaigner "still here" in the alley, twice; a hood pushed back, refused. */
+test('M666-1 THE TAVERN DOES NOT WALK INTO THE ALLEY: on a near move, when the page names its room, whoever stood in the old room and is not in the new one is left behind; someone seated elsewhere is not written back in against that room; the reader is handed by name whoever the page names from afar; and a real change inside a long description (a hood pushed back) is written', async () => {
+  const { headerMutations } = await import('../../js/engine/state.js');
+  const { staleAfterJump, restatedPresence } = await import('../../js/engine/apply.js');
+  const { extractTurn, namedFromAfarBlock, buildExtractorMessages } = await import('../../js/agents/extractor.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  let st = applyMutations({ ...emptyState(), page: 20 }, [{ type: 'mc.set', name: 'Jovan Wayne' }, { type: 'place.set', name: 'The Gilded Eel' }, { type: 'clock.set', year: 1001, month: 3, day: 5, hour: 21, minute: 0 },
+    { type: 'presence.enter', name: 'Jovan Wayne', position: 'at the rear table' }, { type: 'presence.enter', name: 'the hooded girl', position: 'across the rear table', attire: 'a deliberately crude grey wool servant\u2019s cloak, hood up' },
+    { type: 'presence.enter', name: 'Salla', position: 'behind the ale casks' }, { type: 'presence.enter', name: 'the one-armed old campaigner', position: 'at the next table' },
+    ...['the hooded girl', 'Salla', 'the one-armed old campaigner'].map((name) => ({ type: 'people.set', name, field: 'core', text: 'someone the story keeps' }))]).state;
+  const play = async (page, answer) => {
+    const read = await withHouse(thinkingHouse({ answer: JSON.stringify(answer) }), () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'I lead her out.', assistantText: page, pageNumber: st.page + 1 }));
+    const header = headerMutations(page, { ground: st.place.name });
+    st = applyMutations({ ...st, page: st.page + 1 }, [...header, ...staleAfterJump(st, header), ...read.mutations]).state;
+    return read;
+  };
+  const here = () => st.present.map((p) => p.name).join(' | ');
+  /* out of the tavern into the lane outside it — a NEAR move: the new place is named by its neighbour, every word of
+   * "The Gilded Eel" in it. (By the far-move rule alone this left nobody behind.) */
+  await play('[The lane outside the Gilded Eel — Hanami 5, 1001 AG | 21:10 | drizzle | black coat | at the door]\n\nJovan Wayne held the door and the hooded girl went out ahead of him into the lane. Behind the casks Salla called past them to the campaigner, “—and that’s the LAST of the cheap, granddad!” The door swung shut on the noise.',
+    { mutations: [{ type: 'mode.snapshot', modes: [] }], resolved: [], here: ['Jovan Wayne', 'the hooded girl'] });
+  eq(st.place.name + ' / ' + here(), 'The lane outside the Gilded Eel / Jovan Wayne | the hooded girl', 'the two who went out are in the lane — Salla and the campaigner did not ride along');
+  assert(/Gilded Eel/.test(JSON.stringify(st.offscreen.Salla)) && /Gilded Eel/.test(JSON.stringify(st.offscreen['the one-armed old campaigner'])), 'they are kept at the tavern they were left in');
+  /* the next page names them from afar: the reader is handed each by name, with where the ledger has them */
+  const alley = '[The service alley off the lane — Hanami 5, 1001 AG | 21:15 | drizzle | black coat | two paces inside the gate]\n\nTwo paces inside the gate the hooded girl stopped, up against Jovan Wayne, his wrist in one hand. She pushed her hood back off her head for him alone, the deliberately crude grey wool servant\u2019s cloak dark with rain. Behind them at the lane\u2019s dogleg the old campaigner\u2019s silhouette appeared, unhurried, settled against the far wall. Back at the Eel, Salla called past the door to nobody.';
+  const block = namedFromAfarBlock(st, alley).join('\n');
+  assert(/NAMED ON THIS PAGE BUT NOT IN THE SCENE AS IT OPENS/.test(block) && /\d\. Salla \[[^\]]*Gilded Eel[^\]]*\]/.test(block) && /face to face with Jovan Wayne/.test(block), 'handed over by name, with her place and the one question: ' + block.slice(0, 200));
+  assert(/NAMED ON THIS PAGE BUT NOT IN THE SCENE/.test(buildExtractorMessages({ state: st, userText: 'x', assistantText: alley }).user), 'and it rides in what the reader is sent');
+  eq(namedFromAfarBlock(st, '[The service alley off the lane — Hanami 5, 1001 AG | 21:20]\n\nThe girl said nothing.').length, 0, 'a page that names nobody from afar asks nothing');
+  /* into the alley: the reader walks Salla back in (the telling names her) though its own room does not hold her */
+  await play(alley, { mutations: [{ type: 'mode.snapshot', modes: [] }, { type: 'presence.enter', name: 'Salla', shown: 'Salla called past the door to nobody' }], resolved: [],
+    here: [{ name: 'Jovan Wayne', at: 'two paces inside the gate' }, { name: 'the hooded girl', at: 'two paces inside the gate, up against Jovan', wears: 'a deliberately crude grey wool servant\u2019s cloak, hood pushed back off her head' }] });
+  eq(here(), 'Jovan Wayne | the hooded girl', 'Salla is not written back in against the page’s own room');
+  eq(st.present.find((p) => p.name === 'the hooded girl').attire, 'a deliberately crude grey wool servant\u2019s cloak, hood pushed back off her head', 'the hood pushed back is written (it was refused as “the same thing in other words”)');
+  /* the rule itself: something the ledger does not say is a change; the same in fewer or reordered words is not */
+  const one = (old, neu, page) => restatedPresence({ ...st, present: [{ name: 'Rias', attire: old }] }, [{ name: 'Rias', wears: neu }], [], '[x — Hanami 5, 1001 AG | 21:20]\n\n' + page).length;
+  eq(one('a grey cloak, hood up', 'a grey cloak, hood pushed back', 'Rias pushed the hood of her grey cloak back.') + ' ' + one('the batsuit, armored, cowl on', 'armored still', 'She stood armored still.') + ' ' + one('a grey cloak, hood up', 'hood up, a cloak of grey', 'Her grey cloak, its hood up.'), '1 0 0', 'new words are a change; fewer or reordered words are not');
+  /* the same place said more fully is no move, and nobody is left behind for it (M509-13b's own case, and an address) */
+  const still = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan Wayne' }, { type: 'place.set', name: 'The Gilded Eel' }, { type: 'presence.enter', name: 'Jovan Wayne' }, { type: 'presence.enter', name: 'Salla' }, { type: 'presence.enter', name: 'the hooded girl' }]).state;
+  for (const header of ['[The Gilded Eel, off Harbor Street — Hanami 5, 1001 AG | 21:05]', '[The Gilded Eel tavern — Hanami 5, 1001 AG | 21:05]']) {
+    const r = await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [], resolved: [], here: ['Jovan Wayne', 'the hooded girl'] }) }), () => extractTurn({ connection: HOUSES[0].conn, state: still, userText: 'x', assistantText: header + '\n\nThe hooded girl said nothing.', pageNumber: 6 }));
+    eq(r.mutations.filter((m) => m.type === 'presence.leave').length, 0, 'no move, nobody left behind: ' + header);
+  }
+  /* someone NEW (no seat) whom the reader walks in but leaves off its room is still written in */
+  const fresh = await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'presence.enter', name: 'Oriana’s maid', shown: 'a maid slipped in through the gate' }], resolved: [], here: ['Jovan Wayne', 'the hooded girl'] }) }), () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'x', assistantText: '[The service alley off the lane — Hanami 5, 1001 AG | 21:25]\n\nA maid slipped in through the gate and stood by the hooded girl.', pageNumber: 23 }));
+  assert(fresh.mutations.some((m) => m.type === 'presence.enter' && /maid/.test(m.name)), 'a newcomer with no seat is not caught by the rule');
+});
+
+test('M666-2 AN ANSWER THAT IS NOT A SUMMARY IS ASKED FOR AGAIN, IN THE SAME RUN (his: “gibberish, or the AI breaking character, or ‘I can’t help with this’ — automatically try again, same as the other workers”): the keeper’s line for a batch, its merge of two lines, and the plot essentials each take three asks to get a real one; what is not a summary is never kept', async () => {
+  const { notASummary, KEEPER_TRIES, maybeSummarize, loadMemory, saveMemory, NOTES_PER_LAYER } = await import('../../js/agents/memory.js');
+  const { runEssentials, loadEssentials, ESSENTIALS_TRIES } = await import('../../js/agents/essentials.js');
+  const { db } = await import('../../js/store.js');
+  const pagesText = 'Liara leaned on the rail and the street went quiet. Jovan stayed on the porch a while longer; she asked him to stay for the fair on Friday.';
+  eq(notASummary('Jovan stayed on the porch with Liara; the street went quiet; she asked him to stay for the fair.', pagesText), '', 'a line of the record is a summary');
+  eq(notASummary('(no new state)', pagesText), '', 'and so is “nothing new”');
+  assert(/speaks as an assistant/.test(notASummary('As an AI language model, I’d be happy to continue the story for you.', pagesText)), 'an assistant talking about itself is not');
+  assert(/page of story/.test(notASummary('[The Wells house — Friday | 20:50 | clear | coat | on the porch]\n\nLiara turned from the rail. “Stay,” she said.', pagesText)), 'a page of story written on is not');
+  assert(/not words/.test(notASummary('@@## $$%% ^^&& **(( ))__ ++== ~~`` ||\\\\ <<>> ??// ;;::', pagesText)), 'noise is not');
+  assert(/nothing of what it was asked/.test(notASummary('The quarterly revenue forecast exceeded analyst expectations across European markets despite currency headwinds.', pagesText)), 'words about something else are not');
+  eq(KEEPER_TRIES + ' / ' + ESSENTIALS_TRIES, '3 / 3', 'three asks for each');
+  const sse = (pieces) => { const t = pieces.map((p) => 'data: ' + JSON.stringify(p) + '\n\n').join('') + 'data: [DONE]\n\n'; return { ok: true, status: 200, headers: new Headers(), body: new Response(t).body, text: async () => t }; };
+  const say = (text) => sse([{ choices: [{ delta: { content: text } }] }, { choices: [{ delta: {}, finish_reason: 'stop' }] }]);
+  const DS = { type: 'openai', baseUrl: 'https://api.deepseek.com/v1', apiKey: 'k', model: 'deepseek-chat', reasoning: { effort: 'off' } };
+  const kept = { window: await db.settings.get('memoryWindow'), batch: await db.settings.get('memoryBatch'), squeeze: await db.settings.get('memorySqueeze'), keeper: await db.settings.get('memoryKeeper') };
+  const prior = globalThis.fetch;
+  try {
+    /* the keeper's line for a batch: a page of story, then noise about something else, then the line */
+    await db.settings.set('memoryWindow', 4); await db.settings.set('memoryBatch', 6);
+    const st = await db.stories.create({ title: 'a keeper that breaks character ' + Math.random() });
+    for (let i = 0; i < 40; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: i % 2 ? '[The Wells house — Friday | 20:4' + (i % 10) + ']\n\nLiara leaned on the rail and the street went quiet. Page ' + i + '.' : 'I stay on the porch a while longer. ' + i });
+    let asks = 0; const prompts = [];
+    const bad = ['[The Wells house — Friday | 20:50 | clear | coat | on the porch]\n\nLiara turned from the rail. “Stay,” she said, and the street held its breath.', 'The quarterly revenue forecast exceeded analyst expectations across European markets despite currency headwinds.'];
+    globalThis.fetch = async (url, opts) => { const user = String(JSON.parse(opts.body).messages.slice(-1)[0].content || ''); if (/single word: ready/.test(user)) return say('ready'); if (/NONE, or one DETAIL/.test(user)) return say('NONE'); asks += 1; prompts.push(user); return say(asks <= bad.length ? bad[asks - 1] : 'Jovan stayed on the porch with Liara; the street went quiet; nothing else moved.'); };
+    await maybeSummarize({ connection: { ...DS }, storyId: st.id, stale: () => false, renew: () => true });
+    const mem = await loadMemory(st.id);
+    assert(asks >= 3 && prompts[0] === prompts[1] && prompts[1] === prompts[2], 'the same batch was asked for three times in ONE run of the keeper (asks: ' + asks + ')');
+    const lines = mem.nodes.filter((n) => n.text).map((n) => n.text);
+    assert(lines.length >= 1 && lines.every((t) => t === 'Jovan stayed on the porch with Liara; the street went quiet; nothing else moved.'), 'what was kept is the summary — not the page of story, not the forecast: ' + JSON.stringify(lines.map((t) => t.slice(0, 40))));
+    eq(mem.nodes.some((n) => n.span[0] === 0 && n.text), true, 'and the first pages have their line from that same run');
+    /* the fold: an assistant talking, then the merged line — the promotion happens in the same run */
+    await db.settings.set('memorySqueeze', 100); await db.settings.set('memoryKeeper', true); await db.settings.set('memoryWindow', 30);
+    for (let i = 0; i < 700; i += 1) await db.messages.append('m666-fold', { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i, ts: i });
+    await saveMemory('m666-fold', { window: 30, nodes: Array.from({ length: NOTES_PER_LAYER + 1 }, (_, i) => ({ id: 'n' + i, span: [i * 6, i * 6 + 5], text: 'Jovan and Liara on the porch, evening ' + i + '; the street quiet; she asks him to stay; he says he will think on it; the lamps go out one by one.', level: 1, at: i })) });
+    let merges = 0;
+    globalThis.fetch = async (url, opts) => { const user = String(JSON.parse(opts.body).messages.slice(-1)[0].content || ''); if (/NONE, or one DETAIL/.test(user)) return say('NONE'); if (/being merged into ONE line/.test(user)) { merges += 1; return say(merges === 1 ? 'As an AI language model, I’d be happy to help you merge these lines! Here is my attempt.' : 'Jovan and Liara spend two evenings on the porch; the street quiet; she asks him to stay and he says he will think on it; the lamps go out one by one both nights.'); } return say('(no new state)'); };
+    await maybeSummarize({ connection: { ...DS }, storyId: 'm666-fold' });
+    const folded = (await loadMemory('m666-fold')).nodes.filter((n) => n.level === 2);
+    eq(merges + ' | ' + folded.length + ' | ' + /two evenings on the porch/.test(folded[0] ? folded[0].text : ''), '2 | 1 | true', 'the merge was asked for again at once, and the real merged line is the promotion');
+    assert(!(await loadMemory('m666-fold')).nodes.some((n) => /As an AI/.test(String(n.text || ''))), 'the assistant’s chatter is nowhere in the record');
+    /* the plot essentials: two answers that are not them, then the essentials */
+    let tells = 0;
+    const good = '[Friday evening, the Wells house porch] Jovan comes home and Liara meets him; they talk until the lamps go out.\n[Saturday, the fair] She asks him to stay for the fair; he says he will think on it.';
+    const out = await runEssentials({ connection: { ...DS }, storyId: 'm666-essentials', nodes: [{ id: 'a', span: [0, 5], text: 'Jovan came home; Liara met him on the porch; the street was quiet; they talked until the lamps went out.', level: 1, at: 1 }, { id: 'b', span: [6, 11], text: 'She asked him to stay for the fair; he said he would think on it; the ferry was late.', level: 1, at: 2 }], brief: 'A harbour town story.', mc: 'Jovan', force: true,
+      callLLM: async () => { tells += 1; return tells === 1 ? 'I’m sorry, but I can’t help with that.' : tells === 2 ? 'asdf qwer zxcv uiop hjkl' : good; } });
+    eq(tells + ' | ' + out.wrote, '3 | true', 'the essentials were asked for three times and written');
+    assert(/Friday evening, the Wells house porch/.test((await loadEssentials('m666-essentials')).text), 'and what is kept is the essentials');
+  } finally {
+    globalThis.fetch = prior;
+    for (const [key, v] of [['memoryWindow', kept.window], ['memoryBatch', kept.batch], ['memorySqueeze', kept.squeeze], ['memoryKeeper', kept.keeper]]) { if (v === undefined) await db.settings.delete(key); else await db.settings.set(key, v); }
+  }
+});

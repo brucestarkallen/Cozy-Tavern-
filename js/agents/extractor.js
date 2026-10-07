@@ -368,6 +368,7 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
     '',
     ...(!founding ? openThreadsBlock(state) : []),
     ...(!founding ? openWoundsBlock(state, assistantText) : []),
+    ...(!founding ? namedFromAfarBlock(state, assistantText) : []),
     ...standingsBlock(unwritten), /* M641 */
     founding ? 'Found the ledger from these pages. JSON only.' : 'What changed, if anything? JSON only.',
   ].join('\n');
@@ -429,7 +430,7 @@ export function openThreadsBlock(state) {
     .filter((t) => t && typeof t === 'object' && typeof t.title === 'string' && t.title.trim());
   if (!threads.length) return [];
   return [
-    'OPEN THREADS — decide each against THIS page; the titles of the ones it resolved go in "resolved":',
+    'OPEN THREADS — decide each against THIS page; the titles of the ones it resolved go in "resolved". Resolved means this page ANSWERS it, ENDS it, or LEAVES IT BEHIND FOR GOOD: what it waited on has happened, has failed, or can no longer happen (the bell has rung and nobody came; the watcher has heard them out and moved on; the scene it belonged to is over and the story has walked away from it). One that is still live stays out:',
     ...threads.map((t, i) => (i + 1) + '. \u201c' + t.title.trim() + '\u201d' + (t.owner ? ' (' + t.owner + ')' : '')
       + (t.next ? ' \u2014 next: ' + String(t.next).trim() : '') + (t.heat === 'cold' ? ' [cold]' : '')),
     '',
@@ -457,6 +458,34 @@ export function openWoundsBlock(state, pageText = '') {
   return [
     'OPEN WOUNDS — decide each against THIS page; the ones it shows healed, mended or gone go in "healed" as {"name":"…","what":"…"}, worded as written here (a wound the page does not touch stays as it is — never close one because time has passed):',
     ...rows.map((r, n) => (n + 1) + '. ' + r.name + ' — ' + r.what + (r.treated ? ' (treated)' : '')),
+    '',
+  ];
+}
+
+/* M666: NAMED ON THE PAGE, SEATED ELSEWHERE — EACH TO BE DECIDED. The page reader was left to work out for itself that Salla,
+ * named in the telling, was still at the tavern's casks: it saw her seat only as one line in the whole ledger. Whoever
+ * the ledger keeps somewhere else and this page names is handed over by name, with where the ledger has them, and the
+ * one question that matters: did this page bring them face to face with him, or are they seen, heard or calling from
+ * where they are? (The world agent has had the cast of the page since M660; the reader, who writes who is here, had not.) */
+export function namedFromAfarBlock(state, pageText = '') {
+  const scene = scenePartOf(String(pageText || ''));
+  if (!scene.trim() || !state || typeof state !== 'object') return [];
+  const off = state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {};
+  const rows = [];
+  for (const [name, seat] of Object.entries(off)) {
+    if (!name || !seat || typeof seat !== 'object' || isMc(state, name) || isHere(state, name) || seat.dead || seat.gone) continue;
+    if (!nameOnPage(scene, name)) continue;
+    const where = typeof seat.location === 'string' && seat.location.trim() ? seat.location.trim() : (typeof seat.lastSeen === 'string' && seat.lastSeen.trim() ? 'last seen at ' + seat.lastSeen.trim() : 'whereabouts not written');
+    rows.push(name + ' [' + where + ']');
+    if (rows.length >= 8) break;
+  }
+  if (!rows.length) return [];
+  const mc = mcName(state);
+  const him = mc && mc !== 'the player' ? mc : 'the main character';
+  return [
+    'NAMED ON THIS PAGE BUT NOT IN THE SCENE AS IT OPENS — decide each (where the ledger has them is in brackets):',
+    ...rows.map((r, i) => (i + 1) + '. ' + r),
+    'One of these goes in "here" ONLY if this page brings them face to face with ' + him + ' where he now is, and they are still there as the page ends. Seen, heard, called to, or watching from where they are is NOT here: leave them out of "here" and write no presence.enter for them (if the page shows where they are now, that is an offscreen.set). What one of them plainly sees or overhears from there, they have learned — name them in that knowledge line\'s "who".',
     '',
   ];
 }
@@ -668,13 +697,36 @@ export async function extractTurn(args = {}) {
     /* M588: and when the reader names nobody in the new room, the newest page is asked instead — whoever it does not show
      * at the new ground stayed at the old one (an empty "here" used to keep the whole old room standing beside him) */
     const shownHere = (n) => (Array.isArray(read.here) && read.here.length ? cameAlong(n) : shownOnPage(args.state, narrationOf(scenePartOf(args.assistantText)), n));
-    if (farMove && args.state) {
+    /* M666 — HIS PASTED AUDITS, both: "the presence list still holds Salla 'here' in the service alley, but the pages last put
+     * her behind the casks in the Gilded Eel" (and the old campaigner, at the dogleg outside). The crowd was left behind
+     * only on a FAR move (two place names sharing no telling word); from the Eel to the lane outside it to the alley
+     * off that lane, each step shares a word with the last, so the whole tavern walked along, page after page, for
+     * the auditor to take out — twice. A NEAR move leaves people behind too — but only one that IS a move: a name that
+     * holds all of the other's words is either the same place said more fully ("the Tenth's courtyard" / "Tenth
+     * Division courtyard", M509-13b — nobody is left behind, and my first cut of this left two) or a place named BY
+     * its neighbour: "the lane OUTSIDE the Gilded Eel", "the service alley OFF the lane". The second kind is told by
+     * its own word of place standing before the neighbour's name. On such a move, when the page's own room is NAMED
+     * (its "here"), whoever stood in the old room and is not in the new one stayed where they were. */
+    const roomNamed = Array.isArray(read.here) && read.here.length > 0;
+    const BESIDE = /(?<![\p{L}])(?:outside|behind|off|beyond|near|across from|across|opposite|below|beneath|above|under|past|beside|next to|in front of|back of|rear of|round the corner from|around the corner from)(?![\p{L}])/iu;
+    const namedByNeighbour = (longer, shorterW) => { const m = String(longer || '').match(BESIDE); return Boolean(m) && holds(shorterW, tellingWords(String(longer).slice(m.index + m[0].length))); };
+    const nearMove = moved && !farMove && roomNamed && ((holds(wasW, groundW) && namedByNeighbour(ground, wasW)) || (holds(groundW, wasW) && namedByNeighbour(was, groundW)));
+    if ((farMove || nearMove) && args.state) {
       const leaving = new Set(read.mutations.filter((m) => m && m.type === 'presence.leave').map((m) => String(m.name || '').trim().toLowerCase()));
       for (const p of (Array.isArray(args.state.present) ? args.state.present : [])) {
         const n = p && typeof p.name === 'string' ? p.name.trim() : '';
         if (!n || isMc(args.state, n) || shownHere(n) || leaving.has(n.toLowerCase())) continue;
         read.mutations.push({ type: 'presence.leave', name: n, cause: 'left behind at ' + was + ' when the scene moved to ' + ground });
       }
+    }
+    /* M666: …and nobody the ledger has SEATED ELSEWHERE is written in against the page's own room. Taken out by the
+     * auditor, Salla was "here" again a few pages on: the telling names her ("she called past them to the campaigner")
+     * and a walk-in stands when the telling shows the person — though she was calling from the tavern. When the reader
+     * names the room as the page ends and she is not in it, its own presence.enter for her is not kept: the room is
+     * its last word on who is there. (Someone new, with no seat, is written in as before.) */
+    if (roomNamed && args.state && args.state.offscreen && typeof args.state.offscreen === 'object') {
+      read.mutations = read.mutations.filter((m) => !(m && m.type === 'presence.enter' && typeof m.name === 'string' && !isMc(args.state, m.name) && !isHere(args.state, m.name)
+        && Object.keys(args.state.offscreen).some((k) => samePersonName(k, m.name)) && !cameAlong(m.name)));
     }
     /* M444: a note let go of someone the page shows is her walking in; and the room, restated, writes in whoever is missing */
     read.mutations = clearsThatArrive(args.state, read.mutations, scenePartOf(args.assistantText));

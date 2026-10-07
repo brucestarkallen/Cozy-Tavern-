@@ -22,7 +22,7 @@ export const ESSENTIALS_KEY = (storyId) => 'essentials:' + storyId;
 /* M510-16: the same room the record's newest lines had (M510-14, about 4,000 tokens) — now spent on the whole story */
 export const ESSENTIALS_MAX_CHARS = 16000;   /* about 4,000 tokens — the whole story, streamlined */
 export const ESSENTIALS_MAX_TOKENS = 5000;
-export const ESSENTIALS_TRIES = 2;
+export const ESSENTIALS_TRIES = 3; /* M666: his — "it automatically tries again, same as all other workers": three asks, as the keeper's lines have */
 
 const fp = (t) => fingerprint36(t);
 
