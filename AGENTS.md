@@ -16914,3 +16914,31 @@ M280 threads, M444 the room, M641 standings, M650 the last-seen).
 - version.js -> m663-001.
 - GATES at m663-001 (one CPU), on the tree that was pushed: harness 1303/1303, walk 241/241, long play 9/9, lint 0 errors
   (178 warnings, as at m662), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
+
+# M664 — "so the ledger is compatible in very long play?": measured at the size of a 2,000-page tale
+He asked for a conclusion; it was measured before it was given. A ledger the size a 2,000-page tale leaves — a hundred
+people (nine in the scene), 4,500 facts known, 200 things, 92 seats, 1,200 truths of how people look; 852,000 characters
+stored — and the real builders of every request.
+- THE STORYTELLER: its ledger block is 6,330 characters (~1,800 tokens). It does not grow with the tale: who is here in
+  full, the looks of who is here, twelve things, the rest a roster. (The long-play gate holds the same flat over ninety
+  played turns.) Nothing changed.
+- THE WORKERS ARE SHOWN THE WHOLE LEDGER (M259), and "who knows what" in it was 124,000 characters though its room is
+  60,000 — the cap stops at twelve lines a person, and a hundred people at twelve lines is twice the room. Their whole
+  requests: page reader 216,000 characters, world agent 178,000, auditor 228,000. A worker of 128,000 tokens holds
+  that (half its room); HIS workers hold a million (7%). A worker of 64,000 tokens does NOT (its room is 168,000): every
+  reading of every page would fail from that size on, and nothing in the house would shrink the view.
+- A WORKER'S VIEW FITS ITS ROOM (whole.js renderAllKnowledge `fitRoom`, knowledgeRoomFor; passed by extractTurn, worldTurn
+  and the auditor from the worker's own connection): when the view is past a quarter of the worker's room (never under
+  60,000), the people in the scene keep their twelve lines and the ABSENT are shown fewer — eight, five, three, one,
+  then counted only ("X knows 30 things — already known; never write them again (look them up by name…)"). For a
+  64k worker at that size: page reader 136,000 (81% of its room), world agent 98,000 (58%), auditor 148,000 (88%).
+  - Fitting only ever shows LESS, and only when the worker's own room needs it. My first cut made the room itself the
+    cap and handed a million-token worker every line ever written — 104,000 tokens a reading where it had been
+    60,000. Measured, and undone: at a million the three requests are character for character what they were.
+- WHAT WAS NOT MEASURED: a tale actually PLAYED to 2,000 pages (the longest played run is the gate's ninety turns; the
+  ledger above was written straight into the store); the keeper's record at that length; his own worker model.
+- LAW (m588.mjs): M664-1 — the view unfitted (as it always was), fitted, tighter, and with room to spare; the room worked
+  out from the connection; the three requests for a 64k worker under 60% of its room, where they were over.
+- version.js -> m664-001.
+- GATES at m664-001 (one CPU), on the tree that was pushed: harness 1304/1304, walk 241/241, long play 9/9, lint 0 errors
+  (178 warnings, as at m663), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.

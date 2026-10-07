@@ -38,7 +38,7 @@ import { findThread } from '../engine/world.js';
  * M259: and it was shown the storyteller's TRIMMED copy of everything else —
  * six standings, five threads, four things a person knows, no ground at all.
  * It reads the whole ledger now (engine/whole.js). */
-import { renderWholeLedger, wholePage, PAGE_CAP } from '../engine/whole.js';
+import { renderWholeLedger, wholePage, PAGE_CAP, knowledgeRoomFor } from '../engine/whole.js';
 import { askWithFetch, fetchLaw, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259: it looks for what it was not shown */
 import { messageIndexLine, refOf } from './housekeeper.js';
 import { mcName } from '../engine/duels.js';
@@ -247,13 +247,13 @@ export function buildAuditorMessages(args) {
   for (let level = 1; level <= LEAN_STEPS && built.system.length + built.user.length > room * 0.6; level += 1) built = buildAuditorAt(args, level);
   return built;
 }
-function buildAuditorAt({ state, brief = '', castNotes = '', record = '', pages = [], index = [], pageCount = 0, canonRecord = '' }, lean = 0) {
+function buildAuditorAt({ state, brief = '', castNotes = '', record = '', pages = [], index = [], pageCount = 0, canonRecord = '', room = Infinity }, lean = 0) {
   const known = mcName(state);
   const mc = known && known !== 'the player' ? known : '';
   /* M259: the WHOLE ledger — every standing with its numbers, every thread,
    * every line of who knows what, every seat, lock, wound and faction, and
    * the ground (engine/whole.js). */
-  const whole = renderWholeLedger(state) || 'Nothing is written in the ledger yet.';
+  const whole = renderWholeLedger(state, { knowledgeRoom: Number.isFinite(room) && room > 0 ? knowledgeRoomFor(room) : 0 }) || 'Nothing is written in the ledger yet.'; /* M664: fitted to the auditor's room */
   const people = characterPages(state, lean);
   const user = [
     'THE BRIEF (the writer\'s own words):',

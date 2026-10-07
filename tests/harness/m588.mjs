@@ -1402,3 +1402,45 @@ test('M663-1 THE OPEN WOUNDS ARE HANDED TO THE PAGE READER BY NAME, EACH TO BE D
   const led = applyMutations(st, read.mutations).state;
   eq(led.bodies.Rias.injuries.filter((i) => !i.healed).length + ' | ' + led.bodies.Mira.injuries.filter((i) => !i.healed).length + ' | ' + led.bodies.Tom.injuries.filter((i) => !i.healed).length, '0 | 1 | 1', 'Rias is whole on the page that showed it; Mira’s hand and Tom’s rib stand');
 });
+
+/* M664 — his: "so the ledger is compatible in very long play?" — measured at the size of a 2,000-page tale. */
+test('M664-1 A WORKER’S VIEW FITS ITS ROOM IN A VERY LONG TALE: a hundred people who each know thirty things — a worker of 64,000 tokens is sent a page reader’s, a world agent’s and an auditor’s request it can hold (they were past it), the people in the scene keeping their twelve lines and the absent shown fewer, each counted; a worker with room to spare is shown exactly what it was', async () => {
+  const { renderAllKnowledge, knowledgeRoomFor, ALL_KNOWLEDGE_ROOM } = await import('../../js/engine/whole.js');
+  const { roomChars } = await import('../../js/engine/pagecut.js');
+  const { buildExtractorMessages } = await import('../../js/agents/extractor.js');
+  const { buildWorldMessages } = await import('../../js/agents/world.js');
+  const { buildAuditorMessages } = await import('../../js/agents/auditor.js');
+  const syl = ['ka', 'ri', 'to', 'me', 'su', 'na', 'vo', 'li', 'de', 'ra'];
+  const names = Array.from({ length: 100 }, (_, i) => { const w = syl[i % 10] + syl[Math.floor(i / 10) % 10] + 'n' + syl[(i * 3 + 1) % 10]; return w[0].toUpperCase() + w.slice(1); });
+  eq(new Set(names).size, 100, 'fixture: a hundred different people');
+  const knowledge = Object.fromEntries(names.map((n, i) => [n, Array.from({ length: 30 }, (_, k) => ({ fact: 'that matter number ' + k + ' of the harbour office and its ferry tickets came to person ' + i + ' in the autumn', atTurn: k }))]));
+  const here = names.slice(0, 6);
+  const linesOf = (text, n) => { const line = text.split('\n').find((l) => l.startsWith(n + ' ') || l.startsWith(n + ' (')); return line ? (line.match(/that matter number/g) || []).length : -1; };
+  /* as it always was: the room is 60,000 and the cap stops at twelve a person — a hundred people overflow it */
+  const before = renderAllKnowledge(knowledge, here);
+  assert(before.length > ALL_KNOWLEDGE_ROOM * 1.5 && names.every((n) => linesOf(before, n) === 12), 'unfitted: twelve lines for every one of a hundred people, ' + before.length + ' characters');
+  /* fitted to a small worker's room */
+  const fitted = renderAllKnowledge(knowledge, here, undefined, { fitRoom: 60000 });
+  assert(fitted.length <= 60000, 'fitted, it is within its room: ' + fitted.length);
+  assert(here.every((n) => linesOf(fitted, n) === 12), 'the people in the scene keep their twelve');
+  const away = names.slice(6).map((n) => linesOf(fitted, n));
+  assert(away.every((c) => c >= 0 && c < 12) && new Set(away).size === 1, 'the absent are shown fewer, all alike: ' + [...new Set(away)].join(','));
+  assert(names.slice(6).every((n) => /already known; never write them again/.test(fitted.split('\n').find((l) => l.startsWith(n + ' ')))), 'and each line says the rest are already known');
+  const tight = renderAllKnowledge(knowledge, here, undefined, { fitRoom: 12000 });
+  assert(/ knows 30 things — already known; never write them again \(look them up by name/.test(tight) && here.every((n) => linesOf(tight, n) === 12), 'tighter still: the absent are counted only; the scene keeps its lines');
+  eq(renderAllKnowledge(knowledge, here, undefined, { fitRoom: 5000000 }), before, 'a worker with room to spare is shown exactly what it was — never more');
+  eq(knowledgeRoomFor(roomChars({ type: 'openai', model: 'x', contextSize: 64000 }, 6000)) + ' / ' + knowledgeRoomFor(roomChars({ type: 'openai', model: 'x', contextSize: 1000000 }, 6000)) + ' / ' + knowledgeRoomFor(NaN), '60000 / 744000 / 60000', 'the room for it comes from the worker’s own connection');
+  /* and the three requests themselves, for a 64k worker */
+  const st = applyMutations({ ...emptyState(), page: 2000 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen' }, { type: 'presence.enter', name: 'Jovan' }, ...here.map((name) => ({ type: 'presence.enter', name }))]).state;
+  st.knowledge = knowledge;
+  const room = roomChars({ type: 'openai', model: 'x', contextSize: 64000 }, 6000);
+  const page = '[Wells house kitchen — Monday, March 3, 2025 | 21:45 | rain | sweater | at the table]\n\n' + here[0] + ' stirred the pot.';
+  const size = (m) => m.system.length + m.user.length;
+  const kr = knowledgeRoomFor(room);
+  const sizes = {
+    reader: [size(buildExtractorMessages({ state: st, userText: 'I wait.', assistantText: page, pageNumber: 2001 })), size(buildExtractorMessages({ state: st, userText: 'I wait.', assistantText: page, pageNumber: 2001, knowledgeRoom: kr }))],
+    world: [size(buildWorldMessages({ state: st, userText: 'I wait.', assistantText: page, pageNumber: 2001 })), size(buildWorldMessages({ state: st, userText: 'I wait.', assistantText: page, pageNumber: 2001, knowledgeRoom: kr }))],
+    auditor: [size(buildAuditorMessages({ state: st, brief: '', pages: [], index: [], pageCount: 2001 })), size(buildAuditorMessages({ state: st, brief: '', pages: [], index: [], pageCount: 2001, room }))],
+  };
+  for (const [who, [was, now]] of Object.entries(sizes)) assert(now < was && now <= room * 0.6, 'the ' + who + '’s request for a 64k worker: ' + now + ' characters (it was ' + was + '); its room is ' + room);
+});

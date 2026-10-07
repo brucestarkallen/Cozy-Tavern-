@@ -46,7 +46,7 @@ import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
 
-import { renderWholeLedger, wholePage } from '../engine/whole.js'; /* M259: the whole ledger, and the page read to its end */
+import { renderWholeLedger, wholePage, knowledgeRoomFor } from '../engine/whole.js'; /* M259: the whole ledger, and the page read to its end */
 import { askWithFetch, fetchLaw, windowOfPages, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259/M261: it may look; the story so far, whole */
 import { mcName } from '../engine/duels.js';
 
@@ -310,11 +310,11 @@ function systemPrompt({ mc, founding }) {
 
 /* Exported for the harness: the two messages any provider flavor receives. */
 export const EXTRACTOR_LOOKS = 2;
-export function buildExtractorMessages({ state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '', pageNumber = 0, contextBudget = Infinity }) {
+export function buildExtractorMessages({ state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '', pageNumber = 0, contextBudget = Infinity, knowledgeRoom = 0 }) {
   /* founding: passed explicitly by the send path (it already knows), else
    * read off the ledger's own youth. */
   if (typeof founding !== 'boolean') founding = isYoungLedger(state);
-  const facts = renderWholeLedger(state) || 'Nothing is written in the ledger yet.'; /* M259 */
+  const facts = renderWholeLedger(state, { knowledgeRoom }) || 'Nothing is written in the ledger yet.'; /* M259; M664: fitted to this worker's room */
   const known = mcName(state);
   const mc = known && known !== 'the player' ? known : '';
   const onNow = Object.entries((state && state.mode) || {}).filter(([, v]) => v).map(([k]) => k);
@@ -818,9 +818,10 @@ async function extractTurnRead({ connection, state, userText, assistantText, bef
   const young = typeof founding === 'boolean' ? founding : isYoungLedger(state);
   /* M259: THE RECORD RIDES. chat.js has handed it over since M226; this line
    * dropped it on arrival, so the extractor never once saw it. */
-  const bare = buildExtractorMessages({ state, userText, assistantText, before: [], founding: young, brief, castNotes, record, pageNumber });
+  const knowledgeRoom = knowledgeRoomFor(roomChars(connection, MAX_TOKENS)); /* M664 */
+  const bare = buildExtractorMessages({ state, userText, assistantText, before: [], founding: young, brief, castNotes, record, pageNumber, knowledgeRoom });
   const contextBudget = viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length);
-  const prompt = buildExtractorMessages({ state, userText, assistantText, before, founding: young, brief, castNotes, record, pageNumber, contextBudget });
+  const prompt = buildExtractorMessages({ state, userText, assistantText, before, founding: young, brief, castNotes, record, pageNumber, contextBudget, knowledgeRoom });
   /* M31: an answer we can't use, or a founding that came back empty, earns
    * ONE second ask with a sharper word — here, not five blind retries in
    * the queue. The raw answer rides out so the drawer can show it. */

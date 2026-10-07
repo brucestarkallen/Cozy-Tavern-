@@ -58,7 +58,7 @@ import { renderClock } from '../engine/clock.js';
 import { mcName } from '../engine/duels.js';
 import { STANCES } from '../engine/world.js';
 import { askWithFetch, fetchLaw, windowOfPages, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259/M261: it may look; the story so far, whole */
-import { renderAllThreads, renderAllKnowledge, renderAllFactions, wholePage } from '../engine/whole.js'; /* M259: every thread, every line of who knows what, every faction; the page read to its end */
+import { renderAllThreads, renderAllKnowledge, renderAllFactions, wholePage, knowledgeRoomFor } from '../engine/whole.js'; /* M259: every thread, every line of who knows what, every faction; the page read to its end */
 
 const MAX_TOKENS = 6000; /* M37: room for a long founding even if a house thinks a little anyway */
 export const WORLD_SHOWN_MAX = 6;
@@ -431,7 +431,7 @@ export function castFromAfar(state, pageText) {
   }
   return out;
 }
-export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], jumpedMinutes = 0, record = '', pageNumber = 0, contextBudget = Infinity, peopleRoom = WORLD_PEOPLE_ROOM, canonRecord = '' }) {
+export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], jumpedMinutes = 0, record = '', pageNumber = 0, contextBudget = Infinity, knowledgeRoom = 0, peopleRoom = WORLD_PEOPLE_ROOM, canonRecord = '' }) {
   const clockMinutes = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
   const clockWords = state && state.clock ? (renderClock(state.clock) || '') : '';
   const known = mcName(state);
@@ -450,7 +450,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
   const FENCE3 = '\u0022\u0022\u0022';
   const elsewhereAll = renderOffscreen(state.offscreen, present, clockMinutes, 40, state.characters || {}); /* M396 */
   const threads = renderAllThreads(state.threads);
-  const knowledge = renderAllKnowledge(state.knowledge, present);
+  const knowledge = renderAllKnowledge(state.knowledge, present, undefined, { fitRoom: knowledgeRoom > 0 ? knowledgeRoom : 0 }); /* M664: fitted to this worker's room */
   const factions = renderAllFactions(state.factions);
   const people = peopleForWorld(state, { material: String(brief || '') + '\n' + String(castNotes || ''), castNames, room: peopleRoom }); /* M304 */
   const cores = people.text;
@@ -574,9 +574,10 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
    * dropped it on arrival. */
   /* M304: the people list has a room of its own — a fifth of the connection's, the same in both builds, so the pages' window is measured against the list it will really ride beside */
   const peopleRoom = Math.max(12000, Math.floor(roomChars(connection, MAX_TOKENS) * 0.2));
-  const bare = buildWorldMessages({ state, userText, assistantText, before: [], brief, castNotes, castNames, voicesBefore, jumpedMinutes, record, pageNumber, peopleRoom, canonRecord });
+  const knowledgeRoom = knowledgeRoomFor(roomChars(connection, MAX_TOKENS)); /* M664 */
+  const bare = buildWorldMessages({ state, userText, assistantText, before: [], brief, castNotes, castNames, voicesBefore, jumpedMinutes, record, pageNumber, peopleRoom, canonRecord, knowledgeRoom });
   const contextBudget = viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length);
-  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, castNames, voicesBefore, jumpedMinutes, record, pageNumber, contextBudget, peopleRoom, canonRecord });
+  const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, castNames, voicesBefore, jumpedMinutes, record, pageNumber, contextBudget, peopleRoom, canonRecord, knowledgeRoom });
   /* M31: an answer we can't use earns ONE second ask with a sharper word;
    * the raw answer rides out so the drawer can show it. */
   let read = null;

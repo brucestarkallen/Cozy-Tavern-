@@ -87,7 +87,20 @@ export function renderAllThreads(threads) {
  * line, with the word that they are already known (a reader that cannot see a
  * fact must not write it again in new words — M259's lesson). */
 export const ALL_KNOWLEDGE_ROOM = 60000;
-export function renderAllKnowledge(knowledge, present = [], room = ALL_KNOWLEDGE_ROOM) {
+/* M664 — HIS: "the ledger is compatible in very long play?" MEASURED, AT THE SIZE OF A 2,000-PAGE TALE (a hundred people who
+ * each know thirty things): the storyteller's own block stays under 2,000 tokens — but this view, handed to the page
+ * reader, the world agent and the auditor, was 124,000 characters though its room is 60,000: the cap stops at twelve
+ * lines a person, and a hundred people at twelve lines is twice the room. With it their whole requests were 178,000 to
+ * 228,000 characters — past what a worker of 64,000 tokens can hold at all (168,000), so on such a worker every
+ * reading of every page would fail from then on. (His own workers hold a million; nothing overflowed for him.)
+ * A worker's view is now FITTED TO ITS ROOM (`fit`, with the room worked out from the worker's own connection —
+ * knowledgeRoomFor): whoever is in the scene keeps twelve lines; the absent are shown fewer — eight, five, three, one,
+ * then counted only — until the view fits, each line saying how many more are already known and are never to be
+ * written again. A worker with room to spare (128k and up at this size, a million always) is shown what it was. */
+export function knowledgeRoomFor(workerRoomChars) {
+  return Number.isFinite(workerRoomChars) && workerRoomChars > 0 ? Math.max(ALL_KNOWLEDGE_ROOM, Math.floor(workerRoomChars * 0.25)) : ALL_KNOWLEDGE_ROOM;
+}
+export function renderAllKnowledge(knowledge, present = [], room = ALL_KNOWLEDGE_ROOM, { fitRoom = 0 } = {}) {
   const safe = knowledge && typeof knowledge === 'object' ? knowledge : {};
   const hereKeys = new Set((Array.isArray(present) ? present : [])
     .map((p) => (typeof p === 'string' ? p : p && p.name))
@@ -102,9 +115,11 @@ export function renderAllKnowledge(knowledge, present = [], room = ALL_KNOWLEDGE
     people.push({ name, here: hereKeys.has(name), facts });
   }
   people.sort((a, b) => Number(b.here) - Number(a.here));
-  const build = (cap) => people.map((p) => {
-    const shown = Number.isFinite(cap) ? p.facts.slice(-cap) : p.facts;
+  const build = (cap, away = cap) => people.map((p) => {
+    const mine = p.here ? cap : Math.min(cap, away);
+    const shown = Number.isFinite(mine) ? (mine > 0 ? p.facts.slice(-mine) : []) : p.facts;
     const left = p.facts.length - shown.length;
+    if (!shown.length) return p.name + ' knows ' + left + (left === 1 ? ' thing' : ' things') + ' — already known; never write them again (look them up by name before writing anything of what ' + p.name + ' knows).';
     return p.name + (p.here ? ' (in the scene)' : '') + ' knows: ' + shown.join('; ') + '.'
       + (left > 0 ? ' (and ' + left + ' older ' + (left === 1 ? 'thing' : 'things') + ' — already known; never write them again)' : '');
   }).join('\n');
@@ -113,6 +128,11 @@ export function renderAllKnowledge(knowledge, present = [], room = ALL_KNOWLEDGE
     const most = people.reduce((n, p) => Math.max(n, p.facts.length), 0);
     let cap = most;
     while (cap > 12 && text.length > room) { cap = Math.max(12, Math.floor(cap * 0.8)); text = build(cap); }
+    /* M664: a worker's own view fits ITS room (fitRoom — a quarter of what its connection holds, never under the 60,000
+     * above) — the absent are shown fewer, the people in the scene keep their twelve. A worker with room to spare is
+     * shown exactly what it was: nothing here ever shows MORE than before (my first cut did — it handed a million-
+     * token worker every line ever written, 104,000 tokens a reading where it had been 60,000; measured, and undone). */
+    if (fitRoom > 0) for (const away of [8, 5, 3, 1, 0]) { if (text.length <= fitRoom) break; text = build(cap, away); }
   }
   return text;
 }
@@ -135,7 +155,7 @@ export function renderAllFactions(factions) {
 }
 
 /* The whole ledger, every book, nothing shed. */
-export function renderWholeLedger(state) {
+export function renderWholeLedger(state, { knowledgeRoom = 0 } = {}) {
   if (!state || typeof state !== 'object') return '';
   const out = [];
   const clockMinutes = state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
@@ -165,7 +185,7 @@ export function renderWholeLedger(state) {
   section('Threads still open — ALL of them, each title in quotes exactly as the ledger holds it:',
     renderAllThreads(state.threads), '(none)');
   section('Who knows what — EVERY line written, for everyone:',
-    renderAllKnowledge(state.knowledge, present), '(nothing written)');
+    renderAllKnowledge(state.knowledge, present, ALL_KNOWLEDGE_ROOM, { fitRoom: knowledgeRoom > 0 ? knowledgeRoom : 0 }), '(nothing written)'); /* M664: a worker's view, fitted to its room */
   section('Elsewhere — every seat of the absent:',
     renderOffscreen(state.offscreen, present, clockMinutes, 1000, state.characters || {}), '(nobody seated)'); /* M396 */
   section('What their bodies carry:',
