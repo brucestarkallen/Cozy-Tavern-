@@ -1380,3 +1380,25 @@ test('M662-2 SMART, NOT BLOATED (his: “knows what to inject, what to rotate”
   eq(renderCanon(canon, ['Jovan', 'Rias']).split('; ').length, 6, 'with no page number it is the first six, as before');
   eq(renderCanon(canon, ['Jovan']), '', 'and nothing of someone who is not in the scene');
 });
+
+/* M663 — the audit he asked for ("auditor is final defense, not necessary defense"): the auditor's checklist, each kind held
+ * against who is asked first. */
+test('M663-1 THE OPEN WOUNDS ARE HANDED TO THE PAGE READER BY NAME, EACH TO BE DECIDED: the wounds of the people of this page (in the scene, or named on it) are listed; the ones it answers as healed are healed on that page — not left for the auditor; a wound the page does not touch stays; nobody else’s is asked about', async () => {
+  const { extractTurn, buildExtractorMessages, openWoundsBlock } = await import('../../js/agents/extractor.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const st = applyMutations({ ...emptyState(), page: 12 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rias' },
+    ...['Rias', 'Tom', 'Mira'].map((name) => ({ type: 'people.set', name, field: 'core', text: 'someone the story keeps' })),
+    { type: 'offscreen.set', name: 'Tom', location: 'the boathouse', activity: 'mending nets' }, { type: 'offscreen.set', name: 'Mira', location: 'the landing', activity: 'tying up' },
+    { type: 'body.injure', name: 'Rias', what: 'left forearm cut to the bone', sev: 2, treated: true }, { type: 'body.injure', name: 'Rias', what: 'a split lip', sev: 1 },
+    { type: 'body.injure', name: 'Tom', what: 'a cracked rib', sev: 2 }, { type: 'body.injure', name: 'Mira', what: 'a burned hand', sev: 1 }]).state;
+  const page = '[Wells house kitchen — Monday, March 24, 2025 | 21:45 | rain | sweater | at the table]\n\nThree weeks on, Rias flexed her forearm — healed to a pale seam — and laughed. Somewhere out on the landing Mira was still swearing at the ropes.';
+  const block = openWoundsBlock(st, page).join('\n');
+  assert(/OPEN WOUNDS — decide each against THIS page/.test(block) && /Rias — left forearm cut to the bone \(treated\)/.test(block) && /Rias — a split lip/.test(block) && /Mira — a burned hand/.test(block), 'the wounds of who is here, and of who the page names: ' + block);
+  assert(!/Tom/.test(block), 'never of someone the page does not touch');
+  assert(/OPEN WOUNDS — decide each/.test(buildExtractorMessages({ state: st, userText: 'I watch her.', assistantText: page }).user), 'and it rides in what the page reader is sent');
+  eq(openWoundsBlock(applyMutations(st, [{ type: 'body.heal', name: 'Rias', what: 'left forearm cut to the bone' }, { type: 'body.heal', name: 'Rias', what: 'a split lip' }, { type: 'body.heal', name: 'Mira', what: 'a burned hand' }]).state, page).length, 0, 'no open wound on this page’s people: nothing is asked');
+  const read = await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }, { type: 'body.heal', name: 'Rias', what: 'left forearm cut to the bone' }], resolved: [], healed: [{ name: 'Rias', what: 'left forearm cut to the bone' }, { name: 'Rias', what: 'her split lip' }], here: ['Jovan', 'Rias'] }) }), () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'I watch her.', assistantText: page, pageNumber: 13 }));
+  eq(read.mutations.filter((m) => m.type === 'body.heal').map((m) => m.name + ': ' + m.what).join(' | '), 'Rias: left forearm cut to the bone | Rias: her split lip', 'each wound it answered is one healing — the forearm, said twice, once');
+  const led = applyMutations(st, read.mutations).state;
+  eq(led.bodies.Rias.injuries.filter((i) => !i.healed).length + ' | ' + led.bodies.Mira.injuries.filter((i) => !i.healed).length + ' | ' + led.bodies.Tom.injuries.filter((i) => !i.healed).length, '0 | 1 | 1', 'Rias is whole on the page that showed it; Mira’s hand and Tom’s rib stand');
+});

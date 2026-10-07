@@ -16879,3 +16879,38 @@ bloating context. Knows what to inject. What to rotate."
 - GATES at m662-001 (one CPU), on the tree that was pushed: harness 1302/1302, walk 241/241 (DOM-241 among them), long play
   9/9, lint 0 errors (178 warnings, as at m661), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each. This is the
   SECOND run: the first failed M16 and DOM-241, as told above.
+
+# M663 — the audit he asked for: the auditor's checklist, each kind held against who is asked first; a shelf's header
+His: "audit the ledger to make sure there are no mistakes that need the auditor to fix, because auditor is final defense
+not necessary defense." M662 did not do it; this does, by the one method that fits the ask: read the auditor's OWN list
+of what it looks for (auditor.js), and for each kind name who is supposed to get it right BEFORE the auditor reads —
+and whether that worker is ASKED BY NAME, in a slot of its own (the only form of asking that has ever worked here:
+M280 threads, M444 the room, M641 standings, M650 the last-seen).
+- THE LIST, AND WHO IS FIRST:
+  the hour and the ground — the header, read in code (M645, M660). who is here — the page reader's "here" and its
+  quoted comings and goings (M444, M644), places and dress restated (M660, M661). the absent — the world agent, handed
+  by name whoever has no seat or only a sighting (M401, M650). the people — the scribe, handed by name whoever has no
+  page (M514) and no now (M408); a nature never thinned (M648). what is true of them — the founder from the brief; the
+  page reader's "looks" from the pages (M662). standings — the page reader, by name (M641). threads — the page reader,
+  each by title (M280), one thread however worded (M653). a person's loose ends — the scribe, shown them for whoever
+  the page names (M227). who knows what — the page reader, with who saw it (M642).
+  THE ONE KIND NOBODY WAS ASKED ABOUT FIRST: "a wound the pages show healed still open".
+- THE OPEN WOUNDS, EACH TO BE DECIDED (extractor.js openWoundsBlock): the page reader could always write body.heal, as it
+  could always close a thread — and did not, until asked by name. The wounds that stand open on the people of this
+  page (in the scene, the main character, or named on the page; twelve at most) are handed to it, and it answers in a
+  slot of its own, "healed", which this page shows healed; each becomes one body.heal (found by the part of the body,
+  M646). A wound the page does not touch stays, and nobody else's is asked about.
+- WHAT STAYS THE AUDITOR'S, AND WHY: a face the pages CHANGED against a truth already written (a haircut over "hair: long")
+  — a page that contradicts a truth is either a change or a slip, and telling which is a judgment (the second reader
+  flags it; the auditor relocks); "what the ledger says happened", read across several pages; a wrong name, age or kin
+  against the brief. Those are reading the whole against itself — what a final defence is for.
+- A SHELF'S HEADER (css/chat.css; measured in a phone-sized Chromium, the panel 284 px): the + of M662 left "Gotham nights"
+  44 px of the 94 it needs, and the header's three old buttons were 23x10 px. My first cure (every small button a
+  finger's width) left the name 24 px — measured, and thrown away. The header is two rows now: the name and its page
+  count have the whole first row (94 of 94 px), the buttons — each 30x30 — the second, to the right; 59 px tall where
+  it was 37. A tale's own row is as it was (its buttons are 23x10; not asked, not touched).
+- LAW (m588.mjs): M663-1 (the wounds of the page's people handed over; the answer heals on that page; a wound the page
+  does not touch, and anybody else's, stay).
+- version.js -> m663-001.
+- GATES at m663-001 (one CPU), on the tree that was pushed: harness 1303/1303, walk 241/241, long play 9/9, lint 0 errors
+  (178 warnings, as at m662), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.

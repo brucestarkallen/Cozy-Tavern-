@@ -267,7 +267,7 @@ function systemPrompt({ mc, founding }) {
     who,
     '',
     'Answer with JSON ONLY, in exactly this shape:',
-    '{"mutations":[ ... ], "resolved":[ ... ], "here":[ ... ], "looks":[ ... ]}',
+    '{"mutations":[ ... ], "resolved":[ ... ], "healed":[ ... ], "here":[ ... ], "looks":[ ... ]}',
     '"resolved" holds the exact titles of the OPEN THREADS (listed under the page) that THIS page',
     'resolved — the question answered, the plan carried out or abandoned, the promise kept, the thing',
     'found, the decision made. A thread the page only moved is not resolved. [] when none was.',
@@ -367,6 +367,7 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
     '"""',
     '',
     ...(!founding ? openThreadsBlock(state) : []),
+    ...(!founding ? openWoundsBlock(state, assistantText) : []),
     ...standingsBlock(unwritten), /* M641 */
     founding ? 'Found the ledger from these pages. JSON only.' : 'What changed, if anything? JSON only.',
   ].join('\n');
@@ -435,6 +436,31 @@ export function openThreadsBlock(state) {
   ];
 }
 
+/* M663 (the audit he asked for: "auditor is final defense, not necessary defense" — the auditor's own checklist, each kind
+ * held against who is asked FIRST): THE OPEN WOUNDS, EACH TO BE DECIDED. "A wound the pages show healed still open" is
+ * on the auditor's list of what is its to find — and nobody before it was ever ASKED. The page reader may write
+ * body.heal, as it could always close a thread; it was the open threads handed by name (M280) that got threads closed
+ * on the page that resolved them. The wounds that stand open on the people of this page are handed over the same way,
+ * and it answers in a slot of their own which ones this page shows healed. */
+export function openWoundsBlock(state, pageText = '') {
+  const bodies = state && state.bodies && typeof state.bodies === 'object' ? state.bodies : {};
+  const scene = scenePartOf(String(pageText || ''));
+  const rows = [];
+  for (const [name, body] of Object.entries(bodies)) {
+    const open = (body && Array.isArray(body.injuries) ? body.injuries : []).filter((i) => i && !i.healed && typeof i.what === 'string' && i.what.trim());
+    if (!open.length) continue;
+    if (!(isHere(state, name) || isMc(state, name) || nameOnPage(scene, name))) continue; /* the people of this page */
+    for (const i of open.slice(0, 4)) rows.push({ name, what: i.what.trim(), treated: i.treated === true });
+    if (rows.length >= 12) break;
+  }
+  if (!rows.length) return [];
+  return [
+    'OPEN WOUNDS — decide each against THIS page; the ones it shows healed, mended or gone go in "healed" as {"name":"…","what":"…"}, worded as written here (a wound the page does not touch stays as it is — never close one because time has passed):',
+    ...rows.map((r, n) => (n + 1) + '. ' + r.name + ' — ' + r.what + (r.treated ? ' (treated)' : '')),
+    '',
+  ];
+}
+
 /* M28: a ledger is young when it has no ground and nobody in it — the same
  * test the founding read (M27) uses in chat.js. One home for it. */
 export function isYoungLedger(state) {
@@ -490,6 +516,13 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
     }
     /* M280: each title the page resolved closes its thread (once) */
     const closing = new Set(mutations.filter((m) => m.type === 'thread.close').map((m) => String(m.title || m.name || '').trim().toLowerCase()));
+    /* M663: each wound this page healed closes (once) — a body.heal of the same wound among the changes is the same answer */
+    for (const h of (Array.isArray(parsed.healed) ? parsed.healed : []).slice(0, 12)) {
+      if (!h || typeof h !== 'object' || typeof h.name !== 'string' || typeof h.what !== 'string' || !h.name.trim() || !h.what.trim()) continue;
+      const name = h.name.trim().slice(0, 80); const what = h.what.trim().slice(0, 200);
+      if (mutations.some((m) => m && m.type === 'body.heal' && String(m.name || '').trim().toLowerCase() === name.toLowerCase() && String(m.what || '').trim().toLowerCase() === what.toLowerCase())) continue;
+      mutations.push({ type: 'body.heal', name, what });
+    }
     for (const title of (Array.isArray(parsed.resolved) ? parsed.resolved : [])) {
       const t = typeof title === 'string' ? title.trim() : (title && typeof title.title === 'string' ? title.title.trim() : '');
       if (!t || closing.has(t.toLowerCase())) continue;

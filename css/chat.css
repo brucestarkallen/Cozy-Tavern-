@@ -1338,3 +1338,12 @@ html[data-theme='magma'] .msg-user .msg-body {
 .shelf-add { min-width: 2rem; min-height: 2rem; line-height: 1; font-size: 1.3rem; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; color: var(--text); }
 .new-story-where { margin: 0.1rem 0 0.4rem; }
 .search-scope { display: block; margin: 0.1rem 0 0.45rem; }
+/* M663: A SHELF'S HEADER IS TWO ROWS — its name and page count, then its buttons. Measured in a phone-sized Chromium (the
+ * panel is 284 px): with the + added, "Gotham nights" had 44 px of the 94 it needs (24 px once the buttons were made a
+ * finger's width), and the three old buttons were 23x10 px. The name has the whole first row now; the buttons, each
+ * 30x30, stand on the second, to the right. A tale's own row is as it was. */
+.shelf-head { flex-wrap: wrap; }
+.shelf-head > .shelf-toggle { flex: 1 1 100%; min-width: 0; }
+.shelf-head > .choose-pick + .shelf-toggle { flex: 1 1 0; } /* while choosing: the tick and the name share the row */
+.shelf-head > .story-mini { min-width: 1.9rem; min-height: 1.9rem; display: inline-flex; align-items: center; justify-content: center; line-height: 1; flex: 0 0 auto; }
+.shelf-head > .shelf-toggle + .story-mini { margin-left: auto; }
