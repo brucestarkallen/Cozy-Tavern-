@@ -16526,3 +16526,39 @@ Continuing M644–M649 by the same method; the scene room's fight machinery had 
 - GATES at m650-001 (one CPU), on the tree that was pushed: harness 1280/1280, walk 236/236, long play 9/9, lint 0 errors
   (178 warnings — one fewer than m649: an unused variable went with the old gate), perf_send, holdsone, cutthinking,
   notes_layout — EXIT 0 each, first run, no scenario failing.
+
+# M651 — the ledger audit, part eight: a rating is read as its number
+Continuing M644–M650 by the same method.
+- HOW THEY MEASURE (referee.js mergeSeed — the seeder's ratings — and normalizeAdj — the referee's estimate of a foe in a
+  beat): a rating was read with Number(), so only a bare number was one. Fed a rating answer as models often write
+  numbers: "9/10" → no number → the special-grade Yuki Tsukumo filed at the DEFAULT FIVE, an average fighter, her
+  domains ("9/10", "8 out of 10") thrown away; "8 (first grade, elite)" → five; "9+" → dropped; a foe the referee rated
+  "9/10" in a beat → "unknown", fought at five. Every fight against them was scored against an average opponent.
+  ratingOf: the first number in the words is the rating ("85/100" and "85%" are 8.5); words with no number ("high",
+  "unknown") are no rating, as before. Used wherever a model's rating is read: the seeder's default and domains, the
+  referee's opponent_rating, a duel's rating and a battle's estimate.
+- Read and left: mergeSeed's protections (the writer's hand locked, a considered rating only rises, an estimate gives way
+  to a considered rating, the main character's names land on his entry, not-a-person filtered) — sound as written.
+- KNOWN AND LEFT: a fighter given domains and no overall rating ("Gojo: sorcery 10") reads the default five outside
+  those domains. The seeder is asked for both; the ledger makes up no number for the one it was not given.
+- LAW (m588.mjs): M651-1 (the number however written; words are none; through the seeder's merge — Yuki a nine with her
+  domains; through the referee's ruling — the foe's rating in a beat and at a duel's start). 207 referee laws stand.
+- NOT AUDITED YET — the handoff's list. The audit is not finished and this entry does not say it is.
+- THE WALK FAILED DOM-85 ONCE ON THIS PART ("waited too long for off, kept") — nothing to do with ratings, and not rerun
+  but run down, to A REAL FAULT IN SETTINGS: HIS TAP WAS READ AFTER A WAIT. Settings is shown first and filled after;
+  the canon switch's handler did `await activeStory()` and only THEN read the switch — and a fill still in flight set
+  the switch back to what was stored in between: he switched canon off, "on" was written, the switch showed on again.
+  (Alone the scenario fails earlier for want of the scenarios before it; run from the walk's start it passed with the
+  switch already filled — so the cause was read from the two functions side by side, then MADE TO HAPPEN: DOM-237
+  holds the fill's read open, taps during it, and slows the handler. On Settings as it was: "got true, wanted false".
+  A first version of that scenario passed on the old code too and proved nothing; it was rewritten until it failed
+  there.) Narrow on a phone — the fill takes tens of milliseconds — but real, and the same shape stood in eight more
+  handlers: the story's choices switch, its shelf, its storyteller, its keeper / second reader / readers, its
+  thinking, and each worker's own connection. All nine now take what he chose AT the tap, before any wait; and the
+  canon switch's fill no longer draws over a tap made while it was reading (canonTouched). The other thirty-odd
+  handlers read their control as the argument of their first call — before the wait — and were sound (checked by
+  reading each, after a script flagged forty-three).
+- version.js -> m651-001.
+- GATES at m651-001 (one CPU), on the tree that was pushed: harness 1281/1281, walk 237/237 (DOM-85 and the new DOM-237
+  among them), long play 9/9, lint 0 errors (178 warnings, as at m650), perf_send, holdsone, cutthinking, notes_layout —
+  EXIT 0 each. That is the run AFTER the Settings fault was set right; the run before it is the DOM-85 failure above.

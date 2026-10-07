@@ -818,3 +818,27 @@ test('M650-2 A SIGHTING IS HANDED TO THE WORLD AGENT BY NAME: someone who steppe
   assert(!/ONLY LAST SEEN/.test(lineOf('Tom')) && !/ONLY LAST SEEN/.test(lineOf('Claire')), 'Tom (placed by his leaving) and Claire (seated) are not');
   assert(/Rias \[in the scene\]/.test(lineOf('Rias')), 'Rias is in the scene');
 });
+
+/* M651 — the ledger audit, part eight: how they measure. */
+test('M651-1 A RATING IS READ AS ITS NUMBER, HOWEVER IT IS WRITTEN: “9/10”, “8 (first grade, elite)”, “9+”, “8 out of 10”, “85/100” are ratings — a special grade is not filed as an average fighter, and a foe the referee rates in a beat is not “unknown”; words with no number are no rating', async () => {
+  const { ratingOf, mergeSeed, normalizeAdj } = await import('../../js/agents/referee.js');
+  for (const [said, want] of [[9, 9], ['9', 9], ['9/10', 9], ['8 (first grade, elite)', 8], ['9+', 9], ['8 out of 10', 8], ['~7', 7], ['7-8', 7], ['7.5', 7.5], ['85/100', 8.5], ['85%', 8.5], ['rating: 6', 6]]) eq(ratingOf(said), want, 'read “' + said + '”');
+  for (const said of ['high', '', null, undefined, {}, 'very strong', true]) assert(Number.isNaN(ratingOf(said)), 'no number in ' + JSON.stringify(said));
+  const st = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' },
+    ...['Kenjaku', 'Yuki Tsukumo', 'Todo', 'Maki'].flatMap((name) => [{ type: 'people.set', name, field: 'core', text: 'a sorcerer' }, { type: 'presence.enter', name }])]).state;
+  mergeSeed(st, { actors: [
+    { name: 'Kenjaku', default: 9, domains: { melee: 8, sorcery: 10 } },
+    { name: 'Yuki Tsukumo', default: '9/10', domains: { melee: '9/10', sorcery: '8 out of 10' } },
+    { name: 'Todo', default: '8 (first grade, elite)', domains: { melee: '9+' } },
+    { name: 'Maki', default: 'high', domains: { melee: 'very high' } }] });
+  const a = st.sheet.actors;
+  eq(a.Kenjaku.default + ' ' + JSON.stringify(a.Kenjaku.domains), '9 {"melee":8,"sorcery":10}', 'plain numbers, as always');
+  eq(a['Yuki Tsukumo'].default + ' ' + JSON.stringify(a['Yuki Tsukumo'].domains), '9 {"melee":9,"sorcery":8}', 'a special grade written “9/10” is a nine — not the default five, her domains kept');
+  eq(a.Todo.default + ' ' + JSON.stringify(a.Todo.domains), '8 {"melee":9}', '“8 (first grade, elite)” and “9+”');
+  eq(a.Maki.default + ' ' + JSON.stringify(a.Maki.domains), '5 {}', 'words with no number are no rating: the default, as before');
+  /* in a beat: the referee's own estimate of a foe */
+  const adj = normalizeAdj({ check: true, action: 'I cut at him', kind: 'actor', opposition: 'Kenjaku', opponent_rating: '9/10', duel_start: { opponent: 'Kenjaku', domain: 'melee', rating: '9 (special grade)' } }, st);
+  eq(adj.opponent_rating, 9, 'the opponent’s rating in a beat');
+  eq((adj.duel_start || adj.battle_start || {}).rating ?? (adj.battle_start || {}).oppEstimate, 9, 'and at the start of a duel');
+  eq(normalizeAdj({ check: true, action: 'I cut at him', opponent_rating: 'unknown' }, st).opponent_rating, null, 'no number: unknown, as before');
+});

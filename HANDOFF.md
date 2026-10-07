@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m650-001)
+# Cozy Tavern — handoff for the next session (state at m651-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -111,8 +111,11 @@
   STILL TO AUDIT THE SAME WAY: the keeper's fold run end to end with a stand-in keeper (the window's edge, promotions,
   the self-audit's fixes); the world agent's threads (its prompt and a stand-in answer); the auditor's remaining guards
   (auditor.js auditorScope: the ground, the hour, people.set, knowledge — feed each an ordinary case, as its leave and
-  walk-in were); the seeder's ratings (mergeSeed, seedDue) and the referee's own answers (normalizeAdj and its kin:
-  what a model's odd adjudication becomes). Method that found every fault of M641–M644: do
+  walk-in were); the referee's other answers (normalizeDuelAdj / normalizeBattleAdj / normalizeWarAdj, the condition
+  and composure changes: what a model's odd adjudication becomes) and when a seeding is due (seedDue).
+  PART EIGHT (M651): THE RATINGS' DOOR — a rating written "9/10" or "8 (elite)" was no number, and the fighter was filed
+  at the default five. Known and left: a fighter given domains and no overall rating reads five outside those domains
+  (the seeder is asked for both; no honest number can be made up for it). Method that found every fault of M641–M644: do
   not read the rule and nod — feed it thirty sentences as he writes them and count what it gets wrong.
 - A GATE THAT FAILS ONCE AND PASSES ON A RERUN HAS NOT PASSED. Never write "timing", "rare" or "flaky" in these notes, and
   never push on the rerun: read the failing report against the state, make the failure happen on purpose, and only then

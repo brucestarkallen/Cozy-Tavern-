@@ -583,6 +583,20 @@ export function buildRefereeUser({ state, userText, history, fightLine, brief = 
 /* Normalization — everything the model says is untrusted               */
 /* ==================================================================== */
 
+/* M651 (the ledger audit, part eight — a rating answer as models write numbers): A RATING IS READ AS ITS NUMBER, HOWEVER IT
+ * IS WRITTEN. "9/10", "8 (first grade, elite)", "9+", "8 out of 10", "~7" are how a model often writes a rating — and
+ * each was no number at all: the special-grade Yuki Tsukumo was filed at the default 5, an average fighter, with her
+ * domains thrown away; a foe the referee rated "9/10" in a beat was "unknown" and fought at 5. The first number in the
+ * words is the rating ("85/100" and "85%" are 8.5); words with no number ("high") are no rating, as before. */
+export function ratingOf(v) {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : NaN;
+  if (typeof v !== 'string') return NaN;
+  const m = v.match(/-?\d+(?:\.\d+)?/);
+  if (!m) return NaN;
+  const n = Number(m[0]);
+  const rest = v.slice(m.index + m[0].length);
+  return /^\s*(?:\/\s*100\b|out\s+of\s+100\b|%)/i.test(rest) ? n / 10 : n;
+}
 function clampInt(v, lo, hi, fallback) {
   const n = Math.round(Number(v));
   return Number.isFinite(n) ? clamp(n, lo, hi) : fallback;
@@ -666,7 +680,7 @@ export function normalizeAdj(obj, state) {
     stakes: cleanName(obj.stakes, 120),
     playerGuard: cleanName(obj.playerGuard, 120),
     counterPath: cleanName(obj.counterPath, 120),
-    opponent_rating: Number.isFinite(Number(obj.opponent_rating)) ? clamp(Number(obj.opponent_rating), 0, 10) : null,
+    opponent_rating: Number.isFinite(ratingOf(obj.opponent_rating)) ? clamp(ratingOf(obj.opponent_rating), 0, 10) : null, /* M651 */
     duel_start: null,
     battle_start: null,
     war_start: null,
@@ -692,13 +706,13 @@ export function normalizeAdj(obj, state) {
         domain: combatDomain(ds.domain),
         scale: clampInt(ds.scale, -4, 4, 0),
         scaleMismatch: clampInt(ds.scale, -4, 4, 0),
-        oppEstimate: Number.isFinite(Number(ds.rating)) ? clamp(Number(ds.rating), 0, 10) : null,
+        oppEstimate: Number.isFinite(ratingOf(ds.rating)) ? clamp(ratingOf(ds.rating), 0, 10) : null,
       };
     } else {
       out.duel_start = {
         opponent: cleanName(ds.opponent, 60),
         domain: combatDomain(ds.domain),
-        rating: Number.isFinite(Number(ds.rating)) ? clamp(Number(ds.rating), 0, 10) : null,
+        rating: Number.isFinite(ratingOf(ds.rating)) ? clamp(ratingOf(ds.rating), 0, 10) : null,
         scale: clampInt(ds.scale, -4, 4, 0),
         scaleMismatch: clampInt(ds.scale, -4, 4, 0), /* M176: one spelling, every fight */
       };
@@ -1615,12 +1629,12 @@ export function mergeSeed(state, parsed, { heal = false, byHand = false } = {}) 
     const domains = {};
     if (item.domains && typeof item.domains === 'object') {
       for (const d of Object.keys(item.domains).slice(0, 8)) {
-        const v = Number(item.domains[d]);
+        const v = ratingOf(item.domains[d]); /* M651 */
         const dk = String(d).toLowerCase().trim().slice(0, 20);
         if (dk && Number.isFinite(v)) domains[dk] = clamp(v, 0, 10);
       }
     }
-    const fresh = { default: clampInt(item.default, 0, 10, ENGINE_DEFAULTS.defaultRating), domains };
+    const fresh = { default: clampInt(ratingOf(item.default), 0, 10, ENGINE_DEFAULTS.defaultRating), domains }; /* M651 */
     const why = typeof item.why === 'string' ? item.why.replace(/\s+/g, ' ').trim().slice(0, 240) : ''; /* M560: the evidence the numbers rest on */
     const lasting = normalizeLasting(item.lasting || item.conditions);
     const key = findActorKeyExact(state, name) || findActorKeySamePerson(state, name);

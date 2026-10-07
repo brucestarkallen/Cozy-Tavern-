@@ -1443,9 +1443,11 @@ export function initSettings(ctx) {
   if (els.briefModeNew) els.briefModeNew.addEventListener('change', async () => { await db.settings.set('briefModeNew', els.briefModeNew.checked ? 'automatic' : 'manual'); });
   /* M548: Choices matter — this story's own switch; on, the newest page is offered its choices at once */
   if (els.choicesStory) els.choicesStory.addEventListener('change', async () => {
+    const asked = els.choicesStory.checked === true; /* M651: what he chose, taken AT the tap — before any wait (a fill still in flight could set the control back, and the wait then read the fill's value, not his) */
     const story = await activeStory();
     if (!story) { els.choicesStory.checked = false; return; }
-    await db.stories.update(story.id, { choices: els.choicesStory.checked === true });
+    await db.stories.update(story.id, { choices: asked });
+    els.choicesStory.checked = asked;
     if (ctx.chat && typeof ctx.chat.choicesChanged === 'function') await ctx.chat.choicesChanged();
   });
   document.getElementById('btn-save-world-ground').addEventListener('click', async () => {
@@ -1510,13 +1512,12 @@ export function initSettings(ctx) {
    * sidebar re-gathers itself the moment the move lands. */
   if (els.storyShelf) {
     els.storyShelf.addEventListener('change', async () => {
+      const shelfId = els.storyShelf.value || null; /* M651: what he chose, taken AT the tap — before any wait (a fill still in flight could set the control back, and the wait then read the fill's value, not his) */
+      const pickedName = els.storyShelf.selectedOptions[0] ? els.storyShelf.selectedOptions[0].textContent : 'its shelf';
       const story = await activeStory();
       if (!story) return;
-      const shelfId = els.storyShelf.value || null;
       await db.stories.update(story.id, { projectId: shelfId });
-      const shelfName = shelfId
-        ? (els.storyShelf.selectedOptions[0] ? els.storyShelf.selectedOptions[0].textContent : 'its shelf')
-        : null;
+      const shelfName = shelfId ? pickedName : null;
       toast(shelfName
         ? `“${story.title}” rests on ${shelfName} now.`
         : `“${story.title}” stands loose now.`);
@@ -1753,10 +1754,11 @@ export function initSettings(ctx) {
       }
       sel.value = assignMap[key] && all.some((c) => c.id === assignMap[key]) ? assignMap[key] : '';
       sel.addEventListener('change', async () => {
+        const picked = sel.value; /* M651: what he chose, taken AT the tap — before any wait (a fill still in flight could set the control back, and the wait then read the fill's value, not his) */
         const next = (await db.settings.get('workerConnections')) || {};
-        if (sel.value) next[key] = sel.value; else delete next[key];
+        if (picked) next[key] = picked; else delete next[key];
         await db.settings.set('workerConnections', next);
-        toast(sel.value ? `${words.split(' — ')[0]} has hands of its own now.` : `${words.split(' — ')[0]} follows the house again.`);
+        toast(picked ? `${words.split(' — ')[0]} has hands of its own now.` : `${words.split(' — ')[0]} follows the house again.`);
       });
       const labelText = document.createElement('span');
       labelText.textContent = words;
@@ -1848,31 +1850,33 @@ export function initSettings(ctx) {
   });
 
   els.storyConn.addEventListener('change', async () => {
+    const picked = els.storyConn.value || null; /* M651: what he chose, taken AT the tap — before any wait (a fill still in flight could set the control back, and the wait then read the fill's value, not his) */
     const story = await activeStory();
     if (!story) return;
-    await db.stories.update(story.id, { connectionId: els.storyConn.value || null });
+    await db.stories.update(story.id, { connectionId: picked });
     if (ctx.chat && typeof ctx.chat.refreshQuickSwitch === 'function') await ctx.chat.refreshQuickSwitch(); /* M510: one choice, two places — both show it */
     if (ctx.chat && typeof ctx.chat.planAhead === 'function') ctx.chat.planAhead(); /* M510: a small model taking the tale reads ahead now */
   });
 
   els.workerKeeper.addEventListener('change', async () => {
+    const v = els.workerKeeper.value; /* M651: what he chose, taken AT the tap — before any wait (a fill still in flight could set the control back, and the wait then read the fill's value, not his) */
     const story = await activeStory();
     if (!story) return;
-    const v = els.workerKeeper.value;
     await db.stories.update(story.id, { keeper: v === 'on' ? true : v === 'off' ? false : null });
   });
 
   els.workerContinuity.addEventListener('change', async () => {
+    const v = els.workerContinuity.value; /* M651: what he chose, taken AT the tap — before any wait (a fill still in flight could set the control back, and the wait then read the fill's value, not his) */
     const story = await activeStory();
     if (!story) return;
-    const v = els.workerContinuity.value;
     await db.stories.update(story.id, { continuity: v === 'on' ? true : v === 'off' ? false : null });
   });
 
   els.workerExtraction.addEventListener('change', async () => {
+    const asked = els.workerExtraction.checked; /* M651: what he chose, taken AT the tap — before any wait (a fill still in flight could set the control back, and the wait then read the fill's value, not his) */
     const story = await activeStory();
     if (!story) return;
-    await db.stories.update(story.id, { extraction: els.workerExtraction.checked });
+    await db.stories.update(story.id, { extraction: asked });
   });
 
   /* ---------- how much the story remembers (M6) ---------- */
@@ -1965,14 +1969,17 @@ export function initSettings(ctx) {
    * here — the throw cut off every section below the memory room (cast,
    * lore, the thinking say, the theme) and the four dials themselves had
    * no listeners at all. Now they render and they write. */
+  let canonTouched = 0; /* M651: counts his taps on the canon switch — a fill that began before one does not draw over it */
   async function renderReferee() {
     els.refereeOn.checked = (await db.settings.get('refereeOn')) !== false;
     /* M346: canon verification — its own switch (off as it ships) and, only to be sure, the series' wiki */
     /* M399: the switch is THIS story's — off unless he switched it on for it; with no story open there is none to switch */
     if (els.canonOn) {
+      const touchedAtStart = canonTouched; /* M651: a fill never draws over a tap made while it was reading */
       const story = await activeStory();
       els.canonOn.disabled = !story;
-      els.canonOn.checked = story ? await canonOn(story.id) : false;
+      const stored = story ? await canonOn(story.id) : false;
+      if (touchedAtStart === canonTouched) els.canonOn.checked = stored;
       { const row = document.getElementById('canon-legacy-row'); if (row) row.hidden = !els.canonOn.checked; } /* M519-3: shown only with canon on — off, it has nothing to change */
       const lab = els.canonOn.closest('label');
       if (lab && lab.lastChild && lab.lastChild.nodeType === 3) lab.lastChild.textContent = story ? ' Canon verification — for “' + (story.title || 'this story') + '”' : ' Canon verification — open a story to switch it on for it';
@@ -2008,9 +2015,15 @@ export function initSettings(ctx) {
     }
   }
   if (els.canonOn) els.canonOn.addEventListener('change', async () => {
+    /* M651 (DOM-85, run down): HIS TAP IS TAKEN AT THE TAP. The switch was read AFTER the first wait — and Settings is
+     * shown first and filled after: a fill still in flight set the switch back to what was stored, and the wait then
+     * read the FILL's value. He switched canon off; "on" was written; the switch showed on again. */
+    const asked = els.canonOn.checked;
+    canonTouched += 1;
     const story = await activeStory(); /* M399: this story's switch, and only this story's */
     if (!story) { els.canonOn.checked = false; return; }
-    await setCanonOn(story.id, els.canonOn.checked);
+    await setCanonOn(story.id, asked);
+    els.canonOn.checked = asked; /* and it shows what he chose, whatever a late fill drew */
     { const row = document.getElementById('canon-legacy-row'); if (row) row.hidden = !els.canonOn.checked; } /* M519-3 */
     if (!els.canonOn.checked) { try { await canonWithdraw(story.id); } catch (err) { /* its next page withdraws them */ } }
     await drawCanon();
@@ -2842,9 +2855,10 @@ export function initSettings(ctx) {
   }
 
   els.thinkingStory.addEventListener('change', async () => {
+    const picked = els.thinkingStory.value; /* M651: what he chose, taken AT the tap — before any wait (a fill still in flight could set the control back, and the wait then read the fill's value, not his) */
     const story = await activeStory();
     if (!story) return;
-    await db.stories.update(story.id, { reasoningEffort: els.thinkingStory.value });
+    await db.stories.update(story.id, { reasoningEffort: picked });
   });
 
   if (els.cutBeforeHeader) els.cutBeforeHeader.addEventListener('change', async () => {

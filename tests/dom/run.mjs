@@ -8189,6 +8189,35 @@ test('DOM-236 SOMEONE WHO GOES UPSTAIRS IS UPSTAIRS (M643 — his report: the pa
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-237 HIS TAP IS TAKEN AT THE TAP (M651 — DOM-85’s rare failure, run down): Settings is shown first and filled after; a switch he flips while its fill is still reading is written as HE set it, and the late fill does not draw over it', async () => {
+  const before = errors.length;
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'the tap and the fill' });
+  await db.settings.set('canonOn:' + st.id, true);
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  /* the race, made to happen: the fill's reading of the canon row is held open; he taps while it is; and his tap's own
+   * handler is slow to find the story, so the fill finishes in between */
+  const realStory = db.stories.get; const realSetting = db.settings.get; let slow = false; let fillReading = false; let tapped = false;
+  db.settings.get = async (...a) => { if (slow && a[0] === 'canonOn:' + st.id && !tapped) { fillReading = true; await tick(400); } return realSetting.apply(db.settings, a); };
+  db.stories.get = async (...a) => { if (slow && tapped) await tick(900); return realStory.apply(db.stories, a); };
+  try {
+    slow = true;
+    click(q('#btn-settings'));
+    await until(() => !q('#view-settings').hidden, 'Settings is shown', 5000);
+    await until(() => fillReading, 'the fill is reading the canon switch', 10000);
+    const sw = q('#canon-on');
+    tapped = true;
+    sw.checked = false; sw.dispatchEvent(new env.window.Event('change', { bubbles: true })); /* he switches canon off, the fill still reading */
+    await tick(1800);                                        /* the fill finishes (and would draw "on"); then his handler finishes */
+    slow = false;
+    eq((await realSetting.call(db.settings, 'canonOn:' + st.id)) === true, false, 'what he chose is what was written: canon is off for this story');
+    eq(q('#canon-on').checked, false, 'and the switch shows what he chose — the late fill did not draw “on” over it');
+  } finally { slow = false; db.stories.get = realStory; db.settings.get = realSetting; }
+  await closeSettings();
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-188 THE OPENING MOVES FEELINGS (M532 — his report: "every time, How they feel about you is empty and I need to rebuild the people, especially on #story"): the young ledger\'s reader is asked what the opening does to people\'s feelings — he saves Yuki, and her standing is there after the first page, no rebuild', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
