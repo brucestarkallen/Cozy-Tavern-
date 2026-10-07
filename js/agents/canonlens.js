@@ -164,8 +164,13 @@ export function parseLens(raw) {
     for (const c of balancedCandidates(text, 5)) {
       const p = parseLenient(c);
       if (p && Array.isArray(p.verdicts)) {
-        return p.verdicts.filter((v) => v && Number.isInteger(Number(v.n)) && /^(holds|changed|later)$/.test(String(v.verdict || '')))
-          .map((v) => ({ n: Number(v.n), verdict: String(v.verdict), keep: typeof v.keep === 'string' ? v.keep.trim() : '' }));
+        /* M659: A VERDICT IS READ AS A MODEL WRITES IT. It had to be exactly "holds" / "changed" / "later" and its number a
+         * bare number: "Holds", "holds.", "changed (he was promoted later)", "statement 3" were no verdict at all — and a
+         * statement with no verdict is held back from the storyteller and the lens asked again (M607), page after page. */
+        const numberOf = (n) => (typeof n === 'number' ? n : Number((String(n == null ? '' : n).match(/\d+/) || [NaN])[0]));
+        const verdictOf = (t) => ((String(t || '').trim().toLowerCase().match(/^(holds|changed|later)\b/) || [])[1] || '');
+        return p.verdicts.filter((v) => v && Number.isInteger(numberOf(v.n)) && verdictOf(v.verdict))
+          .map((v) => ({ n: numberOf(v.n), verdict: verdictOf(v.verdict), keep: typeof v.keep === 'string' ? v.keep.trim() : '' }));
       }
     }
   } catch (err) { /* unreadable */ }

@@ -60,6 +60,11 @@ import { loadMemory, saveMemory } from './memory.js'; /* M61: and the record */
 import { pageText } from '../assemble/stack.js';
 import { renderWholeLedger } from '../engine/whole.js';
 import { createProvider } from '../providers/index.js';
+/* M659 (the ledger audit, part sixteen): a yes or a no as a model writes it — an operation's "add":"true" or "hide":"false"
+ * (a string) was neither, and the card did nothing or did another thing. */
+const saidYes = (v) => v === true || v === 1 || (typeof v === 'string' && /^\s*(?:true|yes|y|1)\s*$/i.test(v));
+const saidNo = (v) => v === false || v === 0 || (typeof v === 'string' && /^\s*(?:false|no|n|0)\s*$/i.test(v));
+
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { fallbackFor, noteFallback, nameOfConnection } from './call.js'; /* M510-30: the fallback for every worker */
 
@@ -1567,7 +1572,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
   for (const op of (parsed && Array.isArray(parsed.edits) ? parsed.edits : [])) {
     markSource(op);
     if (!op || typeof op !== 'object') continue;
-    if (op.bulk_replace === true) {
+    if (saidYes(op.bulk_replace)) {
       const find = typeof op.find === 'string' ? op.find : '';
       const replace = typeof op.replace === 'string' ? op.replace : '';
       if (!find) continue;
@@ -1606,7 +1611,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       });
       continue;
     }
-    if (op.hide === true || op.hide === false) {
+    if (saidYes(op.hide) || saidNo(op.hide)) {
       proposals.push({
         id: uid(), ts: Date.now(), kind: 'edit',
         label: typeof op.label === 'string' && op.label.trim()
@@ -1837,7 +1842,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
     markSource(op);
     if (!op || typeof op !== 'object') continue;
     const reason = cleanReason(op.reason);
-    if (op.add === true) {
+    if (saidYes(op.add)) {
       const keys = Array.isArray(op.keys) ? op.keys.map((k) => String(k == null ? '' : k).trim()).filter(Boolean) : [];
       const content = typeof op.content === 'string' ? op.content.trim() : '';
       const name = typeof op.name === 'string' ? op.name.trim() : '';
@@ -1847,7 +1852,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
         id: uid(), ts: Date.now(), kind: 'lore',
         label: typeof op.label === 'string' && op.label.trim() ? op.label.trim() : 'lore: add ' + (name || keys[0]),
         reason,
-        op: { add: true, name: name || null, keys: keys.length ? keys : [name], content, constant: op.constant === true },
+        op: { add: true, name: name || null, keys: keys.length ? keys : [name], content, constant: saidYes(op.constant) },
         status: 'pending', words: '', review: [], /* M78: a second add in the same answer is not stale */
       });
       continue;
@@ -1857,7 +1862,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       proposals.push({ id: uid(), ts: Date.now(), kind: 'lore', label: 'lore: ' + (op.entry || '?'), reason, op, status: 'refused', words: op.entry ? 'the shelf holds no entry called “' + op.entry + '”' : 'it didn’t say which entry', review: [] });
       continue;
     }
-    if (op.remove === true) {
+    if (saidYes(op.remove)) {
       proposals.push({
         id: uid(), ts: Date.now(), kind: 'lore', label: 'lore: remove ' + (entry.name || entry.keys[0]), reason,
         op: { entryId: entry.id, remove: true, entryName: entry.name || entry.keys[0], beforeContent: String(entry.content || '') },
@@ -2368,8 +2373,8 @@ async function applyEditOp(storyId, p, batch) {
   const msg = all.find((m) => m && m.id === op.messageId);
   if (!msg) return { ok: false, words: 'the page it would change has gone from the story' };
 
-  if (op.hide === true || op.hide === false) {
-    const hidden = op.hide === true;
+  if (saidYes(op.hide) || saidNo(op.hide)) {
+    const hidden = saidYes(op.hide);
     if ((msg.hidden === true) === hidden) {
       return { ok: false, words: hidden ? 'that page was already folded away' : 'that page already shows' };
     }
@@ -2606,7 +2611,7 @@ async function applyLoreOp(storyId, p, batch) {
       return { ok: false, words: 'not applied — the shelf already holds “' + (op.name || (op.keys || [])[0]) + '”; ask for a change to it instead' };
     }
     const id = 'lore-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7);
-    const entry = { id, name: op.name || null, keys: op.keys, content: op.content, enabled: true, constant: op.constant === true, secondaryKeys: [], depth: 2 };
+    const entry = { id, name: op.name || null, keys: op.keys, content: op.content, enabled: true, constant: saidYes(op.constant), secondaryKeys: [], depth: 2 };
     next = [...shelf, entry];
     words = 'The shelf gained “' + (entry.name || entry.keys[0]) + '”.';
   } else {
@@ -3258,7 +3263,7 @@ export async function runConversation({
        * is fetched and the answer asked again, once, instead of staged */
       const blind = [];
       for (const op of parsed.edits) {
-        if (!op || typeof op !== 'object' || op.bulk_replace === true) continue;
+        if (!op || typeof op !== 'object' || saidYes(op.bulk_replace)) continue;
         const m = resolveMessageRef(messages, op.id);
         if (m && !served.has(m.id) && typeof op.find === 'string' && op.find) blind.push(m);
       }
@@ -3273,7 +3278,7 @@ export async function runConversation({
        * resolver; a miss is corrected in the same run, once */
       const misses = [];
       for (const op of parsed.edits) {
-        if (!op || typeof op !== 'object' || op.bulk_replace === true || typeof op.find !== 'string' || !op.find) continue;
+        if (!op || typeof op !== 'object' || saidYes(op.bulk_replace) || typeof op.find !== 'string' || !op.find) continue;
         const m = resolveMessageRef(messages, op.id);
         if (!m) continue;
         const loc = locate(pageText(m), op.find);

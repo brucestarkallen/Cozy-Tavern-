@@ -16739,3 +16739,25 @@ The last of the list M644 began.
 - version.js -> m658-001.
 - GATES at m658-001 (one CPU), on the tree that was pushed: harness 1293/1293, walk 239/239, long play 9/9, lint 0 errors
   (178 warnings, as at m657), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, no scenario failing.
+
+# M659 — the ledger audit, part sixteen: what canon says, and the last strict reads
+- THE CANON EXTENSION'S ANSWER DOORS (js/agents/canoncheck.js, canonlens.js, canonstart.js — "what canon says" is a room
+  of the ledger): the same reading M651/M654 cured elsewhere.
+  - readClaimsCheck: the facts a check calls wrong, by number — "fact 3", "#4", "5." were no numbers, and the wrong
+    fact each pointed at STOOD (M608's own lesson: "a check that could not be read let every wrong fact stand").
+  - parseLens: a statement's verdict had to be exactly "holds" / "changed" / "later" and its number bare — "Holds",
+    "LATER.", "changed (he was promoted later)", "statement 3" were no verdict; and a statement with no verdict is held
+    back from the storyteller and the lens asked again (M607), page after page.
+  - readCanonStart: "canon":"true" was no yes — the reader looked for a boolean and did not even find the answer, so
+    a story that sits in a canon got no note of where it began; "canon":"no" was not read as a no.
+  Each reads what a model writes now ("unchanged" and "maybe" are still no verdict; a refusal still no answer).
+- THE HOUSEKEEPER'S OPERATIONS (housekeeper.js stageProposals — twelve reads) AND THE PLANNER'S "intense": an operation
+  whose "add" / "remove" / "hide" / "constant" / "bulk_replace" came as "true" (a string) was not that operation — a
+  lore add written so fell through to "the shelf holds no entry called…" and was refused. saidYes / saidNo read them.
+- LAWS (m588.mjs): M659-1 (the three canon doors), M659-2 (the housekeeper's cards: add and remove written "true",
+  "constant":"yes"). 397 older housekeeper and planner laws and the canon laws stand.
+- A sweep of the remaining workers (director, editor, judge, voice, recall, lookup, tidy, concept, world ground, here
+  words, ripple, rebuild, founder, canon tidy) for a model's yes or number read strictly found nothing more.
+- version.js -> m659-001.
+- GATES at m659-001 (one CPU), on the tree that was pushed: harness 1295/1295, walk 239/239, long play 9/9, lint 0 errors
+  (178 warnings, as at m658), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.

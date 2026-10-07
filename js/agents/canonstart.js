@@ -57,8 +57,11 @@ const line = (v, max = 240) => String(v == null ? '' : v).replace(/\s+/g, ' ').t
 /* the helper's answer, read strictly: null unless it places the story in a named canon with a moment */
 export function readCanonStart(raw) {
   let obj = raw;
-  if (typeof raw === 'string') obj = parseFirstObject(raw, (x) => typeof x.canon === 'boolean'); /* M608: the forgiving reader */
-  if (!obj || typeof obj !== 'object' || obj.canon !== true) return null;
+  /* M659: a yes as a model writes it — "canon":"true" was no yes: the answer was not even found (the reader looked for a
+   * boolean), and a story that sits in a canon got no note of where it began */
+  const yes = (v) => v === true || v === 1 || (typeof v === 'string' && /^\s*(?:true|yes|y|1)\s*$/i.test(v));
+  if (typeof raw === 'string') obj = parseFirstObject(raw, (x) => typeof x.canon === 'boolean' || typeof x.canon === 'string' || typeof x.canon === 'number'); /* M608: the forgiving reader */
+  if (!obj || typeof obj !== 'object' || !yes(obj.canon)) return null;
   const series = line(obj.series, 80);
   const moment = line(obj.moment, 300);
   if (!series || !moment) return null;
@@ -87,7 +90,7 @@ export async function placeInCanon({ connection, concept, brief = '', signal } =
    * reached) comes back as { failed: true } and is written down as nothing, so the next chance asks again. */
   try { ({ text } = await callWorker(connection, { system: withFictionFrame(ask.system), user: ask.user, maxTokens: 1600, signal })); } catch (err) { return { failed: true }; }
   /* M608: its thinking is not its answer — a "canon": false weighed while it thought made a canon story none */
-  if (/"canon"\s*:\s*false/.test(String(text || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, ''))) return { none: true };
+  if (/"canon"\s*:\s*(?:false|"\s*(?:false|no|n|0)\s*"|0\b)/i.test(String(text || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, ''))) return { none: true }; /* M659: a no as a model writes it */
   const start = readCanonStart(text);
   return start ? { start } : null;
 }

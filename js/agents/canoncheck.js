@@ -90,7 +90,9 @@ export function readClaimsCheck(raw, count) {
   if (!obj || typeof obj !== 'object' || !Array.isArray(obj.wrong)) return null;
   const wrong = [];
   for (const n of obj.wrong) {
-    const k = Number(n);
+    /* M659 (the ledger audit, part sixteen — what canon says): a fact's number as a model writes it — "fact 3", "#4", "2."
+     * are 3, 4 and 2. With Number() they were nothing, and the wrong fact they pointed at stood. */
+    const k = typeof n === 'number' ? n : Number((String(n == null ? '' : n).match(/\d+/) || [NaN])[0]);
     if (!Number.isInteger(k) || k < 1 || k > count) continue;
     if (!wrong.includes(k - 1)) wrong.push(k - 1);
   }

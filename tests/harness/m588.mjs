@@ -1159,3 +1159,33 @@ test('M658-1 A DETAIL THAT SAYS THERE IS NONE IS NONE: “DETAIL: none”, “N/
   eq(applyAuditFixes(line, parseAuditFixes('FIX: seventeen -> eighteen'), pages).text, line, 'a “fix” the pages do not bear out is not');
   eq(applyAuditFixes(line, parseAuditFixes('I’m sorry, I can’t help with that.'), pages).text, line, 'an apology fixes nothing');
 });
+
+/* M659 — the ledger audit, part sixteen: what canon says. */
+test('M659-1 THE CANON EXTENSION’S ANSWERS, AS MODELS WRITE THEM: a wrong fact numbered “fact 3” or “#4” is that fact; a verdict “Holds”, “LATER.”, “changed (…)” is its verdict and “statement 3” its statement; “canon”:"true" is a yes and “canon”:"no" a no', async () => {
+  const { readClaimsCheck } = await import('../../js/agents/canoncheck.js');
+  const { parseLens } = await import('../../js/agents/canonlens.js');
+  const { readCanonStart } = await import('../../js/agents/canonstart.js');
+  eq(JSON.stringify(readClaimsCheck(JSON.stringify({ wrong: [1, '2', 'fact 3', '#4', '5.', 'none', 9, 0] }), 6).wrong), '[0,1,2,3,4]', 'the five facts it pointed at, however it numbered them; a word, a nine of six and a zero point at none');
+  eq(JSON.stringify(readClaimsCheck(JSON.stringify({ wrong: [] }), 6).wrong), '[]', 'none wrong is none wrong');
+  eq(readClaimsCheck('I’m sorry, but I can’t check this.', 6), null, 'a refusal is no answer, as before');
+  const lens = parseLens(JSON.stringify({ verdicts: [{ n: 1, verdict: 'holds' }, { n: '2', verdict: 'Holds' }, { n: 'statement 3', verdict: 'changed (he was promoted later)', keep: 'a captain' }, { n: 4, verdict: 'LATER.' }, { n: 5, verdict: 'unchanged' }, { n: 6, verdict: 'maybe' }, { n: 'x', verdict: 'holds' }] }));
+  eq(lens.map((v) => v.n + ':' + v.verdict).join(' '), '1:holds 2:holds 3:changed 4:later', 'four verdicts read; “unchanged”, “maybe” and a statement with no number are none');
+  eq(lens[2].keep, 'a captain', 'and what a changed statement keeps comes with it');
+  const start = { series: 'Bleach', arc: 'after the war', moment: 'ten years after the Thousand-Year Blood War', when: 'spring', facts: ['Kyōraku is the Captain-Commander'] };
+  for (const canon of [true, 'true', 'Yes', 1]) assert(readCanonStart(JSON.stringify({ canon, ...start })), 'a story in a canon, said ' + JSON.stringify(canon));
+  for (const canon of [false, 'false', 'no', 0, 'maybe']) eq(readCanonStart(JSON.stringify({ canon, ...start })), null, 'not one, said ' + JSON.stringify(canon));
+});
+
+test('M659-2 THE HOUSEKEEPER’S OPERATIONS AND THE PLANNER’S FLAG, AS MODELS WRITE A YES: a lore card whose “add” is "true" is an add (with “constant”:"yes" kept), one whose “remove” is "true" is a removal — neither is refused or taken for another kind of card', async () => {
+  const { stageProposals } = await import('../../js/agents/housekeeper.js');
+  const lore = [{ id: 'L1', name: 'The Bluebird Diner', keys: ['Bluebird'], content: 'A diner on Harbor Street.', enabled: true }];
+  const staged = stageProposals({ lore: [
+    { add: 'true', name: 'The ferry', keys: ['ferry'], content: 'Runs at nine and at five; forty crowns.', constant: 'yes', reason: 'the story keeps asking' },
+    { entry: 'The Bluebird Diner', remove: 'true', reason: 'it burned down on page 40' },
+    { add: true, name: 'The harbour office', keys: ['harbour office'], content: 'Where the clerk counts the tickets.', reason: 'new place' },
+  ] }, { messages: [], state: {}, modules: [], lore, memory: null, session: {}, story: { id: 's1' } });
+  const cards = (Array.isArray(staged) ? staged : (staged && (staged.proposals || staged.cards)) || []).filter((c) => c.kind === 'lore');
+  eq(cards.length, 3, 'three lore cards');
+  eq(cards.map((c) => c.status + ':' + (c.op.add ? 'add' : c.op.remove ? 'remove' : 'other')).join(' '), 'pending:add pending:remove pending:add', 'the add written "true", the removal written "true", and the add written true — each what it was meant to be, none refused');
+  eq(cards[0].op.constant, true, 'and “constant”:"yes" is kept');
+});

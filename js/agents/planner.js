@@ -144,7 +144,7 @@ export function readPlan(raw, { present = [], mc = '', lawNames = [] } = {}) {
     pressing: list(j.pressing, MAX_PRESSING),
     earlier: list(j.earlier, MAX_EARLIER),
     laws,
-    intense: j.intense === true,
+    intense: j.intense === true || j.intense === 1 || (typeof j.intense === 'string' && /^\s*(?:true|yes|y|1)\s*$/i.test(j.intense)), /* M659: a yes as a model writes it */
     loud: j.loud !== false,
     loudWhy: clip(j.loudWhy, 120),
     sounds: list(j.sounds, MAX_SOUNDS, CUE),
