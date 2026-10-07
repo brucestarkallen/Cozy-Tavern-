@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m670-001)
+# Cozy Tavern — handoff for the next session (state at m671-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -149,8 +149,10 @@
 - THE BACKUP'S PROMISE IS A GATE (M670). His word for what a backup is: "I have all the information — when I import it, it's
   basically the original, like a Mac's Time Machine." Its SIZE is not his concern and is not to be "fixed" by keeping
   less: never thin, skip or summarise what a copy holds. audit/gates.sh now runs five tests of it against the real
-  serve.py (backup, backupdupes, restore_backup_unit, restore_zip, backup_fresh). What a copy does not hold, by design,
-  is the separate database of "what the storyteller was sent, word for word" (sent.js) — said to him.
+  serve.py (backup, backupdupes, restore_backup_unit, restore_zip, backup_fresh). Since M671 a copy also holds what every page's
+  storyteller was sent, word for word: the device keeps an archive of it for each tale (sent/<tale>.ndjson, lines only
+  ever added — the browser keeps the newest 200 pages, the device keeps them all), and tests/backup_sent.py is the
+  sixth backup gate. NEVER make that archive smaller, rewrite it, or leave it out of a copy.
 - A NEW BUTTON IS PRESSED BY THE SWEEP. DOM-15 presses every button in the story room except the ones its own skip list
   names. A new button that opens another room (M668's "The current scene" opens the ledger) leaves that room open for
   every scenario after it — DOM-22 then shut the drawer with its own first tap and lost its form, twenty scenarios

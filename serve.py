@@ -428,6 +428,14 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
             return None
         return os.path.join(DATA_DIR, 'books', book_id + '.json')
 
+    def _sent_path(self, book_id):
+        # M671: what each page's storyteller was sent, word for word -- one file a tale, beside the books (so the copy
+        # the device zips holds it, and a copy brought back restores it)
+        import re as _re
+        if not _re.fullmatch(r'[A-Za-z0-9_\-]{1,80}', book_id or ''):
+            return None
+        return os.path.join(DATA_DIR, 'sent', book_id + '.ndjson')
+
     def _manifest(self):
         folder = os.path.join(DATA_DIR, 'books')
         out = []
@@ -641,6 +649,29 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
             except (OSError, ConnectionError):
                 pass
             return
+        if path.startswith('/api/books/sent/'):  # M671: the archive of what each page was sent -- asked what it holds, or for one page
+            sp = self._sent_path(path[len('/api/books/sent/'):])
+            if sp is None:
+                self.send_response(400); self.end_headers(); return
+            from urllib.parse import urlparse, parse_qs
+            q = parse_qs(urlparse(self.path).query)
+            if not os.path.exists(sp):
+                self.send_response(404); self.end_headers(); return
+            try:
+                if q.get('have'):
+                    self._send_bytes(json.dumps(_sent_have(sp)).encode('utf-8'))
+                elif q.get('page'):
+                    one = _sent_page(sp, q['page'][0])
+                    if one is None:
+                        self.send_response(404); self.end_headers()
+                    else:
+                        one['storyId'] = os.path.basename(sp)[:-len('.ndjson')]
+                        self._send_bytes(json.dumps(one).encode('utf-8'))
+                else:
+                    self.send_response(400); self.end_headers()
+            except OSError:
+                self.send_response(404); self.end_headers()
+            return
         if path.startswith('/api/books/one/'):
             bp = self._book_path(path[len('/api/books/one/'):])
             if bp is None:
@@ -706,6 +737,35 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
             r = dict(r)
             r['folder'] = BACKUPS_DIR
             self._send_bytes(json.dumps(r).encode('utf-8'))
+            return
+        if path.startswith('/api/books/sent/'):  # M671: new lines are added to the tale's archive; nothing in it is ever rewritten
+            sp = self._sent_path(path[len('/api/books/sent/'):])
+            if sp is None:
+                self.send_response(400); self.end_headers(); return
+            try:
+                n = int(self.headers.get('content-length', 0))
+            except ValueError:
+                n = 0
+            if n <= 0 or n > MAX_BOOK_BYTES:
+                self.send_response(413); self.end_headers(); return
+            body = self.rfile.read(n)
+            lines = [ln for ln in body.split(b'\n') if ln.strip()]
+            try:
+                for ln in lines:
+                    row = json.loads(ln)
+                    if not (isinstance(row, dict) and ((isinstance(row.get('k'), str) and isinstance(row.get('t'), str)) or isinstance(row.get('p'), dict))):
+                        raise ValueError('not a line of the archive')
+            except ValueError:
+                self.send_response(400); self.end_headers(); return
+            try:
+                os.makedirs(os.path.dirname(sp), exist_ok=True)
+                with open(sp, 'ab') as f:
+                    f.write(b'\n'.join(lines) + b'\n')
+                    f.flush()
+                    os.fsync(f.fileno())
+                self._send_bytes(json.dumps({'ok': True, 'lines': len(lines)}).encode('utf-8'))
+            except OSError as err:
+                self._send_bytes(json.dumps({'ok': False, 'why': str(err)}).encode('utf-8'), 500)
             return
         if path.startswith('/api/books/one/'):
             bp = self._book_path(path[len('/api/books/one/'):])
@@ -850,7 +910,7 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
                     # book, its safety copy and its log all go; an empty file
                     # keeps the name, so the other browser still learns the
                     # tale was let go.
-                    for leftover in (_log_path(bp), bp + '.bak1', bp):
+                    for leftover in (_log_path(bp), bp + '.bak1', bp, os.path.join(DATA_DIR, 'sent', os.path.basename(bp)[:-len('.json')] + '.ndjson')):  # M671: its sent words go with it
                         try:
                             os.remove(leftover)
                         except OSError:
@@ -955,6 +1015,71 @@ def _library_stamp(files):
         except OSError:
             pass
     return '%d-%d-%d' % (len(files), total, int(newest))
+
+
+# M671: THE ARCHIVE OF WHAT EACH PAGE'S STORYTELLER WAS SENT. One file a tale (sent/<tale>.ndjson), one line a thing: a piece of
+# text {"k": key, "t": text} or a page's record {"p": {...}} whose parts and requests name their pieces by key. Lines are
+# only ever added. The browser keeps the newest pages; this file keeps them all -- so it is asked, never read whole.
+def _sent_have(path):
+    """Which pages and which pieces the archive holds -- read from each line's opening, never parsed whole."""
+    import re as _re
+    pages, pieces = [], []
+    with open(path, 'rb') as f:
+        for ln in f:
+            if ln.startswith(b'{"k":"'):
+                end = ln.find(b'"', 6)
+                if end > 6:
+                    pieces.append(ln[6:end].decode('utf-8', 'replace'))
+            elif ln.startswith(b'{"p":'):
+                m = _re.search(rb'"id":"([^"]+)"', ln[:400])
+                if m:
+                    pages.append(m.group(1).decode('utf-8', 'replace'))
+    return {'pages': sorted(set(pages)), 'pieces': sorted(set(pieces))}
+
+
+def _sent_page(path, page_id):
+    """One page's record with exactly the pieces it names -- {kind, v, pages: [record], pieces: [{k, t}]} -- or None."""
+    record = None
+    mark = ('"id":' + json.dumps(page_id)).encode('utf-8')
+    with open(path, 'rb') as f:
+        for ln in f:
+            if ln.startswith(b'{"p":') and mark in ln[:400]:
+                try:
+                    row = json.loads(ln)
+                except ValueError:
+                    continue
+                if isinstance(row.get('p'), dict) and row['p'].get('id') == page_id:
+                    record = row['p']  # the last one written stands
+    if record is None:
+        return None
+    need = set()
+    def walk(v):
+        if isinstance(v, list):
+            for x in v:
+                walk(x)
+        elif isinstance(v, dict):
+            keys = v.get('$cozyText')
+            if isinstance(keys, list) and len(v) == 1:
+                need.update(k for k in keys if isinstance(k, str))
+            else:
+                for x in v.values():
+                    walk(x)
+    for slot in record.get('slots') or []:
+        need.update(k for k in (slot.get('t') or []) if isinstance(k, str))
+    for req in record.get('requests') or []:
+        walk(req.get('body'))
+    pieces = {}
+    with open(path, 'rb') as f:
+        for ln in f:
+            if ln.startswith(b'{"k":"'):
+                end = ln.find(b'"', 6)
+                if end > 6 and ln[6:end].decode('utf-8', 'replace') in need:
+                    try:
+                        row = json.loads(ln)
+                    except ValueError:
+                        continue
+                    pieces[row['k']] = row['t']
+    return {'kind': 'cozytavern.sent', 'v': 1, 'pages': [record], 'pieces': [{'k': k, 't': t} for k, t in pieces.items()]}
 
 
 def _backups():

@@ -164,6 +164,7 @@ async function keepSentNow({ id, storyId, slots = [], requests = [] } = {}) {
     await finished(tx);
     for (const k of fresh.keys()) known.add(k);
     await pruneSent(storyId);
+    pushSentLater(storyId); /* M671: and to the device, in a few minutes */
     return true;
   } catch (err) {
     return false;
@@ -257,4 +258,208 @@ export async function sentStats(storyId) {
   } catch (err) {
     return { pages: 0, pieces: 0, chars: 0 };
   }
+}
+
+/* M671 — HIS: "wait, is 'what the storyteller saw' in the backup? The raw data, everything — I need it." It was not: these words
+ * live in a database of their own, and M347 kept it out of every backup on purpose (a request can be the size of the
+ * story). He takes his copy from the device, which never had them at all — and the browser lets go of all but the
+ * newest KEEP_PAGES pages of a tale. Now THE DEVICE KEEPS EVERY PAGE'S WORDS, for good (see "to the device and back"
+ * below): they go to it a few minutes after a page is told, and all at once when he takes a copy; the device's zip
+ * therefore holds them, a copy brought back restores them, and a page this browser no longer holds — or never held —
+ * is read from the device. The browser's own one-file backup carries what the browser holds (exportAllSent /
+ * importAllSent); a tale's can be read out and written back whole (exportSent / importSent). Nothing here may ever
+ * stop a page. */
+const SENT_KIND = 'cozytavern.sent';
+export async function exportSent(storyId) {
+  try {
+    if (!storyId) return null;
+    const d = await openSent();
+    const pages = await done(d.transaction(PAGES, 'readonly').objectStore(PAGES).index('byStory').getAll(storyId));
+    if (!Array.isArray(pages) || !pages.length) return null;
+    const pieces = await done(d.transaction(PIECES, 'readonly').objectStore(PIECES).index('byStory').getAll(storyId));
+    return { kind: SENT_KIND, v: 1, storyId, pages, pieces: (pieces || []).map((p) => ({ k: p.k, t: p.t })) };
+  } catch (err) {
+    return null;
+  }
+}
+/* written back: every piece and page of that tale in the file. `replace` lets go of what the browser held for the tale
+ * first (a copy brought back is the copy); otherwise what is here stays and the file fills in what is missing. */
+export async function importSent(data, { replace = false } = {}) {
+  try {
+    if (!data || data.kind !== SENT_KIND || typeof data.storyId !== 'string' || !data.storyId || !Array.isArray(data.pages) || !Array.isArray(data.pieces)) return 0;
+    const storyId = data.storyId;
+    const d = await openSent();
+    if (replace) {
+      const oldPages = await done(d.transaction(PAGES, 'readonly').objectStore(PAGES).index('byStory').getAllKeys(storyId));
+      const oldPieces = await done(d.transaction(PIECES, 'readonly').objectStore(PIECES).index('byStory').getAllKeys(storyId));
+      const wipe = d.transaction([PIECES, PAGES], 'readwrite');
+      for (const k of oldPages || []) wipe.objectStore(PAGES).delete(k);
+      for (const k of oldPieces || []) wipe.objectStore(PIECES).delete(k);
+      await finished(wipe);
+    }
+    const tx = d.transaction([PIECES, PAGES], 'readwrite');
+    for (const p of data.pieces) if (p && typeof p.k === 'string' && typeof p.t === 'string' && p.k.startsWith(storyId + '|')) tx.objectStore(PIECES).put({ k: p.k, storyId, t: p.t });
+    let n = 0;
+    for (const r of data.pages) if (r && typeof r.id === 'string' && r.id && r.storyId === storyId) { tx.objectStore(PAGES).put(r); n += 1; }
+    await finished(tx);
+    knownPieces.delete(storyId);
+    return n;
+  } catch (err) {
+    return 0;
+  }
+}
+/* everything the browser keeps, for its own one-file backup */
+export async function exportAllSent() {
+  try {
+    const d = await openSent();
+    const pages = await done(d.transaction(PAGES, 'readonly').objectStore(PAGES).getAll());
+    if (!Array.isArray(pages) || !pages.length) return null;
+    const pieces = await done(d.transaction(PIECES, 'readonly').objectStore(PIECES).getAll());
+    return { kind: SENT_KIND + '.all', v: 1, pages, pieces: pieces || [] };
+  } catch (err) {
+    return null;
+  }
+}
+export async function clearSent() {
+  try {
+    const d = await openSent();
+    const tx = d.transaction([PIECES, PAGES], 'readwrite');
+    tx.objectStore(PIECES).clear();
+    tx.objectStore(PAGES).clear();
+    await finished(tx);
+    knownPieces.clear();
+    forgetDevice();
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+export async function importAllSent(data) {
+  try {
+    if (!data || data.kind !== SENT_KIND + '.all' || !Array.isArray(data.pages) || !Array.isArray(data.pieces)) return 0;
+    await clearSent();
+    const d = await openSent();
+    const tx = d.transaction([PIECES, PAGES], 'readwrite');
+    for (const p of data.pieces) if (p && typeof p.k === 'string' && typeof p.t === 'string' && typeof p.storyId === 'string') tx.objectStore(PIECES).put({ k: p.k, storyId: p.storyId, t: p.t });
+    let n = 0;
+    for (const r of data.pages) if (r && typeof r.id === 'string' && r.id && typeof r.storyId === 'string') { tx.objectStore(PAGES).put(r); n += 1; }
+    await finished(tx);
+    return n;
+  } catch (err) {
+    return 0;
+  }
+}
+
+/* ---- to the device and back ----
+ * THE DEVICE KEEPS THEM ALL; THE BROWSER KEEPS THE NEWEST. A tale's file on the device (sent/<tale>.ndjson) is an archive
+ * that only grows: one line a piece of text or a page's record. The browser sends only what the device does not have
+ * yet (it asks once a session what the device holds), so a push after a page is that page's new words, not the tale's
+ * whole history — and the device's file is never rewritten. A page whose words this browser has let go (it keeps the
+ * newest KEEP_PAGES) is read from the device, that one page alone. */
+const sentUrl = (storyId, query = '') => new URL('api/books/sent/' + encodeURIComponent(storyId) + query, document.baseURI);
+const onAPage = () => typeof document !== 'undefined' && typeof fetch === 'function' && /^https?:/.test(String(document.baseURI || ''));
+const deviceHolds = new Map(); /* storyId -> { pages: Set, pieces: Set }, once asked */
+const pulledFromDevice = new Set();
+const pushedMark = new Map();
+async function whatDeviceHolds(storyId) {
+  if (deviceHolds.has(storyId)) return deviceHolds.get(storyId);
+  const res = await fetch(sentUrl(storyId, '?have=1'), { cache: 'no-store' });
+  let held = null;
+  if (res && res.status === 404) held = { pages: new Set(), pieces: new Set() }; /* no archive yet */
+  else if (res && res.ok) { const j = await res.json(); held = { pages: new Set(Array.isArray(j.pages) ? j.pages : []), pieces: new Set(Array.isArray(j.pieces) ? j.pieces : []) }; }
+  if (held) deviceHolds.set(storyId, held);
+  return held;
+}
+const keysOfRecord = (record) => {
+  const need = new Set();
+  const collect = (v) => {
+    if (Array.isArray(v)) { v.forEach(collect); return; }
+    if (v && typeof v === 'object') { if (Array.isArray(v[TEXT_KEY]) && Object.keys(v).length === 1) v[TEXT_KEY].forEach((k) => need.add(k)); else Object.values(v).forEach(collect); }
+  };
+  for (const s of record.slots || []) for (const k of s.t || []) need.add(k);
+  for (const r of record.requests || []) collect(r.body);
+  return need;
+};
+const PUSH_BATCH_CHARS = 3000000;
+export async function pushSentToDevice(storyId) {
+  try {
+    if (!storyId || !onAPage()) return false;
+    const held = await whatDeviceHolds(storyId);
+    if (!held) return false; /* the device did not answer */
+    const d = await openSent();
+    const pages = await done(d.transaction(PAGES, 'readonly').objectStore(PAGES).index('byStory').getAll(storyId));
+    const fresh = (pages || []).filter((r) => r && r.id && !held.pages.has(r.id)).sort((x, y) => (x.ts || 0) - (y.ts || 0));
+    if (!fresh.length) return true;
+    const send = async (lines) => {
+      const res = await fetch(sentUrl(storyId), { method: 'POST', headers: { 'content-type': 'application/x-ndjson' }, body: lines.join('\n') + '\n', cache: 'no-store' });
+      return Boolean(res && res.ok);
+    };
+    for (const record of fresh) {
+      /* a page goes with every piece of it the device lacks; a page with a piece this browser no longer holds cannot go */
+      const lines = [];
+      let whole = true;
+      const store = d.transaction(PIECES, 'readonly').objectStore(PIECES);
+      const adding = [];
+      for (const k of keysOfRecord(record)) {
+        if (held.pieces.has(k)) continue;
+        const row = await done(store.get(k));
+        if (!row || typeof row.t !== 'string') { whole = false; break; }
+        lines.push(JSON.stringify({ k, t: row.t }));
+        adding.push(k);
+      }
+      if (!whole) continue;
+      lines.push(JSON.stringify({ p: record }));
+      /* in batches a phone can hold: the pieces first, the page's own line last (a page is only "held" with all its pieces) */
+      let batch = []; let size = 0; let ok = true;
+      for (const ln of lines) {
+        if (size + ln.length > PUSH_BATCH_CHARS && batch.length) { ok = await send(batch); if (!ok) break; batch = []; size = 0; }
+        batch.push(ln); size += ln.length;
+      }
+      if (ok && batch.length) ok = await send(batch);
+      if (!ok) return false;
+      for (const k of adding) held.pieces.add(k);
+      held.pages.add(record.id);
+    }
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+/* every tale's, one after another; returns how many reached the device */
+export async function pushAllSentToDevice(storyIds) {
+  let n = 0;
+  for (const id of Array.isArray(storyIds) ? storyIds : []) if (await pushSentToDevice(id)) n += 1;
+  return n;
+}
+/* what this browser believes the device holds is forgotten (a copy was brought back: the device is asked again) */
+export function forgetDevice() { deviceHolds.clear(); pulledFromDevice.clear(); pushedMark.clear(); }
+/* one page's words — from this browser, or, when it has let them go or never had them, from the device's archive */
+export async function loadSentOrPull(id, storyId) {
+  const here = await loadSent(id);
+  if (here || !id || !storyId || !onAPage()) return here;
+  try {
+    const res = await fetch(sentUrl(storyId, '?page=' + encodeURIComponent(id)), { cache: 'no-store' });
+    if (!(res && res.ok)) return null;
+    const data = await res.json();
+    const record = data && Array.isArray(data.pages) ? data.pages.find((r) => r && r.id === id) : null;
+    if (!record) return null;
+    const got = new Map((Array.isArray(data.pieces) ? data.pieces : []).filter((p) => p && typeof p.k === 'string' && typeof p.t === 'string').map((p) => [p.k, p.t]));
+    if ([...keysOfRecord(record)].some((k) => !got.has(k))) return null; /* a piece gone: better nothing than words that are not what was sent */
+    const text = (keys) => keys.map((k) => got.get(k)).join('');
+    return {
+      ts: record.ts,
+      slots: (record.slots || []).map((s) => ({ name: s.name, text: text(s.t || []) })),
+      requests: (record.requests || []).map((r) => ({ url: r.url, body: decodeWith(text)(r.body) })),
+    };
+  } catch (err) {
+    return null;
+  }
+}
+/* a few minutes after a tale's page is told, its words go to the device by themselves (one push for a run of pages) */
+const SENT_PUSH_AFTER_MS = 4 * 60 * 1000;
+const pushTimers = new Map();
+function pushSentLater(storyId) {
+  if (!storyId || !onAPage() || typeof setTimeout !== 'function') return;
+  clearTimeout(pushTimers.get(storyId));
+  pushTimers.set(storyId, setTimeout(() => { pushTimers.delete(storyId); pushSentToDevice(storyId).catch(() => {}); }, SENT_PUSH_AFTER_MS));
 }

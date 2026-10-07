@@ -17173,3 +17173,34 @@ concern; what a copy HOLDS is. Nothing is thinned.)
 - GATES at m670-001 (one CPU), on the tree that was pushed: harness 1310/1310, walk 242/242, long play 9/9, lint 0 errors
   (186 warnings, as at m669), perf_send, holdsone, cutthinking, notes_layout, backup, backupdupes, restore_backup_unit,
   restore_zip, backup_fresh — EXIT 0 each, first run, no scenario failing.
+
+# M671 — "is 'what the storyteller saw' in the backup? The raw data, everything — I need it"
+M670 told him the one thing a copy did not hold: the words each page's storyteller was sent. His answer is the line above.
+- AS IT WAS: those words live in a database of their own in the BROWSER (sent.js, M347), kept out of every backup on purpose,
+  and only for the newest 200 pages of a tale. The device — where his copy is made — never had them at all.
+- THE DEVICE KEEPS EVERY PAGE'S WORDS NOW, AND EVERY COPY HOLDS THEM.
+  - serve.py: one file a tale beside the books, sent/<tale>.ndjson — an ARCHIVE THAT ONLY GROWS, one line a piece of text
+    ({"k","t"}) or a page's record ({"p"}), exactly as the browser stores them. POST /api/books/sent/<tale> adds lines
+    (each checked; fsynced); GET …?have=1 says which pages and pieces it holds (read from each line's opening); GET
+    …?page=<id> hands back ONE page's record with exactly its pieces — the file is never sent whole. A tale let go
+    takes its archive with it. The library's zip walks the whole data folder, so the archive is in every copy and a
+    copy brought back restores it — nothing in the backup code changed.
+  - sent.js: pushSentToDevice sends only what the device does not have (it asks once a session; a page goes with the
+    pieces it needs that the device lacks, in batches a phone can hold, its own line last). It runs four minutes after
+    a tale's page is told, and for every tale — waited for — when he presses "Take a copy". loadSentOrPull reads a
+    page from the browser, or, when the browser has let it go or never had it, from the device.
+  - "What the storyteller saw" (receiptview.js) uses it; after a zip is brought back the browser's own copy is let go
+    and the device's is read (settings.js); the browser's one-file backup carries what the browser holds and brings
+    it back (exportAllSent / importAllSent).
+  - What the BROWSER keeps is unchanged (the newest 200 pages a tale — its fast copy). What was already let go before
+    this build cannot be brought back; from this build on the device has every page.
+- PROVEN against the real server and the real app (tests/backup_sent.py, 17 checks): "Take a copy" puts a page's parts and
+  raw request in the zip; a second page adds only its own lines (the frame both share is stored once) and sending
+  again adds nothing; a page the browser has let go is read back from the device word for word; the zip brought back
+  onto an EMPTY device, opened in a browser that never saw the tale, shows both pages' words. And m588 M671-1: a
+  tale's words read out, the store emptied, written back — every part, request and setting identical.
+- GATES: backup_sent is the sixth backup test in audit/gates.sh.
+- version.js -> m671-001.
+- GATES at m671-001 (one CPU), on the tree that was pushed: harness 1311/1311, walk 242/242, long play 9/9, lint 0 errors
+  (186 warnings, as at m670), perf_send, holdsone, cutthinking, notes_layout, backup, backupdupes, restore_backup_unit,
+  restore_zip, backup_fresh, backup_sent — EXIT 0 each, first run, no scenario failing.

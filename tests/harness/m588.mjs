@@ -1681,3 +1681,33 @@ test('M669-1 THE WINDOW’S RULE SAID BACK IS NOT STORY: at a page’s end it co
   eq(cutRuleEchoTail('The yard went quiet.'), null, 'a paragraph with no echo is not cut');
   eq(finishPage(windowed, { mc: 'Jovan' }).text, windowed, 'a clean page is returned as it came');
 });
+
+/* M671 — his: "is 'what the storyteller saw' in the backup? The raw data, everything — I need it." */
+test('M671-1 WHAT THE STORYTELLER WAS SENT CAN LEAVE THE BROWSER AND COME BACK, WORD FOR WORD: a tale’s kept words are read out whole and written back into an empty store — every part and every request exactly as it was; another tale’s are untouched; a file that is not one writes nothing', async () => {
+  const sent = await import('../../js/sent.js');
+  const big = (tag) => (tag + ' — ' + 'The harbour lay quiet under the rain; Rias counted the coins twice. '.repeat(40) + '\n\n').repeat(6);
+  const A = 'tale-a-' + Math.random().toString(36).slice(2, 8); const B = 'tale-b-' + Math.random().toString(36).slice(2, 8);
+  const kept = await sent.keepSent({ id: 'snt_a1', storyId: A, slots: [{ name: 'The frame', text: big('FRAME') }, { name: 'The ledger', text: big('LEDGER') }], requests: [{ url: 'https://api.example/v1/messages', body: { model: 'm', temperature: 0.8, messages: [{ role: 'system', content: big('SYSTEM') }, { role: 'user', content: 'I wait.' }] } }] });
+  if (!kept) { console.log('     (this harness has no second database: the round trip is proven in tests/backup_sent.py against the real browser)'); return; }
+  await sent.keepSent({ id: 'snt_a2', storyId: A, slots: [{ name: 'The frame', text: big('FRAME') }], requests: [] });
+  await sent.keepSent({ id: 'snt_b1', storyId: B, slots: [{ name: 'The frame', text: big('OTHER') }], requests: [] });
+  const before = { a1: await sent.loadSent('snt_a1'), a2: await sent.loadSent('snt_a2'), b1: await sent.loadSent('snt_b1') };
+  assert(before.a1 && before.a1.slots[1].text === big('LEDGER') && before.a1.requests[0].body.messages[0].content === big('SYSTEM'), 'fixture: the words are kept and read back');
+  const file = await sent.exportSent(A);
+  eq(file.kind + ' / ' + file.storyId + ' / ' + file.pages.length, 'cozytavern.sent / ' + A + ' / 2', 'a tale’s words, read out whole: its two pages');
+  const wire = JSON.parse(JSON.stringify(file)); /* as it travels: a file on the device, a zip, back again */
+  await sent.clearSent();
+  eq(await sent.loadSent('snt_a1'), null, 'the store is empty');
+  eq(await sent.importSent({ kind: 'something else', storyId: A, pages: wire.pages, pieces: wire.pieces }), 0, 'a file that is not one writes nothing');
+  eq(await sent.importSent(wire), 2, 'written back: both pages');
+  const after = { a1: await sent.loadSent('snt_a1'), a2: await sent.loadSent('snt_a2') };
+  eq(JSON.stringify({ ...after.a1, ts: 0 }), JSON.stringify({ ...before.a1, ts: 0 }), 'page one is exactly what was sent: every part, every request, every setting');
+  eq(JSON.stringify(after.a2.slots), JSON.stringify(before.a2.slots), 'and page two');
+  eq(await sent.loadSent('snt_b1'), null, 'the other tale was not in that file');
+  /* the browser's own one-file backup: everything out, everything back */
+  await sent.keepSent({ id: 'snt_b1', storyId: B, slots: [{ name: 'The frame', text: big('OTHER') }], requests: [] });
+  const all = JSON.parse(JSON.stringify(await sent.exportAllSent()));
+  await sent.clearSent();
+  eq(await sent.importAllSent(all), 3, 'all three pages of both tales come back');
+  eq((await sent.loadSent('snt_b1')).slots[0].text, big('OTHER'), 'word for word');
+});

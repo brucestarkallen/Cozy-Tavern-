@@ -15,6 +15,7 @@
  */
 
 import { bannedPattern, STRUCTURED_PRESETS, fillPreset, presetWords } from '../providers/structured.js'; /* M581, M583 */
+import { pushAllSentToDevice, exportAllSent, importAllSent, clearSent } from '../sent.js'; /* M671: the sent words ride every copy */
 import { readVoice, sameVoice, listPresets, savePreset, usePreset, removePreset, renamePreset } from '../engine/voicepresets.js'; /* M510-35/36 */
 import { copyWords as copyToClipboard } from './receiptview.js'; /* M510-31: copy that works on the phone's own address too */
 import { withMacros } from '../assemble/voice.js'; /* M361 */
@@ -2990,6 +2991,12 @@ export function initSettings(ctx) {
     if (ctx && typeof ctx.pushBooksNow === 'function') {
       try { await Promise.race([Promise.resolve(ctx.pushBooksNow()), new Promise((r) => setTimeout(r, 20000))]); } catch (err) { /* the copy is made of what the device holds */ }
     }
+    /* M671: …and what each page's storyteller was sent, word for word — every tale's goes to the device (its own file
+     * beside the book) before the device zips, so the copy holds it */
+    try {
+      const tales = ((await db.stories.list()) || []).map((t) => t && t.id).filter(Boolean);
+      await Promise.race([pushAllSentToDevice(tales), new Promise((r) => setTimeout(r, 60000))]);
+    } catch (err) { /* the copy is made of what the device holds */ }
     try {
       const res = await fetch(new URL('api/backup/now', document.baseURI), { cache: 'no-store' });
       if (res.ok) {
@@ -3012,6 +3019,9 @@ export function initSettings(ctx) {
     let json = '';
     try {
       json = await db.exportAll();
+      /* M671: the browser's own one-file backup carries the sent words too (the file is one object; they are its last key) */
+      const sent = await exportAllSent();
+      if (sent && json.endsWith('}')) json = json.slice(0, -1) + ',"sent":' + JSON.stringify(sent) + '}';
     } catch (err) {
       els.backupNote.textContent = 'This browser could not fold its stories into one file (' + ((err && err.message) || 'it ran out of room') + '). Start the tavern with serve.py — the device then makes the copy from its own files, whatever the size.';
       return;
@@ -3059,6 +3069,7 @@ export function initSettings(ctx) {
         const r = await res.json();
         if (!(r && r.ok)) { els.backupNote.textContent = 'The copy was not brought back: ' + ((r && r.why) || 'the server did not answer') + '.'; return; }
         els.backupNote.textContent = 'The copy is back on the device' + (r.safety ? ' — the library as it stood is kept as ' + r.safety : '') + '. Reading it into this browser; the page reloads when it is in.';
+        await clearSent(); /* M671: the copy's sent words are the device's now; this browser's own are let go and read from it */
         const m = await st.mirrorDevice();
         if (!(m && m.ok)) els.backupNote.textContent = 'The copy is on the device, but this browser could not read it in (' + ((m && m.why) || 'no answer') + ') — refresh the page and it is read in.';
       } catch (err) {
@@ -3068,7 +3079,11 @@ export function initSettings(ctx) {
     }
     try {
       const text = await file.text();
-      await db.importAll(text);
+      let whole = null;
+      try { whole = JSON.parse(text); } catch (err) { whole = null; }
+      await db.importAll(whole || text);
+      /* M671: a copy that carries the sent words brings them back; one made before they were carried leaves this browser's alone */
+      if (whole && whole.sent) await importAllSent(whole.sent);
       els.backupNote.hidden = false;
       els.backupNote.textContent = 'Everything is back where it belongs. Welcome home.';
       await onShow({ all: true });

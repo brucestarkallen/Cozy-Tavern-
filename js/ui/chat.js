@@ -1431,7 +1431,7 @@ export function initChat(ctx) {
     btn.type = 'button';
     btn.className = 'msg-receipt';
     btn.textContent = 'What the storyteller saw';
-    btn.addEventListener('click', () => openReceipt(receipt, extraction, findings));
+    btn.addEventListener('click', () => openReceipt(receipt, extraction, findings, { storyId: ctx.getActiveStoryId() || '' }));
     return btn;
   }
 

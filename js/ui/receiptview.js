@@ -10,7 +10,7 @@
  * lazily, on first open — the sheet needs no shared context.
  */
 
-import { loadSent, KEEP_PAGES } from '../sent.js'; /* M347: the words each page was sent */
+import { loadSentOrPull, KEEP_PAGES } from '../sent.js'; /* M347: the words each page was sent */
 
 let wired = false;
 let openGeneration = 0; /* M347: a sheet reopened on another page never takes the words that were on their way to the last */
@@ -258,7 +258,7 @@ function noWords(message) {
   }
 }
 
-export function openReceipt(receipt, extraction, findings) {
+export function openReceipt(receipt, extraction, findings, { storyId = '' } = {}) {
   if (!receipt || !Array.isArray(receipt.slots)) return;
   wire();
   const { sheet, scrim, slots, after, afterList, afterNote, footer } = els();
@@ -374,10 +374,10 @@ export function openReceipt(receipt, extraction, findings) {
   if (receipt.sentId) {
     wordsNote.textContent = 'Fetching what was sent…';
     wordsNote.hidden = false;
-    loadSent(receipt.sentId).then((sent) => {
+    loadSentOrPull(receipt.sentId, storyId).then((sent) => { /* M671: from the device's copy when this browser holds none */
       if (generation !== openGeneration) return;
       if (sent) attachWords(sent, receipt);
-      else noWords('This page’s words are not kept — a tale keeps the words of its newest ' + KEEP_PAGES + ' pages.');
+      else noWords('This page\u2019s words are not kept \u2014 neither this browser (it keeps the newest ' + KEEP_PAGES + ' pages of a tale) nor the device has them. The device keeps every page told from now on.');
     }).catch(() => { if (generation === openGeneration) noWords('This page’s words could not be read.'); });
   } else {
     noWords('This page was written before its words were kept — only the size of each part was noted, so what it said cannot be shown.');
