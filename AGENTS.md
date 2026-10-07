@@ -16692,3 +16692,37 @@ wrong at once.
 - version.js -> m656-001.
 - GATES at m656-001 (one CPU), on the tree that was pushed: harness 1290/1290, walk 238/238, long play 9/9, lint 0 errors
   (178 warnings, as at m655), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
+
+# M657 — the ledger audit, part fourteen: the page reader's whole call in the app, the keeper's merge, the auditor's hour
+The last of the list M644 began.
+- THE PAGE READER, END TO END, IN THE APP (walk DOM-239): one page whose reader answers with everything at once — the
+  header in other words and a twelve-hour clock ("Kitchen, Wells house … | 9:55 PM"), a leaving told by "she" behind
+  "Then", a walk-in told as "the ferry pilot", who saw what ("who": one name; "everyone here"), a thing named shorter,
+  a healing by the part of the body, a fall written "−6 (…)", a standing decided by name, a thread closed in other
+  words, and its own "time moved on". Every book right: the ground under its fuller name, the hour the header's
+  (21:55), Aunt Vera upstairs, Mira in the room, only Tom holding what only Tom saw, Rias (not Tom himself, not Mira
+  who walked in during the page) holding what Tom told the room, one letter on the table, the wound healed, Rias at 24,
+  Tom's standing written, Mira's not guessed, the roof closed. Sound — nothing changed in the app.
+  - A PROBE OF MINE THAT WAS WRONG, again: joining the header's changes to the reader's by hand, I read the clock as
+    22:10 (the header's 21:55 plus the reader's fifteen minutes). The app does not join them so: chat.js drops the
+    reader's "time moved on" when the header gives the hour (M455). Through the app it is 21:55.
+  - And one wrong line in my own scenario: it asked for no thread to be left, and one was — the walk's own stand-in
+    world agent opens "Kim and the sighting". It asks that no thread about the ROOF is left.
+- THE KEEPER'S MERGE AGAINST A REFUSAL (maybeSummarize, a layer past its size): an apology for a merged line is no
+  promotion — both lines stand, nothing of it in the record. That is M648's door; there was no law for THIS path, and
+  on the door as it was before M648 the law fails with "no merged line was made of an apology — got 1": the apology
+  had REPLACED two real lines of the record, the two it was asked to merge. (M34-5 already drives a real promotion and
+  the shrink guard; the law here drives one too, so its refusal half proves something.)
+- THE AUDITOR'S OWN REFUSALS (auditor.js auditorScope, read whole; six cases through the hour rule): "the header is the
+  truth for the hour — the auditor may bring the ledger TO it" compared every field, and a header in his own calendar
+  carries an hour and no year, month or day: a missing number equals nothing, so the auditor's clock.set was refused
+  even when it set EXACTLY the header's hour. Only the fields the header carries are compared now; a date the header
+  does not give is still not the auditor's to add; a real-dated header is held to whole, as before. The other guards
+  (the ground is the page's, a walk-in the newest page keeps, a place in the room the page left behind, people's nows
+  and arcs not its own, a seat or a thread that already stands) were read and left: each is a law of an earlier fault.
+- LAWS: m588.mjs M657-1 (the merge: refused, and real), M657-2 (the hour rule, seven cases). WALK DOM-239.
+- WHAT THIS AUDIT DID NOT DO is in the handoff, plainly — and first among it: every probe used a stand-in model.
+- version.js -> m657-001.
+- GATES at m657-001 (one CPU), on the tree that was pushed: harness 1292/1292, walk 239/239 (DOM-239 among them), long play
+  9/9, lint 0 errors (178 warnings, as at m656), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run,
+  no scenario failing.

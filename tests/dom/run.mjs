@@ -8245,6 +8245,72 @@ test('DOM-238 THE MODEL HE PICKS IS TAKEN AT THE PICK (M652 — the same fault a
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-239 THE PAGE READER, END TO END, IN THE APP (M657 — the audit’s cures of M641–M654 together, on the live path): one page whose reader answers with everything at once — a header in other words and a twelve-hour clock, a leaving and a walk-in told without their names, who saw what, a thing named shorter, a healing by the part, a fall written with a real minus sign, a standing decided by name, a thread closed in other words, and its own “time moved on” — leaves the ledger right in every book', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { loadState, saveState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { seatNowWords } = await import('../../js/engine/offscreen.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'everything at once' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const K = 'Wells house kitchen, 8 Mariner’s Lane';
+  const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  let pages = 0;
+  house.state.storyAnswer = () => { pages += 1; return pages === 1
+    ? '[' + K + ' — Monday, March 3, 2025 | 21:40 | rain | sweater | at the table]\n\nJovan sat at the kitchen table with Rias, Tom and Aunt Vera.'
+    : '[Kitchen, Wells house — Monday, March 3, 2025 | 9:55 PM | rain | sweater | at the table]\n\nAunt Vera set her cup in the sink. “Lock the back door.” Then she was gone, footsteps measured up the stairs. The back door opened and the ferry pilot came in, shaking rain from her coat. Rias slid the letter across the table to Jovan, flexing her healed forearm; only Tom saw her do it. “The roof is done,” Tom told the room, and nobody doubted him. Rias did not thank Jovan for the fare; she looked at him as if he had cheated her.'; };
+  const everything = { mutations: [
+    { type: 'mode.snapshot', modes: [] },
+    { type: 'presence.leave', name: 'Aunt Vera', shown: 'footsteps measured up the stairs', to: 'upstairs in the Wells house', doing: 'going up to bed' },
+    { type: 'presence.enter', name: 'Mira', shown: 'the ferry pilot came in, shaking rain from her coat', position: 'at the back door' },
+    { type: 'knowledge.add', who: ['Tom'], fact: 'saw Rias slide the letter across the table to Jovan' },
+    { type: 'knowledge.add', who: 'everyone here', fact: 'heard Tom tell the room the roof is done' },
+    { type: 'thing.set', name: 'the letter', where: 'on the kitchen table, in front of Jovan', owner: 'Rias' },
+    { type: 'body.heal', name: 'Rias', what: 'her forearm' },
+    { type: 'rel.shift', name: 'Rias', axis: 'p', delta: '−6 (she thinks he cheated her)', cause: 'she looked at him as if he had cheated her over the fare' },
+    { type: 'clock.advance', minutes: '15 minutes' },
+  ], resolved: ['Tom promised to fix the roof before the storm'], here: ['Jovan', 'Rias', 'Tom', 'Mira'],
+    standings: [{ name: 'Tom', p: '20', r: '+10', cause: 'he mended the roof as he said he would, for all of them' }, { name: 'Mira', none: 'she has only just come in' }] };
+  house.state.workerAnswer = (body, sys) => {
+    const system = String(sys || '');
+    if (/THE LEDGER IS YOUNG/.test(system)) return JSON.stringify({ mutations: [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: K }, ...['Jovan', 'Rias', 'Tom', 'Aunt Vera'].map((name) => ({ type: 'presence.enter', name })), { type: 'mode.snapshot', modes: [] }], resolved: [], here: ['Jovan', 'Rias', 'Tom', 'Aunt Vera'] });
+    if (/WHO IS YOURS TO DECIDE, FROM THE PAGE/.test(system) && pages === 2) return JSON.stringify(everything);
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+  };
+  const settle = async (n) => { await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= n && !env.ctx.chat.isBusy(), 'page ' + n, 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); };
+  try {
+    type(q('#composer-input'), '#story a family supper at the Wells house'); submit(q('#composer'));
+    await settle(1);
+    /* the tale so far, written into the ledger as its earlier pages would have left it */
+    const seeded = applyMutations(await loadState(st.id), [
+      ...['Rias', 'Tom', 'Aunt Vera', 'Mira'].map((name) => ({ type: 'people.set', name, field: 'core', text: 'someone the story keeps' })),
+      { type: 'offscreen.set', name: 'Mira', location: 'the ferry landing', activity: 'tying up' }, { type: 'rel.set', name: 'Rias', p: 30, cause: 'he paid her fare' },
+      { type: 'thread.set', title: 'Tom’s promise to fix the roof before the storm', owner: 'Tom', heat: 'hot', next: 'buy the tar' },
+      { type: 'thing.set', name: 'the sealed letter from the bank', where: 'in Rias’s apron pocket', owner: 'Rias' },
+      { type: 'body.injure', name: 'Rias', what: 'left forearm cut to the bone', sev: 2, treated: true }]).state;
+    await saveState(st.id, seeded);
+    type(q('#composer-input'), 'I take the letter.'); submit(q('#composer'));
+    await settle(2);
+    const led = await loadState(st.id);
+    assert(/21:55/.test(led.clock.label), 'the hour is the header’s, read from “9:55 PM” — the reader’s own “15 minutes” is not put on top of it: ' + led.clock.label);
+    eq(led.place.name, K, 'the ground keeps its fuller name though the header said “Kitchen, Wells house”');
+    eq(led.present.map((p) => p.name).sort().join(','), 'Jovan,Mira,Rias,Tom', 'Aunt Vera is out (told by “she”, behind “Then”) and Mira is in (told as “the ferry pilot”)');
+    eq(seatNowWords(led.offscreen['Aunt Vera'], null).replace(/\s*\(as of[^)]*\)$/, '') + ' | ' + Boolean(led.offscreen.Mira), 'upstairs in the Wells house, going up to bed | false', 'she is where she went; Mira’s note is let go');
+    const knows = (n, re) => (led.knowledge[n] || []).some((k) => re.test(k.fact));
+    assert(knows('Tom', /slide the letter/) && !knows('Rias', /slide the letter/) && !knows('Mira', /slide the letter/), 'only Tom has what only Tom saw');
+    assert(knows('Rias', /roof is done/) && !knows('Tom', /roof is done/) && !knows('Mira', /roof is done/), 'what Tom told the room: Rias has it — not Tom himself, and not Mira, who walked in during the page');
+    eq(Object.entries(led.things).map(([k, v]) => k + ' @ ' + v.where).join(' || '), 'the sealed letter from the bank @ on the kitchen table, in front of Jovan', 'the letter is one thing, on the table');
+    eq(led.bodies.Rias.injuries.filter((i) => !i.healed).length, 0, 'her forearm is healed');
+    eq(led.relationships.Rias.p + ' | ' + JSON.stringify(led.relationships.Tom && { p: led.relationships.Tom.p, r: led.relationships.Tom.r }) + ' | ' + Boolean(led.relationships.Mira), '24 | {"p":20,"r":10} | false', 'Rias fell six (a real minus sign); Tom’s standing is written by name; Mira’s is not guessed');
+    assert(!led.threads.some((t) => /roof/i.test(t.title)), 'the roof’s thread is closed, said in other words (the walk’s own world agent keeps a thread of its own): ' + led.threads.map((t) => t.title).join(' | '));
+  } finally {
+    house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-188 THE OPENING MOVES FEELINGS (M532 — his report: "every time, How they feel about you is empty and I need to rebuild the people, especially on #story"): the young ledger\'s reader is asked what the opening does to people\'s feelings — he saves Yuki, and her standing is there after the first page, no rebuild', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');

@@ -810,7 +810,17 @@ export function auditorScope(issues, state, { header = [], page = '' } = {}) {
     const h = said.find((x) => x && x.type === m.type);
     if (!h) return null;
     if (m.type === 'place.set') return samePlace(String(h.name || ''), String(m.name || m.place || '')); /* M403: one place matcher */
-    return ['year', 'month', 'day', 'hour', 'minute'].every((k) => Number(h[k]) === Number(m[k]));
+    /* M657 (the ledger audit, part fourteen — the auditor's own refusals): THE HEADER AGREES ON WHAT THE HEADER SAYS. Every
+     * field was compared, and a header in his own calendar ("Sunday, Hanami 5, 1001 AG | 09:20") carries an hour and no
+     * year, month or day: nothing equals a missing number, so the auditor's clock.set was refused even when it set
+     * EXACTLY the header's hour — in such a tale it could never bring the clock to the page. Only the fields the header
+     * carries are compared; a date the header does not give is not the auditor's to add. */
+    const KEYS = ['year', 'month', 'day', 'hour', 'minute'];
+    const has = (o, k) => o[k] !== undefined && o[k] !== null && o[k] !== '' && Number.isFinite(Number(o[k]));
+    const carried = KEYS.filter((k) => has(h, k));
+    if (!carried.length) return null;
+    if (KEYS.some((k) => !has(h, k) && has(m, k))) return false;
+    return carried.every((k) => Number(h[k]) === Number(m[k]));
   };
   const seats = (state && state.offscreen && typeof state.offscreen === 'object') ? state.offscreen : {};
   const moment = (m) => {

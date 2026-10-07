@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m656-001)
+# Cozy Tavern — handoff for the next session (state at m657-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -118,9 +118,13 @@
   live path — and one new fault: minutes on a road that is not to him read as an arrival at the scene).
   PART THIRTEEN (M656): THE SCRIBE AND THE AUDITOR END TO END (a messy answer through scribeTurn and auditLedger: the
   scribe's whole path sound — now a law; the auditor's sound but for "No issues found." reported as a finding).
-  STILL TO AUDIT THE SAME WAY: the keeper's promotions and its self-audit's fixes with a stand-in (the layer of a
-  hundred lines, applyAuditFixes); the page reader end to end the same way (extractTurn with one answer holding
-  everything at once — its doors were audited one at a time in M641–M647); the auditor's remaining
+  PART FOURTEEN (M657): THE PAGE READER END TO END IN THE APP (walk DOM-239 — sound), THE KEEPER'S MERGE AGAINST A REFUSAL
+  (sound since M648; before it an apology REPLACED two record lines — a law now), THE AUDITOR'S OWN REFUSALS (in a tale
+  with its own calendar it could never bring the clock to the header's hour).
+  WHAT THE AUDIT HAS NOT DONE, plainly: the keeper's self-audit fixes (applyAuditFixes) with a stand-in; the canon
+  verification's own doors (js/canon — a whole extension, not touched); the housekeeper's, director's and editor's
+  cards; the benchmark judge; the small-storyteller request (smallprose, planner). And every probe here used a
+  STAND-IN model: no part of this audit was run against his own worker's model. The auditor's remaining
   guards
   (auditor.js auditorScope: the ground, the hour, people.set, knowledge — feed each an ordinary case, as its leave and
   walk-in were); the referee's other answers (normalizeDuelAdj / normalizeBattleAdj / normalizeWarAdj, the condition

@@ -1088,3 +1088,60 @@ test('M656-2 THE AUDITOR, END TO END, WITH A MESSY ANSWER: a leave and a walk-in
   for (const what of ['No issues found.', 'None', 'Nothing to report', 'The ledger is consistent with the pages.', 'Everything is in order.']) eq(saysAllIsWell({ what, fix: '', mutations: [] }), true, 'finds nothing: ' + what);
   for (const what of ['No page shows Mira leaving the landing', 'The ledger is consistent about the hour but has Tom in two places', 'Nothing explains how the letter left the dresser']) eq(saysAllIsWell({ what, fix: 'set it right', mutations: [] }), false, 'a real issue: ' + what);
 });
+
+/* M657 — the ledger audit, part fourteen: the page reader's whole call (walk DOM-239), and the keeper's merge against a refusal. */
+test('M657-1 A MERGE THAT IS REFUSED IN WORDS IS NO PROMOTION (M648’s door, at the keeper’s fold): a layer past its size asks for its two oldest lines to be merged — an apology for an answer leaves both lines standing, with nothing of it in the record; a real merged line replaces them, as before', async () => {
+  const { maybeSummarize, loadMemory, saveMemory, NOTES_PER_LAYER } = await import('../../js/agents/memory.js');
+  const { db } = await import('../../js/store.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const kept = { squeeze: await db.settings.get('memorySqueeze'), keeper: await db.settings.get('memoryKeeper'), window: await db.settings.get('memoryWindow'), batch: await db.settings.get('memoryBatch') };
+  await db.settings.set('memorySqueeze', 100); await db.settings.set('memoryKeeper', true); await db.settings.set('memoryWindow', 30); await db.settings.set('memoryBatch', 6);
+  const setUp = async (storyId) => {
+    for (let i = 0; i < 700; i += 1) await db.messages.append(storyId, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i, ts: i });
+    await saveMemory(storyId, { window: 30, nodes: Array.from({ length: NOTES_PER_LAYER + 1 }, (_, i) => ({ id: 'n' + i, span: [i * 6, i * 6 + 5], text: 'line ' + i + ': ' + 'fact '.repeat(20), level: 1, at: i })) });
+  };
+  const run = async (storyId, mergeAnswer) => {
+    let asks = 0;
+    const house = { fetch: async (url, opts) => {
+      const body = JSON.parse(opts.body);
+      const user = body.messages[body.messages.length - 1].content;
+      let answer = '(no new state)';
+      if (/being merged into ONE line/.test(user)) { asks += 1; answer = mergeAnswer; }
+      else if (/NONE, or one DETAIL/.test(user)) answer = 'NONE';
+      return thinkingHouse({ answer }).fetch(url, opts);
+    } };
+    await withHouse(house, () => maybeSummarize({ connection: HOUSES[0].conn, storyId }));
+    return { mem: await loadMemory(storyId), asks };
+  };
+  try {
+    await setUp('m657-refused');
+    const refused = await run('m657-refused', 'I’m sorry, but I can’t help with summarizing this content.');
+    assert(refused.asks >= 1, 'fixture: the merge was asked for');
+    eq(refused.mem.nodes.filter((n) => n.level === 2).length, 0, 'no merged line was made of an apology');
+    assert(refused.mem.nodes.some((n) => n.level === 1 && n.text.startsWith('line 0:')) && refused.mem.nodes.some((n) => n.level === 1 && n.text.startsWith('line 1:')), 'both lines it was asked to merge still stand');
+    assert(!refused.mem.nodes.some((n) => /sorry|can’t help|summariz/i.test(String(n.text || ''))), 'and nothing of the apology is in the record');
+    await setUp('m657-merged');
+    const merged = await run('m657-merged', 'line 0 and line 1 merged: ' + 'fact '.repeat(30));
+    const l2 = merged.mem.nodes.filter((n) => n.level === 2);
+    eq(l2.length + ' | ' + (l2[0] ? l2[0].span.join('-') : ''), '1 | 0-11', 'a real merged line is the promotion, covering both');
+    eq(merged.mem.nodes.filter((n) => n.level === 1 && /^line [01]:/.test(n.text)).length, 0, 'and its two sources leave');
+  } finally {
+    for (const [key, v] of [['memorySqueeze', kept.squeeze], ['memoryKeeper', kept.keeper], ['memoryWindow', kept.window], ['memoryBatch', kept.batch]]) { if (v === undefined) await db.settings.delete(key); else await db.settings.set(key, v); }
+  }
+});
+
+test('M657-2 THE HEADER AGREES ON WHAT THE HEADER SAYS: in a tale that keeps its own calendar the auditor may bring the clock to the header’s hour (it was refused — a missing year equals nothing); another hour, or a date the header does not give, is still not its to set; a real-dated header is held to whole, as before', async () => {
+  const { auditorScope } = await import('../../js/agents/auditor.js');
+  const { headerMutations } = await import('../../js/engine/state.js');
+  const st = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Tenth Division Courtyard' }, { type: 'clock.set', year: 1001, month: 3, day: 5, hour: 8, minute: 0 }, { type: 'presence.enter', name: 'Jovan' }]).state;
+  const kept = (page, m) => { const header = headerMutations(page, { ground: st.place.name }); const out = auditorScope([{ what: 'the clock is behind the page', fix: 'set it', pages: false, mutations: [m] }], st, { header, page }); const list = Array.isArray(out) ? out : (out && (out.issues || out.kept)) || []; return Boolean(list[0] && list[0].mutations.length); };
+  const own = '[Tenth Division Courtyard — Sunday, Hanami 5, 1001 AG | 09:20 | clear | shihakushō | by the rail]\n\nThe bell rang.';
+  const real = '[Tenth Division Courtyard — Monday, March 3, 2025 | 09:20 | clear | shihakushō | by the rail]\n\nThe bell rang.';
+  eq(kept(own, { type: 'clock.set', hour: 9, minute: 20 }), true, 'his own calendar: the header’s own hour is the auditor’s to set');
+  eq(kept(own, { type: 'clock.set', hour: '9', minute: '20' }), true, 'written as words of figures too');
+  eq(kept(own, { type: 'clock.set', hour: 11, minute: 0 }), false, 'another hour is not');
+  eq(kept(own, { type: 'clock.set', year: 1001, month: 3, day: 6, hour: 9, minute: 20 }), false, 'nor a date the header does not give');
+  eq(kept(real, { type: 'clock.set', year: 2025, month: 3, day: 3, hour: 9, minute: 20 }), true, 'a real-dated header: the same date and hour');
+  eq(kept(real, { type: 'clock.set', year: 2025, month: 3, day: 4, hour: 9, minute: 20 }), false, 'another day is not');
+  eq(kept(real, { type: 'clock.set', hour: 9, minute: 20 }), false, 'nor the hour alone, where the header gives the whole date (as before)');
+});
