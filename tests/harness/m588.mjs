@@ -1626,3 +1626,35 @@ test('M666-2 AN ANSWER THAT IS NOT A SUMMARY IS ASKED FOR AGAIN, IN THE SAME RUN
     for (const [key, v] of [['memoryWindow', kept.window], ['memoryBatch', kept.batch], ['memorySqueeze', kept.squeeze], ['memoryKeeper', kept.keeper]]) { if (v === undefined) await db.settings.delete(key); else await db.settings.set(key, v); }
   }
 });
+
+/* M667 — the two findings M666 left open ("is everything done or not?"): where a thing lies; what someone close by overheard. */
+test('M667-1 THE THINGS A PAGE NAMES AND THE PEOPLE WITHIN EARSHOT ARE HANDED TO THE PAGE READER BY NAME: the rose is written where the page leaves it (the page’s own words, never an invented place, never the same place again); the old campaigner at the alley’s mouth learns what the page shows him overhear — and neither is asked about when the page gives no cause', async () => {
+  const { extractTurn, buildExtractorMessages, thingsOnPageBlock, withinEarshotBlock } = await import('../../js/agents/extractor.js');
+  const { movedThings } = await import('../../js/engine/apply.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const G = 'The service alley off the lane';
+  const st = applyMutations({ ...emptyState(), page: 22 }, [{ type: 'mc.set', name: 'Jovan Wayne' }, { type: 'place.set', name: G }, { type: 'clock.set', year: 1001, month: 3, day: 5, hour: 21, minute: 15 },
+    { type: 'presence.enter', name: 'Jovan Wayne' }, { type: 'presence.enter', name: 'the hooded girl' },
+    ...['the hooded girl', 'Salla', 'the one-armed old campaigner'].map((name) => ({ type: 'people.set', name, field: 'core', text: 'someone the story keeps' })),
+    { type: 'offscreen.set', name: 'Salla', location: 'the Gilded Eel, at the ale casks', activity: 'pouring' },
+    { type: 'offscreen.set', name: 'the one-armed old campaigner', location: 'the lane’s dogleg outside the service alley mouth', activity: 'leaning on the wall with his cup' },
+    { type: 'thing.set', name: 'the rose', where: 'in Jovan’s hand, held out to her', owner: 'Jovan Wayne' },
+    { type: 'thing.set', name: 'the brass key', where: 'on a cord round Salla’s neck', owner: 'Salla' }]).state;
+  const page = '[' + G + ' — Hanami 5, 1001 AG | 21:20 | drizzle | black coat | two paces inside the gate]\n\nShe pricked her thumb on the rose and set it down between them on the wet stone. “Oriana,” she said. “Princess Oriana — the King’s daughter.” At the alley’s mouth the old campaigner had stopped with his cup halfway; he had heard every word.';
+  const earshot = withinEarshotBlock(st).join('\n');
+  assert(/WITHIN EARSHOT/.test(earshot) && /\d\. the one-armed old campaigner \[the lane’s dogleg outside the service alley mouth\]/.test(earshot) && !/Salla/.test(earshot), 'the one at the alley’s mouth is within earshot; Salla, back at the tavern, is not: ' + earshot.slice(0, 220));
+  const things = thingsOnPageBlock(st, page).join('\n');
+  assert(/THINGS THE LEDGER KEEPS THAT THIS PAGE NAMES/.test(things) && /\d\. the rose \(Jovan Wayne’s\) — in Jovan’s hand, held out to her/.test(things) && !/brass key/.test(things), 'the rose is on the page, the key is not: ' + things.slice(0, 260));
+  const sent = buildExtractorMessages({ state: st, userText: 'I hold out the rose.', assistantText: page }).user;
+  assert(/WITHIN EARSHOT/.test(sent) && /THINGS THE LEDGER KEEPS THAT THIS PAGE NAMES/.test(sent), 'both ride in what the reader is sent');
+  const quiet = '[' + G + ' — Hanami 5, 1001 AG | 21:25]\n\nShe said nothing more.';
+  eq(thingsOnPageBlock(st, quiet).length, 0, 'a page that names no kept thing asks about none');
+  const read = await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }, { type: 'knowledge.add', who: ['the one-armed old campaigner', 'the hooded girl'], fact: 'that the hooded girl named herself Oriana, the King’s daughter, to Jovan in the alley' }], resolved: [], here: ['Jovan Wayne', 'the hooded girl'],
+    things: [{ name: 'the rose', where: 'between them on the wet stone' }, { name: 'the brass key', where: 'in the hooded girl’s pocket' }, { name: 'a silver locket', where: 'on the wet stone' }] }) }), () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'I hold out the rose.', assistantText: page, pageNumber: 23 }));
+  eq(JSON.stringify(read.mutations.filter((m) => m.type === 'thing.set')), JSON.stringify([{ type: 'thing.set', name: 'the rose', where: 'between them on the wet stone' }]), 'the rose is moved to where the page leaves it; a key moved to a pocket the page never showed is not; a locket the ledger does not keep is not made');
+  const led = applyMutations({ ...st, page: 23 }, read.mutations).state;
+  eq(led.things['the rose'].where + ' | ' + led.things['the brass key'].where, 'between them on the wet stone | on a cord round Salla’s neck', 'the ledger has the rose on the stone; the key where it was');
+  assert((led.knowledge['the one-armed old campaigner'] || []).some((k) => /named herself Oriana/.test(k.fact)), 'the old campaigner, close by, now knows what he overheard: ' + JSON.stringify(led.knowledge));
+  assert(!(led.knowledge.Salla || []).some((k) => /Oriana/.test(k.fact)), 'Salla, out of earshot and not named, does not');
+  eq(movedThings(led, [{ name: 'the rose', where: 'on the wet stone, between them' }], page).length, 0, 'the same place in other words is not written again');
+});

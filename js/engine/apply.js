@@ -2078,6 +2078,28 @@ export function lockedLooks(state, looks, pageText = '', userText = '') {
   }
   return out;
 }
+/* M667 — the two findings of his pasted audits that M666 left open, and that confused him ("is everything done or not?"):
+ * WHERE A THING LIES. "The rose (Jovan Wayne's) — in the service alley, between Jovan and the hooded girl": the
+ * auditor moved it; the page reader, who could always write thing.set, had not. The things the ledger keeps that the
+ * page names are handed to it by name (extractor.js thingsOnPageBlock) and it answers in a slot of their own where
+ * each now lies; one is written when the thing is one the ledger keeps, its new place is in the page's own words
+ * (or his), and it says something the old place did not. */
+export function movedThings(state, things, pageText = '', userText = '') {
+  const out = [];
+  const kept = state && state.things && typeof state.things === 'object' ? state.things : {};
+  const told = new Set([...tellingOf(narrationOf(scenePartOf(String(pageText || '').replace(/^\s*\[[^\n]*\][ \t]*/, '')))), ...tellingOf(String(userText || ''))]);
+  const onPage = (text) => { const w = [...tellingOf(text)]; return w.length > 0 && w.filter((x) => told.has(x)).length / w.length >= 0.5; };
+  for (const t of (Array.isArray(things) ? things : []).slice(0, 12)) {
+    if (!t || typeof t !== 'object') continue;
+    const name = capText(normalizeName(t.name), 120); const where = capText(t.where, 240);
+    if (!name || !where) continue;
+    const key = findThingKey(kept, name) || (thingKin(kept, name).length === 1 ? thingKin(kept, name)[0] : '');
+    if (!key || !kept[key] || !onPage(where) || !trulyOther(kept[key].where, where)) continue;
+    if (out.some((m) => m.name === key)) continue;
+    out.push({ type: 'thing.set', name: key, where });
+  }
+  return out;
+}
 export function lastingOnly(mutations) {
   return (Array.isArray(mutations) ? mutations : []).filter((m) => !(m && MOMENT_TYPES.has(m.type)));
 }

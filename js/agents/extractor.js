@@ -37,8 +37,8 @@
 import { HERE_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
-import { headerMutations, headerDress } from '../engine/state.js'; /* M446: did this page move the ground? */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
+import { headerMutations, headerDress, closeBy } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey } from '../engine/people.js';
 import { findRelationship } from '../engine/relationships.js'; /* M641: who has no standing yet */
 import { publicMoment } from '../engine/world.js'; /* M509-15: a moment the whole room saw */
@@ -267,7 +267,7 @@ function systemPrompt({ mc, founding }) {
     who,
     '',
     'Answer with JSON ONLY, in exactly this shape:',
-    '{"mutations":[ ... ], "resolved":[ ... ], "healed":[ ... ], "here":[ ... ], "looks":[ ... ]}',
+    '{"mutations":[ ... ], "resolved":[ ... ], "healed":[ ... ], "things":[ ... ], "here":[ ... ], "looks":[ ... ]}',
     '"resolved" holds the exact titles of the OPEN THREADS (listed under the page) that THIS page',
     'resolved — the question answered, the plan carried out or abandoned, the promise kept, the thing',
     'found, the decision made. A thread the page only moved is not resolved. [] when none was.',
@@ -369,6 +369,8 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
     ...(!founding ? openThreadsBlock(state) : []),
     ...(!founding ? openWoundsBlock(state, assistantText) : []),
     ...(!founding ? namedFromAfarBlock(state, assistantText) : []),
+    ...(!founding ? withinEarshotBlock(state) : []),
+    ...(!founding ? thingsOnPageBlock(state, assistantText) : []),
     ...standingsBlock(unwritten), /* M641 */
     founding ? 'Found the ledger from these pages. JSON only.' : 'What changed, if anything? JSON only.',
   ].join('\n');
@@ -490,6 +492,43 @@ export function namedFromAfarBlock(state, pageText = '') {
   ];
 }
 
+/* M667: WITHIN EARSHOT, BY NAME. "The one-armed old campaigner now knows: heard the hooded girl name herself" — written by the
+ * auditor. Whoever the ledger keeps close by the scene (state.js closeBy: at the door, in the next room, at the alley's
+ * mouth — "they can hear, see, or answer the door") is handed to the page reader by name, with the one thing to
+ * decide: did this page show them see or overhear something? Then they have learned it, and the line names them. */
+export function withinEarshotBlock(state) {
+  const near = closeBy(state).slice(0, 8);
+  if (!near.length) return [];
+  return [
+    'WITHIN EARSHOT — not in the scene, but close enough to see or hear it from where they are (decide each):',
+    ...near.map((n, i) => (i + 1) + '. ' + n.key + ' [' + n.location + ']'),
+    'If THIS page shows one of them watching, listening or overhearing what is said or done in the scene, they have learned it: write that knowledge line with their name in its "who". If the page shows no such thing, write nothing for them — being near is not knowing.',
+    '',
+  ];
+}
+/* M667: THE THINGS THIS PAGE NAMES, EACH TO BE DECIDED (see apply.js movedThings). */
+export function thingsOnPageBlock(state, pageText = '') {
+  const kept = state && state.things && typeof state.things === 'object' ? state.things : {};
+  const scene = narrationOf(scenePartOf(String(pageText || '').replace(/^\s*\[[^\n]*\][ \t]*/, ''))).toLowerCase();
+  if (!scene.trim()) return [];
+  const rows = [];
+  for (const [name, t] of Object.entries(kept)) {
+    if (!t || typeof t !== 'object' || typeof t.where !== 'string' || !t.where.trim()) continue;
+    const words = name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').split(' ').filter((w) => w.length >= 4 && !/^(?:from|with|that|this|their|some|into|over|under)$/.test(w));
+    if (!words.length) continue;
+    const on = words.filter((w) => new RegExp('(?<![\\p{L}])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}])', 'u').test(scene));
+    if (on.length / words.length < 0.5) continue;
+    rows.push(name + (t.owner ? ' (' + t.owner + '’s)' : '') + ' — ' + t.where.trim());
+    if (rows.length >= 8) break;
+  }
+  if (!rows.length) return [];
+  return [
+    'THINGS THE LEDGER KEEPS THAT THIS PAGE NAMES — decide each: where is it as the page ENDS? One whose place this page changes goes in "things" as {"name":"…","where":"…"}, named as written here, the place in the page\'s own words. One the page leaves where it was stays out:',
+    ...rows.map((r, i) => (i + 1) + '. ' + r),
+    '',
+  ];
+}
+
 /* M28: a ledger is young when it has no ground and nobody in it — the same
  * test the founding read (M27) uses in chat.js. One home for it. */
 export function isYoungLedger(state) {
@@ -588,7 +627,11 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
     const looks = (Array.isArray(parsed.looks) ? parsed.looks : [])
       .filter((l) => l && typeof l === 'object' && typeof l.name === 'string' && typeof l.key === 'string' && typeof l.value === 'string' && l.name.trim() && l.key.trim() && l.value.trim())
       .map((l) => ({ name: l.name.trim().slice(0, 80), key: l.key.trim().slice(0, 40), value: l.value.trim().slice(0, 240) })).slice(0, 12);
-    return { mutations, note: mutations.length || looks.length ? 'ok' : 'empty', here, hereNotes, looks };
+    /* M667: where the things this page names now lie (the house writes one when it is the page's own words and new — apply.js movedThings) */
+    const things = (Array.isArray(parsed.things) ? parsed.things : [])
+      .filter((t) => t && typeof t === 'object' && typeof t.name === 'string' && typeof t.where === 'string' && t.name.trim() && t.where.trim())
+      .map((t) => ({ name: t.name.trim().slice(0, 120), where: t.where.trim().slice(0, 240) })).slice(0, 12);
+    return { mutations, note: mutations.length || looks.length || things.length ? 'ok' : 'empty', here, hereNotes, looks, things };
   } catch (err) {
     return { mutations: [], note: 'unusable' };
   }
@@ -759,6 +802,8 @@ export async function extractTurn(args = {}) {
      * reader gave it to. */
     if (args.state) {
       /* M660: where the page's own words show someone standing or dressed otherwise than the ledger has, it is written */
+      /* M667: where a thing the page names now lies */
+      if (Array.isArray(read.things) && read.things.length) read.mutations = [...read.mutations, ...movedThings(args.state, read.things, args.assistantText, args.userText).filter((t) => !read.mutations.some((m) => m && m.type === 'thing.set' && typeof m.name === 'string' && m.name.trim().toLowerCase() === t.name.toLowerCase()))];
       /* M662: what the page shows of how someone looks is locked among what is true of them */
       if (Array.isArray(read.looks) && read.looks.length) read.mutations = [...read.mutations, ...lockedLooks(args.state, read.looks, args.assistantText, args.userText)];
       /* M661: the header's own attire and position cells are the main character's, on this page — after the reader's own

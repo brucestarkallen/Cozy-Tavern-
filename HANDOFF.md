@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m666-001)
+# Cozy Tavern — handoff for the next session (state at m667-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -146,6 +146,10 @@
   "true", "9/10", "+2 (high ground)" and "−1" with a real minus sign are how they come. Use the readers that exist:
   referee.js truthOf / signedOf / ratingOf, apply.js numberOf (M651, M654). When adding a field a model fills, feed its
   door the same value five ways before trusting it.
+- "DONE" AND A LIST OF WHAT IS STILL OPEN, IN ONE REPLY, IS NOT AN ANSWER HE CAN USE. M666 was reported as done with two of his
+  audit's findings "still open"; his next message was "I'm confused, everything is already done or not". If something
+  he asked for can still be done, do it before saying done (M667 did both in an hour). What truly cannot be done —
+  here, only testing against his own worker model — is said once, as the one thing left, not as a list.
 - "IT DOES NOT REPAIR ITSELF" IS A QUESTION, NOT AN ANSWER. I told him three kinds of old damage were not repaired; he asked
   whether they COULD be, smartly and safely and on their own. Two could, with what the house already keeps: the
   journal holds each change under the name the worker wrote (so two people written as one can be parted, M665), and

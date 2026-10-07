@@ -983,15 +983,26 @@ const TELLING_RE = /[^\p{L}\p{N}]+/gu;
 const tellingSet = (t) => new Set(String(t || '').toLowerCase().replace(TELLING_RE, ' ').split(' ').filter((w) => w.length >= 4));
 const WITHIN_REACH = /\b(?:behind (?:the|her|his|their|a) (?:door|wall|curtain|screen)|the door|next room|next door|other room|back room|bedroom|bathroom|washroom|kitchen|hall(?:way)?|corridor|upstairs|downstairs|through the wall|adjoining|adjacent|in the back)\b/i;
 const RELATIVE_SPOT = /^\s*(?:just\s+)?(?:the\s+|a\s+)?(?:next room|room next door|other room|back room|next door|hallway|corridor|landing|behind the (?:door|wall)|upstairs|downstairs|through the wall)\b/i;
+/* M667 — found while handing the page reader "who is within earshot": CLOSE BY KNEW ONLY INDOORS. Within reach was a door, the
+ * next room, a hall, upstairs — so in his alley scene the old campaigner "at the lane's dogleg outside the service alley
+ * mouth" (his auditor's own words for it) was not close by at all: the storyteller was never told he could hear, and
+ * nobody was asked what he overheard. Two things were missing. Out of doors, within reach is also outside it, its
+ * mouth, its gate, a doorway, a threshold, a porch, steps, a window, a corner, across the street. And a scene that is
+ * itself named by its neighbour ("The service alley OFF THE LANE") is the place before that word — a seat that says
+ * "outside the service alley" names it, without having to repeat "the lane". (A head of one word is too little to
+ * go by: "The lane outside the Gilded Eel" still needs all its words.) */
+const OUTDOORS_REACH = /(?<![\p{L}])(?:outside|mouth|gate(?:way)?|doorway|threshold|entrance|porch|steps|stoop|window|corner|within earshot|in sight of|across the (?:street|lane|road|way|yard|square|alley))(?![\p{L}])/iu;
+const NAMED_BY_NEIGHBOUR = /\s+(?:off|outside|behind|beyond|near|beside|opposite|across from|below|above|under|past|next to|in front of|back of|rear of)\s+/i;
 export function nearTheScene(location, sceneName) {
   const loc = String(location || '');
   if (!loc.trim() || !String(sceneName || '').trim()) return false;
   if (RELATIVE_SPOT.test(loc)) return true;
-  const sceneWords = tellingSet(sceneName);
+  const head = tellingSet(String(sceneName).split(NAMED_BY_NEIGHBOUR)[0]);
+  const sceneWords = head.size >= 2 ? head : tellingSet(sceneName);
   if (!sceneWords.size) return false;
   const locWords = tellingSet(loc);
   if (![...sceneWords].every((w) => locWords.has(w))) return false;
-  return WITHIN_REACH.test(loc);
+  return WITHIN_REACH.test(loc) || OUTDOORS_REACH.test(loc);
 }
 /* M604: the things the storyteller is shown — at the scene's place first, then the main character's own wherever they are,
  * then whatever a page touched in the last 30 pages; twelve at most (the whole list rides in the helpers' view) */

@@ -17035,3 +17035,32 @@ other workers."
 - GATES at m666-001 (one CPU), on the tree that was pushed: harness 1308/1308, walk 241/241, long play 9/9, lint 0 errors
   (181 warnings — three more than m665, from this entry's code), perf_send, holdsone, cutthinking, notes_layout — EXIT 0
   each. This is the FOURTH run: the first three failed M509-13b and M510-17, then DOM-26, then DOM-53, as told above.
+
+# M667 — the two findings M666 left open ("I'm confused, everything is already done or not")
+M666 was told to him as done, with two of his pasted audit's findings listed as "still open". Both are done here.
+- WHERE A THING LIES ("the rose (Jovan Wayne's) — in the service alley, between Jovan and the hooded girl", moved by the
+  auditor): the things the ledger keeps whose names this page uses are handed to the page reader by name
+  (extractor.js thingsOnPageBlock — half a name's telling words in the page's telling; eight at most) and it answers in
+  a slot of their own, "things", where each lies as the page ends. apply.js movedThings writes one when the thing is one
+  the ledger keeps, the new place is in the page's own words (or his message's), and it says something the old place
+  did not. A thing moved to a place the page never showed, a thing the ledger does not keep, and the same place in
+  other words are not written.
+- WHAT SOMEONE CLOSE BY OVERHEARD ("the one-armed old campaigner now knows: heard the hooded girl name herself", written by
+  the auditor): whoever the ledger keeps close by the scene is handed to the reader by name (withinEarshotBlock, from
+  state.js closeBy) with the one thing to decide — did this page show them see or overhear something? — and a
+  knowledge line that names them in its "who" is theirs. Being near is not knowing: nothing is written for them
+  otherwise.
+  - FOUND ON THE WAY: "CLOSE BY" KNEW ONLY INDOORS (state.js nearTheScene, M588). Within reach was a door, the next room, a
+    hall, upstairs; the campaigner "at the lane's dogleg outside the service alley mouth" — his auditor's own words —
+    was not close by at all, so the STORYTELLER was never told he could hear either. Out of doors, within reach is
+    also outside it, its mouth, a gate, a doorway, a threshold, a porch, steps, a window, a corner, across the street;
+    and a scene named by its neighbour ("The service alley OFF THE LANE") is the place before that word, so a seat
+    "outside the service alley" names it. Seven whereabouts were measured: the four that are near read near now; the
+    tavern and "just outside the alley gate" (which does not name the alley) do not; a seat AT the scene is in it.
+- NOT DONE, AND IT CANNOT BE HERE: any of M641–M667's by-name questions answered by HIS worker model. Every law drives the
+  house with a stand-in that answers as asked.
+- LAW (m588.mjs): M667-1 — his scene: who is within earshot and who is not; the rose and not the key; what is written
+  and what is not; the campaigner's knowledge and not Salla's.
+- version.js -> m667-001.
+- GATES at m667-001 (one CPU), on the tree that was pushed: harness 1309/1309, walk 241/241, long play 9/9, lint 0 errors
+  (181 warnings, as at m666), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
