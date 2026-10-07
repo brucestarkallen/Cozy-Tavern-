@@ -62,7 +62,7 @@ import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room
 import { listModules, selectModules } from '../assemble/modules.js';
 import { renderClock } from '../engine/clock.js'; /* M493 */
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, headerWithGround, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture, shareCheckpoints } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
-import { applyMutations, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
+import { applyMutations, staleAfterJump, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent, loadSent } from '../sent.js'; /* M347: the words each page was sent, kept beside it; M636: read back for the sensors */
@@ -4023,8 +4023,10 @@ export function initChat(ctx) {
       /* M128: the header's ground and hour land in code, at the head of the
        * extractor's own writes — the same stamp, the same journal, the same
        * take-back — whatever the model remembered to write */
-      const groundBefore = ((await loadState(story.id)).place || {}).name || ''; /* M627: an area round it is no move */
-      const fromHeader = (msg.role === 'assistant' && !msg.ooc) ? headerMutations(pageText(msg), { ground: groundBefore }) : [];
+      const ledgerBefore = await loadState(story.id);
+      const groundBefore = (ledgerBefore.place || {}).name || ''; /* M627: an area round it is no move */
+      const dayBefore = (ledgerBefore.clock && typeof ledgerBefore.clock.dayWords === 'string') ? ledgerBefore.clock.dayWords : ''; /* M660: the story's own calendar, as the ledger keeps it */
+      const fromHeader = (msg.role === 'assistant' && !msg.ooc) ? headerMutations(pageText(msg), { ground: groundBefore, day: dayBefore }) : [];
       /* M129: a person who appears ONLY inside the page's window (*** The World
        * Beyond ***) is elsewhere by definition — a presence.enter for them is
        * refused here, whatever the model wrote (the window about Chloe's
@@ -4044,7 +4046,10 @@ export function initChat(ctx) {
       const headerHas = new Set(fromHeader.map((m) => m.type));
       /* M455: the header's hour is the page's hour — the reader's own "time passed" on top of it put the clock ahead */
       if (headerHas.has('clock.set')) headerHas.add('clock.advance');
-      const list = [...fromHeader, ...(Array.isArray(mutations) ? mutations : []).filter((m) => !(m && headerHas.has(m.type)))].filter((m) => !(m && m.type === 'presence.enter' && onlyInWindow(m.name)));
+      /* M660: a long jump of the clock lets every place-in-the-room and outfit go — before the reader's own writes, which
+       * say what THIS page shows (apply.js staleAfterJump) */
+      const letGo = staleAfterJump(ledgerBefore, fromHeader);
+      const list = [...fromHeader, ...letGo, ...(Array.isArray(mutations) ? mutations : []).filter((m) => !(m && headerHas.has(m.type)))].filter((m) => !(m && m.type === 'presence.enter' && onlyInWindow(m.name)));
 
       /* Re-load at apply time — the ledger may have been touched by hand
        * while the worker was reading. */

@@ -8311,6 +8311,45 @@ test('DOM-239 THE PAGE READER, END TO END, IN THE APP (M657 — the audit’s cu
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-240 A STORY’S OWN CALENDAR, AND THE MORNING AFTER, IN THE APP (M660 — his reports: “header is fantasy date and the ledger keeps putting wrong dates, only correct is clock time”; “the presence list still has Bruce in the batsuit”): the ledger’s day is the header’s own words; nine hours on, last night’s armour and coat are let go and the room is as the morning’s page shows it', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { loadState } = await import('../../js/engine/state.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'his own calendar' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const G = 'Wayne Manor — the stairway bend';
+  const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  let pages = 0;
+  house.state.storyAnswer = () => { pages += 1; return pages === 1
+    ? '[' + G + ' — Hanami 5, 1001 AG | 23:30 | cold | batsuit | at the bend]\n\nBruce stood at the stairway bend, armored, cowl on. Barbara came in by the door of the entrance hall, her heavy coat still on.'
+    : '[' + G + ' — Hanami 6, 1001 AG | 09:10 | low winter sun | dark sweater | at the bend]\n\nBarbara stood three steps above the bend in jeans and a dark sweater, her coat hung by the door. Bruce, out of the cowl and armor, wore a dark sweater and the night still written on him.'; };
+  house.state.workerAnswer = (body, sys) => {
+    const system = String(sys || '');
+    if (/THE LEDGER IS YOUNG/.test(system)) return JSON.stringify({ mutations: [{ type: 'mc.set', name: 'Bruce' }, { type: 'place.set', name: G }, { type: 'presence.enter', name: 'Bruce', position: 'at the stairway bend', attire: 'the batsuit, armored, cowl on' }, { type: 'presence.enter', name: 'Barbara', position: 'in the entrance hall, by the door', attire: 'a heavy coat still on' }, { type: 'mode.snapshot', modes: [] }], resolved: [], here: ['Bruce', 'Barbara'] });
+    if (/WHO IS YOURS TO DECIDE, FROM THE PAGE/.test(system) && pages === 2) return JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }], resolved: [], here: [{ name: 'Bruce', at: 'at the stairway bend', wears: 'a dark sweater' }, { name: 'Barbara', at: 'three steps above the bend', wears: 'jeans and a dark sweater' }] });
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}');
+  };
+  const settle = async (n) => { await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= n && !env.ctx.chat.isBusy(), 'page ' + n, 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); };
+  const room = (led) => led.present.filter((p) => /^(?:Bruce|Barbara)$/.test(p.name)).map((p) => p.name + ' (' + [p.position, p.attire].filter(Boolean).join('; ') + ')').sort().join(' | ');
+  try {
+    type(q('#composer-input'), '#story Gotham, in a calendar of its own'); submit(q('#composer'));
+    await settle(1);
+    let led = await loadState(st.id);
+    assert(/^Hanami 5, 1001 AG — 23:30$/.test(led.clock.label), 'the day is the header’s own words, not a made-up real date: ' + led.clock.label);
+    eq(room(led), 'Barbara (in the entrance hall, by the door; a heavy coat still on) | Bruce (at the stairway bend; the batsuit, armored, cowl on)', 'the night’s room');
+    type(q('#composer-input'), 'I come down in the morning.'); submit(q('#composer'));
+    await settle(2);
+    led = await loadState(st.id);
+    assert(/^Hanami 6, 1001 AG — 09:10$/.test(led.clock.label), 'the next day of his calendar, and its hour: ' + led.clock.label);
+    eq(room(led), 'Barbara (three steps above the bend; jeans and a dark sweater) | Bruce (at the stairway bend; a dark sweater)', 'the morning’s room: no batsuit, no coat');
+  } finally {
+    house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-188 THE OPENING MOVES FEELINGS (M532 — his report: "every time, How they feel about you is empty and I need to rebuild the people, especially on #story"): the young ledger\'s reader is asked what the opening does to people\'s feelings — he saves Yuki, and her standing is there after the first page, no rebuild', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');

@@ -1189,3 +1189,84 @@ test('M659-2 THE HOUSEKEEPER’S OPERATIONS AND THE PLANNER’S FLAG, AS MODELS 
   eq(cards.map((c) => c.status + ':' + (c.op.add ? 'add' : c.op.remove ? 'remove' : 'other')).join(' '), 'pending:add pending:remove pending:add', 'the add written "true", the removal written "true", and the add written true — each what it was meant to be, none refused');
   eq(cards[0].op.constant, true, 'and “constant”:"yes" is kept');
 });
+
+/* M660 — his reports: a fantasy date read as a wrong date; stale clothes and places the auditor kept finding; a line on a
+ * phone call credited to the wrong woman. */
+test('M660-1 A STORY’S OWN CALENDAR IS ITS DATE: “Hanami 5, 1001 AG”, “Tirdas, 17th of Last Seed, 4E 201”, “Day 47, Year 3 of the Long Winter”, “Hanami 5” after the place, or in a cell of its own — each is the ledger’s day, with the header’s hour; a numbered place is still a place; a real date is read as before', async () => {
+  const { headerMutations } = await import('../../js/engine/state.js');
+  const R = ' | clear | cloak | by the rail]';
+  const run = (headers) => { let st = applyMutations({ ...emptyState() }, [{ type: 'mc.set', name: 'Jovan' }]).state; const out = []; for (const h of headers) { st = applyMutations(st, headerMutations(h + '\n\nShe looked up.', { ground: st.place && st.place.name, day: st.clock && st.clock.dayWords })).state; out.push((st.place ? st.place.name : '—') + ' || ' + st.clock.label); } return out; };
+  eq(run(['[Tenth Division Courtyard — Hanami 5, 1001 AG | 09:20' + R, '[Tenth Division Courtyard — Hanami 5, 1001 AG | 18:45' + R, '[Tenth Division Courtyard — Hanami 6, 1001 AG | 07:10' + R]).join(' ## '),
+    'Tenth Division Courtyard || Hanami 5, 1001 AG — 09:20 ## Tenth Division Courtyard || Hanami 5, 1001 AG — 18:45 ## Tenth Division Courtyard || Hanami 6, 1001 AG — 07:10', 'no English weekday: his calendar’s own day (it read “Saturday, January 1, 2000”)');
+  eq(run(['[Dragonsreach, Whiterun — Tirdas, 17th of Last Seed, 4E 201 | 14:30' + R])[0], 'Dragonsreach, Whiterun || Tirdas, 17th of Last Seed, 4E 201 — 14:30', 'a weekday and a month of its own');
+  eq(run(['[The Wall — Day 47, Year 3 of the Long Winter | 06:15' + R])[0], 'The Wall || Day 47, Year 3 of the Long Winter — 06:15', 'a count of days');
+  eq(run(['[Tenth Division Courtyard — Hanami 5 | 09:20' + R])[0], 'Tenth Division Courtyard || Hanami 5 — 09:20', 'month and day alone, in his own line “[Place — Date | hour | …]”');
+  eq(run(['[Tenth Division Courtyard | Hanami 5, 1001 AG | 09:20' + R])[0], 'Tenth Division Courtyard || Hanami 5, 1001 AG — 09:20', 'the date in a cell of its own');
+  eq(run(['[Seireitei — Tenth Division Courtyard — Hanami 5, 1001 AG | 09:20' + R, '[Seireitei — Tenth Division Courtyard — Hanami 6 | 07:10' + R])[1], 'Seireitei — Tenth Division Courtyard || Hanami 6 — 07:10', 'a month the ledger already keeps is known again, in a longer line');
+  eq(run(['[Tenth Division Courtyard — Sunday, Hanami 5, 1001 AG | 09:20' + R])[0], 'Tenth Division Courtyard || Sunday, Hanami 5, 1001 AG — 09:20', 'with an English weekday, as before (M455)');
+  eq(run(['[Wells house kitchen, 8 Mariner\u2019s Lane — Monday, March 3, 2025 | 21:40' + R])[0], 'Wells house kitchen, 8 Mariner\u2019s Lane || Monday, March 3, 2025 — 21:40', 'a real date, as before');
+  for (const h of ['[10th Division HQ — training courtyard | 10:40' + R, '[Harbour District — Pier 7 | 09:20' + R, '[Sector 7 — Reactor Level 2 | 03:00' + R, '[Wayne Tower — Floor 40 | 11:00' + R]) {
+    const m = headerMutations(h + '\n\nShe looked up.', {}).find((x) => x.type === 'clock.set');
+    assert(m && m.dayWords === undefined, 'a numbered place is not a date: ' + h.slice(0, 40) + ' → ' + JSON.stringify(m));
+  }
+});
+
+test('M660-2 A LONG JUMP OF THE CLOCK LETS EVERY PLACE-IN-THE-ROOM AND OUTFIT GO, AND THE READER RESTATES THE ROOM: the night’s batsuit is not read as the morning’s; fifteen minutes on, only a real change is written — never the same thing in other words, never words the page does not hold', async () => {
+  const { headerMutations } = await import('../../js/engine/state.js');
+  const { staleAfterJump } = await import('../../js/engine/apply.js');
+  const { extractTurn } = await import('../../js/agents/extractor.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const G = 'Wayne Manor — the stairway bend';
+  const night = applyMutations({ ...emptyState(), page: 30 }, [{ type: 'mc.set', name: 'Bruce' }, { type: 'place.set', name: G }, { type: 'clock.set', year: 2027, month: 1, day: 2, hour: 23, minute: 30 },
+    { type: 'presence.enter', name: 'Bruce', position: 'at the stairway bend', attire: 'the batsuit, armored, cowl on' }, { type: 'presence.enter', name: 'Barbara', position: 'in the entrance hall, by the door', attire: 'a heavy coat still on' }, { type: 'rel.set', name: 'Barbara', p: 60, cause: 'years' }]).state;
+  const room = (s) => s.present.map((p) => p.name + ' (' + [p.position, p.attire].filter(Boolean).join('; ') + ')').join(' | ');
+  const reading = (state, page, here) => withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }], resolved: [], here }) }), () => extractTurn({ connection: HOUSES[0].conn, state, userText: 'I wait.', assistantText: page, pageNumber: 31 }));
+  /* the morning after */
+  const morning = '[Wayne Manor — the stairway bend — Sunday, January 3, 2027 | 09:10 | low winter sun | dark sweater | at the bend]\n\nBarbara stood three steps above the bend in jeans and a dark sweater, her coat hung by the door. Bruce, out of the cowl and armor, wore a dark sweater and the night still written on him.';
+  const header = headerMutations(morning, { ground: G });
+  const letGo = staleAfterJump(night, header);
+  eq(letGo.map((m) => m.name).join(','), 'Bruce,Barbara', 'nine hours on: both are let go of where they stood and what they wore');
+  const afterJump = applyMutations(night, [...header, ...letGo]).state;
+  eq(room(afterJump), 'Bruce () | Barbara ()', 'nothing stale is left to be read as true');
+  /* as the app does it: the reader is handed the ledger as it stood BEFORE the page; the house applies the header, the
+   * letting-go, then the reader's writes */
+  const read = await reading(night, morning, [{ name: 'Bruce', at: 'at the stairway bend', wears: 'a dark sweater' }, { name: 'Barbara', at: 'three steps above the bend', wears: 'jeans and a dark sweater' }]);
+  eq(room(applyMutations(night, [...header, ...letGo, ...read.mutations]).state), 'Bruce (at the stairway bend; a dark sweater) | Barbara (three steps above the bend; jeans and a dark sweater)', 'and the room is as the morning’s page shows it — his place at the bend written again, though it is where he stood the night before');
+  /* the same evening */
+  const same = '[Wayne Manor — the stairway bend — Saturday, January 2, 2027 | 23:45 | cold | batsuit | at the bend]\n\nAlfred took her coat at the door and hung it. Barbara, in jeans and a dark sweater, stood by the door of the entrance hall. Bruce had not moved from the stairway bend, armored still.';
+  eq(staleAfterJump(night, headerMutations(same, { ground: G })).length, 0, 'fifteen minutes on, nothing is let go');
+  const read2 = await reading(night, same, [{ name: 'Bruce', at: 'still at the stairway bend', wears: 'armored still' }, { name: 'Barbara', at: 'by the door of the entrance hall', wears: 'jeans and a dark sweater' }, { name: 'Barbara', wears: 'a crown of gold' }, 'Alfred']);
+  eq(JSON.stringify(read2.mutations.filter((m) => m.type === 'presence.update')), JSON.stringify([{ type: 'presence.update', name: 'Barbara', attire: 'jeans and a dark sweater' }]), 'only her coat coming off is written: not the same place or the same armour in other words, not a crown the page never showed');
+  /* a scene that runs past midnight is not a jump; a ledger with no clock lets nothing go */
+  const late = applyMutations(night, [{ type: 'clock.set', year: 2027, month: 1, day: 2, hour: 23, minute: 50 }]).state;
+  eq(staleAfterJump(late, [{ type: 'clock.set', year: 2027, month: 1, day: 3, hour: 0, minute: 10 }]).length, 0, 'ten to midnight to ten past: the same scene');
+  eq(staleAfterJump({ ...emptyState(), present: [{ name: 'Bruce', attire: 'the batsuit' }] }, [{ type: 'clock.set', hour: 9, minute: 0 }]).length, 0, 'no clock yet: nothing to measure a jump by');
+});
+
+test('M660-3 SOMEONE SEATED ELSEWHERE HAS NO “NOW” IN THE ROOM, AND THE WORLD AGENT IS HANDED THE CAST OF THE PAGE: the readers and the auditor are not shown Alfred “in the kitchen” and “in the entrance hall” at once; a phone call’s voices are named as not in the room', async () => {
+  const { buildWorldMessages, castFromAfar } = await import('../../js/agents/world.js');
+  const { renderWholeLedger } = await import('../../js/engine/whole.js');
+  const st = applyMutations({ ...emptyState(), page: 30 }, [{ type: 'mc.set', name: 'Bruce Wayne' }, { type: 'place.set', name: 'The Batcave — the main console' }, { type: 'clock.set', year: 2027, month: 1, day: 2, hour: 23, minute: 30 },
+    { type: 'presence.enter', name: 'Bruce Wayne' }, { type: 'presence.enter', name: 'Barbara Gordon' }, { type: 'presence.enter', name: 'Alfred Pennyworth' },
+    ...['Barbara Gordon', 'Clark Kent', 'Kara Zor-El', 'Alfred Pennyworth', 'Dick Grayson'].map((name) => ({ type: 'people.set', name, field: 'core', text: 'keeps faith with the cave' })),
+    { type: 'people.set', name: 'Alfred Pennyworth', field: 'state', text: 'In the entrance hall below the bend, coat over his arm.' }, { type: 'people.set', name: 'Barbara Gordon', field: 'state', text: 'Leaning on the console beside him.' },
+    { type: 'offscreen.set', name: 'Clark Kent', location: 'the Kent apartment, Metropolis', activity: 'washing up' }, { type: 'offscreen.set', name: 'Kara Zor-El', location: 'the Kent apartment, Metropolis', activity: 'on the couch' },
+    { type: 'offscreen.set', name: 'Dick Grayson', location: 'Blüdhaven', activity: 'on patrol' },
+    { type: 'presence.leave', name: 'Alfred Pennyworth', to: 'the Wayne Manor kitchen, at the blue pot on the stove', doing: 'ladling broth' }]).state;
+  const whole = renderWholeLedger(st);
+  assert(/Alfred Pennyworth — the Wayne Manor kitchen, at the blue pot on the stove/.test(whole), 'his seat is shown');
+  /* the people's pages as the auditor (and the housekeeper) are shown them */
+  const { leanPage, nearNames } = await import('../../js/engine/whole.js');
+  const names = nearNames(st);
+  const alfred = leanPage(names, 'Alfred Pennyworth', st.characters['Alfred Pennyworth'], 0);
+  eq(alfred.state + ' | ' + alfred.core, ' | keeps faith with the cave', 'the “now” he had in the room is not shown beside his seat; who he is, is');
+  eq(st.characters['Alfred Pennyworth'].state, 'In the entrance hall below the bend, coat over his arm.', '(it is still kept on his page — only not shown as where he is)');
+  eq(leanPage(names, 'Barbara Gordon', st.characters['Barbara Gordon'], 0).state, 'Leaning on the console beside him.', 'someone in the room keeps her “now”');
+  const page = '[The Batcave — the main console — Saturday, January 2, 2027 | 23:35 | cold | batsuit | at the console]\n\nBruce thumbed the speaker. Barbara leaned on the console beside him, close enough to hear. “Clark.” A pause on the line, then a second voice behind his, bright and nosy: “Is that Bruce?” Kara, somewhere in the Metropolis apartment. Barbara’s mouth twitched.';
+  eq(castFromAfar(st, page).join(', '), 'Clark Kent, Kara Zor-El', 'named on the page, not in the room — not Dick, whom the page does not name, nor Alfred');
+  const told = buildWorldMessages({ state: st, userText: 'I call Clark.', assistantText: page, before: [] }).user;
+  assert(/THE CAST OF THIS PAGE\. In the room: Bruce Wayne, Barbara Gordon\. NOT in the room, though the page names them[^\n]*: Clark Kent, Kara Zor-El\./.test(told), 'the world agent is handed who is in the room and who is only a voice');
+  assert(/never credit one person with another’s words|never credit one person with another's words/.test(told), 'and told whose a line is before it writes of it');
+  const quiet = buildWorldMessages({ state: st, userText: 'I wait.', assistantText: '[The Batcave — the main console — Saturday, January 2, 2027 | 23:40 | cold | batsuit | at the console]\n\nBarbara said nothing.', before: [] }).user;
+  assert(!/THE CAST OF THIS PAGE/.test(quiet), 'a page that names nobody from afar says nothing of the kind');
+});

@@ -1965,6 +1965,56 @@ function setTimeOfDay(state, m) {
  * the ground, the hour, who is here and where, the mood, the seats — is the NEWEST page's (M131). From a page read out
  * of turn only what lasts lands: who learned what, a wound, a standing, a thread closed, time passed. */
 const MOMENT_TYPES = new Set(['place.set', 'clock.set', 'presence.enter', 'presence.leave', 'presence.update', 'mode.snapshot', 'offscreen.set', 'offscreen.clear']);
+/* M660 — HIS AUDIT: "the ledger's presence list has Bruce in the batsuit, armored… the latest page shows him out of the cowl
+ * and armor in a dark sweater"; "…still has Barbara in a heavy coat". Where someone stands and what they wear were kept
+ * until a reader happened to write a change — and read to the storyteller as true for as long as nobody did. Two cures,
+ * neither the auditor's:
+ *   staleAfterJump — A LONG JUMP OF THE CLOCK LETS EVERY PLACE-IN-THE-ROOM AND EVERY OUTFIT GO (as a move lets every
+ *     place go). Four hours on, nobody is where and dressed as the last page left them: the night's armour is not the
+ *     morning's. What this page shows is written after it, by the reader.
+ *   restatedPresence — THE READER RESTATES THE ROOM AS THE PAGE ENDS, NOT ONLY ITS NAMES. Its "here" may say where each
+ *     stands and what each wears, as THIS page shows it; where that is truly other than the ledger has (not the same
+ *     thing in other words), and its words are the page's, it is written. */
+export const STALE_JUMP_MINUTES = 240;
+export function staleAfterJump(state, headerMutations) {
+  const was = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
+  const sets = (Array.isArray(headerMutations) ? headerMutations : []).filter((m) => m && m.type === 'clock.set');
+  if (was === null || !sets.length) return [];
+  let now = null;
+  try { const after = applyMutations(state, sets).state; now = after.clock && Number.isFinite(after.clock.minutes) ? after.clock.minutes : null; } catch (err) { return []; }
+  if (now === null || now - was < STALE_JUMP_MINUTES) return [];
+  return (Array.isArray(state.present) ? state.present : []).filter((p) => p && typeof p.name === 'string' && ((typeof p.position === 'string' && p.position.trim()) || (typeof p.attire === 'string' && p.attire.trim())))
+    .map((p) => ({ type: 'presence.update', name: p.name, ...(typeof p.position === 'string' && p.position.trim() ? { position: '' } : {}), ...(typeof p.attire === 'string' && p.attire.trim() ? { attire: '' } : {}), cause: 'hours have passed since' }));
+}
+const tellingOf = (t) => new Set(String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 3 && !/^(?:the|and|with|his|her|their|its|still|now|into|onto|from|over|under|near|beside|behind|front|side|back|that|this|has|have|had|was|were|are|for|one|two|out|off)$/.test(w)));
+const trulyOther = (old, neu) => {
+  const a = tellingOf(old); const b = tellingOf(neu);
+  if (!b.size) return false;
+  if (!a.size) return true;
+  let shared = 0;
+  for (const w of b) if (a.has(w)) shared += 1;
+  return shared / Math.min(a.size, b.size) < 0.5;
+};
+export function restatedPresence(state, notes, mutations, pageText = '') {
+  const out = [];
+  const list = Array.isArray(mutations) ? mutations : [];
+  const touched = new Set(list.filter((m) => m && /^presence\.(?:update|enter|leave)$/.test(m.type)).map((m) => String(m.name || '').trim().toLowerCase()));
+  const told = tellingOf(narrationOf(scenePartOf(String(pageText || ''))));
+  const onPage = (text) => { const w = [...tellingOf(text)]; return w.length > 0 && w.filter((x) => told.has(x)).length / w.length >= 0.5; };
+  for (const n of Array.isArray(notes) ? notes : []) {
+    if (!n || typeof n.name !== 'string') continue;
+    const at = findPresent(state, n.name, { strict: true });
+    if (at === -1) continue;
+    const entry = state.present[at];
+    if (touched.has(String(entry.name).toLowerCase()) || touched.has(n.name.trim().toLowerCase())) continue;
+    const m = { type: 'presence.update', name: entry.name };
+    const wears = capText(n.wears, 160); const where = capText(n.at, 160);
+    if (wears && onPage(wears) && trulyOther(entry.attire, wears)) m.attire = wears;
+    if (where && onPage(where) && trulyOther(entry.position, where)) m.position = where;
+    if (m.attire !== undefined || m.position !== undefined) out.push(m);
+  }
+  return out;
+}
 export function lastingOnly(mutations) {
   return (Array.isArray(mutations) ? mutations : []).filter((m) => !(m && MOMENT_TYPES.has(m.type)));
 }

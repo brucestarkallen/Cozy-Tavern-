@@ -37,7 +37,7 @@
 import { HERE_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
 import { headerMutations } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey } from '../engine/people.js';
 import { findRelationship } from '../engine/relationships.js'; /* M641: who has no standing yet */
@@ -271,7 +271,9 @@ function systemPrompt({ mc, founding }) {
     '"resolved" holds the exact titles of the OPEN THREADS (listed under the page) that THIS page',
     'resolved — the question answered, the plan carried out or abandoned, the promise kept, the thing',
     'found, the decision made. A thread the page only moved is not resolved. [] when none was.',
-    '"here" names EVERYONE in the scene at the END of this page, by the names the ledger uses: the main',
+    '"here" names EVERYONE in the scene at the END of this page, by the names the ledger uses — each a plain name, or',
+    '{"name":"…","at":"where in the room they are as the page ends","wears":"what they have on"} with "at" and "wears" ONLY',
+    'as THIS page shows them, in its own words (left out when the page does not show them: the ledger keeps what it has): the main',
     'character, everyone the page shows there, and everyone on the ledger\'s "Here now" line whom the page did',
     'not show leaving (quiet is not gone). Never someone only spoken of or remembered, heard on a phone or seen',
     'on a screen, and never anyone in the window. ' + HERE_MEANS + ' Whoever you name here that the ledger has not written in is',
@@ -493,6 +495,11 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
     const here = (Array.isArray(parsed.here) ? parsed.here : [])
       .map((h) => (typeof h === 'string' ? h : h && typeof h.name === 'string' ? h.name : ''))
       .map((h) => String(h || '').trim()).filter((h) => h && h.length <= 80);
+    /* M660: …and, where the page shows it, where each stands and what each wears as the page ends */
+    const hereNotes = (Array.isArray(parsed.here) ? parsed.here : [])
+      .filter((h) => h && typeof h === 'object' && typeof h.name === 'string' && h.name.trim() && (typeof h.at === 'string' || typeof h.wears === 'string'))
+      .map((h) => ({ name: h.name.trim().slice(0, 80), at: typeof h.at === 'string' ? h.at.trim() : '', wears: typeof h.wears === 'string' ? h.wears.trim() : '' }))
+      .filter((h) => h.at || h.wears);
     /* M641: the standings it was asked to decide, each by name — one that shows a feeling is written where it stands
      * (rel.set, its cause in words); a "none", an entry with no cause, or a name it was not asked about writes nothing */
     const asked = (Array.isArray(standingsFor) ? standingsFor : []).filter((n) => typeof n === 'string' && n.trim());
@@ -510,7 +517,7 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
         mutations.push({ type: 'rel.set', name: who, ...given, cause });
       }
     }
-    return { mutations, note: mutations.length ? 'ok' : 'empty', here };
+    return { mutations, note: mutations.length ? 'ok' : 'empty', here, hereNotes };
   } catch (err) {
     return { mutations: [], note: 'unusable' };
   }
@@ -657,6 +664,16 @@ export async function extractTurn(args = {}) {
      * everyone present after this page's walk-ins and leaves — never the main character. A whisper stays with those the
      * reader gave it to. */
     if (args.state) {
+      /* M660: where the page's own words show someone standing or dressed otherwise than the ledger has, it is written */
+      if (Array.isArray(read.hereNotes) && read.hereNotes.length) {
+        /* judged against the room as it will stand when this page's own header has been read: after a long jump of the
+         * clock every place and outfit is let go (staleAfterJump), so what the page shows is written even where it is
+         * what the ledger had the night before (found in the walk: Bruce's place at the bend was let go and not restated) */
+        const day = args.state.clock && typeof args.state.clock.dayWords === 'string' ? args.state.clock.dayWords : '';
+        const letGo = staleAfterJump(args.state, headerMutations(args.assistantText, { ground: (args.state.place || {}).name || '', day }));
+        const room = letGo.length ? applyMutations(args.state, letGo).state : args.state;
+        read.mutations = [...read.mutations, ...restatedPresence(room, read.hereNotes, read.mutations, args.assistantText)];
+      }
       read.mutations = settleWitnesses(args.state, read.mutations, read.here); /* M642: what the reader itself decided */
       read.mutations = broadcastPublicMoments(args.state, read.mutations, read.here);
       /* the mark has done its work: what goes to the ledger and its journal is the line as it has always been written */

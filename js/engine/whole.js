@@ -24,6 +24,7 @@
 
 import { renderClock } from './clock.js';
 import { isHere, samePersonName } from './names.js'; /* M398 */
+import { seatForPerson } from './people.js'; /* M660: someone seated elsewhere has no "now" in the room */
 import { renderBodies } from './bodies.js';
 import { renderCanon } from './canon.js';
 import { renderOffscreen } from './offscreen.js';
@@ -233,10 +234,15 @@ export function leanPage(names, name, c, level) {
   if (c.retired && level >= 1) return null;
   const inScene = names.here.has(names.lower(name)) || Boolean(names.state && isHere(names.state, name)); /* M398 */
   const close = inScene || (names.near.has(names.lower(name)) && level < 4);
+  /* M660 — HIS AUDIT: "the ledger seats Alfred in the kitchen AND in the entrance hall below the bend". The second was the
+   * "now" written while he stood in the scene, kept on his page after he left it; his seat says where he is. The
+   * storyteller was never shown both (M398) — the readers and the auditor were, and the auditor reported the
+   * contradiction audit after audit. Someone seated elsewhere has no "now" in the room: the seat is the now. */
+  const seatedAway = !inScene && names.state ? Boolean(seatForPerson(names.state, name)) : false;
   const threads = Array.isArray(c.threads) ? c.threads.map((t) => (typeof t === 'string' ? t : t && t.text)).filter(Boolean) : [];
   return {
     core: c.core ? (level >= 5 && !inScene ? firstClause(c.core) : c.core) : '',
-    state: c.state && (level < 3 || close) ? c.state : '',
+    state: c.state && !seatedAway && (level < 3 || close) ? c.state : '',
     arc: c.arc && (level < 2 || close) ? c.arc : '',
     threads: level < 2 || close ? threads : [],
     owns: names.state ? ownedThreadTitles(names.state, name) : [], /* M398 */

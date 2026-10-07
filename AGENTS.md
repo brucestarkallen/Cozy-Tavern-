@@ -16761,3 +16761,49 @@ The last of the list M644 began.
 - version.js -> m659-001.
 - GATES at m659-001 (one CPU), on the tree that was pushed: harness 1295/1295, walk 239/239, long play 9/9, lint 0 errors
   (178 warnings, as at m658), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
+
+# M660 — his own calendar read as a wrong date; the batsuit in the morning; Alfred in two places; whose line it was
+His message, with an audit pasted: (1) "when I give story and header is fantasy date the ledger keeps putting wrong dates,
+only correct is clock time"; (2) "Batman calling Superman and Batgirl beside Batman, then on the phone Supergirl said 'is
+that Bruce?' — on the ledger the AI said Kara is jealous Batgirl saying it… shouldn't it be done perfectly before the
+auditor needs to fix it"; (3) the audit itself: Alfred seated "in the kitchen and in the entrance hall below the bend",
+"the presence list still has Barbara in a heavy coat", "has Bruce in the batsuit, armored… the latest page shows him out
+of the cowl and armor in a dark sweater"; (4) "sensors ran 33 minutes".
+- 1. A STORY'S OWN CALENDAR (state.js headerMutations). Made to happen first: "[Tenth Division Courtyard — Hanami 5, 1001
+  AG | 09:20 | …]" → the ledger read "Saturday, January 1, 2000 — 09:20". A part of the header was a date only with an
+  ENGLISH weekday, a real month, or a numeric date (M455's own example had "Sunday," in it — which is why its law
+  passed). The hour was taken, the day's words dropped, and the label showed the day the inner count stood on. Now a
+  calendar is known by its shape and its place: the last part before the bars, or a cell of its own before the hour,
+  that holds a number and a word of time (day, year, moon, era…), a year with its era ("1001 AG", "4E 201"), "17th of
+  Last Seed", "Hanami 5, 1001" — or a month or day the ledger ALREADY keeps (headerMutations is handed the ledger's day
+  words) — or, in his own line "[Place — Date | hour | …]", simply the one part after the place. A numbered place
+  ("Pier 7", "Reactor Level 2", "10th Division HQ", "Floor 40") is still a place; a real date is read as before.
+- 2 & 3. WHERE SOMEONE STANDS AND WHAT THEY WEAR. M645 had looked at this and LEFT it ("no safe rule"). His audit is the
+  auditor fixing it page after page — and its fix (a people.set "state") is not even the auditor's to write, so the
+  stale line stayed. Two rules, both safe:
+  - apply.js staleAfterJump: a jump of four hours or more in the story's clock lets every place-in-the-room and outfit
+    go, before the reader's own writes (chat.js puts it between the header's changes and the reader's). A scene that
+    runs past midnight is no jump.
+  - the reader's "here" may say, for each person, {"name","at","wears"} as THIS page shows them; apply.js
+    restatedPresence writes one only where it is truly other than the ledger has (under half its telling words shared —
+    never the same place in other words) AND its words are the page's own (never a crown the page did not show). It is
+    judged against the room as it will stand after the jump — the walk caught the first version letting Bruce's place
+    go and not writing it again because it matched last night's.
+  - whole.js leanPage (the people's pages as the AUDITOR is shown them): someone seated elsewhere shows no "now" from
+    the room. Alfred's page kept "in the entrance hall below the bend" from when he stood there; his seat said the
+    kitchen; the storyteller never saw both (M398) but the auditor did, and reported the contradiction every audit.
+- 2, THE PHONE CALL: a misreading by the worker's model of whose line "Is that Bruce?" was. The house cannot check who
+  spoke a line the page gives no name to. What it can do, it now does: the world agent is handed THE CAST OF THE PAGE —
+  who is in the room, and who the page names only from afar (world.js castFromAfar: a voice on a phone, a face on a
+  screen) — with the rule that a line from afar is theirs. NOT PROVEN to cure it: that needs his model, and no key is
+  in the session. Said to him as that.
+- 4. "sensors ran 33 minutes": the workers' line "ran 33 minutes ago" (drawer.js) with its last word cut off in the
+  paste — when the sensors last read a page. Not a run of 33 minutes; a reading is cut off at one.
+- LAWS (m588.mjs): M660-1 (each shape of calendar; the numbered places; the real date), M660-2 (the night and the
+  morning as the app applies them; fifteen minutes on; past midnight; no clock), M660-3 (Alfred's page as the auditor
+  is shown it; the cast of the phone call). WALK DOM-240: both through the app — "Hanami 5, 1001 AG — 23:30", then
+  "Hanami 6, 1001 AG — 09:10" with no batsuit and no coat.
+- version.js -> m660-001.
+- GATES at m660-001 (one CPU), on the tree that was pushed: harness 1298/1298, walk 240/240 (DOM-240 among them), long play
+  9/9, lint 0 errors (178 warnings, as at m659), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run,
+  no scenario failing.

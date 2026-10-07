@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m659-001)
+# Cozy Tavern — handoff for the next session (state at m660-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -146,6 +146,11 @@
   "true", "9/10", "+2 (high ground)" and "−1" with a real minus sign are how they come. Use the readers that exist:
   referee.js truthOf / signedOf / ratingOf, apply.js numberOf (M651, M654). When adding a field a model fills, feed its
   door the same value five ways before trusting it.
+- "LOOKED AT AND LEFT" IS A DEBT UNTIL HIS OWN AUDIT SAYS OTHERWISE. M645 left positions and dress alone ("no safe rule
+  found"); his next pasted audit was the auditor fixing exactly that — Bruce still in the batsuit, Barbara still in her
+  coat — and he asked, again, why the auditor has to. M660 found two safe rules in an hour (a long jump of the clock
+  lets them go; the reader restates the room, and only a real change in the page's own words is written). When
+  something is left, write down what evidence would reopen it — and treat an auditor finding of that kind as it.
 - A GATE THAT FAILS ONCE AND PASSES ON A RERUN HAS NOT PASSED. Never write "timing", "rare" or "flaky" in these notes, and
   never push on the rerun: read the failing report against the state, make the failure happen on purpose, and only then
   call it the app's fault or the test's — and say which to the writer. M638 was pushed, and told to him as done, with

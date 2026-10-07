@@ -415,6 +415,22 @@ export function quietInScene(state, pageText = '', userText = '') {
     });
 }
 
+/* the people the ledger knows whom this page names in its scene, and who are not in the room */
+export function castFromAfar(state, pageText) {
+  const scene = scenePartOf(String(pageText || ''));
+  if (!scene.trim()) return [];
+  const names = new Set([...Object.keys((state && state.characters) || {}), ...Object.keys((state && state.offscreen) || {})]);
+  const out = [];
+  for (const name of names) {
+    if (!name || isMc(state, name) || isHere(state, name)) continue;
+    const page = (state.characters || {})[name];
+    if (page && page.retired) continue;
+    if (!nameOnPage(scene, name)) continue;
+    if (!out.some((n) => samePersonName(n, name))) out.push(name);
+    if (out.length >= 8) break;
+  }
+  return out;
+}
 export function buildWorldMessages({ state, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], jumpedMinutes = 0, record = '', pageNumber = 0, contextBudget = Infinity, peopleRoom = WORLD_PEOPLE_ROOM, canonRecord = '' }) {
   const clockMinutes = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
   const clockWords = state && state.clock ? (renderClock(state.clock) || '') : '';
@@ -485,6 +501,17 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
       return ['THE PAGES JUST BEFORE (already read — the world they show is already written):', FENCE, w.shown.join('\n\n') || '(none fit — fetch them by number)', FENCE,
         ...(w.index.length ? ['Earlier pages not shown above (fetch any by its number):', ...w.index] : []), ''];
     })() : []),
+    /* M660 — HIS REPORT: Batman on the phone to Superman with Batgirl beside him; Supergirl, at the other end, says "Is that
+     * Bruce?" — and the ledger wrote Kara as jealous of BATGIRL saying it. A misreading of whose line it was. The house
+     * cannot check who spoke a line the page gives no name to; it can put the cast of the page in front of the reader
+     * instead of leaving it to be worked out: who is in the room, and who the page brings in only from afar. */
+    ...(() => {
+      const inRoom = present.map((p) => p && p.name).filter(Boolean);
+      const afar = castFromAfar(state, assistantText);
+      if (!afar.length) return [];
+      return ['THE CAST OF THIS PAGE. In the room: ' + (inRoom.join(', ') || '(nobody written in)') + '. NOT in the room, though the page names them — a voice on a phone, a face on a screen, a name in someone\'s mouth: ' + afar.join(', ') + '.',
+        'A line the page gives to one of those comes from where THEY are; a line spoken in the room is one of the room\'s. Before you write what anyone said, heard or felt about a line, find whose line the page makes it — never credit one person with another\'s words.', ''];
+    })(),
     ...(Number.isInteger(pageNumber) && pageNumber > 0 ? ['(The storyteller\'s page below is page ' + pageNumber + ' of the story; every earlier page can be fetched by its number.)'] : []),
     'THE WRITER JUST WROTE:',
     FENCE,

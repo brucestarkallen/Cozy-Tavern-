@@ -1311,7 +1311,7 @@ export function headerWithGround(pageText, ground) {
 }
 
 /* M627: { ground } — the ledger's ground before this page: a header place that only names the area round it is no move */
-export function headerMutations(pageText, { ground = '' } = {}) {
+export function headerMutations(pageText, { ground = '', day = '' } = {}) {
   /* M645 (the ledger audit, part two — twenty-six ordinary ways a storyteller draws this line, fed through it):
    * THE HEADER IS FOUND WHERE IT STANDS. It had to be the page's first line and nothing else on it. A line of chatter
    * before it ("Sure — here is the next page."), or the page's first words run on after its closing bracket, and the
@@ -1362,7 +1362,40 @@ export function headerMutations(pageText, { ground = '' } = {}) {
     || new RegExp('^\\d{1,2}(?:st|nd|rd|th)?\\s+' + MONTH_SRC + '(?![\\p{L}])', 'iu').test(t);
   let start = 0;
   while (start < dash.length - 1 && leadsWithDate(dash[start].trim())) start += 1;
-  const dateAt = dash.findIndex((t, i) => i > start && isDatePart(t));
+  let dateAt = dash.findIndex((t, i) => i > start && isDatePart(t));
+  /* M660 — HIS REPORT: "when I give story and header is fantasy date the ledger keeps putting wrong dates, only correct is
+   * clock time". A part of the header was a date only if it held an ENGLISH weekday, a real month with its day, or a
+   * numeric date. "Hanami 5, 1001 AG", "Tirdas, 17th of Last Seed, 4E 201", "Day 47, Year 3 of the Long Winter" are none
+   * of those: the hour was taken, the day's own words were dropped, and the ledger showed the day its inner count
+   * happened to stand on — "Saturday, January 1, 2000 — 09:20". A story's own calendar is known by its SHAPE and its
+   * PLACE in the line: the last part before the bars (or a cell of its own before the hour) that holds a number and
+   * reads as a calendar — a word of time (day, year, moon, era…), a year with its era ("1001 AG", "4E 201"), "17th of
+   * Last Seed", "Hanami 5, 1001" — or carries a month or a day the ledger already keeps (`day`), or, in his own line
+   * "[Place — Date | hour | …]", is simply the one part after the place. A numbered place ("Pier 7", "Reactor Level 2",
+   * "10th Division HQ") is still a place. */
+  const NUMBERED_PLACE = /(?<![\p{L}])(?:pier|sector|level|room|deck|platform|bay|gate|floor|block|ward|cell|unit|suite|apartment|apt|building|tower|wing|hall|lab|dock|terminal|track|lane|route|highway|zone|district|area|section|bunker|vault|storey|story|no|number|ground|field|court|courtyard|stage|studio|booth|table|berth|cabin|car|carriage|line|hangar|pad|shelter|camp|outpost|station|base|site|lot|plot|row|aisle|stall|shop|store|house|villa|flat|street|road|avenue|division|squad|company|precinct|class|grade|chapter|hq|barracks|office|dorm|dormitory|lane)(?![\p{L}])/iu;
+  const TIME_WORD = /(?<![\p{L}])(?:day|year|yr|month|week|moon|season|era|age|cycle|eve)(?![\p{L}])/iu;
+  const keptWords = String(day || '').split(/[^\p{L}'’-]+/u).filter((w) => w.length >= 4 && /^\p{Lu}/u.test(w)).map((w) => w.toLowerCase());
+  const ownCalendar = (t, { lone = false } = {}) => {
+    const s = String(t || '').trim();
+    if (!s || s.length > 60 || !/\d/.test(s) || /^\d{1,2}[:.h]\d{2}/.test(s)) return false;
+    if (keptWords.some((w) => new RegExp('(?<![\\p{L}])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}])', 'iu').test(s))) return true;
+    if (TIME_WORD.test(s)) return true;
+    if (NUMBERED_PLACE.test(s)) return false;
+    if (/(?<![\p{L}\p{N}])\d{1,5}\s?(?:\p{Lu}{1,3}|\p{Lu}\.\p{Lu}\.)(?![\p{L}])/u.test(s) || /(?<![\p{L}\p{N}])\d\p{Lu}\s?\d{1,4}(?![\p{L}\p{N}])/u.test(s)) return true;
+    if (/(?<![\p{N}])\d{1,2}(?:st|nd|rd|th)\s+(?:day\s+)?of\s+\p{Lu}/u.test(s)) return true;
+    if (/^\p{Lu}[\p{L}'’-]+(?:,?\s+\p{Lu}[\p{L}'’-]+){0,2}\s+\d{1,2}(?:st|nd|rd|th)?,\s*\d{3,5}(?![\p{N}])/u.test(s)) return true;
+    return lone && s.length <= 40;
+  };
+  if (dateAt === -1 && dash.length - 1 > start && ownCalendar(dash[dash.length - 1], { lone: dash.length - start === 2 && parts.length >= 2 })) dateAt = dash.length - 1;
+  /* …or it stands in a cell of its own, before the hour: "[Place | Hanami 5, 1001 AG | 09:20 | …]" */
+  let cellDay = '';
+  if (dateAt === -1) {
+    for (const cell of parts.slice(1)) {
+      if (/\d{1,2}[:.h]\d{2}/.test(cell) && !ownCalendar(cell.replace(/\d{1,2}[:.h]\d{2}(?::\d{2})?\s*(?:[ap]\.?m\.?)?/gi, ' '))) break; /* the hour's own cell: the day is not after it */
+      if (ownCalendar(cell)) { cellDay = cell.replace(/\s+/g, ' ').trim(); break; }
+    }
+  }
   /* after a leading date the rest of the part IS the place ("[June 1, 2026 — Karakura Town — Urahara Shop | 22:10]");
    * with no date anywhere in it, the first part alone, as M410 left it */
   const place = (dateAt > start ? dash.slice(start, dateAt).join(' — ') : start > 0 ? dash.slice(start).join(' — ') : (dash[start] || '')).trim();
@@ -1409,7 +1442,7 @@ export function headerMutations(pageText, { ground = '' } = {}) {
      * guessed the hour (a page behind: 09:19) and the day ("Thursday, March 5, 1001"). Now the time sets the clock, and
      * the day words the header wrote ride with it as the day. */
     const dayParts = [...dash.slice(0, start), ...(dateAt > start ? dash.slice(dateAt) : [])].map((x) => x.trim()).filter(Boolean);
-    const dayWords = (placeTaken ? dayParts : [head.trim()]).join(' — ').replace(/\s+/g, ' ').trim();
+    const dayWords = ((placeTaken ? dayParts : [head.trim()]).join(' — ').replace(/\s+/g, ' ').trim()) || cellDay; /* M660: the day in a cell of its own */
     out.push({ type: 'clock.set', hour: hh, minute: mi, ...(dayWords && dayWords.length <= 60 && !/^\d{1,2}:\d{2}$/.test(dayWords) ? { dayWords } : {}) });
   }
   return out;
