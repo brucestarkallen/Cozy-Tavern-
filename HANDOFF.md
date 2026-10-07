@@ -151,8 +151,9 @@
   gate's story is small. Anything added to loadState (state.js) or called from it: time it on /home/claude/probe-style
   big ledgers (100+ people, 1,500 journal entries, names a letter apart) and compare with healGhosts (0.5 ms). Profile
   before guessing — two guesses at the cause were wrong; the profiler named it in one run.
-- THE GATES ARE NOT THE WHOLE OF THE TESTS. tests/ holds 34 browser tests; audit/gates.sh runs 12. Before calling a build
-  finished, run the other 22 too (they pass at m672; ~12 minutes): append bigbook bootpull branchrefresh coat contrast
+- THE GATES ARE NOT THE WHOLE OF THE TESTS. tests/ holds 34 browser tests; audit/gates.sh runs 11. Before calling a build
+  finished, run the other 23 too (they pass at m672; ~12 minutes), ON THE COMMIT THAT WILL BE MERGED — not while it is
+  still being edited: append bigbook bootpull branchrefresh coat contrast
   foldcrash guard housekeeper_rounds mend_marks migrate_checkpoints pagemark paint paint_coats paint_magma
   perf_housekeeper perf_rooms pushretry recover relay twobrowsers twohands wipe.
 - THE BACKUP'S PROMISE IS A GATE (M670). His word for what a backup is: "I have all the information — when I import it, it's

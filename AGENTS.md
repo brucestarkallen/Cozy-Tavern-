@@ -17215,8 +17215,11 @@ His line. Not a new ask — a demand that what was built be checked harder than 
   the same answer, every load. Fixed without changing what it finds (the laws of M665 pass unchanged):
   - each name is prepared once, and the cheap question (is any page's name one letter from this one?) is asked first;
   - A LEDGER ALREADY LOOKED AT IS PASSED BY until it changes — remembered by its journal's count and a mix of every
-    change's and every page's sizes (two different ledgers cannot look the same). Measured: the first look ~26 ms on
-    that pathological tale, every look after 0.003–0.7 ms; the whole load 31 -> 12 ms.
+    change's and every page's sizes (two different ledgers cannot look the same). Measured on a quiet machine, on the
+    code that was merged: on that tale — whose names are the worst case, sixty of them a letter from another — the
+    first look after the ledger changes ~27 ms, every look after it 0.47 ms (the older repair: 0.44 ms); the whole
+    load 31 -> 12 ms. (The numbers first written here were taken while other tests shared the CPU, and one of them
+    from an earlier cut of the fix. These are the real ones.)
 - LOOSE ENDS OF MY OWN: three values read and never used in the keeper (M666), one function no longer called (this build).
 - A STORY ROW'S SMALL BUTTONS TAKE A FINGERTIP (chat.css): each was a box 23 × 10 px on a phone — said in M663, left. An unseen
   layer around each takes the tap, ~32 px tall; nothing moves or looks different. tests/rowtap.py (real Chromium, 390

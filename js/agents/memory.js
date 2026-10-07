@@ -1329,7 +1329,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     if (typeof renew === 'function' && !renew()) { lastKeeperTrouble = 'its turn was over before it could ask'; break; }
     let pages = history.slice(range[0], range[1]);
     const pagesText = pages.map((p) => String((p && p.text) || '')).join('\n');
-    let { raw, text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) }), signal, pagesText, renew); /* M666: asked again, in this run, until it is a line */
+    let { text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) }), signal, pagesText, renew); /* M666: asked again, in this run, until it is a line */
     let byHouse = false;
     /* M316: THE RECORD CAN NEVER STAY STUCK ON A PAGE. A keeper that answered with nothing was read as "went
      * quiet — these pages wait for next time", and next time it asked the very same pages the very same
