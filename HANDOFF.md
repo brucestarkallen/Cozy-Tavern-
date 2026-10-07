@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m657-001)
+# Cozy Tavern — handoff for the next session (state at m658-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -121,7 +121,8 @@
   PART FOURTEEN (M657): THE PAGE READER END TO END IN THE APP (walk DOM-239 — sound), THE KEEPER'S MERGE AGAINST A REFUSAL
   (sound since M648; before it an apology REPLACED two record lines — a law now), THE AUDITOR'S OWN REFUSALS (in a tale
   with its own calendar it could never bring the clock to the header's hour).
-  WHAT THE AUDIT HAS NOT DONE, plainly: the keeper's self-audit fixes (applyAuditFixes) with a stand-in; the canon
+  PART FIFTEEN (M658): THE KEEPER'S CHECK OF ITS OWN LINES ("DETAIL: none" kept as a detail; its fixes sound).
+  WHAT THE AUDIT HAS NOT DONE, plainly: the canon
   verification's own doors (js/canon — a whole extension, not touched); the housekeeper's, director's and editor's
   cards; the benchmark judge; the small-storyteller request (smallprose, planner). And every probe here used a
   STAND-IN model: no part of this audit was run against his own worker's model. The auditor's remaining

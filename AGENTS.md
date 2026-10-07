@@ -16726,3 +16726,16 @@ The last of the list M644 began.
 - GATES at m657-001 (one CPU), on the tree that was pushed: harness 1292/1292, walk 239/239 (DOM-239 among them), long play
   9/9, lint 0 errors (178 warnings, as at m656), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run,
   no scenario failing.
+
+# M658 — the ledger audit, part fifteen: the keeper's check of its own lines
+- THE KEEPER'S SELF-CHECK (memory.js parseAuditAnswer / parseAuditFixes / applyAuditFixes; eleven answers and three fixes):
+  A FIX is sound — made only when its wrong words are in the line and its right words are in the pages; an apology, or
+  a "fix" the pages do not bear out, changes nothing. A DETAIL was not: its first line had to be "NONE" or "DETAIL: …",
+  so a bare refusal was already nothing — but "DETAIL: none", "N/A", "nothing missing", "None — the line is complete.",
+  "no additional detail", and an apology written after the label, were each KEPT as the detail beneath a record line
+  and read to the storyteller ("…; Detail worth keeping: none"). A detail that says there is none is none; a real one
+  that merely begins so ("Nothing in the harbour moves…", "No one but Rias knows…") is kept.
+- LAW (m588.mjs): M658-1. The older laws that touch the record stand.
+- version.js -> m658-001.
+- GATES at m658-001 (one CPU), on the tree that was pushed: harness 1293/1293, walk 239/239, long play 9/9, lint 0 errors
+  (178 warnings, as at m657), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, no scenario failing.

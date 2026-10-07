@@ -1145,3 +1145,17 @@ test('M657-2 THE HEADER AGREES ON WHAT THE HEADER SAYS: in a tale that keeps its
   eq(kept(real, { type: 'clock.set', year: 2025, month: 3, day: 4, hour: 9, minute: 20 }), false, 'another day is not');
   eq(kept(real, { type: 'clock.set', hour: 9, minute: 20 }), false, 'nor the hour alone, where the header gives the whole date (as before)');
 });
+
+/* M658 — the ledger audit, part fifteen: the keeper's check of its own lines. */
+test('M658-1 A DETAIL THAT SAYS THERE IS NONE IS NONE: “DETAIL: none”, “N/A”, “nothing missing”, “None — the line is complete.” and an apology after the label are not kept beneath a record line; a real detail is, even one that begins with “Nothing”; and a fix is applied only when its wrong words are in the line and its right words in the pages', async () => {
+  const { parseAuditAnswer, parseAuditFixes, applyAuditFixes } = await import('../../js/agents/memory.js');
+  eq(parseAuditAnswer('DETAIL: the ferry cost forty crowns; Tom is left-handed'), 'the ferry cost forty crowns; Tom is left-handed', 'a real detail is kept');
+  eq(parseAuditAnswer('DETAIL: Nothing in the harbour moves without the clerk’s stamp'), 'Nothing in the harbour moves without the clerk’s stamp', 'a real detail that begins with “Nothing”');
+  eq(parseAuditAnswer('DETAIL: No one but Rias knows where the key is'), 'No one but Rias knows where the key is', 'and one that begins with “No one”');
+  for (const raw of ['NONE', 'DETAIL: none', 'DETAIL: None.', 'DETAIL: N/A', 'DETAIL: nothing missing', 'DETAIL: Nothing to add', 'DETAIL: None — the line is complete.', 'detail: no additional detail', 'DETAIL: no further details needed', 'DETAIL: I’m sorry, but I can’t review this content.', 'I’m sorry, but I can’t help with that.', 'The line is right and complete.', '']) eq(parseAuditAnswer(raw), '', 'no detail: ' + JSON.stringify(raw));
+  const line = 'Jovan is seventeen; Rias owes the ferryman two coppers.';
+  const pages = 'Jovan, sixteen that spring, watched Rias count two coppers into the jar.';
+  eq(applyAuditFixes(line, parseAuditFixes('FIX: seventeen -> sixteen'), pages).text, 'Jovan is sixteen; Rias owes the ferryman two coppers.', 'a fix proven by the line and the pages is made');
+  eq(applyAuditFixes(line, parseAuditFixes('FIX: seventeen -> eighteen'), pages).text, line, 'a “fix” the pages do not bear out is not');
+  eq(applyAuditFixes(line, parseAuditFixes('I’m sorry, I can’t help with that.'), pages).text, line, 'an apology fixes nothing');
+});

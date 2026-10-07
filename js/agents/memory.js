@@ -696,6 +696,13 @@ export function parseAuditAnswer(raw) {
     if (!m) return '';
     let detail = m[1].trim();
     if (!detail) return '';
+    /* M658 (the ledger audit, part fifteen — eleven answers through this door): A DETAIL THAT SAYS THERE IS NONE IS NONE.
+     * "DETAIL: none", "N/A", "nothing missing", "None — the line is complete.", "no additional detail" were each kept
+     * as the detail beneath a record line and read to the storyteller ("…; Detail worth keeping: none"); and an apology
+     * written after the label ("DETAIL: I'm sorry, but I can't review this content.") the same. A real detail that
+     * merely begins so ("Nothing in the harbour moves without the clerk's stamp") is kept. */
+    if (/^(?:none|n\/?a|nil|null|nothing(?:\s+(?:is\s+)?(?:missing|to add|more|else|further|omitted))?|no\s+(?:additional\s+|further\s+|missing\s+|more\s+|other\s+)?(?:detail|details|information|info|omissions?|changes?)(?:\s+(?:is\s+|are\s+)?(?:needed|required|to add|missing))?)(?:\s*[—–:;,.-]+\s*(?:the\s+)?(?:line|record|summary|it)\s+(?:is|stands|looks|covers|reads)\b.*)?\.?$/i.test(detail)) return '';
+    if (/^(?:i['’]?m sorry|i am sorry|sorry[,.]|i can(?:['’]?t|not)\b|i (?:won['’]?t|am unable|['’]m unable|must decline)\b|unfortunately,? i\b|as an ai\b)/i.test(detail)) return '';
     /* M193: cut at a word, never inside one. The same slice that gave the
      * writer "I'v…" lives here too, on the model's own answer, before
      * anything is merged. */
