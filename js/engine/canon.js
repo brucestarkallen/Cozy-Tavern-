@@ -119,7 +119,7 @@ export function cleanWikiWords(value) {
   return (kept.length ? kept : sentences).join(' ').replace(/\s{2,}/g, ' ').replace(/,\./g, '.').trim();
 }
 
-export function renderCanon(canon, presentNames, perPerson = FACTS_SHOWN) {
+export function renderCanon(canon, presentNames, perPerson = FACTS_SHOWN, turn = null) {
   if (!canon || typeof canon !== 'object') return '';
   const names = Array.isArray(presentNames) ? presentNames : [];
   const lines = [];
@@ -136,8 +136,20 @@ export function renderCanon(canon, presentNames, perPerson = FACTS_SHOWN) {
     /* M386: his truths (and the brief's, and a reader's) first, the series' after — a truth he writes by hand after the
      * series filled the shelf is never the one the cap cuts */
     const valid = facts.filter((f) => f && typeof f.key === 'string' && typeof f.value === 'string' && f.key.trim() && f.value.trim());
-    const shown = [...valid.filter((f) => f.source !== 'canon'), ...valid.filter((f) => f.source === 'canon')]
-      .slice(0, perPerson)
+    /* M662 (his: "what to rotate"): WHAT DOES NOT FIT TAKES ITS TURN. Six truths a person are told; with the looks a page
+     * shows now kept (hair, eyes, build, a scar, a height, a voice, hands…) a person soon holds more, and the seventh
+     * onward was NEVER told — kept in the ledger and silent for good. The first four stay every page; the last two
+     * places go round the rest, page by page, so everything written of someone in the scene reaches the storyteller
+     * within a few pages, and the block is no longer than it was. */
+    const ordered = [...valid.filter((f) => f.source !== 'canon'), ...valid.filter((f) => f.source === 'canon')];
+    let picked = ordered.slice(0, perPerson);
+    if (Number.isFinite(perPerson) && ordered.length > perPerson && Number.isFinite(turn) && perPerson >= 4) {
+      const fixed = ordered.slice(0, perPerson - 2);
+      const rest = ordered.slice(perPerson - 2);
+      const at = ((Math.floor(turn) % rest.length) + rest.length) % rest.length;
+      picked = [...fixed, rest[at], rest[(at + 1) % rest.length]];
+    }
+    const shown = picked
       .map((f) => f.key.trim() + ': ' + (f.source === 'canon' ? cleanWikiWords(f.value) : f.value.trim())) /* M460 */
       .filter((line) => !/:\s*$/.test(line));
     if (shown.length) { const said = shown.join('; '); lines.push(canonKey + ' — ' + said + (/[.!?…]$/.test(said) ? '' : '.')); } /* M386: never "eyes.." */

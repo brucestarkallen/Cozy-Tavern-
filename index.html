@@ -57,9 +57,8 @@
         <div id="search-results" class="search-results" hidden></div>
         <form id="new-story-form" class="new-story-form" hidden>
           <input id="new-story-title" type="text" maxlength="80" placeholder="Name the tale…" autocomplete="off" aria-label="A name for the new tale">
-          <!-- M16: a new tale may begin already resting on a shelf. -->
-          <label class="stack-label" for="new-story-shelf">The shelf it starts on</label>
-          <select id="new-story-shelf"></select>
+          <!-- M662: where it starts is said, not asked: "Start a new story" starts a loose tale; the + on a shelf starts one there -->
+          <p id="new-story-where" class="quiet new-story-where"></p>
           <div class="row">
             <button type="submit" class="btn">Keep it</button>
             <button type="button" id="btn-cancel-story" class="text-btn">Not now</button>

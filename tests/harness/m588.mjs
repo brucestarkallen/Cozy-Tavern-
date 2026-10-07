@@ -1313,3 +1313,70 @@ test('M661-2 THE AUDITOR CAN SET A PLACE OR AN OUTFIT RIGHT ITSELF, HELD TO THE 
   eq(await run({ type: 'presence.update', name: 'Barbara', position: 'three steps above the bend', attire: 'jeans and a dark sweater' }), 'three steps above the bend; jeans and a dark sweater', 'the auditor’s own change lands: her place and her dress as the newest page shows them');
   eq(await run({ type: 'presence.update', name: 'Barbara', attire: 'a ballgown and a tiara' }), 'in the entrance hall, by the door; a heavy coat still on', 'a dress the page does not show is not written');
 });
+
+/* M662 — his: "once it's mentioned anatomy or appearance it should be saved because sometimes I see it's missing". */
+test('M662-1 HOW SOMEONE LOOKS, ONCE A PAGE SHOWS IT, IS KEPT: hair, a scar, a height, anatomy the page (or his own message) shows are locked among what is true of that person — never over a truth already written, never dress or mood, never words the page does not hold, never a face the story does not know', async () => {
+  const { extractTurn } = await import('../../js/agents/extractor.js');
+  const { renderCanon } = await import('../../js/engine/canon.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const st = applyMutations({ ...emptyState(), page: 12 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rias' }, { type: 'presence.enter', name: 'Tom' },
+    { type: 'people.set', name: 'Rias', field: 'core', text: 'the ferryman’s niece' }, { type: 'people.set', name: 'Mira', field: 'core', text: 'a ferry pilot' }, { type: 'offscreen.set', name: 'Mira', location: 'the landing', activity: 'tying up' },
+    { type: 'canon.lock', name: 'Rias', key: 'eyes', value: 'grey' }]).state;
+  const page = '[Wells house kitchen — Monday, March 3, 2025 | 21:45 | rain | sweater | at the table]\n\nRias pushed her copper hair, cut to the jaw, behind one ear; a thin white scar ran through her left eyebrow. She was a head shorter than Jovan, broad in the shoulder from the oars, and she was furious, in her blue apron. Her green eyes did not leave him.\n\nTom kept his back to the stove and said nothing.';
+  const looks = [
+    { name: 'Rias', key: 'hair', value: 'copper, cut to the jaw' },
+    { name: 'Rias', key: 'scar', value: 'a thin white scar through her left eyebrow' },
+    { name: 'Rias', key: 'build', value: 'a head shorter than Jovan, broad in the shoulder from the oars' },
+    { name: 'Rias', key: 'eyes', value: 'green' },                                   /* already written as grey: never written over */
+    { name: 'Rias', key: 'outfit', value: 'a blue apron' },                            /* dress has its own place */
+    { name: 'Rias', key: 'mood', value: 'furious' },                                   /* so has a mood */
+    { name: 'Rias', key: 'tattoo', value: 'a black anchor on her wrist' },             /* not on the page */
+    { name: 'The ferryman', key: 'beard', value: 'copper' },                           /* nobody the story knows */
+    { name: 'Jovan', key: 'height', value: 'six foot one, lean' },                     /* his own message says so */
+    { name: 'Mira', key: 'hair', value: 'copper, cut to the jaw' },                    /* known to the story, but the paragraph that shows it is about Rias */
+    { name: 'Tom', key: 'eyes', value: 'green' },                                      /* in the room, named elsewhere on the page — the paragraph with green eyes is hers */
+  ];
+  const read = await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }], resolved: [], here: ['Jovan', 'Rias'], looks }) }), () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'I stand — six foot one, lean — and look down at her.', assistantText: page, pageNumber: 13 }));
+  const locks = read.mutations.filter((m) => m.type === 'canon.lock').map((m) => m.name + ' — ' + m.key + ': ' + m.value);
+  eq(locks.filter((l) => /^Rias/.test(l)).join(' | '), 'Rias — hair: copper, cut to the jaw | Rias — scar: a thin white scar through her left eyebrow | Rias — build: a head shorter than Jovan, broad in the shoulder from the oars', 'her hair, her scar and her build are kept; her eyes (already grey), her apron, her mood and a tattoo the page never showed are not');
+  assert(locks.includes('Jovan — height: six foot one, lean'), 'what he says of his own character in his message is kept: ' + locks.join(' | '));
+  assert(!locks.some((l) => /ferryman/i.test(l)), 'nobody the story does not know');
+  assert(!locks.some((l) => /^Mira|^Tom/.test(l)), 'and never one person’s looks under another’s name — the paragraph that shows them names Rias: ' + locks.join(' | '));
+  const led = applyMutations(st, read.mutations).state;
+  eq(led.canon.Rias.facts.find((f) => f.key === 'eyes').value, 'grey', 'the truth already written stands');
+  assert(/Rias — eyes: grey; hair: copper, cut to the jaw; scar: a thin white scar through her left eyebrow; build:/.test(renderCanon(led.canon, ['Jovan', 'Rias'])), 'and it is told to the storyteller for who is in the scene: ' + renderCanon(led.canon, ['Jovan', 'Rias']));
+  assert(!/Mira/.test(renderCanon(led.canon, ['Jovan', 'Rias'])), 'never for someone who is not');
+  /* the same page read again writes nothing twice */
+  const again = await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }], resolved: [], here: ['Jovan', 'Rias'], looks }) }), () => extractTurn({ connection: HOUSES[0].conn, state: led, userText: 'I stand — six foot one, lean — and look down at her.', assistantText: page, pageNumber: 13 }));
+  eq(again.mutations.filter((m) => m.type === 'canon.lock').length, 0, 'a second reading locks nothing again');
+});
+
+test('M662-2 SMART, NOT BLOATED (his: “knows what to inject, what to rotate”): what someone in the scene has on them is told however long ago it was touched, while a far-away stranger’s old trinket is not; a person’s truths beyond the six that fit take their turn page by page — every one reaches the storyteller, and no page carries more than six', async () => {
+  const { renderThings } = await import('../../js/engine/state.js');
+  const { renderCanon } = await import('../../js/engine/canon.js');
+  let st = applyMutations({ ...emptyState(), page: 10 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rias' },
+    { type: 'people.set', name: 'Rias', field: 'core', text: 'the ferryman’s niece' }, { type: 'people.set', name: 'Claire', field: 'core', text: 'drives the north road' }, { type: 'offscreen.set', name: 'Claire', location: 'the north road', activity: 'driving' },
+    { type: 'thing.set', name: 'the sealed letter from the bank', where: 'in Rias’s apron pocket', owner: 'Rias' },
+    { type: 'thing.set', name: 'the brass compass', where: 'in the glovebox of Claire’s truck', owner: 'Claire' },
+    { type: 'thing.set', name: 'the spare oar', where: 'the boathouse loft', owner: 'Tom' },
+    { type: 'thing.set', name: 'the bread knife', where: 'Wells house kitchen, on the board' }]).state;
+  st = { ...st, page: 80 }; /* seventy pages on: nothing of these was touched since */
+  const told = renderThings(st);
+  assert(/the bread knife/.test(told), 'what lies at this place is told');
+  assert(/the sealed letter from the bank \(Rias’s\) — in Rias’s apron pocket/.test(told), 'what Rias has on her is told while she stands in the room: ' + told);
+  assert(!/brass compass/.test(told) && !/spare oar/.test(told), 'what belongs to people far away, untouched for seventy pages, is not');
+  /* her looks: eight written, six told a page, all told within a few pages */
+  const facts = [['hair', 'copper, cut to the jaw'], ['eyes', 'grey-green'], ['build', 'broad in the shoulder'], ['height', 'a head shorter than Jovan'], ['scar', 'through the left eyebrow'], ['voice', 'low, a little hoarse'], ['hands', 'rope-burned palms'], ['tattoo', 'an anchor inside the wrist']];
+  const canon = applyMutations(st, facts.map(([key, value]) => ({ type: 'canon.lock', name: 'Rias', key, value }))).state.canon;
+  const seen = new Set();
+  for (let turn = 80; turn < 86; turn += 1) {
+    const line = renderCanon(canon, ['Jovan', 'Rias'], undefined, turn);
+    const keys = facts.map(([k]) => k).filter((k) => new RegExp('(?:— |; )' + k + ': ').test(line));
+    eq(keys.length, 6, 'six a page, never more (page ' + turn + '): ' + line);
+    for (const k of ['hair', 'eyes', 'build', 'height']) assert(keys.includes(k), 'the first four every page: ' + k);
+    for (const k of keys) seen.add(k);
+  }
+  eq([...seen].sort().join(','), facts.map(([k]) => k).sort().join(','), 'and every one of the eight was told within six pages (the seventh and eighth were never told before)');
+  eq(renderCanon(canon, ['Jovan', 'Rias']).split('; ').length, 6, 'with no page number it is the first six, as before');
+  eq(renderCanon(canon, ['Jovan']), '', 'and nothing of someone who is not in the scene');
+});

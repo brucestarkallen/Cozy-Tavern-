@@ -37,7 +37,7 @@
 import { HERE_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
 import { headerMutations, headerDress } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey } from '../engine/people.js';
 import { findRelationship } from '../engine/relationships.js'; /* M641: who has no standing yet */
@@ -267,7 +267,7 @@ function systemPrompt({ mc, founding }) {
     who,
     '',
     'Answer with JSON ONLY, in exactly this shape:',
-    '{"mutations":[ ... ], "resolved":[ ... ], "here":[ ... ]}',
+    '{"mutations":[ ... ], "resolved":[ ... ], "here":[ ... ], "looks":[ ... ]}',
     '"resolved" holds the exact titles of the OPEN THREADS (listed under the page) that THIS page',
     'resolved — the question answered, the plan carried out or abandoned, the promise kept, the thing',
     'found, the decision made. A thread the page only moved is not resolved. [] when none was.',
@@ -278,6 +278,11 @@ function systemPrompt({ mc, founding }) {
     'not show leaving (quiet is not gone). Never someone only spoken of or remembered, heard on a phone or seen',
     'on a screen, and never anyone in the window. ' + HERE_MEANS + ' Whoever you name here that the ledger has not written in is',
     'written in; nobody is taken out for being left off — a leaving is still presence.leave, shown on the page.',
+    '"looks" holds what THIS page — or the writer\'s own message — shows of how someone LOOKS that will still be true',
+    'tomorrow: body, build, height, face, hair, eyes, skin, marks, scars, anatomy, the sound of a voice. One entry a fact,',
+    '{"name":"NAME","key":"hair","value":"copper red, cut to the jaw"}, the value in the page\'s own words. Never dress, a',
+    'mood, a look on a face or a wound (those have their own places), and nothing the ledger already holds for them',
+    'under "What\'s true". [] when the page shows none.',
     '',
     'The only mutations that exist:',
     VOCABULARY,
@@ -517,7 +522,11 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
         mutations.push({ type: 'rel.set', name: who, ...given, cause });
       }
     }
-    return { mutations, note: mutations.length ? 'ok' : 'empty', here, hereNotes };
+    /* M662: how someone looks, as this page shows it (the house locks what is new and is the page's own — apply.js lockedLooks) */
+    const looks = (Array.isArray(parsed.looks) ? parsed.looks : [])
+      .filter((l) => l && typeof l === 'object' && typeof l.name === 'string' && typeof l.key === 'string' && typeof l.value === 'string' && l.name.trim() && l.key.trim() && l.value.trim())
+      .map((l) => ({ name: l.name.trim().slice(0, 80), key: l.key.trim().slice(0, 40), value: l.value.trim().slice(0, 240) })).slice(0, 12);
+    return { mutations, note: mutations.length || looks.length ? 'ok' : 'empty', here, hereNotes, looks };
   } catch (err) {
     return { mutations: [], note: 'unusable' };
   }
@@ -665,6 +674,8 @@ export async function extractTurn(args = {}) {
      * reader gave it to. */
     if (args.state) {
       /* M660: where the page's own words show someone standing or dressed otherwise than the ledger has, it is written */
+      /* M662: what the page shows of how someone looks is locked among what is true of them */
+      if (Array.isArray(read.looks) && read.looks.length) read.mutations = [...read.mutations, ...lockedLooks(args.state, read.looks, args.assistantText, args.userText)];
       /* M661: the header's own attire and position cells are the main character's, on this page — after the reader's own
        * word for him, and written only where the telling bears them out */
       const dress = headerDress(args.assistantText);

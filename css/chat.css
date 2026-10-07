@@ -1334,3 +1334,7 @@ html[data-theme='magma'] .msg-user .msg-body {
 .quick-switch label { color: inherit; font: inherit; cursor: pointer; flex: none; }
 .quick-switch select { font: inherit; color: inherit; background: transparent; border: 1px solid currentColor; border-radius: 6px; padding: 0 0.3em; min-width: 0; max-width: 16em; text-overflow: ellipsis; cursor: pointer; }
 .quick-switch select option { color: #111; background: #fff; }
+/* M662: the plus on a shelf — a new story there; a finger's width, not an icon's */
+.shelf-add { min-width: 2rem; min-height: 2rem; line-height: 1; font-size: 1.3rem; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; color: var(--text); }
+.new-story-where { margin: 0.1rem 0 0.4rem; }
+.search-scope { display: block; margin: 0.1rem 0 0.45rem; }

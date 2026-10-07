@@ -41,7 +41,7 @@
 
 import { db, onDropCaches, settingsKeysOf } from '../store.js'; /* M507: the bank's key cache hears a pull; M507-6: the tale's rows */
 import { renderClock } from './clock.js';
-import { samePersonName } from './names.js';
+import { samePersonName, nameOnPage } from './names.js';
 import { isMc } from './people.js'; /* M588 */ /* M509-15: was this person in the room */
 import { renderBodies, dedupeInjuries } from './bodies.js'; /* M485: the wounds folded on load */
 import { axisWords, AXES } from './relationships.js';
@@ -1004,9 +1004,16 @@ export function renderThings(state, cap = 12) {
     if (!t || typeof t !== 'object' || typeof t.where !== 'string' || !t.where.trim()) continue;
     const here = Boolean(scene) && (samePlace(t.where, scene) || seatAtScene(t.where, scene) || nearTheScene(t.where, scene) || [...tellingSet(scene)].every((w) => tellingSet(t.where).has(w)));
     const his = typeof t.owner === 'string' && t.owner && isMc(s, t.owner);
+    /* M662 (his: "knows what to inject"): WHAT SOMEONE IN THE SCENE HAS ON THEM IS TO HAND. A thing was told when it lay at
+     * this place, was his own, or had been touched in the last thirty pages — so the letter in Rias's apron pocket,
+     * untouched for forty pages, was not told while she stood in the room with it, and a newer trinket of someone far
+     * away was. A thing owned by someone here, or kept on someone here ("in Rias's apron pocket"), is told — after
+     * what lies at this place and what is his. */
+    const inScene = (Array.isArray(s.present) ? s.present : []).map((p) => p && p.name).filter((n) => typeof n === 'string' && n.trim() && !isMc(s, n));
+    const carried = inScene.some((n) => (typeof t.owner === 'string' && t.owner && samePersonName(t.owner, n)) || nameOnPage(t.where, n));
     const fresh = Number.isFinite(t.atTurn) && now - t.atTurn <= 30;
-    if (!here && !his && !fresh) continue;
-    rows.push({ name, t, rank: here ? 0 : his ? 1 : 2, at: Number.isFinite(t.atTurn) ? t.atTurn : 0 });
+    if (!here && !his && !carried && !fresh) continue;
+    rows.push({ name, t, rank: here ? 0 : his ? 1 : carried ? 2 : 3, at: Number.isFinite(t.atTurn) ? t.atTurn : 0 });
   }
   rows.sort((a, b) => (a.rank - b.rank) || (b.at - a.at));
   return rows.slice(0, cap).map(({ name, t }) => '- ' + name + (t.owner ? ' (' + t.owner + '’s)' : '') + ' — ' + t.where.trim() + (t.note ? ' (' + t.note + ')' : '')).join('\n');
@@ -1082,7 +1089,7 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
 
   /* M6: what's true of them — locked facts for whoever is in the scene.
    * Counts toward the budget and sheds after the body ledger. */
-  const canonLines = renderCanon(state.canon, present.map((p) => p && p.name), whole ? Infinity : undefined);
+  const canonLines = renderCanon(state.canon, present.map((p) => p && p.name), whole ? Infinity : undefined, storyTurn(state)); /* M662: what does not fit takes its turn */
   if (canonLines) sections.push({ shed: 2, text: 'True of them: ' + canonLines.split('\n').join('\n'), trimTo: whole ? Infinity : 8, head: 'True of them: ' });
 
   const bodyLines = renderBodies(state.bodies, clockMinutes, turnCount)

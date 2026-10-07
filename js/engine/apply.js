@@ -2018,6 +2018,59 @@ export function restatedPresence(state, notes, mutations, pageText = '') {
   }
   return out;
 }
+/* M662 — HIS: "once it's mentioned anatomy or appearance it should be saved because sometimes I see it's missing". How
+ * someone looks had ONE writer: the founder, from the brief ("every stated appearance locked"). A scar, a height, the
+ * colour of someone's hair first shown ON A PAGE — or said in his own message — was nobody's to write: the page reader
+ * had no word for it, and the scribe's page holds a nature, a now and an arc. It rode the newest pages for a while
+ * and was gone. The page reader now answers "looks" (extractor.js), and what it gives is locked among what's true of
+ * that person — when it names someone the story knows, its words are the page's or his own, it is no dress, mood or
+ * wound (those have their own books), and NOTHING IS ALREADY WRITTEN under that name for them: a truth the brief, the
+ * writer or an earlier page holds is never written over by a later page's wording. */
+const NOT_LOOKS = /^(?:dress|clothes|clothing|outfit|attire|wearing|wears|mood|expression|emotion|feeling|state|now|position|place|wound|wounds|injury|injuries|condition)$/i;
+export function lockedLooks(state, looks, pageText = '', userText = '') {
+  const out = [];
+  /* WHOSE LOOKS THEY ARE is held to the page too (the phone call's lesson, M660: a reader can credit one person with
+   * another's line — or another's hair). The words must stand in ONE paragraph of the telling (or in his own message),
+   * and that paragraph must be about the person named: it names them, or it names nobody and the page names them. A
+   * paragraph that names someone else and not them is someone else's. */
+  const telling = narrationOf(scenePartOf(String(pageText || '').replace(/^\s*\[[^\n]*\][ \t]*/, '')));
+  const paragraphs = [...telling.split(/\n\s*\n/).map((t) => ({ text: t, his: false })), { text: String(userText || ''), his: true }].filter((p) => p.text.trim());
+  const mc = mcName(state);
+  const everyone = [...new Set([...(Array.isArray(state && state.present) ? state.present : []).map((p) => p && p.name), ...Object.keys((state && state.characters) || {})].filter((n) => typeof n === 'string' && n.trim()))];
+  const whereShown = (value) => {
+    const w = [...tellingOf(value)];
+    if (!w.length) return null;
+    let best = null; let most = 0;
+    for (const p of paragraphs) { const has = tellingOf(p.text); const n = w.filter((x) => has.has(x)).length; if (n > most) { most = n; best = p; } }
+    return best && most / w.length >= 0.5 ? best : null;
+  };
+  const aboutThem = (p, name) => {
+    if (isMc(state, name)) return p.his || nameOnPage(p.text, name) || !everyone.some((n) => !isMc(state, n) && nameOnPage(p.text, n));
+    if (nameOnPage(p.text, name)) return true;
+    return !p.his && !everyone.some((n) => nameOnPage(p.text, n)) && nameOnPage(telling, name);
+  };
+  const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
+  const canon = state && state.canon && typeof state.canon === 'object' ? state.canon : {};
+  for (const l of (Array.isArray(looks) ? looks : []).slice(0, 12)) {
+    if (!l || typeof l !== 'object') continue;
+    const key = capText(l.key, 40); const value = capText(l.value, 240); const said = normalizeName(l.name);
+    if (!said || !key || !value || NOT_LOOKS.test(key.trim())) continue;
+    const shown = whereShown(value);
+    if (!shown) continue; /* not this page's words, nor his */
+    let name = '';
+    if (isMc(state, said)) name = mc && mc !== 'the player' ? mc : '';
+    else { const at = findPresent(state, said, { strict: true }); name = at !== -1 ? state.present[at].name : (findPersonKey(chars, said) || ''); }
+    if (!name) continue; /* someone the story knows — never a face in a crowd */
+    if (!aboutThem(shown, name)) continue; /* the paragraph that shows it is about someone else */
+    const canonKey = personBookKey(state, canon, name, findCanonKey);
+    const entry = canonKey ? canon[canonKey] : null;
+    const same = (a, b) => String(a || '').trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ') === String(b || '').trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ');
+    if (entry && (findFact(entry, key) || (Array.isArray(entry.facts) ? entry.facts : []).some((f) => f && same(f.value, value)))) continue;
+    if (out.some((m) => m.name === name && (m.key.toLowerCase() === key.toLowerCase() || same(m.value, value)))) continue;
+    out.push({ type: 'canon.lock', name, key, value });
+  }
+  return out;
+}
 export function lastingOnly(mutations) {
   return (Array.isArray(mutations) ? mutations : []).filter((m) => !(m && MOMENT_TYPES.has(m.type)));
 }

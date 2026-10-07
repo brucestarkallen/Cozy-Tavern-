@@ -16830,3 +16830,52 @@ M660 made the page reader restate the room. Two things in his pasted audit were 
 - version.js -> m661-001.
 - GATES at m661-001 (one CPU), on the tree that was pushed: harness 1300/1300, walk 240/240, long play 9/9, lint 0 errors
   (178 warnings, as at m660), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
+
+# M662 — the shelf, tidy; looks kept; the ledger's block made smarter (his five asks)
+His message: (1) "add plus button so I can easily add new story in project"; (2) "Start new story just create new story on
+loose tales"; (3) "Search function: if I open multiple projects it can search words on multiple pages on those
+projects"; (3b) "audit the ledger… auditor is final defense not necessary defense"; (4) "once it's mentioned anatomy or
+appearance it should be saved because sometimes I see it's missing"; (5) "everything on ledger must be smart not
+bloating context. Knows what to inject. What to rotate."
+- 1 & 2. THE NEW-STORY FORM NO LONGER ASKS WHICH SHELF (chat.js openNewStoryForm, index.html). It used to, and offered first
+  the shelf of whichever tale happened to be OPEN — so "Start a new story" put a tale on a shelf he had not chosen.
+  Where a tale starts is the button pressed: "Start a new story" starts a LOOSE tale; the + on a shelf (.shelf-add, on
+  every waking shelf, none on "Loose tales") starts one on that shelf. The form says which ("It starts on the shelf
+  “Gotham nights”." / "It starts among your loose tales."). The + is 32×32 px in a phone-sized Chromium (the shelf's
+  other small buttons measure 23×10 — icons; left as they were, not asked).
+- 3. THE SEARCH KNOWS THE OPEN SHELVES (search.js). It went through every tale, always. With some shelves folded and some
+  open it searches the tales on the OPEN ones (the rows that stand in the list — each carries its tale's id now), says
+  which shelves in its summary line, and offers "Search every tale" in one tap (and "Only the open shelves" back).
+  Nothing folded, or everything folded: every tale, as before, and no choice is shown. Each tale's card names its shelf.
+- 4. HOW SOMEONE LOOKS (extractor.js "looks", apply.js lockedLooks). Appearance had ONE writer — the founder, from the
+  brief. A scar, a height, hair first shown ON A PAGE, or said in his own message, was nobody's: it rode the newest
+  pages and was gone. The page reader answers "looks" now ({"name","key","value"}); each is locked among what is true
+  of that person (canon.lock) when: it names someone the story knows; its words stand in ONE paragraph of the page's
+  telling or in his message; THAT PARAGRAPH IS ABOUT THEM (it names them, or names nobody and the page names them —
+  never someone else's hair under their name: the phone call's lesson); it is no dress, mood or wound; and nothing is
+  already written under that key or in those words for them (a truth already written is never written over).
+- 5. MEASURED FIRST: a ledger of 30 people (6 in the scene), 420 known facts, 40 things, 240 truths of looks → the block the
+  storyteller is sent is 7,459 characters (~1,900 tokens): six people in full and two "much on the story's mind", looks
+  for the six in the scene only, 12 things, the rest a roster of names. It was already selective. Two faults in WHAT
+  was chosen, both fixed without lengthening it:
+  - state.js renderThings: a thing was told when it lay at this place, was his own, or was touched in the last thirty
+    pages — so the letter in Rias's apron pocket, untouched for forty pages, was NOT told while she stood in the room
+    with it. What someone in the scene owns or has on them is told, after what lies here and what is his.
+  - canon.js renderCanon: six truths a person; the seventh onward was never told at all. The first four stay every
+    page and the last two places go round the rest by page number — everything written of someone in the scene
+    reaches the storyteller within a few pages; never more than six a page.
+- 3b. THE AUDIT: the three findings in his last pasted audit (a stale outfit, a stale place, a "now" beside a seat) were
+  M660/M661. Nothing new was probed for this entry beyond the measurement above; said to him as that.
+- LAWS (m588.mjs): M662-1 (looks: kept, not written over, not dress, not invented, not another's), M662-2 (the letter in
+  her pocket seventy pages on; eight truths, six a page, all within six pages). WALK DOM-241 (the plus, the loose
+  start with a shelved tale open, the search with a shelf folded and the tap to every tale).
+- TWO THINGS THE FIRST GATE RUN CAUGHT. (a) harness M16 (projects.mjs) read the source for the form's shelf pick
+  (`newShelfPick`, `id="new-story-shelf"`) — the control he asked to remove. The line that only read an identifier is
+  gone (its behaviour is RUN in DOM-241); the markup check asks for the element that replaced it. (b) DOM-241 passed
+  alone and failed in the whole walk: it assumed no shelf was folded, and earlier scenarios leave some folded (the fold
+  is remembered) — so its first search was, correctly, the open shelves'. It opens every shelf first and folds them
+  back after, and searches a word no other tale holds.
+- version.js -> m662-001.
+- GATES at m662-001 (one CPU), on the tree that was pushed: harness 1302/1302, walk 241/241 (DOM-241 among them), long play
+  9/9, lint 0 errors (178 warnings, as at m661), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each. This is the
+  SECOND run: the first failed M16 and DOM-241, as told above.

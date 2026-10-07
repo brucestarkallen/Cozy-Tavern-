@@ -8350,6 +8350,88 @@ test('DOM-240 A STORY’S OWN CALENDAR, AND THE MORNING AFTER, IN THE APP (M660 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-241 THE SHELF, TIDY (M662 — his: “add plus button so I can easily add new story in project… Start new story just create new story on loose tales… Search: if I open multiple projects it can search words on those projects”): “Start a new story” starts a loose tale whatever tale is open; the + on a shelf starts one on that shelf; the search looks through the shelves that are open, says which, and reaches every tale in one tap', async () => {
+  const before = errors.length;
+  const gotham = await db.projects.create({ name: 'Gotham nights' });
+  const bleach = await db.projects.create({ name: 'Seireitei' });
+  const older = await db.stories.create({ title: 'The ghostlamp at the pier', projectId: gotham.id });
+  await db.messages.append(older.id, { role: 'user', text: 'I light the ghostlamp.' });
+  await db.messages.append(older.id, { role: 'assistant', text: '[Gotham docks — Monday, March 3, 2025 | 21:40 | rain | coat | at the pier]\n\nThe ghostlamp swung in the rain.' });
+  const captains = await db.stories.create({ title: 'The captains meet', projectId: bleach.id });
+  await db.messages.append(captains.id, { role: 'assistant', text: '[1st Division — Monday, March 3, 2025 | 09:00 | clear | haori | at the door]\n\nA paper ghostlamp burned by the door.' });
+  const loose = await db.stories.create({ title: 'A loose one' });
+  await db.messages.append(loose.id, { role: 'assistant', text: '[Nowhere — Monday, March 3, 2025 | 12:00 | grey | coat | on the road]\n\nNo ghostlamp anywhere.' });
+  env.window.__cozy.setActiveStoryId(older.id);
+  await env.ctx.chat.refreshStories(true);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const shelfHead = (name) => [...document.querySelectorAll('#story-list .shelf')].find((el) => { const n = el.querySelector(':scope > .shelf-head .shelf-name'); return n && n.textContent.trim() === name; });
+  await until(() => shelfHead('Gotham nights') && shelfHead('Seireitei'), 'both shelves on the list');
+  /* "Start a new story" — a loose tale, though a tale of Gotham is the one open */
+  click(q('#btn-new-story'));
+  await until(() => !q('#new-story-form').hidden, 'the new-story form');
+  eq(q('#new-story-where').textContent, 'It starts among your loose tales.', 'the form says where it starts');
+  assert(!q('#new-story-shelf'), 'and no longer asks which shelf');
+  type(q('#new-story-title'), 'Started from the top');
+  submit(q('#new-story-form'));
+  await until(async () => (await db.stories.list()).some((x) => x.title === 'Started from the top'), 'the new tale');
+  eq((await db.stories.list()).find((x) => x.title === 'Started from the top').projectId || '', '', 'a loose tale — not on the shelf of the tale that was open');
+  /* the + on a shelf — a tale on that shelf */
+  await until(() => shelfHead('Gotham nights'), 'the list again');
+  const plus = shelfHead('Gotham nights').querySelector(':scope > .shelf-head .shelf-add');
+  assert(plus && plus.textContent === '+' && /Start a new story on the shelf "Gotham nights"/.test(plus.getAttribute('aria-label')), 'the shelf carries a plus');
+  assert(!shelfHead('Loose tales') || !shelfHead('Loose tales').querySelector('.shelf-add'), 'the loose tales have none — “Start a new story” is their one way');
+  click(plus);
+  await until(() => !q('#new-story-form').hidden, 'the form, from the plus');
+  eq(q('#new-story-where').textContent, 'It starts on the shelf “Gotham nights”.', 'and says the shelf');
+  type(q('#new-story-title'), 'Started from the plus');
+  submit(q('#new-story-form'));
+  await until(async () => (await db.stories.list()).some((x) => x.title === 'Started from the plus'), 'the tale from the plus');
+  eq((await db.stories.list()).find((x) => x.title === 'Started from the plus').projectId, gotham.id, 'on Gotham’s shelf');
+  /* and the next "Start a new story" is loose again — the plus left nothing behind */
+  click(q('#btn-new-story'));
+  await until(() => !q('#new-story-form').hidden, 'the form once more');
+  eq(q('#new-story-where').textContent, 'It starts among your loose tales.', 'the plus is not remembered');
+  click(q('#btn-cancel-story'));
+  /* the search: every shelf open — every tale */
+  const titles = () => [...document.querySelectorAll('#search-results .search-tale-title')].map((n) => n.textContent).sort().join(' | ');
+  const input = q('#story-search');
+  /* the walk before this one may have left shelves folded (the fold is remembered): open them all, and fold them back after */
+  const wasFolded = [];
+  for (let guard = 0; guard < 40; guard += 1) {
+    const folded = document.querySelector('#story-list .shelf.collapsed');
+    if (!folded) break;
+    const name = (folded.querySelector(':scope > .shelf-head .shelf-name') || {}).textContent || '';
+    wasFolded.push(name.trim());
+    click(folded.querySelector(':scope > .shelf-head .shelf-toggle'));
+    await new Promise((r) => setTimeout(r, 30));
+  }
+  try {
+    await until(() => shelfHead('Seireitei') && !document.querySelector('#story-list .shelf.collapsed'), 'the list, every shelf open');
+    await env.ctx.search.run('ghostlamp');
+    await until(() => !q('#search-results').hidden && q('#search-results .search-summary') && !/Searching/.test(q('#search-results').textContent), 'the results', 15000);
+    eq(titles(), 'A loose one | The captains meet | The ghostlamp at the pier', 'nothing folded: every tale that holds the word');
+    assert(!q('#search-results .search-scope'), 'and no choice of where to search is offered');
+    assert(/Gotham nights/.test([...document.querySelectorAll('#search-results .search-tale')].find((c) => /pier/.test(c.textContent)).textContent), 'each tale says the shelf it is on');
+    env.ctx.search.close();
+    /* fold Seireitei: the search is the open shelves' */
+    click(shelfHead('Seireitei').querySelector(':scope > .shelf-head .shelf-toggle'));
+    await until(() => shelfHead('Seireitei') && shelfHead('Seireitei').classList.contains('collapsed'), 'Seireitei folded');
+    await env.ctx.search.run('ghostlamp');
+    await until(() => !q('#search-results').hidden && q('#search-results .search-summary') && !/Searching/.test(q('#search-results').textContent), 'the results again', 15000);
+    eq(titles(), 'A loose one | The ghostlamp at the pier', 'the folded shelf’s tale is not searched');
+    assert(/on the open shelves \([^)]*Gotham nights[^)]*\)/.test(q('#search-results .search-summary').textContent), 'the line says which shelves: ' + q('#search-results .search-summary').textContent);
+    eq(q('#search-results .search-scope').textContent, 'Search every tale', 'and every tale is one tap away');
+    click(q('#search-results .search-scope'));
+    await until(() => /The captains meet/.test(titles()), 'every tale', 15000);
+    eq(titles() + ' // ' + q('#search-results .search-scope').textContent, 'A loose one | The captains meet | The ghostlamp at the pier // Only the open shelves', 'every tale, and the way back');
+  } finally {
+    env.ctx.search.close();
+    if (shelfHead('Seireitei') && shelfHead('Seireitei').classList.contains('collapsed')) click(shelfHead('Seireitei').querySelector(':scope > .shelf-head .shelf-toggle'));
+    for (const name of wasFolded) { const sh = shelfHead(name); if (sh && !sh.classList.contains('collapsed')) { click(sh.querySelector(':scope > .shelf-head .shelf-toggle')); await new Promise((r) => setTimeout(r, 30)); } }
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-188 THE OPENING MOVES FEELINGS (M532 — his report: "every time, How they feel about you is empty and I need to rebuild the people, especially on #story"): the young ledger\'s reader is asked what the opening does to people\'s feelings — he saves Yuki, and her standing is there after the first page, no rebuild', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');

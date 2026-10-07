@@ -295,7 +295,7 @@ export function initChat(ctx) {
     listEmpty: document.getElementById('story-list-empty'),
     newForm: document.getElementById('new-story-form'),
     newTitle: document.getElementById('new-story-title'),
-    newShelfPick: document.getElementById('new-story-shelf'),
+    newWhere: document.getElementById('new-story-where'),
     shelfSort: document.getElementById('shelf-sort'), /* M466 */
     btnNew: document.getElementById('btn-new-story'),
     btnCancelNew: document.getElementById('btn-cancel-story'),
@@ -564,7 +564,6 @@ export function initChat(ctx) {
       }
     }
     renderStoryList();
-    renderShelfPick();
   }
 
   /* M21: after every append/swipe/delete, the tale's row re-reads its
@@ -587,6 +586,7 @@ export function initChat(ctx) {
    * resting tale's row wakes instead of archiving. */
   function storyItem(story, activeId, opts = {}) {
     const li = document.createElement('li');
+    li.dataset.story = story.id; /* M662: the search asks which tales stand on open shelves */
     li.className = 'story-item' + (story.id === activeId ? ' active' : '') + (opts.resting ? ' resting' : '') + (choosing && chosenTales.has(story.id) ? ' chosen' : '');
 
     const openBtn = document.createElement('button');
@@ -933,6 +933,17 @@ export function initChat(ctx) {
     }
     head.appendChild(toggle);
 
+    if (project && !opts.resting) {
+      /* M662: the + — a new tale on THIS shelf */
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'story-mini shelf-add';
+      addBtn.title = 'Start a new story on this shelf';
+      addBtn.setAttribute('aria-label', `Start a new story on the shelf "${name}"`);
+      addBtn.textContent = '+';
+      addBtn.addEventListener('click', () => openNewStoryForm(project));
+      head.appendChild(addBtn);
+    }
     if (project) {
       const renameBtn = document.createElement('button');
       renameBtn.type = 'button';
@@ -1247,28 +1258,18 @@ export function initChat(ctx) {
     return li;
   }
 
-  /* The new-story form's shelf pick: every shelf the house knows, plus
-   * loose — defaulting to the shelf the open tale rests on. */
-  function renderShelfPick() {
-    if (!els.newShelfPick) return;
-    const activeId = ctx.getActiveStoryId();
-    const open = stories.find((s) => s.id === activeId);
-    const current = open && open.projectId && projects.some((p) => p.id === open.projectId)
-      ? open.projectId
-      : '';
-    els.newShelfPick.textContent = '';
-    const looseOpt = document.createElement('option');
-    looseOpt.value = '';
-    looseOpt.textContent = 'Loose — no shelf';
-    els.newShelfPick.appendChild(looseOpt);
-    for (const project of projects) {
-      if (project.archived === true) continue; /* M466: a resting shelf is not offered */
-      const opt = document.createElement('option');
-      opt.value = project.id;
-      opt.textContent = project.name;
-      els.newShelfPick.appendChild(opt);
-    }
-    els.newShelfPick.value = current;
+  /* M662 — HIS: "add plus button so I can easily add new story in project… Start new story just create new story on loose
+   * tales". The form used to ASK which shelf, and offered first the shelf of whichever tale happened to be open — so
+   * "Start a new story" put a new tale on a shelf he had not chosen. Where a tale starts is now the button he pressed:
+   * "Start a new story" starts a loose tale; the + on a shelf starts one on that shelf. The form says which. */
+  let newStoryShelf = null;
+  function openNewStoryForm(project) {
+    newStoryShelf = project && project.id ? project.id : null;
+    if (els.newWhere) els.newWhere.textContent = project ? 'It starts on the shelf “' + project.name + '”.' : 'It starts among your loose tales.';
+    els.newForm.hidden = false;
+    els.newTitle.value = '';
+    try { els.newForm.scrollIntoView({ block: 'nearest' }); } catch (err) { /* an old browser: the focus below brings it into view */ }
+    els.newTitle.focus();
   }
 
   function beginRename(li, story) {
@@ -7602,12 +7603,7 @@ export function initChat(ctx) {
     });
   }
 
-  els.btnNew.addEventListener('click', () => {
-    els.newForm.hidden = false;
-    els.newTitle.value = '';
-    renderShelfPick();
-    els.newTitle.focus();
-  });
+  els.btnNew.addEventListener('click', () => openNewStoryForm(null));
 
   els.btnCancelNew.addEventListener('click', () => {
     els.newForm.hidden = true;
@@ -7615,8 +7611,9 @@ export function initChat(ctx) {
 
   els.newForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    /* M16: the tale may begin already resting on a shelf. */
-    const shelfId = els.newShelfPick ? els.newShelfPick.value : '';
+    /* M16: the tale may begin already resting on a shelf. M662: the shelf whose + he pressed — never one that is gone or resting */
+    const shelfId = newStoryShelf && projects.some((p) => p.id === newStoryShelf && p.archived !== true) ? newStoryShelf : '';
+    newStoryShelf = null;
     const story = await db.stories.create({ title: els.newTitle.value, projectId: shelfId || undefined });
     if ((await db.settings.get('briefModeNew')) === 'automatic') { await db.stories.update(story.id, { briefMode: 'automatic' }); story.briefMode = 'automatic'; } /* M517: new stories start as he chose */
     els.newForm.hidden = true;

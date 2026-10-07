@@ -118,9 +118,11 @@ test('M16 the sidebar renders shelves and remembers the folded doors', () => {
   assert(src.includes('db.projects.create(') && src.includes('db.projects.rename(')
     && src.includes('db.projects.remove('), 'shelf CRUD is reachable from the sidebar');
   assert(src.includes("Loose tales"), 'the loose section has its warm name');
-  assert(src.includes('newShelfPick'), 'a new tale may begin on a shelf');
+  /* M662: this line read the source for the new-story form's shelf pick (`newShelfPick`). He asked for that pick to go:
+   * "Start a new story" starts a loose tale and the + on a shelf starts one there. That a new tale may begin on a shelf is
+   * RUN, not read, in the walk — DOM-241 presses the plus and finds the tale on that shelf. */
   const html = read('index.html');
-  assert(html.includes('id="new-story-shelf"') && html.includes('id="btn-new-shelf"'),
+  assert(html.includes('id="new-story-where"') && html.includes('id="btn-new-shelf"'), /* M662: the form says where the tale starts; it no longer asks (see above) */
     'the sidebar forms exist');
   const settings = read('js/ui/settings.js');
   assert(settings.includes('story-shelf') && html.includes('The shelf it sits on'),
