@@ -307,7 +307,9 @@ export function parseAuditorAnswer(raw) {
         what: i.what.trim().slice(0, 4000), /* M267: whole — it was cut at 300, mid-word */
         fix: typeof i.fix === 'string' ? i.fix.trim().slice(0, 4000) : '',
         /* M90: the pages are wrong and the brief wins — the house mends them */
-        pages: i.pages === true,
+        /* M654: a yes as a model writes it — "pages":"true" was no yes, and a fault that lives on the pages (a fix, no
+         * change to the ledger) was then dropped as "no finding" */
+        pages: i.pages === true || i.pages === 1 || (typeof i.pages === 'string' && /^\s*(?:true|yes|y|1)\s*$/i.test(i.pages)),
         mutations: Array.isArray(i.mutations) ? i.mutations.filter((m) => m && typeof m === 'object' && typeof m.type === 'string') : [],
       }))
       .slice(0, 20);

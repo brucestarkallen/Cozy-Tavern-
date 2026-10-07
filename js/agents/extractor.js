@@ -37,7 +37,7 @@
 import { HERE_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
 import { headerMutations } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey } from '../engine/people.js';
 import { findRelationship } from '../engine/relationships.js'; /* M641: who has no standing yet */
@@ -503,7 +503,7 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
         const who = asked.find((n) => n.toLowerCase() === e.name.trim().toLowerCase()) || asked.find((n) => samePersonName(n, e.name));
         if (!who || moved.has(who.toLowerCase())) continue;
         const given = {};
-        for (const axis of ['p', 'r', 's']) { const v = e[axis] === null || e[axis] === '' || typeof e[axis] === 'boolean' ? NaN : Number(e[axis]); if (Number.isFinite(v) && v !== 0) given[axis] = v; }
+        for (const axis of ['p', 'r', 's']) { const v = e[axis] === null || e[axis] === '' || typeof e[axis] === 'boolean' ? NaN : numberOf(e[axis]); if (Number.isFinite(v) && v !== 0) given[axis] = v; } /* M654 */
         const cause = typeof e.cause === 'string' ? e.cause.trim() : '';
         if (!Object.keys(given).length || !cause) continue;
         moved.add(who.toLowerCase());

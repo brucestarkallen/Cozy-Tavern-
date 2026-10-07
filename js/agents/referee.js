@@ -597,8 +597,23 @@ export function ratingOf(v) {
   const rest = v.slice(m.index + m[0].length);
   return /^\s*(?:\/\s*100\b|out\s+of\s+100\b|%)/i.test(rest) ? n / 10 : n;
 }
+/* M654 (the ledger audit, part eleven — one ruling written the ways models write it): A YES IS A YES AND A NUMBER IS ITS
+ * NUMBER. The referee's answer was read with === true and Number(): "check":"true" (a string) was NO CHECK — the whole
+ * ruling thrown away, the attempt unruled; "combat_ended":"true" was not an ending — the fight stayed on, every later
+ * move scored; "+2 (high ground)" and "−1" (a real minus sign, as models type it) were 0 — the circumstance, a
+ * composure blow, a duel's scale ("+2 (outclassed)") all lost. */
+export function truthOf(v) {
+  if (v === true || v === 1) return true;
+  return typeof v === 'string' && /^\s*(?:true|yes|y|1)\s*$/i.test(v);
+}
+export function signedOf(v) {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : NaN;
+  if (typeof v !== 'string') return NaN;
+  const m = v.replace(/[\u2212\u2013\u2014]/g, '-').match(/[+-]?\s?\d+(?:\.\d+)?/);
+  return m ? Number(m[0].replace(/\s/g, '')) : NaN;
+}
 function clampInt(v, lo, hi, fallback) {
-  const n = Math.round(Number(v));
+  const n = Math.round(signedOf(v));
   return Number.isFinite(n) ? clamp(n, lo, hi) : fallback;
 }
 
@@ -637,9 +652,9 @@ function normalizeConditionChange(v, state) {
   if (v.add) {
     out.add = cleanName(v.add, 50);
     /* M471: as Arbiter — a piece of gear with no modifier given is a boon (+1), a condition a handicap (-1) */
-    out.mod = clampInt(v.mod, -4, 3, v.gear === true ? 1 : -1);
+    out.mod = clampInt(v.mod, -4, 3, truthOf(v.gear) ? 1 : -1);
     if (v.domain && typeof v.domain === 'string') out.domain = v.domain.toLowerCase().trim().slice(0, 20);
-    if (v.gear === true) out.gear = true;
+    if (truthOf(v.gear)) out.gear = true;
   }
   if (!out.add && !out.remove) return null;
   return out;
@@ -665,7 +680,7 @@ function checkDomain(d) {
 export function normalizeAdj(obj, state) {
   if (!obj || typeof obj !== 'object') return null;
   const out = {
-    check: obj.check === true,
+    check: truthOf(obj.check), /* M654 */
     actor: mcName(state),
     action: cleanName(obj.action, 280),
     kind: obj.kind === 'actor' ? 'actor' : 'task',
@@ -844,7 +859,7 @@ export function normalizeDuelAdj(obj, state) {
   if (!obj || typeof obj !== 'object') return null;
   const out = {
     exchange: obj.exchange !== false,
-    combat_ended: obj.combat_ended === true,
+    combat_ended: truthOf(obj.combat_ended), /* M654 */
     action: cleanName(obj.action, 280) || 'presses the fight',
     move: ['attack', 'recover', 'talk'].includes(obj.move) ? obj.move : 'attack',
     circumstance: clampInt(obj.circumstance, -3, 3, 0),
@@ -867,7 +882,7 @@ export function normalizeDuelAdj(obj, state) {
   /* M345: words do not parry steel — a talking beat the referee still calls an exchange (the opponent presses) is
    * fought at a disadvantage; a talking beat that is no exchange is a lull */
   if (out.move === 'talk') {
-    if (obj.exchange === true) { out.move = 'attack'; out.circumstance = Math.min(out.circumstance, -1); } else out.exchange = false;
+    if (truthOf(obj.exchange)) { out.move = 'attack'; out.circumstance = Math.min(out.circumstance, -1); } else out.exchange = false;
   }
   return out;
 }
@@ -881,7 +896,7 @@ export function normalizeBattleAdj(obj, state) {
   if (ordered && mv.kind !== 'command' && !/\b(?:i|me|my|myself)\b[^.!?\n]{0,40}\b(?:strike|attack|hit|charge|lunge|swing|stab|slash|shoot)\b/i.test(action)) mv.kind = 'command';
   return {
     exchange: obj.exchange !== false || (ordered && obj.combat_ended !== true),
-    combat_ended: obj.combat_ended === true,
+    combat_ended: truthOf(obj.combat_ended), /* M654 */
     action,
     move: mv,
     joins: normalizeJoins(obj.joins, state), /* M470 */
@@ -901,7 +916,7 @@ export function normalizeWarAdj(obj, state) {
   const ordered = Boolean(mv.acting || mv.target) || isOrder(action);
   return {
     exchange: obj.exchange !== false || (ordered && obj.combat_ended !== true),
-    combat_ended: obj.combat_ended === true,
+    combat_ended: truthOf(obj.combat_ended), /* M654 */
     action,
     move: mv,
     why: cleanName(obj.why, 160), /* M470 */

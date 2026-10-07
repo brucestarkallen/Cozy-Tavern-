@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m653-001)
+# Cozy Tavern — handoff for the next session (state at m654-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -112,9 +112,12 @@
   copies now close with it), and THE KEEPER END TO END against a model that refuses a page in words (M648's door through
   maybeSummarize: no apology in the record, the page covered without words, the record moves on — and the law fails on
   the door as it was).
+  PART ELEVEN (M654): THE REFEREE'S RULING AND THE LEDGER'S DOOR AS MODELS WRITE A YES AND A NUMBER ("check":"true" was no
+  check; "combat_ended":"true" ended nothing; a feeling's fall written "−4" was refused while its rises landed).
   STILL TO AUDIT THE SAME WAY: the keeper's promotions and its self-audit's fixes with a stand-in (the layer of a
   hundred lines, applyAuditFixes); the world agent's own answer end to end (a stand-in world agent: what it opens,
-  seats and says, through worldTurn); the auditor's remaining guards
+  seats and says, through worldTurn); the auditor's remaining
+  guards
   (auditor.js auditorScope: the ground, the hour, people.set, knowledge — feed each an ordinary case, as its leave and
   walk-in were); the referee's other answers (normalizeDuelAdj / normalizeBattleAdj / normalizeWarAdj, the condition
   and composure changes: what a model's odd adjudication becomes) and when a seeding is due (seedDue).
@@ -128,6 +131,10 @@
   written; M652: a model picked in the Quick switch, nothing switched). First line of a handler: `const asked = …`.
   The search that found the twenty-one: a change/input handler in which a line with `await` comes before a line that
   reads a control (the script is in AGENTS.md, M652).
+- A WORKER'S ANSWER IS READ AS A MODEL WRITES IT. Never read a model's field with `=== true` or bare `Number()`:
+  "true", "9/10", "+2 (high ground)" and "−1" with a real minus sign are how they come. Use the readers that exist:
+  referee.js truthOf / signedOf / ratingOf, apply.js numberOf (M651, M654). When adding a field a model fills, feed its
+  door the same value five ways before trusting it.
 - A GATE THAT FAILS ONCE AND PASSES ON A RERUN HAS NOT PASSED. Never write "timing", "rare" or "flaky" in these notes, and
   never push on the rerun: read the failing report against the state, make the failure happen on purpose, and only then
   call it the app's fault or the test's — and say which to the writer. M638 was pushed, and told to him as done, with

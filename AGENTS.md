@@ -16616,3 +16616,32 @@ Continuing M644–M651 by the same method.
 - version.js -> m653-001.
 - GATES at m653-001 (one CPU), on the tree that was pushed: harness 1284/1284, walk 238/238, long play 9/9, lint 0 errors
   (178 warnings, as at m652), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, no scenario failing.
+
+# M654 — the ledger audit, part eleven: a yes is a yes and a number is its number, as models write them
+M651 found a rating written "9/10" read as no number. The same reading — `=== true`, bare `Number()` — stood wherever
+the referee's answer and the ledger's door take a yes or a signed number from a model.
+- THE REFEREE'S RULING (referee.js normalizeAdj and its kin; one ruling written eighteen ways): "check":"true" (a string),
+  "yes", 1 → NO CHECK: the whole ruling thrown away and the attempt left unruled. "combat_ended":"true" → not an
+  ending: the fight stayed on and every later move was scored. "+2 (high ground)", "-2: wounded leg", "−1" with a real
+  minus sign → 0: the circumstance lost; a composure blow written so was dropped whole; a condition's weight fell back
+  to the default; a duel's scale "+2 (outclassed)" was even. truthOf (true, 1, "true", "yes", "y", "1") and signedOf
+  (the first signed number in the words, a real minus sign read as one) now read them: check, exchange, combat_ended
+  (duel, battle, war), gear; and every clamped number the referee reads (clampInt).
+- THE LEDGER'S DOOR (apply.js): a feeling's shift, a standing set, minutes moved on and an arrival's minutes were read
+  with Number(). A FALL written "−4" (inside quotation marks, with the minus sign a model types) or "-4 (he lied)" was
+  REFUSED — "it didn't say how far the feeling moved" — while every rise, written plain, landed: the door itself
+  leaned standings upward. numberOf reads them (and the page reader's "standings" slot of M641 with it). Words with no
+  number are refused as before.
+- LAWS (m588.mjs): M654-1 (each yes and each number, through the referee's rulings; the fight over when it says so in a
+  word), M654-2 (rises and falls land alike; a standing set; the clock). 429 older laws that touch the referee,
+  standings, the clock's advance or seats stand.
+- THE OTHER WORKERS' DOORS, SWEPT for the same reads (grep over js/agents for a model's field read with `=== true` or
+  bare `Number()`): two more. THE AUDITOR's own flag — "pages":"true" was no yes, and a fault that lives on the pages
+  (a fix, no change to the ledger) was then dropped as "no finding". THE PLANS BOOK — a part reported done as "part 2"
+  or "#3", a changed part "part 3", a plan's page "page 12" were no numbers: the step stayed open and the storyteller
+  went on being told it was still to come. Both read now (law M654-3). Nothing else of the kind was found in the
+  scribe, the world agent, the second reader, the planner, the judge, the choices or the essentials.
+- version.js -> m654-001.
+- GATES at m654-001 (one CPU), on the tree that was pushed: harness 1287/1287, walk 238/238, long play 9/9, lint 0 errors
+  (178 warnings, as at m653), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, no scenario failing. (The
+  tree before the auditor's flag and the plans book were added had passed the same gates, 1286 laws.)

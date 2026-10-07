@@ -476,7 +476,7 @@ const HANDLERS = {
   },
 
   'clock.advance'(state, m) {
-    const minutes = Number(m.minutes);
+    const minutes = numberOf(m.minutes); /* M654 */
     if (!Number.isFinite(minutes) || minutes <= 0) {
       return { why: 'it didn’t say how much time passed' };
     }
@@ -739,7 +739,7 @@ const HANDLERS = {
     if (!AXES.includes(axis)) {
       return { why: '“' + (axis || '?') + '” isn’t an axis the ledger keeps (only p, r, s — and only toward the main character)' };
     }
-    const raw = Number(m.delta);
+    const raw = numberOf(m.delta); /* M654 */
     if (!Number.isFinite(raw) || raw === 0) {
       return { why: 'it didn’t say how far the feeling moved' };
     }
@@ -785,7 +785,7 @@ const HANDLERS = {
     }
     const given = {};
     for (const axis of AXES) {
-      const raw = Number(m[axis]);
+      const raw = numberOf(m[axis]); /* M654 */
       if (Number.isFinite(raw)) given[axis] = Math.min(MAX_TOTAL, Math.max(-MAX_TOTAL, Math.round(raw)));
     }
     if (!Object.keys(given).length) {
@@ -882,7 +882,7 @@ const HANDLERS = {
     const stance = typeof m.stance === 'string' && STANCES.includes(m.stance.trim().toLowerCase())
       ? m.stance.trim().toLowerCase() : '';
     /* M396: an arrival never rides a stance that stays put — "taken up with someone else, due now" said both */
-    const eta = Number(m.etaMinutes);
+    const eta = numberOf(m.etaMinutes); /* M654 */
     /* M456: ONLY SOMEONE ON THEIR WAY HAS AN ARRIVAL (the world agent's own law). M396 kept it off "busy" and "waiting"
      * only — so Rukia, at her desk in the 13th's barracks with "unresolved tension" and an ETA, read "due now" for
      * scene after scene: an arrival nothing would ever bring, told to the storyteller every page. "tense" stays put too. */
@@ -1577,6 +1577,15 @@ export function strayBookKeys(state) {
 }
 
 /* M261: two names for one place — case, a leading "the", punctuation */
+/* M654: A NUMBER A WORKER WRITES IS READ AS ITS NUMBER. "+3 (he kept his word)" and "−3" — a real minus sign, as a model
+ * types it inside quotation marks — were no number at the ledger's door: a feeling's fall was refused ("needs an
+ * amount") while its rises, written plain, landed. The first signed number in the words is the number. */
+export function numberOf(v) {
+  if (typeof v === 'number') return v;
+  if (typeof v !== 'string') return Number(v);
+  const m = v.replace(/[\u2212\u2013\u2014]/g, '-').match(/[+-]?\s?\d+(?:\.\d+)?/);
+  return m ? Number(m[0].replace(/\s/g, '')) : NaN;
+}
 /* M645: A NUMBER IS THE SAME NUMBER, IN WORDS OR IN FIGURES. "Tenth Division HQ" and "10th Division HQ" were two places:
  * a storyteller that wrote the number out moved the scene, and (the two names sharing "no telling word") everyone the
  * page did not name was left behind at the place they were standing in. Ordinals in words and in figures are one. */

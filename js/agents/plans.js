@@ -57,19 +57,27 @@ export function plansAsk({ standing = [], pages = [], mc = '' } = {}) {
 }
 
 /* the answer, read and bounded; null when it is not the answer asked for (no "new" list) */
+/* M654: a part's number as a model writes it — "part 2", "#3", "2." are 2, 3 and 2. With Number() they were nothing: a
+ * step the worker reported done as "part 2" stayed open, and the storyteller went on being told it was still to come. */
+function countOf(v) {
+  if (typeof v === 'number') return v;
+  if (typeof v !== 'string') return NaN;
+  const m = v.match(/\d+/);
+  return m ? Number(m[0]) : NaN;
+}
 export function readPlansAnswer(raw) {
   const o = parseFirstObject(typeof raw === 'string' ? raw : (raw && raw.text) || '', (x) => Array.isArray(x.new));
   if (!o) return null;
   const part = (x) => (x && typeof x === 'object' && clip(x.who, 120) && clip(x.does, 600) ? { who: clip(x.who, 120), does: clip(x.does, 600), when: clip(x.when, 300), done: false } : null);
   const fresh = o.new.map((p) => (p && typeof p === 'object' ? {
-    title: clip(p.title, 160), by: clip(p.by, 120), goal: clip(p.goal, 400), page: Number.isInteger(Number(p.page)) ? Number(p.page) : null,
+    title: clip(p.title, 160), by: clip(p.by, 120), goal: clip(p.goal, 400), page: Number.isInteger(countOf(p.page)) ? countOf(p.page) : null,
     parts: (Array.isArray(p.parts) ? p.parts : []).map(part).filter(Boolean).slice(0, 16),
     words: (Array.isArray(p.words) ? p.words : []).map((w) => clip(w, 200)).filter(Boolean).slice(0, 6),
   } : null)).filter((p) => p && p.title && p.parts.length);
   const progress = (Array.isArray(o.progress) ? o.progress : []).map((x) => (x && typeof x === 'object' && clip(x.title, 160) ? {
     title: clip(x.title, 160),
-    done: (Array.isArray(x.done) ? x.done : []).map(Number).filter((n) => Number.isInteger(n) && n >= 1),
-    changed: (Array.isArray(x.changed) ? x.changed : []).filter((c) => c && Number.isInteger(Number(c.part))).map((c) => ({ part: Number(c.part), who: clip(c.who, 120), does: clip(c.does, 600), when: clip(c.when, 300) })),
+    done: (Array.isArray(x.done) ? x.done : []).map(countOf).filter((n) => Number.isInteger(n) && n >= 1),
+    changed: (Array.isArray(x.changed) ? x.changed : []).filter((c) => c && Number.isInteger(countOf(c.part))).map((c) => ({ part: countOf(c.part), who: clip(c.who, 120), does: clip(c.does, 600), when: clip(c.when, 300) })),
   } : null)).filter(Boolean);
   const closed = (Array.isArray(o.closed) ? o.closed : []).map((x) => (x && typeof x === 'object' && clip(x.title, 160) ? {
     title: clip(x.title, 160), how: /drop|abandon|overtak|call(?:ed)? off/i.test(String(x.how || '')) ? 'dropped' : 'done', outcome: clip(x.outcome, 400),

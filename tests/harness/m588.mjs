@@ -912,3 +912,54 @@ test('M653-3 A THREAD’S COPIES CLOSE WITH IT: where one thread stood as severa
   const one = applyMutations(st, [{ type: 'thread.close', title: 'Who broke into the boathouse' }]);
   eq(one.state.threads.length + ' | ' + one.applied[0].words, '4 | A thread closed: Who broke into the boathouse?', 'a thread with no copies closes alone, worded as before');
 });
+
+/* M654 — the ledger audit, part eleven: a yes is a yes and a number is its number, as models write them. */
+test('M654-1 THE REFEREE’S RULING, AS MODELS WRITE IT: “check”:"true" is a check, “combat_ended”:"true" ends the fight; “+2 (high ground)”, “−1” with a real minus sign, “-2: wounded leg” are their numbers — for the circumstance, a composure blow, a condition, a duel’s scale', async () => {
+  const { normalizeAdj, normalizeDuelAdj, truthOf, signedOf } = await import('../../js/agents/referee.js');
+  for (const v of [true, 1, 'true', 'True', ' yes ', 'Y', '1']) eq(truthOf(v), true, 'a yes: ' + JSON.stringify(v));
+  for (const v of [false, 0, 'false', 'no', '', null, undefined, 'maybe', {}, 2]) eq(truthOf(v), false, 'not a yes: ' + JSON.stringify(v));
+  for (const [said, want] of [[2, 2], ['2', 2], ['+2', 2], ['+2 (high ground)', 2], ['−1', -1], ['–3', -3], ['-2: wounded leg', -2], ['- 2', -2], ['minus', NaN], ['', NaN], [null, NaN]]) { const got = signedOf(said); assert(Number.isNaN(want) ? Number.isNaN(got) : got === want, 'read ' + JSON.stringify(said) + ' as ' + want + ' (got ' + got + ')'); }
+  const st = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Kenjaku' }, { type: 'people.set', name: 'Kenjaku', field: 'core', text: 'a sorcerer' }]).state;
+  const base = { action: 'I cut at his neck', kind: 'actor', opposition: 'Kenjaku', domain: 'melee', stakes: 'his head' };
+  for (const check of [true, 'true', 'yes', 1]) eq(normalizeAdj({ ...base, check }, st).check, true, 'a check, written ' + JSON.stringify(check));
+  for (const check of [false, 'false', 'no', undefined]) eq(normalizeAdj({ ...base, check }, st).check, false, 'no check, written ' + JSON.stringify(check));
+  eq(normalizeAdj({ ...base, check: true, circumstance: '+2 (high ground)' }, st).circumstance, 2, 'the circumstance with its reason beside it');
+  eq(normalizeAdj({ ...base, check: true, circumstance: '−1' }, st).circumstance, -1, 'and with a real minus sign');
+  eq(JSON.stringify(normalizeAdj({ ...base, check: true, composure_change: { who: 'Kenjaku', delta: '−1 (rattled)' } }, st).composure_change), JSON.stringify({ who: 'Kenjaku', delta: -1 }), 'a composure blow is not dropped');
+  eq(normalizeAdj({ ...base, check: true, condition_change: { who: 'Kenjaku', add: 'blinded in one eye', mod: '−2 (severe)' } }, st).condition_change.mod, -2, 'a condition weighs what the referee said, not the default');
+  eq(normalizeAdj({ ...base, check: true, condition_change: { who: 'Jovan', add: 'the inverted spear', gear: 'true', mod: '+2' } }, st).condition_change.gear, true, 'gear written "true" is gear');
+  eq(normalizeAdj({ ...base, check: true, duel_start: { opponent: 'Kenjaku', domain: 'melee', rating: '9/10', scale: '+2 (outclassed)' } }, st).duel_start.scale, 2, 'a duel’s scale');
+  const duel = { engaged: true, opponent: 'Kenjaku' };
+  const stFight = { ...st, duel };
+  eq(normalizeDuelAdj({ move: 'attack', combat_ended: 'true' }, stFight).combat_ended, true, 'the fight is over when the referee says so in a word');
+  eq(normalizeDuelAdj({ move: 'attack', combat_ended: 'false' }, stFight).combat_ended, false, 'and not when it says it is not');
+});
+
+test('M654-2 A NUMBER A WORKER WRITES IS READ AS ITS NUMBER AT THE LEDGER’S DOOR: a feeling’s fall written with a real minus sign, or with its reason beside it, lands as its rises do; a standing set, minutes moved on, the same; words with no number are refused as before', () => {
+  const st = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'clock.set', year: 2025, month: 3, day: 3, hour: 21, minute: 0 }, { type: 'presence.enter', name: 'Rias' }, { type: 'rel.set', name: 'Rias', p: 30, cause: 'he paid her fare' }]).state;
+  const p = (m) => { const r = applyMutations(st, [m]); return r.applied.length ? r.state.relationships.Rias.p : 'refused'; };
+  eq(p({ type: 'rel.shift', name: 'Rias', axis: 'p', delta: 3, cause: 'he kept his word about the letter' }), 33, 'a rise, plain');
+  eq(p({ type: 'rel.shift', name: 'Rias', axis: 'p', delta: '+3', cause: 'he kept his word about the roof' }), 33, 'a rise, written "+3"');
+  eq(p({ type: 'rel.shift', name: 'Rias', axis: 'p', delta: '-4', cause: 'he lied about the key' }), 26, 'a fall, written "-4"');
+  eq(p({ type: 'rel.shift', name: 'Rias', axis: 'p', delta: '−4', cause: 'he lied about the ferry' }), 26, 'a fall with a real minus sign lands — it was refused, while every rise landed');
+  eq(p({ type: 'rel.shift', name: 'Rias', axis: 'p', delta: '-4 (he lied)', cause: 'he lied about the oar' }), 26, 'a fall with its reason beside the number');
+  eq(p({ type: 'rel.shift', name: 'Rias', axis: 'p', delta: 'a little', cause: 'x' }), 'refused', 'words with no number move nothing');
+  const set = applyMutations(st, [{ type: 'rel.set', name: 'Rias', p: '45', r: '−10', cause: 'the pages show her fond and wary' }]).state.relationships.Rias;
+  eq(set.p + '/' + set.r, '45/-10', 'a standing set, both axes read');
+  const later = applyMutations(st, [{ type: 'clock.advance', minutes: '20 minutes' }]).state;
+  eq(later.clock.minutes - st.clock.minutes, 20, 'the clock moves on “20 minutes”');
+});
+
+test('M654-3 THE SAME READING IN THE AUDITOR AND THE PLANS BOOK: a fault on the pages flagged “pages”:"true" is kept (it was dropped as no finding); a plan’s part reported done as “part 2” is done', async () => {
+  const { parseAuditorAnswer } = await import('../../js/agents/auditor.js');
+  const issue = (pages) => parseAuditorAnswer(JSON.stringify({ issues: [{ what: 'Page 12 has Rias at the stove though she left for the ferry on page 11', fix: 'she is gone; Tom stirs the pot', pages, mutations: [] }] })).issues[0];
+  for (const pages of [true, 'true', 'yes', 1, 'True']) eq(issue(pages).pages, true, 'a fault on the pages, flagged ' + JSON.stringify(pages));
+  for (const pages of [false, 'false', 'no', undefined, 0, '']) eq(issue(pages).pages, false, 'not one, flagged ' + JSON.stringify(pages));
+  const { readPlansAnswer } = await import('../../js/agents/plans.js');
+  const plan = { title: 'Mend the roof before the storm', by: 'Tom', goal: 'a dry kitchen', page: 'page 12', parts: [{ who: 'Tom', does: 'buys the tar' }, { who: 'Tom', does: 'borrows a ladder' }, { who: 'Tom', does: 'mends the roof' }] };
+  const read = readPlansAnswer(JSON.stringify({ new: [plan], progress: [{ title: 'Mend the roof before the storm', done: [1, 'part 2', '#3', 'done', 0], changed: [{ part: 'part 3', who: 'Tom', does: 'mends the roof with Jovan holding the ladder' }] }], closed: [] }));
+  eq(read.fresh[0].page, 12, 'the page a plan was made on, written “page 12”');
+  eq(read.progress[0].done.join(','), '1,2,3', 'parts reported done as 1, “part 2” and “#3” are done; a word and a zero are not');
+  eq(read.progress[0].changed[0].part, 3, 'and a changed part written “part 3” is part three');
+  eq(readPlansAnswer('I’m sorry, but I can’t help with that.'), null, 'a refusal is no answer, as before');
+});
