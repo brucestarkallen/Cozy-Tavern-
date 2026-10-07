@@ -16645,3 +16645,26 @@ the referee's answer and the ledger's door take a yes or a signed number from a 
 - GATES at m654-001 (one CPU), on the tree that was pushed: harness 1287/1287, walk 238/238, long play 9/9, lint 0 errors
   (178 warnings, as at m653), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, no scenario failing. (The
   tree before the auditor's flag and the plans book were added had passed the same gates, 1286 laws.)
+
+# M655 — the ledger audit, part twelve: the world agent's whole call
+The doors had been audited one at a time. This part drives the world agent END TO END (worldTurn, a stand-in model, a
+realistic answer with everything in it at once) to see the audit's cures on the live path, and what the whole shows
+that the parts did not.
+- ON THE LIVE PATH, as the parts left it: the agent is handed by name the one only last seen ("[ONLY LAST SEEN — where
+  did they go?]", M650) and the one with no whereabouts; its seat for her replaces the house's sighting; a seat in the
+  scene's own room — the ground written with its street address — walks Tom in instead of listing him elsewhere in it
+  (M647); a thread sent in other words moves the thread it is (M653); a thinner nature for Rias is dropped (M648); a
+  pressure given as one string is kept and "nothing new" is not (M648); an absent person's new knowledge is hers.
+- ONE NEW FAULT, seen only in the whole: MINUTES ON A ROAD THAT IS NOT TO HIM WERE AN ARRIVAL. The door keeps five
+  stances (toward, seeking, tense, busy, waiting) and DROPS any other word — "away", "leaving", "home" — but kept the
+  minutes that came with it; and minutes with no stance read, by M29's design, as an arrival at the scene. Claire,
+  seated "the north road, driving home", stance "away", 45 minutes: told to the storyteller as "arriving in about 45
+  minutes". A stance that is given and is no road to him now takes its minutes with it (apply.js offscreen.set).
+  Minutes with no stance at all are an arrival, as before — my first cut took those too and M29-3 failed on it; and my
+  second put the rule in the wording, where it never ran (the door had already dropped the word). It is at the door.
+- LAW (m588.mjs): M655-1 — the whole call, each of the above, and the arrival said for "toward", for no stance, never
+  for "away". 322 older laws that touch arrivals and seats stand.
+- NOT AUDITED YET — the handoff's list. The audit is not finished and this entry does not say it is.
+- version.js -> m655-001.
+- GATES at m655-001 (one CPU), on the tree that was pushed: harness 1288/1288, walk 238/238, long play 9/9, lint 0 errors
+  (178 warnings, as at m654), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, no scenario failing.

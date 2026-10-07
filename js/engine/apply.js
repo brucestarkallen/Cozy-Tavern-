@@ -886,7 +886,13 @@ const HANDLERS = {
     /* M456: ONLY SOMEONE ON THEIR WAY HAS AN ARRIVAL (the world agent's own law). M396 kept it off "busy" and "waiting"
      * only — so Rukia, at her desk in the 13th's barracks with "unresolved tension" and an ETA, read "due now" for
      * scene after scene: an arrival nothing would ever bring, told to the storyteller every page. "tense" stays put too. */
-    const etaMinutes = !STAYS_PUT.has(stance) && Number.isFinite(eta) && eta >= 0 ? Math.min(60 * 24 * 30, Math.round(eta)) : undefined;
+    /* M655 (the ledger audit, part twelve — the world agent's whole call): MINUTES ON A ROAD THAT IS NOT TO HIM ARE NOT AN
+     * ARRIVAL. A stance the house does not keep ("away", "leaving", "home") was dropped and its minutes KEPT — and
+     * minutes with no stance read as an arrival at the scene (M29): Claire, driving home with "45 minutes" on her seat,
+     * was told to the storyteller as "arriving in about 45 minutes". A stance that is given and is no road to him
+     * takes its minutes with it; a seat with minutes and no stance at all is an arrival, as before. */
+    const otherRoad = typeof m.stance === 'string' && m.stance.trim() !== '' && !stance;
+    const etaMinutes = !STAYS_PUT.has(stance) && !otherRoad && Number.isFinite(eta) && eta >= 0 ? Math.min(60 * 24 * 30, Math.round(eta)) : undefined;
     state.offscreen = seat(
       state.offscreen, key,
       { location, activity, agenda: capText(m.agenda, 1000), stance, etaMinutes },

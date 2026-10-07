@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m654-001)
+# Cozy Tavern — handoff for the next session (state at m655-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -114,9 +114,11 @@
   the door as it was).
   PART ELEVEN (M654): THE REFEREE'S RULING AND THE LEDGER'S DOOR AS MODELS WRITE A YES AND A NUMBER ("check":"true" was no
   check; "combat_ended":"true" ended nothing; a feeling's fall written "−4" was refused while its rises landed).
+  PART TWELVE (M655): THE WORLD AGENT END TO END (worldTurn with a stand-in answer: every door the audit touched, on the
+  live path — and one new fault: minutes on a road that is not to him read as an arrival at the scene).
   STILL TO AUDIT THE SAME WAY: the keeper's promotions and its self-audit's fixes with a stand-in (the layer of a
-  hundred lines, applyAuditFixes); the world agent's own answer end to end (a stand-in world agent: what it opens,
-  seats and says, through worldTurn); the auditor's remaining
+  hundred lines, applyAuditFixes); the scribe and the auditor end to end the way the world agent was (a stand-in
+  answer through scribeTurn / auditLedger with everything a model gets wrong at once); the auditor's remaining
   guards
   (auditor.js auditorScope: the ground, the hour, people.set, knowledge — feed each an ordinary case, as its leave and
   walk-in were); the referee's other answers (normalizeDuelAdj / normalizeBattleAdj / normalizeWarAdj, the condition

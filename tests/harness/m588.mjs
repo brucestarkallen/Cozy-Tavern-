@@ -963,3 +963,49 @@ test('M654-3 THE SAME READING IN THE AUDITOR AND THE PLANS BOOK: a fault on the 
   eq(read.progress[0].changed[0].part, 3, 'and a changed part written “part 3” is part three');
   eq(readPlansAnswer('I’m sorry, but I can’t help with that.'), null, 'a refusal is no answer, as before');
 });
+
+/* M655 — the ledger audit, part twelve: the world agent's whole call. */
+test('M655-1 THE WORLD AGENT, END TO END: it is handed by name the one only last seen and the one with no whereabouts; what it answers lands as the audit left each door — a sighting replaced, a seat in the scene’s own room walked in, a thread in other words moved, a thinner nature dropped, “nothing new” not kept — and minutes on a road that is not to him are no arrival', async () => {
+  const { worldTurn } = await import('../../js/agents/world.js');
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  const { seatNowWords } = await import('../../js/engine/offscreen.js');
+  const { db } = await import('../../js/store.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const rich = 'the ferryman\u2019s niece; quick, proud, counts every coin; will not be pitied';
+  const st = applyMutations({ ...emptyState(), page: 12 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen, 8 Mariner\u2019s Lane' }, { type: 'clock.set', year: 2025, month: 3, day: 3, hour: 21, minute: 40 },
+    ...['Jovan', 'Rias', 'Aunt Vera'].map((name) => ({ type: 'presence.enter', name })),
+    { type: 'people.set', name: 'Rias', field: 'core', text: rich }, { type: 'people.set', name: 'Aunt Vera', field: 'core', text: 'runs the house; brisk, unsentimental' },
+    { type: 'people.set', name: 'Tom', field: 'core', text: 'his cousin; slow to speak, quick to fix things' }, { type: 'people.set', name: 'Claire', field: 'core', text: 'drives the north road; owes nobody' },
+    ...['Rias', 'Aunt Vera', 'Tom', 'Claire'].map((name) => ({ type: 'rel.set', name, p: 30, cause: 'family and friends' })),
+    { type: 'presence.leave', name: 'Aunt Vera' }, { type: 'offscreen.set', name: 'Claire', location: 'the Bluebird Diner', activity: 'closing up' },
+    { type: 'thread.set', title: 'Tom\u2019s promise to fix the roof before the storm', owner: 'Tom', heat: 'hot', next: 'buy the tar' }]).state;
+  const story = await db.stories.create({ title: 'the world, end to end ' + Math.random() });
+  await saveState(story.id, st);
+  const answer = { mutations: [
+    { type: 'offscreen.set', name: 'Aunt Vera', location: 'upstairs in the Wells house', activity: 'asleep' },
+    { type: 'offscreen.set', name: 'Tom', location: 'Wells house kitchen', activity: 'waiting by the stove' },
+    { type: 'thread.set', title: 'Tom promised to fix the roof before the storm', owner: 'Tom', heat: 'hot', next: 'find a ladder' },
+    { type: 'people.set', name: 'Rias', field: 'core', text: 'a girl' },
+    { type: 'knowledge.add', name: 'Claire', fact: 'that the ferry was cancelled' },
+    { type: 'offscreen.set', name: 'Claire', location: 'the north road', activity: 'driving home', agenda: 'meaning to be back by dawn', etaMinutes: '45 minutes', stance: 'away' },
+  ], brief: { pressure: 'the storm is a day off', ripe: ['nothing new'], twb: { who: 'the harbour clerk', where: 'the harbour office', changed: 'counted the day\u2019s tickets twice and found one too many' }, voices: [] } };
+  const house = thinkingHouse({ answer: JSON.stringify(answer) });
+  await withHouse(house, () => worldTurn({ connection: HOUSES[0].conn, storyId: story.id, userText: 'I wait by the stove.', assistantText: '[Wells house kitchen, 8 Mariner\u2019s Lane — Monday, March 3, 2025 | 21:45 | rain | sweater | at the table]\n\nRias stirred the pot and said nothing.', stale: () => false }));
+  const sent = JSON.stringify(house.calls[0].body.messages);
+  assert(/Aunt Vera \[ONLY LAST SEEN — where did they go\?\]/.test(sent), 'she is handed over by name as only last seen');
+  assert(/Tom \[NO SEAT — seat them\]/.test(sent), 'and Tom as someone with no whereabouts');
+  const led = await loadState(story.id);
+  const seat = (n) => (led.offscreen[n] ? seatNowWords(led.offscreen[n], led.clock.minutes, { agenda: true, arrival: true }) : '(no note)');
+  eq(seat('Aunt Vera'), 'upstairs in the Wells house, asleep', 'the sighting is replaced by where she went');
+  eq(led.present.map((p) => p.name).join(', ') + ' / ' + seat('Tom'), 'Jovan, Rias, Tom / (no note)', 'Tom, seated in the scene’s own room, is in the scene — not elsewhere in it');
+  eq(led.threads.map((t) => t.title + ' → ' + t.next).join(' || '), 'Tom\u2019s promise to fix the roof before the storm → find a ladder', 'the thread said in other words is the thread, moved');
+  eq(led.characters.Rias.core, rich, 'who Rias is stands');
+  eq(JSON.stringify((led.knowledge.Claire || []).map((k) => k.fact)), JSON.stringify(['that the ferry was cancelled']), 'what an absent person learned is hers');
+  eq(JSON.stringify({ pressure: led.worldBrief.pressure, ripe: led.worldBrief.ripe, twb: led.worldBrief.twb.who }), JSON.stringify({ pressure: ['the storm is a day off'], ripe: [], twb: 'the harbour clerk' }), 'the world’s word: the one pressure, no “nothing new”, the window');
+  eq(seat('Claire'), 'the north road, driving home (meaning to be back by dawn)', 'driving home is not “arriving in about 45 minutes”');
+  /* a road to him still has its arrival; minutes with no stance at all are an arrival, as M29 made them */
+  const toward = applyMutations(led, [{ type: 'offscreen.set', name: 'Claire', location: 'the north road', activity: 'driving back', stance: 'toward', etaMinutes: '45 minutes' }]).state;
+  assert(/moving toward the main character, arriving in about 45 minutes/.test(seatNowWords(toward.offscreen.Claire, toward.clock.minutes, { arrival: true })), 'on her way to him: said, with its minutes read from “45 minutes”');
+  const bare = applyMutations(led, [{ type: 'offscreen.set', name: 'Claire', location: 'the north road', activity: 'driving', etaMinutes: 20 }]).state;
+  assert(/arriving in about 20 minutes/.test(seatNowWords(bare.offscreen.Claire, bare.clock.minutes, { arrival: true })), 'minutes and no stance: an arrival, as before');
+});
