@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m671-001)
+# Cozy Tavern — handoff for the next session (state at m672-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -146,6 +146,15 @@
   "true", "9/10", "+2 (high ground)" and "−1" with a real minus sign are how they come. Use the readers that exist:
   referee.js truthOf / signedOf / ratingOf, apply.js numberOf (M651, M654). When adding a field a model fills, feed its
   door the same value five ways before trusting it.
+- WHAT RUNS ON EVERY OPENING OF THE LEDGER MUST BE TIMED ON A LONG TALE (M672). loadState runs dozens of times a page. A repair
+  added to it in M665 cost 19 ms a time on a tale with 100 people and a full journal — no gate saw it, because every
+  gate's story is small. Anything added to loadState (state.js) or called from it: time it on /home/claude/probe-style
+  big ledgers (100+ people, 1,500 journal entries, names a letter apart) and compare with healGhosts (0.5 ms). Profile
+  before guessing — two guesses at the cause were wrong; the profiler named it in one run.
+- THE GATES ARE NOT THE WHOLE OF THE TESTS. tests/ holds 34 browser tests; audit/gates.sh runs 12. Before calling a build
+  finished, run the other 22 too (they pass at m672; ~12 minutes): append bigbook bootpull branchrefresh coat contrast
+  foldcrash guard housekeeper_rounds mend_marks migrate_checkpoints pagemark paint paint_coats paint_magma
+  perf_housekeeper perf_rooms pushretry recover relay twobrowsers twohands wipe.
 - THE BACKUP'S PROMISE IS A GATE (M670). His word for what a backup is: "I have all the information — when I import it, it's
   basically the original, like a Mac's Time Machine." Its SIZE is not his concern and is not to be "fixed" by keeping
   less: never thin, skip or summarise what a copy holds. audit/gates.sh now runs five tests of it against the real

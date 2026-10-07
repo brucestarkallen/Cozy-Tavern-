@@ -1359,3 +1359,13 @@ body.immersed .topbar { display: none; }
 .attach-file-chip { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0.5rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; color: var(--text); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* M668: four links at the bottom are wider than a phone on one line (measured: the whole page scrolled sideways) — they wrap */
 .composer-meta .meta-links { display: flex; flex-wrap: wrap; justify-content: flex-end; column-gap: 0.35rem; row-gap: 0.15rem; white-space: normal; min-width: 0; max-width: 100%; }
+
+/* M672 — A STORY ROW'S SMALL BUTTONS TAKE A FINGERTIP. Measured on a phone (390 px): each of a row's buttons was a box 23 × 10 px
+ * — the glyph is drawn taller than the box that takes the tap (line-height 0, and only the padding counts) — so a tap
+ * a few pixels high or low opened the story instead of renaming it. Nothing moves and nothing looks different: an
+ * unseen layer around each button takes the tap, about 32 px tall. (The shelf's own buttons were made finger-sized in
+ * M663; these are the rows under them.) */
+@media (max-width: 640px), (pointer: coarse) {
+  .story-item .story-mini { position: relative; }
+  .story-item .story-mini::after { content: ''; position: absolute; left: -1px; right: -1px; top: -11px; bottom: -11px; }
+}

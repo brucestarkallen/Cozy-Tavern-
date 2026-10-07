@@ -1563,7 +1563,7 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
     /* the lines BEFORE this one are its prior context, exactly as they were
      * when it was first written — never the lines that come after it */
     const before = { ...mem, nodes: (mem.nodes || []).filter((n) => n && Array.isArray(n.span) && n.span[1] < node.span[0]) };
-    const { raw, text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor(before, 1, keeperRecordCap(connection)) }), signal, pages.map((p) => String((p && p.text) || '')).join('\n'), renew); /* M666 */
+    const { text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor(before, 1, keeperRecordCap(connection)) }), signal, pages.map((p) => String((p && p.text) || '')).join('\n'), renew); /* M666 */
     if (!text) return { ok: false, why: 'the keeper gave nothing that is a line of the record, in ' + KEEPER_TRIES + ' tries' };
     mem = await loadMemory(storyId);
     const fresh = (mem.nodes || []).find((n) => n && n.id === nodeId);
@@ -1625,7 +1625,7 @@ export async function rereadMergedLine({ connection, storyId, lineId, signal, re
     const pages = history.slice(a, b + 1);
     if (!pages.length) return { ok: false, why: 'the pages behind that line are gone' };
     if (typeof renew === 'function') renew();
-    const { raw, text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor({ ...mem, nodes: [...older, ...made] }, 1, keeperRecordCap(connection)) }), signal, pages.map((p) => String((p && p.text) || '')).join('\n'), renew); /* M666 */
+    const { text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor({ ...mem, nodes: [...older, ...made] }, 1, keeperRecordCap(connection)) }), signal, pages.map((p) => String((p && p.text) || '')).join('\n'), renew); /* M666 */
     if (!text) return { ok: false, why: 'the keeper gave nothing that is a line of the record, in ' + KEEPER_TRIES + ' tries' };
     made.push(text === '(no new state)'
       ? { id: nodeId(), span: [a, b], text: '', level: 1, at: Date.now(), empty: true, whole: true }

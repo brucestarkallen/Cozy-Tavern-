@@ -17204,3 +17204,27 @@ M670 told him the one thing a copy did not hold: the words each page's storytell
 - GATES at m671-001 (one CPU), on the tree that was pushed: harness 1311/1311, walk 242/242, long play 9/9, lint 0 errors
   (186 warnings, as at m670), perf_send, holdsone, cutthinking, notes_layout, backup, backupdupes, restore_backup_unit,
   restore_zip, backup_fresh, backup_sent — EXIT 0 each, first run, no scenario failing.
+
+# M672 — "finish everything… the highest standard, no bugs, no regression": what a wider look found
+His line. Not a new ask — a demand that what was built be checked harder than the gates check it. What that found:
+- A SLOWDOWN I INTRODUCED IN M665 AND NO GATE SAW. partLookAlikes (the repair that parts two people once written as one) runs
+  on every opening of the ledger — dozens a page. Timed on a long tale (100 people, a full 1,500-change journal):
+  19 ms a time; the older repair beside it, 0.5 ms; the whole load 31 ms, most of it this. Every gate's story is small,
+  so every gate passed. Two guesses at the cause were wrong (the pair loop; the name folding); the CPU profiler named
+  it in one run: for every name a letter from another, it asked again whether today's rule would still mix them —
+  the same answer, every load. Fixed without changing what it finds (the laws of M665 pass unchanged):
+  - each name is prepared once, and the cheap question (is any page's name one letter from this one?) is asked first;
+  - A LEDGER ALREADY LOOKED AT IS PASSED BY until it changes — remembered by its journal's count and a mix of every
+    change's and every page's sizes (two different ledgers cannot look the same). Measured: the first look ~26 ms on
+    that pathological tale, every look after 0.003–0.7 ms; the whole load 31 -> 12 ms.
+- LOOSE ENDS OF MY OWN: three values read and never used in the keeper (M666), one function no longer called (this build).
+- A STORY ROW'S SMALL BUTTONS TAKE A FINGERTIP (chat.css): each was a box 23 × 10 px on a phone — said in M663, left. An unseen
+  layer around each takes the tap, ~32 px tall; nothing moves or looks different. tests/rowtap.py (real Chromium, 390
+  px, touch): a tap 8 px above or below each of the five reaches that button, the title still opens the story — and
+  with the style taken away the same test fails five times. A standing gate.
+- THE IN-APP HELP SAYS WHAT WAS ADDED (index.html): the bar's hide button and the light it wears; the shelf's + and the search's
+  scope; the paperclip's text files; "Try again" after a failed version; that the copy is the library as it stands
+  and holds what every page was sent.
+- A WIDER SWEEP: the 23 browser tests that are not part of the gates — the device's sync, two browsers, two hands on one
+  tale, recovery, a wipe, migration, the coats, the housekeeper's rounds — all EXIT 0 at this build.
+- version.js -> m672-001.
