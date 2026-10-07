@@ -16588,3 +16588,31 @@ with `await` come before a line that reads `.checked` or `.value`?) flagged twel
 - GATES at m652-001 (one CPU), on the tree that was pushed: harness 1281/1281, walk 238/238 (DOM-237 and DOM-238 among
   them), long play 9/9, lint 0 errors (178 warnings, as at m651), perf_send, holdsone, cutthinking, notes_layout — EXIT 0
   each. That is the run AFTER the pin handler was put back; the run before it failed M175, as told above.
+
+# M653 — the ledger audit, part ten: threads at the ledger's door, and the keeper end to end against a refusal
+Continuing M644–M651 by the same method.
+- THREADS AT THE DOOR (apply.js thread.set, world.js findThread / sameThreadTitle; one promise sent ten ways): a thread
+  is found "by sense" since M259 — every telling word of the shorter title in the longer — but a word was its letters:
+  "Tom's promise to fix the roof" and "Tom promised to fix the roof" were TWO threads; and once there were two, every
+  later wording ("Tom and the roof"; the first title again in another case, with a full stop) answered to both — "two
+  that both do match neither" — and opened ANOTHER. Four open threads for one promise, each read to the storyteller.
+  And a thread titled "None" was opened as one. Now: a word is its stem (promise / promised / promises; fix / fixing);
+  when several answer, the one in the very same words is it, and if they are all each other's twins the OLDEST is the
+  thread — moved, not copied again; threads that are not each other's twins ("…the letter from the bank", "…from
+  Claire") both answering a shorter title still match neither. "None", "N/A", "nothing new", "TBD" are no thread.
+  CLOSING TAKES THE COPIES WITH IT: where a tale already holds one thread as several, closing it closed ONE and the
+  rest stood open for ever; every twin of the closed thread goes with it, and the ledger's line says so ("with 2
+  copies of it"). The closing battery of M646 closes twelve of thirteen now (the reworded title too).
+- THE KEEPER, END TO END, AGAINST A MODEL THAT REFUSES ONE PAGE IN WORDS (maybeSummarize with a stand-in house — the live
+  path of M648's door): the apology is never a line of the record; the page is asked alone, the keeper is proven alive
+  ("a single word: ready"), the page is covered by the house WITHOUT words (M316/M330's own path, which had only ever
+  been reached by a blank), every other page has its line, the gap closes, and nothing of the apology rides to the
+  storyteller. Run against the door as it was before M648 the same law fails: the record's line is "I'm sorry, but I
+  can't help with summari…".
+- LAWS (m588.mjs): M653-1 (one thread however worded; two letters stay two; "None"; old copies — the oldest moves),
+  M653-2 (the keeper's whole run against the apology), M653-3 (a thread's copies close with it; a thread with none
+  closes as before). 294 older laws that touch threads and the record's own stand.
+- NOT AUDITED YET — the handoff's list. The audit is not finished and this entry does not say it is.
+- version.js -> m653-001.
+- GATES at m653-001 (one CPU), on the tree that was pushed: harness 1284/1284, walk 238/238, long play 9/9, lint 0 errors
+  (178 warnings, as at m652), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, no scenario failing.

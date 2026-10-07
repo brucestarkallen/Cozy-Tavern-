@@ -108,7 +108,18 @@ export function findThread(threads, title) {
    * one thread answers; two that both do match neither. */
   const hits = [];
   list.forEach((t, i) => { if (t && typeof t.title === 'string' && sameThreadTitle(t.title, title)) hits.push(i); });
-  return hits.length === 1 ? hits[0] : -1;
+  if (hits.length === 1) return hits[0];
+  if (hits.length > 1) {
+    /* M653: several answer. One that says it in the very same words is the one. Failing that, if they are all each
+     * other's twins (copies of one thread made before this was mended), the oldest is the thread — moved, not copied
+     * again. Threads that are NOT each other's twins ("…the letter from the bank", "…the letter from Claire") both
+     * answering a shorter title match neither, as before. */
+    const same = (a, b) => { const x = titleWords(a).all; const y = titleWords(b).all; return x.size === y.size && [...x].every((w) => y.has(w)); };
+    const very = hits.filter((i) => same(list[i].title, title));
+    if (very.length === 1) return very[0];
+    if (hits.every((i) => hits.every((j) => i === j || sameThreadTitle(list[i].title, list[j].title)))) return hits[0];
+  }
+  return -1;
 }
 
 const THREAD_STOP = new Set(['the', 'and', 'for', 'with', 'from', 'that', 'this', 'his', 'her', 'hers', 'their', 'about', 'into', 'over', 'will', 'what', 'who', 'was', 'are', 'has', 'have', 'had', 'its', 'not', 'but', 'out', 'off', 'onto', 'upon', 'after', 'before', 'him', 'she', 'they', 'them']);
@@ -125,7 +136,13 @@ function titleWords(t) {
   for (const raw of tokens) {
     const low = raw.toLowerCase();
     if (low.length <= 2 || THREAD_STOP.has(low)) continue;
-    const w = low.length > 4 && low.endsWith('s') ? low.slice(0, -1) : low;
+    /* M653 (the ledger audit, part ten — one thread sent to the door ten ways): A WORD IS ITS STEM. "Tom's promise to fix
+     * the roof" and "Tom promised to fix the roof" were two threads — "promise" is not "promised" letter for letter —
+     * and once there were two, every later wording answered to both, "two that both do match neither", and opened
+     * another: four open threads for one promise, read to the storyteller as four. */
+    let w = low;
+    if (w.length > 4) w = w.replace(/(?:ing|ed|es|s)$/, '');
+    if (w.length > 4) w = w.replace(/e$/, '');
     all.add(w);
     if (raw[0] === raw[0].toLowerCase()) common.add(w);
   }

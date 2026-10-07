@@ -49,7 +49,7 @@ import { withoutStandingNumbers, setPersonField, findPersonKey, mergeDeltas, sam
 import { samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
-import { setThread, closeThread, findThread, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES, sameFact, factKey, brokenOff } from './world.js'; /* M29: the world beyond the page */
+import { setThread, closeThread, findThread, sameThreadTitle, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES, sameFact, factKey, brokenOff } from './world.js'; /* M29: the world beyond the page */
 /* M456: the stances that stay where they are — no arrival ever rides them (a seat with no stance keeps its ETA, M29) */
 const STAYS_PUT = new Set(['busy', 'waiting', 'tense']);
 
@@ -1016,6 +1016,7 @@ const HANDLERS = {
   'thread.set'(state, m) {
     const title = capText(m.title || m.name, 300);
     if (!title) return { why: 'a thread needs a title' };
+    if (/^(?:none|n\/?a|nil|null|nothing(?: new)?|no (?:thread|threads|new threads?)|untitled|title|tbd|todo)\.?$/i.test(title.trim())) return { why: '“' + title + '” is no thread' }; /* M653: "None" stood among the open threads */
     const heat = typeof m.heat === 'string' ? m.heat.trim().toLowerCase() : '';
     const before = Array.isArray(state.threads) ? state.threads.map((t) => (t && typeof t === 'object' ? { ...t } : t)) : [];
     const at = findThread(before, title);
@@ -1039,7 +1040,13 @@ const HANDLERS = {
     const at = findThread(before, title);
     if (at === -1) return { why: 'no thread called ' + title + ' is open' };
     state.threads = closeThread(state.threads, title);
-    return { words: 'A thread closed: ' + before[at].title.replace(/[.\s]+$/, '') + (/[?!]$/.test(before[at].title.trim()) ? '' : '.'), undo: { kind: 'threads.restore', before } }; /* M646: never "…boathouse?." */
+    /* M653: ITS COPIES CLOSE WITH IT. Before the door was mended one thread could stand as several ("Tom's promise…", "Tom
+     * promised…", "Tom and the roof"): closing it closed ONE, and the others stood open for ever. Every other thread
+     * that is the closed one's twin by sense goes with it. */
+    const closedTitle = before[at].title;
+    const twins = (Array.isArray(state.threads) ? state.threads : []).filter((t) => t && typeof t.title === 'string' && sameThreadTitle(t.title, closedTitle));
+    if (twins.length) state.threads = state.threads.filter((t) => !twins.includes(t));
+    return { words: 'A thread closed: ' + closedTitle.replace(/[.\s]+$/, '') + (twins.length ? ' (with ' + twins.length + (twins.length === 1 ? ' copy' : ' copies') + ' of it)' : '') + (/[?!]$/.test(closedTitle.trim()) && !twins.length ? '' : '.'), undo: { kind: 'threads.restore', before } }; /* M646: never "…boathouse?." */
   },
 
   /* M272: A FACT LET GO — one the person does not know after all, or a copy

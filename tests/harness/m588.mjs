@@ -842,3 +842,73 @@ test('M651-1 A RATING IS READ AS ITS NUMBER, HOWEVER IT IS WRITTEN: “9/10”, 
   eq((adj.duel_start || adj.battle_start || {}).rating ?? (adj.battle_start || {}).oppEstimate, 9, 'and at the start of a duel');
   eq(normalizeAdj({ check: true, action: 'I cut at him', opponent_rating: 'unknown' }, st).opponent_rating, null, 'no number: unknown, as before');
 });
+
+/* M653 — the ledger audit, part ten: threads at the ledger's door. */
+test('M653-1 ONE THREAD, HOWEVER IT IS WORDED AGAIN: the same promise sent in other words, shorter, in another case or with a new next step MOVES the thread it is — never a second, third and fourth copy; two different threads stay two; “None” is no thread', () => {
+  let st = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }]).state;
+  const go = (m) => { const r = applyMutations({ ...st, page: st.page + 1 }, [m]); st = r.state; return r.applied[0] ? r.applied[0].words : 'refused: ' + r.rejected[0].why; };
+  assert(/^A thread opened/.test(go({ type: 'thread.set', title: 'Tom’s promise to fix the roof before the storm', owner: 'Tom', heat: 'hot', next: 'buy the tar' })), 'it opens');
+  for (const [title, next] of [['Tom promised to fix the roof before the storm', 'find a ladder'], ['Tom and the roof', 'borrow a ladder'], ['tom’s promise to fix the roof before the storm.', 'climb up before dark'], ['“Tom’s promises to fix the roof before the storms”', 'start at the chimney']]) {
+    assert(/^A thread moved/.test(go({ type: 'thread.set', title, owner: 'Tom', heat: 'hot', next })), 'the same thread, moved: ' + title);
+    eq(st.threads.length, 1, 'still one thread');
+  }
+  eq(st.threads[0].title + ' → ' + st.threads[0].next, 'Tom’s promise to fix the roof before the storm → start at the chimney', 'under the title it was opened with, at its newest step');
+  assert(/^A thread opened/.test(go({ type: 'thread.set', title: 'Rias and the letter from the bank', owner: 'Rias', heat: 'hot', next: 'open it' })), 'another thread opens');
+  assert(/^A thread opened/.test(go({ type: 'thread.set', title: 'Rias and the letter from Claire', owner: 'Rias', heat: 'hot', next: 'hide it' })), 'and a third, with a word of its own');
+  assert(/^A thread opened/.test(go({ type: 'thread.set', title: 'Rias and the letter', owner: 'Rias', heat: 'hot' })), 'a title that could be either of two is neither — its own thread, as before');
+  eq(st.threads.length, 4, 'four threads: the roof, two letters, and the one that named neither');
+  for (const title of ['None', 'N/A', 'nothing new', 'No thread', 'TBD']) assert(/is no thread/.test(go({ type: 'thread.set', title, heat: 'cold' })), '“' + title + '” is no thread');
+  eq(st.threads.length, 4, 'and none of them was written');
+  /* copies made before this was mended: a new wording moves the oldest of them instead of making one more */
+  let old = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }]).state;
+  old.threads = [{ title: 'Tom’s promise to fix the roof before the storm', owner: 'Tom', heat: 'hot', next: 'buy the tar', atTurn: 3 }, { title: 'Tom promised to fix the roof before the storm', owner: 'Tom', heat: 'hot', next: 'find a ladder', atTurn: 4 }, { title: 'Tom and the roof', owner: 'Tom', heat: 'hot', next: 'x', atTurn: 5 }];
+  const r = applyMutations(old, [{ type: 'thread.set', title: 'Tom fixing the roof', owner: 'Tom', heat: 'hot', next: 'up the ladder at last' }]);
+  eq(r.state.threads.length + ' | ' + r.state.threads[0].next, '3 | up the ladder at last', 'the oldest copy is the thread that moves; no fourth is made');
+  assert(/A thread closed/.test(applyMutations(st, [{ type: 'thread.close', title: 'Tom promised to fix the roof' }]).applied[0].words), 'and closing it in other words closes it');
+});
+
+test('M653-2 A KEEPER THAT REFUSES IN WORDS, END TO END (M648’s door, through the keeper’s whole run): the page its model will only apologise for is never recorded as that apology — it is asked alone, the keeper is proven alive, the page is covered without words, and the record moves on; nothing of the apology reaches the storyteller', async () => {
+  const { maybeSummarize, loadMemory, dueRange, cleanWindow, cleanBatch, visiblePages, recordFor } = await import('../../js/agents/memory.js');
+  const { db } = await import('../../js/store.js');
+  const sse = (pieces) => { const t = pieces.map((p) => 'data: ' + JSON.stringify(p) + '\n\n').join('') + 'data: [DONE]\n\n'; return { ok: true, status: 200, headers: new Headers(), body: new Response(t).body, text: async () => t }; };
+  const say = (text) => sse([{ choices: [{ delta: { content: text } }] }, { choices: [{ delta: {}, finish_reason: 'stop' }] }]);
+  const SORRY = 'I’m sorry, but I can’t help with summarizing this content.';
+  const asked = [];
+  const f = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    const user = String(body.messages[body.messages.length - 1].content || '');
+    asked.push(user.slice(0, 60));
+    if (/single word: ready/.test(user)) return say('ready');
+    if (/THE FORBIDDEN PAGE/.test(user)) return say(SORRY);                      /* a refusal in words, not a blank */
+    return say('Jovan and Liara talked on the porch; the street went quiet; she asked him to stay for the fair.');
+  };
+  const DS = { type: 'openai', baseUrl: 'https://api.deepseek.com/v1', apiKey: 'k', model: 'deepseek-chat', reasoning: { effort: 'off' } };
+  const keptWindow = await db.settings.get('memoryWindow'); const keptBatch = await db.settings.get('memoryBatch');
+  await db.settings.set('memoryWindow', 4); await db.settings.set('memoryBatch', 6);
+  const st = await db.stories.create({ title: 'a keeper that says sorry' });
+  for (let i = 0; i < 20; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: i === 1 ? '[The Wells house — Friday | 20:40]\n\nTHE FORBIDDEN PAGE: what happened on the porch.' : (i % 2 ? '[The Wells house — Friday | 20:4' + (i % 10) + ']\n\nLiara leaned on the rail and the street went quiet. Page ' + i + '.' : 'I stay a while longer. ' + i) });
+  const gap = async () => { const mem = await loadMemory(st.id); return dueRange(visiblePages(await db.messages.list(st.id)).length, cleanWindow(4), mem.nodes, cleanBatch(6)); };
+  const prior = globalThis.fetch; globalThis.fetch = f;
+  try {
+    for (let i = 0; i < 8 && (await gap()); i += 1) await maybeSummarize({ connection: { ...DS }, storyId: st.id, stale: () => false, renew: () => true });
+    const mem = await loadMemory(st.id);
+    eq(await gap(), null, 'no gap is left: the record moved past the page');
+    assert(!mem.nodes.some((n) => /sorry|can’t help|can't help|summariz/i.test(String(n.text || ''))), 'no line of the record is the apology: ' + JSON.stringify(mem.nodes.map((n) => String(n.text || '').slice(0, 40))));
+    const covered = mem.nodes.find((n) => n.span[0] <= 1 && n.span[1] >= 1);
+    assert(covered && covered.byHouse === true && covered.text === '', 'the page it would only apologise for is covered by the house, without words: ' + JSON.stringify(covered));
+    assert(asked.some((u) => /single word: ready/.test(u)), 'only after the keeper was proven to answer at all');
+    assert(mem.nodes.filter((n) => !n.byHouse).length >= 2 && mem.nodes.filter((n) => n.byHouse).length === 1, 'every other page has its own line: ' + JSON.stringify(mem.nodes.map((n) => n.span)));
+    assert(!/sorry|can’t help|summariz/i.test(recordFor(mem, 1, 100000)), 'and nothing of it rides to the storyteller');
+  } finally { globalThis.fetch = prior; if (keptWindow === undefined) await db.settings.delete('memoryWindow'); else await db.settings.set('memoryWindow', keptWindow); if (keptBatch === undefined) await db.settings.delete('memoryBatch'); else await db.settings.set('memoryBatch', keptBatch); }
+});
+
+test('M653-3 A THREAD’S COPIES CLOSE WITH IT: where one thread stood as several (made before the door was mended), closing it closes them all — and leaves every other thread open', () => {
+  const st = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }]).state;
+  st.threads = [{ title: 'Tom’s promise to fix the roof before the storm', owner: 'Tom', heat: 'hot', next: 'buy the tar', atTurn: 3 }, { title: 'Tom promised to fix the roof before the storm', owner: 'Tom', heat: 'hot', next: 'find a ladder', atTurn: 4 },
+    { title: 'Tom and the roof', owner: 'Tom', heat: 'hot', next: 'x', atTurn: 5 }, { title: 'Who broke into the boathouse?', owner: 'Jovan', heat: 'hot', next: 'ask the harbourmaster', atTurn: 5 }, { title: 'Rias and the letter from the bank', owner: 'Rias', heat: 'hot', atTurn: 6 }];
+  const r = applyMutations(st, [{ type: 'thread.close', title: 'Tom’s promise to fix the roof before the storm' }]);
+  eq(r.state.threads.map((t) => t.title).join(' | '), 'Who broke into the boathouse? | Rias and the letter from the bank', 'the roof is closed whole; the boathouse and the letter stand');
+  assert(/A thread closed: Tom’s promise to fix the roof before the storm \(with 2 copies of it\)\./.test(r.applied[0].words), 'and the ledger says so: ' + r.applied[0].words);
+  const one = applyMutations(st, [{ type: 'thread.close', title: 'Who broke into the boathouse' }]);
+  eq(one.state.threads.length + ' | ' + one.applied[0].words, '4 | A thread closed: Who broke into the boathouse?', 'a thread with no copies closes alone, worded as before');
+});

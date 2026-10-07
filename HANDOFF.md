@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m652-001)
+# Cozy Tavern — handoff for the next session (state at m653-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -108,8 +108,13 @@
   unruled, 6 of 23 quiet moves sent; on a second, unseen battery 18 of 28 and 24 of 34 — now 0 and 1), A SIGHTING
   HANDED TO THE WORLD AGENT BY NAME. Known and left: "her charming smile" still arms the gate (a verb's own form used
   as an adjective).
-  STILL TO AUDIT THE SAME WAY: the keeper's fold run end to end with a stand-in keeper (the window's edge, promotions,
-  the self-audit's fixes); the world agent's threads (its prompt and a stand-in answer); the auditor's remaining guards
+  PART TEN (M653): THREADS AT THE DOOR (one promise sent five ways was four threads; "None" was a thread; a thread's old
+  copies now close with it), and THE KEEPER END TO END against a model that refuses a page in words (M648's door through
+  maybeSummarize: no apology in the record, the page covered without words, the record moves on — and the law fails on
+  the door as it was).
+  STILL TO AUDIT THE SAME WAY: the keeper's promotions and its self-audit's fixes with a stand-in (the layer of a
+  hundred lines, applyAuditFixes); the world agent's own answer end to end (a stand-in world agent: what it opens,
+  seats and says, through worldTurn); the auditor's remaining guards
   (auditor.js auditorScope: the ground, the hour, people.set, knowledge — feed each an ordinary case, as its leave and
   walk-in were); the referee's other answers (normalizeDuelAdj / normalizeBattleAdj / normalizeWarAdj, the condition
   and composure changes: what a model's odd adjudication becomes) and when a seeding is due (seedDue).
