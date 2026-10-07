@@ -601,6 +601,151 @@ export function resolveDescriptor(state, name) {
 }
 
 
+/* M665 — HIS: "can it be done smartly, safely and autonomous or not?" — TWO PEOPLE WRITTEN AS ONE, PARTED ON LOAD. Before
+ * M646 a name one letter from another's was taken for a slip of it: what a worker wrote for "Lara" was written on
+ * KARA's page — her nature over Kara's, her knowledge in Kara's book, her seat in Kara's place. M646 stopped it; what
+ * was already written stayed mixed. THE JOURNAL KEEPS EACH CHANGE AS THE WORKER WROTE IT, name and all (the last 1,500),
+ * so the mixing can be read back and undone without a model and without a guess:
+ *   - WHO: a name the workers wrote on two pages or more, that today's rule keeps apart from every page, with exactly
+ *     ONE page a single letter away from it — and that page's own name written on two pages or more too. Two names the
+ *     workers each used again and again are two people, not a slip.
+ *   - WHAT MOVES: only what the journal shows was written FOR the second name and still stands on the first's page in
+ *     the very same words — a nature, an arc or a now (the first's own latest is put back, or the field left empty for
+ *     the scribe, who is asked by name for whoever has none); loose ends; what she knows; what is true of her; a wound;
+ *     the seat, when the last whereabouts written was hers. Anything rewritten since is left where it is.
+ *   - WHAT DOES NOT: the standing. How far each beat moved it was worked out at the time (the governor, the caps), so the
+ *     second person's share cannot be taken back out of the first's number. The second person has none after this and is
+ *     asked for by name on the next page she is on (M641); the first keeps the number it has.
+ * Pure, like healGhosts: the state it is handed, mended in place; `parted` (on the state, not saved) says who. */
+function oneLetterApart(a, b) {
+  if (a === b) return false;
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i += 1;
+  if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1);
+  return a.length > b.length ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
+}
+function lookAlikeNames(x, y) {
+  const a = foldName(x).split(' ').filter(Boolean); const b = foldName(y).split(' ').filter(Boolean);
+  if (!a.length || a.length !== b.length) return false;
+  let apart = 0;
+  for (let i = 0; i < a.length; i += 1) { if (a[i] === b[i]) continue; if (!oneLetterApart(a[i], b[i])) return false; apart += 1; }
+  return apart === 1;
+}
+const WRITTEN_FOR_A_PERSON = /^(?:people\.(?:set|note)|knowledge\.add|canon\.lock|body\.injure|offscreen\.set|rel\.(?:set|shift)|presence\.(?:enter|update))$/;
+export function partLookAlikes(state) {
+  const s = state && typeof state === 'object' ? state : {};
+  const chars = s.characters && typeof s.characters === 'object' ? s.characters : {};
+  const journal = Array.isArray(s.journal) ? s.journal : [];
+  if (!journal.length || !Object.keys(chars).length) return s;
+  const same = (a, b) => String(a || '').trim().replace(/\s+/g, ' ').toLowerCase() === String(b || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const given = new Map();
+  for (const e of journal) {
+    const m = e && e.m;
+    if (!m || typeof m.name !== 'string' || !WRITTEN_FOR_A_PERSON.test(String(m.type))) continue;
+    const name = m.name.trim().replace(/\s+/g, ' ');
+    if (!name) continue;
+    const k = name.toLowerCase();
+    if (!given.has(k)) given.set(k, { name, pages: new Set(), entries: [] });
+    given.get(k).pages.add(e.p); given.get(k).entries.push(e);
+  }
+  const parted = [];
+  for (const g of given.values()) {
+    const G = g.name;
+    if (g.pages.size < 2 || isMcAlias(s, G)) continue;
+    const own = Object.keys(chars).find((k) => same(k, G)) || '';
+    if (!own && findPersonKey(chars, G)) continue; /* today's rule already finds a page for it: nothing was mixed by a slip */
+    const near = Object.keys(chars).filter((K) => !same(K, G) && lookAlikeNames(K, G) && !findPersonKey({ [K]: emptyPerson() }, G) && !isMcAlias(s, K));
+    if (near.length !== 1) continue;
+    const K = near[0];
+    const kGiven = given.get(K.toLowerCase());
+    if (!kGiven || kGiven.pages.size < 2) continue;
+    /* what was written for G before G had a page of her own landed on K */
+    const since = own && Number.isFinite(chars[own].firstSeenTurn) ? chars[own].firstSeenTurn : Infinity;
+    const hers = g.entries.filter((e) => !Number.isFinite(e.b) || e.b < since);
+    if (!hers.length) continue;
+    const his = kGiven.entries;
+    const latest = (list, type, field) => { for (let i = list.length - 1; i >= 0; i -= 1) { const m = list[i].m; if (m.type === type && (!field || m.field === field) && typeof m.text === 'string' && m.text.trim()) return m.text.trim(); } return ''; };
+    const page = chars[K];
+    let moved = 0;
+    const mine = own ? chars[own] : emptyPerson();
+    for (const field of ['core', 'arc', 'state']) {
+      const text = latest(hers, 'people.set', field);
+      if (!text || !same(page[field], text)) continue; /* rewritten since: left where it is */
+      if (!mine[field]) mine[field] = page[field];
+      page[field] = latest(his, 'people.set', field);
+      moved += 1;
+    }
+    const herEnds = hers.filter((e) => e.m.type === 'people.note' && e.m.field === 'thread' && typeof e.m.text === 'string').map((e) => e.m.text.trim());
+    const hisEnds = his.filter((e) => e.m.type === 'people.note' && e.m.field === 'thread' && typeof e.m.text === 'string').map((e) => e.m.text.trim());
+    if (Array.isArray(page.threads) && herEnds.length) {
+      const go = page.threads.filter((t) => herEnds.some((x) => same(x, t)) && !hisEnds.some((x) => same(x, t)));
+      if (go.length) { page.threads = page.threads.filter((t) => !go.includes(t)); mine.threads = [...(Array.isArray(mine.threads) ? mine.threads : []), ...go.filter((t) => !(mine.threads || []).some((x) => same(x, t)))].slice(-THREADS_MAX); moved += go.length; }
+    }
+    const key = own || G;
+    /* what she knows */
+    const know = s.knowledge && typeof s.knowledge === 'object' ? s.knowledge : (s.knowledge = {});
+    const kKnow = Object.keys(know).find((n) => same(n, K));
+    if (kKnow && Array.isArray(know[kKnow])) {
+      const herFacts = hers.filter((e) => e.m.type === 'knowledge.add' && typeof e.m.fact === 'string').map((e) => e.m.fact);
+      const hisFacts = his.filter((e) => e.m.type === 'knowledge.add' && typeof e.m.fact === 'string').map((e) => e.m.fact);
+      const go = know[kKnow].filter((line) => line && herFacts.some((f) => same(f, line.fact)) && !hisFacts.some((f) => same(f, line.fact)));
+      if (go.length) {
+        know[kKnow] = know[kKnow].filter((line) => !go.includes(line));
+        if (!know[kKnow].length) delete know[kKnow];
+        const gKnow = Object.keys(know).find((n) => same(n, key)) || key;
+        know[gKnow] = [...(Array.isArray(know[gKnow]) ? know[gKnow] : []), ...go.filter((line) => !(know[gKnow] || []).some((x) => x && same(x.fact, line.fact)))];
+        moved += go.length;
+      }
+    }
+    /* what is true of her */
+    const canon = s.canon && typeof s.canon === 'object' ? s.canon : (s.canon = {});
+    const kCanon = Object.keys(canon).find((n) => same(n, K));
+    if (kCanon && canon[kCanon] && Array.isArray(canon[kCanon].facts)) {
+      const herLocks = hers.filter((e) => e.m.type === 'canon.lock').map((e) => e.m);
+      const hisLocks = his.filter((e) => e.m.type === 'canon.lock').map((e) => e.m);
+      const go = canon[kCanon].facts.filter((f) => f && f.source !== 'canon' && herLocks.some((l) => same(l.key, f.key) && same(l.value, f.value)) && !hisLocks.some((l) => same(l.key, f.key) && same(l.value, f.value)));
+      if (go.length) {
+        canon[kCanon].facts = canon[kCanon].facts.filter((f) => !go.includes(f));
+        if (!canon[kCanon].facts.length) delete canon[kCanon];
+        const gCanon = Object.keys(canon).find((n) => same(n, key)) || key;
+        if (!canon[gCanon] || !Array.isArray(canon[gCanon].facts)) canon[gCanon] = { facts: [] };
+        for (const f of go) if (!canon[gCanon].facts.some((x) => x && same(x.key, f.key))) canon[gCanon].facts.push(f);
+        moved += go.length;
+      }
+    }
+    /* a wound */
+    const bodies = s.bodies && typeof s.bodies === 'object' ? s.bodies : (s.bodies = {});
+    const kBody = Object.keys(bodies).find((n) => same(n, K));
+    if (kBody && bodies[kBody] && Array.isArray(bodies[kBody].injuries)) {
+      const herWounds = hers.filter((e) => e.m.type === 'body.injure' && typeof e.m.what === 'string').map((e) => e.m.what);
+      const hisWounds = his.filter((e) => e.m.type === 'body.injure' && typeof e.m.what === 'string').map((e) => e.m.what);
+      const go = bodies[kBody].injuries.filter((i) => i && herWounds.some((w) => same(w, i.what)) && !hisWounds.some((w) => same(w, i.what)));
+      if (go.length) {
+        bodies[kBody].injuries = bodies[kBody].injuries.filter((i) => !go.includes(i));
+        const gBody = Object.keys(bodies).find((n) => same(n, key)) || key;
+        if (!bodies[gBody] || typeof bodies[gBody] !== 'object') bodies[gBody] = { injuries: [], strain: [] };
+        if (!Array.isArray(bodies[gBody].injuries)) bodies[gBody].injuries = [];
+        bodies[gBody].injuries.push(...go);
+        moved += go.length;
+      }
+    }
+    /* the seat, when the last whereabouts written was hers and still stands */
+    const off = s.offscreen && typeof s.offscreen === 'object' ? s.offscreen : (s.offscreen = {});
+    const kSeat = Object.keys(off).find((n) => same(n, K));
+    if (kSeat && off[kSeat] && typeof off[kSeat].location === 'string') {
+      const seats = [...hers.map((e) => ({ e, hers: true })), ...his.map((e) => ({ e, hers: false }))].filter((x) => x.e.m.type === 'offscreen.set' && typeof x.e.m.location === 'string').sort((a, b) => (a.e.id || 0) - (b.e.id || 0));
+      const last = seats[seats.length - 1];
+      if (last && last.hers && same(last.e.m.location, off[kSeat].location) && !Object.keys(off).some((n) => same(n, key))) { off[key] = off[kSeat]; delete off[kSeat]; moved += 1; }
+    }
+    if (!moved) continue;
+    if (!own) { mine.firstSeenTurn = hers.reduce((n, e) => (Number.isFinite(e.b) ? Math.min(n, e.b) : n), Infinity); if (!Number.isFinite(mine.firstSeenTurn)) delete mine.firstSeenTurn; mine.updatedAtTurn = storyTurn(s); chars[G] = mine; }
+    parted.push({ from: K, to: key, moved });
+  }
+  if (parted.length) Object.defineProperty(s, 'parted', { value: parted, enumerable: false, configurable: true });
+  return s;
+}
+
 /* M485: THE GHOSTS ALREADY IN THE LEDGER, FOLDED ON LOAD. Before M482/M484 a relation ("Jovan's stepsister"), a role
  * ("The news drone operator") or a crowd ("the onlookers behind the taped line") could be a page of its own beside the
  * person, or beside nobody. On load: a page whose name resolves to another page is folded into it — its loose ends

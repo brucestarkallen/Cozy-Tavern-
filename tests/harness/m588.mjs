@@ -1444,3 +1444,83 @@ test('M664-1 A WORKER’S VIEW FITS ITS ROOM IN A VERY LONG TALE: a hundred peop
   };
   for (const [who, [was, now]] of Object.entries(sizes)) assert(now < was && now <= room * 0.6, 'the ' + who + '’s request for a 64k worker: ' + now + ' characters (it was ' + was + '); its room is ' + room);
 });
+
+/* M665 — his: "can it be done smartly, safely and autonomous or not?" (the old damage I had said the house does not repair). */
+test('M665-1 TWO PEOPLE WRITTEN AS ONE ARE PARTED WHEN THE STORY IS OPENED: what the journal shows was written for “Lara” and still stands, in the same words, on Kara’s page — her nature, a loose end, what she knows, what is true of her, a wound, her seat — goes to a page of her own, and Kara’s own nature is put back; a single slip, a name written once, and anything rewritten since are left alone; a second opening changes nothing', async () => {
+  const { partLookAlikes } = await import('../../js/engine/people.js');
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  /* the ledger as the old slip-rule left it: what was written for Lara landed on Kara's page; the journal kept her name */
+  const asWritten = (st, page, muts, forName) => {
+    const before = st.journal.length;
+    const r = applyMutations({ ...st, page }, muts.map((m) => (forName ? { ...m, name: 'Kara' } : m)));
+    if (forName) r.state.journal.slice(before).forEach((e) => { if (e.m && e.m.name === 'Kara') e.m.name = forName; });
+    return r.state;
+  };
+  let st = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Bruce' }, { type: 'place.set', name: 'The Batcave' }, { type: 'presence.enter', name: 'Bruce' }]).state;
+  st = asWritten(st, 2, [{ type: 'people.set', name: 'Kara', field: 'core', text: 'Supergirl; bright, nosy, quick to laugh' }, { type: 'rel.set', name: 'Kara', p: 40, cause: 'years of trust' }, { type: 'canon.lock', name: 'Kara', key: 'hair', value: 'blonde, long' }]);
+  st = asWritten(st, 3, [{ type: 'knowledge.add', name: 'Kara', fact: 'that Bruce called Clark at midnight' }, { type: 'people.note', name: 'Kara', field: 'thread', text: 'Wants to know why Bruce called.' }]);
+  st = asWritten(st, 4, [{ type: 'people.set', name: 'Kara', field: 'core', text: 'Clark’s mother; calm, exact, a scientist of Krypton' }, { type: 'knowledge.add', name: 'Kara', fact: 'that the crystal holds Jor-El’s last message' }, { type: 'canon.lock', name: 'Kara', key: 'eyes', value: 'dark brown' }], 'Lara');
+  st = asWritten(st, 5, [{ type: 'people.note', name: 'Kara', field: 'thread', text: 'Means to tell Clark about the crystal.' }, { type: 'body.injure', name: 'Kara', what: 'a burned left hand', sev: 1 }, { type: 'offscreen.set', name: 'Kara', location: 'the Fortress archive', activity: 'reading the crystal' }], 'Lara');
+  eq(st.characters.Kara.core + ' | ' + Boolean(st.characters.Lara), 'Clark’s mother; calm, exact, a scientist of Krypton | false', 'fixture: Lara’s nature stands on Kara’s page and Lara has none');
+  const healed = partLookAlikes(JSON.parse(JSON.stringify(st)));
+  eq(healed.characters.Lara.core + ' | ' + JSON.stringify(healed.characters.Lara.threads), 'Clark’s mother; calm, exact, a scientist of Krypton | ["Means to tell Clark about the crystal."]', 'Lara has her own page: her nature and her loose end');
+  eq(healed.characters.Kara.core + ' | ' + JSON.stringify(healed.characters.Kara.threads), 'Supergirl; bright, nosy, quick to laugh | ["Wants to know why Bruce called."]', 'Kara’s own nature is put back, and her own loose end stays');
+  eq(JSON.stringify((healed.knowledge.Lara || []).map((k) => k.fact)) + ' | ' + JSON.stringify((healed.knowledge.Kara || []).map((k) => k.fact)), '["that the crystal holds Jor-El’s last message"] | ["that Bruce called Clark at midnight"]', 'each knows what was written for her');
+  eq(healed.canon.Lara.facts.map((f) => f.key + ': ' + f.value).join('; ') + ' | ' + healed.canon.Kara.facts.map((f) => f.key + ': ' + f.value).join('; '), 'eyes: dark brown | hair: blonde, long', 'each has her own looks');
+  eq((healed.bodies.Lara.injuries || []).map((i) => i.what).join() + ' | ' + ((healed.bodies.Kara && healed.bodies.Kara.injuries) || []).length, 'a burned left hand | 0', 'the wound is Lara’s');
+  eq(healed.offscreen.Lara.location + ' | ' + Boolean(healed.offscreen.Kara), 'the Fortress archive | false', 'the seat written last was hers; Kara has none (the world agent is asked for it by name)');
+  eq(healed.relationships.Kara.p + ' | ' + Boolean(healed.relationships.Lara), '40 | false', 'the standing is not parted — Kara keeps her number, Lara is asked for on her next page');
+  eq(JSON.stringify(healed.parted.map((p) => p.from + '→' + p.to)), '["Kara→Lara"]', 'and the state says who was parted');
+  const again = partLookAlikes(JSON.parse(JSON.stringify(healed)));
+  eq(JSON.stringify(again.characters) + JSON.stringify(again.knowledge) + JSON.stringify(again.canon), JSON.stringify(healed.characters) + JSON.stringify(healed.knowledge) + JSON.stringify(healed.canon), 'a second opening changes nothing');
+  /* through the door a story is really opened by */
+  await saveState('m665-parted', st);
+  const opened = await loadState('m665-parted');
+  eq(Boolean(opened.characters.Lara) + ' | ' + opened.characters.Kara.core, 'true | Supergirl; bright, nosy, quick to laugh', 'it happens when the story is opened');
+  /* left alone: a name written on one page only; a long name's slip; something rewritten since */
+  let once = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Bruce' }]).state;
+  once = asWritten(once, 2, [{ type: 'people.set', name: 'Kara', field: 'core', text: 'Supergirl; bright, nosy' }]);
+  once = asWritten(once, 3, [{ type: 'people.note', name: 'Kara', field: 'thread', text: 'Wants to know why.' }]);
+  once = asWritten(once, 4, [{ type: 'people.set', name: 'Kara', field: 'arc', text: 'Came to trust him.' }], 'Lara');
+  eq(Boolean(partLookAlikes(JSON.parse(JSON.stringify(once))).characters.Lara), false, 'a name the workers wrote on one page only is a slip, not a second person');
+  let rewritten = asWritten(st, 6, [{ type: 'people.set', name: 'Kara', field: 'core', text: 'Supergirl; bright, nosy, quick to laugh — and worried for Bruce' }]);
+  const kept = partLookAlikes(JSON.parse(JSON.stringify(rewritten)));
+  eq(kept.characters.Kara.core + ' | ' + (kept.characters.Lara ? kept.characters.Lara.core : 'no page'), 'Supergirl; bright, nosy, quick to laugh — and worried for Bruce | ', 'a nature rewritten since is left as it is (and Lara’s page, made from the rest, has none yet)');
+  let long = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Bruce' }]).state;
+  for (const [page, name] of [[2, 'Barbara'], [3, 'Barbara'], [4, 'Barbra'], [5, 'Barbra']]) long = applyMutations({ ...long, page }, [{ type: 'people.note', name, field: 'thread', text: 'Loose end of page ' + page + '.' }]).state;
+  eq(Object.keys(partLookAlikes(JSON.parse(JSON.stringify(long))).characters).join(), 'Barbara', 'a slip in a long name is one person, as today’s rule has it');
+});
+
+test('M665-2 A REFUSAL ALREADY SAVED AS A RECORD LINE IS TAKEN OUT WHEN THE RECORD IS OPENED, AND ITS PAGES ARE READ AGAIN: an apology kept as the line of six pages, and one kept as the merged line of twelve, are gone; the real lines, a page covered without words and a correction stand; the keeper’s next run fills the holes from the pages', async () => {
+  const { loadMemory, saveMemory, maybeSummarize, dueRange, cleanWindow, cleanBatch, visiblePages, isNoRecordLine } = await import('../../js/agents/memory.js');
+  const { db } = await import('../../js/store.js');
+  for (const t of ['I’m sorry, but I can’t help with summarizing this content.', 'Could you provide the passage you would like summarized?', 'I cannot assist with that request.', 'As an AI, I must decline.']) eq(isNoRecordLine(t), true, 'no line: ' + t);
+  for (const t of ['Jovan and Liara talked on the porch; the street went quiet; she asked him to stay.', '“I’m sorry,” Rias said; Jovan paid the fare; they walked to the ferry; Tom mended the roof.', '(no new state)', '']) eq(isNoRecordLine(t), false, 'a line (or nothing): ' + JSON.stringify(t));
+  const sse = (pieces) => { const t = pieces.map((p) => 'data: ' + JSON.stringify(p) + '\n\n').join('') + 'data: [DONE]\n\n'; return { ok: true, status: 200, headers: new Headers(), body: new Response(t).body, text: async () => t }; };
+  const say = (text) => sse([{ choices: [{ delta: { content: text } }] }, { choices: [{ delta: {}, finish_reason: 'stop' }] }]);
+  const keptWindow = await db.settings.get('memoryWindow'); const keptBatch = await db.settings.get('memoryBatch');
+  await db.settings.set('memoryWindow', 4); await db.settings.set('memoryBatch', 6);
+  const st = await db.stories.create({ title: 'a record with an apology in it ' + Math.random() });
+  for (let i = 0; i < 40; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: i % 2 ? '[The Wells house — Friday | 20:4' + (i % 10) + ']\n\nLiara leaned on the rail and the street went quiet. Page ' + i + '.' : 'I stay a while longer. ' + i });
+  await saveMemory(st.id, { window: 4, nodes: [
+    { id: 'a', span: [0, 5], text: 'Jovan came home; Liara met him on the porch; the street was quiet.', level: 1, at: 1 },
+    { id: 'b', span: [6, 11], text: 'I’m sorry, but I can’t help with summarizing this content.', level: 1, at: 2 },
+    { id: 'c', span: [12, 23], text: 'I cannot assist with that request.', level: 2, at: 3 },
+    { id: 'd', span: [24, 29], text: 'They talked until the lamps went out; she asked him to stay for the fair.', level: 1, at: 4 },
+    { id: 'e', span: [30, 30], text: '', level: 1, at: 5, empty: true, byHouse: true },
+    { id: 'f', span: [-1, -1], text: '[Correction] Liara is his neighbour, not his cousin.', level: 1, at: 6, correction: true },
+  ] });
+  const opened = await loadMemory(st.id);
+  eq(opened.nodes.map((n) => n.id).join(','), 'a,d,e,f', 'the two apologies are out; the real lines, the page covered without words and the correction stand');
+  eq(JSON.stringify(dueRange(visiblePages(await db.messages.list(st.id)).length, cleanWindow(4), opened.nodes, cleanBatch(6))), '[6,12]', 'and their pages stand uncovered, to be read again');
+  const prior = globalThis.fetch;
+  globalThis.fetch = async (url, opts) => { const user = String(JSON.parse(opts.body).messages.slice(-1)[0].content || ''); return say(/single word: ready/.test(user) ? 'ready' : /NONE, or one DETAIL/.test(user) ? 'NONE' : 'Jovan stayed on the porch with Liara; the street went quiet; nothing else moved.'); };
+  try {
+    const DS = { type: 'openai', baseUrl: 'https://api.deepseek.com/v1', apiKey: 'k', model: 'deepseek-chat', reasoning: { effort: 'off' } };
+    for (let i = 0; i < 10; i += 1) { const mem = await loadMemory(st.id); if (!dueRange(visiblePages(await db.messages.list(st.id)).length, cleanWindow(4), mem.nodes, cleanBatch(6))) break; await maybeSummarize({ connection: { ...DS }, storyId: st.id, stale: () => false, renew: () => true }); }
+    const mem = await loadMemory(st.id);
+    eq(dueRange(visiblePages(await db.messages.list(st.id)).length, cleanWindow(4), mem.nodes, cleanBatch(6)), null, 'the keeper’s own run fills the holes: no gap is left');
+    assert(!mem.nodes.some((n) => /sorry|cannot assist/i.test(String(n.text || ''))), 'and no apology is anywhere in the record');
+    assert(mem.nodes.some((n) => n.id === 'a') && mem.nodes.some((n) => n.correction), 'the lines that were real are the same lines');
+  } finally { globalThis.fetch = prior; if (keptWindow === undefined) await db.settings.delete('memoryWindow'); else await db.settings.set('memoryWindow', keptWindow); if (keptBatch === undefined) await db.settings.delete('memoryBatch'); else await db.settings.set('memoryBatch', keptBatch); }
+});

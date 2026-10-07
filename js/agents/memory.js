@@ -99,6 +99,8 @@ export async function loadMemory(storyId) {
   if (!saved || typeof saved !== 'object') return fresh;
   const nodes = (Array.isArray(saved.nodes) ? saved.nodes : [])
     .filter((n) => n && typeof n === 'object' && Array.isArray(n.span) && (n.empty === true || (typeof n.text === 'string' && n.text.trim())))
+    /* M665: a line that is a model's refusal is no line — out it goes, and its pages are read again (see isNoRecordLine) */
+    .filter((n) => n.empty === true || n.correction === true || n.byHouse === true || !isNoRecordLine(n.text))
     .map((n) => ({
       ...n,
       id: typeof n.id === 'string' ? n.id : 'node-' + Math.random().toString(36).slice(2, 10),
@@ -515,6 +517,19 @@ export function phraseCount(text) {
   return String(text || '').split(/;\s+/).filter((p) => p.trim()).length;
 }
 
+/* M665 — HIS: "can it be done smartly, safely and autonomous or not?" (the three kinds of old damage I had said the house
+ * does not repair). THIS ONE CAN, AND IS: a record line that is a model's refusal or a question back, stored before
+ * M648 taught the door to know one. The door's own test (refusalWords — the one test, used in both places) is run on
+ * what is already kept (loadMemory): such a line is no line — it is taken out, its pages stand uncovered, and the
+ * keeper's ordinary run reads them again (a hole is folded like any gap; a page its model still will not write of is
+ * covered without words, M316). Nothing of the story is lost: the pages are all still there, and an apology held
+ * none of it. */
+const NOT_A_LINE = /^(?:i['’]?m (?:sorry|afraid|unable|not able)|i am (?:sorry|afraid|unable|not able)|sorry[,.]|i (?:can(?:['’]?t|not)|won['’]?t|will not|must decline|do(?: not|n['’]?t) feel comfortable|apologi[sz]e)\b|unfortunately,? i\b|as an ai\b|(?:could|can|would) you (?:please )?(?:provide|share|clarify|paste|send)\b|please (?:provide|share|paste|send)\b|what (?:passage|text|content|story)\b|there (?:is|was) no (?:passage|text|content)\b|no (?:passage|text|content) (?:was|has been) provided)/i;
+function refusalWords(text) { return NOT_A_LINE.test(text) && text.split(/;\s+/).filter((p) => p.trim()).length < 3; }
+export function isNoRecordLine(text) {
+  const t = String(text || '').replace(/```(?:\w+)?/g, '').replace(/\s+/g, ' ').trim().replace(/^["“«'‘]+/, '');
+  return t.length > 0 && refusalWords(t);
+}
 export function parseMemoryAnswer(raw) {
   lastAnswerWasCut = false;
   try {
@@ -546,7 +561,7 @@ export function parseMemoryAnswer(raw) {
       if (text === before) break;
     }
     text = text.replace(/\s+(?:let me know|would you like|i hope (?:this|that)|feel free to|if you(?:['’]d| would) like|is there anything|do you want me)\b[\s\S]*$/i, '').trim();
-    if (/^(?:i['’]?m (?:sorry|afraid|unable|not able)|i am (?:sorry|afraid|unable|not able)|sorry[,.]|i (?:can(?:['’]?t|not)|won['’]?t|will not|must decline|do(?: not|n['’]?t) feel comfortable|apologi[sz]e)\b|unfortunately,? i\b|as an ai\b|(?:could|can|would) you (?:please )?(?:provide|share|clarify|paste|send)\b|please (?:provide|share|paste|send)\b|what (?:passage|text|content|story)\b|there (?:is|was) no (?:passage|text|content)\b|no (?:passage|text|content) (?:was|has been) provided)/i.test(text) && text.split(/;\s+/).filter((p) => p.trim()).length < 3) return ''; /* a real line is phrases; an apology is not */
+    if (refusalWords(text)) return ''; /* a real line is phrases; an apology is not */
     if (text.length < 10) return '';
     /* M235: A LINE CUT MID-WORD IS A LINE THAT LIES. The writer's own record
      * ends "...and graded Jo…" — a name severed in half, and everything that

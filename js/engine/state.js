@@ -49,7 +49,7 @@ import { renderOffscreen } from './offscreen.js';
 import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge, blindSpots, renderBlindSpots } from './world.js'; /* M29: the world beyond the page */
 import { renderCanon } from './canon.js';
 import { renderFightLine, mcName } from './duels.js';
-import { migrateCharacters, healGhosts } from './people.js'; /* M485: the ghosts folded on load */
+import { migrateCharacters, healGhosts, partLookAlikes } from './people.js'; /* M485: the ghosts folded on load */
 import { storyTurn, samePlace, seatAtScene, broaderPlace, withinGround } from './apply.js'; /* M588: who is close by; M627: an area is no move */
 
 const KEY_PREFIX = 'state:';
@@ -369,6 +369,7 @@ function normalize(saved) {
   /* M12 (v6): the character ledger — no-loss, coerced by engine/people.js. */
   next.characters = migrateCharacters(saved.characters);
   healGhosts(next); /* M485: a relation, a role or a crowd that was a page of its own is folded where it belongs */
+  partLookAlikes(next); /* M665: two people a slip-rule wrote as one (before M646) are parted, by what the journal shows was written for each */
   return next;
 }
 

@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m664-001)
+# Cozy Tavern — handoff for the next session (state at m665-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -146,6 +146,12 @@
   "true", "9/10", "+2 (high ground)" and "−1" with a real minus sign are how they come. Use the readers that exist:
   referee.js truthOf / signedOf / ratingOf, apply.js numberOf (M651, M654). When adding a field a model fills, feed its
   door the same value five ways before trusting it.
+- "IT DOES NOT REPAIR ITSELF" IS A QUESTION, NOT AN ANSWER. I told him three kinds of old damage were not repaired; he asked
+  whether they COULD be, smartly and safely and on their own. Two could, with what the house already keeps: the
+  journal holds each change under the name the worker wrote (so two people written as one can be parted, M665), and
+  the keeper's own test knows a refusal when it reads one (so an apology kept as a record line can be taken out and
+  its pages read again). One could not: a change the door REFUSED was never kept — only how many (`rejectedCount`).
+  Before saying "not repaired", look for what was stored at the time; before building anything, say what was not.
 - "LOOKED AT AND LEFT" IS A DEBT UNTIL HIS OWN AUDIT SAYS OTHERWISE. M645 left positions and dress alone ("no safe rule
   found"); his next pasted audit was the auditor fixing exactly that — Bruce still in the batsuit, Barbara still in her
   coat — and he asked, again, why the auditor has to. M660 found two safe rules in an hour (a long jump of the clock

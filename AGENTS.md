@@ -16942,3 +16942,33 @@ stored — and the real builders of every request.
 - version.js -> m664-001.
 - GATES at m664-001 (one CPU), on the tree that was pushed: harness 1304/1304, walk 241/241, long play 9/9, lint 0 errors
   (178 warnings, as at m663), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
+
+# M665 — "can it be done smartly, safely and autonomous or not?": the old damage, repaired where the house kept the means
+I had told him three kinds of damage written before the audit's cures were not repaired. He did not follow the list and
+asked the right question of it. Each was held against what the house actually stored at the time.
+- 1. TWO LOOK-ALIKE NAMES WRITTEN AS ONE PERSON (before M646): REPAIRED, on opening the story, without a model
+  (people.js partLookAlikes, called beside healGhosts in the state's own loader). The journal keeps each change as the
+  worker wrote it — name and all, the last 1,500. A name the workers wrote on two pages or more, that today's rule
+  keeps apart from every page, with exactly ONE page a single letter away whose own name was written on two pages or
+  more too, is a second person. What the journal shows was written FOR her and still stands on the first page in the
+  very same words moves to a page of her own: a nature, an arc, a now (the first's own latest is put back, or the
+  field left for the scribe), loose ends, what she knows, what is true of her, a wound, and the seat when the last
+  whereabouts written was hers. Anything rewritten since is left. A name written on one page only, and a slip in a
+  long name (one person, as M646 has it), are left. Opening twice changes nothing.
+  NOT PARTED: the standing — each beat's share was worked out at the time (the governor, the caps) and cannot be taken
+  back out of the first person's number. She has none after this and is asked for by name on her next page (M641).
+  BEYOND ITS REACH: mixing older than the journal's 1,500 changes (about 250 turns).
+- 2. A FALL IN FEELINGS THE DOOR REFUSED (before M654): NOT REPAIRABLE, and said so. A refused change was never kept — the
+  store holds, a turn, the words of what was applied and the COUNT of what was refused (store.js). Who fell, how far
+  and why is gone. The one road left is to have a model read the old pages again, which would judge every other beat
+  again too; that is a new reading, not a repair, and not one to run on its own. It cannot happen again (M654).
+- 3. A REFUSAL KEPT AS A RECORD LINE (before M648): REPAIRED, on opening the record (memory.js loadMemory, isNoRecordLine —
+  the door's own test, now one function used in both places). Such a line is taken out; its pages stand uncovered and
+  the keeper's ordinary run reads them again (a hole is folded like any gap; a page its model still refuses is covered
+  without words, M316). A merged line that was an apology uncovers its whole span. Real lines, a page covered without
+  words and a [Correction] stand; a real line that opens on a quoted "I'm sorry," is a line.
+- LAWS (m588.mjs): M665-1 (the parting: what moves, what is put back, what is left, twice, and through loadState),
+  M665-2 (the record: what is out, what stands, the holes filled by the keeper's own run).
+- version.js -> m665-001.
+- GATES at m665-001 (one CPU), on the tree that was pushed: harness 1306/1306, walk 241/241, long play 9/9, lint 0 errors
+  (178 warnings, as at m664), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
