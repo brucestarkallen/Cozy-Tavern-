@@ -1009,3 +1009,82 @@ test('M655-1 THE WORLD AGENT, END TO END: it is handed by name the one only last
   const bare = applyMutations(led, [{ type: 'offscreen.set', name: 'Claire', location: 'the north road', activity: 'driving', etaMinutes: 20 }]).state;
   assert(/arriving in about 20 minutes/.test(seatNowWords(bare.offscreen.Claire, bare.clock.minutes, { arrival: true })), 'minutes and no stance: an arrival, as before');
 });
+
+/* M656 — the ledger audit, part thirteen: the page-keeping worker's and the auditor's whole calls. */
+test('M656-1 THE PAGE-KEEPING WORKER, END TO END, WITH EVERYTHING A MODEL GETS WRONG AT ONCE: a field in another case is read; a loose end closes when said as what happened; the same loose end twice is one; a thinner nature is dropped; a new person one letter off another gets her OWN page; a “now” for someone upstairs is not written; a note for “you” is his; a placeholder and a field that does not exist are refused with their reasons', async () => {
+  const { scribeTurn } = await import('../../js/agents/scribe.js');
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  const { db } = await import('../../js/store.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const rich = 'the ferryman\u2019s niece; quick, proud, counts every coin; will not be pitied';
+  const st = applyMutations({ ...emptyState(), page: 12 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen, 8 Mariner\u2019s Lane' }, { type: 'clock.set', year: 2025, month: 3, day: 3, hour: 21, minute: 40 },
+    ...['Jovan', 'Rias', 'Tom', 'Mira'].map((name) => ({ type: 'presence.enter', name })),
+    { type: 'people.set', name: 'Rias', field: 'core', text: rich }, { type: 'people.set', name: 'Tom', field: 'core', text: 'his cousin; slow to speak, quick to fix things' },
+    { type: 'people.set', name: 'Mina', field: 'core', text: 'the harbourmaster\u2019s daughter; counts everything' }, { type: 'offscreen.set', name: 'Mina', location: 'the harbour office', activity: 'counting tickets' },
+    { type: 'people.set', name: 'Aunt Vera', field: 'core', text: 'runs the house' }, { type: 'offscreen.set', name: 'Aunt Vera', location: 'upstairs in the Wells house', activity: 'asleep' },
+    { type: 'people.note', name: 'Rias', field: 'thread', text: 'She still owes the ferryman two coppers.' }]).state;
+  const story = await db.stories.create({ title: 'the page keeper, end to end ' + Math.random() });
+  await saveState(story.id, st);
+  const page = '[Wells house kitchen, 8 Mariner\u2019s Lane — Monday, March 3, 2025 | 21:45 | rain | sweater | at the table]\n\nRias counted two coppers into the ferryman\u2019s jar on the sill and did not look at anyone. Tom set the tar bucket by the door. Mira, the ferry pilot, shook rain from her coat and asked for tea.';
+  const deltas = [
+    { name: 'Rias', field: 'State', text: 'At the sill, paying the ferryman\u2019s jar, not looking at anyone.' },
+    { name: 'Rias', field: 'unthread', text: 'She paid the ferryman his two coppers.' },
+    { name: 'Rias', field: 'core', text: 'a girl' },
+    { name: 'Tom', field: 'state', text: 'By the door, tar bucket at his feet.' },
+    { name: 'Tom', field: 'thread', text: 'Means to mend the roof before the storm.' },
+    { name: 'Tom', field: 'thread', text: 'He means to mend the roof before the storm' },
+    { name: 'Mira', field: 'core', text: 'a ferry pilot from the north shore; blunt, tired, kind' },
+    { name: 'Mira', field: 'state', text: 'In the doorway, shaking rain from her coat.' },
+    { name: 'Aunt Vera', field: 'state', text: 'In the kitchen, pouring tea.' },
+    { name: 'you', field: 'thread', text: 'Still has not told Rias about the letter.' },
+    { name: 'NAME', field: 'state', text: 'Standing by.' },
+    { name: 'Tom', field: 'mood', text: 'cheerful' }];
+  const out = await withHouse(thinkingHouse({ answer: JSON.stringify({ deltas }) }), () => scribeTurn({ connection: HOUSES[0].conn, storyId: story.id, userText: 'I pour the tea.', assistantText: page }));
+  const c = (await loadState(story.id)).characters;
+  eq(c.Rias.core + ' | ' + c.Rias.state + ' | ' + c.Rias.threads.length, rich + ' | At the sill, paying the ferryman\u2019s jar, not looking at anyone. | 0', 'Rias: who she is stands; her now is written though the field came as “State”; her debt is closed by what happened');
+  eq(c.Tom.state + ' | ' + JSON.stringify(c.Tom.threads), 'By the door, tar bucket at his feet. | ["Means to mend the roof before the storm."]', 'Tom: his now, and his loose end once');
+  eq(c.Mira.core + ' | ' + c.Mira.state, 'a ferry pilot from the north shore; blunt, tired, kind | In the doorway, shaking rain from her coat.', 'Mira has her own page');
+  eq(c.Mina.core + ' | ' + c.Mina.state, 'the harbourmaster\u2019s daughter; counts everything | ', 'and Mina’s is untouched');
+  eq(c['Aunt Vera'].state, '', 'no “now” in the kitchen for someone upstairs');
+  eq(JSON.stringify(c.Jovan.threads) + ' | ' + c.Jovan.core, '["Still has not told Rias about the letter."] | ', 'a note for “you” is on his record — and nothing defines him');
+  const why = out.dropped.map((d) => d.delta.name + '.' + d.delta.field + ': ' + d.why).join(' || ');
+  assert(/NAME\.state: “NAME” is a placeholder/.test(why) && /Tom\.mood: “mood” isn’t a page of the ledger/.test(why) && /Rias\.core: who Rias is stands as written/.test(why) && /Tom\.thread: that loose end is already written down/.test(why), 'the run says what it did not write, and why: ' + why);
+});
+
+test('M656-2 THE AUDITOR, END TO END, WITH A MESSY ANSWER: a leave and a walk-in backed by the page’s words land (and she is seated where she went); a thread closes in other words; a wound heals by the part it is on; a fault on the pages flagged "true" is kept; “No issues found.” is not a finding; a standing is left to the page reader, as designed', async () => {
+  const { auditLedger, saysAllIsWell } = await import('../../js/agents/auditor.js');
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  const { seatNowWords } = await import('../../js/engine/offscreen.js');
+  const { db } = await import('../../js/store.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const st = applyMutations({ ...emptyState(), page: 2 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen, 8 Mariner\u2019s Lane' }, { type: 'clock.set', year: 2025, month: 3, day: 3, hour: 21, minute: 40 },
+    ...['Jovan', 'Rias', 'Tom', 'Aunt Vera'].map((name) => ({ type: 'presence.enter', name })),
+    ...['Rias', 'Tom', 'Aunt Vera', 'Mira'].map((name) => ({ type: 'people.set', name, field: 'core', text: 'someone the story keeps' })),
+    { type: 'offscreen.set', name: 'Mira', location: 'the ferry landing', activity: 'tying up' }, { type: 'rel.set', name: 'Rias', p: 30, cause: 'he paid her fare' },
+    { type: 'thread.set', title: 'Tom\u2019s promise to fix the roof before the storm', owner: 'Tom', heat: 'hot', next: 'buy the tar' },
+    { type: 'body.injure', name: 'Rias', what: 'left forearm cut to the bone', sev: 2, treated: true }]).state;
+  const story = await db.stories.create({ title: 'the auditor, end to end ' + Math.random() });
+  await db.messages.append(story.id, { role: 'user', text: 'I say goodnight.' });
+  await db.messages.append(story.id, { role: 'assistant', text: '[Wells house kitchen, 8 Mariner\u2019s Lane — Monday, March 3, 2025 | 21:45 | rain | sweater | at the table]\n\nAunt Vera set her cup in the sink. “Lock the back door.” She returned to her room, and the house settled. The back door opened and the ferry pilot came in, shaking rain from her coat. Tom mended the last of the roof by lamplight and came down grinning. Rias flexed her healed forearm and laughed at him.' });
+  await saveState(story.id, st);
+  const issues = [
+    { what: 'Aunt Vera went to her room and is still listed in the kitchen', fix: 'take her out', pages: 'false', mutations: [{ type: 'presence.leave', name: 'Aunt Vera', shown: 'She returned to her room', to: 'her room upstairs in the Wells house' }] },
+    { what: 'Mira came into the kitchen and is still seated at the landing', fix: 'write her in', pages: false, mutations: [{ type: 'presence.enter', name: 'Mira', shown: 'the ferry pilot came in, shaking rain from her coat' }] },
+    { what: 'Tom finished the roof; the thread is still open', fix: 'close it', pages: false, mutations: [{ type: 'thread.close', title: 'Tom promised to fix the roof' }] },
+    { what: 'Rias\u2019s forearm has healed on the page; the wound still stands', fix: 'heal it', pages: false, mutations: [{ type: 'body.heal', name: 'Rias', what: 'her forearm' }] },
+    { what: 'Rias has warmed to him further than the ledger shows', fix: 'raise it', pages: false, mutations: [{ type: 'rel.shift', name: 'Rias', axis: 'p', delta: '+5 (she laughed with him)', cause: 'she laughed at Tom with him, at ease' }] },
+    { what: 'The page says Tom came down from the roof though page 1 has him in the kitchen all evening', fix: 'he went up after supper', pages: 'true', mutations: [] },
+    { what: 'No issues found.', fix: '', pages: false, mutations: [] }];
+  const out = await withHouse(thinkingHouse({ answer: JSON.stringify({ issues }) }), () => auditLedger({ connection: HOUSES[0].conn, storyId: story.id, brief: '' }));
+  const led = await loadState(story.id);
+  eq(led.present.map((p) => p.name).join(', '), 'Jovan, Rias, Tom, Mira', 'Aunt Vera is out of the kitchen and Mira is in it');
+  eq(seatNowWords(led.offscreen['Aunt Vera'], null) + ' | ' + Boolean(led.offscreen.Mira), 'her room upstairs in the Wells house | false', 'she is seated where she went; Mira’s elsewhere note is let go');
+  eq(led.threads.length, 0, 'the roof is closed, though the auditor worded it its own way');
+  eq(led.bodies.Rias.injuries.filter((i) => !i.healed).length, 0, 'her forearm is healed, said as “her forearm”');
+  eq(led.relationships.Rias.p, 30, 'a standing is not the auditor’s to move (one writer a fact) — left, as designed');
+  const said = out.issues.map((i) => i.what);
+  assert(said.some((w) => /came down from the roof/.test(w)) && out.issues.find((i) => /came down from the roof/.test(i.what)).pages === true, 'the fault on the pages, flagged "true", is kept as one');
+  assert(!said.some((w) => /No issues found/.test(w)), '“No issues found.” is not among the findings: ' + said.join(' || '));
+  for (const what of ['No issues found.', 'None', 'Nothing to report', 'The ledger is consistent with the pages.', 'Everything is in order.']) eq(saysAllIsWell({ what, fix: '', mutations: [] }), true, 'finds nothing: ' + what);
+  for (const what of ['No page shows Mira leaving the landing', 'The ledger is consistent about the hour but has Tom in two places', 'Nothing explains how the letter left the dresser']) eq(saysAllIsWell({ what, fix: 'set it right', mutations: [] }), false, 'a real issue: ' + what);
+});

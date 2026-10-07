@@ -765,9 +765,14 @@ export { showsDeparture };
 /* M268: "→ no change" and "the moment, not mine to report" were still reported */
 const NO_CHANGE_FIX = /^\s*(?:no change|none|nothing(?: to (?:do|change|fix))?|no action|leave it(?: as it is)?|as is|n\/a)\b/i;
 const NOT_MINE = /\bnot mine to report\b|\bnot (?:my|the auditor'?s) (?:job|door)\b|\bomits? (?:nothing|no one)\b|\badds? no one\b|\bmatch(?:es)? the header\b/i;
+/* M656 (the ledger audit, part thirteen — the auditor's whole call): AN ISSUE THAT FINDS NOTHING IS NOT AN ISSUE. "No issues
+ * found." with no fix and no change was reported as one of the audit's findings (the second reader's twin of it was
+ * cured at M649). */
+const FINDS_NOTHING = /^(?:none|n\/?a|nil|nothing(?:\s+(?:found|to (?:report|fix|flag|change)|wrong|amiss))?|no\s+(?:issues?|problems?|errors?|drift|contradictions?|inconsistenc(?:y|ies)|findings?|faults?|changes?)(?:\s+(?:were\s+|was\s+)?(?:found|detected|noted|needed|to report))?|(?:the\s+)?ledger\s+(?:is|looks|seems)\s+(?:consistent|correct|sound|in order|accurate|up to date)\b[^.]*|(?:all|everything)\s+(?:is\s+|looks\s+|seems\s+)?(?:consistent|in order|fine|good|correct)\b[^.]*)\.?$/i;
 export function saysAllIsWell(issue) {
   const fix = String((issue && issue.fix) || '');
   const what = String((issue && issue.what) || '');
+  if (!fix.trim() && FINDS_NOTHING.test(what.trim()) && !/\b(?:but|though|although|except|however|yet)\b/i.test(what)) return true;
   if (NO_CHANGE_FIX.test(fix)) return true;
   if (NOT_MINE.test(what) && !/\b(?:set|close|add|clear|restore|zero)\b/i.test(fix)) return true;
   return ALL_IS_WELL.test(fix) || (ALL_IS_WELL.test(what) && !/\bbut\b/i.test(what));

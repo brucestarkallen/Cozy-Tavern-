@@ -16668,3 +16668,27 @@ that the parts did not.
 - version.js -> m655-001.
 - GATES at m655-001 (one CPU), on the tree that was pushed: harness 1288/1288, walk 238/238, long play 9/9, lint 0 errors
   (178 warnings, as at m654), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, no scenario failing.
+
+# M656 — the ledger audit, part thirteen: the page-keeping worker's and the auditor's whole calls
+As M655 did for the world agent: each worker's whole call, a stand-in model, one answer with everything a model gets
+wrong at once.
+- THE SCRIBE (scribeTurn): twelve notes in one answer — a field named in another case ("State"), a loose end closed by
+  saying what happened ("She paid the ferryman his two coppers"), the same loose end twice, a thinner nature ("a girl"),
+  a new person one letter off another (Mira beside Mina), a "now" in the kitchen for someone upstairs, a note for
+  "you", the prompt's own placeholder, a field that does not exist. EVERY ONE handled right: the case read, the loose
+  end closed, the twin refused, the nature kept, Mira on her own page and Mina's untouched, no "now" for the absent,
+  the note on his record with nothing defining him, the placeholder and the field refused — and the run says what it
+  did not write and why. Sound; nothing changed. It is a law now (M656-1), so the whole path stays so.
+- THE AUDITOR (auditLedger): seven issues in one answer. A leave and a walk-in backed by the page's words land, and she
+  is seated where she went (M643, M644, M649); a thread closes under a title worded its own way (M653); a wound heals
+  by the part of the body it is on (M646); a fault on the pages flagged "pages":"true" is kept as one (M654); a
+  standing is left to the page reader, by design (one writer a fact). ONE FAULT: "No issues found.", with no fix and no
+  change, was reported among the audit's findings — the second reader's twin of it was cured at M649, the auditor's
+  own rule (saysAllIsWell) did not know the sentence. It does now; an issue that goes on to say what is wrong ("…
+  consistent about the hour but has Tom in two places") is kept.
+- LAWS (m588.mjs): M656-1 (the scribe's whole call), M656-2 (the auditor's whole call; what finds nothing and what does
+  not). 329 older laws that touch the two workers stand.
+- NOT AUDITED YET — the handoff's list. The audit is not finished and this entry does not say it is.
+- version.js -> m656-001.
+- GATES at m656-001 (one CPU), on the tree that was pushed: harness 1290/1290, walk 238/238, long play 9/9, lint 0 errors
+  (178 warnings, as at m655), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
