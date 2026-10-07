@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m651-001)
+# Cozy Tavern — handoff for the next session (state at m652-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -117,6 +117,12 @@
   at the default five. Known and left: a fighter given domains and no overall rating reads five outside those domains
   (the seeder is asked for both; no honest number can be made up for it). Method that found every fault of M641–M644: do
   not read the rule and nod — feed it thirty sentences as he writes them and count what it gets wrong.
+- A HANDLER TAKES WHAT HE CHOSE AT THE TAP. Never read a control (`.checked`, `.value`) after an `await` in its own
+  change handler: every screen here is drawn first and filled after, and redrawn when a page lands — a fill or a redraw
+  in that wait sets the control back, and the handler reads the fill's value, not his (M651: canon switched off, "on"
+  written; M652: a model picked in the Quick switch, nothing switched). First line of a handler: `const asked = …`.
+  The search that found the twenty-one: a change/input handler in which a line with `await` comes before a line that
+  reads a control (the script is in AGENTS.md, M652).
 - A GATE THAT FAILS ONCE AND PASSES ON A RERUN HAS NOT PASSED. Never write "timing", "rare" or "flaky" in these notes, and
   never push on the rerun: read the failing report against the state, make the failure happen on purpose, and only then
   call it the app's fault or the test's — and say which to the writer. M638 was pushed, and told to him as done, with

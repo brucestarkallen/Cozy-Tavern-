@@ -16562,3 +16562,29 @@ Continuing M644–M650 by the same method.
 - GATES at m651-001 (one CPU), on the tree that was pushed: harness 1281/1281, walk 237/237 (DOM-85 and the new DOM-237
   among them), long play 9/9, lint 0 errors (178 warnings, as at m650), perf_send, holdsone, cutthinking, notes_layout —
   EXIT 0 each. That is the run AFTER the Settings fault was set right; the run before it is the DOM-85 failure above.
+
+# M652 — the same fault, searched across the whole interface: his choice read after a wait
+M651 ran a failed gate down to the canon switch's handler reading the switch after `await activeStory()`. His rule: when a
+bug is fixed, search everything for the same pattern. A script over js/ui/*.js (every change/input handler: does a line
+with `await` come before a line that reads `.checked` or `.value`?) flagged twelve more places after M651's nine.
+- THE QUICK SWITCH ON HIS MAIN SCREEN (chat.js) — my own M638 code: the handler did `await activeStory()` and THEN read
+  the select. The switch is redrawn whenever a page lands or the story changes (refreshQuickSwitch sets it back to the
+  model in use): a redraw in that wait, and the model he had just picked was read as the one he was leaving — nothing
+  switched. MADE TO HAPPEN (DOM-238: he picks B, the switch is set back to A sixty milliseconds later, the story slow to
+  read): on the handler as it was, "the model he picked tells the stories — got A, wanted B". The pick is taken first.
+- The ledger's calendar select (drawer.js), the housekeeper's four switches and its two number boxes (housekeeper.js),
+  the side-by-side switch and the speech-colour switch (settings.js): each read its control again after its first wait
+  — to save it, to set a flag in memory beside what was saved, or to word a toast. Each takes it once, at the tap.
+- Left, and why: the canon row's own line (it reads the switch M651 has just set to what he asked); the theme radios (a
+  radio's value is fixed); and A RULE'S PIN — its save reads the pin as the argument of its first call, at the tap,
+  and only its toast reads it again. I had reworded that handler too, and the harness failed M175 ("the pin toggle
+  carries the whole rule too"), a law that reads that very line: the rewording bought nothing, so the handler is back
+  exactly as it was. The search now finds only those three.
+- WALK: DOM-238 (the Quick switch), beside M651's DOM-237 (the canon switch); DOM-232 (the Quick switch's own laws) stands.
+- The search, for the next session:
+    for each `.addEventListener('change'|'input', async (…) => {…})` body: walk its lines; once a line holds `await `,
+    any later line matching `\.(checked|value)\b` not followed by an assignment is a read after a wait.
+- version.js -> m652-001.
+- GATES at m652-001 (one CPU), on the tree that was pushed: harness 1281/1281, walk 238/238 (DOM-237 and DOM-238 among
+  them), long play 9/9, lint 0 errors (178 warnings, as at m651), perf_send, holdsone, cutthinking, notes_layout — EXIT 0
+  each. That is the run AFTER the pin handler was put back; the run before it failed M175, as told above.

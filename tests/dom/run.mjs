@@ -8218,6 +8218,33 @@ test('DOM-237 HIS TAP IS TAKEN AT THE TAP (M651 — DOM-85’s rare failure, run
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-238 THE MODEL HE PICKS IS TAKEN AT THE PICK (M652 — the same fault as DOM-237, on his main screen): he chooses a model in the Quick switch and the switch is redrawn before the house has found the story — the model he chose still tells the stories', async () => {
+  const before = errors.length;
+  const mk = async (label) => (await db.connections.add({ label, type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: label.toLowerCase().replace(/\s+/g, '-'), maxTokens: 800 })).id;
+  const a = await mk('Pick A'); const b = await mk('Pick B');
+  const st = await db.stories.create({ title: 'the pick and the redraw' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  const was = await db.settings.get('activeConnectionId');
+  await db.settings.set('activeConnectionId', a);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  await env.ctx.chat.refreshQuickSwitch();
+  const sel = q('#quick-switch');
+  const realStory = db.stories.get; let slow = false;
+  db.stories.get = async (...args) => { if (slow) await tick(500); return realStory.apply(db.stories, args); };
+  try {
+    if (![...sel.options].some((o) => o.value === b)) { sel.value = '__all'; sel.dispatchEvent(new env.window.Event('change', { bubbles: true })); await until(() => [...q('#quick-switch').options].some((o) => o.value === b), 'the whole list', 10000); }
+    slow = true;
+    sel.value = b; sel.dispatchEvent(new env.window.Event('change', { bubbles: true }));  /* he picks B */
+    await tick(60);
+    sel.value = a;                                                                       /* a redraw sets the switch back to the model in use, as refreshQuickSwitch does when a page lands */
+    await tick(1500);
+    slow = false;
+    eq(await db.settings.get('activeConnectionId'), b, 'the model he picked tells the stories');
+    await until(() => q('#quick-switch').value === b, 'and the switch shows it', 10000);
+  } finally { slow = false; db.stories.get = realStory; if (was) await db.settings.set('activeConnectionId', was); await db.connections.remove(a); await db.connections.remove(b); await env.ctx.chat.refreshQuickSwitch(); }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-188 THE OPENING MOVES FEELINGS (M532 — his report: "every time, How they feel about you is empty and I need to rebuild the people, especially on #story"): the young ledger\'s reader is asked what the opening does to people\'s feelings — he saves Yuki, and her standing is there after the first page, no rebuild', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');

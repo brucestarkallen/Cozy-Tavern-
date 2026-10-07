@@ -3206,9 +3206,12 @@ export function initChat(ctx) {
     planAhead(); /* M510: a small model taking the tale gets its plan now, while he types */
   }
   if (els.quickSwitch) els.quickSwitch.addEventListener('change', async () => {
+    /* M652: THE MODEL HE PICKED IS TAKEN AT THE PICK. The switch was read after `await activeStory()` — and the switch is
+     * redrawn whenever a page lands or the story changes (refreshQuickSwitch sets it back to the model in use): a redraw
+     * in that wait, and the model he had just chosen was read as the one he was leaving. Nothing switched. */
+    const picked = els.quickSwitch.value;
     const story = await activeStory();
     if (!story) return;
-    const picked = els.quickSwitch.value;
     if (picked === QUICK_ALL || picked === QUICK_FEW) {
       /* M638: not a model — the other list. Nothing about who tells the story changes: the switch shows the storyteller
        * again, over the whole list (opened at once where the browser lets a page do that; else one more tap) or the few. */

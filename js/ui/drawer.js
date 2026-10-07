@@ -308,11 +308,12 @@ function clockPanel(ctx) {
   });
 
   calSelect.addEventListener('change', async () => {
+    const asked = calSelect.value === 'custom' ? 'custom' : 'real'; /* M652: what he chose, taken AT the tap — before any wait (see settings.js, M651) */
     const story = await currentStory(ctx);
     if (!story) return;
     const state = await loadStateForWrite(story.id);
     if (!state.clock) return;
-    state.clock.calendar = calSelect.value === 'custom' ? 'custom' : 'real';
+    state.clock.calendar = asked;
     state.clock.label = renderClock(state.clock);
     await saveState(story.id, state);
     notify(story.id);

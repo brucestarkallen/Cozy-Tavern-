@@ -1480,9 +1480,10 @@ export function initSettings(ctx) {
         if (note && off && !box.checked) { note.hidden = false; note.textContent = 'Your workers’ provider turned away two requests at once (' + (off.why || 'too many requests') + '), so they are back to one at a time. Turn it on again to try once more.'; }
       })();
       box.addEventListener('change', async () => {
-        await db.settings.set('helpersSideBySide', box.checked === true);
-        setSideBySide(box.checked === true);
-        if (box.checked) { await db.settings.delete('helpersSideBySideTurnedOff'); if (note) note.hidden = true; }
+        const asked = box.checked === true; /* M652: what he chose, taken AT the tap — before any wait (see settings.js, M651) */
+        await db.settings.set('helpersSideBySide', asked);
+        setSideBySide(asked);
+        if (asked) { await db.settings.delete('helpersSideBySideTurnedOff'); if (note) note.hidden = true; }
       });
     }
   }
@@ -2897,8 +2898,9 @@ export function initSettings(ctx) {
   });
 
   els.colourSpeech.addEventListener('change', async () => {
-    await db.settings.set('colourSpeech', els.colourSpeech.checked);
-    document.body.classList.toggle('plain-speech', !els.colourSpeech.checked);
+    const asked = els.colourSpeech.checked; /* M652: what he chose, taken AT the tap — before any wait (see settings.js, M651) */
+    await db.settings.set('colourSpeech', asked);
+    document.body.classList.toggle('plain-speech', !asked);
   });
 
   document.querySelectorAll('input[name="theme"]').forEach((radio) => {

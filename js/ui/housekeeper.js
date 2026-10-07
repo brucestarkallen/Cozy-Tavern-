@@ -1289,32 +1289,36 @@ export function initHousekeeper(ctx) {
   }
 
   if (autoApplyBox) autoApplyBox.addEventListener('change', async () => {
-    await db.settings.set('hkAutoApply', autoApplyBox.checked);
-    toast(autoApplyBox.checked ? 'The housekeeper’s cards will land as they arrive.' : 'The housekeeper’s cards will wait for Apply.');
+    const asked = autoApplyBox.checked; /* M652: what he chose, taken AT the tap — before any wait (see settings.js, M651) */
+    await db.settings.set('hkAutoApply', asked);
+    toast(asked ? 'The housekeeper’s cards will land as they arrive.' : 'The housekeeper’s cards will wait for Apply.');
   });
   pagesInput.addEventListener('change', async () => {
-    await db.settings.set('hkContextPages', cleanContextPages(pagesInput.value));
-    pagesInput.value = String(cleanContextPages(pagesInput.value));
+    const asked = cleanContextPages(pagesInput.value); /* M652: what he chose, taken AT the tap — before any wait (see settings.js, M651) */
+    await db.settings.set('hkContextPages', asked);
+    pagesInput.value = String(asked);
     toast('The housekeeper will read that many pages in full.');
   });
   autoBox.addEventListener('change', async () => {
+    const asked = autoBox.checked; /* M652: what he chose, taken AT the tap — before any wait (see settings.js, M651) */
     const story = await activeStory();
     if (!story) return;
-    await saveDirector(story.id, { auto: autoBox.checked });
-    toast(autoBox.checked ? 'The director will write episodes on its own.' : 'The director waits to be asked.');
+    await saveDirector(story.id, { auto: asked });
+    toast(asked ? 'The director will write episodes on its own.' : 'The director waits to be asked.');
     refreshStatusLine();
   });
   editorBox.addEventListener('change', async () => {
+    const asked = editorBox.checked; /* M652: what he chose, taken AT the tap — before any wait (see settings.js, M651) */
     const story = await activeStory();
     if (!story) return;
-    await saveEditor(story.id, { enabled: editorBox.checked });
-    toast(editorBox.checked ? 'The editor keeps its eye on the telling.' : 'The editor’s eye rests.');
+    await saveEditor(story.id, { enabled: asked });
+    toast(asked ? 'The editor keeps its eye on the telling.' : 'The editor’s eye rests.');
     refreshStatusLine();
   });
   editorN.addEventListener('change', async () => {
+    const n = Math.max(2, Math.min(50, Math.round(Number(editorN.value) || 8))); /* M652: what he chose, taken AT the tap — before any wait (see settings.js, M651) */
     const story = await activeStory();
     if (!story) return;
-    const n = Math.max(2, Math.min(50, Math.round(Number(editorN.value) || 8)));
     editorN.value = String(n);
     await saveEditor(story.id, { everyN: n });
     refreshStatusLine();
