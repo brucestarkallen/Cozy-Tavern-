@@ -564,9 +564,19 @@ export function phraseCount(text) {
  * none of it. */
 const NOT_A_LINE = /^(?:i['’]?m (?:sorry|afraid|unable|not able)|i am (?:sorry|afraid|unable|not able)|sorry[,.]|i (?:can(?:['’]?t|not)|won['’]?t|will not|must decline|do(?: not|n['’]?t) feel comfortable|apologi[sz]e)\b|unfortunately,? i\b|as an ai\b|(?:could|can|would) you (?:please )?(?:provide|share|clarify|paste|send)\b|please (?:provide|share|paste|send)\b|what (?:passage|text|content|story)\b|there (?:is|was) no (?:passage|text|content)\b|no (?:passage|text|content) (?:was|has been) provided)/i;
 function refusalWords(text) { return NOT_A_LINE.test(text) && text.split(/;\s+/).filter((p) => p.trim()).length < 3; }
+/* M672: THIS RUNS ON EVERY LINE OF THE RECORD, EVERY TIME THE RECORD IS OPENED — 2.5 ms a load on a record of 800 lines, half of the
+ * whole load (measured), for a question whose answer never changes: a line's words are what they are. Each line is
+ * judged once and its answer remembered by its words (the same cure as the ledger's repair on opening, people.js). */
+const NO_RECORD_VERDICT = new Map();
 export function isNoRecordLine(text) {
-  const t = String(text || '').replace(/```(?:\w+)?/g, '').replace(/\s+/g, ' ').trim().replace(/^["“«'‘]+/, '');
-  return t.length > 0 && refusalWords(t);
+  const key = typeof text === 'string' ? text : String(text || '');
+  const known = NO_RECORD_VERDICT.get(key);
+  if (known !== undefined) return known;
+  const t = key.replace(/```(?:\w+)?/g, '').replace(/\s+/g, ' ').trim().replace(/^["“«'‘]+/, '');
+  const verdict = t.length > 0 && refusalWords(t);
+  if (NO_RECORD_VERDICT.size > 8000) NO_RECORD_VERDICT.clear();
+  NO_RECORD_VERDICT.set(key, verdict);
+  return verdict;
 }
 export function parseMemoryAnswer(raw) {
   lastAnswerWasCut = false;

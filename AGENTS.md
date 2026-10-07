@@ -17220,6 +17220,11 @@ His line. Not a new ask — a demand that what was built be checked harder than 
     first look after the ledger changes ~27 ms, every look after it 0.47 ms (the older repair: 0.44 ms); the whole
     load 31 -> 12 ms. (The numbers first written here were taken while other tests shared the CPU, and one of them
     from an earlier cut of the fix. These are the real ones.)
+- THE SAME FAULT, LOOKED FOR EVERYWHERE ELSE IT COULD BE (his rule: fix the pattern, not the one instance). Three things run on
+  every opening: healGhosts and partLookAlikes on the ledger (state.js), and the record's filter for a refusal kept as
+  a line (memory.js isNoRecordLine, also mine, M665). The filter cost 2.5 ms a load on a record of 800 lines — half of
+  the whole load — re-judging lines whose words never change. Each line is judged once now and remembered by its
+  words: 0.33 ms a load; the whole load 4.8 -> 2.2 ms. M665-2 (an apology kept as a line is still taken out) passes.
 - LOOSE ENDS OF MY OWN: three values read and never used in the keeper (M666), one function no longer called (this build).
 - A STORY ROW'S SMALL BUTTONS TAKE A FINGERTIP (chat.css): each was a box 23 × 10 px on a phone — said in M663, left. An unseen
   layer around each takes the tap, ~32 px tall; nothing moves or looks different. tests/rowtap.py (real Chromium, 390
