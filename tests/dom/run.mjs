@@ -1371,7 +1371,9 @@ test('DOM-15 the sweep: every button in the story room, the drawer, the settings
   eq(hkHits.length, 0, 'housekeeper: ' + hkHits.join(' || '));
   click(q('#btn-housekeeper')); await tick(40);
   /* the story room: panel, shelf, composer chips */
-  const roomHits = await sweep('#view-chat', { skip: /send|go on|try again|swipe|branch|delete|regenerate|the ledger|the housekeeper|settings/i });
+  /* M668: "The current scene" is skipped with "The ledger" — both open the ledger's drawer, and a sweep that presses one
+   * leaves the drawer open for every scenario after it (DOM-22 then closed it with its own first tap and lost its form) */
+  const roomHits = await sweep('#view-chat', { skip: /send|go on|try again|swipe|branch|delete|regenerate|the ledger|the current scene|the housekeeper|settings/i });
   eq(roomHits.length, 0, 'story room: ' + roomHits.join(' || '));
   /* settings, every room, every control */
   await openSettings();
@@ -8433,6 +8435,103 @@ test('DOM-241 THE SHELF, TIDY (M662 — his: “add plus button so I can easily 
     env.ctx.search.close();
     if (shelfHead('Seireitei') && shelfHead('Seireitei').classList.contains('collapsed')) click(shelfHead('Seireitei').querySelector(':scope > .shelf-head .shelf-toggle'));
     for (const name of wasFolded) { const sh = shelfHead(name); if (sh && !sh.classList.contains('collapsed')) { click(sh.querySelector(':scope > .shelf-head .shelf-toggle')); await new Promise((r) => setTimeout(r, 30)); } }
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-242 THE STORY SCREEN, AS HE ASKED (M668): the bottom links are This story, The readers, The ledger and The current scene (the frame, the note and the rulebook are gone from there); the top bar hides and a small button — wearing the ledger’s light — brings it back; a text file rides in the page and reaches the storyteller; and after a swipe that fails, “Try again” is the swipe again — the page’s earlier version is kept', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'the tidy screen' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, fail: house.state.fail };
+  const settle = async (n) => { await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= n && !env.ctx.chat.isBusy(), 'page ' + n, 40000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000); };
+  try {
+    /* 1. the bottom links */
+    const links = [...document.querySelectorAll('.composer-meta .meta-links button')].map((b) => b.textContent.trim());
+    assert(!links.includes('The frame') && !links.includes('The note') && !links.includes('Rulebook'), 'the frame, the note and the rulebook are gone from the bottom: ' + links.join(' · '));
+    for (const want of ['This story', 'The readers', 'The ledger', 'The current scene']) assert(links.includes(want), 'the bottom has “' + want + '”: ' + links.join(' · '));
+    click(q('#btn-foot-scene'));
+    await until(() => { const c = document.querySelector('.drawer-rooms .nav-chip.current'); return c && c.dataset.room === 'scene'; }, 'the ledger, open at the scene');
+    env.ctx.drawer.close();
+    click([...document.querySelectorAll('.composer-meta .meta-links button')].find((b) => b.textContent.trim() === 'This story'));
+    await until(() => env.window.location.hash === '#/settings' && !q('#section-brief').hidden, 'Settings, at this story');
+    env.window.location.hash = '#/';
+    await tick(80);
+    /* 2. the top bar, hidden — and the light on the small button */
+    const tiny = q('#btn-immerse-show');
+    assert(tiny.hidden && !document.body.classList.contains('immersed'), 'the bar stands, the small button is away');
+    click(q('#btn-immerse'));
+    assert(document.body.classList.contains('immersed') && !tiny.hidden, 'the bar is hidden; the small button is there');
+    await until(async () => (await db.settings.get('immersed')) === true, 'it is remembered');
+    const lamp = q('#btn-ledger');
+    const had = ['is-working', 'has-trouble', 'all-well', 'is-waiting'].filter((c) => lamp.classList.contains(c));
+    for (const c of had) lamp.classList.remove(c);
+    lamp.classList.add('has-trouble'); lamp.setAttribute('title', 'The ledger — the scribe stopped partway');
+    await until(() => tiny.classList.contains('has-trouble') && /the scribe stopped partway/.test(tiny.getAttribute('title') || ''), 'the small button wears the yellow light and its words');
+    lamp.classList.remove('has-trouble'); lamp.classList.add('all-well');
+    await until(() => tiny.classList.contains('all-well') && !tiny.classList.contains('has-trouble'), 'and the green one when it turns');
+    lamp.classList.remove('all-well'); for (const c of had) lamp.classList.add(c);
+    click(tiny);
+    assert(!document.body.classList.contains('immersed') && tiny.hidden, 'a tap brings the bar back');
+    await until(async () => (await db.settings.get('immersed')) === false, 'and that is remembered too');
+    /* 3. a text file rides in the page */
+    const input = q('#attach-file');
+    const choose = (file) => { Object.defineProperty(input, 'files', { value: [file], configurable: true }); input.dispatchEvent(new env.window.Event('change', { bubbles: true })); };
+    choose(new env.window.File([new Uint8Array([0, 1, 2, 0, 5, 0, 9])], 'blob.bin'));
+    await tick(250);
+    assert(q('#attach-preview').hidden, 'a file that is not text is not taken');
+    choose(new env.window.File(['# Notes\nRias owes the ferryman two coppers.\n'], 'notes.md', { type: 'text/markdown' }));
+    await until(() => !q('#attach-preview').hidden && /notes\.md/.test(q('#attach-preview').textContent), 'the file, waiting to be sent');
+    house.state.storyAnswer = () => '[Wells house kitchen — Monday, March 3, 2025 | 21:40 | rain | coat | at the table]\n\nShe read the notes through, once.';
+    type(q('#composer-input'), 'Read my notes.'); submit(q('#composer'));
+    await settle(1);
+    const mine = (await db.messages.list(st.id)).find((m) => m.role === 'user');
+    eq(mine.text, 'Read my notes.\n\n[Attached file: notes.md]\n# Notes\nRias owes the ferryman two coppers.', 'the file’s words are in his page, under its name');
+    const sent = JSON.stringify(house.state.calls.filter((c) => !c.isWorker && /Read my notes/.test(JSON.stringify(c.body))).slice(-1)[0].body);
+    assert(/Rias owes the ferryman two coppers/.test(sent), 'and the storyteller was sent them');
+    assert(q('#attach-preview').hidden, 'nothing is left waiting');
+    /* 3b. the light: a failing auditor or second reader, on the newest page, is trouble — it was green through both */
+    {
+      const { noteWorkerRun } = await import('../../js/agents/status.js');
+      const lampNow = q('#btn-ledger');
+      await env.window.__cozy.chat.renderThread({ structural: true });
+      await until(() => lampNow.classList.contains('all-well'), 'the light green after a page read whole: ' + lampNow.className + ' — ' + lampNow.getAttribute('title'), 20000);
+      for (const guard of ['auditor', 'continuity']) {
+        await noteWorkerRun(st.id, guard, { ok: false, detail: 'its model gave nothing that could be read' });
+        await env.window.__cozy.chat.renderThread({ structural: true });
+        await until(() => lampNow.classList.contains('has-trouble') && !lampNow.classList.contains('all-well'), 'the light yellow when the ' + guard + ' fails on the newest page: ' + lampNow.className, 20000);
+        await noteWorkerRun(st.id, guard, { ok: true, detail: 'well' });
+        await env.window.__cozy.chat.renderThread({ structural: true });
+        await until(() => lampNow.classList.contains('all-well'), 'and green again when it has run well', 20000);
+      }
+    }
+    /* 4. a swipe that fails, then "Try again" */
+    const page = (await db.messages.list(st.id)).find((m) => m.role === 'assistant');
+    house.state.fail = 401;
+    click(document.querySelector('[data-act="swipe-next"]'));
+    await until(() => env.ctx.chat.isBusy(), 'the swipe to start', 10000).catch(() => {});
+    await until(() => !env.ctx.chat.isBusy(), 'the failed swipe to end', 90000);
+    house.state.fail = prior.fail;
+    const after = (await db.messages.list(st.id)).find((m) => m.id === page.id);
+    eq(after && after.text, page.text, 'the failed swipe lost nothing: the page is as it was');
+    assert(q('#thread .msg-retry'), 'the failed telling left its note, with “Ask again” (M669)');
+    house.state.storyAnswer = () => '[Wells house kitchen — Monday, March 3, 2025 | 21:40 | rain | coat | at the table]\n\nA second telling: she read the notes twice.';
+    await until(() => !q('#btn-retry').hidden, '“Try again” to be offered', 10000);
+    click(q('#btn-retry'));
+    await until(async () => { const m = (await db.messages.list(st.id)).find((x) => x.id === page.id); return Boolean(m && Array.isArray(m.swipes) && m.swipes.length === 2) && !env.ctx.chat.isBusy(); }, '“Try again” to be the swipe again', 60000);
+    const final = (await db.messages.list(st.id)).find((m) => m.id === page.id);
+    eq(final.swipes[0].text, page.text, 'the earlier version is kept, first');
+    assert(/A second telling/.test(final.swipes[1].text) && /A second telling/.test(final.text), 'and the new one stands beside it');
+    eq((await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length, 1, 'one page still — not a page let go and written anew');
+    eq(document.querySelectorAll('#thread .msg-retry').length, 0, 'and the error note is gone — it left when the new telling began, with no reload (M669)');
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000);
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.fail = prior.fail;
+    document.body.classList.remove('immersed'); q('#btn-immerse-show').hidden = true; await db.settings.set('immersed', false);
+    try { env.ctx.drawer.close(); } catch (err) { /* closed */ }
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });

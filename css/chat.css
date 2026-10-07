@@ -1347,3 +1347,15 @@ html[data-theme='magma'] .msg-user .msg-body {
 .shelf-head > .choose-pick + .shelf-toggle { flex: 1 1 0; } /* while choosing: the tick and the name share the row */
 .shelf-head > .story-mini { min-width: 1.9rem; min-height: 1.9rem; display: inline-flex; align-items: center; justify-content: center; line-height: 1; flex: 0 0 auto; }
 .shelf-head > .shelf-toggle + .story-mini { margin-left: auto; }
+
+/* M668: THE TOP BAR, HIDDEN. His: "make the whole Cozy Tavern bar and the three buttons gone, with a really small button to
+ * show it again, so I can fully immerse like an IMAX screen… and find a place for the yellow, blue and green light when
+ * it is hidden". The bar goes; one small round button stays in the corner, and the light rides on it (it wears the
+ * ledger button's own classes, so it is the same light, never a second opinion). */
+body.immersed .topbar { display: none; }
+.immerse-show { position: fixed !important; top: calc(4px + env(safe-area-inset-top, 0px)); right: 6px; z-index: 70; width: 30px; height: 30px; min-width: 0; padding: 0; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--muted); opacity: 0.6; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; line-height: 1; }
+.immerse-show:hover, .immerse-show:active, .immerse-show:focus-visible { opacity: 1; color: var(--text); }
+.immerse-show[hidden] { display: none; }
+.attach-file-chip { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0.5rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.85rem; color: var(--text); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* M668: four links at the bottom are wider than a phone on one line (measured: the whole page scrolled sideways) — they wrap */
+.composer-meta .meta-links { display: flex; flex-wrap: wrap; justify-content: flex-end; column-gap: 0.35rem; row-gap: 0.15rem; white-space: normal; min-width: 0; max-width: 100%; }

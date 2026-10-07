@@ -1658,3 +1658,26 @@ test('M667-1 THE THINGS A PAGE NAMES AND THE PEOPLE WITHIN EARSHOT ARE HANDED TO
   assert(!(led.knowledge.Salla || []).some((k) => /Oriana/.test(k.fact)), 'Salla, out of earshot and not named, does not');
   eq(movedThings(led, [{ name: 'the rose', where: 'on the wet stone, between them' }], page).length, 0, 'the same place in other words is not written again');
 });
+
+
+/* M669 — his: a stray "The World Beyond stays where it cut — nothing follows it, and nobody in 1-D learns anything from it"
+ * at the end of a page. */
+test('M669-1 THE WINDOW’S RULE SAID BACK IS NOT STORY: at a page’s end it comes off — as its own paragraph, with a line that goes on about “it”, or as the last sentence of a paragraph of story (only that sentence) — and is kept with the page; the window itself, speech, and story that only sounds like it are never touched', async () => {
+  const { finishPage, isRuleEcho, cutRuleEchoTail } = await import('../../js/ui/pageshape.js');
+  const story = '[Class 1-D — Monday, April 7 | 08:40 | clear | uniform | by the window]\n\nThe bell had not rung yet. Jovan set his bag down by the window and watched the yard fill, row by row, with first-years who did not know where to stand. Somebody laughed at the back and was hushed.\n\nMina slid into the seat beside him without a word.';
+  const windowed = story + '\n\n*** The World Beyond ***\n[The staff room — Monday, April 7 | 08:41]\nThe vice-principal counted the registers twice and found one too many.';
+  const stray = 'The World Beyond stays where it cut — nothing follows it, and nobody in 1-D learns anything from it.';
+  const one = finishPage(windowed + '\n\n' + stray, { mc: 'Jovan' });
+  eq(one.text, windowed, 'his own line, as the page’s last paragraph, comes off — the window and the story stand whole');
+  assert(one.removed.some((r) => r.includes('nothing follows it')), 'and what came off is kept with the page: ' + JSON.stringify(one.removed));
+  const two = finishPage(windowed + '\n\nThe World Beyond stays where it cut — nothing follows it.\n\nAnd nobody in 1-D learns anything from it.', { mc: 'Jovan' });
+  eq(two.text, windowed, 'said in two lines, both come off');
+  const closing = finishPage(story + ' The yard went quiet. The World Beyond stays where it cut — nothing follows it.', { mc: 'Jovan' });
+  eq(closing.text, story + ' The yard went quiet.', 'closing a paragraph of story, only its own sentence comes off');
+  for (const echo of [stray, 'The Window Beyond the Page sits where the cut happens, and nothing follows it.', 'The World Beyond is closed. Nothing follows it.']) eq(isRuleEcho(echo), true, 'the rule said back: ' + echo);
+  for (const told of ['The world beyond the mountains stays quiet, as it always has.', 'Nothing follows it but the rain.', '“The World Beyond stays where it cut,” she read aloud, and laughed.', '*** The World Beyond ***', 'Nobody in 1-D learns anything from it.', 'The window beyond the stairs stays shut all winter.']) eq(isRuleEcho(told), false, 'story, or the window’s own marker: ' + told);
+  eq(finishPage(story + '\n\nThe world beyond the mountains stays quiet, as it always has.', { mc: 'Jovan' }).text, story + '\n\nThe world beyond the mountains stays quiet, as it always has.', 'a closing line of story that only sounds like it is kept');
+  eq(finishPage(story + '\n\nNobody in 1-D learns anything from it.', { mc: 'Jovan' }).text, story + '\n\nNobody in 1-D learns anything from it.', 'and the second half alone, with no rule above it, is story');
+  eq(cutRuleEchoTail('The yard went quiet.'), null, 'a paragraph with no echo is not cut');
+  eq(finishPage(windowed, { mc: 'Jovan' }).text, windowed, 'a clean page is returned as it came');
+});

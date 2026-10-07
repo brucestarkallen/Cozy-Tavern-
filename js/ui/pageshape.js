@@ -263,9 +263,47 @@ const TAIL_META = [
   /^word\s+count\s*[:\-—–]?\s*\d/i,
 ];
 const TAIL_WRAPS = /^[\s>*_~#(\[]+|[\s*_~)\].]+$/g;
+/* M669 — HIS: "detect fourth-wall breaking, safely: at the end of my story there's a stray 'The World Beyond stays where it cut
+ * — nothing follows it, and nobody in 1-D learns anything from it'". That is the WINDOW'S OWN RULE SAID BACK: the house
+ * tells the storyteller the window "sits where the cut happens… and nothing follows it", and the storyteller wrote the
+ * rule onto the page as if it were story. It is known by what it is: a sentence whose SUBJECT IS THE WINDOW BY NAME
+ * ("The World Beyond", "The Window Beyond the Page") and that says what the window does on the page — stays, sits,
+ * ends, closes, cuts, nothing follows it. Story never talks about its own window. A sentence right after it that only
+ * goes on about "it" ("…and nobody in 1-D learns anything from it") leaves with it. Nothing else is touched: no
+ * speech, nothing past 400 characters, and the window's own marker line is not a sentence about the window. */
+/* the window BY NAME — capitals, as the house writes it ("the world beyond the mountains stays quiet" is a sentence of
+ * story) — and one of the rule's own turns of phrase, not just any verb */
+const WINDOW_RULE_ECHO = /(?<![\p{L}])(?:[Tt]he\s+)?(?:World|Window)\s+Beyond(?:\s+[Tt]he\s+Page)?(?![\p{L}])[^\n.!?]{0,160}?(?<![\p{L}])(?:[Nn]othing\s+follows|where\s+(?:it|the)\s+cut|where\s+the\s+cut\s+happens|(?:stays|sits|ends|closes|stops)\s+(?:where|here|there)|is\s+(?:closed|written|done|over))(?![\p{L}])/u;
+const ECHO_GOES_ON = /^(?:[,;—–-]\s*)?(?:and\s+|so\s+)?(?:nothing\s+follows\s+it|(?:nobody|no\s+one|none)\s+(?:in|at|on|of)\s+[^.!?\n]{1,60}\s+(?:learns|knows|hears|sees)\s+(?:anything|nothing|a\s+thing)\s+(?:from|of|about)\s+it)[.!…]*$/iu;
+const sentencesOfTail = (t) => String(t || '').split(/(?<=[.!?…])\s+/).map((x) => x.trim()).filter(Boolean);
+/* a paragraph that is nothing but the rule said back (and what goes on about "it") */
+export function isRuleEcho(para) {
+  const raw = String(para || '').trim();
+  if (!raw || raw.length > 400 || WINDOW_LINE.test(raw)) return false;
+  if (/["“][^"”\n]{2,}["”]/.test(raw)) return false; /* speech is story, whatever it says */
+  const parts = sentencesOfTail(raw.replace(/^[\s>*_~(\[“"]+|[\s*_~)\]”"]+$/g, ''));
+  if (!parts.length || !WINDOW_RULE_ECHO.test(parts[0])) return false;
+  return parts.every((x) => WINDOW_RULE_ECHO.test(x) || ECHO_GOES_ON.test(x));
+}
+/* the rule said back at the END of a paragraph of story: only those last sentences come off */
+export function cutRuleEchoTail(para) {
+  const raw = String(para || '');
+  const parts = sentencesOfTail(raw.trim());
+  if (parts.length < 2) return null;
+  let at = -1;
+  for (let i = parts.length - 1; i >= 1; i -= 1) {
+    if (WINDOW_RULE_ECHO.test(parts[i]) && !/["“]/.test(parts[i])) { at = i; continue; }
+    if (at !== -1 || !ECHO_GOES_ON.test(parts[i])) break;
+  }
+  if (at === -1) return null;
+  /* everything from the echo on must be the echo and what goes on about it */
+  if (!parts.slice(at).every((x) => WINDOW_RULE_ECHO.test(x) || ECHO_GOES_ON.test(x))) return null;
+  return { kept: parts.slice(0, at).join(' '), cut: parts.slice(at).join(' ') };
+}
 function tailIsNote(para, mc) {
   const raw = String(para || '').trim();
   if (!raw || raw.length > 400) return false;
+  if (isRuleEcho(raw)) return true; /* M669 */
   if (/^[\s>*_~(\[]*["“'‘]/.test(raw) || /["“][^"”\n]{2,}["”]/.test(raw)) return false; /* speech is story */
   if (TAIL_SEPARATOR.test(raw)) return true;
   if (WINDOW_LINE.test(raw) && !/\n/.test(raw)) return true; /* the window's marker as the page's last paragraph: nothing under it */
@@ -319,9 +357,16 @@ export function finishPage(text, { mc = '' } = {}) {
   while (paras.length > 1 && taken.length < 4) {
     const last = paras[paras.length - 1];
     if (!last.trim()) { paras.pop(); continue; }
-    if (!tailIsNote(last, mc)) break;
+    /* M669: a line that only goes on about "it" leaves when the rule said back stands right above it */
+    const goesOn = ECHO_GOES_ON.test(last.trim()) && paras.length > 2 && isRuleEcho(paras[paras.length - 2]);
+    if (!tailIsNote(last, mc) && !goesOn) break;
     taken.unshift(last.trim());
     paras.pop();
+  }
+  /* M669: …and when it closes a paragraph of story, only its own sentences come off */
+  if (paras.length) {
+    const tail = cutRuleEchoTail(paras[paras.length - 1]);
+    if (tail && tail.kept.trim() && taken.length < 4) { paras[paras.length - 1] = tail.kept; taken.unshift(tail.cut); }
   }
   if (taken.length) {
     const left = paras.join('\n\n');

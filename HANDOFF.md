@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m667-001)
+# Cozy Tavern — handoff for the next session (state at m669-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -146,6 +146,13 @@
   "true", "9/10", "+2 (high ground)" and "−1" with a real minus sign are how they come. Use the readers that exist:
   referee.js truthOf / signedOf / ratingOf, apply.js numberOf (M651, M654). When adding a field a model fills, feed its
   door the same value five ways before trusting it.
+- A NEW BUTTON IS PRESSED BY THE SWEEP. DOM-15 presses every button in the story room except the ones its own skip list
+  names. A new button that opens another room (M668's "The current scene" opens the ledger) leaves that room open for
+  every scenario after it — DOM-22 then shut the drawer with its own first tap and lost its form, twenty scenarios
+  away from the cause. When adding a button that opens a drawer, a sheet or a room, add it to that skip list.
+  AND: a walk scenario cannot be judged by a subset chosen by number — the walk runs in FILE order, and scenarios with
+  higher numbers stand before lower ones and set up what they need (a subset of DOM-1…22 showed a failure the whole
+  walk does not have).
 - "DONE" AND A LIST OF WHAT IS STILL OPEN, IN ONE REPLY, IS NOT AN ANSWER HE CAN USE. M666 was reported as done with two of his
   audit's findings "still open"; his next message was "I'm confused, everything is already done or not". If something
   he asked for can still be done, do it before saying done (M667 did both in an hour). What truly cannot be done —

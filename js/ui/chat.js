@@ -337,6 +337,10 @@ export function initChat(ctx) {
     promptChips: document.getElementById('prompt-chips'),
     btnRetry: document.getElementById('btn-retry'),
     btnAttach: document.getElementById('btn-attach'),
+    btnImmerse: document.getElementById('btn-immerse'),
+    btnImmerseShow: document.getElementById('btn-immerse-show'),
+    btnFootLedger: document.getElementById('btn-foot-ledger'),
+    btnFootScene: document.getElementById('btn-foot-scene'),
     attachFile: document.getElementById('attach-file'),
     attachPreview: document.getElementById('attach-preview'),
     btnJump: document.getElementById('btn-jump'),
@@ -1810,6 +1814,7 @@ export function initChat(ctx) {
   /* B9: an empty completion gets a kind note AND a way to ask again. */
   function retryNoteNode(text, retry) {
     const article = noteNode(text);
+    article.classList.add('msg-retry'); /* M669: found again, and cleared, when a new telling begins */
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'msg-act retry';
@@ -2627,10 +2632,12 @@ export function initChat(ctx) {
       let recordBehind = false;
       let ledgerBehind = false;
       let told = 0;
+      let newestPageAt = 0;
       try {
         const pages = visiblePages(await db.messages.list(storyId));
         const assistants = pages.filter((m) => m.role === 'assistant');
         told = assistants.length;
+        newestPageAt = assistants.length ? Number(assistants[assistants.length - 1].ts) || 0 : 0;
         const st = await loadState(storyId);
         const readTo = readMark(st); /* M276: how far the ledger has READ, not the turn's stamp */
         /* M510-43: behind means a page unread — the same count the reader keeps (a page read ahead of the mark is read):
@@ -2647,6 +2654,16 @@ export function initChat(ctx) {
       } catch (err) { behind = true; }   /* if it cannot be checked, it is not green */
 
       const ran = minders.filter((n) => shelf[n]).length;
+      /* M668 — HIS: "make sure the yellow, blue and green light is not a gimmick but really saying you don't need to worry".
+       * Green watched four workers. The two that CHECK the others — the second reader (each page against the ledger) and
+       * the auditor (the ledger against the pages) — could fail on the page just told and the light stayed green:
+       * "all is well" while the checking itself had not happened. A failure of either on or after the newest page is
+       * trouble too, and the light names it. (Older than the newest page it is not counted: a worker he has since
+       * switched off must not hold the light yellow for ever.)
+       * THE LIGHT ONLY: these two are kept out of `trouble`, which also decides whether the house may heal a gap by itself
+       * (fillRecordGap / fillLedgerGap). My first cut put them in it, and a tale carrying an old auditor's failed mark
+       * stopped healing — DOM-22 caught it. */
+      const guards = ['continuity', 'auditor'].filter((n) => shelf[n] && shelf[n].ok === false && newestPageAt > 0 && Number(shelf[n].at) >= newestPageAt);
       const trouble = sore.length > 0;
       const partly = !trouble && part.length > 0;
       /* M255: A THIRD LIGHT — WORKING. The writer sent a scene and watched the
@@ -2656,27 +2673,30 @@ export function initChat(ctx) {
        * So the light answers the question he actually asked: is it done? */
       const busy = runningWorkers(storyId).length > 0 || queuedCount(storyId) > 0;
       const allWell = !busy && !trouble && !partly && !behind && ran > 0 && told > 0;
+      const allWellNow = allWell && !guards.length; /* M668: …and neither of the two that check the others failed on the newest page */
 
       /* M483: THE LIGHT IS NEVER SIMPLY GONE. Behind with nothing running — the readers held off for another hand at
        * this tale, or waiting out a failed try — showed no light at all, and the writer refreshed the page to find out.
        * A fourth state, waiting, says why in its title and comes back by itself when the wait ends. */
-      const waiting = !busy && !trouble && !partly && behind && told > 0;
+      const waiting = !busy && !trouble && !partly && !guards.length && behind && told > 0;
       const waitingWhy = waiting ? (otherHandAt(storyId) ? 'another browser wrote this tale a moment ago — its readers may still be at it; this one looks again in a few minutes'
         : ledgerBehind ? 'the last pages are not read into the ledger yet — the readers go at them when the house is idle'
           : 'a gap in the record is waiting for the keeper — it folds when the house is idle') : '';
       btn.classList.toggle('is-working', busy);
-      btn.classList.toggle('has-trouble', !busy && (trouble || partly));
-      btn.classList.toggle('all-well', allWell);
+      btn.classList.toggle('has-trouble', !busy && (trouble || partly || guards.length > 0));
+      btn.classList.toggle('all-well', allWellNow);
       btn.classList.toggle('is-waiting', waiting);
       btn.setAttribute('title', busy
         ? 'The ledger — reading this scene now'
+        : (!trouble && !partly && guards.length)
+        ? 'The ledger — ' + guards.map((g) => (g === 'continuity' ? 'the second reader' : 'the auditor')).join(' and ') + ' did not finish on the newest page; the story is safe, and it is asked again on the next'
         : trouble
         ? 'The ledger — ' + sore.join(', ') + ' stumbled; the pages are safe and will be folded when it comes back'
         : partly ? 'The ledger — ' + part.join(', ') + ' stopped partway; it will carry on by itself'
-          : allWell ? 'The ledger — everything is read and folded. Nothing is waiting. Write on.'
+          : allWellNow ? 'The ledger — everything is read and folded. Nothing is waiting. Write on.'
             : waiting ? 'The ledger — waiting: ' + waitingWhy
               : 'The ledger — the house’s memory of the scene and the world');
-      ledgerMark = busy ? 'working' : trouble ? 'trouble' : partly ? 'partly' : allWell ? 'well' : waiting ? 'waiting' : null;
+      ledgerMark = busy ? 'working' : (trouble || guards.length) ? 'trouble' : partly ? 'partly' : allWellNow ? 'well' : waiting ? 'waiting' : null;
       /* M275: THE HOUSE FILLS WHAT THE LIGHT SEES. A gap in the record (a line
        * let go by a mend, an edit or a delete of an old page) kept the light
        * dark until the writer's next page — detection without repair. Seen
@@ -5709,6 +5729,12 @@ export function initChat(ctx) {
       els.btnStop.hidden = false;
       els.btnSend.hidden = true;
       refreshRetry(null, true); /* M302: no "Try again" while the storyteller writes */
+      /* M669 — HIS: "when the provider has errors there's a red banner; when I swipe right it's not gone, it's still at the
+       * bottom and I need to reload the page". The note a failed telling leaves ("…  Ask again") took itself away only when
+       * ITS OWN button was pressed. Asked again any other way — a swipe, "Try again", a new page of his own — the telling
+       * went ahead and the old error stood under it until the thread was drawn again. Whatever it said is answered the
+       * moment a new telling begins: every such note leaves then. */
+      for (const stale of els.thread.querySelectorAll('.msg-retry')) stale.remove();
       /* M15: the ember breathes while the storyteller writes. */
       if (els.emberBar) els.emberBar.classList.add('live');
 
@@ -6366,9 +6392,13 @@ export function initChat(ctx) {
       let saved;
       try {
         const imageToSend = pendingImage;
+        /* M668: a text file he attached rides IN the page, under its name — so it is kept, sent, summed up and searched
+         * like the words he typed (a picture is sent once, with its own page; a file's words stay in the story) */
+        const fileToSend = pendingFile;
+        if (fileToSend) setPendingFile(null);
         saved = await db.messages.append(story.id, {
           role: 'user',
-          text: cleanWords,
+          text: fileToSend ? (cleanWords ? cleanWords + '\n\n' : '') + '[Attached file: ' + fileToSend.name + ']\n' + fileToSend.text : cleanWords,
           hidden: parsed.hidden || undefined,
           ooc: parsed.ooc || undefined,
           image: imageToSend || undefined,
@@ -6454,6 +6484,9 @@ export function initChat(ctx) {
       if (!story) return;
       const visible = (await db.messages.list(story.id)).filter((m) => m && !m.hidden);
       const last = visible[visible.length - 1];
+      /* M668: after a swipe that did not land, "Try again" is that swipe again — the page's earlier versions stay */
+      if (last && last.role === 'assistant' && swipeFailed && swipeFailed.story === story.id && swipeFailed.id === last.id) { swipeRegenerate(last); return; }
+      swipeFailed = null;
       if (last) regenerateFrom(last.id);
     });
   }
@@ -6462,6 +6495,13 @@ export function initChat(ctx) {
    * The ledger's M21 snapshots restore whatever the erased answers wrote. */
   /* ---------- M27: a picture for the page ---------- */
   let pendingImage = null;
+  let pendingFile = null; /* M668: a text file to ride with the next page */
+  /* M668 — HIS: "when I swipe and it errors and I press retry, does it retry on the second swipe, and is the previous one not
+   * gone?" It did not, and it was: a swipe that fails leaves the page as it was (nothing is lost by the failure) — but
+   * "Try again" on a storyteller's page lets that page go, EVERY version of it, and writes one anew. Pressed after a
+   * failed swipe it threw away the versions the swipe had been meant to stand beside. A swipe that did not land is
+   * remembered for its page, and "Try again" on that page is the swipe again: a new version, the earlier ones kept. */
+  let swipeFailed = null;
 
   function setPendingImage(img) {
     pendingImage = img;
@@ -6507,12 +6547,54 @@ export function initChat(ctx) {
     });
   }
 
+  /* M668 — HIS: "can it also select a file like md, text, yaml or something". A text file is read as text (never a picture's
+   * path): up to 300,000 characters, and nothing that is not text. */
+  const FILE_MAX = 300000;
+  function readTextFile(file) {
+    return new Promise((resolve, reject) => {
+      if (file.size > FILE_MAX * 4) { reject(new Error('That file is too large to ride in a page (' + Math.round(file.size / 1024) + ' KB) — 300 KB of text is the most.')); return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const text = String(reader.result || '').replace(/\r\n?/g, '\n');
+        if (!text.trim()) { reject(new Error('That file is empty.')); return; }
+        if (/\u0000/.test(text)) { reject(new Error('That file is not text — a picture, or a text file (.md, .txt, .yaml, .json…), is what this takes.')); return; }
+        if (text.length > FILE_MAX) { reject(new Error('That file is too long to ride in a page (' + text.length + ' characters) — 300,000 is the most.')); return; }
+        resolve({ name: String(file.name || 'file').slice(0, 120), text: text.trimEnd() });
+      };
+      reader.onerror = () => reject(new Error('That file would not read.'));
+      reader.readAsText(file);
+    });
+  }
+  function setPendingFile(f) {
+    pendingFile = f;
+    if (!els.attachPreview) return;
+    if (f) pendingImage = null; /* one thing rides with a page: the newest chosen */
+    els.attachPreview.textContent = '';
+    if (!f) { els.attachPreview.hidden = true; return; }
+    const chip = document.createElement('span');
+    chip.className = 'attach-file-chip';
+    chip.textContent = f.name + ' — ' + (f.text.length >= 1000 ? Math.round(f.text.length / 1000) + ',000' : String(f.text.length)) + ' characters, sent with your next page';
+    const drop = document.createElement('button');
+    drop.type = 'button';
+    drop.className = 'attach-drop';
+    drop.textContent = '×';
+    drop.setAttribute('aria-label', 'Take the file back');
+    drop.addEventListener('click', () => setPendingFile(null));
+    els.attachPreview.append(chip, drop);
+    els.attachPreview.hidden = false;
+  }
   if (els.btnAttach && els.attachFile) {
     els.btnAttach.addEventListener('click', () => els.attachFile.click());
     els.attachFile.addEventListener('change', async () => {
       const file = els.attachFile.files && els.attachFile.files[0];
       els.attachFile.value = '';
       if (!file) return;
+      const picture = /^image\//.test(file.type || '') || /\.(?:png|jpe?g|gif|webp|bmp|heic|heif|avif)$/i.test(file.name || '');
+      if (!picture) {
+        try { setPendingFile(await readTextFile(file)); } catch (err) { toast(err && err.message ? err.message : 'That file would not read.'); }
+        return;
+      }
+      pendingFile = null;
       try {
         setPendingImage(await readImageFile(file));
       } catch {
@@ -6727,7 +6809,8 @@ export function initChat(ctx) {
       /* M44: a swiped page's record line is let go (a hole, refilled) */
       { const vis = visiblePages(historyNow); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
       if (lastPage) await settleRereadOwed(story); /* M509-10 */
-      const landed = await generate({ ...turnArgsBefore(historyNow, historyNow.findIndex((m) => m.id === msg.id)), swipeTarget: msg, replayAfter: !lastPage }); /* M302: a new version of an out-of-character answer is out of character */
+      const landed = await generate({ ...turnArgsBefore(historyNow, historyNow.findIndex((m) => m.id === msg.id)), swipeTarget: msg, replayAfter: !lastPage });
+      swipeFailed = landed ? null : { story: story.id, id: msg.id }; /* M668 */ /* M302: a new version of an out-of-character answer is out of character */
       /* M72: a new version on an OLDER page is history changed at that page —
        * fold back, read the new words once, re-apply the rest (it used to be
        * read on top of the latest ledger and left to the auditor). M73-002:
@@ -7556,6 +7639,7 @@ export function initChat(ctx) {
     e.preventDefault();
     const text = els.input.value.trim();
     if (!text || busy) return;
+    swipeFailed = null; /* M668: a new page of his own: the failed swipe is behind him */
     send(text);
   });
 
@@ -7581,6 +7665,34 @@ export function initChat(ctx) {
     if (abort) abort.abort();
   });
 
+  /* M668: the bottom links to the ledger itself, and to its scene */
+  if (els.btnFootLedger) els.btnFootLedger.addEventListener('click', () => { if (ctx.drawer && typeof ctx.drawer.open === 'function') ctx.drawer.open(); });
+  if (els.btnFootScene) els.btnFootScene.addEventListener('click', () => { if (ctx.drawer && typeof ctx.drawer.openAt === 'function') ctx.drawer.openAt('scene'); });
+  /* M668: THE TOP BAR, HIDDEN AND BROUGHT BACK. One switch (kept: it is hidden again when he comes back); the small
+   * button that brings it back wears the ledger button's light, whatever it shows, with its words. */
+  const setImmersed = (on, keep = true) => {
+    document.body.classList.toggle('immersed', Boolean(on));
+    if (els.btnImmerseShow) els.btnImmerseShow.hidden = !on;
+    if (keep) db.settings.set('immersed', Boolean(on)).catch(() => {});
+  };
+  if (els.btnImmerse) els.btnImmerse.addEventListener('click', () => setImmersed(true));
+  if (els.btnImmerseShow) els.btnImmerseShow.addEventListener('click', () => setImmersed(false));
+  db.settings.get('immersed').then((on) => { if (on === true) setImmersed(true, false); }).catch(() => {});
+  function mirrorLamp() {
+    const lamp = document.getElementById('btn-ledger');
+    const tiny = document.getElementById('btn-immerse-show');
+    if (!lamp || !tiny) return;
+    for (const c of ['is-working', 'has-trouble', 'all-well', 'is-waiting']) tiny.classList.toggle(c, lamp.classList.contains(c));
+    const says = lamp.getAttribute('title') || '';
+    tiny.setAttribute('title', 'Show the top bar' + (says ? ' — ' + says : ''));
+  }
+  {
+    /* whenever the ledger button's light or its words change, by whatever hand */
+    const lamp = document.getElementById('btn-ledger');
+    const Observer = typeof MutationObserver === 'function' ? MutationObserver : (document.defaultView && document.defaultView.MutationObserver);
+    if (lamp && typeof Observer === 'function') new Observer(mirrorLamp).observe(lamp, { attributes: true, attributeFilter: ['class', 'title'] });
+    mirrorLamp();
+  }
   /* The composer's quiet meta links — deep links into Settings. */
   document.querySelectorAll('.composer-meta [data-goto]').forEach((btn) => {
     btn.addEventListener('click', () => {

@@ -798,7 +798,11 @@ async function exportAll() {
     stories: await run('stories', 'readonly', (s) => s.getAll()),
     messages: await run('messages', 'readonly', (s) => s.getAll()),
   };
-  return JSON.stringify(envelope, null, 2);
+  /* M668 (his: "is it normal my backup is almost 1gb? it seems like it's just text"): measured on the long play's own
+   * store, HALF of this file was indentation — 4,782,491 characters written, 2,357,849 of them the backup. Written
+   * close now; it reads back exactly the same. (The device's own zip — the copy "Take a copy" hands over when the
+   * tavern's server is running — never used this path, and is not made smaller by it.) */
+  return JSON.stringify(envelope);
 }
 
 /* M155: BOOKS PER STORY. exportStory(id) is one tale whole — its row, its

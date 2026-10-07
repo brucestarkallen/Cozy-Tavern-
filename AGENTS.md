@@ -17064,3 +17064,79 @@ M666 was told to him as done, with two of his pasted audit's findings listed as 
 - version.js -> m667-001.
 - GATES at m667-001 (one CPU), on the tree that was pushed: harness 1309/1309, walk 241/241, long play 9/9, lint 0 errors
   (181 warnings, as at m666), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
+
+# M668 — eight asks in one message: the screen, the swipe, the files, the backup, the light, the audit
+His message, item by item, and what became of each.
+- 1. "WHEN I SWIPE AND IT ERRORS AND I PRESS RETRY — does it retry the second swipe, and is the previous one not gone?" READ
+  FROM THE CODE: a swipe that fails loses nothing (a version is added only when its words have landed, and the ledger
+  is put back). But "Try again" on a storyteller's page LETS THE PAGE GO — every version of it — and writes one anew:
+  pressed after a failed swipe it threw away the versions the swipe was meant to stand beside. chat.js: a swipe that
+  did not land is remembered for its page (swipeFailed), and "Try again" on that page is the swipe again — a new
+  version, the earlier ones kept. (Not changed: "Try again" on a page that landed well still writes it anew, as M302
+  made it. Said to him.)
+- 2. "DOES THE UPLOAD IMAGE REALLY WORK, OR IS IT A GIMMICK; CAN IT ALSO TAKE A FILE — md, text, yaml?" The picture is real:
+  resized (1568 px), kept on his page, and sent to the storyteller as a picture — on the page it rides with, once
+  (stack.js: later requests say "[a picture was shared here]"). A TEXT FILE is taken now (.md .txt .yaml .yml .json
+  .csv .log .xml .toml .ini, anything text/*): read as text (300,000 characters at most; a file that is not text is
+  refused), shown as a chip before sending, and its words go INTO his page under "[Attached file: name]" — kept, sent,
+  summed up and searched like words he typed.
+- 3. "DELETE THE FRAME AND THE NOTES AT THE BOTTOM, SAME AS RULEBOOK; CHANGE IT TO THIS STORY, THE READERS, THE LEDGER, THE
+  CURRENT SCENE": the links under the composer are now Try again · This story (Settings, the brief) · The readers
+  (Settings, the workers) · The ledger · The current scene (the ledger, at its scene room — drawer.js openAt). The
+  frame, the note and the rulebook are where they were, in Settings. Four links are wider than a phone on one line —
+  the page scrolled sideways (caught in the browser) — so they wrap.
+- 4. "IS IT NORMAL MY BACKUP IS ALMOST 1 GB? IT'S JUST TEXT": MEASURED on the long play's own store (90 turns), not guessed:
+  story text 27 KB; the receipts kept on pages 421 KB; the ledger as it stands 141 KB; and the COPIES OF THE LEDGER AT
+  EARLIER PAGES — kept so a swipe, a delete or a walk back can restore it (ver, snap and their bank) — 1,634 KB: 69%
+  of the backup, sixty times the story. That is what the gigabyte is; M314/M507/M570 already made it smaller once.
+  Also measured: the browser's own backup file was HALF indentation (4,782,491 characters for 2,357,849) — written
+  close now (store.js exportAll). His copy is the device's zip (serve.py), which never used that path: NOT made
+  smaller by this. Thinning the old copies is the real cure and is NOT done here — it touches every rewind.
+- 5 & 6. "MAKE THE WHOLE TOP BAR GONE, WITH A REALLY SMALL BUTTON TO SHOW IT AGAIN… AND A PLACE FOR THE LIGHT WHEN IT IS
+  HIDDEN": a button in the bar hides it (kept — it is hidden again on return); one 30 px round button stays in the
+  corner and brings it back, and it WEARS THE LEDGER BUTTON'S OWN LIGHT and words (the same classes, copied whenever
+  they change — the same dot, measured). In a phone-sized Chromium the story has all 800 px where it had 751.
+- 7. "MAKE SURE THE LIGHT IS NOT A GIMMICK": READ WHOLE (chat.js markLedgerTroubleNow, M254). Green is: nothing running or
+  waiting; none of keeper, extractor, scribe, world failed or stopped partway; the ledger has read every page; the
+  record has no page past its window without a line; and anything that cannot be checked is not green. ONE HOLE: the
+  two that check the others — the second reader and the auditor — could fail on the page just told and it stayed
+  green. A failure of either on or after the newest page is yellow now, and named.
+- 8. "AN AGENT THAT DOES WHAT THE HOUSEKEEPER'S AUDIT DOES, CONTINUOUSLY, TOGGLEABLE": NOT BUILT, and told to him as what
+  already runs: the second reader (every page against the ledger and the locked truths, mending a slip by the
+  smallest edit — both switches in Settings, on by default), the keeper's check of each record line against its
+  pages, and the auditor (the ledger against the pages, on its cadence). What stays by hand is the housekeeper's
+  reading of the WHOLE tale at once.
+- WALK DOM-242: the links, the hidden bar and its light, a text file sent and a blob refused, the light yellow when the
+  auditor or the second reader fails and green again, a failed swipe and "Try again".
+- CAUGHT BY THE WALK (DOM-22, "the house heals what the old readers left"): my first cut of item 7 put the auditor and the
+  second reader into the list that ALSO decides whether the house may heal a gap by itself — a tale carrying an old
+  auditor's failed mark stopped healing. They colour the light only now (`guards`); what gates the healing is as it was.
+- THE TWO GATES THAT FAILED AT m668, AND WHY (both mine):
+  - harness M254 reads the green light's own line of code, word for word; I had written a condition into it. The line
+    stands as it was and the new condition is a line of its own (allWellNow).
+  - walk DOM-22 "could not find the hand page form". Watched through the walk: the drawer was SHOWN when DOM-22 began —
+    DOM-15, the sweep that presses every button, now pressed "The current scene", which opens the ledger, and left it
+    open; DOM-22's own first tap on the ledger button then closed it. The sweep skips "The ledger" for that reason and
+    now skips "The current scene" with it.
+
+# M669 — two more of his: the window's rule said back on the page; an error note that outlived its error
+- "DETECT FOURTH-WALL BREAKING, SAFELY — at the end of my story there's a stray 'The World Beyond stays where it cut — nothing
+  follows it, and nobody in 1-D learns anything from it'". The house tells the storyteller the window "sits where the
+  cut happens… and nothing follows it" (modules.js); the storyteller wrote the RULE onto the page as story. The page
+  finisher (pageshape.js finishPage, M510-34 — it already takes a closing note to the writer off the end, and keeps
+  what it took so a tap puts it back) now knows this one too: a sentence whose subject is the window BY NAME, in the
+  capitals the house writes it, with one of the rule's own turns of phrase ("nothing follows", "where it cut", "stays
+  where…", "is closed"). As a last paragraph it comes off; a line right under it that only goes on about "it" ("and
+  nobody in 1-D learns anything from it") goes with it; closing a paragraph of story, only its own sentences come off.
+  Never: speech; the window's own marker; "the world beyond the mountains stays quiet"; "Nothing follows it but the
+  rain"; the second half alone.
+- "WHEN THE PROVIDER HAS ERRORS THERE'S A RED BANNER; WHEN I SWIPE RIGHT IT'S NOT GONE… I NEED TO RELOAD": the note a failed
+  telling leaves ("… Ask again") took itself away only when its own button was pressed. Asked again any other way — a
+  swipe, "Try again", a new page of his own — the old error stood under the new page. Every such note leaves the
+  moment a new telling begins (chat.js, generate).
+- LAW (m588.mjs): M669-1 (his line, three ways; six sentences that must stay). WALK DOM-242 also plays the error note:
+  there after the failed swipe, gone when the next telling begins.
+- version.js -> m669-001.
+- GATES at m669-001 (one CPU), on the tree that was pushed: harness 1310/1310, walk 242/242 (DOM-22 and DOM-242 among them),
+  long play 9/9, lint 0 errors (186 warnings — five more than m667, from this work), perf_send, holdsone, cutthinking,
+  notes_layout — EXIT 0 each. The runs before this one failed M254 and DOM-22, as told above.

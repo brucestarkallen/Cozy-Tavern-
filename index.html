@@ -27,6 +27,10 @@
       <h1 class="brand">Cozy Tavern</h1>
     </div>
     <div class="topbar-actions">
+      <!-- M668: his — "make the whole top bar gone, with a really small button to show it again, so I can fully immerse" -->
+      <button id="btn-immerse" class="icon-btn" type="button" aria-label="Hide the top bar" title="Hide the top bar — a small button brings it back">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
       <button id="btn-ledger" class="icon-btn room-btn" type="button" aria-label="The ledger" title="The ledger — the house's memory of the scene and the world">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM13 4h5.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H13z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
       </button>
@@ -38,6 +42,7 @@
       </button>
     </div>
   </header>
+  <button id="btn-immerse-show" class="immerse-show room-btn" type="button" hidden aria-label="Show the top bar" title="Show the top bar"><span aria-hidden="true">⌄</span></button>
 
   <!-- A6 (M9): one tab holds the pen; a second tab only reads. -->
   <p id="read-only-notice" class="read-only-notice" role="status" hidden>Another tab of the tavern is holding the pen — this one only reads. Close the other to write here.</p>
@@ -129,8 +134,8 @@
           <form id="composer" class="composer">
             <label for="composer-input" class="visually-hidden">What's next?</label>
             <textarea id="composer-input" rows="1" placeholder="What's next?"></textarea>
-            <button id="btn-attach" class="attach-btn" type="button" aria-label="Add a picture" title="Add a picture">✦</button>
-            <input id="attach-file" type="file" accept="image/*" hidden aria-label="A picture to share on this page">
+            <button id="btn-attach" class="attach-btn" type="button" aria-label="Add a picture or a file" title="Add a picture or a text file (.md, .txt, .yaml, .json…)">✦</button>
+            <input id="attach-file" type="file" accept="image/*,text/*,.md,.markdown,.txt,.yaml,.yml,.json,.csv,.log,.xml,.toml,.ini" hidden aria-label="A picture or a text file to share on this page">
             <button id="btn-send" class="send-btn" type="submit" aria-label="Send">
               <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
@@ -148,9 +153,11 @@
             <span id="quick-switch-wrap" class="quick-switch" hidden><label for="quick-switch">Quick switch</label> <select id="quick-switch" aria-label="Quick switch — who tells this story"></select></span>
             <span class="meta-links">
               <button type="button" id="btn-retry" hidden>Try again</button>
-              <button type="button" data-goto="section-frame">The frame</button> ·
-              <button type="button" data-goto="section-note">The note</button> ·
-              <button type="button" data-goto="section-rulebook">Rulebook</button>
+              <!-- M668: his — "delete the frame and the notes at the bottom, same as rulebook; change it to this story, the readers, the ledger, the current scene" -->
+              <button type="button" data-goto="section-brief">This story</button> ·
+              <button type="button" data-goto="section-workers">The readers</button> ·
+              <button type="button" id="btn-foot-ledger">The ledger</button> ·
+              <button type="button" id="btn-foot-scene">The current scene</button>
             </span>
           </div>
         </div>
@@ -1037,7 +1044,7 @@
             <li><b>What the storyteller weighed</b> — its thinking, if the model sends any. <b>Copy the thinking</b> copies it.</li>
             <li><b>✦ The World Beyond ✦</b> box — a window into somewhere your character is not: the world moving on its own. Written only when the house opens one (the world agent’s word, or <code>#Put TWB</code>). Your character learns nothing from it.</li>
             <li><b>The footer meter</b> — the size of the last request actually sent, everything included.</li>
-            <li><b>Try again · The frame · The note · Rulebook</b> (footer links) — retry the last page; edit the frame (the standing system prompt), the note (the last words before the storyteller writes), the rulebook (below).</li>
+            <li><b>Try again · This story · The readers · The ledger · The current scene</b> (footer links) — retry the last page; open Settings at this story's brief or at the readers; open the ledger, or the ledger at the scene. (The frame, the note and the rulebook are in Settings.) </li>
           </ul>
 
           <h3>Commands you can type</h3>
