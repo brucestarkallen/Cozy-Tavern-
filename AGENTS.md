@@ -17140,3 +17140,36 @@ His message, item by item, and what became of each.
 - GATES at m669-001 (one CPU), on the tree that was pushed: harness 1310/1310, walk 242/242 (DOM-22 and DOM-242 among them),
   long play 9/9, lint 0 errors (186 warnings — five more than m667, from this work), perf_send, holdsone, cutthinking,
   notes_layout — EXIT 0 each. The runs before this one failed M254 and DOM-22, as told above.
+
+# M670 — "like a Mac's Time Machine": the backup's promise, measured, one gap closed, and made a standing gate
+His: "So it's done or not? I want everything to be perfect. As for backup, what matters is I have all the information — when
+I import it, it's basically like the original, like Mac Time Machine." (So the gigabyte of M668's item 4 is not his
+concern; what a copy HOLDS is. Nothing is thinned.)
+- EVERY PLACE THE HOUSE KEEPS ANYTHING, held against what a copy holds: the main database (four shelves: settings — every
+  ledger, record, checkpoint, lore, the house's own settings — connections, stories, messages): all four are the copy.
+  The browser's small storage holds only when each book was last sent to the device (bookkeeping). ONE THING IS NOT IN
+  A COPY, BY DESIGN: the separate database of what each page's storyteller was sent, word for word (sent.js, the
+  newest 200 pages a tale) — "What the storyteller saw" then shows each part's name and size, not its words, for pages
+  told before the copy. Nothing of the story, the ledger, the record or the settings is in it.
+- MEASURED ON A FULL STORE (the long play's own, 184 pages, 117 rows of ledgers, records and copies):
+  - the whole-library file, brought back over a library damaged after the copy (a page added, a ledger overwritten, a
+    record deleted): IDENTICAL, row for row;
+  - the device's own books (the house's and one a tale), brought into an EMPTY library: every page and every row
+    identical; the tale's own row identical in every field (title, brief, cast notes, switches…) and carrying one
+    more, `pages` — the count the house's list keeps for the shelf;
+  - the device's zip (serve.py, a temporary library): after a book was deleted, one corrupted, the house's book cut
+    short and a stray added, the copy brought back is IDENTICAL byte for byte, the stray gone, and the damaged library
+    itself zipped first as a safety copy; a file that is not a copy is refused and touches nothing.
+  The four tests that already guarded this (M310, M510-46/47, M571) all pass at this build.
+- ONE GAP, MADE TO HAPPEN, THEN CLOSED: the device zips ITS books, and the browser sends a ledger, a record or a setting to
+  the device twenty seconds after it changes (pages go at once, M181). A copy taken inside those twenty seconds held
+  the newest pages and the ledger from before them — tests/backup_fresh.py, against the real server and the real app:
+  a record line written a moment before "Take a copy" was NOT in the zip. "Take a copy" now asks for everything still
+  owed to the device to be sent at once, and waits for it (twenty seconds at most), before the device zips
+  (sync.js ctx.pushBooksNow; settings.js). The same test: in the zip.
+- A STANDING GATE: audit/gates.sh runs backup, backupdupes, restore_backup_unit, restore_zip and backup_fresh with the four
+  browser gates, on every change.
+- version.js -> m670-001.
+- GATES at m670-001 (one CPU), on the tree that was pushed: harness 1310/1310, walk 242/242, long play 9/9, lint 0 errors
+  (186 warnings, as at m669), perf_send, holdsone, cutthinking, notes_layout, backup, backupdupes, restore_backup_unit,
+  restore_zip, backup_fresh — EXIT 0 each, first run, no scenario failing.

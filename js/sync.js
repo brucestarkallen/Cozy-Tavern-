@@ -215,6 +215,12 @@ export async function initSync(ctx) {
   };
   pushLater.now = pushNow;
   const schedule = () => { clearTimeout(timer); timer = setTimeout(pushNow, 20000); };
+  /* M670 — HIS: "as for backup, what matters is I have all the information — when I import it, it's basically the original, like
+   * a Mac's Time Machine." The device's copy is made of the device's books, and a ledger, a record or a setting goes to
+   * the device twenty seconds after it changes (only pages go at once, M181): a copy taken inside those twenty seconds
+   * held the newest pages and the ledger from before them (made to happen: tests/backup_fresh.py). "Take a copy" asks
+   * for everything still waiting to be sent NOW, and waits for it, before the device zips. */
+  ctx.pushBooksNow = () => { clearTimeout(timer); return pushNow(); };
   const mark = (id) => { if (id) { dirty.add(id); owe(id); schedule(); noteWroteHere(id); } };
   /* M181: PROSE GOES TO THE DEVICE AT ONCE. Every write waited on the same
    * twenty-second debounce, so a page the writer had just read sat only in

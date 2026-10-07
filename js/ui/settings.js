@@ -2984,6 +2984,12 @@ export function initSettings(ctx) {
      * failure is SAID, never swallowed. */
     els.backupNote.hidden = false;
     els.backupNote.textContent = 'Making a copy…';
+    /* M670: first, everything this browser still owes the device goes to it (a ledger or a record waits twenty seconds
+     * by itself) — so the copy is the library as it stands this moment. Twenty seconds at most; a device that does not
+     * answer is not waited for (the copy is then what it holds, as before). */
+    if (ctx && typeof ctx.pushBooksNow === 'function') {
+      try { await Promise.race([Promise.resolve(ctx.pushBooksNow()), new Promise((r) => setTimeout(r, 20000))]); } catch (err) { /* the copy is made of what the device holds */ }
+    }
     try {
       const res = await fetch(new URL('api/backup/now', document.baseURI), { cache: 'no-store' });
       if (res.ok) {
