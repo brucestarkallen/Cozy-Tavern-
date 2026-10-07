@@ -31,7 +31,7 @@ import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, headerMutations } from '../engine/state.js';
-import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf, showsDeparture, goneAtTheEnd, quotedGoing, toldOnPage, mcWalksOff } from '../engine/apply.js'; /* M444; M446: the departure reader, and who is gone at a page's end */
+import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf, showsDeparture, goneAtTheEnd, quotedGoing, restatedPresence, toldOnPage, mcWalksOff } from '../engine/apply.js'; /* M444; M446: the departure reader, and who is gone at a page's end */
 import { findSeat } from '../engine/offscreen.js';
 import { findThread } from '../engine/world.js';
 /* M240: it was told to catch a healed wound and never shown the wounds.
@@ -64,7 +64,7 @@ const CAST_CAP = 20000;
 const VOCABULARY = [
   'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30} — to the latest header line\'s own hour, or when the latest STORY page has none',
   'place.set {"type":"place.set","name":"the chapel"} — to the latest header line\'s own place, or when the latest STORY page has none',
-  'presence.enter {"type":"presence.enter","name":"NAME","shown":"the page\'s own words that show them here, copied exactly — needed when the telling does not use their name"} / presence.leave {"type":"presence.leave","name":"NAME","shown":"the page\'s own words that show them going, copied exactly","to":"where the pages show them going, said so it stands on its own — upstairs in the Wells house — and left out only when the pages show no sign of where"}', /* M643: whoever takes someone out of the scene says where they went; M644: and by which words of the page */
+  'presence.enter {"type":"presence.enter","name":"NAME","shown":"the page\'s own words that show them here, copied exactly — needed when the telling does not use their name"} / presence.update {"type":"presence.update","name":"NAME","position":"where in the room the newest page shows them, in its own words","attire":"what the newest page shows them wearing, in its own words"} / presence.leave {"type":"presence.leave","name":"NAME","shown":"the page\'s own words that show them going, copied exactly","to":"where the pages show them going, said so it stands on its own — upstairs in the Wells house — and left out only when the pages show no sign of where"}', /* M643: whoever takes someone out of the scene says where they went; M644: and by which words of the page */
   'mc.set {"type":"mc.set","name":"MAIN CHARACTER"} — only when the ledger has no main character',
   'body.injure {"type":"body.injure","name":"NAME","what":"…","sev":1-3} / body.heal {"type":"body.heal","name":"NAME","what":"…"}',
   'rel.set {"type":"rel.set","name":"…","p":..,"r":..,"s":..,"cause":"the brief says"} — only to restore a standing that is wrongly zero, or to zero one written for someone else',
@@ -793,9 +793,18 @@ function placeWordsOnPage(position, told) {
   return own.some((w) => text.includes(w));
 }
 export function auditorScope(issues, state, { header = [], page = '' } = {}) {
+  const restatedOk = new WeakSet(); /* M661: the changes of place and dress the newest page bears out */
   if (page && Array.isArray(issues)) {
     const told = narrationOf(scenePartOf(page));
     issues = issues.map((issue) => (issue && Array.isArray(issue.mutations) ? { ...issue, mutations: issue.mutations.map((m) => {
+      /* M661: THE AUDITOR CAN SET RIGHT WHERE SOMEONE STANDS AND WHAT THEY WEAR — held to the page as the reader is. It saw
+       * "the presence list still has Barbara in a heavy coat" and had no change of its own for it (it wrote a "now", which
+       * is not its to write): the finding was reported and nothing landed. A presence.update whose words are the newest
+       * page's own, and truly other than the ledger has, stands (apply.js restatedPresence). */
+      if (m && m.type === 'presence.update' && typeof m.name === 'string') {
+        const fixed = restatedPresence(state, [{ name: m.name, at: typeof m.position === 'string' ? m.position : '', wears: typeof m.attire === 'string' ? m.attire : '' }], [], page)[0];
+        if (fixed) { restatedOk.add(fixed); return fixed; }
+      }
       if (!(m && m.type === 'presence.update' && typeof m.name === 'string' && typeof m.position === 'string' && m.position.trim())) return m;
       const entry = (Array.isArray(state && state.present) ? state.present : []).find((p) => p && typeof p.name === 'string' && isHere({ present: [p] }, m.name));
       const was = entry && typeof entry.position === 'string' ? entry.position : '';
@@ -825,7 +834,7 @@ export function auditorScope(issues, state, { header = [], page = '' } = {}) {
   const seats = (state && state.offscreen && typeof state.offscreen === 'object') ? state.offscreen : {};
   const moment = (m) => {
     if (!m || typeof m !== 'object' || typeof m.type !== 'string') return true;
-    if (m.type === 'presence.update') return !m.staleClear; /* M544: only the letting-go of a place the page left behind */
+    if (m.type === 'presence.update') return !(m.staleClear || restatedOk.has(m)); /* M544: the letting-go of a place the page left behind; M661: a place or an outfit the newest page bears out */
     if (!AUDITOR_TYPES.has(m.type)) return true;
     /* the header line is the truth for the ground and the hour (M131): the
      * auditor may bring the ledger TO it, never move it anywhere else */

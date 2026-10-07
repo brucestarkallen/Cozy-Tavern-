@@ -1999,19 +1999,22 @@ export function restatedPresence(state, notes, mutations, pageText = '') {
   const out = [];
   const list = Array.isArray(mutations) ? mutations : [];
   const touched = new Set(list.filter((m) => m && /^presence\.(?:update|enter|leave)$/.test(m.type)).map((m) => String(m.name || '').trim().toLowerCase()));
-  const told = tellingOf(narrationOf(scenePartOf(String(pageText || ''))));
+  /* the page's TELLING — never its header line: the header's own cells are among what is being judged (M661) */
+  const told = tellingOf(narrationOf(scenePartOf(String(pageText || '').replace(/^\s*\[[^\n]*\][ \t]*/, ''))));
   const onPage = (text) => { const w = [...tellingOf(text)]; return w.length > 0 && w.filter((x) => told.has(x)).length / w.length >= 0.5; };
+  const written = new Map(); /* one outfit and one place a person, however many notes speak of them (the reader's first) */
   for (const n of Array.isArray(notes) ? notes : []) {
     if (!n || typeof n.name !== 'string') continue;
     const at = findPresent(state, n.name, { strict: true });
     if (at === -1) continue;
     const entry = state.present[at];
-    if (touched.has(String(entry.name).toLowerCase()) || touched.has(n.name.trim().toLowerCase())) continue;
-    const m = { type: 'presence.update', name: entry.name };
+    const key = String(entry.name).toLowerCase();
+    if (touched.has(key) || touched.has(n.name.trim().toLowerCase())) continue;
+    const m = written.get(key) || { type: 'presence.update', name: entry.name };
     const wears = capText(n.wears, 160); const where = capText(n.at, 160);
-    if (wears && onPage(wears) && trulyOther(entry.attire, wears)) m.attire = wears;
-    if (where && onPage(where) && trulyOther(entry.position, where)) m.position = where;
-    if (m.attire !== undefined || m.position !== undefined) out.push(m);
+    if (m.attire === undefined && wears && onPage(wears) && trulyOther(entry.attire, wears)) m.attire = wears;
+    if (m.position === undefined && where && onPage(where) && trulyOther(entry.position, where)) m.position = where;
+    if ((m.attire !== undefined || m.position !== undefined) && !written.has(key)) { written.set(key, m); out.push(m); }
   }
   return out;
 }

@@ -1270,3 +1270,46 @@ test('M660-3 SOMEONE SEATED ELSEWHERE HAS NO “NOW” IN THE ROOM, AND THE WORL
   const quiet = buildWorldMessages({ state: st, userText: 'I wait.', assistantText: '[The Batcave — the main console — Saturday, January 2, 2027 | 23:40 | cold | batsuit | at the console]\n\nBarbara said nothing.', before: [] }).user;
   assert(!/THE CAST OF THIS PAGE/.test(quiet), 'a page that names nobody from afar says nothing of the kind');
 });
+
+/* M661 — the same audit of his, two repairs more: the header's own cells for the main character; the auditor's own repair. */
+test('M661-1 THE MAIN CHARACTER’S DRESS AND PLACE ARE READ FROM THE HEADER’S OWN CELLS when the page’s telling bears them out — with a reader that names the room and says no more; never from a cell the telling does not bear out, never the same thing in other words', async () => {
+  const { headerDress } = await import('../../js/engine/state.js');
+  const { headerMutations } = await import('../../js/engine/state.js');
+  const { staleAfterJump } = await import('../../js/engine/apply.js');
+  const { extractTurn } = await import('../../js/agents/extractor.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  eq(JSON.stringify(headerDress('[Wayne Manor — the stairway bend — Sunday, January 3, 2027 | 09:10 | low winter sun | dark sweater | at the bend]\n\nx')), JSON.stringify({ attire: 'dark sweater', position: 'at the bend' }), 'the fourth and fifth cells of his header');
+  eq(headerDress('[Wayne Manor — Sunday, January 3, 2027 | 09:10 | low winter sun]\n\nx'), null, 'a header of three cells has none');
+  eq(headerDress('[Wayne Manor — Sunday, January 3, 2027 | 09:10 | sun | — | —]\n\nx'), null, 'dashes are no dress');
+  const G = 'Wayne Manor — the stairway bend';
+  const night = applyMutations({ ...emptyState(), page: 30 }, [{ type: 'mc.set', name: 'Bruce' }, { type: 'place.set', name: G }, { type: 'clock.set', year: 2027, month: 1, day: 2, hour: 23, minute: 30 },
+    { type: 'presence.enter', name: 'Bruce', position: 'at the stairway bend', attire: 'the batsuit, armored, cowl on' }, { type: 'presence.enter', name: 'Barbara' }, { type: 'rel.set', name: 'Barbara', p: 60, cause: 'years' }]).state;
+  const bruce = async (page) => {
+    const read = await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }], resolved: [], here: ['Bruce', 'Barbara'] }) }), () => extractTurn({ connection: HOUSES[0].conn, state: night, userText: 'I wait.', assistantText: page, pageNumber: 31 }));
+    const header = headerMutations(page, { ground: G });
+    const p = applyMutations(night, [...header, ...staleAfterJump(night, header), ...read.mutations]).state.present.find((x) => x.name === 'Bruce');
+    return [p.position, p.attire].filter(Boolean).join('; ');
+  };
+  eq(await bruce('[Wayne Manor — the stairway bend — Sunday, January 3, 2027 | 09:10 | low winter sun | dark sweater | at the bend]\n\nBarbara stood three steps above the bend. Bruce, out of the cowl and armor, wore a dark sweater and the night still written on him.'), 'at the bend; dark sweater', 'the morning after: his header’s cells, borne out by the telling — the reader said nothing of him');
+  eq(await bruce('[Wayne Manor — the stairway bend — Saturday, January 2, 2027 | 23:45 | cold | dark sweater | at the bend]\n\nBarbara waited. Bruce had not moved, armored still.'), 'at the stairway bend; the batsuit, armored, cowl on', 'a cell the telling does not bear out (“dark sweater” while the page says armored) changes nothing');
+  eq(await bruce('[Wayne Manor — the stairway bend — Saturday, January 2, 2027 | 23:45 | cold | the batsuit | at the bend]\n\nBarbara waited. Bruce stood at the bend in the batsuit.'), 'at the stairway bend; the batsuit, armored, cowl on', 'the same dress and place in other words is no change');
+});
+
+test('M661-2 THE AUDITOR CAN SET A PLACE OR AN OUTFIT RIGHT ITSELF, HELD TO THE NEWEST PAGE: “still in a heavy coat” against a page that shows jeans and a dark sweater is repaired by its own change; words the page does not hold are refused, as before', async () => {
+  const { auditLedger } = await import('../../js/agents/auditor.js');
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  const { db } = await import('../../js/store.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const run = async (update) => {
+    const story = await db.stories.create({ title: 'her coat ' + Math.random() });
+    await db.messages.append(story.id, { role: 'user', text: 'I look up.' });
+    await db.messages.append(story.id, { role: 'assistant', text: '[Wayne Manor — the stairway bend — Sunday, January 3, 2027 | 09:10 | low winter sun | dark sweater | at the bend]\n\nBarbara stood three steps above the bend in jeans and a dark sweater, her coat hung by the door.' });
+    await saveState(story.id, applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Bruce' }, { type: 'place.set', name: 'Wayne Manor — the stairway bend' }, { type: 'presence.enter', name: 'Bruce' }, { type: 'presence.enter', name: 'Barbara', position: 'in the entrance hall, by the door', attire: 'a heavy coat still on' }]).state);
+    const answer = JSON.stringify({ issues: [{ what: 'the presence list still has Barbara in a heavy coat; the latest page shows her coat hung and her in jeans and a dark sweater', fix: 'her dress and place as the page shows them', pages: false, mutations: [update] }] });
+    await withHouse(thinkingHouse({ answer }), () => auditLedger({ connection: HOUSES[0].conn, storyId: story.id, brief: '' }));
+    const p = (await loadState(story.id)).present.find((x) => x.name === 'Barbara');
+    return [p.position, p.attire].filter(Boolean).join('; ');
+  };
+  eq(await run({ type: 'presence.update', name: 'Barbara', position: 'three steps above the bend', attire: 'jeans and a dark sweater' }), 'three steps above the bend; jeans and a dark sweater', 'the auditor’s own change lands: her place and her dress as the newest page shows them');
+  eq(await run({ type: 'presence.update', name: 'Barbara', attire: 'a ballgown and a tiara' }), 'in the entrance hall, by the door; a heavy coat still on', 'a dress the page does not show is not written');
+});

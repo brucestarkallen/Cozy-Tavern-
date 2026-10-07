@@ -38,7 +38,7 @@ import { HERE_MEANS } from './herewords.js'; /* M554: who is in the scene — on
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
 import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
-import { headerMutations } from '../engine/state.js'; /* M446: did this page move the ground? */
+import { headerMutations, headerDress } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey } from '../engine/people.js';
 import { findRelationship } from '../engine/relationships.js'; /* M641: who has no standing yet */
 import { publicMoment } from '../engine/world.js'; /* M509-15: a moment the whole room saw */
@@ -665,14 +665,19 @@ export async function extractTurn(args = {}) {
      * reader gave it to. */
     if (args.state) {
       /* M660: where the page's own words show someone standing or dressed otherwise than the ledger has, it is written */
-      if (Array.isArray(read.hereNotes) && read.hereNotes.length) {
+      /* M661: the header's own attire and position cells are the main character's, on this page — after the reader's own
+       * word for him, and written only where the telling bears them out */
+      const dress = headerDress(args.assistantText);
+      const mcHere = dress ? (Array.isArray(args.state.present) ? args.state.present : []).find((p) => p && typeof p.name === 'string' && isMc(args.state, p.name)) : null;
+      const notes = [...(Array.isArray(read.hereNotes) ? read.hereNotes : []), ...(mcHere ? [{ name: mcHere.name, at: dress.position, wears: dress.attire }] : [])];
+      if (notes.length) {
         /* judged against the room as it will stand when this page's own header has been read: after a long jump of the
          * clock every place and outfit is let go (staleAfterJump), so what the page shows is written even where it is
          * what the ledger had the night before (found in the walk: Bruce's place at the bend was let go and not restated) */
         const day = args.state.clock && typeof args.state.clock.dayWords === 'string' ? args.state.clock.dayWords : '';
         const letGo = staleAfterJump(args.state, headerMutations(args.assistantText, { ground: (args.state.place || {}).name || '', day }));
         const room = letGo.length ? applyMutations(args.state, letGo).state : args.state;
-        read.mutations = [...read.mutations, ...restatedPresence(room, read.hereNotes, read.mutations, args.assistantText)];
+        read.mutations = [...read.mutations, ...restatedPresence(room, notes, read.mutations, args.assistantText)];
       }
       read.mutations = settleWitnesses(args.state, read.mutations, read.here); /* M642: what the reader itself decided */
       read.mutations = broadcastPublicMoments(args.state, read.mutations, read.here);

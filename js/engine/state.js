@@ -1311,14 +1311,10 @@ export function headerWithGround(pageText, ground) {
 }
 
 /* M627: { ground } — the ledger's ground before this page: a header place that only names the area round it is no move */
-export function headerMutations(pageText, { ground = '', day = '' } = {}) {
-  /* M645 (the ledger audit, part two — twenty-six ordinary ways a storyteller draws this line, fed through it):
-   * THE HEADER IS FOUND WHERE IT STANDS. It had to be the page's first line and nothing else on it. A line of chatter
-   * before it ("Sure — here is the next page."), or the page's first words run on after its closing bracket, and the
-   * ledger took no place and no hour from that page at all. The header is the first line when that is a bracketed
-   * line; else a bracketed line with its bars (|) that opens the first line; else one standing alone within the next
-   * two lines. And the line's DRESS is not its words: other brackets round it (【…】, (…)), a pin or a clock drawn before
-   * a part (📍, 🕘) — the ground was written "📍 Wells house kitchen" and "【Wells house kitchen". */
+/* the header line's cells — "Place — Date", the hour, the weather, the attire, the position — found where the line stands
+ * and out of its dress (M645); null when the page has no header */
+const bare = (t) => String(t || '').replace(/^[\s\p{Extended_Pictographic}\p{Emoji_Modifier}\uFE0F\u200D\p{So}]+/u, '').trim();
+export function headerCells(pageText) {
   const lines = String(pageText || '').split('\n').map((l) => l.trim()).filter((l) => l.length).slice(0, 3);
   const undress = (l) => { const m = l.match(/^(?:【(.+)】|（(.+)）|\((.+)\))$/u); return m ? '[' + (m[1] || m[2] || m[3]).trim() + ']' : l; };
   let first = '';
@@ -1328,11 +1324,34 @@ export function headerMutations(pageText, { ground = '', day = '' } = {}) {
     else { const glued = top.match(/^\[([^\]\n]*\|[^\]\n]*)\]\s*\S/); if (glued) first = '[' + glued[1] + ']'; }
     if (!first) for (const l of lines.slice(1)) { const u = undress(l); if (/^\[[^\]\n]*\|[^\]\n]*\]$/.test(u)) { first = u; break; } }
   }
-  if (!first) return [];
+  if (!first) return null;
   const wrapped = first.slice(1, -1).trim().match(/^(?:【(.+)】|（(.+)）|\((.+\|.+)\))$/u); /* the arrival repair brackets a line it finds bare: "[【…】]" */
-  const bare = (t) => String(t || '').replace(/^[\s\p{Extended_Pictographic}\p{Emoji_Modifier}\uFE0F\u200D\p{So}]+/u, '').trim();
   const inner = (wrapped ? (wrapped[1] || wrapped[2] || wrapped[3]) : first.slice(1, -1)).split('|').map((x) => bare(x)).join(' | ');
-  const parts = inner.split('|').map((x) => x.trim());
+  return inner.split('|').map((x) => x.trim());
+}
+/* M661: THE MAIN CHARACTER'S OWN DRESS AND PLACE, FROM THE HEADER'S OWN CELLS. His header is five fields — [Place — Date |
+ * HH:MM | weather | attire | position] — and the last two say what he wears and where he is on THIS page. They were
+ * never read: the theory was that the storyteller only copies them from the ledger. It also writes them from its own
+ * page ("| dark sweater | at the bend]" the morning after the batsuit). They are handed to restatedPresence, which
+ * writes one only where the page's own TELLING bears it out and it is truly other than the ledger has. */
+export function headerDress(pageText) {
+  const cells = headerCells(pageText);
+  if (!cells || cells.length !== 5) return null;
+  const clean = (v) => { const t = String(v || '').replace(/\s+/g, ' ').trim(); return /^[-—–]*$/.test(t) ? '' : t; };
+  const attire = clean(cells[3]); const position = clean(cells[4]);
+  return attire || position ? { attire, position } : null;
+}
+export function headerMutations(pageText, { ground = '', day = '' } = {}) {
+  /* M645 (the ledger audit, part two — twenty-six ordinary ways a storyteller draws this line, fed through it):
+   * THE HEADER IS FOUND WHERE IT STANDS. It had to be the page's first line and nothing else on it. A line of chatter
+   * before it ("Sure — here is the next page."), or the page's first words run on after its closing bracket, and the
+   * ledger took no place and no hour from that page at all. The header is the first line when that is a bracketed
+   * line; else a bracketed line with its bars (|) that opens the first line; else one standing alone within the next
+   * two lines. And the line's DRESS is not its words: other brackets round it (【…】, (…)), a pin or a clock drawn before
+   * a part (📍, 🕘) — the ground was written "📍 Wells house kitchen" and "【Wells house kitchen". */
+  const parts = headerCells(pageText);
+  if (!parts) return [];
+  const inner = parts.join(' | ');
   const out = [];
   const head = parts[0] || '';
   const dash = head.split(/\s+[—–-]\s+/).map((x) => bare(x)); /* M645: a mark drawn before the date is not the date's first word */

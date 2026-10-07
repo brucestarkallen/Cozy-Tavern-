@@ -16807,3 +16807,26 @@ of the cowl and armor in a dark sweater"; (4) "sensors ran 33 minutes".
 - GATES at m660-001 (one CPU), on the tree that was pushed: harness 1298/1298, walk 240/240 (DOM-240 among them), long play
   9/9, lint 0 errors (178 warnings, as at m659), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run,
   no scenario failing.
+
+# M661 — the same audit of his, two repairs more: the header's own cells, and the auditor's own repair
+M660 made the page reader restate the room. Two things in his pasted audit were still not answered by that alone.
+- THE MAIN CHARACTER NEEDS NO READER. His header is five cells — [Place — Date | HH:MM | weather | attire | position] —
+  and the last two are what the main character wears and where he is on THIS page ("| dark sweater | at the bend]" the
+  morning after the batsuit). They were never read (the storyteller was taken only to copy them from the ledger; it
+  also writes them from its own page). state.js headerCells is the one finder of the header's cells now (the header
+  rule uses it); headerDress hands the last two to restatedPresence, after the reader's own word for him. Written only
+  where the page's TELLING bears the words out — the header line itself is no longer counted as telling — and where it
+  is truly other than the ledger has: "dark sweater" over a page that says "armored still" changes nothing; a header
+  the house itself filled from the ledger (M626) is the ledger's own words and changes nothing.
+- THE AUDITOR FOUND IT AND COULD NOT FIX IT. "The presence list still has Barbara in a heavy coat" — and its change was a
+  people.set "state", a "now", which is not the auditor's to write (auditorScope): reported, nothing landed, found
+  again. It had no change for dress at all. presence.update is in its vocabulary now, and one whose words are the
+  newest page's own and truly other than the ledger has stands (the same restatedPresence; a WeakSet marks what passed,
+  nothing is left on the change). Words the page does not hold are refused as before; M544's letting-go of a place the
+  page left behind is untouched.
+- LAWS (m588.mjs): M661-1 (the cells; the morning after with a reader that names the room and says no more; a cell the
+  telling does not bear out; the same thing in other words), M661-2 (the auditor's own change through its whole call:
+  lands; a dress the page does not show does not).
+- version.js -> m661-001.
+- GATES at m661-001 (one CPU), on the tree that was pushed: harness 1300/1300, walk 240/240, long play 9/9, lint 0 errors
+  (178 warnings, as at m660), perf_send, holdsone, cutthinking, notes_layout — EXIT 0 each, first run, no scenario failing.
