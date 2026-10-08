@@ -625,37 +625,80 @@ function oneLetterApart(a, b) {
   if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1);
   return a.length > b.length ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
 }
-function lookAlikeNames(x, y) {
-  const a = foldName(x).split(' ').filter(Boolean); const b = foldName(y).split(' ').filter(Boolean);
-  if (!a.length || a.length !== b.length) return false;
-  let apart = 0;
-  for (let i = 0; i < a.length; i += 1) { if (a[i] === b[i]) continue; if (!oneLetterApart(a[i], b[i])) return false; apart += 1; }
-  return apart === 1;
-}
 const WRITTEN_FOR_A_PERSON = /^(?:people\.(?:set|note)|knowledge\.add|canon\.lock|body\.injure|offscreen\.set|rel\.(?:set|shift)|presence\.(?:enter|update))$/;
+/* M672: a name's folded words, remembered across loads — folding is the costly part (it was 12 of this repair's 12.5 ms
+ * on a long tale), a tale's names are the same from one load to the next, and the fold of a name never changes */
+const FOLDED_WORDS = new Map();
+function foldedWordsOf(x) {
+  let w = FOLDED_WORDS.get(x);
+  if (!w) {
+    w = foldName(x).split(' ').filter(Boolean);
+    if (FOLDED_WORDS.size > 4000) FOLDED_WORDS.clear();
+    FOLDED_WORDS.set(x, w);
+  }
+  return w;
+}
 export function partLookAlikes(state) {
   const s = state && typeof state === 'object' ? state : {};
   const chars = s.characters && typeof s.characters === 'object' ? s.characters : {};
   const journal = Array.isArray(s.journal) ? s.journal : [];
   if (!journal.length || !Object.keys(chars).length) return s;
   const same = (a, b) => String(a || '').trim().replace(/\s+/g, ' ').toLowerCase() === String(b || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  /* M672: THIS RUNS EVERY TIME A LEDGER IS OPENED, AND IT COST 19 ms ON A LONG TALE (100 people, a full journal) — measured; the
+   * older repair beside it costs half a millisecond. It compared every name written with every page, folding both names
+   * anew for each pair, and asked the whole cast "would today's rule find this name a page?" before anything cheaper.
+   * Now each name is folded ONCE (and remembered: a name's fold never changes), the page that bears a name is looked
+   * up rather than searched for, the cheap questions come first, and the one costly question is asked last, of a true
+   * candidate only. Every condition is the one it was — none has a side effect, so their order cannot change who is
+   * parted (the laws of M665 are the proof).
+   * WHAT IS NOT HERE, AND WHY: my first cut also remembered "this ledger has nothing to part" by its counts and the
+   * LENGTHS of its words, and passed such a ledger by. Two ledgers that differ only in whose name a change was written
+   * under — Kara's or Lara's — have the same counts and lengths: the second was passed by on the memory of the first
+   * and stayed mixed (m588 M672-1, made to happen). A repair looks at the ledger it is handed. */
+  const keys = Object.keys(chars);
+  const norm = (x) => String(x || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const keyOfNorm = new Map();
+  const wordsOf = foldedWordsOf;
+  const alikeWords = (a, b) => { /* two names alike but for one letter in one word — on names already folded */
+    if (!a.length || a.length !== b.length) return false;
+    let apart = 0;
+    for (let i = 0; i < a.length; i += 1) { if (a[i] === b[i]) continue; if (!oneLetterApart(a[i], b[i])) return false; apart += 1; }
+    return apart === 1;
+  };
+  /* a name's folded length: two names a letter apart in one word differ by one letter at most, so the rest need no look */
+  const keyInfo = keys.map((K) => { const w = wordsOf(K); const n = norm(K); if (!keyOfNorm.has(n)) keyOfNorm.set(n, K); return { K, n, w, l: w.join(' ').length }; });
   const given = new Map();
+  /* a name is written many times and a kind of change comes in runs: each is worked out once, not once an entry */
+  const ofRawName = new Map(); /* the name as the journal wrote it -> whom it is written for (null: no name at all) */
+  let lastType; let lastIsForAPerson = false;
   for (const e of journal) {
     const m = e && e.m;
-    if (!m || typeof m.name !== 'string' || !WRITTEN_FOR_A_PERSON.test(String(m.type))) continue;
-    const name = m.name.trim().replace(/\s+/g, ' ');
-    if (!name) continue;
-    const k = name.toLowerCase();
-    if (!given.has(k)) given.set(k, { name, pages: new Set(), entries: [] });
-    given.get(k).pages.add(e.p); given.get(k).entries.push(e);
+    if (!m || typeof m.name !== 'string') continue;
+    if (m.type !== lastType) { lastType = m.type; lastIsForAPerson = WRITTEN_FOR_A_PERSON.test(String(m.type)); }
+    if (!lastIsForAPerson) continue;
+    let g = ofRawName.get(m.name);
+    if (g === undefined) {
+      const name = m.name.trim().replace(/\s+/g, ' ');
+      if (!name) g = null;
+      else { const k = name.toLowerCase(); g = given.get(k); if (!g) { g = { name, k, pages: new Set(), entries: [] }; given.set(k, g); } }
+      ofRawName.set(m.name, g);
+    }
+    if (!g) continue;
+    g.pages.add(e.p); g.entries.push(e);
   }
   const parted = [];
   for (const g of given.values()) {
     const G = g.name;
-    if (g.pages.size < 2 || isMcAlias(s, G)) continue;
-    const own = Object.keys(chars).find((k) => same(k, G)) || '';
-    if (!own && findPersonKey(chars, G)) continue; /* today's rule already finds a page for it: nothing was mixed by a slip */
-    const near = Object.keys(chars).filter((K) => !same(K, G) && lookAlikeNames(K, G) && !findPersonKey({ [K]: emptyPerson() }, G) && !isMcAlias(s, K));
+    if (g.pages.size < 2) continue;
+    /* the cheap question first: is any page's name one letter from this one? (almost never) */
+    const gw = wordsOf(G);
+    const gl = gw.join(' ').length;
+    const alike = [];
+    for (const info of keyInfo) { if (info.l - gl > 1 || gl - info.l > 1) continue; if (info.n !== g.k && alikeWords(info.w, gw)) alike.push(info.K); }
+    if (!alike.length) continue;
+    if (isMcAlias(s, G)) continue;
+    const own = keyOfNorm.get(norm(G)) || '';
+    const near = alike.filter((K) => !findPersonKey({ [K]: emptyPerson() }, G) && !isMcAlias(s, K));
     if (near.length !== 1) continue;
     const K = near[0];
     const kGiven = given.get(K.toLowerCase());
@@ -664,6 +707,8 @@ export function partLookAlikes(state) {
     const since = own && Number.isFinite(chars[own].firstSeenTurn) ? chars[own].firstSeenTurn : Infinity;
     const hers = g.entries.filter((e) => !Number.isFinite(e.b) || e.b < since);
     if (!hers.length) continue;
+    /* M672: the one costly question (it asks the whole cast), last: today's rule already finds a page for it — nothing was mixed by a slip */
+    if (!own && findPersonKey(chars, G)) continue;
     const his = kGiven.entries;
     const latest = (list, type, field) => { for (let i = list.length - 1; i >= 0; i -= 1) { const m = list[i].m; if (m.type === type && (!field || m.field === field) && typeof m.text === 'string' && m.text.trim()) return m.text.trim(); } return ''; };
     const page = chars[K];

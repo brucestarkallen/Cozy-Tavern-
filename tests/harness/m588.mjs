@@ -1711,3 +1711,46 @@ test('M671-1 WHAT THE STORYTELLER WAS SENT CAN LEAVE THE BROWSER AND COME BACK, 
   eq(await sent.importAllSent(all), 3, 'all three pages of both tales come back');
   eq((await sent.loadSent('snt_b1')).slots[0].text, big('OTHER'), 'word for word');
 });
+
+/* M672 — the repair on opening (partLookAlikes) was made fast. What it must still do, however fast: look at the ledger it is
+ * handed. (My first cut remembered "nothing to part" by the ledger's counts and the LENGTHS of its words — and two ledgers
+ * that differ only in whose name a change was written under, Kara's or Lara's, have the same counts and lengths.) */
+test('M672-1 THE REPAIR ON OPENING LOOKS AT THE LEDGER IT IS HANDED, NEVER AT A MEMORY OF ANOTHER: a ledger with nothing to part is left exactly as it is, however often it is opened; a ledger that differs from it only in WHOSE NAME two changes were written under (the same length, the same words) is parted at once; so is the same tale when its next page makes the second person a person; and broken journal entries do not stop the look', async () => {
+  const { partLookAlikes } = await import('../../js/engine/people.js');
+  const asWritten = (st, page, muts, forName) => {
+    const before = st.journal.length;
+    const r = applyMutations({ ...st, page }, muts.map((m) => (forName ? { ...m, name: 'Kara' } : m)));
+    if (forName) r.state.journal.slice(before).forEach((e) => { if (e.m && e.m.name === 'Kara') e.m.name = forName; });
+    return r.state;
+  };
+  const copy = (x) => JSON.parse(JSON.stringify(x));
+  let base = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Bruce' }, { type: 'place.set', name: 'The Batcave' }, { type: 'presence.enter', name: 'Bruce' }]).state;
+  base = asWritten(base, 2, [{ type: 'people.set', name: 'Kara', field: 'core', text: 'Supergirl; bright, nosy, quick to laugh' }]);
+  base = asWritten(base, 3, [{ type: 'people.note', name: 'Kara', field: 'thread', text: 'Wants to know why Bruce called.' }]);
+  /* two tales alike to the letter-count: in one, pages 4 and 5 were written for Kara herself; in the other the very same
+   * words were written for LARA and landed on Kara's page (the old slip) */
+  const writes4 = [{ type: 'people.set', name: 'Kara', field: 'core', text: 'Clark’s mother; calm, exact, a scientist of Krypton' }];
+  const writes5 = [{ type: 'people.note', name: 'Kara', field: 'thread', text: 'Means to tell Clark about the crystal.' }];
+  const hers = asWritten(asWritten(base, 4, writes4), 5, writes5);
+  const mixed = asWritten(asWritten(base, 4, writes4, 'Lara'), 5, writes5, 'Lara');
+  eq(JSON.stringify(hers.characters), JSON.stringify(mixed.characters), 'fixture: the two ledgers hold the same pages');
+  eq(hers.journal.length + ' | ' + hers.journalSeq, mixed.journal.length + ' | ' + mixed.journalSeq, 'fixture: and journals of the same length — only the name two changes were written under differs');
+  for (let i = 0; i < 3; i += 1) {
+    const looked = partLookAlikes(copy(hers));
+    eq(JSON.stringify(looked), JSON.stringify(hers), 'nothing to part: the ledger is left exactly as it is (opening ' + (i + 1) + ')');
+    eq(looked.parted, undefined, 'and nobody is said to be parted');
+  }
+  const healed = partLookAlikes(copy(mixed));
+  eq((healed.characters.Lara ? healed.characters.Lara.core : 'no page') + ' | ' + healed.characters.Kara.core, 'Clark’s mother; calm, exact, a scientist of Krypton | Supergirl; bright, nosy, quick to laugh', 'its look-alike, opened right after, is looked at for itself: Lara has her page, Kara her own nature back');
+  eq(JSON.stringify((healed.parted || []).map((p) => p.from + '->' + p.to)), '["Kara->Lara"]', 'and the state says who was parted');
+  /* the same tale, a page on: one write for Lara is a slip; the second makes her a person */
+  const slip = asWritten(base, 4, writes4, 'Lara');
+  eq(Boolean(partLookAlikes(copy(slip)).characters.Lara) + ' | ' + Boolean(partLookAlikes(copy(slip)).characters.Lara), 'false | false', 'written on one page only: a slip, left alone — twice');
+  const next = asWritten(slip, 5, writes5, 'Lara');
+  eq(Boolean(partLookAlikes(copy(next)).characters.Lara), true, 'the next page makes her a person: parted at once');
+  /* broken journal entries do not stop the look */
+  const damaged = copy(mixed); damaged.journal.splice(2, 0, null, { p: 3 }, { m: null });
+  let threw = ''; let out = null;
+  try { out = partLookAlikes(damaged); } catch (err) { threw = String(err && err.message); }
+  eq(threw + ' | ' + Boolean(out && out.characters.Lara), ' | true', 'a journal with broken entries is still looked at, and still parted');
+});

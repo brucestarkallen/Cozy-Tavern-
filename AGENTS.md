@@ -17204,3 +17204,67 @@ M670 told him the one thing a copy did not hold: the words each page's storytell
 - GATES at m671-001 (one CPU), on the tree that was pushed: harness 1311/1311, walk 242/242, long play 9/9, lint 0 errors
   (186 warnings, as at m670), perf_send, holdsone, cutthinking, notes_layout, backup, backupdupes, restore_backup_unit,
   restore_zip, backup_fresh, backup_sent — EXIT 0 each, first run, no scenario failing.
+
+# M672 — "finish everything… the highest standard, no bugs, no regression": what a wider look found
+His line. Not a new ask — a demand that what was built be checked harder than the gates check it. What that found:
+- A SLOWDOWN I INTRODUCED IN M665 AND NO GATE SAW. partLookAlikes (the repair that parts two people once written as one) runs
+  on every opening of the ledger — dozens a page. Timed on a long tale (100 people, a full 1,500-change journal):
+  19 ms a time; the older repair beside it, 0.5 ms; the whole load 31 ms, most of it this. Every gate's story is small,
+  so every gate passed. Two guesses at the cause were wrong (the pair loop; the name folding); the CPU profiler named
+  it in one run: for every name a letter from another, it asked again whether today's rule would still mix them —
+  the same answer, every load. Fixed without changing what it finds (the laws of M665 pass unchanged):
+  - each name is prepared once, and the cheap question (is any page's name one letter from this one?) is asked first;
+  - the one costly question (it asks the whole cast whether today's rule would find the name a page) is asked LAST, of a
+    true candidate only. No condition has a side effect, so their order cannot change who is parted.
+  - MEASURED (2 CPUs, a steady loop, every look at a fresh copy of the ledger): a clean long tale — 100 people, their
+    names their own, two pairs a letter apart — 0.75 ms a look; cold, 1.3–2.0 ms on three long ledgers, the worst case
+    (names made alike, sixty written for with no page) among them. It was 19 ms. The older repair: 0.2–0.5 ms.
+  - WHAT I FIRST BUILT, AND TOOK OUT (found by re-reading my own diff, his rule): a memory of "this ledger has nothing to
+    part", keyed by the ledger's counts and the LENGTHS of its words, so a ledger already looked at was passed by. I
+    wrote here that "two different ledgers cannot look the same". They can: two ledgers that differ only in whose name
+    a change was written under — Kara's or Lara's — have the same counts and lengths. m588 M672-1 makes it happen: the
+    first has nothing to part; the second, opened right after, was passed by on the memory of the first and stayed
+    mixed ("got: no page"). It also read an entry's page before asking whether the entry was there at all. The memory
+    is gone — a repair looks at the ledger it is handed — and the speed comes from the order of the questions alone.
+    (668ffab, the commit that carried the memory, was never merged.)
+- THE SAME FAULT, LOOKED FOR EVERYWHERE ELSE IT COULD BE (his rule: fix the pattern, not the one instance). Three things run on
+  every opening: healGhosts and partLookAlikes on the ledger (state.js), and the record's filter for a refusal kept as
+  a line (memory.js isNoRecordLine, also mine, M665). The filter cost 2.5 ms a load on a record of 800 lines — half of
+  the whole load — re-judging lines whose words never change. Each line is judged once now and remembered by its
+  words: 0.33 ms a load; the whole load 4.8 -> 2.2 ms. M665-2 (an apology kept as a line is still taken out) passes.
+- LOOSE ENDS OF MY OWN: three values read and never used in the keeper (M666), one function no longer called (this build).
+- A STORY ROW'S SMALL BUTTONS TAKE A FINGERTIP (chat.css): each was a box 23 × 10 px on a phone — said in M663, left. An unseen
+  layer around each takes the tap, ~32 px tall; nothing moves or looks different. tests/rowtap.py (real Chromium, 390
+  px, touch): a tap 8 px above or below each of the five reaches that button, the title still opens the story — and
+  with the style taken away the same test fails five times. A standing gate.
+- THE IN-APP HELP SAYS WHAT WAS ADDED (index.html): the bar's hide button and the light it wears; the shelf's + and the search's
+  scope; text files beside pictures; "Try again" after a failed version; that the copy is the library as it stands
+  and holds what every page was sent. TWO CONTROLS WERE NAMED FROM MEMORY, AND WRONGLY — "the small arrow" (the hide
+  button is four corners; the arrow is on the round button that brings the bar back) and "the paperclip" (the button is
+  a ✦ between the message box and Send). Read off the page and put right: a control he cannot find by the help's own
+  words does not exist (his rule 13).
+- A WIDER SWEEP: the 23 browser tests that are not part of the gates — the device's sync, two browsers, two hands on one
+  tale, recovery, a wipe, migration, the coats, the housekeeper's rounds — all EXIT 0 at this build.
+- TWO WALK SCENARIOS THAT LOOKED TOO EARLY — the house was right both times, the scenario was not (tests/dom/run.mjs only):
+  - DOM-191 "waited too long for kept" (a full walk): its helper decided whether to tap the canon switch by the BOX, read
+    the moment Settings opened — which can still show the last story's switch (made to happen: one read in six). It saw
+    "already on", did not tap, and waited for a save nobody had asked for. M628 had met it, taken it for slowness and
+    lengthened the wait. The helper (four copies) decides by what is stored.
+  - DOM-129 "the new version's hour stands: … 09:05" (a walk run BESIDE the browser tests, to save time): it read the
+    ledger after settled(), which waits for the storyteller, not for the readers. Made to happen with a reader that
+    answers in 600 ms: 09:05 with 23 readers queued at its own check; 09:30 once they had finished. A search of all
+    eighty settled() calls found fifteen that read the readers' work straight after; each waits for the readers by name
+    now (readersDone). And the corrected DOM-129 passes with the slow reader left in.
+- LAW (m588.mjs): M672-1 — a ledger with nothing to part is left exactly as it is, three openings running; its look-alike
+  (the same counts, the same lengths, another name) is parted at once; so is the same tale when its next page makes
+  the second person a person; broken journal entries do not stop the look. tests/rowtap.py also holds the tap area
+  to its own row (32 px tall, never into the story above or below).
+- THE MERGE WAITED ON HIS GITHUB CONNECTION: the cloud workspace was reset, and its link to GitHub refused the push ("not in this
+  session's authorized repository set"; attaching the repository answered "link your GitHub account"). He connected
+  GitHub; the repository was then attached to the session (add_repo, push) and this same tested tree was pushed from
+  the clone it was tested in. See HANDOFF.
+- version.js -> m672-001.
+- GATES at m672-001 (2 CPUs, a fresh workspace), on the tree of this commit: harness 1312/1312, walk 242/242 (run alone), long
+  play 9/9, lint 0 errors (183 warnings), and all 34 browser tests one at a time — the 11 of audit/gates.sh and the 23
+  outside it — EXIT 0 each. The run before it, on 668ffab (the commit with the memory still in): the same, but the walk
+  241/242 (DOM-129, beside the browser tests, as told above) and the harness 1311 (no M672-1 yet — which fails there).

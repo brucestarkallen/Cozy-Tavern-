@@ -564,9 +564,19 @@ export function phraseCount(text) {
  * none of it. */
 const NOT_A_LINE = /^(?:i['’]?m (?:sorry|afraid|unable|not able)|i am (?:sorry|afraid|unable|not able)|sorry[,.]|i (?:can(?:['’]?t|not)|won['’]?t|will not|must decline|do(?: not|n['’]?t) feel comfortable|apologi[sz]e)\b|unfortunately,? i\b|as an ai\b|(?:could|can|would) you (?:please )?(?:provide|share|clarify|paste|send)\b|please (?:provide|share|paste|send)\b|what (?:passage|text|content|story)\b|there (?:is|was) no (?:passage|text|content)\b|no (?:passage|text|content) (?:was|has been) provided)/i;
 function refusalWords(text) { return NOT_A_LINE.test(text) && text.split(/;\s+/).filter((p) => p.trim()).length < 3; }
+/* M672: THIS RUNS ON EVERY LINE OF THE RECORD, EVERY TIME THE RECORD IS OPENED — 2.5 ms a load on a record of 800 lines, half of the
+ * whole load (measured), for a question whose answer never changes: a line's words are what they are. Each line is
+ * judged once and its answer remembered by its words (the same cure as the ledger's repair on opening, people.js). */
+const NO_RECORD_VERDICT = new Map();
 export function isNoRecordLine(text) {
-  const t = String(text || '').replace(/```(?:\w+)?/g, '').replace(/\s+/g, ' ').trim().replace(/^["“«'‘]+/, '');
-  return t.length > 0 && refusalWords(t);
+  const key = typeof text === 'string' ? text : String(text || '');
+  const known = NO_RECORD_VERDICT.get(key);
+  if (known !== undefined) return known;
+  const t = key.replace(/```(?:\w+)?/g, '').replace(/\s+/g, ' ').trim().replace(/^["“«'‘]+/, '');
+  const verdict = t.length > 0 && refusalWords(t);
+  if (NO_RECORD_VERDICT.size > 8000) NO_RECORD_VERDICT.clear();
+  NO_RECORD_VERDICT.set(key, verdict);
+  return verdict;
 }
 export function parseMemoryAnswer(raw) {
   lastAnswerWasCut = false;
@@ -1329,7 +1339,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     if (typeof renew === 'function' && !renew()) { lastKeeperTrouble = 'its turn was over before it could ask'; break; }
     let pages = history.slice(range[0], range[1]);
     const pagesText = pages.map((p) => String((p && p.text) || '')).join('\n');
-    let { raw, text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) }), signal, pagesText, renew); /* M666: asked again, in this run, until it is a line */
+    let { text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) }), signal, pagesText, renew); /* M666: asked again, in this run, until it is a line */
     let byHouse = false;
     /* M316: THE RECORD CAN NEVER STAY STUCK ON A PAGE. A keeper that answered with nothing was read as "went
      * quiet — these pages wait for next time", and next time it asked the very same pages the very same
@@ -1563,7 +1573,7 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
     /* the lines BEFORE this one are its prior context, exactly as they were
      * when it was first written — never the lines that come after it */
     const before = { ...mem, nodes: (mem.nodes || []).filter((n) => n && Array.isArray(n.span) && n.span[1] < node.span[0]) };
-    const { raw, text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor(before, 1, keeperRecordCap(connection)) }), signal, pages.map((p) => String((p && p.text) || '')).join('\n'), renew); /* M666 */
+    const { text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor(before, 1, keeperRecordCap(connection)) }), signal, pages.map((p) => String((p && p.text) || '')).join('\n'), renew); /* M666 */
     if (!text) return { ok: false, why: 'the keeper gave nothing that is a line of the record, in ' + KEEPER_TRIES + ' tries' };
     mem = await loadMemory(storyId);
     const fresh = (mem.nodes || []).find((n) => n && n.id === nodeId);
@@ -1625,7 +1635,7 @@ export async function rereadMergedLine({ connection, storyId, lineId, signal, re
     const pages = history.slice(a, b + 1);
     if (!pages.length) return { ok: false, why: 'the pages behind that line are gone' };
     if (typeof renew === 'function') renew();
-    const { raw, text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor({ ...mem, nodes: [...older, ...made] }, 1, keeperRecordCap(connection)) }), signal, pages.map((p) => String((p && p.text) || '')).join('\n'), renew); /* M666 */
+    const { text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor({ ...mem, nodes: [...older, ...made] }, 1, keeperRecordCap(connection)) }), signal, pages.map((p) => String((p && p.text) || '')).join('\n'), renew); /* M666 */
     if (!text) return { ok: false, why: 'the keeper gave nothing that is a line of the record, in ' + KEEPER_TRIES + ' tries' };
     made.push(text === '(no new state)'
       ? { id: nodeId(), span: [a, b], text: '', level: 1, at: Date.now(), empty: true, whole: true }

@@ -84,6 +84,18 @@ const settled = async () => {
   await until(() => !(env.ctx && env.ctx.chat && (env.ctx.chat.isBusy() || env.ctx.chat.isReplaying())), 'the house and its replay to settle', 20000);
   await tick(120);
 };
+/* M672: WHAT THE READERS WRITE IS READ AFTER THE READERS. settled() waits for the storyteller; the readers run after the page, and a
+ * scenario that then looks at what they write (the hour, who is here) was looking a moment early. It passed by the
+ * 120 ms pause above; on a busy machine it did not — DOM-129, in a walk run beside the browser tests: "the new
+ * version's hour stands: … 09:05", the ledger still as the retry had rewound it. Made to happen with a reader that
+ * answers in 600 ms: at the scenario's own check the hour was 09:05 with 23 readers queued, and 09:30 once they had
+ * finished — the house was right, the scenario early. Every scenario that reads the readers' work straight after
+ * settled() (fifteen places, found by a search of all eighty) waits for them by name. */
+const readersDone = async (sid, ms = 40000) => {
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  await until(() => queuedCount(sid) === 0 && !workIsRunning(sid), 'the readers to finish', ms);
+  await tick(30);
+};
 const storyId = async () => (await db.settings.get('activeStoryId'));
 const { byName: byNameOrder } = await import('../../js/providers/order.js');
 const byNameLabels = (rows) => byNameOrder(rows).map((c) => c.label);
@@ -480,7 +492,7 @@ test('DOM-8a branch 0→0 keeps the ledger; branch N→0 carries page 0’s ledg
   type(q('#composer-input'), 'I walk in.');
   submit(q('#composer'));
   await until(() => assistantPages().length >= 1, 'page 0', 10000);
-  await settled();
+  await settled(); await readersDone(sid);
   const at0 = await db.settings.get('state:' + sid);
   assert(at0 && (at0.place || (at0.present || []).length), 'turn 0 founded a ledger');
   click(q('.msg-act[data-act="branch"]', assistantPages()[0]));
@@ -498,7 +510,7 @@ test('DOM-8a branch 0→0 keeps the ledger; branch N→0 carries page 0’s ledg
   await settled();
   type(q('#composer-input'), 'And later.'); submit(q('#composer'));
   await until(() => assistantPages().length >= 3, 'page 2', 10000);
-  await settled();
+  await settled(); await readersDone(sid);
   house.state.storyAnswer = null;
   const atN = await db.settings.get('state:' + sid);
   const present = (atN.present || []).map((p) => p.name);
@@ -776,7 +788,7 @@ test('DOM-8b a branch at the start never carries a later ledger: no checkpoint �
 test('DOM-8e THE WRITER’S REPORT: a store from before the journal, played on, branched at its NEWEST page — the whole ledger comes along; an older page falls back to a checkpoint, never to a fold from nothing', async () => {
   const before = errors.length;
   const sid = await storyId();
-  await settled();
+  await settled(); await readersDone(sid);
   /* the store as one from before M69/M72: a rich ledger, a journal that begins mid-story (the
    * pre-journal entries gone), snapshots that know no page */
   const now = await db.settings.get('state:' + sid);
@@ -825,7 +837,7 @@ test('DOM-8e THE WRITER’S REPORT: a store from before the journal, played on, 
 test('DOM-8f THE WRITER’S SECOND REPORT: a store whose journal began while the ledger’s page was still -1 (a pre-journal story touched before its first send), played on, then branched TWO PAGES BACK — that page’s ledger comes along, never an empty one', async () => {
   const before = errors.length;
   const sid = await storyId();
-  await settled();
+  await settled(); await readersDone(sid);
   const now = await db.settings.get('state:' + sid);
   const pages0 = (await db.messages.list(sid)).filter((m) => !m.hidden && m.role === 'assistant');
   assert(pages0.length >= 2, 'a story with pages to branch back into');
@@ -884,7 +896,7 @@ test('DOM-6c READ AGAIN by hand: the last page rewinds to its boundary and the c
   const at1 = ((await db.settings.get('workers:' + sid)) || {}).extractor.at;
   click(q('.msg-act[data-act="read again"]', old));
   await until(async () => { const w = (await db.settings.get('workers:' + sid)) || {}; return w.extractor && w.extractor.at > at1; }, 'the extractor read the old page again', 15000);
-  await settled();
+  await settled(); await readersDone(sid);
   const st = await db.settings.get('state:' + sid);
   assert(st && Array.isArray(st.present) && st.present.length >= 1, 'the ledger stands after the replay');
   { const problems = await checkStoreConsistency(db, sid); eq(problems.length, 0, 'the store agrees with itself: ' + problems.join(' | ')); }
@@ -1169,7 +1181,7 @@ test('DOM-13c THE RIPPLE: a name changed by hand on one page is changed everywhe
   const n0 = assistantPages().length;
   type(q('#composer-input'), 'I look up.'); submit(q('#composer'));
   await until(() => assistantPages().length > n0, 'the page with Liara', 15000);
-  await settled();
+  await settled(); await readersDone(sid);
   const mem = await db.settings.get('memory:' + sid);
   await db.settings.set('memory:' + sid, { ...(mem || { window: 30 }), nodes: [...((mem && mem.nodes) || []), { id: 'rl1', span: [0, 0], text: 'Liara watched him not eat.', level: 1, at: 1 }] });
   const st0 = await db.settings.get('state:' + sid);
@@ -3839,8 +3851,14 @@ test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it s
   const setCanon = async (on, wiki) => {
     await openSettings();
     const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
-    if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
-    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000); /* M628: 5 s ran out once in a full walk on one CPU (it passed alone, twice) — the switch's save is unchanged; the wait is the walk's */
+    /* M672: THE TAP IS DECIDED BY WHAT IS STORED, NOT BY THE BOX. Settings is shown first and filled after: read the moment it
+     * opens, the box can still show the LAST story's switch (made to happen: a story with canon off, opened after one
+     * with it on, read "on" at once and "off" a moment later — one time in six). This helper then saw "already on",
+     * did not tap, the fill drew "off", and it waited for a save that was never asked for: "waited too long for kept"
+     * (DOM-191, in a full walk). M628 met it once, took it for slowness and lengthened the wait from 5 s to 15 — the
+     * wait was never the fault. */
+    if (((await db.settings.get('canonOn:' + st.id)) === true) !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000);
     await closeSettings();
     /* M457: where to look is each story's own — named, as he names it, in the story's own room (the app's own bridge) */
     if (typeof wiki === 'string') {
@@ -6745,7 +6763,7 @@ test('DOM-129 TRY AGAIN REWINDS THE LEDGER TO BEFORE THE PAGE: the storyteller�
     /* page two: 09:20, Tobin in */
     type(q('#composer-input'), 'I wait.'); submit(q('#composer'));
     await until(() => assistantPages().length >= 2 && !env.ctx.chat.isBusy(), 'page two', 20000);
-    await settled();
+    await settled(); await readersDone(st.id);
     const { renderClock } = await import('../../js/engine/clock.js');
     const after2 = await loadState(st.id);
     assert(/09:20/.test(renderClock(after2.clock)), 'page two’s hour stands: ' + renderClock(after2.clock));
@@ -6758,7 +6776,7 @@ test('DOM-129 TRY AGAIN REWINDS THE LEDGER TO BEFORE THE PAGE: the storyteller�
     assert(/The hour: [^\n]*09:05/.test(req), 'the retry is told the hour BEFORE the page (09:05), not the page’s own (09:20): ' + (req.match(/The hour:[^\n]*/) || [''])[0]);
     assert(/Here now:[^\n]*Mara Vell/.test(req) && !/Here now:[^\n]*Tobin Ashcombe/.test(req), 'and the room as it stood before the page: ' + (req.match(/Here now:[^\n]*/) || [''])[0]);
     await until(() => !env.ctx.chat.isBusy(), 'the new version landed', 20000);
-    await settled();
+    await settled(); await readersDone(st.id);
     const after3 = await loadState(st.id);
     assert(/09:30/.test(renderClock(after3.clock)), 'the new version’s hour stands: ' + renderClock(after3.clock));
     assert(after3.present.some((p) => p.name === 'Nell Pike') && !after3.present.some((p) => p.name === 'Tobin Ashcombe'), 'the new version’s reads, not the old one’s: ' + after3.present.map((p) => p.name).join(','));
@@ -6789,11 +6807,11 @@ test('DOM-130 TRY AGAIN AFTER THE TALE WAS OPENED AGAIN (its opening heals run, 
     hour = ['09', '20']; who = 'Tobin Ashcombe';
     type(q('#composer-input'), 'I wait.'); submit(q('#composer'));
     await until(() => assistantPages().length >= 2 && !env.ctx.chat.isBusy(), 'page two', 20000);
-    await settled();
+    await settled(); await readersDone(st.id);
     /* the app closed and opened again: the tale is opened from the shelf, its heals run on the ledger as it stands */
     await env.ctx.chat.openStory(st.id);
     await until(async () => (await storyId()) === st.id, 'open again', 10000);
-    await tick(800); await settled();
+    await tick(800); await settled(); await readersDone(st.id);
     const opened = await loadState(st.id);
     assert(/09:20/.test(renderClock(opened.clock)), 'after the open the hour is page two’s: ' + renderClock(opened.clock));
     hour = ['09', '30']; who = 'Nell Pike';
@@ -6889,7 +6907,7 @@ test('DOM-132 A REWIND IS CHECKED WHOLE, NEVER PATCHED: when a fold keeps the re
     hour = ['09', '20']; who = 'Tobin Ashcombe';
     type(q('#composer-input'), 'I wait.'); submit(q('#composer'));
     await until(() => assistantPages().length >= 2 && !env.ctx.chat.isBusy(), 'page two', 20000);
-    await settled();
+    await settled(); await readersDone(st.id);
     /* a hand on the store: page two’s clock AND its walk-in re-stamped on page one — a fold to page one keeps 09:20 and Tobin */
     const broken = await loadState(st.id);
     let bent = 0;
@@ -6904,7 +6922,7 @@ test('DOM-132 A REWIND IS CHECKED WHOLE, NEVER PATCHED: when a fold keeps the re
     const here = (req.match(/Here now:[^\n]*/) || [''])[0];
     assert(/Mara Vell/.test(here) && !/Tobin Ashcombe/.test(here), 'and page one’s room — the whole ledger of that moment, not an hour over the wrong room: ' + here);
     await until(() => !env.ctx.chat.isBusy(), 'the new version landed', 20000);
-    await settled();
+    await settled(); await readersDone(st.id);
     const last = await loadState(st.id);
     assert(/09:30/.test(renderClock(last.clock)), 'the new version’s hour stands');
     assert(last.present.some((p) => p.name === 'Nell Pike') && !last.present.some((p) => p.name === 'Tobin Ashcombe'), 'the new version’s room: ' + last.present.map((p) => p.name).join(','));
@@ -6955,7 +6973,7 @@ test('DOM-133 A JOIN SURVIVES TRY AGAIN: a tale whose pages wrote "the courier" 
     assert(/Hachigorō/.test(here) && !/the courier/.test(here), 'the retry is told one man: ' + here);
     assert(/The hour: [^\n]*09:15/.test(seen[0]), 'and the hour of the page before: ' + (seen[0].match(/The hour:[^\n]*/) || [''])[0]);
     await until(() => !env.ctx.chat.isBusy(), 'the new version landed', 20000);
-    await settled();
+    await settled(); await readersDone(st.id);
     const last = await loadState(st.id);
     assert(!last.present.some((p) => p.name === 'the courier') && !last.characters['the courier'], 'one man after the new version: ' + last.present.map((p) => p.name).join(','));
   } finally { house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker; }
@@ -6991,7 +7009,7 @@ test('DOM-134 NO CHECKPOINT OF THAT MOMENT: the fold keeps the replaced page’s
     hour = ['09', '20']; who = 'Tobin Ashcombe';
     type(q('#composer-input'), 'I wait.'); submit(q('#composer'));
     await until(() => assistantPages().length >= 2 && !env.ctx.chat.isBusy(), 'page two', 20000);
-    await settled();
+    await settled(); await readersDone(st.id);
     /* a hand on the store: page two’s clock and walk-in re-stamped on page one, AND the checkpoint before page two gone */
     const broken = await loadState(st.id);
     for (const e of broken.journal) if (e && e.m && e.p === 1 && (e.m.type === 'clock.set' || (e.m.type === 'presence.enter' && e.m.name === 'Tobin Ashcombe'))) e.p = 0;
@@ -7010,7 +7028,7 @@ test('DOM-134 NO CHECKPOINT OF THAT MOMENT: the fold keeps the replaced page’s
     const here = (req.match(/Here now:[^\n]*/) || [''])[0];
     assert(/Mara Vell/.test(here) && !/Tobin Ashcombe/.test(here), 'and page one’s room, read fresh: ' + here);
     await until(() => !env.ctx.chat.isBusy(), 'the new version landed', 20000);
-    await settled();
+    await settled(); await readersDone(st.id);
     const last = await loadState(st.id);
     assert(/09:30/.test(renderClock(last.clock)) && last.present.some((p) => p.name === 'Nell Pike') && !last.present.some((p) => p.name === 'Tobin Ashcombe'), 'the new version stands: ' + renderClock(last.clock) + ' ' + last.present.map((p) => p.name).join(','));
   } finally { house.state.storyAnswer = priorStory; house.state.workerAnswer = priorWorker; }
@@ -7520,8 +7538,14 @@ test('DOM-175 CANON ON THEIR OWN PAGE, IN THE APP (M518): with the brief Automat
   const setCanon = async (on, wiki) => {
     await openSettings();
     const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
-    if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
-    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000); /* M628: 5 s ran out once in a full walk on one CPU (it passed alone, twice) — the switch's save is unchanged; the wait is the walk's */
+    /* M672: THE TAP IS DECIDED BY WHAT IS STORED, NOT BY THE BOX. Settings is shown first and filled after: read the moment it
+     * opens, the box can still show the LAST story's switch (made to happen: a story with canon off, opened after one
+     * with it on, read "on" at once and "off" a moment later — one time in six). This helper then saw "already on",
+     * did not tap, the fill drew "off", and it waited for a save that was never asked for: "waited too long for kept"
+     * (DOM-191, in a full walk). M628 met it once, took it for slowness and lengthened the wait from 5 s to 15 — the
+     * wait was never the fault. */
+    if (((await db.settings.get('canonOn:' + st.id)) === true) !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000);
     await closeSettings();
     /* M457: where to look is each story's own — named, as he names it, in the story's own room (the app's own bridge) */
     if (typeof wiki === 'string') {
@@ -8609,8 +8633,14 @@ test('DOM-189 CANON FOR THE PEOPLE THE LEDGER HAS HERE, NAMED OR NOT (his screen
   const setCanon = async (on, wiki) => {
     await openSettings();
     const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
-    if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
-    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000); /* M628: 5 s ran out once in a full walk on one CPU (it passed alone, twice) — the switch's save is unchanged; the wait is the walk's */
+    /* M672: THE TAP IS DECIDED BY WHAT IS STORED, NOT BY THE BOX. Settings is shown first and filled after: read the moment it
+     * opens, the box can still show the LAST story's switch (made to happen: a story with canon off, opened after one
+     * with it on, read "on" at once and "off" a moment later — one time in six). This helper then saw "already on",
+     * did not tap, the fill drew "off", and it waited for a save that was never asked for: "waited too long for kept"
+     * (DOM-191, in a full walk). M628 met it once, took it for slowness and lengthened the wait from 5 s to 15 — the
+     * wait was never the fault. */
+    if (((await db.settings.get('canonOn:' + st.id)) === true) !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000);
     await closeSettings();
     /* M457: where to look is each story's own — named, as he names it, in the story's own room (the app's own bridge) */
     if (typeof wiki === 'string') {
@@ -8736,8 +8766,14 @@ test('DOM-191 A FAMILY NAME USED FOR THE FAMILY NAMES NO ONE (M539 — his quest
   const setCanon = async (on, wiki) => {
     await openSettings();
     const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
-    if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
-    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000); /* M628: 5 s ran out once in a full walk on one CPU (it passed alone, twice) — the switch's save is unchanged; the wait is the walk's */
+    /* M672: THE TAP IS DECIDED BY WHAT IS STORED, NOT BY THE BOX. Settings is shown first and filled after: read the moment it
+     * opens, the box can still show the LAST story's switch (made to happen: a story with canon off, opened after one
+     * with it on, read "on" at once and "off" a moment later — one time in six). This helper then saw "already on",
+     * did not tap, the fill drew "off", and it waited for a save that was never asked for: "waited too long for kept"
+     * (DOM-191, in a full walk). M628 met it once, took it for slowness and lengthened the wait from 5 s to 15 — the
+     * wait was never the fault. */
+    if (((await db.settings.get('canonOn:' + st.id)) === true) !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000);
     await closeSettings();
     /* M457: where to look is each story's own — named, as he names it, in the story's own room (the app's own bridge) */
     if (typeof wiki === 'string') {

@@ -1,6 +1,6 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m671-001)
+# Cozy Tavern — handoff for the next session (state at m672-001)
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the
@@ -146,6 +146,38 @@
   "true", "9/10", "+2 (high ground)" and "−1" with a real minus sign are how they come. Use the readers that exist:
   referee.js truthOf / signedOf / ratingOf, apply.js numberOf (M651, M654). When adding a field a model fills, feed its
   door the same value five ways before trusting it.
+- IF THE PUSH IS REFUSED BY THE WORKSPACE ITSELF, TELL HIM AT ONCE — AND DO NOT GO ROUND IT (M672). In the cloud workspace `git push`
+  can answer "access denied by the git proxy: … not in this session's authorized repository set" (403), and attaching
+  the repository "link your GitHub account to let Claude access repositories". The token in the Project instructions
+  is never asked for there — the refusal comes first. His remedy is the GitHub connection in claude.ai (Settings →
+  Connectors); until then everything can be read, built and tested, and nothing can be merged. Say so in the first
+  message of the turn, not the last: he waited four turns for a merge that this alone was blocking in the end.
+  ONCE HE HAS CONNECTED IT: add_repo (owner brucestarkallen, repo Cozy-Tavern-, access push) attaches the repository
+  and `git push` goes through from the clone already here — no second clone is needed.
+- COMMIT AS THE WORKSPACE DOES (M672): `git config user.name Claude; git config user.email noreply@anthropic.com` once in the
+  clone, and no `-c user.email=…` on a commit. The workspace signs for that identity only: a commit made as
+  claude@anthropic.com (as every commit before m672 was) shows on GitHub as Unverified, and the workspace's own check
+  stops the turn on it.
+- A SHORTCUT THAT REMEMBERS AN ANSWER IS KEYED ON EVERYTHING THE ANSWER READS, OR IT DOES NOT EXIST (M672). The repair on opening
+  remembered "nothing to part" by counts and word LENGTHS; a second ledger of the same lengths was passed by, unrepaired.
+  It was found by reading the diff again, and proven by a law written to break it (m588 M672-1) — no gate had seen it.
+  Write the law that tries to fool the shortcut BEFORE trusting it.
+- THE WALK RUNS ALONE, AND A SCENARIO WAITS FOR WHAT IT READS (M672). Run beside the browser tests the walk failed DOM-129: it read
+  the readers' work after settled(), which waits for the storyteller only. Use readersDone(sid) before reading
+  anything the readers write (the hour, who is here, a person's page). A wait that "ran out" is asked WHY before it is
+  made longer: M628 lengthened one, and the fault was the helper beside it (DOM-191).
+- THE HELP NAMES A CONTROL AS IT LOOKS ON THE PAGE — READ THE PAGE, NOT MEMORY (M672: "the paperclip" was a ✦; "a small arrow" was
+  four corners). After writing help, open index.html and read the button's own glyph, label and place.
+- WHAT RUNS ON EVERY OPENING OF THE LEDGER MUST BE TIMED ON A LONG TALE (M672). loadState runs dozens of times a page. A repair
+  added to it in M665 cost 19 ms a time on a tale with 100 people and a full journal — no gate saw it, because every
+  gate's story is small. Anything added to loadState (state.js) or called from it: time it on /home/claude/probe-style
+  big ledgers (100+ people, 1,500 journal entries, names a letter apart) and compare with healGhosts (0.5 ms). Profile
+  before guessing — two guesses at the cause were wrong; the profiler named it in one run.
+- THE GATES ARE NOT THE WHOLE OF THE TESTS. tests/ holds 34 browser tests; audit/gates.sh runs 11. Before calling a build
+  finished, run the other 23 too (they pass at m672; ~12 minutes), ON THE COMMIT THAT WILL BE MERGED — not while it is
+  still being edited: append bigbook bootpull branchrefresh coat contrast
+  foldcrash guard housekeeper_rounds mend_marks migrate_checkpoints pagemark paint paint_coats paint_magma
+  perf_housekeeper perf_rooms pushretry recover relay twobrowsers twohands wipe.
 - THE BACKUP'S PROMISE IS A GATE (M670). His word for what a backup is: "I have all the information — when I import it, it's
   basically the original, like a Mac's Time Machine." Its SIZE is not his concern and is not to be "fixed" by keeping
   less: never thin, skip or summarise what a copy holds. audit/gates.sh now runs five tests of it against the real

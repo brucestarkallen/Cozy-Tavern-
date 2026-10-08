@@ -1002,6 +1002,7 @@
         <section class="settings-section" id="section-backup">
           <h3>Backup</h3>
           <p class="quiet">Everything the tavern holds — every story and its pages, ledgers, records, character pages, the housekeeper’s sessions, cast, lore, the rulebook and regex shelves, connections (keys included), and every setting — folded into one file. Bring it back on any device and the tavern stands as it was.</p>
+          <p class="quiet">With the tavern’s server running, <b>Take a copy</b> first sends the device everything this browser has not sent yet, then the device makes the copy — so it is the library as it stands this moment. The copy also holds <b>what every page’s storyteller was sent</b>, word for word: the device keeps that for every page from now on (this browser keeps it for the newest 200 pages of a story and reads older ones from the device).</p>
           <p class="quiet" id="books-live">Where the tales live: in this browser.</p>
           <div class="row">
             <button id="btn-export" class="btn" type="button">Take a copy</button>
@@ -1032,6 +1033,8 @@
             <li><b>The ledger (book icon)</b> — the drawer: four rooms (below).</li>
             <li><b>The housekeeper (star icon)</b> — the assistant you talk to about the story: ask it anything, tell it to fix anything.</li>
             <li><b>Settings (sun icon)</b> — six rooms (below). While Settings is open the same icon means “back to the story”.</li>
+            <li><b>Hide the top bar (four corners icon, beside the shelf’s)</b> — for reading: the bar goes, and a small round button with a down arrow (⌄) stays at the top right. It brings the bar back, and it wears the ledger’s light (blue while the readers work, green when all is read, yellow when something needs a look).</li>
+            <li><b>On the shelf:</b> the <b>+</b> on a shelf starts a story on that shelf; “Start a new story” starts a loose one. The search looks through the shelves that are open, and says so — one tap searches them all.</li>
           </ul>
 
           <h3>The story page</h3>
@@ -1039,8 +1042,9 @@
             <li><b>The header</b> on every page — <code>[Place — Day, Date | Time | weather | outfit | position]</code> — is the storyteller’s clock. The house reads it in code: the ground and the hour come from here.</li>
             <li><b>Under a storyteller page:</b> <b>copy</b> · <b>edit</b> (change the words; the house then ripples any changed fact everywhere) · <b>branch</b> (a new story that ends here, with this page’s ledger) · <b>go on</b> (the storyteller continues without you speaking) · <b>read again</b> (the readers re-read this one page and fix the ledger’s history from it) · <b>delete</b>.</li>
             <li><b>Under your message:</b> copy · edit · <b>try again</b> (the storyteller answers this message afresh) · branch · delete.</li>
-            <li><b>◂ 1/3 ▸</b> — swipes: alternative pages for the same turn. The ledger follows whichever you are on.</li>
-            <li><b>What the storyteller saw</b> — the receipt: every slot sent on the wire and its token count.</li>
+            <li><b>◂ 1/3 ▸</b> — swipes: alternative pages for the same turn. The ledger follows whichever you are on. If a new version fails (the provider’s error is shown under the page), <b>Try again</b> asks for that version again — the earlier ones stay. The error’s note leaves by itself when the next telling begins.</li>
+            <li><b>✦ (between the message box and Send)</b> — add a picture the storyteller looks at, or a text file (.md, .txt, .yaml, .json and the like) whose words go with your message.</li>
+            <li><b>What the storyteller saw</b> — the receipt: every slot sent on the wire and its token count, and the words themselves — <b>Normal</b> (each part) or <b>Raw</b> (the request exactly as the provider got it). Kept on the device for every page, and in every copy.</li>
             <li><b>What the storyteller weighed</b> — its thinking, if the model sends any. <b>Copy the thinking</b> copies it.</li>
             <li><b>✦ The World Beyond ✦</b> box — a window into somewhere your character is not: the world moving on its own. Written only when the house opens one (the world agent’s word, or <code>#Put TWB</code>). Your character learns nothing from it.</li>
             <li><b>The footer meter</b> — the size of the last request actually sent, everything included.</li>
