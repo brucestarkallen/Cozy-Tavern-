@@ -3839,8 +3839,14 @@ test('DOM-69 CANON VERIFICATION IN THE APP: switched on in Settings (off as it s
   const setCanon = async (on, wiki) => {
     await openSettings();
     const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
-    if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
-    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000); /* M628: 5 s ran out once in a full walk on one CPU (it passed alone, twice) — the switch's save is unchanged; the wait is the walk's */
+    /* M672: THE TAP IS DECIDED BY WHAT IS STORED, NOT BY THE BOX. Settings is shown first and filled after: read the moment it
+     * opens, the box can still show the LAST story's switch (made to happen: a story with canon off, opened after one
+     * with it on, read "on" at once and "off" a moment later — one time in six). This helper then saw "already on",
+     * did not tap, the fill drew "off", and it waited for a save that was never asked for: "waited too long for kept"
+     * (DOM-191, in a full walk). M628 met it once, took it for slowness and lengthened the wait from 5 s to 15 — the
+     * wait was never the fault. */
+    if (((await db.settings.get('canonOn:' + st.id)) === true) !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000);
     await closeSettings();
     /* M457: where to look is each story's own — named, as he names it, in the story's own room (the app's own bridge) */
     if (typeof wiki === 'string') {
@@ -7520,8 +7526,14 @@ test('DOM-175 CANON ON THEIR OWN PAGE, IN THE APP (M518): with the brief Automat
   const setCanon = async (on, wiki) => {
     await openSettings();
     const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
-    if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
-    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000); /* M628: 5 s ran out once in a full walk on one CPU (it passed alone, twice) — the switch's save is unchanged; the wait is the walk's */
+    /* M672: THE TAP IS DECIDED BY WHAT IS STORED, NOT BY THE BOX. Settings is shown first and filled after: read the moment it
+     * opens, the box can still show the LAST story's switch (made to happen: a story with canon off, opened after one
+     * with it on, read "on" at once and "off" a moment later — one time in six). This helper then saw "already on",
+     * did not tap, the fill drew "off", and it waited for a save that was never asked for: "waited too long for kept"
+     * (DOM-191, in a full walk). M628 met it once, took it for slowness and lengthened the wait from 5 s to 15 — the
+     * wait was never the fault. */
+    if (((await db.settings.get('canonOn:' + st.id)) === true) !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000);
     await closeSettings();
     /* M457: where to look is each story's own — named, as he names it, in the story's own room (the app's own bridge) */
     if (typeof wiki === 'string') {
@@ -8609,8 +8621,14 @@ test('DOM-189 CANON FOR THE PEOPLE THE LEDGER HAS HERE, NAMED OR NOT (his screen
   const setCanon = async (on, wiki) => {
     await openSettings();
     const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
-    if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
-    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000); /* M628: 5 s ran out once in a full walk on one CPU (it passed alone, twice) — the switch's save is unchanged; the wait is the walk's */
+    /* M672: THE TAP IS DECIDED BY WHAT IS STORED, NOT BY THE BOX. Settings is shown first and filled after: read the moment it
+     * opens, the box can still show the LAST story's switch (made to happen: a story with canon off, opened after one
+     * with it on, read "on" at once and "off" a moment later — one time in six). This helper then saw "already on",
+     * did not tap, the fill drew "off", and it waited for a save that was never asked for: "waited too long for kept"
+     * (DOM-191, in a full walk). M628 met it once, took it for slowness and lengthened the wait from 5 s to 15 — the
+     * wait was never the fault. */
+    if (((await db.settings.get('canonOn:' + st.id)) === true) !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000);
     await closeSettings();
     /* M457: where to look is each story's own — named, as he names it, in the story's own room (the app's own bridge) */
     if (typeof wiki === 'string') {
@@ -8736,8 +8754,14 @@ test('DOM-191 A FAMILY NAME USED FOR THE FAMILY NAMES NO ONE (M539 — his quest
   const setCanon = async (on, wiki) => {
     await openSettings();
     const box = await until(() => q('#canon-on'), 'the switch is in Settings', 10000);
-    if (box.checked !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
-    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000); /* M628: 5 s ran out once in a full walk on one CPU (it passed alone, twice) — the switch's save is unchanged; the wait is the walk's */
+    /* M672: THE TAP IS DECIDED BY WHAT IS STORED, NOT BY THE BOX. Settings is shown first and filled after: read the moment it
+     * opens, the box can still show the LAST story's switch (made to happen: a story with canon off, opened after one
+     * with it on, read "on" at once and "off" a moment later — one time in six). This helper then saw "already on",
+     * did not tap, the fill drew "off", and it waited for a save that was never asked for: "waited too long for kept"
+     * (DOM-191, in a full walk). M628 met it once, took it for slowness and lengthened the wait from 5 s to 15 — the
+     * wait was never the fault. */
+    if (((await db.settings.get('canonOn:' + st.id)) === true) !== on) { box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    await until(async () => ((await db.settings.get('canonOn:' + st.id)) === true) === on, 'kept', 15000);
     await closeSettings();
     /* M457: where to look is each story's own — named, as he names it, in the story's own room (the app's own bridge) */
     if (typeof wiki === 'string') {
