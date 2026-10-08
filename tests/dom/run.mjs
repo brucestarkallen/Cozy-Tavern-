@@ -8560,6 +8560,182 @@ test('DOM-242 THE STORY SCREEN, AS HE ASKED (M668): the bottom links are This st
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-243 THE CONTINUOUS AUDIT, IN THE APP (M673 — his: “step by step it makes sure the folds summary, the ledger, the pages is always correct if I toggled on … from turn 1 until 1000 or beyond”): off, nobody is asked; switched on in Settings it reads the folded pages by itself, oldest first — a page that cannot be true is mended once (the keeper folds it again and the new line is read), the record line is put right, what lasts is kept beneath it, what someone learned is written to the ledger; a small light of its own while it reads, and its row among the workers says how far; a reading that failed turns the light yellow until it reads again; it steps aside the moment he writes and the page’s own chain reads on; switched off, nothing more is read', async () => {
+  const before = errors.length;
+  const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { saveMemory, loadMemory, auditedOf } = await import('../../js/agents/memory.js');
+  const { auditProgress } = await import('../../js/agents/continuous.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { loadWorkerStatus, runningWorkers, noteWorkerRun } = await import('../../js/agents/status.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const priorWorker = house.state.workerAnswer; const priorStory = house.state.storyAnswer;
+  const SIX = [
+    'I show Rukia the seal.',
+    '[Thirteenth Division barracks — Monday, March 3, 2025 | 09:10 | clear]\n\nJovan drew the seal of the Thirteenth from his coat. Rukia stared at it. "You carry the seal," she said. Renji was nowhere near; he had left for the gate at dawn.',
+    'I ask her to keep it hidden.',
+    '[Thirteenth Division barracks — Monday, March 3, 2025 | 09:20 | clear]\n\nRukia promised Jovan she would keep the seal hidden from the captains. Her grey eyes did not leave his.',
+    'I thank her.',
+    '[Thirteenth Division barracks — Monday, March 3, 2025 | 09:40 | clear]\n\nRenji came back from the gate before noon and found them in the yard. He asked nothing.',
+  ];
+  const LINE_A = 'Jovan showed Rukia the seal of the Thirteenth; Marcus came back from the gate before noon.';
+  const st = await db.stories.create({ title: 'a tale read as it folds' });
+  for (let i = 0; i < 6; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: SIX[i] });
+  for (let i = 6; i < 40; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: i % 2 ? '[Thirteenth Division barracks — Monday, March 3, 2025 | 1' + String(i % 10) + ':00 | clear]\n\nThe yard was quiet that hour, and Rukia swept it. Page ' + i + '.' : 'I wait. ' + i });
+  const led = applyMutations({ ...emptyState() }, [
+    { type: 'mc.set', name: 'Jovan' },
+    { type: 'place.set', name: 'Thirteenth Division barracks' },
+    { type: 'presence.enter', name: 'Jovan' },
+    { type: 'people.set', name: 'Rukia', field: 'core', text: 'a shinigami of the Thirteenth Division' },
+    { type: 'people.set', name: 'Renji', field: 'core', text: 'a lieutenant, posted at the gate' },
+  ]).state;
+  await saveState(st.id, { ...led, page: 19, readTo: 19, tidiedGen: 999, healedGen: 999 });
+  const line = (id, a, text) => ({ id, span: [a, a + 5], text, level: 1, at: a + 1, whole: true });
+  await saveMemory(st.id, { window: 30, nodes: [line('a', 0, LINE_A), line('b', 6, 'Rukia swept the yard; nothing else moved.'), line('c', 12, 'The yard stayed quiet; Rukia swept on.')] });
+  await noteWorkerRun(st.id, 'keeper', { ok: true, detail: 'well' });
+  const ANSWER = JSON.stringify({ issues: [
+    { what: 'The line names Marcus; the pages have Renji come back from the gate.', record: { fixes: [{ from: 'Marcus', to: 'Renji' }], detail: 'Rukia promised Jovan to keep the seal hidden from the captains' } },
+    { what: 'Rukia learned that Jovan carries the seal.', mutations: [{ type: 'knowledge.add', name: 'Rukia', fact: 'Jovan carries the seal of the Thirteenth' }, { type: 'place.set', name: 'The gate' }] },
+    { what: 'Page 2 has Renji leave at dawn, but the story so far has him at the gate since the night before.', pages: true, page: 2, fix: 'Renji had been at the gate since the night before.' },
+  ] });
+  const asked = [];          /* every reading the continuous audit asked for: the pages it named */
+  const queuedAt = [];       /* …and how many readers were waiting behind it when it was asked */
+  let hold = null;           /* a scenario may hold one answer back */
+  let menderAsked = 0;
+  house.state.workerAnswer = (body, sys) => {
+    const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
+    if (/continuity editor of a long story/i.test(sys)) {
+      const m = user.match(/THE PAGES \(pages (\d+)-(\d+) of the story/);
+      asked.push(m ? m[1] + '-' + m[2] : '?');
+      queuedAt.push(queuedCount(st.id));
+      const answer = m && m[1] === '1' ? ANSWER : '{"issues":[]}';
+      if (hold) { const h = hold; hold = null; return h.then(() => answer); }
+      return answer;
+    }
+    if (/mend a story/i.test(sys) && /Renji had been at the gate since the night before/.test(user)) { menderAsked += 1; return JSON.stringify([{ index: 0, find: 'he had left for the gate at dawn', replace: 'he had been at the gate since the night before' }]); }
+    if (/narrative-state tracker/i.test(sys) && /drew the seal of the Thirteenth/.test(user)) return LINE_A;
+    return priorWorker(body, sys);
+  };
+  const lamp = q('#btn-ledger');
+  const says = () => lamp.getAttribute('title') || '';
+  const idle = async (ms = 40000) => { await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers to finish', ms); };
+  const flip = async (on) => {
+    await openSettings();
+    const sw = q('#continuous-audit');
+    assert(sw, 'the switch is in Settings');
+    await until(async () => sw.checked === ((await db.settings.get('continuousAudit')) === true), 'Settings to show the switch as it is kept', 10000);
+    if (sw.checked !== on) { sw.checked = on; sw.dispatchEvent(new env.window.Event('change', { bubbles: true })); }
+    await until(async () => ((await db.settings.get('continuousAudit')) === true) === on, 'the switch to be kept', 10000);
+    await closeSettings();
+  };
+  globalThis.__cozyContinuousPauseMs = 250; globalThis.__cozyGapBackoffMs = 300;
+  try {
+    /* 1. off, as it ships: the folded pages stand unread and nobody is asked */
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await idle();
+    await until(() => lamp.classList.contains('all-well'), 'the light green on a tale read and folded: ' + lamp.className + ' — ' + says(), 20000);
+    await tick(1200);
+    eq(asked.length, 0, 'switched off, the continuous audit asks nobody');
+    assert(!/continuous audit/i.test(says()), 'and the light does not speak of it: ' + says());
+    assert([...document.querySelectorAll('#section-memory label, #view-settings label')].some((l) => /^\s*Continuous audit\b/.test(l.textContent)), 'the switch is called what he calls it: Continuous audit');
+    /* 2. switched on: it begins by itself. Its first answer is held, to see the light while it reads */
+    let release = () => {};
+    hold = new Promise((r) => { release = r; });
+    await flip(true);
+    await until(() => asked.length === 1 && runningWorkers(st.id).includes('continuous'), 'the first reading to be asked for, with no page written and nothing pressed', 20000);
+    eq(asked[0], '1-6', 'the oldest folded pages first');
+    eq(queuedAt[0], 0, 'sent by itself, with nothing else at work');
+    await until(() => lamp.classList.contains('is-auditing'), 'the audit’s own light: ' + lamp.className, 10000);
+    assert(lamp.classList.contains('all-well') && !lamp.classList.contains('is-working'), 'the lamp still says what is true of the scene — green, not “reading this scene”: ' + lamp.className);
+    assert(/everything is read and folded\. Nothing is waiting\. Write on\. The continuous audit has read 0 of 18 folded pages and is reading on/.test(says()), 'and its words say how far: ' + says());
+    release();
+    /* 2a. the page that could not be true is mended by the house's own mender, and that reading writes nothing else */
+    await until(async () => { const p = (await db.messages.list(st.id))[1]; return Boolean(p && p.mended); }, 'page 2 to be mended', 20000);
+    const p2 = (await db.messages.list(st.id))[1];
+    assert(/he had been at the gate since the night before/.test(p2.text) && /he had left for the gate at dawn/.test(p2.mended.before), 'the smallest edit, the earlier words kept: ' + p2.text);
+    eq(menderAsked, 1);
+    /* 2b. the keeper folds the mended words again by itself, and that line is read: the fault on the mended page is noted, not mended twice */
+    await until(async () => auditProgress(await loadMemory(st.id), 40).left === 0 && queuedCount(st.id) === 0 && !workIsRunning(st.id), 'every folded page read, with no hand on it: ' + asked.join(' '), 60000);
+    eq(asked.join(' '), '1-6 1-6 7-12 13-18', 'four readings: the mended pages once more, then each line once');
+    eq(menderAsked, 1, 'a page already mended is never mended again');
+    const mem = await loadMemory(st.id);
+    const first = mem.nodes.find((n) => n.span[0] === 0);
+    eq(first.text, 'Jovan showed Rukia the seal of the Thirteenth; Renji came back from the gate before noon.', 'the wrong name in the record line is put right');
+    eq(first.detail, 'Rukia promised Jovan to keep the seal hidden from the captains', 'what lasts is kept beneath the line');
+    assert(mem.nodes.filter((n) => n.span[0] >= 0).every((n) => auditedOf(n) === 6), 'every line carries its mark');
+    const ledger = await loadState(st.id);
+    eq(JSON.stringify((ledger.knowledge.Rukia || []).map((k) => [k.fact, k.atTurn])), JSON.stringify([['Jovan carries the seal of the Thirteenth', 3]]), 'what she learned is in the ledger, dated with the pages she learned it on');
+    eq((ledger.place || {}).name, 'Thirteenth Division barracks', 'and the scene is not its to move');
+    const noted = (await db.messages.list(st.id))[1].findings || [];
+    assert(noted.some((f) => /^The continuous audit: /.test(f.words) && /Renji had been at the gate since the night before/.test(f.words)), 'the fault it did not mend twice is noted on the page: ' + JSON.stringify(noted));
+    const row = (await loadWorkerStatus(st.id)).continuous;
+    assert(row && row.ok && /read pages 13–18 against the story before, the record line and the ledger: nothing to set right — 18 of 18 folded pages read/.test(row.detail), 'its row among the workers says what it read and how far: ' + JSON.stringify(row));
+    await until(() => !lamp.classList.contains('is-auditing') && lamp.classList.contains('all-well') && /The continuous audit has read every folded page \(18\)\./.test(says()), 'the light at rest, saying it is all read: ' + lamp.className + ' — ' + says(), 15000);
+    await tick(900);
+    eq(asked.length, 4, 'a tale read to its end is not read again');
+    /* 3. a reading that failed is trouble while pages are unread — and the light is green again when it has read */
+    {
+      const m = await loadMemory(st.id); delete m.nodes.find((n) => n.id === 'c').audited; await saveMemory(st.id, m);
+      let go = () => {};
+      hold = new Promise((r) => { go = r; });
+      await noteWorkerRun(st.id, 'continuous', { ok: false, why: 'unreachable' });
+      await until(() => asked.length === 5, 'it tries again by itself', 20000);
+      await until(() => lamp.classList.contains('has-trouble') && !lamp.classList.contains('all-well') && /the continuous audit could not finish its last reading; the story is safe, and it tries again by itself/.test(says()), 'the light yellow while the reading it owes has failed: ' + lamp.className + ' — ' + says(), 10000);
+      go();
+      await until(() => lamp.classList.contains('all-well') && !lamp.classList.contains('has-trouble') && !lamp.classList.contains('is-auditing'), 'and green once it has read: ' + lamp.className + ' — ' + says(), 20000);
+      eq(asked[4], '13-18');
+    }
+    /* 4. the storyteller comes first: a reading in flight is let go the moment he writes; the page's own chain reads on */
+    {
+      const m = await loadMemory(st.id); delete m.nodes.find((n) => n.id === 'c').audited; await saveMemory(st.id, m);
+      hold = new Promise(() => {}); /* an answer that never comes */
+      await env.ctx.chat.continuousAuditChanged();
+      await until(() => asked.length === 6 && runningWorkers(st.id).includes('continuous'), 'a reading in flight', 20000);
+      house.state.storyAnswer = () => '[Thirteenth Division barracks — Monday, March 3, 2025 | 20:00 | clear]\n\nRukia put the broom away and looked at the gate.';
+      /* a telling: a request with pages in it that is not a worker's (a stopped call also asks the device, once, whether it relays — that is not a telling) */
+      const tellerCalls = () => house.state.calls.filter((c) => !c.isWorker && Array.isArray(c.body.messages) && c.body.messages.length > 0).length;
+      const tellers = tellerCalls();
+      const t0 = Date.now();
+      type(q('#composer-input'), 'I look at the gate.'); submit(q('#composer'));
+      await until(() => tellerCalls() > tellers, 'the storyteller to be asked', 20000);
+      /* measured, submit to the storyteller’s request: 111–119 ms with the reading let go; 5,113 ms when the send waited for it; 2,110 ms when letting go was treated as a failure and tried again */
+      assert(Date.now() - t0 < 1500, 'the send did not wait on the reading (a wait for the workers is five seconds): ' + (Date.now() - t0) + ' ms');
+      await until(async () => (await db.messages.list(st.id)).filter((x) => x.role === 'assistant').length === 21 && !env.ctx.chat.isBusy(), 'his page', 40000);
+      await idle(60000);
+      await until(async () => auditedOf((await loadMemory(st.id)).nodes.find((n) => n.id === 'c')) === 6, 'the page’s own chain to read the line the dropped reading left: ' + asked.join(' '), 30000);
+      eq(asked.slice(5).join(' '), '13-18 13-18', 'the reading that stepped aside wrote nothing; the same pages were read by the chain');
+      assert(queuedAt[6] > 0, 'and read as one of the page’s own readers — others were still waiting behind it: ' + queuedAt.join(','));
+      const r = (await loadWorkerStatus(st.id)).continuous;
+      assert(r && r.ok, 'and stepping aside is not a failure: ' + JSON.stringify(r));
+    }
+    /* 5. switched off: a reading in flight is let go at once, nothing more is read, and the light no longer speaks of it */
+    { const m = await loadMemory(st.id); delete m.nodes.find((n) => n.id === 'b').audited; await saveMemory(st.id, m); }
+    hold = new Promise(() => {}); /* an answer that never comes */
+    await env.ctx.chat.continuousAuditChanged();
+    await until(() => asked.length === 8 && runningWorkers(st.id).includes('continuous'), 'a reading in flight', 20000);
+    await flip(false);
+    await until(() => !runningWorkers(st.id).includes('continuous') && !workIsRunning(st.id) && queuedCount(st.id) === 0, 'the reading in flight to be let go the moment it is switched off', 5000);
+    eq(auditedOf((await loadMemory(st.id)).nodes.find((n) => n.id === 'b')), 0, 'and it wrote nothing');
+    await tick(1500);
+    eq(asked.length, 8, 'off is off: the idle house asks nobody');
+    house.state.storyAnswer = () => '[Thirteenth Division barracks \u2014 Monday, March 3, 2025 | 20:10 | clear]\n\nRukia barred the gate for the night.';
+    type(q('#composer-input'), 'I go in.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((x) => x.role === 'assistant').length === 22 && !env.ctx.chat.isBusy(), 'another page', 40000);
+    await idle(60000);
+    await tick(800);
+    eq(asked.length, 8, 'and neither does a page\u2019s own chain');
+    await until(() => !/continuous audit/i.test(says()) && !lamp.classList.contains('is-auditing'), 'the light no longer speaks of it: ' + says(), 10000);
+  } finally {
+    delete globalThis.__cozyContinuousPauseMs; delete globalThis.__cozyGapBackoffMs;
+    hold = null;
+    house.state.workerAnswer = priorWorker; house.state.storyAnswer = priorStory;
+    await db.settings.delete('continuousAudit');
+    try { await closeSettings(); } catch (err) { /* closed */ }
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-188 THE OPENING MOVES FEELINGS (M532 — his report: "every time, How they feel about you is empty and I need to rebuild the people, especially on #story"): the young ledger\'s reader is asked what the opening does to people\'s feelings — he saves Yuki, and her standing is there after the first page, no rebuild', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');

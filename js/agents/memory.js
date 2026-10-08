@@ -953,6 +953,37 @@ export function nodeUnmoved(nodes, id, signature) {
   return Boolean(node) && nodeSignature(node) === signature;
 }
 
+/* M673: THE CONTINUOUS AUDIT'S MARK ON A LINE (agents/continuous.js). `audited` is how many of the line's pages that
+ * reader has gone over, counted from the line's first page — so it goes wherever the line goes (a line that slides when
+ * an older page is deleted keeps it), ends when the line does (a line let go by a retry, an edit, a delete or a mend
+ * takes it along, and the line written in its place is read), and rides in every copy of the record. A correction
+ * covers no page and has none. */
+export function auditedOf(node) {
+  if (!node || node.correction || !Array.isArray(node.span)) return 0;
+  const [a, b] = node.span;
+  if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < a) return 0;
+  const k = Math.round(Number(node.audited));
+  return Number.isFinite(k) && k > 0 ? Math.min(k, b - a + 1) : 0;
+}
+/* The lines being squeezed into one hand their mark on: from the first page, as far as the reading had got without a
+ * gap (a line not read to its end, or a page between two lines, ends the count). Pure. */
+export function auditedAcross(sources) {
+  const list = (Array.isArray(sources) ? sources : [])
+    .filter((n) => n && !n.correction && Array.isArray(n.span) && Number.isInteger(n.span[0]) && Number.isInteger(n.span[1]) && n.span[0] >= 0 && n.span[1] >= n.span[0])
+    .slice().sort((a, b) => a.span[0] - b.span[0]);
+  if (!list.length) return 0;
+  let next = list[0].span[0];
+  let read = 0;
+  for (const n of list) {
+    if (n.span[0] !== next) break;
+    const k = auditedOf(n);
+    read += k;
+    if (k < n.span[1] - n.span[0] + 1) break;
+    next = n.span[1] + 1;
+  }
+  return read;
+}
+
 /* ---------- the contract ---------- */
 
 let nodeCounter = 0;
@@ -1527,6 +1558,9 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     mem.window = window;
     /* COPY, don't cut: the sources leave only once the merged line stands (and the empty markers it took in, M425) */
     for (const id of absorbed) ids.add(id);
+    /* M673: what the continuous audit had read under these lines stays read under the line they become */
+    const carried = auditedAcross(mem.nodes.filter((node) => ids.has(node.id)));
+    if (carried > 0) merged.audited = carried;
     mem.nodes = mem.nodes.filter((node) => !ids.has(node.id));
     mem.nodes.push(merged);
     changed = true;
@@ -1582,6 +1616,8 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
     fresh.empty = text === '(no new state)';
     fresh.whole = true; /* M262: read again from whole pages */
     delete fresh.detail;              /* the old detail described the old line */
+    delete fresh.audited;             /* M673: and the continuous audit read the old line — this one is read in its turn */
+    delete fresh.verified;            /* M673: nor is it his hand's line (or the housekeeper's) any more — the keeper has just written it */
     fresh.at = Date.now();
     await saveMemory(storyId, mem);
   }

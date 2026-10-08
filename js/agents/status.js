@@ -24,7 +24,7 @@ export const WORKER_TIMEOUT_MS = 60000;
  * itself, and the two showrunners. */
 /* M12: the scribe joins the ledger — the quiet writer of the character
  * pages. */
-export const WORKER_NAMES = ['founder', 'eye', 'extractor', 'world', 'scribe', 'keeper', 'referee', 'continuity', 'auditor', 'ripple', 'housekeeper', 'director', 'editor', 'sensors', 'canon', 'planner', 'essentials', 'plans', 'recall', 'judge']; /* M356; M386: canon verification's runs are noted like any worker's */
+export const WORKER_NAMES = ['founder', 'eye', 'extractor', 'world', 'scribe', 'keeper', 'referee', 'continuity', 'auditor', 'ripple', 'housekeeper', 'director', 'editor', 'sensors', 'canon', 'planner', 'essentials', 'plans', 'recall', 'judge', 'continuous']; /* M356; M386: canon verification's runs are noted like any worker's; M673: the continuous audit */
 
 /* M46: what is running right now, and who wants to know. The drawer's
  * workers panel shows "reading now…" the moment a job starts and re-reads

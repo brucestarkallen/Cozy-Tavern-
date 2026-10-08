@@ -905,6 +905,11 @@
           <label class="stack-label" for="audit-every">Every how many turns: <span id="audit-every-value">1</span></label>
           <input id="audit-every" type="range" min="1" max="20" step="1" value="1" aria-label="How often the auditor reads the whole ledger">
           <p class="quiet">The one reader who sees everything at once: the hour against the latest header, who is here against the page, every seat against where the pages last put that person, the character pages against the brief and the real record, the canon, the threads, who knows what. What is wrong is set right through the ledger (take-back-able); a page that contradicts the brief is mended and the record corrected; what is merely seen is left as the story has it. Every page by default; raise the number only to spend less. Also by hand: Drawer → The workers → "Audit the ledger".</p>
+          <div class="row">
+            <label class="radio-row"><input type="checkbox" id="continuous-audit"> Continuous audit — as pages are folded into the record, one more reader goes over each stretch whole: the pages, the record line and the ledger</label>
+          </div>
+          <p class="quiet">Off unless you switch it on. It is the housekeeper’s audit, done by itself and a little at a time. When a stretch of pages (about six) leaves the word-for-word window and becomes a record line, this reader goes over those pages once more, whole — against your brief and the story before them, against the record line that now stands for them, and against what the ledger holds of who learned what. A page that cannot be true beside what came before is mended by the smallest edit (only with the mend switch above on; the earlier words stay a tap away). A wrong fact in the record line is put right in the line; something lasting the line left out is kept beneath it; something a person learned that the ledger never wrote down is added. It never moves the scene — where people are, the hour, what they wear stay with the readers of the newest pages.</p>
+          <p class="quiet">Each record line is read once, so it costs one reading for about every six pages. A tale that is already long is read from its first page while the house is idle — a line at a time, stepping aside the moment you write (a thousand pages is about 170 readings, so give it time). A record line you rewrote by hand, or had the housekeeper change, is never written over. While it reads on, the ledger’s light keeps its own colour and shows a small blue dot beside it; Drawer → The workers says how far it has got (“36 of 970 folded pages read”). Give it hands of its own under The workers if you like — a careful model is the pick.</p>
           <label class="stack-label" for="world-effort">How hard the world agent thinks</label>
           <select id="world-effort" aria-label="How hard the world agent thinks">
             <option value="off">Not at all — quick and cheap (fine for most models)</option>
@@ -1103,6 +1108,7 @@
             <li><b>The audit</b> — one record line against the pages it came from. A fact the line gets wrong is mended in the line; what the line left out goes beneath it as <b>Detail worth keeping</b>. Never your prose. Code checks every name and figure too.</li>
             <li><b>The second reader</b> — the page against what lasts (the locked truths, the brief); mends a slip by the smallest edit. A lie or a joke in character is left alone.</li>
             <li><b>The auditor</b> — the whole ledger against the brief and the last pages: what lasts and what is wrong; never the moment.</li>
+            <li><b>The continuous audit</b> (off unless you switch it on: Settings → The readers → <b>Continuous audit</b>) — each stretch of pages the record has folded, read once more, whole: a page that cannot be true beside the story before it is mended by the smallest edit; a wrong fact in the record line is put right and what lasts is kept beneath it; what someone learned is written to the ledger. One reading for about every six pages; a long tale is read from its first page while the house is idle. A small blue dot under the ledger’s light while it reads on; The workers says how far it has got.</li>
             <li><b>The referee</b> — rolls and rules a contest before the storyteller writes it.</li>
             <li><b>The founder</b> — writes the world into the ledger from the brief at the start (and on the button).</li>
             <li><b>The ripple</b> — when you (or the housekeeper) change a fact on a page, makes the rest of the story agree with it.</li>
@@ -1122,7 +1128,7 @@
             <li><b>This story</b> — the brief (the premise; the brief wins over pages), cast notes, the frame, the note, Choices matter (at a turning point, choices whose outcomes are sealed before you pick — off unless you turn it on), the shelf.</li>
             <li><b>The craft</b> — the rulebook (the craft, always on; situational rules that wake on the mood: intimate, contested, the window; pin any on), the engine dials, the regex shelf (your 🎨 display rules).</li>
             <li><b>People &amp; lore</b> — character cards to invite, the lore shelf (keyed entries served when their words appear), old SillyTavern chats.</li>
-            <li><b>The readers</b> — the record (window size, batch), the second reader’s mending, the auditor’s cadence, the referee.</li>
+            <li><b>The readers</b> — the record (window size, batch), the second reader’s mending, the auditor’s cadence, the continuous audit’s switch, the referee.</li>
             <li><b>The house</b> — appearance, turns on screen, the welcome mat, <b>Backup</b> (take a copy of everything; bring one back), <b>Reset every setting</b>.</li>
           </ul>
 

@@ -265,6 +265,7 @@ export function initSettings(ctx) {
     auditOn: document.getElementById('audit-on'),
     auditEvery: document.getElementById('audit-every'),
     auditEveryValue: document.getElementById('audit-every-value'),
+    continuousAudit: document.getElementById('continuous-audit'), /* M673 */
     worldEffort: document.getElementById('world-effort'),
     refereeOn: document.getElementById('referee-on'),
     canonOn: document.getElementById('canon-on'), /* M346 */
@@ -1913,6 +1914,8 @@ export function initSettings(ctx) {
     const everyV = Number.isFinite(ae) && ae >= 1 ? Math.min(20, ae) : 1;
     els.auditEvery.value = String(everyV);
     els.auditEveryValue.textContent = String(everyV);
+    /* M673: the continuous audit — off unless he switched it on */
+    els.continuousAudit.checked = (await db.settings.get('continuousAudit')) === true;
     const eff = await db.settings.get('worldEffort');
     els.worldEffort.value = ['off', 'low', 'medium', 'high'].includes(eff) ? eff : 'off';
   }
@@ -1923,6 +1926,14 @@ export function initSettings(ctx) {
   els.auditEvery.addEventListener('input', () => { els.auditEveryValue.textContent = els.auditEvery.value; });
   els.auditEvery.addEventListener('change', async () => {
     await db.settings.set('auditEvery', Math.round(Number(els.auditEvery.value)) || 1);
+  });
+  /* M673: the continuous audit's switch. The story screen is told at once: on, it begins reading the folded pages
+   * while the house is idle; off, a reading in flight is let go and nothing more is read. */
+  els.continuousAudit.addEventListener('change', async () => {
+    const on = els.continuousAudit.checked; /* what he chose, taken at the tap (M651) */
+    await db.settings.set('continuousAudit', on);
+    if (ctx.chat && typeof ctx.chat.continuousAuditChanged === 'function') ctx.chat.continuousAuditChanged();
+    toast(on ? 'The continuous audit is on — it reads the folded pages while the house is idle.' : 'The continuous audit is off.');
   });
 
   els.worldAgent.addEventListener('change', async () => {
@@ -2931,6 +2942,7 @@ export function initSettings(ctx) {
     /* M618: preferences that came after this list and were never added to it — "Reset every setting" said every setting
      * was back at its default while these stayed as he had set them */
     'cutBeforeHeader', 'thinkOnPage', 'briefModeNew', 'canonLegacy', 'tellerPerson', 'helpersSideBySide', 'helpersSideBySideTurnedOff',
+    'continuousAudit', /* M673: off is its default */
   ];
   async function resetSettings() {
     for (const key of RESET_KEYS) {
@@ -2955,6 +2967,7 @@ export function initSettings(ctx) {
     ctx.setTheme('dark');
     document.body.classList.remove('plain-speech');
     setSideBySide(false); /* M618: the helpers' pace is a live switch too — back to one at a time, as the default */
+    if (ctx.chat && typeof ctx.chat.continuousAuditChanged === 'function') ctx.chat.continuousAuditChanged(); /* M673: and the continuous audit, off again, lets a reading in flight go */
     await onShow({ all: true });
     if (ctx.chat && typeof ctx.chat.renderPromptChips === 'function') ctx.chat.renderPromptChips();
     if (ctx.chat && typeof ctx.chat.renderThread === 'function') ctx.chat.renderThread({ structural: true });

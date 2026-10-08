@@ -13,6 +13,7 @@ export const WORKER_ROWS = [
   ['keeper', 'The memory keeper — folds old pages into notes'],
   ['continuity', 'The second reader — quietly flags what drifts'],
   ['auditor', 'The auditor — every few turns, the whole ledger against the brief, the pages and the record'],
+  ['continuous', 'The continuous audit — when its switch is on: reads each stretch of folded pages once more, whole, against the story before it, its record line and the ledger (a careful model is the pick; it runs once for about every six pages)'], /* M673 */
   ['referee', 'The referee — rules on contested moments, fast and cold, and weighs the cast it rules from'],
   ['canon', 'Canon verification — reads who is in the scene and writes each canon person’s dossier from the series’ wiki'],
   ['sensors', 'The sensors — read each finished page against your craft’s rules, handed what the storyteller was handed (a model with room is the pick; a decisions model such as Jev or Clef also answers)'], /* M636 */

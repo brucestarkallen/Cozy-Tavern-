@@ -1,6 +1,19 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m672-001)
+# Cozy Tavern — handoff for the next session (state at m673-001)
+
+## M673 — THE CONTINUOUS AUDIT. Read AGENTS.md "# M673" whole before touching it.
+- Settings → The readers → "Continuous audit" (off as it ships; its own row under The workers). js/agents/continuous.js.
+  One reading per RECORD LINE, oldest first: its pages against the brief, the record before them, the line, and what
+  the ledger holds of who learned what. Mends a page (the house's mender, once a page), repairs the line / keeps what
+  lasts beneath it, adds knowledge to the ledger. In every page's chain, and by itself while the house is idle.
+- THE MARK IS `node.audited` ON THE RECORD LINE (memory.js auditedOf / auditedAcross). Anything that makes a NEW line leaves it
+  unread on purpose; anything that copies a node must keep the field (spread the node, as every function there does).
+- NEVER: let it write the moment or a lock (the ledger it is shown is today's, the pages are old); let it write while a
+  keeper job runs; make a send wait for it (pendingWork lets its reading go first — keep that call); count it in
+  `trouble` (that word also decides whether the house may heal a gap by itself — M668's lesson).
+- A line he rewrote by hand or the housekeeper changed (verified.fixed 'the writer' / 'the housekeeper') is never written
+  over. If you add another way to edit a record line by his hand, mark it the same way.
 
 ## THE SESSION AFTER (Oct 6 2026, M636) — THE SENSORS REBUILT. Read AGENTS.md "# M636" whole before touching them.
 - Settings → The readers → The sensors (off as it ships). They are now HIS CRAFT'S LAWS, MEASURED: a checker (the

@@ -80,7 +80,7 @@ import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWin
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord, againstTheBrief } from '../agents/ripple.js'; /* M100: the ripple */
-import { wholeRecord, keeperTrouble, windowFor, coveredEnd } from '../agents/memory.js'; /* M445: coveredEnd — the pages not yet folded */
+import { wholeRecord, keeperTrouble, windowFor, coveredEnd, recordLinesBefore } from '../agents/memory.js'; /* M445: coveredEnd — the pages not yet folded; M673: the record before a page */
 import { loadSessionRoot } from '../agents/housekeeper.js'; /* M331 */
 import { voiceOf, groundingSeed } from '../assemble/voice.js'; /* M327: the two names; M358: the grounding phrase */
 import { noteTellerConnection } from '../agents/call.js'; /* M328 */
@@ -106,6 +106,7 @@ const SIDE_JOBS = new Set(['keeper', 'sensors', 'essentials', 'placer', 'startch
 import { renderStateFacts as planFacts, stateView as planStateView, closeBy } from '../engine/state.js'; /* M510: what the helper reads; M589: who is close by */
 import { renderPeopleTiers as planPeople, peopleView as planPeopleView, findPersonKey } from '../engine/people.js'; /* M510; M518: a canon block's person in the ledger */
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
+import { continuousAuditOn, auditStretch, stretchWords, auditProgress, nextStretch, beginReading, endReading, pauseContinuousAudit } from '../agents/continuous.js'; /* M673: the continuous audit */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, healStampDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
@@ -2633,6 +2634,7 @@ export function initChat(ctx) {
       let ledgerBehind = false;
       let told = 0;
       let newestPageAt = 0;
+      let auditRead = null; /* M673: how far the continuous audit has read, when it is on */
       try {
         const pages = visiblePages(await db.messages.list(storyId));
         const assistants = pages.filter((m) => m.role === 'assistant');
@@ -2651,6 +2653,8 @@ export function initChat(ctx) {
         const batch = cleanBatch(await db.settings.get('memoryBatch'));
         recordBehind = Boolean(dueRange(pages.length, window, mem.nodes, batch));
         behind = ledgerBehind || recordBehind;
+        /* M673: only where it can read — its switch on, and this story's readers not switched off */
+        if (await continuousAuditOn()) { const tale = await db.stories.get(storyId); if (tale && tale.extraction !== false) auditRead = auditProgress(mem, pages.length); }
       } catch (err) { behind = true; }   /* if it cannot be checked, it is not green */
 
       const ran = minders.filter((n) => shelf[n]).length;
@@ -2682,21 +2686,44 @@ export function initChat(ctx) {
       const waitingWhy = waiting ? (otherHandAt(storyId) ? 'another browser wrote this tale a moment ago — its readers may still be at it; this one looks again in a few minutes'
         : ledgerBehind ? 'the last pages are not read into the ledger yet — the readers go at them when the house is idle'
           : 'a gap in the record is waiting for the keeper — it folds when the house is idle') : '';
-      btn.classList.toggle('is-working', busy);
-      btn.classList.toggle('has-trouble', !busy && (trouble || partly || guards.length > 0));
-      btn.classList.toggle('all-well', allWellNow);
-      btn.classList.toggle('is-waiting', waiting);
-      btn.setAttribute('title', busy
+      /* M673: THE CONTINUOUS AUDIT, ON THE LIGHT. Three things, and the lines above are as they were (`busy` still holds the
+       * house's idle fillers back while any reader is out):
+       *   - READING OLDER PAGES IS NOT "READING THIS SCENE". While the audit is the only thing at work (reading on while
+       *     the house is idle, nothing queued behind it) the lamp shows what is true of the scene -- green when
+       *     everything told is read and folded -- and a second, smaller light says the audit is reading on;
+       *   - A READING THAT FAILED IS TROUBLE while there are folded pages it has not read (its switch on): the checking
+       *     he asked for is not happening. It tries again by itself, a minute, two, four ... apart;
+       *   - HOW FAR IT HAS READ is said in the lamp's words, and on its row among the workers. */
+      const auditing = busy && queuedCount(storyId) === 0 && runningWorkers(storyId).every((n) => n === 'continuous');
+      const sceneBusy = busy && !auditing;
+      const auditSore = Boolean(auditRead && auditRead.left > 0 && shelf.continuous && shelf.continuous.ok === false && shelf.continuous.detail !== 'stopped by hand');
+      const watched = guards.length > 0 || auditSore;
+      const sceneWell = auditing && !trouble && !partly && !watched && !behind && ran > 0 && told > 0;
+      const sceneWaiting = auditing && !trouble && !partly && !watched && behind && told > 0;
+      const wellNow = (allWellNow && !auditSore) || sceneWell;
+      const waitingNow = (waiting && !auditSore) || sceneWaiting;
+      const guardWords = guards.map((g) => (g === 'continuity' ? 'the second reader' : 'the auditor')).join(' and ') + ' did not finish on the newest page; the story is safe, and it is asked again on the next';
+      const auditSoreWords = 'the continuous audit could not finish its last reading; the story is safe, and it tries again by itself';
+      const auditWords = !auditRead ? ''
+        : auditRead.left > 0 ? ' The continuous audit has read ' + auditRead.done + ' of ' + auditRead.folded + ' folded pages' + (auditing ? ' and is reading on — it steps aside when you write.' : '; it reads on when the house is idle.')
+          : auditRead.folded > 0 ? ' The continuous audit has read every folded page (' + auditRead.folded + ').' : '';
+      btn.classList.toggle('is-working', sceneBusy);
+      btn.classList.toggle('has-trouble', !sceneBusy && (trouble || partly || watched));
+      btn.classList.toggle('all-well', wellNow);
+      btn.classList.toggle('is-waiting', waitingNow);
+      btn.classList.toggle('is-auditing', auditing);
+      const lampWords = (sceneBusy
         ? 'The ledger — reading this scene now'
-        : (!trouble && !partly && guards.length)
-        ? 'The ledger — ' + guards.map((g) => (g === 'continuity' ? 'the second reader' : 'the auditor')).join(' and ') + ' did not finish on the newest page; the story is safe, and it is asked again on the next'
+        : (!trouble && !partly && watched)
+        ? 'The ledger — ' + (guards.length ? guardWords + (auditSore ? '. And ' + auditSoreWords : '') : auditSoreWords)
         : trouble
         ? 'The ledger — ' + sore.join(', ') + ' stumbled; the pages are safe and will be folded when it comes back'
         : partly ? 'The ledger — ' + part.join(', ') + ' stopped partway; it will carry on by itself'
-          : allWellNow ? 'The ledger — everything is read and folded. Nothing is waiting. Write on.'
-            : waiting ? 'The ledger — waiting: ' + waitingWhy
+          : wellNow ? 'The ledger — everything is read and folded. Nothing is waiting. Write on.'
+            : waitingNow ? 'The ledger — waiting: ' + (waitingWhy || (ledgerBehind ? 'the last pages are not read into the ledger yet — the readers go at them when the house is idle' : 'a gap in the record is waiting for the keeper — it folds when the house is idle'))
               : 'The ledger — the house’s memory of the scene and the world');
-      ledgerMark = busy ? 'working' : (trouble || guards.length) ? 'trouble' : partly ? 'partly' : allWellNow ? 'well' : waiting ? 'waiting' : null;
+      btn.setAttribute('title', auditWords ? lampWords.replace(/[.\s]*$/, '.') + auditWords : lampWords);
+      ledgerMark = sceneBusy ? 'working' : (trouble || watched) ? 'trouble' : partly ? 'partly' : wellNow ? 'well' : waitingNow ? 'waiting' : null;
       /* M275: THE HOUSE FILLS WHAT THE LIGHT SEES. A gap in the record (a line
        * let go by a mend, an edit or a delete of an old page) kept the light
        * dark until the writer's next page — detection without repair. Seen
@@ -2705,6 +2732,8 @@ export function initChat(ctx) {
       if (recordBehind && !busy && !trouble) fillRecordGap(storyId);
       /* M276: and the pages the ledger never read are read while the house is idle */
       if (ledgerBehind && !busy && !trouble) fillLedgerGap(storyId);
+      /* M673: and the continuous audit reads its next stretch of folded pages */
+      if (auditRead && auditRead.left > 0 && !busy && !trouble && !behind) continuousCatchUp(storyId);
     } catch (err) { /* a mark is never worth a thrown turn */ }
   }
 
@@ -2835,6 +2864,87 @@ export function initChat(ctx) {
     } catch (err) { /* the next look tries again */ }
   }
 
+  /* M673: ONE READING OF THE CONTINUOUS AUDIT (agents/continuous.js) -- the oldest record line it has not read, its pages
+   * against the story before them, the line itself and the ledger. A job in a page's chain, and sent by itself while the
+   * house is idle (continuousCatchUp). THE STORYTELLER COMES FIRST: it never starts while a page is being written or
+   * replayed, and a reading in flight holds a stop of its own, pulled the moment he asks for a page or anything waits for
+   * the workers (pauseContinuousAudit, from generate and from pendingWork) -- its call is dropped, nothing is written,
+   * and the same pages are read later. */
+  async function continuousStep(story, { signal, stale, renew } = {}) {
+    const isStale = () => typeof stale === 'function' && stale();
+    if (!story || story.extraction === false || isStale()) return { silent: true };
+    if (busy || replaying) return { silent: true };
+    if (!(await continuousAuditOn())) return { silent: true };
+    const connection = await resolveWorkerConnection(story, 'continuous');
+    if (!connection) return { silent: true };
+    const own = beginReading(story.id);
+    if (signal) { if (signal.aborted) own.abort(); else signal.addEventListener('abort', () => own.abort(), { once: true }); }
+    try {
+      const result = await auditStretch({
+        connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', signal: own.signal, stale, renew,
+        /* the house's own mender, with his switch: that one page, the smallest edit, the record as it stood before it */
+        mend: async (pageId, words) => {
+          const k = visiblePages(await db.messages.list(story.id)).findIndex((m) => m.id === pageId);
+          if (k === -1) return [];
+          const before = recordLinesBefore(await loadMemory(story.id), k, Math.floor(roomChars(connection) * 0.35));
+          return mendAround(story, connection, [pageId], words, own.signal, 0, 'The continuous audit', before);
+        },
+        /* a fault it could not mend is left on the page, where the second reader's notes are */
+        note: async (pageId, finding) => {
+          const page = (await db.messages.list(story.id)).find((m) => m.id === pageId);
+          if (!page) return;
+          const had = Array.isArray(page.findings) ? page.findings : [];
+          if (had.some((f) => f && f.words === finding.words)) return;
+          await reink(story.id, pageId, { findings: [...had, finding] });
+          notify(story.id);
+        },
+      });
+      if (!result) return { silent: true };
+      return { silent: false, detail: stretchWords(result), raw: result.raw };
+    } catch (err) {
+      if (own.signal.aborted && !(signal && signal.aborted)) return { silent: true }; /* stepped aside for the storyteller */
+      throw err;
+    } finally {
+      endReading(story.id, own);
+    }
+  }
+  /* M673: IT READS ON WHILE THE HOUSE IS IDLE. A tale already long when he switches it on has hundreds of folded pages
+   * unread: one line a page would take as many pages again to reach the present. Seen by the light while nothing else
+   * is running, the next reading is sent by itself -- one at a time, a breath between them, each in the readers' own
+   * queue (so it never writes the ledger beside another reader) -- until every folded page is read. A reading that
+   * fails waits a minute, two, four ... thirty at most before the next try. */
+  const continuousPauseMs = () => (Number(globalThis.__cozyContinuousPauseMs) > 0 ? Number(globalThis.__cozyContinuousPauseMs) : 1500);
+  const continuousAt = new Map();
+  const continuousFails = new Map();
+  const continuousLook = new Map();
+  async function continuousCatchUp(storyId) {
+    try {
+      if (!storyId || busy || replaying || ctx.getActiveStoryId() !== storyId) return;
+      if (!(await continuousAuditOn())) return;
+      if (otherHandAt(storyId)) return; /* another browser's readers may be at this tale */
+      if (workIsRunning(storyId) || queuedCount(storyId) > 0) return;
+      const fails = continuousFails.get(storyId) || 0;
+      const wait = fails ? Math.min(30 * 60000, gapBackoffMs() * 2 ** (fails - 1)) : continuousPauseMs();
+      const since = Date.now() - (continuousAt.get(storyId) || 0);
+      if (since < wait) {
+        if (!continuousLook.has(storyId)) continuousLook.set(storyId, setTimeout(() => { continuousLook.delete(storyId); if (ctx.getActiveStoryId() === storyId) markLedgerTrouble(storyId); }, wait - since + 50));
+        return;
+      }
+      const story = await db.stories.get(storyId);
+      if (!story || story.extraction === false) return;
+      if (!nextStretch(await loadMemory(storyId), visiblePages(await db.messages.list(storyId)))) return; /* every folded page is read */
+      if (!(await resolveWorkerConnection(story, 'continuous'))) return;
+      if (busy || replaying || ctx.getActiveStoryId() !== storyId || workIsRunning(storyId) || queuedCount(storyId) > 0) return; /* looked again: the house moved meanwhile */
+      continuousAt.set(storyId, Date.now());
+      const gen = chainGen.get(storyId) || 0;
+      const promise = enqueueWork(storyId, { name: 'continuous', run: chainJob((hooks) => continuousStep(story, hooks), () => (chainGen.get(storyId) || 0) !== gen) });
+      noteWork(storyId, promise);
+      promise.then((r) => {
+        continuousAt.set(storyId, Date.now());
+        if (r && r.ok === false && !r.stale && !r.stopped) continuousFails.set(storyId, fails + 1); else continuousFails.delete(storyId);
+      }).catch(() => { /* the next look tries again */ });
+    } catch (err) { /* the next look tries again */ }
+  }
   const gapFilledAt = new Map();
   const gapTries = new Map(); /* fills in a row that folded nothing — each waits twice as long */
   async function recordGap(storyId) {
@@ -3832,7 +3942,7 @@ export function initChat(ctx) {
     await rerenderMessage(storyId, page.id);
   }
 
-  async function mendAround(story, connection, pageIds, contradiction, signal, reach = 5) {
+  async function mendAround(story, connection, pageIds, contradiction, signal, reach = 5, who = 'The second reader', recordBefore = null) { /* M673: who asked for the mend, and — for an old page — the record as it stood before it */
     if (!(await mendOn(story))) return [];
     const all = await db.messages.list(story.id);
     const wanted = new Set(pageIds);
@@ -3848,11 +3958,12 @@ export function initChat(ctx) {
       pages,
       contradiction,
       record: wholeRecord(mem, Math.floor(roomChars(connection) * 0.35)), /* M265: it was cut at 30,000 */
+      ...(typeof recordBefore === 'string' ? { record: recordBefore } : {}), /* M673: for a page long folded, the record as it stood before that page (in the same room) */
       playerName,
       signal,
       apply: (page, after, why) => applyMend(story.id, page, after, why),
     });
-    if (changed.length) toast(`The second reader mended ${changed.length} ${changed.length === 1 ? 'page' : 'pages'} — the earlier words are a tap away.`);
+    if (changed.length) toast(`${who} mended ${changed.length} ${changed.length === 1 ? 'page' : 'pages'} — the earlier words are a tap away.`);
     return changed;
   }
 
@@ -4462,6 +4573,12 @@ export function initChat(ctx) {
       if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal, renew);
       return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
     });
+
+    /* 4a''. M673: THE CONTINUOUS AUDIT -- the oldest record line it has not read: its pages, whole, against the story
+     * before them, the line and the ledger (agents/continuous.js). Off unless he switched it on. One line a page
+     * here; the rest while the house is idle (continuousCatchUp). It stands before the checkpoint, so the page's
+     * checkpoint holds what it added to the ledger. */
+    enqueue('continuous', async ({ signal, stale, renew }) => continuousStep(story, { signal, stale, renew }));
 
     /* 4a'. M291: THE CHARACTER PAGES, TIDIED ONCE — background out of "now", a household's
      * words on the right page — the standings untouched; a reading that could not be read
@@ -5726,6 +5843,7 @@ export function initChat(ctx) {
       }
 
       abort = new AbortController();
+      pauseContinuousAudit(story.id); /* M673: a reading of older pages steps aside for the telling */
       els.btnStop.hidden = false;
       els.btnSend.hidden = true;
       refreshRetry(null, true); /* M302: no "Try again" while the storyteller writes */
@@ -7682,7 +7800,7 @@ export function initChat(ctx) {
     const lamp = document.getElementById('btn-ledger');
     const tiny = document.getElementById('btn-immerse-show');
     if (!lamp || !tiny) return;
-    for (const c of ['is-working', 'has-trouble', 'all-well', 'is-waiting']) tiny.classList.toggle(c, lamp.classList.contains(c));
+    for (const c of ['is-working', 'has-trouble', 'all-well', 'is-waiting', 'is-auditing']) tiny.classList.toggle(c, lamp.classList.contains(c)); /* M673: and the audit's own light */
     const says = lamp.getAttribute('title') || '';
     tiny.setAttribute('title', 'Show the top bar' + (says ? ' — ' + says : ''));
   }
@@ -8005,6 +8123,8 @@ export function initChat(ctx) {
     canonTest, /* M386 */
     isBusy: () => Boolean(busy),
     choicesChanged: async () => { const st = await activeStory(); if (st) offerChoices(st); await drawChoices(); }, /* M548: Settings → Choices matter */
+    /* M673: Settings → Continuous audit. Off: a reading in flight is let go. Either way the light looks again (on, it sends the first reading). */
+    continuousAuditChanged: async () => { const id = ctx.getActiveStoryId(); if (!id) return; if (!(await continuousAuditOn())) pauseContinuousAudit(id); markLedgerTrouble(id); },
     isReplaying,
     repairTimeline,
     rescanLedger,

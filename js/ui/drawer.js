@@ -2192,6 +2192,7 @@ const WORKER_WORDS = {
   referee: 'the referee',
   continuity: 'the second reader',
   auditor: 'the auditor',
+  continuous: 'the continuous audit', /* M673 */
   ripple: 'the ripple',
   housekeeper: 'the housekeeper',
   director: 'the director',
@@ -2518,7 +2519,8 @@ function recordPanel(ctx) {
         const words = window.prompt('The line, as it should read:', n.text);
         if (words === null || !String(words).trim() || String(words).trim() === n.text) return;
         const fresh = await loadMemory(story.id);
-        const nodes = fresh.nodes.map((x) => (x.id === n.id ? { ...x, text: String(words).trim(), at: Date.now() } : x));
+        /* M673: a line in his own words says so — the continuous audit reads its pages but never writes over it */
+        const nodes = fresh.nodes.map((x) => (x.id === n.id ? { ...x, text: String(words).trim(), at: Date.now(), verified: { at: Date.now(), fixed: 'the writer' } } : x));
         await saveMemory(story.id, { ...fresh, nodes });
         notify(story.id);
         render();

@@ -17268,3 +17268,92 @@ His line. Not a new ask — a demand that what was built be checked harder than 
   play 9/9, lint 0 errors (183 warnings), and all 34 browser tests one at a time — the 11 of audit/gates.sh and the 23
   outside it — EXIT 0 each. The run before it, on 668ffab (the commit with the memory still in): the same, but the walk
   241/242 (DOM-129, beside the browser tests, as told above) and the harness 1311 (no M672-1 yet — which fails there).
+
+# M673 — THE CONTINUOUS AUDIT (his: "step by step it makes sure the folds summary, the ledger, the pages is always correct if I toggled on")
+His words: "It creates someone who thinks as a logical or creative co-writer: ok, every continuity is correct. It's basically
+like the housekeeper audit (slow, because an audit on 1,000 pages takes time — but if it's already starting from page 1
+it's efficient) … from turn 1 until 1,000 or beyond. Whether a new agent or added to an existing one, what matters is
+fast and actually makes sure everything — the whole ledger, pages and fold — is great. Whether it runs latest like the
+other agents or lags and has a separate light is up to you."
+- WHAT ALREADY CHECKED, AND WHAT DID NOT (traced before building, his rule 5 of the system list): the second reader holds each
+  NEW page against what lasts; the keeper, when it folds six pages, checks its own line against the story (verify — a
+  page that contradicts the record is mended) and against its pages (audit — FIX in the line, DETAIL beneath it); the
+  auditor holds the whole ledger against the brief, the record and the unfolded pages after every page. What nothing
+  did: (1) say, afterwards, WHICH lines had been checked — the keeper's two checks end in `catch { changes nothing }`,
+  so a line whose check failed on a provider's hiccup stays unchecked for ever, silently; (2) check a tale folded by
+  an older house, or brought in; (3) write into the ledger what someone LEARNED on pages now out of sight; (4) give a
+  second opinion from a model he chooses. That is what this is. It is NOT a fourth copy of the same check.
+- WHAT IT IS (js/agents/continuous.js; Settings → The readers → "Continuous audit", off as it ships; a row of its own under
+  The workers): one reading for each RECORD LINE — its pages (six at most at a time; 36,000 characters at most), whole,
+  beside the brief, the record BEFORE those pages, the line itself, and what the ledger holds of what the people those
+  pages name have learned. Oldest line first. Three kinds of finding, each through a door the house already had:
+  - a page that cannot be true beside the brief or the story before it → the house's own mender (mendAround, reach 0,
+    handed the record as it stood before that page; his "mend" switch rules it). A page already mended, or one whose
+    words he put back (keptText), is NEVER mended again — the fault is noted on the page where the second reader's
+    notes are. A reading that mends writes nothing else: the mend lets the line go, the keeper folds the mended words
+    by itself, and the new line is read in its turn (so: read → mend → fold → read → sealed, and it ends).
+  - the record line → a wrong fact is repaired by the keeper's own rule (applyAuditFixes: the wrong words are in the line,
+    the right words are in the pages) AND only where the wrong words stand exactly once in the line, never a phrase
+    swapped for a fragment (three words for one); what lasts and was left out goes beneath it (400 characters a reading,
+    the line's 1,400 in all, each clause held to the pages). Where the keeper wrote NO line (empty, or the wordless
+    cover of M330) what lasts becomes the line. A line HE rewrote by hand (the drawer's "Rewrite" now marks it
+    verified.fixed 'the writer') or the housekeeper changed for him is read and marked but never written over.
+  - the ledger → knowledge.add ONLY. Never the moment (place, hour, who is here, dress, a wound, a standing, a thread),
+    and never a lock: the ledger this reader is shown is TODAY'S, hundreds of pages later, and a look locked from page
+    30 would overrule a haircut on page 400 that nobody locked. What a person learned is dated with the pages it was
+    learned on (state.page set for the batch and put back, as readMissedPage does) and journaled there, so a fold to
+    any later page keeps it. Held in code (scopeStretch): someone the ledger keeps, never the main character, named on
+    these pages, the claim's words on these pages, not already known in other words (the house's one matcher,
+    sameFact fuzzy, against the whole list), and never into a FULL list (60) something older than all of it — that
+    would only push a newer thing out. Four a reading at most.
+- THE MARK IS ON THE RECORD LINE (node.audited: how many of the line's pages were read; memory.js auditedOf). I first built
+  it as a number in the ledger (state.auditedTo, a journaled "audit.mark") and took it out before any commit: a page
+  index does not survive a deleted older page, a line let go and folded again was never read again, and a thousand-page
+  catch-up would have put 170 marks into a journal of 1,500. On the line it goes where the line goes: a line that
+  slides keeps it (memoryAfterDeletion spreads the node); a line let go by a retry, an edit, a delete or a mend takes
+  it along and the new line is read; lines squeezed into one hand it on (auditedAcross — as far as the reading had
+  got without a gap); "Fold again" clears it (and clears verified); "Detail again" does not. loadMemory already keeps
+  unknown fields of a node, so it rides in every copy.
+- WHEN IT RUNS: one line in every page's chain (after the auditor, before the checkpoint), and BY ITSELF while the house is
+  idle (chat.js continuousCatchUp, sent by the light like the other fillers: nothing running, nothing behind, no
+  minder failing, no other browser at the tale) — a breath (1.5 s) between readings, a failed one waiting 1, 2, 4 …
+  30 minutes. So a tale already a thousand pages long is read from its first line (about 170 readings) and a new tale
+  is read as it folds.
+- THE STORYTELLER COMES FIRST. It never starts while a page is being written or replayed, and a reading in flight holds a
+  stop of its own (beginReading / pauseContinuousAudit): pulled from generate() and from EVERY wait for the workers
+  (extractor.js pendingWork — nine callers: sends, retries, rewinds, a branch). Its call is dropped, nothing is written,
+  the same pages are read later; that is not a failure and is not tried again by the queue. MEASURED in the walk
+  (submit to the storyteller's request, a reading in flight): 111–119 ms; with the wait left in, 5,113 ms (the wait's
+  whole ceiling, on every send for as long as a catch-up runs); with letting go treated as a failure, 2,110 ms.
+- IT NEVER WRITES OVER ANOTHER HAND: while a keeper job runs for the tale it neither reads nor writes (the keeper writes a new
+  line's detail when its own check ends, and would overwrite this reader's — two lanes can run side by side, M529);
+  before it writes it reads the record again and gives up if the line, its detail or any page of the stretch changed;
+  a rewind under it (stale) writes nothing. An answer that cannot be read is asked for again (the queue), and the
+  third time the pages are passed by and said so (M316's law: never stuck).
+- THE LIGHT. The lines M254 pins are untouched. While the audit is the only thing at work the lamp keeps the colour that is
+  true of the SCENE (green when all is read and folded — it was about to show "reading this scene now" for an hour of
+  catch-up) and a second, smaller blue dot beneath it says the audit is reading on (.room-btn.is-auditing::before;
+  the small button of the hidden bar wears it too). Its words carry the meter: "The continuous audit has read 36 of
+  970 folded pages…". A reading that failed turns it yellow WHILE folded pages are unread and the switch is on (not
+  "since the newest page", which is the rule for the two readers of the newest page) — and it tries again by itself.
+  Its row among the workers says what each reading did and how far it has got.
+- TWO THINGS THE LAWS CAUGHT IN MY OWN FIRST CUT: sw.js did not list the new module (M30-8 — offline, the app would not have
+  loaded); and I had rewritten the mender's "record: wholeRecord(…)" line that M51 pins (kept as it was now; the
+  record-before-the-page rides beside it for this caller only).
+- A THING THE WALK TAUGHT ME ABOUT MY OWN TEST: my first measure of "the send does not wait" counted every request that was
+  not a worker's — and a stopped call asks the device, once, whether it relays (providers/relay.js). It read 50 ms
+  with the code right AND with it broken. A measure is tried against the fault it is for before it is believed: each
+  of 33 deliberate breakages of the new code was run against the laws and the walk (scratch, not kept); the three the
+  walk first missed (the chain's own reading, the switch inside the chain, letting go as a failure) are held now.
+- LAWS: tests/harness/m673.mjs (nine — every one runs the reader: a record is written, pages are read, what came back is
+  asserted) and the walk's DOM-243 (the switch in Settings, the reading by itself, mend → fold → read again, the
+  light and its dot, the row, a failed reading yellow, stepping aside, the chain's own reading, off).
+- NOT DONE HERE, AND WHY: it does not re-read a line the housekeeper or he rewrote AFTER it was read (his hand is the last
+  word); it does not check the people's pages or the standings (the auditor does, against the record this makes true);
+  the keeper's own verify/audit are unchanged (a second reading does not replace the first).
+- version.js -> m673-001.
+- GATES at m673-001 (2 CPUs), on the tree of this commit, one after another with nothing else running: harness 1321/1321
+  (1312 + the nine of m673.mjs), walk 243/243 (run alone; 242 + DOM-243), long play 9/9, lint 0 errors (189 warnings —
+  six more than before, all "used before it was defined" for names the new functions read only when they run, the same
+  note fillLedgerGap has always had), and all 34 browser tests one at a time — the 11 of audit/gates.sh and the 23
+  outside it — EXIT 0 each.

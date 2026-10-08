@@ -45,6 +45,7 @@ import { publicMoment } from '../engine/world.js'; /* M509-15: a moment the whol
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
+import { pauseContinuousAudit } from './continuous.js'; /* M673: nothing waits for a reading of older pages */
 
 import { renderWholeLedger, wholePage, knowledgeRoomFor } from '../engine/whole.js'; /* M259: the whole ledger, and the page read to its end */
 import { askWithFetch, fetchLaw, windowOfPages, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259/M261: it may look; the story so far, whole */
@@ -81,6 +82,11 @@ export function noteWork(storyId, promise) {
  * go on with last-good state. Never rejects. Resolves true when everything
  * settled in time, false when nothing was pending or something overran. */
 export async function pendingWork(storyId, timeoutMs = 5000) {
+  /* M673: THE CONTINUOUS AUDIT IS NEVER WAITED FOR. Its reading of older pages can take half a minute, and while the
+   * house is idle one follows another: every send (five seconds), retry and rewind would have waited on it. Whoever
+   * waits for the workers lets that reading go first -- its call is dropped, nothing is written, and the same pages
+   * are read later (agents/continuous.js). */
+  pauseContinuousAudit(storyId);
   let any = false;
   for (;;) {
     const list = inFlight.get(storyId);

@@ -96,6 +96,7 @@ const SHELL = [
   'js/engine/names.js', /* M396 */
   'js/agents/memory.js',
   'js/agents/continuity.js',
+  'js/agents/continuous.js', /* M673: the continuous audit */
   'js/agents/lint.js',
   'js/agents/ripple.js',
   'js/agents/status.js',
