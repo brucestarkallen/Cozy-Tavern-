@@ -229,3 +229,34 @@ export function commandChip(text) {
   const parsed = parseCommand(text);
   return parsed.chip || '';
 }
+
+/* M674: WHICH PAGES ARE OUT OF CHARACTER. A page is out of character when it is marked so, when it is his and opens
+ * with the house's own mark for one (#question, (( )), //), or when it is the storyteller's answer to such a page —
+ * the same reading every "ask again" uses (chat.js turnArgsBefore). The answer is found by the page it answers because
+ * it may carry no mark of its own: one that landed before the mark was kept, or by the one door that asked plainly
+ * until M674. A storyteller page that follows another storyteller page is the story going on (a "Go on").
+ * `pages` are the pages that show, in order (a hidden page is not among them). Pure. */
+export function asideAt(pages, i) {
+  const list = Array.isArray(pages) ? pages : [];
+  const m = list[i];
+  if (!m) return false;
+  const marked = (p) => p.ooc === true || (p.role !== 'assistant' && parseCommand(String(p.text || '')).ooc === true);
+  if (marked(m)) return true;
+  if (m.role !== 'assistant') return false;
+  const asked = list[i - 1];
+  return Boolean(asked && asked.role !== 'assistant' && marked(asked));
+}
+/* How a reader's request says whose page it is, when the page is out of character — said where the page is, so no
+ * reader takes it for the story (the label a story page wears, "STORY:" or "The storyteller:", is a claim). Two shapes
+ * for the two ways requests are written: in place of "STORY" / "PLAYER", and in place of "the storyteller" / "the
+ * writer". */
+export function asideLabel(role) {
+  return role === 'assistant'
+    ? 'OUT OF CHARACTER (the storyteller answering the writer — not a page of the story)'
+    : 'OUT OF CHARACTER (the writer asking the storyteller — not a page of the story)';
+}
+export function asideWho(role) {
+  return role === 'assistant'
+    ? 'the storyteller, out of character — answering the writer, not a page of the story'
+    : 'the writer, out of character — asking the storyteller, not a page of the story';
+}

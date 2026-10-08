@@ -38,6 +38,7 @@
  */
 
 import { shownTextPatch, shownText } from '../engine/pagepatch.js'; /* M575, M576 */
+import { asideAt } from '../commands.js'; /* M674: which pages are out of character */
 import { parseLenient } from './jsonutil.js'; /* M439 */
 import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M283 */
 import { db } from '../store.js';
@@ -344,7 +345,8 @@ export function storySoFar(messages, mem, messageId, { least = 4, most = STORY_S
     : 0;
   const count = Math.max(least, Math.min(most, context.length - foldedTo));
   const pages = context.slice(-count);
-  const before = pages.map((m, k) => ({ role: m.role, text: pageTextOf(m), number: context.length - pages.length + k + 1 }));
+  /* M674: a page that is out of character says so to whoever is shown it (commands.js asideAt; lookup.js windowOfPages) */
+  const before = pages.map((m, k) => { const at = context.length - pages.length + k; return { role: m.role, text: pageTextOf(m), number: at + 1, ...(asideAt(context, at) ? { aside: true } : {}) }; });
   let record = '';
   try { record = mem ? recordFor(memoryForWindow(mem, Math.max(0, context.length - pages.length)), 1, recordCap) : ''; } catch (err) { record = ''; }
   return { before, record, number: atSelf === -1 ? 0 : atSelf + 1 };
@@ -1345,8 +1347,15 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   const gone = () => Boolean(stale && stale());
-  const keeperOn = await db.settings.get('memoryKeeper');
-  if (keeperOn === false) return null;
+  /* M674: A TALE'S OWN KEEPER SWITCH IS THE TALE'S. Every door that sends the keeper reads the tale's own switch first
+   * (on, off, or "as the house") and the house-wide one only for a tale that leaves it to the house — and then this
+   * asked the house-wide switch ALONE. So with the keeper off for the house and ON for one tale, the keeper was sent
+   * to that tale after every page and folded nothing: "could not fold a gap in the record yet — it tries again
+   * later", for ever, the light never green. A tale switched on is folded. */
+  if ((await db.settings.get('memoryKeeper')) === false) {
+    const tale = await db.stories.get(storyId);
+    if (!tale || tale.keeper !== true) return null;
+  }
   const batch = cleanBatch(await db.settings.get('memoryBatch'));
 
   const history = visiblePages(await db.messages.list(storyId));

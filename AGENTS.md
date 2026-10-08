@@ -17357,3 +17357,123 @@ other agents or lags and has a separate light is up to you."
   six more than before, all "used before it was defined" for names the new functions read only when they run, the same
   note fillLedgerGap has always had), and all 34 browser tests one at a time — the 11 of audit/gates.sh and the 23
   outside it — EXIT 0 each.
+
+# M674 — "TRY AGAIN" LOSES NOTHING (his: "How about this? You didn't explain anything: … 'Try again' on a page that landed normally still replaces it.")
+The line was mine, left at the end of M668's report as if it were a footnote. It was a fault. Following it through every
+door that asks a turn again — and then through what those doors touch — found the others below. Each was MADE TO HAPPEN
+before a line was changed (a walk or a law that fails on the old code) or measured, and each has a walk or a law that RUNS
+it now.
+
+## 1. Try again
+- WHAT IT DID (m673-001, a scratch walk): one page; "Try again" with the provider answering 401 — the page was GONE, his
+  message alone left (regenerateFrom let the page go, every version of it, and only then asked for a new one). Six pages;
+  "try again" on his FIRST message — two pages left, four let go, nothing asked first.
+- THE RULE NOW, for every door that leads to regenerateFrom (the "Try again" under the thread, "try again" on his own
+  message, "Rewrite from here" on the right-click menu): THE ANSWER IS ALWAYS TOLD AGAIN AS ANOTHER VERSION OF ITS OWN PAGE,
+  through the swipe's own door (swipeRegenerate) — a telling that fails, or that he stops, leaves the page exactly as it
+  was, and the telling that stood is a swipe away (◂ 1/2 ▸).
+  - the newest page: nothing is let go, so nothing is asked;
+  - an OLDER page (a rewind): it SAYS HOW MANY PAGES AFTER THE ANSWER WOULD GO, AND ASKS (window.confirm; "branch" keeps
+    them). Told no, nothing happens. Told yes, the pages AFTER the answer go and the answer gets its new version. The
+    ledger is first set to where it stood when the answer had been read (rewindTo at the first page let go), so the
+    version being left keeps the ledger IT earned (M40), not the later pages'; the record lets go of the lines over the
+    pages gone. My first cut of M674 still let the answer go with the rest before anyone was asked ("the question says
+    what goes") — a 401 after "yes" left his message with no answer. Walked (DOM-244): the answer stands with every
+    telling it had.
+  - his own message with NO answer of its own (his newest, unanswered; or one followed by another of his): answered anew
+    — a new page, as before. Here the record was let go from "the very next page"; when that page was a hidden one (a page
+    the housekeeper had folded away) no line was let go at all, though the pages went. From the first page that SHOWS now
+    (DOM-247).
+- ONE MEANING. M668 made "Try again" a new version ONLY after a swipe that failed, by remembering the failed swipe
+  (swipeFailed) — a button whose meaning hung on a thing he could not see (his rule 14). The memory is gone.
+- "try again" UNDER HIS OWN UNANSWERED MESSAGE ASKED PLAINLY (retryUserMessage's tail: generate() bare — the one door M302
+  missed). Under an out-of-character question the answer landed as a page of the STORY and the ledger's reader was sent
+  to it; a shortcut's hidden instruction was not sent again. It reads the turn's own words now (DOM-46, the fourth door).
+
+## 2. What a version carries (▸ had these all along; "Try again" would have carried them to every retry)
+- WHAT IS SAID OF A PAGE'S WORDS BELONGS TO THE VERSION THAT HAS THOSE WORDS: "stopped by hand", "cut short", the mend and its
+  earlier words, the words he put back, the readers' notes, what the page reader wrote, the voices, the masthead, the
+  sources (chat.js VERSION_NOTES, versionWithNotes, notesOfVersion — at the landing of a new version and at every walk
+  between versions). A new version of a MENDED page wore the mend, and "Put the earlier words back" would have written
+  the OTHER version's words over it (DOM-245).
+- WHAT IT WEIGHED, TOO: a new version that did not think showed the other version's thinking (`thinking || target.thinking`,
+  since M9) until a swipe away and back; and the first telling lost how long it had thought the moment it had a second
+  (thinkingMs was not kept with it). DOM-244.
+- A NEW VERSION WAS HANDED TO NO HELPER WHEN THE STORY'S PAGE READER WAS OFF (`story.extraction !== false &&` in front of the
+  swipe's startBackgroundWork). Found by DOM-75; M72-7 pinned that condition word for word — it pins the cured one.
+- THE HOUSEKEEPER'S TAKE-BACK LAID THE PAGE'S WHOLE LIST OF VERSIONS BACK AS IT WAS WHEN THE CARD LANDED. A page told again since
+  and walked back to the version the card had re-inked passes its check (the shown words are the card's) — and the
+  list from before the card held no second telling: it was let go, silently (law M674-4, red on the old code). It puts
+  back the shown version's words and nothing else now (shownTextPatch on the page as it stands); the card no longer
+  stores the whole list (receipts and all) in the session. Every version, with its notes, is in a backup, comes back
+  from the tale's own book and is carried into a branch (law M674-3).
+
+## 3. Out of character is not the story (found by asking what the continuous audit would do with his #question pages)
+- THE LEDGER'S CATCH-UP READ OUT-OF-CHARACTER ANSWERS AS PAGES OF THE STORY. No reader is sent to one when it lands (M9) — so
+  the reading mark stopped before it, and readMissedPage (the next page's chain, or the idle fill) sent the ledger's
+  reader to it: "Renji could arrive and take the seal", said in answer to ((what could happen next?)), read for who is
+  where and what happened. DOM-46 had not seen it: it looked 800 ms after the answer, before any page of the story
+  followed. Now such a page is passed over, counted as read, nobody asked (DOM-248, red on the old code) — and when one
+  lands the mark passes it at once, so the light does not say "the last pages are not read" about a page that must
+  never be.
+- WHICH PAGES THOSE ARE: commands.js asideAt(pages, i) — marked `ooc`, or his and opening with the house's own mark
+  (#question, (( )), //), or the storyteller's answer to such a page (the reading turnArgsBefore uses; an answer may
+  carry no mark of its own — one from before M302, or from the door above).
+- THE CONTINUOUS AUDIT (M673, as shipped) was handed them as PLAYER and STORY, and everything its code holds a finding to
+  would pass on an answer that talks ABOUT the story: a thing nobody learned written to the ledger, an idea kept beneath
+  the record line, the answer itself MENDED for disagreeing with the story. It is told which pages are out of character,
+  the words a claim is held to are the story's own pages', and a fault against such a page is dropped in code (law
+  M674-5; seven deliberate breakages, all caught). The keeper's own rule stands (Summaryception's rule 10: a background
+  fact the WRITER states out of character is his word, and a record line may hold it) — the audit is told so.
+- THE MENDER (mendAround — the second reader's, the keeper's, the audit's) is never shown an out-of-character page: it may
+  change any storyteller page it is shown (DOM-246, part 3).
+- EVERY OTHER READER THAT WRITES FROM PAGES IS TOLD WHERE THE PAGE IS: the pages beside the newest one (memory.js storySoFar ->
+  lookup.js windowOfPages: the page reader, the second reader, the world agent), the auditor's view, the standings and
+  the people rebuilt from the pages, the plans keeper (an answer to "((what would be a good plan for the raid?))" was
+  read as a plan the story's people lay out, and kept until carried out). commands.js asideLabel / asideWho. Law M674-7
+  (nine breakages, all caught) and, on the live path, DOM-248. A tale with no such page sends byte for byte what it
+  sent before.
+- NOT CHANGED, ON PURPOSE: the record keeper's passage (his rule 10 reads out-of-character notes for canon) and the
+  director's last pages (an idea talked over is exactly what it may use). What an out-of-character answer already
+  taught a ledger before this build is not taken back — nothing records which facts came from one.
+
+## 4. The keeper's page faults, and the tale's own keeper switch
+- A PAGE FAULT THE KEEPER FOUND WAS SENT TO THE WRONG PAGES in any tale with hidden pages. A record line's span counts the
+  pages that SHOW; onSourceIssue (both folds) sliced the store's whole list. Every "Go on" leaves one hidden page, so
+  with five of them before the line the mender was handed the pages five places earlier — it found nothing to mend, or
+  mended something else. And mendAround counted its reach in the whole list too, so a hidden page inside the six pushed
+  the line's first pages out. chat.js pagesOfLine; DOM-246 (red on the old code: the page is never mended).
+- A TALE'S OWN KEEPER SWITCH WAS OVERRULED: every door reads the tale's switch first, but maybeSummarize asked the
+  house-wide one alone — with the keeper off for the house and ON for one tale, it was sent after every page and folded
+  nothing ("could not fold a gap in the record yet", for ever), and "Summarize now" answered "The keeper is switched
+  off". Law M674-6 and DOM-246 (which runs with the house-wide switch off).
+
+## 5. What the continuous audit cost on a large ledger (M673, as shipped)
+- EVERY "IS THIS PERSON NAMED HERE?" FOLDED THE WHOLE TEXT AGAIN, TWICE (engine/names.js nameOnPage). Measured, a ledger of 100
+  people: 384 ms over the 36,000 characters the audit reads at a time; one reading's own work 429 ms, and 1,755 ms in a
+  small room (which tries several) — on a desktop, on the thread his typing runs on. A text is folded once now,
+  whoever is asked about (the last texts remembered, 300,000 characters at most): 14 ms, 27 ms and 55 ms. The page
+  reader's standings and the world agent's cast from afar asked the same way over one page: 60 ms -> 3 ms. And a
+  reading cut short to fit works the ledger's part out once for each ending it tries (laws M674-1, M674-2).
+
+## The walk and the laws
+- DOM-244 (Try again, the rewind, the failed tellings, the ledger and the record after a rewind, the thinking), DOM-245
+  (notes per version), DOM-246 (the keeper's page faults; the tale's own switch; the mender and out of character),
+  DOM-247 (a message answered anew), DOM-248 (out of character and the ledger; the labels on the live path); DOM-46
+  gained its fourth door. Laws M674-1 … M674-7 (tests/harness/m674.mjs).
+- CHANGED, AND WHY: DOM-43 and DOM-46 asked for "a DIFFERENT page" after Try again (the page let go — the fault). DOM-7 awaited
+  "2/2": the page it swipes always had one version there, because DOM-5's rewind used to let the page go and write a
+  new one; it counts from where the page stands. M72-7 pinned the swipe's old gate word for word.
+- Fifty deliberate breakages of the new code, each run against the walk or the laws (scratch, not kept): all caught —
+  three of them only after the law or the walk that should have caught them was tightened (the fold that keeps
+  "O'Brien" one word; the record after a rewind; the standings' pages in a tale longer than they read). One assertion
+  of my own was wrong and was found by the whole walk, not by me: DOM-46's count of "readers sent to the answer"
+  counted readers that were only SHOWN it beside the newest page.
+- THE HELP (index.html): the swipes' line, the footer's, his message's row, the right-click menu and "what to press".
+- version.js -> m674-001.
+- GATES at m674-001 (2 CPUs), on the tree of this commit but for this line, one after another with nothing else running:
+  harness 1328/1328 (1321 + the seven of m674.mjs), walk 248/248 (run alone; 243 + DOM-244 … DOM-248), long play 9/9,
+  lint 0 errors (185 warnings — the four fewer are the removed swipeFailed's; none new), and all 34 browser tests one at
+  a time — the 11 of audit/gates.sh and the 23 outside it — EXIT 0 each. NOT MEASURED: every reader in these runs is a
+  stand-in — what his own models make of a stretch of pages is not something a test here can say; and the timings are a
+  desktop's.

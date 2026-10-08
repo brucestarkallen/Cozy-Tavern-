@@ -41,6 +41,7 @@ import { findThread } from '../engine/world.js';
 import { renderWholeLedger, wholePage, PAGE_CAP, knowledgeRoomFor } from '../engine/whole.js';
 import { askWithFetch, fetchLaw, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259: it looks for what it was not shown */
 import { messageIndexLine, refOf } from './housekeeper.js';
+import { asideAt, asideLabel } from '../commands.js'; /* M674: which pages are out of character, and how a request says so */
 import { mcName } from '../engine/duels.js';
 import { isMc, namedInText, findPersonKey } from '../engine/people.js'; /* M277: the main character holds no standing; M304: one matcher for "the writer's material names them" */
 import { explicitStandings, readStatedStandings, samePersonLoose, isLabel } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
@@ -273,7 +274,7 @@ function buildAuditorAt({ state, brief = '', castNotes = '', record = '', pages 
       const label = Number.isInteger(p.ordinal)
         ? '[p' + p.ordinal + (p.ref ? ' ' + p.ref : '') + (p.cut ? ' — shortened; fetch "' + p.ordinal + '" for all of it' : '') + '] '
         : '';
-      return label + (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + String(p.text || '');
+      return label + (p.aside ? asideLabel(p.role) + ': ' : (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ')) + String(p.text || ''); /* M674 */
     }).join('\n\n'),
     FENCE,
     '',
@@ -370,7 +371,7 @@ export function auditView(list, foldedTo, budget = AUDIT_VIEW_CHARS) {
       index.unshift('p' + (i + 1) + ' ' + messageIndexLine(m));
       continue;
     }
-    shown.unshift({ ordinal: i + 1, ref: refOf(m), role: m.role, text: t, cut: t.length !== text.length });
+    shown.unshift({ ordinal: i + 1, ref: refOf(m), role: m.role, text: t, cut: t.length !== text.length, ...(asideAt(all, i) ? { aside: true } : {}) }); /* M674: out of character is said to be */
     left -= t.length + 60;
   }
   return { shown, index };
@@ -1130,7 +1131,7 @@ export function buildRebuildMessages({ state, brief, castNotes, record, pages, m
     'THE BRIEF (the first authority):', Q, writerText(brief, BRIEF_ROOM, 'brief', true) || '(none)' /* M267/M283: whole */, Q,
     'THE CAST NOTES:', Q, writerText(castNotes, CAST_ROOM, 'cast notes', true) || '(none)' /* M274/M283 */, Q,
     'THE RECORD (what the pages established, oldest to newest):', Q, String(record || '') || '(nothing yet)' /* M265: the caller gives it in its room */, Q,
-    'THE LATEST PAGES:', Q, (pages || []).map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + wholePage(p.text, 12000)).join('\n\n'), Q,
+    'THE LATEST PAGES:', Q, (pages || []).map((p) => (p.aside ? asideLabel(p.role) + ': ' : (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ')) + wholePage(p.text, 12000)).join('\n\n'), Q, /* M674 */
     '',
     'THE PEOPLE THE LEDGER KNOWS: ' + (uniq.join(', ') || '(none)'),
     '',
@@ -1165,7 +1166,8 @@ export async function rebuildStandings({ connection, storyId, brief = '', castNo
   /* 3. the model, for the rest — toward the main character only */
   const mem = await loadMemory(storyId);
   const all = (await db.messages.list(storyId)).filter((m) => !m.hidden);
-  const pages = all.slice(-AUDIT_PAGES).map((m) => ({ role: m.role, text: pageText(m) }));
+  const firstShown = Math.max(0, all.length - AUDIT_PAGES);
+  const pages = all.slice(firstShown).map((m, i) => ({ role: m.role, text: pageText(m), ...(asideAt(all, firstShown + i) ? { aside: true } : {}) })); /* M674: out of character is said to be */
   const prompt = buildRebuildMessages({ state: s1, brief, castNotes, record: wholeRecord(mem, Math.floor(roomChars(connection, 4000) * 0.35)), pages, mc }); /* M265: the whole record, in its room */
   if (typeof renew === 'function') renew(auditLeashMs(prompt));
   const { text } = await callWorker(connection, { system: prompt.system, user: prompt.user, maxTokens: 4000, signal });

@@ -169,6 +169,29 @@ export function samePersonName(a, b) {
   return aliased(foldName(a), foldName(b)) || aliased(foldName(fa), foldName(fb));
 }
 
+/* M674: A TEXT IS FOLDED ONCE, WHOEVER IS ASKED ABOUT. Every reader that asks nameOnPage (below) whether someone is
+ * named in a text asks it for each person the ledger keeps, over the SAME text — and each asking folded the whole
+ * text again, twice. Measured on a ledger of 100 people:
+ * 384 ms over the 36,000 characters the continuous audit reads at a time, 60 ms over one page of 6,000 (the page
+ * reader's standings, the world agent's cast from afar) — on a desktop; a phone is several times slower, and it is the
+ * thread his typing runs on. The last texts asked about are remembered with their folds: a handful, 300,000 characters
+ * at the most (one longer text alone, until the next). The answer is the same answer. */
+const TEXT_FOLDS = new Map();
+let textFoldChars = 0;
+function foldsOfText(text) {
+  const key = String(text || '');
+  const hit = TEXT_FOLDS.get(key);
+  if (hit) return hit;
+  const loose = ' ' + foldName(key) + ' ';                  /* "Jovan's sword" still names Jovan */
+  const tight = ' ' + nameFold(key) + ' ';                  /* "O'Brien said" names O'Brien */
+  const folds = { loose, tight, blank: !loose.trim() };
+  if (key.length > 200) { /* a shorter text's folding is remembered already (foldName) */
+    if (TEXT_FOLDS.size >= 48 || textFoldChars + key.length > 300000) { TEXT_FOLDS.clear(); textFoldChars = 0; }
+    TEXT_FOLDS.set(key, folds);
+    textFoldChars += key.length;
+  }
+  return folds;
+}
 /* M414: IS THIS PERSON NAMED IN THIS TEXT? One answer for the four readers that ask it (the world agent's quiet ones,
  * the page reader's and the auditor's "silence is not leaving", the scribe's "one writer per now"). Each had its own
  * copy — any word of three letters or more — so a title or "the" counted as the name: "Lieutenant Rukia Kuchiki" was
@@ -178,9 +201,8 @@ export function samePersonName(a, b) {
  * A word two people share (a family name) still counts for both: a maybe is safer than a miss here. */
 export function nameOnPage(text, name) {
   const raw = String(name || '');
-  const loose = ' ' + foldName(text) + ' ';                 /* "Jovan's sword" still names Jovan */
-  const tight = ' ' + nameFold(text) + ' ';                 /* "O'Brien said" names O'Brien */
-  if (!loose.trim()) return false;
+  const { loose, tight, blank } = foldsOfText(text);
+  if (blank) return false;
   const has = (w) => Boolean(w) && (loose.includes(' ' + w + ' ') || tight.includes(' ' + w + ' '));
   const P = parseName(raw);
   if (has(P.bare) || has(foldName(raw))) return true;

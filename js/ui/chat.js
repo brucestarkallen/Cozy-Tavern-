@@ -115,7 +115,7 @@ import { renderWorldBrief, threadHousekeeping, voicesBeyondTheRoom } from '../en
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
 import { castForStory, castNamesFor } from '../import/cards.js';
 import { loadLore, matchLoreDetailed, saveLore } from '../import/lorebook.js';
-import { parseCommand, commandChip } from '../commands.js';
+import { parseCommand, commandChip, asideAt, asideWho } from '../commands.js'; /* M674: asideAt — which pages are out of character; asideWho — how a request says so */
 import { openReceipt } from './receiptview.js';
 /* M22: code blocks + markdown-lite in the prose (E5/E6), the shared
  * download courtesy for the per-story export (E4), and the reasoning
@@ -2767,6 +2767,19 @@ export function initChat(ctx) {
   async function readMissedPage(story, connection, missed, k, { signal, renew, record = '', stale = () => false } = {}) {
     const all = visiblePages(await db.messages.list(story.id));
     const at = all.findIndex((m) => m.id === missed.id);
+    /* M674: AN OUT-OF-CHARACTER ANSWER IS NOT A PAGE THE LEDGER MISSED. No reader is sent to one when it lands (M9: an
+     * out-of-character turn teaches no state work) — so the reading mark stopped just before it, and THIS, which reads
+     * whatever the mark has not passed, sent the ledger's reader to it as a page of the story: on the next page's
+     * chain, or by itself when the house was idle. "Renji could arrive and take the seal", said in answer to his
+     * ((what could happen next?)), was read for who is where and what happened (walked: DOM-248). It is passed over —
+     * counted as read, nobody asked — whether it carries the mark or only answers a question that does (asideAt). */
+    if (at !== -1 && asideAt(all, at)) {
+      const passed = await loadState(story.id);
+      markPageRead(passed, k);
+      await saveState(story.id, passed);
+      notify(story.id);
+      return true;
+    }
     const itsUser = at > 0 ? [...all.slice(0, at)].reverse().find((m) => m && m.role === 'user') : null;
     /* M453: a page older than the newest is read out of turn — only what lasts lands (engine/apply.js lastingOnly) */
     const newestTold = [...all].reverse().find((m) => m && m.role === 'assistant');
@@ -2977,8 +2990,7 @@ export function initChat(ctx) {
         const before = await coveredCount(storyId);
         /* a line's passage that contradicts the record is mended here too, as in the page's own chain */
         const onSourceIssue = async ({ issue, fix, span }) => {
-          const all = await db.messages.list(storyId);
-          const ids = all.slice(span[0], span[1] + 1).map((m) => m.id);
+          const ids = await pagesOfLine(storyId, span); /* M674: the line's own pages */
           await mendAround(story, connection, ids, issue + (fix ? '. It should read: ' + fix : ''), signal);
         };
         await maybeSummarize({ connection, storyId, signal, stale, renew, recordRoomChars: await recordRoomFor(story), onSourceIssue });
@@ -3022,7 +3034,7 @@ export function initChat(ctx) {
     const banner = beginWork('Folding what is due', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — press it again to carry on'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
-    if ((await db.settings.get('memoryKeeper')) === false) {
+    if (story.keeper !== true && (await db.settings.get('memoryKeeper')) === false) { /* M674: a tale whose own keeper switch is on is folded, whatever the house-wide switch says (memory.js maybeSummarize) */
       banner.failed('The keeper is switched off — turn it on in Settings first');
       return false;
     }
@@ -3591,7 +3603,10 @@ export function initChat(ctx) {
   async function plansNext(story, { signal, stale = () => false } = {}) {
     const connection = await resolveWorkerConnection(story, 'plans');
     if (!connection) return { silent: true };
-    const pages = visiblePages(await db.messages.list(story.id)).map((m, i) => ({ n: i + 1, who: m.role === 'user' ? 'the writer' : 'the storyteller', text: typeof m.text === 'string' ? m.text : '' }));
+    /* M674: an out-of-character page says so — "((what would be a good plan for the raid?))" and its answer were read as
+     * pages on which the story's people lay out a plan, and the plan written down to be kept until it was carried out */
+    const shown = visiblePages(await db.messages.list(story.id));
+    const pages = shown.map((m, i) => ({ n: i + 1, who: asideAt(shown, i) ? asideWho(m.role) : (m.role === 'user' ? 'the writer' : 'the storyteller'), text: typeof m.text === 'string' ? m.text : '' }));
     const mc = mcName(await loadState(story.id));
     if (stale()) return { silent: true };
     const out = await runPlans({ connection, storyId: story.id, pages, mc, signal });
@@ -3942,13 +3957,27 @@ export function initChat(ctx) {
     await rerenderMessage(storyId, page.id);
   }
 
+  /* M674: THE PAGES OF A RECORD LINE ARE COUNTED AMONG THE PAGES THAT SHOW. A line's span counts the pages of the thread
+   * (memory.js visiblePages); the keeper's page faults were looked up in the store's whole list, hidden pages and all —
+   * and every "Go on" leaves one hidden page behind, every page the housekeeper folds away is one. So in a tale with
+   * five of them before the line, the mender was sent the pages five places EARLIER than the ones the fault was on:
+   * it found nothing to mend there, or mended something else (walked: DOM-246). */
+  async function pagesOfLine(storyId, span) {
+    return visiblePages(await db.messages.list(storyId)).slice(span[0], span[1] + 1).map((m) => m.id);
+  }
+
   async function mendAround(story, connection, pageIds, contradiction, signal, reach = 5, who = 'The second reader', recordBefore = null) { /* M673: who asked for the mend, and — for an old page — the record as it stood before it */
     if (!(await mendOn(story))) return [];
-    const all = await db.messages.list(story.id);
+    /* M674: the pages handed to the mender are counted among the pages that show (the last page asked for and the
+     * `reach` before it — a hidden page in between used to push one of the pages asked for out of the hand), and an
+     * out-of-character page is never among them: his question to the storyteller and its answer are not the story,
+     * and the mender — which may change any storyteller page it is shown — is not shown them. */
+    const shown = visiblePages(await db.messages.list(story.id));
+    const all = shown.filter((m, i) => !asideAt(shown, i));
     const wanted = new Set(pageIds);
     let last = -1; for (let i = 0; i < all.length; i += 1) if (wanted.has(all[i].id)) last = i; /* M575: no spread of a whole tale into Math.max */
     if (last === -1) return [];
-    const pages = all.slice(Math.max(0, last - reach), last + 1).filter((m) => !m.hidden);
+    const pages = all.slice(Math.max(0, last - reach), last + 1);
     const mem = await loadMemory(story.id);
     const state = await loadState(story.id);
     const playerName = mcName(state) !== 'the player' ? mcName(state) : 'the player';
@@ -4440,8 +4469,7 @@ export function initChat(ctx) {
       if (putBack.length) toast('The house put back ' + putBack.length + (putBack.length === 1 ? ' page it had' : ' pages it had') + ' mended by mistake — the storyteller’s own words are back.');
       /* M35: a line's passage contradicts the record → mend those pages */
       const onSourceIssue = async ({ issue, fix, span }) => {
-        const all = await db.messages.list(story.id);
-        const ids = all.slice(span[0], span[1] + 1).map((m) => m.id);
+        const ids = await pagesOfLine(story.id, span); /* M674: the line's own pages */
         await mendAround(story, connection, ids, issue + (fix ? '. It should read: ' + fix : ''), signal);
       };
       let mem = await maybeSummarize({
@@ -6248,20 +6276,28 @@ export function initChat(ctx) {
           }
           const swipes = Array.isArray(target.swipes) && target.swipes.length
             ? target.swipes.slice()
-            : [{ text: pageText(target), ts: target.ts, thinking: target.thinking, receipt: target.receipt }];
-          swipes.push({ text: full, ts: Date.now(), thinking: thinking || undefined, thinkingMs: thinkStart ? Math.max(1, thinkMs) : undefined, receipt });
+            : [{ text: pageText(target), ts: target.ts, thinking: target.thinking, thinkingMs: target.thinkingMs /* M674: how long the first telling weighed stays with it */, receipt: target.receipt }];
+          /* M674: the version being left takes what was said of ITS words with it; the new one begins with its own (what
+           * this telling's finisher took off, where it looked things up, a stop, a cut) and nothing of the other's */
+          { const leftAt = Array.isArray(target.swipes) && target.swipes.length ? shownIndex(target) : 0;
+            if (swipes[leftAt]) swipes[leftAt] = versionWithNotes(swipes[leftAt], target); }
+          const newVersion = versionWithNotes(
+            { text: full, ts: Date.now(), thinking: thinking || undefined, thinkingMs: thinkStart ? Math.max(1, thinkMs) : undefined, receipt },
+            { stopped: stoppedByHand, cutShort, mended: tidyMend || undefined /* M510-34 */, sources: streamSources || undefined },
+          );
+          swipes.push(newVersion);
           const swipeIdx = swipes.length - 1;
           await db.messages.update(story.id, target.id, {
             swipes,
             swipeIdx,
             text: full,
-            thinking: thinking || target.thinking,
+            /* M674: THIS telling's thinking, or none. It fell back to the page's (`thinking || target.thinking`, since M9):
+             * a new version that did not think wore the other version's thinking — until a swipe away and back, when
+             * it showed none. What it weighed belongs to the version that weighed it; that one keeps it (above). */
+            thinking: thinking || undefined,
             thinkingMs: thinkStart ? Math.max(1, thinkMs) : undefined,
             receipt,
-            sources: streamSources || undefined,
-            cutShort: cutShort || undefined,
-            stopped: stoppedByHand || undefined,
-            ...(tidyMend ? { mended: tidyMend } : {}), /* M510-34 */
+            ...notesOfVersion(newVersion),
           });
           pending.remove();
           await clearCutThinking(story.id); /* M301: a page landed — it carries its own thinking */
@@ -6278,7 +6314,13 @@ export function initChat(ctx) {
           /* M72: a new version of an OLDER page is read by the replay (the
            * caller folds first) — read here, on top of the latest ledger, its
            * people sat down at page N. */
-          if (story.extraction !== false && !ooc && !replayAfter) {
+          /* M674: A TELLING IS READ THE SAME WHETHER IT LANDS AS A PAGE OR AS A VERSION. This was held back whenever the
+           * story's page reader was switched off (extraction) — a gate from when the chain WAS the page reader. The chain
+           * has long been more (the house's eye, the keeper, the second reader, and the sensors at its foot), each with
+           * its own switch, and a new PAGE has always been handed to all of them (below). So a new version in such a
+           * story was never looked at by any of them — found when "Try again" became a version: the sensors never read
+           * the page told again (DOM-75). Every helper still keeps its own switch. */
+          if (!ooc && !replayAfter) {
             const updated = (await db.messages.list(story.id)).find((m) => m.id === target.id);
             if (updated) startBackgroundWork(story, updated, userText);
           }
@@ -6300,6 +6342,15 @@ export function initChat(ctx) {
           sources: streamSources || undefined,
           ...(tidyMend ? { mended: tidyMend } : {}), /* M510-34 */
         });
+        if (ooc) {
+          /* M674: an answer out of character is never read into the ledger, so it is not a page the ledger is behind on:
+           * the mark passes it now. (It stayed before it — the light said "the last pages are not read into the ledger
+           * yet", and what then came to read them read this answer as story: readMissedPage.) */
+          try {
+            const k = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant').findIndex((m) => m.id === saved.id);
+            if (k !== -1) { const passed = await loadState(story.id); markPageRead(passed, k); await saveState(story.id, passed); notify(story.id); }
+          } catch (err) { /* the idle look passes it (readMissedPage) */ }
+        }
         const landedNode = msgNode(saved, showThinking, { isLastAssistant: true, mastheadOn: (await db.settings.get('masthead')) !== false });
         numberPage(landedNode, saved, await db.messages.list(story.id)); /* M483: the page that just landed is numbered — it was the one page the mark never saw ("18 of 19" at the end) */
         pending.replaceWith(landedNode);
@@ -6602,9 +6653,8 @@ export function initChat(ctx) {
       if (!story) return;
       const visible = (await db.messages.list(story.id)).filter((m) => m && !m.hidden);
       const last = visible[visible.length - 1];
-      /* M668: after a swipe that did not land, "Try again" is that swipe again — the page's earlier versions stay */
-      if (last && last.role === 'assistant' && swipeFailed && swipeFailed.story === story.id && swipeFailed.id === last.id) { swipeRegenerate(last); return; }
-      swipeFailed = null;
+      /* M674: one meaning, whatever came before the tap (M668's memory of a failed swipe is gone): the newest turn is
+       * told again — regenerateFrom writes the storyteller's newest page as another version of itself */
       if (last) regenerateFrom(last.id);
     });
   }
@@ -6615,11 +6665,9 @@ export function initChat(ctx) {
   let pendingImage = null;
   let pendingFile = null; /* M668: a text file to ride with the next page */
   /* M668 — HIS: "when I swipe and it errors and I press retry, does it retry on the second swipe, and is the previous one not
-   * gone?" It did not, and it was: a swipe that fails leaves the page as it was (nothing is lost by the failure) — but
-   * "Try again" on a storyteller's page lets that page go, EVERY version of it, and writes one anew. Pressed after a
-   * failed swipe it threw away the versions the swipe had been meant to stand beside. A swipe that did not land is
-   * remembered for its page, and "Try again" on that page is the swipe again: a new version, the earlier ones kept. */
-  let swipeFailed = null;
+   * gone?" It did not, and it was: "Try again" on a storyteller's page let that page go, EVERY version of it, and wrote
+   * one anew. M668 cured the one case he named (after a swipe that failed) by remembering the failed swipe. M674 made it
+   * the rule and took the memory out: the newest page is ALWAYS told again as another version (regenerateFrom). */
 
   function setPendingImage(img) {
     pendingImage = img;
@@ -6744,7 +6792,7 @@ export function initChat(ctx) {
       const after = msgs.slice(at + 1).find((m) => m.role === 'assistant' && !m.hidden);
       if (after) {
         busy = false;
-        await regenerateFrom(after.id);
+        await regenerateFrom(after.id, { fromHisPage: true });
         return;
       }
       /* no answer followed — the page is the tail: answer it anew. Anything
@@ -6753,7 +6801,11 @@ export function initChat(ctx) {
       const trailing = msgs.slice(at + 1);
       if (trailing.length) { await db.messages.deleteFrom(story.id, trailing[0].id); await forgetCheckpoints(story.id, trailing.map((m) => m.id)); }
       await renderThread({ structural: true, opening: true });
-      await generate();
+      /* M674: asked as it was asked. This was the one door M302 missed — it asked plainly (generate() bare), so "try
+       * again" under his own unanswered out-of-character question brought the answer in as a page of the STORY and sent
+       * the ledger's reader to learn from it; a shortcut's hidden instruction was not sent again either (walked:
+       * DOM-46, the fourth door). The turn's own words are read for their command, as every other door reads them. */
+      await generate(turnArgsBefore(msgs, at + 1));
       stories = await db.stories.list();
       renderStoryList();
     } finally {
@@ -6761,7 +6813,7 @@ export function initChat(ctx) {
     }
   }
 
-  async function regenerateFrom(messageId) {
+  async function regenerateFrom(messageId, { fromHisPage = false } = {}) { /* M674: fromHisPage — he tapped “try again” on his own message (the question below is worded from where he tapped) */
     if (busy) return;
     if (!(await waitForRebuild())) return;
     if (busy) return;
@@ -6774,10 +6826,65 @@ export function initChat(ctx) {
       if (at === -1) return;
       const target = history[at];
 
+      /* M674 — HIS: "How about this? … 'Try again' on a page that landed normally still replaces it." It did worse than
+       * replace: it let the page go — every version of it — and only THEN asked for a new one. A provider's error, a lost
+       * line or a Stop in that moment left him with neither (made to happen in the walk: one page, Try again, a 401 —
+       * no page). And the same tap on a page in the MIDDLE of a tale let go of every page after it, however many,
+       * without a word. Two rules now, for every door that leads here (the "Try again" under the thread, "try again" on
+       * his own page, "Rewrite from here"):
+       *   - THE NEWEST PAGE IS TOLD AGAIN AS ANOTHER VERSION OF ITSELF (the swipe's own door). Nothing is let go: the
+       *     earlier telling is a swipe away (◂ 1/2 ▸), and a telling that fails leaves the page exactly as it was.
+       *   - A REWIND THAT LETS PAGES GO SAYS HOW MANY, AND ASKS. Told no, nothing happens. Told yes, the pages AFTER the
+       *     answer go — and the answer is told again as another version, like the newest page (below). */
+      const laterShown = history.slice(at + 1).filter((m) => m && !m.hidden);
+      const answer = target.role === 'assistant' ? target : (laterShown[0] && laterShown[0].role === 'assistant' ? laterShown[0] : null);
+      const letGo = target.role === 'assistant' ? laterShown : (answer ? laterShown.slice(1) : laterShown);
+      if (answer && !letGo.length) {
+        /* (a "Go on" that never got its page may still lie hidden after it: it is left where it is, as ▸ leaves it — a new
+         * version reads only what came BEFORE its page, and nothing is let go on this path, not even that) */
+        busy = false; /* handed over in the same breath: the swipe's door claims the house itself (as M295's does) */
+        await swipeRegenerate(answer);
+        return;
+      }
+      if (letGo.length) {
+        const n = letGo.length;
+        const those = n === 1 ? 'the page after ' : 'the ' + n + ' pages after ';
+        const ok = window.confirm('Tell the story again from here? '
+          + (!answer ? 'This message will be answered anew, and ' + those + 'it'
+            : (target.role === 'assistant' && !fromHisPage ? 'This page' : 'The answer to this message') + ' will be told again as another version (the telling that stands stays a swipe away), and ' + those + (target.role === 'assistant' && !fromHisPage ? 'it' : 'that'))
+          + ' will be let go for good. (To keep ' + (n === 1 ? 'it' : 'them') + ', use “branch” on this page instead — it begins a new telling from here and leaves this one as it is.)');
+        if (!ok) return;
+      }
+
       /* B5: wait for the workers BEFORE the rewrite — never race a page
        * the extractor is still reading. */
       await pendingWork(story.id, 5000);
 
+      if (answer) {
+        /* M674: A REWIND KEEPS THE ANSWER TOO. The pages AFTER the answer go (he was told how many, and said yes); the
+         * answer itself is told again as another version, through the swipe's own door — never let go first. So the one
+         * rule holds here as well: a telling that fails, or that he stops, leaves that page exactly as it was, and the
+         * telling that stood is a swipe away. (Until M674 the answer went with the rest BEFORE the storyteller was
+         * asked: a provider's error after "yes" left his message with no answer at all.)
+         * The ledger is set to where it stood when the answer had been read — the boundary of the first page let go —
+         * so the version being left keeps the ledger it earned (M40) and not the later pages'. */
+        const after = history.slice(history.indexOf(answer) + 1); /* every page after the answer, a hidden one among them */
+        const rewound = await rewindTo(story, history, after[0].id);
+        if (!rewound) toast('Try again could not set the ledger back to where it stood after this page — no checkpoint reaches it; the later pages’ reads stayed.');
+        /* M44: the record lets go of every line that reached the pages now gone */
+        { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === letGo[0].id); if (k !== -1) await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), k)); }
+        await db.messages.deleteFrom(story.id, after[0].id);
+        await forgetCheckpoints(story.id, after.map((m) => m.id)); /* M107 */
+        await refreshPreview(story.id); // M21: the shelf re-reads what's left
+        await renderThread({ structural: true, opening: true });
+        await settleRereadOwed(story); /* M509-10 */
+        busy = false; /* handed over, as above */
+        await swipeRegenerate(answer);
+        return;
+      }
+
+      /* No answer stands to be told again: his own message, with nothing of the storyteller's right after it (his newest,
+       * unanswered — nothing is let go; or one followed by another of his — those go, he was asked). It is answered anew. */
       /* M21: TRUE rollback — the ledger lets go of everything the doomed
        * pages caused. Restore the boundary snapshot taken before this
        * turn's user page; the newer snapshots drop with it. The undo log
@@ -6788,25 +6895,24 @@ export function initChat(ctx) {
        * silence and the retry was told the hour and the room of the page it was replacing */
       if (!rewound) toast('Try again could not set the ledger back to before this page — no checkpoint reaches it; the page’s own reads stayed.');
 
-      /* M44: the record lets go of every line that reached the pages now gone */
-      const firstGone = target.role === 'assistant' ? target : history[at + 1];
-      if (firstGone) {
+      /* M44: the record lets go of every line that reached the pages now gone — counted from the first of them that
+       * SHOWS (M674: it was looked for at the very next page, and when that one was hidden — a page the housekeeper had
+       * folded away — no line was let go at all, though the pages after it went) */
+      if (letGo.length) {
         const vis = visiblePages(history);
-        const k = vis.findIndex((m) => m.id === firstGone.id);
+        const k = vis.findIndex((m) => m.id === letGo[0].id);
         if (k !== -1) await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), k));
       }
-      if (target.role === 'assistant') {
-        await db.messages.deleteFrom(story.id, target.id);
-        await forgetCheckpoints(story.id, history.slice(at).map((m) => m.id)); /* M107 */
-      } else {
-        const next = history[at + 1];
-        if (next) { await db.messages.deleteFrom(story.id, next.id); await forgetCheckpoints(story.id, history.slice(at + 1).map((m) => m.id)); }
+      const next = history[at + 1];
+      if (next) {
+        await db.messages.deleteFrom(story.id, next.id);
+        await forgetCheckpoints(story.id, history.slice(at + 1).map((m) => m.id)); /* M107 */
       }
       await refreshPreview(story.id); // M21: the shelf re-reads what's left
       await renderThread({ structural: true, opening: true });
       await settleRereadOwed(story); /* M509-10 */
       /* M302: asked again as it was asked — the turn's own words, read for their command */
-      await generate(turnArgsBefore(history, target.role === 'assistant' ? at : at + 1));
+      await generate(turnArgsBefore(history, at + 1));
       stories = await db.stories.list();
       renderStoryList();
     } finally {
@@ -6815,6 +6921,27 @@ export function initChat(ctx) {
   }
 
   /* ---------- swipes (M9) ---------- */
+
+  /* M674: WHAT IS SAID OF A PAGE'S WORDS BELONGS TO THE VERSION THAT HAS THOSE WORDS. A page with versions kept each
+   * version's words, thinking and receipt — and ONE set of everything else: "stopped by hand", "cut short", the mend and
+   * its earlier words, the words he put back, the readers' notes, what the page reader wrote, the voices, the masthead,
+   * where it looked things up. They stayed on the page whichever version was shown. So a new version of a MENDED page
+   * still wore the mend, and "Put the earlier words back" wrote the OTHER version's words over it; a half page he had
+   * stopped, a swipe back, read as a whole one; the receipt of one version listed what the readers took from another.
+   * It mattered little while only ▸ made versions; it matters now that "Try again" does. Each version carries its own:
+   * the one being left takes them with it (versionWithNotes), the one shown brings its own or none (notesOfVersion). */
+  const VERSION_NOTES = ['stopped', 'cutShort', 'mended', 'keptText', 'findings', 'extraction', 'voices', 'masthead', 'sources'];
+  const noteStands = (v) => v !== undefined && v !== null && v !== false;
+  function versionWithNotes(version, page) {
+    const out = { ...(version || {}) };
+    for (const k of VERSION_NOTES) { if (page && noteStands(page[k])) out[k] = page[k]; else delete out[k]; }
+    return out;
+  }
+  function notesOfVersion(version) {
+    const patch = {};
+    for (const k of VERSION_NOTES) patch[k] = version && noteStands(version[k]) ? version[k] : undefined;
+    return patch;
+  }
 
   async function swipeTo(messageId, dir) {
     if (busy) return;
@@ -6850,12 +6977,21 @@ export function initChat(ctx) {
     const last = isLastAssistantPage(history, msg.id);
     /* M40: the version being left keeps the ledger it earned — the last page only (M67) */
     if (last) await saveVersionState(story.id, msg.id, idx, await loadState(story.id));
+    /* M674: the version being left takes what was said of its words with it; the one walked to shows its own. The page
+     * is read once more first, and nothing waits between that reading and the writing: a reader may have written on it
+     * (a mend, its notes) since the tap, and those belong to the version being left. */
+    const standing = (await db.messages.list(story.id)).find((m) => m && m.id === msg.id);
+    const nowPage = standing && Array.isArray(standing.swipes) && standing.swipes.length === msg.swipes.length ? standing : msg;
+    const kept = nowPage.swipes.slice();
+    kept[idx] = versionWithNotes(kept[idx], nowPage);
     const updated = await db.messages.update(story.id, msg.id, {
+      swipes: kept,
       swipeIdx: next,
       text: shown.text,
       thinking: shown.thinking,
       thinkingMs: shown.thinkingMs,
       receipt: shown.receipt || msg.receipt,
+      ...notesOfVersion(shown),
     });
     /* M68: an older page's shown version changed — history changed; replay
      * from here. M72: claimed the moment the store holds the new version —
@@ -6928,7 +7064,7 @@ export function initChat(ctx) {
       { const vis = visiblePages(historyNow); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
       if (lastPage) await settleRereadOwed(story); /* M509-10 */
       const landed = await generate({ ...turnArgsBefore(historyNow, historyNow.findIndex((m) => m.id === msg.id)), swipeTarget: msg, replayAfter: !lastPage });
-      swipeFailed = landed ? null : { story: story.id, id: msg.id }; /* M668 */ /* M302: a new version of an out-of-character answer is out of character */
+      /* M302: a new version of an out-of-character answer is out of character (turnArgsBefore) */
       /* M72: a new version on an OLDER page is history changed at that page —
        * fold back, read the new words once, re-apply the rest (it used to be
        * read on top of the latest ledger and left to the auditor). M73-002:
@@ -7757,7 +7893,6 @@ export function initChat(ctx) {
     e.preventDefault();
     const text = els.input.value.trim();
     if (!text || busy) return;
-    swipeFailed = null; /* M668: a new page of his own: the failed swipe is behind him */
     send(text);
   });
 

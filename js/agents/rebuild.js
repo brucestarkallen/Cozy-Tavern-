@@ -34,6 +34,7 @@ import { mcName } from '../engine/duels.js';
 import { renderPeopleTiers, sameLooseEnd } from '../engine/people.js';
 import { renderRelationships } from '../engine/relationships.js';
 import { loadMemory, saveMemory, maybeSummarize, dueRange, cleanWindow, cleanBatch, visiblePages, DEFAULT_BATCH, recordLinesBefore } from './memory.js';
+import { asideAt, asideLabel } from '../commands.js'; /* M674 */
 import { pageText } from '../assemble/stack.js';
 import { wholePage, roomChars } from '../engine/pagecut.js'; /* M259: each page read to its end */
 import { foundPeople, samePersonLoose } from './founder.js';
@@ -225,7 +226,7 @@ export function buildReaderMessages({ state, record, pages, mc }) {
     standings,
     '',
     'THE NEXT PAGES:',
-    pages.map((p) => (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + wholePage(p.text, 16000)).join('\n\n'),
+    pages.map((p) => (p.aside ? asideLabel(p.role) + ': ' : (p.role === 'assistant' ? 'STORY: ' : 'PLAYER: ')) + wholePage(p.text, 16000)).join('\n\n'), /* M674 */
     '',
     'What do these pages change? JSON only.',
   ].join('\n');
@@ -390,7 +391,7 @@ export async function rebuildPeople({ connection, storyId, brief = '', castNotes
    * in at once. A run cut short changes nothing. */
   let shadow = s;
 
-  const history = allPages.map((m) => ({ role: m.role, text: pageText(m) }));
+  const history = allPages.map((m, i) => ({ role: m.role, text: pageText(m), ...(asideAt(allPages, i) ? { aside: true } : {}) })); /* M674: out of character is said to be */
   const mem = await loadMemory(storyId);
   const batch = DEFAULT_BATCH;
   let read = 0;

@@ -1,6 +1,30 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m673-001)
+# Cozy Tavern — handoff for the next session (state at m674-001)
+
+## M674 — "TRY AGAIN" LOSES NOTHING, and what following it found. Read AGENTS.md "# M674" whole.
+- regenerateFrom: THE ANSWER IS ALWAYS TOLD AGAIN AS ANOTHER VERSION OF ITS OWN PAGE (swipeRegenerate) — the newest page, and
+  the answer of a rewind too. A rewind lets go only of the pages AFTER the answer, says how many, and asks first
+  (window.confirm). Never bring back "let the page go, then ask for a new one": a failed telling must leave the page
+  as it was.
+- A PAGE'S NOTES BELONG TO THE VERSION SHOWN (chat.js VERSION_NOTES; thinking and thinkingMs too). If you add a field that
+  describes a page's WORDS (a new reader's note, a mark), add it to that list — or it will show on every version. A
+  field keyed by version already (choiceOffer, sense) needs nothing. Anything that puts a page back (an undo, a
+  take-back) changes the SHOWN version through engine/pagepatch.js shownTextPatch — never lays a saved `swipes` list
+  over the page.
+- A telling is handed to the page's helpers the same whether it lands as a page or as a version; each helper keeps its
+  own switch. Do not gate the whole chain on one of them.
+- OUT OF CHARACTER IS NOT THE STORY — commands.js asideAt(pages, i) says which pages are (the mark, his own mark in the
+  words, or the answer to such a page). No reader is SENT to one (the chain, read again, the replay, the ledger's
+  catch-up readMissedPage — which passes it over and counts it read); the mender is never shown one; the continuous
+  audit holds nothing to one; every reader that writes from pages is TOLD where one is (asideLabel / asideWho: storySoFar
+  -> windowOfPages, auditView, both rebuilds, the plans keeper). If you add a reader that takes pages, do the same. The
+  record keeper's passage is the exception, on purpose (his rule 10).
+- A RECORD LINE'S SPAN COUNTS THE PAGES THAT SHOW (memory.js visiblePages). Never index the store's whole list with it
+  (chat.js pagesOfLine); never count a reach in the whole list (mendAround).
+- A TALE'S OWN SWITCH FIRST (keeper: maybeSummarize, summarizeNow) — on for the tale wins over off for the house.
+- engine/names.js nameOnPage remembers the folds of the last texts asked about. It is asked for every person of the
+  ledger over one text; do not call a per-name fold of a whole text anywhere else.
 
 ## M673 — THE CONTINUOUS AUDIT. Read AGENTS.md "# M673" whole before touching it.
 - Settings → The readers → "Continuous audit" (off as it ships; its own row under The workers). js/agents/continuous.js.

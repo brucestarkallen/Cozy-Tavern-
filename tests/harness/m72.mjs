@@ -147,7 +147,11 @@ test('M72-7 the send path: the coming page stamps the turn, the boundary follows
   assert(!/bumpChain/.test(gen), 'a send never turns the chain generation (the previous page’s readers must land)');
   /* stopped pages are read */
   assert(/if \(!ooc\) \{\n\s*startBackgroundWork\(story, saved, userText\);/.test(gen), 'a page stopped by hand is handed to the workers');
-  assert(/if \(story\.extraction !== false && !ooc && !replayAfter\) \{/.test(gen), 'a swiped page too — unless the replay reads it');
+  /* M674: this line was pinned WITH "story.extraction !== false &&" in front — the fault itself: in a story whose page reader is
+   * switched off, a new version was handed to none of the page's helpers (the eye, the keeper, the second reader, the sensors),
+   * while a new page always was (the line above). The walk holds the behaviour by running it: DOM-75 (the sensors read a page
+   * told again in a story with its page reader off) fails when the old condition is put back. */
+  assert(/if \(!ooc && !replayAfter\) \{/.test(gen) && !/if \(story\.extraction !== false && !ooc && !replayAfter\)/.test(gen), 'a swiped page too — unless the replay reads it');
 });
 
 test('M72-8 the rewind is the fold; the replay is sequenced; a writer’s page deleted moves no stamp; the tail folds; the walk waits', () => {

@@ -51,6 +51,7 @@ import { mcName } from '../engine/duels.js';
 import { findPersonKey, isMc } from '../engine/people.js';
 import { nameOnPage } from '../engine/names.js';
 import { pageText } from '../assemble/stack.js';
+import { asideAt } from '../commands.js'; /* M674: which pages are out of character */
 import {
   loadMemory, saveMemory, visiblePages, recordLinesBefore,
   applyAuditFixes, mergeDetail, looksLikeTokenDump, isNoRecordLine, nodeSignature, nodeUnmoved, auditedOf,
@@ -142,6 +143,11 @@ function law({ mc }) {
     'word (a PLAYER page is what the main character attempts; only a STORY page makes it so); THE RECORD LINE that now',
     'stands for these pages; and WHAT THE LEDGER HOLDS TODAY of what the people these pages name have learned.',
     '',
+    'A page marked OUT OF CHARACTER is the two writers talking ABOUT the story -- a question, an idea, a plan. It is',
+    'not the story: nothing on it happened in the story and nobody in the story learned anything from it. Never',
+    'report such a page as a fault, and write no knowledge.add and no "detail" from it. (A background fact the WRITER',
+    'states there is the writer\'s own word, as the brief is: a record line that holds it is not wrong for holding it.)',
+    '',
     'Find only these three kinds of fault. Anything else is not yours.',
     '',
     '1. THE STORY AGAINST ITSELF. Something a STORY page here states that cannot be true beside what THE BRIEF or THE',
@@ -156,12 +162,11 @@ function law({ mc }) {
     '2. THE RECORD LINE AGAINST THE PAGES. (a) A fact the line states that these pages do not -- a wrong name, number,',
     '   place, or who did what: give "fixes", each the line\'s OWN wrong words exactly as they stand in the line (enough',
     '   of them that they stand there only once), and the right words exactly as the pages have them. (b) Something',
-    '   LASTING these pages established that neither the line',
-    '   nor its detail holds, and that the story will need again: a promise or a debt, a secret and who learned it, a',
-    '   name or an identity revealed, how someone looks for good (eyes, a scar, a missing finger), a death, an injury',
-    '   that will last, a thing that changed hands, a decision that binds someone. Give it as "detail": short phrases',
-    '   separated by semicolons, with explicit names, never pronouns. Never anything the story so far already holds;',
-    '   never the texture of the scene.',
+    '   LASTING these pages established that neither the line nor its detail holds, and that the story will need',
+    '   again: a promise or a debt, a secret and who learned it, a name or an identity revealed, how someone looks for',
+    '   good (eyes, a scar, a missing finger), a death, an injury that will last, a thing that changed hands, a',
+    '   decision that binds someone. Give it as "detail": short phrases separated by semicolons, with explicit names,',
+    '   never pronouns. Never anything the story so far already holds; never the texture of the scene.',
     '',
     '3. WHAT SOMEONE LEARNED, MISSING FROM THE LEDGER. Something a person the ledger lists plainly LEARNED on these',
     '   pages -- was told, saw, overheard, worked out -- that the story will need again and that is not in that',
@@ -252,12 +257,40 @@ export function buildStretchMessages({ state, brief = '', castNotes = '', mem, p
     ...(!lineEmpty && line.detail ? ['  • Detail worth keeping: ' + String(line.detail).slice(0, 2000)] : []),
     FENCE,
   ];
+  /* M674: the pages and the ledger's part depend on where the stretch ENDS, never on the record's room -- worked out
+   * once for each end tried (a small room tries several record rooms over the same pages; each used to read the
+   * ledger of everyone named again) */
+  const endings = new Map();
+  const endingAt = (to) => {
+    let e = endings.get(to);
+    if (!e) {
+      const shown = list.slice(stretch.from, to + 1);
+      /* M674: OUT OF CHARACTER IS NOT THE STORY (commands.js asideAt). His question to the storyteller and its answer are
+       * pages of the thread -- the record's lines count them, so they ride in a stretch like any other -- and this reader
+       * was handed them as PLAYER and STORY. An answer that talks ABOUT the story ("Renji knows nothing yet; he could
+       * find out at the gate") names the people and holds the words, so everything the code checks a finding by would
+       * pass: a thing nobody learned written into the ledger, an idea kept beneath the record line as if it had
+       * happened, an answer to him "mended" for disagreeing with the story. Such a page is said to be out of character
+       * in the request, and it is no evidence: the words a claim is held to are the story's own pages'. */
+      const aside = shown.map((m, i) => asideAt(list, stretch.from + i));
+      /* the story's own pages, word for word: what every claim is held to (never an out-of-character page) */
+      const sourceText = shown.filter((m, i) => !aside[i]).map((m) => String(pageText(m) || '')).join('\n\n');
+      const whose = (m, i) => (aside[i]
+        ? (m.role === 'assistant' ? 'OUT OF CHARACTER (the storyteller answering the writer -- not a page of the story): ' : 'OUT OF CHARACTER (the writer asking the storyteller -- not a page of the story): ')
+        : (m.role === 'assistant' ? 'STORY: ' : 'PLAYER: '));
+      e = {
+        pageBlocks: shown.map((m, i) => '[p' + (stretch.from + i + 1) + '] ' + whose(m, i) + wholePage(String(pageText(m) || ''), PAGE_CAP)),
+        sourceText,
+        asides: shown.map((m, i) => (aside[i] ? stretch.from + i + 1 : 0)).filter(Boolean), /* their page numbers, as the request numbers them */
+        ledger: ledgerForPages(state, sourceText, Math.max(2000, Math.floor(budget * 0.15))),
+      };
+      endings.set(to, e);
+    }
+    return e;
+  };
   const build = (to, recordCap) => {
-    const shown = list.slice(stretch.from, to + 1);
-    const pageBlocks = shown.map((m, i) => '[p' + (stretch.from + i + 1) + '] ' + (m.role === 'assistant' ? 'STORY: ' : 'PLAYER: ') + wholePage(String(pageText(m) || ''), PAGE_CAP));
-    const sourceText = shown.map((m) => String(pageText(m) || '')).join('\n\n');
+    const { pageBlocks, sourceText, asides, ledger } = endingAt(to);
     const whole = stretch.lineWhole && to === stretch.to;
-    const ledger = ledgerForPages(state, sourceText, Math.max(2000, Math.floor(budget * 0.15)));
     const record = recordCap > 0 ? recordLinesBefore(mem, stretch.from, recordCap) : '';
     const user = [
       'THE BRIEF (the writer\'s own words):',
@@ -277,7 +310,7 @@ export function buildStretchMessages({ state, brief = '', castNotes = '', mem, p
       '',
       'Read the pages against all of it. JSON only.',
     ].join('\n');
-    return { system, user, from: stretch.from, to, lineWhole: whole, sourceText };
+    return { system, user, from: stretch.from, to, lineWhole: whole, sourceText, asides };
   };
   let to = stretch.to;
   let recordCap = Math.max(4000, Math.floor(budget * 0.3));
@@ -343,8 +376,9 @@ const ECHO = /\bthe line'?s own wrong words\b|\bthe pages'? own words\b|\bwhat (
 
 /* What a reading may do, decided in code: who may be written for, what may be written, and how much.
  *   turn: the story's turn these pages end on (what an added fact is dated with, and what a full list is held to). */
-export function scopeStretch(issues, { state, pagesText = '', from = 0, to = 0, lineWhole = true, turn = null } = {}) {
+export function scopeStretch(issues, { state, pagesText = '', from = 0, to = 0, lineWhole = true, turn = null, asides = [] } = {}) {
   const text = String(pagesText || '');
+  const aside = new Set(Array.isArray(asides) ? asides : []); /* M674: the page numbers that are out of character */
   const low = lower(text);
   const people = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
   const mutations = [];
@@ -358,7 +392,8 @@ export function scopeStretch(issues, { state, pagesText = '', from = 0, to = 0, 
     /* 1. a page against the story */
     if (issue.pages && issue.fix && !PLACEHOLDER.test(issue.fix) && !ECHO.test(issue.fix) && issue.fix.length >= 8 && pageFixes.length < PAGE_FIXES) {
       const page = Number.isInteger(issue.page) && issue.page >= from + 1 && issue.page <= to + 1 ? issue.page : null;
-      if (!pageFixes.some((f) => f.page === page && f.fix === issue.fix)) pageFixes.push({ what: issue.what, fix: issue.fix, page });
+      /* M674: an out-of-character page is not the story -- it is never wrong against it, never mended, never noted */
+      if (!(page && aside.has(page)) && !pageFixes.some((f) => f.page === page && f.fix === issue.fix)) pageFixes.push({ what: issue.what, fix: issue.fix, page });
     }
     /* 2. the record line */
     if (issue.record) {
@@ -499,7 +534,7 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
   if (!shown.every((pg, i) => pagesNow[prompt.from + i] && pagesNow[prompt.from + i].id === pg.id && pageText(pagesNow[prompt.from + i]) === pageText(pg))) return null;
 
   const turn = storyPageAt(pages, prompt.to) + 1;
-  const first = scopeStretch(read.issues, { state, pagesText: prompt.sourceText, from: prompt.from, to: prompt.to, lineWhole: prompt.lineWhole && !prompt.lineEmpty, turn });
+  const first = scopeStretch(read.issues, { state, pagesText: prompt.sourceText, from: prompt.from, to: prompt.to, lineWhole: prompt.lineWhole && !prompt.lineEmpty, turn, asides: prompt.asides });
 
   /* 1. THE PAGES — the house's own mender, with his switch; a page already mended, or one whose words he put back, is
    * never mended again (noted, where the second reader's notes are). A reading that mends a page writes nothing else:
@@ -509,7 +544,7 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
   for (const f of first.pageFixes) {
     if (isStale()) return null;
     const pg = f.page ? pagesNow[f.page - 1] : null;
-    const itsStory = Boolean(pg && pg.role === 'assistant');
+    const itsStory = Boolean(pg && pg.role === 'assistant'); /* (a fault against an out-of-character page never gets here: scopeStretch) */
     const words = (f.what ? f.what.replace(/\s+$/, '') + ' ' : '') + 'It should read: ' + f.fix;
     let changed = [];
     if (itsStory && !pg.mended && !(typeof pg.keptText === 'string' && pg.keptText === pageText(pg)) && typeof mend === 'function') {
@@ -537,7 +572,7 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
   let refused = first.refused;
   if (first.mutations.length) {
     const fresh = await loadState(storyId);
-    const scoped = scopeStretch(read.issues, { state: fresh, pagesText: prompt.sourceText, from: prompt.from, to: prompt.to, lineWhole: prompt.lineWhole && !prompt.lineEmpty, turn });
+    const scoped = scopeStretch(read.issues, { state: fresh, pagesText: prompt.sourceText, from: prompt.from, to: prompt.to, lineWhole: prompt.lineWhole && !prompt.lineEmpty, turn, asides: prompt.asides });
     refused = scoped.refused;
     if (scoped.mutations.length) {
       const result = applyMutations({ ...fresh, page: storyPageAt(pages, prompt.to) }, scoped.mutations);

@@ -19,6 +19,7 @@ import { loadMemory } from './memory.js';
 import { loadState } from '../engine/state.js'; /* M288 */
 import { parseFetchRefs, serveFetch } from './housekeeper.js';
 import { wholePage as wholePageLocal, roomChars } from '../engine/pagecut.js';
+import { asideWho } from '../commands.js'; /* M674 */
 
 export const WORKER_FETCH_ROUNDS = 3;
 
@@ -53,7 +54,9 @@ export function windowOfPages(before, budget = Infinity) {
   const shown = [];
   const index = [];
   let full = true;
-  const who = (b) => (b.role === 'user' ? 'The writer' : 'The storyteller');
+  /* M674: an out-of-character page says so — the readers shown "the pages just before this one" were handed his
+   * question to the storyteller and its answer as "The writer:" and "The storyteller:", like any page of the story */
+  const who = (b) => (b.aside ? asideWho(b.role).replace(/^t/, 'T') : (b.role === 'user' ? 'The writer' : 'The storyteller'));
   const numOf = (b) => (Number.isInteger(b.number) && b.number > 0 ? b.number : 0);
   const indexLine = (b) => {
     const flat = String(b.text || '').replace(/\s+/g, ' ').trim();

@@ -2361,7 +2361,9 @@ async function applyEditOp(storyId, p, batch) {
       batch.items.push({
         kind: 'message',
         messageId: msg.id,
-        before: { text: msg.text, swipes: msg.swipes, swipeIdx: msg.swipeIdx, hidden: msg.hidden === true },
+        /* M674: the shown words and whether the page shows — what a take-back puts back (undoLatest). The whole list of the
+         * page's versions was kept here too, receipts and all, and laid back over the page */
+        before: { text: msg.text, hidden: msg.hidden === true },
         afterHash: messageHashOf({ text: newText, hidden: msg.hidden === true }),
       });
       await db.messages.update(storyId, msg.id, editPatchFor(msg, newText));
@@ -2381,7 +2383,7 @@ async function applyEditOp(storyId, p, batch) {
     batch.items.push({
       kind: 'message',
       messageId: msg.id,
-      before: { text: msg.text, swipes: msg.swipes, swipeIdx: msg.swipeIdx, hidden: msg.hidden === true },
+      before: { text: msg.text, hidden: msg.hidden === true },
       afterHash: messageHashOf({ text: msg.text, hidden }),
     });
     await db.messages.update(storyId, msg.id, { hidden });
@@ -2394,7 +2396,7 @@ async function applyEditOp(storyId, p, batch) {
     if (op.replace === text) return { ok: false, words: 'the new words are the words already there' };
     batch.items.push({
       kind: 'message', messageId: msg.id,
-      before: { text: msg.text, swipes: msg.swipes, swipeIdx: msg.swipeIdx, hidden: msg.hidden === true },
+      before: { text: msg.text, hidden: msg.hidden === true },
       afterHash: messageHashOf({ text: op.replace, hidden: msg.hidden === true }),
     });
     await db.messages.update(storyId, msg.id, editPatchFor(msg, op.replace));
@@ -2407,7 +2409,7 @@ async function applyEditOp(storyId, p, batch) {
   batch.items.push({
     kind: 'message',
     messageId: msg.id,
-    before: { text: msg.text, swipes: msg.swipes, swipeIdx: msg.swipeIdx, hidden: msg.hidden === true },
+    before: { text: msg.text, hidden: msg.hidden === true },
     afterHash: messageHashOf({ text: newText, hidden: msg.hidden === true }),
   });
   await db.messages.update(storyId, msg.id, editPatchFor(msg, newText));
@@ -2810,7 +2812,15 @@ export async function undoLatest(session, storyId) {
   for (const item of batch.items) {
     if (item.kind === 'message') {
       const was = all.find((m) => m && m.id === item.messageId);
-      await db.messages.update(storyId, item.messageId, item.before);
+      /* M674: ITS OWN WORDS, AND NOTHING ELSE. The take-back laid the page's whole list of versions back as it was
+       * when the card landed. A page told again since (another version, by "Try again" or ▸) and walked back to the
+       * version the card had re-inked passes the check above — its shown words are the card's — and the list from
+       * before the card held no second telling: it was let go, silently (made to happen: law M674-4). The version
+       * shown is put back to its words from before the card, in the page as it stands now (the one rule,
+       * pagepatch.js); every other version, and what was said of each, stays. */
+      const words = was && item.before && typeof item.before.text === 'string' && was.text !== item.before.text ? shownTextPatch(was, item.before.text) : {};
+      const folded = Boolean(item.before && item.before.hidden === true); /* was it folded away before the card? */
+      await db.messages.update(storyId, item.messageId, { ...words, ...(Boolean(was && was.hidden === true) !== folded ? { hidden: folded } : {}) });
       if (was && typeof item.before.text === 'string' && was.text !== item.before.text) edited.push({ messageId: item.messageId, before: was.text, after: item.before.text }); /* M296 */
     } else if (item.kind === 'module') {
       if (item.beforeRow) await saveModule(item.beforeRow);

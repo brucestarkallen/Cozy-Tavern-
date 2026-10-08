@@ -221,13 +221,20 @@ test('DOM-7 swipe writes a second version and the counter says so; swipe-prev wa
   const before = errors.length;
   const a = assistantPages()[0];
   const first = bodyText(a);
+  /* M674: the page comes here with the versions the walk has given it — DOM-4's "try again" and DOM-5's rewind each
+   * add one now (a rewind used to let the page go and write a new one, so this page always had one version here, and
+   * the counter was awaited at "2/2"). The law is the same, counted from where the page stands: one more, shown; then
+   * a walk back to the one before it. */
+  const counted = () => { const c = q('.swipe-count', assistantPages()[0]); const m = c && /(\d+)\s*\/\s*(\d+)/.exec(c.textContent); return m ? [Number(m[1]), Number(m[2])] : [1, 1]; };
+  const [shownAt, had] = counted();
+  eq(shownAt, had, 'fixture: the page shows its newest version');
   /* M40: the swipe bar — ▶ past the last version writes a new one */
   click(q('.swipe-bar .msg-act[data-act="swipe-next"]', a));
-  await until(() => q('.swipe-count') && /2\s*\/\s*2/.test(q('.swipe-count').textContent), 'the counter at 2/2', 10000);
+  await until(() => counted().join('/') === (had + 1) + '/' + (had + 1), 'the counter at ' + (had + 1) + '/' + (had + 1), 10000);
   await settled();
   assert(bodyText(assistantPages()[0]) !== first, 'a new version is shown');
   click(q('.msg-act[data-act="swipe-prev"]'));
-  await until(() => /1\s*\/\s*2/.test(q('.swipe-count').textContent), 'walked back to 1/2');
+  await until(() => counted().join('/') === had + '/' + (had + 1), 'walked back to ' + had + '/' + (had + 1));
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
@@ -2513,12 +2520,15 @@ test('DOM-43 “Try again” means the newest turn: after a Stop that left no pa
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   assert(!q('#btn-retry').hidden, 'with the storyteller’s page newest, Try again is offered');
-  /* the storyteller's page newest: Try again writes THAT page anew (M25's law, run instead of read) */
+  /* the storyteller's page newest: Try again writes THAT page anew (M25's law, run instead of read).
+   * M674: as another version of itself — this asked for a DIFFERENT page (a[0].id !== standing.id), which is the page let
+   * go before the new one existed; the earlier telling is kept now, and the page is the same page */
   click(q('#btn-retry'));
-  await until(async () => { const a = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant'); return a.length === 1 && a[0].id !== standing.id && !env.ctx.chat.isBusy(); }, 'the newest page written anew', 15000);
+  await until(async () => { const a = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant'); return a.length === 1 && a[0].id === standing.id && Array.isArray(a[0].swipes) && a[0].swipes.length === 2 && a[0].text !== standing.text && !env.ctx.chat.isBusy(); }, 'the newest page written anew, as another version', 15000);
   await settled();
   eq((await db.messages.list(st.id)).filter((m) => !m.hidden).map((m) => m.role).join(' '), 'user assistant', 'one page for one turn');
   const rewritten = (await db.messages.list(st.id)).find((m) => m.role === 'assistant');
+  eq(rewritten.swipes[0].text, standing.text, 'and the earlier telling is kept');
   house.state.thinkHang = 'hang';
   try {
     type(q('#composer-input'), 'Does she say anything?');
@@ -2649,10 +2659,11 @@ test('DOM-46 a turn asked again is asked as it was asked: an out-of-character qu
     await settled();
     assert(house.state.calls.slice(from).some(oocAsked), 'the new version was asked for out of character');
     eq((await db.messages.list(st.id)).find((x) => x.id === answer.id).ooc, true, 'and is still out of character');
-    /* 3. Try again (the composer's): the answer written anew */
+    /* 3. Try again (the composer's): the answer written anew — M674: as a third version of the same answer (this asked
+     * for a different page, a[1].id !== answer.id: the answer let go, both its versions, before the new one existed) */
     from = house.state.calls.length;
     click(q('#btn-retry'));
-    await until(async () => { const a = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant'); return a.length === 2 && a[1].id !== answer.id && !env.ctx.chat.isBusy(); }, 'the answer written anew', 15000);
+    await until(async () => { const a = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant'); return a.length === 2 && a[1].id === answer.id && Array.isArray(a[1].swipes) && a[1].swipes.length === 3 && !env.ctx.chat.isBusy(); }, 'the answer written anew, as a third version', 15000);
     await settled();
     answer = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
     assert(house.state.calls.slice(from).some(oocAsked), 'Try again asked out of character');
@@ -2671,6 +2682,27 @@ test('DOM-46 a turn asked again is asked as it was asked: an out-of-character qu
     await settled();
     assert(!house.state.calls.slice(from).some(oocAsked), 'an ordinary turn is asked again as an ordinary turn');
     assert(!(await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop().ooc, 'and lands as story');
+    /* 4. “try again” under his OWN message, when that message got no answer (M674: the one door M302 missed — it asked
+     * plainly, the answer to an out-of-character question landed as a page of the story, and the ledger’s reader was
+     * sent to learn from it) */
+    house.state.storyAnswer = () => 'OUT-OF-CHARACTER-ANSWER: or the old pier, if the boathouse is locked.';
+    house.state.fail = 500;
+    type(q('#composer-input'), '((and if the boathouse is locked?))');
+    submit(q('#composer'));
+    await until(() => !env.ctx.chat.isBusy() && q('.msg-note .msg-act.retry'), 'the failure’s note', 10000);
+    house.state.fail = null;
+    const told = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length;
+    from = house.state.calls.length;
+    click(q('.msg-act[data-act="try again"]', userPages()[userPages().length - 1]));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === told + 1 && !env.ctx.chat.isBusy(), 'the answer to his own “try again”', 15000);
+    await settled();
+    assert(house.state.calls.slice(from).some(oocAsked), '“try again” under his message sent his out-of-character words');
+    eq((await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop().ooc, true, 'and its answer is kept as out of character');
+    await tick(800);
+    /* (the readers of the ordinary page above were shown the earlier out-of-character exchange among "the pages just
+     * before this one", as the storyteller is — what must never happen is a reader sent to read the ANSWER as its page) */
+    const sentToLearnFromIt = house.state.calls.slice(from).filter((c) => c.isWorker && /keep the ledger/i.test(JSON.stringify(c.body)) && /or the old pier/.test(newPageOf(String(((c.body.messages || []).slice(-1)[0] || {}).content || '')))).length;
+    eq(sentToLearnFromIt, 0, 'and no reader of the ledger was sent to learn from that answer');
   } finally {
     house.state.fail = null;
     house.state.storyAnswer = priorStory;
@@ -8732,6 +8764,487 @@ test('DOM-243 THE CONTINUOUS AUDIT, IN THE APP (M673 — his: “step by step it
     house.state.workerAnswer = priorWorker; house.state.storyAnswer = priorStory;
     await db.settings.delete('continuousAudit');
     try { await closeSettings(); } catch (err) { /* closed */ }
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-244 TRY AGAIN LOSES NOTHING (M674 — his: “How about this? … ‘Try again’ on a page that landed normally still replaces it”): the newest page is told again as another version of itself — the earlier telling a swipe away — by “Try again” under the thread, by “try again” on his own newest message and by “Rewrite from here”; a telling that fails leaves the page exactly as it was; a rewind from an older page says how many pages it lets go and asks — told no, nothing happens; told yes, the pages after the answer go and the answer itself is told again as another version (a telling that fails then leaves the answer as it was)', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'nothing is lost by trying' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const { loadState } = await import('../../js/engine/state.js');
+  const { loadMemory, saveMemory } = await import('../../js/agents/memory.js');
+  const prior = { story: house.state.storyAnswer, fail: house.state.fail, think: house.state.thinkFirst, worker: house.state.workerAnswer };
+  const confirmWas = env.window.confirm;
+  const asked = [];
+  env.window.confirm = (w) => { asked.push(String(w)); return true; };
+  let n = 0;
+  house.state.storyAnswer = () => { n += 1; return '[The gate — Monday, March 3, 2025 | 09:0' + (n % 10) + ' | clear]\n\nTELLING ' + n + ': the gate was quiet.'; };
+  const shown = async () => (await db.messages.list(st.id)).filter((m) => !m.hidden);
+  const told = async () => (await shown()).filter((m) => m.role === 'assistant');
+  const rest = async () => { await until(() => !env.ctx.chat.isBusy(), 'the telling to end', 90000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 60000); await tick(60); };
+  const versions = async (k) => { await until(async () => { const p = (await told())[0]; return Boolean(p && Array.isArray(p.swipes) && p.swipes.length === k) && !env.ctx.chat.isBusy(); }, k + ' versions of the page', 60000); await rest(); return (await told())[0]; };
+  try {
+    house.state.thinkFirst = true; /* the first telling thinks before it writes; the ones after it do not */
+    type(q('#composer-input'), 'I wait at the gate.'); submit(q('#composer'));
+    await until(async () => (await told()).length === 1 && !env.ctx.chat.isBusy(), 'page 1', 40000); await rest();
+    house.state.thinkFirst = prior.think;
+    const first = (await told())[0];
+    assert(/TELLING 1/.test(first.text) && !first.swipes, 'fixture: one page, one telling');
+    assert(/Liara is guarded/.test(first.thinking || '') && first.thinkingMs >= 1, 'fixture: it thought first, and how long is kept: ' + JSON.stringify({ thinking: first.thinking, ms: first.thinkingMs }));
+    /* 1. "Try again" under the thread: another version; the earlier telling is kept */
+    await until(() => !q('#btn-retry').hidden, '“Try again” to be offered', 10000);
+    click(q('#btn-retry'));
+    let page = await versions(2);
+    eq(page.id, first.id, 'the same page — not one let go and another written');
+    eq(page.swipes[0].text, first.text, 'the earlier telling is kept, first');
+    assert(/TELLING 2/.test(page.text) && page.swipes[1].text === page.text, 'and the new one stands beside it, shown: ' + page.text);
+    assert(!page.thinking && !page.thinkingMs, 'the new telling did not think, and does not wear the first one’s thinking: ' + JSON.stringify({ thinking: page.thinking, ms: page.thinkingMs }));
+    eq((await shown()).length, 2, 'one exchange still');
+    await until(() => q('#thread .swipe-count') && /2\s*\/\s*2/.test(q('#thread .swipe-count').textContent), 'the page says it has two versions', 10000);
+    click(q('#thread [data-act="swipe-prev"]'));
+    await until(async () => (await told())[0].text === first.text, 'the earlier telling, a swipe away', 20000); await rest();
+    { const back = (await told())[0]; eq(back.thinking, first.thinking, 'what it weighed is with it'); eq(back.thinkingMs, first.thinkingMs, 'and how long it weighed it'); }
+    click(q('#thread [data-act="swipe-next"]'));
+    await until(async () => /TELLING 2/.test((await told())[0].text), 'and the later one again', 20000); await rest();
+    eq(n, 2, 'walking between versions asks the storyteller nothing');
+    /* 2. a telling that fails loses nothing: the page is exactly as it was, and trying once more goes on from there */
+    house.state.fail = 401;
+    click(q('#btn-retry'));
+    await until(() => env.ctx.chat.isBusy(), 'the telling to start', 10000).catch(() => {});
+    await until(() => !env.ctx.chat.isBusy(), 'the failed telling to end', 90000);
+    house.state.fail = prior.fail;
+    page = (await told())[0];
+    eq((await told()).length, 1, 'the page is still there');
+    eq(page.swipes.length, 2, 'with both its versions');
+    assert(/TELLING 2/.test(page.text), 'showing what it showed: ' + page.text);
+    assert(q('#thread .msg-retry'), 'and the failed telling left its note');
+    await rest();
+    click(q('#btn-retry'));
+    page = await versions(3);
+    eq(page.swipes[0].text, first.text); assert(/TELLING 2/.test(page.swipes[1].text) && /TELLING 3/.test(page.text), 'the third stands beside the two');
+    eq(document.querySelectorAll('#thread .msg-retry').length, 0, 'the error note left when the new telling began');
+    /* 3. "try again" on his own newest message, and "Rewrite from here" on the newest page: the same door */
+    click(q('.msg-act[data-act="try again"]', userPages()[userPages().length - 1]));
+    page = await versions(4);
+    eq(page.id, first.id); assert(/TELLING 4/.test(page.text), page.text);
+    assistantPages()[assistantPages().length - 1].dispatchEvent(new env.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }));
+    await until(() => !q('#msg-menu').hidden, 'the page’s menu', 5000);
+    click(q('#msg-menu button[data-act="regenerate"]'));
+    page = await versions(5);
+    eq(page.id, first.id); eq((await shown()).length, 2, 'one exchange, five tellings of its answer');
+    eq(asked.length, 0, 'and none of it asked “are you sure?” — nothing was being let go');
+    /* 4. a rewind from an older page lets pages go: it says how many, and asks */
+    type(q('#composer-input'), 'I knock.'); submit(q('#composer'));
+    await until(async () => (await told()).length === 2 && !env.ctx.chat.isBusy(), 'page 2', 40000); await rest();
+    env.window.confirm = (w) => { asked.push(String(w)); return false; };
+    let tellings = n;
+    const stood = (await told())[0]; /* the first answer, as it stands: five tellings of it */
+    eq(stood.swipes.length, 5, 'fixture: five tellings');
+    click(q('.msg-act[data-act="try again"]', userPages()[0]));
+    await until(() => asked.length === 1, 'the question', 10000);
+    assert(/^Tell the story again from here\? The answer to this message will be told again as another version \(the telling that stands stays a swipe away\), and the 2 pages after that will be let go for good\. \(To keep them, use “branch”/.test(asked[0]), 'it says what is told again, that nothing of it is lost, how many pages go, and the way to keep them: ' + asked[0]);
+    await tick(500);
+    eq((await shown()).length, 4, 'told no, nothing happens');
+    eq(n, tellings, 'and nobody is asked for a page');
+    assert(!env.ctx.chat.isBusy(), 'the house is free');
+    /* the same question from the storyteller's own page in the middle (“Rewrite from here”), worded from where he tapped */
+    assistantPages()[0].dispatchEvent(new env.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }));
+    await until(() => !q('#msg-menu').hidden, 'the page’s menu', 5000);
+    click(q('#msg-menu button[data-act="regenerate"]'));
+    await until(() => asked.length === 2, 'the question again', 10000);
+    assert(/^Tell the story again from here\? This page will be told again as another version \(the telling that stands stays a swipe away\), and the 2 pages after it will be let go for good\./.test(asked[1]), asked[1]);
+    await tick(500);
+    eq((await shown()).length, 4, 'told no again, nothing happens'); eq(n, tellings);
+    /* told yes — and the storyteller cannot be reached: the pages after the answer are gone, as he agreed; the ANSWER
+     * stands exactly as it was (it used to go with them, before anyone was asked: his message was left with no answer) */
+    env.window.confirm = (w) => { asked.push(String(w)); return true; };
+    house.state.fail = 401;
+    click(q('.msg-act[data-act="try again"]', userPages()[0]));
+    await until(async () => (await shown()).length === 2 && !env.ctx.chat.isBusy(), 'told yes, and the telling fails', 40000);
+    house.state.fail = prior.fail;
+    eq(asked.length, 3);
+    page = (await told())[0];
+    assert(page && page.id === stood.id, 'the answer is still there, the same page');
+    eq(page.text, stood.text, 'showing what it showed');
+    eq(JSON.stringify(page.swipes.map((v) => v.text)), JSON.stringify(stood.swipes.map((v) => v.text)), 'with every telling it had');
+    eq(n, tellings, 'and no telling came of it');
+    await rest();
+    /* once more, and it is told: another version beside the five, in the same page */
+    click(q('.msg-act[data-act="try again"]', userPages()[0]));
+    page = await versions(6);
+    eq(asked.length, 3, 'nothing follows the answer now, so nothing is asked of him');
+    eq(page.id, stood.id, 'the same page');
+    assert(new RegExp('TELLING ' + n).test(page.text) && n === tellings + 1, 'with a fresh telling shown: ' + page.text);
+    eq(JSON.stringify(page.swipes.slice(0, 5).map((v) => v.text)), JSON.stringify(stood.swipes.map((v) => v.text)), 'and the five that stood, a swipe away');
+    /* a rewind that is told at once: the pages after go, the answer gets its version in the same breath — and the ledger
+     * lets go of what the pages after had taught it, for the telling that stood as well as for the new one */
+    const here = async () => (((await loadState(st.id)) || {}).present || []).map((x) => (typeof x === 'string' ? x : x && x.name));
+    house.state.workerAnswer = (body, sys) => {
+      const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
+      if (/keep the ledger/i.test(sys) && /I knock again\./.test(user)) return JSON.stringify({ mutations: [{ type: 'presence.enter', name: 'Zed', position: 'at the gate' }] });
+      return walkDefaultWorker(body, sys);
+    };
+    type(q('#composer-input'), 'I knock again.'); submit(q('#composer'));
+    await until(async () => (await told()).length === 2 && !env.ctx.chat.isBusy(), 'a second page again', 40000); await rest();
+    house.state.workerAnswer = prior.worker;
+    assert((await here()).includes('Zed'), 'fixture: the page after the answer brought Zed in: ' + (await here()).join(', '));
+    /* (and the record holds a line over those later pages, as if they had been folded) */
+    await saveMemory(st.id, { ...(await loadMemory(st.id)), nodes: [{ id: 'node-first', span: [0, 1], level: 1, text: 'Jovan waited at the gate.', at: 1, whole: true }, { id: 'node-later', span: [2, 3], level: 1, text: 'Zed knocked at the gate.', at: 2, whole: true }] });
+    tellings = n;
+    click(q('.msg-act[data-act="try again"]', userPages()[0]));
+    await until(async () => (await shown()).length === 2 && (await told()).length === 1 && !env.ctx.chat.isBusy() && n === tellings + 1, 'told yes: the story goes back to the first exchange', 40000);
+    page = await versions(7);
+    eq(asked.length, 4, 'he was asked, once');
+    eq(page.id, stood.id, 'the same page still'); assert(new RegExp('TELLING ' + n).test(page.text), 'a seventh telling of it: ' + page.text);
+    assert(!(await here()).includes('Zed'), 'the page that brought Zed in is gone, and so is Zed: ' + (await here()).join(', '));
+    { const lines = (await loadMemory(st.id)).nodes.filter((x) => Array.isArray(x.span) && x.span[0] >= 0);
+      assert(!lines.some((x) => x.span[1] >= 2 || /Zed/.test(x.text || '')), 'the record lets go of the line over the pages now gone: ' + JSON.stringify(lines.map((x) => [x.span, x.text]))); }
+    click(q('#thread [data-act="swipe-prev"]'));
+    await until(async () => (await told())[0].swipeIdx === 5, 'the telling that stood, a swipe back', 20000); await rest();
+    assert(!(await here()).includes('Zed'), 'and the ledger that telling keeps is the one it earned — not the later page’s: ' + (await here()).join(', '));
+    click(q('#thread [data-act="swipe-next"]'));
+    await until(async () => (await told())[0].swipeIdx === 6, 'the new telling again', 20000); await rest();
+    /* 5. a "Go on" that fails, and then "Try again": the page that stands is told again as another version — it used to
+     * be let go and written anew. Nothing is let go on this path, not even the "Go on" that got no page (it lies hidden
+     * where it was, as ▸ leaves it), and the story goes on after it as it always did. */
+    const standing = (await told())[0];
+    house.state.fail = 401;
+    click(q('.msg-act[data-act="go on"]'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => m.hidden && m.text === 'continue'), 'the “Go on” to be asked', 10000);
+    await until(() => !env.ctx.chat.isBusy(), 'the failed “Go on” to end', 90000);
+    house.state.fail = prior.fail;
+    { const all = await db.messages.list(st.id); assert(all[all.length - 1].hidden === true && all[all.length - 1].text === 'continue', 'fixture: the unanswered “Go on” lies hidden at the end'); }
+    eq((await told()).length, 1, 'fixture: and it left no page');
+    await rest();
+    await until(() => !q('#btn-retry').hidden, '“Try again” to be offered', 10000);
+    click(q('#btn-retry'));
+    page = await versions(8);
+    eq(page.id, standing.id, 'the page that stood is the page that stands');
+    eq(page.swipes[6].text, standing.text, 'its telling kept, a swipe away');
+    assert(new RegExp('TELLING ' + n).test(page.text) && page.text !== standing.text, 'and a new one beside it: ' + page.text);
+    assert((await db.messages.list(st.id)).some((m) => m.hidden && m.text === 'continue'), 'the “Go on” that got no page was not let go either');
+    eq(asked.length, 4, 'and nothing was asked of him');
+    type(q('#composer-input'), 'I step through.'); submit(q('#composer'));
+    await until(async () => (await told()).length === 2 && !env.ctx.chat.isBusy(), 'the next page', 40000); await rest();
+    { const now = await shown(); eq(now.length, 4, 'the story goes on after it'); eq(now[1].id, standing.id); eq(now[1].swipes.length, 8, 'with every telling of that page still there'); eq(now[3].role, 'assistant'); }
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.fail = prior.fail; house.state.thinkFirst = prior.think; house.state.workerAnswer = prior.worker;
+    env.window.confirm = confirmWas;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-245 WHAT IS SAID OF A PAGE’S WORDS STAYS WITH THE VERSION THAT HAS THEM (M674): a mended page told again — the new version does not wear the mend or the old version’s notes, and the “earlier words” of one version are never put over the other; a swipe back, the mended version has its mend again and takes it back into ITS words; the words he put back stay his; a half page he stopped still says so a swipe back, and the whole one does not', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'each version its own notes' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer, mend: house.state.mend, hang: house.state.thinkHang };
+  const V1 = 'Liara looked at Kim, who was not her mother.\n\nThe booth was quiet.';
+  const V2 = 'Liara looked at Kim again, and said nothing.\n\nThe booth stayed quiet.';
+  const V4 = '[The kitchen — Monday, March 3, 2025 | 09:05 | clear | apron | by the stove]\n\nShe turns the handle, and the door opens onto rain.';
+  const pageNow = async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant' && !m.hidden).pop();
+  const rest = async () => { await until(() => !env.ctx.chat.isBusy(), 'the telling to end', 90000); await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 60000); await tick(60); };
+  const versions = async (k) => { await until(async () => { const p = await pageNow(); return Boolean(p && Array.isArray(p.swipes) && p.swipes.length === k) && !env.ctx.chat.isBusy(); }, k + ' versions of the page', 60000); await rest(); return pageNow(); };
+  const walk = async (dir, want, what) => { click(q('#thread [data-act="swipe-' + dir + '"]')); await until(async () => want(await pageNow()), what, 20000); await rest(); return pageNow(); };
+  const node = () => qa('#thread .msg-assistant').pop();
+  try {
+    house.state.workerAnswer = walkDefaultWorker;
+    /* a page the second reader mends: "Kim" is put right to "Kris", the earlier words kept */
+    house.state.mend = true;
+    house.state.storyAnswer = () => V1;
+    type(q('#composer-input'), 'What will your mother think?'); submit(q('#composer'));
+    let page = await until(async () => { const p = await pageNow(); return p && p.mended && /Kris/.test(p.text) ? p : null; }, 'the mend to land', 40000);
+    await rest();
+    page = await pageNow();
+    eq(page.mended.before, V1, 'fixture: the page is mended, its earlier words kept');
+    assert((page.findings || []).some((f) => /Kim is written as the mother/.test(f.words)), 'fixture: and the second reader’s note is on it');
+    const mendedWords = page.text;
+    /* told again: the new version begins clean */
+    house.state.mend = false;
+    house.state.storyAnswer = () => V2;
+    click(q('#btn-retry'));
+    page = await versions(2);
+    eq(page.text, V2, 'the new telling stands, as it was written');
+    assert(!page.mended, 'and does not wear the other version’s mend: ' + JSON.stringify(page.mended));
+    assert(!(page.findings || []).some((f) => /Kim is written as the mother/.test(f.words)), 'nor the note about the other version’s words: ' + JSON.stringify(page.findings));
+    eq(page.swipes[0].text, mendedWords, 'the earlier version is kept as it stood');
+    eq(page.swipes[0].mended && page.swipes[0].mended.before, V1, 'with its own mend');
+    /* a swipe back: the mended version has its mend again — and gives its earlier words back to ITSELF */
+    page = await walk('prev', (p) => p && p.text === mendedWords, 'the mended version again');
+    eq(page.mended && page.mended.before, V1, 'its mend is with it');
+    assert((page.findings || []).some((f) => /Kim is written as the mother/.test(f.words)), 'and so is the note about its words');
+    await env.ctx.chat.unmend(page.id);
+    page = await until(async () => { const p = await pageNow(); return p && p.text === V1 ? p : null; }, 'its earlier words back', 10000);
+    eq(page.swipes[1].text, V2, 'the other version is not touched');
+    assert(!page.mended && page.keptText === V1, 'and the words he put back are remembered as his');
+    page = await walk('next', (p) => p && p.text === V2, 'the later version again');
+    assert(!page.mended && page.keptText === undefined, 'which carries nothing of the other’s: ' + JSON.stringify({ mended: page.mended, keptText: page.keptText }));
+    page = await walk('prev', (p) => p && p.text === V1, 'and back once more');
+    eq(page.keptText, V1, 'the words he put back stay his');
+    page = await walk('next', (p) => p && p.text === V2, 'the later version, to go on from');
+    /* a telling he stops: the half page is a version of its own, and says it was stopped */
+    house.state.thinkHang = 'prose';
+    click(q('#btn-retry'));
+    await until(() => /The kitchen/.test((q('.msg.pending') || {}).textContent || ''), 'the telling under way', 10000);
+    await tick(200);
+    click(q('#btn-stop'));
+    await until(() => !env.ctx.chat.isBusy(), 'stopped', 10000);
+    house.state.thinkHang = null;
+    page = await versions(3);
+    assert(/and the door\s*$/.test(page.text) && page.stopped === true, 'the half page is kept as a version, marked stopped: ' + JSON.stringify({ text: page.text.slice(-30), stopped: page.stopped }));
+    assert(node().querySelector('.msg-stopped'), 'and the page says so');
+    house.state.storyAnswer = () => V4;
+    click(q('#btn-retry'));
+    page = await versions(4);
+    assert(/opens onto rain/.test(page.text) && !page.stopped, 'the whole telling is not marked stopped');
+    assert(!node().querySelector('.msg-stopped'), 'nor does the page say it');
+    page = await walk('prev', (p) => p && /and the door\s*$/.test(p.text), 'the half page, a swipe back');
+    assert(page.stopped === true && node().querySelector('.msg-stopped'), 'still says it was stopped');
+    page = await walk('next', (p) => p && /opens onto rain/.test(p.text), 'the whole one again');
+    assert(!page.stopped && !node().querySelector('.msg-stopped'), 'and the whole one still does not');
+    eq((await db.messages.list(st.id)).filter((m) => !m.hidden).length, 2, 'one exchange through all of it');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker; house.state.mend = prior.mend; house.state.thinkHang = prior.hang;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-246 A PAGE FAULT THE KEEPER FINDS IS MENDED ON THE PAGE IT IS ON (M674): in a tale where “Go on” left its hidden marks, the mender is handed the pages of the line being folded — not the ones as many places earlier; a page at the head of that line is in its hand too; an out-of-character answer is never among the pages it may change; and all of it in a tale whose OWN keeper switch is on while the house-wide one is off — where “Summarize now” folds too', async () => {
+  const before = errors.length;
+  const { noteWorkerRun } = await import('../../js/agents/status.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const windowWas = await db.settings.get('memoryWindow');
+  const keeperWas = await db.settings.get('memoryKeeper');
+  await db.settings.set('memoryWindow', 20);
+  await db.settings.set('memoryKeeper', false); /* off for the house: each tale below has its own switch on */
+  /* eight turns that each had a “Go on” (his page, the answer, the hidden mark it leaves, the page it brought), then
+   * eight plain turns: 40 pages that show, 8 that do not — all 8 of them before the line the keeper folds last */
+  const build = async (title, change) => {
+    const st = await db.stories.create({ title });
+    let ts = Date.now() - 600000;
+    const add = (m) => db.messages.append(st.id, { ...m, ts: (ts += 100) });
+    for (let i = 0; i < 8; i += 1) {
+      await add({ role: 'user', text: 'on ' + i });
+      await add({ role: 'assistant', text: 'The scene turns, page ' + i + '.' });
+      await add({ role: 'user', text: 'continue', hidden: true });
+      await add({ role: 'assistant', text: 'The scene goes on, page ' + i + '.' });
+    }
+    for (let i = 8; i < 16; i += 1) { await add({ role: 'user', text: 'on ' + i }); await add({ role: 'assistant', text: 'The scene turns, page ' + i + '.' }); }
+    const shown = (await db.messages.list(st.id)).filter((m) => !m.hidden);
+    eq(shown.length, 40, 'fixture: forty pages show');
+    eq((await db.messages.list(st.id)).filter((m) => m.hidden).length, 8, 'fixture: and eight do not');
+    for (const [at, patch] of Object.entries(change)) await db.messages.update(st.id, shown[Number(at)].id, patch);
+    await db.stories.update(st.id, { keeper: true }); /* this tale's own switch — it used to be sent the keeper and fold nothing, the house-wide switch off */
+    await saveState(st.id, { ...emptyState(), page: 23 });
+    await saveMemory(st.id, { window: 20, nodes: [] });
+    for (const w of ['keeper', 'extractor', 'scribe', 'world']) await noteWorkerRun(st.id, w, { ok: true, detail: 'well' });
+    /* a worker marked stumbling keeps the light from folding the backlog before the page's own chain does (as DOM-26) */
+    await noteWorkerRun(st.id, 'world', { ok: false, why: 'held for the scenario' });
+    return { st, shown: (await db.messages.list(st.id)).filter((m) => !m.hidden) };
+  };
+  const KIM = 'Kim is the mother here, the page says.';
+  const keeperFindsIt = (body, sys) => {
+    const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
+    if (/Check for exactly two things/.test(JSON.stringify(body)) && /Kim is the mother/.test(user)) {
+      return JSON.stringify([{ issue: 'The passage names Kim as the mother, but the record establishes Kris', fix: 'Kris is the mother', kind: 'continuity', where: 'source' }]);
+    }
+    return walkDefaultWorker(body, sys);
+  };
+  const goOnAndFold = async (st, pageId) => {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(() => q('.msg-act[data-act="go on"]'), 'the tale renders with go on');
+    const from = house.state.calls.length;
+    click(q('.msg-act[data-act="go on"]'));
+    await until(async () => /Kris is the mother/.test(((await db.messages.list(st.id)).find((m) => m.id === pageId) || {}).text || ''), 'the page the fault is on to be mended', 40000);
+    await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !workIsRunning(st.id) && !q('.msg.pending'), 'the chain to finish', 60000);
+    const ask = house.state.calls.slice(from).find((c) => c.isWorker && /<contradiction>/.test(JSON.stringify(c.body.messages || [])));
+    assert(ask, 'the mender was asked');
+    const passage = String(ask.body.messages.slice(-1)[0].content || '');
+    return passage.slice(passage.indexOf('<passage>'), passage.indexOf('</passage>'));
+  };
+  try {
+    house.state.workerAnswer = keeperFindsIt;
+    /* 1. the fault is on the third page of the line folded last (pages 13–18 as he counts them; the page is the 15th) */
+    {
+      const { st, shown } = await build('the keeper’s fault, five hidden marks before it', { 14: { text: KIM } });
+      eq(shown[14].role, 'assistant', 'fixture: a storyteller page');
+      const passage = await goOnAndFold(st, shown[14].id);
+      assert(/\[0\] \(PLAYER\) on 4\n/.test(passage) && /\(STORY\) Kim is the mother here/.test(passage) && /\[5\] \(STORY\) The scene goes on, page 5\.\s*$/.test(passage.trim()), 'the mender was handed the line’s own six pages: ' + passage);
+      assert(!/page 3\./.test(passage), 'and none from before it');
+      const mem = await loadMemory(st.id);
+      assert(mem.nodes.some((n) => n.span[0] <= 14 && n.span[1] >= 14), 'the mended page is on the record again');
+    }
+    /* 2. the fault is on a page at the head of that line: still in the mender's hand (a hidden mark inside the six used
+     * to push the first pages out) */
+    {
+      const { st, shown } = await build('the keeper’s fault, at the head of the line', { 13: { text: KIM } });
+      const passage = await goOnAndFold(st, shown[13].id);
+      assert(/\[0\] \(PLAYER\) on 4\n/.test(passage) && /\[1\] \(STORY\) Kim is the mother here/.test(passage), 'the line’s first pages are among them: ' + passage);
+    }
+    /* 3. an out-of-character question and its answer stand in that line, and the answer says “Kim” too: the mender is
+     * not shown them, the answer is left exactly as it was, and the story's page is the one mended */
+    {
+      const OOC_ANSWER = 'Kim is not the mother, no — Kris is; I slipped on the last page.';
+      const { st, shown } = await build('the keeper’s fault, an out-of-character answer beside it', {
+        12: { text: '((is Kim the mother, or Kris?))', ooc: true },
+        13: { text: OOC_ANSWER, ooc: true },
+        14: { text: KIM },
+      });
+      const passage = await goOnAndFold(st, shown[14].id);
+      assert(!/is Kim the mother, or Kris/.test(passage) && !/Kim is not the mother/.test(passage), 'the mender was not shown the out-of-character pages: ' + passage);
+      eq(((await db.messages.list(st.id)).find((m) => m.id === shown[13].id) || {}).text, OOC_ANSWER, 'and his answer out of character is exactly as it was');
+      assert(!((await db.messages.list(st.id)).find((m) => m.id === shown[13].id) || {}).mended, 'never mended');
+    }
+    /* 4. “Summarize now”, by hand, in such a tale: it folds (it answered “The keeper is switched off”) */
+    {
+      house.state.workerAnswer = walkDefaultWorker;
+      const { st } = await build('summarize now, by the tale’s own switch', {});
+      env.window.__cozy.setActiveStoryId(st.id);
+      await env.window.__cozy.chat.renderThread({ structural: true });
+      const asked = env.ctx.chat.summarizeNow();
+      await until(async () => (await loadMemory(st.id)).nodes.some((n) => Array.isArray(n.span) && n.span[0] === 0 && String(n.text || '').trim()), 'the keeper to fold by hand', 40000);
+      await asked;
+      await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the work to settle', 40000);
+    }
+  } finally {
+    house.state.workerAnswer = walkDefaultWorker;
+    await db.settings.set('memoryWindow', windowWas);
+    if (keeperWas === undefined) await db.settings.delete('memoryKeeper'); else await db.settings.set('memoryKeeper', keeperWas);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-247 A MESSAGE WITH NO ANSWER OF ITS OWN IS ANSWERED ANEW (M674): “Rewrite from here” on a message of his that is followed by another of his — the answer between them folded away — says what goes and asks; told yes, the pages after it go, the record lets go of the line over them (it kept it, when the very next page was a hidden one), and the message gets its answer', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { loadMemory, saveMemory } = await import('../../js/agents/memory.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'answered anew' });
+  await db.stories.update(st.id, { extraction: false, keeper: false, continuity: false });
+  let ts = Date.now() - 60000;
+  const add = (m) => db.messages.append(st.id, { ...m, ts: (ts += 100) });
+  await add({ role: 'user', text: 'I wait at the gate.' });
+  const folded = await add({ role: 'assistant', text: 'A page the housekeeper folded away.', hidden: true });
+  await add({ role: 'user', text: 'I knock.' });
+  await add({ role: 'assistant', text: 'The gate stayed shut.' });
+  /* the pages that show: his two and the one answer — and a record line over the last two */
+  await saveMemory(st.id, { window: 30, nodes: [{ id: 'node-after', span: [1, 2], level: 1, text: 'Jovan knocked; the gate stayed shut.', at: 1, whole: true }] });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer };
+  const confirmWas = env.window.confirm;
+  const asked = [];
+  try {
+    house.state.storyAnswer = () => '[The gate — Monday, March 3, 2025 | 09:05 | clear]\n\nANSWERED ANEW: the gate was quiet.';
+    /* (the row's own “try again” under this message tells the next storyteller page again — the answer to his SECOND
+     * message, another version of it; “Rewrite from here”, on the page's menu, is the door that answers THIS message) */
+    const rewriteFromHere = async () => {
+      userPages()[0].dispatchEvent(new env.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }));
+      await until(() => !q('#msg-menu').hidden, 'the page’s menu', 5000);
+      click(q('#msg-menu button[data-act="regenerate"]'));
+    };
+    env.window.confirm = (w) => { asked.push(String(w)); return false; };
+    await rewriteFromHere();
+    await until(() => asked.length === 1, 'the question', 10000);
+    assert(/^Tell the story again from here\? This message will be answered anew, and the 2 pages after it will be let go for good\. \(To keep them, use “branch”/.test(asked[0]), asked[0]);
+    await tick(400);
+    eq((await db.messages.list(st.id)).length, 4, 'told no, nothing happens');
+    env.window.confirm = (w) => { asked.push(String(w)); return true; };
+    await rewriteFromHere();
+    await until(async () => { const all = await db.messages.list(st.id); return all.length === 2 && all[1].role === 'assistant' && /ANSWERED ANEW/.test(all[1].text) && !env.ctx.chat.isBusy(); }, 'told yes: his message has its answer, and nothing else follows', 40000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers', 40000);
+    const all = await db.messages.list(st.id);
+    assert(!all.some((m) => m.id === folded.id), 'the folded page went with the rest');
+    const lines = (await loadMemory(st.id)).nodes.filter((x) => Array.isArray(x.span) && x.span[0] >= 0);
+    assert(!lines.some((x) => x.span[1] >= 1), 'the record lets go of the line over the pages now gone: ' + JSON.stringify(lines.map((x) => [x.span, x.text])));
+  } finally {
+    house.state.storyAnswer = prior.story;
+    env.window.confirm = confirmWas;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-248 AN OUT-OF-CHARACTER ANSWER IS NEVER READ INTO THE LEDGER (M674): the catch-up that reads the pages the ledger missed passes over one — counted as read, no reader sent to it, whether the page is marked or only answers a marked question — and reads the story pages around it; an answer that lands out of character is even with the ledger at once, the light not left waiting for a reading that must never happen; and the readers of the next page — the ledger’s, the plans keeper, the auditor — are told which of the pages before it were out of character', async () => {
+  const before = errors.length;
+  const { noteWorkerRun } = await import('../../js/agents/status.js');
+  const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');
+  const { saveMemory } = await import('../../js/agents/memory.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const btn = q('#btn-ledger');
+  const st = await db.stories.create({ title: 'out of character, and the ledger' });
+  await db.stories.update(st.id, { keeper: false });
+  const pages = [
+    ['on 0', 'The scene turns quietly, page 0.'], ['on 1', 'The scene turns quietly, page 1.'], ['on 2', 'The scene turns quietly, page 2.'],
+    ['((what could happen next?))', 'OUT-OF-CHARACTER-ANSWER ONE: Renji could arrive and take the seal.', true],
+    ['I skip a stone.', 'STORY-PAGE-FOUR: the stone skipped twice and sank.'],
+    ['#question should she leave by the east road?', 'OUT-OF-CHARACTER-ANSWER TWO: she could, and be gone by dawn.', false], /* no mark of its own: it answers a marked question */
+  ];
+  for (const [mine, told, flagged] of pages) {
+    await db.messages.append(st.id, { role: 'user', text: mine, ...(flagged ? { ooc: true } : {}) });
+    await db.messages.append(st.id, { role: 'assistant', text: told, ...(flagged ? { ooc: true } : {}) });
+  }
+  /* the ledger read pages 0..2; the three after them went unread */
+  await saveState(st.id, { ...emptyState(), page: 2, place: { name: 'The lake' }, present: [{ name: 'Jovan' }] });
+  await saveMemory(st.id, { window: 20, nodes: [] });
+  for (const w of ['keeper', 'extractor', 'scribe', 'world']) await noteWorkerRun(st.id, w, { ok: true, detail: 'well' });
+  const pageRead = (c) => newPageOf(String(((c.body.messages || []).slice(-1)[0] || {}).content || ''));
+  const readers = (from) => house.state.calls.slice(from).filter((c) => c.isWorker && /keep the ledger/i.test(String(((c.body.messages || [])[0] || {}).content || '')));
+  const priorWorker = house.state.workerAnswer; const priorStory = house.state.storyAnswer;
+  house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? '{"mutations":[]}' : walkDefaultWorker(body, sys));
+  try {
+    const from = house.state.calls.length;
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    /* the house, idle, reads what the ledger missed */
+    await until(async () => (await loadState(st.id)).readTo === 5, 'the reading mark to reach the newest page', 40000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers to settle', 20000);
+    const asked = readers(from).map(pageRead);
+    assert(!asked.some((t) => /OUT-OF-CHARACTER-ANSWER/.test(t)), 'no reader was sent to an out-of-character answer: ' + JSON.stringify(asked.map((t) => t.slice(0, 90))));
+    eq(asked.filter((t) => /STORY-PAGE-FOUR/.test(t)).length, 1, 'the story page between them was read, once');
+    eq(asked.length, 1, 'and that was all the reading there was');
+    eq((await loadState(st.id)).readAhead.length, 0, 'nothing is left waiting');
+    /* an answer that lands out of character: even with the ledger at once */
+    house.state.storyAnswer = () => 'OUT-OF-CHARACTER-ANSWER THREE: or nothing happens at all.';
+    const from2 = house.state.calls.length;
+    type(q('#composer-input'), '((and if nobody comes?))'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 7 && !env.ctx.chat.isBusy(), 'the answer', 20000);
+    eq((await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop().ooc, true, 'fixture: it is kept as out of character');
+    await until(async () => (await loadState(st.id)).readTo === 6, 'the ledger to be even with the story', 3000);
+    await until(() => !btn.classList.contains('is-waiting') && !btn.classList.contains('has-trouble'), 'the light not to wait', 5000);
+    await tick(600);
+    eq(readers(from2).length, 0, 'and no reader was sent anywhere for it');
+    /* the story goes on: the readers of the next page are shown those pages for what they are */
+    house.state.storyAnswer = () => '[The lake — Monday, March 3, 2025 | 10:05 | clear]\n\nSTORY-PAGE-SEVEN: a heron lifted off the water.';
+    const from3 = house.state.calls.length;
+    type(q('#composer-input'), 'I watch the water.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 8 && !env.ctx.chat.isBusy(), 'the next page', 20000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'its readers', 60000);
+    const sent = house.state.calls.slice(from3).filter((c) => c.isWorker).map((c) => ({ sys: String(((c.body.messages || [])[0] || {}).content || ''), user: String(((c.body.messages || []).slice(-1)[0] || {}).content || '') }));
+    const ITS = 'out of character — answering the writer, not a page of the story';
+    const HIS = 'out of character — asking the storyteller, not a page of the story';
+    const reader = sent.find((b) => /keep the ledger/i.test(b.sys) && /STORY-PAGE-SEVEN/.test(newPageOf(b.user)));
+    assert(reader, 'the new page was read into the ledger');
+    assert(reader.user.includes('The storyteller, ' + ITS + ': OUT-OF-CHARACTER-ANSWER THREE') && reader.user.includes('The writer, ' + HIS + ': ((and if nobody comes?))'), 'the ledger’s reader is told which of the pages before it were out of character');
+    assert(reader.user.includes('The storyteller, ' + ITS + ': OUT-OF-CHARACTER-ANSWER TWO'), 'the answer with no mark of its own among them');
+    assert(/\] The storyteller: STORY-PAGE-FOUR/.test(reader.user), 'and a page of the story stands as it always did');
+    const plans = sent.find((b) => /You keep the plans/.test(b.sys));
+    assert(plans, 'the plans keeper read the pages');
+    assert(/Page \d+ \(the storyteller, out of character — answering the writer, not a page of the story\):\nOUT-OF-CHARACTER-ANSWER/.test(plans.user) && /Page \d+ \(the storyteller\):\n\[The lake — Monday, March 3, 2025 \| 10:05 \| clear\]/.test(plans.user), 'and is told the same: ' + plans.user.slice(0, 600));
+    const auditor = sent.find((b) => /THE PAGES THE RECORD HAS NOT YET FOLDED/.test(b.user));
+    assert(auditor, 'the auditor read the pages');
+    assert(/\] OUT OF CHARACTER \(the storyteller answering the writer — not a page of the story\): OUT-OF-CHARACTER-ANSWER THREE/.test(auditor.user) && /\] STORY: \[The lake — Monday, March 3, 2025 \| 10:05 \| clear\]/.test(auditor.user), 'and so is the auditor');
+  } finally {
+    house.state.workerAnswer = priorWorker; house.state.storyAnswer = priorStory;
   }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
