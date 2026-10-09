@@ -140,7 +140,7 @@ export function buildContinuityMessages({ state, assistantText, brief = '', reco
     : state;
   /* M338: the blind spots are keyed to the page being read — what bears on it, and what is recent */
   const facts = renderStateFacts(lasting, { scenePages: [String(assistantText || '')] }) || 'Nothing is written in the ledger yet.';
-  const canon = Object.keys(hisCanon).length ? renderCanon(hisCanon, Object.keys(hisCanon)) : ''; /* M448: his truths, never the series' */
+  const canon = Object.keys(hisCanon).length ? renderCanon(hisCanon, Object.keys(hisCanon), Infinity) : ''; /* M448: his truths, never the series'; M680: every one of them, not the first six */
   const user = [
     'What is locked true of them:',
     canon || 'Nothing is locked yet.',

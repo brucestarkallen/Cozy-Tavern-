@@ -143,7 +143,7 @@ export function seatAgeWords(entry, clockMinutes) {
 /* M304: one line for a seat, wherever it is read — the storyteller's state of
  * things, the world agent's list, the drawer. (The drawer had its own copy of
  * these words and never learned to say a seat's age.) */
-export function seatLine(name, entry, clockMinutes) { return seatWords(name, entry || {}, clockMinutes); }
+export function seatLine(name, entry, clockMinutes) { return isDeadSeat(entry) ? 'Dead: ' + deadWords(name, entry) : seatWords(name, entry || {}, clockMinutes); } /* M680: a grave has no age and is going nowhere — never "likely elsewhere by now" */
 
 /* where and what, as one reads it of a person: "the Bluebird, closing up",
  * or — for the house's own sighting — "last seen at the Bluebird"; then the

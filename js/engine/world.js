@@ -33,6 +33,7 @@
 
 import { samePersonName } from './names.js'; /* M420: one answer to "the same person?" for who-knows-what */
 import { mcName } from './duels.js'; /* M543: the main character, by the one answer */
+import { findSeat, isDeadSeat } from './offscreen.js'; /* M680: no voice from the dead (a cycle with offscreen.js: both are read only when called) */
 
 export const THREAD_HEAT = ['hot', 'cold'];
 export const STANCES = ['toward', 'seeking', 'tense', 'busy', 'waiting'];
@@ -868,6 +869,9 @@ export function voicesBeyondTheRoom(voices, state) {
     const who = String((v && v.speaker) || '').replace(/^->\s*/, '').trim();
     if (!who) return true;
     if (present.some((p) => p && typeof p.name === 'string' && samePersonName(p.name, who))) return false;
+    /* M680: and never from the dead (offscreen.js isDeadSeat) */
+    const grave = findSeat(state.offscreen || {}, who);
+    if (grave && isDeadSeat(grave.entry)) return false;
     return !(mc && mc !== 'the player' && samePersonName(mc, who));
   });
 }

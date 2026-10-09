@@ -41,7 +41,7 @@ import { applyMutations, undoLast, undoEntry, MODE_WORDS } from '../engine/apply
 import { renderClock, REAL_MONTHS, REAL_DAYS } from '../engine/clock.js';
 import { SEV_WORDS } from '../engine/bodies.js';
 import { axisWords, historyWords, AXES } from '../engine/relationships.js';
-import { isMc, seatForPerson, lastSeenTurn, lastEnteredTurn } from '../engine/people.js'; /* M541; M544 */
+import { isMc, seatForPerson, lastSeenTurn, lastEnteredTurn, nowTurnOf } from '../engine/people.js'; /* M541; M544; M680: the now's own age */
 import { seatLine, seatOrder, seatNowWords } from '../engine/offscreen.js'; /* M300; M304: one line, one order and one wording for a seat */
 import { storyTurn as storyTurnOf } from '../engine/apply.js'; /* M291: how long ago a page was last written */
 import { listCast, attachToStory, detachFromStory, castNamesFor } from '../import/cards.js';
@@ -87,7 +87,7 @@ async function currentStory(ctx) {
 /* Hand changes ride the same rails as the extractor's: proposed as
  * mutations, applied, saved, announced. Returns the applied words (unused
  * by most callers; the log panel shows them soon enough). */
-const HAND_TYPES = new Set(['people.set', 'people.note', 'rel.set', 'rel.shift']);
+const HAND_TYPES = new Set(['people.set', 'people.note', 'rel.set', 'rel.shift', 'offscreen.set', 'offscreen.clear']); /* M680: a seat he writes or lets go is his (over a grave; a note the house would keep) */
 async function handMutate(ctx, mutations) {
   const story = await currentStory(ctx);
   if (!story) return [];
@@ -2077,7 +2077,7 @@ function peoplePanel(ctx) {
       /* M291/M292: the now alive — the one here says what they are doing; the absent, where the
        * world has them; a note from a scene long gone, how old it is */
       const turnNow = storyTurnOf(state);
-      const ago = Number.isFinite(c.updatedAtTurn) ? Math.max(0, turnNow - c.updatedAtTurn) : 0;
+      const ago = Math.max(0, turnNow - nowTurnOf(c)); /* M680: the now's own age */
       const isHere = present.has(name.toLowerCase());
       const mine = isMc(state, name);
       /* M465: the line's KEY ("Who they are", "Now", "Between you", "Loose ends") wears the whisper voice and the words

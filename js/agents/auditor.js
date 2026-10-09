@@ -31,8 +31,8 @@ import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, headerMutations, headerDress } from '../engine/state.js'; /* M679: his header's dress */
-import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf, showsDeparture, goneAtTheEnd, quotedGoing, restatedPresence, toldOnPage, mcWalksOff, findThingKey, pageEnding } from '../engine/apply.js'; /* M444; M446: the departure reader, and who is gone at a page's end */
-import { findSeat } from '../engine/offscreen.js';
+import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf, showsDeparture, goneAtTheEnd, quotedGoing, restatedPresence, toldOnPage, mcWalksOff, findThingKey, pageEnding, walkInFromPage, deathToldOf } from '../engine/apply.js'; /* M444; M446: the departure reader, and who is gone at a page's end */
+import { findSeat, isDeadSeat } from '../engine/offscreen.js';
 import { findThread } from '../engine/world.js';
 /* M240: it was told to catch a healed wound and never shown the wounds.
  * M259: and it was shown the storyteller's TRIMMED copy of everything else —
@@ -423,6 +423,12 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   }
   if (read.note !== 'ok') return { applied: [], rejected: [], issues: [], note: read.note, raw, looked };
   if (stale && stale()) return null;
+  /* M680 (the scene audit): ITS SECOND CALL IS MADE BEFORE IT LOADS WHAT IT WRITES OVER. The brief's digits were asked of the
+   * model after the ledger was read and before it was saved — and whatever another writer saved in that minute (the
+   * referee's duel, its ruling, a page reader's walk-in) was written over by this copy and lost. */
+  if (typeof renew === 'function') renew(); /* a fresh minute for the brief's digits */
+  const statedByModel = await readStatedStandings({ connection, brief, castNotes, mc: mcName(state) !== 'the player' ? mcName(state) : '', signal });
+  if (stale && stale()) return null;
   const fresh = await loadState(storyId);
   /* M259: the latest STORY page's header line has already written the ground
    * and the hour in code (M128/M131) — the auditor never overrides it. */
@@ -472,7 +478,10 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       if (!issue || !Array.isArray(issue.mutations) || !issue.mutations.length) { kept.push(issue); continue; }
       /* M644: …or it hands over the page's own words for the going, and they hold on one of the last two pages */
       const quoted = (m) => lastTexts.some((t) => quotedGoing(fresh, t, m.name, m.shown));
-      const muts = issue.mutations.filter((m) => !(m && m.type === 'presence.leave' && !showsGoing(m.name) && !quoted(m) && !longSilent(m.name) && !notToldHere(m.name) && !mcLeft));
+      /* M680: …or it is a death one of the last two pages tells of them ("to" begins "dead — "): the page goes on naming the
+       * body, so no going is ever its last word (apply.js deathToldOf, the page reader's own door) */
+      const died = (m) => isDeadSeat({ location: m.to }) && lastTexts.some((t) => deathToldOf(fresh, t, m.name));
+      const muts = issue.mutations.filter((m) => !(m && m.type === 'presence.leave' && !showsGoing(m.name) && !quoted(m) && !died(m) && !longSilent(m.name) && !notToldHere(m.name) && !mcLeft));
       if (!muts.length && !(issue.pages && issue.fix)) continue; /* a finding that was only a refused leave is no finding */
       kept.push({ ...issue, mutations: muts });
     }
@@ -593,15 +602,13 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   guarded.push(...seatHousekeeping(fresh, { brief, castNotes, castNames, pages: all.map((m) => ({ role: m.role, text: pageText(m) })) }));
   /* M50: the standings, kept clean in code — no judgment anywhere here. */
   const mcKnown = mcName(fresh) !== 'the player' ? mcName(fresh) : '';
-  if (typeof renew === 'function') renew(); /* a fresh minute for the brief's digits */
-  const statedByModel = await readStatedStandings({ connection, brief, castNotes, mc: mcKnown, signal });
-  guarded.push(...standingsHousekeeping(fresh, brief, castNotes, mcKnown, statedByModel));
-  const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
+  guarded.push(...standingsHousekeeping(fresh, brief, castNotes, mcKnown, statedByModel)); /* M680: the digits were read before the ledger was */
+  /* M680: its writes are the newest page's, stamped with its index even when the page reader's call failed */
+  const { state: next, applied, rejected: rejectedByApplier } = applyMutations(newestAt !== -1 ? { ...fresh, page: newestAt } : fresh, guarded);
   /* M679: a line of who knows what the ledger ALREADY holds is "already so", not a refusal — his turn-21 reading listed eight
-   * "Seen; its change did not hold (Mirelia already knows that)" and the workers' line said "8 refused" for changes that
-   * were already true (M259's law for every other door: the auditor misreading is not a finding) */
-  const rejected = [...rejectedByApplier.map((r) => (r && r.mutation && /^rel\./.test(r.mutation.type) && /holds no standing/.test(String(r.why || '')) ? { ...r, standing: true }
-    : r && r.mutation && r.mutation.type === 'knowledge.add' && / already knows that$/.test(String(r.why || '')) ? { ...r, same: true } : r)), ...keptStandings];
+   * "Seen; its change did not hold (Mirelia already knows that)" (M680: marked so at its source, apply.js knowledge.add,
+   * for every worker's line) */
+  const rejected = [...rejectedByApplier.map((r) => (r && r.mutation && /^rel\./.test(r.mutation.type) && /holds no standing/.test(String(r.why || '')) ? { ...r, standing: true } : r)), ...keptStandings];
   /* M277: a standing move the auditor may not make is not a finding for the
    * writer — eleven such lines filled a reading that changed four things */
   const standingRefused = new Set([
@@ -630,7 +637,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     issues.push({ ...i, landed, refused });
   }
   const report = { at: Date.now(), turn: storyTurn(next), leftStandings, issues: issues.map((i) => ({ what: i.what, fix: i.fix, pages: i.pages === true, fixable: i.mutations.length > 0 || (i.pages === true && Boolean(i.fix)), landed: i.landed, refused: i.refused })) };
-  const out = { ...next, audit: report };
+  const out = { ...next, audit: report, ...(newestAt !== -1 ? { page: fresh.page } : {}) }; /* M680: its writes carry the newest page; the ledger's own stamp is not the auditor's to move */
   if (stale && stale()) return null;
   await saveState(storyId, out);
   notify(storyId);
@@ -828,14 +835,10 @@ export function auditorScope(issues, state, { header = [], page = '', pageAt = n
   const endingTold = narrationOf(ending);
   const sceneTold = page ? narrationOf(scenePartOf(page)) : '';
   const readersWrote = Number.isInteger(pageAt) ? journalOfPage(state, pageAt) : [];
-  /* a leave this page's reader wrote and held to the page by its own words for the going (quotedGoing — what the reader's
-   * gate keeps a leave on); an older reader's bare leave is not proof, and the auditor may set it right */
-  const leftThisPage = (name) => readersWrote.some((jm) => jm.type === 'presence.leave' && typeof jm.name === 'string' && typeof name === 'string' && samePersonName(jm.name, name) && quotedGoing(state, page, jm.name, jm.shown));
   const movedThisPage = (thing) => readersWrote.some((jm) => jm.type === 'thing.set' && typeof jm.name === 'string' && Boolean(findThingKey({ [jm.name]: true }, String(thing || ''))));
   const samePerson = (a, b) => typeof a === 'string' && typeof b === 'string' && (samePersonName(a, b) || (isMc(state, a) && isMc(state, b)));
   const openedThisPage = (name, text) => readersWrote.some((jm) => jm.type === 'people.note' && /^thread$/i.test(String(jm.field || '').trim()) && samePerson(jm.name, name) && sameLooseEnd(String(jm.text || ''), String(text || '')));
   const his = page ? headerDress(page) : null;
-  const inTheEnding = (m) => Boolean(ending) && (shownOnPage(state, endingTold, m.name) || toldOnPage(ending, m.shown).end !== -1);
   if (page && Array.isArray(issues)) {
     const told = narrationOf(scenePartOf(page));
     issues = issues.map((issue) => (issue && Array.isArray(issue.mutations) ? { ...issue, mutations: issue.mutations.map((m) => {
@@ -887,14 +890,6 @@ export function auditorScope(issues, state, { header = [], page = '', pageAt = n
     return carried.every((k) => Number(h[k]) === Number(m[k]));
   };
   const seats = (state && state.offscreen && typeof state.offscreen === 'object') ? state.offscreen : {};
-  /* M679: did the newest page take the scene away — its ground moved on it (read), or it ends on him going? */
-  const sceneMovedHere = Number.isInteger(pageAt) && Boolean(state && state.groundWas && typeof state.groundWas === 'object' && state.groundWas.page === pageAt);
-  /* M679: the room this page's reader named as it ends (chat.js: state.roomAt, kept with the page's index) — for someone the
-   * world seats elsewhere, the reader's own word that they are not with him (M666 holds the reader's own walk-ins to it) */
-  const roomNamed = Number.isInteger(pageAt) && state && state.roomAt && typeof state.roomAt === 'object' && state.roomAt.page === pageAt && Array.isArray(state.roomAt.names) && state.roomAt.names.length ? state.roomAt.names : null;
-  const outOfTheRoom = (name) => Boolean(roomNamed) && !roomNamed.some((r) => typeof r === 'string' && samePersonName(r, name));
-  const mcNow = state ? mcName(state) : '';
-  const heWentAtTheEnd = Boolean(page && mcNow && mcNow !== 'the player' && mcWalksOff(page, mcNow));
   const moment = (m) => {
     if (!m || typeof m !== 'object' || typeof m.type !== 'string') return true;
     if (m.type === 'presence.update') return !(m.staleClear || restatedOk.has(m)); /* M544: the letting-go of a place the page left behind; M661: a place or an outfit the newest page bears out */
@@ -919,14 +914,13 @@ export function auditorScope(issues, state, { header = [], page = '', pageAt = n
      * scene" and let their seats go: sixteen in "Who's here" with everyone gone. It may bring someone in only when the
      * newest page shows them there and not leaving at its end; someone seated elsewhere the newest page does not show, or
      * shows going, keeps their seat. */
-    /* M679: a walk-in — and a seated person's note let go, which is a walk-in by another door (auditLedger:
-     * clearsThatArrive) — stands only for someone the page's ending shows, and never over this page's own reader's leave */
+    /* M679/M680: a walk-in — and a seated person's note let go, which is a walk-in by another door (auditLedger:
+     * clearsThatArrive) — is held to the one answer every such door now gives (apply.js walkInFromPage): only someone the
+     * page's ending shows, never over this page's own reader's leave or the room it named, never the dead, nobody it ends
+     * on going or on HIM walking off ("she held her ground in the column's shadow as they walked away"), nobody the world
+     * seats elsewhere when the page moved the scene away from them */
     if (page && (m.type === 'presence.enter' || (m.type === 'offscreen.clear' && !isHere(state, m.name))) && typeof m.name === 'string') {
-      if (leftThisPage(m.name) || !inTheEnding(m) || goneAtTheEnd(state, page, m.name)) return true;
-      /* …nor for someone the world seats elsewhere, when the page took the scene away from them: the ground moved on this
-       * very page (its readers', its header's), or it ends on HIM going, or its reader named the room as it ends without
-       * them — "she held her ground in the column's shadow as they walked away" names her in the ending and leaves her there */
-      if (findSeat(seats, m.name) && (sceneMovedHere || heWentAtTheEnd || outOfTheRoom(m.name))) return true;
+      if (walkInFromPage(state, m.name, { page, pageAt, shown: m.shown })) return true;
     }
     /* M679: a thing's new place, when the page tells of that thing or its reader moved it, is the ending's */
     if (m.type === 'thing.set' && page && typeof m.name === 'string' && typeof m.where === 'string' && m.where.trim()) {

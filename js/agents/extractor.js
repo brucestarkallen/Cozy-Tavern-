@@ -37,9 +37,10 @@
 import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition; M677: what goes into who knows what — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning, foldName } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey, noOneSpot } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey, noOneSpot, deathToldOf } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
 import { headerMutations, headerDress, closeBy, headerCells } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey } from '../engine/people.js';
+import { isDeadSeat, seatNowWords } from '../engine/offscreen.js'; /* M680: the dead, and a seat said as every reader says it */
 import { findRelationship } from '../engine/relationships.js'; /* M641: who has no standing yet */
 import { publicMoment } from '../engine/world.js'; /* M509-15: a moment the whole room saw */
 import { balancedCandidates, parseLenient } from './jsonutil.js';
@@ -138,7 +139,7 @@ const VOCABULARY = [
   'place.set {"type":"place.set","name":"the chapel"} — the ground the scene stands on, only when first named or it truly moves',
   'clock.advance {"type":"clock.advance","minutes":30,"reason":"the walk to the chapel"} — when time clearly passes; minutes is a number',
   'presence.enter {"type":"presence.enter","name":"NAME","shown":"his aunt came in, shaking rain from her coat","position":"by the fire","attire":"a travel cloak"} — position and attire only if shown; "shown" is the page\'s own words that show them arriving or being here, COPIED EXACTLY from its telling (never from what someone says aloud) — always give it when the telling does not use their name ("his aunt", "the captain", a nickname, "she")',
-  'presence.leave {"type":"presence.leave","name":"OTHER NAME","shown":"footsteps measured up the stairs","to":"upstairs in the Wells house","doing":"going up to bed"} — when someone stops sharing the main character\'s space: the page SHOWS them leaving (walks out, is carried off, vanishes), OR he walks away and leaves them behind (they stay where they were — never the main character himself: when he goes, the scene\'s place goes with him); someone the page does not mention is quiet, not gone, and stays. "shown" is the page\'s own words that show them going, COPIED EXACTLY from its telling (a few words are enough; never from what someone says aloud) — the house holds a leaving to the page by them. WHERE THEY WENT IS YOURS TO SAY, FROM THE PAGE: "to" is where the page shows them going, said so it stands on its own — "upstairs in the Wells house", "the car outside the gate", "back to the Sixth\'s barracks" (never just "out" or "away", and never the scene\'s own ground); "doing" is what they went to do, when the page says. Leave "to" out only when the page shows them go with no sign of where: the house then notes where they were last seen. When it is HE who walked away from them, "to" is where he left them, as the page last puts them ("at the hall\'s threshold", "in his own doorway on Gilder\'s Row")',
+  'presence.leave {"type":"presence.leave","name":"OTHER NAME","shown":"footsteps measured up the stairs","to":"upstairs in the Wells house","doing":"going up to bed"} — when someone stops sharing the main character\'s space: the page SHOWS them leaving (walks out, is carried off, vanishes), OR he walks away and leaves them behind (they stay where they were — never the main character himself: when he goes, the scene\'s place goes with him); someone the page does not mention is quiet, not gone, and stays. "shown" is the page\'s own words that show them going, COPIED EXACTLY from its telling (a few words are enough; never from what someone says aloud) — the house holds a leaving to the page by them. WHERE THEY WENT IS YOURS TO SAY, FROM THE PAGE: "to" is where the page shows them going, said so it stands on its own — "upstairs in the Wells house", "the car outside the gate", "back to the Sixth\'s barracks" (never just "out" or "away", and never the scene\'s own ground); "doing" is what they went to do, when the page says. Someone who DIES on the page leaves the scene too: "to" begins "dead — " and says where the body lies ("dead — on the floor of the taproom"). Leave "to" out only when the page shows them go with no sign of where: the house then notes where they were last seen. When it is HE who walked away from them, "to" is where he left them, as the page last puts them ("at the hall\'s threshold", "in his own doorway on Gilder\'s Row")',
   'presence.update {"type":"presence.update","name":"NAME","position":"at the window"} — when someone present moves or changes dress',
   /* M256: WHO KNOWS WHAT, FOR THE PEOPLE IN THE ROOM. knowledge.add appeared
    * NOWHERE in this file. The world agent has it, but the world agent is
@@ -554,9 +555,11 @@ export function namedFromAfarBlock(state, pageText = '') {
   const off = state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {};
   const rows = [];
   for (const [name, seat] of Object.entries(off)) {
-    if (!name || !seat || typeof seat !== 'object' || isMc(state, name) || isHere(state, name) || seat.dead || seat.gone) continue;
+    if (!name || !seat || typeof seat !== 'object' || isMc(state, name) || isHere(state, name) || seat.dead || seat.gone || isDeadSeat(seat)) continue; /* M680: the dead come face to face with no one */
     if (!nameOnPage(scene, name)) continue;
-    const where = typeof seat.location === 'string' && seat.location.trim() ? seat.location.trim() : (typeof seat.lastSeen === 'string' && seat.lastSeen.trim() ? 'last seen at ' + seat.lastSeen.trim() : 'whereabouts not written');
+    /* M680: the seat said as every reader says it (offscreen.js seatNowWords) — a sighting reads "last seen at …"; the house
+     * writes lastSeen as true, and this line looked for a string that was never there */
+    const where = seatNowWords(seat, null) || 'whereabouts not written';
     rows.push(name + ' [' + where + ']');
     if (rows.length >= 8) break;
   }
@@ -944,7 +947,10 @@ export async function extractTurn(args = {}) {
       if (!(m && m.type === 'presence.leave' && args.state)) return true;
       const n = String(m.name || '');
       /* M644: …or the reader hands over the page's own words for it, and they hold (apply.js quotedGoing) */
-      return moved ? !cameAlong(n) : (goneAtTheEnd(args.state, args.assistantText, n) || quotedGoing(args.state, args.assistantText, n, m.shown) || (mcGone && !cameAlong(n)));
+      /* M680: …or it is a death the page tells ("to" begins "dead — "): the page goes on naming the body ("Roska knelt by
+       * Hesk"), so no going is ever its last word — and the dead are nobody's company */
+      const death = isDeadSeat({ location: m.to }) && deathToldOf(args.state, args.assistantText, n);
+      return death || (moved ? !cameAlong(n) : (goneAtTheEnd(args.state, args.assistantText, n) || quotedGoing(args.state, args.assistantText, n, m.shown) || (mcGone && !cameAlong(n))));
     });
     /* M509-12: THE CROWD DOES NOT RIDE TO THE NEW GROUND. When the page MOVES the ground and says who is in the new room
      * (its "here"), everyone else who was in the old room is left behind there — Jovan ran out of the Tenth's courtyard

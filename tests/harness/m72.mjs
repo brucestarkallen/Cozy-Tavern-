@@ -166,7 +166,10 @@ test('M72-8 the rewind is the fold; the replay is sequenced; a writer’s page d
   assert(/enqueueWork\(story\.id, \{ name: 'checkpoint', run: async \(\) => \{/.test(rp), 'the tail is a job behind the one reading');
   assert(rp.indexOf('startBackgroundWork(story, vis[at]') < rp.indexOf("enqueueWork(story.id, { name: 'checkpoint'"), 'queued after the chain');
   assert(/const bases = \(await loadSnapshots\(story\.id\)\)\.filter\(\(e\) => e\.snap && Number\.isInteger\(e\.snap\.page\) && e\.snap\.page < k\);/.test(rp), 'the re-taken boundaries fold from the snapshots before the change, never from nothing');
-  assert(/setReplaying\(false\);/.test(rp.slice(rp.indexOf('finally'))), 'the tail clears the flag');
+  /* M680: the gate is let go ONCE (release), when the queued tail settles — or in the outer finally when no tail was
+   * queued. It used to be let go in the tail's own finally AND when the queue settled a failed tail (every retried try
+   * let it go again) — run by DOM-274 (two re-inks, a delete under a replay). */
+  assert(/const release = \(\) => \{ if \(released\) return; released = true; setReplaying\(false\); \};/.test(rp) && /tail\.then\(release, release\)/.test(rp) && /if \(!tailQueued\) release\(\);/.test(rp.slice(rp.lastIndexOf('finally'))), 'the tail clears the flag, once');
   /* M160: NOTHING ASKS THE READER TO TRY AGAIN. A rebuild used to refuse
    * every swipe, edit, retry, branch and delete with "one moment, then try
    * again" — for as long as the chain and its retries ran. They wait on the

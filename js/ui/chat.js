@@ -75,7 +75,7 @@ import { loadWorkerStatus, runningWorkers, onWorkerChange } from '../agents/stat
 import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob, workOut } from '../agents/queue.js';
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
-import { refereeStep, maybeSeedSheet, refereeWhyWords, gatePasses, seenAndLeftOff } from '../agents/referee.js'; /* M531: the referee's own gate decides when fighters are weighed first */
+import { refereeStep, maybeSeedSheet, refereeWhyWords, gatePasses, seenAndLeftOff, refereeBase, refereeOnto } from '../agents/referee.js'; /* M531: the referee's own gate decides when fighters are weighed first; M680: its writes laid onto the ledger as it stands */
 import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom, putBackMistakenMends, fixedCharsOf, keeperOnFor } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
@@ -295,6 +295,12 @@ export function workerPlan({ story, settings } = {}) {
     keeper: s.keeper === true ? true : s.keeper === false ? false : g.memoryKeeper !== false,
     continuity: s.continuity === true ? true : s.continuity === false ? false : Boolean(g.continuityCheck),
   };
+}
+
+async function saveRefereeTurn(storyId, base, after) {
+  const merged = refereeOnto(await loadState(storyId), base, after);
+  await saveState(storyId, merged);
+  return merged;
 }
 
 export function initChat(ctx) {
@@ -2333,6 +2339,13 @@ export function initChat(ctx) {
       if (choicesAsking.get(sid) === last.id + ':' + versionOf(last)) return;
       key = last.id + ':' + versionOf(last);
       choicesAsking.set(sid, key);
+      /* M680 (the books audit): THE CHOICES ARE MADE FROM THE LEDGER AS THIS PAGE LEFT IT. They were asked for the moment
+       * the page landed — before its own readers had written who is here, what was learned, who stands where — so the
+       * outcomes were sealed against the ledger as it stood BEFORE the page (a man who had just walked out still in the
+       * room, a secret just told still a secret). The page's own readers are waited for (ten minutes at most; nothing
+       * else waits on this — it is outside the chain); a page that is no longer the newest by then is offered nothing
+       * (the check after the call already says so). */
+      for (let i = 0; i < 1200 && readersStillOn(sid, last.id); i += 1) await new Promise((r) => setTimeout(r, 500));
       const state = await loadState(sid);
       if ((state.duel && state.duel.active) || (state.battle && state.battle.active) || (state.war && state.war.active)) return;
       const connection = await resolveWorkerConnection(story, 'choices');
@@ -4410,7 +4423,7 @@ export function initChat(ctx) {
     const settle = () => { const n = (ledgerLinksOut.get(key) || 1) - 1; if (n > 0) ledgerLinksOut.set(key, n); else ledgerLinksOut.delete(key); };
     promise.then(settle, settle);
   }
-  const readersStillOn = (storyId, pageId) => (ledgerLinksOut.get(storyId + ':' + pageId) || 0) > 0;
+  function readersStillOn(storyId, pageId) { return (ledgerLinksOut.get(storyId + ':' + pageId) || 0) > 0; } /* a function: offerChoices, above, asks it too (M680) */
 
   function startBackgroundWork(story, msg, userText, { deep = false, audit = false, refound = false } = {}) {
     offerChoices(story); /* M548: Choices matter — never in the chain, so no send waits for it */
@@ -4796,6 +4809,7 @@ export function initChat(ctx) {
         story, pageNumber: atSelf + 1, /* M259: it may look */
         jumpedMinutes,
         canonRecord: await canonRecordOf(story), /* M386: the real record it is told to seat canon people from */
+        pageAt: (() => { const at = ordered.filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id); return at !== -1 ? at : null; })(), /* M680: its writes are this page's */
       });
       /* M85: the voices land under the page they followed (a re-ink, like
        * the masthead); a read that heard none clears a stale block from an
@@ -4829,6 +4843,7 @@ export function initChat(ctx) {
         brief: story.brief || '', /* M283: the brief outranks every page — the scribe reads it */
         castNotes: story.castNotes || '',
         canonRecord: await canonRecordOf(story), /* M386: "written from the REAL RECORD" — now it has it */
+        pageAt: await (async () => { const at = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id); return at !== -1 ? at : null; })(), /* M680: its notes are this page's */
       });
       /* M259: the scribe says what it did, like every other minder */
       if (!kept) return { silent: true };
@@ -5468,7 +5483,16 @@ export function initChat(ctx) {
    * to watch the house and press the same button a second time. They wait
    * for the gate instead and then run themselves. */
   let replayWaiters = [];
+  let replayTakers = []; /* M680: the rebuilds waiting their turn, first come first served (takeReplay) */
   function setReplaying(v) {
+    /* M680: a rebuild let go hands the gate STRAIGHT to the next rebuild waiting its turn — it never stands open between
+     * the two, so nothing that only waits for the gate (a branch, a swipe, a send) slips in between them */
+    if (!v && replayTakers.length) {
+      const next = replayTakers.shift();
+      replaying = true;
+      try { next(true); } catch (err) { /* a taker's trouble is its own */ }
+      return;
+    }
     replaying = Boolean(v);
     if (!replaying && replayWaiters.length) {
       const waiting = replayWaiters;
@@ -5496,11 +5520,65 @@ export function initChat(ctx) {
     toast('The rebuild is taking unusually long — try once more in a moment.');
     return false;
   }
-  async function replayFrom(story, fromMessageId, { changed = true, shiftAfter = null, kOverride = null, atOverride = null } = {}) {
-    if (replaying) return false;
-    setReplaying(true);
+  /* M680 (the books audit) — A REBUILD WAITS ITS TURN; IT IS NEVER DROPPED. replayFrom refused outright while another
+   * rebuild stood ("if (replaying) return false") — and the doors that change history from the inside never waited
+   * before calling it: the housekeeper's answer that re-inks two pages read only the FIRST of them again (the second
+   * re-ink was simply dropped: the ledger kept the old words' consequences for good); and when the second was the
+   * newest page, its rewind cut the first rebuild's tail short (the later pages' writes, taken out by the fold, were
+   * never put back). A version walked, a page let go, a page read again or a new version landing while the
+   * housekeeper's rebuild ran were dropped the same way. Now the gate is TAKEN: whoever comes second waits for the
+   * rebuild before it, in the order they came, and then takes the gate itself. While no rebuild stands it is taken at
+   * once, in the same breath as the call (no await before it — M72's claim stands). False only when a rebuild never
+   * finished (the five-minute ceiling). */
+  function takeReplay(ceilingMs = 300000) {
+    if (!replaying) { setReplaying(true); return Promise.resolve(true); }
+    return new Promise((resolve) => {
+      let settled = false;
+      const take = (ok) => { if (!settled) { settled = true; resolve(ok); } };
+      replayTakers.push(take);
+      setTimeout(() => {
+        if (settled) return;
+        const at = replayTakers.indexOf(take);
+        if (at !== -1) replayTakers.splice(at, 1);
+        take(false);
+      }, ceilingMs);
+    });
+  }
+  /* M680: a page being told is never rewound or replayed under: the rewind folded away the turn's own committed ruling
+   * (the referee's fate is written before the page is asked for) and its readers found the chain turned. A re-ink
+   * waits for the telling to land (or stop), then acts on the pages as they stand. */
+  async function untilTold(ceilingMs = 600000) {
+    const until = Date.now() + ceilingMs;
+    while (busy && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 250));
+    return !busy;
+  }
+  async function replayFrom(story, fromMessageId, { changed = true, shiftAfter = null, kOverride = null, atOverride = null, held = false } = {}) {
+    /* `held`: the caller already holds the gate (a page let go holds it from before the page leaves the store) */
+    if (!held && !(await takeReplay())) return false;
     let tailQueued = false;
+    /* M680: THE GATE IS LET GO ONCE, WHEN THIS REBUILD IS TRULY DONE. setReplaying(false) hands the gate to the next
+     * rebuild waiting its turn — so a second let-go would hand it on to a THIRD while the second is still folding, or
+     * open it under a rebuild in flight. It was let go twice: in the tail's own finally and again when the queue
+     * settled a tail that had failed — and the queue tries a failed job again (every try's finally let it go). */
+    let released = false;
+    const release = () => { if (released) return; released = true; setReplaying(false); };
     try {
+      /* M680 (the books audit) — A REPLAY KEEPS THE RECORD OF EVERY PAGE IT DOES NOT CHANGE. The replay was M68's: fold back,
+       * read EVERY later page again — so the record was cut at the change (memoryTruncatedAt) for the keeper to fold it all
+       * again. M69 made the later pages' writes come back exactly from the journal, and nothing reads those pages again —
+       * but the cut stayed: an older page edited, walked to another of its versions, told again or read again, or a page
+       * let go in the middle of a tale (whose record had just slid down one, memoryAfterDeletion — the cut undid the
+       * slide), and every record line from there to the end of the tale was gone: the lines he had rewritten by hand, the
+       * details the keeper's own check had added, the continuous audit's marks, and — in a tale whose keeper is off — the
+       * whole record of those pages for good. Those pages did not change. The line over the page that DID change is let go
+       * by the rule every other door goes by (M675: never a line of his, and only where a keeper will fold it again); the
+       * callers that let it go themselves already have, and asking again changes nothing. Done before the wait for the
+       * readers in flight, so a keeper already folding that page from its new words is never undone. */
+      if (changed) {
+        const visNow = visiblePages(await db.messages.list(story.id));
+        const atNow = atOverride !== null ? atOverride : visNow.findIndex((m) => m.id === fromMessageId);
+        if (atNow !== -1 && (await keeperOnFor(story))) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), atNow));
+      }
       /* the readers in flight land first — their writes belong to the timeline being folded */
       await pendingWork(story.id, 120000);
       const history = await db.messages.list(story.id);
@@ -5515,7 +5593,6 @@ export function initChat(ctx) {
       /* 1. fold to the page before the change */
       await foldTo(story, k - 1);
       const gen = chainGen.get(story.id) || 0;
-      await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), at));
       { const all = await loadVersionStates(story.id); const staleIds = new Set(vis.slice(at).map((m) => m.id)); for (const key of Object.keys(all)) if (staleIds.has(key.split(':')[0])) delete all[key]; await writeVersionStates(story.id, all); }
       /* 2. one reading for the page whose words changed */
       let pages = 0;
@@ -5526,14 +5603,17 @@ export function initChat(ctx) {
       }
       /* 3. the tail, queued behind that chain */
       tailQueued = true;
+      /* M680: the queue tries a job that threw again — the later writes are put back once, never twice (a feeling's
+       * shift is a sum: put back twice, it is counted twice) */
+      let laterPutBack = false;
       const tail = enqueueWork(story.id, { name: 'checkpoint', run: async () => {
-        try {
-          if ((chainGen.get(story.id) || 0) !== gen) return { silent: true }; /* a rewind cut in — the fold that did it is the truth now */
-          let st = await loadState(story.id);
+        if ((chainGen.get(story.id) || 0) !== gen) return { silent: true }; /* a rewind cut in — the fold that did it is the truth now */
+        let st = await loadState(story.id);
+        const lastIndex = vis.filter((m) => m.role === 'assistant').length - 1;
+        if (!laterPutBack) {
           const groups = new Map();
           for (const e of later) { const p = shiftAfter !== null && e.p > shiftAfter ? e.p - 1 : e.p; if (!groups.has(p)) groups.set(p, []); groups.get(p).push(e); }
           for (const p of [...groups.keys()].sort((a, b) => a - b)) { st.page = p; st = applyMutations(st, groups.get(p).sort((a, b) => a.id - b.id).map((e) => e.m)).state; }
-          const lastIndex = vis.filter((m) => m.role === 'assistant').length - 1;
           st.page = Math.max(st.page, lastIndex);
           /* M675 — THE PAGES AFTER THE CHANGE ARE AS READ AS THEY WERE. Their writes were just put back from the journal,
            * exactly — that is the whole point of a replay (M68: "read the changed page once") — but the reading mark was
@@ -5553,39 +5633,37 @@ export function initChat(ctx) {
             }
           }
           await saveState(story.id, st);
-          /* the boundaries after the change are re-taken from the folded timeline — the
-           * snapshots before it are the bases (never an empty ledger, M72) */
-          const bases = (await loadSnapshots(story.id)).filter((e) => e.snap && Number.isInteger(e.snap.page) && e.snap.page < k);
-          for (let i = at; i < vis.length; i += 1) {
-            if (vis[i].role !== 'user') continue;
-            const nextA = vis.slice(i).find((m) => m.role === 'assistant');
-            const upto = nextA ? assistantIndex(nextA.id) - 1 : lastIndex;
-            await snapshotState(story.id, vis[i].id, foldJournal(st, bases, upto, applyMutations));
-          }
-          /* M67: the last page's shown version owns the present */
-          const lastA = [...vis].reverse().find((m) => m.role === 'assistant');
-          if (lastA) {
-            const fresh = (await db.messages.list(story.id)).find((m) => m.id === lastA.id);
-            const idx = shownIndex(fresh); /* M576: the one rule */
-            if (fresh) await saveVersionState(story.id, lastA.id, idx, st);
-          }
-          pendingAudit.delete(story.id);
-          notify(story.id);
-          toast(`History changed at page ${at + 1} — the ledger was folded back and rebuilt${pages ? ' with one reading' : ''}.`);
-          return { silent: true };
-        } finally {
-          setReplaying(false);
+          laterPutBack = true;
         }
+        /* the boundaries after the change are re-taken from the folded timeline — the
+         * snapshots before it are the bases (never an empty ledger, M72) */
+        const bases = (await loadSnapshots(story.id)).filter((e) => e.snap && Number.isInteger(e.snap.page) && e.snap.page < k);
+        for (let i = at; i < vis.length; i += 1) {
+          if (vis[i].role !== 'user') continue;
+          const nextA = vis.slice(i).find((m) => m.role === 'assistant');
+          const upto = nextA ? assistantIndex(nextA.id) - 1 : lastIndex;
+          await snapshotState(story.id, vis[i].id, foldJournal(st, bases, upto, applyMutations));
+        }
+        /* M67: the last page's shown version owns the present */
+        const lastA = [...vis].reverse().find((m) => m.role === 'assistant');
+        if (lastA) {
+          const fresh = (await db.messages.list(story.id)).find((m) => m.id === lastA.id);
+          const idx = shownIndex(fresh); /* M576: the one rule */
+          if (fresh) await saveVersionState(story.id, lastA.id, idx, st);
+        }
+        pendingAudit.delete(story.id);
+        notify(story.id);
+        toast(`History changed at page ${at + 1} — the ledger was folded back and rebuilt${pages ? ' with one reading' : ''}.`);
+        return { silent: true };
       } });
       noteWork(story.id, tail);
-      /* M293: a tail that never RUNS (dropped by the writer's Stop, or left
-       * behind by a story switch) settles without its finally — the gate is
-       * let go here, or every history change waits five minutes and is then
-       * refused for the rest of the session. */
-      tail.then((r) => { if (!r || r.ok !== true) setReplaying(false); }, () => setReplaying(false));
+      /* M293: a tail that never RUNS (dropped by the writer's Stop, or left behind by a story switch) still settles —
+       * the queue settles every job it was handed, run, stopped, dropped or failed after its last try. The gate is let
+       * go there and only there (M680: once). */
+      tail.then(release, release);
       return true;
     } finally {
-      if (!tailQueued) setReplaying(false);
+      if (!tailQueued) release();
     }
   }
 
@@ -5594,6 +5672,14 @@ export function initChat(ctx) {
    * ledger; fold it back to the last page that exists. M72: never while the
    * house is writing (a page's stamp is ahead of the store by design until
    * the page lands) and never during a replay. */
+  /* M680 (the books audit) — WHEN PAGES GO, WHICH LINES OVER THEM STAY. A line he wrote by hand always stays over the
+   * pages it still covers; in a tale whose keeper is off every line does (no keeper will ever fold them again, and a
+   * hole there is a hole for good). Asked by every door that lets pages go: a page let go, a rewind, a timeline
+   * folded back. */
+  async function recordCutRule(story) {
+    return (await keeperOnFor(story)) ? {} : { keepCovering: () => true };
+  }
+
   async function repairTimeline(story) {
     if (!story || busy || replaying) return false;
     const history = await db.messages.list(story.id);
@@ -5603,7 +5689,7 @@ export function initChat(ctx) {
     const why = timelineAhead(state, pages);
     if (!why.length) return false;
     await foldTo(story, pages - 1);
-    await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), vis.length));
+    await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), vis.length, await recordCutRule(story)));
     toast('The ledger belonged to a longer telling (' + why[0] + ') — folded back to this one.');
     return true;
   }
@@ -5820,7 +5906,8 @@ export function initChat(ctx) {
       /* M386: CANON VERIFICATION OFF SENDS NOTHING OF IT — not its note, and not the series' truths it wrote into What's
        * true of them: withdrawn from the ledger (a story page may write), or left out of this turn's copy (an
        * out-of-character turn may not). Switched on again, the next page writes them back. */
-      if (!(await canonOn(story.id))) {
+      const canonOffNow = !(await canonOn(story.id)); /* M680: kept for every copy of the ledger this turn reads again */
+      if (canonOffNow) {
         if (!ooc) { try { const cleaned = await canonWithdraw(story.id); if (cleaned) state = cleaned; } catch (err) { /* the copy below still holds */ } }
         state = withoutCanonTruths(state);
       }
@@ -5891,8 +5978,10 @@ export function initChat(ctx) {
            * switched off is let go (its lasting hurts go to the body ledger, as at any fight's end), so nothing of it is
            * carried for the storyteller or left standing for the day the switch comes back */
           if (!refSettings.on && ((state.duel && state.duel.active) || (state.battle && state.battle.active))) {
-            state = applyMutations(state, [{ type: 'combat.end' }]).state;
-            await saveState(story.id, state);
+            /* M680: onto the ledger as it stands now — never the copy read before this turn's waits */
+            const ended = applyMutations(await loadState(story.id), [{ type: 'combat.end' }]).state;
+            await saveState(story.id, ended);
+            state = canonOffNow ? withoutCanonTruths(ended) : ended;
           }
           if (refSettings.on) {
             const workerConnection = await resolveWorkerConnection(story, 'referee');
@@ -5922,6 +6011,11 @@ export function initChat(ctx) {
                 if (weighed && weighed.sheet) state = { ...state, sheet: weighed.sheet, seedDueAfterFight: weighed.seedDueAfterFight };
               }
             } catch (err) { /* the fight goes on with what the sheet holds */ }
+            /* M680 (the scene audit): WHAT THE REFEREE CHANGED, AND NOTHING ELSE. This copy of the ledger was read before the
+             * page's waits — the weighing (up to 45 s), the referee's own call (12 s) — while the last page's readers may
+             * still be writing (the send waits five seconds for each); saving the whole copy wrote over them: the auditor's
+             * repairs were lost, and found again on the next page. Its own writes are laid onto the ledger as it stands. */
+            const refBase = refereeBase(state);
             const step = await refereeStep({
               connection: workerConnection,
               userText: moveText, /* M675 */
@@ -5939,8 +6033,9 @@ export function initChat(ctx) {
               state = { ...state, pendingVerdict: { ...step.ruling, forUser: lastUser.id }, lastVerdict: step.ruling }; /* M345: whose page it settles */
             }
             /* The referee's timeline and fight state move even on quiet
-             * turns — save whatever the step settled. */
-            await saveState(story.id, state);
+             * turns — save whatever the step settled (M680: onto the ledger as it stands now). */
+            const merged = await saveRefereeTurn(story.id, refBase, state);
+            state = canonOffNow ? withoutCanonTruths(merged) : merged;
             notify(story.id); // the drawer's "The house has ruled" listens
             await noteWorkerRun(story.id, 'referee', {
               ok: !step || step.status !== 'degraded',
@@ -6214,7 +6309,9 @@ export function initChat(ctx) {
        * fact; it clears now, so no later turn inherits it. */
       if (state.pendingVerdict) {
         try {
-          await saveState(story.id, { ...state, pendingVerdict: null });
+          /* M680: cleared on the ledger as it stands now — this copy was read before the page's waits */
+          const now = await loadState(story.id);
+          await saveState(story.id, { ...now, pendingVerdict: null });
           notify(story.id);
         } catch (err) { /* the turn is already assembled; never mind */ }
       }
@@ -7343,7 +7440,7 @@ export function initChat(ctx) {
         const rewound = await rewindTo(story, history, after[0].id);
         if (!rewound) toast('Try again could not set the ledger back to where it stood after this page — no checkpoint reaches it; the later pages’ reads stayed.');
         /* M44: the record lets go of every line that reached the pages now gone */
-        { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === letGo[0].id); if (k !== -1) await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), k)); }
+        { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === letGo[0].id); if (k !== -1) await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), k, await recordCutRule(story))); }
         await db.messages.deleteFrom(story.id, after[0].id);
         await forgetCheckpoints(story.id, after.map((m) => m.id)); /* M107 */
         await refreshPreview(story.id); // M21: the shelf re-reads what's left
@@ -7373,7 +7470,7 @@ export function initChat(ctx) {
       if (letGo.length) {
         const vis = visiblePages(history);
         const k = vis.findIndex((m) => m.id === letGo[0].id);
-        if (k !== -1) await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), k));
+        if (k !== -1) await saveMemory(story.id, memoryTruncatedAt(await loadMemory(story.id), k, await recordCutRule(story)));
       }
       const next = history[at + 1];
       if (next) {
@@ -7616,27 +7713,49 @@ export function initChat(ctx) {
    * re-inks and its take-backs did neither: the record kept summarizing words
    * the page no longer held, and the ledger kept the old words' consequences.
    * Every re-ink passes through here now. */
+  /* M680 (the books audit) — A RE-INK TAKES ITS TURN, AND HOLDS IT UNTIL ITS PAGE IS READ AGAIN. Two re-inks in one
+   * housekeeper answer (or a re-ink while a page was being let go, or while the storyteller was telling) each acted
+   * on the pages at once: the first started its rebuild and returned, the second either was dropped (the gate stood —
+   * the old replayFrom refused) or, when its page was the newest, rewound under the first rebuild and cut its tail
+   * short — the later pages' writes, taken out by the first fold, were never put back. And a page being told was
+   * rewound under: the rewind folded away the turn's own ruling, written before the page was asked for. Now a re-ink
+   * waits for a telling to land, then TAKES the gate (in turn, after any rebuild before it), reads the pages as they
+   * stand then, and holds the gate through its own rewind and the start of its page's reading (the newest page) or
+   * hands it to its replay (an older page) — returning only when that replay is queued, so the next re-ink waits for
+   * it in turn. Walked (DOM-274): two re-inks in one answer, both pages read again with their new words; the pages
+   * between them keep what they taught the ledger. */
   async function pageReinked(story, pageId) {
     if (!story || !pageId) return false;
-    const history = await db.messages.list(story.id);
-    const msg = history.find((m) => m && m.id === pageId);
-    if (!msg) return false;
-    { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) { if (await keeperOnFor(story)) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); await pageRewritten(story.id, k); } } /* M528: the plans keeper reads it again; M675: the line goes only where a keeper will fold it again */
-    if (msg.role === 'assistant' && story.extraction !== false && !msg.ooc) {
-      const before = history.slice(0, history.indexOf(msg));
-      const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
-      const isLast = !history.slice(history.indexOf(msg) + 1).some((m) => m && m.role === 'assistant' && !m.hidden);
-      if (isLast) {
-        const boundary = boundaryFor(history, msg.id);
-        if (boundary) await rewindTo(story, history, boundary.id);
-        startBackgroundWork(story, msg, lastUser ? pageText(lastUser) : '');
-      } else {
-        replayFrom(story, msg.id, { changed: true });
+    await untilTold();
+    if (!(await takeReplay())) return false;
+    let handed = false;
+    try {
+      const history = await db.messages.list(story.id);
+      const msg = history.find((m) => m && m.id === pageId);
+      if (!msg) return false;
+      { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) { if (await keeperOnFor(story)) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); await pageRewritten(story.id, k); } } /* M528: the plans keeper reads it again; M675: the line goes only where a keeper will fold it again */
+      if (msg.role === 'assistant' && story.extraction !== false && !msg.ooc) {
+        const before = history.slice(0, history.indexOf(msg));
+        const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
+        const isLast = !history.slice(history.indexOf(msg) + 1).some((m) => m && m.role === 'assistant' && !m.hidden);
+        if (isLast) {
+          const boundary = boundaryFor(history, msg.id);
+          if (boundary) await rewindTo(story, history, boundary.id);
+          startBackgroundWork(story, msg, lastUser ? pageText(lastUser) : '');
+        } else {
+          handed = true;
+          /* handed over, not awaited: the replay first waits for the readers in flight (up to two minutes) — the editor
+           * would stand frozen under "Keep the new words" all that time. It holds the gate until its tail is done, so the
+           * next re-ink waits its turn at takeReplay all the same. */
+          replayFrom(story, msg.id, { changed: true, held: true });
+        }
+      } else if (msg.role === 'user') {
+        pendingAudit.add(story.id);
       }
-    } else if (msg.role === 'user') {
-      pendingAudit.add(story.id);
+      return true;
+    } finally {
+      if (!handed) setReplaying(false);
     }
-    return true;
   }
 
   async function beginEdit(messageId) {
@@ -8208,14 +8327,27 @@ export function initChat(ctx) {
       ? (told === 1 ? 'Let your message go, and the page that answered it?' : 'Let your message go, and the ' + told + ' pages that answered it?') + ' The pages around them stay exactly as written.'
       : 'Let this page go? The ones around it stay exactly as written.');
     if (!ok) return;
+    if (busy) return;
     /* the answers first, the last of them first (a storyteller page let go folds the ledger back to the page before it,
      * exactly — so the newest goes first); his own words last (a writer's page let go moves no storyteller page) */
-    for (const m of [...answers].reverse()) await letOnePageGo(story, m.id);
-    await letOnePageGo(story, id);
+    /* M680 (the books audit) — THE HOUSE IS HIS UNTIL EVERY PAGE OF THE DELETE IS LET GO. Each page let go takes the
+     * rebuild gate and lets it go when its rebuild is done — and between one page and the next the gate stood open: a
+     * page sent in that moment (a send waits only for the gate) began to be told, and the next page let go then folded
+     * the ledger under it — the turn's own ruling, written before the page was asked for, folded away. The delete holds
+     * the house (as Try again does) from the first page to the last. */
+    busy = true;
+    let allGone = true;
+    try {
+      for (const m of [...answers].reverse()) { if (!(await letOnePageGo(story, m.id))) { allGone = false; break; } }
+      if (allGone && !(await letOnePageGo(story, id))) allGone = false;
+    } finally {
+      busy = false;
+    }
     /* M21: with the page gone, the preview re-reads the page before it. */
     await refreshPreview(story.id);
     renderStoryList();
     refreshEmber();
+    if (!allGone) { toast('The rebuild is taking unusually long — what was not let go yet stays; try once more in a moment.'); return; }
     toast(told ? (told === 1 ? 'Your message and its answer are gone.' : 'Your message and the pages that answered it are gone.') : 'The page is gone.');
   }
   /* One page lets go — never conflated with rewrite-from-here. */
@@ -8225,61 +8357,71 @@ export function initChat(ctx) {
    * not wait for it: its own rebuild found one still standing and did nothing at all — that page's writes stayed in
    * the ledger and the later pages' stamps were never moved down (a message with a page and its "go on", let go in
    * the middle of a tale). */
+  /* M680 (the books audit) — THE GATE IS TAKEN BEFORE ANYTHING MOVES, AND HELD UNTIL THE LEDGER IS REBUILT. It waited for
+   * the gate (afterReplay) and took it only once the page was gone — several waits later — so a rebuild that began in
+   * between (the housekeeper re-inking a page) ran beside it: the record slid under the other rebuild's page numbers,
+   * and the newest page let go took the gate with a bare setReplaying(true) over a rebuild in flight — two folds at
+   * once, and its let-go then handed the gate on while the other still folded. False when the gate never came (a
+   * rebuild outlasting the five-minute ceiling) — nothing was let go. */
   async function letOnePageGo(story, id) {
-    await afterReplay();
-    /* M44: the record slides with the pages -- the line covering this page
-     * is let go, the lines above it move down one */
-    const allBefore = await db.messages.list(story.id);
-    const visBefore = visiblePages(allBefore);
-    const kGone = visBefore.findIndex((m) => m.id === id);
-    const after = kGone !== -1 ? visBefore.slice(kGone + 1).find((m) => m) : null;
-    const goneBoundary = boundaryFor(allBefore, id); /* the turn the page belonged to */
-    void goneBoundary;
-    if (kGone !== -1) await saveMemory(story.id, memoryAfterDeletion(await loadMemory(story.id), kGone));
-    await db.messages.remove(story.id, id);
-    await forgetCheckpoints(story.id, [id]); /* M107 */
-    const gone = visBefore[kGone];
-    /* M72: the ledger work is claimed right after the store write, before any
-     * rendering. A WRITER'S page let go moves no storyteller page -- the
-     * ledger's stamps stand (the record slid above; the referee prunes its
-     * own timeline by message id); replaying from k = -1 used to shift every
-     * stamp down by one. A storyteller page in the middle replays from the
-     * next page (M68; later stamps shift down by one). The LAST storyteller
-     * page let go folds the ledger back to the page before it, exactly, now
-     * (it used to keep the gone page's people and hour until the story was
-     * next opened). */
-    let ledgerWork = null;
-    if (gone && gone.role === 'assistant') {
-      const goneK = visBefore.filter((m) => m.role === 'assistant').findIndex((m) => m.id === id);
-      if (after) {
-        ledgerWork = replayFrom(story, after.id, { changed: false, shiftAfter: goneK, kOverride: goneK, atOverride: kGone });
-      } else {
-        setReplaying(true);
-        ledgerWork = (async () => {
-          try {
-            await pendingWork(story.id, 120000);
-            await foldTo(story, goneK - 1);
-            const all = await loadVersionStates(story.id);
-            for (const key of Object.keys(all)) if (key.split(':')[0] === id) delete all[key];
-            await writeVersionStates(story.id, all);
-            pendingAudit.delete(story.id);
-          } finally { setReplaying(false); }
-        })();
+    if (!(await takeReplay())) return false;
+    let handed = false;
+    try {
+      /* M44: the record slides with the pages -- the line covering this page
+       * is let go, the lines above it move down one */
+      const allBefore = await db.messages.list(story.id);
+      const visBefore = visiblePages(allBefore);
+      const kGone = visBefore.findIndex((m) => m.id === id);
+      const after = kGone !== -1 ? visBefore.slice(kGone + 1).find((m) => m) : null;
+      if (kGone !== -1) await saveMemory(story.id, memoryAfterDeletion(await loadMemory(story.id), kGone, await recordCutRule(story))); /* M680: his line, and every line where no keeper folds again, stays over what it still covers */
+      await db.messages.remove(story.id, id);
+      await forgetCheckpoints(story.id, [id]); /* M107 */
+      const gone = visBefore[kGone];
+      /* M72: the ledger work is claimed right after the store write, before any
+       * rendering. A WRITER'S page let go moves no storyteller page -- the
+       * ledger's stamps stand (the record slid above; the referee prunes its
+       * own timeline by message id); replaying from k = -1 used to shift every
+       * stamp down by one. A storyteller page in the middle replays from the
+       * next page (M68; later stamps shift down by one). The LAST storyteller
+       * page let go folds the ledger back to the page before it, exactly, now
+       * (it used to keep the gone page's people and hour until the story was
+       * next opened). */
+      let ledgerWork = null;
+      if (gone && gone.role === 'assistant') {
+        const goneK = visBefore.filter((m) => m.role === 'assistant').findIndex((m) => m.id === id);
+        handed = true; /* the rebuild below lets the gate go when it is done */
+        if (after) {
+          ledgerWork = replayFrom(story, after.id, { changed: false, shiftAfter: goneK, kOverride: goneK, atOverride: kGone, held: true });
+        } else {
+          ledgerWork = (async () => {
+            try {
+              await pendingWork(story.id, 120000);
+              await foldTo(story, goneK - 1);
+              const all = await loadVersionStates(story.id);
+              for (const key of Object.keys(all)) if (key.split(':')[0] === id) delete all[key];
+              await writeVersionStates(story.id, all);
+              pendingAudit.delete(story.id);
+            } finally { setReplaying(false); }
+          })();
+        }
       }
+      const node = els.thread.querySelector('.msg[data-id="' + cssId((id)) + '"]');
+      if (node) node.remove();
+      lastRender.ids = lastRender.ids.filter((x) => x !== id);
+      /* M675: THE PAGE THAT IS NOW THE NEWEST WEARS THE NEWEST PAGE'S CONTROLS. "go on" and the lone ◂ 1 / 1 ▸ are taken off
+       * every page but the newest when a page lands (settleLastPageControls) — so with the newest page let go here (its
+       * node simply removed), the page before it stood as the newest with neither: no way to tell it again or go on from
+       * it until the thread was next drawn whole. It is drawn again, as the newest. */
+      /* (M675, the second reading: only when the page let go WAS the newest — any storyteller page let go drew the newest
+       * one again, for nothing; and never over an editor standing open on it — rerenderMessage) */
+      if (gone && gone.role === 'assistant' && !visBefore.slice(kGone + 1).some((m) => m && m.role === 'assistant')) {
+        try { const lastNow = [...visiblePages(await db.messages.list(story.id))].reverse().find((m) => m.role === 'assistant'); if (lastNow) await rerenderMessage(story.id, lastNow.id); } catch (err) { /* the next draw of the thread shows them */ }
+      }
+      if (ledgerWork) await ledgerWork.catch(() => {});
+      return true;
+    } finally {
+      if (!handed) setReplaying(false);
     }
-    const node = els.thread.querySelector('.msg[data-id="' + cssId((id)) + '"]');
-    if (node) node.remove();
-    lastRender.ids = lastRender.ids.filter((x) => x !== id);
-    /* M675: THE PAGE THAT IS NOW THE NEWEST WEARS THE NEWEST PAGE'S CONTROLS. "go on" and the lone ◂ 1 / 1 ▸ are taken off
-     * every page but the newest when a page lands (settleLastPageControls) — so with the newest page let go here (its
-     * node simply removed), the page before it stood as the newest with neither: no way to tell it again or go on from
-     * it until the thread was next drawn whole. It is drawn again, as the newest. */
-    /* (M675, the second reading: only when the page let go WAS the newest — any storyteller page let go drew the newest
-     * one again, for nothing; and never over an editor standing open on it — rerenderMessage) */
-    if (gone && gone.role === 'assistant' && !visBefore.slice(kGone + 1).some((m) => m && m.role === 'assistant')) {
-      try { const lastNow = [...visiblePages(await db.messages.list(story.id))].reverse().find((m) => m.role === 'assistant'); if (lastNow) await rerenderMessage(story.id, lastNow.id); } catch (err) { /* the next draw of the thread shows them */ }
-    }
-    if (ledgerWork) await ledgerWork.catch(() => {});
   }
   els.thread.addEventListener('click', async (e) => {
     const btn = e.target.closest('.msg-act');
@@ -8330,23 +8472,33 @@ export function initChat(ctx) {
     if (!(await waitForRebuild())) return;
     const story = await activeStory();
     if (!story || busy) return;
-    const history = await db.messages.list(story.id);
-    const msg = history.find((m) => m && m.id === id);
-    if (!msg || msg.role !== 'assistant' || msg.ooc) return;
-    const vis = visiblePages(history);
-    const k = vis.findIndex((m) => m.id === id);
-    if (k !== -1 && (await keeperOnFor(story))) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); /* M675: only where a keeper will fold it again */
-    const isLast = !history.slice(history.indexOf(msg) + 1).some((m) => m && m.role === 'assistant' && !m.hidden);
-    if (isLast) {
-      const before = history.slice(0, history.indexOf(msg));
-      const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
-      const boundary = boundaryFor(history, msg.id);
-      if (boundary) await rewindTo(story, history, boundary.id);
-      startBackgroundWork(story, msg, lastUser ? pageText(lastUser) : '');
-    } else {
-      replayFrom(story, msg.id, { changed: true });
+    /* M680 (the books audit): the gate is TAKEN, not only waited for — between the wait and the rewind there were four
+     * more waits, and a rebuild begun in them (the housekeeper re-inking a page) was folded under by this rewind. The
+     * newest page's rewind and the start of its reading are done holding it; an older page's replay is handed it. */
+    if (!(await takeReplay())) return;
+    let handed = false;
+    try {
+      const history = await db.messages.list(story.id);
+      const msg = history.find((m) => m && m.id === id);
+      if (!msg || msg.role !== 'assistant' || msg.ooc) return;
+      const vis = visiblePages(history);
+      const k = vis.findIndex((m) => m.id === id);
+      if (k !== -1 && (await keeperOnFor(story))) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); /* M675: only where a keeper will fold it again */
+      const isLast = !history.slice(history.indexOf(msg) + 1).some((m) => m && m.role === 'assistant' && !m.hidden);
+      if (isLast) {
+        const before = history.slice(0, history.indexOf(msg));
+        const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
+        const boundary = boundaryFor(history, msg.id);
+        if (boundary) await rewindTo(story, history, boundary.id);
+        startBackgroundWork(story, msg, lastUser ? pageText(lastUser) : '');
+      } else {
+        handed = true;
+        replayFrom(story, msg.id, { changed: true, held: true }); /* lets the gate go when its tail is done */
+      }
+      if (!quiet) toast('The readers are on this page again.');
+    } finally {
+      if (!handed) setReplaying(false);
     }
-    if (!quiet) toast('The readers are on this page again.');
   }
 
   /* ---------- story panel (mobile slide-over) ---------- */

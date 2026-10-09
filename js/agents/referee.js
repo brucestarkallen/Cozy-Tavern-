@@ -36,7 +36,7 @@ import { isHere } from '../engine/names.js'; /* M398 */
 import { pageText as wirePageText } from '../assemble/stack.js'; /* M174: the one reader of a page's words */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
-import { applyMutations, storyTurn } from '../engine/apply.js';
+import { applyMutations, storyTurn, canonNamesFor } from '../engine/apply.js'; /* M680: truths under the name they are kept by */
 import { loadState, saveState, notify } from '../engine/state.js';
 import { findPersonKey, importanceOf } from '../engine/people.js'; /* M345: the seeder and the referee read who people ARE */
 import { renderBodies } from '../engine/bodies.js';
@@ -550,7 +550,7 @@ function hereBlock(state) {
   }
   let bodies = '';
   try { bodies = renderBodies(state.bodies, state.clock && state.clock.minutes, storyTurn(state)); } catch (err) { bodies = ''; }
-  const locked = (() => { try { return renderCanon(state.canon, present); } catch (err) { return ''; } })();
+  const locked = (() => { try { return renderCanon(state.canon, canonNamesFor(state, present)); } catch (err) { return ''; } })(); /* M680 */
   return [lines.join('\n'), bodies && bodies.trim() ? 'What their bodies carry:\n' + bodies.slice(0, 3000) : '', locked && locked.trim() ? 'Locked true:\n' + locked.slice(0, 3000) : ''].filter(Boolean).join('\n');
 }
 
@@ -981,6 +981,27 @@ function engineForMutations(eng, settings) {
 
 function clonePlain(v) {
   return v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+}
+
+/* M680 (the scene audit): THE REFEREE'S OWN FOOTPRINT on a turn — what it may change of the ledger (referee.js takeAfter: the
+ * fight's engines, composure, the sheet, its timeline, its ruling) and the journal line it starts from. Its writes are laid
+ * onto the ledger as it stands when it is done, never its whole copy over whatever the chain wrote meanwhile. */
+const REFEREE_OWN = ['duel', 'battle', 'war', 'composure', 'refHistory', 'pendingVerdict', 'lastVerdict', 'seedDueAfterFight', 'sheet'];
+export function refereeBase(state) {
+  const s = state && typeof state === 'object' ? state : {};
+  return { seq: Number.isInteger(s.journalSeq) ? s.journalSeq : 0, own: Object.fromEntries(REFEREE_OWN.map((k) => [k, JSON.stringify(s[k] === undefined ? null : s[k])])), combat: Boolean(s.mode && s.mode.combat) };
+}
+export function refereeOnto(fresh, base, after) {
+  const added = (Array.isArray(after && after.journal) ? after.journal : []).filter((j) => j && Number.isInteger(j.id) && j.id > base.seq && j.m && typeof j.m === 'object').map((j) => j.m);
+  const stamped = { ...fresh, page: Number.isInteger(after && after.page) ? after.page : fresh.page };
+  const merged = added.length ? applyMutations(stamped, added).state : stamped;
+  for (const k of REFEREE_OWN) {
+    const now = JSON.stringify(after[k] === undefined ? null : after[k]);
+    if (now !== base.own[k]) merged[k] = after[k] === undefined ? undefined : JSON.parse(now);
+  }
+  const combat = Boolean(after.mode && after.mode.combat);
+  if (combat !== base.combat) merged.mode = { ...(merged.mode || {}), combat };
+  return merged;
 }
 
 function takeSnapshot(state) {
@@ -1572,7 +1593,7 @@ export function buildSeedUser({ state, pages = [], brief = '', castNotes = '', r
   const castPart = whole('cast_notes', castNotes, left * 0.3, 'cast notes');
   const peoplePart = keep('<people>\n' + (seedPeople(state, String(brief || '') + '\n' + String(castNotes || ''), Math.max(4000, Math.floor(left * 0.35))) || '(no pages written yet)') + '\n</people>');
   const bodies = (() => { try { return renderBodies(state.bodies, state.clock && state.clock.minutes, storyTurn(state)); } catch (err) { return ''; } })();
-  const locked = (() => { try { return state.canon && typeof state.canon === 'object' ? renderCanon(state.canon, Object.keys(state.canon)) : ''; } catch (err) { return ''; } })();
+  const locked = (() => { try { return state.canon && typeof state.canon === 'object' ? renderCanon(state.canon, Object.keys(state.canon), Infinity) : ''; } catch (err) { return ''; } })(); /* M680: every lock — the weighing was shown six a person under a heading that holds them all */
   const bodiesPart = bodies && bodies.trim() ? keep('<bodies>\n' + cut(bodies, 12000) + '\n</bodies>') : null;
   const lockedPart = locked && locked.trim() ? keep('<locked>\n' + cut(locked, 12000) + '\n</locked>') : null;
   /* the detailed record: whole when it fits beside a page or two; else its newest part */

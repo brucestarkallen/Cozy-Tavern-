@@ -274,7 +274,7 @@ function nameFromWords(words, fallback) {
   return at > 0 ? words.slice(0, at) : String(fallback || '').trim();
 }
 
-export async function scribeTurn({ connection, storyId, userText, assistantText, signal, stale, renew, brief = '', castNotes = '', canonRecord = '' } = {}) {
+export async function scribeTurn({ connection, storyId, userText, assistantText, signal, stale, renew, brief = '', castNotes = '', canonRecord = '', pageAt = null } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   if (!assistantText || !String(assistantText).trim()) return null;
@@ -353,12 +353,14 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
     thinned.push({ delta: { type: 'people.note', name: d.name, field: 'core', text: d.text }, why: 'who ' + key + ' is stands as written — a nature is added to, never thinned to “' + String(d.text).trim().slice(0, 60) + '”' });
     return false;
   });
-  const { state: next, applied, rejected } = applyMutations(fresh, sound.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text })));
+  /* M680: its notes are this page's — stamped with the page in hand even when the page reader's call failed (the world audit) */
+  const stamped = Number.isInteger(pageAt) && pageAt >= 0 ? { ...fresh, page: pageAt } : fresh;
+  const { state: next, applied, rejected } = applyMutations(stamped, sound.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text })));
   const changes = applied.map((a) => ({ name: nameFromWords(a.words, a.mutation.name), field: a.mutation.field }));
   const dropped = [...rejected.map((r) => ({ delta: r.mutation, why: r.why })), ...thinned];
   if (!changes.length) return { changes, dropped, note };
   if (stale && stale()) return null;
-  await saveState(storyId, next);
+  await saveState(storyId, stamped !== fresh ? { ...next, page: fresh.page } : next); /* M680: the ledger's own stamp is not the scribe's to move */
   notify(storyId);
   return { changes, dropped, note };
 }

@@ -52,8 +52,8 @@ import { loadState, saveState, notify, renderStateFacts } from '../engine/state.
 import { findPersonKey, thinsCore, importanceOf, IMPORTANT_AT, placeWords, isMc, namedInText, seatForPerson } from '../engine/people.js'; /* M304: who matters, as the storyteller's own people block weighs it */
 import { isHere, samePersonName, nameOnPage } from '../engine/names.js'; /* M396/M401: one answer to "the same person?"; M414: one answer to "named on the page?" */
 import { storyTurn } from '../engine/apply.js';
-import { applyMutations, clearsThatArrive, scenePartOf } from '../engine/apply.js'; /* M444: cleared is never nowhere */
-import { renderOffscreen } from '../engine/offscreen.js';
+import { applyMutations, clearsThatArrive, scenePartOf, walkInFromPage, seatAtScene } from '../engine/apply.js'; /* M444: cleared is never nowhere; M680: its walk-ins held to the page's ending and its reader */
+import { renderOffscreen, isDeadSeat } from '../engine/offscreen.js'; /* M680: the dead are not re-seated */
 import { renderClock } from '../engine/clock.js';
 import { mcName } from '../engine/duels.js';
 import { STANCES } from '../engine/world.js';
@@ -71,7 +71,7 @@ export const WORLD_TYPES = new Set([
 ]);
 
 const VOCABULARY = [
-  'offscreen.set {"type":"offscreen.set","name":"NAME","location":"the 6:10 train, two stops out","activity":"reading his letter again","agenda":"confront him about it tonight","stance":"toward","etaMinutes":25} — where an ABSENT named person is RIGHT NOW at the hour on the clock, what they are doing, what they want next; stance is one of ' + STANCES.join(', ') + ' (toward = moving toward the main character, seeking = searching for them, tense = unresolved tension with them, busy = taken up with their own affairs (their work, their own people), waiting = holding, want still nameable); etaMinutes = minutes until they reach the main character, ONLY when stance is toward or seeking',
+  'offscreen.set {"type":"offscreen.set","name":"NAME","location":"the 6:10 train, two stops out","activity":"reading his letter again","agenda":"confront him about it tonight","stance":"toward","etaMinutes":25} — where an ABSENT named person is RIGHT NOW at the hour on the clock, what they are doing, what they want next; stance is one of ' + STANCES.join(', ') + ' (toward = moving toward the main character, seeking = searching for them, tense = unresolved tension with them, busy = taken up with their own affairs (their work, their own people), waiting = holding, want still nameable); etaMinutes = minutes until they reach the main character, ONLY when stance is toward or seeking. A person who has DIED is seated once, their location beginning "dead — " and where the body lies ("dead — under a white sheet in the Tenth Division courtyard"), and never re-seated after (the people list marks them [dead])',
   'offscreen.clear {"type":"offscreen.clear","name":"NAME"} — only when she has arrived and the page shows her in the scene; anyone else whose note no longer holds gets offscreen.set with where they are now (a person the story keeps is always somewhere — a clear that would leave her nowhere is refused)',
   'thread.set {"type":"thread.set","title":"NAME and the letter","owner":"NAME","heat":"hot","next":"corner him before OTHER NAME leaves"} — a live agenda someone holds, toward the main character OR toward anyone else in the story ("with":"OTHER NAME" names the other party: two rivals, two sisters, a team and its captain); heat hot|cold; next = what the owner will DO',
   'thread.close {"type":"thread.close","title":"NAME and the letter"} — when it is resolved for good',
@@ -152,9 +152,11 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     'for a reason. Someone moving toward the main character gets stance "toward" and an ETA; before the',
     'ETA they are on the road, never early. A change from what the ledger says needs a cause — a silent',
     'flip is an error, not variety. Someone the page shows arriving is the extractor\'s to seat; you clear',
-    'their elsewhere note, and the house writes them in. Anyone the page shows IN the scene is in it, whatever the',
+    'their elsewhere note, and the house writes them in. Anyone the page ENDS with IN the scene is in it, whatever the',
     'list below says — never seat them elsewhere; one the ledger has not written in at all, seat at the ground in',
-    'its own words (the ledger\'s "The ground:" line), and the house writes them in.',
+    'its own words (the ledger\'s "The ground:" line), and the house writes them in. Someone the page shows only at its',
+    'start, or leaves behind as it ends (he walked off, they stayed), is not in it: the page reader has already written',
+    'that leave — never undo it.',
     HERE_MEANS + ' So someone the page shows at a distance is seated where they are — the street outside, across the road, the next room.',
     'Nobody is seated where the scene itself is: someone at that place is in the scene, or on the way to it',
     '("toward", with an ETA). Another room of the same building is elsewhere — name that room. Only someone on',
@@ -358,10 +360,14 @@ export function peopleForWorld(state, { material = '', castNames = [], room = WO
      * nowhere said to go is marked now, the same page, as someone to place. */
     const seat = hasSeat ? seatForPerson(state, name) : null;
     const sighting = !here && Boolean(seat && seat.entry && seat.entry.lastSeen === true);
-    rows.push({ name, core, now, weight, here, noSeat, stale, sighting, ago: stale ? agoWords(seatAge(state, name)) : '' });
+    /* M680 (the world audit): THE DEAD ARE NOT DUE FOR MOVING ON. A grave's note aged like any seat, and the dead were marked
+     * "last placed 4 hours ago — where are they now?" beside the Dead line — and the clock-jump law re-seats every absent
+     * person: an invitation to raise them (the ledger now refuses a living seat over a death but by his hand) */
+    const dead = !here && Boolean(seat && isDeadSeat(seat.entry));
+    rows.push({ name, core, now, weight, here, dead, noSeat: noSeat && !dead, stale: stale && !dead, sighting: sighting && !dead, ago: stale && !dead ? agoWords(seatAge(state, name)) : '' });
   }
   rows.sort((a, b) => (b.weight - a.weight) || a.name.localeCompare(b.name));
-  const mark = (r) => (r.here ? ' [in the scene]' : r.noSeat ? ' [NO SEAT — seat them]' : r.sighting ? ' [ONLY LAST SEEN — where did they go?]' : r.stale ? ' [last placed ' + (r.ago || 'long ago') + ' — where are they now?]' : '');
+  const mark = (r) => (r.here ? ' [in the scene]' : r.dead ? ' [dead — never re-seat them]' : r.noSeat ? ' [NO SEAT — seat them]' : r.sighting ? ' [ONLY LAST SEEN — where did they go?]' : r.stale ? ' [last placed ' + (r.ago || 'long ago') + ' — where are they now?]' : '');
   const whole = (r) => r.name + mark(r) + ' — ' + [r.core, r.now && !seated.has(lower(r.name)) && !seatForPerson(state, r.name) ? 'last noted: ' + r.now : ''].filter(Boolean).join(' | ');
   const lean = (r) => { const first = (r.core || r.now).split(/(?<=[.!?])\s+/)[0] || ''; return r.name + mark(r) + ' — ' + (first.length > 240 ? first.slice(0, first.lastIndexOf(' ', 240)) + '…' : first); };
   const lines = [];
@@ -564,7 +570,7 @@ export function parseWorldAnswer(raw) {
 
 /* The contract. Resolves null when there was nothing to read; otherwise
  * {applied, rejected, dropped, brief, note}. Throws on transport failure. */
-export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0, record = '', renew, story = null, pageNumber = 0, canonRecord = '' } = {}) {
+export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0, record = '', renew, story = null, pageNumber = 0, canonRecord = '', pageAt = null } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   if (!assistantText || !String(assistantText).trim()) return null;
@@ -609,7 +615,11 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
 
   /* Re-read at write time — the ledger may have moved (the extractor's
    * masthead, a hand edit) while the world was being read. */
-  const fresh = await loadState(storyId);
+  const loaded = await loadState(storyId);
+  /* M680 (the world audit): ITS WRITES ARE THIS PAGE'S. Only the page reader stamped the ledger with the page in hand; when
+   * its call failed the world agent's moves for page 5 were journaled as page 4's — and "Try again" on page 5, folding to
+   * page 4, kept the world of the telling it let go. The page's own index (chat.js, counted as the reader counts it). */
+  const fresh = Number.isInteger(pageAt) && pageAt >= 0 ? { ...loaded, page: pageAt } : loaded;
   /* M401: ONE WRITER PER NOW. The world agent writes a "now" ONLY for a quiet one in the room — here, not the main
    * character, not on the page; someone the page showed is the scribe's, someone away is the seat's. Anything else it
    * tried is let go here, in code. */
@@ -621,6 +631,21 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   /* M444: CLEARED IS NEVER NOWHERE — its letting go of the note of someone the page shows there is her walking in (the
    * one door it is told to leave to the page reader, kept by the house when the page reader missed her) */
   read.mutations = clearsThatArrive(fresh, read.mutations, scenePartOf(assistantText));
+  /* M680 (the world audit — M679's fault, through the door M679 left open): ITS WALK-INS ANSWER TO THE PAGE'S ENDING AND ITS
+   * READER, as the auditor's and the house's heal do. Its note let go of someone the page names (above), and its seat at the
+   * scene's own place (apply.js offscreen.set, M402), each walk someone in; on his turn 21 the reader took Corven out —
+   * Azrael gone down the side passage with the page boy — and the world agent, running between the reader and the
+   * auditor, wrote him straight back in. Each is held to apply.js walkInFromPage now; one it refuses is not written, and
+   * the seat the reader gave stands. */
+  {
+    const ground = fresh.place && typeof fresh.place.name === 'string' ? fresh.place.name : '';
+    read.mutations = read.mutations.filter((m) => {
+      if (!m || typeof m.name !== 'string' || !m.name.trim() || isHere(fresh, m.name)) return true;
+      const walksIn = m.type === 'presence.enter'
+        || (m.type === 'offscreen.set' && m.stance !== 'toward' && m.stance !== 'seeking' && Boolean(ground) && seatAtScene(String(m.location || ''), ground) && !isDeadSeat({ location: m.location, activity: m.activity }));
+      return !walksIn || !walkInFromPage(fresh, m.name, { page: assistantText, pageAt, shown: m.shown });
+    });
+  }
   /* M40: everyone the agent seats has a page. A seat without a people.set
    * in the same answer gets a minimal core from the seat itself, so the
    * character ledger never shows two people while "elsewhere" shows three;
@@ -663,7 +688,9 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   const applied = appliedAll.filter((a) => a.mutation.type !== 'world.word');
   const normalized = read.brief ? next.worldBrief : null;
   if (stale && stale()) return null;
-  await saveState(storyId, next);
+  /* M680: its writes carry the page they are about; the ledger's own stamp is the page reader's and the send path's to move —
+   * a world agent still out when the next send has stamped the coming page never sets it back */
+  await saveState(storyId, fresh !== loaded ? { ...next, page: loaded.page } : next);
   notify(storyId);
   return { applied, rejected, dropped: read.dropped, brief: normalized, note: read.note, raw };
 }
@@ -680,7 +707,8 @@ export function worldRunWords(result) {
   if (n) bits.push(result.applied.slice(0, 4).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (n > 4 ? ' · …' : ''));
   if (result.brief && !result.brief.empty) bits.push('left the world’s word');
   if (result.brief && Array.isArray(result.brief.voices) && result.brief.voices.length) bits.push(`${result.brief.voices.length} ${result.brief.voices.length === 1 ? 'voice' : 'voices'} heard`);
-  if (result.rejected && result.rejected.length) bits.push(`${result.rejected.length} refused`);
+  const refusedN = result.rejected ? result.rejected.filter((r) => !(r && r.same)).length : 0; /* M680: "already so" is no refusal */
+  if (refusedN) bits.push(`${refusedN} refused`);
   if (result.dropped) bits.push(`${result.dropped} it may not touch`);
   return bits.join(', ');
 }
