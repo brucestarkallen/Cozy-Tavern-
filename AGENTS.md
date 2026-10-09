@@ -17786,3 +17786,32 @@ the walk 270/270; the long play 9/9; lint 0 errors (195 warnings; 184 on the bui
 audit/gates.sh, each exit 0 — among them device_guard 207/207, device_pair 142/142 (19 scenes), static_host 8/8,
 boot_open 8/8, perf_repair (1,000 turns: the longest hold 63 ms, budget 250), perf_send within budget; the 23 browser
 tests outside the gates, each exit 0 (tests/pagemark.py among them); the deliberate breakages, 140 of 140 caught.
+
+# M676 — "I just typed my shortcut cozytavern on termux, right?" — the word he types, run as he runs it
+His question, the moment M675 shipped. Answering it meant running his update the way he runs it, and no test did: every
+browser test blocks the service worker and starts serve.py itself, and nothing had ever run the launcher. Now
+tests/upgrade_in_place.py does. It installs the release before (the newest commit whose js/version.js names another
+version; here m674-001) with install.sh, in a Termux of its own. It uses it: two pages told through the composer, the
+device holding its books and the words sent. Then this tree arrives on the repository it pulls from, the word is typed,
+and the same browser profile is opened again with its service worker on. What it measured, M675 → this tree:
+- The word pulls (a fast-forward), puts the old server out and lights the new one in 0.7 s. The tab the word opens shows
+  the release before for a moment and reloads itself onto the new one in 4.0 s, with no pull-down; the tab left open
+  does the same, and the old cache is gone.
+- Every page, version and version shown is as it was, and so are his provider and its key; the device's books are
+  untouched. A page told and a "try again" on the new build reach the device, words sent included. A browser that holds
+  nothing reads the tale back from the device, words sent included. No error on any page.
+- AND THE WORD CAME BACK UNBAKED (cozytavern.sh). The bake (install.sh's sed, and the word's own re-arm) writes the home
+  wherever the mark stands — and it stood in the re-arm's own sed, so that sed then looked for the HOME instead of the
+  mark: every update wrote the word back unbaked, and the update after it baked it again. The M26 self-heal hid this (it
+  finds a tavern in ~/cozytavern, ~/cozy-tavern or ~/Cozy-Tavern-). And baked, the self-heal's own test held the home,
+  so it was true on every run: a clone in a usual place won over the folder the word was installed for.
+- THE CURE: the mark is spelled in two halves wherever it is only looked for (MARK), so a bake reaches the home line
+  alone; and a word that had to guess its home bakes in the home it found. The words on phones today come right by
+  themselves: a baked one writes back an unbaked word at the next update, which bakes itself the first time it is typed;
+  an unbaked one writes back a baked word.
+- tests/launcher.py (no browser): install.sh, three updates, a folder that is not a usual one with a clone standing in
+  ~/cozytavern, and both kinds of word on phones today. On the launcher as M675 shipped it: 19 of 26 (7 red). With the
+  cure: 26 of 26, and each of its three parts broken on purpose is caught. tests/upgrade_in_place.py: 40 of 41 on the
+  launcher as shipped (the bake), 41 of 41 with the cure. Both are in audit/gates.sh.
+- NOT CHANGED: the web app (still m675-002: no file a browser runs changed, so no new coat is pushed to any browser); the
+  word's port (8080, written in the word).

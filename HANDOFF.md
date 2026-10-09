@@ -1,6 +1,13 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m675-002)
+# Cozy Tavern — handoff for the next session (state at m675-002; the launcher at M676)
+
+## M676 — THE WORD HE TYPES (cozytavern.sh). Read AGENTS.md "# M676".
+- THE MARK A BAKE REPLACES STANDS ON ONE LINE ONLY (REPO_DIR="…" in cozytavern.sh). Wherever the launcher only LOOKS for
+  it, it is spelled in two halves ($MARK). A new line that writes the mark literally is turned into the home by the bake.
+- A RELEASE IS AN UPDATE OF A USED INSTALL. tests/upgrade_in_place.py (the release before, used, updated to this tree by
+  the word, the same browser and its service worker) and tests/launcher.py are gates: run them for any change to
+  install.sh, cozytavern.sh, how serve.py starts, sw.js, the store's shape or the sync. Both need port 8080 free.
 
 ## M675 — THE SCREEN HE ASKED FOR, AND THE AUDIT OF M672–M674. Read AGENTS.md "# M675" whole.
 - THE BOTTOM LINE HOLDS NO LINKS (his: "delete all the button… it'll get cluttered"). Do not put one back. "try again" is

@@ -9,12 +9,22 @@ set -e
 PORT=8080
 # Home of the tavern: where install.sh put it (baked in at install time).
 REPO_DIR="__COZY_HOME__"
+# M676: THE BAKE WRITES THE HOME INTO THE LINE ABOVE, AND NOWHERE ELSE. The bake (install.sh's sed, and the re-arm
+# below) replaces the mark wherever it stands in this file — and it stood three times: above, in the self-heal's own
+# test, and in the re-arm's own sed. Baked, the re-arm's sed looked for the HOME instead of the mark and changed
+# nothing: every update wrote the word back unbaked, and the update after that baked it again (found running his
+# update end to end, tests/upgrade_in_place.py; held by tests/launcher.py). And the self-heal's test, baked, held
+# the home itself: it was true on every run, so a clone in a usual place won over the folder the word was installed
+# for. Where the mark is only looked for, it is spelled in two halves, which no bake reaches.
+MARK="__COZY""_HOME__"
 
-# Self-heal (M26 hotfix): if the home was never baked in — an unbaked word
-# reached a phone once — find the tavern in the usual places instead of
-# failing into a wall of text.
+# Self-heal (M26 hotfix): if the home was never baked in — a word an update
+# wrote back before M676 — find the tavern in the usual places instead of
+# failing into a wall of text; and bake it in (below), so it is found, not guessed.
+UNBAKED=''
 case "$REPO_DIR" in
-  *__COZY_HOME__* | '')
+  *"$MARK"* | '')
+    UNBAKED=1
     for guess in "$HOME/cozytavern" "$HOME/cozy-tavern" "$HOME/Cozy-Tavern-"; do
       if [ -d "$guess/.git" ]; then REPO_DIR="$guess"; break; fi
     done
@@ -34,11 +44,12 @@ HEAD_BEFORE="$(git rev-parse HEAD 2>/dev/null || echo '')"
 git pull --ff-only || echo "(Couldn't pull — the tavern you have still opens.)"
 HEAD_AFTER="$(git rev-parse HEAD 2>/dev/null || echo '')"
 
-# Re-arm the word itself if the coat changed — same word, better hands.
-if [ -n "$HEAD_BEFORE" ] && [ "$HEAD_BEFORE" != "$HEAD_AFTER" ]; then
+# Re-arm the word itself if the coat changed — same word, better hands. M676: and if it had to guess its home (above),
+# the home it found is baked in now.
+if { [ -n "$HEAD_BEFORE" ] && [ "$HEAD_BEFORE" != "$HEAD_AFTER" ]; } || [ -n "$UNBAKED" ]; then
   if [ -f cozytavern.sh ] && [ -n "$PREFIX" ]; then
     cp cozytavern.sh "$PREFIX/bin/cozytavern.tmp" \
-      && sed -i "s|__COZY_HOME__|$REPO_DIR|g" "$PREFIX/bin/cozytavern.tmp" \
+      && sed -i "s|$MARK|$REPO_DIR|g" "$PREFIX/bin/cozytavern.tmp" \
       && chmod +x "$PREFIX/bin/cozytavern.tmp" \
       && mv "$PREFIX/bin/cozytavern.tmp" "$PREFIX/bin/cozytavern" || true
   fi
