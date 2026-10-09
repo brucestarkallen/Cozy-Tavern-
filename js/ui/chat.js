@@ -62,7 +62,7 @@ import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room
 import { listModules, selectModules } from '../assemble/modules.js';
 import { renderClock } from '../engine/clock.js'; /* M493 */
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, headerWithGround, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture, shareCheckpoints } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
-import { applyMutations, staleAfterJump, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
+import { applyMutations, staleAfterJump, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart, noOneSpot } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent, loadSent, pushSentToDevice, giveSentToTale } from '../sent.js'; /* M347: the words each page was sent, kept beside it; M636: read back for the sensors; M675: a tale's carried pages are given to it on the device */
@@ -1562,7 +1562,7 @@ export function initChat(ctx) {
     const state = await loadState(story.id);
     let healed = false;
     /* M455: and the hour the newest page's header gives, on the day it names — a clock a page behind is put right */
-    const muts = [...headerMutations(pageText(newest)).filter((m) => m.type === 'clock.set'), ...wrongWalkIns(state, told.map((m) => ({ text: m.ooc ? '' : pageText(m) }))), ...hereByTheNewestPage(state, pageText(newest)), ...walkedBackOverTheWorld(state, pageText(newest)), ...goneByTheirOwnPage(state, pageText(newest)), ...seatMadeCores(state), ...descriptorsThatAreNamed(state)]; /* M491: on opening too; M508: a core made of a seat is let go; M509-2: a descriptor that is a named person */
+    const muts = [...headerMutations(pageText(newest), { day: state.clock && typeof state.clock.dayWords === 'string' ? state.clock.dayWords : '' }).filter((m) => m.type === 'clock.set'), ...wrongWalkIns( /* M679: and in the story's own words for the day — a clock that read "Monday" where his page said "Thornday" heals on the next opening */state, told.map((m) => ({ text: m.ooc ? '' : pageText(m) }))), ...hereByTheNewestPage(state, pageText(newest), { pageAt: told.indexOf(newest) }), ...walkedBackOverTheWorld(state, pageText(newest)), ...goneByTheirOwnPage(state, pageText(newest)), ...seatMadeCores(state), ...descriptorsThatAreNamed(state)]; /* M491: on opening too; M508: a core made of a seat is let go; M509-2: a descriptor that is a named person; M679: the newest page's own leave stands */
     if (muts.length && !busy && !isReplaying() && !readersOut(story.id)) { /* M314: a queued moment is re-checked before it writes */
       const { state: next, applied } = applyMutations(state, muts);
       if (applied.length) { await saveState(story.id, next); notify(story.id); healed = true; }
@@ -4540,7 +4540,7 @@ export function initChat(ctx) {
         if (k0 !== -1) await readMissedPage(story, connection, told[k0], k0, { signal, renew, record: foldedBefore, stale });
       } catch (err) { /* the page in hand still gets read */ }
 
-      const { mutations, note: extractNote, failed: extractFailed, raw: extractRaw } = await extractTurn({
+      const { mutations, note: extractNote, failed: extractFailed, raw: extractRaw, here: extractRoom } = await extractTurn({
         connection,
         state: stateBefore,
         userText,
@@ -4587,7 +4587,13 @@ export function initChat(ctx) {
       /* M660: a long jump of the clock lets every place-in-the-room and outfit go — before the reader's own writes, which
        * say what THIS page shows (apply.js staleAfterJump) */
       const letGo = staleAfterJump(ledgerBefore, fromHeader);
-      const list = [...fromHeader, ...letGo, ...(Array.isArray(mutations) ? mutations : []).filter((m) => !(m && headerHas.has(m.type)))].filter((m) => !(m && m.type === 'presence.enter' && onlyInWindow(m.name)));
+      /* M679: A HEADER THAT NAMES ONLY THE AREA DOES NOT SAY WHERE IN IT THE SCENE IS. His "[Ilvarren — …]" set the ground to the
+       * city on every page and threw away the reader's own word for the street — the spot the page reader now gives for
+       * exactly this (extractor.js spotBlock, held to the page there), written after the header's area */
+      const headerPlace = fromHeader.find((m) => m && m.type === 'place.set');
+      const areaOnly = Boolean(headerPlace && noOneSpot(String(headerPlace.name || '')));
+      const overruled = (m) => Boolean(m && headerHas.has(m.type) && !(areaOnly && m.type === 'place.set' && !noOneSpot(String(m.name || m.place || ''))));
+      const list = [...fromHeader, ...letGo, ...(Array.isArray(mutations) ? mutations : []).filter((m) => !overruled(m))].filter((m) => !(m && m.type === 'presence.enter' && onlyInWindow(m.name)));
 
       /* Re-load at apply time — the ledger may have been touched by hand
        * while the worker was reading. */
@@ -4617,6 +4623,14 @@ export function initChat(ctx) {
        * THREAD_COOL_PAGES pages, it goes cold (never one this page moves). */
       list.push(...threadHousekeeping(fresh.threads, storyTurn(fresh), list.filter((m) => m && (m.type === 'thread.set' || m.type === 'thread.close')).map((m) => m.title || m.name)));
       const { state: next, applied, rejected } = applyMutations(fresh, list);
+      /* M679: the room this page's reader named as the page ends (its "here") — kept with the page's index, so the house's own
+       * heal of who is here (apply.js hereByTheNewestPage, the next job) writes nobody in against it, as the reader's own
+       * walk-ins already are not (M666) */
+      if (pageInHand !== -1) {
+        const room = Array.isArray(extractRoom) ? extractRoom.filter((n) => typeof n === 'string' && n.trim()).slice(0, 40) : [];
+        if (room.length) next.roomAt = { page: pageInHand, names: room };
+        else if (next.roomAt && next.roomAt.page === pageInHand) delete next.roomAt;
+      }
       if (pageInHand !== -1) {
         if (young) {
           /* the founding read took in every page before this one: all of them are read */
@@ -4691,10 +4705,13 @@ export function initChat(ctx) {
       /* M444: WHO WALKED IN FROM ANOTHER ROOM — before M444 a seat anywhere in the scene's compound put its person in the
        * scene; whoever came in that way and no story page has shown since goes back where the world had them (journaled,
        * undoable; never the main character, never someone a page or his hand put there) */
-      const storyPages = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant').map((m) => ({ text: m.ooc ? '' : pageText(m) }));
+      const toldPages = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant');
+      const storyPages = toldPages.map((m) => ({ text: m.ooc ? '' : pageText(m) }));
       const walkIns = wrongWalkIns(clearedNows.state, storyPages);
-      /* M452: and whoever a note has elsewhere at the scene's own place, whom this page shows here, is written in */
-      const hereAgain = msg && msg.role === 'assistant' && !msg.ooc ? hereByTheNewestPage(clearedNows.state, pageText(msg)) : [];
+      /* M452: and whoever a note has elsewhere at the scene's own place, whom this page shows here, is written in — M679: as
+       * the page ENDS, and never someone this page's own readers took out (its index, as the chain stamps its writes) */
+      const pageAt = msg ? toldPages.findIndex((m) => m.id === msg.id) : -1;
+      const hereAgain = msg && msg.role === 'assistant' && !msg.ooc ? hereByTheNewestPage(clearedNows.state, pageText(msg), { pageAt: pageAt !== -1 ? pageAt : null }) : [];
       /* M491: and whoever is listed here though their own page says they left, and this page does not show, is seated away */
       const goneAway = msg && msg.role === 'assistant' && !msg.ooc ? [...goneByTheirOwnPage(clearedNows.state, pageText(msg)), ...walkedBackOverTheWorld(clearedNows.state, pageText(msg))] : []; /* M535 */
       const oneMan = descriptorsThatAreNamed(clearedNows.state); /* M509-2: "the courier" beside "Hachigorō" is one man */
@@ -5400,7 +5417,10 @@ export function initChat(ctx) {
         /* the same hour is "already so" (M259): a clock.set that changes nothing is refused with same: true. A ledger with
          * no clock at all is not a failed rewind — the page before was never read (a tale seeded by hand) — so only a
          * clock that stands and disagrees is a mismatch. */
-        const sameHour = (st) => { const probe = applyMutations(st, [{ ...headerClock }]); return !probe.applied.length && probe.rejected.some((r) => r && r.same); };
+        /* M679: the HOUR is the check — the header's own day words ride a clock.set now, and a checkpoint written before
+         * they did (the same minute, the real weekday's words) is still that page's hour */
+        const { dayWords: _ownDay, ...hourOnly } = headerClock;
+        const sameHour = (st) => { const probe = applyMutations(st, [hourOnly]); return !probe.applied.length && probe.rejected.some((r) => r && r.same); };
         const hasClock = (st) => Boolean(st && st.clock && Number.isFinite(st.clock.minutes));
         let after = await loadState(story.id);
         if (hasClock(after) && !sameHour(after)) {

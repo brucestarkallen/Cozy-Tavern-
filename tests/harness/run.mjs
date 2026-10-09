@@ -261,6 +261,7 @@ import './m674.mjs'; /* M674: a text is folded once; a reading cut short shows i
 import './m675.mjs'; /* M675: the judge's moment; the audit of the session before */
 import './m675b.mjs'; /* M675, the second reading: the continuous audit's failures; the record's cut */
 import './m677.mjs'; /* M677: where each of them is, asked by name; one rule for who knows what; the window marker is not bold */
+import './m679.mjs'; /* M679: the story's own weekday; the spot in a city; each person with him or left behind; a verdict for every thread and loose end; the things its people carry; the auditor and the house's heal held to how the page ENDS; what answers a loose end */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

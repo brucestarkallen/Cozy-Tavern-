@@ -40,7 +40,7 @@
  */
 
 import { db, onDropCaches, settingsKeysOf } from '../store.js'; /* M507: the bank's key cache hears a pull; M507-6: the tale's rows */
-import { renderClock } from './clock.js';
+import { renderClock, weekdayIndex } from './clock.js'; /* M679: is the header's weekday the real one? */
 import { samePersonName, nameOnPage } from './names.js';
 import { isMc } from './people.js'; /* M588 */ /* M509-15: was this person in the room */
 import { renderBodies, dedupeInjuries } from './bodies.js'; /* M485: the wounds folded on load */
@@ -71,6 +71,7 @@ export const emptyState = () => ({
   clock: null,              // {calendar, minutes, label, monthNames?, dayNames?} | null
   place: null,               // {name} — where the scene stands (M26)
   groundWas: null,           // M304: {name, page} — the ground the scene stood on when that page began, kept only when the page moved it
+  roomAt: null,              // M679: {page, names} — the room a page's reader named as that page ends (its "here"), with the page's index
   present: [],              // [{name, position?, attire?}]
   mode: { combat: false, intimate: false, travel: false, socialField: false, isolation: false, group: false },
   log: [],                  // [{ts, words, undone, undo?}] — what changed and why (M3)
@@ -334,6 +335,7 @@ function normalize(saved) {
   next.relationships = migrateRelationships(saved.relationships);
   next.offscreen = migrateOffscreen(saved.offscreen);
   next.groundWas = saved.groundWas && typeof saved.groundWas === 'object' && typeof saved.groundWas.name === 'string' && Number.isInteger(saved.groundWas.page) ? { name: saved.groundWas.name, page: saved.groundWas.page } : null; /* M304 */
+  next.roomAt = saved.roomAt && typeof saved.roomAt === 'object' && Number.isInteger(saved.roomAt.page) && Array.isArray(saved.roomAt.names) ? { page: saved.roomAt.page, names: saved.roomAt.names.filter((n) => typeof n === 'string' && n.trim()).slice(0, 40) } : null; /* M679 */
   next.factions = saved.factions && typeof saved.factions === 'object' ? saved.factions : {};
   next.things = saved.things && typeof saved.things === 'object' && !Array.isArray(saved.things) ? saved.things : {}; /* M604 */
   if (saved.thingsFounded === true) next.thingsFounded = true; /* M606: the brief's things founded once */
@@ -1360,6 +1362,36 @@ export function headerDress(pageText) {
   const attire = clean(cells[3]); const position = clean(cells[4]);
   return attire || position ? { attire, position } : null;
 }
+/* M679 — HIS AUDIT: "the ledger's ground is Ilvarren and its hour is Monday, October 14, 1247 — 15:58; the latest page's
+ * header says Thornday, October 14, 1247, 15:58". A header with a real month's date was read for its numbers alone, and
+ * the ledger spoke the weekday the real calendar puts on them — "Monday" — where his story keeps a week of its own: the
+ * storyteller was told "The hour: Monday, …" on every page, and the auditor found it on every reading and could not set
+ * it right (its clock.set carried the same numbers: "already so"). The header's own words for the day ride with the date
+ * when the word in the weekday's place is not the real weekday (any other word there is the story's own week), and when
+ * there is no weekday at all in a tale whose clock already keeps the story's own day words (a world with its own week is
+ * never handed a real one). A weekday that IS the real one adds nothing: the real calendar speaks, and rolls over by
+ * itself at midnight. */
+const REAL_WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const SHORT_WEEKDAYS = { sun: 'sunday', mon: 'monday', tue: 'tuesday', tues: 'tuesday', wed: 'wednesday', weds: 'wednesday', thu: 'thursday', thur: 'thursday', thurs: 'thursday', fri: 'friday', sat: 'saturday' };
+function headerDayWords(pieces, said, date, keptDay = '') {
+  if (!said || !date) return '';
+  const piece = (Array.isArray(pieces) ? pieces : []).map((p) => String(p || '')).find((p) => p.includes(said));
+  if (!piece) return '';
+  /* the part as written — an hour inside it is the clock's, never the day's */
+  const words = piece.replace(/\b\d{1,2}[:.h]\d{2}(?::\d{2})?(?:\s?[ap]\.?\s?m\b\.?)?/gi, ' ').replace(/\s+/g, ' ').replace(/^[\s,;:—–-]+|[\s,;:—–-]+$/g, '').trim();
+  const at = words.indexOf(said);
+  if (at === -1 || words.length > 60) return '';
+  const lead = words.slice(0, at).replace(/[\s,;:—–.-]+$/g, '').trim();
+  /* no weekday written: in a tale that keeps its own day words, the date as written — unless they are this very date's
+   * already ("Thornday, October 14, 1247" stands for a later header that says only "October 14, 1247": the clock keeps
+   * what it has for the same day) */
+  if (!lead) { const kept = String(keptDay || '').trim(); return kept && !kept.includes(said) ? words : ''; }
+  if (lead.length > 30 || !/^\p{L}[\p{L}'’-]*(?:\s+\p{L}[\p{L}'’-]*){0,2}$/u.test(lead)) return '';
+  const w = lead.toLowerCase();
+  const real = REAL_WEEKDAYS.findIndex((d) => d === w || (SHORT_WEEKDAYS[w] === d)); /* a real weekday, whole or as it is shortened */
+  if (real !== -1 && real === weekdayIndex(date.year, date.month, date.day)) return '';
+  return words;
+}
 export function headerMutations(pageText, { ground = '', day = '' } = {}) {
   /* M645 (the ledger audit, part two — twenty-six ordinary ways a storyteller draws this line, fed through it):
    * THE HEADER IS FOUND WHERE IT STANDS. It had to be the page's first line and nothing else on it. A line of chatter
@@ -1473,7 +1505,8 @@ export function headerMutations(pageText, { ground = '', day = '' } = {}) {
   const date = dm && monthNumber(dm[1].replace(/\.$/, '')) > 0 ? { year: Number(dm[3]), month: monthNumber(dm[1].replace(/\.$/, '')), day: Number(dm[2]) }
     : iso && Number(iso[2]) >= 1 && Number(iso[2]) <= 12 && Number(iso[3]) >= 1 && Number(iso[3]) <= 31 ? { year: Number(iso[1]), month: Number(iso[2]), day: Number(iso[3]) } : null;
   if (date && tm && hh <= 23 && mi <= 59) {
-    out.push({ type: 'clock.set', ...date, hour: hh, minute: mi });
+    const own = headerDayWords([...dash, ...parts.slice(1)], dm ? dm[0] : iso ? iso[0] : '', date, day); /* M679 */
+    out.push({ type: 'clock.set', ...date, hour: hh, minute: mi, ...(own ? { dayWords: own } : {}) });
   } else if (tm && hh <= 23 && mi <= 59) {
     /* M455: THE HEADER'S HOUR IS THE HOUR, WHATEVER CALENDAR THE STORY KEEPS. Only a real month's date let a header set
      * the clock — so "[Tenth Division Courtyard — Sunday, Hanami 5, 1001 AG | 09:20 | …]" set nothing, the page reader

@@ -19,19 +19,19 @@
  *     -> {applied, rejected, issues, note} | null
  */
 
-import { HERE_MEANS, KNOWING_MEANS } from './herewords.js'; /* M554; M677: what goes into who knows what — the reader's own rule */
+import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M554; M677: what goes into who knows what — the reader's own rule; M679: what answers a loose end — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
 import { samePlace } from '../engine/apply.js'; /* M403 */
-import { seatForPerson } from '../engine/people.js'; /* M398 */
-import { isHere, nameOnPage } from '../engine/names.js'; /* M398/M413; M414: named by the one answer */
+import { seatForPerson, sameLooseEnd } from '../engine/people.js'; /* M398; M679: a loose end matched by sense, as the applier matches it */
+import { isHere, nameOnPage, samePersonName } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
 import { shownOnPage, personBookKey, groundTheTellingStandsOn, narrationOf } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
 import { findRelationship } from '../engine/relationships.js';
 import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
-import { loadState, saveState, notify, headerMutations } from '../engine/state.js';
-import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf, showsDeparture, goneAtTheEnd, quotedGoing, restatedPresence, toldOnPage, mcWalksOff } from '../engine/apply.js'; /* M444; M446: the departure reader, and who is gone at a page's end */
+import { loadState, saveState, notify, headerMutations, headerDress } from '../engine/state.js'; /* M679: his header's dress */
+import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf, showsDeparture, goneAtTheEnd, quotedGoing, restatedPresence, toldOnPage, mcWalksOff, findThingKey, pageEnding } from '../engine/apply.js'; /* M444; M446: the departure reader, and who is gone at a page's end */
 import { findSeat } from '../engine/offscreen.js';
 import { findThread } from '../engine/world.js';
 /* M240: it was told to catch a healed wound and never shown the wounds.
@@ -111,7 +111,7 @@ function law({ mc }) {
     '    page\'s own telling plainly stands somewhere else (a duel on a courtyard\'s sand under a header naming an',
     '    assembly hall) is an echo of a wrong ledger, not the page\'s word: set the ground to where the telling stands,',
     '    in the words the story used for that place.',
-    '  - WHO IS HERE: is everyone the latest page puts IN THE SCENE in the ledger\'s presence, and is everyone marked',
+    '  - WHO IS HERE: is everyone the latest page ENDS with IN THE SCENE in the ledger\'s presence, and is everyone marked',
     '    present actually still in the scene? Someone who left pages ago and is still "here" is an',
     '    error; someone who arrived and is not listed is an error; someone "here" whom the pages only show at a distance is an error (seat them where they are). ' + HERE_MEANS,
     '  - THE ABSENT: does each seat match where the pages last put that person? A person the pages',
@@ -144,12 +144,9 @@ function law({ mc }) {
     '    how far a beat moved a standing is the page reader\'s to write, never yours.',
     '  - THE THREADS: a thread the pages show resolved still hot (thread.close); a live agenda the',
     '    pages show and the ledger lacks (thread.set).',
-    '  - THE LOOSE ENDS ON A PERSON\'S OWN PAGE (their "Loose ends:" line, which is NOT the same as',
-    '    the story threads above): one the pages have plainly ANSWERED and is still written there —',
-    '    a question asked and answered, an introduction promised and made, a photo hunted and found,',
-    '    a name waited for and spoken. Close it with people.note {field:\"unthread\"}, worded as it stands on the page.',
-    '    These do not expire on their own, and one left open is carried to the storyteller as',
-    '    something still hanging for the rest of the tale.',
+    '  - THE LOOSE ENDS ON A PERSON\'S OWN PAGE (their "Loose ends:" line, which is NOT the same as the story threads',
+    '    above): one the pages have plainly ANSWERED — close it with people.note {field:\"unthread\"}, worded as it stands on',
+    '    the page; one left open is carried to the storyteller as still hanging. ' + LOOSE_ANSWERED_MEANS, /* M679: what answers one — the reader\'s and the scribe\'s words too */
     '  - WHO KNOWS WHAT: a present person to whom the latest pages put something that belongs there, with no',
     '    knowledge line for it (knowledge.add). ' + KNOWING_MEANS,
     '  - WHAT THE LEDGER SAYS HAPPENED: every line that says who did what, to whom, or with whose',
@@ -176,8 +173,8 @@ function law({ mc }) {
     'NOT YOUR JOB — THE MOMENT: posture, position, dress, the mood board, what a hand is doing, a sip taken, a knee on the',
     'vinyl, clothing of the moment, an absent person\'s activity this hour, a thread\'s next small',
     'step, a character page\'s "now" line. The extractor, the world agent and the scribe rewrite',
-    'those after EVERY page; the ledger you read describes the moment BEFORE the latest page, and a',
-    'page that moves a body is the story moving, not an error. Never report them, never "update"',
+    'those after EVERY page and have ALREADY read the latest one: the ledger you read is the scene as that page',
+    'ENDS. Where its start differs (he walked off, the room emptied) the end is the present. Never report them, never "update"',
     'them. Yours is what LASTS and what is WRONG: the wrong name, age, kin, origin, role; a person',
     'present who left pages ago or absent who is plainly here; a wound healed still open; a standing',
     'wrongly zero; a thread the pages closed still hot or a live agenda missing; a witnessed fact',
@@ -282,7 +279,7 @@ function buildAuditorAt({ state, brief = '', castNotes = '', record = '', pages 
       ? ['MORE PAGES THE RECORD HAS NOT FOLDED — no room to show them above; fetch any by its number:', ...index, '']
       : []),
     ...(pageCount ? ['The story has ' + pageCount + ' pages; any of them, folded or not, is served whole by its number.', ''] : []),
-    'THE LEDGER, ALL OF IT (as it stood before the latest page):',
+    'THE LEDGER, ALL OF IT (as the page readers left it — the scene as the latest page ENDS):',
     whole,
     '— the character pages —' + (lean ? ' (shown lean for this reading: the ledger is larger than its room \u2014 the pages of those away are shortened; the ones here are whole; fetch "person: NAME" for any page whole)' : ''), people || '(none)',
     '',
@@ -431,7 +428,11 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
    * and the hour in code (M128/M131) — the auditor never overrides it. */
   const latestStory = [...all].reverse().find((m) => m && m.role === 'assistant' && !m.ooc);
   const header = latestStory ? headerMutations(pageText(latestStory), { ground: (fresh.place || {}).name || '' }) : []; /* M627 */
-  read.issues = auditorScope(read.issues, fresh, { header, page: latestStory ? pageText(latestStory) : '' }); /* M128: the moment never lands from an audit; M453: the page, for an echoing header */
+  /* M679: the newest page's own index, counted as the chain stamps what it writes (chat.js: the page in hand among the
+   * visible pages) — what its readers wrote on it is the journal's at that index, and nothing at all when they never read it */
+  const storyPages = all.filter((m) => m && m.role === 'assistant');
+  const newestAt = latestStory ? storyPages.findIndex((m) => m.id === latestStory.id) : -1;
+  read.issues = auditorScope(read.issues, fresh, { header, page: latestStory ? pageText(latestStory) : '', pageAt: newestAt !== -1 ? newestAt : null }); /* M128: the moment never lands from an audit; M453: the page, for an echoing header; M679: nor the moment its readers wrote */
   /* M403/M413: WHEN THE AUDITOR MAY TAKE SOMEONE OUT OF THE SCENE. It took Byakuya, Renji, Iba and the rest out in one
    * batch while they stood at the duel (M403) — and M403's first answer (only someone the latest pages NAME may be taken
    * out) stopped its real work too: someone who came in eighty pages ago and was never seen again (the long play's
@@ -596,7 +597,11 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const statedByModel = await readStatedStandings({ connection, brief, castNotes, mc: mcKnown, signal });
   guarded.push(...standingsHousekeeping(fresh, brief, castNotes, mcKnown, statedByModel));
   const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
-  const rejected = [...rejectedByApplier.map((r) => (r && r.mutation && /^rel\./.test(r.mutation.type) && /holds no standing/.test(String(r.why || '')) ? { ...r, standing: true } : r)), ...keptStandings];
+  /* M679: a line of who knows what the ledger ALREADY holds is "already so", not a refusal — his turn-21 reading listed eight
+   * "Seen; its change did not hold (Mirelia already knows that)" and the workers' line said "8 refused" for changes that
+   * were already true (M259's law for every other door: the auditor misreading is not a finding) */
+  const rejected = [...rejectedByApplier.map((r) => (r && r.mutation && /^rel\./.test(r.mutation.type) && /holds no standing/.test(String(r.why || '')) ? { ...r, standing: true }
+    : r && r.mutation && r.mutation.type === 'knowledge.add' && / already knows that$/.test(String(r.why || '')) ? { ...r, same: true } : r)), ...keptStandings];
   /* M277: a standing move the auditor may not make is not a finding for the
    * writer — eleven such lines filled a reading that changed four things */
   const standingRefused = new Set([
@@ -793,18 +798,67 @@ function placeWordsOnPage(position, told) {
   const text = String(told || '').toLowerCase();
   return own.some((w) => text.includes(w));
 }
-export function auditorScope(issues, state, { header = [], page = '' } = {}) {
+/* M679 — HIS TWO READINGS (turns 19 and 21): "why my mc at the end of pages already moving on not with Corven but the auditor
+ * change stupidly back to with Corven like at the start of the page? Auditor should not cause mistake." The page reader had
+ * the room right as the page ENDED — Azrael gone off with the page boy toward the small council room, Corven and Ser
+ * Holvard left at the hall; Mirelia left holding her ground "as they walked away" — and the auditor, reading the same page
+ * from its START, walked Corven, Ser Holvard and Mirelia back in, put Azrael back "at the hall's threshold beside Corven"
+ * and the cloak back over his forearm there. Its law told it the ledger it reads "describes the moment BEFORE the latest
+ * page" — but it runs last, after that page's own readers: the ledger it reads is the scene as the page ENDS. And every door
+ * asked only "are these words somewhere on the page?": a walk-in stood for anyone shown and not leaving (M535 — his going
+ * never asked about), a place or a dress for words from anywhere in it (M661), a thing likewise (M604).
+ * THE PRESENT IS THE PAGE'S ENDING, and the auditor keeps every door: what it writes of the scene is held to how the newest
+ * page ENDS (pageEnding — its last paragraph, or the last two or three when they are short). A walk-in stands only for
+ * someone the ending shows, and never for someone this page's own reader took out (a name in the ending is no proof of
+ * company: "Corven let him go" names Corven); a place or a dress only in the ending's own words — and for him, never
+ * against his header's place and dress (his as the page ends, M661); a thing's new place, when the page tells of that thing
+ * or its reader moved it, only in the ending's words. Everything else — what lasts, what the readers never touched — is
+ * the auditor's as it always was. */
+export { pageEnding }; /* engine/apply.js — the house's heal of who is here reads it too */
+const ENDING_STOP = /^(?:the|and|with|his|her|their|its|still|now|into|onto|from|over|under|near|beside|behind|front|side|back|that|this|has|have|had|was|were|are|for|one|two|out|off|him|she|they|them)$/;
+const endingWords = (t) => new Set(String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 3 && !ENDING_STOP.test(w)));
+/* do these words stand in that text, half of them at least? */
+const wordsIn = (words, text) => { const w = [...endingWords(words)]; const t = endingWords(text); return w.length > 0 && w.filter((x) => t.has(x)).length / w.length >= 0.5; };
+const journalOfPage = (state, at) => (Array.isArray(state && state.journal) ? state.journal : []).filter((j) => j && j.p === at && j.m && typeof j.m === 'object').map((j) => j.m);
+export function auditorScope(issues, state, { header = [], page = '', pageAt = null } = {}) {
   const restatedOk = new WeakSet(); /* M661: the changes of place and dress the newest page bears out */
+  /* M679: the page's ending, what its own readers wrote on it (the journal at its index — nothing when they never read
+   * it), and his header's own place and dress */
+  const ending = page ? pageEnding(page) : '';
+  const endingTold = narrationOf(ending);
+  const sceneTold = page ? narrationOf(scenePartOf(page)) : '';
+  const readersWrote = Number.isInteger(pageAt) ? journalOfPage(state, pageAt) : [];
+  /* a leave this page's reader wrote and held to the page by its own words for the going (quotedGoing — what the reader's
+   * gate keeps a leave on); an older reader's bare leave is not proof, and the auditor may set it right */
+  const leftThisPage = (name) => readersWrote.some((jm) => jm.type === 'presence.leave' && typeof jm.name === 'string' && typeof name === 'string' && samePersonName(jm.name, name) && quotedGoing(state, page, jm.name, jm.shown));
+  const movedThisPage = (thing) => readersWrote.some((jm) => jm.type === 'thing.set' && typeof jm.name === 'string' && Boolean(findThingKey({ [jm.name]: true }, String(thing || ''))));
+  const samePerson = (a, b) => typeof a === 'string' && typeof b === 'string' && (samePersonName(a, b) || (isMc(state, a) && isMc(state, b)));
+  const openedThisPage = (name, text) => readersWrote.some((jm) => jm.type === 'people.note' && /^thread$/i.test(String(jm.field || '').trim()) && samePerson(jm.name, name) && sameLooseEnd(String(jm.text || ''), String(text || '')));
+  const his = page ? headerDress(page) : null;
+  const inTheEnding = (m) => Boolean(ending) && (shownOnPage(state, endingTold, m.name) || toldOnPage(ending, m.shown).end !== -1);
   if (page && Array.isArray(issues)) {
     const told = narrationOf(scenePartOf(page));
     issues = issues.map((issue) => (issue && Array.isArray(issue.mutations) ? { ...issue, mutations: issue.mutations.map((m) => {
       /* M661: THE AUDITOR CAN SET RIGHT WHERE SOMEONE STANDS AND WHAT THEY WEAR — held to the page as the reader is. It saw
        * "the presence list still has Barbara in a heavy coat" and had no change of its own for it (it wrote a "now", which
        * is not its to write): the finding was reported and nothing landed. A presence.update whose words are the newest
-       * page's own, and truly other than the ledger has, stands (apply.js restatedPresence). */
+       * page's own, and truly other than the ledger has, stands (apply.js restatedPresence). M679: the words of the page's
+       * ENDING — and for him, never against his header's own place and dress. */
       if (m && m.type === 'presence.update' && typeof m.name === 'string') {
-        const fixed = restatedPresence(state, [{ name: m.name, at: typeof m.position === 'string' ? m.position : '', wears: typeof m.attire === 'string' ? m.attire : '' }], [], page)[0];
-        if (fixed) { restatedOk.add(fixed); return fixed; }
+        const mine = isMc(state, m.name);
+        const heldAt = Boolean(mine && his && his.position);
+        const heldWears = Boolean(mine && his && his.attire);
+        const at = typeof m.position === 'string' && !(heldAt && !wordsIn(m.position, his.position)) ? m.position : '';
+        const wears = typeof m.attire === 'string' && !(heldWears && !wordsIn(m.attire, his.attire)) ? m.attire : '';
+        /* each field on its own: his place (his dress) in his header's own words stands as the header's does, borne out by
+         * the page's telling; any other place or dress stands only in the ending's words */
+        const placeFix = at ? restatedPresence(state, [{ name: m.name, at, wears: '' }], [], heldAt ? page : ending)[0] : null;
+        const dressFix = wears ? restatedPresence(state, [{ name: m.name, at: '', wears }], [], heldWears ? page : ending)[0] : null;
+        if (placeFix || dressFix) {
+          const fixed = { type: 'presence.update', name: (placeFix || dressFix).name, ...(placeFix ? { position: placeFix.position } : {}), ...(dressFix ? { attire: dressFix.attire } : {}) };
+          restatedOk.add(fixed);
+          return fixed;
+        }
       }
       if (!(m && m.type === 'presence.update' && typeof m.name === 'string' && typeof m.position === 'string' && m.position.trim())) return m;
       const entry = (Array.isArray(state && state.present) ? state.present : []).find((p) => p && typeof p.name === 'string' && isHere({ present: [p] }, m.name));
@@ -833,6 +887,14 @@ export function auditorScope(issues, state, { header = [], page = '' } = {}) {
     return carried.every((k) => Number(h[k]) === Number(m[k]));
   };
   const seats = (state && state.offscreen && typeof state.offscreen === 'object') ? state.offscreen : {};
+  /* M679: did the newest page take the scene away — its ground moved on it (read), or it ends on him going? */
+  const sceneMovedHere = Number.isInteger(pageAt) && Boolean(state && state.groundWas && typeof state.groundWas === 'object' && state.groundWas.page === pageAt);
+  /* M679: the room this page's reader named as it ends (chat.js: state.roomAt, kept with the page's index) — for someone the
+   * world seats elsewhere, the reader's own word that they are not with him (M666 holds the reader's own walk-ins to it) */
+  const roomNamed = Number.isInteger(pageAt) && state && state.roomAt && typeof state.roomAt === 'object' && state.roomAt.page === pageAt && Array.isArray(state.roomAt.names) && state.roomAt.names.length ? state.roomAt.names : null;
+  const outOfTheRoom = (name) => Boolean(roomNamed) && !roomNamed.some((r) => typeof r === 'string' && samePersonName(r, name));
+  const mcNow = state ? mcName(state) : '';
+  const heWentAtTheEnd = Boolean(page && mcNow && mcNow !== 'the player' && mcWalksOff(page, mcNow));
   const moment = (m) => {
     if (!m || typeof m !== 'object' || typeof m.type !== 'string') return true;
     if (m.type === 'presence.update') return !(m.staleClear || restatedOk.has(m)); /* M544: the letting-go of a place the page left behind; M661: a place or an outfit the newest page bears out */
@@ -845,6 +907,10 @@ export function auditorScope(issues, state, { header = [], page = '' } = {}) {
      * "1st Division HQ — outside the assembly hall" on its own reading — and every person in it went "elsewhere". It may
      * bring the ground TO what the latest page's header says; it never moves it on its own. */
     if (m.type === 'place.set' && headerAgrees(m) !== true && !tellingMoves) return true; /* M453: an echoing header does not hold a ground the telling has left */
+    /* M679: a loose end written from this very page (by its scribe, its reader, his hand) is not closed on that page's
+     * word: the page that says it is why it was written, never its answer (LOOSE_ANSWERED_MEANS) — what answers it comes
+     * on a page after, and the readers of that page are asked of it by name */
+    if (m.type === 'people.note' && /^unthread$/i.test(String(m.field || '').trim()) && openedThisPage(m.name, m.text)) return true;
     if (m.type === 'people.note') return String(m.field || '').trim().toLowerCase() !== 'unthread';
     /* someone already here who "comes in" is a move — the page reader's */
     /* M535: THE AUDITOR NEVER WALKS BACK IN SOMEONE THE NEWEST PAGE DOES NOT KEEP. His Bleach meeting broke up: the page
@@ -853,6 +919,20 @@ export function auditorScope(issues, state, { header = [], page = '' } = {}) {
      * scene" and let their seats go: sixteen in "Who's here" with everyone gone. It may bring someone in only when the
      * newest page shows them there and not leaving at its end; someone seated elsewhere the newest page does not show, or
      * shows going, keeps their seat. */
+    /* M679: a walk-in — and a seated person's note let go, which is a walk-in by another door (auditLedger:
+     * clearsThatArrive) — stands only for someone the page's ending shows, and never over this page's own reader's leave */
+    if (page && (m.type === 'presence.enter' || (m.type === 'offscreen.clear' && !isHere(state, m.name))) && typeof m.name === 'string') {
+      if (leftThisPage(m.name) || !inTheEnding(m) || goneAtTheEnd(state, page, m.name)) return true;
+      /* …nor for someone the world seats elsewhere, when the page took the scene away from them: the ground moved on this
+       * very page (its readers', its header's), or it ends on HIM going, or its reader named the room as it ends without
+       * them — "she held her ground in the column's shadow as they walked away" names her in the ending and leaves her there */
+      if (findSeat(seats, m.name) && (sceneMovedHere || heWentAtTheEnd || outOfTheRoom(m.name))) return true;
+    }
+    /* M679: a thing's new place, when the page tells of that thing or its reader moved it, is the ending's */
+    if (m.type === 'thing.set' && page && typeof m.name === 'string' && typeof m.where === 'string' && m.where.trim()) {
+      const named = wordsIn(m.name.replace(/^\s*(?:the|a|an)\s+/i, ''), sceneTold);
+      if ((named || movedThisPage(m.name)) && !wordsIn(m.where, endingTold)) return true;
+    }
     if (m.type === 'presence.enter' && typeof m.name === 'string' && page) {
       const told = narrationOf(scenePartOf(page));
       if (goneAtTheEnd(state, page, m.name)) return true;

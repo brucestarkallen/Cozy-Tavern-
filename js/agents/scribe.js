@@ -27,6 +27,7 @@ import { loadState, saveState, notify } from '../engine/state.js';
 import { renderPeopleTiers, peopleView, mcKey, findPersonKey, thinsCore } from '../engine/people.js';
 import { applyMutations } from '../engine/apply.js'; /* M72: the scribe writes through the journal */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
+import { LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M679: what answers a loose end — one definition */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
 import { retryAfterMs } from '../providers/wire.js'; /* M28: moved to the wire; re-exported for the harness contract */
 export { retryAfterMs };
@@ -86,7 +87,7 @@ const SYSTEM_PROMPT = [
   'for the rest of the tale as something still hanging, and a page that answers',
   'it is the ONLY thing that closes it. Closing what the page answered matters',
   'as much as opening what it left open — a ledger full of finished business is',
-  'a ledger that lies.',
+  'a ledger that lies. ' + LOOSE_ANSWERED_MEANS, /* M679: one definition, the reader's and the auditor's */
   '',
   'CHARACTER GRAVITY (the writer’s own law, for every page you keep):',
   '  - STACK: new feelings ADD to old — humiliation + intrigue + fury coexist; cruel + fascinated',

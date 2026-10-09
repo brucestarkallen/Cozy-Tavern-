@@ -13863,5 +13863,188 @@ test('DOM-231 HIS MESSAGE GOES WITH ITS ANSWER (M635 — his: "when I delete my 
   }
 });
 
+test('DOM-271 HIS TURN 7, THROUGH THE APP (M679 — his: "why the auditor keep finding this problem why not do it before auditor found it? … it should be perfect and auditor as very last defense"): a header that names only Ilvarren in his own week, the Gilder’s Row crowd, the stolen purse, two threads and a loose end — after the page and its readers the ledger holds everything his auditor had to set right: Thornday, the ground Cooper’s Row in Ilvarren, nobody from Gilder’s Row here, the purse in Azrael’s palm and his again, both threads closed and the third open, the loose end closed, and the page’s header names the street; then into the Bent Kettle, where the quiet raven is left behind on Cooper’s Row', async () => {
+  const before = errors.length;
+  const { saveState: saveLedger, emptyState: blankLedger, loadState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { findThread } = await import('../../js/engine/world.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const FENCE = 'Roska and the fence behind the no-sign door';
+  const WATCH = 'Marget and the watch';
+  const GUARD = 'the guard at the well and the thief';
+  const HUNTED = 'the watch has her description and Azrael is hunting her himself';
+  const FAVOUR = 'owes the fence behind the no-sign door a favour';
+  const st = await db.stories.create({ title: 'Ilvarren — the purse' });
+  await db.messages.append(st.id, { role: 'user', text: 'I go after her down Gilder’s Row.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[Ilvarren — Thornday, October 14, 1247 | 15:40 | grey | travel cloak | Gilder’s Row]\n\nThe cobbler pointed south from his own doorway, and Roska was already gone down the slope.' });
+  /* his ledger at turn 6, as the old build kept it: the city as its ground, the clock in the real calendar's weekday */
+  const led = applyMutations({ ...blankLedger(), sheet: { actors: {}, playerName: 'Azrael' } }, [
+    { type: 'mc.set', name: 'Azrael' }, { type: 'place.set', name: 'Ilvarren' },
+    { type: 'clock.set', year: 1247, month: 10, day: 14, hour: 15, minute: 40 },
+    { type: 'presence.enter', name: 'Azrael' },
+    { type: 'presence.enter', name: 'Roska', position: 'at the no-sign door, knuckles raised' },
+    { type: 'presence.enter', name: 'the cobbler', position: 'in his own doorway on Gilder’s Row' },
+    { type: 'presence.enter', name: 'the fruit-seller', position: 'behind her second stall' },
+    { type: 'presence.enter', name: 'the young priest', position: 'on the temple steps' },
+    { type: 'presence.enter', name: 'the pie-seller', position: 'by the well, crying mutton pies' },
+    { type: 'presence.enter', name: 'the raven', position: 'above the rooftops' },
+    { type: 'people.set', name: 'Roska', field: 'core', text: 'a thief of the lower streets, quick hands, quicker mouth' },
+    { type: 'people.note', name: 'Roska', field: 'thread', text: HUNTED },
+    { type: 'people.note', name: 'Roska', field: 'thread', text: FAVOUR },
+    { type: 'thing.set', name: 'the purse', where: 'in Roska’s fist, purse-strings cold in her own hand', owner: 'Roska' },
+    { type: 'thread.set', title: FENCE, owner: 'Roska', heat: 'hot', next: 'knock and sell the purse' },
+    { type: 'thread.set', title: WATCH, owner: 'Marget', heat: 'hot', next: 'send the watch off with a guess' },
+    { type: 'thread.set', title: GUARD, owner: 'the guard at the well', heat: 'hot', next: 'ask the next stall about the thief' },
+  ]).state;
+  eq(led.clock.label, 'Monday, October 14, 1247 — 15:40', 'his ledger as the old build wrote it');
+  await saveLedger(st.id, { ...led, page: 1, readTo: 1, tidiedGen: 999, healedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  const PAGE_A = '[Ilvarren — Thornday, October 14, 1247 | 15:58 | grey, a cold wind off the river | travel cloak | Cooper’s Row, at the no-sign door]\n\n'
+    + 'Roska had her knuckles up to the no-sign door on Cooper’s Row when Azrael’s shadow fell across it. She did not knock. She looked at the door a long moment, then at him, and let her hand drop.\n\n'
+    + '“Fine,” she said. She held out her fist and opened it, and it dropped into his open palm, the strings still warm from her grip.\n\n'
+    + 'Behind them, up on Gilder’s Row, the cobbler had gone back into his own doorway and the fruit-seller was counting apples behind her second stall again; the pie-seller had started crying his mutton pies again, low and flat, and the young priest had gone in under the temple vestibule.\n\n'
+    + 'Azrael closed his hand, nodded south, and Roska fell in beside him. They walked south together toward the Bent Kettle.\n\n'
+    + '*** The World Beyond ***\n\n'
+    + 'On the chandler’s step the watchman came down at last. Marget gave him a shrug and the back of her gable, and her boy went out the back with a guess dressed as a sighting.';
+  const PAGE_B = '[Ilvarren — Thornday, October 14, 1247 | 16:20 | grey | travel cloak | the Bent Kettle, by the fire]\n\n'
+    + 'The Bent Kettle was warm and half empty. Old Hesk looked up from his barrel-top as Azrael ducked in under the lintel with Roska behind him, and set out two cups without being asked.';
+  let pages = 0;
+  house.state.storyAnswer = () => { pages += 1; return pages === 1 ? PAGE_A : PAGE_B; };
+  /* the page reader answers the questions it is now asked, as a reader that answers them does */
+  house.state.workerAnswer = (body, sys) => {
+    const system = String(sys || '');
+    if (/keep the ledger/i.test(system) && !/THE LEDGER IS YOUNG/.test(system)) {
+      const user = newPageOf(String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || ''));
+      if (/Bent Kettle was warm/.test(user)) return JSON.stringify({ mutations: [{ type: 'presence.enter', name: 'Old Hesk', position: 'behind his barrel-top' }, { type: 'mode.snapshot', flags: [] }], threads: [{ title: GUARD, now: 'open' }], here: ['Azrael', 'Roska', 'Old Hesk'], spot: 'the Bent Kettle' });
+      return JSON.stringify({
+        mutations: [
+          { type: 'presence.leave', name: 'the cobbler', to: 'his own doorway on Gilder’s Row', shown: 'the cobbler had gone back into his own doorway' },
+          { type: 'presence.leave', name: 'the fruit-seller', to: 'behind her second stall on Gilder’s Row', shown: 'the fruit-seller was counting apples behind her second stall again' },
+          { type: 'presence.leave', name: 'the young priest', to: 'the temple vestibule', shown: 'the young priest had gone in under the temple vestibule' },
+          { type: 'presence.leave', name: 'the pie-seller', to: 'Gilder’s Row, by the well', shown: 'They walked south together toward the Bent Kettle' },
+          { type: 'mode.snapshot', flags: [] },
+        ],
+        threads: [{ title: FENCE, now: 'resolved' }, { title: WATCH, now: 'resolved' }, { title: GUARD, now: 'open' }],
+        loose: [{ name: 'Roska', text: HUNTED, now: 'closed' }, { name: 'Roska', text: FAVOUR, now: 'open' }],
+        things: [{ name: 'the purse', where: 'in Azrael’s open palm', owner: 'Azrael' }],
+        here: ['Azrael', { name: 'Roska', at: 'beside him, walking south toward the Bent Kettle' }],
+        spot: 'Cooper’s Row',
+      });
+    }
+    if (/world beyond the page/i.test(system)) return '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null,"voices":[]}}';
+    return walkDefaultWorker(body, sys);
+  };
+  const settle = async (n) => {
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= n && !env.ctx.chat.isBusy(), 'page ' + n, 40000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'its readers', 60000);
+  };
+  try {
+    type(q('#composer-input'), 'I catch up with her at the door.'); submit(q('#composer'));
+    await settle(2);
+    let now = await loadState(st.id);
+    eq(now.clock.label, 'Thornday, October 14, 1247 — 15:58', 'the hour in his own week, as the page says');
+    eq((now.place || {}).name, 'Cooper’s Row, Ilvarren', 'the ground is the street the page stands on, in the city');
+    eq(now.present.map((p) => p.name).sort().join(', '), 'Azrael, Roska, the raven', 'nobody from Gilder’s Row or the temple is here (the raven, quiet on this page, is not taken out for silence)');
+    for (const n of ['the cobbler', 'the fruit-seller', 'the young priest', 'the pie-seller']) assert(Object.keys(now.offscreen || {}).includes(n), n + ' is seated where the page left them');
+    eq(now.things['the purse'].where + ' | ' + now.things['the purse'].owner, 'in Azrael’s open palm | Azrael', 'the purse is in his palm, and his');
+    assert(findThread(now.threads, FENCE) === -1 && findThread(now.threads, WATCH) === -1, 'the fence and the watch: both closed');
+    assert(findThread(now.threads, GUARD) !== -1, 'the guard’s thread, still live, stays');
+    assert(!now.characters.Roska.threads.some((t) => /hunting her/.test(t)) && now.characters.Roska.threads.some((t) => /favour/.test(t)), 'Roska’s hunted loose end is closed; her favour stays');
+    await until(async () => /^\[Cooper’s Row, Ilvarren — Thornday, October 14, 1247/.test(String((await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop().text || '')), 'the page’s header names the street', 15000);
+    /* into the Bent Kettle — a header that names only the city again, a walk from one street into a tavern */
+    type(q('#composer-input'), 'We go in.'); submit(q('#composer'));
+    await settle(3);
+    now = await loadState(st.id);
+    eq((now.place || {}).name, 'the Bent Kettle, Ilvarren', 'the ground moved into the tavern');
+    eq(now.present.map((p) => p.name).sort().join(', '), 'Azrael, Old Hesk, Roska', 'the room as the page ends: the raven stayed behind on Cooper’s Row');
+    assert(Object.keys(now.offscreen || {}).includes('the raven'), 'and is seated where the scene left it');
+    eq(now.clock.label, 'Thornday, October 14, 1247 — 16:20', 'the hour, still in his own week');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-272 HIS TURN 21, THROUGH THE APP (M679 — his: "why my mc at the end of pages already moving on not with Corven but the auditor change stupidly back to with Corven like at the start of the page? Auditor should not cause mistake"): the page starts at the hall’s threshold beside Corven and ends at the small council room’s door with the page boy; the reader takes Corven out (he walked away from him, so no “to” — the house notes him last seen at the hall), and neither the house’s own heal of who is here nor the auditor’s reading of the page’s start walks anyone back: Azrael stays at the small council room door, Corven, Ser Holvard and Mirelia stay where they are, the cloak stays over the steward’s hand — and what lasts from the auditor (a line of who knows what) still lands', async () => {
+  const before = errors.length;
+  const { saveState: saveLedger, emptyState: blankLedger, loadState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const st = await db.stories.create({ title: 'Kingsreach — the small council room' });
+  await db.messages.append(st.id, { role: 'user', text: 'We walk up from the colonnade.' });
+  await db.messages.append(st.id, { role: 'assistant', text: '[Kingsreach, the king’s hall — Thornday, October 16, 1247 | 19:20 | cold | wool doublet | at the foot of the hall steps]\n\nThey came up from the colonnade, Corven at his side.' });
+  const led = applyMutations({ ...blankLedger(), sheet: { actors: {}, playerName: 'Azrael Jugram' } }, [
+    { type: 'mc.set', name: 'Azrael Jugram' }, { type: 'place.set', name: 'Kingsreach, the king’s hall' },
+    { type: 'clock.set', year: 1247, month: 10, day: 16, hour: 19, minute: 20 },
+    { type: 'presence.enter', name: 'Azrael Jugram', position: 'at the foot of the hall steps', attire: 'wool doublet' },
+    { type: 'presence.enter', name: 'Corven', position: 'beside him, lamp up' },
+    { type: 'people.set', name: 'Corven', field: 'core', text: 'captain of the king’s guard, a lamp and few words' },
+    { type: 'offscreen.set', name: 'Ser Holvard', location: 'the lower end of the great table in the king’s hall', activity: 'drinking' },
+    { type: 'offscreen.set', name: 'Mirelia', location: 'the colonnade, in the column’s shadow', activity: 'taking the air before hall' },
+    { type: 'thing.set', name: 'the cloak', where: 'over Jugram’s shoulders', owner: 'Azrael Jugram' },
+  ]).state;
+  await saveLedger(st.id, { ...led, page: 0, readTo: 0, tidiedGen: 999, healedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  const HALL = '[Kingsreach, the king’s hall — Thornday, October 16, 1247 | 19:40 | cold, clear | wool doublet | at the small council room door with the page]\n\n'
+    + 'At the hall’s threshold Jugram swept the cloak off his shoulders and folded it over his forearm. Corven stood beside him, lamp up, waiting. Down the great table’s lower end Ser Holvard had one boot on a bench and a horn in his fist, complaining to anyone who would listen.\n\n'
+    + 'A page came at a half-run and stopped short of them. “The king sups in the small council room tonight, m’lord. He asks for you before he sleeps.”\n\n'
+    + '“I guess I should go, Captain Corven,” Jugram said, and asked the boy to walk him to the small council room.\n\n'
+    + 'Corven let him go without another word about the cloak. The boy led Jugram down the side passage, past the kitchens’ heat, to the small council room’s door, where a grey steward took the cloak over his hand.';
+  house.state.storyAnswer = () => HALL;
+  let audited = 0;
+  house.state.workerAnswer = (body, sys) => {
+    const system = String(sys || '');
+    if (/auditor of the ledger/i.test(system)) {
+      audited += 1;
+      /* his auditor's reading of turn 21 — the page's START taken for the present */
+      return JSON.stringify({ issues: [
+        { what: 'the ledger’s presence has Azrael at the small council room door with the page, but the latest page shows him at the hall’s threshold beside Corven, cloak off over his forearm', fix: 'Azrael is at the hall’s threshold beside Corven', pages: false, mutations: [{ type: 'presence.update', name: 'Azrael', position: 'at the hall’s threshold beside Corven, cloak off over his forearm' }] },
+        { what: 'the ledger’s Here now does not list Corven, but the latest page shows him at the hall’s threshold beside Jugram', fix: 'Corven is in the scene', pages: false, mutations: [{ type: 'presence.enter', name: 'Corven', shown: 'Corven stood beside him, lamp up, waiting' }] },
+        { what: 'the ledger’s Here now does not list Ser Holvard, but the latest page shows him down the great table’s lower end', fix: 'Ser Holvard is in the scene', pages: false, mutations: [{ type: 'offscreen.clear', name: 'Ser Holvard' }] },
+        { what: 'the ledger’s Things list has the cloak over the grey steward’s hand, but the latest page shows Jugram folding it over his forearm at the hall’s threshold', fix: 'the cloak is over Jugram’s forearm', pages: false, mutations: [{ type: 'thing.set', name: 'the cloak', where: 'over Jugram’s forearm at the hall’s threshold' }] },
+        { what: 'the ledger lacks Mirelia', fix: 'Mirelia is here', pages: false, mutations: [{ type: 'presence.enter', name: 'Mirelia' }] },
+        { what: 'Corven has no line for Jugram’s leave-taking', fix: 'Corven knows it', pages: false, mutations: [{ type: 'knowledge.add', name: 'Corven', fact: 'that Jugram took his leave with “I guess I should go, Captain Corven” and went with the boy to the small council room' }] },
+      ] });
+    }
+    if (/keep the ledger/i.test(system) && !/THE LEDGER IS YOUNG/.test(system)) {
+      return JSON.stringify({
+        mutations: [
+          { type: 'presence.update', name: 'Azrael Jugram', position: 'at the small council room door with the page' },
+          { type: 'presence.enter', name: 'the page', position: 'at the door beside him', shown: 'The boy led Jugram down the side passage' },
+          { type: 'presence.leave', name: 'Corven', shown: 'Corven let him go without another word about the cloak' },
+          { type: 'mode.snapshot', flags: [] },
+        ],
+        things: [{ name: 'the cloak', where: 'over the grey steward’s hand at the small council room door' }],
+        here: ['Azrael Jugram', 'the page'],
+      });
+    }
+    if (/world beyond the page/i.test(system)) return '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null,"voices":[]}}';
+    return walkDefaultWorker(body, sys);
+  };
+  try {
+    type(q('#composer-input'), 'I go in.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length >= 2 && !env.ctx.chat.isBusy(), 'the page', 40000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'its readers', 60000);
+    const now = await loadState(st.id);
+    assert(audited >= 1, 'the auditor read the page');
+    eq(now.present.map((p) => p.name).sort().join(', '), 'Azrael Jugram, the page', 'the room as the page ends — nobody walked back in (not Corven, not Ser Holvard, not Mirelia)');
+    const az = now.present.find((p) => p.name === 'Azrael Jugram');
+    eq(az && az.position, 'at the small council room door with the page', 'he is where the page ends');
+    for (const n of ['Corven', 'Ser Holvard', 'Mirelia']) assert(Object.keys(now.offscreen || {}).includes(n), n + ' keeps a seat away from the scene');
+    eq(now.things['the cloak'].where, 'over the grey steward’s hand at the small council room door', 'the cloak stays where the page ends');
+    assert((now.knowledge.Corven || []).some((k) => /I guess I should go/.test(k.fact)), 'what lasts from the auditor still lands');
+    eq(JSON.stringify(now.roomAt), JSON.stringify({ page: 1, names: ['Azrael Jugram', 'the page'] }), 'the room the reader named is kept with the page’s index');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

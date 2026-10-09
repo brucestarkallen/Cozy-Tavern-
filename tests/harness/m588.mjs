@@ -301,7 +301,9 @@ test('M643-1 WHERE THEY WENT, WHEN THE PAGE SAID: a leaving that says "to" seats
   eq(seat.location + ' | ' + seat.activity + ' | ' + (seat.lastSeen === true), 'upstairs in the Wells house | going up to bed | false', 'she is seated where the page showed her going');
   eq(seatNowWords(seat, null), 'upstairs in the Wells house, going up to bed', 'and that is how her page reads — not “last seen at” the kitchen');
   assert(!told.state.present.some((p) => p.name === 'Aunt Vera') && told.state.present.length === 3, 'she is out of the scene; the three others stay');
-  assert(/Aunt Vera stepped out of the scene — to upstairs in the Wells house\./.test(told.applied[0].words), 'the ledger’s own line says where: ' + told.applied[0].words);
+  /* M679: "to upstairs" is not how anyone says it — a place that opens with where-in-it words is where she is now */
+  assert(/Aunt Vera stepped out of the scene — now upstairs in the Wells house\./.test(told.applied[0].words), 'the ledger’s own line says where: ' + told.applied[0].words);
+  assert(/stepped out of the scene — to the temple vestibule\./.test(after({ type: 'presence.leave', name: 'Tom', to: 'the temple vestibule' }).applied[0].words), 'and a place she went to is where she went');
   const bare = after({ type: 'presence.leave', name: 'Aunt Vera' });
   eq(seatNowWords(bare.state.offscreen['Aunt Vera'], null), 'last seen at Wells house kitchen, 8 Mariner\u2019s Lane', 'no “to”: the house’s own sighting, as it always was');
   eq(bare.state.offscreen['Aunt Vera'].lastSeen, true, 'marked as a sighting (the world agent moves her on from it)');
@@ -1393,7 +1395,7 @@ test('M663-1 THE OPEN WOUNDS ARE HANDED TO THE PAGE READER BY NAME, EACH TO BE D
     { type: 'body.injure', name: 'Tom', what: 'a cracked rib', sev: 2 }, { type: 'body.injure', name: 'Mira', what: 'a burned hand', sev: 1 }]).state;
   const page = '[Wells house kitchen — Monday, March 24, 2025 | 21:45 | rain | sweater | at the table]\n\nThree weeks on, Rias flexed her forearm — healed to a pale seam — and laughed. Somewhere out on the landing Mira was still swearing at the ropes.';
   const block = openWoundsBlock(st, page).join('\n');
-  assert(/OPEN WOUNDS — decide each against THIS page/.test(block) && /Rias — left forearm cut to the bone \(treated\)/.test(block) && /Rias — a split lip/.test(block) && /Mira — a burned hand/.test(block), 'the wounds of who is here, and of who the page names: ' + block);
+  assert(/OPEN WOUNDS — decide each against the story as it stands at the END of this page/.test(block) && /Rias — left forearm cut to the bone \(treated\)/.test(block) && /Rias — a split lip/.test(block) && /Mira — a burned hand/.test(block), 'the wounds of who is here, and of who the page names: ' + block);
   assert(!/Tom/.test(block), 'never of someone the page does not touch');
   assert(/OPEN WOUNDS — decide each/.test(buildExtractorMessages({ state: st, userText: 'I watch her.', assistantText: page }).user), 'and it rides in what the page reader is sent');
   eq(openWoundsBlock(applyMutations(st, [{ type: 'body.heal', name: 'Rias', what: 'left forearm cut to the bone' }, { type: 'body.heal', name: 'Rias', what: 'a split lip' }, { type: 'body.heal', name: 'Mira', what: 'a burned hand' }]).state, page).length, 0, 'no open wound on this page’s people: nothing is asked');
@@ -1648,7 +1650,10 @@ test('M667-1 THE THINGS A PAGE NAMES AND THE PEOPLE WITHIN EARSHOT ARE HANDED TO
   const sent = buildExtractorMessages({ state: st, userText: 'I hold out the rose.', assistantText: page }).user;
   assert(/WITHIN EARSHOT/.test(sent) && /THINGS THE LEDGER KEEPS THAT THIS PAGE NAMES/.test(sent), 'both ride in what the reader is sent');
   const quiet = '[' + G + ' — Hanami 5, 1001 AG | 21:25]\n\nShe said nothing more.';
-  eq(thingsOnPageBlock(st, quiet).length, 0, 'a page that names no kept thing asks about none');
+  /* M679: a thing in the hands of the page's people is asked about though the page does not name it (his purse was handed
+   * over as "it") — the rose in Jovan's hand; never the key round the neck of Salla, back at the tavern and unnamed */
+  const quietAsks = thingsOnPageBlock(st, quiet).join('\n');
+  assert(/\d\. the rose \(Jovan Wayne’s\) — in Jovan’s hand/.test(quietAsks) && !/brass key/.test(quietAsks), 'a page that names no kept thing asks only about what its people hold: ' + quietAsks);
   const read = await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }, { type: 'knowledge.add', who: ['the one-armed old campaigner', 'the hooded girl'], fact: 'that the hooded girl named herself Oriana, the King’s daughter, to Jovan in the alley' }], resolved: [], here: ['Jovan Wayne', 'the hooded girl'],
     things: [{ name: 'the rose', where: 'between them on the wet stone' }, { name: 'the brass key', where: 'in the hooded girl’s pocket' }, { name: 'a silver locket', where: 'on the wet stone' }] }) }), () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'I hold out the rose.', assistantText: page, pageNumber: 23 }));
   eq(JSON.stringify(read.mutations.filter((m) => m.type === 'thing.set')), JSON.stringify([{ type: 'thing.set', name: 'the rose', where: 'between them on the wet stone' }]), 'the rose is moved to where the page leaves it; a key moved to a pocket the page never showed is not; a locket the ledger does not keep is not made');

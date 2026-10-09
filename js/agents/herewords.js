@@ -13,3 +13,11 @@ export const HERE_MEANS = 'IN THE SCENE means sharing the main character\u2019s 
  * — a joke about a plaque, a whispered "TABS?", a cup raised — "missing", and wrote each into six people's books. Both
  * now read this sentence. */
 export const KNOWING_MEANS = 'WHO KNOWS WHAT holds what was put in front of someone that could change what they do or say later: a secret told, a name, an age or a fact heard, a feeling or a plan said out loud, a lie caught, a thing seen they were not meant to see. What the room simply watched happen — a joke, a remark, a gasp, a gesture, a look, a cup raised — is the page’s own, and goes into nobody’s knowledge.';
+
+/* M679 — WHAT ANSWERS A LOOSE END — one definition, read by every helper that closes one (the page reader, the scribe, the
+ * auditor). His turn-19 reading closed four loose ends "answered by the pages": "She has told Jugram to come to her before
+ * the duke's banquet" because "she said this aloud in Corven's hearing, and the ledger's own knowledge line records it";
+ * "He is to escort the fourth princess Alexia to the duke's banquet" because "the queen told him this aloud"; "the
+ * wrong-turned cloak and what it means remain unnamed between them" because "the pages show he did exactly this". The page
+ * that SAYS a loose end is why it was written; the visit, the banquet, the naming had not happened. */
+export const LOOSE_ANSWERED_MEANS = 'A LOOSE END is answered only by what comes AFTER it — the visit made, the escort ridden, the question answered, the promise kept or broken, the thing named at last — or when it can no longer happen. The page that SAYS it (an order, a summons, a promise, a thing left unnamed) is why it was written, never its answer; nor is a ledger line holding the same words.';

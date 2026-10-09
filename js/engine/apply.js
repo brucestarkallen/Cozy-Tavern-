@@ -468,8 +468,18 @@ const HANDLERS = {
     const target = state.clock
       ? setClock(state.clock, { year, month, day, hour, minute })
       : createClock({ calendar: 'real', start: { year, month, day, hour, minute } });
-    /* M259: the same hour is no change */
-    if (before && Number.isFinite(before.minutes) && target && target.minutes === before.minutes) return { why: 'the clock already reads ' + (renderClock(before) || 'that'), same: true };
+    /* M679: THE DAY IN THE STORY'S OWN WORDS. A header that wrote its own weekday ("Thornday, October 14, 1247") hands its
+     * words over with the date (state.js headerDayWords): they are the day, as M455's are for a calendar of the story's
+     * own. A date set by its numbers alone on that same day (the auditor's, a header that names no weekday) keeps the
+     * words the clock already has for it — it never turns "Thornday" back into the real calendar's "Monday". */
+    const dayWords = typeof m.dayWords === 'string' ? m.dayWords.replace(/\s+/g, ' ').trim().slice(0, 60) : '';
+    const onDay = Math.floor(target.minutes / 1440);
+    if (dayWords) { target.dayWords = dayWords; target.dayWordsAt = onDay; }
+    else if (before && typeof before.dayWords === 'string' && before.dayWords.trim() && before.dayWordsAt === onDay) { target.dayWords = before.dayWords; target.dayWordsAt = onDay; }
+    target.label = renderClock(target);
+    /* M259: the same hour is no change — M679: on the same day words (a clock that said "Monday" where the page says
+     * "Thornday" is put right, at the very same minute) */
+    if (before && Number.isFinite(before.minutes) && target && target.minutes === before.minutes && (before.dayWords || '') === (target.dayWords || '')) return { why: 'the clock already reads ' + (renderClock(before) || 'that'), same: true };
     state.clock = target;
     const words = 'The clock was set — ' + renderClock(state.clock) + '.';
     return { words, undo: { kind: 'clock', before } };
@@ -594,8 +604,14 @@ const HANDLERS = {
       seatAdded = before.name;
     }
     const cause = capText(m.cause, 300);
+    /* M679: where they are now, said as English says it — his line read "the fruit seller stepped out of the scene, to behind her
+     * second stall" and "the raven … to off the ham-loft gable": a place that opens with where-in-it words is where they ARE
+     * ("— now behind her second stall"), a way that opens with its own going is said as it is ("— back to the barracks",
+     * "— into the vestibule"), and anything else is where they went ("— to the temple vestibule") */
+    const joint = !went ? '' : /^(?:into|onto|out|up|down|back|home|through|toward|towards|over to|off to)\b/i.test(went) ? ' — '
+      : /^(?:behind|off|on|in|inside|at|by|above|below|under|beneath|near|beside|across|over|outside|upstairs|downstairs|within|among|along|around|against|atop)\b/i.test(went) ? ' — now ' : ' — to ';
     return {
-      words: before.name + ' stepped out of the scene' + (went ? ' — to ' + went : '') + (cause ? ' — ' + cause.replace(/\.+$/, '') : '') + '.',
+      words: before.name + ' stepped out of the scene' + (went ? joint + went : '') + (cause ? ' — ' + cause.replace(/\.+$/, '') : '') + '.',
       undo: { kind: 'presence.restore', before, index: at, ...(seatAdded ? { seatAdded } : {}) },
     };
   },
@@ -1839,6 +1855,20 @@ export function showsDeparture(sentence) {
  * else, by name or by rank ("Rukia glanced at Kuchiki-taichō. He left." is his going). A later sentence that names them
  * without going means they are here; a page that never names them as themself does not show them going. */
 const RANKED = /\b(?:captain|lieutenant|commander|general|sergeant|officer|detective|mr|mrs|ms|miss|dr|lady|lord|sir|madam|master|headmaster|headmistress|principal|instructor|chancellor)\.?\s+\p{Lu}|\p{L}+-(?:taich|fukutaich|s[oō]taich|san\b|sama\b|kun\b|chan\b|dono\b|sensei\b|senpai\b)/iu;
+/* M679: HOW THE PAGE ENDS — its last paragraph, or the last two or three when they are short (the header line and the window
+ * set aside). What the house writes of the scene from the newest page — the auditor's walk-ins, places and things, and the
+ * heal of who is here — is held to it: a page that starts at the hall's threshold beside Corven and ends at the small
+ * council room's door with the page boy has the small council room for its present. */
+export function pageEnding(pageText) {
+  const scene = scenePartOf(String(pageText || '')).replace(/^\s*\[[^\n]*\][ \t]*/, '');
+  const paras = scene.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean);
+  const out = [];
+  for (let i = paras.length - 1; i >= 0 && out.length < 3; i -= 1) {
+    out.unshift(paras[i]);
+    if (out.join('\n\n').length >= 400) break;
+  }
+  return out.join('\n\n');
+}
 /* M588: does the scene end on the main character going? His name (whole, or its first word) opening a clause — not after
  * "to", "at", "with", "toward", "past", "behind", "for", "from" — with a going in the same sentence. */
 export function mcWalksOff(pageText, mc) {
@@ -2005,7 +2035,14 @@ const trulyOther = (old, neu) => {
 export function restatedPresence(state, notes, mutations, pageText = '') {
   const out = [];
   const list = Array.isArray(mutations) ? mutations : [];
-  const touched = new Set(list.filter((m) => m && /^presence\.(?:update|enter|leave)$/.test(m.type)).map((m) => String(m.name || '').trim().toLowerCase()));
+  /* M679 — HIS READING OF TURN 19: Azrael "at the foot of the hall steps … bared to the waist and below" — the courtyard's undress
+   * pages after he had dressed, though his own header gave his dress on every page since. A change of the reader's own for
+   * someone set them ALL aside here: a reader that moved Azrael to the hall steps (a place) took his header's dress (a dress)
+   * with it. Each field stands aside only for a change of that field: a place for a place, a dress for a dress; a coming or
+   * a going for both. */
+  const touchedBy = (field) => new Set(list.filter((m) => m && (/^presence\.(?:enter|leave)$/.test(m.type) || (m.type === 'presence.update' && m[field] !== undefined))).map((m) => String(m.name || '').trim().toLowerCase()));
+  const touchedPlace = touchedBy('position');
+  const touchedDress = touchedBy('attire');
   /* the page's TELLING — never its header line: the header's own cells are among what is being judged (M661) */
   const told = tellingOf(narrationOf(scenePartOf(String(pageText || '').replace(/^\s*\[[^\n]*\][ \t]*/, ''))));
   const onPage = (text) => { const w = [...tellingOf(text)]; return w.length > 0 && w.filter((x) => told.has(x)).length / w.length >= 0.5; };
@@ -2016,9 +2053,12 @@ export function restatedPresence(state, notes, mutations, pageText = '') {
     if (at === -1) continue;
     const entry = state.present[at];
     const key = String(entry.name).toLowerCase();
-    if (touched.has(key) || touched.has(n.name.trim().toLowerCase())) continue;
+    const own = n.name.trim().toLowerCase();
+    const placeTaken = touchedPlace.has(key) || touchedPlace.has(own);
+    const dressTaken = touchedDress.has(key) || touchedDress.has(own);
+    if (placeTaken && dressTaken) continue;
     const m = written.get(key) || { type: 'presence.update', name: entry.name };
-    const wears = capText(n.wears, 160); const where = capText(n.at, 160);
+    const wears = dressTaken ? '' : capText(n.wears, 160); const where = placeTaken ? '' : capText(n.at, 160);
     if (m.attire === undefined && wears && onPage(wears) && trulyOther(entry.attire, wears)) m.attire = wears;
     if (m.position === undefined && where && onPage(where) && trulyOther(entry.position, where)) m.position = where;
     if ((m.attire !== undefined || m.position !== undefined) && !written.has(key)) { written.set(key, m); out.push(m); }
@@ -2089,14 +2129,30 @@ export function movedThings(state, things, pageText = '', userText = '') {
   const kept = state && state.things && typeof state.things === 'object' ? state.things : {};
   const told = new Set([...tellingOf(narrationOf(scenePartOf(String(pageText || '').replace(/^\s*\[[^\n]*\][ \t]*/, '')))), ...tellingOf(String(userText || ''))]);
   const onPage = (text) => { const w = [...tellingOf(text)]; return w.length > 0 && w.filter((x) => told.has(x)).length / w.length >= 0.5; };
+  /* M679: whose it is, said by the reader when the page changed that — written only as someone the story knows (him, someone
+   * in the scene, a person with a page or a seat), under the name the ledger keeps for them, and only when it is truly
+   * someone else (the purse "(Roska's)" handed back to Azrael) */
+  const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
+  const ownerOf = (said) => {
+    const n = capText(normalizeName(said || ''), 120);
+    if (!n) return '';
+    if (isMc(state, n)) { const mc = mcName(state); return mc && mc !== 'the player' ? mc : ''; }
+    const at = findPresent(state, n, { strict: true });
+    if (at !== -1) return state.present[at].name;
+    return findPersonKey(chars, n) || (seatForPerson(state, n) && seatForPerson(state, n).key) || '';
+  };
   for (const t of (Array.isArray(things) ? things : []).slice(0, 12)) {
     if (!t || typeof t !== 'object') continue;
     const name = capText(normalizeName(t.name), 120); const where = capText(t.where, 240);
     if (!name || !where) continue;
     const key = findThingKey(kept, name) || (thingKin(kept, name).length === 1 ? thingKin(kept, name)[0] : '');
-    if (!key || !kept[key] || !onPage(where) || !trulyOther(kept[key].where, where)) continue;
+    if (!key || !kept[key]) continue;
+    const moved = onPage(where) && trulyOther(kept[key].where, where);
+    const owner = ownerOf(t.owner);
+    const passed = Boolean(owner) && !samePersonName(owner, String(kept[key].owner || ''));
+    if (!moved && !passed) continue;
     if (out.some((m) => m.name === key)) continue;
-    out.push({ type: 'thing.set', name: key, where });
+    out.push({ type: 'thing.set', name: key, where: moved ? where : kept[key].where, ...(passed ? { owner } : {}) });
   }
   return out;
 }
@@ -2145,18 +2201,35 @@ export function groundLooksStale(state, pageText) {
  * the window) and does not end on them going: they are here. Each is written in (presence.enter, which lets the note go
  * — journaled, undoable). Someone on their way in (toward, seeking) is left on the road. Run when a story opens and
  * after every page. */
-export function hereByTheNewestPage(state, pageText) {
+/* M679 — THE SAME PAGE'S OWN LEAVE STANDS, AND THE PRESENT IS ITS ENDING. His turn 21 ended with Azrael gone down the side
+ * passage with the page boy and Corven left at the hall ("Corven let him go without another word about the cloak"). The
+ * reader takes Corven out — and with no "to" (until M679 its instructions said to leave it out when it is HE who walked
+ * away) the house notes Corven "last seen" at the scene's own ground — and this heal, reading that same page, found Corven named and not going at its
+ * end, and wrote him straight back in: the page's START taken for the present, by the house itself. Now: nobody this very
+ * page's own readers took out is written back in on its word (pageAt: the page's index, as the chain stamps its writes),
+ * and someone is written in only when the page's ENDING shows them (pageEnding), never when it ends on HIM going. */
+export function hereByTheNewestPage(state, pageText, { pageAt = null } = {}) {
   const s = state && typeof state === 'object' ? state : null;
   if (!s || !s.place || typeof s.place.name !== 'string' || !s.place.name.trim()) return [];
   const ground = s.place.name;
-  const told = narrationOf(scenePartOf(pageText));
+  const told = narrationOf(pageEnding(pageText));
   if (!told.trim()) return [];
+  const mc = mcName(s);
+  if (mc && mc !== 'the player' && mcWalksOff(pageText, mc)) return [];
+  /* a leave this page's reader wrote AND held to the page by its own words for the going ("shown", quotedGoing — what the
+   * reader's gate keeps a leave on): an older reader's leave with no such words is what M452 mends, and still is */
+  const tookOut = Number.isInteger(pageAt) ? (Array.isArray(s.journal) ? s.journal : []).filter((j) => j && j.p === pageAt && j.m && j.m.type === 'presence.leave' && typeof j.m.name === 'string' && quotedGoing(s, pageText, j.m.name, j.m.shown)).map((j) => j.m.name) : [];
+  /* …and when its reader named the room as the page ends (chat.js: state.roomAt, kept with the page's index), nobody is
+   * written in against it — the room is the reader's last word on who is there (M666) */
+  const room = Number.isInteger(pageAt) && s.roomAt && typeof s.roomAt === 'object' && s.roomAt.page === pageAt && Array.isArray(s.roomAt.names) && s.roomAt.names.length ? s.roomAt.names : null;
   const out = [];
   for (const [key, seated] of Object.entries(s.offscreen && typeof s.offscreen === 'object' ? s.offscreen : {})) {
     if (!seated || typeof seated !== 'object' || seated.stance === 'toward' || seated.stance === 'seeking') continue;
     const atTheScene = (seated.lastSeen === true && samePlace(seated.location, ground)) || seatAtScene(seated.location, ground);
     if (!atTheScene || isMc(s, key) || isHere(s, key) || !oneMeaning(s, key)) continue;
     const name = strictPageKey(s, key) || key;
+    if (tookOut.some((n) => samePersonName(n, key) || samePersonName(n, name))) continue;
+    if (room && !room.some((r) => typeof r === 'string' && (samePersonName(r, key) || samePersonName(r, name)))) continue;
     if (!shownOnPage(s, told, key) && !shownOnPage(s, told, name)) continue;
     if (goneAtTheEnd(s, pageText, name)) continue;
     if (out.some((m) => samePersonName(m.name, name))) continue;

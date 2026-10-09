@@ -1,6 +1,25 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m678-001)
+# Cozy Tavern — handoff for the next session (state at m679-001)
+
+## M679 — THE LEDGER BEFORE THE AUDITOR, AND AN AUDITOR THAT CAUSES NO MISTAKE. Read AGENTS.md "# M679" whole.
+- THE PRESENT IS THE PAGE'S ENDING (apply.js pageEnding). Whatever writes the SCENE from the newest page — a walk-in, a seat
+  let go, a place or a dress, a thing's new place — is held to how the page ends, never to words anywhere on it. The
+  auditor (auditorScope) and the house's heal of who is here (hereByTheNewestPage) both are. A new door that writes the
+  scene from a page's words is held to the ending too.
+- NEVER UNDO THE PAGE'S OWN READER ON THE SAME PAGE: what its readers wrote is the journal at the page's index (pageAt,
+  counted as chat.js stamps the page in hand); a leave counts when the page's own words for the going hold (quotedGoing —
+  an older reader's bare leave is what M452 mends); the room its reader named is state.roomAt {page, names}. The auditor
+  and the heal walk nobody back in against either.
+- THE READER IS ASKED BY NAME, EVERY PAGE, for what the auditor used to find: the spot in an area-only header ("spot"), each
+  person still with him or left behind, a verdict for every open thread and every loose end ("threads", "loose") judged by
+  the story as it stands at the END (the pages before count), the things its people hold. Its answer floor is 6000 tokens
+  on a house of 32,000+ (readerBudget).
+- THE STORY'S OWN WEEKDAY rides a clock.set as dayWords (state.js headerDayWords); a real weekday adds nothing.
+- ONE DEFINITION OF WHAT ANSWERS A LOOSE END (herewords.js LOOSE_ANSWERED_MEANS), read by the reader, the scribe and the
+  auditor; a loose end written from the newest page is not closed by the auditor on that same page.
+- THE AUDITOR'S PROMPT HAS ~90 CHARACTERS OF ROOM LEFT IN M259-18 ("the whole brief is served" — a 45,000-character brief in a
+  70,000-token house): its prompt growing past that fails it. Trim the law when you add to it.
 
 ## M678 — THE ACADEMY, REBUILT AS THE ENCHANTED MAP (a coat only). Read AGENTS.md "# M678".
 - HIS ORDER FOR THEME WORK: the layout stays as it is. A theme changes how things LOOK, never where a control stands or

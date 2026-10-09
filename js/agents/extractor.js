@@ -34,11 +34,11 @@
  * The M3 names (noteExtraction / pendingExtraction) remain as aliases —
  * they were the published contract. */
 
-import { HERE_MEANS, KNOWING_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition; M677: what goes into who knows what — one definition */
+import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition; M677: what goes into who knows what — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
-import { nameOnPage, isHere, samePersonName, oneMeaning } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
-import { headerMutations, headerDress, closeBy } from '../engine/state.js'; /* M446: did this page move the ground? */
+import { nameOnPage, isHere, samePersonName, oneMeaning, foldName } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey, noOneSpot } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
+import { headerMutations, headerDress, closeBy, headerCells } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey } from '../engine/people.js';
 import { findRelationship } from '../engine/relationships.js'; /* M641: who has no standing yet */
 import { publicMoment } from '../engine/world.js'; /* M509-15: a moment the whole room saw */
@@ -49,6 +49,7 @@ import { pauseContinuousAudit } from './continuous.js'; /* M673: nothing waits f
 
 import { renderWholeLedger, wholePage, knowledgeRoomFor } from '../engine/whole.js'; /* M259: the whole ledger, and the page read to its end */
 import { askWithFetch, fetchLaw, windowOfPages, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259/M261: it may look; the story so far, whole */
+import { contextOf } from '../providers/room.js'; /* M679: the reader's answer floor, by its room */
 import { mcName } from '../engine/duels.js';
 
 /* M28: the answer is JSON only and thinking is OFF on the wire (call.js),
@@ -56,7 +57,15 @@ import { mcName } from '../engine/duels.js';
  * with room to spare. (M26's 2000 was a bandage over thinking models
  * spending the budget on thought; the wire now tells them not to.) */
 const MAX_TOKENS = 2400; /* M37: room for a long founding even if a house thinks a little anyway */
-export const EXTRACTOR_MAX_TOKENS = MAX_TOKENS; /* M444: the page reader's room is measured with its own answer budget */
+/* M679: the reader now answers, by name, for every open thread and every loose end of the page's people as well as for each
+ * person shown — on a busy page a whole answer runs past 2400 tokens, and an answer the wire cuts is read as nothing at all.
+ * A house of 32,000 tokens or more is sent 6000 (the auditor's and the world agent's own floor — his worker connection
+ * already serves it); a smaller house keeps M37's 2400, so the story before the page still fits its view. Only a floor:
+ * a connection that says more is sent its own (agents/call.js). */
+export const EXTRACTOR_MAX_TOKENS = 6000; /* M444: the page reader's room is measured with its own answer budget */
+export function readerBudget(connection) {
+  return contextOf(connection) >= 32000 ? EXTRACTOR_MAX_TOKENS : MAX_TOKENS;
+}
 
 /* ---------- the in-flight tracker (the send path's courtesy wait) ---------- */
 
@@ -129,7 +138,7 @@ const VOCABULARY = [
   'place.set {"type":"place.set","name":"the chapel"} — the ground the scene stands on, only when first named or it truly moves',
   'clock.advance {"type":"clock.advance","minutes":30,"reason":"the walk to the chapel"} — when time clearly passes; minutes is a number',
   'presence.enter {"type":"presence.enter","name":"NAME","shown":"his aunt came in, shaking rain from her coat","position":"by the fire","attire":"a travel cloak"} — position and attire only if shown; "shown" is the page\'s own words that show them arriving or being here, COPIED EXACTLY from its telling (never from what someone says aloud) — always give it when the telling does not use their name ("his aunt", "the captain", a nickname, "she")',
-  'presence.leave {"type":"presence.leave","name":"OTHER NAME","shown":"footsteps measured up the stairs","to":"upstairs in the Wells house","doing":"going up to bed"} — when someone stops sharing the main character\'s space: the page SHOWS them leaving (walks out, is carried off, vanishes), OR he walks away and leaves them behind (they stay where they were — never the main character himself: when he goes, the scene\'s place goes with him); someone the page does not mention is quiet, not gone, and stays. "shown" is the page\'s own words that show them going, COPIED EXACTLY from its telling (a few words are enough; never from what someone says aloud) — the house holds a leaving to the page by them. WHERE THEY WENT IS YOURS TO SAY, FROM THE PAGE: "to" is where the page shows them going, said so it stands on its own — "upstairs in the Wells house", "the car outside the gate", "back to the Sixth\'s barracks" (never just "out" or "away", and never the scene\'s own ground); "doing" is what they went to do, when the page says. Leave "to" out only when the page shows them go with no sign of where, or when it is he who walked away from them: the house then notes where they were last seen',
+  'presence.leave {"type":"presence.leave","name":"OTHER NAME","shown":"footsteps measured up the stairs","to":"upstairs in the Wells house","doing":"going up to bed"} — when someone stops sharing the main character\'s space: the page SHOWS them leaving (walks out, is carried off, vanishes), OR he walks away and leaves them behind (they stay where they were — never the main character himself: when he goes, the scene\'s place goes with him); someone the page does not mention is quiet, not gone, and stays. "shown" is the page\'s own words that show them going, COPIED EXACTLY from its telling (a few words are enough; never from what someone says aloud) — the house holds a leaving to the page by them. WHERE THEY WENT IS YOURS TO SAY, FROM THE PAGE: "to" is where the page shows them going, said so it stands on its own — "upstairs in the Wells house", "the car outside the gate", "back to the Sixth\'s barracks" (never just "out" or "away", and never the scene\'s own ground); "doing" is what they went to do, when the page says. Leave "to" out only when the page shows them go with no sign of where: the house then notes where they were last seen. When it is HE who walked away from them, "to" is where he left them, as the page last puts them ("at the hall\'s threshold", "in his own doorway on Gilder\'s Row")',
   'presence.update {"type":"presence.update","name":"NAME","position":"at the window"} — when someone present moves or changes dress',
   /* M256: WHO KNOWS WHAT, FOR THE PEOPLE IN THE ROOM. knowledge.add appeared
    * NOWHERE in this file. The world agent has it, but the world agent is
@@ -156,7 +165,7 @@ const VOCABULARY = [
   'rel.shift {"type":"rel.shift","name":"OTHER NAME","axis":"p","delta":8,"cause":"she bandaged his hand without being asked"} — feelings toward the main character only; axis is p (warmth), r (romantic pull), or s (sensual charge); delta a small number, -20 to +20; cause REQUIRED, quoting the on-page beat that earned it',
   'rel.set {"type":"rel.set","name":"OTHER NAME","p":45,"r":60,"cause":"the page reveals she has loved him since they were children"} — when the page, the brief or the story\'s opening states a feeling that already exists (REVEALED, NOT EARNED, below) — never as a guess',
   'offscreen.set {"type":"offscreen.set","name":"NAME","location":"the chapel","activity":"lighting candles for the dead","agenda":"meaning to warn the abbot"} — only for a named character the prose shows leaving or shows elsewhere; never invent off-screen doings for someone the prose doesn’t mention',
-  'thing.set {"type":"thing.set","name":"THE THING","where":"where it stands NOW","owner":"WHOSE (optional)","note":"its state, optional"} — a vehicle, weapon, device or object that matters to what can happen next (a jet parked on the roof, the case of cash in the trunk, the letter in her drawer): written when the page brings it in, and again when it moves or changes, under the name the ledger\'s Things list already gives it — never set dressing',
+  'thing.set {"type":"thing.set","name":"THE THING","where":"where it stands NOW","owner":"WHOSE (optional)","note":"its state, optional"} — a vehicle, weapon, device or object that matters to what can happen next (a jet parked on the roof, the case of cash in the trunk, the letter in her drawer): written when the page brings it in, and again when it moves or changes, under the name the ledger\'s Things list already gives it — never set dressing. The owner is whose it is by right (given, bought, won, handed back to the one it belongs to); a thief or someone only holding it is not its owner — that is where it is',
   'thing.clear {"type":"thing.clear","name":"THE THING","cause":"…"} — when the page destroys it, uses it up or gives it out of the story',
   'offscreen.clear {"type":"offscreen.clear","name":"NAME"} — only for someone who is in the scene now (their elsewhere note is stale); for anyone else whose note no longer holds, write offscreen.set with where they are now — a person the story keeps is always somewhere',
 ].join('\n');
@@ -209,7 +218,8 @@ function systemPrompt({ mc, founding }) {
       'THE LEDGER IS YOUNG — nothing is written in it yet. Found it from these pages. If the page opens',
       'with a bracketed header line — [Place — Day, Month DD, Year | HH:MM | weather | attire | position] —',
       'that line is the truth for place.set and clock.set (all five numbers are in it), and the attire',
-      'and position are the main character\'s (presence.enter with them):',
+      'and position are the main character\'s (presence.enter with them). When its place names only the area (a city, a',
+      'town, a district), the spot in it where the prose puts them is yours to say, in "spot" (the house adds the area):',
       '  - place.set for the ground the scene stands on (a booth at McDonald\'s, a chapel, a train car — the place the prose puts them);',
       '  - presence.enter for EVERY person the pages put in the scene (sharing his space — never someone only seen at a distance), the main character included, with position/attire only if shown;',
       '  - clock.set only if the pages fix a date and hour (never guess a date; if only the hour is known, leave the clock alone);',
@@ -231,7 +241,9 @@ function systemPrompt({ mc, founding }) {
       'If the page opens with a bracketed header line — [Place — Day, Month DD, Year | HH:MM | weather |',
       'attire | position] — it is the truth for the hour (clock.set when the date or hour differs from',
       'the ledger) and the ground (place.set when it moved) — but a header that names only the area round where',
-      'they already are (a city, a town, a district) is no move: the ground stays as the ledger holds it.',
+      'they already are (a city, a town, a district) is no move by itself: where in that area the scene stands is yours',
+      'to say ("spot", when it is asked below), and a step from one spot in it to another — one street to the next, the',
+      'street into a tavern — IS a move.',
       'Its attire and position are the storyteller\'s',
       'READING of the ledger, never a change on their own: write the main character\'s attire or position',
       'only when this page or his move SHOWS it change (he changes, dresses, undresses, sits, moves) — a',
@@ -241,8 +253,9 @@ function systemPrompt({ mc, founding }) {
       'BEFORE YOU ANSWER, THE FOUR MOST OFTEN MISSED (every one of these',
       'was found by the auditor three turns late, in the writer\'s own tale):',
       '  1. THE GROUND MOVED. The ledger holds it on its "The ground:" line. A page',
-      '     that opens with a header line has its place written in code; on a page',
-      '     with none, if the scene now stands somewhere else — a gate, a kitchen,',
+      '     that opens with a header line naming the spot has its place written in code;',
+      '     a header naming only the area (a city, a town) leaves the spot to you ("spot");',
+      '     on a page with none, if the scene now stands somewhere else — a gate, a kitchen,',
       '     one house further down the lane — place.set.',
       '  2. SOMEONE PRESENT MOVED WITHIN IT. Reaching a gate, a hand on a latch,',
       '     crossing to the window: presence.update. Their old position is a lie',
@@ -250,11 +263,14 @@ function systemPrompt({ mc, founding }) {
       '  3. SOMEONE LEARNED SOMETHING. Anyone standing there who heard the answer,',
       '     saw the handshake, caught the lie: knowledge.add, every one of them named in its "who".',
       '  4. WHAT THE PAGE ANSWERED. A question asked and answered, a promise kept,',
-      '     a plan abandoned — thread.close, the title exactly as the ledger quotes it.',
+      '     a plan abandoned — "threads" for the story\'s threads and "loose" for a person\'s own',
+      '     loose ends, each decided as it is listed under the page.',
       'THE LEDGER ABOVE IS ALL OF IT — every standing, thread, line of who knows what',
       'and seat. A fact someone already knows, in any words, is not written again.',
       'ONLY THE NEW PAGE IS NEWS: the pages before it are already in the ledger. A beat the',
-      'standings\' latest causes already name is already counted.',
+      'standings\' latest causes already name is already counted. The lists under the page that',
+      'ask how the story STANDS at the end of this page (the open threads, the open wounds, the',
+      'loose ends, where things are) are the exception: for those, the pages just before count too.',
       'Be conservative. Write down only what the prose explicitly shows — never what it',
       'merely hints at, never what might be true. Injuries only when the blow lands',
       'on-page; feelings shift only from on-page acts, and every shift needs its cause',
@@ -273,17 +289,19 @@ function systemPrompt({ mc, founding }) {
     who,
     '',
     'Answer with JSON ONLY, in exactly this shape:',
-    '{"mutations":[ ... ], "resolved":[ ... ], "healed":[ ... ], "things":[ ... ], "here":[ ... ], "looks":[ ... ]}',
-    '"resolved" holds the exact titles of the OPEN THREADS (listed under the page) that THIS page',
-    'resolved — the question answered, the plan carried out or abandoned, the promise kept, the thing',
-    'found, the decision made. A thread the page only moved is not resolved. [] when none was.',
+    '{"mutations":[ ... ], "threads":[ ... ], "healed":[ ... ], "things":[ ... ], "loose":[ ... ], "here":[ ... ], "looks":[ ... ], "spot":"…"}',
+    '"threads" decides EVERY open thread listed under the page, one entry each — {"title":"…","now":"resolved"} or',
+    '{"title":"…","now":"open"} (a thread the story has only moved is still open). "healed", "things", "loose" and "spot"',
+    'answer the lists under the page that ask for them; [] (or "" for "spot") when there is none.',
     '"here" names EVERYONE in the scene at the END of this page, by the names the ledger uses — each a plain name, or',
     '{"name":"…","at":"where in the room they are as the page ends","wears":"what they have on"} with "at" and "wears" ONLY',
     'as THIS page shows them, in its own words (left out when the page does not show them: the ledger keeps what it has): the main',
-    'character, everyone the page shows there, and everyone on the ledger\'s "Here now" line whom the page did',
-    'not show leaving (quiet is not gone). Never someone only spoken of or remembered, heard on a phone or seen',
+    'character, everyone the page shows there with him, and everyone on the ledger\'s "Here now" line who is still with',
+    'him — whom the page did not show leaving and he did not walk away from (quiet is not gone; left behind is gone).',
+    'Never someone only spoken of or remembered, heard on a phone or seen',
     'on a screen, and never anyone in the window. ' + HERE_MEANS + ' Whoever you name here that the ledger has not written in is',
-    'written in; nobody is taken out for being left off — a leaving is still presence.leave, shown on the page.',
+    'written in; nobody is taken out for being left off — a leaving (theirs, or his walking away from them) is still',
+    'presence.leave, shown on the page.',
     '"looks" holds what THIS page — or the writer\'s own message — shows of how someone LOOKS that will still be true',
     'tomorrow: body, build, height, face, hair, eyes, skin, marks, scars, anatomy, the sound of a voice. One entry a fact,',
     '{"name":"NAME","key":"hair","value":"copper red, cut to the jaw"}, the value in the page\'s own words. Never dress, a',
@@ -377,6 +395,8 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
     ...(!founding ? namedFromAfarBlock(state, assistantText) : []),
     ...(!founding ? withinEarshotBlock(state) : []),
     ...(!founding ? thingsOnPageBlock(state, assistantText) : []),
+    ...(!founding ? looseEndsBlock(state, assistantText) : []), /* M679 */
+    ...spotBlock(state, assistantText), /* M679: where in the area the scene stands, when the header names only the area */
     ...(!founding ? placesBlock(state, assistantText) : []), /* M677 */
     ...standingsBlock(unwritten), /* M641 */
     founding ? 'Found the ledger from these pages. JSON only.' : 'What changed, if anything? JSON only.',
@@ -406,12 +426,22 @@ export function placesBlock(state, pageText = '') {
     if (rows.length >= 16) break;
   }
   if (!rows.length) return [];
+  /* M679 — HIS AUDIT: "the ledger seats the cobbler, the fruit-seller, the young priest, the pie-seller and the raven as
+   * 'here now' in the scene, but the latest page leaves them all behind on Gilder's Row … while Azrael and Roska walk south
+   * to the Bent Kettle". This block told the reader to give EACH person the page shows in "here" — and "here" is the room
+   * as the page ends: whoever is in it came along (extractTurn cameAlong). The cobbler the page shows in his doorway as
+   * Azrael walks off was to be answered "here, in his own doorway on Gilder's Row" — kept in the scene with a place on
+   * another street — and on a move a right leave for him was thrown away beside it. Each person is answered one of TWO
+   * ways now: still with him (in "here", with where), or no longer with him (a leave, with where they are now). */
   return [
-    'WHERE EACH OF THEM IS AS THIS PAGE ENDS. The page shows these people; in "here", give EACH of them as {"name":"…","at":"…"} \u2014',
-    'where they are and what they are doing as the page ends, in the page\u2019s own words: a hand that came down, a cup picked up,',
-    'a place crossed to, a chin back in a palm is where they are now, and the ledger\u2019s line is a lie until you write it. Where',
-    'the page leaves someone exactly as the ledger has them, give the ledger\u2019s words back. Add "wears" only when the page shows',
-    'their dress change.',
+    'WHERE EACH OF THEM IS AS THIS PAGE ENDS. The page shows these people; answer for EACH of them, one of two ways.',
+    'STILL WITH HIM as the page ends: in "here" as {"name":"…","at":"…"} — where they are and what they are doing, in the',
+    'page’s own words: a hand that came down, a cup picked up, a place crossed to, a chin back in a palm is where they are',
+    'now, and the ledger’s line is a lie until you write it; where the page leaves someone exactly as the ledger has them,',
+    'give the ledger’s words back. Add "wears" only when the page shows their dress change.',
+    'NO LONGER WITH HIM — they went, or he walked off and left them where they were: NOT in "here", but a presence.leave',
+    'for them, with "to" (where they are now, said so it stands on its own) and "shown" (the page’s own words for the',
+    'going — theirs, or his).',
     ...rows.map((r, i) => (i + 1) + '. ' + r),
     '',
   ];
@@ -472,7 +502,14 @@ export function openThreadsBlock(state) {
     .filter((t) => t && typeof t === 'object' && typeof t.title === 'string' && t.title.trim());
   if (!threads.length) return [];
   return [
-    'OPEN THREADS — decide each against THIS page; the titles of the ones it resolved go in "resolved". Resolved means this page ANSWERS it, ENDS it, or LEAVES IT BEHIND FOR GOOD: what it waited on has happened, has failed, or can no longer happen (the bell has rung and nobody came; the watcher has heard them out and moved on; the scene it belonged to is over and the story has walked away from it). One that is still live stays out:',
+    /* M679 — HIS AUDIT: "the thread 'Roska and the fence behind the no-sign door' is still hot, but the pages show Roska abandon
+     * the knock and walk off with Azrael"; "'Marget and the watch' is still hot … the watch's visit is done". Asked for the
+     * titles THIS page resolved, the reader answered with a list it could leave empty — and a thread one page left behind and
+     * its reader did not close could never be closed by the next page's reader ("the pages before are already read"):
+     * only the auditor, reading them all, closed it. Every open thread now gets its own verdict, judged by how the story
+     * STANDS at the end of this page (the pages just before count, and so does the window into the world beyond — where
+     * the watch's visit ended), the way M641 asks the standings and M677 the room. */
+    'OPEN THREADS — decide EVERY one against the story as it stands at the END of this page: this page, the pages just before it (for this they count — a thread one of them already answered is answered), and the page\u2019s window into the world beyond (*** The World Beyond ***) too. In "threads", one entry for each, its title as written here: {"title":"…","now":"resolved"} when the story has ANSWERED it, ENDED it, or LEFT IT BEHIND FOR GOOD — what it waited on has happened, has failed, or can no longer happen (the bell has rung and nobody came; the watcher has heard them out and moved on; the scene it belonged to is over and the story has walked away from it); {"title":"…","now":"open"} when it is still live:',
     ...threads.map((t, i) => (i + 1) + '. \u201c' + t.title.trim() + '\u201d' + (t.owner ? ' (' + t.owner + ')' : '')
       + (t.next ? ' \u2014 next: ' + String(t.next).trim() : '') + (t.heat === 'cold' ? ' [cold]' : '')),
     '',
@@ -498,7 +535,9 @@ export function openWoundsBlock(state, pageText = '') {
   }
   if (!rows.length) return [];
   return [
-    'OPEN WOUNDS — decide each against THIS page; the ones it shows healed, mended or gone go in "healed" as {"name":"…","what":"…"}, worded as written here (a wound the page does not touch stays as it is — never close one because time has passed):',
+    /* M679: by how the story STANDS at the end of this page, the pages just before counting — a heal one page showed and its
+     * reader missed is closed by the next page's reader, not left for the auditor */
+    'OPEN WOUNDS — decide each against the story as it stands at the END of this page (the pages just before it count for this: a wound one of them showed healed is healed); the ones it shows healed, mended or gone go in "healed" as {"name":"…","what":"…"}, worded as written here (a wound the story does not touch stays as it is — never close one because time has passed):',
     ...rows.map((r, n) => (n + 1) + '. ' + r.name + ' — ' + r.what + (r.treated ? ' (treated)' : '')),
     '',
   ];
@@ -547,26 +586,117 @@ export function withinEarshotBlock(state) {
   ];
 }
 /* M667: THE THINGS THIS PAGE NAMES, EACH TO BE DECIDED (see apply.js movedThings). */
+/* M679 — HIS AUDIT: "the ledger's Things list says the purse is in Roska's fist, purse-strings cold in her own hand, though
+ * the pages show her drop it into Azrael's open palm". A thing was handed to the reader only when the page named it by its
+ * own words — and a handover is told with "it" ("she dropped it into his open palm"): the purse never reached the question,
+ * and nobody but the auditor moved it. A thing in the hands or the company of the people of this page (him, the room,
+ * anyone its telling names — the people its place names) is handed over too, and the answer may say whose it is now when
+ * the page changes that (the list read "(Roska's)" of the purse she had stolen). */
 export function thingsOnPageBlock(state, pageText = '') {
   const kept = state && state.things && typeof state.things === 'object' ? state.things : {};
-  const scene = narrationOf(scenePartOf(String(pageText || '').replace(/^\s*\[[^\n]*\][ \t]*/, ''))).toLowerCase();
+  const told = narrationOf(scenePartOf(String(pageText || '').replace(/^\s*\[[^\n]*\][ \t]*/, '')));
+  const scene = told.toLowerCase();
   if (!scene.trim()) return [];
+  /* the people of this page: him, everyone in the scene, and anyone its telling names */
+  const people = [];
+  const add = (n) => { const t = String(n || '').trim(); if (t && !people.some((p) => samePersonName(p, t))) people.push(t); };
+  const mc = mcName(state);
+  if (mc && mc !== 'the player') add(mc);
+  for (const p of Array.isArray(state && state.present) ? state.present : []) add(p && p.name);
+  for (const n of Object.keys(state && state.characters && typeof state.characters === 'object' ? state.characters : {})) if (nameOnPage(told, n)) add(n);
+  const carried = (t) => people.some((n) => nameOnPage(String(t.where || ''), n));
   const rows = [];
   for (const [name, t] of Object.entries(kept)) {
     if (!t || typeof t !== 'object' || typeof t.where !== 'string' || !t.where.trim()) continue;
     const words = name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').split(' ').filter((w) => w.length >= 4 && !/^(?:from|with|that|this|their|some|into|over|under)$/.test(w));
-    if (!words.length) continue;
     const on = words.filter((w) => new RegExp('(?<![\\p{L}])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}])', 'u').test(scene));
-    if (on.length / words.length < 0.5) continue;
+    const named = words.length > 0 && on.length / words.length >= 0.5;
+    if (!named && !carried(t)) continue;
     rows.push(name + (t.owner ? ' (' + t.owner + '’s)' : '') + ' — ' + t.where.trim());
-    if (rows.length >= 8) break;
+    if (rows.length >= 12) break;
   }
   if (!rows.length) return [];
   return [
-    'THINGS THE LEDGER KEEPS THAT THIS PAGE NAMES — decide each: where is it as the page ENDS? One whose place this page changes goes in "things" as {"name":"…","where":"…"}, named as written here, the place in the page\'s own words. One the page leaves where it was stays out:',
+    'THINGS THE LEDGER KEEPS THAT THIS PAGE NAMES, OR IN THE HANDS AND COMPANY OF ITS PEOPLE — decide each: where is it as the story stands at the END of this page? One whose place this page changes goes in "things" as {"name":"…","where":"…"}, named as written here, the place in the page\'s own words — a thing handed over, dropped, pocketed or taken is in its new place even where the page only calls it "it". Add "owner" only when the page changes whose it is by right (given, sold, won, handed back to the one it belongs to — a thief, or someone only holding it, is not its owner). One the page leaves where it was stays out:',
     ...rows.map((r, i) => (i + 1) + '. ' + r),
     '',
   ];
+}
+
+/* M679 — HIS AUDIT: "the ledger's Roska page still carries the loose end that the watch has her description and Azrael is
+ * hunting her himself, but the pages show Azrael has found her, taken his purse back, and led her to the tavern". A person's
+ * loose ends were the one lasting kind of the auditor's list that nobody before it was ASKED about by name: M663 named the
+ * scribe — SHOWN them on the people's pages, never asked about each, and reading one page, never the ones before it.
+ * The loose ends open on the people of this page (him, everyone in the scene, anyone the page names — its window too)
+ * are handed to the page reader, which reads the pages before it, each to be decided in a slot of its own; one the story
+ * has answered is closed (people.note unthread, matched by sense — people.js sameLooseEnd). */
+export function looseEndsBlock(state, pageText = '') {
+  const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
+  const page = String(pageText || '');
+  const rows = [];
+  for (const [name, c] of Object.entries(chars)) {
+    if (!c || typeof c !== 'object' || c.retired || !Array.isArray(c.threads) || !c.threads.length) continue;
+    if (!(isMc(state, name) || isHere(state, name) || nameOnPage(page, name))) continue; /* the people of this page */
+    for (const t of c.threads) {
+      if (typeof t === 'string' && t.trim() && rows.length < 16) rows.push({ name, text: t.trim() });
+    }
+    if (rows.length >= 16) break;
+  }
+  if (!rows.length) return [];
+  return [
+    'LOOSE ENDS STILL OPEN on the people of this page — decide EVERY one against the story as it stands at the END of this page (the pages just before it count for this, and so does the page’s window). In "loose", one entry for each, worded exactly as written here: {"name":"…","text":"…","now":"closed"} when the story has answered it, ended it or left it behind for good — a question asked and answered, a promise kept or broken, a search or a hunt over, a debt paid; {"name":"…","text":"…","now":"open"} when it still hangs. ' + LOOSE_ANSWERED_MEANS,
+    ...rows.map((r, i) => (i + 1) + '. ' + r.name + ' — “' + r.text + '”'),
+    '',
+  ];
+}
+
+/* M679 — HIS AUDIT: "the ledger's ground is Ilvarren … the latest page leaves them all behind on Gilder's Row and the temple
+ * square while Azrael and Roska walk south to the Bent Kettle". His storyteller's header names only the city ("[Ilvarren —
+ * …]") and the header is the truth for the ground, in code (M128): the ground was the city on every page, so as far as the
+ * ledger knew the scene never moved from one street to the next, and each street's crowd walked along to the next one
+ * (leaving people behind, M509-12, needs a move). Nobody was asked where IN the city the scene stood — the reader was told
+ * the header's place is written in code, and that a header naming only the area is "no move" (M627). When the page's
+ * header names only the area (no one spot — M396's measure), or there is no header and the ledger has only an area, the
+ * reader is asked by name, in a slot of its own: where in it does the scene stand as the page ends. */
+export function spotBlock(state, pageText = '') {
+  const page = String(pageText || '');
+  const ground = state && state.place && typeof state.place.name === 'string' ? state.place.name.trim() : '';
+  const area = pageArea(page, ground);
+  if (!area) return [];
+  const said = headerPlaceOf(page);
+  return [
+    'WHERE THE SCENE STANDS. ' + (said ? 'This page’s header names only the area — “' + said + '” — never where in it the scene is' : 'The ledger has only the area — “' + area + '”') + '; that is yours to say. The ledger has the scene at: “' + (ground || 'nowhere yet') + '”.',
+    'In "spot", say where the scene stands as this page ENDS — the street, the building, the room — in the page’s own words (the house adds the area). When the page takes him from one spot in it to another, the scene has moved: whoever stays behind is left behind (presence.leave).',
+    '',
+  ];
+}
+/* the place a page's header names, as written ('' when it has none) */
+function headerPlaceOf(pageText) {
+  const set = headerMutations(String(pageText || ''), { ground: '' }).find((m) => m && m.type === 'place.set');
+  return set && typeof set.name === 'string' ? set.name.trim() : '';
+}
+/* M679: the AREA a page stands in when nothing says the spot — the header's place when it names no one spot; with no header,
+ * the ledger's ground when that is only an area. '' when the header (or the ledger, with no header) names a spot. */
+export function pageArea(pageText, ground = '') {
+  const said = headerPlaceOf(pageText);
+  if (said) return noOneSpot(said) ? said : '';
+  const g = String(ground || '').trim();
+  return !headerCells(pageText) && g && noOneSpot(g) ? g : '';
+}
+/* M679: the reader's spot, held to the page and written with its area — '' when it is not one spot, or not the page's own
+ * words (never a street the page does not name) */
+const SPOT_STOP = /^(?:the|this|that|with|from|into|onto|near|back|front|side|outside|inside|over|under|where|there|here|still|street|road|lane|square|room|hall|house)$/;
+export function spotOnPage(spot, area, pageText = '') {
+  const s = String(spot || '').replace(/[[\]|\n]/g, ' ').replace(/\s+/g, ' ').replace(/^[\s,;:.—–-]+|[\s,;:.—–-]+$/g, '').trim().slice(0, 120);
+  if (!s || noOneSpot(s)) return '';
+  const page = ' ' + foldName(scenePartOf(String(pageText || ''))) + ' ';
+  const words = foldName(s).split(' ').filter((w) => w.length >= 4 && !SPOT_STOP.test(w));
+  if (!words.length || words.filter((w) => page.includes(' ' + w + ' ')).length / words.length < 0.5) return '';
+  const a = String(area || '').trim();
+  if (!a) return s;
+  const areaWords = foldName(a).split(' ').filter(Boolean);
+  const own = ' ' + foldName(s) + ' ';
+  return areaWords.length && areaWords.every((w) => own.includes(' ' + w + ' ')) ? s : s + ', ' + a;
 }
 
 /* M28: a ledger is young when it has no ground and nobody in it — the same
@@ -576,6 +706,10 @@ export function isYoungLedger(state) {
 }
 
 /* ---------- the tolerant parser ---------- */
+
+/* M679: the words a verdict closes with — a thread "resolved", a loose end "closed", as a model may write either */
+const CLOSED_WORD = /^(?:resolved|closed|close|done|ended|over|answered|finished|settled|kept|broken|abandoned|left behind(?: for good)?|gone|complete[d]?)\b/i;
+const verdictCloses = (v) => v.resolved === true || v.closed === true || CLOSED_WORD.test(String(v.now || v.verdict || v.status || '').trim());
 
 /* Exported for the harness. Fences stripped, first balanced object parsed,
  * mutations kept only if they're objects with a string type — the rest of
@@ -637,6 +771,23 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
       closing.add(t.toLowerCase());
       mutations.push({ type: 'thread.close', title: t });
     }
+    /* M679: every open thread's own verdict (openThreadsBlock) — "resolved" closes it; "open", or a word that is neither, leaves
+     * it as it stands. The old list of titles above is still read, for an answer written the old way. */
+    for (const v of (Array.isArray(parsed.threads) ? parsed.threads : []).slice(0, 40)) {
+      if (!v || typeof v !== 'object') continue;
+      const t = typeof v.title === 'string' ? v.title.trim() : (typeof v.name === 'string' ? v.name.trim() : '');
+      if (!t || !verdictCloses(v) || closing.has(t.toLowerCase())) continue;
+      closing.add(t.toLowerCase());
+      mutations.push({ type: 'thread.close', title: t.slice(0, 200) });
+    }
+    /* M679: every loose end of the page's people, its own verdict (looseEndsBlock) — "closed" closes it on that person's page */
+    for (const v of (Array.isArray(parsed.loose) ? parsed.loose : []).slice(0, 24)) {
+      if (!v || typeof v !== 'object' || typeof v.name !== 'string' || typeof v.text !== 'string' || !v.name.trim() || !v.text.trim()) continue;
+      if (!verdictCloses(v)) continue;
+      const name = v.name.trim().slice(0, 80); const loose = v.text.trim().replace(/^[“"']+|[”"']+$/g, '').slice(0, 300);
+      if (mutations.some((m) => m && m.type === 'people.note' && m.field === 'unthread' && m.name === name && m.text === loose)) continue;
+      mutations.push({ type: 'people.note', name, field: 'unthread', text: loose });
+    }
     /* M444: the room as it stands at the end of the page — names only; the house decides who is written in */
     const here = (Array.isArray(parsed.here) ? parsed.here : [])
       .map((h) => (typeof h === 'string' ? h : h && typeof h.name === 'string' ? h.name : ''))
@@ -670,8 +821,10 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
     /* M667: where the things this page names now lie (the house writes one when it is the page's own words and new — apply.js movedThings) */
     const things = (Array.isArray(parsed.things) ? parsed.things : [])
       .filter((t) => t && typeof t === 'object' && typeof t.name === 'string' && typeof t.where === 'string' && t.name.trim() && t.where.trim())
-      .map((t) => ({ name: t.name.trim().slice(0, 120), where: t.where.trim().slice(0, 240) })).slice(0, 12);
-    return { mutations, note: mutations.length || looks.length || things.length ? 'ok' : 'empty', here, hereNotes, looks, things };
+      .map((t) => ({ name: t.name.trim().slice(0, 120), where: t.where.trim().slice(0, 240), ...(typeof t.owner === 'string' && t.owner.trim() ? { owner: t.owner.trim().slice(0, 120) } : {}) })).slice(0, 12); /* M679: whose it is, when the page changed that */
+    /* M679: where in the area the scene stands as the page ends (spotBlock) — the house holds it to the page (spotOnPage) */
+    const spot = typeof parsed.spot === 'string' ? parsed.spot.trim().slice(0, 160) : '';
+    return { mutations, note: mutations.length || looks.length || things.length || spot ? 'ok' : 'empty', here, hereNotes, looks, things, spot };
   } catch (err) {
     return { mutations: [], note: 'unusable' };
   }
@@ -731,6 +884,34 @@ export { mcWalksOff } from '../engine/apply.js'; /* M598: one reading, kept with
 export async function extractTurn(args = {}) {
   const read = await extractTurnRead(args);
   if (read && Array.isArray(read.mutations)) {
+    /* M679: THE SPOT IN AN AREA (spotBlock). When the header names only the area (or there is no header and the ledger has
+     * only an area), the reader's "spot" — or its own place.set that names a spot — is the ground, held to the page's own
+     * words and written with its area ("Cooper's Row, Ilvarren"); a spot the page does not hold is not written. A place.set
+     * of the reader's that names the same area again is the header's to give; one naming another area altogether (a train
+     * to Tokyo, M627) stands as before. */
+    {
+      const groundNow = args.state && args.state.place && typeof args.state.place.name === 'string' ? args.state.place.name : '';
+      const area = args.state ? pageArea(args.assistantText, groundNow) : '';
+      if (area) {
+        const placeOf = (m) => String((m && (m.name || m.place)) || '');
+        const sets = read.mutations.filter((m) => m && m.type === 'place.set');
+        const given = read.spot || placeOf(sets.find((m) => !noOneSpot(placeOf(m)))) || '';
+        const spot = spotOnPage(given, area, args.assistantText);
+        /* the area the header itself writes (none when it names only the area round a spot the ledger holds — then a move to
+         * another area altogether is the reader's own to write, M627) */
+        const headerGives = placeOf(headerMutations(args.assistantText, { ground: groundNow }).find((m) => m && m.type === 'place.set'));
+        read.mutations = read.mutations.filter((m) => !(m && m.type === 'place.set' && (spot || !noOneSpot(placeOf(m)) || (headerGives && samePlace(placeOf(m), headerGives)))));
+        /* first among the reader's own changes: a move lets every place in the room go (apply.js place.set), and the places
+         * this page gives — a newcomer's, the room restated — are written after it, on the new ground */
+        if (spot) read.mutations.unshift({ type: 'place.set', name: spot });
+      }
+      /* M679 (the same fault, wherever it stands): a place.set of the reader's own written AFTER the places it gave on the same
+       * page let them go again (a move lets every place in the room go). The ground moves first; the room is written on it. */
+      const moves = read.mutations.filter((m) => m && m.type === 'place.set');
+      if (moves.length && read.mutations.findIndex((m) => m && m.type !== 'place.set') < read.mutations.findIndex((m) => m && m.type === 'place.set')) {
+        read.mutations = [...moves, ...read.mutations.filter((m) => !(m && m.type === 'place.set'))];
+      }
+    }
     /* M594: a leave needs its person named on the page — unless the page ends on HIM going: then everyone he walks away
      * from is left behind, named or not ("He left without a word" leaves the room behind him) */
     const mcGoing = Boolean(args.state && mcName(args.state) && mcName(args.state) !== 'the player' && mcWalksOff(args.assistantText, mcName(args.state)));
@@ -743,7 +924,11 @@ export async function extractTurn(args = {}) {
      * waved them off from the diner door" as they walked home, M304): there a leave stands unless the page's own room
      * (its "here") says they came along. */
     const was = args.state && args.state.place && typeof args.state.place.name === 'string' ? args.state.place.name : '';
-    const ground = (headerMutations(args.assistantText, { ground: was }).find((m) => m && m.type === 'place.set') || read.mutations.find((m) => m && m.type === 'place.set') || {}).name || ''; /* M627 */
+    /* M679: the page's ground — its header's place when that names the spot; else the spot the reader gave (an area-only
+     * header says nothing of where in it the scene stands); else the header's area */
+    const headerSet = headerMutations(args.assistantText, { ground: was }).find((m) => m && m.type === 'place.set');
+    const readerSet = read.mutations.find((m) => m && m.type === 'place.set');
+    const ground = ((headerSet && !noOneSpot(headerSet.name) ? headerSet : null) || readerSet || headerSet || {}).name || ''; /* M627 */
     /* a header that names less of the same place ("13th Division Barracks" in the captain's office) is no move */
     const moved = Boolean(was && ground && !samePlace(ground, was) && !seatAtScene(was, ground) && !sameSpot(ground, was) && !withinGround(ground, was)); /* M628: the same spot with its area named is no move */
     const cameAlong = (n) => (Array.isArray(read.here) ? read.here : []).some((h) => samePersonName(h, n));
@@ -808,7 +993,9 @@ export async function extractTurn(args = {}) {
      * names the room as the page ends and she is not in it, its own presence.enter for her is not kept: the room is
      * its last word on who is there. (Someone new, with no seat, is written in as before.) */
     if (roomNamed && args.state && args.state.offscreen && typeof args.state.offscreen === 'object') {
-      read.mutations = read.mutations.filter((m) => !(m && m.type === 'presence.enter' && typeof m.name === 'string' && !isMc(args.state, m.name) && !isHere(args.state, m.name)
+      /* M679: …nor by its other door — a seat let go (offscreen.clear: "they are in the scene now") is a walk-in too (clearsThatArrive,
+       * below); against the room it names, the seat stands */
+      read.mutations = read.mutations.filter((m) => !(m && (m.type === 'presence.enter' || m.type === 'offscreen.clear') && typeof m.name === 'string' && !isMc(args.state, m.name) && !isHere(args.state, m.name)
         && Object.keys(args.state.offscreen).some((k) => samePersonName(k, m.name)) && !cameAlong(m.name)));
     }
     /* M444: a note let go of someone the page shows is her walking in; and the room, restated, writes in whoever is missing */
@@ -955,9 +1142,10 @@ async function extractTurnRead({ connection, state, userText, assistantText, bef
   const young = typeof founding === 'boolean' ? founding : isYoungLedger(state);
   /* M259: THE RECORD RIDES. chat.js has handed it over since M226; this line
    * dropped it on arrival, so the extractor never once saw it. */
-  const knowledgeRoom = knowledgeRoomFor(roomChars(connection, MAX_TOKENS)); /* M664 */
+  const budget = readerBudget(connection); /* M679 */
+  const knowledgeRoom = knowledgeRoomFor(roomChars(connection, budget)); /* M664 */
   const bare = buildExtractorMessages({ state, userText, assistantText, before: [], founding: young, brief, castNotes, record, pageNumber, knowledgeRoom });
-  const contextBudget = viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length);
+  const contextBudget = viewBudget(connection, budget, bare.system.length + bare.user.length);
   const prompt = buildExtractorMessages({ state, userText, assistantText, before, founding: young, brief, castNotes, record, pageNumber, contextBudget, knowledgeRoom });
   /* M31: an answer we can't use, or a founding that came back empty, earns
    * ONE second ask with a sharper word — here, not five blind retries in
@@ -986,11 +1174,11 @@ async function extractTurnRead({ connection, state, userText, assistantText, bef
       const { text, finishReason } = await askWithFetch(connection, {
         system: prompt.system,
         user,
-        maxTokens: MAX_TOKENS,
+        maxTokens: budget,
         signal,
         renew,
         leash: leashFor,
-        room: roomChars(connection, MAX_TOKENS),
+        room: roomChars(connection, budget),
         rounds: attempt === 0 ? EXTRACTOR_LOOKS : 1,
         isAnswer: (t) => { const r = parseExtractorAnswer(t); return r.note === 'ok' || r.note === 'empty'; },
         source: { storyId, story: story || { brief, castNotes } },

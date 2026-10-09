@@ -80,6 +80,15 @@ function daysInMonth(year, month) {
   return lengths[month - 1] || 31;
 }
 
+/* M679: the real calendar's weekday for a date (0 = Sunday). The header reader asks it whether the weekday a header wrote
+ * is the real one — then the clock speaks the real calendar and the next day rolls over by itself — or the story's own
+ * ("Thornday, October 14, 1247": then the header's own words are the day, as M455 keeps a calendar of the story's own). */
+export function weekdayIndex(year, month, day) {
+  const y = clampInt(year, -99999, 99999, 1970);
+  const mo = clampInt(month, 1, 12, 1);
+  return weekdayFromDays(daysFromCivil(y, mo, clampInt(day, 1, daysInMonth(y, mo), 1)));
+}
+
 /* ---------- small helpers ---------- */
 
 function clampInt(value, lo, hi, fallback) {

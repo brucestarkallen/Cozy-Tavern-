@@ -43,7 +43,9 @@ test('M28-1: every house is told to stop thinking, in its own spelling, and the 
      * the provider's own default stands, because that is what the writer
      * chose by leaving it alone. A worker that wants cold asks for it. */
     eq('temperature' in sent, false, `${h.name}: the provider's default is left alone`);
-    eq(sent.max_tokens, 2400, `${h.name}: the worker budget, not the storyteller’s (M37: 2400)`);
+    /* M679: the reader's answer floor is 6000 for a house of 32,000 tokens or more (these name no size: 128,000 is assumed) —
+     * it answers for every thread, loose end and person by name now; M37's 2400 stays for a smaller house */
+    eq(sent.max_tokens, 6000, `${h.name}: the worker budget, not the storyteller’s (M679: 6000)`);
     assert(!('top_p' in sent), `${h.name}: no storyteller dials`);
   }
 });

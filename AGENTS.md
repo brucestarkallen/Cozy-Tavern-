@@ -17923,3 +17923,113 @@ then passed alone three times and passed WHOLE on the final tree with nothing al
 upgrade_in_place 41/41 (m677-001 → m678-001); paint_academy and perf_academy exit 0; contrast, paint_coats and coat:
 0 under AA in all nine coats.
 
+
+# M679 — "the auditor as the very last defense, and before it always smart and correct" — and "Auditor should not cause mistake"
+His two asks, each with an auditor's reading pasted under it: his turn 7 in Ilvarren (what the auditor had to set right),
+then turns 19 and 21 in Kingsreach ("why my mc at the end of pages already moving on not with Corven but the auditor change
+stupidly back to with Corven like at the start of the page?"). Every finding below was reproduced on m678-001 before it was
+touched; the laws are tests/harness/m679.mjs (M679-1 … M679-12: 1 of 12 on m678-001 — M679-12, which holds a power the old
+build already had — and 12 of 12 now) and the walk's DOM-271
+(his turn 7 and the Bent Kettle) and DOM-272 (his turn 21, the whole chain: reader, the house's heal, the auditor — on
+m678-001 it ends with "Azrael Jugram, Corven, Ser Holvard, the page" here; now "Azrael Jugram, the page").
+
+## 1. His turn 7: what only the auditor set right, and why the readers before it had not
+- THE WEEKDAY. "[Ilvarren — Thornday, October 14, 1247 | 15:58 …]" was read for its numbers alone and the clock spoke the
+  real calendar's weekday for them: "Monday". The auditor's clock.set carried the same numbers ("already so"), so it could
+  find it on every reading and never mend it. CURE (state.js headerDayWords, apply.js clock.set, clock.js weekdayIndex):
+  the header's own words for the day ride with the date when the word in the weekday's place is not the real weekday (or
+  there is none, in a tale whose clock already keeps its own day words); the clock keeps them for that day (dayWordsAt);
+  a date by numbers alone on the same day keeps them; a clock that said "Monday" at the very same minute is put right
+  (no longer "already so"); a real weekday adds nothing and the real calendar rolls over by itself. Healed on opening too
+  (chat.js healLedgerOnOpen passes the clock's day words). The rewind check compares the hour only (sameHour).
+- THE GROUND WAS THE CITY ON EVERY PAGE. His header names only "Ilvarren"; the header is the ground (M128), an area-only
+  header is no move (M627) — so the scene never moved from Gilder's Row to Cooper's Row, and each street's crowd walked
+  along (leaving people behind needs a move, M509-12). Nobody was asked where IN the city the scene stood. CURE
+  (extractor.js spotBlock/pageArea/spotOnPage, chat.js `overruled`): when the header names only the area, the reader is
+  asked by name, in a slot of its own ("spot"); its answer is held to the page's own words and written with the area
+  ("Cooper's Row, Ilvarren"), FIRST among its changes (a move lets the room's places go; the room is written after it).
+  A reader's place.set written after its own places is put first too (the same fault wherever it stands).
+- THE CROWD. placesBlock told the reader to give EACH person the page shows in "here" — the room as the page ends — so the
+  cobbler, shown in his own doorway as Azrael walked off, was to be answered "here, in his doorway on Gilder's Row". Each is
+  answered one of TWO ways now: STILL WITH HIM (in "here", with where) or NO LONGER WITH HIM (a presence.leave with "to"
+  and "shown"). The "here" rule says it too: everyone still with him; left behind is gone. The vocabulary's presence.leave
+  says "to" is where he left them when it is HE who walked away (it said to leave "to" out — see 2).
+- THE PURSE. A thing reached the reader only when the page named it — and a handover is told with "it". thingsOnPageBlock
+  now also asks about every thing in the hands or company of the page's people, and "owner" may be answered when the
+  page changes whose it is by right (apply.js movedThings: written only as someone the story knows, under the name the
+  ledger keeps; a thief or a holder is not an owner).
+- THE THREADS AND THE LOOSE END. Asked for the titles THIS page resolved, the reader could leave the list empty; a thread
+  one page left behind could never be closed by the next page's reader. Every open thread and every loose end of the
+  page's people now gets a verdict of its own ("threads": resolved/open; "loose": closed/open), judged by the story as
+  it stands at the END of the page — the pages before it and the window counting. The old "resolved" list is still read.
+  The wounds' question is asked the same way.
+- THE READER'S ANSWER FLOOR. All this is a longer answer: extractor.js readerBudget — 6000 tokens for a house of 32,000 or
+  more (the auditor's and the world agent's own floor), M37's 2400 below that (M28-1 and M259-21 say so now).
+
+## 2. Why his auditor walked them all back in (turns 19 and 21) — and the same fault in the house's own heal
+- THE AUDITOR WAS TOLD THE WRONG MOMENT. Its law said the ledger it reads "describes the moment BEFORE the latest page".
+  It runs LAST, after that page's readers: the ledger is the scene as the page ENDS. Its law says so now (the ledger's
+  heading, WHO IS HERE, NOT YOUR JOB). And every door asked only "are these words somewhere on the page?" — so a page
+  that starts at the hall's threshold beside Corven and ends at the small council room's door with the page boy gave it
+  Corven, Ser Holvard and Mirelia back, him back at the threshold, the cloak back over his forearm.
+- THE PRESENT IS THE PAGE'S ENDING (apply.js pageEnding: its last paragraph, or the last two or three when they are short).
+  auditor.js auditorScope, every door kept: a walk-in — and a seat let go, which is a walk-in by another door — stands only
+  for someone the ending shows, never for someone this page's own reader took out with the page's own words for the going
+  (the journal at the page's index — auditLedger pageAt — held by quotedGoing, as the reader's gate holds a leave; "Corven
+  let him go" names Corven and is no proof of company; an older reader's bare leave is still the auditor's to set right,
+  M679-12), never for someone going at its end,
+  and never for someone the world seats elsewhere when the page took the scene away from them (the ground moved on it,
+  it ends on HIM going, or its reader named the room as it ends without them — state.roomAt). A place or a dress stands
+  in the ending's words, each field on its own; for him only in his header's own words (his as the page ends, M661). A
+  thing's new place, when the page tells of that thing or its reader moved it, only in the ending's words. Everything
+  else is the auditor's as it always was — on a page no reader read (their call failed) it still sets the room, from the
+  ending (M679-6).
+- THE HOUSE'S OWN HEAL DID THE SAME (apply.js hereByTheNewestPage, M452 — after every page and on opening). The reader
+  takes Corven out; with no "to" the house notes him "last seen" at the scene's own ground; the heal, reading that very
+  page, found him named and not going at its end, and wrote him straight back in — before the auditor ever ran (DOM-272
+  with the auditor's doors fixed and this one not: "Azrael Jugram, Corven, the page"). Now: nobody this page's reader
+  took out with the page's own words for the going (pageAt, quotedGoing — an older reader's bare leave on the page is what
+  M452 mends, and still is: DOM-105), nobody against the room its reader named (state.roomAt — chat.js keeps the reader's "here" with the
+  page's index), nobody only its start shows (pageEnding), nobody when it ends on him walking off. And a page later, a
+  thought of Corven in the great hall ("Corven would be walking the lamp along the benches") no longer writes him into
+  the small council room when the reader named the room. Someone the ending shows coming in, with no room named, still is.
+- A SEAT LET GO IS A WALK-IN TOO (extractor.js, M666's filter): the reader's own offscreen.clear for a seated person not in
+  the room it names is not kept — the room is its last word.
+- "ALREADY KNOWS THAT" WAS COUNTED AS REFUSED. His turn-21 reading listed eight "Seen; its change did not hold (Mirelia
+  already knows that)" and "8 refused" — for lines already true. A knowledge.add the ledger already holds is "already so"
+  now (M259's law for every other door): no refusal, no "did not hold".
+- TURN 19's DRESS ("bared to the waist" pages after he dressed). apply.js restatedPresence set a person ALL aside for any
+  change of the reader's own — a reader that moved Azrael to the hall steps took his header's dress with it. Each field
+  stands aside only for a change of that field (M679-7).
+- TURN 19's LOOSE ENDS, closed as "answered by the pages": "She has told Jugram to come to her before the duke's banquet"
+  because "she said this aloud … and the ledger's own knowledge line records it"; "He is to escort the fourth princess"
+  because "the queen told him this aloud"; "what it means remains unnamed between them" because "the pages show he did
+  exactly this". ONE DEFINITION NOW, read by the reader, the scribe and the auditor (herewords.js LOOSE_ANSWERED_MEANS):
+  a loose end is answered only by what comes AFTER it; the page that says it is why it was written, never its answer;
+  another ledger line holding the same words is no answer. And in code: a loose end written from the newest page (its
+  scribe, its reader, his hand — the journal at the page's index) is not closed by the auditor on that same page.
+
+## 3. His questions
+- THE AUDITOR vs THE CONTINUOUS AUDIT. The auditor reads the WHOLE ledger against the newest pages after every page (last
+  in the chain) and may write every kind of change (AUDITOR_TYPES). The continuous audit (off by default) walks the
+  RECORD's folded lines oldest first, against the pages each line covers: it mends the record line and may only ADD a
+  line of who knows what; it never writes the scene.
+
+## Not changed, and not measured
+- How real models follow the new questions and the new definition: every model in the tests is scripted. The house holds
+  what it can in code (the questions are asked by name every page; the auditor's scene doors are held to the ending; a
+  loose end is not closed on the page that wrote it).
+- "found 8 things, set 9 right" (turn 19) is M259's count: the house's own changes are never hidden — Mirelia's walk-in was
+  two (she came in; her elsewhere note let go). (She is no longer walked in.)
+- Turn 19's knowledge.forget of Corven's line ("freshly laced", "still warm"): the auditor's correction of a fact it judged
+  not on the pages — its job. Whether those words were on his pages could not be checked: his pages are not here.
+- mcWalksOff reads his NAME as the subject, never "he" (a pronoun is anyone's), and its verbs are walked/strode/left…:
+  "The boy led Jugram down the side passage" and "Jugram followed the boy" are not read as his going. Every door changed
+  here has the ending, the reader's own leave and the reader's room besides it; the heuristic itself was not widened.
+- A tale built on the old build keeps its quiet ones one step longer: its ground is the city, so the first page with a
+  spot is no move from it (the raven of DOM-271 stays at Cooper's Row and is left behind at the Bent Kettle).
+
+GATES (the final code): harness 1365/1365; the walk 272/272; the long play 9/9; lint 0 errors (195 warnings, as m678-001
+had — the one this work added, a shadowed name in the loose verdicts' parse, renamed and the harness and DOM-271/272 run
+again: green); the 20 browser tests of audit/gates.sh, each exit 0 (launcher 26/26, upgrade_in_place 41/41, device_pair
+all green, paint_academy and perf_academy exit 0). Ships as m679-001.
