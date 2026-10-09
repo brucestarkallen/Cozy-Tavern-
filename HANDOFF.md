@@ -1,6 +1,14 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m675-002; the launcher at M676)
+# Cozy Tavern — handoff for the next session (state at m677-001)
+
+## M677 — read AGENTS.md "# M677".
+- WHERE EACH PERSON IS, THE READER IS ASKED BY NAME (extractor.js placesBlock). A new field the reader should keep current
+  for everyone a page shows is asked the same way — by name, every page — never left to "only where you choose".
+- ONE RULE FOR WHAT GOES INTO WHO KNOWS WHAT (herewords.js KNOWING_MEANS), read by the reader AND the auditor. A helper that
+  checks another's work is given the other's own rule, never a wider one of its own.
+- THE WAY BACK DOWN (#btn-jump) is a small icon whose room is always kept (.jump-btn[hidden] is invisible, not gone).
+  Nothing that comes and goes while he reads may change the layout: tests/pagemark.py measures it.
 
 ## M676 — THE WORD HE TYPES (cozytavern.sh). Read AGENTS.md "# M676".
 - THE MARK A BAKE REPLACES STANDS ON ONE LINE ONLY (REPO_DIR="…" in cozytavern.sh). Wherever the launcher only LOOKS for

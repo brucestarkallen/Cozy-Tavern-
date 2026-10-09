@@ -1134,18 +1134,21 @@ body.read-only .send-btn { opacity: 0.4; }
   transition: border-color .15s, color .15s, transform .12s; }
 .prompt-chip:hover, .prompt-chip:focus-visible { border-color: var(--ember); color: var(--text); }
 .prompt-chip:active { transform: scale(.96); }
-/* jump-to-latest pill.
- * M675 — "IT'S HIDDEN SOME WORDS ON IT" WAS TRUE OF THIS ONE TOO. It was fixed to the screen 96 px above its foot: over the
- * last line of the story for as long as he read above the newest page (which, reading a page that has just landed, is
- * the whole time) — and since M668's four footer links wrapped onto three lines on a phone, 28 px into the box he types
- * in (measured, 390 × 844). It is a row of its own at the head of the composer's zone now: same pill, same words, and
- * it stands on nothing. The words of the story never move when it comes or goes — the thread is only that much shorter
- * at its foot while the pill is there. */
-.jump-pill { display: block; margin: 7px auto 0; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2);
-  border-radius: 999px; padding: 5px 14px; font-family: var(--mono); font-size: 10.5px;
-  letter-spacing: .09em; text-transform: uppercase; cursor: pointer; }
-.jump-pill[hidden] { display: none; }
-.jump-pill:hover { border-color: var(--ember); color: var(--ember); }
+/* the way back down to the latest page.
+ * M675 took it off the story (a pill fixed over the last lines, and into the box he types in) and gave it a row of its
+ * own at the head of the composer's zone. M677 — HIS: "when I scroll up there's a bar line that becomes up higher (the
+ * latest page) — it should just have a small icon to quickly move to the bottom, no bar on it; it makes my eye hurt seeing
+ * it pop up." That row came and went with every scroll: the zone grew by a bar, the story's foot jumped up a line, and
+ * back. It is a small round ↓ in the line under the composer now, beside the page number, and its room is ALWAYS kept
+ * (hidden is invisible, never gone): it fades in and out, and nothing on the screen moves (tests/pagemark.py measures
+ * the story and the composer with it shown and hidden). Its finger-sized target is unpainted and reaches below and to
+ * the sides, never up into the composer's own buttons. */
+.jump-btn { flex: none; align-self: center; position: relative; display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; margin: -3px 0; padding: 0; border-radius: 50%; border: 1px solid var(--border);
+  background: transparent; color: var(--text-2); cursor: pointer; opacity: 1; transition: opacity .2s ease, color .15s, border-color .15s; }
+.jump-btn[hidden] { display: inline-flex; visibility: hidden; opacity: 0; }
+.jump-btn::after { content: ''; position: absolute; top: -2px; right: -10px; bottom: -10px; left: -10px; }
+.jump-btn:hover, .jump-btn:focus-visible { color: var(--ember); border-color: var(--ember); }
 /* resting tales row (archive) */
 .resting-shelf { opacity: .75; }
 .resting-shelf summary { cursor: pointer; }

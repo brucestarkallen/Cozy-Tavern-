@@ -19,7 +19,7 @@
  *     -> {applied, rejected, issues, note} | null
  */
 
-import { HERE_MEANS } from './herewords.js'; /* M554 */
+import { HERE_MEANS, KNOWING_MEANS } from './herewords.js'; /* M554; M677: what goes into who knows what — the reader's own rule */
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
 import { samePlace } from '../engine/apply.js'; /* M403 */
 import { seatForPerson } from '../engine/people.js'; /* M398 */
@@ -150,8 +150,8 @@ function law({ mc }) {
     '    a name waited for and spoken. Close it with people.note {field:\"unthread\"}, worded as it stands on the page.',
     '    These do not expire on their own, and one left open is carried to the storyteller as',
     '    something still hanging for the rest of the tale.',
-    '  - WHO KNOWS WHAT: a present person who plainly witnessed something on the latest pages with no',
-    '    knowledge line for it (knowledge.add).',
+    '  - WHO KNOWS WHAT: a present person to whom the latest pages put something that belongs there, with no',
+    '    knowledge line for it (knowledge.add). ' + KNOWING_MEANS,
     '  - WHAT THE LEDGER SAYS HAPPENED: every line that says who did what, to whom, or with whose',
     '    thing — a call, a message, a phone, a key, a gift, a blow, a promise — held against the pages the',
     '    way a careful reader reads them: following the sequence across pages, not one line alone. The phone',

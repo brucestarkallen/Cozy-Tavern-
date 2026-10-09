@@ -17815,3 +17815,49 @@ and the same browser profile is opened again with its service worker on. What it
   launcher as shipped (the bake), 41 of 41 with the cure. Both are in audit/gates.sh.
 - NOT CHANGED: the web app (still m675-002: no file a browser runs changed, so no new coat is pushed to any browser); the
   word's port (8080, written in the word).
+
+# M677 — "why it needs the auditor to fix it and not found it before the auditor?" — and "a bar that becomes up higher"
+His two asks, with the auditor's reading of his page 20 pasted under the first.
+
+## 1. What the auditor set right on page 20, and why the page's own reader had not
+The auditor runs last in each page's chain, after the page reader — so the ledger it read had ALREADY been through the
+reader of page 20. Its findings were the reader's misses, of two kinds, and one false alarm:
+- WHERE FIVE PEOPLE WERE (Mei "both hands pressed over her mouth" after her hands came down; Yuki, Gojo, Itsuki, Kageyoshi
+  likewise). The reader was asked for the room as the page ends with an "at" for each person ONLY where it chose to give
+  one, and told to write a move when someone MOVED. A hand that comes down, a cup picked up, a chin back in a palm is no
+  move across the room, so nothing was written, and the storyteller went on reading that Mei's hands were over her
+  mouth. The auditor — whose own prompt says the moment is not its job — was the only one restating them (and M661 lets
+  a restatement the newest page bears out land, from whoever writes it). CURE (extractor.js placesBlock): the people the
+  page shows (its telling, before any window; never the main character — his place is his header's) are handed to the
+  reader BY NAME, each with what the ledger says of them, and it answers for each in "here"; what it gives is written
+  where the words are the page's own and say something the ledger does not (apply.js restatedPresence, unchanged); the
+  ledger's own words given back are no change. The same cure M641 gave the standings.
+- WHO KNOWS WHAT, BY TWO RULES. The reader writes what someone LEARNS that could change what they do; the auditor was told
+  that a present person who "plainly witnessed something" with no line for it is an error — so every page's audit found
+  the reader's honest omissions (a joke about a plaque, a whispered "TABS?") "missing" and wrote them into six people's
+  books. ONE SENTENCE NOW, read by both (agents/herewords.js KNOWING_MEANS): what was put in front of someone that could
+  change what they do or say later; what the room simply watched happen is the page's own.
+- "Drifted: Bold marks (**…**) sit in the prose" WAS FALSE: the eye (agents/lint.js) read the house's own window marker,
+  *** The World Beyond ***, as bold — on every page with a window. The marker line is set aside; bold anywhere else, in
+  the scene or in the window, is still found.
+- Laws M677-1 … M677-4 (tests/harness/m677.mjs, his page 20 as the auditor quoted it): 0 of 4 on the build before, 4 of
+  4 now. NOT MEASURED: how often a real model follows the new per-name question — every model here is scripted. The
+  house holds what it can in code: the question is asked, by name, every page; what comes back is written exactly as
+  above.
+
+## 2. The way back down (his: "when I scroll up there's a bar line that becomes up higher (the latest page) — it should just
+have a small icon to quickly move to the bottom, no bar; it makes my eye hurt seeing it pop up")
+- M675 had given the "↓ the latest page" pill a row of its own at the head of the composer's zone. It came and went with
+  every scroll: measured on a phone (412 × 915), the story's foot jumped 31 px up each time it came (792 → 761), and it
+  was a bar 154 × 24 px with words on it. It is a 20 px round ↓ in the line under the composer now, on the line with
+  the page number, and its room is always kept (hidden is invisible, never gone): the story, the composer and the
+  number stand exactly where they stood (tests/pagemark.py, which also checks it never takes a tap meant for the send
+  button and that a tap on it brings the latest page).
+- DOM-43 said "the bottom line holds no button" (M675, his "delete all the buttons"): it holds one now, the one he asked for,
+  and only while he reads above the newest page.
+- Ships as m677-001.
+
+GATES (the final code): harness 1353/1353; the walk 270/270 (269 in the gate run, the one miss DOM-43's own line above,
+then run again: green); the long play 9/9; lint 0 errors; the 18 browser tests of audit/gates.sh, each exit 0 (among them
+launcher 26/26 and upgrade_in_place 41/41 — m675-002 → m677-001, the tab reloading itself in 4.1 s); the 23 outside them,
+each exit 0 (tests/pagemark.py among them, with the new measurements).

@@ -103,7 +103,10 @@ export function lintPage({ mc = '', userText = '', assistantText = '', ooc = fal
 
   /* Marks On The Page */
   if (/^\s*#{1,6}\s+\S/m.test(page)) push('warn', 'Marks On The Page', 'A markdown header sits in the prose.');
-  if (/\*\*[^*\n]+\*\*/.test(page)) push('warn', 'Marks On The Page', 'Bold marks (**…**) sit in the prose.');
+  /* M677: the window's own marker ("*** The World Beyond ***", which the finisher writes in exactly that form) is the
+   * house's line, not bold — it was reported as "Bold marks (**…**) sit in the prose" on every page with a window (his
+   * report: "Drifted: Bold marks…" under a page whose only asterisks were the marker) */
+  if (/\*\*[^*\n]+\*\*/.test(page.replace(/^[ \t]*\*\*\* The World Beyond \*\*\*[ \t]*$/gm, ''))) push('warn', 'Marks On The Page', 'Bold marks (**…**) sit in the prose.');
   if (/`[^`\n]+`/.test(page)) push('warn', 'Marks On The Page', 'Backticks sit in the prose.');
   if (/<\s*think\b/i.test(page)) push('warn', 'Marks On The Page', 'A <think> block leaked into the page.');
   if (/<\s*details\b/i.test(page) || /\{(PULSE|WATCHLIST|VOICES)\}/.test(page)) push('warn', 'Marks On The Page', 'A tracker block was written on the page; the house keeps those.');

@@ -135,7 +135,7 @@ try:
         # ---------- M675: nothing is painted on a word ----------
         seen, at, covered = sweep(page, 'the top bar shown, forty positions')
         if seen.get('page-mark', 0) < 35: fails.append('the thumb was painted at only %d of 40 positions — the sweep saw nothing to judge' % seen.get('page-mark', 0))
-        if seen.get('btn-jump', 0) < 30: fails.append('the latest-page pill was painted at only %d of 40 positions' % seen.get('btn-jump', 0))
+        if seen.get('btn-jump', 0) < 30: fails.append('the way back down was painted at only %d of 40 positions' % seen.get('btn-jump', 0))
         if at: fails.append('words painted over at %d of 40 positions (bar shown): %s' % (at, '; '.join(covered[:4])))
         # the number stands under the composer, and follows the scroll
         for frac in (0.0, 0.5, 1.0):
@@ -161,18 +161,37 @@ try:
         page.mouse.up()
         page.wait_for_timeout(150)
         if bubble() is not None: fails.append('the number stayed beside the thumb after the drag')
-        # the "latest page" pill stands on nothing: below the story, above the box he types in
+        # M677 — the way back down is a small icon beside the number, and NOTHING MOVES when it comes or goes (his: "a bar line
+        # that becomes up higher … it makes my eye hurt seeing it pop up": the pill's row grew the composer's zone at every scroll)
+        GEO = """() => { const r = (id) => { const e = document.getElementById(id); const b = e.getBoundingClientRect(); return [Math.round(b.top), Math.round(b.bottom), Math.round(b.left), Math.round(b.right)]; };
+          const j = document.getElementById('btn-jump'); const cs = getComputedStyle(j);
+          return { thread: r('thread'), composer: r('composer'), meta: r('meta-page'), send: r('btn-send'), jump: r('btn-jump'), shown: !j.hidden && cs.visibility !== 'hidden' && cs.display !== 'none',
+            w: j.offsetWidth, h: j.offsetHeight, text: j.textContent.trim() }; }"""
+        page.evaluate("() => { const t = document.getElementById('thread'); t.scrollTop = t.scrollHeight; }")
+        page.wait_for_timeout(400)
+        at_tail = page.evaluate(GEO)
         page.evaluate("() => { const t = document.getElementById('thread'); t.scrollTop = 300; }")
-        page.wait_for_timeout(250)
-        pill = page.evaluate("() => { const j = document.getElementById('btn-jump'); if (!j || j.hidden) return null; const a = j.getBoundingClientRect(), t = document.getElementById('thread').getBoundingClientRect(), c = document.getElementById('composer').getBoundingClientRect(); return { top: a.top, bottom: a.bottom, threadBottom: t.bottom, composerTop: c.top }; }")
-        print('  %-42s %s' % ('the latest-page pill', pill))
-        if not pill: fails.append('the latest-page pill does not show above the tail')
-        elif not (pill['top'] >= pill['threadBottom'] and pill['bottom'] <= pill['composerTop']): fails.append('the latest-page pill stands on the story or on the composer: %s' % pill)
-        else:
-            page.click('#btn-jump')
-            page.wait_for_timeout(400)
-            end = page.evaluate("() => { const t = document.getElementById('thread'); return { gap: t.scrollHeight - t.scrollTop - t.clientHeight, hidden: document.getElementById('btn-jump').hidden }; }")
-            if not (end['gap'] < 8 and end['hidden']): fails.append('the pill did not bring the latest page (or stayed after): %s' % end)
+        page.wait_for_timeout(400)
+        above = page.evaluate(GEO)
+        print('  %-42s %s' % ('at the tail (way back down hidden)', {k: at_tail[k] for k in ('thread', 'composer', 'shown')}))
+        print('  %-42s %s' % ('reading above (way back down shown)', {k: above[k] for k in ('thread', 'composer', 'jump', 'shown', 'w', 'h')}))
+        if at_tail['shown']: fails.append('the way back down shows at the tail')
+        if not above['shown']: fails.append('the way back down does not show above the tail')
+        if above['thread'] != at_tail['thread'] or above['composer'] != at_tail['composer'] or above['meta'][:2] != at_tail['meta'][:2]:  # (the number's own width follows its words)
+            fails.append('something moved when the way back down came: story %s -> %s, composer %s -> %s, number %s -> %s' % (at_tail['thread'], above['thread'], at_tail['composer'], above['composer'], at_tail['meta'], above['meta']))
+        if not (above['w'] <= 24 and above['h'] <= 24 and above['text'] == ''): fails.append('the way back down is not a small icon: %s x %s, words %r' % (above['w'], above['h'], above['text']))
+        if not (above['jump'][0] >= above['composer'][1] and above['jump'][0] >= above['thread'][1]): fails.append('the way back down stands on the story or on the composer: %s' % above)
+        if abs((above['jump'][0] + above['jump'][1]) / 2 - (above['meta'][0] + above['meta'][1]) / 2) > 6: fails.append('the way back down is not on the line with the page number: %s vs %s' % (above['jump'], above['meta']))
+        # its finger-sized target never takes a tap meant for the send button
+        sx = (above['send'][2] + above['send'][3]) / 2
+        for sy in (above['send'][1] - 2, above['send'][1] - 6):
+            hit = page.evaluate("([x, y]) => { const e = document.elementFromPoint(x, y); return e ? (e.closest('button') || e).id : null; }", [sx, sy])
+            if hit != 'btn-send': fails.append('a tap at the foot of the send button (%d, %d) lands on %s' % (sx, sy, hit))
+        page.click('#btn-jump')
+        page.wait_for_timeout(500)
+        end = page.evaluate("() => { const t = document.getElementById('thread'); return { gap: t.scrollHeight - t.scrollTop - t.clientHeight, hidden: document.getElementById('btn-jump').hidden }; }")
+        print('  %-42s %s' % ('after a tap on it', end))
+        if not (end['gap'] < 8 and end['hidden']): fails.append('the way back down did not bring the latest page (or stayed after): %s' % end)
         # the top bar hidden: the small button and the thumb share the gutter, and neither stands on a word
         page.click('#btn-immerse')
         page.wait_for_timeout(300)

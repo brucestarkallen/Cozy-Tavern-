@@ -128,10 +128,6 @@
           <div id="prompt-chips" class="prompt-chips" role="toolbar" aria-label="Saved starters"></div>
           <div id="attach-preview" class="attach-preview" hidden></div>
           <div id="ember-bar" class="ember-bar" role="presentation"><div id="ember-fill" class="ember-fill"></div></div>
-          <!-- M22-E3: the way back down. Shows only while you're reading above the tail; nothing ever drags you down.
-               M675: it stands HERE, in a row of its own at the head of the composer's zone — it used to float over the
-               story's last line (and, once the footer wrapped, over the box he types in). Nothing floats over the prose. -->
-          <button id="btn-jump" class="jump-pill" type="button" hidden>↓ the latest page</button>
           <form id="composer" class="composer">
             <label for="composer-input" class="visually-hidden">What's next?</label>
             <textarea id="composer-input" rows="1" placeholder="What's next?"></textarea>
@@ -150,6 +146,10 @@
             <span id="meta-context" class="meta-left"></span>
             <!-- M675: which page is under the eye — it stood on a pill that rode over the prose and hid words; here no word of the story is -->
             <span id="meta-page" class="meta-page" hidden></span>
+            <!-- M22-E3: the way back down — shows only while you read above the tail; nothing ever drags you down.
+                 M677: his — "it should just have a small icon to quickly move to the bottom, no bar". A small round ↓ beside
+                 the page number; its room is always kept, so nothing moves when it comes or goes. -->
+            <button id="btn-jump" class="jump-btn" type="button" hidden aria-label="Go to the latest page" title="Go to the latest page"><svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M12 5v13M6 12.5l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             <!-- M510: the Quick switch — who tells this story, the same choice as Settings → Who tells this story. Its own item on
                  this line (which wraps), never inside the links (which never wrap): inside them it made the line wider than
                  a phone and the whole page scrolled sideways. -->

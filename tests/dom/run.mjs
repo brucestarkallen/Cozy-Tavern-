@@ -2546,8 +2546,12 @@ test('DOM-43 “try again” under his newest message means the newest turn: wit
   const standing = await db.messages.append(st.id, { role: 'assistant', text: 'The lake was flat and grey, and nobody spoke for a while.' });
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
-  /* M675: nothing to press stands under the composer any more — the meter and the Quick switch are all that line holds */
-  eq(qa('.composer-meta button').length, 0, 'the bottom line holds no button');
+  /* M675: nothing to press stands under the composer any more — the meter and the Quick switch are all that line holds.
+   * M677: his — "it should just have a small icon to quickly move to the bottom": the way back down is the one button
+   * there, and only while he reads above the newest page (at the tail it is not shown; tests/pagemark.py measures that
+   * it moves nothing when it comes) */
+  eq(qa('.composer-meta button').map((b) => b.id).join(','), 'btn-jump', 'the bottom line holds no button but the way back down');
+  assert(q('#btn-jump').hidden, 'and that one is not shown at the newest page');
   assert(!q('#btn-retry') && !q('#btn-foot-ledger') && !q('#btn-foot-scene') && !q('.composer-meta [data-goto]'), 'Try again · This story · The readers · The ledger · The current scene are gone from it');
   assert(q('.msg-act[data-act="try again"]', userPages()[0]), 'the retry is on his own message');
   /* the storyteller's page newest: “try again” under his message writes THAT page anew (M25's law, run instead of read).

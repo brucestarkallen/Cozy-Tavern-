@@ -34,7 +34,7 @@
  * The M3 names (noteExtraction / pendingExtraction) remain as aliases —
  * they were the published contract. */
 
-import { HERE_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition */
+import { HERE_MEANS, KNOWING_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition; M677: what goes into who knows what — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
 import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
@@ -148,7 +148,7 @@ const VOCABULARY = [
    * burning in the ledger, read to the storyteller every turn as something
    * still hanging. */
   'thread.close {"type":"thread.close","title":"the title as the ledger holds it"} — a story thread THIS page resolved: the question answered, the plan abandoned, the promise kept, the thing found. Use the title the ledger shows, worded as it stands (each title is quoted on the thread list).',
-  'knowledge.add {"type":"knowledge.add","who":["NAME","OTHER NAME"],"fact":"that Orrin Vale lived in England"} — when someone in the scene LEARNS something that could matter later: a secret told, a name heard, a lie caught, a thing seen they were not meant to see. A LIE OR A COVER STORY THEY BELIEVE is written as what they believe AND that it is untrue — fact "believes Orrin Vale is only a recruit — untrue: Orrin Vale is the new captain of the guard" — and when the truth comes out in front of them, what they learned: "learned Orrin Vale is the new captain, not a recruit — he had told them otherwise". Only what THIS page put in front of them, and only where being told, or not told, could change what they do. WRITE IT IN THE PAGE\'S OWN TERMS: what was said, seen or overheard, exactly — "their mother" if the page said their mother, never "his stepmother" because you know the family; who said it to whom as the page has it; never what the person would conclude from it. A fact the page did not put in front of them is not knowledge, however likely. WHO IS YOURS TO DECIDE, FROM THE PAGE: "who" names EVERY person the page put it in front of, each by name — close enough to see or hear it, awake, and there when it happened (never someone who came in after it, had gone before it, or from whom it was kept: a whisper is the two it passed between). Write "who":"everyone here" when it happened or was said in front of the whole scene: that means everyone who was in the scene when this page opened and is still in it at its end. Anyone else who was there for it — someone who walked in before it happened, someone who left after it — is added by name: "who":["everyone here","NAME"]. One witness is a list of one. Never the main character, and the one who did or said it is no witness of their own act.',
+  'knowledge.add {"type":"knowledge.add","who":["NAME","OTHER NAME"],"fact":"that Orrin Vale lived in England"} — when someone in the scene LEARNS something that could matter later: a secret told, a name heard, a lie caught, a thing seen they were not meant to see. A LIE OR A COVER STORY THEY BELIEVE is written as what they believe AND that it is untrue — fact "believes Orrin Vale is only a recruit — untrue: Orrin Vale is the new captain of the guard" — and when the truth comes out in front of them, what they learned: "learned Orrin Vale is the new captain, not a recruit — he had told them otherwise". Only what THIS page put in front of them, and only where being told, or not told, could change what they do. WRITE IT IN THE PAGE\'S OWN TERMS: what was said, seen or overheard, exactly — "their mother" if the page said their mother, never "his stepmother" because you know the family; who said it to whom as the page has it; never what the person would conclude from it. A fact the page did not put in front of them is not knowledge, however likely. WHO IS YOURS TO DECIDE, FROM THE PAGE: "who" names EVERY person the page put it in front of, each by name — close enough to see or hear it, awake, and there when it happened (never someone who came in after it, had gone before it, or from whom it was kept: a whisper is the two it passed between). Write "who":"everyone here" when it happened or was said in front of the whole scene: that means everyone who was in the scene when this page opened and is still in it at its end. Anyone else who was there for it — someone who walked in before it happened, someone who left after it — is added by name: "who":["everyone here","NAME"]. One witness is a list of one. Never the main character, and the one who did or said it is no witness of their own act. ' + KNOWING_MEANS,
   'mode.snapshot {"type":"mode.snapshot","flags":["travel"]} — THE WHOLE BOARD, EVERY PAGE: every mood that holds at the END of this page, from: combat (a fight is on), intimate (sex or intimate touch is on), travel (in transit — a car, a train, a road; NOT once they have arrived and stepped out), socialField (a crowded public place full of voices), isolation (alone, far from help), group (in company of several). Anything you do not name is cleared. An empty list clears them all.',
   'body.injure {"type":"body.injure","name":"NAME","what":"left forearm fractured","sev":2,"treated":false} — only when a blow lands on-page; sev is 1 (a graze), 2 (a real wound), or 3 (severe); treated only if someone tends it on-page',
   'body.strain {"type":"body.strain","name":"NAME","what":"the long climb"} — weariness short of injury, when the prose shows it',
@@ -377,10 +377,44 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
     ...(!founding ? namedFromAfarBlock(state, assistantText) : []),
     ...(!founding ? withinEarshotBlock(state) : []),
     ...(!founding ? thingsOnPageBlock(state, assistantText) : []),
+    ...(!founding ? placesBlock(state, assistantText) : []), /* M677 */
     ...standingsBlock(unwritten), /* M641 */
     founding ? 'Found the ledger from these pages. JSON only.' : 'What changed, if anything? JSON only.',
   ].join('\n');
   return { system: withFictionFrame(systemPrompt({ mc, founding }) + '\n\n' + fetchLaw({ rounds: EXTRACTOR_LOOKS, when: 'Look only when THIS page leans on something you were not shown — a person, a promise or a place from an earlier page, a name the brief defines further on. Most pages need no look.' })), user, founding, mc, standingsFor: unwritten };
+}
+
+/* M677 — WHERE EACH OF THEM IS AS THE PAGE ENDS, EACH TO BE ANSWERED. His report: the auditor, every page, "set right" where
+ * five people sat ("the ledger has Oda Mei 'both hands pressed over her mouth', but p20 shows her hands come down …").
+ * The reader was asked for the room as the page ends with an "at" for each person only where it chose to give one, and
+ * told to write a move when someone MOVED — a hand that comes down, a cup picked up, a chin back in a palm is no move
+ * across the room, so nothing was written, and the ledger went on telling the storyteller that Mei's hands were over
+ * her mouth. The auditor (told the moment is not its job, and doing it anyway) was the only one who restated them. The
+ * house knows exactly who is here and what the ledger says of each: the people THIS page shows (its telling, before
+ * any window, never the main character — his place is his header's) are handed to the reader by name, each with the
+ * ledger's words, and it answers for each in "here". Its words are written where they are the page's own and say
+ * something the ledger does not (engine/apply.js restatedPresence); the ledger's own words back are no change. */
+export function placesBlock(state, pageText = '') {
+  const told = narrationOf(scenePartOf(String(pageText || '').replace(/^\s*\[[^\n]*\][ \t]*/, '')));
+  const rows = [];
+  for (const p of Array.isArray(state && state.present) ? state.present : []) {
+    if (!p || typeof p.name !== 'string' || !p.name.trim() || isMc(state, p.name)) continue;
+    if (!shownOnPage(state, told, p.name)) continue;
+    const at = typeof p.position === 'string' && p.position.trim() ? p.position.trim() : '';
+    const wears = typeof p.attire === 'string' && p.attire.trim() ? p.attire.trim() : '';
+    rows.push(p.name + ' \u2014 the ledger has: ' + (at || 'no place written') + (wears ? '; wearing ' + wears : ''));
+    if (rows.length >= 16) break;
+  }
+  if (!rows.length) return [];
+  return [
+    'WHERE EACH OF THEM IS AS THIS PAGE ENDS. The page shows these people; in "here", give EACH of them as {"name":"…","at":"…"} \u2014',
+    'where they are and what they are doing as the page ends, in the page\u2019s own words: a hand that came down, a cup picked up,',
+    'a place crossed to, a chin back in a palm is where they are now, and the ledger\u2019s line is a lie until you write it. Where',
+    'the page leaves someone exactly as the ledger has them, give the ledger\u2019s words back. Add "wears" only when the page shows',
+    'their dress change.',
+    ...rows.map((r, i) => (i + 1) + '. ' + r),
+    '',
+  ];
 }
 
 /* M641: WHO HAS NO STANDING YET, EACH TO BE DECIDED — the open threads' own cure (M280, below), for the same fault. His
