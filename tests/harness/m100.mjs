@@ -350,11 +350,8 @@ test('M168: the ink on the ember turns with the ember, and every coat defines it
   /* a native <option> takes the UA's ink unless the page says otherwise */
   assert(/^option \{ color: var\(--text\); background: var\(--surface\); \}$/m.test(css), 'an option is painted by the house, not the browser');
 
-  /* the separator dots are quiet, not absent */
-  const chat = readFileSync(new URL('../../css/chat.css', import.meta.url), 'utf8');
-  const meta = chat.slice(chat.indexOf('.meta-links {'), chat.indexOf('.meta-links {') + 320);
-  assert(!/color: var\(--border\);/.test(meta), 'the dots are not painted --border (1.3:1 — absent, not quiet)');
-  assert(/color-mix\(in oklab, var\(--muted\)/.test(meta), 'they are a muted mix — there, and quiet');
+  /* (M168's "the separator dots are quiet, not absent" read the footer links' rule here. M675: the links, and their dots,
+   * are gone — his word — so there is nothing left for it to hold.) */
 });
 
 /* M170: M166's name guard was reaching into free text. body.heal matched a

@@ -649,8 +649,13 @@ export function partLookAlikes(state) {
    * anew for each pair, and asked the whole cast "would today's rule find this name a page?" before anything cheaper.
    * Now each name is folded ONCE (and remembered: a name's fold never changes), the page that bears a name is looked
    * up rather than searched for, the cheap questions come first, and the one costly question is asked last, of a true
-   * candidate only. Every condition is the one it was — none has a side effect, so their order cannot change who is
-   * parted (the laws of M665 are the proof).
+   * candidate only. Every condition is the one it was (the laws of M665 are the proof for one look-alike of a page).
+   * M675 — ONE THING DID CHANGE, AND IT IS KEPT ON PURPOSE (the audit, old against new on 60,000 made-up ledgers: 40
+   * differ, every one with TWO OR MORE names written a letter from the same page and no page of their own — page
+   * Kara; "Lara" and "Mara" both written onto it). The pages' names are read once, before the loop, where they used
+   * to be read again for each name: so the page made for the first of them (Lara) no longer stands in the way of the
+   * second (Mara was then "a letter from two pages", and was left mixed into Kara's for good). Every such name is
+   * parted now, each onto a page of its own — that is the repair's whole purpose, and m675's law M675-9 holds it.
    * WHAT IS NOT HERE, AND WHY: my first cut also remembered "this ledger has nothing to part" by its counts and the
    * LENGTHS of its words, and passed such a ledger by. Two ledgers that differ only in whose name a change was written
    * under — Kara's or Lara's — have the same counts and lengths: the second was passed by on the memory of the first

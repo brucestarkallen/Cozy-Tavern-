@@ -28,3 +28,14 @@ export function shownTextPatch(page, text, extra = {}) {
   }
   return patch;
 }
+
+/* M675 — WHICH "MENDS" ARE ONLY THE HOUSE TIDYING A PAGE. A page remembers its earlier words in `mended` — and three hands
+ * write there: a reader that mended what the page SAYS (the second reader, the keeper, the continuous audit: `why` is
+ * the contradiction), the landing finisher that took off marks or an echoed rule ("tidied — took off …"), and the
+ * header's fill ("the header named only the area …"). "A page already mended is never mended again" is about the
+ * first kind: a page the finisher had merely trimmed was passed over by the continuous audit for good, whatever it
+ * said against the story. Pure. */
+export function isHouseTidy(mended) {
+  const why = mended && typeof mended === 'object' && typeof mended.why === 'string' ? mended.why : '';
+  return /^tidied — took off /.test(why) || /^the header named only the area/.test(why);
+}

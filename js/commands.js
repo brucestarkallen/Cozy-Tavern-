@@ -68,19 +68,37 @@ const DIRECTIVES = {
  * beat…" — and a teller that reads a second, instruction-shaped message after the writer's reads a system talking to an
  * assistant. Now every shortcut's meaning is said ONCE, in the standing words, and on the turn he uses one only his own
  * typed words travel. */
+/* M675: WHAT EACH SHORTCUT ASKS, ONE LINE EACH — the standing words below are made of these, and a reader that is shown his
+ * message without the standing words (the benchmark's judge: "<his move> #p" told it nothing) is handed the one line that
+ * applies (shortcutLaw). One wording, two readers. */
+const lawTail = (t) => String(t).replace(/\s*The [a-z]+:\s*$/i, '').replace(/[:\s]+$/, ''); /* the law's own lead-in to what follows ("The concept:", "The destination:") */
+const STANDING_LAWS = {
+  beat: () => DIRECTIVES.beat,
+  skip: () => DIRECTIVES.skip,
+  continue: () => DIRECTIVES.continue.replace(/^#continue\b/, '#continue, or a bare \u201cGo on.\u201d'), /* M494: one meaning for continuing */
+  nextScene: () => DIRECTIVES.nextScene,
+  timeSkip: () => lawTail(DIRECTIVES.timeSkip).replace('the time or moment named below', 'the time or moment named after the shortcut'),
+  story: () => lawTail(DIRECTIVES.story).replace('from the concept below', 'from the concept written after the shortcut (or, with none, of your own choosing)'),
+  window: () => lawTail(DIRECTIVES.window).replace('on the person named below', 'on the person named after the shortcut'),
+};
 export function shortcutsText() {
-  const tail = (t) => String(t).replace(/\s*The [a-z]+:\s*$/i, '').replace(/[:\s]+$/, ''); /* the law's own lead-in to what follows ("The concept:", "The destination:") */
   return [
     'SHORTCUTS. When the writer\u2019s whole message is one of these, this is what it asks of you \u2014 the message is the shortcut itself, never something to discuss:',
-    DIRECTIVES.beat,
-    DIRECTIVES.skip,
-    DIRECTIVES.continue.replace(/^#continue\b/, '#continue, or a bare \u201cGo on.\u201d'), /* M494: one meaning for continuing */
-    DIRECTIVES.nextScene,
-    tail(DIRECTIVES.timeSkip).replace('the time or moment named below', 'the time or moment named after the shortcut'),
-    tail(DIRECTIVES.story).replace('from the concept below', 'from the concept written after the shortcut (or, with none, of your own choosing)'),
-    tail(DIRECTIVES.window).replace('on the person named below', 'on the person named after the shortcut'),
-    '#question <his question>, ((\u2026)), or a line opening with // \u2014 ' + tail(DIRECTIVES.question) + '.', /* M494: one law for out of character — the asides had a weaker one */
+    STANDING_LAWS.beat(),
+    STANDING_LAWS.skip(),
+    STANDING_LAWS.continue(),
+    STANDING_LAWS.nextScene(),
+    STANDING_LAWS.timeSkip(),
+    STANDING_LAWS.story(),
+    STANDING_LAWS.window(),
+    '#question <his question>, ((\u2026)), or a line opening with // \u2014 ' + lawTail(DIRECTIVES.question) + '.', /* M494: one law for out of character — the asides had a weaker one */
   ].join('\n');
+}
+/* the one line that applies to a message of his; '' when it is no shortcut (an out-of-character aside has no line here:
+ * its answer is not a page of the story, and nobody judges it as one) */
+export function shortcutLaw(text) {
+  const kind = parseCommand(typedWords(text)).kind;
+  return kind && Object.prototype.hasOwnProperty.call(STANDING_LAWS, kind) ? STANDING_LAWS[kind]() : '';
 }
 
 const QUESTION_RE = /^#question\s+([\s\S]+)$/i;
@@ -230,17 +248,49 @@ export function commandChip(text) {
   return parsed.chip || '';
 }
 
+/* M668/M675: A TEXT FILE HE ATTACHED RIDES IN HIS PAGE, UNDER ITS NAME — after the words he typed. What he TYPED is what
+ * stands before it, and that alone is his move and his command: the audit of M674 found the referee reading the file's
+ * first lines as what his character does (a notes file with the word "strike" passed its gate; a heading "# Roll tables"
+ * forced a roll), and a shortcut with a file attached travelling without the file. One place says how the block is
+ * written (attachedBlock) and how his own words are read back out of a page that carries one (typedWords). */
+/* M675 (the second reading): THE NAME IS HIS, AND A NAME MAY HOLD A BRACKET. The mark was read up to the first "]" — so
+ * "notes [v2].md" was not seen as a file at all: a shortcut travelled without it again, and the file's first lines were
+ * read as his move, the very faults this was written to end. The name stands on one line (a line break in a name is
+ * written as a space) and the mark is the whole of that line, to its last "]". */
+export const attachedBlock = (name, text) => '[Attached file: ' + (String(name || '').replace(/[\r\n\u2028\u2029]+/g, ' ').trim().slice(0, 200) || 'file') + ']\n' + String(text || '');
+const ATTACHED_RE = /(?:^|\n\n)\[Attached file: [^\n]{1,200}\]\n/;
+export function typedWords(text) {
+  const s = typeof text === 'string' ? text : '';
+  const at = s.search(ATTACHED_RE);
+  return at === -1 ? s : s.slice(0, at);
+}
+/* the file's part of a page — from "[Attached file: …]" to the end; '' when the page carries none */
+export function attachedPart(text) {
+  const s = typeof text === 'string' ? text : '';
+  const at = s.search(ATTACHED_RE);
+  return at === -1 ? '' : s.slice(at).replace(/^\n+/, '');
+}
+
 /* M674: WHICH PAGES ARE OUT OF CHARACTER. A page is out of character when it is marked so, when it is his and opens
  * with the house's own mark for one (#question, (( )), //), or when it is the storyteller's answer to such a page —
  * the same reading every "ask again" uses (chat.js turnArgsBefore). The answer is found by the page it answers because
  * it may carry no mark of its own: one that landed before the mark was kept, or by the one door that asked plainly
  * until M674. A storyteller page that follows another storyteller page is the story going on (a "Go on").
  * `pages` are the pages that show, in order (a hidden page is not among them). Pure. */
+/* M675 — AND A PAGE SAID TO BE THE STORY IS THE STORY (ooc === false). The answer was found by POSITION alone — and position
+ * is wrong in two cases the house itself can tell apart. "Go on" pressed after an out-of-character question (its answer
+ * failed, or was let go): the hidden "continue" is not among the pages that show, so the page the storyteller then told
+ * AS THE STORY stood right after his question and was taken for its answer — passed over by the ledger, labelled "not
+ * the story" to every reader, refused as evidence by the continuous audit (the audit: turnArgsBefore says story, asideAt
+ * says out of character). And a chat brought in from SillyTavern, where "((make her angrier))" is an instruction and
+ * the reply after it is the story going on. Such a page carries ooc: false — written when it lands, when it is brought
+ * in, and once for the pages already kept (chat.js settleAsides) — and no position overrules it. */
 export function asideAt(pages, i) {
   const list = Array.isArray(pages) ? pages : [];
   const m = list[i];
   if (!m) return false;
-  const marked = (p) => p.ooc === true || (p.role !== 'assistant' && parseCommand(String(p.text || '')).ooc === true);
+  const marked = (p) => p.ooc === true || (p.role !== 'assistant' && parseCommand(typedWords(String(p.text || ''))).ooc === true);
+  if (m.role === 'assistant' && m.ooc === false) return false;
   if (marked(m)) return true;
   if (m.role !== 'assistant') return false;
   const asked = list[i - 1];

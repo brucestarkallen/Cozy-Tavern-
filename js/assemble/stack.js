@@ -96,7 +96,7 @@ import { renderStanding, standingPlans } from './planbook.js'; /* M510-22 */
 import { estimateTokens } from './receipt.js';
 import { renderStateFacts, stateView } from '../engine/state.js';
 import { sceneAnchor, recallFromRecord, recallLine, recallFromPages, recallPagesLine } from './anchor.js'; /* M343, M344; M510-13 */
-import { shortcutsText } from '../commands.js'; /* M379 */
+import { shortcutsText, attachedPart, typedWords } from '../commands.js'; /* M379; M675: a file attached to a shortcut; his own words, read back out of a page that carries one */
 import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main character's name never scores a recall */
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
 import { outcomeWords } from '../agents/choices.js'; /* M548: Choices matter — what the storyteller is told */
@@ -238,7 +238,15 @@ export function wireable(messages, pageFilter) {
   }
   return list.map((m) => {
     /* M30: wire-mode regex rules shape only what rides the wire. */
-    const said = m.role === 'user' && typedOf(m) ? typedOf(m) : pageText(m);
+    /* M675: A FILE ATTACHED TO A SHORTCUT TRAVELS WITH IT. A page of his that is a shortcut travels as its `typed` words —
+     * and a text file he attached (M668) is only in the page's own words: "#story a tale from this outline" with
+     * outline.md attached reached the storyteller as that one line, on its turn and on every turn after, while the
+     * chip had said "sent with your next page" and the thread showed the file (the audit of M674; any shortcut, a
+     * #question or an aside alike). The file's part of the page rides after what he typed — for the pages already
+     * kept that way too, since it is read here, where the request is made. */
+    const typed = m.role === 'user' ? typedOf(m) : '';
+    const file = typed ? attachedPart(pageText(m)) : '';
+    const said = typed ? (file && !typed.includes(file) ? typed + '\n\n' + file : typed) : pageText(m);
     const content = filter ? filter(said, m.role) : said;
     const out = { role: m.role, content, id: m.id };
     if (m.image && m.image.dataUrl) {
@@ -455,6 +463,23 @@ export function addedNotes(list, { ooc = false } = {}) {
 
 /* A turn counts as "just go on" when the last thing the other writer said
  * is empty, or a bare "continue". Only then does slot 10 speak. */
+/* M675: is this turn the house's own "go on" (a hidden page with nothing of his in it) standing right after an
+ * out-of-character message of his that got no answer? Then his message is not this turn's — see where the nudge is said. */
+function goOnAfterAside(history) {
+  const list = Array.isArray(history) ? history : [];
+  let i = list.length - 1;
+  while (i >= 0 && !(list[i] && list[i].role === 'user')) i -= 1;
+  const turn = i >= 0 ? list[i] : null;
+  if (!turn || !turn.hidden || typedOf(turn)) return false;
+  for (let j = i - 1; j >= 0; j -= 1) {
+    const m = list[j];
+    if (!m || (m.hidden && !typedOf(m))) continue; /* an earlier nudge of the house's that never got its page */
+    if (m.role !== 'user') return false; /* a page of the storyteller's stands between: "Go on." already follows it */
+    return Boolean(m.ooc === true || /^\s*(?:#question|\(\(|\/\/)/.test(m.hidden ? typedOf(m) : typedWords(String(m.text || ''))));
+  }
+  return false;
+}
+
 function isContinueTurn(history) {
   const lastUser = [...history].reverse().find((m) => m && m.role === 'user');
   if (!lastUser) return false;
@@ -886,12 +911,21 @@ export function buildRequest({
   const sceneSection = smallB && intimateNow ? smallLaws.filter((l) => l.section === 'Intimacy') : [];
   /* M510-7: a fight's page carries the craft's fight laws — the ledger's mark, a woken contest rule, a live fight, or his
    * own words starting one (the helper planned before his move) */
-  const typedNow = (() => { const u = [...history].reverse().find((m) => m && m.role === 'user' && !m.hidden); return u ? String(u.text || '') : ''; })();
+  const typedNow = (() => { const u = [...history].reverse().find((m) => m && m.role === 'user' && !m.hidden); return u ? typedWords(String(u.text || '')) : ''; })(); /* M675: what he typed — a notes file riding in the page starts no fight */
   const fightNow = selected.some((s) => s && s.mod && (s.mod.whenKey === 'combat' || s.mod.id === 'contested-resolution')) || Boolean(state && state.mode && state.mode.combat) || Boolean(state && (state.duel || state.battle || state.war)) || typedCombat(typedNow);
   /* M510-26/27: how a fight sounds rides as its own woken rule now (modules.js 'fight-acoustics'), for every storyteller */
   const fightSection = smallB && fightNow ? lawsNamed(smallLaws, FIGHT_LAWS) : [];
   /* M512: an out-of-character question carries his OOC law (its own law now — it was read as the tail of Story Drivers) */
-  const oocTurn = (() => { const u = [...history].reverse().find((m) => m && m.role === 'user' && !m.hidden); return Boolean(u && (u.ooc === true || /^\s*(?:#question|\(\(|\/\/)/.test(String(u.text || '')))); })();
+  /* M675 (the second reading): THE TURN'S OWN PAGE SAYS WHAT THE TURN IS. This looked for his last message that SHOWS —
+   * so a "Go on" (a hidden page of the house's, nothing of his) pressed any time after an out-of-character message was
+   * taken for an out-of-character turn: the OOC law sent to a small model on a page of the story, the house's thinking
+   * note held back from it. The newest page of his in the story is asked, hidden or not: a hidden nudge is no aside; a
+   * hidden shortcut is read by what he typed. */
+  const oocTurn = (() => {
+    const u = [...history].reverse().find((m) => m && m.role === 'user');
+    if (!u || (u.hidden && !typedOf(u))) return false;
+    return Boolean(u.ooc === true || /^\s*(?:#question|\(\(|\/\/)/.test(u.hidden ? typedOf(u) : String(u.text || '')));
+  })();
   const craftForTurn = smallB
     ? joinLaws([...lawsNamed(smallLaws, [...ALWAYS_LAWS, ...PROSE_LAWS, ...PEOPLE_LAWS, ...(oocTurn ? ['OOC'] : []), ...(Array.isArray(smallPlan.laws) ? smallPlan.laws : [])].filter((n) => !soundKeys.has(lawKey(n)))), ...sceneSection, ...fightSection]) /* M512: his prose laws on every small page */
     : craftText;
@@ -1574,6 +1608,14 @@ export function buildRequest({
     if (!hisTravels) {
       if (last && last.role === 'user') out[out.length - 1] = { ...last, content: CONTINUE_NUDGE };
       else out.push({ role: 'user', content: CONTINUE_NUDGE });
+    } else if (goOnAfterAside(history)) {
+      /* M675 (the second reading) — "GO ON" AFTER HIS OUT-OF-CHARACTER MESSAGE ASKS FOR THE STORY, AND SAYS SO. He asks
+       * "((who is Kara?))", the answer fails or he lets it go, and he presses "go on" under the page before it: the
+       * story is to go on. But what travelled was his question alone — word for word the request that ASKS the
+       * question (measured: the two requests ended alike) — while the house kept whatever came back as a page of the
+       * story and sent its readers to it. His question stays where it stands; "Go on." is said after it, as the one
+       * message of this turn. (An unanswered MOVE of his is still answered as it stands: that page is the story.) */
+      out.push({ role: 'user', content: CONTINUE_NUDGE });
     }
   }
   /* M636: THE SENSORS' WORD, IN THE ROLE HE CHOSE (Settings → The readers → The sensors → "Sent as"). As the storyteller's

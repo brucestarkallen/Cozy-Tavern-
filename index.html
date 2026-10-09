@@ -114,9 +114,6 @@
 
       <section class="thread-wrap" aria-label="The story so far">
         <div id="thread" class="thread"></div>
-        <!-- M22-E3: the way back down. Shows only while you're reading
-             above the tail; nothing ever drags you down. -->
-        <button id="btn-jump" class="jump-pill" type="button" hidden>↓ the latest page</button>
         <p id="thread-empty" class="thread-empty quiet" hidden>Nothing on the page yet. Say something to begin.</p>
         <div id="no-connection" class="no-connection" hidden>
           <p>Add a connection to begin — it stays on this device.</p>
@@ -131,6 +128,10 @@
           <div id="prompt-chips" class="prompt-chips" role="toolbar" aria-label="Saved starters"></div>
           <div id="attach-preview" class="attach-preview" hidden></div>
           <div id="ember-bar" class="ember-bar" role="presentation"><div id="ember-fill" class="ember-fill"></div></div>
+          <!-- M22-E3: the way back down. Shows only while you're reading above the tail; nothing ever drags you down.
+               M675: it stands HERE, in a row of its own at the head of the composer's zone — it used to float over the
+               story's last line (and, once the footer wrapped, over the box he types in). Nothing floats over the prose. -->
+          <button id="btn-jump" class="jump-pill" type="button" hidden>↓ the latest page</button>
           <form id="composer" class="composer">
             <label for="composer-input" class="visually-hidden">What's next?</label>
             <textarea id="composer-input" rows="1" placeholder="What's next?"></textarea>
@@ -147,18 +148,16 @@
           <p id="composer-note" class="composer-note" hidden></p>
           <div class="composer-meta">
             <span id="meta-context" class="meta-left"></span>
+            <!-- M675: which page is under the eye — it stood on a pill that rode over the prose and hid words; here no word of the story is -->
+            <span id="meta-page" class="meta-page" hidden></span>
             <!-- M510: the Quick switch — who tells this story, the same choice as Settings → Who tells this story. Its own item on
                  this line (which wraps), never inside the links (which never wrap): inside them it made the line wider than
                  a phone and the whole page scrolled sideways. -->
             <span id="quick-switch-wrap" class="quick-switch" hidden><label for="quick-switch">Quick switch</label> <select id="quick-switch" aria-label="Quick switch — who tells this story"></select></span>
-            <span class="meta-links">
-              <button type="button" id="btn-retry" hidden>Try again</button>
-              <!-- M668: his — "delete the frame and the notes at the bottom, same as rulebook; change it to this story, the readers, the ledger, the current scene" -->
-              <button type="button" data-goto="section-brief">This story</button> ·
-              <button type="button" data-goto="section-workers">The readers</button> ·
-              <button type="button" id="btn-foot-ledger">The ledger</button> ·
-              <button type="button" id="btn-foot-scene">The current scene</button>
-            </span>
+            <!-- M675: his — "Delete all the button like try again, this story, the ledger, everything … it'll get cluttered.
+                 Especially retry can be press on my input message." The five links that stood here (Try again · This story ·
+                 The readers · The ledger · The current scene) are gone: each was a second door to something that has its own
+                 (“try again” under his message and ▸ on the newest page; Settings; the ledger's book in the top bar). -->
           </div>
         </div>
       </section>
@@ -373,16 +372,31 @@
         <!-- M632: the benchmark — which storyteller writes best -->
         <section class="settings-section" id="section-bench">
           <h3>Benchmark — which storyteller writes best</h3>
-          <p class="quiet">Every page can be graded as it lands — prose, people, your character's agency, continuity, pull, 0 to 10 — by the judges you tick (their grades averaged), against the moment it answers (the page before, your move, where things stand); nothing to copy or paste. When one moment has pages from two storytellers (switch the storyteller, then ask for another take with → on the page), the judge also reads the two side by side, blind, both ways round. Each storyteller's score is the average of its pages, and the board ranks them.</p>
+          <!-- M675: one line, and the long explanation in a fold (his: "it's cluttered mess") — every word of it kept -->
+          <p class="quiet">Each page is graded as it lands, and the board ranks your storytellers.</p>
+          <details class="stack bench-fold" id="bench-how">
+            <summary class="stack-label">How it grades</summary>
+            <p class="quiet">Every page can be graded as it lands — prose, people, your character's agency, continuity, pull, 0 to 10 — by the judges you tick (their grades averaged), against the moment it answers (the page before, your move — and, when your move was a shortcut like #p, what that shortcut asks — and where things stood when the page was asked for); nothing to copy or paste. When one moment has pages from two storytellers (switch the storyteller, then ask for another take with ▸ on the page), the judge also reads the two side by side, blind, both ways round. Each storyteller's score is the average of its pages, and the board ranks them.</p>
+          </details>
           <div class="row"><label class="radio-row"><input type="checkbox" id="bench-on"> Grade every page</label></div>
-          <!-- M633: several judges, their grades averaged -->
-          <span class="stack-label">Graded by — tick one or more; their grades are averaged</span>
-          <div id="bench-judges" class="bench-picks"></div>
+          <!-- M633: several judges, their grades averaged.
+               M675 — his: "it's cluttered mess, make fold or drop down on the judge." A tick for every connection stood open
+               here, and the same list again under "Run a benchmark now" — sixteen ticks before the board, with eight
+               connections. Each list is a fold now; its heading says who is ticked, so nothing has to be opened to know. -->
+          <details class="stack bench-fold" id="bench-judges-fold">
+            <summary class="stack-label" id="bench-judges-summary">The judges</summary>
+            <p class="quiet">Tick one or more — their grades are averaged. With none ticked, the readers’ own connection grades.</p>
+            <div id="bench-judges" class="bench-picks"></div>
+          </details>
           <!-- M633: a run on demand — a random moment of his stories, written by each storyteller he ticks -->
           <details class="stack bench-run" id="bench-run" open>
             <summary class="stack-label">Run a benchmark now</summary>
             <p class="quiet">A random page of your stories — its moment exactly as the storyteller was sent it — is written again by each storyteller you tick (up to four, all at once); every judge grades each page, and every pair is judged head to head, blind, both ways round. Your stories are not touched. The results join the board.</p>
-            <div id="bench-takers" class="bench-picks"></div>
+            <details class="stack bench-fold" id="bench-takers-fold">
+              <summary class="stack-label" id="bench-takers-summary">The storytellers to test</summary>
+              <p class="quiet">Tick up to four.</p>
+              <div id="bench-takers" class="bench-picks"></div>
+            </details>
             <!-- M634: an unfinished run continues where it stood -->
             <div id="bench-unfinished" class="bench-unfinished" hidden>
               <p id="bench-unfinished-words" class="quiet"></p>
@@ -400,6 +414,8 @@
             <ul id="bench-status" class="bench-status" hidden></ul>
             <div id="bench-last" class="bench-last"></div>
           </details>
+          <!-- M675: the board had no name — the last run's cards and the board's stood one under the other, two rankings that looked like one -->
+          <span class="stack-label bench-board-label">The board — every page graded so far</span>
           <div id="bench-board" class="bench-board"></div>
           <div class="row"><button id="btn-bench-clear" class="text-btn" type="button">Clear the scores</button></div>
         </section>
@@ -565,7 +581,7 @@
         <section class="settings-section" id="section-choices">
           <h3>Choices matter</h3>
           <div class="row"><label class="radio-row"><input type="checkbox" id="choices-story"> Choices matter — like Detroit: Become Human</label></div>
-          <p class="quiet">On: when a page ends at a real turning point, two to four choices stand above where you type. What each one leads to is decided before you see them — by a helper that cannot know which you will pick — and kept from you. Tap one and your storyteller writes exactly what was sealed; it cannot soften it, and Try again keeps it. Type your own move and nothing is sealed. What your choices leave behind keeps coming back on later pages. Off: nothing is asked, nothing is shown, and your storyteller reads exactly what it always did.</p>
+          <p class="quiet">On: when a page ends at a real turning point, two to four choices stand above where you type. What each one leads to is decided before you see them — by a helper that cannot know which you will pick — and kept from you. Tap one and your storyteller writes exactly what was sealed; it cannot soften it, and telling the page again keeps it. Type your own move and nothing is sealed. What your choices leave behind keeps coming back on later pages. Off: nothing is asked, nothing is shown, and your storyteller reads exactly what it always did.</p>
         </section>
 
         <!-- M16: the shelf it sits on — move a tale between shelves, or let
@@ -1007,7 +1023,7 @@
         <section class="settings-section" id="section-backup">
           <h3>Backup</h3>
           <p class="quiet">Everything the tavern holds — every story and its pages, ledgers, records, character pages, the housekeeper’s sessions, cast, lore, the rulebook and regex shelves, connections (keys included), and every setting — folded into one file. Bring it back on any device and the tavern stands as it was.</p>
-          <p class="quiet">With the tavern’s server running, <b>Take a copy</b> first sends the device everything this browser has not sent yet, then the device makes the copy — so it is the library as it stands this moment. The copy also holds <b>what every page’s storyteller was sent</b>, word for word: the device keeps that for every page from now on (this browser keeps it for the newest 200 pages of a story and reads older ones from the device).</p>
+          <p class="quiet">With the tavern’s server running, <b>Take a copy</b> first sends the device everything this browser has not sent yet, then the device makes the copy — so it is the library as it stands this moment. The copy also holds <b>what every page’s storyteller was sent</b>, word for word: the device keeps that for every page from now on (this browser keeps it for the newest 200 pages of a story and reads older ones from the device). If anything had not reached the device when the copy was made, the note under the button says what. If the tavern’s server is not answering, the browser makes the copy from what it holds itself — and when that is not every tale, the file is named <b>PARTIAL</b> and the note says which tales are not in it.</p>
           <p class="quiet" id="books-live">Where the tales live: in this browser.</p>
           <div class="row">
             <button id="btn-export" class="btn" type="button">Take a copy</button>
@@ -1038,22 +1054,21 @@
             <li><b>The ledger (book icon)</b> — the drawer: four rooms (below).</li>
             <li><b>The housekeeper (star icon)</b> — the assistant you talk to about the story: ask it anything, tell it to fix anything.</li>
             <li><b>Settings (sun icon)</b> — six rooms (below). While Settings is open the same icon means “back to the story”.</li>
-            <li><b>Hide the top bar (four corners icon, beside the shelf’s)</b> — for reading: the bar goes, and a small round button with a down arrow (⌄) stays at the top right. It brings the bar back, and it wears the ledger’s light (blue while the readers work, green when all is read, yellow when something needs a look).</li>
+            <li><b>Hide the top bar (four corners icon, beside the ledger’s book)</b> — for reading: the bar goes, and a small round button with a down arrow (⌄) stays at the top right. It brings the bar back, and it wears the ledger’s light (blue while the readers work, green when all is read, yellow when something needs a look).</li>
             <li><b>On the shelf:</b> the <b>+</b> on a shelf starts a story on that shelf; “Start a new story” starts a loose one. The search looks through the shelves that are open, and says so — one tap searches them all.</li>
           </ul>
 
           <h3>The story page</h3>
           <ul>
             <li><b>The header</b> on every page — <code>[Place — Day, Date | Time | weather | outfit | position]</code> — is the storyteller’s clock. The house reads it in code: the ground and the hour come from here.</li>
-            <li><b>Under a storyteller page:</b> <b>copy</b> · <b>edit</b> (change the words; the house then ripples any changed fact everywhere) · <b>branch</b> (a new story that ends here, with this page’s ledger) · <b>go on</b> (the storyteller continues without you speaking) · <b>read again</b> (the readers re-read this one page and fix the ledger’s history from it) · <b>delete</b>. With a mouse, a right-click on a page also offers <b>Copy the words</b> and <b>Rewrite from here</b> — the story told again from that page: the page gets another version (on the newest page that is all — it is <b>Try again</b>); on an older one the pages after it would be let go, and it says how many and asks first.</li>
+            <li><b>Under a storyteller page:</b> <b>copy</b> · <b>edit</b> (change the words; the house then ripples any changed fact everywhere) · <b>branch</b> (a new story that ends here, with this page’s ledger) · <b>go on</b> (the storyteller continues without you speaking) · <b>read again</b> (the readers re-read this one page and fix the ledger’s history from it) · <b>delete</b>. With a mouse, a right-click on a page also offers <b>Copy the words</b> and <b>Rewrite from here</b> — the story told again from that page: the page gets another version (on the newest page that is all — the same as <b>▸</b>); on an older one the pages after it would be let go, and it says how many and asks first.</li>
             <li><b>Under your message:</b> copy · edit · <b>try again</b> (the storyteller answers this message again, and the answer it already has is never thrown away: the new answer is another version of the same page, the earlier one a swipe away. On an older message the pages <i>after</i> that answer would be let go — it says how many and asks first) · branch (a new telling from here; this one stays as it is) · delete.</li>
-            <li><b>◂ 1/3 ▸</b> — swipes: alternative pages for the same turn. The ledger follows whichever you are on. <b>Try again</b> is the same thing by its plain name: the newest page is told again as another version, and the earlier ones stay a swipe away. If a telling fails (the provider’s error is shown under the page), the page is exactly as it was — nothing is lost by trying. The error’s note leaves by itself when the next telling begins.</li>
+            <li><b>◂ 1/3 ▸</b> — swipes: alternative pages for the same turn. The ledger follows whichever you are on. <b>▸</b> past the last version tells the page again as another version, and the earlier ones stay a swipe away — <b>try again</b> under your own message does the same for its answer. If a telling fails (the provider’s error is shown under the page), the page is exactly as it was — nothing is lost by trying. The error’s note leaves by itself when the next telling begins.</li>
             <li><b>✦ (between the message box and Send)</b> — add a picture the storyteller looks at, or a text file (.md, .txt, .yaml, .json and the like) whose words go with your message.</li>
             <li><b>What the storyteller saw</b> — the receipt: every slot sent on the wire and its token count, and the words themselves — <b>Normal</b> (each part) or <b>Raw</b> (the request exactly as the provider got it). Kept on the device for every page, and in every copy.</li>
             <li><b>What the storyteller weighed</b> — its thinking, if the model sends any. <b>Copy the thinking</b> copies it.</li>
             <li><b>✦ The World Beyond ✦</b> box — a window into somewhere your character is not: the world moving on its own. Written only when the house opens one (the world agent’s word, or <code>#Put TWB</code>). Your character learns nothing from it.</li>
-            <li><b>The footer meter</b> — the size of the last request actually sent, everything included.</li>
-            <li><b>Try again · This story · The readers · The ledger · The current scene</b> (footer links) — tell the newest page again as another version (the earlier one stays; swipe ◂ ▸ between them); open Settings at this story's brief or at the readers; open the ledger, or the ledger at the scene. (The frame, the note and the rulebook are in Settings.) </li>
+            <li><b>The footer meter</b> — the size of the last request actually sent, everything included. <b>Quick switch</b> beside it changes who tells this story. (Nothing else stands there: to tell a page again use <b>try again</b> under your message or <b>▸</b> on the page; this story’s brief and the readers are in Settings, the ledger and its scene behind the book icon.)</li>
           </ul>
 
           <h3>Commands you can type</h3>
@@ -1135,7 +1150,7 @@
           <h3>When something looks wrong — what to press (usually nothing)</h3>
           <p class="quiet">The house fixes itself after every page. These are the few cases where one press is faster than waiting.</p>
           <ul>
-            <li><b>The storyteller wrote a bad page</b> (off-voice, wrong facts, nonsense) → <b>Try again</b> under it (a new version; the old one stays a swipe away, and nothing is lost if the telling fails), or <b>edit</b> the words; the house re-reads and ripples either.</li>
+            <li><b>The storyteller wrote a bad page</b> (off-voice, wrong facts, nonsense) → <b>▸</b> under it, or <b>try again</b> under your message (a new version; the old one stays a swipe away, and nothing is lost if the telling fails), or <b>edit</b> the words; the house re-reads and ripples either.</li>
             <li><b>The ledger has one page wrong</b> (someone marked as gone who stayed, a fact misread on that page) → <b>read again</b> under that page. Fixes the ledger’s history from it; the story stays.</li>
             <li><b>The character pages look stale</b> (old loose ends, an old “arc”) → drawer → The books → The workers → <b>Read the pages again</b>. Rewrites every character page from the whole story. <b>Put the old pages and standings back</b> undoes it.</li>
             <li><b>A mend on a page was wrong</b> (the house edited your prose backwards) → drawer → The books → Something drifted → <b>Put the earlier words back</b> on that mend.</li>

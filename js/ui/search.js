@@ -124,7 +124,10 @@ export function initStorySearch(ctx) {
     }
     let remote = [];
     let deviceSilent = false;
-    if (shelf.some((s) => s.shallow)) {
+    /* M675: the device is asked only when the tavern's server stands behind this page — the words he searches for are
+     * never sent to a host that is not it (a shelf row with no pages can also come from a partial copy brought back) */
+    if (shelf.some((s) => s.shallow) && !(ctx && ctx.booksStatus && ctx.booksStatus.backed)) deviceSilent = true;
+    else if (shelf.some((s) => s.shallow)) {
       try {
         const res = await fetch(new URL('api/books/search?q=' + encodeURIComponent(key), document.baseURI), { cache: 'no-store' });
         const body = res.ok ? await res.json() : null;
@@ -157,7 +160,11 @@ export function initStorySearch(ctx) {
       other.addEventListener('click', () => { scope = narrowed ? 'all' : 'open'; run(input.value).catch(() => {}); });
       box.appendChild(other);
     }
-    if (deviceSilent) box.appendChild(line('Only the tales this browser holds were searched — the device did not answer for the rest.'));
+    /* M675: …and when the tavern answered that it does not serve this address, that is what is said — not that it "did not answer" */
+    const turnedAway = Boolean(ctx && ctx.booksStatus && !ctx.booksStatus.backed && ctx.booksStatus.refused);
+    if (deviceSilent) box.appendChild(line(turnedAway
+      ? 'Only the tales this browser holds were searched — the tavern is running, but it does not answer under this address (Settings says how to start it so that it does).'
+      : 'Only the tales this browser holds were searched — the device did not answer for the rest.'));
     for (const tale of results) box.appendChild(taleCard(tale));
   }
 

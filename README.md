@@ -41,6 +41,37 @@ network doesn't. **One honest note:** each address (Pages, 127.0.0.1,
 localhost) keeps its own separate shelf of stories — pick one as your main,
 and move between them any time with backup/restore in settings.
 
+### Opening the tavern under another name (another device, a forwarder)
+
+The tavern's server listens on this device alone, and it keeps its books for
+pages opened under its own name: `127.0.0.1` or `localhost`. If you reach it
+some other way — from a tablet through a port-forward or a proxy, under the
+phone's LAN address or a name of your own — the page still opens, but the
+server turns the books' doors away, and the app says so: *"The tavern is
+running, but it does not answer under this address…"*. Until you start it for
+that name, nothing written there reaches the device.
+
+Name every extra address in `COZY_HOSTS` when you start it (names or
+addresses, comma-separated, no port needed):
+
+```bash
+COZY_HOSTS=192.168.1.23 cozytavern               # Termux: the one word, for one more address
+COZY_HOSTS=192.168.1.23,tablet.lan bash serve.sh # anywhere else, two of them
+```
+
+Then refresh the page. A proxy in front of the tavern must pass on the address
+it was asked under (`Host`, or `X-Forwarded-Host`) — the server checks that a
+page writing to it is its own. Remember the honest note above: that address
+keeps its own shelf in its own browser, sharing the device's books.
+
+**Two browsers, one tale — one more honest note.** Two browsers that can both
+reach the tavern hand each other every page the moment it lands. But if you
+write the *same tale* in two browsers while one of them cannot reach the
+tavern (the phone asleep, the Wi-Fi gone), the one that reaches it last puts
+its telling of that tale on the device, and the pages the other wrote
+meanwhile are gone. Write a tale from one browser at a time, or take a copy
+first.
+
 ## Keeping it current
 
 The tavern tops itself up: every `cozytavern` run pulls the latest tales
@@ -181,6 +212,12 @@ real file** — `~/.cozytavern/books.json`, rotated and written atomically after
 Clear the browser's data, wipe the app folder, replace the phone's browser — the tales walk
 back in. On GitHub Pages there is no little server, so the tales live in the browser alone,
 and the Backup section says so plainly.
+
+What takes the room on the device is "what the storyteller saw" — the words sent with every
+page, kept beside each tale so a receipt can always be opened. A **branch** keeps its own copy
+of those words for the pages it carries (so letting the first tale go never takes them with
+it): a branch of a long tale costs about what that tale's kept words cost, again, on the
+device and in every copy you take.
 
 ## Starting over clean
 

@@ -306,6 +306,13 @@ test('M510-12 A FIGHT HE STARTS IN HIS OWN WORDS IS A FIGHT ON THAT PAGE for a s
   const calm = mk('I nod and say good morning.');
   const cw = wireOf(calm);
   assert(!cw.includes('Combat Calibration = ') && !calm.messages[calm.messages.length - 1].content.includes('Sound As Onomatopoeia = '), 'a calm page carries neither');
+  /* M675 (the second reading): HIS WORDS ARE WHAT HE TYPED — a notes file riding in the same page starts no fight (the
+   * request's own reading of "his words" took the whole page: the file's "draws his blade and lunges" woke the fight laws) */
+  { const msgs = pages(12); msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], text: 'I nod and say good morning.\n\n[Attached file: notes.md]\nKaelen will strike first: he draws his blade and lunges at Jovan.' };
+    assert(typedCombat(msgs[msgs.length - 1].text), 'fixture: read whole, the page would be a fight');
+    const filed = build({ smallModelNow: true, frameOn: false, noteOn: false }, { messages: msgs, smallPlan: calmPlan, smallIntense: false });
+    assert(!wireOf(filed).includes('Combat Calibration = '), 'a calm line with a notes file about a fight carries no fight laws');
+    assert(wireOf(filed).includes('he draws his blade and lunges at Jovan'), 'the file itself still travels with his page'); }
 });
 
 test('M510-13 A SMALL MODEL REMEMBERS THE WHOLE STORY: the helper keeps it short, the way a person remembers it, at the head of the notes; and the old fold his move names comes back word for word, with its pages — the others stay out', async () => {

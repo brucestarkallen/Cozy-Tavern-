@@ -200,12 +200,22 @@ function lineWords(node) {
 export function renderMemory(mem, cap = SLOT_BUDGET) {
   const lines = orderedLines(mem).map(lineWords);
   if (!lines.length) return '';
-  const kept = lines.slice();
-  let dropped = 0;
-  const body = () => kept.join('\n');
-  while (kept.length > 1 && (RECORD_HEADER.length + 1 + body().length) > cap) { kept.shift(); dropped += 1; }
+  /* M675 (the second reading): measured, not joined again — the cut recordFor was cured of (law M675-B4) stood in the
+   * three other renderers of the record too, this one on every page he sends: for each line let go, every line still
+   * kept was joined once more to see whether it fitted. One pass; the same words, character for character (law M675-B5). */
+  const { dropped, kept } = oldestLetGo(lines, (size) => RECORD_HEADER.length + 1 + size > cap);
   const head = dropped ? RECORD_HEADER + '\n(' + dropped + ' earlier ' + (dropped === 1 ? 'line' : 'lines') + ' rest beyond the budget.)' : RECORD_HEADER;
-  return head + '\n' + body();
+  return head + '\n' + kept.join('\n');
+}
+
+/* The oldest lines let go until what is left fits, one line always kept: `over(size)` says whether lines that come to
+ * `size` characters when joined by line breaks are too many. Their joined size is their own lengths and one break
+ * between each two; letting the oldest go takes its length and its break off. */
+function oldestLetGo(lines, over) {
+  let size = lines.reduce((sum, line) => sum + line.length, 0) + Math.max(0, lines.length - 1);
+  let dropped = 0;
+  while (lines.length - dropped > 1 && over(size)) { size -= lines[dropped].length + 1; dropped += 1; }
+  return { dropped, kept: dropped ? lines.slice(dropped) : lines };
 }
 
 /* The record as the summarizer is shown it: plain lines, newest end kept
@@ -227,10 +237,18 @@ export function recordFor(mem, minLevel = 1, cap = CONTEXT_CAP) {
   const lines = orderedLines(mem).filter((n) => n.level >= minLevel).map(lineWords);
   const limit = Number.isFinite(cap) && cap > 0 ? cap : Infinity;
   const note = (n) => (n ? '(' + n + ' earlier ' + (n === 1 ? 'line' : 'lines') + ' not shown — no room)\n' : '');
+  /* M675 (the second reading, law M675-B4): MEASURED, NOT JOINED AGAIN. To see whether what was left fitted, every line
+   * that was left was joined once more — for each line let go. Measured over 800 lines, 463,000 characters, on an idle
+   * desktop core: about 200 ms a cut, for every reader that asks for the record in a room (the continuous audit asks
+   * once for each room it tries: 425–450 ms for one request in a small room, on the thread his typing runs on). What
+   * the lines come to when joined is their own lengths and one line break between each two; letting the oldest go
+   * takes its length and its break off. One pass, and the same answer character for character (the law holds it to
+   * the old cut over thousands of made-up records). */
+  let size = lines.reduce((sum, line) => sum + line.length, 0) + Math.max(0, lines.length - 1);
   let dropped = 0;
   /* the note counts inside the room it speaks of */
-  while (lines.length > 1 && (note(dropped) + lines.join('\n')).length > limit) { lines.shift(); dropped += 1; }
-  return note(dropped) + lines.join('\n');
+  while (lines.length - dropped > 1 && note(dropped).length + size > limit) { size -= lines[dropped].length + 1; dropped += 1; }
+  return note(dropped) + (dropped ? lines.slice(dropped) : lines).join('\n');
 }
 
 /* M51: the WHOLE record, oldest to newest — what a reader of the whole story
@@ -248,9 +266,8 @@ export function wholeRecord(mem, cap = SLOT_BUDGET) {
    * rebuild of the standings and of the people — let the OLDEST lines go
    * without a word, so a rebuild of a very long tale would have judged its
    * people as if the opening chapters never happened. */
-  let dropped = 0;
-  while (kept.length > 1 && kept.join('\n').length > cap) { kept.shift(); dropped += 1; }
-  return (dropped ? '(' + dropped + ' earlier ' + (dropped === 1 ? 'line' : 'lines') + ' of the record not shown — no room; what they established still stands)\n' : '') + kept.join('\n');
+  const { dropped, kept: left } = oldestLetGo(kept, (size) => size > cap); /* M675: measured, not joined again (renderMemory) */
+  return (dropped ? '(' + dropped + ' earlier ' + (dropped === 1 ? 'line' : 'lines') + ' of the record not shown — no room; what they established still stands)\n' : '') + left.join('\n');
 }
 
 /* M261: THE STORY SO FAR, for a reader of one page. Every page the record
@@ -369,9 +386,7 @@ export function recordWithPages(mem, cap = SLOT_BUDGET) {
       : (n.correction ? '[correction] ' : '');
     return lineWords(n).replace(/^- /, '- ' + where);
   });
-  const kept = lines.slice();
-  let dropped = 0;
-  while (kept.length > 1 && kept.join('\n').length > cap) { kept.shift(); dropped += 1; }
+  const { dropped, kept } = oldestLetGo(lines, (size) => size > cap); /* M675: measured, not joined again (renderMemory) */
   return (dropped ? '(' + dropped + ' earlier ' + (dropped === 1 ? 'line' : 'lines') + ' not shown — their pages can be fetched by number)\n' : '') + kept.join('\n');
 }
 
@@ -470,8 +485,19 @@ export function buildMemoryMessages(pages, { playerName = 'the player', record =
 
 /* A promotion: the same prompt — the lines to merge are the passage, the
  * layers above are the record. `strict` is the shrink guard's second ask. */
+/* M675 — WHAT IS KEPT BENEATH A LINE GOES INTO THE MERGE WITH IT. A squeeze was shown the lines' own words and nothing of
+ * the Detail beneath them — and the merged line then had none: what the keeper's own check and the continuous audit had
+ * kept there (a promise, a secret and who learned it, a name revealed — "what the story will need again") was in the
+ * record no longer, and the mark that says "these pages were read" went on to the merged line, so it was never
+ * looked for again (the audit: two lines with kept details merged — detail: null, audited: 12). Each line is shown
+ * with its Detail; the merge keeps every distinct fact of both, as it always was told to. */
+export function lineWithDetail(n) {
+  const text = String((n && n.text) || '').trim();
+  const detail = n && typeof n.detail === 'string' ? n.detail.trim() : '';
+  return detail ? text + '\n• Detail worth keeping: ' + detail : text;
+}
 export function buildFoldMessages(nodes, { playerName = 'the player', record = '', strict = false } = {}) {
-  const passage = (Array.isArray(nodes) ? nodes : []).map((n) => String(n && n.text || '').trim()).join('\n\n');
+  const passage = (Array.isArray(nodes) ? nodes : []).map((n) => lineWithDetail(n)).join('\n\n');
   let user = subst(SUMMARIZER_USER, {
     player_name: playerName,
     context_str: record || '(nothing recorded at the layers above)',
@@ -709,16 +735,33 @@ export function parseAuditFixes(raw) {
 /* A fix is applied only when it is provably safe: the wrong words really are
  * in the line, and the right words really are in the pages. Anything else is
  * the model rewriting the record, which it may not do. */
+/* M675 — EVERY FIX IS READ AGAINST THE LINE AS IT STOOD, AND THEY LAND TOGETHER. They were applied one after another, each
+ * to what the one before had left: two fixes that swap ("Renji" -> "Rukia" and "Rukia" -> "Renji", for a line that had
+ * the two the wrong way round) turned "Renji handed Rukia the seal" into "Renji handed Renji the seal"; a chain
+ * ("Marcus" -> "Renji", "Renji" -> "Byakuya") gave "Byakuya kept the seal; Byakuya left". The line was then sealed as
+ * read, wrong for good (the audit, with both answers). Now each fix's wrong words are found in the ORIGINAL line, and
+ * all the repairs are written in one pass over it — no fix sees another's words. A fix whose words overlap a place an
+ * earlier fix has taken is left out whole (two repairs of the same words cannot both stand). */
 export function applyAuditFixes(lineText, fixes, sourceText) {
-  let text = String(lineText || '');
-  const source = String(sourceText || '');
+  const original = String(lineText || '');
+  const source = String(sourceText || '').toLowerCase();
   const used = [];
+  const places = [];
   for (const fix of (Array.isArray(fixes) ? fixes : [])) {
-    if (!text.includes(fix.from)) continue;
-    if (!source.toLowerCase().includes(fix.to.toLowerCase())) continue;
-    text = text.split(fix.from).join(fix.to);
+    if (!fix || typeof fix.from !== 'string' || !fix.from || typeof fix.to !== 'string') continue;
+    if (!original.includes(fix.from)) continue;
+    if (!source.includes(fix.to.toLowerCase())) continue;
+    const mine = [];
+    for (let at = original.indexOf(fix.from); at !== -1; at = original.indexOf(fix.from, at + fix.from.length)) mine.push({ start: at, end: at + fix.from.length, to: fix.to });
+    if (mine.some((m) => places.some((p) => m.start < p.end && p.start < m.end))) continue;
+    places.push(...mine);
     used.push(fix);
   }
+  places.sort((a, b) => a.start - b.start);
+  let text = '';
+  let at = 0;
+  for (const p of places) { text += original.slice(at, p.start) + p.to; at = p.end; }
+  text += original.slice(at);
   return { text, used };
 }
 
@@ -1091,15 +1134,40 @@ export async function putBackMistakenMends(storyId) {
     back.push(page.id);
     try {
       const k = visiblePages(await db.messages.list(storyId)).findIndex((m) => m.id === page.id);
-      if (k !== -1) await saveMemory(storyId, memoryWithoutPage(await loadMemory(storyId), k));
+      if (k !== -1 && (await keeperOnFor(await db.stories.get(storyId)))) await saveMemory(storyId, memoryWithoutPage(await loadMemory(storyId), k)); /* M675: only where a keeper will fold it again */
     } catch (err) { /* the keeper's next pass covers the hole anyway */ }
   }
   return back;
 }
 
+/* M675 (the second reading) — NEVER A LINE IN HIS OWN WORDS. The first pass taught this to the mend alone (ui/chat.js
+ * applyMend); every other moment a page's words change let go whatever line stood over it: he corrects a typo on an
+ * old page, walks to another version, presses "read again" — and a record line he had rewritten by hand was gone
+ * without a word, replaced by the keeper's. His line stays exactly as it is, here, for every caller. (Whether a line
+ * is let go at all — only where a keeper is there to write the one that takes its place — is the caller's to ask:
+ * keeperOnFor.) */
 export function memoryWithoutPage(mem, index) {
-  const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).filter((n) => !(n && Array.isArray(n.span) && n.span[0] <= index && index <= n.span[1]));
+  const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).filter((n) => !(n && Array.isArray(n.span) && n.span[0] <= index && index <= n.span[1]) || lineIsHis(n));
   return { ...mem, nodes };
+}
+
+/* A LINE IN HIS OWN WORDS IS HIS. A record line he rewrote by hand (the drawer's "Rewrite"), or that the housekeeper
+ * changed for him, is read like any other -- its pages, and what the ledger should hold of them -- but its words and
+ * its detail are left exactly as they are: no reader writes over his hand, and nothing lets it go. (M673; it lived in
+ * agents/continuous.js, which still hands it out.) */
+export function lineIsHis(node) {
+  const by = node && node.verified && typeof node.verified === 'object' ? node.verified.fixed : '';
+  return by === 'the writer' || by === 'the housekeeper';
+}
+
+/* IS THIS TALE'S RECORD KEEPER ON? Its own switch when it has one (on, off), the house's otherwise — the one rule every
+ * door that sends the keeper goes by (M674), asked here by whoever must know whether a line let go will be written
+ * again, and whether a page past the window is waiting for anyone (M675). */
+export async function keeperOnFor(tale) {
+  const own = tale && typeof tale === 'object' ? tale.keeper : undefined;
+  if (own === false) return false;
+  if (own === true) return true;
+  return (await db.settings.get('memoryKeeper')) !== false; /* a tale with no switch of its own (or one that cannot be read) goes by the house's */
 }
 
 /* M44: only the lines that speak of pages OUTSIDE the verbatim window ride
@@ -1540,7 +1608,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     const absorbed = between(toMerge[0], toMerge[toMerge.length - 1]).map((n) => n.id); /* empty marker lines the merge takes in */
     const record = recordFor(mem, level + 1, keeperRecordCap(connection));
     if (typeof renew === 'function') renew();
-    const sourcesText = toMerge.map((node) => String(node.text || '')).join('\n');
+    const sourcesText = toMerge.map((node) => lineWithDetail(node)).join('\n'); /* M675: what the merge is shown — the lines with what is kept beneath them */
     let { raw, text } = await keeperLine(connection, buildFoldMessages(toMerge, { playerName, record }), signal, sourcesText, renew); /* M666: a merge that is not a merge is asked for again, now */
     const sourcesLen = toMerge.reduce((a, node) => a + node.text.length, 0);
     if (text && text !== '(no new state)' && text.length < sourcesLen * SHRINK_FLOOR) {
@@ -1574,7 +1642,9 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     mem.nodes.push(merged);
     changed = true;
     await saveMemory(storyId, mem);
-    await audit(connection, storyId, merged, toMerge.map((node) => node.text).join('\n\n'), signal, await knownNamesOf(storyId), renew);
+    /* M675: and the keeper's check of the merged line holds it against the lines WITH their details — a name or a number
+     * that stood only beneath a line is still looked for in the line that takes its place */
+    await audit(connection, storyId, merged, toMerge.map((node) => lineWithDetail(node)).join('\n\n'), signal, await knownNamesOf(storyId), renew);
     mem = await loadMemory(storyId);
     mem.window = window;
   }
@@ -1634,10 +1704,18 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
   /* and the audit again, so the line gets its detail back (or its first one) */
   const current = await loadMemory(storyId);
   const again = (current.nodes || []).find((n) => n && n.id === nodeId);
+  const detailWas = again && typeof again.detail === 'string' ? again.detail : '';
   if (again && again.text) await audit(connection, storyId, again, passage, signal, knownNames, renew);
 
   const after = await loadMemory(storyId);
   const done = (after.nodes || []).find((n) => n && n.id === nodeId);
+  /* M675: "Detail again" writes the detail anew — what the continuous audit had kept there is replaced with it, while its
+   * mark went on saying these pages were read: the lasting things it had added were gone for good. A detail written
+   * again is read by the continuous audit once more, in its turn (as a line folded again is). */
+  if (detailOnly && done && (typeof done.detail === 'string' ? done.detail : '') !== detailWas && done.audited !== undefined) {
+    delete done.audited;
+    await saveMemory(storyId, after);
+  }
   return { ok: true, text: done ? done.text : '', detail: done ? done.detail || '' : '', pages: pages.length };
 }
 

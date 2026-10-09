@@ -109,18 +109,14 @@ test('M19 the launch report: install.sh and serve.py speak the version', () => {
   assert(serve.includes('_ver()'), 'serve.py prints the version');
 });
 
-test('M25 the visible retry law: Try again is wired and answers busy', () => {
-  const chat = read('js/ui/chat.js');
+/* M25's "visible retry" was a button under the composer ("Try again"), and this law read the page and the script for its
+ * id. M675 — his: "Delete all the button like try again, this story, the ledger, everything … retry can be press on my
+ * input message": the button is gone, by his word. The retry stays findable where he said it is — "try again" in the row
+ * under his own message, and ▸ on the newest page — and that is held where it can be RUN: the walk's DOM-43 presses it
+ * with the storyteller's page newest, while the storyteller writes, and with his own unanswered message newest, and
+ * checks that the bottom line holds no button. What is left of M25 here is its other half. */
+test('M25 the starter chip is quiet', () => {
   const html = read('index.html');
-  assert(html.includes('id="btn-retry"'), 'the button exists in the page');
-  assert(chat.includes("getElementById('btn-retry')"), 'wired in chat.js');
-  assert(chat.includes('refreshRetry'), 'visibility law exists');
-  /* M302: this line pinned the very words of the fault — "the last storyteller
-   * page on the screen" — which, after a telling that left no page, was the
-   * WRONG page (it let the writer's unanswered words go with it). What the
-   * button does is behaviour, and is held where it can be run: the walk's
-   * DOM-43 presses it with the storyteller's page newest and with the
-   * writer's unanswered page newest. */
   assert(!html.includes('save a starter'), 'the loud chip label is gone');
 });
 

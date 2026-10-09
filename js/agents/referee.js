@@ -1090,7 +1090,7 @@ export function refereeWhyWords(step) {
   return 'the referee could not rule on this page (' + (why || 'it stumbled') + ') — your storyteller decided the outcome';
 }
 
-export async function refereeStep({ connection, userText, userId, history, state, settings, signal, callLLM, brief = '', castNotes = '' } = {}) {
+export async function refereeStep({ connection, userText, userId, history, state, settings, signal, callLLM, brief = '', castNotes = '', pageWhole = '' } = {}) {
   try {
     if (!state || typeof state !== 'object') return { state, ruling: null, status: 'degraded', why: 'no state' };
     const eng = engineSettings(settings);
@@ -1110,6 +1110,16 @@ export async function refereeStep({ connection, userText, userId, history, state
     /* Deleted or branched-away suffixes rewind the world with them. */
     pruneRefTimeline(state, presentIds, userId);
 
+    /* M675 (the second reading) — A TURN RULED BEFORE HIS WORDS WERE READ APART FROM A FILE IS THE SAME TURN. Until M675
+     * the words handed here were his whole page — what he typed AND a text file riding in it — and a ruling was
+     * committed under that. His typed words are handed now (the file is not his move), so such a turn's commit no
+     * longer matched: its next swipe was taken for an edit — the world rewound to before the turn and the die rolled
+     * again, on a message he had not touched. The caller says what the page holds whole; a commit of THIS message
+     * made under that is this turn's, and is kept under the words as they are read now. */
+    if (typeof pageWhole === 'string' && pageWhole && pageWhole !== text) {
+      const whole = userMessageHash(pageWhole);
+      for (const e of state.refHistory) if (e && e.msgId === userId && e.key === whole) e.key = key;
+    }
     /* Edited text is a new world: same message, different hash — rewind to
      * before the original turn, drop the old commitment, roll fresh. */
     const editIdx = state.refHistory.findIndex((e) => e && e.msgId === userId && e.key !== key);

@@ -402,7 +402,9 @@ export async function mendPages({ connection, storyId, pages, contradiction, rec
       && !after.includes(before.trim().slice(-60).trim())
       && linesOf(after).slice(-1)[0] !== linesOf(before).slice(-1)[0];
     if (lostEnding) continue;
-    if (typeof apply === 'function') await apply(page, after, contradiction);
+    /* M675: a mend that did not land is not a page changed — the page had moved on while the mender was out (another
+     * version shown, his own edit), and the one that writes says so by answering false */
+    if (typeof apply === 'function' && (await apply(page, after, contradiction)) === false) continue;
     changed.push({ id: page.id, before, after });
   }
   return changed;

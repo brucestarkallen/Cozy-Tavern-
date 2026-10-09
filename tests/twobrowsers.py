@@ -301,7 +301,12 @@ try:
                 break
         check('a page that landed while B’s stream was down reaches B when the stream returns — no reload, no event', caught,
               '%d pages' % len(pages_of(b, 'Ravenwood') or []))
-        shown = b.evaluate("() => Array.from(document.querySelectorAll('#thread .msg-body')).map(n => n.textContent)")
+        shown = []
+        for _ in range(20):                       # the page is in the store first; the room is drawn a moment after (M675: this read the room at once, and once found it not yet drawn)
+            shown = b.evaluate("() => Array.from(document.querySelectorAll('#thread .msg-body')).map(n => n.textContent)")
+            if any('while the stream was down' in t for t in shown):
+                break
+            b.wait_for_timeout(250)
         check('and it is painted in the room', any('while the stream was down' in t for t in shown), '%d pages drawn' % len(shown))
 
         browser.close()

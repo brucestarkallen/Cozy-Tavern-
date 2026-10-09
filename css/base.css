@@ -1241,7 +1241,11 @@ body.plain-speech .thought { font-style: italic; }
 .bench-line { margin-top: 0.15rem; }
 .bench-score { font-size: 1.05rem; }
 .bench-axes { margin-top: 0.2rem; font-size: 0.82rem; line-height: 1.4; }
-/* M633: the judges and the storytellers to test — one tick each */
+/* M633: the judges and the storytellers to test — one tick each. M675: each list in a fold whose heading names the ticked */
+.bench-fold { margin: 0.35rem 0; }
+.bench-fold > summary { cursor: pointer; overflow-wrap: anywhere; }
+.bench-fold[open] > summary { margin-bottom: 0.2rem; }
+.bench-board-label { display: block; margin-top: 0.9rem; }
 .bench-picks { display: flex; flex-direction: column; gap: 0.15rem; margin: 0.3rem 0 0.5rem; }
 .bench-picks .radio-row { padding: 0.15rem 0; overflow-wrap: anywhere; }
 .bench-last { display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.4rem; }

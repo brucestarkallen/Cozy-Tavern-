@@ -533,10 +533,14 @@ const messages = {
     /* M9: an out-of-character aside (#question, ((…)), //…) — kept out of
      * the workers' reading. */
     if (msg.ooc === true) row.ooc = true;
+    else if (msg.ooc === false && row.role === 'assistant') row.ooc = false; /* M675: SAID to be a page of the story — one that follows an out-of-character message of his (commands.js asideAt) */
     /* M382: WHAT HE TYPED, KEPT. M379 sent a shortcut to the storyteller "as he typed it" from a `typed` field this
      * append never kept — so the field was dropped on the way into the store, and a bare "#story" reached the
      * storyteller as the house's own placeholder, "A new tale — you choose it.", as if he had written that. */
-    if (typeof msg.typed === 'string' && msg.typed.trim()) row.typed = msg.typed.trim().slice(0, 4000);
+    /* M675: KEPT WHOLE. It was cut at 4,000 characters — and `typed` is what TRAVELS for a shortcut (stack.js wireable):
+     * a "#story" with a long concept reached the storyteller cut off mid-sentence while the page showed all of it
+     * (measured: 6,336 typed, 3,999 sent). A page's words have no such limit, and neither have his. */
+    if (typeof msg.typed === 'string' && msg.typed.trim()) row.typed = msg.typed.trim();
     /* M22-C: where the storyteller looked things up ([{title, url}]),
      * folded under the page it informed. */
     if (Array.isArray(msg.sources) && msg.sources.length) {
@@ -559,6 +563,23 @@ const messages = {
   async update(storyId, messageId, patch) {
     messagesCache.delete(storyId);
     const out = await modify('messages', messageId, (found) => (found.storyId !== storyId ? undefined : { ...found, ...(patch || {}), id: found.id, storyId: found.storyId }));
+    messagesCache.delete(storyId);
+    return out;
+  },
+  /* M675: A CHANGE DECIDED FROM THE PAGE AS IT STANDS. update() takes a patch its caller worked out from a copy of the
+   * page — fine when the copy was read a moment ago, wrong when the caller then waited on a model: a mend that came back
+   * after he had walked to another version, or asked for a new one, was written from the page as it USED to stand (the
+   * mended words of one version under another's place in the list; a list of versions without the newest one). Here
+   * `decide(row)` is handed the row inside the row's own lock (modify, M59) and returns the patch — or nothing, to
+   * leave the page exactly as it is. Returns the row as written, or undefined when nothing was. */
+  async change(storyId, messageId, decide) {
+    if (typeof decide !== 'function') return undefined;
+    messagesCache.delete(storyId);
+    const out = await modify('messages', messageId, (found) => {
+      if (found.storyId !== storyId) return undefined;
+      const patch = decide(found);
+      return patch && typeof patch === 'object' ? { ...found, ...patch, id: found.id, storyId: found.storyId } : undefined;
+    });
     messagesCache.delete(storyId);
     return out;
   },
@@ -600,6 +621,7 @@ const messages = {
         else delete row.swipes;
       }
       if (typeof msg.thinking === 'string' && msg.thinking) row.thinking = msg.thinking;
+      if (msg.ooc === false && row.role === 'assistant') row.ooc = false; /* M675: a brought-over reply is said to be the story (commands.js asideAt) */
       return row;
     });
     const d = await openDB();
@@ -843,7 +865,8 @@ const STORY_PREFIXES = ['state', 'memory', 'lore', 'workers', 'snapshots', 'snap
    * stands (M517). Walk DOM-181 now proves it by behaviour: every row any tale of the walk wrote goes with the tale. */
   'plans', 'standingPlans', 'essentials', 'pagesMended', 'canonStart', 'worldGround',
   'canonGroundingSettings', /* M525: canon verification's own settings, kept per story (bridge.js storySettingsKey) — found by DOM-181, not by the search */
-  'hkNotes' /* M525: the housekeeper's notes per story — found by DOM-181 over the whole walk */];
+  'hkNotes', /* M525: the housekeeper's notes per story — found by DOM-181 over the whole walk */
+  'asidesSettled' /* M675: the once-a-tale mark that its out-of-character pages were settled (chat.js settleAsides) — found by DOM-181 again: the row of a tale that was gone rode the house book and no start swept it */];
 const STORY_PREFIXED = new RegExp('^(?:' + STORY_PREFIXES.join('|') + '):.+$');
 
 /* M160: every tale-shaped row whose tale is gone, let go for good. Stores

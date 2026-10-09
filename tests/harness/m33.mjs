@@ -52,7 +52,10 @@ test('M33-4 no story is begun before there is a storyteller to answer it', () =>
   const chat = src('js/ui/chat.js');
   const at = chat.indexOf('  async function send(text'); /* M548: send gained a second, optional parameter (the choice he took) — the law is about the order inside, not the signature */
   assert(at !== -1, 'the send is found');
-  const send = chat.slice(at, at + 3200);
+  /* M675: the whole of send, to where the next function begins — a fixed 3,200 characters stopped twelve short of the line
+   * being looked for once send gained the title taken from an attached file (the order had not changed; walk DOM-1 runs it) */
+  const end = chat.indexOf('\n  async function ', at + 10);
+  const send = chat.slice(at, end === -1 ? at + 6000 : end);
   assert(send.indexOf('resolveConnection(story)') < send.indexOf('db.stories.create({ title })'), 'the storyteller is looked for first');
 });
 

@@ -42,6 +42,14 @@ export function initBench(ctx) {
   if (!on || !judgesBox || !board) return null;
   let running = null;
 
+  /* M675: each list of ticks is a fold, and its heading says who is ticked ("The judges — Gemini 2.5 Pro, Claude Sonnet") —
+   * so the choice is read without opening it, and it is kept true as he ticks */
+  const nameOf = (c) => (c.label || c.model || 'a connection');
+  function saySummary(summary, lead, conns, ids, none) {
+    if (!summary) return;
+    const names = conns.filter((c) => ids.includes(c.id)).map(nameOf);
+    summary.textContent = lead + ' \u2014 ' + (names.length ? names.join(', ') : none);
+  }
   /* a tick per connection; `limit` holds the count (four storytellers at most) */
   function picks(box, conns, chosen, onChange, limit = Infinity) {
     box.textContent = '';
@@ -57,7 +65,7 @@ export function initBench(ctx) {
         if (now.length > limit) { tick.checked = false; return; }
         await onChange(now);
       });
-      label.append(tick, document.createTextNode(' ' + (c.label || c.model || 'a connection') + (c.model && c.label ? ' \u00b7 ' + c.model : '')));
+      label.append(tick, document.createTextNode(' ' + nameOf(c) + (c.model && c.label ? ' \u00b7 ' + c.model : '')));
       box.appendChild(label);
     }
     if (!conns.length) { const p = document.createElement('p'); p.className = 'quiet'; p.textContent = 'No connection yet — add one above.'; box.appendChild(p); }
@@ -146,10 +154,17 @@ export function initBench(ctx) {
     on.checked = (await db.settings.get(BENCH_ON)) === true;
     const conns = await db.connections.list();
     /* M633: the judges — none ticked is the readers' own connection */
-    picks(judgesBox, conns, await benchJudgeIds(), async (ids) => { await db.settings.set(BENCH_JUDGES, ids); });
+    const judgesSummary = document.getElementById('bench-judges-summary');
+    const sayJudges = (ids) => saySummary(judgesSummary, 'The judges', conns, ids, 'none ticked: the readers\u2019 own connection grades');
+    const judgeIds = await benchJudgeIds();
+    picks(judgesBox, conns, judgeIds, async (ids) => { await db.settings.set(BENCH_JUDGES, ids); sayJudges(ids); });
+    sayJudges(judgeIds);
     if (takersBox) {
       const wanted = await db.settings.get(BENCH_TAKERS);
-      picks(takersBox, conns, Array.isArray(wanted) ? wanted : [], async (ids) => { await db.settings.set(BENCH_TAKERS, ids); }, 4);
+      const takersSummary = document.getElementById('bench-takers-summary');
+      const sayTakers = (ids) => saySummary(takersSummary, 'The storytellers to test', conns, ids, 'none ticked yet');
+      picks(takersBox, conns, Array.isArray(wanted) ? wanted : [], async (ids) => { await db.settings.set(BENCH_TAKERS, ids); sayTakers(ids); }, 4);
+      sayTakers(Array.isArray(wanted) ? wanted : []);
     }
     drawLast(await db.settings.get('benchLastRun'));
     await drawUnfinished(); /* M634 */

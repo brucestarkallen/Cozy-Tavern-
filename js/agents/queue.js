@@ -106,6 +106,21 @@ export function stopWork(storyId) {
 export function workIsRunning(storyId) {
   return lanesOf(storyId).some((lane) => Boolean(stopping.get(lane)) || Boolean((queues.get(lane) || []).length));
 }
+/* M675 (the second reading) — WHO IS OUT FOR A TALE: the names of its jobs, in flight and waiting, on both lanes. "Is this
+ * page still being read?" was asked as "is anything out at all?" — and a tale's own opening sends helpers out (the
+ * essentials, where it began, its world: they write their own books, never the ledger). Whoever asked after them was
+ * told the readers were still on the page: the ledger's healing on open and the finishing of a chain cut short
+ * (ui/chat.js) worked only when they happened to ask first. The caller says which names it means. */
+export function workOut(storyId) {
+  if (!storyId) return [];
+  const names = [];
+  for (const lane of lanesOf(storyId)) {
+    const live = stopping.get(lane);
+    if (live && live.name) names.push(live.name);
+    for (const job of queues.get(lane) || []) if (job && job.name) names.push(job.name);
+  }
+  return names;
+}
 const running = new Map();  // storyId -> boolean
 
 /* The wait between tries, injectable so the harness can watch the schedule
@@ -215,57 +230,88 @@ async function runJob(job) {
   if (isStale()) return { ok: false, stale: true, why: 'left behind' };
 
   let lastErr = null;
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
-    if (attempt > 0) {
-      await sleepImpl(backoffMs(attempt, lastErr && lastErr.retryAfterMs));
-      if (isStale()) return { ok: false, stale: true, why: 'left behind' };
-    }
-    const { signal, done, renew, abort } = workerSignal();
-    /* M208: the writer's own stop reaches the call in flight */
-    let stoppedByHand = false;
-    stopping.set(laneKey, { abort: () => { stoppedByHand = true; abort(); } });
-    markWorkerRunning(storyId, name, true); /* M46: "reading now…" on the workers line */
-    try {
-      /* M207: a job that works in rounds renews its leash each round */
-      const value = await job.run({ signal, stale: isStale, renew });
-      done();
-      if (isStale()) { markWorkerRunning(storyId, name, false); return { ok: false, stale: true, why: 'left behind' }; }
-      /* The job may ask for silence (a switch was off, nothing to note);
-       * every honest run is otherwise written on the workers line. */
-      if (!value || value.silent !== true) {
-        /* M248: a job may say it did real work and did not reach the end */
-        await noteWorkerRun(storyId, name, {
-          ok: true,
-          detail: value && value.detail,
-          raw: value && value.raw,
-          unfinished: Boolean(value && value.unfinished),
-          resume: value && value.resume,
-        });
+  /* M675 — A JOB THE HOUSE STARTED BY ITSELF IS TRIED ONCE (job.once). A page's own readers are tried again here, two
+   * seconds, four, eight … apart: the page is waiting for them. A reading the house sends while nothing is being asked
+   * of it (the continuous audit, the ledger's catch-up) has its own wait between looks — and while one of them slept
+   * out this ladder with its call failed, nothing was in flight to step aside: a send waited its whole five seconds
+   * for it, every time (measured with the real queue: 1,710 ms for a send landing in the first wait, 5,005 ms — the
+   * whole ceiling — in the 8-second one), and a rewind waited out the rest of the minute. Such a job fails at once,
+   * says why on the workers' line as any failure does, and its own next look asks again. */
+  const tries = job.once === true ? 0 : MAX_RETRIES;
+  /* M675 — THE LANE IS HELD FOR AS LONG AS THE JOB IS, AND NOT A MOMENT LONGER. The stop for "the job in flight" was set
+   * at the top of each try and taken away only when a try ran well or was stopped — so (measured with this file alone):
+   *   - A JOB THAT FAILED FOR GOOD LEFT ITS STOP BEHIND, and workIsRunning() said the tale's work was running until
+   *     some later job on the lane ran well: "Summarize now" answered "A pass is finishing — try again in a moment"
+   *     to every press, and the house's own healers (the ledger's catch-up, the record's gap, the continuous audit —
+   *     each asks workIsRunning first) never came back by themselves after a reading that failed, whatever the lamp
+   *     said, until he wrote another page;
+   *   - HIS STOP, PRESSED WHILE A FAILED JOB WAITED FOR ITS NEXT TRY, STOPPED NOTHING: it reached the try that had
+   *     already ended, and the job woke and asked its model again — up to five more times.
+   * One stop for the whole job now: it ends the call in flight or the wait between tries, whichever the job is in,
+   * and it is taken away however the job ends. */
+  let stoppedByHand = false;
+  let abortNow = null;   /* the call in flight, while there is one */
+  let wake = null;       /* the wait between two tries, while it is being waited */
+  const hold = { name, abort: () => { stoppedByHand = true; if (abortNow) abortNow(); if (wake) wake(); } };
+  stopping.set(laneKey, hold);
+  const stopped = async () => {
+    stopping.delete(laneKey);
+    markWorkerRunning(storyId, name, false);
+    await noteWorkerRun(storyId, name, { ok: false, detail: 'stopped by hand' });
+    return { ok: false, stopped: true, why: 'stopped by hand' };
+  };
+  try {
+    for (let attempt = 0; attempt <= tries; attempt += 1) {
+      if (attempt > 0) {
+        await Promise.race([sleepImpl(backoffMs(attempt, lastErr && lastErr.retryAfterMs)), new Promise((resolve) => { wake = resolve; })]);
+        wake = null;
+        if (stoppedByHand) return await stopped(); /* M675: stopped while it waited — it does not wake and ask again */
+        if (isStale()) return { ok: false, stale: true, why: 'left behind' };
       }
-      /* M275: SETTLED AFTER THE RESULT IS WRITTEN. It was marked settled first,
-       * and the light, which looks the moment a worker settles, read the result
-       * before this one — green for an instant after a job that stopped partway. */
-      markWorkerRunning(storyId, name, false);
-      stopping.delete(laneKey);
-      return { ok: true, value };
-    } catch (err) {
-      done();
-      if (stoppedByHand) {
-        stopping.delete(laneKey);
+      const { signal, done, renew, abort } = workerSignal();
+      /* M208: the writer's own stop reaches the call in flight */
+      abortNow = abort;
+      markWorkerRunning(storyId, name, true); /* M46: "reading now…" on the workers line */
+      try {
+        /* M207: a job that works in rounds renews its leash each round */
+        const value = await job.run({ signal, stale: isStale, renew });
+        done();
+        if (isStale()) { markWorkerRunning(storyId, name, false); return { ok: false, stale: true, why: 'left behind' }; }
+        /* The job may ask for silence (a switch was off, nothing to note);
+         * every honest run is otherwise written on the workers line. */
+        if (!value || value.silent !== true) {
+          /* M248: a job may say it did real work and did not reach the end */
+          await noteWorkerRun(storyId, name, {
+            ok: true,
+            detail: value && value.detail,
+            raw: value && value.raw,
+            unfinished: Boolean(value && value.unfinished),
+            resume: value && value.resume,
+          });
+        }
+        /* M275: SETTLED AFTER THE RESULT IS WRITTEN. It was marked settled first,
+         * and the light, which looks the moment a worker settles, read the result
+         * before this one — green for an instant after a job that stopped partway. */
         markWorkerRunning(storyId, name, false);
-        await noteWorkerRun(storyId, name, { ok: false, detail: 'stopped by hand' });
-        return { ok: false, stopped: true, why: 'stopped by hand' };
+        stopping.delete(laneKey);
+        return { ok: true, value };
+      } catch (err) {
+        done();
+        abortNow = null;
+        if (stoppedByHand) return await stopped();
+        markWorkerRunning(storyId, name, false);
+        lastErr = err;
+        /* M530: two in flight for this story, and this one turned away as too many — back to one at a time */
+        if (sideBySide && refusedAsTooMany(err) && stopping.has(storyId) && stopping.has(storyId + SIDE)) backToOneAtATime(storyId, err);
+        if (isStale()) return { ok: false, stale: true, why: 'left behind' };
       }
-      markWorkerRunning(storyId, name, false);
-      lastErr = err;
-      /* M530: two in flight for this story, and this one turned away as too many — back to one at a time */
-      if (sideBySide && refusedAsTooMany(err) && stopping.has(storyId) && stopping.has(storyId + SIDE)) backToOneAtATime(storyId, err);
-      if (isStale()) return { ok: false, stale: true, why: 'left behind' };
     }
+    const why = plainWhy(lastErr);
+    await noteWorkerRun(storyId, name, { ok: false, why, raw: lastErr && typeof lastErr.raw === 'string' ? lastErr.raw : '' });
+    return { ok: false, why };
+  } finally {
+    if (stopping.get(laneKey) === hold) stopping.delete(laneKey); /* M675: however it ended */
   }
-  const why = plainWhy(lastErr);
-  await noteWorkerRun(storyId, name, { ok: false, why, raw: lastErr && typeof lastErr.raw === 'string' ? lastErr.raw : '' });
-  return { ok: false, why };
 }
 
 /* Harness window: how many jobs wait on a story's channel. */

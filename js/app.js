@@ -6,7 +6,7 @@
 import { setSideBySide, setTooManyHandler } from './agents/queue.js'; /* M529; M530 */
 import { repaintWork } from './ui/workbanner.js'; /* M510-42 */
 import { repairStoryPlaceholder } from './ui/placeholder.js'; /* M382 */
-import { sweepSent } from './sent.js'; /* M347: a gone tale's kept words go with it */
+import { sweepSent, sentDevice, forgetSentOf } from './sent.js'; /* M347: a gone tale's kept words go with it; M675: the library's epoch rides their writes, and a tale let go takes them at once */
 import { db } from './store.js';
 import { initChat } from './ui/chat.js';
 import { initSettings } from './ui/settings.js';
@@ -205,6 +205,12 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
   try { if (navigator.storage && typeof navigator.storage.persist === 'function') navigator.storage.persist().catch(() => {}); } catch (err) { /* fine */ }
   const booksStatus = await initSync(ctx);
   ctx.booksStatus = booksStatus;
+  /* M675: the words each page was sent (js/sent.js, a store of its own) are told two things by the house. Which library
+   * this browser's books belong to — so words kept for the library as it was before a copy was brought back are never
+   * added to the copy. And when a tale is let go — its words go with it at once, and the push that follows a page by
+   * four minutes is called off (it wrote a let-go tale's words back to the device, for good). */
+  sentDevice({ epoch: () => (ctx.booksStatus && typeof ctx.booksStatus.epoch === 'function' ? ctx.booksStatus.epoch() : null) });
+  { const letGo = db.stories.remove.bind(db.stories); db.stories.remove = async (id) => { const out = await letGo(id); try { await forgetSentOf(id); } catch (err) { /* swept at the next start */ } return out; }; }
   /* M160: rows left behind by tales already let go — a deleted tale's sixty
    * version ledgers, its snapshots, its housekeeper session — are swept once
    * at boot. They cost real room on the device and rode _house.json on every
@@ -272,9 +278,12 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
 
   if (ctx.chat) await ctx.chat.refreshStories();
   if (ctx.chat) await ctx.chat.renderThread();
-  /* M127: a story closed mid-chain finishes its last page on open */
-  if (ctx.chat && typeof ctx.chat.resumeUnfinishedChain === 'function') {
-    try { const s = activeStoryId ? await db.stories.get(activeStoryId) : null; if (s) { const resumed = await ctx.chat.resumeUnfinishedChain(s); if (!resumed && typeof ctx.chat.healLedgerOnOpen === 'function') await ctx.chat.healLedgerOnOpen(s); } } /* M452: the ledger heals as the story opens */ catch (err) { /* best-effort */ }
+  /* M127: a story closed mid-chain finishes its last page on open; M452: the ledger heals as the story opens.
+   * M675: the tale left open is OPENED, like any other (chat.js taleOpened) — the start did those two things by hand and
+   * none of the rest, so the tale he reads most never had its kept pages looked over, its out-of-character pages
+   * settled, or its carried pages given to it on the device. */
+  if (ctx.chat && typeof ctx.chat.taleOpened === 'function') {
+    try { const s = activeStoryId ? await db.stories.get(activeStoryId) : null; const opened = s ? await ctx.chat.taleOpened(s) : null; if (opened) await opened.ledger; } catch (err) { /* best-effort */ }
   }
 
   showView(currentRoute());

@@ -50,9 +50,12 @@ export function onWorkerChange(fn) {
 
 /* A per-call abort signal with a hard timeout. done() clears the timer —
  * callers must settle it in a finally. */
+/* M675: a walk may shorten the leash for one scenario (as it may the house's own waits — chat.js ledgerBackoffMs): a call
+ * that never answers is then cut off in a second, not a minute, so what the house does about one can be walked */
+const leashMs = (ms) => (Number(globalThis.__cozyLeashMs) > 0 ? Number(globalThis.__cozyLeashMs) : ms);
 export function workerSignal(timeoutMs = WORKER_TIMEOUT_MS) {
   const controller = new AbortController();
-  let timer = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs);
+  let timer = setTimeout(() => controller.abort(new Error('timeout')), leashMs(timeoutMs));
   return {
     signal: controller.signal,
     done: () => clearTimeout(timer),
@@ -75,7 +78,7 @@ export function workerSignal(timeoutMs = WORKER_TIMEOUT_MS) {
     renew: (ms) => {
       if (controller.signal.aborted) return false;
       clearTimeout(timer);
-      timer = setTimeout(() => controller.abort(new Error('timeout')), Number.isFinite(ms) && ms > 0 ? ms : timeoutMs);
+      timer = setTimeout(() => controller.abort(new Error('timeout')), leashMs(Number.isFinite(ms) && ms > 0 ? ms : timeoutMs));
       return true;
     },
   };

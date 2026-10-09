@@ -1,6 +1,78 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m674-001)
+# Cozy Tavern — handoff for the next session (state at m675-002)
+
+## M675 — THE SCREEN HE ASKED FOR, AND THE AUDIT OF M672–M674. Read AGENTS.md "# M675" whole.
+- THE BOTTOM LINE HOLDS NO LINKS (his: "delete all the button… it'll get cluttered"). Do not put one back. "try again" is
+  under his own newest message; the ledger opens from its book; Settings from the sun. NOTHING IS PAINTED ON A WORD: the
+  page mark is a thumb in the gutter (its number on the line under the composer), the bring-the-bar-back button stands in the gutter, the
+  latest-page pill in the composer's zone — tests/pagemark.py sweeps forty positions; run it for any change there.
+- THE BENCHMARK'S JUDGE IS TOLD THE MOMENT THE PAGE ANSWERED (agents/benchrun.js judgedMoment): the shortcut's own ask, "Go
+  on.", the story page before, the notes as sent. A new kind of turn needs its moment there.
+- A JOB THE HOUSE STARTS BY ITSELF IS `once` (agents/queue.js) AND CATCHES ITS OWN STUMBLE: chat.js fillLedgerGap,
+  fillRecordGap, continuousCatchUp. A model that does not answer — or is cut off by its leash — is said on the
+  workers' line as unfinished ("… — it tries again later"), never thrown to the queue: a FAILED keeper or reader
+  switches the house's own healing off (markLedgerTroubleNow `trouble`). Only his own Stop is rethrown (stoppedRun).
+- THE QUEUE'S LANE IS HELD EXACTLY WHILE A JOB IS (runJob: one `hold` per job, taken away in `finally`). workIsRunning()
+  after a job has ended — however it ended — is false. His Stop ends the call in flight OR the wait between two tries.
+- A BANNER BEGUN IS A BANNER ENDED: a job that ends its own banner is followed with bannerEndsWith(banner, promise); the
+  others with bannerFollows. An early return ends it too. A banner handle that is no longer on show does nothing
+  (ui/workbanner.js open()).
+- ONE WAY TO LET A TALE GO: both doors call stopTheWorkOf(ids) first (the page being written, the helpers' work).
+- A PAGE SAID TO BE THE STORY IS THE STORY: `ooc: false` on a storyteller page (commands.js asideAt reads it first). Any
+  door that lands a story page right after an out-of-character message must say so; imports do.
+- THE CONTINUOUS AUDIT: a stretch the wire refuses is asked one page at a time, set aside, and passed by ONLY for a
+  refusal of its words (400, 413, 414, 422, 451) three times while other pages are answered (continuous.js `troubled`).
+  Its ledger writes go into every stored version of the newest page (alsoInto). Record fixes are applied in ONE pass
+  (memory.js applyAuditFixes). A mend never lets go a line that is his (lineIsHis) or a line of a tale whose keeper is off.
+- THE DEVICE (serve.py — read its M675 comments before touching make_backup / restore_backup / the sent archive):
+  locks are taken in the order _backup_lock -> _log_lock -> _sent_lock; a copy is whole or fails; a restore swaps
+  whole entries through .restore-old and is undone by _recover_restore; the upload is read into a nameless file, never
+  into memory; <data>/.epoch changes at every copy brought back (manifest `epoch`, header X-Cozy-Epoch, 409, the
+  `_restored` announcement); a tombstone answers 410; /api/ answers only under the device's own name — a LAN name
+  needs COZY_HOSTS=name[,name] in the environment that starts serve.py.
+- THE BROWSER: nothing is POSTed to a host that has not answered api/books/list as the tavern does (localStorage
+  cozy.device = '1' once it has; cozy.epoch = 'e:<epoch>'). sent.js never prunes a page the device has not got.
+  settings.js sendEverythingOwed() runs before "Take a copy" AND before "Bring a copy back", and what it returns is
+  said in the note.
+- NEW TESTS (all in audit/gates.sh): tests/device_guard.py (serve.py alone; COZY_TEST_SERVE=<another serve.py>; scene
+  numbers as arguments), tests/device_pair.py (Chromium + serve.py; 19 scenes, scene numbers as arguments; scene 8
+  waits three minutes; COZY_TEST_REPO), tests/static_host.py, tests/perf_repair.py, tests/boot_open.py. A walk may shorten the house's waits: __cozyLedgerBackoffMs,
+  __cozyGapBackoffMs, __cozyContinuousPauseMs, __cozyAuditAsideMs, __cozyLeashMs.
+- THE SECOND READING (AGENTS.md "# M675" part 7 — three fresh reviewers of this very diff). The rules it left:
+  - WHAT THE HOUSE DOES FOR A TALE JUST OPENED IS chat.js taleOpened(story) — called by openStory AND by the start
+    (app.js). Add an on-open step there, nowhere else. tests/boot_open.py holds the start to it.
+  - "ARE THE READERS OUT?" IS readersOut(storyId) (queue.js workOut by name; chat.js OWN_BOOKS lists the helpers that never
+    write the ledger). Never ask queuedCount/workIsRunning for that: a tale's own opening sends helpers out. A new
+    helper that writes only its own book goes into SIDE_JOBS or OWN_BOOKS.
+  - A PAGE IS READ WHEN ITS OWN READERS HAVE FINISHED (startBackgroundWork `ownReading`: the founder to the auditor, main
+    lane). A link added AFTER the auditor is upkeep; one added before it is a reader.
+  - generate() SAYS WHOSE TELLING IT IS (tellingFor) AND HOLDS ITS CONTROLLER FROM ITS FIRST MOMENT. A call made before the
+    request goes on earlyLeash(workerSignal(ms)); after a long await, `if (letGoNow()) return landed;`.
+    stopTheWorkOf(ids) marks the tales (lettingGo), stops their work, then the telling if it is theirs; its caller
+    ends with doneLettingGo(ids).
+  - HIS WORDS FOR A TURN ARE typedWords(page) (commands.js) — never pageText: a file rides in the page. The referee also
+    takes `pageWhole`, so a ruling committed under the whole page before M675 is still that turn's.
+  - "GO ON" IS THE TURN'S OWN MESSAGE (stack.js goOnAfterAside): after his unanswered out-of-character message, "Go on."
+    is said after it. A turn is out of character by its own newest page, hidden or not (oocTurn). A story page that
+    stands right after his out-of-character message with no hidden "go on" between gets one put back before it is
+    told again (chat.js putBackGoOn).
+  - A RECORD LINE IS LET GO THROUGH memory.js memoryWithoutPage (which keeps a line that is his) AND ONLY IF
+    keeperOnFor(tale) — and for a new version only once it has landed. settleAsides lets no line go.
+  - rerenderMessage LEAVES A NODE WHOSE EDITOR IS OPEN — while the page shows the telling the editor was opened on
+    (`openedIdx`; the editor redraws the page on closing, `fromItsEditor`). When another telling of the page is
+    shown, the page is drawn and the editor goes.
+  - THE EDITOR'S "KEEP" WRITES THROUGH db.messages.change, FROM THE ROW AS IT IS — never from the copy read when the
+    editor opened (a whole redraw waits for an open editor: a live sync changes the page under it unseen). If the
+    page shows another telling by then, his words are appended as a telling of their own (versionWithNotes /
+    notesOfVersion, exactly as a landing does) — no telling is written over or out of the list.
+  - letOnePageGo WAITS FOR A REBUILD STILL STANDING (afterReplay) — several pages let go in one action each get theirs.
+  - THE RECORD'S RENDERERS CUT WITH oldestLetGo (memory.js) — measure, never join again; M675-B5 holds each to the old cut.
+  - js/sync.js WRAPS db.messages.change — a new door on the store's pages must be wrapped there or the device never
+    hears of what goes through it (tests/device_pair.py scene 19).
+  - KNOWN AND NOT CHANGED: two browsers writing one tale while one cannot reach the tavern — the last whole-book push
+    wins (AGENTS.md "# M675", Not changed). Do not paper over it in the browser; the cure is in serve.py's page log.
+- A DELIBERATE BREAKAGE THAT NO TEST CATCHES IS A FINDING. Part 6 of AGENTS.md "# M675" is what one such led to.
 
 ## M674 — "TRY AGAIN" LOSES NOTHING, and what following it found. Read AGENTS.md "# M674" whole.
 - regenerateFrom: THE ANSWER IS ALWAYS TOLD AGAIN AS ANOTHER VERSION OF ITS OWN PAGE (swipeRegenerate) — the newest page, and

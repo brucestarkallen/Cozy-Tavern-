@@ -84,6 +84,10 @@ function paint(what, count, pct, state) {
 export function beginWork(what, stop, tale) {
   const mine = ++token;
   const live = () => mine === token;
+  /* M675: ITS LAST WORD IS SAID (done, paused or failed). Whoever follows a piece of work to its end asks `open()`: still
+   * the banner on show, and nothing has ended it — so work that ends some way its own code did not foresee (its model
+   * never answering, its tale let go) is ended by its follower, and a banner is never left standing over nothing. */
+  let over = false;
   onStop = typeof stop === 'function' ? stop : null;
   taleOfBanner = (typeof tale === 'string' && tale) ? tale : (ask(knows.openTale) || null); /* M510-42: the tale whose work this is */
   paint(what, '', 0, 'running');
@@ -110,29 +114,37 @@ export function beginWork(what, stop, tale) {
       if (!live()) return;
       paint(what, words || '', undefined, 'running');
     },
+    /* M675: A BANNER THAT IS NO LONGER THE ONE ON SHOW ENDS IN SILENCE. These three hid the Stop button and forgot its
+     * handler BEFORE asking whether they were still the banner on show — so work that ended while a newer piece of
+     * work held the banner (the house's own reading of missed pages finishing after he pressed "Audit the ledger")
+     * took the NEWER banner's Stop away: it went on saying "reading the whole ledger" with nothing to stop it by. */
     done(words) {
+      over = true;
+      if (!live()) return;
       if (stopEl) stopEl.hidden = true;
       onStop = null;
-      if (!live()) return;
       paint(words || what, 'done', 100, 'done');
       clearTimer = setTimeout(() => { if (live() && el) el.hidden = true; }, 4500);
     },
     /* M454: a pause the house will come back from by itself — said, then out of the way */
     paused(words) {
+      over = true;
+      if (!live()) return;
       if (stopEl) stopEl.hidden = true;
       onStop = null;
-      if (!live()) return;
       paint(words || what, 'paused', undefined, 'waiting');
       clearTimer = setTimeout(() => { if (live() && el) el.hidden = true; }, 6000);
     },
     failed(words) {
+      over = true;
+      if (!live()) return;
       if (stopEl) stopEl.hidden = true;
       onStop = null;
-      if (!live()) return;
       paint(words || what, 'stopped', undefined, 'waiting');
       clearTimer = setTimeout(() => { if (live() && el) el.hidden = true; }, 9000);
     },
     live,
+    open: () => live() && !over,
   };
 }
 

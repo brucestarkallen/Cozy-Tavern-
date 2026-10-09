@@ -374,9 +374,16 @@ export function openReceipt(receipt, extraction, findings, { storyId = '' } = {}
   if (receipt.sentId) {
     wordsNote.textContent = 'Fetching what was sent…';
     wordsNote.hidden = false;
-    loadSentOrPull(receipt.sentId, storyId).then((sent) => { /* M671: from the device's copy when this browser holds none */
+    const report = {};
+    loadSentOrPull(receipt.sentId, storyId, report).then((sent) => { /* M671: from the device's copy when this browser holds none */
       if (generation !== openGeneration) return;
       if (sent) attachWords(sent, receipt);
+      /* M675: WHY there are none is said. A tavern that was merely not running got "neither this browser nor the device
+       * has them" — for words the device was keeping all along. */
+      else if (report.why === 'no answer') noWords('This browser no longer holds this page\u2019s words (it keeps the newest ' + KEEP_PAGES + ' pages of a tale) and the tavern on your phone is not answering \u2014 the device keeps every page\u2019s words. Start the tavern and open this again.');
+      /* M675: …and a tavern that is running, but does not serve the address this page was opened under, is neither */
+      else if (report.why === 'refused') noWords('This browser no longer holds this page\u2019s words (it keeps the newest ' + KEEP_PAGES + ' pages of a tale), and the tavern is running but does not answer under this address, so they cannot be read from the device \u2014 Settings says how to start it so that it does.');
+      else if (report.why === 'no device') noWords('This page\u2019s words are not kept \u2014 this browser keeps the newest ' + KEEP_PAGES + ' pages of a tale, and there is no tavern\u2019s server behind this page to keep the rest.');
       else noWords('This page\u2019s words are not kept \u2014 neither this browser (it keeps the newest ' + KEEP_PAGES + ' pages of a tale) nor the device has them. The device keeps every page told from now on.');
     }).catch(() => { if (generation === openGeneration) noWords('This page’s words could not be read.'); });
   } else {

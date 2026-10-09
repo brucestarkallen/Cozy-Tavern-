@@ -17477,3 +17477,312 @@ it now.
   a time — the 11 of audit/gates.sh and the 23 outside it — EXIT 0 each. NOT MEASURED: every reader in these runs is a
   stand-in — what his own models make of a stretch of pages is not something a test here can say; and the timings are a
   desktop's.
+
+# M675 — "delete all the buttons… the page number hides words… is the benchmark good?… then audit everything on this session"
+His four asks. The first three are the screen's; the fourth was done by three reviewers who had not written the code
+(the thread, the readers, the device), each handed one slice of M672–M674 and nothing of my conclusions. Every finding
+below was MADE TO HAPPEN before a line was changed — a walk, a law or a device test that is red on the build before — or
+measured, and each fix has a deliberate breakage that turns its test red again (140 of them by the end, every one run
+against the final code: 140 caught). What was found by following the fixes is in part 6; it is the larger half.
+
+## 1. The story screen (his: "delete all the button like try again, this story, the ledger, everything… the page number on scroll is hiding some words")
+- THE BOTTOM LINE HOLDS NO LINKS. "Try again · This story · The readers · The ledger · The current scene" are gone
+  (index.html, chat.js, css, the help). The ledger opens from its book, Settings from the sun; the size meter and the
+  Quick switch stay. "try again" lives under his own newest message — ONE DOOR (retryUserMessage -> regenerateFrom).
+- "try again" UNDER HIS OWN UNANSWERED MESSAGE ASKS before anything of his goes: an unanswered message with another after
+  it said nothing and let the later one go (DOM-249). The question counts pages and messages by what they are, and
+  names a page folded away (DOM-247).
+- NOTHING IS PAINTED ON A WORD (tests/pagemark.py, a real Chromium, forty scroll positions, bar shown and hidden): the
+  page mark covered a word at 40 of 40 positions — it is a slim thumb in the gutter now, its number on the line under
+  the composer (#meta-page, in .composer-meta — not in the top bar): 0 of 40. The small button that brings the bar back sat on text at 4 of 40: it stands in the gutter.
+  The "latest page" pill lay 28 px over the composer: it is docked in the composer's own zone.
+- THE BAR HIDDEN: Settings always shows it (there was no way back from Settings on screen); "Reset every setting" brings
+  it back and switches "Grade every page" off (`immersed`, `benchOn` were not in RESET_KEYS).
+
+## 2. The benchmark (his: "is it already good? please check it and it's cluttered mess make fold or drop down on the judge")
+- NOT YET, AS IT WAS — THE JUDGE WAS TOLD THE WRONG MOMENT (agents/benchrun.js judgedMoment, laws M675-1/2, DOM-228):
+  a page that answers a shortcut is judged with what that shortcut asks (it was judged against nothing, or "#p"); a
+  "Go on" page with "Go on."; "the page before" is the last page of the STORY, never an out-of-character answer; the
+  notes are the state of things as SENT with that page (kept with it), not as it stands today; the page number counts
+  storyteller pages; an out-of-character answer is never picked as the page to judge.
+- THE SCREEN FOLDS: the judges, the storytellers taking part and "how it is judged" are each a fold; the board keeps its
+  label. Measured at 420 px wide: 2,397 px tall -> 1,723 px with the folds shut.
+
+## 3. The thread (reviewer A; M674's "try again", M668's files, M669's finisher)
+- AN ATTACHED TEXT FILE GOES WHERE HIS WORDS GO. With a shortcut or an aside the file was shown in the thread and never
+  sent (assemble/stack.js took `typed` alone). It rides with the typed words, once (M675-3, DOM-250). The referee's gate
+  read the file as his MOVE ("strike" in a notes file; "# Roll tables" forcing a roll): it reads his typed words. A
+  picture that will not read leaves the file he had chosen where it was; a page that cannot be saved keeps the file; a
+  file sent with no words of his IS the page (it is a picture alone that says it needs a word). `typed` is kept WHOLE (store.js cut it at 4,000: a long shortcut was cut on the wire).
+- A MEND LANDS ONLY ON THE WORDS IT MENDED (DOM-251): a mend that came back after he asked for another version was
+  written from the page as it used to stand — the new telling dropped off the list, or "Put the earlier words back"
+  wrote one version's words over another. applyMend re-reads the page and lets a stale mend go.
+- A PAGE WHOSE READERS WERE CUT SHORT IS NOT A PAGE READ (DOM-252): "try again" inside five seconds of a page landing
+  went on without its readers and kept the half-read ledger as that version's. The version is read when he walks back.
+- ONLY THE NEWEST PAGE WEARS THE NEWEST PAGE'S CONTROLS (DOM-253, found walking DOM-252): every page read in a sitting
+  kept "go on" and a lone ◂ 1 / 1 ▸. settleLastPageControls at each landing; and when the newest page is let go the
+  page that becomes newest is drawn again (letOnePageGo) — my first cut of this left that page with neither.
+- THE FINISHER (M669) FLATTENED A PARAGRAPH'S LINE BREAKS and took story sentences for the window's rule (ui/pageshape.js:
+  the cut keeps the text before it byte for byte; the pattern needs the rule's own subject and verb). PAGES IT HAD
+  ALREADY KEPT ARE PUT RIGHT BY THE HOUSE on open, from the page's own earlier words (chat.js refinishedFromEarlier —
+  only a mend the finisher itself made, since M669, whose kept words still begin the page). M675-4, DOM-254.
+- NO PAGE IS READ TWICE (engine/state.js foldJournal, chat.js replayFrom; M675-5, DOM-255): a fold to page T left the
+  read mark at T-1, so every "try again", edit and delete sent the reader to the page BEFORE again. An exact fold
+  keeps the mark; a replay marks what it had read, shifted past a page let go.
+- THE STORED-PAGE REPAIR WORKS IN SHORT TURNS (chat.js mendAllPages). Measured, a tale of 1,000 turns opened for the first
+  time on a build: one hold of the screen of 1,242 ms -> the longest 57 ms (tests/perf_repair.py; budget 250 ms).
+- MEASURED AND LEFT: kept versions make a cold read of a tale's pages heavier (1,000 turns: 102 ms with one telling a
+  page, 167 with two, 232 with three); perf_send stays inside its budget.
+
+## 4. The readers (reviewer B; the continuous audit of M673, the asides of M674)
+- A JOB THE HOUSE STARTS BY ITSELF IS TRIED ONCE (agents/queue.js job.once; M675-6). The continuous audit's failed call
+  slept out the queue's ladder (2, 4, 8 … s) with nothing in flight to step aside: a send landing in it waited 1.7 s,
+  then its whole five. The three jobs the light starts — the ledger's catch-up, the record's gap fill, the audit — and
+  the audit's reading in a page's chain are `once`; each has its own wait between looks. See part 6 for what this led to.
+- A STRETCH THE WIRE WILL NOT ANSWER FOR NEVER STOPS THE AUDIT (continuous.js `troubled`; M675-7): a provider answering
+  400 for pages 1–6 was asked 96 times over eight looks and no later line was ever read. The same pages are asked for
+  one at a time; a page refused alone is set aside (half an hour, doubling, six hours at most) and the rest are read; a
+  page is PASSED BY only when it was refused FOR ITS WORDS (400, 413, 414, 422, 451) three times while the model
+  answered for other pages — never for a 429, a 5xx or a timeout. Nothing is marked read that was not.
+- RECORD FIXES LAND TOGETHER (memory.js applyAuditFixes; M675-8): two fixes that chained or swapped ("Kara" -> "Mara",
+  "Mara" -> "Kara") corrupted the line. All are applied in one pass over the line as it stood; one that overlaps an
+  earlier one is left out. A fix whose wrong words are in the Detail lands in the Detail.
+- WHAT THE AUDIT WRITES OF AN OLD PAGE IS TRUE UNDER EVERY VERSION OF THE NEWEST ONE (continuous.js alsoInto, chat.js
+  continuousStep; DOM-256): walking back to another telling put that version's ledger in place whole, without the
+  fact, while the record line went on saying "read".
+- ONE MEND A PAGE, AND NEVER HIS LINE (M675-8, DOM-257): two faults on one page mended it twice and overwrote its
+  "earlier words"; a mend let go the record line over the page even when he had rewritten it by hand, or when the
+  tale's keeper is off and nothing would fold it again. A page the house only tidied still counts as unmended
+  (engine/pagepatch.js isHouseTidy).
+- A SQUEEZE KEEPS THE DETAILS (memory.js lineWithDetail; M675-8, M675-11): two lines with kept details squeezed into one
+  with none, the "read" mark carried on. The merge and its check are asked with each line's Detail; "Detail again"
+  takes the mark off so the new detail is read; a housekeeper card taken back gives the line back to whoever's it was
+  (housekeeper.js verifiedBefore; M675-13).
+- A PAGE SAID TO BE THE STORY IS THE STORY (`ooc: false`; commands.js asideAt, store.js, import/chats.js; M675-10,
+  DOM-258). asideAt took any storyteller page after an out-of-character message for its answer — "go on" after
+  letting the answer go, or every other page of an imported chat. A page told as the story after an aside says so; an
+  imported page says so; chat.js settleAsides (once a tale, on open) marks the pages already kept, lets go record
+  lines folded over them since M674, and marks them unread in tales begun since.
+- THE REQUEST: the brief to its own room (40,000 characters, the cast notes 20,000 — it was cut at 12,000 whatever the
+  room, and "a page against the brief" is this reader's first fault); a cut list of what a person knows keeps the
+  lines nearest the pages read, not the newest; a stretch grows with the reader's room; a fact a stretch before the
+  story's first page adds is dated with that page ("turn 302" in a tale of 15 pages); the record before the pages is
+  worked out once for each room tried (one request over 800 lines: 153–176 ms -> 26–69 ms, the same bytes).
+- M672'S NOTE ON LOOK-ALIKES WAS WRONG, THE CODE RIGHT: before M672 only one of two look-alikes of one page was parted
+  (Kara 3 lines, Mara 0); both are now, on purpose. The comment says so; law M675-9.
+- NOT A BUG: each fact the audit adds costs a journal and a log entry — both are rolling windows by design. BY DESIGN: a
+  squeezed line (it stands for other lines' pages) is given what lasts but no wrong-fact fix.
+
+## 5. The device and the copy (reviewer C; serve.py, sync, sent words — M670/M671 and what they stand on)
+The rules, each held by tests/device_guard.py (serve.py alone, real folders, real HTTP: 207 checks; the server of the build
+before passes 54 of them), tests/device_pair.py (the real app in Chromium against the real server: 19 scenes, 142
+checks) or tests/static_host.py:
+- A COPY IS WHOLE OR IT IS NOT A COPY (make_backup): a file that cannot be zipped fails the copy and says why; no .part
+  is left; a tale's book, log and tombstone are zipped in one hold; "nothing changed" only when the newest zip really
+  holds every file. (Storage out mid-zip answered ok with books missing, or left the unfinished zip for ever.)
+- A COPY BROUGHT BACK NEVER LEAVES THE LIBRARY GONE (restore_backup): whole top-level entries are moved aside into
+  .restore-old and the copy's moved in — undone on any failure, and by _recover_restore at the next start after a kill
+  at any step; nothing is read or written half-way (503). (A zip that passed every check but could not be placed left
+  NO library.) THE COPY IS TAKEN IN ON THE STORAGE, never whole in memory: bringing back 96 MB raised the server's
+  memory by 97 MB, now by 2 MB (scene 11).
+- THE LIBRARY'S EPOCH (<data>/.epoch; the manifest; X-Cozy-Epoch; 409; `_restored`): after a copy is brought back a
+  browser that still holds the old library is told, sends nothing, and becomes the device's copy (sync.js mirror,
+  wentStale) — a second browser used to push its old tale back over the copy. The browser that brings a copy back
+  sends everything it still owes FIRST, so the "library as it stood" that the device keeps holds it.
+- "TAKE A COPY" SENDS WHAT IS OWED, AND SAYS WHAT THE COPY LACKS (settings.js sendEverythingOwed): a push that had failed
+  and was waiting to be retried was not sent (the zip held the device's old book); whatever has not reached the device
+  when the zip is made is named in the note. WITH THE SERVER NOT ANSWERING the browser's one file is named PARTIAL,
+  says which tales it lacks, and says so again when brought back (it held one tale's pages and every other tale as a
+  bare name, under "A copy is in your downloads"); sent words that cannot be folded in no longer cost him the stories.
+- THE SENT WORDS ("what the storyteller saw"): a cut line never spoils an archive and a write lands whole or not at all;
+  "what do you hold" lists a page only with every piece it names; THE BROWSER NEVER LETS GO OF WORDS THE DEVICE HAS NOT
+  GOT (230 pages told with the device down: 42 were afterwards in neither place — 230 of 230 now); A TALE LET GO TAKES
+  ITS WORDS and is not written to again (a tombstone answers 410; they were written back four minutes later, for
+  good); A BRANCH IS GIVEN ITS CARRIED PAGES (POST api/books/sent/<to>?from=<from|*>; it could not read them, and
+  letting the first tale go deleted the only copy); a sheet that cannot be shown says whether there is no device, no
+  answer, or nothing kept.
+- NOTHING IS SENT TO A HOST THAT IS NOT THE TAVERN'S (sent.js deviceThere, sync-worker deviceProven; localStorage
+  cozy.device): on a static host the old build POSTed 10 requests, 76,455 bytes, in thirty seconds — the storyteller's
+  requests and the house book, which holds the connections and their keys. 0 now (tests/static_host.py).
+- ONLY THE TAVERN'S OWN PAGE MAY WRITE, AND /api/ ANSWERS ONLY UNDER THE DEVICE'S OWN NAME (serve.py _stranger: Host
+  allowlist — 127.0.0.1, localhost, [::1], plus COZY_HOSTS for a LAN name; Origin / Sec-Fetch-Site on writes and on
+  cross-site reads).
+- ALSO: a file dated before 1980 never stops a copy; a log is let go only once folded; a book is read with its log in
+  one hold; tests/restore_backup_unit.py could not fail (it exits 1 on a miss now).
+
+## 6. What following the fixes found (none of it reported; each surfaced when a deliberate breakage was NOT caught)
+- THE QUEUE SAID A TALE'S WORK WAS RUNNING AFTER A JOB HAD FAILED FOR GOOD (agents/queue.js runJob; law M675-12). The stop
+  for "the job in flight" was taken away only when a try ran well or was stopped, so workIsRunning() stayed true
+  until some later job on the lane ran well. In the app: "Summarize now" answered "A pass is finishing — try again in
+  a moment" to every press (DOM-262), and the house's own healers — which ask first — NEVER CAME BACK BY THEMSELVES
+  after a reading that failed, whatever the lamp said, until he wrote another page: M673's "it tries again by itself"
+  was only ever walked with a failure written onto the workers' line, never with a model that fails (DOM-261 does).
+  The lane is held for exactly as long as the job is. AND HIS STOP, PRESSED WHILE A FAILED JOB WAITED FOR ITS NEXT TRY,
+  STOPPED NOTHING — the job woke and asked again, up to five more times. One stop for the whole job ends the call in
+  flight or the wait.
+- THE HOUSE'S OWN THREE JOBS, ALIKE (chat.js fillLedgerGap, fillRecordGap, continuousCatchUp): tried once; a model that
+  does not answer — or never answers and is cut off by its leash — is a STUMBLE caught in the job: said on the
+  workers' line with its reason ("… — it tries again later"), not a failure (a failed keeper or reader stops the
+  house healing by itself), and the next look comes by itself, a minute, two, four … apart. Only his own Stop is a
+  stop. The record's gap fill was the one not done; a hung reader still left the catch-up's banner standing.
+  DOM-259, DOM-260, DOM-261. (agents/status.js: a walk may shorten the leash — globalThis.__cozyLeashMs.)
+- A BANNER BEGUN IS A BANNER ENDED (ui/workbanner.js open(); chat.js bannerEndsWith; DOM-262). "Fold again" and "Rebuild
+  the people" with their model down left "Reading these pages again" standing with its Stop for good; "Audit the
+  ledger" and "Weigh them again" with no story open left theirs. And a piece of work that ended while a NEWER one held
+  the banner took the newer one's Stop away (done/paused/failed hid it before asking whether they were still on show).
+- ONE WAY TO LET A TALE GO (chat.js stopTheWorkOf; DOM-263). The shelf's "Delete" stops a page being written and the
+  tale's helpers first; the × on a tale's own row did neither: the page landed in a tale that no longer existed (one
+  page kept for good, nine rows until the next start), its readers went on asking their models, and its banner stood.
+
+## 7. The second reading (three fresh reviewers were handed THIS diff — 802c5ba -> the first pass, m675-001, never shipped; then what following them found). Ships as m675-002.
+The first six parts were themselves reviewed, by three reviewers who had seen none of it. They confirmed or made
+plausible 24 faults in it or beside it; the walk, run whole and alone, showed more. Each was made to happen first.
+
+THE THREAD
+- THE STORED-PAGE REPAIR WROTE OVER HIS OWN EDITS, AND HAD NO END (chat.js refinishedFromEarlier; DOM-254). "Whose kept
+  words still begin the page" was also true of a page whose ending HE had cut, or whose line breaks he had set: the
+  landed text came back under "marks were mended", at every new build, for pages told from now on too. A page is
+  redone only if it stands EXACTLY as M669's finisher left it — that finisher is kept for this one question
+  (ui/pageshape.js tidyPage `asM669`; held to the old build's own output, 44 of 44) — and only for mends dated before
+  the fault was put right (FINISHER_PUT_RIGHT, 16 Oct 2026). And the repair, which works in short turns now, WRITES
+  FROM THE PAGE AS IT STANDS (store.js messages.change), not from the list it read at its start.
+- THE STORE'S GUARDED DOOR NEVER REACHED THE DEVICE (js/sync.js wraps `change`; tests/device_pair.py scene 19): a mended
+  page stayed as first told on the device until something else moved the tale.
+- A FILE'S NAME MAY HOLD A BRACKET (commands.js ATTACHED_RE, attachedBlock; M675-3): "notes [v2].md" was not seen as a file
+  at all — the shortcut travelled alone again and the file's lines were his move. The name stands on one line.
+- A FOLD NEVER CALLS READ WHAT THE LEDGER HAD MARKED UNREAD (engine/state.js foldJournal; M675-5): it took the HIGHER of
+  the checkpoint's mark and the ledger's, so a "try again" before the idle catch-up had read a page marked unread put
+  the old mark back — nothing owed, the light green, the page never read. Within what the fold can vouch for, a page
+  is read only if the ledger said so.
+- WHOSE PAGE IS BEING TOLD (chat.js tellingFor, lettingGo, stopTheWorkOf, generate's own controller; DOM-263 parts 5–7).
+  Letting a tale go asked the OPEN tale: with a page being written for one tale and another open, letting the first
+  go stopped nothing (the page landed in a tale that was gone), and letting the open one go stopped the other's
+  page. And before a telling's request begins there was nothing to stop: fifteen seconds' wait, the delete, the page
+  landing afterwards. generate() says whose telling it is and holds its controller from its first moment (its early
+  calls are on leashes that controller cuts; it looks between them — those looks spare the work in between and are
+  not separately tested: the stop reaches the request itself); the tale's waiting work is stopped FIRST, so a telling
+  waiting for its readers waits no longer; nothing is begun or put back for a tale being let go.
+- HIS WORDS ARE WHAT HE TYPED, IN EVERY READER OF THEM (chat.js selectModules `turnText`, assemble/stack.js `typedNow`;
+  DOM-250, M510-12): the rulebook's fight and intimate rules, and the request's own fight laws, still read the file.
+- A PAGE IS READ WHEN ITS OWN READERS HAVE FINISHED (chat.js ledgerLinksOut `ownReading`; DOM-264). Every link up to the
+  checkpoint counted: the record keeper (two helpers at once: still folding long after — a failed "try again" read
+  the page again, whole) and the continuous audit with all queued behind it (a walk to the other version in that
+  minute left a fully read page without a checkpoint). The count is the founder to the auditor, on the ledger's lane.
+- WHAT HE IS TYPING IS NEVER DRAWN OVER, WHILE THE PAGE SHOWS THE TELLING HE IS CORRECTING (chat.js rerenderMessage
+  `fromItsEditor`, the editor's `openedIdx`; DOM-253, DOM-270): a page drawn again took an open editor with it — a
+  reader writing back, a mend of the page, or the redraw of the newest page when another was let go (which now
+  happens only when the page let go WAS the newest). The editor stands through all of those. It goes when ANOTHER
+  telling of its page is shown — ▸, "try again" or a walk, pressed with the editor open: the first form of this
+  guard kept it there too, and it came back out from under the telling that had just landed (found reading the
+  change back, before it shipped).
+- WHAT HE KEEPS IS WRITTEN OVER THE PAGE AS IT STANDS (chat.js beginEdit, through store.js change; DOM-270 — older than
+  this build). The editor's patch was worked out from the page as read when the editor opened, and a whole redraw
+  waits for an open editor (M429) — so a live sync from his other browser changes the page under it unseen.
+  Replayed: a page that gained a second telling meanwhile was left with his words in `text` and the other telling
+  shown (his words kept where nothing showed them); a page that already had versions had its list written back as
+  it had stood — the newest telling gone. Decided inside the row's lock now. The telling he was correcting is still
+  the one shown (mended, or changed elsewhere, since): an edit as ever, in the list as it is. ANOTHER telling is
+  shown, one this screen never drew: nothing is written over — his words are kept as a telling of their own (the one
+  he was correcting, with his words), put last and shown, each other telling keeping what was said of it, and he is
+  told ("This page was told again while you wrote — your words are kept as a version of their own.").
+- A RECORD LINE IS LET GO ONLY WHERE IT WILL BE WRITTEN AGAIN, AND NEVER HIS (memory.js memoryWithoutPage, lineIsHis,
+  keeperOnFor; M675-14, DOM-265). The first pass taught this to the mend alone. An edit, a new version, a walk to an
+  unread version and "read again" let go any line: his own (replaced by the keeper's), and, with the tale's keeper
+  off, for good. A new version let its line go BEFORE the telling was asked for — a failed telling left the page as it
+  was and its line gone. One rule for every moment.
+- EACH PAGE LET GO WAITS FOR THE ONE BEFORE (chat.js letOnePageGo; DOM-267 — older, beside this build's code): his message
+  with a page and its "go on", let go mid-tale: the second page's rebuild found the first still standing and did
+  nothing — measured, "Bo" stayed in the room and the later stamps never moved.
+- A RULING COMMITTED UNDER THE WHOLE PAGE IS STILL THE TURN'S (agents/referee.js `pageWhole`; M675-16): the referee is
+  handed his typed words since M675, so a turn ruled earlier with a file in its page was taken for an edit on its
+  next swipe — the world rewound and the die rolled again.
+
+THE READERS
+- (by the reviewer's own fixes, laws M675-B1…B4 in tests/harness/m675b.mjs) A READING CUT OFF BY ITS LEASH REACHES
+  `troubled` (it was rethrown before any bookkeeping: the same stretch asked whole at every look, for ever); ONE
+  TRANSIENT FAILURE NO LONGER COSTS A LINE ITS REPAIR (only a refusal of its words goes one page at a time at once);
+  "REFUSED n TIMES" COUNTS REFUSALS; THE RECORD BEFORE A STRETCH IS CUT IN ONE PASS (194–221 ms -> under 1 ms).
+- THE TALE LEFT OPEN IS OPENED AT THE START LIKE ANY OTHER (chat.js taleOpened, app.js; tests/boot_open.py). What the
+  house does for a tale just opened stood in openStory alone; the start did two of those things by hand. The tale he
+  reads most never had its kept pages looked over, its out-of-character pages settled, its carried pages given to it.
+- ARE THE READERS OUT? IS ASKED BY NAME (agents/queue.js workOut; chat.js readersOut, OWN_BOOKS). The ledger's healing
+  on open and the finishing of a chain cut short asked "is anything out?" — and a tale's own opening sends helpers
+  out. Both ran only when they happened to ask first; with the settling in front of them, never (the walk: DOM-105,
+  109, 128, 133). "Summarize now" asked the same and was turned away by anything at all: it waits its turn, and is
+  turned away only by a fold already under way (DOM-269).
+- "GO ON" ASKS FOR THE STORY, AND SAYS SO (assemble/stack.js goOnAfterAside, oocTurn; M675-15, DOM-258). MEASURED: "go
+  on" after his unanswered "((…))" sent the very request that asks that message, while the house kept the answer as
+  a page of the story. "Go on." is said after his message. And a turn is out of character by ITS OWN page (a hidden
+  nudge is none): a "go on" anywhere after an out-of-character message had been dressed as an out-of-character turn.
+- A PAGE THAT IS THE STORY IS TOLD AGAIN AS THE STORY (chat.js swipeRegenerate, putBackGoOn; DOM-266): a reply brought
+  in after his "((…))", or a "go on" page whose hidden nudge a branch left behind, was asked again OUT OF CHARACTER and
+  the answer landed as a version of a story page. The hidden "go on" is put back before it and the turn asked from
+  there.
+- SETTLING THE OUT-OF-CHARACTER PAGES UNDOES NOTHING ELSE (chat.js settleAsides; DOM-258): it let go every record line
+  folded since M674 over such a page — on a premise that was never so (the keeper is not told which pages are out of
+  character) — and marked unread pages this house had told and read. The lines stand; only pages brought in are
+  owed a reading. Its mark (`asidesSettled:`) goes with the tale (store.js STORY_PREFIXES; DOM-181).
+- THE RECORD IS BEHIND ONLY WHERE A KEEPER KEEPS IT (chat.js markLedgerTroubleNow; DOM-257): with a tale's keeper off, a
+  page past the window "waited for the keeper" for good — never green — and the continuous audit never read on while
+  idle there. The light says the keeper is off instead of "read and folded".
+- THE THREE OTHER RENDERERS OF THE RECORD CUT IN ONE PASS (memory.js oldestLetGo; M675-B5: 12,000 cuts held to the
+  old ones). The workers' line no longer says "the keeper folds the mended words" of a line that was kept (M675-8).
+
+THE DEVICE (the reviewer's own fixes; tests/device_guard.py scenes 12–14, tests/device_pair.py scenes 9–18)
+- AN EMPTY DEVICE IS NEVER "A COPY BROUGHT BACK" (a browser that knew an epoch was told so, its kept words wiped, nothing
+  could be saved); A REFUSAL BY NAME IS SAID, WITH HOW TO START THE TAVERN FOR THAT ADDRESS (README: COZY_HOSTS);
+  SENT WORDS THAT COULD NOT GO ARE REPORTED before a copy takes their place; THE FILE SAVED UNDER A COPY'S NAME IS
+  THAT COPY (asked for by name; copies ordered by the time made, not by name; the copy just made is never pruned);
+  A SITTING BEGUN WITHOUT THE TAVERN LEARNS THAT IT CAME BACK; A REFUSAL IS NOT "NO ANSWER"; THE EPOCH NOTED AFTER A
+  READ-IN IS THAT READ-IN'S OWN; A PARTIAL FILE SAYS SO BEFORE IT REPLACES ANYTHING. Beyond the list: two browsers
+  and an emptied device lose no tale; pages written into a tale held by name are added to its book, never sent as
+  the book.
+- A TALE WHOSE PAGES COULD NOT BE BROUGHT IN SAYS SO (chat.js openStory; DOM-268): it opened empty, without a word.
+- SEARCH ASKS THE DEVICE ONLY WHEN THE TAVERN STANDS BEHIND THE PAGE (ui/search.js; DOM-222 walks both).
+- DECIDED, NOT CHANGED: under an address the tavern refuses, "Take a copy" hands over nothing and says why — a partial
+  file under a backup's name is a trap. A BRANCH COPIES ITS CARRIED PAGES' SENT WORDS on the device (so letting the
+  first tale go cannot take them): each branch costs the size of its parent's archive again (measured by the
+  reviewer: 400 pages, 12.7 MB a branch) — in every zip too.
+
+WHAT THE WALK ITSELF SHOWED, RUN WHOLE AND ALONE (213 of 263 on m675-001): DOM-8a stood on the stale lone swipe bar this
+build removes (its fixture now makes the second telling while the page is newest); DOM-81 pressed the footer's "Try
+again" (gone by his own ask: it presses "try again" under his message); DOM-222 searched a device the walk's house is
+not; DOM-263 left an answer held for every scenario after it, and counted another tale's helpers as its own.
+
+## The tests
+- Laws M675-1 … M675-16 (tests/harness/m675.mjs) and M675-B1 … B5 (tests/harness/m675b.mjs); M510-12 extended. Walks
+  DOM-249 … DOM-270, and DOM-1, DOM-8a, DOM-43, DOM-46, DOM-81, DOM-222, DOM-228, DOM-242, DOM-244, DOM-245, DOM-247
+  changed. In a real Chromium: tests/pagemark.py (the forty positions), tests/perf_repair.py, tests/boot_open.py,
+  tests/static_host.py, tests/device_pair.py (19 scenes). serve.py alone: tests/device_guard.py. All six are in
+  audit/gates.sh.
+- A LESSON KEPT: `catchup-retries-in-queue` — taking `once` off the catch-up — was caught by nothing, because a later
+  fix had made it unreachable there. Running that down found the queue's fault above, the third job, the banners and
+  the two ways to delete. A breakage no test catches is a finding, not a formality.
+
+## Not changed, and not covered
+- NOT CHANGED: after the × on the open tale the next tale opens; after "Delete" none does (as each did before). A Stop on
+  the catch-up's banner marks the reader "stopped by hand", which holds the house's own reading back until a page's
+  chain has read (M607: a run he stopped is stopped).
+- NOT COVERED BY ANY RUN: his phone (Android Chrome, Termux, its storage); a real provider's refusals and timeouts (every
+  model here is scripted); a library near 1 GB end to end (the largest copy brought back in a test is 96 MB).
+- KNOWN, MEASURED, NOT CHANGED — TWO BROWSERS WRITING ONE TALE WHILE ONE CANNOT REACH THE TAVERN: the one that sends its
+  book last replaces the tale on the device, and the other's exchange is gone from both (two Chromium contexts, on
+  this build and on 802c5ba alike: A's two pages lost). The device folds in another browser's page only while it is
+  still in the tale's log (serve.py _fold_missing, M184/M206) — a whole-book push clears the log. Browsers that can
+  both reach the tavern hand each other every page at once (M182). The cure belongs in the device's log (keep the
+  lines a stale pusher has not seen) and was not attempted here: a mistake there loses pages for everyone.
+- KNOWN: in a BRANCH MADE BEFORE THIS BUILD, a page told by "go on" right after his out-of-character message has lost
+  the hidden nudge that told it from that message's answer (a branch carries only the pages that show) and nothing in
+  the branch says which it was: it is read as out of character until it is told again. Branches made on this build
+  carry the page's own mark. The continuous audit's pass-by counts refusals in memory: a phone that reloads starts
+  the count again. An echo of the window's rule wrapped in emphasis marks alone is no longer cut by the finisher.
+- KNOWN: TWO BROWSERS CORRECTING THE SAME TELLING OF ONE PAGE AT THE SAME TIME — a page is one row, and the words kept
+  last are the words it has. (Another TELLING made elsewhere meanwhile is never written over: above.)
+- TEST SEAMS, NOT DEAD CODE: continuous.js forgetAuditTrouble (the laws), sync.js booksStatus.pushAll (the browser
+  tests).
+
+GATES (the final code; the harness and the walk with the breakage run beside them, the rest alone): harness 1349/1349;
+the walk 270/270; the long play 9/9; lint 0 errors (195 warnings; 184 on the build before); the 16 browser tests of
+audit/gates.sh, each exit 0 — among them device_guard 207/207, device_pair 142/142 (19 scenes), static_host 8/8,
+boot_open 8/8, perf_repair (1,000 turns: the longest hold 63 ms, budget 250), perf_send within budget; the 23 browser
+tests outside the gates, each exit 0 (tests/pagemark.py among them); the deliberate breakages, 140 of 140 caught.

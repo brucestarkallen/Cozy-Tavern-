@@ -96,6 +96,10 @@ export function parseSTChat(jsonlText) {
     if (ts <= lastTs) ts = lastTs + 1;
     lastTs = ts;
     const page = { role: row.is_user === true ? 'user' : 'assistant', text: mes, ts };
+    /* M675: a reply brought in from another app is a page of the story — also when the message before it opens with "(("
+     * or "//" (there, an instruction to the storyteller; here, the house's mark for a question out of character, whose
+     * answer is not the story). Said on the page, so no reader takes it for one (commands.js asideAt). */
+    if (page.role === 'assistant') page.ooc = false;
     /* M437: WHAT SILLYTAVERN KEPT OF A PAGE COMES WITH IT. Only the shown words came over; the other versions of a reply
      * (its swipes) were left behind, and so was the thinking SillyTavern kept for the shown one. The versions come as
      * the page's own (◂ ▸ walk them), the shown one shown — its words the page's words even when he had edited them in

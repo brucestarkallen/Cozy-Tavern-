@@ -1560,8 +1560,28 @@ export function foldJournal(current, snapshots, targetPage, applyMutationsFn) {
   }
   state.page = targetPage;
   /* M276: a line rebuilt to a page has read no further than that page, and holds nothing read past it */
-  state.readTo = Math.min(Number.isInteger(state.readTo) ? state.readTo : targetPage, targetPage);
-  state.readAhead = [];
+  /* M675 — AND IT HAS READ AS FAR AS IT HAD, UP TO THAT PAGE. The mark was taken from the checkpoint the fold started from
+   * — and a checkpoint is made when he SENDS, before the page it leads to is read: so a ledger folded to page T said "read
+   * up to T-1" although T's own writes had just been put back from the journal, and whoever looks for unread pages read
+   * T again. Measured in the app (the audit of M674): every "try again" sent the page reader to the page BEFORE the one
+   * being told again — a model call for nothing, on every retry and every new version. When the fold is exact (the
+   * journal reaches the page: journalReaches), every page up to T that had been read before the fold is read after it —
+   * its writes are these very journal lines. A fold that cannot be exact vouches no further than the checkpoint's own
+   * mark, as before: what the journal no longer holds is read again.
+   * M675 (the second reading) — AND WHAT THE LEDGER HAD MARKED UNREAD STAYS UNREAD. The mark is lowered on purpose (the
+   * story pages chat.js settleAsides finds had been passed over as asides; a page edited mid-story), and the fold took
+   * the HIGHER of the checkpoint's mark and the ledger's own: a "try again", a new version, an edit or a delete of the
+   * newest page before the idle catch-up had read those pages put the old mark back — nothing owed, the light green,
+   * the pages never read. The ledger as it stands is the one that knows what it has read: the fold says how far it can
+   * vouch (the page folded to when exact, the checkpoint's mark when not), and within that a page is read only if the
+   * ledger said so — up to its mark, or read out of turn. */
+  {
+    const fromCheckpoint = Math.min(Number.isInteger(state.readTo) ? state.readTo : targetPage, targetPage);
+    const exact = journalReaches(current, snapshots, targetPage);
+    const upTo = exact ? targetPage : fromCheckpoint;
+    state.readTo = Math.min(upTo, readMark(current));
+    state.readAhead = [...new Set((Array.isArray(current.readAhead) ? current.readAhead : []).filter((k) => Number.isInteger(k) && k > state.readTo && k <= upTo))].sort((a, b) => a - b);
+  }
   state.pendingVerdict = null;
   state.refHistory = Array.isArray(current.refHistory) ? deepCopy(current.refHistory) : [];
   return state;

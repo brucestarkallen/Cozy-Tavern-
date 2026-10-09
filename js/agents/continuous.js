@@ -43,7 +43,8 @@ import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { roomChars, leashFor } from './lookup.js';
 import { wholePage } from '../engine/pagecut.js';
-import { writerText } from '../engine/whole.js';
+import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js';
+import { isHouseTidy } from '../engine/pagepatch.js'; /* M675: a page the finisher only tidied is not "already mended" */
 import { loadState, saveState, notify } from '../engine/state.js';
 import { applyMutations, personBookKey } from '../engine/apply.js';
 import { findKnowledgeKey, sameFact, KNOWLEDGE_GUARD } from '../engine/world.js';
@@ -54,7 +55,7 @@ import { pageText } from '../assemble/stack.js';
 import { asideAt } from '../commands.js'; /* M674: which pages are out of character */
 import {
   loadMemory, saveMemory, visiblePages, recordLinesBefore,
-  applyAuditFixes, mergeDetail, looksLikeTokenDump, isNoRecordLine, nodeSignature, nodeUnmoved, auditedOf,
+  applyAuditFixes, mergeDetail, looksLikeTokenDump, isNoRecordLine, nodeSignature, nodeUnmoved, auditedOf, lineIsHis,
 } from './memory.js';
 
 export const STRETCH_PAGES = 6;      /* the keeper's own batch: one record line, one reading */
@@ -63,7 +64,6 @@ export const LEDGER_ADDS = 4;        /* what one reading may add to the ledger, 
 export const PAGE_FIXES = 2;         /* pages one reading may send to be mended, at most */
 export const UNREADABLE_TRIES = 3;   /* answers that cannot be read, before the pages are passed by (never stuck) */
 const MAX_TOKENS = 3000;
-const BRIEF_CAP = 12000;
 const PAGE_CAP = 24000;
 const LINE_CAP = 6000;
 const DETAIL_ADD_CAP = 400;          /* what one reading may add beneath a line */
@@ -108,17 +108,24 @@ const lengthOf = (m) => String(pageText(m) || '').length;
 
 /* The next stretch: the oldest line not yet read to its end — its pages from where the reading stopped, six pages or
  * STRETCH_CHARS at most. null when every line is read. */
-export function nextStretch(mem, pages) {
+/* M675: `room` — how many characters of pages one reading may hold (STRETCH_CHARS unless the reader's model has room for
+ * more: a record line is only ever REPAIRED when its pages are read whole, and six long pages — 6,000 characters each
+ * is enough — were always read in parts, so their line never was); `skip(line)` — a line set aside for now (the wire
+ * refused its pages, see `troubled`); `onePage(line)` — a line whose pages are asked for one at a time. */
+export function nextStretch(mem, pages, { room = STRETCH_CHARS, skip = null, onePage = null } = {}) {
   const list = Array.isArray(pages) ? pages : [];
+  const most = Number.isFinite(room) && room > 0 ? room : STRETCH_CHARS;
   for (const line of linesOf(mem, list.length)) {
     const had = auditedOf(line);
     if (had >= lineLength(line)) continue;
+    if (typeof skip === 'function' && skip(line)) continue;
     const from = line.span[0] + had;
     let to = from;
+    const single = typeof onePage === 'function' && onePage(line);
     let chars = lengthOf(list[from]);
-    while (to + 1 <= line.span[1] && (to + 1 - from) < STRETCH_PAGES) {
+    while (!single && to + 1 <= line.span[1] && (to + 1 - from) < STRETCH_PAGES) {
       const next = lengthOf(list[to + 1]);
-      if (chars + next > STRETCH_CHARS) break;
+      if (chars + next > most) break;
       to += 1;
       chars += next;
     }
@@ -126,6 +133,66 @@ export function nextStretch(mem, pages) {
   }
   return null;
 }
+
+/* M675 — A STRETCH THE WIRE WILL NOT ANSWER FOR NEVER STOPS THE REST. Only an answer that could not be READ counted toward
+ * passing pages by; a call that failed at the wire (the provider refusing those pages — "Content Exists Risk", a
+ * request over the model's real room — or a reading that outran its leash) was thrown, and the same oldest stretch
+ * was asked for again at every look and before every new page, for good: nothing after it was ever read (the audit,
+ * with a provider answering 400 for pages 1-6: eight looks, 96 requests, none for any later line, 0 of 12 read). Now:
+ *   - a stretch of several pages REFUSED FOR ITS WORDS (a status that means "not these words": 400, 413, 414, 422, 451)
+ *     is asked for ONE PAGE AT A TIME from then on (a smaller ask; and what is refused is then one page, not six);
+ *   - a stretch of several pages that failed ANY OTHER WAY (a 429, a 5xx, a dropped line, its leash) is asked for whole
+ *     again at the next look — the house's own wait between looks spaces them — and goes one page at a time only after
+ *     WHOLE_TRIES such failures in a row (SLOW_TRIES when each was its leash: a stretch too slow for its leash will not
+ *     get faster). A reading that can be used clears the count — an answer that is no answer does not;
+ *   - a page that fails alone is SET ASIDE — half an hour, an hour, two … six at most — and the reading goes on to the
+ *     lines after it, coming back when the wait is over;
+ *   - a page is PASSED BY (marked read, and said) only when the provider refused the request itself for its words
+ *     UNREADABLE_TRIES times — a stumble in between neither counts nor clears that count — AND the model has answered
+ *     for other pages since that page was first so refused: so a connection that refuses everything (a wrong key, a
+ *     bad setting, no credit) passes nothing by: nothing is ever marked read that the house cannot tell was refused
+ *     for its own words.
+ * Kept for the sitting (a reload asks afresh).
+ * M675, THE SECOND READING (by a reviewer who had not written this; laws M675-B1 … B3) — what the first cut got wrong:
+ *   - A READING CUT OFF BY ITS LEASH NEVER GOT HERE. In the app the reading's own stop follows the job's (beginReading),
+ *     and every such stop was taken for "stepped aside, not the wire's doing": nothing was learned, and the stretch was
+ *     asked for whole at every look and before every page's checkpoint, a full leash each time (made to happen with
+ *     the real queue: 1-6, 1-6, 1-6, 1-6 — 0 of 18 read). Only his own Stop, a step aside for the storyteller and a
+ *     tale that moved on are no failure;
+ *   - ANY failure of a stretch of several pages put its line on one page at a time: one 429 was seven requests for one,
+ *     and — a line read in parts is never repaired — the line was sealed "read" with its wrong fact (the same tale,
+ *     the same answers: "the seal of the Tenth" put right without the 429, never with it);
+ *   - "REFUSED THREE TIMES" COUNTED EVERY FAILURE of the page and looked at the last one's status alone: 500, 500, 400
+ *     passed the page by at its first refusal, the workers' line saying "refused it 3 times". And "ANSWERED FOR OTHER
+ *     PAGES" WAS TRUE OF AN ANSWER FROM BEFORE THE PAGE WAS EVER REFUSED: a page the server stumbled on once, the other
+ *     lines read meanwhile, then a connection changed for one that refuses every request (400) — its three refusals
+ *     passed the page by, the workers' line saying the model "answers for other pages". An answer counts for a page
+ *     only once that page has been refused for its words, and the count starts afresh when the page itself is read. */
+export const ASIDE_MS = 30 * 60000;
+export const WHOLE_TRIES = 3;        /* failures in a row of a stretch asked for whole, before its pages are asked for one at a time */
+export const SLOW_TRIES = 2;         /* …when each of them was its leash */
+const asideMs = () => (Number(globalThis.__cozyAuditAsideMs) > 0 ? Number(globalThis.__cozyAuditAsideMs) : ASIDE_MS);
+/* storyId|lineId -> { whole, slow — failures (and leashes) in a row of its stretch asked for whole; onePage; fails —
+ * failures in a row of its page asked for alone (each doubles the wait); until — set aside till then; refused — how
+ * often that page was refused for its words; answered — the model has answered for other pages since it first was; why } */
+const troubled = new Map();
+const troubleKey = (storyId, line) => storyId + '|' + (line && line.id);
+const refusedForItsWords = (err) => Number.isFinite(err && err.status) && [400, 413, 414, 422, 451].includes(err.status);
+const pickStretch = (storyId, mem, pages, room) => nextStretch(mem, pages, {
+  room,
+  skip: (line) => { const t = troubled.get(troubleKey(storyId, line)); return Boolean(t && t.until > Date.now()); },
+  onePage: (line) => { const t = troubled.get(troubleKey(storyId, line)); return Boolean(t && t.onePage); },
+});
+/* For the house's own look: 0 — a stretch can be read now; -1 — every folded page is read; else how many milliseconds
+ * until the first stretch set aside comes back (nothing else is left to read meanwhile). */
+export function auditWaits(storyId, mem, pages) {
+  if (pickStretch(storyId, mem, pages)) return 0;
+  if (!nextStretch(mem, pages)) return -1;
+  let soonest = Infinity;
+  for (const [key, t] of troubled) if (key.startsWith(storyId + '|') && t.until > Date.now()) soonest = Math.min(soonest, t.until - Date.now());
+  return Number.isFinite(soonest) ? Math.max(1, soonest) : 0;
+}
+export function forgetAuditTrouble(storyId) { for (const key of [...troubled.keys()]) if (!storyId || key.startsWith(storyId + '|')) troubled.delete(key); } /* for the tests, and a tale let go */
 
 /* ---------- what it is asked ---------- */
 
@@ -208,16 +275,26 @@ function knownBy(state, name) {
 
 /* What the ledger holds today of what the people these pages name have learned -- the people it keeps, never the
  * main character. Shown so the reader can tell what is already written, and for nothing else. */
-export function ledgerForPages(state, text, room = 12000) {
+/* M675: when a person's list must be cut, the lines kept are the ones written NEAREST THE PAGES BEING READ (`turn`: the
+ * story's turn the stretch ends on) — they are shown so the reader can tell what is already written of these pages,
+ * and the newest lines of a long tale say nothing of pages 1-6 (the audit: a reading of pages 1-6 was shown what was
+ * learned on pages 481-591). With no turn given, the newest, as before. */
+export function ledgerForPages(state, text, room = 12000, turn = null) {
   const people = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
   const names = Object.keys(people).filter((n) => !isMc(state, n) && nameOnPage(text, n));
   if (!names.length) return '';
-  const blocks = names.map((name) => ({ name, knows: knownBy(state, name).map((k) => k.fact.trim().replace(/\.+$/, '')) }));
+  const blocks = names.map((name) => ({ name, knows: knownBy(state, name).map((k) => ({ words: k.fact.trim().replace(/\.+$/, ''), at: Number.isFinite(k.atTurn) ? k.atTurn : null })) }));
+  const nearest = (knows, keep) => {
+    if (knows.length <= keep) return knows;
+    if (!Number.isFinite(turn)) return knows.slice(-keep);
+    const order = knows.map((k, i) => ({ k, i, far: k.at === null ? Infinity : Math.abs(k.at - turn) })).sort((a, b) => (a.far - b.far) || (a.i - b.i)).slice(0, keep);
+    return order.sort((a, b) => a.i - b.i).map((x) => x.k);
+  };
   const render = (keep) => blocks.map((b) => [
     b.name,
-    '  knows: ' + (b.knows.slice(-keep).join('; ') || '(nothing written)') + (b.knows.length > keep ? ' (and ' + (b.knows.length - keep) + ' older lines not shown)' : ''),
+    '  knows: ' + (nearest(b.knows, keep).map((k) => k.words).join('; ') || '(nothing written)') + (b.knows.length > keep ? ' (and ' + (b.knows.length - keep) + ' lines from other parts of the story not shown)' : ''),
   ].join('\n')).join('\n');
-  /* whole when it fits; else each person's newest lines, fewer and fewer */
+  /* whole when it fits; else each person's lines nearest these pages, fewer and fewer */
   for (const keep of [Infinity, 24, 12, 6, 3]) {
     const out = render(keep);
     if (out.length <= room || keep === 3) return out.length <= room ? out : out.slice(0, room);
@@ -225,13 +302,9 @@ export function ledgerForPages(state, text, room = 12000) {
   return '';
 }
 
-/* A LINE IN HIS OWN WORDS IS HIS. A record line he rewrote by hand (the drawer's "Rewrite"), or that the housekeeper
- * changed for him, is read like any other -- its pages, and what the ledger should hold of them -- but its words and
- * its detail are left exactly as they are: this reader never writes over his hand. */
-export function lineIsHis(node) {
-  const by = node && node.verified && typeof node.verified === 'object' ? node.verified.fixed : '';
-  return by === 'the writer' || by === 'the housekeeper';
-}
+/* A LINE IN HIS OWN WORDS IS HIS (agents/memory.js lineIsHis — M675: it moved there, so the record's own doors can ask
+ * it too): read like any other, its words and its detail left exactly as they are. */
+export { lineIsHis };
 
 /* The request for one stretch. Shrinks the stretch (never below one page) until it fits the reader's room. */
 export function buildStretchMessages({ state, brief = '', castNotes = '', mem, pages, stretch, room = Infinity } = {}) {
@@ -282,20 +355,28 @@ export function buildStretchMessages({ state, brief = '', castNotes = '', mem, p
         pageBlocks: shown.map((m, i) => '[p' + (stretch.from + i + 1) + '] ' + whose(m, i) + wholePage(String(pageText(m) || ''), PAGE_CAP)),
         sourceText,
         asides: shown.map((m, i) => (aside[i] ? stretch.from + i + 1 : 0)).filter(Boolean), /* their page numbers, as the request numbers them */
-        ledger: ledgerForPages(state, sourceText, Math.max(2000, Math.floor(budget * 0.15))),
+        ledger: ledgerForPages(state, sourceText, Math.max(2000, Math.floor(budget * 0.15)), Math.max(0, storyPageAt(list, to)) + 1),
       };
       endings.set(to, e);
     }
     return e;
   };
+  /* M675: and the record before these pages depends only on its room — worked out once for each room tried, not again for
+   * every end tried under it (a quarter of a second each at 800 lines) */
+  const records = new Map();
+  const recordAt = (cap) => { if (!records.has(cap)) records.set(cap, cap > 0 ? recordLinesBefore(mem, stretch.from, cap) : ''); return records.get(cap); };
   const build = (to, recordCap) => {
     const { pageBlocks, sourceText, asides, ledger } = endingAt(to);
     const whole = stretch.lineWhole && to === stretch.to;
-    const record = recordCap > 0 ? recordLinesBefore(mem, stretch.from, recordCap) : '';
+    const record = recordAt(recordCap);
     const user = [
       'THE BRIEF (the writer\'s own words):',
-      FENCE, writerText(brief, Math.min(BRIEF_CAP, Math.max(2000, Math.floor(budget * 0.12))), 'brief') || '(none written)', FENCE,
-      ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT (the writer\'s own words):', FENCE, writerText(castNotes, Math.min(6000, Math.max(1500, Math.floor(budget * 0.06))), 'cast notes'), FENCE] : []),
+      /* M675: to the room every other reader gives it (40,000 characters; the cast notes 20,000 — M283), a stated cut past
+       * it. It was cut at 12,000 whatever the room — and this reader's first fault is "a page against the brief": a page
+       * that agreed with the part it was not shown could be reported against the record, and mended (the audit: a
+       * 369,000-character room, a 30,038-character brief, 12,105 shown; "Jovan is sixteen" at 20,000 not in the request). */
+      FENCE, writerText(brief, Math.min(BRIEF_ROOM, Math.max(2000, Math.floor(budget * 0.12))), 'brief') || '(none written)', FENCE,
+      ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT (the writer\'s own words):', FENCE, writerText(castNotes, Math.min(CAST_ROOM, Math.max(1500, Math.floor(budget * 0.06))), 'cast notes'), FENCE] : []),
       '',
       'THE STORY SO FAR (the record of everything before these pages, oldest to newest):',
       FENCE, String(record || '').trim() || (stretch.from === 0 ? '(these are the story\'s first pages)' : '(nothing recorded before these pages)'), FENCE,
@@ -448,11 +529,19 @@ export function storyPageAt(pages, index) {
  * (pauseContinuousAudit — from generate and from pendingWork). Its call is dropped, nothing is written, and the same
  * pages are read later. */
 const readings = new Map(); /* storyId -> Set<AbortController> */
-export function beginReading(storyId) {
+/* M675 (the second reading, law M675-B1): `follows` — the signal of the job this reading is (the queue's: its leash, his
+ * Stop). The reading's own stop follows it AND CARRIES ITS REASON. chat.js wired the two itself, with a bare abort(): a
+ * reading cut off by its leash then looked exactly like one that had stepped aside for the storyteller, and
+ * auditStretch — which must tell the two apart — could not (see `troubled`). One place makes the stop and ties it. */
+export function beginReading(storyId, follows = null) {
   const c = new AbortController();
   let set = readings.get(storyId);
   if (!set) { set = new Set(); readings.set(storyId, set); }
   set.add(c);
+  if (follows && typeof follows.addEventListener === 'function') {
+    const withIt = () => { try { if (!c.signal.aborted) c.abort(follows.reason); } catch (err) { /* already let go */ } };
+    if (follows.aborted) withIt(); else follows.addEventListener('abort', withIt, { once: true });
+  }
   return c;
 }
 export function endReading(storyId, c) {
@@ -474,14 +563,20 @@ const unreadable = new Map(); /* story|line|from -> answers that could not be re
 
 /* ONE STRETCH. Returns null when nothing is due or nothing could be done now (every line read; the keeper at the
  * record; the pages or the line moved while it read — read again, as they then stand); else what it did. Throws on
- * transport, on a stop, and on an answer that cannot be read (the queue asks again) — until the third such answer for
- * the same pages, which are passed by and said so.
+ * transport, on a stop, and on an answer that cannot be read (its own next look asks again — the job is tried once,
+ * M675) — until the third such answer for the same pages, which are passed by and said so.
  *   mend(pageId, words) -> the pages changed          (the house's own page mender; it keeps his switch)
- *   note(pageId, finding)                             (a fault left on the page, where the second reader's are) */
-export async function auditStretch({ connection, storyId, brief = '', castNotes = '', signal, stale, renew, mend, note } = {}) {
+ *   note(pageId, finding)                             (a fault left on the page, where the second reader's are)
+ *   alsoInto(mutations, page)                         (M675: the same ledger writes, into the ledger each other version of the newest page keeps) */
+export async function auditStretch({ connection, storyId, brief = '', castNotes = '', signal, stale, renew, mend, note, alsoInto } = {}) {
   if (!connection || typeof connection !== 'object' || !storyId) return null;
   const isStale = () => typeof stale === 'function' && stale();
   const stopped = () => Boolean(signal && signal.aborted);
+  /* M675-B1: CUT OFF BY ITS LEASH — the queue's own stop for a call that took too long (agents/status.js workerSignal:
+   * its reason says "timeout"; the reading's own stop carries it, beginReading). That is the wire's doing. His Stop and
+   * a step aside for the storyteller are the house's: only those HALT the reading with nothing learned or written. */
+  const leashed = () => Boolean(signal && signal.aborted && signal.reason && signal.reason.message === 'timeout');
+  const halted = () => stopped() && !leashed();
   /* THE KEEPER FIRST. While it is at the record (folding, or checking a line it has just written — it writes that
    * line's detail when it is done) this reader neither reads nor writes: two hands on one line lose one's work. */
   const keeperAtWork = () => runningWorkers(storyId).includes('keeper');
@@ -489,24 +584,73 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
   const state = await loadState(storyId);
   const mem = await loadMemory(storyId);
   const pages = visiblePages(await db.messages.list(storyId));
-  const stretch = nextStretch(mem, pages);
+  const room = roomChars(connection, MAX_TOKENS);
+  /* M675: a line's pages are read whole when the reader's model has the room (three tenths of it for the pages) — only a
+   * line read whole can be repaired */
+  const stretch = pickStretch(storyId, mem, pages, Math.max(STRETCH_CHARS, Number.isFinite(room) ? Math.floor(room * 0.3) : STRETCH_CHARS));
   if (!stretch) return null;
-  const prompt = buildStretchMessages({ state, brief, castNotes, mem, pages, stretch, room: roomChars(connection, MAX_TOKENS) });
+  const prompt = buildStretchMessages({ state, brief, castNotes, mem, pages, stretch, room });
+  const troubleAt = troubleKey(storyId, stretch.line);
   let read = { issues: [], note: 'unusable' };
   let raw = '';
   let user = prompt.user;
+  let refusedWhy = ''; /* M675: the provider refused this one page for its own words, three times: it is passed by */
+  let refusedTimes = 0; /* …how many times it was (the workers' line says this count) */
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (typeof renew === 'function') renew(leashFor(prompt.system.length + user.length));
-    const { text } = await callWorker(connection, { system: prompt.system, user, maxTokens: MAX_TOKENS, signal });
+    let text = '';
+    try {
+      ({ text } = await callWorker(connection, { system: prompt.system, user, maxTokens: MAX_TOKENS, signal }));
+    } catch (err) {
+      if (halted() || isStale()) throw err; /* his Stop, a step aside, or the tale moved on: not the wire's doing */
+      /* M675: the wire would not answer for these pages (see `troubled`) */
+      const t = troubled.get(troubleAt) || { whole: 0, slow: 0, onePage: false, fails: 0, until: 0, refused: 0, answered: false, why: '' };
+      const single = prompt.from === prompt.to;
+      const slow = leashed();
+      const words = !slow && refusedForItsWords(err);
+      t.why = slow || (err && err.message === 'timeout') ? 'it took too long to answer' : String((err && err.message) || 'no answer').slice(0, 200);
+      if (!single) {
+        if (words) t.onePage = true; /* the whole cannot be sent: the same pages, one at a time, from the next look on */
+        else {
+          /* a stumble says nothing of the pages: the same stretch, whole, at the next look — until it has failed so too often */
+          t.whole += 1;
+          t.slow = slow ? t.slow + 1 : 0;
+          if (t.whole >= WHOLE_TRIES || t.slow >= SLOW_TRIES) t.onePage = true;
+        }
+        troubled.set(troubleAt, t);
+        throw err;
+      }
+      t.onePage = true;
+      t.fails += 1;
+      if (words) t.refused += 1;
+      if (words && t.refused >= UNREADABLE_TRIES && t.answered) { refusedWhy = t.why; refusedTimes = t.refused; troubled.delete(troubleAt); break; }
+      t.until = Date.now() + Math.min(6 * 3600000, asideMs() * 2 ** (t.fails - 1));
+      troubled.set(troubleAt, t);
+      throw err;
+    }
+    /* the model answered: whatever kept OTHER pages of this tale from being read was theirs alone (M675-B3: said only of
+     * a page already refused for its words — an answer from before that says nothing of the refusals that follow) */
+    for (const [key, t] of troubled) if (key !== troubleAt && key.startsWith(storyId + '|') && t.refused > 0) t.answered = true;
+    { const t = troubled.get(troubleAt); if (t) { t.fails = 0; t.until = 0; t.refused = 0; t.answered = false; } } /* …and it answered for this page: what was counted against it is over, the next one starts with nothing */
     raw = text;
     read = parseStretchAnswer(text);
-    if (read.note === 'ok') break;
+    if (read.note === 'ok') {
+      /* a reading that can be USED clears the count of whole failures. An answer that cannot is not one: cleared by it,
+       * a model that answered in prose and whose second call (asked at once, below) was then turned away never got to
+       * WHOLE_TRIES — the same stretch whole at every look, for good */
+      const t = troubled.get(troubleAt);
+      if (t) { t.whole = 0; t.slow = 0; }
+      break;
+    }
     user = prompt.user + '\n\nYour last answer was not a JSON object with an "issues" list. Answer with the JSON object only; an empty list is a good answer.';
   }
-  if (isStale() || stopped()) return null;
+  if (isStale() || halted()) return null;
   const tryKey = storyId + '|' + prompt.lineId + '|' + prompt.from;
   let passedBy = false;
-  if (read.note !== 'ok') {
+  if (refusedWhy) {
+    read = { issues: [], note: 'ok' };
+    passedBy = true;
+  } else if (read.note !== 'ok') {
     const tries = (unreadable.get(tryKey) || 0) + 1;
     unreadable.set(tryKey, tries);
     if (tries < UNREADABLE_TRIES) {
@@ -533,7 +677,10 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
   const pagesNow = visiblePages(await db.messages.list(storyId));
   if (!shown.every((pg, i) => pagesNow[prompt.from + i] && pagesNow[prompt.from + i].id === pg.id && pageText(pagesNow[prompt.from + i]) === pageText(pg))) return null;
 
-  const turn = storyPageAt(pages, prompt.to) + 1;
+  /* M675: a stretch that ends before the story's first page (his opening words alone) is dated with that first page — it
+   * was -1, and the ledger then dated the fact with its count of writes ("turn 302" in a tale of 22 pages) */
+  const endPage = Math.max(0, storyPageAt(pages, prompt.to));
+  const turn = endPage + 1;
   const first = scopeStretch(read.issues, { state, pagesText: prompt.sourceText, from: prompt.from, to: prompt.to, lineWhole: prompt.lineWhole && !prompt.lineEmpty, turn, asides: prompt.asides });
 
   /* 1. THE PAGES — the house's own mender, with his switch; a page already mended, or one whose words he put back, is
@@ -541,31 +688,50 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
    * the mend lets the record line go, the keeper folds the mended words, and that line is read in its turn. */
   let mendedPages = 0;
   const notedFaults = [];
+  /* M675: ONE MEND A PAGE. Two faults found on one page sent the mender to it twice — the second time over words it had
+   * itself just written, with the page's "earlier words" then holding the once-mended text instead of the
+   * storyteller's own (the audit: mendedPages 2 for one page). The faults of one page are said together, once. */
+  const perPage = [];
   for (const f of first.pageFixes) {
+    const words = (f.what ? f.what.replace(/\s+$/, '') + ' ' : '') + 'It should read: ' + f.fix;
+    const had = f.page ? perPage.find((x) => x.page === f.page) : null;
+    if (had) { had.words += ' Also: ' + words; had.what = [had.what, f.what].filter(Boolean).join(' · '); had.fix += ' Also: ' + f.fix; } else perPage.push({ ...f, words });
+  }
+  for (const f of perPage) {
     if (isStale()) return null;
     const pg = f.page ? pagesNow[f.page - 1] : null;
     const itsStory = Boolean(pg && pg.role === 'assistant'); /* (a fault against an out-of-character page never gets here: scopeStretch) */
-    const words = (f.what ? f.what.replace(/\s+$/, '') + ' ' : '') + 'It should read: ' + f.fix;
+    const words = f.words;
     let changed = [];
-    if (itsStory && !pg.mended && !(typeof pg.keptText === 'string' && pg.keptText === pageText(pg)) && typeof mend === 'function') {
+    /* M675: "already mended" is a mend of what the page SAYS — a page the landing finisher merely tidied (marks, an
+     * echoed rule) or whose header the house filled in is not one (engine/pagepatch.js isHouseTidy) */
+    if (itsStory && !(pg.mended && !isHouseTidy(pg.mended)) && !(typeof pg.keptText === 'string' && pg.keptText === pageText(pg)) && typeof mend === 'function') {
       try {
         if (typeof renew === 'function') renew();
         changed = (await mend(pg.id, words)) || [];
       } catch (err) {
-        if (stopped()) throw err; /* stepped aside: nothing more is written, and the pages are read again */
+        if (halted()) throw err; /* stepped aside: nothing more is written, and the pages are read again */
+        /* (M675-B1: a mender cut off by its leash is a mender that did not mend, as one that failed any other way is —
+         * the fault is noted below and the reading kept. Thrown as a stop, it wrote nothing, and the same reading and
+         * the same mend were asked for again at every look.) */
         changed = [];
       }
     }
     if (Array.isArray(changed) && changed.length) { mendedPages += changed.length; continue; }
-    notedFaults.push({ ...f, noted: false });
+    notedFaults.push({ what: f.what, fix: f.fix, page: f.page, noted: false });
     if (itsStory && typeof note === 'function') {
       try { await note(pg.id, { words: 'The continuous audit: ' + words, severity: 'warn', kind: 'audit' }); notedFaults[notedFaults.length - 1].noted = true; } catch (err) { /* it is still said on the workers' line */ }
     }
   }
   if (mendedPages) {
-    return { ok: true, from: prompt.from, to: prompt.to, mendedPages, applied: [], refused: first.refused, faults: notedFaults, lineMended: 0, detailAdded: '', lineWritten: false, passedBy: false, sealed: false, raw, ...auditProgress(await loadMemory(storyId), pagesNow.length) };
+    /* M675 (the second reading): whether the line over the mended pages still stands is said as it is — a line in his
+     * own words, or one in a tale whose keeper is off, is kept (ui/chat.js applyMend), and the workers' line said
+     * "the keeper folds the mended words" all the same */
+    const memAfter = await loadMemory(storyId);
+    const lineKept = (memAfter.nodes || []).some((n) => n && n.id === prompt.lineId);
+    return { ok: true, from: prompt.from, to: prompt.to, mendedPages, lineKept, applied: [], refused: first.refused, faults: notedFaults, lineMended: 0, detailAdded: '', lineWritten: false, passedBy: false, sealed: false, raw, ...auditProgress(memAfter, pagesNow.length) };
   }
-  if (isStale() || stopped()) return null;
+  if (isStale() || halted()) return null;
 
   /* 2. THE LEDGER, read fresh — what someone learned, dated with the pages it was learned on */
   let applied = [];
@@ -575,11 +741,17 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
     const scoped = scopeStretch(read.issues, { state: fresh, pagesText: prompt.sourceText, from: prompt.from, to: prompt.to, lineWhole: prompt.lineWhole && !prompt.lineEmpty, turn, asides: prompt.asides });
     refused = scoped.refused;
     if (scoped.mutations.length) {
-      const result = applyMutations({ ...fresh, page: storyPageAt(pages, prompt.to) }, scoped.mutations);
+      const result = applyMutations({ ...fresh, page: endPage }, scoped.mutations);
       applied = result.applied;
       refused = [...refused, ...result.rejected.map((r) => ({ mutation: r.mutation, why: r.why }))];
       if (applied.length) {
         await saveState(storyId, { ...result.state, page: fresh.page });
+        /* M675: …AND INTO THE LEDGER EVERY OTHER VERSION OF THE NEWEST PAGE KEEPS. What someone learned on an OLD page is
+         * true whichever telling of the newest page is shown — but each version keeps a ledger of its own, and walking
+         * back to another put that ledger in place whole: the fact was gone, and the record line still said "read", so
+         * it was never written again (the audit: after the walk back, Rukia knows nothing, the journal entry is gone,
+         * the line shows audited: 6). The house writes it into those ledgers too. */
+        if (typeof alsoInto === 'function') { try { await alsoInto(scoped.mutations, endPage); } catch (err) { /* the version shown has it */ } }
         notify(storyId);
       }
     }
@@ -613,10 +785,21 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
        * not swept along), never swaps a phrase for a fragment of it (three words for one loses what the line said), and
        * only by the keeper's own rule: the right words are in the pages */
       const wordsIn = (t) => String(t || '').trim().split(/\s+/).filter(Boolean).length;
-      const once = first.record.fixes.filter((f) => f.from.length >= 3 && node.text.split(f.from).length === 2 && wordsIn(f.to) * 2 >= wordsIn(f.from));
+      const sound = (f) => f.from.length >= 3 && wordsIn(f.to) * 2 >= wordsIn(f.from);
+      const once = first.record.fixes.filter((f) => sound(f) && node.text.split(f.from).length === 2);
       if (once.length) {
         const repaired = applyAuditFixes(node.text, once, prompt.sourceText);
         if (repaired.used.length && repaired.text.trim()) { node.text = repaired.text; lineMended = repaired.used.length; }
+      }
+      /* M675: the Detail beneath the line is shown to this reader as part of the line — a wrong fact it found THERE was
+       * dropped without a word (a fix is looked for in the line alone). By the same rule: its wrong words stand exactly
+       * once in the detail (and nowhere in the line), the right words are in the pages. */
+      if (typeof node.detail === 'string' && node.detail) {
+        const inDetail = first.record.fixes.filter((f) => sound(f) && !once.includes(f) && !node.text.includes(f.from) && node.detail.split(f.from).length === 2);
+        if (inDetail.length) {
+          const repaired = applyAuditFixes(node.detail, inDetail, prompt.sourceText);
+          if (repaired.used.length && repaired.text.trim()) { node.detail = repaired.text; lineMended += repaired.used.length; }
+        }
       }
       const had = String(node.detail || '');
       /* what the line or its detail already says is not said again */
@@ -627,9 +810,10 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
     node.audited = prompt.to - node.span[0] + 1;
     await saveMemory(storyId, current);
     sealed = true;
+    if (node.audited >= lineLength(node)) troubled.delete(troubleAt); /* M675: read to its end — its next line is asked for as any other */
   }
   const after = auditProgress(current || (await loadMemory(storyId)), pagesNow.length);
-  return { ok: true, from: prompt.from, to: prompt.to, mendedPages: 0, applied, refused, faults: notedFaults, lineMended, detailAdded, lineWritten, lineLeft, passedBy, sealed, raw, ...after };
+  return { ok: true, from: prompt.from, to: prompt.to, mendedPages: 0, applied, refused, faults: notedFaults, lineMended, detailAdded, lineWritten, lineLeft, passedBy, passedWhy: refusedWhy, passedRefusals: refusedTimes, sealed, raw, ...after };
 }
 
 /* The line for the workers' shelf: what it read, what it set right, how far it has got. */
@@ -639,8 +823,11 @@ export function stretchWords(result) {
   const pagesRead = result.from === result.to ? 'page ' + (result.from + 1) : 'pages ' + (result.from + 1) + '–' + (result.to + 1);
   if (result.mendedPages) {
     return 'read ' + pagesRead + ': mended ' + result.mendedPages + (result.mendedPages === 1 ? ' page' : ' pages')
-      + ' that could not be true beside the story before (the earlier words are a tap away) — the keeper folds the mended words, and they are read once more' + meter;
+      + ' that could not be true beside the story before (the earlier words are a tap away) — '
+      + (result.lineKept ? 'the record line over ' + (result.mendedPages === 1 ? 'it' : 'them') + ' stands as it is (it is in your own words, or this story’s keeper is off)' : 'the keeper folds the mended words, and they are read once more') + meter;
   }
+  /* M675; M675-B3: the count said is the count of refusals for its words — it said "3 times" whatever had happened */
+  if (result.passedBy && result.passedWhy) return pagesRead + ' could not be read (the reader’s model refused it ' + (result.passedRefusals > 0 ? result.passedRefusals : UNREADABLE_TRIES) + ' times though it answers for other pages: ' + result.passedWhy + ') and was passed by' + meter;
   if (result.passedBy) return pagesRead + ' could not be read (its model gave no answer it could use, ' + UNREADABLE_TRIES + ' times) and ' + (result.from === result.to ? 'was' : 'were') + ' passed by' + meter;
   const did = [
     ...result.applied.map((a) => String(a.words || '').replace(/\.+$/, '')),

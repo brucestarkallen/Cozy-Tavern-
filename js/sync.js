@@ -1,6 +1,7 @@
 import { dropCaches } from './store.js';
 import { notify as notifyState } from './engine/state.js'; /* M182: the ledger's panels wake on a live pull */
 import { queuedCount, workIsRunning } from './agents/queue.js'; /* M557: a tale its readers are still writing is never let go */
+import { clearSent } from './sent.js'; /* M675: a browser made the device's copy lets go of the words it kept for the library before it */
 /* M24 — the tavern keeps its own books.
  * When the little server answers (Termux / any `serve.py` run), every tale is
  * mirrored to a real file on the device (~/.cozytavern/books.json, rotated).
@@ -79,12 +80,62 @@ export async function initSync(ctx) {
    * whose pages had not landed, the pull that then landed painted nothing,
    * and a worker's error settled whatever else was waiting. Every question
    * carries an id the worker echoes; only that answer resolves it. */
+  /* M675 — THE EPOCH THIS BROWSER'S BOOKS BELONG TO (see sync-worker.js: the library's epoch). Kept in localStorage — this
+   * browser's alone, never in a book, a copy or a restore (a mark that rode the house book would tell every browser the
+   * same thing) — and handed to the worker with every question. A browser that cannot keep it (no localStorage) keeps
+   * none: it claims nothing and is never made the device's copy by itself, exactly as before. */
+  /* M675: HAS THE TAVERN'S SERVER EVER ANSWERED THIS BROWSER? Kept in localStorage (with js/sent.js, under one name). A
+   * page served by a host that is not the tavern's (GitHub Pages) is never sent a book, a page or a word of a tale —
+   * see sync-worker.js deviceKnown; a tavern that is merely not running still is, and tried again. */
+  const DEVICE_KEY = 'cozy.device';
+  const hadDevice = () => { try { return localStorage.getItem(DEVICE_KEY) === '1'; } catch (err) { return false; } };
+  const noteDevice = () => { try { localStorage.setItem(DEVICE_KEY, '1'); } catch (err) { /* this sitting knows it */ } };
+  const parked = new Set(); /* tales changed while no tavern's server has ever answered: sent when one does */
+  /* M675 — A REFUSAL BY NAME IS SAID. serve.py answers /api/ only under the device's own name (127.0.0.1, localhost, or a
+   * name given in COZY_HOSTS). Opened under any other name for the device — a LAN address through a forwarder, which
+   * worked on the build before — every door answered 403, the app took that for "no tavern here" and went quietly
+   * browser-only: pages kept to this browser alone, "Where the tales live: in this browser only", not a word of why
+   * (the second reviewer, the real app). The tavern's refusal now carries its reason (sync-worker.js saidBy): the room
+   * says ONCE a sitting that the tavern is running, that it does not answer under this address, and how to start it
+   * so that it does — and Settings and "Take a copy" say the same (status.words, status.refusedWords). */
+  const BACKED_WORDS = 'on this device, in files — one book per tale';
+  const refusedWords = (said) => {
+    const name = String((said && said.host) || (typeof location !== 'undefined' && location.hostname) || 'this address');
+    if (said && said.refused === 'host') return 'The tavern is running, but it does not answer under this address (' + name + '), so nothing written here reaches the device. Start it with COZY_HOSTS=' + name + ' (in Termux: COZY_HOSTS=' + name + ' cozytavern), then refresh this page.';
+    return 'The tavern is running, but it turned this page away' + (said && said.why ? ' — ' + said.why : '') + '. Nothing written here reaches the device until that is put right.';
+  };
+  status.refusedWords = refusedWords;
+  let toldRefused = false;
+  const sayRefused = (said) => {
+    if (!said || !said.refused) return;
+    status.refused = said;
+    if (said.refused === 'host') status.backed = false; /* every door of the books is shut to this address, whatever an earlier look found */
+    if (!status.backed) status.words = said.refused === 'host'
+      ? 'in this browser only — the tavern is running, but it does not answer under this address; started with COZY_HOSTS=' + String(said.host || (typeof location !== 'undefined' && location.hostname) || '') + ' it keeps what is written here'
+      : 'in this browser only — the tavern is running, but it turned this page away';
+    if (toldRefused || typeof ctx.toast !== 'function') return;
+    toldRefused = true;
+    ctx.toast(refusedWords(said));
+  };
+  /* M675: THE TAVERN IS THERE — said by every look that finds it, not by the first alone. `backed` was set once, when the
+   * page opened: a sitting that began while the tavern was not running (the page then comes from the service worker's
+   * shelf) never learned that it had been started — the books went to the device again, while Settings went on saying
+   * "in this browser only", a zip could not be brought back ("Start the tavern…") and the search said "the device did
+   * not answer" without asking it (the second reviewer: a catch-up boot reachable, two books pushed, backed still false). */
+  const foundTavern = () => { status.backed = true; status.words = BACKED_WORDS; status.refused = null; noteDevice(); };
+  const EPOCH_KEY = 'cozy.epoch';
+  const epochKept = (() => { try { const k = EPOCH_KEY + '.try'; localStorage.setItem(k, '1'); const ok = localStorage.getItem(k) === '1'; localStorage.removeItem(k); return ok; } catch (err) { return false; } })();
+  const epochRead = () => { if (!epochKept) return null; try { const v = localStorage.getItem(EPOCH_KEY); return typeof v === 'string' && v.startsWith('e:') ? v.slice(2) : undefined; } catch (err) { return null; } };
+  const epochWrite = (e) => { if (!epochKept || typeof e !== 'string') return; try { localStorage.setItem(EPOCH_KEY, 'e:' + e); } catch (err) { /* asked again at the next start */ } };
+  /* what a write claims: the epoch noted ('' while none was ever brought back — also before any was noted), or null */
+  const epochNow = () => { const e = epochRead(); return e === null ? null : (e || ''); };
+  status.epoch = epochNow;
   let askSeq = 0;
   const ask = (msg) => new Promise((resolve) => {
     const rid = ++askSeq;
     const onmsg = (e) => { if (e.data && e.data.rid === rid && (e.data.kind === msg.expect || e.data.kind === 'error')) { worker.removeEventListener('message', onmsg); resolve(e.data); } };
     worker.addEventListener('message', onmsg);
-    worker.postMessage({ ...msg, rid });
+    worker.postMessage({ ...msg, rid, epoch: epochNow(), epochKnown: typeof epochRead() === 'string', hadDevice: hadDevice() });
   });
   const storyOfKey = (key) => { const at = String(key).lastIndexOf(':'); return at > 0 ? String(key).slice(at + 1) : ''; };
   /* M182: this browser's own name, for the life of the tab. */
@@ -184,8 +235,120 @@ export async function initSync(ctx) {
     }
   };
   let holding = false; /* M510-47: while the device's restored copy is read in, nothing of this browser's is pushed */
+  /* M675: WHAT A HOLD SETS ASIDE IS PUT BACK WHEN NO COPY IS READ IN. A hold let go of everything that was waiting to be
+   * sent (the copy being read in was to replace it) — and a hold can end with nothing read in: the device holds no
+   * other library after all (wentStale: `empty`, `unnamed`, `same`), or the read-in is asked again later. What was
+   * waiting when the hold began, and what was marked while it stood, is kept here and waits to be sent again. */
+  const heldBack = new Set();
+  /* M510-47: THE BROWSER BECOMES THE DEVICE'S COPY, EXACTLY — after the device took a copy back (api/backup/restore).
+   * Every push is held first (a push now would lay this browser's old books over the copy); every book the device holds
+   * is read in whole; a tale this browser holds that the copy does not is let go here (the whole pull alone kept it, and
+   * boot would have pushed it back to the device); then the page reloads on the copy. */
+  /* M675: one at a time (the browser that brought the copy back is also told of it by the device's own announcement);
+   * the words this browser kept for the library as it was go too (they are the device's now, js/sent.js); and the epoch
+   * of the library read in is noted, so this browser's writes are the copy's from here on. */
+  let mirrorRun = null;
+  const mirror = () => {
+    if (mirrorRun) return mirrorRun;
+    mirrorRun = (async () => {
+      holding = true;
+      for (const id of dirty) heldBack.add(id);
+      dirty.clear();
+      clearTimeout(timer);
+      try { if (running) await running; } catch (err) { /* what was in flight is overwritten by the copy */ }
+      const r = await ask({ kind: 'pull', exact: true, expect: 'pulled' });
+      if (r && r.ok) {
+        /* M675: THE WORDS KEPT HERE GO ONLY ONCE THE COPY IS IN — never before. They were cleared first, and a read-in that
+         * then failed (the device not answering, or holding nothing at all) left this browser with its books and none
+         * of the words it had been keeping for the device (the second reviewer: 3 pages' words -> 0, nothing read in). */
+        try { await clearSent(); } catch (err) { /* they are swept at the next start */ }
+        if (typeof r.epoch === 'string') epochWrite(r.epoch);
+        owedWrite({}); /* M558: the device's copy is what stands — nothing of this browser's is owed */
+        noteMirrored(); /* (M675: said after the reload — and only now that it is true) */
+        dropCaches(); location.reload(); return r;
+      }
+      holding = false;
+      for (const id of heldBack) { dirty.add(id); owe(id); } /* M675: no copy was read in — see heldBack */
+      heldBack.clear();
+      return r;
+    })().finally(() => { mirrorRun = null; });
+    return mirrorRun;
+  };
+  /* M675 — THIS BROWSER'S BOOKS ARE ANOTHER LIBRARY'S: the device said so (its announcement of a copy brought back, a
+   * boot that found another epoch, a write refused as stale). Nothing of this browser's is sent from here on (the
+   * device would refuse it), a page being told is let finish, and this browser is made the device's copy — tried
+   * again every twenty seconds until the device answers, and said once if it does not at first. */
+  /* M675 — WHAT IS SAID IS TRUE OF THE STATE. Three things were said that were not always so (the second reviewer):
+   *   - "a copy was brought back" — of a device that names NO epoch: none was ever brought back there (its folder was
+   *     emptied, or changed). Such a device is not another library to become at all (sync-worker.js boot, and the
+   *     read-in's `unnamed`): nothing is said of it, because nothing is wrong — see below;
+   *   - "…this browser now shows that copy", after the reload — noted BEFORE the read-in, so a read-in that failed and a
+   *     reload by hand said it of a browser that showed no such thing: noted when the copy is in (mirror);
+   *   - "the tavern is not answering" — for every read-in that failed, also when the tavern HAD answered (a library
+   *     half-way through a swap says so with its reason; a book that would not read): the reason is the one that was
+   *     given (whyNot).
+   * And a device that holds NO books (`empty`), that names no epoch (`unnamed`), or whose books are this browser's own
+   * (`same`) is not stale at all: reached here by a write refused while the page was open, this browser keeps
+   * everything, takes the device's epoch, and sends what it owes the device and what the device has no book of. */
+  const MIRRORED_NOTE = 'cozy.mirrored';
+  const noteMirrored = () => { try { sessionStorage.setItem(MIRRORED_NOTE, '1'); } catch (err) { /* said nowhere, done all the same */ } };
+  const whyNot = (r) => {
+    if (r && r.kind === 'error') return /fetch|network|abort|timed? ?out/i.test(String(r.words || '')) ? 'the tavern stopped answering part-way' : 'it stumbled while reading it in' + (r.words ? ' (' + r.words + ')' : '');
+    if (r && r.said && r.said.why) return 'the tavern answered: ' + r.said.why;
+    if (r && Number(r.status) > 0) return 'the tavern answered, but not with its list of books';
+    return 'the tavern is not answering';
+  };
+  let staleRun = null;
+  const wentStale = (deviceEpoch) => {
+    if (staleRun) return staleRun;
+    staleRun = (async () => {
+      holding = true;
+      let told = false;
+      for (;;) {
+        while (ctx.chat && typeof ctx.chat.isBusy === 'function' && ctx.chat.isBusy()) await new Promise((r) => setTimeout(r, 600));
+        const r = await mirror();
+        if (r && r.ok) return; /* the page reloads */
+        if (r && (r.empty || r.unnamed || r.same)) {
+          /* `empty`: the device holds no books at all. `unnamed`: it names no epoch — no copy was ever brought back
+           * there. `same`: its books are this browser's own (the start took the device's epoch and is sending them).
+           * In each case this browser is not stale. It keeps everything and takes the device's epoch; what was
+           * waiting to be sent — the page just refused with it — is sent (the read-in put it back: heldBack); and
+           * the tales the device has no book of go to it as at any start (the worker's boot, `sendOnly`).
+           * Nothing more: a tale held here whole and unchanged is NOT sent — the device's book of it may be newer
+           * (another browser's), and this one's old state would go over it (made to happen, scene 17 of
+           * tests/device_pair.py). And nothing is read in: a look reads the device's newer book in over the open
+           * tale, and the page that was refused is in no book but this one. */
+          staleRun = null;
+          holding = false;
+          if (typeof r.epoch === 'string') epochWrite(r.epoch);
+          foundTavern();
+          if (!r.same) {
+            const mine = {};
+            for (const id of [...knownIds, '_house']) { const m = mineFor(id); if (m.length) mine[id] = m; }
+            const b = await ask({ kind: 'boot', clientId, expect: 'boot', mine, sendOnly: true, active: ctx.getActiveStoryId() || null });
+            if (b && b.kind === 'boot' && b.reachable && (b.restored || b.stale)) { wentStale(b.restored ? b.epoch : b.staleEpoch); return; } /* (a copy was brought back there meanwhile, after all) */
+            if (b && b.kind === 'boot' && b.reachable && typeof b.epoch === 'string') epochWrite(b.epoch);
+          }
+          clearTimeout(timer);
+          pushNow();
+          return;
+        }
+        holding = true; /* (mirror lets go of the hold when it fails: kept, the device would refuse the push anyway) */
+        /* (a device known to name no epoch — the refusal said so — has had no copy brought back: nothing is said of one; the read-in is asked again, and answers `unnamed` or `empty`) */
+        if (!told && deviceEpoch !== '' && typeof ctx.toast === 'function') { told = true; ctx.toast('A copy of your books was brought back on this device, and this browser could not read it in yet — ' + whyNot(r) + '. It keeps trying; until it is in, what is written here is not kept.'); }
+        await new Promise((r2) => setTimeout(r2, 20000));
+      }
+    })();
+    return staleRun;
+  };
+  try {
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(MIRRORED_NOTE)) {
+      sessionStorage.removeItem(MIRRORED_NOTE);
+      if (typeof ctx.toast === 'function') setTimeout(() => ctx.toast('A copy of your books was brought back on this device — this browser now shows that copy.'), 1200);
+    }
+  } catch (err) { /* no note, the copy is in all the same */ }
   const pushNow = () => {
-    if (holding) { paid([...dirty]); dirty.clear(); return Promise.resolve(); } /* M558: the device's restored copy is what stands — nothing of this browser's is owed */
+    if (holding) { for (const id of dirty) heldBack.add(id); paid([...dirty]); dirty.clear(); return Promise.resolve(); } /* M558: the device's restored copy is what stands — nothing of this browser's is owed (M675: set aside, should no copy be read in after all — heldBack) */
     if (running) return running;
     if (!dirty.size) return Promise.resolve();
     running = (async () => {
@@ -195,6 +358,10 @@ export async function initSync(ctx) {
           dirty.clear();
           const began = Date.now();
           const r = await ask({ kind: 'push', ids, expect: 'pushed', mine: { _house: mineFor('_house') } }); /* M311: what this browser itself let go — everything else the device holds is kept */
+          /* M675: no tavern's server has ever answered this browser (a static host): nothing was sent, nothing is tried
+           * again on a timer and nothing is said — the tales wait (still owed, M558) for a server to show itself */
+          if (r && r.nodevice) { for (const id of ids) parked.add(id); continue; }
+          if (parked.size && r && r.kind === 'pushed') { for (const id of parked) dirty.add(id); parked.clear(); }
           for (const id of (r && Array.isArray(r.ids)) ? r.ids : []) { pushedAt.set(id, began); const f = failedPushes.get(id); if (f) clearTimeout(f.timer); failedPushes.delete(id); }
           paid([...((r && Array.isArray(r.ids)) ? r.ids : []), ...((r && Array.isArray(r.refused)) ? r.refused : []), ...((r && Array.isArray(r.gone)) ? r.gone : [])]); /* M558 */
           /* M557: A PUSH THAT DID NOT LAND IS PUSHED AGAIN. The ids were taken off the dirty list before the push, and a book
@@ -205,6 +372,8 @@ export async function initSync(ctx) {
           const landed = new Set((r && Array.isArray(r.ids)) ? r.ids : []);
           const held = new Set([...((r && Array.isArray(r.waiting)) ? r.waiting : []), ...((r && Array.isArray(r.refused)) ? r.refused : []), ...((r && Array.isArray(r.gone)) ? r.gone : [])]); /* held back, taken from the device, or no longer here */
           const why = new Map(((r && Array.isArray(r.failed)) ? r.failed : []).map((f) => [f.id, f]));
+          if (r && r.stale) { for (const id of ids) if (!landed.has(id) && !held.has(id)) heldBack.add(id); wentStale(r.staleEpoch); return; } /* M675: the device holds another library — this browser becomes its copy; nothing of the old one is tried again (set aside, should it turn out to hold no other library after all — heldBack) */
+          for (const f of why.values()) if (f && f.said && f.said.refused) { sayRefused(f.said); break; } /* M675: turned away by name, or as another page's — said once, with the tavern's reason */
           for (const id of ids) if (!landed.has(id) && !held.has(id)) pushAgainLater(id, why.get(id) || { status: r && r.kind === 'error' ? 0 : -1 });
           /* M430: a tale held back while it is still being made is not lost to the device: letting go of `building`
            * (its last write) sends it at once — the stories.update wrap below */
@@ -220,7 +389,19 @@ export async function initSync(ctx) {
    * the device twenty seconds after it changes (only pages go at once, M181): a copy taken inside those twenty seconds
    * held the newest pages and the ledger from before them (made to happen: tests/backup_fresh.py). "Take a copy" asks
    * for everything still waiting to be sent NOW, and waits for it, before the device zips. */
-  ctx.pushBooksNow = () => { clearTimeout(timer); return pushNow(); };
+  /* M675 — AND WHAT A FAILED PUSH LEFT WAITING GOES WITH IT. A push that did not land is taken off the list and tried again
+   * later (twenty seconds, doubling, up to ten minutes): "Take a copy" pressed inside that wait asked for "everything
+   * still waiting" and sent nothing — the zip was made of the device's old book (the audit: one failed push, then
+   * pushBooksNow() asked the worker for 0 books while the tale was still owed). Every tale whose push is parked, and
+   * every one an earlier tab still owed, is on the list again before it is sent. */
+  ctx.pushBooksNow = async () => {
+    clearTimeout(timer);
+    for (const id of failedPushes.keys()) dirty.add(id);
+    for (const id of Object.keys(owedRead())) dirty.add(id);
+    await pushNow();
+    if (dirty.size) await pushNow(); /* a drain already running took its ids before these were added (M181) */
+    return { owed: Object.keys(owedRead()).filter((id) => failedPushes.has(id) || dirty.has(id)) }; /* what still did not land */
+  };
   const mark = (id) => { if (id) { dirty.add(id); owe(id); schedule(); noteWroteHere(id); } };
   /* M181: PROSE GOES TO THE DEVICE AT ONCE. Every write waited on the same
    * twenty-second debounce, so a page the writer had just read sat only in
@@ -247,11 +428,34 @@ export async function initSync(ctx) {
   const first = await Promise.race([boot, new Promise((r) => setTimeout(() => r({ late: true }), 3000))]);
   const settle = async (b) => {
     if (b && b.kind === 'boot' && b.reachable) {
-      status.backed = true; status.words = 'on this device, in files — one book per tale';
+      foundTavern(); /* M675: the tavern's server has answered this browser (and is said to be there: backed, the words for Settings) */
+      /* M675: the device holds another library than this browser's books belong to (a copy was brought back since this
+       * browser last looked): this browser becomes the device's copy, exactly — before anything of it is pushed */
+      if (b.restored) {
+        const veil = document.getElementById('boot-veil') || document.body.appendChild(Object.assign(document.createElement('div'), { id: 'boot-veil' }));
+        veil.setAttribute('role', 'status');
+        veil.style.cssText = 'position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;text-align:center;padding:2rem;background:var(--bg, #0b0f12);color:var(--ink, #d8d2c4);font:1.05rem/1.5 Georgia, serif;';
+        veil.textContent = 'A copy of your books was brought back on this device — reading it into this browser. The tavern opens the moment it is in.';
+        const m = await mirror();
+        if (m && m.ok) return true; /* the page reloads on the copy */
+        veil.remove();
+        wentStale(b.epoch); /* it could not be read in yet: nothing of this browser's is sent meanwhile, and it is tried again */
+        return false;
+      }
+      if (typeof b.epoch === 'string') epochWrite(b.epoch);
+      if (b.stale) { wentStale(b.staleEpoch); return false; }
       noteElsewhere(b.recent, { unlessMine: true });
       if (b.pulled > 0) { dropCaches(); location.reload(); return true; }
       { const owed = Object.keys(owedRead()); if (owed.length) { for (const id of owed) dirty.add(id); clearTimeout(timer); Promise.resolve().then(pushNow); } } /* M558: what an earlier tab still owed */
-    } else if (b && b.kind === 'boot' && !b.reachable && !localHasStories && ctx.toast) {
+    } else if (b && b.kind === 'boot' && !b.reachable && b.said && b.said.refused) {
+      sayRefused(b.said); /* M675: the tavern answered, and does not serve this address (or this page): said, with how to put it right */
+    } else if (b && b.kind === 'boot' && !b.reachable && b.said && b.said.why && ctx.toast && hadDevice()) {
+      /* M675: the tavern ANSWERED and could not open its books (a library half-way through a swap says why): its reason
+       * is said — "is the tavern's server running?" was asked of a server that had just answered, or nothing was said */
+      ctx.toast('The tavern answered, but it cannot open its books just now: ' + b.said.why + '. What you write is safe in this browser, and the app keeps trying.');
+    } else if (b && b.kind === 'boot' && !b.reachable && !localHasStories && ctx.toast && hadDevice()) {
+      /* M675: only in a browser the tavern's server has answered before — on a host that never was one (GitHub Pages) a
+       * first visit was told to restart Termux */
       /* M156: say which of the two it is — an old server answers 404 to the books' list */
       ctx.toast(b.status === 404
         ? 'The tavern’s server is an older version — in Termux, stop it (Ctrl-C) and start it again, then refresh this page.'
@@ -303,7 +507,7 @@ export async function initSync(ctx) {
   /* (after the write has landed — the hook runs as the write BEGINS, and a push asked for at once read the row still
    * `building` in the worker's own connection, held the branch back, and nothing asked again) */
   wrap(ctx.db.stories, 'update', ([id, patch], out) => { if (patch && patch.building === false) { const go = () => markNow(id); Promise.resolve(out).then(go, go); } else mark(id); mark('_house'); });
-  wrap(ctx.db.stories, 'remove', ([id]) => { knownIds.delete(id); mark('_house'); try { ctx.db.settings.delete('bookStamp:' + id); } catch (err) { /* fine */ } try { fetch('api/books/drop/' + encodeURIComponent(id), { method: 'POST' }).catch(() => {}); } catch (err) { /* fine */ } });
+  wrap(ctx.db.stories, 'remove', ([id]) => { knownIds.delete(id); mark('_house'); try { ctx.db.settings.delete('bookStamp:' + id); } catch (err) { /* fine */ } try { if (!status.backed && !hadDevice()) return; /* M675: never to a host that is not the tavern's server */ const e = epochNow(); fetch('api/books/drop/' + encodeURIComponent(id), { method: 'POST', headers: typeof e === 'string' ? { 'x-cozy-epoch': e || '-' } : {} }).then(async (res) => { if (res && res.status === 409) { let now; try { now = (await res.json()).epoch; } catch (err) { now = undefined; } wentStale(now); } }).catch(() => {}); } catch (err) { /* fine */ } }); /* M675: a tale let go for the library as it was is not let go in a copy brought back since */
   /* M183: A PAGE IS APPENDED, NOT A BOOK REWRITTEN. M181 sent prose to the
    * device the moment it landed — and "a page landed" meant serializing the
    * WHOLE tale and writing it again: fifteen milliseconds at four hundred
@@ -318,10 +522,15 @@ export async function initSync(ctx) {
     dirty.add(id);              /* the whole book still owes a push for its ledger */
     schedule();
     noteWroteHere(id);
-    ask({ kind: 'page', id, row, expect: 'paged' });
+    ask({ kind: 'page', id, row, expect: 'paged' }).then((r) => { if (r && r.stale) wentStale(r.staleEpoch); else if (r && r.said) sayRefused(r.said); }); /* M675 */
   };
   wrap(ctx.db.messages, 'append', ([id], out) => { Promise.resolve(out).then((row) => pageNow(id, row)).catch(() => markNow(id)); });
   wrap(ctx.db.messages, 'update', ([id], out) => { Promise.resolve(out).then((row) => pageNow(id, row)).catch(() => markNow(id)); });
+  /* M675: …and a page changed through the store's guarded door (db.messages.change — a mend, the stored-page repair) goes
+   * the same way. That door was added without this line: a mended page reached the device only when something else of
+   * the tale happened to be written afterwards. A change that decided to leave the page as it is writes nothing, and
+   * sends nothing. */
+  wrap(ctx.db.messages, 'change', ([id], out) => { Promise.resolve(out).then((row) => { if (row) pageNow(id, row); }).catch(() => markNow(id)); });
   wrap(ctx.db.messages, 'remove', ([id]) => markNow(id)); /* M181: prose, at once */
   wrap(ctx.db.messages, 'deleteFrom', ([id]) => markNow(id)); /* M181: prose, at once */
   wrap(ctx.db.connections, 'add', ([conn]) => { if (conn && conn.id) noteKey('conn:' + conn.id); mark('_house'); });
@@ -434,6 +643,10 @@ export async function initSync(ctx) {
         for (const id of [...knownIds, '_house']) { const m = mineFor(id); if (m.length) mine[id] = m; }
         const b = await ask({ kind: 'boot', clientId, expect: 'boot', mine, active: ctx.getActiveStoryId() || null }); /* M313 */
         caughtUpAt = Date.now();
+        if (b && b.kind === 'boot' && b.reachable) foundTavern(); /* M675: …and said to be there (it was only noted: `backed` stayed as the page's first look left it) */
+        else if (b && b.kind === 'boot' && b.said && b.said.refused) sayRefused(b.said); /* M675 */
+        if (b && b.kind === 'boot' && b.reachable && (b.restored || b.stale)) { wentStale(b.restored ? b.epoch : b.staleEpoch); return; } /* M675: a copy was brought back while this browser slept */
+        if (b && b.kind === 'boot' && b.reachable && typeof b.epoch === 'string') epochWrite(b.epoch);
         if (b && b.kind === 'boot' && b.reachable) noteElsewhere(b.recent, { unlessMine: true });
         if (b && b.kind === 'boot' && b.reachable && b.pulled > 0) liveRepaint(ctx.getActiveStoryId() || '_house');
       } catch (err) { /* the next event or open looks again */ } finally { catchingUp = null; }
@@ -448,6 +661,9 @@ export async function initSync(ctx) {
       let msg = null;
       try { msg = JSON.parse(e.data); } catch (err) { return; }
       if (!msg || typeof msg.id !== 'string' || !msg.id) return;
+      /* M675: a copy was brought back on the device — by this browser (it is already reading it in: mirror is one at a
+       * time) or by another: every book this browser holds is the old library's */
+      if (msg.id === '_restored') { if (typeof msg.epoch === 'string' && epochNow() !== null && msg.epoch !== epochNow()) wentStale(msg.epoch); return; }
       if (msg.by === clientId) return;            /* our own write, come home */
       liveRefresh(msg.id);
     };
@@ -478,31 +694,35 @@ export async function initSync(ctx) {
     if (r && r.ok) { dropCaches(); location.reload(); }
     return r;
   };
-  /* M510-47: THE BROWSER BECOMES THE DEVICE'S COPY, EXACTLY — after the device took a copy back (api/backup/restore).
-   * Every push is held first (a push now would lay this browser's old books over the copy); every book the device holds
-   * is read in whole; a tale this browser holds that the copy does not is let go here (the whole pull alone kept it, and
-   * boot would have pushed it back to the device); then the page reloads on the copy. */
-  status.mirrorDevice = async () => {
-    holding = true;
-    dirty.clear();
-    clearTimeout(timer);
-    try { if (running) await running; } catch (err) { /* what was in flight is overwritten by the copy */ }
-    const r = await ask({ kind: 'pull', exact: true, expect: 'pulled' });
-    if (r && r.ok) { dropCaches(); location.reload(); return r; }
-    holding = false;
-    return r;
-  };
+  status.mirrorDevice = () => mirror(); /* M510-47, M675: defined above, beside the hold it takes */
   /* on demand: push every tale now (a first save of a browser's whole shelf) */
   /* M189: fetch one tale's pages, on demand, when the reader opens it. */
+  /* M675 — WHAT WAS WRITTEN INTO IT GOES TO THE DEVICE BEFORE ITS BOOK IS READ IN. A tale held by name only opens with no
+   * pages when its book cannot be read just then; a page written into it then waits here for its push. Opened again
+   * before that push — the tavern started, the tale tapped once more, which is what anyone does on seeing it empty —
+   * the device's book was read in OVER what was written: the exchange was in neither place (made to happen,
+   * tests/device_pair.py scene 18). Whatever this browser still owes the device of the tale is sent first (the worker
+   * adds the pages to the device's book and reads it in whole — addedToItsBook); if it could not go, the book is
+   * not read in over it: the tale opens as it stands here, and the pages go when the device takes them. And while
+   * a hold stands (a write was refused, and what the device holds is not settled yet) nothing that waits is sent, so
+   * nothing is read in over it either — the last part of that scene: the exchange was read over while the hold stood. */
   status.fetchStory = async (id) => {
     if (!id) return false;
+    if (dirty.has(id) || failedPushes.has(id) || heldBack.has(id) || owedRead()[id]) {
+      if (holding) return false;
+      dirty.add(id);
+      clearTimeout(timer);
+      await pushNow();
+      if (dirty.has(id)) await pushNow(); /* a drain already running took its ids before this one was added (M181) */
+      if (dirty.has(id) || failedPushes.has(id)) return false;
+    }
     const answer = await ask({ kind: 'pullOne', id, expect: 'pulledOne', replace: true, mine: { [id]: mineFor(id) } });
     if (answer && answer.pulled) { dropCaches(); noteElsewhere(answer.recent, { unlessMine: true }); }
     return Boolean(answer && answer.pulled);
   };
   /* M313: a tale held here is looked at when the reader opens it — taken again only if the device's moved on */
   status.freshen = async (id) => {
-    if (!id || dirty.has(id)) return false;
+    if (!id || dirty.has(id) || heldBack.has(id)) return false; /* (M675: …nor a tale whose changes a hold has set aside — they wait to be sent all the same; tests/device_pair.py scene 18) */
     const answer = await ask({ kind: 'pullOne', id, expect: 'pulledOne', replace: true, ifNewer: true, mine: { [id]: mineFor(id) } });
     if (answer && answer.pulled) { dropCaches(); noteElsewhere(answer.recent, { unlessMine: true }); }
     return Boolean(answer && answer.pulled);

@@ -185,7 +185,9 @@ test('M72-8 the rewind is the fold; the replay is sequenced; a writer’s page d
   assert(del.indexOf('await db.messages.remove(story.id, id);') < del.indexOf('ledgerWork = replayFrom') && del.indexOf('ledgerWork = replayFrom') < del.indexOf("querySelector('.msg[data-id") /* M574: the id is escaped now (cssId) */, 'the ledger work is claimed before any rendering');
   const sw = c.slice(c.indexOf('async function swipeTo('), c.indexOf('async function swipeRegenerate('));
   assert(sw.indexOf('if (!last) replayFrom(story, msg.id, { changed: true });') < sw.indexOf('await rerenderMessage(story.id, msg.id);'), 'a walked version on an older page claims its replay before rendering');
-  const sr = c.slice(c.indexOf('async function swipeRegenerate('), c.indexOf('async function swipeRegenerate(') + 3000);
+  /* M675: the whole of swipeRegenerate, to where the next function begins (a fixed 3,000 characters ended before the line
+   * looked for once the function learned what to do when the readers were cut short; the order asked for is unchanged) */
+  const sr = c.slice(c.indexOf('async function swipeRegenerate('), c.indexOf('\n  async function ', c.indexOf('async function swipeRegenerate(') + 10));
   assert(/if \(landed && !lastPage\) replayFrom\(story, msg\.id, \{ changed: true \}\);/.test(sr), 'a new version on an older page replays');
   assert(sr.indexOf('replayFrom(story, msg.id, { changed: true })') < sr.indexOf('stories = await db.stories.list();'), 'claimed before any await after generate (M73-002)');
   assert(!/pendingAudit\.add\(story\.id\);\n\s*\}\n\s*\/\* M44: a swiped/.test(sr), 'no audit owed in its place');

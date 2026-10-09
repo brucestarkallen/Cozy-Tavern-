@@ -258,6 +258,8 @@ import './m632.mjs';
 import './m633.mjs'; /* M604: things the story keeps; competence kept */
 import './m673.mjs'; /* M673: the continuous audit */
 import './m674.mjs'; /* M674: a text is folded once; a reading cut short shows its own pages' ledger */
+import './m675.mjs'; /* M675: the judge's moment; the audit of the session before */
+import './m675b.mjs'; /* M675, the second reading: the continuous audit's failures; the record's cut */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

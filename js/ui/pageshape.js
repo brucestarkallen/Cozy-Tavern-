@@ -272,38 +272,101 @@ const TAIL_WRAPS = /^[\s>*_~#(\[]+|[\s*_~)\].]+$/g;
  * goes on about "it" ("…and nobody in 1-D learns anything from it") leaves with it. Nothing else is touched: no
  * speech, nothing past 400 characters, and the window's own marker line is not a sentence about the window. */
 /* the window BY NAME — capitals, as the house writes it ("the world beyond the mountains stays quiet" is a sentence of
- * story) — and one of the rule's own turns of phrase, not just any verb */
-const WINDOW_RULE_ECHO = /(?<![\p{L}])(?:[Tt]he\s+)?(?:World|Window)\s+Beyond(?:\s+[Tt]he\s+Page)?(?![\p{L}])[^\n.!?]{0,160}?(?<![\p{L}])(?:[Nn]othing\s+follows|where\s+(?:it|the)\s+cut|where\s+the\s+cut\s+happens|(?:stays|sits|ends|closes|stops)\s+(?:where|here|there)|is\s+(?:closed|written|done|over))(?![\p{L}])/u;
+ * story) — and one of the rule's own turns of phrase, not just any verb.
+ * M675 (the audit of M669): THE PATTERN TOOK STORY. It asked only that the name stand SOMEWHERE in the sentence and one of
+ * a dozen phrases somewhere after it — so "The World Beyond is over there, past the ridge…" (is over), "The World Beyond
+ * is closed to the living, the priest had told her once." (is closed), "She thought of the World Beyond, where nothing
+ * follows a soul but its own name." and "In the World Beyond the river stops there and the dead wait." were each taken
+ * off a page as the rule said back (run: all four). A page that tells of a place by that name is story. The rule said
+ * back is narrower, and is known by all of this at once:
+ *   - the window is the SUBJECT: the sentence opens with its name ("Nothing follows The World Beyond." is the one
+ *     turn that names it last);
+ *   - and it says the rule's own thing — WHERE THE CUT IS ("stays where it cut", "sits where the cut happens") or that
+ *     NOTHING FOLLOWS ("nothing follows it", "…and nothing follows.") —
+ *   - or it says only how the window stands and not a word more ("The World Beyond is closed.", "…ends here."): the
+ *     whole sentence, to its full stop. "…is closed to the living" goes on, and is story. */
+const WINDOW_NAME = '(?:[Tt]he\\s+)?(?:World|Window)\\s+Beyond(?:\\s+[Tt]he\\s+Page)?';
+const OPENS = '^[\\s>*_~(\\[“"]*';
+const CLOSES = '[\\s.!…*_~)\\]”"]*$';
+const ECHO_SUBJECT = new RegExp(OPENS + WINDOW_NAME + '(?![\\p{L}])', 'u');
+const ECHO_SAYS = /(?<![\p{L}])(?:where\s+it\s+cuts?(?![\p{L}])|where\s+the\s+cut(?:\s+(?:happens|happened|falls|fell|is|was|comes|came|lands|landed)(?![\p{L}])|(?=\s*(?:[,;.!…—–-]|$)))|nothing\s+(?:follows|comes\s+after)(?:\s+(?:it|this|that|the\s+window))?(?=\s*(?:[,;.!…—–-]|and(?![\p{L}])|$)))/iu;
+const ECHO_BARE = new RegExp(OPENS + WINDOW_NAME + '\\s+(?:(?:stays|sits|ends|closes|stops)\\s+(?:here|there)|is\\s+(?:closed|written|done|over))' + CLOSES, 'u');
+const ECHO_NAMED_LAST = new RegExp(OPENS + '[Nn]othing\\s+(?:follows|comes\\s+after)\\s+' + WINDOW_NAME + CLOSES, 'u');
+const isEchoSentence = (x) => { const t = String(x || ''); return (ECHO_SUBJECT.test(t) && ECHO_SAYS.test(t)) || ECHO_BARE.test(t) || ECHO_NAMED_LAST.test(t); };
 const ECHO_GOES_ON = /^(?:[,;—–-]\s*)?(?:and\s+|so\s+)?(?:nothing\s+follows\s+it|(?:nobody|no\s+one|none)\s+(?:in|at|on|of)\s+[^.!?\n]{1,60}\s+(?:learns|knows|hears|sees)\s+(?:anything|nothing|a\s+thing)\s+(?:from|of|about)\s+it)[.!…]*$/iu;
 const sentencesOfTail = (t) => String(t || '').split(/(?<=[.!?…])\s+/).map((x) => x.trim()).filter(Boolean);
+/* the sentences of a paragraph WITH WHERE EACH BEGINS in it — so what is cut can be cut out of the paragraph as it is
+ * written, line breaks and all (M675) */
+function sentenceSpans(raw) {
+  const out = [];
+  const re = /(?<=[.!?…])\s+/g;
+  let from = 0; let m;
+  const push = (start, end) => { const piece = raw.slice(start, end); const lead = piece.length - piece.trimStart().length; if (piece.trim()) out.push({ text: piece.trim(), start: start + lead }); };
+  while ((m = re.exec(raw))) { push(from, m.index); from = m.index + m[0].length; }
+  push(from, raw.length);
+  return out;
+}
 /* a paragraph that is nothing but the rule said back (and what goes on about "it") */
 export function isRuleEcho(para) {
   const raw = String(para || '').trim();
   if (!raw || raw.length > 400 || WINDOW_LINE.test(raw)) return false;
   if (/["“][^"”\n]{2,}["”]/.test(raw)) return false; /* speech is story, whatever it says */
   const parts = sentencesOfTail(raw.replace(/^[\s>*_~(\[“"]+|[\s*_~)\]”"]+$/g, ''));
-  if (!parts.length || !WINDOW_RULE_ECHO.test(parts[0])) return false;
-  return parts.every((x) => WINDOW_RULE_ECHO.test(x) || ECHO_GOES_ON.test(x));
+  if (!parts.length || !isEchoSentence(parts[0])) return false;
+  return parts.every((x) => isEchoSentence(x) || ECHO_GOES_ON.test(x));
 }
-/* the rule said back at the END of a paragraph of story: only those last sentences come off */
+/* the rule said back at the END of a paragraph of story: only those last sentences come off.
+ * M675 (the audit of M669): AND THE PARAGRAPH STAYS AS IT WAS WRITTEN. What was kept was put together again from its
+ * sentences with a space between each — so every line break that followed a sentence inside that paragraph was gone.
+ * Run on both builds: a storyteller that sets its paragraphs apart with ONE line break has a whole page that is one
+ * "paragraph" here, and it came out as a single block — three paragraphs, one block (the repair that makes them
+ * paragraphs runs after this and found nothing left to part); a letter, a verse, the lines of a window's prose lost
+ * their breaks the same way. (A window's marker and its place-and-hour line end in no full stop, and kept theirs.)
+ * The cut is made at the place the first echoed sentence begins; nothing before it is touched. */
 export function cutRuleEchoTail(para) {
+  const raw = String(para || '');
+  const parts = sentenceSpans(raw);
+  if (parts.length < 2) return null;
+  let at = -1;
+  for (let i = parts.length - 1; i >= 1; i -= 1) {
+    if (isEchoSentence(parts[i].text) && !/["“]/.test(parts[i].text)) { at = i; continue; }
+    if (at !== -1 || !ECHO_GOES_ON.test(parts[i].text)) break;
+  }
+  if (at === -1) return null;
+  /* everything from the echo on must be the echo and what goes on about it */
+  if (!parts.slice(at).every((x) => isEchoSentence(x.text) || ECHO_GOES_ON.test(x.text))) return null;
+  return { kept: raw.slice(0, parts[at].start).replace(/\s+$/, ''), cut: raw.slice(parts[at].start).trim() };
+}
+/* M675 (the second reading) — THE FINISHER AS M669 SHIPPED IT: its pattern, which took story, and its cut, which ran a
+ * paragraph's lines together (both described above, where they were put right). Kept for ONE use: to know a page that
+ * still stands exactly as that finisher left it (tidyPage `asM669`, asked by chat.js refinishedFromEarlier) — the only
+ * pages the house may put right by itself. Never used to finish a page. */
+const WINDOW_RULE_ECHO_M669 = /(?<![\p{L}])(?:[Tt]he\s+)?(?:World|Window)\s+Beyond(?:\s+[Tt]he\s+Page)?(?![\p{L}])[^\n.!?]{0,160}?(?<![\p{L}])(?:[Nn]othing\s+follows|where\s+(?:it|the)\s+cut|where\s+the\s+cut\s+happens|(?:stays|sits|ends|closes|stops)\s+(?:where|here|there)|is\s+(?:closed|written|done|over))(?![\p{L}])/u;
+function isRuleEchoM669(para) {
+  const raw = String(para || '').trim();
+  if (!raw || raw.length > 400 || WINDOW_LINE.test(raw)) return false;
+  if (/["“][^"”\n]{2,}["”]/.test(raw)) return false;
+  const parts = sentencesOfTail(raw.replace(/^[\s>*_~(\[“"]+|[\s*_~)\]”"]+$/g, ''));
+  if (!parts.length || !WINDOW_RULE_ECHO_M669.test(parts[0])) return false;
+  return parts.every((x) => WINDOW_RULE_ECHO_M669.test(x) || ECHO_GOES_ON.test(x));
+}
+function cutRuleEchoTailM669(para) {
   const raw = String(para || '');
   const parts = sentencesOfTail(raw.trim());
   if (parts.length < 2) return null;
   let at = -1;
   for (let i = parts.length - 1; i >= 1; i -= 1) {
-    if (WINDOW_RULE_ECHO.test(parts[i]) && !/["“]/.test(parts[i])) { at = i; continue; }
+    if (WINDOW_RULE_ECHO_M669.test(parts[i]) && !/["“]/.test(parts[i])) { at = i; continue; }
     if (at !== -1 || !ECHO_GOES_ON.test(parts[i])) break;
   }
   if (at === -1) return null;
-  /* everything from the echo on must be the echo and what goes on about it */
-  if (!parts.slice(at).every((x) => WINDOW_RULE_ECHO.test(x) || ECHO_GOES_ON.test(x))) return null;
+  if (!parts.slice(at).every((x) => WINDOW_RULE_ECHO_M669.test(x) || ECHO_GOES_ON.test(x))) return null;
   return { kept: parts.slice(0, at).join(' '), cut: parts.slice(at).join(' ') };
 }
-function tailIsNote(para, mc) {
+function tailIsNote(para, mc, echo = isRuleEcho) {
   const raw = String(para || '').trim();
   if (!raw || raw.length > 400) return false;
-  if (isRuleEcho(raw)) return true; /* M669 */
+  if (echo(raw)) return true; /* M669 */
   if (/^[\s>*_~(\[]*["“'‘]/.test(raw) || /["“][^"”\n]{2,}["”]/.test(raw)) return false; /* speech is story */
   if (TAIL_SEPARATOR.test(raw)) return true;
   if (WINDOW_LINE.test(raw) && !/\n/.test(raw)) return true; /* the window's marker as the page's last paragraph: nothing under it */
@@ -321,7 +384,9 @@ function tailIsNote(para, mc) {
   if (/^[\s*_]*[(\[][^\n|]{3,300}[)\]][\s*_.!?]*$/.test(raw) && /\byou(?:r)?\b/i.test(raw)) return true;
   return false;
 }
-export function finishPage(text, { mc = '' } = {}) {
+export function finishPage(text, { mc = '', asM669 = false } = {}) {
+  const echo = asM669 ? isRuleEchoM669 : isRuleEcho; /* M675: see isRuleEchoM669 — only to know a page that finisher left */
+  const cutTail = asM669 ? cutRuleEchoTailM669 : cutRuleEchoTail;
   const given = String(text == null ? '' : text);
   const removed = [];
   const did = [];
@@ -358,14 +423,14 @@ export function finishPage(text, { mc = '' } = {}) {
     const last = paras[paras.length - 1];
     if (!last.trim()) { paras.pop(); continue; }
     /* M669: a line that only goes on about "it" leaves when the rule said back stands right above it */
-    const goesOn = ECHO_GOES_ON.test(last.trim()) && paras.length > 2 && isRuleEcho(paras[paras.length - 2]);
-    if (!tailIsNote(last, mc) && !goesOn) break;
+    const goesOn = ECHO_GOES_ON.test(last.trim()) && paras.length > 2 && echo(paras[paras.length - 2]);
+    if (!tailIsNote(last, mc, echo) && !goesOn) break;
     taken.unshift(last.trim());
     paras.pop();
   }
   /* M669: …and when it closes a paragraph of story, only its own sentences come off */
   if (paras.length) {
-    const tail = cutRuleEchoTail(paras[paras.length - 1]);
+    const tail = cutTail(paras[paras.length - 1]);
     if (tail && tail.kept.trim() && taken.length < 4) { paras[paras.length - 1] = tail.kept; taken.unshift(tail.cut); }
   }
   if (taken.length) {
@@ -410,7 +475,7 @@ function withLedgerFields(inner, { attire = '', position = '' } = {}) {
   return [...fields, a || '—', p || '—'].join(' | ');
 }
 
-export function tidyPage(text, { place = '' , mc = '', finish = true, attire = '', position = '' } = {}) {
+export function tidyPage(text, { place = '' , mc = '', finish = true, attire = '', position = '', asM669 = false } = {}) {
   /* M467: the window's marker in the exact form, whatever dressing the model gave it ("The World Beyond" bare, bold, a
    * heading) — marks only, the three words as they are — so the 🎨 box, the readers' cut and the lint all see it */
   const given = String(text == null ? '' : text);
@@ -418,7 +483,7 @@ export function tidyPage(text, { place = '' , mc = '', finish = true, attire = '
   const did = windowed !== given ? ['window'] : [];
   /* M510-34: the page finished — the empty or doubled window and the storyteller's note to him at the end, and nothing
    * else (never for an out-of-character answer: finish false) */
-  const fin = finish ? finishPage(windowed, { mc }) : { text: windowed, removed: [], did: [] };
+  const fin = finish ? finishPage(windowed, { mc, asM669 }) : { text: windowed, removed: [], did: [] };
   const unglued = dropGluedStrays(fin.text); /* M626 */
   const src = unglued.text;
   did.push(...fin.did);

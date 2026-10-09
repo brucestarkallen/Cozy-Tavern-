@@ -2544,7 +2544,10 @@ async function applyRecordOp(storyId, p, batch) {
   const nodes = mem.nodes.slice();
   nodes[at] = { ...node, [field]: newText, verified: { at: Date.now(), fixed: 'the housekeeper' } };
   await saveMemory(storyId, { ...mem, nodes });
-  batch.items.push({ kind: 'record', nodeId: node.id, field, before: was, afterHash: hashText(newText) });
+  /* M675: what the line's mark of "whose words these are" was before this card — a card taken back gives it back (the mark
+   * stayed "the housekeeper" after the take-back, and the continuous audit, which never writes over a line changed for
+   * him, left that line alone for good though nothing of the housekeeper's stood in it any more) */
+  batch.items.push({ kind: 'record', nodeId: node.id, field, before: was, afterHash: hashText(newText), verifiedBefore: node.verified && typeof node.verified === 'object' ? node.verified : null });
   return { ok: true, words: field === 'detail' ? 'The detail beneath that line reads differently now.' : 'The record line reads differently now.' };
 }
 
@@ -2828,7 +2831,13 @@ export async function undoLatest(session, storyId) {
     } else if (item.kind === 'record') {
       const mem = await loadMemory(storyId);
       const field = item.field === 'detail' ? 'detail' : 'text';
-      const nodes = (mem.nodes || []).map((x) => (x && x.id === item.nodeId ? { ...x, [field]: item.before } : x));
+      const nodes = (mem.nodes || []).map((x) => {
+        if (!(x && x.id === item.nodeId)) return x;
+        const back = { ...x, [field]: item.before };
+        /* M675: and the line is whose it was before the card (a card kept from before this has no note of it: left as it is) */
+        if ('verifiedBefore' in item) { if (item.verifiedBefore) back.verified = item.verifiedBefore; else delete back.verified; }
+        return back;
+      });
       await saveMemory(storyId, { ...mem, nodes });
     } else if (item.kind === 'lore') {
       await saveLore(storyId, item.beforeShelf);

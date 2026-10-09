@@ -16,6 +16,50 @@ import { pageText } from '../assemble/stack.js';
 import { splitAtHeader } from '../ui/headergate.js';
 import { AXES, gradePage, duelPages } from './judge.js';
 import { recordGrade, recordDuel, writerKey } from '../engine/bench.js';
+import { shortcutLaw, asideAt } from '../commands.js';
+
+/* M675 — HIS: "The benchmark, is it already good? Please check it." THE JUDGE WAS TOLD THE WRONG MOMENT FOR THREE KINDS OF
+ * PAGE, and a grade is only as fair as the moment it is held against:
+ *   - a page that answers a SHORTCUT. His message is the shortcut as he typed it ("#p", "#pp", "#q", "#time skip …");
+ *     what it asks is in the storyteller's standing words (M379) — which the judge never reads. So the judge saw
+ *     "<his move> #p" and a page that carries his character one beat on, and its own rule — "the choices of the
+ *     writer's character are never written for him" — counted against the storyteller for doing what it was asked.
+ *     The shortcut's own line of the standing words is handed to the judge beside his message now (`asks`).
+ *   - a page told by "GO ON". The nudge is a hidden page, and the judge's "his move" was looked for among the pages that
+ *     show: it got the move of the turn BEFORE — already answered by "the page before". It is told he said "Go on."
+ *   - a page that follows an OUT-OF-CHARACTER exchange. "The page before" was the storyteller's answer to his question
+ *     about the story — not a page of it (M674). It is the last page of the STORY now.
+ * One reading for both doors (a page graded as it lands, chat.js; a run's replayed page, pickMoment below). `all` is the
+ * tale's whole list, hidden pages among them. */
+export function judgedMoment(all, pageId) {
+  const list = (Array.isArray(all) ? all : []).filter(Boolean);
+  const at = list.findIndex((m) => m.id === pageId);
+  if (at === -1) return { before: '', move: '', asks: '' };
+  const shown = list.filter((m) => !m.hidden);
+  const k = shown.findIndex((m) => m.id === pageId);
+  let before = '';
+  for (let i = k - 1; i >= 0; i -= 1) {
+    if (shown[i].role === 'assistant' && !asideAt(shown, i)) { before = pageText(shown[i]); break; }
+  }
+  let move = '';
+  let asks = '';
+  for (let i = at - 1; i >= 0; i -= 1) {
+    const m = list[i];
+    if (m.role === 'assistant') { if (!m.hidden) break; continue; } /* the storyteller's own page stands between: he said nothing here */
+    if (m.role !== 'user') continue;
+    if (m.hidden) {
+      /* the house's nudge is his "Go on."; any other hidden page of his was folded away and is not this page's move */
+      if (String(m.text || '').trim().toLowerCase() !== 'continue') continue;
+      move = 'Go on.';
+      asks = shortcutLaw('#continue');
+      break;
+    }
+    move = pageText(m);
+    asks = shortcutLaw(typeof m.typed === 'string' && m.typed.trim() ? m.typed : move);
+    break;
+  }
+  return { before, move, asks };
+}
 
 /* a kept request, as a provider sent it (OpenAI's messages, or Anthropic's system and messages), back to the house's own
  * shape — system blocks and messages — so any connection can be sent it; the original's prefill (a trailing assistant
@@ -41,8 +85,11 @@ export async function pickMoment({ rnd = Math.random } = {}) {
   const tales = (await db.stories.list()).filter((s) => s && !(s.building && typeof s.building === 'object'));
   const order = tales.map((s) => ({ s, k: rnd() })).sort((a, b) => a.k - b.k).map((x) => x.s);
   for (const story of order) {
-    const all = (await db.messages.list(story.id)).filter((m) => m && !m.hidden);
-    const told = all.map((m, i) => ({ m, i })).filter(({ m }) => m.role === 'assistant' && !m.ooc && m.receipt && m.receipt.sentId);
+    const whole = await db.messages.list(story.id);
+    const all = whole.filter((m) => m && !m.hidden);
+    /* M675: a page of the STORY — an answer to an out-of-character question carries no mark of its own when it landed
+     * before the mark was kept (M674's asideAt reads it by the page it answers) */
+    const told = all.map((m, i) => ({ m, i })).filter(({ m, i }) => m.role === 'assistant' && !m.ooc && !asideAt(all, i) && m.receipt && m.receipt.sentId);
     if (!told.length) continue;
     const recent = told.slice(-50);
     const tries = recent.map((x) => ({ x, k: rnd() })).sort((a, b) => a.k - b.k).map((y) => y.x);
@@ -52,15 +99,16 @@ export async function pickMoment({ rnd = Math.random } = {}) {
       if (!body) continue;
       const request = neutralRequest(body);
       if (!request.messages.some((m) => m.role === 'user')) continue;
-      const before = [...all.slice(0, pick.i)].reverse().find((m) => m.role === 'assistant');
-      const move = [...all.slice(0, pick.i)].reverse().find((m) => m.role === 'user');
       const notes = ((rec.slots || []).find((s) => s && s.name === 'The state of things') || {}).text || '';
       return {
         story: { id: story.id, title: story.title || 'a tale' },
         sentId: pick.m.receipt.sentId, /* M634: how a kept run finds its page again */
-        pageNumber: told.indexOf(pick) + 1,
+        /* M675: THE PAGE'S OWN NUMBER — the one the thread and the page mark show it under. It was counted among the
+         * pages that still keep their request (the newest two hundred; none of a tale's imported pages): "page 12" of a
+         * tale whose page 312 it was, and nothing he could look up. */
+        pageNumber: all.slice(0, pick.i + 1).filter((m) => m.role === 'assistant').length,
         request,
-        context: { before: before ? pageText(before) : '', move: move ? pageText(move) : '', notes },
+        context: { ...judgedMoment(whole, pick.m.id), notes },
         original: { writer: writerKey(pick.m.receipt), label: pick.m.receipt.label || pick.m.receipt.model || '', text: pageText(pick.m) },
       };
     }

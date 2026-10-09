@@ -15,7 +15,7 @@
  */
 
 import { bannedPattern, STRUCTURED_PRESETS, fillPreset, presetWords } from '../providers/structured.js'; /* M581, M583 */
-import { pushAllSentToDevice, exportAllSent, importAllSent, clearSent } from '../sent.js'; /* M671: the sent words ride every copy */
+import { pushAllSentToDevice, exportAllSent, importAllSent } from '../sent.js'; /* M671: the sent words ride every copy */
 import { readVoice, sameVoice, listPresets, savePreset, usePreset, removePreset, renamePreset } from '../engine/voicepresets.js'; /* M510-35/36 */
 import { copyWords as copyToClipboard } from './receiptview.js'; /* M510-31: copy that works on the phone's own address too */
 import { withMacros } from '../assemble/voice.js'; /* M361 */
@@ -2943,6 +2943,10 @@ export function initSettings(ctx) {
      * was back at its default while these stayed as he had set them */
     'cutBeforeHeader', 'thinkOnPage', 'briefModeNew', 'canonLegacy', 'tellerPerson', 'helpersSideBySide', 'helpersSideBySideTurnedOff',
     'continuousAudit', /* M673: off is its default */
+    /* M675 (the audit): two more that came after the list — the top bar hidden (M668: "Reset every setting" left the
+     * bar hidden, with nothing on the Settings screen saying so) and "Grade every page" (M632: a call to the judge for
+     * every page went on after a reset to "the house's defaults", where it is off) */
+    'immersed', 'benchOn',
   ];
   async function resetSettings() {
     for (const key of RESET_KEYS) {
@@ -2968,6 +2972,7 @@ export function initSettings(ctx) {
     document.body.classList.remove('plain-speech');
     setSideBySide(false); /* M618: the helpers' pace is a live switch too — back to one at a time, as the default */
     if (ctx.chat && typeof ctx.chat.continuousAuditChanged === 'function') ctx.chat.continuousAuditChanged(); /* M673: and the continuous audit, off again, lets a reading in flight go */
+    if (ctx.chat && typeof ctx.chat.showTopBar === 'function') ctx.chat.showTopBar(); /* M675: and the top bar stands again */
     await onShow({ all: true });
     if (ctx.chat && typeof ctx.chat.renderPromptChips === 'function') ctx.chat.renderPromptChips();
     if (ctx.chat && typeof ctx.chat.renderThread === 'function') ctx.chat.renderThread({ structural: true });
@@ -3001,67 +3006,149 @@ export function initSettings(ctx) {
     /* M670: first, everything this browser still owes the device goes to it (a ledger or a record waits twenty seconds
      * by itself) — so the copy is the library as it stands this moment. Twenty seconds at most; a device that does not
      * answer is not waited for (the copy is then what it holds, as before). */
-    if (ctx && typeof ctx.pushBooksNow === 'function') {
-      try { await Promise.race([Promise.resolve(ctx.pushBooksNow()), new Promise((r) => setTimeout(r, 20000))]); } catch (err) { /* the copy is made of what the device holds */ }
-    }
-    /* M671: …and what each page's storyteller was sent, word for word — every tale's goes to the device (its own file
-     * beside the book) before the device zips, so the copy holds it */
-    try {
-      const tales = ((await db.stories.list()) || []).map((t) => t && t.id).filter(Boolean);
-      await Promise.race([pushAllSentToDevice(tales), new Promise((r) => setTimeout(r, 60000))]);
-    } catch (err) { /* the copy is made of what the device holds */ }
+    /* M675: …and WHAT THE COPY LACKS IS SAID. Both sendings were given a fixed wait (twenty seconds, sixty) and the zip was
+     * then taken whatever had happened — a copy missing this browser's newest changes, handed over with the same words
+     * as a whole one. They are waited for longer now (a long tale's book takes its seconds), and whatever still had not
+     * reached the device when the copy was made is named in the note beside the button. */
+    const behind = await sendEverythingOwed();
     try {
       const res = await fetch(new URL('api/backup/now', document.baseURI), { cache: 'no-store' });
+      /* M675 — A REFUSAL IS NOT "NO ANSWER". Only an answer that was `ok` was read: a tavern that ANSWERED and refused —
+       * a library half-way through a swap (503, with its reason), an address it does not serve (403) — fell through to
+       * the browser's own file, handed over under "The tavern's server did not answer" (the second reviewer: every
+       * /api/backup door answering 503 with the reason, and the reason shown nowhere). What the tavern said is read
+       * whatever its status: its reason is shown, and NO file of the browser's own is made in the copy's place — that
+       * is for a tavern that does not answer at all (or a host that is no tavern: its 404 carries no reason). */
+      let r = null;
+      try { r = await res.json(); } catch (err) { r = null; }
       if (res.ok) {
-        const r = await res.json();
         if (r && r.ok) {
           const a = document.createElement('a');
-          a.href = new URL('api/backup/file', document.baseURI).href;
+          /* M675: the copy is asked for BY THE NAME the device just gave it. It asked for "the newest", and was handed
+           * whichever zip that was by then — another one, when a second copy was made meanwhile or the device's clock
+           * had stepped back (serve.py api/backup/file) — while this note named the one it had asked to be made. */
+          a.href = new URL('api/backup/file' + (r.name ? '?name=' + encodeURIComponent(r.name) : ''), document.baseURI).href;
           a.download = r.name || 'cozytavern-backup.zip';
           document.body.appendChild(a);
           a.click();
           a.remove();
           const mb = (Number(r.bytes || 0) / 1048576).toFixed(1);
-          els.backupNote.textContent = `A copy of every book on this device (${r.files} files, ${mb} MB) is in your downloads as ${r.name} — and kept on the device in ${r.folder}. The device also makes one by itself every day it is started, and keeps the newest ${Array.isArray(r.copies) ? Math.max(r.copies.length, 1) : 1}.`;
-          toast('A copy of every book is in your downloads.');
+          els.backupNote.textContent = `A copy of every book on this device (${r.files} files, ${mb} MB) is in your downloads as ${r.name} — and kept on the device in ${r.folder}. The device also makes one by itself every day it is started, and keeps the newest ${Array.isArray(r.copies) ? Math.max(r.copies.length, 1) : 1}.`
+            + (behind.length ? ' One thing this copy does not hold yet: ' + behind.join('; and ') + '. The app keeps sending — take a copy again in a moment and it is in.' : '');
+          toast(behind.length ? 'A copy is in your downloads — the note beside the button says what had not reached the device yet.' : 'A copy of every book is in your downloads.');
           return;
         }
         if (r && r.why) { els.backupNote.textContent = 'The device could not make a copy: ' + r.why + '.'; return; }
+      } else if (r && typeof r.why === 'string' && r.why) {
+        const st = ctx.booksStatus;
+        els.backupNote.textContent = r.refused && st && typeof st.refusedWords === 'function'
+          ? st.refusedWords(r) + ' No copy was made.'
+          : 'The tavern answered, but it could not make a copy just now: ' + r.why + '. No copy was made — press Take a copy again once that is put right.';
+        return;
       }
     } catch (err) { /* no server here — the browser folds its own, below */ }
+    /* M675 — A COPY THAT IS NOT WHOLE SAYS SO. With the tavern's server, this browser holds only the tale that is open
+     * (M313: the rest live on the device as shelf rows) — and when the server did not answer, the browser folded "its
+     * own" and said "A copy is in your downloads": a file with one tale's pages and every other tale as a name with no
+     * pages (the audit: three tales, two not open, Termux reaped — the file held 6 pages of one tale and 0 of the other
+     * two). It is still made — if the device is lost it is all there is — but it is NAMED partial, the note says which
+     * tales are in it and which are not, and the file itself says so (`partial`), so bringing it back says so too. */
+    const shelf = (await db.stories.list().catch(() => [])) || [];
+    const away = shelf.filter((t) => t && t.shallow);
+    const titles = (list) => { const names = list.slice(0, 4).map((t) => '“' + String((t && t.title) || 'untitled') + '”'); return names.join(', ') + (list.length > 4 ? ' and ' + (list.length - 4) + ' more' : ''); };
     let json = '';
     try {
       json = await db.exportAll();
-      /* M671: the browser's own one-file backup carries the sent words too (the file is one object; they are its last key) */
-      const sent = await exportAllSent();
-      if (sent && json.endsWith('}')) json = json.slice(0, -1) + ',"sent":' + JSON.stringify(sent) + '}';
+      if (away.length && json.endsWith('}')) json = json.slice(0, -1) + ',"partial":' + JSON.stringify({ at: new Date().toISOString(), missing: away.map((t) => ({ id: t.id, title: String(t.title || '') })) }) + '}';
     } catch (err) {
       els.backupNote.textContent = 'This browser could not fold its stories into one file (' + ((err && err.message) || 'it ran out of room') + '). Start the tavern with serve.py — the device then makes the copy from its own files, whatever the size.';
       return;
+    }
+    /* M671: the browser's own one-file backup carries the sent words too (the file is one object; they are its last key) */
+    /* M675: folded in by themselves — one try wrapped the stories AND these, so a failure folding them (they can be
+     * the size of the story many times over) left him with no copy of his stories at all */
+    let sentLeftOut = '';
+    try {
+      const sent = await exportAllSent();
+      if (sent && json.endsWith('}')) json = json.slice(0, -1) + ',"sent":' + JSON.stringify(sent) + '}';
+    } catch (err) {
+      sentLeftOut = ' What each page’s storyteller was sent could not be folded in (' + ((err && err.message) || 'it ran out of room') + ') — every story, page and ledger this browser holds is in the file.';
     }
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const stamp = new Date().toISOString().slice(0, 10);
     a.href = url;
-    a.download = `cozy-tavern-backup-${stamp}.json`;
+    a.download = away.length ? `cozy-tavern-PARTIAL-backup-${stamp}.json` : `cozy-tavern-backup-${stamp}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
     els.backupNote.hidden = false;
-    els.backupNote.textContent = 'A copy is in your downloads. Keep it somewhere warm.';
-    toast('The tavern’s words are folded into one file — a copy is in your downloads.');
+    const hadServer = Boolean(ctx.booksStatus && ctx.booksStatus.backed);
+    if (away.length) {
+      const whole = shelf.length - away.length;
+      els.backupNote.textContent = 'The tavern’s server did not answer, so this copy was made by the browser — and it is NOT a whole copy. It holds what this browser has: '
+        + (whole ? whole + ' of your ' + shelf.length + ' tales with their pages' : 'none of your ' + shelf.length + ' tales with their pages')
+        + '. Not in it (their pages live on the device): ' + titles(away)
+        + '. Start the tavern (cozytavern, in Termux) and press Take a copy again for a copy of everything. The file is named PARTIAL so it is not mistaken for one.' + sentLeftOut;
+      toast('This copy is PARTIAL — the tavern’s server did not answer. The note beside the button says what is missing.');
+    } else {
+      els.backupNote.textContent = (hadServer ? 'The tavern’s server did not answer, so the browser made this copy from what it holds — every tale is in it. ' : '') + 'A copy is in your downloads. Keep it somewhere warm.' + sentLeftOut;
+      toast('The tavern’s words are folded into one file — a copy is in your downloads.');
+    }
   });
+
+  /* M670, M671, M675: EVERYTHING THIS BROWSER STILL OWES THE DEVICE GOES TO IT — before the device zips its library ("Take a
+   * copy"), and before a copy takes the library's place ("Bring a copy back": what has not reached the device is in
+   * neither the copy nor the copy the device keeps of the library as it stood). The books first (a ledger or a record
+   * waits twenty seconds by itself; a push that failed waits longer — sync.js sends those too), then what each page's
+   * storyteller was sent. Each is waited for up to a few minutes; a device that does not answer at all is not waited
+   * for. Returns what had NOT reached the device, in plain words — an empty list when all of it has. */
+  async function sendEverythingOwed() {
+    const behind = [];
+    const within = (p, ms) => Promise.race([Promise.resolve(p).then((v) => ({ v }), () => ({ failed: true })), new Promise((r) => setTimeout(() => r({ late: true }), ms))]);
+    const reachable = Boolean(ctx && ctx.booksStatus && ctx.booksStatus.backed);
+    if (ctx && typeof ctx.pushBooksNow === 'function') {
+      if (reachable) els.backupNote.textContent = 'Sending this browser’s latest changes to the device first…';
+      const r = await within(ctx.pushBooksNow(), reachable ? 180000 : 20000);
+      const owed = r && r.v && Array.isArray(r.v.owed) ? r.v.owed : [];
+      if (r.late) behind.push('this browser’s latest changes were still on their way to the device');
+      else if (r.failed) behind.push('this browser’s latest changes could not be sent to the device');
+      else if (owed.length) {
+        const names = [];
+        for (const id of owed.slice(0, 4)) { if (id === '_house') names.push('your settings and connections'); else { const st = await db.stories.get(id).catch(() => null); names.push(st && st.title ? '“' + st.title + '”' : 'a tale'); } }
+        behind.push('the latest changes to ' + names.join(', ') + (owed.length > 4 ? ' and ' + (owed.length - 4) + ' more' : '') + ' (the device did not take them)');
+      }
+    }
+    try {
+      const tales = ((await db.stories.list()) || []).map((t) => t && t.id).filter(Boolean);
+      /* M675 — AND WHAT COULD NOT GO IS SAID. Only "still on its way" was: words the device did not take (it turned them
+       * away, or was not there when they were sent) were reported by nobody — the copy was handed over as if it held
+       * them, and "Bring a copy back" then cleared them from this browser, the last place they were (the second
+       * reviewer). The sending answers with what did not arrive, tale by tale (js/sent.js), and that is named here —
+       * so the note beside "Take a copy" says it, and a copy is not brought back before he is asked. Looked for
+       * afresh (`fresh`): a tavern that did not answer a moment ago may be running now. With no tavern's server
+       * behind this page at all there is nothing to say: the browser's own file is the copy, and it holds them. */
+      const r = await within(pushAllSentToDevice(tales, { fresh: true }), reachable ? 180000 : 20000);
+      const lag = r && r.v && Array.isArray(r.v.behind) ? r.v.behind.filter((x) => x && x.pages > 0 && x.why !== 'no device') : [];
+      if (r.late) behind.push('what the storyteller was sent for the newest pages was still on its way to the device');
+      else if (r.failed) behind.push('what the storyteller was sent for the newest pages could not be sent to the device');
+      else if (lag.length) {
+        const names = [];
+        for (const x of lag.slice(0, 4)) { const st = await db.stories.get(x.storyId).catch(() => null); names.push(x.pages + (x.pages === 1 ? ' page of ' : ' pages of ') + (st && st.title ? '“' + st.title + '”' : 'a tale')); }
+        const why = lag.every((x) => x.why === 'no answer') ? 'the device did not answer' : lag.some((x) => x.why === 'stale') ? 'the device holds another library now' : 'the device did not take them';
+        behind.push('what the storyteller was sent for ' + names.join(', ') + (lag.length > 4 ? ' and ' + (lag.length - 4) + ' more' : '') + ' has not reached the device (' + why + ')');
+      }
+    } catch (err) { /* the copy is made of what the device holds */ }
+    els.backupNote.textContent = 'Making a copy…';
+    return behind;
+  }
 
   els.importFile.addEventListener('change', async () => {
     const file = els.importFile.files && els.importFile.files[0];
     els.importFile.value = '';
     if (!file) return;
-    const sure = window.confirm(
-      'Bringing a copy back replaces everything currently here — stories, words, connections. Carry on?'
-    );
-    if (!sure) return;
     /* M510-47: THE DEVICE'S ZIP COMES HOME. With the tavern's server, "Take a copy" is the device's zip of the library,
      * and this button read only a browser's .json — the copy he was handed had no way back. A zip goes to the device,
      * which checks it whole, keeps the library as it stands first, and puts the copy in its place; then this browser
@@ -3069,11 +3156,45 @@ export function initSettings(ctx) {
      * the page reloads on it. */
     const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
     const isZip = /\.zip$/i.test(file.name || '') || (head[0] === 0x50 && head[1] === 0x4b && head[2] === 0x03 && head[3] === 0x04);
+    /* M675 — A PARTIAL FILE SAYS SO BEFORE IT REPLACES ANYTHING. The question came first ("…replaces everything currently
+     * here. Carry on?") and the file was read afterwards: a copy the browser had made while the tavern was not
+     * answering — some tales in it by name only — replaced everything, and only THEN said what it lacked. A tale held
+     * whole in this browser and by name in the file had lost its pages by the time he was told; with no device behind
+     * the page they were gone. The browser's own file is now read FIRST, and when it is partial the question says so:
+     * how many tales it lacks, which (four named), and that everything here goes — those tales' pages too. Told no,
+     * nothing was touched. (A .zip is the device's: it is asked about as before, and read by the tavern.) */
+    let text = '';
+    let whole = null;
+    if (!isZip) {
+      els.backupNote.hidden = false;
+      els.backupNote.textContent = 'Reading the copy…';
+      try { text = await file.text(); } catch (err) { els.backupNote.textContent = 'That file wouldn’t open. Is it a Cozy Tavern copy?'; return; }
+      try { whole = JSON.parse(text); } catch (err) { whole = null; }
+    }
+    const lacks = whole && whole.partial && Array.isArray(whole.partial.missing) ? whole.partial.missing.filter((t) => t && typeof t === 'object') : [];
+    const sure = window.confirm(lacks.length
+      ? 'This file is a PARTIAL copy — it was made while the tavern’s server was not answering, and it holds ' + lacks.length + (lacks.length === 1 ? ' tale' : ' tales') + ' by name only, with none of their pages: '
+        + lacks.slice(0, 4).map((t) => '“' + String(t.title || 'untitled') + '”').join(', ') + (lacks.length > 4 ? ' and ' + (lacks.length - 4) + ' more' : '')
+        + '. Bringing it back replaces everything currently here — stories, words, connections — and if this browser holds the pages of those tales, they go too. Carry on?'
+      : 'Bringing a copy back replaces everything currently here — stories, words, connections. Carry on?');
+    if (!sure) { if (!isZip) els.backupNote.textContent = 'Nothing was changed.'; return; }
     if (isZip) {
       const st = ctx.booksStatus;
       els.backupNote.hidden = false;
       if (!st || !st.backed || typeof st.mirrorDevice !== 'function') {
-        els.backupNote.textContent = 'A .zip copy is the device’s — it is brought back by the tavern’s server. Start the tavern (cozytavern), open it, and bring the copy back there.';
+        /* M675: …and when the tavern IS running and does not serve this address, that is what is said (it was told to be started) */
+        els.backupNote.textContent = 'A .zip copy is the device’s — it is brought back by the tavern’s server. '
+          + (st && st.refused && typeof st.refusedWords === 'function' ? st.refusedWords(st.refused) + ' Then bring the copy back.' : 'Start the tavern (cozytavern), open it, and bring the copy back there.');
+        return;
+      }
+      /* M675 — FIRST, EVERYTHING THIS BROWSER STILL OWES THE DEVICE GOES TO IT. The device keeps the library as it stands
+       * before the copy takes its place — but what had not been sent yet was not in it: pages' sent words told since the
+       * last push, a ledger changed in the last twenty seconds, a push waiting to be tried again were afterwards in
+       * neither this browser, the device nor that kept copy (the audit: three pages told since the last push — gone
+       * from all three). They are sent first; if something cannot be, he is asked before it is lost. */
+      const behind = await sendEverythingOwed();
+      if (behind.length && !window.confirm('Before the copy takes the library’s place, the device keeps the library as it stands — but ' + behind.join('; and ') + '. Those would be lost for good. Bring the copy back anyway?')) {
+        els.backupNote.textContent = 'Nothing was changed. Start the tavern, give it a moment to take this browser’s latest changes, and bring the copy back again.';
         return;
       }
       els.backupNote.textContent = 'Bringing the copy back onto the device…';
@@ -3082,23 +3203,26 @@ export function initSettings(ctx) {
         const r = await res.json();
         if (!(r && r.ok)) { els.backupNote.textContent = 'The copy was not brought back: ' + ((r && r.why) || 'the server did not answer') + '.'; return; }
         els.backupNote.textContent = 'The copy is back on the device' + (r.safety ? ' — the library as it stood is kept as ' + r.safety : '') + '. Reading it into this browser; the page reloads when it is in.';
-        await clearSent(); /* M671: the copy's sent words are the device's now; this browser's own are let go and read from it */
+        /* M671: the copy's sent words are the device's now; this browser's own are let go and read from it — M675: by the
+         * read-in itself, once the copy is in (sync.js mirror), not here before it: a read-in that failed left this
+         * browser with its books and none of their words */
         const m = await st.mirrorDevice();
-        if (!(m && m.ok)) els.backupNote.textContent = 'The copy is on the device, but this browser could not read it in (' + ((m && m.why) || 'no answer') + ') — refresh the page and it is read in.';
+        if (!(m && (m.ok || m.same))) els.backupNote.textContent = 'The copy is on the device, but this browser could not read it in (' + ((m && m.why) || 'no answer') + ') — refresh the page and it is read in.'; /* (M675 `same`: it is in already — another look read it in first) */
       } catch (err) {
         els.backupNote.textContent = 'The copy was not brought back: ' + ((err && err.message) || 'the server did not answer') + '.';
       }
       return;
     }
     try {
-      const text = await file.text();
-      let whole = null;
-      try { whole = JSON.parse(text); } catch (err) { whole = null; }
       await db.importAll(whole || text);
       /* M671: a copy that carries the sent words brings them back; one made before they were carried leaves this browser's alone */
       if (whole && whole.sent) await importAllSent(whole.sent);
       els.backupNote.hidden = false;
-      els.backupNote.textContent = 'Everything is back where it belongs. Welcome home.';
+      /* M675: a copy the browser made while the tavern's server was not answering says what it does not hold (once more — he was asked first, above) */
+      const lacking = lacks;
+      els.backupNote.textContent = lacking.length
+        ? 'This was a PARTIAL copy (it was made while the tavern’s server was not answering): what it holds is back, but ' + lacking.length + (lacking.length === 1 ? ' tale is' : ' tales are') + ' in it by name only — ' + lacking.slice(0, 4).map((t) => '“' + String(t.title || 'untitled') + '”').join(', ') + (lacking.length > 4 ? ' and ' + (lacking.length - 4) + ' more' : '') + '. Their pages are read from the device when it holds them.'
+        : 'Everything is back where it belongs. Welcome home.';
       await onShow({ all: true });
       if (ctx.chat) {
         await ctx.chat.refreshStories();
