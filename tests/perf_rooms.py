@@ -25,6 +25,8 @@ FACTS = int(os.environ.get('FACTS', '60'))
 # carries (whole copies of its ledger), LIB_MB of them a tale. Nothing here is ever opened.
 LIB_TALES = int(os.environ.get('LIB_TALES', '12'))
 LIB_MB = float(os.environ.get('LIB_MB', '12'))
+# M678: a coat to measure in (default: the house's own, as before) — COZY_TEST_COAT=academy measures the map
+COAT = os.environ.get('COZY_TEST_COAT', '')
 BUDGET = {'action_ms': 1200, 'load_state_ms': 120, 'keys_ms': 150, 'house_ms': 400, 'open_during_push_ms': 1500}
 
 SEED = """
@@ -137,11 +139,14 @@ def main():
             seeded = page.evaluate(SEED, {'pages': PAGES, 'people': PEOPLE, 'facts': FACTS, 'lib': {'tales': LIB_TALES, 'mb': LIB_MB}})
             out['library_mb'] = round(LIB_TALES * LIB_MB)
             out['state_bytes'] = seeded['stateBytes']
+            if COAT:
+                page.evaluate("async (c) => { const { db } = await import('/js/store.js'); await db.settings.set('theme', c); }", COAT)
             # the seeded books reach the device before the reload — the house's own push, awaited (was a 4 s guess)
             page.evaluate("async () => { await window.__cozy.booksStatus.pushAll(); }")
             page.reload()
             settled(page, loads)  # a boot whose books arrive late reloads the page ONCE by itself; measure after it
             out['loads'] = len(loads)
+            out['coat'] = page.evaluate("document.documentElement.dataset.theme")
             cdp = ctx.new_cdp_session(page)
             cdp.send('Emulation.setCPUThrottlingRate', {'rate': THROTTLE})
             # one read of the ledger, alone

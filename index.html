@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="css/drawer.css">
   <link rel="stylesheet" href="css/ledger.css">
   <link rel="stylesheet" href="css/coats.css">
+  <link rel="stylesheet" href="css/academy.css">
 </head>
 <body>
   <header class="topbar">
@@ -114,6 +115,65 @@
 
       <section class="thread-wrap" aria-label="The story so far">
         <div id="thread" class="thread"></div>
+        <!-- M678: the academy's map — decorative, never read aloud, display:none in every other coat (css/academy.css).
+             It is fixed behind the whole room; it stands here, the thread's next sibling, so the thread's own state
+             (a welcome or a story) reaches it by a sibling selector and a new page restyles only the map, never the room.
+             The stages' footprints and lamps are written by tools/academy_map.py in the picture's own coordinates. -->
+        <div class="academy-backdrop" aria-hidden="true">
+          <!-- academy-stage:begin -->
+          <div class="academy-stage academy-wide">
+          <i class="ac-print ac-l" style="--x:30.61%;--y:84.22%;--r:92.8deg;--i:0"></i>
+          <i class="ac-print ac-r" style="--x:32.6%;--y:86.03%;--r:91.7deg;--i:1"></i>
+          <i class="ac-print ac-l" style="--x:34.65%;--y:84.44%;--r:90.4deg;--i:2"></i>
+          <i class="ac-print ac-r" style="--x:36.69%;--y:86.08%;--r:88.6deg;--i:3"></i>
+          <i class="ac-print ac-l" style="--x:38.68%;--y:84.26%;--r:87.1deg;--i:4"></i>
+          <i class="ac-print ac-r" style="--x:40.76%;--y:85.71%;--r:86.8deg;--i:5"></i>
+          <i class="ac-print ac-l" style="--x:42.74%;--y:83.85%;--r:87.7deg;--i:6"></i>
+          <i class="ac-print ac-r" style="--x:44.8%;--y:85.42%;--r:89.7deg;--i:7"></i>
+          <i class="ac-print ac-l" style="--x:46.84%;--y:83.81%;--r:91.7deg;--i:8"></i>
+          <i class="ac-print ac-r" style="--x:48.83%;--y:85.63%;--r:92.8deg;--i:9"></i>
+          <i class="ac-print ac-l" style="--x:50.9%;--y:84.16%;--r:92.6deg;--i:10"></i>
+          <i class="ac-print ac-r" style="--x:52.9%;--y:85.97%;--r:91.0deg;--i:11"></i>
+          <i class="ac-print ac-l" style="--x:54.93%;--y:84.29%;--r:88.0deg;--i:12"></i>
+          <i class="ac-print ac-r" style="--x:57.01%;--y:85.71%;--r:84.9deg;--i:13"></i>
+          <i class="ac-print ac-l" style="--x:58.93%;--y:83.66%;--r:83.0deg;--i:14"></i>
+          <i class="ac-lamp" style="--x:74.47%;--y:29.16%;--s:1.12%;--i:0"></i>
+          <i class="ac-lamp" style="--x:40.58%;--y:13.93%;--s:1.38%;--i:1"></i>
+          <i class="ac-lamp" style="--x:45.53%;--y:29.69%;--s:5.36%;--i:2"></i>
+          <i class="ac-lamp" style="--x:19.01%;--y:78.06%;--s:0.85%;--i:3"></i>
+          <i class="ac-lamp" style="--x:10.5%;--y:29.82%;--s:0.87%;--i:4"></i>
+          <i class="ac-lamp" style="--x:33.41%;--y:21.66%;--s:1.51%;--i:5"></i>
+          <i class="ac-lamp" style="--x:35.34%;--y:29.84%;--s:4.85%;--i:6"></i>
+          <i class="ac-lamp" style="--x:57.32%;--y:94.93%;--s:0.96%;--i:7"></i>
+          <i class="ac-lamp" style="--x:40.86%;--y:26.46%;--s:7.01%;--i:8"></i>
+          <i class="ac-mist ac-mist-1"></i><i class="ac-mist ac-mist-2"></i>
+          <i class="ac-owl"><i class="ac-owl-a"></i><i class="ac-owl-b"></i></i>
+          </div>
+          <div class="academy-stage academy-tall">
+          <i class="ac-print ac-l" style="--x:37.24%;--y:83.24%;--r:103.3deg;--i:0"></i>
+          <i class="ac-print ac-r" style="--x:41.32%;--y:84.88%;--r:96.1deg;--i:1"></i>
+          <i class="ac-print ac-l" style="--x:45.87%;--y:83.76%;--r:86.6deg;--i:2"></i>
+          <i class="ac-print ac-r" style="--x:50.59%;--y:84.57%;--r:79.8deg;--i:3"></i>
+          <i class="ac-print ac-l" style="--x:54.58%;--y:82.88%;--r:77.2deg;--i:4"></i>
+          <i class="ac-print ac-r" style="--x:59.43%;--y:83.45%;--r:77.3deg;--i:5"></i>
+          <i class="ac-print ac-l" style="--x:63.39%;--y:81.76%;--r:77.2deg;--i:6"></i>
+          <i class="ac-print ac-r" style="--x:68.26%;--y:82.32%;--r:76.1deg;--i:7"></i>
+          <i class="ac-print ac-l" style="--x:72.1%;--y:80.55%;--r:74.7deg;--i:8"></i>
+          <i class="ac-print ac-r" style="--x:77.04%;--y:80.97%;--r:72.0deg;--i:9"></i>
+          <i class="ac-print ac-l" style="--x:80.57%;--y:79.0%;--r:68.4deg;--i:10"></i>
+          <i class="ac-lamp" style="--x:44.73%;--y:20.87%;--s:5.25%;--i:0"></i>
+          <i class="ac-lamp" style="--x:28.39%;--y:80.99%;--s:2.63%;--i:1"></i>
+          <i class="ac-lamp" style="--x:26.32%;--y:24.96%;--s:3.45%;--i:2"></i>
+          <i class="ac-lamp" style="--x:51.08%;--y:12.88%;--s:3.0%;--i:3"></i>
+          <i class="ac-lamp" style="--x:70.14%;--y:23.67%;--s:3.75%;--i:4"></i>
+          <i class="ac-lamp" style="--x:58.86%;--y:20.7%;--s:3.6%;--i:5"></i>
+          <i class="ac-lamp" style="--x:80.12%;--y:90.85%;--s:1.88%;--i:6"></i>
+          <i class="ac-lamp" style="--x:35.44%;--y:15.3%;--s:3.3%;--i:7"></i>
+          <i class="ac-mist ac-mist-1"></i><i class="ac-mist ac-mist-2"></i>
+          <i class="ac-owl"><i class="ac-owl-a"></i><i class="ac-owl-b"></i></i>
+          </div>
+          <!-- academy-stage:end -->
+        </div>
         <p id="thread-empty" class="thread-empty quiet" hidden>Nothing on the page yet. Say something to begin.</p>
         <div id="no-connection" class="no-connection" hidden>
           <p>Add a connection to begin — it stays on this device.</p>
@@ -974,7 +1034,7 @@
             <label class="radio-row coat-row"><input type="radio" name="theme" value="fantasy"> <span class="coat-swatch" data-coat="fantasy" aria-hidden="true"></span><span class="coat-words"><strong>Fantasy</strong> — a forest night in the old realm, gilded; the ledger is a tome</span></label>
             <label class="radio-row coat-row"><input type="radio" name="theme" value="cyberpunk"> <span class="coat-swatch" data-coat="cyberpunk" aria-hidden="true"></span><span class="coat-words"><strong>Cyberpunk</strong> — violet neon, cyan speech; the ledger is a dashboard</span></label>
             <label class="radio-row coat-row"><input type="radio" name="theme" value="magma"> <span class="coat-swatch" data-coat="magma" aria-hidden="true"></span><span class="coat-words"><strong>Magma</strong> — a near-black room with magma in its corners, speech in a soft orange; the ledger is obsidian</span></label>
-            <label class="radio-row coat-row"><input type="radio" name="theme" value="academy"> <span class="coat-swatch" data-coat="academy" aria-hidden="true"></span><span class="coat-words"><strong>The academy</strong> — a night library in oak and candlelight; the ledger opens as a parchment map with footprints</span></label>
+            <label class="radio-row coat-row"><input type="radio" name="theme" value="academy"> <span class="coat-swatch" data-coat="academy" aria-hidden="true"></span><span class="coat-words"><strong>The academy</strong> — an enchanted map by candlelight, footprints walking its roads; the ledger is a parchment map</span></label>
             <label class="radio-row coat-row"><input type="radio" name="theme" value="aurora"> <span class="coat-swatch" data-coat="aurora" aria-hidden="true"></span><span class="coat-words"><strong>Aurora</strong> — a northern night with the lights over it; the ledger is a frosted field journal</span></label>
             <label class="radio-row coat-row"><input type="radio" name="theme" value="starship"> <span class="coat-swatch" data-coat="starship" aria-hidden="true"></span><span class="coat-words"><strong>Starship</strong> — a ship's console in charcoal and orange; the ledger is the console</span></label>
             <label class="radio-row coat-row"><input type="radio" name="theme" value="deep"> <span class="coat-swatch" data-coat="deep" aria-hidden="true"></span><span class="coat-words"><strong>The deep</strong> — near-black, prose lit teal, ember for what acts</span></label>

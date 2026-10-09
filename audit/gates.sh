@@ -18,5 +18,7 @@ cd "$REPO" && bash tests/audit_lint.sh > /tmp/gates/${TAG}_lint.log 2>&1; echo "
 # M676: the word he types, run as he runs it (launcher: install.sh, updates, a folder that is not a usual one, the words
 # on phones today) and his update end to end — the release before, used, updated by the word, the same browser and its
 # service worker (upgrade_in_place). Both light the tavern on the word's own port, 8080.
-for t in perf_send holdsone cutthinking notes_layout backup backupdupes restore_backup_unit restore_zip backup_fresh backup_sent rowtap device_guard static_host device_pair perf_repair boot_open launcher upgrade_in_place; do s=$(date +%s); timeout 1200 python3 -B tests/$t.py > /tmp/gates/${TAG}_$t.log 2>&1; echo "$t EXIT $? ($(( $(date +%s)-s ))s)" >> /tmp/gates/${TAG}_browser.log; done
+# M678: the academy's map — every line read against the real pixels under it (paint_academy) and what the moving map
+# costs the page (perf_academy) — are standing gates: contrast.py cannot see a picture.
+for t in perf_send holdsone cutthinking notes_layout backup backupdupes restore_backup_unit restore_zip backup_fresh backup_sent rowtap device_guard static_host device_pair perf_repair boot_open launcher upgrade_in_place paint_academy perf_academy; do s=$(date +%s); timeout 1200 python3 -B tests/$t.py > /tmp/gates/${TAG}_$t.log 2>&1; echo "$t EXIT $? ($(( $(date +%s)-s ))s)" >> /tmp/gates/${TAG}_browser.log; done
 echo ALLDONE > /tmp/gates/${TAG}_done

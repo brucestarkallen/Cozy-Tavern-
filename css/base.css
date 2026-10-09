@@ -346,62 +346,69 @@ html[data-theme='cyberpunk'] {
   --scrim: rgba(4, 2, 10, 0.78);
 }
 
-/* M465: THE ACADEMY — a night library in old oak and candlelight; the ledger opens as a parchment map with brown ink and footprints (its own tokens re-scoped on #drawer in coats.css). Every token every other coat defines is defined here (M168, held by beauty.mjs). */
+/* M465: THE ACADEMY. M678: rebuilt as THE ENCHANTED MAP — a candlelit parchment map behind the room (css/academy.css,
+ * assets/academy), a walnut-and-gilt room in front of it, cream ink, candle-gold for what acts; the welcome card, the box
+ * he writes in, the ledger and Settings' cards are parchment (their own inks re-scoped in academy.css). Prose in Libre
+ * Caslon Text, titles in IM Fell English (assets/fonts, OFL). Every token every other coat defines is defined here
+ * (M168, held by beauty.mjs). */
 html[data-theme='academy'] {
-  --bg: #14100b;
-  --bg-2: #1a150e;
-  --surface: #221b12;
-  --surface-2: #2b2217;
-  --border: #4a3a26;
-  --border-soft: #352a1b;
-  --text: #f0e3c6;
-  --text-2: #cdbc9c;
-  --muted: #ad9c81;
-  --ember: #e0975a;
-  --ember-hot: #f0ad72;
-  --ember-dim: #6b4426;
-  --spoken: #e9c284;
-  --thought: #c9b0e3;
-  --user-tint: #211a11;
-  --danger: #ea7f68;
-  --ok: #93c98a;
-  --on-ember: #1e1006;
-  --pk-card-1: #1f1810;
-  --pk-card-2: #241c13;
-  --pk-card-3: #1d1911;
-  --pk-chip-bg: #241c13;
-  --pk-box-bg: #17120c;
-  --pk-box-edge: #54432c;
-  --pk-rule: #3a2e1e;
-  --pk-place: #f7ead0;
-  --pk-body: #eadcbe;
-  --pk-body-2: #eadcbe;
-  --pk-body-3: #f0e3c6;
-  --pk-body-4: #dccfb0;
-  --pk-quiet: #cdbc9c;
-  --pk-quiet-2: #c9bb9d;
-  --pk-quiet-3: #c2b294;
-  --pk-quiet-4: #ad9c81;
-  --pk-quiet-5: #a6957b;
-  --pk-quiet-6: #a49b95;
-  --pk-quiet-7: #8f857e;
-  --pk-quiet-8: #a09079;
-  --pk-gold: #e0b35c;
-  --pk-gold-2: #e6bb68;
-  --pk-gold-dim: #9c7c3f;
-  --pk-red: #ea7f68;
-  --pk-red-2: #ef957f;
-  --pk-red-dim: #a34f3b;
-  --pk-amber: #e0975a;
-  --pk-sky: #8ec0dc;
-  --pk-rose: #dc9cad;
-  --pk-violet: #c9b0e3;
-  --pk-violet-2: #d1bce7;
-  --pk-violet-3: #7f63b5;
-  --pk-teal: #74c9b3;
-  --warn: #e5bb55;
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-  --scrim: rgba(8, 5, 2, 0.74);
+  --bg: #18100a;
+  --bg-2: #21160d;
+  --surface: #2a1c11;
+  --surface-2: #352416;
+  --border: #5f4529;
+  --border-soft: #3f2b1a;
+  --text: #f2e5c9;
+  --text-2: #d8c49e;
+  --muted: #bba27c;
+  --ember: #e6b35e;
+  --ember-hot: #f3c878;
+  --ember-dim: #7d5b2d;
+  --spoken: #f1c27c;
+  --thought: #d3bde9;
+  --user-tint: #291b10;
+  --danger: #ef8f73;
+  --ok: #9fd08e;
+  --on-ember: #2a1606;
+  --font: 'Academy Caslon', Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  --font-prose: 'Academy Caslon', Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  --font-display: 'Academy Fell', 'Academy Caslon', Georgia, serif;
+  --pk-card-1: #26190e;
+  --pk-card-2: #2b1c10;
+  --pk-card-3: #24190f;
+  --pk-chip-bg: #322215;
+  --pk-box-bg: #1f150c;
+  --pk-box-edge: #5f4529;
+  --pk-rule: #42301d;
+  --pk-place: #f8eacd;
+  --pk-body: #eedfc0;
+  --pk-body-2: #eedfc0;
+  --pk-body-3: #f2e5c9;
+  --pk-body-4: #e2d2b2;
+  --pk-quiet: #d3bf98;
+  --pk-quiet-2: #cfbc98;
+  --pk-quiet-3: #c8b592;
+  --pk-quiet-4: #b8a27e;
+  --pk-quiet-5: #b19b77;
+  --pk-quiet-6: #ae9f8c;
+  --pk-quiet-7: #a39481;
+  --pk-quiet-8: #ad9a7c;
+  --pk-gold: #e8bd6a;
+  --pk-gold-2: #edc474;
+  --pk-gold-dim: #a3803f;
+  --pk-red: #e48a6e;
+  --pk-red-2: #ea9c82;
+  --pk-red-dim: #a6513b;
+  --pk-amber: #e8a35e;
+  --pk-sky: #96c5df;
+  --pk-rose: #e2a2b2;
+  --pk-violet: #d3bde9;
+  --pk-violet-2: #d9c5ec;
+  --pk-violet-3: #8466b8;
+  --pk-teal: #7fceb8;
+  --warn: #e9c264;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.62);
+  --scrim: rgba(10, 6, 2, 0.74);
 }
 
 /* M465: AURORA — a deep northern night; the ember an aurora green, speech mint, a thought a violet ribbon; the ledger a frosted field journal. Every token every other coat defines is defined here (M168, held by beauty.mjs). */

@@ -1,6 +1,27 @@
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
-# Cozy Tavern — handoff for the next session (state at m677-001)
+# Cozy Tavern — handoff for the next session (state at m678-001)
+
+## M678 — THE ACADEMY, REBUILT AS THE ENCHANTED MAP (a coat only). Read AGENTS.md "# M678".
+- HIS ORDER FOR THEME WORK: the layout stays as it is. A theme changes how things LOOK, never where a control stands or
+  what it does. His reference pictures are for the look; their layout (a left sidebar of rooms, etc.) is not followed.
+- THE COAT'S DRESS IS css/academy.css (tokens still in base.css's academy block, like every coat). Every rule hangs on
+  html[data-theme='academy']. The old academy rules in coats.css are gone; coats.css says where they went.
+- THE ART IS CODE: tools/academy_map.py draws both maps (assets/academy/map-wide.webp, map-tall.webp), the card's rim,
+  the ivy, the ledger's watermarks, and WRITES the footprints' and lamps' positions into index.html between the
+  `academy-stage:begin/end` markers, in the picture's own percentages. Change the map → run the tool (needs Playwright's
+  Chromium and Pillow) → the overlay follows. Never move a print by hand.
+- THE MAP MOVES ONLY ON THE WELCOME: <html data-thread="story"|"welcome"> is written by app.js watchThread when the
+  thread's children change (a .msg present = story). academy.css pauses everything under data-thread='story'. Do NOT
+  put a :has() on #thread for this — measured 7–9 ms of style work per page added (6x CPU); the attribute costs ~0.
+- WHAT MOVES IS opacity/transform ON SMALL ELEMENTS (.academy-stage i), never on the drawer (M146), and the house's
+  reduced-motion law stills it. tests/perf_academy.py holds it: no main-thread paint, story scroll = Lamplight's.
+- PARCHMENT SURFACES RE-SCOPE THE TOKENS: #drawer (as since M465) and .settings-section — dark ink on parchment while
+  the room stays dark. .settings-section does NOT re-scope --spoken/--thought: the colour sample must show the real pair.
+- A PAINTED SURFACE GIVES A SOLID COLOUR BEFORE ITS GRADIENT (`background: #hex linear-gradient(...)`): contrast.py and
+  paint_coats.py judge against the first solid colour; a gradient alone reads as the dark room behind it.
+- tests/paint_academy.py judges every line of the story, welcome and Settings against the real map pixels under its own
+  letters (contrast.py cannot see a picture). Run it for any change to academy.css or the map.
 
 ## M677 — read AGENTS.md "# M677".
 - WHERE EACH PERSON IS, THE READER IS ASKED BY NAME (extractor.js placesBlock). A new field the reader should keep current

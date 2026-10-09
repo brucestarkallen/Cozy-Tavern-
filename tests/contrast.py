@@ -76,6 +76,10 @@ try:
             page.wait_for_function("!!window.__cozy && !!window.__cozy.chat", timeout=25000)
             page.evaluate("(c) => document.documentElement.setAttribute('data-theme', c)", coat)
             page.wait_for_timeout(200)
+            # M678: measure the coat, not the fade into it — a coat change runs the house's 0.15 s colour transitions, and
+            # a coat that also loads a picture and its own type (the academy) can hold those frames past a fixed wait;
+            # a sample taken mid-fade read the attach button in the previous coat's ink. Wait until no transition runs.
+            page.wait_for_function("() => document.getAnimations().every((a) => !(a instanceof CSSTransition) || a.playState === 'finished')", timeout=10000)
             rows = []
             # the story room, then every room of Settings, then the ledger
             rows += page.evaluate(PROBE)

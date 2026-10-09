@@ -193,6 +193,8 @@ def main():
             page.goto(f'http://127.0.0.1:{PORT}/')
             page.wait_for_function('window.__cozy && window.__cozy.chat', timeout=30000)
             seeded = page.evaluate(SEED, [f'http://127.0.0.1:{FAKE}', PAGES, WORDS, KEEPER])
+            if os.environ.get('COZY_TEST_COAT'):  # M678: measure in a coat (default: the house's own, as before)
+                page.evaluate("async (c) => { const { db } = await import('/js/store.js'); await db.settings.set('theme', c); }", os.environ['COZY_TEST_COAT'])
             time.sleep(25.0)  # the whole book's push lands (twenty seconds after the last write) before the page is reloaded
             page.reload()
             page.wait_for_function('window.__cozy && window.__cozy.chat', timeout=30000)

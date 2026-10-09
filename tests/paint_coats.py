@@ -144,6 +144,10 @@ try:
         for coat in COATS:
             page.evaluate("(c) => document.documentElement.setAttribute('data-theme', c)", coat)
             page.wait_for_timeout(300)
+            # M678: measure the coat, not the fade into it — a coat change runs the house's 0.15 s colour transitions, and
+            # a coat that also loads a picture and its own type (the academy) can hold those frames past a fixed wait;
+            # a sample taken mid-fade read the attach button in the previous coat's ink. Wait until no transition runs.
+            page.wait_for_function("() => document.getAnimations().every((a) => !(a instanceof CSSTransition) || a.playState === 'finished')", timeout=10000)
             rows = []
             page.evaluate("() => { const t = document.getElementById('thread'); if (t) t.scrollTop = t.scrollHeight; }")
             page.wait_for_timeout(200)

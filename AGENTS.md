@@ -17861,3 +17861,65 @@ GATES (the final code): harness 1353/1353; the walk 270/270 (269 in the gate run
 then run again: green); the long play 9/9; lint 0 errors; the 18 browser tests of audit/gates.sh, each exit 0 (among them
 launcher 26/26 and upgrade_in_place 41/41 — m675-002 → m677-001, the tab reloading itself in 4.1 s); the 23 outside them,
 each exit 0 (tests/pagemark.py among them, with the new measurements).
+
+# M678 — the academy, rebuilt as the enchanted map ("make it very beautiful … like a Harry Potter map that moves … cozy,
+easy on the eyes"; "you'll not change the ui placement … we focus on making it beautiful first")
+He brought three concept pictures (made elsewhere) of a parchment-and-candlelight map UI and asked that the academy coat
+be made to look like them, the app's layout untouched. The pictures were taken for their LOOK only: their left sidebar of
+rooms (Chat / Characters / World / Books / Gallery) and their Characters/World/Books panels do not exist in the app and
+were not built. Nothing that does something moved, was renamed, or was added.
+
+## 1. What he sees (the academy coat only — every other coat is unchanged to the rule)
+- THE MAP: an original illustrated parchment map behind the whole room — a castle on a crag over a lake, villages (one
+  labelled "Cozy Tavern"), forests, roads, a river, mountains, a compass rose, folds and stains, warm lit windows — drawn
+  by tools/academy_map.py (no film artwork, names or layout). Two compositions: tall for a phone held upright, wide for
+  a desktop or a phone on its side; the page picks by aspect ratio and lays it like background-size: cover.
+- WHAT MOVES (the welcome only): footprints walk the road from the tavern village, the castle's and the villages' windows
+  flicker, two banks of mist drift, and an owl with a sealed letter crosses the top of the map about every 46 s.
+  While a story is open the map is a still ghost under a reading veil (85–88 % dark under the prose column).
+- THE ROOM: a dark walnut top bar with a gilt edge, "Cozy Tavern" in IM Fell English with a quill; the shelves in dark
+  leather; prose in Libre Caslon Text (16.5 px, line height 1.72); the labels and whispers in Fell small caps instead of
+  mono capitals; his own message on a dark panel with a gold spine.
+- THE WELCOME: a parchment sheet with a scalloped rim (a nine-slice border image, assets/academy/card.svg), an open book
+  in wax red, the greeting in Fell, the three starters as dark pills each with its own glyph (quill, glass, star).
+- THE BOX HE WRITES IN: a strip of parchment with a quill, dark ink, the ✦ as a parchment button, Send as a red wax seal.
+- THE LEDGER: a parchment sheet with a faint compass and a castle sketch printed on it, Fell small-caps titles, the
+  room tabs as a recessed strip with the open one raised; footprints by the people in the scene (as M465 had, redrawn).
+- SETTINGS: the map under a dark veil behind it; every section is a parchment card with its own inks.
+- SETTINGS → APPEARANCE: the academy's swatch and words describe the new coat.
+
+## 2. What was found and fixed on the way
+- THREE LEDGER PANELS HAD NO GLYPH, IN EVERY COAT: "Story essentials", "Plans" and "Choices" (added after M465) showed a
+  solid square — an unmasked ::before is a block of the glyph colour. They have glyphs now (a page, a flag on a road, a
+  fork), and every panel falls back to a ribbon marker, so a panel added later can never show a block again.
+- contrast.py and paint_coats.py sampled a coat's colours while the house's 0.15 s colour transition into it was still
+  running (the attach button read in the previous coat's ink). Both now wait until no CSS transition runs.
+
+## 3. Performance — measured in a real Chromium, phone screen, CPU 6x (tests/perf_academy.py, perf_rooms.py, perf_send.py)
+- The moving map: 0 main-thread paints, 0 style passes, 0 layouts in 4 s idle on the welcome (Lamplight: 0/0/0); with a
+  story open nothing on the map runs (0 animations). Scrolling a story, four rounds interleaved: median frame 16.8 ms
+  (Lamplight 16.8), 95th 24.2 ms (Lamplight 25.0). Reduced motion: 0 animations run.
+- A page added to the thread: a :has() on the thread restyled the map each time (7–9 ms at 6x); replaced by
+  <html data-thread> written by app.js watchThread only on the change (0.4–3 ms, the same as Lamplight's 0.2–2 ms).
+- The ledger on a 300-page tale: opens 226–278 ms, closes 38–52 ms (Lamplight 197–338 / 25–29; budget 1200 ms).
+  Settings opens 86–165 ms (Lamplight 49–120). The send: request out 1643 ms (Lamplight 1701), page on screen 111 ms (204).
+- Weight: the two maps 534 KB + 456 KB (WebP), the fonts 340 KB (WOFF2, OFL), the SVGs ~40 KB — fetched only when the
+  academy is worn; all in the service worker's shell, so a phone offline still has them.
+
+## 4. Tests
+- tests/paint_academy.py (new): every line of the story, the welcome and Settings measured against the REAL pixels under
+  its own letters (the words shown, then hidden over three frames so a lamp at its brightest is caught). 183 lines, the
+  closest at 6.06:1; with the reading veil weakened to 30 % it fails at 3.37:1 (the mutation run). It also proves the
+  map covers the screen and that both type families loaded.
+- tests/perf_academy.py (new): above.
+- tests/perf_rooms.py and perf_send.py take COZY_TEST_COAT to measure in a coat (default unchanged).
+- contrast.py, paint_coats.py, coat.py: 0 under AA in all nine coats.
+- version.js -> m678-001.
+
+GATES (the final code): harness 1353/1353; the walk 270/270; the long play 9/9; lint 0 errors (195 warnings, the same 195
+as m677-001); audit/gates.sh's browser tests each exit 0 — device_pair failed scene 7 once in the gate run (the page's
+own boot-pull reload landed inside the scene's fixed 1.2 s wait while 6x-throttled benchmarks shared the 2-CPU machine),
+then passed alone three times and passed WHOLE on the final tree with nothing alongside (142 ok, exit 0); launcher 26/26;
+upgrade_in_place 41/41 (m677-001 → m678-001); paint_academy and perf_academy exit 0; contrast, paint_coats and coat:
+0 under AA in all nine coats.
+

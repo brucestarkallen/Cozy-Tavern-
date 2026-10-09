@@ -495,6 +495,8 @@ class TavernHandler(http.server.SimpleHTTPRequestHandler):
         '.json': 'application/json',
         '.css': 'text/css',
         '.png': 'image/png',
+        '.webp': 'image/webp',   # M678: the academy's map
+        '.woff2': 'font/woff2',  # M678: its type
     }
 
     def __init__(self, *args, **kwargs):

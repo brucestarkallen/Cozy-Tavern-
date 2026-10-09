@@ -9,8 +9,8 @@
  *
  * COST: a gradient is painted once on a layer that does not scroll; no
  * backdrop-filter anywhere (a phone re-blurs it on every frame); no transform
- * or will-change on the drawer (M146); the one animation (the academy's
- * footprints) is opacity only, on a handful of rows, and still under the
+ * or will-change on the drawer (M146). The academy (css/academy.css) keeps
+ * its own animations to opacity and transform on small elements, under the
  * house's reduced-motion law. */
 
 /* ---------- the swatches in Settings ---------- */
@@ -29,7 +29,7 @@
 .coat-swatch[data-coat="fantasy"]   { background: linear-gradient(135deg, #16221d 0%, #0c1210 55%, #e2b45f 56%, #e2b45f 100%); }
 .coat-swatch[data-coat="cyberpunk"] { background: linear-gradient(135deg, #1d1433 0%, #0b0714 55%, #d27bff 56%, #7ef0ff 100%); }
 .coat-swatch[data-coat="magma"]     { background: linear-gradient(135deg, #142329 0%, #070c0e 55%, #f0673c 56%, #ff8a5c 100%); }
-.coat-swatch[data-coat="academy"]   { background: linear-gradient(135deg, #2b2217 0%, #14100b 55%, #efe1bf 56%, #8a2f1e 100%); }
+.coat-swatch[data-coat="academy"]   { background: linear-gradient(135deg, #c9a868 0%, #6b4e2a 55%, #e6d2a6 56%, #842c1b 100%); }
 .coat-swatch[data-coat="aurora"]    { background: linear-gradient(135deg, #152238 0%, #070b14 55%, #62e6b5 56%, #c4b6f0 100%); }
 .coat-swatch[data-coat="starship"]  { background: linear-gradient(135deg, #19222d 0%, #0a0d12 55%, #ff8a2a 56%, #ffa64d 100%); }
 .coat-swatch[data-coat="deep"]      { background: linear-gradient(135deg, #17262c 0%, #0a0f12 55%, #e4813a 56%, #7fe3d0 100%); }
@@ -203,131 +203,7 @@ html[data-theme='magma'] #drawer .present-row { box-shadow: inset 2px 0 0 rgba(2
 html[data-theme='magma'] #drawer .text-btn { border-color: rgba(240, 103, 60, 0.4); }
 html[data-theme='magma'] #drawer .log-list { border-left-color: rgba(240, 103, 60, 0.3); }
 
-/* =====================================================================
-   THE ACADEMY — a night library; the ledger opens as a parchment map.
-   The map's own inks: every token re-scoped on #drawer, so each control
-   in it reads dark ink on parchment while the room stays oak-dark.
-   ===================================================================== */
-
-html[data-theme='academy'] .thread-wrap {
-  background:
-    radial-gradient(70% 50% at 50% 0%, rgba(224, 151, 90, 0.11), transparent 62%),
-    radial-gradient(50% 40% at 0% 100%, rgba(224, 151, 90, 0.05), transparent 70%),
-    linear-gradient(180deg, #14100b 0%, #17120c 60%, #1a150e 100%);
-}
-html[data-theme='academy'] .thread,
-html[data-theme='academy'] .composer-zone { background: transparent; }
-html[data-theme='academy'] .topbar { box-shadow: 0 1px 0 rgba(224, 151, 90, 0.2); }
-html[data-theme='academy'] .send-btn { box-shadow: 0 0 16px -4px rgba(224, 151, 90, 0.55); }
-html[data-theme='academy'] .composer:focus-within { box-shadow: 0 0 0 1px var(--ember), 0 0 18px -8px rgba(224, 151, 90, 0.5); }
-html[data-theme='academy'] .ember-fill { box-shadow: 0 0 8px 0 rgba(224, 151, 90, 0.4); }
-html[data-theme='academy'] .msg-user .msg-body { border-left-color: #e0975a; box-shadow: inset 0 -1px 0 rgba(224, 151, 90, 0.3); }
-
-html[data-theme='academy'] #drawer {
-  /* the map's inks — every token a control in the ledger can read */
-  --bg: #e8d9b3;
-  --bg-2: #efe1bf;
-  --surface: #f6ecd4;
-  --surface-2: #e7d6b0;
-  --border: #b89a6a;
-  --border-soft: #d3bd94;
-  --text: #2b1d10;
-  --text-2: #54412c;
-  --muted: #665238;
-  --ember: #8a2f1e;
-  --ember-hot: #a33a26;
-  --ember-dim: #d7b48e;
-  --on-ember: #fff4e3;
-  --spoken: #2a4d6b;
-  --thought: #5a3f7a;
-  --user-tint: #e6d5ad;
-  --danger: #9c3320;
-  --ok: #345f2c;
-  --warn: #6f4c06;
-  --shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
-  --pk-card-1: #f4ecdc; --pk-card-2: #efe6d4; --pk-card-3: #f2ecdf; --pk-chip-bg: #e7dcc6; --pk-box-bg: #f6efe2; --pk-box-edge: #d8c9ae; --pk-rule: #e0d3ba;
-  --pk-place: #2a2018; --pk-body: #33291f; --pk-body-2: #33291f; --pk-body-3: #2f261d; --pk-body-4: #3a2f24;
-  --pk-quiet: #5c4e42; --pk-quiet-2: #5f5040; --pk-quiet-3: #5f5040; --pk-quiet-4: #6b5c4c; --pk-quiet-5: #6b5c4c; --pk-quiet-6: #6b5c4c; --pk-quiet-7: #7a6a58; --pk-quiet-8: #7a6a58;
-  --pk-gold: #8a5205; --pk-gold-2: #8a5205; --pk-gold-dim: #9a7434; --pk-red: #b23a2a; --pk-red-2: #b8452f; --pk-red-dim: #8f3626; --pk-amber: #9a5a10;
-  --pk-sky: #2f5f7e; --pk-rose: #8e4658; --pk-violet: #5f4288; --pk-violet-2: #6f4d8f; --pk-violet-3: #5a3a8a; --pk-teal: #1f6a5c;
-  --ledger-card: #f6ecd4;
-  --ledger-slot: #ece0c0;
-  --ledger-line: #cdb48a;
-  --ledger-glyph: #8a2f1e;
-  --ledger-title: #3a2814;
-  --ledger-radius: 6px;
-  --ledger-slot-radius: 5px;
-  --ledger-pill-radius: 999px;
-  color: var(--text);
-  background-color: #efe1bf;
-  background-image:
-    radial-gradient(120% 90% at 50% 45%, rgba(255, 250, 236, 0.45) 0%, transparent 62%),
-    radial-gradient(90% 90% at 0% 0%, rgba(122, 82, 32, 0.2), transparent 55%),
-    radial-gradient(90% 90% at 100% 100%, rgba(122, 82, 32, 0.24), transparent 55%);
-  border: 2px solid #8a6b3d;
-  box-shadow: inset 0 0 0 1px #d3bd94, inset 0 0 40px rgba(122, 82, 32, 0.2), var(--shadow);
-}
-html[data-theme='academy'] #drawer .drawer-head { border-bottom: 1px solid #b89a6a; box-shadow: 0 1px 0 rgba(255, 250, 236, 0.5); }
-html[data-theme='academy'] #drawer .drawer-head h2 { font-variant: small-caps; letter-spacing: 0.08em; font-size: 1.25em; color: #3a2814; }
-html[data-theme='academy'] #drawer .ledger-panel {
-  border: 1px solid #b89a6a;
-  outline: 1px dashed rgba(90, 60, 30, 0.35);
-  outline-offset: -5px;
-  box-shadow: 0 1px 0 rgba(255, 250, 236, 0.6) inset;
-}
-html[data-theme='academy'] #drawer .ledger-panel > h3 { font-variant: small-caps; letter-spacing: 0.08em; font-size: 1.06rem; border-bottom: 1px solid #b89a6a; }
-html[data-theme='academy'] #drawer .drawer-rooms { background: #e7d6b0; border-color: #b89a6a; border-radius: 6px; }
-html[data-theme='academy'] #drawer .drawer-rooms .nav-chip { color: #54412c; border-radius: 4px; font-family: var(--font-prose); font-size: 0.78rem; }
-html[data-theme='academy'] #drawer .drawer-rooms .nav-chip:hover { color: #2b1d10; background: #f6ecd4; }
-html[data-theme='academy'] #drawer .drawer-rooms .nav-chip.current { color: #8a2f1e; background: #f6ecd4; box-shadow: inset 0 -2px 0 #8a2f1e; }
-html[data-theme='academy'] #drawer .present-row { border-color: #cdb48a; color: #2b1d10; }
-html[data-theme='academy'] #drawer .text-btn { background: #e7d6b0; border-color: #b89a6a; color: #8a2f1e; }
-html[data-theme='academy'] #drawer .text-btn:hover { border-color: #8a2f1e; background: #f6ecd4; }
-html[data-theme='academy'] #drawer .story-mini { background: #f6ecd4; border-color: #cdb48a; color: #665238; }
-html[data-theme='academy'] #drawer .log-list { border-left: 2px dashed #a58a5e; }
-html[data-theme='academy'] #drawer .log-row::before { box-shadow: 0 0 0 2px var(--ledger-card); }
-html[data-theme='academy'] #drawer .present-form { border-color: #a58a5e; }
-html[data-theme='academy'] #drawer input, html[data-theme='academy'] #drawer select, html[data-theme='academy'] #drawer textarea { color: #2b1d10; background: #fbf4e4; border-color: #b89a6a; }
-html[data-theme='academy'] #drawer option { color: #2b1d10; background: #fbf4e4; }
-html[data-theme='academy'] #drawer ::placeholder { color: #8a7554; }
-html[data-theme='academy'] #drawer .work-banner { background: #e7d6b0; color: #2b1d10; border-bottom-color: #b89a6a; }
-html[data-theme='academy'] #drawer .icon-btn:hover { background: #e7d6b0; }
-/* footprints: whoever is in the scene walks the map; the absent stand where the world seated them */
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="elsewhere"] .present-row,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .people-row { position: relative; padding-left: 2.35rem; }
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::before,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::after,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="elsewhere"] .present-row::before,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="elsewhere"] .present-row::after,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .people-row::before,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .people-row::after {
-  content: '';
-  position: absolute;
-  width: 15px; height: 15px;
-  background: #3a2814;
-  opacity: 0.7;
-  pointer-events: none;
-  -webkit-mask: center / contain no-repeat;
-  mask: center / contain no-repeat;
-}
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::before,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="elsewhere"] .present-row::before,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .people-row::before {
-  left: 8px; top: 0.35rem; transform: rotate(-18deg);
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cg fill=%22%23000%22 stroke=%22none%22%3E%3Cellipse cx=%229.5%22 cy=%2214.5%22 rx=%223.1%22 ry=%225.2%22/%3E%3Ccircle cx=%226.4%22 cy=%227.2%22 r=%221.05%22/%3E%3Ccircle cx=%228.8%22 cy=%226.1%22 r=%221.2%22/%3E%3Ccircle cx=%2211.4%22 cy=%226.4%22 r=%221.05%22/%3E%3Ccircle cx=%2213.4%22 cy=%227.9%22 r=%22.95%22/%3E%3C/g%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cg fill=%22%23000%22 stroke=%22none%22%3E%3Cellipse cx=%229.5%22 cy=%2214.5%22 rx=%223.1%22 ry=%225.2%22/%3E%3Ccircle cx=%226.4%22 cy=%227.2%22 r=%221.05%22/%3E%3Ccircle cx=%228.8%22 cy=%226.1%22 r=%221.2%22/%3E%3Ccircle cx=%2211.4%22 cy=%226.4%22 r=%221.05%22/%3E%3Ccircle cx=%2213.4%22 cy=%227.9%22 r=%22.95%22/%3E%3C/g%3E%3C/svg%3E");
-}
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::after,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="elsewhere"] .present-row::after,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .people-row::after {
-  left: 19px; top: 0.95rem; transform: rotate(-18deg);
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cg fill=%22%23000%22 stroke=%22none%22%3E%3Cellipse cx=%2214.5%22 cy=%2214.5%22 rx=%223.1%22 ry=%225.2%22/%3E%3Ccircle cx=%2217.6%22 cy=%227.2%22 r=%221.05%22/%3E%3Ccircle cx=%2215.2%22 cy=%226.1%22 r=%221.2%22/%3E%3Ccircle cx=%2212.6%22 cy=%226.4%22 r=%221.05%22/%3E%3Ccircle cx=%2210.6%22 cy=%227.9%22 r=%22.95%22/%3E%3C/g%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23000%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cg fill=%22%23000%22 stroke=%22none%22%3E%3Cellipse cx=%2214.5%22 cy=%2214.5%22 rx=%223.1%22 ry=%225.2%22/%3E%3Ccircle cx=%2217.6%22 cy=%227.2%22 r=%221.05%22/%3E%3Ccircle cx=%2215.2%22 cy=%226.1%22 r=%221.2%22/%3E%3Ccircle cx=%2212.6%22 cy=%226.4%22 r=%221.05%22/%3E%3Ccircle cx=%2210.6%22 cy=%227.9%22 r=%22.95%22/%3E%3C/g%3E%3C/svg%3E");
-}
-/* the ones in the room are walking: the two prints take turns (opacity only; stilled by the reduced-motion law in base.css) */
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::before { animation: map-step-l 2.4s ease-in-out infinite; }
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::after { animation: map-step-r 2.4s ease-in-out infinite; }
-@keyframes map-step-l { 0%, 40% { opacity: 0.75; } 50%, 90% { opacity: 0.22; } 100% { opacity: 0.75; } }
-@keyframes map-step-r { 0%, 40% { opacity: 0.22; } 50%, 90% { opacity: 0.75; } 100% { opacity: 0.22; } }
+/* THE ACADEMY's dress lives in css/academy.css (M678: the enchanted map). */
 
 /* =====================================================================
    AURORA — a northern night with the lights over it; the ledger is a

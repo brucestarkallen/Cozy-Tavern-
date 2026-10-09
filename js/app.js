@@ -40,7 +40,7 @@ let themeMode = 'dark';
  * own bar wears the room's ground. */
 const COATS = {
   dark: '#16120f', light: '#f5efe4', deep: '#0a0f12', magma: '#070c0e',
-  fantasy: '#0c1210', cyberpunk: '#0b0714', academy: '#14100b', aurora: '#070b14', starship: '#0a0d12',
+  fantasy: '#0c1210', cyberpunk: '#0b0714', academy: '#18100a', aurora: '#070b14', starship: '#0a0d12',
 };
 
 function resolveTheme() {
@@ -72,6 +72,28 @@ async function applyStoredTheme() {
 if (sky && sky.addEventListener) {
   sky.addEventListener('change', () => { if (themeMode === 'system') applyTheme(); });
 }
+
+/* M678: WHAT THE THREAD HOLDS, ON <html> — data-thread="story" while a page stands in the thread, "welcome" otherwise.
+ * The academy's map reads it (css/academy.css): under a story it is a still ghost behind the reading veil; on the
+ * welcome it is bright and moving. It is set only when it changes, from the thread's own children, so every way the
+ * thread is redrawn (a tale opened, a page added, the last one taken away, a new tale) keeps it true. A CSS :has() on
+ * the thread said the same but restyled the map with every page added — 7–9 ms a page at 6x CPU, measured; this is a
+ * look at the thread's children when they change, and an attribute written only on the change. */
+function watchThread() {
+  const thread = document.getElementById('thread');
+  if (!thread) return;
+  const root = document.documentElement;
+  const look = () => {
+    let state = 'welcome';
+    for (const child of thread.children) {
+      if (child.classList.contains('msg')) { state = 'story'; break; }
+    }
+    if (root.dataset.thread !== state) root.dataset.thread = state;
+  };
+  look();
+  if (typeof MutationObserver === 'function') new MutationObserver(look).observe(thread, { childList: true });
+}
+watchThread();
 
 /* ---------- the visible viewport (--vvh), keyboard-safe (M8) ---------- */
 
