@@ -2217,8 +2217,8 @@ def _restore(z, plan):
     # M675: THE COPY KEPT FIRST HOLDS THE LIBRARY AS IT IS WHEN IT GOES. The library was zipped, and then the copy was
     # read out (seconds, for a large one) before the swap: a page another browser appended in between was in neither —
     # not in the zip, and gone with the library. So, with the locks of the swap held (nothing can be written now), the
-    # library is looked at again: if anything was written since it was zipped, it is zipped again first. A library
-    # that will not hold still for three tries is not replaced at all.
+    # library is looked at again: if anything was written since it was zipped, it is zipped again first. (M681: a library
+    # that will not hold still is held still — below.)
     # M681 — A LIBRARY THAT IS WRITTEN TO WITHOUT A PAUSE IS HELD STILL, NOT GIVEN UP ON (found when the device gate's
     # "all of it at once" failed on a busy machine — made to happen on m680-001 with the CPU loaded: 2 runs of 5). The
     # copy kept first is zipped while the library is open to writes, then looked at again under the locks; three tales
