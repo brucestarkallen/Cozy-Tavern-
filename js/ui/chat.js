@@ -5751,7 +5751,7 @@ export function initChat(ctx) {
       /* M680: the queue tries a job that threw again — the later writes are put back once, never twice (a feeling's
        * shift is a sum: put back twice, it is counted twice) */
       let laterPutBack = false;
-      const tail = enqueueWork(story.id, { name: 'checkpoint', layoutRebased: true, run: async () => {
+      const tail = enqueueWork(story.id, { name: 'checkpoint', run: async () => {
         if ((chainGen.get(story.id) || 0) !== gen) return { silent: true }; /* a rewind cut in — the fold that did it is the truth now */
         let st = await loadState(story.id);
         const lastIndex = vis.filter((m) => m.role === 'assistant').length - 1;
@@ -5800,7 +5800,7 @@ export function initChat(ctx) {
         notify(story.id);
         toast(`History changed at page ${at + 1} — the ledger was folded back and rebuilt${pages ? ' with one reading' : ''}.`);
         return { silent: true };
-      } });
+      }, layoutRebased: true });
       noteWork(story.id, tail);
       /* M293: a tail that never RUNS (dropped by the writer's Stop, or left behind by a story switch) still settles —
        * the queue settles every job it was handed, run, stopped, dropped or failed after its last try. The gate is let
