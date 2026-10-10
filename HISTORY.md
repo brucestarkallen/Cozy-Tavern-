@@ -18224,8 +18224,8 @@ proves every possible interruption gone.
 
 PROOF: M682-1 through 7 and DOM-315/316/317 all failed against 9fb30dc for their stated defects. M682-8 fails with only
 its gap guard disabled. M682-9 caught the first legacy replay implementation and passes with the journal fix, including
-a rewind before a later weighing. The only older Cozy assertion changed is M44-6's count of memoryWithoutPage doors
-from four to five: unmend is the newly corrected fifth door; all other assertions remain. The full gate adds the boot
+a rewind before a later weighing. At this implementation checkpoint, M44-6's count of memoryWithoutPage doors
+changed from four to five: unmend is the newly corrected fifth door. The later cache-cost correction is recorded below. The full gate adds the boot
 readiness and vendoring command checks to the existing twenty browser/server checks. Canon's export-aware pure sandbox
 retains all assertions; its validity-gate witness now includes episodes. New negative controls are recorded below.
 
@@ -18250,3 +18250,22 @@ codex682e repeats the complete standing gates and all 23 additional Python check
 
 Validation and publication status will be appended after the complete gates finish. GitHub's connected integration
 currently refuses writes with 403 Resource not accessible by integration; no published branch has been overwritten.
+
+CACHE-COST LAW CORRECTION: codex682e's harness was 1442/1443; only M674-1 failed. Its stopwatch ratio
+was 3.7 ms for forty names over one text versus 15.6 ms for forty fresh texts. The cache and names program is
+byte-identical to published 9fb30dc. The elapsed ratio includes name/alias work, searches, JIT and GC; it cannot prove
+that the text was folded for each person. The law now counts native full-text String.normalize work while running
+nameOnPage. The same forty names perform 2 folds on one fresh text and 80 on forty fresh texts. Disabling only the
+text-cache lookup in an isolated copy performs 80 and 80; the new assertion fails for that actual defect. Every
+semantic and cache-boundary assertion remains, and the original fivefold work saving remains required. No names
+application code or browser performance budget changed. The corrected full harness and remaining gates are pending.
+
+ACADEMY IDLE FIXTURE: codex682e passed the walk (294/294), long play (9/9), lint (0 errors, 199
+warnings), and 21 of 22 browser/server checks. perf_academy passed every paint/style/layout, busy-time, scroll and
+reduced-motion budget, but counted one running animation in the story. Instrumentation identified the real 150 ms
+CSSTransition for opacity on #page-mark; every academy-stage animation was paused. The test's all-animation sample
+could meet that scroll-marker fade in either coat. coat() now waits for the marker to stop showing and for its own
+animation to finish before the IDLE sample. The original total-animation comparison and every performance ceiling
+remain. A controlled real marker fade at that boundary produces total 1 / map 0 without the wait, and total 0 / map 0
+with it. No app/CSS changed. The corrected full harness and academy check will run as codex682f, then all 23 additional
+Python checks; codex682e's other checks exercised the identical application source and do not need repetition.

@@ -20,9 +20,13 @@ existing test now controls that latency while keeping all its original assertion
 codex682d passed every standing gate: 1443/1443 harness, 294/294 walk, 9/9 long play, lint and all 22 browser/server
 checks. Extending the saved-record law then found that an already-saved legacy reversal's m.of was not used, so a
 weighing later on that same page could be lost on replay. This now fails without the compatibility guard and passes
-with it; all nine M682 laws pass. The final run codex682e repeats the standing gates and then the 23 additional
-Python checks with that correction. Run one at a time. Read actual EXIT codes and totals before closing;
-audit/gates.sh's own exit is not sufficient.
+with it; all nine M682 laws pass. codex682e passed walk 294/294, long play 9/9, lint (0 errors, 199 warnings),
+and 21/22 browser/server checks. Two old fixture checks failed: the M674-1 stopwatch ratio and perf_academy's sample of
+a page-mark opacity fade. The direct cache-work proof performs 2 versus 80 text folds; disabling the cache makes it
+80 versus 80 and fails the law. The real marker fade produces total 1 / map 0 without the idle wait and total 0 / map 0
+with it. The corrected full harness and academy test run as codex682f, followed by all 23 additional Python checks.
+No application code/CSS changed since 271df114; the other codex682e checks remain valid for that identical source.
+Run one test at a time. Read actual EXIT codes and totals before closing; audit/gates.sh's own exit is not sufficient.
 Publication is blocked by GitHub integration write access (403 Resource not accessible by integration); native Git also
 has no usable authentication. The new code is not yet on main. All older main commits remain intact. Update this status
 with final counts and commit SHAs after the gates and publication; never tell him this checkout is on his phone before

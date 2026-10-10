@@ -90,6 +90,11 @@ def boot(b, reduced=False):
 def coat(page, c):
     page.evaluate("(c) => { document.documentElement.dataset.theme = c; }", c)
     page.wait_for_timeout(1500)
+    # A theme change can adjust the scroll position. Let the page mark's real 150 ms fade end before measuring
+    # IDLE; counting that unrelated transition as a still-moving map made the answer depend on the sampling instant.
+    page.wait_for_function("""() => { const mark = document.getElementById('page-mark');
+      return !mark || mark.hidden || (!mark.classList.contains('show') &&
+        !mark.getAnimations().some(a => a.playState === 'running')); }""", timeout=10000)
 
 
 def idle(b, page):

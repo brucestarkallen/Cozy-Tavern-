@@ -86,15 +86,28 @@ test('M674-1 A TEXT IS FOLDED ONCE, AND THE ANSWER IS THE SAME ANSWER: whoever i
   eq(nameOnPage(' \n\t' + ' '.repeat(400), 'Rukia'), false, 'a long blank, again');
   eq(nameOnPage(texts[0], ''), false, 'no name');
 
-  /* THE COST. Forty people asked about over ONE text never seen before, against forty texts never seen before with one
-   * person asked about over each: the first is one folding and the second forty. (Before M674 they cost the same.) */
-  const page = (tag) => ('Page ' + tag + '.' + FILL).repeat(42); /* about 20,000 characters, no two alike */
+  /* COUNT THE WORK. A stopwatch ratio also measures aliases, string searches, JIT and GC. Count the full-text
+   * normalizations through the public feature instead: one pair of folds for forty names, forty pairs for forty
+   * fresh texts. The fivefold saving remains required; every answer and cache-boundary assertion above remains. */
+  const marker = 'm674 cache work ';
+  const page = (tag) => ('Page ' + marker + tag + '.' + FILL).repeat(42);
   const people = Array.from({ length: 40 }, (_, k) => (k % 2 ? 'Rukia' : 'Person' + k) + ' Family' + k);
-  let seq = 0;
-  const least = (fn) => Math.min(...[0, 1, 2].map(() => { const from = performance.now(); fn(); return performance.now() - from; }));
-  const oneText = least(() => { seq += 1; const t = page('a' + seq); for (const p of people) nameOnPage(t, p); });
-  const fortyTexts = least(() => { for (const p of people) { seq += 1; nameOnPage(page('b' + seq), p); } });
-  assert(oneText * 5 < fortyTexts, 'forty people over one text cost ' + oneText.toFixed(1) + ' ms; forty texts, ' + fortyTexts.toFixed(1) + ' ms — the one text was folded for each of them');
+  const normalizeWas = String.prototype.normalize;
+  let folds = 0; let oneText = 0; let fortyTexts = 0;
+  String.prototype.normalize = function (...args) {
+    if (String(this).length > 200 && String(this).includes(marker)) folds += 1;
+    return normalizeWas.apply(this, args);
+  };
+  try {
+    const text = page('one');
+    for (const person of people) nameOnPage(text, person);
+    oneText = folds; folds = 0;
+    people.forEach((person, k) => nameOnPage(page('many' + k), person));
+    fortyTexts = folds;
+  } finally { String.prototype.normalize = normalizeWas; }
+  assert(oneText > 0 && oneText <= 2, 'one fresh text costs at most one pair of full-text folds, not one per person: ' + oneText);
+  eq(fortyTexts, oneText * people.length, 'each fresh text costs its own fold pair');
+  assert(oneText * 5 < fortyTexts, 'forty people over one text computed ' + oneText + ' full-text folds; forty texts computed ' + fortyTexts);
 });
 
 test('M674-2 A READING CUT SHORT TO FIT SHOWS THE LEDGER OF THE PEOPLE ITS OWN PAGES NAME: the ledger’s part is worked out for the pages a request ends on — someone named only on a page that was left out is not listed, the pages it says it read are the pages it shows, and the whole stretch in a room that holds it lists everyone', () => {
