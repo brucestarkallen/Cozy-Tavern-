@@ -133,3 +133,7 @@ Focused corrections to the six recorded findings in agents/extractor.js, agents/
 agents/housekeeper.js, engine/apply.js, ui/chat.js and ui/housekeeper.js; the reproduced startup reload race in
 sync.js and app.js; and reconciliation of canon/grounding.js with its upstream source. The previous whole-file
 audit marks above are retained. HISTORY.md M682 records the real-code laws, negative controls and final gates.
+
+M682 gate follow-up: js/ui/chat.js keeps immediate version taps in order (DOM-256, delayed real preview store write);
+js/engine/apply.js reads the original line from an already-saved legacy reversal's m.of (M682-9, a later same-page
+weighing survives replay). These are focused corrections; the earlier full audit and its dispositions remain intact.

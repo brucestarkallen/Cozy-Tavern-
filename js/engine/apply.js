@@ -1543,7 +1543,9 @@ const HANDLERS = {
    * original's undo payload, so every fold reverses what the hand reversed. */
   'undo.apply'(state, m) {
     if (!m || !m.undo || typeof m.undo !== 'object') return { why: 'nothing to take back' };
-    if (!applyUndo(state, m.undo)) return { why: 'the world moved on; that change cannot be walked back' };
+    /* Older saved reversals already named their original line in m.of, before the payload had ofWords. */
+    const undo = m.undo.kind === 'combat.restore' && !m.undo.after && !m.undo.ofWords && typeof m.of === 'string' ? { ...m.undo, ofWords: m.of } : m.undo;
+    if (!applyUndo(state, undo)) return { why: 'the world moved on; that change cannot be walked back' };
     return { words: 'Taken back — ' + capText(m.of, 1000), undo: null };
   },
 

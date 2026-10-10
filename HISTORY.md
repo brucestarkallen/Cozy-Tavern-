@@ -18239,5 +18239,14 @@ real dropped-tap correction, not a weakened timing assertion. The rest of codex6
 play 9/9, lint EXIT 0 and all 22 browser/server checks; the walk was 293/294. The final full run repeats all gates
 with the ordered-walk fix and then runs the 23 additional tests/*.py checks.
 
+LEGACY FORMAT REVIEW: codex682d was fully green (1443/1443 harness, 294/294 walk, 9/9 long play, lint,
+all 22 browser/server checks). Extending M682-9 found a compatibility hole in the first legacy repair: a reversal
+already saved before ofWords existed retained its original line in m.of, but undo.apply did not pass that signal to
+the book repair. If a later weighing belonged to the same page, replay restored 4 over the later 8. An isolated
+copy at 46d36b1 failed that assertion; passing the existing m.of into the legacy payload makes it pass. All nine M682
+laws pass. M682-9 now checks newly saved legacy reversals, already-saved reversals across pages, already-saved reversals
+on the same page, and a rewind that must exclude a future weighing. Every existing assertion remains. The final run
+codex682e repeats the complete standing gates and all 23 additional Python checks with this compatibility correction.
+
 Validation and publication status will be appended after the complete gates finish. GitHub's connected integration
 currently refuses writes with 403 Resource not accessible by integration; no published branch has been overwritten.

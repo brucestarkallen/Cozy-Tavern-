@@ -17,8 +17,12 @@ codex682c passed harness 1443/1443, long play 9/9, lint and all 22 browser/serve
 DOM-256 found a real dropped version tap while the first walk finished its preview. The baseline reproduces it with
 100 ms latency on that real store write; adding only the ordered-version-walk fix to baseline makes it pass. The
 existing test now controls that latency while keeping all its original assertions and immediate second tap.
-The final run codex682d repeats all gates with this additional fix, then all 23 tests/*.py checks outside the standing
-gates. Run one at a time. Read actual EXIT codes and totals before closing; audit/gates.sh's own exit is not sufficient.
+codex682d passed every standing gate: 1443/1443 harness, 294/294 walk, 9/9 long play, lint and all 22 browser/server
+checks. Extending the saved-record law then found that an already-saved legacy reversal's m.of was not used, so a
+weighing later on that same page could be lost on replay. This now fails without the compatibility guard and passes
+with it; all nine M682 laws pass. The final run codex682e repeats the standing gates and then the 23 additional
+Python checks with that correction. Run one at a time. Read actual EXIT codes and totals before closing;
+audit/gates.sh's own exit is not sufficient.
 Publication is blocked by GitHub integration write access (403 Resource not accessible by integration); native Git also
 has no usable authentication. The new code is not yet on main. All older main commits remain intact. Update this status
 with final counts and commit SHAs after the gates and publication; never tell him this checkout is on his phone before

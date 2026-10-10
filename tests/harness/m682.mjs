@@ -135,4 +135,15 @@ test('M682-9 AN OLDER SAVED FIGHT TAKE-BACK keeps the later weighing after the j
   const back = undoEntry(st, at).state;
   eq(foldJournal(back, [], 3, applyMutations).sheet.actors.Liara.default, 8, 'the saved legacy reversal has the same meaning on replay');
   eq(foldJournal(back, [], 0, applyMutations).sheet.actors.Liara.default, 4, 'a rewind before the later weighing never imports it from the future');
+  const alreadySaved = JSON.parse(JSON.stringify(back));
+  for (const j of alreadySaved.journal) if (j.m && j.m.type === 'undo.apply') delete j.m.undo.ofWords;
+  eq(foldJournal(alreadySaved, [], 3, applyMutations).sheet.actors.Liara.default, 8, 'an older reversal already saved with of, before ofWords existed, keeps the later weighing');
+  eq(foldJournal(alreadySaved, [], 0, applyMutations).sheet.actors.Liara.default, 4, 'that older saved reversal still leaves future weighings in the future');
+  let samePage = emptyState(); samePage.sheet = { playerName: 'Jovan', actors: { Jovan: { default: 5 }, Liara: { default: 4 } } };
+  samePage = applyMutations(samePage, [{ type: 'combat.begin', kind: 'duel', opponent: 'Liara' }]).state;
+  const original = samePage.log.length - 1; delete samePage.log[original].undo.after;
+  samePage = applyMutations(samePage, [{ type: 'sheet.weigh', actors: { Liara: { default: 8 } } }]).state;
+  const savedSamePage = undoEntry(samePage, original).state;
+  for (const j of savedSamePage.journal) if (j.m && j.m.type === 'undo.apply') delete j.m.undo.ofWords;
+  eq(foldJournal(savedSamePage, [], 0, applyMutations).sheet.actors.Liara.default, 8, 'an already saved older reversal preserves a weighing made later on that very page');
 });
