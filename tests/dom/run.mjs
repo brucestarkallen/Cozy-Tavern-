@@ -14340,8 +14340,8 @@ test('DOM-276 A DELETE HOLDS THE HOUSE WITHOUT TURNING ANYONE AWAY (M681 — M68
 });
 
 /* M681 — THE CLOCK, THROUGH THE APP: a tale read to its first page, its hour and ground from that page's header */
-async function clockTale(title, pages, { readTo = 0, readAhead = [] } = {}) {
-  const { saveState, emptyState, headerMutations } = await import('../../js/engine/state.js');
+async function clockTale(title, pages, { readTo = 0, readAhead = [], checkpoint = false } = {}) {
+  const { saveState, emptyState, headerMutations, saveVersionStates } = await import('../../js/engine/state.js');
   const { applyMutations } = await import('../../js/engine/apply.js');
   if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
   const st = await db.stories.create({ title });
@@ -14358,6 +14358,9 @@ async function clockTale(title, pages, { readTo = 0, readAhead = [] } = {}) {
   }
   led.page = Math.max(readTo, ...readAhead);
   await saveState(st.id, { ...led, readTo, readAhead, tidiedGen: 999, healedGen: 999 });
+  /* the newest page's chain finished long ago (its checkpoint stands): opening the tale does not re-read it through its own
+   * chain — what is left unread is read by the house by itself (readMissedPage), the path the scene audit found at fault */
+  if (checkpoint) { const last = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop(); await saveVersionStates(st.id, { [last.id + ':0']: { ...led, readTo, readAhead } }); }
   return st;
 }
 const QUIET_WORKERS = '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[],"issues":[]}';
@@ -14394,7 +14397,7 @@ test('DOM-277 THE HEADER LANDS WHEN THE READER FAILS (M681 — the scene audit�
 test('DOM-278 THE NEWEST PAGE READ LATE IS READ AS ITS OWN CHAIN WOULD (M681 — the scene audit’s S3): a page on the shelf unread is read by the house by itself — its header’s ground and hour land, and the reader’s own half hour is not added on top of the hour the opening already set from that header', async () => {
   const before = errors.length;
   const { loadState } = await import('../../js/engine/state.js');
-  const st = await clockTale('read late', ['[The yard — Monday, March 3, 2025 | 09:00 | clear]\n\nKim waited by the well.', '[The gate — Monday, March 3, 2025 | 11:30 | clear]\n\nThey reached the gate as the bell rang.']);
+  const st = await clockTale('read late', ['[The yard — Monday, March 3, 2025 | 09:00 | clear]\n\nKim waited by the well.', '[The gate — Monday, March 3, 2025 | 11:30 | clear]\n\nThey reached the gate as the bell rang.'], { checkpoint: true });
   const prior = { worker: house.state.workerAnswer };
   globalThis.__cozyLedgerBackoffMs = 300;
   try {
@@ -14417,7 +14420,7 @@ test('DOM-278 THE NEWEST PAGE READ LATE IS READ AS ITS OWN CHAIN WOULD (M681 —
 test('DOM-279 A PAGE READ OUT OF TURN ADDS NO TIME ON TOP OF A LATER PAGE’S HOUR (M681 — the scene audit’s S14): page two was never read while page three was; the house reads page two by itself, and its reader’s three quarters of an hour do not move the clock page three set', async () => {
   const before = errors.length;
   const { loadState } = await import('../../js/engine/state.js');
-  const st = await clockTale('out of turn', ['[The yard — Monday, March 3, 2025 | 09:00 | clear]\n\nKim waited by the well.', '[The yard — Monday, March 3, 2025 | 10:00 | clear]\n\nThe well rope creaked.', '[The yard — Monday, March 3, 2025 | 11:00 | clear]\n\nThe bell rang for noon soon.'], { readTo: 0, readAhead: [2] });
+  const st = await clockTale('out of turn', ['[The yard — Monday, March 3, 2025 | 09:00 | clear]\n\nKim waited by the well.', '[The yard — Monday, March 3, 2025 | 10:00 | clear]\n\nThe well rope creaked.', '[The yard — Monday, March 3, 2025 | 11:00 | clear]\n\nThe bell rang for noon soon.'], { readTo: 0, readAhead: [2], checkpoint: true });
   const prior = { worker: house.state.workerAnswer };
   globalThis.__cozyLedgerBackoffMs = 300;
   try {
