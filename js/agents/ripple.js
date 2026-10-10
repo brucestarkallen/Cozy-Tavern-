@@ -22,7 +22,8 @@
  *     the canon on the next page.
  */
 
-import { sameFact, trimmedBook, KNOWLEDGE_GUARD } from '../engine/world.js'; /* M163: the same fact in different clothes; M681: a book's guard */
+import { sameFact, trimmedBook, KNOWLEDGE_GUARD } from '../engine/world.js';
+import { lookKey } from '../engine/canon.js'; /* M163: the same fact in different clothes; M681: a book's guard */
 
 export function factChange(before, after) {
   const a = String(before || ''); const b = String(after || '');
@@ -123,7 +124,7 @@ function mergeEntry(kind, held, coming) {
     const facts = [...(held.facts || [])];
     for (const f of (coming.facts || [])) {
       if (!f || typeof f.key !== 'string') continue;
-      if (!facts.some((x) => x && String(x.key).trim().toLowerCase() === f.key.trim().toLowerCase())) facts.push(f);
+      if (!facts.some((x) => x && lookKey(String(x.key)) === lookKey(f.key))) facts.push(f); /* M681 (P3): one key for one look */
     }
     return { ...coming, ...held, facts };
   }

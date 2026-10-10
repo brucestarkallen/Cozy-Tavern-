@@ -334,15 +334,27 @@ const FIELD_CAPS = { core: CORE_CAP, state: STATE_CAP, arc: ARC_CAP, thread: THR
  * `characters` is copied, never mutated in place. Every drop is recorded
  * with its plain-words why. */
 /* M134: two loose ends are the same when they share most of their content words */
+/* M681 — A SHORT LOOSE END IN OTHER CASE OR MARKS IS THE SAME LOOSE END (the people audit's P7, made to happen on m680-001):
+ * "Hunting Kim." and "hunting Kim" were two (a loose end of two words had no long words to compare and its text differed by a
+ * full stop) — so the reader's close of it found nothing, and it stood answered for good; written twice, it stood twice. The
+ * plain words compare (case, accents and marks aside); a short one is the same when its words are the same. */
+const LOOSE_FILL = new Set(['a', 'an', 'the', 'to', 'of', 'and']);
+const plainLoose = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/[’‘]/g, "'").replace(/[^\p{L}\p{N}\s']/gu, ' ').replace(/\s+/g, ' ').trim();
 export function sameLooseEnd(a, b) {
-  const words = (t) => new Set(String(t || '').toLowerCase().replace(/[^\p{L}\p{N}\s']/gu, ' ').split(/\s+/).filter((w) => w.length > 3));
+  const words = (t) => new Set(plainLoose(t).split(' ').filter((w) => w.length > 3));
+  const pa = plainLoose(a); const pb = plainLoose(b);
+  if (!pa || !pb) return false;
+  if (pa === pb) return true;
   const x = words(a); const y = words(b);
-  if (!x.size || !y.size) return false;
-  if (String(a).trim().toLowerCase() === String(b).trim().toLowerCase()) return true;
+  const small = Math.min(x.size, y.size);
+  if (small < 3) {
+    const all = (t) => new Set(t.split(' ').filter((w) => w && !LOOSE_FILL.has(w)));
+    const ax = all(pa); const by = all(pb);
+    return ax.size > 0 && ax.size === by.size && [...ax].every((w) => by.has(w));
+  }
   let hit = 0;
   for (const w of x) if (y.has(w)) hit += 1;
-  const small = Math.min(x.size, y.size);
-  return small >= 3 && hit / small >= 0.6;
+  return hit / small >= 0.6;
 }
 
 export function mergeDeltas(state, characters, deltas, turn) {
@@ -853,7 +865,7 @@ export function setPersonField(state, characters, name, field, text, turn, { cle
     return { why: '“' + (f || '?') + '” isn’t a page of the ledger (core, state, arc, threads)' };
   }
   const forMc = isMc(state, cleanName);
-  if (forMc && (f === 'core' || f === 'arc')) {
+  if (forMc && (f === 'core' || f === 'arc') && clear !== true) { /* M681 (P12): letting one go is always allowed — it should never stand */
     return { why: 'the main character’s ledger is record-only — state and threads, nothing more' };
   }
   if (isGroupName(cleanName)) return { why: '“' + cleanName + '” is a group, not a person — a faction, if anything' }; /* M484 */

@@ -43,7 +43,7 @@ import { windowCutAt } from './window.js'; /* M467: one definition of the window
 import { addInjury, addStrain, findBodyKey, findInjury, SEV_WORDS } from './bodies.js';
 import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TOTAL } from './relationships.js';
 import { seat, findSeat, isDeadSeat } from './offscreen.js';
-import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
+import { lockFact, unlockFact, findCanonKey, findFact, lookKey } from './canon.js'; /* M681: one key for one look */
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight } from './duels.js';
 import { withoutStandingNumbers, setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
 import { samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage, isTitleWord } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
@@ -386,10 +386,18 @@ const HANDLERS = {
      * of the name on a page carries it everywhere, the main character's name with it; or the housekeeper's rename) */
     if (before) return { ok: false, why: 'the main character is already known as ' + before + ' — to change the name, change it on a page (it follows everywhere) or ask the housekeeper to rename them' };
     state.sheet = { ...state.sheet, playerName: name.slice(0, 60) };
+    /* M681 — HIS PAGE IS RECORD-ONLY FROM THE MOMENT HE IS KNOWN (the people audit's P12, made to happen on m680-001): a core
+     * and an arc written for him before the ledger knew him as the main character (the founder's page for "Jovan", then its
+     * mc.set) stood for good — no worker may write them, and his own hand could not let them go either. They go as he is
+     * named; the take-back brings them back with the name. */
+    const pageKey = findPersonKey(state.characters || {}, name);
+    const page = pageKey ? state.characters[pageKey] : null;
+    const pageBefore = page && (String(page.core || '').trim() || String(page.arc || '').trim()) ? { key: pageKey, core: page.core || '', arc: page.arc || '' } : null;
+    if (pageBefore) state.characters = { ...state.characters, [pageKey]: { ...page, core: '', arc: '' } };
     return {
       ok: true,
-      words: 'The main character is ' + name + '.',
-      undo: { kind: 'mc.restore', before },
+      words: 'The main character is ' + name + '.' + (pageBefore ? ' His page keeps only his record — what was written as who he is and where he is going was let go.' : ''),
+      undo: { kind: 'mc.restore', before, ...(pageBefore ? { page: pageBefore } : {}) },
     };
   },
 
@@ -895,6 +903,10 @@ const HANDLERS = {
      * one ("Rias" is seated as "Rias Gremory"); a seat they already hold under another form of their name is
      * taken over, never left beside the new one. */
     const pageKey = findPersonKey(state.characters || {}, name) || resolveDescriptor(state, name); /* M482 */
+    /* M681 — THE MAIN CHARACTER IS NEVER ELSEWHERE (the world audit's W3, made to happen on m680-001): a seat for him — by his
+     * whole name or "Oda" alone — was written whenever he was not in Here now, and the storyteller was told he was at the
+     * training ground while the page was his. Where he is, the scene is: his leave is refused (M588), so is his seat. */
+    if (isMc(state, name) || (pageKey && isMc(state, pageKey))) return { why: 'the main character is never elsewhere — where he is, the scene is' };
     /* M680: A DEATH IN THE ROOM TAKES THEM OUT OF IT. "dead — on the floor of the taproom" for Old Hesk, who stood in the
      * scene, was refused (nobody is in two places) and he stood in Here now, dead. A death is a leave to where the body lies. */
     if (isDeadSeat({ location: capText(m.location, 500), activity: capText(m.activity, 1000) }) && !isMc(state, name)) {
@@ -1010,7 +1022,13 @@ const HANDLERS = {
     const keptPerson = Boolean(pageKey && !(state.characters[pageKey] && state.characters[pageKey].retired));
     /* M680 (the world audit): his own "Let it go" in the drawer was refused for every person with a page — a button that
      * never did anything. His hand lets the note go; the world agent is told they have no seat and places them anew. */
-    if (keptPerson && m.byHand !== true && !isHere(state, seated.key) && !isHere(state, name)) return { why: seated.key + ' keeps the elsewhere note — letting it go would leave them nowhere; write where they are now, or bring them into the scene', same: true };
+    /* M681 (W13, the world audit — made to happen on m680-001): A DEATH IS NEVER LET GO BUT BY HIS HAND. The seat "dead — on
+     * the taproom floor" is the one record of a death; a worker's clear let it go whenever the dead had no page of their own
+     * (a fence's man, a guard), and the story forgot they had died. */
+    if (isDeadSeat(seated.entry) && m.byHand !== true) return { why: seated.key + ' is dead — the seat is the record of the death', same: true };
+    /* M681 (W3): a seat for the main character — never his place — is always let go */
+    const hisSeat = isMc(state, seated.key) || isMc(state, name);
+    if (keptPerson && !hisSeat && m.byHand !== true && !isHere(state, seated.key) && !isHere(state, name)) return { why: seated.key + ' keeps the elsewhere note — letting it go would leave them nowhere; write where they are now, or bring them into the scene', same: true };
     delete state.offscreen[seated.key];
     return {
       words: seated.key + '’s elsewhere note was let go.',
@@ -1025,8 +1043,15 @@ const HANDLERS = {
     if (!name) return { why: 'no name came with it' };
     const key = capText(m.key, 120);
     if (!key) return { why: 'it didn’t say what the truth is called — hair, eyes, a limp' };
-    const value = capText(m.value, 1000);
+    let value = capText(m.value, 1000);
     if (!value) return { why: 'it didn’t say what’s true of ' + name };
+    /* M681 (P2): a look is held to what lasts at this door too — every hand that locks one (the reader's looks, the auditor),
+     * never his own */
+    if (m.byHand !== true && LOOK_KEYS.test(lookKey(key))) {
+      const lasting = lastingLook(value);
+      if (!lasting) return { why: '“' + value + '” is how ' + name + ' looks for a moment, not what is true of them', same: true };
+      value = lasting;
+    }
     const canonKey = personBookKey(state, state.canon, name, findCanonKey) || newBookKey(state, name); /* M419: what's true of them, one person one entry */
     const before = state.canon[canonKey] ? cloneMap({ [canonKey]: state.canon[canonKey] })[canonKey] : null;
     const held = before ? findFact(before, key) : null;
@@ -2422,6 +2447,17 @@ export function restatedPresence(state, notes, mutations, pageText = '') {
  * wound (those have their own books), and NOTHING IS ALREADY WRITTEN under that name for them: a truth the brief, the
  * writer or an earlier page holds is never written over by a later page's wording. */
 const NOT_LOOKS = /^(?:dress|clothes|clothing|outfit|attire|wearing|wears|mood|expression|emotion|feeling|state|now|position|place|wound|wounds|injury|injuries|condition)$/i;
+/* M681 — A PASSING LOOK IS NOT A TRUTH (the people audit's P2, made to happen on m680-001): the reader is asked for what will
+ * still be true tomorrow, and wrote "face: flushed" — locked among what is true of her, told to the storyteller page after
+ * page as how she looks. A clause of a look that is a passing state (flushed, sweat-damp, tear-streaked, muddy, tousled,
+ * bloodshot…) is not locked; what lasts in the same words still is ("copper red, flushed at the ears" → "copper red"). */
+const LOOK_KEYS = /^(?:hair|eyes|skin|face|complexion|build|body|figure|frame|height|look|looks|appearance|features|brow|lips|mouth|nose|cheeks?|jaw|beard|scar|scars|marks?|tattoos?|voice|physique)$/;
+const PASSING_LOOK = /(?<![\p{L}])(?:flushed|flush(?:ing)?|blush\w*|red-faced|sweat\w*|soaked|drenched|wet|damp|dripping|tear-streaked|tear-stained|tears?|teary|tearful|weep\w*|bloodied|bloody|blood-(?:spattered|stained|smeared|streaked)|spattered|smeared|smudged|dirty|muddy|mud-\w+|grimy|dusty|dishevel\w*|tousled|rumpled|messy|unkempt|windswept|wind-blown|bruised|swollen|puffy|red-rimmed|bloodshot|trembl\w*|shaking|shiver\w*|sleepy|drowsy|tired|weary|exhausted|haggard|glowing|sunburnt|sunburned|frowning|smiling|grinning|scowl\w*|wide-eyed|narrowed)(?![\p{L}])/iu;
+export function lastingLook(value) {
+  const clauses = String(value || '').split(/\s*(?:,|;|\band\b|\bbut\b)\s*/i).map((c) => c.trim()).filter(Boolean);
+  const kept = clauses.filter((c) => !PASSING_LOOK.test(c));
+  return kept.length === clauses.length ? String(value || '').trim() : kept.join(', ');
+}
 export function lockedLooks(state, looks, pageText = '', userText = '') {
   const out = [];
   /* WHOSE LOOKS THEY ARE is held to the page too (the phone call's lesson, M660: a reader can credit one person with
@@ -2452,6 +2488,8 @@ export function lockedLooks(state, looks, pageText = '', userText = '') {
     if (!said || !key || !value || NOT_LOOKS.test(key.trim())) continue;
     const shown = whereShown(value);
     if (!shown) continue; /* not this page's words, nor his */
+    const lasting = lastingLook(value); /* M681 (P2) */
+    if (!lasting) continue;
     let name = '';
     if (isMc(state, said)) name = mc && mc !== 'the player' ? mc : '';
     else { const at = findPresent(state, said, { strict: true }); name = at !== -1 ? state.present[at].name : (findPersonKey(chars, said) || ''); }
@@ -2462,7 +2500,7 @@ export function lockedLooks(state, looks, pageText = '', userText = '') {
     const same = (a, b) => String(a || '').trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ') === String(b || '').trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ');
     if (entry && (findFact(entry, key) || (Array.isArray(entry.facts) ? entry.facts : []).some((f) => f && same(f.value, value)))) continue;
     if (out.some((m) => m.name === name && (m.key.toLowerCase() === key.toLowerCase() || same(m.value, value)))) continue;
-    out.push({ type: 'canon.lock', name, key, value });
+    out.push({ type: 'canon.lock', name, key, value: lasting });
   }
   return out;
 }
@@ -2608,6 +2646,20 @@ export function walkInFromPage(state, names, { page = '', pageAt = null, shown =
   return '';
 }
 /* M679/M680: the heal reads the page's ending and never undoes its reader — walkInFromPage, the one answer above */
+/* M681 (P12): a ledger written before — the main character's page carrying a core or an arc — is mended when the tale
+ * opens (chat.js healLedgerOnOpen), journaled, his own record untouched */
+/* M681 (W3): a seat the main character was given before M681 is let go when the tale opens */
+export function mcSeatLetGo(state) {
+  return Object.keys(state && state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {}).filter((k) => isMc(state, k) && !isDeadSeat(state.offscreen[k])).map((k) => ({ type: 'offscreen.clear', name: k, cause: 'the main character is never elsewhere' }));
+}
+export function mcPageOnlyHis(state) {
+  const mc = mcName(state);
+  if (!mc || mc === 'the player') return [];
+  const key = findPersonKey(state && state.characters ? state.characters : {}, mc);
+  const page = key ? state.characters[key] : null;
+  if (!page) return [];
+  return ['core', 'arc'].filter((f) => String(page[f] || '').trim()).map((f) => ({ type: 'people.set', name: key, field: f, text: '', clear: true, cause: 'his page is his record alone' }));
+}
 export function hereByTheNewestPage(state, pageText, { pageAt = null } = {}) {
   const s = state && typeof state === 'object' ? state : null;
   if (!s || !s.place || typeof s.place.name !== 'string' || !s.place.name.trim()) return [];
@@ -2977,7 +3029,7 @@ function journalUndo(next, entry) {
   const reversed = Number.isInteger(entry && entry.jid) ? next.journal.find((j) => j && j.id === entry.jid) : null;
   const p = reversed && Number.isInteger(reversed.p) ? reversed.p : (Number.isInteger(next.page) ? next.page : -1);
   next.journalSeq = (Number.isInteger(next.journalSeq) ? next.journalSeq : 0) + 1;
-  next.journal.push({ id: next.journalSeq, p, m: { type: 'undo.apply', undo: JSON.parse(JSON.stringify(entry.undo)), of: entry.words } });
+  next.journal.push({ id: next.journalSeq, p, m: { type: 'undo.apply', undo: JSON.parse(JSON.stringify(entry.undo)), of: entry.words, ...(reversed && reversed.m && reversed.m.story === true ? { story: true } : {}) } }); /* M681: the take-back of a write about the whole story outlives a fold as the write does */
   if (next.journal.length > JOURNAL_CAP) next.journal = next.journal.slice(next.journal.length - JOURNAL_CAP);
   const logEntry = appendLog(next, 'Taken back — ' + entry.words, null);
   logEntry.jid = next.journalSeq;
@@ -3010,6 +3062,7 @@ function applyUndo(next, undo) {
       ok = true;
     } else if (undo.kind === 'mc.restore') {
       next.sheet = { ...(next.sheet || { actors: {} }), playerName: undo.before || '' };
+      if (undo.page && next.characters && next.characters[undo.page.key]) next.characters = { ...next.characters, [undo.page.key]: { ...next.characters[undo.page.key], core: undo.page.core, arc: undo.page.arc } }; /* M681 */
       ok = true;
     } else if (undo.kind === 'place') {
       next.place = undo.before ? { name: undo.before } : null;

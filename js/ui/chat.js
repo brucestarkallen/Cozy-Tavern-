@@ -61,8 +61,8 @@ import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
 import { renderClock } from '../engine/clock.js'; /* M493 */
-import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, headerWithGround, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture, shareCheckpoints } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
-import { applyMutations, staleAfterJump, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart, noOneSpot, readerTimeOverHeader, handSetClockSince } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
+import { loadState, saveState, notify, snapshotState, withStoryWrites, restoreSnapshot, restoreNearestSnapshot, renderMasthead, headerWithGround, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture, shareCheckpoints } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
+import { applyMutations, staleAfterJump, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart, noOneSpot, readerTimeOverHeader, handSetClockSince, mcPageOnlyHis, mcSeatLetGo } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent, loadSent, pushSentToDevice, giveSentToTale } from '../sent.js'; /* M347: the words each page was sent, kept beside it; M636: read back for the sensors; M675: a tale's carried pages are given to it on the device */
@@ -1568,7 +1568,7 @@ export function initChat(ctx) {
     const state = await loadState(story.id);
     let healed = false;
     /* M455: and the hour the newest page's header gives, on the day it names — a clock a page behind is put right */
-    const muts = [...(handSetClockSince(state, told.indexOf(newest)) ? [] : headerMutations(pageText(newest), { day: state.clock && typeof state.clock.dayWords === 'string' ? state.clock.dayWords : '' }).filter((m) => m.type === 'clock.set')) /* M681 (S6): never over the clock he set by hand since */, ...wrongWalkIns( /* M679: and in the story's own words for the day — a clock that read "Monday" where his page said "Thornday" heals on the next opening */state, told.map((m) => ({ text: m.ooc ? '' : pageText(m) }))), ...hereByTheNewestPage(state, pageText(newest), { pageAt: told.indexOf(newest) }), ...walkedBackOverTheWorld(state, pageText(newest)), ...goneByTheirOwnPage(state, pageText(newest)), ...seatMadeCores(state), ...descriptorsThatAreNamed(state)]; /* M491: on opening too; M508: a core made of a seat is let go; M509-2: a descriptor that is a named person; M679: the newest page's own leave stands */
+    const muts = [...(handSetClockSince(state, told.indexOf(newest)) ? [] : headerMutations(pageText(newest), { day: state.clock && typeof state.clock.dayWords === 'string' ? state.clock.dayWords : '' }).filter((m) => m.type === 'clock.set')) /* M681 (S6): never over the clock he set by hand since */, ...wrongWalkIns( /* M679: and in the story's own words for the day — a clock that read "Monday" where his page said "Thornday" heals on the next opening */state, told.map((m) => ({ text: m.ooc ? '' : pageText(m) }))), ...hereByTheNewestPage(state, pageText(newest), { pageAt: told.indexOf(newest) }), ...walkedBackOverTheWorld(state, pageText(newest)), ...goneByTheirOwnPage(state, pageText(newest)), ...seatMadeCores(state), ...descriptorsThatAreNamed(state), ...mcPageOnlyHis(state), ...mcSeatLetGo(state)]; /* M681 (P12, W3): his page is his record alone, and he is never elsewhere; M491: on opening too; M508: a core made of a seat is let go; M509-2: a descriptor that is a named person; M679: the newest page's own leave stands */
     if (muts.length && !busy && !isReplaying() && !readersOut(story.id)) { /* M314: a queued moment is re-checked before it writes */
       const { state: next, applied } = applyMutations(state, muts);
       if (applied.length) { await saveState(story.id, next); notify(story.id); healed = true; }
@@ -4104,7 +4104,7 @@ export function initChat(ctx) {
         if (undoingRename) {
           return { silent: false, detail: '“' + removed + '” is “' + added + '” on this page. The rest of the story keeps “' + removed + '” — this reads as walking back a rename, not a new one.' };
         }
-        const r = applyMutations(st, [{ type: 'people.rename', from: removed, to: added, cause: who + '’s edit' }]);
+        const r = applyMutations(st, [{ type: 'people.rename', from: removed, to: added, cause: who + '’s edit', story: true }]); /* M681 (B13): a write about the whole story — it outlives a fold (state.js withStoryWrites) */
         if (r.applied.length) { await saveState(story.id, r.state); notify(story.id); words.push(r.applied[0].words.replace(/\.$/, '')); }
         /* the record */
         const mem = await loadMemory(story.id);
@@ -5449,7 +5449,7 @@ export function initChat(ctx) {
   async function foldTo(story, targetPage) {
     const current = await loadState(story.id);
     const snaps = await loadSnapshots(story.id);
-    const folded = healFold(foldJournal(current, snaps, targetPage, applyMutations)); /* M509-8 */
+    const folded = healFold(withStoryWrites(foldJournal(current, snaps, targetPage, applyMutations), current, applyMutations)); /* M509-8; M681 (B13): the whole story's writes stay */
     bumpChain(story.id);
     await saveState(story.id, folded);
     await saveSnapshots(story.id, snaps.filter((e) => !(e.snap && Number.isInteger(e.snap.page) && e.snap.page > targetPage)));
@@ -5498,8 +5498,10 @@ export function initChat(ctx) {
     } else {
       const order = list.filter((m) => m && m.role === 'user').map((m) => m.id);
       bumpChain(story.id);
+      const was = await loadState(story.id);
       const r = await restoreNearestSnapshot(story.id, order, userMsgId);
       if (!r) return false;
+      { const back = await loadState(story.id); const kept = withStoryWrites(back, was, applyMutations); if (kept !== back) { await saveState(story.id, kept); notify(story.id); } } /* M681 (B13) */
       if (!r.exact) pendingAudit.add(story.id);
       rewound = true;
     }
@@ -5524,7 +5526,7 @@ export function initChat(ctx) {
         let after = await loadState(story.id);
         if (hasClock(after) && !sameHour(after)) {
           if (boundarySnap && sameHour(boundarySnap)) {
-            const restored = healFold({ ...boundarySnap, pendingVerdict: null }); /* the whole ledger of that moment, its own heals with it */
+            const restored = healFold(withStoryWrites({ ...boundarySnap, pendingVerdict: null }, after, applyMutations)); /* the whole ledger of that moment, its own heals with it; M681 (B13): and the whole story's writes */
             bumpChain(story.id);
             await saveState(story.id, restored);
             notify(story.id);
@@ -7681,7 +7683,7 @@ export function initChat(ctx) {
     const known = await versionStateFor(story.id, msg.id, next);
     if (known) {
       bumpChain(story.id); /* M72: the version being left may still have readers in flight */
-      await saveState(story.id, known);
+      await saveState(story.id, withStoryWrites(known, await loadState(story.id), applyMutations)); /* M681 (B13): the whole story's writes, made since that version was left */
       notify(story.id);
     } else {
       const boundary = boundaryFor(history, msg.id);
@@ -8095,7 +8097,7 @@ export function initChat(ctx) {
       carried = nowState;
       exact = true;
     } else if ((nowState.journal || []).length && journalReaches(nowState, await loadSnapshots(story.id), kBranch)) {
-      carried = foldJournal(nowState, await loadSnapshots(story.id), kBranch, applyMutations);
+      carried = withStoryWrites(foldJournal(nowState, await loadSnapshots(story.id), kBranch, applyMutations), nowState, applyMutations); /* M681 (B13): the pages it copies carry the rename — so does its ledger */
       exact = true;
     }
     /* M71: a WRITER'S page, no journal (a story from before it): the checkpoint
@@ -8146,7 +8148,7 @@ export function initChat(ctx) {
        * four-page tale's first page is its start, never its tail */
       const laterPages = history.slice(at + 1).filter((m) => m && !m.hidden && m.role === 'assistant').length;
       const nearTail = laterPages <= 3 && at >= history.length / 2;
-      carried = (!reaches && nearTail) ? now : foldJournal(now, snaps, k === -1 ? -1 : k, applyMutations);
+      carried = (!reaches && nearTail) ? now : withStoryWrites(foldJournal(now, snaps, k === -1 ? -1 : k, applyMutations), now, applyMutations); /* M681 (B13) */
       exact = reaches;
     }
     /* M72: the referee's committed-fate timeline speaks in message ids — the

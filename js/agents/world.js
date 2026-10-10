@@ -647,6 +647,26 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
        * of the page's ending (apply.js walkInFromPage) */
       return !walksIn || !walkInFromPage(fresh, m.name, { page: assistantText, pageAt, shown: m.shown, judged: m.type === 'offscreen.set' });
     });
+    /* M681 — THE WORLD AGENT DOES NOT WRITE OVER THE SEAT THIS PAGE'S READER GAVE (the world audit's W4, made to happen on
+     * m680-001): the reader, reading the page closely, writes where someone went — "upstairs in the Wells house" — and the
+     * world agent, running after it on the same page, wrote its own guess over it ("the Bluebird Diner"). On this page the
+     * reader's place stands; the world may say it more fully (the same place, with what they are doing there), never move
+     * them elsewhere. A leave with no place ("last seen") is the world's to replace, as ever. */
+    if (Number.isInteger(pageAt)) {
+      const readerSeat = (name) => {
+        const own = (Array.isArray(fresh.journal) ? fresh.journal : []).filter((j) => j && j.p === pageAt && j.m && typeof j.m.name === 'string' && samePersonName(j.m.name, name));
+        const last = [...own].reverse().find((j) => (j.m.type === 'offscreen.set' && String(j.m.location || '').trim()) || (j.m.type === 'presence.leave' && String(j.m.to || '').trim()));
+        return last ? String(last.m.type === 'offscreen.set' ? last.m.location : last.m.to).trim() : '';
+      };
+      const words = (t) => new Set(String(t || '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 3 && !/^(?:the|and|with|from|into|onto|near|her|his|their|its)$/.test(w)));
+      read.mutations = read.mutations.filter((m) => {
+        if (!m || m.type !== 'offscreen.set' || typeof m.name !== 'string' || isDeadSeat({ location: m.location, activity: m.activity })) return true;
+        const theirs = readerSeat(m.name);
+        if (!theirs) return true;
+        const want = words(theirs); const said = words(m.location);
+        return want.size > 0 && [...want].every((w) => said.has(w)); /* the same place, said as fully or more */
+      });
+    }
   }
   /* M40: everyone the agent seats has a page. A seat without a people.set
    * in the same answer gets a minimal core from the seat itself, so the

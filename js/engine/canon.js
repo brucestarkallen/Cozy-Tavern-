@@ -51,12 +51,23 @@ export function findCanonKey(canon, name) {
 
 /* Find a fact on a character, by key, case-insensitively. Returns
  * {entry, index} or null. */
+/* M681 — ONE KEY FOR ONE LOOK (the people audit's P3, made to happen on m680-001): "Hair" and "hair colour" stood as two
+ * truths of one person ("Hair: long and black", "hair colour: brown" after a dye), "eye color" and "Eyes" the same — and the
+ * storyteller was told both. A key is compared in one spelling: lower case, "colour" as "color", a colour named after hair,
+ * eyes or skin is that look itself, an eye is the eyes. ("hair style" is still its own.) */
+export function lookKey(key) {
+  const k = String(key || '').toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/\bcolour\b/g, 'color');
+  const base = k.replace(/\s+color$/, '');
+  if (/^eyes?$/.test(base)) return 'eyes';
+  if (base === 'hair' || base === 'skin') return base;
+  return k;
+}
 export function findFact(entry, key) {
   if (!entry || !Array.isArray(entry.facts) || typeof key !== 'string') return null;
-  const wanted = key.trim().toLowerCase();
+  const wanted = lookKey(key);
   if (!wanted) return null;
   const index = entry.facts.findIndex(
-    (f) => f && typeof f.key === 'string' && f.key.trim().toLowerCase() === wanted
+    (f) => f && typeof f.key === 'string' && lookKey(f.key) === wanted
   );
   return index === -1 ? null : { entry: entry.facts[index], index };
 }

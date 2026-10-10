@@ -23,7 +23,7 @@ import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
 import { samePlace, seatAtScene } from '../engine/apply.js'; /* M403; M681: a seat at the scene's own place */
 import { seatForPerson, sameLooseEnd } from '../engine/people.js'; /* M398; M679: a loose end matched by sense, as the applier matches it */
-import { isHere, nameOnPage, samePersonName } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
+import { isHere, nameOnPage, samePersonName, oneMeaning } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
 import { shownOnPage, personBookKey, groundTheTellingStandsOn, narrationOf } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
 import { findRelationship } from '../engine/relationships.js';
 import { db } from '../store.js';
@@ -906,6 +906,14 @@ export function auditorScope(issues, state, { header = [], page = '', pageAt = n
      * word: the page that says it is why it was written, never its answer (LOOSE_ANSWERED_MEANS) — what answers it comes
      * on a page after, and the readers of that page are asked of it by name */
     if (m.type === 'people.note' && /^unthread$/i.test(String(m.field || '').trim()) && openedThisPage(m.name, m.text)) return true;
+    /* M681 (W6, the world audit — made to happen on m680-001): …and a thread opened from this very page is not closed on its
+     * word either: the page that opens a want is never its answer (his "Roska hunts the fence" thread, written by the reader,
+     * closed by the auditor reading the same page) */
+    if (m.type === 'thread.close' && Number.isInteger(pageAt)) {
+      const at = findThread(state && state.threads, m.title || m.name);
+      const t = at !== -1 ? state.threads[at] : null;
+      if (t && Number.isFinite(t.openedTurn) && t.openedTurn === pageAt + 1) return true; /* opened by this page's own readers (storyTurn = page + 1) */
+    }
     if (m.type === 'people.note') return String(m.field || '').trim().toLowerCase() !== 'unthread';
     /* someone already here who "comes in" is a move — the page reader's */
     /* M535: THE AUDITOR NEVER WALKS BACK IN SOMEONE THE NEWEST PAGE DOES NOT KEEP. His Bleach meeting broke up: the page
@@ -1140,6 +1148,10 @@ export function standingsHousekeeping(state, brief, castNotes, mc, stated = null
       const a = live[i]; const b = live[j];
       if (gone.has(a) || gone.has(b) || !samePersonLoose(a, b)) continue;
       const keep = a.length >= b.length ? a : b; const drop = keep === a ? b : a;
+      /* M681 — A NAME THAT MEANS TWO PEOPLE IS NOBODY'S TO MERGE (the people audit's P4, made to happen on m680-001): a standing
+       * under a bare "Rias" was folded into Rias Wells's while the ledger also kept Rias Gremory — whichever of them the beat
+       * was about. Only a shorter name that means ONE person in the whole ledger is folded into the fuller one. */
+      if (!oneMeaning(state, drop)) continue;
       if (isZero(rels[keep]) && !isZero(rels[drop])) {
         out.push({ type: 'rel.set', name: keep, p: rels[drop].p || 0, r: rels[drop].r || 0, s: rels[drop].s || 0, cause: 'the same person as ' + drop + ' — one standing' });
       }
@@ -1184,9 +1196,18 @@ export function standingsHousekeeping(state, brief, castNotes, mc, stated = null
    * carries numbers is not "zero" */
   const merged = out.length ? applyMutations(state, out).state.relationships : rels;
   for (const st of digits) {
-    const key = Object.keys(merged).find((k) => samePersonLoose(k, st.name));
+    /* M681 (P4's same fault, found by a search): the brief's "Rias" lands on the one standing it means — never the first of two
+     * Riases, and never a new standing under a name that means two people */
+    const keys = Object.keys(merged).filter((k) => samePersonLoose(k, st.name));
+    const key = keys.length === 1 ? keys[0] : (keys.find((k) => k.trim().toLowerCase() === String(st.name || '').trim().toLowerCase()) || null);
+    if (!key && (keys.length > 1 || !oneMeaning(state, st.name))) continue;
     const rel = key ? merged[key] : null;
-    if (isZero(rel) && (st.p || st.r || st.s)) {
+    /* M681 — A STANDING THE PAGES WORE DOWN TO ZERO IS NOT MISSING (the people audit's P6, made to happen on m680-001): his
+     * brief's "P+40" was written back over a standing three betrayals had brought to nothing — the house read zero as never
+     * set. Zero stands when a page moved it (a beat in its history that no hand, brief or founder set); the brief's digits
+     * are restored only to a standing the pages never touched. */
+    const earnedOnPages = Boolean(rel) && Array.isArray(rel.history) && rel.history.some((h) => h && typeof h.cause === 'string' && !/^the brief\b|^set\b|^the founder\b/i.test(h.cause.trim()));
+    if (isZero(rel) && (st.p || st.r || st.s) && !earnedOnPages) {
       out.push({ type: 'rel.set', name: key || st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (P:' + st.p + ' R:' + st.r + ' S:' + st.s + ') toward ' + (mc || 'the main character') + ' — restored' });
     }
   }

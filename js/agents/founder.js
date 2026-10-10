@@ -31,6 +31,7 @@ import { loadState, saveState, notify } from '../engine/state.js';
 import { renderWholeLedger } from '../engine/whole.js'; /* M259: what the ledger already says — all of it */
 import { applyMutations } from '../engine/apply.js';
 import { mcName } from '../engine/duels.js';
+import { samePersonName } from '../engine/names.js'; /* M681: one answer to "the same person?" */
 
 const MAX_TOKENS = 6000;
 
@@ -379,7 +380,14 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
   if (read.note === 'unusable' || read.note === 'cut short') return { applied: [], rejected: [], note: read.note, raw };
   if (stale && stale()) return null;
   const fresh = await loadState(storyId);
-  const { guarded, refusedByLock } = await guardFounding({ read, ledgerMc: mcName(fresh) !== 'the player' ? mcName(fresh) : '', connection, brief, castNotes, signal, thingsOnly });
+  const { guarded: founding, refusedByLock } = await guardFounding({ read, ledgerMc: mcName(fresh) !== 'the player' ? mcName(fresh) : '', connection, brief, castNotes, signal, thingsOnly });
+  /* M681 — THE FOUNDER NEVER WRITES OVER A STANDING THE PAGES MOVED OR HIS HAND SET (the same fault as the people audit's P6,
+   * found by a search for it): any edit of the brief changes its fingerprint and the founder reads it again — and wrote every
+   * stated standing back at the brief's digits, over everything the pages had earned since. A standing a page beat moved, or
+   * one he set, stands; a missing one, or one only ever set from the brief, takes the brief's digits as before. */
+  const pagesMoved = (name) => Object.entries(fresh.relationships && typeof fresh.relationships === 'object' ? fresh.relationships : {}).some(([k, r]) => samePersonName(k, name) && r && typeof r === 'object'
+    && (r.hand === true || (Array.isArray(r.history) && r.history.some((h) => h && typeof h.cause === 'string' && !/^the brief\b|^set\b|^the founder\b/i.test(h.cause.trim())))));
+  const guarded = founding.filter((m) => !(m && m.type === 'rel.set' && typeof m.name === 'string' && pagesMoved(m.name)));
   const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
   const rejected = [...rejectedByApplier, ...refusedByLock];
   const out = thingsOnly ? { ...next, thingsFounded: true } : { ...next, founded: { at: Date.now(), print: founderFingerprint({ brief, castNotes, cast, lore }) }, thingsFounded: true };

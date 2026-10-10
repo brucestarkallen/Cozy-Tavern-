@@ -32,8 +32,8 @@ const hashOf = (t) => fingerprint36(t);
 export async function loadPlansBook(storyId) {
   const b = await db.settings.get(PLANS_KEY(storyId));
   return b && typeof b === 'object' && Array.isArray(b.plans)
-    ? { plans: b.plans, readTo: Number.isFinite(b.readTo) ? b.readTo : -1, readHash: typeof b.readHash === 'string' ? b.readHash : '' }
-    : { plans: [], readTo: -1, readHash: '' };
+    ? { plans: b.plans, readTo: Number.isFinite(b.readTo) ? b.readTo : -1, readHash: typeof b.readHash === 'string' ? b.readHash : '', again: Array.isArray(b.again) ? b.again.filter((k) => Number.isInteger(k) && k >= 0) : [] }
+    : { plans: [], readTo: -1, readHash: '', again: [] };
 }
 
 export function plansAsk({ standing = [], pages = [], mc = '' } = {}) {
@@ -87,14 +87,17 @@ export function readPlansAnswer(raw) {
 
 /* the book with the answer written in: a plan laid out again is the newer telling (never a second copy), parts carried
  * out are marked, a plan ended leaves the standing ones and keeps its outcome */
-export function applyPlansAnswer(book, answer, { from = null, to = null, at = Date.now() } = {}) {
+export function applyPlansAnswer(book, answer, { from = null, to = null, at = Date.now(), again = false } = {}) {
   const plans = (book && Array.isArray(book.plans) ? book.plans : []).map((p) => ({ ...p, parts: (p.parts || []).map((x) => ({ ...x })), words: [...(p.words || [])] }));
   const standing = (title) => plans.find((p) => p.status === 'standing' && titleKey(p.title) === titleKey(title));
   for (const p of answer.fresh) {
     const page = Number.isInteger(p.page) && p.page >= 1 && (from == null || (p.page - 1 >= from && p.page - 1 <= to)) ? p.page - 1 : from;
     const had = standing(p.title);
     const fields = { title: p.title, by: p.by, goal: p.goal, parts: p.parts, words: p.words };
-    if (had) Object.assign(had, fields, { to: page });
+    /* M681: a page read AGAIN (rewritten in place) restates its own plan — the parts later pages carried out stay carried
+     * out, and the plan's last page stays the latest that touched it */
+    if (had && again) { const doneWas = (had.parts || []).map((x) => x && x.done); Object.assign(had, fields, { to: Math.max(Number(had.to) || 0, Number(page) || 0) }); had.parts = (had.parts || []).map((x, i) => (doneWas[i] ? { ...x, done: true } : x)); }
+    else if (had) Object.assign(had, fields, { to: page });
     else plans.push({ ...fields, status: 'standing', from: page, to: page, at });
   }
   for (const g of answer.progress) {
@@ -129,13 +132,35 @@ export async function runPlans({ connection, storyId, pages, mc = '', signal, ca
   if (book.readTo >= list.length) {
     const plans = plansTakenBackFrom(book.plans, list.length);
     const last = list[list.length - 1];
-    book = { plans, readTo: list.length - 1, readHash: hashOf(last ? last.text : '') };
+    book = { plans, readTo: list.length - 1, readHash: hashOf(last ? last.text : ''), again: (book.again || []).filter((k) => k < list.length) }; /* M681: a page still owed its second reading stays owed */
     await db.settings.set(PLANS_KEY(storyId), book);
+  }
+  /* M681 — A PAGE REWRITTEN IN PLACE IS READ AGAIN ALONE (the books audit's B6, made to happen on m680-001): a typo fixed on
+   * page 50 of 100 let go of every plan laid out from page 50 on and sent the reading back to page 50 — and the reading
+   * keeps only the newest 120,000 characters of what it is handed, so the plans of the pages it cut were gone for good. The
+   * pages after the one rewritten did not change: only what THAT page said is read again — the plans it closed stand open
+   * until it says so again, a plan born on it and not laid out again by its new words goes, and one laid out again keeps
+   * what later pages carried out. Reading then goes on from where it stood. */
+  let readAgain = 0;
+  for (const k of [...new Set(book.again || [])].sort((a, b) => a - b)) {
+    const pg = list[k];
+    if (!pg || !pg.text.trim() || k > book.readTo) { book = { ...book, again: (book.again || []).filter((x) => x !== k) }; continue; } /* gone, empty, or not read yet: nothing to read again */
+    const plans = (book.plans || []).map((p) => (Number.isFinite(p.closedAt) && p.closedAt === k ? (({ outcome: _o, closedAt: _c, ...rest }) => ({ ...rest, status: 'standing' }))(p) : p));
+    const askK = plansAsk({ standing: standingPlans({ plans }), pages: [pg], mc });
+    let readK = null;
+    for (let tries = 0; tries < PLANS_TRIES && !readK; tries += 1) readK = readPlansAnswer(await callLLM(connection, { system: askK.system, user: askK.user, maxTokens: PLANS_MAX_TOKENS, signal }));
+    if (!readK) return { wrote: false, why: 'its answer could not be used' }; /* the page stays owed (book.again) */
+    const laidAgain = new Set(readK.fresh.map((f) => titleKey(f.title)));
+    const kept = plans.filter((p) => !(p.status === 'standing' && Number.isFinite(p.from) && p.from === k && !laidAgain.has(titleKey(p.title))));
+    const next = applyPlansAnswer({ plans: kept }, readK, { from: k, to: k, again: true });
+    book = { ...book, plans: next.plans, again: (book.again || []).filter((x) => x !== k) };
+    await db.settings.set(PLANS_KEY(storyId), book);
+    readAgain += 1;
   }
   let start = book.readTo >= 0 ? book.readTo + 1 : Math.max(0, list.length - CATCH_UP_PAGES);
   if (book.readTo >= 0 && list[book.readTo] && hashOf(list[book.readTo].text) !== book.readHash) { start = book.readTo; book = { ...book, plans: plansTakenBackFrom(book.plans, start) }; } /* rewritten since read — M608: what it said goes with it */
   let slice = list.slice(Math.min(start, list.length)).filter((p) => p.text.trim());
-  if (!slice.length) return { wrote: false, why: 'nothing new to read' };
+  if (!slice.length) return readAgain ? { wrote: true, fresh: 0, progress: 0, closed: 0, readAgain } : { wrote: false, why: 'nothing new to read' };
   while (slice.length > 1 && slice.reduce((n, p) => n + p.text.length, 0) > PAGES_MAX_CHARS) slice = slice.slice(1);
   const ask = plansAsk({ standing: standingPlans(book), pages: slice, mc });
   let user = ask.user;
@@ -159,6 +184,9 @@ export async function pageRewritten(storyId, pageIndex) {
   if (!storyId || !Number.isInteger(pageIndex) || pageIndex < 0) return;
   const book = await loadPlansBook(storyId);
   if (book.readTo < pageIndex) return; /* not read yet — it will be */
-  await db.settings.set(PLANS_KEY(storyId), { ...book, plans: plansTakenBackFrom(book.plans, pageIndex), readTo: pageIndex - 1, readHash: '' }); /* M608 */
+  /* the newest page read is checked by its own fingerprint (runPlans: rewritten since read — M608 takes back what it said);
+   * any older page is read again alone (M681) */
+  if (pageIndex === book.readTo) { await db.settings.set(PLANS_KEY(storyId), { ...book, readHash: '' }); return; }
+  await db.settings.set(PLANS_KEY(storyId), { ...book, again: [...new Set([...(book.again || []), pageIndex])] });
 }
 

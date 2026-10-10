@@ -47,7 +47,7 @@ import { renderBodies, dedupeInjuries } from './bodies.js'; /* M485: the wounds 
 import { axisWords, AXES } from './relationships.js';
 import { renderOffscreen, isDeadSeat, findSeat } from './offscreen.js'; /* M680: the dead are nobody's company */
 import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge, blindSpots, renderBlindSpots } from './world.js'; /* M29: the world beyond the page */
-import { renderCanon } from './canon.js';
+import { renderCanon, lookKey } from './canon.js'; /* M681: one key for one look */
 import { renderFightLine, mcName } from './duels.js';
 import { migrateCharacters, healGhosts, partLookAlikes } from './people.js'; /* M485: the ghosts folded on load */
 import { storyTurn, samePlace, seatAtScene, broaderPlace, withinGround, canonNamesFor } from './apply.js'; /* M588: who is close by; M627: an area is no move; M680: truths under the name they are kept by */
@@ -231,7 +231,16 @@ function migrateCanon(canon) {
         && typeof f.key === 'string' && f.key.trim()
         && typeof f.value === 'string' && f.value.trim())
       .map((f) => ({ ...f, key: f.key.trim(), value: f.value.trim(), atMinutes: numOrNull(f.atMinutes) }));
-    if (facts.length) out[name] = { ...entry, facts };
+    /* M681 (P3): two keys for one look, written before — the later one stands, under the first one's key */
+    const byLook = new Map();
+    const folded = [];
+    for (const f of facts) {
+      const k = lookKey(f.key);
+      if (!byLook.has(k)) { byLook.set(k, folded.length); folded.push(f); continue; }
+      const at = byLook.get(k);
+      folded[at] = { ...f, key: folded[at].key };
+    }
+    if (folded.length) out[name] = { ...entry, facts: folded };
   }
   return out;
 }
@@ -1314,6 +1323,25 @@ export function renderMasthead(state) {
  * that rode that turn), and the referee's own timeline (refHistory) rides
  * with the current ledger — it prunes itself by message id, and a swipe
  * must still find its committed fate. */
+/* M681 — A WRITE ABOUT THE WHOLE STORY OUTLIVES ANY FOLD (the books audit's B13, made to happen on m680-001): his edit's
+ * ripple renames a person everywhere — the record's lines, the brief, the cast notes, every page — and in the ledger as a
+ * people.rename stamped with the ledger's page. A "Try again" of that page folded the ledger to the page before and the
+ * rename went with it, while every page, the record and the brief kept the new name: the ledger knew her by a name no page
+ * used. A write marked `story: true` (the ripple's rename, and the take-back of it) is laid again onto whatever a fold, a
+ * checkpoint or a version's own ledger brings back, in the order it was made, unless that ledger already holds it. */
+export function withStoryWrites(restored, current, applyMutationsFn) {
+  const mine = (Array.isArray(current && current.journal) ? current.journal : []).filter((e) => e && e.m && e.m.story === true);
+  if (!mine.length || !restored || typeof restored !== 'object') return restored;
+  const plain = (e) => { try { return JSON.stringify(e.m); } catch (err) { return '?'; } };
+  const held = new Map();
+  for (const e of (Array.isArray(restored.journal) ? restored.journal : [])) { if (e && e.m && e.m.story === true) { const k = plain(e); held.set(k, (held.get(k) || 0) + 1); } }
+  const missing = mine.filter((e) => { const k = plain(e); const n = held.get(k) || 0; if (n > 0) { held.set(k, n - 1); return false; } return true; }).sort((a, b) => (a.id || 0) - (b.id || 0));
+  if (!missing.length) return restored;
+  const page = restored.page;
+  const out = applyMutationsFn(restored, missing.map((e) => e.m)).state;
+  out.page = page;
+  return out;
+}
 export function journalKey(e) {
   try { return e.p + '|' + JSON.stringify(e.m); } catch (err) { return e.p + '|?'; }
 }

@@ -39,7 +39,7 @@ import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 
 import { nameOnPage, isHere, samePersonName, oneMeaning, foldName } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
 import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey, noOneSpot, deathToldOf, comesInAtTheEnd, readerTimeOverHeader } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
 import { headerMutations, headerDress, closeBy, headerCells } from '../engine/state.js'; /* M446: did this page move the ground? */
-import { isMc, findPersonKey } from '../engine/people.js';
+import { isMc, findPersonKey, seatForPerson } from '../engine/people.js'; /* M681: the dead's seat */
 import { isDeadSeat, seatNowWords } from '../engine/offscreen.js'; /* M680: the dead, and a seat said as every reader says it */
 import { findRelationship } from '../engine/relationships.js'; /* M641: who has no standing yet */
 import { publicMoment } from '../engine/world.js'; /* M509-15: a moment the whole room saw */
@@ -531,6 +531,9 @@ export function openWoundsBlock(state, pageText = '') {
     const open = (body && Array.isArray(body.injuries) ? body.injuries : []).filter((i) => i && !i.healed && typeof i.what === 'string' && i.what.trim());
     if (!open.length) continue;
     if (!(isHere(state, name) || isMc(state, name) || nameOnPage(scene, name))) continue; /* the people of this page */
+    /* M681 (P5, the people audit — made to happen on m680-001): the dead are not asked about — "Old Hesk — a crossbow bolt
+     * through the chest" stood among the wounds to decide on every page that named his body */
+    { const seat = seatForPerson(state, name); if (seat && isDeadSeat(seat.entry)) continue; }
     for (const i of open.slice(0, 4)) rows.push({ name, what: i.what.trim(), treated: i.treated === true });
     if (rows.length >= 12) break;
   }

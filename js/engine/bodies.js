@@ -136,6 +136,16 @@ export function bodyPartOf(what) {
   let part = ''; let at = Infinity;
   for (let i = 0; i < BODY_PARTS.length; i += 1) { const m = BODY_PART_RES[i].exec(w); if (m && m.index < at) { at = m.index; part = BODY_PARTS[i]; } }
   if (!part) return '';
+  /* M681 — THE BACK OF HIS HAND IS HIS HAND (the people audit's P1, made to happen on m680-001): "a bruise on the back of his
+   * hand" was a wound on his BACK (and folded into one with a real one there, M484); "the back of his head", "the side of her
+   * face" the same. A region word followed by "of … <a part>" names that part — with its side, when it says one. */
+  if (part === 'back' || part === 'side') {
+    const of = w.slice(at).match(/^(?:back|side)s?\s+of\s+(?:(?:the|his|her|their|its|my|your|one|both)\s+)?(?:(left|right)\s+)?([a-z]+(?:\s+arm)?)/);
+    if (of) {
+      const named = BODY_PARTS.find((p, i) => BODY_PART_RES[i].test(of[2]) && new RegExp('^' + p + 's?$').test(of[2]));
+      if (named && named !== part) return (of[1] ? of[1] + ' ' : '') + named;
+    }
+  }
   return (side && side.index < at + 24 ? side[1] + ' ' : '') + part;
 }
 export function addInjury(bodies, name, { what, sev, treated } = {}, clockMinutes, atTurn) {
@@ -149,9 +159,14 @@ export function addInjury(bodies, name, { what, sev, treated } = {}, clockMinute
   if (part) {
     const same = next[key].injuries.find((i) => i && !i.healed && bodyPartOf(i.what) === part);
     if (same) {
+      /* M681 — A WOUND TOLD AGAIN KEEPS ITS DRESSING (the people audit's P10, made to happen on m680-001): the reader tells a
+       * standing wound again on a later page ("the cut along her forearm", treated not said, or false by habit) and the
+       * bandage was gone from the ledger — the storyteller was told it bled untended. Treated stays treated unless the
+       * wound is worse than it was (new harm under the dressing); a treatment said now is written. */
+      const worse = clampSev(sev) > clampSev(same.sev);
       same.what = words || same.what;
       same.sev = Math.max(clampSev(same.sev), clampSev(sev));
-      same.treated = Boolean(treated);
+      same.treated = Boolean(treated) || (Boolean(same.treated) && !worse);
       same.worsenedAtTurn = Number.isFinite(atTurn) ? atTurn : same.worsenedAtTurn;
       return next;
     }
@@ -182,9 +197,10 @@ export function dedupeInjuries(bodies) {
       if (!part) { kept.push(inj); continue; }
       const first = byPart.get(part);
       if (!first) { byPart.set(part, inj); kept.push(inj); continue; }
+      const worse = clampSev(inj.sev) > clampSev(first.sev); /* M681 (P10): treated stays treated unless the wound grew worse */
       first.what = inj.what || first.what;
       first.sev = Math.max(clampSev(first.sev), clampSev(inj.sev));
-      first.treated = Boolean(inj.treated);
+      first.treated = Boolean(inj.treated) || (Boolean(first.treated) && !worse);
       if (Number.isFinite(inj.atTurn)) first.worsenedAtTurn = inj.atTurn;
     }
     body.injuries = kept;

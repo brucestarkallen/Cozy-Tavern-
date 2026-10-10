@@ -209,6 +209,7 @@ export function setThread(threads, { title, owner, heat, next, with: other } = {
   if (!entry.heat) entry.heat = 'hot';
   if (cleanText(next)) entry.next = undoubled(cleanText(next, 1000));
   entry.atTurn = Number.isFinite(atTurn) ? atTurn : (entry.atTurn ?? null);
+  if (at === -1 && Number.isFinite(atTurn)) entry.openedTurn = atTurn; /* M681 (W6): the page that opened it — never its answer */
   if (at === -1) list.push(entry); else list[at] = entry;
   while (list.length > THREADS_MAX) {
     let worst = 0;
