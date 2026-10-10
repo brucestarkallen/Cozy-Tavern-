@@ -595,3 +595,20 @@ test('M681-56 THE WORLD’S WRITES FOR A PAGE WHOSE READER FAILED ARE ALL THAT P
   eq(folded.worldBrief, null, 'a fold to the page before keeps no word of it');
   eq(folded.worldShown.length + folded.threads.length + Object.keys(folded.factions).length + Object.keys(folded.knowledge).length + Object.keys(folded.offscreen).length, 0, 'nor its window, thread, faction, fact or seat');
 });
+
+test('M681-43 WITH NO DOSSIER, WHAT THE NOTE SAYS OF THEM IS READ THROUGH HIS STORY TOO (P8’s same fault, found by a search): the regex-section note says canon’s Personality, Abilities and Trivia whole — “She later became captain of the 13th Division” rode every page of a story where she never did', async () => {
+  const { canonBeforeSend } = await import('../../js/canon/bridge.js');
+  const RUKIA = () => ({ name: 'Rukia Kuchiki', found: true, kind: 'character', wiki: 'bleach', aliases: ['Rukia'], ts: 1,
+    sections: { identity: 'Rukia Kuchiki is a Shinigami of the Gotei 13.', personality: 'Rukia is reserved and dutiful.', trivia: 'She later became captain of the 13th Division. She draws rabbits.' } });
+  const house = m681CanonHouse({ judge: (t) => (/captain/.test(t) ? 'later' : 'holds') });
+  try {
+    const story = await m681CanonStory('Oda of the 13th, no dossier', 'A Bleach story after the war. Oda is the new captain of the 13th Division; Rukia Kuchiki is his lieutenant.', {
+      canon_grounding_wiki: 'bleach', canon_grounding_wiki_ok: { wikis: 'bleach', name: 'x', fp: '(manual)', manual: true, ts: 1 }, canon_grounding_cache: { rukia: RUKIA() } });
+    const state = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Oda' }, { type: 'presence.enter', name: 'Oda' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state;
+    await saveState(story.id, state);
+    const note = await canonBeforeSend({ story, state, messages: [{ id: 'u1', role: 'user', text: 'I hand Rukia the duty roster.' }], connection: M681_CONN });
+    assert(house.asks.lens.length === 1 && house.asks.lens[0].some((s) => /became captain/.test(s)), 'her trivia is among what the lens judges: ' + JSON.stringify(house.asks.lens));
+    assert(/draws rabbits/.test(note), 'what holds is still said: ' + note);
+    assert(!/became captain/.test(note), 'a captaincy his story never gave her is not: ' + note);
+  } finally { house.restore(); }
+});

@@ -60,6 +60,12 @@ export function lensStatements(entry) {
    * every reader of a face (the ledger's locks, the note, the room's card) reads it through the lens. */
   physicalParts(s.physical).forEach((t, i) => add('s.physical', i, t));
   sentences(s.look).forEach((t, i) => add('s.look', i, t));
+  /* M681 (P8's same fault, found by a search): with no dossier the note says canon's Personality, Abilities and Trivia
+   * sections whole (canon/grounding.js, its regex-section fallback) — and its Voice whenever the dossier holds no quotes —
+   * none of it ever judged: the powers of the last arc, the rank in a trivia line. Each sentence is a statement too, there
+   * where the note reads it. */
+  if (!d) for (const f of ['personality', 'abilities', 'trivia']) sentences(s[f]).forEach((t, i) => add('s.' + f, i, t));
+  if (!(d && Array.isArray(d.voice) && d.voice.length)) sentences(s.voice).forEach((t, i) => add('s.voice', i, t));
   return out;
 }
 
@@ -78,7 +84,7 @@ export function lensFingerprint(entry) {
  * still applies to the words it judged (it is not current, so it is asked again, face and all): with every lens of every
  * story gone stale at once, the next page's note would have ridden on canon's END — the marriage, the captaincy — for
  * every person whose new lens was not back within the page's wait. */
-const FACE_FIELDS = new Set(['s.physical', 's.look']);
+const FACE_FIELDS = new Set(['s.physical', 's.look', 's.personality', 's.abilities', 's.trivia', 's.voice']); /* every field M681 brought under the lens */
 function heldFor(meta, entry) {
   const store = meta && meta[LENS_KEY] && typeof meta[LENS_KEY] === 'object' ? meta[LENS_KEY] : {};
   const held = store[nameKey(entry)];
@@ -249,6 +255,7 @@ export function overlayFrom(entry, statements, verdicts) {
   if (s) {
     const sec = {};
     for (const f of ['identity', 'relationship', 'biography', 'look']) if (s[f]) sec[f] = of('s.' + f).map((x) => x.out).filter(Boolean).join(' ');
+    for (const f of ['personality', 'abilities', 'trivia', 'voice']) if (s[f] && of('s.' + f).length) sec[f] = of('s.' + f).map((x) => x.out).filter(Boolean).join(' '); /* M681: judged only where the note reads them (lensStatements) */
     if (s.physical) sec.physical = of('s.physical').map((x) => x.out).filter(Boolean).join('; '); /* M681: the features that hold, as the extension writes them */
     if (Object.keys(sec).length) overlay.sections = sec;
   }
