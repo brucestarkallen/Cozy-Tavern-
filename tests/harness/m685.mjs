@@ -379,3 +379,17 @@ test('M685-27 a valid JSON prefix cut off by the provider is not certified as a 
     assert(r.unfinished && r.pending.length, 'provider truncation remains unfinished despite parseable JSON');
   } finally { globalThis.fetch = old; }
 });
+
+test('M685-28 stopping a worker that preserves partial work and returns normally is still reported as stopped', async () => {
+  const { enqueueWork, stopWork, workIsRunning } = await import('../../js/agents/queue.js');
+  const id = 'm685-stop-partial'; let started;
+  const ready = new Promise((r) => { started = r; });
+  const job = enqueueWork(id, { name: 'auditor', run: ({ signal }) => new Promise((resolve) => {
+    signal.addEventListener('abort', () => resolve({ detail: 'partial work saved', unfinished: true }), { once: true });
+    started();
+  }) });
+  await ready; stopWork(id);
+  const result = await job;
+  assert(result.stopped && !result.ok, 'Stop must not become a successful completed audit');
+  assert(!workIsRunning(id), 'the stopped worker releases its lane');
+});

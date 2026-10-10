@@ -1,0 +1,186 @@
+{
+  "version": "m685-001",
+  "status": "verification_in_progress",
+  "baseline_commit": "613c1749e56524f30d371e518e86cd06e0b65920",
+  "product_commit": "ec30f19466afceb838eac5443ac6376cf9631c81",
+  "model_calls": "Scripted providers only; no real user story or paid model calls.",
+  "preserved_ancestors": [
+    "4a19de3",
+    "8880a0",
+    "f087472",
+    "63f87",
+    "71b22e8",
+    "613c174"
+  ],
+  "new_laws": {
+    "total": 28,
+    "on_m685": {
+      "passed": 28,
+      "failed": 0
+    },
+    "on_m684": {
+      "passed": 3,
+      "failed": 25
+    },
+    "baseline_controls": [
+      "ok \u2014 M685-16 source recovery cannot overwrite an identity written while the audit waited",
+      "ok \u2014 M685-20 source recovery never overwrites a newer core written by another worker while the audit waits",
+      "ok \u2014 M685-23 an auditor followup cannot duplicate an already completed first-pass repair"
+    ],
+    "baseline_failures": [
+      "FAIL \u2014 M685-1 the auditor repairs a known missing People page even when its first answer reports no issues",
+      "FAIL \u2014 M685-2 the auditor recovers a person absent from every ledger book by reading original folded writer introductions",
+      "FAIL \u2014 M685-3 a blocked name deletion gets its reason back and is repaired by rename without losing records",
+      "FAIL \u2014 M685-4 an auditor attempt using a blocked operation is not silently discarded as a clean audit",
+      "FAIL \u2014 M685-5 a still-missing known character stays pending after the bounded repair and never becomes a clean audit",
+      "FAIL \u2014 M685-6 a failed repair followup preserves useful first-pass corrections",
+      "FAIL \u2014 M685-7 an automatic audit reuses unchanged source receipts but checks edited source text again",
+      "FAIL \u2014 M685-8 invented source quotes cannot create people or complete a source review",
+      "FAIL \u2014 M685-9 the auditor can correct a wrong current mood from the newest ending, even after a reader stamped it",
+      "FAIL \u2014 M685-10 the auditor can restore a missing personal loose end that its own prompt asks it to add",
+      "FAIL \u2014 M685-11 the auditor can repair an incorrect now from exact current evidence without reviving an old moment",
+      "FAIL \u2014 M685-12 the auditor never rewinds a clock the writer advanced after the newest page",
+      "FAIL \u2014 M685-13 a source changed during the review cannot create an obsolete person",
+      "FAIL \u2014 M685-14 an unrelated followup correction cannot hide the first unresolved finding",
+      "FAIL \u2014 M685-15 the world follows up an absent person with no seat, not only people with old seats",
+      "FAIL \u2014 M685-17 a useful source recovery survives an unusable main audit answer",
+      "FAIL \u2014 M685-18 an unresolved finding survives a later empty audit and clears only when its repair lands",
+      "FAIL \u2014 M685-19 a disproved earlier concern can be withdrawn only with actual source evidence",
+      "FAIL \u2014 M685-21 an edited brief invalidates the audit answer still in flight",
+      "FAIL \u2014 M685-22 a successful world placement without a story clock does not remain perpetually overdue",
+      "FAIL \u2014 M685-24 a failed main audit preserves completed source recovery and its receipts for the next attempt",
+      "FAIL \u2014 M685-25 original pages are divided to fit a small auditor context instead of remaining unread forever",
+      "FAIL \u2014 M685-26 a complete audit answer never silently drops findings after the twentieth",
+      "FAIL \u2014 M685-27 a valid JSON prefix cut off by the provider is not certified as a complete audit"
+    ]
+  },
+  "new_dom_scenario": {
+    "name": "DOM-M685-1",
+    "on_m684": "fails: original source recovers the missing princess",
+    "on_m685": "passes, with DOM-1 and DOM-2 setup"
+  },
+  "focused_neighbours": {
+    "passed": 98,
+    "failed": 0,
+    "total_available_at_run": 1494,
+    "scope": "M685, M41, M259, M679 before the last two completeness laws"
+  },
+  "focused_completeness": {
+    "passed": 31,
+    "failed": 0,
+    "total_available": 1496,
+    "scope": "M685, M47, M110, M123"
+  },
+  "fast": {
+    "profile": "fast",
+    "source_digest": "188cf23002e11c299c9786cebb0e28c03af17caafdc97ea22d7e13d03f5c62b7",
+    "runtime_digest": "093ca0464d99b7c780d25ea88393c4a90e3fe6a647d04a5be4847fd723b0b0bb",
+    "scope": "focused development checks",
+    "complete": true,
+    "checks": {
+      "harness": {
+        "exit": 0,
+        "seconds": 1.72,
+        "digest": "cc0d90231afd165f6e170c29c3ac393976015f4d969ef9a64737fd287d08d52d",
+        "log": "/tmp/gates/m685fast2_harness.log",
+        "reused": false
+      },
+      "walk": {
+        "exit": 0,
+        "seconds": 4.58,
+        "digest": "fc4a07de3f190bdf32f2c61eeb56b290d4e96e56fb287cc8fbd53b23ee5eea01",
+        "log": "/tmp/gates/m685fast2_walk.log",
+        "reused": false
+      },
+      "lint": {
+        "exit": 0,
+        "seconds": 3.85,
+        "digest": "632fc5aa226eba2f05194d5b8cf77353bcb924e320ccd647bf152c3939572a3a",
+        "log": "/tmp/gates/m685fast2_lint.log",
+        "reused": false
+      },
+      "check_runner_unit": {
+        "exit": 0,
+        "seconds": 0.27,
+        "digest": "e35005f495fe0ea77c933ca5fa63096486ced9b11e572d2189aea14c2d03aa0f",
+        "log": "/tmp/gates/m685fast2_check_runner_unit.log",
+        "reused": false
+      },
+      "boot_ready": {
+        "exit": 0,
+        "seconds": 6.3,
+        "digest": "cd4adc4beab17a56cdf9ee8450fa2cbb2be8ea635be9d3dc6184735bc1854f32",
+        "log": "/tmp/gates/m685fast2_boot_ready.log",
+        "reused": false
+      },
+      "academy_ui": {
+        "exit": 0,
+        "seconds": 7.7,
+        "digest": "ba11099e6a910dfecc45a390fb77203c6a7e1663ab5ff567ccd267e0186f5bb6",
+        "log": "/tmp/gates/m685fast2_academy_ui.log",
+        "reused": false
+      }
+    },
+    "source_unchanged_during_checks": true,
+    "seconds": 17.9
+  },
+  "interrupted_release": {
+    "tag": "m685a",
+    "complete": false,
+    "checks": {
+      "harness": {
+        "exit": 1,
+        "seconds": 164.05,
+        "digest": "d4a62ced28aadb2f83f11e0f5dc7f7e1d1b61ca83f952191832f6d58221cedb3",
+        "log": "/tmp/gates/m685a_harness.log",
+        "reused": false
+      }
+    },
+    "harness": {
+      "passed": 1491,
+      "failed": 3,
+      "failures": [
+        "M47-2 old mood prompt ban",
+        "M110-1 old PLAYER-only fact ban",
+        "M123-1 old moment prompt ban"
+      ]
+    },
+    "disposition": "Stopped before the rest of the release matrix. Updated obsolete prompt expectations while retaining runtime protections; then added and proved complete finding and provider cutoff regressions before restarting."
+  },
+  "release": {
+    "tag": "m685c",
+    "status": "running"
+  },
+  "interrupted_release_b": {
+    "tag": "m685b",
+    "complete": false,
+    "checks": {
+      "harness": {
+        "exit": 0,
+        "seconds": 164.89,
+        "digest": "a8004727e0a0664145f3b23fd311f051db17e8c2a1def24de763cd53f6f7361d",
+        "log": "/tmp/gates/m685b_harness.log",
+        "reused": false
+      },
+      "walk": {
+        "exit": 1,
+        "seconds": 503.93,
+        "digest": "81483d66b07461a6d202dfae5b1bca1a84afcdbe32de37a709e4788d2e592689",
+        "log": "/tmp/gates/m685b_walk.log",
+        "reused": false
+      }
+    },
+    "harness": {
+      "passed": 1496,
+      "failed": 0
+    },
+    "walk": {
+      "passed": 296,
+      "failed": 1,
+      "failures": [
+        "DOM-262: Stop became a completed audit banner"
+      ]
+    },
+    "disposition": "A worker returning partial work after cancellation was marked successful. Added causal M685-28 and checked the existing DOM-262 plus DOM-M685-1 before restarting release."
+  }
+}

@@ -291,6 +291,7 @@ async function runJob(job) {
         /* M207: a job that works in rounds renews its leash each round */
         const value = await job.run({ signal, stale: isStale, renew });
         done();
+        if (stoppedByHand) return await stopped(); /* M685: a reader may save partial work and return normally after abort; his Stop still wins. */
         if (isStale()) { markWorkerRunning(storyId, name, false); return { ok: false, stale: true, why: 'left behind' }; }
         /* The job may ask for silence (a switch was off, nothing to note);
          * every honest run is otherwise written on the workers line. */

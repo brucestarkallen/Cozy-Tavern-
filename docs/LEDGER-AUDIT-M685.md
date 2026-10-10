@@ -2,7 +2,7 @@
 
 Jovan requested an actual audit of Scene, People, World and Books after an existing
 story still lost Princess Alexia. Baseline: published M684, commit
-613c1749e56524f30d371e518e86cd06e0b65920. Implementation checkpoint: 6fd7667.
+613c1749e56524f30d371e518e86cd06e0b65920. Implementation checkpoints: 6fd7667 and ec30f19; release candidate: ec30f19.
 Release verification is in progress; do not treat this document as a green gate.
 
 ## Reproduced failures and repairs
@@ -39,7 +39,9 @@ missing personal promise when exact source evidence supports the change. Current
 moment corrections must use the newest ending. The existing protections for manual
 edits, actual departures, deaths, page earned relationships and main character
 ownership remain. A clock advanced by hand no longer gets rewound by an audit of the
-older header. Changed source pages or a changed brief invalidate an in flight audit.
+older header. Changed source pages or a changed brief invalidate an in flight audit. The queue
+also honors Stop when a worker returns normally after preserving partial work;
+cancellation cannot turn into a completed audit banner.
 
 World recovery now includes people with no location record, as well as stale records.
 After an audit restores people, the world worker handles any owed review in the same
@@ -77,8 +79,8 @@ and the implementation paths, rather than source text assertions added for M685.
 Final focused development profile: 6 checks green in 17.90 seconds. The earlier
 focused profile passed in 17.99 seconds. Ledger and neighboring selection before the last two completeness laws: 98 passed, 0 failed, out of 1494 total
 harness laws. Final completeness and prompt selection: 31 passed out of 1496 total. The real button scenario passes with its two app setup scenarios.
-Twenty seven M685 laws cover new behavior and preservation controls. Against the published M684 baseline, 24 fail and three preservation controls pass;
-all 27 pass on M685. The new button scenario also fails on M684 at the missing identity
+Twenty eight M685 laws cover new behavior and preservation controls. Against the published M684 baseline, 25 fail and three preservation controls pass;
+all 28 pass on M685. The new button scenario also fails on M684 at the missing identity
 assertion and passes on M685. Release counts will be recorded in audit/results/m685.json when the
 release run finishes. Tests use scripted providers; no paid story model calls.
 
@@ -86,7 +88,13 @@ The first release attempt completed its full harness with 1491 passed and three
 failures requiring the obsolete prompt restrictions in M47, M110 and M123. It was
 stopped before the remaining release checks. Those checks now permit evidenced
 repairs while retaining the runtime protections; the new completeness laws were
-then proved before restarting the release.
+then proved before restarting the release. The second release attempt passed the
+complete harness (1496/1496), then passed 296/297 walk scenarios. DOM-262 exposed a
+real cancellation report regression: a worker returning partial work after Stop
+was marked successful by the queue. M685-28 fails before the queue fix and passes
+after; the unchanged DOM-262 and DOM-M685-1 both pass with their setup scenarios.
+The final release runs again after that fix; neither interrupted attempt is a
+complete green release.
 
 An early diagnostic full harness was stopped before completion while implementation
 continued. It is not a release result. Its failures led to checking repeat repairs and
