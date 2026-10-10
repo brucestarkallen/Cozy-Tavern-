@@ -1890,7 +1890,9 @@ test('DOM-27 the ledger reads the pages it missed — while the writer plays and
     await db.messages.append(st.id, { role: 'assistant', text: 'The scene turns quietly, page ' + i + '.' });
   }
   /* the ledger read pages 0..2; 3, 4 and 5 went unread (an outage), and none of them changed anything */
-  await saveState(st.id, { ...emptyState(), page: 2, place: { name: 'The kitchen' }, present: [{ name: 'Jovan' }] });
+  const missedState = emptyState();
+  missedState.sheet.playerName = 'Jovan'; // the fixture's sole present person is the main character
+  await saveState(st.id, { ...missedState, page: 2, place: { name: 'The kitchen' }, present: [{ name: 'Jovan' }] });
   await saveMemory(st.id, { window: 20, nodes: [] });
   for (const w of ['keeper', 'extractor', 'scribe', 'world']) await noteWorkerRun(st.id, w, { ok: true, detail: 'well' });
   /* a worker marked stumbling holds the light, so the idle reading does not close the gap before the writer
@@ -1912,7 +1914,7 @@ test('DOM-27 the ledger reads the pages it missed — while the writer plays and
     /* the chain read page 3 (the oldest missed) and the new page 6 out of turn; the idle reading, the moment
      * the chain is done, reads 4 and 5 — and the mark takes 6 without reading it again */
     await until(async () => (await loadState(st.id)).readTo === 6, 'the reading mark to reach the newest page', 30000);
-    await until(() => queuedCount(st.id) === 0 && lamp() === 'green', 'the light to come back green: ' + lamp(), 20000);
+    await until(() => queuedCount(st.id) === 0 && lamp() === 'green', 'the light to come back green: ' + lamp(), 20000).catch(async (err) => { throw new Error(err.message + ' | workers=' + JSON.stringify(await db.settings.get('workers:' + st.id))); });
     const total = ledgerReads() - before;
     eq(total, 4, 'four readings in all — pages 3, 4 and 5 once each and the new page once, nothing read twice (' + opened + ' on opening)');
     eq((await loadState(st.id)).readAhead.length, 0, 'nothing is left waiting');
