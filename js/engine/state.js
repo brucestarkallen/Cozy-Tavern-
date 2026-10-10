@@ -1113,7 +1113,22 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   /* M680 (the people audit): the dead carry no wounds the storyteller is told of, and stand toward no one — "Old Hesk — a crossbow
    * bolt through the chest (severe, untreated)" and "Old Hesk — warm" were read every page after his death; the Dead line
    * (offscreen.js) says it once */
-  const deadNow = (name) => { const seat = findSeat(state.offscreen || {}, name); return Boolean(seat && isDeadSeat(seat.entry)); };
+  /* M680 (its gate, perf_send): asked of every wounded person and every standing, each a whole search of the seats — the
+   * send's worst frame went past its budget. Nobody can be dead without a death seat: with none, the answer is no at once;
+   * with some, a name that cannot reach one of them is no too, and each name is asked once. The answer is findSeat's. */
+  const seatsNow = state.offscreen && typeof state.offscreen === 'object' ? state.offscreen : {};
+  const graves = Object.fromEntries(Object.entries(seatsNow).filter(([, e]) => isDeadSeat(e)));
+  const graveKeys = Object.keys(graves);
+  const deadSaid = new Map();
+  const deadNow = (name) => {
+    if (!graveKeys.length) return false;
+    if (deadSaid.has(name)) return deadSaid.get(name);
+    const mayReach = Boolean(findSeat(graves, name)) || graveKeys.some((k) => samePersonName(k, name));
+    const seat = mayReach ? findSeat(seatsNow, name) : null;
+    const said = Boolean(seat && isDeadSeat(seat.entry));
+    deadSaid.set(name, said);
+    return said;
+  };
   const bodyLines = renderBodies(Object.fromEntries(Object.entries(state.bodies && typeof state.bodies === 'object' ? state.bodies : {}).filter(([n]) => !deadNow(n))), clockMinutes, turnCount)
     .split('\n').filter(Boolean).slice(0, whole ? Infinity : BODIES_TOP);
   if (bodyLines.length) sections.push({ shed: 3, text: bodyLines.join('\n') });

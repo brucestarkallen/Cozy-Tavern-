@@ -201,6 +201,7 @@ export function personBookKey(state, book, name, finder) {
  * him. Each name in the room is read to the name her truths are kept under (M419's one person, one name in every book). */
 export function canonNamesFor(state, names) {
   const canon = state && state.canon && typeof state.canon === 'object' ? state.canon : {};
+  if (!Object.keys(canon).length) return Array.isArray(names) ? names : []; /* nothing locked: nobody's name to look up (the send's cost, perf_send) */
   return (Array.isArray(names) ? names : []).map((n) => (typeof n === 'string' && n.trim() ? personBookKey(state, canon, n, findCanonKey) || n : n));
 }
 /* M423: the page a NEW entry is written under is found the way a seat is (M257 — a hard fact): the same letters, or the
