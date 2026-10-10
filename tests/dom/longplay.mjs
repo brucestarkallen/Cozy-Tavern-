@@ -100,14 +100,15 @@ house.state.workerAnswer = (body, sys) => {
     ] });
   }
   if (/keep the ledger/i.test(sys)) {
-    /* the extractor reads the page's header for the hour, and seats whoever the page shows arriving */
-    const h = user.match(/\[The house on Elm — [A-Za-z]+, ([A-Za-z]+) (\d+), (\d+) \| (\d+):(\d+) \|/);
+    /* Read the NEW page, not the earlier identity context also in this request. */
+    const latest = user.slice(user.lastIndexOf('And the storyteller answered:'));
+    const h = latest.match(/\[The house on Elm — [A-Za-z]+, ([A-Za-z]+) (\d+), (\d+) \| (\d+):(\d+) \|/);
     const muts = [];
     /* the first page names the main character (the extractor's mc.set, as the real one does with no brief to found from) */
     if (/Jovan comes home/.test(user)) muts.push({ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The house on Elm' }, { type: 'presence.enter', name: 'Jovan', position: 'at the kitchen table' });
     if (h) muts.push({ type: 'clock.set', year: Number(h[3]), month: MONTHS.indexOf(h[1]) + 1, day: Number(h[2]), hour: Number(h[4]), minute: Number(h[5]) });
-    if (/Aurora steps in/.test(user)) muts.push({ type: 'presence.enter', name: 'Aurora', position: 'just inside the door', attire: 'a wet coat' });
-    const p = user.match(/(Person\d+) entered the room/);
+    if (/Aurora steps in/.test(latest)) muts.push({ type: 'presence.enter', name: 'Aurora', position: 'just inside the door', attire: 'a wet coat' });
+    const p = latest.match(/(Person\d+) entered the room/);
     if (p) muts.push({ type: 'presence.enter', name: p[1] });
     muts.push({ type: 'mode.snapshot', flags: script.turn % 2 ? ['group'] : ['socialField'] });
     return JSON.stringify({ mutations: muts });
