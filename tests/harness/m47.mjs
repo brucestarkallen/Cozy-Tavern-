@@ -22,18 +22,15 @@ test('M47-1 mode.snapshot diffs the whole board: on what is named, off what is n
   eq(junk.applied.length, 0, 'unknown flags are ignored; the board unchanged');
 });
 
-test('M47-2 the reader is shown the board and told to restate it whole; the mood is the page reader’s alone', async () => {
+test('M47-2 the reader is shown the board and told to restate it whole; the auditor needs evidence to correct the reader’s mood', async () => {
   const s = emptyState(); s.mode.travel = true; s.place = { name: 'x' }; s.present = [{ name: 'Rias' }];
   const p = buildExtractorMessages({ state: s, userText: 'u', assistantText: 'a' });
   assert(/Moods on the board right now: travel — restate the whole board with mode\.snapshot\./.test(p.user));
   assert(/THE MOOD IS STATED WHOLE, EVERY PAGE/.test(p.system) && /stepped out of the car is\s*not in transit/.test(p.system.replace(/\n/g, ' ')));
   assert(/mode\.snapshot/.test(p.system) && !/mode\.clear \{/.test(p.system), 'the reader states the board, it does not un-tick');
   const a = buildAuditorMessages({ state: s, pages: [{ role: 'assistant', text: 'x' }] });
-  /* M259: the auditor was told to restate the mood while M128's scope threw
-   * every mode.snapshot it wrote away — an instruction with no door. The mood
-   * is the page reader's (held on every page by M92's re-ask); the auditor is
-   * told so, and a mood fix from it never lands. */
-  assert(/NOT YOUR JOB — THE MOMENT: posture, position, dress, the mood board/.test(a.system), 'the auditor is told the mood is not its job');
+  /* M685: the auditor can repair a wrong board, but may not invent one. */
+  assert(/THE MOMENT IS NOT YOURS TO INVENT/.test(a.system) && /exact shown quote/.test(a.system), 'the auditor must ground a correction in source evidence');
   const { auditorScope } = await import('../../js/agents/auditor.js');
-  eq(auditorScope([{ what: 'a stale mood', fix: 'clear it', mutations: [{ type: 'mode.snapshot', flags: [] }] }], s).length, 0, 'and a mood fix from it never lands');
+  eq(auditorScope([{ what: 'a stale mood', fix: 'clear it', mutations: [{ type: 'mode.snapshot', flags: [] }] }], s).length, 0, 'an unsupported mood change still cannot land');
 });

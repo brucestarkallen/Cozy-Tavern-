@@ -169,8 +169,7 @@ function law({ mc }) {
     'present who left pages ago or absent who is plainly here; a wound healed still open; a standing',
     'wrongly zero; a thread the pages closed still hot or a live agenda missing; a witnessed fact',
     'with no knowledge line; the clock or the ground wrong on a page with no header line; a duplicate.',
-    'A reading with two or three findings is usual; a reading with fifteen is a reading of the',
-    'moment, and wrong.',
+    'Report every supported discrepancy you find. There is no target count of findings; a large damaged ledger may need many repairs.',
     '',
     'THE BRIEF WINS: when the PAGES themselves contradict the brief — a wrong name, a wrong relation, a',
     'wrong role, a person somewhere the brief says they cannot be, a fact the brief settles written the',
@@ -304,8 +303,7 @@ export function parseAuditorAnswer(raw) {
          * change to the ledger) was then dropped as "no finding" */
         pages: i.pages === true || i.pages === 1 || (typeof i.pages === 'string' && /^\s*(?:true|yes|y|1)\s*$/i.test(i.pages)),
         mutations: Array.isArray(i.mutations) ? i.mutations.filter((m) => m && typeof m === 'object' && typeof m.type === 'string') : [],
-      }))
-      .slice(0, 20);
+      }));
     const resolved = (Array.isArray(parsed.resolved) ? parsed.resolved : []).filter((r) => r && typeof r.what === 'string' && typeof r.shown === 'string' && typeof r.why === 'string' && r.why.trim()).map((r) => ({ what: r.what.trim(), shown: r.shown, why: r.why.trim() }));
     return { issues, resolved, note: 'ok' };
   } catch (err) {
@@ -430,12 +428,15 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     looked.push(...(seen || []));
     raw = text;
     read = parseAuditorAnswer(text);
-    if (finishReason === 'length' && read.note === 'unusable') read.note = 'cut short';
+    if (finishReason === 'length') {
+      read.cutShort = true;
+      if (read.note === 'unusable') read.note = 'cut short';
+    }
     if (read.note === 'ok') break;
     user = prompt.user + '\n\nYour last answer was not a JSON object with an "issues" list. Answer with the JSON object only, and keep it short.';
   }
-  const answerProblem = read.note !== 'ok' ? 'the auditor did not return a complete usable reading' : '';
-  if (answerProblem && !sourceReview) return { applied: [], rejected: [], issues: [], note: read.note, raw, looked, unfinished: true, pending: [answerProblem] };
+  let answerProblem = read.cutShort ? 'the auditor ran out of answer space before completing its reading' : read.note !== 'ok' ? 'the auditor did not return a complete usable reading' : '';
+  if (read.note !== 'ok' && !sourceReview) return { applied: [], rejected: [], issues: [], note: read.note, raw, looked, unfinished: true, pending: [answerProblem] };
   if (stale && stale()) return null;
   /* M680 (the scene audit): ITS SECOND CALL IS MADE BEFORE IT LOADS WHAT IT WRITES OVER. The brief's digits were asked of the
    * model after the ledger was read and before it was saved — and whatever another writer saved in that minute (the
@@ -450,7 +451,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const unresolved = (r) => [...missingLedgerPeople(r.out, castNames), ...r.issues.filter((i) => i.refused?.length || (!i.landed && !(i.pages && i.fix))).map((i) => i.what + (i.refused?.length ? ': ' + i.refused.join('; ') : ': no repair was supplied'))];
   const originalFindings = [...(state.audit?.unresolved || []), ...unresolvedFindings(result)];
   const withdrawals = [...(read.resolved || [])];
-  let pending = [...unresolved(result), ...originalFindings.filter((i) => !findingSettled(i, result, withdrawals, documents)).map((i) => i.what)];
+  let pending = [...unresolved(result), ...(answerProblem ? [answerProblem] : []), ...originalFindings.filter((i) => !findingSettled(i, result, withdrawals, documents)).map((i) => i.what)];
   let followupFailed = false;
   if (pending.length && !stale?.()) {
     renew?.();
@@ -467,6 +468,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       looked.push(...(reply.looked || []));
       const corrected = parseAuditorAnswer(reply.text);
       if (corrected.note === 'ok' && reply.finishReason !== 'length') {
+        answerProblem = '';
         // Check only this pass's remaining findings, but retain all valid writes
         // from the first pass. Rejected instructions are not replayed blindly.
         const firstWrites = result.applied.map((a) => a.mutation);

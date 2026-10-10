@@ -363,3 +363,19 @@ test('M685-25 original pages are divided to fit a small auditor context instead 
     assert(!r.unfinished);
   });
 });
+
+test('M685-26 a complete audit answer never silently drops findings after the twentieth', async () => {
+  const { parseAuditorAnswer } = await import('../../js/agents/auditor.js');
+  const answer = { issues: Array.from({ length: 25 }, (_, i) => ({ what: 'Source correction ' + i, mutations: [{ type: 'canon.lock', name: 'Princess Alexia', key: 'fact ' + i, value: 'value ' + i }] })) };
+  eq(parseAuditorAnswer(JSON.stringify(answer)).issues.length, 25, 'every complete finding reaches validation');
+});
+
+test('M685-27 a valid JSON prefix cut off by the provider is not certified as a complete audit', async () => {
+  const id = await tale('m685-cut-prefix', { mutations: [{ type: 'people.set', name: 'Princess Alexia', field: 'core', text: 'Second Princess.' }] });
+  const old = globalThis.fetch;
+  globalThis.fetch = async () => new Response('data: ' + JSON.stringify({ choices: [{ delta: { content: '{"issues":[]}' } }] }) + '\n\ndata: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'length' }] }) + '\n\ndata: [DONE]\n\n', { headers: { 'Content-Type': 'text/event-stream' } });
+  try {
+    const r = await auditLedger({ connection, storyId: id });
+    assert(r.unfinished && r.pending.length, 'provider truncation remains unfinished despite parseable JSON');
+  } finally { globalThis.fetch = old; }
+});

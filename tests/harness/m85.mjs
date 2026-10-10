@@ -565,7 +565,7 @@ test('M110-1 the auditor reads answered turns only — a trailing writer\'s page
   eq(answeredOnly([{ role: 'user', text: 'x' }]).length, 0);
   eq(answeredOnly(list.slice(0, 2)).length, 2, 'a story ending on a STORY page is whole');
   const m = buildAuditorMessages({ state: emptyState(), brief: '', castNotes: '', record: '', pages: [{ role: 'assistant', text: 'b' }] });
-  assert(/A PLAYER page states what the main character ATTEMPTS/.test(m.system) && /Never write a fact from a PLAYER page alone/.test(m.system), 'the attempt law');
+  assert(/A PLAYER page states what the main character ATTEMPTS/.test(m.system) && /an attempt is\s*not a guaranteed result/.test(m.system) && /may directly establish names, ranks, family and biography/.test(m.system), 'the attempt law');
 });
 
 test('M111-1 the hard tokens: a record line that lost a name or a figure the pages held is caught in code, whatever the model said', async () => {
@@ -656,7 +656,7 @@ test('M121-1 the second reader knows a lie from a slip and a language from a gli
 test('M123-1 the moment is not the auditor\'s nor the second reader\'s: posture, position and the scene\'s hour-to-hour state are the extractor\'s; drift is against what lasts', async () => {
   const { buildAuditorMessages } = await import('../../js/agents/auditor.js');
   const a = buildAuditorMessages({ state: emptyState(), brief: '', castNotes: '', record: '', pages: [{ role: 'assistant', text: 'b' }] });
-  assert(/NOT YOUR JOB — THE MOMENT: posture, position/.test(a.system) && /a reading with fifteen is a reading of the/.test(a.system), 'the auditor keeps to what lasts');
+  assert(/THE MOMENT IS NOT YOURS TO INVENT/.test(a.system) && /exact shown quote/.test(a.system), 'the auditor corrects evidenced mistakes without independently simulating a different moment');
   const { buildContinuityMessages } = await import('../../js/agents/continuity.js');
   const c = buildContinuityMessages({ state: emptyState(), assistantText: 'x' });
   /* M267: the second reader is shown only what lasts — the moment is not in its view to report */

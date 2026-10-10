@@ -1,3 +1,27 @@
+# M685: complete ledger audit recovery
+
+Jovan asked for a real audit across Scene, People, World and Books, especially the
+missing Princess Alexia and auditor proposals that failed without fixing the ledger.
+
+1. Recover missing identities from exact original answered source quotations, even
+   when folded summaries and every surviving ledger book omit them. Cache source
+   receipts by content. Historical identities do not invent present whereabouts.
+2. Give blocked proposals their actual reason and one bounded correction attempt.
+   Preserve useful work, carry unfinished findings across later audits, and require
+   a matching repair or an evidence backed withdrawal before closing a concern.
+3. Permit evidence backed corrections to wrong current mood and state, and missing
+   personal promises. Preserve manual edits, source authority, page endings, deaths,
+   journal replay and earned relationships.
+4. After identity restoration, run any owed world review in the same audit job using
+   the configured world worker, without a new story turn or invented elapsed time.
+5. Keep source and state changes during model calls safe. Interrupted readings retain
+   completed source work and report the remainder as unfinished.
+6. Verify the actual audit button, all existing ledger regressions and release gates.
+   Record the complete section audit and exact results in docs/LEDGER-AUDIT-M685.md
+   and audit/results/m685.json. Preserve the original histories and canon copy.
+
+The earlier specifications remain below as release records.
+
 # M684: one coherent ledger
 
 Jovan's October 10 report: people introduced in his input vanish from the scene
