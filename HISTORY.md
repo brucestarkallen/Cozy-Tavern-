@@ -18347,3 +18347,10 @@ Appearance selection, persistence, typing, phone/desktop layout and reduced moti
 Existing academy pixel/performance checks run on either coat with the same original assertions and numeric budgets.
 The night preflight passed actual worst-background AA contrast on both screen sizes. Final combined release results
 and publication follow below only after their checks complete.
+
+M683 review correction: the night Settings section headings/labels still carried the daytime brown. The release
+start was stopped before its first suite completed; those colours and the navigation now use the night palette.
+The real UI test judges every house-room heading/label against its actual solid card background. On the first M683
+commit it fails at 1.08:1; with the override it passes the 4.5:1 threshold. The revised fast checkpoint passes in
+15.01 s. Runner cancellation also terminates its child group rather than leaving background checks behind.
+The DOM resend law additionally fails on the unmodified M682 application with one refused banner still visible.

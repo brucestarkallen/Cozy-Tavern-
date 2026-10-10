@@ -201,7 +201,9 @@ Settings → Backup → **Take a copy** / **Bring a copy back**.
 
 Plain ES modules, IndexedDB for storage, a service worker for the offline
 shell. No frameworks, no CDNs, no fonts fetched from elsewhere. See
-`AGENTS.md` if you're here to tend the code, and `tests/smoke.md` for the
+[AGENTS.md](AGENTS.md) and [the editing workflow](docs/WORKFLOW.md) if you're here
+to tend the code. The fast checks take seconds; the release keeps the full recovery
+and performance coverage. See `tests/smoke.md` for the
 evening walkthrough — the by-hand checklist that keeps every milestone
 honest.
 

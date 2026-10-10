@@ -837,3 +837,10 @@ html[data-theme='academy-night'] .settings-section .btn:hover { background: #f4d
 html[data-theme='academy-night'] .settings-section .btn-quiet,
 html[data-theme='academy-night'] .settings-section .btn-danger { background: #172333; color: #e6ba72; border-color: #66543b; }
 html[data-theme='academy-night'] .settings-section .btn-danger { color: #f1a394; }
+
+html[data-theme='academy-night'] .settings-section > h3:first-child { color: #f0dfb6; }
+html[data-theme='academy-night'] .settings-section > h3:first-child:hover { color: #f4d49e; }
+html[data-theme='academy-night'] .settings-section .lbl { color: #b2ab9b; }
+html[data-theme='academy-night'] .settings-quicknav { background: #101923; }
+html[data-theme='academy-night'] .settings-quicknav .nav-chip { background: #172333; border-color: #66543b; color: #d0c6b4; }
+html[data-theme='academy-night'] .settings-quicknav .nav-chip.current { background: #213244; color: #f0dfb6; border-color: #e6ba72; }

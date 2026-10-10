@@ -53,6 +53,16 @@ with tempfile.TemporaryDirectory(prefix='cozy-academy-ui-') as data:
                     page.wait_for_function('(c) => document.documentElement.dataset.theme === c', arg=coat)
                     page.evaluate('async () => { await window.__cozy.booksStatus.pushAll(); }')
                     assert page.evaluate("async () => (await import('/js/store.js')).db.settings.get('theme')") == coat
+                    if coat == 'academy-night':
+                        ratios = page.evaluate(r"""() => {
+                          const rgb = s => (s.match(/[\d.]+/g) || []).slice(0,3).map(Number);
+                          const lum = s => rgb(s).map(v => v / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((a,v,i) => a + v * [.2126,.7152,.0722][i],0);
+                          return [...document.querySelectorAll('.settings-section:not([hidden]) > h3, .settings-section:not([hidden]) .lbl')].map(el => {
+                            const a = lum(getComputedStyle(el).color), b = lum(getComputedStyle(el.closest('.settings-section')).backgroundColor);
+                            return (Math.max(a,b) + .05) / (Math.min(a,b) + .05);
+                          });
+                        }""")
+                        assert ratios and min(ratios) >= 4.5, ratios
                     page.screenshot(path=str(OUT / (label + '-' + coat + '-settings.png')))
                     page.evaluate("location.hash = '#/'")
                     page.wait_for_function("!document.querySelector('#view-chat').hidden && document.documentElement.dataset.thread === 'story'")

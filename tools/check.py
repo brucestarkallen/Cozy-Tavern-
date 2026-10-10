@@ -148,6 +148,10 @@ def main():
             try:
                 process = subprocess.Popen(job['command'], cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
                 code = process.wait(timeout=1200)
+            except KeyboardInterrupt:
+                os.killpg(process.pid, signal.SIGTERM)
+                process.wait(timeout=10)
+                raise
             except subprocess.TimeoutExpired:
                 os.killpg(process.pid, signal.SIGKILL)
                 process.wait()
