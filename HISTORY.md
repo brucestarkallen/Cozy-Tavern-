@@ -18290,3 +18290,15 @@ The remaining release step is authenticated publication (Canon first, Cozy secon
 and Canon's required fresh remote-clone checks. The recovery copy preserves both histories and patches, with actual
 validation totals and the two failed-attempt explanations. Green tests establish their exercised cases, not a claim
 that every missing historical reload log had the reproduced startup cause.
+
+PUBLICATION COMPLETE, October 10, 2026: the owner's uploaded credential restored authenticated native Git access.
+Remote refs were checked before and after each push. Canon main advanced without force from
+4b71b1878305087654b91a714754c65bafec9255 to 5aed2347289df000f9dd833846998e4df4c51930, version 0.68.3.
+A fresh clone from GitHub then passed ESM syntax, proof 629/629 and simulation 455/455, each EXIT 0.
+Only after those remote checks did Cozy main advance from 9fb30dccbd0ebb674823a7dfb237776487a16a62 to the
+complete m682-001 release 8f0a1e74dd666f5701feae42f2e602327959f107; m682-wip was published at that same commit.
+Both Cozy refs were verified on GitHub after the atomic push. Original M680, M681 and Claude's final saved fixes
+remain ancestors of the release. This final HANDOFF/HISTORY publication record only changes documentation;
+the validated application and corrected fixtures remain byte-identical. The recovery package is refreshed with the
+published histories, validation totals and Canon's actual fresh remote-clone gate. The earlier blocked-publication
+entries remain here as the record of that stage, not the current release status.

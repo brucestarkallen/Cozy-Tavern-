@@ -32,15 +32,16 @@ Application source is 271df114d28194ab467eb9e5cf0c5fddb6298fcb; corrected harnes
 aac7f6629c7b4e414327b5d61199d967d8d56d45. Subsequent commits only record final results. No application code/CSS changed
 after codex682e, so its other checks validate that identical source. Read actual EXIT codes and totals;
 audit/gates.sh's own exit is not sufficient.
-Publication is blocked by GitHub integration write access (403 Resource not accessible by integration); native Git also
-has no usable authentication. The new code is not yet on main. All older main commits remain intact. Update this status
-after publication; never tell him this checkout is on his phone before GitHub main has been verified.
-The final remote read still shows Cozy main 9fb30dccbd0ebb674823a7dfb237776487a16a62 and Canon main
-4b71b1878305087654b91a714754c65bafec9255. Cozy's published release already includes the complete earlier audit, the
-canon voice-quote lens and S9. This new m682-001 work remains local. Canon's prepared main is
-5aed2347289df000f9dd833846998e4df4c51930. Restore write access, fetch and compare both remote heads, then publish Canon
-first and Cozy second without force; run Canon's required fresh remote-clone gate afterward. A recovery package with
-both Git histories, patches and the validation record is prepared outside this checkout. The older checkpoints below are retained as history and describe their own versions.
+PUBLICATION COMPLETE, October 10, 2026: both releases are on GitHub main. The uploaded credential restored native
+Git write access; the earlier integration denial did not lose or change any code. Canon main is
+5aed2347289df000f9dd833846998e4df4c51930, version 0.68.3. A fresh clone of that remote main passed ESM syntax,
+proof 629/629 and simulation 455/455 after the push. Cozy release commit
+8f0a1e74dd666f5701feae42f2e602327959f107 is published as m682-001 on main and m682-wip; this publication record
+only changes documentation. All pushes are fast forwards. The entire earlier audit and both final Claude fixes
+remain ancestors. The phone receives m682-001 when its launcher next updates; this session does not observe the phone.
+The verified recovery package contains both complete Git histories, patches, final checks and the publication record.
+No application code/CSS changed after the final validation. The older checkpoints below are retained as history and
+describe their own versions; the current continuation block and newest HISTORY entry are authoritative.
 
 ---
 
