@@ -31,7 +31,7 @@
  * "arriving in about 15 minutes" / "due now" / "overdue" against the clock.
  */
 
-import { samePersonName } from './names.js'; /* M420: one answer to "the same person?" for who-knows-what */
+import { samePersonName, isHere } from './names.js'; /* M420: one answer to "the same person?" for who-knows-what; M681: "here?" for the world's word */
 import { mcName } from './duels.js'; /* M543: the main character, by the one answer */
 import { findSeat, isDeadSeat } from './offscreen.js'; /* M680: no voice from the dead (a cycle with offscreen.js: both are read only when called) */
 
@@ -689,11 +689,23 @@ function copyFactions(factions) {
   return out;
 }
 
+/* M681 — TWO FACTIONS THAT SHARE A WORD ARE TWO FACTIONS (found while giving factions their letting-go, W7). nearKey's last
+ * rule takes ONE shared word of four letters or more when only one key has it — so "the Red Hand" answered to "the Black
+ * Hand" by "hand": a faction.set for the Red Hand wrote its stance and its move over the Black Hand's, and the Red Hand was
+ * never written at all (made to happen on 3d28628). A name found loosely is that faction only when neither name holds a
+ * telling word the other lacks — the words that say WHICH group, not what kind of group it is ("House Vanderbilt" is
+ * "the Vanderbilt family"; "Ravenwood council" is "Ravenwood town council"). */
+const GROUP_WORDS = new Set(['the', 'and', 'of', 'family', 'house', 'clan', 'household', 'council', 'guild', 'order', 'gang', 'crew', 'band', 'company', 'court', 'circle', 'society', 'brotherhood', 'sisterhood', 'league', 'party', 'faction', 'group', 'town', 'city', 'squad', 'division', 'corps', 'army', 'cult', 'church', 'temple', 'school', 'academy', 'club', 'team', 'firm', 'studio', 'syndicate', 'cartel']);
+const tellingWords = (t) => new Set(keyOf(t).split(/[^\p{L}\p{N}]+/u).filter((w) => w.length > 1 && !GROUP_WORDS.has(w)));
 export function findFactionKey(factions, name) {
   const wanted = keyOf(name);
   if (!wanted) return null;
   const safe = factions && typeof factions === 'object' ? factions : {};
-  return nearKey(Object.keys(safe), name);
+  const key = nearKey(Object.keys(safe), name);
+  if (!key || keyOf(key) === wanted) return key;
+  const a = tellingWords(name); const b = tellingWords(key);
+  const lacks = (x, y) => [...x].some((w) => !y.has(w));
+  return lacks(a, b) && lacks(b, a) ? null : key;
 }
 
 export function setFaction(factions, name, { stance, agenda, move } = {}, atTurn) {
@@ -710,7 +722,17 @@ export function setFaction(factions, name, { stance, agenda, move } = {}, atTurn
   return next;
 }
 
-export function renderFactions(factions, top = FACTIONS_RENDER) {
+/* M681 — A FACTION'S MOVE SAYS HOW OLD IT IS (the world audit's W7). A faction's "last move: sent a lawyer to the hotel" was
+ * read to the storyteller as this hour's news for as long as the ledger kept it — forty pages on, with nothing moved since —
+ * while a seat says its age (M300) and a fact says when it was learned (M336). Past the same few pages a fact waits before
+ * it says its age, the move says when it was made. `nowTurn` is storyTurn (pages); no turn, no age (as before). */
+export function factionMoveWords(f, nowTurn) {
+  const move = String((f && f.move) || '').replace(/\.+$/, '');
+  if (!move) return '';
+  const age = Number.isFinite(nowTurn) && f && Number.isFinite(f.atTurn) ? nowTurn - f.atTurn : 0;
+  return 'last move' + (age >= KNOWLEDGE_OLD_AFTER ? ' (about ' + age + ' pages ago)' : '') + ': ' + move;
+}
+export function renderFactions(factions, top = FACTIONS_RENDER, nowTurn = null) {
   const safe = copyFactions(factions);
   const rows = Object.entries(safe)
     .map(([name, f]) => ({ name, f, at: Number.isFinite(f.atTurn) ? f.atTurn : -1 }))
@@ -720,12 +742,25 @@ export function renderFactions(factions, top = FACTIONS_RENDER) {
     const bits = [];
     if (f.stance) bits.push(f.stance);
     if (f.agenda) bits.push('wants ' + f.agenda.replace(/\.+$/, ''));
-    if (f.move) bits.push('last move: ' + f.move.replace(/\.+$/, ''));
+    if (f.move) bits.push(factionMoveWords(f, nowTurn)); /* M681 (W7) */
     return name + ' — ' + (bits.join('; ') || 'stands unchanged');
   }).join('\n');
 }
 
 /* ---------- arrivals ---------- */
+
+/* M681 — AN APPROACH THAT NEVER LANDED IS NOBODY ON THE WAY (the world audit's W5). Since M645 an approach three hours past
+ * its hour is not said ("overdue by about 3 days" told nothing true) — but every other reader still took the stance as a
+ * road: the Elsewhere list ranked the lapsed approach FIRST, above someone truly arriving in ten minutes, and it took one of
+ * the storyteller's six lines with no arrival left to tell; the auditor's seat law counted it "on the way to the main
+ * character", so a passer-through whose arrival never came was carried for ever; the people block recalled them as coming.
+ * One answer for all of them: on the way is toward or seeking, and — on the clock — not past the hour by more than this. */
+export const APPROACH_LAPSES_AFTER = 180; /* minutes past the arrival hour */
+export function onTheWay(entry, clockMinutes) {
+  if (!entry || typeof entry !== 'object' || (entry.stance !== 'toward' && entry.stance !== 'seeking')) return false;
+  if (Number.isFinite(entry.arrivesAtMinutes) && Number.isFinite(clockMinutes) && clockMinutes - entry.arrivesAtMinutes > APPROACH_LAPSES_AFTER) return false;
+  return true;
+}
 
 /* Speak a seat's approach against the clock. `entry` is an offscreen seat;
  * `clockMinutes` the story clock (null when unset). '' when the seat
@@ -748,7 +783,7 @@ export function renderArrival(entry, clockMinutes) {
        * days — likely already here or delayed" rode the storyteller's list of who is elsewhere, page after page, for as
        * long as nobody moved that person on. Three hours past its hour the approach is stale: nothing is said of it
        * (the seat's own age says the rest: "as of 3 days ago; likely elsewhere by now"). */
-      else if (-delta <= 180) bits.push('overdue by about ' + describeMinutes(-delta) + ' — likely already here or delayed');
+      else if (-delta <= APPROACH_LAPSES_AFTER) bits.push('overdue by about ' + describeMinutes(-delta) + ' — likely already here or delayed');
       else return '';
     } else if (Number.isFinite(entry.etaMinutes)) {
       bits.push('about ' + describeMinutes(entry.etaMinutes) + ' away');
@@ -890,31 +925,92 @@ export function voicesBeyondTheRoom(voices, state) {
     return !(mc && mc !== 'the player' && samePersonName(mc, who));
   });
 }
-export function renderWorldBrief(brief, turnNow, pageNow, state = null) {
-  if (!brief || typeof brief !== 'object') return '';
-  if (brief.empty) return '';
-  /* M85: the voices are the reader's, never the storyteller's — a brief
-   * that holds only voices says nothing to the wire. */
-  if (!(brief.pressure && brief.pressure.length) && !(brief.ripe && brief.ripe.length) && !brief.twb) return '';
-  /* M162: pages when both stamps are there (see normalizeBrief); a brief
-   * written before this law still ages the old way, so nothing is lost. */
-  const age = Number.isFinite(pageNow) && Number.isFinite(brief.atPage)
+/* M162: pages when both stamps are there (see normalizeBrief); a brief written before this law still ages the old way, so
+ * nothing is lost. */
+export function briefAge(brief, turnNow, pageNow) {
+  if (!brief || typeof brief !== 'object') return 0;
+  return Number.isFinite(pageNow) && Number.isFinite(brief.atPage)
     ? Math.max(0, pageNow - brief.atPage)
     : (Number.isFinite(turnNow) && Number.isFinite(brief.atTurn) ? Math.max(0, turnNow - brief.atTurn) : 0);
-  if (age > BRIEF_STALE_TURNS) return '';
+}
+/* M681 — THE WORLD'S WORD DOES NOT TELL THE ARRIVAL OF SOMEONE ALREADY HERE (the world audit's W1). The brief is free text,
+ * kept for four pages: "Rias is on her way from the clubhouse — about 15 minutes out" was written while she was away, the
+ * next page walked her in, and the storyteller was told for pages on that she could reach the scene — beside her own card
+ * in Here now (and the world agent writes such a line itself from a seat it has not yet let go). A line is that when its
+ * SUBJECT is someone here (never the main character — he is the scene) and what is said of them is a coming: arriving, on
+ * the way, heading here, due, turning up, walking in, reaching him. A name in a possessive ("Rias's father arrives") or as
+ * the one reached ("Kiba's call could reach Rias") is not the subject. M543's window and M544's voices answer the same
+ * question for their parts. */
+/* a coming to the scene — never a going elsewhere ("on her way home", "heading back to the clubhouse", "due at the gala"):
+ * those are her own plans, and a line about them stands */
+const AWAY = '(?!\\s+(?:home|out|off|away|back|elsewhere|upstairs|downstairs|to|into|across|up|down|through|past|for)\\b)';
+const COMING = '(?:arriv(?:e|es|ing|al)'
+  + '|approach(?:es|ing)?'
+  + '|(?:is|are)\\s+(?:still\\s+)?(?:coming|headed|heading)' + AWAY
+  + '|head(?:s|ed|ing)?\\s+(?:here|this\\s+way|our\\s+way|his\\s+way|over\\s+here|towards?\\s+(?:him|you|the\\s+scene))'
+  + '|on\\s+(?:his|her|their|its|the)\\s+way' + AWAY
+  + '|en\\s+route' + AWAY
+  + '|due\\s+(?:here|now|any|in\\s+\\d|within)'
+  + '|reach(?:es|ing)?\\s+(?:him|you|the\\s+scene|this\\s+scene|the\\s+door)'
+  + '|(?:be|get|make\\s+it)\\s+(?:back\\s+)?here'
+  + '|turn(?:s|ing)?\\s+up|show(?:s|ing)?\\s+up|walk(?:s|ing)?\\s+in|com(?:e|es|ing)\\s+(?:in|by|over|here)|drop(?:s|ping)?\\s+by|stop(?:s|ping)?\\s+by'
+  + '|\\d+\\s+minutes?\\s+(?:out|away))';
+const BRIDGE = '(?:\\s*,[^,.;:!?]{1,60},)?(?:\\s+(?:is|are|will|would|could|can|may|might|should|must|has|have|be|been|still|already|now|likely|probably|soon|just|finally|also|about|set|expected|going|plans|means|intends|to|then))*\\s+';
+const NAME_RE = '\\p{Lu}[\\p{L}\\p{M}\'’-]*(?:\\s+\\p{Lu}[\\p{L}\\p{M}\'’-]*){0,3}';
+const SUBJECT_RE = new RegExp(NAME_RE + '(?:\\s+(?:and|&)\\s+' + NAME_RE + ')*', 'gu'); /* "Rias and Akeno arrive" is both of them */
+export function arrivalOfSomeoneHere(line, state) {
+  const text = String(line || '');
+  if (!text.trim() || !state || typeof state !== 'object' || !Array.isArray(state.present) || !state.present.length) return false;
+  const mc = mcName(state);
+  const coming = new RegExp('^' + BRIDGE + COMING + '\\b', 'iu');
+  /* is this one name someone here (longest form first: "Rias Gremory" before "Rias"; "Rias's arrival" is hers)? never him */
+  const here = (name) => {
+    const words = name.replace(/['’]s$/u, '').split(/\s+/).filter((w) => w && !/^(?:the|a|an|but|then|when|while|meanwhile|soon|now|once|if)$/i.test(w));
+    for (let k = words.length; k >= 1; k -= 1) {
+      const who = words.slice(words.length - k).join(' ');
+      if (mc && mc !== 'the player' && samePersonName(mc, who)) return false;
+      if (isHere(state, who)) return true;
+    }
+    return false;
+  };
+  for (const m of text.matchAll(SUBJECT_RE)) {
+    if (!coming.test(text.slice(m.index + m[0].length))) continue; /* nothing coming is said of them — "Rias's father arrives" is her father's coming */
+    /* every one the coming is said of is here — a line that also brings someone still away stands */
+    if (m[0].split(/\s+(?:and|&)\s+/).every(here)) return true;
+  }
+  return false;
+}
+/* M681 — ONE ANSWER TO "WHAT OF THE WORLD'S WORD IS TOLD NOW" (W1, W2): the storyteller's brief, the window rule's wake
+ * (assemble/modules.js worldWindow) and the drawer read it here, so the window rule never wakes on a brief that has aged out
+ * and the drawer never shows as told what is not. null when nothing of it is told. */
+export function briefAsTold(brief, state, turnNow, pageNow) {
+  if (!brief || typeof brief !== 'object' || brief.empty) return null;
+  const age = briefAge(brief, turnNow, pageNow);
+  if (age > BRIEF_STALE_TURNS) return null;
+  const pressure = (Array.isArray(brief.pressure) ? brief.pressure : []).filter((l) => !arrivalOfSomeoneHere(l, state));
+  const ripe = (Array.isArray(brief.ripe) ? brief.ripe : []).filter((l) => !arrivalOfSomeoneHere(l, state));
+  const twb = brief.twb && (brief.twb.who || brief.twb.changed) && !windowOnSomeoneHere(brief, state) ? brief.twb : null; /* M543 */
+  /* M85: the voices are the reader's, never the storyteller's — a brief that holds only voices says nothing to the wire */
+  if (!pressure.length && !ripe.length && !twb) return null;
+  return { pressure, ripe, twb, age };
+}
+export function renderWorldBrief(brief, turnNow, pageNow, state = null) {
+  const told = briefAsTold(brief, state, turnNow, pageNow); /* M681: the one answer (above) */
+  if (!told) return '';
+  const { age } = told;
   const out = [];
   /* M321: said as one person briefing another — it read like an order to a renderer */
   out.push('Meanwhile, beyond this scene' + (age > 1 ? ' (as of ' + age + ' pages ago)' : '') + ' — the world keeps moving while the page looks elsewhere. Let any of this arrive the way the world itself would (someone turns up, news reaches them, a consequence lands), never as something you were told:');
-  if (brief.pressure.length) {
+  if (told.pressure.length) {
     out.push('What could reach this scene, and when:');
-    for (const p of brief.pressure) out.push('  - ' + p);
+    for (const p of told.pressure) out.push('  - ' + p);
   }
-  if (brief.ripe.length) {
+  if (told.ripe.length) {
     out.push('What has ripened out of sight, and whom it has reached:');
-    for (const r of brief.ripe) out.push('  - ' + r);
+    for (const r of told.ripe) out.push('  - ' + r);
   }
-  if (brief.twb && !windowOnSomeoneHere(brief, state)) { /* M543 */
-    const t = brief.twb;
+  if (told.twb) {
+    const t = told.twb;
     out.push('A window into the world beyond is open this turn, if the scene has room for it — ' + [t.who, t.where].filter(Boolean).join(', ') + ': ' + t.changed + ' (write it only if it does something; enter late, leave early; nobody in the scene learns from it).');
   }
   return out.join('\n');

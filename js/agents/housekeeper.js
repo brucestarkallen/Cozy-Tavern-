@@ -904,7 +904,7 @@ const SYSTEM_PROMPT = [
   '  thread.set {title,owner,heat,next}; thread.close {title};',
   '  knowledge.add {name,fact} — who knows what; knowledge.forget {name,fact} — a fact they',
   '  do not know after all, or one written twice (quote it; every copy goes);',
-  '  faction.set {name,stance,agenda,move};',
+  '  faction.set {name,stance,agenda,move}; faction.clear {name} — a faction the pages ended for good;',
   '  people.set {name,field:core|state|arc|threads,text} — a whole field of a person’s page',
   '    (threads: the whole list, separated by semicolons; the main character takes state and',
   '    threads only); people.note {name,field:thread|unthread,text} — add or close ONE loose end;',
@@ -1075,7 +1075,7 @@ export function ledgerTargetKey(m) {
   if (t.startsWith('canon.')) return 'canon:' + name;
   if (t.startsWith('thread.')) return 'threads';
   if (t === 'knowledge.add' || t === 'knowledge.forget') return 'knowledge:' + name;
-  if (t === 'faction.set') return 'faction:' + name;
+  if (t === 'faction.set' || t === 'faction.clear') return 'faction:' + name; /* M681 (W7): its letting-go watches the same slice */
   if (t.startsWith('people.')) return 'people:' + name;
   if (t.startsWith('combat.')) return 'combat';
   if (t.startsWith('thing.')) return 'thing:' + name; /* M604 */

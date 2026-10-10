@@ -29,7 +29,7 @@ import { renderBodies } from './bodies.js';
 import { renderCanon } from './canon.js';
 import { renderOffscreen } from './offscreen.js';
 import { renderFightLine, mcName } from './duels.js';
-import { findKnowledgeKey, threadNextWords } from './world.js'; /* M416: one wording for a thread's next */
+import { findKnowledgeKey, threadNextWords, factionMoveWords } from './world.js'; /* M416: one wording for a thread's next; M681: and for a faction's move */
 import { storyTurn } from './apply.js';
 import { firstSentence } from './sentence.js'; /* M292 */
 
@@ -137,8 +137,8 @@ export function renderAllKnowledge(knowledge, present = [], room = ALL_KNOWLEDGE
   return text;
 }
 
-/* Every faction, newest move first. */
-export function renderAllFactions(factions) {
+/* Every faction, newest move first. M681 (W7): a move says its age (engine/world.js factionMoveWords) when the turn is given. */
+export function renderAllFactions(factions, nowTurn = null) {
   const safe = factions && typeof factions === 'object' ? factions : {};
   return Object.entries(safe)
     .filter(([, f]) => f && typeof f === 'object')
@@ -148,7 +148,7 @@ export function renderAllFactions(factions) {
       const bits = [];
       if (f.stance) bits.push(clean(f.stance));
       if (f.agenda) bits.push('wants ' + clean(f.agenda).replace(/\.+$/, ''));
-      if (f.move) bits.push('last move: ' + clean(f.move).replace(/\.+$/, ''));
+      if (f.move) bits.push(factionMoveWords({ ...f, move: clean(f.move) }, nowTurn));
       return name + ' — ' + (bits.join('; ') || 'stands unchanged');
     })
     .join('\n');
@@ -192,7 +192,7 @@ export function renderWholeLedger(state, { knowledgeRoom = 0 } = {}) {
     renderBodies(state.bodies, clockMinutes, storyTurn(state)), '(nothing written)');
   section('What is locked true:',
     state.canon && typeof state.canon === 'object' ? renderCanon(state.canon, Object.keys(state.canon), Infinity) : '', '(nothing locked)'); /* M680: ALL of it — the reader and the auditor were shown six a person under a heading that says every lock */
-  section('Factions — all of them:', renderAllFactions(state.factions), '(none)');
+  section('Factions — all of them:', renderAllFactions(state.factions, storyTurn(state)), '(none)'); /* M681 (W7): with its age */
   /* M604: every thing the story keeps, and where */
   /* M605: newest first; past eighty the oldest are counted, never listed — a long tale's things never swell a helper's view */
   const thingRows = Object.entries(state.things && typeof state.things === 'object' ? state.things : {}).filter(([, t]) => t && typeof t.where === 'string').sort((a, b) => (Number(b[1].atTurn) || 0) - (Number(a[1].atTurn) || 0));

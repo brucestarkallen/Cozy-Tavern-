@@ -14608,5 +14608,47 @@ test('DOM-275 THE CHOICES ARE MADE FROM THE LEDGER AS THE PAGE LEFT IT (M680 —
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-300 HIS “LET IT GO” IS HIS, FOR A SEAT AND FOR A FACTION (M681 — the world audit’s W8 checked, W7): the drawer’s “Let it go” on Kiyone’s elsewhere note — a person with a page, whose note no worker may let go — lets it go and the journal marks it his; a faction now has its own “Let it go”, journaled as his, and says how old its move is', async () => {
+  const before = errors.length;
+  const { loadState, saveState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const st = await clockTale('his let go', ['[The yard — Monday, March 3, 2025 | 09:00 | clear]\n\nJovan waited by the well. Across the barracks Kiyone sorted the rosters in the third seats’ office.']);
+  let led = await loadState(st.id);
+  /* written before the first page (the founder's stamp, -1), so the opening's own reading of page one keeps them */
+  led = applyMutations({ ...led, page: -1 }, [{ type: 'people.set', name: 'Kiyone', field: 'core', text: 'third seat of the 13th' }, { type: 'offscreen.set', name: 'Kiyone', location: 'the third seats’ office', activity: 'sorting rosters', stance: 'busy' },
+    { type: 'faction.set', name: 'the Black Hand', stance: 'hunting the heir', move: 'burned the granary' }]).state;
+  led.page = 0;
+  await saveState(st.id, led);
+  eq(applyMutations(led, [{ type: 'offscreen.clear', name: 'Kiyone' }]).applied.length, 0, 'fixture: a worker may not let her note go');
+  const prior = house.state.workerAnswer;
+  try {
+    house.state.workerAnswer = () => QUIET_WORKERS;
+    await env.ctx.chat.openStory(st.id);
+    await tick(300);
+    await readersDone(st.id, 30000);
+    click(q('#btn-ledger'));
+    await until(() => !q('#drawer').hidden, 'the drawer opens');
+    await env.ctx.drawer.renderAllRooms(); await tick(350);
+    const letGoOf = (re) => qa('#drawer-panels li').filter((li) => re.test(li.textContent)).map((li) => [...li.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Let it go')).find(Boolean);
+    click(await until(() => letGoOf(/^Kiyone — /), 'Kiyone’s elsewhere note, with its “Let it go”', 15000));
+    await until(async () => !(await loadState(st.id)).offscreen.Kiyone, 'her note let go', 10000);
+    const seatGone = [...(await loadState(st.id)).journal].reverse().find((j) => j.m && j.m.type === 'offscreen.clear');
+    assert(seatGone && seatGone.m.byHand === true, 'the journal marks the letting-go his: ' + JSON.stringify(seatGone));
+    await env.ctx.drawer.renderAllRooms(); await tick(350);
+    const facRow = await until(() => letGoOf(/^the Black Hand — /), 'the faction, with its “Let it go”', 15000);
+    assert(/last move: burned the granary/.test(facRow.closest('li').textContent), 'its move is shown: ' + facRow.closest('li').textContent);
+    click(facRow);
+    await until(async () => !Object.keys((await loadState(st.id)).factions || {}).length, 'the faction let go', 10000);
+    const facGone = [...(await loadState(st.id)).journal].reverse().find((j) => j.m && j.m.type === 'faction.clear');
+    assert(facGone && facGone.m.byHand === true, 'journaled as his: ' + JSON.stringify(facGone));
+  } finally {
+    if (!q('#drawer').hidden) click(q('#btn-ledger'));
+    house.state.workerAnswer = prior;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

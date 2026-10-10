@@ -28,7 +28,7 @@
  */
 
 import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
-import { windowOnSomeoneHere } from '../engine/world.js'; /* M543 */
+import { briefAsTold } from '../engine/world.js'; /* M543; M681: the one answer to what of the world's word is told */
 import { typedCombat, FIGHT_SOUND_TEXT } from './laws.js'; /* M510-27: a fight begins in his words; how a fight sounds */
 import { CRAFT_TEXT, looksLikeImportedCraft } from './craft.js'; /* M36: the craft core */
 import { db } from '../store.js';
@@ -85,8 +85,13 @@ const PREDICATES = {
   /* worldWindow (M30) — the world agent opened a window beyond the page
    * this turn (a TWB seed in the brief), so the cut-away's craft rides. */
   worldWindow: (state) => {
-    const b = state && state.worldBrief;
-    const open = Boolean(b && !b.empty && b.twb && (b.twb.who || b.twb.changed)) && !windowOnSomeoneHere(b, state); /* M543: never on someone in the scene */
+    /* M681 — THE WINDOW RULE WAKES ONLY ON A WINDOW THE STORYTELLER IS TOLD (the world audit's W2). It asked only "does the
+     * brief hold a window?" — and the brief is kept until the world agent reads again: with the world agent off, failing, or
+     * a page read late, a window from five pages back woke the rule ("A window is open this turn — the house's word names
+     * who and what changed") on a request whose brief had aged out and said nothing, and the storyteller made one up. The
+     * same answer the brief itself gives (engine/world.js briefAsTold: its age, M543's window on someone here). */
+    const told = state ? briefAsTold(state.worldBrief, state, state.turn, state.page) : null;
+    const open = Boolean(told && told.twb);
     return open ? { load: true, reason: 'the world agent opened a window beyond the page' } : { load: false, reason: '' };
   },
 

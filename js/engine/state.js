@@ -1214,7 +1214,7 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   const elsewhere = renderOffscreen(farOffscreen, present, clockMinutes, whole ? 1000 : undefined, state.characters || {}); /* M396 */
   if (elsewhere) sections.push({ shed: 3, text: 'Elsewhere: ' + elsewhere.split('\n').join('\n') });
 
-  const factionLines = renderFactions(state.factions, whole ? Infinity : undefined);
+  const factionLines = renderFactions(state.factions, whole ? Infinity : undefined, storyTurn(state)); /* M681 (W7): a move says its age */
   if (factionLines) sections.push({ shed: 5, text: 'Factions: ' + factionLines.split('\n').join('\n') });
 
   const mode = state.mode || {};

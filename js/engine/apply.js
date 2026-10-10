@@ -1209,6 +1209,21 @@ const HANDLERS = {
     return { words, undo: { kind: 'faction.restore', name: key, before } };
   },
 
+  /* M681 — A FACTION CAN BE LET GO (the world audit's W7). Every other book of the world has its letting-go — a thread closes
+   * (thread.close, "Let it rest" in the drawer), a fact is forgotten (knowledge.forget), a seat is let go — and a faction
+   * could only be set: one the pages had disbanded, destroyed or left behind for good stood in the ledger, and was read to
+   * the storyteller as a live power, for the rest of the tale. Journaled and undoable like its set (faction.restore). */
+  'faction.clear'(state, m) {
+    const name = capText(normalizeName(m.name), 200);
+    if (!name) return { why: 'a faction needs a name' };
+    const key = findFactionKey(state.factions, name); /* M681: never another faction that merely shares a word */
+    if (!key) return { why: 'no faction called ' + name + ' is written' };
+    const before = { ...state.factions[key] };
+    state.factions = { ...state.factions };
+    delete state.factions[key];
+    return { words: key + ' is let go — no longer a faction the story carries.', undo: { kind: 'faction.restore', name: key, before } };
+  },
+
   /* M604 (his report: "the Batwing was parked on that roof — then the storyteller staged an ambulance like a CW show"):
    * THINGS. What exists in the story and where it is NOW — a vehicle, a weapon, a device, an object that matters to what can
    * happen next — kept so nobody forgets a jet fifty yards away. One page per thing, by name; where it stands and whose. */

@@ -33,6 +33,7 @@ import { isMcAlias, mcName } from './duels.js';
 import { foldName, canonAliasOf, samePersonName, titlesConflict, isTitleWord } from './names.js'; /* M398: one person, one page; M414: one list of titles */
 import { firstSentence } from './sentence.js'; /* M292 */
 import { storyTurn } from './apply.js';
+import { onTheWay } from './world.js'; /* M681 (W5): who is on the way, one answer */
 import { seatNowWords, findSeat, setSeatResolver, isDeadSeat } from './offscreen.js'; /* M300: a seat says its age; M304: one wording for every reader; M320: a seat is found the way a page is; M484: the dead */
 
 /* Field caps — the ledger holds brushstrokes, not chapters. */
@@ -1290,7 +1291,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   const offScene = keys.filter((k) => !presentKeys.includes(k) && !isMc(state, k));
   const seatOf = (k) => { const found = seatForPerson(state, k); return found ? found.entry : null; }; /* M320 */
   const named = offScene.filter((k) => namedIn(recentPages, k));
-  const coming = offScene.filter((k) => !named.includes(k) && ['toward', 'seeking'].includes(String((seatOf(k) || {}).stance || '')));
+  const coming = offScene.filter((k) => !named.includes(k) && onTheWay(seatOf(k), state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null)); /* M681 (W5): never an approach that lapsed */
   const recalled = named.concat(coming).slice(0, lim.recall);
   /* M292: WHERE THE ABSENT ARE IS SAID ONCE. When the state of things lists every seat (a whole view),
    * a card or a line here does not say it again — it points there. */

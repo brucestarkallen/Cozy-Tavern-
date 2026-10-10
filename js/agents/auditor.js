@@ -33,7 +33,7 @@ import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, headerMutations, headerDress } from '../engine/state.js'; /* M679: his header's dress */
 import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf, showsDeparture, goneAtTheEnd, quotedGoing, restatedPresence, toldOnPage, mcWalksOff, findThingKey, pageEnding, walkInFromPage, deathToldOf } from '../engine/apply.js'; /* M444; M446: the departure reader, and who is gone at a page's end */
 import { findSeat, isDeadSeat } from '../engine/offscreen.js';
-import { findThread } from '../engine/world.js';
+import { findThread, onTheWay } from '../engine/world.js'; /* M681 (W5): an approach that lapsed is nobody on the way */
 /* M240: it was told to catch a healed wound and never shown the wounds.
  * M259: and it was shown the storyteller's TRIMMED copy of everything else —
  * six standings, five threads, four things a person knows, no ground at all.
@@ -76,7 +76,7 @@ const VOCABULARY = [
   'canon.lock {"type":"canon.lock","name":"NAME","key":"hair","value":"black"} / canon.unlock {"type":"canon.unlock","name":"NAME","key":"hair"}',
   'thread.set {"type":"thread.set","title":"…","owner":"…","heat":"hot|cold","next":"…"} / thread.close {"type":"thread.close","title":"…"}',
   'knowledge.add {"type":"knowledge.add","name":"OTHER NAME","fact":"…"} / knowledge.forget {"type":"knowledge.forget","name":"NAME","fact":"the wrong line, as written"} — forget ONLY a line the pages contradict, and add the right one beside it',
-  'faction.set {"type":"faction.set","name":"…","stance":"…","agenda":"…","move":"…"}',
+  'faction.set {"type":"faction.set","name":"…","stance":"…","agenda":"…","move":"…"} / faction.clear {"type":"faction.clear","name":"…"} (one the pages ended)',
   'people.set {"type":"people.set","name":"NAME","field":"core|state|arc","text":"…"} — the main character\'s core and arc are never written',
   'people.note {"type":"people.note","name":"NAME","field":"unthread","text":"the loose end as it stands"} \u2014 closes ONE finished loose end (field "thread" opens one); matched by sense, so word it close to how it reads',
   'people.forget {"type":"people.forget","name":"NAME","cause":"…"} — ONLY for a person who was never the story\'s (a name no page, no brief and no cast note ever held); erases their page, seat, standing, knowledge and locks for good',
@@ -766,7 +766,7 @@ export const AUDITOR_TYPES = new Set([
   'clock.set', 'place.set', 'presence.enter', 'presence.leave', 'mc.set',
   'body.injure', 'body.heal', 'rel.set', 'offscreen.set', 'offscreen.clear',
   'canon.lock', 'canon.unlock', 'thread.set', 'thread.close', 'knowledge.add', 'knowledge.forget', /* M372: a wrong fact can be let go */
-  'faction.set', 'people.set', 'people.note', 'people.forget',
+  'faction.set', 'faction.clear', 'people.set', 'people.note', 'people.forget', /* M681 (W7): a faction the pages ended is let go */
   'thing.set', 'thing.clear', /* M604: a thing in the wrong place, or one the pages destroyed */
 ]);
 /* M279: "stands as the pages moved it", "not the ledger's to zero" — thirteen such lines at turn 77 */
@@ -890,6 +890,25 @@ export function auditorScope(issues, state, { header = [], page = '', pageAt = n
     return carried.every((k) => Number(h[k]) === Number(m[k]));
   };
   const seats = (state && state.offscreen && typeof state.offscreen === 'object') ? state.offscreen : {};
+  /* M681 — THE AUDITOR MAY PUT A SEATED PERSON WHERE THE NEWEST PAGE HAS THEM (the world audit's W10). M128 dropped every
+   * offscreen.set for someone already seated — the moment: an absent person's activity this hour, the world agent's to
+   * move by the clock — and M259 kept it. But its own law asks "does each seat match where the pages last put that
+   * person?", so a finding like "Rias's seat says the market; the page has her at the bar" was reported and its fix thrown
+   * away, every audit, for good. What M128 guarded stays guarded: the SAME place said again (a new activity, a new want, the
+   * place reworded) is the moment, and still dropped; and so is any move the newest page does not bear out in its own
+   * telling — the world agent's seat walked forward by the clock is never walked back to where an older page left her. A
+   * move stands only when the newest page's narration names her and the new place in its own words — and when this page's
+   * own readers or the world placed her on it, only in the words of how the page ENDS (M679: never back to its start). */
+  const seatTheNewestPageMoves = (m, held) => {
+    const to = typeof m.location === 'string' ? m.location.trim() : '';
+    const was = held && held.entry && typeof held.entry.location === 'string' ? held.entry.location.trim() : '';
+    if (!page || !to || !was) return false;
+    if (samePlace(was, to) || wordsIn(was, to) || wordsIn(to, was)) return false; /* the same place: the moment */
+    if (!nameOnPage(sceneTold, m.name) && !nameOnPage(sceneTold, held.key)) return false;
+    if (!wordsIn(to, sceneTold)) return false;
+    const placedThisPage = readersWrote.some((jm) => (jm.type === 'offscreen.set' || jm.type === 'presence.leave') && typeof jm.name === 'string' && (samePersonName(jm.name, m.name) || samePersonName(jm.name, held.key)));
+    return !placedThisPage || wordsIn(to, endingTold);
+  };
   const moment = (m) => {
     if (!m || typeof m !== 'object' || typeof m.type !== 'string') return true;
     if (m.type === 'presence.update') return !(m.staleClear || restatedOk.has(m)); /* M544: the letting-go of a place the page left behind; M661: a place or an outfit the newest page bears out */
@@ -931,8 +950,8 @@ export function auditorScope(issues, state, { header = [], page = '', pageAt = n
       if (walkInFromPage(state, m.name, { page, pageAt, shown: m.shown })) return true;
     }
     /* M681: …and by its third door — a seat for someone with none, AT the scene's own place, is a walk-in (apply.js
-     * offscreen.set, M402). A seated person's seat is never the auditor's (below); an unseated one's at the scene answers
-     * to the same question as its walk-ins. The world agent alone seats a quiet person there (its "judged" seat). */
+     * offscreen.set, M402). A seated person's seat is the auditor's only as the newest page moves it (below, M681 W10); a
+     * seat at the scene answers to the same question as its walk-ins first. The world agent alone seats a quiet person there (its "judged" seat). */
     if (page && m.type === 'offscreen.set' && typeof m.name === 'string' && !isHere(state, m.name) && m.stance !== 'toward' && m.stance !== 'seeking') {
       const ground = state && state.place && typeof state.place.name === 'string' ? state.place.name : '';
       if (ground && seatAtScene(String(m.location || ''), ground) && !isDeadSeat({ location: m.location, activity: m.activity }) && walkInFromPage(state, m.name, { page, pageAt, shown: m.shown })) return true;
@@ -954,7 +973,7 @@ export function auditorScope(issues, state, { header = [], page = '', pageAt = n
       if (mc && String(m.name || '').trim().toLowerCase() === mc) return true;
       return m.field === 'state' || m.field === 'arc' || m.field === 'threads';
     }
-    if (m.type === 'offscreen.set' && typeof m.name === 'string' && findSeat(seats, m.name)) return true;
+    if (m.type === 'offscreen.set' && typeof m.name === 'string' && findSeat(seats, m.name)) return !seatTheNewestPageMoves(m, findSeat(seats, m.name));
     if (m.type === 'thread.set' && findThread(state && state.threads, m.title || m.name) !== -1) return true;
     return false;
   };
@@ -1035,7 +1054,9 @@ export function carriedBy(state, name, { brief = '', castNotes = '', pages = [],
   if (threads.some((t) => t && typeof t === 'object' && t.owner && samePersonLoose(t.owner, name))) return 'an open thread';
   const seatKey = Object.keys(seats).find((k) => samePersonLoose(k, name));
   const seat = seatKey ? seats[seatKey] : null;
-  if (seat && (seat.stance === 'toward' || seat.stance === 'seeking')) return 'on the way to the main character';
+  /* M681 (W5): on the way while the approach holds — one three hours past its hour carried a passer-through for ever */
+  const clockNow = state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
+  if (seat && onTheWay(seat, clockNow)) return 'on the way to the main character';
   /* M304: THE SEAT LAW FORGOT WHAT THE PEOPLE LAW KNOWS. M57 never retires
    * someone with a truth locked about them or a loose end on their page, and
    * M263 keeps what the writer wrote by hand — but this law, which clears a
@@ -1077,7 +1098,8 @@ export function seatHousekeeping(state, { brief = '', castNotes = '', pages = []
   }
   /* the cap: the least reachable go first */
   if (kept.length > SEAT_CAP) {
-    const rank = (name) => { const st = (seats[name] || {}).stance; return st === 'toward' ? 0 : st === 'seeking' ? 1 : st === 'tense' ? 2 : st === 'busy' ? 3 : 4; };
+    const clockNow = state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
+    const rank = (name) => { const seat = seats[name] || {}; const st = seat.stance; return onTheWay(seat, clockNow) ? (st === 'toward' ? 0 : 1) : st === 'tense' ? 2 : st === 'busy' ? 3 : 4; }; /* M681 (W5): a lapsed approach is no nearer than any seat */
     const at = (name) => (Number.isFinite((seats[name] || {}).atTurn) ? seats[name].atTurn : -1);
     const ordered = kept.slice().sort((a, b) => (rank(b) - rank(a)) || (at(a) - at(b)));
     for (const name of ordered.slice(0, kept.length - SEAT_CAP)) {

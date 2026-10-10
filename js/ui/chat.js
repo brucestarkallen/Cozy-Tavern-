@@ -120,7 +120,7 @@ import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebu
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, healStampDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
 import { polishConcept } from '../agents/concept.js'; /* M478: a #story concept becomes the brief, its grammar set right */
-import { renderWorldBrief, threadHousekeeping, voicesBeyondTheRoom } from '../engine/world.js'; /* M544 */
+import { renderWorldBrief, threadHousekeeping, voicesBeyondTheRoom, briefAsTold } from '../engine/world.js'; /* M544; M681: what of the world's word is told */
 import { workerSignal, noteWorkerRun } from '../agents/status.js';
 import { castForStory, castNamesFor } from '../import/cards.js';
 import { loadLore, matchLoreDetailed, saveLore } from '../import/lorebook.js';
@@ -3789,7 +3789,7 @@ export function initChat(ctx) {
     const fp = (t) => fingerprint36(String(t || '')); /* M575: one fingerprint */
     const input = {
       concept, brief: String(fresh.brief || ''), canonStart: startWords, arc,
-      ledger: { place: state && state.place, factions: state && state.factions, worldBrief: state && state.worldBrief },
+      ledger: { place: state && state.place, factions: state && state.factions, worldBrief: state ? briefAsTold(state.worldBrief, state, state.turn, state.page) : null }, /* M681 (W1, W2): the world's word as it is told — never one aged out, nor an arrival of someone already here */
       essentials: ess && typeof ess.text === 'string' ? ess.text : '',
       recent: since.slice(-12).map((n) => n.text),
       arcChanged: Boolean(have && arc && have.arcTitle !== arc.title),

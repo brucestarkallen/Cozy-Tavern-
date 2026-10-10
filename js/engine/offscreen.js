@@ -34,7 +34,7 @@
  * the world agent writes replaces it whole.
  */
 
-import { renderArrival } from './world.js'; /* M29: stance and arrival on the clock */
+import { renderArrival, onTheWay } from './world.js'; /* M29: stance and arrival on the clock; M681: an approach that lapsed */
 import { samePersonName, isHere } from './names.js'; /* M396: one answer to "the same person?" */
 
 const RENDER_TOP = 6;
@@ -219,7 +219,9 @@ export function seatOrder(offscreen, clockMinutes) {
  * or overdue first, then by how soon; a stance with no clock sits behind
  * one with a clock. */
 function stanceRank(entry, clockMinutes) {
-  const st = typeof entry.stance === 'string' ? entry.stance : '';
+  /* M681 (W5): an approach that lapsed (engine/world.js onTheWay) ranks as a seat that says nothing of reaching the scene —
+   * it ranked FIRST ("due or overdue = 0"), above someone truly arriving, with no arrival left to tell */
+  const st = typeof entry.stance === 'string' && !((entry.stance === 'toward' || entry.stance === 'seeking') && !onTheWay(entry, clockMinutes)) ? entry.stance : '';
   const base = st === 'toward' ? 0 : st === 'seeking' ? 100 : st === 'tense' ? 200 : st === 'busy' ? 300 : st === 'waiting' ? 400 : entry.lastSeen === true ? 600 : 500; /* M304: a bare sighting says least about who can reach the scene */
   if (st === 'toward' || st === 'seeking') {
     if (Number.isFinite(entry.arrivesAtMinutes) && Number.isFinite(clockMinutes)) {

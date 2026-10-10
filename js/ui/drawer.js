@@ -46,7 +46,7 @@ import { seatLine, seatOrder, seatNowWords } from '../engine/offscreen.js'; /* M
 import { storyTurn as storyTurnOf } from '../engine/apply.js'; /* M291: how long ago a page was last written */
 import { listCast, attachToStory, detachFromStory, castNamesFor } from '../import/cards.js';
 import { loadWorkerStatus, WORKER_NAMES, runningWorkers, onWorkerChange } from '../agents/status.js';
-import { renderArrival, renderVoicesBlock } from '../engine/world.js'; /* M29: the world beyond the page; M97: the voices */
+import { renderArrival, renderVoicesBlock, briefAsTold, briefAge, BRIEF_STALE_TURNS, factionMoveWords } from '../engine/world.js'; /* M29: the world beyond the page; M97: the voices; M681: what of the world's word is told, a faction's move with its age */
 import { applyRules, currentRules } from '../regex.js'; /* M97: the voices in the 🎨 dress */
 import { renderHtmlProse, looksHtml } from './richhtml.js';
 import { loadEssentials, recordOf } from '../agents/essentials.js'; /* M510-21: the story essentials, where he can read them */
@@ -87,7 +87,7 @@ async function currentStory(ctx) {
 /* Hand changes ride the same rails as the extractor's: proposed as
  * mutations, applied, saved, announced. Returns the applied words (unused
  * by most callers; the log panel shows them soon enough). */
-const HAND_TYPES = new Set(['people.set', 'people.note', 'rel.set', 'rel.shift', 'offscreen.set', 'offscreen.clear', 'clock.set', 'clock.advance']); /* M681: the clock he sets is his — no older page's header hour writes over it (apply.js handSetClockSince) */ /* M680: a seat he writes or lets go is his (over a grave; a note the house would keep) */
+const HAND_TYPES = new Set(['people.set', 'people.note', 'rel.set', 'rel.shift', 'offscreen.set', 'offscreen.clear', 'clock.set', 'clock.advance', 'faction.clear']); /* M681 (W7): a faction he lets go is his */ /* M681: the clock he sets is his — no older page's header hour writes over it (apply.js handSetClockSince) */ /* M680: a seat he writes or lets go is his (over a grave; a note the house would keep) */
 async function handMutate(ctx, mutations) {
   const story = await currentStory(ctx);
   if (!story) return [];
@@ -1908,20 +1908,26 @@ function worldPanel(ctx) {
     } else {
       /* M163: pages when the brief carries a page stamp (M162), so the panel
        * and the wire agree on how old the world's word is. */
-      const age = Number.isFinite(pageNow) && Number.isFinite(brief.atPage)
-        ? Math.max(0, pageNow - brief.atPage)
-        : (Number.isFinite(brief.atTurn) ? Math.max(0, turnNow - brief.atTurn) : 0);
-      note.textContent = 'The world’s word — what the storyteller will be told about the world beyond this page' + (age > 1 ? ' (written ' + age + ' turns ago)' : '') + ':';
-      if (brief.pressure.length) {
+      /* M681 (W1, W2): and on WHAT of it is told — the same answer the wire gives (engine/world.js briefAsTold): a word past its
+       * age, a line telling the arrival of someone already here, a window on someone here were shown here as "what the
+       * storyteller will be told" */
+      const age = briefAge(brief, turnNow, pageNow);
+      const told = briefAsTold(brief, state, turnNow, pageNow);
+      note.textContent = told
+        ? 'The world’s word — what the storyteller will be told about the world beyond this page' + (age > 1 ? ' (written ' + age + ' turns ago)' : '') + ':'
+        : age > BRIEF_STALE_TURNS
+          ? 'The world’s last word (written ' + age + ' turns ago) has aged out — the storyteller is no longer told it. The world agent leaves a new one after the next page.'
+          : 'The world’s word tells the storyteller nothing now — it held only voices, or spoke only of who is already here.';
+      if (told && told.pressure.length) {
         briefBox.appendChild(line('Could reach this scene:', 'quiet'));
-        for (const p of brief.pressure) briefBox.appendChild(line('• ' + p, 'world-line'));
+        for (const p of told.pressure) briefBox.appendChild(line('• ' + p, 'world-line'));
       }
-      if (brief.ripe.length) {
+      if (told && told.ripe.length) {
         briefBox.appendChild(line('Ripened out of sight:', 'quiet'));
-        for (const r of brief.ripe) briefBox.appendChild(line('• ' + r, 'world-line'));
+        for (const r of told.ripe) briefBox.appendChild(line('• ' + r, 'world-line'));
       }
-      if (brief.twb) {
-        briefBox.appendChild(line('A window beyond, if the scene has room: ' + [brief.twb.who, brief.twb.where].filter(Boolean).join(', ') + ' — ' + brief.twb.changed, 'world-line'));
+      if (told && told.twb) {
+        briefBox.appendChild(line('A window beyond, if the scene has room: ' + [told.twb.who, told.twb.where].filter(Boolean).join(', ') + ' — ' + told.twb.changed, 'world-line'));
       }
     }
 
@@ -1965,13 +1971,27 @@ function worldPanel(ctx) {
 
     /* factions */
     const factions = state.factions && typeof state.factions === 'object' ? state.factions : {};
-    const facNames = Object.keys(factions).filter((n) => factions[n] && typeof factions[n] === 'object');
+    /* M681 (W7): newest move first, each move with its age, and his "Let it go" — a faction the story has ended is let go by
+     * his hand as a seat is (faction.clear: journaled, his, taken back like any change) */
+    const facTurn = storyTurnOf(state);
+    const facNames = Object.keys(factions).filter((n) => factions[n] && typeof factions[n] === 'object')
+      .sort((a, b) => (Number.isFinite(factions[b].atTurn) ? factions[b].atTurn : -1) - (Number.isFinite(factions[a].atTurn) ? factions[a].atTurn : -1));
     facHead.hidden = !facNames.length;
     for (const name of facNames) {
       const f = factions[name];
       const li = document.createElement('li');
-      li.className = 'log-row';
-      li.textContent = name + ' — ' + [f.stance, f.agenda ? 'wants ' + f.agenda : '', f.move ? 'last move: ' + f.move : ''].filter(Boolean).join('; ');
+      li.className = 'present-row mind-row';
+      const words = document.createElement('span');
+      words.textContent = name + ' — ' + [f.stance, f.agenda ? 'wants ' + f.agenda : '', factionMoveWords(f, facTurn)].filter(Boolean).join('; ');
+      const letGo = document.createElement('button');
+      letGo.type = 'button';
+      letGo.className = 'text-btn';
+      letGo.textContent = 'Let it go';
+      letGo.addEventListener('click', async () => {
+        await handMutate(ctx, [{ type: 'faction.clear', name }]);
+        render();
+      });
+      li.append(words, letGo);
       fac.appendChild(li);
     }
     /* things, newest first */

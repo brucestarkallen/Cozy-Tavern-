@@ -455,3 +455,143 @@ test('M681-42 AN ORIGINAL “ROSE” AND A WIKI THAT ALSO KNOWS ONE (P11): his b
     assert(!/blonde|brown eyes/i.test(note), 'nor is it said in the note: ' + note);
   } finally { house.restore(); }
 });
+
+/* ---- THE WORLD (the world audit's W1, W2, W5, W7, W8, W10, W11, W12), each made to happen on 3d28628 first ---- */
+const worldHouse = async (answer) => { const { thinkingHouse } = await import('./thinkinghouse.mjs'); return thinkingHouse({ answer: JSON.stringify(answer) }); };
+
+test('M681-50 THE WORLD’S WORD DOES NOT TELL THE ARRIVAL OF SOMEONE ALREADY HERE (W1): “Rias Gremory is on her way — about 15 minutes out” was written while she was away; the next page walked her in, and the storyteller was still told she could reach the scene', async () => {
+  const { renderWorldBrief } = await import('../../js/engine/world.js');
+  let st = applyMutations({ ...emptyState(), page: 4, clock: { minutes: 1080 } }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The Wells kitchen' }, { type: 'presence.enter', name: 'Jovan' },
+    { type: 'people.set', name: 'Rias Gremory', field: 'core', text: 'a devil heiress' }, { type: 'offscreen.set', name: 'Rias Gremory', location: 'the clubhouse', activity: 'gathering her coat', stance: 'toward', etaMinutes: 15 },
+    { type: 'world.word', brief: {
+      pressure: ['Rias Gremory is on her way from the clubhouse — about 15 minutes out', 'Kiba could reach the scene within the hour, still furious about the bet', 'Rias’s father arrives at nine with the contract', 'Jovan arrives at the gala at nine whether he likes it or not'],
+      ripe: ['Rias and Akeno are heading this way together', 'Rias heads back to the clubhouse at ten to sign the papers'], twb: null } }]).state;
+  const told = (s) => renderWorldBrief(s.worldBrief, s.turn, s.page, s);
+  assert(/Rias Gremory is on her way/.test(told({ ...st, page: 5 })), 'fixture: told while she is away');
+  st = applyMutations({ ...st, page: 5 }, [{ type: 'presence.enter', name: 'Rias Gremory' }]).state; /* the page walked her in */
+  const words = told(st);
+  assert(!/Rias Gremory is on her way/.test(words), 'her own arrival is not told once she stands here: ' + words);
+  assert(/Kiba could reach the scene/.test(words), 'someone still away still comes');
+  assert(/Rias’s father arrives/.test(words), 'her father’s coming is his, not hers');
+  assert(/Jovan arrives at the gala/.test(words), 'the main character is the scene — a line of his own plans stands');
+  assert(/Rias and Akeno are heading this way/.test(words), 'a coming said of two, one still away, stands');
+  assert(/Rias heads back to the clubhouse/.test(words), 'a going of hers is no arrival');
+  st = applyMutations(st, [{ type: 'presence.enter', name: 'Akeno' }]).state;
+  assert(!/Rias and Akeno are heading/.test(told(st)), 'both here: their coming is not told');
+});
+
+test('M681-51 THE WINDOW RULE SLEEPS WHEN THE WORD THAT OPENED IT HAS AGED OUT (W2): the brief stopped being told after four pages and the rule “A window is open this turn — the house’s word names who” still rode', async () => {
+  const { renderWorldBrief, BRIEF_STALE_TURNS } = await import('../../js/engine/world.js');
+  const { listModules } = await import('../../js/assemble/modules.js');
+  const rule = (await listModules()).find((m) => m.id === 'world-window');
+  assert(rule && typeof rule.when === 'function', 'the window rule is there');
+  const wakes = (s) => Boolean(rule.when(s).load);
+  const st = applyMutations({ ...emptyState(), page: 2 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' },
+    { type: 'world.word', brief: { pressure: [], ripe: [], twb: { who: 'Aurora', where: 'the train', changed: 'she has read the letter twice and decided' } } }]).state;
+  const next = { ...st, page: 3 };
+  assert(/A window into the world beyond/.test(renderWorldBrief(next.worldBrief, next.turn, next.page, next)), 'fixture: the next page is told of the window');
+  eq(wakes(next), true, 'and the rule wakes');
+  const late = { ...st, page: 2 + BRIEF_STALE_TURNS + 1 };
+  eq(renderWorldBrief(late.worldBrief, late.turn, late.page, late), '', 'aged out: the storyteller is told nothing');
+  eq(wakes(late), false, 'and the window rule sleeps');
+  const hers = applyMutations(next, [{ type: 'presence.enter', name: 'Aurora' }]).state;
+  eq(wakes({ ...hers, page: 3 }), false, 'a window on someone here: no rule (M543, as before)');
+});
+
+test('M681-52 AN APPROACH THAT NEVER LANDED IS NOBODY ON THE WAY (W5): a rider due four hours ago ranked first among the six told — above someone ten minutes out — and was carried as “on the way” for ever', async () => {
+  const { renderOffscreen, seatOrder } = await import('../../js/engine/offscreen.js');
+  const { carriedBy, seatHousekeeping } = await import('../../js/agents/auditor.js');
+  let st = applyMutations({ ...emptyState(), page: 1, clock: { minutes: 600 } }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' },
+    { type: 'offscreen.set', name: 'Tobias Wren', location: 'the north road', activity: 'riding hard', stance: 'toward', etaMinutes: 20 }]).state;
+  st = applyMutations({ ...st, page: 30, clock: { minutes: 600 + 20 + 240 } }, [{ type: 'offscreen.set', name: 'Rias', location: 'the station', activity: 'hailing a cab', stance: 'toward', etaMinutes: 10 },
+    ...['Kiba', 'Akeno', 'Koneko', 'Gasper', 'Xenovia', 'Irina'].map((n) => ({ type: 'offscreen.set', name: n, location: n + '’s flat', activity: 'at home', stance: 'busy' }))]).state;
+  const now = st.clock.minutes;
+  const lines = renderOffscreen(st.offscreen, st.present, now).split('\n');
+  assert(/^Rias — /.test(lines[0]), 'the one truly arriving is told first: ' + lines.join(' | '));
+  eq(seatOrder(st.offscreen, now)[0], 'Rias', 'the drawer’s order, the same');
+  eq(carriedBy(st, 'Tobias Wren', {}), '', 'a lapsed approach carries nobody');
+  assert(seatHousekeeping(st, {}).some((m) => m.type === 'offscreen.clear' && m.name === 'Tobias Wren'), 'and nothing else carrying him, his seat goes as a passer-through’s');
+  eq(carriedBy(st, 'Rias', {}), 'on the way to the main character', 'a live approach still carries');
+  const due = { ...st, clock: { minutes: 600 + 20 + 60 } }; /* an hour overdue: still said, still first (M645) */
+  eq(carriedBy(due, 'Tobias Wren', {}), 'on the way to the main character', 'overdue within the hours is still on the way');
+});
+
+test('M681-53 A FACTION HAS AN AGE AND CAN BE LET GO (W7): a move made twenty pages ago was told as this hour’s, and nothing — no worker, not his hand — could let a faction go', async () => {
+  const { renderFactions } = await import('../../js/engine/world.js');
+  const { undoLast } = await import('../../js/engine/apply.js');
+  const { foldJournal, renderStateFacts } = await import('../../js/engine/state.js');
+  const { worldTurn, WORLD_TYPES } = await import('../../js/agents/world.js');
+  const { AUDITOR_TYPES } = await import('../../js/agents/auditor.js');
+  const { withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  let st = applyMutations({ ...emptyState(), page: 2 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'faction.set', name: 'the Black Hand', stance: 'hunting the heir', move: 'burned the granary' }]).state;
+  assert(/the Black Hand — hunting the heir; last move: burned the granary/.test(renderFactions(st.factions, 4, 4)), 'a fresh move says no age');
+  assert(/last move \(about 20 pages ago\): burned the granary/.test(renderFactions(st.factions, 4, 23)), 'an old one says when: ' + renderFactions(st.factions, 4, 23));
+  assert(/Factions:[^\n]*about 20 pages ago/.test(renderStateFacts({ ...st, page: 22 })), 'the storyteller’s state of things says it');
+  const r = applyMutations({ ...st, page: 9 }, [{ type: 'faction.clear', name: 'the Black Hand' }]);
+  eq(r.applied.length, 1, 'a faction is let go: ' + JSON.stringify(r.rejected));
+  eq(Object.keys(r.state.factions).length, 0, 'gone from the ledger');
+  const j = r.state.journal[r.state.journal.length - 1];
+  eq(j.m.type + '@' + j.p, 'faction.clear@9', 'journaled with its page');
+  eq(undoLast(r.state).state.factions['the Black Hand'].move, 'burned the granary', 'taken back whole');
+  eq(foldJournal(r.state, [], 8, applyMutations).factions['the Black Hand'].move, 'burned the granary', 'a fold to before the clear keeps the faction');
+  eq(applyMutations(st, [{ type: 'faction.clear', name: 'the Red Hand' }]).applied.length, 0, 'no such faction: refused — “hand” alone is not the Black Hand');
+  const two = applyMutations(st, [{ type: 'faction.set', name: 'the Red Hand', stance: 'allied with the crown', move: 'sent envoys' }]).state.factions;
+  eq(Object.keys(two).sort().join(' | ') + ' / ' + two['the Black Hand'].move, 'the Black Hand | the Red Hand / burned the granary', 'the Red Hand is its own faction — never written over the Black Hand');
+  const { findFactionKey } = await import('../../js/engine/world.js');
+  eq(findFactionKey({ 'the Vanderbilt family': {} }, 'House Vanderbilt'), 'the Vanderbilt family', 'another word for the kind of group is the same faction');
+  assert(WORLD_TYPES.has('faction.clear') && AUDITOR_TYPES.has('faction.clear'), 'the world agent and the auditor may let one go');
+  await saveState('m681-w7', { ...st, readTo: 2 });
+  await withHouse(await worldHouse({ mutations: [{ type: 'faction.clear', name: 'the Black Hand' }], brief: { pressure: [], ripe: [], twb: null } }), () => worldTurn({ connection: HOUSES[0].conn, storyId: 'm681-w7', userText: 'I watch the smoke.', assistantText: 'The Black Hand was finished: its last captains hanged at dawn, its hall burned.', stale: () => false, pageAt: 3 }));
+  eq(Object.keys((await loadState('m681-w7')).factions).length, 0, 'the world agent’s clear lands');
+});
+
+test('M681-54 THE AUDITOR’S SEAT FIX LANDS WHEN THE NEWEST PAGE BEARS IT OUT (W10): “Rias’s seat says the night market; the page has her at the Blue Lantern bar” was reported and its fix dropped, every audit — never the moment it guarded, never against how the page ends', async () => {
+  const { auditorScope } = await import('../../js/agents/auditor.js');
+  let st = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The Wells kitchen' }, { type: 'presence.enter', name: 'Jovan' },
+    { type: 'people.set', name: 'Rias', field: 'core', text: 'his neighbour' }, { type: 'offscreen.set', name: 'Rias', location: 'the night market', activity: 'haggling over peaches' }]).state;
+  st = { ...st, page: 3 };
+  const issue = (location, activity = 'nursing a gin') => [{ what: 'Rias’s seat says the night market; the page has her at the Blue Lantern bar', fixable: true, mutations: [{ type: 'offscreen.set', name: 'Rias', location, activity }] }];
+  const PAGE = '[The Wells kitchen — Friday | 21:00]\n\nJovan scrolled through his messages. Across town, Rias sat at the Blue Lantern bar, nursing a gin and ignoring her phone.';
+  const kept = (issues, page, s = st) => auditorScope(issues, s, { page, pageAt: 3 }).flatMap((i) => i.mutations);
+  const landed = kept(issue('the Blue Lantern bar'), PAGE);
+  eq(landed.length, 1, 'the newest page has her at the bar: the fix stands');
+  eq(applyMutations(st, landed).state.offscreen.Rias.location, 'the Blue Lantern bar', 'and lands');
+  eq(kept(issue('the night market, by the peach stalls', 'counting her change'), PAGE).length, 0, 'the same place said again is the moment (M128), still dropped');
+  eq(kept(issue('the Blue Lantern bar'), '[The Wells kitchen — Friday | 21:00]\n\nJovan scrolled through his messages and sighed.').length, 0, 'a page that does not have her there moves nobody');
+  /* this page’s reader seated her where the page ENDS; the auditor reading its start does not walk her back */
+  const went = applyMutations(st, [{ type: 'offscreen.set', name: 'Rias', location: 'her flat above the bakery', activity: 'asleep' }]).state;
+  const ENDS = '[The Wells kitchen — Friday | 21:00]\n\nAcross town, Rias sat at the Blue Lantern bar, nursing a gin.\n\n' + 'By midnight she had paid, pulled her coat on against the wind and walked the long way home through the empty streets, past the shuttered stalls and the dark tram depot, up the narrow stairs to her flat above the bakery, where she kicked off her shoes, let the phone die on the dresser, and fell asleep in her clothes with the window still open to the smell of the ovens below and the first carts rattling in the lane before dawn.';
+  eq(kept(issue('the Blue Lantern bar'), ENDS, went).length, 0, 'never back to where the page started');
+  eq(kept(issue('her flat above the bakery, in bed', 'asleep in her clothes'), ENDS, st).length, 1, 'where the page ends, it may');
+});
+
+test('M681-55 THE WORKERS’ LINE SAYS WHAT THE WORLD’S WORD IS (W12): it said “left the world’s word” and never what could reach the scene — and said it of a word of voices alone, which the storyteller is never told', async () => {
+  const { worldTurn, worldRunWords } = await import('../../js/agents/world.js');
+  const { withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  await saveState('m681-w12', { ...applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }]).state, readTo: 0 });
+  const run = async (brief) => worldRunWords(await withHouse(await worldHouse({ mutations: [], brief }), () => worldTurn({ connection: HOUSES[0].conn, storyId: 'm681-w12', userText: 'I wait.', assistantText: 'Jovan waited in the booth.', stale: () => false, pageAt: 1 })));
+  const said = await run({ pressure: ['Kim could reach the restaurant in about forty minutes'], ripe: ['The studio knows about the photos'], twb: { who: 'Aurora', where: 'the train', changed: 'she decided' }, voices: [] });
+  assert(/left the world’s word \(could reach the scene: Kim could reach the restaurant in about forty minutes · 1 ripened out of sight · a window on Aurora\)/.test(said), said);
+  const voices = await run({ pressure: [], ripe: [], twb: null, voices: [{ icon: '🍺', speaker: 'a barman', channel: 'the Kettle · late', content: 'Last orders, lads.' }, { icon: '🏪', speaker: 'a fishwife', channel: 'the quay · late', content: 'Two for one, going off tomorrow.' }] });
+  assert(!/left the world’s word/.test(voices) && /2 voices heard/.test(voices), 'voices alone are no word for the storyteller: ' + voices);
+});
+
+test('M681-56 THE WORLD’S WRITES FOR A PAGE WHOSE READER FAILED ARE ALL THAT PAGE’S (W11 — checked: M680-11 stamps them; the brief, the windows shown, the threads, the facts and the factions fold away with the seat)', async () => {
+  const { worldTurn } = await import('../../js/agents/world.js');
+  const { foldJournal } = await import('../../js/engine/state.js');
+  const { withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const led = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'people.set', name: 'Kim', field: 'core', text: 'a courier' }]).state;
+  await saveState('m681-w11', { ...led, readTo: 0 }); /* the reader of page 1 failed: the ledger stands at page 0 */
+  await withHouse(await worldHouse({ mutations: [
+    { type: 'offscreen.set', name: 'Kim', location: 'the north gate', activity: 'waiting for a reply', stance: 'busy' },
+    { type: 'thread.set', title: 'Kim and the letter', owner: 'Kim', heat: 'hot', next: 'deliver it by dusk' },
+    { type: 'knowledge.add', name: 'Kim', fact: 'saw the seal on the letter was broken' },
+    { type: 'faction.set', name: 'the Couriers’ Guild', stance: 'nervous', move: 'doubled its riders' },
+  ], brief: { pressure: ['Kim could reach the yard by dusk'], ripe: [], twb: { who: 'Kim', where: 'the north gate', changed: 'she opened the letter' } } }), () => worldTurn({ connection: HOUSES[0].conn, storyId: 'm681-w11', userText: 'I wait for word.', assistantText: 'The yard, page 2. No rider came.', stale: () => false, pageAt: 1 }));
+  const after = await loadState('m681-w11');
+  assert(after.worldBrief && after.worldShown.length === 1 && after.threads.length === 1 && Object.keys(after.factions).length === 1, 'fixture: the world wrote its page');
+  eq([...new Set((after.journal || []).filter((e) => e.p === 1).map((e) => e.m.type))].sort().join(','), 'faction.set,knowledge.add,offscreen.set,thread.set,world.word', 'every write of the world is journaled with the page it is about');
+  const folded = foldJournal(after, [], 0, applyMutations);
+  eq(folded.worldBrief, null, 'a fold to the page before keeps no word of it');
+  eq(folded.worldShown.length + folded.threads.length + Object.keys(folded.factions).length + Object.keys(folded.knowledge).length + Object.keys(folded.offscreen).length, 0, 'nor its window, thread, faction, fact or seat');
+});

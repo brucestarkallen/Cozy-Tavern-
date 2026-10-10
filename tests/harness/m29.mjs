@@ -182,7 +182,7 @@ test('M29-8 end to end: the world agent moves the world and leaves a brief, thro
     assert(after.characters && Object.keys(after.characters).some((k) => /Dmitri/.test(k)), 'a new person exists');
     assert(after.worldBrief && after.worldBrief.pressure.length === 1 && after.worldBrief.twb.who === 'Aurora', 'the brief is stored');
     eq(after.worldBrief.atTurn, after.turn, 'the brief is stamped with the turn');
-    assert(/moved the world in 6 ways, [\s\S]*Aurora[\s\S]*left the world’s word, 1 it may not touch/.test(worldRunWords(result)), worldRunWords(result));
+    assert(/moved the world in 6 ways, [\s\S]*Aurora[\s\S]*left the world’s word \(could reach the scene: Aurora reaches[^)]*a window on Aurora\), 1 it may not touch/.test(worldRunWords(result)), worldRunWords(result)); /* M681 (W12): the line says what the word is */
     assert(after.log.some((l) => /Aurora — the 6:10 train, reading his letter — heading this way, about 25 minutes out/.test(l.words)), 'the change is logged in plain words');
   }
   /* stale: nothing written */

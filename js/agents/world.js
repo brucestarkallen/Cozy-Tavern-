@@ -34,7 +34,7 @@
  *   - Runs AFTER the extractor (the page's own truth lands first), off the
  *     send path, through the workers' queue. Never on the critical path.
  *   - May write only the world beyond: offscreen.*, thread.*, knowledge.add,
- *     faction.set, people.set. It never touches the clock, the ground, who
+ *     faction.set / faction.clear (M681), people.set. It never touches the clock, the ground, who
  *     is present, bodies or standings — those are the page's to move.
  *   - Throws on transport failure (the queue retries); a garbled answer is
  *     an empty read, said out loud on the workers line.
@@ -67,7 +67,7 @@ export const WORLD_SHOWN_MAX = 6;
  * dropped before the applier sees it (and counted, so the workers line can
  * say "and 2 it may not touch"). */
 export const WORLD_TYPES = new Set([
-  'offscreen.set', 'offscreen.clear', 'thread.set', 'thread.close', 'knowledge.add', 'faction.set', 'people.set',
+  'offscreen.set', 'offscreen.clear', 'thread.set', 'thread.close', 'knowledge.add', 'faction.set', 'faction.clear', 'people.set', /* M681 (W7): a faction let go */
 ]);
 
 const VOCABULARY = [
@@ -77,6 +77,7 @@ const VOCABULARY = [
   'thread.close {"type":"thread.close","title":"NAME and the letter"} — when it is resolved for good',
   'knowledge.add {"type":"knowledge.add","name":"OTHER NAME","fact":"saw MAIN CHARACTER leave the letter unread"} — one thing one person witnessed or was told, from THIS page; never what they might guess',
   'faction.set {"type":"faction.set","name":"the studio","stance":"quietly furious","agenda":"bury the story before Monday","move":"sent a lawyer to the hotel"} — a faction moves only on cause; move = what it just did',
+  'faction.clear {"type":"faction.clear","name":"the studio"} — only when the pages have ended it as a power for good: disbanded, destroyed, absorbed, gone from the story; a faction that is merely quiet stays',
   'people.set {"type":"people.set","name":"QUIET NAME","field":"state","text":"at the rail, hat low, weighing whether to step in"} — ONLY for someone listed IN THE SCENE, NOT ON THE PAGE: their now, this minute',
   'people.set {"type":"people.set","name":"NEW NAME","field":"core","text":"the main character\'s manager; forty, sleepless, keeps three phones; loyal to the money first"} — ONLY for a NEW named person the world needs (a role that must be filled), their one-line core; then seat them with offscreen.set',
 ].join('\n');
@@ -206,7 +207,7 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     'Nobody knows what happened where they were not; a cut-away is a window for the reader, never a',
     'pathway for anyone inside it.',
     '',
-    'FACTIONS. A faction moves only on cause — and its cause is often its own: its rivals, its money, its people, its politics, not only the main character. When it moved, write its stance and its move.',
+    'FACTIONS. A faction moves only on cause — and its cause is often its own: its rivals, its money, its people, its politics, not only the main character. When it moved, write its stance and its move. When the pages have ended one for good (disbanded, destroyed, absorbed), let it go with faction.clear.',
     '',
     'NEW PEOPLE. When an absent person talks to someone off the page — a friend, a colleague, a sibling',
     'in a window or a voice — that someone exists from then on: named, given a one-line core, seated.',
@@ -457,7 +458,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
   const elsewhereAll = renderOffscreen(state.offscreen, present, clockMinutes, 40, state.characters || {}); /* M396 */
   const threads = renderAllThreads(state.threads);
   const knowledge = renderAllKnowledge(state.knowledge, present, undefined, { fitRoom: knowledgeRoom > 0 ? knowledgeRoom : 0 }); /* M664: fitted to this worker's room */
-  const factions = renderAllFactions(state.factions);
+  const factions = renderAllFactions(state.factions, storyTurn(state)); /* M681 (W7): a move says its age */
   const people = peopleForWorld(state, { material: String(brief || '') + '\n' + String(castNotes || ''), castNames, room: peopleRoom }); /* M304 */
   const cores = people.text;
   const user = [
@@ -727,7 +728,21 @@ export function worldRunWords(result) {
   bits.push(n ? `moved the world in ${n} ${n === 1 ? 'way' : 'ways'}` : 'the world stood still');
   /* M37: say what moved, not only how much */
   if (n) bits.push(result.applied.slice(0, 4).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (n > 4 ? ' · …' : ''));
-  if (result.brief && !result.brief.empty) bits.push('left the world’s word');
+  /* M681 — THE WORKERS' LINE SAYS WHAT THE WORLD'S WORD IS (the world audit's W12). It said "left the world’s word" and no
+   * more — the one part of the run the storyteller is handed, the arrival on the clock and the window, never named on the
+   * line that says what each worker did (M37: say what moved, not only how much) — and said it of a word that held only
+   * voices, which the storyteller is never told (M85). */
+  const word = result.brief && !result.brief.empty ? result.brief : null;
+  if (word) {
+    const clip = (t) => { const s = String(t || '').replace(/\s+/g, ' ').trim(); return s.length > 80 ? s.slice(0, s.lastIndexOf(' ', 80) > 40 ? s.lastIndexOf(' ', 80) : 80) + '…' : s; };
+    const pressure = Array.isArray(word.pressure) ? word.pressure : [];
+    const ripe = Array.isArray(word.ripe) ? word.ripe : [];
+    const parts = [];
+    if (pressure.length) parts.push('could reach the scene: ' + pressure.slice(0, 2).map(clip).join(' / ') + (pressure.length > 2 ? ' / …' : ''));
+    if (ripe.length) parts.push(ripe.length + ' ripened out of sight');
+    if (word.twb) parts.push('a window on ' + (word.twb.who || 'the world beyond'));
+    if (parts.length) bits.push('left the world’s word (' + parts.join(' · ') + ')');
+  }
   if (result.brief && Array.isArray(result.brief.voices) && result.brief.voices.length) bits.push(`${result.brief.voices.length} ${result.brief.voices.length === 1 ? 'voice' : 'voices'} heard`);
   const refusedN = result.rejected ? result.rejected.filter((r) => !(r && r.same)).length : 0; /* M680: "already so" is no refusal */
   if (refusedN) bits.push(`${refusedN} refused`);
