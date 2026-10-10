@@ -13,6 +13,16 @@ DOM-27 then exposed a fixture with no main-character identity, correctly leaving
 an unfinished world review. Its identity is now explicit; all seven related app
 scenarios pass. Product code is unchanged since 8cbf422. The final broad gate is
 being run as `python3 tools/check.py full --tag m684c`. Do not claim publication yet.
+Full c has passed all 1468 harness laws, long play, lint and the performance checks.
+Its complete walk finished 292/296. Four old fixture answers name people not present
+in their sources: DOM-127 (Lin), DOM-234 (Yuki Tsukumo), DOM-244 (Zed), DOM-255
+(Guest1..6). Keep every assertion; establish those names in their fixture brief/page/
+input. The remaining server/device checks are still running. After they finish, change
+only these fixtures and rerun the complete walk. Application code remains unchanged;
+record the original full report and the replacement walk separately, without claiming
+a single all-green full invocation. The staged scratch script /tmp/m684-fixtures.py
+contains the four source-only replacements if this environment survives.
+
 The previous release and all Claude audit commits are preserved. No user story data
 was accessed. New metadata is additive; rename, freshness and page changes remain
 journaled and undoable. Development negatives and actual final results will be saved

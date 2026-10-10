@@ -91,5 +91,16 @@
     "tag": "m684b",
     "harness_passed": 1468,
     "stopped_at": "DOM-27 fixture lacked the main-character identity; current-world omission correctly kept the lamp amber. Fixture corrected, seven related scenarios pass. No further application change."
+  },
+  "full_c_pending_fixtures": {
+    "walk_passed": 292,
+    "walk_failed": 4,
+    "ids": [
+      "DOM-127",
+      "DOM-234",
+      "DOM-244",
+      "DOM-255"
+    ],
+    "reason": "Scripted answers supplied names absent from the fixture sources. Preserve assertions and establish the names, then rerun the complete walk. No application code change."
   }
 }
