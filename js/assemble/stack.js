@@ -1049,8 +1049,11 @@ export function buildRequest({
   /* M518: canon's lines ride on the cards only where canon's note is trimmed against them (canonOnPages) — in any other
    * mode the cards are what they always were, and a page's kept canon lines are not sent at all (M386: canon off sends
    * nothing of it) */
+  /* M681 (the send's worst frame, perf_send): the state of things is rendered ONCE — the people block asked it whole only to
+   * see whether "Elsewhere:" made it in, and section 5 rendered it again with the very same arguments */
+  const stateFacts = renderStateFacts(state, { ...(smallB ? {} : stateView(windowInfo && windowInfo.budgetTokens)), scenePages: recentPages, noFight: safeSettings.refereeOn === false }); /* M345: referee off = the storyteller decides everything; no fight is kept for it */ /* M266: in the room the storyteller has; M305: what the scene is about calls back what someone here learned long ago */
   const peopleState = canonOnPages || !state || !state.characters ? state : { ...state, characters: Object.fromEntries(Object.entries(state.characters).map(([k, e]) => [k, e && typeof e === 'object' && Array.isArray(e.canon) ? (({ canon: _c, ...rest }) => rest)(e) : e])) };
-  const people = renderPeopleTiers(peopleState, { recentPages: smallB && worldEarly ? [...recentPages, worldEarly] : recentPages, rotation: history.length, view: smallB ? SMALL_PEOPLE_VIEW : peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || ''), scenePages, seatsInState: stateView(windowInfo && windowInfo.budgetTokens).whole || /(^|\n)Elsewhere: /.test(renderStateFacts(state, { ...(smallB ? {} : stateView(windowInfo && windowInfo.budgetTokens)), scenePages: recentPages, noFight: safeSettings.refereeOn === false }) || '') /* M542: the seats ride in the ledger's own block whenever its "Elsewhere:" made it in — the people say a tracked person's where once, there */ }); /* M281: in the room the storyteller has; M282: the brief weighs who matters; M292: a seat said once */
+  const people = renderPeopleTiers(peopleState, { recentPages: smallB && worldEarly ? [...recentPages, worldEarly] : recentPages, rotation: history.length, view: smallB ? SMALL_PEOPLE_VIEW : peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || ''), scenePages, seatsInState: stateView(windowInfo && windowInfo.budgetTokens).whole || /(^|\n)Elsewhere: /.test(stateFacts || '') /* M542: the seats ride in the ledger's own block whenever its "Elsewhere:" made it in — the people say a tracked person's where once, there */ }); /* M281: in the room the storyteller has; M282: the brief weighs who matters; M292: a seat said once */
   const peopleText = people ? people.text : '';
   /* M510-11: THE STORY IN SHORT — a small model reads eight pages; the rest of the tale reached it only as the plan's
    * three facts from earlier. The helper keeps the whole story the way a person remembers it (under 180 words, rewritten
@@ -1071,7 +1074,7 @@ export function buildRequest({
 
   /* --- 5. The state of things --- */
   /* M510-2: a small model gets the ledger's own compact view (the scene first) — the whole ledger stays with the helper */
-  const facts = renderStateFacts(state, { ...(smallB ? {} : stateView(windowInfo && windowInfo.budgetTokens)), scenePages: recentPages, noFight: safeSettings.refereeOn === false }); /* M345: referee off = the storyteller decides everything; no fight is kept for it */ /* M266: in the room the storyteller has; M305: what the scene is about calls back what someone here learned long ago */
+  const facts = stateFacts; /* M345: referee off = the storyteller decides everything; no fight is kept for it */ /* M266: in the room the storyteller has; M305: what the scene is about calls back what someone here learned long ago */
   pushSlot('The state of things', facts, smallB ? 'the ledger, its compact view — the scene first; the helper read the rest (small model); sent after the people, nearest the pages' : 'the ledger — sent after the people, nearest the pages');
 
   /* --- 6. Active modules (everything selected that isn't the craft) --- */

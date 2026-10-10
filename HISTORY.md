@@ -18134,6 +18134,12 @@ FOUND BY THE GATES ON M681 (each was red on m680-001 too, made to happen there u
   — main 1 of 3 red under load, fixed 6 of 6): the shelf judged the open tale against the list it read before its other
   reads, and "put right" a tale made and opened meanwhile to the first one on the shelf — his next page went to another
   tale. The open tale is judged by the store as it is now.
+- THE SEND'S WORST FRAME, WITH ROOM TO SPARE (perf_send: main 982–1127 ms over five runs, four over its 1000 ms budget;
+  M681 now 705–909, none over — interleaved, the same host): inside the send's longest stretch the blind spots tested
+  every name word's Unicode test against every fact of every book; a plain-ASCII word is looked for with includes() first
+  (world.js blindSpots — the state of things byte-identical, sha1 016dd1d8afb3 on the perf ledger, main and M681), and a
+  fact many books share is weighed against their own book once; buildRequest renders the state of things once, not
+  twice (stack.js).
 - NOT FOUND: perf_academy's page reloads itself about one run in ten, on main and M681 alike (46 instrumented runs, one
   hit: no navigation event, no crash, no stale answer before the context died); its welcome-screen busy budget sits on
   this host's per-frame noise (55–135 ms against +120 ms; the coat paints and styles nothing). Open in HANDOFF.

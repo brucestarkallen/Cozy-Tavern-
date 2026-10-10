@@ -1141,15 +1141,29 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
     const oldestShared = sharedTurns.length ? Math.min(...sharedTurns) : Infinity;
     const newestKept = keptTurns.length ? Math.max(...keptTurns) : -Infinity;
     const mayBeLetGo = (atTurn) => full && !(Number.isFinite(atTurn) && (atTurn >= oldestShared || atTurn > newestKept));
-    const selfRes = [...new Set(name.toLowerCase().split(/\s+/).filter((w) => w.length >= 3))].map((w) => new RegExp('(^|[^\\p{L}])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}])', 'iu'));
+    /* M681 (the send's worst frame, perf_send): each word's Unicode-aware test ran against every fact of every book; a word can
+     * only be found where its letters are, so a plain-ASCII word in a plain-ASCII fact is looked for with includes() first
+     * (there lower case and the test's case-folding agree) — anything else is tested exactly as before */
+    const selfRes = [...new Set(name.toLowerCase().split(/\s+/).filter((w) => w.length >= 3))].map((w) => ({ w, ascii: !/[^\x00-\x7f]/.test(w), re: new RegExp('(^|[^\\p{L}])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}])', 'iu') }));
+    const lowOf = new Map(); /* fact -> its lower case when it is plain ASCII, else null */
+    const aboutThem = (fact) => {
+      let low = lowOf.get(fact);
+      if (low === undefined) { low = /[^\x00-\x7f]/.test(fact) ? null : fact.toLowerCase(); lowOf.set(fact, low); }
+      return selfRes.some(({ w, ascii, re }) => (ascii && low !== null && !low.includes(w) ? false : re.test(fact)));
+    };
     const found = [];
+    const heldMemo = new Map(); /* M681: fact text -> do they hold it (one person's pass) */
     for (const [other, list] of books) {
       if (other === mineKey || other.trim().toLowerCase() === name.trim().toLowerCase() || samePersonName(other, name)) continue; /* M449: their own lines under another form of their name are theirs — never "Rukia hasn't found out (Rukia knows)" */
       for (const { fact, shown, age, words, score, atTurn } of list) {
         if (mayBeLetGo(atTurn)) continue; /* M579/M681: it may have been theirs, let go at the guard */
-        if (selfRes.some((re) => re.test(fact))) continue; /* about them: they were there */
+        if (aboutThem(fact)) continue; /* about them: they were there */
         if (typeof wasThere === 'function' && publicMoment(fact) && wasThere(name, atTurn)) continue; /* M509-15: the whole room saw it, and they were in the room */
-        if (mine.some((m) => sameFact(m.fact, fact) || overlap(m.words, words) >= 0.6)) continue; /* they hold it, in these words or others */
+        /* M681 (the send's worst frame, perf_send): a fact many books share (M484: one wording house-wide) was weighed against
+         * their own book once for every book it stood in — the same answer each time; it is weighed once per person */
+        let holds = heldMemo.get(fact);
+        if (holds === undefined) { holds = mine.some((m) => sameFact(m.fact, fact) || overlap(m.words, words) >= 0.6); heldMemo.set(fact, holds); }
+        if (holds) continue; /* they hold it, in these words or others */
         if (found.some((f) => sameFact(f.fact, fact) || overlap(f.words, words) >= 0.6)) continue; /* once is enough */
         found.push({ fact: (shown || fact).replace(/\.+$/, ''), from: other, age, score, words });
       }
