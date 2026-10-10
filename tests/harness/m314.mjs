@@ -38,7 +38,7 @@ test('M314-1 the stored checkpoints hold no journal and no log — and every rea
   assert(stored.every((e) => e.snap && e.snap.slim === 3 /* M570: the ledger's pages shared too */ && !('journal' in e.snap) && !('log' in e.snap) && Array.isArray(e.snap.jk) && Array.isArray(e.snap.lk)), 'stored as a ledger and two lists of keys');
   const fat = JSON.stringify(wholes).length;
   const slim = JSON.stringify(stored).length + JSON.stringify(await db.settings.get('ckptBank:' + sid)).length;
-  assert(slim < fat * 0.75, 'smaller even on six pages, the bank counted in (a long tale saves far more — measured in AGENTS.md): ' + slim + ' against ' + fat + ' bytes');
+  assert(slim < fat * 0.75, 'smaller even on six pages, the bank counted in (a long tale saves far more — measured in HISTORY.md): ' + slim + ' against ' + fat + ' bytes');
   const back = await loadSnapshots(sid);
   for (let i = 0; i < 6; i += 1) eq(canon(back[i].snap), canon(wholes[i]), 'checkpoint ' + (i + 1) + ' is the ledger it was — journal, log and all');
   assert(back[4].snap.log.some((e) => e.undone === true) && !back[2].snap.log.some((e) => e.undone === true), 'an entry stands undone only in the checkpoints taken after it was taken back');

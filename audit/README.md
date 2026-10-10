@@ -2,7 +2,7 @@
 
 **Where it stands:** m635-001, Oct 6 2026. All 122 of 122 files read whole and fixed (M619); the session after it
 added features M620–M635, each gated, with two whole-session audits (M629, M635).
-(`DONE (Mxxx)` = read whole; `todo` = not yet). The full history of every fix is the tail of `AGENTS.md`
+(`DONE (Mxxx)` = read whole; `todo` = not yet). The full history of every fix is `HISTORY.md`
 (search `# M574` onward for the audit's own parts); `HANDOFF.md` says how to run the app and the tests.
 
 LO (Bruce, the owner) audits nothing himself and verifies nothing himself: the session does the reading, the fixing, the
@@ -50,7 +50,7 @@ strings as well — they are what a helper or the storyteller is told.
 2. Every fix gets a law: `tests/harness/mNNN.mjs` (registered in `tests/harness/run.mjs`) that drives the real code —
    never one that reads source text — and a NEGATIVE CONTROL: put the old code back and see the law fail. A law that
    passes on the old code is not kept. UI fixes get a walk scenario in `tests/dom/run.mjs`.
-3. Bump `js/version.js` (`mNNN-001`), add a `# MNNN — …` section at the end of `AGENTS.md` (what was found, the root, the
+3. Bump `js/version.js` (`mNNN-001`), add a `# MNNN — …` section at the end of `HISTORY.md` (what was found, the root, the
    fix, the laws), update the state line in `HANDOFF.md`, mark the file in `audit/LINE_AUDIT.md`.
 4. A milestone number never appears inside any prompt text a helper reads (law M563 catches it).
 5. When the craft's text changes, add the OLD craft's fingerprint to `SHIPPED_BEFORE['core-craft']` in

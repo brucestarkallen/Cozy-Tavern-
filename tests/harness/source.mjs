@@ -138,5 +138,5 @@ test('B20: the manifest no longer locks orientation', () => {
 
 test('B15: the docs carry the M9 contracts', () => {
   assert(/M9/.test(src('tests/smoke.md')), 'smoke.md updated');
-  assert(/M9/.test(src('AGENTS.md')), 'AGENTS.md updated');
+  assert(/M9/.test(src('HISTORY.md')), 'HISTORY.md carries the milestone log');
 });

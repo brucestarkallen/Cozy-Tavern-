@@ -1,3 +1,9 @@
+> **UNFINISHED WORK — read this first (Oct 10, 2026).** Main is **m679-001**, what his phone runs. The work after it is
+> on branch **m681-wip** (if that branch is missing: **m680-wip**): M680 — eleven fixes from the ledger audit, written
+> and tested — with its entry at the end of HISTORY.md. The full gates found two regressions in M680 (harness M655-1,
+> walk DOM-100), so it is not on main; their fix is designed in that branch's HANDOFF.md, section "RESUME HERE",
+> followed by the plan for M681 and every open finding. Check that branch out and read its HANDOFF.md before anything.
+
 > **THE LINE-BY-LINE AUDIT — checkpoint and how to continue it: `audit/README.md`** (the ledger of every file: `audit/LINE_AUDIT.md`; the gates: `audit/gates.sh`).
 
 # Cozy Tavern — handoff for the next session (state at m679-001)
