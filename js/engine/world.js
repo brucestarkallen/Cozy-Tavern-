@@ -1008,17 +1008,23 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
     const mineList = mineKey ? safe[mineKey] : [];
     const mine = mineList.map((k) => ({ fact: k.fact, words: factWords(k.fact) }));
     /* M579: a list at the guard may have let older facts go — nothing older than its oldest kept fact is claimed unknown */
-    /* M681: …the oldest fact it still SHARES with someone — a full book lets shared facts go first (trimmedBook), so an older
-     * secret kept says nothing of what was let go after it; a full book that shares nothing claims nothing */
+    /* M681: …read for a book that lets SHARED facts go first (trimmedBook): a fact someone else holds can have been hers and
+     * let go only if it is older than the oldest fact she still shares (the shared go oldest first), or — when she shares
+     * nothing any more — learned no later than her own newest fact (a fact is only let go by a LATER one coming in). An
+     * older secret she keeps says nothing of what was let go after it. */
+    const full = mineList.length >= KNOWLEDGE_GUARD;
     const sharedWithOthers = (k) => { const o = ownersOf.get(factKey(k.fact)); return Boolean(o) && [...o].some((x) => x !== mineKey); };
-    const sharedTurns = mineList.length >= KNOWLEDGE_GUARD ? mineList.filter((k) => k && typeof k.fact === 'string' && Number.isFinite(k.atTurn) && sharedWithOthers(k)).map((k) => k.atTurn) : [];
-    const horizon = mineList.length >= KNOWLEDGE_GUARD ? (sharedTurns.length ? Math.min(...sharedTurns) : Infinity) : -Infinity;
+    const sharedTurns = full ? mineList.filter((k) => k && typeof k.fact === 'string' && Number.isFinite(k.atTurn) && sharedWithOthers(k)).map((k) => k.atTurn) : [];
+    const keptTurns = full ? mineList.filter((k) => k && Number.isFinite(k.atTurn)).map((k) => k.atTurn) : [];
+    const oldestShared = sharedTurns.length ? Math.min(...sharedTurns) : Infinity;
+    const newestKept = keptTurns.length ? Math.max(...keptTurns) : -Infinity;
+    const mayBeLetGo = (atTurn) => full && !(Number.isFinite(atTurn) && (atTurn >= oldestShared || atTurn > newestKept));
     const selfRes = [...new Set(name.toLowerCase().split(/\s+/).filter((w) => w.length >= 3))].map((w) => new RegExp('(^|[^\\p{L}])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}])', 'iu'));
     const found = [];
     for (const [other, list] of books) {
       if (other === mineKey || other.trim().toLowerCase() === name.trim().toLowerCase() || samePersonName(other, name)) continue; /* M449: their own lines under another form of their name are theirs — never "Rukia hasn't found out (Rukia knows)" */
       for (const { fact, shown, age, words, score, atTurn } of list) {
-        if (horizon > -Infinity && !(Number.isFinite(atTurn) && atTurn >= horizon)) continue; /* M579: older than what their full list still holds */
+        if (mayBeLetGo(atTurn)) continue; /* M579/M681: it may have been theirs, let go at the guard */
         if (selfRes.some((re) => re.test(fact))) continue; /* about them: they were there */
         if (typeof wasThere === 'function' && publicMoment(fact) && wasThere(name, atTurn)) continue; /* M509-15: the whole room saw it, and they were in the room */
         if (mine.some((m) => sameFact(m.fact, fact) || overlap(m.words, words) >= 0.6)) continue; /* they hold it, in these words or others */

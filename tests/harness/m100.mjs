@@ -1923,7 +1923,15 @@ test('M237: no cap in the house severs a word, and no list has an unguarded door
       'present: someone already in the room is refused — ' + JSON.stringify(again.rejected.map((r) => r.why)));
     assert(again.state.present.length === 1 && again.state.present[0].name === 'Liara Vance', 'present: and the scene holds them once');
   }
-  assert(/const wanted = new Set\(list\.map/.test(apply), 'mood: a closed set of known flags, so no flag can be written twice');
+  /* M681: this line read the handler's source text — it runs the door now: a board that names a flag twice, in two
+   * spellings, and a word that is no mood writes each known flag once and nothing else */
+  {
+    const { applyMutations, MODE_FLAGS } = await import('../../js/engine/apply.js');
+    const { emptyState } = await import('../../js/engine/state.js');
+    const r = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mode.snapshot', flags: ['combat', 'Combat', 'combat', 'nonsense', 'travel'] }]);
+    assert(Object.keys(r.state.mode).every((k) => MODE_FLAGS.includes(k)), 'mood: a closed set of known flags — ' + Object.keys(r.state.mode).join(', '));
+    assert(r.state.mode.combat === true && r.state.mode.travel === true && Object.values(r.state.mode).filter(Boolean).length === 2, 'mood: each flag written once — ' + JSON.stringify(r.state.mode));
+  }
   /* M386: the lock also carries where a truth came from ({ key, value, source }) — still locked BY KEY (M386-1 relocks the
    * series' own hair and finds one fact under "hair", corrected) */
   assert(/state\.canon = lockFact\(state\.canon, canonKey, \{ key, value[,} ]/.test(apply),

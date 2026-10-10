@@ -380,10 +380,12 @@ test('M680-13 HIS BLEACH OFFICE (walk DOM-100 on m680-001): the page ends “Ren
 test('M680-14 SILENCE IS NOT LEAVING, AGAIN (harness M655-1 on m680-001): someone with no seat whom the page never names, seated by the world agent in the very room the scene stands in, is in the scene — with or without a room the reader named; a SEATED person the page never names stays out against the reader’s room, and walks in only when there is none (M402)', async () => {
   const { worldTurn } = await import('../../js/agents/world.js');
   const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
-  const kitchen = () => applyMutations({ ...emptyState(), page: 12 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen, 8 Mariner’s Lane' },
+  /* M681: the room and the seats were written by earlier pages (stamped 11) — stamped with the page being read (12) they
+   * read as this page's own reader seating Aunt Vera upstairs, which the world agent may not move (W4, M681-23) */
+  const kitchen = () => ({ ...applyMutations({ ...emptyState(), page: 11 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen, 8 Mariner’s Lane' },
     ...['Jovan', 'Rias'].map((name) => ({ type: 'presence.enter', name })),
     { type: 'people.set', name: 'Tom', field: 'core', text: 'his cousin; slow to speak, quick to fix things' }, { type: 'people.set', name: 'Aunt Vera', field: 'core', text: 'runs the house' },
-    { type: 'offscreen.set', name: 'Aunt Vera', location: 'upstairs in the Wells house', activity: 'asleep' }]).state;
+    { type: 'offscreen.set', name: 'Aunt Vera', location: 'upstairs in the Wells house', activity: 'asleep' }]).state, page: 12 });
   const PAGE = '[Wells house kitchen, 8 Mariner’s Lane — Monday, March 3, 2025 | 21:45 | rain | sweater | at the table]\n\nRias stirred the pot and said nothing.';
   for (const room of [true, false]) {
     const id = 'm681-kitchen-' + room;

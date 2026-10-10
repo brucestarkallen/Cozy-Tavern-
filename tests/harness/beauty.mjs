@@ -535,15 +535,10 @@ test('M251: the ledger walks back to its oldest unread page, as the record does'
   assert(/\} catch \(err\) \{ \/\* the page in hand still gets read \*\/ \}/.test(chat),
     'a catch-up that stumbles never costs the page the writer just wrote');
 
-  /* state.page only advances on a SUCCESSFUL read — that is what makes it an
-   * honest mark of the gap */
-  const at = chat.indexOf("if (extractFailed) throw new Error('no answer reached us');");
-  assert(at !== -1, 'a failed read throws');
-  /* M253: the mark is a contiguous PREFIX now — reading the page in hand
-   * only extends it when that page is the very next one, so a catch-up can
-   * never be abandoned by the main read stamping its own index over it. */
-  assert(chat.indexOf('} else markPageRead(next, pageInHand);') > at,
-    'and the page mark is only set AFTER that throw, so a failure never advances it');
+  /* state.page only advances on a SUCCESSFUL read — that is what makes it an honest mark of the gap. M681: these lines read
+   * the chain's source for a literal ("if (extractFailed) throw …") the S2 fix rewrote (a failed reader now lands the
+   * header's own writes first); the law is RUN now — walk DOM-277: the reader's wire drops on every try, the page's hour
+   * and ground land, and the reading mark stays where it was (readTo 0). */
   assert(/THE MARK IS A CONTIGUOUS PREFIX, NOT THE NEWEST PAGE READ/.test(chat),
     'and it is a prefix, so the gap closes instead of being abandoned');
 
