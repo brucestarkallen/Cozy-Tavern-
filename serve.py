@@ -62,7 +62,7 @@ _listeners_lock = threading.Lock()
 # instant, and a page line is several kilobytes — far past the size a single
 # write() is atomic for. Interleaved, both lines are ruined and both pages
 # lost. Threads share this process, so one lock is all it takes.
-_log_lock = threading.Lock()
+_log_lock = threading.RLock()  # M681: re-entered only by restore's last try (it copies the library while holding it still)
 
 # M186: and the log is not allowed to grow forever. It is cleared by the
 # twenty-second whole-book push — but if that push never lands (the browser
@@ -76,11 +76,12 @@ LOG_FOLD_BYTES = 2 * 1024 * 1024
 # shared one .part name, and a copy taken while another was being put in place would be a zip of half of each.
 # _sent_lock is held for every write to a tale's archive of sent words (sent/<tale>.ndjson), and while an archive is
 # read for what it holds.
-# THE ORDER, wherever more than one is held: _backup_lock, then _log_lock, then _sent_lock. They are plain locks — a
-# thread that takes one twice waits on itself for ever — so nothing that holds _log_lock may call make_backup (it
-# takes _log_lock for each tale), and nothing that holds _backup_lock may call make_backup or restore_backup.
+# THE ORDER, wherever more than one is held: _backup_lock, then _log_lock, then _sent_lock. _backup_lock is a plain
+# lock — a thread that takes it twice waits on itself for ever — so nothing that holds it may call make_backup or
+# restore_backup. M681: _log_lock and _sent_lock are re-entrant, for ONE caller: restore's last try takes its safety copy
+# (which takes them for each tale) while it holds both, so the library holds still between that copy and the swap.
 _backup_lock = threading.Lock()
-_sent_lock = threading.Lock()
+_sent_lock = threading.RLock()  # M681: see _log_lock
 
 # M675 — THE LIBRARY HAS AN EPOCH. A copy brought back replaces every book on the device, but a browser that did not
 # bring it back still holds the tales as they were, with NEWER stamps: it never took the restored books and pushed its
@@ -2218,19 +2219,40 @@ def _restore(z, plan):
     # not in the zip, and gone with the library. So, with the locks of the swap held (nothing can be written now), the
     # library is looked at again: if anything was written since it was zipped, it is zipped again first. A library
     # that will not hold still for three tries is not replaced at all.
+    # M681 — A LIBRARY THAT IS WRITTEN TO WITHOUT A PAUSE IS HELD STILL, NOT GIVEN UP ON (found when the device gate's
+    # "all of it at once" failed on a busy machine — made to happen on m680-001 with the CPU loaded: 2 runs of 5). The
+    # copy kept first is zipped while the library is open to writes, then looked at again under the locks; three tales
+    # writing a page every 30 ms changed it inside every zip, three tries in a row, and the copy he asked to bring back was
+    # refused ("bring the copy back again when no tale is being told") — whether it was depended on how fast the device
+    # zipped. After two such tries the safety copy is taken WITH the locks held, and the swap follows in the same hold:
+    # nothing can be written between them, so it is always whole and always the library as it went. A page sent meanwhile
+    # waits for the swap (as it already waits for the swap itself) and is never refused.
     tries = 0
     while True:
         with _log_lock, _sent_lock:
-            still = _library_print() == seen
+            if tries >= 2:
+                for gone in ([safety['path'], os.path.join(BACKUPS_DIR, 'last.stamp')] if safety.get('path') else []):
+                    try:
+                        os.remove(gone)
+                    except OSError:
+                        pass
+                seen = _library_print()
+                safety = _backup_now(True, True) if seen else {'ok': True}
+                if not safety.get('ok'):
+                    shutil.rmtree(stage, ignore_errors=True)
+                    return {'ok': False, 'why': 'the library as it stands could not be kept first (%s) — nothing was touched' % safety.get('why')}
+                kept = os.path.basename(safety['path']) if safety.get('path') else None
+                still = True
+            else:
+                still = _library_print() == seen
             if still:
                 why, undone, epoch = _swap(stage)
                 _SENT_HELD.clear()  # every archive is another file now (or the same one again): what was remembered of them goes
         if still:
             break
         tries += 1
-        if tries > 3:
-            shutil.rmtree(stage, ignore_errors=True)
-            return {'ok': False, 'why': 'the library kept being written to while its copy was being taken — nothing was changed; bring the copy back again when no tale is being told', 'safety': kept}
+        if tries >= 2:
+            continue  # the next try holds the library still and takes its own copy (above)
         # the copy taken a moment ago is replaced by the one taken now, not added to (only five are kept) — and the
         # note that described it goes with it, so nothing older is ever taken for "the newest copy of this library"
         for gone in ([safety['path'], os.path.join(BACKUPS_DIR, 'last.stamp')] if safety.get('path') else []):

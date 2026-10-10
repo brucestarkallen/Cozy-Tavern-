@@ -630,7 +630,10 @@ def scene_restore():
             in_kept = z.read('books/taleA.log') if 'books/taleA.log' in z.namelist() else b''
     check(bool(wrote_late) and r.get('ok') is True and late in in_kept, 'a page appended after the library was zipped and before it went: it IS in the copy kept first (the library is zipped again before it goes)')
     check(len(zips(data)) == 1, 'and that restore still leaves one copy of the library as it stood, not two: ' + str(zips(data)))
-    # a library that is written to every time it is looked at is not replaced at all
+    # a library that is written to every time it is looked at. M675 refused the copy then (a page landing between the zip
+    # and the swap was in neither); M681: after two tries the library is held still — the safety copy is taken with the
+    # write locks held and the swap follows in the same hold — so the copy he asked for is brought back, and NOTHING
+    # written meanwhile is lost: every page is in the copy kept first (scene 9 brings a copy back under real writes)
     before = reseed()
     real_print = getattr(serve, '_library_print', None)
     looks = []
@@ -641,9 +644,13 @@ def scene_restore():
         return real_print()
     with patched(serve, '_library_print', print_after_a_write):
         r = serve.restore_backup(good)
-    now = tree(data, skip_bak=False)
-    check(real_print is not None and r.get('ok') is False and str(r.get('why', '')).find('nothing was changed') > 0 and leftovers(data) == [] and {k: v for k, v in now.items() if k != 'books/taleA.log'} == {k: v for k, v in before.items() if k != 'books/taleA.log'} and read(os.path.join(books, 'taleA.log')).count(b'taleA-late-') == len(looks),
-          'a library written to every time it is looked at (%d looks) is not replaced: the copy is refused, every page written meanwhile is still there (%s)' % (len(looks), str(r.get('why'))[:80]))
+    kept_log = b''
+    if r.get('safety') and r.get('safety') in zips(data):
+        with zipfile.ZipFile(os.path.join(data, 'backups', r['safety'])) as z:
+            kept_log = z.read('books/taleA.log') if 'books/taleA.log' in z.namelist() else b''
+    lost = [n for n in range(1, len(looks) + 1) if (b'taleA-late-%d"' % n) not in kept_log and (b'taleA-late-%d"' % n) not in read(os.path.join(books, 'taleA.log'))]
+    check(real_print is not None and len(looks) >= 3 and r.get('ok') is True and leftovers(data) == [] and not lost,
+          'a library written to every time it is looked at (%d looks): held still, the copy is brought back, and no page written meanwhile is lost — lost: %s (%s)' % (len(looks), lost or 'none', str(r.get('why'))[:80]))
     check(len(zips(data)) == 1, 'and one copy of it was kept, not one for each try: ' + str(zips(data)))
 
     # the storage is full at the very moment the new epoch is to be written: still nothing is changed
