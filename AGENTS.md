@@ -18033,3 +18033,46 @@ GATES (the final code): harness 1365/1365; the walk 272/272; the long play 9/9; 
 had — the one this work added, a shadowed name in the loose verdicts' parse, renamed and the harness and DOM-271/272 run
 again: green); the 20 browser tests of audit/gates.sh, each exit 0 (launcher 26/26, upgrade_in_place 41/41, device_pair
 all green, paint_academy and perf_academy exit 0). Ships as m679-001.
+
+# M680 — the whole ledger audited, room by room (his: "have you audited the whole ledger? … I don't want to keep coming back")
+His list: the scene, who's here, the mood, the house has ruled, how they measure, the people, how they feel toward you,
+what's true of them, what canon says, the world (elsewhere, beyond the pages, voices), the books, the auditor, every
+agent. Four reviews (the scene; the people; the world; the books) each read their rooms against the code and MADE each
+finding happen before it was touched. What was fixed here, each with a law that fails on m679-001 and passes now:
+- A STREET WITH ITS CITY IS THE SPOT (M680-1): "Cooper's Row, Ilvarren" was read as an address and set aside, so every
+  seat in Ilvarren was "at the scene" (Old Hesk walked in from his own tavern), and a now on Gilder's Row never went
+  stale at the Bent Kettle. The street is what a seat must name; a spot with its address is still not asked for it.
+- THE WORLD AGENT NO LONGER UNDOES THE PAGE'S READER (M680-2): between the reader and the auditor it could let a note go
+  (a walk-in, M444) or seat someone at the scene's own ground (a walk-in, M402) — Corven stood in the side passage again.
+  Its walk-ins answer to the page's ending and its reader now, as the auditor's do (M679).
+- THE DEAD ARE DEAD AT EVERY DOOR (M680-3): a death at the scene's own place was a walk-in; a grave's note let go walked
+  the dead in; the dead were told as close by, asked of the reader as within earshot, marked for re-seating, and a seat
+  for the living could be written over a grave. A seat he writes or lets go by hand is his (the drawer marks it so).
+- A SIGHTING IS NOT COMPANY (M680-4): "last seen at <the scene's own ground>" was told as close by, able to hear and answer
+  the door, and asked of the reader as within earshot.
+- TWO WRITERS NO LONGER ERASE EACH OTHER (M680-5): the send path saved back a ledger read before its waits (the weighing,
+  the referee's call) over the readers' writes; the auditor asked the brief's digits between loading and saving and wrote
+  over the referee's duel and committed fate. The referee's writes are laid onto the ledger as it stands; the auditor
+  makes its second call before it loads.
+- A PERSON'S NOW HAS ITS OWN AGE AND GROUND (M680-6): the scribe's now (people.note) knew no ground; any write to a page
+  refreshed the now's age; the card said "Now:" over a note fifteen pages old (people.js nowTurnOf; the drawer reads it).
+- "ALREADY SO" IS NO REFUSAL ON ANY WORKER'S LINE (M680-7) — M679 did it for the auditor alone.
+- A TAKE-BACK OUTLIVES "TRY AGAIN" (M680-8): the reversal is stamped with the page of the change it reverses.
+- THE ONE RULE FOR LETTING A RECORD LINE GO REACHES PAGES THAT GO (M680-9) and A REPLAY KEEPS THE RECORD OF THE PAGES IT DOES
+  NOT CHANGE (DOM-273): a correction to a middle page cut every record line after it; now only the line over the changed
+  page goes (never his, and only where a keeper folds again), and a deletion's slide stands.
+- WHAT IS TRUE OF THEM REACHES EVERY READER THAT IS TOLD IT (M680-10): a lock under "Roska Venn" was told to nobody while the
+  room kept "Roska"; the second reader and the weighing saw six truths at most.
+- A WORKER'S WRITES ARE THE PAGE THEY ARE ABOUT (M680-11): with the reader's call failed, the world agent's and the scribe's
+  writes were stamped with the OLD page, and a Try again of the new page kept them (pageAt).
+- EVERY RE-INK IS READ AGAIN (DOM-274): one housekeeper answer that re-inked two pages had the second page's rebuild dropped
+  (a rebuild was running and the re-ink only looked at it). pageReinked, letOnePageGo and rereadPage take the replay gate;
+  replayFrom releases it exactly once; the housekeeper re-inks every edited page oldest first and ripples after;
+  "Keep the new words" on an older page hands the rebuild over instead of waiting for it; a delete holds the house across
+  every page it lets go.
+- THE CHOICES ARE MADE FROM THE LEDGER AS THE PAGE LEFT IT (DOM-275): Choices matter sealed its outcomes before the page's
+  readers had written it (a man the page walked out of the yard still "here now"); it waits for them.
+- NOT COVERED BY ANY TEST: the delete's busy hold (no test fails without it); replayFrom's two-minute wait for readers
+  in flight (a chain outlasting it lets the fold go ahead and the stale readers' writes are dropped, unnoticed).
+- STILL OPEN after this audit (each made to happen or read in code, not yet fixed): see HANDOFF.md "## M680".
+- version.js -> m680-001.
