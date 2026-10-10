@@ -1,8 +1,8 @@
 {
   "version": "m685-001",
-  "status": "verification_in_progress",
+  "status": "verified",
   "baseline_commit": "613c1749e56524f30d371e518e86cd06e0b65920",
-  "product_commit": "98ae6ce",
+  "product_commit": "df35cd5d158ce0d6d20adff9cfbbd4a194f575bd",
   "model_calls": "Scripted providers only; no real user story or paid model calls.",
   "preserved_ancestors": [
     "4a19de3",
@@ -13,14 +13,15 @@
     "613c174"
   ],
   "new_laws": {
-    "total": 29,
+    "total": 30,
     "on_m685": {
-      "passed": 29,
+      "passed": 30,
       "failed": 0
     },
     "on_m684": {
       "passed": 3,
-      "failed": 26
+      "failed": 26,
+      "tested": 29
     },
     "baseline_controls": [
       "ok \u2014 M685-16 source recovery cannot overwrite an identity written while the audit waited",
@@ -54,7 +55,14 @@
       "FAIL \u2014 M685-27 a valid JSON prefix cut off by the provider is not certified as a complete audit",
       "FAIL \u2014 M685-28 stopping a worker that preserves partial work and returns normally is still reported as stopped",
       "FAIL \u2014 M685-29 an aborted original-source audit propagates the interruption instead of returning an empty success"
-    ]
+    ],
+    "additional_pre_fix_regression": {
+      "name": "M685-30",
+      "before_commit": "e876f85",
+      "before": "failed: two page repair requests instead of one",
+      "after_commit": "df35cd5",
+      "after": "passed; the repeated page repair is combined, while a separate unresolved promise remains pending"
+    }
   },
   "new_dom_scenario": {
     "name": "DOM-M685-1",
@@ -124,7 +132,8 @@
       }
     },
     "source_unchanged_during_checks": true,
-    "seconds": 21.81
+    "seconds": 21.81,
+    "qualification": "Measured at e876f85 before the final four-line page repair deduplication; all 30 M685 laws pass on df35cd5."
   },
   "interrupted_release": {
     "tag": "m685a",
@@ -150,8 +159,302 @@
     "disposition": "Stopped before the rest of the release matrix. Updated obsolete prompt expectations while retaining runtime protections; then added and proved complete finding and provider cutoff regressions before restarting."
   },
   "release": {
-    "tag": "m685e",
-    "status": "running"
+    "method": "Original 33-check release matrix plus final affected full harness, walk, long play and lint after the duplicate page repair correction. No single all-green release invocation is claimed.",
+    "followup_tag": "m685f",
+    "status": "verified",
+    "qualifying_checks": {
+      "harness": {
+        "exit": 0,
+        "seconds": 164.53,
+        "log": "/tmp/gates/m685f_harness.log",
+        "source_commit": "df35cd5d158ce0d6d20adff9cfbbd4a194f575bd",
+        "run": "m685f"
+      },
+      "walk": {
+        "exit": 0,
+        "seconds": 502.75,
+        "log": "/tmp/gates/m685f_walk.log",
+        "source_commit": "df35cd5d158ce0d6d20adff9cfbbd4a194f575bd",
+        "run": "m685f"
+      },
+      "long": {
+        "exit": 0,
+        "seconds": 36.14,
+        "log": "/tmp/gates/m685f_long.log",
+        "source_commit": "df35cd5d158ce0d6d20adff9cfbbd4a194f575bd",
+        "run": "m685f"
+      },
+      "lint": {
+        "exit": 0,
+        "seconds": 3.84,
+        "log": "/tmp/gates/m685f_lint.log",
+        "source_commit": "df35cd5d158ce0d6d20adff9cfbbd4a194f575bd",
+        "run": "m685f"
+      },
+      "perf_send": {
+        "exit": 0,
+        "seconds": 45.13,
+        "digest": "14f2b4b693a89c7ce4c784db7c353694b4ad447e2ae5575fe43e85f5739cd0f5",
+        "log": "/tmp/gates/m685e_perf_send.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "perf_repair": {
+        "exit": 0,
+        "seconds": 7.84,
+        "digest": "c465767d530fcf8b41e1190a01c69b0a3a4969934665f40b7c9923b99c1eed05",
+        "log": "/tmp/gates/m685e_perf_repair.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "launcher": {
+        "exit": 0,
+        "seconds": 8.01,
+        "digest": "e0147d2b8675d61067638d86bf263e594ef7b8211c26dd46a71db7a0aa6aa416",
+        "log": "/tmp/gates/m685e_launcher.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "upgrade_in_place": {
+        "exit": 0,
+        "seconds": 16.38,
+        "digest": "c829d6ed83079f8aa0c2180e1b9c930731a66e10fa40655b07a8d7f4e78f1ea7",
+        "log": "/tmp/gates/m685e_upgrade_in_place.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "paint_academy": {
+        "exit": 0,
+        "seconds": 59.23,
+        "digest": "3c651e997ca688327b964b01a488fbb288586779328d5d3f9c2ff4127f20e07b",
+        "log": "/tmp/gates/m685e_paint_academy.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "perf_academy": {
+        "exit": 0,
+        "seconds": 66.86,
+        "digest": "5e011b67709d59dc3ea69452f0c58a919345dce5749f7fb505ea440d02db7189",
+        "log": "/tmp/gates/m685e_perf_academy.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "perf_housekeeper": {
+        "exit": 0,
+        "seconds": 20.18,
+        "digest": "1d257cc566bcb9aa5ee808ad429c48f44de9880ae2bc1761c6138b3fbf6bb48f",
+        "log": "/tmp/gates/m685e_perf_housekeeper.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "paint_academy_night": {
+        "exit": 0,
+        "seconds": 55.97,
+        "digest": "03f5bfa3486d995bdf933b5a96638226fd7cab009268474d8154ae1fb6d71705",
+        "log": "/tmp/gates/m685e_paint_academy_night.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "perf_academy_night": {
+        "exit": 0,
+        "seconds": 66.82,
+        "digest": "530216978633c49bf056279744fff980a628f0d64743f8495831f5b732fc8dad",
+        "log": "/tmp/gates/m685e_perf_academy_night.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "paint_academy_panels": {
+        "exit": 0,
+        "seconds": 15.67,
+        "digest": "c21e1f7c18d12650e0f1586ef0de8d143c4f09199995209a2a02904144431c49",
+        "log": "/tmp/gates/m685e_paint_academy_panels.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "cutthinking": {
+        "exit": 0,
+        "seconds": 17.57,
+        "digest": "2922df852544bdda94f2382311dbb9325af8f4b0e3070fa5dfe0a5d7c0054144",
+        "log": "/tmp/gates/m685e_cutthinking.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "notes_layout": {
+        "exit": 0,
+        "seconds": 16.21,
+        "digest": "d3072ff0bc2b81e96777417322937259f710d5c58334f4b4df7a4dad619998d4",
+        "log": "/tmp/gates/m685e_notes_layout.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "backup": {
+        "exit": 0,
+        "seconds": 10.44,
+        "digest": "f711ff869b789364f7c46a3dde0d62ca3cfcfa955fbebefdd3dace5ec99e7270",
+        "log": "/tmp/gates/m685e_backup.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "backupdupes": {
+        "exit": 0,
+        "seconds": 1.82,
+        "digest": "23b5f872d76ba5597e17bed2926b0f2bf63b70db6c4ce916fd5d376dab7df4eb",
+        "log": "/tmp/gates/m685e_backupdupes.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "restore_backup_unit": {
+        "exit": 0,
+        "seconds": 0.12,
+        "digest": "ca79a7388dddca4a0bbe91d0aae3b8ae0ead4e080265d98cb9d8f034a43b2f9c",
+        "log": "/tmp/gates/m685e_restore_backup_unit.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "holdsone": {
+        "exit": 0,
+        "seconds": 62.67,
+        "digest": "ffe180de672853639aebeb80f791c5689612d03fe759f7a58a70d6da3fb58260",
+        "log": "/tmp/gates/m685e_holdsone.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "restore_zip": {
+        "exit": 0,
+        "seconds": 27.15,
+        "digest": "a30ea46a43c21fc0231617daac7f42e20c5ab807ed9655e6e2c4ef421ce24958",
+        "log": "/tmp/gates/m685e_restore_zip.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "backup_sent": {
+        "exit": 0,
+        "seconds": 11.15,
+        "digest": "e9a87bbd47a2c543f588e554eab8fc04f13f07efcf430e292f1f48b2abd19b6f",
+        "log": "/tmp/gates/m685e_backup_sent.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "rowtap": {
+        "exit": 0,
+        "seconds": 5.43,
+        "digest": "b279e01218f8cf1d2c90f2e27d9cfdc7e22dd176593f7f958877b0a0cb747fc7",
+        "log": "/tmp/gates/m685e_rowtap.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "backup_fresh": {
+        "exit": 0,
+        "seconds": 27.31,
+        "digest": "6925ea15db7d4540e86d7dc2c649b838dba366cc4aa4151ddec6fb23c1a59584",
+        "log": "/tmp/gates/m685e_backup_fresh.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "static_host": {
+        "exit": 0,
+        "seconds": 37.51,
+        "digest": "2d2efeec67ef5856943e6c87c73894783dd7b1925e682ae8b661d4a5456985a6",
+        "log": "/tmp/gates/m685e_static_host.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "device_guard": {
+        "exit": 0,
+        "seconds": 46.15,
+        "digest": "823cea2b6cc1fb78d96c7aee8944a021eaca195569a6ffa6812073e1550472c5",
+        "log": "/tmp/gates/m685e_device_guard.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "boot_open": {
+        "exit": 0,
+        "seconds": 5.48,
+        "digest": "0f0cd60f3902d3c5af1d3d3b008ccabe3ba80f7f889abc7140ad9a19e5f56392",
+        "log": "/tmp/gates/m685e_boot_open.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "boot_ready": {
+        "exit": 0,
+        "seconds": 6.19,
+        "digest": "874eb4941a80a370080fb35fca1c5f49da4bcc713b749cb76c6dd3f3ea56d29f",
+        "log": "/tmp/gates/m685e_boot_ready.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "vendor_canon_unit": {
+        "exit": 0,
+        "seconds": 0.27,
+        "digest": "e66ba78e3409d2317b66c03ffe7806879e10fe35a489e11d9349c07d8179cf06",
+        "log": "/tmp/gates/m685e_vendor_canon_unit.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "check_runner_unit": {
+        "exit": 0,
+        "seconds": 0.27,
+        "digest": "f8a38bfc4f79e94f942ca3bf780e40144c1d5e75fa92341ecb09d9b72ef3ba2b",
+        "log": "/tmp/gates/m685e_check_runner_unit.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "academy_ui": {
+        "exit": 0,
+        "seconds": 8.45,
+        "digest": "2bcad22939531e0bfe76d0d1d6061c7622ca79d02b491fa7cc67c9c34e7009fc",
+        "log": "/tmp/gates/m685e_academy_ui.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "housekeeper_rounds": {
+        "exit": 0,
+        "seconds": 42.84,
+        "digest": "54589eb621bc507747a228e267d80e524a1b2d810fac0e24ee602d755f3d2f70",
+        "log": "/tmp/gates/m685e_housekeeper_rounds.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      },
+      "device_pair": {
+        "exit": 0,
+        "seconds": 519.34,
+        "digest": "6bc5961cf23eded1405a4ac85225f5d41d3a527269ea8f1e614e173c491bf39e",
+        "log": "/tmp/gates/m685e_device_pair.log",
+        "reused": false,
+        "source_commit": "e876f85",
+        "run": "m685e"
+      }
+    },
+    "passed_checks": 33,
+    "total_checks": 33
   },
   "interrupted_release_b": {
     "tag": "m685b",
@@ -273,10 +576,309 @@
     "source_unchanged_during_checks": true,
     "seconds": 17.9
   },
-  "focused_final": {
+  "original_release_e": {
+    "tag": "m685e",
+    "source_commit": "e876f85",
+    "profile": "release",
+    "source_digest": "d8069a374cce2203d0678f3dfae52e5dcb508d837e23fbe6372e1556dab909a3",
+    "runtime_digest": "093ca0464d99b7c780d25ea88393c4a90e3fe6a647d04a5be4847fd723b0b0bb",
+    "scope": "all 22 standing checks plus workflow/housekeeper/theme checks",
+    "complete": false,
+    "checks": {
+      "harness": {
+        "exit": 0,
+        "seconds": 165.42,
+        "digest": "158f994fb40c243ee6be4bbe51b984292ccc33bb4d0da3c57c1d4d20790716f1",
+        "log": "/tmp/gates/m685e_harness.log",
+        "reused": false
+      },
+      "walk": {
+        "exit": 0,
+        "seconds": 506.41,
+        "digest": "a576213feb313b36d79a6a2fb3a459df12840016445bfa006230087c36fed731",
+        "log": "/tmp/gates/m685e_walk.log",
+        "reused": false
+      },
+      "long": {
+        "exit": 1,
+        "seconds": 65.83,
+        "digest": "0bc6696ac94296e9abcc5803cfd669df4c7f49d1403c6b5ac198dc696c4c2fc5",
+        "log": "/tmp/gates/m685e_long.log",
+        "reused": false
+      },
+      "lint": {
+        "exit": 0,
+        "seconds": 3.85,
+        "digest": "f4bcebc73bfe0756e8514f9e7601c285a94f794b012619e34d77bc00977c30ae",
+        "log": "/tmp/gates/m685e_lint.log",
+        "reused": false
+      },
+      "perf_send": {
+        "exit": 0,
+        "seconds": 45.13,
+        "digest": "14f2b4b693a89c7ce4c784db7c353694b4ad447e2ae5575fe43e85f5739cd0f5",
+        "log": "/tmp/gates/m685e_perf_send.log",
+        "reused": false
+      },
+      "perf_repair": {
+        "exit": 0,
+        "seconds": 7.84,
+        "digest": "c465767d530fcf8b41e1190a01c69b0a3a4969934665f40b7c9923b99c1eed05",
+        "log": "/tmp/gates/m685e_perf_repair.log",
+        "reused": false
+      },
+      "launcher": {
+        "exit": 0,
+        "seconds": 8.01,
+        "digest": "e0147d2b8675d61067638d86bf263e594ef7b8211c26dd46a71db7a0aa6aa416",
+        "log": "/tmp/gates/m685e_launcher.log",
+        "reused": false
+      },
+      "upgrade_in_place": {
+        "exit": 0,
+        "seconds": 16.38,
+        "digest": "c829d6ed83079f8aa0c2180e1b9c930731a66e10fa40655b07a8d7f4e78f1ea7",
+        "log": "/tmp/gates/m685e_upgrade_in_place.log",
+        "reused": false
+      },
+      "paint_academy": {
+        "exit": 0,
+        "seconds": 59.23,
+        "digest": "3c651e997ca688327b964b01a488fbb288586779328d5d3f9c2ff4127f20e07b",
+        "log": "/tmp/gates/m685e_paint_academy.log",
+        "reused": false
+      },
+      "perf_academy": {
+        "exit": 0,
+        "seconds": 66.86,
+        "digest": "5e011b67709d59dc3ea69452f0c58a919345dce5749f7fb505ea440d02db7189",
+        "log": "/tmp/gates/m685e_perf_academy.log",
+        "reused": false
+      },
+      "perf_housekeeper": {
+        "exit": 0,
+        "seconds": 20.18,
+        "digest": "1d257cc566bcb9aa5ee808ad429c48f44de9880ae2bc1761c6138b3fbf6bb48f",
+        "log": "/tmp/gates/m685e_perf_housekeeper.log",
+        "reused": false
+      },
+      "paint_academy_night": {
+        "exit": 0,
+        "seconds": 55.97,
+        "digest": "03f5bfa3486d995bdf933b5a96638226fd7cab009268474d8154ae1fb6d71705",
+        "log": "/tmp/gates/m685e_paint_academy_night.log",
+        "reused": false
+      },
+      "perf_academy_night": {
+        "exit": 0,
+        "seconds": 66.82,
+        "digest": "530216978633c49bf056279744fff980a628f0d64743f8495831f5b732fc8dad",
+        "log": "/tmp/gates/m685e_perf_academy_night.log",
+        "reused": false
+      },
+      "paint_academy_panels": {
+        "exit": 0,
+        "seconds": 15.67,
+        "digest": "c21e1f7c18d12650e0f1586ef0de8d143c4f09199995209a2a02904144431c49",
+        "log": "/tmp/gates/m685e_paint_academy_panels.log",
+        "reused": false
+      },
+      "cutthinking": {
+        "exit": 0,
+        "seconds": 17.57,
+        "digest": "2922df852544bdda94f2382311dbb9325af8f4b0e3070fa5dfe0a5d7c0054144",
+        "log": "/tmp/gates/m685e_cutthinking.log",
+        "reused": false
+      },
+      "notes_layout": {
+        "exit": 0,
+        "seconds": 16.21,
+        "digest": "d3072ff0bc2b81e96777417322937259f710d5c58334f4b4df7a4dad619998d4",
+        "log": "/tmp/gates/m685e_notes_layout.log",
+        "reused": false
+      },
+      "backup": {
+        "exit": 0,
+        "seconds": 10.44,
+        "digest": "f711ff869b789364f7c46a3dde0d62ca3cfcfa955fbebefdd3dace5ec99e7270",
+        "log": "/tmp/gates/m685e_backup.log",
+        "reused": false
+      },
+      "backupdupes": {
+        "exit": 0,
+        "seconds": 1.82,
+        "digest": "23b5f872d76ba5597e17bed2926b0f2bf63b70db6c4ce916fd5d376dab7df4eb",
+        "log": "/tmp/gates/m685e_backupdupes.log",
+        "reused": false
+      },
+      "restore_backup_unit": {
+        "exit": 0,
+        "seconds": 0.12,
+        "digest": "ca79a7388dddca4a0bbe91d0aae3b8ae0ead4e080265d98cb9d8f034a43b2f9c",
+        "log": "/tmp/gates/m685e_restore_backup_unit.log",
+        "reused": false
+      },
+      "holdsone": {
+        "exit": 0,
+        "seconds": 62.67,
+        "digest": "ffe180de672853639aebeb80f791c5689612d03fe759f7a58a70d6da3fb58260",
+        "log": "/tmp/gates/m685e_holdsone.log",
+        "reused": false
+      },
+      "restore_zip": {
+        "exit": 0,
+        "seconds": 27.15,
+        "digest": "a30ea46a43c21fc0231617daac7f42e20c5ab807ed9655e6e2c4ef421ce24958",
+        "log": "/tmp/gates/m685e_restore_zip.log",
+        "reused": false
+      },
+      "backup_sent": {
+        "exit": 0,
+        "seconds": 11.15,
+        "digest": "e9a87bbd47a2c543f588e554eab8fc04f13f07efcf430e292f1f48b2abd19b6f",
+        "log": "/tmp/gates/m685e_backup_sent.log",
+        "reused": false
+      },
+      "rowtap": {
+        "exit": 0,
+        "seconds": 5.43,
+        "digest": "b279e01218f8cf1d2c90f2e27d9cfdc7e22dd176593f7f958877b0a0cb747fc7",
+        "log": "/tmp/gates/m685e_rowtap.log",
+        "reused": false
+      },
+      "backup_fresh": {
+        "exit": 0,
+        "seconds": 27.31,
+        "digest": "6925ea15db7d4540e86d7dc2c649b838dba366cc4aa4151ddec6fb23c1a59584",
+        "log": "/tmp/gates/m685e_backup_fresh.log",
+        "reused": false
+      },
+      "static_host": {
+        "exit": 0,
+        "seconds": 37.51,
+        "digest": "2d2efeec67ef5856943e6c87c73894783dd7b1925e682ae8b661d4a5456985a6",
+        "log": "/tmp/gates/m685e_static_host.log",
+        "reused": false
+      },
+      "device_guard": {
+        "exit": 0,
+        "seconds": 46.15,
+        "digest": "823cea2b6cc1fb78d96c7aee8944a021eaca195569a6ffa6812073e1550472c5",
+        "log": "/tmp/gates/m685e_device_guard.log",
+        "reused": false
+      },
+      "boot_open": {
+        "exit": 0,
+        "seconds": 5.48,
+        "digest": "0f0cd60f3902d3c5af1d3d3b008ccabe3ba80f7f889abc7140ad9a19e5f56392",
+        "log": "/tmp/gates/m685e_boot_open.log",
+        "reused": false
+      },
+      "boot_ready": {
+        "exit": 0,
+        "seconds": 6.19,
+        "digest": "874eb4941a80a370080fb35fca1c5f49da4bcc713b749cb76c6dd3f3ea56d29f",
+        "log": "/tmp/gates/m685e_boot_ready.log",
+        "reused": false
+      },
+      "vendor_canon_unit": {
+        "exit": 0,
+        "seconds": 0.27,
+        "digest": "e66ba78e3409d2317b66c03ffe7806879e10fe35a489e11d9349c07d8179cf06",
+        "log": "/tmp/gates/m685e_vendor_canon_unit.log",
+        "reused": false
+      },
+      "check_runner_unit": {
+        "exit": 0,
+        "seconds": 0.27,
+        "digest": "f8a38bfc4f79e94f942ca3bf780e40144c1d5e75fa92341ecb09d9b72ef3ba2b",
+        "log": "/tmp/gates/m685e_check_runner_unit.log",
+        "reused": false
+      },
+      "academy_ui": {
+        "exit": 0,
+        "seconds": 8.45,
+        "digest": "2bcad22939531e0bfe76d0d1d6061c7622ca79d02b491fa7cc67c9c34e7009fc",
+        "log": "/tmp/gates/m685e_academy_ui.log",
+        "reused": false
+      },
+      "housekeeper_rounds": {
+        "exit": 0,
+        "seconds": 42.84,
+        "digest": "54589eb621bc507747a228e267d80e524a1b2d810fac0e24ee602d755f3d2f70",
+        "log": "/tmp/gates/m685e_housekeeper_rounds.log",
+        "reused": false
+      },
+      "device_pair": {
+        "exit": 0,
+        "seconds": 519.34,
+        "digest": "6bc5961cf23eded1405a4ac85225f5d41d3a527269ea8f1e614e173c491bf39e",
+        "log": "/tmp/gates/m685e_device_pair.log",
+        "reused": false
+      }
+    },
+    "source_unchanged_during_checks": true,
+    "seconds": 1750.49,
+    "disposition": "32 of 33 checks passed. LONG-8 exposed duplicate page repair requests in the followup. The unchanged long-play assertions are retained; a focused reproduction fails before the four-line correction and passes after it."
+  },
+  "followup_release_f": {
+    "source_commit": "df35cd5d158ce0d6d20adff9cfbbd4a194f575bd",
+    "scope": "Affected checks after the duplicate page repair correction; complements m685e, not a second full release invocation",
+    "source_digest": "d4eea84b263daeabe771714264a989fbca6f1121c40e34062345d1f0430170bf",
+    "runtime_digest": "093ca0464d99b7c780d25ea88393c4a90e3fe6a647d04a5be4847fd723b0b0bb",
+    "checks": {
+      "long": {
+        "exit": 0,
+        "seconds": 36.14,
+        "log": "/tmp/gates/m685f_long.log"
+      },
+      "harness": {
+        "exit": 0,
+        "seconds": 164.53,
+        "log": "/tmp/gates/m685f_harness.log"
+      },
+      "walk": {
+        "exit": 0,
+        "seconds": 502.75,
+        "log": "/tmp/gates/m685f_walk.log"
+      },
+      "lint": {
+        "exit": 0,
+        "seconds": 3.84,
+        "log": "/tmp/gates/m685f_lint.log"
+      }
+    },
+    "complete": true,
+    "source_unchanged_during_checks": true,
+    "seconds": 707.3
+  },
+  "focused_before_page_repair": {
     "passed": 31,
     "failed": 0,
     "total_available": 1498,
     "scope": "All 29 M685 laws plus M675-B1 and M675-12"
+  },
+  "focused_final": {
+    "passed": 30,
+    "failed": 0,
+    "total_available": 1499,
+    "scope": "All 30 M685 laws at df35cd5"
+  },
+  "final_source_digest": "d4eea84b263daeabe771714264a989fbca6f1121c40e34062345d1f0430170bf",
+  "runtime_digest": "093ca0464d99b7c780d25ea88393c4a90e3fe6a647d04a5be4847fd723b0b0bb",
+  "verification_totals": {
+    "harness": {
+      "passed": 1499,
+      "failed": 0
+    },
+    "walk": {
+      "passed": 297,
+      "failed": 0
+    },
+    "long": {
+      "passed": 9,
+      "failed": 0
+    },
+    "lint_errors": 0
   }
 }

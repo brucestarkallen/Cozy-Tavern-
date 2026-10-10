@@ -1,74 +1,65 @@
 # Cozy Tavern: current handoff
 
-## Work in progress: M685
+## Current release: m685-001
 
-Branch m685-ledger-repair holds the complete ledger recovery changes. Main still
-serves m684-001 until release verification passes. Read docs/LEDGER-AUDIT-M685.md
-for the section audit and audit/results/m685.json for every failed and completed
-check. All 29 new laws pass; 26 fail on published M684 and three controls pass there.
-The actual audit button recovery and existing Stop scenario pass. The full harness
-caught a generic timeout guard conflicting with M675-B1; it was narrowed to auditor
-interruptions, preserving completed continuous readings after a mender timeout.
-M675-B1 and M675-12 now run in fast checks. Release m685e is the final candidate run.
-Do not claim main is updated or the release is green before its result is recorded.
+Jovan asked for an actual audit across Scene, People, World and Books after an
+existing story still lost Princess Alexia. The section by section audit is in
+docs/LEDGER-AUDIT-M685.md. SPEC.md defines the accepted behavior; exact test results,
+including failed attempts and their corrections, are in audit/results/m685.json.
 
-## Published release: m684-001
+Product checkpoint: df35cd5d158ce0d6d20adff9cfbbd4a194f575bd. The later release commit
+changes documentation only. M684 was 613c174. Claude's M680 (4a19de3), M681 (8880a0),
+final fixes f087472/63f87 and M683 (71b22e8) remain ancestors. Original HISTORY and
+instruction archives are preserved. Canon Verification remains v0.68.3 / 5aed234;
+do not replace the vendored copy or rerun vendoring without reconciling its changes.
 
-Jovan asked for a complete ledger pipeline audit: missing nearby people, introductions
-ignored in his input, invented names/ranks, deletion instead of identity correction,
-stale world simulation and unclear Books explanations. These repairs are implemented
-and verified. SPEC.md states the contract. docs/LEDGER-AUDIT-M684.md explains every
-stage, fixes, evidence, fixture corrections and limits. audit/results/m684.json keeps
-all verification runs, including failures and their successful followups.
+## What changed and where
 
-Final tested product checkpoint: 1dc8d7f. Application code last changed at 0cabba0;
-the later change corrects the long-play mock's reading of the newest page. M683 is
-71b22e8. Claude M680 (4a19de3), M681 (8880a0) and final fixes f087472/63f87 remain
-verified ancestors. Original HISTORY is preserved. Canon Verification is unchanged,
-v0.68.3 / 5aed234; do not overwrite the vendor lock or rerun vendoring casually.
-
-## Behavior and code map
-
-- Both sides of an answered turn establish facts. New identities retain source names;
-  recent pages and existing records also establish identity. Explicit introductions
-  get People pages even when absent. extractor.js, scribe.js, engine/evidence.js;
-  chat.js pageWrites includes the paired writer input in the world-window guard.
-- Quiet companions stay until an actual departure. Dead people are not revived by
-  a room board. Auditor arrivals can use an exact writer quote, with later departures
-  still winning. OOC slots retain their journal indices. agents/auditor.js.
-- Auditor renames/merges preserve a person's records. Deleting a source-backed or
-  linked person is refused. Duplicate merges keep the existing loose-end capacity
-  and rename roomAt; undo includes it. engine/apply.js and agents/ripple.js.
-- World reviews are owed by story time. One bounded followup covers omitted people;
-  unresolved names remain unfinished. offscreen.confirm explicitly explains a stay,
-  updates freshness and can be undone. No invented departure from age alone.
-- Books show source/page/cause/evidence when saved. Partial corrections and pending
-  page repairs are identified. ui/ledgerexplain.js, drawer.js, chat.js.
+* agents/auditsources.js reads original answered writer input, story pages, brief
+  and cast in bounded batches. Exact quotations recover missing People identities
+  even when summaries and all books lost them. Old introductions do not establish
+  current presence. Receipts are cached by source text; changed sources are reread.
+* agents/auditor.js gives blocked proposals their actual reason and one followup.
+  Renames preserve records. Unresolved findings survive later empty answers and
+  close only with a matching repair or source quoted withdrawal. Cut off or failed
+  readings do not declare completion. All returned findings are considered.
+* Evidence can correct a wrong current mood, character state and missing personal
+  promise. Manual fields, later clock advances, deaths, actual departures, page
+  earned standings, source changes and concurrent writes remain protected.
+* agents/world.js includes absent people who lack a location record in owed work.
+  ui/chat.js finishes an audit with any owed world review in the same job, using
+  the configured world worker without an extra story turn or clock advance.
+* Books shows source coverage, landed repairs and pending reasons. A repeated page
+  correction is combined before mending. Manual Stop wins even after partial work;
+  auditor timeouts propagate without breaking the continuous reader's separate
+  mender timeout contract. agents/queue.js, auditor.js, chat.js and drawer.js.
 
 ## Verification
 
-Final harness 1469/1469; complete app walk 296/296; long play 9/9; lint 0 errors;
-final send and repair performance passed with unchanged budgets. All 54 checks in
-the broad matrix have a green qualifying result across the recorded runs.
+Final complete harness 1499/1499, app walkthrough 297/297, long play 9/9 and lint
+0 errors. All 33 release checks have qualifying green results. This was not one
+all-green invocation: m685e passed 32/33; long play caught a duplicated page repair.
+After its four-line correction, m685f reran the full harness, walkthrough, unchanged
+long play and lint. The device, theme and performance code is unchanged from m685e.
+No budget or long-play assertion was relaxed.
 
-This was NOT one all-green full invocation. m684c ran all 54 checks (2096.39 s):
-53 passed and four unsupported-name fixtures failed within the walk. Those sources
-were corrected without weakening assertions. m684d passed the final full harness
-and walk; its long-play mock exposed that it read old arrivals from earlier context.
-After fixing only that mock, standalone long play passed 9/9. m684e passed final
-lint, perf_send and perf_repair. The report preserves each run and source commit.
-
-M684 adds 22 focused laws and DOM-M684-1. Against M683: 18 new laws fail, four
-controls pass; all 22 pass now. Controls also caught M684's own OOC-index, MC-name
-and recent-page-name regressions before publication. Development fast: 16.19 s.
+All 30 M685 laws pass. The original 29 were run against M684: 26 fail and three
+preservation controls pass. M685-30 reproduces the duplicate mend on e876f85 and
+passes with the correction. DOM-M685-1 fails on M684 and passes now through the
+actual audit button. It restores missing people, current presence and absent
+world state without another storyteller turn. Stop is covered by unchanged DOM-262.
+A focused development profile took 21.81 seconds before the final duplicate fix.
+Tests use scripted providers; no paid model calls or real user stories were used.
 
 ## Next session
 
-Read AGENTS.md and this handoff once. Use tools/context.py for HISTORY; do not load
-it all. Run python3 tools/check.py fast during edits; release when ready, full for
-broad changes. Never change execution inputs during a check run or loosen budgets.
-This sandbox's launcher/upgrade tests need PATH=/tmp/cozy-work-test-bin:$PATH.
+Read AGENTS.md and this handoff once. Use tools/context.py for relevant history;
+do not load the entire archive. Fast checks belong during editing; release checks
+belong on a stable candidate. Preserve rejected and interrupted runs in the report.
+This environment's launcher/upgrade checks need PATH=/tmp/cozy-work-test-bin:$PATH.
 
-No real user story data was accessed or changed. After updating, “Audit the ledger”
-can apply the revised repair rules to an existing story; normal page turns run the
-world simulation. Models still judge prose. A failed review stays visibly overdue.
+No phone ledger was accessed or changed directly. After updating, run “Audit the
+ledger” once on an existing story for complete original source recovery. The first
+full audit of a long story needs additional background model calls. Normal turns
+review new source batches. Source interpretation remains a model judgment; omitted
+or failed repairs stay explicitly unfinished rather than becoming a clean report.

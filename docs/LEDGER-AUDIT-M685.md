@@ -2,8 +2,9 @@
 
 Jovan requested an actual audit of Scene, People, World and Books after an existing
 story still lost Princess Alexia. Baseline: published M684, commit
-613c1749e56524f30d371e518e86cd06e0b65920. Implementation checkpoints: 6fd7667 and ec30f19; release candidate: ec30f19.
-Release verification is in progress; do not treat this document as a green gate.
+613c1749e56524f30d371e518e86cd06e0b65920. Implementation checkpoints: 6fd7667 and ec30f19; verified product checkpoint: df35cd5.
+Verification is complete. The 33-check release matrix and final affected checks
+are retained in audit/results/m685.json; this was not one all-green invocation.
 
 ## Reproduced failures and repairs
 
@@ -76,13 +77,16 @@ and the implementation paths, rather than source text assertions added for M685.
 
 ## Verification record
 
-Final focused development profile: 6 checks green in 17.90 seconds. The earlier
-focused profile passed in 17.99 seconds. Ledger and neighboring selection before the last two completeness laws: 98 passed, 0 failed, out of 1494 total
-harness laws. Final completeness and prompt selection: 31 passed out of 1496 total. The real button scenario passes with its two app setup scenarios.
-Twenty nine M685 laws cover new behavior and preservation controls. Against the published M684 baseline, 26 fail and three preservation controls pass;
-all 29 pass on M685. The new button scenario also fails on M684 at the missing identity
-assertion and passes on M685. Release counts will be recorded in audit/results/m685.json when the
-release run finishes. Tests use scripted providers; no paid story model calls.
+Focused development profile at e876f85: 6 checks green in 21.81 seconds. Earlier
+profiles passed in 17.90 and 17.99 seconds. Ledger and neighboring selection before the last two completeness laws: 98 passed, 0 failed, out of 1494 total
+harness laws. Earlier completeness and prompt selection: 31 passed out of 1496 total. The real button scenario passes with its two app setup scenarios.
+Thirty M685 laws cover new behavior and preservation controls. The original 29 were
+run against published M684: 26 fail and three preservation controls pass. The final
+law reproduces a duplicate page repair introduced by M685 itself: it fails on e876f85
+and passes with the correction. All 30 pass on df35cd5. The new button scenario also fails on M684 at the missing identity
+assertion and passes on M685. Final complete harness: 1499/1499; app walkthrough: 297/297; long play: 9/9;
+lint: 0 errors. All 33 release checks have qualifying green results, detailed in
+audit/results/m685.json. Tests use scripted providers; no paid story model calls.
 
 The first release attempt completed its full harness with 1491 passed and three
 failures requiring the obsolete prompt restrictions in M47, M110 and M123. It was
@@ -93,16 +97,24 @@ complete harness (1496/1496), then passed 296/297 walk scenarios. DOM-262 expose
 real cancellation report regression: a worker returning partial work after Stop
 was marked successful by the queue. M685-28 fails before the queue fix and passes
 after; the unchanged DOM-262 and DOM-M685-1 both pass with their setup scenarios.
-The final release runs again after that fix; neither interrupted attempt is a
+The release ran again after that fix; neither interrupted attempt is a
 complete green release. The third attempt passed all 1497 harness laws; it was
 stopped during the walk after a separate timeout probe found the same partial
-return problem without a manual Stop. M685-29 proves that variant fails before
-and passes after the shared queue guard. The fourth attempt exposed an overbroad timeout guard in M675-B1: a completed
+return problem without a manual Stop. The first version of M685-29 targeted that variant with a shared queue guard. The fourth attempt exposed an overbroad timeout guard in M675-B1: a completed
 continuous reading must survive a later mender timeout. That generic timeout guard
 was removed. Manual Stop still wins in the queue; auditor source, main reading and
 followup interruptions propagate to its own queue result. The revised M685-29 proves
 the auditor case. M675-B1, M675-12 and the new laws now pass together, as do the actual
 Stop and recovery buttons. Both older queue contracts are included in fast checks.
+
+The fifth release ran all 33 checks: 32 passed, while LONG-8 timed out waiting for
+its expected report. The followup repeated an accepted page correction, requesting
+two mends and listing the same finding twice. M685-30 reproduces that defect. The
+correction combines identical repeated page repairs while retaining any additional
+ledger operations and separate unresolved concerns. The original LONG-8 assertions
+are unchanged and now pass. Final affected full harness, walk, long play and lint
+all pass on df35cd5. The unchanged device, theme and performance results remain
+recorded from m685e. No budget or long-play assertion was relaxed.
 
 An early diagnostic full harness was stopped before completion while implementation
 continued. It is not a release result. Its failures led to checking repeat repairs and

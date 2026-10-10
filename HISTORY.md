@@ -18438,3 +18438,57 @@ No real user story data was accessed. Claude's M680/M681/final fixes and all pri
 history remain. Canon Verification is unchanged. Existing stories can use “Audit the
 ledger” after update; source interpretation remains a model judgment, with failed or
 omitted reviews visible rather than reported as completed simulation.
+
+
+## M685: original source recovery and complete ledger repair followups (2026-10-10)
+
+Jovan requested a real audit of Scene, People, World and Books after Princess Alexia
+was still missing. The complete section audit, data flow and test references are in
+docs/LEDGER-AUDIT-M685.md. This release fixes the recovery path for existing stories,
+not only the normal reader used for new pages.
+
+The auditor now reads original answered writer inputs and story pages, the brief and
+cast, in bounded source batches. Exact quotations restore missing People identities,
+even when every surviving book and folded summary omitted them. Source receipts are
+cached by text. Historical identity evidence does not invent current presence.
+Blocked proposals receive their actual reason and one correction attempt; renames
+preserve records. Unresolved findings survive empty later answers and close only
+through a matching repair or a source quoted withdrawal. Useful first corrections
+survive failed followups and failed main readings. Cut off answers remain incomplete,
+and the former twenty finding cap is removed.
+
+Source supported repairs can correct a wrong current mood or character state and
+restore personal promises. Concurrent writes, source changes, manual fields, later
+manual clock advances, actual departures, deaths and page earned standings remain
+protected. The world worker includes absent people with no location record and
+handles owed world work after an audit in the same job, without a new turn or an
+extra clock advance. Books shows original source coverage and unfinished reasons.
+
+Release verification found and fixed cancellation reporting and a repeated page mend.
+A normal partial return cannot turn manual Stop into success. Auditor interruptions
+propagate at the auditor and its callers; the queue's continuous reading contract
+still permits completed work after a separate mender timeout. A followup repeating
+an accepted page repair now combines it before mending, preserving additional ledger
+operations and unrelated pending findings.
+
+Final product checkpoint: df35cd5d158ce0d6d20adff9cfbbd4a194f575bd.
+Final full harness 1499/1499, app walkthrough 297/297, long play 9/9, lint 0 errors.
+The complete m685e release matrix ran 33 checks in 1750.49 seconds: 32 passed;
+LONG-8 caught the repeated mend. M685-30 fails on e876f85 and passes after the four-line
+fix. The unchanged long play and the complete harness, walk and lint were then rerun
+as m685f. Every release check has a qualifying green result; no single all-green
+full invocation is claimed. No performance limit or long-play assertion was relaxed.
+Earlier failed/interrupted attempts and corrections are retained in audit/results/m685.json.
+
+All 30 new laws pass. The original 29 were run on M684: 26 fail and three controls
+pass. The final law reproduces M685's own duplicate mend. DOM-M685-1 fails on M684
+and passes through the actual audit button with source recovery, nearby presence,
+absent world state and report coverage. The focused development profile before the
+last correction completed six checks in 21.81 seconds. Tests use scripted providers.
+
+No real user story or phone ledger was accessed. After updating, Audit the ledger
+is the complete recovery entry point for an existing story; the first review adds
+background source reading. Interpretation still uses the configured model, and
+unfinished findings remain visible. Claude's earlier audit and final fixes, the
+original history and instruction archives remain intact. The canon vendor copy
+was not replaced.
