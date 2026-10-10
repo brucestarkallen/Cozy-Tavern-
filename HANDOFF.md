@@ -1,32 +1,29 @@
 # Cozy Tavern: current handoff
 
-## M684 in progress, not yet published
+## M684 final verification, not yet on main
 
-Branch m684-ledger is based on main 71b22e8 (m683-001). Jovan requested an audit of
-scene presence, writer introductions, mistaken identities, the auditor, world simulation
-and unclear Books explanations. See SPEC.md and tests/harness/m684.mjs (21 focused laws)
-and DOM-M684-1. Code checkpoints 10cdb17 and 8cbf422, plus fixture correction 9e82274 are pushed to origin/m684-ledger. The 21 new
-laws, the version-recovery subset and 90-turn long play pass. The first broad run
-passed its 1467-law harness, then exposed an MC identity-filter regression at DOM-47;
-it was stopped, fixed and covered by M684-21. The next run passed 1468 laws;
-DOM-27 then exposed a fixture with no main-character identity, correctly leaving
-an unfinished world review. Its identity is now explicit; all seven related app
-scenarios pass. Product code is unchanged since 8cbf422. The final broad gate is
-being run as `python3 tools/check.py full --tag m684c`. Do not claim publication yet.
-Full c has passed all 1468 harness laws, long play, lint and the performance checks.
-Its complete walk finished 292/296. Four old fixture answers name people not present
-in their sources: DOM-127 (Lin), DOM-234 (Yuki Tsukumo), DOM-244 (Zed), DOM-255
-(Guest1..6). Keep every assertion; establish those names in their fixture brief/page/
-input. The remaining server/device checks are still running. After they finish, change
-only these fixtures and rerun the complete walk. Application code remains unchanged;
-record the original full report and the replacement walk separately, without claiming
-a single all-green full invocation. The staged scratch script /tmp/m684-fixtures.py
-contains the four source-only replacements if this environment survives.
+Jovan requested the complete ledger audit in SPEC.md. Main is still 71b22e8, M683.
+The working release is saved on origin/m684-ledger. Application checkpoints are
+10cdb17, 8cbf422 and 0cabba0. The last adds source names from the recent pages the
+extractor actually receives; it fixes an overstrict M684 name guard, proven by
+M684-22. There are 22 new focused laws, all green.
 
-The previous release and all Claude audit commits are preserved. No user story data
-was accessed. New metadata is additive; rename, freshness and page changes remain
-journaled and undoable. Development negatives and actual final results will be saved
-in audit/results/m684.json and docs/LEDGER-AUDIT-M684.md.
+The broad `full --tag m684c` run is finishing in the original checkout. Its harness
+passed 1468/1468, long play 9/9, lint and all performance checks passed. The original
+walk was 292/296: four legacy fixtures supplied unsupported names. In the separate
+worktree /tmp/cozy-m684-fixtures those sources are corrected, with every assertion
+kept. DOM-1/2/127/234/244/255 pass together. The same worktree is running the final
+complete harness, walk, long play, lint, perf_send and perf_repair, tagged m684d;
+progress /tmp/m684d-progress.log, summary /tmp/gates/m684d_summary.json. No code
+edits during this run. The 54-check original report is /tmp/gates/m684c_summary.json.
+
+After verification: fast-forward the original m684-ledger worktree to this worktree's
+HEAD, record both runs and their source commits honestly, replace this progress note
+with a concise release handoff, append HISTORY, verify remote main and publish without
+force. Do not describe the original full invocation as all green. Tests use scripted
+providers; no real story data was accessed. Baseline M680/M681 and Claude's final fixes
+are verified ancestors; original HISTORY is intact. See docs/LEDGER-AUDIT-M684.md and
+audit/results/m684.json. The previous release notes below remain for continuity.
 
 ## Current release: m683-001, main
 

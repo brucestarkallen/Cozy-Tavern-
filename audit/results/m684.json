@@ -1,6 +1,6 @@
 {
   "version": "m684-001",
-  "status": "final full gate running; not published",
+  "status": "final core and affected performance verification running; not published",
   "baseline_commit": "71b22e8a1277f622ca29ae55594b0279cdfbee42",
   "release_source_commit": "9e822747d6f7469e0b83474e4339977b136cb894",
   "negative_controls": {
@@ -102,5 +102,19 @@
       "DOM-255"
     ],
     "reason": "Scripted answers supplied names absent from the fixture sources. Preserve assertions and establish the names, then rerun the complete walk. No application code change."
+  },
+  "final_product_commit": "0cabba0",
+  "final_verification_tag": "m684d",
+  "final_guard_correction": "Include names established in recent pages already supplied to the reader. M684-22 fails without this and passes with it.",
+  "corrected_fixture_subset": {
+    "passed": 6,
+    "ids": [
+      "DOM-1",
+      "DOM-2",
+      "DOM-127",
+      "DOM-234",
+      "DOM-244",
+      "DOM-255"
+    ]
   }
 }
