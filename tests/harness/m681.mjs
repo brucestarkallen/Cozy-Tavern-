@@ -68,3 +68,238 @@ test('M681-4 HIS HAND ON THE CLOCK OUTRANKS AN OLDER PAGE’S HOUR (the scene au
   st = applyMutations({ ...st, page: 5 }, [{ type: 'clock.set', hour: 15, minute: 0 }]).state;
   eq(handSetClockSince(st, 5), false, 'a page’s own hour after his hand: the page’s, as ever');
 });
+
+/* ---- the findings after the clock, each made to happen on m680-001 first ---- */
+const here = (st, ...people) => applyMutations(st, people.map((name) => ({ type: 'presence.enter', name }))).state;
+
+test('M681-5 WHO GOES IS WHO THE SENTENCE SENDS (HANDOFF: "Rukia watched Renji leave." made goneAtTheEnd(Rukia) true): a going in a sentence that names someone else is theirs only when the going is said of them', async () => {
+  const { goneAtTheEnd } = await import('../../js/engine/apply.js');
+  const st = here({ ...emptyState() }, 'Rukia', 'Renji');
+  eq(goneAtTheEnd(st, 'They talked a while.\n\nRukia watched Renji leave.', 'Rukia'), false, 'the watcher stays');
+  eq(goneAtTheEnd(st, 'They talked a while.\n\nRukia watched Renji leave.', 'Renji'), true, 'the one who leaves is gone');
+  eq(goneAtTheEnd(st, 'They talked a while.\n\nRenji left. Rukia watched him go.', 'Rukia'), false, 'the watcher of “him go” stays');
+  eq(goneAtTheEnd(st, 'They talked a while.\n\nRukia left without a word to Renji.', 'Rukia'), true, 'her own going, with his name in the sentence, is hers');
+});
+
+test('M681-6 A MOOD IN ANOTHER SPELLING IS THAT MOOD (S4): a board of ["Combat"] turned combat OFF; "social field" was no mood', () => {
+  let st = applyMutations({ ...emptyState() }, [{ type: 'mode.set', flag: 'combat' }]).state;
+  eq(applyMutations(st, [{ type: 'mode.snapshot', flags: ['Combat'] }]).state.mode.combat, true, '“Combat” keeps combat on');
+  eq(applyMutations(st, [{ type: 'mode.snapshot', flags: 'Combat, Social Field' }]).state.mode.socialField, true, '“Social Field” is the social field');
+  eq(applyMutations({ ...emptyState() }, [{ type: 'mode.set', flag: 'social_field' }]).state.mode.socialField, true, 'mode.set “social_field”');
+});
+
+test('M681-7 THE BACK OF HIS HAND IS HIS HAND (P1): “a bruise on the back of his hand” was a wound on his back, and folded one with the real gash there', async () => {
+  const { bodyPartOf, addInjury } = await import('../../js/engine/bodies.js');
+  eq(bodyPartOf('a bruise on the back of his hand'), 'hand');
+  eq(bodyPartOf('a cut on the back of her left hand'), 'left hand');
+  eq(bodyPartOf('a gash across his back'), 'back', 'his back is still his back');
+  let b = addInjury({}, 'Kira', { what: 'a bruise on the back of his hand', sev: 1 }, 0, 1);
+  b = addInjury(b, 'Kira', { what: 'a deep gash across his back', sev: 2 }, 0, 2);
+  eq(b.Kira.injuries.length, 2, 'two wounds, never folded into one');
+});
+
+test('M681-8 A WOUND TOLD AGAIN KEEPS ITS DRESSING (P10): re-reported without “treated”, the bandaged cut bled untended in the ledger; worse than it was, it is open again', async () => {
+  const { addInjury } = await import('../../js/engine/bodies.js');
+  let b = addInjury({}, 'Rias', { what: 'a cut along her forearm', sev: 2, treated: true }, 0, 1);
+  b = addInjury(b, 'Rias', { what: 'the cut along her forearm', sev: 2 }, 0, 3);
+  eq(b.Rias.injuries.length, 1); eq(b.Rias.injuries[0].treated, true, 'still dressed');
+  b = addInjury(b, 'Rias', { what: 'the cut along her forearm, torn open', sev: 3 }, 0, 4);
+  eq(b.Rias.injuries[0].treated, false, 'worse: the dressing no longer holds it');
+});
+
+test('M681-9 A PASSING LOOK IS NOT A TRUTH (P2): “face: flushed” was locked among what is true of her', async () => {
+  const st0 = here({ ...emptyState() }, 'Rias');
+  let r = applyMutations(st0, [{ type: 'canon.lock', name: 'Rias', key: 'face', value: 'flushed' }]);
+  eq(r.applied.length, 0, 'a flush is not locked');
+  r = applyMutations(st0, [{ type: 'canon.lock', name: 'Rias', key: 'hair', value: 'copper red, flushed at the ears' }]);
+  eq(r.state.canon[Object.keys(r.state.canon)[0]].facts[0].value, 'copper red', 'what lasts is locked, the passing part is not');
+  eq(applyMutations(st0, [{ type: 'canon.lock', name: 'Rias', key: 'face', value: 'flushed', byHand: true }]).applied.length, 1, 'his own hand locks what he says');
+  for (const v of ['dusty blond', 'messy black hair', 'glowing red eyes']) eq(applyMutations(st0, [{ type: 'canon.lock', name: 'Rias', key: 'hair', value: v }]).applied.length, 1, v + ' is a look that lasts');
+});
+
+test('M681-10 A NAME THAT MEANS TWO PEOPLE IS NOBODY’S TO MERGE (P4): a standing under a bare “Rias” was folded into Rias Wells’s while the ledger also kept Rias Gremory — and Rias Wells’s own beats landed in it', async () => {
+  const { standingsHousekeeping } = await import('../../js/agents/auditor.js');
+  let st = applyMutations({ ...emptyState() }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'people.set', name: 'Rias Wells', field: 'core', text: 'his sister' }, { type: 'people.set', name: 'Rias Gremory', field: 'core', text: 'a devil heiress' },
+    { type: 'rel.shift', name: 'Rias', axis: 'p', delta: 5, cause: 'Rias laughed with Jovan' }, { type: 'rel.shift', name: 'Rias Wells', axis: 'p', delta: 10, cause: 'she hugged Jovan' }]).state;
+  eq(Object.keys(st.relationships).sort().join(', '), 'Rias, Rias Wells', 'Rias Wells’s own beat is her own standing — never the bare “Rias” two people answer to');
+  const out = standingsHousekeeping(st, '', '', 'Jovan', []);
+  assert(!out.some((m) => m.type === 'rel.clear' && m.name === 'Rias'), 'the bare “Rias” is not folded into Rias Wells: ' + JSON.stringify(out));
+  const out2 = standingsHousekeeping(st, '', '', 'Jovan', [{ name: 'Rias', p: 40, r: 0, s: 0 }]);
+  assert(!out2.some((m) => m.type === 'rel.set'), 'the brief’s “Rias” lands on no one of two: ' + JSON.stringify(out2));
+  /* a ledger written before, both standings in it: the housekeeping folded “Rias” into Rias Wells */
+  const two = { ...st, relationships: { Rias: { p: 5, r: 0, s: 0, history: [{ cause: 'Rias laughed with Jovan', delta: 5, axis: 'p' }] }, 'Rias Wells': { p: 10, r: 0, s: 0, history: [{ cause: 'she hugged Jovan', delta: 10, axis: 'p' }] } } };
+  eq(JSON.stringify(standingsHousekeeping(two, '', '', 'Jovan', [])), '[]', 'nothing merged');
+});
+
+test('M681-11 THE FOUNDER READ AGAIN NEVER WRITES OVER WHAT THE PAGES EARNED (P6’s same fault in the founder): every edit of the brief founded again and wrote the brief’s digits over the standing', async () => {
+  const { foundWorld } = await import('../../js/agents/founder.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const storyId = 'm681-founder';
+  await saveState(storyId, emptyState());
+  await db.messages.append(storyId, { role: 'assistant', text: 'page' });
+  const notes = 'Aurora — childhood best friend (P:65 R:30 S:5)';
+  const house = thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mc.set', name: 'Jovan' }] }) });
+  await withHouse(house, () => foundWorld({ connection: HOUSES[0].conn, storyId, brief: 'Jovan comes home.', castNotes: notes, stale: () => false }));
+  eq((await loadState(storyId)).relationships.Aurora.p, 65, 'founded');
+  await saveState(storyId, applyMutations(await loadState(storyId), [{ type: 'rel.shift', name: 'Aurora', axis: 'p', delta: -20, cause: 'Jovan forgot her birthday' }]).state);
+  await withHouse(house, () => foundWorld({ connection: HOUSES[0].conn, storyId, brief: 'Jovan comes home. (edited)', castNotes: notes, stale: () => false }));
+  eq((await loadState(storyId)).relationships.Aurora.p, 45, 'the page’s beat stands');
+});
+
+test('M681-12 THE DEAD ARE NOT ASKED ABOUT THEIR WOUNDS (P5)', async () => {
+  const { openWoundsBlock } = await import('../../js/agents/extractor.js');
+  let st = here({ ...emptyState() }, 'Jovan');
+  st = applyMutations(st, [{ type: 'offscreen.set', name: 'Old Hesk', location: 'dead — on the floor of the Bent Kettle taproom', activity: 'dead' }, { type: 'body.injure', name: 'Old Hesk', what: 'a crossbow bolt through the chest', sev: 4 }, { type: 'body.injure', name: 'Jovan', what: 'a cut on his arm', sev: 1 }]).state;
+  assert(st.bodies && st.bodies['Old Hesk'] && st.bodies['Old Hesk'].injuries.length, 'the wound is on the books: ' + JSON.stringify(st.bodies));
+  const block = openWoundsBlock(st, 'Jovan knelt by Old Hesk’s body.');
+  assert(!/Hesk/.test(block), 'the dead are not asked about: ' + block);
+  assert(/cut on his arm/.test(block), 'the living still are');
+});
+
+test('M681-13 A SHORT LOOSE END IN OTHER CASE OR MARKS IS THE SAME LOOSE END (P7)', async () => {
+  const { sameLooseEnd } = await import('../../js/engine/people.js');
+  eq(sameLooseEnd('Hunting Kim.', 'hunting Kim'), true);
+  eq(sameLooseEnd('Find Al', 'find al!'), true);
+  eq(sameLooseEnd('Pay the debt', 'Pay the debt to Kim'), false, 'more said is another loose end');
+  let st = here({ ...emptyState() }, 'Roska');
+  st = applyMutations(st, [{ type: 'people.note', name: 'Roska', field: 'thread', text: 'Hunting Kim.' }]).state;
+  st = applyMutations(st, [{ type: 'people.note', name: 'Roska', field: 'unthread', text: 'hunting kim' }]).state;
+  eq((st.characters.Roska.threads || []).length, 0, 'closed by its own words in other case');
+});
+
+test('M681-14 THE MAIN CHARACTER’S PAGE IS HIS RECORD ALONE (P12): a core written for him before the ledger knew him stood for good, and his own hand could not let it go', async () => {
+  const { mcPageOnlyHis, mcSeatLetGo } = await import('../../js/engine/apply.js');
+  let st = applyMutations({ ...emptyState() }, [{ type: 'people.set', name: 'Jovan Oda', field: 'core', text: 'a brooding swordsman' }]).state;
+  const named = applyMutations(st, [{ type: 'mc.set', name: 'Jovan Oda' }]);
+  eq(named.state.characters['Jovan Oda'].core || '', '', 'the core written before he was known goes');
+  const { undoLast } = await import('../../js/engine/apply.js');
+  eq(undoLast(named.state).state.characters['Jovan Oda'].core, 'a brooding swordsman', 'the take-back brings it back with the name');
+  /* a ledger from before: the heal lets it go, and his hand can */
+  const old = { ...st, sheet: { ...(st.sheet || {}), playerName: 'Jovan Oda' } };
+  const heal = mcPageOnlyHis(old);
+  eq(heal.length, 1, 'the heal finds it');
+  eq(applyMutations(old, heal).state.characters['Jovan Oda'].core || '', '', 'and lets it go');
+  eq(applyMutations(old, [{ type: 'people.set', name: 'Jovan Oda', field: 'core', text: '', clear: true, byHand: true }]).applied.length, 1, 'his hand can let it go');
+  eq(applyMutations(old, [{ type: 'people.set', name: 'Jovan Oda', field: 'core', text: 'a hero' }]).applied.length, 0, 'nobody can write it');
+});
+
+test('M681-15 A THREAD IS NEVER CLOSED BY THE PAGE THAT OPENED IT (W6): the auditor, reading the same page, closed the reader’s new “Roska hunts the fence”', async () => {
+  const { auditorScope } = await import('../../js/agents/auditor.js');
+  let st = { ...here({ ...emptyState() }, 'Roska'), page: 3 };
+  st = applyMutations(st, [{ type: 'thread.set', title: 'Roska hunts the fence', owner: 'Roska', heat: 'hot' }]).state;
+  const issues = [{ what: 'the hunt is over', fixable: true, mutations: [{ type: 'thread.close', title: 'Roska hunts the fence', outcome: 'found him' }] }];
+  eq(auditorScope(issues, st, { page: 'Roska set out after the fence.', pageAt: 3 }).length, 0, 'the same page: not closed');
+  eq(auditorScope(issues, { ...st, page: 4 }, { page: 'Roska found the fence and broke his nose.', pageAt: 4 })[0].mutations.length, 1, 'a later page may close it');
+});
+
+test('M681-16 A FULL BOOK KEEPS ITS SECRETS (B9): past the guard the oldest fact went, a secret only she held among them', async () => {
+  const { KNOWLEDGE_GUARD, sameFact } = await import('../../js/engine/world.js');
+  const WORDS = ['bell', 'goat', 'lantern', 'barrel', 'harp', 'kite', 'anchor', 'saddle', 'mirror', 'ladder', 'falcon', 'kettle', 'candle', 'basket', 'hammer', 'violin', 'compass', 'banner', 'oyster', 'tulip', 'pepper', 'glove', 'ribbon', 'dagger', 'quill', 'spindle', 'pumpkin', 'walnut', 'trumpet', 'anvil', 'feather', 'wagon', 'bucket', 'crown', 'lute', 'mitten', 'needle', 'pebble', 'scarf', 'thimble', 'acorn', 'button', 'cobble', 'drum', 'easel', 'fiddle', 'gourd', 'helmet', 'inkwell', 'jug', 'kilt', 'ledger', 'mallet', 'napkin', 'oar', 'pail', 'quiver', 'rake', 'sickle', 'tankard', 'urn', 'vase', 'whistle', 'yoke', 'zither'];
+  const FAIR = WORDS.map((w, i) => 'a ' + w + ' was sold at the fair stall ' + String.fromCharCode(65 + (i % 26)) + i);
+  for (let i = 0; i < FAIR.length; i += 1) for (let j = i + 1; j < FAIR.length; j += 1) if (sameFact(FAIR[i], FAIR[j])) throw new Error('the test’s facts are not distinct: ' + FAIR[i] + ' / ' + FAIR[j]);
+  let st = here({ ...emptyState() }, 'Rias', 'Kiba');
+  st = applyMutations(st, [{ type: 'knowledge.add', name: 'Rias', fact: 'the duke poisoned her father' }]).state;
+  for (let i = 0; i < KNOWLEDGE_GUARD + 2; i += 1) st = applyMutations({ ...st, page: 10 + i * 3 }, [{ type: 'knowledge.add', name: 'Rias', fact: FAIR[i] }, { type: 'knowledge.add', name: 'Kiba', fact: FAIR[i] }]).state;
+  const facts = st.knowledge.Rias.map((k) => k.fact);
+  assert(facts.includes('the duke poisoned her father'), 'the secret only she holds stays');
+  eq(facts.length, KNOWLEDGE_GUARD, 'the book is held to its guard');
+});
+
+test('M681-17 A DEATH IS NEVER LET GO BUT BY HIS HAND (W13): a worker’s clear let go the one record that a man with no page of his own had died', () => {
+  const st = applyMutations({ ...emptyState() }, [{ type: 'offscreen.set', name: 'the fence’s man', location: 'dead — in the alley behind the Kettle', activity: 'dead' }]).state;
+  eq(applyMutations(st, [{ type: 'offscreen.clear', name: 'the fence’s man' }]).applied.length, 0, 'a worker’s clear is refused');
+  eq(applyMutations(st, [{ type: 'offscreen.clear', name: 'the fence’s man', byHand: true }]).applied.length, 1, 'his hand lets it go');
+});
+
+test('M681-18 THE BOARD NEVER ENDS A LIVE FIGHT (S5): a page read in a breath between blows turned combat off under a running duel', () => {
+  const st = { ...applyMutations({ ...emptyState() }, [{ type: 'mode.set', flag: 'combat' }]).state, duel: { active: true, over: false } };
+  eq(applyMutations(st, [{ type: 'mode.snapshot', flags: ['travel'] }]).state.mode.combat, true, 'a running duel keeps combat on, whatever the board says');
+  eq(applyMutations({ ...st, duel: { active: true, over: true } }, [{ type: 'mode.snapshot', flags: [] }]).state.mode.combat, false, 'a duel that is over: the board decides, as ever');
+});
+
+test('M681-19 ONE LOOK HAS ONE KEY (P3): “Hair” and “hair colour” stood as two truths of one woman, and the storyteller was told both', async () => {
+  const st0 = here({ ...emptyState() }, 'Rias');
+  let s = applyMutations(st0, [{ type: 'canon.lock', name: 'Rias', key: 'Hair', value: 'long and black' }]).state;
+  s = applyMutations(s, [{ type: 'canon.lock', name: 'Rias', key: 'hair colour', value: 'brown' }]).state;
+  const facts = s.canon[Object.keys(s.canon)[0]].facts;
+  eq(facts.length, 1, 'one look'); eq(facts[0].value, 'brown', 'the newer word stands');
+  /* a ledger written before: two keys for one look fold on load */
+  await saveState('m681-looks', { ...emptyState(), canon: { Rias: { facts: [{ key: 'eye color', value: 'blue' }, { key: 'Eyes', value: 'grey' }, { key: 'hair style', value: 'a braid' }] } } });
+  const back = (await loadState('m681-looks')).canon.Rias.facts;
+  eq(back.map((f) => f.key + '=' + f.value).join(', '), 'eye color=grey, hair style=a braid', 'folded on load, the later one standing');
+});
+
+test('M681-20 A STANDING THE PAGES WORE DOWN STAYS DOWN (P6): the brief’s “P+40” was written back over a standing three betrayals had brought to nothing', async () => {
+  const { standingsHousekeeping } = await import('../../js/agents/auditor.js');
+  let st = applyMutations({ ...emptyState() }, [{ type: 'mc.set', name: 'Jovan' }]).state;
+  /* P6: three betrayals brought Kiyone to nothing */
+  st = applyMutations(st, [{ type: 'rel.set', name: 'Kiyone', p: 40, r: 0, s: 0, cause: 'the brief states (P:40 R:0 S:0) toward Jovan' }]).state;
+  for (const [i, why] of ['Jovan sold her map to the duke', 'Jovan left her at the gate in the rain', 'Jovan lied about the letter', 'Jovan laughed when she fell'].entries()) st = applyMutations({ ...st, page: 5 + i * 3 }, [{ type: 'rel.shift', name: 'Kiyone', axis: 'p', delta: -10, cause: why }]).state;
+  eq(st.relationships.Kiyone.p, 0, 'worn down to zero');
+  const out3 = standingsHousekeeping(st, '', '', 'Jovan', [{ name: 'Kiyone', p: 40, r: 0, s: 0 }]);
+  assert(!out3.some((m) => m.type === 'rel.set' && m.name === 'Kiyone'), 'the brief does not write P+40 back: ' + JSON.stringify(out3));
+  st = applyMutations(st, [{ type: 'rel.set', name: 'Aurora', p: 0, r: 0, s: 0, cause: 'set down by hand' }, { type: 'rel.set', name: 'Aurora', p: 1, r: 0, s: 0, cause: 'x' }, { type: 'rel.set', name: 'Aurora', p: 0, r: 0, s: 0, cause: 'zeroed' }]).state;
+  assert(standingsHousekeeping(st, '', '', 'Jovan', [{ name: 'Aurora', p: 65, r: 30, s: 5 }]).some((m) => m.type === 'rel.set' && m.name === 'Aurora'), 'a standing only ever SET to zero takes the brief’s digits, as before (M49)');
+});
+
+test('M681-21 THE MAIN CHARACTER IS NEVER ELSEWHERE (W3): a seat for him was written whenever he was not in Here now, and the storyteller was told he was at the training ground', async () => {
+  const { mcSeatLetGo } = await import('../../js/engine/apply.js');
+  const named = applyMutations({ ...emptyState() }, [{ type: 'mc.set', name: 'Jovan Oda' }]);
+  const mc = named.state; /* he is not in Here now — the page has not listed him (the house never lists him by name) */
+  eq(applyMutations(mc, [{ type: 'offscreen.set', name: 'Jovan Oda', location: 'the training ground', activity: 'drilling' }]).applied.length, 0, 'never seated elsewhere');
+  eq(applyMutations(mc, [{ type: 'offscreen.set', name: 'Oda', location: 'the training ground', activity: 'drilling' }]).applied.length, 0, 'not by his family name either');
+  const seated = { ...mc, offscreen: { 'Jovan Oda': { location: 'the training ground', activity: 'drilling' } } };
+  eq(Object.keys(applyMutations(seated, mcSeatLetGo(seated)).state.offscreen).length, 0, 'a seat from before is let go on opening');
+});
+
+test('M681-22 A RENAME KEEPS THE WHOLE BOOK (W9): two books joined under one name were cut to the newest twelve facts', async () => {
+  const { renameInState } = await import('../../js/agents/ripple.js');
+  const big = { ...emptyState(), knowledge: { Rias: Array.from({ length: 20 }, (_, i) => ({ fact: 'fact ' + i, atTurn: i })), 'Rias Gremory': [{ fact: 'fact x', atTurn: 30 }] } };
+  eq(renameInState(big, 'Rias', 'Rias Gremory').state.knowledge['Rias Gremory'].length, 21, 'merged whole, never cut to twelve');
+});
+
+test('M681-23 THE WORLD AGENT DOES NOT WRITE OVER THE SEAT THIS PAGE’S READER GAVE (W4): the reader wrote “upstairs in the Wells house”; the world agent, after it on the same page, moved her to “the Bluebird Diner”', async () => {
+  const { worldTurn } = await import('../../js/agents/world.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const world = (mutations) => thinkingHouse({ answer: JSON.stringify({ mutations, brief: { pressure: [], ripe: [], twb: null, voices: [] } }) });
+  const PAGE = '[The Wells kitchen — Friday | 18:00]\n\nRias set the plates out. Upstairs, a door closed: Kiyone had gone up to her room without a word.';
+  const setUp = async (id) => {
+    let st = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The Wells kitchen' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rias' }, { type: 'presence.enter', name: 'Kiyone' }]).state;
+    st.page = 1;
+    st = applyMutations(st, [{ type: 'presence.leave', name: 'Kiyone', to: 'upstairs in the Wells house', shown: 'Kiyone had gone up to her room' }]).state;
+    await saveState(id, { ...st, readTo: 1 });
+  };
+  await setUp('m681-w4');
+  assert(/upstairs/.test(((await loadState('m681-w4')).offscreen.Kiyone || {}).location || ''), 'fixture: the reader seated her upstairs');
+  await withHouse(world([{ type: 'offscreen.set', name: 'Kiyone', location: 'the Bluebird Diner', activity: 'nursing a coffee' }]), () => worldTurn({ connection: HOUSES[0].conn, storyId: 'm681-w4', userText: 'I sit down.', assistantText: PAGE, stale: () => false, pageAt: 1 }));
+  eq((await loadState('m681-w4')).offscreen.Kiyone.location, 'upstairs in the Wells house', 'the reader’s seat stands');
+  await setUp('m681-w4b');
+  await withHouse(world([{ type: 'offscreen.set', name: 'Kiyone', location: 'upstairs in the Wells house, in her room', activity: 'lying on her bed with headphones on' }]), () => worldTurn({ connection: HOUSES[0].conn, storyId: 'm681-w4b', userText: 'I sit down.', assistantText: PAGE, stale: () => false, pageAt: 1 }));
+  eq((await loadState('m681-w4b')).offscreen.Kiyone.location, 'upstairs in the Wells house, in her room', 'the same place, said more fully, lands');
+});
+
+test('M681-24 A PAGE REWRITTEN IN PLACE IS READ AGAIN ALONE (B6): a typo fixed on an older page let go of every plan laid out from that page on and sent the reading back there', async () => {
+  const { runPlans, loadPlansBook, pageRewritten } = await import('../../js/agents/plans.js');
+  const sid = 'm681-plans';
+  const pages = (two) => Array.from({ length: 6 }, (_, i) => ({ n: i + 1, who: i % 2 ? 'the storyteller' : 'the writer', text: i === 2 ? two : 'page ' + (i + 1) }));
+  const raid = { title: 'the night raid', by: 'Rukia', page: 3, goal: 'take the gate', parts: [{ who: 'Renji', does: 'draws the guards off', when: 'at midnight' }, { who: 'Rukia', does: 'opens the gate', when: 'on the bell' }] };
+  const feast = { title: 'the feast', by: 'Momo', page: 5, goal: 'cheer the captain', parts: [{ who: 'Momo', does: 'bakes the cake', when: 'at dawn' }] };
+  await runPlans({ connection: { id: 'c' }, storyId: sid, pages: pages('Rukia lays out the night raid.').slice(0, 4), callLLM: async () => JSON.stringify({ new: [raid], progress: [], closed: [] }) });
+  await runPlans({ connection: { id: 'c' }, storyId: sid, pages: pages('Rukia lays out the night raid.'), callLLM: async () => JSON.stringify({ new: [feast], progress: [{ title: 'the night raid', done: [1] }], closed: [] }) });
+  let book = await loadPlansBook(sid);
+  eq(book.plans.map((p) => p.title).sort().join(', '), 'the feast, the night raid', 'fixture: two plans');
+  await pageRewritten(sid, 2); /* a typo fixed on page 3 */
+  book = await loadPlansBook(sid);
+  eq(book.readTo, 5, 'the pages after it stay read');
+  eq(book.plans.map((p) => p.title).join(', '), 'the feast', 'the plan its old words laid out is set aside at once; the later page’s plan stands');
+  const asked = [];
+  await runPlans({ connection: { id: 'c' }, storyId: sid, pages: pages('Rukia lays out the night raid, typo fixed.'), callLLM: async (c, { user }) => { asked.push(user); return JSON.stringify({ new: [raid], progress: [], closed: [] }); } });
+  eq(asked.length, 1, 'one reading'); assert(/typo fixed/.test(asked[0]) && !/page 5/.test(asked[0]), 'of the rewritten page alone');
+  book = await loadPlansBook(sid);
+  eq(book.plans.map((p) => p.title).sort().join(', '), 'the feast, the night raid', 'both stand');
+  eq(book.plans.find((p) => p.title === 'the night raid').parts.map((x) => Boolean(x.done)).join(','), 'true,false', 'what a later page carried out stays carried out');
+  /* rewritten again, its new words lay out no plan: the raid goes */
+  await pageRewritten(sid, 2);
+  await runPlans({ connection: { id: 'c' }, storyId: sid, pages: pages('Rukia shrugs.'), callLLM: async () => '{"new":[],"progress":[],"closed":[]}' });
+  eq((await loadPlansBook(sid)).plans.map((p) => p.title).join(', '), 'the feast', 'a plan the page no longer lays out is gone');
+});

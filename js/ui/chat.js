@@ -4351,11 +4351,14 @@ export function initChat(ctx) {
     /* M681 — A SECOND MEND KEEPS THE STORYTELLER'S OWN WORDS (the books audit's B8, made to happen on m680-001): every mend
      * wrote the words it replaced as the page's earlier words — so a page mended twice remembered only the FIRST mend's text,
      * and "the earlier words are a tap away" gave back the house's words, his storyteller's gone for good. The earliest
-     * words a reader changed stand as the earlier words; only the house tidying marks (isHouseTidy) is no change of words. */
+     * words a reader changed stand as the earlier words, while the page still says what the last mend wrote (`after`); once
+     * he has written his own words over a mend, HIS words are the earlier words of the next one. Only the house tidying
+     * marks (isHouseTidy) is no change of words. */
     const landed = await db.messages.change(storyId, page.id, (now) => {
       if (pageText(now) !== before) return undefined;
-      const had = now && now.mended && typeof now.mended.before === 'string' && !isHouseTidy(now.mended) ? now.mended.before : before;
-      return shownTextPatch(now, after, { mended: { before: had, why: String(why || '').slice(0, 4000), at: Date.now() } }); /* M268: the reason whole; M575: one home */
+      const was = now && now.mended && typeof now.mended.before === 'string' && !isHouseTidy(now.mended) ? now.mended : null;
+      const had = was && typeof was.after === 'string' && was.after === before ? was.before : before;
+      return shownTextPatch(now, after, { mended: { before: had, after: String(after), why: String(why || '').slice(0, 4000), at: Date.now() } }); /* M268: the reason whole; M575: one home */
     });
     if (!landed) return false;
     /* M90: the record line covering a mended page is let go, so the keeper

@@ -205,12 +205,15 @@ export function personBookKey(state, book, name, finder) {
   const map = book && typeof book === 'object' ? book : {};
   const found = typeof finder === 'function' ? finder(map, name) : null;
   if (found) return found;
+  /* M681 (P4's fault at the applier, found by a search for it): an entry kept under a name that means two people in this
+   * ledger ("Rias", beside Rias Wells and Rias Gremory) is neither one's — Rias Wells's beat landed in it, and every later
+   * one with it. One person, one entry: the entry found must mean one person too. */
+  const only = (n) => { const same = Object.keys(map).filter((k) => samePersonName(k, n)); return same.length === 1 && oneMeaning(state, n) && oneMeaning(state, same[0]) ? same[0] : null; };
   const who = resolveDescriptor(state, name); /* M482 */
-  if (who) return (typeof finder === 'function' ? finder(map, who) : null) || Object.keys(map).find((k) => samePersonName(k, who)) || null;
+  if (who) return (typeof finder === 'function' ? finder(map, who) : null) || only(who);
   /* "you", "I", "the player" and his story name are one person: the main character's own entry */
   if (isMc(state, name) && mcName(state) !== 'the player') return Object.keys(map).find((k) => isMc(state, k)) || null;
-  const same = Object.keys(map).filter((k) => samePersonName(k, name));
-  return same.length === 1 && oneMeaning(state, name) ? same[0] : null;
+  return only(name);
 }
 /* M680 (the people audit): WHAT IS TRUE OF THEM, UNDER THE NAME THEY STAND IN THE ROOM BY. The reader writes someone in by the
  * name the prose uses ("Roska"); her page and her truths stand under her whole name ("Roska Venn") — and the truths of
@@ -2449,10 +2452,10 @@ export function restatedPresence(state, notes, mutations, pageText = '') {
 const NOT_LOOKS = /^(?:dress|clothes|clothing|outfit|attire|wearing|wears|mood|expression|emotion|feeling|state|now|position|place|wound|wounds|injury|injuries|condition)$/i;
 /* M681 — A PASSING LOOK IS NOT A TRUTH (the people audit's P2, made to happen on m680-001): the reader is asked for what will
  * still be true tomorrow, and wrote "face: flushed" — locked among what is true of her, told to the storyteller page after
- * page as how she looks. A clause of a look that is a passing state (flushed, sweat-damp, tear-streaked, muddy, tousled,
+ * page as how she looks. A clause of a look that is a passing state (flushed, sweat-damp, tear-streaked, muddy,
  * bloodshot…) is not locked; what lasts in the same words still is ("copper red, flushed at the ears" → "copper red"). */
 const LOOK_KEYS = /^(?:hair|eyes|skin|face|complexion|build|body|figure|frame|height|look|looks|appearance|features|brow|lips|mouth|nose|cheeks?|jaw|beard|scar|scars|marks?|tattoos?|voice|physique)$/;
-const PASSING_LOOK = /(?<![\p{L}])(?:flushed|flush(?:ing)?|blush\w*|red-faced|sweat\w*|soaked|drenched|wet|damp|dripping|tear-streaked|tear-stained|tears?|teary|tearful|weep\w*|bloodied|bloody|blood-(?:spattered|stained|smeared|streaked)|spattered|smeared|smudged|dirty|muddy|mud-\w+|grimy|dusty|dishevel\w*|tousled|rumpled|messy|unkempt|windswept|wind-blown|bruised|swollen|puffy|red-rimmed|bloodshot|trembl\w*|shaking|shiver\w*|sleepy|drowsy|tired|weary|exhausted|haggard|glowing|sunburnt|sunburned|frowning|smiling|grinning|scowl\w*|wide-eyed|narrowed)(?![\p{L}])/iu;
+const PASSING_LOOK = /(?<![\p{L}])(?:flushed|flush(?:ing)?|blush\w*|red-faced|sweat\w*|soaked|drenched|wet|damp|dripping|tear-streaked|tear-stained|tears|teary|tearful|weeping|bloodied|blood-(?:spattered|stained|smeared|streaked)|spattered|smeared|smudged|muddy|mud-\w+|grimy|dishevel\w*|rumpled|windswept|wind-blown|bruised|swollen|puffy|red-rimmed|bloodshot|trembl\w*|shaking|shiver\w*|exhausted|frowning|smiling|grinning|scowl\w*|wide-eyed)(?![\p{L}])/iu; /* never a colour ("dusty blond", "dirty blonde"), a style ("messy black hair") or a kind ("glowing eyes") */
 export function lastingLook(value) {
   const clauses = String(value || '').split(/\s*(?:,|;|\band\b|\bbut\b)\s*/i).map((c) => c.trim()).filter(Boolean);
   const kept = clauses.filter((c) => !PASSING_LOOK.test(c));

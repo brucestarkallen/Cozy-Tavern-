@@ -387,7 +387,13 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
    * one he set, stands; a missing one, or one only ever set from the brief, takes the brief's digits as before. */
   const pagesMoved = (name) => Object.entries(fresh.relationships && typeof fresh.relationships === 'object' ? fresh.relationships : {}).some(([k, r]) => samePersonName(k, name) && r && typeof r === 'object'
     && (r.hand === true || (Array.isArray(r.history) && r.history.some((h) => h && typeof h.cause === 'string' && !/^the brief\b|^set\b|^the founder\b/i.test(h.cause.trim())))));
-  const guarded = founding.filter((m) => !(m && m.type === 'rel.set' && typeof m.name === 'string' && pagesMoved(m.name)));
+  /* a founder's own move of a standing says it is the founder's (the drawer's history line, and the test above); and a founding
+   * read again does not move a standing it already moved — only a standing nobody has yet takes a move */
+  const hasStanding = (name) => Object.keys(fresh.relationships && typeof fresh.relationships === 'object' ? fresh.relationships : {}).some((k) => samePersonName(k, name));
+  const guarded = founding
+    .filter((m) => !(m && (m.type === 'rel.set' || m.type === 'rel.shift') && typeof m.name === 'string' && pagesMoved(m.name)))
+    .filter((m) => !(m && m.type === 'rel.shift' && fresh.founded && typeof m.name === 'string' && hasStanding(m.name)))
+    .map((m) => (m && m.type === 'rel.shift' && !/^the founder\b/i.test(String(m.cause || '').trim()) ? { ...m, cause: 'the founder — ' + String(m.cause || '').trim() } : m));
   const { state: next, applied, rejected: rejectedByApplier } = applyMutations(fresh, guarded);
   const rejected = [...rejectedByApplier, ...refusedByLock];
   const out = thingsOnly ? { ...next, thingsFounded: true } : { ...next, founded: { at: Date.now(), print: founderFingerprint({ brief, castNotes, cast, lore }) }, thingsFounded: true };

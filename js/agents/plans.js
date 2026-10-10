@@ -29,11 +29,14 @@ const clip = (s, n) => { const t = String(s == null ? '' : s).replace(/\s+/g, ' 
 const titleKey = (t) => clip(t, 200).toLowerCase().replace(/^(?:the|a|an)\s+/, '').replace(/[^\p{L}\p{N} ]/gu, '').trim();
 const hashOf = (t) => fingerprint36(t);
 
+/* M681: the plans a page rewritten in place had laid out, kept aside (out of every telling) until that page is read again */
+const heldOf = (h) => Object.fromEntries(Object.entries(h && typeof h === 'object' ? h : {}).filter(([k, v]) => /^\d+$/.test(k) && Array.isArray(v)));
+const heldBelow = (h, n) => Object.fromEntries(Object.entries(heldOf(h)).filter(([k]) => Number(k) < n));
 export async function loadPlansBook(storyId) {
   const b = await db.settings.get(PLANS_KEY(storyId));
   return b && typeof b === 'object' && Array.isArray(b.plans)
-    ? { plans: b.plans, readTo: Number.isFinite(b.readTo) ? b.readTo : -1, readHash: typeof b.readHash === 'string' ? b.readHash : '', again: Array.isArray(b.again) ? b.again.filter((k) => Number.isInteger(k) && k >= 0) : [] }
-    : { plans: [], readTo: -1, readHash: '', again: [] };
+    ? { plans: b.plans, readTo: Number.isFinite(b.readTo) ? b.readTo : -1, readHash: typeof b.readHash === 'string' ? b.readHash : '', again: Array.isArray(b.again) ? b.again.filter((k) => Number.isInteger(k) && k >= 0) : [], held: heldOf(b.held) }
+    : { plans: [], readTo: -1, readHash: '', again: [], held: {} };
 }
 
 export function plansAsk({ standing = [], pages = [], mc = '' } = {}) {
@@ -132,28 +135,31 @@ export async function runPlans({ connection, storyId, pages, mc = '', signal, ca
   if (book.readTo >= list.length) {
     const plans = plansTakenBackFrom(book.plans, list.length);
     const last = list[list.length - 1];
-    book = { plans, readTo: list.length - 1, readHash: hashOf(last ? last.text : ''), again: (book.again || []).filter((k) => k < list.length) }; /* M681: a page still owed its second reading stays owed */
+    book = { plans, readTo: list.length - 1, readHash: hashOf(last ? last.text : ''), again: (book.again || []).filter((k) => k < list.length), held: heldBelow(book.held, list.length) }; /* M681: a page still owed its second reading stays owed */
     await db.settings.set(PLANS_KEY(storyId), book);
   }
   /* M681 — A PAGE REWRITTEN IN PLACE IS READ AGAIN ALONE (the books audit's B6, made to happen on m680-001): a typo fixed on
    * page 50 of 100 let go of every plan laid out from page 50 on and sent the reading back to page 50 — and the reading
    * keeps only the newest 120,000 characters of what it is handed, so the plans of the pages it cut were gone for good. The
-   * pages after the one rewritten did not change: only what THAT page said is read again — the plans it closed stand open
-   * until it says so again, a plan born on it and not laid out again by its new words goes, and one laid out again keeps
-   * what later pages carried out. Reading then goes on from where it stood. */
+   * pages after the one rewritten did not change: only what THAT page said is read again. The moment it is rewritten
+   * (pageRewritten) the plans it laid out are set aside — out of every telling — and the ones it closed stand open; read
+   * again, a plan its new words still lay out (or carry on, or close) comes back with what later pages carried out, one they
+   * no longer say is gone. Reading then goes on from where it stood. */
   let readAgain = 0;
   for (const k of [...new Set(book.again || [])].sort((a, b) => a - b)) {
     const pg = list[k];
-    if (!pg || !pg.text.trim() || k > book.readTo) { book = { ...book, again: (book.again || []).filter((x) => x !== k) }; continue; } /* gone, empty, or not read yet: nothing to read again */
-    const plans = (book.plans || []).map((p) => (Number.isFinite(p.closedAt) && p.closedAt === k ? (({ outcome: _o, closedAt: _c, ...rest }) => ({ ...rest, status: 'standing' }))(p) : p));
-    const askK = plansAsk({ standing: standingPlans({ plans }), pages: [pg], mc });
+    const held = (book.held || {})[k] || [];
+    const done = () => { const h = { ...(book.held || {}) }; delete h[k]; return { again: (book.again || []).filter((x) => x !== k), held: h }; };
+    if (!pg || !pg.text.trim() || k > book.readTo) { book = { ...book, ...done() }; continue; } /* gone, empty, or not read yet: nothing to read again (a page not read yet is read in its turn) */
+    const plans = book.plans || [];
+    const askK = plansAsk({ standing: standingPlans({ plans: [...plans, ...held] }), pages: [pg], mc });
     let readK = null;
     for (let tries = 0; tries < PLANS_TRIES && !readK; tries += 1) readK = readPlansAnswer(await callLLM(connection, { system: askK.system, user: askK.user, maxTokens: PLANS_MAX_TOKENS, signal }));
-    if (!readK) return { wrote: false, why: 'its answer could not be used' }; /* the page stays owed (book.again) */
-    const laidAgain = new Set(readK.fresh.map((f) => titleKey(f.title)));
-    const kept = plans.filter((p) => !(p.status === 'standing' && Number.isFinite(p.from) && p.from === k && !laidAgain.has(titleKey(p.title))));
-    const next = applyPlansAnswer({ plans: kept }, readK, { from: k, to: k, again: true });
-    book = { ...book, plans: next.plans, again: (book.again || []).filter((x) => x !== k) };
+    if (!readK) break; /* the page stays owed (book.again) and is read again next time; the reading goes on meanwhile */
+    const said = new Set([...readK.fresh, ...readK.progress, ...readK.closed].map((f) => titleKey(f.title)));
+    const back = held.filter((p) => said.has(titleKey(p.title)));
+    const next = applyPlansAnswer({ plans: [...plans, ...back] }, readK, { from: k, to: k, again: true });
+    book = { ...book, plans: next.plans, ...done() };
     await db.settings.set(PLANS_KEY(storyId), book);
     readAgain += 1;
   }
@@ -170,7 +176,7 @@ export async function runPlans({ connection, storyId, pages, mc = '', signal, ca
     if (read) {
       const next = applyPlansAnswer(book, read, { from: slice[0].n - 1, to: slice[slice.length - 1].n - 1 });
       const last = list[list.length - 1];
-      await db.settings.set(PLANS_KEY(storyId), { ...next, readTo: list.length - 1, readHash: hashOf(last ? last.text : '') });
+      await db.settings.set(PLANS_KEY(storyId), { ...next, readTo: list.length - 1, readHash: hashOf(last ? last.text : ''), again: book.again || [], held: book.held || {} });
       return { wrote: true, fresh: read.fresh.length, progress: read.progress.length, closed: read.closed.length };
     }
     user = ask.user + '\n\nYour last answer was not the JSON asked for. Answer with {"new":[…],"progress":[…],"closed":[…]} only.';
@@ -184,9 +190,14 @@ export async function pageRewritten(storyId, pageIndex) {
   if (!storyId || !Number.isInteger(pageIndex) || pageIndex < 0) return;
   const book = await loadPlansBook(storyId);
   if (book.readTo < pageIndex) return; /* not read yet — it will be */
-  /* the newest page read is checked by its own fingerprint (runPlans: rewritten since read — M608 takes back what it said);
-   * any older page is read again alone (M681) */
-  if (pageIndex === book.readTo) { await db.settings.set(PLANS_KEY(storyId), { ...book, readHash: '' }); return; }
-  await db.settings.set(PLANS_KEY(storyId), { ...book, again: [...new Set([...(book.again || []), pageIndex])] });
+  /* the newest page read: what it said is taken back and it is read again (M608) — no page after it is touched */
+  if (pageIndex === book.readTo) { await db.settings.set(PLANS_KEY(storyId), { ...book, plans: plansTakenBackFrom(book.plans, pageIndex), readTo: pageIndex - 1, readHash: '' }); return; }
+  /* M681 (B6): an older page — its own plans set aside and the ones it closed open again, now; it is read again alone */
+  const k = pageIndex;
+  const bornHere = (p) => p && p.status === 'standing' && Number.isFinite(p.from) && p.from === k;
+  const reopened = (book.plans || []).map((p) => (Number.isFinite(p.closedAt) && p.closedAt === k ? (({ outcome: _o, closedAt: _c, ...rest }) => ({ ...rest, status: 'standing' }))(p) : p));
+  const plans = reopened.filter((p) => !bornHere(p));
+  const held = { ...(book.held || {}), [k]: [...(((book.held || {})[k]) || []), ...reopened.filter(bornHere)] };
+  await db.settings.set(PLANS_KEY(storyId), { ...book, plans, held, again: [...new Set([...(book.again || []), k])] });
 }
 

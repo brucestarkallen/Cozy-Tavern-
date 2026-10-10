@@ -14491,6 +14491,77 @@ test('DOM-281 HIS HAND ON THE CLOCK OUTRANKS THE NEWEST PAGE’S HOUR WHEN THE T
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-282 A RENAME OUTLIVES A TRY AGAIN (M681 — the books audit’s B13): his edit renames Kira to Kiyone everywhere — the pages, the record, the ledger; “try again” on the newest page folded the ledger back past the rename, and the ledger knew her as Kira while every page said Kiyone', async () => {
+  const before = errors.length;
+  const { loadState, saveState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const H = '[The yard — Monday, March 3, 2025 | 09:00 | clear]\n\n';
+  const st = await clockTale('rename then try again', [H + 'Kira poured the tea by the well.', H.replace('09:00', '09:20') + 'Kira laughed at the joke about the bucket.'], { readTo: 1 });
+  let led = await loadState(st.id);
+  led.page = 0; led = applyMutations(led, [{ type: 'people.set', name: 'Kira', field: 'core', text: 'the innkeeper’s daughter' }]).state;
+  led.page = 1; await saveState(st.id, led);
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  try {
+    house.state.workerAnswer = () => QUIET_WORKERS;
+    const pages = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant');
+    const after = pages[0].text.replace('Kira', 'Kiyone');
+    await db.messages.update(st.id, pages[0].id, { text: after });
+    env.ctx.chat.rippleAfterEdit(await db.stories.get(st.id), pages[0].id, pages[0].text, after);
+    await readersDone(st.id, 30000);
+    assert((await loadState(st.id)).characters.Kiyone, 'the ledger knows her as Kiyone: ' + Object.keys((await loadState(st.id)).characters));
+    assert(/Kiyone laughed/.test((await db.messages.list(st.id)).find((m) => m.id === pages[1].id).text), 'the newest page says Kiyone too');
+    house.state.storyAnswer = () => H.replace('09:00', '09:25') + 'Kiyone smiled and set down the cup.';
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    tryAgain();
+    await until(async () => /Kiyone smiled/.test((((await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop()) || {}).text || ''), 'the page told again', 20000);
+    await settled(); await readersDone(st.id, 60000);
+    const led2 = await loadState(st.id);
+    assert(led2.characters.Kiyone && !led2.characters.Kira, 'after the try again the ledger still knows her as Kiyone: ' + Object.keys(led2.characters).join(', '));
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-283 A SECOND MEND KEEPS THE STORYTELLER’S OWN WORDS — AND HIS OWN, WHEN HE WROTE OVER THE FIRST (M681 — the books audit’s B8): a page the ripple mended twice remembered only the first mend’s words as its earlier words; “the earlier words are a tap away” gave back the house’s words, the storyteller’s gone for good', async () => {
+  const before = errors.length;
+  const H = '[The yard — Monday, March 3, 2025 | 09:00 | clear]\n\n';
+  const st = await clockTale('two mends', [H + 'Kira poured the tea by the well.', H.replace('09:00', '09:20') + 'Kira laughed at the joke about the bucket.']);
+  const prior = { worker: house.state.workerAnswer };
+  try {
+    house.state.workerAnswer = () => QUIET_WORKERS;
+    const ids = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').map((m) => m.id);
+    const page = async (i) => (await db.messages.list(st.id)).find((m) => m.id === ids[i]);
+    const edit = async (from, to) => {
+      const was = (await page(1)).text; const now = was.replace(from, to);
+      await db.messages.update(st.id, ids[1], { text: now });
+      env.ctx.chat.rippleAfterEdit(await db.stories.get(st.id), ids[1], was, now);
+      await readersDone(st.id, 30000);
+    };
+    const told = H + 'Kira poured the tea by the well.';
+    await edit('Kira', 'Kiyone');
+    eq((await page(0)).text, H + 'Kiyone poured the tea by the well.', 'the first mend');
+    eq((await page(0)).mended.before, told, 'its earlier words: the storyteller’s');
+    await edit('Kiyone', 'Kiyo');
+    eq((await page(0)).text, H + 'Kiyo poured the tea by the well.', 'the second mend');
+    eq((await page(0)).mended.before, told, 'its earlier words are still the storyteller’s, never the first mend’s');
+    /* he writes over the mended page himself; the next mend's earlier words are HIS */
+    const his = H + 'Kiyo poured the tea by the well, humming.';
+    await db.messages.update(st.id, ids[0], { text: his });
+    await edit('Kiyo', 'Kiyoko');
+    eq((await page(0)).text, H + 'Kiyoko poured the tea by the well, humming.', 'the third mend');
+    eq((await page(0)).mended.before, his, 'his own words are the earlier words now');
+  } finally {
+    house.state.workerAnswer = prior.worker;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-275 THE CHOICES ARE MADE FROM THE LEDGER AS THE PAGE LEFT IT (M680 — the books audit): Choices matter asked its helper the moment a page landed, before the page’s own readers had written it into the ledger — so the outcomes were sealed against the room as it stood BEFORE the page: a man the page had just walked out of the yard was still “here now”. It waits for the page’s readers now', async () => {
   const before = errors.length;
   const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');
