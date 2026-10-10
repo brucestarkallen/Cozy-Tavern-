@@ -5,6 +5,9 @@ into every step, so the platform compacted every few minutes. The log now lives 
 main). This section is everything the next session needs to carry on.
 
 ## 1. Where things stand
+- **UPDATE (same day): M680 IS ON MAIN.** Its four gate regressions were fixed at their roots (laws M680-12…16, walk
+  DOM-276; HISTORY.md "# M680") and every gate went green (run g680e). Sections 1–2 below are the record of that fix;
+  section 3 (M681) is the work now, on branch m681-wip.
 - **main = m679-001** (plus the docs-only split). His launcher `cozytavern` pulls main onto his phone: only code that
   passed EVERY gate goes there.
 - Work branch **m681-wip** = main + M680's code (it was commit 74007f4 on m680-wip, which still keeps it) + the
