@@ -404,3 +404,18 @@ test('M685-29 an aborted original-source audit propagates the interruption inste
   assert(failed, 'the source audit preserves the timeout for the queue and banner');
   assert(!(await loadState(id)).audit, 'an interrupted source reading is not saved as complete');
 });
+
+
+test('M685-30 a repeated page correction in the followup is mended and reported only once', async () => {
+  const id = await tale('m685-repeat-page', { page: 'Princess Alexia is called the Fourth Princess.' });
+  await wire(() => ({ issues: [
+    { what: 'The page gives Alexia the wrong rank.', fix: 'Princess Alexia is the Second Princess.', pages: true, mutations: [{ type: 'canon.lock', name: 'Princess Alexia', key: 'rank', value: 'Second Princess' }] },
+    { what: 'A promise is missing.', mutations: [{ type: 'unknown.promise', name: 'Princess Alexia' }] },
+  ] }), async (calls) => {
+    const r = await auditLedger({ connection, storyId: id });
+    eq(calls.length, 2, 'the rejected promise actually triggers the repair followup');
+    eq(r.issues.filter((i) => i.pages && i.fix).length, 1, 'only one page mend is requested for the repeated correction');
+    eq(r.applied.filter((a) => a.mutation.type === 'canon.lock').length, 1, 'the associated ledger repair also lands once');
+    assert(r.unfinished && r.pending.some((p) => p.includes('promise')), 'deduplication does not hide the separate unresolved promise');
+  });
+});

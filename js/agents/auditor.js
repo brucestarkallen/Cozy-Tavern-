@@ -483,6 +483,10 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
         const completed = new Set(firstWrites.map(repairKey));
         const corrections = corrected.issues.flatMap((i) => {
           const mutations = i.mutations.filter((m) => !completed.has(repairKey(m)));
+          // A carried page repair has not been mended yet. Repeating it in the
+          // followup must not request a second mend of the same passage.
+          const repeatedPage = i.pages && carry.find((c) => c.pages && c.what === i.what && c.fix === i.fix);
+          if (repeatedPage) { repeatedPage.mutations.push(...mutations); return []; }
           return i.mutations.length && !mutations.length && !i.pages ? [] : [{ ...i, mutations }];
         });
         offered = [...carry, ...corrections];
