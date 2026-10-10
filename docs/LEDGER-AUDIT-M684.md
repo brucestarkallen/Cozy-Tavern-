@@ -1,7 +1,7 @@
 # M684 ledger audit
 
 Requested by Jovan on October 10, 2026. Baseline: published M683, commit
-71b22e8a1277f622ca29ae55594b0279cdfbee42. Implementation checkpoints: 10cdb17 and 8cbf422.
+71b22e8a1277f622ca29ae55594b0279cdfbee42. Implementation checkpoints: 10cdb17 and 8cbf422; final test fixture: 9e82274.
 The release gate is still running; final results belong in audit/results/m684.json.
 
 ## What the ledger is responsible for
@@ -75,6 +75,9 @@ the release. A fast profile is never described as the full gate.
   literal page “a.” The retry/fallback assertions are unchanged.
 - M666's newcomer fixture now calls the maid “Oriana's maid” in the source, matching
   its model answer, rather than expecting an unsupported possessive name to pass.
+- DOM-27 now identifies its sole initial present person as the main character.
+  Without that identity, a scene move left Jovan as an unreviewed offscreen person,
+  correctly keeping the world indicator amber. The same recovery assertions remain.
 - Long play now contains the departure its scripted auditor previously claimed had
   happened. A legacy incorrect presence entry is seeded explicitly for the manual repair; the original final presence assertions remain unchanged.
 

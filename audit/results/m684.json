@@ -2,7 +2,7 @@
   "version": "m684-001",
   "status": "final full gate running; not published",
   "baseline_commit": "71b22e8a1277f622ca29ae55594b0279cdfbee42",
-  "release_source_commit": "8cbf422364f76a50c1c875e28004c6429853ce70",
+  "release_source_commit": "9e822747d6f7469e0b83474e4339977b136cb894",
   "negative_controls": {
     "baseline_fails": [
       "M684-1",
@@ -64,11 +64,13 @@
     "ids": [
       "DOM-1",
       "DOM-2",
+      "DOM-27",
       "DOM-46",
       "DOM-47",
+      "DOM-49",
       "DOM-M684-1"
     ],
-    "passed": 5
+    "passed": 7
   },
   "long_preflight": {
     "passed": 9,
@@ -79,10 +81,15 @@
     "harness_passed": 1467,
     "stopped_at": "DOM-47 exposed an overstrict MC name filter; fixed before restarting."
   },
-  "final_tag": "m684b",
+  "final_tag": "m684c",
   "limits": [
     "No real user story data was accessed.",
     "Scripted model answers test application contracts, not all possible future model answers.",
     "World time is story time; unsuccessful reviews remain visibly overdue."
-  ]
+  ],
+  "second_gate": {
+    "tag": "m684b",
+    "harness_passed": 1468,
+    "stopped_at": "DOM-27 fixture lacked the main-character identity; current-world omission correctly kept the lamp amber. Fixture corrected, seven related scenarios pass. No further application change."
+  }
 }

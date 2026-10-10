@@ -5,11 +5,14 @@
 Branch m684-ledger is based on main 71b22e8 (m683-001). Jovan requested an audit of
 scene presence, writer introductions, mistaken identities, the auditor, world simulation
 and unclear Books explanations. See SPEC.md and tests/harness/m684.mjs (21 focused laws)
-and DOM-M684-1. Code checkpoints 10cdb17 and 8cbf422 are pushed to origin/m684-ledger. The 21 new
+and DOM-M684-1. Code checkpoints 10cdb17 and 8cbf422, plus fixture correction 9e82274 are pushed to origin/m684-ledger. The 21 new
 laws, the version-recovery subset and 90-turn long play pass. The first broad run
 passed its 1467-law harness, then exposed an MC identity-filter regression at DOM-47;
-it was stopped, fixed and covered by M684-21. The final broad gate is
-being run as `python3 tools/check.py full --tag m684b`. Do not claim publication yet.
+it was stopped, fixed and covered by M684-21. The next run passed 1468 laws;
+DOM-27 then exposed a fixture with no main-character identity, correctly leaving
+an unfinished world review. Its identity is now explicit; all seven related app
+scenarios pass. Product code is unchanged since 8cbf422. The final broad gate is
+being run as `python3 tools/check.py full --tag m684c`. Do not claim publication yet.
 The previous release and all Claude audit commits are preserved. No user story data
 was accessed. New metadata is additive; rename, freshness and page changes remain
 journaled and undoable. Development negatives and actual final results will be saved
