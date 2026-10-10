@@ -18204,7 +18204,10 @@ The generated Cozy program's AST matches the previous copy apart from CG_VERSION
 absence policy and host/UI imports. tools/vendor-canon.py now refuses local drift or a downgrade, requires a reviewed
 SHA256 to migrate the legacy untracked copy, records provenance and hashes, and has a no-write --check door.
 tests/vendor_canon_unit.py proves actual refusal without losing local text, reviewed migration, host policy and parity.
-Canon's original gate passed 605/605 and 431/431 before any edits; the extended gate passed 627/627 and 454/454.
+Canon's original gate passed 605/605 and 431/431 before any edits; the extended gate passed 629/629 and 455/455.
+Eleven isolated negative controls each made both suites exit 1 on the actual guarded behavior, without a harness
+exception: deadlines, episodes, cast lists, family mentions, typos, discovery, setting resolution, same-page alias
+merging, unknown display templates, empty-English romanization and language wrappers.
 
 ACADEMY/BOOT: instrumented Chromium recorded the boot pull's reload in sync.js settle. Startup continued after that
 reload had been requested and could expose __cozy on the departing document. tests/boot_ready.py holds the reload

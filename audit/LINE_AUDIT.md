@@ -126,3 +126,10 @@ js/providers/order.js | 25 | 10 | DONE (M609)
 js/agents/voice.js | 16 | 4 | DONE (M608)
 js/agents/herewords.js | 8 | 1 | DONE (M608)
 js/version.js | 10 | 1 | DONE (M613)
+
+## M682 continuation, October 10, 2026
+
+Focused corrections to the six recorded findings in agents/extractor.js, agents/memory.js, agents/queue.js,
+agents/housekeeper.js, engine/apply.js, ui/chat.js and ui/housekeeper.js; the reproduced startup reload race in
+sync.js and app.js; and reconciliation of canon/grounding.js with its upstream source. The previous whole-file
+audit marks above are retained. HISTORY.md M682 records the real-code laws, negative controls and final gates.
