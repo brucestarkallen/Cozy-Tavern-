@@ -1032,20 +1032,20 @@ test('M681-44 THEIR OWN WORDS ARE READ THROUGH HIS STORY TOO (P8’s same fault,
 });
 
 test('M681-45 THE NEXT PAGE’S JUMP IS MEASURED FROM WHERE THE LAST PAGE ENDED (S9): a page headed 09:30 whose reader said it ran five hours, then a page headed 14:40 — the house read a five-hour jump and let every place in the room and every outfit go, though ten minutes had passed', async () => {
-  const { readerTimeOverHeader, staleAfterJump, clockReached } = await import('../../js/engine/apply.js');
+  const { readerTimeOverHeader, staleAfterJump, clockReached } = await import('../../js/engine/apply.js'); /* (clockReached is new in M681-2) */
   const land = (st, header, reader) => {
     const h = headerMutations(page(header), { ground: (st.place || {}).name || '', day: (st.clock && st.clock.dayWords) || '' });
     const timed = readerTimeOverHeader(h, reader);
     return { st: applyMutations(st, [...timed.header, ...staleAfterJump(st, timed.header), ...timed.reader]).state, letGo: staleAfterJump(st, timed.header) };
   };
-  let st = applyMutations({ ...emptyState() }, [{ type: 'presence.enter', name: 'Kim', position: 'at the stables', attire: 'riding clothes' }]).state;
-  st = land(st, 'the yard — Monday | 09:30', []).st;
+  let st = land({ ...emptyState() }, 'the yard — Monday | 09:30', []).st; /* the ground first: a change of ground lets every place go */
+  st = applyMutations(st, [{ type: 'presence.enter', name: 'Kim', position: 'at the stables', attire: 'riding clothes' }]).state;
   st = land(st, 'the yard — Monday | 09:30', [{ type: 'clock.advance', minutes: 300, reason: 'the long ride out and back' }]).st;
   eq(st.clock.minutes % 1440, 9 * 60 + 30, 'the clock is the header’s hour, as ever');
-  eq(clockReached(st.clock) % 1440, 14 * 60 + 30, 'and the page’s span stands beside it');
   const next = land(st, 'the yard — Monday | 14:40', []);
   eq(next.letGo.length, 0, 'ten minutes after the page ended: nobody’s place or dress is let go');
   eq(next.st.present[0].position, 'at the stables', 'Kim is where the page left her');
+  eq(clockReached(st.clock) % 1440, 14 * 60 + 30, 'the page’s span stands beside the hour');
   /* the open heal sets the same hour again with no span: the span stands */
   eq(clockReached(applyMutations(st, [{ type: 'clock.set', hour: 9, minute: 30 }]).state.clock) % 1440, 14 * 60 + 30, 'the same hour set again keeps the span');
   /* a real jump is still a jump */

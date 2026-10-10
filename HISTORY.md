@@ -18095,10 +18095,11 @@ THE SCENE, CONTINUED
   carries lets it go, and one it names again is never counted twice. (Revises M345 for harm the weighing was shown.)
 - A STALE MOOD BOARD IS THE AUDITOR'S (S13, M681-36, DOM-290): the page reader marks the page whose board it stated
   (moodAt); when no reader stated it for the newest page, the auditor is told so and its one mode.snapshot lands.
-- S9 (the clock stands at the page's opening): NOT A BUG as stated — the clock equal to the newest header's hour is an
-  invariant the rewind check (M509-9), the open heal (M455), the auditor and the masthead rely on. What remains: the span
-  a page covers is not kept, so staleAfterJump can measure a jump from the page's opening (a 300-minute page read as a
-  five-hour jump at the next header). A journaled `ranTo` on the header's clock.set would fix it; not built.
+- WHERE THE LAST PAGE ENDED (S9, M681-45; m681-002): the clock stays the header's hour (the rewind check M509-9, the open
+  heal M455, the auditor and the masthead hold to it), and the span the page's reader said it covered is kept beside it
+  (clock.ranTo, written with the header's clock.set; kept when the same hour is set again, gone when the hour moves);
+  the next page's jump (staleAfterJump, the world agent's "the clock jumped") is measured from where the page ended —
+  a page from 09:30 that ran five hours, then 14:40, no longer lets every place and outfit go.
 THE PEOPLE, CONTINUED
 - CANON'S FACE IS READ THROUGH HIS STORY'S LENS (P8, M681-40): hair, eyes and the Appearance prose were locked and told as
   canon's END has them; each feature and look sentence is a lens statement now (an older lens still holds back what it
@@ -18154,3 +18155,4 @@ M29/M246/M247 follow the new words.
 - GATES (run g681e on commit aa6665b, every gate in full): harness 1432/1432, walk 291/291, long play 9/9, lint 0 errors
   (198 warnings), the 20 browser tests all green (perf_send worst long task 968 ms of 1000; perf_academy green).
 - version.js -> m681-001.
+- m681-002 (after m681-001 went to main): S9 and the canon voice quotes, each with a law that fails on m681-001.

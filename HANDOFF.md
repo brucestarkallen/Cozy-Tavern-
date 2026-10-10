@@ -9,7 +9,6 @@
 - Whether M681 is on main: see the gate line at the end of HISTORY.md "# M681". No gate line = not on main.
 
 ## 2. Open, by name (nothing else from the M680 audit is open)
-- S9: the span a page covers is not kept (see "# M681"); a journaled `ranTo` on the header's clock.set is the design.
 - Cozy's js/canon/grounding.js has drifted from his Canon Verification extension (Cozy's own fixes M509-3, M538, M573 …
   live only here). NEVER run tools/vendor-canon.py until they are merged — it would delete them. Change both by hand.
 - Found, not fixed: the page reader keeps a cut answer's salvaged writes as "ok" with no re-ask; M244's half-batch line is
