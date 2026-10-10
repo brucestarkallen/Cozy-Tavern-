@@ -18147,4 +18147,6 @@ TESTS CHANGED, AND WHY: M100's mood line and M251's two literals read source tex
 DOM-277; M40-1's literal follows the version walk's withStoryWrites; M528-1 and DOM-184 asked for the plans rewind B6
 removed; M680-14's fixture was stamped with the page being read (it claimed this page's reader seated Aunt Vera);
 M29/M246/M247 follow the new words.
+- GATES (run g681e on commit aa6665b, every gate in full): harness 1432/1432, walk 291/291, long play 9/9, lint 0 errors
+  (198 warnings), the 20 browser tests all green (perf_send worst long task 968 ms of 1000; perf_academy green).
 - version.js -> m681-001.
