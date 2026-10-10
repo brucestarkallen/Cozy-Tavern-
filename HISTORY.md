@@ -18391,3 +18391,50 @@ m683-workflow-academy advanced atomically without force to 2f9543c4e70e10ed9a547
 were verified from GitHub after the push. Version m683-001 is published. This final handoff/publication record
 changes documentation and the validation record only; production bytes remain identical to the full green gate.
 The original audit/final-fix commits and complete prior history remain intact.
+
+
+## M684 — source-grounded people, reversible identity correction and current world reviews (2026-10-10)
+
+Jovan reported missing companions/introductions, “Alexia Woman” replacing Princess
+Alexia, an omitted prince, an auditor deleting the wrong identity, old offscreen
+situations presented as live, and Books panels that did not explain changes.
+
+The reader now uses the writer's established scene facts as well as the reply, keeps
+source-quoted introductions independently of presence, and validates new names against
+its actual source context, including recent pages. Chat's world-window guard follows
+the same paired input. A quiet person is not removed for silence, and a dead person is
+not revived by a mistaken board. Auditor arrival repair can use the writer's exact
+quote, while later departures still win. OOC page indices stay aligned with journals.
+
+The auditor can now rename/merge through the reversible identity door; a deletion of
+a source-backed or linked person is refused. Names, knowledge, relationships and room
+identity follow the rename. The merge's obsolete eight-loose-end cap now uses the
+existing larger capacity, with room identity included in undo.
+
+The world explicitly reviews overdue people by story time, asks once more for omissions,
+and reports unresolved names as unfinished. offscreen.confirm records an explained
+stay with an undoable review timestamp; it refuses dead people, last sightings and
+overdue journeys. Old age no longer invents a likely departure. Books show source,
+page, cause and evidence when available, distinguish partial corrections and pending
+mends, and separate audit results from unresolved story concerns.
+
+Validation: final harness 1469/1469, complete app walk 296/296, long play 9/9, lint
+0 errors, final send and repair performance green. The full m684c matrix ran all 54
+jobs in 2096.39 s: 53 passed, with four source-less mock names failing in the walk.
+Their source fixtures were corrected with all assertions kept. Final core run m684d
+passed the complete harness and walk; its long-play mock revealed that it selected
+older arrivals from context. Correcting that mock's newest-page read produced a green
+9/9 long play; m684e passed final lint and both affected performance checks. No budget
+was relaxed, and no single all-green full invocation is claimed. Every matrix check
+has a recorded green qualifying result. Detailed runs: audit/results/m684.json.
+
+Twenty-two focused laws and one complete app scenario cover the new behavior. Eighteen
+laws fail against M683; four controls pass there, and all 22 pass now. Development
+controls also caught overstrict main-character/recent-source name guards and an OOC
+index error before publication. Final tested product checkpoint 1dc8d7f; application
+code last changed at 0cabba0. Full audit: docs/LEDGER-AUDIT-M684.md.
+
+No real user story data was accessed. Claude's M680/M681/final fixes and all prior
+history remain. Canon Verification is unchanged. Existing stories can use “Audit the
+ledger” after update; source interpretation remains a model judgment, with failed or
+omitted reviews visible rather than reported as completed simulation.

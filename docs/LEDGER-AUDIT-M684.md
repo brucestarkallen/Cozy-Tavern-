@@ -1,8 +1,9 @@
 # M684 ledger audit
 
 Requested by Jovan on October 10, 2026. Baseline: published M683, commit
-71b22e8a1277f622ca29ae55594b0279cdfbee42. Implementation checkpoints: 10cdb17 and 8cbf422; final test fixture: 9e82274.
-The release gate is still running; final results belong in audit/results/m684.json.
+71b22e8a1277f622ca29ae55594b0279cdfbee42. Final product checkpoint: 1dc8d7f.
+Verification is complete; measured results and original failures are preserved in
+audit/results/m684.json.
 
 ## What the ledger is responsible for
 
@@ -44,11 +45,11 @@ current decision. An unsuccessful or omitted review must remain visible as unfin
 
 ## Evidence
 
-Twenty-one focused laws live in tests/harness/m684.mjs. Eighteen fail against the M683
-baseline for the behaviors repaired here. Three are controls: rejecting invalid quoted
-introductions, preserving repair of a real departure after out-of-character pages, and keeping the main character when the same answer first establishes their identity.
+Twenty-two focused laws live in tests/harness/m684.mjs. Eighteen fail against the M683
+baseline for the behaviors repaired here. Four are controls: rejecting invalid quoted
+introductions, preserving repair of a real departure after out-of-character pages, keeping the main character when the same answer first establishes their identity, and accepting a name already established in the recent pages supplied to the reader.
 The departure control also caught an index error in the first M684 implementation and passed after
-that error was corrected. The main-character control caught and fixed an overstrict new-name filter in M684, first exposed by the existing DOM-47 version-recovery scenario. Tests use scripted providers, not paid LLM calls.
+that error was corrected. The main-character control caught and fixed an overstrict new-name filter in M684, first exposed by the existing DOM-47 version-recovery scenario. The recent-page control also caught an overstrict new-name guard; the guard now reads the same recent-page identity context as the model. Tests use scripted providers, not paid LLM calls.
 
 DOM-M684-1 exercises a full app turn: the input introduces Princess Alexia with an
 explicit rank and an absent Prince Caelan with an explicit rank; the assistant uses
@@ -57,10 +58,12 @@ separate People pages, correct ranks, absence of the remote characters from the 
 Books evidence and persistence after reopening the story. The names and ranks are
 fixtures, not a claim about Jovan's actual story.
 
-The fast development profile passed in 16.19 seconds. The final broad gate runs the
-entire harness, entire app walk, long play and every top-level browser/server test.
-Results, actual counts, elapsed times and any encountered failures are recorded with
-the release. A fast profile is never described as the full gate.
+The fast development profile passed in 16.19 seconds. The 54-check broad run took 2096.39 seconds: 53 checks passed; the
+walk passed 292/296 and exposed four fixtures with names absent from their sources.
+After correcting those fixtures and the recent-page guard, the final complete harness
+(1469/1469), complete walk (296/296), long play (9/9), lint, send performance and repair
+performance all passed. The complete harness and walk passed in m684d; its long play exposed a mock reading older arrivals as new. After correcting that mock, standalone long play passed 9/9, followed by lint and both performance checks in m684e. Application code did not change after m684d.
+The full record keeps each run; it does not claim a single all-green full invocation.
 
 ## Existing tests adjusted
 
@@ -78,6 +81,11 @@ the release. A fast profile is never described as the full gate.
 - DOM-27 now identifies its sole initial present person as the main character.
   Without that identity, a scene move left Jovan as an unreviewed offscreen person,
   correctly keeping the world indicator amber. The same recovery assertions remain.
+- DOM-127, DOM-234, DOM-244 and DOM-255 now establish Lin, Yuki Tsukumo, Zed and
+  the numbered guests in the source their scripted reader is given. Their branching,
+  relationship, retry, rewind and no-duplicate-reading assertions are unchanged.
+- The long-play scripted reader now reads only the newest page when choosing arrivals;
+  it previously matched the first arrival in the request, including older context.
 - Long play now contains the departure its scripted auditor previously claimed had
   happened. A legacy incorrect presence entry is seeded explicitly for the manual repair; the original final presence assertions remain unchanged.
 

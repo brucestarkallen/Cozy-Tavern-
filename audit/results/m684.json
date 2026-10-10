@@ -1,8 +1,822 @@
 {
   "version": "m684-001",
-  "status": "final core and affected performance verification running; not published",
+  "status": "verified",
   "baseline_commit": "71b22e8a1277f622ca29ae55594b0279cdfbee42",
-  "release_source_commit": "9e822747d6f7469e0b83474e4339977b136cb894",
+  "final_product_commit": "1dc8d7f634b741b441d86b6bbe3aaea2e0f420c6",
+  "final_source_digest": "29104929aa587a3676f235fd3e0d8548e12266d41de4106cc6e847add1d47ae6",
+  "runtime_digest": "093ca0464d99b7c780d25ea88393c4a90e3fe6a647d04a5be4847fd723b0b0bb",
+  "verification_method": "Full 54-check matrix followed by final complete harness, walk, long play, lint and the send/repair performance checks. The corrective checks cover four grounded source fixtures and a recent-page identity-source guard correction. The long-play mock was then corrected to read only the newest page, followed by a green standalone long play and final lint/performance checks. The original full invocation was not all green; both results are retained.",
+  "original_full_run": {
+    "tag": "m684c",
+    "source_commit": "9e82274",
+    "seconds": 2096.39,
+    "source_unchanged": true,
+    "passed_checks": 53,
+    "total_checks": 54,
+    "walk": {
+      "passed": 292,
+      "failed": 4,
+      "failures": [
+        "DOM-127",
+        "DOM-234",
+        "DOM-244",
+        "DOM-255"
+      ]
+    },
+    "checks": {
+      "harness": {
+        "exit": 0,
+        "seconds": 163.47,
+        "digest": "ce792369801ee65b081febc7d2269c70980de954675d3a491e41c0982c5a2fa6",
+        "log": "/tmp/gates/m684c_harness.log",
+        "reused": false
+      },
+      "walk": {
+        "exit": 1,
+        "seconds": 481.44,
+        "digest": "eb359597ba8e3dcf76b99566c50e31b962de6bf7a92e14cc287153884704749d",
+        "log": "/tmp/gates/m684c_walk.log",
+        "reused": false
+      },
+      "long": {
+        "exit": 0,
+        "seconds": 33.47,
+        "digest": "b1faeeb1a22637b449873f2d873d24251caf598cab99b8475f7b4755e7881a2e",
+        "log": "/tmp/gates/m684c_long.log",
+        "reused": false
+      },
+      "lint": {
+        "exit": 0,
+        "seconds": 3.69,
+        "digest": "e0371f2151073d6e45b0912762e8a8277665bc60d92bb35b1204eb8f4d216ce3",
+        "log": "/tmp/gates/m684c_lint.log",
+        "reused": false
+      },
+      "append": {
+        "exit": 0,
+        "seconds": 2.02,
+        "digest": "34e915b2cecc7570df98e89096063b9c4e998aa29c3cabd3f3e85e70e1f7f6f3",
+        "log": "/tmp/gates/m684c_append.log",
+        "reused": false
+      },
+      "bigbook": {
+        "exit": 0,
+        "seconds": 1.37,
+        "digest": "251c9a4c29579f2a9c63490a7a1667b61d526a1515244ac3ad56b5014fcaa07b",
+        "log": "/tmp/gates/m684c_bigbook.log",
+        "reused": false
+      },
+      "bootpull": {
+        "exit": 0,
+        "seconds": 72.62,
+        "digest": "9bca1785b193c72e319a56bf5690475dd466edf58a23bcbfc54e9c8f7c0434f4",
+        "log": "/tmp/gates/m684c_bootpull.log",
+        "reused": false
+      },
+      "branchrefresh": {
+        "exit": 0,
+        "seconds": 8.79,
+        "digest": "33b2fa0994c1bc8aa83de81d90e3aebc20d3dc6f1f2182002c589f71428fb566",
+        "log": "/tmp/gates/m684c_branchrefresh.log",
+        "reused": false
+      },
+      "coat": {
+        "exit": 0,
+        "seconds": 4.83,
+        "digest": "a5a3df235b2c57be9ceb658422cd3520c2cafb96156c8d69b8d01bbfdc6fc896",
+        "log": "/tmp/gates/m684c_coat.log",
+        "reused": false
+      },
+      "contrast": {
+        "exit": 0,
+        "seconds": 48.08,
+        "digest": "5ab86e63d2f585ace90893e7d33c07324f40e08746d08342da55a816120cc211",
+        "log": "/tmp/gates/m684c_contrast.log",
+        "reused": false
+      },
+      "foldcrash": {
+        "exit": 0,
+        "seconds": 1.72,
+        "digest": "c78a8cee6d65df358a62cf9fe63da3b03c1fdf995d07b4f854a76d3b6da7ffb9",
+        "log": "/tmp/gates/m684c_foldcrash.log",
+        "reused": false
+      },
+      "guard": {
+        "exit": 0,
+        "seconds": 26.95,
+        "digest": "fd23dee4ad2b9d2853ed13df661cf90bc161a6d9b76d6ffe8b3deb4dabf9d8db",
+        "log": "/tmp/gates/m684c_guard.log",
+        "reused": false
+      },
+      "launcher": {
+        "exit": 0,
+        "seconds": 7.99,
+        "digest": "b7b8c7be9a6f173ce9b1c7fec6f26363258ff190f484250f7115153b27178fb4",
+        "log": "/tmp/gates/m684c_launcher.log",
+        "reused": false
+      },
+      "mend_marks": {
+        "exit": 0,
+        "seconds": 8.74,
+        "digest": "8f60f3d1ad7ad9015d7ebdd82993bc36b1578e3f521d7f886b485280213afe04",
+        "log": "/tmp/gates/m684c_mend_marks.log",
+        "reused": false
+      },
+      "migrate_checkpoints": {
+        "exit": 0,
+        "seconds": 63.51,
+        "digest": "51e00d7ac0ac2264cef43b462a4840cc94a16ac0500cff6a5be216539e138f72",
+        "log": "/tmp/gates/m684c_migrate_checkpoints.log",
+        "reused": false
+      },
+      "pagemark": {
+        "exit": 0,
+        "seconds": 17.28,
+        "digest": "b30fc8c9f6fb42b720fb12c602feb4c86e2450fb1a69369f91a2ba693c928706",
+        "log": "/tmp/gates/m684c_pagemark.log",
+        "reused": false
+      },
+      "paint": {
+        "exit": 0,
+        "seconds": 7.54,
+        "digest": "1936f9c62291404d24873544614eb4412c6ad3ccd57bd22678a87cc247bf848b",
+        "log": "/tmp/gates/m684c_paint.log",
+        "reused": false
+      },
+      "paint_academy": {
+        "exit": 0,
+        "seconds": 59.91,
+        "digest": "426c0a04d1d17d207e4f27b944904e0cb2a933242dc2ff63b1007f9209696a54",
+        "log": "/tmp/gates/m684c_paint_academy.log",
+        "reused": false
+      },
+      "paint_coats": {
+        "exit": 0,
+        "seconds": 55.86,
+        "digest": "54b4298d2906119583e3701b9b6150b3b17a4f4bdb35946a3126d1638bf5986e",
+        "log": "/tmp/gates/m684c_paint_coats.log",
+        "reused": false
+      },
+      "paint_magma": {
+        "exit": 0,
+        "seconds": 14.16,
+        "digest": "c59dd55d36ffb96b5d2395da8ae7bd63790666efc1e4bc0c90859a4e89953f12",
+        "log": "/tmp/gates/m684c_paint_magma.log",
+        "reused": false
+      },
+      "perf_academy": {
+        "exit": 0,
+        "seconds": 67.27,
+        "digest": "10a0fd2a6e77e09a86154bc66a0b857f80804f57bafc981f169ab84b7b66c61a",
+        "log": "/tmp/gates/m684c_perf_academy.log",
+        "reused": false
+      },
+      "perf_housekeeper": {
+        "exit": 0,
+        "seconds": 20.01,
+        "digest": "68d933c842d317329ff52dcad8a39c72233337ce3ab50b627377724ba4053252",
+        "log": "/tmp/gates/m684c_perf_housekeeper.log",
+        "reused": false
+      },
+      "perf_repair": {
+        "exit": 0,
+        "seconds": 7.89,
+        "digest": "fc6048c97fbe227f5ebe173fdb9df90e9eb2d27136b8f9aa3b21fdb5116554fc",
+        "log": "/tmp/gates/m684c_perf_repair.log",
+        "reused": false
+      },
+      "perf_rooms": {
+        "exit": 0,
+        "seconds": 24.39,
+        "digest": "a602ebf6f6441cb8a60bce85f98be1fe24b24d0f3815db2d86a9374c01e13c12",
+        "log": "/tmp/gates/m684c_perf_rooms.log",
+        "reused": false
+      },
+      "perf_send": {
+        "exit": 0,
+        "seconds": 45.51,
+        "digest": "46682a668c520c49174ecc646e83f24ad2421b393bbdbba1a40021d2a1584c81",
+        "log": "/tmp/gates/m684c_perf_send.log",
+        "reused": false
+      },
+      "pushretry": {
+        "exit": 0,
+        "seconds": 27.75,
+        "digest": "8bfe6753d16a21e1e16bf17312946788803f1ff24ee99fe6c5cf6c7c414ff752",
+        "log": "/tmp/gates/m684c_pushretry.log",
+        "reused": false
+      },
+      "recover": {
+        "exit": 0,
+        "seconds": 2.07,
+        "digest": "7f1d780795036571ed2697cf17b66b434ec5582b7c6110bfb92627cb2aceeac5",
+        "log": "/tmp/gates/m684c_recover.log",
+        "reused": false
+      },
+      "relay": {
+        "exit": 0,
+        "seconds": 1.42,
+        "digest": "ab1046896f208147a0973842d8e2c2adc07b8cce93243a11dc83b7b7db9106bf",
+        "log": "/tmp/gates/m684c_relay.log",
+        "reused": false
+      },
+      "twobrowsers": {
+        "exit": 0,
+        "seconds": 40.88,
+        "digest": "d498bacfff531c826b9bbc363c0eaf114f48df3bfd48de17b852d1d42a4d274f",
+        "log": "/tmp/gates/m684c_twobrowsers.log",
+        "reused": false
+      },
+      "twohands": {
+        "exit": 0,
+        "seconds": 32.23,
+        "digest": "90fb758759053669d8ada64dd036a5bc0c1b81638b620db077eb29b2f60c5bad",
+        "log": "/tmp/gates/m684c_twohands.log",
+        "reused": false
+      },
+      "upgrade_in_place": {
+        "exit": 0,
+        "seconds": 15.66,
+        "digest": "60321274fe70d0c2bde7bc717f3ad0a4799c78fd9b91d952ffd2d46f6ee5b98f",
+        "log": "/tmp/gates/m684c_upgrade_in_place.log",
+        "reused": false
+      },
+      "wipe": {
+        "exit": 0,
+        "seconds": 15.16,
+        "digest": "7f975bf04fa6dbd86b8cf06b742bb097eaf21fc9fb744fe1d0f2b6ed496c5dfb",
+        "log": "/tmp/gates/m684c_wipe.log",
+        "reused": false
+      },
+      "paint_academy_night": {
+        "exit": 0,
+        "seconds": 56.54,
+        "digest": "33d16f8d1c715eb991a824d34e3bdc2184948c5997754e35b8d64091df298282",
+        "log": "/tmp/gates/m684c_paint_academy_night.log",
+        "reused": false
+      },
+      "perf_academy_night": {
+        "exit": 0,
+        "seconds": 66.48,
+        "digest": "d3b849b81cb0001470359aa32bd4e22e5b4b7cff35c1b25df1424e923fb06ab5",
+        "log": "/tmp/gates/m684c_perf_academy_night.log",
+        "reused": false
+      },
+      "paint_academy_panels": {
+        "exit": 0,
+        "seconds": 16.12,
+        "digest": "72f0ff8e7e61b1bf02b3c71a9d92c0565e12bbe2e20668b2f6eede9253a2a225",
+        "log": "/tmp/gates/m684c_paint_academy_panels.log",
+        "reused": false
+      },
+      "academy_ui": {
+        "exit": 0,
+        "seconds": 8.86,
+        "digest": "917e172416f37b95cd7af1d8d4d58255efb37779670b0fda5adb682853b99892",
+        "log": "/tmp/gates/m684c_academy_ui.log",
+        "reused": false
+      },
+      "backup": {
+        "exit": 0,
+        "seconds": 10.47,
+        "digest": "16223d4511f15d5afa67d58a157b84a3c0f6a6a4e51d21f4dfd5a58272fea37a",
+        "log": "/tmp/gates/m684c_backup.log",
+        "reused": false
+      },
+      "backup_sent": {
+        "exit": 0,
+        "seconds": 11.1,
+        "digest": "6179473fbf0f8061ac49d6555f25f8a81aa7d397654a79fb36bafcb5acad865a",
+        "log": "/tmp/gates/m684c_backup_sent.log",
+        "reused": false
+      },
+      "backupdupes": {
+        "exit": 0,
+        "seconds": 1.82,
+        "digest": "f1a809e48d806a30195e71c7fc8b5e1541594e2412329f3cde18abefc2dec43e",
+        "log": "/tmp/gates/m684c_backupdupes.log",
+        "reused": false
+      },
+      "boot_open": {
+        "exit": 0,
+        "seconds": 5.67,
+        "digest": "3e33dfb5a918e4b5c89d424dbdf6714e21cfef32a9d5221bc97faa1b6a65d983",
+        "log": "/tmp/gates/m684c_boot_open.log",
+        "reused": false
+      },
+      "boot_ready": {
+        "exit": 0,
+        "seconds": 6.23,
+        "digest": "5debd98543e9ce4eafbc7dcf05e080c93ae36cc9c377719f98ee43a70204dddf",
+        "log": "/tmp/gates/m684c_boot_ready.log",
+        "reused": false
+      },
+      "check_runner_unit": {
+        "exit": 0,
+        "seconds": 0.27,
+        "digest": "f2b6cacc4554759d23c7bee49f9ea704ba9e057832638059d047c99153893a7e",
+        "log": "/tmp/gates/m684c_check_runner_unit.log",
+        "reused": false
+      },
+      "backup_fresh": {
+        "exit": 0,
+        "seconds": 27.3,
+        "digest": "a924989fb5525cc636b8a952571499dcfcf0cf3d45f55acfdc6e3097c9a9d729",
+        "log": "/tmp/gates/m684c_backup_fresh.log",
+        "reused": false
+      },
+      "cutthinking": {
+        "exit": 0,
+        "seconds": 17.61,
+        "digest": "54087a22c2e40d418c3cd88db36f853e1dfb91d649298f7b570d0ce6b3b432fd",
+        "log": "/tmp/gates/m684c_cutthinking.log",
+        "reused": false
+      },
+      "device_guard": {
+        "exit": 0,
+        "seconds": 46.42,
+        "digest": "94a2714c325e1aef722a57674835a99e2e2acf0c7f122e5e1868c213fc77e467",
+        "log": "/tmp/gates/m684c_device_guard.log",
+        "reused": false
+      },
+      "holdsone": {
+        "exit": 0,
+        "seconds": 62.56,
+        "digest": "05d884b430f4a1ec0fd1760bdde103ddf68e4ab37418301ac1eed39029438de2",
+        "log": "/tmp/gates/m684c_holdsone.log",
+        "reused": false
+      },
+      "housekeeper_rounds": {
+        "exit": 0,
+        "seconds": 42.73,
+        "digest": "5a9a5fb2e6db7c309464635ba5d0a9725da3afac3b1675b31ce659dc7be4b3fe",
+        "log": "/tmp/gates/m684c_housekeeper_rounds.log",
+        "reused": false
+      },
+      "notes_layout": {
+        "exit": 0,
+        "seconds": 16.16,
+        "digest": "e76598a0ee5af1da26aa016e2334d0739b469c64a17297403b8fdf59464d9ca5",
+        "log": "/tmp/gates/m684c_notes_layout.log",
+        "reused": false
+      },
+      "restore_backup_unit": {
+        "exit": 0,
+        "seconds": 0.12,
+        "digest": "c745f4226149ce8505958eb811e954da5b8ed0a06be211d78bd5c44ef608dfd6",
+        "log": "/tmp/gates/m684c_restore_backup_unit.log",
+        "reused": false
+      },
+      "restore_zip": {
+        "exit": 0,
+        "seconds": 27.15,
+        "digest": "2616c66446ccb50834ea5085ef7da51a5cfd6ed9c24d9fe041cc6810d6467f6b",
+        "log": "/tmp/gates/m684c_restore_zip.log",
+        "reused": false
+      },
+      "rowtap": {
+        "exit": 0,
+        "seconds": 5.33,
+        "digest": "ace7c704b3c6ac02c5f2405e06449b749c48496f832c9b89c234f383398fa68e",
+        "log": "/tmp/gates/m684c_rowtap.log",
+        "reused": false
+      },
+      "static_host": {
+        "exit": 0,
+        "seconds": 37.37,
+        "digest": "73d1a889092074314f0d3d8c60452a8002af69b7e7ea3f1edc267da1ba264735",
+        "log": "/tmp/gates/m684c_static_host.log",
+        "reused": false
+      },
+      "vendor_canon_unit": {
+        "exit": 0,
+        "seconds": 0.32,
+        "digest": "401ea7591ed0986e21e5809d8b91723f344c65669c4aca41aaebbcacdda5b481",
+        "log": "/tmp/gates/m684c_vendor_canon_unit.log",
+        "reused": false
+      },
+      "device_pair": {
+        "exit": 0,
+        "seconds": 520.3,
+        "digest": "c9082238e8e2fdb4b4458b6b157116917fa5f33e9b06d609ec9776579409ff2d",
+        "log": "/tmp/gates/m684c_device_pair.log",
+        "reused": false
+      }
+    }
+  },
+  "final_verification": {
+    "core_run": {
+      "profile": "post-gate ledger verification",
+      "source_commit": "0cabba0c27e51207a187540cdaf0043d2140005f",
+      "source_digest": "7c78459f4ea9170bbf6312687ced4663080433f4eaa42452fc6b4c8058f25e40",
+      "runtime_digest": "093ca0464d99b7c780d25ea88393c4a90e3fe6a647d04a5be4847fd723b0b0bb",
+      "complete": false,
+      "checks": {
+        "harness": {
+          "exit": 0,
+          "seconds": 164.48,
+          "log": "/tmp/gates/m684d_harness.log"
+        },
+        "walk": {
+          "exit": 0,
+          "seconds": 493.32,
+          "log": "/tmp/gates/m684d_walk.log"
+        },
+        "long": {
+          "exit": 1,
+          "seconds": 61.15,
+          "log": "/tmp/gates/m684d_long.log"
+        }
+      },
+      "source_unchanged": true,
+      "seconds": 719.03,
+      "passed": false
+    },
+    "corrected_long_play": {
+      "passed": 9,
+      "failed": 0,
+      "selected": 9,
+      "total": 9,
+      "story_turns": 90
+    },
+    "remaining_checks": {
+      "profile": "final lint and affected performance checks",
+      "source_commit": "1dc8d7f634b741b441d86b6bbe3aaea2e0f420c6",
+      "source_digest": "29104929aa587a3676f235fd3e0d8548e12266d41de4106cc6e847add1d47ae6",
+      "runtime_digest": "093ca0464d99b7c780d25ea88393c4a90e3fe6a647d04a5be4847fd723b0b0bb",
+      "complete": true,
+      "checks": {
+        "lint": {
+          "exit": 0,
+          "seconds": 4.03,
+          "log": "/tmp/gates/m684e_lint.log"
+        },
+        "perf_send": {
+          "exit": 0,
+          "seconds": 45.27,
+          "log": "/tmp/gates/m684e_perf_send.log"
+        },
+        "perf_repair": {
+          "exit": 0,
+          "seconds": 8.04,
+          "log": "/tmp/gates/m684e_perf_repair.log"
+        }
+      },
+      "source_unchanged": true,
+      "seconds": 57.41,
+      "passed": true
+    }
+  },
+  "final_counts": {
+    "harness": {
+      "passed": 1469,
+      "failed": 0,
+      "selected": 1469,
+      "total": 1469,
+      "milliseconds": 164067
+    },
+    "walk": {
+      "passed": 296,
+      "failed": 0,
+      "selected": 296,
+      "total": 296,
+      "milliseconds": 492493
+    },
+    "long": {
+      "passed": 9,
+      "failed": 0,
+      "selected": 9,
+      "total": 9,
+      "story_turns": 90
+    }
+  },
+  "qualified_checks": {
+    "harness": {
+      "exit": 0,
+      "seconds": 164.48,
+      "run": "m684d",
+      "source_commit": "0cabba0c27e51207a187540cdaf0043d2140005f"
+    },
+    "walk": {
+      "exit": 0,
+      "seconds": 493.32,
+      "run": "m684d",
+      "source_commit": "0cabba0c27e51207a187540cdaf0043d2140005f"
+    },
+    "long": {
+      "exit": 0,
+      "run": "standalone corrected long-play fixture",
+      "source_commit": "1dc8d7f634b741b441d86b6bbe3aaea2e0f420c6",
+      "passed": 9,
+      "total": 9
+    },
+    "lint": {
+      "exit": 0,
+      "seconds": 4.03,
+      "run": "m684e",
+      "source_commit": "1dc8d7f634b741b441d86b6bbe3aaea2e0f420c6"
+    },
+    "append": {
+      "exit": 0,
+      "seconds": 2.02,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "bigbook": {
+      "exit": 0,
+      "seconds": 1.37,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "bootpull": {
+      "exit": 0,
+      "seconds": 72.62,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "branchrefresh": {
+      "exit": 0,
+      "seconds": 8.79,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "coat": {
+      "exit": 0,
+      "seconds": 4.83,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "contrast": {
+      "exit": 0,
+      "seconds": 48.08,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "foldcrash": {
+      "exit": 0,
+      "seconds": 1.72,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "guard": {
+      "exit": 0,
+      "seconds": 26.95,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "launcher": {
+      "exit": 0,
+      "seconds": 7.99,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "mend_marks": {
+      "exit": 0,
+      "seconds": 8.74,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "migrate_checkpoints": {
+      "exit": 0,
+      "seconds": 63.51,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "pagemark": {
+      "exit": 0,
+      "seconds": 17.28,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "paint": {
+      "exit": 0,
+      "seconds": 7.54,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "paint_academy": {
+      "exit": 0,
+      "seconds": 59.91,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "paint_coats": {
+      "exit": 0,
+      "seconds": 55.86,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "paint_magma": {
+      "exit": 0,
+      "seconds": 14.16,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "perf_academy": {
+      "exit": 0,
+      "seconds": 67.27,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "perf_housekeeper": {
+      "exit": 0,
+      "seconds": 20.01,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "perf_repair": {
+      "exit": 0,
+      "seconds": 8.04,
+      "run": "m684e",
+      "source_commit": "1dc8d7f634b741b441d86b6bbe3aaea2e0f420c6"
+    },
+    "perf_rooms": {
+      "exit": 0,
+      "seconds": 24.39,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "perf_send": {
+      "exit": 0,
+      "seconds": 45.27,
+      "run": "m684e",
+      "source_commit": "1dc8d7f634b741b441d86b6bbe3aaea2e0f420c6"
+    },
+    "pushretry": {
+      "exit": 0,
+      "seconds": 27.75,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "recover": {
+      "exit": 0,
+      "seconds": 2.07,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "relay": {
+      "exit": 0,
+      "seconds": 1.42,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "twobrowsers": {
+      "exit": 0,
+      "seconds": 40.88,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "twohands": {
+      "exit": 0,
+      "seconds": 32.23,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "upgrade_in_place": {
+      "exit": 0,
+      "seconds": 15.66,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "wipe": {
+      "exit": 0,
+      "seconds": 15.16,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "paint_academy_night": {
+      "exit": 0,
+      "seconds": 56.54,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "perf_academy_night": {
+      "exit": 0,
+      "seconds": 66.48,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "paint_academy_panels": {
+      "exit": 0,
+      "seconds": 16.12,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "academy_ui": {
+      "exit": 0,
+      "seconds": 8.86,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "backup": {
+      "exit": 0,
+      "seconds": 10.47,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "backup_sent": {
+      "exit": 0,
+      "seconds": 11.1,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "backupdupes": {
+      "exit": 0,
+      "seconds": 1.82,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "boot_open": {
+      "exit": 0,
+      "seconds": 5.67,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "boot_ready": {
+      "exit": 0,
+      "seconds": 6.23,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "check_runner_unit": {
+      "exit": 0,
+      "seconds": 0.27,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "backup_fresh": {
+      "exit": 0,
+      "seconds": 27.3,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "cutthinking": {
+      "exit": 0,
+      "seconds": 17.61,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "device_guard": {
+      "exit": 0,
+      "seconds": 46.42,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "holdsone": {
+      "exit": 0,
+      "seconds": 62.56,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "housekeeper_rounds": {
+      "exit": 0,
+      "seconds": 42.73,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "notes_layout": {
+      "exit": 0,
+      "seconds": 16.16,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "restore_backup_unit": {
+      "exit": 0,
+      "seconds": 0.12,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "restore_zip": {
+      "exit": 0,
+      "seconds": 27.15,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "rowtap": {
+      "exit": 0,
+      "seconds": 5.33,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "static_host": {
+      "exit": 0,
+      "seconds": 37.37,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "vendor_canon_unit": {
+      "exit": 0,
+      "seconds": 0.32,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    },
+    "device_pair": {
+      "exit": 0,
+      "seconds": 520.3,
+      "run": "m684c",
+      "source_commit": "9e82274"
+    }
+  },
   "negative_controls": {
     "baseline_fails": [
       "M684-1",
@@ -27,9 +841,10 @@
     "baseline_passes": [
       "M684-4",
       "M684-20",
-      "M684-21"
+      "M684-21",
+      "M684-22"
     ],
-    "fixed_passes": [
+    "current_passes": [
       "M684-1",
       "M684-2",
       "M684-3",
@@ -50,9 +865,14 @@
       "M684-18",
       "M684-19",
       "M684-20",
-      "M684-21"
+      "M684-21",
+      "M684-22"
     ],
-    "note": "M684-20 and M684-21 also failed on intermediate M684 code and passed after their corrections; M684-4 is a source-rejection control."
+    "intermediate_regressions_caught": [
+      "M684-20 (OOC index alignment)",
+      "M684-21 (main-character identity)",
+      "M684-22 (recent-page identity context)"
+    ]
   },
   "fast_development": {
     "profile": "fast",
@@ -60,61 +880,31 @@
     "seconds": 16.19,
     "note": "Before final MC guard correction; not a release gate."
   },
-  "focused_browser": {
-    "ids": [
-      "DOM-1",
-      "DOM-2",
-      "DOM-27",
-      "DOM-46",
-      "DOM-47",
-      "DOM-49",
-      "DOM-M684-1"
-    ],
-    "passed": 7
+  "earlier_diagnostics": {
+    "first_gate": {
+      "tag": "m684",
+      "harness_passed": 1467,
+      "stopped_at": "DOM-47 exposed an overstrict MC name filter; fixed before restarting."
+    },
+    "second_gate": {
+      "tag": "m684b",
+      "harness_passed": 1468,
+      "stopped_at": "DOM-27 fixture lacked the main-character identity; current-world omission correctly kept the lamp amber. Fixture corrected, seven related scenarios pass. No further application change."
+    }
   },
-  "long_preflight": {
-    "passed": 9,
-    "story_turns": 90
+  "changes_after_original_full_source": {
+    "application": "js/agents/extractor.js: source validation includes names established in the recent pages supplied to the reader. Final full harness/walk/long play and both affected performance checks rerun.",
+    "tests": "Four app fixtures now establish the names their mocked readers return; M684-22 covers the recent-page guard. The long-play reader now reads the newest page instead of replaying old arrivals from context. Every original assertion and timing budget remains."
   },
-  "first_gate": {
-    "tag": "m684",
-    "harness_passed": 1467,
-    "stopped_at": "DOM-47 exposed an overstrict MC name filter; fixed before restarting."
-  },
-  "final_tag": "m684c",
+  "preserved_ancestors": [
+    "4a19de3",
+    "8880a0",
+    "f087472",
+    "63f87"
+  ],
   "limits": [
     "No real user story data was accessed.",
     "Scripted model answers test application contracts, not all possible future model answers.",
     "World time is story time; unsuccessful reviews remain visibly overdue."
-  ],
-  "second_gate": {
-    "tag": "m684b",
-    "harness_passed": 1468,
-    "stopped_at": "DOM-27 fixture lacked the main-character identity; current-world omission correctly kept the lamp amber. Fixture corrected, seven related scenarios pass. No further application change."
-  },
-  "full_c_pending_fixtures": {
-    "walk_passed": 292,
-    "walk_failed": 4,
-    "ids": [
-      "DOM-127",
-      "DOM-234",
-      "DOM-244",
-      "DOM-255"
-    ],
-    "reason": "Scripted answers supplied names absent from the fixture sources. Preserve assertions and establish the names, then rerun the complete walk. No application code change."
-  },
-  "final_product_commit": "0cabba0",
-  "final_verification_tag": "m684d",
-  "final_guard_correction": "Include names established in recent pages already supplied to the reader. M684-22 fails without this and passes with it.",
-  "corrected_fixture_subset": {
-    "passed": 6,
-    "ids": [
-      "DOM-1",
-      "DOM-2",
-      "DOM-127",
-      "DOM-234",
-      "DOM-244",
-      "DOM-255"
-    ]
-  }
+  ]
 }

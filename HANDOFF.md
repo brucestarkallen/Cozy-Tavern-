@@ -1,92 +1,62 @@
 # Cozy Tavern: current handoff
 
-## M684 final verification, not yet on main
+## Current release: m684-001
 
-Jovan requested the complete ledger audit in SPEC.md. Main is still 71b22e8, M683.
-The working release is saved on origin/m684-ledger. Application checkpoints are
-10cdb17, 8cbf422 and 0cabba0. The last adds source names from the recent pages the
-extractor actually receives; it fixes an overstrict M684 name guard, proven by
-M684-22. There are 22 new focused laws, all green.
+Jovan asked for a complete ledger pipeline audit: missing nearby people, introductions
+ignored in his input, invented names/ranks, deletion instead of identity correction,
+stale world simulation and unclear Books explanations. These repairs are implemented
+and verified. SPEC.md states the contract. docs/LEDGER-AUDIT-M684.md explains every
+stage, fixes, evidence, fixture corrections and limits. audit/results/m684.json keeps
+all verification runs, including failures and their successful followups.
 
-The broad `full --tag m684c` run is finishing in the original checkout. Its harness
-passed 1468/1468, long play 9/9, lint and all performance checks passed. The original
-walk was 292/296: four legacy fixtures supplied unsupported names. In the separate
-worktree /tmp/cozy-m684-fixtures those sources are corrected, with every assertion
-kept. DOM-1/2/127/234/244/255 pass together. The same worktree is running the final
-complete harness, walk, long play, lint, perf_send and perf_repair, tagged m684d;
-progress /tmp/m684d-progress.log, summary /tmp/gates/m684d_summary.json. No code
-edits during this run. The 54-check original report is /tmp/gates/m684c_summary.json.
+Final tested product checkpoint: 1dc8d7f. Application code last changed at 0cabba0;
+the later change corrects the long-play mock's reading of the newest page. M683 is
+71b22e8. Claude M680 (4a19de3), M681 (8880a0) and final fixes f087472/63f87 remain
+verified ancestors. Original HISTORY is preserved. Canon Verification is unchanged,
+v0.68.3 / 5aed234; do not overwrite the vendor lock or rerun vendoring casually.
 
-After verification: fast-forward the original m684-ledger worktree to this worktree's
-HEAD, record both runs and their source commits honestly, replace this progress note
-with a concise release handoff, append HISTORY, verify remote main and publish without
-force. Do not describe the original full invocation as all green. Tests use scripted
-providers; no real story data was accessed. Baseline M680/M681 and Claude's final fixes
-are verified ancestors; original HISTORY is intact. See docs/LEDGER-AUDIT-M684.md and
-audit/results/m684.json. The previous release notes below remain for continuity.
+## Behavior and code map
 
-## Current release: m683-001, main
+- Both sides of an answered turn establish facts. New identities retain source names;
+  recent pages and existing records also establish identity. Explicit introductions
+  get People pages even when absent. extractor.js, scribe.js, engine/evidence.js;
+  chat.js pageWrites includes the paired writer input in the world-window guard.
+- Quiet companions stay until an actual departure. Dead people are not revived by
+  a room board. Auditor arrivals can use an exact writer quote, with later departures
+  still winning. OOC slots retain their journal indices. agents/auditor.js.
+- Auditor renames/merges preserve a person's records. Deleting a source-backed or
+  linked person is refused. Duplicate merges keep the existing loose-end capacity
+  and rename roomAt; undo includes it. engine/apply.js and agents/ripple.js.
+- World reviews are owed by story time. One bounded followup covers omitted people;
+  unresolved names remain unfinished. offscreen.confirm explicitly explains a stay,
+  updates freshness and can be undone. No invented departure from age alone.
+- Books show source/page/cause/evidence when saved. Partial corrections and pending
+  page repairs are identified. ui/ledgerexplain.js, drawer.js, chat.js.
 
-Jovan requested faster checks, smaller context, removal of the factory female voice
-restriction, disappearing resolved housekeeper warnings, one academy story/input canvas,
-a cozy academy night choice, and a clearer workflow. SPEC.md has the acceptance criteria.
-All seven changes and validation are complete and published on GitHub main.
-The first verified release commit is 2f9543c. The saved m683-workflow-academy branch mirrors main.
-The product source tested by the full release is f45a68c. A final runner report initialization
-fix has its own failing-before/passing-after unit and a fresh successful fast run.
+## Verification
 
-The preceding release is m682-001, published on main at ff200328. Original Claude M680
-(4a19de3), M681 (8880a0), and the two final fixes remain in history. Canon Verification
-main is 5aed234, version 0.68.3; this milestone does not change that repository.
+Final harness 1469/1469; complete app walk 296/296; long play 9/9; lint 0 errors;
+final send and repair performance passed with unchanged budgets. All 54 checks in
+the broad matrix have a green qualifying result across the recorded runs.
 
-## Start here
+This was NOT one all-green full invocation. m684c ran all 54 checks (2096.39 s):
+53 passed and four unsupported-name fixtures failed within the walk. Those sources
+were corrected without weakening assertions. m684d passed the final full harness
+and walk; its long-play mock exposed that it read old arrivals from earlier context.
+After fixing only that mock, standalone long play passed 9/9. m684e passed final
+lint, perf_send and perf_repair. The report preserves each run and source commit.
 
-Read AGENTS.md, this handoff and docs/WORKFLOW.md. Use tools/context.py for relevant
-milestones rather than reading the whole HISTORY. Full previous instructions/handoff
-are preserved verbatim in docs/archive; HISTORY remains complete and append only.
+M684 adds 22 focused laws and DOM-M684-1. Against M683: 18 new laws fail, four
+controls pass; all 22 pass now. Controls also caught M684's own OOC-index, MC-name
+and recent-page-name regressions before publication. Development fast: 16.19 s.
 
-- Prompt: js/assemble/craft.js and modules.js. Remove the retired factory line only;
-  edited module storage and other user words remain intact.
-- Housekeeper: js/agents/housekeeper.js, js/ui/housekeeper.js. Retry passes explicit failed
-  IDs; a readable replacement retires that warning. Failed retries/unrelated failures stay.
-  Obsolete cards/receipts disappear visibly, while original turns/raw answers stay saved.
-- Academy: css/academy.css and base.css, index.html Appearance choices, app.js and
-  speechcolours.js. Day and night share one story/input canvas; night reuses local art/fonts.
-- Workflow: tools/check.py, tests/check_runner_unit.py, docs/WORKFLOW.md.
+## Next session
 
-## M683 validation, October 10, 2026
+Read AGENTS.md and this handoff once. Use tools/context.py for HISTORY; do not load
+it all. Run python3 tools/check.py fast during edits; release when ready, full for
+broad changes. Never change execution inputs during a check run or loosen budgets.
+This sandbox's launcher/upgrade tests need PATH=/tmp/cozy-work-test-bin:$PATH.
 
-Full release: all 33 checks passed in 1713.89 s (28.6 minutes), source unchanged throughout.
-Harness 1447/1447, app walk 295/295, long play 9/9, lint 0 errors; all 22 original standing
-checks, housekeeper, workflow and day/night pixel/performance checks green. Additional
-coat and contrast checks pass for all ten coats. No assertion or budget was lowered.
-Final fast: 15.69 s, 41 selected laws, 4 selected app scenarios, lint, five workflow units,
-three readiness cases, real phone/desktop Appearance controls. Full results/timings and
-causal controls: audit/results/m683.json. Complete app/CSS unchanged after the full release;
-only initial runner progress reporting changed, with its targeted proof and final fast run.
-
-## Checks
-
-Fast while editing: python3 tools/check.py fast
-Ready to publish: python3 tools/check.py release --tag m683
-Interrupted, same source: same command with --resume
-Broad optional inventory: python3 tools/check.py full --list
-Legacy audit/gates.sh calls the release runner and now fails if a check fails.
-Logs and JSON timings live at /tmp/gates/<tag>_*. Tests use scripted providers, not paid
-model calls. No test result guarantees that every possible bug is absent.
-
-M683 regressions: tests/harness/m683.mjs and DOM-M683-1; actual Appearance choice,
-theme persistence, phone/desktop canvas and motion: tests/academy_ui.py. Existing academy
-pixel/performance tests accept COZY_TEST_COAT=academy-night; budgets are unchanged.
-
-## Established care points
-
-Canon vendoring must use tools/vendor-canon.lock.json. Never overwrite local divergence:
-merge shared fixes into the extension, then verify --check. M682 reconciled the old copies.
-Boot readiness must follow sync's reload decision; fixture changes must finish pushAll
-before measurement. Version taps retain their ordered store writes and legacy reversal m.of.
-Backup restore and page ownership guards are exercised in standing release checks.
-
-This hosted sandbox needs its existing process namespace adapter in /tmp/cozy-work-test-bin
-for launcher/upgrade tests; prepend that directory to PATH here only. It is not a product
-change and is unnecessary on the owner's normal device. Do not store access tokens here.
+No real user story data was accessed or changed. After updating, “Audit the ledger”
+can apply the revised repair rules to an existing story; normal page turns run the
+world simulation. Models still judge prose. A failed review stays visibly overdue.
