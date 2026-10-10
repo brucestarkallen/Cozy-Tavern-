@@ -473,7 +473,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     '',
     'EVERYONE WRITTEN ELSEWHERE (advance by the story clock; explicitly confirm a stay when nothing changes):',
     elsewhereAll || 'No one is written elsewhere yet.',
-    ...(worldOwed(state).length ? ['REVIEW REQUIRED NOW: ' + worldOwed(state).join(', ') + '. Give each person offscreen.set or offscreen.confirm. Silence is not a review. Deal with overdue arrivals and the oldest information first. Ground changes in their established situation, intentions and the elapsed time; do not invent new knowledge or teleport them.'] : []),
+    ...(worldOwed(state, { material: brief + '\n' + castNotes, castNames }).length ? ['REVIEW REQUIRED NOW: ' + worldOwed(state, { material: brief + '\n' + castNotes, castNames }).join(', ') + '. Give each person offscreen.set or offscreen.confirm. Silence is not a review. Deal with overdue arrivals and the oldest information first. Ground changes in their established situation, intentions and the elapsed time; do not invent new knowledge or teleport them.'] : []),
     '',
     ...(() => {
       const quiet = quietInScene(state, assistantText, userText);
@@ -573,12 +573,13 @@ export function parseWorldAnswer(raw) {
 
 /* The contract. Resolves null when there was nothing to read; otherwise
  * {applied, rejected, dropped, brief, note}. Throws on transport failure. */
-export function worldOwed(state) {
+export function worldOwed(state, { material = '', castNames = [] } = {}) {
   const now = state?.clock?.minutes;
-  return Object.entries(state?.offscreen || {}).filter(([name, entry]) => entry && !isHere(state, name) && !isDeadSeat(entry)
-    && (entry.lastSeen || !Number.isFinite(entry.sinceMinutes) || seatAgeWords(entry, now)
+  const seated = Object.entries(state?.offscreen || {}).filter(([name, entry]) => entry && !isHere(state, name) && !isDeadSeat(entry)
+    && (entry.lastSeen || (Number.isFinite(now) && !Number.isFinite(entry.sinceMinutes)) || seatAgeWords(entry, now)
       || (Number.isFinite(now) && Number.isFinite(entry.arrivesAtMinutes) && entry.arrivesAtMinutes <= now)))
     .sort((a, b) => (a[1].checkedMinutes ?? a[1].sinceMinutes ?? -Infinity) - (b[1].checkedMinutes ?? b[1].sinceMinutes ?? -Infinity)).map(([name]) => name);
+  return [...new Set([...seated, ...peopleForWorld(state, { material, castNames }).unseated])];
 }
 
 export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0, record = '', renew, story = null, pageNumber = 0, canonRecord = '', pageAt = null } = {}) {
@@ -601,7 +602,8 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   let raw = '';
   let user = prompt.user;
   let best = null;
-  const owed = worldOwed(state);
+  const worldCoverage = { material: brief + '\n' + castNotes, castNames };
+  const owed = worldOwed(state, worldCoverage);
   for (let attempt = 0; attempt < 2; attempt += 1) {
     /* M259: every call gets its own minute (M213), and it may look */
     let answer;
@@ -626,7 +628,7 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
       if (best) read = { ...read, mutations: [...best.mutations, ...read.mutations], brief: read.brief || best.brief };
       best = read;
       const proposed = applyMutations(state, read.mutations.map((m) => ({ ...m, source: 'world' }))).state;
-      const pending = worldOwed(proposed).filter((n) => owed.includes(n));
+      const pending = worldOwed(proposed, worldCoverage).filter((n) => owed.includes(n));
       if (!pending.length || attempt > 0) break;
       user = prompt.user + '\n\nYour answer did not review these overdue people: ' + pending.join(', ') + '. Return only their missing decisions and any resulting world brief. Use offscreen.set with current whereabouts or offscreen.confirm with the reason a stay still holds. Do not repeat your other changes. JSON only.';
       continue;
@@ -738,7 +740,7 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
    * a world agent still out when the next send has stamped the coming page never sets it back */
   await saveState(storyId, fresh !== loaded ? { ...next, page: loaded.page } : next);
   notify(storyId);
-  const pending = worldOwed(next);
+  const pending = worldOwed(next, worldCoverage);
   return { applied, rejected, dropped: read.dropped, brief: normalized, note: read.note, raw, pending };
 }
 

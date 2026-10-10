@@ -1792,8 +1792,14 @@ function driftPanel(ctx) {
       head.className = 'log-row';
       head.textContent = audit.issues.length
         ? 'The auditor’s last reading of the whole ledger (turn ' + audit.turn + '):'
-        : 'The auditor found no ledger issue in its last reading (story page ' + audit.turn + ').';
+        : audit.unfinished ? 'The auditor is still resolving the ledger (story page ' + audit.turn + ').'
+          : 'The auditor found no ledger issue in its last reading (story page ' + audit.turn + ').';
       list.appendChild(head);
+      if (audit.coverage) {
+        const row = document.createElement('li'); row.className = 'log-row';
+        row.textContent = 'Original source sections checked: ' + audit.coverage.read + ' of ' + audit.coverage.total + '. Introductions are checked against the original input and pages.';
+        list.appendChild(row);
+      }
       for (const i of audit.issues) {
         const li = document.createElement('li');
         /* M259: "Set right" only when a change LANDED (agents/auditor.js) */
@@ -1801,6 +1807,10 @@ function driftPanel(ctx) {
         li.className = 'log-row' + (line.warn ? ' drift-warn' : '');
         li.textContent = line.text;
         list.appendChild(li);
+      }
+      for (const text of audit.pending || []) {
+        const row = document.createElement('li'); row.className = 'log-row drift-warn';
+        row.textContent = 'Still unresolved: ' + text; list.appendChild(row);
       }
     }
     /* M43: the pages the reader mended, with the earlier words a tap away */
@@ -1822,7 +1832,7 @@ function driftPanel(ctx) {
       list.appendChild(li);
     }
     if (!found.length && !mended.length) {
-      note.textContent = audit?.issues?.length ? 'The latest audit results are above. Each result says whether the correction landed or what prevented it.' : 'No correction or unresolved issue has been recorded here. Results from the next ledger audit or page check will appear here.';
+      note.textContent = audit?.issues?.length || audit?.unfinished ? 'The latest audit results are above. Each result says whether the correction landed or what prevented it.' : 'No correction or unresolved issue has been recorded here. Results from the next ledger audit or page check will appear here.';
       return;
     }
     if (!found.length) { note.textContent = 'What the reader mended; the earlier words are a tap away.'; return; }

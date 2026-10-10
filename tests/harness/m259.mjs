@@ -150,7 +150,8 @@ test('M259-4: the report says what LANDED; a finding the ledger already held is 
   const r = await withHouse(house, () => auditLedger({ connection: CONN, storyId, stale: () => false }));
   const after = await loadState(storyId);
   eq(after.audit.issues.length, 2, 'the phantom ground finding is not reported — the ledger already held it');
-  const [refusedOne, realOne] = after.audit.issues;
+  const refusedOne = after.audit.issues.find((i) => /frame thread/.test(i.what));
+  const realOne = after.audit.issues.find((i) => /heard the letter/.test(i.what));
   eq(refusedOne.landed, 0, 'the refused close landed nothing');
   assert(/no thread called/.test(refusedOne.refused[0]), 'and says why: ' + refusedOne.refused[0]);
   assert(auditLineWords(refusedOne).text.startsWith('Seen; its change did not hold'), 'the drawer does NOT say set right: ' + auditLineWords(refusedOne).text);
@@ -161,7 +162,7 @@ test('M259-4: the report says what LANDED; a finding the ledger already held is 
   const { auditRunWords } = await import('../../js/agents/auditor.js');
   const words = auditRunWords({ issues: [], applied: [{ words: 'Rias Wells — restored from the brief.' }], rejected: [] });
   assert(!/true to the story/.test(words) && /set 1 right/.test(words), 'house-side changes are never hidden: ' + words);
-  eq(auditRunWords({ issues: [], applied: [], rejected: [{ why: 'already so', same: true }] }), 'the ledger is true to the story', 'a clean run with only restatements is true');
+  eq(auditRunWords({ issues: [], applied: [], rejected: [{ why: 'already so', same: true }] }), 'no discrepancy found in this reading', 'an empty reading describes only what was checked');
   /* a report from before M259 reads as it always did */
   assert(auditLineWords({ what: 'old', fix: 'f', fixable: true }).text.startsWith('Set right:'), 'old reports keep their words');
 });
@@ -203,7 +204,8 @@ test('M259-6: the header line owns the ground and the hour — the auditor never
   const after = await loadState(storyId);
   eq(after.place.name, 'Wells Gate', 'the ground stays as the header wrote it');
   eq(after.clock.minutes, minutes, 'the hour stays as the header wrote it');
-  eq(after.audit.issues.length, 0, 'and nothing is reported as set right');
+  assert(after.audit.issues.every((i) => i.landed === 0), 'nothing is reported as set right');
+  assert(after.audit.pending.length > 0, 'the blocked proposal remains available for correction');
 });
 
 test('M259-7: the extractor and the world agent receive the record, the whole ledger, and the page to its end', async () => {
@@ -579,7 +581,7 @@ test('M259-18: the auditor is shown what fits, looks for the rest, and a reading
       mutations: [{ type: 'knowledge.add', name: 'Rias Wells', fact: 'that Caleb sold the photos' }] }]),
   ]);
   /* a small house, so not every unfolded page fits and the index is used */
-  const r = await withHouse(house, () => auditLedger({ connection: { ...CONN, contextSize: 70000 }, storyId, brief: longBrief, stale: () => false }));
+  const r = await withHouse(house, () => auditLedger({ connection: { ...CONN, contextSize: 90000 }, storyId, brief: longBrief, stale: () => false }));
   const first = bodyText(house.calls[0]);
   assert(first.includes('STORY-PAGE-30-ENDS'), 'the present page is shown to its end');
   assert(!first.includes('THE-OLD-FACT'), 'an older unfolded page past the view is not shown whole…');

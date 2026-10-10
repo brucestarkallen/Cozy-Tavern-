@@ -18,8 +18,8 @@ ROOT = Path(__file__).resolve().parents[1]
 STANDING = ('perf_send holdsone cutthinking notes_layout backup backupdupes restore_backup_unit restore_zip '
             'backup_fresh backup_sent rowtap device_guard static_host device_pair perf_repair boot_open '
             'boot_ready vendor_canon_unit launcher upgrade_in_place paint_academy perf_academy').split()
-SMOKE = r'^(DOM-1 |DOM-2 |DOM-13 |DOM-M683-|DOM-M684-)'
-FAST_LAWS = r'^(M684-|M683-|M167:|M168:|M254:|M32-4 |M2\b|M3\b|M4\b|M6\b|M9\b|M62-|M75-|M78-|M82-|M397-|M440-|M510-3\b|M510-29\b|M682-)'
+SMOKE = r'^(DOM-1 |DOM-2 |DOM-13 |DOM-M683-|DOM-M684-|DOM-M685-)'
+FAST_LAWS = r'^(M685-|M684-|M683-|M167:|M168:|M254:|M32-4 |M2\b|M3\b|M4\b|M6\b|M9\b|M62-|M75-|M78-|M82-|M397-|M440-|M510-3\b|M510-29\b|M682-)'
 
 
 def jobs(profile):

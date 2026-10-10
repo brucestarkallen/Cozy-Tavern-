@@ -15189,5 +15189,67 @@ test('DOM-M684-1 introductions survive the full reader chain, a world cut, the d
   }
 });
 
+test('DOM-M685-1 the actual audit button restores lost identities, nearby presence and absent simulation without another story turn', async () => {
+  const { emptyState, saveState, loadState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { pendingWork } = await import('../../js/agents/extractor.js');
+  const previous = house.state.workerAnswer, previousSource = house.state.sourcePeopleAnswer;
+  const priorStory = await storyId(), errorAt = errors.length;
+  const alexia = 'Princess Alexia is the Second Princess and stands beside Jovan in the salon.';
+  const caelan = 'Prince Caelan is the Third Prince and lives at the northern estate.';
+  let worldCalls = 0;
+  house.state.sourcePeopleAnswer = (body, docs) => JSON.stringify({ checked: docs.map((d) => d.id), people: docs.flatMap((d) => [
+    ...(d.text.includes(alexia) ? [{ name: 'Princess Alexia', source: d.id, shown: alexia }] : []),
+    ...(d.text.includes(caelan) ? [{ name: 'Prince Caelan', source: d.id, shown: caelan }] : []),
+  ]) });
+  house.state.workerAnswer = (body, sys) => {
+    if (/auditor of the ledger/i.test(sys)) return JSON.stringify({ issues: [{ what: 'The nearby princess is missing from the scene.', mutations: [{ type: 'presence.enter', name: 'Princess Alexia', shown: alexia }] }] });
+    if (/world beyond the page/i.test(sys)) {
+      worldCalls++;
+      return JSON.stringify({ mutations: [{ type: 'offscreen.set', name: 'Prince Caelan', location: 'the northern estate', activity: 'meeting his steward', cause: 'His established estate remains his base while he tends its affairs.' }], brief: { pressure: [], ripe: [], twb: null } });
+    }
+    return previous(body, sys);
+  };
+  try {
+    const st = await db.stories.create({ title: 'M685 recover an existing ledger' });
+    await db.stories.update(st.id, { keeper: false, continuity: false, extraction: true, world: true });
+    await db.messages.append(st.id, { role: 'user', text: alexia + ' ' + caelan });
+    await db.messages.append(st.id, { role: 'assistant', text: '[the palace salon — Monday | 10:00]\n\nShe takes the chair beside him and smiles.' });
+    await saveState(st.id, applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the palace salon' }, { type: 'presence.enter', name: 'Jovan' }]).state);
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+    await pendingWork(st.id, 10000);
+    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'closed old drawer'); }
+    click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'ledger opens');
+    await env.ctx.drawer.renderAllRooms(); await tick(200);
+    click(qa('#drawer button').find((b) => b.textContent.trim() === 'Audit the ledger'));
+    await until(async () => Boolean((await loadState(st.id)).audit), 'audit reached saved ledger', 10000);
+    await pendingWork(st.id, 10000);
+    const now = await loadState(st.id);
+    assert(now.characters['Princess Alexia']?.core.includes('Second Princess'), 'original source recovers the missing princess');
+    assert(now.characters['Prince Caelan']?.core.includes('Third Prince'), 'the absent prince is recovered too');
+    assert(now.present.some((p) => p.name === 'Princess Alexia'), 'the actual audit repairs her presence');
+    assert(!now.present.some((p) => p.name === 'Prince Caelan'), 'the absent prince is never put in the scene');
+    eq(now.offscreen['Prince Caelan']?.location, 'the northern estate', 'world recovery runs after the restored identity');
+    eq(worldCalls, 1, 'a successful world recovery is not run twice');
+    eq((await db.messages.list(st.id)).length, 2, 'no new story turn is required');
+    click(q('#drawer [data-room="people"]'));
+    await until(() => q('#drawer').textContent.includes('Princess Alexia'), 'the repaired person reaches the People room', 10000);
+    click(q('#drawer [data-room="books"]'));
+    await until(() => q('#drawer [data-panel="something-drifted"]')?.textContent.includes('Original source sections checked'), 'Books shows source coverage', 10000);
+    click(q('#btn-drawer-close'));
+    env.window.__cozy.setActiveStoryId(priorStory); await env.ctx.chat.renderThread({ structural: true });
+    env.window.__cozy.setActiveStoryId(st.id); await env.ctx.chat.renderThread({ structural: true });
+    await pendingWork(st.id, 10000);
+    assert((await loadState(st.id)).characters['Princess Alexia'], 'the repair survives reopening');
+    eq(errors.length, errorAt, 'no app errors');
+  } finally {
+    house.state.workerAnswer = previous; house.state.sourcePeopleAnswer = previousSource;
+    if (!q('#drawer').hidden) click(q('#btn-drawer-close'));
+    env.window.__cozy.setActiveStoryId(priorStory);
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

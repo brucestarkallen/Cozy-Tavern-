@@ -24,7 +24,7 @@ test('M41-1 the auditor sees all of it, in the order of authority, and reads ans
   eq(parseAuditorAnswer('no').note, 'unusable');
 });
 
-test('M41-2 end to end: what is wrong is set right through the ledger; what cannot be is noted; a true ledger is said so', async () => {
+test('M41-2 end to end: what is wrong is set right through the ledger; what cannot be is retained across an empty later answer', async () => {
   const storyId = 'm41';
   const s = emptyState(); s.sheet.playerName = 'Jovan';
   s.clock = createClock({ calendar: 'real', start: { year: 2025, month: 3, day: 14, hour: 14, minute: 30 } });
@@ -55,7 +55,8 @@ test('M41-2 end to end: what is wrong is set right through the ledger; what cann
   assert(st.log.some((l) => /Kenji/.test(l.words)), 'the change is logged (and so take-back-able)');
   const clean = thinkingHouse({ answer: '{"issues":[]}' });
   const r2 = await withHouse(clean, () => auditLedger({ connection: HOUSES[0].conn, storyId, brief: 'Kendall’s mother is Kris Jenner.', stale: () => false }));
-  eq(auditRunWords(r2), 'the ledger is true to the story');
+  assert(r2.unfinished && r2.pending.some((p) => /disagree about the year/.test(p)), 'a later empty reading does not erase the unresolved discrepancy');
+  assert(!/ledger is true/.test(auditRunWords(r2)), 'an unfinished audit never claims complete correctness');
 });
 
 test('M41-3 the house knows the auditor: last in the chain every few turns, by hand from the drawer, on the roster', () => {

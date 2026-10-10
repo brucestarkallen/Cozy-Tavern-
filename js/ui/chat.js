@@ -114,7 +114,7 @@ const OWN_BOOKS = new Set([...SIDE_JOBS, 'planner']);
 const readersOut = (storyId) => workOut(storyId).some((name) => !OWN_BOOKS.has(name));
 import { renderStateFacts as planFacts, stateView as planStateView, closeBy } from '../engine/state.js'; /* M510: what the helper reads; M589: who is close by */
 import { renderPeopleTiers as planPeople, peopleView as planPeopleView, findPersonKey } from '../engine/people.js'; /* M510; M518: a canon block's person in the ledger */
-import { worldTurn, worldRunWords, worldAgentOn, worldEffort } from '../agents/world.js'; /* M29: the world beyond the page */
+import { worldTurn, worldRunWords, worldAgentOn, worldEffort, worldOwed } from '../agents/world.js'; /* M29: the world beyond the page */
 import { continuousAuditOn, auditStretch, stretchWords, auditProgress, auditWaits, beginReading, endReading, pauseContinuousAudit } from '../agents/continuous.js'; /* M673: the continuous audit */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, healStampDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
@@ -1586,9 +1586,9 @@ export function initChat(ctx) {
       const connection = await resolveWorkerConnection(story, 'auditor');
       if (connection && !busy && !isReplaying()) {
         const promise = enqueueWork(story.id, { name: 'auditor', run: chainJob(async ({ signal, stale, renew }) => {
-          let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story) });
-          if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal, renew);
-          return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
+          let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story), reviewSources: 'next' });
+          if (result && !stale()) result = await finishLedgerAudit(story, connection, result, { signal, stale, renew });
+          return { silent: false, detail: auditRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.unfinished), resume: result?.unfinished ? 'auditNow' : '' };
         }, () => false) });
         noteWork(story.id, promise);
       }
@@ -3544,6 +3544,56 @@ export function initChat(ctx) {
     } catch (err) { return 0; }
   }
 
+  /* M685: an audit that restores a missing person also repairs the world work
+   * that could not see that person earlier in the chain. No new story turn or
+   * extra clock advance: the same world worker judges the current story time. */
+  async function finishLedgerAudit(story, connection, result, { signal, stale, renew }) {
+    result = await resolveBriefWins(story, connection, result, signal, renew);
+    if (!result || stale() || signal?.aborted) return result;
+    const currentStory = await db.stories.get(story.id);
+    if (!currentStory) return result;
+    const castNames = await castNamesFor(currentStory);
+    const coverage = { material: (currentStory.brief || '') + '\n' + (currentStory.castNotes || ''), castNames };
+    const owed = worldOwed(await loadState(story.id), coverage);
+    if (!owed.length) return result;
+    let worldResult = null;
+    if (await worldAgentOn(currentStory)) {
+      const worldConnection = await resolveWorkerConnection(currentStory, 'world');
+      const ordered = visiblePages(await db.messages.list(story.id));
+      const msg = [...ordered].reverse().find((m) => m.role === 'assistant' && !m.ooc && !m.stopped && pageText(m).trim());
+      if (worldConnection && msg) {
+        const at = ordered.findIndex((m) => m.id === msg.id);
+        const writer = at > 0 && ordered[at - 1].role === 'user' && !asideAt(ordered, at - 1) ? pageText(ordered[at - 1]) : '';
+        const context = storySoFar(ordered, await loadMemory(story.id), msg.id, { least: 2, recordCap: Math.floor(roomChars(worldConnection) * 0.35) });
+        try {
+          worldResult = await worldTurn({ connection: worldConnection, storyId: story.id,
+            userText: writer, assistantText: pageText(msg), before: context.before, record: context.record,
+            brief: currentStory.brief || '', castNotes: currentStory.castNotes || '', castNames,
+            voicesBefore: ordered.slice(0, at).filter((m) => m.role === 'assistant' && m.voices?.length).slice(-3).map((m) => m.voices),
+            effort: await worldEffort(), signal, stale, renew, story: currentStory, pageNumber: at + 1,
+            pageAt: ordered.filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id),
+            canonRecord: await canonRecordOf(currentStory),
+          });
+          if (worldResult?.note === 'ok' && !stale() && !signal?.aborted && await stillThere(story.id, msg.id)) {
+            const voices = voicesBeyondTheRoom(worldResult.brief?.voices || [], await loadState(story.id));
+            await reink(story.id, msg.id, { voices });
+          }
+        } catch (err) { if (stale() || signal?.aborted) return result; }
+      }
+    }
+    if (stale() || signal?.aborted) return result;
+    const fresh = await loadState(story.id);
+    const pendingWorld = worldOwed(fresh, coverage).map((name) => name + ' still needs a current world review');
+    const pending = [...new Set([...(result.pending || []), ...pendingWorld])];
+    result = { ...result, pending, unfinished: pending.length > 0,
+      ...(worldResult ? { raw: (result.raw || '') + '\n\nWorld recovery:\n' + (worldResult.raw || '') } : {}) };
+    if (fresh.audit?.at === result.reportAt) {
+      await saveState(story.id, { ...fresh, audit: { ...fresh.audit, pending, unfinished: result.unfinished } });
+      notify(story.id);
+    }
+    return result;
+  }
+
   async function resolveBriefWins(story, connection, result, signal, renew) {
     if (!result || !Array.isArray(result.issues)) return result;
     const wins = result.issues.filter((i) => i && i.pages && i.fix);
@@ -4192,9 +4242,9 @@ export function initChat(ctx) {
     const connection = await resolveWorkerConnection(story, 'auditor');
     if (!connection) { banner.failed('The auditor needs a connection first'); return false; }
     const promise = enqueueWork(story.id, { name: 'auditor', run: async ({ signal, stale, renew }) => {
-      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story) });
-      if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal, renew);
-      return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
+      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story), reviewSources: 'all' });
+      if (result && !stale()) result = await finishLedgerAudit(story, connection, result, { signal, stale, renew });
+      return { silent: false, detail: auditRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.unfinished), resume: result?.unfinished ? 'auditNow' : '' };
     } });
     noteWork(story.id, promise);
     banner.say('reading the whole ledger');
@@ -5135,9 +5185,9 @@ export function initChat(ctx) {
       const connection = await resolveWorkerConnection(story, 'auditor');
       if (!connection) return upkeepOnly();
       if (stale()) return { silent: true };
-      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story) });
-      if (result && !stale()) result = await resolveBriefWins(story, connection, result, signal, renew);
-      return { silent: false, detail: auditRunWords(result), raw: result && result.raw };
+      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story), reviewSources: 'next' });
+      if (result && !stale()) result = await finishLedgerAudit(story, connection, result, { signal, stale, renew });
+      return { silent: false, detail: auditRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.unfinished), resume: result?.unfinished ? 'auditNow' : '' };
     });
 
     /* 4a''. M673: THE CONTINUOUS AUDIT -- the oldest record line it has not read: its pages, whole, against the story

@@ -328,7 +328,7 @@ test('M679-8 HIS TURN 19’S LOOSE ENDS: one answers a loose end only by what co
   const after = await loadState(storyId);
   assert(after.characters.Corven.threads.some((t) => /remain unnamed/.test(t)), 'Corven’s, written from this very page, stays open: ' + JSON.stringify(after.characters.Corven.threads));
   assert(!after.characters.Mirelia.threads.some((t) => /noon/.test(t)), 'Mirelia’s, which this page answered, is closed');
-  assert(!r.issues.some((i) => /Corven’s loose end/.test(i.what)), 'and the misreading is no finding');
+  assert(r.issues.some((i) => /Corven’s loose end/.test(i.what) && !i.landed && i.refused.length), 'the rejected close remains visible for a corrected reading');
   const scribe = buildScribeMessages({ state: after, userText: 'x', assistantText: STEPS });
   assert(String(scribe.system || '').includes(LOOSE_ANSWERED_MEANS) || String(scribe.user || '').includes(LOOSE_ANSWERED_MEANS), 'the scribe is told the same');
 });
