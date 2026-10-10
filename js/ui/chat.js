@@ -7657,7 +7657,17 @@ export function initChat(ctx) {
     return patch;
   }
 
+  /* M682: a second version tap may arrive after the first ledger lands but before its preview finishes. Keep
+   * those taps in order, reading each version from the store after the preceding walk has completely settled. */
+  let swipeWalk = Promise.resolve();
   async function swipeTo(messageId, dir) {
+    const previous = swipeWalk;
+    let release;
+    swipeWalk = new Promise((done) => { release = done; });
+    await previous;
+    try { return await swipeToTurn(messageId, dir); } finally { release(); }
+  }
+  async function swipeToTurn(messageId, dir) {
     if (busy) return;
     if (!(await waitForRebuild())) return;
     if (busy) return;

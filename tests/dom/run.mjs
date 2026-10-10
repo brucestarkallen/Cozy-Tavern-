@@ -9956,6 +9956,7 @@ test('DOM-256 WHAT THE CONTINUOUS AUDIT WRITES OF AN OLD PAGE IS TRUE UNDER EVER
   const { noteWorkerRun } = await import('../../js/agents/status.js');
   if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
   const priorWorker = house.state.workerAnswer;
+  const storyUpdateWas = db.stories.update;
   const H = (t) => '[Thirteenth Division barracks — Monday, March 3, 2025 | ' + t + ' | clear]\n\n';
   const st = await db.stories.create({ title: 'two tellings, one past' });
   const OLD = ['I show Rukia the seal.', H('09:10') + 'Jovan drew the seal of the Thirteenth from his coat. Rukia stared at it. "You carry the seal," she said.', 'I nod.', H('09:20') + 'Rukia said nothing more of it.', 'I wait.', H('09:40') + 'The yard was quiet.'];
@@ -9988,6 +9989,12 @@ test('DOM-256 WHAT THE CONTINUOUS AUDIT WRITES OF AN OLD PAGE IS TRUE UNDER EVER
     await until(async () => auditedOf((await loadMemory(st.id)).nodes[0]) === 6 && queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the audit to read the folded pages', 30000);
     eq(await knows(), 'Jovan carries the seal of the Thirteenth', 'fixture: with the second telling shown, the audit wrote what Rukia learned on pages 1–6');
     eq(((await loadState(st.id)).place || {}).name, 'By the well', 'fixture: the ledger is the second telling’s');
+    /* A slower store makes the real preview finish after the ledger lands. The immediate forward tap still counts;
+     * waiting for busy here would hide the dropped-tap defect. No existing version/knowledge assertion is weakened. */
+    db.stories.update = async (...args) => {
+      if (args[0] === st.id && args[1] && Object.prototype.hasOwnProperty.call(args[1], 'preview')) await tick(100);
+      return storyUpdateWas.apply(db.stories, args);
+    };
     /* he walks back to the first telling */
     const node = assistantPages().pop();
     click(q('[data-act="swipe-prev"]', node));
@@ -10001,6 +10008,7 @@ test('DOM-256 WHAT THE CONTINUOUS AUDIT WRITES OF AN OLD PAGE IS TRUE UNDER EVER
     eq(asked, 1, 'and the pages were read once');
   } finally {
     delete globalThis.__cozyContinuousPauseMs; delete globalThis.__cozyGapBackoffMs;
+    db.stories.update = storyUpdateWas;
     house.state.workerAnswer = priorWorker;
     await db.settings.delete('continuousAudit');
   }

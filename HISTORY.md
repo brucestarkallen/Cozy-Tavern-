@@ -18229,5 +18229,15 @@ from four to five: unmend is the newly corrected fifth door; all other assertion
 readiness and vendoring command checks to the existing twenty browser/server checks. Canon's export-aware pure sandbox
 retains all assertions; its validity-gate witness now includes episodes. New negative controls are recorded below.
 
+FOUND BY THE FULL GATE: DOM-256's second version tap could arrive after the ledger landed but before the first
+walk finished its preview. swipeTo silently returned under busy, although the new arrow was visible. The original
+release passes with a fast store and fails with 100 ms latency on the real preview write, with busy still true at the
+second tap. Keeping version walks in order, and reading their messages only after the previous walk finishes, fixes
+that same delayed test on the baseline with no other application changes. DOM-256 now supplies that bounded store
+latency; every original assertion stays, and it deliberately does not wait for busy before its second tap. This is a
+real dropped-tap correction, not a weakened timing assertion. The rest of codex682c passed: harness 1443/1443, long
+play 9/9, lint EXIT 0 and all 22 browser/server checks; the walk was 293/294. The final full run repeats all gates
+with the ordered-walk fix and then runs the 23 additional tests/*.py checks.
+
 Validation and publication status will be appended after the complete gates finish. GitHub's connected integration
 currently refuses writes with 403 Resource not accessible by integration; no published branch has been overwritten.
