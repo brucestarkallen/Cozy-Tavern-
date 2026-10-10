@@ -38,6 +38,7 @@ function loadState(storyId) {
  * read fresh through this, never the shared object */
 async function loadStateForWrite(storyId) { sharedRead.promise = null; return loadStateFresh(storyId); }
 import { applyMutations, undoLast, undoEntry, MODE_WORDS } from '../engine/apply.js';
+import { changeExplanation } from './ledgerexplain.js';
 import { renderClock, REAL_MONTHS, REAL_DAYS } from '../engine/clock.js';
 import { SEV_WORDS } from '../engine/bodies.js';
 import { axisWords, historyWords, AXES } from '../engine/relationships.js';
@@ -626,13 +627,20 @@ function logPanel(ctx) {
       note.textContent = 'Nothing has changed hands yet. When the story moves, it will be written down here, in plain words.';
       return;
     }
-    note.textContent = 'Newest first. Any change that still stands can be taken back — unless a later change touched the same thing.';
+    note.textContent = 'What the ledger changed, which page caused it, and why. Newest first. Older changes may have no saved explanation. “Take it back” reverses a change unless a later one depends on it.';
     const shown = log.slice(-40).reverse();
     for (const entry of shown) {
       const li = document.createElement('li');
       li.className = 'log-row' + (entry.undone ? ' undone' : '');
       const words = document.createElement('span');
       words.textContent = entry.words + (entry.undone ? ' (taken back)' : '');
+      for (const line of changeExplanation(entry)) {
+        const detail = document.createElement('small');
+        detail.className = 'ledger-explanation';
+        detail.style.display = 'block';
+        detail.textContent = line;
+        words.appendChild(detail);
+      }
       li.appendChild(words);
       if (!entry.undone && entry.undo) {
         /* M49: every standing entry offers its own take-back */
@@ -1772,7 +1780,7 @@ function driftPanel(ctx) {
       for (let j = msg.findings.length - 1; j >= 0 && found.length < 10; j -= 1) {
         const f = msg.findings[j];
         if (f && typeof f.words === 'string' && f.words.trim()) {
-          found.push({ words: f.words.trim(), severity: f.severity === 'warn' ? 'warn' : 'note' });
+          found.push({ words: f.words.trim(), severity: f.severity === 'warn' ? 'warn' : 'note', fix: f.fix || '', page: history.filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id) + 1 });
         }
       }
     }
@@ -1784,7 +1792,7 @@ function driftPanel(ctx) {
       head.className = 'log-row';
       head.textContent = audit.issues.length
         ? 'The auditor’s last reading of the whole ledger (turn ' + audit.turn + '):'
-        : 'The auditor’s last reading (turn ' + audit.turn + '): the ledger is true to the story.';
+        : 'The auditor found no ledger issue in its last reading (story page ' + audit.turn + ').';
       list.appendChild(head);
       for (const i of audit.issues) {
         const li = document.createElement('li');
@@ -1814,16 +1822,16 @@ function driftPanel(ctx) {
       list.appendChild(li);
     }
     if (!found.length && !mended.length) {
-      note.textContent = 'Nothing has drifted. When a finished page disagrees with what’s written down, the reader mends it and notes it here.';
+      note.textContent = audit?.issues?.length ? 'The latest audit results are above. Each result says whether the correction landed or what prevented it.' : 'No correction or unresolved issue has been recorded here. This is a record of checks, not a guarantee that every detail is correct.';
       return;
     }
     if (!found.length) { note.textContent = 'What the reader mended; the earlier words are a tap away.'; return; }
-    note.textContent = 'Where recent pages sat awkwardly beside what’s written down. Newest first; the words themselves were left as written.';
+    note.textContent = 'Audit results above describe ledger corrections. Page concerns below describe a disagreement the reader noticed; they are not proof that the page was changed. A separate “Mended a page” entry records an actual repair.';
     for (const f of found) {
       const li = document.createElement('li');
       li.className = 'log-row' + (f.severity === 'warn' ? ' drift-warn' : '');
       const words = document.createElement('span');
-      words.textContent = (f.severity === 'warn' ? 'Drifted: ' : 'Worth a look: ') + f.words;
+      words.textContent = 'Story page ' + f.page + '. ' + (f.severity === 'warn' ? 'Unresolved page concern: ' : 'Reader’s note: ') + f.words + (f.fix ? ' Suggested correction: ' + f.fix : '');
       li.appendChild(words);
       list.appendChild(li);
     }
@@ -2844,7 +2852,7 @@ const PANELS = [
   },
   {
     id: 'something-drifted',
-    title: 'Something drifted',
+    title: 'Corrections and unresolved issues',
     render: (ctx) => driftPanel(ctx),
   },
   {

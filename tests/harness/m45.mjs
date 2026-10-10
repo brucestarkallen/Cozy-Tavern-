@@ -86,6 +86,7 @@ test('M45-4 AXIS LOCK: the founder refuses a standing whose cause is about anyon
   assert(st.characters.Caleb && /possessive/.test(st.characters.Caleb.core), 'the feeling lives in the page as words');
   const p = buildFounderMessages({ state: emptyState(), brief: 'x' });
   assert(/AXIS LOCK/.test(p.system) && /never as numbers/.test(p.system));
-  const aud = readFileSync(new URL('../../js/agents/auditor.js', import.meta.url), 'utf8');
-  assert(/AXIS LOCK: a standing exists only TOWARD THE MAIN CHARACTER/.test(aud), 'the auditor zeroes the ones already written');
+  const { buildAuditorMessages } = await import('../../js/agents/auditor.js');
+  const aud = buildAuditorMessages({ state: st, pages: [] }).system;
+  assert(/AXIS LOCK: standings describe feelings TOWARD THE MAIN CHARACTER only/.test(aud), 'the auditor zeroes the ones already written');
 });

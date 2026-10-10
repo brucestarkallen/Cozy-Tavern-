@@ -29,7 +29,7 @@ test('M304-1 someone who leaves the page is kept where they were last seen, and 
   assert(!kim.agenda && !kim.stance, 'no want and no stance are invented');
   eq(kim.sinceMinutes, st.clock.minutes, 'stamped with the hour');
   eq(seatLine('Kim', kim, st.clock.minutes), 'Kim — last seen at The Bluebird');
-  eq(seatLine('Kim', kim, st.clock.minutes + 45), 'Kim — last seen at The Bluebird (as of 45 minutes ago)', 'and it says its age like any seat (M300)');
+  eq(seatLine('Kim', kim, st.clock.minutes + 45), 'Kim — last seen at The Bluebird (last updated 45 minutes ago in story time; awaiting the world’s next review)', 'and it says its age like any seat (M300)');
   /* the main character is never written elsewhere */
   const gone = at(st, 2, [{ type: 'presence.leave', name: 'Jovan' }]);
   assert(!Object.keys(gone.offscreen).some((k) => /jovan/i.test(k)), 'the main character is never seated');

@@ -81,6 +81,7 @@ house.state.storyAnswer = (body) => {
   } else {
     lines.push(`Person${script.turn} entered the room and sat down. ~t~*He looks tired.*~/t~ The kettle clicks off. *tk-tk* "Tea?" Person${script.turn} asks, and pours without waiting.`);
   }
+  if (script.turn === 12) lines.push('Person7 left the room and went home.'); // the later manual audit repairs this deliberately missed departure
   if (/A window into the world beyond is open this turn/.test(stateText) || /#Put TWB — /.test(tail)) {
     script.windows += 1;
     lines.push('', '*** The World Beyond ***', '[Kim’s flat — Friday, evening]', 'Kim reads the text again and puts the phone face down. She decides she will go over there tomorrow, and not before.');

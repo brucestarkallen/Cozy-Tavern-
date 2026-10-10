@@ -62,7 +62,7 @@ import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room
 import { listModules, selectModules } from '../assemble/modules.js';
 import { renderClock } from '../engine/clock.js'; /* M493 */
 import { loadState, saveState, notify, snapshotState, withStoryWrites, restoreSnapshot, restoreNearestSnapshot, renderMasthead, headerWithGround, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture, shareCheckpoints } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
-import { applyMutations, staleAfterJump, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart, noOneSpot, readerTimeOverHeader, handSetClockSince, clockReached, mcPageOnlyHis, mcSeatLetGo } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
+import { applyMutations, scenePartOf, staleAfterJump, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart, noOneSpot, readerTimeOverHeader, handSetClockSince, clockReached, mcPageOnlyHis, mcSeatLetGo } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent, loadSent, pushSentToDevice, giveSentToTale } from '../sent.js'; /* M347: the words each page was sent, kept beside it; M636: read back for the sensors; M675: a tale's carried pages are given to it on the device */
@@ -2996,7 +2996,7 @@ export function initChat(ctx) {
    * which applied its reader's answer with no header at all (the scene audit's S3: the newest page read late kept the hour
    * and the ground of the page before it, and its reader's own time move landed on top of the hour the open heal had
    * already set from the same header). `headerOnly` is the house's own reading alone — what lands when the reader failed. */
-  function pageWrites(ledgerBefore, msg, mutations, pageIndex) {
+  function pageWrites(ledgerBefore, msg, mutations, pageIndex, writerPage = '') {
     const groundBefore = (ledgerBefore.place || {}).name || ''; /* M627: an area round it is no move */
     const dayBefore = (ledgerBefore.clock && typeof ledgerBefore.clock.dayWords === 'string') ? ledgerBefore.clock.dayWords : ''; /* M660: the story's own calendar, as the ledger keeps it */
     let fromHeader = (msg && msg.role === 'assistant' && !msg.ooc) ? headerMutations(pageText(msg), { ground: groundBefore, day: dayBefore }) : [];
@@ -3016,7 +3016,7 @@ export function initChat(ctx) {
      * kitchen had seated Chloe in the scene) */
     const pageWhole = pageText(msg);
     const cutAt = windowCutAt(pageWhole); /* M467: the marker in any dressing */
-    const scenePart = (cutAt === -1 ? pageWhole : pageWhole.slice(0, cutAt)).toLowerCase();
+    const scenePart = (scenePartOf(writerPage) + '\n' + (cutAt === -1 ? pageWhole : pageWhole.slice(0, cutAt))).toLowerCase();
     const onlyInWindow = (name) => {
       if (cutAt === -1) return false;
       const n = String(name || '').trim().toLowerCase();
@@ -3087,7 +3087,7 @@ export function initChat(ctx) {
        * gave the clock an hour. */
       const laterHour = all.slice(at + 1).some((m) => m && m.role === 'assistant' && !m.ooc && headerMutations(pageText(m)).some((x) => x && x.type === 'clock.set'));
       if (laterHour) writes = writes.filter((m) => !(m && m.type === 'clock.advance'));
-    } else writes = pageWrites(older, missed, back.mutations, k).list; /* M681 (S3): the newest page read late — its header too, as its own chain would */
+    } else writes = pageWrites(older, missed, back.mutations, k, itsUser ? pageText(itsUser) : '').list; /* M681 (S3): the newest page read late — its header too, as its own chain would */
     const done = applyMutations(older, writes);
     done.state.page = stampWas; /* the stamp is the turn's, not this old page's */
     if (!outOfTurn && writes.some((m) => m && m.type === 'mode.snapshot')) done.state.moodAt = k; /* M681 (S13): the newest page's board, stated by its reader */
@@ -3552,15 +3552,28 @@ export function initChat(ctx) {
     const all = (await db.messages.list(story.id)).filter((m) => !m.hidden && m.role === 'assistant');
     const last = all[all.length - 1];
     for (const issue of wins) {
+      issue.mendedPages = 0;
       if (typeof renew === 'function') renew(); /* M259: each mend is its own call */
       if (last) {
         try {
           const changed = await mendAround(story, connection, [last.id], issue.what + ' It should read: ' + issue.fix, signal, AUDIT_PAGES);
           mendedPages += changed.length;
+          issue.mendedPages = changed.length;
         } catch (err) { /* a mend that fails leaves the correction to carry the truth */ }
       }
       /* M330: no "[Correction] … (the brief establishes it…)" is written any more — the brief itself rides every turn,
        * the mended pages let their record lines go to be folded again, and the ledger holds the lock */
+    }
+    if (!signal?.aborted && Number.isFinite(result.reportAt)) {
+      const fresh = await loadState(story.id);
+      if (fresh.audit?.at === result.reportAt) {
+        const issues = fresh.audit.issues.map((i) => {
+          const repaired = wins.find((w) => w.what === i.what && w.fix === i.fix);
+          return repaired ? { ...i, mendedPages: repaired.mendedPages } : i;
+        });
+        await saveState(story.id, { ...fresh, audit: { ...fresh.audit, issues } });
+        notify(story.id);
+      }
     }
     return { ...result, mendedPages };
   }
@@ -4711,7 +4724,7 @@ export function initChat(ctx) {
       /* M128/M131/M455/M660/M679: the header's ground and hour, the reader's own changes held to them, the room's places and
        * dress let go after a long jump, nobody walked in from the window — one answer for this chain and a page read late
        * (pageWrites, below) */
-      const { list } = pageWrites(ledgerBefore, msg, Array.isArray(mutations) ? mutations : [], pageInHand);
+      const { list } = pageWrites(ledgerBefore, msg, Array.isArray(mutations) ? mutations : [], pageInHand, userText);
 
       /* Re-load at apply time — the ledger may have been touched by hand
        * while the worker was reading. */
@@ -4769,7 +4782,8 @@ export function initChat(ctx) {
       await reink(story.id, msg.id, {
         extraction: {
           appliedWords: applied.map((a) => a.words),
-          rejectedCount: rejected.length,
+          rejectedCount: rejected.length + (extracted.rejectedNames?.length || 0),
+          rejectedNames: extracted.rejectedNames || [],
         },
       });
       /* M26: the masthead — the house writes the header line from the
@@ -4790,7 +4804,7 @@ export function initChat(ctx) {
         }
       } catch { /* a masthead is a courtesy, never a crisis */ }
       const n = applied.length;
-      const refusals = rejected.filter((r) => !(r && r.same)); /* M259: "already so" is not a refusal */
+      const refusals = [...rejected.filter((r) => !(r && r.same)), ...(extracted.rejectedNames || []).map((name) => ({ why: 'the source does not establish the name ' + name }))]; /* M259: "already so" is not a refusal */
       const refused = refusals.length ? ` (${refusals.length} refused: ${refusals.slice(0, 3).map((r) => r.why).join('; ')})` : '';
       const detail = extractNote === 'unusable'
         ? 'its answer could not be used'
@@ -4928,7 +4942,7 @@ export function initChat(ctx) {
       /* M31: a garbled answer is not a transport failure — it is said out
        * loud, with what the agent actually said kept for the drawer, and
        * never retried five times over. */
-      return { silent: false, detail: worldRunWords(result), raw: result && result.raw };
+      return { silent: false, detail: worldRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.pending?.length) };
     });
 
     /* 2. The scribe (M12): sparse deltas onto the character pages — who

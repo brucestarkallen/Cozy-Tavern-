@@ -127,17 +127,18 @@ function recencyKey(entry) {
  * (sinceMinutes) and then stood as "now" for as long as nobody re-seated its
  * person — "the Bluebird, closing up" at two the next afternoon, read as the
  * present by the storyteller, the world agent and the drawer alike. Past
- * half an hour of story time the seat says its age; past three hours it says
- * the person has likely moved on — so the storyteller does not write them
- * where they were, and the world agent, shown the same words, re-seats them. */
+ * half an hour of story time the seat says when it was last reviewed. Age alone
+ * never proves a departure; the world agent must decide whether to move them
+ * or explicitly confirm that their activity still holds. */
 export function seatAgeWords(entry, clockMinutes) {
   if (!entry || !Number.isFinite(entry.sinceMinutes) || !Number.isFinite(clockMinutes)) return '';
-  const ago = Math.round(clockMinutes - entry.sinceMinutes);
+  const checked = Number.isFinite(entry.checkedMinutes) ? Math.max(entry.sinceMinutes, entry.checkedMinutes) : entry.sinceMinutes;
+  const ago = Math.round(clockMinutes - checked);
   if (ago < 30) return '';
   const span = ago < 60 ? ago + ' minutes'
     : ago < 24 * 60 ? 'about ' + Math.round(ago / 60) + (Math.round(ago / 60) === 1 ? ' hour' : ' hours')
       : Math.round(ago / (24 * 60)) + (Math.round(ago / (24 * 60)) === 1 ? ' day' : ' days');
-  return 'as of ' + span + ' ago' + (ago >= 180 ? '; likely elsewhere by now' : '');
+  return 'last updated ' + span + ' ago in story time; awaiting the world’s next review';
 }
 
 /* M304: one line for a seat, wherever it is read — the storyteller's state of

@@ -24,11 +24,12 @@ import { seatForPerson } from '../engine/people.js'; /* M398 */
 import { isHere, nameOnPage } from '../engine/names.js'; /* M398/M412; M414: named by the one answer */
 import { wholePage, writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M259: the page read to its end; M283: the writer's own, to the room */
 import { loadState, saveState, notify } from '../engine/state.js';
-import { renderPeopleTiers, peopleView, mcKey, findPersonKey, thinsCore } from '../engine/people.js';
-import { applyMutations } from '../engine/apply.js'; /* M72: the scribe writes through the journal */
+import { renderPeopleTiers, peopleView, mcKey, findPersonKey, thinsCore, isMc } from '../engine/people.js';
+import { applyMutations, placeholderIn } from '../engine/apply.js'; /* M72: the scribe writes through the journal */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M679: what answers a loose end — one definition */
 import { callWorker } from './call.js'; /* M28: the one wire path for workers */
+import { exactNameIn, WRITER_FACTS } from '../engine/evidence.js';
 import { retryAfterMs } from '../providers/wire.js'; /* M28: moved to the wire; re-exported for the harness contract */
 export { retryAfterMs };
 
@@ -39,6 +40,7 @@ const MAX_TOKENS = 2400;
 /* ---------- the prompt (human-voiced, kept in the code) ---------- */
 
 const SYSTEM_PROMPT = [
+  WRITER_FACTS,
   'You keep the character pages of a story told between two writers.',
   'After each page is finished, you update — sparsely, only where something truly',
   'shifted — the ledger that remembers who each person is.',
@@ -46,7 +48,7 @@ const SYSTEM_PROMPT = [
   'Answer with JSON ONLY, in exactly this shape:',
   '{"deltas":[ ... ]}',
   '',
-  'Each delta is {"name":"NAME","field":"state","text":"…"} where field is one of:',
+  'Each delta is {"name":"NAME","field":"state","text":"…","cause":"the event or established fact that explains this change","shown":"an exact source quote when available"} where field is one of:',
   '  core   — their stable nature: voice, tells, what never really changes.',
   '           Write it rarely, only when the prose truly shows it.',
   '  (a "state" that holds who they are in their life — school year, age, role, family, home — is not a',
@@ -354,7 +356,12 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
     .filter((d) => !(d && d.field === 'state' && isHere(fresh, d.name) && !shownOnPage(d.name) && !(findPersonKey(fresh.characters || {}, d.name) && shownOnPage(findPersonKey(fresh.characters || {}, d.name)))));
   /* M648: who someone is, is added to — never thinned (people.js thinsCore) */
   const thinned = [];
+  const identityWords = [brief, castNotes, userText, assistantText, canonRecord].join("\n");
   const sound = kept.filter((d) => {
+    if (!isMc(fresh, d.name) && !placeholderIn({ type: 'people.note', name: d.name }) && !findPersonKey(fresh.characters || {}, d.name) && !exactNameIn(identityWords, d.name)) {
+      thinned.push({ delta: { type: 'people.note', ...d }, why: 'the new name is not written in the source; keep its exact spelling' });
+      return false;
+    }
     if (!(d && d.field === 'core')) return true;
     const key = findPersonKey(fresh.characters || {}, d.name);
     const standing = key && fresh.characters[key] ? fresh.characters[key].core : '';
@@ -364,7 +371,7 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   });
   /* M680: its notes are this page's — stamped with the page in hand even when the page reader's call failed (the world audit) */
   const stamped = Number.isInteger(pageAt) && pageAt >= 0 ? { ...fresh, page: pageAt } : fresh;
-  const { state: next, applied, rejected } = applyMutations(stamped, sound.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text })));
+  const { state: next, applied, rejected } = applyMutations(stamped, sound.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text, source: 'scribe', cause: typeof d.cause === 'string' ? d.cause : '', evidence: typeof d.shown === 'string' && pageWords.includes(d.shown) ? d.shown : '' })));
   const changes = applied.map((a) => ({ name: nameFromWords(a.words, a.mutation.name), field: a.mutation.field }));
   const dropped = [...rejected.map((r) => ({ delta: r.mutation, why: r.why })), ...thinned];
   if (!changes.length) return { changes, dropped, note };

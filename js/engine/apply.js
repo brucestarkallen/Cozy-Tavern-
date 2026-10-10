@@ -1060,6 +1060,20 @@ const HANDLERS = {
     return { words, undo: { kind: 'offscreen.restore', name: key, before, ...(moved ? { moved } : {}) } };
   },
 
+  /* M684: an explicit world decision that the same whereabouts still hold. */
+  'offscreen.confirm'(state, m) {
+    const name = normalizeName(m.name);
+    const held = seatForPerson(state, name);
+    const now = clockMinutesOf(state);
+    const cause = capText(m.cause, 1000);
+    if (!held || held.entry.lastSeen || isDeadSeat(held.entry) || isHere(state, name)) return { why: 'only a living person with known whereabouts outside the scene can be confirmed' };
+    if (!cause || !Number.isFinite(now)) return { why: 'confirming the same whereabouts needs the story hour and a reason they still hold' };
+    if ((held.entry.checkedMinutes ?? held.entry.sinceMinutes) >= now) return { why: 'these whereabouts were already reviewed at this hour', same: true };
+    if (Number.isFinite(held.entry.arrivesAtMinutes) && held.entry.arrivesAtMinutes <= now) return { why: 'their arrival is due; decide where they are now instead of confirming the old journey' };
+    const before = { ...held.entry };
+    state.offscreen[held.key] = { ...before, checkedMinutes: now, reviewCause: cause, atTurn: storyTurn(state) };
+    return { words: held.key + ' remains ' + [before.location, before.activity].filter(Boolean).join(', ') + ' because ' + cause.replace(/\.+$/, '') + '.', undo: { kind: 'offscreen.restore', name: held.key, before } };
+  },
   /* M320: a seat standing under another form of its person's name is put under the name their page stands
    * under (the house's own upkeep asks for this; nothing about the seat itself changes). Two seats for one
    * person: the fresher stays. */
@@ -1360,7 +1374,7 @@ const HANDLERS = {
     const from = normalizeName(m.from); const to = normalizeName(m.to);
     if (!from || !to) return { why: 'a rename needs the old name and the new' };
     if (from.toLowerCase() === to.toLowerCase()) return { why: 'the same name', same: true };
-    const keys = ['characters', 'offscreen', 'relationships', 'knowledge', 'canon', 'bodies', 'present', 'threads', 'factions', 'sheet', 'things', 'duel', 'battle'];
+    const keys = ['characters', 'offscreen', 'relationships', 'knowledge', 'canon', 'bodies', 'present', 'roomAt', 'threads', 'factions', 'sheet', 'things', 'duel', 'battle'];
     const before = {};
     for (const k of keys) before[k] = JSON.parse(JSON.stringify(state[k] === undefined ? null : state[k]));
     const { state: renamed, count } = renameInState(state, from, to);
@@ -2472,7 +2486,7 @@ function setTimeOfDay(state, m) {
  * courtyard, and the storyteller, told the ground is canon, wrote that place into every header after it. The moment —
  * the ground, the hour, who is here and where, the mood, the seats — is the NEWEST page's (M131). From a page read out
  * of turn only what lasts lands: who learned what, a wound, a standing, a thread closed, time passed. */
-const MOMENT_TYPES = new Set(['place.set', 'clock.set', 'presence.enter', 'presence.leave', 'presence.update', 'mode.snapshot', 'offscreen.set', 'offscreen.clear']);
+const MOMENT_TYPES = new Set(['place.set', 'clock.set', 'presence.enter', 'presence.leave', 'presence.update', 'mode.snapshot', 'offscreen.set', 'offscreen.confirm', 'offscreen.clear']);
 /* M660 — HIS AUDIT: "the ledger's presence list has Bruce in the batsuit, armored… the latest page shows him out of the cowl
  * and armor in a dark sweater"; "…still has Barbara in a heavy coat". Where someone stands and what they wear were kept
  * until a reader happened to write a change — and read to the storyteller as true for as long as nobody did. Two cures,
@@ -3112,6 +3126,10 @@ export function applyMutations(state, mutations) {
       if (next.journal.length > JOURNAL_CAP) next.journal = next.journal.slice(next.journal.length - JOURNAL_CAP);
       const logEntry = appendLog(next, result.words, result.undo || null);
       logEntry.jid = jid;
+      logEntry.page = Number.isInteger(next.page) ? next.page : -1;
+      logEntry.source = mutation.byHand === true ? 'writer' : capText(mutation.source, 40);
+      logEntry.cause = capText(mutation.cause || mutation.reason || mutation.auditReason, 1000);
+      logEntry.evidence = capText(mutation.evidence || mutation.shown, 1200);
       /* M166: the journal id rides OUT with the applied entry. The
        * housekeeper used to find its own ids by re-reading the ledger and
        * taking the last N log entries — and a worker of the background

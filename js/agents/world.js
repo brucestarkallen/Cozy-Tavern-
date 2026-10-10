@@ -53,7 +53,7 @@ import { findPersonKey, thinsCore, importanceOf, IMPORTANT_AT, placeWords, isMc,
 import { isHere, samePersonName, nameOnPage } from '../engine/names.js'; /* M396/M401: one answer to "the same person?"; M414: one answer to "named on the page?" */
 import { storyTurn } from '../engine/apply.js';
 import { applyMutations, clearsThatArrive, scenePartOf, walkInFromPage, seatAtScene } from '../engine/apply.js'; /* M444: cleared is never nowhere; M680: its walk-ins held to the page's ending and its reader */
-import { renderOffscreen, isDeadSeat } from '../engine/offscreen.js'; /* M680: the dead are not re-seated */
+import { renderOffscreen, isDeadSeat, seatAgeWords } from '../engine/offscreen.js'; /* M684: freshness is an explicit review */
 import { renderClock } from '../engine/clock.js';
 import { mcName } from '../engine/duels.js';
 import { STANCES } from '../engine/world.js';
@@ -67,10 +67,11 @@ export const WORLD_SHOWN_MAX = 6;
  * dropped before the applier sees it (and counted, so the workers line can
  * say "and 2 it may not touch"). */
 export const WORLD_TYPES = new Set([
-  'offscreen.set', 'offscreen.clear', 'thread.set', 'thread.close', 'knowledge.add', 'faction.set', 'faction.clear', 'people.set', /* M681 (W7): a faction let go */
+  'offscreen.set', 'offscreen.confirm', 'offscreen.clear', 'thread.set', 'thread.close', 'knowledge.add', 'faction.set', 'faction.clear', 'people.set',
 ]);
 
 const VOCABULARY = [
+  'offscreen.confirm {"type":"offscreen.confirm","name":"NAME","cause":"why their current location AND activity still hold at this hour"} — an explicit decision that an absent person has stayed, after considering the elapsed story time, their plans, travel, sleep, needs and available information. Never confirm a last sighting, a dead person, or an arrival whose time has passed: offscreen.set must decide their current situation instead. Every offscreen.set also supplies cause: the event, elapsed time or plan that explains the new situation. Never advance by real-world waiting time.',
   'offscreen.set {"type":"offscreen.set","name":"NAME","location":"the 6:10 train, two stops out","activity":"reading his letter again","agenda":"confront him about it tonight","stance":"toward","etaMinutes":25} — where an ABSENT named person is RIGHT NOW at the hour on the clock, what they are doing, what they want next; stance is one of ' + STANCES.join(', ') + ' (toward = moving toward the main character, seeking = searching for them, tense = unresolved tension with them, busy = taken up with their own affairs (their work, their own people), waiting = holding, want still nameable); etaMinutes = minutes until they reach the main character, ONLY when stance is toward or seeking. A person who has DIED is seated once, their location beginning "dead — " and where the body lies ("dead — under a white sheet in the Tenth Division courtyard"), and never re-seated after (the people list marks them [dead])',
   'offscreen.clear {"type":"offscreen.clear","name":"NAME"} — only when she has arrived and the page shows her in the scene; anyone else whose note no longer holds gets offscreen.set with where they are now (a person the story keeps is always somewhere — a clear that would leave her nowhere is refused)',
   'thread.set {"type":"thread.set","title":"NAME and the letter","owner":"NAME","heat":"hot","next":"corner him before OTHER NAME leaves"} — a live agenda someone holds, toward the main character OR toward anyone else in the story ("with":"OTHER NAME" names the other party: two rivals, two sisters, a team and its captain); heat hot|cold; next = what the owner will DO',
@@ -470,8 +471,9 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     'THE LEDGER (the state of the scene):',
     facts,
     '',
-    'EVERYONE WRITTEN ELSEWHERE (the absent, as last known — advance each by the clock or leave them):',
+    'EVERYONE WRITTEN ELSEWHERE (advance by the story clock; explicitly confirm a stay when nothing changes):',
     elsewhereAll || 'No one is written elsewhere yet.',
+    ...(worldOwed(state).length ? ['REVIEW REQUIRED NOW: ' + worldOwed(state).join(', ') + '. Give each person offscreen.set or offscreen.confirm. Silence is not a review. Deal with overdue arrivals and the oldest information first. Ground changes in their established situation, intentions and the elapsed time; do not invent new knowledge or teleport them.'] : []),
     '',
     ...(() => {
       const quiet = quietInScene(state, assistantText, userText);
@@ -571,6 +573,14 @@ export function parseWorldAnswer(raw) {
 
 /* The contract. Resolves null when there was nothing to read; otherwise
  * {applied, rejected, dropped, brief, note}. Throws on transport failure. */
+export function worldOwed(state) {
+  const now = state?.clock?.minutes;
+  return Object.entries(state?.offscreen || {}).filter(([name, entry]) => entry && !isHere(state, name) && !isDeadSeat(entry)
+    && (entry.lastSeen || !Number.isFinite(entry.sinceMinutes) || seatAgeWords(entry, now)
+      || (Number.isFinite(now) && Number.isFinite(entry.arrivesAtMinutes) && entry.arrivesAtMinutes <= now)))
+    .sort((a, b) => (a[1].checkedMinutes ?? a[1].sinceMinutes ?? -Infinity) - (b[1].checkedMinutes ?? b[1].sinceMinutes ?? -Infinity)).map(([name]) => name);
+}
+
 export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0, record = '', renew, story = null, pageNumber = 0, canonRecord = '', pageAt = null } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
@@ -590,9 +600,12 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   let read = null;
   let raw = '';
   let user = prompt.user;
+  let best = null;
+  const owed = worldOwed(state);
   for (let attempt = 0; attempt < 2; attempt += 1) {
     /* M259: every call gets its own minute (M213), and it may look */
-    const { text, finishReason } = await askWithFetch(connection, {
+    let answer;
+    try { answer = await askWithFetch(connection, {
       system: prompt.system,
       user,
       maxTokens: MAX_TOKENS,
@@ -604,13 +617,23 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
       rounds: attempt === 0 ? WORLD_LOOKS : 1,
       isAnswer: (t) => { const r = parseWorldAnswer(t); return r.note !== 'unusable' && r.note !== 'cut short'; },
       source: { storyId, story: story || { brief, castNotes } },
-    });
+    }); } catch (err) { if (!best) throw err; read = best; break; }
+    const { text, finishReason } = answer;
     raw = text;
     read = parseWorldAnswer(text);
-    if (finishReason === 'length' && read.note === 'unusable') read.note = 'cut short';
-    if (read.note !== 'unusable' && read.note !== 'cut short') break;
+    if (finishReason === 'length') read.note = 'cut short';
+    if (read.note !== 'unusable' && read.note !== 'cut short') {
+      if (best) read = { ...read, mutations: [...best.mutations, ...read.mutations], brief: read.brief || best.brief };
+      best = read;
+      const proposed = applyMutations(state, read.mutations.map((m) => ({ ...m, source: 'world' }))).state;
+      const pending = worldOwed(proposed).filter((n) => owed.includes(n));
+      if (!pending.length || attempt > 0) break;
+      user = prompt.user + '\n\nYour answer did not review these overdue people: ' + pending.join(', ') + '. Return only their missing decisions and any resulting world brief. Use offscreen.set with current whereabouts or offscreen.confirm with the reason a stay still holds. Do not repeat your other changes. JSON only.';
+      continue;
+    }
     user = prompt.user + '\n\nYour last answer was not a JSON object with "mutations" and "brief". Answer with the JSON object only — no words before or after it, and keep it short.';
   }
+  if (best && (read.note === 'unusable' || read.note === 'cut short')) read = best;
   if (read.note === 'unusable' || read.note === 'cut short') return { applied: [], rejected: [], dropped: 0, brief: null, note: read.note, raw };
   if (stale && stale()) return null;
 
@@ -707,7 +730,7 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
    * world's word. M30's "a window opened is a window remembered" (the last
    * six) lives in the applier now. */
   if (read.brief) withPages.push({ type: 'world.word', brief: read.brief });
-  const { state: next, applied: appliedAll, rejected } = applyMutations(fresh, withPages);
+  const { state: next, applied: appliedAll, rejected } = applyMutations(fresh, withPages.map((m) => ({ ...m, source: 'world' })));
   const applied = appliedAll.filter((a) => a.mutation.type !== 'world.word');
   const normalized = read.brief ? next.worldBrief : null;
   if (stale && stale()) return null;
@@ -715,7 +738,8 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
    * a world agent still out when the next send has stamped the coming page never sets it back */
   await saveState(storyId, fresh !== loaded ? { ...next, page: loaded.page } : next);
   notify(storyId);
-  return { applied, rejected, dropped: read.dropped, brief: normalized, note: read.note, raw };
+  const pending = worldOwed(next);
+  return { applied, rejected, dropped: read.dropped, brief: normalized, note: read.note, raw, pending };
 }
 
 /* The workers-line words for one run. */
@@ -725,6 +749,7 @@ export function worldRunWords(result) {
   if (result.note === 'cut short') return 'its answer ran out of room';
   const n = result.applied ? result.applied.length : 0;
   const bits = [];
+  if (result.pending?.length) bits.push('still awaiting a current world decision: ' + result.pending.join(', '));
   bits.push(n ? `moved the world in ${n} ${n === 1 ? 'way' : 'ways'}` : 'the world stood still');
   /* M37: say what moved, not only how much */
   if (n) bits.push(result.applied.slice(0, 4).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (n > 4 ? ' · …' : ''));

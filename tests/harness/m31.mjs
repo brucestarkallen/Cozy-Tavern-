@@ -194,7 +194,7 @@ test('M163: a re-ask that stumbles never erases the reading it was improving', a
   let calls = 0;
   let f = withFetch(async () => { calls += 1; return jsonResponse(calls === 1 ? good : 'Sure! Here are the changes I noticed:'); });
   try {
-    const read = await extractTurn({ connection: conn, state: {}, userText: 'u', assistantText: 'a', founding: false });
+    const read = await extractTurn({ connection: conn, state: {}, userText: 'u', assistantText: 'Mara stands in the chapel.', founding: false });
     eq(calls, 2, 'the sharper ask was made');
     eq(read.note, 'ok', 'and the first, good reading stands');
     eq(read.mutations.length, 2, 'with every mutation it had');
@@ -204,7 +204,7 @@ test('M163: a re-ask that stumbles never erases the reading it was improving', a
   calls = 0;
   f = withFetch(async () => { calls += 1; if (calls === 1) return jsonResponse(good); throw new Error('the wire fell over'); });
   try {
-    const read = await extractTurn({ connection: conn, state: {}, userText: 'u', assistantText: 'a', founding: false });
+    const read = await extractTurn({ connection: conn, state: {}, userText: 'u', assistantText: 'Mara stands in the chapel.', founding: false });
     eq(read.mutations.length, 2, 'a broken wire on the second ask does not cost the page its reading');
   } finally { f.restore(); }
 
@@ -212,7 +212,7 @@ test('M163: a re-ask that stumbles never erases the reading it was improving', a
   f = withFetch(async () => { throw new Error('the wire fell over'); });
   try {
     let threw = '';
-    try { await extractTurn({ connection: conn, state: {}, userText: 'u', assistantText: 'a', founding: false }); }
+    try { await extractTurn({ connection: conn, state: {}, userText: 'u', assistantText: 'Mara stands in the chapel.', founding: false }); }
     catch (err) { threw = err.message; }
     assert(threw, 'with nothing in hand it still throws, so the queue retries the page (' + threw + ')');
   } finally { f.restore(); }
@@ -226,7 +226,7 @@ test('M163: a re-ask that stumbles never erases the reading it was improving', a
   calls = 0;
   f = withFetch(async () => { calls += 1; return jsonResponse(calls === 1 ? good : withMood); });
   try {
-    const read = await extractTurn({ connection: conn, state: {}, userText: 'u', assistantText: 'a', founding: false });
+    const read = await extractTurn({ connection: conn, state: {}, userText: 'u', assistantText: 'Mara stands in the chapel.', founding: false });
     eq(read.mutations.length, 3, 'the better answer is the one that stands');
   } finally { f.restore(); }
 });

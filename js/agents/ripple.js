@@ -24,6 +24,7 @@
 
 import { sameFact, trimmedBook, KNOWLEDGE_GUARD } from '../engine/world.js';
 import { lookKey } from '../engine/canon.js'; /* M163: the same fact in different clothes; M681: a book's guard */
+import { THREADS_MAX } from '../engine/people.js';
 
 export function factChange(before, after) {
   const a = String(before || ''); const b = String(after || '');
@@ -102,7 +103,7 @@ function mergeEntry(kind, held, coming) {
       core: firstOf(held.core, coming.core),
       state: firstOf(held.state, coming.state),
       arc: firstOf(held.arc, coming.arc),
-      threads: threads.slice(0, 8),
+      threads: threads.slice(0, THREADS_MAX),
       updatedAtTurn: Math.max(Number(held.updatedAtTurn) || 0, Number(coming.updatedAtTurn) || 0),
     };
   }
@@ -191,6 +192,7 @@ export function renameInState(state, from, to) {
     for (const k of ['where', 'note']) if (typeof t[k] === 'string' && hasWord(t[k], from)) { t[k] = replaceWord(t[k], from, to); n += 1; }
   }
   for (const p of (next.present || [])) if (p && same(p.name)) { p.name = to; n += 1; }
+  if (Array.isArray(next.roomAt?.names)) next.roomAt.names = [...new Set(next.roomAt.names.map((name) => { if (!same(name)) return name; n += 1; return to; }))];
   /* M163: and the scene never seats the same person twice after a merge. */
   if (Array.isArray(next.present)) {
     const seen = new Set();

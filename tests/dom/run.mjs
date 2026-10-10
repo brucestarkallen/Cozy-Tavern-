@@ -15133,5 +15133,58 @@ test('DOM-M683-1 resending a refused housekeeper block removes its banner and gr
   }
 });
 
+test('DOM-M684-1 introductions survive the full reader chain, a world cut, the drawer and reopening', async () => {
+  const { emptyState, saveState, loadState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { pendingWork } = await import('../../js/agents/extractor.js');
+  const previous = house.state.workerAnswer, priorStory = await storyId(), errorAt = errors.length;
+  const alexia = 'Princess Alexia is the Second Princess and stands beside me in the salon.';
+  const caelan = 'Prince Caelan is the Third Prince and lives at the northern estate.';
+  const input = alexia + ' ' + caelan + ' I offer her a chair.';
+  house.state.workerAnswer = (body, sys) => {
+    if (/keep the ledger/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'mode.snapshot', flags: ['group'] }], people: [{ name: 'Princess Alexia', shown: alexia }, { name: 'Prince Caelan', shown: caelan }], here: ['Jovan', 'Princess Alexia'] });
+    if (/world beyond the page/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'offscreen.set', name: 'Prince Caelan', location: 'the northern estate', activity: 'meeting his steward', cause: 'He remains at his established estate while the salon conversation continues.' }], brief: { pressure: [], ripe: [], twb: null } });
+    if (/character pages/i.test(sys)) return '{"deltas":[]}';
+    if (/auditor of the ledger/i.test(sys)) return '{"issues":[]}';
+    return previous(body, sys);
+  };
+  try {
+    const st = await db.stories.create({ title: 'M684 introductions' });
+    await db.stories.update(st.id, { keeper: false, continuity: false, extraction: true, world: true });
+    const story = await db.stories.get(st.id);
+    await db.messages.append(st.id, { role: 'user', text: input });
+    const page = await db.messages.append(st.id, { role: 'assistant', text: '[the palace salon — Monday | 10:00]\n\nShe takes the offered chair and smiles.\n\n*** The World Beyond ***\n[the market]\nNella purchases a loaf of bread.' });
+    await saveState(st.id, applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the palace salon' }, { type: 'presence.enter', name: 'Jovan' }]).state);
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+    await env.ctx.chat.pageReinked(story, page.id);
+    await pendingWork(st.id, 10000);
+    const now = await loadState(st.id);
+    assert(now.present.some((p) => p.name === 'Princess Alexia'), 'the full chain retains the writer’s nearby princess');
+    assert(!now.present.some((p) => /Caelan|Nella/.test(p.name)), 'absent and world-window people remain outside the room');
+    assert(now.characters['Princess Alexia']?.core.includes('Second Princess'), 'her exact rank reaches People');
+    assert(now.characters['Prince Caelan']?.core.includes('Third Prince'), 'the absent prince gets a page too');
+    eq(now.offscreen['Prince Caelan']?.location, 'the northern estate', 'the world seats the introduced absent person');
+    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'closed old drawer'); }
+    click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'ledger opens');
+    await env.ctx.drawer.renderAllRooms(); await tick(450);
+    assert(q('#drawer [data-panel="whos-here"]')?.textContent.includes('Princess Alexia') || q('#drawer .present-editor')?.textContent.includes('Princess Alexia'), 'the actual scene list names her');
+    const changes = q('#drawer [data-panel="what-changed"]');
+    assert(changes?.textContent.includes('Your input') && changes.textContent.includes('Source:') && changes.textContent.includes('Second Princess'), 'Books explains the source of the introduction');
+    assert(q('#drawer [data-panel="something-drifted"]')?.textContent.includes('No correction or unresolved issue') || q('#drawer [data-panel="something-drifted"]')?.textContent.includes('found no ledger issue'), 'audit results are stated without a blanket all-clear');
+    click(q('#btn-drawer-close'));
+    env.window.__cozy.setActiveStoryId(priorStory); await env.ctx.chat.renderThread({ structural: true });
+    env.window.__cozy.setActiveStoryId(st.id); await env.ctx.chat.renderThread({ structural: true });
+    await pendingWork(st.id, 10000);
+    assert((await loadState(st.id)).present.some((p) => p.name === 'Princess Alexia'), 'opening heals do not undo a valid introduction');
+    eq(errors.length, errorAt, 'no app errors');
+  } finally {
+    house.state.workerAnswer = previous;
+    if (!q('#drawer').hidden) click(q('#btn-drawer-close'));
+    env.window.__cozy.setActiveStoryId(priorStory);
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

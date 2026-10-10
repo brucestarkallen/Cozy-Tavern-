@@ -1,5 +1,17 @@
 # Cozy Tavern: current handoff
 
+## M684 in progress, not yet published
+
+Branch m684-ledger is based on main 71b22e8 (m683-001). Jovan requested an audit of
+scene presence, writer introductions, mistaken identities, the auditor, world simulation
+and unclear Books explanations. See SPEC.md and tests/harness/m684.mjs (20 focused laws)
+and DOM-M684-1. The fixes pass focused development checks; the final broad gate is
+being run as `python3 tools/check.py full --tag m684`. Do not claim publication yet.
+The previous release and all Claude audit commits are preserved. No user story data
+was accessed. New metadata is additive; rename, freshness and page changes remain
+journaled and undoable. Development negatives and actual final results will be saved
+in audit/results/m684.json and docs/LEDGER-AUDIT-M684.md.
+
 ## Current release: m683-001, main
 
 Jovan requested faster checks, smaller context, removal of the factory female voice

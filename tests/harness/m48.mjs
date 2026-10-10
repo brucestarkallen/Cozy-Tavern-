@@ -37,7 +37,7 @@ test('M48-1 a standing earned on the pages, or for a person the brief names, is 
   eq(st.relationships.Caleb.p, 0, 'Caleb, no page behind him and not in the brief, is zeroed');
   eq(r.rejected.filter((x) => /may not take it away/.test(x.why)).length, 2);
   const p = buildAuditorMessages({ state: st, pages: [{ role: 'assistant', text: 'x' }] });
-  assert(/NEVER zero a standing because you do not see the bond yourself/.test(p.system) && /RESTORE it with rel\.set/.test(p.system), 'lowering on judgment is banned; restoring a wrongly-zeroed bond is the job');
+  assert(/Never zero a real bond merely because you cannot see its cause/.test(p.system) && /Restore a missing or wrongly-zero axis only from an explicit bond/.test(p.system), 'lowering on judgment is banned; restoring a wrongly-zeroed bond is the job');
   /* restoring: a zeroed standing for a brief-named bond is raised again */
   const zeroed = applyMutations(st, [{ type: 'rel.set', name: 'Mira', p: 0, r: 0, s: 0, cause: 'set down by hand' }]).state;
   await saveState(storyId, zeroed);

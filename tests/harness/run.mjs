@@ -269,6 +269,7 @@ import './m682.mjs';
 
 console.log('Cozy Tavern — harness');
 await import('./m683.mjs');
+await import('./m684.mjs');
 
 await runAll();
 /* M386: it ends when its tests end, like the walk — a timer some module left (a debounce, a worker's ceiling) kept the

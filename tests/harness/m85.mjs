@@ -780,7 +780,8 @@ test('M131-1 OWNERSHIP OF THE LEDGER: every fact has one writer; every second wr
   /* people in a window — never present */
   assert(/onlyInWindow\(m\.name\)/.test(chat), 'a window’s people are elsewhere');
   /* standings — earned on the page; the auditor may restore, never lower on judgment */
-  assert(/Lowering is what you may not do/.test(aud), 'the standings guard');
+  const { buildAuditorMessages } = await import('../../js/agents/auditor.js');
+  assert(/Never zero a real bond/.test(buildAuditorMessages({ state: { sheet: { playerName: 'Jovan' } } }).system), 'the standings guard');
   /* who keeps a seat — code (M103); the world agent is told the same */
   /* M304: the heading this pinned told the world agent to keep twelve seats and to leave anyone
    * without a nameable want unseated — two of the five causes of an empty "elsewhere". The law

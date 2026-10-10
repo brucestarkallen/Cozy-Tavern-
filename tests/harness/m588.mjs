@@ -59,7 +59,7 @@ test('M588-4 THE AUDITOR RESTORES A WRONG STANDING AT ITS LEVEL: a lover at P+2 
   const build = au.buildAuditorMessages || au.buildAuditMessages;
   const msgs = build({ state: st0, brief: 'Rukia loves Jovan.', pages: [], record: '' });
   const sys = String(msgs.system || (msgs.messages ? msgs.messages[0].content : '')) + JSON.stringify(msgs);
-  assert(/in love R 55–75/.test(sys) && /A lover at P\+2 with R at 0 is a wrong standing to restore/.test(sys), 'the auditor carries the levels');
+  assert(/in love R 55–75/.test(sys) && /Romantic love is R, never P alone/.test(sys), 'the auditor carries the levels');
 });
 
 test('M588-5 THE STANDINGS REBUILD CARRIES THE LEVELS TOO — every helper that writes a standing reads the same scale', async () => {
@@ -285,7 +285,7 @@ test('M642-2 THROUGH THE READER ITSELF: it is told that who saw it is its own to
   const told = JSON.stringify(house.calls[0].body.messages);
   assert(/WHO IS YOURS TO DECIDE, FROM THE PAGE/.test(told) && /\\"who\\":\[\\"NAME\\",\\"OTHER NAME\\"\]/.test(told) && /never someone who came in after it, had gone before it, or from whom it was kept/.test(told), 'the reader is told that who saw it is its own to decide, and how');
   eq(read.mutations.filter((m) => m.type === 'knowledge.add').map((m) => m.name).join(','), 'Rukia', 'what only she noticed is hers alone — not copied round the room by its first word');
-  eq(JSON.stringify(read.mutations.find((m) => m.type === 'knowledge.add')), JSON.stringify({ type: 'knowledge.add', fact: 'saw the fresh bandage on Jovan’s hand', name: 'Rukia' }), 'and the line that goes to the ledger is the line as it has always been written — no mark left on it');
+  eq(JSON.stringify(read.mutations.find((m) => m.type === 'knowledge.add')), JSON.stringify({ type: 'knowledge.add', fact: 'saw the fresh bandage on Jovan’s hand', name: 'Rukia', source: 'extractor' }), 'and the line that goes to the ledger is the line as it has always been written — no mark left on it');
   eq(Object.keys(applyMutations(st, read.mutations).state.knowledge).join(','), 'Rukia', 'and that is what the ledger holds');
 });
 
@@ -538,7 +538,7 @@ test('M645-4 ELSEWHERE, AS THE STORYTELLER READS IT: a want is said once (never 
   assert(/overdue by about 10 minutes — likely already here or delayed/.test(at(21, 30)), 'a little late is said');
   assert(/overdue by about 2\.5 hours/.test(at(23, 50)), 'and for a while after');
   const stale = at(8, 0, 4);
-  assert(!/overdue|toward|arriving/.test(stale) && /as of about 11 hours ago; likely elsewhere by now/.test(stale), 'half a day on, the approach is not said — only how old the note is: ' + stale);
+  assert(!/overdue|toward|arriving/.test(stale) && /last updated about 11 hours ago in story time; awaiting the world’s next review/.test(stale), 'half a day on, the approach is not said — only how old the note is: ' + stale);
   assert(!/overdue|toward/.test(at(8, 0, 7)), 'nor three days on');
 });
 
@@ -1238,7 +1238,7 @@ test('M660-2 A LONG JUMP OF THE CLOCK LETS EVERY PLACE-IN-THE-ROOM AND OUTFIT GO
   const same = '[Wayne Manor — the stairway bend — Saturday, January 2, 2027 | 23:45 | cold | batsuit | at the bend]\n\nAlfred took her coat at the door and hung it. Barbara, in jeans and a dark sweater, stood by the door of the entrance hall. Bruce had not moved from the stairway bend, armored still.';
   eq(staleAfterJump(night, headerMutations(same, { ground: G })).length, 0, 'fifteen minutes on, nothing is let go');
   const read2 = await reading(night, same, [{ name: 'Bruce', at: 'still at the stairway bend', wears: 'armored still' }, { name: 'Barbara', at: 'by the door of the entrance hall', wears: 'jeans and a dark sweater' }, { name: 'Barbara', wears: 'a crown of gold' }, 'Alfred']);
-  eq(JSON.stringify(read2.mutations.filter((m) => m.type === 'presence.update')), JSON.stringify([{ type: 'presence.update', name: 'Barbara', attire: 'jeans and a dark sweater' }]), 'only her coat coming off is written: not the same place or the same armour in other words, not a crown the page never showed');
+  eq(JSON.stringify(read2.mutations.filter((m) => m.type === 'presence.update')), JSON.stringify([{ type: 'presence.update', name: 'Barbara', attire: 'jeans and a dark sweater', source: 'extractor' }]), 'only her coat coming off is written: not the same place or the same armour in other words, not a crown the page never showed');
   /* a scene that runs past midnight is not a jump; a ledger with no clock lets nothing go */
   const late = applyMutations(night, [{ type: 'clock.set', year: 2027, month: 1, day: 2, hour: 23, minute: 50 }]).state;
   eq(staleAfterJump(late, [{ type: 'clock.set', year: 2027, month: 1, day: 3, hour: 0, minute: 10 }]).length, 0, 'ten to midnight to ten past: the same scene');
@@ -1571,7 +1571,7 @@ test('M666-1 THE TAVERN DOES NOT WALK INTO THE ALLEY: on a near move, when the p
     eq(r.mutations.filter((m) => m.type === 'presence.leave').length, 0, 'no move, nobody left behind: ' + header);
   }
   /* someone NEW (no seat) whom the reader walks in but leaves off its room is still written in */
-  const fresh = await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'presence.enter', name: 'Oriana’s maid', shown: 'a maid slipped in through the gate' }], resolved: [], here: ['Jovan Wayne', 'the hooded girl'] }) }), () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'x', assistantText: '[The service alley off the lane — Hanami 5, 1001 AG | 21:25]\n\nA maid slipped in through the gate and stood by the hooded girl.', pageNumber: 23 }));
+  const fresh = await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'presence.enter', name: 'Oriana’s maid', shown: 'a maid slipped in through the gate' }], resolved: [], here: ['Jovan Wayne', 'the hooded girl'] }) }), () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'x', assistantText: '[The service alley off the lane — Hanami 5, 1001 AG | 21:25]\n\nOriana’s maid slipped in through the gate and stood by the hooded girl.', pageNumber: 23 }));
   assert(fresh.mutations.some((m) => m.type === 'presence.enter' && /maid/.test(m.name)), 'a newcomer with no seat is not caught by the rule');
 });
 
@@ -1656,7 +1656,7 @@ test('M667-1 THE THINGS A PAGE NAMES AND THE PEOPLE WITHIN EARSHOT ARE HANDED TO
   assert(/\d\. the rose \(Jovan Wayne’s\) — in Jovan’s hand/.test(quietAsks) && !/brass key/.test(quietAsks), 'a page that names no kept thing asks only about what its people hold: ' + quietAsks);
   const read = await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }, { type: 'knowledge.add', who: ['the one-armed old campaigner', 'the hooded girl'], fact: 'that the hooded girl named herself Oriana, the King’s daughter, to Jovan in the alley' }], resolved: [], here: ['Jovan Wayne', 'the hooded girl'],
     things: [{ name: 'the rose', where: 'between them on the wet stone' }, { name: 'the brass key', where: 'in the hooded girl’s pocket' }, { name: 'a silver locket', where: 'on the wet stone' }] }) }), () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'I hold out the rose.', assistantText: page, pageNumber: 23 }));
-  eq(JSON.stringify(read.mutations.filter((m) => m.type === 'thing.set')), JSON.stringify([{ type: 'thing.set', name: 'the rose', where: 'between them on the wet stone' }]), 'the rose is moved to where the page leaves it; a key moved to a pocket the page never showed is not; a locket the ledger does not keep is not made');
+  eq(JSON.stringify(read.mutations.filter((m) => m.type === 'thing.set')), JSON.stringify([{ type: 'thing.set', name: 'the rose', where: 'between them on the wet stone', source: 'extractor' }]), 'the rose is moved to where the page leaves it; a key moved to a pocket the page never showed is not; a locket the ledger does not keep is not made');
   const led = applyMutations({ ...st, page: 23 }, read.mutations).state;
   eq(led.things['the rose'].where + ' | ' + led.things['the brass key'].where, 'between them on the wet stone | on a cord round Salla’s neck', 'the ledger has the rose on the stone; the key where it was');
   assert((led.knowledge['the one-armed old campaigner'] || []).some((k) => /named herself Oriana/.test(k.fact)), 'the old campaigner, close by, now knows what he overheard: ' + JSON.stringify(led.knowledge));

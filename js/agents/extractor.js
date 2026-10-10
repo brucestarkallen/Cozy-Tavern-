@@ -52,6 +52,7 @@ import { renderWholeLedger, wholePage, knowledgeRoomFor } from '../engine/whole.
 import { askWithFetch, fetchLaw, windowOfPages, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259/M261: it may look; the story so far, whole */
 import { contextOf } from '../providers/room.js'; /* M679: the reader's answer floor, by its room */
 import { mcName } from '../engine/duels.js';
+import { exactNameIn, quotedSource, WRITER_FACTS } from '../engine/evidence.js';
 
 /* M28: the answer is JSON only and thinking is OFF on the wire (call.js),
  * so the budget is the answer's — 1200 tokens holds a long founding read
@@ -290,7 +291,9 @@ function systemPrompt({ mc, founding }) {
     who,
     '',
     'Answer with JSON ONLY, in exactly this shape:',
-    '{"mutations":[ ... ], "threads":[ ... ], "healed":[ ... ], "things":[ ... ], "loose":[ ... ], "here":[ ... ], "looks":[ ... ], "spot":"…"}',
+    '{"mutations":[ ... ], "people":[ ... ], "threads":[ ... ], "healed":[ ... ], "things":[ ... ], "loose":[ ... ], "here":[ ... ], "looks":[ ... ], "spot":"…"}',
+    WRITER_FACTS,
+    '"people" records each newly established named identity from EITHER message: {"name":"the exact name used","shown":"an exact quote establishing who this person is"}. Include people the writer introduces even if they do not act or speak in the reply. Copy the quote, including the name and any stated role or rank; invent nothing. Do not use a question, hypothetical or somebody merely mentioned as if they were introduced. This opens their People page without putting them in the scene. Use "here" separately for people physically nearby at the end.',
     '"threads" decides EVERY open thread listed under the page, one entry each — {"title":"…","now":"resolved"} or',
     '{"title":"…","now":"open"} (a thread the story has only moved is still open). "healed", "things", "loose" and "spot"',
     'answer the lists under the page that ask for them; [] (or "" for "spot") when there is none.',
@@ -830,7 +833,8 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
       .map((t) => ({ name: t.name.trim().slice(0, 120), where: t.where.trim().slice(0, 240), ...(typeof t.owner === 'string' && t.owner.trim() ? { owner: t.owner.trim().slice(0, 120) } : {}) })).slice(0, 12); /* M679: whose it is, when the page changed that */
     /* M679: where in the area the scene stands as the page ends (spotBlock) — the house holds it to the page (spotOnPage) */
     const spot = typeof parsed.spot === 'string' ? parsed.spot.trim().slice(0, 160) : '';
-    return { mutations, note: mutations.length || looks.length || things.length || spot ? 'ok' : 'empty', here, hereNotes, looks, things, spot };
+    const people = (Array.isArray(parsed.people) ? parsed.people : []).filter((p) => p && typeof p.name === 'string' && typeof p.shown === 'string').slice(0, 40);
+    return { mutations, note: mutations.length || here.length || people.length || looks.length || things.length || spot ? 'ok' : 'empty', here, hereNotes, looks, things, spot, people };
   } catch (err) {
     return { mutations: [], note: 'unusable' };
   }
@@ -863,10 +867,10 @@ export function leavesTheyWereShown(mutations, text) {
  * (before any window, outside the spoken lines) names them, the name means one person, and the same answer does not
  * take them out or seat them elsewhere. The main character is the page's own eye and needs no naming. Nobody is ever
  * taken OUT for being left off (M402: silence is not leaving). */
-export function hereFromBoard(state, here, assistantText, mutations = []) {
+export function hereFromBoard(state, here, assistantText, mutations = [], userText = '') {
   const names = (Array.isArray(here) ? here : []).map((h) => String(h || '').trim()).filter(Boolean);
   if (!names.length || !state || typeof state !== 'object') return [];
-  const told = narrationOf(scenePartOf(assistantText));
+  const told = narrationOf(scenePartOf(userText)) + '\n' + narrationOf(scenePartOf(assistantText));
   const list = Array.isArray(mutations) ? mutations : [];
   const said = (types, n) => list.some((m) => m && types.includes(m.type) && typeof m.name === 'string' && samePersonName(m.name, n));
   const mc = mcName(state);
@@ -879,6 +883,7 @@ export function hereFromBoard(state, here, assistantText, mutations = []) {
     }
     if (isHere(state, n) || said(['presence.enter', 'presence.leave', 'offscreen.set'], n) || !oneMeaning(state, n)) continue;
     const name = pageNameFor(state, n) || n;
+    if (goneAtTheEnd(state, assistantText, name)) continue;
     if (!shownOnPage(state, told, n) && !shownOnPage(state, told, name)) continue; /* named as themself, never by a family name another shares */
     if (out.some((m) => samePersonName(m.name, name))) continue;
     out.push({ type: 'presence.enter', name, cause: 'the page shows them here' });
@@ -889,6 +894,20 @@ export function hereFromBoard(state, here, assistantText, mutations = []) {
 export { mcWalksOff } from '../engine/apply.js'; /* M598: one reading, kept with goneAtTheEnd — the auditor reads it too */
 export async function extractTurn(args = {}) {
   const read = await extractTurnRead(args);
+  const turnScene = scenePartOf(args.userText) + '\n\n' + scenePartOf(args.assistantText);
+  const groundNames = () => {
+    if (!read?.mutations || !args.state) return;
+    const material = [args.brief, args.castNotes, args.record, args.userText, args.assistantText].join('\n');
+    const known = [...Object.keys(args.state.characters || {}), ...Object.keys(args.state.offscreen || {}), ...(args.state.present || []).map((p) => p.name)];
+    const grounded = (name) => known.some((n) => samePersonName(n, name)) || exactNameIn(material, name);
+    const rejectedNames = [...(read.rejectedNames || [])];
+    read.mutations = read.mutations.filter((m) => {
+      if (!['presence.enter', 'people.note', 'people.set'].includes(m.type) || grounded(m.name)) return true;
+      rejectedNames.push(m.name); return false;
+    });
+    if (rejectedNames.length) read.rejectedNames = [...new Set(rejectedNames)];
+  };
+  groundNames();
   if (read && Array.isArray(read.mutations)) {
     /* M679: THE SPOT IN AN AREA (spotBlock). When the header names only the area (or there is no header and the ledger has
      * only an area), the reader's "spot" — or its own place.set that names a spot — is the ground, held to the page's own
@@ -920,7 +939,7 @@ export async function extractTurn(args = {}) {
     }
     /* M594: a leave needs its person named on the page — unless the page ends on HIM going: then everyone he walks away
      * from is left behind, named or not ("He left without a word" leaves the room behind him) */
-    const mcGoing = Boolean(args.state && mcName(args.state) && mcName(args.state) !== 'the player' && mcWalksOff(args.assistantText, mcName(args.state)));
+    const mcGoing = Boolean(args.state && mcName(args.state) && mcName(args.state) !== 'the player' && mcWalksOff(turnScene, mcName(args.state)));
     if (!mcGoing) read.mutations = leavesTheyWereShown(read.mutations, String(args.userText || '') + '\n' + String(args.assistantText || ''));
     /* M446: A LEAVING IS WHAT THE PAGE ENDS ON. Named on the page was enough (M402) — so a step out and back, a walk to
      * the window, or a slip took Rukia out while she stood beside him. A leave stands only when the last sentence of the
@@ -945,15 +964,15 @@ export async function extractTurn(args = {}) {
     const mcNow = args.state ? mcName(args.state) : '';
     /* HE is the one going — his name as the subject of a going in the scene's last sentences ("Jovan turned his back on her
      * and walked away"), never as its object ("Kuchiki-taichō nodded to Oda, then left" is the captain going) */
-    const mcGone = Boolean(args.state && mcNow && mcNow !== 'the player' && mcWalksOff(args.assistantText, mcNow));
+    const mcGone = Boolean(args.state && mcNow && mcNow !== 'the player' && mcWalksOff(turnScene, mcNow));
     read.mutations = read.mutations.filter((m) => {
       if (!(m && m.type === 'presence.leave' && args.state)) return true;
       const n = String(m.name || '');
       /* M644: …or the reader hands over the page's own words for it, and they hold (apply.js quotedGoing) */
       /* M680: …or it is a death the page tells ("to" begins "dead — "): the page goes on naming the body ("Roska knelt by
        * Hesk"), so no going is ever its last word — and the dead are nobody's company */
-      const death = isDeadSeat({ location: m.to }) && deathToldOf(args.state, args.assistantText, n);
-      return death || (moved ? !cameAlong(n) : (goneAtTheEnd(args.state, args.assistantText, n) || quotedGoing(args.state, args.assistantText, n, m.shown) || (mcGone && !cameAlong(n))));
+      const death = isDeadSeat({ location: m.to }) && deathToldOf(args.state, turnScene, n);
+      return death || (moved ? !cameAlong(n) : (goneAtTheEnd(args.state, turnScene, n) || quotedGoing(args.state, turnScene, n, m.shown) || (mcGone && !cameAlong(n))));
     });
     /* M509-12: THE CROWD DOES NOT RIDE TO THE NEW GROUND. When the page MOVES the ground and says who is in the new room
      * (its "here"), everyone else who was in the old room is left behind there — Jovan ran out of the Tenth's courtyard
@@ -1019,17 +1038,19 @@ export async function extractTurn(args = {}) {
     }
     /* M444: a note let go of someone the page shows is her walking in; and the room, restated, writes in whoever is missing */
     read.mutations = clearsThatArrive(args.state, read.mutations, scenePartOf(args.assistantText));
-    read.mutations = [...read.mutations, ...hereFromBoard(args.state, read.here, args.assistantText, read.mutations)];
+    read.mutations = [...read.mutations, ...hereFromBoard(args.state, read.here, args.assistantText, read.mutations, args.userText)];
     /* M541: SOMEONE THE WORLD SEATED ELSEWHERE IS NOT WALKED BACK IN BY A MENTION. Claire drove off, the world seated her at
      * the corner of Mariner's Lane and Larkspur, and the next page — Rias talking about her, the narration naming her text —
      * wrote her back "here" (she stood in Who's here in a blouse with nowhere to stand, the world's seat let go). The page
      * reader's walk-in of someone seated elsewhere stands only when the newest page's own telling shows them and does not
      * show them going at its end — the test the auditor's walk-ins are held to (M535). */
     if (args.state && args.state.offscreen && typeof args.state.offscreen === 'object') {
-      const told = narrationOf(scenePartOf(args.assistantText));
+      const told = narrationOf(scenePartOf(args.userText)) + '\n' + narrationOf(scenePartOf(args.assistantText));
       read.mutations = read.mutations.filter((m) => {
         if (!m || m.type !== 'presence.enter' || typeof m.name !== 'string') return true;
         if (isHere(args.state, m.name) || isMc(args.state, m.name)) return true;
+        const held = seatForPerson(args.state, m.name);
+        if (held && isDeadSeat(held.entry)) return false;
         const seated = Object.keys(args.state.offscreen).some((k) => samePersonName(k, m.name));
         if (!seated) return true;
         /* M644: THE TELLING OFTEN DOES NOT USE THE NAME. "The back door opened and his aunt came in", "Auntie", a name only in
@@ -1047,6 +1068,15 @@ export async function extractTurn(args = {}) {
      * everyone present after this page's walk-ins and leaves — never the main character. A whisper stays with those the
      * reader gave it to. */
     if (args.state) {
+      for (const person of read.people || []) {
+        const name = person.name.trim();
+        const source = quotedSource(args.userText, person.shown) ? 'writer' : 'page';
+        const quote = quotedSource(source === 'writer' ? args.userText : args.assistantText, person.shown);
+        if (!name || name.length > 80 || !quote || !exactNameIn(quote, name) || isMc(args.state, name)) continue;
+        const key = findPersonKey(args.state.characters || {}, name);
+        if (key && args.state.characters[key]?.core) continue;
+        read.mutations.push({ type: 'people.note', name: key || name, field: 'core', text: quote, source, evidence: quote, cause: 'introduced in the ' + (source === 'writer' ? 'writer’s input' : 'story page') });
+      }
       /* M660: where the page's own words show someone standing or dressed otherwise than the ledger has, it is written */
       /* M667: where a thing the page names now lies */
       if (Array.isArray(read.things) && read.things.length) read.mutations = [...read.mutations, ...movedThings(args.state, read.things, args.assistantText, args.userText).filter((t) => !read.mutations.some((m) => m && m.type === 'thing.set' && typeof m.name === 'string' && m.name.trim().toLowerCase() === t.name.toLowerCase()))];
@@ -1072,6 +1102,8 @@ export async function extractTurn(args = {}) {
       read.mutations = read.mutations.map((m) => { if (!m || m.decided === undefined) return m; const line = { ...m }; delete line.decided; delete line.room; return line; });
     }
   }
+  if (read?.mutations) read.mutations = read.mutations.map((m) => ({ ...m, source: m.source === 'writer' ? 'writer' : 'extractor' }));
+  groundNames();
   return read;
 }
 /* the room a page ends with: the reader's own "here" when it named one, else everyone present after this page's walk-ins

@@ -47,6 +47,7 @@ import { isMc, namedInText, findPersonKey } from '../engine/people.js'; /* M277:
 import { explicitStandings, readStatedStandings, samePersonLoose, isLabel } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
 import { loadMemory, wholeRecord, recordWithPages } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
 import { pageText } from '../assemble/stack.js';
+import { exactNameIn, quotedSource, WRITER_FACTS } from '../engine/evidence.js';
 
 const MAX_TOKENS = 6000;
 export const DEFAULT_AUDIT_EVERY = 1; /* turns — M94: every page, as Summaryception's continuity auditor runs on every line */
@@ -63,6 +64,7 @@ const BRIEF_CAP = 40000;                /* the brief is the first authority; it 
 const CAST_CAP = 20000;
 
 const VOCABULARY = [
+  'people.rename {"type":"people.rename","from":"wrong name","to":"established name","cause":"source of correction","shown":"exact identity quote if the names differ entirely"} — correct or merge one identity, keeping all its records. NEVER delete and recreate it. Correct its title with people.set core.',
   'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30} — to the latest header line\'s own hour, or when the latest STORY page has none',
   'place.set {"type":"place.set","name":"the chapel"} — to the latest header line\'s own place, or when the latest STORY page has none',
   'presence.enter {"type":"presence.enter","name":"NAME","shown":"the page\'s own words that show them here, copied exactly — needed when the telling does not use their name"} / presence.update {"type":"presence.update","name":"NAME","position":"where in the room the newest page shows them, in its own words","attire":"what the newest page shows them wearing, in its own words"} / presence.leave {"type":"presence.leave","name":"NAME","shown":"the page\'s own words that show them going, copied exactly","to":"where the pages show them going, said so it stands on its own — upstairs in the Wells house — and left out only when the pages show no sign of where"}', /* M643: whoever takes someone out of the scene says where they went; M644: and by which words of the page */
@@ -84,6 +86,7 @@ const VOCABULARY = [
 
 function law({ mc }) {
   return [
+    WRITER_FACTS,
     'You are the auditor of the ledger for a story told between two writers. The ledger is the',
     'house\'s memory of the scene and the world; the other readers each keep one part of it. You read',
     'ALL of it at once and hold it against three truths, in this order of authority:',
@@ -126,22 +129,14 @@ function law({ mc }) {
     '    what the pages now say (canon.lock) — the series is where the story started, and the story wins.',
     '  - THE BODIES AND THE STANDINGS: a wound the pages show healed still open; a standing that',
     '    contradicts the brief\'s established relationship (rel.set with the cause "the brief says").',
-    '    AXIS LOCK: a standing exists only TOWARD THE MAIN CHARACTER. The ONLY standing you may zero',
-    '    is one whose own history line says it was written for a feeling toward SOMEONE ELSE (a crush',
-    '    on the sister, an ex\'s possessiveness toward her) — rel.set p:0 r:0 s:0 with the cause',
-    '    "the standing was for <other person>, not <main character>", and move the feeling into that',
-    '    person\'s page as words. NEVER zero a standing because you do not see the bond yourself: a',
-    '    childhood friend, a sister, a lover the brief or the pages name has a bond; a standing the',
-    '    pages moved was earned on the page. THE OTHER WAY IS YOUR JOB: a standing at ZERO (or',
-    '    missing) for a person the brief or the pages establish as bonded to the main character —',
-    '    a childhood friend, a devoted sister, a lover — is an error; RESTORE it with rel.set at the',
-    '    level the brief\'s words warrant (cause: "the brief says …") — THE LEVELS: in love R 55–75, a',
-    '    crush R 25–45, devoted R 75–90; friend P 25–45, close friend or family P 50–70; hatred P −50…−80;',
-    '    romantic love is R, never P alone. A lover at P+2 with R at 0 is a wrong standing to restore.',
-    '    Lowering is what you may not do',
-    '    on judgment; raising a wrongly-zeroed standing is a correction you can prove. A standing',
-    '    the PAGES have moved (its latest causes quote a beat) is never yours to set, up or down, and',
-    '    how far a beat moved a standing is the page reader\'s to write, never yours.',
+    '    AXIS LOCK: standings describe feelings TOWARD THE MAIN CHARACTER only. Zero a wrong-owner standing',
+    '    only when its own history proves it was about someone else; preserve that feeling as words on the',
+    '    person’s page. Never zero a real bond merely because you cannot see its cause. Never reset page-earned',
+    '    changes to the brief’s starting numbers or judge how much a beat should move them.',
+    '    Restore a missing or wrongly-zero axis only from an explicit bond in the brief, with a cause quoting',
+    '    that bond toward the main character. The levels: friend P 25–45, close friend/family P 50–70, hatred',
+    '    P −50…−80; crush R 25–45, in love R 55–75, devoted R 75–90. Romantic love is R, never P alone.',
+    '    An axis the pages earned, even if now zero, stays earned. The page reader starts and moves bonds.',
     '  - THE THREADS: a thread the pages show resolved still hot (thread.close); a live agenda the',
     '    pages show and the ledger lacks (thread.set).',
     '  - THE LOOSE ENDS ON A PERSON\'S OWN PAGE (their "Loose ends:" line, which is NOT the same as the story threads',
@@ -149,26 +144,18 @@ function law({ mc }) {
     '    the page; one left open is carried to the storyteller as still hanging. ' + LOOSE_ANSWERED_MEANS, /* M679: what answers one — the reader\'s and the scribe\'s words too */
     '  - WHO KNOWS WHAT: a present person to whom the latest pages put something that belongs there, with no',
     '    knowledge line for it (knowledge.add). ' + KNOWING_MEANS,
-    '  - WHAT THE LEDGER SAYS HAPPENED: every line that says who did what, to whom, or with whose',
-    '    thing — a call, a message, a phone, a key, a gift, a blow, a promise — held against the pages the',
-    '    way a careful reader reads them: following the sequence across pages, not one line alone. The phone',
-    '    in her hand is HER phone even when a later line only says "the phone"; a call that comes again to',
-    '    the phone she just declined comes to her, and reaches him only because she handed it over. Where',
-    '    one page\'s words are ambiguous, the reading the sequence makes plain wins, and a line that got it',
-    '    wrong is corrected wherever it stands: people.set with the corrected field (state, arc or core),',
-    '    thread.set with the corrected next step, people.note to close a wrong loose end and open the right',
-    '    one, knowledge.forget of the wrong fact with knowledge.add of the right one. For a misreading like',
-    '    this the pages are never rewritten — the story stands as written; the ledger is what read it wrong',
-    '    (a page that breaks the BRIEF is another matter, below).',
+    '  - AGENCY AND OWNERSHIP: check who did what, to whom, and with whose object across the sequence.',
+    '    An unnamed phone remains its established holder’s until handed over; a repeated call reaches',
+    '    that holder, not automatically the main character. Correct misreadings in the relevant ledger',
+    '    fields, threads and knowledge (remove the wrong fact and add the right one together). Never',
+    '    rewrite the story to match a mistaken ledger; page repair is only for a conflict with the brief.',
     '',
     'Be exact and be conservative: only what the brief states or the pages show, never what would be',
     'nice. If the ledger is true to the story, say so with an empty list — that is a good answer.',
     '',
     'THE MAIN CHARACTER HAS NO CHARACTER PAGE, by design — the writer plays them. Never report it',
     'missing, never write one.',
-    'REPORT ONLY WHAT IS WRONG. A check that found nothing wrong is not a finding: never write a',
-    'line that says a thread, a lock, a standing or a knowledge line "stands as written" or "is',
-    'complete" — say nothing about it. An empty issues list is the best answer there is.',
+    'Report only a concrete error or omission. Successful checks are not findings; if nothing is wrong, return an empty issues list.',
     '',
     'NOT YOUR JOB — THE MOMENT: posture, position, dress, the mood board, what a hand is doing, a sip taken, a knee on the',
     'vinyl, clothing of the moment, an absent person\'s activity this hour, a thread\'s next small',
@@ -444,18 +431,20 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
    * visible pages) — what its readers wrote on it is the journal's at that index, and nothing at all when they never read it */
   const storyPages = all.filter((m) => m && m.role === 'assistant');
   const newestAt = latestStory ? storyPages.findIndex((m) => m.id === latestStory.id) : -1;
-  read.issues = auditorScope(read.issues, fresh, { header, page: latestStory ? pageText(latestStory) : '', pageAt: newestAt !== -1 ? newestAt : null }); /* M128: the moment never lands from an audit; M453: the page, for an echoing header; M679: nor the moment its readers wrote */
-  /* M403/M413: WHEN THE AUDITOR MAY TAKE SOMEONE OUT OF THE SCENE. It took Byakuya, Renji, Iba and the rest out in one
-   * batch while they stood at the duel (M403) — and M403's first answer (only someone the latest pages NAME may be taken
-   * out) stopped its real work too: someone who came in eighty pages ago and was never seen again (the long play's
-   * Person7) stayed "here" forever. Two cases, held in code: the latest pages SHOW them going (their name in a sentence
-   * that says they leave), or they have been silent through the last eight pages of a story that has eight. Anyone
-   * named in the recent pages without going stays — they are in the scene. */
+  const latestIndex = latestStory ? all.indexOf(latestStory) : -1;
+  const writerPage = latestIndex > 0 && all[latestIndex - 1].role === 'user' && !asideAt(all, latestIndex - 1) ? pageText(all[latestIndex - 1]) : '';
+  read.issues = auditorScope(read.issues, fresh, { header, page: latestStory ? pageText(latestStory) : '', writerPage, pageAt: newestAt !== -1 ? newestAt : null }); /* M128: the moment never lands from an audit; M453: the page, for an echoing header; M679: nor the moment its readers wrote */
+  /* M684: completed turns include the writer’s established scene facts. Keep the
+   * assistant-page indices, including OOC slots, aligned with journal stamps. */
+  const turnScenes = storyPages.map((m) => {
+    const at = all.indexOf(m);
+    if (m.ooc || asideAt(all, at)) return '';
+    const writer = at > 0 && all[at - 1].role === 'user' && !asideAt(all, at - 1) ? pageText(all[at - 1]) : '';
+    return scenePartOf(writer) + '\n\n' + scenePartOf(pageText(m));
+  });
   {
-    const visible = all.filter((m) => m && !m.hidden);
-    /* M446: the last two STORY pages — the player's page says what he attempts, never who went */
-    const lastTexts = visible.filter((m) => m.role === 'assistant' && !m.ooc).slice(-2).map((m) => pageText(m));
-    const windowTexts = visible.slice(-8).map((m) => pageText(m));
+    const lastTexts = turnScenes.filter(Boolean).slice(-2);
+    const storyTexts = turnScenes;
     /* M414: named by the one answer (engine/names.js — never a title or "the"), and a going the NARRATION shows */
     /* M446: the newest page that names them as themself decides, and its LAST such line: gone at its end (goneAtTheEnd) —
      * never a going read off a family name another person shares ("Kuchiki-taichō left" is not Rukia), never one a later
@@ -467,18 +456,20 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       }
       return false;
     };
-    const longSilent = (n) => visible.length >= 8 && !windowTexts.some((t) => nameOnPage(t, n));
-    /* M541: TALKED ABOUT IS NOT HERE. "Anyone named in the recent pages without going stays" kept Claire in the room after she
-     * drove off — Rias was talking about her. The newest story page's own telling (outside the spoken lines) not showing them,
-     * nor the page before it, is not being in the scene: the auditor may take them out. */
-    /* (named only inside the spoken lines — never in the telling — is talked about; not named at all is silence, and silence is
-     * not leaving: M402, the quiet ones at the duel stay) */
+    // M684: silence is never a departure. An older missed departure can still
+    // be repaired, but only from a page after their most recent arrival.
+    const goneSinceArrival = (n) => {
+      const arrival = [...(fresh.journal || [])].reverse().find((j) => j?.m?.type === 'presence.enter' && samePersonName(j.m.name, n));
+      const since = arrival && Number.isInteger(arrival.p) ? Math.max(0, arrival.p) : 0;
+      for (let k = storyTexts.length - 1; k >= since; k--) {
+        if (shownOnPage(fresh, narrationOf(scenePartOf(storyTexts[k])), n)) return goneAtTheEnd(fresh, storyTexts[k], n);
+      }
+      return false;
+    };
     /* M598: the newest page ends on HIM going — whoever he walked away from is left behind; the auditor's leave stands, as
      * the page reader's does (M588) */
     const mcNowName = mcName(fresh);
     const mcLeft = Boolean(lastTexts.length && mcNowName && mcNowName !== 'the player' && mcWalksOff(lastTexts[lastTexts.length - 1], mcNowName));
-    const notToldHere = (n) => lastTexts.length > 0 && lastTexts.some((t) => nameOnPage(scenePartOf(t), n))
-      && lastTexts.every((t) => !shownOnPage(fresh, narrationOf(scenePartOf(t)), n));
     const kept = [];
     for (const issue of read.issues) {
       if (!issue || !Array.isArray(issue.mutations) || !issue.mutations.length) { kept.push(issue); continue; }
@@ -487,7 +478,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       /* M680: …or it is a death one of the last two pages tells of them ("to" begins "dead — "): the page goes on naming the
        * body, so no going is ever its last word (apply.js deathToldOf, the page reader's own door) */
       const died = (m) => isDeadSeat({ location: m.to }) && lastTexts.some((t) => deathToldOf(fresh, t, m.name));
-      const muts = issue.mutations.filter((m) => !(m && m.type === 'presence.leave' && !showsGoing(m.name) && !quoted(m) && !died(m) && !longSilent(m.name) && !notToldHere(m.name) && !mcLeft));
+      const muts = issue.mutations.filter((m) => !(m && m.type === 'presence.leave' && !showsGoing(m.name) && !quoted(m) && !died(m) && !goneSinceArrival(m.name) && !mcLeft));
       if (!muts.length && !(issue.pages && issue.fix)) continue; /* a finding that was only a refused leave is no finding */
       kept.push({ ...issue, mutations: muts });
     }
@@ -511,11 +502,30 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
    * named in the brief or the cast notes (the founder's bond stands). Only
    * a standing with no page behind it and no place in the brief — the
    * Caleb case, a feeling for someone else — may be zeroed. */
+  const identitySource = [brief, castNotes, ...all.map(pageText)].join('\n');
   const material = (String(brief || '') + '\n' + String(castNotes || '')).toLowerCase();
   const keptStandings = [];
+  const identityRefused = [];
   const guarded = [];
   const mcHere = mcName(fresh) !== 'the player' ? mcName(fresh) : '';
   for (const [m, issueWhat] of read.issues.flatMap((i) => i.mutations.map((mu) => [mu, i.what]))) {
+    m.source = 'auditor';
+    m.auditReason = issueWhat;
+    const hasLinks = (name) => isHere(fresh, name) || Object.keys(fresh.knowledge || {}).some((n) => samePersonName(n, name))
+      || Object.keys(fresh.relationships || {}).some((n) => samePersonName(n, name))
+      || (fresh.threads || []).some((t) => samePersonName(t.owner || '', name));
+    if (m.type === 'people.forget' && (nameOnPage(identitySource, m.name) || hasLinks(m.name))) {
+      identityRefused.push({ mutation: m, why: 'the story establishes this person; correct their name with a rename so their records stay together' });
+      continue;
+    }
+    if (m.type === 'people.rename') {
+      const identityQuote = quotedSource(identitySource, m.shown);
+      const sameIdentity = samePersonName(m.from || '', m.to || '') || (identityQuote && exactNameIn(identityQuote, m.from) && exactNameIn(identityQuote, m.to));
+      if (!exactNameIn(identitySource, m.to) || !sameIdentity || isMc(fresh, m.from)) {
+        identityRefused.push({ mutation: m, why: 'a correction needs the exact name established in the story and may not rename the main character automatically' });
+        continue;
+      }
+    }
     if (m && (m.type === 'rel.set' || m.type === 'rel.shift') && typeof m.name === 'string') {
       /* M449: THE GUARD ASKS THE SAME QUESTION THE APPLIER WILL (M164's law). This found the standing by its EXACT name,
        * while the applier finds a person's book under any form of their name (M419): a rel.set for "Rukia" saw no
@@ -614,7 +624,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   /* M679: a line of who knows what the ledger ALREADY holds is "already so", not a refusal — his turn-21 reading listed eight
    * "Seen; its change did not hold (Mirelia already knows that)" (M680: marked so at its source, apply.js knowledge.add,
    * for every worker's line) */
-  const rejected = [...rejectedByApplier.map((r) => (r && r.mutation && /^rel\./.test(r.mutation.type) && /holds no standing/.test(String(r.why || '')) ? { ...r, standing: true } : r)), ...keptStandings];
+  const rejected = [...rejectedByApplier.map((r) => (r && r.mutation && /^rel\./.test(r.mutation.type) && /holds no standing/.test(String(r.why || '')) ? { ...r, standing: true } : r)), ...keptStandings, ...identityRefused];
   /* M277: a standing move the auditor may not make is not a finding for the
    * writer — eleven such lines filled a reading that changed four things */
   const standingRefused = new Set([
@@ -647,7 +657,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   if (stale && stale()) return null;
   await saveState(storyId, out);
   notify(storyId);
-  return { applied, rejected, issues, note: 'ok', raw, looked, leftStandings };
+  return { applied, rejected, issues, note: 'ok', raw, looked, leftStandings, reportAt: report.at };
 }
 
 /* M261: THE LEDGER'S UPKEEP DOES NOT WAIT FOR THE AUDITOR. Retiring those who
@@ -772,7 +782,7 @@ export const AUDITOR_TYPES = new Set([
   'clock.set', 'place.set', 'presence.enter', 'presence.leave', 'mc.set',
   'body.injure', 'body.heal', 'rel.set', 'offscreen.set', 'offscreen.clear',
   'canon.lock', 'canon.unlock', 'thread.set', 'thread.close', 'knowledge.add', 'knowledge.forget', /* M372: a wrong fact can be let go */
-  'faction.set', 'faction.clear', 'people.set', 'people.note', 'people.forget', /* M681 (W7): a faction the pages ended is let go */
+  'faction.set', 'faction.clear', 'people.set', 'people.note', 'people.forget', 'people.rename', /* M684: a corrected identity keeps all its books */
   'thing.set', 'thing.clear', /* M604: a thing in the wrong place, or one the pages destroyed */
   'mode.snapshot', /* M681 (S13): the whole board — only when no reader stated it for the newest page (boardStale) */
 ]);
@@ -846,7 +856,7 @@ const endingWords = (t) => new Set(String(t || '').toLowerCase().split(/[^\p{L}\
 /* do these words stand in that text, half of them at least? */
 const wordsIn = (words, text) => { const w = [...endingWords(words)]; const t = endingWords(text); return w.length > 0 && w.filter((x) => t.has(x)).length / w.length >= 0.5; };
 const journalOfPage = (state, at) => (Array.isArray(state && state.journal) ? state.journal : []).filter((j) => j && j.p === at && j.m && typeof j.m === 'object').map((j) => j.m);
-export function auditorScope(issues, state, { header = [], page = '', pageAt = null } = {}) {
+export function auditorScope(issues, state, { header = [], page = '', writerPage = '', pageAt = null } = {}) {
   const restatedOk = new WeakSet(); /* M661: the changes of place and dress the newest page bears out */
   /* M679: the page's ending, what its own readers wrote on it (the journal at its index — nothing when they never read
    * it), and his header's own place and dress */
@@ -928,6 +938,16 @@ export function auditorScope(issues, state, { header = [], page = '', pageAt = n
     const placedThisPage = readersWrote.some((jm) => (jm.type === 'offscreen.set' || jm.type === 'presence.leave') && typeof jm.name === 'string' && (samePersonName(jm.name, m.name) || samePersonName(jm.name, held.key)));
     return !placedThisPage || wordsIn(to, endingTold);
   };
+  // A source quote from the answered writer input can establish a missed
+  // arrival when a long reply uses only pronouns. Later departures still win.
+  const writerArrival = (m) => {
+    const writerScene = scenePartOf(writerPage);
+    if (!quotedSource(writerScene, m.shown) || walkInFromPage(state, m.name, { page: writerScene, pageAt, shown: m.shown })) return false;
+    const turn = writerScene + '\n\n' + scenePartOf(page);
+    if (goneAtTheEnd(state, turn, m.name) || mcWalksOff(turn, mcName(state))) return false;
+    const ground = state?.place?.name;
+    return !headerPlace || !ground || samePlace(headerPlace, ground);
+  };
   const moment = (m) => {
     if (!m || typeof m !== 'object' || typeof m.type !== 'string') return true;
     if (m.type === 'presence.update') return !(m.staleClear || restatedOk.has(m)); /* M544: the letting-go of a place the page left behind; M661: a place or an outfit the newest page bears out */
@@ -967,7 +987,7 @@ export function auditorScope(issues, state, { header = [], page = '', pageAt = n
      * on going or on HIM walking off ("she held her ground in the column's shadow as they walked away"), nobody the world
      * seats elsewhere when the page moved the scene away from them */
     if (page && (m.type === 'presence.enter' || (m.type === 'offscreen.clear' && !isHere(state, m.name))) && typeof m.name === 'string') {
-      if (walkInFromPage(state, m.name, { page, pageAt, shown: m.shown })) return true;
+      if (walkInFromPage(state, m.name, { page, pageAt, shown: m.shown }) && !writerArrival(m)) return true;
     }
     /* M681: …and by its third door — a seat for someone with none, AT the scene's own place, is a walk-in (apply.js
      * offscreen.set, M402). A seated person's seat is the auditor's only as the newest page moves it (below, M681 W10); a
@@ -986,7 +1006,7 @@ export function auditorScope(issues, state, { header = [], page = '', pageAt = n
       if (goneAtTheEnd(state, page, m.name)) return true;
       /* M649: …shown there by name, or by the page's own words the auditor hands over ("his aunt came in" — the telling
        * often does not use the name; the page reader's walk-in has stood on such words since M644) */
-      if (findSeat(seats, m.name) && !shownOnPage(state, told, m.name) && toldOnPage(page, m.shown).end === -1) return true;
+      if (findSeat(seats, m.name) && !shownOnPage(state, told, m.name) && toldOnPage(page, m.shown).end === -1 && !writerArrival(m)) return true;
     }
     if (m.type === 'presence.enter' && Array.isArray(state && state.present) && findPresent(state, m.name, { strict: true }) !== -1) return true; /* M444: "already here" asked the way entering asks it — Captain Kuchiki is not Rukia */
     if (m.type === 'people.set') {
@@ -1014,6 +1034,13 @@ export function auditorScope(issues, state, { header = [], page = '', pageAt = n
 export function auditLineWords(i) {
   if (!i || typeof i !== 'object') return { text: '', warn: false };
   const counted = Number.isFinite(i.landed);
+  if (counted && i.pages && i.fix) {
+    const changed = Number(i.mendedPages) || 0;
+    return { text: (changed ? 'Page repair applied: ' : i.landed > 0 ? 'Ledger corrected; page repair pending: ' : 'Page repair pending: ') + i.what + '. Intended correction: ' + i.fix, warn: !changed || Boolean(i.refused?.length) };
+  }
+  if (counted && i.landed > 0 && Array.isArray(i.refused) && i.refused.length) {
+    return { text: 'Partly corrected: ' + i.what + '. Still unresolved: ' + i.refused.join('; '), warn: true };
+  }
   const setRight = counted ? (i.landed > 0 || Boolean(i.pages && i.fix)) : Boolean(i.fixable);
   const refusedAll = counted && !setRight && Array.isArray(i.refused) && i.refused.length > 0;
   /* M93: nothing the auditor sees is left for the writer — a line without a
