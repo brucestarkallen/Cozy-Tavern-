@@ -1,6 +1,6 @@
 /* Cozy Tavern — js/canon/grounding.js
- * VENDORED: Canon Grounding v0.68.1 (github.com/brucestarkallen/Sillytavern-Canon-Verification- @ 803dc53)
- * by tools/vendor-canon.py. Do not edit here — change the extension and vendor it again. */
+ * VENDORED: Canon Grounding v0.68.3 (github.com/brucestarkallen/Sillytavern-Canon-Verification- @ 9c5dd180af454c0ade51290dea70ccbf999f9635)
+ * by tools/vendor-canon.py. Merge shared changes into the extension before updating this copy. */
 /*
  * Canon Grounding — SillyTavern extension
  * ---------------------------------------
@@ -99,7 +99,7 @@ let lastReasons = [];        // reasons SNAPSHOT taken with the injected note, s
 let chatEpoch = 0;          // bumped on CHAT_CHANGED — async work from an older epoch is discarded
 let parseSerial = 0;        // monotonically increasing parse id — only the LATEST parse may apply
 const INJECT_KEY = "CANON_GROUNDING";
-const CG_VERSION = "0.68.2"; // M509-3: one more heal pass — an episode page cached as a person (its look a cast list) goes
+const CG_VERSION = "0.68.3";
 // Tag set on the legacy chat-spliced canon note (old-ST fallback when
 // setExtensionPrompt is unavailable) so every later pass can find and remove it.
 const FALLBACK_TAG = "canon_grounding_fallback";
@@ -333,7 +333,7 @@ const defaultSettings = {
     // Fires only for names in the CURRENT player message; the persona, the
     // active card, and blocklisted names are exempt (the story's own principals
     // are known-original by construction, and blocked means absent).
-    reportUnverified: false, /* M538: off — a failed lookup is never told to the storyteller as a fact about the story */
+    reportUnverified: false,
     // ✒ ADVANCED: the AI writes the note as fluid storyteller prose. The code
     // still gathers and verifies every fact exactly as before; the model only
     // REWRITES the presentation, and a validator checks the result (every cast
@@ -973,8 +973,8 @@ function extractFromProse(text) {
 // Wikitext section extraction (for personality / relationships / biography)
 // ---------------------------------------------------------------------------
 
-/** Drop everything inside {{ … }} at any nesting, stray braces included. */
-/* M487: A TEMPLATE'S OWN WORDS ARE KEPT. The walker dropped every template it did not know WHOLE — and a wiki that wraps
+/** Drop everything inside {{ … }} that is markup; retain a template's display text.
+ * M487: A TEMPLATE'S OWN WORDS ARE KEPT. The walker dropped every template it did not know WHOLE — and a wiki that wraps
  * a name or a term in one ({{Translation|Tenth Division|十番隊}}, {{Ruby|shitagi|下着}}, a house template of its own)
  * lost the word: "The is one of the Gotei 13", "composed of a white , a black , a black". Now an unknown template is
  * read for its DISPLAY TEXT: the first positional parameter (one with no "=") that carries letters; a template of
@@ -1023,7 +1023,6 @@ function stripTemplates(text) {
     return out;
 }
 
-/** Strip common wiki markup down to readable prose. */
 /* M486: what the last generation's note was, and why — for Cozy Tavern's receipt ("What canon says — not part of this
  * turn: …"), never for the storyteller */
 export function lastInjectionReport() {
@@ -1031,6 +1030,7 @@ export function lastInjectionReport() {
 }
 export function isEpisodeOrChapterPage(wt) { return isEpisodePage(wt); } /* exported for the harness (M509) */
 export function isCastListLook(t) { return castListLook(t); } /* exported for the harness (M509-2) */
+/** Strip common wiki markup down to readable prose. */
 export function cleanWikitext(wt) { /* exported for the harness (M460) */
     if (!wt) return "";
     let s = wt;
@@ -2663,6 +2663,17 @@ function nameTokenOwners() {
     return owner;
 }
 
+/* M539: the word at [i, i+len) in the lower-cased text is used for a family or a house, not a person */
+const GROUP_AFTER = /^(?:'s)?\s+(?:clan|clans|family|families|household|house|houses|estate|compound|elders?|heirs?|bloodline|lineage|line|branch|main family|head family|members?|retainers?|guards?)\b/u;
+function groupUseAt(lower, i, len) {
+    const after = lower.slice(i + len, i + len + 40);
+    const before = lower.slice(Math.max(0, i - 24), i);
+    if (GROUP_AFTER.test(after)) return true;                 // "Zenin clan", "Zenin elders"
+    if (/^s\b/u.test(after) && /\bthe\s+$/u.test(before)) return true; // "the Zenins"
+    if (/\b(?:house|clan|family)\s+of\s+$/u.test(before)) return true; // "house of Zenin"
+    return false;
+}
+export function castNamedInForHarness(text) { return castNamedIn(text); } /* exported for the harness (M539) */
 /**
  * WHO DOES THIS TEXT NAME? Full name, alias, or a name token owned by exactly one
  * cached character — matched WITHOUT REGARD TO CASE.
@@ -2679,17 +2690,6 @@ function nameTokenOwners() {
  * holds for any language and any typing style, which capitalisation never did.
  * Returned in order of first mention, so the note follows the sentence.
  */
-/* M539: the word at [i, i+len) in the lower-cased text is used for a family or a house, not a person */
-const GROUP_AFTER = /^(?:'s)?\s+(?:clan|clans|family|families|household|house|houses|estate|compound|elders?|heirs?|bloodline|lineage|line|branch|main family|head family|members?|retainers?|guards?)\b/u;
-function groupUseAt(lower, i, len) {
-    const after = lower.slice(i + len, i + len + 40);
-    const before = lower.slice(Math.max(0, i - 24), i);
-    if (GROUP_AFTER.test(after)) return true;                 // "Zenin clan", "Zenin elders"
-    if (/^s\b/u.test(after) && /\bthe\s+$/u.test(before)) return true; // "the Zenins"
-    if (/\b(?:house|clan|family)\s+of\s+$/u.test(before)) return true; // "house of Zenin"
-    return false;
-}
-export function castNamedInForHarness(text) { return castNamedIn(text); } /* exported for the harness (M539) */
 function castNamedIn(text) {
     const raw = String(text || "");
     if (!raw.trim()) return [];
@@ -2792,21 +2792,7 @@ function orderLinesByNeed(lines, need) {
         KEEP_ALWAYS.some(k => line.startsWith(k)) || rankOf(line) < wanted.length);
 }
 
-/**
- * ⌀ NEGATIVE VERIFICATION — the missing half of "verify". Grounding answers
- * "what does canon say about X?"; this answers "does canon say ANYTHING about
- * X?" — and reports the no. A settled miss (every currently-configured wiki
- * searched cleanly, no page found) that the player names in their CURRENT
- * message becomes a one-line notice, so the storyteller treats X as this
- * story's own invention instead of improvising fake canon for it. Responsive,
- * not sticky: the line rides only on turns where the player names the thing.
- * Pure and parameterized — store, wiki set, and exclusions are inputs — so the
- * proof harness holds it to account without SillyTavern.
- * Only no-page / meta-page misses qualify: "not-character" means a page
- * EXISTED (lore that failed the untrusted character gate), and a transient
- * error is never cached at all — neither is evidence of absence.
- */
-/* M538: Cozy Tavern never sends the ⌀ "not in canon" line, whatever a setting says */
+/* Hosts may silence absence notices independently of the extension's user setting. */
 const HOST_SILENCES_MISSES = true;
 /* M537: one slip from a found name's word — a typo, never a different word (the first letter kept; one edit for a word of four
  * to six letters, two from seven) */
@@ -2833,6 +2819,20 @@ function nearFoundToken(t, foundTokens) {
     return false;
 }
 export function unverifiedNamedForHarness(userMsg, store, wikisCsv, excludes) { return unverifiedNamed(userMsg, store, wikisCsv, excludes); } /* exported for the harness (M537) */
+/**
+ * ⌀ NEGATIVE VERIFICATION — the missing half of "verify". Grounding answers
+ * "what does canon say about X?"; this answers "does canon say ANYTHING about
+ * X?" — and reports the no. A settled miss (every currently-configured wiki
+ * searched cleanly, no page found) that the player names in their CURRENT
+ * message becomes a one-line notice, so the storyteller treats X as this
+ * story's own invention instead of improvising fake canon for it. Responsive,
+ * not sticky: the line rides only on turns where the player names the thing.
+ * Pure and parameterized — store, wiki set, and exclusions are inputs — so the
+ * proof harness holds it to account without SillyTavern.
+ * Only no-page / meta-page misses qualify: "not-character" means a page
+ * EXISTED (lore that failed the untrusted character gate), and a transient
+ * error is never cached at all — neither is evidence of absence.
+ */
 function unverifiedNamed(userMsg, store, wikisCsv, excludes = []) {
     if (!userMsg || !store) return [];
     const lcMsg = String(userMsg).toLowerCase();
@@ -4128,8 +4128,7 @@ function hostScenePlace() {
  * name (or one of its parts — "Kuchiki Manor — the tea room") becomes the setting;
  * a place canon does not know leaves NO setting — never a wrong one. Nothing is looked
  * up here (a header's words are no evidence of a wiki page), and nothing is announced.
- */
-/* M625: the setting a place names, in a canon memory — one answer for the turn (followHostPlace, over the live memory)
+ * M625: the setting a place names, in a canon memory — one answer for the turn (followHostPlace, over the live memory)
  * and for a branch made from an earlier page (the app's bridge, over the copy it is making) */
 export function settingKeyIn(store, place, find = (n) => cacheEntryIn(store, n)) {
     const p = String(place || "").trim();

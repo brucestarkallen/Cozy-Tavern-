@@ -265,6 +265,7 @@ import './m679.mjs'; /* M679: the story's own weekday; the spot in a city; each 
 import './m680.mjs'; /* M680: the whole ledger, room by room — the spot with its city, the world agent and the auditor held to the page's reader, the dead at every door, a sighting is not company, two writers never erase each other, a now's age and ground, "already so" is no refusal, a take-back outlives try again, the record's one rule when pages go, what is true of them told to every reader, a worker's writes stamped with their page */
 import './m681.mjs'; /* M681: the clock — the days between two headers, the story's own weekday, a #time skip with a bare hour, his hand on the clock; and every open finding of M680's audit */
 import { runAll } from './lib.mjs';
+import './m682.mjs';
 
 console.log('Cozy Tavern — harness');
 await runAll();

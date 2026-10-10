@@ -18168,3 +18168,63 @@ The first complete run (`codex681final`) passed harness 1434/1434, walk 291/291,
 GATES: `codex681clean`, one complete run against f087472 plus the isolated M395-1 fixture: harness 1434/1434, walk 291/291, long play 9/9, lint 0 errors (199 warnings on ESLint 9.39.5), all 20 browser gates EXIT 0. The full device_pair ran all nineteen scenes, launcher and upgrade_in_place passed together, and paint_academy and perf_academy passed. Send worst long task 419 ms of 1000; no page errors in that check. The application version remains m681-002.
 
 The old resume block is retained, with a current verified checkpoint added above it. The additional "Found, not fixed" findings, the historical academy intermittent reload investigation, and canon copy divergence remain open. Green gates here establish this release's checks; they do not establish a cause or fix for that older intermittent reload.
+
+
+# M682 — FINISH THE SIX REMAINING BOOKS FINDINGS, KEEP ONE CANON SOURCE, AND STOP A DEPARTING BOOT
+
+Continuation by Codex, October 10, 2026. Based on main 9fb30dc. All of Claude's M680 and M681 audit commits remain
+ancestors; this is an additive continuation, not a replacement of that audit.
+
+- A cut page reading was accepted as complete whenever its salvaged mutations included the mood board. The provider's
+  length finish now earns the existing second ask, and a complete answer outranks a longer cut prefix. If both answers
+  are cut, useful writes remain but the page stays unread. Both ordinary and catch-up callers keep that distinction;
+  catch-up reports no completed page, so it cannot loop over the same incomplete page in one fill. M682-1/2 and DOM-317.
+- M244's successful half-batch keeper line retained the original whole batch in its landing and verification variables.
+  Both the detail checker and the verification now receive only the covered half; the still-due check also sees that
+  half, so later pages do not block it. M682-4 runs the real keeper through two cuts and a successful half batch.
+- A keeper failure marker follows its own page through deletion and insertion, clears when its page is folded away,
+  and clears when its own words change. These operations return copies without changing their source memory. M682-3.
+- Putting earlier words back removes the keeper's covering record line, using the same rule as every rewrite door:
+  a line written by hand remains, and a disabled keeper's record remains. It still tells the plans keeper. DOM-315.
+- A fight take-back compares the books the fight had before and after, reversing only that fight's changes. Later
+  weighings, including a changed rating for an existing fighter, and later wounds remain. Older saved payloads retain
+  later journaled book writes too. The journaled reversal names its original log line so replay still finds it when
+  older unjournaled weighings mean its rebuilt before-book differs; a rewind never imports a future weighing.
+  M682-5/6/7/9 exercise the live reversal and both current and older saved reversals through folding.
+- The housekeeper's visibility write invalidates every reading begun against the earlier page layout. Its UI holds
+  new unrelated readings until chat has rebased the books; a job begun in the gap remains stale after the hold ends.
+  Chat's own already-rebased replay jobs can finish inside a multi-card hold. The revision applies to both worker lanes.
+  DOM-316 held a real reader answer until AFTER the real hide and BEFORE pageFolded: it previously stamped shifted
+  indices. M682-8 covers work begun in the gap; DOM-311 still covers the actual UI fold, reversal and replay.
+
+CANON: the 220 lines of shared fixes previously found only in Cozy's copy are merged into the Canon Verification
+extension, v0.68.3. Wiki deadlines, template display words, episode/cast-list rejection and healing, same-page alias
+merging, clan/individual distinction, known-name typos, discovery JSON and the shared setting resolver all remain.
+The generated Cozy program's AST matches the previous copy apart from CG_VERSION. The adapter explicitly keeps Cozy's
+absence policy and host/UI imports. tools/vendor-canon.py now refuses local drift or a downgrade, requires a reviewed
+SHA256 to migrate the legacy untracked copy, records provenance and hashes, and has a no-write --check door.
+tests/vendor_canon_unit.py proves actual refusal without losing local text, reviewed migration, host policy and parity.
+Canon's original gate passed 605/605 and 431/431 before any edits; the extended gate passed 627/627 and 454/454.
+
+ACADEMY/BOOT: instrumented Chromium recorded the boot pull's reload in sync.js settle. Startup continued after that
+reload had been requested and could expose __cozy on the departing document. tests/boot_ready.py holds the reload
+request in place: main fails with false readiness, the fix passes fast pull, late pull (3200 ms) and unchanged library.
+initSync now marks a requested reload and app.js stops that startup before announcing readiness. The academy fixture
+waits for completed boot, pushes its preferences and seeded books before reload/measurement, and verifies that the
+reduced-motion context actually wears the academy theme. Every original paint, style, layout, scroll and +120 ms busy
+budget remains. Three baseline instrumented runs showed 24 compositor animations, no welcome paint/layout, and welcome
+busy 22.3/32.7/34.9 ms against Lamplight 6.6/8.2/11.1 ms. The trace contains 277 versus 11 main-thread RunTasks but almost
+no application work: Chromium's animation wake-ups explain the older machine-sensitive busy check. The old report's
+missing navigation/crash logs cannot establish that every historical interruption had this cause; the reproduced
+startup race and incomplete fixture synchronization are now fixed and tested, rather than asserting that a green run
+proves every possible interruption gone.
+
+PROOF: M682-1 through 7 and DOM-315/316/317 all failed against 9fb30dc for their stated defects. M682-8 fails with only
+its gap guard disabled. M682-9 caught the first legacy replay implementation and passes with the journal fix, including
+a rewind before a later weighing. The only older Cozy assertion changed is M44-6's count of memoryWithoutPage doors
+from four to five: unmend is the newly corrected fifth door; all other assertions remain. The full gate adds the boot
+readiness and vendoring command checks to the existing twenty browser/server checks. Canon's export-aware pure sandbox
+retains all assertions; its validity-gate witness now includes episodes. New negative controls are recorded below.
+
+Validation and publication status will be appended after the complete gates finish. GitHub's connected integration
+currently refuses writes with 403 Resource not accessible by integration; no published branch has been overwritten.

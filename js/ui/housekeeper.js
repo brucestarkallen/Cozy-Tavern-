@@ -17,6 +17,7 @@
 import { roomChars } from '../engine/pagecut.js'; /* M288 */
 import { streamText } from './streamtext.js'; /* M279 */
 import { db } from '../store.js';
+import { holdPageLayout } from '../agents/queue.js';
 import {
   housekeeperTurn, loadSession, saveSession,
   applyProposal, applyAllPending, undoLatest,
@@ -820,16 +821,19 @@ export function initHousekeeper(ctx) {
     const story = await ensureSession();
     if (!story) return;
     statusLine.textContent = 'Applying…';
+    const folds = session.turns.some((t) => (t.proposals || []).some((p) => p.id === proposalId && p.op && p.op.hide !== undefined));
+    const layoutDone = folds ? holdPageLayout(story.id) : () => {};
     try {
       const result = await applyProposal(session, story.id, proposalId);
       await persistSession();
       if (result.words) toast(result.words);
       refreshStoryFloor(result.touched);
-      rippleEdits(story, result.edited, { folded: result.folded });
+      await rippleEdits(story, result.edited, { folded: result.folded });
       render();
     } catch (err) {
       toast((err && err.message) || 'It wouldn’t hold — nothing was changed.');
     } finally {
+      layoutDone();
       statusLine.textContent = '';
     }
     } finally { applying = false; if (refreshOwed) refreshFromStore(); }
@@ -877,16 +881,19 @@ export function initHousekeeper(ctx) {
     const story = await ensureSession();
     if (!story) return;
     statusLine.textContent = 'Applying…';
+    const folds = session.turns.some((t) => (t.proposals || []).some((p) => p.status === 'pending' && p.op && p.op.hide !== undefined));
+    const layoutDone = folds ? holdPageLayout(story.id) : () => {};
     try {
       const result = await applyAllPending(session, story.id);
       await persistSession();
       if (result.words) toast(result.words);
       refreshStoryFloor(result.touched);
-      rippleEdits(story, result.edited, { folded: result.folded });
+      await rippleEdits(story, result.edited, { folded: result.folded });
       render();
     } catch (err) {
       toast((err && err.message) || 'It wouldn’t hold — nothing was changed.');
     } finally {
+      layoutDone();
       statusLine.textContent = '';
     }
     } finally { applying = false; if (refreshOwed) refreshFromStore(); }
@@ -901,17 +908,22 @@ export function initHousekeeper(ctx) {
     const story = await ensureSession();
     if (!story) return;
     statusLine.textContent = 'Taking it back…';
+    const batch = [...(session.batches || [])].reverse().find((b) => !b.undone);
+    const pages = batch && batch.items.some((i) => i.kind === 'message') ? await db.messages.list(story.id) : [];
+    const folds = batch && batch.items.some((i) => i.kind === 'message' && Boolean(i.before && i.before.hidden) !== Boolean((pages.find((p) => p.id === i.messageId) || {}).hidden));
+    const layoutDone = folds ? holdPageLayout(story.id) : () => {};
     try {
       const result = await undoLatest(session, story.id);
       await persistSession();
       toast(result.words || (result.ok ? 'Taken back.' : 'Nothing was taken back.'));
       if (result.ok) refreshStoryFloor({ messages: true });
       /* M296: a page put back is a page re-inked — read again, its record line let go; no name ripple (M191) */
-      if (result.ok) rippleEdits(story, result.edited, { ripple: false, folded: result.folded });
+      if (result.ok) await rippleEdits(story, result.edited, { ripple: false, folded: result.folded });
       render();
     } catch (err) {
       toast((err && err.message) || 'It wouldn’t come back — nothing was touched.');
     } finally {
+      layoutDone();
       statusLine.textContent = '';
     }
     } finally { applying = false; if (refreshOwed) refreshFromStore(); }

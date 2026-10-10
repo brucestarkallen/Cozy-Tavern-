@@ -52,6 +52,7 @@ import { nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M288: t
 import { samePersonName } from '../engine/names.js'; /* M398 */
 import { roomChars } from '../engine/pagecut.js'; /* M288: the housekeeper's room */
 import { db } from '../store.js';
+import { pageLayoutChanged } from './queue.js';
 import { loadState, saveState, notify } from '../engine/state.js';
 import { applyMutations, undoEntry, personBookKey, findThingKey } from '../engine/apply.js'; /* M421: a card's slice found as the card writes it */
 import { listModules, saveModule, removeModule } from '../assemble/modules.js';
@@ -2386,6 +2387,7 @@ async function applyEditOp(storyId, p, batch) {
       before: { text: msg.text, hidden: msg.hidden === true },
       afterHash: messageHashOf({ text: msg.text, hidden }),
     });
+    pageLayoutChanged(storyId);
     await db.messages.update(storyId, msg.id, { hidden });
     return { ok: true, words: hidden ? 'The page is folded away.' : 'The page shows again.' };
   }
@@ -2829,6 +2831,7 @@ export async function undoLatest(session, storyId) {
        * pagepatch.js); every other version, and what was said of each, stays. */
       const words = was && item.before && typeof item.before.text === 'string' && was.text !== item.before.text ? shownTextPatch(was, item.before.text) : {};
       const folded = Boolean(item.before && item.before.hidden === true); /* was it folded away before the card? */
+      if (Boolean(was && was.hidden === true) !== folded) pageLayoutChanged(storyId);
       await db.messages.update(storyId, item.messageId, { ...words, ...(Boolean(was && was.hidden === true) !== folded ? { hidden: folded } : {}) });
       if (was && typeof item.before.text === 'string' && was.text !== item.before.text) edited.push({ messageId: item.messageId, before: was.text, after: item.before.text }); /* M296 */
       if (was && (was.hidden === true) !== folded) flipped.push({ messageId: item.messageId, hidden: folded }); /* M681 (B2) */

@@ -14991,5 +14991,92 @@ test('DOM-314 A TALE OPENED WHILE THE SHELF IS BEING READ STAYS OPEN (M681 — f
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-315 WORDS PUT BACK retire only the keeper line over that page; his own record and a disabled keeper keep their words', async () => {
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  for (const kind of ['keeper', 'writer', 'off']) {
+    const st = await db.stories.create({ title: 'put back with ' + kind, keeper: kind !== 'off' });
+    await db.stories.update(st.id, { keeper: kind !== 'off' });
+    const a = await db.messages.append(st.id, { role: 'assistant', text: 'Liara opened the east gate.', mended: { before: 'Liara opened the west gate.', why: 'test' } });
+    const line = { id: 'original-line', span: [0, 0], text: 'Liara opened the east gate.', ...(kind === 'writer' ? { verified: { fixed: 'the writer' } } : {}) };
+    await saveMemory(st.id, { window: 20, nodes: [line] });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.ctx.chat.renderThread({ structural: true });
+    await env.ctx.chat.unmend(a.id);
+    const nodes = (await loadMemory(st.id)).nodes;
+    eq(nodes.length, kind === 'keeper' ? 0 : 1, kind + ' record follows its own preservation rule');
+    if (nodes.length) eq(nodes[0].text, line.text, 'the kept words are unchanged');
+    eq((await db.messages.list(st.id))[0].text, 'Liara opened the west gate.');
+  }
+});
+
+test('DOM-316 A READER IN FLIGHT writes nothing into shifted page indices between a housekeeper fold and the ledger rebase', async () => {
+  const { emptyState, saveState, loadState } = await import('../../js/engine/state.js');
+  const { stageProposals, applyProposal } = await import('../../js/agents/housekeeper.js');
+  const { pendingWork } = await import('../../js/agents/extractor.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm' });
+  const st = await db.stories.create({ title: 'a reader crossing the fold', extraction: true, keeper: false });
+  const first = await db.messages.append(st.id, { role: 'assistant', text: 'They arrived in the yard.' });
+  await db.messages.append(st.id, { role: 'user', text: 'I listen.' });
+  const last = await db.messages.append(st.id, { role: 'assistant', text: 'FOLD_READING_PROBE Liara spoke about the tower.' });
+  const ledger = emptyState(); ledger.sheet.playerName = 'Jovan'; ledger.place = { name: 'the yard' }; ledger.present = [{ name: 'Jovan' }, { name: 'Liara' }]; ledger.page = 0; ledger.readTo = 0;
+  await saveState(st.id, ledger);
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.ctx.chat.renderThread({ structural: true });
+  const prior = house.state.workerAnswer;
+  let reached = false; let release; const gate = new Promise((r) => { release = r; });
+  house.state.workerAnswer = async (body, sys) => {
+    if (/keep the ledger/i.test(sys) && /FOLD_READING_PROBE/.test(newPageOf(body.messages.slice(-1)[0].content))) {
+      reached = true; await gate;
+      return JSON.stringify({ mutations: [{ type: 'mode.snapshot', flags: [] }, { type: 'knowledge.add', name: 'Liara', fact: 'The tower password is amber.' }] });
+    }
+    return walkDefaultWorker(body, sys);
+  };
+  try {
+    await env.ctx.chat.pageReinked(st, last.id);
+    await until(() => reached, 'the page reader held on the wire');
+    const cards = stageProposals({ edits: [{ id: first.id, hide: true }], ledits: [], redits: [] }, { messages: await db.messages.list(st.id), state: await loadState(st.id), modules: [] });
+    const session = { turns: [{ role: 'housekeeper', text: 'fold it', proposals: cards }], batches: [] };
+    const applied = await applyProposal(session, st.id, cards[0].id);
+    assert(applied.ok && applied.folded.length === 1, 'the real housekeeper folded the page');
+    release();
+    await pendingWork(st.id, 10000);
+    const now = await loadState(st.id);
+    assert(!(now.knowledge.Liara || []).some((k) => /password is amber/.test(k.fact)), 'the old reading cannot land in the gap before pageFolded');
+    house.state.workerAnswer = prior;
+    await env.ctx.chat.pageFolded(st, first.id);
+    await settled();
+  } finally { release(); house.state.workerAnswer = prior; }
+});
+
+test('DOM-317 A CUT PAGE READING keeps its useful writes but leaves the whole page owed to the reader', async () => {
+  const { emptyState, saveState, loadState, readMark } = await import('../../js/engine/state.js');
+  const { pendingWork } = await import('../../js/agents/extractor.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm' });
+  const st = await db.stories.create({ title: 'the reader ran out of room' });
+  const page = await db.messages.append(st.id, { role: 'assistant', text: 'Liara sat beside Jovan in the yard and spoke of the tower.' });
+  const ledger = emptyState(); ledger.sheet.playerName = 'Jovan'; ledger.place = { name: 'the yard' }; ledger.present = [{ name: 'Jovan' }];
+  await saveState(st.id, ledger);
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.ctx.chat.renderThread({ structural: true });
+  const old = globalThis.fetch; let reads = 0;
+  globalThis.fetch = async (url, opts = {}) => {
+    const body = opts.body ? JSON.parse(opts.body) : {};
+    const sys = (body.messages || []).filter((m) => m.role === 'system').map((m) => m.content).join('\n');
+    if (!/keep the ledger/i.test(sys)) return old(url, opts);
+    reads += 1;
+    const answer = JSON.stringify({ mutations: [{ type: 'mode.snapshot', flags: [] }, { type: 'presence.enter', name: 'Liara' }] });
+    const text = 'data: ' + JSON.stringify({ choices: [{ delta: { content: answer } }] }) + '\n\ndata: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'length' }] }) + '\n\ndata: [DONE]\n\n';
+    return { ok: true, status: 200, headers: new Headers(), body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(text)); c.close(); } }), clone() { return this; }, async json() { return {}; }, async text() { return text; } };
+  };
+  try {
+    await env.ctx.chat.pageReinked(st, page.id);
+    await pendingWork(st.id, 10000);
+    const now = await loadState(st.id);
+    assert(reads >= 2, 'the cut answer earned its complete second ask');
+    assert(now.present.some((p) => p.name === 'Liara'), 'the useful prefix was kept');
+    eq(readMark(now), -1, 'a cut reading never claims the whole page was read');
+  } finally { globalThis.fetch = old; }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

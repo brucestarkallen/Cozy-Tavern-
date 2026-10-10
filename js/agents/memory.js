@@ -1116,7 +1116,12 @@ export function memoryAfterDeletion(mem, index, { keepCovering = lineIsHis } = {
     }
     return [{ ...n, span: [n.span[0] - 1, n.span[1] - 1] }];
   });
-  return { ...mem, nodes };
+  const next = { ...mem, nodes };
+  if (mem && mem.stuck && Number.isInteger(mem.stuck.at)) {
+    if (mem.stuck.at === index) delete next.stuck;
+    else if (mem.stuck.at > index) next.stuck = { ...mem.stuck, at: mem.stuck.at - 1 };
+  }
+  return next;
 }
 /* M681 — A PAGE THAT COMES BACK (the books audit's B2: the housekeeper's "Bring this page back to the story", or its fold
  * taken back). The record counts the pages that show; a page shown again at visible `index` moved every page from there
@@ -1135,7 +1140,9 @@ export function memoryAfterInsertion(mem, index, { keepCovering = lineIsHis } = 
     if (n.audited !== undefined) kept.audited = Math.min(auditedOf(n), index - n.span[0]);
     return [kept];
   });
-  return { ...mem, nodes };
+  const next = { ...mem, nodes };
+  if (mem && mem.stuck && Number.isInteger(mem.stuck.at) && mem.stuck.at >= index) next.stuck = { ...mem.stuck, at: mem.stuck.at + 1 };
+  return next;
 }
 
 /* M44: the record after the pages from visible `index` on are gone (a
@@ -1153,7 +1160,9 @@ export function memoryTruncatedAt(mem, index, { keepCovering = lineIsHis } = {})
     if (n.audited !== undefined) kept.audited = Math.min(auditedOf(n), index - n.span[0]);
     return [kept];
   });
-  return { ...mem, nodes };
+  const next = { ...mem, nodes };
+  if (mem && mem.stuck && Number.isInteger(mem.stuck.at) && mem.stuck.at >= index) delete next.stuck;
+  return next;
 }
 
 /* M44: the record without the line covering visible `index` (an edited or
@@ -1190,7 +1199,9 @@ export async function putBackMistakenMends(storyId) {
  * keeperOnFor.) */
 export function memoryWithoutPage(mem, index) {
   const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).filter((n) => !(n && Array.isArray(n.span) && n.span[0] <= index && index <= n.span[1]) || lineIsHis(n));
-  return { ...mem, nodes };
+  const next = { ...mem, nodes };
+  if (mem && mem.stuck && mem.stuck.at === index) delete next.stuck;
+  return next;
 }
 
 /* A LINE IN HIS OWN WORDS IS HIS. A record line he rewrote by hand (the drawer's "Rewrite"), or that the housekeeper
@@ -1590,6 +1601,8 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
         ));
         if (firstHalf && firstHalf !== '(no new state)' && !answerWasCut() && !keeperWasTruncated()) {
           text = firstHalf;
+          /* M682: both the landing check and the verification read exactly the range this line covers. */
+          pages = pages.slice(0, half);
           range[1] = range[0] + half;   /* this line covers only what it read */
         }
       } catch (err) { /* the cut line stands only when even half will not come */ }

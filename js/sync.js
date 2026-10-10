@@ -265,7 +265,7 @@ export async function initSync(ctx) {
         if (typeof r.epoch === 'string') epochWrite(r.epoch);
         owedWrite({}); /* M558: the device's copy is what stands — nothing of this browser's is owed */
         noteMirrored(); /* (M675: said after the reload — and only now that it is true) */
-        dropCaches(); location.reload(); return r;
+        status.reloading = true; dropCaches(); location.reload(); return r;
       }
       holding = false;
       for (const id of heldBack) { dirty.add(id); owe(id); } /* M675: no copy was read in — see heldBack */
@@ -445,7 +445,7 @@ export async function initSync(ctx) {
       if (typeof b.epoch === 'string') epochWrite(b.epoch);
       if (b.stale) { wentStale(b.staleEpoch); return false; }
       noteElsewhere(b.recent, { unlessMine: true });
-      if (b.pulled > 0) { dropCaches(); location.reload(); return true; }
+      if (b.pulled > 0) { status.reloading = true; dropCaches(); location.reload(); return true; }
       { const owed = Object.keys(owedRead()); if (owed.length) { for (const id of owed) dirty.add(id); clearTimeout(timer); Promise.resolve().then(pushNow); } } /* M558: what an earlier tab still owed */
     } else if (b && b.kind === 'boot' && !b.reachable && b.said && b.said.refused) {
       sayRefused(b.said); /* M675: the tavern answered, and does not serve this address (or this page): said, with how to put it right */

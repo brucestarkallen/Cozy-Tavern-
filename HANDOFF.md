@@ -1,3 +1,25 @@
+# Current continuation: m682-001, October 10, 2026, Codex
+
+The six remaining findings listed in the older resume block below have fixes and regression laws in this checkout.
+The old audit is preserved in full. HISTORY.md's M682 entry explains the causes, fixes, negative controls, and limits.
+
+The canon copies are reconciled through source version 0.68.3. Cozy's generated pipeline is program-identical to the
+previous copy apart from the version. Future vendoring checks tools/vendor-canon.lock.json and refuses local edits or
+an older source; merge changes into the extension first, then use --check to verify the adapted copy. The source commit
+in the copy's header contains all shared fixes. No vendoring step deletes the custom fixes from the previous releases.
+
+The startup reload race is reproduced and fixed: initSync marks a requested reload and the departing app never announces
+readiness. The academy test synchronizes its fixture before measurement and verifies its theme and motion preference.
+Its original performance budgets are unchanged. Do not turn the missing historical crash/navigation logs into a claim
+that every past interruption is conclusively explained; the reproduced cause and current checks are the evidence.
+
+The full gate run codex682a is in progress. Publication is blocked by GitHub integration write access (403 Resource not
+accessible by integration). The new code is not yet on main. All older main commits remain intact. Update this status
+with actual counts and commit SHAs after the gates and publication; never tell him this checkout is on his phone before
+GitHub main has been verified. The older checkpoints below are retained as history and describe their own versions.
+
+---
+
 # Verified continuation, October 10, 2026, Codex
 
 The two fixes left at the interruption are complete and verified in `m681-002`: canon dossier quotes are judged against this story, and the next clock jump is measured from where a long page ended. Both fixes were already saved in Claude's commits `63f87a1` and `f087472` on `m681-wip`. The application source in this checkpoint matches `f087472` exactly; all earlier audit commits remain ancestors.

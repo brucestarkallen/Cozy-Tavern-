@@ -3091,10 +3091,10 @@ export function initChat(ctx) {
     const done = applyMutations(older, writes);
     done.state.page = stampWas; /* the stamp is the turn's, not this old page's */
     if (!outOfTurn && writes.some((m) => m && m.type === 'mode.snapshot')) done.state.moodAt = k; /* M681 (S13): the newest page's board, stated by its reader */
-    markPageRead(done.state, k);
+    if (!back.incomplete) markPageRead(done.state, k); /* M682: a cut prefix keeps its writes, not a claim to the whole page */
     await saveState(story.id, done.state);
     notify(story.id);
-    return true;
+    return !back.incomplete;
   }
   const ledgerFilledAt = new Map();
   /* M583: the pause between two looks for unread pages (a minute, doubling) — as the record's own (gapBackoffMs), a walk
@@ -4444,7 +4444,13 @@ export function initChat(ctx) {
     const patch = shownTextPatch(page, page.mended.before, { mended: null, keptText: page.mended.before }); /* M575: one home */
     await db.messages.update(story.id, page.id, patch);
     /* M681 (B1's pattern — every door that changes a page's words tells the plans keeper): his words back are read again */
-    try { const k = visiblePages(await db.messages.list(story.id)).findIndex((m) => m && m.id === page.id); if (k !== -1) await pageRewritten(story.id, k); } catch (err) { /* read in its turn */ }
+    try {
+      const k = visiblePages(await db.messages.list(story.id)).findIndex((m) => m && m.id === page.id);
+      if (k !== -1) {
+        if (await keeperOnFor(story)) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k));
+        await pageRewritten(story.id, k);
+      }
+    } catch (err) { /* read in its turn */ }
     await rerenderMessage(story.id, page.id);
     toast('The earlier words are back.');
   }
@@ -4524,7 +4530,7 @@ export function initChat(ctx) {
     });
   }
 
-  function startBackgroundWork(story, msg, userText, { deep = false, audit = false, refound = false } = {}) {
+  function startBackgroundWork(story, msg, userText, { deep = false, audit = false, refound = false, layoutRebased = false } = {}) {
     offerChoices(story); /* M548: Choices matter — never in the chain, so no send waits for it */
     const gen = chainGen.get(story.id) || 0;
     /* M134: the clock as the chain begins — the world link measures how far this page moved it */
@@ -4534,7 +4540,7 @@ export function initChat(ctx) {
       /* M529: the record keeper, the sensors, the essentials, the placer, the world keeper and the plans keeper read the pages
        * and the record and write only their own books — with two workers at once they run in their own lane */
       const lane = SIDE_JOBS.has(name) ? 'side' : 'main';
-      const promise = enqueueWork(story.id, { name, lane, ...(once ? { once: true } : {}), run: chainJob(run, () => (chainGen.get(story.id) || 0) !== gen) }); /* M259: the leash's renew rides through */
+      const promise = enqueueWork(story.id, { name, lane, layoutRebased, ...(once ? { once: true } : {}), run: chainJob(run, () => (chainGen.get(story.id) || 0) !== gen) }); /* M259: the leash's renew rides through */
       noteWork(story.id, promise);
       if (ownReading && lane === 'main' && msg && msg.id) noteLedgerLink(story.id, msg.id, promise);
       return promise;
@@ -4744,7 +4750,7 @@ export function initChat(ctx) {
         if (room.length) next.roomAt = { page: pageInHand, names: room };
         else if (next.roomAt && next.roomAt.page === pageInHand) delete next.roomAt;
       }
-      if (pageInHand !== -1) {
+      if (pageInHand !== -1 && !extracted.incomplete) {
         if (young) {
           /* the founding read took in every page before this one: all of them are read */
           next.readTo = Math.max(readMark(next), pageInHand);
@@ -5737,7 +5743,7 @@ export function initChat(ctx) {
       let pages = 0;
       if (changed && vis[at] && vis[at].role === 'assistant' && !vis[at].ooc) {
         const lastUser = [...vis.slice(0, at)].reverse().find((x) => x.role === 'user');
-        startBackgroundWork(story, vis[at], lastUser ? pageText(lastUser) : '');
+        startBackgroundWork(story, vis[at], lastUser ? pageText(lastUser) : '', { layoutRebased: true });
         pages = 1;
       }
       /* 3. the tail, queued behind that chain */
@@ -5745,7 +5751,7 @@ export function initChat(ctx) {
       /* M680: the queue tries a job that threw again — the later writes are put back once, never twice (a feeling's
        * shift is a sum: put back twice, it is counted twice) */
       let laterPutBack = false;
-      const tail = enqueueWork(story.id, { name: 'checkpoint', run: async () => {
+      const tail = enqueueWork(story.id, { name: 'checkpoint', layoutRebased: true, run: async () => {
         if ((chainGen.get(story.id) || 0) !== gen) return { silent: true }; /* a rewind cut in — the fold that did it is the truth now */
         let st = await loadState(story.id);
         const lastIndex = vis.filter((m) => m.role === 'assistant').length - 1;

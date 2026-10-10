@@ -226,6 +226,8 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
   /* M140: ask the browser to keep the store through cache clears (persistent storage) */
   try { if (navigator.storage && typeof navigator.storage.persist === 'function') navigator.storage.persist().catch(() => {}); } catch (err) { /* fine */ }
   const booksStatus = await initSync(ctx);
+  /* A boot pull requested another document. This one must never announce a ready app before that reload lands. */
+  if (booksStatus && booksStatus.reloading) return;
   ctx.booksStatus = booksStatus;
   /* M675: the words each page was sent (js/sent.js, a store of its own) are told two things by the house. Which library
    * this browser's books belong to — so words kept for the library as it was before a copy was brought back are never

@@ -70,14 +70,17 @@ def boot(b, reduced=False):
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
     page.goto(BASE, wait_until='load')
-    page.wait_for_function("!!window.__cozy && !!window.__cozy.chat", timeout=30000)
+    page.wait_for_function("!!window.__cozy && !!window.__cozy.chat && !!document.documentElement.dataset.version", timeout=30000)
     page.evaluate("""async () => { const { db } = await import('/js/store.js');
       if (!(await db.settings.get('activeConnectionId'))) {
         const conn = await db.connections.add({ label: 'The house choice', type: 'openai', baseUrl: 'https://x.example/v1', apiKey: 'k', model: 'deepseek-chat' });
         await db.settings.set('activeConnectionId', conn.id); }
-      await db.settings.set('welcomeSeen', true); await db.settings.set('theme', 'academy'); }""")
+      await db.settings.set('welcomeSeen', true); await db.settings.set('theme', 'academy');
+      await window.__cozy.booksStatus.pushAll(); }""")
     page.reload(wait_until='load')
-    page.wait_for_function("!!window.__cozy && !!window.__cozy.chat", timeout=30000)
+    page.wait_for_function("!!window.__cozy && !!window.__cozy.chat && !!document.documentElement.dataset.version", timeout=30000)
+    page.wait_for_function("document.documentElement.dataset.theme === 'academy'", timeout=10000)
+    assert page.evaluate("matchMedia('(prefers-reduced-motion: reduce)').matches") == reduced
     page.wait_for_timeout(2500)
     cdp = ctx.new_cdp_session(page)
     cdp.send('Emulation.setCPUThrottlingRate', {'rate': THROTTLE})
@@ -110,6 +113,7 @@ def measure(p):
         out[key]['welcome'] = idle(b, page)
     # a story opened: the thread says so, and the map stands still
     page.evaluate(SEED.replace("await db.settings.set('welcomeSeen', true);", "await db.settings.set('welcomeSeen', true); await db.settings.set('theme', 'academy');"))
+    page.evaluate("async () => { await window.__cozy.booksStatus.pushAll(); }")
     page.wait_for_function("document.documentElement.dataset.thread === 'story'", timeout=15000)
     page.evaluate("() => { const t = document.getElementById('thread'); t.scrollTop = t.scrollHeight; }")
     for c, key in (('dark', 'lamplight'), ('academy', 'academy')):

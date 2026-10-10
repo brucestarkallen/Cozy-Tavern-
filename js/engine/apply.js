@@ -100,6 +100,34 @@ function cloneMap(map) {
   try { return JSON.parse(JSON.stringify(map)); } catch (err) { return {}; }
 }
 
+/* M682: a fight's take-back reverses only what that fight wrote into the shared books. A later weighing or wound
+ * is another writer's work. Objects are compared field by field; lists keep additions made after the fight. */
+function fightBookBack(current, before, after) {
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const copy = (v) => v === undefined ? undefined : JSON.parse(JSON.stringify(v));
+  const object = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  if (same(before, after)) return copy(current);
+  if (same(current, after)) return copy(before);
+  if (object(current) && (object(before) || before === undefined) && (object(after) || after === undefined)) {
+    const out = { ...current };
+    for (const key of new Set([...Object.keys(before || {}), ...Object.keys(after || {})])) {
+      if (!safeKey(key)) continue;
+      const value = fightBookBack(current[key], before && before[key], after && after[key]);
+      if (value === undefined) delete out[key];
+      else out[key] = value;
+    }
+    return before === undefined && !Object.keys(out).length ? undefined : out;
+  }
+  if (Array.isArray(current) && (Array.isArray(before) || before === undefined) && (Array.isArray(after) || after === undefined)) {
+    const added = (after || []).filter((v) => !(before || []).some((b) => same(v, b)));
+    const removed = (before || []).filter((v) => !(after || []).some((a) => same(v, a)));
+    const out = current.filter((v) => !added.some((a) => same(v, a)));
+    for (const value of removed) if (!out.some((v) => same(v, value))) out.push(copy(value));
+    return out;
+  }
+  return copy(current);
+}
+
 function copyState(state) {
   const safe = state && typeof state === 'object' ? state : {};
   return {
@@ -1567,7 +1595,7 @@ const HANDLERS = {
     } else {
       words = 'A war is joined — ' + (state.battle.allies.length - 1) + ' formations against ' + state.battle.enemies.length + '.';
     }
-    return { words, undo: { kind: 'combat.restore', before } };
+    return { words, undo: { kind: 'combat.restore', before, after: { sheet: cloneMap(state.sheet) } } };
   },
 
   /* M470: someone joins the fight on either side — a duel grows into a battle carrying both duellists as they stand;
@@ -1591,7 +1619,7 @@ const HANDLERS = {
     state.mode.combat = true;
     const who = [].concat(allies.map((n) => n + ' beside ' + mcName(state)), enemies.map((n) => n + ' against'));
     const words = (wasDuel ? 'The duel widens into a battle — ' : 'The battle grows — ') + who.join(', ') + '. Now ' + state.battle.allies.length + ' against ' + state.battle.enemies.length + '.';
-    return { words, undo: { kind: 'combat.restore', before } };
+    return { words, undo: { kind: 'combat.restore', before, after: { sheet: cloneMap(state.sheet) } } };
   },
 
   'combat.end'(state, m) {
@@ -1617,7 +1645,7 @@ const HANDLERS = {
       bits.push(key + ' carries the fight’s marks (' + (SEV_WORDS[h.injuries >= 2 ? 3 : 2] || 'hurt') + ', untreated).');
     }
     const words = 'The fight has ebbed.' + (bits.length ? ' ' + bits.join(' ') : '');
-    return { words, undo: { kind: 'combat.restore', before } };
+    return { words, undo: { kind: 'combat.restore', before, after: { sheet: cloneMap(state.sheet), bodies: cloneMap(state.bodies) } } };
   },
 
   /* M681 — A WEIGHING OF THE CAST IS A JOURNALED WRITE (the scene audit's S12, made to happen on m680-001): the weighing
@@ -3150,7 +3178,8 @@ function journalUndo(next, entry) {
   const reversed = Number.isInteger(entry && entry.jid) ? next.journal.find((j) => j && j.id === entry.jid) : null;
   const p = reversed && Number.isInteger(reversed.p) ? reversed.p : (Number.isInteger(next.page) ? next.page : -1);
   next.journalSeq = (Number.isInteger(next.journalSeq) ? next.journalSeq : 0) + 1;
-  next.journal.push({ id: next.journalSeq, p, m: { type: 'undo.apply', undo: JSON.parse(JSON.stringify(entry.undo)), of: entry.words, ...(reversed && reversed.m && reversed.m.story === true ? { story: true } : {}) } }); /* M681: the take-back of a write about the whole story outlives a fold as the write does */
+  const payload = entry.undo && entry.undo.kind === 'combat.restore' && !entry.undo.after ? { ...entry.undo, ofWords: entry.words } : entry.undo;
+  next.journal.push({ id: next.journalSeq, p, m: { type: 'undo.apply', undo: JSON.parse(JSON.stringify(payload)), of: entry.words, ...(reversed && reversed.m && reversed.m.story === true ? { story: true } : {}) } }); /* M681: the take-back of a write about the whole story outlives a fold as the write does */
   if (next.journal.length > JOURNAL_CAP) next.journal = next.journal.slice(next.journal.length - JOURNAL_CAP);
   const logEntry = appendLog(next, 'Taken back — ' + entry.words, null);
   logEntry.jid = next.journalSeq;
@@ -3279,8 +3308,20 @@ function applyUndo(next, undo) {
       next.duel = b.duel ? cloneMap({ d: b.duel }).d : null;
       next.battle = b.battle ? cloneMap({ b: b.battle }).b : null;
       next.mode.combat = b.combat === true;
-      if (b.sheet) next.sheet = cloneMap(b.sheet);
-      if (b.bodies) next.bodies = cloneMap(b.bodies);
+      if (b.sheet) next.sheet = undo.after ? fightBookBack(next.sheet, b.sheet, undo.after.sheet) : cloneMap(b.sheet);
+      if (b.bodies) next.bodies = undo.after ? fightBookBack(next.bodies, b.bodies, undo.after.bodies) : cloneMap(b.bodies);
+      /* Older saved take-backs have only the before-books. Their original log line locates the later writes, so
+       * those weighings and wounds are laid back in journal order instead of being lost to the older snapshot. */
+      if (!undo.after) {
+        const source = [...(next.log || [])].reverse().find((e) => e && !e.undone && e.undo && e.undo.kind === 'combat.restore' && (undo.ofWords ? e.words === undo.ofWords : JSON.stringify(e.undo.before) === JSON.stringify(b)));
+        if (source && Number.isInteger(source.jid)) for (const j of (next.journal || [])) {
+          if (!j || j.id <= source.jid || !j.m) continue;
+          if (j.m.type === 'sheet.weigh' || /^body\./.test(j.m.type || '')) {
+            const handler = HANDLERS[j.m.type];
+            if (handler) handler(next, j.m);
+          } else if (j.m.type === 'undo.apply' && j.m.undo && j.m.undo.kind === 'body.restore') applyUndo(next, j.m.undo);
+        }
+      }
       ok = true;
     } else if (undo.kind === 'canon.restore') {
       const key = findCanonKey(next.canon, undo.name) || undo.name;

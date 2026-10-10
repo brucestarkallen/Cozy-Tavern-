@@ -1182,7 +1182,7 @@ async function extractTurnRead({ connection, state, userText, assistantText, bef
   const better = (a, b) => {
     if (!b) return a;
     if (!a) return b;
-    const rank = (r) => (r.note === 'ok' ? 2 : r.note === 'empty' ? 1 : 0);
+    const rank = (r) => (r.note === 'ok' ? 3 : r.note === 'empty' ? 2 : r.note === 'cut short' ? 1 : 0);
     if (rank(b) !== rank(a)) return rank(b) > rank(a) ? b : a;
     return b.mutations.length >= a.mutations.length ? b : a;
   };
@@ -1204,7 +1204,9 @@ async function extractTurnRead({ connection, state, userText, assistantText, bef
       });
       read = parseExtractorAnswer(text, { standingsFor: prompt.standingsFor }); /* M641 */
       read.raw = text;
-      if (finishReason === 'length') read.note = read.mutations.length ? read.note : 'cut short';
+      /* M682: a usable prefix is still a cut reading. Keep its writes if the second ask fails, but never claim the
+       * whole page was read; a complete answer outranks even a longer prefix. */
+      if (finishReason === 'length') { read.note = 'cut short'; read.incomplete = true; }
     } catch (err) {
       /* M163: a wire that fails on the SECOND ask does not erase the first
        * reading; with nothing yet in hand it still throws, and the queue
@@ -1226,7 +1228,9 @@ async function extractTurnRead({ connection, state, userText, assistantText, bef
     }
     if (read.note === 'ok') return read;
     if (attempt === 0) {
-      if (read.note === 'unusable' || read.note === 'cut short') {
+      if (read.note === 'cut short') {
+        user = prompt.user + '\n\nYour last answer was cut at the output limit. Read the whole page again and return one complete JSON object with every necessary mutation. Keep the JSON concise, including the mood board, and leave room to close the object.';
+      } else if (read.note === 'unusable') {
         user = prompt.user + '\n\nYour last answer was not a JSON object with a "mutations" list. Answer with the JSON object only — no words before or after it.';
       } else if (read.note === 'empty' && young) {
         user = prompt.user + '\n\nThe ledger is empty and the page has a scene, so an empty list is wrong here. Write the founding: place.set for the ground, presence.enter for every person in the scene (the main character included), mc.set if the main character is not yet known. JSON only.';

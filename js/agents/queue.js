@@ -29,6 +29,21 @@ export const BACKOFF_CAP_MS = 60000;   /* no wait grows past a minute */
 let epoch = 0;
 let activeStoryId = null;
 const queues = new Map();   // storyId -> job[]
+/* M682: visible page numbers change before the housekeeper asks chat to rebase its books. Every old reading is stale
+ * from the visibility write itself; work begun inside that window is stale too, even if it answers after the rebase. */
+const pageLayouts = new Map();
+const changingLayouts = new Map();
+export function pageLayoutChanged(storyId) {
+  if (storyId) pageLayouts.set(storyId, (pageLayouts.get(storyId) || 0) + 1);
+}
+export function holdPageLayout(storyId) {
+  changingLayouts.set(storyId, (changingLayouts.get(storyId) || 0) + 1);
+  return () => {
+    const left = (changingLayouts.get(storyId) || 1) - 1;
+    if (left > 0) changingLayouts.set(storyId, left);
+    else changingLayouts.delete(storyId);
+  };
+}
 
 /* M208: THE WRITER MAY STOP WHAT THE WRITER STARTED. A rebuild is minutes of
  * work and there was no way to call it off — the only way out was closing the
@@ -194,7 +209,7 @@ export function enqueueWork(storyId, job) {
     return Promise.resolve({ ok: false, why: 'misshapen' });
   }
   const lane = laneOf(storyId, job);
-  const entry = { ...job, storyId, lane, epoch };
+  const entry = { ...job, storyId, lane, epoch, pageLayout: pageLayouts.get(storyId) || 0, duringLayout: Boolean(changingLayouts.get(storyId)) && job.layoutRebased !== true };
   let list = queues.get(lane);
   if (!list) { list = []; queues.set(lane, list); }
   return new Promise((resolve) => {
@@ -225,7 +240,7 @@ async function drain(storyId) {
 async function runJob(job) {
   const { storyId, name } = job;
   const laneKey = job.lane || storyId; /* M529: each lane's job in flight has its own stop */
-  const isStale = () => job.epoch !== epoch;
+  const isStale = () => job.epoch !== epoch || job.duringLayout || job.pageLayout !== (pageLayouts.get(storyId) || 0);
   /* A job queued for a story the writer has since left never starts. */
   if (isStale()) return { ok: false, stale: true, why: 'left behind' };
 
