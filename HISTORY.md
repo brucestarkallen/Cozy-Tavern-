@@ -18008,7 +18008,27 @@ finding happen before it was touched. What was fixed here, each with a law that 
   every page it lets go.
 - THE CHOICES ARE MADE FROM THE LEDGER AS THE PAGE LEFT IT (DOM-275): Choices matter sealed its outcomes before the page's
   readers had written it (a man the page walked out of the yard still "here now"); it waits for them.
-- NOT COVERED BY ANY TEST: the delete's busy hold (no test fails without it); replayFrom's two-minute wait for readers
-  in flight (a chain outlasting it lets the fold go ahead and the stale readers' writes are dropped, unnoticed).
+- ITS FOUR GATE REGRESSIONS, FIXED AT THEIR ROOTS (the first full gates on M680 found them; each law fails on 74007f4):
+  - WHO THE ENDING SHOWS COMING IN WALKS IN (harness M655-1, walk DOM-100; laws M680-12…16): M680's walk-in rule refused
+    Tom (unseated, never named, seated by the world agent at the scene's own place) and Renji (the ending has him shoulder
+    through the door; the reader's "here" left him out). apply.js comesInAtTheEnd reads the page's ENDING for this
+    person arriving (in/inside, through the door, into the room, "In came Renji", showed up, let herself in; not one
+    undone in the same breath — "came in and went out again"); walkInFromPage takes it, the world agent says when a seat
+    was its own judgement (`judged`), and the page reader's and the auditor's seats at the scene answer to it too.
+    Corven stays out of the council room (M680-2 still holds).
+  - CHOICES WAITS FOR THE PAGE'S READERS BY NAME (walk DOM-204): its 500 ms poll of the queue saw an empty queue between
+    two jobs and asked too early; it now waits on the page's own readers settling (chat.js untilReadersSettled).
+  - A DELETE HOLDS THE HOUSE WITHOUT TURNING ANYONE AWAY (walk DOM-208, DOM-276): M680 held it by marking the house busy,
+    which turned a page sent meanwhile away; the delete now holds the replay door (deleteHold) — a re-ink or a rebuild
+    pressed meanwhile waits for every page of the delete, and a send waits for it instead of being refused.
+  - THE SEND'S WORST FRAME BACK UNDER BUDGET (browser perf_send, 1124 ms over 1000): every send now looked up every name in
+    the room against every seat for a grave, and every name against canon; the dead are looked for only where a death
+    seat stands, and canon's names only when something is locked (state.js renderStateFacts, apply.js canonNamesFor).
+- NOT COVERED BY ANY TEST: replayFrom's two-minute wait for readers in flight (a chain outlasting it lets the fold go ahead
+  and the stale readers' writes are dropped, unnoticed).
 - STILL OPEN after this audit (each made to happen or read in code, not yet fixed): see HANDOFF.md "## M680".
+- GATES (run g680e on commit 6f54bb4, every gate in full): harness 1381/1381, walk 276/276, long play 9/9, lint 0 errors
+  (189 warnings), the 20 browser tests all green (perf_send worst long task 778 ms of 1000). The run before (g680d) had
+  device_guard and perf_academy red: device_guard passed 3/3 alone; perf_academy's welcome-screen trace runs no app code
+  on either build (main 55.6/121.5/84.8 ms vs M680 90.8/72.4/72.4 ms, interleaved) — noise, not M680.
 - version.js -> m680-001.
