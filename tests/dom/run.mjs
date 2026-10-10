@@ -1529,7 +1529,7 @@ test('DOM-20 the ledger light follows the work itself: blue, then green, with no
     await db.messages.append(st.id, { role: 'assistant', text: 'The scene turns.' });
   }
   await db.settings.set('memoryWindow', 20);
-  await saveState(st.id, { ...emptyState(), page: 3 });
+  await saveState(st.id, { ...emptyState(), page: 3, audit: { coverage: { read: 8, total: 8 }, pending: [], unfinished: false } });
   await saveMemory(st.id, { window: 20, nodes: [] });
   for (const w of ['keeper', 'extractor', 'scribe', 'world']) await noteWorkerRun(st.id, w, { ok: true, detail: 'well' });
   env.window.__cozy.setActiveStoryId(st.id);
@@ -1891,6 +1891,7 @@ test('DOM-27 the ledger reads the pages it missed — while the writer plays and
   }
   /* the ledger read pages 0..2; 3, 4 and 5 went unread (an outage), and none of them changed anything */
   const missedState = emptyState();
+  missedState.characters.Kim = { core: 'Kim, the friend at her apartment.', state: '', arc: '', threads: [] };
   missedState.sheet.playerName = 'Jovan'; // the fixture's sole present person is the main character
   await saveState(st.id, { ...missedState, page: 2, place: { name: 'The kitchen' }, present: [{ name: 'Jovan' }] });
   await saveMemory(st.id, { window: 20, nodes: [] });
@@ -2999,8 +3000,9 @@ test('DOM-53 the light heals the record BY ITSELF and ends green: a tale folded 
   try {
     /* (1) folded under a window of 10; the Settings slider has since been raised to 30 */
     const a = await db.stories.create({ title: 'folded under another window' });
+    await db.stories.update(a.id, { keeper: true });
     for (let i = 0; i < 40; i += 1) await db.messages.append(a.id, { role: i % 2 ? 'assistant' : 'user', text: 'Page ' + i + ': they talked on the porch about the letter and the fair.' });
-    await saveState(a.id, { ...emptyState(), page: 19, readTo: 19, tidiedGen: 999 });
+    await saveState(a.id, { ...emptyState(), page: 19, readTo: 19, tidiedGen: 999, audit: { coverage: { read: 40, total: 40 }, pending: [], unfinished: false } });
     await saveMemory(a.id, { window: 10, nodes: [0, 6, 12, 18].map((from, i) => ({ id: 'w' + i, span: [from, from + 5], text: 'Pages ' + (from + 1) + '-' + (from + 6) + ': they talked.', level: 1, at: 1, whole: true })) });
     await db.settings.set('memoryWindow', 30); await db.settings.set('memoryBatch', 6);
     let keeperCalls = 0;
@@ -3013,8 +3015,9 @@ test('DOM-53 the light heals the record BY ITSELF and ends green: a tale folded 
     /* (2) a real gap, and a keeper whose first answers are nothing: it is sent again by itself */
     await db.settings.set('memoryWindow', 4);
     const b = await db.stories.create({ title: 'a stumble, then a line' });
+    await db.stories.update(b.id, { keeper: true });
     for (let i = 0; i < 24; i += 1) await db.messages.append(b.id, { role: i % 2 ? 'assistant' : 'user', text: 'Page ' + i + ': they talked on the porch about the letter and the fair.' });
-    await saveState(b.id, { ...emptyState(), page: 11, readTo: 11, tidiedGen: 999 });
+    await saveState(b.id, { ...emptyState(), page: 11, readTo: 11, tidiedGen: 999, audit: { coverage: { read: 24, total: 24 }, pending: [], unfinished: false } });
     let asks = 0;
     house.state.workerAnswer = (body, sys) => { if (/memory keeper|narrative-state tracker/i.test(sys)) { asks += 1; return asks <= 6 ? '' : 'They talked on the porch about the letter and the fair; nothing else changed.'; } return priorWorker(body, sys); }; /* M666: a run of the keeper asks three times for the batch and three for its first page alone — a stumble is the WHOLE run coming back empty (six asks), where it was two */
     globalThis.__cozyGapBackoffMs = 700;
@@ -8548,6 +8551,13 @@ test('DOM-242 THE STORY SCREEN, AS HE ASKED (M668; M675: the bottom line holds n
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
   if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
   const st = await db.stories.create({ title: 'the tidy screen' });
+  /* M686: the default page/world mocks introduce Liara and Kim. This screen
+   * fixture starts with their identities, so its green-light premise is true. */
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  await saveState(st.id, { ...emptyState(), characters: {
+    Liara: { core: 'Liara, the friend at the table.', state: '', arc: '', threads: [] },
+    Kim: { core: 'Kim, the friend at her apartment.', state: '', arc: '', threads: [] },
+  } });
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   const prior = { story: house.state.storyAnswer, fail: house.state.fail };
@@ -8670,7 +8680,7 @@ test('DOM-243 THE CONTINUOUS AUDIT, IN THE APP (M673 — his: “step by step it
     { type: 'people.set', name: 'Rukia', field: 'core', text: 'a shinigami of the Thirteenth Division' },
     { type: 'people.set', name: 'Renji', field: 'core', text: 'a lieutenant, posted at the gate' },
   ]).state;
-  await saveState(st.id, { ...led, page: 19, readTo: 19, tidiedGen: 999, healedGen: 999 });
+  await saveState(st.id, { ...led, page: 19, readTo: 19, tidiedGen: 999, healedGen: 999, audit: { coverage: { read: 40, total: 40 }, pending: [], unfinished: false } });
   const line = (id, a, text) => ({ id, span: [a, a + 5], text, level: 1, at: a + 1, whole: true });
   await saveMemory(st.id, { window: 30, nodes: [line('a', 0, LINE_A), line('b', 6, 'Rukia swept the yard; nothing else moved.'), line('c', 12, 'The yard stayed quiet; Rukia swept on.')] });
   await noteWorkerRun(st.id, 'keeper', { ok: true, detail: 'well' });

@@ -504,8 +504,8 @@ test('M248: a run says whether it FINISHED, and the house carries on when it did
   /* the button, for when the house is told not to */
   assert(/fix\.textContent = 'Finish it';/.test(drawer), 'an unfinished run offers to be finished');
   assert(/Carry on from where it stopped\. Nothing already done is redone\./.test(drawer), 'and says what that means');
-  assert(/if \(row\.unfinished && row\.resume && ctx\.chat && typeof ctx\.chat\[row\.resume\] === 'function'\)/.test(drawer),
-    'offered only where there is something to carry on');
+  /* M686: DOM-M686-6 runs the actual drawer and checks that an unfinished
+   * auditor has no Finish it button. Its recovery is automatic. */
 
   /* and the house doing it itself, on by default */
   assert(/if \(\(await db\.settings\.get\('autoFinish'\)\) === false\) return;/.test(chat), 'ON unless the writer turns it off');
