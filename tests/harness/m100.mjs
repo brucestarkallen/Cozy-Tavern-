@@ -313,7 +313,7 @@ test('M167: the 🎨 pack paints in tokens, so it follows the coat', async () =>
   }
   /* M301: and in every other coat there is — a coat without the pack wears
    * lamplight's near-black cards in its own room (the fault M167 fixed) */
-  for (const m of css.matchAll(/html\[data-theme='([a-z]+)'\]\s*\{/g)) {
+  for (const m of css.matchAll(/html\[data-theme='([a-z-]+)'\]\s*\{/g)) {
     const block = css.slice(m.index, css.indexOf('\n}', m.index));
     for (const token of used) assert(block.includes(token + ':'), token + ' has a value in the ' + m[1] + ' coat');
   }
@@ -331,7 +331,7 @@ test('M168: the ink on the ember turns with the ember, and every coat defines it
   const coats = [];
   {
     const marks = [{ name: 'lamplight', at: css.indexOf(':root') }];
-    for (const m of css.matchAll(/html\[data-theme='([a-z]+)'\]/g)) marks.push({ name: m[1], at: m.index });
+    for (const m of css.matchAll(/html\[data-theme='([a-z-]+)'\]/g)) marks.push({ name: m[1], at: m.index });
     marks.sort((a, b) => a.at - b.at);
     for (let i = 0; i < marks.length; i += 1) {
       const end = i + 1 < marks.length ? marks[i + 1].at : css.length;

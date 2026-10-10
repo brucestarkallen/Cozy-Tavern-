@@ -18354,3 +18354,9 @@ The real UI test judges every house-room heading/label against its actual solid 
 commit it fails at 1.08:1; with the override it passes the 4.5:1 threshold. The revised fast checkpoint passes in
 15.01 s. Runner cancellation also terminates its child group rather than leaving background checks behind.
 The DOM resend law additionally fails on the unmodified M682 application with one refused banner still visible.
+
+M683 fixture correction: the full harness identified M168/M32-4's alphabetic-only coat parser, which missed the
+new valid academy-night selector, counted nine coats instead of ten, and assigned both colours to the preceding
+coat. The release was stopped during the harness. The parser now accepts hyphens; the same grammar is used by
+M167 and M254 so their unchanged palette assertions cover the new coat too. All four pass individually. No
+assertion, colour count or budget was removed or lowered. These four inexpensive checks join the fast profile.

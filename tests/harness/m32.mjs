@@ -63,7 +63,7 @@ test('M32-4 the colour switch exists, is wired, and the theme carries both colou
   /* M254: EVERY coat names it, however many there are — a fixed count of two
    * broke the moment a third coat was added, for no reason at all. */
   {
-    const coatCount = 1 + [...css.matchAll(/html\[data-theme='[a-z]+'\]/g)].length;
+    const coatCount = 1 + [...css.matchAll(/html\[data-theme='[a-z-]+'\]/g)].length;
     eq((css.match(/--spoken:/g) || []).length, coatCount,
       'every coat names the spoken colour (' + coatCount + ' coats)');
     eq((css.match(/--thought:/g) || []).length, coatCount, 'and the thought colour');

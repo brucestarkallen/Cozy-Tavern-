@@ -625,7 +625,7 @@ test('M254: green means read, folded and waiting on nothing — and a third coat
    * so a fourth coat could have shipped half-dressed and passed. (That the
    * house resolves a chosen coat is behaviour, and is held where behaviour
    * can be run: the walk, DOM-42.) */
-  const coats = [...new Set([...base.matchAll(/html\[data-theme='([a-z]+)'\]\s*\{/g)].map((m) => m[1]))];
+  const coats = [...new Set([...base.matchAll(/html\[data-theme='([a-z-]+)'\]\s*\{/g)].map((m) => m[1]))];
   assert(coats.includes('deep') && coats.includes('magma') && coats.includes('light'), 'the coats: ' + coats.join(', '));
   for (const coat of coats) {
     const block = blockOf("html[data-theme='" + coat + "'] {");
