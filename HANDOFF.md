@@ -1,75 +1,63 @@
-# M686 work in progress
-
-The owner's autonomous recovery contract is implemented on m686-autonomous-recovery.
-Opening a story starts original source recovery, and saved unfinished audits retry
-while idle with no terminal attempt limit. They yield to storytelling and respect
-Stop and disabled agents. The auditor no longer hands the writer a Finish it task.
-See docs/AUTONOMOUS-RECOVERY-M686.md. Seven new app scenarios pass; four fail on M685,
-and three controls pass there. Fast checks passed in 26.79 seconds. Full release
-m686a is running. Main still serves M685 until results and publication are verified.
-
 # Cozy Tavern: current handoff
 
-## Current release: m685-001
+## Current release: m686-001
 
-Jovan asked for an actual audit across Scene, People, World and Books after an
-existing story still lost Princess Alexia. The section by section audit is in
-docs/LEDGER-AUDIT-M685.md. SPEC.md defines the accepted behavior; exact test results,
-including failed attempts and their corrections, are in audit/results/m685.json.
+The owner expects a plug and play frontend: detected ledger faults are repaired by
+the app, with no Audit button required to start or continue recovery. M686 closes
+the idle recovery gap left by M685. See docs/AUTONOMOUS-RECOVERY-M686.md and the
+section by section prior audit in docs/LEDGER-AUDIT-M685.md. SPEC.md holds the contract.
 
-Product checkpoint: df35cd5d158ce0d6d20adff9cfbbd4a194f575bd. The later release commit
-changes documentation only. M684 was 613c174. Claude's M680 (4a19de3), M681 (8880a0),
-final fixes f087472/63f87 and M683 (71b22e8) remain ancestors. Original HISTORY and
-instruction archives are preserved. Canon Verification remains v0.68.3 / 5aed234;
-do not replace the vendored copy or rerun vendoring without reconciling its changes.
+Application checkpoint: 50f1289. Test fixture checkpoint: a3d55bf. Subsequent release
+notes change no execution inputs. Exact results are in audit/results/m686.json.
 
-## What changed and where
+## What changed
 
-* agents/auditsources.js reads original answered writer input, story pages, brief
-  and cast in bounded batches. Exact quotations recover missing People identities
-  even when summaries and all books lost them. Old introductions do not establish
-  current presence. Receipts are cached by source text; changed sources are reread.
-* agents/auditor.js gives blocked proposals their actual reason and one followup.
-  Renames preserve records. Unresolved findings survive later empty answers and
-  close only with a matching repair or source quoted withdrawal. Cut off or failed
-  readings do not declare completion. All returned findings are considered.
-* Evidence can correct a wrong current mood, character state and missing personal
-  promise. Manual fields, later clock advances, deaths, actual departures, page
-  earned standings, source changes and concurrent writes remain protected.
-* agents/world.js includes absent people who lack a location record in owed work.
-  ui/chat.js finishes an audit with any owed world review in the same job, using
-  the configured world worker without an extra story turn or clock advance.
-* Books shows source coverage, landed repairs and pending reasons. A repeated page
-  correction is combined before mending. Manual Stop wins even after partial work;
-  auditor timeouts propagate without breaking the continuous reader's separate
-  mender timeout contract. agents/queue.js, auditor.js, chat.js and drawer.js.
+* js/ui/chat.js schedules full original source recovery when an existing story is
+  opened and continues incomplete audits while idle. Completed source work is kept.
+  It resumes from saved coverage and findings on reopen. There is no terminal retry
+  count. A progressing pass resumes after fifteen seconds; unsuccessful passes wait
+  one, two, four, then at most five minutes. The configured model remains in use.
+* The job runs through the existing reader queue and cancellation mechanism. A new
+  story turn interrupts idle recovery. Current source checks, story switches, other
+  browsers, replays, explicit Stop, disabled agents and stopped partial pages retain
+  their guards. Completion stops the loop. Owed world work follows the audit; a
+  disabled world worker does not create an impossible task. Recovered world status
+  is updated. An incomplete audit cannot produce the completion light.
+* js/ui/drawer.js describes automatic continuation. An auditor row no longer offers
+  Finish it, including old saved rows with a resume action. Earlier ledger repair,
+  source recovery, identity preservation and simulation rules remain in place.
 
 ## Verification
 
-Final complete harness 1499/1499, app walkthrough 297/297, long play 9/9 and lint
-0 errors. All 33 release checks have qualifying green results. This was not one
-all-green invocation: m685e passed 32/33; long play caught a duplicated page repair.
-After its four-line correction, m685f reran the full harness, walkthrough, unchanged
-long play and lint. The device, theme and performance code is unchanged from m685e.
-No budget or long-play assertion was relaxed.
+Full harness 1499/1499, walkthrough 304/304, long play 9/9, lint zero errors.
+All 33 release checks have qualifying passing results. This was not one all-green
+invocation: m686a passed 31/33. One source-spelling assertion expected the old button
+condition; the live drawer is covered by DOM-M686-6. Five older walkthrough fixtures
+expected a completed ledger without its source coverage or their mock characters'
+identities. Their initial data now makes that premise true; all behavioral assertions
+remain. DOM-53 also explicitly enables its own keeper. Only tests changed after
+m686a. The full harness, walkthrough and lint passed again in m686b. The app and all
+browser/performance inputs were unchanged; no timing budget was relaxed.
 
-All 30 M685 laws pass. The original 29 were run against M684: 26 fail and three
-preservation controls pass. M685-30 reproduces the duplicate mend on e876f85 and
-passes with the correction. DOM-M685-1 fails on M684 and passes now through the
-actual audit button. It restores missing people, current presence and absent
-world state without another storyteller turn. Stop is covered by unchanged DOM-262.
-A focused development profile took 21.81 seconds before the final duplicate fix.
-Tests use scripted providers; no paid model calls or real user stories were used.
+Seven new app scenarios pass. Four fail on published M685; the other three preserve
+Stop, disabled audit and stopped-page behavior. They cover initial recovery without
+input, continuation beyond three attempts, completion stopping the loop, a temporary
+provider outage, yielding to an actual send, and no manual Finish it action. The fast
+profile passed six checks in 26.79 seconds. Tests use scripted providers and disposable
+stories. No paid story model calls or phone ledger data were used.
 
-## Next session
+## Continuity and next session
 
-Read AGENTS.md and this handoff once. Use tools/context.py for relevant history;
-do not load the entire archive. Fast checks belong during editing; release checks
-belong on a stable candidate. Preserve rejected and interrupted runs in the report.
-This environment's launcher/upgrade checks need PATH=/tmp/cozy-work-test-bin:$PATH.
+Claude's M680 (4a19de3), M681 (8880a0), final fixes f087472/63f87, M683 (71b22e8),
+M684 (613c174) and M685 (8e3c46d) remain ancestors. HISTORY is append only and the
+original instruction archives remain intact. Canon Verification remains v0.68.3 /
+5aed234; do not replace the vendor copy without reconciling its Cozy changes.
 
-No phone ledger was accessed or changed directly. After updating, run “Audit the
-ledger” once on an existing story for complete original source recovery. The first
-full audit of a long story needs additional background model calls. Normal turns
-review new source batches. Source interpretation remains a model judgment; omitted
-or failed repairs stay explicitly unfinished rather than becoming a clean report.
+After updating, opening an existing story starts recovery automatically. The older
+M685 instruction to press Audit once is superseded. No user's phone was accessed,
+and this release does not claim that a specific live story has already been repaired.
+
+Read AGENTS.md and this handoff once. Use tools/context.py for relevant history.
+Use fast checks during editing and release checks on a stable candidate; preserve
+failed results. This environment's launcher/upgrade checks need
+PATH=/tmp/cozy-work-test-bin:$PATH. Do not repeat gates for documentation-only edits.

@@ -18492,3 +18492,48 @@ background source reading. Interpretation still uses the configured model, and
 unfinished findings remain visible. Claude's earlier audit and final fixes, the
 original history and instruction archives remain intact. The canon vendor copy
 was not replaced.
+
+
+## M686: the ledger continues its own recovery
+
+The owner clarified that unfinished findings are the app's work, never a task list
+for the writer. M685 persisted audit work but did not schedule its idle continuation;
+its autoFinish helper only covered book rebuilds and summarizing, and opening an
+existing story still required the manual Audit entry point for full source recovery.
+
+M686 starts original source review when the active story opens, through the existing
+queue. Incomplete coverage, unresolved findings and failed auditor runs keep the loop
+going while idle. Completed work is retained and saved state resumes it on reopening.
+Progress resumes after fifteen seconds; unsuccessful passes wait one, two, four, then
+at most five minutes, with no terminal retry count and no model downgrade. New turns
+interrupt the idle reading. Explicit Stop, off switches, source changes, replays,
+other browsers and stopped partial pages keep their existing protections. Completion
+stops the loop. Owed world work follows the audit; a disabled world worker does not
+create an impossible task, and successful world recovery clears its unfinished status.
+The completion light remains off during unresolved work. Books describes automatic
+continuation and no longer presents an auditor Finish it action.
+
+Application checkpoint 50f1289; test fixture correction a3d55bf. Seven new app
+scenarios pass. Four fail on published M685; three preservation controls pass there.
+They cover opening recovery, more than three attempts without a new turn, completion,
+Stop, the off switch, a temporary outage, yielding to a real send, the actual drawer
+and stopped partial pages. The fast profile passed six checks in 26.79 seconds.
+
+The complete m686a release matrix ran 33 checks in 1780.30 seconds. All 31 checks
+outside the harness and walkthrough passed, including long play 9/9 and every device,
+backup, theme and performance check. M248 required the literal previous Finish it
+source condition; its replacement behavior is exercised through DOM-M686-6. Five
+walkthrough fixtures expected completion without source coverage or the identities
+their mock workers introduced. Their setup now includes those facts, preserving the
+original behavioral assertions. DOM-53 now explicitly enables its keeper instead of
+relying on an earlier test. Only test inputs changed after that full run.
+
+Final m686b full harness 1499/1499, walkthrough 304/304, lint zero errors. All 33 release
+checks have qualifying passing results across the two runs; no single all-green
+invocation is claimed. The app and browser/performance inputs were unchanged and no
+budget was relaxed. Exact attempts and corrections are in audit/results/m686.json.
+
+Existing stories now start recovery on opening after updating; the M685 instruction
+to press Audit once is superseded. No user's phone or live story was accessed, and
+tests made no paid model calls. All prior milestones, original instruction archives,
+and the canon vendor remain intact.

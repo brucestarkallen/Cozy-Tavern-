@@ -1,6 +1,6 @@
 {
   "version": "m686-001",
-  "status": "verification_in_progress",
+  "status": "verified",
   "baseline_commit": "8e3c46d3c236b4d9d0a958f2c1293a4131bf7d8b",
   "new_dom_scenarios": {
     "total": 7,
@@ -73,8 +73,311 @@
     "seconds": 26.79
   },
   "release": {
-    "tag": "m686a",
-    "status": "running"
+    "initial_full_run": {
+      "profile": "release",
+      "source_digest": "c12038ccad80b93c2548c4d3d43517e5227b12d69140bf9d8f0bb7f08157d0aa",
+      "runtime_digest": "093ca0464d99b7c780d25ea88393c4a90e3fe6a647d04a5be4847fd723b0b0bb",
+      "scope": "all 22 standing checks plus workflow/housekeeper/theme checks",
+      "complete": false,
+      "checks": {
+        "harness": {
+          "exit": 1,
+          "seconds": 163.98,
+          "digest": "b9a0afd3513ce65ceff3665e101a4a35277aae2e23e861aeb44839d6531eb270",
+          "log": "/tmp/gates/m686a_harness.log",
+          "reused": false
+        },
+        "walk": {
+          "exit": 1,
+          "seconds": 568.0,
+          "digest": "6dfe28c852175c08ab2c471450a5b9801956346f5f6c8040180469214d7de93c",
+          "log": "/tmp/gates/m686a_walk.log",
+          "reused": false
+        },
+        "long": {
+          "exit": 0,
+          "seconds": 34.92,
+          "digest": "bab173cd9e58aee39e02a0c0020c82a1eb6d07c47dc67363470a0157f4eca30e",
+          "log": "/tmp/gates/m686a_long.log",
+          "reused": false
+        },
+        "lint": {
+          "exit": 0,
+          "seconds": 3.83,
+          "digest": "174a8e11f847c841aafaee4991dbcbb7e3f2f2389b9489b4cdcb36b772edb9d4",
+          "log": "/tmp/gates/m686a_lint.log",
+          "reused": false
+        },
+        "perf_send": {
+          "exit": 0,
+          "seconds": 45.98,
+          "digest": "fb88433e9285eef603e9fab5f718dc0588b62745541fc33efdc86249cd0a4e10",
+          "log": "/tmp/gates/m686a_perf_send.log",
+          "reused": false
+        },
+        "perf_repair": {
+          "exit": 0,
+          "seconds": 7.99,
+          "digest": "c1c96af8300d0260ac14fc7702bd9a6494767febd5fe18f486de607a2a3e0822",
+          "log": "/tmp/gates/m686a_perf_repair.log",
+          "reused": false
+        },
+        "launcher": {
+          "exit": 0,
+          "seconds": 8.04,
+          "digest": "09658efddb3266b10ae303a1e39374067971f18450a340bdde0a9983320c4050",
+          "log": "/tmp/gates/m686a_launcher.log",
+          "reused": false
+        },
+        "upgrade_in_place": {
+          "exit": 0,
+          "seconds": 16.37,
+          "digest": "45454fd0961f8efe8508200a6fb18d80b19c46115a3662487ea3860674b2f462",
+          "log": "/tmp/gates/m686a_upgrade_in_place.log",
+          "reused": false
+        },
+        "paint_academy": {
+          "exit": 0,
+          "seconds": 58.16,
+          "digest": "58853d9a84ee84190628296ead2e150d747da4a160656ef900786ae269e6c681",
+          "log": "/tmp/gates/m686a_paint_academy.log",
+          "reused": false
+        },
+        "perf_academy": {
+          "exit": 0,
+          "seconds": 66.31,
+          "digest": "d751e042337ae90cd7878e0421584ba2be113e79ce5e8c226ca24453cf62cf4e",
+          "log": "/tmp/gates/m686a_perf_academy.log",
+          "reused": false
+        },
+        "perf_housekeeper": {
+          "exit": 0,
+          "seconds": 19.67,
+          "digest": "b07e0b4495e6fea08f6b180327871a1c6e0660b39162254a3cae51bbb32e785b",
+          "log": "/tmp/gates/m686a_perf_housekeeper.log",
+          "reused": false
+        },
+        "paint_academy_night": {
+          "exit": 0,
+          "seconds": 56.08,
+          "digest": "c01dc2f3f65232c46819ad8901de5507d7b4d5b401424da750646c49c6ca9b71",
+          "log": "/tmp/gates/m686a_paint_academy_night.log",
+          "reused": false
+        },
+        "perf_academy_night": {
+          "exit": 0,
+          "seconds": 66.6,
+          "digest": "18eac7eabb5649542848a9ab68803b04a73384e1772722084d6d16d7e7c0de70",
+          "log": "/tmp/gates/m686a_perf_academy_night.log",
+          "reused": false
+        },
+        "paint_academy_panels": {
+          "exit": 0,
+          "seconds": 15.62,
+          "digest": "10c2f26e4b39c49abbb7548e150afc239be2605232748df407eccf42730e766f",
+          "log": "/tmp/gates/m686a_paint_academy_panels.log",
+          "reused": false
+        },
+        "cutthinking": {
+          "exit": 0,
+          "seconds": 17.67,
+          "digest": "6174066c95b685b4b97709521d8cc4ce211452f93838cc476de82d64f9619e4e",
+          "log": "/tmp/gates/m686a_cutthinking.log",
+          "reused": false
+        },
+        "notes_layout": {
+          "exit": 0,
+          "seconds": 16.27,
+          "digest": "3e7440babe0d78bb09d8007396033a9e623693ec27cffe7d0ec2264a9a9d10a5",
+          "log": "/tmp/gates/m686a_notes_layout.log",
+          "reused": false
+        },
+        "backup": {
+          "exit": 0,
+          "seconds": 10.45,
+          "digest": "efa046cb6aee8be9ed5bcc81f800455816e5575fdc701bbf930778a3ff501022",
+          "log": "/tmp/gates/m686a_backup.log",
+          "reused": false
+        },
+        "backupdupes": {
+          "exit": 0,
+          "seconds": 1.82,
+          "digest": "d4cb6fcde4be65fe6028cee7396586601ed7c1ce57ea8cc10b75fc8c07ec9ad8",
+          "log": "/tmp/gates/m686a_backupdupes.log",
+          "reused": false
+        },
+        "restore_backup_unit": {
+          "exit": 0,
+          "seconds": 0.11,
+          "digest": "427ec5deb6b3647c3e2a1b2044932970ded27fc4b6ea8d4488a25c5b1ad6caba",
+          "log": "/tmp/gates/m686a_restore_backup_unit.log",
+          "reused": false
+        },
+        "holdsone": {
+          "exit": 0,
+          "seconds": 62.56,
+          "digest": "716322ddfc2e8989188fef58a3172c925702679992e5ecbf3aaddf3e9038e98e",
+          "log": "/tmp/gates/m686a_holdsone.log",
+          "reused": false
+        },
+        "restore_zip": {
+          "exit": 0,
+          "seconds": 27.09,
+          "digest": "785e77747f2713489087d48ce42c7e2355ab15c5fd555d9a5a8d20de69b96009",
+          "log": "/tmp/gates/m686a_restore_zip.log",
+          "reused": false
+        },
+        "backup_sent": {
+          "exit": 0,
+          "seconds": 11.15,
+          "digest": "3dc1e86cfa34e7122376ea93e8fcd7b0fc1c1cb18d2c890f9243aac556489fcc",
+          "log": "/tmp/gates/m686a_backup_sent.log",
+          "reused": false
+        },
+        "backup_fresh": {
+          "exit": 0,
+          "seconds": 27.25,
+          "digest": "bffe07ad08917e7bf413dbedea8b43da224bb49e48a2d3aabbf4a8b613a6dc27",
+          "log": "/tmp/gates/m686a_backup_fresh.log",
+          "reused": false
+        },
+        "rowtap": {
+          "exit": 0,
+          "seconds": 5.33,
+          "digest": "72a89fa1eb96bcff33020a529437f264b397680663f8fc5abe8290cd56d5c12f",
+          "log": "/tmp/gates/m686a_rowtap.log",
+          "reused": false
+        },
+        "static_host": {
+          "exit": 0,
+          "seconds": 37.38,
+          "digest": "01507dfd70886a713ea95e0ca5e3d353ce2fd362b461e01deabbe090b4333322",
+          "log": "/tmp/gates/m686a_static_host.log",
+          "reused": false
+        },
+        "device_guard": {
+          "exit": 0,
+          "seconds": 45.95,
+          "digest": "7fe608bfc843b8d792d6ca2591c995f1fe2dc17646e6246ef7573ce97e386492",
+          "log": "/tmp/gates/m686a_device_guard.log",
+          "reused": false
+        },
+        "boot_open": {
+          "exit": 0,
+          "seconds": 5.63,
+          "digest": "5477732beb0d24882127ce4e977bd426b44133af84092f6ae66a0b78103ff9f9",
+          "log": "/tmp/gates/m686a_boot_open.log",
+          "reused": false
+        },
+        "boot_ready": {
+          "exit": 0,
+          "seconds": 6.13,
+          "digest": "0e3d60a0643b4498d16301216b9ee3476fe6323735d2f4ce5d3a1d8d9ece1309",
+          "log": "/tmp/gates/m686a_boot_ready.log",
+          "reused": false
+        },
+        "vendor_canon_unit": {
+          "exit": 0,
+          "seconds": 0.32,
+          "digest": "4cd6ade8ccc07fac3fd03e1aaed72024c569619925be3ea5806e12b1056f8dfb",
+          "log": "/tmp/gates/m686a_vendor_canon_unit.log",
+          "reused": false
+        },
+        "check_runner_unit": {
+          "exit": 0,
+          "seconds": 0.27,
+          "digest": "39fa92246e7af3d01ab03e114be1e78ec49c73e52d0e3055c9a4ec9cdfb25af5",
+          "log": "/tmp/gates/m686a_check_runner_unit.log",
+          "reused": false
+        },
+        "academy_ui": {
+          "exit": 0,
+          "seconds": 8.41,
+          "digest": "dbb3422bbbaa083681e62daeed1a417c55eaab26941b2cd7d236b307d42a928f",
+          "log": "/tmp/gates/m686a_academy_ui.log",
+          "reused": false
+        },
+        "housekeeper_rounds": {
+          "exit": 0,
+          "seconds": 42.9,
+          "digest": "1c0a37b3d6fea72e386090650356aa897a26ce0ae5af70dbd12d2cc48b846007",
+          "log": "/tmp/gates/m686a_housekeeper_rounds.log",
+          "reused": false
+        },
+        "device_pair": {
+          "exit": 0,
+          "seconds": 521.44,
+          "digest": "4119f15e9b3c87b4144e0b44360905c612a2e0d7432a36ce282c2d086f724a23",
+          "log": "/tmp/gates/m686a_device_pair.log",
+          "reused": false
+        }
+      },
+      "source_unchanged_during_checks": true,
+      "seconds": 1780.3
+    },
+    "status": "verified_across_full_run_and_fixture_corrections",
+    "corrections": [
+      "M248 required the literal old source condition for Finish it. DOM-M686-6 now checks the actual auditor drawer instead.",
+      "DOM-20, DOM-53 and DOM-243 asserted a fully checked completion light without supplying completed audit coverage. Their fixture state now includes it; all existing lamp assertions remain.",
+      "DOM-27 and DOM-242 used scripted workers that introduced Kim and Liara without identities, then expected full completion. Their known fixture identities are now present.",
+      "The focused DOM-53 run also exposed reliance on an earlier scenario enabling the keeper. Each of its stories now explicitly enables its keeper.",
+      "Only tests changed after the full release run. Application, browser checks, performance limits and long-play assertions did not change."
+    ],
+    "final_functional_run": {
+      "scope": "full harness and walkthrough plus lint after fixture-only corrections",
+      "source_digest": "9a74bb77b896bb3f7c105013975b3fbf78fb288cec40be752ffebef0a8ec479c",
+      "runtime_digest": "093ca0464d99b7c780d25ea88393c4a90e3fe6a647d04a5be4847fd723b0b0bb",
+      "checks": {
+        "harness": {
+          "exit": 0,
+          "seconds": 163.77,
+          "log": "/tmp/gates/m686b_harness.log"
+        },
+        "walk": {
+          "exit": 0,
+          "seconds": 521.86,
+          "log": "/tmp/gates/m686b_walk.log"
+        },
+        "lint": {
+          "exit": 0,
+          "seconds": 3.62,
+          "log": "/tmp/gates/m686b_lint.log"
+        }
+      },
+      "complete": true,
+      "source_unchanged_during_checks": true,
+      "seconds": 689.3
+    },
+    "qualification": "All 33 release checks have qualifying passing results. m686a passed 31/33; the harness and walkthrough passed after test-only corrections in m686b. No application, browser test or performance inputs changed between these runs. This is not a single all-green release invocation."
   },
-  "model_calls": "Scripted providers only. No paid story model calls or real user story data."
+  "model_calls": "Scripted providers only. No paid story model calls or real user story data.",
+  "product_commit": "50f12892eefa6440dd91ffd4686a6adadfb0f4ca",
+  "fixture_commit": "a3d55bf44ef9607203a1511e59d95db80bb78105",
+  "preserved_ancestors": [
+    "4a19de3",
+    "8880a0",
+    "f087472",
+    "63f87",
+    "71b22e8",
+    "613c174",
+    "8e3c46d"
+  ],
+  "counts": {
+    "harness": {
+      "passed": 1499,
+      "failed": 0,
+      "total": 1499
+    },
+    "walk": {
+      "passed": 304,
+      "failed": 0,
+      "total": 304
+    },
+    "long": {
+      "passed": 9,
+      "failed": 0,
+      "total": 9
+    },
+    "lint_errors": 0
+  }
 }

@@ -47,8 +47,19 @@ story's generation outlive cleanup. Waiting for its turn and readers to settle f
 the fixture without changing the stopped-page assertion.
 
 The existing manual audit recovery and Stop scenarios also pass. The focused profile
-passed six checks in 26.79 seconds. Full release verification is in progress; results
-will be recorded in audit/results/m686.json before publication.
+passed six checks in 26.79 seconds. The full release run passed 31 of 33 checks.
+The harness found one source-spelling assertion for the former Finish it condition;
+the live drawer is tested by DOM-M686-6 instead. Five old walkthrough fixtures
+expected a fully checked ledger without completed source coverage or the identities
+their scripted workers introduced. Their initial data now supports that premise;
+their lamp, repair and cancellation assertions remain. DOM-53 also now explicitly
+enables its keeper rather than relying on a previous scenario. Only tests changed.
+The final full harness passed 1499/1499 and walkthrough 304/304, with lint reporting
+zero errors. Long play passed 9/9 in the full release run. All 33 release checks have
+qualifying passing results across m686a and the fixture-only m686b rerun; this was
+not one all-green invocation. Application code, browser tests and performance inputs
+were unchanged between runs. The complete attempts and corrections are recorded
+in audit/results/m686.json.
 
 ## Continuity
 
