@@ -316,3 +316,111 @@ test('M680-11 A WORKER’S WRITES ARE THE PAGE THEY ARE ABOUT (the world audit):
   eq(noteEntry.p, 1, 'the scribe’s note is stamped with the page it is about');
   eq(after.page, 0, 'the ledger’s own stamp is not the scribe’s to move');
 });
+
+/* M680's two gate regressions (harness M655-1, walk DOM-100), closed at their one root: apply.js walkInFromPage. */
+const OFFICE = '13th Division Barracks — Captain’s Office';
+const OFFICE_PAGE = '[13th Division Barracks — Captain’s Office — Monday, June 1, 2026 | 10:00 | clear | captain’s haori | at the desk]\n\n'
+  + 'Rukia set the report on Oda’s desk. Sentarō hovered by the window, pretending not to listen. Kuchiki-taichō studied them both, then turned and left without a word. Renji Abarai shouldered through the door a moment later, grinning.';
+function office() {
+  const st = applyMutations({ ...emptyState(), page: 3 }, [
+    { type: 'mc.set', name: 'Jovan Oda' }, { type: 'place.set', name: OFFICE },
+    ...['Jovan Oda', 'Rukia Kuchiki', 'Sentarō Kotsubaki', 'Byakuya Kuchiki'].map((name) => ({ type: 'presence.enter', name })),
+    { type: 'offscreen.set', name: 'Renji Abarai', location: '6th Division Barracks — the training yard', activity: 'drilling', stance: 'busy' },
+    { type: 'offscreen.set', name: 'Kiyone Kotetsu', location: '13th Division Barracks — the third seats’ office', activity: 'sorting rosters', stance: 'busy' },
+  ]).state;
+  st.characters = { ...st.characters, 'Rukia Kuchiki': { core: 'His lieutenant.' }, 'Byakuya Kuchiki': { core: 'Captain of the 6th.' }, 'Renji Abarai': { core: 'Lieutenant of the 6th.' }, 'Kiyone Kotetsu': { core: 'Third seat of the 13th.' }, 'Sentarō Kotsubaki': { core: 'Third seat of the 13th.' }, 'Kaien Shiba': { core: 'Once lieutenant of the 13th.' } };
+  return st;
+}
+const READER_ROOM = ['Jovan Oda', 'Rukia Kuchiki', 'Sentarō Kotsubaki'];
+
+test('M680-12 AN ARRIVAL THE PAGE’S ENDING TELLS, AND ONLY THAT (apply.js comesInAtTheEnd): this person the subject of a coming-in — never another’s, never one that did not happen, never a voice or a possessive, never one undone in the same sentence', async () => {
+  const { comesInAtTheEnd } = await import('../../js/engine/apply.js');
+  assert(typeof comesInAtTheEnd === 'function', 'the house can ask whether the ending tells someone coming in');
+  const st = { ...office(), characters: { ...office().characters, Corven: {}, Salla: {}, Mirelia: {}, 'Ser Brannick': {} } };
+  const no = [['Corven', 'Corven let him go.'], ['Salla', 'Salla called from behind the casks.'], ['Renji Abarai', 'Rukia waited for Renji to come in.'], ['Renji Abarai', 'Renji would come in later.'],
+    ['Renji Abarai', 'If Renji came in, she would leave.'], ['Renji Abarai', 'Renji never came in.'], ['Renji Abarai', 'Renji didn’t come in.'], ['Renji Abarai', 'Renji’s voice came in through the window.'],
+    ['Mirelia', 'Mirelia stayed where she was in the column’s shadow.'], ['Renji Abarai', 'Renji slipped in the mud.'], ['Renji Abarai', 'Renji walked in the rain.'],
+    ['Rukia Kuchiki', 'Rukia watched as Renji came in.'], ['Rukia Kuchiki', 'Byakuya nodded to Rukia and Renji came in.'], ['Rukia Kuchiki', 'Rukia nodded and Renji came in.'],
+    ['Renji Abarai', 'Renji walked through the door and out into the rain.'], ['Renji Abarai', 'Renji came in and went straight back out.'], ['Renji Abarai', 'Renji came in. Then he left again.'],
+    ['Renji Abarai', '“Renji came in,” Rukia said.'], ['Renji Abarai', 'Renji walked into the courtyard.'], ['Rukia Kuchiki', 'Kuchiki-taichō came in.']];
+  for (const [who, text] of no) eq(comesInAtTheEnd(st, text, who), false, who + ' does not come in: ' + text);
+  const yes = [['Renji Abarai', OFFICE_PAGE], ['Renji Abarai', 'The door opened and Renji came in.'], ['Renji Abarai', 'In came Renji, grinning.'], ['Corven', 'The door opened behind them and Corven came in…'],
+    ['Renji Abarai', 'When Renji came in, the room went quiet.'], ['Rukia Kuchiki', 'Rukia and Kaien came in.'], ['Kaien Shiba', 'Rukia and Kaien came in.'], ['Rukia Kuchiki', 'Rukia, then Renji, came in.'],
+    ['Renji Abarai', 'Rukia, then Renji, came in.'], ['Rukia Kuchiki', 'Rukia, who had been waiting outside, came in.'], ['Kiyone Kotetsu', 'Kiyone came in with the tea.'], ['Renji Abarai', 'Renji came in the back door.'],
+    ['Ser Brannick', 'At the door, Ser Brannick came in out of the passage and took his post.'], ['Renji Abarai', 'Renji paused, then he came in.'], ['Renji Abarai', 'Renji paused at the door. He came in.'],
+    ['Renji Abarai', 'Renji walked into the office.'], ['Renji Abarai', 'Renji let himself in.'], ['Renji Abarai', 'Renji entered, carrying the rosters.'], ['Renji Abarai', 'Renji came in and took off his coat.']];
+  for (const [who, text] of yes) eq(comesInAtTheEnd(st, text, who), true, who + ' comes in: ' + text);
+  const sixth = { place: { name: 'the 6th Division office' }, present: [{ name: 'Jovan Oda' }], characters: { 'Byakuya Kuchiki': {} }, offscreen: {}, sheet: { playerName: 'Jovan Oda' } };
+  eq(comesInAtTheEnd(sixth, 'Kuchiki-taichō came in.', 'Byakuya Kuchiki'), true, 'a family name nobody else in the ledger has, with his rank after it, is him');
+  eq(comesInAtTheEnd(st, 'Renji came in.\n\n' + 'Jovan read the report line by line. '.repeat(14) + '\n\n' + 'Rukia waited. '.repeat(20), 'Renji Abarai'), false, 'a coming-in before the page’s ending is not its ending');
+  eq(comesInAtTheEnd(st, 'Rukia looked up.', 'Kaien Shiba', 'Kaien Shiba stepped in from the corridor'), false, 'words handed over that are not on the page are nothing');
+  eq(comesInAtTheEnd(st, 'The door slid open and the old lieutenant stepped in from the corridor.', 'Kaien Shiba', 'the old lieutenant stepped in from the corridor'), true, 'the page’s own words for him, handed over, that tell a coming-in');
+});
+
+test('M680-13 HIS BLEACH OFFICE (walk DOM-100 on m680-001): the page ends “Renji Abarai shouldered through the door a moment later” and the reader’s room forgot him — the world agent’s note let go and the reader’s own walk-in each put him in the room; Kiyone, seated in another room of the barracks and nowhere on the page, stays out against that room, and the reader’s own seat for her at the very office is not written', async () => {
+  const { worldTurn } = await import('../../js/agents/world.js');
+  const { extractTurn } = await import('../../js/agents/extractor.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const id = 'm681-office-world';
+  await saveState(id, { ...office(), readTo: 3, roomAt: { page: 3, names: READER_ROOM } });
+  const world = thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'offscreen.clear', name: 'Renji Abarai' }, { type: 'offscreen.set', name: 'Kiyone Kotetsu', location: OFFICE, activity: 'listening at the desk' }], brief: { pressure: [], ripe: [], twb: null, voices: [] } }) });
+  await withHouse(world, () => worldTurn({ connection: HOUSES[0].conn, storyId: id, userText: 'I look up from the report.', assistantText: OFFICE_PAGE, stale: () => false, pageAt: 3 }));
+  const after = await loadState(id);
+  assert(after.present.some((p) => p.name === 'Renji Abarai'), 'the world agent’s note let go walks Renji in: ' + here(after));
+  assert(!after.offscreen['Renji Abarai'], 'and his old seat goes');
+  assert(!after.present.some((p) => p.name === 'Kiyone Kotetsu') && after.offscreen['Kiyone Kotetsu'], 'Kiyone, nowhere on the page, stays in the third seats’ office');
+  const reader = thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'presence.enter', name: 'Renji Abarai', position: 'just inside the door' }, { type: 'offscreen.set', name: 'Kiyone Kotetsu', location: OFFICE, activity: 'by the desk' }, { type: 'mode.snapshot', flags: ['group'] }], here: READER_ROOM }) });
+  const read = await withHouse(reader, () => extractTurn({ connection: HOUSES[0].conn, state: office(), userText: 'I look up from the report.', assistantText: OFFICE_PAGE, pageNumber: 4 }));
+  assert(read.mutations.some((m) => m.type === 'presence.enter' && m.name === 'Renji Abarai'), 'the reader’s own walk-in of Renji stands: ' + JSON.stringify(read.mutations));
+  assert(!read.mutations.some((m) => m.type === 'offscreen.set' && m.name === 'Kiyone Kotetsu'), 'its seat for Kiyone at the very office — a walk-in by another door — is not kept against its own room');
+  const landed = applyMutations(office(), read.mutations).state;
+  assert(landed.present.some((p) => p.name === 'Renji Abarai') && !landed.present.some((p) => p.name === 'Kiyone Kotetsu'), 'Renji in, Kiyone out, on the ledger');
+});
+
+test('M680-14 SILENCE IS NOT LEAVING, AGAIN (harness M655-1 on m680-001): someone with no seat whom the page never names, seated by the world agent in the very room the scene stands in, is in the scene — with or without a room the reader named; a SEATED person the page never names stays out against the reader’s room, and walks in only when there is none (M402)', async () => {
+  const { worldTurn } = await import('../../js/agents/world.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const kitchen = () => applyMutations({ ...emptyState(), page: 12 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen, 8 Mariner’s Lane' },
+    ...['Jovan', 'Rias'].map((name) => ({ type: 'presence.enter', name })),
+    { type: 'people.set', name: 'Tom', field: 'core', text: 'his cousin; slow to speak, quick to fix things' }, { type: 'people.set', name: 'Aunt Vera', field: 'core', text: 'runs the house' },
+    { type: 'offscreen.set', name: 'Aunt Vera', location: 'upstairs in the Wells house', activity: 'asleep' }]).state;
+  const PAGE = '[Wells house kitchen, 8 Mariner’s Lane — Monday, March 3, 2025 | 21:45 | rain | sweater | at the table]\n\nRias stirred the pot and said nothing.';
+  for (const room of [true, false]) {
+    const id = 'm681-kitchen-' + room;
+    await saveState(id, { ...kitchen(), readTo: 12, ...(room ? { roomAt: { page: 12, names: ['Jovan', 'Rias'] } } : {}) });
+    const house = thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'offscreen.set', name: 'Tom', location: 'Wells house kitchen', activity: 'waiting by the stove' }, { type: 'offscreen.set', name: 'Aunt Vera', location: 'Wells house kitchen, by the sink', activity: 'drying cups' }], brief: { pressure: [], ripe: [], twb: null, voices: [] } }) });
+    await withHouse(house, () => worldTurn({ connection: HOUSES[0].conn, storyId: id, userText: 'I wait.', assistantText: PAGE, stale: () => false, pageAt: 12 }));
+    const after = await loadState(id);
+    assert(after.present.some((p) => p.name === 'Tom'), (room ? 'with' : 'without') + ' a room: Tom, seated in the scene’s own room, is in the scene: ' + here(after));
+    if (room) assert(!after.present.some((p) => p.name === 'Aunt Vera') && after.offscreen['Aunt Vera'].location === 'upstairs in the Wells house', 'Aunt Vera, seated upstairs and never on the page, stays out against the reader’s room');
+    else assert(after.present.some((p) => p.name === 'Aunt Vera'), 'with no room named, the world’s seat of her at the scene is her in the scene (M402)');
+  }
+});
+
+test('M680-15 SOMEONE THE ENDING SHOWS BUT NEVER COMING IN STAYS OUT OF THE ROOM ITS READER NAMED: Salla, new and with no seat, calls from behind the casks — the world agent seats her at the tavern and the reader’s room left her out: she is not walked in; another’s arrival is never hers (Kiyone watches Renji come in)', async () => {
+  const { worldTurn } = await import('../../js/agents/world.js');
+  const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const eel = applyMutations({ ...emptyState(), page: 9 }, [{ type: 'mc.set', name: 'Azrael' }, { type: 'place.set', name: 'the Gilded Eel taproom' },
+    ...['Azrael', 'Roska'].map((name) => ({ type: 'presence.enter', name })), { type: 'people.set', name: 'Salla', field: 'core', text: 'keeps the Eel’s casks' }]).state;
+  await saveState('m681-eel', { ...eel, readTo: 9, roomAt: { page: 9, names: ['Azrael', 'Roska'] } });
+  const EEL = '[the Gilded Eel taproom — Thornday, October 15, 1247 | 22:10 | rain | wool cloak | by the door]\n\nAzrael pushed the door open onto the lane. Salla called something from behind the casks. Roska did not look back.';
+  await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'offscreen.set', name: 'Salla', location: 'the Gilded Eel taproom, behind the casks', activity: 'calling after them' }], brief: { pressure: [], ripe: [], twb: null, voices: [] } }) }),
+    () => worldTurn({ connection: HOUSES[0].conn, storyId: 'm681-eel', userText: 'I leave.', assistantText: EEL, stale: () => false, pageAt: 9 }));
+  assert(!(await loadState('m681-eel')).present.some((p) => p.name === 'Salla'), 'Salla, calling from behind the casks, is not walked into the room the reader named');
+  await saveState('m681-watch', { ...office(), readTo: 3, roomAt: { page: 3, names: READER_ROOM } });
+  const WATCH = OFFICE_PAGE.replace('Renji Abarai shouldered through the door a moment later, grinning.', 'Kiyone watched from the corridor as Renji came in.');
+  await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'offscreen.clear', name: 'Kiyone Kotetsu' }, { type: 'offscreen.clear', name: 'Renji Abarai' }], brief: { pressure: [], ripe: [], twb: null, voices: [] } }) }),
+    () => worldTurn({ connection: HOUSES[0].conn, storyId: 'm681-watch', userText: 'I look up.', assistantText: WATCH, stale: () => false, pageAt: 3 }));
+  const w = await loadState('m681-watch');
+  assert(w.present.some((p) => p.name === 'Renji Abarai'), 'Renji, who came in, is in');
+  assert(!w.present.some((p) => p.name === 'Kiyone Kotetsu') && w.offscreen['Kiyone Kotetsu'], 'Kiyone, who only watched him come in, keeps her seat');
+});
+
+test('M680-16 THE AUDITOR’S SEAT AT THE SCENE FOR SOMEONE WITH NONE IS A WALK-IN, AND ANSWERS AS ITS WALK-INS DO: a seat in the very office for someone the page’s ending never shows is dropped; one for someone the ending shows coming in stands', async () => {
+  const { auditorScope } = await import('../../js/agents/auditor.js');
+  const issue = (name) => ({ what: name + ' is not placed', fix: 'seat them', mutations: [{ type: 'offscreen.set', name, location: OFFICE, activity: 'at the desk' }] });
+  const page = OFFICE_PAGE + ' Kaien Shiba came in behind him with the tea.';
+  const kept = auditorScope([issue('Hanatarō Yamada'), issue('Kaien Shiba')], office(), { page, pageAt: 3 });
+  const seats = kept.flatMap((i) => i.mutations).filter((m) => m.type === 'offscreen.set').map((m) => m.name);
+  eq(seats.join(', '), 'Kaien Shiba', 'Hanatarō, never on the page, is not seated into the office; Kaien, who came in, is');
+});

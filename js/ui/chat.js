@@ -1467,7 +1467,7 @@ export function initChat(ctx) {
    * its own chain, which never asked whose page it was: it is not marked unread to be read a second time. */
   const ASIDES_BY_PLACE_SINCE = Date.UTC(2026, 9, 8); /* M674 */
   async function settleAsides(story) {
-    if (!story || !story.id || busy || replaying) return 0;
+    if (!story || !story.id || busy || isReplaying()) return 0;
     const mark = 'asidesSettled:' + story.id;
     if ((await db.settings.get(mark)) === 1) return 0;
     const all = await db.messages.list(story.id);
@@ -2345,7 +2345,7 @@ export function initChat(ctx) {
        * room, a secret just told still a secret). The page's own readers are waited for (ten minutes at most; nothing
        * else waits on this — it is outside the chain); a page that is no longer the newest by then is offered nothing
        * (the check after the call already says so). */
-      for (let i = 0; i < 1200 && readersStillOn(sid, last.id); i += 1) await new Promise((r) => setTimeout(r, 500));
+      await untilReadersSettled(sid, last.id); /* M681: woken the moment they settle */
       const state = await loadState(sid);
       if ((state.duel && state.duel.active) || (state.battle && state.battle.active) || (state.war && state.war.active)) return;
       const connection = await resolveWorkerConnection(story, 'choices');
@@ -3084,7 +3084,7 @@ export function initChat(ctx) {
            * in between read the page's OLD words and put back the consequences of a version that no
            * longer stood (seen in the walk: Person4 back in the room after the swipe that replaced her).
            * A page being written, swiped or replayed is read by its own chain; the repair waits. */
-          if (busy || replaying) break;
+          if (busy || isReplaying()) break;
           const k = oldestUnread(await loadState(storyId), told.length);
           if (k === -1) break;
           if (!(await readMissedPage(story, connection, told[k], k, { signal, renew, stale }))) break;
@@ -3125,7 +3125,7 @@ export function initChat(ctx) {
   async function continuousStep(story, { signal, stale, renew } = {}) {
     const isStale = () => typeof stale === 'function' && stale();
     if (!story || story.extraction === false || isStale()) return { silent: true };
-    if (busy || replaying) return { silent: true };
+    if (busy || isReplaying()) return { silent: true };
     if (!(await continuousAuditOn())) return { silent: true };
     const connection = await resolveWorkerConnection(story, 'continuous');
     if (!connection) return { silent: true };
@@ -3187,7 +3187,7 @@ export function initChat(ctx) {
   const continuousLook = new Map();
   async function continuousCatchUp(storyId) {
     try {
-      if (!storyId || busy || replaying || ctx.getActiveStoryId() !== storyId) return;
+      if (!storyId || busy || isReplaying() || ctx.getActiveStoryId() !== storyId) return;
       if (!(await continuousAuditOn())) return;
       if (otherHandAt(storyId)) return; /* another browser's readers may be at this tale */
       if (workIsRunning(storyId) || queuedCount(storyId) > 0) return;
@@ -3209,7 +3209,7 @@ export function initChat(ctx) {
         return;
       }
       if (!(await resolveWorkerConnection(story, 'continuous'))) return;
-      if (busy || replaying || ctx.getActiveStoryId() !== storyId || workIsRunning(storyId) || queuedCount(storyId) > 0) return; /* looked again: the house moved meanwhile */
+      if (busy || isReplaying() || ctx.getActiveStoryId() !== storyId || workIsRunning(storyId) || queuedCount(storyId) > 0) return; /* looked again: the house moved meanwhile */
       continuousAt.set(storyId, Date.now());
       const gen = chainGen.get(storyId) || 0;
       const promise = enqueueWork(storyId, { name: 'continuous', once: true /* M675: its own wait between looks is the retry (queue.js job.once) */, run: chainJob((hooks) => continuousStep(story, hooks), () => (chainGen.get(storyId) || 0) !== gen) });
@@ -3944,7 +3944,7 @@ export function initChat(ctx) {
   async function takeOutTheFuture(story) {
     try {
       /* (a plain look at the queue — never a wait) */
-      if (!story || busy || replaying || workIsRunning(story.id) || queuedCount(story.id) > 0) { healedFuture.delete(story && story.id); return 0; }
+      if (!story || busy || isReplaying() || workIsRunning(story.id) || queuedCount(story.id) > 0) { healedFuture.delete(story && story.id); return 0; }
       const pagesNow = (await db.messages.list(story.id)).filter((m) => m && m.role === 'assistant' && !m.hidden).length;
       const r = dropTheFuture(await loadState(story.id), pagesNow);
       const n = r.facts.length + r.threads + r.factions;
@@ -4417,13 +4417,33 @@ export function initChat(ctx) {
    * What stands after them (the audit of older pages, the once-a-tale tidies, the join, the checkpoint itself) is
    * upkeep the next chain does again; whoever takes him away from the page writes its checkpoint, as since M40. */
   const ledgerLinksOut = new Map(); /* 'tale:page' -> that page's own readers not yet settled */
+  const ledgerLinksWaiting = new Map(); /* M681: 'tale:page' -> whoever waits for that page's own readers to settle */
   function noteLedgerLink(storyId, pageId, promise) {
     const key = storyId + ':' + pageId;
     ledgerLinksOut.set(key, (ledgerLinksOut.get(key) || 0) + 1);
-    const settle = () => { const n = (ledgerLinksOut.get(key) || 1) - 1; if (n > 0) ledgerLinksOut.set(key, n); else ledgerLinksOut.delete(key); };
+    const settle = () => {
+      const n = (ledgerLinksOut.get(key) || 1) - 1;
+      if (n > 0) { ledgerLinksOut.set(key, n); return; }
+      ledgerLinksOut.delete(key);
+      const waiting = ledgerLinksWaiting.get(key) || [];
+      ledgerLinksWaiting.delete(key);
+      for (const done of waiting) { try { done(); } catch (err) { /* a waiter's trouble is its own */ } }
+    };
     promise.then(settle, settle);
   }
   function readersStillOn(storyId, pageId) { return (ledgerLinksOut.get(storyId + ':' + pageId) || 0) > 0; } /* a function: offerChoices, above, asks it too (M680) */
+  /* M681: the moment a page's own readers have settled — never a poll (M680's half-second look let Choices ask its helper
+   * up to half a second after the house had gone quiet: walk DOM-204 on m680-001) — or `ms` at the most */
+  function untilReadersSettled(storyId, pageId, ms = 600000) {
+    const key = storyId + ':' + pageId;
+    if (!readersStillOn(storyId, pageId)) return Promise.resolve();
+    return new Promise((resolve) => {
+      let timer = null;
+      const done = () => { clearTimeout(timer); resolve(); };
+      timer = setTimeout(() => { const list = ledgerLinksWaiting.get(key) || []; const at = list.indexOf(done); if (at !== -1) list.splice(at, 1); resolve(); }, ms);
+      ledgerLinksWaiting.set(key, [...(ledgerLinksWaiting.get(key) || []), done]);
+    });
+  }
 
   function startBackgroundWork(story, msg, userText, { deep = false, audit = false, refound = false } = {}) {
     offerChoices(story); /* M548: Choices matter — never in the chain, so no send waits for it */
@@ -5474,7 +5494,13 @@ export function initChat(ctx) {
    * as under the latency law (one turn with the ledger as far as it got);
    * a second history change waits for `replaying` to clear. */
   let replaying = false;
-  function isReplaying() { return replaying; }
+  /* M681 — THE DELETE'S HOLD IS A WAIT, NEVER A REFUSAL. M680 held the house for a whole delete by marking it busy — so a
+   * page he sent while the delete's rebuild stood was refused ("still busy") instead of waiting for it, as M577 promises
+   * (walk DOM-208 on m680-001), and every door that waits for a rebuild bounced off instead. The delete holds this
+   * promise from its first page to its last: everything that waits for a rebuild waits for it too (afterReplay), and the
+   * house's idle work keeps off it as it keeps off a rebuild (isReplaying). */
+  let deleteHold = null;
+  function isReplaying() { return replaying || Boolean(deleteHold); }
   /* M160: NOTHING ASKS THE READER TO TRY AGAIN. A rebuild holds `replaying`
    * from the moment history changes until the tail job lands — through the
    * readers in flight, a whole reading chain and its retries: minutes on a
@@ -5502,7 +5528,7 @@ export function initChat(ctx) {
   }
   /* Resolves true once no rebuild stands (at once when none does), false if
    * one somehow outlasts the ceiling — the caller then says so plainly. */
-  function afterReplay(ceilingMs = 300000) {
+  function gateOpen(ceilingMs) {
     if (!replaying) return Promise.resolve(true);
     return new Promise((resolve) => {
       let settled = false;
@@ -5511,10 +5537,20 @@ export function initChat(ctx) {
       setTimeout(() => finish(false), ceilingMs);
     });
   }
+  async function afterReplay(ceilingMs = 300000) {
+    const until = Date.now() + ceilingMs;
+    while (deleteHold || replaying) { /* M681: a delete under way, and the rebuild, in whichever order they stand */
+      const left = until - Date.now();
+      if (left <= 0) return false;
+      if (deleteHold) { let timer = null; await Promise.race([deleteHold, new Promise((r) => { timer = setTimeout(r, left); })]); clearTimeout(timer); }
+      else if (!(await gateOpen(left))) return false;
+    }
+    return true;
+  }
   /* The one gate every history-changing action passes. Returns false only
    * when the rebuild never finished — the single case worth a word. */
   async function waitForRebuild() {
-    if (!replaying) return true;
+    if (!isReplaying()) return true;
     toast('The ledger is finishing its rebuild — this runs the moment it’s done.');
     if (await afterReplay()) return true;
     toast('The rebuild is taking unusually long — try once more in a moment.');
@@ -5549,8 +5585,9 @@ export function initChat(ctx) {
    * waits for the telling to land (or stop), then acts on the pages as they stand. */
   async function untilTold(ceilingMs = 600000) {
     const until = Date.now() + ceilingMs;
-    while (busy && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 250));
-    return !busy;
+    /* M681: and for a delete letting its pages go (deleteHold) — it marked the house busy until M681 */
+    while ((busy || deleteHold) && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 250));
+    return !busy && !deleteHold;
   }
   async function replayFrom(story, fromMessageId, { changed = true, shiftAfter = null, kOverride = null, atOverride = null, held = false } = {}) {
     /* `held`: the caller already holds the gate (a page let go holds it from before the page leaves the store) */
@@ -5681,7 +5718,7 @@ export function initChat(ctx) {
   }
 
   async function repairTimeline(story) {
-    if (!story || busy || replaying) return false;
+    if (!story || busy || isReplaying()) return false;
     const history = await db.messages.list(story.id);
     const vis = visiblePages(history);
     const pages = vis.filter((m) => m.role === 'assistant').length;
@@ -5701,7 +5738,7 @@ export function initChat(ctx) {
    * nothing is applied twice. A story from before checkpoints earns one
    * read on its first open, and that is right. */
   async function resumeUnfinishedChain(story) {
-    if (!story || busy || replaying) return false;
+    if (!story || busy || isReplaying()) return false;
     /* a story made in the last minute — a fresh branch, a new tale — settles
      * its own ledger (branchFrom decides exact or re-read); nothing to resume */
     if (Number.isFinite(story.createdAt) && Date.now() - story.createdAt < 60000) return false;
@@ -8334,14 +8371,18 @@ export function initChat(ctx) {
      * rebuild gate and lets it go when its rebuild is done — and between one page and the next the gate stood open: a
      * page sent in that moment (a send waits only for the gate) began to be told, and the next page let go then folded
      * the ledger under it — the turn's own ruling, written before the page was asked for, folded away. The delete holds
-     * the house (as Try again does) from the first page to the last. */
-    busy = true;
+     * the house (as Try again does) from the first page to the last. M681: with a hold every door WAITS for (deleteHold) —
+     * marked busy, a page he sent meanwhile was refused instead of waiting (walk DOM-208). */
+    if (deleteHold) return; /* one delete at a time */
+    let endHold = () => {};
+    deleteHold = new Promise((resolve) => { endHold = resolve; }); /* M681: a hold every door waits for (afterReplay), never busy */
     let allGone = true;
     try {
       for (const m of [...answers].reverse()) { if (!(await letOnePageGo(story, m.id))) { allGone = false; break; } }
       if (allGone && !(await letOnePageGo(story, id))) allGone = false;
     } finally {
-      busy = false;
+      deleteHold = null;
+      endHold();
     }
     /* M21: with the page gone, the preview re-reads the page before it. */
     await refreshPreview(story.id);

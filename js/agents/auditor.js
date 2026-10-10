@@ -21,7 +21,7 @@
 
 import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M554; M677: what goes into who knows what — the reader's own rule; M679: what answers a loose end — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
-import { samePlace } from '../engine/apply.js'; /* M403 */
+import { samePlace, seatAtScene } from '../engine/apply.js'; /* M403; M681: a seat at the scene's own place */
 import { seatForPerson, sameLooseEnd } from '../engine/people.js'; /* M398; M679: a loose end matched by sense, as the applier matches it */
 import { isHere, nameOnPage, samePersonName } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
 import { shownOnPage, personBookKey, groundTheTellingStandsOn, narrationOf } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
@@ -921,6 +921,13 @@ export function auditorScope(issues, state, { header = [], page = '', pageAt = n
      * seats elsewhere when the page moved the scene away from them */
     if (page && (m.type === 'presence.enter' || (m.type === 'offscreen.clear' && !isHere(state, m.name))) && typeof m.name === 'string') {
       if (walkInFromPage(state, m.name, { page, pageAt, shown: m.shown })) return true;
+    }
+    /* M681: …and by its third door — a seat for someone with none, AT the scene's own place, is a walk-in (apply.js
+     * offscreen.set, M402). A seated person's seat is never the auditor's (below); an unseated one's at the scene answers
+     * to the same question as its walk-ins. The world agent alone seats a quiet person there (its "judged" seat). */
+    if (page && m.type === 'offscreen.set' && typeof m.name === 'string' && !isHere(state, m.name) && m.stance !== 'toward' && m.stance !== 'seeking') {
+      const ground = state && state.place && typeof state.place.name === 'string' ? state.place.name : '';
+      if (ground && seatAtScene(String(m.location || ''), ground) && !isDeadSeat({ location: m.location, activity: m.activity }) && walkInFromPage(state, m.name, { page, pageAt, shown: m.shown })) return true;
     }
     /* M679: a thing's new place, when the page tells of that thing or its reader moved it, is the ending's */
     if (m.type === 'thing.set' && page && typeof m.name === 'string' && typeof m.where === 'string' && m.where.trim()) {

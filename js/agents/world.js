@@ -643,7 +643,9 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
       if (!m || typeof m.name !== 'string' || !m.name.trim() || isHere(fresh, m.name)) return true;
       const walksIn = m.type === 'presence.enter'
         || (m.type === 'offscreen.set' && m.stance !== 'toward' && m.stance !== 'seeking' && Boolean(ground) && seatAtScene(String(m.location || ''), ground) && !isDeadSeat({ location: m.location, activity: m.activity }));
-      return !walksIn || !walkInFromPage(fresh, m.name, { page: assistantText, pageAt, shown: m.shown });
+      /* M681: its own seat at the scene's place is the world's judgment (judged) — someone the page never names is not asked
+       * of the page's ending (apply.js walkInFromPage) */
+      return !walksIn || !walkInFromPage(fresh, m.name, { page: assistantText, pageAt, shown: m.shown, judged: m.type === 'offscreen.set' });
     });
   }
   /* M40: everyone the agent seats has a page. A seat without a people.set

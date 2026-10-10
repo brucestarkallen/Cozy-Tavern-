@@ -46,7 +46,7 @@ import { seat, findSeat, isDeadSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact } from './canon.js';
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight } from './duels.js';
 import { withoutStandingNumbers, setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
-import { samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
+import { samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage, isTitleWord } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
 import { setThread, closeThread, findThread, sameThreadTitle, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES, sameFact, factKey, brokenOff } from './world.js'; /* M29: the world beyond the page */
@@ -1987,6 +1987,120 @@ export function goneAtTheEnd(state, pageText, name) {
   return false;
 }
 
+/* M681: DOES THE PAGE'S ENDING NARRATE THIS PERSON COMING IN? M680 held every walk-in a worker writes to the room the page's
+ * own reader named as the page ends (state.roomAt) — right for Corven, whom the reader left at the hall; wrong when the
+ * READER slipped: his Bleach office ends "Renji Abarai shouldered through the door a moment later, grinning." and the
+ * reader's room left Renji out, so the world agent's walk-in of him was refused and he stood nowhere (DOM-100). An
+ * arrival the ending itself tells — this person the subject of a coming-in, never another's, never one that did not
+ * happen ("would come in", "never came in", "waited for Renji to come in"), never a voice or a possessive ("Renji's voice
+ * came in"), never a coming-in undone in the same sentence ("came in and went straight back out") — outweighs the room
+ * the reader named. `shown`: the page's own words a worker handed over for the arrival, when they are in the ending's
+ * telling and hold a coming-in. */
+const ARRIVE_VERB = '(?:came|comes|come|coming|steps?|stepped|walks?|walked|strode|strides?|slips?|slipped|swept|sweeps?|bursts?|barged|barges?|hurried|hurries|hurry|rushed|rush(?:es)?|ran|runs?|wandered|wanders?|ambled|ambles?|sauntered|saunters?|limped|limps?|staggered|staggers?|stumbled|stumbles?|marched|march(?:es)?|stormed|storms?|crept|creeps?|padded|pads?|filed|files?|bustled|bustles?|breezed|breez(?:es?)|darted|darts?|dashed|dash(?:es)?|raced|races?|hobbled|hobbles?|shuffled|shuffles?|tiptoed|tiptoes?|ducked|ducks?|edged|edges?|sidled|sidles?|swaggered|swaggers?|pushed|push(?:es)?|shouldered|shoulders?|elbowed|elbows?|squeezed|squeezes?|strolled|strolls?|trudged|trudges?)';
+const ARRIVE_ROOM_NOUNS = ['room', 'hall', 'chamber', 'office', 'kitchen', 'tavern', 'taproom'];
+const ARRIVE_STOP = new Set(['the', 'of', 'and', 'in', 'at', 'on', 'to', 'by', 'for', 'with', 'from', 'near', 'outside', 'inside', 'behind', 'beside']);
+const arrivalPattern = (nouns) => {
+  const noun = '(?:' + nouns.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')s?';
+  const after = '(?![\\p{L}\\p{N}\'])(?=\\s*(?:[,.;:!?…—–)]|$)|\\s+(?:and|with|to|as|where|at|of|behind|beside|carrying|holding|bearing|then|just|without|for|a|an|the)\\b)';
+  const det = '(?:the|a|an|his|her|their|its)\\s+';
+  return new RegExp('^(?:'
+    + ARRIVE_VERB + '(?:\\s+(?:back|right|straight|quietly|slowly))?\\s+(?:in|inside)\\b(?!\\s+(?:the|a|an|his|her|their|its|my|your|our|this|that)\\s+(?!(?:front\\s+|back\\s+|side\\s+|open\\s+)?(?:door|doorway|gate|entrance)\\b))'
+    + '|' + ARRIVE_VERB + '(?:\\s+(?:back|right|straight))?\\s+(?:in\\s+)?through\\s+(?:the|a)\\s+(?:[\\p{L}\'-]+\\s+)?(?:door|doors|doorway|gate|gates|entrance|archway|arch|flap|curtain|threshold)\\b'
+    + '|' + ARRIVE_VERB + '\\s+(?:into|inside)\\s+' + det + '(?:[\\p{L}\\p{N}\'-]+\\s+){0,2}?' + noun + after
+    + '|(?:let|lets)\\s+(?:herself|himself|themselves)\\s+in\\b'
+    + '|(?:showed|shows|turned|turns)\\s+up\\b'
+    + '|(?:entered|enters)\\s+' + det + '(?:[\\p{L}\\p{N}\'-]+\\s+){0,2}?' + noun + after
+    + '|(?:entered|enters|arrived|arrives)(?:(?=\\s*(?:[,.;:!?…—–)]|$))|(?=\\s+(?:with|carrying|holding|bearing|a\\s+moment\\s+later|at\\s+last|just\\s+then|then|too|again)\\b)|\\s+(?:at|in)\\s+(?:the|a)\\s+(?:[\\p{L}\\p{N}\'-]+\\s+){0,2}?' + noun + after + ')'
+    + '|(?:appeared|appears)\\s+(?:in|at)\\s+(?:the|a)\\s+(?:[\\p{L}\'-]+\\s+)?(?:door|doorway|gate|entrance|threshold|archway)\\b'
+    + '|(?:joined|joins)\\s+(?:them|him|her|us|the\\s+others)\\b'
+    + ')', 'u');
+};
+/* before the person's name: the sentence's start, a clause's start, or a word that leads into what happens next */
+const ARRIVE_BEFORE = /(?:^|[,;:—–(]|\b(?:and|then|when|until|as|once|before|after|while|finally|suddenly|later|now|soon|at\s+last|just\s+then|a\s+moment\s+later|moments\s+later|a\s+beat\s+later|seconds\s+later|minutes\s+later))\s*$/u;
+const ARRIVE_INVERTED = /\bin\s+(?:came|walked|stepped|strode|swept|burst|marched|stormed|strolled|wandered|hurried|rushed|ran|limped)\s+$/u;
+/* between the name and the coming-in: a clause set off by commas, a list of others, "and <another>", a word or two of manner */
+const ARRIVE_BETWEEN = '^(?:\\s*,[^,.;!?]{1,40},|\\s*,)?(?:\\s*,\\s*(?:(?:the|his|her|their|a|an)\\s+)?[\\p{L}\'-]+(?:\\s+[\\p{L}\'-]+)??){0,4}(?:\\s+and\\s+(?:(?:the|his|her|their|a|an)\\s+)?[\\p{L}\'-]+(?:\\s+[\\p{L}\'-]+)??)?(?:\\s+(?:quietly|slowly|softly|finally|suddenly|abruptly|hastily|hurriedly|briskly|casually|cautiously|carefully|eventually|then|too|also|again|first|last|now|just|at last|at once|himself|herself|themselves)){0,2}\\s+';
+/* a going in the same breath — a motion word, then out / away / off ("and went straight back out"), never "and took off his coat" */
+const ARRIVE_UNDONE = /\b(?:and|then)\s+(?:\w+\s+)?(?:went|goes|go|walked|walks|stepped|steps|ran|runs|hurried|hurries|headed|heads|slipped|slips|strode|stormed|marched|backed|ducked|turned|wandered|stalked|stomped|rushed|dashed|left)\s+(?:\w+\s+)?(?:out|away|off|back\s+out)\b|\bout\s+into\b|\bout\s+(?:to|onto)\b/i;
+const plainLower = (t) => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').replace(/[’‘ʼ`]/g, "'").toLowerCase();
+const escRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export function comesInAtTheEnd(state, pageText, names, shown = '') {
+  const s = state && typeof state === 'object' ? state : {};
+  const all = (Array.isArray(names) ? names : [names]).filter((n) => typeof n === 'string' && n.trim());
+  if (!all.length) return false;
+  const ending = pageEnding(String(pageText || ''));
+  if (!ending.trim()) return false;
+  if (all.some((n) => goneAtTheEnd(s, pageText, n))) return false; /* came in, and the page ends on them going again */
+  const groundWords = placeWordsOf(s.place && typeof s.place.name === 'string' ? s.place.name : '').filter((w) => w.length >= 3 && !ARRIVE_STOP.has(w) && !/^\d/.test(w));
+  const ARRIVAL = arrivalPattern([...new Set([...ARRIVE_ROOM_NOUNS, ...groundWords])]);
+  const undone = (rest, sentence) => ARRIVE_UNDONE.test(rest) || showsDeparture(sentence);
+  /* the words a worker handed over */
+  if (shown && toldOnPage(ending, shown).end !== -1) {
+    const quote = plainLower(String(shown).replace(/["“”«»「」『』]/g, ' ')).replace(/\s+/g, ' ');
+    if (!showsDeparture(quote)) {
+      for (const m of quote.matchAll(/(?<![\p{L}\p{N}])(?=\p{L})/gu)) {
+        const rest = quote.slice(m.index);
+        const hit = ARRIVAL.exec(rest);
+        if (!hit) continue;
+        if (NOT_YET.test(quote.slice(0, m.index))) continue;
+        if (!undone(rest.slice(hit[0].length), quote)) return true;
+      }
+    }
+  }
+  /* who else the ledger knows — a word they share with this person is not this person's (as goneAtTheEnd builds it) */
+  const others = [...new Set([
+    ...Object.keys(s.characters && typeof s.characters === 'object' ? s.characters : {}),
+    ...(Array.isArray(s.present) ? s.present : []).map((p) => (p && typeof p.name === 'string' ? p.name : '')),
+    ...Object.keys(s.offscreen && typeof s.offscreen === 'object' ? s.offscreen : {}),
+    mcName(s) !== 'the player' ? mcName(s) : '',
+  ])].filter((n) => n && !all.some((a) => samePersonName(a, n)));
+  const shared = new Set(others.flatMap((n) => nameCore(n).split(' ')));
+  const spellings = [...new Set(all.flatMap((n) => [plainLower(n).trim(), plainLower(nameCore(n)), ...nameCore(n).split(' ').filter((w) => w.length >= 2 && !shared.has(w)).map(plainLower)]))]
+    .filter(Boolean).sort((a, b) => b.length - a.length);
+  if (!spellings.length) return false;
+  const nameRe = new RegExp('(?<![\\p{L}\\p{N}])(?:' + spellings.map((w) => escRe(w).replace(/\s+/g, '[\\s-]+')).join('|') + ')(?:-\\p{L}+)?(?![\\p{L}\\p{N}\'])', 'gu');
+  const pronounRe = /(?<![\p{L}\p{N}])(?:he|she|they)(?![\p{L}\p{N}'])/gu;
+  const someoneElse = (t) => RANKED.test(t) || others.some((n) => shownOnPage(s, t, n));
+  const shows = (t) => all.some((n) => shownOnPage(s, t, n));
+  const sentences = narrationOf(ending).split(/(?<=[.!?…])\s+|\n+/).map((x) => x.trim()).filter(Boolean);
+  const between = new RegExp(ARRIVE_BETWEEN, 'u');
+  /* a sentence where this person (or, where the telling is plainly about them, he / she / they) comes in */
+  const arrivesIn = (sentence, pronouns) => {
+    const low = plainLower(sentence);
+    const spots = [...low.matchAll(nameRe), ...(pronouns ? low.matchAll(pronounRe) : [])];
+    for (const m of spots) {
+      let before = low.slice(0, m.index);
+      for (let w = before.match(/([\p{L}.'-]+)\s*$/u); w && isTitleWord(w[1].replace(/\.$/, '')); w = before.match(/([\p{L}.'-]+)\s*$/u)) before = before.slice(0, w.index);
+      if (!ARRIVE_BEFORE.test(before) && !ARRIVE_INVERTED.test(before)) continue;
+      const after = low.slice(m.index + m[0].length);
+      let rest = null;
+      if (ARRIVE_INVERTED.test(before)) rest = after; /* "In came Renji, grinning" */
+      else {
+        const lead = between.exec(after);
+        if (!lead) continue;
+        const hit = ARRIVAL.exec(after.slice(lead[0].length));
+        if (!hit) continue;
+        rest = after.slice(lead[0].length + hit[0].length);
+      }
+      if (!undone(rest, sentence)) return true;
+    }
+    return false;
+  };
+  for (let i = 0; i < sentences.length; i += 1) {
+    const mine = shows(sentences[i]);
+    const alone = mine && !someoneElse(sentences[i]);
+    if (arrivesIn(sentences[i], alone)) return true;
+    if (!alone) continue;
+    /* the sentences right after that go on about them by a pronoun and name nobody else (goneAtTheEnd's run) */
+    for (let j = i + 1; j < sentences.length; j += 1) {
+      const told = sentences[j].replace(/^[\s“”"'‘’—–-]+/, '');
+      if (someoneElse(sentences[j]) || shows(sentences[j]) || !/^(?:\S+\s+){0,4}?(?:she|he|they|her|his|their)\b/i.test(told)) break;
+      if (arrivesIn(sentences[j], true)) return true;
+    }
+  }
+  return false;
+}
+
 /* M680: A DEATH THE PAGE TELLS, OF THAT PERSON. A worker's leave to "dead — …" stands on it (the page goes on naming the
  * body — "Roska knelt by Hesk" — so no going is ever its last word, and goneAtTheEnd never sees it). Its words must stand
  * in a sentence of the telling that shows THEM, or in the sentences that go on about them ("He slid down the bar. He never
@@ -2287,8 +2401,16 @@ export function groundLooksStale(state, pageText) {
  *   - nobody the world seats elsewhere, against the room this page's reader named as it ends (state.roomAt, M666);
  *   - only someone the page's ENDING shows (pageEnding), by name or by the page's own words handed over ("shown");
  *   - nobody the page ends on going (goneAtTheEnd), and nobody at all when it ends on HIM walking off;
- *   - nobody the world seats elsewhere when this page moved the scene away from where they are. */
-export function walkInFromPage(state, names, { page = '', pageAt = null, shown = '' } = {}) {
+ *   - nobody the world seats elsewhere when this page moved the scene away from where they are.
+ * M681 — TWO THINGS M680 TOOK THAT WERE RIGHT BEFORE IT (harness M655-1, walk DOM-100):
+ *   - `judged`: the world agent's own seat AT the scene's place (agents/world.js). Someone the page never names at all
+ *     ("quiet") — Tom, with no seat, "waiting by the stove" in the kitchen the scene stands in — is in the scene because
+ *     the world says so (M402/M647/M655: silence is not leaving); the page's ending cannot show someone it never names,
+ *     so it is not asked to. A seated person the reader's named room leaves out still stays out.
+ *   - an arrival the page's ending narrates (comesInAtTheEnd) outweighs a room its reader named without them: "Renji Abarai
+ *     shouldered through the door a moment later" is Renji in the room, whatever the reader's list forgot. The reader's own
+ *     quoted leave is never undone by it (the refusal above comes first). */
+export function walkInFromPage(state, names, { page = '', pageAt = null, shown = '', judged = false } = {}) {
   const s = state && typeof state === 'object' ? state : {};
   const all = (Array.isArray(names) ? names : [names]).filter((n) => typeof n === 'string' && n.trim());
   if (!all.length) return 'no name';
@@ -2301,11 +2423,17 @@ export function walkInFromPage(state, names, { page = '', pageAt = null, shown =
   const wrote = Number.isInteger(pageAt) ? (Array.isArray(s.journal) ? s.journal : []).filter((j) => j && j.p === pageAt && j.m && typeof j.m === 'object').map((j) => j.m) : [];
   if (wrote.some((m) => m.type === 'presence.leave' && same(m.name) && quotedGoing(s, text, m.name, m.shown))) return 'this page’s own reader took them out';
   const room = Number.isInteger(pageAt) && s.roomAt && typeof s.roomAt === 'object' && s.roomAt.page === pageAt && Array.isArray(s.roomAt.names) && s.roomAt.names.length ? s.roomAt.names : null;
-  if (seated && room && !room.some(same)) return 'not in the room this page’s reader named as it ends';
-  const ending = pageEnding(text);
-  const endingTold = narrationOf(ending);
-  if (!ending || !(all.some((n) => shownOnPage(s, endingTold, n)) || toldOnPage(ending, shown).end !== -1)) return 'the page’s ending does not show them';
-  if (all.some((n) => goneAtTheEnd(s, text, n))) return 'the page ends on them going';
+  const scene = scenePartOf(text);
+  const mentioned = all.some((n) => nameOnPage(scene, n)) || toldOnPage(text, shown).end !== -1;
+  const quiet = judged && !mentioned; /* the world seats, at the scene's place, someone the page never names */
+  const outOfRoom = Boolean(room) && !room.some(same) && (seated || (judged && mentioned));
+  if (outOfRoom && (quiet || !comesInAtTheEnd(s, text, all, shown))) return 'not in the room this page’s reader named as it ends';
+  if (!quiet) {
+    const ending = pageEnding(text);
+    const endingTold = narrationOf(ending);
+    if (!ending || !(all.some((n) => shownOnPage(s, endingTold, n)) || toldOnPage(ending, shown).end !== -1)) return 'the page’s ending does not show them';
+    if (all.some((n) => goneAtTheEnd(s, text, n))) return 'the page ends on them going';
+  }
   const mc = mcName(s);
   if (mc && mc !== 'the player' && mcWalksOff(text, mc)) return 'the page ends on him walking off';
   if (seated && Number.isInteger(pageAt) && s.groundWas && typeof s.groundWas === 'object' && s.groundWas.page === pageAt

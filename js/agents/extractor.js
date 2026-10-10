@@ -37,7 +37,7 @@
 import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition; M677: what goes into who knows what — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning, foldName } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey, noOneSpot, deathToldOf } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey, noOneSpot, deathToldOf, comesInAtTheEnd } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
 import { headerMutations, headerDress, closeBy, headerCells } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey } from '../engine/people.js';
 import { isDeadSeat, seatNowWords } from '../engine/offscreen.js'; /* M680: the dead, and a seat said as every reader says it */
@@ -1001,8 +1001,18 @@ export async function extractTurn(args = {}) {
     if (roomNamed && args.state && args.state.offscreen && typeof args.state.offscreen === 'object') {
       /* M679: …nor by its other door — a seat let go (offscreen.clear: "they are in the scene now") is a walk-in too (clearsThatArrive,
        * below); against the room it names, the seat stands */
-      read.mutations = read.mutations.filter((m) => !(m && (m.type === 'presence.enter' || m.type === 'offscreen.clear') && typeof m.name === 'string' && !isMc(args.state, m.name) && !isHere(args.state, m.name)
-        && Object.keys(args.state.offscreen).some((k) => samePersonName(k, m.name)) && !cameAlong(m.name)));
+      /* M681: …unless the page's ending narrates them coming in ("Renji Abarai shouldered through the door a moment later"):
+       * the reader's list forgot him, its own walk-in did not (apply.js comesInAtTheEnd). And its own seat for them AT the
+       * scene's place is the same walk-in by a third door (apply.js offscreen.set, M402): against the room it named, not
+       * written either. */
+      const sceneGround = moved ? ground : (was || ground);
+      const seatedNow = (n) => Object.keys(args.state.offscreen).some((k) => samePersonName(k, n));
+      read.mutations = read.mutations.filter((m) => {
+        if (!m || typeof m.name !== 'string' || isMc(args.state, m.name) || isHere(args.state, m.name) || !seatedNow(m.name) || cameAlong(m.name)) return true;
+        const walksIn = m.type === 'presence.enter' || m.type === 'offscreen.clear'
+          || (m.type === 'offscreen.set' && m.stance !== 'toward' && m.stance !== 'seeking' && Boolean(sceneGround) && seatAtScene(String(m.location || ''), sceneGround) && !isDeadSeat({ location: m.location, activity: m.activity }));
+        return !walksIn || comesInAtTheEnd(args.state, args.assistantText, [m.name], m.shown);
+      });
     }
     /* M444: a note let go of someone the page shows is her walking in; and the room, restated, writes in whoever is missing */
     read.mutations = clearsThatArrive(args.state, read.mutations, scenePartOf(args.assistantText));

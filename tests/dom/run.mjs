@@ -14269,6 +14269,76 @@ test('DOM-274 EVERY RE-INK IS READ AGAIN, AND NONE WAITS ON THE READERS (M680 �
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-276 A DELETE HOLDS THE HOUSE WITHOUT TURNING ANYONE AWAY (M681 — M680 held it by marking the house busy, which turned a page sent meanwhile away; walk DOM-208): his message answered by two pages is let go while a page reader is held; a re-ink pressed in the middle of it waits until every page of the delete has gone, and only then rebuilds', async () => {
+  const before = errors.length;
+  const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const keeperWas = await db.settings.get('memoryKeeper');
+  const answerWas = house.state.workerAnswer;
+  await db.settings.set('memoryKeeper', false);
+  let hold = null;
+  house.state.workerAnswer = () => { const blob = '{"mutations":[],"deltas":[],"findings":[],"issues":[],"brief":{"pressure":[],"ripple":[],"twb":null}}'; return hold ? hold.then(() => blob) : blob; };
+  const st = await db.stories.create({ title: 'a delete in the middle' });
+  let ts = Date.now() - 600000;
+  for (let i = 0; i < 10; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'move ' + i, ts: (ts += 100) });
+    await db.messages.append(st.id, { role: 'assistant', text: '[The yard — Monday, March 3, 2025 | 09:' + String(10 + i).padStart(2, '0') + ' | clear]\n\nThe scene turns, page ' + i + '. Kim watches from the wall.', ts: (ts += 100) });
+    if (i === 5) {
+      await db.messages.append(st.id, { role: 'user', text: 'Go on.', hidden: true, ts: (ts += 100) });
+      await db.messages.append(st.id, { role: 'assistant', text: '[The yard — Monday, March 3, 2025 | 09:15 | clear]\n\nThe scene goes on, page 5b. Kim watches from the wall.', ts: (ts += 100) });
+    }
+  }
+  let led = { ...emptyState() };
+  led.page = 0; led = applyMutations(led, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The yard' }, { type: 'presence.enter', name: 'Jovan' }]).state;
+  for (let p = 1; p < 11; p += 1) { led.page = p; led = applyMutations(led, [{ type: 'clock.advance', minutes: 1, reason: 'page ' + p }]).state; }
+  led.readTo = 10;
+  await saveState(st.id, led);
+  const priorConfirm = env.window.confirm;
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await tick(200);
+    const story = await db.stories.get(st.id);
+    const all = await db.messages.list(st.id);
+    const victim = all.filter((m) => m.role === 'user' && !m.hidden)[5];
+    const going = all.slice(all.indexOf(victim), all.indexOf(victim) + 4).map((m) => m.id); /* his message, its page, the go-on, the page after */
+    eq(going.length, 4, 'his message and what answered it');
+    /* a reader is held on the newest page, so the delete's first rebuild waits behind it */
+    let let_; hold = new Promise((r) => { let_ = r; });
+    const newest = all.filter((m) => m.role === 'assistant').pop();
+    await env.ctx.chat.pageReinked(story, newest.id);
+    await until(() => workIsRunning(st.id), 'a reader held', 10000);
+    env.window.confirm = () => true;
+    const node = qa('#thread .msg').find((n) => n.dataset.id === victim.id);
+    assert(node, 'his message is on the thread');
+    click(q('.msg-act[data-act="delete"]', node));
+    await until(async () => !(await db.messages.list(st.id)).some((m) => m.id === going[3]), 'the delete has begun (its last page went first)', 10000);
+    /* a re-ink pressed in the middle of the delete */
+    const older = all.filter((m) => m.role === 'assistant')[2];
+    await db.messages.update(st.id, older.id, { text: older.text.replace('Kim', 'Kris') });
+    let reinkDone = false; let goneAtReink = null;
+    const reinked = env.ctx.chat.pageReinked(story, older.id).then(async (r) => { reinkDone = true; const ids = new Set((await db.messages.list(st.id)).map((m) => m.id)); goneAtReink = going.every((id) => !ids.has(id)); return r; });
+    await tick(400);
+    eq(reinkDone, false, 'the re-ink waits while the delete holds the house');
+    hold = null; let_();
+    await reinked;
+    eq(goneAtReink, true, 'by the time the re-ink has its turn, every page of the delete is gone');
+    await until(() => !env.ctx.chat.isReplaying() && queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the rebuilds and their readers', 120000);
+    const left = new Set((await db.messages.list(st.id)).map((m) => m.id));
+    assert(going.every((id) => !left.has(id)), 'his message and both its pages are gone');
+  } finally {
+    env.window.confirm = priorConfirm;
+    hold = null;
+    house.state.workerAnswer = answerWas;
+    if (keeperWas === undefined) await db.settings.delete('memoryKeeper'); else await db.settings.set('memoryKeeper', keeperWas);
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-275 THE CHOICES ARE MADE FROM THE LEDGER AS THE PAGE LEFT IT (M680 — the books audit): Choices matter asked its helper the moment a page landed, before the page’s own readers had written it into the ledger — so the outcomes were sealed against the room as it stood BEFORE the page: a man the page had just walked out of the yard was still “here now”. It waits for the page’s readers now', async () => {
   const before = errors.length;
   const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');
