@@ -93,13 +93,13 @@ test('M44-5 sparse snapshots: the newest stay dense, older ones thin out, a deep
 
 test('M44-6 the house wires the laws: retry truncates the record, delete slides it and replays, swipe and edit leave a hole, the last page’s edit rewinds, an older page’s edit REPLAYS (M68)', () => {
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  assert(/memoryTruncatedAt\(await loadMemory\(story\.id\), k\)/.test(chat), 'retry/regenerate truncates');
-  assert(/memoryAfterDeletion\(await loadMemory\(story\.id\), kGone\)/.test(chat), 'delete slides');
-  assert(/replayFrom\(story, after\.id, \{ changed: false, shiftAfter: goneK, kOverride: goneK, atOverride: kGone \}\)/.test(chat), 'delete folds back and re-applies the later pages’ writes, shifted down (M69)');
+  assert(/memoryTruncatedAt\(await loadMemory\(story\.id\), k\b/.test(chat), 'retry/regenerate truncates'); /* M680: with the tale's own rule for which lines stay (recordCutRule) — run by DOM-273 */
+  assert(/memoryAfterDeletion\(await loadMemory\(story\.id\), kGone\b/.test(chat), 'delete slides'); /* M680: with the tale's own rule for which lines stay (recordCutRule) — run by DOM-273 */
+  assert(/replayFrom\(story, after\.id, \{ changed: false, shiftAfter: goneK, kOverride: goneK, atOverride: kGone(, held: true)? \}\)/.test(chat), 'delete folds back and re-applies the later pages’ writes, shifted down (M69)'); /* M680: held — the delete took the rebuild gate itself */
   eq((chat.match(/memoryWithoutPage\(await loadMemory\(story\.id\), k\)/g) || []).length, 4, 'swipe-new, swipe-walk (last page), edit, read again (M113) leave a hole');
-  const edit = chat.slice(chat.indexOf('const isLast = !history.slice'), chat.indexOf('const isLast = !history.slice') + 700);
+  const edit = chat.slice(chat.indexOf('const isLast = !history.slice'), chat.indexOf('const isLast = !history.slice') + 1200); /* M680: a comment on the held gate sits before the replay */
   /* M296: the edit's follow-up is one door (pageReinked) — the housekeeper's re-inks pass through it too */
-  assert(/if \(isLast\) \{[\s\S]*rewindTo\(story, history, boundary\.id\)/.test(edit) && /else \{[\s\S]*replayFrom\(story, msg\.id, \{ changed: true \}\)/.test(edit), 'the last page rewinds; an older page folds back and is read again');
+  assert(/if \(isLast\) \{[\s\S]*rewindTo\(story, history, boundary\.id\)/.test(edit) && /else \{[\s\S]*replayFrom\(story, msg\.id, \{ changed: true(, held: true)? \}\)/.test(edit), 'the last page rewinds; an older page folds back and is read again');
   assert(/if \(updated\) await pageReinked\(story, msg\.id\);/.test(chat), 'the writer’s edit passes through the one door (M296)');
   assert(/async function replayFrom\(story, fromMessageId/.test(chat) && /if \(!replaying && !isLastAssistantPage\(all, msg\.id\)\) return \{ silent: true \};/.test(chat), 'the replay exists and re-takes checkpoints as it runs');
   assert(/pendingAudit\.delete\(story\.id\);/.test(chat), 'the auditor honors a pending audit');

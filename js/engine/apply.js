@@ -195,6 +195,14 @@ export function personBookKey(state, book, name, finder) {
   const same = Object.keys(map).filter((k) => samePersonName(k, name));
   return same.length === 1 && oneMeaning(state, name) ? same[0] : null;
 }
+/* M680 (the people audit): WHAT IS TRUE OF THEM, UNDER THE NAME THEY STAND IN THE ROOM BY. The reader writes someone in by the
+ * name the prose uses ("Roska"); her page and her truths stand under her whole name ("Roska Venn") — and the truths of
+ * whoever is in the scene were found by the exact name, so none of hers reached the storyteller while she stood beside
+ * him. Each name in the room is read to the name her truths are kept under (M419's one person, one name in every book). */
+export function canonNamesFor(state, names) {
+  const canon = state && state.canon && typeof state.canon === 'object' ? state.canon : {};
+  return (Array.isArray(names) ? names : []).map((n) => (typeof n === 'string' && n.trim() ? personBookKey(state, canon, n, findCanonKey) || n : n));
+}
 /* M423: the page a NEW entry is written under is found the way a seat is (M257 — a hard fact): the same letters, or the
  * one matcher when exactly one page answers and the name means one person — never a near spelling. M419 first used the
  * page finder, whose near spelling is right for a misheard name on a page and wrong here: Mira's burned hand and her
@@ -377,7 +385,7 @@ const HANDLERS = {
     const before = { ...state.mode };
     const turnedOn = MODE_FLAGS.filter((f) => wanted.has(f) && !state.mode[f]);
     const turnedOff = MODE_FLAGS.filter((f) => !wanted.has(f) && state.mode[f]);
-    if (!turnedOn.length && !turnedOff.length) return { why: 'the mood is as it was' };
+    if (!turnedOn.length && !turnedOff.length) return { why: 'the mood is as it was', same: true }; /* M680: already so is no refusal (the books audit) */
     for (const f of turnedOn) state.mode[f] = true;
     for (const f of turnedOff) state.mode[f] = false;
     const on = (f) => (MODE_WORDS[f] && MODE_WORDS[f].on) || f;
@@ -610,8 +618,10 @@ const HANDLERS = {
      * "— into the vestibule"), and anything else is where they went ("— to the temple vestibule") */
     const joint = !went ? '' : /^(?:into|onto|out|up|down|back|home|through|toward|towards|over to|off to)\b/i.test(went) ? ' — '
       : /^(?:behind|off|on|in|inside|at|by|above|below|under|beneath|near|beside|across|over|outside|upstairs|downstairs|within|among|along|around|against|atop)\b/i.test(went) ? ' — now ' : ' — to ';
+    const died = isDeadSeat({ location: went }); /* M680: a death says so */
     return {
-      words: before.name + ' stepped out of the scene' + (went ? joint + went : '') + (cause ? ' — ' + cause.replace(/\.+$/, '') : '') + '.',
+      words: died ? before.name + ' is dead — ' + went.replace(/^\s*(?:dead|deceased|died|killed|slain|perished)\b[\s—–:,-]*/i, '') + (cause ? ' — ' + cause.replace(/\.+$/, '') : '') + '.'
+        : before.name + ' stepped out of the scene' + (went ? joint + went : '') + (cause ? ' — ' + cause.replace(/\.+$/, '') : '') + '.',
       undo: { kind: 'presence.restore', before, index: at, ...(seatAdded ? { seatAdded } : {}) },
     };
   },
@@ -656,7 +666,7 @@ const HANDLERS = {
     if (!MODE_FLAGS.includes(flag)) {
       return { why: '“' + (flag || '?') + '” isn’t a mood the ledger knows' };
     }
-    if (state.mode[flag]) return { why: MODE_WORDS[flag].on.toLowerCase() + ' — that was already so' };
+    if (state.mode[flag]) return { why: MODE_WORDS[flag].on.toLowerCase() + ' — that was already so', same: true };
     state.mode[flag] = true;
     let words = MODE_WORDS[flag].on + '.';
     if (typeof m.reason === 'string' && m.reason.trim()) {
@@ -670,7 +680,7 @@ const HANDLERS = {
     if (!MODE_FLAGS.includes(flag)) {
       return { why: '“' + (flag || '?') + '” isn’t a mood the ledger knows' };
     }
-    if (!state.mode[flag]) return { why: 'that mood wasn’t on' };
+    if (!state.mode[flag]) return { why: 'that mood wasn’t on', same: true };
     state.mode[flag] = false;
     return { words: MODE_WORDS[flag].off + '.', undo: { kind: 'mode', flag, before: true } };
   },
@@ -864,6 +874,12 @@ const HANDLERS = {
      * one ("Rias" is seated as "Rias Gremory"); a seat they already hold under another form of their name is
      * taken over, never left beside the new one. */
     const pageKey = findPersonKey(state.characters || {}, name) || resolveDescriptor(state, name); /* M482 */
+    /* M680: A DEATH IN THE ROOM TAKES THEM OUT OF IT. "dead — on the floor of the taproom" for Old Hesk, who stood in the
+     * scene, was refused (nobody is in two places) and he stood in Here now, dead. A death is a leave to where the body lies. */
+    if (isDeadSeat({ location: capText(m.location, 500), activity: capText(m.activity, 1000) }) && !isMc(state, name)) {
+      const inRoom = findPresent(state, name, { strict: true }) !== -1 ? name : (pageKey && findPresent(state, pageKey, { strict: true }) !== -1 ? pageKey : '');
+      if (inRoom) return HANDLERS['presence.leave'](state, { type: 'presence.leave', name: inRoom, to: capText(m.location, 500), doing: capText(m.activity, 200) });
+    }
     if (findPresent(state, name, { strict: true }) !== -1 || (pageKey && findPresent(state, pageKey, { strict: true }) !== -1) || isHere(state, name) || (pageKey && isHere(state, pageKey))) { /* M414: strict */
       return { why: (pageKey || name) + ' is in the scene — they cannot be written elsewhere' };
     }
@@ -878,7 +894,15 @@ const HANDLERS = {
      * "13th Division Barracks — the third seats' office", "…, the training yard" — walked into the captain's office, and
      * every one of his people stood beside the main character. The seat is at the scene only when it names every part
      * of the scene's place, and not as a place she is outside of or on the way to (seatAtScene). */
-    if (!movingIn && seatAtScene(location, state.place && state.place.name)) {
+    /* M680 (the people and world audits): A DEATH IS NOT A WALK-IN. "dead — on the floor of the Bent Kettle taproom" while
+     * the scene stood in the Bent Kettle walked Old Hesk into "Here now" and let go of his seat — the one record of his
+     * death. A death is seated where the body lies, at the scene's own place too (offscreen.js isDeadSeat: the Dead line). */
+    const dying = isDeadSeat({ location, activity });
+    /* …and a seat for the living — or a walk-in — is never written over a death but by his own hand: the world agent was
+     * asked to re-seat a grave whose note had aged ("where are they now?") and could raise the dead with a seat */
+    { const grave = seatForPerson(state, pageKey || name) || seatForPerson(state, name);
+      if (grave && isDeadSeat(grave.entry) && !dying && m.byHand !== true) return { why: grave.key + ' is dead — a seat for the living is not written over a death (a page that brings them back writes them into the scene)' }; }
+    if (!movingIn && !dying && seatAtScene(location, state.place && state.place.name)) {
       /* M402: SOMEONE THE WORLD PUTS WHERE THE SCENE IS, IS IN THE SCENE. Refusing the seat (M396) left them stuck: a
        * "last seen at <the scene's own ground>" note the world agent could never move on — Kyōraku "elsewhere" at the
        * courtyard the duel was in. They walk in instead (their note lets go on its own), and the quiet ones in the room
@@ -963,7 +987,9 @@ const HANDLERS = {
     /* M598: a person who has left the story (retired) is not kept — the house's upkeep retires a passer-through, then
      * lets the seat go */
     const keptPerson = Boolean(pageKey && !(state.characters[pageKey] && state.characters[pageKey].retired));
-    if (keptPerson && !isHere(state, seated.key) && !isHere(state, name)) return { why: seated.key + ' keeps the elsewhere note — letting it go would leave them nowhere; write where they are now, or bring them into the scene', same: true };
+    /* M680 (the world audit): his own "Let it go" in the drawer was refused for every person with a page — a button that
+     * never did anything. His hand lets the note go; the world agent is told they have no seat and places them anew. */
+    if (keptPerson && m.byHand !== true && !isHere(state, seated.key) && !isHere(state, name)) return { why: seated.key + ' keeps the elsewhere note — letting it go would leave them nowhere; write where they are now, or bring them into the scene', same: true };
     delete state.offscreen[seated.key];
     return {
       words: seated.key + '’s elsewhere note was let go.',
@@ -1110,7 +1136,7 @@ const HANDLERS = {
     /* M522: a line made fuller in place (the same fact, more of it) is a change that landed — not "already knows that",
      * which threw the fuller wording away */
     const fuller = before && after.length === before.length && after.some((k, i) => before[i] && k.fact !== before[i].fact);
-    if (before && after.length === before.length && !fuller) return { why: key + ' already knows that' };
+    if (before && after.length === before.length && !fuller) return { why: key + ' already knows that', same: true }; /* M680: at the source — M679 mapped it in the auditor alone; the page reader's and the world agent's lines still said "refused" */
     state.knowledge = next;
     return { words: key + ' now knows: ' + fact.replace(/\.+$/, '') + '.', undo: { kind: 'knowledge.restore', name: key, before } };
   },
@@ -1180,7 +1206,7 @@ const HANDLERS = {
   'people.retire'(state, m) {
     const key = findPersonKey(state.characters, m.name);
     if (!key) return { why: 'no page stands for ' + String(m.name || '?') };
-    if (state.characters[key].retired) return { why: key + ' has already passed through' };
+    if (state.characters[key].retired) return { why: key + ' has already passed through', same: true };
     const before = cloneMap({ [key]: state.characters[key] })[key];
     state.characters[key] = { ...state.characters[key], retired: true, retiredAtTurn: storyTurn(state) };
     return { words: key + ' passed through — ' + (capText(m.cause, 1000) || 'no bond, no seat, no thread, and thirty turns gone') + '.', undo: { kind: 'people.restore', name: key, before } };
@@ -1190,7 +1216,7 @@ const HANDLERS = {
   'people.rename'(state, m) {
     const from = normalizeName(m.from); const to = normalizeName(m.to);
     if (!from || !to) return { why: 'a rename needs the old name and the new' };
-    if (from.toLowerCase() === to.toLowerCase()) return { why: 'the same name' };
+    if (from.toLowerCase() === to.toLowerCase()) return { why: 'the same name', same: true };
     const keys = ['characters', 'offscreen', 'relationships', 'knowledge', 'canon', 'bodies', 'present', 'threads', 'factions', 'sheet', 'things', 'duel', 'battle'];
     const before = {};
     for (const k of keys) before[k] = JSON.parse(JSON.stringify(state[k] === undefined ? null : state[k]));
@@ -1297,7 +1323,7 @@ const HANDLERS = {
     const kept = [];
     for (const l of lines) { const cut = l.length > 700 ? l.slice(0, 699) + '…' : l; if (total + cut.length > 2400) break; kept.push(cut); total += cut.length; }
     const had = Array.isArray(state.characters[key].canon) ? state.characters[key].canon : [];
-    if (had.length === kept.length && had.every((l, i) => l === kept[i])) return { why: 'canon says of them what their page already holds' };
+    if (had.length === kept.length && had.every((l, i) => l === kept[i])) return { why: 'canon says of them what their page already holds', same: true };
     const before = cloneMap({ [key]: state.characters[key] })[key];
     const { canon: _was, ...rest } = state.characters[key];
     state.characters = { ...state.characters, [key]: kept.length ? { ...rest, canon: kept } : rest };
@@ -1311,7 +1337,7 @@ const HANDLERS = {
   'people.note'(state, m) {
     const noted = typeof m.text === 'string' ? withoutStandingNumbers(m.text) : m.text; /* M524: a standing's number is the ledger's, never a page's words */
     const { characters, changes, dropped } = mergeDeltas(state, state.characters, [{ name: m.name, field: m.field, text: noted }], storyTurn(state));
-    if (!changes.length) return { why: (dropped[0] && dropped[0].why) || 'the note said nothing new' };
+    if (!changes.length) { const why = (dropped[0] && dropped[0].why) || 'the note said nothing new'; return { why, ...(/already written down|said nothing new/.test(why) ? { same: true } : {}) }; } /* M680: a loose end already written is already so */
     const key = changes[0].name;
     const before = state.characters && state.characters[key] ? cloneMap({ [key]: state.characters[key] })[key] : null;
     state.characters = characters;
@@ -1321,6 +1347,14 @@ const HANDLERS = {
       const hand = markHand(state.characters[key].hand, field === 'thread' || field === 'unthread' ? 'threads' : field, m.byHand === true);
       const { hand: _old, ...rest } = state.characters[key];
       state.characters[key] = Object.keys(hand).length ? { ...rest, hand } : rest;
+    }
+    /* M680 (the people audit): THE SCRIBE'S NOW KNOWS ITS GROUND TOO (M409 gave it to people.set alone) — the scribe writes
+     * most nows, and none of them went stale by fact when the scene moved; one left by an older people.set let a fresh,
+     * right now go */
+    if (field === 'state' && state.characters[key]) {
+      const ground = state.place && typeof state.place.name === 'string' ? state.place.name.trim() : '';
+      const { nowAt: _was, ...rest } = state.characters[key];
+      state.characters[key] = ground && String(rest.state || '').trim() ? { ...rest, nowAt: ground } : rest;
     }
     const FIELD_WORDS = { core: 'their nature', state: 'where they are', arc: 'how things stand with them', thread: 'a loose end', unthread: 'a loose end closed' };
     const shown = field === 'thread' || field === 'unthread'
@@ -1710,7 +1744,15 @@ export function seatAtScene(location, sceneName) {
   const STREET = /^(?:lane|street|st|road|rd|avenue|ave|boulevard|blvd|drive|way|row|alley|court|square|plaza|quay|pier|highway|route|terrace|crescent|close)$/;
   const isAddress = (ws) => ws.length > 0 && (/^\d+[a-z]?$/.test(ws[0]) || STREET.test(ws[ws.length - 1])) ;
   const spots = everyPart.filter((ws) => !isAddress(ws) && !(ws.length === 1 && PLACE_REGION.has(ws[0])));
-  const parts = spots.length ? spots : everyPart;
+  /* M680 (the people audit): …but only while another part IS a spot. M679 writes the street a page stands on with its
+   * area — "Cooper's Row, Ilvarren" — and the street, read as an address, was set aside: all that was left to name was the
+   * city, so every seat in Ilvarren was "at the scene" (Old Hesk at his own tavern walked into Cooper's Row; a now on
+   * Gilder's Row was never stale at the Bent Kettle). When no part besides the address is a spot by M396's measure (two
+   * words or more as written, not a town or a city), the street IS the spot, and it is the street a seat must name. */
+  const pieces = scene.split(/\s*(?:—|–|,|;|\(|\)|\s-\s)\s*/).filter((r) => placeWordsOf(r).length); /* as written, one for each part */
+  const realSpot = everyPart.some((ws, i) => !isAddress(ws) && !noOneSpot(pieces[i] || ws.join(' ')));
+  const streets = everyPart.filter((ws) => isAddress(ws));
+  const parts = !realSpot && streets.length ? streets : (spots.length ? spots : everyPart);
   /* "the kitchen of the Wells house" is "the Wells house kitchen" */
   const ofTurned = (ws) => { const at = ws.indexOf('of'); return at > 0 && at < ws.length - 1 ? [...ws.slice(at + 1), ...ws.slice(0, at)] : ws; };
   const seatParts = placeParts(where).flatMap((ws) => { const t = ofTurned(ws); return t === ws ? [ws] : [ws, t]; });
@@ -1719,7 +1761,7 @@ export function seatAtScene(location, sceneName) {
       if (!p.every((w, k) => q[i + k] === w)) continue;
       const before = i > 0 ? q[i - 1] : '';
       const after = i + p.length < q.length ? q[i + p.length] : '';
-      if ((!before || PLACE_IN.has(before)) && (!after || PLACE_WITHIN.has(after))) return true;
+      if ((!before || PLACE_IN.has(before) || (before === 'on' && isAddress(p))) && (!after || PLACE_WITHIN.has(after))) return true; /* M680: "on Cooper's Row" is on the street */
     }
     return false;
   });
@@ -1741,6 +1783,7 @@ export function clearsThatArrive(state, mutations, sceneText) {
     if (!m || m.type !== 'offscreen.clear' || typeof m.name !== 'string' || !m.name.trim()) return m;
     const name = normalizeName(m.name);
     if (!name || isMc(state, name) || isHere(state, name) || !seatForPerson(state, name) || seatedAgain(name) || !oneMeaning(state, name)) return m;
+    if (isDeadSeat(seatForPerson(state, name).entry)) return m; /* M680: a death seat let go is no walk-in */
     const key = strictPageKey(state, name) || name;
     if (!shownOnPage(state, text, name) && !shownOnPage(state, text, key)) return m;
     return { type: 'presence.enter', name: key, cause: 'the page shows them here' };
@@ -1940,6 +1983,30 @@ export function goneAtTheEnd(state, pageText, name) {
       }
     }
     return run.some((t) => showsDeparture(t));
+  }
+  return false;
+}
+
+/* M680: A DEATH THE PAGE TELLS, OF THAT PERSON. A worker's leave to "dead — …" stands on it (the page goes on naming the
+ * body — "Roska knelt by Hesk" — so no going is ever its last word, and goneAtTheEnd never sees it). Its words must stand
+ * in a sentence of the telling that shows THEM, or in the sentences that go on about them ("He slid down the bar. He never
+ * rose again."): a death word anywhere on the page is no death of theirs, and "body" alone is no death ("His body ached"). */
+const DEATH_TOLD = /\b(?:dead|died|dies|killed|slain|corpse|lifeless|lay dying|breathed (?:his|her|their) last|never (?:rose|moved|stirred|breathed|woke) again|did not (?:rise|stir|move|breathe) again|stopped breathing|no longer breathing|no pulse|throat (?:cut|slit)|bled out)\b/i;
+export function deathToldOf(state, pageText, name) {
+  const s = state && typeof state === 'object' ? state : {};
+  const sentences = scenePartOf(pageText).split(/(?<=[.!?…])\s+|\n+/).map((x) => narrationOf(x).trim()).filter(Boolean);
+  const others = [...new Set([
+    ...Object.keys(s.characters && typeof s.characters === 'object' ? s.characters : {}),
+    ...(Array.isArray(s.present) ? s.present : []).map((p) => (p && typeof p.name === 'string' ? p.name : '')),
+    mcName(s) !== 'the player' ? mcName(s) : '',
+  ])].filter((n) => n && !samePersonName(n, name));
+  for (let i = 0; i < sentences.length; i += 1) {
+    if (!shownOnPage(s, sentences[i], name)) continue;
+    if (DEATH_TOLD.test(sentences[i])) return true;
+    for (let j = i + 1; j < Math.min(sentences.length, i + 3); j += 1) {
+      if (others.some((n) => shownOnPage(s, sentences[j], n)) || !/^(?:\S+\s+){0,4}?(?:she|he|they|her|his|their)\b/i.test(sentences[j].replace(/^[\s“”"'‘’—–-]+/, ''))) break;
+      if (DEATH_TOLD.test(sentences[j])) return true;
+    }
   }
   return false;
 }
@@ -2208,30 +2275,56 @@ export function groundLooksStale(state, pageText) {
  * end, and wrote him straight back in: the page's START taken for the present, by the house itself. Now: nobody this very
  * page's own readers took out is written back in on its word (pageAt: the page's index, as the chain stamps its writes),
  * and someone is written in only when the page's ENDING shows them (pageEnding), never when it ends on HIM going. */
+/* M680 — MAY THE NEWEST PAGE WALK SOMEONE INTO THE SCENE? One answer, for every door that writes someone in from the page's
+ * words when the page's own reader did not: the house's heal of who is here (below), the world agent's seat at the scene's
+ * own place and its note let go (agents/world.js), the auditor's walk-ins and notes let go (agents/auditor.js
+ * auditorScope). M679 held two of those doors to how the page ENDS and to the page's own reader; the world agent, which
+ * runs between them, was held to neither and walked Corven back in on the very page that took him out (the world room's
+ * audit, his turn 21). '' when they may walk in; else why not:
+ *   - the dead never walk in (their seat is the one record of the death — offscreen.js isDeadSeat);
+ *   - nobody this page's own reader took out with the page's own words for the going (the journal at its index, held by
+ *     quotedGoing — an older reader's bare leave is what M452 mends);
+ *   - nobody the world seats elsewhere, against the room this page's reader named as it ends (state.roomAt, M666);
+ *   - only someone the page's ENDING shows (pageEnding), by name or by the page's own words handed over ("shown");
+ *   - nobody the page ends on going (goneAtTheEnd), and nobody at all when it ends on HIM walking off;
+ *   - nobody the world seats elsewhere when this page moved the scene away from where they are. */
+export function walkInFromPage(state, names, { page = '', pageAt = null, shown = '' } = {}) {
+  const s = state && typeof state === 'object' ? state : {};
+  const all = (Array.isArray(names) ? names : [names]).filter((n) => typeof n === 'string' && n.trim());
+  if (!all.length) return 'no name';
+  const seats = s.offscreen && typeof s.offscreen === 'object' ? s.offscreen : {};
+  const seated = all.map((n) => findSeat(seats, n)).find(Boolean) || null;
+  if (seated && isDeadSeat(seated.entry)) return 'the dead do not walk in';
+  const text = String(page || '');
+  if (!text.trim()) return '';
+  const same = (n) => typeof n === 'string' && all.some((a) => samePersonName(a, n));
+  const wrote = Number.isInteger(pageAt) ? (Array.isArray(s.journal) ? s.journal : []).filter((j) => j && j.p === pageAt && j.m && typeof j.m === 'object').map((j) => j.m) : [];
+  if (wrote.some((m) => m.type === 'presence.leave' && same(m.name) && quotedGoing(s, text, m.name, m.shown))) return 'this page’s own reader took them out';
+  const room = Number.isInteger(pageAt) && s.roomAt && typeof s.roomAt === 'object' && s.roomAt.page === pageAt && Array.isArray(s.roomAt.names) && s.roomAt.names.length ? s.roomAt.names : null;
+  if (seated && room && !room.some(same)) return 'not in the room this page’s reader named as it ends';
+  const ending = pageEnding(text);
+  const endingTold = narrationOf(ending);
+  if (!ending || !(all.some((n) => shownOnPage(s, endingTold, n)) || toldOnPage(ending, shown).end !== -1)) return 'the page’s ending does not show them';
+  if (all.some((n) => goneAtTheEnd(s, text, n))) return 'the page ends on them going';
+  const mc = mcName(s);
+  if (mc && mc !== 'the player' && mcWalksOff(text, mc)) return 'the page ends on him walking off';
+  if (seated && Number.isInteger(pageAt) && s.groundWas && typeof s.groundWas === 'object' && s.groundWas.page === pageAt
+    && !(s.place && typeof s.place.name === 'string' && seatAtScene(seated.entry && seated.entry.location, s.place.name))) return 'the scene moved away from where they are';
+  return '';
+}
+/* M679/M680: the heal reads the page's ending and never undoes its reader — walkInFromPage, the one answer above */
 export function hereByTheNewestPage(state, pageText, { pageAt = null } = {}) {
   const s = state && typeof state === 'object' ? state : null;
   if (!s || !s.place || typeof s.place.name !== 'string' || !s.place.name.trim()) return [];
   const ground = s.place.name;
-  const told = narrationOf(pageEnding(pageText));
-  if (!told.trim()) return [];
-  const mc = mcName(s);
-  if (mc && mc !== 'the player' && mcWalksOff(pageText, mc)) return [];
-  /* a leave this page's reader wrote AND held to the page by its own words for the going ("shown", quotedGoing — what the
-   * reader's gate keeps a leave on): an older reader's leave with no such words is what M452 mends, and still is */
-  const tookOut = Number.isInteger(pageAt) ? (Array.isArray(s.journal) ? s.journal : []).filter((j) => j && j.p === pageAt && j.m && j.m.type === 'presence.leave' && typeof j.m.name === 'string' && quotedGoing(s, pageText, j.m.name, j.m.shown)).map((j) => j.m.name) : [];
-  /* …and when its reader named the room as the page ends (chat.js: state.roomAt, kept with the page's index), nobody is
-   * written in against it — the room is the reader's last word on who is there (M666) */
-  const room = Number.isInteger(pageAt) && s.roomAt && typeof s.roomAt === 'object' && s.roomAt.page === pageAt && Array.isArray(s.roomAt.names) && s.roomAt.names.length ? s.roomAt.names : null;
+  if (!narrationOf(pageEnding(pageText)).trim()) return [];
   const out = [];
   for (const [key, seated] of Object.entries(s.offscreen && typeof s.offscreen === 'object' ? s.offscreen : {})) {
     if (!seated || typeof seated !== 'object' || seated.stance === 'toward' || seated.stance === 'seeking') continue;
     const atTheScene = (seated.lastSeen === true && samePlace(seated.location, ground)) || seatAtScene(seated.location, ground);
     if (!atTheScene || isMc(s, key) || isHere(s, key) || !oneMeaning(s, key)) continue;
     const name = strictPageKey(s, key) || key;
-    if (tookOut.some((n) => samePersonName(n, key) || samePersonName(n, name))) continue;
-    if (room && !room.some((r) => typeof r === 'string' && (samePersonName(r, key) || samePersonName(r, name)))) continue;
-    if (!shownOnPage(s, told, key) && !shownOnPage(s, told, name)) continue;
-    if (goneAtTheEnd(s, pageText, name)) continue;
+    if (walkInFromPage(s, [name, key], { page: pageText, pageAt })) continue;
     if (out.some((m) => samePersonName(m.name, name))) continue;
     out.push({ type: 'presence.enter', name, cause: 'the page shows them here' });
   }
@@ -2580,10 +2673,16 @@ export function undoTarget(undo) {
  * {state, words} | {refused: why} | null. */
 /* M72: the reversal rides the journal (undo.apply) — stamped with the
  * ledger's current page, so a fold to any later page reverses it too. */
+/* M680 (the books audit): …stamped with the page of the change it reverses, never the page the hand pressed on. Stamped with
+ * the newest page, a "Try again" (a fold to the page before) dropped the reversal and kept the change: the line he took back
+ * on page 30 was back for the retold page, and in the log as standing again. A fold that holds the change holds its
+ * reversal too (the same page, a later line). */
 function journalUndo(next, entry) {
   if (!Array.isArray(next.journal)) next.journal = [];
+  const reversed = Number.isInteger(entry && entry.jid) ? next.journal.find((j) => j && j.id === entry.jid) : null;
+  const p = reversed && Number.isInteger(reversed.p) ? reversed.p : (Number.isInteger(next.page) ? next.page : -1);
   next.journalSeq = (Number.isInteger(next.journalSeq) ? next.journalSeq : 0) + 1;
-  next.journal.push({ id: next.journalSeq, p: Number.isInteger(next.page) ? next.page : -1, m: { type: 'undo.apply', undo: JSON.parse(JSON.stringify(entry.undo)), of: entry.words } });
+  next.journal.push({ id: next.journalSeq, p, m: { type: 'undo.apply', undo: JSON.parse(JSON.stringify(entry.undo)), of: entry.words } });
   if (next.journal.length > JOURNAL_CAP) next.journal = next.journal.slice(next.journal.length - JOURNAL_CAP);
   const logEntry = appendLog(next, 'Taken back — ' + entry.words, null);
   logEntry.jid = next.journalSeq;

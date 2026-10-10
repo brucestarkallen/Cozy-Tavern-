@@ -191,7 +191,7 @@ export function renderWholeLedger(state, { knowledgeRoom = 0 } = {}) {
   section('What their bodies carry:',
     renderBodies(state.bodies, clockMinutes, storyTurn(state)), '(nothing written)');
   section('What is locked true:',
-    state.canon && typeof state.canon === 'object' ? renderCanon(state.canon, Object.keys(state.canon)) : '', '(nothing locked)');
+    state.canon && typeof state.canon === 'object' ? renderCanon(state.canon, Object.keys(state.canon), Infinity) : '', '(nothing locked)'); /* M680: ALL of it — the reader and the auditor were shown six a person under a heading that says every lock */
   section('Factions — all of them:', renderAllFactions(state.factions), '(none)');
   /* M604: every thing the story keeps, and where */
   /* M605: newest first; past eighty the oldest are counted, never listed — a long tale's things never swell a helper's view */

@@ -408,5 +408,6 @@ export function founderRunWords(result) {
   if (result.note === 'cut short') return 'its answer ran out of room';
   const n = result.applied.length;
   if (!n) return 'the world was already standing';
-  return `founded the world in ${n} ${n === 1 ? 'way' : 'ways'}: ` + result.applied.slice(0, 5).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (n > 5 ? ' · …' : '') + (result.rejected.length ? ` (${result.rejected.length} refused)` : '');
+  const refusedN = result.rejected.filter((r) => !(r && r.same)).length; /* M680: "already so" is no refusal */
+  return `founded the world in ${n} ${n === 1 ? 'way' : 'ways'}: ` + result.applied.slice(0, 5).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (n > 5 ? ' · …' : '') + (refusedN ? ` (${refusedN} refused)` : '');
 }

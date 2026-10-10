@@ -45,12 +45,12 @@ import { samePersonName, nameOnPage } from './names.js';
 import { isMc } from './people.js'; /* M588 */ /* M509-15: was this person in the room */
 import { renderBodies, dedupeInjuries } from './bodies.js'; /* M485: the wounds folded on load */
 import { axisWords, AXES } from './relationships.js';
-import { renderOffscreen } from './offscreen.js';
+import { renderOffscreen, isDeadSeat, findSeat } from './offscreen.js'; /* M680: the dead are nobody's company */
 import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge, blindSpots, renderBlindSpots } from './world.js'; /* M29: the world beyond the page */
 import { renderCanon } from './canon.js';
 import { renderFightLine, mcName } from './duels.js';
 import { migrateCharacters, healGhosts, partLookAlikes } from './people.js'; /* M485: the ghosts folded on load */
-import { storyTurn, samePlace, seatAtScene, broaderPlace, withinGround } from './apply.js'; /* M588: who is close by; M627: an area is no move */
+import { storyTurn, samePlace, seatAtScene, broaderPlace, withinGround, canonNamesFor } from './apply.js'; /* M588: who is close by; M627: an area is no move; M680: truths under the name they are kept by */
 
 const KEY_PREFIX = 'state:';
 
@@ -1040,7 +1040,11 @@ export function closeBy(state) {
   const out = [];
   for (const [key, seated] of Object.entries(s.offscreen && typeof s.offscreen === 'object' ? s.offscreen : {})) {
     if (!seated || typeof seated !== 'object' || typeof seated.location !== 'string' || !seated.location.trim()) continue;
-    if (seated.dead || seated.gone || isMc(s, key) || present.some((p) => p && typeof p.name === 'string' && samePersonName(p.name, key))) continue;
+    /* M680 (the world audit): never the dead (offscreen.js isDeadSeat — nothing ever wrote "dead: true"), and never a
+     * sighting: "last seen at <the scene's own ground>" is the house's note of someone who LEFT with no word of where — Corven,
+     * who "bowed and left the hall", was told as close by and able to answer the door, and the reader was asked what he
+     * overheard after he had gone */
+    if (seated.dead || seated.gone || isDeadSeat(seated) || seated.lastSeen === true || isMc(s, key) || present.some((p) => p && typeof p.name === 'string' && samePersonName(p.name, key))) continue;
     if (!(samePlace(seated.location, sceneName) || seatAtScene(seated.location, sceneName) || nearTheScene(seated.location, sceneName))) continue;
     out.push({ key, location: seated.location.trim(), activity: seated.activity ? String(seated.activity).trim() : '' });
   }
@@ -1103,17 +1107,21 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
 
   /* M6: what's true of them — locked facts for whoever is in the scene.
    * Counts toward the budget and sheds after the body ledger. */
-  const canonLines = renderCanon(state.canon, present.map((p) => p && p.name), whole ? Infinity : undefined, storyTurn(state)); /* M662: what does not fit takes its turn */
+  const canonLines = renderCanon(state.canon, canonNamesFor(state, present.map((p) => p && p.name)), whole ? Infinity : undefined, storyTurn(state)); /* M662: what does not fit takes its turn; M680: under the name they are kept by */
   if (canonLines) sections.push({ shed: 2, text: 'True of them: ' + canonLines.split('\n').join('\n'), trimTo: whole ? Infinity : 8, head: 'True of them: ' });
 
-  const bodyLines = renderBodies(state.bodies, clockMinutes, turnCount)
+  /* M680 (the people audit): the dead carry no wounds the storyteller is told of, and stand toward no one — "Old Hesk — a crossbow
+   * bolt through the chest (severe, untreated)" and "Old Hesk — warm" were read every page after his death; the Dead line
+   * (offscreen.js) says it once */
+  const deadNow = (name) => { const seat = findSeat(state.offscreen || {}, name); return Boolean(seat && isDeadSeat(seat.entry)); };
+  const bodyLines = renderBodies(Object.fromEntries(Object.entries(state.bodies && typeof state.bodies === 'object' ? state.bodies : {}).filter(([n]) => !deadNow(n))), clockMinutes, turnCount)
     .split('\n').filter(Boolean).slice(0, whole ? Infinity : BODIES_TOP);
   if (bodyLines.length) sections.push({ shed: 3, text: bodyLines.join('\n') });
 
   /* Standings: nonzero only, top 6 by how strongly they feel (|p|+|r|+|s|). */
   const rel = state.relationships && typeof state.relationships === 'object' ? state.relationships : {};
   const standings = Object.entries(rel)
-    .filter(([, r]) => r && typeof r === 'object')
+    .filter(([name, r]) => r && typeof r === 'object' && !deadNow(name))
     .map(([name, r]) => ({
       name,
       rel: r,

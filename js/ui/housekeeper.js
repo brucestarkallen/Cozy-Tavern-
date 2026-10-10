@@ -840,13 +840,28 @@ export function initHousekeeper(ctx) {
   /* M296: and first, what any re-ink earns — the record line over the page let
    * go, the page read again (chat.js pageReinked) — the housekeeper's re-inks
    * skipped it, so the record went on summarizing words the page no longer held. */
+  /* M680 (the books audit): EVERY RE-INK FIRST, THE OLDEST PAGE FIRST; THEN THE RIPPLES. Each re-ink now takes the
+   * rebuild gate in turn (chat.js pageReinked) — the second of two used to be dropped. The oldest page goes first: its
+   * replay puts every later page's writes back, and the newest page's own reading then lands on top of them (newest
+   * first, the older replay had to wait out the newest page's whole reading). The ripples come after every rebuild is
+   * under way, so none of them writes the ledger while a newest-page rewind folds it. */
   async function rippleEdits(story, edited, { ripple = true } = {}) {
     if (!story || !Array.isArray(edited) || !edited.length) return;
     if (!ctx.chat) return;
-    for (const e of edited) {
+    let order = edited.slice();
+    try {
+      const pages = await db.messages.list(story.id);
+      const at = new Map(pages.map((m, i) => [m && m.id, i]));
+      order = order.slice().sort((a, b) => (at.has(a.messageId) ? at.get(a.messageId) : Infinity) - (at.has(b.messageId) ? at.get(b.messageId) : Infinity));
+    } catch (err) { /* in the order they came */ }
+    const reinked = new Set();
+    for (const e of order) {
+      if (!e || reinked.has(e.messageId)) continue; /* two cards on one page: it is read again once, with both */
+      reinked.add(e.messageId);
       if (typeof ctx.chat.pageReinked === 'function') { try { await ctx.chat.pageReinked(story, e.messageId); } catch (err) { /* the light asks again */ } }
-      if (ripple && typeof ctx.chat.rippleAfterEdit === 'function') ctx.chat.rippleAfterEdit(story, e.messageId, e.before, e.after, { who: 'the housekeeper' });
     }
+    if (!ripple || typeof ctx.chat.rippleAfterEdit !== 'function') return;
+    for (const e of edited) { if (e) ctx.chat.rippleAfterEdit(story, e.messageId, e.before, e.after, { who: 'the housekeeper' }); }
   }
 
   async function applyAll() {

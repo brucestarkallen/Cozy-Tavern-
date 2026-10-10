@@ -1098,20 +1098,41 @@ export function overflowEnd(historyLength, window, covered, batch = DEFAULT_BATC
 /* M44: the record after a visible page at `index` is deleted — lines below
  * it stand, the line covering it is let go (a hole, refilled holes-first),
  * lines above it slide down one. Pure. */
-export function memoryAfterDeletion(mem, index) {
+/* M680 (the books audit) — THE ONE RULE FOR LETTING A LINE GO REACHES A PAGE LET GO TOO (M675: never a line of his, and
+ * only where a keeper will fold the hole). A line he wrote by hand over the page let go — or, in a tale whose keeper is
+ * off, any line over it — stays over the pages it still covers, one page shorter (a line over that one page only has
+ * nothing left to cover and goes); how far the continuous audit had read it is kept, less the page that is gone.
+ * `keepCovering` says which covering lines stay: his own, as it ships; every one where no keeper will fold again. */
+export function memoryAfterDeletion(mem, index, { keepCovering = lineIsHis } = {}) {
   const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).flatMap((n) => {
     if (!n || !Array.isArray(n.span)) return [];
     if (n.span[1] < index) return [n];
-    if (n.span[0] <= index && index <= n.span[1]) return [];
+    if (n.span[0] <= index && index <= n.span[1]) {
+      if (!keepCovering(n) || n.span[0] === n.span[1]) return [];
+      const kept = { ...n, span: [n.span[0], n.span[1] - 1] };
+      if (n.audited !== undefined) { const read = auditedOf(n); kept.audited = read && index < n.span[0] + read ? read - 1 : read; }
+      return [kept];
+    }
     return [{ ...n, span: [n.span[0] - 1, n.span[1] - 1] }];
   });
   return { ...mem, nodes };
 }
 
 /* M44: the record after the pages from visible `index` on are gone (a
- * rewrite-from-here, a retry): every line that reaches that far is let go. */
-export function memoryTruncatedAt(mem, index) {
-  const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).filter((n) => n && Array.isArray(n.span) && n.span[1] < index);
+ * rewrite-from-here, a retry): every line that reaches that far is let go.
+ * M680 (the books audit): the same one rule as a page let go (memoryAfterDeletion) — a line that reaches the cut but
+ * began before it still covers pages that stand, so where it is his, or no keeper will fold those pages again, it
+ * stays over them (ending just before the cut, the continuous audit's mark no further than that); a line that begins
+ * at the cut or after has no page left and goes, whoever wrote it. */
+export function memoryTruncatedAt(mem, index, { keepCovering = lineIsHis } = {}) {
+  const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).flatMap((n) => {
+    if (!n || !Array.isArray(n.span)) return [];
+    if (n.span[1] < index) return [n];
+    if (n.span[0] >= index || !keepCovering(n)) return [];
+    const kept = { ...n, span: [n.span[0], index - 1] };
+    if (n.audited !== undefined) kept.audited = Math.min(auditedOf(n), index - n.span[0]);
+    return [kept];
+  });
   return { ...mem, nodes };
 }
 

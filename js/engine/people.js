@@ -417,6 +417,7 @@ export function mergeDeltas(state, characters, deltas, turn) {
     }
     next[key][field] = text;
     next[key].updatedAtTurn = atTurn;
+    if (field === 'state') next[key].nowTurn = atTurn; /* M680: the now's own age — a loose end closed is not a fresh now */
     changes.push({ name: key, field });
   }
 
@@ -894,10 +895,12 @@ export function setPersonField(state, characters, name, field, text, turn, { cle
     /* M291: let go on purpose — a now that was never a now, a line that was someone else's; M508: a core made of a seat */
     if (!entry[f]) return { why: 'there was nothing written there' };
     entry[f] = '';
+    if (f === 'state') delete entry.nowTurn; /* M680 */
   } else {
     const clean = cleanFieldText(text, FIELD_CAPS[f]);
     if (!clean) return { why: 'the note came in empty' };
     entry[f] = clean;
+    if (f === 'state') entry.nowTurn = atTurn; /* M680: the now's own age */
   }
   entry.updatedAtTurn = atTurn;
   return { entry, key, before };
@@ -976,10 +979,16 @@ export function lastSeenTurn(state, key) {
   for (const [name, turn] of seenPages(state)) if (turn > at && samePersonName(name, key)) at = turn;
   return at;
 }
+/* M680 (the people audit): A NOW HAS AN AGE OF ITS OWN. Every write to a person's page refreshed its one stamp — closing a
+ * loose end made a fifteen-page-old "now" read as fresh. The now is stamped when it is written (nowTurn); a ledger written
+ * before M680 falls back on the page's stamp. */
+export function nowTurnOf(entry) {
+  if (entry && Number.isFinite(entry.nowTurn)) return entry.nowTurn;
+  return Number.isFinite(entry && entry.updatedAtTurn) ? entry.updatedAtTurn : 0;
+}
+export const NOW_FRESH_PAGES = 2; /* M502's rule, for the storyteller too: a note on someone here older than this is not their now */
 function ageWords(entry, turn) {
-  const at = Number.isFinite(entry && entry.updatedAtTurn) ? entry.updatedAtTurn : 0;
-  const ago = Math.max(0, (Number.isFinite(turn) ? turn : 0) - at);
-  return ago;
+  return Math.max(0, (Number.isFinite(turn) ? turn : 0) - nowTurnOf(entry));
 }
 
 /* The aging law: fresh is simply "now"; past twenty turns the label admits
@@ -1039,8 +1048,13 @@ function cardText(name, entry, turn, cap, here = null, lookWords = null) {
   /* M544: A NOTE FROM BEFORE THEY CAME IN IS NOT THEIR NOW. A person here whose page's now was written before they last
    * walked into the scene ("at the corner of Mariner's Lane and Larkspur, phone out" — written while she was away) is told
    * by what the ledger knows of them here, not by where they were. */
-  const noteFromBefore = Boolean(here && Number.isFinite(here.enteredAt) && here.enteredAt > 0 && (Number.isFinite(entry.updatedAtTurn) ? entry.updatedAtTurn : 0) < here.enteredAt);
-  const now = entry.state && !noteFromBefore ? stateLabel(entry, turn) + entry.state : (here ? 'Now: here' + (here.position ? ' — ' + here.position : '') + '.' : '');
+  const noteFromBefore = Boolean(here && Number.isFinite(here.enteredAt) && here.enteredAt > 0 && nowTurnOf(entry) < here.enteredAt);
+  /* M680 (the people audit): ONE RULE FOR THE CARD AND THE DRAWER (M502). Someone here with a place in the room is told by
+   * that place; the scribe's note rides only while it is no older than two pages — the storyteller read "Here now: Roska
+   * (at the hearth, laughing at his joke)" and, in the same request, her card's "Now: slumped at the corner table, refusing
+   * to look at him", fifteen pages old */
+  const staleHere = Boolean(here && here.position && ageWords(entry, turn) > NOW_FRESH_PAGES);
+  const now = entry.state && !noteFromBefore && !staleHere ? stateLabel(entry, turn) + entry.state : (here ? 'Now: here' + (here.position ? ' — ' + here.position : '') + '.' : '');
   let arc = entry.arc ? 'Between you: ' + entry.arc : '';
   /* M306: THE CARD SHOWED THE THREE OLDEST LOOSE ENDS, NEVER THE NEWEST. The list
    * is kept oldest first (a new one is pushed on the end, and a full list lets
