@@ -97,8 +97,12 @@ The final release runs again after that fix; neither interrupted attempt is a
 complete green release. The third attempt passed all 1497 harness laws; it was
 stopped during the walk after a separate timeout probe found the same partial
 return problem without a manual Stop. M685-29 proves that variant fails before
-and passes after the shared queue guard. Both Stop and timeout use their existing
-failure status and release the queue lane.
+and passes after the shared queue guard. The fourth attempt exposed an overbroad timeout guard in M675-B1: a completed
+continuous reading must survive a later mender timeout. That generic timeout guard
+was removed. Manual Stop still wins in the queue; auditor source, main reading and
+followup interruptions propagate to its own queue result. The revised M685-29 proves
+the auditor case. M675-B1, M675-12 and the new laws now pass together, as do the actual
+Stop and recovery buttons. Both older queue contracts are included in fast checks.
 
 An early diagnostic full harness was stopped before completion while implementation
 continued. It is not a release result. Its failures led to checking repeat repairs and

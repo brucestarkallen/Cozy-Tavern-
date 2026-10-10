@@ -1588,6 +1588,7 @@ export function initChat(ctx) {
         const promise = enqueueWork(story.id, { name: 'auditor', run: chainJob(async ({ signal, stale, renew }) => {
           let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story), reviewSources: 'next' });
           if (result && !stale()) result = await finishLedgerAudit(story, connection, result, { signal, stale, renew });
+          if (signal?.aborted) throw signal.reason || new Error('timeout');
           return { silent: false, detail: auditRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.unfinished), resume: result?.unfinished ? 'auditNow' : '' };
         }, () => false) });
         noteWork(story.id, promise);
@@ -4244,6 +4245,7 @@ export function initChat(ctx) {
     const promise = enqueueWork(story.id, { name: 'auditor', run: async ({ signal, stale, renew }) => {
       let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story), reviewSources: 'all' });
       if (result && !stale()) result = await finishLedgerAudit(story, connection, result, { signal, stale, renew });
+      if (signal?.aborted) throw signal.reason || new Error('timeout');
       return { silent: false, detail: auditRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.unfinished), resume: result?.unfinished ? 'auditNow' : '' };
     } });
     noteWork(story.id, promise);
@@ -5187,6 +5189,7 @@ export function initChat(ctx) {
       if (stale()) return { silent: true };
       let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story), reviewSources: 'next' });
       if (result && !stale()) result = await finishLedgerAudit(story, connection, result, { signal, stale, renew });
+      if (signal?.aborted) throw signal.reason || new Error('timeout');
       return { silent: false, detail: auditRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.unfinished), resume: result?.unfinished ? 'auditNow' : '' };
     });
 

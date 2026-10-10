@@ -52,7 +52,8 @@
       "FAIL \u2014 M685-25 original pages are divided to fit a small auditor context instead of remaining unread forever",
       "FAIL \u2014 M685-26 a complete audit answer never silently drops findings after the twentieth",
       "FAIL \u2014 M685-27 a valid JSON prefix cut off by the provider is not certified as a complete audit",
-      "FAIL \u2014 M685-28 stopping a worker that preserves partial work and returns normally is still reported as stopped"
+      "FAIL \u2014 M685-28 stopping a worker that preserves partial work and returns normally is still reported as stopped",
+      "FAIL \u2014 M685-29 an aborted original-source audit propagates the interruption instead of returning an empty success"
     ]
   },
   "new_dom_scenario": {
@@ -73,6 +74,153 @@
     "scope": "M685, M47, M110, M123"
   },
   "fast": {
+    "profile": "fast",
+    "source_digest": "d8069a374cce2203d0678f3dfae52e5dcb508d837e23fbe6372e1556dab909a3",
+    "runtime_digest": "093ca0464d99b7c780d25ea88393c4a90e3fe6a647d04a5be4847fd723b0b0bb",
+    "scope": "focused development checks",
+    "complete": true,
+    "checks": {
+      "harness": {
+        "exit": 0,
+        "seconds": 4.53,
+        "digest": "c314e890c6daefc224d178bdd5f0723150b5932f46d15b06091b5fda1efbd21c",
+        "log": "/tmp/gates/m685fast_final_harness.log",
+        "reused": false
+      },
+      "walk": {
+        "exit": 0,
+        "seconds": 4.78,
+        "digest": "95887cdd20b739c5e1b7fea75349e71d396dbfce40af5f6ecc7991104aceab71",
+        "log": "/tmp/gates/m685fast_final_walk.log",
+        "reused": false
+      },
+      "lint": {
+        "exit": 0,
+        "seconds": 4.04,
+        "digest": "f4bcebc73bfe0756e8514f9e7601c285a94f794b012619e34d77bc00977c30ae",
+        "log": "/tmp/gates/m685fast_final_lint.log",
+        "reused": false
+      },
+      "check_runner_unit": {
+        "exit": 0,
+        "seconds": 0.32,
+        "digest": "f8a38bfc4f79e94f942ca3bf780e40144c1d5e75fa92341ecb09d9b72ef3ba2b",
+        "log": "/tmp/gates/m685fast_final_check_runner_unit.log",
+        "reused": false
+      },
+      "boot_ready": {
+        "exit": 0,
+        "seconds": 6.3,
+        "digest": "874eb4941a80a370080fb35fca1c5f49da4bcc713b749cb76c6dd3f3ea56d29f",
+        "log": "/tmp/gates/m685fast_final_boot_ready.log",
+        "reused": false
+      },
+      "academy_ui": {
+        "exit": 0,
+        "seconds": 8.4,
+        "digest": "2bcad22939531e0bfe76d0d1d6061c7622ca79d02b491fa7cc67c9c34e7009fc",
+        "log": "/tmp/gates/m685fast_final_academy_ui.log",
+        "reused": false
+      }
+    },
+    "source_unchanged_during_checks": true,
+    "seconds": 21.81
+  },
+  "interrupted_release": {
+    "tag": "m685a",
+    "complete": false,
+    "checks": {
+      "harness": {
+        "exit": 1,
+        "seconds": 164.05,
+        "digest": "d4a62ced28aadb2f83f11e0f5dc7f7e1d1b61ca83f952191832f6d58221cedb3",
+        "log": "/tmp/gates/m685a_harness.log",
+        "reused": false
+      }
+    },
+    "harness": {
+      "passed": 1491,
+      "failed": 3,
+      "failures": [
+        "M47-2 old mood prompt ban",
+        "M110-1 old PLAYER-only fact ban",
+        "M123-1 old moment prompt ban"
+      ]
+    },
+    "disposition": "Stopped before the rest of the release matrix. Updated obsolete prompt expectations while retaining runtime protections; then added and proved complete finding and provider cutoff regressions before restarting."
+  },
+  "release": {
+    "tag": "m685e",
+    "status": "running"
+  },
+  "interrupted_release_b": {
+    "tag": "m685b",
+    "complete": false,
+    "checks": {
+      "harness": {
+        "exit": 0,
+        "seconds": 164.89,
+        "digest": "a8004727e0a0664145f3b23fd311f051db17e8c2a1def24de763cd53f6f7361d",
+        "log": "/tmp/gates/m685b_harness.log",
+        "reused": false
+      },
+      "walk": {
+        "exit": 1,
+        "seconds": 503.93,
+        "digest": "81483d66b07461a6d202dfae5b1bca1a84afcdbe32de37a709e4788d2e592689",
+        "log": "/tmp/gates/m685b_walk.log",
+        "reused": false
+      }
+    },
+    "harness": {
+      "passed": 1496,
+      "failed": 0
+    },
+    "walk": {
+      "passed": 296,
+      "failed": 1,
+      "failures": [
+        "DOM-262: Stop became a completed audit banner"
+      ]
+    },
+    "disposition": "A worker returning partial work after cancellation was marked successful. Added causal M685-28 and checked the existing DOM-262 plus DOM-M685-1 before restarting release."
+  },
+  "interrupted_release_c": {
+    "tag": "m685c",
+    "complete": false,
+    "checks": {
+      "harness": {
+        "exit": 0,
+        "seconds": 163.86,
+        "digest": "f7fa5ba107bc644d7573e6dee818a6ccb16e65c5efd3baa4a0f09308a8b647a3",
+        "log": "/tmp/gates/m685c_harness.log",
+        "reused": false
+      }
+    },
+    "disposition": "Stopped during the walk after a separate timeout probe reproduced the same partial-return reporting defect. M685-29 proves the timeout remains a failed reading after the queue guard."
+  },
+  "interrupted_release_d": {
+    "tag": "m685d",
+    "complete": false,
+    "checks": {
+      "harness": {
+        "exit": 1,
+        "seconds": 164.13,
+        "digest": "8c93a704debe6c777023d2007db60daeaefd30215ecff745a6dea8bb8a67716c",
+        "log": "/tmp/gates/m685d_harness.log",
+        "reused": false
+      }
+    },
+    "harness": {
+      "passed": 1497,
+      "failed": 1,
+      "failures": [
+        "M675-B1: a completed continuous reading must survive a later mender timeout"
+      ]
+    },
+    "disposition": "Removed the overbroad queue timeout guard; auditor interruptions propagate at the auditor and its three UI callers. Manual Stop remains authoritative for the queue. M675-B1 and M675-12 are now fast-profile laws."
+  },
+  "fast_before_final": {
     "profile": "fast",
     "source_digest": "188cf23002e11c299c9786cebb0e28c03af17caafdc97ea22d7e13d03f5c62b7",
     "runtime_digest": "093ca0464d99b7c780d25ea88393c4a90e3fe6a647d04a5be4847fd723b0b0bb",
@@ -125,77 +273,10 @@
     "source_unchanged_during_checks": true,
     "seconds": 17.9
   },
-  "interrupted_release": {
-    "tag": "m685a",
-    "complete": false,
-    "checks": {
-      "harness": {
-        "exit": 1,
-        "seconds": 164.05,
-        "digest": "d4a62ced28aadb2f83f11e0f5dc7f7e1d1b61ca83f952191832f6d58221cedb3",
-        "log": "/tmp/gates/m685a_harness.log",
-        "reused": false
-      }
-    },
-    "harness": {
-      "passed": 1491,
-      "failed": 3,
-      "failures": [
-        "M47-2 old mood prompt ban",
-        "M110-1 old PLAYER-only fact ban",
-        "M123-1 old moment prompt ban"
-      ]
-    },
-    "disposition": "Stopped before the rest of the release matrix. Updated obsolete prompt expectations while retaining runtime protections; then added and proved complete finding and provider cutoff regressions before restarting."
-  },
-  "release": {
-    "tag": "m685d",
-    "status": "running"
-  },
-  "interrupted_release_b": {
-    "tag": "m685b",
-    "complete": false,
-    "checks": {
-      "harness": {
-        "exit": 0,
-        "seconds": 164.89,
-        "digest": "a8004727e0a0664145f3b23fd311f051db17e8c2a1def24de763cd53f6f7361d",
-        "log": "/tmp/gates/m685b_harness.log",
-        "reused": false
-      },
-      "walk": {
-        "exit": 1,
-        "seconds": 503.93,
-        "digest": "81483d66b07461a6d202dfae5b1bca1a84afcdbe32de37a709e4788d2e592689",
-        "log": "/tmp/gates/m685b_walk.log",
-        "reused": false
-      }
-    },
-    "harness": {
-      "passed": 1496,
-      "failed": 0
-    },
-    "walk": {
-      "passed": 296,
-      "failed": 1,
-      "failures": [
-        "DOM-262: Stop became a completed audit banner"
-      ]
-    },
-    "disposition": "A worker returning partial work after cancellation was marked successful. Added causal M685-28 and checked the existing DOM-262 plus DOM-M685-1 before restarting release."
-  },
-  "interrupted_release_c": {
-    "tag": "m685c",
-    "complete": false,
-    "checks": {
-      "harness": {
-        "exit": 0,
-        "seconds": 163.86,
-        "digest": "f7fa5ba107bc644d7573e6dee818a6ccb16e65c5efd3baa4a0f09308a8b647a3",
-        "log": "/tmp/gates/m685c_harness.log",
-        "reused": false
-      }
-    },
-    "disposition": "Stopped during the walk after a separate timeout probe reproduced the same partial-return reporting defect. M685-29 proves the timeout remains a failed reading after the queue guard."
+  "focused_final": {
+    "passed": 31,
+    "failed": 0,
+    "total_available": 1498,
+    "scope": "All 29 M685 laws plus M675-B1 and M675-12"
   }
 }

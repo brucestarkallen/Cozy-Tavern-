@@ -394,13 +394,13 @@ test('M685-28 stopping a worker that preserves partial work and returns normally
   assert(!workIsRunning(id), 'the stopped worker releases its lane');
 });
 
-test('M685-29 a timed-out worker returning normally cannot report a completed audit', async () => {
-  const { enqueueWork, workIsRunning } = await import('../../js/agents/queue.js');
-  const id = 'm685-timeout-partial';
-  const result = await enqueueWork(id, { name: 'auditor', once: true, run: ({ signal, renew }) => new Promise((resolve) => {
-    signal.addEventListener('abort', () => resolve({ detail: 'partial reading', unfinished: true }), { once: true });
-    renew(5);
-  }) });
-  assert(!result.ok && result.why === 'outwaited', 'a timed-out partial return stays a timeout');
-  assert(!workIsRunning(id), 'the timed-out worker releases its lane');
+test('M685-29 an aborted original-source audit propagates the interruption instead of returning an empty success', async () => {
+  const id = await tale('m685-timeout-source');
+  const controller = new AbortController();
+  controller.abort(new Error('timeout'));
+  let failed = false;
+  try { await auditLedger({ connection, storyId: id, signal: controller.signal, reviewSources: 'all' }); }
+  catch (err) { failed = err.message === 'timeout'; }
+  assert(failed, 'the source audit preserves the timeout for the queue and banner');
+  assert(!(await loadState(id)).audit, 'an interrupted source reading is not saved as complete');
 });

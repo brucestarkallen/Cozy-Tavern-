@@ -368,6 +368,8 @@ export function auditView(list, foldedTo, budget = AUDIT_VIEW_CHARS) {
   return { shown, index };
 }
 
+function auditAborted(signal) { if (signal?.aborted) throw signal.reason || new Error('timeout'); }
+
 export async function auditLedger({ connection, storyId, brief = '', castNotes = '', castNames = [], signal, stale, renew, canonRecord = '', reviewSources = '' } = {}) {
   if (!connection || typeof connection !== 'object' || !storyId) return null;
   const state = await loadState(storyId);
@@ -383,6 +385,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   if (!all.length) return null;
   const documents = auditSources({ brief, castNotes, messages: all });
   const sourceReview = reviewSources ? await reviewAuditSources({ connection, documents, previous: state.auditSources || {}, mode: reviewSources, signal, stale, renew }) : null;
+  auditAborted(signal);
   if ((reviewSources && !sourceReview) || stale?.()) return null;
   /* M259: EVERY PAGE THE RECORD HAS NOT FOLDED, and the WHOLE record. It read
    * the last ten pages and a record trimmed to the storyteller's 30,000
@@ -419,7 +422,8 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       room,
       rounds: attempt === 0 ? undefined : 1, /* a second ask looks once at most */
     }); } catch (err) {
-      if (signal?.aborted || stale?.()) return null;
+      auditAborted(signal);
+      if (stale?.()) return null;
       if (!sourceReview) throw err;
       read = { issues: [], note: 'interrupted' };
       break;
@@ -488,11 +492,13 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
         raw += '\n\nRepair followup:\n' + reply.text;
       } else followupFailed = true;
     } catch (err) {
-      if (signal?.aborted || stale?.()) return null;
+      auditAborted(signal);
+      if (stale?.()) return null;
       followupFailed = true;
     }
   }
-  if (stale?.() || signal?.aborted) return null;
+  auditAborted(signal);
+  if (stale?.()) return null;
   // No result based on replaced, hidden or deleted source pages may land.
   const now = answeredOnly((await db.messages.list(storyId)).filter((m) => !m.hidden));
   const sourceMark = (docs) => docs.map((d) => d.id + ':' + d.mark).join('|');
