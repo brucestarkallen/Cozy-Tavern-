@@ -1,145 +1,31 @@
-# RESUME HERE — read this first (written Oct 10, 2026)
-
-The session that wrote M680 ran out of room: AGENTS.md had grown to 1.7 MB (the log of every milestone) and was loaded
-into every step, so the platform compacted every few minutes. The log now lives in HISTORY.md (a docs-only commit on
-main). This section is everything the next session needs to carry on.
+# RESUME HERE — read this first (written Oct 10, 2026, end of the M681 session)
 
 ## 1. Where things stand
-- **UPDATE (same day): M680 IS ON MAIN.** Its four gate regressions were fixed at their roots (laws M680-12…16, walk
-  DOM-276; HISTORY.md "# M680") and every gate went green (run g680e). Sections 1–2 below are the record of that fix;
-  section 3 (M681) is the work now, on branch m681-wip.
-- **main = m679-001** (plus the docs-only split). His launcher `cozytavern` pulls main onto his phone: only code that
-  passed EVERY gate goes there.
-- Work branch **m681-wip** = main + M680's code (it was commit 74007f4 on m680-wip, which still keeps it) + the
-  "# M680" entry at the end of HISTORY.md + this file. js/version.js says m680-001.
-- M680 = eleven fixes from the whole-ledger audit he asked for (laws M680-1…11 in tests/harness/m680.mjs; the # M680
-  entry says what each fixes and why).
-- **M680 is NOT on main: the full gates (run g680, cut off before most browser tests) found two regressions:**
-  1. harness **M655-1** (tests/harness/m588.mjs ~970–1013): got "Jovan, Rias / (no note)", wanted
-     "Jovan, Rias, Tom / (no note)".
-  2. walk **DOM-100** (tests/dom/run.mjs ~5547–5603): got "Jovan Oda, Rukia Kuchiki, Sentarō Kotsubaki", wanted
-     "Jovan Oda, Renji Abarai, Rukia Kuchiki, Sentarō Kotsubaki".
-  Green in g680: long play 9/9, lint 0 errors (195 warnings), perf_send, holdsone, cutthinking, notes_layout. Both
-  regressions pass on m679-001.
-- THE ROOT OF BOTH: M680's new walk-in filter in js/agents/world.js (right after `clearsThatArrive`, ~line 633): every
-  world-agent presence.enter, and every offscreen.set AT THE SCENE'S PLACE, must pass apply.js `walkInFromPage`.
-  - M655-1: Tom is UNSEATED and the page never names him; the world agent seats him "Wells house kitchen, waiting by
-    the stove" — the scene's place. Since M402/M647/M655 apply's offscreen.set walks such a person in; M680's filter
-    refuses him ("the page's ending does not show them").
-  - DOM-100: the page ends "Renji Abarai shouldered through the door a moment later, grinning." but the page reader's
-    "here" left Renji out (a reader's slip). walkInFromPage refuses a SEATED person the reader's named room omits.
-  - KEEP what M680 got right: a SEATED person the reader's named room omits stays out unless the ending narrates them
-    arriving (that keeps Corven out of the small council room, M680-2); this page's own reader's quoted leave is never
-    undone.
+- **main = M680 (m680-001)**, every gate green (run g680e; HISTORY.md "# M680"). His launcher pulls main onto his phone:
+  only code that passed EVERY gate goes there.
+- **M681 (m681-001)** = the clock and every open finding of the M680 audit (HISTORY.md "# M681": what each was, how it was
+  made to happen, the law that holds it). Laws: tests/harness/m681.mjs (M681-1…78), walk DOM-277…313. Each law failed on
+  the build before it and passes now.
+- Whether M681 is on main: see the gate line at the end of HISTORY.md "# M681". No gate line = not on main.
 
-## 2. The fix — designed, not yet written. Do this first.
-(a) js/engine/apply.js — new export `comesInAtTheEnd(state, pageText, names, shown = '')` → true when the page's ENDING
-    (pageEnding) narrates THIS person arriving into the scene. Insert it after goneAtTheEnd (~line 1989); add
-    isTitleWord to the names.js import (line 49).
-    - shown path: true when toldOnPage(ending, shown).end !== -1, the flattened quote holds an ARRIVAL at a word
-      start, and !showsDeparture(quote).
-    - otherwise split narrationOf(ending) into sentences on /(?<=[.!?…])\s+|\n+/ and look for a sentence where a
-      spelling of the person is the subject of an ARRIVAL.
-      Spellings, longest first: the stored name, nameCore(name), each core word (≥2 letters) that no other person in
-      the ledger shares (build `others` exactly as goneAtTheEnd does). Compare in plain lower case (NFD, strip \p{M},
-      ’‘ʼ → '). Each spelling: (?<![\p{L}\p{N}]) + spelling (spaces as [\s-]+) + (?:-\p{L}+)? + (?![\p{L}\p{N}'])
-      — the last lookahead refuses a possessive. he/she/they count in the pronoun follow-on run (built as
-      goneAtTheEnd builds it) and in a sentence that shows the person and names no one else.
-      BEFORE the spelling (strip trailing title words first, via isTitleWord; "ser" is not a title), the text must
-      end in (?:^|[,;:—–(]|\b(?:and|then|when|until|as|once|before|after|while|finally|suddenly|later|now|soon|
-      at\s+last|just\s+then|a\s+moment\s+later|moments\s+later|a\s+beat\s+later|seconds\s+later|minutes\s+later))\s*$
-      — or the inverted form "In came Renji": before ends in \bin\s+(?:came|walked|stepped|strode|swept|burst|
-      marched|stormed|strolled|wandered|hurried|rushed|ran|limped)\s+$
-      AFTER the spelling, anchored:
-      ^(?:\s*,[^,.;!?]{1,40},)?(?:\s+and\s+(?:(?:the|his|her|their|a|an)\s+)?[\p{L}'-]+(?:\s+[\p{L}'-]+)??)?
-      (?:\s+(?:quietly|slowly|softly|finally|suddenly|abruptly|hastily|hurriedly|briskly|casually|cautiously|carefully|
-      eventually|then|too|also|again|first|last|now|just|at last|at once|himself|herself|themselves)){0,2}\s+ARRIVAL
-      VERB: came/comes/come/coming, step(s/ped), walk(s/ed), strode/strides, slip(s/ped), swept/sweeps, burst(s),
-      barged, hurried, rushed, ran/runs, wandered, ambled, sauntered, limped, staggered, stumbled, marched, stormed,
-      crept/creeps, padded, filed, bustled, breezed, darted, dashed, raced, hobbled, shuffled, tiptoed, ducked, edged,
-      sidled, swaggered, pushed, shouldered, elbowed, squeezed, strolled, trudged (and their present forms).
-      ARRIVAL is one of:
-        1. VERB (back|right|straight|quietly|slowly)? \s+(?:in|inside)\b(?!\s+(?:the|a|an|his|her|their|its|my|your|
-           our|this|that)\s+(?!(?:front\s+|back\s+|side\s+|open\s+)?(?:door|doorway|gate|entrance)\b))
-        2. VERB (back|right|straight)? \s+(?:in\s+)?through\s+(?:the|a)\s+(?:[\p{L}'-]+\s+)?(?:door|doors|doorway|
-           gate|gates|entrance|archway|arch|flap|curtain|threshold)\b
-        3. VERB \s+into\s+(?:the|a|an|his|her|their)\s+(?:[\p{L}'-]+\s+){0,2}NOUN — NOUN = "room" or a word of
-           placeWordsOf(state.place.name)
-        4. (?:let|lets)\s+(?:herself|himself|themselves)\s+in\b
-        5. (?:showed|shows|turned|turns)\s+up\b
-        6. (?:entered|enters|arrived|arrives)\b followed by a clause end; with|carrying|holding|bearing; a moment
-           later|at last|just then|then|too|again; or (?:at|in) the room/hall/chamber/office/kitchen/tavern/taproom or
-           a ground word
-        7. (?:appeared|appears)\s+(?:in|at)\s+(?:the|a)\s+(?:[\p{L}'-]+\s+)?(?:door|doorway|gate|entrance|threshold|
-           archway)\b
-        8. (?:joined|joins)\s+(?:them|him|her|us|the\s+others)\b
-        ("returned" never counts.)
-      Reject when the rest of the sentence matches /\b(?:and|then)\s+(?:\w+\s+){0,2}(?:out|away|off|back\s+out)\b|
-      \bout\s+into\b|\bout\s+(?:to|onto)\b/i, or when the sentence showsDeparture.
-    - Must be FALSE for: "Corven let him go"; "Salla called from behind the casks"; "Rukia waited for Renji to come
-      in"; "Renji would come in later"; "If Renji came in"; "Renji never came in"; "Renji didn't come in"; "Renji's
-      voice came in through the window"; "Mirelia stayed where she was in the column's shadow"; "Renji slipped in the
-      mud"; "Renji walked in the rain"; asked about Rukia: "Rukia watched as Renji came in", "Byakuya nodded to Rukia
-      and Renji came in", "Rukia nodded and Renji came in"; "Renji walked through the door and out into the rain";
-      "Renji came in and went straight back out".
-    - Must be TRUE for: "Renji Abarai shouldered through the door a moment later, grinning." (DOM-100); "The door
-      opened and Renji came in."; "In came Renji, grinning."; "The door opened behind them and Corven came in…";
-      "When Renji came in, the room went quiet."; "Rukia and Kaien came in." (both); "Rukia, then Renji, came in."
-      (both); "Rukia, who had been waiting outside, came in."; "Kiyone came in with the tea."; "Renji came in the back
-      door"; "At the door, Ser Brannick came in out of the passage…"; "Renji paused, then he came in.";
-      "Kuchiki-taichō came in" (when "kuchiki" is no one else's); "walked into the office" when the ground holds
-      "Office".
-(b) apply.js walkInFromPage(state, names, { page, pageAt, shown, judged = false }) — keep everything up to and
-    including the "this page’s own reader took them out" refusal. Then:
-      const scene = scenePartOf(text);
-      const mentioned = all.some((n) => nameOnPage(scene, n)) || toldOnPage(text, shown).end !== -1;
-      const quiet = judged && !mentioned;   // the world seats someone the page never names AT the scene's place
-      const arriving = !quiet && comesInAtTheEnd(s, text, all, shown);
-      if (room && !room.some(same) && (seated || (judged && mentioned)) && !arriving) return 'not in the room this page’s reader named as it ends';
-      if (!quiet) { the ending check and goneAtTheEnd, exactly as now }
-    Keep mcWalksOff for everyone, and the moved-ground check (seated only). Update its doc comment (M681: "judged" =
-    the world's own seat at the scene's place; "quiet" = a person the page never names — restores M402/M647/M655).
-    Hand-checked: M655-1 Tom is quiet → walks in; DOM-100 Renji is arriving → walks in; M680-2's Corven cases are
-    refused earlier ("own reader took them out"); Ser Brannick (mentioned, ending shows him, no room) walks in.
-    Known and kept: a BARE leave (no "shown") with no room still lets a Corven walk back in (M679, M452).
-(c) js/agents/world.js filter: pass { judged: m.type === 'offscreen.set' } to walkInFromPage.
-(d) js/agents/extractor.js, the M666 filter (~line 1002): add `&& !comesInAtTheEnd(args.state, args.assistantText,
-    [m.name], m.shown)` to the drop condition (import it from apply.js). Also drop the reader's OWN offscreen.set when:
-    stance not toward/seeking, not a dead seat, seatAtScene(location, ground), the person is seated, not in the named
-    room, neither came along (cameAlong) nor arriving — on m680 apply's M402 walks such a person in, so a law for it
-    fails on 74007f4.
-(e) js/agents/auditor.js auditorScope moment() (~line 922): also hold its UNSEATED offscreen.set at the scene's place to
-    walkInFromPage (not judged); import seatAtScene; ground = state.place.name:
-      if (page && m.type === 'offscreen.set' && typeof m.name === 'string' && !isHere(state, m.name) && m.stance !== 'toward' && m.stance !== 'seeking' && ground && seatAtScene(String(m.location || ''), ground) && !isDeadSeat({ location: m.location, activity: m.activity })) { if (walkInFromPage(state, m.name, { page, pageAt, shown: m.shown })) return true; }
-Laws to add as M680-12… in tests/harness/m680.mjs, each FAILING on 74007f4 and passing after: the comesInAtTheEnd
-battery above; Renji's arrival stands despite the reader's slip, through the world's clear and the reader's own enter;
-an unseated person the page never names, seated by the world at the scene, walks in (with and without a room); a seated
-unmentioned person the room omits stays out; Salla calling from afar stays out; another person's arrival is not
-theirs; the auditor's unseated seat at the scene for someone the ending does not show is dropped; the reader's own seat
-at the scene for a seated person its room omits is dropped.
-Verify: `ONLY='M655|M680|M402|M647|M666|M679|M444|M452' timeout 250 node tests/harness/run.mjs`;
-`cd tests/dom && ONLY='DOM-100|DOM-27[12]|DOM-10[2-6]|DOM-93' timeout 280 node run.mjs`; break each new guard on
-purpose and watch its law fail; lint stays at 0 errors. Then the FULL gates once (`audit/gates.sh <tag>`, detached,
-~15 min; logs /tmp/gates/<tag>_*.log, each ending "EXIT n"; /tmp/gates/<tag>_done says ALLDONE). Only when every gate
-is green: write the gate line into the # M680 entry, `git fetch origin main`, fast-forward main to the branch,
-`git push origin main`.
+## 2. Open, by name (nothing else from the M680 audit is open)
+- S9: the span a page covers is not kept (see "# M681"); a journaled `ranTo` on the header's clock.set is the design.
+- Canon's dossier voice quotes are not read through his story's lens: fixed in the Canon Verification extension as
+  v0.68.2 (gated; not pushed — another repo needs his word). Then vendor (tools/vendor-canon.py) and judge dossier.voice
+  in js/agents/canonlens.js.
+- Found, not fixed: the page reader keeps a cut answer's salvaged writes as "ok" with no re-ask; M244's half-batch line is
+  checked against the whole batch's passage; mem.stuck.at is not rebased on a delete/fold; "Put the earlier words back"
+  does not let the record line over the page go; taking back a fight by hand (combat.restore) puts the whole sheet back,
+  weighings since included; a reader landing between the housekeeper's hide and chat's rebase reads the new indices.
 
-## 3. Then M681 (version m681-001)
-- THE CLOCK. S1 is reproduced: daysBetweenDayWords (apply.js ~2019) moves the clock wrongly between two headers:
-  "Thornday, October 14, 1247 15:58" → "Thornday, Oct 14": 1455 minutes (should be 15); → "14 October": 1455 (15);
-  → "Thornday the 14th": 1455 (15); "Monday 09:00" → "Monday evening": 10620 (540); "Monday morning" → "Monday":
-  10140 (60); "Sunday, Hanami 5, 1001 AG" → "Sunday": 10100 (20).
-  The rule to build: month and day in either order, short month names, ordinals; the same month → the difference in
-  days; different real months → the ordinal-day difference with the year wrap; the same real weekday → 0, a different
-  one → forward 1–6; a story weekday: the same → 0, another → 1; new words that are a subset of the old telling words
-  (ignoring morning/afternoon/evening/night/noon/midnight/dawn/dusk) → 0; otherwise 1.
-  Side fault: "[Thornday evening | 18:00]" yields the place "Thornday evening".
-  Then S10, S14, S3, S2, S6 (S9 if sound): chat.js healLedgerOnOpen (~1560–1589), readMissedPage (~2991–3032), the
-  chain reader's header block (~4577–4609).
-- goneAtTheEnd misattributes: "Rukia watched Renji leave." makes goneAtTheEnd(Rukia) true.
-- Then the people, world and books findings by harm (B13, W4, P4, …) — all listed further down in this file.
-- Each one: reproduce first (a law that fails on the build before), fix the root, search the codebase for the same
-  pattern, re-read the diff, then the full gates, then main.
+## 3. Laws to know before touching these rooms
+- A write about the whole story (a ripple's rename, the calendar) is journaled `story: true` and laid again onto whatever
+  a fold, a checkpoint or a version brings back (state.js withStoryWrites).
+- The plans keeper: a page rewritten in place is set aside (book.held) and read again alone (book.again); a page that
+  leaves or comes back moves the book (plans.js pageLeft / pageCameBack). Every door that changes a page's words calls
+  pageRewritten (replayFrom does for all of its callers).
+- personBookKey: an entry found must mean ONE person (a bare "Rias" beside two Riases is nobody's).
+- The world's word as told = engine/world.js briefAsTold (age, arrivals of someone here, window on someone here).
 
 ## 4. How to work here
 - Gates: `audit/gates.sh <tag>` (harness, walk, long play, lint, the 20 browser tests). One run at a time, detached;

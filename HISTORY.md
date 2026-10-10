@@ -18032,3 +18032,101 @@ finding happen before it was touched. What was fixed here, each with a law that 
   device_guard and perf_academy red: device_guard passed 3/3 alone; perf_academy's welcome-screen trace runs no app code
   on either build (main 55.6/121.5/84.8 ms vs M680 90.8/72.4/72.4 ms, interleaved) — noise, not M680.
 - version.js -> m680-001.
+
+# M681 — the clock, and every open finding of the M680 audit (his: "Then M681 (the clock first) and every open finding in HANDOFF.md, most harmful first. Reproduce each one before fixing it.")
+Each finding was made to happen on m680-001 first; every law below fails there and passes here (tests/harness/m681.mjs,
+walk DOM-277…).
+THE CLOCK
+- THE DAYS BETWEEN TWO HEADERS (S1, M681-1/2): any day words that were not the very same text were a day or a week apart —
+  "Thornday, October 14, 1247" then "Thornday, Oct 14" moved the clock 1455 minutes for fifteen, "Monday" then "Monday
+  evening" a week; each jump let every place and outfit go and told the world agent a day had passed. apply.js
+  daysBetweenDayWords reads a month and its day in either order (short, whole, ordinal, the story's own months), a story
+  that counts its days, real weekdays forward, the story's own weekday ("Thornday" — no longer read as a place: "Thornday
+  evening" set the ground), and words that add nothing (the time of day aside) as the same day; the fuller day words stay.
+- "#TIME SKIP" ANSWERED WITH ONLY THE HOUR (S10, M681-3, DOM-280): the header's bare hour overruled the reader's three-day
+  move — Monday night became Tuesday morning. A long move under an hour-only header stands; the hour lands on the
+  nearest day (apply.js readerTimeOverHeader).
+- HIS HAND ON THE CLOCK (S6, M681-4, DOM-281): the open heal and a page read late wrote the newest page's hour over the
+  clock he had set by hand since. A clock he set (the drawer journals it as his) is never overwritten by that page's hour.
+- THE HEADER LANDS WHEN THE READER FAILS (S2, DOM-277); THE NEWEST PAGE READ LATE IS READ AS ITS CHAIN WOULD (S3, DOM-278);
+  A PAGE READ OUT OF TURN ADDS NO TIME ON TOP OF A LATER PAGE'S HOUR (S14, DOM-279): one answer for what a page writes
+  (chat.js pageWrites), used by the chain, the late read and the reader that failed.
+THE MOOD
+- A MOOD IN ANOTHER SPELLING IS THAT MOOD (S4, M681-6): a board of ["Combat"] turned combat OFF; "social field" was no mood.
+- THE BOARD NEVER ENDS A LIVE FIGHT (S5, M681-18): a page read in a breath between blows turned combat off under a running
+  duel; while the referee's duel, battle or war stands, combat stays on.
+WHO GOES
+- WHO GOES IS WHO THE SENTENCE SENDS (M681-5): "Rukia watched Renji leave." took Rukia out of the scene; in a sentence that
+  names someone else, the going must be said of them (apply.js goneOfTheirOwn).
+THE PEOPLE
+- THE BACK OF HIS HAND IS HIS HAND (P1, M681-7). A WOUND TOLD AGAIN KEEPS ITS DRESSING unless worse (P10, M681-8).
+- A PASSING LOOK IS NOT A TRUTH (P2, M681-9): "face: flushed" was locked; a passing clause is not locked, what lasts is.
+- ONE LOOK HAS ONE KEY (P3, M681-19): "Hair" and "hair colour" stood as two truths; folded on load too (canon.js lookKey).
+- A NAME THAT MEANS TWO PEOPLE IS NOBODY'S (P4, M681-10): a bare "Rias" was folded into Rias Wells while Rias Gremory
+  stood — and at the applier Rias Wells's own beats landed in the bare "Rias" standing (apply.js personBookKey: the entry
+  found must mean one person too). The brief's "Rias" lands on no one of two.
+- A STANDING THE PAGES WORE DOWN STAYS DOWN (P6, M681-20), and the founder read again never writes over what the pages
+  earned or he set (M681-11; a founder's own move says it is the founder's and is not made twice).
+- THE DEAD ARE NOT ASKED ABOUT THEIR WOUNDS (P5, M681-12). A SHORT LOOSE END IN OTHER CASE IS THE SAME (P7, M681-13).
+- THE MAIN CHARACTER'S PAGE IS HIS RECORD ALONE (P12, M681-14): a core written before he was known stood for good and his
+  hand could not let it go; it goes when he is named (undone with the name), the open heal lets old ones go, his hand can.
+THE WORLD
+- THE MAIN CHARACTER IS NEVER ELSEWHERE (W3, M681-21). THE WORLD AGENT DOES NOT MOVE A SEAT THIS PAGE'S READER GAVE (W4,
+  M681-23). A THREAD IS NEVER CLOSED BY THE PAGE THAT OPENED IT (W6, M681-15). A RENAME KEEPS THE WHOLE BOOK (W9, M681-22).
+  A DEATH IS NEVER LET GO BUT BY HIS HAND (W13, M681-17).
+THE BOOKS
+- A FULL BOOK KEEPS ITS SECRETS (B9, M681-16): what others also know goes first.
+- A PAGE REWRITTEN IN PLACE IS READ AGAIN ALONE (B6, M681-24): a typo fixed on page 50 let go of every plan from page 50
+  on; its own plans are set aside at once and come back (with what later pages carried out) when its new words still say
+  them. (M528-1's mechanism assertions changed with it: the reading is no longer sent back to the page.)
+- A SECOND MEND KEEPS THE STORYTELLER'S OWN WORDS — AND HIS, WHEN HE WROTE OVER THE FIRST (B8, DOM-283).
+- A RENAME OUTLIVES A TRY AGAIN (B13, DOM-282): a write about the whole story (`story: true`) is laid again onto whatever a
+  fold, a checkpoint or a version's ledger brings back (state.js withStoryWrites).
+THE SCENE, CONTINUED
+- THE STORY'S OWN CALENDAR IS JOURNALED (S11, M681-30, DOM-291): the drawer wrote it straight into the clock; a Try again
+  put the real calendar back. apply.js clock.calendar, marked story: true (laid again after every fold); taking back an
+  hour no longer takes the calendar with it.
+- THE WEIGHING OF THE CAST IS JOURNALED (S12, M681-31/32): it landed after the next checkpoint and every fold lost it.
+  apply.js sheet.weigh, stamped with the last page it read; the referee's own copy of the sheet no longer overwrites a
+  weighing on the send or a committed replay (referee.js sheetChangeOnto).
+- A WEIGHING OF PAGES LET GO IS NOT WRITTEN (S8, M681-33): it now asks stale() and that every page it read still reads so.
+- A HEALED WOUND LEAVES THE REFEREE'S SHEET (S7, M681-34/35): body.heal lets the same hurt go from the sheet (bodies.js
+  sameHurt; never gear or his hand's lines; undone with the wound); a weighing shown a referee harm the story no longer
+  carries lets it go, and one it names again is never counted twice. (Revises M345 for harm the weighing was shown.)
+- A STALE MOOD BOARD IS THE AUDITOR'S (S13, M681-36, DOM-290): the page reader marks the page whose board it stated
+  (moodAt); when no reader stated it for the newest page, the auditor is told so and its one mode.snapshot lands.
+- S9 (the clock stands at the page's opening): NOT A BUG as stated — the clock equal to the newest header's hour is an
+  invariant the rewind check (M509-9), the open heal (M455), the auditor and the masthead rely on. What remains: the span
+  a page covers is not kept, so staleAfterJump can measure a jump from the page's opening (a 300-minute page read as a
+  five-hour jump at the next header). A journaled `ranTo` on the header's clock.set would fix it; not built.
+THE PEOPLE, CONTINUED
+- CANON'S FACE IS READ THROUGH HIS STORY'S LENS (P8, M681-40): hair, eyes and the Appearance prose were locked and told as
+  canon's END has them; each feature and look sentence is a lens statement now (an older lens still holds back what it
+  judged, and is asked again). With no dossier, the note's Personality, Abilities, Trivia and Voice are judged too (M681-43).
+- CANON'S LINES GO WITH CANON OFF (P9, M681-41): "From canon:" lines on the people's pages (M518) rode to the scribe, the
+  planner, Choices and Rebuild the people; canonWithdraw takes them back, journaled. Found with it: Rebuild the people's
+  reader was shown "[object Object]" since M52 (fixed).
+- A WIKI REDIRECT GIVES HIS ORIGINAL "ROSE" NO CANON FACE (P11, M681-42) when his story says she is his own — through P8's
+  lens. A story that says nothing of who she is cannot be told apart by name alone (his Bleach "Rose" IS canon).
+- STILL OPEN: the dossier's voice quotes are not lensed (the vendored extension's lensedEntry never takes `voice`). Fixed
+  and gated in the extension as v0.68.2 (proof 605, sim 431, guard negative-tested), NOT pushed: pushing another repo
+  needs his word. Then vendor it (tools/vendor-canon.py) and have canonlens.js judge dossier.voice.
+THE WORLD, CONTINUED
+- THE WORLD'S WORD NEVER TELLS THE ARRIVAL OF SOMEONE HERE (W1, M681-50): engine/world.js briefAsTold — the one answer for
+  the storyteller, the window rule, the drawer and the ground worker. THE WINDOW RULE WAKES ONLY ON A WORD STILL TOLD (W2,
+  M681-51). A LAPSED APPROACH IS NOBODY ON THE WAY (W5, M681-52: onTheWay — ranking, carrying, recall). FACTIONS SAY THEIR
+  AGE AND CAN BE LET GO (W7, M681-53: faction.clear, the drawer's Let it go; found with it: "the Red Hand" wrote over "the
+  Black Hand" by one shared word). THE AUDITOR'S SEAT FIX LANDS WHEN THE NEWEST PAGE MOVES HER (W10, M681-54). THE WORKERS'
+  LINE SAYS THE WORLD'S WORD (W12, M681-55). W8 (the drawer's Let it go is his) and W11 (world writes fold with their page)
+  were already so — held by DOM-300 and M681-56.
+THE BOOKS, CONTINUED
+- EVERY DOOR THAT CHANGES A PAGE'S WORDS TELLS THE PLANS KEEPER (B1, DOM-310/313, M681-78): a version walk, a mend, the
+  earlier words put back. A PAGE FOLDED AWAY OR BROUGHT BACK MOVES THE RECORD, THE PLANS AND THE LEDGER (B2, DOM-311,
+  M681-75…77; also a deleted page's plans). A BELIEF GOES WHEN THE TRUTH IS LEARNED (B3, M681-70). A PAGE COVERED WITHOUT
+  WORDS IS ASKED AGAIN (B4, M681-74). THE KEEPER SAYS WHY IT FOLDED NOTHING (B5, DOM-312). THE SECOND READER SEES HIS DRESS
+  AND PLACE FOR THE HEADER (B7, M681-71). THE WHOLE RE-ASK IS KEPT — the keeper's and the scribe's (B10, M681-72/73).
+TESTS CHANGED, AND WHY: M100's mood line and M251's two literals read source text — they run the door now or point to
+DOM-277; M40-1's literal follows the version walk's withStoryWrites; M528-1 and DOM-184 asked for the plans rewind B6
+removed; M680-14's fixture was stamped with the page being read (it claimed this page's reader seated Aunt Vera);
+M29/M246/M247 follow the new words.
+- version.js -> m681-001.
