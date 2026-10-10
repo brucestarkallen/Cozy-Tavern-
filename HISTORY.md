@@ -18385,3 +18385,9 @@ does not require repeating the unchanged product's 29 minute recovery gate.
 Publication is next: remote main must still be ff200328; update main and the saved work branch without force, then
 verify their exact refs. Claude's four saved audit/final-fix commits remain ancestors and all pre-M683 HISTORY
 bytes remain an unchanged prefix. The original AGENTS/HANDOFF archives remain byte-identical to published M682.
+
+M683 PUBLICATION COMPLETE, October 10, 2026: remote main was re-read at ff200328, then main and
+m683-workflow-academy advanced atomically without force to 2f9543c4e70e10ed9a54766706ccef70f2012509. Both refs
+were verified from GitHub after the push. Version m683-001 is published. This final handoff/publication record
+changes documentation and the validation record only; production bytes remain identical to the full green gate.
+The original audit/final-fix commits and complete prior history remain intact.

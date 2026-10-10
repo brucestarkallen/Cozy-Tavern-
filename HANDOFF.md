@@ -1,11 +1,12 @@
 # Cozy Tavern: current handoff
 
-## Current work: M683, branch m683-workflow-academy
+## Current release: m683-001, main
 
 Jovan requested faster checks, smaller context, removal of the factory female voice
 restriction, disappearing resolved housekeeper warnings, one academy story/input canvas,
 a cozy academy night choice, and a clearer workflow. SPEC.md has the acceptance criteria.
-All seven changes and validation are complete; authenticated publication to main is next.
+All seven changes and validation are complete and published on GitHub main.
+The first verified release commit is 2f9543c. The saved m683-workflow-academy branch mirrors main.
 The product source tested by the full release is f45a68c. A final runner report initialization
 fix has its own failing-before/passing-after unit and a fresh successful fast run.
 

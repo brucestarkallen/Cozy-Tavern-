@@ -248,5 +248,7 @@
         "milliseconds": 444
       }
     ]
-  }
+  },
+  "initial_published_release_commit": "2f9543c4e70e10ed9a54766706ccef70f2012509",
+  "publication": "Both GitHub refs verified after the atomic non-force push; subsequent publication notes only."
 }
