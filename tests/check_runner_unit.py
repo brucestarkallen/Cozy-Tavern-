@@ -53,7 +53,7 @@ class Workflow(unittest.TestCase):
         tag = 'workflow_unit_' + uuid.uuid4().hex
         output = Path('/tmp/gates'); output.mkdir(exist_ok=True)
         done = output / (tag + '_done'); done.write_text('ALLDONE\n')
-        child = "import os; assert 'ONLY' not in os.environ; raise SystemExit(7)"
+        child = "import os; assert 'ONLY' not in os.environ; assert os.environ['COZY_TEST_REPO'] == os.getcwd(); assert '/tmp/cozy-check-' in os.environ['COZY_TEST_DATA']; raise SystemExit(7)"
         job = dict(name='workflow_probe', command=[sys.executable, '-c', child])
         import os
         try:

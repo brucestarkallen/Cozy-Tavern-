@@ -18360,3 +18360,9 @@ new valid academy-night selector, counted nine coats instead of ten, and assigne
 coat. The release was stopped during the harness. The parser now accepts hyphens; the same grammar is used by
 M167 and M254 so their unchanged palette assertions cover the new coat too. All four pass individually. No
 assertion, colour count or budget was removed or lowered. These four inexpensive checks join the fast profile.
+
+The complete fast selection, now including all four palette checks, passed in 15.55 s (41 selected laws). Runner
+review then assigned distinct fake-provider ports as well as app ports, bound each run to the current checkout
+and a disposable fixture directory, and cleared inherited diagnostic Python options. This prevents unrelated
+profiling settings, a different checkout or an existing library from changing a release's scope or test data.
+The failure-propagation unit checks the checkout/fixture isolation too.

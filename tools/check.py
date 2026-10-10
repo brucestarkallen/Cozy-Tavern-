@@ -12,6 +12,7 @@ import signal
 import subprocess
 import sys
 import time
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 STANDING = ('perf_send holdsone cutthinking notes_layout backup backupdupes restore_backup_unit restore_zip '
@@ -123,6 +124,13 @@ def main():
     # Proxying a local fake provider is unrelated to the application and can break tavern.test.
     for key in ('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'all_proxy'):
         environment.pop(key, None)
+    # Diagnostic script options cannot point a release at another checkout, thin it, or use a live library.
+    for test_file in (ROOT / 'tests').glob('*.py'):
+        for key in re.findall(r"os\.(?:environ\.get|getenv)\(['\"]([^'\"]+)", test_file.read_text()):
+            if key != 'PATH':
+                environment.pop(key, None)
+    environment['COZY_TEST_REPO'] = str(ROOT)
+    environment['REPO_DIR'] = str(ROOT)
     environment['NO_PROXY'] = 'localhost,127.0.0.1,tavern.test'
     environment['PYTHONDONTWRITEBYTECODE'] = '1'
 
@@ -141,10 +149,14 @@ def main():
             env['TEST_REPORT'] = str(output / (tag + '_' + name + '_timings.json'))
         # Each test already uses its own fixture directory. Give browser tests distinct ports too.
         if name not in ('launcher', 'upgrade_in_place'):
-            env['COZY_TEST_PORT'] = str(18000 + [j['name'] for j in selected].index(name))
+            index = [j['name'] for j in selected].index(name)
+            env['COZY_TEST_PORT'] = str(18000 + index)
+            env['NOTES_PORT'] = str(18000 + index)
+            env['FAKE_PORT'] = str(20000 + index)
         log_path = output / (tag + '_' + name + '.log')
         start = time.monotonic()
-        with log_path.open('w') as log:
+        with tempfile.TemporaryDirectory(prefix='cozy-check-' + name + '-') as fixture, log_path.open('w') as log:
+            env['COZY_TEST_DATA'] = fixture
             try:
                 process = subprocess.Popen(job['command'], cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
                 code = process.wait(timeout=1200)
