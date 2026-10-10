@@ -18156,3 +18156,15 @@ M29/M246/M247 follow the new words.
   (198 warnings), the 20 browser tests all green (perf_send worst long task 968 ms of 1000; perf_academy green).
 - version.js -> m681-001.
 - m681-002 (after m681-001 went to main): S9 and the canon voice quotes, each with a law that fails on m681-001.
+
+# M681 verification completed by Codex, October 10, 2026
+
+The saved m681-002 application source (`f087472`, after `63f87a1`) was retained exactly. Main at the start was `8880a01`, already containing the full m681-001 audit. Both pending laws, M681-44 and M681-45, were run on that main in a separate checkout: they failed for the unlensed quote and the false five hour jump respectively, and passed on the saved fixes. All original audit commits and Cozy's custom canon source were preserved.
+
+The older M395-1 fixture in tests/harness/m392.mjs lacked the fake wiki used by its neighboring tests. An uncached main character triggered a live wiki request; on this runner the interceptor reached its twelve second ceiling before synchronizing the cached place. The exact failure reproduced on main. The fixture now installs the existing stand in and restores fetch in finally, adding six lines and retaining every assertion and original statement. It passes on both builds. This law checks completed grounding rather than real wiki outage timing; the application was not changed for this fixture.
+
+The first complete run (`codex681final`) passed harness 1434/1434, walk 291/291, long play 9/9 and lint, plus 17 of 20 browser checks. Its three red results had two runner causes. The proxy intercepted tavern.test (device_pair scene 10), reproduced on main and fixed for the test environment by clearing proxy variables and bypassing local names. The runner mounts host /proc inside an inner PID namespace, so pkill tried host PIDs and missed test servers. Main reproduced launcher 20 passed / 6 failed; a temporary adapter limited to this namespace's identified Cozy test servers translated the innermost NSpid, passed its controlled child check, and main then passed launcher 26/26. The leaked launcher server had also occupied 8080 and prevented upgrade_in_place from starting. Application code, Host refusal assertions, budgets, and gate scripts stayed intact.
+
+GATES: `codex681clean`, one complete run against f087472 plus the isolated M395-1 fixture: harness 1434/1434, walk 291/291, long play 9/9, lint 0 errors (199 warnings on ESLint 9.39.5), all 20 browser gates EXIT 0. The full device_pair ran all nineteen scenes, launcher and upgrade_in_place passed together, and paint_academy and perf_academy passed. Send worst long task 419 ms of 1000; no page errors in that check. The application version remains m681-002.
+
+The old resume block is retained, with a current verified checkpoint added above it. The additional "Found, not fixed" findings, the historical academy intermittent reload investigation, and canon copy divergence remain open. Green gates here establish this release's checks; they do not establish a cause or fix for that older intermittent reload.

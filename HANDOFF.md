@@ -1,3 +1,17 @@
+# Verified continuation, October 10, 2026, Codex
+
+The two fixes left at the interruption are complete and verified in `m681-002`: canon dossier quotes are judged against this story, and the next clock jump is measured from where a long page ended. Both fixes were already saved in Claude's commits `63f87a1` and `f087472` on `m681-wip`. The application source in this checkpoint matches `f087472` exactly; all earlier audit commits remain ancestors.
+
+The complete gate run `codex681clean` passed: harness 1434/1434, DOM walk 291/291, long play 9/9, lint 0 errors (199 warnings), all 20 browser checks. Send worst long task 419 ms within its 1000 ms budget. Both new laws (M681-44 and M681-45) failed on main `8880a01` for the original defects and passed on the saved fixes.
+
+The only additional executable change is six lines in `tests/harness/m392.mjs`: M395-1 now installs its existing fake wiki and restores fetch in finally. Every original assertion and statement remains. The unisolated fixture waited for a live wiki request and failed on main too; with the same controlled replies it passes on both builds. This check exercises completed grounding, not the timing of a real wiki outage.
+
+This Work runner needed two environment corrections, without changes to the app or its test assertions. Clear its HTTP/HTTPS/ALL proxy variables for local browser tests and include `tavern.test` in NO_PROXY; scene 10 failed on main with the proxy and passed with it removed. Its /proc reports host PIDs, while signals use the inner PID namespace: native pkill missed the test servers, so launcher cleanup left port 8080 occupied and the upgrade test could not start. Main reproduced the same six launcher failures, then passed 26/26 with a temporary, test scoped pkill adapter. That adapter matches only Python serve.py processes in /tmp/cozy-launcher-* or /tmp/cozy-upgrade-*, verifies the same PID namespace, and signals the innermost NSpid. Its own controlled child check passed. All gates then passed in one full run, including launcher, upgrade, and all nineteen device_pair scenes. Ordinary runners with normal /proc and local routing use `audit/gates.sh` directly.
+
+Remaining work stays open: the separate "Found, not fixed" list below; the historical perf_academy intermittent reload and timing investigation (green runs here do not identify its cause); and the canon copy divergence. Keep Cozy's custom canon fixes, and merge the copies before using tools/vendor-canon.py. This continuation did not close those findings.
+
+The earlier resume block below is retained as history. Its statement that main is M680 and its older deployment notes predate the verified release; consult `js/version.js` on main for the published version. HISTORY.md ends with this continuation's results.
+
 # RESUME HERE — read this first (written Oct 10, 2026, end of the M681 session)
 
 ## 1. Where things stand

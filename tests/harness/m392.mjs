@@ -198,6 +198,11 @@ test('M394-1 THE LENS DOES NOT WAIT FOR A PAGE: everyone canon knows in the ledg
 test('M395-1 WHERE THE SCENE IS, BY HIS LEDGER: the setting is the canon place the page header names (a part of it will do), a place canon does not know leaves none; and canon’s own notices are kept for its room, never shown as popups', async () => {
   const { canonNote, canonNotes } = await import('../../js/canon/bridge.js');
   const { onToast, toastr } = await import('../../js/canon/host.js');
+  /* The setting check uses the same wiki stand-in as the lens checks above. An uncached main character otherwise
+   * waits for a live wiki before the setting is applied; on a blocked network this failed on m681-001 as well. */
+  const realFetch = globalThis.fetch;
+  installFake(realFetch);
+  try {
   const st = await db.stories.create({ title: 'Where we are' });
   const story = await db.stories.get(st.id);
   await db.settings.set(canonMetaKey(story.id), { canon_grounding_wiki: 'bleach', canon_grounding_wiki_ok: { wikis: 'bleach', name: 'x', fp: '(manual)', manual: true, ts: 1 },
@@ -215,4 +220,5 @@ test('M395-1 WHERE THE SCENE IS, BY HIS LEDGER: the setting is the canon place t
   onToast((w) => canonNote(w));
   toastr.info('📍 setting → Seireitei');
   eq(canonNotes()[0].words, '📍 setting → Seireitei', 'its notice is kept for its room');
+  } finally { globalThis.fetch = realFetch; }
 });
