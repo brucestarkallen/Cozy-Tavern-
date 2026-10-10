@@ -336,6 +336,9 @@ test('LONG-8 the ledger auditor by hand: the drawer’s button runs the same rea
   /* a standing Aurora earned on the page, so the auditor may not take it away */
   let st = await loadState(sid);
   st = applyMutations(st, [{ type: 'rel.shift', name: 'Aurora', axis: 'p', delta: 12, cause: 'she came back for him (the page)' }]).state;
+  /* The normal reader now catches the departure. Seed the legacy missed-departure
+   * fault deliberately, without inventing a new arrival after that departure. */
+  if (!st.present.some((p) => p.name === 'Person7')) st.present.push({ name: 'Person7', position: '', attire: '' });
   await saveState(sid, st);
   assert(st.present.some((p) => p.name === 'Person7'), 'Person7 is (wrongly) still here');
   /* the last page's own chain (its every-third-page audit among it) must have landed before the

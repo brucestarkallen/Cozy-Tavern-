@@ -1822,7 +1822,7 @@ function driftPanel(ctx) {
       list.appendChild(li);
     }
     if (!found.length && !mended.length) {
-      note.textContent = audit?.issues?.length ? 'The latest audit results are above. Each result says whether the correction landed or what prevented it.' : 'No correction or unresolved issue has been recorded here. This is a record of checks, not a guarantee that every detail is correct.';
+      note.textContent = audit?.issues?.length ? 'The latest audit results are above. Each result says whether the correction landed or what prevented it.' : 'No correction or unresolved issue has been recorded here. Results from the next ledger audit or page check will appear here.';
       return;
     }
     if (!found.length) { note.textContent = 'What the reader mended; the earlier words are a tap away.'; return; }

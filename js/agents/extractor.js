@@ -898,8 +898,8 @@ export async function extractTurn(args = {}) {
   const groundNames = () => {
     if (!read?.mutations || !args.state) return;
     const material = [args.brief, args.castNotes, args.record, args.userText, args.assistantText].join('\n');
-    const known = [...Object.keys(args.state.characters || {}), ...Object.keys(args.state.offscreen || {}), ...(args.state.present || []).map((p) => p.name)];
-    const grounded = (name) => known.some((n) => samePersonName(n, name)) || exactNameIn(material, name);
+    const known = [...Object.keys(args.state.characters || {}), ...Object.keys(args.state.offscreen || {}), ...(args.state.present || []).map((p) => p.name), ...read.mutations.filter((m) => m.type === 'mc.set' && typeof m.name === 'string').map((m) => m.name)];
+    const grounded = (name) => isMc(args.state, name) || known.some((n) => samePersonName(n, name)) || exactNameIn(material, name);
     const rejectedNames = [...(read.rejectedNames || [])];
     read.mutations = read.mutations.filter((m) => {
       if (!['presence.enter', 'people.note', 'people.set'].includes(m.type) || grounded(m.name)) return true;

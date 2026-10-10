@@ -217,3 +217,9 @@ test('M684-20 the auditor repairs a missed departure after out-of-character page
   await wire({ issues: [{ what: 'Mira went home several pages ago.', mutations: [{ type: 'presence.leave', name: 'Mira', to: 'her home' }] }] }, () => auditLedger({ connection, storyId: id }));
   assert(!(await loadState(id)).present.some((p) => p.name === 'Mira'), 'a real departure after the arrival is repaired');
 });
+
+test('M684-21 identity validation preserves the main character introduced by the same reader answer', async () => {
+  const r = await reader(emptyState(), 'We go and eat.', 'You sit beside Liara at the table.', { mutations: [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Liara' }, { type: 'mode.snapshot', flags: ['group'] }] });
+  const next = applyMutations(emptyState(), r.mutations).state;
+  assert(next.present.some((p) => p.name === 'Jovan') && next.present.some((p) => p.name === 'Liara'), 'the main character’s own identity and the sourced companion both remain');
+});
