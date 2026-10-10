@@ -352,6 +352,20 @@ export function findKnowledgeKey(knowledge, name) {
 /* Add one fact to one person. The same fact twice (case-insensitive) is a
  * no-op that returns the same copy; the list keeps everything, up to the
  * runaway guard (M305). */
+/* M681 — A FULL BOOK KEEPS ITS SECRETS (the books audit's B9, made to happen on m680-001): past the guard a person's OLDEST
+ * fact was let go, whatever it was — a secret only she held, learned on page 10, went to make room for the sixtieth
+ * trifle the whole room had seen, and nobody in the ledger knew it any more. What someone else also holds is let go first
+ * (the oldest of those); a fact nobody else holds goes only when the book holds nothing else. blindSpots reads its horizon
+ * the same way (it claims nothing older than the oldest fact a full book still SHARES). Never the newest. */
+export function trimmedBook(list, all, key, cap = KNOWLEDGE_GUARD) {
+  const book = Array.isArray(list) ? list : [];
+  if (book.length <= cap) return book;
+  const others = Object.entries(all && typeof all === 'object' ? all : {}).filter(([o, l]) => o !== key && Array.isArray(l));
+  const heldElsewhere = (k) => Boolean(k && typeof k.fact === 'string') && others.some(([, l]) => l.some((x) => x && typeof x.fact === 'string' && sameFact(x.fact, k.fact)));
+  const out = book.slice();
+  for (let i = 0; out.length > cap && i < out.length - 1;) { if (heldElsewhere(out[i])) out.splice(i, 1); else i += 1; }
+  return out.length > cap ? out.slice(-cap) : out;
+}
 export function addKnowledge(knowledge, name, fact, atTurn) {
   const next = copyKnowledge(knowledge);
   const who = cleanText(name, 120);
@@ -386,7 +400,7 @@ export function addKnowledge(knowledge, name, fact, atTurn) {
     return next;
   }
   list.push({ fact: canon, atTurn: Number.isFinite(atTurn) ? atTurn : null });
-  next[key] = list.slice(-KNOWLEDGE_GUARD);
+  next[key] = trimmedBook(list, next, key); /* M681: a full book lets go of what others also know first */
   return next;
 }
 
@@ -971,6 +985,9 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
   const common = new Set(); if (factCount >= 20) for (const [w, n] of df) if (n > factCount * 0.25) common.add(w);
   /* M507: each fact's words, age and nearness to the scene are read ONCE, not once per person in the room; a name's own
    * word patterns are compiled once per name, not once per fact (tests/perf_send.py: thousands of compilations a send) */
+  /* M681: who holds each fact, by its plain key — for a full book's horizon (below) */
+  const ownersOf = new Map();
+  for (const [other, list] of Object.entries(safe)) for (const k of (Array.isArray(list) ? list : [])) { if (!k || typeof k.fact !== 'string') continue; const fk = factKey(k.fact); if (!ownersOf.has(fk)) ownersOf.set(fk, new Set()); ownersOf.get(fk).add(other); }
   const books = Object.entries(safe).map(([other, list]) => [other, (Array.isArray(list) ? list : []).map((k) => {
     const fact = String(k.fact || '').trim();
     /* the final audit: a belief is no one else's blind spot; and a fact the knower was told is SHOWN, for someone who has
@@ -990,8 +1007,11 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
     const mineList = mineKey ? safe[mineKey] : [];
     const mine = mineList.map((k) => ({ fact: k.fact, words: factWords(k.fact) }));
     /* M579: a list at the guard may have let older facts go — nothing older than its oldest kept fact is claimed unknown */
-    const keptTurns = mineList.map((k) => k && k.atTurn).filter((t) => Number.isFinite(t));
-    const horizon = mineList.length >= KNOWLEDGE_GUARD && keptTurns.length ? Math.min(...keptTurns) : -Infinity;
+    /* M681: …the oldest fact it still SHARES with someone — a full book lets shared facts go first (trimmedBook), so an older
+     * secret kept says nothing of what was let go after it; a full book that shares nothing claims nothing */
+    const sharedWithOthers = (k) => { const o = ownersOf.get(factKey(k.fact)); return Boolean(o) && [...o].some((x) => x !== mineKey); };
+    const sharedTurns = mineList.length >= KNOWLEDGE_GUARD ? mineList.filter((k) => k && typeof k.fact === 'string' && Number.isFinite(k.atTurn) && sharedWithOthers(k)).map((k) => k.atTurn) : [];
+    const horizon = mineList.length >= KNOWLEDGE_GUARD ? (sharedTurns.length ? Math.min(...sharedTurns) : Infinity) : -Infinity;
     const selfRes = [...new Set(name.toLowerCase().split(/\s+/).filter((w) => w.length >= 3))].map((w) => new RegExp('(^|[^\\p{L}])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\p{L}])', 'iu'));
     const found = [];
     for (const [other, list] of books) {

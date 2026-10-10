@@ -14339,6 +14339,158 @@ test('DOM-276 A DELETE HOLDS THE HOUSE WITHOUT TURNING ANYONE AWAY (M681 — M68
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+/* M681 — THE CLOCK, THROUGH THE APP: a tale read to its first page, its hour and ground from that page's header */
+async function clockTale(title, pages, { readTo = 0, readAhead = [] } = {}) {
+  const { saveState, emptyState, headerMutations } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title });
+  await db.stories.update(st.id, { keeper: false, createdAt: Date.now() - 3600000 });
+  let ts = Date.now() - 600000;
+  for (const [i, text] of pages.entries()) {
+    await db.messages.append(st.id, { role: 'user', text: 'move ' + i, ts: (ts += 100) });
+    await db.messages.append(st.id, { role: 'assistant', text, ts: (ts += 100) });
+  }
+  let led = { ...emptyState(), page: 0 };
+  led = applyMutations(led, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }]).state;
+  for (const at of [...new Set([...Array.from({ length: readTo + 1 }, (_, i) => i), ...readAhead])].sort((a, b) => a - b)) {
+    led.page = at; led = applyMutations(led, headerMutations(pages[at], { ground: (led.place || {}).name || '', day: (led.clock && led.clock.dayWords) || '' })).state;
+  }
+  led.page = Math.max(readTo, ...readAhead);
+  await saveState(st.id, { ...led, readTo, readAhead, tidiedGen: 999, healedGen: 999 });
+  return st;
+}
+const QUIET_WORKERS = '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[],"issues":[]}';
+const minuteOf = (led) => led.clock.minutes % 1440;
+
+test('DOM-277 THE HEADER LANDS WHEN THE READER FAILS (M681 — the scene audit’s S2): a page whose ledger reader never answers (the wire drops on every try) still gives the ledger its hour and its ground from its own first line; the page stays owed its reading', async () => {
+  const before = errors.length;
+  const { loadState } = await import('../../js/engine/state.js');
+  const { setSleepForHarness } = await import('../../js/agents/queue.js');
+  const st = await clockTale('the reader fails', ['[The yard — Monday, March 3, 2025 | 09:00 | clear]\n\nKim waited by the well.']);
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  setSleepForHarness(async () => {});
+  try {
+    house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? Promise.reject(new Error('the wire dropped')) : QUIET_WORKERS);
+    house.state.storyAnswer = () => '[The gate — Monday, March 3, 2025 | 11:30 | clear]\n\nThey reached the gate as the bell rang.';
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    type(q('#composer-input'), 'We walk to the gate.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the page', 20000);
+    await settled(); await readersDone(st.id, 60000);
+    const led = await loadState(st.id);
+    eq(minuteOf(led), 11 * 60 + 30, 'the hour the page gives');
+    eq(led.place.name, 'The gate', 'and the ground it gives');
+    eq(led.readTo, 0, 'the page is still owed its reading');
+  } finally {
+    setSleepForHarness(null);
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-278 THE NEWEST PAGE READ LATE IS READ AS ITS OWN CHAIN WOULD (M681 — the scene audit’s S3): a page on the shelf unread is read by the house by itself — its header’s ground and hour land, and the reader’s own half hour is not added on top of the hour the opening already set from that header', async () => {
+  const before = errors.length;
+  const { loadState } = await import('../../js/engine/state.js');
+  const st = await clockTale('read late', ['[The yard — Monday, March 3, 2025 | 09:00 | clear]\n\nKim waited by the well.', '[The gate — Monday, March 3, 2025 | 11:30 | clear]\n\nThey reached the gate as the bell rang.']);
+  const prior = { worker: house.state.workerAnswer };
+  globalThis.__cozyLedgerBackoffMs = 300;
+  try {
+    house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? JSON.stringify({ mutations: [{ type: 'clock.advance', minutes: 30, reason: 'the walk to the gate' }, { type: 'mode.snapshot', flags: [] }], here: ['Jovan'] }) : QUIET_WORKERS);
+    await env.ctx.chat.openStory(st.id);
+    await until(async () => (await loadState(st.id)).readTo === 1, 'the house reads the page by itself', 30000);
+    await readersDone(st.id, 60000);
+    const led = await loadState(st.id);
+    eq(minuteOf(led), 11 * 60 + 30, 'the hour the page gives — not half an hour past it');
+    eq(led.place.name, 'The gate', 'and the ground it gives');
+  } finally {
+    delete globalThis.__cozyLedgerBackoffMs;
+    house.state.workerAnswer = prior.worker;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-279 A PAGE READ OUT OF TURN ADDS NO TIME ON TOP OF A LATER PAGE’S HOUR (M681 — the scene audit’s S14): page two was never read while page three was; the house reads page two by itself, and its reader’s three quarters of an hour do not move the clock page three set', async () => {
+  const before = errors.length;
+  const { loadState } = await import('../../js/engine/state.js');
+  const st = await clockTale('out of turn', ['[The yard — Monday, March 3, 2025 | 09:00 | clear]\n\nKim waited by the well.', '[The yard — Monday, March 3, 2025 | 10:00 | clear]\n\nThe well rope creaked.', '[The yard — Monday, March 3, 2025 | 11:00 | clear]\n\nThe bell rang for noon soon.'], { readTo: 0, readAhead: [2] });
+  const prior = { worker: house.state.workerAnswer };
+  globalThis.__cozyLedgerBackoffMs = 300;
+  try {
+    eq(minuteOf(await loadState(st.id)), 11 * 60, 'page three set the clock');
+    house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? JSON.stringify({ mutations: [{ type: 'clock.advance', minutes: 45, reason: 'the rope' }, { type: 'mode.snapshot', flags: [] }], here: ['Jovan'] }) : QUIET_WORKERS);
+    await env.ctx.chat.openStory(st.id);
+    await until(async () => (await loadState(st.id)).readTo === 2, 'the house reads page two by itself', 30000);
+    await readersDone(st.id, 60000);
+    eq(minuteOf(await loadState(st.id)), 11 * 60, 'the clock page three set stands');
+  } finally {
+    delete globalThis.__cozyLedgerBackoffMs;
+    house.state.workerAnswer = prior.worker;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-280 “#TIME SKIP” ANSWERED WITH ONLY THE HOUR (M681 — the scene audit’s S10): Monday night, “#time skip three days”, a page headed “[The yard | 09:00]” — the ledger stands on Thursday morning, not Tuesday', async () => {
+  const before = errors.length;
+  const { loadState } = await import('../../js/engine/state.js');
+  const { renderClock } = await import('../../js/engine/clock.js');
+  const st = await clockTale('the skip', ['[The yard — Monday, March 3, 2025 | 21:00 | clear]\n\nThe yard went dark.']);
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  try {
+    const was = (await loadState(st.id)).clock.minutes;
+    house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? JSON.stringify({ mutations: [{ type: 'clock.advance', minutes: 4320, reason: 'three days pass' }, { type: 'mode.snapshot', flags: [] }], here: ['Jovan'] }) : QUIET_WORKERS);
+    house.state.storyAnswer = () => '[The yard | 09:00 | clear]\n\nThree days on, the yard was quiet and swept.';
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    type(q('#composer-input'), '#time skip three days'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the page', 20000);
+    await settled(); await readersDone(st.id, 60000);
+    const led = await loadState(st.id);
+    eq(led.clock.minutes - was, 3600, 'Thursday 09:00 — ' + renderClock(led.clock));
+    assert(/Thursday, March 6, 2025/.test(renderClock(led.clock)), 'the clock says Thursday: ' + renderClock(led.clock));
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-281 HIS HAND ON THE CLOCK OUTRANKS THE NEWEST PAGE’S HOUR WHEN THE TALE OPENS (M681 — the scene audit’s S6): he sets the clock in the drawer; opening the tale again does not put the page’s hour back over it', async () => {
+  const before = errors.length;
+  const { loadState } = await import('../../js/engine/state.js');
+  const st = await clockTale('his hour', ['[The yard — Monday, March 3, 2025 | 09:00 | clear]\n\nKim waited by the well.']);
+  const prior = { worker: house.state.workerAnswer };
+  try {
+    house.state.workerAnswer = () => QUIET_WORKERS;
+    await env.ctx.chat.openStory(st.id);
+    await tick(300);
+    click(q('#btn-ledger'));
+    const clockForm = await until(() => q('#drawer .clock-set-form'), 'the clock form', 15000);
+    type(clockForm.querySelector('input[aria-label="The clock’s hour"]'), '14');
+    type(clockForm.querySelector('input[aria-label="The clock’s minute"]'), '0');
+    submit(clockForm);
+    await until(async () => minuteOf(await loadState(st.id)) === 14 * 60, 'his hour', 10000);
+    if (!q('#drawer').hidden) click(q('#btn-ledger'));
+    await env.ctx.chat.openStory(st.id);
+    await tick(800);
+    await readersDone(st.id, 30000);
+    eq(minuteOf(await loadState(st.id)), 14 * 60, 'the hour he set stands');
+  } finally {
+    if (!q('#drawer').hidden) click(q('#btn-ledger'));
+    house.state.workerAnswer = prior.worker;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 test('DOM-275 THE CHOICES ARE MADE FROM THE LEDGER AS THE PAGE LEFT IT (M680 — the books audit): Choices matter asked its helper the moment a page landed, before the page’s own readers had written it into the ledger — so the outcomes were sealed against the room as it stood BEFORE the page: a man the page had just walked out of the yard was still “here now”. It waits for the page’s readers now', async () => {
   const before = errors.length;
   const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');

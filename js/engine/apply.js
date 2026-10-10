@@ -38,7 +38,7 @@
  * Pure functions: state is copied, never mutated in place.
  */
 
-import { createClock, setClock, advanceClock, renderClock, MAX_ADVANCE_MINUTES } from './clock.js';
+import { createClock, setClock, advanceClock, renderClock, MAX_ADVANCE_MINUTES, REAL_MONTHS } from './clock.js'; /* M681: the months, for the days between two headers */
 import { windowCutAt } from './window.js'; /* M467: one definition of the window's marker */
 import { addInjury, addStrain, findBodyKey, findInjury, SEV_WORDS } from './bodies.js';
 import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TOTAL } from './relationships.js';
@@ -56,6 +56,23 @@ const STAYS_PUT = new Set(['busy', 'waiting', 'tense']);
 const LOG_CAP = 200;
 
 export const MODE_FLAGS = ['combat', 'intimate', 'travel', 'socialField', 'isolation', 'group'];
+/* M681 — A MOOD SAID IN ANOTHER CASE OR SPACING IS THAT MOOD (the scene audit's S4, made to happen on m680-001): "Combat",
+ * "social field", "Social_Field" were no flag at all — and since the board names every mood that holds, a snapshot of
+ * ["Combat"] TURNED COMBAT OFF. One spelling per mood, whatever the case, spaces or marks. */
+const MODE_BY_SPELLING = new Map(MODE_FLAGS.map((f) => [f.toLowerCase(), f]));
+export function modeFlagOf(x) { return MODE_BY_SPELLING.get(String(x || '').toLowerCase().replace(/[^a-z]/g, '')) || ''; }
+function modeFlagsOf(raw) {
+  const items = Array.isArray(raw) ? raw : (typeof raw === 'string' ? raw.split(/[,;|\n]+/) : []);
+  const out = new Set();
+  for (const item of items) {
+    const whole = modeFlagOf(item);
+    if (whole) { out.add(whole); continue; }
+    for (const word of String(item || '').split(/\s+/)) { const f = modeFlagOf(word); if (f) out.add(f); } /* "combat group" */
+  }
+  return out;
+}
+/* a fight the referee is running — its own engine ends it (duels.js teardownFight), never a mood board */
+const fightLive = (state) => Boolean(state && ((state.duel && state.duel.active && !state.duel.over) || (state.battle && state.battle.active && !state.battle.over) || (state.war && state.war.active && !state.war.over)));
 
 /* Plain words for each scene mood — used in the log lines and shared with
  * the drawer's "mood of the scene" panel so the app speaks one language. */
@@ -381,8 +398,11 @@ const HANDLERS = {
    * so only real changes are logged. The old mode.set/mode.clear stay for
    * the hand and for a single change. */
   'mode.snapshot'(state, m) {
-    const list = Array.isArray(m.flags) ? m.flags : (typeof m.flags === 'string' ? m.flags.split(/[,\s]+/) : []);
-    const wanted = new Set(list.map((f) => String(f || '').trim()).filter((f) => MODE_FLAGS.includes(f)));
+    const wanted = modeFlagsOf(m.flags); /* M681: in any case or spacing */
+    /* M681 — THE BOARD DOES NOT END A FIGHT THE REFEREE IS RUNNING (the scene audit's S5, made to happen on m680-001): a page
+     * that dwelt on a breath between blows, read with no "combat" on its board, turned combat off under a live duel — and
+     * the storyteller was handed the quiet room's rules mid-fight. While the referee's fight stands, combat stays on. */
+    if (fightLive(state)) wanted.add('combat');
     const before = { ...state.mode };
     const turnedOn = MODE_FLAGS.filter((f) => wanted.has(f) && !state.mode[f]);
     const turnedOff = MODE_FLAGS.filter((f) => !wanted.has(f) && state.mode[f]);
@@ -663,9 +683,9 @@ const HANDLERS = {
   },
 
   'mode.set'(state, m) {
-    const flag = typeof m.flag === 'string' ? m.flag.trim() : '';
+    const flag = modeFlagOf(m.flag); /* M681 */
     if (!MODE_FLAGS.includes(flag)) {
-      return { why: '“' + (flag || '?') + '” isn’t a mood the ledger knows' };
+      return { why: '“' + (String(m.flag || '').trim() || '?') + '” isn’t a mood the ledger knows' };
     }
     if (state.mode[flag]) return { why: MODE_WORDS[flag].on.toLowerCase() + ' — that was already so', same: true };
     state.mode[flag] = true;
@@ -677,9 +697,9 @@ const HANDLERS = {
   },
 
   'mode.clear'(state, m) {
-    const flag = typeof m.flag === 'string' ? m.flag.trim() : '';
+    const flag = modeFlagOf(m.flag); /* M681 */
     if (!MODE_FLAGS.includes(flag)) {
-      return { why: '“' + (flag || '?') + '” isn’t a mood the ledger knows' };
+      return { why: '“' + (String(m.flag || '').trim() || '?') + '” isn’t a mood the ledger knows' };
     }
     if (!state.mode[flag]) return { why: 'that mood wasn’t on', same: true };
     state.mode[flag] = false;
@@ -1956,6 +1976,41 @@ export function quotedGoing(state, pageText, name, shown) {
   const after = told.slice(end).replace(/^[^.!?…]*[.!?…]*/, ''); /* what the page tells once that sentence has ended */
   return !shownOnPage(state && typeof state === 'object' ? state : {}, after, name);
 }
+/* M681: whose going does a sentence that names several people tell? Each person's part of it runs from their name to the
+ * next person's: "Renji watched Rukia leave" — Rukia's part is "Rukia leave", hers; "Rukia watched Renji leave" — hers is
+ * "Rukia watched", no going. A part that goes on from the name with "and" / "then" ("…to Rukia and left") is the
+ * sentence's subject going, the one named first; a name joined to the next by "and" or a comma alone ("Rukia and Renji
+ * left", "Rukia, then Renji, walked out") goes with the next part. A rank said as a name ("Kuchiki-taichō") is someone. */
+function goneOfTheirOwn(state, sentence, name, others) {
+  const low = plainLower(narrationOf(sentence));
+  const spell = (n, avoid) => [plainLower(n).trim(), plainLower(nameCore(n)), ...nameCore(n).split(' ').filter((w) => w.length >= 2 && !avoid.has(w)).map(plainLower)].filter(Boolean);
+  const mine = new Set(nameCore(name).split(' '));
+  const theirs = new Set(others.flatMap((n) => nameCore(n).split(' ')));
+  const find = (words, who) => {
+    const list = [...new Set(words)].sort((a, b) => b.length - a.length);
+    if (!list.length) return [];
+    const re = new RegExp('(?<![\\p{L}\\p{N}])(?:' + list.map((w) => escRe(w).replace(/\s+/g, '[\\s-]+')).join('|') + ')(?:-\\p{L}+)?(?![\\p{L}\\p{N}\'])', 'gu');
+    return [...low.matchAll(re)].map((m) => ({ at: m.index, end: m.index + m[0].length, who }));
+  };
+  const ranked = new RegExp(RANKED.source, 'giu');
+  const marks = [...find(spell(name, theirs), 'me'), ...others.flatMap((n) => find(spell(n, mine), 'other')), ...[...low.matchAll(ranked)].map((m) => ({ at: m.index, end: m.index + m[0].length, who: 'other' }))]
+    .sort((a, b) => (a.at - b.at) || (b.end - a.end));
+  const spots = [];
+  for (const m of marks) { const last = spots[spots.length - 1]; if (last && m.at < last.end) continue; spots.push(m); } /* overlapping: the earlier, longer */
+  if (!spots.some((m) => m.who === 'me')) return false;
+  const partOf = (i) => low.slice(spots[i].at, i + 1 < spots.length ? spots[i + 1].at : low.length);
+  const restOf = (i) => partOf(i).slice(spots[i].end - spots[i].at);
+  /* who goes, part by part */
+  const goes = spots.map(() => false);
+  for (let i = spots.length - 1; i >= 0; i -= 1) {
+    const rest = restOf(i);
+    if (/^\s*(?:,|and|&|or)?\s*(?:then\s*,?\s*)?$/i.test(rest) && i + 1 < spots.length) { goes[i] = goes[i + 1]; continue; } /* joined to the next */
+    if (!showsDeparture(partOf(i))) continue;
+    if (/^\s*(?:,\s*)?(?:and|then|but|before|after)\b/i.test(rest) && i > 0) goes[0] = true; /* the subject's going, past an object */
+    else goes[i] = true;
+  }
+  return spots.some((m, i) => m.who === 'me' && goes[i]);
+}
 export function goneAtTheEnd(state, pageText, name) {
   const s = state && typeof state === 'object' ? state : {};
   const sentences = scenePartOf(pageText).split(/(?<=[.!?…])\s+|\n+/).map((x) => x.trim()).filter(Boolean);
@@ -1968,8 +2023,12 @@ export function goneAtTheEnd(state, pageText, name) {
   const someoneElse = (t) => RANKED.test(narrationOf(t)) || others.some((n) => shownOnPage(s, t, n));
   for (let i = sentences.length - 1; i >= 0; i -= 1) {
     if (!shownOnPage(s, sentences[i], name)) continue;
+    /* M681 — IN A SENTENCE THAT NAMES SOMEONE ELSE, THE GOING MUST BE THEIRS: "Rukia watched Renji leave." took Rukia out of
+     * the scene; "Renji nodded to Rukia and left." and "Renji left; Rukia stayed by the window." did the same; "Rukia
+     * turned to Renji and walked out." took Renji. (goneOfTheirOwn below) */
+    if (someoneElse(sentences[i])) return goneOfTheirOwn(s, sentences[i], name, others);
     const run = [sentences[i]];
-    if (!someoneElse(sentences[i])) {
+    {
       /* M643: THE GOING IS OFTEN TOLD BY A PRONOUN, AND NOT AS THE SENTENCE'S FIRST WORD. His page: "Aunt Vera set her cup
        * in the sink… “Lock the back door.” Then she was gone, footsteps measured up the stairs" — the run stopped at the
        * spoken line and at "Then", her leaving was not seen, and the reader's own leave was thrown away: she stood in the
@@ -2128,25 +2187,88 @@ export function deathToldOf(state, pageText, name) {
 
 /* M455: THE HOUR A HEADER GIVES, ON THE DAY IT NAMES. With the same day words as the clock's (or none), the same day —
  * a header a few minutes behind the clock sets it back (the header is the truth for the hour); an hour far earlier with
- * no day words is the next morning. Other day words move the day on: by the day number when the month word is the same
- * ("Hanami 5" → "Hanami 6"), else by the weekday, else one day. */
+ * no day words is the next morning. Other day words move the day on.
+ * M681 — HOW MANY DAYS LIE BETWEEN TWO HEADERS' DAY WORDS (the scene audit's S1, made to happen on m680-001): any words
+ * that were not the very same text were a day apart or a week — "Thornday, October 14, 1247" then "Thornday, Oct 14"
+ * moved the clock 1455 minutes for fifteen; "Monday" then "Monday evening" a whole week. Each jump let every place and
+ * outfit go (staleAfterJump) and told the world agent a day had passed. Now: a month and its day in either order, short
+ * or whole, with an ordinal or not ("Oct 14", "14 October", "the 14th of October", the story's own "Hanami 5" or "17th of
+ * Last Seed"): the same month is the difference in days, two real months the days between them across the year's end; a
+ * story that counts its days ("Day 47") the difference; a real weekday the days forward to it (the same one is today);
+ * the story's own weekday ("Thornday") today when it is the same word, else the next day; words that say nothing the old
+ * ones did not (the time of day aside — "Monday evening" after "Monday", "Thornday the 14th" after "Thornday, October 14,
+ * 1247") today; anything else one day. */
 const WEEKDAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const WEEKDAY_SHORT = { sun: 0, mon: 1, tue: 2, tues: 2, wed: 3, weds: 3, thu: 4, thur: 4, thurs: 4, fri: 5, sat: 6 };
+const MONTH_SHORT = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
+const TIME_OF_DAY = new Set(['morning', 'afternoon', 'evening', 'night', 'noon', 'midnight', 'dawn', 'dusk', 'midday', 'daybreak', 'sunrise', 'sunset', 'twilight', 'nightfall']);
+const TIME_OF_DAY_WORDS = /\s*,?\s*(?<![\p{L}])(?:morning|afternoon|evening|night|noon|midnight|dawn|dusk|midday|daybreak|sunrise|sunset|twilight|nightfall)(?![\p{L}])/giu;
+const DAY_FILLER = new Set(['the', 'of', 'on', 'at', 'in']);
+const lowerPlain = (t) => String(t || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+const realMonth = (w) => { const x = lowerPlain(w).replace(/\.$/, ''); const i = REAL_MONTHS.findIndex((m) => m.toLowerCase() === x); return i !== -1 ? i + 1 : (MONTH_SHORT[x] || 0); };
+const realWeekday = (w) => { const x = lowerPlain(w).replace(/\.$/, ''); const i = WEEKDAY_NAMES.indexOf(x); return i !== -1 ? i : (Object.hasOwn(WEEKDAY_SHORT, x) ? WEEKDAY_SHORT[x] : -1); };
+/* a word of the story's own week: one capitalised word ending in "day" that is no real weekday ("Thornday", "Fireday") */
+const STORY_DAY_NOT = new Set(['today', 'holiday', 'birthday', 'someday', 'everyday', 'midday', 'yesterday', 'doomsday', 'heyday', 'payday', 'workday', 'weekday', 'noonday', 'gameday']);
+const storyWeekday = (w) => { const x = lowerPlain(w); return /^\p{Lu}/u.test(w) && /^\p{L}{3,}day$/u.test(x) && realWeekday(x) === -1 && !STORY_DAY_NOT.has(x) ? x : ''; };
+/* the date the words name: a month and its day in either order ("October 14", "Oct 14th", "14 October", "the 14th of
+ * October", the story's own "Hanami 5"), with a year when one stands there */
+function monthDayOf(t) {
+  const s = String(t || '');
+  const year = (s.match(/(?<![\p{L}\p{N}])(\d{3,5})(?![\p{N}])/u) || [])[1];
+  for (const m of s.matchAll(/(\p{L}[\p{L}'’-]*)\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?![\p{L}\p{N}:])/gu)) {
+    const real = realMonth(m[1]);
+    if (real) return { real: true, month: real, day: Number(m[2]), year: year ? Number(year) : null };
+    if (/^\p{Lu}/u.test(m[1]) && realWeekday(m[1]) === -1 && !storyWeekday(m[1]) && !/^(?:day|year|week|moon|age|era)$/i.test(m[1])) return { real: false, month: lowerPlain(m[1]), day: Number(m[2]), year: year ? Number(year) : null };
+  }
+  for (const m of s.matchAll(/(?<![\p{L}\p{N}])(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(\p{L}[\p{L}'’-]*)/gu)) {
+    const real = realMonth(m[2]);
+    if (real) return { real: true, month: real, day: Number(m[1]), year: year ? Number(year) : null };
+  }
+  /* the story's own month after an ordinal: "17th of Last Seed" */
+  const own = s.match(/(?<![\p{L}\p{N}])(\d{1,2})(?:st|nd|rd|th)\s+of\s+(\p{Lu}[\p{L}'’-]*(?:\s+\p{Lu}[\p{L}'’-]*)?)/u);
+  if (own) return { real: false, month: lowerPlain(own[2]), day: Number(own[1]), year: null };
+  return null;
+}
+function weekdayOf(t) {
+  for (const w of String(t || '').match(/\p{L}[\p{L}'’-]*/gu) || []) {
+    const r = realWeekday(w); if (r !== -1) return { real: true, day: r };
+    const s = storyWeekday(w); if (s) return { real: false, day: s };
+  }
+  return null;
+}
+const dayWordSet = (t) => new Set(lowerPlain(t).split(/[^\p{L}\p{N}]+/u).filter(Boolean)
+  .map((w) => w.replace(/^(\d{1,2})(?:st|nd|rd|th)$/, '$1')).map((w) => { const m = realMonth(w); return m ? 'month' + m : (realWeekday(w) !== -1 ? 'weekday' + realWeekday(w) : w); })
+  .filter((w) => !TIME_OF_DAY.has(w) && !DAY_FILLER.has(w)));
+const doy = (month, day) => [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334][month - 1] + day;
+/* M681: new day words that say nothing the old ones did not (the time of day aside) */
+export function dayWordsAddNothing(old, neu) { const o = dayWordSet(old); return [...dayWordSet(neu)].every((w) => o.has(w)); }
 export function daysBetweenDayWords(from, to) {
-  const md = (t) => { const x = String(t || '').match(/(\p{Lu}[\p{L}'’-]*)\s+(\d{1,2})(?!\p{N})/u); return x && !WEEKDAY_NAMES.includes(x[1].toLowerCase()) ? { month: x[1].toLowerCase(), day: Number(x[2]) } : null; };
-  const a = md(from);
-  const b = md(to);
-  if (a && b && a.month === b.month) return b.day - a.day;
-  const wd = (t) => WEEKDAY_NAMES.findIndex((w) => new RegExp('\\b' + w + '\\b', 'i').test(String(t || '')));
-  const x = wd(from);
-  const y = wd(to);
-  if (x !== -1 && y !== -1) { const d = (y - x + 7) % 7; return d === 0 ? 7 : d; }
+  const a = monthDayOf(from);
+  const b = monthDayOf(to);
+  if (a && b && a.real === b.real) {
+    if (a.real && a.year && b.year) return Math.round((Date.UTC(b.year, b.month - 1, b.day) - Date.UTC(a.year, a.month - 1, a.day)) / 86400000);
+    if (a.month === b.month) return b.day - a.day;
+    if (a.real) { const fwd = (doy(b.month, b.day) - doy(a.month, a.day) + 365) % 365; return fwd > 300 ? fwd - 365 : fwd; }
+  }
+  /* a story that counts its days ("Day 47, Year 3 of the Long Winter") */
+  const counted = (t) => { const m = String(t || '').match(/(?<![\p{L}])day\s+(\d{1,5})(?![\p{N}])/iu); return m ? Number(m[1]) : null; };
+  const ca = counted(from); const cb = counted(to);
+  if (ca !== null && cb !== null) return cb - ca;
+  const x = weekdayOf(from);
+  const y = weekdayOf(to);
+  if (x && y && x.real === y.real) return x.real ? (y.day - x.day + 7) % 7 : (x.day === y.day ? 0 : 1);
+  const old = dayWordSet(from);
+  const neu = dayWordSet(to);
+  if ([...neu].every((w) => old.has(w))) return 0;
   return 1;
 }
+
 function setTimeOfDay(state, m) {
   const hour = Number(m.hour);
   const minute = Number(m.minute);
   if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return { why: 'those numbers don’t land on any hour' };
   const dayWords = typeof m.dayWords === 'string' ? m.dayWords.replace(/\s+/g, ' ').trim().slice(0, 60) : '';
+  let dayWordsNext = dayWords;
   const before = state.clock ? { ...state.clock } : null;
   const want = hour * 60 + minute;
   let next;
@@ -2159,11 +2281,21 @@ function setTimeOfDay(state, m) {
     const old = typeof state.clock.dayWords === 'string' ? state.clock.dayWords.trim() : '';
     const norm = (t) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
     let on;
-    if (dayWords && old) on = norm(old) === norm(dayWords) ? 0 : daysBetweenDayWords(old, dayWords);
-    else on = want < (cur - today * 1440) - 180 ? 1 : 0;
+    if (dayWords && old) {
+      on = norm(old) === norm(dayWords) ? 0 : daysBetweenDayWords(old, dayWords);
+      /* M681: the same day said less fully ("Thornday the 14th" after "Thornday, October 14, 1247") keeps the fuller words —
+       * the storyteller is told the clock's day words, and a vaguer telling lost the month and the year from the next request
+       * on. A time of day in them goes: the hour says it. */
+      if (on === 0 && dayWordsAddNothing(old, dayWords)) dayWordsNext = old.replace(TIME_OF_DAY_WORDS, '').replace(/[\s,;—–-]+$/u, '').trim() || dayWords;
+    } else if (m.near === true && !dayWords) {
+      /* M681: the hour after a long move the page reader wrote (a "#time skip" whose header gives only the hour): the day
+       * nearest to where the move landed, the earlier on a tie (readerTimeOverHeader) */
+      const at = [-1, 0, 1].map((d) => ({ d, gap: Math.abs((today + d) * 1440 + want - cur) }));
+      on = at.reduce((a, b) => (b.gap < a.gap ? b : a)).d;
+    } else on = want < (cur - today * 1440) - 180 ? 1 : 0;
     next = { ...state.clock, minutes: (today + on) * 1440 + want };
   }
-  if (dayWords) { next.dayWords = dayWords; next.dayWordsAt = Math.floor(next.minutes / 1440); }
+  if (dayWordsNext) { next.dayWords = dayWordsNext; next.dayWordsAt = Math.floor(next.minutes / 1440); }
   next.label = renderClock(next);
   if (before && before.minutes === next.minutes && (before.dayWords || '') === (next.dayWords || '')) return { why: 'the clock already reads ' + (renderClock(before) || 'that'), same: true };
   state.clock = next;
@@ -2188,9 +2320,43 @@ const MOMENT_TYPES = new Set(['place.set', 'clock.set', 'presence.enter', 'prese
  *     stands and what each wears, as THIS page shows it; where that is truly other than the ledger has (not the same
  *     thing in other words), and its words are the page's, it is written. */
 export const STALE_JUMP_MINUTES = 240;
+/* M681 — THE HEADER'S HOUR AND THE READER'S OWN LONG MOVE (the scene audit's S10, made to happen on m680-001): his "#time
+ * skip three days" answered with a header that gives only the hour ("[Ilvarren | 09:00]") landed the NEXT morning — the
+ * header's hour is the page's hour (M455), so the reader's own clock.advance was thrown away, and an hour far earlier with
+ * no day words is the next day. When the header says nothing of the day (no date, no day words) and the reader moved the
+ * clock half a day or more, that move stands first and the header's hour is set on the day nearest to where it landed
+ * (setTimeOfDay `near`). Any other header with an hour overrules the reader's time, as before. One answer for the page's
+ * chain, a page read late, and the reader's own judging of the room (extractor.js). */
+export const LONG_MOVE_MINUTES = 720;
+export function readerTimeOverHeader(fromHeader, readerMutations) {
+  const header = Array.isArray(fromHeader) ? fromHeader : [];
+  const reader = Array.isArray(readerMutations) ? readerMutations : [];
+  const set = header.find((m) => m && m.type === 'clock.set');
+  if (!set) return { header, reader };
+  const others = reader.filter((m) => !(m && m.type === 'clock.advance'));
+  const hourOnly = ![set.year, set.month, set.day].some((x) => Number.isFinite(Number(x)) && x !== null && x !== undefined && x !== '') && !(typeof set.dayWords === 'string' && set.dayWords.trim());
+  const moved = reader.filter((m) => m && m.type === 'clock.advance').reduce((n, m) => n + (Number(numberOf(m.minutes)) || 0), 0);
+  if (!hourOnly || moved < LONG_MOVE_MINUTES) return { header, reader: others };
+  const why = reader.filter((m) => m && m.type === 'clock.advance').map((m) => String(m.reason || '').trim()).filter(Boolean).join('; ');
+  const at = header.indexOf(set);
+  return { header: [...header.slice(0, at), { type: 'clock.advance', minutes: moved, reason: why || 'the time the page skipped' }, { ...set, near: true }, ...header.slice(at + 1)], reader: others };
+}
+/* M681 — HIS HAND ON THE CLOCK OUTRANKS AN OLDER PAGE'S HOUR (the scene audit's S6, made to happen on m680-001): the hour the
+ * newest page's header gives was written over the clock on every opening of the tale (chat.js healLedgerOnOpen) — and by a
+ * page read late — though he had set the clock by hand after that page. True when the last write to the clock is his
+ * (the drawer marks it byHand) and was made with the ledger at this page or after it. */
+export function handSetClockSince(state, pageIndex) {
+  const journal = Array.isArray(state && state.journal) ? state.journal : [];
+  for (let i = journal.length - 1; i >= 0; i -= 1) {
+    const e = journal[i]; const m = e && e.m;
+    if (!m || (m.type !== 'clock.set' && m.type !== 'clock.advance')) continue;
+    return m.byHand === true && Number.isInteger(e.p) && Number.isInteger(pageIndex) && e.p >= pageIndex;
+  }
+  return false;
+}
 export function staleAfterJump(state, headerMutations) {
   const was = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
-  const sets = (Array.isArray(headerMutations) ? headerMutations : []).filter((m) => m && m.type === 'clock.set');
+  const sets = (Array.isArray(headerMutations) ? headerMutations : []).filter((m) => m && (m.type === 'clock.set' || m.type === 'clock.advance')); /* M681: and the reader's long move that rides before a bare hour */
   if (was === null || !sets.length) return [];
   let now = null;
   try { const after = applyMutations(state, sets).state; now = after.clock && Number.isFinite(after.clock.minutes) ? after.clock.minutes : null; } catch (err) { return []; }

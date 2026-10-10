@@ -1395,6 +1395,18 @@ export function headerDress(pageText) {
  * never handed a real one). A weekday that IS the real one adds nothing: the real calendar speaks, and rolls over by
  * itself at midnight. */
 const REAL_WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+/* M681: A DAY OF THE STORY'S OWN WEEK IS A DAY. "[the yard — Thornday | 09:00]" kept no day at all (a part of the header was a
+ * day only with a number in it), and the clock spoke the real calendar's "Saturday, January 1, 2000"; "[Thornday evening |
+ * 18:00]" set the ground to "Thornday evening". One capitalised word ending in "day" that is no real weekday and no
+ * ordinary word ("holiday", "birthday"), with a time of day after it or alone, is the story's own day. */
+const STORY_DAY_NOT = new Set(['today', 'holiday', 'birthday', 'someday', 'everyday', 'midday', 'yesterday', 'doomsday', 'heyday', 'payday', 'workday', 'weekday', 'noonday', 'gameday', 'mayday']);
+const STORY_DAY_PART = /^(\p{Lu}[\p{L}'’-]{2,}day)(?:\s*,?\s*(?:morning|afternoon|evening|night|noon|midnight|dawn|dusk|midday))?$/u;
+function storyDayPart(t) {
+  const m = String(t || '').trim().match(STORY_DAY_PART);
+  if (!m) return false;
+  const w = m[1].toLowerCase();
+  return !REAL_WEEKDAYS.includes(w) && !STORY_DAY_NOT.has(w);
+}
 const SHORT_WEEKDAYS = { sun: 'sunday', mon: 'monday', tue: 'tuesday', tues: 'tuesday', wed: 'wednesday', weds: 'wednesday', thu: 'thursday', thur: 'thursday', thurs: 'thursday', fri: 'friday', sat: 'saturday' };
 function headerDayWords(pieces, said, date, keptDay = '') {
   if (!said || !date) return '';
@@ -1452,7 +1464,8 @@ export function headerMutations(pageText, { ground = '', day = '' } = {}) {
     /* M540: a short weekday with its date, a short month with its day, the day before a short month */
     || new RegExp('^' + SHORT_DAY_SRC + '\\s*,?\\s+(?:' + MONTH_SRC + '\\s+\\d{1,2}|\\d{1,2})(?![\\p{L}\\p{N}])', 'iu').test(t)
     || new RegExp('^' + MONTH_SRC + '\\s+\\d{1,2}(?![\\p{L}\\p{N}])', 'iu').test(t)
-    || new RegExp('^\\d{1,2}(?:st|nd|rd|th)?\\s+' + MONTH_SRC + '(?![\\p{L}])', 'iu').test(t);
+    || new RegExp('^\\d{1,2}(?:st|nd|rd|th)?\\s+' + MONTH_SRC + '(?![\\p{L}])', 'iu').test(t)
+    || storyDayPart(t); /* M681: "Thornday evening" */
   let start = 0;
   while (start < dash.length - 1 && leadsWithDate(dash[start].trim())) start += 1;
   let dateAt = dash.findIndex((t, i) => i > start && isDatePart(t));
@@ -1481,6 +1494,7 @@ export function headerMutations(pageText, { ground = '', day = '' } = {}) {
     return lone && s.length <= 40;
   };
   if (dateAt === -1 && dash.length - 1 > start && ownCalendar(dash[dash.length - 1], { lone: dash.length - start === 2 && parts.length >= 2 })) dateAt = dash.length - 1;
+  if (dateAt === -1 && dash.length - 1 > start && storyDayPart(dash[dash.length - 1])) dateAt = dash.length - 1; /* M681: "[the yard — Thornday | 09:00]" */
   /* …or it stands in a cell of its own, before the hour: "[Place | Hanami 5, 1001 AG | 09:20 | …]" */
   let cellDay = '';
   if (dateAt === -1) {

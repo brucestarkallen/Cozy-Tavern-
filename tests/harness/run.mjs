@@ -263,6 +263,7 @@ import './m675b.mjs'; /* M675, the second reading: the continuous audit's failur
 import './m677.mjs'; /* M677: where each of them is, asked by name; one rule for who knows what; the window marker is not bold */
 import './m679.mjs'; /* M679: the story's own weekday; the spot in a city; each person with him or left behind; a verdict for every thread and loose end; the things its people carry; the auditor and the house's heal held to how the page ENDS; what answers a loose end */
 import './m680.mjs'; /* M680: the whole ledger, room by room — the spot with its city, the world agent and the auditor held to the page's reader, the dead at every door, a sighting is not company, two writers never erase each other, a now's age and ground, "already so" is no refusal, a take-back outlives try again, the record's one rule when pages go, what is true of them told to every reader, a worker's writes stamped with their page */
+import './m681.mjs'; /* M681: the clock — the days between two headers, the story's own weekday, a #time skip with a bare hour, his hand on the clock; and every open finding of M680's audit */
 import { runAll } from './lib.mjs';
 
 console.log('Cozy Tavern — harness');

@@ -37,7 +37,7 @@
 import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition; M677: what goes into who knows what — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning, foldName } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey, noOneSpot, deathToldOf, comesInAtTheEnd } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey, noOneSpot, deathToldOf, comesInAtTheEnd, readerTimeOverHeader } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
 import { headerMutations, headerDress, closeBy, headerCells } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey } from '../engine/people.js';
 import { isDeadSeat, seatNowWords } from '../engine/offscreen.js'; /* M680: the dead, and a seat said as every reader says it */
@@ -1059,7 +1059,7 @@ export async function extractTurn(args = {}) {
          * clock every place and outfit is let go (staleAfterJump), so what the page shows is written even where it is
          * what the ledger had the night before (found in the walk: Bruce's place at the bend was let go and not restated) */
         const day = args.state.clock && typeof args.state.clock.dayWords === 'string' ? args.state.clock.dayWords : '';
-        const letGo = staleAfterJump(args.state, headerMutations(args.assistantText, { ground: (args.state.place || {}).name || '', day }));
+        const letGo = staleAfterJump(args.state, readerTimeOverHeader(headerMutations(args.assistantText, { ground: (args.state.place || {}).name || '', day }), read.mutations).header); /* M681: a #time skip's long move with a bare hour is a jump too */
         const room = letGo.length ? applyMutations(args.state, letGo).state : args.state;
         read.mutations = [...read.mutations, ...restatedPresence(room, notes, read.mutations, args.assistantText)];
       }

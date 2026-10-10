@@ -46,7 +46,7 @@ import { recordGrade, recordDuel, writerKey } from '../engine/bench.js'; /* M632
 import { splitPrefill } from '../providers/effort.js'; /* M585: a go-on turn keeps only the thinking seed */
 import { structuredPlanFor } from '../providers/openai.js'; /* M581: the opener asks only for a structured turn */
 import { callWorker } from '../agents/call.js';
-import { shownTextPatch, shownIndex } from '../engine/pagepatch.js'; /* M575, M576 */
+import { shownTextPatch, shownIndex, isHouseTidy } from '../engine/pagepatch.js'; /* M575, M576; M681: a tidy is no change of words */
 import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { tidyPeople, tidyDue, tidyRunWords } from '../agents/tidy.js'; /* M291: the character pages, tidied once */
 import { windowCutAt } from '../engine/window.js'; /* M467 */
@@ -62,7 +62,7 @@ import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room
 import { listModules, selectModules } from '../assemble/modules.js';
 import { renderClock } from '../engine/clock.js'; /* M493 */
 import { loadState, saveState, notify, snapshotState, restoreSnapshot, restoreNearestSnapshot, renderMasthead, headerWithGround, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture, shareCheckpoints } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
-import { applyMutations, staleAfterJump, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart, noOneSpot } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
+import { applyMutations, staleAfterJump, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart, noOneSpot, readerTimeOverHeader, handSetClockSince } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent, loadSent, pushSentToDevice, giveSentToTale } from '../sent.js'; /* M347: the words each page was sent, kept beside it; M636: read back for the sensors; M675: a tale's carried pages are given to it on the device */
@@ -1568,7 +1568,7 @@ export function initChat(ctx) {
     const state = await loadState(story.id);
     let healed = false;
     /* M455: and the hour the newest page's header gives, on the day it names — a clock a page behind is put right */
-    const muts = [...headerMutations(pageText(newest), { day: state.clock && typeof state.clock.dayWords === 'string' ? state.clock.dayWords : '' }).filter((m) => m.type === 'clock.set'), ...wrongWalkIns( /* M679: and in the story's own words for the day — a clock that read "Monday" where his page said "Thornday" heals on the next opening */state, told.map((m) => ({ text: m.ooc ? '' : pageText(m) }))), ...hereByTheNewestPage(state, pageText(newest), { pageAt: told.indexOf(newest) }), ...walkedBackOverTheWorld(state, pageText(newest)), ...goneByTheirOwnPage(state, pageText(newest)), ...seatMadeCores(state), ...descriptorsThatAreNamed(state)]; /* M491: on opening too; M508: a core made of a seat is let go; M509-2: a descriptor that is a named person; M679: the newest page's own leave stands */
+    const muts = [...(handSetClockSince(state, told.indexOf(newest)) ? [] : headerMutations(pageText(newest), { day: state.clock && typeof state.clock.dayWords === 'string' ? state.clock.dayWords : '' }).filter((m) => m.type === 'clock.set')) /* M681 (S6): never over the clock he set by hand since */, ...wrongWalkIns( /* M679: and in the story's own words for the day — a clock that read "Monday" where his page said "Thornday" heals on the next opening */state, told.map((m) => ({ text: m.ooc ? '' : pageText(m) }))), ...hereByTheNewestPage(state, pageText(newest), { pageAt: told.indexOf(newest) }), ...walkedBackOverTheWorld(state, pageText(newest)), ...goneByTheirOwnPage(state, pageText(newest)), ...seatMadeCores(state), ...descriptorsThatAreNamed(state)]; /* M491: on opening too; M508: a core made of a seat is let go; M509-2: a descriptor that is a named person; M679: the newest page's own leave stands */
     if (muts.length && !busy && !isReplaying() && !readersOut(story.id)) { /* M314: a queued moment is re-checked before it writes */
       const { state: next, applied } = applyMutations(state, muts);
       if (applied.length) { await saveState(story.id, next); notify(story.id); healed = true; }
@@ -2985,6 +2985,54 @@ export function initChat(ctx) {
     return true;
   }
 
+  /* M681: WHAT A PAGE WRITES INTO THE LEDGER — one answer for the page's own chain and for a page read late (readMissedPage),
+   * which applied its reader's answer with no header at all (the scene audit's S3: the newest page read late kept the hour
+   * and the ground of the page before it, and its reader's own time move landed on top of the hour the open heal had
+   * already set from the same header). `headerOnly` is the house's own reading alone — what lands when the reader failed. */
+  function pageWrites(ledgerBefore, msg, mutations, pageIndex) {
+    const groundBefore = (ledgerBefore.place || {}).name || ''; /* M627: an area round it is no move */
+    const dayBefore = (ledgerBefore.clock && typeof ledgerBefore.clock.dayWords === 'string') ? ledgerBefore.clock.dayWords : ''; /* M660: the story's own calendar, as the ledger keeps it */
+    let fromHeader = (msg && msg.role === 'assistant' && !msg.ooc) ? headerMutations(pageText(msg), { ground: groundBefore, day: dayBefore }) : [];
+    let reader = Array.isArray(mutations) ? mutations : [];
+    /* M681 (S6): his own hand on the clock since this page outranks its hour — the header's and the reader's alike */
+    if (handSetClockSince(ledgerBefore, pageIndex)) {
+      fromHeader = fromHeader.filter((m) => !(m && m.type === 'clock.set'));
+      reader = reader.filter((m) => !(m && (m.type === 'clock.set' || m.type === 'clock.advance')));
+    }
+    /* M455: the header's hour is the page's hour — the reader's own "time passed" on top of it put the clock ahead.
+     * M681 (S10): unless the header gives only the hour and the reader moved the clock half a day or more (a "#time skip"):
+     * that move stands, and the hour lands on the day nearest to it (apply.js readerTimeOverHeader) */
+    const timed = readerTimeOverHeader(fromHeader, reader);
+    /* M129: a person who appears ONLY inside the page's window (*** The World
+     * Beyond ***) is elsewhere by definition — a presence.enter for them is
+     * refused here, whatever the model wrote (the window about Chloe's
+     * kitchen had seated Chloe in the scene) */
+    const pageWhole = pageText(msg);
+    const cutAt = windowCutAt(pageWhole); /* M467: the marker in any dressing */
+    const scenePart = (cutAt === -1 ? pageWhole : pageWhole.slice(0, cutAt)).toLowerCase();
+    const onlyInWindow = (name) => {
+      if (cutAt === -1) return false;
+      const n = String(name || '').trim().toLowerCase();
+      if (!n) return false;
+      const first = n.split(/\s+/)[0];
+      return !scenePart.includes(n) && !(first.length >= 3 && new RegExp('(?<![\\p{L}])' + first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}])', 'u').test(scenePart));
+    };
+    /* M131: the header is the truth for the ground and the hour — the extractor's own
+     * place.set / clock.set never override what the header line said */
+    const headerHas = new Set(timed.header.map((m) => m.type));
+    /* M660: a long jump of the clock lets every place-in-the-room and outfit go — before the reader's own writes, which
+     * say what THIS page shows (apply.js staleAfterJump) */
+    const letGo = staleAfterJump(ledgerBefore, timed.header);
+    /* M679: A HEADER THAT NAMES ONLY THE AREA DOES NOT SAY WHERE IN IT THE SCENE IS. His "[Ilvarren — …]" set the ground to the
+     * city on every page and threw away the reader's own word for the street — the spot the page reader now gives for
+     * exactly this (extractor.js spotBlock, held to the page there), written after the header's area */
+    const headerPlace = timed.header.find((m) => m && m.type === 'place.set');
+    const areaOnly = Boolean(headerPlace && noOneSpot(String(headerPlace.name || '')));
+    const overruled = (m) => Boolean(m && headerHas.has(m.type) && !(areaOnly && m.type === 'place.set' && !noOneSpot(String(m.name || m.place || ''))));
+    const list = [...timed.header, ...letGo, ...timed.reader.filter((m) => !overruled(m))].filter((m) => !(m && m.type === 'presence.enter' && onlyInWindow(m.name)));
+    return { list, headerOnly: [...fromHeader, ...staleAfterJump(ledgerBefore, fromHeader)] };
+  }
+
   /* M251/M276: one page the ledger missed, read and marked. A read that finds
    * nothing to change still counts — a quiet page is a read page (it did not,
    * and the mark never passed it). */
@@ -3023,7 +3071,17 @@ export function initChat(ctx) {
     const older = await loadState(story.id);
     const stampWas = Number.isInteger(older.page) ? older.page : -1;
     older.page = k; /* M69: its changes are stamped with the page they came from */
-    const done = applyMutations(older, outOfTurn ? lastingOnly(back.mutations) : back.mutations);
+    let writes;
+    if (outOfTurn) {
+      writes = lastingOnly(back.mutations);
+      /* M681 — A PAGE READ OUT OF TURN ADDS NO TIME ON TOP OF A LATER PAGE'S HOUR (the scene audit's S14, made to happen on
+       * m680-001): its reader's "time passed" is lasting (M453 keeps it) — and was added to a clock a LATER page's header had
+       * already set, an hour or more ahead of the story every time a missed page was read. Kept only when no page after it
+       * gave the clock an hour. */
+      const laterHour = all.slice(at + 1).some((m) => m && m.role === 'assistant' && !m.ooc && headerMutations(pageText(m)).some((x) => x && x.type === 'clock.set'));
+      if (laterHour) writes = writes.filter((m) => !(m && m.type === 'clock.advance'));
+    } else writes = pageWrites(older, missed, back.mutations, k).list; /* M681 (S3): the newest page read late — its header too, as its own chain would */
+    const done = applyMutations(older, writes);
     done.state.page = stampWas; /* the stamp is the turn's, not this old page's */
     markPageRead(done.state, k);
     await saveState(story.id, done.state);
@@ -4290,8 +4348,15 @@ export function initChat(ctx) {
    * is written at all, and the mender's work on words that no longer stand is let go. Returns whether it landed. */
   async function applyMend(storyId, page, after, why) {
     const before = String(page.text || '');
-    const landed = await db.messages.change(storyId, page.id, (now) => (pageText(now) !== before ? undefined
-      : shownTextPatch(now, after, { mended: { before, why: String(why || '').slice(0, 4000), at: Date.now() } }))); /* M268: the reason whole; M575: one home */
+    /* M681 — A SECOND MEND KEEPS THE STORYTELLER'S OWN WORDS (the books audit's B8, made to happen on m680-001): every mend
+     * wrote the words it replaced as the page's earlier words — so a page mended twice remembered only the FIRST mend's text,
+     * and "the earlier words are a tap away" gave back the house's words, his storyteller's gone for good. The earliest
+     * words a reader changed stand as the earlier words; only the house tidying marks (isHouseTidy) is no change of words. */
+    const landed = await db.messages.change(storyId, page.id, (now) => {
+      if (pageText(now) !== before) return undefined;
+      const had = now && now.mended && typeof now.mended.before === 'string' && !isHouseTidy(now.mended) ? now.mended.before : before;
+      return shownTextPatch(now, after, { mended: { before: had, why: String(why || '').slice(0, 4000), at: Date.now() } }); /* M268: the reason whole; M575: one home */
+    });
     if (!landed) return false;
     /* M90: the record line covering a mended page is let go, so the keeper
      * folds it again from the corrected words — or the record keeps narrating
@@ -4573,7 +4638,28 @@ export function initChat(ctx) {
         if (k0 !== -1) await readMissedPage(story, connection, told[k0], k0, { signal, renew, record: foldedBefore, stale });
       } catch (err) { /* the page in hand still gets read */ }
 
-      const { mutations, note: extractNote, failed: extractFailed, raw: extractRaw, here: extractRoom } = await extractTurn({
+      /* M681 — THE HEADER'S GROUND AND HOUR LAND WHEN THE READER FAILS (the scene audit's S2, made to happen on m680-001):
+       * they are the house's own reading of the page's first line, in code — yet a reader that failed (a wire that never
+       * answered, a call cut off by its leash, no answer at all) threw them away with its own answer, and every later page
+       * of the chain and the next request told the storyteller the hour and the place of the page BEFORE. They are
+       * written, stamped with this page; the reading mark does not move (the page is still owed its reading, which reads
+       * them again as already so). Each try of the job does it again — the same writes are already so. */
+      const headerAlone = async () => {
+        if (stale() || !(await stillThere(story.id, msg.id))) return;
+        const st0 = await loadState(story.id);
+        const at0 = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id);
+        if (at0 === -1) return;
+        const { headerOnly } = pageWrites(st0, msg, [], at0);
+        if (!headerOnly.length) return;
+        const stampWas = Number.isInteger(st0.page) ? st0.page : -1;
+        st0.page = at0;
+        const done = applyMutations(st0, headerOnly);
+        done.state.page = stampWas;
+        if (done.applied.length && !stale()) { await saveState(story.id, done.state); notify(story.id); }
+      };
+      let extracted;
+      try {
+        extracted = await extractTurn({
         connection,
         state: stateBefore,
         userText,
@@ -4587,6 +4673,11 @@ export function initChat(ctx) {
         renew,
         storyId: story.id, story, pageNumber: await pageNumberOf(story.id, msg.id), /* M259: it may look */
       });
+      } catch (err) {
+        if (!stoppedRun(signal)) await headerAlone().catch(() => {}); /* his own Stop writes nothing */
+        throw err;
+      }
+      const { mutations, note: extractNote, failed: extractFailed, raw: extractRaw, here: extractRoom } = extracted;
       /* B5: a page that has gone teaches the ledger nothing. M12: nor does
        * a page of a story the writer has left. */
       if (stale()) return { silent: true };
@@ -4595,42 +4686,16 @@ export function initChat(ctx) {
        * extractor's own writes — the same stamp, the same journal, the same
        * take-back — whatever the model remembered to write */
       const ledgerBefore = await loadState(story.id);
-      const groundBefore = (ledgerBefore.place || {}).name || ''; /* M627: an area round it is no move */
-      const dayBefore = (ledgerBefore.clock && typeof ledgerBefore.clock.dayWords === 'string') ? ledgerBefore.clock.dayWords : ''; /* M660: the story's own calendar, as the ledger keeps it */
-      const fromHeader = (msg.role === 'assistant' && !msg.ooc) ? headerMutations(pageText(msg), { ground: groundBefore, day: dayBefore }) : [];
-      /* M129: a person who appears ONLY inside the page's window (*** The World
-       * Beyond ***) is elsewhere by definition — a presence.enter for them is
-       * refused here, whatever the model wrote (the window about Chloe's
-       * kitchen had seated Chloe in the scene) */
-      const pageWhole = pageText(msg);
-      const cutAt = windowCutAt(pageWhole); /* M467: the marker in any dressing */
-      const scenePart = (cutAt === -1 ? pageWhole : pageWhole.slice(0, cutAt)).toLowerCase();
-      const onlyInWindow = (name) => {
-        if (cutAt === -1) return false;
-        const n = String(name || '').trim().toLowerCase();
-        if (!n) return false;
-        const first = n.split(/\s+/)[0];
-        return !scenePart.includes(n) && !(first.length >= 3 && new RegExp('(?<![\\p{L}])' + first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}])', 'u').test(scenePart));
-      };
-      /* M131: the header is the truth for the ground and the hour — the extractor's own
-       * place.set / clock.set never override what the header line said */
-      const headerHas = new Set(fromHeader.map((m) => m.type));
-      /* M455: the header's hour is the page's hour — the reader's own "time passed" on top of it put the clock ahead */
-      if (headerHas.has('clock.set')) headerHas.add('clock.advance');
-      /* M660: a long jump of the clock lets every place-in-the-room and outfit go — before the reader's own writes, which
-       * say what THIS page shows (apply.js staleAfterJump) */
-      const letGo = staleAfterJump(ledgerBefore, fromHeader);
-      /* M679: A HEADER THAT NAMES ONLY THE AREA DOES NOT SAY WHERE IN IT THE SCENE IS. His "[Ilvarren — …]" set the ground to the
-       * city on every page and threw away the reader's own word for the street — the spot the page reader now gives for
-       * exactly this (extractor.js spotBlock, held to the page there), written after the header's area */
-      const headerPlace = fromHeader.find((m) => m && m.type === 'place.set');
-      const areaOnly = Boolean(headerPlace && noOneSpot(String(headerPlace.name || '')));
-      const overruled = (m) => Boolean(m && headerHas.has(m.type) && !(areaOnly && m.type === 'place.set' && !noOneSpot(String(m.name || m.place || ''))));
-      const list = [...fromHeader, ...letGo, ...(Array.isArray(mutations) ? mutations : []).filter((m) => !overruled(m))].filter((m) => !(m && m.type === 'presence.enter' && onlyInWindow(m.name)));
+      /* M276: the page's changes are stamped with ITS OWN index (see below) */
+      const pageInHand = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id);
+      /* M128/M131/M455/M660/M679: the header's ground and hour, the reader's own changes held to them, the room's places and
+       * dress let go after a long jump, nobody walked in from the window — one answer for this chain and a page read late
+       * (pageWrites, below) */
+      const { list } = pageWrites(ledgerBefore, msg, Array.isArray(mutations) ? mutations : [], pageInHand);
 
       /* Re-load at apply time — the ledger may have been touched by hand
        * while the worker was reading. */
-      if (extractFailed) throw new Error('no answer reached us');
+      if (extractFailed) { await headerAlone(); throw new Error('no answer reached us'); } /* M681 (S2): the header's own writes still land */
       const fresh = await loadState(story.id);
       /* M69: every write from this chain is stamped with this page's index */
       /* M253: THE MARK IS A CONTIGUOUS PREFIX, NOT THE NEWEST PAGE READ.
@@ -4647,7 +4712,6 @@ export function initChat(ctx) {
       /* M276: the page's changes are stamped with ITS OWN index (a branch before it
        * must not carry them); the mark then takes it through markPageRead, which
        * keeps it a contiguous prefix and remembers a page read out of turn */
-      const pageInHand = visiblePages(await db.messages.list(story.id)).filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id);
       if (pageInHand !== -1) fresh.page = pageInHand;
       /* M261: A THREAD THE STORY STOPPED CARRYING COOLS BY ITSELF. Nothing
        * cooled a thread: one no page closed stayed "hot" and was read to the

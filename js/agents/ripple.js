@@ -22,7 +22,7 @@
  *     the canon on the next page.
  */
 
-import { sameFact } from '../engine/world.js'; /* M163: the same fact in different clothes */
+import { sameFact, trimmedBook, KNOWLEDGE_GUARD } from '../engine/world.js'; /* M163: the same fact in different clothes; M681: a book's guard */
 
 export function factChange(before, after) {
   const a = String(before || ''); const b = String(after || '');
@@ -134,7 +134,7 @@ function mergeEntry(kind, held, coming) {
       if (!k || typeof k.fact !== 'string') continue;
       if (!out.some((x) => x && sameFact(x.fact, k.fact))) out.push(k);
     }
-    return out.slice(-12);
+    return out; /* M681 (W9): trimmed to the guard as every book is, in renameInState — it was cut to twelve here */
   }
   return { ...coming, ...held };
 }
@@ -162,6 +162,12 @@ export function renameInState(state, from, to) {
   next.offscreen = rekey(next.offscreen, 'offscreen');
   next.relationships = rekey(next.relationships, 'relationships');
   next.knowledge = rekey(next.knowledge, 'knowledge');
+  /* M681 (W9, the world audit): A RENAME'S MERGE KEEPS THE WHOLE BOOK. Two books joined under one name were cut to the newest
+   * twelve facts (the old size, before M305's sixty) — a rename of a misheard name threw away all but twelve of what the real
+   * person knew. The book is held to the guard every book is held to, and lets what others also know go first. */
+  for (const [k, list] of Object.entries(next.knowledge && typeof next.knowledge === 'object' ? next.knowledge : {})) {
+    if (Array.isArray(list) && list.length > KNOWLEDGE_GUARD) next.knowledge[k] = trimmedBook(list, next.knowledge, k);
+  }
   next.canon = rekey(next.canon, 'canon');
   next.bodies = rekey(next.bodies, 'bodies');
   if (next.sheet && same(next.sheet.playerName)) { next.sheet.playerName = to; n += 1; }

@@ -87,7 +87,7 @@ async function currentStory(ctx) {
 /* Hand changes ride the same rails as the extractor's: proposed as
  * mutations, applied, saved, announced. Returns the applied words (unused
  * by most callers; the log panel shows them soon enough). */
-const HAND_TYPES = new Set(['people.set', 'people.note', 'rel.set', 'rel.shift', 'offscreen.set', 'offscreen.clear']); /* M680: a seat he writes or lets go is his (over a grave; a note the house would keep) */
+const HAND_TYPES = new Set(['people.set', 'people.note', 'rel.set', 'rel.shift', 'offscreen.set', 'offscreen.clear', 'clock.set', 'clock.advance']); /* M681: the clock he sets is his — no older page's header hour writes over it (apply.js handSetClockSince) */ /* M680: a seat he writes or lets go is his (over a grave; a note the house would keep) */
 async function handMutate(ctx, mutations) {
   const story = await currentStory(ctx);
   if (!story) return [];
