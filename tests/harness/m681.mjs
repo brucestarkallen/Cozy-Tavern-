@@ -303,3 +303,155 @@ test('M681-24 A PAGE REWRITTEN IN PLACE IS READ AGAIN ALONE (B6): a typo fixed o
   await runPlans({ connection: { id: 'c' }, storyId: sid, pages: pages('Rukia shrugs.'), callLLM: async () => '{"new":[],"progress":[],"closed":[]}' });
   eq((await loadPlansBook(sid)).plans.map((p) => p.title).join(', '), 'the feast', 'a plan the page no longer lays out is gone');
 });
+
+/* ---- the people audit's P8, P9 and P11: canon's face through his story, canon off, and a name the wiki also knows ----
+ * One house for the three: a wiki answered over fetch (titles, a redirect, a search, a page) and a scripted worker for
+ * the lens (it judges each numbered statement by the story it is shown) — the real extension, the real lens, the real
+ * ledger engine. */
+const m681Ok = (o) => ({ ok: true, status: 200, json: async () => o, text: async () => JSON.stringify(o) });
+function m681CanonHouse({ pages = {}, redirects = {}, judge = () => 'holds' } = {}) {
+  const realFetch = globalThis.fetch;
+  const asks = { titles: [], lens: [] };
+  globalThis.fetch = async (url, opts) => {
+    const u = String(url);
+    if (/fandom\.com/.test(u)) {
+      const q = new URL(u);
+      const t = q.searchParams.get('titles'), p = q.searchParams.get('page'), sr = q.searchParams.get('srsearch');
+      if (q.searchParams.get('list') === 'recentchanges') return m681Ok({ query: { recentchanges: [{ timestamp: '2026-09-01T00:00:00Z' }] } });
+      if (sr) return m681Ok({ query: { search: Object.keys(pages).filter((k) => k.toLowerCase().includes(sr.toLowerCase())).map((title) => ({ title })) } });
+      if (t) {
+        asks.titles.push(t);
+        const to = redirects[t] || t;
+        return pages[to] ? m681Ok({ query: { ...(redirects[t] ? { redirects: [{ from: t, to }] } : {}), pages: { 9: { pageid: 9, title: to } } } }) : m681Ok({ query: { pages: { '-1': { title: t, missing: '' } } } });
+      }
+      if (p && pages[p]) return m681Ok({ parse: { title: p, wikitext: { '*': pages[p] } } });
+      return m681Ok({});
+    }
+    if (/z\.ai/.test(u)) {
+      const body = JSON.parse(opts.body);
+      const sys = String((body.messages || []).find((m) => m.role === 'system')?.content || '');
+      const user = String((body.messages || []).filter((m) => m.role === 'user').pop()?.content || '');
+      let answer = '{}';
+      if (/You keep a canon character true to ONE story/.test(sys)) {
+        const statements = [...user.matchAll(/^(\d+)\. (.+)$/gm)].map((m) => ({ n: Number(m[1]), text: m[2] }));
+        asks.lens.push(statements.map((x) => x.text));
+        answer = JSON.stringify({ verdicts: statements.map((x) => ({ n: x.n, verdict: judge(x.text, user) })) });
+      }
+      if (body.stream) {
+        const lines = 'data: ' + JSON.stringify({ choices: [{ delta: { content: answer } }] }) + '\n\n' + 'data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n';
+        const stream = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(lines)); c.close(); } });
+        return { ok: true, status: 200, headers: new Headers(), body: stream, json: async () => ({}), text: async () => lines, clone() { return this; } };
+      }
+      const obj = { choices: [{ message: { role: 'assistant', content: answer }, finish_reason: 'stop' }] };
+      return { ok: true, status: 200, headers: new Headers(), json: async () => obj, text: async () => JSON.stringify(obj), clone() { return this; } };
+    }
+    return realFetch(url, opts);
+  };
+  return { asks, restore: () => { globalThis.fetch = realFetch; } };
+}
+const M681_CONN = { type: 'openai', baseUrl: 'https://api.z.ai/api/paas/v4', apiKey: 'k', model: 'glm-5.2', preset: 'zai' }; /* thinkinghouse's Z.ai house */
+async function m681CanonStory(title, brief, meta) {
+  const { canonMetaKey } = await import('../../js/canon/bridge.js');
+  const st = await db.stories.create({ title });
+  await db.stories.update(st.id, { brief });
+  await db.settings.set(canonMetaKey(st.id), meta);
+  return db.stories.get(st.id);
+}
+
+test('M681-40 CANON’S FACE IS READ THROUGH HIS STORY (P8): his canon notes give Rukia long hair and his story never made her captain — the lens judged every word canon says of her but her face, so “hair: Black, chin-length” and “As captain she wears a sleeveless haori” were locked among what is true of her and said in the note’s Appearance line', async () => {
+  const { canonBeforeSend, canonSyncLedger } = await import('../../js/canon/bridge.js');
+  const { lensFingerprint, lensCurrent, overlayFor, LENS_KEY } = await import('../../js/agents/canonlens.js');
+  const RUKIA = () => ({ name: 'Rukia Kuchiki', found: true, kind: 'character', wiki: 'bleach', aliases: ['Rukia'], ts: 1,
+    sections: { identity: 'Rukia Kuchiki is a Shinigami of the Gotei 13.', physical: 'hair: Black, chin-length; eyes: Violet',
+      look: 'Rukia is a petite young woman with violet eyes. As captain she wears a sleeveless haori over her shihakushō.' } });
+  const house = m681CanonHouse({ judge: (t) => (/haori|As captain/.test(t) ? 'later' : /^hair:/.test(t) ? 'changed' : 'holds') });
+  try {
+    const story = await m681CanonStory('Oda of the 13th', 'A Bleach story after the war. Oda is the new captain of the 13th Division; Rukia Kuchiki is his lieutenant.', {
+      canon_grounding_wiki: 'bleach', canon_grounding_wiki_ok: { wikis: 'bleach', name: 'x', fp: '(manual)', manual: true, ts: 1 },
+      canon_grounding_pin: 'In this story Rukia wears her hair long, down to her waist.', canon_grounding_cache: { rukia: RUKIA() } });
+    const state = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Oda' }, { type: 'presence.enter', name: 'Oda' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state;
+    state.characters = { 'Rukia Kuchiki': { core: 'Oda’s lieutenant.', state: 'at the division office', threads: [] } };
+    await saveState(story.id, state);
+    const note = await canonBeforeSend({ story, state, messages: [{ id: 'u1', role: 'user', text: 'I hand Rukia the duty roster.' }], connection: M681_CONN });
+    eq(house.asks.lens.length, 1, 'she was read through his story once');
+    assert(house.asks.lens[0].includes('hair: Black, chin-length') && house.asks.lens[0].some((s) => /sleeveless haori/.test(s)), 'her face is among what the lens judges: ' + JSON.stringify(house.asks.lens[0]));
+    const look = (note.match(/Appearance:[^\n]*/) || [''])[0];
+    assert(/petite young woman with violet eyes/.test(look) && !/haori|chin-length/.test(look), 'the note’s Appearance line is her face as it holds in his story: ' + look);
+    await canonSyncLedger(story);
+    const facts = ((await loadState(story.id)).canon['Rukia Kuchiki'] || { facts: [] }).facts;
+    assert(!facts.some((f) => f.key === 'hair'), 'his canon notes changed her hair — canon’s is not locked: ' + JSON.stringify(facts));
+    eq((facts.find((f) => f.key === 'look') || {}).value, 'Rukia is a petite young woman with violet eyes.', 'her look as it holds — no haori of a captaincy his story never gave her');
+    /* a lens made before the face was judged still holds back what it judged, and is asked again, face and all */
+    const entry = RUKIA();
+    const faceless = { ...entry, sections: { identity: entry.sections.identity } };
+    const old = { [LENS_KEY]: { 'rukia kuchiki': { fp: lensFingerprint(faceless), key: lensFingerprint(faceless) + '|old', overlay: { sections: { identity: '' } }, held: [] } } };
+    assert(overlayFor(old, entry), 'an older lens still applies to the words it judged (the note never falls back to canon’s END while it is asked again)');
+    eq(lensCurrent(old, entry, 'old'), false, 'and it is not current: the face is judged on the next canon turn');
+  } finally { house.restore(); }
+});
+
+test('M681-41 CANON OFF SENDS NO “FROM CANON:” ANYWHERE (P9): what canon kept on a person’s page (M518) stayed when it was switched off — the storyteller’s request left it out, but the scribe, the planner, the choices helper and the people rebuild read the cards as kept', async () => {
+  const { canonWithdraw, withoutCanonTruths, canonOn } = await import('../../js/canon/bridge.js');
+  const { canonBlocks, lastingLines } = await import('../../js/assemble/canonpages.js');
+  const { buildRequest } = await import('../../js/assemble/stack.js');
+  const { buildScribeMessages } = await import('../../js/agents/scribe.js');
+  const { buildReaderMessages } = await import('../../js/agents/rebuild.js');
+  const { renderPeopleTiers, peopleView } = await import('../../js/engine/people.js');
+  const NOTE = ['What canon says about the people here:', 'Yuki Tsukumo:', '  - Identity: A special grade sorcerer who wanders abroad.', '  - Voice: "So, what kind of woman is your type?"', '  - With Choso: Wary allies.'].join('\n');
+  const st0 = await db.stories.create({ title: 'Canon off' });
+  const story = await db.stories.get(st0.id);
+  let st = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the barrier' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Yuki Tsukumo' }, { type: 'people.note', name: 'Yuki Tsukumo', field: 'core', text: 'A special grade.' }]).state;
+  st = applyMutations(st, [{ type: 'people.canon', name: 'Yuki Tsukumo', lines: lastingLines(canonBlocks(NOTE)[1].lines) }, { type: 'canon.lock', name: 'Yuki Tsukumo', key: 'hair', value: 'long, blonde', source: 'canon' }]).state;
+  await saveState(story.id, st);
+  eq(await canonOn(story.id), false, 'canon is off for this story');
+  const cards = (s) => (renderPeopleTiers(s, { recentPages: ['Yuki grins.'], view: peopleView(400000) }) || {}).text || '';
+  assert(/From canon:/.test(cards(st)), 'fixture: the ledger as canon left it carries her canon lines on her card');
+  /* an out-of-character turn may not write: its copy */
+  const copy = withoutCanonTruths(st);
+  assert(!/From canon:/.test(cards(copy)) && /A special grade\./.test(cards(copy)), 'the copy’s card has no canon lines, and keeps her page: ' + cards(copy));
+  assert(Array.isArray(st.characters['Yuki Tsukumo'].canon), 'the copy never touches the ledger it came from');
+  /* what the switch and every page with canon off do */
+  assert(await canonWithdraw(story.id), 'withdrawn');
+  const led = await loadState(story.id);
+  const msgs = [{ id: 'u1', role: 'user', text: 'I raise my blade.' }];
+  const wire = (r) => [...r.systemBlocks.map((b) => b.text), ...r.messages.map((m) => String(m.content))].join('\n');
+  const sent = {
+    storyteller: wire(buildRequest({ story: { brief: 'JJK.' }, messages: msgs, settings: {}, state: led, modules: [], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: [] }, canonNote: '', canonOn: false, canonOnPages: false })),
+    scribe: JSON.stringify(buildScribeMessages({ state: led, userText: 'I raise my blade.', assistantText: 'Yuki grins.' })),
+    'planner and choices': cards(led),
+    'people rebuild': JSON.stringify(buildReaderMessages({ state: led, record: '', pages: [{ role: 'assistant', text: 'Yuki grins.' }], mc: 'Jovan' })),
+  };
+  for (const [who, text] of Object.entries(sent)) assert(!/From canon:/.test(text) && !/wanders abroad/.test(text), who + ' is sent no canon line: ' + text.slice(0, 400));
+  assert(/A special grade\./.test(sent.scribe) && /A special grade\./.test(sent['people rebuild']), 'her own page still rides to the workers (the rebuild reader is shown the pages, not “[object Object]”)');
+  eq(led.characters['Yuki Tsukumo'].core, 'A special grade.', 'her page stays');
+  assert(led.journal.some((j) => j.m && j.m.type === 'people.canon'), 'journaled — a branch folds it the same way');
+  eq(await canonWithdraw(story.id), null, 'nothing left, nothing written');
+});
+
+test('M681-42 AN ORIGINAL “ROSE” AND A WIKI THAT ALSO KNOWS ONE (P11): his brief says Rose is his own; the wiki’s “Rose” redirects to Rose Tyler — she is looked up as Rose Tyler (a name is all the wiki can go on), and his story is what decides what of Rose Tyler holds: none of her face is locked on his Rose or said in the note', async () => {
+  const { canonBeforeSend, canonSyncLedger, canonLensLedger, canonMeta, canonEntryFor, canonLocks } = await import('../../js/canon/bridge.js');
+  const ROSE_TYLER = "{{Infobox Character\n| name = Rose Tyler\n| hair = Blonde\n| eyes = Brown\n| species = Human\n}}\n'''Rose Tyler''' is a companion of the Doctor.\n== Appearance ==\nRose is a young woman with blonde hair and brown eyes.\n";
+  const BRIEF = 'A Doctor Who story. Rose is my own character, a florist in Cardiff who has never met the Doctor; she is not Rose Tyler.';
+  const house = m681CanonHouse({ pages: { 'Rose Tyler': ROSE_TYLER }, redirects: { Rose: 'Rose Tyler' }, judge: (t, user) => (/Rose is my own character/.test(user) ? 'changed' : 'holds') });
+  try {
+    const story = await m681CanonStory('Petals', BRIEF, { canon_grounding_wiki: 'tardis', canon_grounding_wiki_ok: { wikis: 'tardis', name: 'x', fp: '(manual)', manual: true, ts: 1 } });
+    const state = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rose' }]).state;
+    state.characters = { Rose: { core: 'a florist in Cardiff', state: 'at her stall', threads: [] } };
+    await saveState(story.id, state);
+    const messages = [{ id: 'u1', role: 'user', text: 'I buy a rose from Rose.' }];
+    await canonBeforeSend({ story, state, messages, connection: null });
+    const meta = await canonMeta(story.id);
+    const hit = canonEntryFor(meta.canon_grounding_cache, 'Rose', ['Rose', 'Jovan']);
+    assert(house.asks.titles.includes('Rose') && hit && hit.entry.name === 'Rose Tyler', 'found as it happens: the wiki’s redirect grounds the ledger’s “Rose” as Rose Tyler: ' + JSON.stringify(Object.values(meta.canon_grounding_cache).map((e) => e.name)));
+    const unread = canonLocks({ state: await loadState(story.id), meta, brief: BRIEF });
+    assert(unread.some((m) => m.name === 'Rose' && /blonde hair and brown eyes/.test(m.value)), 'fixture: with nothing of his story read, canon would give her Rose Tyler’s face: ' + JSON.stringify(unread));
+    /* the chain: the lens reads his story first, then the ledger's faces are synced */
+    await canonLensLedger(story, { connection: M681_CONN });
+    eq(house.asks.lens.length, 1, 'Rose Tyler was read through his story');
+    await canonSyncLedger(story);
+    const facts = ((await loadState(story.id)).canon.Rose || { facts: [] }).facts;
+    eq(facts.length, 0, 'his story says Rose is his own: nothing of Rose Tyler’s face is locked on her — ' + JSON.stringify(facts));
+    const note = await canonBeforeSend({ story, state: await loadState(story.id), messages: [...messages, { id: 'a1', role: 'assistant', text: 'She wraps it.' }, { id: 'u2', role: 'user', text: 'I thank Rose.' }], connection: M681_CONN });
+    assert(!/blonde|brown eyes/i.test(note), 'nor is it said in the note: ' + note);
+  } finally { house.restore(); }
+});

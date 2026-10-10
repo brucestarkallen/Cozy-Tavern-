@@ -40,7 +40,7 @@ import { findCanonKey, findFact, FACTS_SHOWN } from '../engine/canon.js';
 import { applyMutations, letGoMark } from '../engine/apply.js';
 import { setAliasSource } from '../engine/names.js'; /* M396: canon knows who answers to which names */
 import { loadState, saveState, notify } from '../engine/state.js';
-import { overlayFor, throughLens, lensPremise, lensCurrent, lensPeople, lensDueIn } from '../agents/canonlens.js'; /* M392/M393/M394: canon through his story */
+import { overlayFor, throughLens, lensPremise, lensCurrent, lensPeople, lensDueIn, physicalParts } from '../agents/canonlens.js'; /* M392/M393/M394: canon through his story; M681: the face too */
 import {
   extension_settings, setContext, injectionSetter, injectionFor, eventSource, event_types, runBoot, onSettingsSave, flushSettings,
 } from './host.js';
@@ -737,7 +737,7 @@ const BRIEF_SAYS = {
 export function canonFeatures(entry) {
   const out = {};
   const physical = entry && entry.sections && typeof entry.sections.physical === 'string' ? entry.sections.physical : '';
-  for (const part of physical.split(/;\s*(?=[A-Za-z][\w ()'-]{0,40}:)/)) {
+  for (const part of physicalParts(physical)) { /* M681: the one reading the lens judges by */
     const i = part.indexOf(':');
     if (i <= 0) continue;
     const label = part.slice(0, i).trim().toLowerCase();
@@ -800,8 +800,13 @@ export function canonLocks({ state, meta, brief = '', resolve = null, physical =
      * resolver at hand, the names as written */
     const isBlocked = hit && blocked.some((b) => (resolve ? (resolve(cache, b) || {}).key === hit.key : false)
       || [hit.entry.name, hit.key, name, ...(hit.entry.aliases || [])].some((x) => sameName(x, b)));
+    /* M681 — THE FACE AS IT HOLDS IN HIS STORY (the people audit's P8): the features and the look are read through the
+     * story's lens, as the note, the room and the workers' record read every other word of canon; a feature or a sentence
+     * his story changed, or has not reached, is not locked (and one locked before is withdrawn below). No lens made yet:
+     * canon as it is, as the note has it until its lens lands. */
+    const seen = hit ? throughLens(hit.entry, overlayFor(m, hit.entry)) : null;
     /* "How they look" off in its settings: the series writes no face at all, and takes back what it wrote */
-    const want = hit && !isBlocked && physical !== false ? canonFeatures(hit.entry) : {};
+    const want = hit && !isBlocked && physical !== false ? canonFeatures(seen) : {};
     let briefSaid = false;
     for (const k of Object.keys(want)) if (briefSpeaks(brief, name, k, names) || (hit && briefSpeaks(brief, hit.entry.name, k, names))) { delete want[k]; briefSaid = true; }
     const shelfKey = findCanonKey(canon, name);
@@ -810,7 +815,7 @@ export function canonLocks({ state, meta, brief = '', resolve = null, physical =
      * note can leave the face to the ledger whole — but only where neither his brief nor his hand has spoken to any of
      * that face (a canon look beside his blonde hair would contradict him in one line) */
     const hisFace = shelf && Array.isArray(shelf.facts) && shelf.facts.some((f) => f && f.source !== 'canon' && FACE_KEY.test(String(f.key || '')));
-    const look = hit && !isBlocked && physical !== false && hit.entry.sections && typeof hit.entry.sections.look === 'string' ? hit.entry.sections.look.trim() : '';
+    const look = hit && !isBlocked && physical !== false && seen.sections && typeof seen.sections.look === 'string' ? seen.sections.look.trim() : '';
     if (look && !briefSaid && !hisFace && !['hair', 'eyes', 'height', 'build', 'skin', 'distinguishing features'].some((k) => briefSpeaks(brief, name, k, names))
       && !letGo.has(letGoMark(shelfKey || name, 'look'))) {
       want.look = look.length > 400 ? look.slice(0, 399).replace(/\s+\S*$/, '') + '…' : look;
@@ -860,18 +865,33 @@ export async function canonSyncLedger(story, { stale = () => false } = {}) {
  * off, they are withdrawn (journaled, the series' own taking-back: no letting-go of his, so switched on again the next
  * page writes them back). canonWithdraw keeps the ledger so; withoutCanonTruths is the same ledger for a turn that may
  * not write (an out-of-character turn), never saved. */
+/* M681 — AND WHAT IT KEPT ON THEIR PAGES (the people audit's P9). M518 gave canon a second home in the ledger — a
+ * person's page keeps what canon says of them that lasts (people.canon), and their card says it under "From canon:" —
+ * and this withdrawal never learned of it. The storyteller's request strips those lines when canon is not on its pages,
+ * but every worker reads the ledger's cards as they are kept: switched off, the scribe (every page), the planner, the
+ * choices helper and "Rebuild the people from the pages" were still handed "From canon:" lines. Withdrawn with the rest,
+ * journaled the same way; switched on again, the next page with canon on its pages writes them back. */
+const hasCanonLines = (c) => Boolean(c && typeof c === 'object' && Array.isArray(c.canon) && c.canon.length);
 export function withoutCanonTruths(state) {
-  if (!state || typeof state !== 'object' || !state.canon || typeof state.canon !== 'object') return state;
-  let touched = false;
-  const canon = {};
-  for (const [name, shelf] of Object.entries(state.canon)) {
-    const facts = shelf && Array.isArray(shelf.facts) ? shelf.facts : [];
-    const kept = facts.filter((f) => !(f && f.source === 'canon'));
-    if (kept.length !== facts.length) touched = true;
-    if (kept.length) canon[name] = { ...shelf, facts: kept };
-    else if (!facts.length) canon[name] = shelf;
+  if (!state || typeof state !== 'object') return state;
+  let out = state;
+  if (state.canon && typeof state.canon === 'object') {
+    let touched = false;
+    const canon = {};
+    for (const [name, shelf] of Object.entries(state.canon)) {
+      const facts = shelf && Array.isArray(shelf.facts) ? shelf.facts : [];
+      const kept = facts.filter((f) => !(f && f.source === 'canon'));
+      if (kept.length !== facts.length) touched = true;
+      if (kept.length) canon[name] = { ...shelf, facts: kept };
+      else if (!facts.length) canon[name] = shelf;
+    }
+    if (touched) out = { ...out, canon };
   }
-  return touched ? { ...state, canon } : state;
+  const chars = state.characters && typeof state.characters === 'object' ? state.characters : {};
+  if (Object.values(chars).some(hasCanonLines)) {
+    out = { ...out, characters: Object.fromEntries(Object.entries(chars).map(([k, c]) => [k, hasCanonLines(c) ? (({ canon: _lines, ...rest }) => rest)(c) : c])) };
+  }
+  return out;
 }
 export async function canonWithdraw(storyId) {
   if (!storyId) return null;
@@ -880,6 +900,7 @@ export async function canonWithdraw(storyId) {
   for (const [name, shelf] of Object.entries(fresh.canon || {})) {
     for (const f of (shelf && Array.isArray(shelf.facts) ? shelf.facts : [])) if (f && f.source === 'canon') changes.push({ type: 'canon.unlock', name, key: f.key, source: 'canon' });
   }
+  for (const [name, c] of Object.entries(fresh.characters || {})) if (hasCanonLines(c)) changes.push({ type: 'people.canon', name, lines: [] }); /* M681 */
   if (!changes.length) return null;
   const { state: next, applied } = applyMutations(fresh, changes);
   if (!applied.length) return null;

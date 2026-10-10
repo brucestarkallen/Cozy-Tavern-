@@ -211,7 +211,10 @@ function recordUpTo(mem, pageIndex, cap) {
 }
 
 export function buildReaderMessages({ state, record, pages, mc }) {
-  const people = renderPeopleTiers(state, { recentPages: [] }) || '(no pages of the people yet)';
+  /* M681 (found tracing the people audit's P9): renderPeopleTiers gives { text, tiers } — this took the object whole, and
+   * the reader of "Rebuild the people from the pages" was shown "THE PAGES OF THE PEOPLE AS THEY STAND: [object Object]"
+   * for every batch after the first person had a page */
+  const people = (renderPeopleTiers(state, { recentPages: [] }) || {}).text || '(no pages of the people yet)';
   const standings = renderRelationships(state.relationships) || '(no standings yet)';
   const user = [
     'The main character is ' + (mc || 'the one the writer plays') + '.',

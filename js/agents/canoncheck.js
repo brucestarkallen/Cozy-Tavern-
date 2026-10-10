@@ -35,7 +35,9 @@ export function wikiMaterial(meta, { claims = '', room = MATERIAL_CHARS } = {}) 
     if (!entry || !entry.found || !entry.dossier) continue;
     const seen = throughLens(entry, overlayFor(meta, entry));
     const who = String((entry.dossier && entry.dossier.name) || entry.name || k).trim();
-    const lines = lensStatements(seen).map((x) => x.text).filter(Boolean);
+    /* M681: the lens judges the face now too (s.physical, s.look) — the checks' material stays what it was: who they are,
+     * never how they look (no claim checked here is about a face) */
+    const lines = lensStatements(seen).filter((x) => x.field !== 's.physical' && x.field !== 's.look').map((x) => x.text).filter(Boolean);
     if (!who || !lines.length) continue;
     const named = fold(who).split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 4).some((w) => new RegExp('(^|[^\\p{L}\\p{N}])' + w + '($|[^\\p{L}\\p{N}])', 'u').test(said));
     people.push({ who, named, line: clip(who + ' — ' + [...new Set(lines)].join('; '), PERSON_CHARS) });

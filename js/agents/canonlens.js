@@ -52,12 +52,38 @@ export function lensStatements(entry) {
   }
   for (const f of ['identity', 'relationship', 'biography']) sentences(s[f]).forEach((t, i) => add('s.' + f, i, t));
   if (entry.rel && typeof entry.rel === 'object') for (const [who, t] of Object.entries(entry.rel)) if (t) add('pairs', who, t);
+  /* M681 — THE FACE IS READ THROUGH HIS STORY TOO (the people audit's P8). The face was never a statement here, so the
+   * series' hair, eyes, build and its Appearance prose went into "What's true of them" (bridge.js canonLocks) and into the
+   * note's Appearance line exactly as the wiki's END has them — the captain's haori of a rank his story never gave her,
+   * the look his canon notes changed — while every other word canon says of her was judged first. Each feature ("hair:
+   * black") and each sentence of the look is one statement, judged like the rest; the overlay carries what holds, and
+   * every reader of a face (the ledger's locks, the note, the room's card) reads it through the lens. */
+  physicalParts(s.physical).forEach((t, i) => add('s.physical', i, t));
+  sentences(s.look).forEach((t, i) => add('s.look', i, t));
   return out;
 }
 
+/* The extension's own "physical" line ("hair: …; eyes: …; notably: …"), feature by feature — a ";" splits only before
+ * the next "label:". One reading for the lens and for the ledger's locks (bridge.js canonFeatures). */
+export function physicalParts(physical) {
+  return String(typeof physical === 'string' ? physical : '').split(/;\s*(?=[A-Za-z][\w ()'-]{0,40}:)/).map((p) => p.trim()).filter(Boolean);
+}
+
 /* What canon says of them, as a fingerprint — a lens is for these words only */
+const printOf = (statements) => hash(statements.map((x) => x.field + '|' + x.key + '|' + x.text).join('\n'));
 export function lensFingerprint(entry) {
-  return hash(lensStatements(entry).map((x) => x.field + '|' + x.key + '|' + x.text).join('\n'));
+  return printOf(lensStatements(entry));
+}
+/* M681: the same words without the face — the fingerprint every lens made before the face was judged carries. Such a lens
+ * still applies to the words it judged (it is not current, so it is asked again, face and all): with every lens of every
+ * story gone stale at once, the next page's note would have ridden on canon's END — the marriage, the captaincy — for
+ * every person whose new lens was not back within the page's wait. */
+const FACE_FIELDS = new Set(['s.physical', 's.look']);
+function heldFor(meta, entry) {
+  const store = meta && meta[LENS_KEY] && typeof meta[LENS_KEY] === 'object' ? meta[LENS_KEY] : {};
+  const held = store[nameKey(entry)];
+  if (!held || (held.fp !== lensFingerprint(entry) && held.fp !== printOf(lensStatements(entry).filter((x) => !FACE_FIELDS.has(x.field))))) return null;
+  return held;
 }
 
 /* His story, as the lens reads it: the brief, the cast notes, his canon notes (this story's and every story's), and
@@ -90,15 +116,12 @@ const nameKey = (entry) => String((entry && entry.name) || '').trim().toLowerCas
  * lensed again). A lens made under an older premise still applies until the new one lands: better his last word than
  * none. */
 export function overlayFor(meta, entry) {
-  const store = meta && meta[LENS_KEY] && typeof meta[LENS_KEY] === 'object' ? meta[LENS_KEY] : {};
-  const held = store[nameKey(entry)];
-  if (!held || !held.overlay || held.fp !== lensFingerprint(entry)) return null;
-  return held.overlay;
+  const held = heldFor(meta, entry);
+  return held && held.overlay ? held.overlay : null;
 }
 export function lensHeld(meta, entry) {
-  const store = meta && meta[LENS_KEY] && typeof meta[LENS_KEY] === 'object' ? meta[LENS_KEY] : {};
-  const held = store[nameKey(entry)];
-  return held && held.fp === lensFingerprint(entry) && Array.isArray(held.held) ? held.held : [];
+  const held = heldFor(meta, entry);
+  return held && Array.isArray(held.held) ? held.held : [];
 }
 export function lensCurrent(meta, entry, premise) {
   const store = meta && meta[LENS_KEY] && typeof meta[LENS_KEY] === 'object' ? meta[LENS_KEY] : {};
@@ -139,7 +162,8 @@ export function buildLensMessages(entry, statements, premise) {
     'You keep a canon character true to ONE story. THE STORY is the writer\'s own premise: where it and canon differ, the',
     'story is right. Canon is a timeline, and what you are shown is canon\'s END (the wiki\'s present). For every numbered',
     'statement about the character, say whether it is true IN THIS STORY:',
-    '  "holds"   — true here too (who they are, their past before the story, their family of origin, powers, nature, tastes);',
+    '  "holds"   — true here too (who they are, their past before the story, their family of origin, powers, nature, tastes,',
+    '              their looks);', /* M681: the face is a statement now too — it holds unless his story changed it or has not reached it */
     '  "changed" — the story says otherwise, outright or by plain implication (another holds the post; a marriage that',
     '              did not happen; a relationship the story made different);',
     '  "later"   — a canon event or state this story has NOT reached or established — a rank or title, a marriage, a',
@@ -224,7 +248,8 @@ export function overlayFrom(entry, statements, verdicts) {
   const s = entry.sections && typeof entry.sections === 'object' ? entry.sections : null;
   if (s) {
     const sec = {};
-    for (const f of ['identity', 'relationship', 'biography']) if (s[f]) sec[f] = of('s.' + f).map((x) => x.out).filter(Boolean).join(' ');
+    for (const f of ['identity', 'relationship', 'biography', 'look']) if (s[f]) sec[f] = of('s.' + f).map((x) => x.out).filter(Boolean).join(' ');
+    if (s.physical) sec.physical = of('s.physical').map((x) => x.out).filter(Boolean).join('; '); /* M681: the features that hold, as the extension writes them */
     if (Object.keys(sec).length) overlay.sections = sec;
   }
   if (entry.rel && typeof entry.rel === 'object') overlay.pairs = Object.fromEntries(Object.keys(entry.rel).map((who) => [who, ((of('pairs').find((x) => x.key === who)) || { out: '' }).out]));

@@ -1376,7 +1376,7 @@ const HANDLERS = {
     const before = cloneMap({ [key]: state.characters[key] })[key];
     const { canon: _was, ...rest } = state.characters[key];
     state.characters = { ...state.characters, [key]: kept.length ? { ...rest, canon: kept } : rest };
-    return { words: key + ' — what canon says of them is kept on their page.', undo: { kind: 'people.restore', name: key, before } };
+    return { words: key + (kept.length ? ' — what canon says of them is kept on their page.' : ' — what canon said of them is no longer kept on their page.'), undo: { kind: 'people.restore', name: key, before } }; /* M681: canon switched off takes them back (bridge.js canonWithdraw) */
   },
 
   /* M72: the scribe's delta, journaled. Same laws as the merge it replaced
