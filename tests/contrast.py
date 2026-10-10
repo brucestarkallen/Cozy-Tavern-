@@ -69,7 +69,7 @@ fails = {}
 try:
     with sync_playwright() as p:
         browser = p.chromium.launch(args=['--no-sandbox'])
-        for coat in ('dark', 'light', 'deep', 'magma', 'fantasy', 'cyberpunk', 'academy', 'aurora', 'starship'):   # M254: the third coat is held to the same law; M465: every coat
+        for coat in ('dark', 'light', 'deep', 'magma', 'fantasy', 'cyberpunk', 'academy', 'academy-night', 'aurora', 'starship'):   # M254: the third coat is held to the same law; M465: every coat
             ctx = browser.new_context(viewport={'width': 412, 'height': 915})
             page = ctx.new_page()
             page.goto(BASE, wait_until='load')

@@ -18302,3 +18302,48 @@ remain ancestors of the release. This final HANDOFF/HISTORY publication record o
 the validated application and corrected fixtures remain byte-identical. The recovery package is refreshed with the
 published histories, validation totals and Canon's actual fresh remote-clone gate. The earlier blocked-publication
 entries remain here as the record of that stage, not the current release status.
+
+
+# M683 — FAST EDITING CHECKS, SMALLER CONTEXT, AND THE ACADEMY AT NIGHT
+
+Jovan requested seven changes after the previous audit continuation. The application remains vanilla ESM, with
+local data, local art/fonts and no added send-path model calls. The original M680/M681/M682 fixes remain in history.
+
+The old gate entry took every suite in sequence, ignored failed exits at the end, and unconditionally wrote ALLDONE.
+The new tools/check.py offers fast/release/full profiles, measured job/individual-law times, nonzero failures,
+source stability checks, unique fixture ports and safe resume. Timing/pixel jobs and core suites run alone; only
+known independent functional jobs overlap. Functional reuse requires exact source/runtime/command fingerprints;
+measurements always rerun. An empty selector fails; stale completion markers are removed at start. Every previous
+standing release check and its assertions/budgets remain. audit/gates.sh now delegates to this runner; its old source
+is archived verbatim. Five workflow unit tests exercise fingerprints, failure propagation, cache eligibility,
+complete inventories, empty selectors and stale completion/ambient-filter cleanup.
+
+The first measured fast checkpoint passed in 15.03 s: 37 selected laws of 1447 registered, 4 selected DOM scenarios of
+295 registered, lint, three startup readiness cases, workflow units and actual academy controls on phone/desktop.
+The prior full M682 harness measured 165.54 s alone. Complete recovery/performance coverage still takes longer;
+this fast checkpoint is explicitly not the release gate.
+
+AGENTS/HANDOFF shrank to 2989/3095 bytes, from 3812/246335; both originals were compared byte for byte with published
+M682 and preserved in docs/archive. The complete 1.7 MB HISTORY is unchanged before this appended entry. Context
+lookup is bounded to 24000 characters and shows matching milestones newest first. Removed obsolete M1 placeholder
+instructions from the active guide, while preserving their original record. docs/WORKFLOW.md and GitHub issue/PR
+templates establish one editing/release path without forcing full history loads or repeated note-only gates.
+
+The factory Female Vocal Acoustics rule is removed. Untouched older pins follow the new builtin fingerprint;
+custom copies are read without only that exact retired factory line. Their stored original and every other user
+word remain. A real buildRequest law checks the provider wire, old pin and edited copy.
+
+The unreadable housekeeper card previously stayed refused after a valid resend, and withdrawal only handled pending
+cards. Resend now carries explicitly retried IDs through the actual turn/staging door; a readable replacement of
+that protocol kind retires the old warning. Different questions, other failed blocks and unsuccessful retries stay
+refused. Explicit withdrawal includes pending/refused/stale, preserving applied/skipped cards. Superseded/stale
+receipts leave the visible conversation. Original turns and raw answers stay saved. Four M683 laws fail on M682
+for these actual reasons and pass here. DOM-M683-1 presses Send, resend, Apply and reopen; the failed banner and grey
+receipt disappear and stay gone while the corrected brief and old raw answer persist.
+
+Academy uses one continuous reading/input canvas. A separate academy-night coat uses moonlit blue and warm gold,
+a static moon/stars overlay and existing map/fonts. No extra animation group, remote asset or story motion. Actual
+Appearance selection, persistence, typing, phone/desktop layout and reduced motion pass; screenshots inspected.
+Existing academy pixel/performance checks run on either coat with the same original assertions and numeric budgets.
+The night preflight passed actual worst-background AA contrast on both screen sizes. Final combined release results
+and publication follow below only after their checks complete.

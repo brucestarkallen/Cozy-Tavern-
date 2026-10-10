@@ -29,6 +29,7 @@
 .coat-swatch[data-coat="fantasy"]   { background: linear-gradient(135deg, #16221d 0%, #0c1210 55%, #e2b45f 56%, #e2b45f 100%); }
 .coat-swatch[data-coat="cyberpunk"] { background: linear-gradient(135deg, #1d1433 0%, #0b0714 55%, #d27bff 56%, #7ef0ff 100%); }
 .coat-swatch[data-coat="magma"]     { background: linear-gradient(135deg, #142329 0%, #070c0e 55%, #f0673c 56%, #ff8a5c 100%); }
+.coat-swatch[data-coat="academy-night"] { background: linear-gradient(135deg, #0b1320, #23394d 55%, #e4bb76 56%, #483020); }
 .coat-swatch[data-coat="academy"]   { background: linear-gradient(135deg, #c9a868 0%, #6b4e2a 55%, #e6d2a6 56%, #842c1b 100%); }
 .coat-swatch[data-coat="aurora"]    { background: linear-gradient(135deg, #152238 0%, #070b14 55%, #62e6b5 56%, #c4b6f0 100%); }
 .coat-swatch[data-coat="starship"]  { background: linear-gradient(135deg, #19222d 0%, #0a0d12 55%, #ff8a2a 56%, #ffa64d 100%); }

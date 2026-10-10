@@ -20,7 +20,7 @@ DATA = '/tmp/cozydata-coats'
 PORT = os.environ.get('COZY_TEST_PORT', '8099')
 BASE = 'http://127.0.0.1:%s/' % PORT
 OUT = '/tmp/coats'
-COATS = sys.argv[1:] or ['dark', 'light', 'deep', 'magma', 'fantasy', 'cyberpunk', 'academy', 'aurora', 'starship']
+COATS = sys.argv[1:] or ['dark', 'light', 'deep', 'magma', 'fantasy', 'cyberpunk', 'academy', 'academy-night', 'aurora', 'starship']
 
 shutil.rmtree(DATA, ignore_errors=True)
 os.makedirs(DATA, exist_ok=True)

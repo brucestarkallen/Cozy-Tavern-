@@ -15086,5 +15086,52 @@ test('DOM-317 A CUT PAGE READING keeps its useful writes but leaves the whole pa
   } finally { globalThis.fetch = old; }
 });
 
+test('DOM-M683-1 resending a refused housekeeper block removes its banner and grey receipt, through the actual buttons and after reopening', async () => {
+  const { loadSession } = await import('../../js/agents/housekeeper.js');
+  const before = errors.length, priorAnswer = house.state.workerAnswer;
+  const priorAuto = await db.settings.get('hkAutoApply');
+  const priorStory = await storyId();
+  let repaired = false;
+  const malformed = 'A fix.\n<brief>not JSON</brief>';
+  house.state.workerAnswer = (body, sys) => /housekeeper of a cozy tavern/i.test(sys)
+    ? repaired ? 'The readable fix.\n<brief>[{"field":"brief","find":"twenty","replace":"nineteen","reason":"your correction"}]</brief>' : malformed
+    : priorAnswer(body, sys);
+  try {
+    if (!q('#hk-sheet').hidden) click(q('#btn-hk-close'));
+    const st = await db.stories.create({ title: 'M683 resend' });
+    await db.stories.update(st.id, { brief: 'Alexia is twenty.', keeper: false, continuity: false });
+    await db.settings.set('hkAutoApply', false);
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.ctx.chat.refreshStories(true);
+    await env.ctx.chat.renderThread({ structural: true });
+    click(q('#btn-housekeeper'));
+    await until(() => !q('#hk-sheet').hidden && !q('#hk-send').disabled, 'housekeeper ready', 10000);
+    type(q('#hk-input'), 'Alexia is nineteen. Correct the brief.'); submit(q('#hk-form'));
+    await until(() => !q('#hk-send').disabled && qa('#hk-cards .hk-refused').length > 0, 'a refused unreadable card', 10000);
+    assert(!q('#hk-repropose').hidden, 'the real resend control offers the failed block');
+    repaired = true; click(q('#hk-repropose'));
+    await until(() => !q('#hk-send').disabled && qa('#hk-cards .hk-pending').length === 1, 'the readable correction', 10000);
+    eq(qa('#hk-cards .hk-refused').length, 0, 'the failed banner disappears');
+    assert(q('#hk-repropose').hidden, 'no failed proposal remains to resend');
+    assert(!qa('#hk-thread .hk-receipt').some((n) => /superseded|could not read/i.test(n.textContent)), 'no grey obsolete warning in the conversation');
+    const saved = await loadSession(st.id);
+    const old = saved.turns.find((t) => t.raw === malformed);
+    assert(old && old.proposals.every((p) => p.status === 'superseded'), 'old failure is retired and raw answer retained');
+    click(qa('#hk-cards button').find((b) => /^Apply$/i.test(b.textContent.trim())));
+    await until(async () => (await db.stories.get(st.id)).brief === 'Alexia is nineteen.' && q('#hk-cards').hidden, 'applied correction and no banner', 10000);
+    click(q('#btn-hk-close')); click(q('#btn-housekeeper'));
+    await until(() => !q('#hk-sheet').hidden && !q('#hk-send').disabled, 'reopened', 10000);
+    assert(q('#hk-cards').hidden, 'obsolete notices stay gone after reopening');
+    assert(!qa('#hk-thread .hk-receipt').some((n) => /superseded|could not read/i.test(n.textContent)), 'obsolete receipt stays gone');
+    eq(errors.length, before, 'no app errors');
+  } finally {
+    house.state.workerAnswer = priorAnswer;
+    if (!q('#hk-sheet').hidden) click(q('#btn-hk-close'));
+    if (priorAuto === undefined) await db.settings.delete('hkAutoApply'); else await db.settings.set('hkAutoApply', priorAuto);
+    env.window.__cozy.setActiveStoryId(priorStory);
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

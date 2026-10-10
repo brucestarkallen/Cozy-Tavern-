@@ -24,10 +24,12 @@ from PIL import Image
 from playwright.sync_api import sync_playwright
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+COAT = os.environ.get('COZY_TEST_COAT', 'academy')
+assert COAT in ('academy', 'academy-night')
 DATA = '/tmp/cozydata-academy'
 PORT = os.environ.get('COZY_TEST_PORT', '8167')
 BASE = 'http://127.0.0.1:%s/' % PORT
-OUT = '/tmp/academy'
+OUT = '/tmp/academy/' + COAT
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ast
@@ -171,12 +173,12 @@ def main():
                 page.goto(BASE, wait_until='load')
                 page.wait_for_function("!!window.__cozy && !!window.__cozy.chat", timeout=30000)
                 # the hearth first: a connection, no tale
-                page.evaluate("""async () => { const { db } = await import('/js/store.js');
+                page.evaluate("""async (COAT) => { const { db } = await import('/js/store.js');
                   const conn = await db.connections.add({ label: 'The house choice', type: 'openai', baseUrl: 'https://x.example/v1', apiKey: 'k', model: 'deepseek-chat' });
-                  await db.settings.set('activeConnectionId', conn.id); await db.settings.set('welcomeSeen', true); await db.settings.set('theme', 'academy'); }""")
+                  await db.settings.set('activeConnectionId', conn.id); await db.settings.set('welcomeSeen', true); await db.settings.set('theme', COAT); }""", COAT)
                 page.reload(wait_until='load')
                 page.wait_for_function("!!window.__cozy && !!window.__cozy.chat", timeout=30000)
-                page.wait_for_function("document.documentElement.dataset.theme === 'academy' && !!document.querySelector('#thread > .hearth')", timeout=15000)
+                page.wait_for_function("(coat) => document.documentElement.dataset.theme === coat && !!document.querySelector('#thread > .hearth')", arg=COAT, timeout=15000)
                 page.evaluate("document.fonts.ready")
                 page.wait_for_timeout(1500)
                 # the map is drawn behind the room, and the type is the coat's own
@@ -196,7 +198,7 @@ def main():
                 all_rows += judge(texts, shown, bare, dpr, kind + ' welcome')
 
                 # the story
-                page.evaluate(SEED.replace("await db.settings.set('welcomeSeen', true);", "await db.settings.set('welcomeSeen', true); await db.settings.set('theme', 'academy');"))
+                page.evaluate(SEED.replace("await db.settings.set('welcomeSeen', true);", "await db.settings.set('welcomeSeen', true); await db.settings.set('theme', " + repr(COAT) + ");"))
                 page.wait_for_timeout(1200)
                 page.evaluate("() => { const w = document.querySelector('.welcome-overlay'); if (w) w.hidden = true; }")
                 for pos in ('bottom', 'middle', 'top'):

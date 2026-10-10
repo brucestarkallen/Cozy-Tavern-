@@ -1533,7 +1533,7 @@ function linesAround(text, located) {
   return src.slice(a, b === -1 ? src.length : b);
 }
 
-export function stageProposals(parsed, { messages, state, modules, lore, memory, session, story, writerText = '' } = {}) {
+export function stageProposals(parsed, { messages, state, modules, lore, memory, session, story, writerText = '', repairIds = [] } = {}) {
   const proposals = [];
   const all = Array.isArray(messages) ? messages : [];
   const visible = all.filter((m) => m && !m.hidden);
@@ -1901,7 +1901,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
   }
   groupCards(proposals, session);
   const merged = mergeDuplicates(proposals);
-  const setAside = autoSupersede(session, merged.list, { messages, memory, lore, modules, story });
+  const setAside = autoSupersede(session, merged.list, { messages, memory, lore, modules, story, repairIds });
   merged.list.setAside = setAside;
   merged.list.intraDups = merged.dropped;
   /* M272: a name an earlier answer's card holds, or one this answer used twice,
@@ -2050,7 +2050,18 @@ export function autoSupersede(session, newCards, world) {
       if (!old || fresh.includes(old)) continue;
       const failed = old.status === 'refused' || old.status === 'stale';
       if (old.status !== 'pending' && !failed) continue;
-      if (old.kind === 'unreadable') continue;
+      if (old.kind === 'unreadable') {
+        /* M683: a corrected protocol block retires its failed resend notice only when the writer
+         * explicitly retried that card. A different question or a failed replacement proves nothing. */
+        const kind = { edits: 'edit', ledits: 'ledit', redits: 'redit', lore: 'lore', record: 'record',
+          brief: 'brief', memedits: 'brief', wiedits: 'lore', bedits: 'brief' }[(old.op || {}).tag];
+        if (!failed || !world || !Array.isArray(world.repairIds) || !world.repairIds.includes(old.id)
+          || !kind || !fresh.some((nw) => nw.kind === kind)) continue;
+        old.status = 'superseded';
+        old.words = 'The unreadable block was replaced with a readable proposal.';
+        n += 1;
+        continue;
+      }
       const dead = !failed && anchorIsDead(old, world);
       const t = cardTarget(old);
       const hit = fresh.some((nw) => ((failed || dead) ? (t !== null && t === cardTarget(nw)) : supersededByNew(old, nw)));
@@ -2187,6 +2198,7 @@ export function applySupersede(session, labels) {
     else for (const part of line.split(',')) if (part.trim()) entries.push(part.trim());
   }
   const gone = new Set();
+  const withdrawable = (p) => p.status === 'pending' || p.status === 'refused' || p.status === 'stale';
   const groupsTaken = new Map();
   const unmatched = [];
   for (const entry of entries) {
@@ -2197,14 +2209,14 @@ export function applySupersede(session, labels) {
     const before = gone.size;
     const named = asGroup ? [] : all.filter((p) => labelKey(p.label) === key);
     for (const p of named) {
-      if (p.status === 'pending') gone.add(p);
+      if (withdrawable(p)) gone.add(p);
       if (!only && p.group) {
-        for (const q of all) if (q.group === p.group && q.status === 'pending') { gone.add(q); groupsTaken.set(p.group, p.groupName || ''); }
+        for (const q of all) if (q.group === p.group && withdrawable(q)) { gone.add(q); groupsTaken.set(p.group, p.groupName || ''); }
       }
     }
     if (!only && (asGroup || !named.length)) {
       for (const p of all) {
-        if (p.groupName && labelKey(p.groupName) === key && p.status === 'pending') { gone.add(p); groupsTaken.set(p.group, p.groupName); }
+        if (p.groupName && labelKey(p.groupName) === key && withdrawable(p)) { gone.add(p); groupsTaken.set(p.group, p.groupName); }
       }
     }
     if (gone.size === before) unmatched.push(entry);
@@ -3390,7 +3402,7 @@ export async function runConversation({
  * Never throws. */
 export async function housekeeperTurn({
   storyId, writerText, shownText, connection, call, signal, onToken,
-  directorText, editorText,
+  directorText, editorText, repairIds = [],
 } = {}) {
   try {
     if (!storyId) return { ok: false, error: 'no story is open' };
@@ -3416,14 +3428,14 @@ export async function housekeeperTurn({
     });
     if (!result.ok) return { ok: false, error: result.error || 'the housekeeper went quiet' };
 
-    const proposals = stageProposals(result.parsed, { messages, state, modules, lore, memory: mem, session, story, writerText });
+    const proposals = stageProposals(result.parsed, { messages, state, modules, lore, memory: mem, session, story, writerText, repairIds });
     let withdrawNote = '';
     /* M82: what was set aside by this answer's cards, said in the talk */
     if (proposals.setAside) withdrawNote += '\n\n(' + proposals.setAside + (proposals.setAside === 1 ? ' older card' : ' older cards') + ' set aside — replaced by this answer’s; Apply all applies only the newest version of each fix.)';
     if (proposals.intraDups) withdrawNote += '\n\n(' + proposals.intraDups + (proposals.intraDups === 1 ? ' duplicate card' : ' duplicate cards') + ' within the answer merged.)';
     if (result.parsed.supersede.length) {
       const sup = applySupersede(session, result.parsed.supersede);
-      if (sup.unmatched.length) withdrawNote += '\n\n(No pending card answers to: ' + sup.unmatched.map((l) => '“' + l + '”').join(', ') + ' — nothing was withdrawn for those.)';
+      if (sup.unmatched.length) withdrawNote += '\n\n(No unfinished card answers to: ' + sup.unmatched.map((l) => '“' + l + '”').join(', ') + ' — nothing was withdrawn for those.)';
       else if (sup.count && (!proposals.length || sup.groups.length)) withdrawNote += '\n\n(Withdrew ' + sup.count + (sup.count === 1 ? ' card' : ' cards') + (sup.groups.length ? ' — all of ' + sup.groups.map((g) => '“' + g + '”').join(', ') : '') + '.)';
     }
 

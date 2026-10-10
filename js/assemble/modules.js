@@ -326,9 +326,16 @@ export function withoutQuotaLines(text) {
  * to that built-in never reached him. The words each built-in shipped with before are known by their fingerprint; a saved
  * copy that is one of them — pinned, never edited — is his pin, not his words, and rides the built-in as it stands now.
  * A copy he edited keeps his words. And a pin now stores no copy at all (saveModule). */
+/* M683: retire only the exact factory voice restriction when reading an edited copy.
+ * The stored copy and every other word remain intact. */
+const RETIRED_VOICE_LINE = "Female Vocal Acoustics = an anti-slop default, never a reality override: a female voice never shifts pitch DOWN (banned: low, deep, husky, gravelly, throaty) \u2014 swap to texture per CORE (warmth: soft, warm, quiet, clear, bright; authority: clipped, level, carrying, edged, measured, cold); intimate = breath, clarity, warmth; shouting = pitch, ring, sharpness. A brief- or canon-established voice wins and renders in fresh concrete words.";
+export function withoutVoiceRestriction(text) {
+  return String(text == null ? '' : text).split(RETIRED_VOICE_LINE).join('');
+}
+
 export const SHIPPED_BEFORE = {
   nsfw: ['95zud8', '1wkzq1s', '1pp0p8w'], /* "When The Scene Turns Intimate" as it shipped through M510-2, at M510-3, at M510-4 */
-  'core-craft': ['1gzud8e', '99fpod', '1icfhkj', '1ojr0f9', 'vqbgae'], /* M588: as it shipped through M587, before Close by and the door; M604: as it shipped through M603, before Competence Is Kept */ /* M510-29: the craft as it shipped through M510-28, with its Banned Words; M510-48: as it shipped through M510-47, before Exposed; M510-62: through M510-61, when The Commands still spoke of a per-turn directive */
+  'core-craft': ['1gzud8e', '99fpod', '1icfhkj', '1ojr0f9', 'vqbgae', '1d184md'], /* M588: as it shipped through M587, before Close by and the door; M604: as it shipped through M603, before Competence Is Kept */ /* M510-29: the craft as it shipped through M510-28, with its Banned Words; M510-48: as it shipped through M510-47, before Exposed; M510-62: through M510-61, when The Commands still spoke of a per-turn directive */
 };
 export function fingerprint(text) { return fingerprint36(text); } /* M575: one fingerprint */
 export function followsBuiltin(builtin, forkText) {
@@ -354,7 +361,7 @@ export async function listModules() {
     return attachPredicate({
       ...builtin,
       name: typeof fork.name === 'string' && fork.name.trim() ? fork.name : builtin.name,
-      text: follows ? builtin.text : (builtin.id === 'core-craft' ? withoutQuotaLines(fork.text) : fork.text),
+      text: follows ? builtin.text : (builtin.id === 'core-craft' ? withoutVoiceRestriction(withoutQuotaLines(fork.text)) : fork.text),
       pinned: Boolean(fork.pinned),
       source: 'user',
       overridden: !follows,

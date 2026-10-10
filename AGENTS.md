@@ -1,80 +1,45 @@
-# AGENTS.md — notes for whoever tends the tavern next
+# Cozy Tavern: current working rules
 
-Human or AI, these are the house rules. Read them before touching anything.
+Read this file and HANDOFF.md once. SPEC.md describes the current milestone.
+The owner's current request takes priority; preserve established contracts.
 
-## The one rule above all
+## Product contracts
 
-`SPEC.md` is the binding contract for each milestone. Implement it exactly.
-If the spec and the code ever disagree, stop and surface the conflict — do
-not improvise.
+- Vanilla ES modules, no application build step or framework. No CDN or remote fonts.
+- Mobile first, relative application URLs; GitHub Pages and Termux localhost:8080 both work.
+- IndexedDB through js/store.js's db only; namespace cozytavern.v1. Keep settings,
+  connections, stories, messages, exportAll and importAll promise based.
+- API keys go only to the chosen provider. Never commit keys or fixture credentials from a real account.
+- createProvider(connection) retains test() and streamChat({system,messages,signal,onToken}).
+- buildRequest({story,messages,settings}) retains its interface. Stable system prefix;
+  Anthropic's last system block receives cache_control: ephemeral.
+- One streaming storyteller call per send. No preliminary calls or workers on the send path.
+  Background readers keep their existing queues, page ownership and stale answer guards.
+- Same origin service worker shell is cache first; cross origin API traffic is network only.
+- Keep local records, undo/replay, backup safety and custom rules intact. Warm, plain UI copy;
+  serif story text, readable controls, dark/light coats and reduced motion.
 
-## Voice (applies to every user-facing string)
+## Working loop
 
-UI copy reads like a person keeping a writing desk: warm, plain, unhurried.
-"The story so far", "Who's here", "The frame", "The note at the end" —
-never "Settings Manager v1.2", never gamification, badges, or neon. Buttons
-say human things: "Keep it", "Not now", "Take a copy". Errors apologize and
-point at a next step; they never show a stack.
+1. Use tools/context.py to locate the relevant historical entries; read source and those
+   entries, rather than loading the entire history. HISTORY.md is an append only archive.
+2. Reproduce a defect through its public door. Write a causal regression, show it fails on
+   old code and passes on the fix. Do not use source text assertions or vacuous fixtures.
+3. Run python3 tools/check.py fast while editing. For a narrow change, ONLY may select laws;
+   report selected counts accurately. Do not call a fast run a full gate.
+4. When the product is ready, run python3 tools/check.py release --tag mNNN.
+   Add relevant checks from full for changed dependencies. Run all only for broad changes.
+   Timing/pixel checks run alone; do not edit execution inputs during a gate.
+5. Resume an interrupted unchanged release with the same tag and --resume. The runner
+   refuses reuse after any execution input/runtime change and always reruns measurements.
+   Do not repeat green checks just because notes or a commit message changed.
+6. Update version, concise HANDOFF and append HISTORY with measured results and limits.
+   Verify remote main, publish without force when authorized, then verify its exact head.
 
-## Hard constraints (locked)
+## Context map
 
-- No build step, no npm, no frameworks. Vanilla ES modules only.
-- No external CDNs, no remote fonts. Everything self-contained.
-- All data local (IndexedDB). API keys leave the device only toward the
-  chosen provider's endpoint.
-- Runs from GitHub Pages *and* `bash serve.sh` on Termux (localhost:8080).
-  Keep every URL in the app relative.
-- Mobile-first. Prose measure ~65ch, serif for prose, system sans for chrome.
-- Dark + light themes; respect `prefers-color-scheme` unless overridden.
-
-## Performance laws (locked)
-
-- Exactly ONE streaming generation call per user turn. No pre-calls, no
-  agent chains on the send path.
-- TTFT: the system prefix must stay stable byte-for-byte so provider-side
-  prompt caching hits (anthropic gets `cache_control: ephemeral` on the last
-  system block). Nothing dynamic goes before it.
-
-## Contracts to preserve
-
-- `js/store.js` — `export const db` with `settings`, `connections`,
-  `stories`, `messages`, `exportAll()`, `importAll(json)`. Promise-based.
-  Namespace: `cozytavern.v1` (DB name and backup envelope).
-- `js/providers/index.js` — `createProvider(connection)` →
-  `{ test(), streamChat({system, messages, signal, onToken}) }`.
-- `js/assemble/stack.js` — `buildRequest({story, messages, settings})` →
-  `{system, messages}`. **M2 replaces the internals; keep this signature.**
-- Service worker: cache-first same-origin shell, network-only for
-  cross-origin (API) traffic.
-
-## Seams left for later milestones (do not fill yet)
-
-- `js/engine/` — the scene-state engine. The drawer panels in
-  `js/ui/drawer.js` are data-driven stubs waiting for it (M3–M4).
-- `js/agents/` — background agents. None may join the send path (see
-  performance laws).
-- Receipts — a record of what was sent and returned. Lands after the engine.
-- `js/assemble/stack.js` is the M1 minimal assembler: frame as system, note
-  appended as a final user message. M2 makes assembly position-aware behind
-  the same interface.
-
-## Conventions
-
-- Small modules, one job each. UI modules receive a shared context object
-  from `js/app.js`; they don't reach into each other.
-- Store changes go through `db` only — no direct `indexedDB` calls elsewhere.
-- New user-facing copy gets read aloud once before shipping. If it sounds
-  like software, rewrite it.
-
----
-
-## Where everything else is
-
-- **HANDOFF.md** — the state of the work: how to test, the gates (`audit/gates.sh`), the laws that matter, what is open
-  and what to do next. If it names a work branch, check that branch out and read its HANDOFF.md first.
-- **HISTORY.md** — every milestone from M2 on, word for word: what changed and why, the contracts and the seams, the laws
-  and the tests that hold them. Before changing a file, read the entries that touched it (search HISTORY.md for the
-  file's name). A new milestone's entry is appended to HISTORY.md, never here.
-
-This file stays short on purpose: it is loaded into every step a coding assistant takes. At 1.7 MB (the whole milestone
-log) it filled the assistant's context every few steps.
+HANDOFF.md: present state. docs/WORKFLOW.md: commands and release practices.
+HISTORY.md: complete milestone record, never automatically loaded in full.
+docs/archive: verbatim instructions and handoff before M683, for targeted archaeology.
+Do not resurrect old milestone instructions as current tasks. Test npm dependencies are
+allowed inside tests; the application itself has no npm/build dependency.

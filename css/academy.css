@@ -5,7 +5,7 @@
  * tools/academy_map.py), footprints walking its road, windows that flicker, mist that drifts; a walnut-and-gilt room
  * in front of it; the welcome card, the box he writes in, the ledger and Settings' cards are parchment.
  *
- * WHAT THIS FILE MAY TOUCH: only what is painted. Every rule hangs on html[data-theme='academy']; no rule moves a
+ * WHAT THIS FILE MAY TOUCH: only what is painted. Every rule hangs on html:is([data-theme='academy'], [data-theme='academy-night']); no rule moves a
  * control, changes what it does or adds one. The tokens (colours, the two type families) are in base.css's academy
  * block like every coat's; this file is the coat's dress, as coats.css is for the others.
  *
@@ -49,7 +49,7 @@
 /* ---------- the map behind the room ---------- */
 
 .academy-backdrop { display: none; }
-html[data-theme='academy'] .academy-backdrop {
+html:is([data-theme='academy'], [data-theme='academy-night']) .academy-backdrop {
   display: block;
   position: fixed;
   inset: 0;
@@ -80,7 +80,7 @@ html[data-theme='academy'] .academy-backdrop {
 }
 
 /* the candlelight over the sheet: a vignette, always; the reading veil comes over it while a story is open */
-html[data-theme='academy'] .academy-backdrop::after {
+html:is([data-theme='academy'], [data-theme='academy-night']) .academy-backdrop::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -90,7 +90,7 @@ html[data-theme='academy'] .academy-backdrop::after {
     linear-gradient(180deg, rgba(20, 12, 5, 0.25), rgba(20, 12, 5, 0.08) 30%, rgba(20, 12, 5, 0.12) 70%, rgba(14, 8, 3, 0.55));
 }
 /* ivy in two corners, from the welcome card's world; it steps back while a story is read */
-html[data-theme='academy'] .academy-backdrop::before {
+html:is([data-theme='academy'], [data-theme='academy-night']) .academy-backdrop::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -197,31 +197,31 @@ html[data-theme='academy'] .academy-backdrop::before {
  * reads (measured: tests/perf_academy.py). The map lives on the welcome screen. "A story is open" is <html
  * data-thread="story">, written by app.js watchThread only when it changes (a :has() here restyled the map on every
  * page added). */
-html[data-theme='academy'][data-thread='story'] .academy-backdrop::before { opacity: 0; }
-html[data-theme='academy'][data-thread='story'] .academy-stage i { animation-play-state: paused; }
+html:is([data-theme='academy'], [data-theme='academy-night'])[data-thread='story'] .academy-backdrop::before { opacity: 0; }
+html:is([data-theme='academy'], [data-theme='academy-night'])[data-thread='story'] .academy-stage i { animation-play-state: paused; }
 
 /* ---------- the room: walnut and gilt in front of the map ---------- */
 
-html[data-theme='academy'] body { background: #1a1109; }
-html[data-theme='academy'] .thread-wrap { background: transparent; }
+html:is([data-theme='academy'], [data-theme='academy-night']) body { background: #1a1109; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .thread-wrap {
+  background: linear-gradient(90deg, rgba(22, 14, 7, 0.78), rgba(22, 14, 7, 0.9) 50%, rgba(22, 14, 7, 0.78));
+}
+html:is([data-theme='academy'], [data-theme='academy-night']):not([data-thread='story']) .thread-wrap { background: transparent; }
 /* the reading veil: on the column the prose stands in; the map shows a little more at the sides of a wide screen.
  * Only while a story is open (data-thread, app.js); the welcome stands on the bright map. */
-html[data-theme='academy'] .thread {
-  background:
-    linear-gradient(90deg, rgba(22, 14, 7, 0.62) 0, rgba(22, 14, 7, 0.86) calc(50% - 440px), rgba(22, 14, 7, 0.88) 50%, rgba(22, 14, 7, 0.86) calc(50% + 440px), rgba(22, 14, 7, 0.62) 100%);
-}
-html[data-theme='academy']:not([data-thread='story']) .thread { background: transparent; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .thread { background: transparent; }
+html:is([data-theme='academy'], [data-theme='academy-night']):not([data-thread='story']) .thread { background: transparent; }
 
-html[data-theme='academy'] ::selection { background: rgba(230, 179, 94, 0.36); color: inherit; }
-html[data-theme='academy'] * { scrollbar-color: #6e5230 transparent; }
+html:is([data-theme='academy'], [data-theme='academy-night']) ::selection { background: rgba(230, 179, 94, 0.36); color: inherit; }
+html:is([data-theme='academy'], [data-theme='academy-night']) * { scrollbar-color: #6e5230 transparent; }
 
 /* the top bar: dark oak with a gilt edge, the name in old type with a quill */
-html[data-theme='academy'] .topbar {
+html:is([data-theme='academy'], [data-theme='academy-night']) .topbar {
   background: #20140a linear-gradient(180deg, #24170d 0%, #1c120a 100%);
   border-bottom: 1px solid rgba(214, 168, 96, 0.38);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.55), 0 6px 18px -6px rgba(0, 0, 0, 0.7);
 }
-html[data-theme='academy'] .brand {
+html:is([data-theme='academy'], [data-theme='academy-night']) .brand {
   font-family: var(--font-display);
   font-weight: 400;
   font-size: 1.5rem;
@@ -232,7 +232,7 @@ html[data-theme='academy'] .brand {
   align-items: center;
   gap: 0.4rem;
 }
-html[data-theme='academy'] .brand::before {
+html:is([data-theme='academy'], [data-theme='academy-night']) .brand::before {
   content: '';
   flex: 0 0 auto;
   width: 1.15em;
@@ -242,16 +242,16 @@ html[data-theme='academy'] .brand::before {
   -webkit-mask: url(../assets/academy/quill.svg) center / contain no-repeat;
   mask: url(../assets/academy/quill.svg) center / contain no-repeat;
 }
-@media (max-width: 720px) { html[data-theme='academy'] .brand { font-size: 1.32rem; } }
-html[data-theme='academy'] .topbar .icon-btn,
-html[data-theme='academy'] .topbar-actions .room-btn { color: #d5ad68; }
-html[data-theme='academy'] .topbar .icon-btn:hover,
-html[data-theme='academy'] .topbar-actions .room-btn:hover { color: #f6d692; background: rgba(214, 168, 96, 0.12); }
-html[data-theme='academy'] .topbar-actions .room-btn.current { color: #f6d692; background: rgba(214, 168, 96, 0.16); box-shadow: inset 0 0 0 1px rgba(214, 168, 96, 0.35); }
-html[data-theme='academy'] .immerse-show { background: #24170d; border-color: rgba(214, 168, 96, 0.45); color: #e6bd73; }
+@media (max-width: 720px) { html:is([data-theme='academy'], [data-theme='academy-night']) .brand { font-size: 1.32rem; } }
+html:is([data-theme='academy'], [data-theme='academy-night']) .topbar .icon-btn,
+html:is([data-theme='academy'], [data-theme='academy-night']) .topbar-actions .room-btn { color: #d5ad68; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .topbar .icon-btn:hover,
+html:is([data-theme='academy'], [data-theme='academy-night']) .topbar-actions .room-btn:hover { color: #f6d692; background: rgba(214, 168, 96, 0.12); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .topbar-actions .room-btn.current { color: #f6d692; background: rgba(214, 168, 96, 0.16); box-shadow: inset 0 0 0 1px rgba(214, 168, 96, 0.35); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .immerse-show { background: #24170d; border-color: rgba(214, 168, 96, 0.45); color: #e6bd73; }
 
 /* the shelves: dark leather, a gilt rule, the open tale lit like a lamp */
-html[data-theme='academy'] .story-panel {
+html:is([data-theme='academy'], [data-theme='academy-night']) .story-panel {
   background:
     url(../assets/academy/ledger-compass.svg) right -40px bottom 40px / 210px auto no-repeat,
     linear-gradient(180deg, #23160c 0%, #1b1109 100%);
@@ -259,31 +259,31 @@ html[data-theme='academy'] .story-panel {
   border-right: 1px solid rgba(214, 168, 96, 0.3);
   box-shadow: inset -5px 0 0 -4px rgba(214, 168, 96, 0.18), var(--shadow);
 }
-html[data-theme='academy'] .story-panel-head h2 { font-family: 'Academy Fell SC', var(--font-display); font-size: 1.05rem; letter-spacing: 0.08em; text-transform: none; color: #e6bd73; }
-html[data-theme='academy'] .story-item.active {
+html:is([data-theme='academy'], [data-theme='academy-night']) .story-panel-head h2 { font-family: 'Academy Fell SC', var(--font-display); font-size: 1.05rem; letter-spacing: 0.08em; text-transform: none; color: #e6bd73; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .story-item.active {
   background: linear-gradient(90deg, rgba(214, 160, 80, 0.24), rgba(214, 160, 80, 0.08));
   border-color: rgba(214, 168, 96, 0.55);
   box-shadow: inset 3px 0 0 #e6b35e;
 }
-html[data-theme='academy'] .shelf-toggle,
-html[data-theme='academy'] button.shelf-head { font-family: 'Academy Fell SC', var(--font-display); font-size: 0.98rem; letter-spacing: 0.05em; text-transform: none; }
-html[data-theme='academy'] .story-open .story-when { font-family: var(--font); font-style: italic; font-size: 0.74rem; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .shelf-toggle,
+html:is([data-theme='academy'], [data-theme='academy-night']) button.shelf-head { font-family: 'Academy Fell SC', var(--font-display); font-size: 0.98rem; letter-spacing: 0.05em; text-transform: none; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .story-open .story-when { font-family: var(--font); font-style: italic; font-size: 0.74rem; }
 
 /* the whisper voice: small caps in old type instead of mono capitals */
-html[data-theme='academy'] .lbl,
-html[data-theme='academy'] .msg-label,
-html[data-theme='academy'] .scene-head {
+html:is([data-theme='academy'], [data-theme='academy-night']) .lbl,
+html:is([data-theme='academy'], [data-theme='academy-night']) .msg-label,
+html:is([data-theme='academy'], [data-theme='academy-night']) .scene-head {
   font-family: 'Academy Fell SC', var(--font-display);
   font-weight: 400;
   font-size: 0.95rem;
   letter-spacing: 0.07em;
   text-transform: lowercase;
 }
-html[data-theme='academy'] .msg-label { color: #d9b26c; font-size: 1rem; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .msg-label { color: #d9b26c; font-size: 1rem; }
 
 /* the pages */
-html[data-theme='academy'] .msg-body { font-size: 16.5px; line-height: 1.72; }
-html[data-theme='academy'] .msg-user .msg-body {
+html:is([data-theme='academy'], [data-theme='academy-night']) .msg-body { font-size: 16.5px; line-height: 1.72; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .msg-user .msg-body {
   font-family: var(--font-prose);
   background: #2b1c10 linear-gradient(180deg, rgba(48, 32, 18, 0.92), rgba(40, 26, 14, 0.92));
   border: 1px solid rgba(214, 168, 96, 0.26);
@@ -291,23 +291,23 @@ html[data-theme='academy'] .msg-user .msg-body {
   border-radius: 4px 12px 12px 4px;
   box-shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 232, 186, 0.05);
 }
-html[data-theme='academy'] .msg-note .msg-body { font-family: var(--font-prose); background: rgba(48, 26, 16, 0.92); }
-html[data-theme='academy'] .msg-act,
-html[data-theme='academy'] .msg-receipt {
+html:is([data-theme='academy'], [data-theme='academy-night']) .msg-note .msg-body { font-family: var(--font-prose); background: rgba(48, 26, 16, 0.92); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .msg-act,
+html:is([data-theme='academy'], [data-theme='academy-night']) .msg-receipt {
   font-family: var(--font);
   font-style: italic;
   font-size: 13px;
   letter-spacing: 0.01em;
   text-transform: lowercase;
 }
-html[data-theme='academy'] .thinking { background: rgba(30, 20, 11, 0.9); border-color: rgba(214, 168, 96, 0.3); }
-html[data-theme='academy'] .thinking summary { font-family: 'Academy Fell SC', var(--font-display); font-size: 0.95rem; font-weight: 400; letter-spacing: 0.06em; text-transform: lowercase; }
-html[data-theme='academy'] .msg-assistant.pending .msg-body::after { background: #e6b35e; box-shadow: 0 0 8px rgba(230, 179, 94, 0.7); }
-html[data-theme='academy'] .msg.search-hit { outline-color: rgba(230, 179, 94, 0.6); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .thinking { background: rgba(30, 20, 11, 0.9); border-color: rgba(214, 168, 96, 0.3); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .thinking summary { font-family: 'Academy Fell SC', var(--font-display); font-size: 0.95rem; font-weight: 400; letter-spacing: 0.06em; text-transform: lowercase; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .msg-assistant.pending .msg-body::after { background: #e6b35e; box-shadow: 0 0 8px rgba(230, 179, 94, 0.7); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .msg.search-hit { outline-color: rgba(230, 179, 94, 0.6); }
 
 /* ---------- the welcome: a parchment sheet with a cloud-soft rim, on the bright map ---------- */
 
-html[data-theme='academy'] .hearth {
+html:is([data-theme='academy'], [data-theme='academy-night']) .hearth {
   position: relative;
   width: min(100%, 620px);
   padding: 0.9rem 0.6rem 0.6rem;
@@ -319,8 +319,8 @@ html[data-theme='academy'] .hearth {
   color: #2b1d10;
   gap: 1rem;
 }
-html[data-theme='academy'] .hearth-mark { display: none; }
-html[data-theme='academy'] .hearth::before {
+html:is([data-theme='academy'], [data-theme='academy-night']) .hearth-mark { display: none; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .hearth::before {
   content: '';
   width: min(250px, 78%);
   aspect-ratio: 240 / 76;
@@ -328,15 +328,15 @@ html[data-theme='academy'] .hearth::before {
   -webkit-mask: url(../assets/academy/book.svg) center / contain no-repeat;
   mask: url(../assets/academy/book.svg) center / contain no-repeat;
 }
-html[data-theme='academy'] .hearth-greeting {
+html:is([data-theme='academy'], [data-theme='academy-night']) .hearth-greeting {
   font-family: var(--font-display);
   font-size: 1.7rem;
   line-height: 1.3;
   color: #2b1a0c;
   text-shadow: 0 1px 0 rgba(255, 248, 228, 0.6);
 }
-html[data-theme='academy'] .hearth-chips { gap: 0.7rem; }
-html[data-theme='academy'] .hearth-chip {
+html:is([data-theme='academy'], [data-theme='academy-night']) .hearth-chips { gap: 0.7rem; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .hearth-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -349,7 +349,7 @@ html[data-theme='academy'] .hearth-chip {
   padding: 0.55rem 1.1rem 0.55rem 0.85rem;
   box-shadow: 0 0 0 2px rgba(60, 36, 16, 0.25), 0 4px 10px -4px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 220, 160, 0.18);
 }
-html[data-theme='academy'] .hearth-chip::before {
+html:is([data-theme='academy'], [data-theme='academy-night']) .hearth-chip::before {
   content: '';
   flex: 0 0 auto;
   width: 1.05em;
@@ -358,110 +358,108 @@ html[data-theme='academy'] .hearth-chip::before {
   -webkit-mask: url(../assets/academy/quill.svg) center / contain no-repeat;
   mask: url(../assets/academy/quill.svg) center / contain no-repeat;
 }
-html[data-theme='academy'] .hearth-chip:nth-child(2)::before { -webkit-mask-image: url(../assets/academy/glass.svg); mask-image: url(../assets/academy/glass.svg); }
-html[data-theme='academy'] .hearth-chip:nth-child(3)::before { -webkit-mask-image: url(../assets/academy/star.svg); mask-image: url(../assets/academy/star.svg); }
-html[data-theme='academy'] .hearth-chip:hover { color: #fff3da; border-color: #f0c574; box-shadow: 0 0 0 2px rgba(60, 36, 16, 0.25), 0 0 16px -4px rgba(240, 190, 100, 0.6), inset 0 1px 0 rgba(255, 220, 160, 0.22); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .hearth-chip:nth-child(2)::before { -webkit-mask-image: url(../assets/academy/glass.svg); mask-image: url(../assets/academy/glass.svg); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .hearth-chip:nth-child(3)::before { -webkit-mask-image: url(../assets/academy/star.svg); mask-image: url(../assets/academy/star.svg); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .hearth-chip:hover { color: #fff3da; border-color: #f0c574; box-shadow: 0 0 0 2px rgba(60, 36, 16, 0.25), 0 0 16px -4px rgba(240, 190, 100, 0.6), inset 0 1px 0 rgba(255, 220, 160, 0.22); }
 @media (max-width: 480px) {
-  html[data-theme='academy'] .hearth { border-width: 30px; padding: 0.6rem 0.3rem 0.4rem; gap: 0.85rem; }
-  html[data-theme='academy'] .hearth-greeting { font-size: 1.5rem; }
-  html[data-theme='academy'] .hearth-chip { font-size: 0.9rem; padding: 0.48rem 0.95rem 0.48rem 0.75rem; }
+  html:is([data-theme='academy'], [data-theme='academy-night']) .hearth { border-width: 30px; padding: 0.6rem 0.3rem 0.4rem; gap: 0.85rem; }
+  html:is([data-theme='academy'], [data-theme='academy-night']) .hearth-greeting { font-size: 1.5rem; }
+  html:is([data-theme='academy'], [data-theme='academy-night']) .hearth-chip { font-size: 0.9rem; padding: 0.48rem 0.95rem 0.48rem 0.75rem; }
 }
-html[data-theme='academy'] .hearth-pickup { color: #5b4329; font-style: italic; font-family: var(--font); }
-html[data-theme='academy'] .hearth .hearth-coat,
-html[data-theme='academy'] .hearth .lbl { color: #6b5233; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .hearth-pickup { color: #5b4329; font-style: italic; font-family: var(--font); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .hearth .hearth-coat,
+html:is([data-theme='academy'], [data-theme='academy-night']) .hearth .lbl { color: #6b5233; }
 /* the first-run word (no connection yet) gets the same sheet, so it reads on the bright map */
-html[data-theme='academy'] .no-connection {
+html:is([data-theme='academy'], [data-theme='academy-night']) .no-connection {
   border: 34px solid transparent;
   border-image: url(../assets/academy/card.svg) 60 / 60px / 26px round;
   background: radial-gradient(ellipse 46% 52% at 50% 40%, #f0e1bd 0%, #e6d2a6 100%) padding-box, #e6d2a6 padding-box;
   padding: 0.8rem 0.6rem 0.6rem;
 }
-html[data-theme='academy'] .no-connection p { color: #3b2814; font-family: var(--font-display); font-size: 1.3rem; }
-html[data-theme='academy'] .thread-empty { color: #f2e5c9; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .no-connection p { color: #3b2814; font-family: var(--font-display); font-size: 1.3rem; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .thread-empty { color: #f2e5c9; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8); }
 
-/* ---------- the box he writes in: a strip of parchment, a quill, a wax-red send ---------- */
+/* ---------- the box he writes in: the same reading ground, a quill, a wax-red send ---------- */
 
-html[data-theme='academy'] .composer-zone {
-  background: linear-gradient(180deg, rgba(20, 12, 6, 0) 0%, rgba(20, 12, 6, 0.72) 38%, rgba(16, 9, 4, 0.9) 100%);
+html:is([data-theme='academy'], [data-theme='academy-night']) .composer-zone {
+  background: transparent;
 }
-html[data-theme='academy'] .composer-zone:focus-within { box-shadow: none; }
-html[data-theme='academy'] .composer {
-  background:
-    radial-gradient(120% 140% at 50% 0%, #ecdcb8 0%, #dfca9f 60%, #d3bb8b 100%);
-  background-color: #dfca9f;
-  color: #2b1a0c;
-  border: 1px solid #8e6a3a;
-  box-shadow: 0 0 0 3px rgba(32, 20, 10, 0.55), 0 8px 22px -8px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 251, 236, 0.75), inset 0 -10px 18px -10px rgba(120, 82, 38, 0.35);
+html:is([data-theme='academy'], [data-theme='academy-night']) .composer-zone:focus-within { box-shadow: none; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .composer {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 rgba(230, 200, 145, 0.06);
   padding-left: 12px;
 }
-html[data-theme='academy'] .composer::before {
+html:is([data-theme='academy'], [data-theme='academy-night']) .composer::before {
   content: '';
   flex: 0 0 auto;
   align-self: center;
   width: 22px;
   height: 22px;
   margin-right: -2px;
-  background: #6d4a26;
+  background: var(--ember);
   -webkit-mask: url(../assets/academy/quill.svg) center / contain no-repeat;
   mask: url(../assets/academy/quill.svg) center / contain no-repeat;
 }
-html[data-theme='academy'] .composer:focus-within {
-  border-color: #7d2c1b;
-  box-shadow: 0 0 0 3px rgba(32, 20, 10, 0.55), 0 0 0 4px rgba(214, 168, 96, 0.35), 0 8px 22px -8px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 251, 236, 0.75);
+html:is([data-theme='academy'], [data-theme='academy-night']) .composer:focus-within {
+  border-color: var(--ember);
+  box-shadow: 0 0 0 2px rgba(214, 168, 96, 0.15);
 }
-html[data-theme='academy'] .composer textarea {
-  color: #2b1a0c;
-  caret-color: #7d2c1b;
+html:is([data-theme='academy'], [data-theme='academy-night']) .composer textarea {
+  color: var(--text);
+  caret-color: var(--ember);
   font-family: var(--font-prose);
   font-size: 16px;
 }
-html[data-theme='academy'] .composer textarea::placeholder { color: #7a6142; font-style: italic; opacity: 1; }
-html[data-theme='academy'] .attach-btn {
-  background: #f0e2c2 radial-gradient(circle at 50% 35%, #fbf1d8, #e9d6ad);
-  border: 1px solid #a8844f;
-  color: #4d3216;
+html:is([data-theme='academy'], [data-theme='academy-night']) .composer textarea::placeholder { color: var(--muted); font-style: italic; opacity: 1; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .attach-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-2);
   box-shadow: 0 1px 2px rgba(60, 36, 16, 0.35);
 }
-html[data-theme='academy'] .attach-btn:hover,
-html[data-theme='academy'] .attach-btn:focus-visible { color: #7d2c1b; border-color: #7d2c1b; }
-html[data-theme='academy'] .send-btn {
+html:is([data-theme='academy'], [data-theme='academy-night']) .attach-btn:hover,
+html:is([data-theme='academy'], [data-theme='academy-night']) .attach-btn:focus-visible { color: var(--ember); border-color: var(--ember); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .send-btn {
   background: #842a19 radial-gradient(circle at 40% 30%, #b2402a 0%, #8a2a19 55%, #651b0f 100%);
   color: #fbe9c8;
   border: 1px solid #d1a35a;
   box-shadow: 0 0 0 2px rgba(60, 20, 8, 0.35), 0 3px 10px -2px rgba(0, 0, 0, 0.6), 0 0 14px -4px rgba(214, 120, 70, 0.6);
 }
-html[data-theme='academy'] .send-btn:hover { background: #8f2f1c radial-gradient(circle at 40% 30%, #c24a31 0%, #962f1c 55%, #6e1e11 100%); }
-html[data-theme='academy'] .send-btn.stop { background: #73261a radial-gradient(circle at 40% 30%, #8f3a2a, #5e1d12); color: #fbe9c8; }
-html[data-theme='academy'] .ember-bar { background: rgba(214, 168, 96, 0.14); }
-html[data-theme='academy'] .ember-fill { background: linear-gradient(90deg, #8a5f28, #e6b35e 65%, #f6d38a); box-shadow: 0 0 8px rgba(230, 179, 94, 0.45); }
-html[data-theme='academy'] .composer-meta {
+html:is([data-theme='academy'], [data-theme='academy-night']) .send-btn:hover { background: #8f2f1c radial-gradient(circle at 40% 30%, #c24a31 0%, #962f1c 55%, #6e1e11 100%); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .send-btn.stop { background: #73261a radial-gradient(circle at 40% 30%, #8f3a2a, #5e1d12); color: #fbe9c8; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .ember-bar { background: rgba(214, 168, 96, 0.14); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .ember-fill { background: linear-gradient(90deg, #8a5f28, #e6b35e 65%, #f6d38a); box-shadow: 0 0 8px rgba(230, 179, 94, 0.45); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .composer-meta {
   font-family: var(--font);
   font-style: italic;
   font-size: 12.5px;
   color: #ceb48a;
 }
-html[data-theme='academy'] .meta-page { font-style: normal; font-family: 'Academy Fell SC', var(--font-display); font-size: 13.5px; letter-spacing: 0.04em; color: #e2c48e; }
-html[data-theme='academy'] .quick-switch label { color: #ceb48a; }
-html[data-theme='academy'] .quick-switch select {
+html:is([data-theme='academy'], [data-theme='academy-night']) .meta-page { font-style: normal; font-family: 'Academy Fell SC', var(--font-display); font-size: 13.5px; letter-spacing: 0.04em; color: #e2c48e; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .quick-switch label { color: #ceb48a; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .quick-switch select {
   font-family: var(--font);
   font-style: normal;
   color: #f0dcb4;
   background-color: rgba(36, 23, 12, 0.85);
   border-color: rgba(214, 168, 96, 0.5);
 }
-html[data-theme='academy'] .jump-btn { border-color: rgba(214, 168, 96, 0.55); color: #e6bd73; background: rgba(36, 23, 12, 0.85); }
-html[data-theme='academy'] .prompt-chip,
-html[data-theme='academy'] .choice-btn {
+html:is([data-theme='academy'], [data-theme='academy-night']) .jump-btn { border-color: rgba(214, 168, 96, 0.55); color: #e6bd73; background: rgba(36, 23, 12, 0.85); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .prompt-chip,
+html:is([data-theme='academy'], [data-theme='academy-night']) .choice-btn {
   font-family: var(--font);
   background: #3c2715 linear-gradient(180deg, rgba(74, 48, 25, 0.95), rgba(47, 29, 14, 0.95));
   border-color: rgba(201, 155, 82, 0.7);
   color: #f3e2c0;
 }
-html[data-theme='academy'] .composer-chip { font-family: var(--font); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .composer-chip { font-family: var(--font); }
 
 /* ---------- the ledger: a parchment sheet with a compass printed in its corner ---------- */
 
-html[data-theme='academy'] #drawer {
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer {
   /* the sheet's inks — every token a control in the ledger can read (as since M465) */
   --bg: #e5d3ab;
   --bg-2: #ecdcb6;
@@ -510,8 +508,8 @@ html[data-theme='academy'] #drawer {
   border: 2px solid #7f5f33;
   box-shadow: inset 0 0 0 1px #d6bf92, inset 0 0 0 5px rgba(232, 215, 175, 0.9), inset 0 0 0 6px rgba(127, 95, 51, 0.45), inset 0 0 50px rgba(122, 82, 32, 0.25), var(--shadow);
 }
-html[data-theme='academy'] #drawer .drawer-head { border-bottom: 1px solid #b3935f; box-shadow: 0 1px 0 rgba(255, 250, 236, 0.55); }
-html[data-theme='academy'] #drawer .drawer-head h2 {
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .drawer-head { border-bottom: 1px solid #b3935f; box-shadow: 0 1px 0 rgba(255, 250, 236, 0.55); }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .drawer-head h2 {
   font-family: 'Academy Fell SC', var(--font-display);
   font-weight: 400;
   font-variant: normal;
@@ -519,13 +517,13 @@ html[data-theme='academy'] #drawer .drawer-head h2 {
   font-size: 1.45em;
   color: #2f1f0e;
 }
-html[data-theme='academy'] #drawer .ledger-panel {
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel {
   border: 1px solid #b3935f;
   outline: 1px solid rgba(179, 147, 95, 0.4);
   outline-offset: -5px;
   box-shadow: 0 1px 0 rgba(255, 250, 236, 0.65) inset, 0 2px 6px -3px rgba(80, 50, 20, 0.35);
 }
-html[data-theme='academy'] #drawer .ledger-panel > h3 {
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel > h3 {
   font-family: 'Academy Fell SC', var(--font-display);
   font-weight: 400;
   font-variant: normal;
@@ -534,50 +532,50 @@ html[data-theme='academy'] #drawer .ledger-panel > h3 {
   line-height: 1.25;
   border-bottom: 1px solid #c8ad7f;
 }
-html[data-theme='academy'] #drawer .drawer-rooms {
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .drawer-rooms {
   background: #ddc89a linear-gradient(180deg, #e2cfa4, #d9c393);
   border: 1px solid #a8885a;
   border-radius: 8px;
   box-shadow: inset 0 1px 2px rgba(80, 50, 20, 0.25), 0 1px 0 rgba(255, 250, 236, 0.6);
 }
-html[data-theme='academy'] #drawer .drawer-rooms .nav-chip { color: #54412c; border-radius: 6px; font-family: var(--font); font-size: 0.74rem; letter-spacing: 0; }
-@media (max-width: 720px) { html[data-theme='academy'] #drawer .drawer-rooms .nav-chip { font-size: 0.8rem; } }
-html[data-theme='academy'] #drawer .drawer-rooms .nav-chip:hover { color: #2b1d10; background: rgba(250, 242, 222, 0.7); }
-html[data-theme='academy'] #drawer .drawer-rooms .nav-chip.current {
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .drawer-rooms .nav-chip { color: #54412c; border-radius: 6px; font-family: var(--font); font-size: 0.74rem; letter-spacing: 0; }
+@media (max-width: 720px) { html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .drawer-rooms .nav-chip { font-size: 0.8rem; } }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .drawer-rooms .nav-chip:hover { color: #2b1d10; background: rgba(250, 242, 222, 0.7); }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .drawer-rooms .nav-chip.current {
   color: #842c1b;
   background: #f6ead0 linear-gradient(180deg, #fbf3de, #f2e5c4);
   box-shadow: 0 1px 3px rgba(80, 50, 20, 0.35), inset 0 -3px 0 #842c1b;
 }
-html[data-theme='academy'] #drawer .present-row { border-color: #cdb48a; color: #2b1d10; }
-html[data-theme='academy'] #drawer .text-btn {
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .present-row { border-color: #cdb48a; color: #2b1d10; }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .text-btn {
   font-family: var(--font);
   background: #efe0be linear-gradient(180deg, #f6ebcf, #ead9b2);
   border: 1px solid #b3935f;
   color: #842c1b;
   box-shadow: 0 1px 0 rgba(255, 250, 236, 0.7) inset, 0 1px 2px rgba(80, 50, 20, 0.2);
 }
-html[data-theme='academy'] #drawer .text-btn:hover { border-color: #842c1b; background: #fbf3de; }
-html[data-theme='academy'] #drawer .story-mini { background: #f4e8cb; border-color: #cdb48a; color: #665238; }
-html[data-theme='academy'] #drawer .log-list { border-left: 2px dashed #a58a5e; }
-html[data-theme='academy'] #drawer .log-row::before { box-shadow: 0 0 0 2px var(--ledger-card); }
-html[data-theme='academy'] #drawer .present-form { border-color: #a58a5e; }
-html[data-theme='academy'] #drawer input, html[data-theme='academy'] #drawer select, html[data-theme='academy'] #drawer textarea { color: #2b1d10; background: #fbf4e4; border-color: #b3935f; }
-html[data-theme='academy'] #drawer option { color: #2b1d10; background: #fbf4e4; }
-html[data-theme='academy'] #drawer ::placeholder { color: #806848; }
-html[data-theme='academy'] #drawer .work-banner { background: #e6d4ab; color: #2b1d10; border-bottom-color: #b3935f; }
-html[data-theme='academy'] #drawer .icon-btn:hover { background: #e6d4ab; }
-html[data-theme='academy'] #drawer .lbl { color: #665238; }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .text-btn:hover { border-color: #842c1b; background: #fbf3de; }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .story-mini { background: #f4e8cb; border-color: #cdb48a; color: #665238; }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .log-list { border-left: 2px dashed #a58a5e; }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .log-row::before { box-shadow: 0 0 0 2px var(--ledger-card); }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .present-form { border-color: #a58a5e; }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer input, html:is([data-theme='academy'], [data-theme='academy-night']) #drawer select, html:is([data-theme='academy'], [data-theme='academy-night']) #drawer textarea { color: #2b1d10; background: #fbf4e4; border-color: #b3935f; }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer option { color: #2b1d10; background: #fbf4e4; }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer ::placeholder { color: #806848; }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .work-banner { background: #e6d4ab; color: #2b1d10; border-bottom-color: #b3935f; }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .icon-btn:hover { background: #e6d4ab; }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .lbl { color: #665238; }
 
 /* footprints: whoever is in the scene walks the ledger's map; the absent stand where the world seated them (M465) */
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="elsewhere"] .present-row,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .people-row { position: relative; padding-left: 2.35rem; }
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::before,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::after,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="elsewhere"] .present-row::before,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="elsewhere"] .present-row::after,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .people-row::before,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .people-row::after {
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="whos-here"] .present-row,
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="elsewhere"] .present-row,
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="the-people"] .people-row { position: relative; padding-left: 2.35rem; }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="whos-here"] .present-row::before,
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="whos-here"] .present-row::after,
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="elsewhere"] .present-row::before,
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="elsewhere"] .present-row::after,
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="the-people"] .people-row::before,
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="the-people"] .people-row::after {
   content: '';
   position: absolute;
   width: 11px; height: 16px;
@@ -587,18 +585,18 @@ html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .peopl
   -webkit-mask: url(../assets/academy/print.svg) center / contain no-repeat;
   mask: url(../assets/academy/print.svg) center / contain no-repeat;
 }
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::before,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="elsewhere"] .present-row::before,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .people-row::before { left: 9px; top: 0.4rem; transform: rotate(-14deg); }
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::after,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="elsewhere"] .present-row::after,
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="the-people"] .people-row::after {
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="whos-here"] .present-row::before,
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="elsewhere"] .present-row::before,
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="the-people"] .people-row::before { left: 9px; top: 0.4rem; transform: rotate(-14deg); }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="whos-here"] .present-row::after,
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="elsewhere"] .present-row::after,
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="the-people"] .people-row::after {
   left: 19px; top: 1rem; transform: rotate(-14deg);
   -webkit-mask-image: url(../assets/academy/print-r.svg); mask-image: url(../assets/academy/print-r.svg);
 }
 /* the ones in the room are walking: the two prints take turns (opacity only) */
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::before { animation: map-step-l 2.4s ease-in-out infinite; }
-html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .present-row::after { animation: map-step-r 2.4s ease-in-out infinite; }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="whos-here"] .present-row::before { animation: map-step-l 2.4s ease-in-out infinite; }
+html:is([data-theme='academy'], [data-theme='academy-night']) #drawer .ledger-panel[data-panel="whos-here"] .present-row::after { animation: map-step-r 2.4s ease-in-out infinite; }
 @keyframes map-step-l { 0%, 40% { opacity: 0.78; } 50%, 90% { opacity: 0.2; } 100% { opacity: 0.78; } }
 @keyframes map-step-r { 0%, 40% { opacity: 0.2; } 50%, 90% { opacity: 0.78; } 100% { opacity: 0.2; } }
 
@@ -606,7 +604,7 @@ html[data-theme='academy'] #drawer .ledger-panel[data-panel="whos-here"] .presen
 
 /* Settings lies over the story (M143/M145: the story is never hidden under it), so it carries the map itself, under
  * a veil — drawn once on its own box (background-attachment stays scroll: nothing repaints as it scrolls). */
-html[data-theme='academy'] .view-settings {
+html:is([data-theme='academy'], [data-theme='academy-night']) .view-settings {
   background-color: #1a1109;
   background-image:
     linear-gradient(180deg, rgba(20, 12, 6, 0.88), rgba(20, 12, 6, 0.9)),
@@ -616,13 +614,13 @@ html[data-theme='academy'] .view-settings {
   background-repeat: no-repeat;
 }
 @media (max-aspect-ratio: 1/1) {
-  html[data-theme='academy'] .view-settings { background-image: linear-gradient(180deg, rgba(20, 12, 6, 0.88), rgba(20, 12, 6, 0.9)), url(../assets/academy/map-tall.webp); }
+  html:is([data-theme='academy'], [data-theme='academy-night']) .view-settings { background-image: linear-gradient(180deg, rgba(20, 12, 6, 0.88), rgba(20, 12, 6, 0.9)), url(../assets/academy/map-tall.webp); }
 }
-html[data-theme='academy'] .settings-title { font-family: var(--font-display); font-weight: 400; font-size: 2rem; color: #edc77c; text-shadow: 0 0 14px rgba(237, 170, 80, 0.3); }
-html[data-theme='academy'] .settings-quicknav { background: rgba(28, 18, 10, 0.96); border-bottom: 1px solid rgba(214, 168, 96, 0.25); }
-html[data-theme='academy'] .settings-quicknav .nav-chip { font-family: var(--font); color: #e6cc9c; border-color: rgba(214, 168, 96, 0.4); background: rgba(46, 30, 16, 0.85); }
-html[data-theme='academy'] .settings-quicknav .nav-chip:hover { color: #fff0cf; border-color: #e6b35e; }
-html[data-theme='academy'] .settings-section {
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-title { font-family: var(--font-display); font-weight: 400; font-size: 2rem; color: #edc77c; text-shadow: 0 0 14px rgba(237, 170, 80, 0.3); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-quicknav { background: rgba(28, 18, 10, 0.96); border-bottom: 1px solid rgba(214, 168, 96, 0.25); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-quicknav .nav-chip { font-family: var(--font); color: #e6cc9c; border-color: rgba(214, 168, 96, 0.4); background: rgba(46, 30, 16, 0.85); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-quicknav .nav-chip:hover { color: #fff0cf; border-color: #e6b35e; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section {
   --bg: #e5d3ab;
   --bg-2: #eadab3;
   --surface: #f6ebd0;
@@ -655,32 +653,32 @@ html[data-theme='academy'] .settings-section {
   border: 1px solid #8a6a3c;
   box-shadow: inset 0 0 0 1px rgba(255, 250, 236, 0.55), inset 0 0 0 5px rgba(236, 220, 182, 0.9), inset 0 0 0 6px rgba(138, 106, 60, 0.35), 0 10px 26px -10px rgba(0, 0, 0, 0.75);
 }
-html[data-theme='academy'] .settings-section > h3:first-child {
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section > h3:first-child {
   font-family: 'Academy Fell SC', var(--font-display);
   font-weight: 400;
   font-size: 1.28rem;
   letter-spacing: 0.04em;
   color: #2f1f0e;
 }
-html[data-theme='academy'] .settings-section > h3:first-child:hover { color: #842c1b; }
-html[data-theme='academy'] .settings-section h4 { font-family: 'Academy Fell SC', var(--font-display); font-weight: 400; letter-spacing: 0.03em; }
-html[data-theme='academy'] .settings-section .lbl { color: #624e35; }
-html[data-theme='academy'] .settings-section .btn { background: #8a2e1b linear-gradient(180deg, #9a3622, #7a2616); color: #fff4e3; border: 1px solid #5e1b0e; box-shadow: inset 0 1px 0 rgba(255, 210, 170, 0.25); }
-html[data-theme='academy'] .settings-section .btn:hover { background: #963320 linear-gradient(180deg, #a83c26, #842a19); }
-html[data-theme='academy'] .settings-section .btn-quiet,
-html[data-theme='academy'] .settings-section .btn-danger { background: #efe0be linear-gradient(180deg, #f6ebcf, #ead9b2); color: #842c1b; border: 1px solid #b3935f; box-shadow: inset 0 1px 0 rgba(255, 250, 236, 0.7); }
-html[data-theme='academy'] .settings-section .btn-danger { color: #9a321f; }
-html[data-theme='academy'] .settings-section .btn-quiet:hover { border-color: #842c1b; }
-html[data-theme='academy'] .settings-section .btn-danger:hover { border-color: #9a321f; }
-html[data-theme='academy'] .settings-section input,
-html[data-theme='academy'] .settings-section select,
-html[data-theme='academy'] .settings-section textarea { background: #fbf4e4; border-color: #b3935f; color: #2b1d10; }
-html[data-theme='academy'] .settings-section option { background: #fbf4e4; color: #2b1d10; }
-html[data-theme='academy'] .settings-section ::placeholder { color: #806848; }
-html[data-theme='academy'] .settings-version { color: #cdb48a; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section > h3:first-child:hover { color: #842c1b; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section h4 { font-family: 'Academy Fell SC', var(--font-display); font-weight: 400; letter-spacing: 0.03em; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section .lbl { color: #624e35; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section .btn { background: #8a2e1b linear-gradient(180deg, #9a3622, #7a2616); color: #fff4e3; border: 1px solid #5e1b0e; box-shadow: inset 0 1px 0 rgba(255, 210, 170, 0.25); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section .btn:hover { background: #963320 linear-gradient(180deg, #a83c26, #842a19); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section .btn-quiet,
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section .btn-danger { background: #efe0be linear-gradient(180deg, #f6ebcf, #ead9b2); color: #842c1b; border: 1px solid #b3935f; box-shadow: inset 0 1px 0 rgba(255, 250, 236, 0.7); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section .btn-danger { color: #9a321f; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section .btn-quiet:hover { border-color: #842c1b; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section .btn-danger:hover { border-color: #9a321f; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section input,
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section select,
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section textarea { background: #fbf4e4; border-color: #b3935f; color: #2b1d10; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section option { background: #fbf4e4; color: #2b1d10; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section ::placeholder { color: #806848; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-version { color: #cdb48a; }
 /* the spoken lines' and thoughts' sample: the coat's true colours (or his chosen pair, laid on <html>) on the ground the
  * story is read on, so what he picks is what he will see — and the "reads at" figure is measured on that ground too */
-html[data-theme='academy'] .settings-section .speech-sample {
+html:is([data-theme='academy'], [data-theme='academy-night']) .settings-section .speech-sample {
   color: #f2e5c9;
   background: #1c120a;
   border: 1px solid #5f4529;
@@ -690,14 +688,152 @@ html[data-theme='academy'] .settings-section .speech-sample {
 
 /* ---------- the other sheets: dark leather with a gilt edge ---------- */
 
-html[data-theme='academy'] .receipt-sheet,
-html[data-theme='academy'] #hk-sheet,
-html[data-theme='academy'] .welcome-card {
+html:is([data-theme='academy'], [data-theme='academy-night']) .receipt-sheet,
+html:is([data-theme='academy'], [data-theme='academy-night']) #hk-sheet,
+html:is([data-theme='academy'], [data-theme='academy-night']) .welcome-card {
   background: #221509 linear-gradient(180deg, #26180d, #1d130a);
   border-color: rgba(214, 168, 96, 0.4);
   box-shadow: inset 0 0 0 1px rgba(255, 230, 180, 0.04), var(--shadow);
 }
-html[data-theme='academy'] .receipt-sheet h2,
-html[data-theme='academy'] #hk-sheet h2,
-html[data-theme='academy'] .welcome-card h2 { font-family: 'Academy Fell SC', var(--font-display); font-weight: 400; letter-spacing: 0.04em; color: #edc77c; }
-html[data-theme='academy'] .toast { background: #26180d; border-color: rgba(214, 168, 96, 0.45); font-family: var(--font); }
+html:is([data-theme='academy'], [data-theme='academy-night']) .receipt-sheet h2,
+html:is([data-theme='academy'], [data-theme='academy-night']) #hk-sheet h2,
+html:is([data-theme='academy'], [data-theme='academy-night']) .welcome-card h2 { font-family: 'Academy Fell SC', var(--font-display); font-weight: 400; letter-spacing: 0.04em; color: #edc77c; }
+html:is([data-theme='academy'], [data-theme='academy-night']) .toast { background: #26180d; border-color: rgba(214, 168, 96, 0.45); font-family: var(--font); }
+
+
+/* M683: moonlight and warm windows. Static layers only; the existing map elements still pause in a story. */
+html[data-theme='academy-night'] body,
+html[data-theme='academy-night'] .academy-backdrop { background-color: var(--bg); }
+html[data-theme='academy-night'] .academy-wide {
+  background-image: linear-gradient(rgba(9, 24, 43, 0.62), rgba(9, 24, 43, 0.62)), url(../assets/academy/map-wide.webp);
+}
+html[data-theme='academy-night'] .academy-tall {
+  background-image: linear-gradient(rgba(9, 24, 43, 0.62), rgba(9, 24, 43, 0.62)), url(../assets/academy/map-tall.webp);
+}
+html[data-theme='academy-night'] .academy-backdrop::after {
+  background: radial-gradient(110% 90% at 52% 35%, transparent 30%, rgba(4, 9, 17, 0.64) 100%),
+    linear-gradient(180deg, rgba(6, 16, 29, 0.12), rgba(5, 11, 20, 0.38));
+}
+html[data-theme='academy-night'] .academy-backdrop::before {
+  background: radial-gradient(circle at 83% 17%, #f0dfb6 0 21px, rgba(238, 218, 166, 0.13) 22px 48px, transparent 65px),
+    radial-gradient(circle at 15% 21%, #ded7c2 0 1px, transparent 2px),
+    radial-gradient(circle at 62% 9%, #ded7c2 0 1px, transparent 2px),
+    radial-gradient(circle at 91% 38%, #ded7c2 0 1px, transparent 2px);
+}
+html[data-theme='academy-night'][data-thread='story'] .thread-wrap {
+  background: linear-gradient(90deg, rgba(9, 16, 27, 0.88), rgba(9, 16, 27, 0.95) 50%, rgba(9, 16, 27, 0.88));
+}
+html[data-theme='academy-night'] .topbar { background: #101923; border-color: #66543b; }
+html[data-theme='academy-night'] .story-panel { background-color: #111c2a; }
+html[data-theme='academy-night'] .hearth,
+html[data-theme='academy-night'] .no-connection {
+  background: radial-gradient(ellipse at 50% 15%, #253348, #111c2a 85%) padding-box;
+  border-image: none;
+  box-shadow: inset 0 0 0 1px rgba(230, 186, 114, 0.45), 0 14px 44px rgba(0, 0, 0, 0.5);
+}
+html[data-theme='academy-night'] .hearth-greeting,
+html[data-theme='academy-night'] .no-connection p { color: #f0dfb6; text-shadow: none; }
+html[data-theme='academy-night'] .hearth::before { background-color: #e6ba72; }
+html[data-theme='academy-night'] .hearth-pickup,
+html[data-theme='academy-night'] .hearth .hearth-coat,
+html[data-theme='academy-night'] .hearth .lbl { color: #c6b99f; }
+html[data-theme='academy-night'] #drawer,
+html[data-theme='academy-night'] .settings-section {
+
+  --bg: #0b1320;
+  --bg-2: #111c2a;
+  --surface: #172333;
+  --surface-2: #213244;
+  --border: #4c5360;
+  --border-soft: #2d3d4e;
+  --text: #eee3ce;
+  --text-2: #d0c6b4;
+  --muted: #b2ab9b;
+  --ember: #e6ba72;
+  --ember-hot: #f4d49e;
+  --ember-dim: #816b48;
+  --spoken: #edc587;
+  --thought: #c8bddf;
+  --user-tint: #122334;
+  --danger: #efa38e;
+  --ok: #adcf98;
+  --on-ember: #21190f;
+  --font: 'Academy Caslon', Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  --font-prose: 'Academy Caslon', Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  --font-display: 'Academy Fell', 'Academy Caslon', Georgia, serif;
+  --pk-card-1: #172333;
+  --pk-card-2: #1d2a3a;
+  --pk-card-3: #15202e;
+  --pk-chip-bg: #243446;
+  --pk-box-bg: #101a27;
+  --pk-box-edge: #4c5360;
+  --pk-rule: #334355;
+  --pk-place: #f8eacd;
+  --pk-body: #eedfc0;
+  --pk-body-2: #eedfc0;
+  --pk-body-3: #eee3ce;
+  --pk-body-4: #e2d2b2;
+  --pk-quiet: #d3bf98;
+  --pk-quiet-2: #cfbc98;
+  --pk-quiet-3: #c8b592;
+  --pk-quiet-4: #b8a27e;
+  --pk-quiet-5: #b19b77;
+  --pk-quiet-6: #ae9f8c;
+  --pk-quiet-7: #a39481;
+  --pk-quiet-8: #ad9a7c;
+  --pk-gold: #e8bd6a;
+  --pk-gold-2: #edc474;
+  --pk-gold-dim: #a3803f;
+  --pk-red: #e48a6e;
+  --pk-red-2: #ea9c82;
+  --pk-red-dim: #a6513b;
+  --pk-amber: #e8a35e;
+  --pk-sky: #96c5df;
+  --pk-rose: #e2a2b2;
+  --pk-violet: #c8bddf;
+  --pk-violet-2: #d9c5ec;
+  --pk-violet-3: #8466b8;
+  --pk-teal: #7fceb8;
+  --warn: #e9c264;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.62);
+  --scrim: rgba(10, 6, 2, 0.74);
+  --ledger-card: #172333; --ledger-slot: #111c2a; --ledger-line: #4c5360;
+  --ledger-glyph: #e6ba72; --ledger-title: #f0dfb6;
+  color: var(--text);
+  background: #111c2a;
+  border-color: #66543b;
+  box-shadow: inset 0 0 0 1px rgba(230, 186, 114, 0.14), var(--shadow);
+}
+html[data-theme='academy-night'] #drawer .drawer-head,
+html[data-theme='academy-night'] #drawer .ledger-panel { border-color: #66543b; }
+html[data-theme='academy-night'] #drawer .drawer-head h2 { color: #f0dfb6; }
+html[data-theme='academy-night'] #drawer .drawer-rooms { background: #172333; border-color: #66543b; box-shadow: none; }
+html[data-theme='academy-night'] #drawer .drawer-rooms .nav-chip { color: #d0c6b4; }
+html[data-theme='academy-night'] #drawer .drawer-rooms .nav-chip.current,
+html[data-theme='academy-night'] #drawer .drawer-rooms .nav-chip:hover { color: #f0dfb6; background: #28374a; box-shadow: inset 0 -2px 0 #e6ba72; }
+html[data-theme='academy-night'] #drawer .present-row { color: #eee3ce; border-color: #4c5360; }
+html[data-theme='academy-night'] #drawer .text-btn { color: #e6ba72; background: #172333; border-color: #66543b; box-shadow: none; }
+html[data-theme='academy-night'] #drawer .text-btn:hover { color: #f4d49e; background: #213244; border-color: #e6ba72; }
+html[data-theme='academy-night'] #drawer .story-mini,
+html[data-theme='academy-night'] #drawer .work-banner { color: #d0c6b4; background: #172333; border-color: #4c5360; }
+html[data-theme='academy-night'] #drawer input,
+html[data-theme='academy-night'] #drawer select,
+html[data-theme='academy-night'] #drawer textarea,
+html[data-theme='academy-night'] #drawer option { color: #eee3ce; background: #101a27; border-color: #4c5360; }
+html[data-theme='academy-night'] #drawer ::placeholder,
+html[data-theme='academy-night'] #drawer .lbl { color: #b2ab9b; }
+html[data-theme='academy-night'] .receipt-sheet,
+html[data-theme='academy-night'] #hk-sheet,
+html[data-theme='academy-night'] .welcome-card { background: #111c2a; border-color: #66543b; }
+
+html[data-theme='academy-night'] .settings-section h2 { color: #f0dfb6; border-color: #66543b; }
+html[data-theme='academy-night'] .settings-section input,
+html[data-theme='academy-night'] .settings-section select,
+html[data-theme='academy-night'] .settings-section textarea,
+html[data-theme='academy-night'] .settings-section option { background: #101a27; border-color: #4c5360; color: #eee3ce; }
+html[data-theme='academy-night'] .settings-section ::placeholder { color: #b2ab9b; }
+html[data-theme='academy-night'] .settings-section .btn { background: #e6ba72; color: #161c26; border-color: #e6ba72; box-shadow: none; }
+html[data-theme='academy-night'] .settings-section .btn:hover { background: #f4d49e; }
+html[data-theme='academy-night'] .settings-section .btn-quiet,
+html[data-theme='academy-night'] .settings-section .btn-danger { background: #172333; color: #e6ba72; border-color: #66543b; }
+html[data-theme='academy-night'] .settings-section .btn-danger { color: #f1a394; }

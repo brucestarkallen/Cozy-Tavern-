@@ -411,6 +411,67 @@ html[data-theme='academy'] {
   --scrim: rgba(10, 6, 2, 0.74);
 }
 
+/* M683: a separate moonlit academy, with the same local type and complete coat tokens. */
+html[data-theme='academy-night'] {
+  --bg: #0b1320;
+  --bg-2: #111c2a;
+  --surface: #172333;
+  --surface-2: #213244;
+  --border: #4c5360;
+  --border-soft: #2d3d4e;
+  --text: #eee3ce;
+  --text-2: #d0c6b4;
+  --muted: #b2ab9b;
+  --ember: #e6ba72;
+  --ember-hot: #f4d49e;
+  --ember-dim: #816b48;
+  --spoken: #edc587;
+  --thought: #c8bddf;
+  --user-tint: #122334;
+  --danger: #efa38e;
+  --ok: #adcf98;
+  --on-ember: #21190f;
+  --font: 'Academy Caslon', Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  --font-prose: 'Academy Caslon', Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  --font-display: 'Academy Fell', 'Academy Caslon', Georgia, serif;
+  --pk-card-1: #172333;
+  --pk-card-2: #1d2a3a;
+  --pk-card-3: #15202e;
+  --pk-chip-bg: #243446;
+  --pk-box-bg: #101a27;
+  --pk-box-edge: #4c5360;
+  --pk-rule: #334355;
+  --pk-place: #f8eacd;
+  --pk-body: #eedfc0;
+  --pk-body-2: #eedfc0;
+  --pk-body-3: #eee3ce;
+  --pk-body-4: #e2d2b2;
+  --pk-quiet: #d3bf98;
+  --pk-quiet-2: #cfbc98;
+  --pk-quiet-3: #c8b592;
+  --pk-quiet-4: #b8a27e;
+  --pk-quiet-5: #b19b77;
+  --pk-quiet-6: #ae9f8c;
+  --pk-quiet-7: #a39481;
+  --pk-quiet-8: #ad9a7c;
+  --pk-gold: #e8bd6a;
+  --pk-gold-2: #edc474;
+  --pk-gold-dim: #a3803f;
+  --pk-red: #e48a6e;
+  --pk-red-2: #ea9c82;
+  --pk-red-dim: #a6513b;
+  --pk-amber: #e8a35e;
+  --pk-sky: #96c5df;
+  --pk-rose: #e2a2b2;
+  --pk-violet: #c8bddf;
+  --pk-violet-2: #d9c5ec;
+  --pk-violet-3: #8466b8;
+  --pk-teal: #7fceb8;
+  --warn: #e9c264;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.62);
+  --scrim: rgba(10, 6, 2, 0.74);
+}
+
 /* M465: AURORA — a deep northern night; the ember an aurora green, speech mint, a thought a violet ribbon; the ledger a frosted field journal. Every token every other coat defines is defined here (M168, held by beauty.mjs). */
 html[data-theme='aurora'] {
   --bg: #070b14;

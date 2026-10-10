@@ -709,7 +709,7 @@ export function initHousekeeper(ctx) {
       }
       /* M64: done cards leave a one-line receipt in the talk; the live ones stand in the cards box */
       for (const p of (turn.proposals || [])) {
-        if (p.status === 'pending' || p.status === 'refused') continue;
+        if (p.status === 'pending' || p.status === 'refused' || p.status === 'superseded' || p.status === 'stale') continue;
         const r = document.createElement('div');
         r.className = 'hk-receipt';
         r.textContent = (p.status === 'applied' ? '✓ ' : '– ') + p.label + ' — ' + (p.words || cardStatusWords(p));
@@ -942,7 +942,7 @@ export function initHousekeeper(ctx) {
     await turnAct('retry-at', i);
   }
 
-  async function send(writerText) {
+  async function send(writerText, { repairIds = [] } = {}) {
     const raw = String(writerText || '').trim();
     if (!raw) return;
     if (busy) { toast('The housekeeper is still busy — press ⏹ Stop, or wait.'); return; }
@@ -1074,6 +1074,7 @@ export function initHousekeeper(ctx) {
         storyId: story.id,
         writerText: text,
         shownText: raw,
+        repairIds,
         connection,
         signal: workerCtl ? workerCtl.signal : undefined,
         directorText: renderDirectorNote(director),
@@ -1532,7 +1533,7 @@ export function initHousekeeper(ctx) {
   document.getElementById('hk-repropose').addEventListener('click', () => {
     const failed = session.turns.flatMap((t) => (t.proposals || []).filter((p) => p.status === 'refused' || p.status === 'stale'));
     if (!failed.length) { toast('No failed cards to re-propose.'); return; }
-    send('These cards could not be applied: ' + failed.map((p) => '“' + p.label + '” (' + (p.words || 'refused') + ')').join('; ') + '. Re-read the CURRENT text of each target (fetch the pages you do not hold whole) and send corrected versions — anchors copied exactly — or withdraw the ones no longer needed with <supersede>.');
+    send('These cards could not be applied: ' + failed.map((p) => '“' + p.label + '” (' + (p.words || 'refused') + ')').join('; ') + '. Re-read the CURRENT text of each target (fetch the pages you do not hold whole) and send corrected versions — anchors copied exactly — or withdraw the ones no longer needed with <supersede>.', { repairIds: failed.map((p) => p.id) });
   });
 
   /* M62: sessions */

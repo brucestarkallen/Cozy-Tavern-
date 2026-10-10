@@ -40,7 +40,7 @@ let themeMode = 'dark';
  * own bar wears the room's ground. */
 const COATS = {
   dark: '#16120f', light: '#f5efe4', deep: '#0a0f12', magma: '#070c0e',
-  fantasy: '#0c1210', cyberpunk: '#0b0714', academy: '#18100a', aurora: '#070b14', starship: '#0a0d12',
+  fantasy: '#0c1210', cyberpunk: '#0b0714', academy: '#18100a', 'academy-night': '#0b1320', aurora: '#070b14', starship: '#0a0d12',
 };
 
 function resolveTheme() {

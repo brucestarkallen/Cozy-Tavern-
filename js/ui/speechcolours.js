@@ -93,7 +93,7 @@ export function initSpeechColours(ctx) {
   const reset = document.getElementById('btn-speech-colours-reset');
   if (!box || !inputs.spoken || !inputs.thought || !reset) return null;
 
-  const COAT_WORDS = { fantasy: 'Fantasy', cyberpunk: 'Cyberpunk', magma: 'Magma', academy: 'The academy', aurora: 'Aurora', starship: 'Starship', deep: 'The deep', dark: 'Lamplight', light: 'Daylight' };
+  const COAT_WORDS = { fantasy: 'Fantasy', cyberpunk: 'Cyberpunk', magma: 'Magma', academy: 'The academy', 'academy-night': 'The academy at night', aurora: 'Aurora', starship: 'Starship', deep: 'The deep', dark: 'Lamplight', light: 'Daylight' };
 
   function coatOwn(k) {
     /* the coat's own colour: read with the override lifted for a moment */
