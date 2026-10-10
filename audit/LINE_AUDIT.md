@@ -137,3 +137,10 @@ audit marks above are retained. HISTORY.md M682 records the real-code laws, nega
 M682 gate follow-up: js/ui/chat.js keeps immediate version taps in order (DOM-256, delayed real preview store write);
 js/engine/apply.js reads the original line from an already-saved legacy reversal's m.of (M682-9, a later same-page
 weighing survives replay). These are focused corrections; the earlier full audit and its dispositions remain intact.
+
+M682 final validation: application source 271df114 plus test/fixture correction aac7f662, complete harness 1443/1443,
+walk 294/294, long play 9/9, lint 0 errors and all 45 top-level Python browser/server checks passed. Canon 629 proof
+and 455 sim assertions passed. M674-1 now measures actual fold work, negative-tested; academy IDLE waits for the real
+page-mark fade, with the controlled boundary and every existing budget retained. No application code/CSS changed for
+those two fixture corrections. New commits remain local because repository write access is denied; the old audit and
+published main history remain intact. These are focused continuations, not a new whole-file audit claim.

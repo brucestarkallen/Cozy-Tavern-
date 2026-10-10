@@ -18269,3 +18269,24 @@ animation to finish before the IDLE sample. The original total-animation compari
 remain. A controlled real marker fade at that boundary produces total 1 / map 0 without the wait, and total 0 / map 0
 with it. No app/CSS changed. The corrected full harness and academy check will run as codex682f, then all 23 additional
 Python checks; codex682e's other checks exercised the identical application source and do not need repetition.
+
+FINAL VALIDATION, October 10, 2026: application source 271df114d28194ab467eb9e5cf0c5fddb6298fcb,
+corrected test/fixture source aac7f6629c7b4e414327b5d61199d967d8d56d45. Combined, complete validation is green:
+- codex682f: complete harness 1443/1443; academy performance EXIT 0, original budgets and animation comparisons intact.
+- codex682e: complete app walk 294/294, long play 9/9, lint 0 errors (199 warnings), all other 21 standing browser/server
+  checks EXIT 0. Application code/CSS is unchanged after this run; only the two proven test corrections and docs follow.
+- codex682f_extra: all 23 additional top-level Python checks EXIT 0, one at a time. Combined with the 22 standing checks,
+  all 45 tests/*.py files ran and passed. Recovery, two browsers, two hands, wipe/restore, old checkpoints, all-coat
+  contrast/rendering, housekeeper streaming and heavy-room budgets passed. Send worst task 487 ms against 1000.
+- Canon source 5aed234: ESM syntax passed, proof 629/629 and sim 455/455; eleven isolated controls each produced completed
+  failing suites for their deliberately removed guard. The older controls used fewer test assertions on identical code;
+  their actual totals and the final normal totals are retained in the recovery record.
+
+PUBLICATION: re-read both remote main refs after the checks. Cozy remains 9fb30dccbd0ebb674823a7dfb237776487a16a62;
+Canon remains 4b71b1878305087654b91a714754c65bafec9255. Claude's entire saved audit and its last two fixes remain ancestors
+of published Cozy main and of this continuation. These new m682-001/0.68.3 changes are committed locally, not published:
+GitHub integration writes returned 403 Resource not accessible by integration; native Git has no usable authentication.
+The remaining release step is authenticated publication (Canon first, Cozy second, no force), remote-head verification
+and Canon's required fresh remote-clone checks. The recovery copy preserves both histories and patches, with actual
+validation totals and the two failed-attempt explanations. Green tests establish their exercised cases, not a claim
+that every missing historical reload log had the reproduced startup cause.
