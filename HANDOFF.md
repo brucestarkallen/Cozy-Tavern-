@@ -1,3 +1,13 @@
+# M686 work in progress
+
+The owner's autonomous recovery contract is implemented on m686-autonomous-recovery.
+Opening a story starts original source recovery, and saved unfinished audits retry
+while idle with no terminal attempt limit. They yield to storytelling and respect
+Stop and disabled agents. The auditor no longer hands the writer a Finish it task.
+See docs/AUTONOMOUS-RECOVERY-M686.md. Seven new app scenarios pass; four fail on M685,
+and three controls pass there. Fast checks passed in 26.79 seconds. Full release
+m686a is running. Main still serves M685 until results and publication are verified.
+
 # Cozy Tavern: current handoff
 
 ## Current release: m685-001

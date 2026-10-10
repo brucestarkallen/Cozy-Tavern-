@@ -15251,5 +15251,133 @@ test('DOM-M685-1 the actual audit button restores lost identities, nearby presen
   }
 });
 
+
+async function autonomousLedgerFixture(run, { sourceRecovery = false, failFirst = 0, holdFirst = false } = {}) {
+  const { emptyState, saveState, loadState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { noteWorkerRun } = await import('../../js/agents/status.js');
+  const { pendingWork } = await import('../../js/agents/extractor.js');
+  const before = { story: await storyId(), worker: house.state.workerAnswer, source: house.state.sourcePeopleAnswer, audit: await db.settings.get('auditOn') };
+  const quote = 'Princess Alexia is the Second Princess and stands beside Jovan in the salon.';
+  const st = await db.stories.create({ title: 'M686 autonomous ledger repair' });
+  await db.stories.update(st.id, { keeper: false, continuity: false, extraction: true, world: false, audit: true });
+  await db.settings.set('auditOn', true);
+  await db.messages.append(st.id, { role: 'user', text: quote });
+  await db.messages.append(st.id, { role: 'assistant', text: '[the palace salon — Monday | 10:00]\n\nPrincess Alexia sits beside Jovan.' });
+  const state = applyMutations({ ...emptyState(), page: 0, readTo: 0 }, [
+    { type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the palace salon' },
+    { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Princess Alexia' },
+  ]).state;
+  if (!sourceRecovery) state.audit = { at: Date.now(), issues: [], unfinished: true, pending: ['Princess Alexia has no People identity.'], coverage: { read: 2, total: 2 } };
+  await saveState(st.id, state);
+  let calls = 0, restored = false;
+  let release = () => {};
+  house.state.sourcePeopleAnswer = (body, docs) => JSON.stringify({ checked: docs.map((d) => d.id), people: sourceRecovery ? docs.filter((d) => d.text.includes(quote)).map((d) => ({ name: 'Princess Alexia', source: d.id, shown: quote })) : [] });
+  house.state.workerAnswer = (body, sys) => {
+    if (/auditor of the ledger/i.test(sys)) {
+      calls++;
+      if (holdFirst && calls === 1) return new Promise((resolve) => { release = () => resolve('{"issues":[]}'); });
+      if (calls <= failFirst) throw new Error('fixture temporary provider outage');
+      if (sourceRecovery || restored) return '{"issues":[]}';
+      if (calls <= 8) return JSON.stringify({ issues: [{ what: 'Princess Alexia has no People identity.', mutations: [{ type: 'people.note', name: 'Princess Alexia', field: 'core', text: 'Second Princess.' }] }] });
+      restored = true;
+      return JSON.stringify({ issues: [{ what: 'Restore her established identity.', mutations: [{ type: 'people.set', name: 'Princess Alexia', field: 'core', text: 'Second Princess.' }] }] });
+    }
+    return before.worker(body, sys);
+  };
+  globalThis.__cozyLedgerRepairPauseMs = 20;
+  globalThis.__cozyLedgerRepairBackoffMs = 20;
+  const open = async () => { env.window.__cozy.setActiveStoryId(st.id); await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true }); };
+  try { await run({ id: st.id, open, load: () => loadState(st.id), calls: () => calls, release: () => release(), noteWorkerRun }); }
+  finally {
+    release();
+    await until(() => !env.ctx.chat.isBusy() && !env.ctx.chat.isReplaying(), 'the fixture turn settles', 10000);
+    await db.stories.update(st.id, { audit: false });
+    env.window.__cozy.setActiveStoryId(before.story);
+    await pendingWork(st.id, 10000);
+    const queue = await import('../../js/agents/queue.js');
+    await until(() => queue.queuedCount(st.id) === 0 && !queue.workIsRunning(st.id), 'the fixture readers settle', 10000);
+    house.state.workerAnswer = before.worker; house.state.sourcePeopleAnswer = before.source;
+    await db.settings.set('auditOn', before.audit);
+    delete globalThis.__cozyLedgerRepairPauseMs; delete globalThis.__cozyLedgerRepairBackoffMs;
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+  }
+}
+
+test('DOM-M686-1 opening an existing story recovers missing identities without an audit button or another turn', async () => {
+  await autonomousLedgerFixture(async ({ id, open, load }) => {
+    await open();
+    await until(async () => (await load()).characters['Princess Alexia']?.core.includes('Second Princess'), 'automatic original source recovery', 5000);
+    await until(async () => (await load()).audit?.unfinished === false, 'automatic audit finishes', 5000);
+    eq((await db.messages.list(id)).length, 2, 'recovery never generates a storyteller turn');
+  }, { sourceRecovery: true });
+});
+
+test('DOM-M686-2 unresolved repairs continue while idle until corrected, without a Finish it action', async () => {
+  await autonomousLedgerFixture(async ({ id, open, load, calls }) => {
+    await open();
+    await until(async () => Boolean((await load()).characters['Princess Alexia']), 'the fifth automatic repair pass restores her identity', 7000);
+    await until(async () => (await load()).audit?.unfinished === false, 'the repaired concern is closed', 5000);
+    assert(calls() >= 9, 'recovery has no three attempt abandonment limit');
+    const settled = calls(); await tick(650);
+    eq(calls(), settled, 'a completed repair stops asking');
+    eq((await db.messages.list(id)).length, 2, 'no new story turn or button was needed');
+  });
+});
+
+test('DOM-M686-3 a manual Stop remains stopped even with saved unresolved repairs', async () => {
+  await autonomousLedgerFixture(async ({ id, open, calls, noteWorkerRun }) => {
+    await noteWorkerRun(id, 'auditor', { ok: false, detail: 'stopped by hand' });
+    await open(); await tick(800);
+    eq(calls(), 0, 'autonomous recovery respects the writer stopping it');
+  });
+});
+
+test('DOM-M686-4 switching the auditor off suspends automatic repair', async () => {
+  await autonomousLedgerFixture(async ({ id, open, calls }) => {
+    await db.stories.update(id, { audit: false });
+    await open(); await tick(800);
+    eq(calls(), 0, 'the explicit story switch is respected');
+  });
+});
+
+
+test('DOM-M686-5 a temporary provider outage recovers while idle without another story turn', async () => {
+  await autonomousLedgerFixture(async ({ open, load, calls }) => {
+    await open();
+    await until(async () => calls() >= 3 && (await load()).audit?.unfinished === false, 'the automatic retry completes after the connection returns', 7000);
+    assert((await load()).characters['Princess Alexia'], 'source work survives the outage');
+  }, { sourceRecovery: true, failFirst: 2 });
+});
+
+
+test('DOM-M686-6 an automatic repair with a held model answer yields when the writer sends a new turn', async () => {
+  await autonomousLedgerFixture(async ({ id, open, calls, release, noteWorkerRun }) => {
+    await noteWorkerRun(id, 'auditor', { ok: true, unfinished: true, resume: 'auditNow', detail: 'restoring the missing identity' });
+    await open();
+    await until(() => calls() === 1, 'the automatic audit is reading', 5000);
+    if (q('#drawer').hidden) click(q('#btn-ledger'));
+    await env.ctx.drawer.renderAllRooms();
+    assert(!qa('#drawer .run-fix').some((b) => b.textContent === 'Finish it'), 'the auditor does not hand its recovery task to the writer');
+    assert(!q('#btn-ledger').classList.contains('all-well'), 'ongoing repair is not shown as completed');
+    if (!q('#drawer').hidden) click(q('#btn-drawer-close'));
+    const tells = house.state.calls.filter((c) => !c.isWorker).length;
+    type(q('#composer-input'), 'I open the letter.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(id)).filter((m) => m.role === 'assistant').length === 2, 'the new turn arrives while the old audit answer is still held', 6000);
+    eq(house.state.calls.filter((c) => !c.isWorker).length, tells + 1, 'one storyteller request, with no preliminary repair call blocking it');
+    release();
+  }, { sourceRecovery: true, holdFirst: true });
+});
+
+
+test('DOM-M686-7 autonomous recovery does not treat a stopped partial page as completed evidence', async () => {
+  await autonomousLedgerFixture(async ({ id, open, calls }) => {
+    const last = (await db.messages.list(id)).at(-1);
+    await db.messages.update(id, last.id, { stopped: true });
+    await open(); await tick(800);
+    eq(calls(), 0, 'the next completed scene owns the reading');
+  });
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

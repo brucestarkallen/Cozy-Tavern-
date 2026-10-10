@@ -1,3 +1,13 @@
+# M686: autonomous ledger recovery
+
+Detected ledger problems are work the application completes automatically. Opening
+an existing story starts original source recovery without an audit button. An
+unfinished audit or transient provider error schedules its next idle attempt from
+saved work, without another story turn and without a terminal retry count. Completed
+work stops retrying. Background recovery yields to storytelling, respects explicit
+Stop and disabled agents, and preserves concurrent source and ledger writes. Its
+status describes automatic repair rather than handing the writer a Finish it task.
+
 # M685: complete ledger audit recovery
 
 Jovan asked for a real audit across Scene, People, World and Books, especially the

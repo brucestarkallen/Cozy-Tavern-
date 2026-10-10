@@ -1,0 +1,80 @@
+{
+  "version": "m686-001",
+  "status": "verification_in_progress",
+  "baseline_commit": "8e3c46d3c236b4d9d0a958f2c1293a4131bf7d8b",
+  "new_dom_scenarios": {
+    "total": 7,
+    "baseline": {
+      "passed": 3,
+      "failed": 4,
+      "failures": [
+        "DOM-M686-1",
+        "DOM-M686-2",
+        "DOM-M686-5",
+        "DOM-M686-6"
+      ]
+    },
+    "fixed": {
+      "passed": 7,
+      "failed": 0
+    }
+  },
+  "fast": {
+    "profile": "fast",
+    "source_digest": "c12038ccad80b93c2548c4d3d43517e5227b12d69140bf9d8f0bb7f08157d0aa",
+    "runtime_digest": "093ca0464d99b7c780d25ea88393c4a90e3fe6a647d04a5be4847fd723b0b0bb",
+    "scope": "focused development checks",
+    "complete": true,
+    "checks": {
+      "harness": {
+        "exit": 0,
+        "seconds": 4.58,
+        "digest": "136e0de4e31a9ad324ca4c25dc02a67c67d39bc2db3db022280b609af6a2bf42",
+        "log": "/tmp/gates/m686fast_harness.log",
+        "reused": false
+      },
+      "walk": {
+        "exit": 0,
+        "seconds": 9.89,
+        "digest": "91d171bb6066412f66da264eb3d02ec3cc481c513d947d3a8edd03402de4b88d",
+        "log": "/tmp/gates/m686fast_walk.log",
+        "reused": false
+      },
+      "lint": {
+        "exit": 0,
+        "seconds": 4.05,
+        "digest": "174a8e11f847c841aafaee4991dbcbb7e3f2f2389b9489b4cdcb36b772edb9d4",
+        "log": "/tmp/gates/m686fast_lint.log",
+        "reused": false
+      },
+      "check_runner_unit": {
+        "exit": 0,
+        "seconds": 0.32,
+        "digest": "39fa92246e7af3d01ab03e114be1e78ec49c73e52d0e3055c9a4ec9cdfb25af5",
+        "log": "/tmp/gates/m686fast_check_runner_unit.log",
+        "reused": false
+      },
+      "boot_ready": {
+        "exit": 0,
+        "seconds": 6.35,
+        "digest": "0e3d60a0643b4498d16301216b9ee3476fe6323735d2f4ce5d3a1d8d9ece1309",
+        "log": "/tmp/gates/m686fast_boot_ready.log",
+        "reused": false
+      },
+      "academy_ui": {
+        "exit": 0,
+        "seconds": 8.21,
+        "digest": "dbb3422bbbaa083681e62daeed1a417c55eaab26941b2cd7d236b307d42a928f",
+        "log": "/tmp/gates/m686fast_academy_ui.log",
+        "reused": false
+      }
+    },
+    "source_unchanged_during_checks": true,
+    "seconds": 26.79
+  },
+  "release": {
+    "tag": "m686a",
+    "status": "running"
+  },
+  "model_calls": "Scripted providers only. No paid story model calls or real user story data."
+}

@@ -54,7 +54,7 @@ import { loadEssentials, recordOf } from '../agents/essentials.js'; /* M510-21: 
 import { loadPlansBook } from '../agents/plans.js'; /* M510-22: the plans, kept whole */
 import { flowOf, choicesOn } from '../agents/choices.js'; /* M548: the paths he took */
 import { loadMemory, saveMemory, orderedLines, visiblePages, windowFor } from '../agents/memory.js'; /* M101: the record, read and mended by hand */
-import { carriedBy, SEAT_MENTION_PAGES, auditLineWords } from '../agents/auditor.js'; /* M104: why each person is carried; M259: what a report line says */
+import { carriedBy, SEAT_MENTION_PAGES, auditLineWords, auditOn } from '../agents/auditor.js'; /* M104: why each person is carried; M259: what a report line says */
 import { pageText } from '../assemble/stack.js';
 import { withCardNames, cleanName } from '../assemble/voice.js'; /* M435 */
 import { mcName } from '../engine/duels.js'; /* M435: whose name {{user}} is */
@@ -2348,6 +2348,7 @@ function workersPanel(ctx) {
       return;
     }
     const shelf = await loadWorkerStatus(story.id);
+    const autoRepair = story.extraction !== false && await auditOn(story);
     /* M46: what is reading right now, first */
     const live = runningWorkers(story.id);
     for (const name of live) {
@@ -2391,12 +2392,12 @@ function workersPanel(ctx) {
       const when = fmtWhenWords(row.at);
       words.textContent = (WORKER_WORDS[name] || name) + ' ran ' + when
         + (!row.ok ? (' and stumbled — ' + (row.why || 'stumbled') + '.')
-          : row.unfinished ? (' and stopped partway' + (row.detail ? ' — ' + row.detail : '') + '.')
+          : row.unfinished ? ((name === 'auditor' && autoRepair ? ' and is continuing its repairs automatically' : ' and stopped partway') + (row.detail ? ' — ' + row.detail : '') + '.')
             : (' and it went well' + (row.detail ? ' — ' + row.detail : '') + '.'));
       li.appendChild(words);
       /* M248: and the way to finish it, one tap — or none at all, if the
        * house is set to carry on by itself. */
-      if (row.unfinished && row.resume && ctx.chat && typeof ctx.chat[row.resume] === 'function') {
+      if (name !== 'auditor' && row.unfinished && row.resume && ctx.chat && typeof ctx.chat[row.resume] === 'function') {
         const fix = document.createElement('button');
         fix.type = 'button';
         fix.className = 'text-btn run-fix';

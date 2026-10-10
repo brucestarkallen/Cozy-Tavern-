@@ -1589,7 +1589,7 @@ export function initChat(ctx) {
           let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story), reviewSources: 'next' });
           if (result && !stale()) result = await finishLedgerAudit(story, connection, result, { signal, stale, renew });
           if (signal?.aborted) throw signal.reason || new Error('timeout');
-          return { silent: false, detail: auditRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.unfinished), resume: result?.unfinished ? 'auditNow' : '' };
+          return { silent: false, detail: auditRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.unfinished) };
         }, () => false) });
         noteWork(story.id, promise);
       }
@@ -2859,6 +2859,7 @@ export function initChat(ctx) {
       let unfoldedForGood = false; /* M675: pages past the window that no one will fold — this tale's keeper is off */
       let told = 0;
       let newestPageAt = 0;
+      let repairOwed = false;
       let auditRead = null; /* M673: how far the continuous audit has read, when it is on */
       try {
         const pages = visiblePages(await db.messages.list(storyId));
@@ -2882,6 +2883,7 @@ export function initChat(ctx) {
          * its window), and because a tale that is "behind" is left to its fillers first, the continuous audit never read
          * on while the house was idle there (found by the walk: DOM-257, after a scenario that left a short window). */
         const tale = await db.stories.get(storyId);
+        repairOwed = told > 0 && !assistants[assistants.length - 1]?.stopped && Boolean(pageText(assistants[assistants.length - 1]).trim()) && tale?.extraction !== false && await auditOn(tale) && ledgerRepairNeeded(st, shelf);
         recordBehind = Boolean(dueRange(pages.length, window, mem.nodes, batch));
         if (recordBehind && !(await keeperOnFor(tale))) { recordBehind = false; unfoldedForGood = true; }
         behind = ledgerBehind || recordBehind;
@@ -2909,7 +2911,7 @@ export function initChat(ctx) {
        * So the light answers the question he actually asked: is it done? */
       const busy = runningWorkers(storyId).length > 0 || queuedCount(storyId) > 0;
       const allWell = !busy && !trouble && !partly && !behind && ran > 0 && told > 0;
-      const allWellNow = allWell && !guards.length; /* M668: …and neither of the two that check the others failed on the newest page */
+      const allWellNow = allWell && !guards.length && !repairOwed; /* M668: …and neither of the two that check the others failed on the newest page */
 
       /* M483: THE LIGHT IS NEVER SIMPLY GONE. Behind with nothing running — the readers held off for another hand at
        * this tale, or waiting out a failed try — showed no light at all, and the writer refreshed the page to find out.
@@ -2930,7 +2932,7 @@ export function initChat(ctx) {
       const sceneBusy = busy && !auditing;
       const auditSore = Boolean(auditRead && auditRead.left > 0 && shelf.continuous && shelf.continuous.ok === false && shelf.continuous.detail !== 'stopped by hand');
       const watched = guards.length > 0 || auditSore;
-      const sceneWell = auditing && !trouble && !partly && !watched && !behind && ran > 0 && told > 0;
+      const sceneWell = auditing && !trouble && !partly && !watched && !behind && !repairOwed && ran > 0 && told > 0;
       const sceneWaiting = auditing && !trouble && !partly && !watched && behind && told > 0;
       const wellNow = (allWellNow && !auditSore) || sceneWell;
       const waitingNow = (waiting && !auditSore) || sceneWaiting;
@@ -2953,7 +2955,7 @@ export function initChat(ctx) {
         : partly ? 'The ledger — ' + part.join(', ') + ' stopped partway; it will carry on by itself'
           : wellNow ? (unfoldedForGood ? 'The ledger — everything is read. The record keeper is switched off for this story, so its older pages are not folded. Nothing is waiting. Write on.' : 'The ledger — everything is read and folded. Nothing is waiting. Write on.')
             : waitingNow ? 'The ledger — waiting: ' + (waitingWhy || (ledgerBehind ? 'the last pages are not read into the ledger yet — the readers go at them when the house is idle' : 'a gap in the record is waiting for the keeper — it folds when the house is idle'))
-              : 'The ledger — the house’s memory of the scene and the world');
+              : repairOwed ? 'The ledger is repairing itself. It carries on automatically.' : 'The ledger — the house’s memory of the scene and the world');
       btn.setAttribute('title', auditWords ? lampWords.replace(/[.\s]*$/, '.') + auditWords : lampWords);
       ledgerMark = sceneBusy ? 'working' : (trouble || watched) ? 'trouble' : partly ? 'partly' : wellNow ? 'well' : waitingNow ? 'waiting' : null;
       /* M275: THE HOUSE FILLS WHAT THE LIGHT SEES. A gap in the record (a line
@@ -2964,6 +2966,7 @@ export function initChat(ctx) {
       if (recordBehind && !busy && !trouble) fillRecordGap(storyId);
       /* M276: and the pages the ledger never read are read while the house is idle */
       if (ledgerBehind && !busy && !trouble) fillLedgerGap(storyId);
+      if (repairOwed && !busy && !behind) scheduleLedgerRepair(storyId);
       /* M673: and the continuous audit reads its next stretch of folded pages */
       if (auditRead && auditRead.left > 0 && !busy && !trouble && !behind) continuousCatchUp(storyId);
     } catch (err) { /* a mark is never worth a thrown turn */ }
@@ -3248,6 +3251,77 @@ export function initChat(ctx) {
    * is running, the next reading is sent by itself -- one at a time, a breath between them, each in the readers' own
    * queue (so it never writes the ledger beside another reader) -- until every folded page is read. A reading that
    * fails waits a minute, two, four ... thirty at most before the next try. */
+  /* M686: unresolved audit work belongs to the house. Each idle pass uses
+   * current sources, yields to a new turn, and schedules its own next look.
+   * Saved reports and source coverage resume the loop after reopening. */
+  const ledgerRepairTimers = new Map();
+  const ledgerRepairActive = new Set();
+  const ledgerRepairTries = new Map();
+  const repairPause = () => Number(globalThis.__cozyLedgerRepairPauseMs) > 0 ? Number(globalThis.__cozyLedgerRepairPauseMs) : 15000;
+  const repairBackoff = () => Number(globalThis.__cozyLedgerRepairBackoffMs) > 0 ? Number(globalThis.__cozyLedgerRepairBackoffMs) : 60000;
+  function ledgerRepairNeeded(state, shelf) {
+    if ([shelf.auditor, shelf.world].some((r) => r?.detail === 'stopped by hand')) return false;
+    const audit = state?.audit;
+    return !audit?.coverage || audit.coverage.read < audit.coverage.total
+      || Boolean(audit.unfinished || audit.pending?.length || shelf.auditor?.ok === false || shelf.auditor?.unfinished);
+  }
+  function scheduleLedgerRepair(storyId, delay = repairPause()) {
+    if (!storyId || ledgerRepairTimers.has(storyId) || ledgerRepairActive.has(storyId)) return;
+    ledgerRepairTimers.set(storyId, setTimeout(async () => {
+      ledgerRepairTimers.delete(storyId);
+      if (ctx.getActiveStoryId() !== storyId) return;
+      ledgerRepairActive.add(storyId);
+      let again = false, nextDelay = repairPause();
+      try {
+        const story = await db.stories.get(storyId);
+        if (!story || story.extraction === false || !(await auditOn(story))) return;
+        const latest = [...visiblePages(await db.messages.list(storyId))].reverse().find((m) => m.role === 'assistant');
+        if (!latest || latest.stopped || !pageText(latest).trim()) return;
+        const before = await loadState(storyId);
+        if (!ledgerRepairNeeded(before, await loadWorkerStatus(storyId))) { ledgerRepairTries.delete(storyId); return; }
+        if (busy || isReplaying() || readersOut(storyId) || workIsRunning(storyId) || queuedCount(storyId) > 0 || otherHandAt(storyId)) { again = true; return; }
+        const connection = await resolveWorkerConnection(story, 'auditor');
+        if (!connection) { again = true; nextDelay = repairBackoff(); return; }
+        if (ctx.getActiveStoryId() !== storyId || busy || isReplaying() || workIsRunning(storyId) || queuedCount(storyId) > 0) { again = true; return; }
+        const gen = chainGen.get(storyId) || 0;
+        const promise = enqueueWork(storyId, { name: 'auditor', once: true, run: chainJob(async ({ signal, stale, renew }) => {
+          const own = beginReading(storyId, signal);
+          const moved = () => stale() || busy || isReplaying() || ctx.getActiveStoryId() !== storyId;
+          try {
+            let result = await auditLedger({ connection, storyId, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal: own.signal, stale: moved, renew, canonRecord: await canonRecordOf(story), reviewSources: 'all' });
+            if (result && !moved()) result = await finishLedgerAudit(story, connection, result, { signal: own.signal, stale: moved, renew });
+            if (own.signal.aborted) throw own.signal.reason || new Error('timeout');
+            if (!result || moved()) return { silent: true };
+            return { silent: false, detail: auditRunWords(result), raw: result.raw, unfinished: Boolean(result.unfinished) };
+          } catch (err) {
+            if (own.signal.aborted && !signal.aborted) return { silent: true };
+            throw err;
+          } finally { endReading(storyId, own); }
+        }, () => (chainGen.get(storyId) || 0) !== gen) });
+        noteWork(storyId, promise);
+        const run = await promise;
+        if (run.stopped) return;
+        const after = await loadState(storyId);
+        again = ledgerRepairNeeded(after, await loadWorkerStatus(storyId));
+        if (again) {
+          const progress = (after.audit?.coverage?.read || 0) > (before.audit?.coverage?.read || 0)
+            || Object.keys(after.characters || {}).length > Object.keys(before.characters || {}).length
+            || (after.audit?.pending?.length || 0) < (before.audit?.pending?.length || 0);
+          const tries = progress ? 0 : Math.min(4, (ledgerRepairTries.get(storyId) || 0) + 1);
+          ledgerRepairTries.set(storyId, tries);
+          nextDelay = progress ? repairPause() : Math.min(5 * 60000, repairBackoff() * 2 ** Math.max(0, tries - 1));
+        } else ledgerRepairTries.delete(storyId);
+      } catch (err) { again = true; nextDelay = repairBackoff(); }
+      finally {
+        ledgerRepairActive.delete(storyId);
+        if (ctx.getActiveStoryId() === storyId) {
+          if (again) scheduleLedgerRepair(storyId, nextDelay);
+          markLedgerTrouble(storyId);
+        }
+      }
+    }, delay));
+  }
+
   const continuousPauseMs = () => (Number(globalThis.__cozyContinuousPauseMs) > 0 ? Number(globalThis.__cozyContinuousPauseMs) : 1500);
   const continuousAt = new Map();
   const continuousFails = new Map();
@@ -3552,7 +3626,7 @@ export function initChat(ctx) {
     result = await resolveBriefWins(story, connection, result, signal, renew);
     if (!result || stale() || signal?.aborted) return result;
     const currentStory = await db.stories.get(story.id);
-    if (!currentStory) return result;
+    if (!currentStory || !(await worldAgentOn(currentStory))) return result;
     const castNames = await castNamesFor(currentStory);
     const coverage = { material: (currentStory.brief || '') + '\n' + (currentStory.castNotes || ''), castNames };
     const owed = worldOwed(await loadState(story.id), coverage);
@@ -3585,6 +3659,7 @@ export function initChat(ctx) {
     if (stale() || signal?.aborted) return result;
     const fresh = await loadState(story.id);
     const pendingWorld = worldOwed(fresh, coverage).map((name) => name + ' still needs a current world review');
+    if (worldResult && fresh.audit?.at === result.reportAt) await noteWorkerRun(story.id, 'world', { ok: worldResult.note === 'ok', detail: worldRunWords(worldResult), raw: worldResult.raw, unfinished: pendingWorld.length > 0 });
     const pending = [...new Set([...(result.pending || []), ...pendingWorld])];
     result = { ...result, pending, unfinished: pending.length > 0,
       ...(worldResult ? { raw: (result.raw || '') + '\n\nWorld recovery:\n' + (worldResult.raw || '') } : {}) };
@@ -4246,7 +4321,7 @@ export function initChat(ctx) {
       let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story), reviewSources: 'all' });
       if (result && !stale()) result = await finishLedgerAudit(story, connection, result, { signal, stale, renew });
       if (signal?.aborted) throw signal.reason || new Error('timeout');
-      return { silent: false, detail: auditRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.unfinished), resume: result?.unfinished ? 'auditNow' : '' };
+      return { silent: false, detail: auditRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.unfinished) };
     } });
     noteWork(story.id, promise);
     banner.say('reading the whole ledger');
@@ -5190,7 +5265,7 @@ export function initChat(ctx) {
       let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story), reviewSources: 'next' });
       if (result && !stale()) result = await finishLedgerAudit(story, connection, result, { signal, stale, renew });
       if (signal?.aborted) throw signal.reason || new Error('timeout');
-      return { silent: false, detail: auditRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.unfinished), resume: result?.unfinished ? 'auditNow' : '' };
+      return { silent: false, detail: auditRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.unfinished) };
     });
 
     /* 4a''. M673: THE CONTINUOUS AUDIT -- the oldest record line it has not read: its pages, whole, against the story
