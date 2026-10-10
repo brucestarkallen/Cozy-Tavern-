@@ -223,3 +223,8 @@ test('M684-21 identity validation preserves the main character introduced by the
   const next = applyMutations(emptyState(), r.mutations).state;
   assert(next.present.some((p) => p.name === 'Jovan') && next.present.some((p) => p.name === 'Liara'), 'the main character’s own identity and the sourced companion both remain');
 });
+
+test('M684-22 a name established in the recent pages remains available when the current turn uses pronouns', async () => {
+  const r = await wire({ mutations: [{ type: 'presence.enter', name: 'Mira Grey' }, { type: 'mode.snapshot', flags: [] }] }, () => extractTurn({ connection, state: base(), userText: 'I offer her a chair.', assistantText: 'She sits beside him in the salon.', before: [{ role: 'assistant', text: 'Mira Grey introduced herself at the salon door.' }], founding: false }));
+  assert(applyMutations(base(), r.mutations).state.present.some((p) => p.name === 'Mira Grey'), 'the identity already shown to the reader is grounded');
+});

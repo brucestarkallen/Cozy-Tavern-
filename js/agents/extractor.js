@@ -897,7 +897,8 @@ export async function extractTurn(args = {}) {
   const turnScene = scenePartOf(args.userText) + '\n\n' + scenePartOf(args.assistantText);
   const groundNames = () => {
     if (!read?.mutations || !args.state) return;
-    const material = [args.brief, args.castNotes, args.record, args.userText, args.assistantText].join('\n');
+    const recent = (Array.isArray(args.before) ? args.before : []).filter((p) => p && !p.aside && !p.ooc).map((p) => p.text || '');
+    const material = [args.brief, args.castNotes, args.record, ...recent, args.userText, args.assistantText].join('\n');
     const known = [...Object.keys(args.state.characters || {}), ...Object.keys(args.state.offscreen || {}), ...(args.state.present || []).map((p) => p.name), ...read.mutations.filter((m) => m.type === 'mc.set' && typeof m.name === 'string').map((m) => m.name)];
     const grounded = (name) => isMc(args.state, name) || known.some((n) => samePersonName(n, name)) || exactNameIn(material, name);
     const rejectedNames = [...(read.rejectedNames || [])];

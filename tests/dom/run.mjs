@@ -6688,6 +6688,7 @@ test('DOM-127 A BRANCH WHILE THE READERS ARE STILL ON THE NEWEST PAGE: the branc
   const priorStory = house.state.storyAnswer; const priorWorker = house.state.workerAnswer;
   if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
   const st = await db.stories.create({ title: 'branch while reading' });
+  await db.stories.update(st.id, { brief: 'Ghost and Lin are two guards at the hall.' });
   await db.messages.append(st.id, { role: 'user', text: 'We wait in the hall.' });
   await db.messages.append(st.id, { role: 'assistant', text: H + 'The hall was cold and nobody spoke.' });
   env.window.__cozy.setActiveStoryId(st.id);
@@ -8184,7 +8185,7 @@ test('DOM-234 A STANDING THE OPENING DID NOT WRITE IS WRITTEN BY THE NEXT PAGE (
   await env.window.__cozy.chat.renderThread({ structural: true });
   const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
   let pages = 0; const askedOn = [];
-  house.state.storyAnswer = () => { pages += 1; return '[The ramen stall — Monday, December 4, 2018 | 12:' + (10 + pages) + ' | cold | haori | at the counter]\n\n' + (pages === 1 ? 'Jovan sat down beside Yuki at the counter.' : 'Yuki pushed her bowl across to him. “Eat. You look like death.”'); };
+  house.state.storyAnswer = () => { pages += 1; return '[The ramen stall — Monday, December 4, 2018 | 12:' + (10 + pages) + ' | cold | haori | at the counter]\n\n' + (pages === 1 ? 'Jovan sat down beside Yuki Tsukumo at the counter.' : 'Yuki pushed her bowl across to him. “Eat. You look like death.”'); };
   house.state.workerAnswer = (body, sys) => {
     const said = String((body.messages || []).map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n'));
     /* the opening's reader founds the room and writes NO standing — as his reader did */
@@ -8937,7 +8938,7 @@ test('DOM-244 TRY AGAIN LOSES NOTHING (M674 — his: “How about this? … ‘T
       if (/keep the ledger/i.test(sys) && /I knock again\./.test(user)) return JSON.stringify({ mutations: [{ type: 'presence.enter', name: 'Zed', position: 'at the gate' }] });
       return walkDefaultWorker(body, sys);
     };
-    type(q('#composer-input'), 'I knock again.'); submit(q('#composer'));
+    type(q('#composer-input'), 'I knock again. Zed opens the gate and stands beside me.'); submit(q('#composer'));
     await until(async () => (await told()).length === 2 && !env.ctx.chat.isBusy(), 'a second page again', 40000); await rest();
     house.state.workerAnswer = prior.worker;
     assert((await here()).includes('Zed'), 'fixture: the page after the answer brought Zed in: ' + (await here()).join(', '));
@@ -9867,7 +9868,7 @@ test('DOM-255 NO PAGE IS READ TWICE FOR A RETRY, AN EDIT OR A PAGE LET GO (M675 
       }
       return '{"mutations":[],"deltas":[],"findings":[],"issues":[],"brief":{"pressure":[],"ripe":[],"twb":null}}';
     };
-    house.state.storyAnswer = () => '[The hall — Monday, March 3, 2025 | 09:0' + n + ' | clear | coat | by the door]\n\nPAGE-' + n + '-V' + v + ' the hall was quiet.';
+    house.state.storyAnswer = () => '[The hall — Monday, March 3, 2025 | 09:0' + n + ' | clear | coat | by the door]\n\nPAGE-' + n + '-V' + v + ' the hall was quiet. Guest' + n + ' arrived and waited by the door.';
     for (n = 1; n <= 6; n += 1) {
       type(q('#composer-input'), 'Move ' + n + '.'); submit(q('#composer'));
       await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === n && !env.ctx.chat.isBusy(), 'page ' + n, 40000);
