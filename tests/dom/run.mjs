@@ -8037,7 +8037,10 @@ test('DOM-184 HE REWRITES AN OLDER PAGE BY HAND (M528 — the deep audit): the p
     click(q('.edit-row button:not(.text-btn)', a));
     await until(() => !q('.edit-box', a) || !a.isConnected, 'the page re-inked');
     const book = await db.settings.get(PLANS_KEY(st.id));
-    eq(book.readTo, 2, 'the plans keeper\'s reading went back to the edited page (the page before it)');
+    /* M681 (B6): the edited page alone is read again — the reading is no longer sent back to it (that let go of every plan
+     * the pages after it had laid out) */
+    eq((book.again || []).join(','), '3', 'the plans keeper owes the edited page a reading');
+    eq(book.readTo, 7, 'and the pages after it stay read');
     await until(() => world >= 1, 'the world looked again at what the rewritten page changed', 40000);
     await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the readers settled', 40000);
     assert(/Kenjaku lives/.test(JSON.stringify(await db.settings.get(GROUND_KEY(st.id)))), 'and the world says what the page now says');
