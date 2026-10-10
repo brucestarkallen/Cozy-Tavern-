@@ -580,9 +580,16 @@ export function initChat(ctx) {
     if (!keepActive) {
       const id = ctx.getActiveStoryId();
       if (!id || !stories.some((s) => s.id === id)) {
-        /* M22-E2: a resting tale never takes the stage on its own. */
-        const firstWaking = stories.find((s) => s.archived !== true);
-        ctx.setActiveStoryId(firstWaking ? firstWaking.id : null);
+        /* M681 — THE OPEN TALE IS JUDGED BY THE STORE AS IT IS NOW, NOT BY THE LIST READ BEFORE THE WAITS ABOVE (walk DOM-314;
+         * found running down DOM-263): a tale made and opened while this shelf was being read (right after a tale was let
+         * go, a new tale begun) was not in that list, so the open tale was "put right" to the first one on the shelf, and the
+         * next page he sent was told into another tale. Only a tale that truly is gone gives the stage away. */
+        const live = id ? await db.stories.get(id).catch(() => null) : null;
+        if (!(live && !(live.building && typeof live.building === 'object')) && ctx.getActiveStoryId() === id) {
+          /* M22-E2: a resting tale never takes the stage on its own. */
+          const firstWaking = stories.find((s) => s.archived !== true);
+          ctx.setActiveStoryId(firstWaking ? firstWaking.id : null);
+        }
       }
     }
     renderStoryList();

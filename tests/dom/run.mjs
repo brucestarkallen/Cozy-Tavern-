@@ -14962,5 +14962,34 @@ test('DOM-313 HIS WORDS PUT BACK OVER A MEND ARE READ AGAIN BY THE PLANS KEEPER 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-314 A TALE OPENED WHILE THE SHELF IS BEING READ STAYS OPEN (M681 — found running down walk DOM-263, red once in a full walk): the shelf read its list of tales, waited on its other reads, and then judged the open tale against that list — a tale made and opened in between was not in it, so the shelf "put right" the open tale to the first one on it, and the next page he sent was told into another tale', async () => {
+  const before = errors.length;
+  const was = env.window.__cozy.getActiveStoryId();
+  const a = await db.stories.create({ title: 'the tale that was open' });
+  env.window.__cozy.setActiveStoryId(a.id);
+  await env.ctx.chat.refreshStories(true);
+  const realList = db.projects.list;
+  let release = null; const gate = new Promise((r) => { release = r; });
+  let reached = false;
+  db.projects.list = async (...args) => { reached = true; await gate; return realList.apply(db.projects, args); };
+  let b = null;
+  try {
+    const refresh = env.ctx.chat.refreshStories(); /* not kept: it judges the open tale when its reads are done */
+    await until(() => reached, 'the shelf read its list of tales and waits on its next read');
+    b = await db.stories.create({ title: 'opened while the shelf was read' });
+    env.window.__cozy.setActiveStoryId(b.id);
+    release();
+    await refresh;
+    eq(env.window.__cozy.getActiveStoryId(), b.id, 'the tale he opened is still the open tale');
+  } finally {
+    db.projects.list = realList;
+    if (release) release();
+    for (const st of [a, b]) if (st) await db.stories.remove(st.id).catch(() => {});
+    env.window.__cozy.setActiveStoryId(was);
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

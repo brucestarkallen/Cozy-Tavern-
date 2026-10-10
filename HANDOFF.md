@@ -13,6 +13,10 @@
 - Canon's dossier voice quotes are not read through his story's lens: fixed in the Canon Verification extension as
   v0.68.2 (gated; not pushed — another repo needs his word). Then vendor (tools/vendor-canon.py) and judge dossier.voice
   in js/agents/canonlens.js.
+- perf_academy (browser gate): the page reloads itself mid-test about one run in ten (main and M681 alike); 46
+  instrumented runs reproduced it once, with no navigation event, no crash and no stale/409 answer recorded before the
+  context died — instrumenting fetch/EventSource hid it (20/20 green). Its welcome busy budget (+120 ms over Lamplight)
+  sits on this host's per-frame noise. Both open; neither is M680's or M681's.
 - Found, not fixed: the page reader keeps a cut answer's salvaged writes as "ok" with no re-ask; M244's half-batch line is
   checked against the whole batch's passage; mem.stuck.at is not rebased on a delete/fold; "Put the earlier words back"
   does not let the record line over the page go; taking back a fight by hand (combat.restore) puts the whole sheet back,

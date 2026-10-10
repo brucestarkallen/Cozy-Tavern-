@@ -18125,6 +18125,18 @@ THE BOOKS, CONTINUED
   M681-75…77; also a deleted page's plans). A BELIEF GOES WHEN THE TRUTH IS LEARNED (B3, M681-70). A PAGE COVERED WITHOUT
   WORDS IS ASKED AGAIN (B4, M681-74). THE KEEPER SAYS WHY IT FOLDED NOTHING (B5, DOM-312). THE SECOND READER SEES HIS DRESS
   AND PLACE FOR THE HEADER (B7, M681-71). THE WHOLE RE-ASK IS KEPT — the keeper's and the scribe's (B10, M681-72/73).
+FOUND BY THE GATES ON M681 (each was red on m680-001 too, made to happen there under a loaded CPU, and fixed at its root):
+- A COPY BROUGHT BACK WHILE TALES KEEP WRITING IS HELD STILL, NEVER REFUSED (serve.py; device_guard scene 9: main 2 of 5
+  red under load, fixed 5 of 5): after two tries the safety copy is taken with the write locks held and the swap follows
+  in the same hold (_log_lock/_sent_lock re-entrant for that one caller); no page written meanwhile is lost — the law
+  that required a refusal now holds the real invariant (every such page is in the copy kept first).
+- A TALE OPENED WHILE THE SHELF IS BEING READ STAYS OPEN (chat.js refreshStories; walk DOM-314, found running down DOM-263
+  — main 1 of 3 red under load, fixed 6 of 6): the shelf judged the open tale against the list it read before its other
+  reads, and "put right" a tale made and opened meanwhile to the first one on the shelf — his next page went to another
+  tale. The open tale is judged by the store as it is now.
+- NOT FOUND: perf_academy's page reloads itself about one run in ten, on main and M681 alike (46 instrumented runs, one
+  hit: no navigation event, no crash, no stale answer before the context died); its welcome-screen busy budget sits on
+  this host's per-frame noise (55–135 ms against +120 ms; the coat paints and styles nothing). Open in HANDOFF.
 TESTS CHANGED, AND WHY: M100's mood line and M251's two literals read source text — they run the door now or point to
 DOM-277; M40-1's literal follows the version walk's withStoryWrites; M528-1 and DOM-184 asked for the plans rewind B6
 removed; M680-14's fixture was stamped with the page being read (it claimed this page's reader seated Aunt Vera);
