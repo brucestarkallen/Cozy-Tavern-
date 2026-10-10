@@ -2687,15 +2687,18 @@ export async function applyProposal(session, storyId, proposalId) {
     /* M100: a page edit that landed carries what it changed, so the house can
      * ripple it — before text from the batch, after text from the store */
     const edited = [];
+    const folded = []; /* M681 (the books audit's B2): a page folded away or brought back — the house moves what it keeps of the story with it */
     for (const it of batch.items) {
       if (it.kind !== 'message' || !it.messageId || !it.before || typeof it.before.text !== 'string') continue;
       const now = (await db.messages.list(storyId)).find((m) => m && m.id === it.messageId);
       if (now && typeof now.text === 'string' && now.text !== it.before.text) edited.push({ messageId: it.messageId, before: it.before.text, after: now.text });
+      if (now && (now.hidden === true) !== (it.before.hidden === true)) folded.push({ messageId: it.messageId, hidden: now.hidden === true });
     }
     return {
       ok: true,
       words: result.words,
       edited,
+      folded,
       touched: {
         messages: batch.items.some((i) => i.kind === 'message'),
         state: batch.items.some((i) => i.kind === 'ledger'),
@@ -2727,12 +2730,14 @@ export async function applyAllPending(session, storyId) {
   let any = false;
   const edited = [];
   const missed = [];
+  const flips = new Map(); /* M681 (B2): each page once, as it stands at the end — folded and brought back again is no change */
   for (const p of pending) {
     const result = await applyProposal(session, storyId, p.id);
     if (result.ok) {
       any = true;
       if (p.missed) missed.push(p);
       if (Array.isArray(result.edited)) edited.push(...result.edited);
+      for (const f of (Array.isArray(result.folded) ? result.folded : [])) { if (flips.has(f.messageId)) flips.delete(f.messageId); else flips.set(f.messageId, f); }
       if (result.touched) {
         touched.messages = touched.messages || result.touched.messages;
         touched.state = touched.state || result.touched.state;
@@ -2743,7 +2748,7 @@ export async function applyAllPending(session, storyId) {
     }
     if (result.words) words.push(result.words);
   }
-  return { ok: any, words: words.join(' '), touched, count: pending.length, edited, missed };
+  return { ok: any, words: words.join(' '), touched, count: pending.length, edited, missed, folded: [...flips.values()] };
 }
 
 /* ---------- drift-guarded undo ---------- */
@@ -2760,6 +2765,7 @@ export async function undoLatest(session, storyId) {
 
   const all = await db.messages.list(storyId);
   const edited = []; /* M296: the pages put back, for the room to read again */
+  const flipped = []; /* M681 (B2): a fold taken back brings the page back to the story (and the other way round) */
   for (const item of batch.items) {
     if (item.kind === 'message') {
       const msg = all.find((m) => m && m.id === item.messageId);
@@ -2825,6 +2831,7 @@ export async function undoLatest(session, storyId) {
       const folded = Boolean(item.before && item.before.hidden === true); /* was it folded away before the card? */
       await db.messages.update(storyId, item.messageId, { ...words, ...(Boolean(was && was.hidden === true) !== folded ? { hidden: folded } : {}) });
       if (was && typeof item.before.text === 'string' && was.text !== item.before.text) edited.push({ messageId: item.messageId, before: was.text, after: item.before.text }); /* M296 */
+      if (was && (was.hidden === true) !== folded) flipped.push({ messageId: item.messageId, hidden: folded }); /* M681 (B2) */
     } else if (item.kind === 'module') {
       if (item.beforeRow) await saveModule(item.beforeRow);
       else await removeModule(item.moduleId); // lifts the fork; a builtin returns
@@ -2862,7 +2869,7 @@ export async function undoLatest(session, storyId) {
     }
   }
   batch.undone = true;
-  return { ok: true, words: 'Taken back — ' + batch.label + '.', edited };
+  return { ok: true, words: 'Taken back — ' + batch.label + '.', edited, folded: flipped };
 }
 
 /* ---------- the model call (worker connection, off the story path) ---------- */

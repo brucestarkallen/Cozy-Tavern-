@@ -76,7 +76,7 @@ import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob, workOut } 
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet, refereeWhyWords, gatePasses, seenAndLeftOff, refereeBase, refereeOnto } from '../agents/referee.js'; /* M531: the referee's own gate decides when fighters are weighed first; M680: its writes laid onto the ledger as it stands */
-import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom, putBackMistakenMends, fixedCharsOf, keeperOnFor } from '../agents/memory.js';
+import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryAfterInsertion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom, putBackMistakenMends, fixedCharsOf, keeperOnFor } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord, againstTheBrief } from '../agents/ripple.js'; /* M100: the ripple */
@@ -96,7 +96,7 @@ import { throughLens, overlayFor } from '../agents/canonlens.js'; /* M549: the w
 import { wikiMaterial, worldClaims, worldWithout, claimsPrint, checkClaims } from '../agents/canoncheck.js'; /* M551: one check for what a helper wrote from memory */
 import { GROUND_RULES } from '../agents/worldground.js'; /* M549 */
 import { choicesOn, choiceAsk, makeChoices, offerOf, offerPatch, openOffer, takenRecord, takenOf, echoLines, echoesText, versionOf, CHOICE_PAGES } from '../agents/choices.js'; /* M548: Choices matter */
-import { runPlans, loadPlansBook, pageRewritten } from '../agents/plans.js'; /* M510-22: the plans, kept whole until carried out; M528: a rewritten page read again */
+import { runPlans, loadPlansBook, pageRewritten, pageLeft, pageCameBack } from '../agents/plans.js'; /* M510-22: the plans, kept whole until carried out; M528: a rewritten page read again; M681 (B2): a page that leaves or comes back */
 import { lastPagesOf, SMALL_PAGES } from '../assemble/stack.js'; /* M510 */
 import { voiceSampleOf, pageTexture, tooLoud as tooLoudNow } from '../assemble/smallprose.js'; /* M512: how the story sounds at its best, for a small storyteller; M519: the brake on sounds and dashes */
 import { CANON_START_KEY, placeInCanon, canonStartWords, checkCanonStart, applyStartCheck, startCheckPrint } from '../agents/canonstart.js'; /* M516: where our story began in its canon; M550: checked against the wiki */
@@ -3083,6 +3083,7 @@ export function initChat(ctx) {
     } else writes = pageWrites(older, missed, back.mutations, k).list; /* M681 (S3): the newest page read late — its header too, as its own chain would */
     const done = applyMutations(older, writes);
     done.state.page = stampWas; /* the stamp is the turn's, not this old page's */
+    if (!outOfTurn && writes.some((m) => m && m.type === 'mode.snapshot')) done.state.moodAt = k; /* M681 (S13): the newest page's board, stated by its reader */
     markPageRead(done.state, k);
     await saveState(story.id, done.state);
     notify(story.id);
@@ -4191,8 +4192,8 @@ export function initChat(ctx) {
     if (!(await refereeSettings()).on) { banner.failed('The referee is off — the sheet is the referee’s'); return false; }
     const connection = await resolveWorkerConnection(story, 'referee');
     if (!connection) { banner.failed('The referee needs a connection first'); return false; }
-    const promise = enqueueWork(story.id, { name: 'seeder', run: async ({ signal, renew }) => {
-      const result = await maybeSeedSheet({ connection, storyId: story.id, signal, renew, force: true, brief: story.brief || '', castNotes: story.castNotes || '' });
+    const promise = enqueueWork(story.id, { name: 'seeder', run: async ({ signal, renew, stale }) => {
+      const result = await maybeSeedSheet({ connection, storyId: story.id, signal, renew, stale, force: true, brief: story.brief || '', castNotes: story.castNotes || '' }); /* M681 (S8): its writes ask stale() too */
       return { silent: false, detail: result && result.ok ? 'the cast weighed again — ' + (result.touched || 0) + ' considered' : 'the weighing brought nothing usable' };
     } });
     noteWork(story.id, promise);
@@ -4377,6 +4378,7 @@ export function initChat(ctx) {
       /* (M675, the second reading: both halves now live where every such moment can use them — memory.js
        * memoryWithoutPage keeps his line, keeperOnFor says whether anyone will fold the hole) */
       if (k !== -1 && (await keeperOnFor(await db.stories.get(storyId)))) await saveMemory(storyId, memoryWithoutPage(await loadMemory(storyId), k));
+      if (k !== -1) await pageRewritten(storyId, k); /* M681 (B1's pattern): the plans keeper reads the mended words again (a page not read yet is read in its turn) */
     } catch (err) { /* the keeper's next pass covers the hole anyway */ }
     await rerenderMessage(storyId, page.id);
     return true;
@@ -4434,6 +4436,8 @@ export function initChat(ctx) {
      * page alone while it still reads them; a new version of it (a swipe, an edit) is his to have mended again. */
     const patch = shownTextPatch(page, page.mended.before, { mended: null, keptText: page.mended.before }); /* M575: one home */
     await db.messages.update(story.id, page.id, patch);
+    /* M681 (B1's pattern — every door that changes a page's words tells the plans keeper): his words back are read again */
+    try { const k = visiblePages(await db.messages.list(story.id)).findIndex((m) => m && m.id === page.id); if (k !== -1) await pageRewritten(story.id, k); } catch (err) { /* read in its turn */ }
     await rerenderMessage(story.id, page.id);
     toast('The earlier words are back.');
   }
@@ -4723,6 +4727,8 @@ export function initChat(ctx) {
        * THREAD_COOL_PAGES pages, it goes cold (never one this page moves). */
       list.push(...threadHousekeeping(fresh.threads, storyTurn(fresh), list.filter((m) => m && (m.type === 'thread.set' || m.type === 'thread.close')).map((m) => m.title || m.name)));
       const { state: next, applied, rejected } = applyMutations(fresh, list);
+      /* M681 (S13): the page whose board its reader stated — even unchanged, which no journal line shows (auditor.js boardStale) */
+      if (pageInHand !== -1 && list.some((m) => m && m.type === 'mode.snapshot')) next.moodAt = pageInHand;
       /* M679: the room this page's reader named as the page ends (its "here") — kept with the page's index, so the house's own
        * heal of who is here (apply.js hereByTheNewestPage, the next job) writes nobody in against it, as the reader's own
        * walk-ins already are not (M666) */
@@ -4977,6 +4983,7 @@ export function initChat(ctx) {
         stale, /* M72: a keeper whose ledger was rewound under it writes nothing */
         onSourceIssue,
       });
+      let trouble = keeperTrouble(); /* M681 (B5): what stopped this run, read at once (the keeper is one module for every tale) */
       /* M262: THE LINES THE OLD KEEPER READ IN PART are read again, two a page,
        * from whole pages — each line swaps whole, so the record is never
        * missing a line while it heals; a line that will not come back after
@@ -5009,15 +5016,23 @@ export function initChat(ctx) {
       try {
         if (!stale() && (await recordGap(story.id))) {
           const again = await maybeSummarize({ connection, storyId: story.id, signal, renew, recordRoomChars: await recordRoomFor(story), stale, onSourceIssue });
+          trouble = keeperTrouble();
           if (again) { mem = again; filled = true; }
         }
       } catch (err) { /* the light asks again when the house is idle */ }
       const healed = (reread ? ` · read ${reread} older ${reread === 1 ? 'line' : 'lines'} again from whole pages` : '')
         + (filled ? ' · folded a gap in the record' : '');
-      if (!mem) return { silent: false, detail: 'nothing due yet' + healed };
+      /* M681 — THE KEEPER'S WORDS SAY WHAT HAPPENED (the books audit's B5, made to happen on m680-001). A run that folded
+       * nothing because the keeper FAILED — its model answered with nothing for the page due, or was not answering at all,
+       * or the pages moved under it — said "nothing due yet" on the workers' line: the one word for a run with nothing to
+       * do, over a record with a page waiting and a keeper down. It says what stopped it now, and that the run did not
+       * finish (the light shows it, and the house folds the gap by itself when it is idle — fillRecordGap). */
+      const owed = trouble && !stale() ? await recordGap(story.id).catch(() => false) : false;
+      const stopped = owed ? ' (then: ' + trouble + ') — it tries again later' : '';
+      if (!mem) return owed ? { silent: false, detail: 'could not fold the record yet (' + trouble + ') — it tries again later' + healed, unfinished: true } : { silent: false, detail: 'nothing due yet' + healed };
       const lines = mem.nodes.filter((n) => !n.empty).length;
       const added = mem.nodes.length - beforeCount;
-      return { silent: false, detail: `${added > 0 ? 'wrote ' + added + (added === 1 ? ' line' : ' lines') : 'reshaped the record'} — ${lines} ${lines === 1 ? 'line' : 'lines'} on the record` + healed };
+      return { silent: false, detail: `${added > 0 ? 'wrote ' + added + (added === 1 ? ' line' : ' lines') : 'reshaped the record'} — ${lines} ${lines === 1 ? 'line' : 'lines'} on the record` + stopped + healed, ...(owed ? { unfinished: true } : {}) };
     });
 
     /* 4. The continuity reader (M6): advisory drift notes against canon and
@@ -5222,7 +5237,7 @@ export function initChat(ctx) {
         if (!(await refereeSettings()).on) return { silent: true };
         const connection = await resolveWorkerConnection(story, 'referee'); /* M345: the sheet is weighed by the referee's own hands (Arbiter: the seeder rides the adjudicator's profile) */
         if (!connection) return { silent: true };
-        await maybeSeedSheet({ connection, storyId: story.id, signal, renew, brief: story.brief || '', castNotes: story.castNotes || '' });
+        await maybeSeedSheet({ connection, storyId: story.id, signal, renew, stale, brief: story.brief || '', castNotes: story.castNotes || '' }); /* M681 (S8): a rewind while it weighed lets its weighing go */
       } catch (err) { /* the seeder's trouble is its own */ }
       return { silent: true };
     });
@@ -5658,8 +5673,10 @@ export function initChat(ctx) {
     while ((busy || deleteHold) && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 250));
     return !busy && !deleteHold;
   }
-  async function replayFrom(story, fromMessageId, { changed = true, shiftAfter = null, kOverride = null, atOverride = null, held = false } = {}) {
+  async function replayFrom(story, fromMessageId, { changed = true, shiftAfter = null, kOverride = null, atOverride = null, held = false, cameBack = false } = {}) {
     /* `held`: the caller already holds the gate (a page let go holds it from before the page leaves the store) */
+    /* `cameBack` (M681, the books audit's B2): the page is one shown again (pageFolded) — the journal never held it, and
+     * every write stamped from its place on belongs to the pages after it, now one further on */
     if (!held && !(await takeReplay())) return false;
     let tailQueued = false;
     /* M680: THE GATE IS LET GO ONCE, WHEN THIS REBUILD IS TRULY DONE. setReplaying(false) hands the gate to the next
@@ -5691,11 +5708,20 @@ export function initChat(ctx) {
       const vis = visiblePages(history);
       const at = atOverride !== null ? atOverride : vis.findIndex((m) => m.id === fromMessageId);
       if (at === -1) return false;
+      /* M681 — THE PLANS KEEPER IS TOLD TOO (the books audit's B1). Only the editor's and the housekeeper's re-ink told it
+       * (pageReinked); a walk to another version of an older page, or a new version told for it, changed that page's words
+       * through this door alone — and the keeper checks only the newest page it read for a change: a plan the left version
+       * laid out stood on (told to the storyteller every page), one the shown version lays out was never written down.
+       * Every door whose page's words changed comes here, so the keeper is told here: the page is set aside and read again
+       * alone (pageRewritten). After the readers in flight have landed — a reading of the old timeline that lands later
+       * would write its book back over the setting-aside. (Told twice by a re-ink: the second time changes nothing.) */
+      if (changed) await pageRewritten(story.id, at);
       const assistantIndex = (id) => vis.filter((m) => m.role === 'assistant').findIndex((m) => m.id === id);
       const k = kOverride !== null ? kOverride : assistantIndex(fromMessageId); /* storyteller-page index of the change */
       const current = await loadState(story.id);
-      /* the writes that come after the change: after page k when its words changed (k is re-read); from page k on when page k was let go (they shift down) */
-      const later = (current.journal || []).filter((e) => e.p > k);
+      /* the writes that come after the change: after page k when its words changed (k is re-read); from page k on when page k was let go (they shift down);
+       * M681: from page k on when page k came back (they are the later pages' — they shift up, and page k is read) */
+      const later = (current.journal || []).filter((e) => (cameBack ? e.p >= k : e.p > k));
       /* 1. fold to the page before the change */
       await foldTo(story, k - 1);
       const gen = chainGen.get(story.id) || 0;
@@ -5718,7 +5744,7 @@ export function initChat(ctx) {
         const lastIndex = vis.filter((m) => m.role === 'assistant').length - 1;
         if (!laterPutBack) {
           const groups = new Map();
-          for (const e of later) { const p = shiftAfter !== null && e.p > shiftAfter ? e.p - 1 : e.p; if (!groups.has(p)) groups.set(p, []); groups.get(p).push(e); }
+          for (const e of later) { const p = cameBack ? e.p + 1 : shiftAfter !== null && e.p > shiftAfter ? e.p - 1 : e.p; if (!groups.has(p)) groups.set(p, []); groups.get(p).push(e); }
           for (const p of [...groups.keys()].sort((a, b) => a - b)) { st.page = p; st = applyMutations(st, groups.get(p).sort((a, b) => a.id - b.id).map((e) => e.m)).state; }
           st.page = Math.max(st.page, lastIndex);
           /* M675 — THE PAGES AFTER THE CHANGE ARE AS READ AS THEY WERE. Their writes were just put back from the journal,
@@ -5732,9 +5758,9 @@ export function initChat(ctx) {
             const wasMark = readMark(current);
             const wasAhead = new Set(Array.isArray(current.readAhead) ? current.readAhead : []);
             const top = Math.max(wasMark, ...wasAhead);
-            for (let was = k + 1; was <= top; was += 1) {
+            for (let was = cameBack ? k : k + 1; was <= top; was += 1) {
               if (!(was <= wasMark || wasAhead.has(was))) continue;
-              const now = shiftAfter !== null && was > shiftAfter ? was - 1 : was;
+              const now = cameBack ? was + 1 : shiftAfter !== null && was > shiftAfter ? was - 1 : was; /* M681: one up, past a page that came back */
               if (now >= 0 && now <= lastIndex) markPageRead(st, now);
             }
           }
@@ -7864,6 +7890,65 @@ export function initChat(ctx) {
     }
   }
 
+  /* M681 — A PAGE FOLDED AWAY IS A PAGE THAT LEAVES THE STORY; ONE BROUGHT BACK COMES BACK TO IT (the books audit's B2,
+   * made to happen on m680-001). The housekeeper's "Fold this page away from the story" (and "Bring this page back", and its
+   * fold taken back) flipped the page's `hidden` and nothing else. Everything the house keeps of the story counts the pages
+   * that show: the record's lines (span), the plans keeper's pages, the ledger's journal (each write stamped with the
+   * storyteller page it is about) and the reading mark. Every page after the folded one moved down one under all of them:
+   * the record's lines stood over the wrong pages (the newest folded page "folded" with no line holding it — gone from what
+   * the storyteller is told), the ledger kept the folded page's writes, and the next rebuild from a later page (an edit, a
+   * Try again) kept the wrong page's writes and dropped the right one's. A fold is a page let go whose row stays: the same
+   * door as letOnePageGo — the record slides, the plans move with it, and the ledger is rebuilt from the page after it with
+   * every later write one page down. A page brought back is the mirror: the record and the plans move up one from it, and
+   * the ledger is rebuilt from it — its own words read, every later write one page up. Called for each page in the order
+   * they stand, oldest first (ui/housekeeper.js), so each sees the pages before it already settled. */
+  async function pageFolded(story, pageId) {
+    if (!story || !pageId) return false;
+    await untilTold();
+    if (!(await takeReplay())) return false;
+    let handed = false;
+    try {
+      const history = await db.messages.list(story.id);
+      const msg = history.find((m) => m && m.id === pageId);
+      if (!msg) return false;
+      const rule = await recordCutRule(story);
+      if (msg.hidden === true) {
+        const visBefore = history.filter((m) => m && (!m.hidden || m.id === msg.id)); /* the pages as they showed with it */
+        const kGone = visBefore.findIndex((m) => m.id === msg.id);
+        await saveMemory(story.id, memoryAfterDeletion(await loadMemory(story.id), kGone, rule));
+        await pageLeft(story.id, kGone);
+        if (msg.role !== 'assistant') return true; /* a writer's page moves no storyteller page (letOnePageGo) */
+        const goneK = visBefore.filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id);
+        const after = visBefore.slice(kGone + 1).find((m) => m);
+        handed = true; /* the rebuild lets the gate go when it is done */
+        if (after) replayFrom(story, after.id, { changed: false, shiftAfter: goneK, kOverride: goneK, atOverride: kGone, held: true });
+        else {
+          (async () => {
+            try {
+              await pendingWork(story.id, 120000);
+              await foldTo(story, goneK - 1);
+              const all = await loadVersionStates(story.id);
+              for (const key of Object.keys(all)) if (key.split(':')[0] === msg.id) delete all[key];
+              await writeVersionStates(story.id, all);
+              pendingAudit.delete(story.id);
+            } finally { setReplaying(false); }
+          })();
+        }
+        return true;
+      }
+      const k = visiblePages(history).findIndex((m) => m.id === msg.id);
+      if (k === -1) return false;
+      await saveMemory(story.id, memoryAfterInsertion(await loadMemory(story.id), k, rule));
+      await pageCameBack(story.id, k);
+      if (msg.role !== 'assistant') return true;
+      handed = true;
+      replayFrom(story, msg.id, { changed: true, cameBack: true, held: true });
+      return true;
+    } finally {
+      if (!handed) setReplaying(false);
+    }
+  }
+
   async function beginEdit(messageId) {
     if (busy) return;
     if (!(await waitForRebuild())) return;
@@ -8484,6 +8569,7 @@ export function initChat(ctx) {
       const kGone = visBefore.findIndex((m) => m.id === id);
       const after = kGone !== -1 ? visBefore.slice(kGone + 1).find((m) => m) : null;
       if (kGone !== -1) await saveMemory(story.id, memoryAfterDeletion(await loadMemory(story.id), kGone, await recordCutRule(story))); /* M680: his line, and every line where no keeper folds again, stays over what it still covers */
+      if (kGone !== -1) await pageLeft(story.id, kGone); /* M681 (B2): and the plans keeper's pages move down with it — it took back the newest page's plans and kept the gone page's */
       await db.messages.remove(story.id, id);
       await forgetCheckpoints(story.id, [id]); /* M107 */
       const gone = visBefore[kGone];
@@ -9098,6 +9184,7 @@ export function initChat(ctx) {
     useConnection, /* M510-8: the one model choice — the Quick switch, Settings' picker and "Use this one" */
     planAhead, /* M510: Settings hands a tale to a small model → the helper reads ahead */
     pageReinked, /* M296 */
+    pageFolded, /* M681 (B2): a page folded away or brought back by the housekeeper */
     resumeUnfinishedChain,
     showTopBar: () => setImmersed(false, false), /* M675: "Reset every setting" brings the top bar back (the setting itself is the reset's to delete) */
     healLedgerOnOpen, /* M452 */

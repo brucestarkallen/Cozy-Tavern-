@@ -2199,8 +2199,10 @@ test('M246: a line the wire cut is not stored as a finished line', async () => {
   const src = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
   assert(/const \{ text, finishReason \} = await sharedCall/.test(src), 'callKeeper keeps the reason');
   assert(/lastKeeperWasTruncated = String\(finishReason \|\| ''\)\.toLowerCase\(\) === 'length';/.test(src), 'and reads it');
-  eq((src.match(/keeperWasTruncated\(\)/g) || []).length, 5,
-    'and every place that handles a cut handles this one too — the overrun ask, its test, the halving, and its test');
+  /* M681 (the books audit's B10): the line's own cut is decided once, where it was asked (`cut`), and the halving reads
+   * that — it read the module's last answer, the re-ask's, and a whole re-ask hid the cut line from it */
+  eq((src.match(/keeperWasTruncated\(\)/g) || []).length, 4,
+    'and every place that handles a cut handles this one too — the line’s own cut, the re-ask’s test, and the halving’s test');
 });
 
 /* M247: the writer's rebuild stopped at Pages 25–30 of 98 — a regression I
@@ -2248,7 +2250,7 @@ test('M247: a long line is left alone — only a cut one is re-asked', async () 
   }
 
   const src = readFileSync(new URL('../../js/agents/memory.js', import.meta.url), 'utf8');
-  assert(/if \(answerWasCut\(\) \|\| keeperWasTruncated\(\)\) \{/.test(src), 'the re-ask fires on a cut, not on length');
+  assert(/let cut = [^\n]*\(answerWasCut\(\) \|\| keeperWasTruncated\(\)\);\n\s*if \(cut\) \{/.test(src), 'the re-ask fires on a cut, not on length'); /* M681 (B10): the line's own cut */
   assert(!/phraseCount\(text\) > 20/.test(src), 'a phrase count never triggers it');
 });
 

@@ -395,14 +395,40 @@ export function addKnowledge(knowledge, name, fact, atTurn) {
   /* within one person: the paraphrase fold only for a line from the page BESIDE this one — two lines the reader wrote
    * for one person on one page are two facts on purpose */
   const dup = list.findIndex((k) => sameFact(k.fact, canon) || (Number.isFinite(k.atTurn) && Number.isFinite(atTurn) && Math.abs(k.atTurn - atTurn) === 1 && sameFact(k.fact, canon, { fuzzy: true })));
+  /* M681 — A BELIEF GOES WHEN THE TRUTH IS LEARNED (the books audit's B3, made to happen on m680-001). The page reader writes a
+   * lie someone believes as "believes Orrin Vale is only a recruit — untrue: Orrin Vale is the new captain of the guard",
+   * and when the truth comes out in front of them, what they learned: "learned Orrin Vale is the new captain, not a
+   * recruit". The book only ever added: the belief stood beside the truth, and the storyteller was told, every page, that
+   * she knew he was the captain AND believed he was a recruit. A line someone learns that answers the truth a belief of
+   * theirs holds back lets that belief go (a take-back of the line puts it back: the undo is the book as it was). */
+  const kept = what && !/^believes\b/i.test(what) ? list.filter((k) => !(k && beliefAnswered(k.fact, what))) : list;
   if (dup !== -1) {
-    if (canon === what && what.length > list[dup].fact.length) list[dup] = { ...list[dup], fact: what };
-    next[key] = list;
+    const at = kept.indexOf(list[dup]);
+    if (at !== -1 && canon === what && what.length > kept[at].fact.length) kept[at] = { ...kept[at], fact: what };
+    next[key] = kept;
     return next;
   }
-  list.push({ fact: canon, atTurn: Number.isFinite(atTurn) ? atTurn : null });
-  next[key] = trimmedBook(list, next, key); /* M681: a full book lets go of what others also know first */
+  kept.push({ fact: canon, atTurn: Number.isFinite(atTurn) ? atTurn : null });
+  next[key] = trimmedBook(kept, next, key); /* M681: a full book lets go of what others also know first */
   return next;
+}
+/* M681 (B3): does `fact` — a line learned — answer the truth the belief line `belief` says is being kept from them? The
+ * truth is what follows "untrue:"; the learned line, with its "learned (that)" taken off, says it: the same fact (M92's
+ * rule, or M484's paraphrase), or every word of the truth that tells (four letters or more, and every number) in it, with
+ * at least two such words — "untrue: Kiba is a girl" is answered by "learned Kiba is a girl, not a boy". */
+export function beliefAnswered(belief, fact) {
+  const b = String(belief || '');
+  if (!/^believes\b/i.test(b.trim())) return false;
+  const m = b.match(/\buntrue\s*[:—–-]\s*([^)]+?)\s*\)?\s*$/i);
+  const truth = m ? m[1].trim() : '';
+  if (!truth) return false;
+  const said = String(fact || '').trim().replace(/^(?:learned|learns|has learned|found out|finds out|discovered|discovers|realized|realised|realizes|realises|knows|now knows)\s+(?:that\s+)?/i, '');
+  if (!said || /^believes\b/i.test(said)) return false;
+  if (sameFact(said, truth) || sameFact(said, truth, { fuzzy: true })) return true;
+  const want = [...new Set(factKey(truth).split(' ').filter((w) => w.length > 3 || /\d/.test(w)))];
+  if (want.length < 2) return false;
+  const have = new Set(factKey(said).split(' '));
+  return want.every((w) => have.has(w));
 }
 
 /* M272: a line the model broke off mid-phrase. Only endings no finished

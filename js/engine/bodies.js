@@ -115,6 +115,15 @@ export function findInjury(body, what) {
   );
 }
 
+/* M681: ONE ANSWER TO "IS IT THE SAME HURT?" — two tellings of a hurt (a wound in the bodies, a condition on the referee's
+ * sheet, the weighing's "lasting") are one when either finds the other as findInjury finds a wound: the same words, one
+ * inside the other, or the same part of the body (a limb named whole finds the one wound on it). */
+export function sameHurt(a, b) {
+  const x = cleanText(a); const y = cleanText(b);
+  if (!x || !y) return false;
+  return Boolean(findInjury({ injuries: [{ what: x }] }, y) || findInjury({ injuries: [{ what: y }] }, x));
+}
+
 /* ---------- the contract ---------- */
 
 /* M484: ONE WOUND PER PLACE. The page reader wrote a wound on every page that showed it — "left shoulder run through",

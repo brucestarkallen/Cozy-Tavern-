@@ -312,8 +312,17 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
         signal,
       });
       const second = parseScribeAnswer(again.text);
-      const secondWhole = again.finishReason !== 'length' && !second.cut;
-      if (second.deltas.length > read.deltas.length || (secondWhole && second.deltas.length >= read.deltas.length)) read = second;
+      /* M681 (the books audit's B10): whole = an answer at all (a "deltas" list), not cut by the wire, not stopping mid-list */
+      const secondWhole = again.finishReason !== 'length' && !second.cut && /"deltas"\s*:\s*\[/.test(String(again.text || ''));
+      /* M681 — THE WHOLE ANSWER TO THE RE-ASK IS KEPT (B10, made to happen on m680-001). The re-ask asks for "the changes that
+       * matter most, at most twelve" — so its whole answer is often SHORTER than what arrived of the cut one, and it was
+       * thrown away for the cut one by that count alone, while the note said "ok". Asked again because the first was cut,
+       * a whole answer stands entire; the notes of the cut one that arrived whole and speak of something it does not (a
+       * person's field it left out) stand beside it — every note that arrived whole is kept. */
+      if (wasCut && secondWhole) {
+        const said = new Set(second.deltas.map((d) => d.name.trim().toLowerCase() + '|' + d.field.trim().toLowerCase()));
+        read = { deltas: [...second.deltas, ...read.deltas.filter((d) => !said.has(d.name.trim().toLowerCase() + '|' + d.field.trim().toLowerCase()))] };
+      } else if (second.deltas.length > read.deltas.length || (secondWhole && second.deltas.length >= read.deltas.length)) read = second;
       note = secondWhole ? 'ok' : 'cut short';
     } catch (err) {
       if (!read.deltas.length) throw err;

@@ -309,30 +309,15 @@ function clockPanel(ctx) {
 
   calSelect.addEventListener('change', async () => {
     const asked = calSelect.value === 'custom' ? 'custom' : 'real'; /* M652: what he chose, taken AT the tap — before any wait (see settings.js, M651) */
-    const story = await currentStory(ctx);
-    if (!story) return;
-    const state = await loadStateForWrite(story.id);
-    if (!state.clock) return;
-    state.clock.calendar = asked;
-    state.clock.label = renderClock(state.clock);
-    await saveState(story.id, state);
-    notify(story.id);
+    /* M681 (S11): a journaled write about the whole story — every fold lays it again (apply.js clock.calendar) */
+    await handMutate(ctx, [{ type: 'clock.calendar', calendar: asked, story: true }]);
     render();
   });
 
   calSave.addEventListener('click', async () => {
-    const story = await currentStory(ctx);
-    if (!story) return;
-    const state = await loadStateForWrite(story.id);
-    if (!state.clock) return;
     const months = monthsInput.value.split(',').map((s) => s.trim()).filter(Boolean);
     const days = daysInput.value.split(',').map((s) => s.trim()).filter(Boolean);
-    if (months.length) state.clock.monthNames = months.slice(0, 12);
-    if (days.length) state.clock.dayNames = days.slice(0, 7);
-    state.clock.calendar = 'custom';
-    state.clock.label = renderClock(state.clock);
-    await saveState(story.id, state);
-    notify(story.id);
+    await handMutate(ctx, [{ type: 'clock.calendar', calendar: 'custom', monthNames: months.slice(0, 12), dayNames: days.slice(0, 7), story: true }]); /* M681 (S11) */
     render();
   });
 

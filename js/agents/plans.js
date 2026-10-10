@@ -184,6 +184,43 @@ export async function runPlans({ connection, storyId, pages, mc = '', signal, ca
   return { wrote: false, why: 'its answer could not be used' };
 }
 
+/* M681 — A PAGE THAT LEAVES THE STORY, OR COMES BACK TO IT (the books audit's B2). The book counts pages as the tale shows
+ * them (plansNext: the visible pages, in order): every plan's from/to/closedAt, the reading mark and the pages owed a second
+ * reading are those numbers. A page let go in the middle, or folded away by the housekeeper ("Fold this page away"), moved
+ * every page after it down one and the book never knew: the next reading saw its mark past the end, took back the plans
+ * of the page that had been newest as if it were gone and never read it again (they were lost for good), while the plans
+ * the page that went had laid out stood on. A page brought back moved every page after it up one, and was never read.
+ * Now the book moves with the pages: what the page that goes said is taken back (a plan it laid out goes, one it closed
+ * stands open again) and everything after it moves down one; a page that comes back moves everything from it up one and,
+ * where the reading had passed it, is read again alone (book.again). */
+export async function pageLeft(storyId, pageIndex) {
+  if (!storyId || !Number.isInteger(pageIndex) || pageIndex < 0) return;
+  const book = await loadPlansBook(storyId);
+  if (book.readTo < pageIndex) return; /* not read yet: nothing of it, or after it, is in the book */
+  const k = pageIndex;
+  const down = (n) => (Number.isFinite(n) && n > k ? n - 1 : n);
+  const plans = (book.plans || []).filter((p) => !(Number.isFinite(p.from) && p.from === k))
+    .map((p) => (Number.isFinite(p.closedAt) && p.closedAt === k ? (({ outcome: _o, closedAt: _c, ...rest }) => ({ ...rest, status: 'standing' }))(p) : p))
+    .map((p) => { const from = down(p.from); const out = { ...p, from, to: Number.isFinite(p.to) && p.to === k ? Math.max(Number.isFinite(from) ? from : 0, k - 1) : down(p.to) }; if (Number.isFinite(p.closedAt)) out.closedAt = down(p.closedAt); return out; });
+  const held = Object.fromEntries(Object.entries(heldOf(book.held)).filter(([key]) => Number(key) !== k).map(([key, v]) => [String(down(Number(key))), v]));
+  const again = [...new Set((book.again || []).filter((x) => x !== k).map(down))];
+  /* the newest page read went: the mark stays where it was, and the reading settles it as it always has — past the end
+   * (the newest page of the tale went) it comes back to the page that stands last; on a page it never read (one that
+   * moved down into its place), that page is read */
+  await db.settings.set(PLANS_KEY(storyId), { ...book, plans, held, again, readTo: k === book.readTo ? book.readTo : book.readTo - 1 });
+}
+export async function pageCameBack(storyId, pageIndex) {
+  if (!storyId || !Number.isInteger(pageIndex) || pageIndex < 0) return;
+  const book = await loadPlansBook(storyId);
+  if (book.readTo < pageIndex) return; /* the reading has not reached it: it is read in its turn */
+  const k = pageIndex;
+  const up = (n) => (Number.isFinite(n) && n >= k ? n + 1 : n);
+  const plans = (book.plans || []).map((p) => { const out = { ...p, from: up(p.from), to: up(p.to) }; if (Number.isFinite(p.closedAt)) out.closedAt = up(p.closedAt); return out; });
+  const held = Object.fromEntries(Object.entries(heldOf(book.held)).map(([key, v]) => [String(up(Number(key))), v]));
+  const again = [...new Set([...(book.again || []).map(up), k])];
+  await db.settings.set(PLANS_KEY(storyId), { ...book, plans, held, again, readTo: book.readTo + 1 });
+}
+
 /* M528: A PAGE REWRITTEN BY HAND IS READ AGAIN. The keeper checked only the last page it had read; an edited earlier page —
  * where a plan was laid out, carried out or dropped — was never read again. Its reading goes back to that page. */
 export async function pageRewritten(storyId, pageIndex) {

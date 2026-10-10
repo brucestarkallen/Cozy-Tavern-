@@ -31,6 +31,8 @@
  * by every fold): people.note {name, field, text} — the scribe's sparse
  * delta (field core/state/arc/thread/unthread, mergeDeltas' own laws) —
  * and world.word {brief} — the world agent's word for the next turn.
+ * M681 adds two more that bypassed it: clock.calendar {calendar, monthNames?, dayNames?} — the story's own calendar, set
+ * by his hand in the drawer — and sheet.weigh {actors, …} — a weighing of the cast (agents/referee.js maybeSeedSheet).
  *
  * Reversal rides on the log entry as `undo` — a small payload saying what
  * was true before. The spec's documented log shape {ts, words, undone} is
@@ -40,11 +42,11 @@
 
 import { createClock, setClock, advanceClock, renderClock, MAX_ADVANCE_MINUTES, REAL_MONTHS } from './clock.js'; /* M681: the months, for the days between two headers */
 import { windowCutAt } from './window.js'; /* M467: one definition of the window's marker */
-import { addInjury, addStrain, findBodyKey, findInjury, SEV_WORDS } from './bodies.js';
+import { addInjury, addStrain, findBodyKey, findInjury, sameHurt, SEV_WORDS } from './bodies.js'; /* M681: one answer to "the same hurt?" */
 import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TOTAL } from './relationships.js';
 import { seat, findSeat, isDeadSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact, lookKey } from './canon.js'; /* M681: one key for one look */
-import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight } from './duels.js';
+import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight, findActorKeySamePerson, safeKey } from './duels.js';
 import { withoutStandingNumbers, setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
 import { samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage, isTitleWord } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
@@ -70,6 +72,11 @@ function modeFlagsOf(raw) {
     for (const word of String(item || '').split(/\s+/)) { const f = modeFlagOf(word); if (f) out.add(f); } /* "combat group" */
   }
   return out;
+}
+/* M681 (S11): a clock's calendar — which one, and the names it speaks — apart from its hour */
+function calendarOf(clock) {
+  const c = clock && typeof clock === 'object' ? clock : {};
+  return { calendar: c.calendar === 'custom' ? 'custom' : 'real', ...(Array.isArray(c.monthNames) ? { monthNames: c.monthNames.slice() } : {}), ...(Array.isArray(c.dayNames) ? { dayNames: c.dayNames.slice() } : {}) };
 }
 /* a fight the referee is running — its own engine ends it (duels.js teardownFight), never a mood board */
 const fightLive = (state) => Boolean(state && ((state.duel && state.duel.active && !state.duel.over) || (state.battle && state.battle.active && !state.battle.over) || (state.war && state.war.active && !state.war.over)));
@@ -550,6 +557,33 @@ const HANDLERS = {
     return { words, undo: { kind: 'clock', before } };
   },
 
+  /* M681 — THE STORY'S OWN CALENDAR IS A JOURNALED WRITE (the scene audit's S11, made to happen on m680-001): the drawer
+   * wrote "A calendar of its own" and its month and day names straight into the clock and saved, with no journal line —
+   * so a fold rebuilt the clock from a checkpoint taken before them, and "Try again" on the page he named them under (or
+   * any rewind past it) put the real calendar back while he had chosen his own. A calendar is the whole story's, never a
+   * page's: the drawer marks it `story: true`, and every fold, checkpoint and version lays it again (state.js
+   * withStoryWrites). Names left out keep the clock's own; the hour is never touched. */
+  'clock.calendar'(state, m) {
+    if (!state.clock || typeof state.clock.minutes !== 'number') return { why: 'the clock hasn’t been set yet — there is no calendar to name' };
+    const names = (list, n) => (Array.isArray(list) ? list.map((s) => String(s == null ? '' : s).replace(/\s+/g, ' ').trim().slice(0, 40)).filter(Boolean).slice(0, n) : []);
+    const months = names(m.monthNames, 12);
+    const days = names(m.dayNames, 7);
+    const calendar = m.calendar === 'real' && !months.length && !days.length ? 'real' : (m.calendar === 'custom' || months.length || days.length ? 'custom' : state.clock.calendar);
+    const before = { ...state.clock };
+    const next = { ...state.clock, calendar: calendar === 'custom' ? 'custom' : 'real' };
+    if (months.length) next.monthNames = months;
+    if (days.length) next.dayNames = days;
+    next.label = renderClock(next);
+    const same = (a, b) => JSON.stringify(Array.isArray(a) ? a : []) === JSON.stringify(Array.isArray(b) ? b : []);
+    if ((before.calendar === 'custom' ? 'custom' : 'real') === next.calendar && same(before.monthNames, next.monthNames) && same(before.dayNames, next.dayNames)) return { why: 'the calendar already reads so', same: true };
+    state.clock = next;
+    const words = next.calendar === 'custom'
+      ? 'The story keeps a calendar of its own' + (months.length || days.length ? ' — ' + [months.length ? 'its months: ' + months.join(', ') : '', days.length ? 'its days: ' + days.join(', ') : ''].filter(Boolean).join('; ') : '') + '.'
+      : 'The story keeps the calendar we live by.';
+    /* its take-back puts back the calendar alone — laid again after a fold to another hour, it never moves the hour */
+    return { words, undo: { kind: 'clock.calendar', before: calendarOf(before) } };
+  },
+
   'presence.enter'(state, m) {
     const given = normalizeName(m.name);
     if (!given) return { why: 'no name came with it' };
@@ -760,9 +794,24 @@ const HANDLERS = {
     if (injury) {
       const before = cloneMap({ [key]: body })[key];
       injury.healed = true;
+      /* M681 — A HEALED WOUND IS HEALED ON THE REFEREE'S SHEET TOO (the scene audit's S7, made to happen on m680-001): the
+       * referee files a lasting wound on the sheet ("gashed forearm -2 melee"), the page reader keeps the same wound in the
+       * bodies, and when the story healed it only the bodies heard: the sheet's line stood for good, and every fight after
+       * rolled him two below himself for a wound the ledger called healed. The sheet's harm that IS this wound (the same
+       * hurt, bodies.js sameHurt) goes with it — never gear, never a line his own hand wrote; the take-back puts it back. */
+      const actorKey = (isMc(state, key) ? findActorKeySamePerson(state, mcName(state)) : null) || findActorKeySamePerson(state, key);
+      const actor = actorKey ? state.sheet.actors[actorKey] : null;
+      const conds = actor && Array.isArray(actor.conditions) ? actor.conditions : [];
+      const healedLines = conds.filter((c) => c && c.gear !== true && c.by !== 'hand' && !(Number(c.mod) > 0) && sameHurt(c.name, injury.what));
+      let conditions = null;
+      if (healedLines.length) {
+        conditions = { key: actorKey, lines: cloneMap({ c: healedLines }).c };
+        actor.conditions = conds.filter((c) => !healedLines.includes(c));
+        if (!actor.conditions.length) delete actor.conditions;
+      }
       return {
-        words: key + ' is mended — ' + injury.what + ', healed.',
-        undo: { kind: 'body.restore', name: key, before },
+        words: key + ' is mended — ' + injury.what + ', healed.' + (healedLines.length ? ' The sheet lets ' + healedLines.map((c) => c.name).join(', ') + ' go with it.' : ''),
+        undo: { kind: 'body.restore', name: key, before, ...(conditions ? { conditions } : {}) },
       };
     }
     /* A weariness lifts the same way a hurt heals — matched by its words,
@@ -1567,6 +1616,35 @@ const HANDLERS = {
     }
     const words = 'The fight has ebbed.' + (bits.length ? ' ' + bits.join(' ') : '');
     return { words, undo: { kind: 'combat.restore', before } };
+  },
+
+  /* M681 — A WEIGHING OF THE CAST IS A JOURNALED WRITE (the scene audit's S12, made to happen on m680-001): the weighing
+   * (agents/referee.js maybeSeedSheet) wrote the sheet straight into the ledger and saved it, with no journal line. It is a
+   * long call that usually lands after the next page's checkpoint was taken, so every fold through that page — a "Try
+   * again" of the next page, any rewind — rebuilt the sheet from the checkpoint without it: the newcomer weighed after
+   * page 5 was unweighed again, and the house weighed him again, page after page. Its outcome now rides the journal,
+   * stamped with the last page it read: each person it changed (null: let go), his name if it learned it, and the
+   * sheet's own marks of when it was weighed. A fold lays it again; a fold to before that page lets it go with the
+   * page. No take-back of its own: "Weigh them again" is the one door to the weighing. */
+  'sheet.weigh'(state, m) {
+    const actors = m.actors && typeof m.actors === 'object' && !Array.isArray(m.actors) ? m.actors : null;
+    if (!actors) return { why: 'a weighing with no cast in it' };
+    state.sheet = state.sheet && typeof state.sheet === 'object' ? state.sheet : { actors: {}, playerName: '' };
+    if (!state.sheet.actors || typeof state.sheet.actors !== 'object') state.sheet.actors = {};
+    const sheetActors = { ...state.sheet.actors };
+    for (const [k, v] of Object.entries(actors)) {
+      const key = safeKey(k); /* M471: never a magic key */
+      if (!key) continue;
+      if (v === null) delete sheetActors[key];
+      else if (v && typeof v === 'object' && !Array.isArray(v)) sheetActors[key] = cloneMap({ v }).v;
+    }
+    state.sheet = { ...state.sheet, actors: sheetActors };
+    if (typeof m.playerName === 'string' && m.playerName.trim()) state.sheet.playerName = m.playerName.trim().slice(0, 60);
+    const marks = m.marks && typeof m.marks === 'object' ? m.marks : {};
+    for (const k of ['seedVersion', 'seededAtPage', 'briefMark', 'seenPresent', 'seenShowsHere']) if (marks[k] !== undefined) state.sheet[k] = cloneMap({ v: marks[k] }).v;
+    state.seedDueAfterFight = false;
+    const n = Number.isInteger(m.considered) ? m.considered : Object.keys(actors).length;
+    return { words: 'The cast was weighed' + (typeof m.why === 'string' && m.why.trim() ? ' (' + m.why.trim().slice(0, 80) + ')' : '') + ' — ' + n + ' considered.', undo: null };
   },
 };
 
@@ -3105,7 +3183,16 @@ function applyUndo(next, undo) {
       }
       ok = true;
     } else if (undo.kind === 'clock') {
-      next.clock = undo.before ? { ...undo.before } : null;
+      /* M681 (S11): the hour goes back; the calendar is its own write (clock.calendar) and stays as it stands */
+      next.clock = undo.before ? { ...undo.before, ...(next.clock && typeof next.clock === 'object' ? calendarOf(next.clock) : {}) } : null;
+      if (next.clock) next.clock.label = renderClock(next.clock);
+      ok = true;
+    } else if (undo.kind === 'clock.calendar') {
+      /* M681 (S11): the calendar alone goes back — the hour stands */
+      if (!next.clock || typeof next.clock !== 'object' || !undo.before || typeof undo.before !== 'object') return false;
+      const { monthNames: _m, dayNames: _d, ...rest } = next.clock;
+      next.clock = { ...rest, ...calendarOf(undo.before) };
+      next.clock.label = renderClock(next.clock);
       ok = true;
     } else if (undo.kind === 'presence.remove') {
       const at = findPresent(next, undo.name || '');
@@ -3134,6 +3221,14 @@ function applyUndo(next, undo) {
       const key = findBodyKey(next.bodies, undo.name) || undo.name;
       if (undo.before) next.bodies[key] = cloneMap({ [key]: undo.before })[key];
       else delete next.bodies[key];
+      /* M681 (S7): the sheet's lines the healing let go come back with the wound */
+      const back = undo.conditions;
+      const actor = back && typeof back.key === 'string' && Array.isArray(back.lines) && next.sheet && next.sheet.actors ? next.sheet.actors[back.key] : null;
+      if (actor && typeof actor === 'object') {
+        const have = Array.isArray(actor.conditions) ? actor.conditions : [];
+        const missing = back.lines.filter((c) => c && !have.some((h) => h && String(h.name || '').toLowerCase() === String(c.name || '').toLowerCase()));
+        if (missing.length) next.sheet = { ...next.sheet, actors: { ...next.sheet.actors, [back.key]: { ...actor, conditions: [...have, ...cloneMap({ c: missing }).c] } } };
+      }
       ok = true;
     } else if (undo.kind === 'rel.restore') {
       const found = findRelationship(next.relationships, undo.name);

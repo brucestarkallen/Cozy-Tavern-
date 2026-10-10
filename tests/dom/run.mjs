@@ -14650,5 +14650,313 @@ test('DOM-300 HIS “LET IT GO” IS HIS, FOR A SEAT AND FOR A FACTION (M681 —
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-290 THE PAGE WHOSE MOOD BOARD ITS READER STATED IS MARKED (M681 — the scene audit’s S13): a page read with its board stated marks it; the next page’s reader forgets the board twice — the board is an older page’s, and the auditor is told it may restate it', async () => {
+  const before = errors.length;
+  const { loadState } = await import('../../js/engine/state.js');
+  const { boardStale } = await import('../../js/agents/auditor.js');
+  const H = '[The inn — Monday, March 3, 2025 | 18:00 | rain]\n\n';
+  const st = await clockTale('the stale board', [H + 'The cart rolled on through the rain.']);
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  try {
+    let board = true;
+    house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? JSON.stringify({ mutations: board ? [{ type: 'mode.snapshot', flags: ['travel'] }] : [], here: ['Jovan'] }) : QUIET_WORKERS);
+    house.state.storyAnswer = () => H.replace('18:00', '18:30') + 'The cart rolled on; the inn was still a mile off.';
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    type(q('#composer-input'), 'I keep my head down.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the second page', 20000);
+    await settled(); await readersDone(st.id, 60000);
+    eq((await loadState(st.id)).moodAt, 1, 'the page whose board its reader stated is marked');
+    board = false;
+    house.state.storyAnswer = () => H.replace('18:00', '19:10') + 'They had arrived; the innkeeper took their wet cloaks at the door.';
+    type(q('#composer-input'), 'I step down from the cart.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 3 && !env.ctx.chat.isBusy(), 'the third page', 20000);
+    await settled(); await readersDone(st.id, 60000);
+    const led = await loadState(st.id);
+    eq(led.moodAt, 1, 'a reader that never stated the board does not mark its page');
+    eq(led.mode.travel, true, 'fixture: the board the reader forgot still says travel');
+    eq(boardStale(led, 2), true, 'the board is stale for the newest page — the auditor’s to restate');
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-291 THE STORY’S OWN CALENDAR OUTLIVES A TRY AGAIN (M681 — the scene audit’s S11): he names the months and days in the drawer; “try again” on the newest page folded the clock back past them and the real calendar spoke again', async () => {
+  const before = errors.length;
+  const { loadState } = await import('../../js/engine/state.js');
+  const H = '[The yard — Monday, March 3, 2025 | 09:00 | clear]\n\n';
+  const st = await clockTale('his calendar', [H + 'Kim waited by the well.', H.replace('09:00', '09:20') + 'Kim drew a bucket up.'], { readTo: 1 });
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  try {
+    house.state.workerAnswer = () => QUIET_WORKERS;
+    await env.ctx.chat.openStory(st.id);
+    await tick(300);
+    if (q('#drawer').hidden) click(q('#btn-ledger'));
+    click(await until(() => q('#drawer [data-room="scene"]'), 'the scene room', 15000)); /* the room he left it on may be another */
+    const cal = await until(() => q('#drawer .calendar-editor'), 'the calendar', 15000);
+    const pick = q('select', cal);
+    pick.value = 'custom'; pick.dispatchEvent(new env.window.Event('change'));
+    await until(async () => (await loadState(st.id)).clock.calendar === 'custom', 'a calendar of its own', 10000);
+    const months = await until(() => { const i = q('input[aria-label="The year’s months, in order, comma by comma"]', cal); return i && !i.hidden ? i : null; }, 'the months', 10000);
+    type(months, 'Frostfall, Deepwinter, Thawmoon, Seedtide, Bloomrise, Highsun, Emberfall, Harvestide, Leafturn, Mistmoon, Duskfall, Longnight');
+    type(q('input[aria-label="The week’s days, in order, comma by comma"]', cal), 'Sunsday, Moonsday, Thornday, Fireday, Windsday, Starday, Restday');
+    click([...qa('button', cal)].find((b) => b.textContent === 'Keep the names'));
+    await until(async () => ((await loadState(st.id)).clock.monthNames || [])[2] === 'Thawmoon', 'his names', 10000);
+    if (!q('#drawer').hidden) click(q('#btn-ledger'));
+    house.state.storyAnswer = () => H.replace('09:00', '09:25') + 'Kim drew the bucket up again, slower.';
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    tryAgain();
+    await until(async () => /slower/.test((((await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop()) || {}).text || ''), 'the page told again', 20000);
+    await settled(); await readersDone(st.id, 60000);
+    const led = await loadState(st.id);
+    eq(led.clock.calendar, 'custom', 'the calendar he chose stands after the try again');
+    eq((led.clock.monthNames || [])[2], 'Thawmoon', 'and his names with it');
+  } finally {
+    if (!q('#drawer').hidden) click(q('#btn-ledger'));
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-310 A VERSION WALKED ON AN OLDER PAGE IS READ AGAIN BY THE PLANS KEEPER (M681 — the books audit’s B1): the version that laid out “the night raid” was left for one that lays out nothing — the raid stood on in the plans keeper’s book (told to the storyteller every page) and the page was never read again; walked back, the raid was never written down again', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { PLANS_KEY, loadPlansBook } = await import('../../js/agents/plans.js');
+  const { fingerprint36 } = await import('../../js/engine/fingerprint.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const keeperWas = await db.settings.get('memoryKeeper');
+  const prior = { worker: house.state.workerAnswer, plans: house.state.plansAnswer };
+  await db.settings.set('memoryKeeper', false);
+  const H = (t) => '[The yard — Monday, March 3, 2025 | ' + t + ' | clear]\n\n';
+  const RAID = H('09:11') + 'Rukia laid out the night raid: Renji draws the guards off at midnight, and Rukia opens the gate on the bell.';
+  const SHRUG = H('09:11') + 'Rukia shrugged and went to bed early; nobody spoke of the gate that night.';
+  const raid = { title: 'the night raid', by: 'Rukia', goal: 'take the gate', parts: [{ who: 'Renji', does: 'draws the guards off', when: 'at midnight' }, { who: 'Rukia', does: 'opens the gate', when: 'on the bell' }], words: [] };
+  const read = [];
+  const pagesPart = (body) => String(((body.messages || []).slice(-1)[0] || {}).content || '').split('The pages to read')[1] || '';
+  house.state.plansAnswer = (body) => { const p = pagesPart(body); read.push(p); return /night raid/.test(p) ? JSON.stringify({ new: [{ ...raid, page: 4 }], progress: [], closed: [] }) : '{"new":[],"progress":[],"closed":[]}'; };
+  house.state.workerAnswer = () => '{"mutations":[],"deltas":[],"findings":[],"issues":[],"brief":{"pressure":[],"ripe":[],"twb":null}}';
+  const settle = async (sid) => { await until(() => !env.ctx.chat.isBusy() && !env.ctx.chat.isReplaying() && queuedCount(sid) === 0 && !workIsRunning(sid), 'the replay and its readers', 60000); await tick(200); };
+  try {
+    const st = await db.stories.create({ title: 'a version walked on an older page' });
+    await db.stories.update(st.id, { continuity: false });
+    let ts = Date.now() - 600000;
+    const ids = [];
+    for (let i = 0; i < 4; i += 1) {
+      await db.messages.append(st.id, { role: 'user', text: 'move ' + i, ts: (ts += 100) });
+      const a = await db.messages.append(st.id, i === 1 ? { role: 'assistant', text: RAID, swipes: [{ text: RAID }, { text: SHRUG }], swipeIdx: 0, ts: (ts += 100) } : { role: 'assistant', text: H('09:1' + i) + 'The yard was quiet, page ' + i + '.', ts: (ts += 100) });
+      ids.push(a.id);
+    }
+    let led = { ...emptyState(), page: 0 };
+    led = applyMutations(led, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The yard' }, { type: 'presence.enter', name: 'Jovan' }]).state;
+    led.page = 3; led.readTo = 3;
+    await saveState(st.id, led);
+    const lastText = (await db.messages.list(st.id)).filter((m) => !m.hidden).slice(-1)[0].text;
+    await db.settings.set(PLANS_KEY(st.id), { plans: [{ ...raid, parts: raid.parts.map((x) => ({ ...x, done: false })), status: 'standing', from: 3, to: 3, at: 1 }], readTo: 7, readHash: fingerprint36(lastText) });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.ctx.chat.refreshStories(true);
+    await env.ctx.chat.renderThread({ structural: true });
+    await settle(st.id);
+    read.length = 0;
+    const walk = async (dir, want) => {
+      const node = qa('#thread .msg').find((n) => n.dataset.id === ids[1]);
+      assert(node, 'the older page is on the thread');
+      click(q('.msg-act[data-act="' + (dir > 0 ? 'swipe-next' : 'swipe-prev') + '"]', node));
+      await until(async () => (await db.messages.list(st.id)).find((m) => m.id === ids[1]).text === want, 'the version walked to', 15000);
+      await until(() => env.ctx.chat.isReplaying() || queuedCount(st.id) > 0 || workIsRunning(st.id), 'the ledger rebuilt from the older page', 10000);
+      await settle(st.id);
+    };
+    await walk(1, SHRUG);
+    assert(read.some((p) => /shrugged/.test(p) && !/quiet, page/.test(p)), 'the plans keeper read the version now shown, alone — read: ' + JSON.stringify(read.map((p) => p.slice(0, 80))));
+    let book = await loadPlansBook(st.id);
+    eq(book.plans.filter((p) => p.status === 'standing').map((p) => p.title).join(', '), '', 'the raid the left version laid out is gone from the plans');
+    eq(book.readTo, 7, 'the pages after it stay read');
+    read.length = 0;
+    await walk(-1, RAID);
+    assert(read.some((p) => /night raid/.test(p)), 'walked back, that version is read again');
+    book = await loadPlansBook(st.id);
+    eq(book.plans.filter((p) => p.status === 'standing').map((p) => p.title + ' ' + p.from).join(', '), 'the night raid 3', 'and its raid is written down again, on its page');
+  } finally {
+    house.state.workerAnswer = prior.worker; house.state.plansAnswer = prior.plans;
+    if (keeperWas === undefined) await db.settings.delete('memoryKeeper'); else await db.settings.set('memoryKeeper', keeperWas);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-311 A PAGE FOLDED AWAY LEAVES THE STORY; BROUGHT BACK, IT COMES BACK (M681 — the books audit’s B2): the housekeeper’s “Fold this page away from the story” flipped the page’s `hidden` and nothing else — every page after it moved down one under the ledger’s stamps, the record’s lines and the plans keeper’s pages: the ledger kept the folded page’s writes, and every later rebuild kept and dropped the wrong pages’ writes. Folded away, its writes go and every later write moves down one; brought back (its fold taken back), it is read again and every later write moves up one; and a page let go moves the plans with it', async () => {
+  const before = errors.length;
+  const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { PLANS_KEY, loadPlansBook } = await import('../../js/agents/plans.js');
+  const { fingerprint36 } = await import('../../js/engine/fingerprint.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const prior = { worker: house.state.workerAnswer, plans: house.state.plansAnswer };
+  const autoWas = await db.settings.get('hkAutoApply');
+  await db.settings.set('hkAutoApply', false);
+  const TITLES = ['the bell tower', 'the river crossing', 'the salt debt', 'the lost ring', 'the broken oath', 'the masked envoy'];
+  const SAID = ['rang the bell', 'crossed the river', 'owed the salt merchant', 'lost the ring', 'broke the oath', 'met the masked envoy'];
+  const H = (i) => '[The yard — Monday, March 3, 2025 | 09:1' + i + ' | clear]\n\n';
+  const plan = (title, from) => ({ title, by: 'Kim', goal: title, parts: [{ who: 'Kim', does: 'does it', when: 'then', done: false }], words: [], status: 'standing', from, to: from, at: 1 });
+  let target = null;
+  const readBy = [];
+  const pagesPart = (body) => String(((body.messages || []).slice(-1)[0] || {}).content || '').split('The pages to read')[1] || '';
+  house.state.workerAnswer = (body, sys) => {
+    const user = String(((body.messages || []).slice(-1)[0] || {}).content || '');
+    if (/housekeeper of a cozy tavern/i.test(sys)) return 'One fold.\n<edits>[{"id":"#' + target.slice(0, 6) + '","hide":true,"reason":"a test"}]</edits>';
+    if (/keep the ledger/i.test(sys)) { const pg = newPageOf(user); const i = SAID.findIndex((w) => pg.includes(w)); if (i !== -1) readBy.push(i); return i === 2 ? JSON.stringify({ mutations: [{ type: 'thread.set', title: TITLES[2] }] }) : '{"mutations":[]}'; }
+    if (/narrative-state tracker/i.test(sys)) return 'The scene turned again; the page moved on.';
+    return '{"mutations":[],"deltas":[],"findings":[],"issues":[],"brief":{"pressure":[],"ripe":[],"twb":null}}';
+  };
+  house.state.plansAnswer = (body) => (/owed the salt merchant/.test(pagesPart(body)) ? JSON.stringify({ new: [{ title: 'the raid', by: 'Kim', goal: 'the raid', page: 6, parts: [{ who: 'Kim', does: 'does it', when: 'then' }] }], progress: [], closed: [] }) : '{"new":[],"progress":[],"closed":[]}');
+  const settle = async (sid) => { await until(() => !env.ctx.chat.isBusy() && !env.ctx.chat.isReplaying() && queuedCount(sid) === 0 && !workIsRunning(sid), 'the rebuild and its readers', 60000); await tick(300); };
+  const stamps = (led) => TITLES.map((t) => { const e = (led.journal || []).find((x) => x.m && x.m.type === 'thread.set' && x.m.title === t); return e ? t + '@' + e.p : t + ' gone'; }).join(', ');
+  const lines = async (sid) => (await loadMemory(sid)).nodes.map((n) => n.id + ' ' + n.span.join('–')).join(' | ');
+  const plans = async (sid) => { const b = await loadPlansBook(sid); return b.plans.filter((p) => p.status === 'standing').map((p) => p.title + '@' + p.from).sort().join(', ') + ' · read to ' + b.readTo + (b.again.length ? ' · owed ' + b.again.join(',') : ''); };
+  try {
+    const st = await db.stories.create({ title: 'a page folded away' });
+    await db.stories.update(st.id, { keeper: false, continuity: false });
+    let ts = Date.now() - 600000;
+    const ids = [];
+    for (let i = 0; i < 6; i += 1) {
+      await db.messages.append(st.id, { role: 'user', text: 'move ' + i, ts: (ts += 100) });
+      ids.push((await db.messages.append(st.id, { role: 'assistant', text: H(i) + 'Kim ' + SAID[i] + ' — page ' + i + '.', ts: (ts += 100) })).id);
+    }
+    let led = { ...emptyState(), page: 0 };
+    led = applyMutations(led, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The yard' }, { type: 'presence.enter', name: 'Jovan' }]).state;
+    for (let p = 0; p < 6; p += 1) { led.page = p; led = applyMutations(led, [{ type: 'thread.set', title: TITLES[p] }]).state; }
+    led.readTo = 5;
+    await saveState(st.id, led);
+    await saveMemory(st.id, { window: 4, nodes: [0, 1, 2].map((k) => ({ id: 'k' + (k + 1), span: [k * 4, k * 4 + 3], level: 1, text: 'Kim kept busy in the yard (' + k + ').', at: 1, whole: true })) });
+    await db.settings.set(PLANS_KEY(st.id), { plans: [plan('the raid', 5), plan('the feast', 9), plan('the signal', 11)], readTo: 11, readHash: fingerprint36(H(5) + 'Kim ' + SAID[5] + ' — page 5.') });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.ctx.chat.refreshStories(true);
+    await env.ctx.chat.renderThread({ structural: true });
+    await settle(st.id);
+    eq(stamps(await loadState(st.id)), 'the bell tower@0, the river crossing@1, the salt debt@2, the lost ring@3, the broken oath@4, the masked envoy@5', 'fixture: every page’s write, stamped with its page');
+    /* 1. the housekeeper folds page 2 away */
+    target = ids[2];
+    click(q('#btn-housekeeper'));
+    await until(() => !q('#hk-sheet').hidden, 'the housekeeper');
+    await until(() => !q('#hk-send').disabled, 'the housekeeper free to be asked', 10000);
+    type(q('#hk-input'), 'fold the salt merchant page away');
+    submit(q('#hk-form'));
+    await until(() => qa('#hk-cards button').find((b) => /^Apply$/i.test(b.textContent.trim())), 'an Apply button', 10000);
+    await until(() => !q('#hk-send').disabled, 'the answer to finish', 10000);
+    await tick(200);
+    click(qa('#hk-cards button').find((b) => /^Apply$/i.test(b.textContent.trim())));
+    await until(async () => (await db.messages.list(st.id)).find((m) => m.id === ids[2]).hidden === true, 'the page folded away', 10000);
+    await tick(300);
+    await settle(st.id);
+    let now = await loadState(st.id);
+    eq(stamps(now), 'the bell tower@0, the river crossing@1, the salt debt gone, the lost ring@2, the broken oath@3, the masked envoy@4', 'the folded page’s write is gone, and every later write is one page down');
+    assert(!(now.threads || []).some((t) => t.title === 'the salt debt'), 'the ledger no longer holds what the folded page wrote');
+    eq(now.readTo, 4, 'every page that shows is read');
+    eq(await lines(st.id), 'k1 0–3 | k2 4–6 | k3 7–10', 'the record slides down one (no keeper: the line over it stays over the pages it still covers)');
+    eq(await plans(st.id), 'the feast@8, the signal@10 · read to 10', 'the plans keeper’s pages move down one; the folded page’s plan is gone');
+    /* 2. the fold taken back: the page comes back, and is read again */
+    readBy.length = 0;
+    click(q('#hk-undo'));
+    await until(async () => (await db.messages.list(st.id)).find((m) => m.id === ids[2]).hidden !== true, 'the page shows again', 10000);
+    await until(() => readBy.includes(2), 'the page that came back is read by the ledger’s reader', 30000);
+    await settle(st.id);
+    now = await loadState(st.id);
+    eq(stamps(now), 'the bell tower@0, the river crossing@1, the salt debt@2, the lost ring@3, the broken oath@4, the masked envoy@5', 'its write is back on its page, and every later write one page up');
+    eq([...new Set(readBy)].join(','), '2', 'and no other page was read again'); /* (the reader asks once more for a mood board it was not given: the same page, twice) */
+    eq(now.readTo, 5, 'every page is read');
+    eq(await lines(st.id), 'k1 0–3 | k2 4–7 | k3 8–11', 'the record moves up one');
+    eq(await plans(st.id), 'the feast@9, the raid@5, the signal@11 · read to 11', 'the plans keeper read the page that came back, alone, and every plan stands on its page');
+    click(q('#btn-housekeeper')); await tick(300);
+    /* 3. a page let go in the middle: the plans move with it (the newest page's plan was taken back, the gone page's kept) */
+    const node = qa('#thread .msg').find((n) => n.dataset.id === ids[2]);
+    assert(node, 'the page is on the thread');
+    const priorConfirm = env.window.confirm; env.window.confirm = () => true;
+    try { click(q('.msg-act[data-act="delete"]', node)); await until(async () => !(await db.messages.list(st.id)).some((m) => m.id === ids[2]), 'the page let go', 15000); } finally { env.window.confirm = priorConfirm; }
+    await settle(st.id);
+    eq(await plans(st.id), 'the feast@8, the signal@10 · read to 10', 'the plans keeper’s pages move down with it');
+  } finally {
+    house.state.workerAnswer = prior.worker; house.state.plansAnswer = prior.plans;
+    if (autoWas === undefined) await db.settings.delete('hkAutoApply'); else await db.settings.set('hkAutoApply', autoWas);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-312 “NOTHING DUE YET” IS NEVER SAID OVER A KEEPER THAT IS DOWN (M681 — the books audit’s B5): with the record keeper’s model answering nothing at all — not even a one-word question — and a record behind, the page’s keeper said “nothing due yet” on the workers’ line', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { saveMemory } = await import('../../js/agents/memory.js');
+  const { loadWorkerStatus } = await import('../../js/agents/status.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  const windowWas = await db.settings.get('memoryWindow');
+  await db.settings.set('memoryWindow', 20);
+  const H = '[The yard — Monday, March 3, 2025 | 09:30 | clear]\n\n';
+  house.state.workerAnswer = (body, sys) => (/narrative-state tracker/i.test(sys) ? '' : '{"mutations":[],"deltas":[],"findings":[],"issues":[],"brief":{"pressure":[],"ripe":[],"twb":null}}');
+  house.state.storyAnswer = (body) => (/single word: ready/.test(JSON.stringify((body.messages || []).slice(-1))) ? '' : H + 'Kim waited by the wall while the yard went quiet.');
+  try {
+    const st = await db.stories.create({ title: 'a keeper that is down' });
+    await db.stories.update(st.id, { keeper: true, continuity: false });
+    let ts = Date.now() - 600000;
+    for (let i = 0; i < 16; i += 1) {
+      await db.messages.append(st.id, { role: 'user', text: 'on ' + i, ts: (ts += 100) });
+      await db.messages.append(st.id, { role: 'assistant', text: H + 'The scene turns, page ' + i + '.', ts: (ts += 100) });
+    }
+    let led = { ...emptyState(), page: 0 };
+    led = applyMutations(led, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The yard' }, { type: 'presence.enter', name: 'Jovan' }]).state;
+    led.page = 15; led.readTo = 15;
+    await saveState(st.id, led);
+    await saveMemory(st.id, { window: 20, nodes: [] });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.ctx.chat.refreshStories(true);
+    await env.ctx.chat.renderThread({ structural: true });
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+    const t0 = Date.now();
+    type(q('#composer-input'), 'I wait by the wall.');
+    submit(q('#composer'));
+    /* what the page's own keeper said — read the moment it is written (the house's own gap filler may speak after it) */
+    let said = null;
+    await until(async () => { const k = ((await loadWorkerStatus(st.id)) || {}).keeper; if (k && Number(k.at) >= t0 && said === null && !/a gap in the record/.test(String(k.detail || ''))) said = k; return said !== null; }, 'the page’s keeper to say what it did', 60000);
+    assert(!/nothing due yet/.test(String(said.detail || '')), 'the keeper does not say “nothing due yet” while it is down: ' + JSON.stringify(said));
+    assert(/could not fold the record yet/.test(String(said.detail || '')) && /not answering at all/.test(String(said.detail || '')), 'it says what stopped it: ' + JSON.stringify(said.detail));
+    eq(said.unfinished, true, 'and that it did not finish (the light shows it, and the house folds the gap itself when it can)');
+    await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the house to settle', 60000);
+  } finally {
+    house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
+    if (windowWas === undefined) await db.settings.delete('memoryWindow'); else await db.settings.set('memoryWindow', windowWas);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-313 HIS WORDS PUT BACK OVER A MEND ARE READ AGAIN BY THE PLANS KEEPER (M681 — B1’s pattern: every door that changes a page’s words tells it): “Put the earlier words back” on an older page left the plan as the mended words had it — the plans keeper was told nothing', async () => {
+  const before = errors.length;
+  const { PLANS_KEY, loadPlansBook } = await import('../../js/agents/plans.js');
+  const { fingerprint36 } = await import('../../js/engine/fingerprint.js');
+  const st = await db.stories.create({ title: 'his words put back' });
+  await db.messages.append(st.id, { role: 'user', text: 'I listen.' });
+  const a = await db.messages.append(st.id, { role: 'assistant', text: 'The raid: Kris opens the gate on the bell.' });
+  await db.messages.update(st.id, a.id, { mended: { before: 'The raid: Kim opens the gate on the bell.', why: 'the second reader: a test', at: 1 } });
+  await db.messages.append(st.id, { role: 'user', text: 'I nod.' });
+  await db.messages.append(st.id, { role: 'assistant', text: 'They wait for the bell.' });
+  await db.settings.set(PLANS_KEY(st.id), { plans: [{ title: 'the raid', by: 'Kris', goal: 'the gate', parts: [{ who: 'Kris', does: 'opens the gate', when: 'on the bell', done: false }], words: [], status: 'standing', from: 1, to: 1, at: 1 }], readTo: 3, readHash: fingerprint36('They wait for the bell.') });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.ctx.chat.renderThread({ structural: true });
+  await env.ctx.chat.unmend(a.id);
+  eq((await db.messages.list(st.id)).find((m) => m.id === a.id).text, 'The raid: Kim opens the gate on the bell.', 'fixture: his words are back');
+  const book = await loadPlansBook(st.id);
+  eq(book.again.join(','), '1', 'the page is owed a second reading by the plans keeper');
+  eq(book.plans.filter((p) => p.status === 'standing').length, 0, 'and the plan the mended words laid out is set aside until it is read');
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

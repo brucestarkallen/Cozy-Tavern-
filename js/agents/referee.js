@@ -39,7 +39,7 @@ import { callWorker } from './call.js'; /* M28: the one wire path for workers */
 import { applyMutations, storyTurn, canonNamesFor } from '../engine/apply.js'; /* M680: truths under the name they are kept by */
 import { loadState, saveState, notify } from '../engine/state.js';
 import { findPersonKey, importanceOf } from '../engine/people.js'; /* M345: the seeder and the referee read who people ARE */
-import { renderBodies } from '../engine/bodies.js';
+import { renderBodies, findInjury, sameHurt } from '../engine/bodies.js'; /* M681 (S7): the same hurt, one answer */
 import { renderCanon } from '../engine/canon.js';
 import { writerText, wholePage } from '../engine/whole.js';
 import { loadMemory, recordFor } from './memory.js';
@@ -997,11 +997,36 @@ export function refereeOnto(fresh, base, after) {
   const merged = added.length ? applyMutations(stamped, added).state : stamped;
   for (const k of REFEREE_OWN) {
     const now = JSON.stringify(after[k] === undefined ? null : after[k]);
-    if (now !== base.own[k]) merged[k] = after[k] === undefined ? undefined : JSON.parse(now);
+    if (now === base.own[k]) continue;
+    /* M681 (S12): the sheet person by person — a weighing that landed while the referee ruled is the ledger's too */
+    if (k === 'sheet') { merged.sheet = sheetChangeOnto(merged.sheet, JSON.parse(base.own.sheet), after.sheet); continue; }
+    merged[k] = after[k] === undefined ? undefined : JSON.parse(now);
   }
   const combat = Boolean(after.mode && after.mode.combat);
   if (combat !== base.combat) merged.mode = { ...(merged.mode || {}), combat };
   return merged;
+}
+/* M681 — THE REFEREE'S CHANGE TO THE SHEET, NEVER ITS WHOLE COPY (the same fault as the scene audit's S12, found by its search):
+ * the referee's own copy of the sheet was written over the sheet whole — on the send (refereeOnto) and on every replay of a
+ * committed ruling (restoreAfter) — and a weighing that had landed meanwhile, journaled or not, was gone. What the ruling
+ * changed (each person it touched, each mark it moved) is laid onto the sheet as it stands; nobody else is touched. */
+export function sheetChangeOnto(onto, from, to) {
+  const base = from && typeof from === 'object' ? from : {};
+  const after = to && typeof to === 'object' ? to : {};
+  const out = onto && typeof onto === 'object' ? clonePlain(onto) : { actors: {}, playerName: '' };
+  const differs = (a, b) => JSON.stringify(a === undefined ? null : a) !== JSON.stringify(b === undefined ? null : b);
+  for (const k of new Set([...Object.keys(base), ...Object.keys(after)])) {
+    if (k === 'actors' || !differs(base[k], after[k])) continue;
+    if (after[k] === undefined) delete out[k]; else out[k] = clonePlain(after[k]);
+  }
+  const was = base.actors && typeof base.actors === 'object' ? base.actors : {};
+  const now = after.actors && typeof after.actors === 'object' ? after.actors : {};
+  out.actors = out.actors && typeof out.actors === 'object' ? out.actors : {};
+  for (const k of new Set([...Object.keys(was), ...Object.keys(now)])) {
+    if (!differs(was[k], now[k])) continue;
+    if (now[k] === undefined) delete out.actors[k]; else out.actors[k] = clonePlain(now[k]);
+  }
+  return out;
 }
 
 function takeSnapshot(state) {
@@ -1010,6 +1035,7 @@ function takeSnapshot(state) {
     battle: clonePlain(state.battle),
     composure: typeof state.composure === 'number' ? state.composure : undefined,
     turn: state.turn,
+    sheet: clonePlain(state.sheet), /* M681: the sheet before the ruling — what it changed is laid again on a replay (restoreAfter) */
   };
 }
 
@@ -1040,11 +1066,15 @@ function takeAfter(state) {
   };
 }
 
-function restoreAfter(state, after) {
+function restoreAfter(state, after, before = null) {
   if (!after || typeof after !== 'object') return;
   restoreSnapshot(state, after);
   if (typeof after.combat === 'boolean') state.mode = { ...(state.mode || {}), combat: after.combat };
-  if (after.sheet && typeof after.sheet === 'object') state.sheet = clonePlain(after.sheet);
+  if (after.sheet && typeof after.sheet === 'object') {
+    /* M681: what the ruling changed of the sheet, laid on the sheet as it stands; a commit from before M681 (no sheet before
+     * it) puts its whole copy back, as it always did */
+    state.sheet = before && before.sheet && typeof before.sheet === 'object' ? sheetChangeOnto(state.sheet, before.sheet, after.sheet) : clonePlain(after.sheet);
+  }
 }
 
 /* Rewind the world to just before the earliest timeline entry whose message
@@ -1154,7 +1184,7 @@ export async function refereeStep({ connection, userText, userId, history, state
     if (committed) {
       /* M72: the same words leave the same world — the fight state the
        * ruling left is put back (a rewound ledger holds the world before) */
-      restoreAfter(state, committed.after);
+      restoreAfter(state, committed.after, committed.snap);
       return { state, ruling: committed.verdict || null, status: 'replayed', why: 'committed fate replayed' };
     }
 
@@ -1636,16 +1666,42 @@ function notAPerson(state, name) {
   return false;
 }
 
+/* M681 (S7): every line each person carries, as a weighing is shown it (seedSheetBlock's "carries:") — "name\u0001line",
+ * lowercased. A line filed after this (the referee ruling while the weighing read) is no line the weighing judged. */
+export function harmShown(state) {
+  const out = new Set();
+  const actors = state && state.sheet && state.sheet.actors && typeof state.sheet.actors === 'object' ? state.sheet.actors : {};
+  for (const [k, a] of Object.entries(actors)) for (const c of (a && Array.isArray(a.conditions) ? a.conditions : [])) if (c && c.name) out.add(lower(k) + '\u0001' + lower(c.name));
+  return out;
+}
+/* two tellings of one lasting thing: the same words, or the same hurt (bodies.js sameHurt) */
+const sameCondition = (a, b) => lower(a) === lower(b) || sameHurt(a, b);
+/* the bodies still carry it: an unhealed wound or a weariness of that person that is the same hurt */
+function carriedInBodies(state, name, hurt) {
+  const bodies = state && state.bodies && typeof state.bodies === 'object' ? state.bodies : {};
+  const mine = isMcAlias(state, name);
+  const k = Object.keys(bodies).find((b) => lower(b) === lower(name) || (mine && isMcAlias(state, b))) || Object.keys(bodies).find((b) => samePersonName(b, name));
+  const body = k ? bodies[k] : null;
+  if (!body) return false;
+  return Boolean(findInjury(body, hurt)) || (Array.isArray(body.strain) && body.strain.some((s) => s && sameHurt(s.what, hurt)));
+}
+/* M681 (S8): every page a weighing read still stands, in the words it read */
+async function pagesStillStand(storyId, read) {
+  const now = new Map((await db.messages.list(storyId)).filter((m) => m && !m.hidden).map((m) => [m.id, pageText(m)]));
+  return (Array.isArray(read) ? read : []).every((m) => now.has(m.id) && now.get(m.id) === pageText(m));
+}
+
 /* M345: the answer, folded into the sheet the way Arbiter v0.42 folds it — and the old blind seeder's work healed.
  *   - every name that means the main character lands on HIS entry (never a second one, never someone else's);
  *   - a name the ledger has a page for is filed under the page's name (one person, one name, in every book — M320);
  *   - the writer's hand is locked (only new domains are added); an estimate from a fight is replaced by a considered
  *     rating; this seeder's own entries only ever RISE (growth), and its own reading of what they carry is replaced;
- *   - what the referee filed in a beat, and what the writer set by hand, is never taken back by a seeding;
+ *   - what the referee filed in a beat, and what the writer set by hand, is never taken back by a seeding (M681: but a
+ *     harm the referee filed, shown to the weighing, that the story no longer carries goes — see below);
  *   - heal: a sheet the blind seeder made is re-read whole — its numbers replaced, its misfiled conditions let go, and
  *     its entries for people the ledger does not know dropped.
  * Returns {touched, mcMissing}. */
-export function mergeSeed(state, parsed, { heal = false, byHand = false } = {}) { /* M555: byHand — his "Weigh them again" */
+export function mergeSeed(state, parsed, { heal = false, byHand = false, shown = null } = {}) { /* M555: byHand — his "Weigh them again"; M681: shown — harmShown() of the ledger the weighing was shown */
   state.sheet = state.sheet && typeof state.sheet === 'object' ? state.sheet : { actors: {}, playerName: '' };
   if (!state.sheet.actors || typeof state.sheet.actors !== 'object') state.sheet.actors = {};
   const actors = state.sheet.actors;
@@ -1682,7 +1738,7 @@ export function mergeSeed(state, parsed, { heal = false, byHand = false } = {}) 
     }
     const fresh = { default: clampInt(ratingOf(item.default), 0, 10, ENGINE_DEFAULTS.defaultRating), domains }; /* M651 */
     const why = typeof item.why === 'string' ? item.why.replace(/\s+/g, ' ').trim().slice(0, 240) : ''; /* M560: the evidence the numbers rest on */
-    const lasting = normalizeLasting(item.lasting || item.conditions);
+    let lasting = normalizeLasting(item.lasting || item.conditions);
     const key = findActorKeyExact(state, name) || findActorKeySamePerson(state, name);
     const existing = key ? actors[key] : null;
     if (existing && typeof existing === 'object' && isHandKept(existing)) {
@@ -1691,9 +1747,20 @@ export function mergeSeed(state, parsed, { heal = false, byHand = false } = {}) 
       seen.add(key);
       continue;
     }
-    const otherHands = existing && Array.isArray(existing.conditions)
+    const filed = existing && Array.isArray(existing.conditions)
       ? existing.conditions.filter((c) => c && (c.by === 'referee' || c.by === 'hand' || (!heal && existing.seed === SEED_VERSION && c.by !== 'seed')))
       : [];
+    /* M681 — THE REFEREE'S HARM ANSWERS TO THE WEIGHING THAT WAS SHOWN IT (the scene audit's S7, made to happen on m680-001):
+     * a wound the referee filed in a fight was never taken back by any weighing (M345 kept it from the blind seeder), and the
+     * referee speaks only in a fight — so "cracked rib -1" outlived the healing the story told, every weighing after it was
+     * shown "carries: cracked rib" and left it out, and every fight after rolled him one below himself; the weighing that
+     * did name it again counted it twice. Outside a live fight, a harm the referee filed that this weighing was shown (not
+     * one filed while it read), that its own reading no longer names and that the bodies no longer carry unhealed, is let
+     * go; one it names again stays the referee's line, never a second. Gear, and what his hand wrote, are never judged. */
+    const fightNow = duelActive(state) || battleActive(state);
+    const judged = (c) => c.by === 'referee' && c.gear !== true && !(Number(c.mod) > 0) && Boolean(shown) && shown.has(lower(key) + '\u0001' + lower(c.name));
+    const otherHands = filed.filter((c) => fightNow || !judged(c) || lasting.some((l) => sameCondition(l.name, c.name)) || carriedInBodies(state, key, c.name));
+    lasting = lasting.filter((l) => !otherHands.some((c) => sameCondition(c.name, l.name)));
     /* M475: growth for EVERY considered entry that is not the writer's own — the referee's fight-made entries (_auto
      * with no seed stamp) were REPLACED by a weighing and lost their domains (a summoning 9 gone, melee 4 in its
      * place). A replace is a heal's — and an ESTIMATE's: a guess made in a fight gives way to a considered rating,
@@ -1745,7 +1812,7 @@ export function mergeSeed(state, parsed, { heal = false, byHand = false } = {}) 
 /* Seed the actor sheet: on the first pages, after a fight lets go, when someone in the scene (or the main character)
  * is not on it, when the blind seeder made it, and every SEED_EVERY pages. Background only — never on the critical
  * path, never throws. */
-export async function maybeSeedSheet({ connection, storyId, signal, callLLM, brief = '', castNotes = '', renew, force = false } = {}) {
+export async function maybeSeedSheet({ connection, storyId, signal, callLLM, brief = '', castNotes = '', renew, force = false, stale = null } = {}) {
   try {
     if (!connection || !storyId) return { ok: false };
     const state = await loadState(storyId);
@@ -1763,30 +1830,58 @@ export async function maybeSeedSheet({ connection, storyId, signal, callLLM, bri
     try { const e = await loadEssentials(storyId); essentials = e && typeof e.text === 'string' ? e.text : ''; } catch (err) { essentials = ''; }
     let user = buildSeedUser({ state, pages: messages, brief, castNotes, record, essentials, room, blind }); /* M561: every page offered; the room decides */
     if (typeof renew === 'function') renew(240000);
+    const shown = harmShown(state); /* M681 (S7): what each person carries, as this weighing is shown it */
     let parsed = await callReferee(connection, withFictionFrame(SEED_SYSTEM), user, signal, callLLM, SEED_MAX_TOKENS, (o) => Array.isArray(o.actors) || (o.actors && typeof o.actors === 'object'));
     if (!parsed) return { ok: false, why: 'no usable answer' };
-    /* the seeding is written onto the ledger as it stands NOW — a page may have landed while the model read */
-    const fresh = await loadState(storyId);
-    if (!fresh) return { ok: false };
     const heal = why === 'heal';
     /* M555: "Weigh them again" by hand weighs FRESH — the sheet takes what the weighing names, up or down (never a mark of his
      * hand); the weighings the house runs by itself still only let a considered rating rise */
     const freshByHand = force === true && !heal;
-    let result = mergeSeed(fresh, parsed, { heal, byHand: freshByHand });
-    if (result.mcMissing) {
-      /* the main character left out: asked once more, by name */
-      if (typeof renew === 'function') renew(240000);
-      user += '\n\nYou left out ' + mcName(fresh) + ' — the main character. Answer again with the whole sheet, ' + mcName(fresh) + ' first.';
-      const again = await callReferee(connection, withFictionFrame(SEED_SYSTEM), user, signal, callLLM, SEED_MAX_TOKENS, (o) => Array.isArray(o.actors) || (o.actors && typeof o.actors === 'object'));
-      if (again) result = mergeSeed(fresh, again, { heal: false, byHand: freshByHand });
+    const answers = [{ parsed, heal, byHand: freshByHand }];
+    {
+      const probe = (await loadState(storyId)) || state;
+      if (mergeSeed({ ...probe, sheet: clonePlain(probe.sheet) }, parsed, { heal, byHand: freshByHand, shown }).mcMissing) {
+        /* the main character left out: asked once more, by name */
+        if (typeof renew === 'function') renew(240000);
+        user += '\n\nYou left out ' + mcName(probe) + ' — the main character. Answer again with the whole sheet, ' + mcName(probe) + ' first.';
+        const again = await callReferee(connection, withFictionFrame(SEED_SYSTEM), user, signal, callLLM, SEED_MAX_TOKENS, (o) => Array.isArray(o.actors) || (o.actors && typeof o.actors === 'object'));
+        if (again) answers.push({ parsed: again, heal: false, byHand: freshByHand });
+      }
     }
-    fresh.sheet.seedVersion = SEED_VERSION;
-    fresh.sheet.seededAtPage = storyTurn(fresh);
-    fresh.sheet.briefMark = briefMark(brief, castNotes); /* M474 */
-    fresh.sheet.seenPresent = (Array.isArray(fresh.present) ? fresh.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean).slice(0, 40);
-    fresh.sheet.seenShowsHere = true; /* M615: everyone in it was shown to this weighing (seedPeople) */
-    fresh.seedDueAfterFight = false;
-    await saveState(storyId, fresh);
+    /* M681 — A WEIGHING OF PAGES LET GO IS NOT WRITTEN (the scene audit's S8, made to happen on m680-001): a weighing is a
+     * long call, and "Try again" waits five seconds for the page's helpers before it folds the ledger back; the weighing
+     * then landed on the folded ledger anyway — numbers and conditions read from the page let go, on the ledger of the
+     * page before it, and saved as if the story had told them. Every other link of the chain asks stale() before it
+     * writes. This one does now (the chain's own, or the queue's), and whoever started it — the chain, his "Weigh them
+     * again", the weighing before a fight — it is let go when a page it read is gone or reads otherwise now. */
+    if ((typeof stale === 'function' && stale()) || !(await pagesStillStand(storyId, messages))) return { ok: false, why: 'the pages it read have changed' };
+    /* the seeding is written onto the ledger as it stands NOW — a page may have landed while the model read (M681: and
+     * read after every call, so nothing written during the second one is saved over) */
+    const fresh = await loadState(storyId);
+    if (!fresh) return { ok: false };
+    const work = { ...fresh, sheet: clonePlain(fresh.sheet) };
+    let result = { touched: 0 };
+    for (const a of answers) result = mergeSeed(work, a.parsed, { heal: a.heal, byHand: a.byHand, shown });
+    /* M681 (S12): the weighing's outcome rides the journal (apply.js sheet.weigh), stamped with the last page it read */
+    const was = fresh.sheet && fresh.sheet.actors && typeof fresh.sheet.actors === 'object' ? fresh.sheet.actors : {};
+    const now = work.sheet.actors && typeof work.sheet.actors === 'object' ? work.sheet.actors : {};
+    const actors = {};
+    for (const k of Object.keys(now)) if (JSON.stringify(now[k]) !== JSON.stringify(was[k])) actors[k] = now[k];
+    for (const k of Object.keys(was)) if (!Object.prototype.hasOwnProperty.call(now, k)) actors[k] = null;
+    const learned = typeof work.sheet.playerName === 'string' && work.sheet.playerName !== ((fresh.sheet && fresh.sheet.playerName) || '') ? work.sheet.playerName : '';
+    const marks = {
+      seedVersion: SEED_VERSION,
+      seededAtPage: storyTurn(fresh),
+      briefMark: briefMark(brief, castNotes), /* M474 */
+      seenPresent: (Array.isArray(fresh.present) ? fresh.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean).slice(0, 40),
+      seenShowsHere: true, /* M615: everyone in it was shown to this weighing (seedPeople) */
+    };
+    const reason = why === 'first' ? 'the first weighing' : why === 'heal' ? 'an older sheet weighed again' : why;
+    const stampWas = fresh.page;
+    const written = applyMutations({ ...fresh, page: told - 1 }, [{ type: 'sheet.weigh', why: reason, considered: result.touched || 0, actors, ...(learned ? { playerName: learned } : {}), marks }]);
+    if (!written.applied.length) return { ok: false, why: 'the weighing could not be written' };
+    written.state.page = stampWas;
+    await saveState(storyId, written.state);
     notify(storyId);
     return { ok: true, touched: result.touched, why };
   } catch (err) {

@@ -48,6 +48,7 @@ import { loadState } from '../engine/state.js';
 import { mcName } from '../engine/duels.js';
 import { wholePage, roomChars } from '../engine/pagecut.js';
 import { renderCanon } from '../engine/canon.js'; /* M268: the brief and the locks for the checker */ /* M259: every page of a batch, read to its end; M265: the room */
+import { pageRewritten } from './plans.js'; /* M681: a page whose words are put back is read again by the plans keeper */
 
 const KEY_PREFIX = 'memory:';
 const MAX_TOKENS = 1600; /* one dense line, or one merged line — the ANSWER's room; a connection that thinks is given room for that beside it (agents/call.js, M315) */
@@ -1117,6 +1118,25 @@ export function memoryAfterDeletion(mem, index, { keepCovering = lineIsHis } = {
   });
   return { ...mem, nodes };
 }
+/* M681 — A PAGE THAT COMES BACK (the books audit's B2: the housekeeper's "Bring this page back to the story", or its fold
+ * taken back). The record counts the pages that show; a page shown again at visible `index` moved every page from there
+ * up one, and every line stood over the pages it had covered before — the lines after it a page short of their own pages,
+ * and the newest folded page counted as "folded" while no line held it. The mirror of a page let go, by the same one rule:
+ * the lines after it move up one; a line the page comes back inside no longer says what its pages hold — it goes, for the
+ * keeper to fold them again with the page, unless it is his or no keeper folds again (`keepCovering`), and then it stays
+ * over its pages and the one back among them, the continuous audit's mark no further than the page that came back. Pure. */
+export function memoryAfterInsertion(mem, index, { keepCovering = lineIsHis } = {}) {
+  const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).flatMap((n) => {
+    if (!n || !Array.isArray(n.span)) return [];
+    if (n.span[1] < index) return [n];
+    if (n.span[0] >= index) return [{ ...n, span: [n.span[0] + 1, n.span[1] + 1] }];
+    if (!keepCovering(n)) return [];
+    const kept = { ...n, span: [n.span[0], n.span[1] + 1] };
+    if (n.audited !== undefined) kept.audited = Math.min(auditedOf(n), index - n.span[0]);
+    return [kept];
+  });
+  return { ...mem, nodes };
+}
 
 /* M44: the record after the pages from visible `index` on are gone (a
  * rewrite-from-here, a retry): every line that reaches that far is let go.
@@ -1156,6 +1176,7 @@ export async function putBackMistakenMends(storyId) {
     try {
       const k = visiblePages(await db.messages.list(storyId)).findIndex((m) => m.id === page.id);
       if (k !== -1 && (await keeperOnFor(await db.stories.get(storyId)))) await saveMemory(storyId, memoryWithoutPage(await loadMemory(storyId), k)); /* M675: only where a keeper will fold it again */
+      if (k !== -1) await pageRewritten(storyId, k); /* M681 (B1's pattern): and the plans keeper reads the words put back again */
     } catch (err) { /* the keeper's next pass covers the hole anyway */ }
   }
   return back;
@@ -1512,7 +1533,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
        * what happened, to the writer, where it belongs. */
       text = '';
       byHouse = true;
-      lastKeeperTrouble = 'the keeper’s model gave no line for page ' + (range[0] + 1) + ', twice, though it answers other questions — the house marked that one page in the record so everything after it can be folded; “Summarize now” on that line asks the keeper again';
+      lastKeeperTrouble = 'the keeper’s model gave no line for page ' + (range[0] + 1) + ', twice, though it answers other questions — the house marked that one page in the record so everything after it can be folded, and asks the keeper for it again by itself'; /* M681 (B4): "“Summarize now” on that line" — there was no such line, and Summarize now found nothing due */
     }
     /* M242: A LINE THAT OVERRAN IS NOT A LINE. It was stored cut — five of the
      * writer's sixteen ended in an ellipsis with their tails gone, and the
@@ -1526,7 +1547,16 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
      * keeper call and then got HALVED to three pages, doubling the work and
      * halving the progress: a rebuild that looked like it had stopped early.
      * A long line is not a broken line. Only one that lost its end is. */
-    if (answerWasCut() || keeperWasTruncated()) {
+    /* M681 — THE WHOLE ANSWER TO THE RE-ASK IS KEPT (the books audit's B10, made to happen on m680-001). The re-ask's answer was
+     * taken only when it had no more phrases than the CUT one — a cut line counts only the phrases that arrived before the
+     * cut, so a whole, honest line one phrase longer than what was left of the cut one was thrown away and the cut line
+     * kept. And whether the line was cut was then asked of the RE-ASK (the module's last answer): it had come back whole,
+     * so the halving below (M244) never ran, and the line with its end missing was stored as a finished line. Whether THIS
+     * line is cut is now its own (`cut`, set when it was asked and cleared only by a whole answer that took its place); a
+     * whole answer that is a line of the record (M666) takes its place, however many phrases it has (M247: a long line is
+     * not a broken one). */
+    let cut = Boolean(text) && text !== '(no new state)' && (answerWasCut() || keeperWasTruncated());
+    if (cut) {
       try {
         if (typeof renew === 'function') renew();
         const tooLong = buildMemoryMessages(pages, { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) });
@@ -1536,8 +1566,9 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
           + 'doings, new facts, plans and promises, first appearances, exact wording that IS the fact) and drop the '
           + 'lowest-priority ones. A complete short line beats a long one with its end missing.';
         const again = parseMemoryAnswer(await callKeeper(connection, tooLong, signal));
-        if (again && again !== '(no new state)' && !answerWasCut() && !keeperWasTruncated() && phraseCount(again) <= phraseCount(text)) {
+        if (again && again !== '(no new state)' && !answerWasCut() && !keeperWasTruncated() && !notASummary(again, pagesText)) {
           text = again;
+          cut = false;
         }
       } catch (err) { /* fall through to the split below */ }
     }
@@ -1550,7 +1581,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
      * three: two complete lines, nothing lost, and the next round picks up
      * the rest. The batch is only halved for THIS fold — the writer's own
      * setting is untouched. */
-    if ((answerWasCut() || keeperWasTruncated()) && pages.length > 1) {
+    if (cut && pages.length > 1) {
       const half = Math.max(1, Math.floor(pages.length / 2));
       try {
         if (typeof renew === 'function') renew();
@@ -1599,6 +1630,15 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     mem.window = window;
   }
 
+  /* 1b. M681 (the books audit's B4): a page the house covered without words is asked again — one a run, and only after a run
+   * that met no trouble (a run that has just covered a page, or found the keeper silent, leaves it for the next) */
+  if (!lastKeeperTrouble && !gone()) {
+    try {
+      const again = await askCoveredAgain({ connection, storyId, signal, renew });
+      if (again && again.ok && !gone()) { changed = true; mem = await loadMemory(storyId); mem.window = window; }
+    } catch (err) { if (signal && signal.aborted) throw err; /* a wire that fails counts no try — the next run asks again */ }
+  }
+
   /* 2. promotion: a layer past its size merges its oldest two, up —
    * M264: as the writer chose (auto / never / a number of lines) */
   const squeeze = cleanSqueeze(await db.settings.get('memorySqueeze'));
@@ -1617,7 +1657,9 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     const between = (a, b) => mem.nodes.filter((n) => n && Array.isArray(n.span) && !n.correction && n.span[0] > a.span[1] && n.span[1] < b.span[0]);
     const meets = (a, b) => {
       const gap = between(a, b);
-      if (gap.some((n) => !n.empty)) return false;
+      /* M681 (B4): a page the house covered without words, still to be asked again (askCoveredAgain), is no empty marker to
+       * take in: a merged line over it would claim it for good, though nothing of it was ever written */
+      if (gap.some((n) => !n.empty || (n.byHouse === true && !((n.healTries || 0) >= COVER_TRIES)))) return false;
       const filled = coveredSet(gap);
       for (let pg = a.span[1] + 1; pg < b.span[0]; pg += 1) if (!filled.has(pg)) return false;
       return true;
@@ -1718,6 +1760,10 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
     delete fresh.detail;              /* the old detail described the old line */
     delete fresh.audited;             /* M673: and the continuous audit read the old line — this one is read in its turn */
     delete fresh.verified;            /* M673: nor is it his hand's line (or the housekeeper's) any more — the keeper has just written it */
+    /* M681 (the books audit's B4): nor the house's wordless cover — the keeper has written for the page. Kept, the mark made
+     * the next opening of the tale take the line's words away again (chat.js takeBackHouseNotes: a cover with words is
+     * M316's old worded marker), and the drawer went on saying the keeper had given that page no line */
+    delete fresh.byHouse; delete fresh.healTries;
     fresh.at = Date.now();
     await saveMemory(storyId, mem);
   }
@@ -1738,6 +1784,30 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
     await saveMemory(storyId, after);
   }
   return { ok: true, text: done ? done.text : '', detail: done ? done.detail || '' : '', pages: pages.length };
+}
+
+/* M681 — A PAGE COVERED WITHOUT WORDS IS ASKED AGAIN, BY THE HOUSE (the books audit's B4, made to happen on m680-001). M316
+ * covers a page the keeper gave no line for on two runs, once a one-word question proves its model answers (byHouse). The
+ * two blanks need not be the page's: a provider that answers a long ask with nothing for a while — a passing streak — and
+ * is back for the one-word question covers the page all the same. And the cover was for good: it is no line of the record
+ * (the drawer lists none for it), "Summarize now" finds nothing due (the page is covered), and its note's promise —
+ * "“Summarize now” on that line asks the keeper again" — had nothing behind it; the page was gone from what the
+ * storyteller is told once it left the window. Now the keeper asks such a page again by itself, one page a run, after a
+ * run that met no trouble (the streak has passed), until it gives a line or has failed COVER_TRIES more times — a page its
+ * model truly will not summarise is not asked for ever. A wire that fails throws and counts no try. */
+export const COVER_TRIES = 3;
+export async function askCoveredAgain({ connection, storyId, signal, renew } = {}) {
+  if (!connection || !storyId) return null;
+  const mem = await loadMemory(storyId);
+  const node = (mem.nodes || []).filter((n) => n && n.byHouse === true && n.level === 1 && Array.isArray(n.span) && n.span[0] >= 0 && !((n.healTries || 0) >= COVER_TRIES))
+    .sort((a, b) => a.span[0] - b.span[0])[0];
+  if (!node) return null;
+  const r = await redoLine({ connection, storyId, nodeId: node.id, signal, renew });
+  if (r && r.ok) return { ok: true, page: node.span[0] };
+  const held = await loadMemory(storyId);
+  const still = (held.nodes || []).find((n) => n && n.id === node.id && n.byHouse === true);
+  if (still) { still.healTries = (still.healTries || 0) + 1; await saveMemory(storyId, held); }
+  return { ok: false, page: node.span[0] };
 }
 
 /* M263: A SQUEEZED LINE READ IN PART. A layer past NOTES_PER_LAYER squeezes

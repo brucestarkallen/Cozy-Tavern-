@@ -245,7 +245,7 @@ export function buildAuditorMessages(args) {
   for (let level = 1; level <= LEAN_STEPS && built.system.length + built.user.length > room * 0.6; level += 1) built = buildAuditorAt(args, level);
   return built;
 }
-function buildAuditorAt({ state, brief = '', castNotes = '', record = '', pages = [], index = [], pageCount = 0, canonRecord = '', room = Infinity }, lean = 0) {
+function buildAuditorAt({ state, brief = '', castNotes = '', record = '', pages = [], index = [], pageCount = 0, canonRecord = '', room = Infinity, staleBoard = false }, lean = 0) {
   const known = mcName(state);
   const mc = known && known !== 'the player' ? known : '';
   /* M259: the WHOLE ledger — every standing with its numbers, every thread,
@@ -283,6 +283,8 @@ function buildAuditorAt({ state, brief = '', castNotes = '', record = '', pages 
     whole,
     '— the character pages —' + (lean ? ' (shown lean for this reading: the ledger is larger than its room \u2014 the pages of those away are shortened; the ones here are whole; fetch "person: NAME" for any page whole)' : ''), people || '(none)',
     '',
+    /* M681 (S13): the one exception to the moment not being its job — a board no reader stated for the latest page */
+    ...(staleBoard ? ['THE MOOD BOARD IS STALE: no page reader stated it for the latest STORY page — it is an older page\'s. This once the board is yours: if it is wrong for how the latest page ENDS, write ONE mode.snapshot {"type":"mode.snapshot","flags":[…]} naming every mood that holds then — combat (a fight is on), intimate (sex or intimate touch is on), travel (in transit; NOT once they have arrived), socialField (a crowded public place full of voices), isolation (alone, far from help), group (in company of several); an empty list clears them all. Nothing else of the moment.', ''] : []),
     'Hold the ledger against the brief, the pages and the record. JSON only.',
   ].join('\n');
   return { system: withFictionFrame(law({ mc })), user };
@@ -395,10 +397,14 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const room = auditRoomChars(connection);
   const record = recordWithPages(mem, Math.max(20000, Math.min(AUDIT_RECORD_CAP, Math.floor(room * 0.35))));
   const foldedTo = Math.max(0, ...((mem && Array.isArray(mem.nodes)) ? mem.nodes : []).filter((n) => n && Array.isArray(n.span)).map((n) => n.span[1] + 1));
-  const bare = buildAuditorMessages({ state, brief, castNotes, record, pages: [], pageCount: all.length, room, canonRecord }); /* M287: the audit's own room */
+  /* M681 (S13): the board no reader stated for the newest page is the auditor's to restate (boardStale) */
+  const toldNow = all.filter((m) => m && m.role === 'assistant');
+  const lastTold = [...toldNow].reverse().find((m) => m && !m.ooc);
+  const staleBoard = boardStale(state, lastTold ? toldNow.indexOf(lastTold) : null);
+  const bare = buildAuditorMessages({ state, brief, castNotes, record, pages: [], pageCount: all.length, room, canonRecord, staleBoard }); /* M287: the audit's own room */
   const view = auditView(all, foldedTo, Math.min(AUDIT_VIEW_CHARS, viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length)));
   if (!view.shown.length) return null;
-  const prompt = buildAuditorMessages({ state, brief, castNotes, record, pages: view.shown, index: view.index, pageCount: all.length, room, canonRecord });
+  const prompt = buildAuditorMessages({ state, brief, castNotes, record, pages: view.shown, index: view.index, pageCount: all.length, room, canonRecord, staleBoard });
   let read = null;
   let raw = '';
   let user = prompt.user;
@@ -768,7 +774,20 @@ export const AUDITOR_TYPES = new Set([
   'canon.lock', 'canon.unlock', 'thread.set', 'thread.close', 'knowledge.add', 'knowledge.forget', /* M372: a wrong fact can be let go */
   'faction.set', 'faction.clear', 'people.set', 'people.note', 'people.forget', /* M681 (W7): a faction the pages ended is let go */
   'thing.set', 'thing.clear', /* M604: a thing in the wrong place, or one the pages destroyed */
+  'mode.snapshot', /* M681 (S13): the whole board — only when no reader stated it for the newest page (boardStale) */
 ]);
+/* M681 — A MOOD BOARD NO READER STATED FOR THE NEWEST PAGE IS STALE, AND THE AUDITOR RESTATES IT (the scene audit's S13, made to
+ * happen on m680-001): the board is the page reader's, stated whole every page (M47) and asked once more when its answer
+ * forgot it (M92) — but a reader that forgot it twice, or failed, or never reached the newest page, left the board of an
+ * older page standing ("travel" long after they had arrived), and the one reader of the whole ledger was barred from it
+ * (M259): the storyteller was handed the wrong moods' rules until some later page's reader happened to state it. The house
+ * knows when that is: the page reader marks the page whose board it stated (state.moodAt — even when it changed nothing,
+ * which the journal cannot show). When the newest page is not that page, and nothing its readers wrote touched the board,
+ * the auditor is told so and its one mode.snapshot lands; otherwise the board stays the reader's alone, as before. */
+export function boardStale(state, pageAt) {
+  if (!Number.isInteger(pageAt) || !state || !Number.isInteger(state.moodAt) || state.moodAt >= pageAt) return false;
+  return !(Array.isArray(state.journal) ? state.journal : []).some((j) => j && j.p === pageAt && j.m && typeof j.m.type === 'string' && j.m.type.startsWith('mode.'));
+}
 /* M279: "stands as the pages moved it", "not the ledger's to zero" — thirteen such lines at turn 77 */
 const ALL_IS_WELL = /\b(stands? as written|stands? as the (?:pages|story) (?:have |has )?(?:moved|left|put|set) (?:it|them|her|him)|not (?:the ledger'?s|mine|the auditor'?s) to (?:zero|move|change|touch)|left as written|as the story has it|(?:is|are) (?:live and )?(?:correct|correctly \w+|complete|consistent|accurate|fine)|none is wrongly|nothing (?:is )?(?:wrong|stale|missing)|match(?:es)? the (?:brief|pages)|no canon contradicts|no (?:change|fix) (?:is )?needed)\b/i;
 
@@ -913,6 +932,7 @@ export function auditorScope(issues, state, { header = [], page = '', pageAt = n
     if (!m || typeof m !== 'object' || typeof m.type !== 'string') return true;
     if (m.type === 'presence.update') return !(m.staleClear || restatedOk.has(m)); /* M544: the letting-go of a place the page left behind; M661: a place or an outfit the newest page bears out */
     if (!AUDITOR_TYPES.has(m.type)) return true;
+    if (m.type === 'mode.snapshot') return !boardStale(state, pageAt); /* M681 (S13): the reader's board, unless no reader stated it for this page */
     /* the header line is the truth for the ground and the hour (M131): the
      * auditor may bring the ledger TO it, never move it anywhere else */
     const tellingMoves = m.type === 'place.set' && groundTheTellingStandsOn(state, page, m.name || m.place, headerPlace); /* M453 */

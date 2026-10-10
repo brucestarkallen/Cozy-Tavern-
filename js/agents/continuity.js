@@ -24,6 +24,7 @@ import { BLIND_LINE } from '../engine/world.js'; /* M416: the one wording of a t
 import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M283 */
 import { renderStateFacts } from '../engine/state.js';
 import { renderCanon } from '../engine/canon.js';
+import { isMc } from '../engine/people.js'; /* M681 (B7): his own dress and place, for the header */
 /* M9 (B16): the tolerant JSON-finder is shared by every agent —
  * agents/jsonutil.js. */
 import { balancedCandidates, parseLenient } from './jsonutil.js';
@@ -140,6 +141,15 @@ export function buildContinuityMessages({ state, assistantText, brief = '', reco
     : state;
   /* M338: the blind spots are keyed to the page being read — what bears on it, and what is recent */
   const facts = renderStateFacts(lasting, { scenePages: [String(assistantText || '')] }) || 'Nothing is written in the ledger yet.';
+  /* M681 — THE MAIN CHARACTER'S OWN DRESS AND PLACE, FOR THE HEADER (the books audit's B7, made to happen on m680-001). M626
+   * asks this reader to warn when the header's attire or position for him disagrees with what the ledger holds for him —
+   * and M267 took every position and outfit out of what it is shown, his with everyone's: it was asked to hold the header
+   * to a ledger it never saw. His own two, as the ledger held them before this page, are shown on a line of their own, for
+   * the header alone (the ground is in the ledger's lines already); everyone else's stay out, as M267 has it. */
+  const him = (Array.isArray(state && state.present) ? state.present : []).find((p) => p && typeof p.name === 'string' && isMc(state, p.name));
+  const said = (v) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '');
+  const dress = him ? [said(him.attire) ? 'attire: ' + said(him.attire) : '', said(him.position) ? 'position: ' + said(him.position) : ''].filter(Boolean) : [];
+  const hisLine = dress.length ? 'THE MAIN CHARACTER AS THE LEDGER HELD HIM BEFORE THIS PAGE — for THE HEADER LINE only (the page itself may dress or move him; that is the story): ' + him.name + ' — ' + dress.join('; ') + '.' : '';
   const canon = Object.keys(hisCanon).length ? renderCanon(hisCanon, Object.keys(hisCanon), Infinity) : ''; /* M448: his truths, never the series'; M680: every one of them, not the first six */
   const user = [
     'What is locked true of them:',
@@ -151,6 +161,7 @@ export function buildContinuityMessages({ state, assistantText, brief = '', reco
     'never drift):',
     facts,
     '',
+    ...(hisLine ? [hisLine, ''] : []),
     /* M450: WHO COULD KNOW THIS IS READ AGAINST THE STORY, NOT ONLY THE LEDGER. The blind spots come from the ledger's
      * knowledge lines, and a line the page reader missed made a TRUE telling look untold — and this reader's warn MENDS
      * the page. It reads what the other readers read: the record, and the pages before this one, whole into its room. */

@@ -825,7 +825,7 @@ export function initHousekeeper(ctx) {
       await persistSession();
       if (result.words) toast(result.words);
       refreshStoryFloor(result.touched);
-      rippleEdits(story, result.edited);
+      rippleEdits(story, result.edited, { folded: result.folded });
       render();
     } catch (err) {
       toast((err && err.message) || 'It wouldn’t hold — nothing was changed.');
@@ -845,15 +845,19 @@ export function initHousekeeper(ctx) {
    * replay puts every later page's writes back, and the newest page's own reading then lands on top of them (newest
    * first, the older replay had to wait out the newest page's whole reading). The ripples come after every rebuild is
    * under way, so none of them writes the ledger while a newest-page rewind folds it. */
-  async function rippleEdits(story, edited, { ripple = true } = {}) {
-    if (!story || !Array.isArray(edited) || !edited.length) return;
-    if (!ctx.chat) return;
-    let order = edited.slice();
-    try {
-      const pages = await db.messages.list(story.id);
-      const at = new Map(pages.map((m, i) => [m && m.id, i]));
-      order = order.slice().sort((a, b) => (at.has(a.messageId) ? at.get(a.messageId) : Infinity) - (at.has(b.messageId) ? at.get(b.messageId) : Infinity));
-    } catch (err) { /* in the order they came */ }
+  async function rippleEdits(story, edited, { ripple = true, folded = [] } = {}) {
+    if (!story || !ctx.chat) return;
+    if (!(Array.isArray(folded) && folded.length) && !(Array.isArray(edited) && edited.length)) return;
+    let at = new Map();
+    try { at = new Map((await db.messages.list(story.id)).map((m, i) => [m && m.id, i])); } catch (err) { /* in the order they came */ }
+    const byPlace = (a, b) => (at.has(a.messageId) ? at.get(a.messageId) : Infinity) - (at.has(b.messageId) ? at.get(b.messageId) : Infinity);
+    /* M681 (the books audit's B2): a page folded away or brought back first, oldest first — what the house keeps of the story
+     * moves with it (chat.js pageFolded), and every re-ink after it finds the pages where they now stand */
+    for (const f of (Array.isArray(folded) ? folded : []).filter(Boolean).slice().sort(byPlace)) {
+      if (typeof ctx.chat.pageFolded === 'function') { try { await ctx.chat.pageFolded(story, f.messageId); } catch (err) { /* the light asks again */ } }
+    }
+    if (!Array.isArray(edited) || !edited.length) return;
+    const order = edited.slice().sort(byPlace);
     const reinked = new Set();
     for (const e of order) {
       if (!e || reinked.has(e.messageId)) continue; /* two cards on one page: it is read again once, with both */
@@ -878,7 +882,7 @@ export function initHousekeeper(ctx) {
       await persistSession();
       if (result.words) toast(result.words);
       refreshStoryFloor(result.touched);
-      rippleEdits(story, result.edited);
+      rippleEdits(story, result.edited, { folded: result.folded });
       render();
     } catch (err) {
       toast((err && err.message) || 'It wouldn’t hold — nothing was changed.');
@@ -903,7 +907,7 @@ export function initHousekeeper(ctx) {
       toast(result.words || (result.ok ? 'Taken back.' : 'Nothing was taken back.'));
       if (result.ok) refreshStoryFloor({ messages: true });
       /* M296: a page put back is a page re-inked — read again, its record line let go; no name ripple (M191) */
-      if (result.ok) rippleEdits(story, result.edited, { ripple: false });
+      if (result.ok) rippleEdits(story, result.edited, { ripple: false, folded: result.folded });
       render();
     } catch (err) {
       toast((err && err.message) || 'It wouldn’t come back — nothing was touched.');
@@ -1151,7 +1155,7 @@ export function initHousekeeper(ctx) {
             await saveSession(story.id, asked); /* M443: into the session that asked, wherever he is looking */
             if (landed.words) toast(landed.words);
             refreshStoryFloor(landed.touched);
-            rippleEdits(story, landed.edited);
+            rippleEdits(story, landed.edited, { folded: landed.folded });
             /* M119: a loosely-anchored edit that missed its words is re-asked
              * ONCE by the house — the writer never checks twice */
             const stillHere = sessionStoryId === story.id && (!session || !Number.isFinite(session.id) || session.id === asked.id); /* M443: the re-ask is sent from the view — only where it was asked */
