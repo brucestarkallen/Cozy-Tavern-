@@ -5,7 +5,9 @@
 Jovan requested faster checks, smaller context, removal of the factory female voice
 restriction, disappearing resolved housekeeper warnings, one academy story/input canvas,
 a cozy academy night choice, and a clearer workflow. SPEC.md has the acceptance criteria.
-Publication and final release results are pending until recorded below.
+All seven changes and validation are complete; authenticated publication to main is next.
+The product source tested by the full release is f45a68c. A final runner report initialization
+fix has its own failing-before/passing-after unit and a fresh successful fast run.
 
 The preceding release is m682-001, published on main at ff200328. Original Claude M680
 (4a19de3), M681 (8880a0), and the two final fixes remain in history. Canon Verification
@@ -25,6 +27,17 @@ are preserved verbatim in docs/archive; HISTORY remains complete and append only
 - Academy: css/academy.css and base.css, index.html Appearance choices, app.js and
   speechcolours.js. Day and night share one story/input canvas; night reuses local art/fonts.
 - Workflow: tools/check.py, tests/check_runner_unit.py, docs/WORKFLOW.md.
+
+## M683 validation, October 10, 2026
+
+Full release: all 33 checks passed in 1713.89 s (28.6 minutes), source unchanged throughout.
+Harness 1447/1447, app walk 295/295, long play 9/9, lint 0 errors; all 22 original standing
+checks, housekeeper, workflow and day/night pixel/performance checks green. Additional
+coat and contrast checks pass for all ten coats. No assertion or budget was lowered.
+Final fast: 15.69 s, 41 selected laws, 4 selected app scenarios, lint, five workflow units,
+three readiness cases, real phone/desktop Appearance controls. Full results/timings and
+causal controls: audit/results/m683.json. Complete app/CSS unchanged after the full release;
+only initial runner progress reporting changed, with its targeted proof and final fast run.
 
 ## Checks
 

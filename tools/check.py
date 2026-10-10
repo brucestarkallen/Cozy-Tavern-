@@ -116,6 +116,8 @@ def main():
     report = {'profile': args.profile, 'source_digest': source, 'runtime_digest': runtime,
               'scope': 'focused development checks' if args.profile == 'fast' else 'all 22 standing checks plus workflow/housekeeper/theme checks' if args.profile == 'release' else 'every top-level Python test',
               'complete': False, 'checks': {}}
+    # A previous green summary must not appear complete while its next run is in progress.
+    summary_file.write_text(json.dumps(report, indent=2) + '\n')
     print(args.profile.upper() + ': ' + report['scope'] + '; ' + str(len(selected)) + ' checks', flush=True)
     # Explicit selectors belong only to fast mode. Ambient diagnostic selectors must never thin a release.
     environment = os.environ.copy()

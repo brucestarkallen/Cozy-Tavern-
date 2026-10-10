@@ -1,0 +1,252 @@
+{
+  "version": "m683-001",
+  "release_source_commit": "f45a68cf4b4e05a24e4a5b843765cb2f170bd7f2",
+  "release_seconds": 1713.89,
+  "release_source_digest": "81fc74a5db41e51f4e43749d8e41f2dbb3ee1ca07f24527635d34942f5e1d31c",
+  "release_runtime_digest": "093ca0464d99b7c780d25ea88393c4a90e3fe6a647d04a5be4847fd723b0b0bb",
+  "release_source_unchanged": true,
+  "release_checks": {
+    "harness": {
+      "exit": 0,
+      "seconds": 165.12
+    },
+    "walk": {
+      "exit": 0,
+      "seconds": 495.49
+    },
+    "long": {
+      "exit": 0,
+      "seconds": 34.88
+    },
+    "lint": {
+      "exit": 0,
+      "seconds": 4.1
+    },
+    "perf_send": {
+      "exit": 0,
+      "seconds": 44.97
+    },
+    "perf_repair": {
+      "exit": 0,
+      "seconds": 7.94
+    },
+    "launcher": {
+      "exit": 0,
+      "seconds": 8.09
+    },
+    "upgrade_in_place": {
+      "exit": 0,
+      "seconds": 16.28
+    },
+    "paint_academy": {
+      "exit": 0,
+      "seconds": 59.04
+    },
+    "perf_academy": {
+      "exit": 0,
+      "seconds": 67.74
+    },
+    "perf_housekeeper": {
+      "exit": 0,
+      "seconds": 20.42
+    },
+    "paint_academy_night": {
+      "exit": 0,
+      "seconds": 57.65
+    },
+    "perf_academy_night": {
+      "exit": 0,
+      "seconds": 67.11
+    },
+    "paint_academy_panels": {
+      "exit": 0,
+      "seconds": 15.83
+    },
+    "cutthinking": {
+      "exit": 0,
+      "seconds": 17.88
+    },
+    "notes_layout": {
+      "exit": 0,
+      "seconds": 16.26
+    },
+    "backup": {
+      "exit": 0,
+      "seconds": 10.45
+    },
+    "backupdupes": {
+      "exit": 0,
+      "seconds": 1.82
+    },
+    "restore_backup_unit": {
+      "exit": 0,
+      "seconds": 0.12
+    },
+    "holdsone": {
+      "exit": 0,
+      "seconds": 62.79
+    },
+    "restore_zip": {
+      "exit": 0,
+      "seconds": 27.15
+    },
+    "backup_sent": {
+      "exit": 0,
+      "seconds": 11.2
+    },
+    "backup_fresh": {
+      "exit": 0,
+      "seconds": 27.3
+    },
+    "rowtap": {
+      "exit": 0,
+      "seconds": 5.33
+    },
+    "static_host": {
+      "exit": 0,
+      "seconds": 37.54
+    },
+    "device_guard": {
+      "exit": 0,
+      "seconds": 46.08
+    },
+    "boot_open": {
+      "exit": 0,
+      "seconds": 5.84
+    },
+    "boot_ready": {
+      "exit": 0,
+      "seconds": 6.24
+    },
+    "vendor_canon_unit": {
+      "exit": 0,
+      "seconds": 0.32
+    },
+    "check_runner_unit": {
+      "exit": 0,
+      "seconds": 0.32
+    },
+    "academy_ui": {
+      "exit": 0,
+      "seconds": 8.97
+    },
+    "housekeeper_rounds": {
+      "exit": 0,
+      "seconds": 42.94
+    },
+    "device_pair": {
+      "exit": 0,
+      "seconds": 521.42
+    }
+  },
+  "additional_theme_checks": {
+    "coat": "header follows all ten coats; pass",
+    "contrast": "zero surfaces under AA in all ten coats; pass"
+  },
+  "post_release_runner_change": "initialize the current summary as incomplete before its first child; application, selectors and check commands unchanged",
+  "post_release_validation": {
+    "workflow_unit_tests": 5,
+    "fast_seconds": 15.69,
+    "fast_source_digest": "106e7a5ba43bce71edd42ff88a57a5bf0c825e4842341f1ce719443c3f0d5e0a",
+    "fast_complete": true
+  },
+  "counts": {
+    "harness": {
+      "passed": 1447,
+      "failed": 0,
+      "selected": 1447,
+      "total": 1447
+    },
+    "walk": {
+      "passed": 295,
+      "failed": 0,
+      "selected": 295,
+      "total": 295
+    },
+    "long": {
+      "passed": 9,
+      "failed": 0,
+      "selected": 9,
+      "total": 9
+    }
+  },
+  "original_archives": {
+    "AGENTS.before-M683.md": "32591c27f09f64d0f6e8e91814960327ec1d783fa93748c90da9befb48a254c4",
+    "gates.before-M683.sh": "3d7e9f78d095fbd0842136c1146dae8547e655ac9562388283f4f02a2b537f77",
+    "HANDOFF.before-M683.md": "94c08d7e23115545a5a35c205befb07e7d4733edb8d8fe5c10cd8aa60b94974d"
+  },
+  "negative_controls": [
+    "All four M683 laws fail on M682 for the actual defect and pass here.",
+    "DOM-M683-1 on M682 leaves one refused banner and fails.",
+    "Night headings before the override fail at 1.08:1; current UI passes at least 4.5:1.",
+    "Stale green report probe fails before early initialization, passes after."
+  ],
+  "slowest_laws": {
+    "harness": [
+      {
+        "name": "M46-1 a job is marked running from start to settle, and listeners hear both",
+        "milliseconds": 62016
+      },
+      {
+        "name": "M425-4 FUZZ: every line of the record speaks of exactly the pages under it \u2014 through additions, deletions, edits, take-backs and squeezes, on the real keeper",
+        "milliseconds": 17509
+      },
+      {
+        "name": "FUZZ: a journal fold reproduces the world the writes made, page for page",
+        "milliseconds": 14871
+      },
+      {
+        "name": "M424-1 FUZZ: every form of a name and the chain\u2019s own joins \u2014 a journal fold reproduces the world the writes made, page for page",
+        "milliseconds": 5583
+      },
+      {
+        "name": "M259-28: the writer chooses when the record squeezes; the record rides in the room his context leaves",
+        "milliseconds": 5438
+      }
+    ],
+    "walk": [
+      {
+        "name": "DOM-8c the checkpoint invariant holds under a random sequence of sends, swipes (last and old, walked and written), retries, edits (old and last) and deletes (mid, a writer\u2019s page, the tail)",
+        "milliseconds": 28824
+      },
+      {
+        "name": "DOM-252 A PAGE WHOSE READERS WERE CUT SHORT IS NOT A PAGE READ (M675 \u2014 the audit of M674: \u201ctry again\u201d a few seconds after a page lands waits five seconds for its readers, then goes on without them): the new telling lands and he later walks back \u2014 the earlier version is read then, whole (it was handed the half-read ledger the retry had written down as its own); the new telling FAILS \u2014 the page that stands is read again by the house itself (it got the half-read ledger \u201cstraight back\u201d, its readers never to run); and he walks AWAY from a telling whose readers are still out \u2014 the half-read ledger is not written down as that telling\u2019s own",
+        "milliseconds": 21340
+      },
+      {
+        "name": "DOM-214 REBUILD THE RECORD, THEN STOP: IT STAYS STOPPED (M607) \u2014 no \"carrying on shortly\" over his Stop, no rebuild started again by the house, the workers\u2019 line says he stopped it",
+        "milliseconds": 17321
+      },
+      {
+        "name": "DOM-31 Retry while the page\u2019s readers are still out: nothing they read of the page let go lands in the ledger (M290)",
+        "milliseconds": 15154
+      },
+      {
+        "name": "DOM-259 A CATCH-UP WHOSE MODEL DOES NOT ANSWER SAYS SO, STEPS BACK AT ONCE, AND COMES BACK BY ITSELF (M675 \u2014 the audit of M673/M674): a page the ledger never read, and a reader that cannot be reached \u2014 the house\u2019s own reading fails ONCE (it was tried six times over a minute by the queue, every send waiting five seconds on it meanwhile), its banner says what happened and goes (it stood on the screen for good: \u201cReading the pages the ledger missed\u201d), the workers\u2019 line says it tries again; a send made right then is not held; and when the reader answers again the page is read with nothing pressed; a reader that never answers at all \u2014 cut off by its leash \u2014 is the same stumble (it left the banner standing and marked the reader failed, which stops the house coming back by itself); and a reading that fails some way nobody foresaw is still tried once, never slept on",
+        "milliseconds": 14576
+      }
+    ],
+    "long": [
+      {
+        "name": "LONG-1 ninety turns of play: the house holds the world with no hand on it",
+        "milliseconds": 28907
+      },
+      {
+        "name": "LONG-8 the ledger auditor by hand: the drawer\u2019s button runs the same reader \u2014 a fixable issue lands, a standing earned on the page is refused, the unfixable is reported, the workers\u2019 line says so",
+        "milliseconds": 3086
+      },
+      {
+        "name": "LONG-6 the intimate rule wakes on the writer\u2019s own words a beat before the flag, and stands down after",
+        "milliseconds": 976
+      },
+      {
+        "name": "LONG-4 the context handed to the storyteller stays flat: turns 60-89 cost no more than turns 25-45; the window never exceeds the keeper\u2019s; the record exists",
+        "milliseconds": 578
+      },
+      {
+        "name": "LONG-5 the voices ride under the page, rotate, and never reach the wire; the window is written when the world opens one and on #Put TWB",
+        "milliseconds": 444
+      }
+    ]
+  }
+}

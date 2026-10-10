@@ -18366,3 +18366,22 @@ review then assigned distinct fake-provider ports as well as app ports, bound ea
 and a disposable fixture directory, and cleared inherited diagnostic Python options. This prevents unrelated
 profiling settings, a different checkout or an existing library from changing a release's scope or test data.
 The failure-propagation unit checks the checkout/fixture isolation too.
+
+M683 FINAL VALIDATION: m683release on f45a68c passed all 33 checks in 1713.89 s with unchanged execution inputs.
+Harness 1447/1447 (165.12 s), walk 295/295 (495.49 s), long play 9/9 (34.88 s), lint 0 errors; all 22 standing
+checks, additional workflow/housekeeper checks and both academy pixel/performance coats passed. Device pair
+521.42 s explains the long deliberate wait; both original academy budgets remain intact. Additional coat and
+contrast checks pass across all ten themes. The measured editing path cuts the wait to seconds without calling
+its selected coverage a release. Complete results and largest costs are in audit/results/m683.json.
+
+Final runner-only correction: a prior green JSON summary could remain visible until the first job finished, even
+though ALLDONE had already been cleared. The new progress probe sees that stale success and fails (child exits 1
+instead of its intentional 7). The runner now writes incomplete at start, after loading reusable successes. Five
+workflow units pass, including that real child probe. A fresh fast run passes in 15.69 s: 41/41 selected harness
+laws, 4/4 selected walk scenarios, lint, real phone/desktop academy settings and three readiness cases. Application,
+release job commands and selectors are unchanged after the successful full release. This targeted tool correction
+does not require repeating the unchanged product's 29 minute recovery gate.
+
+Publication is next: remote main must still be ff200328; update main and the saved work branch without force, then
+verify their exact refs. Claude's four saved audit/final-fix commits remain ancestors and all pre-M683 HISTORY
+bytes remain an unchanged prefix. The original AGENTS/HANDOFF archives remain byte-identical to published M682.

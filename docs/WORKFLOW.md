@@ -49,3 +49,11 @@ handoff short. Use the issue/PR templates for reproduction and actual measured v
 Before publication, fetch/inspect remote main and reconcile changes without force. Verify
 the resulting remote head and version. Tokens stay outside git and logs. Commit documents
 once after results; a document-only commit need not repeat functional validation.
+
+## Measured M683 result
+
+Fast: 15.69 seconds for six jobs (41 focused laws, four app scenarios, lint, workflow,
+readiness and actual academy controls). Release: 1713.89 seconds for all 33 jobs.
+The full walk took 495.49 seconds, the device pair took 521.42, and the harness took
+165.12. These deliberate cases belong at release time. The complete result is in
+audit/results/m683.json; every previous standing check remains.
