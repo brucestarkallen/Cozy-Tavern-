@@ -14478,6 +14478,7 @@ test('DOM-281 HIS HAND ON THE CLOCK OUTRANKS THE NEWEST PAGE’S HOUR WHEN THE T
     await env.ctx.chat.openStory(st.id);
     await tick(300);
     click(q('#btn-ledger'));
+    click(await until(() => q('#drawer [data-room="scene"]'), 'the scene room', 15000)); /* the drawer opens on the room he left it on (an earlier scenario's, DOM-234's people) */
     const clockForm = await until(() => q('#drawer .clock-set-form'), 'the clock form', 15000);
     type(clockForm.querySelector('input[aria-label="The clock’s hour"]'), '14');
     type(clockForm.querySelector('input[aria-label="The clock’s minute"]'), '0');
