@@ -13,9 +13,14 @@ readiness. The academy test synchronizes its fixture before measurement and veri
 Its original performance budgets are unchanged. Do not turn the missing historical crash/navigation logs into a claim
 that every past interruption is conclusively explained; the reproduced cause and current checks are the evidence.
 
-The full gate run codex682a is in progress. Publication is blocked by GitHub integration write access (403 Resource not
-accessible by integration). The new code is not yet on main. All older main commits remain intact. Update this status
-with actual counts and commit SHAs after the gates and publication; never tell him this checkout is on his phone before
+The active run is codex682c. Harness 1443/1443, long play 9/9 and lint EXIT 0 have passed. The walk is 293/294:
+DOM-256 timed out walking forward to the second saved telling. Its test clicks immediately after the first ledger
+lands, while swipeToNow still has its preview work to finish under busy. A clean-baseline comparison is queued after
+the browser checks; confirm the cause before changing either code or assertions. Browser/server checks are still
+running, one at a time. Run all tests/*.py, including the additional checks outside audit/gates.sh, before closing.
+Publication is blocked by GitHub integration write access (403 Resource not accessible by integration); native Git also
+has no usable authentication. The new code is not yet on main. All older main commits remain intact. Update this status
+with final counts and commit SHAs after the gates and publication; never tell him this checkout is on his phone before
 GitHub main has been verified. The older checkpoints below are retained as history and describe their own versions.
 
 ---
