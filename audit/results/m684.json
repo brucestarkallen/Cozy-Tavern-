@@ -1,0 +1,88 @@
+{
+  "version": "m684-001",
+  "status": "final full gate running; not published",
+  "baseline_commit": "71b22e8a1277f622ca29ae55594b0279cdfbee42",
+  "release_source_commit": "8cbf422364f76a50c1c875e28004c6429853ce70",
+  "negative_controls": {
+    "baseline_fails": [
+      "M684-1",
+      "M684-2",
+      "M684-3",
+      "M684-5",
+      "M684-6",
+      "M684-7",
+      "M684-8",
+      "M684-9",
+      "M684-10",
+      "M684-11",
+      "M684-12",
+      "M684-13",
+      "M684-14",
+      "M684-15",
+      "M684-16",
+      "M684-17",
+      "M684-18",
+      "M684-19"
+    ],
+    "baseline_passes": [
+      "M684-4",
+      "M684-20",
+      "M684-21"
+    ],
+    "fixed_passes": [
+      "M684-1",
+      "M684-2",
+      "M684-3",
+      "M684-4",
+      "M684-5",
+      "M684-6",
+      "M684-7",
+      "M684-8",
+      "M684-9",
+      "M684-10",
+      "M684-11",
+      "M684-12",
+      "M684-13",
+      "M684-14",
+      "M684-15",
+      "M684-16",
+      "M684-17",
+      "M684-18",
+      "M684-19",
+      "M684-20",
+      "M684-21"
+    ],
+    "note": "M684-20 and M684-21 also failed on intermediate M684 code and passed after their corrections; M684-4 is a source-rejection control."
+  },
+  "fast_development": {
+    "profile": "fast",
+    "checks_passed": 6,
+    "seconds": 16.19,
+    "note": "Before final MC guard correction; not a release gate."
+  },
+  "focused_browser": {
+    "ids": [
+      "DOM-1",
+      "DOM-2",
+      "DOM-46",
+      "DOM-47",
+      "DOM-M684-1"
+    ],
+    "passed": 5
+  },
+  "long_preflight": {
+    "passed": 9,
+    "story_turns": 90
+  },
+  "first_gate": {
+    "tag": "m684",
+    "harness_passed": 1467,
+    "stopped_at": "DOM-47 exposed an overstrict MC name filter; fixed before restarting."
+  },
+  "final_tag": "m684b",
+  "limits": [
+    "No real user story data was accessed.",
+    "Scripted model answers test application contracts, not all possible future model answers.",
+    "World time is story time; unsuccessful reviews remain visibly overdue."
+  ]
+}
