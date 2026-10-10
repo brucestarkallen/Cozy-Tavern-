@@ -2,7 +2,7 @@
   "version": "m685-001",
   "status": "verification_in_progress",
   "baseline_commit": "613c1749e56524f30d371e518e86cd06e0b65920",
-  "product_commit": "ec30f19466afceb838eac5443ac6376cf9631c81",
+  "product_commit": "98ae6ce",
   "model_calls": "Scripted providers only; no real user story or paid model calls.",
   "preserved_ancestors": [
     "4a19de3",
@@ -13,14 +13,14 @@
     "613c174"
   ],
   "new_laws": {
-    "total": 28,
+    "total": 29,
     "on_m685": {
-      "passed": 28,
+      "passed": 29,
       "failed": 0
     },
     "on_m684": {
       "passed": 3,
-      "failed": 25
+      "failed": 26
     },
     "baseline_controls": [
       "ok \u2014 M685-16 source recovery cannot overwrite an identity written while the audit waited",
@@ -51,7 +51,8 @@
       "FAIL \u2014 M685-24 a failed main audit preserves completed source recovery and its receipts for the next attempt",
       "FAIL \u2014 M685-25 original pages are divided to fit a small auditor context instead of remaining unread forever",
       "FAIL \u2014 M685-26 a complete audit answer never silently drops findings after the twentieth",
-      "FAIL \u2014 M685-27 a valid JSON prefix cut off by the provider is not certified as a complete audit"
+      "FAIL \u2014 M685-27 a valid JSON prefix cut off by the provider is not certified as a complete audit",
+      "FAIL \u2014 M685-28 stopping a worker that preserves partial work and returns normally is still reported as stopped"
     ]
   },
   "new_dom_scenario": {
@@ -148,7 +149,7 @@
     "disposition": "Stopped before the rest of the release matrix. Updated obsolete prompt expectations while retaining runtime protections; then added and proved complete finding and provider cutoff regressions before restarting."
   },
   "release": {
-    "tag": "m685c",
+    "tag": "m685d",
     "status": "running"
   },
   "interrupted_release_b": {
@@ -182,5 +183,19 @@
       ]
     },
     "disposition": "A worker returning partial work after cancellation was marked successful. Added causal M685-28 and checked the existing DOM-262 plus DOM-M685-1 before restarting release."
+  },
+  "interrupted_release_c": {
+    "tag": "m685c",
+    "complete": false,
+    "checks": {
+      "harness": {
+        "exit": 0,
+        "seconds": 163.86,
+        "digest": "f7fa5ba107bc644d7573e6dee818a6ccb16e65c5efd3baa4a0f09308a8b647a3",
+        "log": "/tmp/gates/m685c_harness.log",
+        "reused": false
+      }
+    },
+    "disposition": "Stopped during the walk after a separate timeout probe reproduced the same partial-return reporting defect. M685-29 proves the timeout remains a failed reading after the queue guard."
   }
 }

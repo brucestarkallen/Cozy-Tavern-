@@ -5,11 +5,14 @@
 Branch m685-ledger-repair holds the complete ledger recovery changes. Main still
 serves m684-001 until release verification passes. Read docs/LEDGER-AUDIT-M685.md
 for the section audit, original source recovery, bounded correction loop, persistent
-unfinished findings and post audit world review. All 27 new laws pass; 24 fail on
+unfinished findings and post audit world review. All 28 new laws pass; 25 fail on
 published M684 and three controls pass there. The actual audit button scenario
 fails on M684 and passes on M685. Fast profile: 17.90 seconds. First full harness
 found three obsolete prompt expectations, now updated with the runtime safeguards
-retained. Final release is being restarted after those corrections. Do not claim
+retained. Release m685b then passed the full harness (1496/1496) and 296/297 walk scenarios.
+DOM-262 caught Stop being reported as success after a worker returned partial work.
+The queue fix is committed at 98ae6ce; M685-28 and the unchanged DOM-262 pass.
+Release m685c is running on that checkpoint. Do not claim
 main is updated or the release is green until the result is recorded below.
 
 ## Published release: m684-001

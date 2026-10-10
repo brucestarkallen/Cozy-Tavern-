@@ -41,7 +41,7 @@ edits, actual departures, deaths, page earned relationships and main character
 ownership remain. A clock advanced by hand no longer gets rewound by an audit of the
 older header. Changed source pages or a changed brief invalidate an in flight audit. The queue
 also honors Stop when a worker returns normally after preserving partial work;
-cancellation cannot turn into a completed audit banner.
+cancellation or timeout cannot turn into a completed audit banner.
 
 World recovery now includes people with no location record, as well as stale records.
 After an audit restores people, the world worker handles any owed review in the same
@@ -79,8 +79,8 @@ and the implementation paths, rather than source text assertions added for M685.
 Final focused development profile: 6 checks green in 17.90 seconds. The earlier
 focused profile passed in 17.99 seconds. Ledger and neighboring selection before the last two completeness laws: 98 passed, 0 failed, out of 1494 total
 harness laws. Final completeness and prompt selection: 31 passed out of 1496 total. The real button scenario passes with its two app setup scenarios.
-Twenty eight M685 laws cover new behavior and preservation controls. Against the published M684 baseline, 25 fail and three preservation controls pass;
-all 28 pass on M685. The new button scenario also fails on M684 at the missing identity
+Twenty nine M685 laws cover new behavior and preservation controls. Against the published M684 baseline, 26 fail and three preservation controls pass;
+all 29 pass on M685. The new button scenario also fails on M684 at the missing identity
 assertion and passes on M685. Release counts will be recorded in audit/results/m685.json when the
 release run finishes. Tests use scripted providers; no paid story model calls.
 
@@ -94,7 +94,11 @@ real cancellation report regression: a worker returning partial work after Stop
 was marked successful by the queue. M685-28 fails before the queue fix and passes
 after; the unchanged DOM-262 and DOM-M685-1 both pass with their setup scenarios.
 The final release runs again after that fix; neither interrupted attempt is a
-complete green release.
+complete green release. The third attempt passed all 1497 harness laws; it was
+stopped during the walk after a separate timeout probe found the same partial
+return problem without a manual Stop. M685-29 proves that variant fails before
+and passes after the shared queue guard. Both Stop and timeout use their existing
+failure status and release the queue lane.
 
 An early diagnostic full harness was stopped before completion while implementation
 continued. It is not a release result. Its failures led to checking repeat repairs and

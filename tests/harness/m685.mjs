@@ -393,3 +393,14 @@ test('M685-28 stopping a worker that preserves partial work and returns normally
   assert(result.stopped && !result.ok, 'Stop must not become a successful completed audit');
   assert(!workIsRunning(id), 'the stopped worker releases its lane');
 });
+
+test('M685-29 a timed-out worker returning normally cannot report a completed audit', async () => {
+  const { enqueueWork, workIsRunning } = await import('../../js/agents/queue.js');
+  const id = 'm685-timeout-partial';
+  const result = await enqueueWork(id, { name: 'auditor', once: true, run: ({ signal, renew }) => new Promise((resolve) => {
+    signal.addEventListener('abort', () => resolve({ detail: 'partial reading', unfinished: true }), { once: true });
+    renew(5);
+  }) });
+  assert(!result.ok && result.why === 'outwaited', 'a timed-out partial return stays a timeout');
+  assert(!workIsRunning(id), 'the timed-out worker releases its lane');
+});
