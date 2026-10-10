@@ -2991,7 +2991,8 @@ function lensedEntry(entry, lens) {
         const d = { ...entry.dossier };
         // v0.67.2: powers and the world around them are timeline too ("Ōken Clothing" from the last arc; "her current
         // captaincy" as the 13th Division's why) — a host lens covers them as well
-        for (const k of ["identity", "brief", "facts", "secrets", "dynamics", "abilities", "related"]) if (L[k] !== undefined) d[k] = L[k];
+        // v0.68.2 (upstream 4b71b18; M681 in Cozy): and their quotes — "As captain, I…" is timeline too
+        for (const k of ["identity", "brief", "facts", "secrets", "dynamics", "abilities", "related", "voice"]) if (L[k] !== undefined) d[k] = L[k];
         e.dossier = d;
     }
     if (L.sections && typeof L.sections === "object" && entry.sections) e.sections = { ...entry.sections, ...L.sections };

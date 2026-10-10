@@ -18108,9 +18108,13 @@ THE PEOPLE, CONTINUED
   reader was shown "[object Object]" since M52 (fixed).
 - A WIKI REDIRECT GIVES HIS ORIGINAL "ROSE" NO CANON FACE (P11, M681-42) when his story says she is his own — through P8's
   lens. A story that says nothing of who she is cannot be told apart by name alone (his Bleach "Rose" IS canon).
-- STILL OPEN: the dossier's voice quotes are not lensed (the vendored extension's lensedEntry never takes `voice`). Fixed
-  and gated in the extension as v0.68.2 (proof 605, sim 431, guard negative-tested), NOT pushed: pushing another repo
-  needs his word. Then vendor it (tools/vendor-canon.py) and have canonlens.js judge dossier.voice.
+- THEIR OWN WORDS ARE READ THROUGH HIS STORY TOO (M681-44): the dossier's quotes rode the note's Voice line unjudged
+  ("As captain of the 13th, I will not yield" where she never was). Fixed in his Canon Verification extension first
+  (v0.68.2, 4b71b18: lensedEntry takes `voice` from a lens; proof 605, sim 431, negative-tested), the same line put into
+  Cozy's copy, and canonlens.js judges each quote — whole or not at all.
+- FOUND, NOT CHANGED: Cozy's js/canon/grounding.js is NOT the extension's file any more — it carries Cozy's own fixes
+  (M509-3, M538, M573 and more; ~220 lines) the extension never got, so tools/vendor-canon.py would throw them away.
+  Re-vendoring is unsafe until the two are brought together.
 THE WORLD, CONTINUED
 - THE WORLD'S WORD NEVER TELLS THE ARRIVAL OF SOMEONE HERE (W1, M681-50): engine/world.js briefAsTold — the one answer for
   the storyteller, the window rule, the drawer and the ground worker. THE WINDOW RULE WAKES ONLY ON A WORD STILL TOLD (W2,

@@ -524,9 +524,10 @@ const HANDLERS = {
     if (dayWords) { target.dayWords = dayWords; target.dayWordsAt = onDay; }
     else if (before && typeof before.dayWords === 'string' && before.dayWords.trim() && before.dayWordsAt === onDay) { target.dayWords = before.dayWords; target.dayWordsAt = onDay; }
     target.label = renderClock(target);
+    withSpan(target, m, before); /* M681 (S9) */
     /* M259: the same hour is no change — M679: on the same day words (a clock that said "Monday" where the page says
      * "Thornday" is put right, at the very same minute) */
-    if (before && Number.isFinite(before.minutes) && target && target.minutes === before.minutes && (before.dayWords || '') === (target.dayWords || '')) return { why: 'the clock already reads ' + (renderClock(before) || 'that'), same: true };
+    if (before && Number.isFinite(before.minutes) && target && target.minutes === before.minutes && (before.dayWords || '') === (target.dayWords || '') && (before.ranTo ?? null) === (target.ranTo ?? null)) return { why: 'the clock already reads ' + (renderClock(before) || 'that'), same: true };
     state.clock = target;
     const words = 'The clock was set — ' + renderClock(state.clock) + '.';
     return { words, undo: { kind: 'clock', before } };
@@ -543,6 +544,7 @@ const HANDLERS = {
     const clamped = Math.min(MAX_ADVANCE_MINUTES, Math.round(minutes));
     const before = { ...state.clock };
     state.clock = advanceClock(state.clock, clamped, m.reason);
+    if (state.clock && Number.isFinite(state.clock.ranTo) && state.clock.ranTo <= state.clock.minutes) delete state.clock.ranTo; /* M681 (S9): moved past where the last page ended */
     let words = 'The clock moved on ' + describeDelta(clamped);
     if (clamped > 12 * 60) {
       words += ' — a long stretch, more than twelve hours, so it’s worth a second look';
@@ -2384,6 +2386,16 @@ export function daysBetweenDayWords(from, to) {
   return 1;
 }
 
+/* M681 (S9): a clock set from a page's header carries where that page ended (ranMinutes past its hour). Set to the very same
+ * hour with no span said (the open heal, a page read again), the span it had stands; set to another hour, it goes — a span
+ * never outlives the hour it was measured from */
+function withSpan(clock, m, before) {
+  const ran = numberOf(m && m.ranMinutes);
+  if (Number.isFinite(ran) && ran > 0) clock.ranTo = clock.minutes + Math.min(Math.round(ran), LONG_MOVE_MINUTES);
+  else if (before && before.minutes === clock.minutes && Number.isFinite(before.ranTo)) clock.ranTo = before.ranTo;
+  else delete clock.ranTo;
+  return clock;
+}
 function setTimeOfDay(state, m) {
   const hour = Number(m.hour);
   const minute = Number(m.minute);
@@ -2418,7 +2430,8 @@ function setTimeOfDay(state, m) {
   }
   if (dayWordsNext) { next.dayWords = dayWordsNext; next.dayWordsAt = Math.floor(next.minutes / 1440); }
   next.label = renderClock(next);
-  if (before && before.minutes === next.minutes && (before.dayWords || '') === (next.dayWords || '')) return { why: 'the clock already reads ' + (renderClock(before) || 'that'), same: true };
+  withSpan(next, m, before); /* M681 (S9) */
+  if (before && before.minutes === next.minutes && (before.dayWords || '') === (next.dayWords || '') && (before.ranTo ?? null) === (next.ranTo ?? null)) return { why: 'the clock already reads ' + (renderClock(before) || 'that'), same: true };
   state.clock = next;
   return { words: 'The clock was set — ' + renderClock(state.clock) + '.', undo: { kind: 'clock', before } };
 }
@@ -2457,7 +2470,9 @@ export function readerTimeOverHeader(fromHeader, readerMutations) {
   const others = reader.filter((m) => !(m && m.type === 'clock.advance'));
   const hourOnly = ![set.year, set.month, set.day].some((x) => Number.isFinite(Number(x)) && x !== null && x !== undefined && x !== '') && !(typeof set.dayWords === 'string' && set.dayWords.trim());
   const moved = reader.filter((m) => m && m.type === 'clock.advance').reduce((n, m) => n + (Number(numberOf(m.minutes)) || 0), 0);
-  if (!hourOnly || moved < LONG_MOVE_MINUTES) return { header, reader: others };
+  /* M681 (S9): the header's hour stands, and the page's own span rides with it (ranMinutes -> the clock's ranTo): where the
+   * page ENDED, for the next page's jump to be measured from */
+  if (!hourOnly || moved < LONG_MOVE_MINUTES) return { header: moved > 0 ? header.map((m) => (m === set ? { ...set, ranMinutes: Math.min(moved, LONG_MOVE_MINUTES) } : m)) : header, reader: others };
   const why = reader.filter((m) => m && m.type === 'clock.advance').map((m) => String(m.reason || '').trim()).filter(Boolean).join('; ');
   const at = header.indexOf(set);
   return { header: [...header.slice(0, at), { type: 'clock.advance', minutes: moved, reason: why || 'the time the page skipped' }, { ...set, near: true }, ...header.slice(at + 1)], reader: others };
@@ -2475,8 +2490,18 @@ export function handSetClockSince(state, pageIndex) {
   }
   return false;
 }
+/* M681 — WHERE THE LAST PAGE ENDED, NOT ONLY WHERE IT OPENED (the scene audit's S9, made to happen on m680-001): a header gives
+ * the hour its page OPENS at (the clock stays that hour — the rewind check, the open heal and the masthead hold to it), and
+ * a page that ran five hours from "09:30" was followed by "14:40": staleAfterJump read a five-hour jump, let every place in
+ * the room and every outfit go though ten minutes had passed, and the world agent was told the clock had jumped. The span
+ * the page's reader said it covered is kept beside the hour (clock.ranTo, written with the header's clock.set); a jump is
+ * measured from there. */
+export function clockReached(clock) {
+  if (!clock || !Number.isFinite(clock.minutes)) return null;
+  return Number.isFinite(clock.ranTo) && clock.ranTo > clock.minutes ? clock.ranTo : clock.minutes;
+}
 export function staleAfterJump(state, headerMutations) {
-  const was = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
+  const was = state ? clockReached(state.clock) : null;
   const sets = (Array.isArray(headerMutations) ? headerMutations : []).filter((m) => m && (m.type === 'clock.set' || m.type === 'clock.advance')); /* M681: and the reader's long move that rides before a bare hour */
   if (was === null || !sets.length) return [];
   let now = null;

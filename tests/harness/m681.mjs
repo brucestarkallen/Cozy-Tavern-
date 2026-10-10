@@ -1012,3 +1012,42 @@ test('M681-78 EVERY DOOR THAT CHANGES A PAGE’S WORDS TELLS THE PLANS KEEPER (B
   assert(read.length === 1 && /Kim opens the gate/.test(read[0]), 'read again, from the words put back');
   eq((await loadPlansBook(st.id)).plans.map((p) => p.parts[0].who).join(','), 'Kim', 'the plan as the page says it');
 });
+
+test('M681-44 THEIR OWN WORDS ARE READ THROUGH HIS STORY TOO (P8’s same fault, Canon Grounding v0.68.2): the dossier’s quotes rode the note’s Voice line unjudged — “As captain of the 13th, I will not yield” in a story where she never became captain', async () => {
+  const { canonBeforeSend } = await import('../../js/canon/bridge.js');
+  const RUKIA = () => ({ name: 'Rukia Kuchiki', found: true, kind: 'character', wiki: 'bleach', aliases: ['Rukia'], ts: 1,
+    sections: { identity: 'Rukia Kuchiki is a Shinigami of the Gotei 13.' },
+    dossier: { identity: 'A Shinigami of the Gotei 13', brief: 'A dutiful Shinigami.', facts: ['Wields Sode no Shirayuki'], secrets: [], dynamics: {}, abilities: [], related: [], voice: ['As captain of the 13th, I will not yield.', 'Idiot! Get up.'] } });
+  const house = m681CanonHouse({ judge: (t) => (/captain/i.test(t) ? 'later' : 'holds') });
+  try {
+    const story = await m681CanonStory('Oda of the 13th, her words', 'A Bleach story after the war. Oda is the new captain of the 13th Division; Rukia Kuchiki is his lieutenant.', {
+      canon_grounding_wiki: 'bleach', canon_grounding_wiki_ok: { wikis: 'bleach', name: 'x', fp: '(manual)', manual: true, ts: 1 }, canon_grounding_cache: { rukia: RUKIA() } });
+    const state = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Oda' }, { type: 'presence.enter', name: 'Oda' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state;
+    await saveState(story.id, state);
+    const note = await canonBeforeSend({ story, state, messages: [{ id: 'u1', role: 'user', text: 'I hand Rukia the duty roster.' }], connection: M681_CONN });
+    assert(house.asks.lens.length === 1 && house.asks.lens[0].some((s) => /As captain of the 13th/.test(s)), 'her quotes are among what the lens judges: ' + JSON.stringify(house.asks.lens));
+    assert(/Get up/.test(note), 'a quote that holds is still her voice: ' + note);
+    assert(!/As captain of the 13th/.test(note), 'a quote from a captaincy his story never gave her is not: ' + note);
+  } finally { house.restore(); }
+});
+
+test('M681-45 THE NEXT PAGE’S JUMP IS MEASURED FROM WHERE THE LAST PAGE ENDED (S9): a page headed 09:30 whose reader said it ran five hours, then a page headed 14:40 — the house read a five-hour jump and let every place in the room and every outfit go, though ten minutes had passed', async () => {
+  const { readerTimeOverHeader, staleAfterJump, clockReached } = await import('../../js/engine/apply.js');
+  const land = (st, header, reader) => {
+    const h = headerMutations(page(header), { ground: (st.place || {}).name || '', day: (st.clock && st.clock.dayWords) || '' });
+    const timed = readerTimeOverHeader(h, reader);
+    return { st: applyMutations(st, [...timed.header, ...staleAfterJump(st, timed.header), ...timed.reader]).state, letGo: staleAfterJump(st, timed.header) };
+  };
+  let st = applyMutations({ ...emptyState() }, [{ type: 'presence.enter', name: 'Kim', position: 'at the stables', attire: 'riding clothes' }]).state;
+  st = land(st, 'the yard — Monday | 09:30', []).st;
+  st = land(st, 'the yard — Monday | 09:30', [{ type: 'clock.advance', minutes: 300, reason: 'the long ride out and back' }]).st;
+  eq(st.clock.minutes % 1440, 9 * 60 + 30, 'the clock is the header’s hour, as ever');
+  eq(clockReached(st.clock) % 1440, 14 * 60 + 30, 'and the page’s span stands beside it');
+  const next = land(st, 'the yard — Monday | 14:40', []);
+  eq(next.letGo.length, 0, 'ten minutes after the page ended: nobody’s place or dress is let go');
+  eq(next.st.present[0].position, 'at the stables', 'Kim is where the page left her');
+  /* the open heal sets the same hour again with no span: the span stands */
+  eq(clockReached(applyMutations(st, [{ type: 'clock.set', hour: 9, minute: 30 }]).state.clock) % 1440, 14 * 60 + 30, 'the same hour set again keeps the span');
+  /* a real jump is still a jump */
+  eq(land(st, 'the yard — Monday | 23:00', []).letGo.length, 1, 'eight and a half hours on: let go, as before');
+});

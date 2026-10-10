@@ -49,6 +49,10 @@ export function lensStatements(entry) {
      * why, "her current captaincy") */
     (Array.isArray(d.abilities) ? d.abilities : []).forEach((t, i) => add('abilities', i, t));
     (Array.isArray(d.related) ? d.related : []).forEach((r, i) => { if (r && r.name && r.why) add('related', i, r.name + ': ' + r.why); });
+    /* M681 — THEIR OWN WORDS ARE TIMELINE TOO (P8's same fault: the dossier's quotes rode the note's Voice line unjudged —
+     * "As captain of the 13th, I will not yield" in a story where she never was; the extension takes `voice` from a lens
+     * since Canon Grounding v0.68.2) */
+    (Array.isArray(d.voice) ? d.voice : []).forEach((q, i) => add('voice', i, q));
   }
   for (const f of ['identity', 'relationship', 'biography']) sentences(s[f]).forEach((t, i) => add('s.' + f, i, t));
   if (entry.rel && typeof entry.rel === 'object') for (const [who, t] of Object.entries(entry.rel)) if (t) add('pairs', who, t);
@@ -84,7 +88,7 @@ export function lensFingerprint(entry) {
  * still applies to the words it judged (it is not current, so it is asked again, face and all): with every lens of every
  * story gone stale at once, the next page's note would have ridden on canon's END — the marriage, the captaincy — for
  * every person whose new lens was not back within the page's wait. */
-const FACE_FIELDS = new Set(['s.physical', 's.look', 's.personality', 's.abilities', 's.trivia', 's.voice']); /* every field M681 brought under the lens */
+const FACE_FIELDS = new Set(['s.physical', 's.look', 's.personality', 's.abilities', 's.trivia', 's.voice', 'voice']); /* every field M681 brought under the lens */
 function heldFor(meta, entry) {
   const store = meta && meta[LENS_KEY] && typeof meta[LENS_KEY] === 'object' ? meta[LENS_KEY] : {};
   const held = store[nameKey(entry)];
@@ -169,7 +173,7 @@ export function buildLensMessages(entry, statements, premise) {
     'story is right. Canon is a timeline, and what you are shown is canon\'s END (the wiki\'s present). For every numbered',
     'statement about the character, say whether it is true IN THIS STORY:',
     '  "holds"   — true here too (who they are, their past before the story, their family of origin, powers, nature, tastes,',
-    '              their looks);', /* M681: the face is a statement now too — it holds unless his story changed it or has not reached it */
+    '              their looks, their own words);', /* M681: the face and their quotes are statements now too — they hold unless his story changed them or has not reached them */
     '  "changed" — the story says otherwise, outright or by plain implication (another holds the post; a marriage that',
     '              did not happen; a relationship the story made different);',
     '  "later"   — a canon event or state this story has NOT reached or established — a rank or title, a marriage, a',
@@ -241,6 +245,8 @@ export function overlayFrom(entry, statements, verdicts) {
     if (Array.isArray(d.secrets)) overlay.secrets = of('secrets').map((x) => x.out).filter(Boolean);
     if (d.dynamics && typeof d.dynamics === 'object') overlay.dynamics = Object.fromEntries(of('dynamics').filter((x) => x.out).map((x) => [x.key, x.out]));
     if (Array.isArray(d.abilities)) overlay.abilities = of('abilities').map((x) => x.out).filter(Boolean);
+    /* M681: a quote holds whole or not at all — part of someone's words is words they never said */
+    if (Array.isArray(d.voice)) overlay.voice = of('voice').filter((x) => { const v = by.get(x.n); return v && v.verdict === 'holds'; }).map((x) => d.voice[x.key]).filter((q) => typeof q === 'string' && q.trim());
     /* the world around them stays (the 13th is still hers to serve in); only a why his story changed goes */
     if (Array.isArray(d.related)) {
       overlay.related = d.related.map((r, i) => {
