@@ -1,3 +1,33 @@
+# M687: supported scene repairs finish
+
+Jovan's auditor repeatedly rejected the same salle corrections for ten minutes:
+gallery spectators were missing, old postures remained, and Kelstrum's original
+titled identity was restored and merged again on successive passes.
+
+1. Check each person's latest evidence throughout the newest scene, including
+   spectators before a long fight ending. Preserve later departures, deaths,
+   scene moves, quoted reader decisions and hand written fields.
+2. Original source recovery follows actual reversible identity merges, including
+   old saved journal entries and cast names. Receipts preserve their original
+   quotation and remember its current ledger identity without recreating aliases.
+3. A unique named role can be merged using source evidence, including the reported
+   "Lord Marshal Kelstrum" title. Ambiguous roles and the main character retain
+   their identity protections.
+4. An already cleared elsewhere note is satisfied work. Compact reworded findings
+   by repair target and field, preserve unrelated facts and fields, and close old
+   proposals only when their repair lands, the saved state satisfies them, or
+   source evidence disproves them.
+5. A saved backlog completes through automatic idle recovery, returns to green
+   and stops requesting audits. Reopening retains completion. No new story turn
+   or manual ledger edits are required; explicit Stop remains respected.
+6. Review actual context supplied to Scene, People, World and Auditor. Record the
+   shared state, brief and plot text, record and page routing, lookup capabilities
+   and context limits accurately in docs/WORKER-CONTEXT-M687.md. Do not claim that
+   every reader currently receives everything or that all contexts are optimal.
+7. Preserve histories, source authority, undo, backup and upgrade behavior. Use
+   scripted providers and disposable stories; verify the stable release before
+   publication without accessing the owner's phone or spending model credit.
+
 # M686: autonomous ledger recovery
 
 Detected ledger problems are work the application completes automatically. Opening

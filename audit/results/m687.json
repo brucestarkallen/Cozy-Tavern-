@@ -1,0 +1,995 @@
+{
+  "version": "m687-001",
+  "status": "verified_candidate_awaiting_publication_approval",
+  "execution_checkpoint": "13289103d18b83793869c6db9541b23301816420",
+  "baseline_commit": "2ca461094c57f24fcdd06648616909f44f171de4",
+  "new_public_laws": {
+    "baseline": {
+      "passed": 6,
+      "failed": 12,
+      "selected": 18,
+      "total": 1517,
+      "milliseconds": 564,
+      "tests": [
+        {
+          "name": "M687-1 the full auditor restores gallery spectators shown before a long bout ending, even when the reader omitted them",
+          "ok": false,
+          "milliseconds": 101
+        },
+        {
+          "name": "M687-18 a full header main character pose is not the room used to judge a spectator at the rail",
+          "ok": false,
+          "milliseconds": 25
+        },
+        {
+          "name": "M687-2 a posture and now repair uses the last evidence about its person rather than only the final fight paragraph",
+          "ok": false,
+          "milliseconds": 24
+        },
+        {
+          "name": "M687-3 a stale main character elsewhere record is removed without requiring an arrival in the final paragraph",
+          "ok": true,
+          "milliseconds": 21
+        },
+        {
+          "name": "M687-4 an already cleared elsewhere note is satisfied work rather than a permanent missing-seat refusal",
+          "ok": false,
+          "milliseconds": 22
+        },
+        {
+          "name": "M687-5 source recovery does not recreate a titled identity that the auditor already merged into its established name",
+          "ok": false,
+          "milliseconds": 23
+        },
+        {
+          "name": "M687-6 reworded reports of the same rejected target do not grow the saved repair backlog",
+          "ok": false,
+          "milliseconds": 43
+        },
+        {
+          "name": "M687-7 a successful alternate presence operation clears saved enter and update findings for the same arrival",
+          "ok": false,
+          "milliseconds": 26
+        },
+        {
+          "name": "M687-8 a proposal about an early pose cannot overwrite a later change for that same person",
+          "ok": true,
+          "milliseconds": 21
+        },
+        {
+          "name": "M687-9 old merges from M686 are followed without recreating their source identity",
+          "ok": false,
+          "milliseconds": 24
+        },
+        {
+          "name": "M687-10 an explicitly named role merges through the auditor without losing its knowledge or undo",
+          "ok": false,
+          "milliseconds": 27
+        },
+        {
+          "name": "M687-11 knowing two marshals prevents a guessed role merge",
+          "ok": true,
+          "milliseconds": 23
+        },
+        {
+          "name": "M687-12 evidence for a gallery arrival never overrides a later departure, a death or a scene move",
+          "ok": true,
+          "milliseconds": 66
+        },
+        {
+          "name": "M687-13 saved findings close after another worker completed the repair, even if the next auditor answer is empty",
+          "ok": false,
+          "milliseconds": 23
+        },
+        {
+          "name": "M687-14 a dress correction cannot close an unrelated blocked posture repair",
+          "ok": false,
+          "milliseconds": 23
+        },
+        {
+          "name": "M687-15 an earlier named pose does not override a later pronoun continuation",
+          "ok": true,
+          "milliseconds": 21
+        },
+        {
+          "name": "M687-16 compacting repeated reports retains distinct posture and attire repairs",
+          "ok": true,
+          "milliseconds": 28
+        },
+        {
+          "name": "M687-17 the reported Lord Marshal title establishes the unique owner of the marshal role",
+          "ok": false,
+          "milliseconds": 24
+        }
+      ]
+    },
+    "fixed_with_nearby_laws": {
+      "passed": 129,
+      "failed": 0,
+      "selected": 129,
+      "total": 1517,
+      "milliseconds": 2874
+    }
+  },
+  "full_header_candidate_regression": {
+    "before_fix_commit": "891e6fd0c6b415a7c684c029241c876d2c2dde79",
+    "result": {
+      "passed": 17,
+      "failed": 1,
+      "selected": 18,
+      "total": 1517,
+      "milliseconds": 556,
+      "tests": [
+        {
+          "name": "M687-1 the full auditor restores gallery spectators shown before a long bout ending, even when the reader omitted them",
+          "ok": true,
+          "milliseconds": 91
+        },
+        {
+          "name": "M687-18 a full header main character pose is not the room used to judge a spectator at the rail",
+          "ok": false,
+          "milliseconds": 27
+        },
+        {
+          "name": "M687-2 a posture and now repair uses the last evidence about its person rather than only the final fight paragraph",
+          "ok": true,
+          "milliseconds": 22
+        },
+        {
+          "name": "M687-3 a stale main character elsewhere record is removed without requiring an arrival in the final paragraph",
+          "ok": true,
+          "milliseconds": 22
+        },
+        {
+          "name": "M687-4 an already cleared elsewhere note is satisfied work rather than a permanent missing-seat refusal",
+          "ok": true,
+          "milliseconds": 19
+        },
+        {
+          "name": "M687-5 source recovery does not recreate a titled identity that the auditor already merged into its established name",
+          "ok": true,
+          "milliseconds": 35
+        },
+        {
+          "name": "M687-6 reworded reports of the same rejected target do not grow the saved repair backlog",
+          "ok": true,
+          "milliseconds": 42
+        },
+        {
+          "name": "M687-7 a successful alternate presence operation clears saved enter and update findings for the same arrival",
+          "ok": true,
+          "milliseconds": 23
+        },
+        {
+          "name": "M687-8 a proposal about an early pose cannot overwrite a later change for that same person",
+          "ok": true,
+          "milliseconds": 21
+        },
+        {
+          "name": "M687-9 old merges from M686 are followed without recreating their source identity",
+          "ok": true,
+          "milliseconds": 29
+        },
+        {
+          "name": "M687-10 an explicitly named role merges through the auditor without losing its knowledge or undo",
+          "ok": true,
+          "milliseconds": 28
+        },
+        {
+          "name": "M687-11 knowing two marshals prevents a guessed role merge",
+          "ok": true,
+          "milliseconds": 21
+        },
+        {
+          "name": "M687-12 evidence for a gallery arrival never overrides a later departure, a death or a scene move",
+          "ok": true,
+          "milliseconds": 67
+        },
+        {
+          "name": "M687-13 saved findings close after another worker completed the repair, even if the next auditor answer is empty",
+          "ok": true,
+          "milliseconds": 21
+        },
+        {
+          "name": "M687-14 a dress correction cannot close an unrelated blocked posture repair",
+          "ok": true,
+          "milliseconds": 23
+        },
+        {
+          "name": "M687-15 an earlier named pose does not override a later pronoun continuation",
+          "ok": true,
+          "milliseconds": 21
+        },
+        {
+          "name": "M687-16 compacting repeated reports retains distinct posture and attire repairs",
+          "ok": true,
+          "milliseconds": 23
+        },
+        {
+          "name": "M687-17 the reported Lord Marshal title establishes the unique owner of the marshal role",
+          "ok": true,
+          "milliseconds": 20
+        }
+      ]
+    }
+  },
+  "new_app_scenario": {
+    "baseline": {
+      "passed": 2,
+      "failed": 1,
+      "selected": 3,
+      "total": 305,
+      "milliseconds": 7489,
+      "tests": [
+        {
+          "name": "DOM-1 the app boots with no errors and no connection prompts a kind note on send",
+          "ok": true,
+          "milliseconds": 111
+        },
+        {
+          "name": "DOM-2 a turn: send → the storyteller answers → the ledger is founded → the world agent speaks",
+          "ok": true,
+          "milliseconds": 313
+        },
+        {
+          "name": "DOM-M687-1 an accumulated salle repair backlog finishes automatically, turns green and stays completed after reopening",
+          "ok": false,
+          "milliseconds": 7064
+        }
+      ]
+    },
+    "final_full_walk": [
+      {
+        "name": "DOM-M687-1 an accumulated salle repair backlog finishes automatically, turns green and stays completed after reopening",
+        "ok": true,
+        "milliseconds": 1969
+      }
+    ],
+    "assertions": [
+      "Supported spectators and witness posture are saved",
+      "Old elsewhere seats and repeated saved findings close",
+      "Original source merge is not recreated",
+      "Completion turns green and stops further idle and reopen audits",
+      "Story page and story turn count remain unchanged"
+    ]
+  },
+  "fast": {
+    "profile": "fast",
+    "source_digest": "f11fa32d7d719768cb8da06baf41515fee5b2bd5d3c1018dd96b35b0f9cb3fe0",
+    "runtime_digest": "06178ad9b758d3f3424779b0adda39eece9838e8e5c02a30bd3bb02d822b36e4",
+    "scope": "focused development checks",
+    "complete": true,
+    "checks": {
+      "harness": {
+        "exit": 0,
+        "seconds": 5.03,
+        "digest": "b262f9feee3bbec99c33fb1891ae0438688914b8e53dda6cdda577d654bfe9ee",
+        "log": "/tmp/gates/m687_fast9_harness.log",
+        "reused": false
+      },
+      "walk": {
+        "exit": 0,
+        "seconds": 11.5,
+        "digest": "6d33438dd312f463a9be5fc1f65cd79920efd9b5001990afea635d751c7d2ece",
+        "log": "/tmp/gates/m687_fast9_walk.log",
+        "reused": false
+      },
+      "lint": {
+        "exit": 0,
+        "seconds": 4.25,
+        "digest": "e687185b4067a029d6fd9cd7ee5352f15739efd5ca1d5b414a78f82b2d1de2d8",
+        "log": "/tmp/gates/m687_fast9_lint.log",
+        "reused": false
+      },
+      "check_runner_unit": {
+        "exit": 0,
+        "seconds": 0.37,
+        "digest": "d51d2049d2d60a763337a5bc191f1a695fd3b6acaf133f431ab28b0fb267d070",
+        "log": "/tmp/gates/m687_fast9_check_runner_unit.log",
+        "reused": false
+      },
+      "boot_ready": {
+        "exit": 0,
+        "seconds": 6.51,
+        "digest": "2e9edccfaad75ccc3294bf3186fd20706d9779d211b9879dff1c895e4e2209db",
+        "log": "/tmp/gates/m687_fast9_boot_ready.log",
+        "reused": false
+      },
+      "academy_ui": {
+        "exit": 0,
+        "seconds": 8.77,
+        "digest": "fbb88395b0796b1a35e6f8255d6570d6d11f04d618f909d01c10bce1649dd9bc",
+        "log": "/tmp/gates/m687_fast9_academy_ui.log",
+        "reused": false
+      }
+    },
+    "source_unchanged_during_checks": true,
+    "seconds": 29.59
+  },
+  "fast_core": {
+    "harness": {
+      "passed": 113,
+      "failed": 0,
+      "selected": 113,
+      "total": 1517,
+      "milliseconds": 4604
+    },
+    "walk": {
+      "passed": 14,
+      "failed": 0,
+      "selected": 14,
+      "total": 305,
+      "milliseconds": 10714
+    }
+  },
+  "release": {
+    "profile": "release",
+    "source_digest": "f11fa32d7d719768cb8da06baf41515fee5b2bd5d3c1018dd96b35b0f9cb3fe0",
+    "runtime_digest": "06178ad9b758d3f3424779b0adda39eece9838e8e5c02a30bd3bb02d822b36e4",
+    "scope": "all 22 standing checks plus workflow/housekeeper/theme checks",
+    "complete": true,
+    "checks": {
+      "harness": {
+        "exit": 0,
+        "seconds": 164.0,
+        "digest": "21bc5e691f156104258ea722c19d34dfac53dcfcb32bdaf7f9569c65dafd151c",
+        "log": "/tmp/gates/m687d_harness.log",
+        "reused": false
+      },
+      "walk": {
+        "exit": 0,
+        "seconds": 523.22,
+        "digest": "5dc363776748abe02d760f5a7215adb9155168fab81f96346e5cd19fc9c0f635",
+        "log": "/tmp/gates/m687d_walk.log",
+        "reused": false
+      },
+      "long": {
+        "exit": 0,
+        "seconds": 36.13,
+        "digest": "49de5bdfebac9967b5dc6b6c5ab068061ff20733a4a205bd8e9229840a675653",
+        "log": "/tmp/gates/m687d_long.log",
+        "reused": false
+      },
+      "lint": {
+        "exit": 0,
+        "seconds": 3.93,
+        "digest": "e687185b4067a029d6fd9cd7ee5352f15739efd5ca1d5b414a78f82b2d1de2d8",
+        "log": "/tmp/gates/m687d_lint.log",
+        "reused": false
+      },
+      "perf_send": {
+        "exit": 0,
+        "seconds": 44.29,
+        "digest": "95c49f133dd816164825ba5fd2d48fd413a0bf695714d482df4162beff08d1d9",
+        "log": "/tmp/gates/m687d_perf_send.log",
+        "reused": false
+      },
+      "perf_repair": {
+        "exit": 0,
+        "seconds": 7.49,
+        "digest": "4c521c23764941f8b94c949a1fc1457b9f1c546fe14203404583878020b7f811",
+        "log": "/tmp/gates/m687d_perf_repair.log",
+        "reused": false
+      },
+      "launcher": {
+        "exit": 0,
+        "seconds": 8.69,
+        "digest": "2dc17061c0ff8072c079eec4e013682b7cac2d6e06adc5a3f37221a7f50b90b5",
+        "log": "/tmp/gates/m687d_launcher.log",
+        "reused": false
+      },
+      "upgrade_in_place": {
+        "exit": 0,
+        "seconds": 16.52,
+        "digest": "6e51ac4c2fd21edf452810dd91d7fd67c73960cd044a29f60df611279583ab8c",
+        "log": "/tmp/gates/m687d_upgrade_in_place.log",
+        "reused": false
+      },
+      "paint_academy": {
+        "exit": 0,
+        "seconds": 60.27,
+        "digest": "dabdf3b6e97ea7d8ae3b15ded8f827bee2996c23e7f463745e566592b3df0bb9",
+        "log": "/tmp/gates/m687d_paint_academy.log",
+        "reused": false
+      },
+      "perf_academy": {
+        "exit": 0,
+        "seconds": 66.68,
+        "digest": "68dfe0b4c4d2b77495a2296a4eadd36fa618435021085a90ff368c39d7c86916",
+        "log": "/tmp/gates/m687d_perf_academy.log",
+        "reused": false
+      },
+      "perf_housekeeper": {
+        "exit": 0,
+        "seconds": 19.52,
+        "digest": "d72d09b44cf6e9bfc1ca812e5c071956e0189f40ffe995b445f6966896b979ef",
+        "log": "/tmp/gates/m687d_perf_housekeeper.log",
+        "reused": false
+      },
+      "paint_academy_night": {
+        "exit": 0,
+        "seconds": 57.04,
+        "digest": "324499d7a86669f2f9c81c7da8e9ff8c237322940de0ce2608dd56b4dc0b12f5",
+        "log": "/tmp/gates/m687d_paint_academy_night.log",
+        "reused": false
+      },
+      "perf_academy_night": {
+        "exit": 0,
+        "seconds": 66.79,
+        "digest": "bdf5ffdd3044ada9f283f4af7afd7525689ad3f95de4196efaf704d7ccd62872",
+        "log": "/tmp/gates/m687d_perf_academy_night.log",
+        "reused": false
+      },
+      "paint_academy_panels": {
+        "exit": 0,
+        "seconds": 15.72,
+        "digest": "141df05b9047ac5884a2182990d9820e00eeab129883d4a6a5703ac5317bf4f6",
+        "log": "/tmp/gates/m687d_paint_academy_panels.log",
+        "reused": false
+      },
+      "cutthinking": {
+        "exit": 0,
+        "seconds": 17.82,
+        "digest": "27fb1e15a776c6ccfece57a791087179e042d24dc1b3936c9fcc9be4d43a080b",
+        "log": "/tmp/gates/m687d_cutthinking.log",
+        "reused": false
+      },
+      "notes_layout": {
+        "exit": 0,
+        "seconds": 16.31,
+        "digest": "23d852d7a00750e50b46d4ceb7c1534f43a1fce6a0a5319dbe6db1175e5d3fab",
+        "log": "/tmp/gates/m687d_notes_layout.log",
+        "reused": false
+      },
+      "backup": {
+        "exit": 0,
+        "seconds": 10.45,
+        "digest": "652c15577cce49da9363dc537b6034437f10654cdb5022148d4d9109807679f9",
+        "log": "/tmp/gates/m687d_backup.log",
+        "reused": false
+      },
+      "backupdupes": {
+        "exit": 0,
+        "seconds": 1.87,
+        "digest": "e30922ceaaa6daf6bb8dd3741136182d02ad0b25b5c8b4b312c7854c12179fb6",
+        "log": "/tmp/gates/m687d_backupdupes.log",
+        "reused": false
+      },
+      "restore_backup_unit": {
+        "exit": 0,
+        "seconds": 0.12,
+        "digest": "901547763defb94a81f9ebe0b864128b3b2698f015f008bfa45b4741e88f74cc",
+        "log": "/tmp/gates/m687d_restore_backup_unit.log",
+        "reused": false
+      },
+      "holdsone": {
+        "exit": 0,
+        "seconds": 62.69,
+        "digest": "860d8e5ccffa666d374e922f9f851b775b3768b5cf0ff6b70a84d2dbcfba1a63",
+        "log": "/tmp/gates/m687d_holdsone.log",
+        "reused": false
+      },
+      "restore_zip": {
+        "exit": 0,
+        "seconds": 27.09,
+        "digest": "122b9fd0d66a0951d0226a7b45d309e5a6a03e49ed30119dbc262a721a5f4501",
+        "log": "/tmp/gates/m687d_restore_zip.log",
+        "reused": false
+      },
+      "backup_sent": {
+        "exit": 0,
+        "seconds": 11.3,
+        "digest": "700c228492a497cc6de913a7986da6d5e9e0730ab9d34a2c9d25b7c0e1d318ee",
+        "log": "/tmp/gates/m687d_backup_sent.log",
+        "reused": false
+      },
+      "backup_fresh": {
+        "exit": 0,
+        "seconds": 27.35,
+        "digest": "768ce6584059cd3c6dbb8dd426ad5263ee42d9dd22347955a622299efa519026",
+        "log": "/tmp/gates/m687d_backup_fresh.log",
+        "reused": false
+      },
+      "rowtap": {
+        "exit": 0,
+        "seconds": 5.38,
+        "digest": "08dc7286565ade5a314e076c7a967a94cb3d7b24fdf1d28f066c62b5b3c2c498",
+        "log": "/tmp/gates/m687d_rowtap.log",
+        "reused": false
+      },
+      "static_host": {
+        "exit": 0,
+        "seconds": 37.43,
+        "digest": "5936995dec24cc2c354765e792b556c5bf2b9f63e6bb98bd0b4e25c23b821db2",
+        "log": "/tmp/gates/m687d_static_host.log",
+        "reused": false
+      },
+      "device_guard": {
+        "exit": 0,
+        "seconds": 45.93,
+        "digest": "c8995de08754c161c3426809fd50e76ef2230905e9be75c1b632d7502e86bcfc",
+        "log": "/tmp/gates/m687d_device_guard.log",
+        "reused": false
+      },
+      "boot_open": {
+        "exit": 0,
+        "seconds": 5.73,
+        "digest": "117947701198cd89fa0fe56e018319c249c699376074d2016102048a418c7915",
+        "log": "/tmp/gates/m687d_boot_open.log",
+        "reused": false
+      },
+      "boot_ready": {
+        "exit": 0,
+        "seconds": 6.18,
+        "digest": "2e9edccfaad75ccc3294bf3186fd20706d9779d211b9879dff1c895e4e2209db",
+        "log": "/tmp/gates/m687d_boot_ready.log",
+        "reused": false
+      },
+      "vendor_canon_unit": {
+        "exit": 0,
+        "seconds": 0.27,
+        "digest": "73bd77088fe486c900d7eb0c2e5daefd1b96470f1b98185e0ea38c0bd17df0f1",
+        "log": "/tmp/gates/m687d_vendor_canon_unit.log",
+        "reused": false
+      },
+      "check_runner_unit": {
+        "exit": 0,
+        "seconds": 0.27,
+        "digest": "d51d2049d2d60a763337a5bc191f1a695fd3b6acaf133f431ab28b0fb267d070",
+        "log": "/tmp/gates/m687d_check_runner_unit.log",
+        "reused": false
+      },
+      "academy_ui": {
+        "exit": 0,
+        "seconds": 8.76,
+        "digest": "fbb88395b0796b1a35e6f8255d6570d6d11f04d618f909d01c10bce1649dd9bc",
+        "log": "/tmp/gates/m687d_academy_ui.log",
+        "reused": false
+      },
+      "housekeeper_rounds": {
+        "exit": 0,
+        "seconds": 42.75,
+        "digest": "fef288f0bbee660c98ec8bbf896960c56a0529e445d4a8bbbc148f15bb9e3560",
+        "log": "/tmp/gates/m687d_housekeeper_rounds.log",
+        "reused": false
+      },
+      "device_pair": {
+        "exit": 0,
+        "seconds": 520.0,
+        "digest": "a4d3662c9c9a8771c8962cb60a7142f651ad1294bbc9c2bceb08ba5db9d21cd4",
+        "log": "/tmp/gates/m687d_device_pair.log",
+        "reused": false
+      }
+    },
+    "source_unchanged_during_checks": true,
+    "seconds": 1738.11
+  },
+  "release_core": {
+    "harness": {
+      "passed": 1517,
+      "failed": 0,
+      "selected": 1517,
+      "total": 1517,
+      "milliseconds": 163564
+    },
+    "walk": {
+      "passed": 305,
+      "failed": 0,
+      "selected": 305,
+      "total": 305,
+      "milliseconds": 522410
+    },
+    "long": {
+      "passed": 9,
+      "failed": 0,
+      "selected": 9,
+      "total": 9,
+      "milliseconds": 35396
+    }
+  },
+  "earlier_attempts": {
+    "m687": {
+      "status": "interrupted_before_any_completed_check_to_fix_old_saved_cast_names",
+      "summary": {
+        "profile": "release",
+        "source_digest": "81870377bba59a320d5c9e88957021ed55d250fcb45cd817860d5b20fb65be29",
+        "runtime_digest": "06178ad9b758d3f3424779b0adda39eece9838e8e5c02a30bd3bb02d822b36e4",
+        "scope": "all 22 standing checks plus workflow/housekeeper/theme checks",
+        "complete": false,
+        "checks": {}
+      }
+    },
+    "m687b": {
+      "status": "interrupted_to_add_and_fix_the_exact_reported_title_sentence",
+      "summary": {
+        "profile": "release",
+        "source_digest": "16493917d8bc7f02672542c0817f1ec79037eb334ca06245c491b63219707a7f",
+        "runtime_digest": "06178ad9b758d3f3424779b0adda39eece9838e8e5c02a30bd3bb02d822b36e4",
+        "scope": "all 22 standing checks plus workflow/housekeeper/theme checks",
+        "complete": false,
+        "checks": {
+          "harness": {
+            "exit": 0,
+            "seconds": 163.4,
+            "digest": "67b1e23b030cd8f1bc80ba02aec2832a6bbf2f8b7363e8cbc86c5179c6240ba9",
+            "log": "/tmp/gates/m687b_harness.log",
+            "reused": false
+          }
+        }
+      }
+    },
+    "m687c": {
+      "status": "31_of_33_passed_on_earlier_candidate_not_reused_after_execution_changes",
+      "summary": {
+        "profile": "release",
+        "source_digest": "36b45069cbac838bf6d9f346f1b21223f21709648ae3ebdd29a938563febb4f1",
+        "runtime_digest": "06178ad9b758d3f3424779b0adda39eece9838e8e5c02a30bd3bb02d822b36e4",
+        "scope": "all 22 standing checks plus workflow/housekeeper/theme checks",
+        "complete": false,
+        "checks": {
+          "harness": {
+            "exit": 0,
+            "seconds": 164.7,
+            "digest": "f592432f414fdea6373944e6402c18f5ad6f44550fdbc9346ec08625978b7089",
+            "log": "/tmp/gates/m687c_harness.log",
+            "reused": false
+          },
+          "walk": {
+            "exit": 0,
+            "seconds": 521.83,
+            "digest": "b435e2800d3c648015e205b9f2bbfea8da96747e50b0153e43b6df0adb1774b7",
+            "log": "/tmp/gates/m687c_walk.log",
+            "reused": false
+          },
+          "long": {
+            "exit": 0,
+            "seconds": 34.61,
+            "digest": "b45a2849fccddf7848761c58def792192a5012f10e58f58d8986356c3341ff8a",
+            "log": "/tmp/gates/m687c_long.log",
+            "reused": false
+          },
+          "lint": {
+            "exit": 0,
+            "seconds": 3.93,
+            "digest": "755fc17848157e344dfd3e39423b235dc90d55228453ad17081bbfdb37c2ef53",
+            "log": "/tmp/gates/m687c_lint.log",
+            "reused": false
+          },
+          "perf_send": {
+            "exit": 0,
+            "seconds": 44.39,
+            "digest": "0b4cfacc21704ebfeed80499127379e1d7c96cb5d7fd1aad597f042830f0e834",
+            "log": "/tmp/gates/m687c_perf_send.log",
+            "reused": false
+          },
+          "perf_repair": {
+            "exit": 0,
+            "seconds": 7.24,
+            "digest": "3e20e4535d9d8f25883d00ca04a16d171895217dd918a96bc4652c8e9a450602",
+            "log": "/tmp/gates/m687c_perf_repair.log",
+            "reused": false
+          },
+          "launcher": {
+            "exit": 1,
+            "seconds": 77.85,
+            "digest": "ad915a8b74218e7b635503d6f2d57ce3563d7881a6fae626e6ba0e9f7a91365f",
+            "log": "/tmp/gates/m687c_launcher.log",
+            "reused": false
+          },
+          "upgrade_in_place": {
+            "exit": 1,
+            "seconds": 0.67,
+            "digest": "b9be47368f791712d5985e613d2b0fcd7c3aa63a48d341214a55ab5c6e6063b6",
+            "log": "/tmp/gates/m687c_upgrade_in_place.log",
+            "reused": false
+          },
+          "paint_academy": {
+            "exit": 0,
+            "seconds": 59.66,
+            "digest": "da47c6b9872712ed93c9352b1444a1b7dafdf637f011d55bf58bd0607b99530f",
+            "log": "/tmp/gates/m687c_paint_academy.log",
+            "reused": false
+          },
+          "perf_academy": {
+            "exit": 0,
+            "seconds": 66.04,
+            "digest": "844f09747b2862cc5747fc7b5416c415ebb6b9168baf9d29560b34c1f0979f49",
+            "log": "/tmp/gates/m687c_perf_academy.log",
+            "reused": false
+          },
+          "perf_housekeeper": {
+            "exit": 0,
+            "seconds": 19.46,
+            "digest": "a2076baea50230bf031019e83e9167953e444bc715428e1a3a846b04f229d443",
+            "log": "/tmp/gates/m687c_perf_housekeeper.log",
+            "reused": false
+          },
+          "paint_academy_night": {
+            "exit": 0,
+            "seconds": 57.16,
+            "digest": "4b98264d9d241de1bb8bddd37cd7f11394e60025958cf5deb590c71343710915",
+            "log": "/tmp/gates/m687c_paint_academy_night.log",
+            "reused": false
+          },
+          "perf_academy_night": {
+            "exit": 0,
+            "seconds": 66.45,
+            "digest": "ddca1e25f315915fab51da7475cbd29c6dc081e31bce31197ceb1fb1ceacba9d",
+            "log": "/tmp/gates/m687c_perf_academy_night.log",
+            "reused": false
+          },
+          "paint_academy_panels": {
+            "exit": 0,
+            "seconds": 15.72,
+            "digest": "a7aab2c851b0db101af3d5da0785553914289cb6b8c24eb3026aecf9fd9f645e",
+            "log": "/tmp/gates/m687c_paint_academy_panels.log",
+            "reused": false
+          },
+          "cutthinking": {
+            "exit": 0,
+            "seconds": 17.83,
+            "digest": "a7a481f4eb2ac0e82cc3d204ebd22f6ed9e43dcd6355c07b7ed5ab44dcde3652",
+            "log": "/tmp/gates/m687c_cutthinking.log",
+            "reused": false
+          },
+          "notes_layout": {
+            "exit": 0,
+            "seconds": 16.31,
+            "digest": "71ebdc519f5fdb621c9645a44a4a8cb2bf0c6af7ad82eb4b11532497670916c9",
+            "log": "/tmp/gates/m687c_notes_layout.log",
+            "reused": false
+          },
+          "backup": {
+            "exit": 0,
+            "seconds": 10.45,
+            "digest": "9eb6202d1998e0022a79ad0228b9033bca3e489ea6174330a929689202f242f3",
+            "log": "/tmp/gates/m687c_backup.log",
+            "reused": false
+          },
+          "backupdupes": {
+            "exit": 0,
+            "seconds": 1.82,
+            "digest": "ce83798263bffedeb373a1551d68eda76db8dc69d136e874e7eb2fadc4dffc33",
+            "log": "/tmp/gates/m687c_backupdupes.log",
+            "reused": false
+          },
+          "restore_backup_unit": {
+            "exit": 0,
+            "seconds": 0.12,
+            "digest": "7d70d924718f4f92cc975cec62380dce160b820e68034b45c6fd099e557c5347",
+            "log": "/tmp/gates/m687c_restore_backup_unit.log",
+            "reused": false
+          },
+          "holdsone": {
+            "exit": 0,
+            "seconds": 62.65,
+            "digest": "584e904622a4aeac40571fc062fb388ea1ebf0bc29df044ae8e76032dc3cbc03",
+            "log": "/tmp/gates/m687c_holdsone.log",
+            "reused": false
+          },
+          "restore_zip": {
+            "exit": 0,
+            "seconds": 27.14,
+            "digest": "99556ada7abb78c1da80724b04fe9ea16786fcaa1f2c4cd4b39a20b9ce4300ba",
+            "log": "/tmp/gates/m687c_restore_zip.log",
+            "reused": false
+          },
+          "backup_sent": {
+            "exit": 0,
+            "seconds": 11.2,
+            "digest": "dc3c1dc4704c2ebe028d2cb2fcab5f82fd00dd9fbbce8a9aa0b2a117e05d29b7",
+            "log": "/tmp/gates/m687c_backup_sent.log",
+            "reused": false
+          },
+          "backup_fresh": {
+            "exit": 0,
+            "seconds": 27.3,
+            "digest": "4bb9982c8c765cbea2b87405828c99e65db773c9b3c0bf1c2eb02afd4e4542ce",
+            "log": "/tmp/gates/m687c_backup_fresh.log",
+            "reused": false
+          },
+          "rowtap": {
+            "exit": 0,
+            "seconds": 5.38,
+            "digest": "447ee2a387a24520f1af596d816505e7bc74b421a6ca1f5940f7ae709bed4c59",
+            "log": "/tmp/gates/m687c_rowtap.log",
+            "reused": false
+          },
+          "static_host": {
+            "exit": 0,
+            "seconds": 37.43,
+            "digest": "9408fb23edb896e17b22d862d7901ab6a49723972bf3124e3997b567c0876cf7",
+            "log": "/tmp/gates/m687c_static_host.log",
+            "reused": false
+          },
+          "device_guard": {
+            "exit": 0,
+            "seconds": 46.01,
+            "digest": "83b89c7c82b3f998141b3ae43bc7fad1876e611f96eb57ea83ea45108fa2d1f8",
+            "log": "/tmp/gates/m687c_device_guard.log",
+            "reused": false
+          },
+          "boot_open": {
+            "exit": 0,
+            "seconds": 5.58,
+            "digest": "a2cc6181d21443d988d7a22b8d09317fb78cc5b12a31606b974ce96c816a3f20",
+            "log": "/tmp/gates/m687c_boot_open.log",
+            "reused": false
+          },
+          "boot_ready": {
+            "exit": 0,
+            "seconds": 6.08,
+            "digest": "6d3b9dbd8ac178a14ca77554f779c4a57fc117e91a61a7ded640bb2f38d62846",
+            "log": "/tmp/gates/m687c_boot_ready.log",
+            "reused": false
+          },
+          "vendor_canon_unit": {
+            "exit": 0,
+            "seconds": 0.26,
+            "digest": "734dcd20289a5559d4014692c35e7c0a2d6a1db4bad71e0e8a8f274e4300b581",
+            "log": "/tmp/gates/m687c_vendor_canon_unit.log",
+            "reused": false
+          },
+          "check_runner_unit": {
+            "exit": 0,
+            "seconds": 0.27,
+            "digest": "b3a6695accfff16451c3a2f9991111cf0e13dca4517b920e877830b91cfd7c67",
+            "log": "/tmp/gates/m687c_check_runner_unit.log",
+            "reused": false
+          },
+          "academy_ui": {
+            "exit": 0,
+            "seconds": 8.16,
+            "digest": "ad8f2fc5fd862fe8ad01fc9836c41f209aeb4d3db21c47817ff3fa277e2a7a55",
+            "log": "/tmp/gates/m687c_academy_ui.log",
+            "reused": false
+          },
+          "housekeeper_rounds": {
+            "exit": 0,
+            "seconds": 42.7,
+            "digest": "5852e5399351de122700adffb42ffb6dafa356319df0c4791275da2203ad3cf8",
+            "log": "/tmp/gates/m687c_housekeeper_rounds.log",
+            "reused": false
+          },
+          "device_pair": {
+            "exit": 0,
+            "seconds": 520.11,
+            "digest": "850aa4c1ba71386888fe587ebf2a0a6728a2cf49ffbf0bd73fbf58b63f759be8",
+            "log": "/tmp/gates/m687c_device_pair.log",
+            "reused": false
+          }
+        },
+        "source_unchanged_during_checks": true,
+        "seconds": 1787.56
+      },
+      "environment_failure_logs": {
+        "launcher": "ok   fixture: the word as the builds before M676 wrote it is in the history\nok   install.sh ends cleanly and proves its bake (exit 0)\nok   the word is the launcher, baked with his folder\nok   typed: it says the tavern is current (exit 0)\nok   and the tavern lit is his folder’s, on m687-001: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nok   update 1: typed, it pulls the update and says so\nok   update 1: the word it writes back is baked with his folder (it came back unbaked at every other update)\nok   update 1: one tavern lit, his folder’s: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nok   update 2: typed, it pulls the update and says so\nok   update 2: the word it writes back is baked with his folder (it came back unbaked at every other update)\nok   update 2: one tavern lit, his folder’s: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nok   update 3: typed, it pulls the update and says so\nok   update 3: the word it writes back is baked with his folder (it came back unbaked at every other update)\nok   update 3: one tavern lit, his folder’s: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nok   fixture: the word is installed for ~/stories/tavern\nFAIL typed: the tavern lit is the folder the word was installed for, not the clone in ~/cozytavern: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nok   an update is pulled into that folder, and the clone is left alone\nFAIL and the word stays his folder’s\nFAIL a baked word from before: typed, the update is pulled and his tavern lit\nFAIL typed again: the word the update wrote finds his tavern\nok   and from then on it is the new launcher, baked with his folder\nok   and stays so through the next update\nFAIL an unbaked word from before: typed, the update is pulled and his tavern lit\nFAIL typed again: the word the update wrote finds his tavern\nok   and from then on it is the new launcher, baked with his folder\nok   and stays so through the next update\nFAIL — typed: the tavern lit is the folder the word was installed for, not the clone in ~/cozytavern: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nFAIL — and the word stays his folder’s\nFAIL — a baked word from before: typed, the update is pulled and his tavern lit\nFAIL — typed again: the word the update wrote finds his tavern\nFAIL — an unbaked word from before: typed, the update is pulled and his tavern lit\nFAIL — typed again: the word the update wrote finds his tavern\n20 ok, 6 failed\n\nEXIT 1\n",
+        "upgrade_in_place": "FAIL port 8080 is taken — the word lights the tavern there; free it first\n\nEXIT 1\n"
+      },
+      "cause": "Shared proc mount reports host process IDs; signals require local PID namespace IDs. Restore the prior handoff process wrapper."
+    },
+    "development": [
+      {
+        "tag": "m687_fast2",
+        "complete": false,
+        "source_digest": "81870377bba59a320d5c9e88957021ed55d250fcb45cd817860d5b20fb65be29",
+        "runtime_digest": "4ffb8d87ff2479afaa62953adce297e5739edf1ce854e34b4fc0efc6b03176f9",
+        "seconds": 20.99,
+        "failed_checks": [
+          "academy_ui",
+          "boot_ready"
+        ],
+        "note": "Playwright installed, Chromium unavailable; official mirror fallback installed it."
+      },
+      {
+        "tag": "m687_fast3",
+        "complete": true,
+        "source_digest": "81870377bba59a320d5c9e88957021ed55d250fcb45cd817860d5b20fb65be29",
+        "runtime_digest": "06178ad9b758d3f3424779b0adda39eece9838e8e5c02a30bd3bb02d822b36e4",
+        "seconds": 28.3,
+        "failed_checks": [],
+        "note": "Passing development checkpoint; only the final frozen tree qualifies the release."
+      },
+      {
+        "tag": "m687_fast4",
+        "complete": true,
+        "source_digest": "16493917d8bc7f02672542c0817f1ec79037eb334ca06245c491b63219707a7f",
+        "runtime_digest": "06178ad9b758d3f3424779b0adda39eece9838e8e5c02a30bd3bb02d822b36e4",
+        "seconds": 28.32,
+        "failed_checks": [],
+        "note": "Passing development checkpoint; only the final frozen tree qualifies the release."
+      },
+      {
+        "tag": "m687_fast5",
+        "complete": false,
+        "source_digest": "921ff893d3d5a7b64aa91fbf71b465178312fbd715612f3b39ddd7ea58202ce6",
+        "runtime_digest": "06178ad9b758d3f3424779b0adda39eece9838e8e5c02a30bd3bb02d822b36e4",
+        "seconds": null,
+        "failed_checks": [
+          "harness"
+        ],
+        "note": "Exact Lord Marshal sentence exposed punctuation in the source title matcher."
+      },
+      {
+        "tag": "m687_fast6",
+        "complete": true,
+        "source_digest": "36b45069cbac838bf6d9f346f1b21223f21709648ae3ebdd29a938563febb4f1",
+        "runtime_digest": "06178ad9b758d3f3424779b0adda39eece9838e8e5c02a30bd3bb02d822b36e4",
+        "seconds": 28.56,
+        "failed_checks": [],
+        "note": "Passing development checkpoint; only the final frozen tree qualifies the release."
+      },
+      {
+        "tag": "m687_fast7",
+        "complete": false,
+        "source_digest": "bebad7f9eb88907f4a4e9494f94f731470121446906eb36e9a53a6cc820ed6e2",
+        "runtime_digest": "06178ad9b758d3f3424779b0adda39eece9838e8e5c02a30bd3bb02d822b36e4",
+        "seconds": 34.07,
+        "failed_checks": [
+          "harness",
+          "walk"
+        ],
+        "note": "New full header regression exposed spectator scene ground handling."
+      },
+      {
+        "tag": "m687_fast8",
+        "complete": true,
+        "source_digest": "054dfedfd373a0b37c20f9ab4851b0cdf490e68958f1ab5dd3601c6cea804d53",
+        "runtime_digest": "06178ad9b758d3f3424779b0adda39eece9838e8e5c02a30bd3bb02d822b36e4",
+        "seconds": 28.37,
+        "failed_checks": [],
+        "note": "Passing development checkpoint; only the final frozen tree qualifies the release."
+      },
+      {
+        "tag": "m687_fast9",
+        "complete": true,
+        "source_digest": "f11fa32d7d719768cb8da06baf41515fee5b2bd5d3c1018dd96b35b0f9cb3fe0",
+        "runtime_digest": "06178ad9b758d3f3424779b0adda39eece9838e8e5c02a30bd3bb02d822b36e4",
+        "seconds": 29.59,
+        "failed_checks": [],
+        "note": "Passing development checkpoint; only the final frozen tree qualifies the release."
+      },
+      {
+        "tag": "m687_fast",
+        "complete": false,
+        "source_digest": "759f0df551037fd205544f2a177a4e9d671a8a860792340df4120f7001d4d172",
+        "runtime_digest": "d5c95a481e50dc19405977162deab4a847b49850078e8aaf34b33af9f6f7eb7e",
+        "seconds": 54.62,
+        "failed_checks": [
+          "academy_ui",
+          "boot_ready"
+        ],
+        "note": "Python Playwright absent in the test runtime."
+      }
+    ]
+  },
+  "runtime": {
+    "python": "3.12.14",
+    "node": "v24.19.0",
+    "playwright": "1.55.0",
+    "chromium": "140.0.7339.16",
+    "launcher_path_prefix": "/tmp/cozy-work-test-bin",
+    "wrapper_calibration": "A disposable child was reported by its local PID and terminated successfully."
+  },
+  "context_review": "docs/WORKER-CONTEXT-M687.md",
+  "context_limitation": "People receives current turn and character records but no older unfolded pages, folded record or lookup. Generated Story essentials are separately used only by the storyteller.",
+  "no_paid_story_model_calls": true,
+  "live_phone_or_story_accessed": false,
+  "preserved_ancestor_commits": [
+    "4a19de3",
+    "8880a0",
+    "f087472",
+    "63f87",
+    "71b22e8",
+    "613c174",
+    "8e3c46d",
+    "2ca4610"
+  ],
+  "publication": {
+    "status": "blocked_pending_fresh_user_approval",
+    "destination": "https://github.com/brucestarkallen/Cozy-Tavern-",
+    "verified_public_repository": true,
+    "last_observed_main": "2ca461094c57f24fcdd06648616909f44f171de4",
+    "reason": "Automatic approval review rejected a branch push for unverified destination and publication authorization. The destination was then verified; no retry or main update was performed."
+  }
+}

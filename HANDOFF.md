@@ -1,63 +1,62 @@
 # Cozy Tavern: current handoff
 
-## Current release: m686-001
+## Published release: m686-001; tested candidate: m687-001
 
-The owner expects a plug and play frontend: detected ledger faults are repaired by
-the app, with no Audit button required to start or continue recovery. M686 closes
-the idle recovery gap left by M685. See docs/AUTONOMOUS-RECOVERY-M686.md and the
-section by section prior audit in docs/LEDGER-AUDIT-M685.md. SPEC.md holds the contract.
+Remote main was last verified at 2ca461094c57f24fcdd06648616909f44f171de4. The final M687
+execution checkpoint is 13289103d18b83793869c6db9541b23301816420. Publication is awaiting fresh
+user approval after automatic approval review rejected a branch push. The destination
+is the verified public repository https://github.com/brucestarkallen/Cozy-Tavern-.
+Do not retry publication without that approval. No update to main was made.
 
-Application checkpoint: 50f1289. Test fixture checkpoint: a3d55bf. Subsequent release
-notes change no execution inputs. Exact results are in audit/results/m686.json.
+## Candidate behavior
 
-## What changed
+M687 fixes the owner's turn 33 automatic audit loop. The acceptance check now follows
+each person's latest quoted evidence throughout the newest scene, including immediate
+pronoun continuations, instead of omitting quiet spectators before a long fight ending.
+A full header's room is separate from the main character's pose. Later departures,
+deaths, scene moves, hand written fields and existing page ownership guards remain.
 
-* js/ui/chat.js schedules full original source recovery when an existing story is
-  opened and continues incomplete audits while idle. Completed source work is kept.
-  It resumes from saved coverage and findings on reopen. There is no terminal retry
-  count. A progressing pass resumes after fifteen seconds; unsuccessful passes wait
-  one, two, four, then at most five minutes. The configured model remains in use.
-* The job runs through the existing reader queue and cancellation mechanism. A new
-  story turn interrupts idle recovery. Current source checks, story switches, other
-  browsers, replays, explicit Stop, disabled agents and stopped partial pages retain
-  their guards. Completion stops the loop. Owed world work follows the audit; a
-  disabled world worker does not create an impossible task. Recovered world status
-  is updated. An incomplete audit cannot produce the completion light.
-* js/ui/drawer.js describes automatic continuation. An auditor row no longer offers
-  Finish it, including old saved rows with a resume action. Earlier ledger repair,
-  source recovery, identity preservation and simulation rules remain in place.
+Real identity merges preserve aliases. Original source receipts and saved cast names
+follow completed merges, including old M686 journal entries, so the titled Kelstrum
+page is not repeatedly recreated. Reworded findings compact by target, and a repair
+completed by an alternative operation or another reader closes satisfied old findings.
+Different fields and durable facts remain distinct. Unsupported work stays unfinished.
 
-## Verification
+The M686 idle scheduler is unchanged. Opening a story starts original source recovery;
+unfinished work continues through the reader queue with its existing backoff. Explicit
+Stop, off switches, new turns, source changes, replay and stopped partial pages retain
+their guards. Once the ledger actually completes, green returns and the loop stops.
 
-Full harness 1499/1499, walkthrough 304/304, long play 9/9, lint zero errors.
-All 33 release checks have qualifying passing results. This was not one all-green
-invocation: m686a passed 31/33. One source-spelling assertion expected the old button
-condition; the live drawer is covered by DOM-M686-6. Five older walkthrough fixtures
-expected a completed ledger without its source coverage or their mock characters'
-identities. Their initial data now makes that premise true; all behavioral assertions
-remain. DOM-53 also explicitly enables its own keeper. Only tests changed after
-m686a. The full harness, walkthrough and lint passed again in m686b. The app and all
-browser/performance inputs were unchanged; no timing budget was relaxed.
+## Verified results
 
-Seven new app scenarios pass. Four fail on published M685; the other three preserve
-Stop, disabled audit and stopped-page behavior. They cover initial recovery without
-input, continuation beyond three attempts, completion stopping the loop, a temporary
-provider outage, yielding to an actual send, and no manual Finish it action. The fast
-profile passed six checks in 26.79 seconds. Tests use scripted providers and disposable
-stories. No paid story model calls or phone ledger data were used.
+Final full harness 1517/1517, app walkthrough 305/305, long play 9/9, lint zero errors.
+The stable m687d release passed all 33 checks in 1738.11 seconds, with an
+unchanged source/runtime fingerprint and ALLDONE. Fast passed six checks in 29.59 seconds.
+Eighteen new public auditor laws: 12 fail on published M686 and six controls pass;
+129 new and nearby laws pass on M687. The real app backlog case fails on M686 and
+passes with the final five cell header, unchanged story, green, idle and reopen completion.
 
-## Continuity and next session
+Earlier failures and interrupted attempts are preserved in audit/results/m687.json.
+No paid story model calls or live phone/story access were involved. This does not
+claim that the owner's phone ledger is already repaired. See
+docs/AUDITOR-SCENE-REPAIR-M687.md for cause, changes and limits.
 
-Claude's M680 (4a19de3), M681 (8880a0), final fixes f087472/63f87, M683 (71b22e8),
-M684 (613c174) and M685 (8e3c46d) remain ancestors. HISTORY is append only and the
-original instruction archives remain intact. Canon Verification remains v0.68.3 /
-5aed234; do not replace the vendor copy without reconciling its Cozy changes.
+## Worker context and continuity
 
-After updating, opening an existing story starts recovery automatically. The older
-M685 instruction to press Audit once is superseded. No user's phone was accessed,
-and this release does not claim that a specific live story has already been repaired.
+docs/WORKER-CONTEXT-M687.md traces the real builders and shared save paths. All four
+readers receive brief/plot essentials, cast and current turn. Scene, World and Auditor
+also receive folded record and preceding unfolded pages with lookup. People is narrower:
+no older unfolded pages, folded record or lookup. Generated Story essentials are used
+separately by the storyteller. No claim that every context is optimal is made.
 
-Read AGENTS.md and this handoff once. Use tools/context.py for relevant history.
-Use fast checks during editing and release checks on a stable candidate; preserve
-failed results. This environment's launcher/upgrade checks need
-PATH=/tmp/cozy-work-test-bin:$PATH. Do not repeat gates for documentation-only edits.
+Claude's M680 4a19de3, M681 8880a0, final fixes f087472/63f87, M683 71b22e8,
+M684 613c174, M685 8e3c46d and M686 2ca4610 remain ancestors. HISTORY is append only;
+the instruction archives and Canon Verification v0.68.3 / 5aed234 remain intact.
+
+Read AGENTS.md and this handoff once. Use tools/context.py for bounded history.
+Use fast during edits and release on a frozen candidate. This sandbox's shared proc
+mount requires PATH=/tmp/cozy-work-test-bin:$PATH for launcher and upgrade checks;
+its pgrep/pkill wrapper maps only this namespace's process IDs. No launcher code or
+test budget was changed for the environment. Documentation-only commits need no repeat
+gate. On publication approval, recheck remote main, reconcile without force, publish
+the reviewed candidate, and verify the exact remote head and version.

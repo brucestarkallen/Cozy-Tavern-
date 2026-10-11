@@ -18537,3 +18537,47 @@ Existing stories now start recovery on opening after updating; the M685 instruct
 to press Audit once is superseded. No user's phone or live story was accessed, and
 tests made no paid model calls. All prior milestones, original instruction archives,
 and the canon vendor remain intact.
+
+
+## M687: a tested correction for the reported audit loop
+
+The owner's turn 33 log showed complete original source coverage but recurring rejected
+gallery arrivals, witness posture updates, elsewhere clears and marshal merges. M687
+accepts the latest exact evidence for each person throughout the current scene, including
+pronoun continuations, and distinguishes a full header's room from the main character's
+pose. Later departures, deaths, scene moves, hand written fields and page ownership
+remain protected. The exact reported Lord Marshal sentence establishes a unique role
+owner; ambiguity and main character rename protections remain.
+
+Actual merges retain aliases; original source receipts, old M686 journal merges and
+saved cast names follow the canonical page rather than restoring the same titled person
+again. Saved findings compact by target and close when the actual requested state is
+satisfied, including alternative operations and other readers' repairs. Distinct facts
+and fields remain separate. The M686 scheduler remains; completed repairs let its green
+indicator return and its automatic loop stop.
+
+The real worker context was traced with prompt markers and save/lookup inspection.
+Readers share one saved state. Brief/plot essentials, cast and current turn reach all
+four. Scene, World and Auditor have folded record/unfolded pages and lookup; People
+has a narrower current turn/character view without those histories or lookup. Generated
+Story essentials are used separately by the storyteller. No optimal-context claim or
+People context overhaul is made. See docs/WORKER-CONTEXT-M687.md.
+
+Execution checkpoint 13289103d18b83793869c6db9541b23301816420. Eighteen new public auditor laws:
+12 fail on published M686, six controls pass; all 129 new/nearby laws pass on M687.
+The real app backlog regression fails on M686 and passes with a full five cell header
+on M687: actual corrections, no story edit or extra turn, green, no continuing idle
+audits and complete after reopen. Final fast: six checks in 29.59 seconds. Stable
+m687d release: all 33 checks pass in 1738.11 seconds, full harness 1517/1517,
+walkthrough 305/305, long play 9/9, lint zero errors, source/runtime unchanged and ALLDONE.
+Prior attempts and failures are retained in audit/results/m687.json. The preceding
+m687c candidate passed 31/33; only launcher/upgrade failed because host process IDs
+were signalled in a local PID namespace. The prior handoff's external wrapper was
+restored and calibrated. A new full run qualified the final changed execution tree;
+no old result was reused, no assertion or timing budget was relaxed.
+
+Publication is pending fresh approval after automatic approval review rejected the
+branch push. Its destination was verified as the supplied public repository; no retry
+or update to main was made. Tests used disposable stories and scripted providers,
+with no paid story model calls and no live phone/story access. Prior milestones,
+original history, instruction archives and canon vendor remain intact.
