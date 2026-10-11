@@ -144,14 +144,17 @@ export async function askWithFetch(connection, {
   let toldToAnswer = false;
   let toldUnreadable = false;
   let repairedAnswer = false;
+  let calls=0;
   for (;;) {
     const size = String(system || '').length + convo.reduce((n, m) => n + String(m.content || '').length, 0);
     if (typeof renew === 'function') renew(typeof leash === 'function' ? leash(size) : undefined);
     const res = await callWorker(connection, { system, messages: convo, maxTokens, signal, effort, temperature });
+    calls++;
+    const answer={...res,calls,formatContinuation:repairedAnswer};
     const text = String(res.text || '');
-    if ((toldToAnswer && !repairAnswer) || (typeof isAnswer === 'function' && isAnswer(text))) return { ...res, looked, rounds: served };
+    if ((toldToAnswer && !repairAnswer) || (typeof isAnswer === 'function' && isAnswer(text))) return { ...answer, looked, rounds: served };
     const { refs, blocks } = fetchRefsIn(text);
-    if (toldToAnswer && blocks) return { ...res, looked, rounds: served };
+    if (toldToAnswer && blocks) return { ...answer, looked, rounds: served };
     if (!blocks) {
       const correction=!repairedAnswer && typeof repairAnswer==='function' ? repairAnswer(text) : '';
       if (correction) {
@@ -159,11 +162,11 @@ export async function askWithFetch(connection, {
         convo.push({role:'assistant',content:text},{role:'user',content:correction});
         continue;
       }
-      return { ...res, looked, rounds: served };
+      return { ...answer, looked, rounds: served };
     }
     convo.push({ role: 'assistant', content: text });
     if (!refs.length) {
-      if (toldUnreadable) return { ...res, looked, rounds: served };
+      if (toldUnreadable) return { ...answer, looked, rounds: served };
       toldUnreadable = true;
       convo.push({ role: 'user', content: 'Your <fetch> block could not be read. It holds page numbers or #codes, "find: WORDS", "person: NAME", "brief" or "cast" only — like <fetch>["12", "find: Caleb"]</fetch>. Ask again that way, or answer in the form asked for.' });
       continue;

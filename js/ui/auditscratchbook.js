@@ -31,6 +31,11 @@ export function auditScratchbookButton(getStory) {
         +(currentInput?(verification?.read || 0)+' of '+(verification?.total || 0)+' current entry checks complete.':'Current scene awaiting its review.');
       const note=document.createElement('p');note.className='quiet';
       note.textContent='Completed identities and appearance stay checked while their saved facts and original sources hold. New scenes update current positions and activity. Changed facts reopen the affected profile.';
+      const timing=document.createElement('p');timing.className='quiet';
+      const review=state.audit?.finalReview;
+      timing.textContent=review?.calls
+        ?'Last review used '+review.calls+' model '+(review.calls===1?'call':'calls')+'. '+(review.sourceCalls || 0)+' source reading calls. '+(review.fetches || 0)+' source lookups. '+(review.formatContinuation?'One response completion was needed.':'Repairs and approval were returned together.')
+        :'Entry totals count saved decisions, not one model call per entry.';
       const list=document.createElement('ul');
       const labels={characters:'Identity and appearance',characterState:'Current character state',canon:'Physical facts'};
       for (const row of ledgerVerificationRows(state).filter(r=>['characters','characterState','canon'].includes(r.section) && r.value)) {
@@ -46,7 +51,7 @@ export function auditScratchbookButton(getStory) {
       const work=document.createElement('ul');
       for (const text of state.audit?.pending || []) { const li=document.createElement('li');li.textContent=text;work.append(li); }
       if (!work.children.length) {const li=document.createElement('li');li.textContent='No open findings in the last completed review.';work.append(li);}
-      dialog.append(heading,close,summary,note,list,pending,work);document.body.append(dialog);dialog.showModal();
+      dialog.append(heading,close,summary,note,timing,list,pending,work);document.body.append(dialog);dialog.showModal();
     } finally {button.disabled=false;}
   });
   return button;

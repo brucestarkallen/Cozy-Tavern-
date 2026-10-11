@@ -1,4 +1,14 @@
 import { fingerprint36 } from '../engine/fingerprint.js';
+import { quotedSource } from '../engine/evidence.js';
+
+// Source receipts normalize whitespace. Recover the literal original span so
+// a valid multiline quote still gets a durable pointer rather than vanishing.
+function originalSpan(text,quote) {
+  if (!quotedSource(text,quote)) return null;
+  const escaped=quote.trim().split(/\s+/).map(s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('\\s+');
+  const match=new RegExp(escaped).exec(text);
+  return match?{start:match.index,text:match[0]}:null;
+}
 
 // References are durable pointers into originals, not another story judgment.
 // Keep exact spans so a later reading can reuse a reference it saw earlier.
@@ -12,15 +22,19 @@ export function auditEvidenceBook(documents,passages,previous={},journal=[]) {
   }
   const add=p=>{
     const d=originals.get(p.source);
-    let start=d?.text.indexOf(p.text);
-    if (!p.evidenceId || !p.text || start<0 || start===undefined) return;
+    if (!d || !p.evidenceId || !p.text) return;
+    const span=originalSpan(d.text,p.text);
+    if (!span) return;
+    let start=span.start;
+    let literal=span.text;
     // A current registered source supersedes an old pointer only if the
     // reference names that exact source span, or an explicit inventory atom.
     if (p.evidenceId.startsWith('source:')) {
       while (start>=0 && p.evidenceId!=='source:'+fingerprint36(d.id+':'+start+':'+p.text)) start=d.text.indexOf(p.text,start+1);
       if (start<0) return;
+      literal=p.text;
     }
-    entries[p.evidenceId]={source:d.id,mark:d.mark,start,length:p.text.length};
+    entries[p.evidenceId]={source:d.id,mark:d.mark,start,length:literal.length};
   };
   // Upgrade pre-book references only from actual saved literal evidence and
   // the exact original hash. An old opaque id alone proves nothing.

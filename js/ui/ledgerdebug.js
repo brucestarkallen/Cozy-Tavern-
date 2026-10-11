@@ -57,7 +57,7 @@ export async function ledgerDebugReport(storyId) {
       shown:String(m.shown || m.evidence || '').slice(0,180)})),
   })),3000);
   add('Pending historical complaints',state.audit?.pending || [],1400);
-  add('Latest auditor reply excerpt',String(workers.auditor?.raw || '').split('\n\nRepair followup:').at(-1),1200);
+  add('Latest auditor reply excerpt',String(workers.auditor?.raw || '').split(/\n\n(?:Repair followup|Combined review):/).at(-1),1200);
   add('Recent worker runs, newest first', (rawShelf?._debugHistory || []).slice(-12).reverse().map(slim), 4000);
   add('Latest worker results', Object.fromEntries(Object.entries(workers).sort(([a],[b]) => (b === 'auditor') - (a === 'auditor')).map(([name, row]) => [name, slim(row)])), 2500);
   add('Recent ledger changes, newest first', (state.log || []).slice(-6).reverse().map(({undo,...row}) => row), 800);

@@ -1,3 +1,68 @@
+# M708: one combined ledger verdict, complete profiles before saving
+
+Version m708-001. The owner's actual M707 reports have167/167 original
+sources,205 or206 of210 entry receipts, all4 requested character checks
+returned, but missing appearance mappings and source binding errors. Repeated
+reads overwrite the same player's hair between own and alternate faces. This
+is a real repair cycle, not one entry per model call and not a completed fix.
+
+The automatic auditor now makes ONE combined semantic review: discover actual
+discrepancies, propose repairs, map identity/appearance facts, reconcile old
+findings and certify resulting entry snapshots in the same response. Removed
+the preliminary discovery request and the separate focused profile request.
+Explicit starting standings are included in that same answer and cached by
+writer inputs/player identity, eliminating a separate recurring digits call.
+The original source scanner remains separate: unchanged originals are cached;
+new or edited originals may require source reading calls. Historical backfills
+still use context-sized source groups. Do not claim the entire large history
+fits one provider request or a fixed live latency.
+
+All required entry checks are supplied together, never fixed-size entry
+batches. Canon appearance already inside an approved People snapshot receives
+that exact approval without another duplicate canon verdict. Complete source
+mappings are required in the main prompt, not deferred to a later broad audit.
+The same review can request at most one response completion when required
+checks/mappings are missing or appearance proposals conflict. Existing source
+fetches remain available for genuinely missing context. Completion carries
+actual unresolved facts and saved targets in the original conversation.
+
+Before saving profile rewrites, the actual proposed resulting fields are
+checked against the housekeeper's explicit source mappings. Conflicting
+canon writes for the same person/key cannot alternate colours into the saved
+ledger. An unresolved profile holds its own biography/appearance rewrites;
+other completed repairs remain usable. Player aliases route to the actual
+player before withholding a draft. Source-backed missing identities receive
+empty PREVIEW rows so their actual sourced creation and resulting check can
+finish together; these empty placeholders are not saved as biographies.
+The auditor owns semantic meaning; literal source evidence, manual ownership,
+identity/scope restrictions and concurrent-write protections remain. There is
+no separate AI approving the auditor. The housekeeper edits ledger records,
+not application code. Code fixes happen in the repository.
+
+Source receipts normalize whitespace, while M707's evidence book required raw
+substring equality. The book now resolves those normalized quotes back to
+exact original multiline spans before storing offsets. Source hash validation
+and source-mark invalidation still apply; unknown opaque ids alone are invalid.
+This corrects a transport fault without hardcoded characters or hair colours.
+
+Scratchbook and capped debug now show actual review calls, source calls,
+fetches and whether one response completion occurred. Old and new reply
+markers are supported. Entry totals are completed saved decisions, not calls.
+M707's durable checkpoints and scene cursor remain. Stable approved profiles
+survive new scenes; changed source facts/values reopen affected profiles.
+
+Only tests/harness/m708-focused.mjs was run at the implementation milestone.
+Initial run0.11s passed; after alias withholding/evidence-error handling and
+an end-to-end conflicting-answer case, the final run0.14s passed. It exercises
+one combined mocked request, complete equivalent profile mappings, preservation
+of dual faces and long purple hair, normalized multiline evidence transport,
+shared canon certification, checkpoint reuse/invalidation, and a contradictory
+hair answer corrected once in the same conversation with no interim blonde
+write. Manual eyes, biographies, prose and earned p60/r50 remain intact. No
+broad/theme/gameplay tests or real provider calls. These fixtures do NOT prove
+that the owner's live story has finished green. Do not claim that prematurely.
+Publish under the owner's standing permission; no new approval ask or retest.
+
 # M707: durable auditor scratchbook and shared evidence transport
 
 Version m707-001. The live M706 report still has167/167 original sources read,
