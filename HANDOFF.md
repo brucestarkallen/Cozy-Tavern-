@@ -1,3 +1,23 @@
+# M692: visible unresolved status and bounded repair retries
+
+Owner compact report confirmed no running workers with pending audit findings,
+and Commodus reworded from at the rail to the rail while old findings persisted.
+Lamp now stays amber whenever findings or queued repairs remain; ledgerMark agrees.
+Automatic repair persists best pending count and coverage for unchanged sources.
+Two passes without improving those best values pause even if ledger text changes;
+the existing immediate no-change pause remains. Findings stay open, never green.
+Current-scene proposals now need newest-story-page quotes, not any old source.
+This verifies quote origin only; it does not prove model interpretation is correct.
+Prompt explicitly rejects cosmetic repairs and requires following later movement.
+One focused check passed for open work, 1/2/1 recurrence, new evidence reset, and
+old/current quote scope. Chat syntax checked. No browser or bulk testing.
+Report also shows an OLD merge of Alexia into Alexia's woman and a questionable
+Azrael position correction. Neither is safely reversible from this capped snapshot.
+Do not claim those saved records are repaired. Source/journal identity diagnosis
+remains needed. Historical rejection strings can persist in unresolved findings;
+they do not prove the removed old guard is still executing.
+Version m692-001. No user story data or manual edits changed by this release.
+
 # M691: compact debug report
 
 Version m691-001. Copy now has a hard 24000 UTF8 byte cap, independent

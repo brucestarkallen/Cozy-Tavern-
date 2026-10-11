@@ -46,7 +46,7 @@ export async function ledgerDebugReport(storyId) {
     report += '\n' + label + '\n' + excerpt(redactDebug(value, secrets), budget) + '\n';
   };
   add('Capture', { appVersion: VERSION, capturedAt: new Date().toISOString(), storyTitle: story.title, storyPageCount: pages.length, runningWorkers: runningWorkers(storyId) }, 700);
-  add('Unresolved auditor findings', { pending: state.audit?.pending, unresolved: state.audit?.unresolved, pauseReason: state.audit?.pauseReason, unfinished: state.audit?.unfinished }, 5000);
+  add('Unresolved auditor findings', { pending: state.audit?.pending, unresolved: state.audit?.unresolved, pauseReason: state.audit?.pauseReason, unfinished: state.audit?.unfinished, retryProgress: state.audit?.retryProgress }, 5000);
   add('Recent worker runs, newest first', (rawShelf?._debugHistory || []).slice(-12).reverse().map(slim), 4000);
   add('Latest worker results', Object.fromEntries(Object.entries(workers).map(([name, row]) => [name, slim(row)])), 2500);
   add('Recent ledger changes, newest first', (state.log || []).slice(-12).reverse(), 2000);

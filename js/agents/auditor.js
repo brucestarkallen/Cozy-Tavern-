@@ -175,6 +175,7 @@ function law({ mc }) {
     'An arrival quote remains presence evidence after a later seated pose. For posture and attire use their latest own account, not a later incidental mention by someone else. Include shown on offscreen.clear as well.',
     'The MC\'s explicitly established own persona is the MC, not another person away from the scene. Clear a false separate elsewhere seat with the writer\'s exact identity quote. Never guess a persona from a similar name or from an intention to impersonate someone.',
     'A duplicate identity or duplicate seat is repaired with people.rename from the descriptor or duplicate name to the established name, retaining the records. A presence.update does not merge two people. Do not treat an unchanged location stated with extra detail as proof that the existing location is wrong.',
+    'Only propose a repair for a factual difference. Rewording an equivalent position is not a correction. Recheck inherited findings against the newest page before repeating them. A quote from earlier in the same page does not overrule that person reaching a different position later in that page.',
     'Follow each person through the entire newest scene. Their last established position continues while others act;',
     'a long final paragraph about the duel does not remove quiet gallery spectators or erase their latest posture.',
     'A later departure, death, changed position or scene move still wins. Never restore an earlier moment over it.',
@@ -629,7 +630,7 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
   const storyPages = all.filter((m) => m && m.role === 'assistant');
   const newestAt = latestStory ? storyPages.findIndex((m) => m.id === latestStory.id) : -1;
   read.issues = auditorRepairScope(read.issues, fresh, {
-    pageAt: newestAt, rejected: scopeRejected,
+    pageAt: newestAt, rejected: scopeRejected, sceneSource: pageText(latestStory),
     sources: [brief, castNotes, ...all.filter((m, i) => !asideAt(all, i)).map(pageText)].join('\n'),
   });
   /* M267: A CHECK THAT FOUND NOTHING IS NOT A FINDING. The writer counted
@@ -1023,7 +1024,7 @@ export function manualRepairConflict(state, m, pageAt) {
     && String(j.m.name || '') === String(m.name || '') && String(j.m.field || j.m.key || '') === String(m.field || m.key || ''));
   return Boolean(last?.m?.byHand && (!Number.isInteger(pageAt) || last.p >= pageAt));
 }
-export function auditorRepairScope(issues, state, { sources = '', pageAt = null, rejected = [] } = {}) {
+export function auditorRepairScope(issues, state, { sources = '', sceneSource = null, pageAt = null, rejected = [] } = {}) {
   return (issues || []).map(issue => ({ ...issue, mutations: (issue.mutations || []).filter(m => {
     let why = '';
     if (!AUDITOR_TYPES.has(m.type) && m.type !== 'presence.update') why = 'unsupported auditor operation';
@@ -1032,7 +1033,9 @@ export function auditorRepairScope(issues, state, { sources = '', pageAt = null,
     else if (isMc(state, m.name) && /^people\./.test(m.type) && !['state', 'thread', 'unthread'].includes(m.field)) why = 'the main character identity and interpretation belong to the writer';
     else if (!/^rel\./.test(m.type) && !m.sourceRecovery) {
       const quote = m.shown || issue.shown;
-      if (!quotedSource(sources, quote)) why = 'include a real source quotation supporting this correction';
+      const currentScene = /^(presence\.|offscreen\.)/.test(m.type) || m.type === 'mode.snapshot' || (m.type === 'people.set' && m.field === 'state');
+      const evidenceSource = currentScene && sceneSource !== null ? sceneSource : sources;
+      if (!quotedSource(evidenceSource, quote)) why = currentScene ? 'include a quotation from the newest story page supporting this current scene correction' : 'include a real source quotation supporting this correction';
       else { m.shown = quote; m.evidence = quote; }
     }
     if (why) { rejected.push({ mutation: m, issue, why }); return false; }
