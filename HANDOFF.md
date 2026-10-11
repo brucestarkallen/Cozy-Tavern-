@@ -1,3 +1,40 @@
+# M711: separate physical history from the current snapshot
+
+Version m711-001. The owner's actual M710 report confirms all eight writes
+landed and the audit completed in one call,167/167 sources,210/210 receipts,
+no unfinished work. But the model's position concatenates the earlier retreat
+with the shoulder finding the wall. M710 recovered the ending evidence without
+producing a clean current-state snapshot. Do not describe that live position
+as fully corrected or confuse completed approval with perfect interpretation.
+
+Scene here entries and auditor scene entries now separate optional earlier
+movement from an explicit ending object: position,attire,shown. A shared
+sceneEndingFields adapter saves ONLY that ending when present, never appending
+legacy/earlier wording. The original quote is evidence, not the prose to copy
+into current position: final physical state may be faithfully paraphrased in
+present terms. Changed movements replace superseded pose, rather than adding
+a page summary to it. Exact old flat replies remain compatible. The ending
+object is working state, not another certificate or approval gate. Unknown
+outfits are omitted; punctuation placeholders cannot become recorded attire.
+
+The same adapter feeds Scene here notes and the final auditor's ordinary
+presence repairs, preserving M710's one-pass approval for changed retained
+entries. Earlier narrative remains in saved prose and finalReview.scene,
+not injected as an ongoing physical position. No character-specific patch,
+regex interpretation of the story, extra provider call or retry gate added.
+Manual ownership, profiles, feelings, source checkpoints, concurrent snapshot
+protections and journal/undo remain. No prose or ledger record is deleted.
+
+Only tests/harness/m711-ending.mjs ran once at this milestone,0.24s,passed.
+It exercises the actual extractor/auditor paths with an earlier movement and
+contradictory legacy flat fields beside the explicit final stop and outfit;
+only ending reaches current presence. A missing pose/placeholder attire does
+not promote old fields. History remains in the scratchbook. A retained entry
+is repaired and approved in one mocked audit call, keeping witnesses, prose,
+profiles and p60/r50. No broad or old suites, paid calls or publishing retests.
+This establishes the wiring, not the next live provider's semantic verdict.
+Publish normally under standing permission and verify exact remote main.
+
 # M710: save and reconcile the completed scene
 
 Version m710-001. The owner's live M709 report is genuinely complete:

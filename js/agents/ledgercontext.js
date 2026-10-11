@@ -2,6 +2,16 @@
 import { loadEssentials } from './essentials.js';
 import { loadMemory } from './memory.js';
 
+// M711: narrative provenance and current physical state have separate slots.
+// Prefer the explicit ending snapshot; never merge an earlier summary into it.
+// Flat replies remain compatible with existing providers and saved records.
+export function sceneEndingFields(entry) {
+  const value=entry?.ending && typeof entry.ending==='object' && !Array.isArray(entry.ending)?entry.ending:entry || {};
+  const clean=text=>typeof text==='string' && !/^\s*[-\u2014\u2013]+\s*$/.test(text)?text.trim():'';
+  return {position:clean(value.position ?? value.at),attire:clean(value.attire ?? value.wears),
+    shown:typeof value.shown==='string'?value.shown:'',evidenceId:value.evidenceId};
+}
+
 // Shared reading procedure, executed inside the existing worker call.
 // This is not another auditor or a source-certificate requirement.
 export const SCENE_ENDING_TASK = `
@@ -9,6 +19,7 @@ DERIVE THE COMPLETED SCENE BEFORE COMPARING WITH THE NOTEBOOK:
 Start with the header as opening context, then follow the narration in order. For each person whose position, clothes or physical condition is established or changed, track the actor, recipient and resulting state. Resolve pronouns from the action and viewpoint, not from the nearest proper name. A blow delivered by one person can hurt the other person.
 Discard intermediate states replaced later in the sequence. A retreat followed by a stop leaves the person at the stopping point; an outfit removed later is no longer worn. A quiet person's last established state continues while others act. Read the whole scene, not only its final paragraph. People in a separate World Beyond window remain elsewhere.
 Only after deriving those ending states compare them with the saved ledger. Earlier wording appearing anywhere on the page does not make it current. Do not invent motion, injury, recovery or a change in feelings. Preserve facts the scene did not change.
+Separate sequence from snapshot: optional earlier describes completed movement; ending contains ONLY the final physical state. Position is a short present-state phrase answering where and how they are NOW. The original past-tense sentence belongs in shown as evidence, not in position. Replace a superseded position rather than appending the new stop to the old movement. Paraphrase the current state faithfully; exact source wording is for shown. Do not label unknown clothes with a placeholder. Do not reword a valid equivalent state merely for style.
 `;
 
 export const LEDGER_READER_RULES = `

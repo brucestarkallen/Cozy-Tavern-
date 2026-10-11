@@ -1,5 +1,5 @@
 import { renderPeopleTiers, peopleView } from '../engine/people.js';
-import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sharedStoryContext } from './ledgercontext.js';
+import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sceneEndingFields, sharedStoryContext } from './ledgercontext.js';
 /* Cozy Tavern — agents/extractor.js
  * The extractor: a quiet background worker that reads each finished page —
  * what the writer wrote and what the storyteller answered — and proposes
@@ -301,8 +301,8 @@ function systemPrompt({ mc, founding }) {
     '{"title":"…","now":"open"} (a thread the story has only moved is still open). "healed", "things", "loose" and "spot"',
     'answer the lists under the page that ask for them; [] (or "" for "spot") when there is none.',
     '"here" names EVERYONE in the scene at the END of this page, by the names the ledger uses — each a plain name, or',
-    '{"name":"…","at":"where in the room they are as the page ends","wears":"what they have on"} with "at" and "wears" ONLY',
-    'as THIS page shows them, in its own words (left out when the page does not show them: the ledger keeps what it has): the main',
+    '{"name":"…","earlier":"optional completed movement","ending":{"position":"current place and pose","attire":"current clothes","shown":"original evidence"}}.',
+    'Ending describes the final physical state faithfully, not a chronological summary. Omit unknown fields; legacy at/wears remain supported. Include the main',
     'character, everyone the page shows there with him, and everyone on the ledger\'s "Here now" line who is still with',
     'him — whom the page did not show leaving and he did not walk away from (quiet is not gone; left behind is gone).',
     'Never someone only spoken of or remembered, heard on a phone or seen',
@@ -409,7 +409,7 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
     ...(!founding ? placesBlock(state, assistantText) : []), /* M677 */
     ...standingsBlock(unwritten), /* M641 */
     SCENE_ENDING_TASK,
-    'Write the resulting ending positions and outfits in here, including the main character even when the prose uses only pronouns. Put body effects on their actual recipient. Then write the other changes. JSON only.',
+    'Write the final position and outfit in each here entry\'s ending object, including the main character even when the prose uses only pronouns. Keep earlier movement out of ending. Put body effects on their actual recipient. Then write the other changes. JSON only.',
     founding ? 'Found the ledger from these pages. JSON only.' : 'What changed, if anything? JSON only.',
   ].join('\n');
   return { system: withFictionFrame(systemPrompt({ mc, founding }) + '\n\n' + fetchLaw({ rounds: EXTRACTOR_LOOKS, when: 'Look only when THIS page leans on something you were not shown — a person, a promise or a place from an earlier page, a name the brief defines further on. Most pages need no look.' })), user, founding, mc, standingsFor: unwritten };
@@ -445,10 +445,10 @@ export function placesBlock(state, pageText = '') {
    * ways now: still with him (in "here", with where), or no longer with him (a leave, with where they are now). */
   return [
     'WHERE EACH OF THEM IS AS THIS PAGE ENDS. The page shows these people; answer for EACH of them, one of two ways.',
-    'STILL WITH HIM as the page ends: in "here" as {"name":"…","at":"…"} — where they are and what they are doing, in the',
-    'page’s own words: a hand that came down, a cup picked up, a place crossed to, a chin back in a palm is where they are',
+    'STILL WITH HIM as the page ends: in "here" as {"name":"…","ending":{"position":"…","shown":"…"}}: where they currently are and what they are doing, faithful to the source.',
+    'A completed move belongs in earlier or its source quotation in shown; ending.position holds the resulting pose. A cup picked up or a chin back in a palm is where they are',
     'now, and the ledger’s line is a lie until you write it; where the page leaves someone exactly as the ledger has them,',
-    'give the ledger’s words back. Add "wears" only when the page shows their dress change.',
+    'give the ledger’s words back. Add ending.attire only when known; preserve clothes the page did not change.',
     'NO LONGER WITH HIM — they went, or he walked off and left them where they were: NOT in "here", but a presence.leave',
     'for them, with "to" (where they are now, said so it stands on its own) and "shown" (the page’s own words for the',
     'going — theirs, or his).',
@@ -809,8 +809,8 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
       .map((h) => String(h || '').trim()).filter((h) => h && h.length <= 80);
     /* M660: …and, where the page shows it, where each stands and what each wears as the page ends */
     const hereNotes = (Array.isArray(parsed.here) ? parsed.here : [])
-      .filter((h) => h && typeof h === 'object' && typeof h.name === 'string' && h.name.trim() && (typeof h.at === 'string' || typeof h.wears === 'string' || typeof h.shown === 'string'))
-      .map((h) => ({ name: h.name.trim().slice(0, 80), at: typeof h.at === 'string' ? h.at.trim() : '', wears: typeof h.wears === 'string' ? h.wears.trim() : '', shown: typeof h.shown === 'string' ? h.shown.trim() : '' }))
+      .filter((h) => h && typeof h === 'object' && typeof h.name === 'string' && h.name.trim())
+      .map((h) => {const end=sceneEndingFields(h);return {name:h.name.trim().slice(0,80),at:end.position,wears:end.attire,shown:end.shown.trim()};})
       .filter((h) => h.at || h.wears || h.shown);
     /* M641: the standings it was asked to decide, each by name — one that shows a feeling is written where it stands
      * (rel.set, its cause in words); a "none", an entry with no cause, or a name it was not asked about writes nothing */
