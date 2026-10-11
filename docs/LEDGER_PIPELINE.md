@@ -71,3 +71,16 @@ Missing decisions are completed in the current review conversation. Original
 receipt coverage and valid unchanged entry approvals stay reusable. Source
 metadata corrections are journaled and undoable, with completion invalidated
 on undo. No additional worker, guard model or mandatory source rescan.
+
+
+## M719 lifecycle and completeness
+
+Evidence establishes whether identity facts are missing; an empty optional core
+alone is not unfinished work. World activity follows meaningful obligations and
+relationships rather than newcomer or appearance scores. Stored identities,
+historical relationships and source receipts survive retirement and prompt
+omission. Views and ordinary World reviews have budgets, not deletion caps.
+People core notes add supported facts; explicit corrections remain available.
+Unsuccessful sourced additions remain for the next ordinary People reading.
+The final independent auditor still checks real facts and historical originals.
+See M719.md for actual verification and remaining interpretation limits.

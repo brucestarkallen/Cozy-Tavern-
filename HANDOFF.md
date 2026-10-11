@@ -1,3 +1,30 @@
+# M719: evidence based identity, durable memory and bounded World work
+
+Version m719-001. M718 remote base267302bb54cf30788033b23b28c9b0b34717c2b0.
+See docs/M719.md for exact changes, executed checks, measurements and limits.
+
+Optional empty biographies no longer create compulsory missing core repairs.
+Original sourced individuals and identity facts still require real review;
+M718 source local bindings, receipts and completed audit reuse remain intact.
+Policy5 resumes old paused procedures once, not completed factual audits.
+
+World activity is separate from newcomer/appearance relevance. Goals persist
+when omitted, the 40 seat eviction is gone, retirement retains historical
+identity and lastKnown evidence, and returning dormant people are recallable.
+Views and ordinary required reviews are budgeted; deferred lives remain stored
+and explicitly reported. People core additions retain the old facts. Failed
+sourced core proposals return to the existing People reader and remain visible.
+No new model, mandatory call, dependency, migration or deployment.
+
+Focused m719 and m718 fixtures passed. The m713 worker fixture passed after its
+old replacement expectation was updated to intentional additive preservation.
+Long history estimates:174688 input at200K;961817 at1M;16000 answer allowance.
+No live story/provider test or latency claim. Cup ending adapters passed without
+a chronology rewrite. All prose, manual facts, earned standings, sources,
+branches, journal, backup and existing memory/provider pipelines preserved.
+Do not rerun tests for these notes or publication. Default focused testing and
+standing normal main publication permission remain in AGENTS.md.
+
 # M718: durable source identity decisions, no global descriptor aliases
 
 Version m718-001. The owner's M717 report now has181/181 original sections,

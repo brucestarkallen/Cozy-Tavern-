@@ -65,8 +65,9 @@ export function seat(offscreen, name, { location, activity, agenda, stance, etaM
     activity: cleanText(activity),
     sinceMinutes: Number.isFinite(clockMinutes) ? Math.round(clockMinutes) : null,
     atTurn: Number.isFinite(atTurn) ? atTurn : null,
+    firstAtTurn: found?.entry?.firstAtTurn ?? found?.entry?.atTurn ?? (Number.isFinite(atTurn) ? atTurn : null),
   };
-  const what = cleanText(agenda);
+  const what = cleanText(agenda === undefined ? found?.entry?.agenda : agenda);
   if (what) entry.agenda = what;
   if (lastSeen === true) entry.lastSeen = true; /* M304: the house's own bookkeeping, not a worker's word */
   /* M29: a stance toward the main character, and an arrival on the clock.

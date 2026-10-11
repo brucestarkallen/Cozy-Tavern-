@@ -1,4 +1,6 @@
 /* Shared interpretation contract for the ledger readers. No model call. */
+import { fingerprint36 } from '../engine/fingerprint.js';
+import { quotedSource } from '../engine/evidence.js';
 import { loadEssentials } from './essentials.js';
 import { loadMemory } from './memory.js';
 import { isMc, findPersonKey } from '../engine/people.js';
@@ -10,7 +12,7 @@ import { sourceAppearanceFacts, sourceIdentityFacts } from './appearanceinventor
 // their reading contract. Keep complete selected records and name every other
 // record for lookup. A field omitted from this view is never an empty field.
 export function workerPeopleContext(state, { material = '', room = 60000 } = {}) {
-  const rows = Object.entries(state?.characters || {}).filter(([, c]) => c && !c.retired)
+  const rows = Object.entries(state?.characters || {}).filter(([name, c]) => c && (!c.retired || nameOnPage(material, name)))
     .map(([name, c]) => ({ name, c, priority: (isMc(state, name) ? 4 : 0)
       + (isHere(state, name) ? 3 : 0) + (nameOnPage(material, name) ? 2 : 0) }))
     .sort((a, b) => b.priority - a.priority || a.name.localeCompare(b.name));
@@ -29,6 +31,35 @@ export function workerPeopleContext(state, { material = '', room = 60000 } = {})
 // Reuse the original-source scratchbook without sending another model out.
 // Matching marks exclude receipts for edited/hidden sources. The worker still
 // owns chronology and semantic comparison; these are evidence, not new writes.
+export function pendingPeopleFacts(state, documents) {
+  const originals = new Map(documents.map(d=>[d.id,d]));
+  return (state.peopleRecovery || []).filter(f => {
+    const d = originals.get(f.source);
+    const key = findPersonKey(state.characters,f.name);
+    const c = state.characters?.[key];
+    return d?.mark === f.mark && quotedSource(d.text,f.shown) && !c?.hand?.core
+      && !String(c?.core || '').includes(f.text);
+  });
+}
+export function retainPeopleFailures(state, documents, dropped, resolved = []) {
+  const entries = new Map(pendingPeopleFacts(state,documents).map(f=>[f.id,f]));
+  for (const r of resolved) {
+    if (!r?.why?.trim() || !['held','unsupported','superseded'].includes(r.status)) continue;
+    const f = entries.get(r.id);
+    if (!f) continue;
+    const c = state.characters?.[findPersonKey(state.characters,f.name)];
+    if (r.status !== 'held' || c?.core?.trim()) entries.delete(r.id);
+  }
+  for (const {delta:d,why} of dropped) {
+    if (d?.field !== 'core' || !d.text || !d.shown) continue;
+    const doc = documents.find(doc=>quotedSource(doc.text,d.shown));
+    if (!doc || state.characters?.[findPersonKey(state.characters,d.name)]?.hand?.core) continue;
+    const id = fingerprint36(JSON.stringify([doc.id,doc.mark,d.name,d.text]));
+    entries.set(id,{id,name:d.name,text:d.text,shown:d.shown,source:doc.id,mark:doc.mark,why});
+  }
+  return [...entries.values()];
+}
+
 export function workerProfileSources(state, documents, { material = '', room = 24000 } = {}) {
   if (!Array.isArray(documents)) return '';
   const normalized = text => String(text || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -44,6 +75,12 @@ export function workerProfileSources(state, documents, { material = '', room = 2
     })
     .sort((a, b) => Number(nameOnPage(material, b.name)) - Number(nameOnPage(material, a.name)));
   const lines = []; const omitted = new Set(); let used = 0;
+  for (const f of pendingPeopleFacts(state,documents)) {
+    const line = 'UNSAVED IDENTITY PROPOSAL, recheck original and current core: ' + JSON.stringify(f);
+    if (used + line.length + 1 <= room) { lines.push(line); used += line.length + 1; }
+    else omitted.add(f.name);
+  }
+  if (lines.length) lines.unshift('Repair supported omissions with additive deltas. For a previously unsaved proposal now held, unsupported or superseded, return recoveries:[{id,status,why}] in this same answer. Do not invent facts or replay a rejected mutation blindly.');
   for (const f of facts) {
     const line = JSON.stringify({ name: f.name, kind: f.kind, source: f.source,
       ...(f.kind === 'identity' ? { text: f.text } : { key: f.key, value: f.value }), shown: f.shown });
@@ -79,12 +116,15 @@ Separate sequence from snapshot: optional earlier describes completed movement; 
 
 export const LEDGER_READER_RULES = `
 SHARED LEDGER CONTRACT:
+Memory retention and active simulation are different. Preserve a real individual's established identity, rank, family and appearance even without a personal name or current presence. A design reference is not a second individual. A temporary participant may have no biography beyond a sourced role; unknown optional facts are not errors. Appearance and newcomer recency alone do not require ongoing World activity. Keep significant family, political, friendship and NPC-to-NPC consequences as explicit open threads or goals, even without feelings toward the main character. Resolve completed obligations before retiring an uninvolved participant. Retirement retains identity, historical relationships, sources and original pages; a returning person reuses them. Never invent current whereabouts from an old sighting.
+
 Identify the SUBJECT before extracting identities or physical facts. A proper name is not proof of a person. Places, kingdoms, organizations and objects are not People unless the original explicitly personifies them as a character. In a title such as "Prince NAME of REALM", NAME is the person and REALM is the place; the person's hair, eyes, age and family never belong to that place. Resolve descriptive clauses and pronouns to their actual subject, not every name appearing in the quotation. Keep animals and other established individual beings as characters. If an existing People record is actually a place/object/organization, classify it explicitly and preserve its misplaced data for correction; never merge a kingdom into a prince as an alias.
 Read the whole completed scene, including quiet spectators and the writer's established identities. Follow each person's actions chronologically. Silence is not departure; mentioning a remote person is not presence. Resolve pronouns and titles in context, not by keyword matching.
 The opening header is not an ending position. For every physical position select the person's LAST established movement or stopping point, including pronoun actions, then check that no later action changes it. A subsequent paragraph about another person does not move this person. Preserve clothing unless later evidence changes it. Apply this chronology to Scene extraction before saving, not only to the auditor.
 The brief supplies explicit starting facts and constraints. Starting feelings and locations can develop through the story unless the writer explicitly locks them. Never reset earned developments to the opening values.
 Preserve valid judgments by the responsible worker. Different plausible feelings, motives or offscreen choices are not errors. Correct factual contradictions or explicit rule violations, not personal preferences.
-People core answers WHO the person is: established role/rank, family, background, enduring nature, voice and preferences. A sentence about an escort assignment or a single action is evidence, not a complete identity. Recover missing established details even when core is nonempty. Lasting physical facts such as hair, eyes, build and scars belong in canon locks (What's true of them); current clothes and pose belong in Scene. Compare both stores with original sources, fetch earlier pages when needed, and never invent an unstated trait or rank. A model-written summary is not a source quotation.
+For ordinary People core deltas, supply only missing supported facts; these are additive. Do not rewrite a whole biography to add one relationship. Explicit factual corrections use the existing reviewed correction path.
+People core answers WHO the person is: established role/rank, family, background, enduring nature, voice and preferences. An escort assignment or a single action does not replace additional established identity facts. When no additional identity was established, an empty optional core is legitimate. Recover missing established details even when core is nonempty. Lasting physical facts such as hair, eyes, build and scars belong in canon locks (What's true of them); current clothes and pose belong in Scene. Compare both stores with original sources, fetch earlier pages when needed, and never invent an unstated trait or rank. A model-written summary is not a source quotation.
 An explicitly stated own persona is the same main character, not an absent NPC. Use mc.alias with the writer's exact identity statement when newly established; all workers share those aliases. Never infer identity from roles or imagined impersonation.
 The main character belongs to the writer. Founder and People must record their explicitly written identity and biography from original brief, cast notes or writer pages into core, preserving existing writer facts and quoting the original writer source. This is a factual record, never permission to invent their personality or arc. Scene maintains their physical state and threads. The housekeeper recovers anything missed; do not deliberately leave writer biography for it to repair. Never demand an invented biography to finish an audit.
 Scene owns physical presence, posture and event-driven relationship scores. People owns character records and interpretation of character arcs. World owns authorized offscreen simulation and quiet characters' ongoing activity. Keep those views consistent without replaying the same event or overwriting another worker's valid judgment.

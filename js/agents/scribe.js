@@ -1,4 +1,4 @@
-import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sharedStoryContext, workerPeopleContext, workerProfileSources } from './ledgercontext.js';
+import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sharedStoryContext, workerPeopleContext, workerProfileSources, retainPeopleFailures } from './ledgercontext.js';
 import { db } from '../store.js';
 import { auditSources } from './auditsources.js';
 import { findCanonKey, findFact } from '../engine/canon.js';
@@ -215,7 +215,7 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
   })();
   const noNowWithPage = noNow.filter((n) => !noPage.some((o) => findPersonKey({ [o]: 1 }, n)));
   const user = [
-    ...(noPage.length ? ['NO CHARACTER PAGE YET: ' + noPage.join(', ') + ' \u2014 open a page for each one this page shows: their core (who they are, as the page and the brief show it), and their state if they are in the scene.', ''] : []), /* the names first, plainly */
+    ...(noPage.length ? ['NO CHARACTER PAGE YET: ' + noPage.join(', ') + ' \u2014 record only identity facts the originals establish, with no compulsory biography for a temporary participant, and their state if they are in the scene.', ''] : []), /* the names first, plainly */
     ...(noNowWithPage.length ? ['IN THE SCENE WITH NO NOW YET \u2014 for each one this page shows, write their state now (what they are doing this minute, from the page): ' + noNowWithPage.join(', '), ''] : []),
     ...(String(brief || '').trim() ? ['The writer\u2019s brief \u2014 who these people are; it outranks every page:', '"""', writerText(brief, BRIEF_ROOM, 'brief'), '"""', ''] : []),
     ...(String(castNotes || '').trim() ? ['The writer\u2019s cast notes:', '"""', writerText(castNotes, CAST_ROOM, 'cast notes'), '"""', ''] : []),
@@ -266,7 +266,7 @@ export function parseScribeAnswer(raw) {
     );
     for (const c of balancedCandidates(text, 5)) {
       const p = parseLenient(c);
-      if (p && Array.isArray(p.deltas)) return { deltas: keep(p.deltas), facts:(Array.isArray(p.facts) ? p.facts : []).filter(f => f && typeof f.name === 'string' && typeof f.key === 'string' && typeof f.value === 'string' && typeof f.shown === 'string'),
+      if (p && Array.isArray(p.deltas)) return { deltas: keep(p.deltas), recoveries:Array.isArray(p.recoveries) ? p.recoveries : [], facts:(Array.isArray(p.facts) ? p.facts : []).filter(f => f && typeof f.name === 'string' && typeof f.key === 'string' && typeof f.value === 'string' && typeof f.shown === 'string'),
         entities:(Array.isArray(p.entities) ? p.entities : []).filter(e=>e && typeof e.name === 'string' && ['place','organization','object','group'].includes(e.kind) && typeof e.shown === 'string' && typeof e.cause === 'string') };
     }
     const at = text.search(/"deltas"\s*:\s*\[/);
@@ -408,12 +408,8 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
     if (isMc(fresh, d.name) && d.field === 'core' && !quotedSource(writerOriginals, d.shown)) {
       thinned.push({ delta: d, why: 'player biography needs original writer facts' }); return false;
     }
-    if (!(d && d.field === 'core')) return true;
-    const key = findPersonKey(fresh.characters || {}, d.name);
-    const standing = key && fresh.characters[key] ? fresh.characters[key].core : '';
-    if (!thinsCore(standing, d.text)) return true;
-    thinned.push({ delta: { type: 'people.note', name: d.name, field: 'core', text: d.text }, why: 'who ' + key + ' is stands as written — a nature is added to, never thinned to “' + String(d.text).trim().slice(0, 60) + '”' });
-    return false;
+    return true; // Core notes merge additively at the durable write boundary.
+
   });
   /* M680: its notes are this page's — stamped with the page in hand even when the page reader's call failed (the world audit) */
   const stamped = Number.isInteger(pageAt) && pageAt >= 0 ? { ...fresh, page: pageAt } : fresh;
@@ -440,14 +436,17 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
     const quote = quotedSource(writerCore ? writerOriginals : originals, d.shown);
     return { type: writerCore ? 'people.set' : 'people.note', name: d.name, field: d.field, text: d.text,
       source: 'scribe', cause: typeof d.cause === 'string' ? d.cause : '', evidence: quote, shown: quote,
-      ...(writerCore ? { writerEstablished: true } : {}) };
+      ...(writerCore ? { writerEstablished: true, append:true } : {}) };
   });
   const { state: next, applied, rejected } = applyMutations(stamped, [...entities,...mutations,...facts]);
   const changes = applied.map((a) => ({ name: nameFromWords(a.words, a.mutation.name), field: a.mutation.field }));
-  const dropped = [...rejected.map((r) => ({ delta: r.mutation, why: r.why })), ...thinned];
-  if (!changes.length) return { changes, dropped, note };
+  const dropped = [...rejected.filter(r=>!r.same).map((r) => ({ delta: r.mutation, why: r.why })), ...thinned];
+  const recovery = retainPeopleFailures(next,documents,dropped,read.recoveries);
+  const recoveryChanged = JSON.stringify(recovery) !== JSON.stringify(fresh.peopleRecovery || []);
+  if (recoveryChanged) next.peopleRecovery = recovery;
+  if (!changes.length && !recoveryChanged) return { changes, dropped, note, pending:recovery };
   if (stale && stale()) return null;
   await saveState(storyId, stamped !== fresh ? { ...next, page: fresh.page } : next); /* M680: the ledger's own stamp is not the scribe's to move */
   notify(storyId);
-  return { changes, dropped, note };
+  return { changes, dropped, note, pending:recovery };
 }

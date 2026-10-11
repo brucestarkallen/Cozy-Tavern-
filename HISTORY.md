@@ -19992,3 +19992,137 @@ reference classification and metadata undo worked. Long same-label sections
 completed together in one call. No themes, gameplay, bulk suite or paid calls.
 No fixture rerun for docs/publication. Owner standing publication and default
 NO tests remain. The owner's live final green state remains unobserved.
+
+
+## M719: evidence based identities and living world retention
+
+12 October 2026 Jakarta.
+
+
+Version m719-001. Based on verified remote main 267302bb54cf30788033b23b28c9b0b34717c2b0.
+Implemented and locally verified in focused mocked scenarios. No live provider,
+owner browser, or live story certification. No deployment or data migration.
+
+## Confirmed causes and changes
+
+The old missingLedgerPeople demanded a People core from tracked names without
+requiring original identity facts. missingSourcePeople repeated that demand.
+Both now use sourceIdentityNeeded: an unresolved original individual still
+needs classification; a tracked person only needs a missing core when original
+identityFacts actually exist. Nonempty cores still receive the existing semantic
+identity inventory review. Unknown optional biography is not a missing fact.
+The parallel unconditional complaint was removed from auditor targets and final
+pending construction. Old complaints close against approved actual records.
+M718 source local decisions, literal references, source marks, cache reuse,
+manual ownership and undo remain. Exact existing seat identities can be bound
+locally without fabricating a profile. Original review still discovers a wholly
+missing unnamed princess. Repair policy 5 resumes old paused procedures once,
+without invalidating completed unchanged factual reviews. Genuine failures retain
+bounded retry accounting. The final prompt describes an independent factual
+review subordinate to writer decisions, chronological evidence and valid worker
+judgments, rather than supreme authority over story meaning.
+
+World used prompt relevance scores, including newcomer and appearance bonuses,
+to require simulation. worldParticipation now distinguishes ongoing goals,
+threads (including both NPC parties), relationships and writer material from
+those view scores. World no longer requires a biography or location merely
+because a passing name exists. Its existing answer can retire or wake a person.
+Original canonical identities and supported family records remain authoritative.
+Active goals survive omitted agenda fields; explicit agenda closure remains a
+normal semantic World decision. No profession classifier was introduced.
+
+The destructive 40 seat eviction loop was removed. Physical facts no longer
+force permanent seats or wakeups. Seat updates retain their firstAtTurn, so
+repeated confirmations or updates cannot reset the temporary retention clock.
+Retirement preserves all character fields and adds a historical lastKnown seat;
+active Elsewhere removal remains journaled and undoable. Present people, manual
+records and outstanding structured obligations resist automatic retirement.
+Original sources, relationships, canon and knowledge are never erased by
+retirement. Returning dormant identities are immediately available in worker
+and storyteller recall. Existing entrance and wake operations reactivate them.
+
+World seat views fit their input room. Ordinary required reviews fit a reply
+budget and prioritize overdue arrivals then oldest story time. Unselected due
+records remain stored and are explicitly reported as deferred for subsequent
+ordinary readings. They do not create a new mandatory call or a tight recovery
+loop. The existing targeted recovery path remains available. A retirement plus
+seat clear must not pass through the older clear to arrival adapter; that
+interaction was corrected and exercised through actual worldTurn.
+
+Ordinary People core notes now add facts instead of replacing the old core.
+Auditor profile recovery and writer core additions use append on people.set;
+explicit correction operations retain their existing meaning. Field overflow
+refuses the addition rather than truncating existing facts. The older heuristic
+cannot prove preservation, so additive writes supply that guarantee for routine
+additions. A small peopleRecovery evidence list keeps source marked unsuccessful
+core proposals for the next existing People reading. It does not replay them
+blindly or mark sources reviewed. Changed sources and manual fields invalidate
+pending proposals; the same reader can settle held, unsupported or superseded
+proposals with a reason. The worker status now reports rejected and still pending
+People writes instead of claiming nothing shifted successfully.
+
+## Focused verification actually run
+
+node tests/harness/m719-ledger.mjs passed at successive meaningful milestones.
+Final run: approximately 0.72 seconds. It exercises original source discovery
+across 100 messages, omitted ranked princess and appearance recovery, legacy
+courier complaint settlement, unknown biography, completed delivery retirement,
+cached source reuse, completed audit reload, changed evidence, undo, retry
+stall accounting, preservation, driver retirement through worldTurn, a returning
+dormant identity, more than 40 meaningful absentees, seat refresh feedback,
+NPC obligations, persistent goals, reply budget deferral and fair progression,
+additive identity repair, sourced failed write retention, and cup ending and
+equivalence adapters. One mocked historical source call and one final review
+recovered the princess. Repeating the unchanged audit made no further review.
+One separate mocked World call retired the driver without introducing presence.
+
+node tests/harness/m718-source-identity.mjs passed, approximately 0.32 seconds.
+It preserves different people for the same source label, omitted decision
+continuation, nonperson/reference classification, actual persistence, undo,
+unchanged review reuse and manual facts, with no original source rescans.
+
+node tests/harness/m713-workers.mjs passed, approximately 1.35 seconds, after
+updating its old whole core replacement expectation to the new additive contract.
+Its first run failed that assertion: both the existing event core and recovered
+identity were retained. No production rollback was made to satisfy an obsolete
+replacement assertion. Actual Founder, Scene, World and People paths still use
+five existing mocked calls with no auditor. The fixture also covers original
+writer biography, folded sources, unnamed identity plus appearance, 100 seats,
+manual physical facts, earned scores, original prose and durable open threads.
+No blanket release suite, theme tests, long live gameplay or paid calls ran.
+Git diff whitespace checks passed. Tests were not rerun for documentation.
+
+The generated long history assembly fixture measured conservative request tokens:
+200000 configured context: input174688, output allowance16000, input room181000.
+1000000 configured context: input961817, output allowance16000, input room981000.
+Relevant dormant identity and appearance, current input and stored records remain.
+These are local request accounting results, not provider throughput or acceptance.
+Provider contextOf, detected limits, user overrides, safety margin and explicit
+failure behavior remain unchanged. No latency improvement is claimed.
+
+## Preserved components and limits
+
+Summaryception, Essentials, original page retrieval, provider room detection,
+one streaming storyteller call per send, foreground wait deadline, worker queues,
+stale guards, journal, checkpoints, branches, undo and backups retain their
+existing implementations. No new dependency, worker or mandatory preliminary
+model call. No user prose or live data was modified. Manual facts, established
+relationships, original source identities and unrelated features are preserved.
+
+The offered versus accepted cup adapter did not reproduce a deterministic
+chronology rollback with a correctly derived ending. M710 through M712 ending
+logic was left intact. A model can still misread the original; the owner's live
+cup incident cannot be established from repository code alone.
+
+Semantic completeness, relevance, equivalence, correct goal closure and source
+interpretation still depend on model judgment. Additive core notes can retain
+older unsuitable wording or semantically duplicated facts until an explicit
+factual correction; the 4000 character field bound remains, with failed additions
+retained for recovery. World evidence signals remain conservative: existing
+nonzero standings carry a character, and an important tie missed by every reader
+still needs original source recovery. Large casts may need later ordinary World
+readings to finish deferred due lives. The reply estimate does not prove every
+provider answer fits. No promise of a permanently green indicator is made.
+Green still requires actual matching completed verification; disabled or unfinished
+audit work does not gain fabricated approval. The shared existing indicator logic
+was preserved, and the People status reporting was corrected.

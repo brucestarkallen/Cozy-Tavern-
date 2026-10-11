@@ -403,7 +403,8 @@ export function mergeDeltas(state, characters, deltas, turn) {
       continue;
     }
 
-    const text = cleanFieldText(delta.text, FIELD_CAPS[field]);
+    let text = cleanFieldText(delta.text, FIELD_CAPS[field]);
+    if (field === 'core' && String(delta.text || '').trim().length > CORE_CAP) { why('the identity addition exceeds the field room; retain the original and reconcile smaller supported facts'); continue; }
     if (!text) { why('the note came in empty'); continue; }
 
     let key = findPersonKey(next, name);
@@ -435,6 +436,12 @@ export function mergeDeltas(state, characters, deltas, turn) {
     if (contaminated(next, key, text)) {
       why('those words belong to someone else’s page — not copied across');
       continue;
+    }
+    if (field === 'core' && next[key].core) {
+      const old = next[key].core.trim();
+      if (old.includes(text)) { why('that identity fact is already written down'); continue; }
+      if (!text.includes(old)) text = old + '\n' + text;
+      if (text.length > CORE_CAP) { why('the identity addition exceeds the field room; original facts retained'); continue; }
     }
     next[key][field] = text;
     next[key].updatedAtTurn = atTurn;
@@ -1190,6 +1197,22 @@ function namedLately(pages, name) {
   NAMED_LATELY.set(sig, named);
   return named;
 }
+export function worldParticipation(state, name, { material = '', castNames = [] } = {}) {
+  const key = findPersonKey(state?.characters || {}, name) || name;
+  const page = state?.characters?.[key];
+  const seat = seatForPerson(state, key)?.entry;
+  if (isMc(state, name) || isDeadSeat(seat)) return '';
+  const same = n => samePersonName(n, key);
+  if (namedInText(material, key) || castNames.some(same)) return 'the brief names them';
+  if (Object.values(page?.hand || {}).some(Boolean)) return 'the writer’s own hand on their page';
+  if (page?.threads?.length) return 'a loose end on their page';
+  if ((state?.threads || []).some(t => same(t.owner) || same(t.with))) return 'an open thread';
+  if (Object.entries(state?.relationships || {}).some(([n,r]) => same(n) && (r?.p || r?.r || r?.s))) return 'a standing toward the main character';
+  if (String(seat?.agenda || '').trim()) return 'an active world objective';
+  if (onTheWay(seat, state?.clock?.minutes)) return 'on the way to the main character';
+  return '';
+}
+
 export function importanceOf(state, name, briefText = '', turn = 0, scene = {}) {
   const k = String(name || '').trim().toLowerCase();
   if (!k) return 0;
@@ -1266,7 +1289,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   const characters = state.characters && typeof state.characters === 'object' ? state.characters : {};
   const keys = Object.keys(characters).filter((k) => {
     const e = characters[k];
-    return e && typeof e === 'object' && !e.retired /* M57: passed through — no card, no roster line */
+    return e && typeof e === 'object' && (!e.retired || namedIn(recentPages,k) || (e.aliases || []).some(a=>namedIn(recentPages,a)))
       && (String(e.core || '').trim() || String(e.state || '').trim()
         || String(e.arc || '').trim() || (Array.isArray(e.threads) && e.threads.length));
   });

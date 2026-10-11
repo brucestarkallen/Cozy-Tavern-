@@ -47,7 +47,7 @@ import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TO
 import { seat, findSeat, isDeadSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact, lookKey } from './canon.js'; /* M681: one key for one look */
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight, findActorKeySamePerson, safeKey, explicitMcPersona, groundedMcPersona } from './duels.js';
-import { withoutStandingNumbers, setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
+import { withoutStandingNumbers, setPersonField, findPersonKey, mergeDeltas, worldParticipation, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
 import { ownerAndDependent, samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage, isTitleWord } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { quotedSource } from './evidence.js';
@@ -1065,7 +1065,7 @@ const HANDLERS = {
     const etaMinutes = !STAYS_PUT.has(stance) && !otherRoad && Number.isFinite(eta) && eta >= 0 ? Math.min(60 * 24 * 30, Math.round(eta)) : undefined;
     state.offscreen = seat(
       state.offscreen, key,
-      { location, activity, agenda: capText(m.agenda, 1000), stance, etaMinutes },
+      { location, activity, agenda: m.agenda === undefined ? undefined : capText(m.agenda, 1000), stance, etaMinutes },
       clockMinutesOf(state), storyTurn(state)
     );
     let words = 'Elsewhere: ' + key + ' — ' + [location, activity].filter(Boolean).join(', ');
@@ -1384,8 +1384,10 @@ const HANDLERS = {
     const key = findPersonKey(state.characters, m.name);
     if (!key) return { why: 'no page stands for ' + String(m.name || '?') };
     if (state.characters[key].retired) return { why: key + ' has already passed through', same: true };
+    if (!m.byHand && (isHere(state,key) || worldParticipation(state,key))) return {why:'this person still has current presence or an ongoing obligation'};
     const before = cloneMap({ [key]: state.characters[key] })[key];
-    state.characters[key] = { ...state.characters[key], retired: true, retiredAtTurn: storyTurn(state) };
+    state.characters[key] = { ...state.characters[key], retired: true, retiredAtTurn: storyTurn(state),
+      ...(seatForPerson(state,key) ? {lastKnown:{...seatForPerson(state,key).entry,historical:true}} : {}) };
     return { words: key + ' passed through — ' + (capText(m.cause, 1000) || 'no bond, no seat, no thread, and thirty turns gone') + '.', undo: { kind: 'people.restore', name: key, before } };
   },
   /* M100: people.rename — a name changed by the writer's hand is changed
@@ -1509,7 +1511,9 @@ const HANDLERS = {
     const kind = m.kind || 'person';
     const why = capText(m.cause || m.auditReason,1000);
     if (!receipt || !name || !why || !['person','place','organization','object','group','reference'].includes(kind)) return {why:'select an existing source mention and state its identity decision'};
-    const to = kind === 'person' ? (isMc(state,m.to) ? mcName(state) : findPersonKey(state.characters,m.to)) : '';
+    const tracked = [...(state.present || []).map(p=>p.name), ...['offscreen','relationships','knowledge','canon'].flatMap(book=>Object.keys(state[book] || {}))];
+    const to = kind === 'person' ? (isMc(state,m.to) ? mcName(state) : findPersonKey(state.characters,m.to)
+      || tracked.find(n=>n.toLowerCase() === String(m.to || '').trim().toLowerCase())) : '';
     if (kind === 'person' && !to) return {why:'supply the actual established person, creating a genuinely missing profile in the same answer first'};
     const rows = [];
     const people = (receipt.people || []).map((p,index) => {
@@ -1538,7 +1542,15 @@ const HANDLERS = {
     // quotation. Saving writer biography is not reserved for audit repairs.
     const writerCore = ['auditor', 'scribe', 'founder'].includes(m.source) && m.writerEstablished === true
       && (Boolean(m.shown) || (m.source === 'auditor' && m.auditorApproved===true && m.sourceRefs?.length));
-    const result = setPersonField(state, state.characters, m.name, field, m.text, storyTurn(state), { clear: m.open === true ? 'open' : m.clear === true, writerCore, byHand:m.byHand === true });
+    let text = m.text;
+    if (field === 'core' && m.append === true && m.open !== true && m.clear !== true) {
+      const key = findPersonKey(state.characters,m.name);
+      const old = state.characters?.[key]?.core || '';
+      if (old && old.includes(String(text || '').trim())) return {why:'the identity fact is already saved',same:true};
+      if (old && !String(text || '').includes(old)) text = old + '\n' + text;
+      if (String(text || '').length > 4000) return {why:'the identity addition exceeds the field room; original facts retained'};
+    }
+    const result = setPersonField(state, state.characters, m.name, field, text, storyTurn(state), { clear: m.open === true ? 'open' : m.clear === true, writerCore, byHand:m.byHand === true });
     if (!result.entry) return { why: result.why, same: result.same === true };
     if (m.source === 'auditor' && result.before && JSON.stringify(result.before[field]) === JSON.stringify(result.entry[field])) return { why: 'the saved field already contains this correction', same: true };
     if (m.open === true) { state.characters[result.key] = result.entry; return { words: result.key + ' — a page opened for them, nothing written on it yet.', undo: { kind: 'people.restore', name: result.key, before: null } }; } /* M508 */
@@ -2145,6 +2157,7 @@ export function clearsThatArrive(state, mutations, sceneText) {
   return list.map((m) => {
     if (!m || m.type !== 'offscreen.clear' || typeof m.name !== 'string' || !m.name.trim()) return m;
     const name = normalizeName(m.name);
+    if (list.some(x=>x.type === 'people.retire' && samePersonName(x.name,name))) return m;
     if (!name || isMc(state, name) || isHere(state, name) || !seatForPerson(state, name) || seatedAgain(name) || !oneMeaning(state, name)) return m;
     if (isDeadSeat(seatForPerson(state, name).entry)) return m; /* M680: a death seat let go is no walk-in */
     const key = strictPageKey(state, name) || name;

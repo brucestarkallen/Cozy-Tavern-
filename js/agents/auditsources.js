@@ -237,12 +237,17 @@ export async function reviewAuditSources({ connection, documents, previous = {},
  * recorded merge, including a merge made before aliases were stored in M687. */
 export function sourcePersonKey(state, name, remembered = '') {
   const characters = state?.characters || {};
+  const tracked = [...(state?.present || []).map(p => p.name),
+    ...['offscreen','relationships','knowledge','canon'].flatMap(book => Object.keys(state?.[book] || {})),
+    ...Object.keys(state?.sheet?.actors || {})];
+  const exactTracked = name => tracked.find(n => String(n).trim().toLowerCase() === String(name).trim().toLowerCase()) || '';
   // Explicit remembered mappings belong to this source row, not every future
   // use of the descriptor. Never borrow another page's 'the girl' mapping.
   if (remembered) {
     if (isMc(state,remembered)) return state.sheet?.playerName || remembered;
     const resolved = findPersonKey(characters,remembered);
     if (resolved) return resolved;
+    if (exactTracked(remembered)) return exactTracked(remembered);
   }
   const direct = findPersonKey(characters, name);
   if (direct && !String(characters[direct]?.core || '').trim() && !characters[direct]?.hand?.core) {
@@ -257,7 +262,16 @@ export function sourcePersonKey(state, name, remembered = '') {
     if (m?.type === 'people.rename' && !(!m.byHand && ownerAndDependent(m.from, m.to)) && String(m.from || '').toLowerCase() === String(renamed).toLowerCase()) renamed = m.to;
   }
   if (renamed !== name) return findPersonKey(characters, renamed);
-  return '';
+  return exactTracked(name);
+}
+
+export function sourceIdentityNeeded(state, person) {
+  if (person.kind && person.kind !== 'person') return false;
+  const key = sourcePersonKey(state, person.name, person.ledgerName);
+  if (isMc(state, key || person.name)) return false;
+  if (!key) return true; // Unclassified original individual, including unique unnamed roles.
+  if (state.characters?.[key]?.hand?.core || String(state.characters?.[key]?.core || '').trim()) return false;
+  return (person.identityFacts || []).some(f => f.text && f.shown);
 }
 
 export function missingSourcePeople(state, people = []) {
@@ -267,7 +281,7 @@ export function missingSourcePeople(state, people = []) {
     if (isMc(state, p.name)) continue;
     const key = sourcePersonKey({ ...state, characters: known }, p.name, p.ledgerName);
     if (key && isMc(state,key)) continue;
-    if (key && (String(known[key]?.core || '').trim() || known[key]?.hand?.core)) continue;
+    if (!sourceIdentityNeeded({ ...state, characters: known }, p)) continue;
     const name = key || p.name;
     const target = JSON.stringify([p.source,p.name]);
     if (requested.has(target)) continue;
@@ -297,14 +311,9 @@ export function peopleSourceIndex(state, documents, people = []) {
 }
 
 export function missingLedgerPeople(state, castNames = []) {
-  const names = new Set([
-    ...(state?.present || []).map((p) => p.name), ...Object.keys(state?.offscreen || {}),
-    ...Object.keys(state?.relationships || {}), ...Object.keys(state?.knowledge || {}),
-    ...Object.keys(state?.canon || {}), ...Object.keys(state?.sheet?.actors || {}), ...castNames,
-  ]);
-  return [...names].filter((name) => {
-    if (!name || isMc(state, name) || isGroupName(name)) return false;
-    const key = sourcePersonKey(state, name);
-    return !key || (!String(state.characters[key]?.core || '').trim() && !state.characters[key]?.hand?.core);
-  }).map((name) => name + ' is already tracked but has no identity on their People page');
+  // Compatibility view of the SAME source policy, never a biography demand
+  // inferred from the existence of a seat, relationship or physical fact.
+  const people = Object.entries(state?.auditSources || {}).flatMap(([source, r]) =>
+    (r.people || []).map(p => ({...p, source, label:source})));
+  return missingSourcePeople(state, people).map(i => i.what);
 }

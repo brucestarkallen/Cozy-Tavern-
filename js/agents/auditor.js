@@ -51,7 +51,7 @@ import { explicitStandings, readStatedStandings, validateStatedStandings, samePe
 import { visiblePages, loadMemory, wholeRecord, recordWithPages } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
 import { pageText } from '../assemble/stack.js';
 import { exactNameIn, quotedSource, WRITER_FACTS } from '../engine/evidence.js';
-import { auditSources, reviewAuditSources, missingSourcePeople, missingLedgerPeople, sourcePersonKey, peopleSourceIndex } from './auditsources.js';
+import { auditSources, reviewAuditSources, missingSourcePeople, sourceIdentityNeeded, sourcePersonKey, peopleSourceIndex } from './auditsources.js';
 import { reconcileAppearance,reconcileIdentity,sourceAppearanceFacts,sourceIdentityFacts } from './appearanceinventory.js';
 import { lookKey } from '../engine/canon.js';
 import { auditEvidenceBook,auditEvidencePassages } from './auditevidence.js';
@@ -184,7 +184,7 @@ function law({ mc }) {
     'An arrival quote remains presence evidence after a later seated pose. For posture and attire use their latest own account, not a later incidental mention by someone else. Include shown on offscreen.clear as well.',
     'The MC\'s explicitly established own persona is the MC, not another person away from the scene. Clear a false separate elsewhere seat with the writer\'s exact identity quote. Never guess a persona from a similar name or from an intention to impersonate someone.',
     'A duplicate identity or duplicate seat is repaired with people.rename from an actual duplicate People record to the established name, retaining the records. A contextual description in source extraction is instead resolved locally with identities or source.resolve; never give every girl, stranger or captain in the whole story the same global alias. A presence.update does not merge two people. When a role record is the named person already here, merge it before clearing seats; offscreen.clear must not leave an independent tracked person nowhere. Do not treat an unchanged location stated with extra detail as proof that the existing location is wrong.',
-    'A source-review quotation is evidence, not automatically a complete identity. For EVERY People record verify completeness as well as truth: recover established rank, family, background, enduring nature and preferences missing from core. A nonempty event sentence does not pass this review. Review lasting physical details separately, restoring missing hair, eyes, build and scars with canon.lock. Use the original source index to fetch earlier pages and the brief, even for people elsewhere. Preserve valid existing facts and judgments; do not rewrite correct records merely for style. Reconcile descriptors with named identities before making another person.',
+    'A source-review quotation is evidence, not automatically a complete identity. For EVERY People record verify completeness as well as truth: recover established rank, family, background, enduring nature and preferences missing from core. An event sentence does not replace additional established identity facts; if none exist, unknown biography is legitimate. Review lasting physical details separately, restoring missing hair, eyes, build and scars with canon.lock. Use the original source index to fetch earlier pages and the brief, even for people elsewhere. Preserve valid existing facts and judgments; do not rewrite correct records merely for style. Reconcile descriptors with named identities before making another person.',
     'Only propose a repair for a factual difference. Rewording an equivalent position is not a correction. Recheck inherited findings against the newest page before repeating them. A quote from earlier in the same page does not overrule that person reaching a different position later in that page.',
     'Follow each person through the entire newest scene. Their last established position continues while others act;',
     'a long final paragraph about the duel does not remove quiet gallery spectators or erase their latest posture.',
@@ -325,7 +325,7 @@ export function parseAuditorAnswer(raw) {
     const profiles = (Array.isArray(parsed.profiles) ? parsed.profiles : []).filter(p => p && typeof p.name === 'string').map(p => ({
       what:'Recover the established profile of '+p.name, fix:'Restore missing source facts while retaining valid traits.',
       targets:[{id:'characters:'+p.name}],
-      mutations:[...['core','state'].filter(field => p[field]?.text).map(field => ({type:'people.set',name:p.name,field,text:p[field].text,evidenceId:p[field].evidenceId,shown:p[field].shown})),
+      mutations:[...['core','state'].filter(field => p[field]?.text).map(field => ({type:'people.set',name:p.name,field,append:field === 'core',text:p[field].text,evidenceId:p[field].evidenceId,shown:p[field].shown})),
         ...(Array.isArray(p.facts) ? p.facts : []).filter(f => f?.key && f?.value).map(f => ({type:'canon.lock',name:p.name,key:f.key,value:f.value,evidenceId:f.evidenceId,shown:f.shown}))],
     })).filter(p => p.mutations.length);
     const checkFacts=(parsed.checks || []).filter(c=>c.id?.startsWith('characters:') && ['correct','repair'].includes(c.status) && c.why?.trim()).map(c=>({
@@ -515,13 +515,13 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     readingState = { ...readingState, audit: { ...readingState.audit, unresolved, pending: [...status, ...unresolved.map((i) => i.what + ': ' + i.pendingReason)] } };
   }
   const bare = buildAuditorMessages({ state: readingState, brief, castNotes, record, pages: [], pageCount: all.length, room, canonRecord, staleBoard }); /* M287: the audit's own room */
-  const profileLookup = '\nPEOPLE SOURCE INDEX. For every People record compare identity and lasting appearance with these original pages. Fetch missing details; a short event-only core is incomplete. Page N labels are fetchable by N, and brief/cast by their names:\n' + JSON.stringify(profileIndex)
+  const profileLookup = '\nPEOPLE SOURCE INDEX. For every People record compare identity and lasting appearance with these original pages. Fetch missing details; a short core is incomplete only when the originals establish additional missing identity facts. Page N labels are fetchable by N, and brief/cast by their names:\n' + JSON.stringify(profileIndex)
     + '\nPROFILE RECOVERY IS REQUIRED EVEN WHILE REPAIRING OLD FINDINGS. Inspect descriptive original passages across the whole index, not only the first occurrence. Recover established title/rank, family, personality and enduring preferences into core, preserving valid existing traits. Recover lasting hair/eyes/build/scars into canon, even when hair was previously misplaced in Scene attire. Return profiles:[{name,core:{text:"complete enriched identity",evidenceId or shown},state:{text:"correct current now, only if stale",evidenceId or shown},facts:[{key,value,evidenceId or shown}]}] for incomplete records. The app writes these supported fields directly. Omit unchanged fields. Do not merely describe the problem without supplying the repair. If an identity needs several passages, include one exact combined-source quote in shown only when contiguous; otherwise put evidenceId on each supported factual mutation in issues. Never invent a rank or trait.';
   const evidenceBudget = Math.max(2000, Math.min(48000, room * 0.15));
   const verificationReserve = JSON.stringify(ledgerVerificationRows(state)).length + evidenceBudget + pageText(lastTold).length;
   const view = auditView(all, Math.max(foldedTo,checkpointStart), Math.min(AUDIT_VIEW_CHARS, viewBudget(connection, replyTokens, bare.system.length + bare.user.length + profileLookup.length + verificationReserve)),checkpointStart);
   if (!view.shown.length) return null;
-  const repairTargets = [...(readingState.audit?.unresolved || []), ...restoredForReading, ...missingLedgerPeople(readingState, castNames).map(what => ({what,fix:'Recover the established identity or reconcile its existing alias.',mutations:[{type:'people.set',name:what.split(' is already tracked')[0],field:'core'}]}))];
+  const repairTargets = [...(readingState.audit?.unresolved || []), ...restoredForReading];
   const verificationSource = ledgerRepairInputKey({}, storyAtStart, visiblePages(all));
   const sameReviewedSources = state.audit?.verification?.source === verificationSource || matchingAuditSourceCheckpoint(state,storyAtStart,documents,visiblePages(all));
   const previousVerification = {...checkpoint.entries,...(sameReviewedSources
@@ -549,7 +549,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   // A quoted name is a candidate, not a saved person. The final reader
   // classifies it first; its completed verdict also covers actual new rows
   // created by approved repairs in this same answer.
-  const unresolved = (r) => [...missingLedgerPeople(r.out, castNames), ...r.issues.filter((i) => i.refused?.length || (!i.landed && !(i.pages && i.fix))).map((i) => i.what + (i.refused?.length ? ': ' + i.refused.join('; ') : ': no repair was supplied'))];
+  const unresolved = (r) => [...r.issues.filter((i) => i.refused?.length || (!i.landed && !(i.pages && i.fix))).map((i) => i.what + (i.refused?.length ? ': ' + i.refused.join('; ') : ': no repair was supplied'))];
   const originalFindings = compactFindings([...(readingState.audit?.unresolved || []), ...restoredForReading, ...unresolvedFindings(result)], result.out);
   const withdrawals = [...(read.resolved || [])];
   let pending = [...unresolved(result), ...(answerProblem ? [answerProblem] : []), ...originalFindings.filter((i) => !findingSettled(i, result, withdrawals, documents)).map((i) => i.what)];
@@ -594,7 +594,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     };
     try {
       const reply = await askWithFetch(connection, {
-        system: follow.system+'\nFINAL AUDITOR AUTHORITY. You are the final semantic reviewer. Judge story meaning and profile completeness yourself using originals. Your explicit completed verdict is the approval. Do not echo a certificate for each source fact or repeat identity/appearance mappings. The FINAL REVIEW CONTRACT below replaces older per-entry output examples. Source IDs and quotations are useful optional provenance, never a second semantic approval. Preserve manual fields, valid worker judgments, earned scores, established identities and every valid alternate face.',
+        system: follow.system+'\nINDEPENDENT FACTUAL REVIEW. Explicit writer facts and manual decisions govern; original evidence is read chronologically, including valid later developments. Preserve durable facts and legitimate worker judgments. You are the final independent consistency reviewer, not an authority over story meaning. Unknown optional biography is not a defect. Judge story meaning and profile completeness yourself using originals. Your explicit completed verdict is the approval. Do not echo a certificate for each source fact or repeat identity/appearance mappings. The FINAL REVIEW CONTRACT below replaces older per-entry output examples. Source IDs and quotations are useful optional provenance, never a second semantic approval. Preserve manual fields, valid worker judgments, earned scores, established identities and every valid alternate face.',
         user: follow.user + profileLookup
           + '\nFINAL REVIEW CONTRACT. Review ALL required entries together and their resulting repairs, then return JSON: {"scene":[{"name":"actual person","repair":false,"earlier":"optional completed movement","ending":{"position":"current place and pose","shown":"short original evidence"}}],"issues":[],"review":{"status":"complete","why":"brief verdict explaining actual review","open":[]},"standings":[]}. Derive scene FIRST from the completed narration: include the main character and people whose physical state this page establishes or changes. Put ONLY their final current position and attire in ending. Earlier movement may be recorded in earlier; its original past-tense quotation belongs in ending.shown. Never append an arrival fact to a superseded movement or copy a scene summary into position. A final position may paraphrase the source faithfully. Keep factual history in the story and scratchbook, not in current pose. Unknown clothes are omitted. It is your working ending read, not a second approval certificate. After deriving ending, YOU judge whether the actual saved physical state is wrong or missing a relevant established fact. Mark repair:true only for that factual correction; the app writes it even when issues is empty. Mark repair:false for an already-correct or equivalent state, keeping the ending read in the scratchbook without rewriting the ledger. Changed wording, reordered clothing, shorter descriptions and optional extra narrative detail are not discrepancies. Preserve valid specific details such as a seat count. Correct contradictory movement, not prose style. Quotations may be in ending.shown or the scene entry shown. Use ordinary issue mutations for arrivals, departures, bodies, factual People now corrections and other fields. Issues contain only real discrepancies with working mutations or page concerns. Complete means you reviewed every required entry against originals, including all established identity and physical facts, and the repairs you provide leave them correct. Never say complete if you did not finish. Put genuinely unresolved items in open:[{"id":"required entry id","why":"specific missing fact or evidence"}]. Use status:"open" if the entire reading is unfinished. You may supply detailed checks instead, but identityFacts inCore:true or an explicit complete profile verdict suffices; no second identity/appearance array is required.'
           + '\nREQUIRED CURRENT LEDGER CHECKS:\n'+JSON.stringify(verificationRows)
@@ -672,7 +672,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const verification = verifyLedgerChecks({state:result.out, snapshot:verificationSnapshot, checks:verificationChecks,
     previous:previousVerification, documents, source:verificationSource, applied:result.applied,approvedState,authoritative:true});
   const outstanding = compactFindings([...originalFindings, ...unresolvedFindings(result)].filter((i) => !findingSettled(i, result, withdrawals, documents, verification)), result.out);
-  pending = [...new Set([...missingLedgerPeople(result.out, castNames), ...outstanding.map((i) => i.what + ': ' + (i.pendingReason || 'identity or entity classification still needs a working repair')), ...(sourceReview?.pending || []), ...(answerProblem ? [answerProblem] : []), ...(followupFailed ? ['the combined ledger review did not finish'] : []), ...(verification.read < verification.total ? [`ledger verification: checked ${verification.read} of ${verification.total} entries; ${verification.pending.slice(0, 2).join('; ')}`] : [])])];
+  pending = [...new Set([...outstanding.map((i) => i.what + ': ' + (i.pendingReason || 'identity or entity classification still needs a working repair')), ...(sourceReview?.pending || []), ...(answerProblem ? [answerProblem] : []), ...(followupFailed ? ['the combined ledger review did not finish'] : []), ...(verification.read < verification.total ? [`ledger verification: checked ${verification.read} of ${verification.total} entries; ${verification.pending.slice(0, 2).join('; ')}`] : [])])];
   result.unfinished = pending.length > 0;
   result.pending = pending;
   result.issues = result.issues.filter(i => i.mutations.length || i.pages || !findingSettled(i,result,withdrawals,documents,verification));
@@ -1136,7 +1136,7 @@ export function findingSettled(issue, result, withdrawals, documents, verificati
     const key=mention && sourcePersonKey(result.out,mention.name,mention.ledgerName);
     // A withdrawal without a saved source decision would regenerate the same
     // complaint next turn. Keep the actual binding as the durable result.
-    return Boolean(key && (isMc(result.out,key) || String(result.out.characters?.[key]?.core || '').trim() || result.out.characters?.[key]?.hand?.core));
+    return Boolean(mention && !sourceIdentityNeeded(result.out, mention));
   }
   if (issue.profileRecovery && issue.name && result.out.entityCorrections?.[issue.name]
     && !sourcePersonKey(result.out,issue.name)
@@ -1194,7 +1194,7 @@ function mutationSatisfied(state, m) {
   if (m.type==='source.resolve') {
     const p=state.auditSources?.[m.sourceId]?.people?.find(p=>p.name===m.name);
     return Boolean(p?.identityResolution && p.kind===(m.kind || 'person')
-      && (p.kind!=='person' || sourcePersonKey(state,p.name,p.ledgerName)===(isMc(state,m.to)?mcName(state):findPersonKey(state.characters,m.to))));
+      && (p.kind!=='person' || sourcePersonKey(state,p.name,p.ledgerName)===(isMc(state,m.to)?mcName(state):sourcePersonKey(state,m.to))));
   }
   const textSame = (wanted, actual) => String(wanted || '').trim() === String(actual || '').trim();
   let at = m.name ? findPresent(state, m.name, { strict: true }) : -1;
@@ -1432,13 +1432,12 @@ export function peopleHousekeeping(state, brief = '', castNotes = '', castNames 
   const present = { has: (k) => presentSet.has(k) || isHere(state, k) };
   const seatedSet = new Set(Object.keys(state.offscreen || {}).map(lower));
   const seated = { has: (k) => seatedSet.has(k) || Boolean(seatForPerson(state, k)) };
-  const locked = new Set(Object.keys(state.canon || {}).map(lower));
   const rels = state.relationships || {};
   for (const [name, c] of Object.entries(chars)) {
     if (!c || typeof c !== 'object' || c.retired) continue;
     const k = lower(name);
     if (mc && samePersonLoose(name, mc)) continue;
-    if (present.has(k) || seated.has(k) || locked.has(k)) continue;
+    if (present.has(k) || seated.has(k)) continue;
     if (inBrief(name)) continue; /* M280 */
     if ((Array.isArray(castNames) ? castNames : []).some((n) => samePersonLoose(n, name))) continue; /* M304: an invited card is the writer's own person too */
     if (c.hand && typeof c.hand === 'object' && Object.keys(c.hand).length) continue; /* M304: a page the writer wrote on by hand is never let go for being quiet */
@@ -2020,7 +2019,7 @@ export function auditLineWords(i) {
  * character on the clock; named on one of the last SEAT_MENTION_PAGES pages;
  * or seated within the last SEAT_FRESH_TURNS turns. Otherwise the seat is
  * cleared and the page retired at once (they wake if they ever appear
- * again). Above SEAT_CAP seats, the least reachable go first. */
+ * again). Capacity never removes a meaningful stored seat. */
 export const SEAT_MENTION_PAGES = 12;
 export const SEAT_FRESH_TURNS = 6;
 /* M304: A RUNAWAY GUARD, NOT A SIZE A REAL CAST REACHES (M266's law, applied
@@ -2029,7 +2028,7 @@ export const SEAT_FRESH_TURNS = 6;
  * which in a long tale is most of the family. What the STORYTELLER is told
  * of is still ranked by who can reach the scene; what the LEDGER keeps is
  * everyone the story carries. */
-export const SEAT_CAP = 40;
+export const SEAT_CAP = Infinity; // Compatibility export: no storage capacity eviction.
 /* M304: the writer's own people — named in the brief or the cast notes (by
  * their whole name or the one they are spoken by: the law read
  * material.includes("rias gremory") and a brief that says "Rias" carried no
@@ -2057,7 +2056,7 @@ export function carriedBy(state, name, { brief = '', castNotes = '', pages = [],
   const relKey = Object.keys(rels).find((r) => samePersonLoose(r, name));
   const rel = relKey ? rels[relKey] : null;
   if (rel && ((rel.p || 0) || (rel.r || 0) || (rel.s || 0))) return 'a standing toward the main character';
-  if (threads.some((t) => t && typeof t === 'object' && t.owner && samePersonLoose(t.owner, name))) return 'an open thread';
+  if (threads.some((t) => t && typeof t === 'object' && ((t.owner && samePersonLoose(t.owner, name)) || (t.with && samePersonLoose(t.with, name))))) return 'an open thread';
   const seatKey = Object.keys(seats).find((k) => samePersonLoose(k, name));
   const seat = seatKey ? seats[seatKey] : null;
   /* M681 (W5): on the way while the approach holds — one three hours past its hour carried a passer-through for ever */
@@ -2069,7 +2068,7 @@ export function carriedBy(state, name, { brief = '', castNotes = '', pages = [],
    * seat AND retires its person at once, asked about none of the three. So a
    * sister with a locked fact and a promise still open, unnamed for twelve
    * pages, lost her whereabouts and her card together. */
-  if (Object.keys(state.canon || {}).some((k) => samePersonLoose(k, name) && state.canon[k] && Array.isArray(state.canon[k].facts) && state.canon[k].facts.length)) return 'something locked true of them';
+  if (String(seat?.agenda || '').trim()) return 'an active world objective';
   const pageKey = findPersonKey(state.characters || {}, name);
   const page = pageKey ? state.characters[pageKey] : null;
   if (page && Array.isArray(page.threads) && page.threads.length) return 'a loose end on their page';
@@ -2081,7 +2080,7 @@ export function carriedBy(state, name, { brief = '', castNotes = '', pages = [],
   const first = n.split(/\s+/)[0];
   const mentioned = recent.includes(n) || (first.length >= 3 && new RegExp('(?<![\\p{L}\\p{N}])' + first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}\\p{N}])', 'u').test(recent));
   if (mentioned) return 'named on a recent page';
-  if (seat && Number.isFinite(seat.atTurn) && turn - seat.atTurn < SEAT_FRESH_TURNS) return 'seated just now';
+  if (seat && Number.isFinite(seat.firstAtTurn ?? seat.atTurn) && turn - (seat.firstAtTurn ?? seat.atTurn) < SEAT_FRESH_TURNS) return 'seated just now';
   return '';
 }
 
@@ -2102,17 +2101,7 @@ export function seatHousekeeping(state, { brief = '', castNotes = '', pages = []
     if (page && !state.characters[page].retired) out.push({ type: 'people.retire', name: page, cause: 'nothing carries them — no bond, no thread, not on the clock, not named for ' + SEAT_MENTION_PAGES + ' pages' });
     out.push({ type: 'offscreen.clear', name });
   }
-  /* the cap: the least reachable go first */
-  if (kept.length > SEAT_CAP) {
-    const clockNow = state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
-    const rank = (name) => { const seat = seats[name] || {}; const st = seat.stance; return onTheWay(seat, clockNow) ? (st === 'toward' ? 0 : 1) : st === 'tense' ? 2 : st === 'busy' ? 3 : 4; }; /* M681 (W5): a lapsed approach is no nearer than any seat */
-    const at = (name) => (Number.isFinite((seats[name] || {}).atTurn) ? seats[name].atTurn : -1);
-    const ordered = kept.slice().sort((a, b) => (rank(b) - rank(a)) || (at(a) - at(b)));
-    for (const name of ordered.slice(0, kept.length - SEAT_CAP)) {
-      if (writersOwn(name, material, castNames)) continue; /* the brief's people are never capped out */
-      out.push({ type: 'offscreen.clear', name });
-    }
-  }
+  // Capacity limits belong to prompt views, never deletion of stored seats.
   return out;
 }
 
@@ -2137,7 +2126,7 @@ export function seatIdentityHousekeeping(state) {
  * locked truth, a loose end, the writer's hand — is brought back. A mention or
  * a fresh seat is not lasting and wakes no one by itself (an entrance or a
  * written page already does). */
-const LASTING = new Set(['the brief names them', 'a standing toward the main character', 'an open thread', 'something locked true of them', 'a loose end on their page', 'the writer’s own hand on their page']);
+const LASTING = new Set(['the brief names them', 'a standing toward the main character', 'an open thread', 'an active world objective', 'a loose end on their page', 'the writer’s own hand on their page']);
 export function wakeHousekeeping(state, { brief = '', castNotes = '', castNames = [] } = {}) {
   const out = [];
   const chars = state.characters && typeof state.characters === 'object' ? state.characters : {};

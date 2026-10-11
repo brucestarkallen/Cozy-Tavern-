@@ -50,11 +50,11 @@ import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
-import { findPersonKey, thinsCore, importanceOf, IMPORTANT_AT, placeWords, isMc, namedInText, seatForPerson } from '../engine/people.js'; /* M304: who matters, as the storyteller's own people block weighs it */
+import { findPersonKey, thinsCore, worldParticipation, importanceOf, IMPORTANT_AT, placeWords, isMc, namedInText, seatForPerson } from '../engine/people.js'; /* M304: who matters, as the storyteller's own people block weighs it */
 import { isHere, samePersonName, nameOnPage } from '../engine/names.js'; /* M396/M401: one answer to "the same person?"; M414: one answer to "named on the page?" */
 import { storyTurn } from '../engine/apply.js';
 import { applyMutations, clearsThatArrive, scenePartOf, walkInFromPage, seatAtScene } from '../engine/apply.js'; /* M444: cleared is never nowhere; M680: its walk-ins held to the page's ending and its reader */
-import { renderOffscreen, isDeadSeat, seatAgeWords } from '../engine/offscreen.js'; /* M684: freshness is an explicit review */
+import { renderOffscreen, seatLine, isDeadSeat, seatAgeWords } from '../engine/offscreen.js'; /* M684: freshness is an explicit review */
 import { renderClock } from '../engine/clock.js';
 import { mcName } from '../engine/duels.js';
 import { STANCES } from '../engine/world.js';
@@ -68,10 +68,12 @@ export const WORLD_SHOWN_MAX = 6;
  * dropped before the applier sees it (and counted, so the workers line can
  * say "and 2 it may not touch"). */
 export const WORLD_TYPES = new Set([
-  'offscreen.set', 'offscreen.confirm', 'offscreen.clear', 'thread.set', 'thread.close', 'knowledge.add', 'faction.set', 'faction.clear', 'people.set',
+  'offscreen.set', 'offscreen.confirm', 'offscreen.clear', 'thread.set', 'thread.close', 'knowledge.add', 'faction.set', 'faction.clear', 'people.set', 'people.retire', 'people.wake',
 ]);
 
 const VOCABULARY = [
+  'people.retire {"type":"people.retire","name":"NAME","cause":"the established involvement ended, with no remaining relevant obligation"} ends active simulation, retaining all identity/history. First close actually completed threads and explicitly clear a completed agenda with offscreen.set agenda:""; never erase an unresolved goal to permit retirement. Then offscreen.clear removes only the active seat. Never retire a present person, an important recurring participant or someone with ongoing consequences. people.wake {"type":"people.wake","name":"NAME","cause":"new story relevance"} reactivates their existing identity.',
+
   'offscreen.confirm {"type":"offscreen.confirm","name":"NAME","cause":"why their current location AND activity still hold at this hour"} — an explicit decision that an absent person has stayed, after considering the elapsed story time, their plans, travel, sleep, needs and available information. Never confirm a last sighting, a dead person, or an arrival whose time has passed: offscreen.set must decide their current situation instead. Every offscreen.set also supplies cause: the event, elapsed time or plan that explains the new situation. Never advance by real-world waiting time.',
   'offscreen.set {"type":"offscreen.set","name":"NAME","location":"the 6:10 train, two stops out","activity":"reading his letter again","agenda":"confront him about it tonight","stance":"toward","etaMinutes":25} — where an ABSENT named person is RIGHT NOW at the hour on the clock, what they are doing, what they want next; stance is one of ' + STANCES.join(', ') + ' (toward = moving toward the main character, seeking = searching for them, tense = unresolved tension with them, busy = taken up with their own affairs (their work, their own people), waiting = holding, want still nameable); etaMinutes = minutes until they reach the main character, ONLY when stance is toward or seeking. A person who has DIED is seated once, their location beginning "dead — " and where the body lies ("dead — under a white sheet in the Tenth Division courtyard"), and never re-seated after (the people list marks them [dead])',
   'offscreen.clear {"type":"offscreen.clear","name":"NAME"} — only when she has arrived and the page shows her in the scene; anyone else whose note no longer holds gets offscreen.set with where they are now (a person the story keeps is always somewhere — a clear that would leave her nowhere is refused)',
@@ -139,19 +141,14 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     'to where the scene stands. Never an instruction to anyone, never a line of dialogue, never moved out of the',
     'scene; the page decides whether they act. Someone the page DID show is the scribe\'s to write, not yours.',
     '',
-    'THE ABSENT. Every named person not in the scene has a life — including one the page only names in',
-    'passing ("my sister NAME would laugh if she saw us"): from that line on, that sister exists; give her a',
-    'one-line core with people.set and seat her somewhere with a want. A person referred to only by',
-    'RELATION to someone known — "your mother" said to a known person, "his manager", "her ex" — exists from',
-    'that line on exactly the same way: name them and seat them. THE REAL RECORD: when the anchor is a',
-    'real person or a character from an established canon (a public figure, a franchise), the relation',
-    'is filled from the real record, not invented — a public figure\'s mother is her real mother, by her real name; her siblings',
-    'are her real siblings — and a real person\'s core is drawn from their public record',
-    '(role, family, known history and traits). Never rename a real person, never give them a made-up',
-    'relative where the record has one; invent only where the record is silent. For each absent person the ledger',
-    'or the pages know: where are they RIGHT NOW at this hour, what are they doing, what do they WANT next. An agenda',
-    'is a want, never a status — "resting" is not an agenda; when you cannot name the want, leave the AGENDA',
-    'out, never the person: a seat with a place and a doing is whole. The clock governs availability: at small hours most people sleep, and whoever is up is up',
+    'THE ABSENT. Preserve individually established identities, including uniquely identified unnamed relatives.',
+    'A mention establishes only what it actually says. It does not require inventing a current location, biography or agenda.',
+    'When an established canon or real-person record is supplied, preserve its actual names, family and background; never replace known relatives with invented ones.',
+    'Give meaningful recurring people coherent lives when their relationships, plans or consequences matter, including NPC-to-NPC ties.',
+    'Record significant ongoing consequences as threads so they survive long absences. Do not simulate every known person.',
+    'Unknown whereabouts remain unknown; old sightings are historical evidence. For relevant active lives use established constraints and fictional elapsed time.',
+    'Keep an unresolved agenda until it ends. Omission preserves it; agenda:"" explicitly closes it only with a supported cause.',
+    'The clock governs availability: at small hours most people sleep, and whoever is up is up',
     'for a reason. Someone moving toward the main character gets stance "toward" and an ETA; before the',
     'ETA they are on the road, never early. A change from what the ledger says needs a cause — a silent',
     'flip is an error, not variety. Someone the page shows arriving is the extractor\'s to seat; you clear',
@@ -186,11 +183,11 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     'written hours or days of story ago: look at that person again and write where their own life has them',
     'NOW with a real offscreen.set — which may be the same place if their life truly keeps them there (asleep',
     'at home at night, at work through a shift), but never simply where the story last left them. After a time',
-    'skip, look at everyone this way. A life of their own is never a reason to drop HIM: anyone with a reason',
+    'skip, consider relevant active lives this way. A life of their own is never a reason to drop HIM: anyone with a reason',
     'concerning the main character — a thread, a grudge, a want, a debt, a bond — keeps pursuing it through',
     'that life, when that life gives them the chance.',
-    'A passer-through — a driver, a waiter, a clerk with one errand and no bond — is not seated at all;',
-    'the house clears any seat nothing carries and lets its person pass out of the story.',
+    'A completed one-time involvement without continuing consequences needs no active seat. Judge story relevance, never profession;',
+    'use people.retire then offscreen.clear when their involvement ends. Their established identity and original history remain recoverable.',
     '',
     'THREADS. Threads run between ANY people, not only toward the main character — a rivalry on the team, a sister and her mother, a debt between two neighbours — and every agenda keeps moving: no count, no cap.',
     'A thread is HOT while its owner is in position to press it now; it goes quiet while their own life keeps them away (work, distance, a plan still ripening) and wakes when it lets them — never frozen because too many others are pressing. Name what each hot thread\'s owner will do NEXT.',
@@ -355,19 +352,21 @@ export function peopleForWorld(state, { material = '', castNames = [], room = WO
     const weight = importanceOf(state, name, material, turn, scene) + (own(name) ? 30 : 0);
     const here = present.has(lower(name)) || isHere(state, name); /* M396: under any form of their name */
     const hasSeat = seated.has(lower(name)) || Boolean(seatForPerson(state, name)); /* M320: "Rias" seated IS "Rias Gremory" seated */
-    const noSeat = !here && !hasSeat && (weight >= IMPORTANT_AT || own(name));
+    const active = Boolean(worldParticipation(state, name, {material, castNames}));
+    const noSeat = !here && !hasSeat && active;
     /* M365: a seat past its age is due for moving on, exactly like no seat */
-    const stale = !here && hasSeat && (weight >= IMPORTANT_AT || own(name)) && seatIsStale(state, name);
+    const stale = !here && hasSeat && active && seatIsStale(state, name);
     /* M650 (the ledger audit, part seven): A SIGHTING IS HANDED OVER BY NAME. The law says a "last seen at …" note is the
      * house's own and is to be moved on "the first time you see one" — but nothing pointed at the people who had one;
      * they were marked only once the note had gone stale by its age, pages later. Whoever stepped off the page with
      * nowhere said to go is marked now, the same page, as someone to place. */
     const seat = hasSeat ? seatForPerson(state, name) : null;
-    const sighting = !here && Boolean(seat && seat.entry && seat.entry.lastSeen === true);
+    const sighting = active && !here && Boolean(seat && seat.entry && seat.entry.lastSeen === true);
     /* M680 (the world audit): THE DEAD ARE NOT DUE FOR MOVING ON. A grave's note aged like any seat, and the dead were marked
      * "last placed 4 hours ago — where are they now?" beside the Dead line — and the clock-jump law re-seats every absent
      * person: an invitation to raise them (the ledger now refuses a living seat over a death but by his hand) */
     const dead = !here && Boolean(seat && isDeadSeat(seat.entry));
+    if (!here && !active && !hasSeat) continue;
     rows.push({ name, core, now, arc, threads: c.threads || [], weight, here, dead, noSeat: noSeat && !dead, stale: stale && !dead, sighting: sighting && !dead, ago: stale && !dead ? agoWords(seatAge(state, name)) : '' });
   }
   rows.sort((a, b) => (b.weight - a.weight) || a.name.localeCompare(b.name));
@@ -392,6 +391,48 @@ export function peopleForWorld(state, { material = '', castNames = [], room = WO
     lines.push('(' + rest.length + ' more the ledger knows did not fit, the least important: ' + rest.map((r) => r.name + (r.noSeat ? ' [NO SEAT]' : '')).join(', ') + ' — fetch any with "person: NAME".)');
   }
   return { text: lines.join('\n'), unseated: rows.filter((r) => r.noSeat).map((r) => r.name), shown, total: rows.length };
+}
+
+// A view/reply budget bounds this ordinary reading, never the durable cast.
+// Oldest unreviewed story time wins, so later normal passes reach deferred lives.
+export function worldReviewPlan(state, options = {}) {
+  const due = worldOwed(state,options).sort((a,b)=> {
+    const age = name => { const e=seatForPerson(state,name)?.entry; return e?.checkedMinutes ?? e?.sinceMinutes ?? -Infinity; };
+    const arrival = name => {const e=seatForPerson(state,name)?.entry;return Number.isFinite(e?.arrivesAtMinutes) && e.arrivesAtMinutes <= state.clock?.minutes;};
+    return Number(arrival(b))-Number(arrival(a)) || age(a)-age(b);
+  });
+  const selected=[]; const deferred=[];
+  let used=0;
+  const replyRoom = MAX_TOKENS * 3 * 0.65;
+  for (const name of due) {
+    const e=seatForPerson(state,name)?.entry;
+    const cost=JSON.stringify(e || {}).length + name.length + 450;
+    if (used+cost<=replyRoom || !selected.length) { selected.push(name);used+=cost; }
+    else deferred.push(name);
+  }
+  return {selected,deferred};
+}
+
+export function worldSeatView(state, {room = WORLD_PEOPLE_ROOM, material = '', castNames = []} = {}) {
+  const due = new Set(worldOwed(state,{material,castNames}));
+  const entries = Object.entries(state.offscreen || {}).filter(([name])=>!isHere(state,name));
+  entries.sort(([a,sa],[b,sb])=>Number(due.has(b))-Number(due.has(a))
+    || Number(nameOnPage(material,b))-Number(nameOnPage(material,a))
+    || (sa.checkedMinutes ?? sa.sinceMinutes ?? -Infinity)-(sb.checkedMinutes ?? sb.sinceMinutes ?? -Infinity));
+  const lines = []; const deferred = []; let used = 0;
+  const limit = Math.max(0,room - Math.min(2000,room * 0.2));
+  for (const [name,entry] of entries) {
+    const line = seatLine(name,entry,state.clock?.minutes);
+    if (used + line.length + 1 <= limit) { lines.push(line); used += line.length + 1; }
+    else deferred.push(name);
+  }
+  if (deferred.length) {
+    const label = deferred.length+' additional seats remain stored, not reviewed by omission. Fetch person: NAME before changing an unshown record. ';
+    let index = label;
+    for (const name of deferred) { if (used + index.length + name.length + 3 > room) break; index += name+', '; }
+    lines.push(index);
+  }
+  return {text:lines.join('\n'),deferred};
 }
 
 /* Exported for the harness: the two messages the worker receives. */
@@ -460,12 +501,13 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
    * story rides now, as it does to the extractor (M226). */
   const recordSoFar = String(record || '').trim();
   const FENCE3 = '\u0022\u0022\u0022';
-  const elsewhereAll = renderOffscreen(state.offscreen, present, clockMinutes, Infinity, state.characters || {});
+  const elsewhereAll = worldSeatView(state,{room:peopleRoom,material:brief+'\n'+castNotes+'\n'+userText+'\n'+assistantText,castNames}).text;
   const threads = renderAllThreads(state.threads);
   const knowledge = renderAllKnowledge(state.knowledge, present, undefined, { fitRoom: knowledgeRoom > 0 ? knowledgeRoom : 0 }); /* M664: fitted to this worker's room */
   const factions = renderAllFactions(state.factions, storyTurn(state)); /* M681 (W7): a move says its age */
   const people = peopleForWorld(state, { material: String(brief || '') + '\n' + String(castNotes || ''), castNames, room: peopleRoom }); /* M304 */
   const cores = people.text;
+  const reviewPlan = worldReviewPlan(state,{material:brief+'\n'+castNotes,castNames});
   const user = [
     /* M249: the story, before the ledger's bare facts — so a life beyond the
      * scene is filled from what has actually happened, as the brief demands */
@@ -477,7 +519,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     '',
     'EVERYONE WRITTEN ELSEWHERE (review due and scene-affected lives; unchanged seats persist. Advance only justified developments by the story clock):',
     elsewhereAll || 'No one is written elsewhere yet.',
-    ...(worldOwed(state, { material: brief + '\n' + castNotes, castNames }).length ? ['REVIEW REQUIRED NOW: ' + worldOwed(state, { material: brief + '\n' + castNotes, castNames }).join(', ') + '. Give each person offscreen.set or offscreen.confirm. Silence is not a review. Deal with overdue arrivals and the oldest information first. Ground changes in their established situation, intentions and the elapsed time; do not invent new knowledge or teleport them.'] : []),
+    ...(reviewPlan.selected.length ? ['REVIEW REQUIRED NOW: ' + reviewPlan.selected.join(', ') + '. Give each person offscreen.set, offscreen.confirm, or a supported retirement when involvement has ended. Silence is not a review. Deal with overdue arrivals and the oldest information first. Ground changes in their established situation, intentions and the elapsed time; do not invent new knowledge or teleport them.'] : []),
     '',
     ...(() => {
       const quiet = quietInScene(state, assistantText, userText);
@@ -489,6 +531,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     'THREADS:',
     threads || 'None open yet.',
     '',
+    ...(reviewPlan.deferred.length ? [reviewPlan.deferred.length+' additional due lives remain stored for subsequent background readings. Do not fabricate updates or treat this budget deferral as completion.'] : []),
     'WHO KNOWS WHAT (every line written, for everyone — a fact already here in other words is already known):',
     knowledge || 'Nothing written yet.',
     '',
@@ -502,7 +545,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     spokenVoices(voicesBefore) || 'None yet.',
     '',
     ...(cores ? ['THE PEOPLE THE STORY CARRIES, THE MOST IMPORTANT FIRST (everyone; "[NO SEAT — seat them]" marks someone who matters and has no whereabouts at all):', cores, '',
-      ...(people.unseated.length ? ['WITH NO WHEREABOUTS RIGHT NOW — seat EVERY ONE of these in this answer (offscreen.set: where they are at this hour and what they are doing, from their page, the story so far and the clock; the want only if you can name it): ' + people.unseated.join(', '), ''] : [])] : []),
+      ...(people.unseated.some(n=>reviewPlan.selected.includes(n)) ? ['WITH NO WHEREABOUTS RIGHT NOW — seat EVERY ONE of these in this answer (offscreen.set: where they are at this hour and what they are doing, from their page, the story so far and the clock; the want only if you can name it): ' + people.unseated.filter(n=>reviewPlan.selected.includes(n)).join(', '), ''] : [])] : []),
     ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, writerText(brief, BRIEF_ROOM, 'brief', true), FENCE, ''] : []), /* M283 */
     ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT, in the writer\'s words:', FENCE, writerText(castNotes, CAST_ROOM, 'cast notes', true), FENCE, ''] : []), /* M283 */
     ...(String(canonRecord || '').trim() ? ['WHAT THE SERIES ITSELF SAYS OF ITS PEOPLE HERE (their real record — a canon character\'s family, role and life are these, never invented):', FENCE, String(canonRecord).trim(), FENCE,
@@ -580,6 +623,7 @@ export function parseWorldAnswer(raw) {
 export function worldOwed(state, { material = '', castNames = [] } = {}) {
   const now = state?.clock?.minutes;
   const seated = Object.entries(state?.offscreen || {}).filter(([name, entry]) => entry && !isHere(state, name) && !isDeadSeat(entry)
+    && worldParticipation(state, name, {material, castNames})
     && (entry.lastSeen || (Number.isFinite(now) && !Number.isFinite(entry.sinceMinutes)) || seatAgeWords(entry, now)
       || (Number.isFinite(now) && Number.isFinite(entry.arrivesAtMinutes) && entry.arrivesAtMinutes <= now)))
     .sort((a, b) => (a[1].checkedMinutes ?? a[1].sinceMinutes ?? -Infinity) - (b[1].checkedMinutes ?? b[1].sinceMinutes ?? -Infinity)).map(([name]) => name);
@@ -591,7 +635,7 @@ export function worldRecoveryMutations(mutations, state, targets) {
   const key = name => findPersonKey(state.characters || {}, name) || name;
   const owed = new Set(targets.map(key));
   return mutations.filter(m => owed.has(key(m.name)) && (
-    /^offscreen\.(set|confirm|clear)$/.test(m.type)
+    (/^offscreen\.(set|confirm|clear)$/.test(m.type) || m.type === 'people.retire')
     || (m.type === 'people.set' && m.field === 'core' && !String(state.characters?.[key(m.name)]?.core || '').trim())
   ));
 }
@@ -619,9 +663,10 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   let user = prompt.user;
   let best = null;
   const worldCoverage = { material: brief + '\n' + castNotes, castNames };
-  const owed = worldOwed(state, worldCoverage);
   const recovery = Array.isArray(recoveryTargets);
-  const recoveryInstruction = recovery ? '\n\nAUDIT RECOVERY AT THE SAME STORY MOMENT. Review ONLY these missing decisions: ' + recoveryTargets.join(', ') + '. Return offscreen.set or offscreen.confirm for each, with a cause. If their identity is empty, also provide people.set core describing who they are. Preserve everyone else and all completed judgments. Do not create people, threads, voices, windows or a new world brief. No time has elapsed. Return {"mutations":[...],"brief":null}.' : '';
+  const reviewPlan = worldReviewPlan(state,worldCoverage);
+  const owed = recovery ? recoveryTargets : reviewPlan.selected;
+  const recoveryInstruction = recovery ? '\n\nAUDIT RECOVERY AT THE SAME STORY MOMENT. Review ONLY these missing decisions: ' + recoveryTargets.join(', ') + '. Return offscreen.set or offscreen.confirm for each, with a cause. Only provide people.set core when originals establish missing identity facts. Unknown biography is not unfinished work. Preserve everyone else and all completed judgments. Do not create people, threads, voices, windows or a new world brief. No time has elapsed. Return {"mutations":[...],"brief":null}.' : '';
   user += recoveryInstruction;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     /* M259: every call gets its own minute (M213), and it may look */
@@ -771,8 +816,10 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
    * a world agent still out when the next send has stamped the coming page never sets it back */
   await saveState(storyId, fresh !== loaded ? { ...next, page: loaded.page } : next);
   notify(storyId);
-  const pending = worldOwed(next, worldCoverage);
-  return { applied, rejected, dropped: read.dropped, brief: normalized, note: read.note, raw, pending };
+  const stillDue = worldOwed(next, worldCoverage);
+  const pending = stillDue.filter(name=>owed.includes(name));
+  const deferred = stillDue.filter(name=>!owed.includes(name));
+  return { applied, rejected, dropped: read.dropped, brief: normalized, note: read.note, raw, pending, deferred };
 }
 
 /* The workers-line words for one run. */
@@ -782,6 +829,7 @@ export function worldRunWords(result) {
   if (result.note === 'cut short') return 'its answer ran out of room';
   const n = result.applied ? result.applied.length : 0;
   const bits = [];
+  if (result.deferred?.length) bits.push(result.deferred.length+' due lives retained for subsequent background readings');
   if (result.pending?.length) bits.push('still awaiting a current world decision: ' + result.pending.join(', '));
   bits.push(n ? `moved the world in ${n} ${n === 1 ? 'way' : 'ways'}` : 'the world stood still');
   /* M37: say what moved, not only how much */

@@ -77,7 +77,7 @@ try {
   const final=await loadState(id);
   assert.equal(calls,5,'Existing founding + digits calls and one call each for Scene, World, People; no auditor or new verification call.');
   assert.equal(final.present.find(p=>p.name==='Neri').position,'kneeling beside the locked gate');
-  assert.equal(final.characters.Elin.core,core);
+  assert.equal(final.characters.Elin.core,'Watches a bout.\n'+core,'M719 adds recovered identity without replacing the prior core.');
   assert.equal(final.canon.Elin.facts.find(f=>f.key==='hair').value,'violet');
   assert.equal(final.canon.Elin.facts.find(f=>f.key==='eyes').value,'grey');
   assert.equal(final.canon['the third princess'].facts.length,2,'New identity and looks land together.');
