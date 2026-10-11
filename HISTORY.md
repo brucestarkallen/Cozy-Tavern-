@@ -19112,3 +19112,54 @@ theme, gameplay or paid live calls. The owner's full phone story remains unavail
 its eventual saved result, not a synthetic model reply, establishes live success.
 Keep AGENTS.md's minimal milestone verification policy for future sessions.
 
+
+# M702: repair identity authority and entry receipt contracts
+
+Version m702-001. The actual M701 report remains yellow: source coverage167/167,
+entry verification126/167, duplicate Theodagar/the king refused despite literal
+King Theodagar proof and the target core identifying him, and Jovan's declarative
+writer identity list refused by the narrow persona sentence recognizer. Alexia's
+stable profile recovery did land. Do not claim this was a completed live repair.
+
+The auditor owns semantic identity judgments. Its mc.alias proposal may use an
+original quote grounding both the known player and persona without matching one
+English sentence pattern. Literal original membership, named parties, excluded
+dialogue/World identity sources, manual ownership and stale-source checks remain.
+Ordinary workers still use the conservative automatic recognizer. Persona aliases
+join the provisional identity checklist and are withheld along with merges when
+that final reading fails. A completed alias persists and prevents World reseating.
+Role-label merge targets are supported when their actual core and literal quote
+both identify the source name and role, including short roles. No story names or
+biographies are hardcoded. The final reader judges one identity, not cooccurrence.
+
+People checks can prove their facts individually. Valid identity/physical fact
+proof no longer needs a duplicate top-level quotation. Unknown references and
+unsupported physical facts remain refused. JSON containing only checks is usable.
+The caller binds an omitted fingerprint to that call's exact requested snapshot;
+unrequested ids cannot earn receipts, explicit wrong hashes fail, and a changed
+row still requires an actually applied repair. Providers need not echo hashes.
+Old explicit target ids follow aliases to actual merged records, so rejected
+historical seat proposals do not persist just because the duplicate id vanished.
+Diagnostics distinguish absent checks, wrong fingerprints and duplicate checks.
+The queue respects newly verified entries counted by its checkpoint rather than
+pausing merely because a raw receipt count did not increase. Genuine no-progress
+still pauses; unresolved or unchecked work cannot show green.
+
+Verification: node tests/harness/m702-focused.mjs passed once. One controlled
+full audit exercises the three receipt-contract failures, role/name merge,
+declarative persona, final identity checklist, retained knowledge, obsolete target
+reconciliation, literal source refusal, wrong hash refusal, alias undo, false-green
+refusal and unchanged prose/earned scores. No bulk, theme, gameplay or paid calls.
+Two unsupported Node CLI flag attempts exited before running any test; the plain
+repository command ran successfully. No rerun after documentation. The phone's
+complete sources, provider reply and final saved ledger are unavailable here.
+This fixes shared contracts; it is not proof that all live findings are resolved
+or that every possible story is perfect. Continue AGENTS.md's minimal checks.
+
+
+Publication status: automatic approval review rejected the combined commit/push
+before execution, then rejected the retry after Personal Context retrieved the
+owner's explicit prior approval, treating that retrieved context as untrusted.
+Do not retry or bypass this block. The completed change is prepared locally;
+current user approval is needed by the reviewer for publication to main.
+

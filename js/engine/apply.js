@@ -46,7 +46,7 @@ import { addInjury, addStrain, findBodyKey, findInjury, sameHurt, SEV_WORDS } fr
 import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TOTAL } from './relationships.js';
 import { seat, findSeat, isDeadSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact, lookKey } from './canon.js'; /* M681: one key for one look */
-import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight, findActorKeySamePerson, safeKey, explicitMcPersona } from './duels.js';
+import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight, findActorKeySamePerson, safeKey, explicitMcPersona, groundedMcPersona } from './duels.js';
 import { withoutStandingNumbers, setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
 import { ownerAndDependent, samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage, isTitleWord } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
@@ -409,7 +409,8 @@ function describeDelta(minutes) {
 const HANDLERS = {
   'mc.alias'(state, m) {
     const name = normalizeName(m.name);
-    if (!name || (!m.byHand && !explicitMcPersona(state, name, m.shown))) return { why: 'the writer must explicitly establish this as their own persona' };
+    if (!name || (!m.byHand && !explicitMcPersona(state, name, m.shown)
+      && !(m.source === 'auditor' && groundedMcPersona(state,name,m.shown)))) return { why: 'the writer must explicitly establish this as their own persona' };
     if (isMc(state, name)) return { why: 'this persona already belongs to the main character', same: true };
     const before = [...(state.sheet?.playerAliases || [])];
     state.sheet = { ...(state.sheet || {actors:{},playerName:''}), playerAliases:[...before,name] };

@@ -3327,7 +3327,7 @@ export function initChat(ctx) {
             const fresh = await loadState(storyId);
             // Do not pause over a concurrent user edit or new turn.
             if (ledgerRepairInputKey(fresh, currentStory, currentPages) === ledgerRepairInputKey(after, story, repairPages)) {
-              const pause = !progress || checkpoint.stalled >= 2;
+              const pause = (!progress && checkpoint.stalled > 0) || checkpoint.stalled >= 2;
               await saveState(storyId, { ...fresh, audit: { ...fresh.audit,
                 retryProgress: checkpoint,
                 pausedInput: pause ? ledgerRepairInputKey(fresh, currentStory, currentPages) : null,

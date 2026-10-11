@@ -140,6 +140,19 @@ export function explicitMcPersona(state, name, quote) {
   });
 }
 
+// The auditor judges the identity relation from original sources. Code checks
+// that its named owner and persona are actually grounded, not English syntax.
+// Ordinary workers retain the stricter automatic recognizer above.
+export function groundedMcPersona(state, name, quote) {
+  const fold = s => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+  const has = (text,value) => Boolean(fold(value)) && (' '+fold(text)+' ').includes(' '+fold(value)+' ');
+  const owner = mcName(state);
+  if (!name || owner === 'the player') return false;
+  return String(quote || '').split(/(?<=[.!?])\s+|\n/u).some(statement =>
+    has(statement,owner) && has(statement,name)
+    && !/[?]|\b(?:if|maybe|hypothetically|might|could|would|no longer)\b/i.test(statement));
+}
+
 /* Reconcile already tracked names from explicit original identity statements.
  * This does not need the model to remember to propose another operation.
  * Caller supplies only writer material or completed main narration. */
