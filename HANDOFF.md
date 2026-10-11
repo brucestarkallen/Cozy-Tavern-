@@ -1,3 +1,50 @@
+# M698: verify actual ledger entries before green
+
+Version m698-001. The owner reports M697 repaired the captain and Commodus and
+went green, but its actual saved MC position still contradicts a later stop in
+the completed prose. Source-page identity coverage and an empty findings list
+were insufficient evidence of semantic ledger verification.
+
+Final review now runs even when the first reading reports no errors. Required
+checks enumerate actual scene entries, every People record, Elsewhere seats,
+standings, knowledge, locks, bodies, things, threads, factions and rule/World
+records, including empty sections for omissions. These values bypass renderer
+trimming. Each verdict needs the exact entry fingerprint and a reason; factual
+entries need an original source reference/quote, while valid worker judgments
+remain their workers' responsibility. No reinterpretation of earned scores.
+
+Every presence verdict additionally supplies the position that should be saved
+and an original main-story passage for the last established movement/resting
+point. Source ids bind literal prose in code, excluding the opening header.
+That position must match the actual final saved entry. A repair verdict only
+completes when a relevant change actually lands. Missing, duplicate, open or
+stale checks cannot certify green. The model still interprets chronology; an
+existing literal passage is provenance, not an automatic proof of meaning.
+
+Review batches contain at most 32 entries. Receipts persist across unchanged
+source/ledger snapshots; continuation skips repeated broad searches and model
+baseline requests. New entry-review coverage is actual retry progress in both
+the checkpoint and scheduler. Outside edits invalidate receipts. World briefs,
+referee rulings and fight state also invalidate stale green receipts. The debug
+copy includes bounded entry counts, remaining checks and scene evidence.
+
+Scene now treats a quoted MC ending pose through the same path as an NPC pose.
+The final quoted here entry supersedes a conflicting draft of that field. It
+must quote completed story prose, not an unfulfilled player attempt. Shared
+reader instructions explicitly require the last established movement and retain
+quiet spectators and unchanged clothing. All normal undo/manual protections hold.
+
+Verification: one focused mock harness, retried once after correcting its fixture's
+missing migrated history array, passed. It reproduces an empty first reading that
+misses a stopping point, refuses green for an unreconciled final position, then
+repairs it through the final review and resumes only unfinished checks. It also
+checks actual extractor handling of a quoted MC stop, unchanged prose and earned
+scores, stale World brief rejection, and entry-review progress. No bulk/theme/
+gameplay tests, browser session, live paid model calls or live saved-story repair.
+A passing mock does not establish perfect model judgment. Reload M698 and inspect
+the actual live receipt before claiming the owner's remaining position is fixed.
+All earlier milestone records remain below unchanged.
+
 # M697: source references instead of reconstructing quotations
 
 Version m697-001. Owner M696 report still has four open targets, all blocked by

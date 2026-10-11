@@ -1102,11 +1102,21 @@ export async function extractTurn(args = {}) {
         const day = args.state.clock && typeof args.state.clock.dayWords === 'string' ? args.state.clock.dayWords : '';
         const letGo = staleAfterJump(args.state, readerTimeOverHeader(headerMutations(args.assistantText, { ground: (args.state.place || {}).name || '', day }), read.mutations).header); /* M681: a #time skip's long move with a bare hour is a jump too */
         const room = letGo.length ? applyMutations(args.state, letGo).state : args.state;
-        const supported = notes.filter(n => !isMc(room, n.name) && quotedSource(turnScene, n.shown));
+        // An explicit, quoted ending pose applies to the MC as it does to NPCs.
+        // Do not send the MC through the header's word-overlap fallback.
+        const supported = notes.filter(n => quotedSource(scenePartOf(args.assistantText), n.shown));
         const updates = supported.flatMap(n => {
           const m = { type: 'presence.update', name: n.name, shown: n.shown, source: 'extractor', cause: 'Scene read the latest posture and attire' };
-          if (n.at && !read.mutations.some(x => samePersonName(x.name || '', n.name) && x.position !== undefined)) m.position = n.at;
-          if (n.wears && !read.mutations.some(x => samePersonName(x.name || '', n.name) && x.attire !== undefined)) m.attire = n.wears;
+          if (n.at) m.position = n.at;
+          if (n.wears) m.attire = n.wears;
+          // The final here entry supersedes a conflicting draft of the same field.
+          read.mutations = read.mutations.map(x => {
+            if (x.type !== 'presence.update' || !samePersonName(x.name || '', n.name)) return x;
+            const draft = {...x};
+            if (m.position !== undefined) delete draft.position;
+            if (m.attire !== undefined) delete draft.attire;
+            return draft;
+          }).filter(x => x.type !== 'presence.update' || x.position !== undefined || x.attire !== undefined);
           return m.position !== undefined || m.attire !== undefined ? [m] : [];
         });
         read.mutations = [...read.mutations, ...updates, ...restatedPresence(room, notes.filter(n => !supported.includes(n)), read.mutations, args.assistantText)];

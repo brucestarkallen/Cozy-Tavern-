@@ -60,6 +60,7 @@ export async function ledgerDebugReport(storyId) {
   add('Recent ledger changes, newest first', (state.log || []).slice(-12).reverse().map(({undo,...row}) => row), 1600);
   add('Recent journal, newest first', (state.journal || []).slice(-6).reverse(), 1000);
   add('Source coverage', state.audit?.coverage || null, 700);
+  add('Entry verification', state.audit?.verification ? {read:state.audit.verification.read,total:state.audit.verification.total,pending:state.audit.verification.pending?.slice(0,6),scene:Object.fromEntries(Object.entries(state.audit.verification.entries || {}).filter(([id]) => id.startsWith('presence:')))} : null, 1600);
   add('Current scene', {clock:state.clock,place:state.place,mode:state.mode,present:(state.present || []).map(p => ({name:p.name,position:String(p.position || '').slice(0,180),attire:String(p.attire || '').slice(0,100)}))},2500);
   const complaints = JSON.stringify([state.audit?.pending,state.audit?.unresolved]).toLowerCase();
   const relevant = name => complaints.includes(name.toLowerCase());

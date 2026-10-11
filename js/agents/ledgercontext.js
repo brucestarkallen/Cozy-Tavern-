@@ -5,6 +5,7 @@ import { loadMemory } from './memory.js';
 export const LEDGER_READER_RULES = `
 SHARED LEDGER CONTRACT:
 Read the whole completed scene, including quiet spectators and the writer's established identities. Follow each person's actions chronologically. Silence is not departure; mentioning a remote person is not presence. Resolve pronouns and titles in context, not by keyword matching.
+The opening header is not an ending position. For every physical position select the person's LAST established movement or stopping point, including pronoun actions, then check that no later action changes it. A subsequent paragraph about another person does not move this person. Preserve clothing unless later evidence changes it. Apply this chronology to Scene extraction before saving, not only to the auditor.
 The brief supplies explicit starting facts and constraints. Starting feelings and locations can develop through the story unless the writer explicitly locks them. Never reset earned developments to the opening values.
 Preserve valid judgments by the responsible worker. Different plausible feelings, motives or offscreen choices are not errors. Correct factual contradictions or explicit rule violations, not personal preferences.
 Scene owns physical presence, posture and event-driven relationship scores. People owns character records and interpretation of character arcs. World owns authorized offscreen simulation and quiet characters' ongoing activity. Keep those views consistent without replaying the same event or overwriting another worker's valid judgment.

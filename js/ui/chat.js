@@ -3317,6 +3317,7 @@ export function initChat(ctx) {
         if (again) {
           const progress = ledgerRepairStateKey(after) !== ledgerRepairStateKey(before)
             || (after.audit?.coverage?.read || 0) > (before.audit?.coverage?.read || 0)
+            || (after.audit?.verification?.read || 0) > (before.audit?.verification?.read || 0)
             || Object.keys(after.characters || {}).length > Object.keys(before.characters || {}).length
             || (after.audit?.pending?.length || 0) < (before.audit?.pending?.length || 0);
           const checkpoint = repairRetryCheckpoint(before, after, story, repairPages);
