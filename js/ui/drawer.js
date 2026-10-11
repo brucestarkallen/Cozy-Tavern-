@@ -1,3 +1,4 @@
+import { ledgerDebugSection } from './ledgerdebug.js';
 /* Cozy Tavern — ui/drawer.js
  * The right-hand slide-over: "The story's ledger". M3 woke it up: the clock
  * keeps the hour, Who's here carries position and attire when known, the
@@ -1760,7 +1761,7 @@ function driftPanel(ctx) {
     const text = [...wrap.querySelectorAll('li, p.quiet, h4, summary')].map((el) => el.textContent.trim()).filter(Boolean).join('\n');
     try { await navigator.clipboard.writeText(text); copyAll.textContent = 'Copied'; setTimeout(() => { copyAll.textContent = 'Copy all of this'; }, 1500); } catch (err) { copyAll.textContent = 'Couldn’t copy'; }
   });
-  wrap.append(copyAll, note, list);
+  wrap.append(ledgerDebugSection(() => currentStory(ctx)), copyAll, note, list);
 
   const render = latestWins(async () => {
     const story = await currentStory(ctx);
@@ -2339,7 +2340,7 @@ function workersPanel(ctx) {
   const row2 = document.createElement('div');
   row2.className = 'row';
   row2.append(catchUp, refold, unfold);
-  wrap.append(note, row, row2, list);
+  wrap.append(ledgerDebugSection(() => currentStory(ctx)), note, row, row2, list);
 
   const render = latestWins(async () => {
     const story = await currentStory(ctx);

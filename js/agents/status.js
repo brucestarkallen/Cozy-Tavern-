@@ -133,6 +133,10 @@ async function writeWorkerNote(storyId, name, { ok, why, detail, raw, unfinished
       unfinished: unfinished === true,
       resume: unfinished === true && typeof resume === 'string' ? resume : '',
     };
+    // Keep a small diagnostic timeline; do not change the existing latest run API.
+    const previous = await db.settings.get(KEY_PREFIX + storyId);
+    shelf._debugHistory = [...(Array.isArray(previous?._debugHistory) ? previous._debugHistory : []),
+      { name, ...shelf[name], raw: said.slice(0, 4000) }].slice(-30);
     await db.settings.set(KEY_PREFIX + storyId, shelf);
     markWorkerRunning(storyId, name, false); /* M46: settled — the panel re-reads */
   } catch (err) { /* the ledger of workers never makes work of its own */ }

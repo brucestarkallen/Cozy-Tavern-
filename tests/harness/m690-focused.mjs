@@ -1,0 +1,18 @@
+import './idb-shim.mjs';
+import assert from 'node:assert/strict';
+import { db } from '../../js/store.js';
+import { emptyState, saveState } from '../../js/engine/state.js';
+import { noteWorkerRun } from '../../js/agents/status.js';
+import { ledgerDebugReport } from '../../js/ui/ledgerdebug.js';
+const { id } = await db.stories.create({ title: 'Disposable debug report' });
+await db.connections.add({ apiKey: 'fixturePrivateCredential123' });
+await saveState(id, { ...emptyState(), audit: { unfinished: true, pending: ['Alexia presence repair rejected'], pauseReason: 'unchanged evidence' } });
+await db.messages.append(id, { role: 'assistant', text: 'Alexia is in the gallery.', ts: 1 });
+await noteWorkerRun(id, 'auditor', { unfinished: true, detail: 'first repair failed', raw: 'fixturePrivateCredential123' });
+await noteWorkerRun(id, 'auditor', { unfinished: true, detail: 'second repair failed', raw: 'Bearer confidentialtoken' });
+const report = await ledgerDebugReport(id);
+for (const value of ['Alexia presence repair rejected', 'first repair failed', 'second repair failed', 'Alexia is in the gallery.', 'No audit or model call was started']) assert(report.includes(value));
+assert(!report.includes('fixturePrivateCredential123'));
+assert(!report.includes('confidentialtoken'));
+assert.equal((await db.messages.list(id)).length, 1);
+console.log('PASS report includes findings, repeated run history and prose; credentials removed; no story edits.');

@@ -18672,3 +18672,13 @@ AGENTS, active workflow, handoff, README and PR template to remove conflicting b
 testing instructions. Marked the M635 audit as historical and preserved the old
 workflow verbatim in docs/archive. Ledger fixes explicitly do not trigger themes,
 performance or long gameplay tests. Documentation only; no tests and no app bump.
+
+
+## M690: copyable ledger diagnostics, 11 October 2026
+
+Added a debug section in Workers and audit findings with one copy button and
+selectable fallback. Report carries a ready diagnostic request, full current ledger,
+auditor problems, recent changes and bounded story/memory context. Worker status
+now retains 30 recent run records to diagnose repetition. Connection secrets are
+excluded and redacted from text. No model calls or story writes on copying.
+Minimal report/redaction check and drawer syntax passed. No broad testing.

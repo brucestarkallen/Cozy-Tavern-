@@ -1,5 +1,18 @@
 # Cozy Tavern current handoff
 
+## M690: one copyable ledger debug report
+
+Version m690-001. Ledger debug report sections are available in Workers and audit
+findings. Copy collects ledger, pending auditor findings, recent changes, latest
+worker results, up to 30 recent run records, brief/cast, six recent story messages
+and memory context. It includes a ready written diagnostic request. No model call
+or story mutation occurs. Clipboard failure exposes selectable report text.
+Known connection secrets and common token patterns are redacted. Historical run
+recording starts with this release; old runs cannot be reconstructed.
+One focused report check passed, including credential redaction and preservation
+of story messages. Drawer syntax checked. No browser or bulk suites were run.
+
+
 ## Next session priority
 
 M689 is published to main at cf9bd4a5c20a4b69b764d686a509a58127e2d6d6.

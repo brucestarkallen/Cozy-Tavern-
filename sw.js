@@ -141,6 +141,7 @@ const SHELL = [
   'js/ui/pageshape.js',
   'js/ui/settings.js',
   'js/ui/drawer.js',
+  'js/ui/ledgerdebug.js',
   'js/ui/ledgerexplain.js',
   'js/ui/receiptview.js',
   'js/ui/housekeeper.js',
