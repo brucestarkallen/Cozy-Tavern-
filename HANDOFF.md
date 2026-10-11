@@ -1,5 +1,14 @@
 # M719: evidence based identity, durable memory and bounded World work
 
+Publication status: BLOCKED. The connected GitHub integration rejected
+create_blob with HTTP403, Resource not accessible by integration. No remote
+commit was created and no branch update was attempted. The attached account
+token was not used. Publication requires write access through the connected
+integration, not another approval for the requested code work.
+Local implementation commit: 43e15fe7b2f37fea70050d3e85a9e1790dc1c125.
+Last confirmed remote main:267302bb54cf30788033b23b28c9b0b34717c2b0.
+
+
 Version m719-001. M718 remote base267302bb54cf30788033b23b28c9b0b34717c2b0.
 See docs/M719.md for exact changes, executed checks, measurements and limits.
 

@@ -20126,3 +20126,16 @@ provider answer fits. No promise of a permanently green indicator is made.
 Green still requires actual matching completed verification; disabled or unfinished
 audit work does not gain fabricated approval. The shared existing indicator logic
 was preserved, and the People status reporting was corrected.
+
+
+### M719 publication outcome
+
+Publication status: BLOCKED. The connected GitHub integration rejected
+create_blob with HTTP403, Resource not accessible by integration. No remote
+commit was created and no branch update was attempted. The attached account
+token was not used. Publication requires write access through the connected
+integration, not another approval for the requested code work.
+Local implementation commit: 43e15fe7b2f37fea70050d3e85a9e1790dc1c125.
+Last confirmed remote main:267302bb54cf30788033b23b28c9b0b34717c2b0.
+
+No tests repeated for publication notes.
