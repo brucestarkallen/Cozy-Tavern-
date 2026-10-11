@@ -145,10 +145,19 @@ export function isTitleWord(word) {
   return Boolean(titleOf(foldName(word)));
 }
 
+/* A possessive descriptor identifies somebody related to its owner, not the owner.
+ * Do this before forgiving punctuation or using a recorded alias. */
+export function ownerAndDependent(a, b) {
+  const owner = name => /^(.+?)['’‘ʼ]s\s+\S/iu.exec(String(name || '').trim())?.[1] || '';
+  const A = owner(a), B = owner(b);
+  return Boolean((A && samePersonName(A, b)) || (B && samePersonName(B, a)));
+}
+
 /* Is `a` the same person as `b`? The same name (folded, a rank or courtesy set aside), a first or last name of the
  * other, one cut short of the other, the same names in another order ("Kuchiki Rukia"), or two names the story's
  * canon knows as one person. Never a near miss: seating is a hard fact. Never two titles that disagree (M414). */
 export function samePersonName(a, b) {
+  if (ownerAndDependent(a, b)) return false;
   const A = parseName(a);
   const B = parseName(b);
   const fa = A.bare;

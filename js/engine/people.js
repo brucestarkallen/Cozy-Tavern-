@@ -30,7 +30,7 @@
  */
 
 import { isMcAlias, mcName } from './duels.js';
-import { foldName, canonAliasOf, samePersonName, titlesConflict, isTitleWord } from './names.js'; /* M398: one person, one page; M414: one list of titles */
+import { ownerAndDependent, foldName, canonAliasOf, samePersonName, titlesConflict, isTitleWord } from './names.js'; /* M398: one person, one page; M414: one list of titles */
 import { firstSentence } from './sentence.js'; /* M292 */
 import { storyTurn } from './apply.js';
 import { onTheWay } from './world.js'; /* M681 (W5): who is on the way, one answer */
@@ -188,7 +188,7 @@ function nearName(a, b) {
 export function findPersonKey(characters, name) {
   const wanted = normalizeName(name).toLowerCase();
   if (!wanted) return '';
-  const keys = Object.keys(characters && typeof characters === 'object' ? characters : {});
+  const keys = Object.keys(characters && typeof characters === 'object' ? characters : {}).filter(k => !ownerAndDependent(k, name));
   const exact = keys.find((k) => k.toLowerCase() === wanted);
   if (exact) return exact;
   /* M687: original sources follow identities that were actually renamed. */

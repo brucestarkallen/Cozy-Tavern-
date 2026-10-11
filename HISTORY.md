@@ -18713,3 +18713,42 @@ remains needed. Historical rejection strings can persist in unresolved findings;
 they do not prove the removed old guard is still executing.
 Version m692-001. No user story data or manual edits changed by this release.
 
+
+
+# M693: repair the reported identity and audit failures
+
+Version m693-001. Actual cause found: findPersonKey used foldName before its
+first-word shortcut, turning Alexia's woman into words beginning with Alexia.
+Automatic duplicate cleanup then merged the princess into her attendant.
+Owner/dependent pairs now remain distinct across name lookup, aliases, source
+receipts and automatic rename. A manual explicit rename remains allowed.
+
+Normal state loading performs a journaled people.separate recovery for proven
+old automatic owner/dependent merges when the two original cores can be recovered
+from an undo receipt or retained exact-name journal writes. Replays subsequent
+named writes, preserves manual fields/standings and unrelated state, and archives
+the mixed records in identityRecoveries. Does not rewind the full ledger or prose.
+If history cannot establish both identities, or later renames/undo make attribution
+uncertain, it does not guess. Original-source audit recovery now ignores that bad
+merge/alias instead of wrongly treating the owner as already recorded elsewhere.
+The old mixed records remain available; thread/thing references still need audit
+source interpretation where a bad rename changed their prose references.
+
+Auditor followup now checks provisional Scene changes before saving, replacing
+superseded draft fields and withholding drafts if verification fails. It follows
+movement through the whole page, not only the earlier quoted action. The prompt
+now requires supporting shown evidence for every operation, supplies inherited
+repair targets, and requests the actual resolved contract to withdraw disproved
+findings. Explicit resolved issues are parsed too. Retry/coverage metadata no
+longer disappears when judgeAudit constructs its report. MC persona seat repairs
+retain explicit writer identity evidence even if absent from the newest page.
+
+One focused fixture was run during useful implementation iterations. It passed
+owner/dependent lookup, rejection of the bad automatic merge, recovery with and
+without the short undo receipt, manual data and P/R preservation, production audit
+followup correcting an earlier movement to the later wall contact, distinct
+attendant presence, closure of a disproved inherited finding, prose preservation,
+and explicit persona evidence. No bulk suites, browser run or paid model calls.
+Fixture verification does not prove the owner's saved browser data was repaired
+or that a model will interpret every future page correctly. Do not claim that.
+

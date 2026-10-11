@@ -48,7 +48,7 @@ import { seat, findSeat, isDeadSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact, lookKey } from './canon.js'; /* M681: one key for one look */
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight, findActorKeySamePerson, safeKey } from './duels.js';
 import { withoutStandingNumbers, setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
-import { samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage, isTitleWord } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
+import { ownerAndDependent, samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage, isTitleWord } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
 import { setThread, closeThread, findThread, sameThreadTitle, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES, sameFact, factKey, brokenOff } from './world.js'; /* M29: the world beyond the page */
@@ -751,6 +751,7 @@ const HANDLERS = {
       if (position && entry.attire) position = withoutAttire(position, entry.attire);
       if (position) { entry.position = position; changed.push(position); } else { delete entry.position; }
     }
+    if (JSON.stringify(before) === JSON.stringify(entry)) return { why: 'their presence already says this', same: true };
     const words = changed.length
       ? entry.name + ' — now ' + changed.join(', ') + '.'
       : entry.name + ' — the details were let go.';
@@ -1374,6 +1375,7 @@ const HANDLERS = {
   'people.rename'(state, m) {
     const from = normalizeName(m.from); const to = normalizeName(m.to);
     if (!from || !to) return { why: 'a rename needs the old name and the new' };
+    if (!m.byHand && ownerAndDependent(from, to)) return { why: 'the owner and their dependent are different people; do not merge them' };
     if (from.toLowerCase() === to.toLowerCase()) return { why: 'the same name', same: true };
     const keys = ['characters', 'offscreen', 'relationships', 'knowledge', 'canon', 'bodies', 'present', 'roomAt', 'threads', 'factions', 'sheet', 'things', 'duel', 'battle'];
     const before = {};
@@ -1386,6 +1388,16 @@ const HANDLERS = {
     const owner = Object.keys(state.characters || {}).find((k) => k.toLowerCase() === to.toLowerCase());
     if (owner) state.characters[owner] = { ...state.characters[owner], aliases: [...new Set([...oldAliases, from])].filter((a) => a.toLowerCase() !== owner.toLowerCase()) };
     return { words: from + ' is ' + to + ' now — ' + count + ' ' + (count === 1 ? 'place' : 'places') + ' in the ledger follow' + (m.cause ? ' (' + capText(m.cause, 1000) + ')' : '') + '.', undo: { kind: 'people.renamed', before } };
+  },
+  // Restore two different people from the original journal, keeping the mixed
+  // record as an archive and never rewinding unrelated ledger state.
+  'people.separate'(state, m) {
+    const recovery = separatePossessiveMerge(state, m.mergeId);
+    if (!recovery) return { why: 'the merge has no recoverable separate identity history' };
+    const before = {};
+    for (const key of [...RECOVERY_MAPS, 'present', 'roomAt', 'sheet', 'identityRecoveries']) before[key] = state[key] === undefined ? null : JSON.parse(JSON.stringify(state[key]));
+    for (const key of [...RECOVERY_MAPS, 'present', 'roomAt', 'sheet', 'identityRecoveries']) state[key] = recovery.state[key];
+    return { words: recovery.from + ' and ' + recovery.to + ' were separated from their original records; the mixed record was retained for review.', undo: { kind: 'people.renamed', before } };
   },
   /* M96: people.forget — a person who was never the story's (a leaked example,
    * a mistaken name) is erased for good: page, seat, standing, knowledge, locks,
@@ -1791,6 +1803,74 @@ export function duplicatePages(state) {
     taken.add(from);
   }
   return out;
+}
+
+const RECOVERY_MAPS = ['characters', 'offscreen', 'relationships', 'knowledge', 'canon', 'bodies'];
+const exactIdentity = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+function separatePossessiveMerge(state, mergeId) {
+  const event = (state.journal || []).find(j => j.id === mergeId && j.m?.type === 'people.rename');
+  if (!event || event.m.byHand || !ownerAndDependent(event.m.from, event.m.to)
+      || state.identityRecoveries?.[mergeId] || isMc(state, event.m.from) || isMc(state, event.m.to)) return null;
+  const { from, to } = event.m;
+  const pair = name => exactIdentity(name, from) || exactIdentity(name, to);
+  const later = (state.journal || []).filter(j => j.id > event.id);
+  // A later intentional rename or whole-state undo needs human source review.
+  if (later.some(j => (j.m?.type === 'people.rename' && (pair(j.m.from) || pair(j.m.to)) && !ownerAndDependent(j.m.from, j.m.to))
+      || j.m?.type === 'undo.apply')) return null;
+  const receipt = (state.log || []).find(e => e.jid === event.id && !e.undone && e.undo?.kind === 'people.renamed');
+  const base = receipt?.undo?.before;
+  const scratch = copyState(state);
+  const mixed = {};
+  for (const book of RECOVERY_MAPS) {
+    mixed[book] = Object.fromEntries(Object.entries(state[book] || {}).filter(([k]) => pair(k)));
+    scratch[book] = Object.fromEntries(Object.entries(scratch[book] || {}).filter(([k]) => !pair(k)));
+    if (base) for (const [k, value] of Object.entries(base[book] || {})) if (pair(k)) scratch[book][k] = JSON.parse(JSON.stringify(value));
+  }
+  mixed.present = (state.present || []).filter(p => pair(p.name));
+  mixed.actors = Object.fromEntries(Object.entries(state.sheet?.actors || {}).filter(([k]) => pair(k)));
+  scratch.present = (scratch.present || []).filter(p => !pair(p.name));
+  if (base) scratch.present.push(...JSON.parse(JSON.stringify((base.present || []).filter(p => pair(p.name)))));
+  scratch.sheet = { ...(scratch.sheet || {}), actors: Object.fromEntries(Object.entries(scratch.sheet?.actors || {}).filter(([k]) => !pair(k))) };
+  if (base) for (const [k, value] of Object.entries(base.sheet?.actors || {})) if (pair(k)) scratch.sheet.actors[k] = JSON.parse(JSON.stringify(value));
+  const entries = base ? later : (state.journal || []).filter(j => j.id !== event.id);
+  for (const j of entries) {
+    const op = j.m;
+    if (op?.type === 'sheet.weigh') {
+      const actors = Object.fromEntries(Object.entries(op.actors || {}).filter(([k]) => pair(k)));
+      if (Object.keys(actors).length) HANDLERS['sheet.weigh'](scratch, { type: 'sheet.weigh', actors });
+      continue;
+    }
+    if (!op || !pair(op.name) || !HANDLERS[op.type] || !/^(people\.(set|note)|presence\.|offscreen\.|rel\.|body\.|canon\.|knowledge\.)/.test(op.type)) continue;
+    scratch.page = j.p; scratch.turn = j.b;
+    HANDLERS[op.type](scratch, { ...op });
+  }
+  const fromKey = Object.keys(scratch.characters || {}).find(k => exactIdentity(k, from));
+  const toKey = Object.keys(scratch.characters || {}).find(k => exactIdentity(k, to));
+  if (!fromKey || !toKey || !scratch.characters[fromKey]?.core || !scratch.characters[toKey]?.core) return null;
+  // Manual fields and numerical judgments on the existing exact page win.
+  for (const [key, old] of Object.entries(state.characters || {})) if (pair(key)) {
+    const target = exactIdentity(key, from) ? fromKey : toKey;
+    for (const field of Object.keys(old.hand || {})) if (old.hand[field]) {
+      scratch.characters[target][field] = JSON.parse(JSON.stringify(old[field] ?? ''));
+      scratch.characters[target].hand = { ...(scratch.characters[target].hand || {}), [field]: old.hand[field] };
+    }
+  }
+  for (const [key, value] of Object.entries(state.relationships || {})) if (pair(key) && value.hand) scratch.relationships[key] = JSON.parse(JSON.stringify(value));
+  for (const key of [fromKey, toKey]) scratch.characters[key].aliases = (scratch.characters[key].aliases || []).filter(a => !ownerAndDependent(a, key));
+  const out = copyState(state);
+  for (const book of RECOVERY_MAPS) out[book] = scratch[book];
+  out.present = scratch.present; out.sheet = scratch.sheet;
+  // The saved room board may also carry the invalid merged identity. Leave it
+  // for the next scene reading rather than assert a present-day location.
+  if (out.roomAt?.names?.some(pair)) out.roomAt = null;
+  out.identityRecoveries = { ...(state.identityRecoveries || {}), [mergeId]: { from, to, at: Date.now(), mixed,
+    note: 'Recovered exact-name writes from saved history. Mixed records retained; current scene still needs source review.' } };
+  return { state: out, from, to };
+}
+export function possessiveMergeRepairs(state) {
+  return (state.journal || []).filter(j => j.m?.type === 'people.rename' && !j.m.byHand && ownerAndDependent(j.m.from, j.m.to)
+    && !state.identityRecoveries?.[j.id] && separatePossessiveMerge(state, j.id))
+    .map(j => ({ type: 'people.separate', mergeId: j.id, cause: 'the owner was incorrectly merged into their dependent', source: 'identity recovery' }));
 }
 
 /* M419: A BOOK ENTRY UNDER ANOTHER FORM OF SOMEONE'S NAME, JOINED TO THEIR PAGE. Ledgers written before M419 hold

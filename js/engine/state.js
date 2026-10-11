@@ -50,7 +50,7 @@ import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge, blindS
 import { renderCanon, lookKey } from './canon.js'; /* M681: one key for one look */
 import { renderFightLine, mcName } from './duels.js';
 import { migrateCharacters, healGhosts, partLookAlikes } from './people.js'; /* M485: the ghosts folded on load */
-import { storyTurn, samePlace, seatAtScene, broaderPlace, withinGround, canonNamesFor } from './apply.js'; /* M588: who is close by; M627: an area is no move; M680: truths under the name they are kept by */
+import { possessiveMergeRepairs, applyMutations, storyTurn, samePlace, seatAtScene, broaderPlace, withinGround, canonNamesFor } from './apply.js'; /* M588: who is close by; M627: an area is no move; M680: truths under the name they are kept by */
 
 const KEY_PREFIX = 'state:';
 
@@ -379,6 +379,8 @@ function normalize(saved) {
   next.seedDueAfterFight = saved.seedDueAfterFight === true;
   /* M12 (v6): the character ledger — no-loss, coerced by engine/people.js. */
   next.characters = migrateCharacters(saved.characters);
+  const identityRepairs = possessiveMergeRepairs(next);
+  if (identityRepairs.length) Object.assign(next, applyMutations(next, identityRepairs).state);
   healGhosts(next); /* M485: a relation, a role or a crowd that was a page of its own is folded where it belongs */
   partLookAlikes(next); /* M665: two people a slip-rule wrote as one (before M646) are parted, by what the journal shows was written for each */
   return next;

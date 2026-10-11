@@ -1,3 +1,4 @@
+import { ownerAndDependent } from '../engine/names.js';
 /* M685: source coverage for the ledger audit. A missing person cannot be found
  * by checking only the records that survived. Read original answered pages,
  * keep receipts tied to their exact text, and recover only quoted identities.
@@ -127,12 +128,12 @@ export function sourcePersonKey(state, name, remembered = '') {
   let renamed = name;
   for (const entry of state.journal || []) {
     const m = entry?.m;
-    if (m?.type === 'people.rename' && String(m.from || '').toLowerCase() === String(renamed).toLowerCase()) renamed = m.to;
+    if (m?.type === 'people.rename' && !(!m.byHand && ownerAndDependent(m.from, m.to)) && String(m.from || '').toLowerCase() === String(renamed).toLowerCase()) renamed = m.to;
   }
   if (renamed !== name) return findPersonKey(characters, renamed);
   if (!remembered) remembered = Object.values(state.auditSources || {}).flatMap((r) => r.people || [])
     .find((p) => String(p.name || '').toLowerCase() === String(name || '').toLowerCase())?.ledgerName || '';
-  return remembered ? findPersonKey(characters, remembered) : '';
+  return remembered && !ownerAndDependent(name, remembered) ? findPersonKey(characters, remembered) : '';
 }
 
 export function missingSourcePeople(state, people = []) {

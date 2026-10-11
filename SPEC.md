@@ -1,3 +1,13 @@
+# M693: identity separation and auditor repair verification
+
+Keep owners distinct from their dependent descriptors in automatic name resolution.
+Recover proven old merges from saved history without rewinding other records.
+Archive mixed data, preserve manual fields and earned judgments, and require source
+review where history cannot establish attribution. Verify tentative scene corrections
+against the complete page using the existing followup. An explicit evidence-backed
+withdrawal closes a mistaken inherited finding. HANDOFF.md records measured limits.
+Owner testing policy in AGENTS.md applies; no bulk release gates.
+
 # M689: shared ledger knowledge and authoritative factual repairs
 
 Current owner request supersedes older testing mandates below. Improve the whole

@@ -194,6 +194,7 @@ function law({ mc }) {
     'it comes up, and the ledger will hold what the page wrote. Nothing is reported as unfixable: every',
     'issue you list carries either mutations or a pages fix.',
     '',
+    'Every mutation must carry shown: a source quotation supporting that particular field. For current position, quote the last movement or resting position of that person in the newest completed STORY page. Read beyond an earlier retreat: reaching the wall later means at the wall. Do not treat an opening header, an earlier move or an inherited complaint as the ending.',
     'Answer with JSON ONLY, exactly this shape:',
     '{"issues":[{"what":"the ledger says X; the pages say Y","fix":"what should be true","pages":false,"mutations":[ ... ]}]}',
     'To withdraw a PREVIOUS UNRESOLVED ITEM because it was mistaken, also return resolved:[{what:"the exact earlier finding",shown:"an exact source quotation disproving it",why:"why the concern was mistaken"}]. An empty issues list alone does not close unfinished work.',
@@ -286,6 +287,7 @@ function buildAuditorAt({ state, brief = '', castNotes = '', record = '', pages 
     /* M681 (S13): the one exception to the moment not being its job — a board no reader stated for the latest page */
     ...(staleBoard ? ['THE MOOD BOARD IS STALE: no page reader stated it for the latest STORY page — it is an older page\'s. This once the board is yours: if it is wrong for how the latest page ENDS, write ONE mode.snapshot {"type":"mode.snapshot","flags":[…]} naming every mood that holds then — combat (a fight is on), intimate (sex or intimate touch is on), travel (in transit; NOT once they have arrived), socialField (a crowded public place full of voices), isolation (alone, far from help), group (in company of several); an empty list clears them all. Nothing else of the moment.', ''] : []),
     'Hold the ledger against the brief, the pages and the record. JSON only.',
+    ...(state?.audit?.unresolved?.length ? ['PREVIOUS PROPOSED REPAIRS, historical claims to recheck, not story facts:', JSON.stringify(state.audit.unresolved)] : []),
     ...(state?.audit?.pending?.length ? ['PREVIOUS UNRESOLVED ITEMS: revisit these against the current sources; provide a working repair or explain with evidence why the finding was mistaken.', ...state.audit.pending] : []),
   ].join('\n');
   return { system: withFictionFrame(law({ mc }) + LEDGER_READER_RULES), user };
@@ -303,7 +305,7 @@ export function parseAuditorAnswer(raw) {
     }
     if (!parsed) return { issues: [], note: 'unusable' };
     const issues = parsed.issues
-      .filter((i) => i && typeof i === 'object' && typeof i.what === 'string' && i.what.trim())
+      .filter((i) => i && typeof i === 'object' && typeof i.what === 'string' && i.what.trim() && i.resolved !== true)
       .map((i) => ({
         what: i.what.trim().slice(0, 4000), /* M267: whole — it was cut at 300, mid-word */
         fix: typeof i.fix === 'string' ? i.fix.trim().slice(0, 4000) : '',
@@ -314,7 +316,8 @@ export function parseAuditorAnswer(raw) {
         pages: i.pages === true || i.pages === 1 || (typeof i.pages === 'string' && /^\s*(?:true|yes|y|1)\s*$/i.test(i.pages)),
         mutations: Array.isArray(i.mutations) ? i.mutations.filter((m) => m && typeof m === 'object' && typeof m.type === 'string') : [],
       }));
-    const resolved = (Array.isArray(parsed.resolved) ? parsed.resolved : []).filter((r) => r && typeof r.what === 'string' && typeof r.shown === 'string' && typeof r.why === 'string' && r.why.trim()).map((r) => ({ what: r.what.trim(), shown: r.shown, why: r.why.trim() }));
+    const resolvedItems = [...(Array.isArray(parsed.resolved) ? parsed.resolved : []), ...parsed.issues.filter(i => i?.resolved === true).map(i => ({what:i.what, shown:i.shown, why:i.why || i.fix}))];
+    const resolved = resolvedItems.filter((r) => r && typeof r.what === 'string' && typeof r.shown === 'string' && typeof r.why === 'string' && r.why.trim()).map((r) => ({ what: r.what.trim(), shown: r.shown, why: r.why.trim() }));
     return { issues, resolved, note: 'ok' };
   } catch (err) {
     return { issues: [], note: 'unusable' };
@@ -473,14 +476,17 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const withdrawals = [...(read.resolved || [])];
   let pending = [...unresolved(result), ...(answerProblem ? [answerProblem] : []), ...originalFindings.filter((i) => !findingSettled(i, result, withdrawals, documents)).map((i) => i.what)];
   let followupFailed = false;
-  if (pending.length && !stale?.()) {
+  const sceneWrites = result.applied.filter(a => /^(presence\.|offscreen\.)/.test(a.mutation.type));
+  if ((pending.length || sceneWrites.length) && !stale?.()) {
     renew?.();
     const follow = buildAuditorMessages({ state: result.out, brief, castNotes, record, pages: view.shown, index: view.index, pageCount: all.length, room, canonRecord, staleBoard });
     try {
       const reply = await askWithFetch(connection, {
         system: follow.system,
         user: follow.user + '\n\nREPAIR FOLLOWUP. The first reading has been checked against the actual ledger. These items are still unresolved:\n' + pending.map((p) => '* ' + p).join('\n')
-          + '\nRead the evidence and supply a working correction using the allowed operations. A missing character needs people.set field core; a wrong identity needs people.rename, never deletion. Every scene repair needs shown: the exact newest-page quotation for that person. Check their latest evidence anywhere in the scene, including before a long final paragraph about someone else. Do not repeat an operation unchanged when it was blocked; correct its evidence or use another supported operation. Preserve completed corrections. If the concern is disproved, return it with no mutations and a fix explaining the evidence; do not claim an unresolved item was repaired.',
+          + '\nPROVISIONAL SCENE CHANGES TO VERIFY BEFORE SAVING:\n' + JSON.stringify(sceneWrites.map(a => a.mutation))
+          + '\nVerify these against the COMPLETE newest story page in chronological order. Earlier actions do not overrule a later arrival, departure or stopping position. Correct any provisional mistake with the last established position; leave valid edits alone. A synonymous rewording is not a correction.'
+          + '\nRead the evidence and supply a working correction using the allowed operations. A missing character needs people.set field core; a wrong identity needs people.rename, never deletion. Every scene repair needs shown: the exact newest-page quotation for that person. Check their latest evidence anywhere in the scene, including before a long final paragraph about someone else. Do not repeat an operation unchanged when it was blocked; correct its evidence or use another supported operation. Preserve completed corrections. If an inherited concern is disproved, return resolved:[{what: the exact earlier finding, shown: an exact source quotation disproving it, why: your explanation}]. Do not return an unmarked issue without mutations as a withdrawal.',
         maxTokens: MAX_TOKENS, signal, renew, leash: leashFor,
         isAnswer: (t) => parseAuditorAnswer(t).note === 'ok',
         source: { storyId, messages: allRaw, memory: mem, story: { brief, castNotes }, state: result.out }, room, rounds: 1,
@@ -505,7 +511,13 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
           if (repeatedPage) { repeatedPage.mutations.push(...mutations); return []; }
           return i.mutations.length && !mutations.length && !i.pages ? [] : [{ ...i, mutations }];
         });
-        offered = [...carry, ...corrections];
+        // A corrected provisional field replaces the draft; the wrong draft
+        // must never be committed as an intermediate ledger change.
+        const superseded = m => /^(presence\.|offscreen\.)/.test(m.type) && corrections.some(i => i.mutations.some(c =>
+          c.type === m.type && samePersonName(c.name || '', m.name || '')
+          && ['position', 'attire', 'location', 'activity', 'agenda'].filter(f => m[f] !== undefined).every(f => c[f] !== undefined)));
+        offered = [...carry.map(i => ({ ...i, mutations: i.mutations.filter(m => !superseded(m)) }))
+          .filter(i => i.mutations.length || i.pages), ...corrections];
         const current = await loadState(storyId);
         result = judge(current, offered);
         withdrawals.push(...(corrected.resolved || []));
@@ -517,6 +529,9 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       followupFailed = true;
     }
   }
+  // A failed scene verification cannot commit its unverified draft.
+  if (followupFailed && sceneWrites.length) offered = offered.map(i => ({ ...i,
+    mutations: i.mutations.filter(m => !/^(presence\.|offscreen\.)/.test(m.type)) })).filter(i => i.mutations.length || i.pages);
   auditAborted(signal);
   if (stale?.()) return null;
   // No result based on replaced, hidden or deleted source pages may land.
@@ -631,6 +646,7 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
   const newestAt = latestStory ? storyPages.findIndex((m) => m.id === latestStory.id) : -1;
   read.issues = auditorRepairScope(read.issues, fresh, {
     pageAt: newestAt, rejected: scopeRejected, sceneSource: pageText(latestStory),
+    identitySources: [brief, castNotes, ...all.filter(m => m.role === 'user').map(pageText)].join('\n'),
     sources: [brief, castNotes, ...all.filter((m, i) => !asideAt(all, i)).map(pageText)].join('\n'),
   });
   /* M267: A CHECK THAT FOUND NOTHING IS NOT A FINDING. The writer counted
@@ -742,7 +758,7 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
     issues.push({ ...i, landed, refused });
   }
   const report = { at: Date.now(), turn: storyTurn(next), leftStandings, issues: issues.map((i) => ({ what: i.what, fix: i.fix, pages: i.pages === true, fixable: i.mutations.length > 0 || (i.pages === true && Boolean(i.fix)), landed: i.landed, refused: i.refused })) };
-  const out = { ...next, audit: report, ...(newestAt !== -1 ? { page: fresh.page } : {}) }; /* M680: its writes carry the newest page; the ledger's own stamp is not the auditor's to move */
+  const out = { ...next, audit: { ...fresh.audit, ...report }, ...(newestAt !== -1 ? { page: fresh.page } : {}) }; /* M680: its writes carry the newest page; the ledger's own stamp is not the auditor's to move */
   return { out, applied, rejected, issues, note: 'ok', leftStandings, reportAt: report.at };
 }
 
@@ -1024,7 +1040,7 @@ export function manualRepairConflict(state, m, pageAt) {
     && String(j.m.name || '') === String(m.name || '') && String(j.m.field || j.m.key || '') === String(m.field || m.key || ''));
   return Boolean(last?.m?.byHand && (!Number.isInteger(pageAt) || last.p >= pageAt));
 }
-export function auditorRepairScope(issues, state, { sources = '', sceneSource = null, pageAt = null, rejected = [] } = {}) {
+export function auditorRepairScope(issues, state, { sources = '', sceneSource = null, identitySources = sources, pageAt = null, rejected = [] } = {}) {
   return (issues || []).map(issue => ({ ...issue, mutations: (issue.mutations || []).filter(m => {
     let why = '';
     if (!AUDITOR_TYPES.has(m.type) && m.type !== 'presence.update') why = 'unsupported auditor operation';
@@ -1033,7 +1049,8 @@ export function auditorRepairScope(issues, state, { sources = '', sceneSource = 
     else if (isMc(state, m.name) && /^people\./.test(m.type) && !['state', 'thread', 'unthread'].includes(m.field)) why = 'the main character identity and interpretation belong to the writer';
     else if (!/^rel\./.test(m.type) && !m.sourceRecovery) {
       const quote = m.shown || issue.shown;
-      const currentScene = /^(presence\.|offscreen\.)/.test(m.type) || m.type === 'mode.snapshot' || (m.type === 'people.set' && m.field === 'state');
+      const persona = m.type === 'offscreen.clear' && mcPersonaQuote(state, m.name, quote, identitySources);
+      const currentScene = /^presence\./.test(m.type) || (m.type === 'offscreen.clear' && !persona) || m.type === 'mode.snapshot' || (m.type === 'people.set' && m.field === 'state');
       const evidenceSource = currentScene && sceneSource !== null ? sceneSource : sources;
       if (!quotedSource(evidenceSource, quote)) why = currentScene ? 'include a quotation from the newest story page supporting this current scene correction' : 'include a real source quotation supporting this correction';
       else { m.shown = quote; m.evidence = quote; }
