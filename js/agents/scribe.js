@@ -355,7 +355,7 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
        * person's field it left out) stand beside it — every note that arrived whole is kept. */
       if (wasCut && secondWhole) {
         const said = new Set(second.deltas.map((d) => d.name.trim().toLowerCase() + '|' + d.field.trim().toLowerCase()));
-        read = { deltas: [...second.deltas, ...read.deltas.filter((d) => !said.has(d.name.trim().toLowerCase() + '|' + d.field.trim().toLowerCase()))], facts:[...(second.facts || []),...(read.facts || [])],entities:second.entities || read.entities || [] };
+        read = { deltas: [...second.deltas, ...read.deltas.filter((d) => !said.has(d.name.trim().toLowerCase() + '|' + d.field.trim().toLowerCase()))], facts:[...(second.facts || []),...(read.facts || [])],entities:second.entities || read.entities || [],recoveries:second.recoveries || [] };
       } else if (second.deltas.length > read.deltas.length || (secondWhole && second.deltas.length >= read.deltas.length)) read = second;
       note = secondWhole ? 'ok' : 'cut short';
     } catch (err) {
@@ -364,7 +364,6 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
     }
   }
   const { deltas } = read;
-  if (!deltas.length && !read.facts?.length && !read.entities?.length) return { changes: [], dropped: [], note };
 
   if (stale && stale()) return null; /* the writer has moved on — discard */
 
@@ -440,13 +439,13 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   });
   const { state: next, applied, rejected } = applyMutations(stamped, [...entities,...mutations,...facts]);
   const changes = applied.map((a) => ({ name: nameFromWords(a.words, a.mutation.name), field: a.mutation.field }));
-  const dropped = [...rejected.filter(r=>!r.same).map((r) => ({ delta: r.mutation, why: r.why })), ...thinned];
+  const dropped = [...rejected.filter(r=>!r.same).map((r) => ({ delta: r.mutation, why: r.why, recoverable:r.recoverable === true })), ...thinned];
   const recovery = retainPeopleFailures(next,documents,dropped,read.recoveries);
   const recoveryChanged = JSON.stringify(recovery) !== JSON.stringify(fresh.peopleRecovery || []);
   if (recoveryChanged) next.peopleRecovery = recovery;
-  if (!changes.length && !recoveryChanged) return { changes, dropped, note, pending:recovery };
+  if (!changes.length && !recoveryChanged) return { changes, dropped, note, pending:recovery, unfinished:note !== 'ok' || recovery.length > 0 };
   if (stale && stale()) return null;
   await saveState(storyId, stamped !== fresh ? { ...next, page: fresh.page } : next); /* M680: the ledger's own stamp is not the scribe's to move */
   notify(storyId);
-  return { changes, dropped, note, pending:recovery };
+  return { changes, dropped, note, pending:recovery, unfinished:note !== 'ok' || recovery.length > 0 };
 }

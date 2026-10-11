@@ -1548,7 +1548,7 @@ const HANDLERS = {
       const old = state.characters?.[key]?.core || '';
       if (old && old.includes(String(text || '').trim())) return {why:'the identity fact is already saved',same:true};
       if (old && !String(text || '').includes(old)) text = old + '\n' + text;
-      if (String(text || '').length > 4000) return {why:'the identity addition exceeds the field room; original facts retained'};
+      if (String(text || '').length > 4000) return {why:'the identity addition exceeds the field room; original facts retained',recoverable:true};
     }
     const result = setPersonField(state, state.characters, m.name, field, text, storyTurn(state), { clear: m.open === true ? 'open' : m.clear === true, writerCore, byHand:m.byHand === true });
     if (!result.entry) return { why: result.why, same: result.same === true };
@@ -1613,7 +1613,7 @@ const HANDLERS = {
   'people.note'(state, m) {
     const noted = typeof m.text === 'string' ? withoutStandingNumbers(m.text) : m.text; /* M524: a standing's number is the ledger's, never a page's words */
     const { characters, changes, dropped } = mergeDeltas(state, state.characters, [{ name: m.name, field: m.field, text: noted }], storyTurn(state));
-    if (!changes.length) { const why = (dropped[0] && dropped[0].why) || 'the note said nothing new'; return { why, ...(/already written down|said nothing new/.test(why) ? { same: true } : {}) }; } /* M680: a loose end already written is already so */
+    if (!changes.length) { const why = (dropped[0] && dropped[0].why) || 'the note said nothing new'; return { why, recoverable: dropped[0]?.recoverable === true, ...(/already written down|said nothing new/.test(why) ? { same: true } : {}) }; } /* M680: a loose end already written is already so */
     const key = changes[0].name;
     const before = state.characters && state.characters[key] ? cloneMap({ [key]: state.characters[key] })[key] : null;
     state.characters = characters;
@@ -3336,7 +3336,7 @@ export function applyMutations(state, mutations) {
       applied.push({ mutation, words: result.words, jid });
     } else {
       /* M259: a change that would change nothing says so (same) — it is not a refusal */
-      rejected.push({ mutation, why: (result && result.why) || 'it didn’t hold', ...(result && result.same ? { same: true } : {}) });
+      rejected.push({ mutation, why: (result && result.why) || 'it didn’t hold', ...(result && result.same ? { same: true } : {}), ...(result?.recoverable ? { recoverable: true } : {}) });
     }
   }
 

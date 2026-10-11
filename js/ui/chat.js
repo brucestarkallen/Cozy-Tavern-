@@ -5122,9 +5122,9 @@ export function initChat(ctx) {
       if (!kept) return { silent: true };
       const n = kept.changes.length;
       const detail = (n ? `wrote ${n} ${n === 1 ? 'note' : 'notes'} on the character pages` : 'nothing shifted on the character pages')
-        + (kept.note === 'cut short' ? ' (its answer ran out of room twice; every note that arrived whole was kept)' : '');
+        + (kept.note === 'cut short' ? ' (its answer was incomplete; every note that arrived whole was kept)' : '');
       return { silent: false, detail: detail + (kept.dropped?.length ? '; ' + kept.dropped.length + ' proposed notes were not saved: ' + kept.dropped.slice(0,2).map(d=>d.why).join('; ') : '') + (kept.pending?.length ? '; ' + kept.pending.length + ' sourced identity proposals remain for the next People reading' : ''),
-        ...((kept.dropped?.length || kept.pending?.length) ? {unfinished:true} : {}) };
+        ...(kept.unfinished ? {unfinished:true} : {}) };
     });
 
     /* 3. The memory keeper (M6; M12 grew the detail auditor inside it):

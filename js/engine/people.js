@@ -381,7 +381,7 @@ export function mergeDeltas(state, characters, deltas, turn) {
   const dropped = [];
 
   for (const delta of Array.isArray(deltas) ? deltas : []) {
-    const why = (words) => { dropped.push({ delta, why: words }); };
+    const why = (words, recoverable = false) => { dropped.push({ delta, why: words, recoverable }); };
     if (!delta || typeof delta !== 'object') { why('it isn’t shaped like a note at all'); continue; }
     let name = normalizeName(delta.name);
     if (!name) { why('no name came with it'); continue; }
@@ -404,7 +404,7 @@ export function mergeDeltas(state, characters, deltas, turn) {
     }
 
     let text = cleanFieldText(delta.text, FIELD_CAPS[field]);
-    if (field === 'core' && String(delta.text || '').trim().length > CORE_CAP) { why('the identity addition exceeds the field room; retain the original and reconcile smaller supported facts'); continue; }
+    if (field === 'core' && String(delta.text || '').trim().length > CORE_CAP) { why('the identity addition exceeds the field room; retain the original and reconcile smaller supported facts', true); continue; }
     if (!text) { why('the note came in empty'); continue; }
 
     let key = findPersonKey(next, name);
@@ -441,7 +441,7 @@ export function mergeDeltas(state, characters, deltas, turn) {
       const old = next[key].core.trim();
       if (old.includes(text)) { why('that identity fact is already written down'); continue; }
       if (!text.includes(old)) text = old + '\n' + text;
-      if (text.length > CORE_CAP) { why('the identity addition exceeds the field room; original facts retained'); continue; }
+      if (text.length > CORE_CAP) { why('the identity addition exceeds the field room; original facts retained', true); continue; }
     }
     next[key][field] = text;
     next[key].updatedAtTurn = atTurn;

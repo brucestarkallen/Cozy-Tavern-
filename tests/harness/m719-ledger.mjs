@@ -16,7 +16,7 @@ const connection={type:'openai',baseUrl:'https://fixture.example/v1',apiKey:'fix
 const courier='the annual courier';
 const base={...emptyState(),page:60,clock:{minutes:600},sheet:{playerName:'Jovan',actors:{}},characters:{},offscreen:{[courier]:{location:'the road',activity:'delivering a letter',agenda:'deliver the letter',stance:'toward',arrivesAtMinutes:630,sinceMinutes:590,atTurn:59}}};
 assert.deepEqual(missingLedgerPeople(base),[]);
-assert.deepEqual(missingSourcePeople(base,[{name:courier,kind:'person',source:'old',identityFacts:[],facts:[]}]),[]);
+assert.deepEqual(missingSourcePeople(base,[{name:courier,kind:'person',source:'old',identityFacts:[],facts:[],identityResolution:{kind:'person',to:courier,why:'The continuing delivery in this source.'}}]),[]);
 assert(worldParticipation(base,courier));
 const courierDone=applyMutations({...base,characters:{[courier]:{core:''}}},[
  {type:'offscreen.set',name:courier,location:'the post station',activity:'delivery completed',agenda:'',stance:'busy',cause:'The letter was delivered.'},
@@ -36,7 +36,9 @@ globalThis.fetch=async(_,options)=>{
   reply={checked:batch.map(d=>d.id),people:batch.filter(d=>d.passages.some(p=>p.text.includes(princessQuote))).map(d=>({name:'the third princess',kind:'person',source:d.id,evidence:d.passages[0].id,identityFacts:[{text:'The queen’s youngest daughter, the third princess.',evidence:d.passages[0].id}],facts:[{key:'hair',value:'silver',evidence:d.passages[0].id}]}))};
  } else {
   finalCalls++;
-  reply={issues:[],standings:[],review:{status:'complete',why:'Original sources and actual current records reviewed. Optional biography remains unknown.',open:[]},
+  const taskMessage=body.messages.find(m=>m.role==='user' && m.content.includes('REQUIRED SOURCE MENTION DECISIONS:\n'));
+  const tasks=taskMessage?JSON.parse(taskMessage.content.split('REQUIRED SOURCE MENTION DECISIONS:\n')[1].split('\n')[0]):[];
+  reply={issues:[],standings:[],identities:tasks.map(t=>({sourceId:t.sourceId,name:t.name,to:t.name,kind:'person',why:'The original establishes this distinct royal identity.'})),review:{status:'complete',why:'Original sources and actual current records reviewed. Optional biography remains unknown.',open:[]},
    ...(mode==='princess'?{profiles:[{name:'the third princess',core:{text:'The queen’s youngest daughter, the third princess.',shown:princessQuote},facts:[{key:'hair',value:'silver',shown:princessQuote}]}]}:{})};
  }
  const content=JSON.stringify(reply);
@@ -71,6 +73,7 @@ try {
  assert(stuck.audit.retryProgress.stalled>=2,'Genuine unchanged failures retain bounded retry accounting.');
  assert.deepEqual((await db.messages.list(story.id)).map(m=>m.text),historical.map(m=>m.text));
 } finally {globalThis.fetch=originalFetch;}
+if (process.argv.includes('--sources-only')) { console.log('M719 source checks passed.'); process.exit(0); }
 // An ordinary paid journey retains its history and description without recurring simulation.
 let driver={...base,offscreen:{Michael:{location:'the taxi stand',activity:'fare completed',sinceMinutes:1,atTurn:1}},characters:{Michael:{core:'A driver with blue eyes.',firstSeenTurn:60,updatedAtTurn:1}},canon:{Michael:{facts:[{key:'eyes',value:'blue'}]}}};
 assert.equal(worldParticipation(driver,'Michael'),'');
@@ -123,7 +126,7 @@ const added=applyMutations(coreState,[{type:'people.note',name:'Mira',field:'cor
 assert.equal(added.applied.length,1);assert(added.state.characters.Mira.core.startsWith(coreState.characters.Mira.core));
 assert.deepEqual(added.state.relationships,coreState.relationships);assert.deepEqual(added.state.canon,coreState.canon);
 const failed=[{delta:{name:'Mira',field:'core',text:'Sister of the third princess.',shown:princessQuote},why:'temporary write conflict'}];
-const recovery=retainPeopleFailures(coreState,docs,failed);
+const recovery=retainPeopleFailures(coreState,docs,failed.map(f=>({...f,recoverable:true})));
 assert.equal(recovery.length,1);
 assert(workerProfileSources({...coreState,peopleRecovery:recovery},docs).includes('UNSAVED IDENTITY PROPOSAL'));
 assert.equal(retainPeopleFailures({...added.state,peopleRecovery:recovery},docs,[]).length,0);

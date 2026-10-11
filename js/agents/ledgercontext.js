@@ -50,8 +50,8 @@ export function retainPeopleFailures(state, documents, dropped, resolved = []) {
     const c = state.characters?.[findPersonKey(state.characters,f.name)];
     if (r.status !== 'held' || c?.core?.trim()) entries.delete(r.id);
   }
-  for (const {delta:d,why} of dropped) {
-    if (d?.field !== 'core' || !d.text || !d.shown) continue;
+  for (const {delta:d,why,recoverable} of dropped) {
+    if (!recoverable || d?.field !== 'core' || !d.text || !d.shown) continue;
     const doc = documents.find(doc=>quotedSource(doc.text,d.shown));
     if (!doc || state.characters?.[findPersonKey(state.characters,d.name)]?.hand?.core) continue;
     const id = fingerprint36(JSON.stringify([doc.id,doc.mark,d.name,d.text]));

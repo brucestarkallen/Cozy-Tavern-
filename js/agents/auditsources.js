@@ -224,7 +224,7 @@ export async function reviewAuditSources({ connection, documents, previous = {},
   }
   const unread = documents.filter((d) => !cache[d.id]);
   for (const receipt of Object.values(cache)) receipt.people = receipt.people.map((p) => {
-    const ledgerName = sourcePersonKey(state, p.name, p.ledgerName);
+    const ledgerName = sourcePersonKey(state, p.name, p.ledgerName, p.identityResolution);
     return ledgerName ? { ...p, ledgerName } : p;
   });
   const people = documents.flatMap((d) => (cache[d.id]?.people || []).map((p) => ({ ...p, source: d.id, label: d.label })));
@@ -235,7 +235,11 @@ export async function reviewAuditSources({ connection, documents, previous = {},
 
 /* Receipts retain their original quotation. Their ledger name follows a real
  * recorded merge, including a merge made before aliases were stored in M687. */
-export function sourcePersonKey(state, name, remembered = '') {
+// Determiner-led labels need source interpretation, not a global name equality.
+// This routes ambiguity to the existing reader; it does not classify the entity.
+export const contextualSourceName = name => /^(?:the|a|an|this|that|these|those)\s/i.test(String(name).trim());
+
+export function sourcePersonKey(state, name, remembered = '', resolution = null) {
   const characters = state?.characters || {};
   const tracked = [...(state?.present || []).map(p => p.name),
     ...['offscreen','relationships','knowledge','canon'].flatMap(book => Object.keys(state?.[book] || {})),
@@ -243,11 +247,15 @@ export function sourcePersonKey(state, name, remembered = '') {
   const exactTracked = name => tracked.find(n => String(n).trim().toLowerCase() === String(name).trim().toLowerCase()) || '';
   // Explicit remembered mappings belong to this source row, not every future
   // use of the descriptor. Never borrow another page's 'the girl' mapping.
+  const contextual = contextualSourceName(name);
+  if (resolution?.kind === 'person') remembered = resolution.to;
+  if (contextual && !resolution && (!remembered || remembered.toLowerCase() === String(name).toLowerCase())) return '';
   if (remembered) {
     if (isMc(state,remembered)) return state.sheet?.playerName || remembered;
     const resolved = findPersonKey(characters,remembered);
     if (resolved) return resolved;
     if (exactTracked(remembered)) return exactTracked(remembered);
+    if (contextual) return ''; // A missing local target is not permission to choose a namesake.
   }
   const direct = findPersonKey(characters, name);
   if (direct && !String(characters[direct]?.core || '').trim() && !characters[direct]?.hand?.core) {
@@ -267,7 +275,7 @@ export function sourcePersonKey(state, name, remembered = '') {
 
 export function sourceIdentityNeeded(state, person) {
   if (person.kind && person.kind !== 'person') return false;
-  const key = sourcePersonKey(state, person.name, person.ledgerName);
+  const key = sourcePersonKey(state, person.name, person.ledgerName, person.identityResolution);
   if (isMc(state, key || person.name)) return false;
   if (!key) return true; // Unclassified original individual, including unique unnamed roles.
   if (state.characters?.[key]?.hand?.core || String(state.characters?.[key]?.core || '').trim()) return false;
@@ -279,7 +287,7 @@ export function missingSourcePeople(state, people = []) {
   for (const p of people) {
     if (p.kind && p.kind !== 'person') continue;
     if (isMc(state, p.name)) continue;
-    const key = sourcePersonKey({ ...state, characters: known }, p.name, p.ledgerName);
+    const key = sourcePersonKey({ ...state, characters: known }, p.name, p.ledgerName, p.identityResolution);
     if (key && isMc(state,key)) continue;
     if (!sourceIdentityNeeded({ ...state, characters: known }, p)) continue;
     const name = key || p.name;
@@ -299,9 +307,9 @@ export function missingSourcePeople(state, people = []) {
 // This is a lookup index, not another model call or an inferred biography.
 export function peopleSourceIndex(state, documents, people = []) {
   people = people.filter(p => !p.kind || p.kind === 'person');
-  const names = new Set([...Object.keys(state?.characters || {}), ...people.map(p => sourcePersonKey(state,p.name,p.ledgerName) || p.name)]);
+  const names = new Set([...Object.keys(state?.characters || {}), ...people.map(p => sourcePersonKey(state,p.name,p.ledgerName,p.identityResolution) || p.name)]);
   return [...names].filter(name => name && !isMc(state,name) && !isGroupName(name)).map(name => {
-    const mentions = people.filter(p => (sourcePersonKey(state,p.name,p.ledgerName) || p.name) === name);
+    const mentions = people.filter(p => (sourcePersonKey(state,p.name,p.ledgerName,p.identityResolution) || p.name) === name);
     const aliases = [...new Set([name,...(state.characters?.[name]?.aliases || []),...mentions.map(p => p.name)])];
     const selectedSources = new Set(mentions.map(p => p.source));
     // The reader already bound this identity to an original section. Do not

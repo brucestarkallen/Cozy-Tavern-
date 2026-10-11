@@ -1,3 +1,34 @@
+# M719 followups: truthful People status and source identity scope
+
+Version m719-002, based on remote main 2a0d1a8fd46108f97fdb3a9eed0e92bcf6bc0c78.
+
+People reports unfinished only for pending sourced save failures or incomplete
+execution. Mutation results explicitly identify recoverable capacity failures;
+unsupported, manual-protected and already-held proposals do not create recovery
+jobs. Empty-delta replies now apply recovery dispositions and clear stale pending
+facts. Incomplete replies remain visible. Storage exceptions still propagate.
+
+Determiner-led source descriptions require interpretation in their own section,
+including when an identically labelled character exists globally. Explicit saved
+M718 decisions take priority; same-label inferred ledger names are not decisions.
+Unresolved descriptions cannot inject another person's identity or appearance.
+Continuing couriers can bind to their existing Elsewhere record without a core.
+Unique unnamed identities remain recoverable through the existing final reader.
+Original receipts, marks and saved decisions are retained; no blanket invalidation.
+
+Focused checks: m719-followups.mjs passed with six mocked People calls; the M718
+source identity harness passed; only the source/audit portion of m719-ledger.mjs
+passed (now separately selectable with --sources-only). That portion checks
+princess recovery, optional courier biography, completed review reuse, changed
+sources, undo and retry bounds. A syntax error found when loading the auditor was
+corrected before those source checks passed. No bulk suite or live provider test.
+
+No World lifecycle, memory, context assembly, scheduling, prose, manual facts,
+relationships, branches, backup or migration changes. No new model calls or
+workers. Semantic support and source interpretation still depend on the existing
+readers; conservative descriptor routing can require a local identity decision
+inside the existing audit conversation. No live story correctness claim.
+
 # M719: evidence based identity, durable memory and bounded World work
 
 Version m719-001. M718 remote base267302bb54cf30788033b23b28c9b0b34717c2b0.

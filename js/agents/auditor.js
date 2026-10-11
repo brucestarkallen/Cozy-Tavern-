@@ -1133,7 +1133,7 @@ export function findingSettled(issue, result, withdrawals, documents, verificati
   if (issue.profileRecovery && issue.sourceId) {
     const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
     if (mention?.kind && mention.kind!=='person') return true;
-    const key=mention && sourcePersonKey(result.out,mention.name,mention.ledgerName);
+    const key=mention && sourcePersonKey(result.out,mention.name,mention.ledgerName,mention.identityResolution);
     // A withdrawal without a saved source decision would regenerate the same
     // complaint next turn. Keep the actual binding as the durable result.
     return Boolean(mention && !sourceIdentityNeeded(result.out, mention));
@@ -1194,7 +1194,7 @@ function mutationSatisfied(state, m) {
   if (m.type==='source.resolve') {
     const p=state.auditSources?.[m.sourceId]?.people?.find(p=>p.name===m.name);
     return Boolean(p?.identityResolution && p.kind===(m.kind || 'person')
-      && (p.kind!=='person' || sourcePersonKey(state,p.name,p.ledgerName)===(isMc(state,m.to)?mcName(state):sourcePersonKey(state,m.to))));
+      && (p.kind!=='person' || sourcePersonKey(state,p.name,p.ledgerName,p.identityResolution)===(isMc(state,m.to)?mcName(state):sourcePersonKey(state,m.to,m.to,{kind:'person',to:m.to}))));
   }
   const textSame = (wanted, actual) => String(wanted || '').trim() === String(actual || '').trim();
   let at = m.name ? findPresent(state, m.name, { strict: true }) : -1;

@@ -3,7 +3,7 @@ import { quotedSource } from '../engine/evidence.js';
 import { isMc, mcKey } from '../engine/people.js';
 import { samePersonName } from '../engine/names.js';
 import { findCanonKey, lookKey } from '../engine/canon.js';
-import { sourcePersonKey } from './auditsources.js';
+import { sourcePersonKey, contextualSourceName } from './auditsources.js';
 
 // Source reading proposes facts. The housekeeper decides their meaning and
 // chronology; the transport makes omissions visible without parsing prose.
@@ -16,7 +16,9 @@ export function sourceAppearanceFacts(state, documents = null) {
     if (receipt.appearanceReviewed !== true) continue;
     for (const person of receipt.people || []) {
       if (person.kind && person.kind !== 'person') continue;
-      const resolved = sourcePersonKey(state,person.name,person.ledgerName) || person.name;
+      const binding = sourcePersonKey(state,person.name,person.ledgerName,person.identityResolution);
+      if (!binding && contextualSourceName(person.name)) continue;
+      const resolved = binding || person.name;
       const name = isMc(state,resolved) ? mcKey(state) : resolved;
       for (const fact of person.facts || []) {
         if (!fact.key || !fact.value || !fact.shown || (original && !quotedSource(original.text,fact.shown))) continue;
@@ -83,7 +85,9 @@ export function sourceIdentityFacts(state, documents = null) {
     if (sources && (!original || original.mark!==receipt.mark)) continue;
     for (const person of receipt.people || []) {
       if (person.kind && person.kind !== 'person') continue;
-      const resolved=sourcePersonKey(state,person.name,person.ledgerName) || person.name;
+      const binding=sourcePersonKey(state,person.name,person.ledgerName,person.identityResolution);
+      if (!binding && contextualSourceName(person.name)) continue;
+      const resolved=binding || person.name;
       const name=isMc(state,resolved)?mcKey(state):resolved;
       for (const fact of person.identityFacts || []) {
         if (!fact.text || !fact.shown || (original && !quotedSource(original.text,fact.shown))) continue;
