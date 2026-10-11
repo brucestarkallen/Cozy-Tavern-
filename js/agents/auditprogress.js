@@ -1,7 +1,7 @@
 import { fingerprint36 } from '../engine/fingerprint.js';
 import { pageText } from '../assemble/stack.js';
 import { VERSION } from '../version.js';
-import { sourceAppearanceFacts } from './appearanceinventory.js';
+import { sourceAppearanceFacts,sourceIdentityFacts } from './appearanceinventory.js';
 
 export function ledgerRepairStateKey(state) {
   const fields = ['sheet', 'clock', 'place', 'present', 'offscreen', 'characters', 'relationships', 'knowledge', 'canon', 'threads', 'things', 'bodies', 'factions', 'mode', 'worldBrief', 'lastVerdict', 'pendingVerdict', 'duel', 'battle', 'composure'];
@@ -55,6 +55,7 @@ export function ledgerAuditVerified(state, story, pages) {
 export function ledgerVerificationRows(state) {
   const rows = [];
   const appearance = sourceAppearanceFacts(state);
+  const identities=sourceIdentityFacts(state);
   // A biography edit does not erase somebody else's completed review. Identity
   // merges and physical scene changes do invalidate the entries they affect.
   const identity = fingerprint36(JSON.stringify([state?.sheet?.playerName,state?.sheet?.playerAliases || [],
@@ -84,7 +85,7 @@ export function ledgerVerificationRows(state) {
     if (!entries.length) add(section, '(empty)', null, true);
     for (const [name, entry] of entries) {
       const value = section === 'characters'
-        ? {...Object.fromEntries(['core','coreOrigin','state','arc','threads','aliases','retired','hand'].filter(k => entry?.[k] !== undefined).map(k => [k,entry[k]])), physicalFacts:semantic(state.canon?.[name] || null),appearanceSources:appearance.filter(f => f.name === name)}
+        ? {...Object.fromEntries(['core','coreOrigin','state','arc','threads','aliases','retired','hand'].filter(k => entry?.[k] !== undefined).map(k => [k,entry[k]])), physicalFacts:semantic(state.canon?.[name] || null),appearanceSources:appearance.filter(f => f.name === name),identitySources:identities.filter(f=>f.name===name)}
         : semantic(entry);
       add(section, name, value, ['offscreen','relationships','factions'].includes(section));
     }

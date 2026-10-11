@@ -17,6 +17,7 @@ const VERSION = 2;
 const MAX_TOKENS = 6000;
 const CHUNK = 12000;
 const OVERLAP = 1200;
+const writerSource = d => /^(?:brief|cast):/.test(d.id) || d.label.endsWith(', writer');
 
 export function auditSources({ brief = '', castNotes = '', messages = [] } = {}) {
   const documents = [];
@@ -43,15 +44,16 @@ export function auditSources({ brief = '', castNotes = '', messages = [] } = {})
 const SYSTEM = withFictionFrame([
   'SOURCE PEOPLE REVIEW. You are the ledger auditor reading ORIGINAL source documents, not a summary.',
   WRITER_FACTS,
-  'Find every named person actually established in these documents, including quiet people, absent relatives,',
+  'Find every individually established person in these documents, including people with proper names AND unique singular role labels copied exactly from the source. A ranked sibling, an individually described heir or an established relative gets their own identity even when no personal name was supplied. Do not require them to have entered the main scene. Keep ordinal ranks distinct; do not turn a character used as a comparison or design reference into another story person. Do not invent a personal name for a role.',
   'princes, princesses and people introduced only by the writer. The ledger may have lost them completely.',
   'Do not assess their present whereabouts from old pages. Do not invent a biography, surname, title or rank.',
   'Ignore hypothetical characters, wishes, questions about possible people, names used only as comparisons,',
   'and instructions asking for a character to be created later. Keep deceased people as established identities.',
   'For each person copy an exact short passage that establishes their identity and includes their exact name.',
   'Also collect EVERY explicitly established lasting physical fact for that person in this document: hair, eyes, skin, build, height, scars and other enduring features. Use facts:[] when none is established. Read the complete document, including descriptions linked by pronouns. Current clothes, poses and expressions are not lasting facts. Do not infer missing details. Preserve changes as separate sourced facts; the final housekeeper resolves chronology.',
+  'Collect identityFacts:[{text,shown}] for explicit rank, family, background, stable personality and preferences. Use identityFacts:[] when none is established. These are atomic facts to retain in their People core, not a rewritten biography. Exclude guessed feelings, speculative attraction, questions and momentary actions. A deliberate character introduction in a parenthesis is still writer-established. Appearance belongs in facts, not identityFacts. Record alternate faces with their explicit persona or form in each physical fact key, keeping one player identity; alternate appearances are not mutually superseding hair colours.',
   'Return JSON: {"checked":["each source id actually read"],"people":[{"name":"exact name",',
-  '"source":"source id","shown":"exact identity quote, at most 1200 characters","facts":[{"key":"hair","value":"purple","shown":"exact original passage supporting this physical fact"}]}]}.',
+  '"source":"source id","shown":"exact identity quote, at most 1200 characters","identityFacts":[{"text":"explicit stable identity fact","shown":"exact source quote"}],"facts":[{"key":"hair","value":"established colour","shown":"exact original passage supporting this physical fact"}]}]}.',
   'Read every supplied document. List its id in checked even when it establishes no named people.',
   'The same person needs one informative quote per document, not every mention. Never quote from your instructions.',
 ].join('\n'));
@@ -73,20 +75,23 @@ export function parseSourceReview(text, batch) {
     const shown = quotedSource(source.text, p.shown);
     if (!name || name.length > 80 || !shown || !exactNameIn(shown, name) || isGroupName(name) || !Array.isArray(p.facts)) { invalid.add(source.id); continue; }
     const facts = p.facts.map(f => ({key:String(f?.key || '').trim(),value:String(f?.value || '').trim(),shown:quotedSource(source.text,f?.shown)}));
+    const identityFacts=Array.isArray(p.identityFacts)?p.identityFacts.map(f=>({text:String(f?.text || '').trim(),shown:quotedSource(source.text,f?.shown)})):[];
+    if ((writerSource(source) && !Array.isArray(p.identityFacts)) || identityFacts.some(f=>!f.text || !f.shown || f.text.length>1000)) {invalid.add(source.id);continue;}
     if (facts.some(f => !f.key || !f.value || !f.shown || f.key.length > 120 || f.value.length > 1000)) { invalid.add(source.id); continue; }
     if (!people.has(source.id)) people.set(source.id, []);
     const prior = people.get(source.id).find(x => x.name === name);
-    if (prior) prior.facts.push(...facts.filter(f => !prior.facts.some(old => JSON.stringify(old) === JSON.stringify(f))));
-    else people.get(source.id).push({ name, shown, facts });
+    if (prior) {prior.facts.push(...facts.filter(f => !prior.facts.some(old => JSON.stringify(old) === JSON.stringify(f))));prior.identityFacts.push(...identityFacts);}
+    else people.get(source.id).push({ name, shown, facts,identityFacts });
   }
-  return Object.fromEntries([...checked].filter((id) => !invalid.has(id)).map((id) => [id, { mark: sources.get(id).mark, appearanceReviewed:true, people: people.get(id) || [] }]));
+  return Object.fromEntries([...checked].filter((id) => !invalid.has(id)).map((id) => [id, { mark: sources.get(id).mark, appearanceReviewed:true,profileReviewed:1, people: people.get(id) || [] }]));
 }
 
 export async function reviewAuditSources({ connection, documents, previous = {}, mode = 'next', state = {}, signal, stale, renew } = {}) {
   const cache = {};
   for (const d of documents) {
     const old = previous[d.id];
-    if (old?.mark === d.mark && old.appearanceReviewed === true && Array.isArray(old.people) && old.people.every((p) => quotedSource(d.text, p.shown) && exactNameIn(p.shown, p.name)
+    if (old?.mark === d.mark && old.appearanceReviewed === true && (!writerSource(d) || old.profileReviewed===1) && Array.isArray(old.people) && old.people.every((p) => quotedSource(d.text, p.shown) && exactNameIn(p.shown, p.name)
+      && (p.identityFacts || []).every(f=>f.text && quotedSource(d.text,f.shown))
       && Array.isArray(p.facts) && p.facts.every(f => f.key && f.value && quotedSource(d.text,f.shown)))) cache[d.id] = old;
   }
   const todo = documents.filter((d) => !cache[d.id]);

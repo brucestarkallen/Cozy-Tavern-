@@ -1,3 +1,63 @@
+# M705: connect profile references, approved facts and writer role recovery
+
+Version m705-001. The actual M704 report has source coverage167/167,25 recovered
+appearance facts across9 people, entry verification154/163, and no-progress
+pause. The queen's hair WAS retrieved from an original page; the report does
+not include its full quote/value. Actual rejected repairs use appearance ids
+that were supplied in the character checklist but absent from the evidence
+binder's registry. The final reader returned9 checks, yet recorded appearances
+still lacked per-fact reconciliation. Do not tell the owner this was merely
+waiting, missing originals or a completed live repair. M704's small fixture did
+not exercise repairs using appearance ids or dual-face field mappings.
+
+Both initial and final reading now register original-validated appearance and
+identity ids as evidence. The final registry follows the actual provisional
+identity snapshot, including merges, rather than retaining pre-merge ids.
+Invented references remain rejected. PhysicalFacts on an approved character
+check now directly propose logged canon.lock writes; the model need not repeat
+that same decision under profiles/issues. Supported physical repairs can earn
+the same final receipt even if the reader called its approved target correct.
+Exact source key/value already saved is accounted for deterministically, with a
+real receipt, without requiring a second appearance array. Missing facts still
+fail. A housekeeper-approved explicit source-id mapping may choose an actual
+persona/form-specific field, keeping multiple faces under the one player
+identity without forcing dark and gold hair into a single key. The model judges
+meaning; code checks original evidence and actual saved values. Original prose,
+manual facts, player biography and earned feelings are retained.
+
+Source discovery now includes individually established singular role labels,
+ranked siblings and relatives without inventing personal names or treating a
+character design reference as another story person. Writer-source review also
+collects source-backed atomic identity facts for rank/background/personality and
+preferences, excluding guessed feelings. Only writer inputs/brief/cast with old
+profile receipts need upgrading; completed M704 story appearance receipts stay
+cached. No global source mark bump or full-story appearance rescan is required.
+Actual character rows include writer identity inventory; missing recovered
+facts cannot pass until the saved core represents them, or an evidenced/current
+manual decision accounts for them. Correct cores with exact recorded phrases
+need no redundant echo; semantic rewordings use an explicit exact saved excerpt.
+This also exposes loss of a player's earlier writer biography after a persona
+rewrite instead of silently approving only the latest face. The housekeeper
+must preserve all valid existing identity and faces when enriching that core.
+
+Folded originals ARE fetchable: askWithFetch uses stored messages, and serveFetch
+returns original pages by number/code, while memory summaries are separate
+record handles. Folding alone does not erase source pages. Current capped
+diagnostics include pending verification characters, their actual physical
+facts/writer inventory, and rejected mutation keys/values. The cap is retained.
+
+Verification: only node tests/harness/m705-focused.mjs, passed once. One mocked
+source call and one final review reproduce the actual appearance-id shape,
+record direct approved physical facts, preserve two persona hair fields,
+recover an absent queen's explicit personality/appearance and a role-only
+princess, reuse old story-source reads, accept accounted exact facts without
+duplicate echoes, refuse unsupported ids and missing personality, and fetch a
+folded original page. Manual eyes, full player biography, prose and p60/r50
+remain unchanged. No bulk, theme, gameplay or real provider calls. Do not rerun
+for documentation, commit or publishing. This proves the exercised connections,
+not that the owner's actual nine remaining entries or every source extraction
+are already complete. Standing publication permission is recorded in AGENTS.md.
+
 # M704: account for recovered appearance before approving a character
 
 Publication authorization: the initial M704 push was rejected by automatic

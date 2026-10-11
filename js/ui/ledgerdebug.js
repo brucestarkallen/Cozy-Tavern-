@@ -5,7 +5,7 @@ import { loadWorkerStatus, runningWorkers } from '../agents/status.js';
 import { pageText } from '../assemble/stack.js';
 import { ledgerAuditVerified } from '../agents/auditprogress.js';
 import { VERSION } from '../version.js';
-import { sourceAppearanceFacts } from '../agents/appearanceinventory.js';
+import { sourceAppearanceFacts,sourceIdentityFacts } from '../agents/appearanceinventory.js';
 
 export function redactDebug(value, secrets = []) {
   const text = JSON.stringify(value, (key, val) => /^(apiKey|api_key|token|accessToken|authorization|password|secret|headers)$/i.test(key) ? '[REDACTED]' : val, 2);
@@ -52,6 +52,7 @@ export async function ledgerDebugReport(storyId) {
   add('Unresolved repair operations',(state.audit?.unresolved || []).map(i => ({
     id:i.id,what:String(i.what || '').slice(0,160),pendingReason:String(i.pendingReason || '').slice(0,200),
     mutations:(i.mutations || []).map(m => ({type:m.type,name:m.name,from:m.from,to:m.to,field:m.field,
+      key:m.key,value:m.value,
       evidenceId:m.evidenceId,evidenceError:m.evidenceError,quoteCharacters:String(m.shown || m.evidence || '').length,
       shown:String(m.shown || m.evidence || '').slice(0,180)})),
   })),3000);
@@ -76,9 +77,10 @@ export async function ledgerDebugReport(storyId) {
   add('Current People profiles and physical facts',Object.entries(state.characters || {}).map(([name,p])=>({name,
     core:String(p.core || '').slice(0,240),now:String(p.state || '').slice(0,180),
     facts:(state.canon?.[name]?.facts || []).map(f=>({key:f.key,value:String(f.value || '').slice(0,100)}))})),4000);
-  const complaints = JSON.stringify([state.audit?.pending,state.audit?.unresolved]).toLowerCase();
+  const complaints = JSON.stringify([state.audit?.pending,state.audit?.unresolved,state.audit?.verification?.pending]).toLowerCase();
   const relevant = name => complaints.includes(name.toLowerCase());
-  add('People involved in findings',Object.entries(state.characters || {}).filter(([name]) => relevant(name)).map(([name,p]) => ({name,core:String(p.core || '').slice(0,240),aliases:p.aliases,manualFields:Object.keys(p.hand || {})})),1600);
+  add('People involved in findings',Object.entries(state.characters || {}).filter(([name]) => relevant(name)).map(([name,p]) => ({name,core:String(p.core || '').slice(0,240),aliases:p.aliases,manualFields:Object.keys(p.hand || {}),facts:state.canon?.[name]?.facts,
+    sourceIdentityFacts:sourceIdentityFacts(state).filter(f=>f.name===name).map(f=>({text:f.text,source:f.source}))})),1600);
   add('Elsewhere seats involved in findings',Object.entries(state.offscreen || {}).filter(([name])=>relevant(name)),1000);
   add('Identity recovery status',Object.values(state.identityRecoveries || {}).map(({from,to,note})=>({from,to,note})),500);
   const latest = pages.length ? pageText(pages[pages.length - 1]) : '';
