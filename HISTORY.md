@@ -20367,3 +20367,23 @@ yellow-to-green only with all other checks complete. Syntax/diff checks passed.
 No owner database, raw live response, live provider or browser test was available.
 Semantic interpretation remains model-dependent. Original prose, manual records,
 World, themes, branches, backups and scheduling remain unchanged.
+
+
+## M726: Canonical original references for historical recovery
+
+Version m726-001. Reproduced M725 accepting numeric 72 but rejecting displayed
+p72 with the same verbatim original, leaving its finding open. Fetch testing
+also found parseFetchRefs discarded pN before resolution. Shared ordinal
+resolution now supports pN, [pN], page N, numeric ordinals and precise message
+handles/IDs. Recovery evidence is keyed to actual original IDs, with detailed
+reference/availability/quotation diagnostics for supporting and conflicting
+citations. Literal provenance and semantic fidelity checks remain intact.
+A separate transport checkpoint permits one targeted retry of M725's generic
+fidelity-evidence failures without resetting genuine uncertainty or coverage.
+
+node tests/harness/m722-focused.mjs failed the required reproduction before the
+fix, then passed direct/fetched aliases, source safety, legacy recovery,
+persistence and controlled production green lamp checks. Existing focused
+preservation checks passed. Syntax checks for continuous.js and housekeeper.js
+and diff check passed. No paid provider, live owner database/browser, bulk suite,
+new worker, mandatory call, historical rescan or unrelated changes.

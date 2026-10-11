@@ -1,6 +1,7 @@
 import './idb-shim.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {resolveMessageRef,messageRefResult} from '../../js/agents/housekeeper.js';
 import {db} from '../../js/store.js';
 import {emptyState,saveState,loadState} from '../../js/engine/state.js';
 import {applyMutations,undoLast} from '../../js/engine/apply.js';
@@ -322,7 +323,7 @@ try {
  // Fabricated evidence cannot dismiss a finding, regardless of the selected conclusion.
  const invalid=await pendingStory();reply={...correctReply,evidence:[{source:'1',shown:'This fabricated captain quotation never appeared.'}]};
  const invalidResult=await auditStretch({connection,storyId:invalid.id});assert.equal(invalidResult.open,1);
- assert.match(invalidResult.unresolved[0].recovery.reason,/incorrect original-source evidence/);
+ assert.match(invalidResult.unresolved[0].recovery.reason,/quoted passage does not occur/);
  assert.equal((await loadMemory(invalid.id)).nodes[0].auditRecovery?.length || 0,0);
 
  // Changed original dependencies reopen only the settled finding, including after promotion.
@@ -436,7 +437,7 @@ try {
  const falseProof=await pendingStory();
  reply={...correctReply,evidence:[{source:'1',shown:'Invented original evidence of a captain.'}],sourceFidelity:supportedFidelity};
  const falseResult=await auditStretch({connection,storyId:falseProof.id});assert.equal(falseResult.open,1);assert.equal(falseResult.pending,0);
- assert.match(falseResult.unresolved[0].recovery.reason,/incorrect original-source evidence/);
+ assert.match(falseResult.unresolved[0].recovery.reason,/quoted passage does not occur/);
  assert.equal(await auditStretch({connection,storyId:falseProof.id}),null);
 
  // Execute the actual lamp state/class code against controlled completed ledger state.
@@ -460,6 +461,94 @@ try {
  assert.deepEqual(lamp(auditProgress(fidelitySaved,1),verified,fidelityShelf),{ledgerMark:'well',green:true,yellow:false});
  assert.equal(lamp(auditProgress(fidelitySaved,1),true,fidelityShelf).green,false,'Independent Auditor verification is still required.');
  assert.equal(historicalRunStatus(fidelityShelf.continuous).state,'good');
+ // M726: exercise the reference spelling actually displayed in the production prompt.
+ async function page72Story() {
+  const s=await db.stories.create({title:'Displayed page reference'});
+  for(let n=1;n<=75;n++) await db.messages.append(s.id,{role:'assistant',text:n===72?captainQuote:'Original event '+n+'.'});
+  await saveMemory(s.id,{nodes:[{id:'first',span:[0,68],level:1,text:'Earlier history.',audited:69,correctionReviewed:true},
+   {id:'last',span:[69,74],level:1,text:"Prince William's captain stood at the yard door.",audited:6,correctionReviewed:true,
+    auditOpen:[{issue:broken,why:'The record invents the captain identity.',from:69,to:74}]}]});
+  return s;
+ }
+ const page72=await page72Story();const originals72=await db.messages.list(page72.id);
+ const before72=await loadMemory(page72.id);
+ const pageReply=ref=>({...correctReply,sourceFidelity:supportedFidelity,evidence:[{source:ref,shown:captainQuote}]});
+ reply=pageReply('72');assert.equal((await auditStretch({connection,storyId:page72.id})).open,0,'Numeric control succeeds with exactly the same original.');
+ await saveMemory(page72.id,before72);
+ console.log('M726 reference probe: numeric 72 resolves:',Boolean(resolveMessageRef(originals72,'72')),'displayed p72 resolves:',Boolean(resolveMessageRef(originals72,'p72')));
+ const refCalls=calls;
+ reply=request=>{assert(request.includes('[p72]'));return pageReply('p72');};
+ const resolved72=await auditStretch({connection,storyId:page72.id});
+ assert.equal(resolved72.open,0,'Displayed p72 must bind to the actual original and close the false finding.');
+ assert.equal(calls,refCalls+1,'A valid displayed reference needs no clarification.');
+ assert.equal((await loadMemory(page72.id)).nodes[1].text,before72.nodes[1].text);
+ assert.deepEqual(await db.messages.list(page72.id),originals72);
+ const settled72=await loadMemory(page72.id);
+ assert.equal(settled72.nodes[1].auditRecovery.at(-1).evidence[0].source,originals72[71].id);
+ assert.equal(settled72.nodes[1].auditRecovery.at(-1).evidence[0].citedAs,'p72');
+ assert.deepEqual(lamp(auditProgress(settled72,75,originals72),false,fidelityShelf),{ledgerMark:'well',green:true,yellow:false});
+ const quiet72=calls;assert.equal(await auditStretch({connection,storyId:page72.id}),null);assert.equal(calls,quiet72);
+ for(const ref of ['72','p72','[p72]','page 72',originals72[71].id,'#'+originals72[71].id.slice(0,8)]) {
+  assert.equal(resolveMessageRef(originals72,ref)?.id,originals72[71].id);
+  await saveMemory(page72.id,before72);reply=pageReply(ref);const count=calls;
+  assert.equal((await auditStretch({connection,storyId:page72.id})).open,0,ref);assert.equal(calls,count+1,ref);
+ }
+ for(const ref of ['p0','p76','[p72','page 72 extra','p-1','p7.2','#missing']) assert.equal(resolveMessageRef(originals72,ref),null,ref);
+ assert.equal(messageRefResult([{id:'abcd1111'},{id:'abcd2222'}],'#abcd').error,'ambiguous');
+ assert.equal(messageRefResult(originals72,'p76').error,'unavailable');
+
+ // Fetch an earlier displayed reference, then validate a differently spelled alias of the same source.
+ await saveMemory(page72.id,before72);
+ await db.messages.update(page72.id,originals72[35].id,{text:earlierQuote});
+ let lookupCalls=0;
+ reply=request=>{lookupCalls++;if(lookupCalls===1)return '<fetch>["p36"]</fetch>';
+  assert(request.includes('Requested originals:'));assert(request.includes(earlierQuote));
+  return {...pageReply('[p36]'),evidence:[{source:'[p36]',shown:earlierQuote}]};};
+ const fetched72=await auditStretch({connection,storyId:page72.id});assert.equal(fetched72.open,0,JSON.stringify(fetched72.unresolved));assert.equal(lookupCalls,2);
+ const fetchedReceipt=(await loadMemory(page72.id)).nodes[1].auditRecovery.at(-1);
+ assert.equal(fetchedReceipt.evidence[0].source,originals72[35].id);
+ assert(fetchedReceipt.sources.some(s=>s.id===originals72[35].id && s.mark));
+
+ // Diagnose lookup, availability, quote, and conflict failures without fuzzy acceptance.
+ async function rejectedReference(ref,shown,pattern,conflict=false) {
+  await saveMemory(page72.id,before72);
+  reply=conflict?{...pageReply('p72'),sourceFidelity:{...supportedFidelity,conflicts:[{source:ref,shown,why:'Purported conflict.'}]}}:
+   {...pageReply(ref),evidence:[{source:ref,shown}]};
+  const r=await auditStretch({connection,storyId:page72.id});assert.equal(r.open,1);assert.equal(r.pending,0);
+  assert.match(r.unresolved[0].recovery.reason,pattern);
+  assert.equal(lamp(auditProgress(await loadMemory(page72.id),75),false,fidelityShelf).green,false);
+ }
+ await rejectedReference('p72','A fabricated captain quotation.',/Evidence "p72": quoted passage does not occur/);
+ await rejectedReference('p71',captainQuote,/quoted passage does not occur/);
+ await rejectedReference('p72',captainQuote.replaceAll("'",'’'),/quoted passage does not occur/);
+ await rejectedReference('p76',captainQuote,/original page is unavailable/);
+ await rejectedReference('not-a-source',captainQuote,/source reference could not be resolved/);
+ await rejectedReference('p36',earlierQuote,/unavailable as supplied story evidence/);
+ await rejectedReference('p76',captainQuote,/Conflicting evidence "p76": referenced original page is unavailable/,true);
+ await db.messages.update(page72.id,originals72[71].id,{ooc:true});
+ await rejectedReference('p72',captainQuote,/unavailable as supplied story evidence/);
+ await db.messages.update(page72.id,originals72[71].id,{ooc:false});
+
+ // Genuine semantic conflicts do not get reset; only the old transport error does.
+ await saveMemory(page72.id,before72);reply={...ambiguousReply(captainQuote,'The referent remains uncertain.'),evidence:[{source:'p72',shown:captainQuote}]};
+ await auditStretch({connection,storyId:page72.id});
+ const legacyTransport=await loadMemory(page72.id);
+ delete legacyTransport.nodes[1].auditOpen[0].recovery.evidencePolicy;
+ await saveMemory(page72.id,legacyTransport);
+ assert.equal(auditWaits(page72.id,legacyTransport,await db.messages.list(page72.id)),-1);
+ legacyTransport.nodes[1].auditOpen[0].recovery.reason='The recovery verdict remains inconsistent after clarification: Missing or incorrect original-source evidence for the fidelity decision or its claimed conflict.';
+ await saveMemory(page72.id,legacyTransport);
+ assert.equal(auditWaits(page72.id,legacyTransport,await db.messages.list(page72.id)),0);
+ reply=pageReply('p72');const legacyTransportCalls=calls;
+ assert.equal((await auditStretch({connection,storyId:page72.id})).open,0);assert.equal(calls,legacyTransportCalls+1);
+ assert.equal(await auditStretch({connection,storyId:page72.id}),null);
+ assert.equal((await loadMemory(page72.id)).nodes[1].text,before72.nodes[1].text);
+
+ // Writer sources remain separate canonical originals; cast aliases are not page IDs.
+ await saveMemory(page72.id,before72);await db.stories.update(page72.id,{castNotes:captainQuote});
+ reply=pageReply('cast');assert.equal((await auditStretch({connection,storyId:page72.id})).open,0);
+ assert.equal((await loadMemory(page72.id)).nodes[1].auditRecovery.at(-1).evidence[0].source,'cast');
+ console.log('M726 passed: displayed p72 and numeric control, canonical source aliases, fetched p36, precise invalid/ambiguous/unavailable/quote/conflict diagnostics, OOC exclusion, scoped M725 transport recovery, unchanged memory and controlled green lamp. Mocked provider only.');
  console.log('M725 passed: unknown/blocked reproduction settles via source fidelity, one clarification maximum, policy-1 recovery, different referent and invalid evidence rejected, genuine ambiguity bounded, exact repairs preserved, no-edit memory/Essentials retained, controlled production lamp changes from yellow to green with other verification complete. Mocked provider and DOM facade only.');
  console.log('M724 passed: contradictory and omitted dispositions clarified once, supported dismissal without edits, one-time legacy recovery, exact finding settlement, invalid evidence rejection, persisted receipts, changed-source reopening, truthful completion, zero unchanged-material calls. Mocked provider only.');
  console.log('M723 passed: automatic and saved-finding recovery, earlier-source withdrawal, bounded durable retries, uncertainty and manual protection, status round-trip, stale writes, Essentials invalidation, zero healthy-case calls. Mocked provider only.');

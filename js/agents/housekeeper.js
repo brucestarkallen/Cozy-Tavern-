@@ -576,7 +576,9 @@ export function parseFetchRefs(body) {
    * the model, in as many words, to "FETCH ... the line itself (its #r… mark)
    * before you judge". The one thing that button asks for could never be
    * fetched, and the turn came back as a bare <fetch> with nothing done. */
-  const isRef = (t) => /^#?[0-9a-f]{3,12}$/i.test(t)
+  const isRef = (t) => pageOrdinal(t)!==null
+    || /^#?[a-z0-9][a-z0-9_-]{3,127}$/i.test(t)
+    || /^#?[0-9a-f]{3,12}$/i.test(t)
     || /^#r[0-9a-z]{2,16}$/i.test(t)
     || /^\d{1,5}$/.test(t)
     || /^(rule|lore|person):\s*\S/i.test(t) /* M288: a person's page, whole */
@@ -667,23 +669,35 @@ export function refOf(message) {
 /* Resolve a ref the model wrote back to a message: the full id, the
  * served #code (prefix, 4+ chars), or a bare ordinal into the visible
  * index (1-based, as served). null when nothing answers to it. */
-export function resolveMessageRef(messages, ref) {
+function pageOrdinal(ref) {
+  const match=/^(?:([0-9]+)|p([0-9]+)|\[p([0-9]+)\]|page\s+([0-9]+))$/i.exec(String(ref).trim());
+  return match ? Number(match.slice(1).find(Boolean)) : null;
+}
+
+/* Displayed ordinals and handles share one precise source resolver. */
+export function messageRefResult(messages, ref) {
   const list = Array.isArray(messages) ? messages : [];
   const raw = String(ref == null ? '' : ref).trim();
-  if (!raw) return null;
-  const bare = raw.replace(/^#/, '');
-  const exact = list.find((m) => m && m.id === raw);
-  if (exact) return exact;
-  if (bare.length >= 4) {
-    const prefixed = list.filter((m) => m && typeof m.id === 'string' && m.id.startsWith(bare));
-    if (prefixed.length === 1) return prefixed[0];
+  if (!raw) return {error:'unresolved'};
+  const exact = list.filter(m=>m && m.id===raw);
+  if (exact.length===1) return {message:exact[0]};
+  if (exact.length>1) return {error:'ambiguous'};
+  const n=pageOrdinal(raw);
+  if (n!==null) {
+    const visible=list.filter(m=>m && !m.hidden);
+    return Number.isSafeInteger(n) && n>0 && n<=visible.length ? {message:visible[n-1]} : {error:'unavailable'};
   }
-  if (/^\d+$/.test(bare)) {
-    const visible = list.filter((m) => m && !m.hidden);
-    const at = Number(bare) - 1;
-    if (at >= 0 && at < visible.length) return visible[at];
+  const bare=raw.replace(/^#/, '');
+  if (bare.length>=4) {
+    const matches=list.filter(m=>m && typeof m.id==='string' && m.id.startsWith(bare));
+    if (matches.length===1) return {message:matches[0]};
+    if (matches.length>1) return {error:'ambiguous'};
   }
-  return null;
+  return {error:'unresolved'};
+}
+
+export function resolveMessageRef(messages, ref) {
+  return messageRefResult(messages,ref).message || null;
 }
 
 /* ---------- the context served to the model ---------- */

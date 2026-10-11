@@ -1,3 +1,49 @@
+# M726: Resolve displayed original references before validating evidence
+
+Version m726-001. Base main 30b05553f19db823d6eea46b5df6f5c3233bb37b.
+
+Confirmed transport defect: the recovery prompt displayed [p72], but evidence
+was indexed as "72". The new 75-page fixture passed numeric 72 and failed p72
+on unmodified M725, leaving open=1. resolveMessageRef also rejected p72.
+End-to-end fetch testing then exposed parseFetchRefs discarding p36 before the
+resolver. Both filters now share the displayed ordinal grammar.
+
+housekeeper.js resolves numeric ordinals, pN, [pN], page N, exact message IDs
+and unambiguous handles. It reports missing/ambiguous/unavailable references
+without guessing. continuous.js stores supplied originals under actual message
+IDs and canonicalizes supporting and conflicting citations through that shared
+resolver. Brief/cast remain distinct writer sources. Receipts retain canonical
+identity and the cited spelling. Unfetched or out-of-character originals are
+not evidence. Literal quotation matching, including punctuation, is unchanged.
+Diagnostics identify the failed reference and distinguish lookup, ambiguity,
+availability and quote mismatch from incomplete fields and semantic conflicts.
+
+A separate evidence-transport checkpoint reconsiders blocked M725 entries with
+the old exact generic fidelity-evidence validation error once. It does not bump
+the semantic disposition policy, reset genuine ambiguous findings, restart
+historical coverage, raise retries, or rewrite correct memory. M725 source
+fidelity and existing postcondition/stale-write checks still govern settlement.
+
+Verification: node tests/harness/m722-focused.mjs first failed the p72 fixture
+on M725 while the identical numeric citation passed. After both transport fixes,
+it passes displayed-reference equivalence, canonical receipts, fetched p36,
+invalid/wrong-page/typographic quotations, unavailable references, OOC exclusion,
+conflicting-source diagnostics, targeted legacy recovery, unchanged memory and
+production lamp logic returning green with all other requirements complete.
+Previous focused semantic, manual protection, Essentials, independent finding,
+source dependency, undo and retry cases also pass. node --check passed for
+continuous.js and housekeeper.js; git diff --check passed. No bulk suite.
+
+Only continuous.js, housekeeper.js and version.js changed in production. Lookup
+uses housekeeper's existing parser/server; no new worker or prompt architecture.
+Healthy material adds zero calls. A valid p72 dismissal takes one existing
+recovery request with no clarification. Fetching earlier originals uses the
+existing bounded continuation. No foreground delay or full historical rescan.
+The owner's live database and raw model reply were not accessible; this proves
+the transport path in a mock, not the owner's live green indicator. Semantics
+remain the reader's responsibility. Prose, correct memory, manual data, World,
+People, themes, branches, backups and scheduling remain unchanged.
+
 # M725: Source fidelity settles false historical allegations
 
 Version m725-001. Base main 6fbe19ad3ff0d750a5fe6930df0e12336909cc3a.
