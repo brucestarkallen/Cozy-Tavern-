@@ -866,7 +866,7 @@ export function healGhosts(state) {
 }
 
 const m_open = (clear, text, f) => clear === 'open' && f === 'core' && !String(text || '').trim();
-export function setPersonField(state, characters, name, field, text, turn, { clear = false } = {}) {
+export function setPersonField(state, characters, name, field, text, turn, { clear = false, writerCore = false, byHand = false } = {}) {
   const cleanName = normalizeName(name);
   if (!cleanName) return { why: 'no name came with it' };
   const f = typeof field === 'string' ? field.trim().toLowerCase() : '';
@@ -874,7 +874,7 @@ export function setPersonField(state, characters, name, field, text, turn, { cle
     return { why: '“' + (f || '?') + '” isn’t a page of the ledger (core, state, arc, threads)' };
   }
   const forMc = isMc(state, cleanName);
-  if (forMc && (f === 'core' || f === 'arc') && clear !== true) { /* M681 (P12): letting one go is always allowed — it should never stand */
+  if (forMc && (f === 'core' || f === 'arc') && clear !== true && !byHand && !(f === 'core' && writerCore)) {
     return { why: 'the main character’s ledger is record-only — state and threads, nothing more' };
   }
   if (isGroupName(cleanName)) return { why: '“' + cleanName + '” is a group, not a person — a faction, if anything' }; /* M484 */

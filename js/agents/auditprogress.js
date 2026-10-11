@@ -11,6 +11,11 @@ export function ledgerRepairInputKey(state, story, pages) {
     (pages || []).map(p => [p.id, p.role, p.ooc, pageText(p), p.voices || []]), ledgerRepairStateKey(state)]));
 }
 
+export function verificationReceiptMatches(receipt, row) {
+  return Boolean(receipt && receipt.print === row.print && receipt.scope === row.scope
+    && ['correct','repair'].includes(receipt.status));
+}
+
 // Actual outstanding work must decrease. Rephrasing ledger text is not closure.
 export function repairRetryCheckpoint(before, after, story, pages) {
   // Worker-created voices are checked evidence, but cannot reset retry progress.
@@ -19,7 +24,7 @@ export function repairRetryCheckpoint(before, after, story, pages) {
   const count = state => (state.audit?.pending || []).length;
   const currentSource = ledgerRepairInputKey({},story,pages);
   const currentEntries = state => state.audit?.verification?.source === currentSource
-    ? ledgerVerificationRows(state).filter(row => state.audit.verification.entries?.[row.id]?.print === row.print) : [];
+    ? ledgerVerificationRows(state).filter(row => verificationReceiptMatches(state.audit.verification.entries?.[row.id],row)) : [];
   const read = state => (Number(state.audit?.coverage?.read) || 0) + currentEntries(state).length;
   const old = previous?.source === source ? previous : {
     source, bestPending: count(before), bestRead: read(before), stalled: 0,
@@ -40,7 +45,7 @@ export function ledgerAuditVerified(state, story, pages) {
     && audit.coverage.read >= audit.coverage.total && audit.verification
     && audit.verification.source === ledgerRepairInputKey({}, story, pages)
     && audit.verification.ledger === ledgerRepairStateKey(state)
-    && ledgerVerificationRows(state).every(row => audit.verification.entries?.[row.id]?.print === row.print)
+    && ledgerVerificationRows(state).every(row => verificationReceiptMatches(audit.verification.entries?.[row.id],row))
     && audit.verifiedInput === ledgerRepairInputKey(state, story, pages));
 }
 
@@ -48,9 +53,19 @@ export function ledgerAuditVerified(state, story, pages) {
 // History/timestamps are bookkeeping, not a replacement for checking the value.
 export function ledgerVerificationRows(state) {
   const rows = [];
+  // A biography edit does not erase somebody else's completed review. Identity
+  // merges and physical scene changes do invalidate the entries they affect.
+  const identity = fingerprint36(JSON.stringify([state?.sheet?.playerName,state?.sheet?.playerAliases || [],
+    Object.entries(state?.characters || {}).map(([name,p]) => [name,p.aliases || []])]));
+  const ground = [state?.clock?.minutes,state?.place || null];
+  const poses = (state?.present || []).map(p => ({name:p.name,position:p.position || '',attire:p.attire || ''}));
+  const scene = fingerprint36(JSON.stringify([identity,ground,state?.mode,poses]));
+  const scopeOf = (section,name) => ['scene','presence','offscreen'].includes(section) ? scene
+    : section === 'characters' ? fingerprint36(JSON.stringify([identity,ground,poses.find(p => p.name === name),
+      ['location','activity','agenda','stance'].map(k => state?.offscreen?.[name]?.[k])])) : identity;
   const add = (section, name, value, judgment = false) => {
     const id = section + ':' + name;
-    rows.push({ id, section, name, value, judgment, print: fingerprint36(JSON.stringify(value)) });
+    rows.push({ id, section, name, value, judgment, scope:scopeOf(section,name),print: fingerprint36(JSON.stringify(value)) });
   };
   const semantic = value => {
     if (Array.isArray(value)) return value.map(semantic);
@@ -67,7 +82,7 @@ export function ledgerVerificationRows(state) {
     if (!entries.length) add(section, '(empty)', null, true);
     for (const [name, entry] of entries) {
       const value = section === 'characters'
-        ? {...Object.fromEntries(['core','state','arc','threads','aliases','retired','hand'].filter(k => entry?.[k] !== undefined).map(k => [k,entry[k]])), physicalFacts:semantic(state.canon?.[name] || null)}
+        ? {...Object.fromEntries(['core','coreOrigin','state','arc','threads','aliases','retired','hand'].filter(k => entry?.[k] !== undefined).map(k => [k,entry[k]])), physicalFacts:semantic(state.canon?.[name] || null)}
         : semantic(entry);
       add(section, name, value, ['offscreen','relationships','factions'].includes(section));
     }

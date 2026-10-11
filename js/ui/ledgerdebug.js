@@ -61,7 +61,9 @@ export async function ledgerDebugReport(storyId) {
   add('Recent ledger changes, newest first', (state.log || []).slice(-6).reverse().map(({undo,...row}) => row), 800);
   add('Recent journal, newest first', (state.journal || []).slice(-3).reverse(), 500);
   add('Source coverage', state.audit?.coverage || null, 700);
-  add('Entry verification', state.audit?.verification ? {read:state.audit.verification.read,total:state.audit.verification.total,pending:state.audit.verification.pending?.slice(0,6),scene:Object.fromEntries(Object.entries(state.audit.verification.entries || {}).filter(([id]) => id.startsWith('presence:')))} : null, 1600);
+  add('Entry verification', state.audit?.verification ? {read:state.audit.verification.read,total:state.audit.verification.total,finalReview:state.audit.finalReview,
+    failureCounts:(state.audit.verification.pending || []).reduce((counts,p) => {const reason=p.split(': ').slice(1).join(': ') || p;counts[reason]=(counts[reason] || 0)+1;return counts;},{}),
+    pending:state.audit.verification.pending?.slice(0,6),scene:Object.fromEntries(Object.entries(state.audit.verification.entries || {}).filter(([id]) => id.startsWith('presence:')))} : null, 2000);
   add('Current scene', {clock:state.clock,place:state.place,mode:state.mode,present:(state.present || []).map(p => ({name:p.name,position:String(p.position || '').slice(0,180),attire:String(p.attire || '').slice(0,100)}))},2500);
   add('Player identity', {name:state.sheet?.playerName,personas:state.sheet?.playerAliases || []},300);
   add('Current People profiles and physical facts',Object.entries(state.characters || {}).map(([name,p])=>({name,

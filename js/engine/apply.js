@@ -26,7 +26,7 @@
  * canon.unlock {name, key} — certainties written down and let go.
  * M12 (v4) adds the character ledger: people.set {name, field, text} —
  * field is core, state, arc or threads; the main character's page takes
- * state and threads only (record-only, enforced in engine/people.js).
+ * state/threads and writer-proven biography (ownership enforced in engine/people.js).
  * M72 adds the two writes that used to bypass the journal (and so were lost
  * by every fold): people.note {name, field, text} — the scribe's sparse
  * delta (field core/state/arc/thread/unthread, mergeDeltas' own laws) —
@@ -1213,7 +1213,7 @@ const HANDLERS = {
   /* people.set {name, field, text} — the writer's hand on a character's
    * page: core (their nature), state (where they are, how they're doing),
    * arc (how things stand, and why), threads (loose ends, semicolon- or
-   * newline-separated). The main character's page is record-only — state
+   * newline-separated). The main character keeps sourced writer facts and state
    * and threads, never core or arc (engine/people.js enforces it). */
   /* ---------- M29: the world beyond the page ---------- */
 
@@ -1465,11 +1465,16 @@ const HANDLERS = {
 
   'people.set'(state, m) {
     const field = typeof m.field === 'string' ? m.field.trim().toLowerCase() : '';
-    const result = setPersonField(state, state.characters, m.name, field, m.text, storyTurn(state), { clear: m.open === true ? 'open' : m.clear === true });
+    const writerCore = m.source === 'auditor' && m.writerEstablished === true && Boolean(m.shown);
+    const result = setPersonField(state, state.characters, m.name, field, m.text, storyTurn(state), { clear: m.open === true ? 'open' : m.clear === true, writerCore, byHand:m.byHand === true });
     if (!result.entry) return { why: result.why, same: result.same === true };
     if (m.source === 'auditor' && result.before && JSON.stringify(result.before[field]) === JSON.stringify(result.entry[field])) return { why: 'the saved field already contains this correction', same: true };
     if (m.open === true) { state.characters[result.key] = result.entry; return { words: result.key + ' — a page opened for them, nothing written on it yet.', undo: { kind: 'people.restore', name: result.key, before: null } }; } /* M508 */
     const before = result.before ? cloneMap({ [result.key]: result.before })[result.key] : null;
+    if (field === 'core') {
+      if (writerCore && m.clear !== true) result.entry.coreOrigin = {kind:'writer',text:result.entry.core,shown:m.shown};
+      else delete result.entry.coreOrigin;
+    }
     if (result.entry.retired) { const { retired, retiredAtTurn, ...rest } = result.entry; result.entry = rest; } /* M57: a page written wakes them */
     /* M263: WHAT THE WRITER WROTE BY HAND IS MARKED HIS, so no re-reading of
      * the pages ever writes over it; a later write by a reader is the story's
@@ -2921,7 +2926,9 @@ export function mcPageOnlyHis(state) {
   const key = findPersonKey(state && state.characters ? state.characters : {}, mc);
   const page = key ? state.characters[key] : null;
   if (!page) return [];
-  return ['core', 'arc'].filter((f) => String(page[f] || '').trim()).map((f) => ({ type: 'people.set', name: key, field: f, text: '', clear: true, cause: 'his page is his record alone' }));
+  return ['core', 'arc'].filter((f) => String(page[f] || '').trim() && !page.hand?.[f]
+    && !(f === 'core' && page.coreOrigin?.kind === 'writer' && page.coreOrigin.text === page.core))
+    .map((f) => ({ type: 'people.set', name: key, field: f, text: '', clear: true, cause: 'his page keeps writer facts, never an invented identity or arc' }));
 }
 export function hereByTheNewestPage(state, pageText, { pageAt = null } = {}) {
   const s = state && typeof state === 'object' ? state : null;

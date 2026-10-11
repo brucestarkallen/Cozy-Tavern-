@@ -110,7 +110,7 @@ export const emptyState = () => ({
   seedDueAfterFight: false, // set when a fight lets go — the sheet seeder's cue
   /* M12 (v6): the character ledger — who each person is (core/state/arc/
    * threads), written by the scribe and by hand (engine/people.js). The
-   * main character's entry is record-only (state + threads). */
+   * main character keeps state/threads and writer-proven biography, never an invented core/arc. */
   characters: {},
   /* M386: the series' truths the writer (or a reader) let go — "name|key", never written again on this timeline */
   canonLetGo: [],

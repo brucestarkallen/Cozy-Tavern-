@@ -19165,3 +19165,64 @@ in the current conversation on 11 October 2026. That resolves the authorization
 block. Publish normally to the verified existing main destination and verify its
 remote commit; no additional tests are required for these publication notes.
 
+
+# M703: connect housekeeper authority, writer facts and resumable verification
+
+Version m703-001. The actual M702 report confirms Jovan's persona and the king
+merge landed, then exposes a different conflict: the auditor demands Azrael's
+empty core be populated, its scope and the engine forbid it, and opening the
+story clears any primary MC core. Entry review stalls at95/163 with missing
+checks. A controlled M702 pass did not cover an empty primary MC People record.
+
+Writer facts are records, not model interpretation. The auditor may recover MC
+core only from a literal ORIGINAL writer brief, cast note or writer page quote.
+Scope removes provider permission flags and establishes writerEstablished itself.
+The engine routes the core through the normal logged/undoable setter, retains
+coreOrigin proof, and reopening preserves an exact writer-proven core or manual
+field. Ordinary workers still cannot invent MC core or arc. Shared reader and
+scribe instructions agree with this ownership. Main-character original writer
+references are now proactively included in the evidence bank. The original
+prose, manual fields and valid earned relationship scores are untouched.
+
+Final biography approval includes exact before/after text, preventing the final
+reader from losing sight of valid facts a shortened draft omitted. An absent or
+open entry verdict withholds its first-pass core. Corrections can supersede
+provisional People fields without saving the wrong draft first. A failed final
+reading withholds provisional core, scene and identity writes. The housekeeper's
+explicit sourced correct/repair verdict means complete identity/appearance review;
+no duplicate boolean flags or rewritten biography are required in checks. If
+optional detail is supplied it still must be valid, source-bound and match actual
+canon; explicitly unfinished review cannot pass. New physical locks can still
+receive same-pass canon receipts from explicit physicalFacts.
+
+Completed receipts are reused by source, exact row fingerprint and relevant
+context instead of requiring the entire ledger hash to stay unchanged. Context
+includes identity routing and, for physical rows, the scene; a People row also
+depends on its own presence/elsewhere context. A biography repair does not throw
+away other characters' completed reviews. Changed sources, values or dependent
+context invalidate receipts. Completion still requires every actual row and all
+source coverage, never just empty findings. Originals are offered fairly across
+People before long passages consume the bank. The capped debug report now shows
+final-reader status, requested/received counts, reply size and grouped failures.
+This makes missing output distinguishable from a refused factual correction.
+
+Verification: only node tests/harness/m703-focused.mjs. The first execution's
+fixture seeded receipts before normal migration defaults, so its mock final
+reader rejected a changed fingerprint and approval was withheld. Setup was fixed
+to seed ACTUAL saved/loaded shapes. The next execution passed. It exercises empty
+primary MC source recovery, save/open preservation and undo, rejected provider
+ownership spoofing, preserved manual biography, withheld unapproved shortening,
+retained unrelated receipts, one missing-check continuation, context/source
+invalidation, incomplete-review refusal and unchanged prose/scores. Three mocked
+reader replies exercise repair, final review and continuation; no gameplay, theme,
+bulk suite or paid calls. Do not rerun after documentation or publishing.
+
+Owner explicitly authorized this connected implementation. Automatic approval
+review rejected the commit/push before execution, treating prior publication
+approval as limited to M702 and requiring explicit approval for this new M703
+commit on GitHub main. Do not retry or bypass this rejection; the tested change
+is prepared as a local commit for that approval. No additional tests are needed.
+The owner's complete phone sources/provider output
+are not available here. These shared defects are repaired and controlled behavior
+is verified; do not claim the live ledger or every possible story is perfect.
+
