@@ -75,7 +75,7 @@ function parseReview(text, batch) {
   return Object.fromEntries([...checked].filter((id) => !invalid.has(id)).map((id) => [id, { mark: sources.get(id).mark, people: people.get(id) || [] }]));
 }
 
-export async function reviewAuditSources({ connection, documents, previous = {}, mode = 'next', signal, stale, renew } = {}) {
+export async function reviewAuditSources({ connection, documents, previous = {}, mode = 'next', state = {}, signal, stale, renew } = {}) {
   const cache = {};
   for (const d of documents) {
     const old = previous[d.id];
@@ -109,16 +109,35 @@ export async function reviewAuditSources({ connection, documents, previous = {},
     }
   }
   const unread = documents.filter((d) => !cache[d.id]);
+  for (const receipt of Object.values(cache)) receipt.people = receipt.people.map((p) => {
+    const ledgerName = sourcePersonKey(state, p.name, p.ledgerName);
+    return ledgerName ? { ...p, ledgerName } : p;
+  });
   const people = documents.flatMap((d) => (cache[d.id]?.people || []).map((p) => ({ ...p, source: d.id, label: d.label })));
   return { cache, people, calls, total: documents.length, read: documents.length - unread.length,
     pending: unread.length ? [unread.length + ' original source sections still need review' + (failure ? ': ' + failure : '')] : [] };
+}
+
+/* Receipts retain their original quotation. Their ledger name follows a real
+ * recorded merge, including a merge made before aliases were stored in M687. */
+export function sourcePersonKey(state, name, remembered = '') {
+  const characters = state?.characters || {};
+  const direct = findPersonKey(characters, name);
+  if (direct) return direct;
+  let renamed = name;
+  for (const entry of state.journal || []) {
+    const m = entry?.m;
+    if (m?.type === 'people.rename' && String(m.from || '').toLowerCase() === String(renamed).toLowerCase()) renamed = m.to;
+  }
+  if (renamed !== name) return findPersonKey(characters, renamed);
+  return remembered ? findPersonKey(characters, remembered) : '';
 }
 
 export function missingSourcePeople(state, people = []) {
   const known = { ...(state?.characters || {}) }; const issues = [];
   for (const p of people) {
     if (isMc(state, p.name)) continue;
-    const key = findPersonKey(known, p.name);
+    const key = sourcePersonKey({ ...state, characters: known }, p.name, p.ledgerName);
     if (key && (String(known[key]?.core || '').trim() || known[key]?.hand?.core)) continue;
     const name = key || p.name;
     // Keep the literal evidence. The auditor may refine this core from the whole

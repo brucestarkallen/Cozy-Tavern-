@@ -1104,7 +1104,7 @@ const HANDLERS = {
       const key = owner ? Object.keys(state.offscreen || {}).find((k) => !isDeadSeat(state.offscreen[k]) && findPersonKey(chars, k) === owner) : null; /* the same PAGE — never a shared first name (M320) */
       if (key) seated = { key, entry: state.offscreen[key] };
     }
-    if (!seated) return { why: 'the ledger has no elsewhere note for ' + name };
+    if (!seated) return { why: 'the ledger has no elsewhere note for ' + name, same: true };
     /* M588 (his report: "my mc walks to her door and she's gone from the world AND from who's here — the ledger deleted
      * her"): A PERSON IS ALWAYS SOMEWHERE. Letting a note go while she is not in the scene left her nowhere — the reader,
      * seeing him at her door, let "in her quarters" go, and she was neither here nor anywhere. A note is let go only for
@@ -1377,9 +1377,13 @@ const HANDLERS = {
     const keys = ['characters', 'offscreen', 'relationships', 'knowledge', 'canon', 'bodies', 'present', 'roomAt', 'threads', 'factions', 'sheet', 'things', 'duel', 'battle'];
     const before = {};
     for (const k of keys) before[k] = JSON.parse(JSON.stringify(state[k] === undefined ? null : state[k]));
+    const oldAliases = Object.entries(state.characters || {}).filter(([k]) => k.toLowerCase() === from.toLowerCase() || k.toLowerCase() === to.toLowerCase())
+      .flatMap(([, c]) => Array.isArray(c.aliases) ? c.aliases.filter((a) => typeof a === 'string') : []);
     const { state: renamed, count } = renameInState(state, from, to);
     if (!count) return { why: 'nothing in the ledger is called ' + from };
     for (const k of keys) if (renamed[k] !== undefined) state[k] = renamed[k]; /* M607: whose a thing is — and where it is said to be — now follow inside renameInState, counted */
+    const owner = Object.keys(state.characters || {}).find((k) => k.toLowerCase() === to.toLowerCase());
+    if (owner) state.characters[owner] = { ...state.characters[owner], aliases: [...new Set([...oldAliases, from])].filter((a) => a.toLowerCase() !== owner.toLowerCase()) };
     return { words: from + ' is ' + to + ' now — ' + count + ' ' + (count === 1 ? 'place' : 'places') + ' in the ledger follow' + (m.cause ? ' (' + capText(m.cause, 1000) + ')' : '') + '.', undo: { kind: 'people.renamed', before } };
   },
   /* M96: people.forget — a person who was never the story's (a leaked example,

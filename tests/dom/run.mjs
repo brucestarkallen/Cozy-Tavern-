@@ -15389,5 +15389,81 @@ test('DOM-M686-7 autonomous recovery does not treat a stopped partial page as co
   });
 });
 
+test('DOM-M687-1 an accumulated salle repair backlog finishes automatically, turns green and stays completed after reopening', async () => {
+  const { emptyState, saveState, loadState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { noteWorkerRun } = await import('../../js/agents/status.js');
+  const { pendingWork } = await import('../../js/agents/extractor.js');
+  const before = { story: await storyId(), worker: house.state.workerAnswer, source: house.state.sourcePeopleAnswer, audit: await db.settings.get('auditOn'), errors: errors.length };
+  const alexia = 'Princess Alexia came in through the side gallery and sat in the third row, her woman settling two seats behind her.';
+  const commodus = 'At the rail, Commodus turned his head toward Garett without troubling to lower his voice.';
+  const kerroc = 'Kerroc sat on his witness stool with the ledger shut on his knees.';
+  const end = 'The marshal reached the middle of the raked ground and came again head high, the full width of his shoulders behind the blunted blade. Jugram gave ground six steps to the cold stone wall, still watching the point rather than the hands. The steel beat once against the guard, loud enough for every bench to hear. Gravel dragged beneath the planted boot. The measured distance between the two fighters closed again as the next attack began, with neither leaving the salle and no change of scene.';
+  const page = '[the palace salle, Ilvarren | 10:00]\n\n' + [alexia, commodus, kerroc, end].join('\n\n');
+  const original = 'Lord Marshal Kelstrum is the Marshal of Ilvarren.';
+  const st = await db.stories.create({ title: 'M687 saved salle repair loop' });
+  await db.stories.update(st.id, { keeper: false, continuity: false, extraction: true, world: false, audit: true });
+  await db.settings.set('auditOn', true);
+  await db.messages.append(st.id, { role: 'user', text: original });
+  await db.messages.append(st.id, { role: 'assistant', text: page });
+  const state = applyMutations({ ...emptyState(), page: 0, readTo: 0 }, [
+    { type: 'mc.set', name: 'Jugram' }, { type: 'place.set', name: 'the palace salle, Ilvarren' },
+    { type: 'presence.enter', name: 'Jugram' }, { type: 'presence.enter', name: 'Kerroc', position: 'on his witness stool, pencil moving on the margin' },
+    ...['Princess Alexia', "Alexia's woman", 'Commodus', 'Kerroc', 'Garett', 'Kelstrum'].map((name) => ({ type: 'people.set', name, field: 'core', text: 'An established person in this story.' })),
+    { type: 'people.set', name: 'Lord Marshal Kelstrum', field: 'core', text: original },
+    { type: 'people.rename', from: 'Lord Marshal Kelstrum', to: 'Kelstrum' },
+    { type: 'offscreen.set', name: 'Princess Alexia', location: 'the palace salle gallery' },
+    { type: 'offscreen.set', name: 'Commodus', location: 'the palace salle rail' },
+  ]).state;
+  delete state.characters.Kelstrum.aliases; /* the saved M686 merge predates durable aliases */
+  const repairs = [
+    { type: 'presence.enter', name: 'Princess Alexia', position: 'third row of the gallery', shown: alexia },
+    { type: 'presence.enter', name: "Alexia's woman", position: 'two seats behind Alexia', shown: alexia },
+    { type: 'presence.enter', name: 'Commodus', position: 'at the rail beside Garett', shown: commodus },
+    { type: 'presence.update', name: 'Kerroc', position: 'on his witness stool with the ledger shut on his knees', shown: kerroc },
+    { type: 'offscreen.clear', name: 'Kelstrum' },
+    { type: 'people.rename', from: 'Lord Marshal Kelstrum', to: 'Kelstrum' },
+  ];
+  state.roomAt = { page: 0, names: ['Jugram', 'Kerroc', 'Kelstrum', 'Garett'] };
+  state.audit = { unfinished: true, pending: ['The saved salle repairs are blocked.'], unresolved: Array.from({ length: 36 }, (_, i) => ({
+    what: 'Repeated salle concern ' + i, pendingReason: 'blocked on the page ending', mutations: [repairs[i % repairs.length]],
+  })) };
+  await saveState(st.id, state); await noteWorkerRun(st.id, 'extractor', { ok: true, detail: 'well' });
+  let calls = 0;
+  house.state.sourcePeopleAnswer = (body, docs) => JSON.stringify({ checked: docs.map((d) => d.id), people: docs.filter((d) => d.text === original).map((d) => ({ name: 'Lord Marshal Kelstrum', source: d.id, shown: original })) });
+  house.state.workerAnswer = (body, sys) => /auditor of the ledger/i.test(sys)
+    ? (calls++, JSON.stringify({ issues: repairs.map((m, i) => ({ what: 'Restore the salle record ' + i, mutations: [m] })) }))
+    : before.worker(body, sys);
+  globalThis.__cozyLedgerRepairPauseMs = 20; globalThis.__cozyLedgerRepairBackoffMs = 20;
+  const open = async (id) => { env.window.__cozy.setActiveStoryId(id); await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true }); };
+  try {
+    await open(st.id);
+    await until(async () => (await loadState(st.id)).audit?.unfinished === false, 'the accumulated backlog finishes automatically', 7000).catch(async (err) => {
+      throw new Error(err.message + ': ' + JSON.stringify({ calls, audit: (await loadState(st.id)).audit, errors: errors.slice(before.errors) }));
+    });
+    await until(() => q('#btn-ledger').classList.contains('all-well'), 'the completed ledger returns to green', 5000);
+    const repaired = await loadState(st.id);
+    for (const name of ['Princess Alexia', "Alexia's woman", 'Commodus']) assert(repaired.present.some((p) => p.name === name), name + ' is restored');
+    assert(repaired.present.find((p) => p.name === 'Kerroc').position.includes('ledger shut'), 'the supported posture lands');
+    assert(!repaired.offscreen.Commodus && !repaired.offscreen['Princess Alexia'], 'the stale elsewhere notes clear');
+    assert(!repaired.characters['Lord Marshal Kelstrum'], 'source recovery respects the saved identity merge');
+    eq(repaired.audit.unresolved.length, 0, 'reworded old findings close');
+    eq((await db.messages.list(st.id)).length, 2, 'no story page is generated or replaced');
+    eq((await db.messages.list(st.id)).at(-1).text, page, 'the original story page remains exact');
+    const completed = calls; await tick(650); eq(calls, completed, 'completion stops the idle audit requests');
+    await open(before.story); await open(st.id); await tick(650);
+    eq(calls, completed, 'reopening preserves completion');
+    assert(q('#btn-ledger').classList.contains('all-well'), 'green also survives reopening');
+    eq(errors.length, before.errors, 'no app errors');
+  } finally {
+    await db.stories.update(st.id, { audit: false }); env.window.__cozy.setActiveStoryId(before.story);
+    await pendingWork(st.id, 10000);
+    house.state.workerAnswer = before.worker; house.state.sourcePeopleAnswer = before.source;
+    await db.settings.set('auditOn', before.audit);
+    delete globalThis.__cozyLedgerRepairPauseMs; delete globalThis.__cozyLedgerRepairBackoffMs;
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

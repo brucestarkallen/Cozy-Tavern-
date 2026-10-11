@@ -191,6 +191,11 @@ export function findPersonKey(characters, name) {
   const keys = Object.keys(characters && typeof characters === 'object' ? characters : {});
   const exact = keys.find((k) => k.toLowerCase() === wanted);
   if (exact) return exact;
+  /* M687: original sources follow identities that were actually renamed. */
+  const aliases = keys.filter((k) => Array.isArray(characters[k]?.aliases)
+    && characters[k].aliases.some((a) => keyLower(a) === wanted));
+  if (aliases.length === 1) return aliases[0];
+  if (aliases.length > 1) return '';
   /* M398: ONE PERSON, ONE PAGE — THE SAME LETTERS, OR CANON'S OTHER NAME FOR THEM. "Suì-Fēng" (from canon) and
    * "Sui-Feng" (on the page) are one person with folded letters; "Soi Fon" is her too when canon says so. Only a
    * match that is exactly one page, and only by folded letters or canon's names — first names keep their own rule

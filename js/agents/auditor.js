@@ -22,8 +22,8 @@
 import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M554; M677: what goes into who knows what — the reader's own rule; M679: what answers a loose end — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
 import { samePlace, seatAtScene, handSetClockSince } from '../engine/apply.js'; /* M403; M681: a seat at the scene's own place */
-import { seatForPerson, sameLooseEnd } from '../engine/people.js'; /* M398; M679: a loose end matched by sense, as the applier matches it */
-import { isHere, nameOnPage, samePersonName, oneMeaning } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
+import { seatForPerson, sameLooseEnd, roleOwnersNamed, roleWordOf } from '../engine/people.js'; /* M398; M679: a loose end matched by sense, as the applier matches it */
+import { isHere, nameOnPage, samePersonName, oneMeaning, foldName } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
 import { shownOnPage, personBookKey, groundTheTellingStandsOn, narrationOf } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
 import { findRelationship } from '../engine/relationships.js';
 import { db } from '../store.js';
@@ -31,7 +31,7 @@ import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, headerMutations, headerDress } from '../engine/state.js'; /* M679: his header's dress */
-import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf, showsDeparture, goneAtTheEnd, quotedGoing, restatedPresence, toldOnPage, mcWalksOff, findThingKey, pageEnding, walkInFromPage, deathToldOf } from '../engine/apply.js'; /* M444; M446: the departure reader, and who is gone at a page's end */
+import { applyMutations, RETIRED_EXAMPLE_NAMES , storyTurn, findPresent, clearsThatArrive, scenePartOf, showsDeparture, goneAtTheEnd, quotedGoing, restatedPresence, toldOnPage, mcWalksOff, findThingKey, pageEnding, walkInFromPage, deathToldOf, comesInAtTheEnd } from '../engine/apply.js'; /* M444; M446: the departure reader, and who is gone at a page's end */
 import { findSeat, isDeadSeat } from '../engine/offscreen.js';
 import { findThread, onTheWay } from '../engine/world.js'; /* M681 (W5): an approach that lapsed is nobody on the way */
 /* M240: it was told to catch a healed wound and never shown the wounds.
@@ -48,7 +48,7 @@ import { explicitStandings, readStatedStandings, samePersonLoose, isLabel } from
 import { loadMemory, wholeRecord, recordWithPages } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
 import { pageText } from '../assemble/stack.js';
 import { exactNameIn, quotedSource, WRITER_FACTS } from '../engine/evidence.js';
-import { auditSources, reviewAuditSources, missingSourcePeople, missingLedgerPeople } from './auditsources.js';
+import { auditSources, reviewAuditSources, missingSourcePeople, missingLedgerPeople, sourcePersonKey } from './auditsources.js';
 
 const MAX_TOKENS = 6000;
 export const DEFAULT_AUDIT_EVERY = 1; /* turns — M94: every page, as Summaryception's continuity auditor runs on every line */
@@ -170,6 +170,10 @@ function law({ mc }) {
     'wrongly zero; a thread the pages closed still hot or a live agenda missing; a witnessed fact',
     'with no knowledge line; the clock or the ground wrong on a page with no header line; a duplicate.',
     'Report every supported discrepancy you find. There is no target count of findings; a large damaged ledger may need many repairs.',
+    'For each presence.enter, presence.update or people.set state repair, copy an exact newest-page quotation in shown.',
+    'Follow each person through the entire newest scene. Their last established position continues while others act;',
+    'a long final paragraph about the duel does not remove quiet gallery spectators or erase their latest posture.',
+    'A later departure, death, changed position or scene move still wins. Never restore an earlier moment over it.',
     '',
     'THE BRIEF WINS: when the PAGES themselves contradict the brief — a wrong name, a wrong relation, a',
     'wrong role, a person somewhere the brief says they cannot be, a fact the brief settles written the',
@@ -384,7 +388,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const all = answeredOnly(allRaw);
   if (!all.length) return null;
   const documents = auditSources({ brief, castNotes, messages: all });
-  const sourceReview = reviewSources ? await reviewAuditSources({ connection, documents, previous: state.auditSources || {}, mode: reviewSources, signal, stale, renew }) : null;
+  const sourceReview = reviewSources ? await reviewAuditSources({ connection, documents, previous: state.auditSources || {}, state, mode: reviewSources, signal, stale, renew }) : null;
   auditAborted(signal);
   if ((reviewSources && !sourceReview) || stale?.()) return null;
   /* M259: EVERY PAGE THE RECORD HAS NOT FOLDED, and the WHOLE record. It read
@@ -401,7 +405,13 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const lastTold = [...toldNow].reverse().find((m) => m && !m.ooc);
   const staleBoard = boardStale(state, lastTold ? toldNow.indexOf(lastTold) : null);
   const restoredForReading = missingSourcePeople(state, sourceReview?.people);
-  const readingState = restoredForReading.length ? applyMutations(state, restoredForReading.flatMap((i) => i.mutations)).state : state;
+  let readingState = restoredForReading.length ? applyMutations(state, restoredForReading.flatMap((i) => i.mutations)).state : state;
+  if (state.audit?.unresolved?.length) {
+    const unresolved = compactFindings(state.audit.unresolved, readingState).filter((i) => !(i.mutations?.length && i.mutations.every((m) => mutationSatisfied(readingState, m))));
+    const oldWords = state.audit.unresolved.map((i) => i.what);
+    const status = (state.audit.pending || []).filter((p) => !oldWords.some((what) => p === what || p.startsWith(what + ':')));
+    readingState = { ...readingState, audit: { ...readingState.audit, unresolved, pending: [...status, ...unresolved.map((i) => i.what + ': ' + i.pendingReason)] } };
+  }
   const bare = buildAuditorMessages({ state: readingState, brief, castNotes, record, pages: [], pageCount: all.length, room, canonRecord, staleBoard }); /* M287: the audit's own room */
   const view = auditView(all, foldedTo, Math.min(AUDIT_VIEW_CHARS, viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length)));
   if (!view.shown.length) return null;
@@ -453,7 +463,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const judge = (snapshot, proposals) => judgeAudit({ fresh: snapshot, offered: proposals, all, brief, castNotes, castNames, statedByModel });
   let result = judge(fresh, offered);
   const unresolved = (r) => [...missingLedgerPeople(r.out, castNames), ...r.issues.filter((i) => i.refused?.length || (!i.landed && !(i.pages && i.fix))).map((i) => i.what + (i.refused?.length ? ': ' + i.refused.join('; ') : ': no repair was supplied'))];
-  const originalFindings = [...(state.audit?.unresolved || []), ...unresolvedFindings(result)];
+  const originalFindings = compactFindings([...(state.audit?.unresolved || []), ...unresolvedFindings(result)], result.out);
   const withdrawals = [...(read.resolved || [])];
   let pending = [...unresolved(result), ...(answerProblem ? [answerProblem] : []), ...originalFindings.filter((i) => !findingSettled(i, result, withdrawals, documents)).map((i) => i.what)];
   let followupFailed = false;
@@ -464,7 +474,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       const reply = await askWithFetch(connection, {
         system: follow.system,
         user: follow.user + '\n\nREPAIR FOLLOWUP. The first reading has been checked against the actual ledger. These items are still unresolved:\n' + pending.map((p) => '* ' + p).join('\n')
-          + '\nRead the evidence and supply a working correction using the allowed operations. A missing character needs people.set field core; a wrong identity needs people.rename, never deletion. Do not repeat an operation that was blocked. Preserve completed corrections. If the concern is disproved, return it with no mutations and a fix explaining the evidence; do not claim an unresolved item was repaired.',
+          + '\nRead the evidence and supply a working correction using the allowed operations. A missing character needs people.set field core; a wrong identity needs people.rename, never deletion. Every scene repair needs shown: the exact newest-page quotation for that person. Check their latest evidence anywhere in the scene, including before a long final paragraph about someone else. Do not repeat an operation unchanged when it was blocked; correct its evidence or use another supported operation. Preserve completed corrections. If the concern is disproved, return it with no mutations and a fix explaining the evidence; do not claim an unresolved item was repaired.',
         maxTokens: MAX_TOKENS, signal, renew, leash: leashFor,
         isAnswer: (t) => parseAuditorAnswer(t).note === 'ok',
         source: { storyId, messages: allRaw, memory: mem, story: { brief, castNotes }, state: result.out }, room, rounds: 1,
@@ -511,7 +521,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   if (sourceMark(auditSources({ brief, castNotes, messages: now })) !== sourceMark(documents)) return null;
   // Re-read after all calls and preserve unrelated writes made while we waited.
   result = judge(await loadState(storyId), offered);
-  const outstanding = [...new Map([...originalFindings, ...unresolvedFindings(result)].filter((i) => !findingSettled(i, result, withdrawals, documents)).map((i) => [i.what, i])).values()];
+  const outstanding = compactFindings([...originalFindings, ...unresolvedFindings(result)].filter((i) => !findingSettled(i, result, withdrawals, documents)), result.out);
   pending = [...new Set([...missingLedgerPeople(result.out, castNames), ...outstanding.map((i) => i.what + ': ' + i.pendingReason), ...(sourceReview?.pending || []), ...(answerProblem ? [answerProblem] : []), ...(followupFailed ? ['the repair followup did not finish'] : [])])];
   result.unfinished = pending.length > 0;
   result.pending = pending;
@@ -538,7 +548,42 @@ function unresolvedFindings(result) {
 function findingSettled(issue, result, withdrawals, documents) {
   if (withdrawals.some((r) => r.what === issue.what && documents.some((d) => quotedSource(d.text, r.shown)))) return true;
   const landed = [...result.applied, ...result.rejected.filter((r) => r.same)];
-  return issue.mutations?.length > 0 && issue.mutations.every((m) => landed.some((a) => sameRepairTarget(m, a.mutation)));
+  return issue.mutations?.length > 0 && issue.mutations.every((m) => mutationSatisfied(result.out, m)
+    || landed.some((a) => sameRepairTarget(m, a.mutation)));
+}
+
+/* M687: wording changes do not create new work. Keep each unresolved target
+ * once, and close it when the saved ledger already contains the actual repair. */
+function compactFindings(findings, state) {
+  const kept = new Map();
+  for (const issue of findings) {
+    const mutations = issue.mutations || [];
+    if (!mutations.length) { kept.set('words:' + issue.what, issue); continue; }
+    for (const m of mutations) {
+      const name = findPersonKey(state?.characters || {}, m.name || m.from) || m.name || m.from || m.title || '';
+      const valueKey = /^(?:knowledge\.|canon\.|thread\.)/.test(m.type) || (m.type === 'people.note' && /thread/.test(m.field || ''))
+        ? foldName(m.fact || m.title || m.text || m.key || '') : '';
+      const field = m.type === 'presence.update' ? ['position', 'attire'].filter((f) => m[f] !== undefined).join(',') : m.field || m.key || '';
+      const key = [m.type, foldName(name), field, valueKey].join('|');
+      kept.set(key, { ...issue, mutations: [m] });
+    }
+  }
+  return [...kept.values()];
+}
+
+function mutationSatisfied(state, m) {
+  const textSame = (wanted, actual) => String(wanted || '').trim() === String(actual || '').trim();
+  const at = m.name ? findPresent(state, m.name, { strict: true }) : -1;
+  if (m.type === 'presence.enter') return at !== -1;
+  if (m.type === 'presence.update') return at !== -1 && ['position', 'attire'].every((field) => m[field] === undefined || textSame(m[field], state.present[at][field]));
+  if (m.type === 'offscreen.clear') return !seatForPerson(state, m.name);
+  const key = findPersonKey(state?.characters || {}, m.name || m.to);
+  if (m.type === 'people.set' && key) return m.sourceRecovery ? Boolean(state.characters[key].core?.trim()) : textSame(m.text, state.characters[key][m.field]);
+  if (m.type === 'people.rename' && key) {
+    const remembered = Object.values(state.auditSources || {}).flatMap((r) => r.people || []).find((p) => foldName(p.name) === foldName(m.from))?.ledgerName || '';
+    return !Object.keys(state.characters || {}).some((k) => foldName(k) === foldName(m.from)) && sourcePersonKey(state, m.from, remembered) === key;
+  }
+  return false;
 }
 
 function sameRepairTarget(before, after) {
@@ -547,6 +592,10 @@ function sameRepairTarget(before, after) {
   const a = target(before); const b = target(after);
   if (a || b) { if (!a || !b || !(a === b || samePersonName(a, b))) return false; }
   if (before.type === 'people.forget' && after.type === 'people.rename') return true;
+  if (before.type === 'presence.update' && after.type === 'presence.update'
+    && ['position', 'attire'].some((field) => before[field] !== undefined && after[field] === undefined)) return false;
+  if (/^(?:knowledge\.|canon\.)/.test(before.type) && foldName(before.fact || before.key || '') !== foldName(after.fact || after.key || '')) return false;
+  if (before.type === 'people.note' && /thread/.test(before.field || '') && !sameLooseEnd(before.text || '', after.text || '')) return false;
   const type = (m) => m.type === 'people.note' ? 'people.set' : m.type;
   return type(before) === type(after) && String(before.field || before.key || '') === String(after.field || after.key || '');
 }
@@ -663,8 +712,15 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
       continue;
     }
     if (m.type === 'people.rename') {
+      if (mutationSatisfied(fresh, m)) {
+        identityRefused.push({ mutation: m, why: 'that identity has already been merged', same: true });
+        continue;
+      }
       const identityQuote = quotedSource(identitySource, m.shown);
-      const sameIdentity = samePersonName(m.from || '', m.to || '') || (identityQuote && exactNameIn(identityQuote, m.from) && exactNameIn(identityQuote, m.to));
+      const role = roleWordOf(m.from);
+      const owners = role ? roleOwnersNamed({ characters: fresh.characters, knowledge: { evidence: [{ fact: identitySource }] } }, role) : [];
+      const roleIdentity = owners.length === 1 && samePersonName(owners[0], m.to);
+      const sameIdentity = samePersonName(m.from || '', m.to || '') || roleIdentity || (identityQuote && exactNameIn(identityQuote, m.from) && exactNameIn(identityQuote, m.to));
       if (!exactNameIn(identitySource, m.to) || !sameIdentity || isMc(fresh, m.from)) {
         identityRefused.push({ mutation: m, why: 'a correction needs the exact name established in the story and may not rename the main character automatically' });
         continue;
@@ -1003,6 +1059,25 @@ const endingWords = (t) => new Set(String(t || '').toLowerCase().split(/[^\p{L}\
 /* do these words stand in that text, half of them at least? */
 const wordsIn = (words, text) => { const w = [...endingWords(words)]; const t = endingWords(text); return w.length > 0 && w.filter((x) => t.has(x)).length / w.length >= 0.5; };
 const journalOfPage = (state, at) => (Array.isArray(state && state.journal) ? state.journal : []).filter((j) => j && j.p === at && j.m && typeof j.m === 'object').map((j) => j.m);
+/* M687: the last account of a person can precede the final fight paragraph.
+ * Follow that person's last named sentence and its pronoun continuation. */
+function currentPersonTelling(state, page, name, shown = '') {
+  const scene = narrationOf(scenePartOf(page).replace(/^\s*\[[^\n]*\][ \t]*/, ''));
+  const sentences = scene.split(/(?<=[.!?…])\s+|\n+/).map((s) => s.trim()).filter(Boolean);
+  let at = -1;
+  for (let i = 0; i < sentences.length; i++) if (shownOnPage(state, sentences[i], name)) at = i;
+  if (at === -1) return '';
+  const names = [...Object.keys(state.characters || {}), ...(state.present || []).map((p) => p.name), ...Object.keys(state.offscreen || {}), mcName(state)].filter((n) => n && !samePersonName(n, name));
+  const parts = [sentences[at]];
+  for (let i = at + 1; i < sentences.length; i++) {
+    if (names.some((n) => shownOnPage(state, sentences[i], n)) || !/^(?:\S+\s+){0,4}?(?:she|he|they|her|his|their)\b/i.test(sentences[i])) break;
+    parts.push(sentences[i]);
+  }
+  const told = parts.join(' ');
+  if (shown && !quotedSource(told, shown)) return '';
+  if (shown && parts.length > 1 && !quotedSource(parts.at(-1), shown) && !quotedSource(shown, parts.at(-1))) return '';
+  return told;
+}
 export function auditorScope(issues, state, { header = [], page = '', writerPage = '', pageAt = null, rejected = null, evidenceText = '' } = {}) {
   const restatedOk = new WeakSet(); /* M661: the changes of place and dress the newest page bears out */
   /* M679: the page's ending, what its own readers wrote on it (the journal at its index — nothing when they never read
@@ -1015,6 +1090,22 @@ export function auditorScope(issues, state, { header = [], page = '', writerPage
   };
   const sceneTold = page ? narrationOf(scenePartOf(page)) : '';
   const readersWrote = Number.isInteger(pageAt) ? journalOfPage(state, pageAt) : [];
+  const personalTelling = (m) => m?.name ? currentPersonTelling(state, page, m.name, m.shown) : '';
+  const currentArrival = (m, why) => {
+    if (!['the page’s ending does not show them', 'not in the room this page’s reader named as it ends'].includes(why)) return false;
+    const told = personalTelling(m);
+    if (!told || goneAtTheEnd(state, page, m.name) || mcWalksOff(page, mcName(state))) return false;
+    if (readersWrote.some((jm) => jm.type === 'presence.leave' && samePersonName(jm.name, m.name) && quotedGoing(state, page, jm.name, jm.shown))) return false;
+    const held = seatForPerson(state, m.name);
+    if (held && isDeadSeat(held.entry)) return false;
+    const ground = headerDress(page)?.position || state?.place?.name || '';
+    const seatedHere = held && (seatAtScene(held.entry.location, ground)
+      || (!headerDress(page)?.position && (seatAtScene(held.entry.location, state?.place?.name || '') || wordsIn(ground, held.entry.location))));
+    const arrived = comesInAtTheEnd(state, told, [m.name], m.shown);
+    if (why.startsWith('not in the room') && !seatedHere && !arrived) return false;
+    if (Number.isInteger(pageAt) && state?.groundWas?.page === pageAt && held && !seatedHere && !arrived) return false;
+    return Boolean(arrived || seatedHere || (m.shown && wordsIn(m.position || m.shown, told)));
+  };
   const movedThisPage = (thing) => readersWrote.some((jm) => jm.type === 'thing.set' && typeof jm.name === 'string' && Boolean(findThingKey({ [jm.name]: true }, String(thing || ''))));
   const samePerson = (a, b) => typeof a === 'string' && typeof b === 'string' && (samePersonName(a, b) || (isMc(state, a) && isMc(state, b)));
   const openedThisPage = (name, text) => readersWrote.some((jm) => jm.type === 'people.note' && /^thread$/i.test(String(jm.field || '').trim()) && samePerson(jm.name, name) && sameLooseEnd(String(jm.text || ''), String(text || '')));
@@ -1035,8 +1126,9 @@ export function auditorScope(issues, state, { header = [], page = '', writerPage
         const wears = typeof m.attire === 'string' && !(heldWears && !wordsIn(m.attire, his.attire)) ? m.attire : '';
         /* each field on its own: his place (his dress) in his header's own words stands as the header's does, borne out by
          * the page's telling; any other place or dress stands only in the ending's words */
-        const placeFix = at ? restatedPresence(state, [{ name: m.name, at, wears: '' }], [], heldAt ? page : ending)[0] : null;
-        const dressFix = wears ? restatedPresence(state, [{ name: m.name, at: '', wears }], [], heldWears ? page : ending)[0] : null;
+        const personal = m.shown ? personalTelling(m) : '';
+        const placeFix = at ? restatedPresence(state, [{ name: m.name, at, wears: '' }], [], heldAt ? page : personal || ending)[0] : null;
+        const dressFix = wears ? restatedPresence(state, [{ name: m.name, at: '', wears }], [], heldWears ? page : personal || ending)[0] : null;
         if (placeFix || dressFix) {
           const fixed = { type: 'presence.update', name: (placeFix || dressFix).name, ...(placeFix ? { position: placeFix.position } : {}), ...(dressFix ? { attire: dressFix.attire } : {}) };
           restatedOk.add(fixed);
@@ -1143,7 +1235,9 @@ export function auditorScope(issues, state, { header = [], page = '', writerPage
      * on going or on HIM walking off ("she held her ground in the column's shadow as they walked away"), nobody the world
      * seats elsewhere when the page moved the scene away from them */
     if (page && (m.type === 'presence.enter' || (m.type === 'offscreen.clear' && !isHere(state, m.name))) && typeof m.name === 'string') {
-      if (walkInFromPage(state, m.name, { page, pageAt, shown: m.shown }) && !writerArrival(m)) return true;
+      if (m.type === 'offscreen.clear' && (isMc(state, m.name) || !seatForPerson(state, m.name))) return false;
+      const why = walkInFromPage(state, m.name, { page, pageAt, shown: m.shown });
+      if (why && !writerArrival(m) && !currentArrival(m, why)) return true;
     }
     /* M681: …and by its third door — a seat for someone with none, AT the scene's own place, is a walk-in (apply.js
      * offscreen.set, M402). A seated person's seat is the auditor's only as the newest page moves it (below, M681 W10); a
@@ -1169,7 +1263,7 @@ export function auditorScope(issues, state, { header = [], page = '', writerPage
       if (mc && String(m.name || '').trim().toLowerCase() === mc) return true;
       const key = findPersonKey(state?.characters || {}, m.name);
       if (key && state.characters[key]?.hand?.[m.field]) return true;
-      if (m.field === 'state') return !(isHere(state, m.name) && supported(m, endingTold));
+      if (m.field === 'state') return !(isHere(state, m.name) && (supported(m, endingTold) || supported(m, personalTelling(m))));
       if (m.field === 'arc') return !supported(m, evidenceText || writerPage + '\n' + page);
       return m.field === 'threads';
     }
