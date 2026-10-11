@@ -17,6 +17,59 @@ export function verificationReceiptMatches(receipt, row) {
     && ['correct','repair'].includes(receipt.status));
 }
 
+const CHECKPOINT_VERSION=1;
+const checkpointAuthority=story=>fingerprint36(JSON.stringify([story?.brief || '',story?.castNotes || '']));
+const durableSection=row=>['characters','canon'].includes(row.section);
+
+export function reusableAuditCheckpoint(state,story,documents) {
+  const checkpoint=state.audit?.checkpoint;
+  if (checkpoint?.version!==CHECKPOINT_VERSION || checkpoint.authority!==checkpointAuthority(story)) return {entries:{},profiles:{}};
+  const marks=new Map(documents.map(d=>[d.id,d.mark]));
+  const reusable=(receipt,row)=>receipt?.print===row.print && receipt.scope===row.scope
+    && receipt.dependencies?.length && receipt.dependencies.every(([id,mark])=>marks.get(id)===mark);
+  const entries={},profiles={};
+  for (const row of ledgerVerificationRows(state).filter(durableSection)) {
+    const receipt=checkpoint.entries?.[row.id],partial=checkpoint.profiles?.[row.id];
+    if (reusable(receipt,row) && verificationReceiptMatches(receipt,row)) entries[row.id]=receipt;
+    if (reusable(partial,row)) profiles[row.id]=partial;
+  }
+  return {entries,profiles};
+}
+
+export function auditCheckpointStart(state,story,documents,pages,latest) {
+  const checkpoint=state.audit?.checkpoint;
+  if (checkpoint?.version!==CHECKPOINT_VERSION || checkpoint.authority!==checkpointAuthority(story) || !checkpoint.completedThrough) return 0;
+  const marks=new Map(documents.map(d=>[d.id,d.mark]));
+  if (!Object.entries(checkpoint.scanned || {}).length || Object.entries(checkpoint.scanned).some(([id,mark])=>marks.get(id)!==mark)) return 0;
+  const through=pages.findIndex(p=>p.id===checkpoint.completedThrough),end=pages.findIndex(p=>p.id===latest?.id);
+  return through>=0 && end>=0?Math.min(through+1,end):0;
+}
+
+export function saveAuditCheckpoint(state,story,documents,verification) {
+  const entries={},profiles={};
+  const originals=new Map(documents.map(d=>[d.id,d]));
+  for (const row of ledgerVerificationRows(state).filter(durableSection)) {
+    const add=(receipt,book)=>{
+      if (!receipt) return;
+      const refs=new Set((row.value?.appearanceSources || []).flatMap(f=>f.references || [f.source]));
+      for (const f of row.value?.identitySources || []) refs.add(f.source);
+      const quotes=[receipt.shown,...(receipt.physicalFacts || []).map(f=>f.shown),...(receipt.appearance || []).map(f=>f.shown),...(receipt.identity || []).map(f=>f.shown)].filter(Boolean);
+      for (const [id] of receipt.dependencies || []) refs.add(id);
+      for (const quote of quotes) for (const d of documents) if (d.text.includes(quote)) refs.add(d.id);
+      const dependencies=[...refs].filter(id=>originals.has(id)).map(id=>[id,originals.get(id).mark]);
+      if (dependencies.length) book[row.id]={...receipt,dependencies};
+    };
+    if (verificationReceiptMatches(verification.entries?.[row.id],row)) add(verification.entries[row.id],entries);
+    add(verification.profiles?.[row.id],profiles);
+  }
+  const prior=state.audit?.checkpoint;
+  const completed=verification.read===verification.total;
+  const last=[...documents].reverse().find(d=>d.id.startsWith('page:') && d.label.endsWith(', story'));
+  return {version:CHECKPOINT_VERSION,authority:checkpointAuthority(story),at:Date.now(),entries,profiles,
+    completedThrough:completed && last?last.id.slice(5,last.id.lastIndexOf(':')):prior?.completedThrough,
+    scanned:completed?Object.fromEntries(documents.map(d=>[d.id,d.mark])):prior?.scanned};
+}
+
 // Actual outstanding work must decrease. Rephrasing ledger text is not closure.
 export function repairRetryCheckpoint(before, after, story, pages) {
   // Worker-created voices are checked evidence, but cannot reset retry progress.
@@ -75,12 +128,15 @@ export function ledgerVerificationRows(state) {
   const ground = [state?.clock?.minutes,state?.place || null];
   const poses = (state?.present || []).map(p => ({name:p.name,position:p.position || '',attire:p.attire || ''}));
   const scene = fingerprint36(JSON.stringify([identity,ground,state?.mode,poses]));
-  const scopeOf = (section,name) => ['scene','presence','offscreen'].includes(section) ? scene
-    : section === 'characters' ? fingerprint36(JSON.stringify([identity,ground,poses.find(p => p.name === name),
-      ['location','activity','agenda','stance'].map(k => state?.offscreen?.[name]?.[k])])) : identity;
+  const personIdentity=name=>[name,state?.characters?.[name]?.aliases || [],state?.sheet?.playerName,state?.sheet?.playerAliases || []];
+  const scopeOf = (section,name) => ['scene','presence','offscreen','characterState'].includes(section) ? scene
+    : ['characters','canon'].includes(section)?fingerprint36(JSON.stringify(personIdentity(name))):identity;
   const add = (section, name, value, judgment = false) => {
     const id = section + ':' + name;
-    rows.push({ id, section, name, value, judgment, scope:scopeOf(section,name),print: fingerprint36(JSON.stringify(value)) });
+    // A later page repeating an already known fact adds provenance, not a new
+    // appearance to approve. Preserve the full references for the reader/book.
+    const printed=section==='characters' && value?{...value,appearanceSources:(value.appearanceSources || []).map(({references,...fact})=>fact)}:value;
+    rows.push({ id, section, name, value, judgment, scope:scopeOf(section,name),print: fingerprint36(JSON.stringify(printed)) });
   };
   const semantic = value => {
     if (Array.isArray(value)) return value.map(semantic);
@@ -97,9 +153,10 @@ export function ledgerVerificationRows(state) {
     if (!entries.length) add(section, '(empty)', null, true);
     for (const [name, entry] of entries) {
       const value = section === 'characters'
-        ? {...Object.fromEntries(['core','coreOrigin','state','arc','threads','aliases','retired','hand'].filter(k => entry?.[k] !== undefined).map(k => [k,entry[k]])), physicalFacts:semantic(state.canon?.[name] || null),appearanceSources:appearance.filter(f => f.name === name),identitySources:identities.filter(f=>f.name===name)}
+        ? {...Object.fromEntries(['core','coreOrigin','aliases','retired'].filter(k => entry?.[k] !== undefined).map(k => [k,entry[k]])),hand:{core:entry?.hand?.core || false},physicalFacts:semantic(state.canon?.[name] || null),appearanceSources:appearance.filter(f => f.name === name),identitySources:identities.filter(f=>f.name===name)}
         : semantic(entry);
       add(section, name, value, ['offscreen','relationships','factions'].includes(section));
+      if (section==='characters') add('characterState',name,semantic({state:entry?.state || '',arc:entry?.arc || '',threads:entry?.threads || [],hand:entry?.hand || {}}));
     }
   }
   for (const t of state?.threads || []) add('threads', t.title, semantic(t), true);

@@ -135,7 +135,7 @@ function lazySource({ storyId = '', messages = null, memory = null, story = null
  * {text, finishReason, …} plus `looked` (every ref served). */
 export async function askWithFetch(connection, {
   system, user, maxTokens, signal, renew, leash, isAnswer, source = {},
-  rounds = WORKER_FETCH_ROUNDS, room = Infinity, effort, temperature,
+  rounds = WORKER_FETCH_ROUNDS, room = Infinity, effort, temperature, repairAnswer,
 } = {}) {
   const convo = [{ role: 'user', content: String(user || '') }];
   const load = lazySource(source);
@@ -143,14 +143,24 @@ export async function askWithFetch(connection, {
   let served = 0;
   let toldToAnswer = false;
   let toldUnreadable = false;
+  let repairedAnswer = false;
   for (;;) {
     const size = String(system || '').length + convo.reduce((n, m) => n + String(m.content || '').length, 0);
     if (typeof renew === 'function') renew(typeof leash === 'function' ? leash(size) : undefined);
     const res = await callWorker(connection, { system, messages: convo, maxTokens, signal, effort, temperature });
     const text = String(res.text || '');
-    if (toldToAnswer || (typeof isAnswer === 'function' && isAnswer(text))) return { ...res, looked, rounds: served };
+    if ((toldToAnswer && !repairAnswer) || (typeof isAnswer === 'function' && isAnswer(text))) return { ...res, looked, rounds: served };
     const { refs, blocks } = fetchRefsIn(text);
-    if (!blocks) return { ...res, looked, rounds: served };
+    if (toldToAnswer && blocks) return { ...res, looked, rounds: served };
+    if (!blocks) {
+      const correction=!repairedAnswer && typeof repairAnswer==='function' ? repairAnswer(text) : '';
+      if (correction) {
+        repairedAnswer=true;
+        convo.push({role:'assistant',content:text},{role:'user',content:correction});
+        continue;
+      }
+      return { ...res, looked, rounds: served };
+    }
     convo.push({ role: 'assistant', content: text });
     if (!refs.length) {
       if (toldUnreadable) return { ...res, looked, rounds: served };

@@ -1,4 +1,5 @@
 import { ledgerDebugSection } from './ledgerdebug.js';
+import { auditScratchbookButton } from './auditscratchbook.js';
 /* Cozy Tavern — ui/drawer.js
  * The right-hand slide-over: "The story's ledger". M3 woke it up: the clock
  * keeps the hour, Who's here carries position and attire when known, the
@@ -2340,7 +2341,7 @@ function workersPanel(ctx) {
   const row2 = document.createElement('div');
   row2.className = 'row';
   row2.append(catchUp, refold, unfold);
-  wrap.append(ledgerDebugSection(() => currentStory(ctx)), note, row, row2, list);
+  wrap.append(auditScratchbookButton(()=>currentStory(ctx)),ledgerDebugSection(() => currentStory(ctx)), note, row, row2, list);
 
   const render = latestWins(async () => {
     const story = await currentStory(ctx);

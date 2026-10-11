@@ -1,3 +1,65 @@
+# M707: durable auditor scratchbook and shared evidence transport
+
+Version m707-001. The live M706 report still has167/167 original sources read,
+but156/169 entry checks. Its last reply requested13 checks, returned ZERO,
+finished normally and was labeled usable. Source references from other readings
+or saved ledger evidence were unavailable to a later binder. Do not describe
+this as another semantic auditor rejecting the housekeeper, mere waiting or a
+completed live repair. M706 did not finish the live pipeline.
+
+A shared persisted evidence book now registers original-validated source and
+inventory spans for discovery, final verification and focused reconciliation.
+It stores source id/mark/offset/length pointers, not duplicated story pages.
+Existing journal references can be upgraded only from their real original quote
+and matching source hash. Reopening preserves valid references; changed or
+removed originals invalidate them. Successful rebinding clears stale transport
+errors. A valid literal original quotation also suffices when an old opaque id
+is unavailable. Invented ids without evidence still cannot supply a quote.
+
+Final review has an explicit primary checks contract. An issues-only reply is
+not a completed checklist. The same conversation receives at most ONE format
+continuation, keeping its source context; no extra semantic auditor is added.
+Partial replies are reported as incomplete checks and keep valid completed work.
+The player-core vocabulary now agrees with the established writer biography
+exception instead of contradicting it. Supported saved repairs are certified
+from their exact approved resulting snapshot, regardless of correct/repair
+wording. No-change supported verdicts close; concurrent unreviewed values do not.
+
+Characters verification now covers stable core, identity and appearance.
+characterState rows separately cover current state and valid worker arc/threads.
+Durable checkpoints retain character/canon reviews across appended story pages
+and releases when actual values, identity, writer authority and original source
+dependencies still hold. Moving or advancing the clock does not discard stable
+profile approval. Repeating an unchanged appearance fact adds provenance, not
+another required approval. Changed facts or affected source documents reopen
+those reviews. Current scene/state still gets new-page verification. After a complete scene
+review, a saved source cursor starts the next reading at the new pages. The
+actual view honors this even below its old ten-page minimum. The latest scene
+stays available for same-page changes; edited or removed earlier sources reset
+the cursor. Folded context and originals remain fetchable. Source coverage
+continues to reuse unchanged original receipts. The old M703 assertion
+that movement alone invalidates biography is intentionally superseded.
+
+The Workers panel has an Auditor scratchbook button opening a read-only window
+with source coverage, retained stable reviews, current entry completion, partial
+fact decisions and remaining work. It does not call a model or modify the story.
+Debug output adds only bounded scratchbook counts/ids; its24KB cap stays. New
+modules are in the service-worker shell. No unrelated theme changes.
+
+Verification used only tests/harness/m707-focused.mjs, each run about0.1s. The
+first run exposed incorrect refusal of a supported no-change repair verdict;
+that runtime bug was fixed. The next run exposed a fixture null-clock setup,
+then corrected. Further meaningful iterations covered repeated source facts
+and acceptance of an exact supported current-state repair labeled correct,
+while rejecting a later unreviewed concurrent value. Final run passed. The
+fixture reproduces zero-check ordinary JSON, one same-review continuation,
+shared source references in focused output, actual missing hair repair,
+checkpoint reuse after scene movement, per-person invalidation, original
+removal, stale error cleanup, literal fallback, and preservation of manual eyes,
+all biographies, prose and p60/r50. No bulk/theme/gameplay tests or live provider
+calls. These checks validate exercised mechanisms, not the owner's actual final
+green state. Publish under the standing permission in AGENTS.md; no new ask.
+
 # M706: finish source reconciliation instead of repeating broad audit
 
 Version m706-001. The actual M705 reading covered167/167 source documents and

@@ -82,6 +82,7 @@ const SHELL = [
   'js/agents/auditor.js',
   'js/agents/ledgercontext.js',
   'js/agents/auditprogress.js',
+  'js/agents/auditevidence.js',
   'js/agents/auditsources.js',
   'js/agents/founder.js',
   'js/agents/concept.js', /* M478 */
@@ -142,6 +143,7 @@ const SHELL = [
   'js/ui/settings.js',
   'js/ui/drawer.js',
   'js/ui/ledgerdebug.js',
+  'js/ui/auditscratchbook.js',
   'js/ui/ledgerexplain.js',
   'js/ui/receiptview.js',
   'js/ui/housekeeper.js',
