@@ -1,5 +1,12 @@
 # Cozy Tavern: current handoff
 
+## Published release: m688-001
+
+The owner gave fresh explicit publication authorization on 11 October 2026,
+then asked why publication had not completed. M688 was pushed without force to
+main at c0062a0108be5c96b4b0e8b31526e9de4f52dceb. The prior approval block below is
+historical and is resolved. No executable inputs changed after qualification.
+
 ## Qualified release: m688-001
 
 Final execution checkpoint: ef8210f19eefadc6f923afc0dcfd7bdba253e71c.
