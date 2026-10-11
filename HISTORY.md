@@ -18682,3 +18682,12 @@ auditor problems, recent changes and bounded story/memory context. Worker status
 now retains 30 recent run records to diagnose repetition. Connection secrets are
 excluded and redacted from text. No model calls or story writes on copying.
 Minimal report/redaction check and drawer syntax passed. No broad testing.
+
+
+## M691: bounded copyable diagnostics
+
+Owner reported a roughly 200k token report. Replaced full dumps with section
+budgets and hard 24000 UTF8 byte cap. Prioritize pending audit findings and recent
+worker outcomes, omit raw replies/full memory/brief, label omissions and show copy
+size. No saved story or ledger changes. One oversized Unicode focused fixture
+passed; no bulk or browser tests. Live owner story not inspected.

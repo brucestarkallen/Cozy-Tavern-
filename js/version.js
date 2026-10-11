@@ -6,4 +6,4 @@
  *
  * The law: any change to a shipped file bumps VERSION.
  */
-export const VERSION = 'm690-001';
+export const VERSION = 'm691-001';

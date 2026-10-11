@@ -1,3 +1,13 @@
+# M691: compact debug report
+
+Version m691-001. Copy now has a hard 24000 UTF8 byte cap, independent
+section budgets, unresolved audit findings first and newest worker runs first.
+Raw replies, full memory and brief are omitted. Every ledger category gets a
+small excerpt; truncation is disclosed. Source data is unchanged.
+One oversized Unicode fixture passed the cap, findings/history retention, secret
+redaction and story preservation check. No bulk or browser tests.
+M690 report format below is historical and superseded by this compact format.
+
 # Cozy Tavern current handoff
 
 ## M690: one copyable ledger debug report
