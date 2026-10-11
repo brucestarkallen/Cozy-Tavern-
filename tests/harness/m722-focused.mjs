@@ -6,7 +6,8 @@ import {applyMutations,undoLast} from '../../js/engine/apply.js';
 import {auditSources,missingSourcePeople,sourceIdentityNeeded,sourceFactScope} from '../../js/agents/auditsources.js';
 import {auditLedger,findingSettled} from '../../js/agents/auditor.js';
 import {ledgerVerificationRows,ledgerRepairInputKey,ledgerRepairStateKey,saveAuditCheckpoint,ledgerAuditVerified,ledgerRepairNeeded} from '../../js/agents/auditprogress.js';
-import {auditStretch,auditProgress,nextStretch,parseStretchAnswer,scopeStretch} from '../../js/agents/continuous.js';
+import {auditStretch,auditProgress,nextStretch,parseStretchAnswer,scopeStretch,auditWaits,RECOVERY_DELAY,continuousRunStatus,recoveryWords} from '../../js/agents/continuous.js';
+import {noteWorkerRun,loadWorkerStatus,historicalRunStatus} from '../../js/agents/status.js';
 import {loadMemory,saveMemory} from '../../js/agents/memory.js';
 import {loadEssentials,recordOf,runEssentials} from '../../js/agents/essentials.js';
 const connection={type:'openai',baseUrl:'https://fixture.example/v1',apiKey:'fixture',model:'fixture',preset:'custom',contextSize:200000,reasoning:{effort:'off'}};
@@ -45,7 +46,12 @@ const originalFetch=globalThis.fetch;
 globalThis.fetch=async(_,options)=>{
  calls++; const request=JSON.stringify(JSON.parse(options.body).messages);
  assert(!request.includes('SOURCE DOCUMENTS\\n'),'Saved original receipts are reused.');
- const content=JSON.stringify(typeof reply==='function'?reply(request):reply);
+ let value=typeof reply==='function'?await reply(request):reply;
+ if (request.includes('TARGETED HISTORICAL RECOVERY') && value?.issues?.[0]?.record?.fixes?.length) {
+  const fix=value.issues[0].record.fixes[0];
+  value={outcome:'repair',why:fix.why,evidence:[{source:'1',shown:fix.shown}],record:{fixes:[fix]}};
+ }
+ const content=typeof value==='string'?value:JSON.stringify(value);
  return new Response('data: '+JSON.stringify({choices:[{delta:{content}}]})+'\n\ndata: '+JSON.stringify({choices:[{delta:{},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n');
 };
 try {
@@ -129,5 +135,121 @@ try {
  assert.equal(ambiguous.pageFixes.length,0);assert.equal(ambiguous.unresolved.length,1);
  const additions=scopeStretch(parseStretchAnswer(JSON.stringify({issues:[{record:{detail:'Corven knocked twice'}}]})).issues,{state:emptyState(),pagesText:original,from:0,to:0});
  assert.equal(additions.unresolved.length,0,'Ordinary detail recovery remains supported.');
+ // M723 causal recovery cases. No new sources or model calls for healthy sections.
+ const broken={target:'record',what:'The captain attribution may be wrong.',record:{fixes:[]}};
+ const fixedReply={outcome:'repair',why:'These originals establish only a man; no earlier identity evidence establishes a captain.',evidence:[{source:'1',shown:original}],record:{fixes:recordIssue.record.fixes}};
+ let stage=0;
+ reply=request=>{stage++;return request.includes('TARGETED HISTORICAL RECOVERY')?fixedReply:{issues:[broken]};};
+ const automatic=await memoryStory();
+ const auto=await auditStretch({connection,storyId:automatic.id});
+ assert.equal(stage,2,'One initial reading and one targeted follow-up.');
+ assert.equal(auto.open,0);assert.equal(auto.lineMended,1);
+ assert.equal((await db.messages.list(automatic.id))[0].text,original);
+ assert.equal((await loadMemory(automatic.id)).nodes[0].detail,undefined);
+ assert.equal(await loadEssentials(automatic.id),null);
+ const healthyCalls=calls;
+ assert.equal(await auditStretch({connection,storyId:automatic.id}),null);
+ assert.equal(auditWaits(automatic.id,await loadMemory(automatic.id),await db.messages.list(automatic.id)),-1);
+ assert.equal(calls,healthyCalls);
+ async function pendingStory() {
+  const s=await memoryStory();const m=await loadMemory(s.id);
+  m.nodes[0].audited=1;m.nodes[0].correctionReviewed=true;
+  m.nodes[0].auditOpen=[{issue:broken,why:'Missing replacement text.',from:0,to:0,input:'old M722 fingerprint'}];
+  await saveMemory(s.id,m);return s;
+ }
+ const savedPending=await pendingStory();
+ reply=request=>{assert(request.includes('TARGETED HISTORICAL RECOVERY'));return fixedReply;};
+ const savedCalls=calls;
+ assert.equal(auditWaits(savedPending.id,await loadMemory(savedPending.id),await db.messages.list(savedPending.id)),0);
+ assert.equal((await auditStretch({connection,storyId:savedPending.id})).open,0);
+ assert.equal(calls,savedCalls+1,'An old finding goes directly to focused recovery, with no ordinary reread.');
+
+ // Earlier original evidence can refute the allegation without changing memory.
+ const earlier=await db.stories.create({title:'Established captain'});
+ const earlierQuote="The man in travel-dark clothing is Prince William's captain.";
+ await db.messages.append(earlier.id,{role:'user',text:earlierQuote});
+ await db.messages.append(earlier.id,{role:'assistant',text:original});
+ await saveMemory(earlier.id,{nodes:[{id:'earlier',span:[0,0],level:1,text:earlierQuote,audited:1,correctionReviewed:true},{id:'disputed',span:[1,1],level:1,text:"Prince William's captain watched from the yard door; Corven knocked twice.",audited:1,correctionReviewed:true,auditOpen:[{issue:broken,why:'Title not in local pages.',from:1,to:1,input:'old'}]}]});
+ const earlierBefore=await loadMemory(earlier.id);let fetched=false;
+ reply=request=>{assert(request.includes('TARGETED HISTORICAL RECOVERY'));if(!request.includes('Requested originals:'))return '<fetch>["1"]</fetch>';fetched=true;return {outcome:'correct',why:'The earlier writer page explicitly identifies this same man as the captain.',evidence:[{source:'1',shown:earlierQuote}]};};
+ const correct=await auditStretch({connection,storyId:earlier.id});assert(fetched);assert.equal(correct.open,0);assert.equal(correct.recovery,'correct');
+ const earlierAfter=await loadMemory(earlier.id);assert.equal(earlierAfter.nodes[1].text,earlierBefore.nodes[1].text);assert.deepEqual(earlierAfter.nodes[0],earlierBefore.nodes[0]);
+ assert.equal(await auditStretch({connection,storyId:earlier.id}),null);
+
+ const uncertain=await pendingStory();
+ reply={outcome:'blocked',why:'Earlier evidence does not establish which man this description refers to.'};
+ const uncertainty=await auditStretch({connection,storyId:uncertain.id});assert.equal(uncertainty.open,1);assert.equal(uncertainty.pending,0);
+ assert.match(recoveryWords(uncertainty),/unresolved after automatic source review/);
+ assert.equal(await auditStretch({connection,storyId:uncertain.id}),null);
+ const persisted=await loadMemory(uncertain.id);assert.equal(persisted.nodes[0].auditOpen[0].recovery.attempts,1);
+ const status=continuousRunStatus({...uncertainty,done:75,folded:75});assert.equal(status.unfinished,false);
+ await noteWorkerRun(uncertain.id,'continuous',{ok:true,...status,detail:recoveryWords(uncertainty)});
+ const row=(await loadWorkerStatus(uncertain.id)).continuous;
+ assert.equal(historicalRunStatus(row).state,'part');assert(!historicalRunStatus(row).words.includes('partway'));assert.match(historicalRunStatus(row).words,/finished reviewing/);
+
+ const failed=await pendingStory();reply='No usable structured response';
+ const clock=Date.now;let now=clock();Date.now=()=>now;
+ try {
+  const failedFirst=await auditStretch({connection,storyId:failed.id});assert.equal(failedFirst.pending,1);
+  let m=await loadMemory(failed.id);assert.equal(m.nodes[0].auditOpen[0].recovery.attempts,1);
+  assert(auditWaits(failed.id,m,await db.messages.list(failed.id))>0);
+  assert.equal(await auditStretch({connection,storyId:failed.id}),null);
+  now+=RECOVERY_DELAY+1;
+  const failedSecond=await auditStretch({connection,storyId:failed.id});assert.equal(failedSecond.open,1);assert.equal(failedSecond.pending,0);
+  m=await loadMemory(failed.id);assert.equal(m.nodes[0].auditOpen[0].recovery.attempts,2);
+  now+=RECOVERY_DELAY*10;assert.equal(auditWaits(failed.id,m,await db.messages.list(failed.id)),-1);
+  assert.equal(await auditStretch({connection,storyId:failed.id}),null);
+  // An actual source change, not reopening the app, permits another targeted attempt.
+  const pages=await db.messages.list(failed.id);await db.messages.update(failed.id,pages[0].id,{text:original+' The writer confirms he is unidentified.'});
+  assert.equal(auditWaits(failed.id,await loadMemory(failed.id),await db.messages.list(failed.id)),0);
+ } finally {Date.now=clock;}
+
+ // An earlier fetched original changing during recovery cannot clear an old allegation.
+ const changedEarlier=await loadMemory(earlier.id);
+ changedEarlier.nodes[1].auditOpen=[{issue:broken,why:'Recheck original identity.',from:1,to:1}];
+ await saveMemory(earlier.id,changedEarlier);
+ reply=async request=>{if(!request.includes('Requested originals:'))return '<fetch>["1"]</fetch>';
+  const ps=await db.messages.list(earlier.id);await db.messages.update(earlier.id,ps[0].id,{text:'The man’s identity remains unknown.'});
+  return {outcome:'correct',why:'Old identity evidence.',evidence:[{source:'1',shown:earlierQuote}]};};
+ assert.equal(await auditStretch({connection,storyId:earlier.id}),null);
+ const staleEvidence=await loadMemory(earlier.id);assert.equal(staleEvidence.nodes[1].auditOpen.length,1);
+ assert.match(staleEvidence.nodes[1].auditOpen[0].recovery.reason,/Source evidence changed/);
+ assert.equal(auditWaits(earlier.id,staleEvidence,await db.messages.list(earlier.id)),0);
+
+ // Multiple failed fixes with the same prose allegation remain separate findings.
+ const two=await pendingStory();const twoMemory=await loadMemory(two.id);
+ twoMemory.nodes[0].auditOpen=[{issue:{...broken,record:{fixes:[{from:"Prince William's captain",to:'man'}]}},why:'Missing evidence',from:0,to:0},
+  {issue:{...broken,record:{fixes:[{from:'Corven',to:'Another man'}]}},why:'Another distinct proposed fix',from:0,to:0}];
+ await saveMemory(two.id,twoMemory);reply=fixedReply;
+ const one=await auditStretch({connection,storyId:two.id});assert.equal(one.open,1,'Only the repaired finding clears.');
+ assert.equal((await loadMemory(two.id)).nodes[0].auditOpen[0].issue.record.fixes[0].from,'Corven');
+
+ // A new authoritative writer fact reopens a blocked finding, without a story rewrite.
+ await db.stories.update(uncertain.id,{brief:'The yard-door man is an unidentified guest, not a captain.'});
+ assert.equal(auditWaits(uncertain.id,await loadMemory(uncertain.id),await db.messages.list(uncertain.id),await db.stories.get(uncertain.id)),0);
+ reply=fixedReply;assert.equal((await auditStretch({connection,storyId:uncertain.id})).open,0);
+
+ // A crash after saving the edit but before clearing its finding resumes verification with zero model calls.
+ const interrupted=await pendingStory();let interrupt=false;
+ const settingsSet=db.settings.set;
+ db.settings.set=async function(key,value) {const r=await settingsSet.call(this,key,value);if(key==='memory:'+interrupted.id && value.nodes[0].auditOpen?.[0]?.recovery?.status==='verifying') interrupt=true;return r;};
+ try {reply=fixedReply;assert.equal(await auditStretch({connection,storyId:interrupted.id,stale:()=>interrupt}),null);} finally {db.settings.set=settingsSet;}
+ const resumedCalls=calls;const resumed=await auditStretch({connection,storyId:interrupted.id});assert.equal(resumed.open,0);assert.equal(calls,resumedCalls);
+
+ // A transport failure persists its retry, then recovers once after the idle delay.
+ const transport=await pendingStory();let reject=true;
+ reply=()=>{if(reject)throw new Error('Temporary fixture transport failure');return fixedReply;};
+ const firstTransport=await auditStretch({connection,storyId:transport.id});assert.equal(firstTransport.open,1);assert.equal(firstTransport.pending,1);
+ assert.match(firstTransport.unresolved[0].recovery.reason,/Provider transport failure/);
+ const realClock=Date.now;Date.now=()=>realClock()+RECOVERY_DELAY+1;
+ try {reject=false;assert.equal((await auditStretch({connection,storyId:transport.id})).open,0);} finally {Date.now=realClock;}
+
+ // A concurrent edit wins over a previously read proposal.
+ const staleStory=await pendingStory();
+ reply=async()=>{const m=await loadMemory(staleStory.id);m.nodes[0].detail='A newer valid detail.';await saveMemory(staleStory.id,m);return fixedReply;};
+ assert.equal(await auditStretch({connection,storyId:staleStory.id}),null);
+ assert.equal((await loadMemory(staleStory.id)).nodes[0].detail,'A newer valid detail.');
+ assert.match((await loadMemory(staleStory.id)).nodes[0].text,/captain/);
+ console.log('M723 passed: automatic and saved-finding recovery, earlier-source withdrawal, bounded durable retries, uncertainty and manual protection, status round-trip, stale writes, Essentials invalidation, zero healthy-case calls. Mocked provider only.');
  console.log('M722 passed: idempotent/undoable source bindings, separate stable facts, paused review reuses receipts; grounded record correction, protected unresolved coverage, no unchanged repeat calls, Essentials invalidation and story-mend eligibility. Mocked provider only.');
 } finally {globalThis.fetch=originalFetch;}

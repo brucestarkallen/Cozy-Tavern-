@@ -1,3 +1,59 @@
+# M723: Automatic recovery of unresolved historical corrections
+
+Version m723-001. Base main 16b3c0dc7c112131bc34ead9b1b2bc0b345969bf.
+
+M722 preserved auditOpen findings but scheduled them only after input changes;
+the idle scheduler also looked only for unread pages. A valid reading with a
+failed repair could therefore remain unresolved indefinitely. Its worker row
+incorrectly called completed coverage "stopped partway".
+
+Continuous Audit now gives a new or saved unresolved finding one targeted
+recovery conversation in the same worker. It supplies the exact record, detail,
+original section, brief/cast, earlier record context and precise validation
+failure. The existing original-source lookup permits up to two bounded fetch
+continuations for earlier evidence. Local silence about a title is not proof
+that it was never established. The verdict must repair an exact supported span,
+withdraw the allegation with original evidence, or state the blocker.
+
+Each finding has a durable identity and a reservation saved before the request.
+Transport/format failures may receive one deferred retry after 60 seconds.
+Semantic uncertainty, unsafe edits and protected records remain explicit blocked
+findings. Reload does not reset attempts. Relevant source, ownership, record or
+writer-fact changes permit reconsideration. Healthy completed material makes no
+new calls. No worker, lane, foreground call or historical rebuild was added.
+
+Recovery checks exact unique spans, source quotations, replacement provenance,
+M722 shortening limits, surrounding text, writer ownership, node/source identity
+and stale results. It rereads the saved result before clearing only the repaired
+finding. A saved edit interrupted before completion can finish verification
+without another model call. Node metadata retains the disposition, evidence and
+previous text for a correction. Existing prose and undo paths are untouched.
+The M722 Essentials invalidation path is reused after an actual record edit.
+
+Worker results persist reading coverage separately from open/pending corrections.
+The drawer says the reading completed when it did; the lamp remains amber for
+blocked findings and shows work while recovery runs. Idle scheduling now sees
+unresolved corrections even when every folded page is already reviewed.
+
+Focused verification: node tests/harness/m722-focused.mjs passed, extended with
+M723 cases for immediate and saved-finding recovery, earlier-original withdrawal,
+manual protection, ambiguity, bounded retries, transport failure, changed writer
+facts, interrupted save verification, separate findings and concurrent edits.
+The status storage/render helper round trip passed. The healthy case used zero
+additional calls; immediate recovery used one follow-up; earlier-page retrieval
+used one fetch continuation. These are mocked provider measurements, not live
+latency measurements. node --check js/agents/continuous.js, js/ui/chat.js and
+js/ui/drawer.js and git diff --check also passed. No bulk suite or live provider
+run. The owner's full historical record remains unavailable; the actual captain
+identity is not verified. Model interpretation remains fallible. Evidence that
+cannot fit safely or establish the claim remains blocked without endless calls.
+
+M718 through M722 identity, World, themes, automatic updates, story generation,
+relationships, branches, original prose, manual memory and backup paths remain
+unchanged. Only Continuous Audit recovery and its status plumbing were changed.
+
+---
+
 # M722: Source identity completion and historical correction status
 
 Version m722-001. Base main d8f3ba2ba5745fe3054359d9e0952238d19305b6.

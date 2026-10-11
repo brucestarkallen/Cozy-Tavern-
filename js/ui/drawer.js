@@ -49,7 +49,7 @@ import { isMc, seatForPerson, lastSeenTurn, lastEnteredTurn, nowTurnOf } from '.
 import { seatLine, seatOrder, seatNowWords } from '../engine/offscreen.js'; /* M300; M304: one line, one order and one wording for a seat */
 import { storyTurn as storyTurnOf } from '../engine/apply.js'; /* M291: how long ago a page was last written */
 import { listCast, attachToStory, detachFromStory, castNamesFor } from '../import/cards.js';
-import { loadWorkerStatus, WORKER_NAMES, runningWorkers, onWorkerChange } from '../agents/status.js';
+import { historicalRunStatus, loadWorkerStatus, WORKER_NAMES, runningWorkers, onWorkerChange } from '../agents/status.js';
 import { renderArrival, renderVoicesBlock, briefAsTold, briefAge, BRIEF_STALE_TURNS, factionMoveWords } from '../engine/world.js'; /* M29: the world beyond the page; M97: the voices; M681: what of the world's word is told, a faction's move with its age */
 import { applyRules, currentRules } from '../regex.js'; /* M97: the voices in the 🎨 dress */
 import { renderHtmlProse, looksHtml } from './richhtml.js';
@@ -2388,16 +2388,17 @@ function workersPanel(ctx) {
        * well" — so a rebuild that stopped while he slept was indistinguishable
        * from one that finished. Green when it finished, AMBER when it stopped
        * partway, red when it stumbled outright. */
-      const state = !row.ok ? 'bad' : (row.unfinished ? 'part' : 'good');
+      const historical=name==='continuous' ? historicalRunStatus(row) : null;
+      const state = historical?.state || (!row.ok ? 'bad' : (row.unfinished ? 'part' : 'good'));
       const mark = document.createElement('span');
       mark.className = 'run-mark run-mark-' + state;
-      mark.setAttribute('aria-label', state === 'good' ? 'finished' : state === 'part' ? 'stopped partway' : 'stumbled');
+      mark.setAttribute('aria-label', historical?.label || (state === 'good' ? 'finished' : state === 'part' ? 'stopped partway' : 'stumbled'));
       mark.textContent = state === 'good' ? '\u25CF' : state === 'part' ? '\u25D0' : '\u25CB';
       li.appendChild(mark);
       const words = document.createElement('span');
       const when = fmtWhenWords(row.at);
       words.textContent = (WORKER_WORDS[name] || name) + ' ran ' + when
-        + (!row.ok ? (' and stumbled — ' + (row.why || 'stumbled') + '.')
+        + (historical ? historical.words + (row.detail ? '. ' + row.detail : '') + '.' : !row.ok ? (' and stumbled — ' + (row.why || 'stumbled') + '.')
           : row.unfinished ? ((name === 'auditor' && paused ? ' has unresolved findings; repeated attempts are paused until the story or ledger changes' : name === 'auditor' && autoRepair ? ' and is continuing its repairs automatically' : ' and stopped partway') + (row.detail ? ' — ' + row.detail : '') + '.')
             : (' and it went well' + (row.detail ? ' — ' + row.detail : '') + '.'));
       li.appendChild(words);

@@ -116,7 +116,7 @@ export function noteWorkerRun(storyId, name, what = {}) {
   noteTail.set(key, next);
   return next;
 }
-async function writeWorkerNote(storyId, name, { ok, why, detail, raw, unfinished, resume } = {}) {
+async function writeWorkerNote(storyId, name, { ok, why, detail, raw, unfinished, resume, historical } = {}) {
   try {
     if (!storyId || !WORKER_NAMES.includes(name)) return;
     const shelf = (await loadWorkerStatus(storyId)) || {};
@@ -131,6 +131,7 @@ async function writeWorkerNote(storyId, name, { ok, why, detail, raw, unfinished
       raw: said,
       /* M248: green when it finished; amber when it stopped partway */
       unfinished: unfinished === true,
+      ...(name==='continuous' && historical ? {historical} : {}),
       resume: unfinished === true && typeof resume === 'string' ? resume : '',
     };
     // Keep a small diagnostic timeline; do not change the existing latest run API.
@@ -168,6 +169,7 @@ export async function loadWorkerStatus(storyId) {
            * arrival and its law passed, because the law read the source
            * instead of the round trip. */
           unfinished: row.unfinished === true,
+          ...(name==='continuous' && row.historical ? {historical:row.historical} : {}),
           resume: typeof row.resume === 'string' ? row.resume : '',
         };
       }
@@ -176,4 +178,13 @@ export async function loadWorkerStatus(storyId) {
   } catch (err) {
     return {};
   }
+}
+
+/* Reading coverage and unresolved factual work have different UI meanings. */
+export function historicalRunStatus(row) {
+  if (!row?.ok || !row.historical) return null;
+  const h=row.historical;
+  return {state:h.open || row.unfinished ? 'part':'good',
+    label:h.open ? 'historical corrections unresolved' : row.unfinished ? 'reading incomplete':'finished',
+    words:h.done===h.folded ? ' finished reviewing all folded pages' : ' completed this historical section'};
 }

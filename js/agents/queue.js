@@ -303,6 +303,7 @@ async function runJob(job) {
             raw: value && value.raw,
             unfinished: Boolean(value && value.unfinished),
             resume: value && value.resume,
+            historical: name === 'continuous' ? value?.historical : undefined,
           });
         }
         /* M275: SETTLED AFTER THE RESULT IS WRITTEN. It was marked settled first,

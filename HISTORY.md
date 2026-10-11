@@ -20308,3 +20308,20 @@ stale Essentials until normal background regeneration. Preserve manual memory,
 original pages, undo, M718/M719 identities, M720 updates and M721 themes.
 Focused mocked M722, M718, M719 source-only and M719 follow-up fixtures passed;
 no bulk suite or live provider/story validation. See HANDOFF.md for limits.
+
+
+## M723: Automatic recovery of unresolved historical corrections
+
+Version m723-001. Continuous Audit now makes bounded targeted recovery attempts
+for new and saved M722 auditOpen findings even when inputs are unchanged.
+Durable per-finding reservations allow one delayed retry for transport or repair
+format failures. Earlier originals can be fetched through existing lookup.
+Exact supported record edits are reread and verified before clearing the finding;
+grounded withdrawals preserve correct records. Ambiguity and protected text stay
+visible without endless calls. Existing Essentials invalidation is reused.
+Reading coverage and correction status now survive worker status storage and
+are reported separately. Idle scheduling includes pending historical corrections.
+Extended m722-focused.mjs passed, including M723 recovery, retry, source lookup,
+status, interruption and preservation cases. Syntax and diff checks passed.
+No live story/provider validation or bulk suite; actual captain identity remains
+unverified. No changes to M718/M719 identity, World, M720 updates or M721 themes.

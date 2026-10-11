@@ -116,7 +116,7 @@ const readersOut = (storyId) => workOut(storyId).some((name) => !OWN_BOOKS.has(n
 import { renderStateFacts as planFacts, stateView as planStateView, closeBy } from '../engine/state.js'; /* M510: what the helper reads; M589: who is close by */
 import { renderPeopleTiers as planPeople, peopleView as planPeopleView, findPersonKey } from '../engine/people.js'; /* M510; M518: a canon block's person in the ledger */
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort, worldOwed } from '../agents/world.js'; /* M29: the world beyond the page */
-import { continuousAuditOn, auditStretch, stretchWords, auditProgress, auditWaits, beginReading, endReading, pauseContinuousAudit } from '../agents/continuous.js'; /* M673: the continuous audit */
+import { continuousAuditOn, auditStretch, stretchWords, continuousRunStatus, auditProgress, auditWaits, beginReading, endReading, pauseContinuousAudit } from '../agents/continuous.js'; /* M673: the continuous audit */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, healStampDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
@@ -2939,7 +2939,7 @@ export function initChat(ctx) {
        *     he asked for is not happening. It tries again by itself, a minute, two, four ... apart;
        *   - HOW FAR IT HAS READ is said in the lamp's words, and on its row among the workers. */
       const auditing = busy && queuedCount(storyId) === 0 && runningWorkers(storyId).every((n) => n === 'continuous');
-      const sceneBusy = busy && !auditing;
+      const sceneBusy = busy && (!auditing || Boolean(auditRead?.open));
       const auditSore = Boolean(auditRead?.open) || Boolean(auditRead && auditRead.left > 0 && shelf.continuous && shelf.continuous.ok === false && shelf.continuous.detail !== 'stopped by hand');
       const watched = guards.length > 0 || auditSore;
       const sceneWell = auditing && !trouble && !partly && !watched && !behind && !repairOwed && !repairPaused && !openAudit && !verificationNeeded && ran > 0 && told > 0;
@@ -2947,7 +2947,7 @@ export function initChat(ctx) {
       const wellNow = (allWellNow && !auditSore) || sceneWell;
       const waitingNow = (waiting && !auditSore) || sceneWaiting;
       const guardWords = guards.map((g) => (g === 'continuity' ? 'the second reader' : 'the auditor')).join(' and ') + ' did not finish on the newest page; the story is safe, and it is asked again on the next';
-      const auditSoreWords = auditRead?.open ? auditRead.open + ' historical corrections remain unresolved: ' + auditRead.unresolved.map(f => f.issue?.what || f.why).join('; ') : 'the continuous audit could not finish its last reading; the story is safe, and it tries again by itself';
+      const auditSoreWords = auditRead?.open ? auditRead.open + ' historical corrections remain unresolved: ' + auditRead.unresolved.map(f => [f.issue?.what,f.recovery?.reason || f.why].filter(Boolean).join(': ')).join('; ') : 'the continuous audit could not finish its last reading; the story is safe, and it tries again by itself';
       const auditWords = !auditRead ? ''
         : auditRead.left > 0 ? ' The continuous audit has read ' + auditRead.done + ' of ' + auditRead.folded + ' folded pages' + (auditing ? ' and is reading on — it steps aside when you write.' : '; it reads on when the house is idle.')
           : auditRead.folded > 0 ? ' The continuous audit has read every folded page (' + auditRead.folded + ').' : '';
@@ -2957,7 +2957,7 @@ export function initChat(ctx) {
       btn.classList.toggle('is-waiting', waitingNow);
       btn.classList.toggle('is-auditing', auditing);
       const lampWords = (sceneBusy
-        ? 'The ledger — reading this scene now'
+        ? (auditing ? 'The ledger is resolving a historical memory correction automatically.' : 'The ledger — reading this scene now')
         : (!trouble && !partly && watched)
         ? 'The ledger — ' + (guards.length ? guardWords + (auditSore ? '. And ' + auditSoreWords : '') : auditSoreWords)
         : trouble
@@ -2981,7 +2981,7 @@ export function initChat(ctx) {
       if (ledgerBehind && !busy && !trouble) fillLedgerGap(storyId);
       if (repairOwed && !busy && !behind) scheduleLedgerRepair(storyId);
       /* M673: and the continuous audit reads its next stretch of folded pages */
-      if (auditRead && auditRead.left > 0 && !busy && !trouble && !behind) continuousCatchUp(storyId);
+      if (auditRead && (auditRead.left > 0 || auditRead.open > 0) && !busy && !trouble && !behind) continuousCatchUp(storyId);
     } catch (err) { /* a mark is never worth a thrown turn */ }
   }
 
@@ -3251,7 +3251,7 @@ export function initChat(ctx) {
         },
       });
       if (!result) return { silent: true };
-      return { silent: false, unfinished: Boolean(result.open), detail: stretchWords(result), raw: result.raw };
+      return { silent: false, ...continuousRunStatus(result), detail: stretchWords(result), raw: result.raw };
     } catch (err) {
       if (own.signal.aborted && !(signal && signal.aborted)) return { silent: true }; /* stepped aside for the storyteller */
       throw err;
@@ -3369,7 +3369,7 @@ export function initChat(ctx) {
       if (!story || story.extraction === false) return;
       /* M675: is there a stretch to read NOW? Lines the wire would not answer for are set aside for a while (continuous.js
        * `troubled`); when only those are left the next look is booked for the moment the first comes back */
-      const waits = auditWaits(storyId, await loadMemory(storyId), visiblePages(await db.messages.list(storyId)));
+      const waits = auditWaits(storyId, await loadMemory(storyId), visiblePages(await db.messages.list(storyId)),story);
       if (waits === -1) return; /* every folded page is read */
       if (waits > 0) {
         if (!continuousLook.has(storyId)) continuousLook.set(storyId, setTimeout(() => { continuousLook.delete(storyId); if (ctx.getActiveStoryId() === storyId) markLedgerTrouble(storyId); }, Math.min(waits, 30 * 60000) + 50));
