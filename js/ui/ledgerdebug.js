@@ -68,7 +68,7 @@ export async function ledgerDebugReport(storyId) {
   add('Recovered appearance inventory', {facts:appearance.length,people:new Set(appearance.map(f=>f.name)).size,
     unresolved:appearance.filter(f => {
       const receipt=state.audit?.verification?.entries?.['characters:'+f.name];
-      return !receipt?.appearance?.some(a=>a.id===f.id);
+      return receipt?.reviewedBy!=='final auditor' && !receipt?.appearance?.some(a=>a.id===f.id);
     }).slice(0,8).map(({name,key,value,source})=>({name,key,value,source}))},850);
   add('Entry verification', state.audit?.verification ? {read:state.audit.verification.read,total:state.audit.verification.total,finalReview:state.audit.finalReview,
     failureCounts:(state.audit.verification.pending || []).reduce((counts,p) => {const reason=p.split(': ').slice(1).join(': ') || p;counts[reason]=(counts[reason] || 0)+1;return counts;},{}),

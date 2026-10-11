@@ -409,7 +409,7 @@ function describeDelta(minutes) {
 const HANDLERS = {
   'mc.alias'(state, m) {
     const name = normalizeName(m.name);
-    if (!name || (!m.byHand && !explicitMcPersona(state, name, m.shown)
+    if (!name || (!m.byHand && !(m.source==='auditor' && m.auditorApproved===true) && !explicitMcPersona(state, name, m.shown)
       && !(m.source === 'auditor' && groundedMcPersona(state,name,m.shown)))) return { why: 'the writer must explicitly establish this as their own persona' };
     if (isMc(state, name)) return { why: 'this persona already belongs to the main character', same: true };
     const before = [...(state.sheet?.playerAliases || [])];
@@ -1157,7 +1157,7 @@ const HANDLERS = {
     if (!value) return { why: 'it didn’t say what’s true of ' + name };
     /* M681 (P2): a look is held to what lasts at this door too — every hand that locks one (the reader's looks, the auditor),
      * never his own */
-    if (m.byHand !== true && LOOK_KEYS.test(lookKey(key))) {
+    if (m.byHand !== true && !(m.source==='auditor' && m.auditorApproved===true) && LOOK_KEYS.test(lookKey(key))) {
       const lasting = lastingLook(value);
       if (!lasting) return { why: '“' + value + '” is how ' + name + ' looks for a moment, not what is true of them', same: true };
       value = lasting;
@@ -1387,7 +1387,7 @@ const HANDLERS = {
   'people.rename'(state, m) {
     const from = normalizeName(m.from); const to = normalizeName(m.to);
     if (!from || !to) return { why: 'a rename needs the old name and the new' };
-    if (!m.byHand && ownerAndDependent(from, to)) return { why: 'the owner and their dependent are different people; do not merge them' };
+    if (!m.byHand && !(m.source==='auditor' && m.auditorApproved===true) && ownerAndDependent(from, to)) return { why: 'the owner and their dependent are different people; do not merge them' };
     if (from.toLowerCase() === to.toLowerCase()) return { why: 'the same name', same: true };
     const keys = ['characters', 'offscreen', 'relationships', 'knowledge', 'canon', 'bodies', 'present', 'roomAt', 'threads', 'factions', 'sheet', 'things', 'duel', 'battle'];
     const before = {};
@@ -1465,14 +1465,14 @@ const HANDLERS = {
 
   'people.set'(state, m) {
     const field = typeof m.field === 'string' ? m.field.trim().toLowerCase() : '';
-    const writerCore = m.source === 'auditor' && m.writerEstablished === true && Boolean(m.shown);
+    const writerCore = m.source === 'auditor' && m.writerEstablished === true && (Boolean(m.shown) || (m.auditorApproved===true && m.sourceRefs?.length));
     const result = setPersonField(state, state.characters, m.name, field, m.text, storyTurn(state), { clear: m.open === true ? 'open' : m.clear === true, writerCore, byHand:m.byHand === true });
     if (!result.entry) return { why: result.why, same: result.same === true };
     if (m.source === 'auditor' && result.before && JSON.stringify(result.before[field]) === JSON.stringify(result.entry[field])) return { why: 'the saved field already contains this correction', same: true };
     if (m.open === true) { state.characters[result.key] = result.entry; return { words: result.key + ' — a page opened for them, nothing written on it yet.', undo: { kind: 'people.restore', name: result.key, before: null } }; } /* M508 */
     const before = result.before ? cloneMap({ [result.key]: result.before })[result.key] : null;
     if (field === 'core') {
-      if (writerCore && m.clear !== true) result.entry.coreOrigin = {kind:'writer',text:result.entry.core,shown:m.shown};
+      if (writerCore && m.clear !== true) result.entry.coreOrigin = {kind:'writer',text:result.entry.core,shown:m.shown || '',...(m.sourceRefs?{sourceRefs:m.sourceRefs}:{})};
       else delete result.entry.coreOrigin;
     }
     if (result.entry.retired) { const { retired, retiredAtTurn, ...rest } = result.entry; result.entry = rest; } /* M57: a page written wakes them */

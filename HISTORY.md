@@ -19514,3 +19514,66 @@ broad/theme/gameplay tests or real provider calls. These fixtures do NOT prove
 that the owner's live story has finished green. Do not claim that prematurely.
 Publish under the owner's standing permission; no new approval ask or retest.
 
+
+# M709: final auditor authority and concise review approval
+
+Version m709-001. The actual M708 report covers167/167 sources and208/210
+entries. Last attempt made2 model calls,0 source calls and0 lookups, returned
+both requested character verdicts, but remained pending because identityFacts
+with inCore:true did not satisfy another mandatory identity mapping array.
+Earlier history still contains source-reference failures. Do not claim that
+source pages were lost, the owner just needs to wait, or M708 finished live.
+
+The production auditor now accepts one explicit completed whole-review verdict
+for ALL supplied required snapshots, or the existing explicit entry verdicts.
+Nested identity/appearance mapping arrays and per-entry quotation certificates
+are no longer required to repeat the same semantic approval. Completion is
+explicit, with why and open entries; issues:[] alone still cannot turn green.
+The model remains responsible for reviewing original chronology, completeness,
+all valid personas and identity, and for repairing actual omissions. Extracted
+source atoms are guidance, not authority over originals. This intentionally
+replaces M708's forced profile mapping continuation. A genuinely open verdict
+stays pending. One format completion remains only for an unusable verdict.
+
+Production finalAuditorScope keeps supported operations and ownership rules,
+but no longer requires the opaque evidence-id/quote gate or the duplicate
+identity English classifier. Unknown old evidence references are retained as
+an honest provenance note with supplied original source ids, without inventing
+quotations or blocking the model's approved factual repair. Manual edits,
+player ownership, established records and earned relationship scores remain
+protected. People forget is refused; use preserving renames. Regular workers
+retain their existing behavior. Approved auditor appearance, persona and
+rename writes skip engine prose classifiers, using an application-assigned
+approval marker; they are not marked manual. Earlier manual appearance locks
+and unlocks now keep ownership across later pages, not only the page they
+were edited on. Writer biography provenance retains real supplied source ids.
+
+The final audit no longer runs automatic seat/identity/retirement heuristics
+alongside the model verdict. Their exported helpers and regular upkeep paths
+remain intact. Explicit starting digits continue their established preservation
+rules. Approved state is derived from the actual shown snapshot plus approved
+repairs; a later concurrently changed value cannot borrow that verdict. All
+writes still use normal journal/undo. A complete approval does not certify a
+rejected mutation, an actual missing person, incomplete source coverage, an
+open page concern or newer ledger work. Resulting new rows are included in
+the same complete review rather than requiring a second echo audit.
+
+The prompt now requests a short whole-review result and working repairs,
+instead of hundreds of certificates and duplicated profile arrays. The output
+budget no longer grows with the count of unchanged entries. Durable source
+coverage/checkpoints/cursor remain. Source scanning new or edited originals
+and genuine missing-context fetches can still add calls; no fixed provider
+latency is claimed. Debug differentiates whole-review versus entry approval,
+counts approved decisions rather than raw JSON checks, and does not call
+approved facts unresolved merely because redundant appearance arrays vanished.
+
+Only node tests/harness/m709-focused.mjs was run once,0.14s,passed. It exercises
+the actual identityFacts/inCore reply without another identity array, approved
+appearance repair with an unavailable old source id and no fabricated quote,
+compact complete verdict for every required entry, reused durable approvals,
+explicit open refusal and exact snapshot concurrency handling. It preserves
+manual eyes across later pages, biographies, dual faces, prose and p60/r50.
+No broad/theme/gameplay tests and no paid provider calls. The fixture proves
+these connections, not live completion or a bug-free model judgment. Publish
+under the owner's standing permission without another ask or a retest.
+

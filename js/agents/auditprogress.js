@@ -53,6 +53,7 @@ export function saveAuditCheckpoint(state,story,documents,verification) {
       if (!receipt) return;
       const refs=new Set((row.value?.appearanceSources || []).flatMap(f=>f.references || [f.source]));
       for (const f of row.value?.identitySources || []) refs.add(f.source);
+      for (const id of receipt.sourceRefs || []) refs.add(id);
       const quotes=[receipt.shown,...(receipt.physicalFacts || []).map(f=>f.shown),...(receipt.appearance || []).map(f=>f.shown),...(receipt.identity || []).map(f=>f.shown)].filter(Boolean);
       for (const [id] of receipt.dependencies || []) refs.add(id);
       for (const quote of quotes) for (const d of documents) if (d.text.includes(quote)) refs.add(d.id);
