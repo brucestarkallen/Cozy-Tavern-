@@ -29,6 +29,19 @@ Publishing is not a reason to run a release matrix. A passing relevant check is
 not repeated after documentation or commit changes. Documentation needs no tests.
 This policy overrides all older gate commands, templates and historical notes.
 
+## Owner standing publication permission
+
+On 11 October 2026 at 19:27 Jakarta, the owner explicitly said:
+"Yes for every version you can publish anything."
+This authorizes publishing M704 and future CozyTavern versions containing the
+owner's requested work to the existing GitHub main branch. Do not ask for new
+permission per version. Publish with a normal nonforce push, reconcile remote
+changes when necessary, and verify the exact remote head. Preserve prose,
+manual edits, data, credentials and valid worker judgments under the existing
+contracts. This permission does not authorize unrelated work or destructive
+repository actions. If automatic review nevertheless rejects publication,
+report the actual rejection and do not bypass it. No extra tests for publishing.
+
 ## Working loop
 
 1. Use tools/context.py to locate the relevant historical entries; read source and those

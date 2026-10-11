@@ -19273,3 +19273,13 @@ for notes, commit or publication. The source model can still miss something;
 this closes the known silent omission between recovered facts and approval,
 not a claim of perfect extraction or the owner's specific live queen recovery.
 
+
+# M704 publication and standing approval
+
+The first publication attempt was rejected by automatic approval review, which
+considered prior consent specific to M703. At19:27 Jakarta on11 October2026
+the owner said "Yes for every version you can publish anything." This approves
+M704 and future requested CozyTavern versions on existing GitHub main. AGENTS.md
+and the current HANDOFF record the standing permission. No tests were run or
+repeated for documentation or publication. Use normal nonforce publication,
+verify exact remote main, and never bypass a real automatic review rejection.

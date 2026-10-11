@@ -1,5 +1,13 @@
 # M704: account for recovered appearance before approving a character
 
+Publication authorization: the initial M704 push was rejected by automatic
+review because it treated the prior approval as specific to M703. The owner
+then explicitly approved M704 and ALL future versions at19:27 Jakarta on
+11 October2026. Standing permission is recorded in AGENTS.md; the older
+version-specific approval stops below are historical. Publish requested work
+without asking per version, using normal nonforce push and remote verification.
+No tests were added or repeated for this permission/documentation update.
+
 Version m704-001. The owner's live M703 report completed source coverage167/167
 and entry verification163/163 without unresolved work. That proves completion
 of the recorded audit, not exhaustive factual correctness. The subsequent queen
