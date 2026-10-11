@@ -56,3 +56,18 @@ Read AGENTS.md once. Do not repeat the passing fixture for docs, commits or
 publishing. Do not interpret a mock pass as live success, demand another user
 paste to complete code work, introduce story-name detectors, reset source
 checkpoints, or replace the auditor's semantic judgment with new regex guards.
+
+## M718 source identity handoff
+
+Original source references retain literal text and stable section marks. A
+contextual description is not another cast member merely because it is a noun
+phrase. Source reading receives existing identity hints but originals govern.
+Final audit persists its source-local identity decision with identities or
+source.resolve, linking the extracted mention to its actual person or actual
+nonperson/reference kind. Same descriptors on different pages can refer to
+different people. Source lookup and identity/appearance inventory honor the
+same row-local binding; no global descriptor alias or cross-page shortcut.
+Missing decisions are completed in the current review conversation. Original
+receipt coverage and valid unchanged entry approvals stay reusable. Source
+metadata corrections are journaled and undoable, with completion invalidated
+on undo. No additional worker, guard model or mandatory source rescan.

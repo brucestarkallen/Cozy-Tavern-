@@ -88,6 +88,7 @@ const SYSTEM = withFictionFrame([
   'and instructions asking for a character to be created later. Keep deceased people as established identities.',
   'Each original document is supplied as ordered passages with local ids. Read ALL passages as one document. For each identity and fact select evidence:"passage id" from that document. If support spans passages, use evidence:["first passage id","last passage id"]; the original intervening text is retained. Do not retype or paraphrase quotations. Never select a passage from a different source.',
   'You decide the meaning and actual subject from the complete original document. A passage may use a pronoun or a shorter name than the established ledger label. A title established separately need not be repeated inside every supporting passage. Keep the established name and distinguish different individuals. Selecting an unrelated passage does not establish a fact.',
+  'Resolve descriptions, pronouns and temporary labels to the SAME individual within the source. When their name is established, use that name, not an additional identity for each description. Existing ledger identities are recall hints, not proof. A generic description can refer to different people in different pages. Do not turn an already named princess into a new person because dialogue calls her a girl.',
   'Also collect EVERY explicitly established lasting physical fact for that person in this document: hair, eyes, skin, build, height, scars and other enduring features. Use facts:[] when none is established. Read the complete document, including descriptions linked by pronouns. Current clothes, poses and expressions are not lasting facts. Do not infer missing details. Preserve changes as separate sourced facts; the final housekeeper resolves chronology.',
   'Collect identityFacts:[{text,evidence}] for explicit rank, family, background, stable personality and preferences. Use identityFacts:[] when none is established. These are atomic facts to retain in their People core, not a rewritten biography. Exclude guessed feelings, speculative attraction, questions and momentary actions. A deliberate character introduction in a parenthesis is still writer-established. Appearance belongs in facts, not identityFacts. Record alternate faces with their explicit persona or form in each physical fact key, keeping one player identity; alternate appearances are not mutually superseding hair colours.',
   'Return JSON: {"checked":["each source id actually read"],"people":[{"name":"established name or singular role",',
@@ -154,10 +155,13 @@ export async function reviewAuditSources({ connection, documents, previous = {},
       && Array.isArray(p.facts) && p.facts.every(f => f.key && f.value && quotedSource(d.text,f.shown)))) cache[d.id] = old;
   }
   const todo = documents.filter((d) => !cache[d.id]);
+  const system = SYSTEM + '\nEXISTING LEDGER IDENTITY HINTS, resolve against originals, never infer an identity solely from these: '
+    + JSON.stringify(Object.entries(state.characters || {}).map(([name,p]) => ({name,aliases:p.aliases || [],identity:String(p.core || '').slice(0,220)})))
+    + '\nPLAYER IDENTITY HINT: '+JSON.stringify({name:state.sheet?.playerName,aliases:state.sheet?.playerAliases || []});
   const replyTokens = workerConnection(connection, { maxTokens: Math.min(MAX_TOKENS, Math.max(6000, Number(connection?.maxTokens) || MAX_TOKENS)) }).maxTokens;
   // Pack original chunks by the real connection room and answer allowance.
   // Keep ids/marks unchanged so existing scratchbook receipts remain reusable.
-  const available = Math.max(0, (contextOf(connection) - replyTokens - 3000) * 3 - SYSTEM.length);
+  const available = Math.max(0, (contextOf(connection) - replyTokens - 3000) * 3 - system.length);
   let limit = Math.max(0, Math.min(120000, replyTokens * 12, available * 0.6));
   let calls = 0; let cursor = 0; let failure = '';
   const sourceProblems = new Map();
@@ -176,8 +180,8 @@ export async function reviewAuditSources({ connection, documents, previous = {},
     renew?.(); calls++;
     try {
       const user = 'SOURCE DOCUMENTS\n' + JSON.stringify(batch.map(sourceDocument));
-      renew?.(leashFor(SYSTEM.length + user.length));
-      const result = await callWorker(connection, { system: SYSTEM, messages: [{ role: 'user', content: user }], maxTokens: replyTokens, signal });
+      renew?.(leashFor(system.length + user.length));
+      const result = await callWorker(connection, { system, messages: [{ role: 'user', content: user }], maxTokens: replyTokens, signal });
       if (stale?.() || signal?.aborted) return null;
       // A truncated answer cannot certify that its final document was read.
       if (result.finishReason === 'length') {
@@ -202,8 +206,8 @@ export async function reviewAuditSources({ connection, documents, previous = {},
           + JSON.stringify(missing.map(d => ({id:d.id,label:d.label})))
           + '\nCorrect these transport problems: ' + JSON.stringify(problems.filter(p => ids.has(p.source)).slice(0,40))
           + '\nReturn complete JSON with checked and people for ONLY these unfinished source ids. Select evidence passage ids from the original documents above; the application attaches their original text. Do not copy quotations. Name labels, titles and pronouns need not match word for word inside each passage: you decide their actual subject from the full document. Include facts and identityFacts arrays, even when empty. Keep every supported individual and their established facts. Do not omit a fact merely to pass validation. Collectives remain tracked in Scene; they are not individual identity rows. Valid receipts for other sources are already saved.';
-        renew?.(leashFor(SYSTEM.length + user.length + result.text.length + correction.length)); calls++;
-        const fixed = await callWorker(connection,{system:SYSTEM,messages:[{role:'user',content:user},{role:'assistant',content:result.text},{role:'user',content:correction}],maxTokens:replyTokens,signal});
+        renew?.(leashFor(system.length + user.length + result.text.length + correction.length)); calls++;
+        const fixed = await callWorker(connection,{system,messages:[{role:'user',content:user},{role:'assistant',content:result.text},{role:'user',content:correction}],maxTokens:replyTokens,signal});
         if (stale?.() || signal?.aborted) return null;
         if (fixed.finishReason !== 'length') {
           const repaired = sourceReviewResult(fixed.text,missing);
@@ -233,6 +237,13 @@ export async function reviewAuditSources({ connection, documents, previous = {},
  * recorded merge, including a merge made before aliases were stored in M687. */
 export function sourcePersonKey(state, name, remembered = '') {
   const characters = state?.characters || {};
+  // Explicit remembered mappings belong to this source row, not every future
+  // use of the descriptor. Never borrow another page's 'the girl' mapping.
+  if (remembered) {
+    if (isMc(state,remembered)) return state.sheet?.playerName || remembered;
+    const resolved = findPersonKey(characters,remembered);
+    if (resolved) return resolved;
+  }
   const direct = findPersonKey(characters, name);
   if (direct && !String(characters[direct]?.core || '').trim() && !characters[direct]?.hand?.core) {
     const complete = Object.keys(characters).filter(k => k !== direct && sameOwnedDescriptor(k, name)
@@ -246,9 +257,7 @@ export function sourcePersonKey(state, name, remembered = '') {
     if (m?.type === 'people.rename' && !(!m.byHand && ownerAndDependent(m.from, m.to)) && String(m.from || '').toLowerCase() === String(renamed).toLowerCase()) renamed = m.to;
   }
   if (renamed !== name) return findPersonKey(characters, renamed);
-  if (!remembered) remembered = Object.values(state.auditSources || {}).flatMap((r) => r.people || [])
-    .find((p) => String(p.name || '').toLowerCase() === String(name || '').toLowerCase())?.ledgerName || '';
-  return remembered && !ownerAndDependent(name, remembered) ? findPersonKey(characters, remembered) : '';
+  return '';
 }
 
 export function missingSourcePeople(state, people = []) {
@@ -257,15 +266,17 @@ export function missingSourcePeople(state, people = []) {
     if (p.kind && p.kind !== 'person') continue;
     if (isMc(state, p.name)) continue;
     const key = sourcePersonKey({ ...state, characters: known }, p.name, p.ledgerName);
+    if (key && isMc(state,key)) continue;
     if (key && (String(known[key]?.core || '').trim() || known[key]?.hand?.core)) continue;
     const name = key || p.name;
-    if (requested.has(name)) continue;
-    requested.add(name);
+    const target = JSON.stringify([p.source,p.name]);
+    if (requested.has(target)) continue;
+    requested.add(target);
     // An extraction is a candidate, not proof that every quoted proper name
     // is a person. Review its subject before requesting a biography.
     issues.push({ what: name + ' is listed as an individual by the source reading in ' + p.label + '; confirm its identity or correct its entity classification.',
-      name, profileRecovery: true, shown:p.shown,
-      fix: 'Read the original subject first. For a real individual write their established identity and physical facts; for a place, organization, object or group correct the source classification with people.reclassify. Do not create a biography from a quoted name or event.', pages: false, mutations: [] });
+      name, sourceId:p.source,sourceName:p.name,profileRecovery: true, shown:p.shown,
+      fix: 'Resolve this mention in its original source. If it describes a known person, return identities:[{sourceId,name,to:"existing person",kind:"person",why}]; this binds only this source mention, never a global alias. For a genuinely new person supply their profile first. For a nonperson or comparison-only reference use its actual kind, including reference. Do not create another biography for a contextual description.', pages: false, mutations: [] });
   }
   return issues;
 }

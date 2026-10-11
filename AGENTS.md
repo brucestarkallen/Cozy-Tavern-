@@ -105,3 +105,11 @@ binding supplies literal originals and source lookup retains explicit selected
 section ids, even for shorter names/pronouns. Do not reset source ids, marks or
 completed caches because the reference transport changed. Keep the one focused
 correction inside the original reading conversation, with no bulk rescan.
+
+After M718, contextual source labels have durable per-section identity
+resolutions through identities/source.resolve. Do not use a global character
+rename or alias for an extraction-only girl/stranger/captain descriptor. Do not
+borrow another source's ledgerName when resolving a row without a local binding.
+Keep source finding ids distinct across same-label chunks. A final source
+withdrawal must save its actual disposition, so it cannot reappear next turn.
+Omitted decisions complete in the existing conversation, no independent checker.

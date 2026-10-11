@@ -1500,6 +1500,29 @@ const HANDLERS = {
     return {words:name+' is '+(kind === 'organization' ? 'an organization' : 'a '+kind)+'; its misplaced People records were archived.',
       undo:{kind:'people.forgotten',name,before:records,classification:{prior,sourceUndo}}};
   },
+  // Resolve one extracted mention, not a global character alias. Two source
+  // pages may use the same descriptor for entirely different people.
+  'source.resolve'(state, m) {
+    if (!m.auditorApproved) return {why:'a source identity needs the final reader decision'};
+    const receipt = state.auditSources?.[m.sourceId];
+    const name = String(m.name || '').trim();
+    const kind = m.kind || 'person';
+    const why = capText(m.cause || m.auditReason,1000);
+    if (!receipt || !name || !why || !['person','place','organization','object','group','reference'].includes(kind)) return {why:'select an existing source mention and state its identity decision'};
+    const to = kind === 'person' ? (isMc(state,m.to) ? mcName(state) : findPersonKey(state.characters,m.to)) : '';
+    if (kind === 'person' && !to) return {why:'supply the actual established person, creating a genuinely missing profile in the same answer first'};
+    const rows = [];
+    const people = (receipt.people || []).map((p,index) => {
+      if (p.name !== name) return p;
+      if (p.kind === kind && (p.ledgerName || '') === to && p.identityResolution?.why === why) return p;
+      rows.push({index,name:p.name,kind:p.kind,ledgerName:p.ledgerName,identityResolution:p.identityResolution});
+      return {...p,kind,ledgerName:to,identityResolution:{kind,to,why}};
+    });
+    if (!rows.length) return receipt.people?.some(p=>p.name === name) ? {why:'this source identity decision is already saved',same:true} : {why:'this name is not an extracted mention in the selected source'};
+    state.auditSources = {...state.auditSources,[m.sourceId]:{...receipt,people}};
+    return {words:kind === 'person' ? name+' refers to '+to+' in this source; their People records remain unchanged.' : name+' was classified as '+kind+' in this source.',
+      undo:{kind:'source.resolved',id:m.sourceId,mark:receipt.mark,rows}};
+  },
   'people.wake'(state, m) {
     const key = findPersonKey(state.characters, m.name);
     if (!key || !state.characters[key].retired) return { why: 'no one by that name is passed through' };
@@ -3543,6 +3566,17 @@ function applyUndo(next, undo) {
     } else if (undo.kind === 'people.renamed') {
       const b = undo.before || {};
       for (const [k, v] of Object.entries(b)) if (v !== null) next[k] = JSON.parse(JSON.stringify(v));
+      ok = true;
+    } else if (undo.kind === 'source.resolved') {
+      const receipt = next.auditSources?.[undo.id];
+      if (receipt?.mark === undo.mark) {
+        const people = (receipt.people || []).map(p=>({...p}));
+        for (const old of undo.rows || []) if (people[old.index]?.name === old.name) {
+          for (const field of ['kind','ledgerName','identityResolution']) if (old[field] === undefined) delete people[old.index][field]; else people[old.index][field]=old[field];
+        }
+        next.auditSources = {...next.auditSources,[undo.id]:{...receipt,people}};
+        if (next.audit) next.audit = {...next.audit,verifiedInput:null};
+      }
       ok = true;
     } else if (undo.kind === 'people.forgotten') {
       const b = undo.before || {};

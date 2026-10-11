@@ -1,3 +1,27 @@
+# M718 source-local identity disposition
+
+Final source candidate review is part of the existing auditor conversation.
+Identities:[{sourceId,name,to,kind,why}] binds one extracted mention to an actual
+existing person, or assigns its actual nonperson/reference kind. It becomes a
+journaled source.resolve operation with metadata undo. It never renames a real
+People record or installs a global contextual descriptor alias. Missing actual
+individuals receive their source-established profile in the same answer first.
+
+Unbound source mentions carry stable source-local tasks beside actual ledger
+entries. Omitted decisions finish through the existing format continuation,
+not a new audit loop. A withdrawal alone cannot regenerate the same candidate
+next turn; its source decision must be saved. Long page sections with the same
+visible label retain independent ids and are resolved together. Legacy findings
+are replaced with their scoped versions. Explicit per-source mapping wins over
+generic name lookup; no mapping is borrowed from a different source document.
+Appearance/identity inventory share the same resolver, including player aliases.
+
+Source ids/marks, original quotations and valid cached receipt coverage remain
+stable. Recall hints help source readers identify named subjects before audit;
+original source meaning remains model-owned. Policy4 resumes earlier pauses
+once without reopening completed unchanged audits. Undo of a source disposition
+clears completion. Manual cores, valid judgments, feelings and prose are untouched.
+
 # M717 original source reference protocol
 
 Source review supplies the complete ordered original text as passages with

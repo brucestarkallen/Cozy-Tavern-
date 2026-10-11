@@ -73,6 +73,7 @@ const CAST_CAP = 20000;
 const VOCABULARY = [
   'people.rename {"type":"people.rename","from":"wrong name","to":"established name","cause":"source of correction","shown":"exact identity quote if the names differ entirely"} — correct or merge one identity, keeping all its records. NEVER delete and recreate it. Correct its title with people.set core.',
   'people.reclassify {"type":"people.reclassify","name":"exact erroneous People name","kind":"place","cause":"why the original establishes a place rather than a person"} — kind place, organization, object or group. Use ONLY after judging the originals and determining this record is not an individual character. Its misplaced records are archived reversibly and its current source extraction is corrected. Do not rename a place into a prince merely because his title contains it. Save physical facts on their actual subject separately. Manual records and the player remain protected.',
+  'source.resolve {"type":"source.resolve","sourceId":"original source section id","name":"exact extracted label","to":"actual existing person","kind":"person","cause":"your source identity decision"} — binds only this mention to its actual person. It never renames a character or adds a global alias. Different pages may use the same description for different people. For a place, organization, object, group or comparison-only reference use that kind (reference for the latter) and omit to. For a genuinely new individual write their sourced profile first. You can return these decisions directly as identities:[{sourceId,name,to,kind,why}].',
   'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30} — to the latest header line\'s own hour, or when the latest STORY page has none',
   'place.set {"type":"place.set","name":"the chapel"} — to the latest header line\'s own place, or when the latest STORY page has none',
   'presence.enter {"type":"presence.enter","name":"NAME","shown":"exact newest-page words establishing their presence","position":"their latest position, if shown"} / presence.update {"type":"presence.update","name":"NAME","position":"their latest position, in the page\'s own words","attire":"their latest attire, if shown","shown":"exact newest-page words establishing the corrected field"} / presence.leave {"type":"presence.leave","name":"NAME","shown":"the page\'s own words that show them going, copied exactly","to":"where the pages show them going, said so it stands on its own — upstairs in the Wells house — and left out only when the pages show no sign of where"}',
@@ -182,7 +183,7 @@ function law({ mc }) {
     'For factual repairs use the original sources. EvidenceId from supplied references or an exact shown quote is useful optional provenance. Fetch missing context. Never reconstruct a quotation from memory or an old proposal. Explain the contradiction in what and the intended result in fix. Read later evidence before restoring an old fact. Do not change valid worker judgments of feelings, motives or simulation. Relationship numbers are reconciled separately from explicit starting digits and earned history; do not choose replacement scores.',
     'An arrival quote remains presence evidence after a later seated pose. For posture and attire use their latest own account, not a later incidental mention by someone else. Include shown on offscreen.clear as well.',
     'The MC\'s explicitly established own persona is the MC, not another person away from the scene. Clear a false separate elsewhere seat with the writer\'s exact identity quote. Never guess a persona from a similar name or from an intention to impersonate someone.',
-    'A duplicate identity or duplicate seat is repaired with people.rename from the descriptor or duplicate name to the established name, retaining the records. A presence.update does not merge two people. When a role record is the named person already here, merge it before clearing seats; offscreen.clear must not leave an independent tracked person nowhere. Do not treat an unchanged location stated with extra detail as proof that the existing location is wrong.',
+    'A duplicate identity or duplicate seat is repaired with people.rename from an actual duplicate People record to the established name, retaining the records. A contextual description in source extraction is instead resolved locally with identities or source.resolve; never give every girl, stranger or captain in the whole story the same global alias. A presence.update does not merge two people. When a role record is the named person already here, merge it before clearing seats; offscreen.clear must not leave an independent tracked person nowhere. Do not treat an unchanged location stated with extra detail as proof that the existing location is wrong.',
     'A source-review quotation is evidence, not automatically a complete identity. For EVERY People record verify completeness as well as truth: recover established rank, family, background, enduring nature and preferences missing from core. A nonempty event sentence does not pass this review. Review lasting physical details separately, restoring missing hair, eyes, build and scars with canon.lock. Use the original source index to fetch earlier pages and the brief, even for people elsewhere. Preserve valid existing facts and judgments; do not rewrite correct records merely for style. Reconcile descriptors with named identities before making another person.',
     'Only propose a repair for a factual difference. Rewording an equivalent position is not a correction. Recheck inherited findings against the newest page before repeating them. A quote from earlier in the same page does not overrule that person reaching a different position later in that page.',
     'Follow each person through the entire newest scene. Their last established position continues while others act;',
@@ -331,7 +332,10 @@ export function parseAuditorAnswer(raw) {
       what:'Save the source appearance reviewed for '+c.id.slice(11),targets:[{id:c.id}],
       mutations:(Array.isArray(c.physicalFacts)?c.physicalFacts:[]).filter(f=>f.key && f.value).map(f=>({type:'canon.lock',name:c.id.slice(11),key:f.key,value:f.value,evidenceId:f.evidenceId,shown:f.shown})),
     })).filter(i=>i.mutations.length);
-    const issueRows = [...(Array.isArray(parsed.issues) ? parsed.issues : []), ...profiles,...checkFacts, ...repairs.filter(r => r.status !== 'correct' || r.mutations?.length).map(r => ({...r, findingId:r.id, what:r.what || r.why || r.id, fix:r.fix || r.why}))];
+    const identities = (Array.isArray(parsed.identities) ? parsed.identities : []).filter(p=>p && typeof p.sourceId==='string' && typeof p.name==='string').map(p=>({
+      what:'Resolve '+p.name+' in its original source',mutations:[{type:'source.resolve',sourceId:p.sourceId,name:p.name,to:p.to,kind:p.kind || 'person',cause:p.why}]
+    }));
+    const issueRows = [...(Array.isArray(parsed.issues) ? parsed.issues : []), ...profiles,...checkFacts,...identities, ...repairs.filter(r => r.status !== 'correct' || r.mutations?.length).map(r => ({...r, findingId:r.id, what:r.what || r.why || r.id, fix:r.fix || r.why}))];
     const issues = issueRows
       .filter((i) => i && typeof i === 'object' && typeof i.what === 'string' && i.what.trim() && i.resolved !== true)
       .map((i) => ({
@@ -571,9 +575,20 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     const verificationRows = auditReviewRows(result.out,previousVerification);
     finalReview.requested = verificationRows.length;
     const requestedState=result.out;
+    const sourceCandidates=originalFindings.filter(i=>i.profileRecovery && i.sourceId);
+    const sourceTasks=sourceCandidates.map(i=>({id:auditFindingId(i),sourceId:i.sourceId,name:i.sourceName || i.name,shown:i.shown}));
     const reviewProblems=text=>{
       const read=parseAuditorAnswer(text);
-      const problems=completeFinalAuditReply(read,verificationRows)?[]:[{why:'Return review:{status:"complete",why:"your completed verdict",open:[]} after reviewing all required entries, or explicit entry checks. Use open for real unresolved facts.'}];
+      const problems=completeFinalAuditReply(read,[...verificationRows,...sourceTasks])?[]:[{why:'Return review:{status:"complete",why:"your completed verdict",open:[]} after reviewing all required entries and source mentions, or explicit entry checks. Use open for real unresolved facts.'}];
+      // Finish omitted source decisions in THIS conversation, not another
+      // audit loop. This checks that a decision was saved, not its semantics.
+      if (read.note==='ok' && sourceCandidates.length) {
+        const bound=bindFinalAuditEvidence(read,registeredEvidence(),verificationRows,documents);
+        const proposed=judge(requestedState,bound.issues);
+        const open=new Set((read.review?.open || []).map(o=>o.id));
+        const missing=sourceCandidates.filter(i=>!open.has(auditFindingId(i)) && !findingSettled(i,proposed,bound.resolved,documents));
+        if (missing.length) problems.push({why:'Complete the source mention identity decisions in this SAME answer. Return identities:[{sourceId,name,to:"actual person",kind:"person",why}] for an existing person, or the actual nonperson/reference kind. Supply a profile first for a genuinely new individual. A contextual description needs no new People page or global alias. If genuinely unresolved, put its id in review.open.',mentions:sourceTasks.filter(t=>missing.some(i=>auditFindingId(i)===t.id))});
+      }
       if (!standingsCached && !Array.isArray(read.standings)) problems.push({why:'Include standings:[] when no explicit starting digits are stated.'});
       return problems;
     };
@@ -585,6 +600,8 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
           + '\nREQUIRED CURRENT LEDGER CHECKS:\n'+JSON.stringify(verificationRows)
           + '\nRETAINED SCRATCHBOOK CHECKS, already approved for these unchanged values and sources:\n'+JSON.stringify(Object.keys(previousVerification))
           + '\nHISTORICAL FINDINGS WITH ACTUAL CURRENT RECORDS:\n'+JSON.stringify(auditRepairChecklist(originalFindings,result.out))
+          + '\nREQUIRED SOURCE MENTION DECISIONS:\n'+JSON.stringify(sourceTasks)
+          + '\nResolve each source mention from the original text. Return identities:[{sourceId,name,to:"actual existing person",kind:"person",why:"your identity decision"}]. This is the saved correction, not another certificate. Descriptions and pronouns usually refer to an already established individual. Bind this source locally, never make a global alias or create a biography merely for a temporary label. For genuinely new individuals supply their profiles in the same answer first. For a nonperson or comparison-only reference use kind place, organization, object, group or reference and omit to. Keep each mention scoped to its supplied sourceId. Use review.open with its finding id only for a genuinely unresolved identity.'
           + '\nRECOVERED SOURCE FACTS. These are an extraction index, not authority over the original text. Read originals to resolve misread relations, ambiguous labels and alternate forms. A correct profile can express the same fact in different words. Retain every valid rank, family, personality, background and lasting appearance. Repair actual omissions, never rewrite a correct biography just to match this index. Correct partial hair fields without overwriting another face.'
           + '\nORIGINAL SOURCE REFERENCES:\n'+JSON.stringify(repairEvidence)
           + '\nEvidence IDs or exact shown quotes are optional provenance. If using an ID choose one actually supplied; source fact IDs in the required entries also refer to original quotes. Never invent an ID. If missing needed context, fetch its original page. An unavailable old ID does not mean the source page is missing.'
@@ -684,10 +701,13 @@ function unresolvedFindings(result) {
   }));
 }
 export function auditFindingId(issue) {
-  return issue.id || issue.findingId || 'finding:' + fingerprint36(String(issue.what || '').trim());
+  return issue.id || issue.findingId || 'finding:' + fingerprint36(issue.profileRecovery && issue.sourceId
+    ? JSON.stringify([issue.sourceId,issue.sourceName || issue.name]) : String(issue.what || '').trim());
 }
 export function auditRepairChecklist(findings, state) {
   return findings.map(i => ({ id: auditFindingId(i), what: i.what, fix: i.fix,
+    ...(i.sourceId?{sourceMention:{sourceId:i.sourceId,name:i.sourceName || i.name,shown:i.shown,
+      current:state.auditSources?.[i.sourceId]?.people?.find(p=>p.name===(i.sourceName || i.name))}}:{}),
     currentEntries: findingRows(i,state),
     targets: (i.mutations || []).map(m => {
       const name = findPersonKey(state.characters || {}, m.name || m.from) || m.name || m.from;
@@ -1110,6 +1130,14 @@ export function findingRows(issue, state) {
 }
 
 export function findingSettled(issue, result, withdrawals, documents, verification) {
+  if (issue.profileRecovery && issue.sourceId) {
+    const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
+    if (mention?.kind && mention.kind!=='person') return true;
+    const key=mention && sourcePersonKey(result.out,mention.name,mention.ledgerName);
+    // A withdrawal without a saved source decision would regenerate the same
+    // complaint next turn. Keep the actual binding as the durable result.
+    return Boolean(key && (isMc(result.out,key) || String(result.out.characters?.[key]?.core || '').trim() || result.out.characters?.[key]?.hand?.core));
+  }
   if (issue.profileRecovery && issue.name && result.out.entityCorrections?.[issue.name]
     && !sourcePersonKey(result.out,issue.name)
     && Object.values(result.out.auditSources || {}).flatMap(r=>r.people || []).filter(p=>p.name === issue.name).every(p=>p.kind && p.kind !== 'person')) return true;
@@ -1141,20 +1169,33 @@ function compactFindings(findings, state) {
   const kept = new Map();
   for (const issue of findings) {
     const mutations = issue.mutations || [];
-    if (!mutations.length) { kept.set('words:' + issue.what, issue); continue; }
+    if (!mutations.length) {
+      if (issue.profileRecovery && issue.sourceId) {
+        // Replace the legacy unscoped complaint, while keeping every distinct
+        // source section of a long page with the same visible label.
+        kept.delete('words:'+issue.what);
+        kept.set('source:'+JSON.stringify([issue.sourceId,issue.sourceName || issue.name]),issue);
+      } else kept.set('words:' + issue.what, issue);
+      continue;
+    }
     for (const m of mutations) {
       const name = findPersonKey(state?.characters || {}, m.name || m.from) || m.name || m.from || m.title || '';
       const valueKey = /^(?:knowledge\.|canon\.|thread\.)/.test(m.type) || (m.type === 'people.note' && /thread/.test(m.field || ''))
         ? foldName(m.fact || m.title || m.text || m.key || '') : '';
       const field = m.type === 'presence.update' ? ['position', 'attire'].filter((f) => m[f] !== undefined).join(',') : m.field || m.key || '';
       const key = [m.type, foldName(name), field, valueKey].join('|');
-      kept.set(key, { ...issue, mutations: [m] });
+      kept.set(m.type==='source.resolve'?key+'|'+m.sourceId:key, { ...issue, mutations: [m] });
     }
   }
   return [...kept.values()];
 }
 
 function mutationSatisfied(state, m) {
+  if (m.type==='source.resolve') {
+    const p=state.auditSources?.[m.sourceId]?.people?.find(p=>p.name===m.name);
+    return Boolean(p?.identityResolution && p.kind===(m.kind || 'person')
+      && (p.kind!=='person' || sourcePersonKey(state,p.name,p.ledgerName)===(isMc(state,m.to)?mcName(state):findPersonKey(state.characters,m.to))));
+  }
   const textSame = (wanted, actual) => String(wanted || '').trim() === String(actual || '').trim();
   let at = m.name ? findPresent(state, m.name, { strict: true }) : -1;
   if (at === -1 && m.name) {
@@ -1176,6 +1217,7 @@ function mutationSatisfied(state, m) {
 
 function sameRepairTarget(before, after) {
   if (!before || !after) return false;
+  if (before.type==='source.resolve' && after.type==='source.resolve' && before.sourceId!==after.sourceId) return false;
   const target = (m) => String(m.name || m.from || m.title || '').trim();
   const a = target(before); const b = target(after);
   if (a || b) { if (!a || !b || !(a === b || samePersonName(a, b))) return false; }
@@ -1451,7 +1493,7 @@ export const AUDITOR_TYPES = new Set([
   'clock.set', 'place.set', 'presence.enter', 'presence.leave', 'mc.set', 'mc.alias',
   'body.injure', 'body.heal', 'rel.set', 'offscreen.set', 'offscreen.clear',
   'canon.lock', 'canon.unlock', 'thread.set', 'thread.close', 'knowledge.add', 'knowledge.forget', /* M372: a wrong fact can be let go */
-  'faction.set', 'faction.clear', 'people.set', 'people.note', 'people.forget', 'people.rename', 'people.reclassify', /* corrections preserve their records */
+  'faction.set', 'faction.clear', 'people.set', 'people.note', 'people.forget', 'people.rename', 'people.reclassify', 'source.resolve', /* corrections preserve their records */
   'thing.set', 'thing.clear', /* M604: a thing in the wrong place, or one the pages destroyed */
   'mode.snapshot', /* M681 (S13): the whole board — only when no reader stated it for the newest page (boardStale) */
 ]);

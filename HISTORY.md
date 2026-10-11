@@ -19954,3 +19954,41 @@ preservation, long paragraphs/CRLF, unknown-id refusal, focused correction,
 legacy literal compatibility and fetching selected originals. No bulk, themes,
 long gameplay, paid calls or live certification. No repeat for documentation
 or publishing. Owner standing normal publication and default NO tests apply.
+
+
+## M718 — durable source-local identity disposition
+
+12 October 2026 Jakarta. M717 report181/181 source sections,208/208 actual
+ledger entries approved, final review ok. Page72 extracted "the girl" as a
+separate candidate and the source-recovery complaint remained after successful
+factual repairs. No source transport error remained. The final review lacked
+a durable path to bind this mention to its actual established identity without
+a global rename or another People biography. Live browser not inspected.
+
+Added identities answer handling and journaled source.resolve: one extracted
+source row maps to an existing person, or its actual nonperson/reference kind.
+Original quotations and all character records remain. Per-source remembered
+identity now wins; another page's remembered generic descriptor is never used
+as a shortcut. Identity/appearance atoms share that resolver. Source readers
+receive compact known identities/aliases as hints and must identify actual
+subjects from originals. New source candidates retain original section/name,
+are explicitly offered beside the current ledger, and omitted decisions finish
+in the same existing conversation. No text-only withdrawal can erase a task
+that would recur without its saved disposition. Source ids/marks/cache preserved.
+
+Code review found same-label chunks could collapse distinct source tasks.
+Scoped finding ids/keys now retain every section and replace legacy unscoped
+complaints. All sections can resolve together in the same answer. Source
+metadata undo preserves unrelated facts and clears completed approval. Policy4
+resumes earlier paused failures once; unchanged completed factual audits stay
+complete. Version m718-001, no extra agent or mandatory model call.
+
+Only m718-source-identity.mjs ran, passed0.14s then0.22s after the chunk collision
+repair. Actual persisted auditor recovery needed one mocked final call, zero
+source scans, preserved manual cores/arcs/earned feelings/original prose and
+owed no repeat audit. Same descriptor retained different people on different
+pages. Missing decision finished with the original conversation continuation;
+reference classification and metadata undo worked. Long same-label sections
+completed together in one call. No themes, gameplay, bulk suite or paid calls.
+No fixture rerun for docs/publication. Owner standing publication and default
+NO tests remain. The owner's live final green state remains unobserved.

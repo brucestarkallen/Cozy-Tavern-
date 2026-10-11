@@ -1,3 +1,46 @@
+# M718: durable source identity decisions, no global descriptor aliases
+
+Version m718-001. The owner's M717 report now has181/181 original sections,
+208/208 ledger entries and final review ok. One source candidate, "the girl"
+on Page72, remains unbound and loops as a missing person. M717's quotation
+transport repair succeeded but the pipeline lacked a durable source-local
+identity disposition in the final answer. Live browser not inspected.
+
+* Final auditor may return identities:[{sourceId,name,to,kind,why}], applied as
+  source.resolve in the existing transaction. A contextual label is bound to
+  its actual existing person within that one source section. Nonperson and
+  comparison-only reference decisions retain original provenance too. No new
+  People page, global alias, relationship rewrite or original prose change.
+  Truly missing individuals still need their sourced profile in the same answer.
+* Pending source findings retain their sourceId and original name. The current
+  mention and explicit decision task are shown with the real ledger. A missing
+  saved decision is completed in the existing SAME-conversation continuation,
+  rather than discovered again by another full audit. A text-only withdrawal
+  must not erase the task without saving its durable source decision.
+* Source-local remembered names take precedence and are never borrowed from
+  another page with the same descriptor. Identity and appearance inventory use
+  this shared resolver. Existing valid receipts and source marks are unchanged.
+  A small existing-name/alias/identity hint index helps new source readings
+  resolve contextual descriptions before final audit; actual originals govern.
+* Same-label chunks of a long page retain distinct source finding ids and are
+  resolved together. New scoped findings replace their legacy unscoped words.
+  Engine source.resolve is journaled/undoable and changes only receipt identity
+  metadata. Undo invalidates completed approval and preserves unrelated source
+  facts/decisions. Repair policy4 resumes old pauses once, without invalidating
+  completed unchanged reviews or rereading already completed source sections.
+
+Only node tests/harness/m718-source-identity.mjs ran. Passed first in0.14s,
+then0.22s after the source-section collision found during code review was fixed.
+One final mocked call completed the persisted old source complaint with zero
+source scans, no owed repeat audit, unchanged manual cores/arcs/feelings/prose,
+and different identities for the same descriptor on different pages. Same
+fixture exercised one omitted decision completed inside the original exchange,
+metadata undo, nonperson/reference classification and multiple same-label long
+page sections resolved together in one call. No broad suite, themes, gameplay,
+paid/provider calls or live browser verification. No repeat for docs/publication.
+Default NO tests and owner standing normal publication permission still apply.
+This certifies the exercised paths, not the unseen live final verdict.
+
 # M717: original passage selection instead of copied quote gates
 
 Version m717-001. The owner's M716 report approved208/208 ledger entries and

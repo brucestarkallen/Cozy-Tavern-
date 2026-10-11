@@ -1,8 +1,9 @@
 import { fingerprint36 } from '../engine/fingerprint.js';
 import { quotedSource } from '../engine/evidence.js';
-import { findPersonKey, isMc, mcKey } from '../engine/people.js';
-import { ownerAndDependent, samePersonName } from '../engine/names.js';
+import { isMc, mcKey } from '../engine/people.js';
+import { samePersonName } from '../engine/names.js';
 import { findCanonKey, lookKey } from '../engine/canon.js';
+import { sourcePersonKey } from './auditsources.js';
 
 // Source reading proposes facts. The housekeeper decides their meaning and
 // chronology; the transport makes omissions visible without parsing prose.
@@ -15,8 +16,8 @@ export function sourceAppearanceFacts(state, documents = null) {
     if (receipt.appearanceReviewed !== true) continue;
     for (const person of receipt.people || []) {
       if (person.kind && person.kind !== 'person') continue;
-      const name = isMc(state,person.name) ? mcKey(state) : findPersonKey(state?.characters,person.name)
-        || (!ownerAndDependent(person.name,person.ledgerName || '') && findPersonKey(state?.characters,person.ledgerName)) || person.name;
+      const resolved = sourcePersonKey(state,person.name,person.ledgerName) || person.name;
+      const name = isMc(state,resolved) ? mcKey(state) : resolved;
       for (const fact of person.facts || []) {
         if (!fact.key || !fact.value || !fact.shown || (original && !quotedSource(original.text,fact.shown))) continue;
         const id = 'appearance:' + fingerprint36(JSON.stringify([name,lookKey(fact.key),fact.value.trim().replace(/\s+/g,' ').toLowerCase()]));
@@ -82,8 +83,8 @@ export function sourceIdentityFacts(state, documents = null) {
     if (sources && (!original || original.mark!==receipt.mark)) continue;
     for (const person of receipt.people || []) {
       if (person.kind && person.kind !== 'person') continue;
-      const name=isMc(state,person.name)?mcKey(state):findPersonKey(state.characters,person.name)
-        || (!ownerAndDependent(person.name,person.ledgerName || '') && findPersonKey(state.characters,person.ledgerName)) || person.name;
+      const resolved=sourcePersonKey(state,person.name,person.ledgerName) || person.name;
+      const name=isMc(state,resolved)?mcKey(state):resolved;
       for (const fact of person.identityFacts || []) {
         if (!fact.text || !fact.shown || (original && !quotedSource(original.text,fact.shown))) continue;
         const id='identity:'+fingerprint36(JSON.stringify([name,fact.text.trim().replace(/\s+/g,' ').toLowerCase()]));
