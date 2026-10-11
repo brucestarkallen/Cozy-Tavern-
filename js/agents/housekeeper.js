@@ -894,6 +894,7 @@ const SYSTEM_PROMPT = [
   '<ledits>[ ... ]</ledits> — changes to THE LEDGER and THE PAGES OF THE PEOPLE, in',
   '  the ledger’s own closed vocabulary (every op carries its "type"):',
   '  mc.set {name} — the main character; place.set {name} — the ground;',
+  '  mc.alias {name,shown} — the player\'s explicitly established own persona, with the writer\'s literal identity statement;',
   '  clock.set {year,month,day,hour,minute}; clock.advance {minutes,reason};',
   '  presence.enter/leave/update {name,position?,attire?};',
   '  mode.set/mode.clear {flag of combat|intimate|travel|socialField|isolation|group};',

@@ -138,6 +138,7 @@ export async function pendingExtraction(storyId, timeoutMs = 5000) {
 
 const VOCABULARY = [
   'mc.set {"type":"mc.set","name":"MAIN CHARACTER"} — ONLY when the ledger does not yet know the main character: the one person the writer plays or narrates as their own',
+  'mc.alias {"type":"mc.alias","name":"PERSONA","shown":"the writer\'s exact explicit own-persona identity quote"} — another established identity of the SAME player, never a separate NPC. No guesses, hypothetical disguises or character dialogue.',
   'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30} — only when the prose states or clearly fixes the time',
   'place.set {"type":"place.set","name":"the chapel"} — the ground the scene stands on, only when first named or it truly moves',
   'clock.advance {"type":"clock.advance","minutes":30,"reason":"the walk to the chapel"} — when time clearly passes; minutes is a number',
@@ -1128,7 +1129,10 @@ export async function extractTurn(args = {}) {
       read.mutations = read.mutations.map((m) => { if (!m || m.decided === undefined) return m; const line = { ...m }; delete line.decided; delete line.room; return line; });
     }
   }
-  if (read?.mutations) read.mutations = read.mutations.map((m) => ({ ...m, source: m.source === 'writer' ? 'writer' : 'extractor' }));
+  if (read?.mutations) read.mutations = read.mutations
+    .filter(m => m.type !== 'mc.alias' || [args.brief,args.castNotes,args.userText,...(args.before || []).filter(p => p.role === 'user' && !p.cut).map(p => p.text)]
+      .some(source => quotedSource(source,m.shown)))
+    .map((m) => ({ ...m, source: m.source === 'writer' ? 'writer' : 'extractor' }));
   groundNames();
   return read;
 }

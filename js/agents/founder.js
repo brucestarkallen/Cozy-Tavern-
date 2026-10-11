@@ -32,11 +32,13 @@ import { renderWholeLedger } from '../engine/whole.js'; /* M259: what the ledger
 import { applyMutations } from '../engine/apply.js';
 import { mcName } from '../engine/duels.js';
 import { samePersonName } from '../engine/names.js'; /* M681: one answer to "the same person?" */
+import { quotedSource } from '../engine/evidence.js';
 
 const MAX_TOKENS = 6000;
 
 const VOCABULARY = [
   'mc.set {"type":"mc.set","name":"MAIN CHARACTER"} — the main character, when the brief makes it plain and the ledger does not know',
+  'mc.alias {"type":"mc.alias","name":"PERSONA","shown":"the brief\'s exact explicit own-persona identity quote"} — another established identity of the SAME player. Register it before writing other records for that name. Never guess from shared roles or similar names.',
   'people.set {"type":"people.set","name":"NAME","field":"core","text":"the main character\'s childhood friend; lives next door; ex-idol; reads rooms performatively"} — one core per named person the brief, the cast notes, the cards or the lore establish (never the main character\'s core or arc); field "arc" for how they stand with the main character when stated; who they are in their life (school year, age, role, family, home) belongs in their core, never in "state"; field "state" ONLY for where they are and what they are doing when the story opens, when stated',
   'rel.set {"type":"rel.set","name":"NAME","p":50,"r":65,"s":20,"cause":"the brief says NAME has loved MAIN CHARACTER since school"} — a standing is how a person stands TOWARD THE MAIN CHARACTER and nothing else (AXIS LOCK): only when the brief states a bond or history between that person and the main character, and the cause names the main character. A person who has never met the main character has no standing (zero, no line). Feelings toward ANYONE ELSE (a crush on NAME, a grudge against NAME) are NOT standings — they go in that person\'s page (core or arc) as words',
   'canon.lock {"type":"canon.lock","name":"NAME","key":"hair","value":"black, waist-length"} — the five canonical features (hair, eyes, build, height, skin tone) and scars when stated; one lock per fact',
@@ -352,6 +354,9 @@ async function guardFounding({ read, ledgerMc = '', connection, brief = '', cast
   const refusedByLock = [];
   /* M606: a tale founded before the ledger kept things gets the things its brief gives — and only those — once */
   for (const m of (thingsOnly ? ordered.filter((x) => x && x.type === 'thing.set') : ordered)) {
+    if (m.type === 'mc.alias' && ![brief,castNotes].some(source => quotedSource(source,m.shown))) {
+      refusedByLock.push({mutation:m,why:'the own-persona identity must be quoted from the writer\'s material'}); continue;
+    }
     if (NOT_THE_FOUNDERS.has(m.type)) { refusedByLock.push({ mutation: m, why: 'the scene (its ground, hour, who is in it) is the extractor’s to found from the first page, not the founder’s' }); continue; }
     if (m.type === 'rel.set' || m.type === 'rel.shift') {
       const cause = String(m.cause || '').toLowerCase();

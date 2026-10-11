@@ -46,7 +46,7 @@ import { addInjury, addStrain, findBodyKey, findInjury, sameHurt, SEV_WORDS } fr
 import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TOTAL } from './relationships.js';
 import { seat, findSeat, isDeadSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact, lookKey } from './canon.js'; /* M681: one key for one look */
-import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight, findActorKeySamePerson, safeKey } from './duels.js';
+import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight, findActorKeySamePerson, safeKey, explicitMcPersona } from './duels.js';
 import { withoutStandingNumbers, setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
 import { ownerAndDependent, samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage, isTitleWord } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
@@ -407,6 +407,17 @@ function describeDelta(minutes) {
 /* ---------- the individual mutations ---------- */
 
 const HANDLERS = {
+  'mc.alias'(state, m) {
+    const name = normalizeName(m.name);
+    if (!name || (!m.byHand && !explicitMcPersona(state, name, m.shown))) return { why: 'the writer must explicitly establish this as their own persona' };
+    if (isMc(state, name)) return { why: 'this persona already belongs to the main character', same: true };
+    const before = [...(state.sheet?.playerAliases || [])];
+    state.sheet = { ...(state.sheet || {actors:{},playerName:''}), playerAliases:[...before,name] };
+    const seats = Object.fromEntries(Object.entries(state.offscreen || {}).filter(([n]) => isMc(state,n)));
+    for (const n of Object.keys(seats)) delete state.offscreen[n];
+    return { words: name + ' is the main character’s own persona; their separate elsewhere note was let go.',
+      undo:{kind:'mc.aliases.restore',before,seats} };
+  },
   'mc.set'(state, m) {
     /* M28: who the writer plays. Until now the ledger learned the main
      * character's name only from the referee's sheet seeder — after the
@@ -3179,7 +3190,8 @@ export function applyMutations(state, mutations) {
       raw.splice(i, 0, leave);
       i += 1;
     }
-    return raw;
+    // Establish explicitly quoted player identities before routing their records.
+    return [...raw.filter(m => m?.type === 'mc.alias'), ...raw.filter(m => m?.type !== 'mc.alias')];
   })();
   for (const mutation of list) {
     if (!mutation || typeof mutation !== 'object' || typeof mutation.type !== 'string') {
@@ -3255,7 +3267,7 @@ export function undoTarget(undo) {
   if (!undo || typeof undo !== 'object') return '';
   const k = String(undo.kind || '');
   if (k === 'mode' || k === 'mode.restore') return 'mode';
-  if (k === 'mc.restore') return 'mc';
+  if (k === 'mc.restore' || k === 'mc.aliases.restore') return 'mc';
   if (k === 'place') return 'place';
   if (k === 'clock') return 'clock';
   if (k === 'threads.restore') return 'threads';
@@ -3314,6 +3326,10 @@ function applyUndo(next, undo) {
 
     if (undo.kind === 'mode.restore') {
       next.mode = { ...next.mode, ...(undo.before || {}) };
+      ok = true;
+    } else if (undo.kind === 'mc.aliases.restore') {
+      next.sheet = {...next.sheet,playerAliases:undo.before || []};
+      next.offscreen = {...next.offscreen,...undo.seats};
       ok = true;
     } else if (undo.kind === 'mc.restore') {
       next.sheet = { ...(next.sheet || { actors: {} }), playerName: undo.before || '' };

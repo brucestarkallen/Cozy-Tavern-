@@ -28,7 +28,7 @@ import { seatForPerson } from './people.js'; /* M660: someone seated elsewhere h
 import { renderBodies } from './bodies.js';
 import { renderCanon } from './canon.js';
 import { renderOffscreen } from './offscreen.js';
-import { renderFightLine, mcName } from './duels.js';
+import { renderFightLine, mcName, mcAliases } from './duels.js';
 import { findKnowledgeKey, threadNextWords, factionMoveWords } from './world.js'; /* M416: one wording for a thread's next; M681: and for a faction's move */
 import { storyTurn } from './apply.js';
 import { firstSentence } from './sentence.js'; /* M292 */
@@ -158,6 +158,7 @@ export function renderAllFactions(factions, nowTurn = null) {
 export function renderWholeLedger(state, { knowledgeRoom = 0 } = {}) {
   if (!state || typeof state !== 'object') return '';
   const out = [];
+  out.push('Main character: ' + mcName(state) + '. Their own names/personas: ' + mcAliases(state).join(', ') + '. These are one player, never separate absent people.');
   const clockMinutes = state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
   const present = Array.isArray(state.present) ? state.present : [];
   const fight = renderFightLine(state);

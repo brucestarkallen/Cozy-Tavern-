@@ -287,6 +287,7 @@ function migrateSheet(sheet) {
   const out = {
     actors,
     playerName: typeof sheet.playerName === 'string' ? sheet.playerName.trim().slice(0, 60) : '',
+    playerAliases: Array.isArray(sheet.playerAliases) ? [...new Set(sheet.playerAliases.filter(n => typeof n === 'string' && n.trim()).map(n => n.trim().slice(0, 60)))] : [],
   };
   /* M345: the seeder's stamp rides with the sheet — dropped here, every load read as the blind seeder's work */
   if (Number.isFinite(sheet.seedVersion)) out.seedVersion = sheet.seedVersion;
@@ -1629,7 +1630,7 @@ export function foldJournal(current, snapshots, targetPage, applyMutationsFn) {
      * old date), no founding print (the founder runs again on the first
      * page, and its writes, when journaled at -1, are re-applied below) */
     state = emptyState();
-    state.sheet = { ...state.sheet, playerName: (current.sheet && current.sheet.playerName) || '' };
+    state.sheet = { ...state.sheet, playerName: (current.sheet && current.sheet.playerName) || '', playerAliases: current.sheet?.playerAliases || [] };
   }
   const held = new Map();
   for (const e of (base && Array.isArray(base.journal) ? base.journal : [])) {

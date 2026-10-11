@@ -19018,3 +19018,49 @@ model replies only; no live paid calls, theme tests, gameplay runs or bulk suite
 The capped user snapshot does not expose the whole live story. Do not claim the live
 People dossiers are complete until a new report shows what actually landed.
 
+# M700: reconcile actual repairs, recover profiles, persist player personas
+
+Version m700-001. Owner reports operationless historical findings remain yellow
+although a position repair landed, equivalent completed posture is called wrong,
+Jugram is wrongly simulated as a separate absent person, and Alexia retains an
+escort sentence instead of her established identity/personality/physical facts.
+
+Repair checklists now include actual current ledger entries even when an old
+allegation has no operation. Completed source-backed checks of those exact entries
+close the allegation. An unverified entry still prevents closure. Check Scene AND
+People state; do not mistake verb tense or added detail for a changed end posture.
+Settled no-operation complaints are removed from the final report too.
+
+Profile retrieval considers every matching source and every occurrence, ranks
+descriptive passages rather than taking the earliest three mentions, and shares
+space across characters. Remaining original pages can be fetched. Profile repairs
+can return sourced core/state/facts directly, converted into normal logged writes.
+Final People receipts list identity and physical facts with source proof; physical
+facts must actually be in canon. New locks explicitly verified with their People
+record can receive their exact canon receipt in the same final reading. No extra
+batch is needed merely to repeat the new entry id. No particular story name, rank,
+trait or appearance is hardcoded as a repair.
+
+mc.alias persists explicitly established own personas in sheet.playerAliases.
+All isMc consumers, World and reader context share them. It clears the separate
+seat and blocks future World seats for that persona. A legacy supported persona
+clear becomes an alias registration. Founder/Scene require literal writer material;
+Auditor binds original writer evidence. Hypotheticals/dialogue do not establish an
+identity. Surrounding unrelated questions do not invalidate a valid identity sentence.
+Identity and cleared seats are undoable together. Names, prose, manual fields and
+valid earned relationship judgments remain intact.
+
+Capped debug reports now include player personas and actual People core/now/physical
+facts even if there are no findings. They retain the 24k byte cap and redaction.
+
+Verification: only tests/harness/m700-focused.mjs was run, with controlled replies.
+It passed after correcting two fixture assertions and after useful final iterations
+covering a canon fact introduced during final review and an unrelated question in
+persona evidence. It checks late descriptive-source recovery, real profile/state/hair
+writes, unchanged equivalent posture, closure only against verified current records,
+persisted persona recognition and blocked reseating, undo, unchanged prose and scores.
+No theme tests, gameplay, bulk suite or live paid calls. The phone's complete local
+story is unavailable here; this proves the causal code paths, not its live green light.
+Keep AGENTS.md minimal-verification policy. Do not promise live profile completeness
+until the updated auditor's actual saved result confirms it.
+

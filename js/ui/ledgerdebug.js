@@ -57,11 +57,15 @@ export async function ledgerDebugReport(storyId) {
   add('Latest auditor reply excerpt',String(workers.auditor?.raw || '').split('\n\nRepair followup:').at(-1),1200);
   add('Recent worker runs, newest first', (rawShelf?._debugHistory || []).slice(-12).reverse().map(slim), 4000);
   add('Latest worker results', Object.fromEntries(Object.entries(workers).sort(([a],[b]) => (b === 'auditor') - (a === 'auditor')).map(([name, row]) => [name, slim(row)])), 2500);
-  add('Recent ledger changes, newest first', (state.log || []).slice(-12).reverse().map(({undo,...row}) => row), 1600);
-  add('Recent journal, newest first', (state.journal || []).slice(-6).reverse(), 1000);
+  add('Recent ledger changes, newest first', (state.log || []).slice(-6).reverse().map(({undo,...row}) => row), 800);
+  add('Recent journal, newest first', (state.journal || []).slice(-3).reverse(), 500);
   add('Source coverage', state.audit?.coverage || null, 700);
   add('Entry verification', state.audit?.verification ? {read:state.audit.verification.read,total:state.audit.verification.total,pending:state.audit.verification.pending?.slice(0,6),scene:Object.fromEntries(Object.entries(state.audit.verification.entries || {}).filter(([id]) => id.startsWith('presence:')))} : null, 1600);
   add('Current scene', {clock:state.clock,place:state.place,mode:state.mode,present:(state.present || []).map(p => ({name:p.name,position:String(p.position || '').slice(0,180),attire:String(p.attire || '').slice(0,100)}))},2500);
+  add('Player identity', {name:state.sheet?.playerName,personas:state.sheet?.playerAliases || []},300);
+  add('Current People profiles and physical facts',Object.entries(state.characters || {}).map(([name,p])=>({name,
+    core:String(p.core || '').slice(0,240),now:String(p.state || '').slice(0,180),
+    facts:(state.canon?.[name]?.facts || []).map(f=>({key:f.key,value:String(f.value || '').slice(0,100)}))})),4000);
   const complaints = JSON.stringify([state.audit?.pending,state.audit?.unresolved]).toLowerCase();
   const relevant = name => complaints.includes(name.toLowerCase());
   add('People involved in findings',Object.entries(state.characters || {}).filter(([name]) => relevant(name)).map(([name,p]) => ({name,core:String(p.core || '').slice(0,240),aliases:p.aliases,manualFields:Object.keys(p.hand || {})})),1600);

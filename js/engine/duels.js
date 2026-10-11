@@ -99,8 +99,9 @@ export function samePersonName(a, b) {
 export function mcAliases(state) {
   const name = mcName(state);
   const out = name === 'the player' ? [] : [name];
+  out.push(...(Array.isArray(state?.sheet?.playerAliases) ? state.sheet.playerAliases : []));
   out.push('you', 'the player', 'player');
-  return out;
+  return [...new Set(out)];
 }
 
 /* M282: the plain labels are a WHOLE name — "Card Player" and "You Sung" are
@@ -111,8 +112,30 @@ export function isMcAlias(state, name) {
   const n = String(name || '').trim();
   if (!n) return false;
   if (PLAIN_LABELS.has(n.toLowerCase().replace(/\s+/g, ' '))) return true;
-  const story = mcName(state);
-  return story !== 'the player' && samePersonName(n, story);
+  return mcAliases(state).filter(alias => !PLAIN_LABELS.has(alias.toLowerCase()))
+    .some(alias => samePersonName(n, alias));
+}
+
+/* Identity is explicit writer material, never inferred from a shared pose,
+ * title, an NPC speaking as "I", or a wish to impersonate someone. */
+export function explicitMcPersona(state, name, quote) {
+  const fold = s => String(s || '').toLowerCase().replace(/[’‘]/g, "'").replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const alias = fold(name), owner = fold(mcName(state));
+  if (!alias) return false;
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const kinds = '(?:persona|guise|alias|assumed identity|character|main character|mc)';
+  const modifiers = '(?:(?:own|worn|other|alternate|story|in story|mc s|main character s) )*';
+  const a = esc(alias), o = esc(owner);
+  // Evidence references can include surrounding text. Judge the explicit
+  // statement, not an unrelated question or hypothetical in that passage.
+  return String(quote || '').split(/(?<=[.!?])\s+|\n/u).some(statement => {
+    const q = fold(statement);
+    if (!q || /[?]|\b(?:if|maybe|hypothetically|might|could|would|no longer)\b/i.test(statement)) return false;
+    return new RegExp('(?:^| )' + a + ' is (?:me|my ' + modifiers + kinds + ')(?: |$)').test(q)
+      || new RegExp('^(?:my ' + modifiers + kinds + ' is|my name is|i am|i play as|i play) ' + a + '(?: |$)').test(q)
+      || (owner !== 'the player' && (new RegExp('(?:^| )' + a + ' is ' + o + ' s ' + modifiers + kinds + '(?: |$)').test(q)
+        || new RegExp('(?:^| )' + o + ' s ' + modifiers + kinds + ' is ' + a + '(?: |$)').test(q)));
+  });
 }
 
 /* Sheet key for a name, or null. Exact (case-insensitive) first, then a
