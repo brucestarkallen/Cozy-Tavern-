@@ -1,6 +1,14 @@
 # M719: evidence based identity, durable memory and bounded World work
 
-Publication status: BLOCKED. The connected GitHub integration rejected
+Current publication update, 12 October 2026 Jakarta: the owner explicitly
+authorized normal publication using the attached credential after completion.
+Implementation and focused verification are complete as documented below.
+Authenticated fetch confirmed remote main still at the original M718 base.
+The earlier integration permission failure below is historical; a normal push
+is now authorized. No deployment or additional live provider test is included.
+
+
+Earlier publication attempt: BLOCKED. The connected GitHub integration rejected
 create_blob with HTTP403, Resource not accessible by integration. No remote
 commit was created and no branch update was attempted. The attached account
 token was not used. Publication requires write access through the connected

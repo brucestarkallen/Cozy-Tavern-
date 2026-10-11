@@ -20139,3 +20139,14 @@ Local implementation commit: 43e15fe7b2f37fea70050d3e85a9e1790dc1c125.
 Last confirmed remote main:267302bb54cf30788033b23b28c9b0b34717c2b0.
 
 No tests repeated for publication notes.
+
+
+### M719 owner authorized credential publication
+
+Current publication update, 12 October 2026 Jakarta: the owner explicitly
+authorized normal publication using the attached credential after completion.
+Implementation and focused verification are complete as documented below.
+Authenticated fetch confirmed remote main still at the original M718 base.
+The earlier integration permission failure below is historical; a normal push
+is now authorized. No deployment or additional live provider test is included.
+
