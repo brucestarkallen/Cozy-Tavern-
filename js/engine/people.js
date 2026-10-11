@@ -573,7 +573,7 @@ export function roleOwnersNamed(state, role, namedPages = null, { titles = false
     const forms = [kn, first].filter((w) => w && w.length >= 3 && !/^(?:the|an?)$/i.test(w)).map((w) => w.toLowerCase());
     if (!forms.length) continue;
     let hit = false;
-    for (const cand of seen) { const c = cand.toLowerCase(); const cFirst = c.split(/\s+/)[0]; if (forms.includes(c) || forms.includes(cFirst) || c.startsWith(forms[0] + ' ')) { hit = true; break; } }
+    for (const cand of seen) { const c = cand.toLowerCase(); const cFirst = titles ? c.split(/\s+/)[0].replace(/\.+$/, '') : c.split(/\s+/)[0]; if (forms.includes(c) || forms.includes(cFirst) || c.startsWith(forms[0] + ' ')) { hit = true; break; } }
     if (hit) owners.push(k);
   }
   byRole.set(key, owners.slice());
