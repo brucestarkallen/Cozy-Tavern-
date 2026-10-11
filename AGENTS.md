@@ -23,16 +23,19 @@ The owner's current request takes priority; preserve established contracts.
 
 1. Use tools/context.py to locate the relevant historical entries; read source and those
    entries, rather than loading the entire history. HISTORY.md is an append only archive.
-2. Reproduce a defect through its public door. Write a causal regression, show it fails on
-   old code and passes on the fix. Do not use source text assertions or vacuous fixtures.
-3. Run python3 tools/check.py fast while editing. For a narrow change, ONLY may select laws;
-   report selected counts accurately. Do not call a fast run a full gate.
-4. When the product is ready, run python3 tools/check.py release --tag mNNN.
-   Add relevant checks from full for changed dependencies. Run all only for broad changes.
-   Timing/pixel checks run alone; do not edit execution inputs during a gate.
-5. Resume an interrupted unchanged release with the same tag and --resume. The runner
-   refuses reuse after any execution input/runtime change and always reruns measurements.
-   Do not repeat green checks just because notes or a commit message changed.
+2. Follow the owner's testing instruction of 11 October 2026: default to no tests.
+   Only consider an extremely small, directly relevant check after a meaningful milestone
+   or several useful implementation iterations. Do not test after every edit.
+3. When verification is warranted, use the smallest causal check of the actual reported
+   failure. Avoid blind bulk tests, unrelated suites, repetitive checks, and tests that
+   merely mirror implementation. A scripted pass does not establish success in the
+   owner's live story; report that distinction honestly.
+4. No automatic fast, release, full, or all test matrix is required. This instruction
+   supersedes conflicting test mandates in HANDOFF.md, docs/WORKFLOW.md, historical
+   milestones, and other project notes. Do not spend an hour on verification for a narrow
+   fix or repeat a long testing cycle. Keep diagnosis and repair focused and timely.
+5. Documentation only changes require no tests. Do not rerun passing checks because
+   notes or a commit message changed. Report checks actually run, or state none were run.
 6. Update version, concise HANDOFF and append HISTORY with measured results and limits.
    Verify remote main, publish without force when authorized, then verify its exact head.
 
