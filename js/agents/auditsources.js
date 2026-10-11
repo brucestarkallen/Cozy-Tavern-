@@ -45,6 +45,7 @@ export function auditSources({ brief = '', castNotes = '', messages = [] } = {})
 const SYSTEM = withFictionFrame([
   'SOURCE PEOPLE REVIEW. You are the ledger auditor reading ORIGINAL source documents, not a summary.',
   WRITER_FACTS,
+  'Identify the actual subject FIRST. A proper-name occurrence is not proof of a person. Places, kingdoms, organizations and objects are not individuals unless explicitly personified as characters. In "Prince NAME of REALM", NAME owns his appearance and REALM is the place. Never assign the prince\'s eyes, face or age to his homeland. Resolve relative clauses and pronouns to their actual subject. Use kind:"person" for individual beings, kind:"place", "organization", "object" or "group" for a nonperson reference worth disambiguating. Nonperson rows retain provenance but do not create People or physical facts. Do not omit a real unnamed individual or an animal merely because they lack a proper name.',
   'Find every individually established person in these documents, including people with proper names AND unique singular role labels copied exactly from the source. A ranked sibling, an individually described heir or an established relative gets their own identity even when no personal name was supplied. Do not require them to have entered the main scene. Keep ordinal ranks distinct; do not turn a character used as a comparison or design reference into another story person. Do not invent a personal name for a role.',
   'princes, princesses and people introduced only by the writer. The ledger may have lost them completely.',
   'Do not assess their present whereabouts from old pages. Do not invent a biography, surname, title or rank.',
@@ -54,7 +55,7 @@ const SYSTEM = withFictionFrame([
   'Also collect EVERY explicitly established lasting physical fact for that person in this document: hair, eyes, skin, build, height, scars and other enduring features. Use facts:[] when none is established. Read the complete document, including descriptions linked by pronouns. Current clothes, poses and expressions are not lasting facts. Do not infer missing details. Preserve changes as separate sourced facts; the final housekeeper resolves chronology.',
   'Collect identityFacts:[{text,shown}] for explicit rank, family, background, stable personality and preferences. Use identityFacts:[] when none is established. These are atomic facts to retain in their People core, not a rewritten biography. Exclude guessed feelings, speculative attraction, questions and momentary actions. A deliberate character introduction in a parenthesis is still writer-established. Appearance belongs in facts, not identityFacts. Record alternate faces with their explicit persona or form in each physical fact key, keeping one player identity; alternate appearances are not mutually superseding hair colours.',
   'Return JSON: {"checked":["each source id actually read"],"people":[{"name":"exact name",',
-  '"source":"source id","shown":"exact identity quote, at most 1200 characters","identityFacts":[{"text":"explicit stable identity fact","shown":"exact source quote"}],"facts":[{"key":"hair","value":"established colour","shown":"exact original passage supporting this physical fact"}]}]}.',
+  '"kind":"person","source":"source id","shown":"exact identity quote, at most 1200 characters","identityFacts":[{"text":"explicit stable identity fact","shown":"exact source quote"}],"facts":[{"key":"hair","value":"established colour","shown":"exact original passage supporting this physical fact"}]}]}.',
   'Read every supplied document. List its id in checked even when it establishes no named people.',
   'The same person needs one informative quote per document, not every mention. Never quote from your instructions.',
 ].join('\n'));
@@ -84,10 +85,12 @@ export function sourceReviewResult(text, batch) {
       continue;
     }
     const name = String(p.name || '').trim();
+    const kind = p.kind || 'person';
     const shown = quotedSource(source.text, p.shown);
     const reasons = [];
     if (!name || name.length > 80) reasons.push('Use an established name or unique singular role of at most 80 characters.');
-    if (isGroupName(name)) reasons.push('This is a collective, not an individual identity. Omit this row from the individual source inventory; Scene retains collective presence.');
+    if (!['person','place','organization','object','group'].includes(kind)) reasons.push('Classify kind as person, place, organization, object or group.');
+    if (kind === 'person' && isGroupName(name)) reasons.push('This is a collective, not an individual identity. Classify it as group; Scene retains collective presence.');
     if (!shown) reasons.push('Identity shown is not a literal quotation from this source. Copy its exact original words.');
     else if (!exactNameIn(shown, name)) reasons.push('Identity shown must contain this exact name or singular role, copied from the original.');
     if (!Array.isArray(p.facts)) reasons.push('Include facts:[] when no lasting appearance is stated.');
@@ -100,7 +103,7 @@ export function sourceReviewResult(text, batch) {
     if (!people.has(source.id)) people.set(source.id, []);
     const prior = people.get(source.id).find(x => x.name === name);
     if (prior) { prior.facts.push(...facts.filter(f => !prior.facts.some(old => JSON.stringify(old) === JSON.stringify(f)))); prior.identityFacts.push(...identityFacts); }
-    else people.get(source.id).push({name,shown,facts,identityFacts});
+    else people.get(source.id).push({name,kind,shown,facts,identityFacts});
   }
   const receipts = Object.fromEntries([...checked].filter(id => !invalid.has(id)).map(id => [id,{mark:sources.get(id).mark,appearanceReviewed:true,profileReviewed:1,people:people.get(id) || []}]));
   return { receipts, problems };
@@ -216,17 +219,18 @@ export function sourcePersonKey(state, name, remembered = '') {
 export function missingSourcePeople(state, people = []) {
   const known = { ...(state?.characters || {}) }; const issues = []; const requested = new Set();
   for (const p of people) {
+    if (p.kind && p.kind !== 'person') continue;
     if (isMc(state, p.name)) continue;
     const key = sourcePersonKey({ ...state, characters: known }, p.name, p.ledgerName);
     if (key && (String(known[key]?.core || '').trim() || known[key]?.hand?.core)) continue;
     const name = key || p.name;
     if (requested.has(name)) continue;
     requested.add(name);
-    // A quoted occurrence proves the person exists. It is not their biography.
-    // Ask for a sourced identity; never commit the quote as a synthetic core.
-    issues.push({ what: name + ' was established in ' + p.label + ' but has no identity on their People page.',
+    // An extraction is a candidate, not proof that every quoted proper name
+    // is a person. Review its subject before requesting a biography.
+    issues.push({ what: name + ' is listed as an individual by the source reading in ' + p.label + '; confirm its identity or correct its entity classification.',
       name, profileRecovery: true, shown:p.shown,
-      fix: 'Read their original sources and write their stable identity and missing physical facts. Do not copy an event quotation into core.', pages: false, mutations: [] });
+      fix: 'Read the original subject first. For a real individual write their established identity and physical facts; for a place, organization, object or group correct the source classification with people.reclassify. Do not create a biography from a quoted name or event.', pages: false, mutations: [] });
   }
   return issues;
 }
@@ -234,6 +238,7 @@ export function missingSourcePeople(state, people = []) {
 // All original references for each identity, including old pages and aliases.
 // This is a lookup index, not another model call or an inferred biography.
 export function peopleSourceIndex(state, documents, people = []) {
+  people = people.filter(p => !p.kind || p.kind === 'person');
   const names = new Set([...Object.keys(state?.characters || {}), ...people.map(p => sourcePersonKey(state,p.name,p.ledgerName) || p.name)]);
   return [...names].filter(name => name && !isMc(state,name) && !isGroupName(name)).map(name => {
     const aliases = [...new Set([name,...(state.characters?.[name]?.aliases || []),...people.filter(p => (sourcePersonKey(state,p.name,p.ledgerName) || p.name) === name).map(p => p.name)])];

@@ -19880,3 +19880,44 @@ approval rules. Then fixed the legacy version list to remain compatible across
 future releases, preserving its already-exercised current entries. No bulk,
 theme, gameplay or real provider tests, no owner live IndexedDB inspection.
 Version m715-001. Default no tests and standing normal publication apply.
+
+
+## M716: subject ownership before audit and false entity recovery
+
+Owner's M715 report has175/175 source sections reviewed, but the kingdom/city
+was treated as an individual with a prince's appearance. The final reader knew
+it was not a person; blanket forget rejection required a false rename instead.
+A prince profile remained206/207, changed against its approved rehearsal.
+
+Shared worker instructions and source extraction now distinguish the actual
+subject from a homeland/organization/object in their title. Optional source
+kinds retain provenance without becoming People or profile atoms. People
+returns entities corrections in the same existing answer, with original quotes.
+people.reclassify archives misplaced books in entityCorrections, corrects the
+current source inventory, and retains journal/undo/manual/player ownership.
+Final audit can do the same reviewed correction, no kingdom-to-prince alias.
+People can also repair existing wrong physical values, explicitly naming the
+currently wrong value in replaces with source quote and chronology reason.
+
+Removed synthetic empty individual preview rows that could change attribution
+without an identity write. The completed final verdict already covers actual
+new rows. Audit rehearsal and commit preserve corrected source classification,
+not overwrite it with the initial extraction cache. Old recovery/forget findings
+close through the actual correction; a missing pendingReason no longer renders
+undefined. Repair policy2 resumes old paused failures once without reopening
+completed unchanged reviews; current-policy stalls stay bounded. Version
+m716-001. No character/place-name branch or extra model agent/call added.
+
+Only node tests/harness/m716-entity-subject.mjs ran. First run found a missing
+player rejection in final scope (engine protection already held); corrected.
+Second pass exercised actual People and final audit, and final pass after the
+existing wrong-value repair passed in0.11s. One mocked People call fixed source
+ownership and saved the real person's appearance before any audit. One mocked
+final audit corrected the already saved false entity and finished every entry
+with no source rescan or owed repeat audit. Archive, undo, original prose, manual
+fields, player, exact source kind and pause migration were exercised. Genuine
+concurrent values cannot borrow a completed verdict. No paid/provider calls,
+gameplay, theme or bulk tests, no live browser data inspection. Subsequent
+changes were recovery wording and drawer pause-policy display, no fixture
+repetition for documentation/publication. Default NO tests and normal standing
+publication apply. The owner's live final state remains uninspected.

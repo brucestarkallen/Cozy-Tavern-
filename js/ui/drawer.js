@@ -21,7 +21,7 @@ import { auditScratchbookButton } from './auditscratchbook.js';
  * the drawer is open.
  */
 
-import { ledgerRepairInputKey } from '../agents/auditprogress.js';
+import { ledgerRepairInputKey, LEDGER_REPAIR_POLICY } from '../agents/auditprogress.js';
 import { loadState as loadStateFresh, saveState, subscribe, notify, ledgerStandingWords } from '../engine/state.js';
 
 /* M147: ONE READ PER RENDER. Sixteen panels each loaded the ledger — sixteen
@@ -2352,7 +2352,8 @@ function workersPanel(ctx) {
     }
     const shelf = await loadWorkerStatus(story.id);
     const repairState = await loadState(story.id);
-    const paused = repairState.audit?.pausedInput === ledgerRepairInputKey(repairState, story, visiblePages(await db.messages.list(story.id)));
+    const paused = repairState.audit?.pausedPolicy === LEDGER_REPAIR_POLICY
+      && repairState.audit?.pausedInput === ledgerRepairInputKey(repairState, story, visiblePages(await db.messages.list(story.id)));
     const autoRepair = !paused && story.extraction !== false && await auditOn(story);
     /* M46: what is reading right now, first */
     const live = runningWorkers(story.id);

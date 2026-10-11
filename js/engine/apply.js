@@ -1425,7 +1425,7 @@ const HANDLERS = {
     if (!name) return { why: 'no name to forget' };
     const lower = name.toLowerCase();
     const same = (k) => String(k || '').trim().toLowerCase() === lower;
-    const pageKey = findPersonKey(state.characters, name);
+    const pageKey = m.exactIdentity ? Object.keys(state.characters || {}).find(same) : findPersonKey(state.characters, name);
     const seatKey = Object.keys(state.offscreen || {}).find(same);
     const relKey = Object.keys(state.relationships || {}).find(same);
     const knowKey = Object.keys(state.knowledge || {}).find(same);
@@ -1459,6 +1459,46 @@ const HANDLERS = {
     if (owned.length) state.threads = state.threads.filter((t) => !(t && typeof t === 'object' && same(t.owner)));
     if (actorKey) { const nextActors = { ...actors }; delete nextActors[actorKey]; state.sheet = { ...state.sheet, actors: nextActors }; }
     return { words: name + ' was never the story\'s — forgotten for good' + (m.cause ? ' (' + capText(m.cause, 1000) + ')' : '') + '.', undo: { kind: 'people.forgotten', name, before } };
+  },
+  // A semantic correction, not deletion of a real character. Keep every
+  // misplaced record in an undoable archive and annotate only current source
+  // receipts, so the same extraction cannot recreate this false individual.
+  'people.reclassify'(state, m) {
+    const name = normalizeName(m.name);
+    const kind = String(m.kind || '');
+    if (!name || !['place','organization','object','group'].includes(kind)) return {why:'an entity correction needs its exact name and nonperson kind'};
+    if (!m.auditorApproved && !(m.source === 'scribe' && m.entityReviewed && m.shown)) return {why:'an entity correction needs a reviewed source decision'};
+    if (isMc(state,name)) return {why:'the player identity belongs to the writer'};
+    const same = n => String(n || '').trim().toLowerCase() === name.toLowerCase();
+    const page = Object.keys(state.characters || {}).find(same);
+    if ((page && Object.values(state.characters[page]?.hand || {}).some(Boolean))
+      || Object.entries(state.relationships || {}).some(([n,r]) => same(n) && r?.hand)
+      || (state.journal || []).some(j => j.m?.byHand && same(j.m.name) && /^canon\./.test(j.m.type))) return {why:'the writer explicitly controls this entity record'};
+    const prior = state.entityCorrections?.[name] || null;
+    const sourceUndo = [];
+    const sources = {...(state.auditSources || {})};
+    for (const [id,receipt] of Object.entries(sources)) {
+      const rows = [];
+      const people = (receipt.people || []).map((p,index) => {
+        if (!same(p.name) || p.kind === kind) return p;
+        rows.push({index,name:p.name,kind:p.kind,kindWhy:p.kindWhy});
+        return {...p,kind,kindWhy:capText(m.cause || m.auditReason,1000)};
+      });
+      if (rows.length) { sourceUndo.push({id,mark:receipt.mark,rows}); sources[id]={...receipt,people}; }
+    }
+    // Exact name only. An unrelated similarly spelled individual is never
+    // removed through the legacy fuzzy person resolver.
+    const hasExact = page || ['offscreen','relationships','knowledge','canon','bodies'].some(book => Object.keys(state[book] || {}).some(same))
+      || (state.present || []).some(p=>same(p.name)) || Object.keys(state.sheet?.actors || {}).some(same);
+    const removed = hasExact ? HANDLERS['people.forget'](state,{...m,name:page || name,exactIdentity:true}) : null;
+    if (removed && !removed.words) return removed;
+    if (!removed && !sourceUndo.length) return {why:'this entity is already classified',same:true};
+    state.auditSources = sources;
+    const records = removed?.undo?.before || {};
+    state.entityCorrections = {...(state.entityCorrections || {}),[name]:{kind,cause:capText(m.cause || m.auditReason,1000),records:prior?.records || records,
+      sources:sourceUndo.map(({id,mark})=>({id,mark}))}};
+    return {words:name+' is '+(kind === 'organization' ? 'an organization' : 'a '+kind)+'; its misplaced People records were archived.',
+      undo:{kind:'people.forgotten',name,before:records,classification:{prior,sourceUndo}}};
   },
   'people.wake'(state, m) {
     const key = findPersonKey(state.characters, m.name);
@@ -3515,6 +3555,21 @@ function applyUndo(next, undo) {
       if (b.present) next.present.splice(Math.min(b.present.at, next.present.length), 0, { ...b.present.value });
       if (b.threads) next.threads = JSON.parse(JSON.stringify(b.threads)); /* M578: their threads come back */
       if (b.actor) next.sheet = { ...(next.sheet || {}), actors: { ...((next.sheet && next.sheet.actors) || {}), [b.actor.key]: JSON.parse(JSON.stringify(b.actor.value)) } };
+      if (undo.classification) {
+        next.entityCorrections = {...(next.entityCorrections || {})};
+        if (undo.classification.prior) next.entityCorrections[undo.name]=undo.classification.prior;
+        else delete next.entityCorrections[undo.name];
+        next.auditSources = {...(next.auditSources || {})};
+        for (const source of undo.classification.sourceUndo || []) {
+          const receipt = next.auditSources[source.id];
+          if (!receipt || receipt.mark !== source.mark) continue;
+          const people = (receipt.people || []).map(p=>({...p}));
+          for (const old of source.rows) if (people[old.index]?.name === old.name) {
+            for (const field of ['kind','kindWhy']) if (old[field] === undefined) delete people[old.index][field]; else people[old.index][field]=old[field];
+          }
+          next.auditSources[source.id]={...receipt,people};
+        }
+      }
       ok = true;
     } else if (undo.kind === 'people.restore') {
       const key = findPersonKey(next.characters, undo.name) || undo.name;

@@ -1,3 +1,56 @@
+# M716: actual subjects, false entity correction and upstream physical repair
+
+Version m716-001. The owner's new M715 report has175/175 sources read, resolving
+the preceding transport failure, but a kingdom was extracted as an individual
+and given a prince's appearance. Final audit identified the error yet blanket
+people.forget rejection forced an inappropriate rename. One prince profile
+was206/207, rejected as changed while reading. No live browser was inspected.
+
+* Shared Founder/Scene/World/People/Auditor instructions identify the actual
+  subject before saving an identity or physical fact. A homeland in a title is
+  not another person. Original source extraction now carries an optional kind,
+  retaining nonperson provenance without creating People or appearance atoms.
+  Existing cached receipts and source ids/marks remain valid.
+* People supports entities decisions in its EXISTING answer. A quoted place,
+  organization, object or group misfiled as a person gets people.reclassify.
+  Actual misplaced records are archived in entityCorrections, removed only
+  from individual books, and the current source inventory classification is
+  corrected. Real facts go on their actual subject in that same answer.
+  No new worker/auditor call. A wrong existing physical value can be corrected
+  using replaces matching the current value and a source reason. Manual facts,
+  later actual developments and valid alternate faces remain protected.
+* Final audit can make the same explicit entity correction instead of being
+  told to rename a kingdom into a prince. Semantic classification belongs to
+  the reader, with no place-name detectors. The normal journal and undo retain
+  original misplaced books and source kind metadata. Exact removal cannot
+  accidentally erase a similarly spelled real character. Prose and manual
+  People/canon/player records stay protected.
+* Removed synthetic empty People preview rows for extracted names. They could
+  change source-fact ownership during rehearsal before any approved identity
+  write. Actual newly created rows are already covered by the single completed
+  final verdict. Source classifications persist through both preview and final
+  commit; sourceReview.cache no longer overwrites the approved correction.
+  Old recovery/forget findings close after the actual classified repair.
+  Missing reasons are stated plainly instead of appending undefined.
+* Repair policy2 lets an old paused failure try this new procedure once, without
+  invalidating completed unchanged audits. New pauses carry pausedPolicy;
+  scheduler and drawer agree. Future changes to actual repair mechanics should
+  explicitly advance this policy, never tie completed audits to app VERSION.
+
+Only node tests/harness/m716-entity-subject.mjs ran. First run exposed missing
+player rejection at final scope (the engine already rejected it), corrected.
+Then passed in0.11s, and passed again after adding the named upstream existing
+wrong-value correction. One mocked People call, no audit, corrected entity and
+physical ownership including an already wrong eye value. One mocked final audit
+call, no source rescan, repaired the saved false entity, completed every actual
+entry and owed no repeat review. It exercised archival/undo, original prose,
+manual/player preservation, source classification, old-pause resumption and
+refusal to certify a genuine concurrent change. No broad suite, themes, gameplay
+or real provider calls. Do not repeat the passing fixture for docs/publication.
+This proves the exercised generic paths, not the owner's live final green light.
+There are no story-name branches. Default NO tests and standing publication
+permission remain in AGENTS.md.
+
 # M715: source receipt correction and completed audit reuse
 
 Version m715-001. Owner reported one original source still incomplete while

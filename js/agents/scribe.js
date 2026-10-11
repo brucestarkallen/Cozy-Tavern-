@@ -53,8 +53,10 @@ const SYSTEM_PROMPT = [
   'shifted — the ledger that remembers who each person is.',
   '',
   'Answer with JSON ONLY, in exactly this shape:',
-  '{"deltas":[ ... ],"facts":[{"name":"NAME","key":"hair","value":"established colour","shown":"exact original source quotation"}]}',
+  '{"deltas":[ ... ],"facts":[{"name":"NAME","key":"hair","value":"established colour","shown":"exact original source quotation"}],"entities":[{"name":"exact erroneous People name","kind":"place","cause":"why this is not an individual","shown":"original quotation establishing the actual subject"}]}',
+  'Before writing profiles or facts, identify their actual subjects. Do not open People pages for a kingdom, city, organization or object merely because its name appears in a title or descriptive sentence. Use entities ONLY to correct existing misclassified People records or source inventory rows, with kind place, organization, object or group and an original quote. This archives misplaced records reversibly; it does not erase a real individual. The animal or personified being explicitly acting as a character is an individual. Place every physical fact on its actual subject, never the homeland in their title. Then enrich the actual person\'s core and lasting facts in this SAME answer, before the final auditor. Empty entities:[] is fine.',
   'facts records missing LASTING physical facts, such as hair, eyes, build and scars, in What\'s true of them. Include these even when no feeling or event changed. Do not put clothing, current posture or momentary expressions there. Fetch earlier original pages when the current People record has lost established identity or appearance. A nonempty core is not necessarily complete. Keep the full existing valid identity when adding missing rank, family, background or nature; a single action is not their core.',
+  'If a saved physical fact is actually wrong, correct it here with facts:{name,key,value,shown,replaces:"the exact current wrong value",cause:"why the original sources establish this correction"}. Compare chronology first; do not undo a later real change or conflate alternate faces. Missing facts need no replaces. Manual facts stay with the writer. Different wording of an equivalent value is not an error.',
   '',
   'Each delta is {"name":"NAME","field":"state","text":"…","cause":"the event or established fact that explains this change","shown":"an exact source quote when available"} where field is one of:',
   '  core   — their stable nature: voice, tells, what never really changes.',
@@ -264,7 +266,8 @@ export function parseScribeAnswer(raw) {
     );
     for (const c of balancedCandidates(text, 5)) {
       const p = parseLenient(c);
-      if (p && Array.isArray(p.deltas)) return { deltas: keep(p.deltas), facts:(Array.isArray(p.facts) ? p.facts : []).filter(f => f && typeof f.name === 'string' && typeof f.key === 'string' && typeof f.value === 'string' && typeof f.shown === 'string') };
+      if (p && Array.isArray(p.deltas)) return { deltas: keep(p.deltas), facts:(Array.isArray(p.facts) ? p.facts : []).filter(f => f && typeof f.name === 'string' && typeof f.key === 'string' && typeof f.value === 'string' && typeof f.shown === 'string'),
+        entities:(Array.isArray(p.entities) ? p.entities : []).filter(e=>e && typeof e.name === 'string' && ['place','organization','object','group'].includes(e.kind) && typeof e.shown === 'string' && typeof e.cause === 'string') };
     }
     const at = text.search(/"deltas"\s*:\s*\[/);
     if (at !== -1) {
@@ -352,7 +355,7 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
        * person's field it left out) stand beside it — every note that arrived whole is kept. */
       if (wasCut && secondWhole) {
         const said = new Set(second.deltas.map((d) => d.name.trim().toLowerCase() + '|' + d.field.trim().toLowerCase()));
-        read = { deltas: [...second.deltas, ...read.deltas.filter((d) => !said.has(d.name.trim().toLowerCase() + '|' + d.field.trim().toLowerCase()))], facts:[...(second.facts || []),...(read.facts || [])] };
+        read = { deltas: [...second.deltas, ...read.deltas.filter((d) => !said.has(d.name.trim().toLowerCase() + '|' + d.field.trim().toLowerCase()))], facts:[...(second.facts || []),...(read.facts || [])],entities:second.entities || read.entities || [] };
       } else if (second.deltas.length > read.deltas.length || (secondWhole && second.deltas.length >= read.deltas.length)) read = second;
       note = secondWhole ? 'ok' : 'cut short';
     } catch (err) {
@@ -361,13 +364,18 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
     }
   }
   const { deltas } = read;
-  if (!deltas.length && !read.facts?.length) return { changes: [], dropped: [], note };
+  if (!deltas.length && !read.facts?.length && !read.entities?.length) return { changes: [], dropped: [], note };
 
   if (stale && stale()) return null; /* the writer has moved on — discard */
 
   /* Re-read at write time — the ledger may have been touched by hand while
    * the scribe was reading. */
   const fresh = await loadState(storyId);
+  const entities = (read.entities || []).flatMap(e=>{
+    const shown = quotedSource(originals,e.shown);
+    return shown && exactNameIn(shown,e.name) ? [{type:'people.reclassify',name:e.name,kind:e.kind,cause:e.cause,shown,evidence:shown,source:'scribe',entityReviewed:true}] : [];
+  });
+  const excluded = name => entities.some(e=>e.name.trim().toLowerCase() === String(name || '').trim().toLowerCase());
   /* M72: every delta is a journaled write (people.note) — the fold used to
    * lose the scribe's pages because they were merged past the journal. The
    * merge laws are the applier's now (engine/apply.js → mergeDeltas). */
@@ -389,6 +397,7 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   const thinned = [];
   const identityWords = originals + '\n' + canonRecord;
   const sound = kept.filter((d) => {
+    if (excluded(d.name)) return false;
     if (!isMc(fresh, d.name) && !placeholderIn({ type: 'people.note', name: d.name }) && !findPersonKey(fresh.characters || {}, d.name) && !exactNameIn(identityWords, d.name)) {
       thinned.push({ delta: { type: 'people.note', ...d }, why: 'the new name is not written in the source; keep its exact spelling' });
       return false;
@@ -411,14 +420,18 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   const facts = [];
   if (read.facts?.length) {
     for (const fact of read.facts) {
+      if (excluded(fact.name)) continue;
       const name = findPersonKey(fresh.characters || {},fact.name) || fact.name;
       const key = findCanonKey(fresh.canon || {},name);
+      const held = key && findFact(fresh.canon[key],fact.key)?.entry;
       const quote = quotedSource(originals,fact.shown);
       const manual = [...(fresh.journal || [])].reverse().find(e => e.m?.byHand && /^canon\.(lock|unlock)$/.test(e.m.type)
         && samePersonName(e.m.name, name) && lookKey(e.m.key) === lookKey(fact.key));
       if (manual) continue;
-      if (!quote || (!isMc(fresh, fact.name) && !findPersonKey(fresh.characters || {}, fact.name) && !exactNameIn(originals,fact.name)) || (key && findFact(fresh.canon[key],fact.key))) continue;
-      facts.push({type:'canon.lock',name,key:fact.key,value:fact.value,shown:quote,evidence:quote,source:'scribe',cause:'People recovered an established physical fact from the original sources'});
+      if (!quote || (!isMc(fresh, fact.name) && !findPersonKey(fresh.characters || {}, fact.name) && !exactNameIn(originals,fact.name))) continue;
+      if (held && (held.value.trim().toLowerCase() === fact.value.trim().toLowerCase()
+        || fact.replaces !== held.value || !String(fact.cause || '').trim())) continue;
+      facts.push({type:'canon.lock',name,key:fact.key,value:fact.value,shown:quote,evidence:quote,source:'scribe',cause:fact.cause || 'People recovered an established physical fact from the original sources'});
     }
   }
   if (stale && stale()) return null;
@@ -429,7 +442,7 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
       source: 'scribe', cause: typeof d.cause === 'string' ? d.cause : '', evidence: quote, shown: quote,
       ...(writerCore ? { writerEstablished: true } : {}) };
   });
-  const { state: next, applied, rejected } = applyMutations(stamped, [...mutations,...facts]);
+  const { state: next, applied, rejected } = applyMutations(stamped, [...entities,...mutations,...facts]);
   const changes = applied.map((a) => ({ name: nameFromWords(a.words, a.mutation.name), field: a.mutation.field }));
   const dropped = [...rejected.map((r) => ({ delta: r.mutation, why: r.why })), ...thinned];
   if (!changes.length) return { changes, dropped, note };

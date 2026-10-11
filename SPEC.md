@@ -1,3 +1,31 @@
+# M716 subject ownership and entity corrections
+
+Names in source extraction are candidates until their subject is identified.
+Titles containing a homeland must not assign the individual's biography or
+appearance to that place. Source kinds preserve provenance and omit nonperson
+references from individual recovery and appearance/identity atoms. Existing
+source ids, marks and valid cache receipts remain reusable.
+
+People can issue source-quoted entities classifications in its existing turn
+answer. people.reclassify archives an erroneous individual record as a place,
+organization, object or group and corrects that reference in the current source
+inventory. It is journaled and undoable. No actual prose or manual/player record
+is removed, no similarly spelled individual is selected for removal, and no
+name-specific detector is added. The final auditor can make this same explicit
+semantic decision. A kingdom is not an alias of its prince. Recovery complaints
+close from the actual classification and preserved source review.
+
+People can correct an existing wrong physical value with a literal original
+quote, replaces matching its currently saved value, and a cause explaining the
+correction after considering chronology. Missing values need no replaces. This
+does not authorize overwriting manual facts, earned feelings or alternate faces.
+
+Synthetic empty People rows must not change fact attribution during review.
+The final verdict already covers its approved repairs and their actual new
+rows. Corrected source classifications survive rehearsal and commit. A repair
+policy revision can resume old paused failures once without invalidating any
+completed unchanged audit; same-policy failures remain bounded.
+
 # M715 source recovery and audit persistence
 
 An incomplete original-source answer gets at most one precise correction in

@@ -89,3 +89,11 @@ and original sources. Preserve the fixed M713/M714 legacy key migration and
 stable source chunk ids/marks. Source-only transport correction reuses approved
 ledger checks and never certifies unsupported facts. Debug failures must name
 the exact unfinished source and reason within the existing bounded report.
+
+After M716, do not treat every quoted name as an individual or create empty
+People preview rows before the reader classifies its subject. Use the existing
+People answer to correct factual ownership and source-quoted entity kinds.
+people.reclassify is an archived, journaled, undoable correction, never a rename
+of a place into a person. Do not overwrite its corrected source cache during
+audit commit. Advance LEDGER_REPAIR_POLICY only for an actual changed repair
+procedure; keep completed factual audits independent of app versions.

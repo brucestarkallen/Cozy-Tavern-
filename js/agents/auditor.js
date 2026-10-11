@@ -72,6 +72,7 @@ const CAST_CAP = 20000;
 
 const VOCABULARY = [
   'people.rename {"type":"people.rename","from":"wrong name","to":"established name","cause":"source of correction","shown":"exact identity quote if the names differ entirely"} — correct or merge one identity, keeping all its records. NEVER delete and recreate it. Correct its title with people.set core.',
+  'people.reclassify {"type":"people.reclassify","name":"exact erroneous People name","kind":"place","cause":"why the original establishes a place rather than a person"} — kind place, organization, object or group. Use ONLY after judging the originals and determining this record is not an individual character. Its misplaced records are archived reversibly and its current source extraction is corrected. Do not rename a place into a prince merely because his title contains it. Save physical facts on their actual subject separately. Manual records and the player remain protected.',
   'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30} — to the latest header line\'s own hour, or when the latest STORY page has none',
   'place.set {"type":"place.set","name":"the chapel"} — to the latest header line\'s own place, or when the latest STORY page has none',
   'presence.enter {"type":"presence.enter","name":"NAME","shown":"exact newest-page words establishing their presence","position":"their latest position, if shown"} / presence.update {"type":"presence.update","name":"NAME","position":"their latest position, in the page\'s own words","attire":"their latest attire, if shown","shown":"exact newest-page words establishing the corrected field"} / presence.leave {"type":"presence.leave","name":"NAME","shown":"the page\'s own words that show them going, copied exactly","to":"where the pages show them going, said so it stands on its own — upstairs in the Wells house — and left out only when the pages show no sign of where"}',
@@ -539,13 +540,11 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   let statedByModel=standingsCached?state.audit.statedStandings.rows:null;
   const fresh = await loadState(storyId);
   let offered = [...personaIssues,...read.issues];
-  const judge = (snapshot, proposals) => judgeAudit({ fresh: sourceReview ? {...snapshot,auditSources:sourceReview.cache} : snapshot, offered: proposals, all, brief, castNotes, castNames, statedByModel, authoritative:true });
-  let result = judge(fresh, offered);
-  // Empty source-backed identities are preview rows, not saved biographies.
-  // Their complete repair can now be approved in this answer instead of
-  // discovering a new row only after saving and requiring another audit.
-  result.out={...result.out,characters:{...result.out.characters}};
-  for (const p of restoredForReading) if (!isMc(result.out,p.name) && !sourcePersonKey(result.out,p.name)) result.out.characters[p.name]={};
+  const judge = (snapshot, proposals) => judgeAudit({ fresh: snapshot, offered: proposals, all, brief, castNotes, castNames, statedByModel, authoritative:true });
+  let result = judge(sourceReview ? {...fresh,auditSources:sourceReview.cache} : fresh, offered);
+  // A quoted name is a candidate, not a saved person. The final reader
+  // classifies it first; its completed verdict also covers actual new rows
+  // created by approved repairs in this same answer.
   const unresolved = (r) => [...missingLedgerPeople(r.out, castNames), ...r.issues.filter((i) => i.refused?.length || (!i.landed && !(i.pages && i.fix))).map((i) => i.what + (i.refused?.length ? ': ' + i.refused.join('; ') : ': no repair was supplied'))];
   const originalFindings = compactFindings([...(readingState.audit?.unresolved || []), ...restoredForReading, ...unresolvedFindings(result)], result.out);
   const withdrawals = [...(read.resolved || [])];
@@ -656,7 +655,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const verification = verifyLedgerChecks({state:result.out, snapshot:verificationSnapshot, checks:verificationChecks,
     previous:previousVerification, documents, source:verificationSource, applied:result.applied,approvedState,authoritative:true});
   const outstanding = compactFindings([...originalFindings, ...unresolvedFindings(result)].filter((i) => !findingSettled(i, result, withdrawals, documents, verification)), result.out);
-  pending = [...new Set([...missingLedgerPeople(result.out, castNames), ...outstanding.map((i) => i.what + ': ' + i.pendingReason), ...(sourceReview?.pending || []), ...(answerProblem ? [answerProblem] : []), ...(followupFailed ? ['the combined ledger review did not finish'] : []), ...(verification.read < verification.total ? [`ledger verification: checked ${verification.read} of ${verification.total} entries; ${verification.pending.slice(0, 2).join('; ')}`] : [])])];
+  pending = [...new Set([...missingLedgerPeople(result.out, castNames), ...outstanding.map((i) => i.what + ': ' + (i.pendingReason || 'identity or entity classification still needs a working repair')), ...(sourceReview?.pending || []), ...(answerProblem ? [answerProblem] : []), ...(followupFailed ? ['the combined ledger review did not finish'] : []), ...(verification.read < verification.total ? [`ledger verification: checked ${verification.read} of ${verification.total} entries; ${verification.pending.slice(0, 2).join('; ')}`] : [])])];
   result.unfinished = pending.length > 0;
   result.pending = pending;
   result.issues = result.issues.filter(i => i.mutations.length || i.pages || !findingSettled(i,result,withdrawals,documents,verification));
@@ -664,7 +663,6 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     verification,finalReview,evidenceBook,
     ...(Array.isArray(statedByModel)?{statedStandings:{source:standingsSource,rows:statedByModel}}:{}),checkpoint:saveAuditCheckpoint(result.out,storyNow,documents,verification),
     ...(sourceReview ? { coverage: { read: sourceReview.read, total: sourceReview.total, failures: sourceReview.failures || [] } } : {}) };
-  if (sourceReview) result.out.auditSources = sourceReview.cache;
   result.out.audit.verifiedInput = !result.unfinished && result.out.audit.coverage
     && result.out.audit.coverage.read >= result.out.audit.coverage.total
     ? ledgerRepairInputKey(result.out, storyNow, visiblePages(now)) : null;
@@ -1112,6 +1110,9 @@ export function findingRows(issue, state) {
 }
 
 export function findingSettled(issue, result, withdrawals, documents, verification) {
+  if (issue.profileRecovery && issue.name && result.out.entityCorrections?.[issue.name]
+    && !sourcePersonKey(result.out,issue.name)
+    && Object.values(result.out.auditSources || {}).flatMap(r=>r.people || []).filter(p=>p.name === issue.name).every(p=>p.kind && p.kind !== 'person')) return true;
   if (issue.profileRecovery && issue.name) {
     const key = sourcePersonKey(result.out, issue.name);
     if (key && String(result.out.characters?.[key]?.core || '').trim()) return true;
@@ -1178,7 +1179,7 @@ function sameRepairTarget(before, after) {
   const target = (m) => String(m.name || m.from || m.title || '').trim();
   const a = target(before); const b = target(after);
   if (a || b) { if (!a || !b || !(a === b || samePersonName(a, b))) return false; }
-  if (before.type === 'people.forget' && after.type === 'people.rename') return true;
+  if (before.type === 'people.forget' && ['people.rename','people.reclassify'].includes(after.type)) return true;
   if (before.type === 'presence.update' && after.type === 'presence.update'
     && ['position', 'attire'].some((field) => before[field] !== undefined && !(field === 'attire' && unknownAttire(before[field])) && after[field] === undefined)) return false;
   if (/^(?:knowledge\.|canon\.)/.test(before.type) && foldName(before.fact || before.key || '') !== foldName(after.fact || after.key || '')) return false;
@@ -1450,7 +1451,7 @@ export const AUDITOR_TYPES = new Set([
   'clock.set', 'place.set', 'presence.enter', 'presence.leave', 'mc.set', 'mc.alias',
   'body.injure', 'body.heal', 'rel.set', 'offscreen.set', 'offscreen.clear',
   'canon.lock', 'canon.unlock', 'thread.set', 'thread.close', 'knowledge.add', 'knowledge.forget', /* M372: a wrong fact can be let go */
-  'faction.set', 'faction.clear', 'people.set', 'people.note', 'people.forget', 'people.rename', /* M684: a corrected identity keeps all its books */
+  'faction.set', 'faction.clear', 'people.set', 'people.note', 'people.forget', 'people.rename', 'people.reclassify', /* corrections preserve their records */
   'thing.set', 'thing.clear', /* M604: a thing in the wrong place, or one the pages destroyed */
   'mode.snapshot', /* M681 (S13): the whole board — only when no reader stated it for the newest page (boardStale) */
 ]);
@@ -1585,7 +1586,7 @@ export function manualRepairConflict(state, m, pageAt) {
   const key = findPersonKey(state.characters || {}, m.name || m.from || '');
   const person = key ? state.characters[key] : null;
   const field = /^(unthread|thread|threads)$/.test(m.field || '') ? 'threads' : m.field;
-  if (/^people\./.test(m.type) && (person?.hand?.[field] || (['people.forget', 'people.rename'].includes(m.type) && Object.keys(person?.hand || {}).length))) return true;
+  if (/^people\./.test(m.type) && (person?.hand?.[field] || (['people.forget', 'people.rename', 'people.reclassify'].includes(m.type) && Object.keys(person?.hand || {}).length))) return true;
   if (/^rel\./.test(m.type)) {
     const k = personBookKey(state, state.relationships || {}, m.name, (map, n) => findRelationship(map, n)?.key);
     if (k && state.relationships[k]?.hand) return true;
@@ -1664,6 +1665,7 @@ export function auditorRepairScope(issues, state, { sources = '', sceneSource = 
 // or a mandatory source-id echo after the model has reviewed originals.
 export function finalAuditorScope(issues,state,{writerSources='',pageAt=null,rejected=[]}={}) {
   return (issues || []).map(issue=>({...issue,mutations:(issue.mutations || []).filter(m=>{
+    if (m.type === 'people.forget' && ['place','organization','object','group'].includes(m.kind)) m.type='people.reclassify';
     delete m.byHand;
     delete m.writerEstablished;
     delete m.auditorApproved;
@@ -1672,6 +1674,7 @@ export function finalAuditorScope(issues,state,{writerSources='',pageAt=null,rej
     else if (manualRepairConflict(state,m,pageAt)) why='the writer explicitly controls this field';
     else if (m.type==='people.forget') why='preserve established records; correct identity with a rename';
     else if (m.type==='people.rename' && isMc(state,m.from)) why='the player identity belongs to the writer';
+    else if (m.type==='people.reclassify' && isMc(state,m.name)) why='the player identity belongs to the writer';
     else if (isMc(state,m.name) && m.type==='people.set' && m.field==='arc') why='the player arc belongs to the writer';
     else if (isMc(state,m.name) && m.type==='people.set' && m.field==='core' && !writerSources.trim()) why='no original writer biography was supplied';
     if (why) {rejected.push({mutation:m,issue,why});return false;}

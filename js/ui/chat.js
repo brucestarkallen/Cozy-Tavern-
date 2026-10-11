@@ -1,4 +1,4 @@
-import { ledgerRepairStateKey, ledgerRepairInputKey, repairRetryCheckpoint, auditHasOpenWork, ledgerAuditVerified, ledgerRepairNeeded } from '../agents/auditprogress.js';
+import { ledgerRepairStateKey, ledgerRepairInputKey, repairRetryCheckpoint, auditHasOpenWork, ledgerAuditVerified, ledgerRepairNeeded, LEDGER_REPAIR_POLICY } from '../agents/auditprogress.js';
 /* Cozy Tavern — ui/chat.js
  * Story list, message thread, composer. Streaming renders token by token.
  * One generation call per user turn — the send path is sacred (see SPEC.md
@@ -3327,6 +3327,7 @@ export function initChat(ctx) {
               await saveState(storyId, { ...fresh, audit: { ...fresh.audit,
                 retryProgress: checkpoint,
                 pausedInput: pause ? ledgerRepairInputKey(fresh, currentStory, currentPages) : null,
+                pausedPolicy: LEDGER_REPAIR_POLICY,
                 pauseReason: pause ? 'Automatic repair paused because the outstanding work is not shrinking. Findings remain open. Changed evidence or an explicit audit can resume repairs.' : '' } });
               if (pause) again = false;
             }

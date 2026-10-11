@@ -3,6 +3,9 @@ import { pageText } from '../assemble/stack.js';
 import { auditSources } from './auditsources.js';
 // Factual completion is tied to this contract, never a theme/build release.
 const AUDIT_INPUT_VERSION = 1;
+// A changed repair procedure can resume an old paused failure once, without
+// invalidating completed factual audits merely because an app release changed.
+export const LEDGER_REPAIR_POLICY = 2;
 // Fixed legacy formats, so skipping a future app release does not erase an
 // already completed M713/M714 review. New receipts never include app VERSION.
 const LEGACY_REVIEW_RELEASES = ['m713-001','m714-001'];
@@ -145,7 +148,8 @@ export function ledgerAuditVerified(state, story, pages) {
 }
 export function ledgerRepairNeeded(state, shelf = {}, story = null, pages = null, every = 1) {
   if (story && pages && ledgerAuditVerified(state,story,pages)) return false;
-  if (story && pages && state?.audit?.pausedInput === ledgerRepairInputKey(state,story,pages)) return false;
+  if (story && pages && state?.audit?.pausedPolicy === LEDGER_REPAIR_POLICY
+    && state?.audit?.pausedInput === ledgerRepairInputKey(state,story,pages)) return false;
   if ([shelf.auditor,shelf.world].some(r => r?.detail === 'stopped by hand')) return false;
   const audit = state?.audit;
   const turns = (pages || []).filter(m => m.role === 'assistant' && !m.hidden).length;

@@ -14,6 +14,7 @@ export function sourceAppearanceFacts(state, documents = null) {
     if (sources && (!original || original.mark !== receipt.mark)) continue;
     if (receipt.appearanceReviewed !== true) continue;
     for (const person of receipt.people || []) {
+      if (person.kind && person.kind !== 'person') continue;
       const name = isMc(state,person.name) ? mcKey(state) : findPersonKey(state?.characters,person.name)
         || (!ownerAndDependent(person.name,person.ledgerName || '') && findPersonKey(state?.characters,person.ledgerName)) || person.name;
       for (const fact of person.facts || []) {
@@ -80,6 +81,7 @@ export function sourceIdentityFacts(state, documents = null) {
     const original=sources?.get(source);
     if (sources && (!original || original.mark!==receipt.mark)) continue;
     for (const person of receipt.people || []) {
+      if (person.kind && person.kind !== 'person') continue;
       const name=isMc(state,person.name)?mcKey(state):findPersonKey(state.characters,person.name)
         || (!ownerAndDependent(person.name,person.ledgerName || '') && findPersonKey(state.characters,person.ledgerName)) || person.name;
       for (const fact of person.identityFacts || []) {
