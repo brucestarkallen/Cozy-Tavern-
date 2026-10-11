@@ -130,6 +130,8 @@ export function sourcePersonKey(state, name, remembered = '') {
     if (m?.type === 'people.rename' && String(m.from || '').toLowerCase() === String(renamed).toLowerCase()) renamed = m.to;
   }
   if (renamed !== name) return findPersonKey(characters, renamed);
+  if (!remembered) remembered = Object.values(state.auditSources || {}).flatMap((r) => r.people || [])
+    .find((p) => String(p.name || '').toLowerCase() === String(name || '').toLowerCase())?.ledgerName || '';
   return remembered ? findPersonKey(characters, remembered) : '';
 }
 
@@ -158,7 +160,7 @@ export function missingLedgerPeople(state, castNames = []) {
   ]);
   return [...names].filter((name) => {
     if (!name || isMc(state, name) || isGroupName(name)) return false;
-    const key = findPersonKey(state?.characters || {}, name);
+    const key = sourcePersonKey(state, name);
     return !key || (!String(state.characters[key]?.core || '').trim() && !state.characters[key]?.hand?.core);
   }).map((name) => name + ' is already tracked but has no identity on their People page');
 }

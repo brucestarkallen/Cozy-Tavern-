@@ -164,12 +164,13 @@ test('M687-9 old merges from M686 are followed without recreating their source i
     const docs = JSON.parse(sent(body).split('SOURCE DOCUMENTS\n')[1]); const source = docs.find((d) => d.text.includes(quote));
     return { checked: docs.map((d) => d.id), people: [{ name: 'Lord Marshal Kelstrum', source: source.id, shown: quote }] };
   }, async () => {
-    await auditLedger({ connection, storyId: id, reviewSources: 'all' });
+    await auditLedger({ connection, storyId: id, reviewSources: 'all', castNames: ['Lord Marshal Kelstrum'] });
     const after = await loadState(id); assert(!after.characters['Lord Marshal Kelstrum'], 'the previous release merge remains respected');
     assert(!after.audit.unfinished, 'the completed old merge also closes its saved finding');
     after.journal = []; await saveState(id, after);
-    await auditLedger({ connection, storyId: id, reviewSources: 'all' });
+    await auditLedger({ connection, storyId: id, reviewSources: 'all', castNames: ['Lord Marshal Kelstrum'] });
     assert(!(await loadState(id)).characters['Lord Marshal Kelstrum'], 'the source receipt retains the merge when the old journal ages out');
+    assert(!(await loadState(id)).audit.unfinished, 'a saved cast list under the original name remains settled');
   });
 });
 

@@ -580,8 +580,7 @@ function mutationSatisfied(state, m) {
   const key = findPersonKey(state?.characters || {}, m.name || m.to);
   if (m.type === 'people.set' && key) return m.sourceRecovery ? Boolean(state.characters[key].core?.trim()) : textSame(m.text, state.characters[key][m.field]);
   if (m.type === 'people.rename' && key) {
-    const remembered = Object.values(state.auditSources || {}).flatMap((r) => r.people || []).find((p) => foldName(p.name) === foldName(m.from))?.ledgerName || '';
-    return !Object.keys(state.characters || {}).some((k) => foldName(k) === foldName(m.from)) && sourcePersonKey(state, m.from, remembered) === key;
+    return !Object.keys(state.characters || {}).some((k) => foldName(k) === foldName(m.from)) && sourcePersonKey(state, m.from) === key;
   }
   return false;
 }
