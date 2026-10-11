@@ -1,6 +1,6 @@
 {
   "version": "m687-001",
-  "status": "verified_candidate_awaiting_publication_approval",
+  "status": "published_verified",
   "execution_checkpoint": "13289103d18b83793869c6db9541b23301816420",
   "baseline_commit": "2ca461094c57f24fcdd06648616909f44f171de4",
   "new_public_laws": {
@@ -227,7 +227,7 @@
           "milliseconds": 111
         },
         {
-          "name": "DOM-2 a turn: send → the storyteller answers → the ledger is founded → the world agent speaks",
+          "name": "DOM-2 a turn: send \u2192 the storyteller answers \u2192 the ledger is founded \u2192 the world agent speaks",
           "ok": true,
           "milliseconds": 313
         },
@@ -863,8 +863,8 @@
         "seconds": 1787.56
       },
       "environment_failure_logs": {
-        "launcher": "ok   fixture: the word as the builds before M676 wrote it is in the history\nok   install.sh ends cleanly and proves its bake (exit 0)\nok   the word is the launcher, baked with his folder\nok   typed: it says the tavern is current (exit 0)\nok   and the tavern lit is his folder’s, on m687-001: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nok   update 1: typed, it pulls the update and says so\nok   update 1: the word it writes back is baked with his folder (it came back unbaked at every other update)\nok   update 1: one tavern lit, his folder’s: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nok   update 2: typed, it pulls the update and says so\nok   update 2: the word it writes back is baked with his folder (it came back unbaked at every other update)\nok   update 2: one tavern lit, his folder’s: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nok   update 3: typed, it pulls the update and says so\nok   update 3: the word it writes back is baked with his folder (it came back unbaked at every other update)\nok   update 3: one tavern lit, his folder’s: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nok   fixture: the word is installed for ~/stories/tavern\nFAIL typed: the tavern lit is the folder the word was installed for, not the clone in ~/cozytavern: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nok   an update is pulled into that folder, and the clone is left alone\nFAIL and the word stays his folder’s\nFAIL a baked word from before: typed, the update is pulled and his tavern lit\nFAIL typed again: the word the update wrote finds his tavern\nok   and from then on it is the new launcher, baked with his folder\nok   and stays so through the next update\nFAIL an unbaked word from before: typed, the update is pulled and his tavern lit\nFAIL typed again: the word the update wrote finds his tavern\nok   and from then on it is the new launcher, baked with his folder\nok   and stays so through the next update\nFAIL — typed: the tavern lit is the folder the word was installed for, not the clone in ~/cozytavern: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nFAIL — and the word stays his folder’s\nFAIL — a baked word from before: typed, the update is pulled and his tavern lit\nFAIL — typed again: the word the update wrote finds his tavern\nFAIL — an unbaked word from before: typed, the update is pulled and his tavern lit\nFAIL — typed again: the word the update wrote finds his tavern\n20 ok, 6 failed\n\nEXIT 1\n",
-        "upgrade_in_place": "FAIL port 8080 is taken — the word lights the tavern there; free it first\n\nEXIT 1\n"
+        "launcher": "ok   fixture: the word as the builds before M676 wrote it is in the history\nok   install.sh ends cleanly and proves its bake (exit 0)\nok   the word is the launcher, baked with his folder\nok   typed: it says the tavern is current (exit 0)\nok   and the tavern lit is his folder\u2019s, on m687-001: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nok   update 1: typed, it pulls the update and says so\nok   update 1: the word it writes back is baked with his folder (it came back unbaked at every other update)\nok   update 1: one tavern lit, his folder\u2019s: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nok   update 2: typed, it pulls the update and says so\nok   update 2: the word it writes back is baked with his folder (it came back unbaked at every other update)\nok   update 2: one tavern lit, his folder\u2019s: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nok   update 3: typed, it pulls the update and says so\nok   update 3: the word it writes back is baked with his folder (it came back unbaked at every other update)\nok   update 3: one tavern lit, his folder\u2019s: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nok   fixture: the word is installed for ~/stories/tavern\nFAIL typed: the tavern lit is the folder the word was installed for, not the clone in ~/cozytavern: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nok   an update is pulled into that folder, and the clone is left alone\nFAIL and the word stays his folder\u2019s\nFAIL a baked word from before: typed, the update is pulled and his tavern lit\nFAIL typed again: the word the update wrote finds his tavern\nok   and from then on it is the new launcher, baked with his folder\nok   and stays so through the next update\nFAIL an unbaked word from before: typed, the update is pulled and his tavern lit\nFAIL typed again: the word the update wrote finds his tavern\nok   and from then on it is the new launcher, baked with his folder\nok   and stays so through the next update\nFAIL \u2014 typed: the tavern lit is the folder the word was installed for, not the clone in ~/cozytavern: ['12198 python3 /tmp/cozy-launcher-j89zow_d/install/home/cozytavern/serve.py']\nFAIL \u2014 and the word stays his folder\u2019s\nFAIL \u2014 a baked word from before: typed, the update is pulled and his tavern lit\nFAIL \u2014 typed again: the word the update wrote finds his tavern\nFAIL \u2014 an unbaked word from before: typed, the update is pulled and his tavern lit\nFAIL \u2014 typed again: the word the update wrote finds his tavern\n20 ok, 6 failed\n\nEXIT 1\n",
+        "upgrade_in_place": "FAIL port 8080 is taken \u2014 the word lights the tavern there; free it first\n\nEXIT 1\n"
       },
       "cause": "Shared proc mount reports host process IDs; signals require local PID namespace IDs. Restore the prior handoff process wrapper."
     },
@@ -986,10 +986,23 @@
     "2ca4610"
   ],
   "publication": {
-    "status": "blocked_pending_fresh_user_approval",
+    "status": "published_verified",
     "destination": "https://github.com/brucestarkallen/Cozy-Tavern-",
     "verified_public_repository": true,
-    "last_observed_main": "2ca461094c57f24fcdd06648616909f44f171de4",
-    "reason": "Automatic approval review rejected a branch push for unverified destination and publication authorization. The destination was then verified; no retry or main update was performed."
+    "previous_main": "2ca461094c57f24fcdd06648616909f44f171de4",
+    "verified_release_commit": "36403ab59c6b991bfd6c41b6317b7e997d8fd6dd",
+    "verified_version": "m687-001",
+    "branches": [
+      "main",
+      "m687-auditor-scene-repair"
+    ],
+    "forced": false,
+    "approval": {
+      "date": "2026-10-11",
+      "user_message": "Yes do it"
+    },
+    "verification": "A fresh fetch of GitHub main returned the reviewed release commit and its m687-001 version file.",
+    "earlier_rejection": "Automatic approval review initially rejected a branch push for unverified destination and publication authorization. The destination was verified, and publication resumed only after fresh explicit user approval.",
+    "documentation_follow_up": "This publication record changes documentation only; the qualified execution checkpoint and fingerprints remain unchanged."
   }
 }

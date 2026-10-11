@@ -96,6 +96,9 @@ the existing automatic recovery. A particular live story has not been inspected
 here; completion still depends on its actual source evidence and configured model.
 All prior milestones, history, instruction archives and the canon vendor remain.
 
-Publication is awaiting fresh user approval after automatic approval review rejected
-the branch push. The public repository destination was verified against the supplied
-project link. No retry or update to main was made; the tested candidate is local.
+The owner supplied fresh publication approval, "Yes do it", on 2026-10-11 after the
+earlier automatic approval rejection. The reviewed release was pushed without force
+to the verified project repository's main and review branch. A fresh fetch verified
+main at `36403ab59c6b991bfd6c41b6317b7e997d8fd6dd` and version `m687-001`.
+This publication record changes documentation only; the qualified executable
+checkpoint and gate fingerprint remain unchanged.

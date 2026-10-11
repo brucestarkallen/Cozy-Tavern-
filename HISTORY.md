@@ -18581,3 +18581,14 @@ branch push. Its destination was verified as the supplied public repository; no 
 or update to main was made. Tests used disposable stories and scripted providers,
 with no paid story model calls and no live phone/story access. Prior milestones,
 original history, instruction archives and canon vendor remain intact.
+
+## M687 publication: explicit approval and verified main
+
+On 2026-10-11 the owner gave fresh publication approval with "Yes do it" after the
+earlier automatic approval rejection. Remote main remained at M686 2ca4610 and was
+an ancestor of the qualified candidate. The reviewed release 36403ab59c6b991bfd6c41b6317b7e997d8fd6dd
+was pushed without force to m687-auditor-scene-repair and main at the supplied,
+verified public repository. A fresh GitHub fetch verified that exact main commit
+and version m687-001. The publication record is documentation only; the frozen
+execution checkpoint 13289103d18b83793869c6db9541b23301816420 and its all-green
+33-check release fingerprint remain unchanged. No live phone ledger was accessed.

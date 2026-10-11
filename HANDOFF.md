@@ -1,14 +1,15 @@
 # Cozy Tavern: current handoff
 
-## Published release: m686-001; tested candidate: m687-001
+## Published release: m687-001
 
-Remote main was last verified at 2ca461094c57f24fcdd06648616909f44f171de4. The final M687
-execution checkpoint is 13289103d18b83793869c6db9541b23301816420. Publication is awaiting fresh
-user approval after automatic approval review rejected a branch push. The destination
-is the verified public repository https://github.com/brucestarkallen/Cozy-Tavern-.
-Do not retry publication without that approval. No update to main was made.
+The owner explicitly approved publication with "Yes do it" on 2026-10-11. The reviewed
+release was pushed without force to main and m687-auditor-scene-repair, then fetched
+from GitHub: main was verified at 36403ab59c6b991bfd6c41b6317b7e997d8fd6dd with
+version m687-001. This publication record is a documentation-only follow-up.
+The final execution checkpoint remains 13289103d18b83793869c6db9541b23301816420.
+Destination: https://github.com/brucestarkallen/Cozy-Tavern-.
 
-## Candidate behavior
+## Released behavior
 
 M687 fixes the owner's turn 33 automatic audit loop. The acceptance check now follows
 each person's latest quoted evidence throughout the newest scene, including immediate
@@ -58,5 +59,5 @@ Use fast during edits and release on a frozen candidate. This sandbox's shared p
 mount requires PATH=/tmp/cozy-work-test-bin:$PATH for launcher and upgrade checks;
 its pgrep/pkill wrapper maps only this namespace's process IDs. No launcher code or
 test budget was changed for the environment. Documentation-only commits need no repeat
-gate. On publication approval, recheck remote main, reconcile without force, publish
-the reviewed candidate, and verify the exact remote head and version.
+gate. Future publication must recheck remote main, reconcile without force when needed,
+publish within the owner's authorization, and verify the exact remote head and version.
