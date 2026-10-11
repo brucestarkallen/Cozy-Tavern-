@@ -1091,15 +1091,15 @@ export function auditorScope(issues, state, { header = [], page = '', writerPage
   const readersWrote = Number.isInteger(pageAt) ? journalOfPage(state, pageAt) : [];
   const personalTelling = (m) => m?.name ? currentPersonTelling(state, page, m.name, m.shown) : '';
   const currentArrival = (m, why) => {
-    if (!['the page’s ending does not show them', 'not in the room this page’s reader named as it ends'].includes(why)) return false;
+    if (!m.shown || !['the page’s ending does not show them', 'not in the room this page’s reader named as it ends'].includes(why)) return false;
     const told = personalTelling(m);
     if (!told || goneAtTheEnd(state, page, m.name) || mcWalksOff(page, mcName(state))) return false;
     if (readersWrote.some((jm) => jm.type === 'presence.leave' && samePersonName(jm.name, m.name) && quotedGoing(state, page, jm.name, jm.shown))) return false;
     const held = seatForPerson(state, m.name);
     if (held && isDeadSeat(held.entry)) return false;
-    const ground = headerDress(page)?.position || state?.place?.name || '';
-    const seatedHere = held && (seatAtScene(held.entry.location, ground)
-      || (!headerDress(page)?.position && (seatAtScene(held.entry.location, state?.place?.name || '') || wordsIn(ground, held.entry.location))));
+    /* The header's place names the room; its fifth cell is only the main character's pose. */
+    const ground = headerMutations(page, { ground: state?.place?.name || '' }).find((hm) => hm.type === 'place.set')?.name || state?.place?.name || '';
+    const seatedHere = held && (seatAtScene(held.entry.location, ground) || wordsIn(ground, held.entry.location));
     const arrived = comesInAtTheEnd(state, told, [m.name], m.shown);
     if (why.startsWith('not in the room') && !seatedHere && !arrived) return false;
     if (Number.isInteger(pageAt) && state?.groundWas?.page === pageAt && held && !seatedHere && !arrived) return false;

@@ -58,6 +58,21 @@ test('M687-1 the full auditor restores gallery spectators shown before a long bo
   });
 });
 
+test('M687-18 a full header main character pose is not the room used to judge a spectator at the rail', async () => {
+  const page = PAGE.replace('[the palace salle, Ilvarren | 10:00]', '[the palace salle, Ilvarren | 10:00 | cold | wool gambeson | backed to the cold stone of the salle wall]');
+  const id = await tale('m687-header-room', { page, mutations: [
+    { type: 'offscreen.set', name: 'Commodus', location: 'the palace salle rail', activity: 'with Garett' },
+  ], extra: { roomAt: { page: 0, names: ['Jugram', 'Kelstrum', 'Kerroc', 'Corven', 'Garett'] } } });
+  await wire(() => ({ issues: [issue('Commodus is at the rail in this scene.', {
+    type: 'presence.enter', name: 'Commodus', position: 'at the rail beside Garett', shown: COMMODUS,
+  })] }), async () => {
+    const result = await auditLedger({ connection, storyId: id }); const state = await loadState(id);
+    assert(state.present.some((p) => p.name === 'Commodus'), 'the header room supports the spectator seat');
+    assert(!state.offscreen.Commodus, 'the stale elsewhere seat is cleared');
+    assert(!result.unfinished, 'the actual full header repair finishes');
+  });
+});
+
 test('M687-2 a posture and now repair uses the last evidence about its person rather than only the final fight paragraph', async () => {
   const id = await tale('m687-postures', { mutations: [
     { type: 'presence.enter', name: 'Kerroc', position: 'on the witness stool, pencil moving on the margin' },

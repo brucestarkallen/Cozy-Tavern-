@@ -15399,7 +15399,7 @@ test('DOM-M687-1 an accumulated salle repair backlog finishes automatically, tur
   const commodus = 'At the rail, Commodus turned his head toward Garett without troubling to lower his voice.';
   const kerroc = 'Kerroc sat on his witness stool with the ledger shut on his knees.';
   const end = 'The marshal reached the middle of the raked ground and came again head high, the full width of his shoulders behind the blunted blade. Jugram gave ground six steps to the cold stone wall, still watching the point rather than the hands. The steel beat once against the guard, loud enough for every bench to hear. Gravel dragged beneath the planted boot. The measured distance between the two fighters closed again as the next attack began, with neither leaving the salle and no change of scene.';
-  const page = '[the palace salle, Ilvarren | 10:00]\n\n' + [alexia, commodus, kerroc, end].join('\n\n');
+  const page = '[the palace salle, Ilvarren | 10:00 | cold | wool gambeson | backed to the cold stone of the salle wall]\n\n' + [alexia, commodus, kerroc, end].join('\n\n');
   const original = 'Lord Marshal Kelstrum is the Marshal of Ilvarren.';
   const st = await db.stories.create({ title: 'M687 saved salle repair loop' });
   await db.stories.update(st.id, { keeper: false, continuity: false, extraction: true, world: false, audit: true });
