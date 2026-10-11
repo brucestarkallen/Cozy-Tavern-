@@ -954,3 +954,40 @@ profiles and p60/r50. No broad or old suites, paid calls or publishing retests.
 This establishes the wiring, not the next live provider's semantic verdict.
 Publish normally under standing permission and verify exact remote main.
 
+
+
+# M712: retain scene provenance and respect semantic equivalence
+
+Version m712-001. The owner's M711 live report confirms the original position
+repair: the MC is backed TO the wall, not still crossing the ground. The audit
+completed in one call,167/167 sources,210/210 approvals,no pending operations.
+The phrase after six steps describes how they arrived without contradicting
+where they now are. Do not demand another stylistic pose edit or describe this
+specific live fix as unconfirmed.
+
+The report also exposes two bookkeeping faults. Source quotations on the
+scene entry rather than inside ending were lost by sceneEndingFields, leaving
+journal shown empty and a cast-only reference. The adapter now retains outer
+shown/evidenceId while ONLY physical fields come from ending. No fabricated
+quote, mandatory source echo or blocking guard added. Existing historical
+journal entries remain unchanged; subsequent writes retain supplied evidence.
+
+The scene adapter previously treated every different string as an error. The
+new auditor scene contract includes repair:false for a physically correct or
+equivalent saved state, repair:true for a factual correction. Explicit false
+keeps the ending read in the scratchbook without generating a write. The model
+owns equivalence, not another English classifier or AI. Shorter/reordered
+wording is not a discrepancy; preserve useful specifics such as a seat count.
+Missing flags retain older direct-write compatibility; ordinary explicit
+issue mutations remain supported. No extra call, completion echo or retry.
+Do not call seven logged writes seven newly discovered factual errors: the
+report includes equivalent rewording. Prose, ownership, profiles, scores,
+snapshot concurrency, checkpoint reuse and normal journal/undo remain intact.
+
+No tests or new audit were run, as promised for this report analysis and the
+owner's default no-test policy. Changes were reviewed directly. Previous M711
+causal milestone check remains the last executed fixture; do not rerun it for
+notes or publication. Publish normally under standing permission and verify
+remote main. The specific wall-position fix is observed live; M712 bookkeeping
+behavior is implemented but not yet observed in a subsequent provider reply.
+

@@ -9,7 +9,10 @@ export function sceneEndingFields(entry) {
   const value=entry?.ending && typeof entry.ending==='object' && !Array.isArray(entry.ending)?entry.ending:entry || {};
   const clean=text=>typeof text==='string' && !/^\s*[-\u2014\u2013]+\s*$/.test(text)?text.trim():'';
   return {position:clean(value.position ?? value.at),attire:clean(value.attire ?? value.wears),
-    shown:typeof value.shown==='string'?value.shown:'',evidenceId:value.evidenceId};
+    // Evidence often belongs to the enclosing scene entry. Keep it without
+    // allowing any earlier/flat position to leak into the ending snapshot.
+    shown:typeof value.shown==='string' && value.shown.trim()?value.shown:typeof entry?.shown==='string'?entry.shown:'',
+    evidenceId:value.evidenceId || entry?.evidenceId};
 }
 
 // Shared reading procedure, executed inside the existing worker call.
