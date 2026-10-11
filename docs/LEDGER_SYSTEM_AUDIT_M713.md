@@ -1,3 +1,10 @@
+> M714 implementation note: the confirmed injection, final request fit,
+> source packing, duplicate worker views and idle frequency gaps have now been
+> repaired. See LEDGER_FOUNDATION_M714.md for the actual scope and focused check.
+> Correction: long originals already used overlapping12000 character chunks.
+> The old24000 character limit constrained groups of those chunks, not every
+> whole original page. Heavy JSON escaping could still block a single chunk.
+
 # CozyTavern ledger system audit, M713
 
 Reviewed on 11 October 2026. This is an audit of the current code and its request assembly, not a claim that a live provider has verified every story. Application code and story data were not changed during this review.
@@ -78,11 +85,11 @@ Evidence: js/engine/people.js cardText; js/engine/state.js renderThings and know
 
 Severity: high for autonomous recovery. Confirmed by code review.
 
-reviewAuditSources caps a source batch at 24,000 characters, even when the connection has much more room. Whole source documents are packed into that limit. When one document cannot fit, the loop breaks and reports that the source page does not fit the configured context.
+reviewAuditSources caps a source batch at 24,000 characters, even when the connection has much more room. Originals already have overlapping12000 character chunks; those chunks are packed into that limit. When one document cannot fit, the loop breaks and reports that the source page does not fit the configured context.
 
-That is not necessarily true of the model's context. A page above this internal ceiling can fit a 200,000 token model while still preventing source coverage from completing. Escaped document representation also consumes part of the ceiling.
+That is not necessarily true of the model's context. An ordinary long original is already split. The small ceiling creates many source calls; a heavily escaped individual chunk can also exceed it while fitting the model. Escaped document representation also consumes part of the ceiling.
 
-Repair: fit original documents against actual available context and the expected fact output. If a single original exceeds that room, review indexed portions with original document identity and offsets, then reconcile their receipts. A partial reading must not mark the whole source complete. Unchanged source receipts remain reusable.
+Repair: fit original documents against actual available context and the expected fact output. Preserve the existing indexed portions, identities, offsets and cached receipts; shrink a truncated group without restarting the original scan. A partial reading must not mark the whole source complete. Unchanged source receipts remain reusable.
 
 A whole long story cannot always be read in one call. The required improvement is to avoid an arbitrary small ceiling and unnecessary serial calls, not to promise that any amount of text fits one response.
 

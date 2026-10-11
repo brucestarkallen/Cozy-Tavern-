@@ -52,6 +52,8 @@ const SHELL = [
   'js/providers/openai.js',
   'js/providers/knobs.js', /* M510 */
   'js/assemble/stack.js',
+  'js/assemble/budget.js',
+  'js/engine/relevance.js',
   'js/assemble/voice.js',
   'js/assemble/anchor.js',
   'js/assemble/modules.js',

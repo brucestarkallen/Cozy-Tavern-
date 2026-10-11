@@ -3268,11 +3268,13 @@ export function initChat(ctx) {
   const ledgerRepairTries = new Map();
   const repairPause = () => Number(globalThis.__cozyLedgerRepairPauseMs) > 0 ? Number(globalThis.__cozyLedgerRepairPauseMs) : 15000;
   const repairBackoff = () => Number(globalThis.__cozyLedgerRepairBackoffMs) > 0 ? Number(globalThis.__cozyLedgerRepairBackoffMs) : 60000;
-  function ledgerRepairNeeded(state, shelf, story = null, pages = null) {
+  function ledgerRepairNeeded(state, shelf, story = null, pages = null, every = 1) {
     if (story && pages && state?.audit?.pausedInput === ledgerRepairInputKey(state, story, pages)) return false;
     if ([shelf.auditor, shelf.world].some((r) => r?.detail === 'stopped by hand')) return false;
     const audit = state?.audit;
-    return (story && pages && !ledgerAuditVerified(state, story, pages)) || !audit?.coverage || audit.coverage.read < audit.coverage.total
+    const turns = (pages || []).filter(m => m.role === 'assistant' && !m.hidden).length;
+    const due = turns > 0 && turns % Math.max(1, every) === 0;
+    return (due && story && pages && !ledgerAuditVerified(state, story, pages)) || !audit?.coverage || audit.coverage.read < audit.coverage.total
       || Boolean(audit.unfinished || audit.pending?.length || shelf.auditor?.ok === false || shelf.auditor?.unfinished);
   }
   function scheduleLedgerRepair(storyId, delay = repairPause()) {
@@ -3289,7 +3291,7 @@ export function initChat(ctx) {
         const latest = [...repairPages].reverse().find((m) => m.role === 'assistant');
         if (!latest || latest.stopped || !pageText(latest).trim()) return;
         const before = await loadState(storyId);
-        if (!ledgerRepairNeeded(before, await loadWorkerStatus(storyId), story, repairPages)) { ledgerRepairTries.delete(storyId); return; }
+        if (!ledgerRepairNeeded(before, await loadWorkerStatus(storyId), story, repairPages, await auditEvery())) { ledgerRepairTries.delete(storyId); return; }
         if (busy || isReplaying() || readersOut(storyId) || workIsRunning(storyId) || queuedCount(storyId) > 0 || otherHandAt(storyId)) { again = true; return; }
         const connection = await resolveWorkerConnection(story, 'auditor');
         if (!connection) { again = true; nextDelay = repairBackoff(); return; }
@@ -3313,7 +3315,7 @@ export function initChat(ctx) {
         const run = await promise;
         if (run.stopped) return;
         const after = await loadState(storyId);
-        again = ledgerRepairNeeded(after, await loadWorkerStatus(storyId), story, repairPages);
+        again = ledgerRepairNeeded(after, await loadWorkerStatus(storyId), story, repairPages, await auditEvery());
         if (again) {
           const progress = ledgerRepairStateKey(after) !== ledgerRepairStateKey(before)
             || (after.audit?.coverage?.read || 0) > (before.audit?.coverage?.read || 0)
@@ -6419,6 +6421,7 @@ export function initChat(ctx) {
          * speaks — the help text under it is now true (M9, §1). */
         window: memWindow,
         nodes: mem && Array.isArray(mem.nodes) ? mem.nodes : undefined,
+        answerTokens: Number(connection.maxTokens) > 0 ? Number(connection.maxTokens) : 16000,
         budgetTokens: roomOf(connection), /* M343; M285: the provider's room when none is set */
       };
       /* M44: a line and the page it summarizes never ride together — measured
@@ -6429,6 +6432,7 @@ export function initChat(ctx) {
       /* M7: slot 4 — the story's invited cast. Slot 7 — the lore shelf's
        * answer for the latest pages, each entry scanning its own depth;
        * the receipt names which entries woke. */
+      windowInfo.recordThrough = verbatimStart;
       const invitedCast = await castForStory(story);
       const loreEntries = await loadLore(story.id);
       let loreText = '';

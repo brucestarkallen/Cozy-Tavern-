@@ -1,7 +1,8 @@
 /* Shared interpretation contract for the ledger readers. No model call. */
 import { loadEssentials } from './essentials.js';
 import { loadMemory } from './memory.js';
-import { isMc } from '../engine/people.js';
+import { isMc, findPersonKey } from '../engine/people.js';
+import { findCanonKey, findFact } from '../engine/canon.js';
 import { isHere, nameOnPage } from '../engine/names.js';
 import { sourceAppearanceFacts, sourceIdentityFacts } from './appearanceinventory.js';
 
@@ -30,8 +31,17 @@ export function workerPeopleContext(state, { material = '', room = 60000 } = {})
 // owns chronology and semantic comparison; these are evidence, not new writes.
 export function workerProfileSources(state, documents, { material = '', room = 24000 } = {}) {
   if (!Array.isArray(documents)) return '';
+  const normalized = text => String(text || '').trim().replace(/\s+/g, ' ').toLowerCase();
   const facts = [...sourceIdentityFacts(state, documents).map(f => ({ ...f, kind: 'identity' })),
     ...sourceAppearanceFacts(state, documents).map(f => ({ ...f, kind: 'appearance' }))]
+    .filter(f => {
+      if (f.kind === 'identity') {
+        const core = state?.characters?.[findPersonKey(state?.characters, f.name)]?.core;
+        return !normalized(core).includes(normalized(f.text));
+      }
+      const entry = state?.canon?.[findCanonKey(state?.canon, f.name)];
+      return normalized(findFact(entry, f.key)?.entry?.value) !== normalized(f.value);
+    })
     .sort((a, b) => Number(nameOnPage(material, b.name)) - Number(nameOnPage(material, a.name)));
   const lines = []; const omitted = new Set(); let used = 0;
   for (const f of facts) {

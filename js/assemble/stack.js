@@ -91,6 +91,8 @@
  * Token estimate per slot = ceil(chars/4) (see assemble/receipt.js).
  */
 
+import { relevantPeople } from '../engine/relevance.js';
+import { requestTokens, inputRoom } from './budget.js';
 import { shownText } from '../engine/pagepatch.js'; /* M576 */
 import { renderStanding, standingPlans } from './planbook.js'; /* M510-22 */
 import { estimateTokens } from './receipt.js';
@@ -1051,7 +1053,7 @@ export function buildRequest({
    * nothing of it) */
   /* M681 (the send's worst frame, perf_send): the state of things is rendered ONCE — the people block asked it whole only to
    * see whether "Elsewhere:" made it in, and section 5 rendered it again with the very same arguments */
-  const stateFacts = renderStateFacts(state, { ...(smallB ? {} : stateView(windowInfo && windowInfo.budgetTokens)), scenePages: recentPages, noFight: safeSettings.refereeOn === false }); /* M345: referee off = the storyteller decides everything; no fight is kept for it */ /* M266: in the room the storyteller has; M305: what the scene is about calls back what someone here learned long ago */
+  const stateFacts = renderStateFacts(state, { ...(smallB ? {} : stateView(windowInfo && windowInfo.budgetTokens)), scenePages: recentPages, peopleNames: relevantPeople(state, recentPages.join('\n')), noFight: safeSettings.refereeOn === false }); /* M345: referee off = the storyteller decides everything; no fight is kept for it */ /* M266: in the room the storyteller has; M305: what the scene is about calls back what someone here learned long ago */
   const peopleState = canonOnPages || !state || !state.characters ? state : { ...state, characters: Object.fromEntries(Object.entries(state.characters).map(([k, e]) => [k, e && typeof e === 'object' && Array.isArray(e.canon) ? (({ canon: _c, ...rest }) => rest)(e) : e])) };
   const people = renderPeopleTiers(peopleState, { recentPages: smallB && worldEarly ? [...recentPages, worldEarly] : recentPages, rotation: history.length, view: smallB ? SMALL_PEOPLE_VIEW : peopleView(windowInfo && windowInfo.budgetTokens), brief: String(safeStory.brief || '') + '\n' + String(safeStory.castNotes || ''), scenePages, seatsInState: stateView(windowInfo && windowInfo.budgetTokens).whole || /(^|\n)Elsewhere: /.test(stateFacts || '') /* M542: the seats ride in the ledger's own block whenever its "Elsewhere:" made it in — the people say a tracked person's where once, there */ }); /* M281: in the room the storyteller has; M282: the brief weighs who matters; M292: a seat said once */
   const peopleText = people ? people.text : '';
@@ -1178,7 +1180,8 @@ export function buildRequest({
   /* the final audit: a record that fits the full-detail room whole rides whole — the brief beside it would only say it all
    * twice; so does a record whose essentials are far behind (below) — a stale brief beside the whole record, twice again */
   const recordNodes = (Array.isArray(windowInfo && windowInfo.nodes) ? windowInfo.nodes : [])
-    .filter((n) => n && !n.empty && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span));
+    .filter((n) => n && !n.empty && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span)
+      && (!Number.isFinite(windowInfo?.recordThrough) || n.span[1] < windowInfo.recordThrough));
   /* measured on the record's own lines — the text the page code hands over may already be cut to the room (a small
    * context), and a record cut short is exactly the one the essentials must stand in for (DOM-147 caught it) */
   const recordChars = recordNodes.reduce((sum, n) => sum + n.text.trim().length + 3, 0);
@@ -1448,7 +1451,7 @@ export function buildRequest({
      * sites) get the keeper's law at the default window; a caller that
      * passes {keeperOn:false} gets the token-budgeted cutoff instead. */
     memory: w.keeperOn === false ? null : { window: w.window, nodes: w.nodes },
-    budgetTokens: w.budgetTokens,
+    budgetTokens: inputRoom(w),
     prefixTokens,
   });
   /* M510: the small request carries the last SMALL_PAGES of his story's pages word for word (and his message between
@@ -1803,12 +1806,39 @@ export function buildRequest({
     hasRecord: Boolean(String(memoryText || '').trim()),
   });
 
+  /* Fit the FINAL wire, including closing notes, own words and the answer.
+   * Earlier estimates only selected a candidate window. Never edit source pages
+   * or cut the newest exchange, standing instructions or writer's current move. */
+  const room = inputRoom(w);
+  const carriedWire = wire.filter(m => out.includes(m));
+  let inputTokens = requestTokens(systemBlocks, out);
+  let removed = 0;
+  while (inputTokens > room && carriedWire.length > 2) {
+    let cut = 1;
+    while (cut < carriedWire.length - 2 && carriedWire[cut].role !== 'user') cut++;
+    if (cut > carriedWire.length - 2) break;
+    for (const m of carriedWire.splice(0, cut)) {
+      const at = out.indexOf(m);
+      if (at >= 0) { out.splice(at, 1); removed++; }
+    }
+    inputTokens = requestTokens(systemBlocks, out);
+  }
+  if (inputTokens > room) throw new Error('The current move, latest exchange and standing instructions exceed this connection’s context after reserving its answer. Increase the context size or shorten the current move or standing instructions. Your saved pages are intact.');
+  if (removed) {
+    const row = slots.find(s => s.name === 'The pages, word for word');
+    if (row) {
+      row.text = carriedWire.map(m => m.content).join('\n\n');
+      row.tokens = estimateTokens(row.text);
+      row.source = carriedWire.length + ' of ' + win.total + ' messages carried word for word; ' + removed + ' older messages left out to fit the complete request and answer. Originals remain available; folded coverage is not assumed.';
+    }
+  }
   orderAsSent(slots, systemBlocks, out); /* M510-55: the rows in the order the request is sent */
   const stateSummary = facts ? facts.slice(0, 120) : '';
   const receipt = {
     slots,
     totalTokens: slots.reduce((sum, s) => sum + s.tokens, 0),
     stateSummary,
+    context: { inputTokens, inputRoom: Number.isFinite(room) ? room : null, answerTokens: w.answerTokens || 16000, removedHistory: removed },
   };
 
   return { systemBlocks, messages: out, receipt };

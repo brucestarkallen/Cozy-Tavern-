@@ -90,7 +90,7 @@ export function noteWork(storyId, promise) {
 }
 
 /* Await each piece of background work in flight for this story, in order —
- * each gets its own hard timeout; on the first overrun we stop waiting and
+ * sharing one total timeout; on the first overrun we stop waiting and
  * go on with last-good state. Never rejects. Resolves true when everything
  * settled in time, false when nothing was pending or something overran. */
 export async function pendingWork(storyId, timeoutMs = 5000) {
@@ -99,16 +99,18 @@ export async function pendingWork(storyId, timeoutMs = 5000) {
    * waits for the workers lets that reading go first -- its call is dropped, nothing is written, and the same pages
    * are read later (agents/continuous.js). */
   pauseContinuousAudit(storyId);
+  const deadline = Date.now() + Math.max(0, timeoutMs);
   let any = false;
   for (;;) {
     const list = inFlight.get(storyId);
     if (!list || !list.length) return any;
+    if (Date.now() >= deadline) return false;
     any = true;
     const promise = list[0];
     let timer = null;
     const done = await Promise.race([
       promise.then(() => 'settled', () => 'settled'),
-      new Promise((resolve) => { timer = setTimeout(() => resolve('timeout'), timeoutMs); }),
+      new Promise((resolve) => { timer = setTimeout(() => resolve('timeout'), Math.max(0, deadline - Date.now())); }),
     ]);
     clearTimeout(timer);
     if (done === 'timeout') return false;

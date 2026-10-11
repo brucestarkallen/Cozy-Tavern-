@@ -1020,7 +1020,7 @@ export function nearTheScene(location, sceneName) {
 }
 /* M604: the things the storyteller is shown — at the scene's place first, then the main character's own wherever they are,
  * then whatever a page touched in the last 30 pages; twelve at most (the whole list rides in the helpers' view) */
-export function renderThings(state, cap = 12) {
+export function renderThings(state, cap = 12, material = '') {
   const s = state && typeof state === 'object' ? state : {};
   const things = s.things && typeof s.things === 'object' ? s.things : {};
   const scene = s.place && typeof s.place.name === 'string' ? s.place.name : '';
@@ -1038,8 +1038,9 @@ export function renderThings(state, cap = 12) {
     const inScene = (Array.isArray(s.present) ? s.present : []).map((p) => p && p.name).filter((n) => typeof n === 'string' && n.trim() && !isMc(s, n));
     const carried = inScene.some((n) => (typeof t.owner === 'string' && t.owner && samePersonName(t.owner, n)) || nameOnPage(t.where, n));
     const fresh = Number.isFinite(t.atTurn) && now - t.atTurn <= 30;
-    if (!here && !his && !carried && !fresh) continue;
-    rows.push({ name, t, rank: here ? 0 : his ? 1 : carried ? 2 : 3, at: Number.isFinite(t.atTurn) ? t.atTurn : 0 });
+    const named = nameOnPage(material, name);
+    if (!here && !his && !carried && !fresh && !named) continue;
+    rows.push({ name, t, rank: named ? -1 : here ? 0 : his ? 1 : carried ? 2 : 3, at: Number.isFinite(t.atTurn) ? t.atTurn : 0 });
   }
   rows.sort((a, b) => (a.rank - b.rank) || (b.at - a.at));
   return rows.slice(0, cap).map(({ name, t }) => '- ' + name + (t.owner ? ' (' + t.owner + '’s)' : '') + ' — ' + t.where.trim() + (t.note ? ' (' + t.note + ')' : '')).join('\n');
@@ -1062,7 +1063,7 @@ export function closeBy(state) {
   }
   return out;
 }
-export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, scenePages = [], noFight = false } = {}) {
+export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, scenePages = [], noFight = false, peopleNames = [], omit = [] } = {}) {
   if (!state || typeof state !== 'object') return '';
 
   const clockMinutes = state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
@@ -1119,8 +1120,8 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
 
   /* M6: what's true of them — locked facts for whoever is in the scene.
    * Counts toward the budget and sheds after the body ledger. */
-  const canonLines = renderCanon(state.canon, canonNamesFor(state, present.map((p) => p && p.name)), whole ? Infinity : undefined, storyTurn(state)); /* M662: what does not fit takes its turn; M680: under the name they are kept by */
-  if (canonLines) sections.push({ shed: 2, text: 'True of them: ' + canonLines.split('\n').join('\n'), trimTo: whole ? Infinity : 8, head: 'True of them: ' });
+  const canonLines = renderCanon(state.canon, [...new Set(canonNamesFor(state, [...peopleNames, ...present.map((p) => p && p.name)]))], whole ? Infinity : undefined, storyTurn(state));
+  if (canonLines) sections.push({ shed: 1, text: 'True of them: ' + canonLines, trimTo: whole ? Infinity : 8, head: 'True of them: ' });
 
   /* M680 (the people audit): the dead carry no wounds the storyteller is told of, and stand toward no one — "Old Hesk — a crossbow
    * bolt through the chest (severe, untreated)" and "Old Hesk — warm" were read every page after his death; the Dead line
@@ -1166,7 +1167,7 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   /* M305: the newest, and the older facts that bear on the scene the last pages tell */
   const known = {};
   const wasThere = wasThereFn(state); /* M509-15 */
-  const knowledgeAt = (per) => renderKnowledge(state.knowledge, present, per, { pages: scenePages, ignore: [mcName(state)], mc: mcName(state), turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, wasThere }, known); /* M510-24: told again with fewer facts when a crowded scene overflows */
+  const knowledgeAt = (per) => omit.includes('knowledge') ? '' : renderKnowledge(state.knowledge, present, per, { pages: scenePages, ignore: [mcName(state)], mc: mcName(state), turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, wasThere }, known);
   let knowledgeLines = knowledgeAt(whole ? Infinity : undefined);
   /* M510-44: WHO KNOWS WHAT HAS A ROOM OF ITS OWN IN THE WHOLE VIEW. His Bleach duel: eleven people in the scene, and
    * who knows what was ~10,000 tokens a page — each person's newest twelve and four called back, most of them from the
@@ -1193,9 +1194,12 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   const spots = blindSpots(state.knowledge, present, { scenePages, turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, mc: mcName(state), wasThere })
     .map((s) => ({ ...s, lacks: s.lacks.filter((l) => !(known.shared && known.shared.has(normFact(l.fact)))) }))
     .filter((s) => s.lacks.length);
-  const blind = renderBlindSpots(spots);
+  const blind = omit.includes('knowledge') ? '' : renderBlindSpots(spots);
   const blindSec = blind ? { shed: 2, text: BLIND_HEAD + blind, trimTo: whole ? Infinity : 8, head: BLIND_HEAD } : null;
   if (blindSec) sections.push(blindSec);
+  const absentNames = peopleNames.filter(n => !present.some(p => samePersonName(p?.name || p, n)));
+  const absentKnowledge = omit.includes('knowledge') ? '' : renderKnowledge(state.knowledge, absentNames, undefined, { pages: scenePages, mc: mcName(state), namedOnly: true });
+  if (absentKnowledge) sections.push({ shed: 2, text: 'Recalled people, not placed in this scene:\n' + absentKnowledge });
 
   /* M86: the living world is not the first thing the budget drops — who is
    * moving toward the scene stands with the body ledger (shed 3); the
@@ -1212,12 +1216,12 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   const farOffscreen = nearKeys.size ? Object.fromEntries(Object.entries(state.offscreen || {}).filter(([k]) => !nearKeys.has(k))) : state.offscreen;
   /* M604: THINGS — what exists and where it stands now, kept as long as who is here: what is at this place, then his own,
    * then what the story touched lately. Before writing how anyone gets anywhere or what they can do, this is what they have. */
-  const thingLines = renderThings(state);
+  const thingLines = renderThings(state, 12, scenePages.join('\n'));
   if (thingLines) sections.push({ shed: 1, text: 'Things that matter — where each stands now (what they have to hand before anything is invented):\n' + thingLines });
-  const elsewhere = renderOffscreen(farOffscreen, present, clockMinutes, whole ? 1000 : undefined, state.characters || {}); /* M396 */
+  const elsewhere = omit.includes('elsewhere') ? '' : renderOffscreen(farOffscreen, present, clockMinutes, whole ? 1000 : undefined, state.characters || {});
   if (elsewhere) sections.push({ shed: 3, text: 'Elsewhere: ' + elsewhere.split('\n').join('\n') });
 
-  const factionLines = renderFactions(state.factions, whole ? Infinity : undefined, storyTurn(state)); /* M681 (W7): a move says its age */
+  const factionLines = omit.includes('factions') ? '' : renderFactions(state.factions, whole ? Infinity : undefined, storyTurn(state));
   if (factionLines) sections.push({ shed: 5, text: 'Factions: ' + factionLines.split('\n').join('\n') });
 
   const mode = state.mode || {};
@@ -1238,7 +1242,7 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
     : [];
   /* M368: the threads that touch this scene first — someone present, or the main character */
   const sceneNames = [mcName(state), ...(Array.isArray(state.present) ? state.present.map((p) => (typeof p === 'string' ? p : p && p.name)) : [])].filter((n) => n && n !== 'the player');
-  const threadText = [renderThreads(structured, whole ? Infinity : undefined, whole ? null : { names: sceneNames }), legacy.join('; ')].filter(Boolean).join('\n');
+  const threadText = omit.includes('threads') ? '' : [renderThreads(structured, whole ? Infinity : undefined, whole ? null : { names: [...peopleNames, ...sceneNames] }), legacy.join('; ')].filter(Boolean).join('\n');
   if (threadText) sections.push({ shed: 4, text: 'Threads still open: ' + threadText.split('\n').join('\n') });
 
   /* The budget: shed the least vital until the block fits. The ruling, the

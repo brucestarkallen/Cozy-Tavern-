@@ -449,7 +449,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
   const known = mcName(state);
   const mc = known && known !== 'the player' ? known : '';
   const present = Array.isArray(state.present) ? state.present : [];
-  const facts = renderStateFacts(state) || 'Nothing is written in the ledger yet.';
+  const facts = renderStateFacts(state, { omit: ['elsewhere', 'knowledge', 'threads', 'factions'] }) || 'Nothing is written in the ledger yet.';
   /* M249: IT WAS TOLD TO USE A RECORD IT WAS NEVER GIVEN. Its own brief says a
    * person's life is "filled from the real record, not invented" — and the
    * word record appeared nowhere else in this file. So the one worker that
@@ -475,7 +475,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     'THE LEDGER (the state of the scene):',
     facts,
     '',
-    'EVERYONE WRITTEN ELSEWHERE (advance by the story clock; explicitly confirm a stay when nothing changes):',
+    'EVERYONE WRITTEN ELSEWHERE (review due and scene-affected lives; unchanged seats persist. Advance only justified developments by the story clock):',
     elsewhereAll || 'No one is written elsewhere yet.',
     ...(worldOwed(state, { material: brief + '\n' + castNotes, castNames }).length ? ['REVIEW REQUIRED NOW: ' + worldOwed(state, { material: brief + '\n' + castNotes, castNames }).join(', ') + '. Give each person offscreen.set or offscreen.confirm. Silence is not a review. Deal with overdue arrivals and the oldest information first. Ground changes in their established situation, intentions and the elapsed time; do not invent new knowledge or teleport them.'] : []),
     '',

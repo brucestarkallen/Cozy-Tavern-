@@ -3,7 +3,7 @@ import { ownerAndDependent, sameOwnedDescriptor } from '../engine/names.js';
  * by checking only the records that survived. Read original answered pages,
  * keep receipts tied to their exact text, and recover only quoted identities.
  * This is evidence for the auditor, never a second simulation of the present. */
-import { callWorker } from './call.js';
+import { callWorker, workerConnection } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { asideAt } from '../commands.js';
@@ -11,10 +11,11 @@ import { pageText } from '../assemble/stack.js';
 import { djb2 } from '../engine/fingerprint.js';
 import { exactNameIn, quotedSource, WRITER_FACTS } from '../engine/evidence.js';
 import { findPersonKey, isMc, isGroupName } from '../engine/people.js';
-import { roomChars, leashFor } from './lookup.js';
+import { leashFor } from './lookup.js';
+import { contextOf } from '../providers/room.js';
 
 const VERSION = 2;
-const MAX_TOKENS = 6000;
+const MAX_TOKENS = 16000;
 const CHUNK = 12000;
 const OVERLAP = 1200;
 const writerSource = d => /^(?:brief|cast):/.test(d.id) || d.label.endsWith(', writer');
@@ -95,13 +96,20 @@ export async function reviewAuditSources({ connection, documents, previous = {},
       && Array.isArray(p.facts) && p.facts.every(f => f.key && f.value && quotedSource(d.text,f.shown)))) cache[d.id] = old;
   }
   const todo = documents.filter((d) => !cache[d.id]);
-  const limit = Math.max(1000, Math.min(24000, roomChars(connection, MAX_TOKENS) * 0.6 - SYSTEM.length));
+  const replyTokens = workerConnection(connection, { maxTokens: Math.min(MAX_TOKENS, Math.max(6000, Number(connection?.maxTokens) || MAX_TOKENS)) }).maxTokens;
+  // Pack original chunks by the real connection room and answer allowance.
+  // Keep ids/marks unchanged so existing scratchbook receipts remain reusable.
+  const available = Math.max(0, (contextOf(connection) - replyTokens - 3000) * 3 - SYSTEM.length);
+  let limit = Math.max(0, Math.min(120000, replyTokens * 12, available * 0.6));
   let calls = 0; let cursor = 0; let failure = '';
-  while (cursor < todo.length && (mode === 'all' || calls === 0)) {
+  let retryBatch = false;
+  while (cursor < todo.length && (mode === 'all' || calls === 0 || retryBatch)) {
     if (stale?.() || signal?.aborted) return null;
+    retryBatch = false;
+    const start = cursor;
     const batch = []; let size = 0;
     while (cursor < todo.length) {
-      const d = todo[cursor]; const cost = JSON.stringify(d).length;
+      const d = todo[cursor]; const cost = JSON.stringify({ id: d.id, label: d.label, text: d.text }).length + 1;
       if (size + cost > limit) break;
       batch.push(d); size += cost; cursor++;
     }
@@ -110,10 +118,18 @@ export async function reviewAuditSources({ connection, documents, previous = {},
     try {
       const user = 'SOURCE DOCUMENTS\n' + JSON.stringify(batch.map(({ id, label, text }) => ({ id, label, text })));
       renew?.(leashFor(SYSTEM.length + user.length));
-      const result = await callWorker(connection, { system: SYSTEM, messages: [{ role: 'user', content: user }], maxTokens: MAX_TOKENS, signal });
+      const result = await callWorker(connection, { system: SYSTEM, messages: [{ role: 'user', content: user }], maxTokens: replyTokens, signal });
       if (stale?.() || signal?.aborted) return null;
       // A truncated answer cannot certify that its final document was read.
-      if (result.finishReason === 'length') { failure = 'the source review ran out of answer space'; continue; }
+      if (result.finishReason === 'length') {
+        failure = 'the source review ran out of answer space';
+        if (batch.length > 1) {
+          // Retry this work at a smaller size rather than losing the entire
+          // batch and rediscovering it in another automatic audit cycle.
+          cursor = start; limit = Math.max(JSON.stringify({ id: batch[0].id, label: batch[0].label, text: batch[0].text }).length + 1, Math.floor(size / 2)); retryBatch = true;
+        }
+        continue;
+      }
       const reviewed = parseSourceReview(result.text,batch);
       Object.assign(cache,reviewed);
       if (batch.some(d => !reviewed[d.id])) failure = 'source identity or appearance evidence was incomplete';

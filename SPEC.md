@@ -1,3 +1,19 @@
+# M714 ledger foundation milestone
+
+The persistent ledger and the storyteller's selected view are distinct.
+Named absent people carry saved physical facts and selected knowledge without
+changing physical presence. Open obligations and stored facts are selected
+by scene relevance with recency fallback. Unshown facts are not erased or
+proof of ignorance. The final complete request reserves answer space and fits
+its named context using a conservative estimate, preserving the current move,
+latest exchange and instructions. Source recovery retains existing chunk ids,
+marks and receipts, packs by actual room and shrinks truncated groups.
+World input sections have one authoritative copy. One pendingWork deadline
+covers the chain wait. Idle review respects the chosen frequency while initial
+recovery and unresolved findings remain autonomous. The authoritative auditor
+still completes factual verification; model work and live data are not certified
+by a local mocked fixture. Details: docs/LEDGER_FOUNDATION_M714.md.
+
 # M707: durable auditor scratchbook and shared evidence transport
 
 Version m707-001. The live M706 report still has167/167 original sources read,

@@ -50,6 +50,7 @@ export function finalizeReceipt(draft, timings) {
     /* M329: what the prefill did on this turn, in words ('' when the connection has none) */
     prefill: typeof prefill === 'string' ? prefill : '',
     stateSummary: typeof safe.stateSummary === 'string' ? safe.stateSummary : '',
+    ...(safe.context ? { context: { ...safe.context } } : {}),
     /* M347: where this page's words are kept (js/sent.js) — a receipt without it is from before they were kept */
     ...(typeof sentId === 'string' && sentId ? { sentId } : {}),
     /* M348: thinking was asked for and none came back — said on the page, so "did it think?" is never a guess */

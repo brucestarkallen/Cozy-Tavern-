@@ -29,6 +29,7 @@
  * becomes "last noted N turns ago" once twenty turns have passed.
  */
 
+import { selectRelevant } from './relevance.js';
 import { isMcAlias, mcName } from './duels.js';
 import { ownerAndDependent, foldName, canonAliasOf, samePersonName, titlesConflict, isTitleWord } from './names.js'; /* M398: one person, one page; M414: one list of titles */
 import { firstSentence } from './sentence.js'; /* M292 */
@@ -1062,7 +1063,7 @@ export function withoutStandingNumbers(text) {
   STANDING_NUMBER.lastIndex = 0;
   return text.replace(STANDING_NUMBER, '$1').replace(/\(\s*\)/g, '').replace(/[ \t]+([,.;:)])/g, '$1').replace(/[ \t]{2,}/g, ' ').trim();
 }
-function cardText(name, entry, turn, cap, here = null, lookWords = null) {
+function cardText(name, entry, turn, cap, here = null, lookWords = null, material = '') {
   entry = { ...entry, core: withoutStandingNumbers(entry.core), state: withoutStandingNumbers(entry.state), arc: withoutStandingNumbers(entry.arc), threads: Array.isArray(entry.threads) ? entry.threads.map(withoutStandingNumbers).filter(Boolean) : entry.threads }; /* M524 */
   const core = entry.core ? cardCore(entry.core, lookWords) : '';
   const head = name + (core ? ' — ' + core : '');
@@ -1083,10 +1084,10 @@ function cardText(name, entry, turn, cap, here = null, lookWords = null) {
    * is kept oldest first (a new one is pushed on the end, and a full list lets
    * the oldest go — M134: "never the newest"), and this took slice(0, 3): with
    * five open, the storyteller was told of the three stalest and never of the
-   * two that had just come up. The newest three, newest first; the rest counted. */
+   * two that had just come up. M714: scene relevance selects the three; recency breaks ties. The rest remain stored and counted. */
   const allEnds = Array.isArray(entry.threads) ? entry.threads : [];
-  const threads = allEnds.slice(-3).reverse();
-  let ends = threads.length ? 'Loose ends: ' + threads.join('; ') + (allEnds.length > 3 ? ' (and ' + (allEnds.length - 3) + ' older)' : '') : '';
+  const threads = selectRelevant(allEnds, material, 3);
+  let ends = threads.length ? 'Loose ends: ' + threads.join('; ') + (allEnds.length > 3 ? ' (and ' + (allEnds.length - 3) + ' more in their record)' : '') : '';
   /* M518: what canon says of them that lasts, kept on their page — its lines as canon's note wrote them, so the note can
    * leave out exactly what this card carries */
   let canon = Array.isArray(entry.canon) && entry.canon.length ? 'From canon:\n' + entry.canon.join('\n') : '';
@@ -1300,7 +1301,12 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
    * world agent's word. M281: whoever is on their way is recalled too. */
   const offScene = keys.filter((k) => !presentKeys.includes(k) && !isMc(state, k));
   const seatOf = (k) => { const found = seatForPerson(state, k); return found ? found.entry : null; }; /* M320 */
-  const named = offScene.filter((k) => namedIn(recentPages, k));
+  const mentioned = (pages, k) => namedIn(pages, k) || (characters[k]?.aliases || []).some(a => namedIn(pages, a));
+  const named = offScene.filter((k) => mentioned(recentPages, k)).sort((a, b) => {
+    const at = k => recentPages.reduce((last, text, i) => mentioned([text], k) ? i : last, -1);
+    return at(b) - at(a) || byWeight(a, b);
+  });
+  const material = recentPages.join('\n');
   const coming = offScene.filter((k) => !named.includes(k) && onTheWay(seatOf(k), state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null)); /* M681 (W5): never an approach that lapsed */
   const recalled = named.concat(coming).slice(0, lim.recall);
   /* M292: WHERE THE ABSENT ARE IS SAID ONCE. When the state of things lists every seat (a whole view),
@@ -1321,7 +1327,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
     const now = awayNow(k);
     if (bareCard(k)) return k + (now && now !== 'away' ? ' — ' + now : '');
     const entry = now ? { ...characters[k], state: now, updatedAtTurn: turn } : characters[k];
-    return cardText(k, entry, turn, RECALL_CARD_CAP);
+    return cardText(k, entry, turn, RECALL_CARD_CAP, null, null, material);
   };
   /* M284: with room, the roster says who each one is and where — a bare name told the storyteller nothing */
   const shortLines = lim.budget >= PEOPLE_BUDGET * 4;
@@ -1350,7 +1356,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   let cardRoom = 0;
   for (const key of presentKeys.slice().sort(byWeight)) {
     if (!keys.includes(key) || cardKeys.length >= lim.cards) continue;
-    const size = cardText(key, characters[key], turn).length + 2;
+    const size = cardText(key, characters[key], turn, undefined, null, null, material).length + 2;
     const linesAfter = linesLeft - (lineSize.get(key) || 0);
     if (cardKeys.length >= PRESENT_CARDS_MIN) {
       /* a small room keeps its old share (what the away would need is shed there anyway); a larger
@@ -1376,7 +1382,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
     /* M408: the scene's own entry for them (their position), for a card with no now yet */
     const hereEntry = (Array.isArray(state && state.present) ? state.present : []).find((p) => p && p.name && (findPersonKey(characters, p.name) || p.name) === key) || null;
     const here = hereEntry ? { ...hereEntry, enteredAt: lastEnteredTurn(state, key) } : null; /* M544 */
-    sections.push({ shed: 0, text: cardText(key, characters[key], turn, undefined, here, seriesLookWords(state, key)) }); /* M462 */
+    sections.push({ shed: 0, text: cardText(key, characters[key], turn, undefined, here, seriesLookWords(state, key), material) }); /* M462 */
     tiers.cards += 1;
   }
   const also = overflow.map(compactLine)

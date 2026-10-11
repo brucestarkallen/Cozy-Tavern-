@@ -1,3 +1,52 @@
+# M714: foundation selection, context fit and source recovery
+
+Version m714-001, prepared locally; publication blocked by automatic review.
+Owner requested the ledger foundation milestone after the
+M713 system audit. The changes are universal selection/transport/scheduling
+repairs, not named story patches. Read docs/LEDGER_FOUNDATION_M714.md.
+
+* Named absent people now contribute saved canonical physical facts and their
+  selected knowledge without becoming present. Latest named recalls take
+  priority; aliases are recognized. Relevant older People obligations, MC
+  knowledge and explicitly mentioned stored things can ride again.
+* The final request includes all closing words, notes, and own words in its
+  conservative fit estimate, reserves the configured answer and3000 tokens,
+  and removes old history only. Latest exchange, current input and rules stay
+  intact. Receipts say when history rests. Impossible required content gives
+  a clear error rather than a knowingly oversized send. Estimates are not
+  provider tokenizer counts. No source records are deleted.
+* Historical review fits more original chunks to actual connection room and
+  answer allowance; a truncated group shrinks and retries in the same run.
+  Chunk ids/marks and quote validation stay stable. Unchanged source receipts
+  and durable auditor checkpoints remain reusable. The earlier audit overstated
+  a long-page blocker:12000 character overlapping source chunks already existed.
+* World no longer repeats knowledge/seats/threads/factions in two input
+  sections. Workers omit exact already-held profile facts from the recovery
+  appendix. The raw evidence and unresolved differing facts remain available.
+  Hybrid record nodes follow the caller's actual pre-window coverage boundary.
+* Foreground pendingWork shares one total deadline instead of resetting it for
+  every queued job. This does NOT claim all existing optional send helpers or
+  background model calls now take less than five seconds. Idle ordinary review
+  honors auditEvery; initial recovery/open findings still resume autonomously.
+  Green requires existing authoritative completion, never a fabricated verdict.
+
+One directly relevant local fixture passed: node tests/harness/m714-foundation.mjs.
+Actual assembler with more than100 stored people and long pages carried saved
+appearance, older obligation/knowledge/item, closing instructions and the
+latest exchange. Both keeper modes measured175445 estimated input tokens in
+200000 context, with16000 answer plus3000 margin reserved. Seven original
+chunks packed in one mocked source call; unchanged reread made zero calls;
+truncated packing retried to complete. It checked duplicate World knowledge,
+held-profile omission, durable checkpoint reuse/change invalidation and one
+worker-wait deadline. State stayed byte-equivalent under rendering. No real
+provider calls, browser/IndexedDB inspection, gameplay, themes or broad suites.
+Two unsupported Node launch flags failed before the fixture ran; plain Node
+ran the fixture successfully. No repetition for documentation/publication.
+
+The owner remains exhausted by unnecessary tests. Default NO tests. Future
+sessions must use only tiny specific checks when genuinely needed at milestones
+or after useful iterations. Publication permission remains in AGENTS.md.
+
 # Ledger system audit after M713
 
 The owner requested an audit of sandbox behavior, storyteller injection,

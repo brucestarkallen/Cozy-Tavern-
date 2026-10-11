@@ -606,7 +606,7 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
     const newest = list.slice(-take).reverse().map(aged);
     const older = list.slice(0, Math.max(0, list.length - take));
     let recalled = [];
-    if (!mine && older.length && sceneWords && sceneWords.size) {
+    if (older.length && sceneWords && sceneWords.size) {
       const ignore = new Set(ignoreBase);
       for (const w of key.toLowerCase().split(/\s+/)) if (w) ignore.add(w);
       recalled = older
@@ -649,7 +649,7 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
   for (const g of [...bySet.values()].sort((a, b) => (b.everyone - a.everyone) || (b.who.length - a.who.length))) {
     const but = roster.filter((k) => !g.who.includes(k));
     /* M509: the SHORTER list names the line — "Everyone here but" eight names beats "Known to" twelve */
-    lines.push((g.everyone ? 'Everyone here knows' : but.length < g.who.length ? 'Everyone here but ' + but.join(', ') + ' knows' : 'Known to ' + g.who.join(', ')) + ': ' + g.facts.join('; ') + '.');
+    lines.push((scene?.namedOnly ? 'Known to ' + g.who.join(', ') : g.everyone ? 'Everyone here knows' : but.length < g.who.length ? 'Everyone here but ' + but.join(', ') + ' knows' : 'Known to ' + g.who.join(', ')) + ': ' + g.facts.join('; ') + '.');
   }
   for (const p of picked) {
     const own = p.newest.filter((f) => !sharedKeys.has(norm(f)));

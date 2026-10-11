@@ -19802,3 +19802,38 @@ distinction between a verified ledger and its next selected storyteller view.
 No broad tests, gameplay, paid calls or live browser audit. New findings are
 not claimed fixed. Preserve M713 source checkpoints and worker improvements;
 repair injection, whole request accounting and original document fit first.
+
+
+## M714,11 October2026: ledger foundation repair milestone
+
+Prepared app version m714-001. Repairs the M713 system audit's confirmed
+appearance injection, relevance, final complete context budget, small source
+packing ceiling, duplicate World/profile views, reset worker wait deadlines
+and idle audit frequency override. Adds no scene-specific character patches,
+new semantic guard model or mandatory audit call. Preserves original prose,
+manual edits, stored facts/obligations, earned standings, stale answer ownership,
+journal/undo, source ids/marks and durable verification checkpoints.
+
+One focused actual-module fixture passed with mocked source replies and no
+real provider calls: node tests/harness/m714-foundation.mjs. Both keeper modes
+fit175445 conservatively estimated input tokens with16000 answer and3000
+margin in200000 context, preserving current writer words/closing rules/latest
+exchange and carrying older relevant facts. Seven source chunks fit one call;
+unchanged reread needed none, truncated groups recovered within the same run.
+It checked World knowledge dedup, held-source appendix omission, stable approval
+reuse and invalidation, unchanged render inputs and one wait deadline. Two
+unsupported Node flags failed at startup before plain Node ran this fixture.
+No broad suites, paid calls, gameplay/theme checks or live saved-story inspection.
+
+Corrects the audit's original-page overstatement: overlapping12000 character
+source chunks already existed; the24000 ceiling constrained packing and could
+block a heavily escaped chunk. Chunking is not new in M714. This milestone
+repairs confirmed transport/selection defects; it does not claim flawless model
+interpretation or a newly verified live ledger. See docs/LEDGER_FOUNDATION_M714.md.
+
+Publication status: automatic approval review rejected the normal push to the
+existing GitHub main destination, stating that standing approval did not
+explicitly cover this payload/destination. Local changes and focused check are
+complete. No push workaround was attempted. Await explicit permission for this
+milestone's code, documentation and fixture to the existing origin/main; do not
+repeat checks when publishing this unchanged result.
