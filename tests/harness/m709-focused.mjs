@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {db} from '../../js/store.js';
 import {emptyState,saveState,loadState} from '../../js/engine/state.js';
 import {applyMutations} from '../../js/engine/apply.js';
-import {auditLedger,bindAuditEvidence,completeAuditCheckReply,verifyLedgerChecks,auditView,finalAuditorScope,manualRepairConflict} from '../../js/agents/auditor.js';
+import {auditLedger,bindAuditEvidence,completeAuditCheckReply,verifyLedgerChecks,auditView,finalAuditorScope,manualRepairConflict,parseAuditorAnswer} from '../../js/agents/auditor.js';
 import {auditSources} from '../../js/agents/auditsources.js';
 import {auditEvidenceBook,auditEvidencePassages} from '../../js/agents/auditevidence.js';
 import {ledgerVerificationRows,ledgerAuditVerified,reusableAuditCheckpoint,auditCheckpointStart} from '../../js/agents/auditprogress.js';
@@ -55,6 +55,7 @@ globalThis.fetch=async(_,options)=>{
 };
 try {
   const connection={type:'openai',baseUrl:'https://fixture.example/v1',apiKey:'fixture',model:'m',preset:'custom',contextSize:64000};
+  assert.equal(parseAuditorAnswer(JSON.stringify({checks:[{id:'characters:Elin',status:'repair',why:'Original appearance was missing.',physicalFacts:[{key:'hair',value:'long purple'}]}]})).issues[0].mutations.length,1,'An optional provenance field cannot silently drop an explicitly requested appearance write.');
   const first=await auditLedger({storyId:id,castNotes:cast,reviewSources:'all',connection});
   const done=await loadState(id);
   assert.deepEqual(first.pending,[]);assert(ledgerAuditVerified(done,story,pages));assert.equal(calls,1);

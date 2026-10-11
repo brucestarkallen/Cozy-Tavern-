@@ -851,3 +851,15 @@ No broad/theme/gameplay tests and no paid provider calls. The fixture proves
 these connections, not live completion or a bug-free model judgment. Publish
 under the owner's standing permission without another ask or a retest.
 
+
+# M709 current revision: optional provenance cannot silently drop writes
+
+Version m709-002. Final review of the legacy physicalFacts adapter found that
+it still discarded an explicitly requested appearance write without an id or
+quote. That extra transport requirement is removed: key/value create the
+logged proposal under final auditor authority. No fabricated evidence is added.
+The one targeted fixture was rerun only after this runtime fix,0.14s,passed,
+including the new no-provenance adapter case. This is not a publishing retest.
+All M709 authority, ownership, concurrency and live-verification limits below
+remain. Both M709 revisions were normally published under standing permission.
+

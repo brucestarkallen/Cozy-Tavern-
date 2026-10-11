@@ -328,7 +328,7 @@ export function parseAuditorAnswer(raw) {
     })).filter(p => p.mutations.length);
     const checkFacts=(parsed.checks || []).filter(c=>c.id?.startsWith('characters:') && ['correct','repair'].includes(c.status) && c.why?.trim()).map(c=>({
       what:'Save the source appearance reviewed for '+c.id.slice(11),targets:[{id:c.id}],
-      mutations:(Array.isArray(c.physicalFacts)?c.physicalFacts:[]).filter(f=>f.key && f.value && (f.evidenceId || f.shown)).map(f=>({type:'canon.lock',name:c.id.slice(11),key:f.key,value:f.value,evidenceId:f.evidenceId,shown:f.shown})),
+      mutations:(Array.isArray(c.physicalFacts)?c.physicalFacts:[]).filter(f=>f.key && f.value).map(f=>({type:'canon.lock',name:c.id.slice(11),key:f.key,value:f.value,evidenceId:f.evidenceId,shown:f.shown})),
     })).filter(i=>i.mutations.length);
     const issueRows = [...(Array.isArray(parsed.issues) ? parsed.issues : []), ...profiles,...checkFacts, ...repairs.filter(r => r.status !== 'correct' || r.mutations?.length).map(r => ({...r, findingId:r.id, what:r.what || r.why || r.id, fix:r.fix || r.why}))];
     const issues = issueRows
