@@ -26,7 +26,19 @@ export function repairRetryCheckpoint(before, after, story, pages) {
   const currentSource = ledgerRepairInputKey({},story,pages);
   const currentEntries = state => state.audit?.verification?.source === currentSource
     ? ledgerVerificationRows(state).filter(row => verificationReceiptMatches(state.audit.verification.entries?.[row.id],row)) : [];
-  const read = state => (Number(state.audit?.coverage?.read) || 0) + currentEntries(state).length;
+  const factProgress=state=>{
+    if (state.audit?.verification?.source!==currentSource) return 0;
+    const verification=state.audit.verification;
+    return ledgerVerificationRows(state).filter(row=>row.section==='characters').reduce((total,row)=>{
+      const ids=[...(row.value?.appearanceSources || []),...(row.value?.identitySources || [])].map(f=>f.id);
+      if (verificationReceiptMatches(verification.entries?.[row.id],row)) return total+ids.length;
+      const partial=verification.profiles?.[row.id];
+      if (partial?.print!==row.print || partial?.scope!==row.scope) return total;
+      const done=new Set([...(partial.appearance || []),...(partial.identity || [])].map(f=>f.id));
+      return total+ids.filter(id=>done.has(id)).length;
+    },0);
+  };
+  const read = state => (Number(state.audit?.coverage?.read) || 0) + currentEntries(state).length + factProgress(state);
   const old = previous?.source === source ? previous : {
     source, bestPending: count(before), bestRead: read(before), stalled: 0,
   };

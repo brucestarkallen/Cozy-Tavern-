@@ -19344,3 +19344,44 @@ for documentation, commit or publishing. This proves the exercised connections,
 not that the owner's actual nine remaining entries or every source extraction
 are already complete. Standing publication permission is recorded in AGENTS.md.
 
+
+# M706: finish source reconciliation instead of repeating broad audit
+
+Version m706-001. The actual M705 reading covered167/167 source documents and
+received all11 requested checks, but verified only157/168 entries. No repair
+operations remained unresolved. Azrael's enriched biography and the queen's
+recovered profile were real repairs; yellow persisted because ordinary complete
+character verdicts omitted mandatory nested mappings for source facts expressed
+under different keys, combined persona values, or paraphrased core phrases.
+Do not claim those facts are absent merely because reconciliation is missing.
+
+After a usable full review, the housekeeper now receives ONE focused task only
+for unmatched original profile facts, with literal source quotations and exact
+saved core/canon targets. Its required output is the semantic mapping itself.
+Equivalent meaning is mapped without cosmetic rewrites; missing facts receive
+supported direct canon/core repairs and verification in that same reading.
+Only requested profile fields can change here; scene, aliases, prose, manual
+ownership, worker feelings and earned scores keep their existing protections.
+No source cache/schema bump or full story source rescan is required. The usual
+source replacement and concurrent-write checks still run after this new call.
+
+Partial successful fact mappings are saved under the actual profile fingerprint
+and scope, even if another fact on that person remains open. Reuse requires the
+same source input and exact current profile/context. Retry progress now counts
+those accounted facts instead of pausing while real fact-level work proceeds.
+Full-entry approval still requires every recovered fact to be accounted for;
+no blanket green or automatic semantic matching was introduced. Diagnostics
+include focused profile review status, requested facts and received checks.
+
+Verification: node tests/harness/m706-focused.mjs ran once and passed in0.11s.
+It reproduces the actual reply shape: all ordinary checks, omitted nested
+mappings, combined dual-face hair, an appearance stored under another key,
+paraphrased identities and absent queen hair. One focused mocked call closes
+those checks and saves missing hair. It also verifies partial mapping reuse,
+stale/missing-value refusal, and preservation of manual eyes, biographies,
+prose and p60/r50. One additional tiny in-memory progress assertion passed:
+accounted atoms count as progress; mappings for changed profiles do not.
+No broad suite, theme/gameplay run, source reread or real provider calls.
+This verifies the mechanism, not completion on the owner's live story.
+Publishing is authorized for every version in AGENTS.md; do not ask again.
+

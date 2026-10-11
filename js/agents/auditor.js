@@ -53,6 +53,7 @@ import { pageText } from '../assemble/stack.js';
 import { exactNameIn, quotedSource, WRITER_FACTS } from '../engine/evidence.js';
 import { auditSources, reviewAuditSources, missingSourcePeople, missingLedgerPeople, sourcePersonKey, peopleSourceIndex } from './auditsources.js';
 import { reconcileAppearance,reconcileIdentity,sourceAppearanceFacts,sourceIdentityFacts } from './appearanceinventory.js';
+import { lookKey } from '../engine/canon.js';
 
 const MAX_TOKENS = 6000;
 export const DEFAULT_AUDIT_EVERY = 1; /* turns — M94: every page, as Summaryception's continuity auditor runs on every line */
@@ -649,6 +650,55 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   if (followupFailed && (sceneWrites.length || identityWrites.length || coreWrites.length)) offered = offered.map(i => ({ ...i,
     mutations: i.mutations.filter(m => !/^(presence\.|offscreen\.)/.test(m.type) && !['people.rename','mc.alias'].includes(m.type)
       && !(m.type === 'people.set' && m.field === 'core')) })).filter(i => i.mutations.length || i.pages);
+  // The broad review may approve a real biography while omitting its nested
+  // source mappings. Repeating that whole review is not a repair. Give the
+  // housekeeper the exact unmatched atoms and actual saved targets once.
+  verificationChecks=restoreProfileReconciliation(result.out,verificationChecks,
+    state.audit?.verification?.source===verificationSource?state.audit.verification.profiles:{});
+  const profileTasks = profileReconciliationTasks(result.out,verificationChecks,documents);
+  if (!followupFailed && profileTasks.length && !stale?.()) {
+    renew?.();
+    const rows=ledgerVerificationRows(result.out).filter(r=>profileTasks.some(t=>t.id===r.id));
+    const evidence=[...sourceAppearanceFacts(result.out,documents),...sourceIdentityFacts(result.out,documents)]
+      .map(f=>({evidenceId:f.id,source:f.source,text:f.shown}));
+    finalReview.profileReview={status:'not completed',requested:rows.length,
+      facts:profileTasks.reduce((n,t)=>n+t.appearance.length+t.identity.length,0),received:0};
+    try {
+      const reply=await askWithFetch(connection,{
+        system:withFictionFrame('You are the ledger housekeeper. Resolve only the supplied original profile facts against the actual saved profile. You judge meaning; differently worded equivalent facts need mapping, not cosmetic rewriting. Never guess facts, erase valid biography, merge faces, change prose, feelings or earned scores. '+fetchLaw()),
+        user:profileReconciliationPrompt(profileTasks),
+        maxTokens:Math.max(6000,Math.min(24000,1500+finalReview.profileReview.facts*180)),signal,renew,leash:leashFor,
+        isAnswer:t=>parseAuditorAnswer(t).note==='ok',
+        source:{storyId,messages:allRaw,memory:mem,story:{brief,castNotes},state:result.out},room,
+      });
+      looked.push(...(reply.looked || []));
+      const checked=bindAuditEvidence(parseAuditorAnswer(reply.text),evidence,rows);
+      finalReview.profileReview={...finalReview.profileReview,status:reply.finishReason==='length'?'cut short':checked.note,
+        received:checked.checks?.length || 0,replyCharacters:reply.text.length};
+      raw+='\n\nFocused profile reconciliation:\n'+reply.text;
+      if (checked.note==='ok' && reply.finishReason!=='length') {
+        const names=new Set(rows.map(r=>r.name));
+        // This read has authority over profile facts only. It cannot alter a
+        // worker's moment, standing, identity routing or any other ledger.
+        const corrections=checked.issues.map(i=>({...i,pages:false,mutations:i.mutations.filter(m=>names.has(m.name)
+          && (m.type==='canon.lock' || m.type==='canon.unlock' || (m.type==='people.set' && m.field==='core'))
+          && checked.checks.some(c=>c.id==='characters:'+m.name && ['correct','repair'].includes(c.status) && c.why?.trim()))}))
+          .filter(i=>i.mutations.length);
+        const replaces=m=>corrections.some(i=>i.mutations.some(c=>c.name===m.name &&
+          (m.type==='people.set'?c.type===m.type && c.field===m.field:
+            /^canon\./.test(m.type) && /^canon\./.test(c.type) && lookKey(c.key)===lookKey(m.key))));
+        offered=[...offered.map(i=>({...i,mutations:i.mutations.filter(m=>!replaces(m))})).filter(i=>i.mutations.length || i.pages),...corrections];
+        result=judge(await loadState(storyId),offered);
+        const approvedChecks=checked.checks.map(c=>corrections.some(i=>i.mutations.some(m=>'characters:'+m.name===c.id))
+          ?{...c,status:'repair'}:c);
+        verificationChecks=mergeProfileReconciliation(verificationChecks,approvedChecks,rows);
+      }
+    } catch (err) {
+      auditAborted(signal);
+      if (stale?.()) return null;
+      finalReview.profileReview.status='interrupted';
+    }
+  }
   auditAborted(signal);
   if (stale?.()) return null;
   // No result based on replaced, hidden or deleted source pages may land.
@@ -823,10 +873,70 @@ export function bindAuditEvidence(read, passages, requestedChecks = []) {
   })};
 }
 
+function appearanceCheckAnswers(value,c) {
+  const explicit=Array.isArray(c.appearance)?c.appearance:[];
+  return [...explicit,...(value?.appearanceSources || []).filter(f=>!explicit.some(a=>a.id===f.id)).flatMap(f=>{
+    const proof=(Array.isArray(c.physicalFacts)?c.physicalFacts:[]).filter(p=>!p.evidenceError && p.evidenceId===f.id);
+    return proof.length===1?[{id:f.id,status:'held',key:proof[0].key,value:proof[0].value,why:c.why}]:[];
+  })];
+}
+
+export function profileReconciliationTasks(state,checks,documents) {
+  const tasks=[];
+  for (const row of ledgerVerificationRows(state).filter(r=>r.section==='characters' && r.value)) {
+    const candidates=(checks || []).filter(c=>c.id===row.id);
+    const c=candidates.length===1?candidates[0]:null;
+    // Never manufacture approval for an absent, disputed or unfinished review.
+    if (!c || !['correct','repair'].includes(c.status) || !c.why?.trim() || c.evidenceError
+      || c.identityReviewed===false || c.appearanceReviewed===false) continue;
+    const answers=appearanceCheckAnswers(row.value,c);
+    const appearance=(row.value.appearanceSources || []).filter(f=>!reconcileAppearance(state,row.name,[f],answers.filter(a=>a.id===f.id),documents).ok);
+    const identity=(row.value.identitySources || []).filter(f=>!reconcileIdentity(state,row.name,[f],(Array.isArray(c.identity)?c.identity:[]).filter(a=>a.id===f.id),documents).ok);
+    if (appearance.length || identity.length) tasks.push({id:row.id,name:row.name,core:row.value.core || '',
+      physicalFacts:row.value.physicalFacts?.facts || [],hand:row.value.hand || {},
+      manualAppearance:(state.journal || []).filter(e=>e.m?.byHand && /^canon\./.test(e.m.type) && samePersonName(e.m.name,row.name)).map(e=>e.m),appearance,identity});
+  }
+  return tasks;
+}
+
+export function profileReconciliationPrompt(tasks) {
+  return [
+    'FOCUSED PROFILE RECONCILIATION. The full ledger review already ran. Its remaining work is these specific source facts. Do not repeat the whole audit.',
+    'Return checks, exactly one per supplied characters id. Each check MUST contain status correct, repair or open, why, and an evidenceId from its source facts. Most importantly return appearance and identity arrays, exactly one decision per supplied fact id. These arrays are the task, not optional extra explanation.',
+    'Appearance decision: {id,status:"held"|"superseded"|"ended"|"manual"|"open",key:"exact actual saved field",value:"exact actual saved value",why,evidenceId}. Identity decision: {id,status:"held"|"superseded"|"manual"|"open",coreText:"exact saved core excerpt representing this fact",why,evidenceId}. All fact ids are valid evidenceId references to their original quotations below. Meaning may be equivalent even when words or field labels differ. One combined saved field may represent multiple source facts; map each to that field. Preserve all explicitly established faces and distinguish their appearance. Do not overwrite one face with another.',
+    'Held means the source fact is truly represented in the actual saved field or core excerpt, not merely that its quotation was read. If missing, supply the repair now: physicalFacts:[{key,value,evidenceId}] on that character check directly saves appearance; profiles:[{name,core:{text:"complete enriched biography preserving all valid existing facts",evidenceId}}] directly saves core. Map the repaired result in appearance/identity in the SAME answer and set the character status repair. A missing personality, rank, background or appearance cannot be called held. An event sentence alone is not a complete identity.',
+    'Superseded or ended needs original later replacement/removal evidence, fetch if necessary. Manual needs actual current manual ownership. Never invent identity, personality, chronology or equivalence. Do not alter feelings, earned scores, scene, aliases or story prose. If evidence really is insufficient, return open with the exact reason. JSON only.',
+    'REQUIRED PROFILE FACTS WITH ACTUAL SAVED TARGETS:\n'+JSON.stringify(tasks),
+  ].join('\n');
+}
+
+export function mergeProfileReconciliation(previous,focused,rows) {
+  const requested=new Map(rows.map(r=>[r.id,r]));
+  return previous.map(c=>{
+    const next=focused.filter(f=>f.id===c.id && requested.has(f.id));
+    if (next.length!==1) return c;
+    const f=next[0];
+    const merge=(a,b,key)=>[...(Array.isArray(a)?a:[]).filter(x=>!(Array.isArray(b)?b:[]).some(y=>key(x)===key(y))),...(Array.isArray(b)?b:[])];
+    return {...c,...f,print:c.print,scope:c.scope,
+      appearance:merge(c.appearance,f.appearance,x=>x.id),identity:merge(c.identity,f.identity,x=>x.id),
+      physicalFacts:merge(c.physicalFacts,f.physicalFacts,x=>lookKey(x.key))};
+  });
+}
+
+export function restoreProfileReconciliation(state,checks,previous={}) {
+  const rows=new Map(ledgerVerificationRows(state).map(r=>[r.id,r]));
+  return checks.map(c=>{
+    const saved=previous?.[c.id],row=rows.get(c.id);
+    if (!saved || saved.print!==row?.print || saved.scope!==row.scope) return c;
+    const merge=(a,b)=>[...(a || []).filter(x=>!(Array.isArray(b)?b:[]).some(y=>x.id===y.id)),...(Array.isArray(b)?b:[])];
+    return {...c,appearance:merge(saved.appearance,c.appearance),identity:merge(saved.identity,c.identity)};
+  });
+}
+
 export function verifyLedgerChecks({state, snapshot, checks, previous = {}, documents, source, applied = [],approvedState}) {
   const rows = ledgerVerificationRows(state), old = new Map(ledgerVerificationRows(snapshot || state).map(r => [r.id,r]));
   const approved = new Map(ledgerVerificationRows(approvedState || snapshot || state).map(r => [r.id,r]));
-  const entries = {}, pending = [];
+  const entries = {}, profiles={},pending = [];
   const literal = quote => Boolean(quote && documents.some(d => auditorSourceQuote(d.text,quote)));
   const mainLiteral = quote => Boolean(quote && documents.some(d => d.id.startsWith('page:') && d.label.endsWith(', story')
     && auditorSourceQuote(d.text.replace(/^\s*\[[^\n]*\][ \t]*/, ''),quote)));
@@ -835,6 +945,21 @@ export function verifyLedgerChecks({state, snapshot, checks, previous = {}, docu
     if (verificationReceiptMatches(previous[row.id],row)) { entries[row.id] = previous[row.id]; continue; }
     const candidates = (checks || []).filter(c => c.id === row.id);
     const c = candidates.length === 1 ? candidates[0] : null;
+    // Keep completed atom decisions even when another fact on this same
+    // character remains open. Only the exact saved profile/context can reuse
+    // them; a biography, canon, source or identity change invalidates them.
+    if (row.section==='characters' && c && !c.evidenceError && c.print===old.get(row.id)?.print
+      && (row.scope===old.get(row.id)?.scope || row.scope===approved.get(row.id)?.scope)) {
+      const appearance=appearanceCheckAnswers(row.value,c).filter(a=>{
+        const fact=row.value?.appearanceSources?.find(f=>f.id===a.id);
+        return fact && reconcileAppearance(state,row.name,[fact],[a],documents).ok;
+      });
+      const identity=(Array.isArray(c.identity)?c.identity:[]).filter(a=>{
+        const fact=row.value?.identitySources?.find(f=>f.id===a.id);
+        return fact && reconcileIdentity(state,row.name,[fact],[a],documents).ok;
+      });
+      if (appearance.length || identity.length) profiles[row.id]={print:row.print,scope:row.scope,appearance,identity};
+    }
     // Physical facts added in this final reading were already explicitly
     // checked on their People row. Certify those exact saved locks from that
     // receipt instead of scheduling another batch just to echo a new row id.
@@ -861,11 +986,7 @@ export function verifyLedgerChecks({state, snapshot, checks, previous = {}, docu
       const position = row.section !== 'presence' || ((same(c.position,row.value.position) || (c.status === 'correct' && !changed && c.positionMatches === true)) && mainLiteral(c.lastShown));
       const identityFacts = Array.isArray(c.identityFacts) ? c.identityFacts : [];
       const physicalFacts = Array.isArray(c.physicalFacts) ? c.physicalFacts : [];
-      const explicitAppearance=Array.isArray(c.appearance)?c.appearance:[];
-      const appearanceAnswers=[...explicitAppearance,...(row.value?.appearanceSources || []).filter(f=>!explicitAppearance.some(a=>a.id===f.id)).flatMap(f=>{
-        const proof=physicalFacts.filter(p=>p.evidenceId===f.id);
-        return proof.length===1?[{id:f.id,status:'held',key:proof[0].key,value:proof[0].value,why:c.why}]:[];
-      })];
+      const appearanceAnswers=appearanceCheckAnswers(row.value,c);
       const appearance = row.section === 'characters' ? reconcileAppearance(state,row.name,row.value?.appearanceSources || [],appearanceAnswers,documents) : {ok:true,facts:[]};
       const identity=row.section==='characters'?reconcileIdentity(state,row.name,row.value?.identitySources || [],c.identity,documents):{ok:true};
       // A correct/repair verdict explicitly means the housekeeper reviewed
@@ -891,7 +1012,7 @@ export function verifyLedgerChecks({state, snapshot, checks, previous = {}, docu
     } else if (candidates.length > 1) reason = 'conflicting duplicate entry checks';
     pending.push(row.id + ': ' + reason);
   }
-  return {source,ledger:ledgerRepairStateKey(state),entries,read:Object.keys(entries).length,total:rows.length,pending};
+  return {source,ledger:ledgerRepairStateKey(state),entries,profiles,read:Object.keys(entries).length,total:rows.length,pending};
 }
 export function findingRows(issue, state) {
   const rows = ledgerVerificationRows(state);
