@@ -1,3 +1,5 @@
+import { renderPeopleTiers, peopleView } from '../engine/people.js';
+import { LEDGER_READER_RULES, sharedStoryContext } from './ledgercontext.js';
 /* Cozy Tavern — agents/extractor.js
  * The extractor: a quiet background worker that reads each finished page —
  * what the writer wrote and what the storyteller answered — and proposes
@@ -351,6 +353,8 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
   const user = [
     'Here is what the ledger currently says:',
     facts,
+    'Character identities and established arcs:',
+    renderPeopleTiers(state, { recentPages: [userText || '', assistantText || ''], view: peopleView(64000), brief: brief + '\n' + castNotes }).text,
     'Moods on the board right now: ' + (onNow.length ? onNow.join(', ') : 'none') + ' — restate the whole board with mode.snapshot.',
     '',
     ...(brief && String(brief).trim()
@@ -803,9 +807,9 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
       .map((h) => String(h || '').trim()).filter((h) => h && h.length <= 80);
     /* M660: …and, where the page shows it, where each stands and what each wears as the page ends */
     const hereNotes = (Array.isArray(parsed.here) ? parsed.here : [])
-      .filter((h) => h && typeof h === 'object' && typeof h.name === 'string' && h.name.trim() && (typeof h.at === 'string' || typeof h.wears === 'string'))
-      .map((h) => ({ name: h.name.trim().slice(0, 80), at: typeof h.at === 'string' ? h.at.trim() : '', wears: typeof h.wears === 'string' ? h.wears.trim() : '' }))
-      .filter((h) => h.at || h.wears);
+      .filter((h) => h && typeof h === 'object' && typeof h.name === 'string' && h.name.trim() && (typeof h.at === 'string' || typeof h.wears === 'string' || typeof h.shown === 'string'))
+      .map((h) => ({ name: h.name.trim().slice(0, 80), at: typeof h.at === 'string' ? h.at.trim() : '', wears: typeof h.wears === 'string' ? h.wears.trim() : '', shown: typeof h.shown === 'string' ? h.shown.trim() : '' }))
+      .filter((h) => h.at || h.wears || h.shown);
     /* M641: the standings it was asked to decide, each by name — one that shows a feeling is written where it stands
      * (rel.set, its cause in words); a "none", an entry with no cause, or a name it was not asked about writes nothing */
     const asked = (Array.isArray(standingsFor) ? standingsFor : []).filter((n) => typeof n === 'string' && n.trim());
@@ -867,7 +871,7 @@ export function leavesTheyWereShown(mutations, text) {
  * (before any window, outside the spoken lines) names them, the name means one person, and the same answer does not
  * take them out or seat them elsewhere. The main character is the page's own eye and needs no naming. Nobody is ever
  * taken OUT for being left off (M402: silence is not leaving). */
-export function hereFromBoard(state, here, assistantText, mutations = [], userText = '') {
+export function hereFromBoard(state, here, assistantText, mutations = [], userText = '', notes = []) {
   const names = (Array.isArray(here) ? here : []).map((h) => String(h || '').trim()).filter(Boolean);
   if (!names.length || !state || typeof state !== 'object') return [];
   const told = narrationOf(scenePartOf(userText)) + '\n' + narrationOf(scenePartOf(assistantText));
@@ -883,10 +887,11 @@ export function hereFromBoard(state, here, assistantText, mutations = [], userTe
     }
     if (isHere(state, n) || said(['presence.enter', 'presence.leave', 'offscreen.set'], n) || !oneMeaning(state, n)) continue;
     const name = pageNameFor(state, n) || n;
-    if (goneAtTheEnd(state, assistantText, name)) continue;
-    if (!shownOnPage(state, told, n) && !shownOnPage(state, told, name)) continue; /* named as themself, never by a family name another shares */
+    const proof = notes.find(h => samePersonName(h.name, n) && quotedSource(userText + '\n' + assistantText, h.shown));
+    if (!proof && goneAtTheEnd(state, assistantText, name)) continue;
+    if (!proof && !shownOnPage(state, told, n) && !shownOnPage(state, told, name)) continue; /* named as themself, never by a family name another shares */
     if (out.some((m) => samePersonName(m.name, name))) continue;
-    out.push({ type: 'presence.enter', name, cause: 'the page shows them here' });
+    out.push({ type: 'presence.enter', name, cause: 'Scene confirms physical presence at the end of this turn', ...(proof ? { shown: proof.shown } : {}) });
   }
   return out;
 }
@@ -895,6 +900,8 @@ export { mcWalksOff } from '../engine/apply.js'; /* M598: one reading, kept with
 export async function extractTurn(args = {}) {
   const read = await extractTurnRead(args);
   const turnScene = scenePartOf(args.userText) + '\n\n' + scenePartOf(args.assistantText);
+  const confirmedHere = m => (read.here || []).some(n => samePersonName(n, m.name))
+    && Boolean(quotedSource(turnScene, m.shown) || (read.hereNotes || []).some(n => samePersonName(n.name, m.name) && quotedSource(turnScene, n.shown)));
   const groundNames = () => {
     if (!read?.mutations || !args.state) return;
     const recent = (Array.isArray(args.before) ? args.before : []).filter((p) => p && !p.aside && !p.ooc).map((p) => p.text || '');
@@ -1034,12 +1041,12 @@ export async function extractTurn(args = {}) {
         if (!m || typeof m.name !== 'string' || isMc(args.state, m.name) || isHere(args.state, m.name) || !seatedNow(m.name) || cameAlong(m.name)) return true;
         const walksIn = m.type === 'presence.enter' || m.type === 'offscreen.clear'
           || (m.type === 'offscreen.set' && m.stance !== 'toward' && m.stance !== 'seeking' && Boolean(sceneGround) && seatAtScene(String(m.location || ''), sceneGround) && !isDeadSeat({ location: m.location, activity: m.activity }));
-        return !walksIn || comesInAtTheEnd(args.state, args.assistantText, [m.name], m.shown);
+        return !walksIn || confirmedHere(m) || comesInAtTheEnd(args.state, args.assistantText, [m.name], m.shown);
       });
     }
     /* M444: a note let go of someone the page shows is her walking in; and the room, restated, writes in whoever is missing */
     read.mutations = clearsThatArrive(args.state, read.mutations, scenePartOf(args.assistantText));
-    read.mutations = [...read.mutations, ...hereFromBoard(args.state, read.here, args.assistantText, read.mutations, args.userText)];
+    read.mutations = [...read.mutations, ...hereFromBoard(args.state, read.here, args.assistantText, read.mutations, args.userText, read.hereNotes)];
     /* M541: SOMEONE THE WORLD SEATED ELSEWHERE IS NOT WALKED BACK IN BY A MENTION. Claire drove off, the world seated her at
      * the corner of Mariner's Lane and Larkspur, and the next page — Rias talking about her, the narration naming her text —
      * wrote her back "here" (she stood in Who's here in a blouse with nowhere to stand, the world's seat let go). The page
@@ -1059,7 +1066,7 @@ export async function extractTurn(args = {}) {
          * was thrown away on each, and she stood "upstairs, asleep" on the ledger while she shook the rain off in the
          * kitchen. The reader hands over the page's own words that show her here ("shown"); words that ARE in the
          * page's telling stand in for her name. Talked about is still not here (M541): spoken words are not the telling. */
-        return (shownOnPage(args.state, told, m.name) || toldOnPage(args.assistantText, m.shown).end !== -1) && !goneAtTheEnd(args.state, args.assistantText, m.name);
+        return confirmedHere(m) || (shownOnPage(args.state, told, m.name) || toldOnPage(args.assistantText, m.shown).end !== -1) && !goneAtTheEnd(args.state, args.assistantText, m.name);
       });
     }
     /* M509-15: A MOMENT THE WHOLE ROOM SAW GOES INTO EVERY BOOK IN THE ROOM. The reader writes a public moment into one
@@ -1095,7 +1102,14 @@ export async function extractTurn(args = {}) {
         const day = args.state.clock && typeof args.state.clock.dayWords === 'string' ? args.state.clock.dayWords : '';
         const letGo = staleAfterJump(args.state, readerTimeOverHeader(headerMutations(args.assistantText, { ground: (args.state.place || {}).name || '', day }), read.mutations).header); /* M681: a #time skip's long move with a bare hour is a jump too */
         const room = letGo.length ? applyMutations(args.state, letGo).state : args.state;
-        read.mutations = [...read.mutations, ...restatedPresence(room, notes, read.mutations, args.assistantText)];
+        const supported = notes.filter(n => !isMc(room, n.name) && quotedSource(turnScene, n.shown));
+        const updates = supported.flatMap(n => {
+          const m = { type: 'presence.update', name: n.name, shown: n.shown, source: 'extractor', cause: 'Scene read the latest posture and attire' };
+          if (n.at && !read.mutations.some(x => samePersonName(x.name || '', n.name) && x.position !== undefined)) m.position = n.at;
+          if (n.wears && !read.mutations.some(x => samePersonName(x.name || '', n.name) && x.attire !== undefined)) m.attire = n.wears;
+          return m.position !== undefined || m.attire !== undefined ? [m] : [];
+        });
+        read.mutations = [...read.mutations, ...updates, ...restatedPresence(room, notes.filter(n => !supported.includes(n)), read.mutations, args.assistantText)];
       }
       read.mutations = settleWitnesses(args.state, read.mutations, read.here); /* M642: what the reader itself decided */
       read.mutations = broadcastPublicMoments(args.state, read.mutations, read.here);
@@ -1194,6 +1208,7 @@ async function extractTurnRead({ connection, state, userText, assistantText, bef
   const young = typeof founding === 'boolean' ? founding : isYoungLedger(state);
   /* M259: THE RECORD RIDES. chat.js has handed it over since M226; this line
    * dropped it on arrival, so the extractor never once saw it. */
+  record = (record || '') + await sharedStoryContext(storyId);
   const budget = readerBudget(connection); /* M679 */
   const knowledgeRoom = knowledgeRoomFor(roomChars(connection, budget)); /* M664 */
   const bare = buildExtractorMessages({ state, userText, assistantText, before: [], founding: young, brief, castNotes, record, pageNumber, knowledgeRoom });
@@ -1202,6 +1217,7 @@ async function extractTurnRead({ connection, state, userText, assistantText, bef
   /* M31: an answer we can't use, or a founding that came back empty, earns
    * ONE second ask with a sharper word — here, not five blind retries in
    * the queue. The raw answer rides out so the drawer can show it. */
+  prompt.system += LEDGER_READER_RULES + '\nFor each here entry use {name, at, wears, shown}, with an exact quotation supporting their physical presence or current pose. This list is your final scene judgment: include quiet spectators still present, exclude remote voices and people merely mentioned. Follow arrivals and departures through the entire scene before deciding. Do not omit a known companion merely because the ending focuses on someone else.';
   let user = prompt.user;
   let last = null;
   /* M163: THE BEST READING IS KEPT. The sharper second ask (a missing

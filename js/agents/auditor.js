@@ -1,3 +1,4 @@
+import { LEDGER_READER_RULES, sharedStoryContext } from './ledgercontext.js';
 /* Cozy Tavern — agents/auditor.js
  * M41: the auditor — the one reader who sees the whole ledger at once and
  * holds it against the story as written, the writer's brief, and the
@@ -135,8 +136,8 @@ function law({ mc }) {
     '    only when its own history proves it was about someone else; preserve that feeling as words on the',
     '    person’s page. Never zero a real bond merely because you cannot see its cause. Never reset page-earned',
     '    changes to the brief’s starting numbers or judge how much a beat should move them.',
-    '    Restore a missing or wrongly-zero axis only from an explicit bond in the brief, with a cause quoting',
-    '    that bond toward the main character. The levels: friend P 25–45, close friend/family P 50–70, hatred',
+    '    Explicit starting digits are restored separately, axis by axis, only before earned changes. Preserve valid judgments. Do not invent scores from a bond description. Historical guidance for understanding bonds:',
+    '    The levels: friend P 25–45, close friend/family P 50–70, hatred',
     '    P −50…−80; crush R 25–45, in love R 55–75, devoted R 75–90. Romantic love is R, never P alone.',
     '    An axis the pages earned, even if now zero, stays earned. The page reader starts and moves bonds.',
     '  - THE THREADS: a thread the pages show resolved still hot (thread.close); a live agenda the',
@@ -170,7 +171,7 @@ function law({ mc }) {
     'wrongly zero; a thread the pages closed still hot or a live agenda missing; a witnessed fact',
     'with no knowledge line; the clock or the ground wrong on a page with no header line; a duplicate.',
     'Report every supported discrepancy you find. There is no target count of findings; a large damaged ledger may need many repairs.',
-    'For each presence.enter, presence.update or people.set state repair, copy an exact newest-page quotation in shown.',
+    'For every factual repair, include shown: an exact quotation from the brief, cast or story supporting the correction. Explain the contradiction in what and the intended result in fix. Read later evidence before restoring an old fact. Do not change valid worker judgments of feelings, motives or simulation. Relationship numbers are reconciled separately from explicit starting digits and earned history; do not choose replacement scores.',
     'An arrival quote remains presence evidence after a later seated pose. For posture and attire use their latest own account, not a later incidental mention by someone else. Include shown on offscreen.clear as well.',
     'The MC\'s explicitly established own persona is the MC, not another person away from the scene. Clear a false separate elsewhere seat with the writer\'s exact identity quote. Never guess a persona from a similar name or from an intention to impersonate someone.',
     'A duplicate identity or duplicate seat is repaired with people.rename from the descriptor or duplicate name to the established name, retaining the records. A presence.update does not merge two people. Do not treat an unchanged location stated with extra detail as proof that the existing location is wrong.',
@@ -286,7 +287,7 @@ function buildAuditorAt({ state, brief = '', castNotes = '', record = '', pages 
     'Hold the ledger against the brief, the pages and the record. JSON only.',
     ...(state?.audit?.pending?.length ? ['PREVIOUS UNRESOLVED ITEMS: revisit these against the current sources; provide a working repair or explain with evidence why the finding was mistaken.', ...state.audit.pending] : []),
   ].join('\n');
-  return { system: withFictionFrame(law({ mc })), user };
+  return { system: withFictionFrame(law({ mc }) + LEDGER_READER_RULES), user };
 }
 
 /* Exported for the harness. */
@@ -402,7 +403,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
    * long tale's oldest lines fell off the front. The room is the
    * connection's own. */
   const room = auditRoomChars(connection);
-  const record = recordWithPages(mem, Math.max(20000, Math.min(AUDIT_RECORD_CAP, Math.floor(room * 0.35))));
+  const record = recordWithPages(mem, Math.max(20000, Math.min(AUDIT_RECORD_CAP, Math.floor(room * 0.35)))) + await sharedStoryContext(storyId);
   const foldedTo = Math.max(0, ...((mem && Array.isArray(mem.nodes)) ? mem.nodes : []).filter((n) => n && Array.isArray(n.span)).map((n) => n.span[1] + 1));
   /* M681 (S13): the board no reader stated for the newest page is the auditor's to restate (boardStale) */
   const toldNow = all.filter((m) => m && m.role === 'assistant');
@@ -529,7 +530,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   pending = [...new Set([...missingLedgerPeople(result.out, castNames), ...outstanding.map((i) => i.what + ': ' + i.pendingReason), ...(sourceReview?.pending || []), ...(answerProblem ? [answerProblem] : []), ...(followupFailed ? ['the repair followup did not finish'] : [])])];
   result.unfinished = pending.length > 0;
   result.pending = pending;
-  result.out.audit = { ...result.out.audit, pending, unresolved: outstanding, unfinished: result.unfinished,
+  result.out.audit = { ...result.out.audit, pausedInput: null, pauseReason: '', pending, unresolved: outstanding, unfinished: result.unfinished,
     ...(sourceReview ? { coverage: { read: sourceReview.read, total: sourceReview.total } } : {}) };
   if (sourceReview) result.out.auditSources = sourceReview.cache;
   await saveState(storyId, result.out);
@@ -623,74 +624,14 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
   /* M259: the latest STORY page's header line has already written the ground
    * and the hour in code (M128/M131) — the auditor never overrides it. */
   const latestStory = [...all].reverse().find((m) => m && m.role === 'assistant' && !m.ooc);
-  const header = latestStory ? headerMutations(pageText(latestStory), { ground: (fresh.place || {}).name || '' }) : []; /* M627 */
   /* M679: the newest page's own index, counted as the chain stamps what it writes (chat.js: the page in hand among the
    * visible pages) — what its readers wrote on it is the journal's at that index, and nothing at all when they never read it */
   const storyPages = all.filter((m) => m && m.role === 'assistant');
   const newestAt = latestStory ? storyPages.findIndex((m) => m.id === latestStory.id) : -1;
-  const latestIndex = latestStory ? all.indexOf(latestStory) : -1;
-  const writerPage = latestIndex > 0 && all[latestIndex - 1].role === 'user' && !asideAt(all, latestIndex - 1) ? pageText(all[latestIndex - 1]) : '';
-  read.issues = auditorScope(read.issues, fresh, { header, page: latestStory ? pageText(latestStory) : '', writerPage, pageAt: newestAt !== -1 ? newestAt : null, rejected: scopeRejected, evidenceText: [brief, castNotes, ...all.filter((m, i) => !asideAt(all, i)).map(pageText)].join('\n'), writerIdentityText: [brief, castNotes, ...all.filter((m, i) => m.role === 'user' && !asideAt(all, i)).map(pageText)].join('\n') });
-  /* M684: completed turns include the writer’s established scene facts. Keep the
-   * assistant-page indices, including OOC slots, aligned with journal stamps. */
-  const turnScenes = storyPages.map((m) => {
-    const at = all.indexOf(m);
-    if (m.ooc || asideAt(all, at)) return '';
-    const writer = at > 0 && all[at - 1].role === 'user' && !asideAt(all, at - 1) ? pageText(all[at - 1]) : '';
-    return scenePartOf(writer) + '\n\n' + scenePartOf(pageText(m));
+  read.issues = auditorRepairScope(read.issues, fresh, {
+    pageAt: newestAt, rejected: scopeRejected,
+    sources: [brief, castNotes, ...all.filter((m, i) => !asideAt(all, i)).map(pageText)].join('\n'),
   });
-  {
-    const lastTexts = turnScenes.filter(Boolean).slice(-2);
-    const storyTexts = turnScenes;
-    /* M414: named by the one answer (engine/names.js — never a title or "the"), and a going the NARRATION shows */
-    /* M446: the newest page that names them as themself decides, and its LAST such line: gone at its end (goneAtTheEnd) —
-     * never a going read off a family name another person shares ("Kuchiki-taichō left" is not Rukia), never one a later
-     * line takes back (she came back with the files) */
-    const showsGoing = (n) => {
-      for (let i = lastTexts.length - 1; i >= 0; i -= 1) {
-        if (!scenePartOf(lastTexts[i]).split(/\n+/).some((l) => shownOnPage(fresh, l, n))) continue;
-        return goneAtTheEnd(fresh, lastTexts[i], n);
-      }
-      return false;
-    };
-    // M684: silence is never a departure. An older missed departure can still
-    // be repaired, but only from a page after their most recent arrival.
-    const goneSinceArrival = (n) => {
-      const arrival = [...(fresh.journal || [])].reverse().find((j) => j?.m?.type === 'presence.enter' && samePersonName(j.m.name, n));
-      const since = arrival && Number.isInteger(arrival.p) ? Math.max(0, arrival.p) : 0;
-      for (let k = storyTexts.length - 1; k >= since; k--) {
-        if (shownOnPage(fresh, narrationOf(scenePartOf(storyTexts[k])), n)) return goneAtTheEnd(fresh, storyTexts[k], n);
-      }
-      return false;
-    };
-    /* M598: the newest page ends on HIM going — whoever he walked away from is left behind; the auditor's leave stands, as
-     * the page reader's does (M588) */
-    const mcNowName = mcName(fresh);
-    const mcLeft = Boolean(lastTexts.length && mcNowName && mcNowName !== 'the player' && mcWalksOff(lastTexts[lastTexts.length - 1], mcNowName));
-    const kept = [];
-    for (const issue of read.issues) {
-      if (!issue || !Array.isArray(issue.mutations) || !issue.mutations.length) { kept.push(issue); continue; }
-      /* M644: …or it hands over the page's own words for the going, and they hold on one of the last two pages */
-      const quoted = (m) => lastTexts.some((t) => quotedGoing(fresh, t, m.name, m.shown));
-      /* M680: …or it is a death one of the last two pages tells of them ("to" begins "dead — "): the page goes on naming the
-       * body, so no going is ever its last word (apply.js deathToldOf, the page reader's own door) */
-      const died = (m) => isDeadSeat({ location: m.to }) && lastTexts.some((t) => deathToldOf(fresh, t, m.name));
-      const muts = issue.mutations.filter((m) => {
-        if (!(m && m.type === 'presence.leave' && !showsGoing(m.name) && !quoted(m) && !died(m) && !goneSinceArrival(m.name) && !mcLeft)) return true;
-        scopeRejected.push({ mutation: m, issue, why: 'no departure after their latest arrival was established; silence does not remove a companion' });
-        return false;
-      });
-      if (!muts.length && !(issue.pages && issue.fix)) continue; /* a finding that was only a refused leave is no finding */
-      kept.push({ ...issue, mutations: muts });
-    }
-    read.issues = kept;
-  }
-  /* M444: CLEARED IS NEVER NOWHERE — a note it lets go of someone the latest page shows there is her walking in (converted
-   * on the finding itself, so the report says what landed) */
-  {
-    const sceneNow = latestStory ? scenePartOf(pageText(latestStory)) : '';
-    if (sceneNow) read.issues = read.issues.map((i) => (i && Array.isArray(i.mutations) && i.mutations.length ? { ...i, mutations: clearsThatArrive(fresh, i.mutations, sceneNow) } : i));
-  }
   /* M267: A CHECK THAT FOUND NOTHING IS NOT A FINDING. The writer counted
    * fourteen "mistakes" in a reading that changed three things: the rest were
    * the auditor listing what it had checked and found right ("the thread
@@ -704,11 +645,9 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
    * a standing with no page behind it and no place in the brief — the
    * Caleb case, a feeling for someone else — may be zeroed. */
   const identitySource = [brief, castNotes, ...all.map(pageText)].join('\n');
-  const material = (String(brief || '') + '\n' + String(castNotes || '')).toLowerCase();
   const keptStandings = [];
   const identityRefused = [];
   const guarded = [];
-  const mcHere = mcName(fresh) !== 'the player' ? mcName(fresh) : '';
   for (const [m, issueWhat] of read.issues.flatMap((i) => i.mutations.map((mu) => [mu, i.what]))) {
     if (m.sourceRecovery) {
       const key = findPersonKey(fresh.characters || {}, m.name);
@@ -741,81 +680,9 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
         continue;
       }
     }
-    if (m && (m.type === 'rel.set' || m.type === 'rel.shift') && typeof m.name === 'string') {
-      /* M449: THE GUARD ASKS THE SAME QUESTION THE APPLIER WILL (M164's law). This found the standing by its EXACT name,
-       * while the applier finds a person's book under any form of their name (M419): a rel.set for "Rukia" saw no
-       * standing, was not "lowering", and zeroed Rukia Kuchiki's earned P:15 — the one thing M48 says the auditor may
-       * never do on judgment. */
-      const key = personBookKey(fresh, fresh.relationships || {}, m.name, (map, n) => { const f = findRelationship(map, n); return f ? f.key : null; });
-      const rel = key ? fresh.relationships[key] : null;
-      const lowering = m.type === 'rel.shift' ? Number(m.delta) < 0
-        : rel ? ['p', 'r', 's'].some((ax) => Number.isFinite(m[ax]) && m[ax] < (rel[ax] || 0)) : false;
-      const earned = Boolean(rel) && Array.isArray(rel.history) && rel.history.some((h) => h && typeof h.cause === 'string' && !/^the brief\b|^set\b|^the founder\b/i.test(h.cause.trim()));
-      if (rel && lowering) {
-        const inBrief = material.includes(m.name.trim().toLowerCase());
-        if (earned || inBrief) {
-          keptStandings.push({ mutation: m, why: (earned ? 'the standing was earned on the pages' : 'the brief names ' + m.name) + ' — the auditor may not take it away', standing: true });
-          continue;
-        }
-      }
-      /* M259: NOR RAISE ONE THE PAGES MOVED. The auditor restores a standing
-       * that is wrongly ZERO; one the pages have moved is the page reader's.
-       * Shown only the six strongest standings, it took the rest for missing
-       * and "restored" them at the brief's level — which, for a standing the
-       * pages had brought DOWN, erased what the story had earned. */
-      const zero = !rel || (!(rel.p || 0) && !(rel.r || 0) && !(rel.s || 0));
-      /* M599 (the audit — a worker told to do what its door refuses): M588 told the auditor "a lover at P+2 with R at 0 is a
-       * wrong standing to restore", and this guard refused it — P had been moved by a page, so the whole standing counted as
-       * the pages'. A standing is three axes: an axis the pages never moved and that stands at zero is restored like a zero
-       * standing (the brief names the person, the cause quotes it), while every axis the pages moved is left exactly as it
-       * stands — never raised, never lowered. */
-      const axisEarned = (ax) => Boolean(rel) && Array.isArray(rel.history) && rel.history.some((h) => h && h.axis === ax && typeof h.cause === 'string' && !/^the brief\b|^set\b|^the founder\b/i.test(h.cause.trim()));
-      const given = (ax) => m[ax] !== undefined && m[ax] !== null && Number.isFinite(Number(m[ax]));
-      /* the axes the pages moved are left out of it (never raised, never lowered) — whatever the auditor wrote for them */
-      const restoresZeroAxes = m.type === 'rel.set' && Boolean(rel)
-        && ['p', 'r', 's'].some((ax) => given(ax) && Number(m[ax]) > 0 && !(rel[ax] || 0) && !axisEarned(ax));
-      if (rel && !zero && earned && !lowering && restoresZeroAxes) {
-        const cause = String(m.cause || '');
-        const named = material.includes(m.name.trim().toLowerCase());
-        const quotes = /\b(brief|cast notes?)\b/i.test(cause);
-        const bareCause = /^the (brief|cast notes?)(\s+(says|states|said))?\.?$/i.test(cause.trim());
-        if (named && quotes && !bareCause && !isMc(fresh, m.name)) {
-          /* only the zero, never-moved axes ride (in place, so the finding's report still knows its own mutation) */
-          for (const ax of ['p', 'r', 's']) if (!(given(ax) && !axisEarned(ax) && !(rel[ax] || 0))) delete m[ax];
-          guarded.push(m);
-          continue;
-        }
-      }
-      if (rel && !zero && earned && !lowering) {
-        keptStandings.push({ mutation: m, why: 'the pages moved this standing — the auditor restores only a standing that is zero', standing: true });
-        continue;
-      }
-      /* M277: NOR START ONE FROM A PAGE. A standing that is missing or zero
-       * was the auditor's to fill with any value on any reason — so it wrote
-       * standings "moved by the evening's events" for people who had not met
-       * the main character, and one for the main character himself. A beat is
-       * the page reader's; the brief's digits are restored by the house
-       * (standingsHousekeeping). The auditor restores a zero standing only for
-       * someone the brief or the cast notes name, on a reason that quotes them
-       * — and may still zero one written for someone else. */
-      const setsAny = m.type === 'rel.set' && ['p', 'r', 's'].some((ax) => Number(m[ax]));
-      if (zero && setsAny) {
-        const named = material.includes(m.name.trim().toLowerCase());
-        const cause = String(m.cause || '');
-        const quotes = /\b(brief|cast notes?)\b/i.test(cause);
-        /* M278: A STANDING IS TOWARD THE MAIN CHARACTER. The brief gave Sophie
-         * P:65 toward Emilia, and the auditor wrote it as her standing toward
-         * Jovan on a bare "the brief says". A reason that says nothing of the
-         * bond, or a reason or finding that says "toward" someone else, starts
-         * nothing ("the brief says Mira is his sister" is about him, and may). */
-        const bare = /^the (brief|cast notes?)(\s+(says|states|said))?\.?$/i.test(cause.trim());
-        const towardOther = [...(cause + ' ' + String(issueWhat || '')).matchAll(/\btowards?\s+([A-Z][\p{L}'’-]+)/gu)]
-          .some((x) => !mcHere || !samePersonLoose(x[1], mcHere));
-        if (!named || !quotes || bare || towardOther || isMc(fresh, m.name)) {
-          keptStandings.push({ mutation: m, why: 'a standing is started by the pages, not by the auditor', standing: true });
-          continue;
-        }
-      }
+    if (/^rel\./.test(m.type)) {
+      keptStandings.push({ mutation: m, why: 'relationship judgments belong to Scene; explicit starting digits are reconciled separately', standing: true });
+      continue;
     }
     guarded.push(m);
   }
@@ -835,7 +702,7 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
   const mcKnown = mcName(fresh) !== 'the player' ? mcName(fresh) : '';
   guarded.push(...standingsHousekeeping(fresh, brief, castNotes, mcKnown, statedByModel)); /* M680: the digits were read before the ledger was */
   /* M680: its writes are the newest page's, stamped with its index even when the page reader's call failed */
-  const { state: next, applied, rejected: rejectedByApplier } = applyMutations(newestAt !== -1 ? { ...fresh, page: newestAt } : fresh, guarded);
+  const { state: next, applied, rejected: rejectedByApplier } = applyMutations(newestAt !== -1 ? { ...fresh, page: newestAt } : fresh, guarded.filter(m => !manualRepairConflict(fresh, m, newestAt)));
   /* M679: a line of who knows what the ledger ALREADY holds is "already so", not a refusal — his turn-21 reading listed eight
    * "Seen; its change did not hold (Mirelia already knows that)" (M680: marked so at its source, apply.js knowledge.add,
    * for every worker's line) */
@@ -1139,6 +1006,42 @@ function mcPersonaQuote(state, name, shown, source) {
     || new RegExp('^' + alias + ' is ' + writer + modifiers + kinds + ends).test(q)
     || new RegExp('^' + writer + modifiers + kinds + ' is ' + alias + ends).test(q);
 }
+
+/* M689: validate the repair contract, not the model's interpretation of prose.
+ * Legacy auditorScope remains exported for old consumers; production uses this path. */
+export function manualRepairConflict(state, m, pageAt) {
+  if (m.type === 'clock.set' && handSetClockSince(state, pageAt)) return true;
+  const key = findPersonKey(state.characters || {}, m.name || m.from || '');
+  const person = key ? state.characters[key] : null;
+  const field = /^(unthread|thread|threads)$/.test(m.field || '') ? 'threads' : m.field;
+  if (/^people\./.test(m.type) && (person?.hand?.[field] || (['people.forget', 'people.rename'].includes(m.type) && Object.keys(person?.hand || {}).length))) return true;
+  if (/^rel\./.test(m.type)) {
+    const k = personBookKey(state, state.relationships || {}, m.name, (map, n) => findRelationship(map, n)?.key);
+    if (k && state.relationships[k]?.hand) return true;
+  }
+  const last = [...(state.journal || [])].reverse().find(j => j?.m && j.m.type === m.type
+    && String(j.m.name || '') === String(m.name || '') && String(j.m.field || j.m.key || '') === String(m.field || m.key || ''));
+  return Boolean(last?.m?.byHand && (!Number.isInteger(pageAt) || last.p >= pageAt));
+}
+export function auditorRepairScope(issues, state, { sources = '', pageAt = null, rejected = [] } = {}) {
+  return (issues || []).map(issue => ({ ...issue, mutations: (issue.mutations || []).filter(m => {
+    let why = '';
+    if (!AUDITOR_TYPES.has(m.type) && m.type !== 'presence.update') why = 'unsupported auditor operation';
+    else if (manualRepairConflict(state, m, pageAt)) why = 'the writer explicitly controls this field';
+    else if (m.type === 'mc.set' && mcName(state) !== 'the player' && !isMc(state, m.name)) why = 'the main character identity belongs to the writer';
+    else if (isMc(state, m.name) && /^people\./.test(m.type) && !['state', 'thread', 'unthread'].includes(m.field)) why = 'the main character identity and interpretation belong to the writer';
+    else if (!/^rel\./.test(m.type) && !m.sourceRecovery) {
+      const quote = m.shown || issue.shown;
+      if (!quotedSource(sources, quote)) why = 'include a real source quotation supporting this correction';
+      else { m.shown = quote; m.evidence = quote; }
+    }
+    if (why) { rejected.push({ mutation: m, issue, why }); return false; }
+    // A provider must never grant itself the writer's manual override.
+    delete m.byHand;
+    return true;
+  }) }));
+}
+
 export function auditorScope(issues, state, { header = [], page = '', writerPage = '', pageAt = null, rejected = null, evidenceText = '', writerIdentityText = '' } = {}) {
   const restatedOk = new WeakSet(); /* M661: the changes of place and dress the newest page bears out */
   const refusedFor = new WeakMap();
@@ -1647,10 +1550,16 @@ export function standingsHousekeeping(state, brief, castNotes, mc, stated = null
      * brief's "P+40" was written back over a standing three betrayals had brought to nothing — the house read zero as never
      * set. Zero stands when a page moved it (a beat in its history that no hand, brief or founder set); the brief's digits
      * are restored only to a standing the pages never touched. */
-    const earnedOnPages = Boolean(rel) && Array.isArray(rel.history) && rel.history.some((h) => h && typeof h.cause === 'string' && !/^the brief\b|^set\b|^the founder\b/i.test(h.cause.trim()));
-    if (isZero(rel) && (st.p || st.r || st.s) && !earnedOnPages) {
-      out.push({ type: 'rel.set', name: key || st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (P:' + st.p + ' R:' + st.r + ' S:' + st.s + ') toward ' + (mc || 'the main character') + ' — restored' });
+    if (rel?.hand) continue;
+    const earnedAxis = ax => rel?.earnedAxes?.[ax] || (rel?.history || []).some(h => h && h.axis === ax
+      && (Number(h.delta) !== 0 || (h.cause && !/^the brief\b|^set\b|^the founder\b/i.test(h.cause.trim()))));
+    const correction = {};
+    for (const ax of ['p', 'r', 's']) {
+      if (Number.isFinite(st[ax]) && !earnedAxis(ax) && Number(rel?.[ax] || 0) !== st[ax]) correction[ax] = st[ax];
     }
+    if (Object.keys(correction).length) out.push({ type: 'rel.set', name: key || st.name, ...correction,
+      source: 'auditor', cause: 'the brief states explicit starting digits toward ' + (mc || 'the main character') + '; untouched axes corrected' });
+
   }
   return out;
 }

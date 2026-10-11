@@ -80,6 +80,8 @@ const SHELL = [
   'js/agents/call.js',
   'js/agents/world.js',
   'js/agents/auditor.js',
+  'js/agents/ledgercontext.js',
+  'js/agents/auditprogress.js',
   'js/agents/auditsources.js',
   'js/agents/founder.js',
   'js/agents/concept.js', /* M478 */

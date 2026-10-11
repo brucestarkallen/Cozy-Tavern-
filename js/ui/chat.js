@@ -1,3 +1,4 @@
+import { ledgerRepairStateKey, ledgerRepairInputKey } from '../agents/auditprogress.js';
 /* Cozy Tavern — ui/chat.js
  * Story list, message thread, composer. Streaming renders token by token.
  * One generation call per user turn — the send path is sacred (see SPEC.md
@@ -2883,7 +2884,7 @@ export function initChat(ctx) {
          * its window), and because a tale that is "behind" is left to its fillers first, the continuous audit never read
          * on while the house was idle there (found by the walk: DOM-257, after a scenario that left a short window). */
         const tale = await db.stories.get(storyId);
-        repairOwed = told > 0 && !assistants[assistants.length - 1]?.stopped && Boolean(pageText(assistants[assistants.length - 1]).trim()) && tale?.extraction !== false && await auditOn(tale) && ledgerRepairNeeded(st, shelf);
+        repairOwed = told > 0 && !assistants[assistants.length - 1]?.stopped && Boolean(pageText(assistants[assistants.length - 1]).trim()) && tale?.extraction !== false && await auditOn(tale) && ledgerRepairNeeded(st, shelf, tale, pages);
         recordBehind = Boolean(dueRange(pages.length, window, mem.nodes, batch));
         if (recordBehind && !(await keeperOnFor(tale))) { recordBehind = false; unfoldedForGood = true; }
         behind = ledgerBehind || recordBehind;
@@ -2901,6 +2902,8 @@ export function initChat(ctx) {
        * THE LIGHT ONLY: these two are kept out of `trouble`, which also decides whether the house may heal a gap by itself
        * (fillRecordGap / fillLedgerGap). My first cut put them in it, and a tale carrying an old auditor's failed mark
        * stopped healing — DOM-22 caught it. */
+      const savedAudit = (await loadState(storyId)).audit;
+      const repairPaused = Boolean(savedAudit?.pausedInput && !repairOwed);
       const guards = ['continuity', 'auditor'].filter((n) => shelf[n] && shelf[n].ok === false && newestPageAt > 0 && Number(shelf[n].at) >= newestPageAt);
       const trouble = sore.length > 0;
       const partly = !trouble && part.length > 0;
@@ -2911,7 +2914,7 @@ export function initChat(ctx) {
        * So the light answers the question he actually asked: is it done? */
       const busy = runningWorkers(storyId).length > 0 || queuedCount(storyId) > 0;
       const allWell = !busy && !trouble && !partly && !behind && ran > 0 && told > 0;
-      const allWellNow = allWell && !guards.length && !repairOwed; /* M668: …and neither of the two that check the others failed on the newest page */
+      const allWellNow = allWell && !guards.length && !repairOwed && !repairPaused; /* M668: …and neither of the two that check the others failed on the newest page */
 
       /* M483: THE LIGHT IS NEVER SIMPLY GONE. Behind with nothing running — the readers held off for another hand at
        * this tale, or waiting out a failed try — showed no light at all, and the writer refreshed the page to find out.
@@ -2932,7 +2935,7 @@ export function initChat(ctx) {
       const sceneBusy = busy && !auditing;
       const auditSore = Boolean(auditRead && auditRead.left > 0 && shelf.continuous && shelf.continuous.ok === false && shelf.continuous.detail !== 'stopped by hand');
       const watched = guards.length > 0 || auditSore;
-      const sceneWell = auditing && !trouble && !partly && !watched && !behind && !repairOwed && ran > 0 && told > 0;
+      const sceneWell = auditing && !trouble && !partly && !watched && !behind && !repairOwed && !repairPaused && ran > 0 && told > 0;
       const sceneWaiting = auditing && !trouble && !partly && !watched && behind && told > 0;
       const wellNow = (allWellNow && !auditSore) || sceneWell;
       const waitingNow = (waiting && !auditSore) || sceneWaiting;
@@ -2942,7 +2945,7 @@ export function initChat(ctx) {
         : auditRead.left > 0 ? ' The continuous audit has read ' + auditRead.done + ' of ' + auditRead.folded + ' folded pages' + (auditing ? ' and is reading on — it steps aside when you write.' : '; it reads on when the house is idle.')
           : auditRead.folded > 0 ? ' The continuous audit has read every folded page (' + auditRead.folded + ').' : '';
       btn.classList.toggle('is-working', sceneBusy);
-      btn.classList.toggle('has-trouble', !sceneBusy && (trouble || partly || watched));
+      btn.classList.toggle('has-trouble', !sceneBusy && (trouble || partly || watched || repairPaused));
       btn.classList.toggle('all-well', wellNow);
       btn.classList.toggle('is-waiting', waitingNow);
       btn.classList.toggle('is-auditing', auditing);
@@ -2952,10 +2955,11 @@ export function initChat(ctx) {
         ? 'The ledger — ' + (guards.length ? guardWords + (auditSore ? '. And ' + auditSoreWords : '') : auditSoreWords)
         : trouble
         ? 'The ledger — ' + sore.join(', ') + ' stumbled; the pages are safe and will be folded when it comes back'
+        : repairPaused ? savedAudit.pauseReason
         : partly ? 'The ledger — ' + part.join(', ') + ' stopped partway; it will carry on by itself'
           : wellNow ? (unfoldedForGood ? 'The ledger — everything is read. The record keeper is switched off for this story, so its older pages are not folded. Nothing is waiting. Write on.' : 'The ledger — everything is read and folded. Nothing is waiting. Write on.')
             : waitingNow ? 'The ledger — waiting: ' + (waitingWhy || (ledgerBehind ? 'the last pages are not read into the ledger yet — the readers go at them when the house is idle' : 'a gap in the record is waiting for the keeper — it folds when the house is idle'))
-              : repairOwed ? 'The ledger is repairing itself. It carries on automatically.' : 'The ledger — the house’s memory of the scene and the world');
+              : repairPaused ? savedAudit.pauseReason : repairOwed ? 'The ledger is repairing itself. It carries on automatically.' : 'The ledger — the house’s memory of the scene and the world');
       btn.setAttribute('title', auditWords ? lampWords.replace(/[.\s]*$/, '.') + auditWords : lampWords);
       ledgerMark = sceneBusy ? 'working' : (trouble || watched) ? 'trouble' : partly ? 'partly' : wellNow ? 'well' : waitingNow ? 'waiting' : null;
       /* M275: THE HOUSE FILLS WHAT THE LIGHT SEES. A gap in the record (a line
@@ -3259,7 +3263,8 @@ export function initChat(ctx) {
   const ledgerRepairTries = new Map();
   const repairPause = () => Number(globalThis.__cozyLedgerRepairPauseMs) > 0 ? Number(globalThis.__cozyLedgerRepairPauseMs) : 15000;
   const repairBackoff = () => Number(globalThis.__cozyLedgerRepairBackoffMs) > 0 ? Number(globalThis.__cozyLedgerRepairBackoffMs) : 60000;
-  function ledgerRepairNeeded(state, shelf) {
+  function ledgerRepairNeeded(state, shelf, story = null, pages = null) {
+    if (story && pages && state?.audit?.pausedInput === ledgerRepairInputKey(state, story, pages)) return false;
     if ([shelf.auditor, shelf.world].some((r) => r?.detail === 'stopped by hand')) return false;
     const audit = state?.audit;
     return !audit?.coverage || audit.coverage.read < audit.coverage.total
@@ -3275,10 +3280,11 @@ export function initChat(ctx) {
       try {
         const story = await db.stories.get(storyId);
         if (!story || story.extraction === false || !(await auditOn(story))) return;
-        const latest = [...visiblePages(await db.messages.list(storyId))].reverse().find((m) => m.role === 'assistant');
+        const repairPages = visiblePages(await db.messages.list(storyId));
+        const latest = [...repairPages].reverse().find((m) => m.role === 'assistant');
         if (!latest || latest.stopped || !pageText(latest).trim()) return;
         const before = await loadState(storyId);
-        if (!ledgerRepairNeeded(before, await loadWorkerStatus(storyId))) { ledgerRepairTries.delete(storyId); return; }
+        if (!ledgerRepairNeeded(before, await loadWorkerStatus(storyId), story, repairPages)) { ledgerRepairTries.delete(storyId); return; }
         if (busy || isReplaying() || readersOut(storyId) || workIsRunning(storyId) || queuedCount(storyId) > 0 || otherHandAt(storyId)) { again = true; return; }
         const connection = await resolveWorkerConnection(story, 'auditor');
         if (!connection) { again = true; nextDelay = repairBackoff(); return; }
@@ -3304,9 +3310,22 @@ export function initChat(ctx) {
         const after = await loadState(storyId);
         again = ledgerRepairNeeded(after, await loadWorkerStatus(storyId));
         if (again) {
-          const progress = (after.audit?.coverage?.read || 0) > (before.audit?.coverage?.read || 0)
+          const progress = ledgerRepairStateKey(after) !== ledgerRepairStateKey(before)
+            || (after.audit?.coverage?.read || 0) > (before.audit?.coverage?.read || 0)
             || Object.keys(after.characters || {}).length > Object.keys(before.characters || {}).length
             || (after.audit?.pending?.length || 0) < (before.audit?.pending?.length || 0);
+          if (!progress && run.ok && !run.value?.silent) {
+            const currentStory = await db.stories.get(storyId);
+            const currentPages = visiblePages(await db.messages.list(storyId));
+            const fresh = await loadState(storyId);
+            // Do not pause over a concurrent user edit or new turn.
+            if (ledgerRepairInputKey(fresh, currentStory, currentPages) === ledgerRepairInputKey(after, story, repairPages)) {
+              await saveState(storyId, { ...fresh, audit: { ...fresh.audit,
+                pausedInput: ledgerRepairInputKey(fresh, currentStory, currentPages),
+                pauseReason: 'No further repair landed. Findings remain open; automatic retries wait for changed story evidence or ledger state.' } });
+              again = false;
+            }
+          }
           const tries = progress ? 0 : Math.min(4, (ledgerRepairTries.get(storyId) || 0) + 1);
           ledgerRepairTries.set(storyId, tries);
           nextDelay = progress ? repairPause() : Math.min(5 * 60000, repairBackoff() * 2 ** Math.max(0, tries - 1));
@@ -5079,7 +5098,10 @@ export function initChat(ctx) {
       if (story.extraction === false || stale()) return { silent: true };
       const connection = await resolveWorkerConnection(story, 'scribe');
       if (!connection) return { silent: true };
+      const peoplePages = visiblePages(await db.messages.list(story.id));
+      const peopleContext = storySoFar(peoplePages, await loadMemory(story.id), msg.id, { recordCap: Math.floor(roomChars(connection) * 0.25) });
       const kept = await scribeTurn({
+        record: peopleContext.record, pages: peopleContext.before, story,
         connection,
         storyId: story.id,
         userText,

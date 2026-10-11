@@ -18653,3 +18653,13 @@ Fresh explicit owner approval resolved the earlier publication block. Published
 c0062a0108be5c96b4b0e8b31526e9de4f52dceb to main without force. Remote main was verified
 against the pushed commit. All 33 recorded release checks remain applicable;
 only documentation and publication metadata changed after qualification.
+
+
+## M689, 11 October 2026: ledger pipeline and direct repair
+
+Implemented the owner's agreed shared context, factual repair authority, baseline
+versus earned judgment distinction, and no progress retry pause. Exact changes,
+source findings and limits are recorded in docs/LEDGER-PIPELINE-M689.md. Previous
+handoff preserved verbatim. One focused scripted check passed five scenario groups
+after correcting one local reference error. Changed module syntax checked; no bulk
+suite, paid model calls or live story verification. Version m689-001.

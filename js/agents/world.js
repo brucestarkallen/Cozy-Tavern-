@@ -1,3 +1,4 @@
+import { LEDGER_READER_RULES, sharedStoryContext } from './ledgercontext.js';
 /* Cozy Tavern — agents/world.js
  * M29: the world agent — the sandbox.
  *
@@ -591,6 +592,7 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   /* M259: THE RECORD RIDES. chat.js has handed it over since M249; this line
    * dropped it on arrival. */
   /* M304: the people list has a room of its own — a fifth of the connection's, the same in both builds, so the pages' window is measured against the list it will really ride beside */
+  record = (record || '') + await sharedStoryContext(storyId);
   const peopleRoom = Math.max(12000, Math.floor(roomChars(connection, MAX_TOKENS) * 0.2));
   const knowledgeRoom = knowledgeRoomFor(roomChars(connection, MAX_TOKENS)); /* M664 */
   const bare = buildWorldMessages({ state, userText, assistantText, before: [], brief, castNotes, castNames, voicesBefore, jumpedMinutes, record, pageNumber, peopleRoom, canonRecord, knowledgeRoom });
@@ -600,6 +602,7 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
    * the raw answer rides out so the drawer can show it. */
   let read = null;
   let raw = '';
+  prompt.system += LEDGER_READER_RULES;
   let user = prompt.user;
   let best = null;
   const worldCoverage = { material: brief + '\n' + castNotes, castNames };
@@ -680,7 +683,7 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
      * them elsewhere. A leave with no place ("last seen") is the world's to replace, as ever. */
     if (Number.isInteger(pageAt)) {
       const readerSeat = (name) => {
-        const own = (Array.isArray(fresh.journal) ? fresh.journal : []).filter((j) => j && j.p === pageAt && j.m && typeof j.m.name === 'string' && samePersonName(j.m.name, name));
+        const own = (Array.isArray(fresh.journal) ? fresh.journal : []).filter((j) => j && j.p === pageAt && j.m && j.m.source !== 'world' && typeof j.m.name === 'string' && samePersonName(j.m.name, name));
         const last = [...own].reverse().find((j) => (j.m.type === 'offscreen.set' && String(j.m.location || '').trim()) || (j.m.type === 'presence.leave' && String(j.m.to || '').trim()));
         return last ? String(last.m.type === 'offscreen.set' ? last.m.location : last.m.to).trim() : '';
       };
@@ -711,6 +714,12 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
     if (!(m && m.type === 'people.set' && String(m.field || '').trim() === 'core' && m.open !== true && typeof m.text === 'string')) return true;
     const key = findPersonKey(fresh.characters || {}, m.name);
     return !(key && fresh.characters[key] && thinsCore(fresh.characters[key].core, m.text));
+  });
+  read.mutations = read.mutations.filter(m => {
+    if (!/^people\./.test(m.type)) return true;
+    const key = findPersonKey(fresh.characters || {}, m.name);
+    const field = ['thread', 'unthread'].includes(m.field) ? 'threads' : m.field;
+    return !key || !fresh.characters[key]?.hand?.[field];
   });
   const hasPage = (name) => Boolean(findPersonKey(fresh.characters || {}, name));
   const pagesInAnswer = new Set(read.mutations.filter((m) => m.type === 'people.set' && typeof m.name === 'string').map((m) => m.name.trim().toLowerCase()));

@@ -1,3 +1,13 @@
+# M689: shared ledger knowledge and authoritative factual repairs
+
+Current owner request supersedes older testing mandates below. Improve the whole
+ledger path: context, first reader decisions, save ownership, explicit baselines,
+auditor authority and termination of unchanged retries. Preserve worker judgments,
+manual edits, history and story prose. Use only minimal milestone verification.
+Implementation and limits: docs/LEDGER-PIPELINE-M689.md.
+
+Previous milestone specifications follow as historical records.
+
 # M688: auditor evidence matches its repair contract
 
 The reported M687 app still rejects Alexia's actual gallery arrival and current

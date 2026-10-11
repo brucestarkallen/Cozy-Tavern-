@@ -904,6 +904,7 @@ const HANDLERS = {
       clockMinutesOf(state)
     );
     if (m.byHand === true && state.relationships[key]) state.relationships[key] = { ...state.relationships[key], hand: true }; /* M263 */
+    state.relationships[key].earnedAxes = { ...state.relationships[key].earnedAxes, [axis]: true };
     const total = state.relationships[key][axis];
     let words = key + ' — ' + axisWords(axis, total) + ', after ' + cause.replace(/\.+$/, '') + '.';
     if (Math.abs(raw) > MAX_DELTA) {

@@ -19,6 +19,7 @@
  * the drawer is open.
  */
 
+import { ledgerRepairInputKey } from '../agents/auditprogress.js';
 import { loadState as loadStateFresh, saveState, subscribe, notify, ledgerStandingWords } from '../engine/state.js';
 
 /* M147: ONE READ PER RENDER. Sixteen panels each loaded the ledger — sixteen
@@ -2348,7 +2349,9 @@ function workersPanel(ctx) {
       return;
     }
     const shelf = await loadWorkerStatus(story.id);
-    const autoRepair = story.extraction !== false && await auditOn(story);
+    const repairState = await loadState(story.id);
+    const paused = repairState.audit?.pausedInput === ledgerRepairInputKey(repairState, story, visiblePages(await db.messages.list(story.id)));
+    const autoRepair = !paused && story.extraction !== false && await auditOn(story);
     /* M46: what is reading right now, first */
     const live = runningWorkers(story.id);
     for (const name of live) {
@@ -2392,7 +2395,7 @@ function workersPanel(ctx) {
       const when = fmtWhenWords(row.at);
       words.textContent = (WORKER_WORDS[name] || name) + ' ran ' + when
         + (!row.ok ? (' and stumbled — ' + (row.why || 'stumbled') + '.')
-          : row.unfinished ? ((name === 'auditor' && autoRepair ? ' and is continuing its repairs automatically' : ' and stopped partway') + (row.detail ? ' — ' + row.detail : '') + '.')
+          : row.unfinished ? ((name === 'auditor' && paused ? ' has unresolved findings; repeated attempts are paused until the story or ledger changes' : name === 'auditor' && autoRepair ? ' and is continuing its repairs automatically' : ' and stopped partway') + (row.detail ? ' — ' + row.detail : '') + '.')
             : (' and it went well' + (row.detail ? ' — ' + row.detail : '') + '.'));
       li.appendChild(words);
       /* M248: and the way to finish it, one tap — or none at all, if the

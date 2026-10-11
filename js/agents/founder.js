@@ -215,7 +215,7 @@ export function buildStatedStandingsMessages({ brief = '', castNotes = '', mc = 
     '', 'THE CAST NOTES:', writerText(castNotes, CAST_ROOM, 'cast notes') || '(none)',
     '',
     'Answer with JSON ONLY: {"standings":[{"name":"NAME SURNAME","p":65,"r":30,"s":5}]} — the person\'s full',
-    'name as the brief writes it; an empty list if the writer states none.',
+    'name as the brief writes it; omit axes for which no digits are stated, never infer them from a bond. An empty list if the writer states none.',
   ].join('\n');
   return { system: STATED_SYSTEM, user };
 }
@@ -229,7 +229,8 @@ export function validateStatedStandings(list, mc = '') {
     if (!name || isLabel(name) || (mc && sameName(name, mc))) continue;
     if (!looksLikePersonHeading(name) && name.split(/\s+/).length > 3) continue;
     if (GROUP_WORDS.test(name)) continue;
-    const row = { name, p: clampN(st.p), r: clampN(st.r), s: clampN(st.s) };
+    const row = { name };
+    for (const ax of ['p', 'r', 's']) if (st[ax] !== undefined && st[ax] !== null && st[ax] !== '' && Number.isFinite(Number(st[ax]))) row[ax] = clampN(st[ax]);
     const at = out.findIndex((x) => sameName(x.name, row.name));
     if (at === -1) out.push(row); else if (row.name.length > out[at].name.length) out[at] = row;
   }
@@ -362,9 +363,13 @@ async function guardFounding({ read, ledgerMc = '', connection, brief = '', cast
   /* M49: the writer's digits, applied in code — a rel.set per explicit
    * standing, whether or not the model wrote one */
   const stated = thingsOnly ? [] : await readStatedStandings({ connection, brief, castNotes, mc: mcKnown, signal });
-  const named = new Set(guarded.filter((m) => m.type === 'rel.set' && typeof m.name === 'string').map((m) => m.name.trim().toLowerCase()));
   for (const st of stated) {
-    if (named.has(st.name.toLowerCase())) continue;
+    const existing = guarded.find(m => m.type === 'rel.set' && sameName(m.name || '', st.name));
+    if (existing) {
+      for (const ax of ['p', 'r', 's']) if (Number.isFinite(st[ax])) existing[ax] = st[ax];
+      existing.cause = 'the brief states explicit starting digits toward ' + (mcKnown || 'the main character');
+      continue;
+    }
     guarded.push({ type: 'rel.set', name: st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (P:' + st.p + ' R:' + st.r + ' S:' + st.s + ') toward ' + (mcKnown || 'the main character') });
   }
   return { guarded, refusedByLock };

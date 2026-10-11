@@ -1,3 +1,6 @@
+> Historical M687 review. M689 adds People history/lookup, shared essentials and
+> reader ownership rules. Current changes: LEDGER-PIPELINE-M689.md.
+
 # Ledger reader context review
 
 Reviewed the actual prompt builders and the callers in M687. The ledger rooms are

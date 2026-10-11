@@ -1,3 +1,4 @@
+import { LEDGER_READER_RULES, sharedStoryContext } from './ledgercontext.js';
 /* Cozy Tavern — agents/scribe.js
  * The scribe (M12). After each finished turn — background only, riding the
  * worker channel behind the extractor — the scribe reads the turn pair
@@ -28,7 +29,8 @@ import { renderPeopleTiers, peopleView, mcKey, findPersonKey, thinsCore, isMc } 
 import { applyMutations, placeholderIn } from '../engine/apply.js'; /* M72: the scribe writes through the journal */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M679: what answers a loose end — one definition */
-import { callWorker } from './call.js'; /* M28: the one wire path for workers */
+import { askWithFetch, fetchLaw, viewBudget, roomChars, leashFor, windowOfPages } from './lookup.js';
+import { renderWholeLedger } from '../engine/whole.js'; /* M28: the one wire path for workers */
 import { exactNameIn, WRITER_FACTS } from '../engine/evidence.js';
 import { retryAfterMs } from '../providers/wire.js'; /* M28: moved to the wire; re-exported for the harness contract */
 export { retryAfterMs };
@@ -135,7 +137,7 @@ const SYSTEM_PROMPT = [
  * notes kept whole, a few present cards filled it, and the off-scene people
  * this very page names (M227) were shed before it could read them. */
 export const SCRIBE_VIEW_TOKENS = 200000;
-export function buildScribeMessages({ state, userText, assistantText, brief = '', castNotes = '', canonRecord = '' }) {
+export function buildScribeMessages({ state, userText, assistantText, brief = '', castNotes = '', canonRecord = '', record = '', pages = [], contextBudget = Infinity }) {
   /* M227: THE SCRIBE COULD NOT SEE THE LOOSE ENDS IT WAS MEANT TO CLOSE.
    * renderPeopleTiers only gives a full page — Loose ends included — to
    * people on scene, and recalls an OFF-scene person only when these pages
@@ -206,6 +208,10 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
     ...(String(castNotes || '').trim() ? ['The writer\u2019s cast notes:', '"""', writerText(castNotes, CAST_ROOM, 'cast notes'), '"""', ''] : []),
     /* M386: "written from the REAL RECORD" — handed to it at last (canon verification on, and someone here is canon) */
     ...(String(canonRecord || '').trim() ? ['What the series itself says of its people in this story — their real record. Keep every page true to it (never a made-up family, role or past), but do not repeat it on the pages: the storyteller already reads it from the series itself on every page they are in, and their faces are kept in the ledger\u2019s truths. A page holds what THIS story has made of them — where they are, what they have done and learned here, how they stand — and names the record only where this story departs from it:', '"""', String(canonRecord).trim(), '"""', ''] : []),
+    ...(record ? ['The detailed story record and essentials:', record] : []),
+    ...(() => { const w = windowOfPages(pages, contextBudget); return [...w.shown, ...(w.index.length ? ['Earlier pages available through lookup:', ...w.index] : [])]; })(),
+    'Shared scene, relationships, knowledge and elsewhere state:',
+    renderWholeLedger(state),
     'Here is what the character pages currently say:',
     ledger && ledger.text ? ledger.text : 'Nothing is written on the character pages yet.',
     ...(mcRecord ? ['', mcRecord] : []),
@@ -222,7 +228,7 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
     '',
     'What shifted on the character pages, if anything? JSON only.',
   ].join('\n');
-  return { system: withFictionFrame(SYSTEM_PROMPT), user };
+  return { system: withFictionFrame(SYSTEM_PROMPT + LEDGER_READER_RULES + fetchLaw()), user };
 }
 
 /* ---------- the tolerant parser ---------- */
@@ -276,18 +282,24 @@ function nameFromWords(words, fallback) {
   return at > 0 ? words.slice(0, at) : String(fallback || '').trim();
 }
 
-export async function scribeTurn({ connection, storyId, userText, assistantText, signal, stale, renew, brief = '', castNotes = '', canonRecord = '', pageAt = null } = {}) {
+export async function scribeTurn({ connection, storyId, userText, assistantText, signal, stale, renew, brief = '', castNotes = '', canonRecord = '', pageAt = null, record = '', pages = [], story = null } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   if (!assistantText || !String(assistantText).trim()) return null;
 
   const before = await loadState(storyId);
-  const prompt = buildScribeMessages({ state: before, userText, assistantText, brief, castNotes, canonRecord });
+  record += await sharedStoryContext(storyId);
+  const bare = buildScribeMessages({ state: before, userText, assistantText, brief, castNotes, canonRecord, record });
+  const prompt = buildScribeMessages({ state: before, userText, assistantText, brief, castNotes, canonRecord, record, pages,
+    contextBudget: viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length) });
+  const call = (options) => askWithFetch(connection, { ...options, renew, leash: leashFor,
+    room: roomChars(connection, MAX_TOKENS), source: { storyId, story: story || { brief, castNotes } },
+    isAnswer: text => /"deltas"\s*:\s*\[/.test(text) });
   /* M28: the one wire path — thinking off per house, temperature 0; a
    * transport failure throws (with retryAfterMs when the house named a wait)
    * and the queue retries. */
   if (typeof renew === 'function') renew(); /* M259: every call gets its own minute (M213) */
-  const first = await callWorker(connection, {
+  const first = await call({
     system: prompt.system,
     user: prompt.user,
     maxTokens: MAX_TOKENS,
@@ -305,7 +317,7 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   if (wasCut || (!read.deltas.length && !honestEmpty)) {
     try {
       if (typeof renew === 'function') renew();
-      const again = await callWorker(connection, {
+      const again = await call({
         system: prompt.system,
         user: prompt.user + '\n\n' + (wasCut
           ? 'Your last answer ran out of room before it ended. Answer again, complete: the changes that matter most, one short sentence each, at most twelve deltas. JSON only.'
@@ -356,12 +368,15 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
     .filter((d) => !(d && d.field === 'state' && isHere(fresh, d.name) && !shownOnPage(d.name) && !(findPersonKey(fresh.characters || {}, d.name) && shownOnPage(findPersonKey(fresh.characters || {}, d.name)))));
   /* M648: who someone is, is added to — never thinned (people.js thinsCore) */
   const thinned = [];
-  const identityWords = [brief, castNotes, userText, assistantText, canonRecord].join("\n");
+  const identityWords = [brief, castNotes, userText, assistantText, canonRecord, record, ...pages.map(p => p.text || '')].join("\n");
   const sound = kept.filter((d) => {
     if (!isMc(fresh, d.name) && !placeholderIn({ type: 'people.note', name: d.name }) && !findPersonKey(fresh.characters || {}, d.name) && !exactNameIn(identityWords, d.name)) {
       thinned.push({ delta: { type: 'people.note', ...d }, why: 'the new name is not written in the source; keep its exact spelling' });
       return false;
     }
+    const owner = findPersonKey(fresh.characters || {}, d.name);
+    const field = ['thread', 'unthread'].includes(d.field) ? 'threads' : d.field;
+    if (owner && fresh.characters[owner]?.hand?.[field]) { thinned.push({ delta: d, why: 'the writer explicitly controls this field' }); return false; }
     if (!(d && d.field === 'core')) return true;
     const key = findPersonKey(fresh.characters || {}, d.name);
     const standing = key && fresh.characters[key] ? fresh.characters[key].core : '';
