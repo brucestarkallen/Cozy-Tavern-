@@ -143,20 +143,31 @@ export function sourcePersonKey(state, name, remembered = '') {
 }
 
 export function missingSourcePeople(state, people = []) {
-  const known = { ...(state?.characters || {}) }; const issues = [];
+  const known = { ...(state?.characters || {}) }; const issues = []; const requested = new Set();
   for (const p of people) {
     if (isMc(state, p.name)) continue;
     const key = sourcePersonKey({ ...state, characters: known }, p.name, p.ledgerName);
     if (key && (String(known[key]?.core || '').trim() || known[key]?.hand?.core)) continue;
     const name = key || p.name;
-    // Keep the literal evidence. The auditor may refine this core from the whole
-    // story; this restoration neither overwrites a core nor seats anyone here.
+    if (requested.has(name)) continue;
+    requested.add(name);
+    // A quoted occurrence proves the person exists. It is not their biography.
+    // Ask for a sourced identity; never commit the quote as a synthetic core.
     issues.push({ what: name + ' was established in ' + p.label + ' but has no identity on their People page.',
-      fix: 'Restore their identity from the original source.', pages: false,
-      mutations: [{ type: 'people.set', name, field: 'core', text: p.shown, evidence: p.shown, sourceRecovery: true, cause: 'identity restored from ' + p.label }] });
-    known[name] = { ...(known[name] || {}), core: p.shown };
+      name, profileRecovery: true, shown:p.shown,
+      fix: 'Read their original sources and write their stable identity and missing physical facts. Do not copy an event quotation into core.', pages: false, mutations: [] });
   }
   return issues;
+}
+
+// All original references for each identity, including old pages and aliases.
+// This is a lookup index, not another model call or an inferred biography.
+export function peopleSourceIndex(state, documents, people = []) {
+  const names = new Set([...Object.keys(state?.characters || {}), ...people.map(p => sourcePersonKey(state,p.name,p.ledgerName) || p.name)]);
+  return [...names].filter(name => name && !isMc(state,name) && !isGroupName(name)).map(name => {
+    const aliases = [...new Set([name,...(state.characters?.[name]?.aliases || []),...people.filter(p => (sourcePersonKey(state,p.name,p.ledgerName) || p.name) === name).map(p => p.name)])];
+    return {name,aliases,sources:documents.filter(d => aliases.some(alias => exactNameIn(d.text,alias))).map(d => ({id:d.id,label:d.label}))};
+  });
 }
 
 export function missingLedgerPeople(state, castNames = []) {

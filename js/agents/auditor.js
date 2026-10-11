@@ -51,7 +51,7 @@ import { explicitStandings, readStatedStandings, samePersonLoose, isLabel } from
 import { visiblePages, loadMemory, wholeRecord, recordWithPages } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
 import { pageText } from '../assemble/stack.js';
 import { exactNameIn, quotedSource, WRITER_FACTS } from '../engine/evidence.js';
-import { auditSources, reviewAuditSources, missingSourcePeople, missingLedgerPeople, sourcePersonKey } from './auditsources.js';
+import { auditSources, reviewAuditSources, missingSourcePeople, missingLedgerPeople, sourcePersonKey, peopleSourceIndex } from './auditsources.js';
 
 const MAX_TOKENS = 6000;
 export const DEFAULT_AUDIT_EVERY = 1; /* turns — M94: every page, as Summaryception's continuity auditor runs on every line */
@@ -177,7 +177,7 @@ function law({ mc }) {
     'An arrival quote remains presence evidence after a later seated pose. For posture and attire use their latest own account, not a later incidental mention by someone else. Include shown on offscreen.clear as well.',
     'The MC\'s explicitly established own persona is the MC, not another person away from the scene. Clear a false separate elsewhere seat with the writer\'s exact identity quote. Never guess a persona from a similar name or from an intention to impersonate someone.',
     'A duplicate identity or duplicate seat is repaired with people.rename from the descriptor or duplicate name to the established name, retaining the records. A presence.update does not merge two people. When a role record is the named person already here, merge it before clearing seats; offscreen.clear must not leave an independent tracked person nowhere. Do not treat an unchanged location stated with extra detail as proof that the existing location is wrong.',
-    'A source-review quotation is evidence, not automatically a complete identity. Check cores copied from source excerpts: an action such as pocketing a story says what someone did, not who they are. Restore their established role, family and stable identity from the full sources. Reconcile a descriptor such as a numbered prince with their named identity before making another People record; never invent an extra person to satisfy an old complaint.',
+    'A source-review quotation is evidence, not automatically a complete identity. For EVERY People record verify completeness as well as truth: recover established rank, family, background, enduring nature and preferences missing from core. A nonempty event sentence does not pass this review. Review lasting physical details separately, restoring missing hair, eyes, build and scars with canon.lock. Use the original source index to fetch earlier pages and the brief, even for people elsewhere. Preserve valid existing facts and judgments; do not rewrite correct records merely for style. Reconcile descriptors with named identities before making another person.',
     'Only propose a repair for a factual difference. Rewording an equivalent position is not a correction. Recheck inherited findings against the newest page before repeating them. A quote from earlier in the same page does not overrule that person reaching a different position later in that page.',
     'Follow each person through the entire newest scene. Their last established position continues while others act;',
     'a long final paragraph about the duel does not remove quiet gallery spectators or erase their latest posture.',
@@ -418,15 +418,19 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
    * between the record's end and the last ten were read by NOBODY, and a
    * long tale's oldest lines fell off the front. The room is the
    * connection's own. */
-  const room = auditRoomChars(connection);
+  // Size the answer for this ledger instead of forcing 32 entries per run.
+  const replyTokens = Math.max(MAX_TOKENS, Math.min(24000, 3000 + ledgerVerificationRows(state).length * 90));
+  const room = roomChars(connection, replyTokens);
   const record = recordWithPages(mem, Math.max(20000, Math.min(AUDIT_RECORD_CAP, Math.floor(room * 0.35)))) + await sharedStoryContext(storyId);
   const foldedTo = Math.max(0, ...((mem && Array.isArray(mem.nodes)) ? mem.nodes : []).filter((n) => n && Array.isArray(n.span)).map((n) => n.span[1] + 1));
   /* M681 (S13): the board no reader stated for the newest page is the auditor's to restate (boardStale) */
   const toldNow = all.filter((m) => m && m.role === 'assistant');
   const lastTold = [...toldNow].reverse().find((m) => m && !m.ooc);
   const staleBoard = boardStale(state, lastTold ? toldNow.indexOf(lastTold) : null);
-  const restoredForReading = missingSourcePeople(state, sourceReview?.people);
-  let readingState = restoredForReading.length ? applyMutations(state, restoredForReading.flatMap((i) => i.mutations)).state : state;
+  const sourcePeople = sourceReview?.people || documents.flatMap(d => (state.auditSources?.[d.id]?.people || []).map(p => ({...p,source:d.id,label:d.label})));
+  const restoredForReading = missingSourcePeople(state, sourcePeople);
+  const profileIndex = peopleSourceIndex(state, documents, sourcePeople);
+  let readingState = state;
   if (state.audit?.unresolved?.length) {
     const unresolved = compactFindings(state.audit.unresolved, readingState).filter((i) => !(i.mutations?.length && i.mutations.every((m) => mutationSatisfied(readingState, m))));
     const oldWords = state.audit.unresolved.map((i) => i.what);
@@ -434,16 +438,20 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     readingState = { ...readingState, audit: { ...readingState.audit, unresolved, pending: [...status, ...unresolved.map((i) => i.what + ': ' + i.pendingReason)] } };
   }
   const bare = buildAuditorMessages({ state: readingState, brief, castNotes, record, pages: [], pageCount: all.length, room, canonRecord, staleBoard }); /* M287: the audit's own room */
-  const view = auditView(all, foldedTo, Math.min(AUDIT_VIEW_CHARS, viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length)));
+  const profileLookup = '\nPEOPLE SOURCE INDEX. For every People record compare identity and lasting appearance with these original pages. Fetch missing details; a short event-only core is incomplete. Page N labels are fetchable by N, and brief/cast by their names:\n' + JSON.stringify(profileIndex);
+  const evidenceBudget = Math.max(2000, Math.min(48000, room * 0.15));
+  const verificationReserve = JSON.stringify(ledgerVerificationRows(state)).length + evidenceBudget + pageText(lastTold).length;
+  const view = auditView(all, foldedTo, Math.min(AUDIT_VIEW_CHARS, viewBudget(connection, replyTokens, bare.system.length + bare.user.length + profileLookup.length + verificationReserve)));
   if (!view.shown.length) return null;
   const prompt = buildAuditorMessages({ state: readingState, brief, castNotes, record, pages: view.shown, index: view.index, pageCount: all.length, room, canonRecord, staleBoard });
-  const repairTargets = [...(readingState.audit?.unresolved || []), ...missingLedgerPeople(readingState, castNames).map(what => ({what,fix:'Recover the established identity or reconcile its existing alias.',mutations:[{type:'people.set',name:what.split(' is already tracked')[0],field:'core'}]}))];
+  const repairTargets = [...(readingState.audit?.unresolved || []), ...restoredForReading, ...missingLedgerPeople(readingState, castNames).map(what => ({what,fix:'Recover the established identity or reconcile its existing alias.',mutations:[{type:'people.set',name:what.split(' is already tracked')[0],field:'core'}]}))];
   const repairMode = repairTargets.length > 0;
   const verificationSource = ledgerRepairInputKey({}, storyAtStart, visiblePages(all));
   const previousVerification = state.audit?.verification?.source === verificationSource
     && state.audit.verification.ledger === ledgerRepairStateKey(state) ? state.audit.verification.entries || {} : {};
   const continuingVerification = Object.keys(previousVerification).length > 0 && !repairMode && !restoredForReading.length;
-  const repairEvidence = auditRepairEvidence(repairTargets, documents, Math.max(2000, Math.min(18000, room * 0.15)));
+  const profileTargets = profileIndex.map(p => ({profileReview:true,what:'Stable identity and lasting appearance for '+p.name,mutations:p.aliases.map(name => ({name}))}));
+  const repairEvidence = auditRepairEvidence([...repairTargets,...profileTargets], documents, evidenceBudget);
   const evidenceInstructions = 'SOURCE REFERENCES: select an evidenceId from the original source passages on each mutation and each correct/repair decision. The app supplies that exact passage; do not rewrite it into shown. An unknown id is rejected. For a needed source not listed, fetch it and copy a literal quote as before. A reference proves provenance, not meaning: choose evidence that supports the actual field or identity, read later events, and keep World reports outside the local scene unless an arrival is established.';
   const readingUser = repairMode ? [
     'REPAIR EXISTING FINDINGS FIRST. This is not another open-ended search for duplicate complaints.',
@@ -462,7 +470,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   ].join('\n') : prompt.user + '\nORIGINAL SOURCE REFERENCES:\n' + JSON.stringify(repairEvidence) + '\n' + evidenceInstructions;
   let read = null;
   let raw = '';
-  let user = readingUser + (restoredForReading.length ? '\n\nPROVISIONAL SOURCE IDENTITIES: ' + restoredForReading.map((i) => i.mutations[0].name).join(', ') + '. These core excerpts need interpretation as stable identities, not transient actions. Reconcile descriptors with established names before creating another person. An old quotation never establishes current presence by itself.' : '');
+  let user = readingUser + profileLookup + (restoredForReading.length ? '\n\nSOURCE IDENTITIES TO RECOVER: ' + restoredForReading.map(i => i.name).join(', ') + '. Synthesize who they are from original sources; quotations are never automatically saved as core. Reconcile descriptors with established names before creating another person.' : '');
   const looked = [];
   if (continuingVerification) read = {issues:[],resolved:[],note:'ok'};
   for (let attempt = 0; !continuingVerification && attempt < 2; attempt += 1) {
@@ -470,7 +478,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
      * housekeeper's words, served by the housekeeper's server */
     let answer;
     try { answer = await askWithFetch(connection, {
-      system: prompt.system, user, maxTokens: MAX_TOKENS, signal, renew,
+      system: prompt.system, user, maxTokens: replyTokens, signal, renew,
       leash: leashFor,
       isAnswer: (t) => parseAuditorAnswer(t).note === 'ok',
       source: { storyId, messages: allRaw, memory: mem, story: { brief, castNotes }, state }, /* M288: "person: NAME" */
@@ -492,7 +500,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       if (read.note === 'unusable') read.note = 'cut short';
     }
     if (read.note === 'ok') break;
-    user = readingUser + '\n\nYour last answer was not a usable JSON object. Return issues and, when supplied, each checklist id in repairs. JSON only.';
+    user = readingUser + profileLookup + '\n\nYour last answer was not a usable JSON object. Return issues and, when supplied, each checklist id in repairs. JSON only.';
   }
   let answerProblem = read.cutShort ? 'the auditor ran out of answer space before completing its reading' : read.note !== 'ok' ? 'the auditor did not return a complete usable reading' : '';
   if (read.note !== 'ok' && !sourceReview) return { applied: [], rejected: [], issues: [], note: read.note, raw, looked, unfinished: true, pending: [answerProblem] };
@@ -504,11 +512,11 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const statedByModel = continuingVerification ? [] : await readStatedStandings({ connection, brief, castNotes, mc: mcName(state) !== 'the player' ? mcName(state) : '', signal });
   if (stale && stale()) return null;
   const fresh = await loadState(storyId);
-  let offered = [...missingSourcePeople(fresh, sourceReview?.people), ...read.issues];
+  let offered = [...read.issues];
   const judge = (snapshot, proposals) => judgeAudit({ fresh: snapshot, offered: proposals, all, brief, castNotes, castNames, statedByModel });
   let result = judge(fresh, offered);
   const unresolved = (r) => [...missingLedgerPeople(r.out, castNames), ...r.issues.filter((i) => i.refused?.length || (!i.landed && !(i.pages && i.fix))).map((i) => i.what + (i.refused?.length ? ': ' + i.refused.join('; ') : ': no repair was supplied'))];
-  const originalFindings = compactFindings([...(readingState.audit?.unresolved || []), ...unresolvedFindings(result)], result.out);
+  const originalFindings = compactFindings([...(readingState.audit?.unresolved || []), ...restoredForReading, ...unresolvedFindings(result)], result.out);
   const withdrawals = [...(read.resolved || [])];
   let pending = [...unresolved(result), ...(answerProblem ? [answerProblem] : []), ...originalFindings.filter((i) => !findingSettled(i, result, withdrawals, documents)).map((i) => i.what)];
   let followupFailed = false;
@@ -525,11 +533,11 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     renew?.();
     const follow = buildAuditorMessages({ state: result.out, brief, castNotes, record, pages: view.shown, index: view.index, pageCount: all.length, room, canonRecord, staleBoard });
     verificationSnapshot = result.out;
-    const verificationRows = ledgerVerificationRows(result.out).filter(row => previousVerification[row.id]?.print !== row.print).slice(0, 32);
+    const verificationRows = ledgerVerificationRows(result.out).filter(row => previousVerification[row.id]?.print !== row.print);
     try {
       const reply = await askWithFetch(connection, {
         system: follow.system,
-        user: follow.user + '\n\nREPAIR FOLLOWUP. The first reading has been checked against the actual ledger. These items are still unresolved:\n' + pending.map((p) => '* ' + p).join('\n')
+        user: follow.user + profileLookup + '\n\nREPAIR FOLLOWUP. The first reading has been checked against the actual ledger. These items are still unresolved:\n' + pending.map((p) => '* ' + p).join('\n')
           + '\nHISTORICAL FINDING IDS TO RECONCILE, including ACTUAL current target records. For every id either repair a real remaining error or return resolved with shown and why; do not leave already-correct items hanging:\n' + JSON.stringify(auditRepairChecklist(originalFindings, result.out))
           + '\nPROVISIONAL SCENE CHANGES TO VERIFY BEFORE SAVING:\n' + JSON.stringify(sceneWrites.map(a => a.mutation))
           + '\nPROVISIONAL IDENTITY MERGES TO VERIFY BEFORE SAVING. Verify that each is one person from full context, not just matching titles. If wrong, return its supplied id with status open and explain why, without another merge:\n' + JSON.stringify(mergePlans)
@@ -537,14 +545,15 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
           + '\n' + evidenceInstructions
           + '\nREQUIRED CURRENT LEDGER CHECKS:\n' + JSON.stringify(verificationRows)
           + '\nReturn checks:[{id,print,status:"correct"|"repair"|"open",why, evidenceId or shown}], exactly once for EVERY required row. Read the actual value, not just the entry name. Correct means every factual field agrees with sources, while valid worker judgments remain intact. Repair requires issues with supported mutations. Open explains missing evidence. Successful checks are not findings. For judgment:true rows, a reason preserving a valid worker decision is sufficient unless a source contradicts it. A character core is factual; feelings and arcs are judgments and must not be recalculated. Check empty sections for omissions, and the roster against all people still in the scene.'
-          + '\nFor EVERY presence check also return position: the exact final position text that should be saved, and lastEvidenceId selecting the MAIN story passage establishing that person\'s LAST movement or resting position. The app supplies its literal prose, excluding the opening header. When fetching an unlisted page, lastShown may contain its exact quotation instead. Explain in why whether anything later moves that person again. Read the COMPLETE page below, including pronouns; an earlier retreat cannot override a later stop. If the current value differs, supply presence.update with this position. Unknown position stays empty, never guess. Clothing can persist without a fresh mention.'
+          + '\nAll required entries are supplied together. Keep correct-check reasons short so the answer completes in one reading. For every characters entry include identityReviewed:true and appearanceReviewed:true only after checking the original sources for missing stable identity and physical details. Verify completeness, not merely whether its current sentence is true. Supply people.set core and canon.lock repairs for missing supported details. Unknown details stay unknown. Preserve other valid core facts when enriching it.'
+          + '\nFor EVERY presence check also return position: the final established position, positionMatches:true only if the CURRENT SAVED position has the same meaning, and lastEvidenceId selecting the MAIN story passage establishing that person\'s LAST movement or resting position. The app supplies its literal prose, excluding the opening header; this one reference is sufficient position evidence. When fetching an unlisted page, lastShown may contain its exact quotation instead. Explain in why whether anything later moves that person again. If wording is already equivalent, preserve it rather than propose a cosmetic rewrite. Read the COMPLETE page below, including pronouns; an earlier retreat cannot override a later stop. If the actual meaning differs, set positionMatches:false and supply presence.update with the correct position. Unknown position stays empty, never guess. Clothing can persist without a fresh mention.'
           + '\nCOMPLETE NEWEST MAIN STORY, opening header is not the final pose:\n' + pageText(lastTold)
           + '\nThis is also the final full-ledger verification. Recheck all fields against the sources, not only the repaired items. The complete newest story page establishes the current scene. Return repairs by id for any remaining checklist item, with status correct, repair or open; no guessed quotations.'
           + '\nVerify these against the COMPLETE newest story page in chronological order. Earlier actions do not overrule a later arrival, departure or stopping position. Correct any provisional mistake with the last established position; leave valid edits alone. A synonymous rewording is not a correction.'
           + '\nRead the evidence and supply a working correction using the allowed operations. A missing character needs people.set field core; a wrong identity needs people.rename, never deletion. Every scene repair needs evidenceId from the provided bank, or a literal shown quote from a fetched source for that person. Earlier arrival or posture evidence is valid if later completed pages do not supersede it; follow the whole chronology. Check their latest evidence anywhere in the scene, including before a long final paragraph about someone else. Do not repeat an operation unchanged when it was blocked; correct its evidence or use another supported operation. Preserve completed corrections. If an inherited concern is disproved, return resolved:[{id: its provided finding id, shown: an exact source quotation disproving it, why: your explanation}]. Do not return an unmarked issue without mutations as a withdrawal.',
-        maxTokens: MAX_TOKENS, signal, renew, leash: leashFor,
+        maxTokens: replyTokens, signal, renew, leash: leashFor,
         isAnswer: (t) => parseAuditorAnswer(t).note === 'ok',
-        source: { storyId, messages: allRaw, memory: mem, story: { brief, castNotes }, state: result.out }, room, rounds: 1,
+        source: { storyId, messages: allRaw, memory: mem, story: { brief, castNotes }, state: result.out }, room,
       });
       looked.push(...(reply.looked || []));
       const corrected = bindAuditEvidence(parseAuditorAnswer(reply.text), repairEvidence);
@@ -679,7 +688,7 @@ export function auditRepairEvidence(findings, documents, budget = 18000) {
         + quotes.filter(q => auditorSourceQuote(d.text,q)).length * 100
         + words.filter(w => (' '+text+' ').includes(' '+w+' ')).length;
       return {d,index,score};
-    }).filter(r => r.score > 0).sort((a,b) => b.score-a.score || b.index-a.index).slice(0,3);
+    }).filter(r => r.score > 0).sort((a,b) => issue.profileReview ? a.index-b.index : b.score-a.score || b.index-a.index).slice(0,3);
     for (const {d,index} of ranked) {
       if (remaining < 500) continue;
       const needle = [...quotes,...names,...words].find(n => d.text.toLowerCase().includes(n.toLowerCase()));
@@ -729,19 +738,26 @@ export function verifyLedgerChecks({state, snapshot, checks, previous = {}, docu
         const m = a.mutation;
         return (row.name === (m.name || m.from || m.title) || row.section === 'scene' || row.section === 'rules') && !a.same;
       });
-      const proven = row.judgment || row.value == null || literal(c.shown);
-      const position = row.section !== 'presence' || (same(c.position,row.value.position) && mainLiteral(c.lastShown));
-      if (((c.status === 'correct' && !changed) || repaired) && proven && position && !c.evidenceError) {
-        entries[row.id] = {print:row.print,status:c.status,why:c.why,shown:c.shown || '',...(row.section === 'presence' ? {position:c.position,lastShown:c.lastShown} : {})};
+      // lastEvidenceId already binds literal position evidence. Do not demand
+      // the same proof again under a second field and reject an honest answer.
+      const proven = row.judgment || row.value == null || literal(c.shown) || (row.section === 'presence' && mainLiteral(c.lastShown));
+      const position = row.section !== 'presence' || ((same(c.position,row.value.position) || (c.status === 'correct' && !changed && c.positionMatches === true)) && mainLiteral(c.lastShown));
+      const profile = row.section !== 'characters' || row.value == null || (c.identityReviewed === true && c.appearanceReviewed === true);
+      if (((c.status === 'correct' && !changed) || repaired) && proven && position && profile && !c.evidenceError) {
+        entries[row.id] = {print:row.print,status:c.status,why:c.why,shown:c.shown || '',...(row.section === 'presence' ? {position:c.position,lastShown:c.lastShown} : {}),...(row.section === 'characters' ? {identityReviewed:true,appearanceReviewed:true} : {})};
         continue;
       }
-      reason = !position ? 'last established position has not been reconciled' : !proven ? 'source evidence is missing' : 'entry changed after its check';
+      reason = !position ? 'last established position has not been reconciled' : !proven ? 'source evidence is missing' : !profile ? 'identity and appearance completeness still need review' : 'entry changed after its check';
     } else if (c?.why) reason = c.why;
     pending.push(row.id + ': ' + reason);
   }
   return {source,ledger:ledgerRepairStateKey(state),entries,read:Object.keys(entries).length,total:rows.length,pending};
 }
 function findingSettled(issue, result, withdrawals, documents) {
+  if (issue.profileRecovery && issue.name) {
+    const key = sourcePersonKey(result.out, issue.name);
+    if (key && String(result.out.characters?.[key]?.core || '').trim()) return true;
+  }
   if (withdrawals.some(r => (r.what === issue.what || r.id === auditFindingId(issue))
     && documents.some(d => auditorSourceQuote(d.text, r.shown)))) return true;
   const landed = [...result.applied, ...result.rejected.filter((r) => r.same)];
@@ -1259,7 +1275,7 @@ export function auditorRepairScope(issues, state, { sources = '', sceneSource = 
     else if (manualRepairConflict(state, m, pageAt)) why = 'the writer explicitly controls this field';
     else if (m.type === 'mc.set' && mcName(state) !== 'the player' && !isMc(state, m.name)) why = 'the main character identity belongs to the writer';
     else if (isMc(state, m.name) && /^people\./.test(m.type) && !['state', 'thread', 'unthread'].includes(m.field)) why = 'the main character identity and interpretation belong to the writer';
-    else if (!/^rel\./.test(m.type) && !m.sourceRecovery) {
+    else if (!/^rel\./.test(m.type)) {
       const quote = m.shown || m.evidence || issue.shown;
       const supported = auditorSourceQuote(sources, quote);
       if (!supported) why = 'include a source quotation supporting this correction; earlier scene evidence is allowed when the completed pages show it still holds';

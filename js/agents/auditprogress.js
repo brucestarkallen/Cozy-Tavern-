@@ -62,7 +62,7 @@ export function ledgerVerificationRows(state) {
     if (!entries.length) add(section, '(empty)', null, true);
     for (const [name, entry] of entries) {
       const value = section === 'characters'
-        ? Object.fromEntries(['core','state','arc','threads','aliases','retired','hand'].filter(k => entry?.[k] !== undefined).map(k => [k,entry[k]]))
+        ? {...Object.fromEntries(['core','state','arc','threads','aliases','retired','hand'].filter(k => entry?.[k] !== undefined).map(k => [k,entry[k]])), physicalFacts:semantic(state.canon?.[name] || null)}
         : semantic(entry);
       add(section, name, value, ['offscreen','relationships','factions'].includes(section));
     }

@@ -295,7 +295,7 @@ function systemPrompt({ mc, founding }) {
     'Answer with JSON ONLY, in exactly this shape:',
     '{"mutations":[ ... ], "people":[ ... ], "threads":[ ... ], "healed":[ ... ], "things":[ ... ], "loose":[ ... ], "here":[ ... ], "looks":[ ... ], "spot":"…"}',
     WRITER_FACTS,
-    '"people" records each newly established named identity from EITHER message: {"name":"the exact name used","shown":"an exact quote establishing who this person is"}. Include people the writer introduces even if they do not act or speak in the reply. Copy the quote, including the name and any stated role or rank; invent nothing. Do not use a question, hypothetical or somebody merely mentioned as if they were introduced. This opens their People page without putting them in the scene. Use "here" separately for people physically nearby at the end.',
+    '"people" records each newly established named identity from EITHER message: {"name":"the exact name used","core":"their stable role, rank, family and nature actually established here","shown":"an exact quote establishing these facts"}. Keep core separate from the quotation: an action is not an identity. Leave core empty if no stable fact is given. Include people the writer introduces even if they do not act or speak in the reply. Physical facts go in looks. Do not use a question or hypothetical as an introduction. Use here separately for physical presence.',
     '"threads" decides EVERY open thread listed under the page, one entry each — {"title":"…","now":"resolved"} or',
     '{"title":"…","now":"open"} (a thread the story has only moved is still open). "healed", "things", "loose" and "spot"',
     'answer the lists under the page that ask for them; [] (or "" for "spot") when there is none.',
@@ -1080,10 +1080,11 @@ export async function extractTurn(args = {}) {
         const name = person.name.trim();
         const source = quotedSource(args.userText, person.shown) ? 'writer' : 'page';
         const quote = quotedSource(source === 'writer' ? args.userText : args.assistantText, person.shown);
-        if (!name || name.length > 80 || !quote || !exactNameIn(quote, name) || isMc(args.state, name)) continue;
+        const core = typeof person.core === 'string' ? person.core.trim() : '';
+        if (!name || name.length > 80 || !core || !quote || !exactNameIn(quote, name) || isMc(args.state, name)) continue;
         const key = findPersonKey(args.state.characters || {}, name);
         if (key && args.state.characters[key]?.core) continue;
-        read.mutations.push({ type: 'people.note', name: key || name, field: 'core', text: quote, source, evidence: quote, cause: 'introduced in the ' + (source === 'writer' ? 'writer’s input' : 'story page') });
+        read.mutations.push({ type: 'people.note', name: key || name, field: 'core', text: core, source, evidence: quote, cause: 'introduced in the ' + (source === 'writer' ? 'writer’s input' : 'story page') });
       }
       /* M660: where the page's own words show someone standing or dressed otherwise than the ledger has, it is written */
       /* M667: where a thing the page names now lies */

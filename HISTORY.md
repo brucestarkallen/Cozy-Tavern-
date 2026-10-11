@@ -18966,3 +18966,55 @@ M698 publication authorization: owner answered Yes to publishing M698 to the
 existing GitHub main branch on 11 October 2026. Resume the prepared publication
 without additional tests; verify exact remote head. Prior rejection remains
 recorded above as history.
+
+# M699: accept real evidence and recover complete People records
+
+Version m699-001. The owner's M698 snapshot proves the MC wall correction landed,
+but verification stalled at 156/166. Actual valid replies carried lastEvidenceId
+only for presence checks. M698 bound that to lastShown, then separately required
+shown/evidenceId. Its own duplicate proof requirement rejected those answers.
+The previous controlled fixture supplied both fields and missed this real shape.
+
+Presence verification now accepts the bound original main-story reference as the
+proof, without demanding it again in another field. An explicit positionMatches
+verdict permits equivalent wording without cosmetic ledger writes; a changed
+meaning still needs a real correction. Unknown refs and stale checks still fail.
+
+Remove the arbitrary 32-entry slice. All outstanding current entries are supplied
+in the same final review, with answer space sized to ledger size (up to 24k output
+tokens) and that space reserved from the input view. Fetching can use the normal
+lookup rounds. Completed valid receipts still persist, but there is no artificial
+multi-run entry batching. Truly oversized context/output and model failures remain
+possible and must not be represented as successful verification.
+
+The incomplete People profiles have a separate production cause: missingSourcePeople
+and extractor copied a literal occurrence quotation directly into core. Recovery
+then stopped at any nonempty core, including an event-only sentence. Source recovery
+now creates a repair target, never a raw-quote core write. Extractor requires a
+separate synthesized stable core with source evidence; an absent core is not filled
+with an arbitrary event. Legacy sourceRecovery no longer bypasses quotation proof.
+
+Auditor receives an original-source index for every character and known alias,
+including old pages and World records, plus proactively selected early profile
+passages. Every character check must explicitly cover identity AND appearance
+completeness. Rank/family/background/enduring nature belong in core; lasting
+physical details belong in canon locks. Nonempty but incomplete profiles require
+source recovery too. No particular story names or ranks are hardcoded. Existing
+valid traits, manual fields, prose and earned relationship judgments remain intact.
+Character verification values include their physical facts for cross-checking.
+
+The People worker can now return source-backed physical facts in its normal response,
+including when there are no event deltas. It checks original stored pages for fetched
+quotations and only fills missing locks, preserving existing ones. Existing empty
+cores are included in its missing-identity work. Shared reader rules distinguish
+stable identity, lasting appearance, current clothes/pose and transient events.
+
+Verification: one focused harness passed once, using the observed lastEvidenceId-only
+answer shape. It checks all 160+ entries in the same final review, adequate answer
+space, no cosmetic pose change, original-source core/physical recovery, no automatic
+quote-to-core writes, normal People recovery of an older-page physical fact with no
+event delta, and preserved existing physical facts/prose/earned scores. Controlled
+model replies only; no live paid calls, theme tests, gameplay runs or bulk suite.
+The capped user snapshot does not expose the whole live story. Do not claim the live
+People dossiers are complete until a new report shows what actually landed.
+

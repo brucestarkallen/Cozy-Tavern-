@@ -1,4 +1,7 @@
 import { LEDGER_READER_RULES, sharedStoryContext } from './ledgercontext.js';
+import { db } from '../store.js';
+import { auditSources } from './auditsources.js';
+import { findCanonKey, findFact } from '../engine/canon.js';
 /* Cozy Tavern — agents/scribe.js
  * The scribe (M12). After each finished turn — background only, riding the
  * worker channel behind the extractor — the scribe reads the turn pair
@@ -31,7 +34,7 @@ import { withFictionFrame } from './voice.js'; /* M21: the workers never break t
 import { LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M679: what answers a loose end — one definition */
 import { askWithFetch, fetchLaw, viewBudget, roomChars, leashFor, windowOfPages } from './lookup.js';
 import { renderWholeLedger } from '../engine/whole.js'; /* M28: the one wire path for workers */
-import { exactNameIn, WRITER_FACTS } from '../engine/evidence.js';
+import { exactNameIn, quotedSource, WRITER_FACTS } from '../engine/evidence.js';
 import { retryAfterMs } from '../providers/wire.js'; /* M28: moved to the wire; re-exported for the harness contract */
 export { retryAfterMs };
 
@@ -48,7 +51,8 @@ const SYSTEM_PROMPT = [
   'shifted — the ledger that remembers who each person is.',
   '',
   'Answer with JSON ONLY, in exactly this shape:',
-  '{"deltas":[ ... ]}',
+  '{"deltas":[ ... ],"facts":[{"name":"NAME","key":"hair","value":"established colour","shown":"exact original source quotation"}]}',
+  'facts records missing LASTING physical facts, such as hair, eyes, build and scars, in What\'s true of them. Include these even when no feeling or event changed. Do not put clothing, current posture or momentary expressions there. Fetch earlier original pages when the current People record has lost established identity or appearance. A nonempty core is not necessarily complete. Keep the full existing valid identity when adding missing rank, family, background or nature; a single action is not their core.',
   '',
   'Each delta is {"name":"NAME","field":"state","text":"…","cause":"the event or established fact that explains this change","shown":"an exact source quote when available"} where field is one of:',
   '  core   — their stable nature: voice, tells, what never really changes.',
@@ -194,7 +198,8 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
     ].map((n) => String(n || '').trim()).filter(Boolean);
     const out = [];
     for (const n of known) {
-      if (findPersonKey(chars, n)) continue;
+      const existing = findPersonKey(chars, n);
+      if (existing && String(chars[existing]?.core || '').trim()) continue;
       if (mc && (n === mc || findPersonKey({ [mc]: 1 }, n))) continue;
       if (!out.some((o) => findPersonKey({ [o]: 1 }, n))) out.push(n);
     }
@@ -226,7 +231,7 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
     wholePage(assistantText),
     '"""',
     '',
-    'What shifted on the character pages, if anything? JSON only.',
+    'Recover any missing established identity or physical facts, then record what shifted. Fetch originals when needed; preserve valid existing core facts, state, arcs and standings. JSON only.',
   ].join('\n');
   return { system: withFictionFrame(SYSTEM_PROMPT + LEDGER_READER_RULES + fetchLaw()), user };
 }
@@ -252,7 +257,7 @@ export function parseScribeAnswer(raw) {
     );
     for (const c of balancedCandidates(text, 5)) {
       const p = parseLenient(c);
-      if (p && Array.isArray(p.deltas)) return { deltas: keep(p.deltas) };
+      if (p && Array.isArray(p.deltas)) return { deltas: keep(p.deltas), facts:(Array.isArray(p.facts) ? p.facts : []).filter(f => f && typeof f.name === 'string' && typeof f.key === 'string' && typeof f.value === 'string' && typeof f.shown === 'string') };
     }
     const at = text.search(/"deltas"\s*:\s*\[/);
     if (at !== -1) {
@@ -335,7 +340,7 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
        * person's field it left out) stand beside it — every note that arrived whole is kept. */
       if (wasCut && secondWhole) {
         const said = new Set(second.deltas.map((d) => d.name.trim().toLowerCase() + '|' + d.field.trim().toLowerCase()));
-        read = { deltas: [...second.deltas, ...read.deltas.filter((d) => !said.has(d.name.trim().toLowerCase() + '|' + d.field.trim().toLowerCase()))] };
+        read = { deltas: [...second.deltas, ...read.deltas.filter((d) => !said.has(d.name.trim().toLowerCase() + '|' + d.field.trim().toLowerCase()))], facts:[...(second.facts || []),...(read.facts || [])] };
       } else if (second.deltas.length > read.deltas.length || (secondWhole && second.deltas.length >= read.deltas.length)) read = second;
       note = secondWhole ? 'ok' : 'cut short';
     } catch (err) {
@@ -344,7 +349,7 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
     }
   }
   const { deltas } = read;
-  if (!deltas.length) return { changes: [], dropped: [], note };
+  if (!deltas.length && !read.facts?.length) return { changes: [], dropped: [], note };
 
   if (stale && stale()) return null; /* the writer has moved on — discard */
 
@@ -386,7 +391,19 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   });
   /* M680: its notes are this page's — stamped with the page in hand even when the page reader's call failed (the world audit) */
   const stamped = Number.isInteger(pageAt) && pageAt >= 0 ? { ...fresh, page: pageAt } : fresh;
-  const { state: next, applied, rejected } = applyMutations(stamped, sound.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text, source: 'scribe', cause: typeof d.cause === 'string' ? d.cause : '', evidence: typeof d.shown === 'string' && pageWords.includes(d.shown) ? d.shown : '' })));
+  const facts = [];
+  if (read.facts?.length) {
+    const originals = auditSources({brief,castNotes,messages:await db.messages.list(storyId)}).map(d => d.text).join('\n');
+    for (const fact of read.facts) {
+      const name = findPersonKey(fresh.characters || {},fact.name) || fact.name;
+      const key = findCanonKey(fresh.canon || {},name);
+      const quote = quotedSource(originals,fact.shown);
+      if (!quote || !exactNameIn(originals,fact.name) || (key && findFact(fresh.canon[key],fact.key))) continue;
+      facts.push({type:'canon.lock',name,key:fact.key,value:fact.value,shown:quote,evidence:quote,source:'scribe',cause:'People recovered an established physical fact from the original sources'});
+    }
+  }
+  if (stale && stale()) return null;
+  const { state: next, applied, rejected } = applyMutations(stamped, [...sound.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text, source: 'scribe', cause: typeof d.cause === 'string' ? d.cause : '', evidence: typeof d.shown === 'string' && pageWords.includes(d.shown) ? d.shown : '' })),...facts]);
   const changes = applied.map((a) => ({ name: nameFromWords(a.words, a.mutation.name), field: a.mutation.field }));
   const dropped = [...rejected.map((r) => ({ delta: r.mutation, why: r.why })), ...thinned];
   if (!changes.length) return { changes, dropped, note };
