@@ -21,6 +21,7 @@ import { initBench } from './ui/benchview.js'; /* M632: the benchmark */
 import { initSpeechColours } from './ui/speechcolours.js'; /* M466: the spoken lines' and thoughts' colours, per coat */
 import { applySpeechColours } from './ui/speechcolours.js'; /* M466: laid over the coat on every applyTheme (M14's init law reads one init a line) */
 import { VERSION } from './version.js';
+import { startUpdates } from './updates.js';
 import { acquirePen } from './tablock.js';
 import { initSync } from './sync.js';
 import { setAliasScope } from './engine/names.js'; /* M427: canon's other names are heard only in their own story */
@@ -173,6 +174,8 @@ const ctx = {
   holdsPen: true,
 };
 
+ctx.updates = startUpdates(ctx);
+
 /* ---------- router-lite: #/settings or the chat floor ---------- */
 
 const views = {
@@ -195,7 +198,7 @@ function showView(name) {
   document.body.classList.toggle('settings-open', name === 'settings'); /* M466: the story's floating pills stay under Settings */
   if (name === 'settings' && ctx.settings) ctx.settings.onShow();
   /* M426: leaving Settings keeps any words typed there and not yet kept */
-  if (wasSettings && name !== 'settings' && ctx.settings && typeof ctx.settings.onHide === 'function') ctx.settings.onHide();
+  if (wasSettings && name !== 'settings' && ctx.settings && typeof ctx.settings.onHide === 'function') ctx.updates.run(() => ctx.settings.onHide());
   const btnSettings = document.getElementById('btn-settings');
   /* M97: an icon now — the words live on its label and tooltip, and flip to
    * say the way back while the settings room is open */
@@ -341,57 +344,5 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
     window.addEventListener('beforeunload', () => pen.release());
   } catch (err) { /* a lock that won't hold is no reason to lock the door */ }
 
-  /* A8 (M9): the worker is a module now, and its cache name comes from the
-   * one VERSION in js/version.js — a deploy can't forget to bump it.
-   * M16: the update nudge. When a new worker finishes installing while an
-   * old controller still holds the room, the tavern says so warmly — one
-   * tap refreshes. And when the new worker takes over (controllerchange),
-   * the page reloads ONCE: the guard keeps it from looping, and a page
-   * that loaded with no controller (a first visit) simply settles in. */
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    try {
-      const hadController = Boolean(navigator.serviceWorker.controller);
-      let reloading = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!hadController || reloading) return;
-        reloading = true;
-        /* never mid-sentence: a reload waits for the storyteller to finish */
-        const go = () => { if (ctx.chat && typeof ctx.chat.isBusy === 'function' && ctx.chat.isBusy()) { setTimeout(go, 2000); return; } location.reload(); };
-        go();
-      });
-      const registration = await navigator.serviceWorker.register('sw.js', { type: 'module' });
-      /* M141: the tavern looks for a new coat on every open, whenever the page
-       * comes back into view, and every ten minutes — and the new worker takes
-       * over on its own (skipWaiting + claim), so the page reloads itself
-       * once; nobody has to remember to refresh. */
-      const lookForUpdate = () => {
-        try {
-          registration.update().catch(() => {});
-          /* M200: and if a worker is already waiting — installed but never
-           * given the room — tell it to take over. A coat that installed
-           * while the server was mid-restart used to sit there unused. */
-          if (registration.waiting) registration.waiting.postMessage({ kind: 'takeOver' });
-        } catch (err) { /* fine */ }
-      };
-      lookForUpdate();
-      /* M200: the launcher pulls and RESTARTS serve.py, so the first look can
-       * land while the port is still dead. A few more, close together, catch
-       * the coat the moment the tavern is warm again — instead of leaving the
-       * writer on the old one until the ten-minute round comes by. */
-      for (const wait of [2000, 6000, 15000, 30000]) setTimeout(lookForUpdate, wait);
-      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') lookForUpdate(); });
-      setInterval(lookForUpdate, 10 * 60 * 1000);
-      registration.addEventListener('updatefound', () => {
-        const worker = registration.installing;
-        if (!worker) return;
-        worker.addEventListener('statechange', () => {
-          if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-            toast('A new coat is on the tavern — tap to refresh.', () => location.reload());
-          }
-        });
-      });
-    } catch (err) {
-      /* the shell still works online; offline just won't be cached yet */
-    }
-  }
+  ctx.updates.ready();
 })();

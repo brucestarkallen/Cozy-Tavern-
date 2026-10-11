@@ -1398,7 +1398,8 @@ export function initChat(ctx) {
     })();
   }
 
-  async function openStory(id) {
+  function openStory(id) { return ctx.updates ? ctx.updates.run(() => openStoryForUpdate(id)) : openStoryForUpdate(id); }
+  async function openStoryForUpdate(id) {
     ctx.setActiveStoryId(id);
     renderStoryList();
     /* M189: a tale whose pages are not here yet fetches them now. The shelf
@@ -8275,7 +8276,8 @@ export function initChat(ctx) {
     'choices', /* M548: Choices matter — the switch goes with the tale; the choices themselves ride on its pages */
   ];
 
-  async function branchFrom(messageId) {
+  function branchFrom(messageId) { return ctx.updates ? ctx.updates.run(() => branchForUpdate(messageId)) : branchForUpdate(messageId); }
+  async function branchForUpdate(messageId) {
     if (!(await waitForRebuild())) return;
     if (busy) { toast('The house is still writing — one moment, then branch.'); return; }
     const story = await activeStory();
@@ -9361,6 +9363,7 @@ export function initChat(ctx) {
     canonAct, /* M386 */
     canonTest, /* M386 */
     isBusy: () => Boolean(busy),
+    hasDraft: () => Boolean(els.input.value || pendingImage || pendingFile),
     choicesChanged: async () => { const st = await activeStory(); if (st) offerChoices(st); await drawChoices(); }, /* M548: Settings → Choices matter */
     /* M673: Settings → Continuous audit. Off: a reading in flight is let go. Either way the light looks again (on, it sends the first reading). */
     continuousAuditChanged: async () => { const id = ctx.getActiveStoryId(); if (!id) return; if (!(await continuousAuditOn())) pauseContinuousAudit(id); markLedgerTrouble(id); },

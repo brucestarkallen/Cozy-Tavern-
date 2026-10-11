@@ -130,10 +130,11 @@ export async function initSync(ctx) {
   /* what a write claims: the epoch noted ('' while none was ever brought back — also before any was noted), or null */
   const epochNow = () => { const e = epochRead(); return e === null ? null : (e || ''); };
   status.epoch = epochNow;
-  let askSeq = 0;
+  let askSeq = 0, updateRequests = 0;
   const ask = (msg) => new Promise((resolve) => {
     const rid = ++askSeq;
-    const onmsg = (e) => { if (e.data && e.data.rid === rid && (e.data.kind === msg.expect || e.data.kind === 'error')) { worker.removeEventListener('message', onmsg); resolve(e.data); } };
+    updateRequests++;
+    const onmsg = (e) => { if (e.data && e.data.rid === rid && (e.data.kind === msg.expect || e.data.kind === 'error')) { worker.removeEventListener('message', onmsg); updateRequests--; resolve(e.data); } };
     worker.addEventListener('message', onmsg);
     worker.postMessage({ ...msg, rid, epoch: epochNow(), epochKnown: typeof epochRead() === 'string', hadDevice: hadDevice() });
   });
@@ -762,5 +763,6 @@ export async function initSync(ctx) {
     await pushNow();
     if (dirty.size) await pushNow();
   };
+  status.updateBlocked = () => Boolean(running || updateRequests || holding || dirty.size || failedPushes.size || heldBack.size);
   return status;
 }

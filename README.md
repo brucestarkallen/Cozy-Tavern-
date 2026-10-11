@@ -233,3 +233,20 @@ cozytavern
 
 (If a lamp stayed lit from an old folder, douse it first: `pkill -f "python3 serve.py"`
 — mind: that also douses Cozy Chat's lamp; relight it anytime with `cozy`.)
+
+
+## Automatic browser updates
+
+The browser checks on opening, when the tab becomes visible, when the network
+returns, and periodically while open. Once the new service worker is active,
+the page refreshes automatically after startup and current work finish safely.
+Unsent text, attachments, open forms and edits keep the page open with an update
+notice. Finish that work and the update continues. A failed save prevents an
+automatic refresh; keep the work and resolve the failure first. No browser data
+needs to be cleared.
+
+In Termux, run `cozytavern` to pull the repository and restart the local server.
+The browser then detects the newly served files. On a hosted site it detects
+the files that host has actually published. Pushing GitHub does not update a
+separate Termux clone. A tab already stranded on an older update handler may
+need one initial refresh to receive this fix, after keeping any unsent words.

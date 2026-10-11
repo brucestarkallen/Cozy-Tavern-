@@ -58,8 +58,8 @@ fi
 TAVERN_VER="$(grep -o "VERSION = '[^']*'" js/version.js 2>/dev/null | head -1 | cut -d"'" -f2)"
 if [ -n "$HEAD_BEFORE" ] && [ "$HEAD_BEFORE" != "$HEAD_AFTER" ]; then
   echo "Fresh coat on: the tavern is now at $TAVERN_VER."
-  echo "A new coat is on — if the tavern looks the same, pull the page down once to reload."
-  echo "Still the same after that? Close every tab of the tavern, then open it again."
+  echo "Open tabs check for the new version and refresh when writing and saves are finished."
+  echo "An update notice means your draft, open form or active work is being protected."
 else
   echo "Already on $TAVERN_VER — the tavern is current."
 fi

@@ -1,3 +1,51 @@
+# M720: safe automatic application updates
+
+Version m720-001. Base main: 2201d546368675d19b45f6ba4bd568274c70d175.
+
+Confirmed in real Chromium before correction: takeover during deliberately slow
+startup left the old document running after the new worker activated. The late
+listener missed its event. The legacy first-install hadController flag also
+remained false for the entire sitting and ignored later takeovers. A second fixture with HTTP max-age also reproduced
+an imported VERSION remaining cached under updateViaCache imports. Termux sends
+no-store already; its caching was not implicated by this reproduction.
+
+Updates now start before asynchronous application startup, compare the loaded
+VERSION with the controlling worker through a message channel, and reconcile
+again after startup and update checks. Registration uses updateViaCache none;
+installation fetches fresh shell files instead of accepting stale HTTP assets.
+Existing cache-first offline serving, API exclusions, skipWaiting and claim stay.
+Startup, visibility, online and existing timed checks require no GitHub polling.
+
+A single coordinator defers reload for composer text or attachments, visible
+forms and edits, generation/replay, story opening and branching, restore and
+settings saves, pending database writes, synchronization and queued background
+work. A failed database save blocks automatic reload for that document. A visible
+notice explains deferral. Drafts remain in their original controls; no new draft
+storage or story migration. Reload attempts are bounded per tab and version pair.
+Registration failures are retried when the connection returns. All guards observe
+existing operations; no ledger, prompt, World or memory decisions changed.
+
+Focused verification: tests/browser_updates.py --baseline reproduced both faults;
+the default browser scenario passed automatic normal and slow startup updates,
+imported-only version changes under HTTP caching, two tabs, unsent text, active
+edit and operation holds, the generation busy guard, reconnect, a real failed
+IndexedDB save, story/settings retention, offline opening and no reload loop.
+--forms-only passed a real unsent attachment and a blurred unsent form, followed
+by automatic reload when both were finished. No test manually refreshed a page.
+The generation guard used a controlled busy state, not a paid provider call.
+No unrelated suites or ledger audits. --migration passed an actual M719
+controlled tab upgrading to the corrected code without manual refresh, while
+also confirming the separate stranded legacy first-install tab.
+
+Limits: no owner device, Android/Opera or Safari run. Background browsers may
+throttle checks; returning to the visible tab triggers another check. Drafts and
+open forms intentionally defer updates until finished. An old document already
+stuck before loading this coordinator can still need one initial manual reload;
+new code cannot retroactively replace its old event listener or protect its
+in-memory draft. Normal legacy takeover is checked separately. A GitHub push
+neither updates a local Termux clone nor proves hosted deployment availability.
+No deployment requested or performed.
+
 # M719 followups: truthful People status and source identity scope
 
 Version m719-002, based on remote main 2a0d1a8fd46108f97fdb3a9eed0e92bcf6bc0c78.

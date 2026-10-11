@@ -183,6 +183,7 @@ const SHELL = [
   'js/ui/prose.js',
   'js/ui/storyexport.js',
   'js/version.js',
+  'js/updates.js',
   'assets/icon.svg',
   'assets/icon-192.png',
   'assets/icon-512.png',
@@ -201,13 +202,14 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE).then((cache) => Promise.all(
-      SHELL.map((path) => cache.add(path).catch(() => null))
+      SHELL.map((path) => cache.add(new Request(path, { cache: 'reload' })).catch(() => null))
     ))
   );
 });
 
 /* M200: a waiting worker takes over when the room asks it to. */
 self.addEventListener('message', (event) => {
+  if (event.data?.kind === 'appVersion') event.ports?.[0]?.postMessage({ version: VERSION });
   if (event && event.data && event.data.kind === 'takeOver') self.skipWaiting();
 });
 

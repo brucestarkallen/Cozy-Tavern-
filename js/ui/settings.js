@@ -3145,7 +3145,7 @@ export function initSettings(ctx) {
     return behind;
   }
 
-  els.importFile.addEventListener('change', async () => {
+  const restoreForUpdate = async () => {
     const file = els.importFile.files && els.importFile.files[0];
     els.importFile.value = '';
     if (!file) return;
@@ -3233,7 +3233,8 @@ export function initSettings(ctx) {
       els.backupNote.hidden = false;
       els.backupNote.textContent = err.message || 'That file wouldn’t open. Is it a Cozy Tavern copy?';
     }
-  });
+  };
+  els.importFile.addEventListener('change', () => ctx.updates ? ctx.updates.run(restoreForUpdate) : restoreForUpdate());
 
   /* M16: the version, visible — the header line carries the house's one
    * version word, set once when the view wakes. */
