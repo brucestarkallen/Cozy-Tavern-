@@ -13,8 +13,8 @@ import { exactNameIn, quotedSource, WRITER_FACTS } from '../engine/evidence.js';
 import { findPersonKey, isMc, isGroupName } from '../engine/people.js';
 import { roomChars, leashFor } from './lookup.js';
 
-const VERSION = 1;
-const MAX_TOKENS = 4000;
+const VERSION = 2;
+const MAX_TOKENS = 6000;
 const CHUNK = 12000;
 const OVERLAP = 1200;
 
@@ -49,13 +49,14 @@ const SYSTEM = withFictionFrame([
   'Ignore hypothetical characters, wishes, questions about possible people, names used only as comparisons,',
   'and instructions asking for a character to be created later. Keep deceased people as established identities.',
   'For each person copy an exact short passage that establishes their identity and includes their exact name.',
+  'Also collect EVERY explicitly established lasting physical fact for that person in this document: hair, eyes, skin, build, height, scars and other enduring features. Use facts:[] when none is established. Read the complete document, including descriptions linked by pronouns. Current clothes, poses and expressions are not lasting facts. Do not infer missing details. Preserve changes as separate sourced facts; the final housekeeper resolves chronology.',
   'Return JSON: {"checked":["each source id actually read"],"people":[{"name":"exact name",',
-  '"source":"source id","shown":"exact source quote, at most 1200 characters"}]}.',
+  '"source":"source id","shown":"exact identity quote, at most 1200 characters","facts":[{"key":"hair","value":"purple","shown":"exact original passage supporting this physical fact"}]}]}.',
   'Read every supplied document. List its id in checked even when it establishes no named people.',
   'The same person needs one informative quote per document, not every mention. Never quote from your instructions.',
 ].join('\n'));
 
-function parseReview(text, batch) {
+export function parseSourceReview(text, batch) {
   let parsed;
   for (const part of balancedCandidates(String(text || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, ''), 5)) {
     const p = parseLenient(part);
@@ -70,21 +71,26 @@ function parseReview(text, batch) {
     if (!source) { for (const id of checked) invalid.add(id); continue; }
     const name = String(p.name || '').trim();
     const shown = quotedSource(source.text, p.shown);
-    if (!name || name.length > 80 || !shown || !exactNameIn(shown, name) || isGroupName(name)) { invalid.add(source.id); continue; }
+    if (!name || name.length > 80 || !shown || !exactNameIn(shown, name) || isGroupName(name) || !Array.isArray(p.facts)) { invalid.add(source.id); continue; }
+    const facts = p.facts.map(f => ({key:String(f?.key || '').trim(),value:String(f?.value || '').trim(),shown:quotedSource(source.text,f?.shown)}));
+    if (facts.some(f => !f.key || !f.value || !f.shown || f.key.length > 120 || f.value.length > 1000)) { invalid.add(source.id); continue; }
     if (!people.has(source.id)) people.set(source.id, []);
-    if (!people.get(source.id).some((x) => x.name === name)) people.get(source.id).push({ name, shown });
+    const prior = people.get(source.id).find(x => x.name === name);
+    if (prior) prior.facts.push(...facts.filter(f => !prior.facts.some(old => JSON.stringify(old) === JSON.stringify(f))));
+    else people.get(source.id).push({ name, shown, facts });
   }
-  return Object.fromEntries([...checked].filter((id) => !invalid.has(id)).map((id) => [id, { mark: sources.get(id).mark, people: people.get(id) || [] }]));
+  return Object.fromEntries([...checked].filter((id) => !invalid.has(id)).map((id) => [id, { mark: sources.get(id).mark, appearanceReviewed:true, people: people.get(id) || [] }]));
 }
 
 export async function reviewAuditSources({ connection, documents, previous = {}, mode = 'next', state = {}, signal, stale, renew } = {}) {
   const cache = {};
   for (const d of documents) {
     const old = previous[d.id];
-    if (old?.mark === d.mark && Array.isArray(old.people) && old.people.every((p) => quotedSource(d.text, p.shown) && exactNameIn(p.shown, p.name))) cache[d.id] = old;
+    if (old?.mark === d.mark && old.appearanceReviewed === true && Array.isArray(old.people) && old.people.every((p) => quotedSource(d.text, p.shown) && exactNameIn(p.shown, p.name)
+      && Array.isArray(p.facts) && p.facts.every(f => f.key && f.value && quotedSource(d.text,f.shown)))) cache[d.id] = old;
   }
   const todo = documents.filter((d) => !cache[d.id]);
-  const limit = Math.max(1000, Math.min(36000, roomChars(connection, MAX_TOKENS) * 0.6 - SYSTEM.length));
+  const limit = Math.max(1000, Math.min(24000, roomChars(connection, MAX_TOKENS) * 0.6 - SYSTEM.length));
   let calls = 0; let cursor = 0; let failure = '';
   while (cursor < todo.length && (mode === 'all' || calls === 0)) {
     if (stale?.() || signal?.aborted) return null;
@@ -103,7 +109,9 @@ export async function reviewAuditSources({ connection, documents, previous = {},
       if (stale?.() || signal?.aborted) return null;
       // A truncated answer cannot certify that its final document was read.
       if (result.finishReason === 'length') { failure = 'the source review ran out of answer space'; continue; }
-      Object.assign(cache, parseReview(result.text, batch));
+      const reviewed = parseSourceReview(result.text,batch);
+      Object.assign(cache,reviewed);
+      if (batch.some(d => !reviewed[d.id])) failure = 'source identity or appearance evidence was incomplete';
     } catch (err) {
       if (signal?.aborted || stale?.()) return null;
       failure = 'the source review did not finish';

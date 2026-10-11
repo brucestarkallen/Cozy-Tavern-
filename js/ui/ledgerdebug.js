@@ -5,6 +5,7 @@ import { loadWorkerStatus, runningWorkers } from '../agents/status.js';
 import { pageText } from '../assemble/stack.js';
 import { ledgerAuditVerified } from '../agents/auditprogress.js';
 import { VERSION } from '../version.js';
+import { sourceAppearanceFacts } from '../agents/appearanceinventory.js';
 
 export function redactDebug(value, secrets = []) {
   const text = JSON.stringify(value, (key, val) => /^(apiKey|api_key|token|accessToken|authorization|password|secret|headers)$/i.test(key) ? '[REDACTED]' : val, 2);
@@ -61,6 +62,12 @@ export async function ledgerDebugReport(storyId) {
   add('Recent ledger changes, newest first', (state.log || []).slice(-6).reverse().map(({undo,...row}) => row), 800);
   add('Recent journal, newest first', (state.journal || []).slice(-3).reverse(), 500);
   add('Source coverage', state.audit?.coverage || null, 700);
+  const appearance = sourceAppearanceFacts(state);
+  add('Recovered appearance inventory', {facts:appearance.length,people:new Set(appearance.map(f=>f.name)).size,
+    unresolved:appearance.filter(f => {
+      const receipt=state.audit?.verification?.entries?.['characters:'+f.name];
+      return !receipt?.appearance?.some(a=>a.id===f.id);
+    }).slice(0,8).map(({name,key,value,source})=>({name,key,value,source}))},850);
   add('Entry verification', state.audit?.verification ? {read:state.audit.verification.read,total:state.audit.verification.total,finalReview:state.audit.finalReview,
     failureCounts:(state.audit.verification.pending || []).reduce((counts,p) => {const reason=p.split(': ').slice(1).join(': ') || p;counts[reason]=(counts[reason] || 0)+1;return counts;},{}),
     pending:state.audit.verification.pending?.slice(0,6),scene:Object.fromEntries(Object.entries(state.audit.verification.entries || {}).filter(([id]) => id.startsWith('presence:')))} : null, 2000);

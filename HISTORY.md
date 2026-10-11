@@ -19226,3 +19226,50 @@ The owner's complete phone sources/provider output
 are not available here. These shared defects are repaired and controlled behavior
 is verified; do not claim the live ledger or every possible story is perfect.
 
+
+# M704: account for recovered appearance before approving a character
+
+Version m704-001. The owner's live M703 report completed source coverage167/167
+and entry verification163/163 without unresolved work. That proves completion
+of the recorded audit, not exhaustive factual correctness. The subsequent queen
+appearance concern exposed a shared code gap: source reading retained one
+identity quote per person/document, without an appearance inventory; the final
+housekeeper could approve identity/appearance with a blanket sourced verdict.
+The compact report omits the queen's actual record and full older descriptions,
+so do not claim her specific purple hair was present, absent or repaired here.
+
+Source schema2 now asks the EXISTING original-source reading for every explicit
+lasting physical fact, with exact original quotation and a facts array even when
+empty. Unsupported quotations or identity-only replies cannot certify a source.
+The old identity-only source receipts require one new appearance reading, then
+are cached and reused. Output room is6000 tokens and batches cap at24000 input
+characters to reserve room for sourced facts. No extra independent agent or
+paid call is added to the ordinary send path.
+
+The inventory routes through known identities/player aliases, retains original
+source references and deduplicates repeated identical person/key/value facts.
+Each actual People verification row contains its source appearance inventory.
+The final housekeeper must account for each fact by id: held with an actual
+saved canon key/value, superseded with original replacement evidence and the
+actual replacement, ended with original evidence and no remaining lock, or an
+actual current manual lock/unlock. Unknown or duplicate ids, absent facts and
+unsupported replacements remain unfinished. The housekeeper owns semantic
+meaning/chronology, the code checks named operations, evidence and actual saved
+values. There is no queen name, appearance or story-specific production patch.
+Newly repaired physical locks use the character's actual reconciliation for
+same-pass canon receipts. Changed inventory/physical values invalidate the
+character receipt; unrelated completed rows still resume normally. Compact
+diagnostics include appearance inventory counts and first pending source facts.
+Prose, earned relationship judgments, source text and manual values are retained.
+
+Verification: only node tests/harness/m704-focused.mjs, passed once. One mocked
+source reading and two final readings exercise original appearance extraction,
+old-cache invalidation, rejected unsupported quotes, blocked blanket approval
+for an absent character, source-backed physical repair on the remaining entry,
+reused source coverage, same-pass new canon receipt, exact saved-value checks,
+deduplication, evidenced later replacements and retained manual hair, prose and
+p60/r50 scores. No bulk, theme, gameplay or live provider calls. No rerun needed
+for notes, commit or publication. The source model can still miss something;
+this closes the known silent omission between recovered facts and approval,
+not a claim of perfect extraction or the owner's specific live queen recovery.
+
