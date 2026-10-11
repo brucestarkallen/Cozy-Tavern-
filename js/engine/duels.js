@@ -134,8 +134,28 @@ export function explicitMcPersona(state, name, quote) {
     return new RegExp('(?:^| )' + a + ' is (?:me|my ' + modifiers + kinds + ')(?: |$)').test(q)
       || new RegExp('^(?:my ' + modifiers + kinds + ' is|my name is|i am|i play as|i play) ' + a + '(?: |$)').test(q)
       || (owner !== 'the player' && (new RegExp('(?:^| )' + a + ' is ' + o + ' s ' + modifiers + kinds + '(?: |$)').test(q)
-        || new RegExp('(?:^| )' + o + ' s ' + modifiers + kinds + ' is ' + a + '(?: |$)').test(q)));
+        || new RegExp('(?:^| )' + o + ' s ' + modifiers + kinds + ' is ' + a + '(?: |$)').test(q)
+        || new RegExp('(?:^| )' + o + ' (?:walks|travels|appears|goes|is known|presents himself|presents herself|presents themself)(?: [\\p{L}\\p{N}]+){0,8} as ' + a + '(?: |$)','u').test(q)
+        || new RegExp('(?:^| )' + o + ' (?:uses|wears|assumes) ' + a + ' as (?:his|her|their) (?:own |public )?(?:persona|identity|alias|face)(?: |$)').test(q)));
   });
+}
+
+/* Reconcile already tracked names from explicit original identity statements.
+ * This does not need the model to remember to propose another operation.
+ * Caller supplies only writer material or completed main narration. */
+export function sourcePersonaMutations(state, sources, extraNames = []) {
+  const names = [...new Set([...Object.keys(state.characters || {}),...Object.keys(state.offscreen || {}),...(state.present || []).map(p => p.name),...extraNames])];
+  const repairs = [];
+  for (const name of names.filter(n => n && !isMcAlias(state,n))) {
+    for (const source of sources) {
+      const text = source.narrative ? String(source.text || '').replace(/"[^"\n]*"|“[^”]*”|«[^»]*»|「[^」]*」|『[^』]*』/g,' ') : String(source.text || '');
+      const shown = text.split(/(?<=[.!?])\s+|\n/u).find(sentence => explicitMcPersona(state,name,sentence));
+      if (!shown) continue;
+      repairs.push({type:'mc.alias',name,shown:shown.trim(),cause:'Original sources explicitly establish this tracked name as the main character’s own persona.'});
+      break;
+    }
+  }
+  return repairs;
 }
 
 /* Sheet key for a name, or null. Exact (case-insensitive) first, then a

@@ -45,7 +45,7 @@ import { renderWholeLedger, wholePage, PAGE_CAP, knowledgeRoomFor } from '../eng
 import { askWithFetch, fetchLaw, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259: it looks for what it was not shown */
 import { messageIndexLine, refOf } from './housekeeper.js';
 import { asideAt, asideLabel } from '../commands.js'; /* M674: which pages are out of character, and how a request says so */
-import { mcName, explicitMcPersona } from '../engine/duels.js';
+import { mcName, explicitMcPersona, sourcePersonaMutations } from '../engine/duels.js';
 import { isMc, namedInText, findPersonKey } from '../engine/people.js'; /* M277: the main character holds no standing; M304: one matcher for "the writer's material names them" */
 import { explicitStandings, readStatedStandings, samePersonLoose, isLabel } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
 import { visiblePages, loadMemory, wholeRecord, recordWithPages } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
@@ -329,7 +329,7 @@ export function parseAuditorAnswer(raw) {
         ...(i.findingId ? {findingId:i.findingId} : {}),
         ...(i.status ? {repairStatus:i.status} : {}),
         fix: typeof i.fix === 'string' ? i.fix.trim().slice(0, 4000) : '',
-        ...(typeof i.shown === 'string' && i.shown.trim() ? { shown: i.shown.trim().slice(0, 1200) } : {}),
+        ...(typeof i.shown === 'string' && i.shown.trim() ? { shown: i.shown.trim() } : {}),
         ...(typeof i.evidenceId === 'string' ? {evidenceId:i.evidenceId} : {}),
         ...(Array.isArray(i.targets) ? {targets:i.targets.filter(t => t && typeof t.id === 'string').map(t => ({id:t.id}))} : {}),
         /* M90: the pages are wrong and the brief wins — the house mends them */
@@ -407,7 +407,7 @@ function auditAborted(signal) { if (signal?.aborted) throw signal.reason || new 
 
 export async function auditLedger({ connection, storyId, brief = '', castNotes = '', castNames = [], signal, stale, renew, canonRecord = '', reviewSources = '' } = {}) {
   if (!connection || typeof connection !== 'object' || !storyId) return null;
-  const state = await loadState(storyId);
+  let state = await loadState(storyId);
   const storyAtStart = await db.stories.get(storyId);
   const mem = await loadMemory(storyId);
   const allRaw = (await db.messages.list(storyId)).filter((m) => !m.hidden);
@@ -419,6 +419,11 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const all = answeredOnly(allRaw);
   if (!all.length) return null;
   const documents = auditSources({ brief, castNotes, messages: all });
+  const personaRepairs = sourcePersonaMutations(state, documents.filter(d => /^(?:brief|cast|page):/.test(d.id)).map(d => ({text:d.text,narrative:d.label.endsWith(', story')})));
+  const personaIssues = personaRepairs.map(m => ({what:m.name+' is an explicitly established own persona of the main character, not a separate absent person.',mutations:[m]}));
+  // Preview for every reader, commit through the same source/stale-checked
+  // final transaction. This prevents another NPC profile for the same player.
+  if (personaRepairs.length) state = applyMutations(state,personaRepairs).state;
   const sourceReview = reviewSources ? await reviewAuditSources({ connection, documents, previous: state.auditSources || {}, state, mode: reviewSources, signal, stale, renew }) : null;
   auditAborted(signal);
   if ((reviewSources && !sourceReview) || stale?.()) return null;
@@ -523,7 +528,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const statedByModel = continuingVerification ? [] : await readStatedStandings({ connection, brief, castNotes, mc: mcName(state) !== 'the player' ? mcName(state) : '', signal });
   if (stale && stale()) return null;
   const fresh = await loadState(storyId);
-  let offered = [...read.issues];
+  let offered = [...personaIssues,...read.issues];
   const judge = (snapshot, proposals) => judgeAudit({ fresh: snapshot, offered: proposals, all, brief, castNotes, castNames, statedByModel });
   let result = judge(fresh, offered);
   const unresolved = (r) => [...missingLedgerPeople(r.out, castNames), ...r.issues.filter((i) => i.refused?.length || (!i.landed && !(i.pages && i.fix))).map((i) => i.what + (i.refused?.length ? ': ' + i.refused.join('; ') : ': no repair was supplied'))];
@@ -917,7 +922,7 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
   const newestAt = latestStory ? storyPages.findIndex((m) => m.id === latestStory.id) : -1;
   read.issues = auditorRepairScope(read.issues, fresh, {
     pageAt: newestAt, rejected: scopeRejected, sceneSource: pageText(latestStory),
-    identitySources: [brief, castNotes, ...all.filter(m => m.role === 'user').map(pageText)].join('\n'),
+    identitySources: [brief, castNotes, ...all.map(m => m.role === 'user' ? pageText(m) : narrationOf(pageText(m)))].join('\n'),
     sources: auditSources({brief, castNotes, messages:all}).map(d => d.text).join('\n'),
   });
   /* M267: A CHECK THAT FOUND NOTHING IS NOT A FINDING. The writer counted
@@ -958,7 +963,7 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
         identityRefused.push({ mutation: m, why: 'that identity has already been merged', same: true });
         continue;
       }
-      const identityQuote = quotedSource(identitySource, m.shown);
+      const identityQuote = auditorSourceQuote(identitySource, m.shown);
       const role = roleWordOf(m.from);
       const owners = role ? roleOwnersNamed({ characters: fresh.characters, knowledge: { evidence: [{ fact: identitySource }] } }, role, null, { titles: true }) : [];
       const roleIdentity = owners.length === 1 && samePersonName(owners[0], m.to);
@@ -1283,7 +1288,7 @@ function currentPersonTelling(parts, shown = '') {
   return told;
 }
 function mcPersonaQuote(state, name, shown, source) {
-  const quote = quotedSource(source, shown);
+  const quote = auditorSourceQuote(source, shown);
   return Boolean(quote && explicitMcPersona(state,name,quote));
 }
 
@@ -1307,7 +1312,7 @@ export function auditorSourceQuote(source, quote) {
   const exact = quotedSource(source, quote);
   if (exact) return exact;
   const text = String(source || ''), wanted = String(quote || '').trim();
-  if (wanted.length < 4 || wanted.length > 1200) return '';
+  if (wanted.length < 4) return '';
   const normalized = value => {
     let text = '', positions = [];
     for (let i = 0; i < value.length; i++) {

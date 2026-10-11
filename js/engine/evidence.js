@@ -10,7 +10,9 @@ export function exactNameIn(text, name) {
 export function quotedSource(text, quote) {
   const tidy = (s) => String(s || '').replace(/\s+/g, ' ').trim();
   const q = tidy(quote);
-  return q.length >= 4 && q.length <= 1200 && tidy(text).includes(q) ? q : '';
+  // Provenance depends on literal source membership, not an arbitrary quote
+  // size. Readers supply longer original spans; those remain valid evidence.
+  return q.length >= 4 && tidy(text).includes(q) ? q : '';
 }
 
 export const WRITER_FACTS = 'The writer’s explicit names, ranks, relations and biographies are story facts, even if the reply uses pronouns or omits them. Keep exact names and roles; invent no surname or rank. Read actions in both messages in order: a later departure still wins. Dialogue can establish an identity without placing its speaker’s subject nearby. Questions, wishes, hypotheticals and requests are not completed events. A person deliberately introduced by the writer gets a People page even if absent or quiet; an unnamed extra does not.';

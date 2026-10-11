@@ -19064,3 +19064,51 @@ story is unavailable here; this proves the causal code paths, not its live green
 Keep AGENTS.md minimal-verification policy. Do not promise live profile completeness
 until the updated auditor's actual saved result confirms it.
 
+# M701: repair the shared evidence contract and reconcile original personas
+
+Version m701-001. The owner's actual M700 compact report has 167/167 source
+coverage but only 109/167 entry checks, rejected Alexia/Roddick/priest/pie-seller
+profiles, duplicate identical king writes and Jugram still treated as another
+person despite original narration explicitly saying the MC walks as that name.
+
+Root cause: M700 proactively supplies 1600-character profile passages. Shared
+quotedSource and auditorSourceQuote rejected quotes longer than 1200. Correct
+references were bound to real text, then rejected by their own consumer. The prior
+fixture's descriptive passage ended near the excerpt start, so its selected span
+was shorter than 1200 and never exercised this contract. Do not call that prior
+controlled pass proof that the owner's profiles were fixed.
+
+Literal source membership now validates evidence independently of quote size.
+Remove the same arbitrary auditor fallback restriction and proof truncation at
+parse time. Unknown references, fabricated quotes, source replacement, stale
+answers, manual protections and field ownership remain checked. Renames and
+persona proof use the same source contract. This fixes a producer/consumer defect
+across stories, rather than special cases for particular people or appearances.
+
+Original writer material and completed main narration reconcile already tracked
+own-persona names before profile reading. Explicit named-owner identity statements
+are recognized too. World voices are excluded. Completed main narration is read with dialogue
+removed, while original writer material supplies explicit writer facts. The source-backed alias preview informs all audit readers;
+its normal logged mutation is committed only in the final fresh-source transaction.
+Scene uses the same source reconciliation before routing its writes. Persona
+registration is no longer contingent on the model remembering an additional op.
+This preserves the existing player name and prevents a separate Elsewhere seat.
+
+Auditor People writes with an identical saved field are no-ops, including duplicates
+within one result. Normal worker freshness and manual same-value locks are unaffected.
+Retry progress counts only current-source receipts for exact current entries. Old
+version check counts cannot set an unreachable progress baseline; genuinely new
+verified entries count as progress even when a larger audit discovers more work.
+Debug evidence summaries include reference errors and quote lengths under the existing
+24k byte cap, so a future producer/consumer mismatch is directly visible.
+
+Verification: only tests/harness/m701-focused.mjs ran, once and passed. It exercises
+an original selected passage longer than 1200 through the full controlled audit,
+rejects fabricated text, omits the model's persona proposal while recovering explicit
+completed narration, catches duplicate People writes, checks old-version progress,
+and retains the prior targeted profile/state/physical fact, final-lock verification,
+equivalent posture, undo and prose/earned-score preservation assertions. No bulk,
+theme, gameplay or paid live calls. The owner's full phone story remains unavailable;
+its eventual saved result, not a synthetic model reply, establishes live success.
+Keep AGENTS.md's minimal milestone verification policy for future sessions.
+

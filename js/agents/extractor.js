@@ -53,7 +53,7 @@ import { pauseContinuousAudit } from './continuous.js'; /* M673: nothing waits f
 import { renderWholeLedger, wholePage, knowledgeRoomFor } from '../engine/whole.js'; /* M259: the whole ledger, and the page read to its end */
 import { askWithFetch, fetchLaw, windowOfPages, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259/M261: it may look; the story so far, whole */
 import { contextOf } from '../providers/room.js'; /* M679: the reader's answer floor, by its room */
-import { mcName } from '../engine/duels.js';
+import { mcName, sourcePersonaMutations } from '../engine/duels.js';
 import { exactNameIn, quotedSource, WRITER_FACTS } from '../engine/evidence.js';
 
 /* M28: the answer is JSON only and thinking is OFF on the wire (call.js),
@@ -1129,10 +1129,15 @@ export async function extractTurn(args = {}) {
       read.mutations = read.mutations.map((m) => { if (!m || m.decided === undefined) return m; const line = { ...m }; delete line.decided; delete line.room; return line; });
     }
   }
-  if (read?.mutations) read.mutations = read.mutations
-    .filter(m => m.type !== 'mc.alias' || [args.brief,args.castNotes,args.userText,...(args.before || []).filter(p => p.role === 'user' && !p.cut).map(p => p.text)]
+  if (read?.mutations) {
+    const originals = [{text:args.brief},{text:args.castNotes},{text:args.userText},{text:args.assistantText,narrative:true},
+      ...(args.before || []).filter(p => !p.cut && !p.aside).map(p => ({text:p.text,narrative:p.role === 'assistant'}))];
+    const personas = sourcePersonaMutations(args.state,originals,read.mutations.map(m => m.name).filter(Boolean));
+    read.mutations = [...personas,...read.mutations]
+    .filter(m => m.type !== 'mc.alias' || [args.brief,args.castNotes,args.userText,narrationOf(args.assistantText),...(args.before || []).filter(p => !p.cut && !p.aside).map(p => p.role === 'assistant' ? narrationOf(p.text) : p.text)]
       .some(source => quotedSource(source,m.shown)))
     .map((m) => ({ ...m, source: m.source === 'writer' ? 'writer' : 'extractor' }));
+  }
   groundNames();
   return read;
 }

@@ -17,11 +17,16 @@ export function repairRetryCheckpoint(before, after, story, pages) {
   const source = ledgerRepairInputKey({}, story, (pages || []).map(p => ({ ...p, voices: [] })));
   const previous = before.audit?.retryProgress;
   const count = state => (state.audit?.pending || []).length;
-  const read = state => (Number(state.audit?.coverage?.read) || 0) + (Number(state.audit?.verification?.read) || 0);
+  const currentSource = ledgerRepairInputKey({},story,pages);
+  const currentEntries = state => state.audit?.verification?.source === currentSource
+    ? ledgerVerificationRows(state).filter(row => state.audit.verification.entries?.[row.id]?.print === row.print) : [];
+  const read = state => (Number(state.audit?.coverage?.read) || 0) + currentEntries(state).length;
   const old = previous?.source === source ? previous : {
     source, bestPending: count(before), bestRead: read(before), stalled: 0,
   };
-  const improved = count(after) < old.bestPending || read(after) > old.bestRead;
+  const beforeEntries = new Map(currentEntries(before).map(row => [row.id,row.print]));
+  const newlyVerified = currentEntries(after).some(row => beforeEntries.get(row.id) !== row.print);
+  const improved = count(after) < old.bestPending || read(after) > old.bestRead || newlyVerified;
   return { source, bestPending: Math.min(old.bestPending, count(after)),
     bestRead: Math.max(old.bestRead, read(after)), stalled: improved ? 0 : old.stalled + 1 };
 }

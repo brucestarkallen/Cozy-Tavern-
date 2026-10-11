@@ -1466,6 +1466,7 @@ const HANDLERS = {
     const field = typeof m.field === 'string' ? m.field.trim().toLowerCase() : '';
     const result = setPersonField(state, state.characters, m.name, field, m.text, storyTurn(state), { clear: m.open === true ? 'open' : m.clear === true });
     if (!result.entry) return { why: result.why, same: result.same === true };
+    if (m.source === 'auditor' && result.before && JSON.stringify(result.before[field]) === JSON.stringify(result.entry[field])) return { why: 'the saved field already contains this correction', same: true };
     if (m.open === true) { state.characters[result.key] = result.entry; return { words: result.key + ' — a page opened for them, nothing written on it yet.', undo: { kind: 'people.restore', name: result.key, before: null } }; } /* M508 */
     const before = result.before ? cloneMap({ [result.key]: result.before })[result.key] : null;
     if (result.entry.retired) { const { retired, retiredAtTurn, ...rest } = result.entry; result.entry = rest; } /* M57: a page written wakes them */

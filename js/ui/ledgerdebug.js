@@ -51,6 +51,7 @@ export async function ledgerDebugReport(storyId) {
   add('Unresolved repair operations',(state.audit?.unresolved || []).map(i => ({
     id:i.id,what:String(i.what || '').slice(0,160),pendingReason:String(i.pendingReason || '').slice(0,200),
     mutations:(i.mutations || []).map(m => ({type:m.type,name:m.name,from:m.from,to:m.to,field:m.field,
+      evidenceId:m.evidenceId,evidenceError:m.evidenceError,quoteCharacters:String(m.shown || m.evidence || '').length,
       shown:String(m.shown || m.evidence || '').slice(0,180)})),
   })),3000);
   add('Pending historical complaints',state.audit?.pending || [],1400);
