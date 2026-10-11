@@ -1,3 +1,24 @@
+# Ledger system audit after M713
+
+The owner requested an audit of sandbox behavior, storyteller injection,
+token efficiency, long play, duplication and restructuring on 11 October 2026.
+Read docs/LEDGER_SYSTEM_AUDIT_M713.md before implementing the next milestone.
+This review changed documentation only. Its newly identified findings are NOT
+fixed by M713 and must not be reported as completed repairs.
+
+One local request inspection, no provider calls or gameplay, confirmed:
+an absent queen named in the newest move was recalled without her stored hair;
+an older open promise of a present person was omitted; a keeper window with
+long pages produced about245141 input tokens for a200000 token room; the
+keeper off case reached201124 including a16000 token answer allowance.
+Direct review also found the historical source review's24000 character batch
+ceiling can block a single readable original document, and idle verification
+can bypass the page chain's audit frequency. Prioritize relevant appearance,
+final whole request fit and source document fit, then relevance, duplicate
+views and scheduling. Preserve source receipts, manual ownership, prose,
+valid standings, journal/undo and existing worker dependencies. Default no
+tests remains. No broad suite, live model audit or application change ran.
+
 # M713: repair the ledger workers before the final auditor
 
 Version m713-001. The owner requested a whole audit of the upstream ledger

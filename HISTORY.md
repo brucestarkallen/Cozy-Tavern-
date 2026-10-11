@@ -19783,3 +19783,22 @@ rewrite unseen IndexedDB data. Audit remains the final factual check, not a
 substitute for deliberate gaps in the workers. No forced rescan, green reset,
 new approval certificate, source checkpoint reset, or repeated audit added.
 
+
+
+## 11 October 2026: ledger system architecture audit after M713
+
+The owner requested a full code audit of live sandbox behavior, storyteller
+injection, tokens, very long play, duplicate work and restructuring. Findings
+and prioritized recommendations are in docs/LEDGER_SYSTEM_AUDIT_M713.md.
+Documentation only, no application version bump and no story data changes.
+One local real buildRequest inspection with invented records and no provider
+calls confirmed recalled identity without stored appearance, omission of an
+older open promise,245141 estimated input tokens against a200000 token room
+with the keeper on, and201124 input plus answer allowance with it off.
+Direct review identified the24000 character historical source batch ceiling,
+repeated worker views, conditional helpers before the storyteller, per job
+rather than total pendingWork timeouts, idle audit frequency bypass and the
+distinction between a verified ledger and its next selected storyteller view.
+No broad tests, gameplay, paid calls or live browser audit. New findings are
+not claimed fixed. Preserve M713 source checkpoints and worker improvements;
+repair injection, whole request accounting and original document fit first.
