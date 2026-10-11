@@ -18592,3 +18592,43 @@ verified public repository. A fresh GitHub fetch verified that exact main commit
 and version m687-001. The publication record is documentation only; the frozen
 execution checkpoint 13289103d18b83793869c6db9541b23301816420 and its all-green
 33-check release fingerprint remain unchanged. No live phone ledger was accessed.
+
+
+## M688: the reported source evidence survives automatic repair
+
+On 2026-10-11 the owner confirmed the app ran M687 and supplied the same turn 33
+refusals. M687's accepted test forms did not cover the actual ankle/pronoun quote,
+earlier arrival after a later pose, incidental Garett mention, maid continuation,
+omitted operation quote and explicit MC persona identity. The previous claim that
+M687 fixed the whole reported loop was too broad. M688 recognizes that evidence,
+retains the quote through rehearsal and commit, follows actual merge satisfaction,
+and clears only the false separate persona seat established by the writer.
+Later departures, deaths, scene moves, MC headers, hand fields and ambiguity
+protections remain. The Housekeeper does not use the auditor's extra scope filter.
+
+Twenty-three new public audit laws run against the unchanged published M687 product:
+15 fail and eight preservation controls pass. The final candidate passes 153 new
+and nearby laws. The real app case fails on M687 and passes on M688 with 36 saved
+proposals and two legacy concerns, the reported source forms, a full header, actual
+ledger corrections, unchanged story page and message count, green, no more idle
+calls and completion after reopen. Explicit persona repair keeps Azrael's name.
+The first release stopped after M594 found an omitted old prompt contract; that
+exact contract was restored without changing its assertion. No old release
+success was reused after the executable change. Development fixture and runtime
+setup failures are distinguished from causal product failures in the result file.
+
+Final execution checkpoint ef8210f19eefadc6f923afc0dcfd7bdba253e71c, version m688-001.
+Final fast: all six jobs, 31.17 seconds, 136 selected harness laws and 15 app checks.
+Final M688b release: all 33 jobs, 1730.08 seconds; full harness 1540/1540, full app
+walkthrough 306/306, long play 9/9 and zero lint errors. Frozen source and runtime
+fingerprints matched throughout; ALLDONE was written. The namespace-local launcher
+wrapper was retained; no product test, assertion or budget was weakened.
+
+All previous milestone commits remain ancestors. The M687 instruction archives,
+append-only history and Canon Verification v0.68.3 / 5aed234 remain intact. Reader
+context limits remain documented in docs/WORKER-CONTEXT-M687.md; no universal
+optimal-context claim is made. Tests use disposable stories and scripted providers,
+with no paid model calls or live phone/story access. This qualifies the code and
+reproduction, not completion already verified on the owner's live device. Results
+and earlier failures are in audit/results/m688.json and the evidence contract note.
+Publication remains pending the final repository checks.
