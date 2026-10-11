@@ -35,6 +35,7 @@ export function auditSources({ brief = '', castNotes = '', messages = [] } = {})
     const m = messages[i];
     if (!m || m.hidden || asideAt(messages, i)) continue;
     add('page:' + m.id, 'Page ' + (i + 1) + (m.role === 'user' ? ', writer' : ', story'), pageText(m));
+    for (const [v, voice] of (m.voices || []).entries()) if (voice?.content) add('voice:' + m.id + ':' + v, 'World voice after page ' + (i + 1), voice.speaker + (voice.channel ? ', ' + voice.channel : '') + ': ' + voice.content);
   }
   return documents;
 }

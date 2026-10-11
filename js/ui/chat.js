@@ -1,4 +1,4 @@
-import { ledgerRepairStateKey, ledgerRepairInputKey, repairRetryCheckpoint, auditHasOpenWork } from '../agents/auditprogress.js';
+import { ledgerRepairStateKey, ledgerRepairInputKey, repairRetryCheckpoint, auditHasOpenWork, ledgerAuditVerified } from '../agents/auditprogress.js';
 /* Cozy Tavern — ui/chat.js
  * Story list, message thread, composer. Streaming renders token by token.
  * One generation call per user turn — the send path is sacred (see SPEC.md
@@ -2861,6 +2861,7 @@ export function initChat(ctx) {
       let told = 0;
       let newestPageAt = 0;
       let repairOwed = false;
+      let verificationNeeded = false;
       let auditRead = null; /* M673: how far the continuous audit has read, when it is on */
       try {
         const pages = visiblePages(await db.messages.list(storyId));
@@ -2884,6 +2885,7 @@ export function initChat(ctx) {
          * its window), and because a tale that is "behind" is left to its fillers first, the continuous audit never read
          * on while the house was idle there (found by the walk: DOM-257, after a scenario that left a short window). */
         const tale = await db.stories.get(storyId);
+        verificationNeeded = told > 0 && !ledgerAuditVerified(st, tale, pages);
         repairOwed = told > 0 && !assistants[assistants.length - 1]?.stopped && Boolean(pageText(assistants[assistants.length - 1]).trim()) && tale?.extraction !== false && await auditOn(tale) && ledgerRepairNeeded(st, shelf, tale, pages);
         recordBehind = Boolean(dueRange(pages.length, window, mem.nodes, batch));
         if (recordBehind && !(await keeperOnFor(tale))) { recordBehind = false; unfoldedForGood = true; }
@@ -2915,7 +2917,7 @@ export function initChat(ctx) {
        * So the light answers the question he actually asked: is it done? */
       const busy = runningWorkers(storyId).length > 0 || queuedCount(storyId) > 0;
       const allWell = !busy && !trouble && !partly && !behind && ran > 0 && told > 0;
-      const allWellNow = allWell && !guards.length && !repairOwed && !repairPaused && !openAudit; /* M668: …and neither of the two that check the others failed on the newest page */
+      const allWellNow = allWell && !guards.length && !repairOwed && !repairPaused && !openAudit && !verificationNeeded; /* M668: …and neither of the two that check the others failed on the newest page */
 
       /* M483: THE LIGHT IS NEVER SIMPLY GONE. Behind with nothing running — the readers held off for another hand at
        * this tale, or waiting out a failed try — showed no light at all, and the writer refreshed the page to find out.
@@ -2936,7 +2938,7 @@ export function initChat(ctx) {
       const sceneBusy = busy && !auditing;
       const auditSore = Boolean(auditRead && auditRead.left > 0 && shelf.continuous && shelf.continuous.ok === false && shelf.continuous.detail !== 'stopped by hand');
       const watched = guards.length > 0 || auditSore;
-      const sceneWell = auditing && !trouble && !partly && !watched && !behind && !repairOwed && !repairPaused && !openAudit && ran > 0 && told > 0;
+      const sceneWell = auditing && !trouble && !partly && !watched && !behind && !repairOwed && !repairPaused && !openAudit && !verificationNeeded && ran > 0 && told > 0;
       const sceneWaiting = auditing && !trouble && !partly && !watched && behind && told > 0;
       const wellNow = (allWellNow && !auditSore) || sceneWell;
       const waitingNow = (waiting && !auditSore) || sceneWaiting;
@@ -2946,7 +2948,7 @@ export function initChat(ctx) {
         : auditRead.left > 0 ? ' The continuous audit has read ' + auditRead.done + ' of ' + auditRead.folded + ' folded pages' + (auditing ? ' and is reading on — it steps aside when you write.' : '; it reads on when the house is idle.')
           : auditRead.folded > 0 ? ' The continuous audit has read every folded page (' + auditRead.folded + ').' : '';
       btn.classList.toggle('is-working', sceneBusy);
-      btn.classList.toggle('has-trouble', !sceneBusy && (trouble || partly || watched || repairPaused || repairOwed || openAudit));
+      btn.classList.toggle('has-trouble', !sceneBusy && (trouble || partly || watched || repairPaused || repairOwed || openAudit || verificationNeeded));
       btn.classList.toggle('all-well', wellNow);
       btn.classList.toggle('is-waiting', waitingNow);
       btn.classList.toggle('is-auditing', auditing);
@@ -2957,13 +2959,14 @@ export function initChat(ctx) {
         : trouble
         ? 'The ledger — ' + sore.join(', ') + ' stumbled; the pages are safe and will be folded when it comes back'
         : repairPaused ? savedAudit.pauseReason
+        : verificationNeeded && !openAudit && !repairOwed ? 'The ledger is waiting for audit verification of its current contents.'
         : (repairOwed || openAudit) ? 'The ledger has unresolved findings.' + (repairOwed ? ' Another repair pass is waiting.' : ' Open audit findings for details.')
         : partly ? 'The ledger — ' + part.join(', ') + ' stopped partway; it will carry on by itself'
-          : wellNow ? (unfoldedForGood ? 'The ledger — everything is read. The record keeper is switched off for this story, so its older pages are not folded. Nothing is waiting. Write on.' : 'The ledger — everything is read and folded. Nothing is waiting. Write on.')
+          : wellNow ? (unfoldedForGood ? 'The current ledger is audited with no unresolved findings. The record keeper is switched off, so older pages are not folded. Write on.' : 'The current ledger is read, folded and audited with no unresolved findings. Write on.')
             : waitingNow ? 'The ledger — waiting: ' + (waitingWhy || (ledgerBehind ? 'the last pages are not read into the ledger yet — the readers go at them when the house is idle' : 'a gap in the record is waiting for the keeper — it folds when the house is idle'))
               : repairPaused ? savedAudit.pauseReason : repairOwed ? 'The ledger is repairing itself. It carries on automatically.' : 'The ledger — the house’s memory of the scene and the world');
       btn.setAttribute('title', auditWords ? lampWords.replace(/[.\s]*$/, '.') + auditWords : lampWords);
-      ledgerMark = sceneBusy ? 'working' : (trouble || watched || repairPaused || repairOwed || openAudit) ? 'trouble' : partly ? 'partly' : wellNow ? 'well' : waitingNow ? 'waiting' : null;
+      ledgerMark = sceneBusy ? 'working' : (trouble || watched || repairPaused || repairOwed || openAudit || verificationNeeded) ? 'trouble' : partly ? 'partly' : wellNow ? 'well' : waitingNow ? 'waiting' : null;
       /* M275: THE HOUSE FILLS WHAT THE LIGHT SEES. A gap in the record (a line
        * let go by a mend, an edit or a delete of an old page) kept the light
        * dark until the writer's next page — detection without repair. Seen
@@ -3269,7 +3272,7 @@ export function initChat(ctx) {
     if (story && pages && state?.audit?.pausedInput === ledgerRepairInputKey(state, story, pages)) return false;
     if ([shelf.auditor, shelf.world].some((r) => r?.detail === 'stopped by hand')) return false;
     const audit = state?.audit;
-    return !audit?.coverage || audit.coverage.read < audit.coverage.total
+    return (story && pages && !ledgerAuditVerified(state, story, pages)) || !audit?.coverage || audit.coverage.read < audit.coverage.total
       || Boolean(audit.unfinished || audit.pending?.length || shelf.auditor?.ok === false || shelf.auditor?.unfinished);
   }
   function scheduleLedgerRepair(storyId, delay = repairPause()) {
@@ -3310,7 +3313,7 @@ export function initChat(ctx) {
         const run = await promise;
         if (run.stopped) return;
         const after = await loadState(storyId);
-        again = ledgerRepairNeeded(after, await loadWorkerStatus(storyId));
+        again = ledgerRepairNeeded(after, await loadWorkerStatus(storyId), story, repairPages);
         if (again) {
           const progress = ledgerRepairStateKey(after) !== ledgerRepairStateKey(before)
             || (after.audit?.coverage?.read || 0) > (before.audit?.coverage?.read || 0)

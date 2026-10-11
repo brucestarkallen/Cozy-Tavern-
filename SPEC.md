@@ -1,3 +1,12 @@
+# M694: completed audit is required for green
+
+Green requires completed source coverage, zero unresolved audit findings and an
+audit receipt bound to the current ledger and source snapshot. Idle or paused is
+not verification. Earlier continuing-scene evidence and saved World voice records
+are valid sources; interpretation follows completed chronology. Reconcile inherited
+claims by stable finding id and prune actual satisfied operations. See HANDOFF.md.
+Owner minimal testing policy remains authoritative.
+
 # M693: identity separation and auditor repair verification
 
 Keep owners distinct from their dependent descriptors in automatic name resolution.

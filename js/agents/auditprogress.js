@@ -8,7 +8,7 @@ export function ledgerRepairStateKey(state) {
 }
 export function ledgerRepairInputKey(state, story, pages) {
   return fingerprint36(JSON.stringify([VERSION, story?.brief, story?.castNotes, story?.connections,
-    (pages || []).map(p => [p.id, p.role, p.ooc, pageText(p)]), ledgerRepairStateKey(state)]));
+    (pages || []).map(p => [p.id, p.role, p.ooc, pageText(p), p.voices || []]), ledgerRepairStateKey(state)]));
 }
 
 // Actual outstanding work must decrease. Rephrasing ledger text is not closure.
@@ -26,4 +26,11 @@ export function repairRetryCheckpoint(before, after, story, pages) {
 }
 export function auditHasOpenWork(audit) {
   return Boolean(audit?.unfinished || audit?.pending?.length || audit?.unresolved?.length);
+}
+
+export function ledgerAuditVerified(state, story, pages) {
+  const audit = state?.audit;
+  return Boolean(audit?.verifiedInput && !auditHasOpenWork(audit) && audit.coverage
+    && audit.coverage.read >= audit.coverage.total
+    && audit.verifiedInput === ledgerRepairInputKey(state, story, pages));
 }

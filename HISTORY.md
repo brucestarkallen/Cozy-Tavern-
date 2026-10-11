@@ -18752,3 +18752,43 @@ and explicit persona evidence. No bulk suites, browser run or paid model calls.
 Fixture verification does not prove the owner's saved browser data was repaired
 or that a model will interpret every future page correctly. Do not claim that.
 
+
+
+# M694: evidence access, inherited finding closure and real green status
+
+Version m694-001. Owner M693 report confirms identity recovery landed, but real
+repair attempts are blocked and inherited allegations keep accumulating.
+M692 introduced an incorrect newest-page-only quote restriction: earlier arrival
+or posture evidence remains valid for a quiet spectator unless superseded. Remove
+that restriction; the model follows completed chronology in its verification pass.
+Auditor quote matching tolerates markdown and typography changes while returning
+a literal source span and preserving words, numbers and negation. No invented quote.
+World voices saved on messages now join audit source documents and prompt context;
+they are labelled as offscreen reports, not automatically local presence. Original
+source receipts and stale-source checks include them.
+
+Inherited findings have stable ids, provided in initial and followup prompts.
+Evidence-backed withdrawals may use ids instead of reproducing long complaint
+wording. Already-satisfied inherited operations are pruned from readingState and
+are no longer reintroduced from the original saved state afterward.
+
+Green now additionally requires verifiedInput matching current substantive ledger,
+visible source pages (including voices), brief/cast, connections and app version,
+with complete source coverage and no open audit work. Auditor stamps successful
+completion; any source/ledger change invalidates it and schedules verification.
+Blue means workers active. Amber means unfinished, failed or unverified; a paused
+repair is failure to complete, never successful resolution. Manual stop/off remains
+respected and cannot produce audited green merely because nothing is running.
+
+Compact report still capped at 24000 bytes. Now includes clear verification/pause
+status, actual unresolved operations before legacy prose, a small latest auditor
+reply, current scene, relevant People and Elsewhere records, and identity recovery
+status. Excludes huge undo snapshots; shows story beginning and ending separately.
+
+One focused production fixture passed after useful fixture/implementation iterations:
+continuing spectator evidence from an earlier page, markdown source matching without
+accepting a negated false quote, World voice document/context, id-based closure,
+missing identity repair, current verification, invalidation on open work/ledger/new
+page, bounded report and unchanged prose. Chat syntax checked. No bulk/browser/paid
+model tests. This proves the tested code path, not completion in the owner's phone.
+
