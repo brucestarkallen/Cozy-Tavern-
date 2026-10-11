@@ -265,3 +265,15 @@ test('M687-16 compacting repeated reports retains distinct posture and attire re
     eq((await loadState(id)).audit.unresolved.length, 2, 'both genuinely separate fields stay visible');
   });
 });
+
+test('M687-17 the reported Lord Marshal title establishes the unique owner of the marshal role', async () => {
+  const quote = "Of course. Tomorrow I'll duel Lord Marshal Kelstrum. You can bring Princess Alexia too, Your Majesty.";
+  const id = await tale('m687-reported-marshal-title', { input: quote, page: 'Kelstrum watched Jugram on the raked ground. The marshal lifted his practice sword.', mutations: [
+    { type: 'people.set', name: 'the marshal', field: 'core', text: 'Marshal of Ilvarren.' },
+  ] });
+  await wire(() => ({ issues: [issue('The marshal is the established Kelstrum.', { type: 'people.rename', from: 'the marshal', to: 'Kelstrum' })] }), async () => {
+    const result = await auditLedger({ connection, storyId: id });
+    assert(!(await loadState(id)).characters['the marshal'], 'the actual quoted title supports the identity repair');
+    assert(!result.unfinished, 'the role merge finishes');
+  });
+});

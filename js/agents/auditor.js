@@ -717,7 +717,7 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
       }
       const identityQuote = quotedSource(identitySource, m.shown);
       const role = roleWordOf(m.from);
-      const owners = role ? roleOwnersNamed({ characters: fresh.characters, knowledge: { evidence: [{ fact: identitySource }] } }, role) : [];
+      const owners = role ? roleOwnersNamed({ characters: fresh.characters, knowledge: { evidence: [{ fact: identitySource }] } }, role, null, { titles: true }) : [];
       const roleIdentity = owners.length === 1 && samePersonName(owners[0], m.to);
       const sameIdentity = samePersonName(m.from || '', m.to || '') || roleIdentity || (identityQuote && exactNameIn(identityQuote, m.from) && exactNameIn(identityQuote, m.to));
       if (!exactNameIn(identitySource, m.to) || !sameIdentity || isMc(fresh, m.from)) {

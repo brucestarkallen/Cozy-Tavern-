@@ -544,12 +544,12 @@ function ledgerWords(state) {
   if (state && typeof state === 'object') BODY_OF.set(state, body);
   return body;
 }
-export function roleOwnersNamed(state, role, namedPages = null) {
+export function roleOwnersNamed(state, role, namedPages = null, { titles = false } = {}) {
   const esc = String(role || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   if (!esc || !state || typeof state !== 'object') return [];
   let byRole = OWNERS_OF.get(state);
   if (!byRole) { byRole = new Map(); OWNERS_OF.set(state, byRole); }
-  const key = role + '|' + (Array.isArray(namedPages) ? namedPages.join('|') : '*');
+  const key = role + '|' + (Array.isArray(namedPages) ? namedPages.join('|') : '*') + (titles ? '|titles' : '');
   if (byRole.has(key)) return byRole.get(key).slice();
   const pages = state.characters && typeof state.characters === 'object' ? state.characters : {};
   const named = Array.isArray(namedPages) ? namedPages : Object.keys(pages).filter((k) => !roleOf(k) && !relationOf(k));
@@ -562,8 +562,11 @@ export function roleOwnersNamed(state, role, namedPages = null) {
   const article = '(?:[Tt]he|[Aa]n?)';
   const after = new RegExp('(?<![\\p{L}\\p{N}])' + article + '\\s+' + anyCase(esc) + '\\s+' + NAME + '(?![\\p{L}\\p{N}])', 'gu');
   const before = new RegExp('(?<![\\p{L}\\p{N}])' + NAME + ',?\\s+' + article + '\\s+' + anyCase(esc) + '(?![\\p{L}\\p{N}])', 'gu');
+  /* M687: source-backed audit identity repairs also recognise "Marshal Kelstrum",
+   * including "Lord Marshal Kelstrum". Other descriptor resolution stays unchanged. */
+  const title = titles ? new RegExp('(?<![\\p{L}\\p{N}])' + esc.replace(/\p{L}/u, (ch) => ch.toUpperCase()) + '\\s+' + NAME + '(?![\\p{L}\\p{N}])', 'gu') : null;
   const seen = new Set();
-  for (const re of [after, before]) { let m; while ((m = re.exec(body))) { const cand = m[1].trim(); if (cand) seen.add(cand); if (seen.size > 200) break; } }
+  for (const re of [after, before, title].filter(Boolean)) { let m; while ((m = re.exec(body))) { const cand = m[1].trim(); if (cand) seen.add(cand); if (seen.size > 200) break; } }
   const owners = [];
   for (const k of named) {
     const kn = nfc(k); const first = kn.split(/\s+/)[0];
