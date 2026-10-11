@@ -95,7 +95,10 @@ reused after this executable change. The final M688b release passed all 33 jobs 
 1730.08 seconds, with an unchanged
 source/runtime fingerprint and ALLDONE. Full harness: 1540/1540; app walkthrough:
 306/306; long play: 9/9; lint: zero errors. Results are preserved in
-`audit/results/m688.json`. Publication verification is pending.
+`audit/results/m688.json`. Automatic approval review blocked publication of the
+qualified candidate `1b035549fe1801719b30c8d8dd05a2b2c3ebfb3b`: it found the earlier
+repair approval insufficient to authorize this new public M688 payload. No bypass
+was attempted; fresh explicit publication approval is required.
 
 All tests use scripted providers and disposable stories. No paid model calls or
 access to the owner's phone or live story are involved. Completion on the owner's

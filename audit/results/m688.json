@@ -1,6 +1,6 @@
 {
   "version": "m688-001",
-  "status": "qualified_publication_pending",
+  "status": "qualified_publication_blocked_auto_review",
   "execution_checkpoint": "ef8210f19eefadc6f923afc0dcfd7bdba253e71c",
   "baseline_commit": "4227db3eed128ee115d4efae9f6a551b2376b582",
   "new_public_laws": {
@@ -2153,12 +2153,22 @@
     "4227db3"
   ],
   "publication": {
-    "status": "not_yet_published",
+    "status": "blocked_auto_review_before_push",
     "destination": "https://github.com/brucestarkallen/Cozy-Tavern-",
     "previous_main": "4227db3eed128ee115d4efae9f6a551b2376b582",
     "forced": false,
     "authorization": "continuation of the owner approved repair and publication task",
-    "qualification": "all 33 release jobs passed, unchanged source/runtime, ALLDONE"
+    "qualification": "all 33 release jobs passed, unchanged source/runtime, ALLDONE",
+    "reviewed_candidate": "1b035549fe1801719b30c8d8dd05a2b2c3ebfb3b",
+    "rejected_action": "push HEAD to refs/heads/m688-auditor-evidence-contract at the supplied GitHub repository",
+    "reason": "Automatic approval review treated the public GitHub destination as unverified and found the earlier general repair approval insufficient to authorize publication of this new M688 payload.",
+    "no_bypass": true,
+    "requested_next_step": "fresh explicit approval to publish the qualified M688 code to the supplied public repository",
+    "verified_remote_after_rejection": {
+      "main": "4227db3eed128ee115d4efae9f6a551b2376b582",
+      "new_repair_branch_exists": false,
+      "verification": "fresh git ls-remote, tokenless read; main remains the M687 baseline"
+    }
   },
   "limits": [
     "M687 did not cover the reported evidence forms; the current cases fail on its unchanged published product.",

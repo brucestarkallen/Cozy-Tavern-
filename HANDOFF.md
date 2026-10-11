@@ -7,7 +7,13 @@ Branch: m688-auditor-evidence-contract. Published baseline: M687 4227db3.
 The owner confirmed the M687 app still rejected the actual turn 33 evidence.
 The frozen M688b release passed all 33 jobs in 1730.08 seconds, with an unchanged
 source/runtime fingerprint and ALLDONE.
-Publication is pending, within the continuing approved repair task.
+The qualified review candidate is 1b035549fe1801719b30c8d8dd05a2b2c3ebfb3b.
+Automatic approval review blocked its first push before execution: it found the
+earlier repair approval insufficient for publishing this new M688 payload to the
+public GitHub destination. No bypass or alternative push was attempted. Fresh
+explicit publication approval is required; the source qualification is complete.
+A fresh tokenless remote read after the block verified main still at 4227db3 and
+no new M688 repair branch. No remote code was changed.
 Destination: https://github.com/brucestarkallen/Cozy-Tavern-.
 
 ## Corrected behavior

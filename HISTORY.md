@@ -18632,3 +18632,16 @@ with no paid model calls or live phone/story access. This qualifies the code and
 reproduction, not completion already verified on the owner's live device. Results
 and earlier failures are in audit/results/m688.json and the evidence contract note.
 Publication remains pending the final repository checks.
+
+
+M688 publication was attempted only after the qualified code and measured result
+were committed as review candidate 1b035549fe1801719b30c8d8dd05a2b2c3ebfb3b.
+Automatic approval review rejected the branch push before execution, stating the
+public GitHub destination was unverified and the prior repair approval did not
+clearly authorize disclosure of this new M688 payload. No bypass or alternative
+push was attempted. Publication now awaits fresh explicit approval; the source
+checkpoint and all-green release qualification remain unchanged.
+A fresh tokenless remote read after the rejection verified main remains at
+4227db3eed128ee115d4efae9f6a551b2376b582 and no M688 repair branch exists.
+The qualified source/runtime match remains verified; only publication notes
+changed after the gate.
