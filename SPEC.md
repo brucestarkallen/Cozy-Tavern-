@@ -1,3 +1,14 @@
+# M695: repair recovery must not manufacture another story turn
+
+An audit recovery reviews only owed World decisions at the same story hour.
+Preserve saved voices, completed unrelated lives, threads and the existing World
+brief. Never replace the source page as a side effect of its own repair.
+Retry history is bound to story/brief changes, not regenerated worker voices;
+green verification remains bound to all actual source and ledger content.
+Present historical allegations alongside actual target records and reconcile each
+finding id. Unknown attire placeholders must not block closure or erase known clothes.
+Owner minimal testing policy remains authoritative. See HANDOFF.md for measured limits.
+
 # M694: completed audit is required for green
 
 Green requires completed source coverage, zero unresolved audit findings and an

@@ -1,3 +1,38 @@
+# M695: stop World recovery from creating new audit evidence
+
+Version m695-001. The owner's actual M694 report still shows an audit loop:
+World recovery runs after repeated audits on the same page, writes unrelated
+threads/seats and regenerates the saved voices. Those changed voices invalidate
+source receipts and reset retryProgress.source. The report's coverage grew to
+171 sections with 18 findings; completed attendant/guard repairs still coexist
+with historical allegations. The saved MC position also contradicts the later
+wall contact in the prose. This is not a successful audit.
+
+finishLedgerAudit now passes only the owed people to worldTurn recovery mode.
+Recovery accepts only their whereabouts/review and missing core decisions;
+it preserves unrelated lives, threads, World brief and the saved message voices.
+Ordinary new-page World simulation remains unchanged. Recovery never reinks the
+page. Retry progress follows writer/story text, not regenerated worker voices;
+verification still checks the actual saved voices and substantive ledger.
+
+Historical audit checklist now supplies current presence/elsewhere/person records
+alongside each proposed target and requires per-id reconciliation. Does not repeat
+the same old allegation again as a separate pending paragraph. Inline resolved:true
+now retains its finding id. Unknown placeholder attire is neither a repair target
+nor allowed to erase known clothing, preventing a corrected position being held
+open by a meaningless old dash. Final scene instructions prioritize completed
+movement over the opening header and distinguish stable identity from copied action
+quotes. No phone-specific story facts are hardcoded or forcibly overwritten.
+
+Focused local fixture checks actual worldTurn recovery with a deliberately overbroad
+mock reply: owed person reviewed once, unrelated seat/threads/core/brief untouched,
+saved voices/prose unchanged. It also checks stable retry history across worker voice
+changes, actual-record checklist, old placeholder-attire closure, supported final wall
+position, earned-score preservation and completed verification. This uses mock replies,
+not the owner's provider or saved story. Chat syntax checked. No bulk tests.
+Published code cannot certify the owner's live story green until its own current
+source-bound audit completes with zero pending work.
+
 # M694: evidence access, inherited finding closure and real green status
 
 Version m694-001. Owner M693 report confirms identity recovery landed, but real

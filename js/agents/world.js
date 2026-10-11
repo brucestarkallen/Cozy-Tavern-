@@ -583,7 +583,17 @@ export function worldOwed(state, { material = '', castNames = [] } = {}) {
   return [...new Set([...seated, ...peopleForWorld(state, { material, castNames }).unseated])];
 }
 
-export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0, record = '', renew, story = null, pageNumber = 0, canonRecord = '', pageAt = null } = {}) {
+// An audit recovery reviews missing decisions, not another turn of the world.
+export function worldRecoveryMutations(mutations, state, targets) {
+  const key = name => findPersonKey(state.characters || {}, name) || name;
+  const owed = new Set(targets.map(key));
+  return mutations.filter(m => owed.has(key(m.name)) && (
+    /^offscreen\.(set|confirm|clear)$/.test(m.type)
+    || (m.type === 'people.set' && m.field === 'core' && !String(state.characters?.[key(m.name)]?.core || '').trim())
+  ));
+}
+
+export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0, record = '', renew, story = null, pageNumber = 0, canonRecord = '', pageAt = null, recoveryTargets = null } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
   if (!assistantText || !String(assistantText).trim()) return null;
@@ -607,6 +617,9 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   let best = null;
   const worldCoverage = { material: brief + '\n' + castNotes, castNames };
   const owed = worldOwed(state, worldCoverage);
+  const recovery = Array.isArray(recoveryTargets);
+  const recoveryInstruction = recovery ? '\n\nAUDIT RECOVERY AT THE SAME STORY MOMENT. Review ONLY these missing decisions: ' + recoveryTargets.join(', ') + '. Return offscreen.set or offscreen.confirm for each, with a cause. If their identity is empty, also provide people.set core describing who they are. Preserve everyone else and all completed judgments. Do not create people, threads, voices, windows or a new world brief. No time has elapsed. Return {"mutations":[...],"brief":null}.' : '';
+  user += recoveryInstruction;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     /* M259: every call gets its own minute (M213), and it may look */
     let answer;
@@ -626,6 +639,12 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
     const { text, finishReason } = answer;
     raw = text;
     read = parseWorldAnswer(text);
+    if (recovery) {
+      const scoped = worldRecoveryMutations(read.mutations, state, recoveryTargets);
+      read.dropped += read.mutations.length - scoped.length;
+      read.mutations = scoped;
+      read.brief = null;
+    }
     if (finishReason === 'length') read.note = 'cut short';
     if (read.note !== 'unusable' && read.note !== 'cut short') {
       if (best) read = { ...read, mutations: [...best.mutations, ...read.mutations], brief: read.brief || best.brief };
@@ -633,10 +652,10 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
       const proposed = applyMutations(state, read.mutations.map((m) => ({ ...m, source: 'world' }))).state;
       const pending = worldOwed(proposed, worldCoverage).filter((n) => owed.includes(n));
       if (!pending.length || attempt > 0) break;
-      user = prompt.user + '\n\nYour answer did not review these overdue people: ' + pending.join(', ') + '. Return only their missing decisions and any resulting world brief. Use offscreen.set with current whereabouts or offscreen.confirm with the reason a stay still holds. Do not repeat your other changes. JSON only.';
+      user = prompt.user + recoveryInstruction + '\n\nYour answer did not review these overdue people: ' + pending.join(', ') + '. Return only their missing decisions. Use offscreen.set with current whereabouts or offscreen.confirm with the reason a stay still holds. Do not repeat your other changes. JSON only.';
       continue;
     }
-    user = prompt.user + '\n\nYour last answer was not a JSON object with "mutations" and "brief". Answer with the JSON object only — no words before or after it, and keep it short.';
+    user = prompt.user + recoveryInstruction + '\n\nYour last answer was not a JSON object with "mutations" and "brief". Answer with the JSON object only — no words before or after it, and keep it short.';
   }
   if (best && (read.note === 'unusable' || read.note === 'cut short')) read = best;
   if (read.note === 'unusable' || read.note === 'cut short') return { applied: [], rejected: [], dropped: 0, brief: null, note: read.note, raw };

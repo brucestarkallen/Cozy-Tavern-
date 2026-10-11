@@ -3675,11 +3675,9 @@ export function initChat(ctx) {
             effort: await worldEffort(), signal, stale, renew, story: currentStory, pageNumber: at + 1,
             pageAt: ordered.filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id),
             canonRecord: await canonRecordOf(currentStory),
+            recoveryTargets: owed,
           });
-          if (worldResult?.note === 'ok' && !stale() && !signal?.aborted && await stillThere(story.id, msg.id)) {
-            const voices = voicesBeyondTheRoom(worldResult.brief?.voices || [], await loadState(story.id));
-            await reink(story.id, msg.id, { voices });
-          }
+          // Recovery must not replace the saved voices it is auditing.
         } catch (err) { if (stale() || signal?.aborted) return result; }
       }
     }

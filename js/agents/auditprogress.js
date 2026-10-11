@@ -13,7 +13,8 @@ export function ledgerRepairInputKey(state, story, pages) {
 
 // Actual outstanding work must decrease. Rephrasing ledger text is not closure.
 export function repairRetryCheckpoint(before, after, story, pages) {
-  const source = ledgerRepairInputKey({}, story, pages);
+  // Worker-created voices are checked evidence, but cannot reset retry progress.
+  const source = ledgerRepairInputKey({}, story, (pages || []).map(p => ({ ...p, voices: [] })));
   const previous = before.audit?.retryProgress;
   const count = state => (state.audit?.pending || []).length;
   const read = state => Number(state.audit?.coverage?.read) || 0;
