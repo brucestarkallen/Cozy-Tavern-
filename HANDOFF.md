@@ -1,3 +1,41 @@
+# M724: Resolve disproved historical findings
+
+Version m724-001. Base main e178e4b0207c02a2a995629645a6bdbd5fb2a6e4.
+
+Continuous Audit now separates the allegation's factual disposition (confirmed,
+disproved, unknown) from its operation (repair, correct, blocked). A supported
+record needs no edit: correct withdraws the mistaken finding. Inconsistent or
+missing blocked dispositions get at most one clarification in the same recovery
+conversation, reusing its evidence. Persistent contradictions remain blocked.
+No free-text keyword verdicts or extra reviewer were introduced.
+
+A durable disposition-policy checkpoint gives legacy M723 blocked findings one
+scoped reconsideration. Existing transport retry limits remain. Success still
+requires original quotation provenance, model interpretation of the exact claim,
+unchanged sources/ownership and a verified saved result. Only the matching
+finding clears. Receipts retain the conclusion, no-edit status, source span and
+source fingerprints, survive promotion, and reopen only affected dismissals
+when their supporting originals or cited writer sources change. The lamp uses
+actual findings, including invalidated receipts; no forced green behavior.
+
+Focused check: node tests/harness/m722-focused.mjs. The new contradictory verdict
+fixture first failed on M723 (open remained 1); the extended harness now passes.
+Includes consistent one-call dismissal, legacy reconsideration, bounded ambiguity,
+invalid evidence, two independent findings, persistence, source invalidation,
+worker completion, actual repair/Essentials preservation and stale writes.
+node --check passed for continuous.js, memory.js and chat.js; git diff --check
+passed. No bulk suite, paid provider or live browser/story test. The initial
+attempt to use --experimental-default-type=module was rejected by Node 24;
+the documented plain node command ran the tests successfully.
+
+The owner's actual p72 database and raw response were unavailable. The fixture
+proves the contradictory-disposition path, not the precise live trigger or a
+cleared warning on the owner's device. Semantic applicability still depends on
+the existing reviewer; quotation matching alone does not prove interpretation.
+Healthy material adds zero requests; consistent verdicts add no clarification.
+Unchanged completed coverage is reused. Original prose, manual memory, World,
+M718–M723 behavior, themes, backup paths and worker ordering are preserved.
+
 # M723: Automatic recovery of unresolved historical corrections
 
 Version m723-001. Base main 16b3c0dc7c112131bc34ead9b1b2bc0b345969bf.

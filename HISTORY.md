@@ -20325,3 +20325,23 @@ Extended m722-focused.mjs passed, including M723 recovery, retry, source lookup,
 status, interruption and preservation cases. Syntax and diff checks passed.
 No live story/provider validation or bulk suite; actual captain identity remains
 unverified. No changes to M718/M719 identity, World, M720 updates or M721 themes.
+
+
+## M724: Resolve disproved historical findings
+
+Version m724-001. Added explicit factual disposition to targeted historical
+recovery, with one same-conversation clarification for inconsistent operations.
+Disproved allegations close through the existing evidence-backed correct path;
+no memory edit is necessary. Legacy M723 blocked checkpoints receive one scoped
+policy reconsideration. Receipts preserve source fingerprints and conclusions
+through promotion; changed supporting originals or cited writer facts reopen
+only affected dismissals. Actual findings continue to control the lamp.
+
+Extended node tests/harness/m722-focused.mjs reproduced the M723 defect before
+implementation and passed afterward, including no-extra-call success, legacy
+recovery, independent findings, invalid quotations, persistence and changed
+sources. Existing repair, protection, Essentials and stale-write cases passed.
+Syntax checks of the three changed production modules and diff check passed.
+No live provider, owner database, browser lamp test or bulk suite. The owner's
+exact p72 identity and raw provider disposition were not independently checked.
+No new worker or foreground call; normal healthy material adds no model calls.

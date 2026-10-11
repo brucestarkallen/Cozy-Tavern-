@@ -177,7 +177,7 @@ try {
  assert.equal(await auditStretch({connection,storyId:earlier.id}),null);
 
  const uncertain=await pendingStory();
- reply={outcome:'blocked',why:'Earlier evidence does not establish which man this description refers to.'};
+ reply={allegation:'unknown',outcome:'blocked',why:'Earlier evidence does not establish which man this description refers to.'};
  const uncertainty=await auditStretch({connection,storyId:uncertain.id});assert.equal(uncertainty.open,1);assert.equal(uncertainty.pending,0);
  assert.match(recoveryWords(uncertainty),/unresolved after automatic source review/);
  assert.equal(await auditStretch({connection,storyId:uncertain.id}),null);
@@ -250,6 +250,105 @@ try {
  assert.equal(await auditStretch({connection,storyId:staleStory.id}),null);
  assert.equal((await loadMemory(staleStory.id)).nodes[0].detail,'A newer valid detail.');
  assert.match((await loadMemory(staleStory.id)).nodes[0].text,/captain/);
+ // M724: the allegation is disproved, but the first operation contradicts that conclusion.
+ const contradiction=await pendingStory();
+ const captainQuote="A man in travel-dark lord's colors — Prince William's captain — stood at the yard door.";
+ const cp=await db.messages.list(contradiction.id);
+ await db.messages.update(contradiction.id,cp[0].id,{text:captainQuote});
+ const intactRecord=(await loadMemory(contradiction.id)).nodes[0].text;
+ let verdictCalls=0;
+ reply=request=>{verdictCalls++;return {allegation:'disproved',outcome:verdictCalls===1?'blocked':'correct',why:'The original explicitly identifies the captain. The record is accurate; removing the title would be wrong.',evidence:[{source:'1',shown:captainQuote}]};};
+ const reconciled=await auditStretch({connection,storyId:contradiction.id});
+ assert.equal(reconciled.open,0,'A disproved allegation must not remain blocked.');
+ assert.equal(verdictCalls,2,'One focused clarification reconciles the contradictory disposition.');
+ assert.equal((await loadMemory(contradiction.id)).nodes[0].text,intactRecord);
+ const settled=await loadMemory(contradiction.id);
+ const receipt=settled.nodes[0].auditRecovery.at(-1);
+ assert.equal(receipt.outcome,'correct');assert.equal(receipt.allegation,'disproved');assert.equal(receipt.noEdit,true);
+ assert.equal(receipt.evidence[0].shown,captainQuote);
+ const afterCalls=calls;
+ assert.equal(auditWaits(contradiction.id,await loadMemory(contradiction.id),await db.messages.list(contradiction.id)),-1);
+ assert.equal(await auditStretch({connection,storyId:contradiction.id}),null);assert.equal(calls,afterCalls);
+ const complete=continuousRunStatus(reconciled);
+ await noteWorkerRun(contradiction.id,'continuous',{ok:true,...complete,detail:recoveryWords(reconciled)});
+ assert.equal(historicalRunStatus((await loadWorkerStatus(contradiction.id)).continuous).state,'good');
+ assert.equal(auditProgress(settled,1).open,0);assert.equal(auditProgress(settled,1).pending,0);
+ // The historical gate clears, while independently incomplete Auditor work still blocks verification.
+ assert(ledgerAuditVerified(landed,story,history));assert(!ledgerAuditVerified(emptyState(),story,history));
+
+ // A consistent supported correct verdict needs exactly one request; only its finding closes.
+ const single=await pendingStory();const sp=await db.messages.list(single.id);
+ await db.messages.update(single.id,sp[0].id,{text:captainQuote});
+ const sm=await loadMemory(single.id);
+ sm.nodes[0].auditOpen.push({issue:{target:'record',what:'A separate unresolved event.'},why:'Separate evidence is needed.',from:0,to:0});
+ await saveMemory(single.id,sm);
+ const correctReply={allegation:'disproved',outcome:'correct',why:'The original explicitly identifies this man as the captain.',evidence:[{source:'1',shown:captainQuote}]};
+ reply=correctReply;const singleCalls=calls;
+ assert.equal((await auditStretch({connection,storyId:single.id})).open,1);assert.equal(calls,singleCalls+1);
+ assert.equal((await loadMemory(single.id)).nodes[0].auditOpen[0].issue.what,'A separate unresolved event.');
+
+ // An M723 blocked checkpoint is reconsidered once, without resetting coverage.
+ const legacyBlocked=await pendingStory();const lp=await db.messages.list(legacyBlocked.id);
+ await db.messages.update(legacyBlocked.id,lp[0].id,{text:captainQuote});
+ reply={allegation:'unknown',outcome:'blocked',why:'Old response said accurate but stored blocked.'};
+ await auditStretch({connection,storyId:legacyBlocked.id});
+ const lm=await loadMemory(legacyBlocked.id);delete lm.nodes[0].auditOpen[0].recovery.dispositionPolicy;
+ await saveMemory(legacyBlocked.id,lm);
+ assert.equal(auditWaits(legacyBlocked.id,lm,await db.messages.list(legacyBlocked.id)),0);
+ reply=correctReply;const legacyCalls=calls;
+ const legacyDone=await auditStretch({connection,storyId:legacyBlocked.id});
+ assert.equal(legacyDone.open,0);assert.equal(calls,legacyCalls+1);assert.equal(legacyDone.done,1);
+ assert.equal(await auditStretch({connection,storyId:legacyBlocked.id}),null);
+
+ // Missing disposition on a blocked legacy answer is clarified, without interpreting prose keywords.
+ const omitted=await pendingStory();const op=await db.messages.list(omitted.id);
+ await db.messages.update(omitted.id,op[0].id,{text:captainQuote});
+ let omittedCalls=0;reply=request=>{omittedCalls++;if(omittedCalls===1)return {...correctReply,allegation:undefined,outcome:'blocked'};
+  assert(request.includes('DISPOSITION CLARIFICATION'));return correctReply;};
+ assert.equal((await auditStretch({connection,storyId:omitted.id})).open,0);assert.equal(omittedCalls,2);
+
+ // Still inconsistent after one clarification stays visible and never loops on reload.
+ const inconsistent=await pendingStory();reply={...correctReply,outcome:'blocked'};const inconsistentCalls=calls;
+ const conflict=await auditStretch({connection,storyId:inconsistent.id});
+ assert.equal(conflict.open,1);assert.equal(conflict.pending,0);assert.equal(calls,inconsistentCalls+2);
+ assert.match(conflict.unresolved[0].recovery.reason,/inconsistent after clarification/);
+ assert.equal(await auditStretch({connection,storyId:inconsistent.id}),null);
+
+ // Fabricated evidence cannot dismiss a finding, regardless of the selected conclusion.
+ const invalid=await pendingStory();reply={...correctReply,evidence:[{source:'1',shown:'This fabricated captain quotation never appeared.'}]};
+ const invalidResult=await auditStretch({connection,storyId:invalid.id});assert.equal(invalidResult.open,1);
+ assert.match(invalidResult.unresolved[0].recovery.reason,/incorrect original-source evidence/);
+ assert.equal((await loadMemory(invalid.id)).nodes[0].auditRecovery?.length || 0,0);
+
+ // Changed original dependencies reopen only the settled finding, including after promotion.
+ const promoted=structuredClone(settled);
+ promoted.nodes[0].id='promoted';promoted.nodes[0].level=2;
+ await saveMemory(contradiction.id,promoted);
+ const unchangedCalls=calls;
+ assert.equal(await auditStretch({connection,storyId:contradiction.id}),null);assert.equal(calls,unchangedCalls);
+ const pp=await db.messages.list(contradiction.id);
+ await db.messages.append(contradiction.id,{role:'assistant',text:'An unrelated later event.'});
+ assert.equal(await auditStretch({connection,storyId:contradiction.id}),null);
+ await db.messages.update(contradiction.id,pp[0].id,{text:original});
+ const changedPages=await db.messages.list(contradiction.id);
+ assert.equal(auditProgress(await loadMemory(contradiction.id),changedPages.length,changedPages).open,1);
+ assert.equal(auditWaits(contradiction.id,await loadMemory(contradiction.id),changedPages),0);
+ reply={allegation:'unknown',outcome:'blocked',why:'The changed original no longer establishes this identity.'};
+ const changedDisposition=await auditStretch({connection,storyId:contradiction.id});assert.equal(changedDisposition.open,1);assert.equal(changedDisposition.pending,0);
+ assert.equal(await auditStretch({connection,storyId:contradiction.id}),null);
+ // Authoritative writer evidence is a dependency only when cited by the dismissal.
+ const writerSupported=await pendingStory();await db.stories.update(writerSupported.id,{brief:captainQuote});
+ reply={...correctReply,evidence:[{source:'brief',shown:captainQuote}]};
+ assert.equal((await auditStretch({connection,storyId:writerSupported.id})).open,0);
+ assert.equal(await auditStretch({connection,storyId:writerSupported.id}),null);
+ await db.stories.update(writerSupported.id,{brief:'The man is not identified.'});
+ const wm=await loadMemory(writerSupported.id),wp=await db.messages.list(writerSupported.id),ws=await db.stories.get(writerSupported.id);
+ assert.equal(auditProgress(wm,wp.length,wp,ws).open,1);
+ assert.equal(auditWaits(writerSupported.id,wm,wp,ws),0);
+ reply={allegation:'unknown',outcome:'blocked',why:'The authoritative identity evidence has changed.'};
+ assert.equal((await auditStretch({connection,storyId:writerSupported.id})).open,1);
+ assert.equal(await auditStretch({connection,storyId:writerSupported.id}),null);
+ console.log('M724 passed: contradictory and omitted dispositions clarified once, supported dismissal without edits, one-time legacy recovery, exact finding settlement, invalid evidence rejection, persisted receipts, changed-source reopening, truthful completion, zero unchanged-material calls. Mocked provider only.');
  console.log('M723 passed: automatic and saved-finding recovery, earlier-source withdrawal, bounded durable retries, uncertainty and manual protection, status round-trip, stale writes, Essentials invalidation, zero healthy-case calls. Mocked provider only.');
  console.log('M722 passed: idempotent/undoable source bindings, separate stable facts, paused review reuses receipts; grounded record correction, protected unresolved coverage, no unchanged repeat calls, Essentials invalidation and story-mend eligibility. Mocked provider only.');
 } finally {globalThis.fetch=originalFetch;}

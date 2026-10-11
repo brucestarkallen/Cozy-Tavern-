@@ -1717,6 +1717,8 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     const carried = auditedAcross(mem.nodes.filter((node) => ids.has(node.id)));
     if (carried > 0) merged.audited = carried;
     merged.correctionReviewed = toMerge.every(node => node.correctionReviewed === true);
+    const recoveries = toMerge.flatMap(node => node.auditRecovery || []);
+    if (recoveries.length) merged.auditRecovery = recoveries;
     mem.nodes = mem.nodes.filter((node) => !ids.has(node.id));
     mem.nodes.push(merged);
     changed = true;

@@ -2895,7 +2895,7 @@ export function initChat(ctx) {
         if (recordBehind && !(await keeperOnFor(tale))) { recordBehind = false; unfoldedForGood = true; }
         behind = ledgerBehind || recordBehind;
         /* M673: only where it can read — its switch on, and this story's readers not switched off */
-        if (await continuousAuditOn()) { if (tale && tale.extraction !== false) auditRead = auditProgress(mem, pages.length); }
+        if (await continuousAuditOn()) { if (tale && tale.extraction !== false) auditRead = auditProgress(mem, pages.length, pages, tale); }
       } catch (err) { behind = true; }   /* if it cannot be checked, it is not green */
 
       const ran = minders.filter((n) => shelf[n]).length;
