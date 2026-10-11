@@ -2,6 +2,15 @@
 import { loadEssentials } from './essentials.js';
 import { loadMemory } from './memory.js';
 
+// Shared reading procedure, executed inside the existing worker call.
+// This is not another auditor or a source-certificate requirement.
+export const SCENE_ENDING_TASK = `
+DERIVE THE COMPLETED SCENE BEFORE COMPARING WITH THE NOTEBOOK:
+Start with the header as opening context, then follow the narration in order. For each person whose position, clothes or physical condition is established or changed, track the actor, recipient and resulting state. Resolve pronouns from the action and viewpoint, not from the nearest proper name. A blow delivered by one person can hurt the other person.
+Discard intermediate states replaced later in the sequence. A retreat followed by a stop leaves the person at the stopping point; an outfit removed later is no longer worn. A quiet person's last established state continues while others act. Read the whole scene, not only its final paragraph. People in a separate World Beyond window remain elsewhere.
+Only after deriving those ending states compare them with the saved ledger. Earlier wording appearing anywhere on the page does not make it current. Do not invent motion, injury, recovery or a change in feelings. Preserve facts the scene did not change.
+`;
+
 export const LEDGER_READER_RULES = `
 SHARED LEDGER CONTRACT:
 Read the whole completed scene, including quiet spectators and the writer's established identities. Follow each person's actions chronologically. Silence is not departure; mentioning a remote person is not presence. Resolve pronouns and titles in context, not by keyword matching.

@@ -19589,3 +19589,55 @@ including the new no-provenance adapter case. This is not a publishing retest.
 All M709 authority, ownership, concurrency and live-verification limits below
 remain. Both M709 revisions were normally published under standing permission.
 
+
+
+# M710: save and reconcile the completed scene
+
+Version m710-001. The owner's live M709 report is genuinely complete:
+167/167 source coverage, 210/210 approvals, one final model call, no open
+findings. However its presence still says the player is backing across the
+ground while the completed narration puts their shoulder against the wall.
+Green reports the auditor's approval, not an infallible semantic judgment.
+
+Root cause in Scene: the MC was excluded from the explicit ending-position
+questions, and a separate header pose/outfit was appended as a fallback.
+Whole-page word overlap could make an opening state eligible even after it
+changed. The fallback also did not see the newly collected ending updates as
+already touching those fields. Removed automatic header pose/outfit injection;
+retained clock/place parsing. MC receives the same explicit ending question,
+including pronoun-only actions. Removed the arbitrary 16-person question cap.
+Quoted final updates now take precedence over legacy unquoted restatements.
+The founding prompt also folds header attire/position through later narration.
+
+Scene and the final auditor use the same derive-before-compare procedure:
+track actor/recipient, fold movements and clothes to their final state, keep
+quiet observers, and exclude the World Beyond window from local presence.
+The final review returns a short scene array as its working ending record.
+Actual position/attire differences become ordinary approved presence writes,
+not just an explanatory verdict, including when issues is empty. Equivalent
+wording should reuse current text. No story-specific names or wall detector,
+additional model call, mandatory source certificate or semantic guard added.
+Legacy issues/checks-only responses remain supported. Arrivals, departures,
+bodies and factual People now repairs retain their explicit operations.
+
+An approved repair can change an already-retained entry and the shared scene
+scope of other rows. These resulting snapshots now receive the SAME final
+review approval; the old retained row id cannot force another echo audit.
+Later concurrent writes still cannot borrow approval. The working ending read
+is saved with its page id in finalReview.scene and appears in capped debug.
+Durable profile checkpoints, source coverage, manual ownership, established
+biographies, personas, earned feelings, original prose and journal/undo remain.
+
+Only tests/harness/m710-ending.mjs was used at this milestone. Initial run
+reached the final preservation assertion, whose raw fixture omitted the
+store's default fields; corrected it to compare the saved pre-audit snapshot.
+Final targeted run passed in 0.29s. It exercises actual extractor/auditor paths:
+header pose/outfit cannot override a later pronoun stop/clothes change or be
+promoted when the pose is omitted; MC gets an ending decision; a formerly
+approved stale entry is repaired and approved in ONE mocked audit call; quiet
+witnesses, prose, profiles and p60/r50 remain. No other suites, theme/gameplay
+checks or paid calls. This proves the code path, not a live model verdict.
+No retest for notes, commit or publishing. Publish normally under the owner's
+standing permission, verify exact remote main, and do not ask them to design
+another repair or paste another report merely to finish this code work.
+

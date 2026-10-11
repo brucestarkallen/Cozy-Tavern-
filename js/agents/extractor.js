@@ -1,5 +1,5 @@
 import { renderPeopleTiers, peopleView } from '../engine/people.js';
-import { LEDGER_READER_RULES, sharedStoryContext } from './ledgercontext.js';
+import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sharedStoryContext } from './ledgercontext.js';
 /* Cozy Tavern — agents/extractor.js
  * The extractor: a quiet background worker that reads each finished page —
  * what the writer wrote and what the storyteller answered — and proposes
@@ -40,7 +40,7 @@ import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning, foldName } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
 import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey, noOneSpot, deathToldOf, comesInAtTheEnd, readerTimeOverHeader } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
-import { headerMutations, headerDress, closeBy, headerCells } from '../engine/state.js'; /* M446: did this page move the ground? */
+import { headerMutations, closeBy, headerCells } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey, seatForPerson } from '../engine/people.js'; /* M681: the dead's seat */
 import { isDeadSeat, seatNowWords } from '../engine/offscreen.js'; /* M680: the dead, and a seat said as every reader says it */
 import { findRelationship } from '../engine/relationships.js'; /* M641: who has no standing yet */
@@ -222,8 +222,8 @@ function systemPrompt({ mc, founding }) {
     ? [
       'THE LEDGER IS YOUNG — nothing is written in it yet. Found it from these pages. If the page opens',
       'with a bracketed header line — [Place — Day, Month DD, Year | HH:MM | weather | attire | position] —',
-      'that line is the truth for place.set and clock.set (all five numbers are in it), and the attire',
-      'and position are the main character\'s (presence.enter with them). When its place names only the area (a city, a',
+      'that line supplies opening place and clock; its attire and position describe the main character at the opening.',
+      'Follow later narration before writing presence.enter: save the final attire and position, not a superseded header. When its place names only the area (a city, a',
       'town, a district), the spot in it where the prose puts them is yours to say, in "spot" (the house adds the area):',
       '  - place.set for the ground the scene stands on (a booth at McDonald\'s, a chapel, a train car — the place the prose puts them);',
       '  - presence.enter for EVERY person the pages put in the scene (sharing his space — never someone only seen at a distance), the main character included, with position/attire only if shown;',
@@ -408,6 +408,8 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
     ...spotBlock(state, assistantText), /* M679: where in the area the scene stands, when the header names only the area */
     ...(!founding ? placesBlock(state, assistantText) : []), /* M677 */
     ...standingsBlock(unwritten), /* M641 */
+    SCENE_ENDING_TASK,
+    'Write the resulting ending positions and outfits in here, including the main character even when the prose uses only pronouns. Put body effects on their actual recipient. Then write the other changes. JSON only.',
     founding ? 'Found the ledger from these pages. JSON only.' : 'What changed, if anything? JSON only.',
   ].join('\n');
   return { system: withFictionFrame(systemPrompt({ mc, founding }) + '\n\n' + fetchLaw({ rounds: EXTRACTOR_LOOKS, when: 'Look only when THIS page leans on something you were not shown — a person, a promise or a place from an earlier page, a name the brief defines further on. Most pages need no look.' })), user, founding, mc, standingsFor: unwritten };
@@ -427,12 +429,11 @@ export function placesBlock(state, pageText = '') {
   const told = narrationOf(scenePartOf(String(pageText || '').replace(/^\s*\[[^\n]*\][ \t]*/, '')));
   const rows = [];
   for (const p of Array.isArray(state && state.present) ? state.present : []) {
-    if (!p || typeof p.name !== 'string' || !p.name.trim() || isMc(state, p.name)) continue;
-    if (!shownOnPage(state, told, p.name)) continue;
+    if (!p || typeof p.name !== 'string' || !p.name.trim()) continue;
+    if (!isMc(state, p.name) && !shownOnPage(state, told, p.name)) continue;
     const at = typeof p.position === 'string' && p.position.trim() ? p.position.trim() : '';
     const wears = typeof p.attire === 'string' && p.attire.trim() ? p.attire.trim() : '';
     rows.push(p.name + ' \u2014 the ledger has: ' + (at || 'no place written') + (wears ? '; wearing ' + wears : ''));
-    if (rows.length >= 16) break;
   }
   if (!rows.length) return [];
   /* M679 — HIS AUDIT: "the ledger seats the cobbler, the fruit-seller, the young priest, the pie-seller and the raven as
@@ -1092,11 +1093,9 @@ export async function extractTurn(args = {}) {
       if (Array.isArray(read.things) && read.things.length) read.mutations = [...read.mutations, ...movedThings(args.state, read.things, args.assistantText, args.userText).filter((t) => !read.mutations.some((m) => m && m.type === 'thing.set' && typeof m.name === 'string' && m.name.trim().toLowerCase() === t.name.toLowerCase()))];
       /* M662: what the page shows of how someone looks is locked among what is true of them */
       if (Array.isArray(read.looks) && read.looks.length) read.mutations = [...read.mutations, ...lockedLooks(args.state, read.looks, args.assistantText, args.userText)];
-      /* M661: the header's own attire and position cells are the main character's, on this page — after the reader's own
-       * word for him, and written only where the telling bears them out */
-      const dress = headerDress(args.assistantText);
-      const mcHere = dress ? (Array.isArray(args.state.present) ? args.state.present : []).find((p) => p && typeof p.name === 'string' && isMc(args.state, p.name)) : null;
-      const notes = [...(Array.isArray(read.hereNotes) ? read.hereNotes : []), ...(mcHere ? [{ name: mcHere.name, at: dress.position, wears: dress.attire }] : [])];
+      // M710: the opening header cannot supply an automatic ending pose or
+      // outfit. The reader folds both through the narration in its here list.
+      const notes = Array.isArray(read.hereNotes) ? read.hereNotes : [];
       if (notes.length) {
         /* judged against the room as it will stand when this page's own header has been read: after a long jump of the
          * clock every place and outfit is let go (staleAfterJump), so what the page shows is written even where it is
@@ -1121,7 +1120,7 @@ export async function extractTurn(args = {}) {
           }).filter(x => x.type !== 'presence.update' || x.position !== undefined || x.attire !== undefined);
           return m.position !== undefined || m.attire !== undefined ? [m] : [];
         });
-        read.mutations = [...read.mutations, ...updates, ...restatedPresence(room, notes.filter(n => !supported.includes(n)), read.mutations, args.assistantText)];
+        read.mutations = [...read.mutations, ...updates, ...restatedPresence(room, notes.filter(n => !supported.includes(n)), [...read.mutations,...updates], args.assistantText)];
       }
       read.mutations = settleWitnesses(args.state, read.mutations, read.here); /* M642: what the reader itself decided */
       read.mutations = broadcastPublicMoments(args.state, read.mutations, read.here);

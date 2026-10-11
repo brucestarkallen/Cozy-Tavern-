@@ -1,6 +1,6 @@
 import { ledgerRepairInputKey, ledgerRepairStateKey, ledgerVerificationRows, verificationReceiptMatches,reusableAuditCheckpoint,saveAuditCheckpoint,auditCheckpointStart } from './auditprogress.js';
 import { fingerprint36 } from '../engine/fingerprint.js';
-import { LEDGER_READER_RULES, sharedStoryContext } from './ledgercontext.js';
+import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sharedStoryContext } from './ledgercontext.js';
 /* Cozy Tavern — agents/auditor.js
  * M41: the auditor — the one reader who sees the whole ledger at once and
  * holds it against the story as written, the writer's brief, and the
@@ -349,10 +349,48 @@ export function parseAuditorAnswer(raw) {
       }));
     const resolvedItems = [...legacyResolved.filter(r => !r?.mutations?.length && (!r?.status || r.status === 'correct')), ...repairs.filter(r => r.status === 'correct' && !r.mutations?.length), ...issueRows.filter(i => i?.resolved === true && !i.mutations?.length).map(i => ({id:i.id, what:i.what, shown:i.shown, evidenceId:i.evidenceId, why:i.why || i.fix}))];
     const resolved = resolvedItems.filter((r) => r && (typeof r.what === 'string' || typeof r.id === 'string') && (typeof r.shown === 'string' || typeof r.evidenceId === 'string') && typeof r.why === 'string' && r.why.trim()).map((r) => ({ what: String(r.what || '').trim(), id: r.id, shown: r.shown, evidenceId:r.evidenceId, why: r.why.trim() }));
-    return { issues, resolved, ...(parsed.review && typeof parsed.review==='object'?{review:parsed.review}:{}), ...(Array.isArray(parsed.standings)?{standings:parsed.standings}:{}), checks: Array.isArray(parsed.checks) ? parsed.checks.filter(c => c && typeof c.id === 'string') : [], note: 'ok' };
+    return { issues, resolved, ...(Array.isArray(parsed.scene)?{scene:parsed.scene}:{}), ...(parsed.review && typeof parsed.review==='object'?{review:parsed.review}:{}), ...(Array.isArray(parsed.standings)?{standings:parsed.standings}:{}), checks: Array.isArray(parsed.checks) ? parsed.checks.filter(c => c && typeof c.id === 'string') : [], note: 'ok' };
   } catch (err) {
     return { issues: [], note: 'unusable' };
   }
+}
+
+// M710: the auditor's own ending read is usable work, not another certificate.
+// Compare its actual final values and route corrections through normal writes.
+// Older issues/checks-only providers remain compatible; no new approval gate.
+export function reconcileAuditScene(read,state) {
+  const byName=new Map();
+  const same=(a,b)=>String(a || '').trim().replace(/\s+/g,' ').toLowerCase()===String(b || '').trim().replace(/\s+/g,' ').toLowerCase();
+  for (const entry of read.scene || []) {
+    if (!entry || typeof entry.name!=='string') continue;
+    const name=isMc(state,entry.name)?mcName(state):entry.name;
+    const index=findPresent(state,name,{strict:true});
+    if (index<0) continue; // Arrivals/departures retain their explicit operations.
+    const current=state.present[index];
+    const fields=Object.fromEntries(['position','attire'].filter(f=>typeof entry[f]==='string' && entry[f].trim())
+      .map(f=>[f,entry[f].trim()]));
+    if (!Object.keys(fields).length) continue;
+    const previous=byName.get(current.name);
+    byName.set(current.name,{name:current.name,fields:{...previous?.fields,...fields},shown:typeof entry.shown==='string'?entry.shown:'',evidenceId:entry.evidenceId,current});
+  }
+  const decisions=[...byName.values()];
+  const issues=(read.issues || []).map(issue=>({...issue,mutations:(issue.mutations || []).map(m=>{
+    if (m.type!=='presence.update') return m;
+    const ending=decisions.find(d=>samePersonName(d.name,m.name) || (isMc(state,d.name) && isMc(state,m.name)));
+    if (!ending) return m;
+    const kept={...m};
+    for (const f of Object.keys(ending.fields)) delete kept[f];
+    return kept;
+  }).filter(m=>m.type!=='presence.update' || m.position!==undefined || m.attire!==undefined)}))
+    .filter(i=>i.mutations.length || i.pages);
+  for (const d of decisions) {
+    const changed=Object.fromEntries(Object.entries(d.fields).filter(([f,v])=>!same(d.current[f],v)));
+    if (!Object.keys(changed).length) continue;
+    issues.push({what:'The completed scene puts '+d.name+' in a different physical state than their saved presence.',
+      fix:'Keep their final established position and attire.',targets:[{id:'presence:'+d.name}],
+      mutations:[{type:'presence.update',name:d.name,...changed,shown:d.shown,...(d.evidenceId?{evidenceId:d.evidenceId}:{})}]});
+  }
+  return {...read,issues};
 }
 
 /* The contract. */
@@ -529,7 +567,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       const reply = await askWithFetch(connection, {
         system: follow.system+'\nFINAL AUDITOR AUTHORITY. You are the final semantic reviewer. Judge story meaning and profile completeness yourself using originals. Your explicit completed verdict is the approval. Do not echo a certificate for each source fact or repeat identity/appearance mappings. The FINAL REVIEW CONTRACT below replaces older per-entry output examples. Source IDs and quotations are useful optional provenance, never a second semantic approval. Preserve manual fields, valid worker judgments, earned scores, established identities and every valid alternate face.',
         user: follow.user + profileLookup
-          + '\nFINAL REVIEW CONTRACT. Review ALL required entries together and their resulting repairs, then return JSON: {"issues":[],"review":{"status":"complete","why":"brief verdict explaining actual review","open":[]},"standings":[]}. Issues contain only real discrepancies with working mutations or page concerns. Complete means you reviewed every required entry against originals, including all established identity and physical facts, and the repairs you provide leave them correct. Never say complete if you did not finish. Put genuinely unresolved items in open:[{"id":"required entry id","why":"specific missing fact or evidence"}]. Use status:"open" if the entire reading is unfinished. You may supply detailed checks instead, but identityFacts inCore:true or an explicit complete profile verdict suffices; no second identity/appearance array is required.'
+          + '\nFINAL REVIEW CONTRACT. Review ALL required entries together and their resulting repairs, then return JSON: {"scene":[{"name":"actual person","position":"final established position","shown":"short original words for the final state"}],"issues":[],"review":{"status":"complete","why":"brief verdict explaining actual review","open":[]},"standings":[]}. Derive scene FIRST from the completed narration: include the main character and people whose physical state this page establishes or changes, with their LAST established position and attire when known. It is your working ending read, not a second approval certificate. The app compares these values with the saved presence and writes actual differences, even when issues is empty. Reuse the ledger wording for truly equivalent states; do not create cosmetic rewrites. Use ordinary issue mutations for arrivals, departures, bodies, factual People now corrections and other fields. Issues contain only real discrepancies with working mutations or page concerns. Complete means you reviewed every required entry against originals, including all established identity and physical facts, and the repairs you provide leave them correct. Never say complete if you did not finish. Put genuinely unresolved items in open:[{"id":"required entry id","why":"specific missing fact or evidence"}]. Use status:"open" if the entire reading is unfinished. You may supply detailed checks instead, but identityFacts inCore:true or an explicit complete profile verdict suffices; no second identity/appearance array is required.'
           + '\nREQUIRED CURRENT LEDGER CHECKS:\n'+JSON.stringify(verificationRows)
           + '\nRETAINED SCRATCHBOOK CHECKS, already approved for these unchanged values and sources:\n'+JSON.stringify(Object.keys(previousVerification))
           + '\nHISTORICAL FINDINGS WITH ACTUAL CURRENT RECORDS:\n'+JSON.stringify(auditRepairChecklist(originalFindings,result.out))
@@ -537,6 +575,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
           + '\nORIGINAL SOURCE REFERENCES:\n'+JSON.stringify(repairEvidence)
           + '\nEvidence IDs or exact shown quotes are optional provenance. If using an ID choose one actually supplied; source fact IDs in the required entries also refer to original quotes. Never invent an ID. If missing needed context, fetch its original page. An unavailable old ID does not mean the source page is missing.'
           + '\nCOMPLETE NEWEST MAIN STORY. Read each person through the ending; an opening header or earlier retreat cannot override a later stopping position:\n'+pageText(lastTold)
+          + SCENE_ENDING_TASK
           + (standingsCached?'':'\nReturn standings:[{name,p,r,s}] ONLY for explicit starting digits in the writer brief/cast TOWARD '+mcName(state)+'. P warmth/trust, R romantic pull, S sexual charge. Omit unstated axes; [] when none. Preserve earned history and scores. This extraction is cached.')
           + '\nWhen historical findings are now satisfied or mistaken, their approved current entries close them. Do not reproduce resolved findings or perform cosmetic rewrites. Your completed verdict approves the actual resulting ledger, not merely the truth of its first sentence. Unknown details remain unknown. Return concise JSON.',
         maxTokens: replyTokens, signal, renew, leash: leashFor,
@@ -551,10 +590,11 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       const currentInventoryEvidence=[...sourceAppearanceFacts(result.out,documents),...sourceIdentityFacts(result.out,documents)]
         .map(f=>({evidenceId:f.id,source:f.source,text:f.shown}));
       evidenceBook=auditEvidenceBook(documents,currentInventoryEvidence,evidenceBook);
-      const corrected = bindFinalAuditEvidence(parseAuditorAnswer(reply.text), registeredEvidence(), verificationRows,documents);
+      const corrected = bindFinalAuditEvidence(reconcileAuditScene(parseAuditorAnswer(reply.text),requestedState), registeredEvidence(), verificationRows,documents);
       finalReview = {...finalReview,status:reply.finishReason === 'length' ? 'cut short' : reviewProblems(reply.text).length?'incomplete decisions':corrected.note,
         received:finalAuditChecks(corrected,verificationRows).length,approval:corrected.review?'whole required ledger':'entry verdicts',replyCharacters:reply.text.length,finishReason:reply.finishReason,
-        calls:reply.calls || 1,fetches:reply.rounds || 0,formatContinuation:Boolean(reply.formatContinuation),sourceCalls:sourceReview?.calls || 0};
+        calls:reply.calls || 1,fetches:reply.rounds || 0,formatContinuation:Boolean(reply.formatContinuation),sourceCalls:sourceReview?.calls || 0,
+        ...(corrected.scene?{scene:{pageId:lastTold.id,people:corrected.scene}}:{})};
       if (corrected.note === 'ok' && reply.finishReason !== 'length') {
         verificationChecks = finalAuditChecks(corrected,verificationRows);
         answerProblem = '';
@@ -566,7 +606,15 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
         // The approval belongs to the snapshot actually shown, plus its own
         // approved repairs. Later writes cannot borrow this final verdict.
         result=judge(requestedState,offered);
-        if (corrected.review) verificationChecks=finalAuditChecks(corrected,[...verificationRows,...ledgerVerificationRows(result.out).filter(r=>!verificationRows.some(old=>old.id===r.id) && !previousVerification[r.id])]);
+        if (corrected.review) {
+          const before=new Map(ledgerVerificationRows(requestedState).map(r=>[r.id,r]));
+          // An explicitly reviewed repair may affect a formerly retained row,
+          // plus other rows' scene scope. Approve these exact resulting values
+          // in this same review, without a second call just to echo them.
+          verificationChecks=finalAuditChecks(corrected,[...verificationRows,...ledgerVerificationRows(result.out)
+            .filter(r=>!verificationRows.some(old=>old.id===r.id) && !verificationReceiptMatches(previousVerification[r.id],r))
+            .map(r=>before.get(r.id) || r)]);
+        }
         withdrawals.push(...(corrected.resolved || []));
         raw += '\n\nCombined review:\n' + reply.text;
       } else followupFailed = true;
