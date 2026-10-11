@@ -1,5 +1,6 @@
 import './idb-shim.mjs';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {db} from '../../js/store.js';
 import {emptyState,saveState,loadState} from '../../js/engine/state.js';
 import {applyMutations,undoLast} from '../../js/engine/apply.js';
@@ -83,6 +84,10 @@ try {
 
 
  const original='The man in travel-dark clothing watched from the yard door. Corven knocked twice and announced Jugram.';
+ const ambiguousReply=(shown,why)=>({allegation:'unknown',outcome:'blocked',why,evidence:[{source:'1',shown}],
+  sourceFidelity:{status:'genuinelyAmbiguous',claim:"Prince William's captain",sameReferent:null,sameEvent:true,
+   assertion:'unclear',relation:'unclear',why,uncertainty:why,conflicts:[]}});
+
  async function memoryStory(protectedLine=false,legacy=false) {
   const s=await db.stories.create({title:'Memory correction'});
   await db.messages.append(s.id,{role:'assistant',text:original,...(legacy?{findings:[{kind:'audit',words:'The record names the man as a captain without supporting evidence.'}]}:{})});
@@ -177,7 +182,7 @@ try {
  assert.equal(await auditStretch({connection,storyId:earlier.id}),null);
 
  const uncertain=await pendingStory();
- reply={allegation:'unknown',outcome:'blocked',why:'Earlier evidence does not establish which man this description refers to.'};
+ reply=ambiguousReply(original,'Earlier evidence does not establish which man this description refers to.');
  const uncertainty=await auditStretch({connection,storyId:uncertain.id});assert.equal(uncertainty.open,1);assert.equal(uncertainty.pending,0);
  assert.match(recoveryWords(uncertainty),/unresolved after automatic source review/);
  assert.equal(await auditStretch({connection,storyId:uncertain.id}),null);
@@ -290,7 +295,7 @@ try {
  // An M723 blocked checkpoint is reconsidered once, without resetting coverage.
  const legacyBlocked=await pendingStory();const lp=await db.messages.list(legacyBlocked.id);
  await db.messages.update(legacyBlocked.id,lp[0].id,{text:captainQuote});
- reply={allegation:'unknown',outcome:'blocked',why:'Old response said accurate but stored blocked.'};
+ reply=ambiguousReply(captainQuote,'The previous checkpoint could not determine the referent.');
  await auditStretch({connection,storyId:legacyBlocked.id});
  const lm=await loadMemory(legacyBlocked.id);delete lm.nodes[0].auditOpen[0].recovery.dispositionPolicy;
  await saveMemory(legacyBlocked.id,lm);
@@ -333,7 +338,7 @@ try {
  const changedPages=await db.messages.list(contradiction.id);
  assert.equal(auditProgress(await loadMemory(contradiction.id),changedPages.length,changedPages).open,1);
  assert.equal(auditWaits(contradiction.id,await loadMemory(contradiction.id),changedPages),0);
- reply={allegation:'unknown',outcome:'blocked',why:'The changed original no longer establishes this identity.'};
+ reply=ambiguousReply(original,'The changed original no longer establishes this identity.');
  const changedDisposition=await auditStretch({connection,storyId:contradiction.id});assert.equal(changedDisposition.open,1);assert.equal(changedDisposition.pending,0);
  assert.equal(await auditStretch({connection,storyId:contradiction.id}),null);
  // Authoritative writer evidence is a dependency only when cited by the dismissal.
@@ -345,9 +350,117 @@ try {
  const wm=await loadMemory(writerSupported.id),wp=await db.messages.list(writerSupported.id),ws=await db.stories.get(writerSupported.id);
  assert.equal(auditProgress(wm,wp.length,wp,ws).open,1);
  assert.equal(auditWaits(writerSupported.id,wm,wp,ws),0);
- reply={allegation:'unknown',outcome:'blocked',why:'The authoritative identity evidence has changed.'};
+ reply=ambiguousReply(original,'The authoritative identity evidence has changed.');
  assert.equal((await auditStretch({connection,storyId:writerSupported.id})).open,1);
  assert.equal(await auditStretch({connection,storyId:writerSupported.id}),null);
+ // M725: M724 accepted unknown/blocked even when the explanation refuted the allegation.
+ const fidelityStory=await pendingStory();const fp=await db.messages.list(fidelityStory.id);
+ await db.messages.update(fidelityStory.id,fp[0].id,{text:captainQuote});
+ const fidelityBefore=await loadMemory(fidelityStory.id);
+ const essentialsBefore=await db.settings.get('essentials:'+fidelityStory.id);
+ const supportedFidelity={status:'supported',claim:"Prince William's captain",sameReferent:true,sameEvent:true,
+  assertion:'direct',relation:'supports',preservesAssertion:true,conflicts:[],why:'The narrative directly identifies the same man at the same yard door event.'};
+ let fidelityCalls=0;
+ reply=request=>{fidelityCalls++;assert(request.includes('TARGETED HISTORICAL RECOVERY'));
+  return {...correctReply,allegation:'unknown',outcome:'blocked',why:'The record faithfully preserves the original assertion. No edit should be made.',
+   ...(fidelityCalls>1?{sourceFidelity:supportedFidelity}:{})};};
+ const fidelityResult=await auditStretch({connection,storyId:fidelityStory.id});
+ assert.equal(fidelityResult.open,0,'M725: an unknown/blocked operation cannot strand a source-supported false allegation.');
+ assert.equal(fidelityCalls,2,'One targeted clarification requests the missing source fidelity decision.');
+ assert.equal((await loadMemory(fidelityStory.id)).nodes[0].text,fidelityBefore.nodes[0].text);
+ assert.equal((await db.messages.list(fidelityStory.id))[0].text,captainQuote);
+ assert.deepEqual(await db.settings.get('essentials:'+fidelityStory.id),essentialsBefore);
+ const fidelitySaved=await loadMemory(fidelityStory.id);
+ assert.equal(fidelitySaved.nodes[0].auditRecovery.at(-1).sourceFidelity.status,'supported');
+ assert.equal(fidelitySaved.nodes[0].auditRecovery.at(-1).reportedOutcome,'blocked');
+ assert.equal(fidelitySaved.nodes[0].auditRecovery.at(-1).allegation,'disproved');
+ assert.equal(fidelityResult.pending,0);
+ const fidelityDoneCalls=calls;
+ assert.equal(await auditStretch({connection,storyId:fidelityStory.id}),null);assert.equal(calls,fidelityDoneCalls);
+
+ // Existing M724 checkpoints receive one scoped policy transition, not another reading.
+ const m724Blocked=await pendingStory();const bps=await db.messages.list(m724Blocked.id);
+ await db.messages.update(m724Blocked.id,bps[0].id,{text:captainQuote});
+ reply=ambiguousReply(captainQuote,'Previous review left the identity unresolved.');
+ await auditStretch({connection,storyId:m724Blocked.id});
+ const blocked724=await loadMemory(m724Blocked.id);
+ blocked724.nodes[0].auditOpen[0].recovery.dispositionPolicy=1;
+ await saveMemory(m724Blocked.id,blocked724);
+ assert.equal(auditWaits(m724Blocked.id,blocked724,await db.messages.list(m724Blocked.id)),0);
+ const directCalls=calls;
+ reply={...correctReply,allegation:'unknown',outcome:'blocked',sourceFidelity:supportedFidelity};
+ const legacy725=await auditStretch({connection,storyId:m724Blocked.id});assert.equal(legacy725.open,0);
+ assert.equal(calls,directCalls+1,'Consistent source fidelity controls settlement without an extra clarification.');
+ assert.equal(legacy725.done,1);assert.equal(await auditStretch({connection,storyId:m724Blocked.id}),null);
+
+ // Matching words about a DIFFERENT person never settle this record claim.
+ const other=await pendingStory();const ops=await db.messages.list(other.id);
+ const otherQuote="Prince William's captain was upstairs. A different man stood at the yard door.";
+ await db.messages.update(other.id,ops[0].id,{text:otherQuote});
+ let otherCalls=0;
+ reply=()=>{otherCalls++;return {...correctReply,evidence:[{source:'1',shown:otherQuote}],
+  sourceFidelity:{...supportedFidelity,sameReferent:false,status:otherCalls===1?'supported':'genuinelyAmbiguous',
+   why:'The quoted captain is upstairs; the record concerns a different yard-door man.',uncertainty:'The yard-door man is not identified by this captain reference.'}};};
+ const otherResult=await auditStretch({connection,storyId:other.id});assert.equal(otherResult.open,1);assert.equal(otherResult.pending,0);assert.equal(otherCalls,2);
+ assert.equal((await loadMemory(other.id)).nodes[0].auditRecovery?.length || 0,0);
+ assert.equal(await auditStretch({connection,storyId:other.id}),null);
+
+ // An ambiguous label cannot contradict structured direct support with no actual conflict.
+ const vague=await pendingStory();const vps=await db.messages.list(vague.id);
+ await db.messages.update(vague.id,vps[0].id,{text:captainQuote});let vagueCalls=0;
+ reply=()=>{vagueCalls++;return {...correctReply,allegation:'unknown',outcome:'blocked',sourceFidelity:{...supportedFidelity,
+  status:vagueCalls===1?'genuinelyAmbiguous':'supported',uncertainty:'Perhaps an unseen source could disagree.'}};};
+ assert.equal((await auditStretch({connection,storyId:vague.id})).open,0);assert.equal(vagueCalls,2);
+
+ // A source-grounded contradiction uses the existing precise repair and Essentials invalidation.
+ const wrong=await pendingStory();const wps=await db.messages.list(wrong.id);
+ const contrary='The man at the yard door is an unranked visitor, not the captain. Corven knocked twice and announced Jugram.';
+ await db.messages.update(wrong.id,wps[0].id,{text:contrary});
+ reply={outcome:'blocked',allegation:'unknown',why:'The original contradicts this title.',evidence:[{source:'1',shown:contrary}],
+  sourceFidelity:{...supportedFidelity,status:'contradicted',assertion:'negated',relation:'contradicts',why:'The same yard-door man is explicitly not the captain.'},
+  record:{fixes:[{from:"Prince William's captain",to:'man',shown:contrary,why:'Preserve the man and event without the contradicted title.'}]}};
+ const repaired725=await auditStretch({connection,storyId:wrong.id});assert.equal(repaired725.open,0);
+ assert.equal((await loadMemory(wrong.id)).nodes[0].text,'man watched from the yard door; Corven knocked twice and announced Jugram.');
+ assert.equal((await db.messages.list(wrong.id))[0].text,contrary);assert.equal(await loadEssentials(wrong.id),null);
+
+ // Protected but correct words may be confirmed, with no rewrite or Essentials rebuild.
+ const owned=await pendingStory();const ownedMemory=await loadMemory(owned.id);ownedMemory.nodes[0].verified={fixed:'the writer'};
+ await saveMemory(owned.id,ownedMemory);const ownedPages=await db.messages.list(owned.id);
+ await db.messages.update(owned.id,ownedPages[0].id,{text:captainQuote});
+ reply={...correctReply,sourceFidelity:supportedFidelity};
+ assert.equal((await auditStretch({connection,storyId:owned.id})).open,0);
+ assert.equal((await loadMemory(owned.id)).nodes[0].text,ownedMemory.nodes[0].text);
+ assert.deepEqual((await loadMemory(owned.id)).nodes[0].verified,ownedMemory.nodes[0].verified);
+
+ // A fabricated fidelity quotation gets one clarification, never a dismissal.
+ const falseProof=await pendingStory();
+ reply={...correctReply,evidence:[{source:'1',shown:'Invented original evidence of a captain.'}],sourceFidelity:supportedFidelity};
+ const falseResult=await auditStretch({connection,storyId:falseProof.id});assert.equal(falseResult.open,1);assert.equal(falseResult.pending,0);
+ assert.match(falseResult.unresolved[0].recovery.reason,/incorrect original-source evidence/);
+ assert.equal(await auditStretch({connection,storyId:falseProof.id}),null);
+
+ // Execute the actual lamp state/class code against controlled completed ledger state.
+ // This is a state/DOM-facade check, not a live browser or an owner database test.
+ const chatSource=readFileSync(new URL('../../js/ui/chat.js',import.meta.url),'utf8');
+ const lampStart=chatSource.indexOf('      const busy = runningWorkers(storyId).length > 0 || queuedCount(storyId) > 0;');
+ const lampEnd=chatSource.indexOf('      /* M275:',lampStart);
+ assert(lampStart>0 && lampEnd>lampStart);
+ const lamp=new Function('auditRead','verificationNeeded','shelf',`
+  const storyId='controlled',runningWorkers=()=>[],queuedCount=()=>0;
+  const trouble=false,partly=false,behind=false,ran=4,told=1,guards=[],repairOwed=false,repairPaused=false,openAudit=false;
+  const otherHandAt=()=>false,ledgerBehind=false,sore=[],part=[],savedAudit={},unfoldedForGood=false;
+  let ledgerMark;const classes=new Set();const btn={classList:{toggle:(name,on)=>on?classes.add(name):classes.delete(name)},setAttribute:()=>{}};
+  ${chatSource.slice(lampStart,lampEnd)}
+  return {ledgerMark,green:classes.has('all-well'),yellow:classes.has('has-trouble')};`);
+ await noteWorkerRun(fidelityStory.id,'continuous',{ok:true,...continuousRunStatus(fidelityResult),detail:recoveryWords(fidelityResult)});
+ const fidelityShelf=await loadWorkerStatus(fidelityStory.id);
+ const verified=!ledgerAuditVerified(landed,story,history);
+ assert.equal(verified,false);
+ assert.deepEqual(lamp(auditProgress(fidelityBefore,1),verified,fidelityShelf),{ledgerMark:'trouble',green:false,yellow:true});
+ assert.deepEqual(lamp(auditProgress(fidelitySaved,1),verified,fidelityShelf),{ledgerMark:'well',green:true,yellow:false});
+ assert.equal(lamp(auditProgress(fidelitySaved,1),true,fidelityShelf).green,false,'Independent Auditor verification is still required.');
+ assert.equal(historicalRunStatus(fidelityShelf.continuous).state,'good');
+ console.log('M725 passed: unknown/blocked reproduction settles via source fidelity, one clarification maximum, policy-1 recovery, different referent and invalid evidence rejected, genuine ambiguity bounded, exact repairs preserved, no-edit memory/Essentials retained, controlled production lamp changes from yellow to green with other verification complete. Mocked provider and DOM facade only.');
  console.log('M724 passed: contradictory and omitted dispositions clarified once, supported dismissal without edits, one-time legacy recovery, exact finding settlement, invalid evidence rejection, persisted receipts, changed-source reopening, truthful completion, zero unchanged-material calls. Mocked provider only.');
  console.log('M723 passed: automatic and saved-finding recovery, earlier-source withdrawal, bounded durable retries, uncertainty and manual protection, status round-trip, stale writes, Essentials invalidation, zero healthy-case calls. Mocked provider only.');
  console.log('M722 passed: idempotent/undoable source bindings, separate stable facts, paused review reuses receipts; grounded record correction, protected unresolved coverage, no unchanged repeat calls, Essentials invalidation and story-mend eligibility. Mocked provider only.');

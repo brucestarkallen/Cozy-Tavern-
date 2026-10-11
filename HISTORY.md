@@ -20345,3 +20345,25 @@ Syntax checks of the three changed production modules and diff check passed.
 No live provider, owner database, browser lamp test or bulk suite. The owner's
 exact p72 identity and raw provider disposition were not independently checked.
 No new worker or foreground call; normal healthy material adds no model calls.
+
+
+## M725: Source fidelity settles false historical allegations
+
+Version m725-001. Reproduced M724 accepting unknown/blocked despite an original
+quotation and explanation supporting the disputed record. The prior fixture
+only exercised disproved/blocked. Added an evidence-validated sourceFidelity
+contract covering the precise record claim, referent/event, assertion scope,
+relation and actual conflicts. Supported fidelity determines correct settlement
+independently of a generic blocked operation. Missing/inconsistent fidelity gets
+one existing-conversation clarification. Policy 2 reconsiders old blocked
+findings once, preserving coverage and bounded retries. Receipts retain fidelity
+and the reported operation. No UI override, extra worker or foreground call.
+
+node tests/harness/m722-focused.mjs first failed the new reproduction on M724,
+then passed all focused cases. It includes preserved memory/Essentials, legacy
+policy recovery, genuine ambiguity, different referents, invalid evidence,
+actual repair, and controlled execution of production lamp logic demonstrating
+yellow-to-green only with all other checks complete. Syntax/diff checks passed.
+No owner database, raw live response, live provider or browser test was available.
+Semantic interpretation remains model-dependent. Original prose, manual records,
+World, themes, branches, backups and scheduling remain unchanged.

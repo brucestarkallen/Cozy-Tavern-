@@ -1,3 +1,49 @@
+# M725: Source fidelity settles false historical allegations
+
+Version m725-001. Base main 6fbe19ad3ff0d750a5fe6930df0e12336909cc3a.
+
+Confirmed reproduction: M724 accepted unknown/blocked with an explanation and
+original quotation supporting the record. Its prior regression covered the
+simpler disproved/blocked mismatch, not this accepted pair. The new fixture
+failed with open=1 before implementation. The owner's raw live response and
+complete database remain unavailable, so this is a causal mock reproduction,
+not proof of the exact live trigger.
+
+Continuous Audit now validates sourceFidelity: exact record claim, original
+quotation provenance, same referent/event, assertion type and scope, relation,
+actual conflicting evidence and specific uncertainty. A supported assessment
+controls settlement even when the generic operation says unknown/blocked. The
+correct record stays intact; only its allegation closes after existing saved
+postcondition and stale-source checks. No name matching or explanation keyword
+verdict is used. Semantic interpretation remains the existing reader's job.
+Missing or inconsistent blocked fidelity gets one clarification in the existing
+conversation. Genuine ambiguity and protected unsafe repairs remain visible.
+Valid legacy correct/repair replies keep their original evidence/safety checks.
+
+Disposition policy 2 gives saved blocked M724 findings one scoped reconsideration
+with durable checkpoints. It does not reset completed historical coverage or
+raise retry limits. Receipts retain the fidelity judgment and reported operation.
+No new worker, foreground call, UI color override, or memory rebuild was added.
+
+Verification: node tests/harness/m722-focused.mjs failed on M724's unknown/blocked
+case and passed after this change. New cases cover supported no-edit dismissal,
+policy-1 recovery, different referents, fabricated evidence, genuine uncertainty,
+actual contradiction repair, protected correct records, untouched Essentials,
+no repeat calls and one bounded clarification. Earlier focused preservation,
+stale-write, source, independent-finding and retry cases also pass. The test
+executes actual production lamp logic with controlled state and a DOM facade:
+yellow becomes green after the sole allegation clears and all other checks pass;
+independently incomplete Auditor verification still prevents green. This was
+not a browser test. node --check js/agents/continuous.js and git diff --check pass.
+No live provider, owner story database or unrelated bulk tests were used.
+
+Healthy verified material adds zero model calls. A consistent supported fidelity
+verdict needs one existing recovery request and no extra clarification; missing
+or inconsistent fidelity permits at most one clarification. Semantic errors by
+the reader remain possible; valid quotations alone do not prove interpretation.
+Original prose, valid memory, manual fields, World, themes, backup/undo paths,
+worker ordering and M718 through M724 protections remain unchanged.
+
 # M724: Resolve disproved historical findings
 
 Version m724-001. Base main e178e4b0207c02a2a995629645a6bdbd5fb2a6e4.
