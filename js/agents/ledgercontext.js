@@ -1,6 +1,48 @@
 /* Shared interpretation contract for the ledger readers. No model call. */
 import { loadEssentials } from './essentials.js';
 import { loadMemory } from './memory.js';
+import { isMc } from '../engine/people.js';
+import { isHere, nameOnPage } from '../engine/names.js';
+import { sourceAppearanceFacts, sourceIdentityFacts } from './appearanceinventory.js';
+
+// Workers maintain the records; the storyteller's card/recall limits are not
+// their reading contract. Keep complete selected records and name every other
+// record for lookup. A field omitted from this view is never an empty field.
+export function workerPeopleContext(state, { material = '', room = 60000 } = {}) {
+  const rows = Object.entries(state?.characters || {}).filter(([, c]) => c && !c.retired)
+    .map(([name, c]) => ({ name, c, priority: (isMc(state, name) ? 4 : 0)
+      + (isHere(state, name) ? 3 : 0) + (nameOnPage(material, name) ? 2 : 0) }))
+    .sort((a, b) => b.priority - a.priority || a.name.localeCompare(b.name));
+  const blocks = []; const omitted = []; let used = 0;
+  for (const { name, c } of rows) {
+    const block = JSON.stringify({ name, core: c.core || '', state: c.state || '', arc: c.arc || '',
+      threads: c.threads || [], hand: c.hand || {}, ...(c.canon?.length ? { canon: c.canon } : {}) });
+    if (used + block.length + 1 <= room) { blocks.push(block); used += block.length + 1; }
+    else omitted.push(name);
+  }
+  if (omitted.length) blocks.push('Records not shown here, NOT empty: ' + omitted.join(', ')
+    + '. Fetch "person: NAME" before changing any unshown field.');
+  return blocks.join('\n') || 'No character pages yet.';
+}
+
+// Reuse the original-source scratchbook without sending another model out.
+// Matching marks exclude receipts for edited/hidden sources. The worker still
+// owns chronology and semantic comparison; these are evidence, not new writes.
+export function workerProfileSources(state, documents, { material = '', room = 24000 } = {}) {
+  if (!Array.isArray(documents)) return '';
+  const facts = [...sourceIdentityFacts(state, documents).map(f => ({ ...f, kind: 'identity' })),
+    ...sourceAppearanceFacts(state, documents).map(f => ({ ...f, kind: 'appearance' }))]
+    .sort((a, b) => Number(nameOnPage(material, b.name)) - Number(nameOnPage(material, a.name)));
+  const lines = []; const omitted = new Set(); let used = 0;
+  for (const f of facts) {
+    const line = JSON.stringify({ name: f.name, kind: f.kind, source: f.source,
+      ...(f.kind === 'identity' ? { text: f.text } : { key: f.key, value: f.value }), shown: f.shown });
+    if (used + line.length + 1 <= room) { lines.push(line); used += line.length + 1; }
+    else omitted.add(f.name);
+  }
+  if (omitted.size) lines.push('More original facts for: ' + [...omitted].join(', ') + '. Fetch originals with "find: NAME"; do not assume those profiles are complete.');
+  return lines.length ? 'ORIGINAL PROFILE FACTS ALREADY RECOVERED. Reconcile missing facts now; keep later developments and manual decisions. These quotations are source evidence, not permission to reset the story.\n' + lines.join('\n') : '';
+}
 
 // M711: narrative provenance and current physical state have separate slots.
 // Prefer the explicit ending snapshot; never merge an earlier summary into it.
@@ -33,7 +75,7 @@ The brief supplies explicit starting facts and constraints. Starting feelings an
 Preserve valid judgments by the responsible worker. Different plausible feelings, motives or offscreen choices are not errors. Correct factual contradictions or explicit rule violations, not personal preferences.
 People core answers WHO the person is: established role/rank, family, background, enduring nature, voice and preferences. A sentence about an escort assignment or a single action is evidence, not a complete identity. Recover missing established details even when core is nonempty. Lasting physical facts such as hair, eyes, build and scars belong in canon locks (What's true of them); current clothes and pose belong in Scene. Compare both stores with original sources, fetch earlier pages when needed, and never invent an unstated trait or rank. A model-written summary is not a source quotation.
 An explicitly stated own persona is the same main character, not an absent NPC. Use mc.alias with the writer's exact identity statement when newly established; all workers share those aliases. Never infer identity from roles or imagined impersonation.
-The main character belongs to the writer. The housekeeper may record their explicitly written identity and biography from the original brief, cast notes or writer pages into core, preserving existing writer facts. This is a factual record, never permission to invent their personality or arc. Other workers maintain their state and threads and leave factual biography recovery to the housekeeper. Never demand an invented biography to finish an audit.
+The main character belongs to the writer. Founder and People must record their explicitly written identity and biography from original brief, cast notes or writer pages into core, preserving existing writer facts and quoting the original writer source. This is a factual record, never permission to invent their personality or arc. Scene maintains their physical state and threads. The housekeeper recovers anything missed; do not deliberately leave writer biography for it to repair. Never demand an invented biography to finish an audit.
 Scene owns physical presence, posture and event-driven relationship scores. People owns character records and interpretation of character arcs. World owns authorized offscreen simulation and quiet characters' ongoing activity. Keep those views consistent without replaying the same event or overwriting another worker's valid judgment.
 For changes retain the cause and supporting quotation when available. Distinguish extracted facts from simulated developments. Retrieve missing evidence rather than inventing history. Unknown whereabouts are not permission to assert an observed location.
 Before answering, reconcile your proposed changes with the current ledger and the complete turn. Keep exact established identities, titles and relationships; register an explicitly introduced person even when quiet or absent. Do not erase existing facts to make a shorter record.

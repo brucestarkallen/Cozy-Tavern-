@@ -56,7 +56,7 @@ export const STANCE_WORDS = {
  * (M266). The ledger keeps everything; what each READER is shown is the
  * newest plus what bears on the scene (renderKnowledge), so nothing grows on
  * the wire with the length of the tale. */
-const THREADS_MAX = 40;
+const THREADS_MAX = Infinity; // Only a resolved thread closes; view limits are separate.
 const THREADS_RENDER = 5;
 /* Sixty, not six hundred: every snapshot and every version's ledger is a WHOLE
  * copy of this (state.js keeps up to 120), so each fact kept is kept a hundred
@@ -69,7 +69,7 @@ const THREADS_RENDER = 5;
  * "haven't found out", told to the storyteller as such. blindSpots never claims a fact older than what a full list still
  * holds now (that person may well have known it). The guard itself stays: measured, 200 facts a person made the load's
  * own clean-up (dedupeKnowledge, on every read of the ledger) ~121 ms against ~25 ms — on a phone, seconds a page. */
-export const KNOWLEDGE_GUARD = 60;    /* a person's facts, kept (was the newest 12) */
+export const KNOWLEDGE_GUARD = 60; // Legacy loss horizon, not a current storage limit.
 const KNOWLEDGE_RENDER = 4;           /* a small room: the newest few */
 export const KNOWLEDGE_RECENT = 12;   /* a whole view: the newest shown for each person here */
 export const KNOWLEDGE_RECALL = 4;    /* and at most this many OLDER facts that bear on the scene (M508: twelve a person, times twenty in a courtyard, was most of a fourteen-thousand-token block) */
@@ -358,7 +358,7 @@ export function findKnowledgeKey(knowledge, name) {
  * trifle the whole room had seen, and nobody in the ledger knew it any more. What someone else also holds is let go first
  * (the oldest of those); a fact nobody else holds goes only when the book holds nothing else. blindSpots reads its horizon
  * the same way (it claims nothing older than the oldest fact a full book still SHARES). Never the newest. */
-export function trimmedBook(list, all, key, cap = KNOWLEDGE_GUARD) {
+export function trimmedBook(list, all, key, cap = Infinity) {
   const book = Array.isArray(list) ? list : [];
   if (book.length <= cap) return book;
   const others = Object.entries(all && typeof all === 'object' ? all : {}).filter(([o, l]) => o !== key && Array.isArray(l));

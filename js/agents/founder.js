@@ -33,13 +33,15 @@ import { applyMutations } from '../engine/apply.js';
 import { mcName } from '../engine/duels.js';
 import { samePersonName } from '../engine/names.js'; /* M681: one answer to "the same person?" */
 import { quotedSource } from '../engine/evidence.js';
+import { findPersonKey, thinsCore } from '../engine/people.js';
+import { LEDGER_READER_RULES, workerPeopleContext } from './ledgercontext.js';
 
 const MAX_TOKENS = 6000;
 
 const VOCABULARY = [
   'mc.set {"type":"mc.set","name":"MAIN CHARACTER"} — the main character, when the brief makes it plain and the ledger does not know',
   'mc.alias {"type":"mc.alias","name":"PERSONA","shown":"the brief\'s exact explicit own-persona identity quote"} — another established identity of the SAME player. Register it before writing other records for that name. Never guess from shared roles or similar names.',
-  'people.set {"type":"people.set","name":"NAME","field":"core","text":"the main character\'s childhood friend; lives next door; ex-idol; reads rooms performatively"} — one core per named person the brief, the cast notes, the cards or the lore establish (never the main character\'s core or arc); field "arc" for how they stand with the main character when stated; who they are in their life (school year, age, role, family, home) belongs in their core, never in "state"; field "state" ONLY for where they are and what they are doing when the story opens, when stated',
+  'people.set {"type":"people.set","name":"NAME","field":"core","text":"complete established identity","shown":"original writer quotation"} — one core per established individual, including a unique singular role without a personal name. The player gets ONLY their explicitly writer-established biography, with shown quoting the original brief or cast notes, never an invented nature or arc. Field "arc" for NPC feelings toward the player; school year, age, rank, role, family and home belong in core, never in state.',
   'rel.set {"type":"rel.set","name":"NAME","p":50,"r":65,"s":20,"cause":"the brief says NAME has loved MAIN CHARACTER since school"} — a standing is how a person stands TOWARD THE MAIN CHARACTER and nothing else (AXIS LOCK): only when the brief states a bond or history between that person and the main character, and the cause names the main character. A person who has never met the main character has no standing (zero, no line). Feelings toward ANYONE ELSE (a crush on NAME, a grudge against NAME) are NOT standings — they go in that person\'s page (core or arc) as words',
   'canon.lock {"type":"canon.lock","name":"NAME","key":"hair","value":"black, waist-length"} — the five canonical features (hair, eyes, build, height, skin tone) and scars when stated; one lock per fact',
   'faction.set {"type":"faction.set","name":"the studio","stance":"…","agenda":"…"} — every group the brief gives a stance or an agenda',
@@ -84,8 +86,7 @@ function law({ mc }) {
     '    love 55–75, devoted love 75–90; P (warmth) acquaintance 5–15, friend 25–45, close friend or family',
     '    50–70, trusted with her life 75–90, dislike −15…−35, hatred −50…−80; S (desire) drawn 15–35, wanting',
     '    40–60, burning 60+. Romantic love is R — never P alone; a lover usually has both.',
-    '  - The main character gets no page of their own beyond mc.set: their state and threads are the',
-    '    story\'s to write.',
+    '  - Record the main character\'s explicit writer biography with people.set core and shown quoting original writer material. Their arc is never invented; Scene and People maintain their current state and threads.',
     '  - Do not narrate, do not summarize the brief. The SCENE is not yours: no place.set, no',
     '    clock.set, no presence, no mood — the extractor founds the scene from the first page. A',
     '    place the brief mentions is world; it needs no line. Found the WORLD: people, bonds,',
@@ -298,6 +299,8 @@ export function buildFounderMessages({ state, brief = '', castNotes = '', cast =
     '',
     'WHAT THE LEDGER ALREADY SAYS (found once before; write only what it lacks or gets wrong):',
     facts,
+    'COMPLETE SELECTED CHARACTER RECORDS (retain their valid established facts):',
+    workerPeopleContext(state, { material: brief + '\n' + castNotes }),
     '',
     /* M564 (the audit): told to write canon people "from the real record", the founder was never handed it — it wrote them
      * from its memory (the seat, the family, the rank: Zaraki's kind of error, in the people's own pages). The others that
@@ -305,7 +308,7 @@ export function buildFounderMessages({ state, brief = '', castNotes = '', cast =
     ...(String(canonRecord || '').trim() ? ['WHAT THE SERIES ITSELF SAYS OF ITS PEOPLE HERE (their real record — the brief outranks it):', FENCE, String(canonRecord).trim(), FENCE, ''] : []),
     'Found the world. JSON only.',
   ].join('\n');
-  return { system: withFictionFrame(law({ mc })), user, hasMaterial: Boolean(String(brief || '').trim() || String(castNotes || '').trim() || cards || shelf) };
+  return { system: withFictionFrame(law({ mc }) + LEDGER_READER_RULES), user, hasMaterial: Boolean(String(brief || '').trim() || String(castNotes || '').trim() || cards || shelf) };
 }
 
 /* Exported for the harness. */
@@ -354,6 +357,14 @@ async function guardFounding({ read, ledgerMc = '', connection, brief = '', cast
   const refusedByLock = [];
   /* M606: a tale founded before the ledger kept things gets the things its brief gives — and only those — once */
   for (const m of (thingsOnly ? ordered.filter((x) => x && x.type === 'thing.set') : ordered)) {
+    delete m.writerEstablished;
+    delete m.byHand;
+    m.source = 'founder';
+    if (m.type === 'people.set' && m.field === 'core' && mcKnown && samePersonName(m.name, mcKnown)) {
+      const quote = quotedSource(brief, m.shown) || quotedSource(castNotes, m.shown);
+      if (!quote) { refusedByLock.push({ mutation: m, why: 'player biography needs an original writer quotation' }); continue; }
+      m.writerEstablished = true; m.shown = quote; m.evidence = quote; m.source = 'founder';
+    }
     if (m.type === 'mc.alias' && ![brief,castNotes].some(source => quotedSource(source,m.shown))) {
       refusedByLock.push({mutation:m,why:'the own-persona identity must be quoted from the writer\'s material'}); continue;
     }
@@ -401,6 +412,12 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
    * read again does not move a standing it already moved — only a standing nobody has yet takes a move */
   const hasStanding = (name) => Object.keys(fresh.relationships && typeof fresh.relationships === 'object' ? fresh.relationships : {}).some((k) => samePersonName(k, name));
   const guarded = founding
+    .filter(m => {
+      if (!/^people\./.test(m.type)) return true;
+      const owner = findPersonKey(fresh.characters || {}, m.name);
+      if (owner && fresh.characters[owner]?.hand?.[m.field]) return false;
+      return !(m.field === 'core' && owner && thinsCore(fresh.characters[owner]?.core, m.text));
+    })
     .filter((m) => !(m && (m.type === 'rel.set' || m.type === 'rel.shift') && typeof m.name === 'string' && pagesMoved(m.name)))
     .filter((m) => !(m && m.type === 'rel.shift' && fresh.founded && typeof m.name === 'string' && hasStanding(m.name)))
     .map((m) => (m && m.type === 'rel.shift' && !/^the founder\b/i.test(String(m.cause || '').trim()) ? { ...m, cause: 'the founder — ' + String(m.cause || '').trim() } : m));

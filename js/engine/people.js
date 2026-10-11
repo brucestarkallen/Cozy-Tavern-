@@ -50,7 +50,9 @@ export const THREAD_CAP = 1000;
  * loose ends ("owes Jovan a favour", page 10) went the moment an eighth newer one came — and the storyteller, the scribe and
  * the auditor then read that person as if it had never been. Forty, as the world's threads: what is shown to each reader was
  * never the whole list (the storyteller reads the newest and what bears on the scene). */
-export const THREADS_MAX = 40;
+// Context views may be small; the durable ledger must not discard an open
+// obligation merely because the next one was recorded (including on reload).
+export const THREADS_MAX = Infinity;
 export const RECALL_CARD_CAP = 2000;
 /* Tier laws (SPEC.md M12). */
 export const PRESENT_CARDS_MAX = 6;

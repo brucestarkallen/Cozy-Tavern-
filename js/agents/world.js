@@ -350,7 +350,8 @@ export function peopleForWorld(state, { material = '', castNames = [], room = WO
     const core = typeof c.core === 'string' ? c.core.trim() : '';
     const now = typeof c.state === 'string' ? c.state.trim() : '';
     const arc = typeof c.arc === 'string' ? c.arc.trim() : '';
-    if (!core && !now && !arc) continue;
+    // A page opened by Scene still needs a world decision even before People
+    // fills its identity. Do not hide established empty records from World.
     const weight = importanceOf(state, name, material, turn, scene) + (own(name) ? 30 : 0);
     const here = present.has(lower(name)) || isHere(state, name); /* M396: under any form of their name */
     const hasSeat = seated.has(lower(name)) || Boolean(seatForPerson(state, name)); /* M320: "Rias" seated IS "Rias Gremory" seated */
@@ -367,11 +368,13 @@ export function peopleForWorld(state, { material = '', castNames = [], room = WO
      * "last placed 4 hours ago — where are they now?" beside the Dead line — and the clock-jump law re-seats every absent
      * person: an invitation to raise them (the ledger now refuses a living seat over a death but by his hand) */
     const dead = !here && Boolean(seat && isDeadSeat(seat.entry));
-    rows.push({ name, core, now, weight, here, dead, noSeat: noSeat && !dead, stale: stale && !dead, sighting: sighting && !dead, ago: stale && !dead ? agoWords(seatAge(state, name)) : '' });
+    rows.push({ name, core, now, arc, threads: c.threads || [], weight, here, dead, noSeat: noSeat && !dead, stale: stale && !dead, sighting: sighting && !dead, ago: stale && !dead ? agoWords(seatAge(state, name)) : '' });
   }
   rows.sort((a, b) => (b.weight - a.weight) || a.name.localeCompare(b.name));
   const mark = (r) => (r.here ? ' [in the scene]' : r.dead ? ' [dead — never re-seat them]' : r.noSeat ? ' [NO SEAT — seat them]' : r.sighting ? ' [ONLY LAST SEEN — where did they go?]' : r.stale ? ' [last placed ' + (r.ago || 'long ago') + ' — where are they now?]' : '');
-  const whole = (r) => r.name + mark(r) + ' — ' + [r.core, r.now && !seated.has(lower(r.name)) && !seatForPerson(state, r.name) ? 'last noted: ' + r.now : ''].filter(Boolean).join(' | ');
+  const whole = (r) => r.name + mark(r) + ' — ' + [r.core,
+    r.arc ? 'established arc: ' + r.arc : '', r.threads.length ? 'loose ends: ' + r.threads.join('; ') : '',
+    r.now && !seated.has(lower(r.name)) && !seatForPerson(state, r.name) ? 'last noted: ' + r.now : ''].filter(Boolean).join(' | ');
   const lean = (r) => { const first = (r.core || r.now).split(/(?<=[.!?])\s+/)[0] || ''; return r.name + mark(r) + ' — ' + (first.length > 240 ? first.slice(0, first.lastIndexOf(' ', 240)) + '…' : first); };
   const lines = [];
   let used = 0;
@@ -457,7 +460,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
    * story rides now, as it does to the extractor (M226). */
   const recordSoFar = String(record || '').trim();
   const FENCE3 = '\u0022\u0022\u0022';
-  const elsewhereAll = renderOffscreen(state.offscreen, present, clockMinutes, 40, state.characters || {}); /* M396 */
+  const elsewhereAll = renderOffscreen(state.offscreen, present, clockMinutes, Infinity, state.characters || {});
   const threads = renderAllThreads(state.threads);
   const knowledge = renderAllKnowledge(state.knowledge, present, undefined, { fitRoom: knowledgeRoom > 0 ? knowledgeRoom : 0 }); /* M664: fitted to this worker's room */
   const factions = renderAllFactions(state.factions, storyTurn(state)); /* M681 (W7): a move says its age */
@@ -481,7 +484,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
       if (!quiet.length) return [];
       const chars = (state && state.characters) || {};
       return ['IN THE SCENE, NOT ON THE PAGE — the quiet ones in the room (write each one\'s now: people.set field "state"):',
-        ...quiet.map((n) => { const k = findPersonKey(chars, n) || n; const c = chars[k] || {}; return '- ' + k + (c.core ? ' — ' + String(c.core).slice(0, 200) : '') + (c.state ? ' | last now: ' + String(c.state).slice(0, 200) : ''); }), ''];
+        ...quiet.map((n) => { const k = findPersonKey(chars, n) || n; const c = chars[k] || {}; return '- ' + k + (c.core ? ' — ' + c.core : '') + (c.state ? ' | last now: ' + c.state : ''); }), ''];
     })(),
     'THREADS:',
     threads || 'None open yet.',

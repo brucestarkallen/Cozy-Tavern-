@@ -50,6 +50,7 @@ import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName
 import { withoutStandingNumbers, setPersonField, findPersonKey, mergeDeltas, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
 import { ownerAndDependent, samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage, isTitleWord } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
+import { quotedSource } from './evidence.js';
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
 import { setThread, closeThread, findThread, sameThreadTitle, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES, sameFact, factKey, brokenOff } from './world.js'; /* M29: the world beyond the page */
 /* M456: the stances that stay where they are — no arrival ever rides them (a seat with no stance keeps its ETA, M29) */
@@ -1165,6 +1166,11 @@ const HANDLERS = {
     const canonKey = personBookKey(state, state.canon, name, findCanonKey) || newBookKey(state, name); /* M419: what's true of them, one person one entry */
     const before = state.canon[canonKey] ? cloneMap({ [canonKey]: state.canon[canonKey] })[canonKey] : null;
     const held = before ? findFact(before, key) : null;
+    if (m.byHand !== true && m.source !== 'auditor') {
+      const manual = [...(state.journal || [])].reverse().find(e => e.m?.byHand && /^canon\.(lock|unlock)$/.test(e.m.type)
+        && samePersonName(e.m.name, canonKey) && lookKey(e.m.key) === lookKey(key));
+      if (manual) return { why: 'the writer explicitly controls this physical fact', same: true };
+    }
     /* M386: canon verification writes only where nothing of anyone else's is written — a truth the brief, the writer or a
      * reader holds under that name is theirs, whatever the series says. Its OWN earlier truth it may correct (a page
      * looked up again). */
@@ -1465,7 +1471,10 @@ const HANDLERS = {
 
   'people.set'(state, m) {
     const field = typeof m.field === 'string' ? m.field.trim().toLowerCase() : '';
-    const writerCore = m.source === 'auditor' && m.writerEstablished === true && (Boolean(m.shown) || (m.auditorApproved===true && m.sourceRefs?.length));
+    // These readers grant this flag only after resolving an ORIGINAL writer
+    // quotation. Saving writer biography is not reserved for audit repairs.
+    const writerCore = ['auditor', 'scribe', 'founder'].includes(m.source) && m.writerEstablished === true
+      && (Boolean(m.shown) || (m.source === 'auditor' && m.auditorApproved===true && m.sourceRefs?.length));
     const result = setPersonField(state, state.characters, m.name, field, m.text, storyTurn(state), { clear: m.open === true ? 'open' : m.clear === true, writerCore, byHand:m.byHand === true });
     if (!result.entry) return { why: result.why, same: result.same === true };
     if (m.source === 'auditor' && result.before && JSON.stringify(result.before[field]) === JSON.stringify(result.entry[field])) return { why: 'the saved field already contains this correction', same: true };
@@ -2750,11 +2759,14 @@ export function lockedLooks(state, looks, pageText = '', userText = '') {
   };
   const chars = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
   const canon = state && state.canon && typeof state.canon === 'object' ? state.canon : {};
-  for (const l of (Array.isArray(looks) ? looks : []).slice(0, 12)) {
+  for (const l of (Array.isArray(looks) ? looks : [])) {
     if (!l || typeof l !== 'object') continue;
-    const key = capText(l.key, 40); const value = capText(l.value, 240); const said = normalizeName(l.name);
+    const key = capText(l.key, 120); const value = capText(l.value, 1000); const said = normalizeName(l.name);
     if (!said || !key || !value || NOT_LOOKS.test(key.trim())) continue;
-    const shown = whereShown(value);
+    // A worker's sourced paraphrase need not overlap half the value words.
+    // Exact original evidence keeps pronoun-linked descriptions attributable.
+    const quote = quotedSource(String(userText || ''), l.shown) || quotedSource(telling, l.shown);
+    const shown = quote ? { text: quote, his: Boolean(quotedSource(String(userText || ''), l.shown)) } : whereShown(value);
     if (!shown) continue; /* not this page's words, nor his */
     const lasting = lastingLook(value); /* M681 (P2) */
     if (!lasting) continue;
@@ -2762,13 +2774,16 @@ export function lockedLooks(state, looks, pageText = '', userText = '') {
     if (isMc(state, said)) name = mc && mc !== 'the player' ? mc : '';
     else { const at = findPresent(state, said, { strict: true }); name = at !== -1 ? state.present[at].name : (findPersonKey(chars, said) || ''); }
     if (!name) continue; /* someone the story knows — never a face in a crowd */
-    if (!aboutThem(shown, name)) continue; /* the paragraph that shows it is about someone else */
+    if (!quote && !aboutThem(shown, name)) continue; /* legacy unquoted word-overlap attribution */
     const canonKey = personBookKey(state, canon, name, findCanonKey);
     const entry = canonKey ? canon[canonKey] : null;
     const same = (a, b) => String(a || '').trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ') === String(b || '').trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ');
     if (entry && (findFact(entry, key) || (Array.isArray(entry.facts) ? entry.facts : []).some((f) => f && same(f.value, value)))) continue;
     if (out.some((m) => m.name === name && (m.key.toLowerCase() === key.toLowerCase() || same(m.value, value)))) continue;
-    out.push({ type: 'canon.lock', name, key, value: lasting });
+    const manual = [...(state.journal || [])].reverse().find(e => e.m?.byHand && /^canon\.(lock|unlock)$/.test(e.m.type)
+      && samePersonName(e.m.name, name) && lookKey(e.m.key) === lookKey(key));
+    if (manual) continue;
+    out.push({ type: 'canon.lock', name, key, value: lasting, ...(quote ? { shown: quote, evidence: quote } : {}) });
   }
   return out;
 }
@@ -2795,7 +2810,7 @@ export function movedThings(state, things, pageText = '', userText = '') {
     if (at !== -1) return state.present[at].name;
     return findPersonKey(chars, n) || (seatForPerson(state, n) && seatForPerson(state, n).key) || '';
   };
-  for (const t of (Array.isArray(things) ? things : []).slice(0, 12)) {
+  for (const t of (Array.isArray(things) ? things : [])) {
     if (!t || typeof t !== 'object') continue;
     const name = capText(normalizeName(t.name), 120); const where = capText(t.where, 240);
     if (!name || !where) continue;

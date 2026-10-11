@@ -1,5 +1,4 @@
-import { renderPeopleTiers, peopleView } from '../engine/people.js';
-import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sceneEndingFields, sharedStoryContext } from './ledgercontext.js';
+import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sceneEndingFields, sharedStoryContext, workerPeopleContext } from './ledgercontext.js';
 /* Cozy Tavern — agents/extractor.js
  * The extractor: a quiet background worker that reads each finished page —
  * what the writer wrote and what the storyteller answered — and proposes
@@ -296,7 +295,7 @@ function systemPrompt({ mc, founding }) {
     'Answer with JSON ONLY, in exactly this shape:',
     '{"mutations":[ ... ], "people":[ ... ], "threads":[ ... ], "healed":[ ... ], "things":[ ... ], "loose":[ ... ], "here":[ ... ], "looks":[ ... ], "spot":"…"}',
     WRITER_FACTS,
-    '"people" records each newly established named identity from EITHER message: {"name":"the exact name used","core":"their stable role, rank, family and nature actually established here","shown":"an exact quote establishing these facts"}. Keep core separate from the quotation: an action is not an identity. Leave core empty if no stable fact is given. Include people the writer introduces even if they do not act or speak in the reply. Physical facts go in looks. Do not use a question or hypothetical as an introduction. Use here separately for physical presence.',
+    '"people" records each newly established individual identity from EITHER message: {"name":"the exact name or unique singular role used","core":"their stable role, rank, family and nature actually established here","shown":"an exact quote establishing these facts"}. Distinct ranked siblings and unique unnamed individuals get separate records under their stated role, never an invented personal name. Design comparisons are not additional people. Keep core separate from the quotation: an action is not an identity. Leave core empty if no stable fact is given. Include people the writer introduces even if they do not act or speak in the reply. Physical facts go in looks. Do not use a question or hypothetical as an introduction. Use here separately for physical presence.',
     '"threads" decides EVERY open thread listed under the page, one entry each — {"title":"…","now":"resolved"} or',
     '{"title":"…","now":"open"} (a thread the story has only moved is still open). "healed", "things", "loose" and "spot"',
     'answer the lists under the page that ask for them; [] (or "" for "spot") when there is none.',
@@ -311,7 +310,7 @@ function systemPrompt({ mc, founding }) {
     'presence.leave, shown on the page.',
     '"looks" holds what THIS page — or the writer\'s own message — shows of how someone LOOKS that will still be true',
     'tomorrow: body, build, height, face, hair, eyes, skin, marks, scars, anatomy, the sound of a voice. One entry a fact,',
-    '{"name":"NAME","key":"hair","value":"copper red, cut to the jaw"}, the value in the page\'s own words. Never dress, a',
+    '{"name":"NAME","key":"hair","value":"copper red, cut to the jaw","shown":"exact supporting source quote"}. Read descriptions linked by pronouns. For alternate faces use a persona-specific key, such as "PERSONA hair", on the one player identity. Never dress, a',
     'mood, a look on a face or a wound (those have their own places), and nothing the ledger already holds for them',
     'under "What\'s true". [] when the page shows none.',
     '',
@@ -355,7 +354,7 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
     'Here is what the ledger currently says:',
     facts,
     'Character identities and established arcs:',
-    renderPeopleTiers(state, { recentPages: [userText || '', assistantText || ''], view: peopleView(64000), brief: brief + '\n' + castNotes }).text,
+    workerPeopleContext(state, { material: [brief, castNotes, userText, assistantText].join('\n') }),
     'Moods on the board right now: ' + (onNow.length ? onNow.join(', ') : 'none') + ' — restate the whole board with mode.snapshot.',
     '',
     ...(brief && String(brief).trim()
@@ -543,8 +542,7 @@ export function openWoundsBlock(state, pageText = '') {
     /* M681 (P5, the people audit — made to happen on m680-001): the dead are not asked about — "Old Hesk — a crossbow bolt
      * through the chest" stood among the wounds to decide on every page that named his body */
     { const seat = seatForPerson(state, name); if (seat && isDeadSeat(seat.entry)) continue; }
-    for (const i of open.slice(0, 4)) rows.push({ name, what: i.what.trim(), treated: i.treated === true });
-    if (rows.length >= 12) break;
+    for (const i of open) rows.push({ name, what: i.what.trim(), treated: i.treated === true });
   }
   if (!rows.length) return [];
   return [
@@ -653,9 +651,8 @@ export function looseEndsBlock(state, pageText = '') {
     if (!c || typeof c !== 'object' || c.retired || !Array.isArray(c.threads) || !c.threads.length) continue;
     if (!(isMc(state, name) || isHere(state, name) || nameOnPage(page, name))) continue; /* the people of this page */
     for (const t of c.threads) {
-      if (typeof t === 'string' && t.trim() && rows.length < 16) rows.push({ name, text: t.trim() });
+      if (typeof t === 'string' && t.trim()) rows.push({ name, text: t.trim() });
     }
-    if (rows.length >= 16) break;
   }
   if (!rows.length) return [];
   return [
@@ -774,7 +771,7 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
     /* M280: each title the page resolved closes its thread (once) */
     const closing = new Set(mutations.filter((m) => m.type === 'thread.close').map((m) => String(m.title || m.name || '').trim().toLowerCase()));
     /* M663: each wound this page healed closes (once) — a body.heal of the same wound among the changes is the same answer */
-    for (const h of (Array.isArray(parsed.healed) ? parsed.healed : []).slice(0, 12)) {
+    for (const h of (Array.isArray(parsed.healed) ? parsed.healed : [])) {
       if (!h || typeof h !== 'object' || typeof h.name !== 'string' || typeof h.what !== 'string' || !h.name.trim() || !h.what.trim()) continue;
       const name = h.name.trim().slice(0, 80); const what = h.what.trim().slice(0, 200);
       if (mutations.some((m) => m && m.type === 'body.heal' && String(m.name || '').trim().toLowerCase() === name.toLowerCase() && String(m.what || '').trim().toLowerCase() === what.toLowerCase())) continue;
@@ -788,7 +785,7 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
     }
     /* M679: every open thread's own verdict (openThreadsBlock) — "resolved" closes it; "open", or a word that is neither, leaves
      * it as it stands. The old list of titles above is still read, for an answer written the old way. */
-    for (const v of (Array.isArray(parsed.threads) ? parsed.threads : []).slice(0, 40)) {
+    for (const v of (Array.isArray(parsed.threads) ? parsed.threads : [])) {
       if (!v || typeof v !== 'object') continue;
       const t = typeof v.title === 'string' ? v.title.trim() : (typeof v.name === 'string' ? v.name.trim() : '');
       if (!t || !verdictCloses(v) || closing.has(t.toLowerCase())) continue;
@@ -796,7 +793,7 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
       mutations.push({ type: 'thread.close', title: t.slice(0, 200) });
     }
     /* M679: every loose end of the page's people, its own verdict (looseEndsBlock) — "closed" closes it on that person's page */
-    for (const v of (Array.isArray(parsed.loose) ? parsed.loose : []).slice(0, 24)) {
+    for (const v of (Array.isArray(parsed.loose) ? parsed.loose : [])) {
       if (!v || typeof v !== 'object' || typeof v.name !== 'string' || typeof v.text !== 'string' || !v.name.trim() || !v.text.trim()) continue;
       if (!verdictCloses(v)) continue;
       const name = v.name.trim().slice(0, 80); const loose = v.text.trim().replace(/^[“"']+|[”"']+$/g, '').slice(0, 300);
@@ -832,14 +829,14 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
     /* M662: how someone looks, as this page shows it (the house locks what is new and is the page's own — apply.js lockedLooks) */
     const looks = (Array.isArray(parsed.looks) ? parsed.looks : [])
       .filter((l) => l && typeof l === 'object' && typeof l.name === 'string' && typeof l.key === 'string' && typeof l.value === 'string' && l.name.trim() && l.key.trim() && l.value.trim())
-      .map((l) => ({ name: l.name.trim().slice(0, 80), key: l.key.trim().slice(0, 40), value: l.value.trim().slice(0, 240) })).slice(0, 12);
+      .map((l) => ({ name: l.name.trim().slice(0, 80), key: l.key.trim().slice(0, 120), value: l.value.trim().slice(0, 1000), shown: typeof l.shown === 'string' ? l.shown : '' }));
     /* M667: where the things this page names now lie (the house writes one when it is the page's own words and new — apply.js movedThings) */
     const things = (Array.isArray(parsed.things) ? parsed.things : [])
       .filter((t) => t && typeof t === 'object' && typeof t.name === 'string' && typeof t.where === 'string' && t.name.trim() && t.where.trim())
-      .map((t) => ({ name: t.name.trim().slice(0, 120), where: t.where.trim().slice(0, 240), ...(typeof t.owner === 'string' && t.owner.trim() ? { owner: t.owner.trim().slice(0, 120) } : {}) })).slice(0, 12); /* M679: whose it is, when the page changed that */
+      .map((t) => ({ name: t.name.trim().slice(0, 120), where: t.where.trim().slice(0, 240), ...(typeof t.owner === 'string' && t.owner.trim() ? { owner: t.owner.trim().slice(0, 120) } : {}) })); /* M679: whose it is, when the page changed that */
     /* M679: where in the area the scene stands as the page ends (spotBlock) — the house holds it to the page (spotOnPage) */
     const spot = typeof parsed.spot === 'string' ? parsed.spot.trim().slice(0, 160) : '';
-    const people = (Array.isArray(parsed.people) ? parsed.people : []).filter((p) => p && typeof p.name === 'string' && typeof p.shown === 'string').slice(0, 40);
+    const people = (Array.isArray(parsed.people) ? parsed.people : []).filter((p) => p && typeof p.name === 'string' && typeof p.shown === 'string');
     return { mutations, note: mutations.length || here.length || people.length || looks.length || things.length || spot ? 'ok' : 'empty', here, hereNotes, looks, things, spot, people };
   } catch (err) {
     return { mutations: [], note: 'unusable' };
@@ -1092,7 +1089,16 @@ export async function extractTurn(args = {}) {
       /* M667: where a thing the page names now lies */
       if (Array.isArray(read.things) && read.things.length) read.mutations = [...read.mutations, ...movedThings(args.state, read.things, args.assistantText, args.userText).filter((t) => !read.mutations.some((m) => m && m.type === 'thing.set' && typeof m.name === 'string' && m.name.trim().toLowerCase() === t.name.toLowerCase()))];
       /* M662: what the page shows of how someone looks is locked among what is true of them */
-      if (Array.isArray(read.looks) && read.looks.length) read.mutations = [...read.mutations, ...lockedLooks(args.state, read.looks, args.assistantText, args.userText)];
+      if (Array.isArray(read.looks) && read.looks.length) {
+        // Newly introduced people/aliases exist for appearance attribution in
+        // the same answer, not only after the next page or auditor runs.
+        const personaSources = [{ text: args.brief }, { text: args.castNotes }, { text: args.userText },
+          { text: args.assistantText, narrative: true }];
+        const aliases = sourcePersonaMutations(args.state, personaSources, read.looks.map(l => l.name));
+        read.mutations = [...aliases, ...read.mutations];
+        const introduced = applyMutations(args.state, read.mutations.filter(m => ['mc.set', 'mc.alias', 'people.note', 'people.set', 'presence.enter'].includes(m.type))).state;
+        read.mutations = [...read.mutations, ...lockedLooks(introduced, read.looks, args.assistantText, args.userText)];
+      }
       // M710: the opening header cannot supply an automatic ending pose or
       // outfit. The reader folds both through the narration in its here list.
       const notes = Array.isArray(read.hereNotes) ? read.hereNotes : [];
@@ -1105,7 +1111,7 @@ export async function extractTurn(args = {}) {
         const room = letGo.length ? applyMutations(args.state, letGo).state : args.state;
         // An explicit, quoted ending pose applies to the MC as it does to NPCs.
         // Do not send the MC through the header's word-overlap fallback.
-        const supported = notes.filter(n => quotedSource(scenePartOf(args.assistantText), n.shown));
+        const supported = notes.filter(n => quotedSource(turnScene, n.shown));
         const updates = supported.flatMap(n => {
           const m = { type: 'presence.update', name: n.name, shown: n.shown, source: 'extractor', cause: 'Scene read the latest posture and attire' };
           if (n.at) m.position = n.at;
@@ -1236,7 +1242,7 @@ async function extractTurnRead({ connection, state, userText, assistantText, bef
   /* M31: an answer we can't use, or a founding that came back empty, earns
    * ONE second ask with a sharper word — here, not five blind retries in
    * the queue. The raw answer rides out so the drawer can show it. */
-  prompt.system += LEDGER_READER_RULES + '\nFor each here entry use {name, at, wears, shown}, with an exact quotation supporting their physical presence or current pose. This list is your final scene judgment: include quiet spectators still present, exclude remote voices and people merely mentioned. Follow arrivals and departures through the entire scene before deciding. Do not omit a known companion merely because the ending focuses on someone else.';
+  prompt.system += LEDGER_READER_RULES + '\nFor each here entry use {name, earlier, ending:{position, attire, shown}}, omitting unknown fields. The exact quotation can come from either original message. This list is your final scene judgment: include quiet spectators still present, exclude remote voices and people merely mentioned. Follow arrivals and departures through the entire scene before deciding. Do not omit a known companion merely because the ending focuses on someone else.';
   let user = prompt.user;
   let last = null;
   /* M163: THE BEST READING IS KEPT. The sharper second ask (a missing

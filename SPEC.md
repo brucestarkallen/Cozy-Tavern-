@@ -991,3 +991,69 @@ notes or publication. Publish normally under standing permission and verify
 remote main. The specific wall-position fix is observed live; M712 bookkeeping
 behavior is implemented but not yet observed in a subsequent provider reply.
 
+
+# M713: repair the ledger workers before the final auditor
+
+Version m713-001. The owner requested a whole audit of the upstream ledger
+pipeline, rather than another patch to the final auditor or individual story
+characters. Default remains NO tests; only a tiny causal milestone check is
+allowed. Do not run release/theme/gameplay matrices or repeat checks for docs
+or publication. Normal publication remains authorized by AGENTS.md.
+
+The latest M712 live report already settled the original wall-position and
+rewording loop: one final call,207/207 entries,167/167 sources,no pending work.
+M713 repairs upstream causes found by inspecting Founder, Scene, World, People,
+source retrieval, persistence, worker ordering and journal/ownership handoffs.
+Read docs/LEDGER_PIPELINE.md for the responsibility map and remaining bounds.
+
+Changes:
+* Founder/Scene/People read complete selected People records, not storyteller
+  card and recall limits. Every omitted name remains available for lookup.
+* People receives matching cached original identity/appearance facts, including
+  folded sources, inside its EXISTING call. Source marks invalidate stale or
+  hidden originals. Nonempty event-only cores are not complete biographies.
+* Founder and People can save ONLY original writer-established MC biography,
+  with verified writer quotations and durable coreOrigin, through journaled
+  people.set. MC arc remains protected. Manual fields and earned standings stay.
+* Scene's last instruction now agrees with its nested ending contract. Exact
+  ending evidence may come from either message. Newly introduced singular-role
+  identities and explicitly established aliases exist when their looks are
+  attributed in the SAME answer. Appearance quotes and persona-specific keys
+  survive parsing. Supported paraphrases do not need lexical word overlap.
+* World sees ALL elsewhere seats, includes empty established character pages,
+  and receives character arcs/loose ends and full quiet-character records.
+* Person lookup uses the shared unique matcher and player aliases, never the
+  first record sharing a first name. Search retains references to ALL original
+  matching pages beyond the newest excerpts, including folded originals.
+* Open character/world threads and learned knowledge no longer evict old facts
+  just because a new one is added. Reload and merge also retain open threads.
+  The old 60-fact constant stays only as a conservative LEGACY loss horizon.
+  Prompt views remain fitted separately; explicit closures still work.
+* Removed silent response-count cuts for appearance, introductions, healed
+  wounds, thread/loose-end verdicts and things, and arbitrary question-list
+  cuts for open wounds/loose ends. Existing structural field bounds remain.
+
+Validation: only tests/harness/m713-workers.mjs, actual Founder/Scene/World/
+People paths with mocked provider replies and NO auditor. It demonstrated
+writer biography/coreOrigin, old original profile/hair recovery while earlier
+pages are folded, a new unnamed royal sibling and appearance, a writer-input
+ending pose,100 actual seats and arcs,manual appearance ownership,unchanged
+p60/r50 and prose,and retention/reload of46 open threads and66 knowledge facts.
+The check exposed one missing quotedSource import, fixed; its next run exposed
+an incomplete fixture world answer (it omitted the already-owed queen), fixed
+in the fixture. Final run passed. Two unsupported node-flag launch attempts
+never executed the fixture; use plain node tests/harness/m713-workers.mjs.
+No broad suites, paid calls, gameplay, live story audit, or publishing retests.
+Later removal of collection-count cuts and the compact older-search-reference
+listing were directly reviewed, not separately exercised. Do not misrepresent
+mock wiring as a live provider verdict. No NEW model call added to a page.
+
+No user-specific character names or story phrases occur in production changes.
+Existing provider fetch/recovery and transport retries remain; this does not
+promise every future answer will require exactly one request. The model still
+owns chronology, semantic equivalence and interpretation. Existing live browser
+records change only when their workers run; repository code cannot certify or
+rewrite unseen IndexedDB data. Audit remains the final factual check, not a
+substitute for deliberate gaps in the workers. No forced rescan, green reset,
+new approval certificate, source checkpoint reset, or repeated audit added.
+

@@ -1,4 +1,4 @@
-import { LEDGER_READER_RULES, sharedStoryContext } from './ledgercontext.js';
+import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sharedStoryContext, workerPeopleContext, workerProfileSources } from './ledgercontext.js';
 import { db } from '../store.js';
 import { auditSources } from './auditsources.js';
 import { findCanonKey, findFact } from '../engine/canon.js';
@@ -24,11 +24,11 @@ import { findCanonKey, findFact } from '../engine/canon.js';
  */
 
 import { balancedCandidates, parseLenient } from './jsonutil.js';
-import { seatForPerson } from '../engine/people.js'; /* M398 */
-import { isHere, nameOnPage } from '../engine/names.js'; /* M398/M412; M414: named by the one answer */
+import { isHere, nameOnPage, samePersonName } from '../engine/names.js'; /* M398/M412; M414: named by the one answer */
+import { lookKey } from '../engine/canon.js';
 import { wholePage, writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M259: the page read to its end; M283: the writer's own, to the room */
 import { loadState, saveState, notify } from '../engine/state.js';
-import { renderPeopleTiers, peopleView, mcKey, findPersonKey, thinsCore, isMc } from '../engine/people.js';
+import { mcKey, findPersonKey, thinsCore, isMc } from '../engine/people.js';
 import { applyMutations, placeholderIn } from '../engine/apply.js'; /* M72: the scribe writes through the journal */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M679: what answers a loose end — one definition */
@@ -36,11 +36,13 @@ import { askWithFetch, fetchLaw, viewBudget, roomChars, leashFor, windowOfPages 
 import { renderWholeLedger } from '../engine/whole.js'; /* M28: the one wire path for workers */
 import { exactNameIn, quotedSource, WRITER_FACTS } from '../engine/evidence.js';
 import { retryAfterMs } from '../providers/wire.js'; /* M28: moved to the wire; re-exported for the harness contract */
+import { contextOf } from '../providers/room.js';
 export { retryAfterMs };
 
 /* M259: was 600 — a busy page's notes ran past it, and the cut answer was
  * read as "nothing shifted". Thinking is off on the wire (M28). */
 const MAX_TOKENS = 2400;
+export const scribeBudget = connection => contextOf(connection) >= 32000 ? 6000 : MAX_TOKENS;
 
 /* ---------- the prompt (human-voiced, kept in the code) ---------- */
 
@@ -56,7 +58,7 @@ const SYSTEM_PROMPT = [
   '',
   'Each delta is {"name":"NAME","field":"state","text":"…","cause":"the event or established fact that explains this change","shown":"an exact source quote when available"} where field is one of:',
   '  core   — their stable nature: voice, tells, what never really changes.',
-  '           Write it rarely, only when the prose truly shows it.',
+  '           Fill missing established identity now, including a nonempty but incomplete core. Keep every valid lasting fact; use as much space as the established profile needs.',
   '  (a "state" that holds who they are in their life — school year, age, role, family, home — is not a',
   '   state: add those facts to their core and write where they are and what they are doing now.)',
   '  state  — where they are and how they are doing, RIGHT NOW. Lead with',
@@ -82,9 +84,9 @@ const SYSTEM_PROMPT = [
   'the law of the desk, below) and',
   'has no page above gets their page now — this is not "sparse", it is the first line of the',
   'ledger that will remember them: a core (who they are — role, nature, voice — only as the page,',
-  'the brief or the real record shows it, a line or two), their state if they are in the scene,',
+  'the brief or the real record shows it), their state if they are in the scene,',
   'their arc if the page moved how they stand with the main character. Never the main',
-  'character\u2019s core. A nameless extra (a guard, a clerk, "the crowd") gets no page.',
+  'character\u2019s invented nature. A unique established singular role or ranked sibling gets a page under the exact role when no personal name is given; a generic unnamed crowd extra gets no page. Parenthetical writer introductions are facts; comparison characters are not extra members of the cast.',
   '',
   'CLOSE WHAT THE PAGE ANSWERED. Before you write anything, read the',
   'loose ends already open on each person above and ask of EVERY one: did this',
@@ -123,10 +125,10 @@ const SYSTEM_PROMPT = [
   '  - Only what the prose explicitly shows. When unsure, omit. Most turns',
   '    change nothing: {"deltas":[]} is a good and honest answer.',
   '  - Never write one person’s doings into another’s page.',
-  '  - For the main character you write only state and threads. Preserve their',
-  '    recorded writer biography; only the housekeeper recovers core from original writer facts. Never invent their core or arc. Notes about "you"',
+  '  - For the main character recover missing core ONLY from the original writer brief, cast notes or writer pages, with shown quoting those original words. Preserve their',
+  '    full existing writer biography. Never invent their nature or arc. Notes about "you"',
   '    belong to the main character’s record.',
-  '  - Keep each note to a sentence or two. Names keep the spelling the',
+  '  - Keep changed state and arc concise; complete identity and physical fact coverage takes priority over a sentence count. Names keep the spelling the',
   '    prose uses.',
   '',
   'No commentary, no markdown fences: the JSON object only.',
@@ -141,7 +143,7 @@ const SYSTEM_PROMPT = [
  * notes kept whole, a few present cards filled it, and the off-scene people
  * this very page names (M227) were shed before it could read them. */
 export const SCRIBE_VIEW_TOKENS = 200000;
-export function buildScribeMessages({ state, userText, assistantText, brief = '', castNotes = '', canonRecord = '', record = '', pages = [], contextBudget = Infinity }) {
+export function buildScribeMessages({ state, userText, assistantText, brief = '', castNotes = '', canonRecord = '', record = '', pages = [], contextBudget = Infinity, peopleRoom = 60000, documents = null }) {
   /* M227: THE SCRIBE COULD NOT SEE THE LOOSE ENDS IT WAS MEANT TO CLOSE.
    * renderPeopleTiers only gives a full page — Loose ends included — to
    * people on scene, and recalls an OFF-scene person only when these pages
@@ -153,7 +155,8 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
    * them piling up for the housekeeper to find. The pages of this very turn
    * are what it is reading; they are what decides who is recalled. */
   const material = String(brief || '') + '\n' + String(castNotes || '');
-  const ledger = renderPeopleTiers(state, { recentPages: [String(userText || ''), String(assistantText || '')], view: peopleView(SCRIBE_VIEW_TOKENS), brief: material });
+  const ledger = workerPeopleContext(state, { material: material + '\n' + userText + '\n' + assistantText, room: peopleRoom });
+  const profileSources = workerProfileSources(state, documents, { material: userText + '\n' + assistantText, room: Math.floor(peopleRoom / 2) });
   /* M294: THE MAIN CHARACTER'S RECORD WAS NEVER SHOWN TO THE SCRIBE. The
    * pages it reads are the storyteller's view (renderPeopleTiers), which
    * leaves the main character out by design — the writer plays them. So the
@@ -169,9 +172,10 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
     const key = findPersonKey(chars, name);
     const c = key ? chars[key] : null;
     const lines = [];
+    if (c && typeof c.core === 'string' && c.core.trim()) lines.push('Writer biography: ' + c.core.trim());
     if (c && typeof c.state === 'string' && c.state.trim()) lines.push('Now: ' + c.state.trim());
     if (c && Array.isArray(c.threads) && c.threads.length) lines.push('Loose ends: ' + c.threads.join('; '));
-    return 'The main character\u2019s record \u2014 ' + (key || name) + ' (only their state and loose ends are ever written; keep them current):\n'
+    return 'The main character\u2019s record \u2014 ' + (key || name) + ' (record writer facts, current state and loose ends; never invent core or arc):\n'
       + (lines.length ? lines.join('\n') : 'Nothing written yet.');
   })();
   /* M408: EVERYONE HERE HAS A NOW. A now that named a place the scene had left is let go (M405); the one the page shows
@@ -195,6 +199,8 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
     const known = [
       ...(Array.isArray(state && state.present) ? state.present.map((p) => (p && p.name ? p.name : '')) : []),
       ...Object.keys((state && state.relationships && typeof state.relationships === 'object') ? state.relationships : {}),
+      ...Object.keys(state?.offscreen || {}), ...Object.keys(state?.knowledge || {}), ...Object.keys(state?.canon || {}),
+      ...Object.keys(chars),
     ].map((n) => String(n || '').trim()).filter(Boolean);
     const out = [];
     for (const n of known) {
@@ -218,7 +224,8 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
     'Shared scene, relationships, knowledge and elsewhere state:',
     renderWholeLedger(state),
     'Here is what the character pages currently say:',
-    ledger && ledger.text ? ledger.text : 'Nothing is written on the character pages yet.',
+    ledger,
+    ...(profileSources ? [profileSources] : []),
     ...(mcRecord ? ['', mcRecord] : []),
     '',
     'The writer just wrote:',
@@ -233,7 +240,7 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
     '',
     'Recover any missing established identity or physical facts, then record what shifted. Fetch originals when needed; preserve valid existing core facts, state, arcs and standings. JSON only.',
   ].join('\n');
-  return { system: withFictionFrame(SYSTEM_PROMPT + LEDGER_READER_RULES + fetchLaw()), user };
+  return { system: withFictionFrame(SYSTEM_PROMPT + LEDGER_READER_RULES + SCENE_ENDING_TASK + fetchLaw()), user };
 }
 
 /* ---------- the tolerant parser ---------- */
@@ -293,12 +300,17 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   if (!assistantText || !String(assistantText).trim()) return null;
 
   const before = await loadState(storyId);
+  const documents = auditSources({ brief, castNotes, messages: await db.messages.list(storyId) });
+  const originals = documents.map(d => d.text).join('\n');
+  const writerOriginals = documents.filter(d => /^(brief|cast):/.test(d.id) || d.label.endsWith(', writer')).map(d => d.text).join('\n');
+  const budget = scribeBudget(connection);
+  const peopleRoom = Math.max(12000, Math.floor(roomChars(connection, budget) * 0.2));
   record += await sharedStoryContext(storyId);
-  const bare = buildScribeMessages({ state: before, userText, assistantText, brief, castNotes, canonRecord, record });
+  const bare = buildScribeMessages({ state: before, userText, assistantText, brief, castNotes, canonRecord, record, documents, peopleRoom });
   const prompt = buildScribeMessages({ state: before, userText, assistantText, brief, castNotes, canonRecord, record, pages,
-    contextBudget: viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length) });
+    documents, peopleRoom, contextBudget: viewBudget(connection, budget, bare.system.length + bare.user.length) });
   const call = (options) => askWithFetch(connection, { ...options, renew, leash: leashFor,
-    room: roomChars(connection, MAX_TOKENS), source: { storyId, story: story || { brief, castNotes } },
+    room: roomChars(connection, budget), source: { storyId, story: story || { brief, castNotes } },
     isAnswer: text => /"deltas"\s*:\s*\[/.test(text) });
   /* M28: the one wire path — thinking off per house, temperature 0; a
    * transport failure throws (with retryAfterMs when the house named a wait)
@@ -307,7 +319,7 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   const first = await call({
     system: prompt.system,
     user: prompt.user,
-    maxTokens: MAX_TOKENS,
+    maxTokens: budget,
     signal,
   });
   let read = parseScribeAnswer(first.text);
@@ -325,9 +337,9 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
       const again = await call({
         system: prompt.system,
         user: prompt.user + '\n\n' + (wasCut
-          ? 'Your last answer ran out of room before it ended. Answer again, complete: the changes that matter most, one short sentence each, at most twelve deltas. JSON only.'
+          ? 'Your last answer ran out of room before it ended. Answer again, complete and concise, with all necessary identity deltas and physical facts. Preserve the full established cores. JSON only.'
           : 'Your last answer was not a JSON object with a "deltas" list. Answer with the JSON object only.'),
-        maxTokens: MAX_TOKENS,
+        maxTokens: budget,
         signal,
       });
       const second = parseScribeAnswer(again.text);
@@ -369,11 +381,13 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
    * scribe's is let go here (the same shape of fault as M411's tidy: a later writer undoing the simulation). */
   const pageWords = String(userText || '') + '\n' + String(assistantText || '');
   const shownOnPage = (name) => nameOnPage(pageWords, name); /* M414: the one answer — never a title or "the" */
-  const kept = deltas.filter((d) => !(d && d.field === 'state' && !isHere(fresh, d.name) && seatForPerson(fresh, d.name)))
-    .filter((d) => !(d && d.field === 'state' && isHere(fresh, d.name) && !shownOnPage(d.name) && !(findPersonKey(fresh.characters || {}, d.name) && shownOnPage(findPersonKey(fresh.characters || {}, d.name)))));
+  const kept = deltas.filter(d => !(d.field === 'state' && !isHere(fresh, d.name) && !isMc(fresh, d.name)))
+    .filter(d => !(d.field === 'state' && !isMc(fresh, d.name) && !shownOnPage(d.name)
+      && !(findPersonKey(fresh.characters || {}, d.name) && shownOnPage(findPersonKey(fresh.characters || {}, d.name)))
+      && !quotedSource(pageWords, d.shown)));
   /* M648: who someone is, is added to — never thinned (people.js thinsCore) */
   const thinned = [];
-  const identityWords = [brief, castNotes, userText, assistantText, canonRecord, record, ...pages.map(p => p.text || '')].join("\n");
+  const identityWords = originals + '\n' + canonRecord;
   const sound = kept.filter((d) => {
     if (!isMc(fresh, d.name) && !placeholderIn({ type: 'people.note', name: d.name }) && !findPersonKey(fresh.characters || {}, d.name) && !exactNameIn(identityWords, d.name)) {
       thinned.push({ delta: { type: 'people.note', ...d }, why: 'the new name is not written in the source; keep its exact spelling' });
@@ -382,6 +396,9 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
     const owner = findPersonKey(fresh.characters || {}, d.name);
     const field = ['thread', 'unthread'].includes(d.field) ? 'threads' : d.field;
     if (owner && fresh.characters[owner]?.hand?.[field]) { thinned.push({ delta: d, why: 'the writer explicitly controls this field' }); return false; }
+    if (isMc(fresh, d.name) && d.field === 'core' && !quotedSource(writerOriginals, d.shown)) {
+      thinned.push({ delta: d, why: 'player biography needs original writer facts' }); return false;
+    }
     if (!(d && d.field === 'core')) return true;
     const key = findPersonKey(fresh.characters || {}, d.name);
     const standing = key && fresh.characters[key] ? fresh.characters[key].core : '';
@@ -393,17 +410,26 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   const stamped = Number.isInteger(pageAt) && pageAt >= 0 ? { ...fresh, page: pageAt } : fresh;
   const facts = [];
   if (read.facts?.length) {
-    const originals = auditSources({brief,castNotes,messages:await db.messages.list(storyId)}).map(d => d.text).join('\n');
     for (const fact of read.facts) {
       const name = findPersonKey(fresh.characters || {},fact.name) || fact.name;
       const key = findCanonKey(fresh.canon || {},name);
       const quote = quotedSource(originals,fact.shown);
-      if (!quote || !exactNameIn(originals,fact.name) || (key && findFact(fresh.canon[key],fact.key))) continue;
+      const manual = [...(fresh.journal || [])].reverse().find(e => e.m?.byHand && /^canon\.(lock|unlock)$/.test(e.m.type)
+        && samePersonName(e.m.name, name) && lookKey(e.m.key) === lookKey(fact.key));
+      if (manual) continue;
+      if (!quote || (!isMc(fresh, fact.name) && !findPersonKey(fresh.characters || {}, fact.name) && !exactNameIn(originals,fact.name)) || (key && findFact(fresh.canon[key],fact.key))) continue;
       facts.push({type:'canon.lock',name,key:fact.key,value:fact.value,shown:quote,evidence:quote,source:'scribe',cause:'People recovered an established physical fact from the original sources'});
     }
   }
   if (stale && stale()) return null;
-  const { state: next, applied, rejected } = applyMutations(stamped, [...sound.map((d) => ({ type: 'people.note', name: d.name, field: d.field, text: d.text, source: 'scribe', cause: typeof d.cause === 'string' ? d.cause : '', evidence: typeof d.shown === 'string' && pageWords.includes(d.shown) ? d.shown : '' })),...facts]);
+  const mutations = sound.map(d => {
+    const writerCore = isMc(fresh, d.name) && d.field === 'core';
+    const quote = quotedSource(writerCore ? writerOriginals : originals, d.shown);
+    return { type: writerCore ? 'people.set' : 'people.note', name: d.name, field: d.field, text: d.text,
+      source: 'scribe', cause: typeof d.cause === 'string' ? d.cause : '', evidence: quote, shown: quote,
+      ...(writerCore ? { writerEstablished: true } : {}) };
+  });
+  const { state: next, applied, rejected } = applyMutations(stamped, [...mutations,...facts]);
   const changes = applied.map((a) => ({ name: nameFromWords(a.words, a.mutation.name), field: a.mutation.field }));
   const dropped = [...rejected.map((r) => ({ delta: r.mutation, why: r.why })), ...thinned];
   if (!changes.length) return { changes, dropped, note };

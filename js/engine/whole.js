@@ -188,7 +188,7 @@ export function renderWholeLedger(state, { knowledgeRoom = 0 } = {}) {
   section('Who knows what — EVERY line written, for everyone:',
     renderAllKnowledge(state.knowledge, present, ALL_KNOWLEDGE_ROOM, { fitRoom: knowledgeRoom > 0 ? knowledgeRoom : 0 }), '(nothing written)'); /* M664: a worker's view, fitted to its room */
   section('Elsewhere — every seat of the absent:',
-    renderOffscreen(state.offscreen, present, clockMinutes, 1000, state.characters || {}), '(nobody seated)'); /* M396 */
+    renderOffscreen(state.offscreen, present, clockMinutes, Infinity, state.characters || {}), '(nobody seated)');
   section('What their bodies carry:',
     renderBodies(state.bodies, clockMinutes, storyTurn(state)), '(nothing written)');
   section('What is locked true:',

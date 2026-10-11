@@ -69,3 +69,14 @@ HISTORY.md: complete milestone record, never automatically loaded in full.
 docs/archive: verbatim instructions and handoff before M683, for targeted archaeology.
 Do not resurrect old milestone instructions as current tasks. Test npm dependencies are
 allowed inside tests; the application itself has no npm/build dependency.
+
+## Ledger ownership after M713
+
+Fix upstream omissions where they arise; do not deliberately reserve known
+writer biography or missing profiles for the auditor. Founder and People may
+record explicitly sourced writer facts about the MC, never invent their core
+or arc. Worker views and durable storage are separate: a small prompt must not
+delete unresolved threads or learned facts. Reuse original-source receipts
+inside existing worker calls. Preserve original prose, manual edits, earned
+standings, undo and exact page ownership. Final audit remains the factual check.
+See docs/LEDGER_PIPELINE.md before another broad ledger repair.

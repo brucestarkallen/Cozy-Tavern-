@@ -50,6 +50,7 @@
 import { shownTextPatch } from '../engine/pagepatch.js'; /* M576 */
 import { nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M288: the lean steps */
 import { samePersonName } from '../engine/names.js'; /* M398 */
+import { findPersonKey, isMc, mcKey } from '../engine/people.js';
 import { roomChars } from '../engine/pagecut.js'; /* M288: the housekeeper's room */
 import { db } from '../store.js';
 import { pageLayoutChanged } from './queue.js';
@@ -2953,6 +2954,7 @@ export function findInPages(messages, words, cap = FETCH_REF_CAP) {
   const low = phrase.toLowerCase();
   const terms = low.split(/\s+/).filter((w) => w.length > 1);
   const hits = [];
+  const allRefs = [];
   let total = 0;
   for (let i = visible.length - 1; i >= 0; i -= 1) {
     const text = pageText(visible[i]);
@@ -2963,13 +2965,16 @@ export function findInPages(messages, words, cap = FETCH_REF_CAP) {
       at = t.indexOf(terms[0]);
     }
     total += 1;
+    allRefs.push('p' + (i + 1) + ' ' + refOf(visible[i]));
     if (hits.length >= cap) continue;
     const from = Math.max(0, at - 100);
     const snippet = text.slice(from, at + low.length + 100).replace(/\s+/g, ' ').trim();
     hits.push('p' + (i + 1) + ' ' + refOf(visible[i]) + ' ' + (visible[i].role === 'assistant' ? 'the storyteller' : 'the writer') + ' — …' + snippet + '…');
   }
   if (!hits.length) return '[find: ' + phrase + '] no page holds those words.';
-  return '[find: ' + phrase + '] ' + total + (total === 1 ? ' page' : ' pages') + ', newest first' + (total > hits.length ? ' (the newest ' + hits.length + ' shown — search narrower for the rest)' : '') + '. Fetch a page by its number to read it whole:\n' + hits.join('\n');
+  return '[find: ' + phrase + '] ' + total + (total === 1 ? ' page' : ' pages') + ', newest first' + (total > hits.length ? ' (the newest ' + hits.length + ' excerpts shown)' : '') + '. Fetch a page by its number to read it whole:\n' + hits.join('\n')
+    + (total > hits.length ? '\nOTHER MATCHING ORIGINAL PAGES, newest to oldest (including folded pages): ' + allRefs.slice(hits.length).join(', ')
+      + '. Earlier introductions can hold lasting identity or appearance; search narrower with a trait or fetch an earlier page. A newer mention does not supersede an older fact.' : '');
 }
 
 /* The pages a <fetch> asked for, served whole (capped). M259: also a search
@@ -2992,8 +2997,8 @@ export function serveFetch(refs, messages, { modules = [], lore = [], memory = n
     const person = /^person:\s*(.+)$/i.exec(said);
     if (person) {
       const chars = (serveState && serveState.characters) || {};
-      const key = Object.keys(chars).find((k) => k.toLowerCase() === person[1].trim().toLowerCase())
-        || Object.keys(chars).find((k) => k.toLowerCase().split(/\s+/)[0] === person[1].trim().toLowerCase().split(/\s+/)[0]);
+      const wanted = isMc(serveState, person[1]) ? mcKey(serveState) : person[1];
+      const key = findPersonKey(chars, wanted);
       push(ref, key ? '[the page of ' + key + '] (COMPLETE)' + personBlock(key, chars[key], leanPage(nearNames({}), key, chars[key], 0)).replace(/^\[[^\]]*\]/, '') : 'No page is written for \u201c' + person[1].trim() + '\u201d.');
       continue;
     }
