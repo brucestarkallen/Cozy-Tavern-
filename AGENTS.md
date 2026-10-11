@@ -19,6 +19,16 @@ The owner's current request takes priority; preserve established contracts.
 - Keep local records, undo/replay, backup safety and custom rules intact. Warm, plain UI copy;
   serif story text, readable controls, dark/light coats and reduced motion.
 
+## Owner priority: specific fixes, minimal verification
+
+Fix X does not mean test the whole application. A ledger or auditor fix must not
+trigger theme, pixel, performance, long gameplay or hundreds of turns of testing.
+Run a check only if it resolves a named uncertainty in the requested change, and
+only at a meaningful milestone or after useful iterations. Default to no tests.
+Publishing is not a reason to run a release matrix. A passing relevant check is
+not repeated after documentation or commit changes. Documentation needs no tests.
+This policy overrides all older gate commands, templates and historical notes.
+
 ## Working loop
 
 1. Use tools/context.py to locate the relevant historical entries; read source and those

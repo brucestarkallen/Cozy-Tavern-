@@ -1,7 +1,8 @@
 What concrete problem does this change fix, and what happens now?
 
-Validation: actual commands, selected/full scope, results and measured time.
-For a defect, identify the causal regression and its failure on the old code.
+Verification: none, or the tiny directly relevant check actually run and its result.
+State why it was needed and any remaining limits. No bulk suite or old code rerun
+is required. Follow the owner testing policy in AGENTS.md.
 
 Stored data/custom rules affected, if any:
 

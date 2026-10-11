@@ -202,10 +202,9 @@ Settings → Backup → **Take a copy** / **Bring a copy back**.
 Plain ES modules, IndexedDB for storage, a service worker for the offline
 shell. No frameworks, no CDNs, no fonts fetched from elsewhere. See
 [AGENTS.md](AGENTS.md) and [the editing workflow](docs/WORKFLOW.md) if you're here
-to tend the code. The fast checks take seconds; the release keeps the full recovery
-and performance coverage. See `tests/smoke.md` for the
-evening walkthrough — the by-hand checklist that keeps every milestone
-honest.
+to tend the code. Default to no tests. At a meaningful milestone, use only a tiny
+check directly relevant to the requested fix when needed. Existing walkthroughs
+and broad suites are references, not mandatory editing or publication gates.
 
 ## Where your tales live
 

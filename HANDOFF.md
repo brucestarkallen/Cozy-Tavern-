@@ -1,5 +1,17 @@
 # Cozy Tavern current handoff
 
+## Next session priority
+
+M689 is published to main at cf9bd4a5c20a4b69b764d686a509a58127e2d6d6.
+The owner explicitly approved publication. Live story behavior remains unverified.
+Current work is the owner's next specific request, not rerunning M689 verification.
+
+The owner reiterated: no theme tests, long gameplay runs or bulk suites for an
+unrelated fix. Default to no tests; only a tiny useful check at a meaningful
+milestone. docs/WORKFLOW.md and the PR template now match AGENTS.md. The old audit
+checkpoint and bulk workflow are historical records, not instructions.
+This documentation cleanup requires no tests or app version change.
+
 ## M689, worker context and direct auditor repair
 
 Owner authorized implementation and publication on 11 October 2026 after agreeing

@@ -18663,3 +18663,12 @@ source findings and limits are recorded in docs/LEDGER-PIPELINE-M689.md. Previou
 handoff preserved verbatim. One focused scripted check passed five scenario groups
 after correcting one local reference error. Changed module syntax checked; no bulk
 suite, paid model calls or live story verification. Version m689-001.
+
+
+## 11 October 2026: align future session instructions with owner testing policy
+
+M689 published at cf9bd4a after explicit approval; remote head verified. Updated
+AGENTS, active workflow, handoff, README and PR template to remove conflicting bulk
+testing instructions. Marked the M635 audit as historical and preserved the old
+workflow verbatim in docs/archive. Ledger fixes explicitly do not trigger themes,
+performance or long gameplay tests. Documentation only; no tests and no app bump.

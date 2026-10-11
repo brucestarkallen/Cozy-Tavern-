@@ -1,4 +1,11 @@
-# THE LINE-BY-LINE AUDIT — CHECKPOINT (read this first in a new session)
+# Historical audit record, not current instructions
+
+The checkpoint below describes M635. Its testing and gate mandates are retired.
+Start new sessions with AGENTS.md and HANDOFF.md. Follow docs/WORKFLOW.md:
+default to no tests, with only minimal relevant milestone verification.
+Do not run the old gates or continue the old audit merely because this file exists.
+
+# M635 historical audit checkpoint
 
 **Where it stands:** m635-001, Oct 6 2026. All 122 of 122 files read whole and fixed (M619); the session after it
 added features M620–M635, each gated, with two whole-session audits (M629, M635).

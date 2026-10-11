@@ -1,59 +1,57 @@
-# Editing and releasing Cozy Tavern
+# Current editing and publication workflow
 
-Tests exercise the real application with scripted model replies and disposable libraries.
-They do not spend API credit. Some recovery scenarios deliberately wait minutes; timings,
-slow CPU profiles and actual browser pixels explain why a complete run is longer than edits.
+The owner's 11 October 2026 instruction governs all work, including publication.
+Read AGENTS.md and HANDOFF.md once. Historical test mandates are not active policy.
 
-| Command | Purpose | Scope |
-| --- | --- | --- |
-| `python3 tools/check.py fast` | Every editing checkpoint | Selected prompt, housekeeper, store and M682 laws; UI smoke; lint; real academy controls; boot readiness |
-| `python3 tools/check.py release --tag m683` | Once the product is ready | Full harness, walk, long play, lint; all 22 previous standing checks; workflow, housekeeper and both academy coats |
-| Same command with `--resume` | Continue an interruption | Successful functional jobs with identical source/runtime only; all measurements rerun |
-| `python3 tools/check.py full --tag broad` | Broad changes or periodic audit | Every top level Python test plus complete core gates and both academy coats |
-| Any profile with `--list` | Review coverage before running | Commands and explicit selectors, without starting tests |
+## Fix the requested problem
 
-Only independent functional browser tests overlap, at most two and on different ports.
-Core suites, fixed port launchers, speed checks and pixel checks run alone. Use --jobs 1
-on a constrained machine. Logs include real exit codes, elapsed seconds and individual
-harness timings; the runner returns nonzero on failure or source changes during a gate.
-An empty ONLY selection fails. ALLDONE is written only when all checks passed.
+Trace the actual failure through the relevant code, complete a coherent repair,
+and preserve unrelated functionality, user writing and saved records. Do not turn
+a narrow fix into a project wide testing or cleanup exercise.
 
-A resume fingerprint covers executable product/tests/tools/assets and runtime versions,
-including new files. A changed implementation invalidates earlier successful functional
-jobs. Documentation changes do not. Never cache speed/pixel results, loosen a budget to
-obtain green, hide a failing assertion or report selected tests as full coverage.
+## Testing policy
 
-For a simple isolated patch, run its regression and nearby checks during editing. Reserve
-the full release for the final product tree; add relevant full-profile tests for dependencies
-that changed. Do not run the whole suite again after a note-only edit. If a gate fails,
-diagnose the failure and use its focused check to iterate before another release attempt.
-No test suite proves zero possible bugs; reproducible failures and causal tests are stronger
-than repeated lucky passes. Each test uses its own data; never run fixtures on the owner's
-live library.
+Default to no tests. Consider only an extremely small, directly relevant check at
+a meaningful milestone or after several useful implementation iterations.
+Before running it, identify the concrete failure or remaining risk it resolves.
+If it cannot answer a specific question about this change, skip it.
 
-## Reading without flooding context
+Examples:
 
-Read AGENTS.md and HANDOFF.md first, once. Keep HISTORY.md as the complete record.
-`python3 tools/context.py housekeeper` shows bounded matching milestone excerpts.
-Use `--list` to see titles first; narrow a term to a module path or milestone, or use
-`rg -n` and read a bounded source range. The tool has a hard character budget; the full
-history is not automatically concatenated. The original AGENTS/HANDOFF and old gate
-script are verbatim in docs/archive. Originals there describe their historical stage.
+* Presence repair: check the reported presence update and its saved result.
+* Retry loop: check that the same unresolved input stops repeating and new evidence
+  can resume it. Do not run theme, pixel, performance or long gameplay suites.
+* Relationship repair: check the explicit starting value and preservation of an
+  earned value. Do not launch unrelated scene or whole app suites.
+* Theme change: inspect the affected visual surface only when needed.
+* Documentation, instructions or publication only: no tests.
 
-## A reviewable change
+No automatic fast, release, full or all profile. No mandatory old code comparison,
+new regression file for every edit, full browser walk, multi hundred turn gameplay,
+theme check or performance gate just because a milestone is being published.
+Existing tests remain available; their existence is not an instruction to run them.
+Never delete or weaken tests to hide failures.
 
-Work on a named branch. Write the concrete trigger and desired behavior in the issue or
-SPEC. Keep small causal tests; show new defect laws fail on old code. Preserve custom
-words and stored records. Version functional changes, append HISTORY and keep the active
-handoff short. Use the issue/PR templates for reproduction and actual measured validation.
-Before publication, fetch/inspect remote main and reconcile changes without force. Verify
-the resulting remote head and version. Tokens stay outside git and logs. Commit documents
-once after results; a document-only commit need not repeat functional validation.
+Do not test after every edit. Do not rerun a passing check for notes, commit messages
+or publication. If a relevant check fails, fix that cause and repeat only that check.
+Stop once the specific risk is sufficiently resolved. Do not broaden checks unless
+new concrete evidence or a direct owner request requires it.
+Report what was actually checked, what passed or failed, and what remains unknown.
+Scripted provider success does not prove the owner's live story has been repaired.
 
-## Measured M683 result
+## Handoff and publishing
 
-Fast: 15.69 seconds for six jobs (41 focused laws, four app scenarios, lint, workflow,
-readiness and actual academy controls). Release: 1713.89 seconds for all 33 jobs.
-The full walk took 495.49 seconds, the device pair took 521.42, and the harness took
-165.12. These deliberate cases belong at release time. The complete result is in
-audit/results/m683.json; every previous standing check remains.
+Version functional changes. Documentation only does not need an app version bump.
+Keep HANDOFF.md concise, append HISTORY.md, and retain earlier instructions as
+historical records when replacing them. Document the cause, changed behavior and
+verification limits so the next session does not repeat finished work.
+
+Inspect remote main before publishing, reconcile without force, and verify the
+resulting remote commit. Use established publication authorization. If automatic
+approval review blocks an action, report the precise action and stated reason;
+do not bypass it. Remote commit verification is not a reason to rerun tests.
+Credentials stay outside git and logs.
+
+Use tools/context.py or bounded searches for historical context. Do not load the
+entire history or resurrect archived workflows. The old bulk workflow is preserved
+in docs/archive/WORKFLOW.before-owner-testing-policy.md for historical reference.
