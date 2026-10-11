@@ -86,9 +86,8 @@ later scenes reuse unchanged source receipts rather than rescan everything.
 
 ## Publication status
 
-Prepared locally. Automatic approval review rejected the normal push to
-https://github.com/brucestarkallen/Cozy-Tavern-.git main, stating that the
-standing permission did not explicitly cover this payload and destination.
-No workaround was attempted. The code, documentation and focused fixture are
-ready for explicit publication approval. Local verification is complete and
-must not be repeated merely to publish this unchanged milestone.
+Published to the existing origin/main after the owner's explicit approval of
+this code, documentation and fixture. Remote main was verified as
+5d1ff01ede41388695bd5dcda484dba000809cd4. The earlier automatic approval rejection
+is resolved. No additional tests were run for publication. A documentation-only
+followup records this successful status for future sessions.

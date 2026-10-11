@@ -1,6 +1,7 @@
 # M714: foundation selection, context fit and source recovery
 
-Version m714-001, prepared locally; publication blocked by automatic review.
+Version m714-001, published to origin/main after explicit owner approval.
+Verified code commit: 5d1ff01ede41388695bd5dcda484dba000809cd4.
 Owner requested the ledger foundation milestone after the
 M713 system audit. The changes are universal selection/transport/scheduling
 repairs, not named story patches. Read docs/LEDGER_FOUNDATION_M714.md.
