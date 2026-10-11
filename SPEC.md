@@ -1,3 +1,12 @@
+# M696: unfinished audits must repair each finding from original sources
+
+Use focused per-id repair decisions with actual current records and original source
+passages, then full-ledger/current-scene verification. Never pass a folded-summary
+paraphrase as an original quotation. Include saved World voices in identity proof.
+Resolve the same owner and same possessive role consistently while preserving the
+owner/dependent exclusion and distinct roles/owners. Keep unaddressed findings open.
+Maintain owner minimal verification policy. See HANDOFF.md for measured limits.
+
 # M695: repair recovery must not manufacture another story turn
 
 An audit recovery reviews only owed World decisions at the same story hour.

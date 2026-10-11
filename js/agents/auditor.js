@@ -26,7 +26,7 @@ import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
 import { samePlace, seatAtScene, handSetClockSince } from '../engine/apply.js'; /* M403; M681: a seat at the scene's own place */
 import { seatForPerson, sameLooseEnd, roleOwnersNamed, roleWordOf } from '../engine/people.js'; /* M398; M679: a loose end matched by sense, as the applier matches it */
-import { isHere, nameOnPage, samePersonName, oneMeaning, foldName, nameCore } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
+import { isHere, nameOnPage, samePersonName, oneMeaning, foldName, nameCore, sameOwnedDescriptor } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
 import { shownOnPage, personBookKey, groundTheTellingStandsOn, narrationOf } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
 import { findRelationship } from '../engine/relationships.js';
 import { db } from '../store.js';
@@ -306,13 +306,16 @@ export function parseAuditorAnswer(raw) {
     let parsed = null;
     for (const c of candidates) {
       const p = parseLenient(c);
-      if (p && Array.isArray(p.issues)) { parsed = p; break; }
+      if (p && (Array.isArray(p.issues) || Array.isArray(p.repairs))) { parsed = p; break; }
     }
     if (!parsed) return { issues: [], note: 'unusable' };
-    const issues = parsed.issues
+    const repairs = (Array.isArray(parsed.repairs) ? parsed.repairs : []).filter(r => r && typeof r.id === 'string');
+    const issueRows = [...(Array.isArray(parsed.issues) ? parsed.issues : []), ...repairs.filter(r => r.status !== 'correct').map(r => ({...r, findingId:r.id, what:r.what || r.why || r.id, fix:r.fix || r.why}))];
+    const issues = issueRows
       .filter((i) => i && typeof i === 'object' && typeof i.what === 'string' && i.what.trim() && i.resolved !== true)
       .map((i) => ({
         what: i.what.trim().slice(0, 4000), /* M267: whole — it was cut at 300, mid-word */
+        ...(i.findingId ? {findingId:i.findingId} : {}),
         fix: typeof i.fix === 'string' ? i.fix.trim().slice(0, 4000) : '',
         ...(typeof i.shown === 'string' && i.shown.trim() ? { shown: i.shown.trim().slice(0, 1200) } : {}),
         /* M90: the pages are wrong and the brief wins — the house mends them */
@@ -321,7 +324,7 @@ export function parseAuditorAnswer(raw) {
         pages: i.pages === true || i.pages === 1 || (typeof i.pages === 'string' && /^\s*(?:true|yes|y|1)\s*$/i.test(i.pages)),
         mutations: Array.isArray(i.mutations) ? i.mutations.filter((m) => m && typeof m === 'object' && typeof m.type === 'string') : [],
       }));
-    const resolvedItems = [...(Array.isArray(parsed.resolved) ? parsed.resolved : []), ...parsed.issues.filter(i => i?.resolved === true).map(i => ({id:i.id, what:i.what, shown:i.shown, why:i.why || i.fix}))];
+    const resolvedItems = [...(Array.isArray(parsed.resolved) ? parsed.resolved : []), ...repairs.filter(r => r.status === 'correct'), ...issueRows.filter(i => i?.resolved === true).map(i => ({id:i.id, what:i.what, shown:i.shown, why:i.why || i.fix}))];
     const resolved = resolvedItems.filter((r) => r && (typeof r.what === 'string' || typeof r.id === 'string') && typeof r.shown === 'string' && typeof r.why === 'string' && r.why.trim()).map((r) => ({ what: String(r.what || '').trim(), id: r.id, shown: r.shown, why: r.why.trim() }));
     return { issues, resolved, note: 'ok' };
   } catch (err) {
@@ -430,9 +433,26 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const view = auditView(all, foldedTo, Math.min(AUDIT_VIEW_CHARS, viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length)));
   if (!view.shown.length) return null;
   const prompt = buildAuditorMessages({ state: readingState, brief, castNotes, record, pages: view.shown, index: view.index, pageCount: all.length, room, canonRecord, staleBoard });
+  const repairTargets = [...(readingState.audit?.unresolved || []), ...missingLedgerPeople(readingState, castNames).map(what => ({what,fix:'Recover the established identity or reconcile its existing alias.',mutations:[{type:'people.set',name:what.split(' is already tracked')[0],field:'core'}]}))];
+  const repairMode = repairTargets.length > 0;
+  const repairEvidence = repairMode ? auditRepairEvidence(repairTargets, documents, Math.max(2000, Math.min(18000, room * 0.15))) : [];
+  const readingUser = repairMode ? [
+    'REPAIR EXISTING FINDINGS FIRST. This is not another open-ended search for duplicate complaints.',
+    'For EVERY checklist id return repairs:[{id,status:"correct"|"repair"|"open",shown:"literal original source quote",why:"reason",mutations:[...]}]. Correct means the current ledger already satisfies the actual fact or the historical allegation was mistaken. Repair supplies supported mutations. Open explains the exact missing evidence. A shortened or differently worded correct location needs no rewrite.',
+    'Use only literal quotes from original sources below or fetched pages. The folded record and old allegations are summaries, never quotation sources. Fetch a source before proposing a merge or identity repair whose evidence is absent. Do not turn one person into another because their titles match.',
+    'Also return issues:[...] for concrete discrepancies in the newest scene, including the MC ending position. Trace each movement through the complete page. Preserve feelings, earned scores, manual edits and prose.',
+    'WRITER BRIEF:', FENCE, writerText(brief, BRIEF_ROOM, 'brief', true), FENCE,
+    'WRITER CAST:', FENCE, writerText(castNotes, CAST_ROOM, 'cast', true), FENCE,
+    'CURRENT LEDGER:', renderWholeLedger(readingState, {knowledgeRoom:knowledgeRoomFor(room)}),
+    'REPAIR CHECKLIST WITH ACTUAL CURRENT RECORDS:', JSON.stringify(auditRepairChecklist(repairTargets, readingState)),
+    'ORIGINAL SOURCE PASSAGES FOR THESE TARGETS, labelled by original page and in source order. Earlier facts may be superseded:', JSON.stringify(repairEvidence),
+    'LATEST COMPLETED STORY PAGE, read its movement to the end:', FENCE, pageText(lastTold), FENCE,
+    'Saved World voices report other lives, not automatically main-scene presence:', JSON.stringify(lastTold?.voices || []),
+    'Return each checklist id once. Close corrected or disproved historical allegations with status correct, shown and why. An empty issues list alone does not reconcile them.',
+  ].join('\n') : prompt.user;
   let read = null;
   let raw = '';
-  let user = prompt.user + (restoredForReading.length ? '\n\nIDENTITIES RECOVERED FROM ORIGINAL SOURCES: ' + restoredForReading.map((i) => i.mutations[0].name).join(', ') + '. Their People pages below are being restored from quotations. Check their identity, current presence or absence, and links against the latest completed scene; an old quotation never establishes current presence by itself.' : '');
+  let user = readingUser + (restoredForReading.length ? '\n\nPROVISIONAL SOURCE IDENTITIES: ' + restoredForReading.map((i) => i.mutations[0].name).join(', ') + '. These core excerpts need interpretation as stable identities, not transient actions. Reconcile descriptors with established names before creating another person. An old quotation never establishes current presence by itself.' : '');
   const looked = [];
   for (let attempt = 0; attempt < 2; attempt += 1) {
     /* M259: it may look — any page whole, a search, the whole brief — in the
@@ -461,7 +481,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       if (read.note === 'unusable') read.note = 'cut short';
     }
     if (read.note === 'ok') break;
-    user = prompt.user + '\n\nYour last answer was not a JSON object with an "issues" list. Answer with the JSON object only, and keep it short.';
+    user = readingUser + '\n\nYour last answer was not a usable JSON object. Return issues and, when supplied, each checklist id in repairs. JSON only.';
   }
   let answerProblem = read.cutShort ? 'the auditor ran out of answer space before completing its reading' : read.note !== 'ok' ? 'the auditor did not return a complete usable reading' : '';
   if (read.note !== 'ok' && !sourceReview) return { applied: [], rejected: [], issues: [], note: read.note, raw, looked, unfinished: true, pending: [answerProblem] };
@@ -482,7 +502,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   let pending = [...unresolved(result), ...(answerProblem ? [answerProblem] : []), ...originalFindings.filter((i) => !findingSettled(i, result, withdrawals, documents)).map((i) => i.what)];
   let followupFailed = false;
   const sceneWrites = result.applied.filter(a => /^(presence\.|offscreen\.)/.test(a.mutation.type));
-  if ((pending.length || sceneWrites.length) && !stale?.()) {
+  if ((pending.length || sceneWrites.length || repairMode) && !stale?.()) {
     renew?.();
     const follow = buildAuditorMessages({ state: result.out, brief, castNotes, record, pages: view.shown, index: view.index, pageCount: all.length, room, canonRecord, staleBoard });
     try {
@@ -491,6 +511,8 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
         user: follow.user + '\n\nREPAIR FOLLOWUP. The first reading has been checked against the actual ledger. These items are still unresolved:\n' + pending.map((p) => '* ' + p).join('\n')
           + '\nHISTORICAL FINDING IDS TO RECONCILE, including ACTUAL current target records. For every id either repair a real remaining error or return resolved with shown and why; do not leave already-correct items hanging:\n' + JSON.stringify(auditRepairChecklist(originalFindings, result.out))
           + '\nPROVISIONAL SCENE CHANGES TO VERIFY BEFORE SAVING:\n' + JSON.stringify(sceneWrites.map(a => a.mutation))
+          + '\nORIGINAL SOURCE PASSAGES FOR REPAIR TARGETS, not summary quotes:\n' + JSON.stringify(repairEvidence)
+          + '\nThis is also the final full-ledger verification. Recheck all fields against the sources, not only the repaired items. The complete newest story page establishes the current scene. Return repairs by id for any remaining checklist item, with status correct, repair or open; no guessed quotations.'
           + '\nVerify these against the COMPLETE newest story page in chronological order. Earlier actions do not overrule a later arrival, departure or stopping position. Correct any provisional mistake with the last established position; leave valid edits alone. A synonymous rewording is not a correction.'
           + '\nRead the evidence and supply a working correction using the allowed operations. A missing character needs people.set field core; a wrong identity needs people.rename, never deletion. Every scene repair needs shown: an actual source quotation for that person. Earlier arrival or posture evidence is valid if later completed pages do not supersede it; follow the whole chronology. Check their latest evidence anywhere in the scene, including before a long final paragraph about someone else. Do not repeat an operation unchanged when it was blocked; correct its evidence or use another supported operation. Preserve completed corrections. If an inherited concern is disproved, return resolved:[{id: its provided finding id, shown: an exact source quotation disproving it, why: your explanation}]. Do not return an unmarked issue without mutations as a withdrawal.',
         maxTokens: MAX_TOKENS, signal, renew, leash: leashFor,
@@ -571,12 +593,12 @@ function repairKey(mutation) {
 
 function unresolvedFindings(result) {
   return result.issues.filter((i) => i.refused?.length || (!i.landed && !(i.pages && i.fix))).map((i) => ({
-    what: i.what, fix: i.fix, pendingReason: i.refused?.join('; ') || 'no repair was supplied',
+    what: i.what, fix: i.fix, ...(i.findingId ? {id:i.findingId} : {}), pendingReason: i.refused?.join('; ') || 'no repair was supplied',
     mutations: result.rejected.filter((r) => i.mutations.includes(r.mutation) && !r.same && !r.standing).map((r) => r.mutation),
   }));
 }
 export function auditFindingId(issue) {
-  return 'finding:' + fingerprint36(String(issue.what || '').trim());
+  return issue.id || issue.findingId || 'finding:' + fingerprint36(String(issue.what || '').trim());
 }
 export function auditRepairChecklist(findings, state) {
   return findings.map(i => ({ id: auditFindingId(i), what: i.what, fix: i.fix,
@@ -586,10 +608,43 @@ export function auditRepairChecklist(findings, state) {
       return { proposed: m, canonicalName: name, current: {
         presence: at < 0 ? null : state.present[at],
         elsewhere: seatForPerson(state, name)?.entry || null,
-        ...(m.type.startsWith('people.') ? { person: state.characters?.[name] || null } : {}),
+        ...(m.type.startsWith('people.') ? { person: state.characters?.[name] ? {
+          core:state.characters[name].core, aliases:state.characters[name].aliases,
+          ...(m.field && m.field !== 'core' ? {[m.field]:state.characters[name][m.field]} : {}),
+          manualFields:Object.keys(state.characters[name].hand || {}),
+        } : null } : {}),
       } };
     }),
   }));
+}
+
+// Retrieve actual source spans proactively when a previous summary quote failed.
+// Ranking locates passages; it never validates their meaning or writes a fact.
+export function auditRepairEvidence(findings, documents, budget = 18000) {
+  const selected = new Map(); let remaining = budget;
+  for (const issue of findings) {
+    const mutations = issue.mutations || [];
+    const names = mutations.flatMap(m => [m.name,m.from,m.to]).filter(Boolean);
+    const quotes = mutations.map(m => m.shown || m.evidence).filter(Boolean);
+    const words = [...new Set(foldName(quotes.join(' ') || issue.what).split(' ').filter(w => w.length >= 5 && !['ledger','presence','entry','latest','pages','shows','proposed','source','quotation','person','their','people','already'].includes(w)))];
+    const ranked = documents.map((d,index) => {
+      const text = foldName(d.text);
+      const score = names.filter(n => exactNameIn(d.text,n)).length * 20
+        + quotes.filter(q => auditorSourceQuote(d.text,q)).length * 100
+        + words.filter(w => (' '+text+' ').includes(' '+w+' ')).length;
+      return {d,index,score};
+    }).filter(r => r.score > 0).sort((a,b) => b.score-a.score || b.index-a.index).slice(0,3);
+    for (const {d,index} of ranked) {
+      if (selected.has(d.id) || remaining < 500) continue;
+      const needle = [...quotes,...names,...words].find(n => d.text.toLowerCase().includes(n.toLowerCase()));
+      const at = needle ? d.text.toLowerCase().indexOf(needle.toLowerCase()) : 0;
+      const start = Math.max(0,at-300), size = Math.min(1800,remaining-150);
+      const text = d.text.slice(start,start+size);
+      selected.set(d.id,{index,source:d.id,label:d.label,text,excerpt:start>0 || start+size<d.text.length});
+      remaining -= text.length+150;
+    }
+  }
+  return [...selected.values()].sort((a,b) => a.index-b.index).map(({index,...row}) => row);
 }
 function findingSettled(issue, result, withdrawals, documents) {
   if (withdrawals.some(r => (r.what === issue.what || r.id === auditFindingId(issue))
@@ -689,7 +744,7 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
    * named in the brief or the cast notes (the founder's bond stands). Only
    * a standing with no page behind it and no place in the brief — the
    * Caleb case, a feeling for someone else — may be zeroed. */
-  const identitySource = [brief, castNotes, ...all.map(pageText)].join('\n');
+  const identitySource = auditSources({brief, castNotes, messages:all}).map(d => d.text).join('\n');
   const keptStandings = [];
   const identityRefused = [];
   const guarded = [];
@@ -720,7 +775,8 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
       const owners = role ? roleOwnersNamed({ characters: fresh.characters, knowledge: { evidence: [{ fact: identitySource }] } }, role, null, { titles: true }) : [];
       const roleIdentity = owners.length === 1 && samePersonName(owners[0], m.to);
       const sameIdentity = samePersonName(m.from || '', m.to || '') || roleIdentity || (identityQuote && exactNameIn(identityQuote, m.from) && exactNameIn(identityQuote, m.to));
-      if (!exactNameIn(identitySource, m.to) || !sameIdentity || isMc(fresh, m.from)) {
+      const ownedIdentity = sameOwnedDescriptor(m.from, m.to) && Boolean(findPersonKey(fresh.characters || {}, m.to)) && identityQuote;
+      if ((!exactNameIn(identitySource, m.to) && !ownedIdentity) || (!sameIdentity && !ownedIdentity) || isMc(fresh, m.from)) {
         identityRefused.push({ mutation: m, why: 'a correction needs the exact name established in the story and may not rename the main character automatically' });
         continue;
       }

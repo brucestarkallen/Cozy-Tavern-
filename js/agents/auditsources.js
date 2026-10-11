@@ -1,4 +1,4 @@
-import { ownerAndDependent } from '../engine/names.js';
+import { ownerAndDependent, sameOwnedDescriptor } from '../engine/names.js';
 /* M685: source coverage for the ledger audit. A missing person cannot be found
  * by checking only the records that survived. Read original answered pages,
  * keep receipts tied to their exact text, and recover only quoted identities.
@@ -125,6 +125,11 @@ export async function reviewAuditSources({ connection, documents, previous = {},
 export function sourcePersonKey(state, name, remembered = '') {
   const characters = state?.characters || {};
   const direct = findPersonKey(characters, name);
+  if (direct && !String(characters[direct]?.core || '').trim() && !characters[direct]?.hand?.core) {
+    const complete = Object.keys(characters).filter(k => k !== direct && sameOwnedDescriptor(k, name)
+      && String(characters[k]?.core || '').trim());
+    if (complete.length === 1) return complete[0];
+  }
   if (direct) return direct;
   let renamed = name;
   for (const entry of state.journal || []) {

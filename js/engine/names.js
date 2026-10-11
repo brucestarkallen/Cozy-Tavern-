@@ -153,11 +153,18 @@ export function ownerAndDependent(a, b) {
   return Boolean((A && samePersonName(A, b)) || (B && samePersonName(B, a)));
 }
 
+export function sameOwnedDescriptor(a, b) {
+  const descriptor = name => /^(.+?)['’‘ʼ]s\s+(.+)$/iu.exec(String(name || '').trim());
+  const A = descriptor(a), B = descriptor(b);
+  return Boolean(A && B && foldName(A[2]) === foldName(B[2]) && samePersonName(A[1], B[1]));
+}
+
 /* Is `a` the same person as `b`? The same name (folded, a rank or courtesy set aside), a first or last name of the
  * other, one cut short of the other, the same names in another order ("Kuchiki Rukia"), or two names the story's
  * canon knows as one person. Never a near miss: seating is a hard fact. Never two titles that disagree (M414). */
 export function samePersonName(a, b) {
   if (ownerAndDependent(a, b)) return false;
+  if (sameOwnedDescriptor(a, b)) return true;
   const A = parseName(a);
   const B = parseName(b);
   const fa = A.bare;

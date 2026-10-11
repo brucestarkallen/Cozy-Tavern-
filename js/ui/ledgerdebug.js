@@ -48,9 +48,13 @@ export async function ledgerDebugReport(storyId) {
   };
   add('Capture', { appVersion: VERSION, capturedAt: new Date().toISOString(), storyTitle: story.title, storyPageCount: pages.length, runningWorkers: runningWorkers(storyId) }, 700);
   add('Audit status', {verifiedCurrentLedger:ledgerAuditVerified(state,story,pages),pauseReason:state.audit?.pauseReason,unfinished:state.audit?.unfinished,retryProgress:state.audit?.retryProgress},700);
-  add('Unresolved repair operations',state.audit?.unresolved || [],3000);
+  add('Unresolved repair operations',(state.audit?.unresolved || []).map(i => ({
+    id:i.id,what:String(i.what || '').slice(0,160),pendingReason:String(i.pendingReason || '').slice(0,200),
+    mutations:(i.mutations || []).map(m => ({type:m.type,name:m.name,from:m.from,to:m.to,field:m.field,
+      shown:String(m.shown || m.evidence || '').slice(0,180)})),
+  })),3000);
   add('Pending historical complaints',state.audit?.pending || [],1400);
-  add('Latest auditor reply excerpt',workers.auditor?.raw || '',1200);
+  add('Latest auditor reply excerpt',String(workers.auditor?.raw || '').split('\n\nRepair followup:').at(-1),1200);
   add('Recent worker runs, newest first', (rawShelf?._debugHistory || []).slice(-12).reverse().map(slim), 4000);
   add('Latest worker results', Object.fromEntries(Object.entries(workers).sort(([a],[b]) => (b === 'auditor') - (a === 'auditor')).map(([name, row]) => [name, slim(row)])), 2500);
   add('Recent ledger changes, newest first', (state.log || []).slice(-12).reverse().map(({undo,...row}) => row), 1600);

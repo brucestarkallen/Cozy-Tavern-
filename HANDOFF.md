@@ -1,3 +1,43 @@
+# M696: repair specific inherited findings from original evidence
+
+Version m696-001. Owner M695 report is paused with 13 pending items. Existing
+pause code is not a completed repair. Current guards and Commodus presence already
+contradict inherited absence/short-position allegations, while canonical captain
+identity and duplicate king repairs are still rejected. MC position still reads
+before reaching the wall despite later wall contact in the prose.
+
+Identity repair's identitySource excluded saved World voices even though the audit
+quote/sources path included them. Use the same original document set for identity
+proof. A possessive descriptor with the same role and equivalent owner name resolves
+consistently, e.g. Alexander William's captain and William's captain; preserve the
+owner/dependent exclusion and different owners/roles. Source people lookup can use
+one complete matching owned descriptor rather than treat its empty duplicate core
+as a lost identity. A supported same-owned-descriptor rename into an existing record
+retains records; never a blanket title-only merge.
+
+Unfinished audits now first use a focused repair prompt with every inherited finding
+id, actual current target records, outstanding identities and proactively selected
+ORIGINAL source passages. Ranking retrieves literal spans, not proofs of meaning.
+The model must return repairs with status correct/repair/open, shown, why and any
+mutations. Parser accepts this contract, preserves repair ids, validates withdrawals
+against original documents and leaves unaddressed findings open. Folded summaries
+and historical complaint wording must never be presented as original quotes.
+
+The existing followup always performs full ledger and current-scene verification
+after a targeted repair, even if the first pass closed all inherited findings.
+No new model pass is added to the existing initial/followup flow. Empty issues
+alone cannot close old findings; provisional scene writes still require verification.
+Compact debug now summarizes operation targets and reasons before long prose and
+shows the last followup excerpt rather than always the first reply. Still 24000 bytes.
+
+One focused production fixture passed: same-owner captain alias/merge with complete
+identity preserved, distinct owners/dependents/roles remain separate, original World
+voice identity proof for king merge, equivalent guard finding withdrawn without a
+cosmetic write, missing fur repaired, ending wall position corrected, final verification
+and unchanged prose/earned scores. Uses mock model replies, not a live provider or
+owner IndexedDB. Auditor syntax and diff checked. No bulk tests. Prior minimal-test
+policy remains binding. Live completion still requires actual zero-pending audit.
+
 # M695: stop World recovery from creating new audit evidence
 
 Version m695-001. The owner's actual M694 report still shows an audit loop:
