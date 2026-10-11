@@ -1,3 +1,13 @@
+# M697: bind selected evidence to literal original source text
+
+The auditor may select a supplied evidenceId rather than reproduce quotation text.
+The application binds it to that exact original span; unknown references cannot
+fall back to a made-up quotation. Meaning still requires source interpretation and
+final verification. Mutation-bearing repair/open rows never count as withdrawals.
+Verify provisional identity merges and withhold disputed/interrupted drafts.
+No character-specific repair exceptions. Minimal owner verification policy applies.
+See HANDOFF.md for actual measured scope and remaining live-story uncertainty.
+
 # M696: unfinished audits must repair each finding from original sources
 
 Use focused per-id repair decisions with actual current records and original source

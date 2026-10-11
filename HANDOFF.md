@@ -1,3 +1,41 @@
+# M697: source references instead of reconstructing quotations
+
+Version m697-001. Owner M696 report still has four open targets, all blocked by
+unsupported quotation text. Model attempted an evidence-backed withdrawal but
+copied the same invented old quotation. This is not a completed ledger repair;
+previous generic changes addressed real causes but were partial.
+
+Audit evidence passages now have stable evidenceId references. The auditor selects
+an id, and bindAuditEvidence supplies the actual literal source span as shown and
+evidence. Unknown ids erase any fallback quote and carry a rejection reason. Same
+source-change checks still guard commit. Retrieval ranking locates passages; it
+never proves their meaning. Existing fetch/exact-quote answers remain compatible.
+Source bank includes current main-scene spans, not only targeted historic evidence.
+Historic proposal quotes/references are removed from checklist operations so the
+model is not invited to recycle an invalid allegation as source text. System and
+repair instructions both specify the reference contract.
+
+Parser separates status repair/open or mutation-bearing resolved rows from actual
+withdrawals. A repair cannot close a finding merely by appearing in resolved.
+All mutations inherit a parent evidenceId when supplied. Valid references establish
+provenance, not correctness; semantic interpretation and final full-ledger/scene
+verification remain the auditor's responsibility. No story names are hardcoded.
+
+A descriptor merge into an existing named record may use its recorded role plus a
+real source anchor naming that person/descriptor. Unique-role/both-name heuristics
+alone could block contextual ordinal roles across stories. Identity merges now
+receive provisional verification as Scene writes do. A followup status open for the
+merge id withholds that draft; an interrupted followup withholds identity and Scene
+drafts. Real records, prose, manual control, earned scores and undo logging remain.
+
+One focused generic fixture, different setting/characters from the owner's story,
+passed: reference binding supplies verbatim text, unknown refs rejected, a repair
+row in resolved is not a false withdrawal, role merge with multiple couriers is
+verified, a disputed merge is withheld and remains open, scene/coat corrections
+land, prose and scores unchanged. Mock replies only, not live story verification.
+Auditor syntax/diff checked. No bulk tests or paid model calls. Green still requires
+actual complete current-source audit with zero outstanding findings.
+
 # M696: repair specific inherited findings from original evidence
 
 Version m696-001. Owner M695 report is paused with 13 pending items. Existing
