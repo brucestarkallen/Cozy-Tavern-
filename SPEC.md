@@ -1,3 +1,31 @@
+# M688: auditor evidence matches its repair contract
+
+The reported M687 app still rejects Alexia's actual gallery arrival and current
+ankle/pronoun passage, the maid's latest posture, and an explicitly established
+MC persona's false elsewhere seat. Repeating a proposal cannot fix a guard that
+misreads its valid evidence. Correct the acceptance contract rather than hiding
+unfinished work or removing source protections.
+
+1. Presence persists after an actual arrival while later departures, death and
+   scene moves still win. Recognize the reported bodily possessive and bind an
+   exact source quote to its own person, including a quote supplied on the finding.
+2. Posture, attire and source-backed People state use that person's latest own
+   narration, not a later incidental mention by another actor. Keep quotation
+   evidence through normalization, rehearsal and commit. A saved later field
+   supported by a pronoun continuation cannot be replaced with an earlier moment.
+3. The writer's explicit MC persona fact can clear that persona's false separate
+   elsewhere seat. Do not rename the MC, merge unrelated identities, infer a
+   persona from intentions, or erase another person's whereabouts.
+4. Close saved findings only after real repairs or established satisfaction,
+   following durable completed merge aliases. A legacy persona seat concern with
+   no operation may close after that actual seat clear; unrelated concerns remain.
+5. Reproduce the reported forms through auditLedger and the real app's saved
+   backlog. Show old failures, corrected state, unchanged story text, actual green,
+   idle completion and completion after reopening. Preserve all standing checks.
+6. Align prompt examples and guards, record concrete rejection reasons, and explain
+   the Housekeeper's different edit path. Qualify and publish m688-001, without
+   claiming that scripted verification proves the owner's live ledger is repaired.
+
 # M687: supported scene repairs finish
 
 Jovan's auditor repeatedly rejected the same salle corrections for ten minutes:

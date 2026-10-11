@@ -23,7 +23,7 @@ import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
 import { samePlace, seatAtScene, handSetClockSince } from '../engine/apply.js'; /* M403; M681: a seat at the scene's own place */
 import { seatForPerson, sameLooseEnd, roleOwnersNamed, roleWordOf } from '../engine/people.js'; /* M398; M679: a loose end matched by sense, as the applier matches it */
-import { isHere, nameOnPage, samePersonName, oneMeaning, foldName } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
+import { isHere, nameOnPage, samePersonName, oneMeaning, foldName, nameCore } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
 import { shownOnPage, personBookKey, groundTheTellingStandsOn, narrationOf } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
 import { findRelationship } from '../engine/relationships.js';
 import { db } from '../store.js';
@@ -68,13 +68,13 @@ const VOCABULARY = [
   'people.rename {"type":"people.rename","from":"wrong name","to":"established name","cause":"source of correction","shown":"exact identity quote if the names differ entirely"} — correct or merge one identity, keeping all its records. NEVER delete and recreate it. Correct its title with people.set core.',
   'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30} — to the latest header line\'s own hour, or when the latest STORY page has none',
   'place.set {"type":"place.set","name":"the chapel"} — to the latest header line\'s own place, or when the latest STORY page has none',
-  'presence.enter {"type":"presence.enter","name":"NAME","shown":"the page\'s own words that show them here, copied exactly — needed when the telling does not use their name"} / presence.update {"type":"presence.update","name":"NAME","position":"where in the room the newest page shows them, in its own words","attire":"what the newest page shows them wearing, in its own words"} / presence.leave {"type":"presence.leave","name":"NAME","shown":"the page\'s own words that show them going, copied exactly","to":"where the pages show them going, said so it stands on its own — upstairs in the Wells house — and left out only when the pages show no sign of where"}', /* M643: whoever takes someone out of the scene says where they went; M644: and by which words of the page */
+  'presence.enter {"type":"presence.enter","name":"NAME","shown":"exact newest-page words establishing their presence","position":"their latest position, if shown"} / presence.update {"type":"presence.update","name":"NAME","position":"their latest position, in the page\'s own words","attire":"their latest attire, if shown","shown":"exact newest-page words establishing the corrected field"} / presence.leave {"type":"presence.leave","name":"NAME","shown":"the page\'s own words that show them going, copied exactly","to":"where the pages show them going, said so it stands on its own — upstairs in the Wells house — and left out only when the pages show no sign of where"}',
   'mc.set {"type":"mc.set","name":"MAIN CHARACTER"} — only when the ledger has no main character',
   'body.injure {"type":"body.injure","name":"NAME","what":"…","sev":1-3} / body.heal {"type":"body.heal","name":"NAME","what":"…"}',
   'rel.set {"type":"rel.set","name":"…","p":..,"r":..,"s":..,"cause":"the brief says"} — only to restore a standing that is wrongly zero, or to zero one written for someone else',
   '  (never to start or move a standing from a page — a beat is the page reader\'s, and the brief\'s digits are restored by the house; never one for the main character;',
   '  never one the brief sets toward someone else — the cause says what the brief sets toward the main character)',
-  'offscreen.set {"type":"offscreen.set","name":"NAME","location":"…","activity":"…","agenda":"…","stance":"toward|seeking|tense|busy|waiting","etaMinutes":25} / offscreen.clear {"type":"offscreen.clear","name":"NAME"} (a clear only for someone in the scene now — anyone else gets offscreen.set with where they are: a person the story keeps is always somewhere)',
+  'offscreen.set {"type":"offscreen.set","name":"NAME","location":"…","activity":"…","agenda":"…","stance":"toward|seeking|tense|busy|waiting","etaMinutes":25} / offscreen.clear {"type":"offscreen.clear","name":"NAME","shown":"exact presence quote, or the writer\'s explicit MC persona identity quote"} (a clear only for someone in the scene now, or a false separate seat for the MC\'s own persona; anyone else keeps their whereabouts)',
   'thing.set {"type":"thing.set","name":"THE THING","where":"where it stands now","owner":"WHOSE"} / thing.clear {"type":"thing.clear","name":"THE THING","cause":"…"} (a vehicle, weapon or object the pages put somewhere — the Things list is what exists; correct where it stands when the pages say otherwise)',
   'canon.lock {"type":"canon.lock","name":"NAME","key":"hair","value":"black"} / canon.unlock {"type":"canon.unlock","name":"NAME","key":"hair"}',
   'thread.set {"type":"thread.set","title":"…","owner":"…","heat":"hot|cold","next":"…"} / thread.close {"type":"thread.close","title":"…"}',
@@ -82,7 +82,7 @@ const VOCABULARY = [
   'faction.set {"type":"faction.set","name":"…","stance":"…","agenda":"…","move":"…"} / faction.clear {"type":"faction.clear","name":"…"} (one the pages ended)',
   'people.set {"type":"people.set","name":"NAME","field":"core|state|arc","text":"…"} — the main character\'s core and arc are never written',
   'people.note {"type":"people.note","name":"NAME","field":"unthread","text":"the loose end as it stands"} \u2014 closes ONE finished loose end (field "thread" opens one); matched by sense, so word it close to how it reads',
-  'Evidence-backed repairs: people.note field core|arc|thread, people.set field state|arc, and mode.snapshot flags are allowed with "shown": an exact source quote. Text must be supported by that quote; a state or mood repair must use the newest scene ending. Correct what the source established, never invent a new simulation.',
+  'Evidence-backed repairs: people.note field core|arc|thread, people.set field state|arc, and mode.snapshot flags are allowed with "shown": an exact source quote. Text must be supported by that quote. A state repair uses that person\'s latest own account on the newest scene; a mood repair uses the newest scene ending. Correct what the source established, never invent a new simulation.',
   'people.forget {"type":"people.forget","name":"NAME","cause":"…"} — ONLY for a person who was never the story\'s (a name no page, no brief and no cast note ever held); erases their page, seat, standing, knowledge and locks for good',
 ].join('\n');
 
@@ -165,12 +165,15 @@ function law({ mc }) {
     'those after EVERY page and have ALREADY read the latest one: the ledger you read is the scene as that page',
     'ENDS. Where its start differs (he walked off, the room emptied) the end is the present. Do not independently simulate',
     'another outcome. You MAY correct a field these readers got wrong when an exact shown quote establishes the correction.',
-    'For a now or mood use the newest ending, never an older moment. Yours is what LASTS and what is WRONG: the wrong name, age, kin, origin, role; a person',
+    'For a now use that person\'s latest established evidence on the newest scene; for mood use the newest scene ending. Never restore an earlier changed moment. Yours is what LASTS and what is WRONG: the wrong name, age, kin, origin, role; a person',
     'present who left pages ago or absent who is plainly here; a wound healed still open; a standing',
     'wrongly zero; a thread the pages closed still hot or a live agenda missing; a witnessed fact',
     'with no knowledge line; the clock or the ground wrong on a page with no header line; a duplicate.',
     'Report every supported discrepancy you find. There is no target count of findings; a large damaged ledger may need many repairs.',
     'For each presence.enter, presence.update or people.set state repair, copy an exact newest-page quotation in shown.',
+    'An arrival quote remains presence evidence after a later seated pose. For posture and attire use their latest own account, not a later incidental mention by someone else. Include shown on offscreen.clear as well.',
+    'The MC\'s explicitly established own persona is the MC, not another person away from the scene. Clear a false separate elsewhere seat with the writer\'s exact identity quote. Never guess a persona from a similar name or from an intention to impersonate someone.',
+    'A duplicate identity or duplicate seat is repaired with people.rename from the descriptor or duplicate name to the established name, retaining the records. A presence.update does not merge two people. Do not treat an unchanged location stated with extra detail as proof that the existing location is wrong.',
     'Follow each person through the entire newest scene. Their last established position continues while others act;',
     'a long final paragraph about the duel does not remove quiet gallery spectators or erase their latest posture.',
     'A later departure, death, changed position or scene move still wins. Never restore an earlier moment over it.',
@@ -302,6 +305,7 @@ export function parseAuditorAnswer(raw) {
       .map((i) => ({
         what: i.what.trim().slice(0, 4000), /* M267: whole — it was cut at 300, mid-word */
         fix: typeof i.fix === 'string' ? i.fix.trim().slice(0, 4000) : '',
+        ...(typeof i.shown === 'string' && i.shown.trim() ? { shown: i.shown.trim().slice(0, 1200) } : {}),
         /* M90: the pages are wrong and the brief wins — the house mends them */
         /* M654: a yes as a model writes it — "pages":"true" was no yes, and a fault that lives on the pages (a fix, no
          * change to the ledger) was then dropped as "no finding" */
@@ -548,6 +552,13 @@ function unresolvedFindings(result) {
 function findingSettled(issue, result, withdrawals, documents) {
   if (withdrawals.some((r) => r.what === issue.what && documents.some((d) => quotedSource(d.text, r.shown)))) return true;
   const landed = [...result.applied, ...result.rejected.filter((r) => r.same)];
+  /* A legacy report could save this concrete seat concern without an operation.
+   * Close that exact concern only after its actual clear, not other identity facts. */
+  if (!issue.mutations?.length) {
+    const what = foldName(issue.what);
+    return landed.some((a) => a.mutation?.type === 'offscreen.clear' && !seatForPerson(result.out, a.mutation.name)
+      && [' is seated among the absent', ' is seated only offscreen'].some((words) => what.startsWith(foldName(a.mutation.name) + words)));
+  }
   return issue.mutations?.length > 0 && issue.mutations.every((m) => mutationSatisfied(result.out, m)
     || landed.some((a) => sameRepairTarget(m, a.mutation)));
 }
@@ -573,7 +584,12 @@ function compactFindings(findings, state) {
 
 function mutationSatisfied(state, m) {
   const textSame = (wanted, actual) => String(wanted || '').trim() === String(actual || '').trim();
-  const at = m.name ? findPresent(state, m.name, { strict: true }) : -1;
+  let at = m.name ? findPresent(state, m.name, { strict: true }) : -1;
+  if (at === -1 && m.name) {
+    const canonical = findPersonKey(state?.characters || {}, m.name);
+    const aliases = canonical ? state.characters[canonical]?.aliases : null;
+    if (Array.isArray(aliases) && aliases.some((alias) => foldName(alias) === foldName(m.name))) at = findPresent(state, canonical, { strict: true });
+  }
   if (m.type === 'presence.enter') return at !== -1;
   if (m.type === 'presence.update') return at !== -1 && ['position', 'attire'].every((field) => m[field] === undefined || textSame(m[field], state.present[at][field]));
   if (m.type === 'offscreen.clear') return !seatForPerson(state, m.name);
@@ -614,7 +630,7 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
   const newestAt = latestStory ? storyPages.findIndex((m) => m.id === latestStory.id) : -1;
   const latestIndex = latestStory ? all.indexOf(latestStory) : -1;
   const writerPage = latestIndex > 0 && all[latestIndex - 1].role === 'user' && !asideAt(all, latestIndex - 1) ? pageText(all[latestIndex - 1]) : '';
-  read.issues = auditorScope(read.issues, fresh, { header, page: latestStory ? pageText(latestStory) : '', writerPage, pageAt: newestAt !== -1 ? newestAt : null, rejected: scopeRejected, evidenceText: [brief, castNotes, ...all.filter((m, i) => !asideAt(all, i)).map(pageText)].join('\n') }); /* validate without silently erasing blocked findings */
+  read.issues = auditorScope(read.issues, fresh, { header, page: latestStory ? pageText(latestStory) : '', writerPage, pageAt: newestAt !== -1 ? newestAt : null, rejected: scopeRejected, evidenceText: [brief, castNotes, ...all.filter((m, i) => !asideAt(all, i)).map(pageText)].join('\n'), writerIdentityText: [brief, castNotes, ...all.filter((m, i) => m.role === 'user' && !asideAt(all, i)).map(pageText)].join('\n') });
   /* M684: completed turns include the writer’s established scene facts. Keep the
    * assistant-page indices, including OOC slots, aligned with journal stamps. */
   const turnScenes = storyPages.map((m) => {
@@ -1060,25 +1076,73 @@ const wordsIn = (words, text) => { const w = [...endingWords(words)]; const t = 
 const journalOfPage = (state, at) => (Array.isArray(state && state.journal) ? state.journal : []).filter((j) => j && j.p === at && j.m && typeof j.m === 'object').map((j) => j.m);
 /* M687: the last account of a person can precede the final fight paragraph.
  * Follow that person's last named sentence and its pronoun continuation. */
-function currentPersonTelling(state, page, name, shown = '') {
+const sceneQuoteIn = (text, quote) => {
+  const tidy = (s) => String(s || '').replace(/[‘’ʼ`]/g, "'").replace(/[—–]/g, '-').replace(/\s+/g, ' ').trim();
+  const q = tidy(quote);
+  return q.length >= 4 && q.length <= 1200 && tidy(text).includes(q);
+};
+function personTellings(state, page, name, fields = false) {
+  if (typeof name !== 'string' || !name.trim()) return [];
   const scene = narrationOf(scenePartOf(page).replace(/^\s*\[[^\n]*\][ \t]*/, ''));
   const sentences = scene.split(/(?<=[.!?…])\s+|\n+/).map((s) => s.trim()).filter(Boolean);
-  let at = -1;
-  for (let i = 0; i < sentences.length; i++) if (shownOnPage(state, sentences[i], name)) at = i;
-  if (at === -1) return '';
   const names = [...Object.keys(state.characters || {}), ...(state.present || []).map((p) => p.name), ...Object.keys(state.offscreen || {}), mcName(state)].filter((n) => n && !samePersonName(n, name));
-  const parts = [sentences[at]];
-  for (let i = at + 1; i < sentences.length; i++) {
-    if (names.some((n) => shownOnPage(state, sentences[i], n)) || !/^(?:\S+\s+){0,4}?(?:she|he|they|her|his|their)\b/i.test(sentences[i])) break;
-    parts.push(sentences[i]);
+  /* Existing lower-case role seats can use a plural label for a single maid.
+   * This is field evidence only, and never resolves competing role holders. */
+  const role = fields && name === name.toLowerCase() ? (foldName(name).match(/\b(maid|guard|groom|servant|attendant)s\b/) || [])[1] : '';
+  const roleRe = role ? new RegExp('\\b' + role + 's?\\b') : null;
+  const ownRole = roleRe && !names.some((n) => roleRe.test(foldName(n)));
+  const shows = (sentence) => {
+    if (ownRole && roleRe.test(foldName(sentence))) return true;
+    if (!shownOnPage(state, sentence, name)) return false;
+    if (!fields) return true;
+    const core = foldName(nameCore(name));
+    const text = foldName(sentence); const at = core ? text.indexOf(core) : -1;
+    if (at >= 0 && /\b(?:to|toward|towards|beside|with|past|behind|near|at|for|from)\s+$/.test(text.slice(0, at))
+      && names.some((n) => shownOnPage(state, sentence.slice(0, sentence.toLowerCase().indexOf(nameCore(name).toLowerCase())), n))) return false;
+    return true;
+  };
+  const tellings = [];
+  for (let at = 0; at < sentences.length; at++) {
+    if (!shows(sentences[at])) continue;
+    const parts = [sentences[at]];
+    let through = at;
+    for (let i = at + 1; i < sentences.length; i++) {
+      if (names.some((n) => shownOnPage(state, sentences[i], n)) || !(shows(sentences[i]) || /^(?:\S+\s+){0,4}?(?:she|he|they|her|his|their)\b/i.test(sentences[i]))) break;
+      parts.push(sentences[i]);
+      through = i;
+    }
+    tellings.push(parts);
+    at = through;
   }
+  return tellings;
+}
+function currentPersonTelling(parts, shown = '') {
+  if (!parts) return '';
   const told = parts.join(' ');
-  if (shown && !quotedSource(told, shown)) return '';
-  if (shown && parts.length > 1 && !quotedSource(parts.at(-1), shown) && !quotedSource(shown, parts.at(-1))) return '';
+  if (shown && !sceneQuoteIn(told, shown)) return '';
+  if (shown && parts.length > 1 && !sceneQuoteIn(parts.at(-1), shown) && !sceneQuoteIn(shown, parts.at(-1))) return '';
   return told;
 }
-export function auditorScope(issues, state, { header = [], page = '', writerPage = '', pageAt = null, rejected = null, evidenceText = '' } = {}) {
+function mcPersonaQuote(state, name, shown, source) {
+  if (typeof name !== 'string' || !name.trim()) return false;
+  const quote = quotedSource(narrationOf(source), shown);
+  const mc = mcName(state);
+  if (!quote || mc === 'the player' || /[?]|\b(?:if|maybe|hypothetically|might|could|would|no longer)\b/i.test(quote)) return false;
+  const esc = (s) => foldName(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const alias = esc(name); const owner = esc(mc); const q = foldName(quote);
+  if (!alias || !owner) return false;
+  const kinds = '(?:persona|guise|alias|assumed identity)';
+  const modifiers = '(?:(?:own|worn|other|alternate) )*';
+  const writer = 'my (?:(?:mc|main character)(?: s)? )?';
+  const ends = '(?! s(?: |$))(?: |$)';
+  return new RegExp('(?:^| )' + alias + ' is ' + owner + ' s ' + modifiers + kinds + ends).test(q)
+    || new RegExp('^' + alias + ' is ' + writer + modifiers + kinds + ends).test(q)
+    || new RegExp('^' + writer + modifiers + kinds + ' is ' + alias + ends).test(q);
+}
+export function auditorScope(issues, state, { header = [], page = '', writerPage = '', pageAt = null, rejected = null, evidenceText = '', writerIdentityText = '' } = {}) {
   const restatedOk = new WeakSet(); /* M661: the changes of place and dress the newest page bears out */
+  const refusedFor = new WeakMap();
+  const refuse = (m, why) => { refusedFor.set(m, why); return true; };
   /* M679: the page's ending, what its own readers wrote on it (the journal at its index — nothing when they never read
    * it), and his header's own place and dress */
   const ending = page ? pageEnding(page) : '';
@@ -1089,10 +1153,31 @@ export function auditorScope(issues, state, { header = [], page = '', writerPage
   };
   const sceneTold = page ? narrationOf(scenePartOf(page)) : '';
   const readersWrote = Number.isInteger(pageAt) ? journalOfPage(state, pageAt) : [];
-  const personalTelling = (m) => m?.name ? currentPersonTelling(state, page, m.name, m.shown) : '';
+  const accounts = new Map();
+  const accountsFor = (name, fields = false) => {
+    const key = JSON.stringify([name, fields]);
+    if (!accounts.has(key)) accounts.set(key, personTellings(state, page, name, fields));
+    return accounts.get(key);
+  };
+  const personalTelling = (m) => m?.name ? currentPersonTelling(accountsFor(m.name, true).at(-1), m.shown) : '';
+  const personalFields = (m, field) => {
+    const parts = m?.name ? accountsFor(m.name, true).at(-1) : null;
+    if (!currentPersonTelling(parts, m.shown)) return '';
+    const last = parts.at(-1);
+    const at = findPresent(state, m.name, { strict: true });
+    const kept = at !== -1 ? state.present[at]?.[field] : '';
+    /* A supplied quote can cover adjacent current details. It cannot replace
+     * a later supported saved field with an earlier part of that quote. */
+    if (m.shown && kept && wordsIn(kept, last) && !wordsIn(m[field], last)) return '';
+    return m.shown || last;
+  };
   const currentArrival = (m, why) => {
-    if (!m.shown || !['the page’s ending does not show them', 'not in the room this page’s reader named as it ends'].includes(why)) return false;
-    const told = personalTelling(m);
+    if (!['the page’s ending does not show them', 'not in the room this page’s reader named as it ends'].includes(why)) return false;
+    const accounts = accountsFor(m.name).map((parts) => parts.join(' '));
+    /* Presence persists after an arrival. Its proof need not be the later pose's
+     * quotation; posture and dress still use only the latest account below. */
+    if (m.shown && !accounts.some((t) => sceneQuoteIn(t, m.shown))) return false;
+    const told = accounts.at(-1) || '';
     if (!told || goneAtTheEnd(state, page, m.name) || mcWalksOff(page, mcName(state))) return false;
     if (readersWrote.some((jm) => jm.type === 'presence.leave' && samePersonName(jm.name, m.name) && quotedGoing(state, page, jm.name, jm.shown))) return false;
     const held = seatForPerson(state, m.name);
@@ -1100,10 +1185,17 @@ export function auditorScope(issues, state, { header = [], page = '', writerPage
     /* The header's place names the room; its fifth cell is only the main character's pose. */
     const ground = headerMutations(page, { ground: state?.place?.name || '' }).find((hm) => hm.type === 'place.set')?.name || state?.place?.name || '';
     const seatedHere = held && (seatAtScene(held.entry.location, ground) || wordsIn(ground, held.entry.location));
-    const arrived = comesInAtTheEnd(state, told, [m.name], m.shown);
+    /* These accounts already name the target. Read their arrival by subject,
+     * rather than letting another person's arrival anywhere in a quote count. */
+    const arrived = accounts.some((t) => comesInAtTheEnd(state, t, [m.name]));
+    const room = Number.isInteger(pageAt) && state?.roomAt?.page === pageAt && Array.isArray(state.roomAt.names) ? state.roomAt.names : [];
+    if (held && room.length && !room.some((n) => samePersonName(n, m.name)) && !seatedHere && !arrived) return false;
+    /* Without a supplied quote, a named arrival can be recovered directly.
+     * A matching old seat alone cannot prove that the person stayed with him. */
+    if (!m.shown && !arrived) return false;
     if (why.startsWith('not in the room') && !seatedHere && !arrived) return false;
     if (Number.isInteger(pageAt) && state?.groundWas?.page === pageAt && held && !seatedHere && !arrived) return false;
-    return Boolean(arrived || seatedHere || (m.shown && wordsIn(m.position || m.shown, told)));
+    return Boolean(arrived || seatedHere || wordsIn(m.position || m.shown || told, told));
   };
   const movedThisPage = (thing) => readersWrote.some((jm) => jm.type === 'thing.set' && typeof jm.name === 'string' && Boolean(findThingKey({ [jm.name]: true }, String(thing || ''))));
   const samePerson = (a, b) => typeof a === 'string' && typeof b === 'string' && (samePersonName(a, b) || (isMc(state, a) && isMc(state, b)));
@@ -1112,6 +1204,13 @@ export function auditorScope(issues, state, { header = [], page = '', writerPage
   if (page && Array.isArray(issues)) {
     const told = narrationOf(scenePartOf(page));
     issues = issues.map((issue) => (issue && Array.isArray(issue.mutations) ? { ...issue, mutations: issue.mutations.map((m) => {
+      /* Models sometimes put the copied quote on the finding, not twice in its
+       * mutation. Bind that exact source quote to this target before using it. */
+      if (m?.name && !m.shown && /^(?:presence\.(?:enter|update)|offscreen\.clear)$/.test(m.type)) {
+        const quotes = [issue.shown, ...[...String(issue.what || '').matchAll(/["“]([^"”]{8,1200})["”]|(?:^|[\s:])'([\s\S]{8,1200}?)'(?=$|[\s.,;])/g)].map((hit) => hit[1] || hit[2])].filter(Boolean);
+        const quote = quotes.find((q) => accountsFor(m.name, m.type === 'presence.update').some((parts) => sceneQuoteIn(parts.join(' '), q)) || (m.type === 'offscreen.clear' && mcPersonaQuote(state, m.name, q, writerIdentityText)));
+        if (quote) m = { ...m, shown: quote };
+      }
       /* M661: THE AUDITOR CAN SET RIGHT WHERE SOMEONE STANDS AND WHAT THEY WEAR — held to the page as the reader is. It saw
        * "the presence list still has Barbara in a heavy coat" and had no change of its own for it (it wrote a "now", which
        * is not its to write): the finding was reported and nothing landed. A presence.update whose words are the newest
@@ -1125,11 +1224,10 @@ export function auditorScope(issues, state, { header = [], page = '', writerPage
         const wears = typeof m.attire === 'string' && !(heldWears && !wordsIn(m.attire, his.attire)) ? m.attire : '';
         /* each field on its own: his place (his dress) in his header's own words stands as the header's does, borne out by
          * the page's telling; any other place or dress stands only in the ending's words */
-        const personal = m.shown ? personalTelling(m) : '';
-        const placeFix = at ? restatedPresence(state, [{ name: m.name, at, wears: '' }], [], heldAt ? page : personal || ending)[0] : null;
-        const dressFix = wears ? restatedPresence(state, [{ name: m.name, at: '', wears }], [], heldWears ? page : personal || ending)[0] : null;
+        const placeFix = at ? restatedPresence(state, [{ name: m.name, at, wears: '' }], [], heldAt ? page : personalFields(m, 'position') || ending)[0] : null;
+        const dressFix = wears ? restatedPresence(state, [{ name: m.name, at: '', wears }], [], heldWears ? page : personalFields(m, 'attire') || ending)[0] : null;
         if (placeFix || dressFix) {
-          const fixed = { type: 'presence.update', name: (placeFix || dressFix).name, ...(placeFix ? { position: placeFix.position } : {}), ...(dressFix ? { attire: dressFix.attire } : {}) };
+          const fixed = { type: 'presence.update', name: (placeFix || dressFix).name, ...(placeFix ? { position: placeFix.position } : {}), ...(dressFix ? { attire: dressFix.attire } : {}), ...(m.shown ? { shown: m.shown } : {}) };
           restatedOk.add(fixed);
           return fixed;
         }
@@ -1192,7 +1290,7 @@ export function auditorScope(issues, state, { header = [], page = '', writerPage
   };
   const moment = (m) => {
     if (!m || typeof m !== 'object' || typeof m.type !== 'string') return true;
-    if (m.type === 'presence.update') return !(m.staleClear || restatedOk.has(m)); /* M544: the letting-go of a place the page left behind; M661: a place or an outfit the newest page bears out */
+    if (m.type === 'presence.update') return m.staleClear || restatedOk.has(m) ? false : refuse(m, 'the proposed position or attire is not supported by this person’s latest account on the newest page');
     if (!AUDITOR_TYPES.has(m.type)) return true;
     if (m.type === 'mode.snapshot') return !(boardStale(state, pageAt) || supported(m, endingTold, false));
     if (m.type === 'clock.set' && handSetClockSince(state, pageAt)) return true;
@@ -1234,9 +1332,9 @@ export function auditorScope(issues, state, { header = [], page = '', writerPage
      * on going or on HIM walking off ("she held her ground in the column's shadow as they walked away"), nobody the world
      * seats elsewhere when the page moved the scene away from them */
     if (page && (m.type === 'presence.enter' || (m.type === 'offscreen.clear' && !isHere(state, m.name))) && typeof m.name === 'string') {
-      if (m.type === 'offscreen.clear' && (isMc(state, m.name) || !seatForPerson(state, m.name))) return false;
+      if (m.type === 'offscreen.clear' && (isMc(state, m.name) || !seatForPerson(state, m.name) || mcPersonaQuote(state, m.name, m.shown, writerIdentityText))) return false;
       const why = walkInFromPage(state, m.name, { page, pageAt, shown: m.shown });
-      if (why && !writerArrival(m) && !currentArrival(m, why)) return true;
+      if (why && !writerArrival(m) && !currentArrival(m, why)) return refuse(m, why + (m.shown ? '; the supplied quote does not establish a current arrival for this person' : '; no current named arrival or matching scene seat establishes their presence'));
     }
     /* M681: …and by its third door — a seat for someone with none, AT the scene's own place, is a walk-in (apply.js
      * offscreen.set, M402). A seated person's seat is the auditor's only as the newest page moves it (below, M681 W10); a
@@ -1262,7 +1360,14 @@ export function auditorScope(issues, state, { header = [], page = '', writerPage
       if (mc && String(m.name || '').trim().toLowerCase() === mc) return true;
       const key = findPersonKey(state?.characters || {}, m.name);
       if (key && state.characters[key]?.hand?.[m.field]) return true;
-      if (m.field === 'state') return !(isHere(state, m.name) && (supported(m, endingTold) || supported(m, personalTelling(m))));
+      if (m.field === 'state') {
+        const last = accountsFor(m.name, true).at(-1)?.at(-1) || '';
+        const kept = key ? state.characters[key].state : '';
+        if (kept && wordsIn(kept, last) && !wordsIn(m.text, last)) return refuse(m, 'the proposed now restores an earlier moment over this person’s later supported state');
+        const own = personalTelling(m);
+        const sceneState = own && sceneQuoteIn(own, m.shown) && shownOnPage(state, m.shown, m.name) && m.text && exactNameIn(m.shown, m.text);
+        return !(isHere(state, m.name) && (supported(m, endingTold) || sceneState));
+      }
       if (m.field === 'arc') return !supported(m, evidenceText || writerPage + '\n' + page);
       return m.field === 'threads';
     }
@@ -1277,13 +1382,13 @@ export function auditorScope(issues, state, { header = [], page = '', writerPage
       if (!moment(m)) return true;
       if (rejected) {
         const same = (m?.type === 'presence.enter' && isHere(state, m.name)) || (m?.type === 'place.set' && samePlace(state?.place?.name || '', m.name || m.place || ''));
-        const why = m?.type === 'people.note' && m.field !== 'unthread'
+        const why = refusedFor.get(m) || (m?.type === 'people.note' && m.field !== 'unthread'
           ? 'supply an exact shown source quote for people.note core, arc or thread; use people.set field core for an identity repair'
           : m?.type === 'people.set' && m.field !== 'core'
             ? 'this changes the current state or arc owned by the page reader; supply a source-backed correction, not a new simulation'
             : !AUDITOR_TYPES.has(m?.type) && m?.type !== 'presence.update'
               ? 'this operation is not in the auditor’s vocabulary: ' + String(m?.type || '(missing type)')
-              : 'the proposed ' + String(m?.type || 'change') + ' conflicts with the newest page, its ending, or a fact already established by that page';
+              : 'the proposed ' + String(m?.type || 'change') + ' conflicts with the newest page, its ending, or a fact already established by that page');
         rejected.push({ mutation: m, issue, why: same ? 'already recorded' : why, ...(same ? { same: true } : {}) });
       }
       return false;

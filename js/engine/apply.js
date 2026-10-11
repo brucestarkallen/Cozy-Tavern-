@@ -1992,7 +1992,7 @@ export function clearsThatArrive(state, mutations, sceneText) {
  * her own body or voice ("Vivi's pants", "Vivi's panel", "Vivi's texts"), does not show her; "Vivi's hand on his arm"
  * does. */
 /* M506: her body with a word or two before it too — "Vivi's left hand", "Vivi's dark eyes", "Vivi's bare feet" */
-const BODY_AFTER_POSSESSIVE = /^(?:\s+(?:own\s+)?(?:[\p{L}-]+\s+){0,2}(?:hand|hands|eyes|eye|face|voice|arm|arms|shoulder|shoulders|head|hair|mouth|lips|fingers|finger|gaze|laugh|breath|smile|knee|knees|back|feet|foot|palm|grip|body|shadow|footsteps|steps|silhouette|chin|brow|cheek|cheeks|temple|jaw|neck|wrist|hip|hips|heel|heels|reflection))\b/iu;
+const BODY_AFTER_POSSESSIVE = /^(?:\s+(?:own\s+)?(?:[\p{L}-]+\s+){0,2}(?:hand|hands|eyes|eye|face|voice|arm|arms|shoulder|shoulders|head|hair|mouth|lips|fingers|finger|gaze|laugh|breath|smile|knee|knees|ankle|ankles|back|feet|foot|palm|grip|body|shadow|footsteps|steps|silhouette|chin|brow|cheek|cheeks|temple|jaw|neck|wrist|hip|hips|heel|heels|reflection))\b/iu;
 /* M506: "VIVI'S" IS OFTEN "VIVI IS". M491 read every "Name's" as the owner of a thing — so "Vivi's already at the counter",
  * "Vivi's laughing at him", "Vivi's here", "Vivi's the one who answers" showed nobody, and a person standing in the room
  * was judged unseen (the leave gate, the auditor's gate and the walk-back heal all ask this). What follows the 's says
