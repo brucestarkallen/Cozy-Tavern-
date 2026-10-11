@@ -1,6 +1,7 @@
 # M698: verify actual ledger entries before green
 
-Version m698-001. The owner reports M697 repaired the captain and Commodus and
+Version m698-001, prepared locally. Publication was blocked by automatic approval
+review; remote main was confirmed still at M697 (fdab766). The owner reports M697 repaired the captain and Commodus and
 went green, but its actual saved MC position still contradicts a later stop in
 the completed prose. Source-page identity coverage and an empty findings list
 were insufficient evidence of semantic ledger verification.

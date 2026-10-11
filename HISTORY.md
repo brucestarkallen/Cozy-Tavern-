@@ -18956,3 +18956,8 @@ A passing mock does not establish perfect model judgment. Reload M698 and inspec
 the actual live receipt before claiming the owner's remaining position is fixed.
 All earlier milestone records remain below unchanged.
 
+
+M698 publication status: automatic approval review rejected pushing shared main,
+asserting this exact change/destination was not authorized. Read-only remote check
+confirms main remains fdab766 (M697). Local implementation and aligned system
+response contract are committed and ready. No additional test reruns.
