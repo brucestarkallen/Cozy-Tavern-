@@ -278,8 +278,19 @@ export function sourceIdentityNeeded(state, person) {
   const key = sourcePersonKey(state, person.name, person.ledgerName, person.identityResolution);
   if (isMc(state, key || person.name)) return false;
   if (!key) return true; // Unclassified original individual, including unique unnamed roles.
-  if (state.characters?.[key]?.hand?.core || String(state.characters?.[key]?.core || '').trim()) return false;
-  return (person.identityFacts || []).some(f => f.text && f.shown);
+  return false; // Binding and factual completeness are separate questions.
+}
+
+export function missingSourceIdentityFacts(state, person) {
+  const key=sourcePersonKey(state,person.name,person.ledgerName,person.identityResolution);
+  if (!key || (person.kind && person.kind!=='person')) return [];
+  const core=String(state.characters?.[key]?.core || '').replace(/\s+/g,' ').toLowerCase();
+  return (person.identityFacts || []).filter(f=>f.text && f.shown && !core.includes(f.text.trim().replace(/\s+/g,' ').toLowerCase()));
+}
+export function sourceFactScope(state, person) {
+  const key=sourcePersonKey(state,person.name,person.ledgerName,person.identityResolution);
+  return djb2(JSON.stringify([person.source, state.auditSources?.[person.source]?.mark,person.name,key,
+    person.identityFacts,state.characters?.[key]?.core || '',state.characters?.[key]?.hand?.core || false]));
 }
 
 export function missingSourcePeople(state, people = []) {
@@ -289,11 +300,21 @@ export function missingSourcePeople(state, people = []) {
     if (isMc(state, p.name)) continue;
     const key = sourcePersonKey({ ...state, characters: known }, p.name, p.ledgerName, p.identityResolution);
     if (key && isMc(state,key)) continue;
-    if (!sourceIdentityNeeded({ ...state, characters: known }, p)) continue;
+    const classification = sourceIdentityNeeded({ ...state, characters: known }, p);
+    const facts = classification ? [] : missingSourceIdentityFacts(state,p);
+    if (!classification && !facts.length) continue;
     const name = key || p.name;
     const target = JSON.stringify([p.source,p.name]);
     if (requested.has(target)) continue;
     requested.add(target);
+    if (!classification) {
+      const factScope = sourceFactScope(state,p);
+      if (state.audit?.sourceFactDecisions?.[factScope]) continue;
+      issues.push({what:name+' has source identity facts to reconcile: '+facts.map(f=>f.text).join('; '),
+        name,sourceId:p.source,sourceName:p.name,sourceFacts:true,profileRecovery:true,shown:p.shown,facts,
+        fix:'Add genuinely missing stable facts with additive People notes. If already represented, respect equivalent wording and manual facts. If the extraction is unsupported or only a temporary scene role, return a source-grounded resolved finding explaining why no durable profile addition is needed.',pages:false,mutations:[]});
+      continue;
+    }
     // An extraction is a candidate, not proof that every quoted proper name
     // is a person. Review its subject before requesting a biography.
     issues.push({ what: name + ' is listed as an individual by the source reading in ' + p.label + '; confirm its identity or correct its entity classification.',

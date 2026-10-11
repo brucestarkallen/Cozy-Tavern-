@@ -1677,10 +1677,12 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
       for (let pg = a.span[1] + 1; pg < b.span[0]; pg += 1) if (!filled.has(pg)) return false;
       return true;
     };
-    const at = layer.findIndex((n, i) => i + 1 < layer.length && meets(n, layer[i + 1]));
+    const at = layer.findIndex((n, i) => i + 1 < layer.length && !n.auditOpen?.length && !layer[i + 1].auditOpen?.length && meets(n, layer[i + 1]));
     if (at === -1) continue;
-    const toMerge = layer.slice(at, at + NOTES_PER_PROMOTION);
-    if (toMerge.length < 2) continue;
+    const candidates = layer.slice(at, at + NOTES_PER_PROMOTION);
+    const blocked = candidates.findIndex(node => node.auditOpen?.length);
+    const toMerge = blocked < 0 ? candidates : candidates.slice(0, blocked);
+    if (toMerge.length < 2) continue; /* Keep unresolved edits attached to their line; other lines may still fold. */
     const absorbed = between(toMerge[0], toMerge[toMerge.length - 1]).map((n) => n.id); /* empty marker lines the merge takes in */
     const record = recordFor(mem, level + 1, keeperRecordCap(connection));
     if (typeof renew === 'function') renew();
@@ -1714,6 +1716,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     /* M673: what the continuous audit had read under these lines stays read under the line they become */
     const carried = auditedAcross(mem.nodes.filter((node) => ids.has(node.id)));
     if (carried > 0) merged.audited = carried;
+    merged.correctionReviewed = toMerge.every(node => node.correctionReviewed === true);
     mem.nodes = mem.nodes.filter((node) => !ids.has(node.id));
     mem.nodes.push(merged);
     changed = true;

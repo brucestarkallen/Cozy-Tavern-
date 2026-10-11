@@ -20294,3 +20294,17 @@ Created: css/neon-tokyo-night.css, assets/neon-tokyo/neon_tokyo_city.webp,
 assets/neon-tokyo/rias_seated_extracted.png, tests/neon_tokyo.py,
 tests/neon_tokyo_details.py. Modified: css/base.css, css/coats.css, index.html,
 js/app.js, js/ui/speechcolours.js, js/version.js, sw.js and milestone docs.
+
+
+## M722: Source identity completion and historical correction status
+
+Version m722-001. Separate source-local classification from source-supported
+profile recovery; make equivalent source.resolve bindings idempotent. Repair
+policy 6 resumes paused old findings using existing receipts. Continuous Audit
+requires grounded story-versus-record routing, safely supports short record
+corrections, and persists unresolved memory corrections separately from coverage.
+Old page advisories receive one scoped reconsideration. Corrected memory blocks
+stale Essentials until normal background regeneration. Preserve manual memory,
+original pages, undo, M718/M719 identities, M720 updates and M721 themes.
+Focused mocked M722, M718, M719 source-only and M719 follow-up fixtures passed;
+no bulk suite or live provider/story validation. See HANDOFF.md for limits.

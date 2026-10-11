@@ -2940,14 +2940,14 @@ export function initChat(ctx) {
        *   - HOW FAR IT HAS READ is said in the lamp's words, and on its row among the workers. */
       const auditing = busy && queuedCount(storyId) === 0 && runningWorkers(storyId).every((n) => n === 'continuous');
       const sceneBusy = busy && !auditing;
-      const auditSore = Boolean(auditRead && auditRead.left > 0 && shelf.continuous && shelf.continuous.ok === false && shelf.continuous.detail !== 'stopped by hand');
+      const auditSore = Boolean(auditRead?.open) || Boolean(auditRead && auditRead.left > 0 && shelf.continuous && shelf.continuous.ok === false && shelf.continuous.detail !== 'stopped by hand');
       const watched = guards.length > 0 || auditSore;
       const sceneWell = auditing && !trouble && !partly && !watched && !behind && !repairOwed && !repairPaused && !openAudit && !verificationNeeded && ran > 0 && told > 0;
       const sceneWaiting = auditing && !trouble && !partly && !watched && behind && told > 0;
       const wellNow = (allWellNow && !auditSore) || sceneWell;
       const waitingNow = (waiting && !auditSore) || sceneWaiting;
       const guardWords = guards.map((g) => (g === 'continuity' ? 'the second reader' : 'the auditor')).join(' and ') + ' did not finish on the newest page; the story is safe, and it is asked again on the next';
-      const auditSoreWords = 'the continuous audit could not finish its last reading; the story is safe, and it tries again by itself';
+      const auditSoreWords = auditRead?.open ? auditRead.open + ' historical corrections remain unresolved: ' + auditRead.unresolved.map(f => f.issue?.what || f.why).join('; ') : 'the continuous audit could not finish its last reading; the story is safe, and it tries again by itself';
       const auditWords = !auditRead ? ''
         : auditRead.left > 0 ? ' The continuous audit has read ' + auditRead.done + ' of ' + auditRead.folded + ' folded pages' + (auditing ? ' and is reading on — it steps aside when you write.' : '; it reads on when the house is idle.')
           : auditRead.folded > 0 ? ' The continuous audit has read every folded page (' + auditRead.folded + ').' : '';
@@ -3251,7 +3251,7 @@ export function initChat(ctx) {
         },
       });
       if (!result) return { silent: true };
-      return { silent: false, detail: stretchWords(result), raw: result.raw };
+      return { silent: false, unfinished: Boolean(result.open), detail: stretchWords(result), raw: result.raw };
     } catch (err) {
       if (own.signal.aborted && !(signal && signal.aborted)) return { silent: true }; /* stepped aside for the storyteller */
       throw err;

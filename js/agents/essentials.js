@@ -92,6 +92,8 @@ export function readEssentials(raw, cap = ESSENTIALS_MAX_CHARS) {
 
 export async function loadEssentials(storyId) {
   const kept = await db.settings.get(ESSENTIALS_KEY(storyId));
+  const memory = await db.settings.get('memory:' + storyId);
+  if (memory?.essentialsCorrection && kept?.print !== recordOf(memory.nodes).print) return null;
   return kept && typeof kept === 'object' && typeof kept.text === 'string' && kept.text ? kept : null;
 }
 

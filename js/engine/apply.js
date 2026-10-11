@@ -1518,7 +1518,7 @@ const HANDLERS = {
     const rows = [];
     const people = (receipt.people || []).map((p,index) => {
       if (p.name !== name) return p;
-      if (p.kind === kind && (p.ledgerName || '') === to && p.identityResolution?.why === why) return p;
+      if (p.kind === kind && (p.ledgerName || '') === to && p.identityResolution?.kind === kind && (p.identityResolution?.to || '') === to) return p;
       rows.push({index,name:p.name,kind:p.kind,ledgerName:p.ledgerName,identityResolution:p.identityResolution});
       return {...p,kind,ledgerName:to,identityResolution:{kind,to,why}};
     });

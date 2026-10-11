@@ -51,7 +51,7 @@ import { explicitStandings, readStatedStandings, validateStatedStandings, samePe
 import { visiblePages, loadMemory, wholeRecord, recordWithPages } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
 import { pageText } from '../assemble/stack.js';
 import { exactNameIn, quotedSource, WRITER_FACTS } from '../engine/evidence.js';
-import { auditSources, reviewAuditSources, missingSourcePeople, sourceIdentityNeeded, sourcePersonKey, peopleSourceIndex } from './auditsources.js';
+import { auditSources, reviewAuditSources, missingSourcePeople, missingSourceIdentityFacts, sourceFactScope, sourceIdentityNeeded, sourcePersonKey, peopleSourceIndex } from './auditsources.js';
 import { reconcileAppearance,reconcileIdentity,sourceAppearanceFacts,sourceIdentityFacts } from './appearanceinventory.js';
 import { lookKey } from '../engine/canon.js';
 import { auditEvidenceBook,auditEvidencePassages } from './auditevidence.js';
@@ -560,7 +560,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   // Source receipt repair does not require another completed ledger review
   // when its originals and every actual entry still match the saved verdict.
   const retainedReview = sameReviewedSources && state.audit?.finalReview?.status === 'ok'
-    && !personaIssues.length && !originalFindings.length && !unresolved(result).length
+    && !personaIssues.length && !originalFindings.some(i=>!findingSettled(i,result,withdrawals,documents,{entries:previousVerification})) && !unresolved(result).length
     && !auditReviewRows(result.out,previousVerification).length;
   if (retainedReview) {
     verificationSnapshot = result.out;
@@ -575,7 +575,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     const verificationRows = auditReviewRows(result.out,previousVerification);
     finalReview.requested = verificationRows.length;
     const requestedState=result.out;
-    const sourceCandidates=originalFindings.filter(i=>i.profileRecovery && i.sourceId);
+    const sourceCandidates=originalFindings.filter(i=>i.profileRecovery && i.sourceId && !i.sourceFacts && !findingSettled(i,result,withdrawals,documents));
     const sourceTasks=sourceCandidates.map(i=>({id:auditFindingId(i),sourceId:i.sourceId,name:i.sourceName || i.name,shown:i.shown}));
     const reviewProblems=text=>{
       const read=parseAuditorAnswer(text);
@@ -671,8 +671,19 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   result = judge(sourceReview ? {...finalState,auditSources:sourceReview.cache} : finalState, offered);
   const verification = verifyLedgerChecks({state:result.out, snapshot:verificationSnapshot, checks:verificationChecks,
     previous:previousVerification, documents, source:verificationSource, applied:result.applied,approvedState,authoritative:true});
-  const outstanding = compactFindings([...originalFindings, ...unresolvedFindings(result)].filter((i) => !findingSettled(i, result, withdrawals, documents, verification)), result.out);
-  pending = [...new Set([...outstanding.map((i) => i.what + ': ' + (i.pendingReason || 'identity or entity classification still needs a working repair')), ...(sourceReview?.pending || []), ...(answerProblem ? [answerProblem] : []), ...(followupFailed ? ['the combined ledger review did not finish'] : []), ...(verification.read < verification.total ? [`ledger verification: checked ${verification.read} of ${verification.total} entries; ${verification.pending.slice(0, 2).join('; ')}`] : [])])];
+  const sourceFactDecisions={...(result.out.audit?.sourceFactDecisions || {})};
+  for (const issue of originalFindings.filter(i=>i.sourceFacts)) {
+    const decision=withdrawals.find(r=>(r.what===issue.what || r.id===auditFindingId(issue)) && documents.some(d=>d.id===issue.sourceId && auditorSourceQuote(d.text,r.shown)));
+    const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
+    if (mention && (decision || findingSettled(issue,result,withdrawals,documents,verification))) {
+      sourceFactDecisions[sourceFactScope(result.out,{...mention,source:issue.sourceId})]=decision
+        ? {why:decision.why || decision.what,shown:decision.shown}
+        : {why:'The actual People core and original source facts passed factual review.'};
+    }
+  }
+  result.out.audit={...result.out.audit,sourceFactDecisions};
+  const outstanding = compactFindings([...originalFindings, ...missingSourcePeople(result.out,documents.flatMap(d=>(result.out.auditSources?.[d.id]?.people || []).map(p=>({...p,source:d.id,label:d.label})))), ...unresolvedFindings(result)].filter((i) => !findingSettled(i, result, withdrawals, documents, verification)), result.out);
+  pending = [...new Set([...outstanding.map((i) => i.what + ': ' + (i.pendingReason || (i.sourceFacts ? 'source-supported profile facts still need reconciliation' : 'identity or entity classification still needs a working repair'))), ...(sourceReview?.pending || []), ...(answerProblem ? [answerProblem] : []), ...(followupFailed ? ['the combined ledger review did not finish'] : []), ...(verification.read < verification.total ? [`ledger verification: checked ${verification.read} of ${verification.total} entries; ${verification.pending.slice(0, 2).join('; ')}`] : [])])];
   result.unfinished = pending.length > 0;
   result.pending = pending;
   result.issues = result.issues.filter(i => i.mutations.length || i.pages || !findingSettled(i,result,withdrawals,documents,verification));
@@ -702,7 +713,7 @@ function unresolvedFindings(result) {
 }
 export function auditFindingId(issue) {
   return issue.id || issue.findingId || 'finding:' + fingerprint36(issue.profileRecovery && issue.sourceId
-    ? JSON.stringify([issue.sourceId,issue.sourceName || issue.name]) : String(issue.what || '').trim());
+    ? JSON.stringify([issue.sourceId,issue.sourceName || issue.name,...(issue.sourceFacts?['facts',issue.facts?.map(f=>f.text)]:[])]) : String(issue.what || '').trim());
 }
 export function auditRepairChecklist(findings, state) {
   return findings.map(i => ({ id: auditFindingId(i), what: i.what, fix: i.fix,
@@ -1105,6 +1116,11 @@ export function verifyLedgerChecks({state, snapshot, checks, previous = {}, docu
 }
 export function findingRows(issue, state) {
   const rows = ledgerVerificationRows(state);
+  if (issue.sourceFacts) {
+    const p=state.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
+    const key=p && sourcePersonKey(state,p.name,p.ledgerName,p.identityResolution);
+    return rows.filter(row=>row.section==='characters' && row.name===key);
+  }
   const requested = new Set((issue.targets || []).map(t => t.id));
   if (requested.size) {
     const actual = new Set();
@@ -1130,7 +1146,7 @@ export function findingRows(issue, state) {
 }
 
 export function findingSettled(issue, result, withdrawals, documents, verification) {
-  if (issue.profileRecovery && issue.sourceId) {
+  if (issue.profileRecovery && issue.sourceId && !issue.sourceFacts) {
     const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
     if (mention?.kind && mention.kind!=='person') return true;
     const key=mention && sourcePersonKey(result.out,mention.name,mention.ledgerName,mention.identityResolution);
@@ -1138,15 +1154,23 @@ export function findingSettled(issue, result, withdrawals, documents, verificati
     // complaint next turn. Keep the actual binding as the durable result.
     return Boolean(mention && !sourceIdentityNeeded(result.out, mention));
   }
+  if (issue.sourceFacts && issue.sourceId) {
+    const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
+    if (!mention) return false;
+    if (!sourceIdentityNeeded(result.out,mention) && !missingSourceIdentityFacts(result.out,mention).length) return true;
+    if (result.out.audit?.sourceFactDecisions?.[sourceFactScope(result.out,{...mention,source:issue.sourceId})]) return true;
+    // Specific missing facts can be settled by grounded withdrawal or the actual
+    // matching character verification below, not merely a nonempty biography.
+  }
   if (issue.profileRecovery && issue.name && result.out.entityCorrections?.[issue.name]
     && !sourcePersonKey(result.out,issue.name)
     && Object.values(result.out.auditSources || {}).flatMap(r=>r.people || []).filter(p=>p.name === issue.name).every(p=>p.kind && p.kind !== 'person')) return true;
-  if (issue.profileRecovery && issue.name) {
+  if (issue.profileRecovery && issue.name && !issue.sourceFacts) {
     const key = sourcePersonKey(result.out, issue.name);
     if (key && String(result.out.characters?.[key]?.core || '').trim()) return true;
   }
   if (withdrawals.some(r => (r.what === issue.what || r.id === auditFindingId(issue))
-    && documents.some(d => auditorSourceQuote(d.text, r.shown)))) return true;
+    && documents.some(d => (!issue.sourceId || d.id===issue.sourceId) && auditorSourceQuote(d.text, r.shown)))) return true;
   if (!issue.pages && verification) {
     const rows = findingRows(issue,result.out);
     if (rows.length && rows.every(row => verificationReceiptMatches(verification.entries?.[row.id],row))) return true;
@@ -1174,7 +1198,7 @@ function compactFindings(findings, state) {
         // Replace the legacy unscoped complaint, while keeping every distinct
         // source section of a long page with the same visible label.
         kept.delete('words:'+issue.what);
-        kept.set('source:'+JSON.stringify([issue.sourceId,issue.sourceName || issue.name]),issue);
+        kept.set('source:'+JSON.stringify([issue.sourceId,issue.sourceName || issue.name,...(issue.sourceFacts?['facts',issue.facts?.map(f=>f.text)]:[])]),issue);
       } else kept.set('words:' + issue.what, issue);
       continue;
     }

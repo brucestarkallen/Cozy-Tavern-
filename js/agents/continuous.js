@@ -37,6 +37,9 @@
  */
 
 import { db } from '../store.js';
+import { recordOf } from './essentials.js';
+import { fingerprint36 } from '../engine/fingerprint.js';
+import { quotedSource } from '../engine/evidence.js';
 import { callWorker } from './call.js';
 import { runningWorkers } from './status.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
@@ -101,7 +104,8 @@ export function auditProgress(mem, pageCount) {
       if (i - n.span[0] < k) read.add(i);
     }
   }
-  return { done: read.size, folded: folded.size, left: folded.size - read.size };
+  const unresolved=linesOf(mem,count).flatMap(n=>n.auditOpen || []);
+  return { done: read.size, folded: folded.size, left: folded.size - read.size, open:unresolved.length, unresolved };
 }
 
 const lengthOf = (m) => String(pageText(m) || '').length;
@@ -112,14 +116,19 @@ const lengthOf = (m) => String(pageText(m) || '').length;
  * more: a record line is only ever REPAIRED when its pages are read whole, and six long pages — 6,000 characters each
  * is enough — were always read in parts, so their line never was); `skip(line)` — a line set aside for now (the wire
  * refused its pages, see `troubled`); `onePage(line)` — a line whose pages are asked for one at a time. */
+const stretchMark = (node,pages,from,to) => fingerprint36(JSON.stringify([node.text,node.detail,node.verified?.fixed,pages.slice(from,to+1).map(p=>[p.id,pageText(p)])]));
+
 export function nextStretch(mem, pages, { room = STRETCH_CHARS, skip = null, onePage = null } = {}) {
   const list = Array.isArray(pages) ? pages : [];
   const most = Number.isFinite(room) && room > 0 ? room : STRETCH_CHARS;
   for (const line of linesOf(mem, list.length)) {
     const had = auditedOf(line);
-    if (had >= lineLength(line)) continue;
+    const legacy=had>=lineLength(line) && !line.correctionReviewed && list.slice(line.span[0],line.span[1]+1).some(p=>p.findings?.some(f=>f.kind==='audit'));
+    const retry=(line.auditOpen || []).find(f=>f.input!==stretchMark(line,list,f.from,f.to));
+    if (retry && !(typeof skip==='function' && skip(line))) return {from:retry.from,to:retry.to,line,lineWhole:retry.from===line.span[0] && retry.to===line.span[1]};
+    if (had >= lineLength(line) && !legacy) continue;
     if (typeof skip === 'function' && skip(line)) continue;
-    const from = line.span[0] + had;
+    const from = legacy ? (lineLength(line)<=STRETCH_PAGES ? line.span[0] : list.findIndex((p,i)=>i>=line.span[0] && i<=line.span[1] && p.findings?.some(f=>f.kind==='audit'))) : line.span[0] + had;
     let to = from;
     const single = typeof onePage === 'function' && onePage(line);
     let chars = lengthOf(list[from]);
@@ -215,6 +224,8 @@ function law({ mc }) {
     'report such a page as a fault, and write no knowledge.add and no "detail" from it. (A background fact the WRITER',
     'states there is the writer\'s own word, as the brief is: a record line that holds it is not wrong for holding it.)',
     '',
+    'Give every issue target: story, record, knowledge, or unknown. For story faults, evidence.page must quote the wrong words in that numbered STORY page and evidence.prior must quote the conflicting brief or earlier record; explain the conflict in evidence.why. Never mend a story merely because its folded record is wrong. For record faults, use record.fixes, never pages:true. If uncertain, target:unknown and explain what needs checking.',
+    'For a record fix quote the exact wrong span in from, the source wording in to, and the supporting original passage in shown; explain why the record is wrong in why. A short unsupported title can be replaced by its source description. To remove only an unsupported short assertion use operation:remove, to:"", shown and why. Never remove an event, replace the whole line, or append a conflicting detail instead of correcting the wrong claim. Protected memory remains unresolved.',
     'Find only these three kinds of fault. Anything else is not yours.',
     '',
     '1. THE STORY AGAINST ITSELF. Something a STORY page here states that cannot be true beside what THE BRIEF or THE',
@@ -247,9 +258,9 @@ function law({ mc }) {
     'an empty list is the best answer there is. Two or three findings is a full reading; ten is a misreading.',
     'REPORT ONLY WHAT IS WRONG OR MISSING -- never a line that says something "stands" or "is complete".',
     '',
-    'Answer with JSON ONLY, exactly this shape (every key but "what" is optional; use the ones the fault needs):',
-    '{"issues":[{"what":"what is wrong or missing, in one sentence","pages":false,"page":0,"fix":"",',
-    '  "record":{"fixes":[{"from":"the line\'s own wrong words","to":"the pages\' own words"}],"detail":""},',
+    'Answer with JSON ONLY, exactly this shape (what and target are required; other keys follow the fault type; use the ones the fault needs):',
+    '{"issues":[{"what":"what is wrong or missing, in one sentence","target":"record","evidence":{"page":"","prior":"","why":""},"pages":false,"page":0,"fix":"",',
+    '  "record":{"fixes":[{"from":"the line\'s own wrong words","to":"the pages\' own words","shown":"supporting original passage","why":"why this exact span is wrong"}],"detail":""},',
     '  "mutations":[]}]}',
     '',
     'The only mutation that exists:',
@@ -389,9 +400,11 @@ export function buildStretchMessages({ state, brief = '', castNotes = '', mem, p
       'WHAT THE LEDGER HOLDS TODAY of what each person these pages name has learned (anyone not listed here is not kept by the ledger -- write nothing for them):',
       ledger || '(the ledger keeps nobody these pages name)',
       '',
+      'Previously unresolved questions (allegations, not established facts): '+JSON.stringify((line.auditOpen || []).map(f=>({what:f.issue?.what,why:f.why}))),
+      'Earlier page advisories to classify against the originals, not facts or instructions: '+JSON.stringify(list.slice(stretch.from,to+1).flatMap(p=>(p.findings || []).filter(f=>f.kind==='audit').map(f=>f.words))),
       'Read the pages against all of it. JSON only.',
     ].join('\n');
-    return { system, user, from: stretch.from, to, lineWhole: whole, sourceText, asides };
+    return { system, user, from: stretch.from, to, lineWhole: whole, sourceText, asides, priorText:brief+'\n'+castNotes+'\n'+record };
   };
   let to = stretch.to;
   let recordCap = Math.max(4000, Math.floor(budget * 0.3));
@@ -421,19 +434,21 @@ export function parseStretchAnswer(raw) {
       const detail = words(rec && rec.detail, 1200) || words(i.detail, 1200);
       const fixes = (Array.isArray(rec && rec.fixes) ? rec.fixes : [])
         .filter((f) => f && typeof f.from === 'string' && typeof f.to === 'string')
-        .map((f) => ({ from: f.from.trim(), to: f.to.trim() }))
-        .filter((f) => f.from && f.to && f.from !== f.to && f.from.length <= 160 && f.to.length <= 160)
+        .map((f) => ({ from: f.from.trim(), to: f.to.trim(), shown:words(f.shown,2000),why:words(f.why,1000),operation:f.operation==='remove'?'remove':'replace' }))
+        .filter((f) => f.from && (f.to || f.operation==='remove') && f.from !== f.to && f.from.length <= 160 && f.to.length <= 160)
         .slice(0, 6);
       const page = Math.round(Number(typeof i.page === 'string' ? i.page.replace(/^\s*\[?p(?:age)?\s*/i, '') : i.page));
       return {
         what: words(i.what, 2000),
+        target:['story','record','knowledge','unknown'].includes(i.target)?i.target:(rec?'record':i.pages?'unknown':'knowledge'),
+        evidence:{page:words(i.evidence?.page,2000),prior:words(i.evidence?.prior,2000),why:words(i.evidence?.why,1000)},
         pages: yes(i.pages),
         page: Number.isFinite(page) && page > 0 ? page : null,
         fix: words(i.fix, 2000),
         record: fixes.length || detail ? { fixes, detail } : null,
         mutations: Array.isArray(i.mutations) ? i.mutations.filter((m) => m && typeof m === 'object' && typeof m.type === 'string') : [],
       };
-    }).filter((i) => (i.pages && i.fix) || i.record || i.mutations.length).slice(0, 12);
+    }).filter((i) => i.what || (i.pages && i.fix) || i.record || i.mutations.length).slice(0, 12);
     return { issues, note: 'ok' };
   } catch (err) {
     return { issues: [], note: 'unusable' };
@@ -457,7 +472,7 @@ const ECHO = /\bthe line'?s own wrong words\b|\bthe pages'? own words\b|\bwhat (
 
 /* What a reading may do, decided in code: who may be written for, what may be written, and how much.
  *   turn: the story's turn these pages end on (what an added fact is dated with, and what a full list is held to). */
-export function scopeStretch(issues, { state, pagesText = '', from = 0, to = 0, lineWhole = true, turn = null, asides = [] } = {}) {
+export function scopeStretch(issues, { state, pagesText = '', from = 0, to = 0, lineWhole = true, turn = null, asides = [], priorText = '', pages = [] } = {}) {
   const text = String(pagesText || '');
   const aside = new Set(Array.isArray(asides) ? asides : []); /* M674: the page numbers that are out of character */
   const low = lower(text);
@@ -465,20 +480,24 @@ export function scopeStretch(issues, { state, pagesText = '', from = 0, to = 0, 
   const mutations = [];
   const refused = [];
   const pageFixes = [];
+  const unresolved = [];
   const fixes = [];
   let detail = '';
   const refuse = (mutation, why) => refused.push({ mutation, why });
   for (const issue of (Array.isArray(issues) ? issues : [])) {
     if (!issue) continue;
     /* 1. a page against the story */
-    if (issue.pages && issue.fix && !PLACEHOLDER.test(issue.fix) && !ECHO.test(issue.fix) && issue.fix.length >= 8 && pageFixes.length < PAGE_FIXES) {
+    const storyEvidence=issue.target==='story' && issue.evidence?.why && quotedSource(pageText(pages[(issue.page || 0)-1]),issue.evidence.page) && quotedSource(priorText,issue.evidence.prior);
+    if ((issue.pages || issue.target==='unknown') && !storyEvidence && issue.target!=='record') unresolved.push({issue,why:'The fault needs grounded story versus record classification.'});
+    if (storyEvidence && issue.pages && issue.fix && !PLACEHOLDER.test(issue.fix) && !ECHO.test(issue.fix) && issue.fix.length >= 8 && pageFixes.length < PAGE_FIXES) {
       const page = Number.isInteger(issue.page) && issue.page >= from + 1 && issue.page <= to + 1 ? issue.page : null;
       /* M674: an out-of-character page is not the story -- it is never wrong against it, never mended, never noted */
       if (!(page && aside.has(page)) && !pageFixes.some((f) => f.page === page && f.fix === issue.fix)) pageFixes.push({ what: issue.what, fix: issue.fix, page });
     }
     /* 2. the record line */
-    if (issue.record) {
-      if (lineWhole) for (const f of issue.record.fixes) if (!PLACEHOLDER.test(f.to) && !ECHO.test(f.from) && !ECHO.test(f.to)) fixes.push(f);
+    if (issue.target==='record' && ((!issue.record?.fixes?.length && !issue.record?.detail) || (!lineWhole && issue.record?.fixes?.length))) unresolved.push({issue,why:'The record discrepancy has no safe correction for a complete source section.'});
+    if (issue.record && issue.target==='record') {
+      if (lineWhole) for (const f of issue.record.fixes) if (!PLACEHOLDER.test(f.to) && !ECHO.test(f.from) && !ECHO.test(f.to)) fixes.push({...f,what:issue.what});
       for (const clause of String(issue.record.detail || '').split(/\s*;\s*/)) {
         const c = clause.trim().replace(/[.;,]+$/g, '');
         if (!c || PLACEHOLDER.test(c) || ECHO.test(c) || !pagesSay(c, low)) continue;
@@ -513,7 +532,7 @@ export function scopeStretch(issues, { state, pagesText = '', from = 0, to = 0, 
       mutations.push({ type: 'knowledge.add', name: key, fact });
     }
   }
-  return { mutations, refused, pageFixes, record: { fixes, detail } };
+  return { mutations, refused, pageFixes, unresolved, record: { fixes, detail } };
 }
 
 /* the storyteller page a stretch ends on, as the journal counts pages (storyteller pages only, from 0; -1 before any) */
@@ -681,7 +700,7 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
    * was -1, and the ledger then dated the fact with its count of writes ("turn 302" in a tale of 22 pages) */
   const endPage = Math.max(0, storyPageAt(pages, prompt.to));
   const turn = endPage + 1;
-  const first = scopeStretch(read.issues, { state, pagesText: prompt.sourceText, from: prompt.from, to: prompt.to, lineWhole: prompt.lineWhole && !prompt.lineEmpty, turn, asides: prompt.asides });
+  const first = scopeStretch(read.issues, { state, pagesText: prompt.sourceText, from: prompt.from, to: prompt.to, lineWhole: prompt.lineWhole && !prompt.lineEmpty, turn, asides: prompt.asides, priorText:prompt.priorText, pages });
 
   /* 1. THE PAGES — the house's own mender, with his switch; a page already mended, or one whose words he put back, is
    * never mended again (noted, where the second reader's notes are). A reading that mends a page writes nothing else:
@@ -738,7 +757,7 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
   let refused = first.refused;
   if (first.mutations.length) {
     const fresh = await loadState(storyId);
-    const scoped = scopeStretch(read.issues, { state: fresh, pagesText: prompt.sourceText, from: prompt.from, to: prompt.to, lineWhole: prompt.lineWhole && !prompt.lineEmpty, turn, asides: prompt.asides });
+    const scoped = scopeStretch(read.issues, { state: fresh, pagesText: prompt.sourceText, from: prompt.from, to: prompt.to, lineWhole: prompt.lineWhole && !prompt.lineEmpty, turn, asides: prompt.asides, priorText:prompt.priorText, pages });
     refused = scoped.refused;
     if (scoped.mutations.length) {
       const result = applyMutations({ ...fresh, page: endPage }, scoped.mutations);
@@ -758,6 +777,9 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
   }
 
   /* 3. THE RECORD LINE, and the mark on it — one write, on the line as it stands this moment */
+  const unresolvedMemory=[...first.unresolved];
+  if (passedBy) unresolvedMemory.push(...(stretch.line.auditOpen || []).filter(f=>f.from<=prompt.to && f.to>=prompt.from).map(f=>({issue:f.issue,why:'The targeted correction review could not complete.'})));
+  const usedFixes=new Set();
   let lineMended = 0;
   let detailAdded = '';
   let lineWritten = false;
@@ -782,32 +804,41 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
       }
     } else {
       /* a fix lands only where its words stand exactly once in the line (a name the line also uses rightly elsewhere is
-       * not swept along), never swaps a phrase for a fragment of it (three words for one loses what the line said), and
-       * only by the keeper's own rule: the right words are in the pages */
+       * not swept along), keeps the existing length guard unless an explicitly grounded short correction justifies shortening,
+       * and uses the keeper's source membership check for replacements */
       const wordsIn = (t) => String(t || '').trim().split(/\s+/).filter(Boolean).length;
-      const sound = (f) => f.from.length >= 3 && wordsIn(f.to) * 2 >= wordsIn(f.from);
-      const once = first.record.fixes.filter((f) => sound(f) && node.text.split(f.from).length === 2);
+      const grounded = f => f.why && quotedSource(prompt.sourceText,f.shown) && wordsIn(f.from)<=12
+        && (f.operation==='remove' ? !prompt.sourceText.includes(f.from) : f.to && f.shown.includes(f.to));
+      const sound = (f,container) => f.from.length>=3 && ((grounded(f) && f.from.length<=container.length/2) || (f.to && wordsIn(f.to)*2>=wordsIn(f.from)));
+      const once = first.record.fixes.filter((f) => sound(f,node.text) && node.text.trim()!==f.from && node.text.split(f.from).length === 2);
       if (once.length) {
         const repaired = applyAuditFixes(node.text, once, prompt.sourceText);
-        if (repaired.used.length && repaired.text.trim()) { node.text = repaired.text; lineMended = repaired.used.length; }
+        if (repaired.used.length && repaired.text.trim()) { node.text = repaired.text; lineMended = repaired.used.length; repaired.used.forEach(f=>usedFixes.add(f)); }
       }
       /* M675: the Detail beneath the line is shown to this reader as part of the line — a wrong fact it found THERE was
        * dropped without a word (a fix is looked for in the line alone). By the same rule: its wrong words stand exactly
        * once in the detail (and nowhere in the line), the right words are in the pages. */
       if (typeof node.detail === 'string' && node.detail) {
-        const inDetail = first.record.fixes.filter((f) => sound(f) && !once.includes(f) && !node.text.includes(f.from) && node.detail.split(f.from).length === 2);
+        const inDetail = first.record.fixes.filter((f) => sound(f,node.detail) && node.detail.trim()!==f.from && !once.includes(f) && !node.text.includes(f.from) && node.detail.split(f.from).length === 2);
         if (inDetail.length) {
           const repaired = applyAuditFixes(node.detail, inDetail, prompt.sourceText);
-          if (repaired.used.length && repaired.text.trim()) { node.detail = repaired.text; lineMended += repaired.used.length; }
+          if (repaired.used.length && repaired.text.trim()) { node.detail = repaired.text; lineMended += repaired.used.length; repaired.used.forEach(f=>usedFixes.add(f)); }
         }
       }
       const had = String(node.detail || '');
       /* what the line or its detail already says is not said again */
-      const fresher = add.split(/\s*;\s*/).filter((c) => c && !lower(node.text + ' ' + had).includes(lower(c))).join('; ');
+      const safeAdd = first.record.fixes.some(f=>!usedFixes.has(f)) ? '' : add;
+      const fresher = safeAdd.split(/\s*;\s*/).filter((c) => c && !lower(node.text + ' ' + had).includes(lower(c))).join('; ');
       const merged = fresher ? mergeDetail(had, fresher) : had;
       if (merged !== had && merged.length <= DETAIL_CAP) { node.detail = merged; detailAdded = fresher; }
     }
-    node.audited = prompt.to - node.span[0] + 1;
+    for (const fix of first.record.fixes) if (!usedFixes.has(fix)) unresolvedMemory.push({issue:{target:'record',what:fix.what,record:{fixes:[fix]}},why:lineIsHis(node)?'This memory belongs to the writer.':'The exact record edit could not safely land.'});
+    const input=stretchMark(node,pagesNow,prompt.from,prompt.to);
+    node.auditOpen=[...(node.auditOpen || []).filter(f=>f.from!==prompt.from || f.to!==prompt.to).map(f=>f.from<=prompt.to && f.to>=prompt.from ? {...f,input:stretchMark(node,pagesNow,f.from,f.to)} : f),
+      ...unresolvedMemory.map(f=>({...f,from:prompt.from,to:prompt.to,input}))];
+    node.correctionReviewed = true;
+    node.audited = Math.max(auditedOf(node),prompt.to - node.span[0] + 1);
+    if (lineMended) current.essentialsCorrection = recordOf(current.nodes).print;
     await saveMemory(storyId, current);
     sealed = true;
     if (node.audited >= lineLength(node)) troubled.delete(troubleAt); /* M675: read to its end — its next line is asked for as any other */
@@ -841,5 +872,5 @@ export function stretchWords(result) {
   const left = result.lineLeft ? '; the record line is in your own words (or the housekeeper’s for you) — left as it is' : '';
   return 'read ' + pagesRead + ' against the story before, the record line and the ledger: '
     + (did.length ? 'set ' + did.length + (did.length === 1 ? ' thing' : ' things') + ' right — ' + did.join(' · ') : 'nothing to set right')
-    + faultWords + refusedWords + left + unsealed + meter;
+    + faultWords + refusedWords + left + unsealed + (result.open ? '; '+result.open+' historical corrections remain unresolved: '+result.unresolved.map(f=>f.issue?.what || f.why).join('; ') : '') + meter;
 }

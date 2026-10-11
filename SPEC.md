@@ -1,3 +1,47 @@
+# M722: Source identity completion and historical correction status
+
+Version m722-001. Base main d8f3ba2ba5745fe3054359d9e0952238d19305b6.
+
+Source classification now settles against the valid source-local binding,
+independently of People core completeness. Extracted stable facts have their
+own source-scoped reconciliation findings. Equivalent wording or a mistaken
+extraction can close through the existing factual review or a grounded
+withdrawal, cached against the source mark, target, facts and actual core.
+Unknown optional biography is not required. Equivalent source.resolve bindings
+are no-ops even when their explanations differ; target/kind changes retain undo.
+Repair policy 6 permits one reconsideration of old paused work without resetting
+source receipts or completed entry checks.
+
+Continuous Audit distinguishes story, record, knowledge and uncertain findings.
+A story mend requires the wrong original passage and conflicting prior evidence.
+A short record correction may shorten/remove an unsupported assertion only with
+explicit source grounding, a unique exact span, surviving surrounding text and
+existing ownership/stale-write checks. Failed record edits and uncertain routing
+remain on the memory node as auditOpen, separately from reading coverage. They
+stay visible but do not reread unchanged sources. Changes to their source, line
+or protection allow targeted reconsideration. Existing page audit advisories get
+one scoped reconsideration; clean completed sections remain cached. Unresolved
+nodes retain their identity during promotion; other lines can still fold.
+Corrected memory invalidates contradictory Essentials consumption until normal
+background maintenance produces Essentials from the current record.
+
+Focused verification passed: node tests/harness/m722-focused.mjs;
+node tests/harness/m718-source-identity.mjs;
+node tests/harness/m719-ledger.mjs --sources-only;
+node tests/harness/m719-followups.mjs. Also node --check js/ui/chat.js and
+git diff --check. Mocked model responses only. The new fixture covers saved
+bodyguard decisions, changed-target undo, source collisions, stable fact
+recovery, scoped nonactionable decisions, paused receipt reuse, record-only
+correction, old advisory recovery, protected unresolved memory, unchanged-call
+suppression, Essentials refresh and genuine story-mend eligibility.
+
+The owner's full receipt and pages 70–75 were unavailable. The actual captain
+identity and the exact original extracted bodyguard facts remain unverified.
+No mandatory model call or worker was added. No original prose, manual facts,
+World behavior, themes, update handling, branches or backup paths were changed.
+
+---
+
 # M721: Neon Tokyo Night, an independent scenic coat
 
 Version m721-001. Base main a87d357df542f9c106256f4f1dad1deeca6449b3.
