@@ -1353,3 +1353,61 @@ body.plain-speech .thought { font-style: italic; }
   border-left: 2px solid var(--line, rgba(127, 127, 127, 0.35));
   background: var(--card, transparent);
 }
+
+/* M721: Neon Tokyo Night, independent palette and speech defaults. */
+html[data-theme='neon-tokyo-night'] {
+  --bg: #090b19;
+  --bg-2: #111426;
+  --surface: #1b1c35;
+  --surface-2: #292743;
+  --border: #645280;
+  --border-soft: #38314f;
+  --text: #f0edf9;
+  --text-2: #cec6e3;
+  --muted: #b7accf;
+  --ember: #c5a0ff;
+  --ember-hot: #e7bdff;
+  --ember-dim: #68518a;
+  --spoken: #99e8ee;
+  --thought: #f3b5d9;
+  --user-tint: #142536;
+  --danger: #ff9fae;
+  --ok: #91e4bb;
+  --on-ember: #170e2b;
+  --warn: #f7d68d;
+  --shadow: 0 12px 36px rgba(0, 0, 0, .55);
+  --scrim: rgba(5, 6, 17, .8);
+  --pk-card-1: #14182a;
+  --pk-card-2: #1d1a30;
+  --pk-card-3: #142032;
+  --pk-chip-bg: #24233b;
+  --pk-box-bg: #101323;
+  --pk-box-edge: #645280;
+  --pk-rule: #38314f;
+  --pk-place: #f0edf9;
+  --pk-body: #e4deef;
+  --pk-body-2: #e4deef;
+  --pk-body-3: #f0edf9;
+  --pk-body-4: #d5cee6;
+  --pk-quiet: #cec6e3;
+  --pk-quiet-2: #cec6e3;
+  --pk-quiet-3: #c2b8d9;
+  --pk-quiet-4: #b7accf;
+  --pk-quiet-5: #b7accf;
+  --pk-quiet-6: #b7accf;
+  --pk-quiet-7: #b7accf;
+  --pk-quiet-8: #b7accf;
+  --pk-gold: #f2d394;
+  --pk-gold-2: #ffe0a8;
+  --pk-gold-dim: #c1a573;
+  --pk-red: #ff9fae;
+  --pk-red-2: #ffb5bf;
+  --pk-red-dim: #d48a9c;
+  --pk-amber: #f6bc88;
+  --pk-sky: #99e8ee;
+  --pk-rose: #f3b5d9;
+  --pk-violet: #c5a0ff;
+  --pk-violet-2: #dfbfff;
+  --pk-violet-3: #bb9bec;
+  --pk-teal: #91e4d6;
+}

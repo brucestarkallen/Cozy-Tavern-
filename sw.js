@@ -17,6 +17,9 @@ const SHELL = [
   'css/drawer.css',
   'css/ledger.css',
   'css/coats.css',
+  'css/neon-tokyo-night.css',
+  'assets/neon-tokyo/neon_tokyo_city.webp',
+  'assets/neon-tokyo/rias_seated_extracted.png',
   'css/academy.css', /* M678: the academy's dress and its pictures and type */
   'assets/academy/map-wide.webp',
   'assets/academy/map-tall.webp',

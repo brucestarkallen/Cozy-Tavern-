@@ -328,3 +328,6 @@ html[data-theme='starship'] #drawer .text-btn:hover { background: rgba(255, 138,
 html[data-theme='starship'] #drawer .log-list { border-left-color: rgba(255, 138, 42, 0.35); }
 html[data-theme='starship'] #drawer .clock-label { font-family: var(--mono); font-size: 0.88rem; letter-spacing: 0.06em; color: #ffb066; }
 html[data-theme='starship'] #drawer .present-form { border-radius: 3px; }
+
+/* M721: independent scenic coat preview. */
+.coat-swatch[data-coat="neon-tokyo-night"] { background: linear-gradient(135deg, #090b19 10%, #7350b7 48%, #f399d1 50%, #89e8ef 100%); }

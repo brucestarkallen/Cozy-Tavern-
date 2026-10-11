@@ -20239,3 +20239,58 @@ whole document. The first migration attempt exposed this third confirmed cause.
 The corrected coordinator has no such latch; the default test updated a tab
 that began with its first installation. A fixture HTTP BrokenPipe was a request
 cancelled by navigation, with no browser page error or failed assertion.
+
+
+# M721: Neon Tokyo Night, an independent scenic coat
+
+Version m721-001. Base main a87d357df542f9c106256f4f1dad1deeca6449b3.
+New feature, not a bug repair. Cyberpunk and all existing theme rules retained.
+
+Adds a separate theme registration, Appearance radio/swatch, complete color
+palette and speech name mapping. Existing settings persistence is reused.
+css/neon-tokyo-night.css scopes every presentation rule to the new identity.
+Static fixed pseudo elements use the supplied neon_tokyo_city.webp and
+rias_seated_extracted.png unchanged under assets/neon-tokyo/. No painted UI
+reference or development previews ship. The supplied source PNG stays in the
+owner's original archive. The art is generated illustration, not a real photo;
+its inclusion does not convey ownership of the underlying fictional character.
+
+Prose keeps its established serif layout and 760px column, with a 95% dark
+reading veil. Rias occupies only the spare right gutter at widths >=1280px
+and heights >=650px; hidden elsewhere, including phones. A CSS mask blends
+the extracted image's straight lower crop; delicate hair fringes remain in the
+original pixels but are unobtrusive at the tested sizes. The 1092x935 city is
+soft when enlarged to 1920px, an accepted source limitation, not new detail.
+No animation, backdrop filter, :has selector, focusable decoration or JS loop.
+Settings, ledger, sidebar, composer, navigation and focus use the new palette.
+
+Service worker changes only add the stylesheet and two images to SHELL;
+version bump uses the existing update contract. No update coordinator edits.
+No story, worker, provider, auditor, database schema or data migrations.
+
+Focused real Chromium checks passed: 1440x900, 1920x1080, 390x844 and 320x740;
+actual Appearance selection, persistence, long fixture prose/scrolling, typing,
+ledger opening/closing, settings, theme switching, no horizontal overflow,
+reduced motion and offline shell. Baseline Cyberpunk compared all computed
+properties on nine primary surfaces including the drawer: identical. Existing
+Cyberpunk CSS blocks are byte preserved; other coats' rules are untouched.
+The first runner was executed from scratch, retained as tests/neon_tokyo.py
+with repository-relative paths and optional clean baseline checkout argument.
+
+tests/neon_tokyo_details.py passed independent speech/thought save, reload,
+reset without altering Cyberpunk, exact fixture prose retention, nested path
+loading and offline assets, decorative gutter bounds and a 390x430 composer
+viewport. Its first attempt read the color input before asynchronous Settings
+reload finished; the fixture now waits for the displayed coat name, then passed.
+Default text/color contrast against worst-case white artwork under the veil
+ranged from 8.30:1 to 15.38:1. Final screenshots were visually inspected after
+the crop fade. No paid model calls or unrelated suites.
+
+Limits: Chromium emulation, not physical Android/Opera, Safari or an actual
+onscreen keyboard. No owner story touched. No compositor profiling or hosted
+GitHub Pages deployment verification. A Git push does not update Termux's clone.
+
+Created: css/neon-tokyo-night.css, assets/neon-tokyo/neon_tokyo_city.webp,
+assets/neon-tokyo/rias_seated_extracted.png, tests/neon_tokyo.py,
+tests/neon_tokyo_details.py. Modified: css/base.css, css/coats.css, index.html,
+js/app.js, js/ui/speechcolours.js, js/version.js, sw.js and milestone docs.
