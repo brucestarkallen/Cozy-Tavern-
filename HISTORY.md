@@ -18961,3 +18961,8 @@ M698 publication status: automatic approval review rejected pushing shared main,
 asserting this exact change/destination was not authorized. Read-only remote check
 confirms main remains fdab766 (M697). Local implementation and aligned system
 response contract are committed and ready. No additional test reruns.
+
+M698 publication authorization: owner answered Yes to publishing M698 to the
+existing GitHub main branch on 11 October 2026. Resume the prepared publication
+without additional tests; verify exact remote head. Prior rejection remains
+recorded above as history.
