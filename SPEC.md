@@ -1,3 +1,22 @@
+# M715 source recovery and audit persistence
+
+An incomplete original-source answer gets at most one precise correction in
+the same source reading. Keep already accepted source receipts. Only unfinished
+source ids are requested again; exact original quote and identity/appearance
+requirements remain. Persist bounded source ids and rejection reasons in the
+debug report. Unsupported or omitted evidence stays unfinished.
+
+A previously approved ledger needs no new combined review during source-only
+recovery if originals match and every actual semantic row remains approved.
+Newly recovered profile facts, changed values, changed scope or real findings
+still require authoritative review. Completion keys are tied to factual inputs
+and the audit contract, not app releases, providers or housekeeping timestamps.
+M713/M714 legacy keys require proof from ordered original hashes, writer roles,
+writer authority and matching entry receipts; subsequent releases retain that
+migration. Reopening completed unchanged stories must not summon opening heal,
+chain replay or idle audit. Actual new/edited content remains eligible. Never
+certify unreviewed work or hide a genuine unresolved source behind green.
+
 # M714 ledger foundation milestone
 
 The persistent ledger and the storyteller's selected view are distinct.

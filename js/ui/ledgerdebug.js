@@ -62,7 +62,8 @@ export async function ledgerDebugReport(storyId) {
   add('Latest worker results', Object.fromEntries(Object.entries(workers).sort(([a],[b]) => (b === 'auditor') - (a === 'auditor')).map(([name, row]) => [name, slim(row)])), 2500);
   add('Recent ledger changes, newest first', (state.log || []).slice(-6).reverse().map(({undo,...row}) => row), 800);
   add('Recent journal, newest first', (state.journal || []).slice(-3).reverse(), 500);
-  add('Source coverage', state.audit?.coverage || null, 700);
+  add('Source coverage', state.audit?.coverage ? {read:state.audit.coverage.read,total:state.audit.coverage.total} : null,700);
+  add('Unfinished source sections and exact reply problems',(state.audit?.coverage?.failures || []).slice(0,6),2400);
   add('Auditor scratchbook',{savedProfiles:Object.keys(state.audit?.checkpoint?.entries || {}),partialProfiles:Object.keys(state.audit?.checkpoint?.profiles || {}),registeredReferences:Object.keys(state.audit?.evidenceBook?.entries || {}).length},1000);
   const appearance = sourceAppearanceFacts(state);
   add('Recovered appearance inventory', {facts:appearance.length,people:new Set(appearance.map(f=>f.name)).size,

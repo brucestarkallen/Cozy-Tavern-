@@ -19845,3 +19845,38 @@ payload. Normal nonforce push succeeded; remote main was verified as
 cancelled before a decision; one retry verified the existing parent and
 published the approved commit. No further tests were run. Handoff publication
 status was then corrected in a documentation-only followup.
+
+
+## M715: incomplete source correction and completed audit reuse
+
+Owner supplied an M713 report with172/173 original source sections read,
+210/210 ledger checks approved, no unresolved mutations, and repeated combined
+reviews. The old generic source failure omitted the exact rejected row. Do not
+claim a particular hair/identity was responsible without that missing reply.
+
+Source reading now records precise per-source parser failures and offers one
+correction in its original conversation for unfinished ids only. Valid receipts
+survive. Persisted debug gives bounded source ids/reasons. Unsupported/incomplete
+facts still remain open. Approved unchanged semantic rows and final verdict are
+retained during source-only recovery; new recovered facts still require review.
+
+Factual completion uses source content/order/writer roles and semantic ledger
+rows, independent of app version/provider/timestamps. Proven legacy M713/M714
+completion migrates using exact legacy source keys, ordered original hashes,
+writer authority and matching entry receipts. The fixed legacy formats remain
+valid across future releases. Opening heal, unfinished-chain replay and idle
+scheduling skip genuinely completed unchanged stories, even with stale shelf
+errors or missing version bookkeeping. Real changed sources/values reopen.
+
+One focused fixture only: node tests/harness/m715-source-resume.mjs. Final pass
+about0.21s exercised exact source correction, retained successful receipts,
+zero-call cached reread, genuine failure diagnostics, metadata/provider changes,
+source/fact/role/order invalidation and legacy completion reuse. Actual persisted
+auditor recovery made two mocked source calls, zero combined ledger calls,
+completed coverage and verification, and owed no subsequent idle repair. Two
+prior runs exposed fixture initialization: receipts had been created before
+initial empty-state normalization on save. Corrected the fixture, not factual
+approval rules. Then fixed the legacy version list to remain compatible across
+future releases, preserving its already-exercised current entries. No bulk,
+theme, gameplay or real provider tests, no owner live IndexedDB inspection.
+Version m715-001. Default no tests and standing normal publication apply.

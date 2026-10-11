@@ -1,3 +1,48 @@
+# M715: source receipt correction and completed audit reuse
+
+Version m715-001. Owner reported one original source still incomplete while
+all210 ledger checks were approved, and unwanted audits on story opening or
+reload. The attached report was captured on M713. No live IndexedDB or provider
+session was inspected; the report did not identify the rejected source row.
+
+* Source reading now retains exact per-section transport problems. A missing
+  checked id, missing identityFacts, unsupported literal quote, unknown id or
+  collective identity receives one correction in the SAME reading, requesting
+  only unfinished ids and retaining valid source receipts. Still-invalid facts
+  stay open; no invented source receipt or green verdict. Debug shows bounded
+  exact reasons rather than demanding a giant prose export.
+* Completed semantic review is reused during source-only recovery when every
+  actual ledger value still has its approved receipt and originals match.
+  A changed source inventory/profile value or real outstanding finding still
+  needs factual review. No second fresh full review for an unchanged approved
+  ledger merely because one source reply was incomplete.
+* Completion fingerprints use source content/order/writer roles and semantic
+  ledger values, independent of app release/provider/bookkeeping timestamps.
+  Existing M713/M714 approval can migrate only through its exact legacy source
+  key, original ordered marks, writer authority and matching actual row checks.
+  Do not remove these fixed legacy formats as releases advance. Earlier or
+  unprovable completion is not fabricated.
+* Opening heal/replay and idle scheduling recognize saved factual completion
+  first, including when an old worker shelf says unfinished or a version
+  snapshot is missing. Existing paused unfinished work remains paused for an
+  unchanged factual input; real changes and explicit audit can resume it.
+  The changed contract lets old paused M713/M714 inputs try the corrected
+  source transport once, preserving their valid cached originals and checks.
+
+Only node tests/harness/m715-source-resume.mjs ran. It passed source format
+correction, failure diagnostics, unchanged cache reuse, source/fact/role/order
+invalidation, metadata/provider tolerance and proven M713 migration. Actual
+persisted audit source-only recovery made two mocked source calls and zero
+combined ledger calls, finished, and owed no idle repair. Two prior runs found
+a fixture-only normalization mismatch: initial empty state had not been saved
+before constructing review receipts. No broad suite, paid calls, gameplay,
+theme checks or inspection of the owner's live story. The legacy release list
+was then made fixed rather than relative; its current M713/M714 behavior is
+unchanged. Do not repeat this passing fixture for docs or publication.
+
+Default NO tests remains, with only genuinely useful tiny milestone checks.
+Normal publication is authorized in AGENTS.md. See SPEC.md for this contract.
+
 # M714: foundation selection, context fit and source recovery
 
 Version m714-001, published to origin/main after explicit owner approval.

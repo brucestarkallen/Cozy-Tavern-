@@ -1,4 +1,4 @@
-import { ledgerRepairInputKey, ledgerRepairStateKey, ledgerVerificationRows, verificationReceiptMatches,reusableAuditCheckpoint,saveAuditCheckpoint,auditCheckpointStart } from './auditprogress.js';
+import { ledgerRepairInputKey, ledgerRepairStateKey, ledgerVerificationRows, verificationReceiptMatches,reusableAuditCheckpoint,saveAuditCheckpoint,auditCheckpointStart,matchingAuditSourceCheckpoint } from './auditprogress.js';
 import { fingerprint36 } from '../engine/fingerprint.js';
 import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sceneEndingFields, sharedStoryContext } from './ledgercontext.js';
 /* Cozy Tavern — agents/auditor.js
@@ -518,8 +518,9 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   if (!view.shown.length) return null;
   const repairTargets = [...(readingState.audit?.unresolved || []), ...restoredForReading, ...missingLedgerPeople(readingState, castNames).map(what => ({what,fix:'Recover the established identity or reconcile its existing alias.',mutations:[{type:'people.set',name:what.split(' is already tracked')[0],field:'core'}]}))];
   const verificationSource = ledgerRepairInputKey({}, storyAtStart, visiblePages(all));
-  const previousVerification = {...checkpoint.entries,...(state.audit?.verification?.source === verificationSource
-    ? Object.fromEntries(ledgerVerificationRows(state).filter(row => verificationReceiptMatches(state.audit.verification.entries?.[row.id],row))
+  const sameReviewedSources = state.audit?.verification?.source === verificationSource || matchingAuditSourceCheckpoint(state,storyAtStart,documents,visiblePages(all));
+  const previousVerification = {...checkpoint.entries,...(sameReviewedSources
+    ? Object.fromEntries(ledgerVerificationRows(state).filter(row => verificationReceiptMatches(state.audit?.verification?.entries?.[row.id],row))
       .map(row => [row.id,state.audit.verification.entries[row.id]])) : {})};
   const profileTargets = profileIndex.map(p => ({profileReview:true,writerOnly:p.writerOnly,what:'Stable identity and lasting appearance for '+p.name,mutations:p.aliases.map(name => ({name}))}));
   const repairEvidence = auditRepairEvidence([...repairTargets,...profileTargets], documents, evidenceBudget);
@@ -553,8 +554,18 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   let verificationChecks = [];
   let verificationSnapshot = null;
   let finalReview = {status:'not completed',requested:0,received:0,replyCharacters:0};
-  // An empty findings list is not a final review. Check actual entries explicitly.
-  if (!stale?.()) {
+  // Source receipt repair does not require another completed ledger review
+  // when its originals and every actual entry still match the saved verdict.
+  const retainedReview = sameReviewedSources && state.audit?.finalReview?.status === 'ok'
+    && !personaIssues.length && !originalFindings.length && !unresolved(result).length
+    && !auditReviewRows(result.out,previousVerification).length;
+  if (retainedReview) {
+    verificationSnapshot = result.out;
+    finalReview = {...state.audit.finalReview,requested:0,received:0,calls:0,fetches:0,
+      sourceCalls:sourceReview?.calls || 0,retained:true};
+  }
+  // An empty findings list without a valid saved verdict is not a review.
+  if (!stale?.() && !retainedReview) {
     renew?.();
     const follow = buildAuditorMessages({ state: result.out, brief, castNotes, record, pages: view.shown, index: view.index, pageCount: all.length, room, canonRecord, staleBoard });
     verificationSnapshot = result.out;
@@ -629,7 +640,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     }
   }
   verificationChecks=restoreProfileReconciliation(result.out,verificationChecks,
-    {...checkpoint.profiles,...(state.audit?.verification?.source===verificationSource?state.audit.verification.profiles:{})});
+    {...checkpoint.profiles,...(sameReviewedSources?state.audit?.verification?.profiles || {}:{})});
   auditAborted(signal);
   if (stale?.()) return null;
   // No result based on replaced, hidden or deleted source pages may land.
@@ -652,7 +663,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   result.out.audit = { ...result.out.audit, pausedInput: null, pauseReason: '', pending, unresolved: outstanding, unfinished: result.unfinished,
     verification,finalReview,evidenceBook,
     ...(Array.isArray(statedByModel)?{statedStandings:{source:standingsSource,rows:statedByModel}}:{}),checkpoint:saveAuditCheckpoint(result.out,storyNow,documents,verification),
-    ...(sourceReview ? { coverage: { read: sourceReview.read, total: sourceReview.total } } : {}) };
+    ...(sourceReview ? { coverage: { read: sourceReview.read, total: sourceReview.total, failures: sourceReview.failures || [] } } : {}) };
   if (sourceReview) result.out.auditSources = sourceReview.cache;
   result.out.audit.verifiedInput = !result.unfinished && result.out.audit.coverage
     && result.out.audit.coverage.read >= result.out.audit.coverage.total

@@ -1,4 +1,4 @@
-import { ledgerRepairStateKey, ledgerRepairInputKey, repairRetryCheckpoint, auditHasOpenWork, ledgerAuditVerified } from '../agents/auditprogress.js';
+import { ledgerRepairStateKey, ledgerRepairInputKey, repairRetryCheckpoint, auditHasOpenWork, ledgerAuditVerified, ledgerRepairNeeded } from '../agents/auditprogress.js';
 /* Cozy Tavern — ui/chat.js
  * Story list, message thread, composer. Streaming renders token by token.
  * One generation call per user turn — the send path is sacred (see SPEC.md
@@ -1574,6 +1574,7 @@ export function initChat(ctx) {
     const newest = [...told].reverse().find((m) => !m.ooc && !m.stopped && pageText(m).trim());
     if (!newest) return false;
     const state = await loadState(story.id);
+    if (ledgerAuditVerified(state,story,history)) return false;
     let healed = false;
     /* M455: and the hour the newest page's header gives, on the day it names — a clock a page behind is put right */
     const muts = [...(handSetClockSince(state, told.indexOf(newest)) ? [] : headerMutations(pageText(newest), { day: state.clock && typeof state.clock.dayWords === 'string' ? state.clock.dayWords : '' }).filter((m) => m.type === 'clock.set')) /* M681 (S6): never over the clock he set by hand since */, ...wrongWalkIns( /* M679: and in the story's own words for the day — a clock that read "Monday" where his page said "Thornday" heals on the next opening */state, told.map((m) => ({ text: m.ooc ? '' : pageText(m) }))), ...hereByTheNewestPage(state, pageText(newest), { pageAt: told.indexOf(newest) }), ...walkedBackOverTheWorld(state, pageText(newest)), ...goneByTheirOwnPage(state, pageText(newest)), ...seatMadeCores(state), ...descriptorsThatAreNamed(state), ...mcPageOnlyHis(state), ...mcSeatLetGo(state)]; /* M681 (P12, W3): his page is his record alone, and he is never elsewhere; M491: on opening too; M508: a core made of a seat is let go; M509-2: a descriptor that is a named person; M679: the newest page's own leave stands */
@@ -1583,7 +1584,9 @@ export function initChat(ctx) {
     }
     /* M453: a ground the newest page's telling never speaks of — the auditor, who reads the whole story, is asked now,
      * quietly, before he writes (its move off an echoing header is held to the telling in code) */
-    if (groundLooksStale(await loadState(story.id), pageText(newest)) && (await auditOn(story))) {
+    const openingState = await loadState(story.id);
+    if (groundLooksStale(openingState,pageText(newest)) && await auditOn(story)
+      && ledgerRepairNeeded(openingState,await loadWorkerStatus(story.id),story,history,await auditEvery())) {
       const connection = await resolveWorkerConnection(story, 'auditor');
       if (connection && !busy && !isReplaying()) {
         const promise = enqueueWork(story.id, { name: 'auditor', run: chainJob(async ({ signal, stale, renew }) => {
@@ -2886,7 +2889,7 @@ export function initChat(ctx) {
          * on while the house was idle there (found by the walk: DOM-257, after a scenario that left a short window). */
         const tale = await db.stories.get(storyId);
         verificationNeeded = told > 0 && !ledgerAuditVerified(st, tale, pages);
-        repairOwed = told > 0 && !assistants[assistants.length - 1]?.stopped && Boolean(pageText(assistants[assistants.length - 1]).trim()) && tale?.extraction !== false && await auditOn(tale) && ledgerRepairNeeded(st, shelf, tale, pages);
+        repairOwed = told > 0 && !assistants[assistants.length - 1]?.stopped && Boolean(pageText(assistants[assistants.length - 1]).trim()) && tale?.extraction !== false && await auditOn(tale) && ledgerRepairNeeded(st, shelf, tale, pages, await auditEvery());
         recordBehind = Boolean(dueRange(pages.length, window, mem.nodes, batch));
         if (recordBehind && !(await keeperOnFor(tale))) { recordBehind = false; unfoldedForGood = true; }
         behind = ledgerBehind || recordBehind;
@@ -3268,15 +3271,6 @@ export function initChat(ctx) {
   const ledgerRepairTries = new Map();
   const repairPause = () => Number(globalThis.__cozyLedgerRepairPauseMs) > 0 ? Number(globalThis.__cozyLedgerRepairPauseMs) : 15000;
   const repairBackoff = () => Number(globalThis.__cozyLedgerRepairBackoffMs) > 0 ? Number(globalThis.__cozyLedgerRepairBackoffMs) : 60000;
-  function ledgerRepairNeeded(state, shelf, story = null, pages = null, every = 1) {
-    if (story && pages && state?.audit?.pausedInput === ledgerRepairInputKey(state, story, pages)) return false;
-    if ([shelf.auditor, shelf.world].some((r) => r?.detail === 'stopped by hand')) return false;
-    const audit = state?.audit;
-    const turns = (pages || []).filter(m => m.role === 'assistant' && !m.hidden).length;
-    const due = turns > 0 && turns % Math.max(1, every) === 0;
-    return (due && story && pages && !ledgerAuditVerified(state, story, pages)) || !audit?.coverage || audit.coverage.read < audit.coverage.total
-      || Boolean(audit.unfinished || audit.pending?.length || shelf.auditor?.ok === false || shelf.auditor?.unfinished);
-  }
   function scheduleLedgerRepair(storyId, delay = repairPause()) {
     if (!storyId || ledgerRepairTimers.has(storyId) || ledgerRepairActive.has(storyId)) return;
     ledgerRepairTimers.set(storyId, setTimeout(async () => {
@@ -6028,6 +6022,7 @@ export function initChat(ctx) {
     const last = [...vis].reverse().find((m) => m.role === 'assistant');
     if (!last || last.ooc) return false;
     if (last.stopped || (typeof last.text === 'string' && !last.text.trim())) return false;
+    if (ledgerAuditVerified(await loadState(story.id),story,vis)) return false;
     const idx = shownIndex(last); /* M576: the key the checkpoint step wrote — read by another rule, a page with versions and none chosen was "unfinished" on every open and read again */
     if (await versionStateFor(story.id, last.id, idx)) return false;
     /* a chain still running in THIS session is not unfinished (M675: its readers — the helpers a tale's opening sends

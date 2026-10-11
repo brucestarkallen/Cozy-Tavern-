@@ -1,15 +1,31 @@
 import { fingerprint36 } from '../engine/fingerprint.js';
 import { pageText } from '../assemble/stack.js';
-import { VERSION } from '../version.js';
+import { auditSources } from './auditsources.js';
+// Factual completion is tied to this contract, never a theme/build release.
+const AUDIT_INPUT_VERSION = 1;
+// Fixed legacy formats, so skipping a future app release does not erase an
+// already completed M713/M714 review. New receipts never include app VERSION.
+const LEGACY_REVIEW_RELEASES = ['m713-001','m714-001'];
 import { sourceAppearanceFacts,sourceIdentityFacts } from './appearanceinventory.js';
 
 export function ledgerRepairStateKey(state) {
-  const fields = ['sheet', 'clock', 'place', 'present', 'offscreen', 'characters', 'relationships', 'knowledge', 'canon', 'threads', 'things', 'bodies', 'factions', 'mode', 'worldBrief', 'lastVerdict', 'pendingVerdict', 'duel', 'battle', 'composure'];
-  return fingerprint36(JSON.stringify(fields.map(k => state?.[k] ?? null)));
+  // Identical values stay reviewed when only timestamps/history metadata move.
+  return fingerprint36(JSON.stringify(ledgerVerificationRows(state).map(r => [r.id,r.print,r.scope])));
 }
 export function ledgerRepairInputKey(state, story, pages) {
-  return fingerprint36(JSON.stringify([VERSION, story?.brief, story?.castNotes, story?.connections,
-    (pages || []).map(p => [p.id, p.role, p.ooc, pageText(p), p.voices || []]), ledgerRepairStateKey(state)]));
+  const sources = auditSources({brief:story?.brief || '',castNotes:story?.castNotes || '',messages:pages || []});
+  return sourceInputKey(sources,state);
+}
+
+function sourceInputKey(documents,state = {}) {
+  return fingerprint36(JSON.stringify([AUDIT_INPUT_VERSION,documents.map(d => [d.id,d.mark,d.label.endsWith(', writer')]),ledgerRepairStateKey(state)]));
+}
+function legacySourceMatches(state,story,pages) {
+  if (!Array.isArray(pages)) return false;
+  const fields = ['sheet','clock','place','present','offscreen','characters','relationships','knowledge','canon','threads','things','bodies','factions','mode','worldBrief','lastVerdict','pendingVerdict','duel','battle','composure'];
+  const emptyLedger = fingerprint36(JSON.stringify(fields.map(() => null)));
+  const inputs = [story?.brief,story?.castNotes,story?.connections,pages.map(p => [p.id,p.role,p.ooc,pageText(p),p.voices || []]),emptyLedger];
+  return LEGACY_REVIEW_RELEASES.some(version => state.audit?.verification?.source === fingerprint36(JSON.stringify([version,...inputs])));
 }
 
 export function verificationReceiptMatches(receipt, row) {
@@ -68,7 +84,8 @@ export function saveAuditCheckpoint(state,story,documents,verification) {
   const last=[...documents].reverse().find(d=>d.id.startsWith('page:') && d.label.endsWith(', story'));
   return {version:CHECKPOINT_VERSION,authority:checkpointAuthority(story),at:Date.now(),entries,profiles,
     completedThrough:completed && last?last.id.slice(5,last.id.lastIndexOf(':')):prior?.completedThrough,
-    scanned:completed?Object.fromEntries(documents.map(d=>[d.id,d.mark])):prior?.scanned};
+    scanned:completed?Object.fromEntries(documents.map(d=>[d.id,d.mark])):prior?.scanned,
+    source:completed?sourceInputKey(documents):prior?.source};
 }
 
 // Actual outstanding work must decrease. Rephrasing ledger text is not closure.
@@ -106,14 +123,36 @@ export function auditHasOpenWork(audit) {
   return Boolean(audit?.unfinished || audit?.pending?.length || audit?.unresolved?.length);
 }
 
+// Older completed reviews can prove their original inputs through the saved
+// source scratchbook. No rescan just to change a version-dependent hash.
+export function matchingAuditSourceCheckpoint(state, story, documents, pages = null) {
+  const c = state?.audit?.checkpoint;
+  if (c?.version !== CHECKPOINT_VERSION || c.authority !== checkpointAuthority(story)) return false;
+  if (JSON.stringify(Object.entries(c.scanned || {})) !== JSON.stringify(documents.map(d => [d.id,d.mark]))) return false;
+  if (c.source ? c.source !== sourceInputKey(documents) : !legacySourceMatches(state,story,pages)) return false;
+  const last = [...documents].reverse().find(d => d.id.startsWith('page:') && d.label.endsWith(', story'));
+  return Boolean(last && c.completedThrough === last.id.slice(5,last.id.lastIndexOf(':')));
+}
 export function ledgerAuditVerified(state, story, pages) {
   const audit = state?.audit;
-  return Boolean(audit?.verifiedInput && !auditHasOpenWork(audit) && audit.coverage
-    && audit.coverage.read >= audit.coverage.total && audit.verification
-    && audit.verification.source === ledgerRepairInputKey({}, story, pages)
+  if (!audit?.verifiedInput || auditHasOpenWork(audit) || !audit.coverage
+    || audit.coverage.read < audit.coverage.total || !audit.verification) return false;
+  if (!ledgerVerificationRows(state).every(row => verificationReceiptMatches(audit.verification.entries?.[row.id],row))) return false;
+  if (audit.verification.source === ledgerRepairInputKey({},story,pages)
     && audit.verification.ledger === ledgerRepairStateKey(state)
-    && ledgerVerificationRows(state).every(row => verificationReceiptMatches(audit.verification.entries?.[row.id],row))
-    && audit.verifiedInput === ledgerRepairInputKey(state, story, pages));
+    && audit.verifiedInput === ledgerRepairInputKey(state,story,pages)) return true;
+  return matchingAuditSourceCheckpoint(state,story,auditSources({brief:story?.brief || '',castNotes:story?.castNotes || '',messages:pages || []}),pages);
+}
+export function ledgerRepairNeeded(state, shelf = {}, story = null, pages = null, every = 1) {
+  if (story && pages && ledgerAuditVerified(state,story,pages)) return false;
+  if (story && pages && state?.audit?.pausedInput === ledgerRepairInputKey(state,story,pages)) return false;
+  if ([shelf.auditor,shelf.world].some(r => r?.detail === 'stopped by hand')) return false;
+  const audit = state?.audit;
+  const turns = (pages || []).filter(m => m.role === 'assistant' && !m.hidden).length;
+  const due = turns > 0 && turns % Math.max(1,every) === 0;
+  return (due && story && pages && !ledgerAuditVerified(state,story,pages)) || !audit?.coverage
+    || audit.coverage.read < audit.coverage.total
+    || Boolean(audit.unfinished || audit.pending?.length || shelf.auditor?.ok === false || shelf.auditor?.unfinished);
 }
 
 // Every semantic ledger entry is visible even when the prose renderer leans it.

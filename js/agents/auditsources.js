@@ -59,33 +59,53 @@ const SYSTEM = withFictionFrame([
   'The same person needs one informative quote per document, not every mention. Never quote from your instructions.',
 ].join('\n'));
 
-export function parseSourceReview(text, batch) {
+// Diagnose the transport beside the receipts. One bad row must not erase the
+// completed receipts from other sources, or leave an opaque endless retry.
+export function sourceReviewResult(text, batch) {
   let parsed;
   for (const part of balancedCandidates(String(text || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, ''), 5)) {
     const p = parseLenient(part);
     if (p && Array.isArray(p.people) && Array.isArray(p.checked)) { parsed = p; break; }
   }
-  if (!parsed) return {};
-  const sources = new Map(batch.map((d) => [d.id, d]));
-  const checked = new Set(parsed.checked.filter((id) => sources.has(id)));
+  const problems = [];
+  const fail = (source, why, name = '') => problems.push({ source, why, ...(name ? { name } : {}) });
+  if (!parsed) {
+    for (const d of batch) fail(d.id, 'Return JSON with checked and people arrays.');
+    return { receipts: {}, problems };
+  }
+  const sources = new Map(batch.map(d => [d.id, d]));
+  const checked = new Set(parsed.checked.filter(id => sources.has(id)));
   const invalid = new Set(); const people = new Map();
+  for (const d of batch) if (!checked.has(d.id)) fail(d.id, 'This source id was omitted from checked. Read it and include its exact id.');
   for (const p of parsed.people) {
     const source = sources.get(p?.source);
-    if (!source) { for (const id of checked) invalid.add(id); continue; }
+    if (!source) {
+      for (const d of batch) { invalid.add(d.id); fail(d.id, 'A person used an unknown source id. Use an exact supplied id and its original quotation.', String(p?.name || '').slice(0,80)); }
+      continue;
+    }
     const name = String(p.name || '').trim();
     const shown = quotedSource(source.text, p.shown);
-    if (!name || name.length > 80 || !shown || !exactNameIn(shown, name) || isGroupName(name) || !Array.isArray(p.facts)) { invalid.add(source.id); continue; }
-    const facts = p.facts.map(f => ({key:String(f?.key || '').trim(),value:String(f?.value || '').trim(),shown:quotedSource(source.text,f?.shown)}));
-    const identityFacts=Array.isArray(p.identityFacts)?p.identityFacts.map(f=>({text:String(f?.text || '').trim(),shown:quotedSource(source.text,f?.shown)})):[];
-    if ((writerSource(source) && !Array.isArray(p.identityFacts)) || identityFacts.some(f=>!f.text || !f.shown || f.text.length>1000)) {invalid.add(source.id);continue;}
-    if (facts.some(f => !f.key || !f.value || !f.shown || f.key.length > 120 || f.value.length > 1000)) { invalid.add(source.id); continue; }
+    const reasons = [];
+    if (!name || name.length > 80) reasons.push('Use an established name or unique singular role of at most 80 characters.');
+    if (isGroupName(name)) reasons.push('This is a collective, not an individual identity. Omit this row from the individual source inventory; Scene retains collective presence.');
+    if (!shown) reasons.push('Identity shown is not a literal quotation from this source. Copy its exact original words.');
+    else if (!exactNameIn(shown, name)) reasons.push('Identity shown must contain this exact name or singular role, copied from the original.');
+    if (!Array.isArray(p.facts)) reasons.push('Include facts:[] when no lasting appearance is stated.');
+    if (writerSource(source) && !Array.isArray(p.identityFacts)) reasons.push('Include identityFacts:[] when no lasting identity facts are stated.');
+    const facts = (Array.isArray(p.facts) ? p.facts : []).map(f => ({key:String(f?.key || '').trim(),value:String(f?.value || '').trim(),shown:quotedSource(source.text,f?.shown)}));
+    const identityFacts = (Array.isArray(p.identityFacts) ? p.identityFacts : []).map(f => ({text:String(f?.text || '').trim(),shown:quotedSource(source.text,f?.shown)}));
+    for (const f of facts) if (!f.key || !f.value || !f.shown || f.key.length > 120 || f.value.length > 1000) reasons.push('Appearance '+(f.key || '(unnamed)')+' needs a key, value and literal supporting quotation from this source.');
+    for (const f of identityFacts) if (!f.text || !f.shown || f.text.length > 1000) reasons.push('Each identity fact needs concise text and a literal supporting quotation from this source.');
+    if (reasons.length) { invalid.add(source.id); for (const why of reasons) fail(source.id,why,name); continue; }
     if (!people.has(source.id)) people.set(source.id, []);
     const prior = people.get(source.id).find(x => x.name === name);
-    if (prior) {prior.facts.push(...facts.filter(f => !prior.facts.some(old => JSON.stringify(old) === JSON.stringify(f))));prior.identityFacts.push(...identityFacts);}
-    else people.get(source.id).push({ name, shown, facts,identityFacts });
+    if (prior) { prior.facts.push(...facts.filter(f => !prior.facts.some(old => JSON.stringify(old) === JSON.stringify(f)))); prior.identityFacts.push(...identityFacts); }
+    else people.get(source.id).push({name,shown,facts,identityFacts});
   }
-  return Object.fromEntries([...checked].filter((id) => !invalid.has(id)).map((id) => [id, { mark: sources.get(id).mark, appearanceReviewed:true,profileReviewed:1, people: people.get(id) || [] }]));
+  const receipts = Object.fromEntries([...checked].filter(id => !invalid.has(id)).map(id => [id,{mark:sources.get(id).mark,appearanceReviewed:true,profileReviewed:1,people:people.get(id) || []}]));
+  return { receipts, problems };
 }
+export function parseSourceReview(text, batch) { return sourceReviewResult(text,batch).receipts; }
 
 export async function reviewAuditSources({ connection, documents, previous = {}, mode = 'next', state = {}, signal, stale, renew } = {}) {
   const cache = {};
@@ -102,6 +122,7 @@ export async function reviewAuditSources({ connection, documents, previous = {},
   const available = Math.max(0, (contextOf(connection) - replyTokens - 3000) * 3 - SYSTEM.length);
   let limit = Math.max(0, Math.min(120000, replyTokens * 12, available * 0.6));
   let calls = 0; let cursor = 0; let failure = '';
+  const sourceProblems = new Map();
   let retryBatch = false;
   while (cursor < todo.length && (mode === 'all' || calls === 0 || retryBatch)) {
     if (stale?.() || signal?.aborted) return null;
@@ -130,9 +151,29 @@ export async function reviewAuditSources({ connection, documents, previous = {},
         }
         continue;
       }
-      const reviewed = parseSourceReview(result.text,batch);
-      Object.assign(cache,reviewed);
-      if (batch.some(d => !reviewed[d.id])) failure = 'source identity or appearance evidence was incomplete';
+      const first = sourceReviewResult(result.text,batch);
+      Object.assign(cache,first.receipts);
+      const missing = batch.filter(d => !cache[d.id]);
+      let problems = first.problems;
+      for (const d of missing) sourceProblems.set(d.id,problems.filter(p => p.source === d.id));
+      if (missing.length) {
+        // One correction of this answer, in its original conversation. Keep
+        // valid receipts; do not restart the complete ledger or source scan.
+        const ids = new Set(missing.map(d => d.id));
+        const correction = 'Complete the SAME source reading. These exact source sections are unfinished: '
+          + JSON.stringify(missing.map(d => ({id:d.id,label:d.label})))
+          + '\nCorrect these transport problems: ' + JSON.stringify(problems.filter(p => ids.has(p.source)).slice(0,40))
+          + '\nReturn complete JSON with checked and people for ONLY these unfinished source ids. Copy literal quotes from the original documents above, not from your last answer. Include facts and identityFacts arrays, even when empty. Keep every supported individual and their established facts. Do not omit a fact merely to pass validation. Collectives remain tracked in Scene; they are not individual identity rows. Valid receipts for other sources are already saved.';
+        renew?.(leashFor(SYSTEM.length + user.length + result.text.length + correction.length)); calls++;
+        const fixed = await callWorker(connection,{system:SYSTEM,messages:[{role:'user',content:user},{role:'assistant',content:result.text},{role:'user',content:correction}],maxTokens:replyTokens,signal});
+        if (stale?.() || signal?.aborted) return null;
+        if (fixed.finishReason !== 'length') {
+          const repaired = sourceReviewResult(fixed.text,missing);
+          Object.assign(cache,repaired.receipts); problems = repaired.problems;
+        } else problems = missing.map(d => ({source:d.id,why:'The focused source correction ran out of answer space.'}));
+      }
+      for (const d of missing) if (!cache[d.id]) sourceProblems.set(d.id,problems.filter(p => p.source === d.id));
+      if (missing.some(d => !cache[d.id])) failure = 'source identity or appearance evidence was incomplete';
     } catch (err) {
       if (signal?.aborted || stale?.()) return null;
       failure = 'the source review did not finish';
@@ -145,7 +186,8 @@ export async function reviewAuditSources({ connection, documents, previous = {},
     return ledgerName ? { ...p, ledgerName } : p;
   });
   const people = documents.flatMap((d) => (cache[d.id]?.people || []).map((p) => ({ ...p, source: d.id, label: d.label })));
-  return { cache, people, calls, total: documents.length, read: documents.length - unread.length,
+  const failures = unread.map(d => ({source:d.id,label:d.label,mark:d.mark,problems:(sourceProblems.get(d.id) || [{why:failure || 'This original section has not been read yet.'}]).slice(0,8)}));
+  return { cache, people, calls, failures, total: documents.length, read: documents.length - unread.length,
     pending: unread.length ? [unread.length + ' original source sections still need review' + (failure ? ': ' + failure : '')] : [] };
 }
 

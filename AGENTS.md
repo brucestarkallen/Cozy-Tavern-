@@ -80,3 +80,12 @@ delete unresolved threads or learned facts. Reuse original-source receipts
 inside existing worker calls. Preserve original prose, manual edits, earned
 standings, undo and exact page ownership. Final audit remains the factual check.
 See docs/LEDGER_PIPELINE.md before another broad ledger repair.
+
+## Audit completion after M715
+
+Do not restart completed unchanged audits on open/reload, provider changes or
+new app versions. Completion is factual; require matching semantic receipts
+and original sources. Preserve the fixed M713/M714 legacy key migration and
+stable source chunk ids/marks. Source-only transport correction reuses approved
+ledger checks and never certifies unsupported facts. Debug failures must name
+the exact unfinished source and reason within the existing bounded report.
