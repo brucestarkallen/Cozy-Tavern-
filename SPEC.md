@@ -1,3 +1,21 @@
+# M717 original source reference protocol
+
+Source review supplies the complete ordered original text as passages with
+local ids. The model selects identity/fact evidence references and determines
+actual subjects, titles, pronouns and entity kinds. Transport attaches literal
+original spans. Canonical labels need not occur verbatim inside every passage;
+copying quotations is not a semantic approval requirement. Existing literal
+replies and receipt caches remain supported. Selected source references remain
+in the People lookup index independently of canonical-label substring matches.
+Source ids/marks are stable; no completed section is reread for this release.
+
+Request budgets measure the actual payload, without a second raw copy of the
+source. One existing same-conversation correction requests supplied references.
+Unknown ids do not certify coverage. Manual fields, actual source changes,
+concurrent writes and earned judgments retain their existing protections.
+Repair policy3 resumes old paused failures once; completed unchanged reviews
+remain factual, not app-version-dependent. M717 adds no extra model call.
+
 # M716 subject ownership and entity corrections
 
 Names in source extraction are candidates until their subject is identified.

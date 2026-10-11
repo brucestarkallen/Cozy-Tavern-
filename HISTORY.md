@@ -19921,3 +19921,36 @@ gameplay, theme or bulk tests, no live browser data inspection. Subsequent
 changes were recovery wording and drawer pause-policy display, no fixture
 repetition for documentation/publication. Default NO tests and normal standing
 publication apply. The owner's live final state remains uninspected.
+
+
+## M717 — original source passage selection and quote-gate removal
+
+11 October 2026. The M716 bounded report was208/208 entries approved,180/181
+original source sections read, final review ok. Page72 remained yellow after
+two source calls: nonliteral copied identity quote, Princess Alexia's canonical
+label absent from the supporting shorter-name passage, and paraphrased rank
+quotation. No live browser inspected. General source transport was still
+forcing semantic source readers to reproduce quotations and exact labels.
+
+Source documents now supply ordered original passages with local ids. Readers
+select identity/fact evidence, including a range when support spans passages.
+The app attaches literal original spans, never their paraphrase. No canonical
+name substring or collective-name regex second semantic verdict in the source
+parser. Existing literal quote responses/cache remain compatible, ids/marks
+unchanged. Complete source content appears once, and packing measures actual
+passage payload. Existing focused same-conversation correction selects supplied
+references. People source lookup keeps explicit selected source ids even when
+local prose uses a shorter name/title/pronoun. Repair policy3 resumes old paused
+failures once without restarting completed unchanged factual reviews. Version
+m717-001, no additional worker or mandatory provider call.
+
+Only the causal m717-source-passages.mjs fixture ran. Initial fixture wrongly
+seeded approval before storage normalization and without its older held source
+facts; corrected setup. Passed0.09s, then0.11s after the linked source-index
+preservation. Persisted source-only recovery: one mocked source call, zero
+repeated ledger review calls, complete coverage/entries, no audit owed on reopen.
+Same small fixture exercised references for titles/pronouns/dialogue, full text
+preservation, long paragraphs/CRLF, unknown-id refusal, focused correction,
+legacy literal compatibility and fetching selected originals. No bulk, themes,
+long gameplay, paid calls or live certification. No repeat for documentation
+or publishing. Owner standing normal publication and default NO tests apply.

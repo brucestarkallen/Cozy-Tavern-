@@ -5,7 +5,7 @@ import { auditSources } from './auditsources.js';
 const AUDIT_INPUT_VERSION = 1;
 // A changed repair procedure can resume an old paused failure once, without
 // invalidating completed factual audits merely because an app release changed.
-export const LEDGER_REPAIR_POLICY = 2;
+export const LEDGER_REPAIR_POLICY = 3;
 // Fixed legacy formats, so skipping a future app release does not erase an
 // already completed M713/M714 review. New receipts never include app VERSION.
 const LEGACY_REVIEW_RELEASES = ['m713-001','m714-001'];

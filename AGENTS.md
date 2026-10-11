@@ -97,3 +97,11 @@ people.reclassify is an archived, journaled, undoable correction, never a rename
 of a place into a person. Do not overwrite its corrected source cache during
 audit commit. Advance LEDGER_REPAIR_POLICY only for an actual changed repair
 procedure; keep completed factual audits independent of app versions.
+
+After M717, source identity and fact meaning belong to the reader using ordered
+original passage references. Do not reintroduce verbatim canonical-name gates
+or collective-name regex semantic verdicts in source transport. Reference
+binding supplies literal originals and source lookup retains explicit selected
+section ids, even for shorter names/pronouns. Do not reset source ids, marks or
+completed caches because the reference transport changed. Keep the one focused
+correction inside the original reading conversation, with no bulk rescan.

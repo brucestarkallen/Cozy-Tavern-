@@ -42,6 +42,41 @@ export function auditSources({ brief = '', castNotes = '', messages = [] } = {})
   return documents;
 }
 
+// The model selects original passages; it does not have to reproduce their
+// punctuation, Markdown or labels. References are local to one unchanged
+// source chunk. Receipts still store literal text, so old consumers and source
+// marks are unchanged and completed sections need no migration or reread.
+export function sourcePassages(document) {
+  const text = String(document.text || '');
+  const passages = [];
+  for (let start = 0; start < text.length;) {
+    let end = Math.min(start + 1000, text.length);
+    const paragraph = text.slice(start, end).match(/\r?\n[ \t]*\r?\n/);
+    if (paragraph) end = start + paragraph.index + paragraph[0].length;
+    else if (end < text.length) {
+      const line = text.lastIndexOf('\n', end);
+      const space = text.lastIndexOf(' ', end);
+      const boundary = line > start + 400 ? line : space;
+      if (boundary > start + 400) end = boundary + 1;
+    }
+    passages.push({ id: 'p' + start, text: text.slice(start, end), start, end });
+    start = end;
+  }
+  return passages;
+}
+const sourceDocument = d => ({ id:d.id, label:d.label,
+  passages:sourcePassages(d).map(({id,text}) => ({id,text})) });
+function sourceEvidence(document, row, passages) {
+  if (row?.evidence !== undefined) {
+    const ids = Array.isArray(row.evidence) ? row.evidence : [row.evidence];
+    const spans = ids.map(id => passages.get(id));
+    if (!spans.length || spans.some(span => !span)) return '';
+    // A fact spanning passages retains the intervening original words too.
+    return document.text.slice(Math.min(...spans.map(s => s.start)), Math.max(...spans.map(s => s.end)));
+  }
+  return quotedSource(document.text, row?.shown);
+}
+
 const SYSTEM = withFictionFrame([
   'SOURCE PEOPLE REVIEW. You are the ledger auditor reading ORIGINAL source documents, not a summary.',
   WRITER_FACTS,
@@ -51,13 +86,14 @@ const SYSTEM = withFictionFrame([
   'Do not assess their present whereabouts from old pages. Do not invent a biography, surname, title or rank.',
   'Ignore hypothetical characters, wishes, questions about possible people, names used only as comparisons,',
   'and instructions asking for a character to be created later. Keep deceased people as established identities.',
-  'For each person copy an exact short passage that establishes their identity and includes their exact name.',
+  'Each original document is supplied as ordered passages with local ids. Read ALL passages as one document. For each identity and fact select evidence:"passage id" from that document. If support spans passages, use evidence:["first passage id","last passage id"]; the original intervening text is retained. Do not retype or paraphrase quotations. Never select a passage from a different source.',
+  'You decide the meaning and actual subject from the complete original document. A passage may use a pronoun or a shorter name than the established ledger label. A title established separately need not be repeated inside every supporting passage. Keep the established name and distinguish different individuals. Selecting an unrelated passage does not establish a fact.',
   'Also collect EVERY explicitly established lasting physical fact for that person in this document: hair, eyes, skin, build, height, scars and other enduring features. Use facts:[] when none is established. Read the complete document, including descriptions linked by pronouns. Current clothes, poses and expressions are not lasting facts. Do not infer missing details. Preserve changes as separate sourced facts; the final housekeeper resolves chronology.',
-  'Collect identityFacts:[{text,shown}] for explicit rank, family, background, stable personality and preferences. Use identityFacts:[] when none is established. These are atomic facts to retain in their People core, not a rewritten biography. Exclude guessed feelings, speculative attraction, questions and momentary actions. A deliberate character introduction in a parenthesis is still writer-established. Appearance belongs in facts, not identityFacts. Record alternate faces with their explicit persona or form in each physical fact key, keeping one player identity; alternate appearances are not mutually superseding hair colours.',
-  'Return JSON: {"checked":["each source id actually read"],"people":[{"name":"exact name",',
-  '"kind":"person","source":"source id","shown":"exact identity quote, at most 1200 characters","identityFacts":[{"text":"explicit stable identity fact","shown":"exact source quote"}],"facts":[{"key":"hair","value":"established colour","shown":"exact original passage supporting this physical fact"}]}]}.',
+  'Collect identityFacts:[{text,evidence}] for explicit rank, family, background, stable personality and preferences. Use identityFacts:[] when none is established. These are atomic facts to retain in their People core, not a rewritten biography. Exclude guessed feelings, speculative attraction, questions and momentary actions. A deliberate character introduction in a parenthesis is still writer-established. Appearance belongs in facts, not identityFacts. Record alternate faces with their explicit persona or form in each physical fact key, keeping one player identity; alternate appearances are not mutually superseding hair colours.',
+  'Return JSON: {"checked":["each source id actually read"],"people":[{"name":"established name or singular role",',
+  '"kind":"person","source":"source id","evidence":"passage id","identityFacts":[{"text":"explicit stable identity fact","evidence":"passage id"}],"facts":[{"key":"hair","value":"established colour","evidence":"passage id"}]}]}.',
   'Read every supplied document. List its id in checked even when it establishes no named people.',
-  'The same person needs one informative quote per document, not every mention. Never quote from your instructions.',
+  'The same person needs one informative identity reference per document, not every mention. Evidence ids are references to supplied original text, never to your instructions or your own answer.',
 ].join('\n'));
 
 // Diagnose the transport beside the receipts. One bad row must not erase the
@@ -75,6 +111,7 @@ export function sourceReviewResult(text, batch) {
     return { receipts: {}, problems };
   }
   const sources = new Map(batch.map(d => [d.id, d]));
+  const passages = new Map(batch.map(d => [d.id,new Map(sourcePassages(d).map(p => [p.id,p]))]));
   const checked = new Set(parsed.checked.filter(id => sources.has(id)));
   const invalid = new Set(); const people = new Map();
   for (const d of batch) if (!checked.has(d.id)) fail(d.id, 'This source id was omitted from checked. Read it and include its exact id.');
@@ -86,19 +123,17 @@ export function sourceReviewResult(text, batch) {
     }
     const name = String(p.name || '').trim();
     const kind = p.kind || 'person';
-    const shown = quotedSource(source.text, p.shown);
+    const shown = sourceEvidence(source,p,passages.get(source.id));
     const reasons = [];
     if (!name || name.length > 80) reasons.push('Use an established name or unique singular role of at most 80 characters.');
     if (!['person','place','organization','object','group'].includes(kind)) reasons.push('Classify kind as person, place, organization, object or group.');
-    if (kind === 'person' && isGroupName(name)) reasons.push('This is a collective, not an individual identity. Classify it as group; Scene retains collective presence.');
-    if (!shown) reasons.push('Identity shown is not a literal quotation from this source. Copy its exact original words.');
-    else if (!exactNameIn(shown, name)) reasons.push('Identity shown must contain this exact name or singular role, copied from the original.');
+    if (!shown) reasons.push('Select an identity evidence passage id supplied in this source document.');
     if (!Array.isArray(p.facts)) reasons.push('Include facts:[] when no lasting appearance is stated.');
     if (writerSource(source) && !Array.isArray(p.identityFacts)) reasons.push('Include identityFacts:[] when no lasting identity facts are stated.');
-    const facts = (Array.isArray(p.facts) ? p.facts : []).map(f => ({key:String(f?.key || '').trim(),value:String(f?.value || '').trim(),shown:quotedSource(source.text,f?.shown)}));
-    const identityFacts = (Array.isArray(p.identityFacts) ? p.identityFacts : []).map(f => ({text:String(f?.text || '').trim(),shown:quotedSource(source.text,f?.shown)}));
-    for (const f of facts) if (!f.key || !f.value || !f.shown || f.key.length > 120 || f.value.length > 1000) reasons.push('Appearance '+(f.key || '(unnamed)')+' needs a key, value and literal supporting quotation from this source.');
-    for (const f of identityFacts) if (!f.text || !f.shown || f.text.length > 1000) reasons.push('Each identity fact needs concise text and a literal supporting quotation from this source.');
+    const facts = (Array.isArray(p.facts) ? p.facts : []).map(f => ({key:String(f?.key || '').trim(),value:String(f?.value || '').trim(),shown:sourceEvidence(source,f,passages.get(source.id))}));
+    const identityFacts = (Array.isArray(p.identityFacts) ? p.identityFacts : []).map(f => ({text:String(f?.text || '').trim(),shown:sourceEvidence(source,f,passages.get(source.id))}));
+    for (const f of facts) if (!f.key || !f.value || !f.shown || f.key.length > 120 || f.value.length > 1000) reasons.push('Appearance '+(f.key || '(unnamed)')+' needs a key, value and an evidence passage id from this source.');
+    for (const f of identityFacts) if (!f.text || !f.shown || f.text.length > 1000) reasons.push('Each identity fact needs concise text and an evidence passage id from this source.');
     if (reasons.length) { invalid.add(source.id); for (const why of reasons) fail(source.id,why,name); continue; }
     if (!people.has(source.id)) people.set(source.id, []);
     const prior = people.get(source.id).find(x => x.name === name);
@@ -114,7 +149,7 @@ export async function reviewAuditSources({ connection, documents, previous = {},
   const cache = {};
   for (const d of documents) {
     const old = previous[d.id];
-    if (old?.mark === d.mark && old.appearanceReviewed === true && (!writerSource(d) || old.profileReviewed===1) && Array.isArray(old.people) && old.people.every((p) => quotedSource(d.text, p.shown) && exactNameIn(p.shown, p.name)
+    if (old?.mark === d.mark && old.appearanceReviewed === true && (!writerSource(d) || old.profileReviewed===1) && Array.isArray(old.people) && old.people.every((p) => quotedSource(d.text, p.shown)
       && (p.identityFacts || []).every(f=>f.text && quotedSource(d.text,f.shown))
       && Array.isArray(p.facts) && p.facts.every(f => f.key && f.value && quotedSource(d.text,f.shown)))) cache[d.id] = old;
   }
@@ -133,14 +168,14 @@ export async function reviewAuditSources({ connection, documents, previous = {},
     const start = cursor;
     const batch = []; let size = 0;
     while (cursor < todo.length) {
-      const d = todo[cursor]; const cost = JSON.stringify({ id: d.id, label: d.label, text: d.text }).length + 1;
+      const d = todo[cursor]; const cost = JSON.stringify(sourceDocument(d)).length + 1;
       if (size + cost > limit) break;
       batch.push(d); size += cost; cursor++;
     }
     if (!batch.length) { failure = 'the source page does not fit the auditor’s configured context'; break; }
     renew?.(); calls++;
     try {
-      const user = 'SOURCE DOCUMENTS\n' + JSON.stringify(batch.map(({ id, label, text }) => ({ id, label, text })));
+      const user = 'SOURCE DOCUMENTS\n' + JSON.stringify(batch.map(sourceDocument));
       renew?.(leashFor(SYSTEM.length + user.length));
       const result = await callWorker(connection, { system: SYSTEM, messages: [{ role: 'user', content: user }], maxTokens: replyTokens, signal });
       if (stale?.() || signal?.aborted) return null;
@@ -150,7 +185,7 @@ export async function reviewAuditSources({ connection, documents, previous = {},
         if (batch.length > 1) {
           // Retry this work at a smaller size rather than losing the entire
           // batch and rediscovering it in another automatic audit cycle.
-          cursor = start; limit = Math.max(JSON.stringify({ id: batch[0].id, label: batch[0].label, text: batch[0].text }).length + 1, Math.floor(size / 2)); retryBatch = true;
+          cursor = start; limit = Math.max(JSON.stringify(sourceDocument(batch[0])).length + 1, Math.floor(size / 2)); retryBatch = true;
         }
         continue;
       }
@@ -166,7 +201,7 @@ export async function reviewAuditSources({ connection, documents, previous = {},
         const correction = 'Complete the SAME source reading. These exact source sections are unfinished: '
           + JSON.stringify(missing.map(d => ({id:d.id,label:d.label})))
           + '\nCorrect these transport problems: ' + JSON.stringify(problems.filter(p => ids.has(p.source)).slice(0,40))
-          + '\nReturn complete JSON with checked and people for ONLY these unfinished source ids. Copy literal quotes from the original documents above, not from your last answer. Include facts and identityFacts arrays, even when empty. Keep every supported individual and their established facts. Do not omit a fact merely to pass validation. Collectives remain tracked in Scene; they are not individual identity rows. Valid receipts for other sources are already saved.';
+          + '\nReturn complete JSON with checked and people for ONLY these unfinished source ids. Select evidence passage ids from the original documents above; the application attaches their original text. Do not copy quotations. Name labels, titles and pronouns need not match word for word inside each passage: you decide their actual subject from the full document. Include facts and identityFacts arrays, even when empty. Keep every supported individual and their established facts. Do not omit a fact merely to pass validation. Collectives remain tracked in Scene; they are not individual identity rows. Valid receipts for other sources are already saved.';
         renew?.(leashFor(SYSTEM.length + user.length + result.text.length + correction.length)); calls++;
         const fixed = await callWorker(connection,{system:SYSTEM,messages:[{role:'user',content:user},{role:'assistant',content:result.text},{role:'user',content:correction}],maxTokens:replyTokens,signal});
         if (stale?.() || signal?.aborted) return null;
@@ -241,8 +276,12 @@ export function peopleSourceIndex(state, documents, people = []) {
   people = people.filter(p => !p.kind || p.kind === 'person');
   const names = new Set([...Object.keys(state?.characters || {}), ...people.map(p => sourcePersonKey(state,p.name,p.ledgerName) || p.name)]);
   return [...names].filter(name => name && !isMc(state,name) && !isGroupName(name)).map(name => {
-    const aliases = [...new Set([name,...(state.characters?.[name]?.aliases || []),...people.filter(p => (sourcePersonKey(state,p.name,p.ledgerName) || p.name) === name).map(p => p.name)])];
-    return {name,aliases,sources:documents.filter(d => aliases.some(alias => exactNameIn(d.text,alias))).map(d => ({id:d.id,label:d.label}))};
+    const mentions = people.filter(p => (sourcePersonKey(state,p.name,p.ledgerName) || p.name) === name);
+    const aliases = [...new Set([name,...(state.characters?.[name]?.aliases || []),...mentions.map(p => p.name)])];
+    const selectedSources = new Set(mentions.map(p => p.source));
+    // The reader already bound this identity to an original section. Do not
+    // lose that reference because its label differs from the local wording.
+    return {name,aliases,sources:documents.filter(d => selectedSources.has(d.id) || aliases.some(alias => exactNameIn(d.text,alias))).map(d => ({id:d.id,label:d.label}))};
   });
 }
 

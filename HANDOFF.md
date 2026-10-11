@@ -1,3 +1,44 @@
+# M717: original passage selection instead of copied quote gates
+
+Version m717-001. The owner's M716 report approved208/208 ledger entries and
+read180/181 original sections. Only Page72 failed source transport: a copied
+identity quote was not literal, a canonical title did not occur verbatim in a
+shorter-name passage, and one identity quote was paraphrased. The live browser
+was not inspected. This was a source protocol defect, not another known ledger
+contradiction or a reason to replay the story.
+
+* Source requests now contain ordered, referenced ORIGINAL passages, covering
+  the complete unchanged source once. The model selects evidence ids and owns
+  identity, kind and fact meaning across titles, shorter names and pronouns.
+  The app binds selected spans to the actual original words, including spans
+  across passages. It no longer demands that the model reproduce punctuation,
+  Markdown or a canonical title inside every quote, or uses a collective-name
+  regex as another source semantic verdict.
+* Literal legacy replies and existing valid receipts remain reusable. Source
+  ids, marks and completion contracts are unchanged. Saved receipts still hold
+  literal quotations; downstream provenance, manual ownership, undo and stale
+  source protections remain. No duplicate raw source beside the passage text,
+  and request packing measures the actual referenced payload.
+* The existing one focused correction stays in the SAME conversation and asks
+  for supplied references, not another hand-copied quotation. No new worker,
+  independent semantic checker or paid call was added. Original source lookup
+  retains the reader's selected sections even when the canonical title does
+  not appear verbatim there. Repair policy3 resumes older paused failures once;
+  completed unchanged audits stay completed across this release and reload.
+
+Only node tests/harness/m717-source-passages.mjs ran. Initial persisted fixture
+was seeded before storage normalization and lacked the previously held source
+facts; corrected fixture setup. It then passed in0.09s, and after the linked
+source-index preservation passed in0.11s. A paused already-approved ledger with
+one unfinished source completed with ONE mocked source call and ZERO repeated
+ledger calls, then owed no audit on unchanged reopen. The same fixture covers
+canonical titles, pronouns, formatted dialogue, unknown-id refusal, one focused
+correction, complete original text, long paragraphs/CRLF and selected source
+fetchability. No broad suite, gameplay, theme or real provider calls. No further
+fixture repetition for documentation or publication. Default NO tests and the
+owner's normal standing publication permission remain in AGENTS.md.
+This demonstrates the exercised protocol; the owner's live result is unobserved.
+
 # M716: actual subjects, false entity correction and upstream physical repair
 
 Version m716-001. The owner's new M715 report has175/175 sources read, resolving
