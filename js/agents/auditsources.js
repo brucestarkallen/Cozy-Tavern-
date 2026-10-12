@@ -21,6 +21,14 @@ const CHUNK = 12000;
 const OVERLAP = 1200;
 const writerSource = d => /^(?:brief|cast):/.test(d.id) || d.label.endsWith(', writer');
 
+export const SOURCE_IDENTITY_DECISION_GUIDANCE = [
+  'For each original source mention choose exactly one executable disposition. Existing individual: identities:[{"sourceId":"source id","name":"exact extracted label","to":"canonical target from engineEligibleTargets","kind":"person","why":"why this is the same individual"}]. A name appearing in prose or a faction name is not a saved target.',
+  'Newly established individual: profiles:[{"name":"canonical name","open":true}] when the original establishes identity but no biography, or provide only supported core facts; pair it in the same answer with identities:[{"sourceId":"source id","name":"exact extracted label","to":"same canonical name","kind":"person","why":"source support"}]. Profile creation is applied before binding. Never invent biography.',
+  'Person local to this source: identities:[{"sourceId":"source id","name":"exact extracted label","kind":"person","scope":"local","why":"the original establishes a distinct source local person and no continuing identity decision is needed"}]. Omit to. Do not choose local just because a rationale says local, unnamed, group, or no profile. If a continuing identity or match to a tracked person is uncertain, keep the exact finding in review.open.',
+  'Actual nonperson or group: identities:[{"sourceId":"source id","name":"exact extracted label","kind":"group","why":"the original refers to the company, not an individual"}] (use place, organization, object, or reference when that is what the original establishes). Omit to. A person is not their group.',
+  'Genuinely unresolved: review.open:[{"id":"exact required finding id","why":"specific evidence or identity that remains uncertain"}]. Do not claim completion. Keep every decision scoped to its sourceId. Do not make global aliases for contextual labels.',
+].join(' ');
+
 export function auditSources({ brief = '', castNotes = '', messages = [] } = {}) {
   const documents = [];
   const add = (key, label, text) => {
@@ -331,7 +339,7 @@ export function missingSourcePeople(state, people = []) {
     // is a person. Review its subject before requesting a biography.
     issues.push({ what: name + ' is listed as an individual by the source reading in ' + p.label + '; confirm its identity or correct its entity classification.',
       name, sourceId:p.source,sourceName:p.name,profileRecovery: true, shown:p.shown,
-      fix: 'Resolve this mention in its original source. If it describes a known person, return identities:[{sourceId,name,to:"existing person",kind:"person",why}]; this binds only this source mention, never a global alias. For a genuinely new person supply their profile first. For a nonperson or comparison-only reference use its actual kind, including reference. Do not create another biography for a contextual description.', pages: false, mutations: [] });
+      fix: 'Resolve this mention in its original source. '+SOURCE_IDENTITY_DECISION_GUIDANCE, pages: false, mutations: [] });
   }
   return issues;
 }

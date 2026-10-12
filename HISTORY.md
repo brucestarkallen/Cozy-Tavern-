@@ -20649,3 +20649,31 @@ suite was run. They verify the causal production paths, not the owner's actual
 Fallen Angel Exploring database. Full live target identities, a real provider's
 interpretations and device background operation remain unverified. No live story,
 manual content, credentials, provider settings or unrelated repository was changed.
+
+# M732: one executable source identity contract
+
+Version m732-001. Base main 743251f80a953261700ec07ef708525d40ee305b.
+An archived M731 reproduction of the visible malformed bindings made two calls,
+accepted zero operations, rejected two faction-as-person targets, and remained
+incomplete with five source allegations plus two rejected attempts. The old
+corrective prompt did not include the executable local form or the engine's
+eligible person target registry. The reason a live provider repeated the
+invalid interpretation remains unverified.
+
+Audit instructions, generated source findings and bounded correction now share
+the supported identity decisions: bind an actual canonical engine target,
+create a minimally known new identity before binding, explicitly keep a person
+local to one source, classify a real nonperson, or preserve a specific open
+finding. The correction includes the original passage, exact rejected operation
+and blocker, actual eligible targets, and faction context separately. Rejected
+operations remain history and settle only when the exact source has a validated
+saved disposition. Repair policy advances from 7 to 8; cached receipts remain
+reusable.
+
+Focused checks passed: `tests/harness/m732-identity-contract.mjs` exercises
+repeated invalid response safety, partial and saved recovery, reload, no-op
+repeat, receipt and fact preservation, health and undo. The archived baseline
+probe ran against unchanged M731. `tests/harness/m731-identity.mjs` also passed.
+These are scripted provider fixtures with disposable IndexedDB, not live story
+or real-provider verification. The owner's Fallen Angel Exploring incident is
+not marked resolved.

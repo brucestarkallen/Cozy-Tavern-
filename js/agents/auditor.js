@@ -46,12 +46,12 @@ import { askWithFetch, fetchLaw, roomChars, viewBudget, leashFor } from './looku
 import { messageIndexLine, refOf } from './housekeeper.js';
 import { asideAt, asideLabel } from '../commands.js'; /* M674: which pages are out of character, and how a request says so */
 import { mcName, mcAliases, explicitMcPersona, groundedMcPersona, sourcePersonaMutations } from '../engine/duels.js';
-import { isMc, namedInText, findPersonKey } from '../engine/people.js'; /* M277: the main character holds no standing; M304: one matcher for "the writer's material names them" */
+import { isMc, namedInText, findPersonKey, sourceIdentityTargetKey, sourceIdentityTargetChoices } from '../engine/people.js'; /* M277: the main character holds no standing; M304: one matcher for "the writer's material names them" */
 import { explicitStandings, readStatedStandings, validateStatedStandings, samePersonLoose, isLabel } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
 import { visiblePages, loadMemory, wholeRecord, recordWithPages } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
 import { pageText } from '../assemble/stack.js';
 import { exactNameIn, quotedSource, WRITER_FACTS } from '../engine/evidence.js';
-import { auditSources, reviewAuditSources, missingSourcePeople, missingSourceIdentityFacts, sourceFactScope, sourceIdentityNeeded, sourcePersonKey, peopleSourceIndex } from './auditsources.js';
+import { auditSources, reviewAuditSources, missingSourcePeople, missingSourceIdentityFacts, sourceFactScope, sourceIdentityNeeded, sourcePersonKey, peopleSourceIndex, SOURCE_IDENTITY_DECISION_GUIDANCE } from './auditsources.js';
 import { reconcileAppearance,reconcileIdentity,sourceAppearanceFacts,sourceIdentityFacts } from './appearanceinventory.js';
 import { lookKey } from '../engine/canon.js';
 import { auditEvidenceBook,auditEvidencePassages } from './auditevidence.js';
@@ -73,7 +73,7 @@ const CAST_CAP = 20000;
 const VOCABULARY = [
   'people.rename {"type":"people.rename","from":"wrong name","to":"established name","cause":"source of correction","shown":"exact identity quote if the names differ entirely"} — correct or merge one identity, keeping all its records. NEVER delete and recreate it. Correct its title with people.set core.',
   'people.reclassify {"type":"people.reclassify","name":"exact erroneous People name","kind":"place","cause":"why the original establishes a place rather than a person"} — kind place, organization, object or group. Use ONLY after judging the originals and determining this record is not an individual character. Its misplaced records are archived reversibly and its current source extraction is corrected. Do not rename a place into a prince merely because his title contains it. Save physical facts on their actual subject separately. Manual records and the player remain protected.',
-  'source.resolve {"type":"source.resolve","sourceId":"original source section id","name":"exact extracted label","to":"actual existing person","kind":"person","cause":"your source identity decision"} — binds only this mention to its actual person. It never renames a character or adds a global alias. Different pages may use the same description for different people. For a place, organization, object, group or comparison-only reference use that kind (reference for the latter) and omit to. For a genuinely new individual write their sourced profile first. You can return these decisions directly as identities:[{sourceId,name,to,kind,why}].',
+  'source.resolve {"type":"source.resolve","sourceId":"original source section id","name":"exact extracted label","to":"person target only for an existing or newly created individual","kind":"person","scope":"local only for a supported source local individual","cause":"source evidence"}.'+SOURCE_IDENTITY_DECISION_GUIDANCE,
   'clock.set {"type":"clock.set","year":2026,"month":3,"day":15,"hour":14,"minute":30} — to the latest header line\'s own hour, or when the latest STORY page has none',
   'place.set {"type":"place.set","name":"the chapel"} — to the latest header line\'s own place, or when the latest STORY page has none',
   'presence.enter {"type":"presence.enter","name":"NAME","shown":"exact newest-page words establishing their presence","position":"their latest position, if shown"} / presence.update {"type":"presence.update","name":"NAME","position":"their latest position, in the page\'s own words","attire":"their latest attire, if shown","shown":"exact newest-page words establishing the corrected field"} / presence.leave {"type":"presence.leave","name":"NAME","shown":"the page\'s own words that show them going, copied exactly","to":"where the pages show them going, said so it stands on its own — upstairs in the Wells house — and left out only when the pages show no sign of where"}',
@@ -575,7 +575,11 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     const verificationRows = auditReviewRows(result.out,previousVerification);
     finalReview.requested = verificationRows.length;
     const requestedState=result.out;
-    const sourceCandidates=originalFindings.filter(i=>i.profileRecovery && i.sourceId && !i.sourceFacts && !findingSettled(i,result,withdrawals,documents));
+    const sourceCandidateMap=new Map();
+    for (const issue of originalFindings.filter(i=>i.profileRecovery && i.sourceId && !i.sourceFacts && !findingSettled(i,result,withdrawals,documents))) {
+      sourceCandidateMap.set(JSON.stringify([issue.sourceId,issue.sourceName || issue.name]),issue);
+    }
+    const sourceCandidates=[...sourceCandidateMap.values()];
     const sourceTasks=sourceCandidates.map(i=>({id:auditFindingId(i),sourceId:i.sourceId,name:i.sourceName || i.name,shown:i.shown,speakerIdentity:documents.find(d=>d.id===i.sourceId)?.speakerIdentity}));
     const reviewProblems=text=>{
       const read=parseAuditorAnswer(text);
@@ -587,7 +591,20 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
         const proposed=judge(requestedState,bound.issues);
         const open=new Set((read.review?.open || []).map(o=>o.id));
         const missing=sourceCandidates.filter(i=>!open.has(auditFindingId(i)) && !findingSettled(i,proposed,bound.resolved,documents));
-        if (missing.length) problems.push({why:'Complete the source mention identity decisions in this SAME answer. Return identities:[{sourceId,name,to:"actual person",kind:"person",why}] for an existing person, or the actual nonperson/reference kind. Supply a profile first for a genuinely new individual. A contextual description needs no new People page or global alias. If genuinely unresolved, put its id in review.open.',mentions:sourceTasks.filter(t=>missing.some(i=>auditFindingId(i)===t.id)),rejected:proposed.rejected.filter(r=>!r.same).map(r=>({mutation:r.mutation,why:r.why})),availablePeople:Object.keys(proposed.out.characters || {})});
+        if (missing.length) {
+          const missingTasks=sourceTasks.filter(t=>missing.some(i=>auditFindingId(i)===t.id));
+          const identityRejections=proposed.rejected.filter(r=>!r.same && r.mutation?.type==='source.resolve');
+          problems.push({type:'source_identity',why:'A source identity operation did not save the requested disposition. The previous operation is evidence of a rejected attempt, not the required answer.',
+            mentions:missingTasks.map(task=>({
+              id:task.id,sourceId:task.sourceId,name:task.name,
+              originalPassage:documents.find(d=>d.id===task.sourceId)?.text?.slice(0,1800) || '',
+              rejectedOperations:identityRejections.filter(r=>r.mutation.sourceId===task.sourceId && r.mutation.name===task.name)
+                .map(r=>({operation:r.mutation,engineReason:r.why})),
+            })),
+            engineEligibleTargets:sourceIdentityTargetChoices(proposed.out),
+            availablePeople:Object.keys(proposed.out.characters || {}),
+            groupsForContext:Object.keys(proposed.out.factions || {})});
+        }
       }
       if (!standingsCached && !Array.isArray(read.standings)) problems.push({why:'Include standings:[] when no explicit starting digits are stated.'});
       return problems;
@@ -601,7 +618,9 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
           + '\nRETAINED SCRATCHBOOK CHECKS, already approved for these unchanged values and sources:\n'+JSON.stringify(Object.keys(previousVerification))
           + '\nHISTORICAL FINDINGS WITH ACTUAL CURRENT RECORDS:\n'+JSON.stringify(auditRepairChecklist(originalFindings,result.out))
           + '\nREQUIRED SOURCE MENTION DECISIONS:\n'+JSON.stringify(sourceTasks)
-          + '\nResolve each source mention from the original text. Return identities:[{sourceId,name,to:"actual existing person",kind:"person",why:"your identity decision"}]. This is the saved correction, not another certificate. Descriptions and pronouns usually refer to an already established individual. Bind this source locally, never make a global alias or create a biography merely for a temporary label. For genuinely new continuing individuals supply profiles:[{name:"canonical name",open:true}] when only identity is established, or a supported core, in the same answer. Bind only to actual saved People or tracked records, not names merely mentioned in prose. For a temporary individual who is not identified with a tracked person, use kind:"person",scope:"local", omit to, and explain why this source establishes only a local speaker. This preserves the person and their original facts in this source without a permanent People page. Uncertain equivalence to another person is not a nonperson: keep it local only when no continuing identity decision is needed; otherwise use review.open. For a nonperson or comparison-only reference use kind place, organization, object, group or reference and omit to. Keep each mention scoped to its supplied sourceId. Use review.open with its finding id only for a genuinely unresolved identity.'
+          + '\nSOURCE IDENTITY DECISION CONTRACT.\n'+SOURCE_IDENTITY_DECISION_GUIDANCE
+          + '\nENGINE ELIGIBLE PERSON TARGETS for this saved snapshot, including actors and tracked people:\n'+JSON.stringify(sourceIdentityTargetChoices(result.out))
+          + '\nFACTIONS ARE GROUP CONTEXT, not person targets:\n'+JSON.stringify(Object.keys(result.out.factions || {}))
           + '\nRECOVERED SOURCE FACTS. These are an extraction index, not authority over the original text. Read originals to resolve misread relations, ambiguous labels and alternate forms. A correct profile can express the same fact in different words. Retain every valid rank, family, personality, background and lasting appearance. Repair actual omissions, never rewrite a correct biography just to match this index. Correct partial hair fields without overwriting another face.'
           + '\nORIGINAL SOURCE REFERENCES:\n'+JSON.stringify(repairEvidence)
           + '\nEvidence IDs or exact shown quotes are optional provenance. If using an ID choose one actually supplied; source fact IDs in the required entries also refer to original quotes. Never invent an ID. If missing needed context, fetch its original page. An unavailable old ID does not mean the source page is missing.'
@@ -613,7 +632,11 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
         isAnswer:t=>reviewProblems(t).length===0,
         repairAnswer:t=>{
           const problems=reviewProblems(t);
-          return problems.length?'Complete the SAME review with the sources and decisions already in this conversation. Do not restart the audit. Correct these exact unfinished parts: '+JSON.stringify(problems)+'. Return your completed review verdict plus any necessary repairs. Keep valid decisions and preserve every valid face. JSON only.':'';
+          const identity=problems.some(p=>p.type==='source_identity')
+            ? '\nSOURCE IDENTITY DECISION CONTRACT.\n'+SOURCE_IDENTITY_DECISION_GUIDANCE
+              +'\nThe original passage, rejected operation and exact engine reason are supplied by sourceId and name above. engineEligibleTargets is the complete set currently recognized by source.resolve, including tracked actors; availablePeople lists People pages only. groupsForContext supplies faction context, never person targets. Correct only the affected source mentions, retain valid independent decisions, and do not retry a rejected target unless it is now an actual eligible individual. Do not infer scope from why.'
+            : '';
+          return problems.length?'Complete the SAME review with the sources and decisions already in this conversation. Do not restart the audit. Correct these exact unfinished parts: '+JSON.stringify(problems)+identity+'. Return your completed review verdict plus any necessary repairs. Keep valid decisions and preserve every valid face. JSON only.':'';
         },
         source: { storyId, messages: allRaw, memory: mem, story: { brief, castNotes }, state: result.out }, room,
       });
@@ -681,7 +704,9 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
         : {why:'The actual People core and original source facts passed factual review.'};
     }
   }
-  result.out.audit={...result.out.audit,sourceFactDecisions};
+  const identityDispositionHistory=supersededSourceIdentityHistory(
+    [...originalFindings,...unresolvedFindings(result)],result.out,result.out.audit?.identityDispositionHistory);
+  result.out.audit={...result.out.audit,sourceFactDecisions,identityDispositionHistory};
   const outstanding = compactFindings([...originalFindings, ...missingSourcePeople(result.out,documents.flatMap(d=>(result.out.auditSources?.[d.id]?.people || []).map(p=>({...p,source:d.id,label:d.label})))), ...unresolvedFindings(result)].filter((i) => !findingSettled(i, result, withdrawals, documents, verification)), result.out);
   pending = [...new Set([...outstanding.map((i) => i.what + ': ' + (i.pendingReason || (i.sourceFacts ? 'source-supported profile facts still need reconciliation' : 'identity or entity classification still needs a working repair'))), ...(sourceReview?.pending || []), ...(answerProblem ? [answerProblem] : []), ...(followupFailed ? ['the combined ledger review did not finish'] : []), ...(verification.read < verification.total ? [`ledger verification: checked ${verification.read} of ${verification.total} entries; ${verification.pending.slice(0, 2).join('; ')}`] : [])])];
   result.unfinished = pending.length > 0;
@@ -1145,7 +1170,45 @@ export function findingRows(issue, state) {
   return rows.filter(row => names.includes(row.name) && ['characters','characterState','presence','offscreen','canon'].includes(row.section));
 }
 
+function savedSourceDisposition(state, sourceId, name) {
+  const mention=state.auditSources?.[sourceId]?.people?.find(p=>p.name===name);
+  const resolution=mention?.identityResolution;
+  if (!mention || !resolution?.why || resolution.kind!==mention.kind) return null;
+  if (mention.kind==='person') {
+    if (resolution.scope==='local') return !resolution.to && !mention.ledgerName
+      ? {kind:'person',scope:'local',target:''} : null;
+    if (resolution.scope) return null;
+    const target=sourceIdentityTargetKey(state,resolution.to || mention.ledgerName);
+    const actual=sourcePersonKey(state,mention.name,mention.ledgerName,resolution);
+    return target && actual===target && mention.ledgerName===target
+      ? {kind:'person',scope:'',target} : null;
+  }
+  return !resolution.to && !mention.ledgerName ? {kind:mention.kind,scope:'',target:''} : null;
+}
+
+function supersededSourceIdentityHistory(findings, state, previous=[]) {
+  const additions=[];
+  for (const issue of findings || []) for (const mutation of issue.mutations || []) {
+    if (mutation.type!=='source.resolve' || mutationSatisfied(state,mutation)) continue;
+    const saved=savedSourceDisposition(state,mutation.sourceId,mutation.name);
+    if (!saved) continue;
+    const id=JSON.stringify([mutation.sourceId,mutation.name,mutation.to || '',mutation.kind || 'person',mutation.scope || '']);
+    additions.push({id,findingId:issue.findingId || issue.id || auditFindingId(issue),sourceId:mutation.sourceId,name:mutation.name,
+      attemptedTarget:mutation.to || '',attemptedKind:mutation.kind || 'person',attemptedScope:mutation.scope || '',
+      rejection:issue.pendingReason || (Array.isArray(issue.refused)?issue.refused.join('; '):'') || 'Superseded by a saved source identity decision.',
+      savedTarget:saved.target,savedKind:saved.kind,savedScope:saved.scope,at:Date.now()});
+  }
+  const byId=new Map();
+  for (const entry of [...(Array.isArray(previous)?previous:[]),...additions]) if (entry?.id) byId.set(entry.id,entry);
+  return [...byId.values()];
+}
+
 export function findingSettled(issue, result, withdrawals, documents, verification) {
+  const mutations=issue.mutations || [];
+  if (mutations.some(m=>m.type==='source.resolve')
+    && mutations.every(m=>m.type==='source.resolve'
+      ? Boolean(savedSourceDisposition(result.out,m.sourceId,m.name) || mutationSatisfied(result.out,m))
+      : mutationSatisfied(result.out,m))) return true;
   if (issue.profileRecovery && issue.sourceId && !issue.sourceFacts) {
     const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
     if (mention?.kind && mention.kind!=='person') return true;

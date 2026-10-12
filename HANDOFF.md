@@ -1,3 +1,83 @@
+# M732: source identity contract and saved recovery
+
+Version m732-001. Base main 743251f80a953261700ec07ef708525d40ee305b.
+
+An isolated disposable fixture reconstructed the visible M731 failure shape:
+Tarn and an off-duty guard were bound to the faction The Gate Watch as people,
+with no local scope, while the explanation described a source local person. On
+an archived, unchanged M731 tree, the real audit path made two calls, accepted
+no operation, rejected both bindings with the exact existing target blocker,
+and remained incomplete. Seven pending strings were five source allegations
+plus those two rejected operations, not seven individuals. Its corrective
+continuation repeated the existing-person/new-profile/nonperson advice, omitted
+the executable local form, and listed People keys without the complete set of
+targets accepted by source.resolve. The fixture includes source receipts,
+previous ledger approvals, a saved faction, actor and retired alias targets,
+and old voices without speaker identity metadata. This is a reconstruction of
+the capped report, not the owner's database or full provider response.
+
+Confirmed cause: the visible proposals refer to unavailable person targets,
+which the engine correctly rejects. The prompt contract was inconsistent across
+the main review, generated findings and corrective continuation. That mismatch
+is a plausible contributor to the repeated proposal, but repository fixtures
+cannot establish why a live provider chose it. Membership, a rationale word
+such as “local”, or absence of a People page is not used to infer identity.
+
+The shared identity contract now covers an existing person resolved to an
+actual canonical engine target, a newly established person with a minimal
+profile created before its binding, a supported source local person with no
+global target, an actual nonperson classification, and a specific unresolved
+finding. Local intent must be an explicit scope field. Engine candidate guidance
+uses the same registry as source.resolve, including canonical People identities,
+aliases, retired entries and tracked actors; faction names are shown separately
+as group context. The bounded corrective continuation now supplies the affected
+original passage, rejected operation and exact engine reason. An invalid retry
+remains incomplete with its blocker. A later valid saved decision can supersede
+the exact obsolete rejected operation; its attempted target and rejection stay
+in identityDispositionHistory.
+
+Changed files:
+* `js/engine/people.js` shares canonical source target resolution between the
+  operation and its eligible-target guidance.
+* `js/engine/apply.js` uses that resolver for source.resolve while retaining the
+  unavailable-target guard.
+* `js/agents/auditsources.js` defines the shared decision contract used by
+  generated source findings.
+* `js/agents/auditor.js` uses the same contract in review and correction, sends
+  structured source-specific blockers and correct target/group context, and
+  settles obsolete rejected operations only after validating the saved source
+  disposition. It preserves rejection history and deduplicates source tasks.
+* `js/agents/auditprogress.js` advances LEDGER_REPAIR_POLICY from 7 to 8 so old
+  paused M731 repairs may resume without resetting healthy receipts.
+* `js/version.js` advances the release to m732-001.
+* `tests/harness/m732-identity-contract.mjs` covers the malformed M731 reply,
+  correction, persisted closure and repeated invalid response.
+* `SPEC.md` and this entry record the contract and evidence. `HISTORY.md` appends
+  this milestone without changing earlier entries.
+
+Focused checks actually run:
+* Before editing the behavior, `node tests/harness/m732-identity-contract.mjs`
+  was run against an archived M731 tree. It showed two calls, zero accepted
+  operations, two rejected unavailable bindings, seven outstanding strings,
+  `incomplete decisions`, and the old corrective instruction without local
+  scope or an engine eligible target list.
+* After the change, `node tests/harness/m732-identity-contract.mjs` passes the
+  reconstructed failure and one bounded repeated invalid reply; the failure
+  remains yellow and no local disposition is guessed. It also passes partial
+  recovery, minimal new identities, an existing empty biography, explicit
+  local and group decisions, alias/retired and actor targets, persisted source
+  marks and facts, obsolete rejection history, reload, reused receipts,
+  unchanged repeat with zero model calls, shared health and undo invalidation.
+* `node tests/harness/m731-identity.mjs` passes same-label source separation,
+  ambiguous identity handling, concurrent/manual preservation, cached review,
+  undo and existing status cases.
+* Tests use scripted provider responses and disposable IndexedDB. They verify
+  the production transport, parser, engine, persistence and status path; they do
+  not prove that a real provider will choose a supported answer. No paid model
+  call or broad suite was run. The actual Fallen Angel Exploring database and
+  live provider behavior were not observed, so the owner's incident is not
+  marked resolved by these repository checks.
+
 # M731: executable source identities and evidence based worker status
 
 Version m731-001. Base main 0a1a7242f7967880664f721763e4d8872128a268.

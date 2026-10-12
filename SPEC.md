@@ -1,3 +1,20 @@
+# M732: one executable source identity decision contract
+
+Version m732-001. The source identity shapes in the audit instructions,
+generated missing identity findings, final review, corrective continuation and
+source.resolve engine now agree: bind an existing canonical eligible person,
+create a minimally known identity before binding it, keep an explicitly
+source local individual in that source, classify a real nonperson, or preserve
+a specific open finding. Local scope is never inferred from explanation text.
+Correction context includes the original passage, exact rejected operation and
+engine reason, actual canonical targets accepted by source.resolve, and group
+context separately. A saved valid disposition settles an obsolete rejected
+operation only for that exact source mention and retains its rejection history.
+Repair policy advances from 7 to 8; cached source receipts and matching ledger
+approvals remain reusable. See HANDOFF.md for the M731 reproduction, checks and
+limits. Repository evidence does not verify the owner's saved story or live
+provider behavior.
+
 # M731: source identity execution and trustworthy recovery status
 
 Version m731-001. Source binding follows accepted prerequisites in rehearsal and

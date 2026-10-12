@@ -293,6 +293,34 @@ export function mcKey(state) {
   return name === 'the player' ? 'the player' : name;
 }
 
+/* One target resolver for source.resolve and its repair guidance. Keep this
+ * registry aligned with the mutation contract: People, the player's identity,
+ * or a name explicitly tracked in Scene, offscreen books, knowledge, canon,
+ * or actors. Factions are context, not individual identity targets. */
+function trackedSourceIdentityNames(state) {
+  return [...(state?.present || []).map(p => p.name),
+    ...['offscreen','relationships','knowledge','canon'].flatMap(book => Object.keys(state?.[book] || {})),
+    ...Object.keys(state?.sheet?.actors || {})];
+}
+
+export function sourceIdentityTargetKey(state, name) {
+  const wanted=normalizeName(name);
+  if (!wanted) return '';
+  if (isMc(state,wanted)) return mcName(state);
+  return findPersonKey(state?.characters || {},wanted)
+    || trackedSourceIdentityNames(state).find(n=>String(n).toLowerCase()===wanted.toLowerCase())
+    || '';
+}
+
+export function sourceIdentityTargetChoices(state) {
+  const characters=state?.characters || {};
+  const candidates=[...Object.keys(characters),
+    ...Object.values(characters).flatMap(person=>Array.isArray(person?.aliases)?person.aliases:[]),
+    ...trackedSourceIdentityNames(state),mcName(state),...(state?.sheet?.playerAliases || [])];
+  return [...new Set(candidates.map(name=>sourceIdentityTargetKey(state,name)).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b));
+}
+
 /* ---------- the merge (the scribe's door) ---------- */
 
 function cleanFieldText(text, cap) {
