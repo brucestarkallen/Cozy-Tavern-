@@ -8533,6 +8533,11 @@ export function initChat(ctx) {
      * the next turn, rewinding the fight state up to twelve turns. */
     /* M337: whichever door chose this ledger (the newest page, the fold, a checkpoint, M91's as-it-stands), nothing in it
      * may be dated after the branch page */
+    /* M736: the opening is a restart, not the parent's cached identity or
+     * founder/checkpoint. Retained prose and the writer's setup establish it anew. */
+    const restartOpening = !fromTheTail && kBranch <= 0;
+    if (restartOpening) { carried = emptyState(); exact = false; }
+    else carried = withStoryWrites(carried, nowState, applyMutations);
     const carriedNow = dropTheFuture(JSON.parse(JSON.stringify(carried)), kBranch + 1).state;
     carriedNow.refHistory = (Array.isArray(carriedNow.refHistory) ? carriedNow.refHistory : [])
       .filter((e) => e && (!e.msgId || idMap[e.msgId]))
@@ -8540,12 +8545,12 @@ export function initChat(ctx) {
     await saveState(branch.id, carriedNow);
     const carriedIds = new Set(pages.map((m) => m.id));
     const snaps = (await loadSnapshots(story.id)).filter((e) => carriedIds.has(e.id)).map((e) => ({ ...e, id: idMap[e.id] }));
-    if (snaps.length) await saveSnapshots(branch.id, snaps);
+    if (!restartOpening && snaps.length) await saveSnapshots(branch.id, snaps);
     const versions = await loadVersionStates(story.id);
     const branchVersions = {};
     for (const [key, st] of Object.entries(versions)) {
       const [oldId, idx] = key.split(':');
-      if (idMap[oldId]) branchVersions[idMap[oldId] + ':' + idx] = st;
+      if (!restartOpening && idMap[oldId]) branchVersions[idMap[oldId] + ':' + idx] = st;
     }
     /* M127: the branch's last page owns the carried ledger as its checkpoint
      * (exact carries only) — so the readers' resume on open finds the page
@@ -8562,7 +8567,7 @@ export function initChat(ctx) {
     if (Object.keys(branchVersions).length) await writeVersionStates(branch.id, branchVersions);
     const mem = await loadMemory(story.id);
     const visibleCount = pages.length;
-    const nodes = mem.nodes.filter((n) => n.span[1] < visibleCount);
+    const nodes = restartOpening ? [] : mem.nodes.filter((n) => n.span[1] < visibleCount);
     await saveMemory(branch.id, { ...mem, nodes });
     const lore = await loadLore(story.id);
     if (lore.length) await saveLore(branch.id, lore.map((e) => ({ ...e })));

@@ -20761,3 +20761,37 @@ reopen through a mocked provider, retained opening in request and no future text
 The initial async polling assertion was corrected to await actual persisted
 results. No real provider request, broad worker suite or personal story used.
 Actual model summary quality and the owner's live branch remain unverified.
+
+# M736: opening branch ledger reset and Housekeeper application receipts
+
+Version m736-001. Base 2c12f3333b318e9413232c89983d43755163d021.
+M735 addressed automatic world ground, not ledger identity. foldJournal's empty
+fallback retains current playerName/aliases, and branch checkpoints can carry
+old identities. Branches before or at the first assistant page, with later
+history excluded, now use emptyState, no inherited checkpoints/version states
+and no folded memory. Retained prose and manual setup remain. A retained first
+assistant page follows the existing deep reread; a first-user-only branch waits
+for its first response to establish the ledger. Other branches reapply existing
+story-wide correction writes consistently to checkpoint restores as well as
+fold restores. No global fold/rewind behavior changed. Original story untouched.
+
+Housekeeper already sent card status, but omitted the saved application result
+and historical value. sessionWireOf now includes those outcomes plus the prior
+main-character value from the actual application batch. Cards record exact batch
+ids, including spelling cards; unique-label fallback supports old receipts.
+Undo recognition uses that identity so unrelated same-label undone batches do
+not falsely reverse another card. Context instructs it to distinguish previous
+state, applied correction, undo and current state; application is not proof of
+the original allegation's factual correctness. No fabricated receipt or name
+inference. A model can still misread context; this is not a guarantee of behavior.
+
+Focused tests/m736_branch_receipts.py passed real first-user branch creation
+with parent Wayne identity, aliases, future character and stale checkpoint:
+branch ledger/checkpoints empty, original intact, M735 ground retry preserved.
+Actual Housekeeper apply renamed Wayne to Oda; serialized session wire includes
+previous name and result, unrelated same-label undo ignored, actual undo shown.
+Mocked provider only; no live story/provider test or broad suites. First-assistant
+reread uses existing code and was not exercised in this focused fixture.
+Changes: js/ui/chat.js, js/agents/housekeeper.js, version and focused test.
+No schema or service-worker shell change. Already-created branches are not
+silently erased; create a new opening branch to use the reset behavior.

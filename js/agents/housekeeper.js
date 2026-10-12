@@ -2778,6 +2778,7 @@ async function applySpellingProposal(session, storyId, p) {
       before.messages = before.messages.filter(m => ids.includes(m.id));
       after.messages = after.messages.filter(m => ids.includes(m.id));
       const batch = {id:uid(),ts:Date.now(),label:p.label,undone:false,items:[{kind:'spelling',before,after,jids:changed.applied.map(a=>a.jid)}]};
+      card.batchId = batch.id;
       card.status = 'applied'; card.words = 'Correction saved. Verification is pending.';
       card.verification = 'pending';
       s.settings.hk.batches = [...(s.settings.hk.batches || []),batch].slice(-UNDO_CAP);
@@ -2877,7 +2878,7 @@ export async function applyProposal(session, storyId, proposalId) {
       p.words = result.words;
       return { ok: false, words: result.words };
     }
-    if (batch.items.length) pushBatch(session, batch);
+    if (batch.items.length) { p.batchId = batch.id; pushBatch(session, batch); }
     p.status = result.partial ? 'partial' : result.satisfied ? 'satisfied' : 'applied';
     p.operations = result.operations;
     p.words = result.words;
@@ -3293,7 +3294,7 @@ export function proposalOutcome(turn,session) {
   }).join('\n');
 }
 export function cardFate(p, session) {
-  const takenBack = (session && Array.isArray(session.batches) ? session.batches : []).some((b) => b && b.undone && b.label === p.label);
+  const takenBack = receiptBatch(p, session)?.undone === true;
   if (p.status === 'applied') return takenBack ? 'applied, then TAKEN BACK by the writer' : 'APPLIED';
   if (p.status === 'dismissed') return 'DISMISSED, not repaired: ' + (p.settlement?.previousWords || p.words || '');
   if (p.status === 'satisfied') return 'ALREADY SATISFIED: ' + p.words;
@@ -3304,6 +3305,20 @@ export function cardFate(p, session) {
   if (p.status === 'superseded') return 'withdrawn by a later answer';
   return 'still pending (not yet applied)';
 }
+/* M736: application evidence is history, not another claim about today's ledger.
+ * Exact batch ids prevent a same-labelled undo being assigned to a different card.
+ * Older cards can use an unambiguous saved batch without inventing an association. */
+function receiptBatch(p, session) {
+  const batches = (session?.batches || []).filter(b => b && (p.batchId ? b.id === p.batchId : b.label === p.label));
+  return batches.length === 1 ? batches[0] : null;
+}
+export function applicationReceipt(p, session) {
+  if (!['applied', 'partial', 'satisfied'].includes(p.status)) return '';
+  const batch = receiptBatch(p, session);
+  const before = (batch?.items || []).map(i => i.kind === 'ledger' ? i.before?.sheet?.playerName : i.kind === 'spelling' ? i.before?.settings?.state?.sheet?.playerName : '').filter(Boolean);
+  return (before.length ? ' Recorded ledger main character before this application: ' + [...new Set(before)].join(', ') + '.' : '')
+    + (p.words ? ' Saved application result: ' + String(p.words).slice(0, 1200) : '');
+}
 export function sessionWireOf(session) {
   const out = [];
   for (const t of (session && Array.isArray(session.turns) ? session.turns : []).slice(-20)) {
@@ -3313,7 +3328,7 @@ export function sessionWireOf(session) {
     out.push({ role: 'assistant', content: whole.length > WIRE_RAW_CAP ? whole.slice(0, WIRE_RAW_CAP) + '\n…(cut for room)' : whole });
     const cards = Array.isArray(t.proposals) ? t.proposals.filter((p) => p) : [];
     if (cards.length) {
-      out.push({ role: 'user', content: '[STATE] What became of the cards in the answer above, as they stand NOW:\n' + cards.map((p) => '- [id:' + p.id + '] “' + p.label + '”: ' + cardFate(p, session)).join('\n') + '\nWhat was applied now stands in THE BRIEF, the pages, the ledger, the record or the lore above; what was not applied did not happen — never assume it did.' });
+      out.push({ role: 'user', content: '[STATE] What became of the cards in the answer above, as they stand NOW:\n' + cards.map((p) => '- [id:' + p.id + '] “' + p.label + '”: ' + cardFate(p, session) + applicationReceipt(p, session)).join('\n') + '\nWhat was applied now stands in THE BRIEF, the pages, the ledger, the record or the lore above; what was not applied did not happen — never assume it did. An applied correction explains why the old value is absent now. Compare the saved before-state and application result with the current target; do not deny a recorded earlier value merely because it was corrected. If taken back or changed again, describe that chronology. These receipts prove application history, not that the original proposal was factually justified.' });
     }
   }
   return out;
