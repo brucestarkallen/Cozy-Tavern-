@@ -255,8 +255,9 @@ need one initial refresh to receive this fix, after keeping any unsent words.
 
 Choose **Neon Tokyo Night** in Settings, The house, Appearance for an illustrated
 rainy Tokyo skyline, luminous controls and glass reading panels. Rias appears
-on phone welcome screens and beside active stories when the reading area has
-room, including unfolded layouts. Compact reading keeps the full prose width.
+on phone welcome screens and sits behind the lower left of active stories when
+the reading area has room, including unfolded layouts. Reading panels remain
+centered and may cover the artwork. Compact reading keeps the full prose width.
 This is a separate coat; the original Cyberpunk appearance and saved color
 preferences are unchanged.
 Artwork and styling are local and included in the offline shell.

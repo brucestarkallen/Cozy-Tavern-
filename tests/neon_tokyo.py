@@ -39,7 +39,7 @@ try:
    assert not p.evaluate('document.documentElement.scrollWidth>innerWidth+1')
    assert p.locator('.neon-rias').is_visible() == (w>=600)
    if w>=600:
-    assert p.evaluate("()=>{const r=document.querySelector('.neon-rias').getBoundingClientRect();return [...document.querySelectorAll('.msg')].every(m=>m.getBoundingClientRect().right<=r.left)}")
+    assert p.evaluate("()=>{const r=document.querySelector('.thread').getBoundingClientRect();return [...document.querySelectorAll('.msg')].every(m=>{const b=m.getBoundingClientRect();return Math.abs((b.left+b.right)-(r.left+r.right))<2})}")
    p.locator('#composer-input').fill('A quiet evening by the window.');assert p.locator('#composer-input').input_value()=='A quiet evening by the window.'
    p.screenshot(path=str(OUT/f'{label}-story.png'))
    p.evaluate("document.querySelector('#thread').scrollTop=0")

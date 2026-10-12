@@ -41,8 +41,8 @@ try:
   assert min(ratios.values())>=4.5,ratios
   print('PASS default prose/color contrast against worst-case white art under 94% local panel:',ratios,flush=True)
   p.screenshot(path=str(OUT/'desktop-story.png'))
-  # Artwork is outside prose bounds and below UI; pointer tests use the actual composer.
-  assert p.evaluate('''()=>{const el=document.querySelector('.neon-rias'),c=getComputedStyle(el);const left=el.getBoundingClientRect().left;return [...document.querySelectorAll('.msg')].every(m=>m.getBoundingClientRect().right<left)&&c.pointerEvents==='none'}''')
+  # Artwork is seated at the left and below UI; pointer tests use the actual composer.
+  assert p.evaluate('''()=>{const el=document.querySelector('.neon-rias'),c=getComputedStyle(el);const left=el.getBoundingClientRect().left;return Math.abs(left-document.querySelector('.thread-wrap').getBoundingClientRect().left)<1&&c.pointerEvents==='none'}''')
   p.locator('#btn-ledger').click();p.wait_for_function("document.querySelector('#drawer').classList.contains('open')");p.wait_for_timeout(350);p.screenshot(path=str(OUT/'desktop-ledger.png'));p.locator('#btn-drawer-close').click();p.wait_for_timeout(350)
   for w,h in [(760,960),(950,760),(600,900),(390,844),(320,740)]:
    p.set_viewport_size({'width':w,'height':h});p.evaluate('async()=>{window.__cozy.setActiveStoryId(null);await window.__cozy.chat.renderThread({structural:true,opening:true})}');p.wait_for_function("document.documentElement.dataset.thread==='welcome'");p.screenshot(path=str(OUT/f'welcome-{w}.png'))

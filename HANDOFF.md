@@ -1,3 +1,21 @@
+# M728 followup: centered reading, Rias seated behind the left side
+
+Version m728-002. Base a052a80d722a442e5f11c393f1e6da5d39999f17.
+Owner's device screenshot shows the reserved right artwork lane pushing chat
+left. Owner explicitly permits panels covering Rias and wants her sitting left.
+Removed the asymmetric thread padding. Existing 740px maximum panels now center
+across the full chat area. Moved the decorative figure to left/bottom zero,
+increased its available size and anchored its lower crop behind the composer.
+Welcome, theme identity, other coats, data and application logic are unchanged.
+
+Updated theme CSS, version and old test assertions that required a separate
+artwork lane. Focused neon_tokyo_resize.py passed center alignment, bottom-left
+anchoring, live phone/unfolded/desktop/landscape/short viewport changes, no reload,
+retained draft, visible composer and no overflow. Inspected actual 760px and
+1440px story screenshots. No unrelated suites or provider calls. Physical device
+confirmation remains the owner's; the picture may be substantially covered by
+reading panels, as requested. No source art edits or service-worker logic changes.
+
 # M728: Neon Tokyo visual redesign for phones and unfolded screens
 
 Version m728-001. Base main 9568e5f5cd238db9bc3f6c895dccd68073193096.

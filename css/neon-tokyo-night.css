@@ -1,5 +1,5 @@
 /* M728: Tokyo apartment. All surfaces belong exclusively to this coat.
- * Local positive stacking, static artwork, container-sized character seating.
+ * Local positive stacking, static artwork, container-sized character seating behind the centered reading column.
  * The thread scrolls above the stage. No filters, animation or story logic. */
 .neon-room { display: none; }
 html[data-theme='neon-tokyo-night'] .thread-wrap {
@@ -20,10 +20,10 @@ html[data-theme='neon-tokyo-night'] .neon-room {
 html[data-theme='neon-tokyo-night'] .neon-rias {
   display: none;
   position: absolute;
-  right: 0;
-  bottom: 130px;
-  width: 27%;
-  height: min(70%, 620px);
+  left: 0;
+  bottom: 0;
+  width: min(38%, 420px);
+  height: min(88%, 760px);
   background: url(../assets/neon-tokyo/rias_seated_extracted.png) center bottom / contain no-repeat;
   mask-image: linear-gradient(#000 88%, transparent);
   pointer-events: none;
@@ -227,7 +227,6 @@ html[data-theme='neon-tokyo-night'] :is(.btn-quiet, .nav-chip, .hearth-chip):hov
 html[data-theme='neon-tokyo-night'] :focus-visible { outline: 2px solid #a0f2ff; outline-offset: 3px; }
 @container (min-width: 600px) {
   html[data-theme='neon-tokyo-night'][data-thread='story'] .neon-rias { display: block; }
-  html[data-theme='neon-tokyo-night'][data-thread='story'] .thread { padding-right: calc(27% + 12px); }
   html[data-theme='neon-tokyo-night'] :is(.hearth, .no-connection) {
     display: flex;
     flex-direction: column;
@@ -244,7 +243,7 @@ html[data-theme='neon-tokyo-night'] :focus-visible { outline: 2px solid #a0f2ff;
   }
 }
 @media (max-height: 520px) {
-  html[data-theme='neon-tokyo-night'] .neon-rias { bottom: 110px; height: 62%; }
+  html[data-theme='neon-tokyo-night'] .neon-rias { height: 85%; }
   html[data-theme='neon-tokyo-night'] :is(.hearth, .no-connection)::before { height: 180px; }
 }
 
