@@ -61,6 +61,11 @@
         <div class="story-search-row">
           <input id="story-search" type="search" placeholder="Search inside your tales…" autocomplete="off" spellcheck="false" aria-label="Search inside your tales">
         </div>
+        <div class="search-controls">
+          <label for="search-scope">Search in</label>
+          <select id="search-scope"><option value="all">All stories, newest first</option><option value="selected">Selected folders</option></select>
+          <fieldset id="search-folders" hidden><legend>Choose any folders</legend><div id="search-folder-options"></div></fieldset>
+        </div>
         <div id="search-results" class="search-results" hidden></div>
         <form id="new-story-form" class="new-story-form" hidden>
           <input id="new-story-title" type="text" maxlength="80" placeholder="Name the tale…" autocomplete="off" aria-label="A name for the new tale">

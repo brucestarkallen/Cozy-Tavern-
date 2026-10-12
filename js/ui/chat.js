@@ -884,7 +884,17 @@ export function initChat(ctx) {
         toast(`"${giant.name}" is taken down — its shelves stand on their own.`);
         if (ctx.onStoriesChanged) ctx.onStoriesChanged();
       });
-      head.append(toggle, renameBtn, removeBtn);
+      const archiveBtn = document.createElement('button');
+      archiveBtn.type = 'button'; archiveBtn.className = 'story-mini';
+      archiveBtn.textContent = giant.archived ? 'Restore' : 'Archive';
+      archiveBtn.setAttribute('aria-label', (giant.archived ? 'Restore' : 'Archive') + ' large project "' + giant.name + '"');
+      archiveBtn.addEventListener('click', async () => {
+        await db.giants.archive(giant.id, !giant.archived);
+        await refreshStories(true);
+        if (ctx.onStoriesChanged) ctx.onStoriesChanged();
+        toast(giant.archived ? 'The large project is restored.' : 'The large project is archived. Its folders and stories are kept.');
+      });
+      head.append(toggle, renameBtn, archiveBtn, removeBtn);
     }
     section.appendChild(head);
     if (!collapsed) {
@@ -896,7 +906,7 @@ export function initChat(ctx) {
         p.textContent = 'No shelf in it yet — "Bulk move" puts shelves in.';
         inner.appendChild(p);
       }
-      for (const { project, stories: onShelf } of shelves) inner.appendChild(shelfSection(project, onShelf, activeId));
+      for (const { project, stories: onShelf } of shelves) inner.appendChild(shelfSection(project, onShelf, activeId, { resting: project.archived === true }));
       section.appendChild(inner);
     }
     return section;
@@ -1218,21 +1228,32 @@ export function initChat(ctx) {
     const grouped = shelvesOf(waking, projects);
     /* M466: shelves put to rest keep their tales and wait in their own corner; the rest stand in the chosen order */
     const shelvesUp = sortShelves(grouped.shelves.filter((s) => s.project.archived !== true));
-    const shelvesResting = sortShelves(grouped.shelves.filter((s) => s.project.archived === true));
+    const archivedGiants = new Set(giants.filter(g => g.archived).map(g => g.id));
+    const shelvesResting = sortShelves(grouped.shelves.filter((s) => s.project.archived === true && !archivedGiants.has(s.project.giantId)));
     /* M630: a shelf standing in a giant project is drawn inside it; a giant project's shelves keep the shelves' order */
     const giantIds = new Set(giants.map((g) => g.id));
     const inGiant = new Map();
     const alone = [];
-    for (const sh of shelvesUp) {
+    for (const sh of [...shelvesUp, ...grouped.shelves.filter(s => s.project.archived === true && archivedGiants.has(s.project.giantId))]) {
       const gid = sh.project.giantId;
       if (gid && giantIds.has(gid)) { if (!inGiant.has(gid)) inGiant.set(gid, []); inGiant.get(gid).push(sh); } else alone.push(sh);
     }
-    for (const g of sortGiants(giants, inGiant)) els.list.appendChild(giantSection(g, inGiant.get(g.id) || [], activeId));
+    for (const g of sortGiants(giants.filter(g => !g.archived), inGiant)) els.list.appendChild(giantSection(g, inGiant.get(g.id) || [], activeId));
     for (const { project, stories: onShelf } of alone) {
       els.list.appendChild(shelfSection(project, onShelf, activeId));
     }
     if (grouped.loose.length || !projects.length) {
       els.list.appendChild(shelfSection(null, sortTales(grouped.loose), activeId));
+    }
+    const archived = sortGiants(giants.filter(g => g.archived), inGiant);
+    if (archived.length) {
+      const row = document.createElement('li');
+      const details = document.createElement('details');
+      const summary = document.createElement('summary');
+      summary.className = 'shelf-head'; summary.textContent = 'Archived large projects (' + archived.length + ')';
+      const inner = document.createElement('ul'); inner.className = 'giant-shelves';
+      for (const g of archived) inner.appendChild(giantSection(g, inGiant.get(g.id) || [], activeId));
+      details.append(summary, inner); row.appendChild(details); els.list.appendChild(row);
     }
     if (shelvesResting.length) els.list.appendChild(restingShelvesRow(shelvesResting, activeId));
     if (resting.length) els.list.appendChild(restingRow(resting, activeId));

@@ -1,7 +1,9 @@
 /* Cozy Tavern — the shelf's search (M622).
  *
  * "Search inside your tales" at the top of the story panel. As he types (a short pause, two letters at least), every
- * tale on his shelf is searched: the ones this browser holds from their own pages (the freshest copy), the ones only
+ * tale on his shelf is searched by default, regardless of collapsed or archived folders.
+ * M734 adds explicit multiple-folder selection using stored project/giant membership, not rendered rows.
+ * The tales searched are: the ones this browser holds from their own pages (the freshest copy), the ones only
  * the device holds through the device (api/books/search — the browser keeps only what it has opened, M313). The
  * tales stand newest-played first, each with its places newest page first; a tap on a place opens the tale at that
  * page, however far back it stands. An empty box, or Escape, brings the shelf back. */
@@ -19,17 +21,48 @@ export function initStorySearch(ctx) {
 
   let seq = 0;
   let timer = null;
-  /* M662 — HIS: "if I open multiple projects it can search words on multiple pages on those projects". The search went
-   * through every tale he has, always. With some shelves open and some folded, it now searches the tales on the OPEN
-   * shelves — the ones he is looking at — says which shelves those are, and offers every tale in one tap (and the way
-   * back). With nothing folded, or everything folded, it is every tale, as before. Each tale says which shelf it is on. */
-  let scope = 'open';
-  function openShelves() {
-    const folded = list.querySelectorAll('.shelf.collapsed').length;
-    const names = [...list.querySelectorAll('.shelf:not(.collapsed):not(.giant) > .shelf-head .shelf-name')].map((el) => (el.textContent || '').trim()).filter(Boolean);
-    const ids = new Set([...list.querySelectorAll('.story-item[data-story]')].map((el) => el.dataset.story));
-    return { folded, names, ids };
+  const scopeControl = document.getElementById('search-scope');
+  const folderBox = document.getElementById('search-folders');
+  const folderOptions = document.getElementById('search-folder-options');
+  const selected = new Set();
+  let folderSeq = 0;
+  async function drawFolders() {
+    const draw = ++folderSeq;
+    const [projects, giants] = await Promise.all([db.projects.list(), db.giants.list()]);
+    if (draw !== folderSeq) return;
+    const giantNames = new Map(giants.map(g => [g.id, g.name]));
+    const choices = [
+      ...giants.map(g => ['giant:' + g.id, 'Large project: ' + g.name + (g.archived ? ' (archived)' : '')]),
+      ...projects.map(p => ['project:' + p.id, (giantNames.get(p.giantId) ? giantNames.get(p.giantId) + ' / ' : '') + p.name + (p.archived ? ' (archived)' : '')]),
+      ['loose', 'Loose stories']
+    ];
+    folderOptions.replaceChildren();
+    for (const [id, name] of choices) {
+      const label = document.createElement('label');
+      const check = document.createElement('input');
+      check.type = 'checkbox'; check.value = id; check.checked = selected.has(id);
+      check.addEventListener('change', () => {
+        if (check.checked) selected.add(id); else selected.delete(id);
+        launch(input.value);
+      });
+      label.append(check, document.createTextNode(name)); folderOptions.append(label);
+    }
   }
+  function launch(value) {
+    clearTimeout(timer);
+    const pending = run(value);
+    const request = seq;
+    pending.catch(() => {
+      if (request !== seq) return;
+      box.replaceChildren(line('Search could not finish. Please try again.'));
+      box.hidden = false;
+    });
+  }
+  scopeControl.addEventListener('change', () => {
+    folderBox.hidden = scopeControl.value !== 'selected';
+    if (!folderBox.hidden) drawFolders().catch(() => { folderOptions.textContent = 'Folders could not load. Please try again.'; });
+    launch(input.value);
+  });
 
   function closeResults() {
     seq += 1;
@@ -61,7 +94,7 @@ export function initStorySearch(ctx) {
     b.append(who, words);
     b.setAttribute('aria-label', `Open “${tale.title}” at this page`);
     b.addEventListener('click', () => {
-      if (ctx.chat && typeof ctx.chat.jumpToPage === 'function') ctx.chat.jumpToPage(tale.id, hit.id).catch(() => {});
+      if (ctx.chat && typeof ctx.chat.jumpToPage === 'function') ctx.chat.jumpToPage(tale.id, hit.id).catch(() => { box.prepend(line('This page could not open. Please try again.')); });
     });
     return b;
   }
@@ -110,11 +143,17 @@ export function initStorySearch(ctx) {
     box.textContent = '';
     box.appendChild(line('Searching your tales for “' + raw.trim() + '”…'));
     const everyTale = (await db.stories.list()).filter((s) => s && !(s.building && typeof s.building === 'object'));
-    const open = openShelves();
-    const narrowed = scope === 'open' && open.folded > 0 && open.ids.size > 0;
-    const shelf = narrowed ? everyTale.filter((s) => open.ids.has(s.id)) : everyTale;
-    let shelfNames = new Map();
-    try { shelfNames = new Map(((await db.projects.list()) || []).map((p) => [p.id, p.name])); } catch (err) { /* no shelves: every tale is loose */ }
+    const [projects, giants] = await Promise.all([db.projects.list(), db.giants.list()]);
+    if (my !== seq) return;
+    const narrowed = scopeControl.value === 'selected';
+    const projectMap = new Map(projects.map(p => [p.id, p]));
+    const giantNames = new Map(giants.map(g => [g.id, g.name]));
+    const shelf = narrowed ? everyTale.filter(st => {
+      if (!st.projectId) return selected.has('loose');
+      const project = projectMap.get(st.projectId);
+      return selected.has('project:' + st.projectId) || (project && selected.has('giant:' + project.giantId));
+    }) : everyTale;
+    const shelfNames = new Map(projects.map(p => [p.id, (giantNames.get(p.giantId) ? giantNames.get(p.giantId) + ' / ' : '') + p.name]));
     const shelfOf = (st) => (st.projectId && shelfNames.get(st.projectId)) || 'Loose tales';
     const local = new Map();
     for (const st of shelf) {
@@ -148,18 +187,11 @@ export function initStorySearch(ctx) {
     }
     results.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)); /* the latest tale first */
     box.textContent = '';
-    const where = narrowed ? ' on the open shelves (' + open.names.join(', ') + ')' : '';
+    const where = narrowed ? ' in the selected folders' : '';
+    if (narrowed && !selected.size) { box.appendChild(line('Choose one or more folders to search.')); return; }
     box.appendChild(line(results.length
       ? (results.length === 1 ? 'One tale' + where + ' holds' : results.length + ' tales' + where + ' hold') + ' “' + raw.trim() + '” — the latest first.'
       : 'No tale' + where + ' holds “' + raw.trim() + '”.', 'lbl search-summary'));
-    if (open.folded > 0 && open.ids.size > 0) {
-      const other = document.createElement('button');
-      other.type = 'button';
-      other.className = 'text-btn search-scope';
-      other.textContent = narrowed ? 'Search every tale' : 'Only the open shelves';
-      other.addEventListener('click', () => { scope = narrowed ? 'all' : 'open'; run(input.value).catch(() => {}); });
-      box.appendChild(other);
-    }
     /* M675: …and when the tavern answered that it does not serve this address, that is what is said — not that it "did not answer" */
     const turnedAway = Boolean(ctx && ctx.booksStatus && !ctx.booksStatus.backed && ctx.booksStatus.refused);
     if (deviceSilent) box.appendChild(line(turnedAway
@@ -171,16 +203,16 @@ export function initStorySearch(ctx) {
   input.addEventListener('input', () => {
     clearTimeout(timer);
     const value = input.value;
-    timer = setTimeout(() => { run(value).catch(() => {}); }, 300);
+    timer = setTimeout(() => { launch(value); }, 300);
   });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { input.value = ''; clearTimeout(timer); closeResults(); }
-    if (e.key === 'Enter') { clearTimeout(timer); run(input.value).catch(() => {}); }
+    if (e.key === 'Enter') { clearTimeout(timer); launch(input.value); }
   });
 
   /* M629 (the session's audit): results standing while a tale is deleted, renamed or moved went stale — a tap on a deleted
    * tale's place led nowhere; the house's word that the shelf changed searches again */
-  const refresh = () => { if (!box.hidden && searchKey(input.value).length >= SEARCH_MIN) run(input.value).catch(() => {}); };
+  const refresh = () => { if (!folderBox.hidden) drawFolders().catch(() => {}); if (!box.hidden && searchKey(input.value).length >= SEARCH_MIN) launch(input.value); };
   const api = { run: (q) => { input.value = q; return run(q); }, close: () => { input.value = ''; closeResults(); }, refresh };
   if (ctx) ctx.search = api;
   return api;

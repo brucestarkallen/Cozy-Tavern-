@@ -20704,3 +20704,33 @@ Night footer and Tokyo cutaway/input screenshots. Initial checks needed the loca
 Chromium executable and test fixture/selector corrections; final check passed.
 No broad suites, provider requests, physical Android/foldable verification or
 changes to personal data. Custom edited regex typography remains user-controlled.
+
+# M734: explicit story search scopes and large-project archive
+
+Version m734-001. Base f27fee689175929abacb85c33832693e3d47eb2c.
+The old search inferred its scope from rendered open shelves. Folded folders
+could silently exclude matching stories. Replaced that implicit scope with
+All stories (default, newest played first, newest matching page first) and
+Selected folders. Checkboxes combine any large projects, ordinary folders and
+loose stories using stored membership; parent/child overlaps do not duplicate
+hits. Archived and folded folders remain searchable. Query errors now show a
+retry message instead of silently leaving a searching state. Existing local
+page matching and device-backed shallow search contracts remain unchanged.
+This establishes an actual omitted-folder cause, not the owner's full device
+failure. Device-only stories still need the local server to answer.
+
+Large project headers now offer Archive and Restore. Archive is a flag on the
+existing giants settings row, not a child mutation or data migration. Archived
+groups appear under Archived large projects. Restoring keeps child folder
+archive flags, memberships and stories exactly as before. No deletes, worker
+changes or theme changes. Existing backup/settings paths carry the flag.
+
+Changed index.html, css/chat.css, js/ui/search.js, js/ui/chat.js, js/store.js and
+js/version.js. Existing service-worker shell covers all shipped files.
+Added tests/m734_search.py. Focused Chromium fixture passed all-folder matches
+with collapsed/archived folders, newest result/page ordering, mixed multiple
+large-project/folder selection, real hit navigation, archive persistence across
+reload, restore, exact child folder/message retention and narrow overflow check.
+Initial fixture used the wrong message attribute; corrected to the app's data-id.
+JS syntax checks passed. No broad suites, live device-server search check,
+physical Android check or real user data was used. Remote search path retained.

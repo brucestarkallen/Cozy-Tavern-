@@ -696,6 +696,14 @@ const giants = {
     await settings.set(GIANTS_KEY, rows.map((g) => (g.id === id ? { ...g, name: next } : g)));
     return { ...row, name: next };
   },
+  async archive(id, archived) {
+    const rows = await giants.list();
+    const row = rows.find(g => g.id === id);
+    if (!row) return undefined;
+    const next = { ...row, archived: archived === true };
+    await settings.set(GIANTS_KEY, rows.map(g => g.id === id ? next : g));
+    return next;
+  },
   async remove(id) {
     const rows = await giants.list();
     const next = rows.filter((g) => g.id !== id);
