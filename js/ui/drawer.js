@@ -1,3 +1,4 @@
+import {historicalAdvisoryView,advisoryLabel} from '../agents/continuous.js';
 import { ledgerDebugSection } from './ledgerdebug.js';
 import { auditScratchbookButton } from './auditscratchbook.js';
 /* Cozy Tavern — ui/drawer.js
@@ -1775,15 +1776,17 @@ function driftPanel(ctx) {
      * panel gathers the newest few, windowed to the last 100 pages (M9,
      * B18 — a long tale's early drift is old news). */
     const history = await db.messages.list(story.id);
+    const advisoryMemory=await loadMemory(story.id);
+    const advisoryPages=visiblePages(history);
     const window = history.slice(-100);
     const found = [];
     for (let i = window.length - 1; i >= 0 && found.length < 10; i -= 1) {
       const msg = window[i];
       if (!msg || msg.role !== 'assistant' || !Array.isArray(msg.findings)) continue;
       for (let j = msg.findings.length - 1; j >= 0 && found.length < 10; j -= 1) {
-        const f = msg.findings[j];
+        const f = historicalAdvisoryView(msg.findings[j],msg,advisoryMemory,advisoryPages,story);
         if (f && typeof f.words === 'string' && f.words.trim()) {
-          found.push({ words: f.words.trim(), severity: f.severity === 'warn' ? 'warn' : 'note', fix: f.fix || '', page: history.filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id) + 1 });
+          found.push({ disposition:f.disposition,resolution:f.resolution,words: f.words.trim(), severity: f.severity === 'warn' ? 'warn' : 'note', fix: f.fix || '', page: history.filter((m) => m.role === 'assistant').findIndex((m) => m.id === msg.id) + 1 });
         }
       }
     }
@@ -1842,9 +1845,9 @@ function driftPanel(ctx) {
     note.textContent = 'Audit results above describe ledger corrections. Page concerns below describe a disagreement the reader noticed; they are not proof that the page was changed. A separate “Mended a page” entry records an actual repair.';
     for (const f of found) {
       const li = document.createElement('li');
-      li.className = 'log-row' + (f.severity === 'warn' ? ' drift-warn' : '');
+      li.className = 'log-row' + (f.severity === 'warn' && !f.disposition ? ' drift-warn' : '');
       const words = document.createElement('span');
-      words.textContent = 'Story page ' + f.page + '. ' + (f.severity === 'warn' ? 'Unresolved page concern: ' : 'Reader’s note: ') + f.words + (f.fix ? ' Suggested correction: ' + f.fix : '');
+      words.textContent = 'Story page ' + f.page + '. ' + advisoryLabel(f) + f.words + (f.fix ? ' Suggested correction: ' + f.fix : '');
       li.appendChild(words);
       list.appendChild(li);
     }

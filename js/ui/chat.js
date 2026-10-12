@@ -1,3 +1,4 @@
+import {healthSnapshot,routeHealth,workerRecoveryDue} from '../agents/health.js';
 import { ledgerRepairStateKey, ledgerRepairInputKey, repairRetryCheckpoint, auditHasOpenWork, ledgerAuditVerified, ledgerRepairNeeded, LEDGER_REPAIR_POLICY } from '../agents/auditprogress.js';
 /* Cozy Tavern — ui/chat.js
  * Story list, message thread, composer. Streaming renders token by token.
@@ -2838,6 +2839,53 @@ export function initChat(ctx) {
       }, 250);
     });
   }
+  const healthWorkerActive=new Set(),healthWorkerLook=new Map();
+  const healthWorkerKey=(story,pages,name)=>fingerprint36(JSON.stringify([1,name,story?.brief,story?.castNotes,pages.map(p=>[p.id,pageText(p)])]));
+  async function workerHealthInputs(storyId,story,pages,shelf) {
+    const failed=['keeper','extractor','scribe','world','continuity'].filter(name=>shelf[name] && (shelf[name].ok===false || shelf[name].unfinished));
+    if (!failed.length) return {};
+    const saved=await db.settings.get('healthWorkers:'+storyId) || {};
+    const result={};
+    for (const name of failed) {
+      const input=healthWorkerKey(story,pages,name),wait=workerRecoveryDue(saved[name],input);
+      result[name]={input,eligible:wait===0,reason:wait<0?'Automatic recovery paused after two unchanged attempts.':wait>0?'Automatic recovery is waiting for its saved backoff.':''};
+      if (wait>0 && !healthWorkerLook.has(storyId)) healthWorkerLook.set(storyId,setTimeout(()=>{healthWorkerLook.delete(storyId);if(ctx.getActiveStoryId()===storyId)markLedgerTrouble(storyId);},Math.min(wait,60000)+50));
+    }
+    return result;
+  }
+  async function recoverHealthWorker(storyId,name) {
+    if (healthWorkerActive.has(storyId) || busy || isReplaying() || otherHandAt(storyId) || workIsRunning(storyId) || queuedCount(storyId)) return;
+    healthWorkerActive.add(storyId);
+    let attempted=false;
+    try {
+      const story=await db.stories.get(storyId),pages=visiblePages(await db.messages.list(storyId));
+      const last=[...pages].reverse().find(p=>p.role==='assistant');
+      if (!story || !last || last.ooc || last.stopped || !pageText(last).trim() || storyId!==ctx.getActiveStoryId()) return;
+      const shelf=await loadWorkerStatus(storyId),row=shelf[name];
+      if (!row || (row.ok!==false && !row.unfinished)) return;
+      const input=healthWorkerKey(story,pages,name),key='healthWorkers:'+storyId;
+      const checkpoints=await db.settings.get(key) || {},old=checkpoints[name];
+      if (workerRecoveryDue(old,input)!==0) return;
+      if (busy || isReplaying() || otherHandAt(storyId) || workIsRunning(storyId) || queuedCount(storyId)) return;
+      checkpoints[name]={input,attempts:(old?.input===input?old.attempts:0)+1,nextAt:Date.now()+60000,status:'running'};
+      await db.settings.set(key,checkpoints);
+      attempted=true;
+      if (busy || isReplaying() || otherHandAt(storyId) || workIsRunning(storyId) || queuedCount(storyId)) return;
+      const latestStory=await db.stories.get(storyId),latestPages=visiblePages(await db.messages.list(storyId));
+      if (healthWorkerKey(latestStory,latestPages,name)!==input || busy || isReplaying() || otherHandAt(storyId) || workIsRunning(storyId) || queuedCount(storyId)) return;
+      const at=pages.findIndex(p=>p.id===last.id),user=[...pages.slice(0,at)].reverse().find(p=>p.role==='user');
+      await startBackgroundWork(story,last,user?pageText(user):'',{healthOnly:name});
+      // The existing worker saves and reports its own postcondition; never infer
+      // completion merely from a resolved queue promise or overwrite its status.
+      const current=await loadWorkerStatus(storyId),now=await db.settings.get(key) || {};
+      if (now[name]?.input===input) {
+        now[name]={...now[name],status:current[name]?.ok && !current[name]?.unfinished?'completed':'blocked'};
+        await db.settings.set(key,now);
+      }
+    } catch (err) { /* durable reservation survives interruption; the next look is bounded */ }
+    finally {healthWorkerActive.delete(storyId);if(attempted)markLedgerTrouble(storyId);}
+  }
+
   async function markLedgerTroubleNow(storyId) {
     try {
       const btn = document.getElementById('btn-ledger');
@@ -2858,6 +2906,7 @@ export function initChat(ctx) {
        *   · the RECORD has no page past the word-for-word window without a line
        * Anything short of all four and it is not green. A light that lies once
        * is worse than no light. */
+      let healthInputs=null;
       let behind = false;
       let recordBehind = false;
       let ledgerBehind = false;
@@ -2896,6 +2945,9 @@ export function initChat(ctx) {
         behind = ledgerBehind || recordBehind;
         /* M673: only where it can read — its switch on, and this story's readers not switched off */
         if (await continuousAuditOn()) { if (tale && tale.extraction !== false) auditRead = auditProgress(mem, pages.length, pages, tale); }
+        const recovery=await workerHealthInputs(storyId,tale,pages,shelf);
+        healthInputs={storyId,story:tale,shelf,state:st,pages,mem,auditRead,workerRecovery:recovery,
+          historicalWait:auditRead && (auditRead.left || auditRead.open)?auditWaits(storyId,mem,pages,tale):-1};
       } catch (err) { behind = true; }   /* if it cannot be checked, it is not green */
 
       const ran = minders.filter((n) => shelf[n]).length;
@@ -2908,7 +2960,7 @@ export function initChat(ctx) {
        * THE LIGHT ONLY: these two are kept out of `trouble`, which also decides whether the house may heal a gap by itself
        * (fillRecordGap / fillLedgerGap). My first cut put them in it, and a tale carrying an old auditor's failed mark
        * stopped healing — DOM-22 caught it. */
-      const savedAudit = (await loadState(storyId)).audit;
+      const savedAudit = healthInputs?.state?.audit || (await loadState(storyId)).audit;
       const repairPaused = Boolean(savedAudit?.pausedInput && !repairOwed);
       const openAudit = auditHasOpenWork(savedAudit);
       const guards = ['continuity', 'auditor'].filter((n) => shelf[n] && shelf[n].ok === false && newestPageAt > 0 && Number(shelf[n].at) >= newestPageAt);
@@ -2976,12 +3028,18 @@ export function initChat(ctx) {
        * dark until the writer's next page — detection without repair. Seen
        * while the house is idle and no worker is failing, the keeper is sent to
        * fold it, once a minute at most for each tale. */
-      if (recordBehind && !busy && !trouble) fillRecordGap(storyId);
-      /* M276: and the pages the ledger never read are read while the house is idle */
-      if (ledgerBehind && !busy && !trouble) fillLedgerGap(storyId);
-      if (repairOwed && !busy && !behind) scheduleLedgerRepair(storyId);
-      /* M673: and the continuous audit reads its next stretch of folded pages */
-      if (auditRead && (auditRead.left > 0 || auditRead.open > 0) && !busy && !trouble && !behind) continuousCatchUp(storyId);
+      if (healthInputs) {
+        const health=healthSnapshot({...healthInputs,recordBehind,ledgerBehind,verificationNeeded,repairOwed,repairPaused,guards,
+          running:runningWorkers(storyId),queued:queuedCount(storyId),otherOwner:otherHandAt(storyId) || isReplaying() || ctx.chat?.isBusy?.()});
+        if (health.status==='working') {btn.classList.remove('all-well');btn.classList.add('is-working');ledgerMark='working';}
+        else if (!health.clean) {
+          btn.classList.remove('all-well');btn.classList.add('has-trouble');ledgerMark='trouble';
+          btn.setAttribute('title','The ledger: '+health.reasons.join('; '));
+        }
+        routeHealth(health,{record:()=>fillRecordGap(storyId),ledger:()=>fillLedgerGap(storyId),
+          auditor:()=>scheduleLedgerRepair(storyId),historical:()=>continuousCatchUp(storyId),
+          ...Object.fromEntries(['extractor','world','scribe','keeper','continuity'].map(name=>['worker:'+name,()=>recoverHealthWorker(storyId,name)]))});
+      }
     } catch (err) { /* a mark is never worth a thrown turn */ }
   }
 
@@ -4694,18 +4752,22 @@ export function initChat(ctx) {
     });
   }
 
-  function startBackgroundWork(story, msg, userText, { deep = false, audit = false, refound = false, layoutRebased = false } = {}) {
-    offerChoices(story); /* M548: Choices matter — never in the chain, so no send waits for it */
+  function startBackgroundWork(story, msg, userText, { deep = false, audit = false, refound = false, layoutRebased = false, healthOnly = null } = {}) {
+    if (!healthOnly) offerChoices(story); /* M548: Choices matter — never in the chain, so no send waits for it */
     const gen = chainGen.get(story.id) || 0;
     /* M134: the clock as the chain begins — the world link measures how far this page moved it */
     const chainClock = { before: null };
+    const healthJobs=[];const healthSelected=new Set();
     let ownReading = true; /* M675: the page's own readers — what "this page was read" means (see ledgerLinksOut) */
     const enqueue = (name, run, { once = false } = {}) => {
+      if (healthOnly && (name!==healthOnly || healthSelected.has(name))) return Promise.resolve({silent:true});
+      if (healthOnly) {healthSelected.add(name);once=true;}
       /* M529: the record keeper, the sensors, the essentials, the placer, the world keeper and the plans keeper read the pages
        * and the record and write only their own books — with two workers at once they run in their own lane */
       const lane = SIDE_JOBS.has(name) ? 'side' : 'main';
       const promise = enqueueWork(story.id, { name, lane, layoutRebased, ...(once ? { once: true } : {}), run: chainJob(run, () => (chainGen.get(story.id) || 0) !== gen) }); /* M259: the leash's renew rides through */
       noteWork(story.id, promise);
+      if (healthOnly) healthJobs.push(promise);
       if (ownReading && lane === 'main' && msg && msg.id) noteLedgerLink(story.id, msg.id, promise);
       return promise;
     };
@@ -5553,6 +5615,7 @@ export function initChat(ctx) {
       }
     });
     /* M636: THE SENSORS, after every link above has been queued and once they are done — outside the chain (no send waits) */
+    if (healthOnly) return Promise.all(healthJobs);
     pendingWork(story.id, 120000).then(() => queueSense(story, msg && msg.id)).catch(() => { /* a reading is never worth a page */ });
   }
 

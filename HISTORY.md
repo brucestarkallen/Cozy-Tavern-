@@ -20387,3 +20387,51 @@ persistence and controlled production green lamp checks. Existing focused
 preservation checks passed. Syntax checks for continuous.js and housekeeper.js
 and diff check passed. No paid provider, live owner database/browser, bulk suite,
 new worker, mandatory call, historical rescan or unrelated changes.
+
+
+## M727: Automatic local health reconciliation (12 October 2026)
+
+Confirmed M726 defect: findInPages emitted `p72 #ef7158 the storyteller`,
+but fetch parsing and evidence resolution rejected that complete label. The
+new generated-label fixture failed before the fix with one finding still open.
+The shared resolver now checks ordinal, unique handle and optional speaker
+against the same original ID. Disagreement is rejected. Literal quotation and
+M725 semantic fidelity checks remain unchanged. A scoped evidence-policy
+checkpoint reconsiders old blocked composite-reference failures, not genuine
+ambiguity or all completed historical reviews.
+
+Successful historical receipts now identify their record. New page advisories
+carry record/source provenance. Both the health inventory and corrections panel
+derive advisory disposition from valid saved recovery receipts. Original warning
+text remains inspectable. Legacy association requires the exact allegation and
+actual cited original, with unchanged source fingerprints; similar wording or
+page numbering alone cannot dismiss anything. Correct memory is not rewritten.
+
+New agents/health.js inventories essential failures/incomplete operations,
+record and ledger gaps, source/entry receipts, Auditor findings/pauses, current
+factual guard failures, historical coverage/findings, advisory dispositions,
+queues and ownership. chat.js reuses its existing debounced reads and routes one
+eligible existing owner at a time. Normal gap, Auditor and Continuous Audit
+paths retain their safeguards. Failed essential workers and the current second
+reader can retry their existing single job, at most twice per unchanged input,
+with durable checkpoints and backoff. Choices, sensors and unrelated jobs are
+not queued by this targeted path. The latest input and existing queue/stale
+checks guard application. A status write cannot reset retry counts. No healthy
+material triggers another model call. health.js is included in the offline shell.
+
+Verification: node tests/harness/m722-focused.mjs passed generated search label,
+fetch, evidence, no-edit settlement, inconsistent/ambiguous references, M726
+blocked recovery, advisory reconciliation, changed-source rejection, all health
+categories, ordered mocked-owner recovery, green/blocked/busy states, durable
+retry bounds and actual production single-job queue registration. Existing
+M722–M726 focused preservation cases passed. During testing, an overbroad legacy
+advisory association was found and narrowed to the actual cited original.
+Controlled production lamp logic and the shared health state reach green only
+with other required checks satisfied. node --check passed for changed JS modules
+and sw.js; git diff --check passed. No bulk or paid-provider tests.
+
+Limits: no access to the owner's IndexedDB, raw provider reply or live browser.
+This establishes the transport and state paths in fixtures, not live resolution.
+Legacy advisories lacking sufficient provenance remain unresolved rather than
+being guessed away. Existing gap/worker prerequisites and genuine blocked
+findings remain visible; no full historical rebuild or automatic data migration.

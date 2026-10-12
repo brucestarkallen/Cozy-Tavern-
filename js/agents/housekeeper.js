@@ -576,7 +576,7 @@ export function parseFetchRefs(body) {
    * the model, in as many words, to "FETCH ... the line itself (its #r… mark)
    * before you judge". The one thing that button asks for could never be
    * fetched, and the turn came back as a bare <fetch> with nothing done. */
-  const isRef = (t) => pageOrdinal(t)!==null
+  const isRef = (t) => Boolean(compositeMessageRef(t)) || pageOrdinal(t)!==null
     || /^#?[a-z0-9][a-z0-9_-]{3,127}$/i.test(t)
     || /^#?[0-9a-f]{3,12}$/i.test(t)
     || /^#r[0-9a-z]{2,16}$/i.test(t)
@@ -674,6 +674,10 @@ function pageOrdinal(ref) {
   return match ? Number(match.slice(1).find(Boolean)) : null;
 }
 
+export function compositeMessageRef(ref) {
+  return /^(p[0-9]+|\[p[0-9]+\]|page\s+[0-9]+|[0-9]+)\s+(#[a-z0-9_-]{4,128})(?:\s+(the storyteller|the writer))?$/i.exec(String(ref || '').trim());
+}
+
 /* Displayed ordinals and handles share one precise source resolver. */
 export function messageRefResult(messages, ref) {
   const list = Array.isArray(messages) ? messages : [];
@@ -682,6 +686,15 @@ export function messageRefResult(messages, ref) {
   const exact = list.filter(m=>m && m.id===raw);
   if (exact.length===1) return {message:exact[0]};
   if (exact.length>1) return {error:'ambiguous'};
+  const composite=compositeMessageRef(raw);
+  if (composite) {
+    const ordinal=messageRefResult(list,composite[1]),handle=messageRefResult(list,composite[2]);
+    if (ordinal.error || handle.error) return {error:ordinal.error || handle.error};
+    if (ordinal.message.id!==handle.message.id) return {error:'inconsistent'};
+    const role=composite[3]?.toLowerCase();
+    if (role && (role==='the storyteller' ? ordinal.message.role!=='assistant' : ordinal.message.role!=='user')) return {error:'inconsistent'};
+    return ordinal;
+  }
   const n=pageOrdinal(raw);
   if (n!==null) {
     const visible=list.filter(m=>m && !m.hidden);

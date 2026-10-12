@@ -45,7 +45,7 @@ import { runningWorkers } from './status.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { roomChars, leashFor, fetchLaw, fetchRefsIn } from './lookup.js';
-import { serveFetch, resolveMessageRef, messageRefResult } from './housekeeper.js';
+import { serveFetch, resolveMessageRef, messageRefResult, compositeMessageRef } from './housekeeper.js';
 import { wholePage } from '../engine/pagecut.js';
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js';
 import { isHouseTidy } from '../engine/pagepatch.js'; /* M675: a page the finisher only tidied is not "already mended" */
@@ -124,10 +124,11 @@ const stretchMark = (node,pages,from,to) => fingerprint36(JSON.stringify([node.t
  * written before calling the provider, so reopening the app cannot reset them. */
 const RECOVERY_TRIES = 2;
 const DISPOSITION_POLICY = 2;
-const EVIDENCE_POLICY = 1;
-// M725's generic transport error is the only new legacy checkpoint reopened.
+const EVIDENCE_POLICY = 2;
+// Reopen only legacy generic transport failures or rejected composite references.
 const oldEvidenceFailure = r => r?.evidencePolicy!==EVIDENCE_POLICY
-  && String(r?.reason || '').includes('Missing or incorrect original-source evidence for the fidelity decision or its claimed conflict.');
+  && (String(r?.reason || '').includes('Missing or incorrect original-source evidence for the fidelity decision or its claimed conflict.')
+    || (String(r?.reason || '').includes('source reference could not be resolved.') && [...(r.evidence || []),...(r.sourceFidelity?.conflicts || [])].some(e=>compositeMessageRef(e.source))));
 const legacyDisposition = r => r?.status==='blocked' && (r.dispositionPolicy!==DISPOSITION_POLICY || oldEvidenceFailure(r));
 export const RECOVERY_DELAY = 60000;
 const recoveryPending = f => !f.recovery || legacyDisposition(f.recovery) || (f.recovery.status!=='blocked'
@@ -167,6 +168,40 @@ function historicalFindings(node,pages=null,writer=null) {
     if (changed) open.push({...r.finding,from:node.span[0],to:node.span[1],why:'Supporting original evidence changed; reconsider this historical disposition.'});
   }
   return open;
+}
+
+/* A durable recovery receipt is also the disposition of its matching page
+ * advisory. Keep the original advisory intact; do not duplicate mutable truth. */
+export function historicalAdvisoryView(finding,message,mem,pages,writer=null) {
+  if (finding?.kind!=='audit' || !message?.id) return finding;
+  const tidy=s=>String(s || '').replace(/\s+/g,' ').trim();
+  for (const node of mem?.nodes || []) {
+    const open=new Set(historicalFindings(node,pages,writer).map(f=>findingId(node,f)));
+    const latest=new Map((node.auditRecovery || []).map(r=>[r.id,r]));
+    for (const receipt of latest.values()) {
+      if (!['correct','repaired'].includes(receipt.outcome) || open.has(receipt.id)) continue;
+      const source=receipt.sources?.find(s=>s.id===message.id);
+      if (!source || source.mark!==fingerprint36(pageText(message))) continue;
+      const issue=receipt.finding?.issue;
+      if (!issue?.what) continue;
+      const link=finding.auditLink;
+      if (!link && !receipt.evidence?.some(e=>messageRefResult(pages,e.source).message?.id===message.id)) continue;
+      if (link && (link.sourceId!==message.id || link.sourceMark!==source.mark
+        || link.recordId!==(receipt.recordId || node.id) || tidy(link.allegation)!==tidy(issue.what))) continue;
+      const actual=tidy(finding.words);
+      const expected='The continuous audit: '+tidy(issue.what);
+      // Legacy association requires exact original allegation and its original page,
+      // never a title/name resemblance or storyteller ordinal conversion.
+      if (!link && actual!==expected && actual!==expected+' It should read: '+tidy(issue.fix)) continue;
+      return {...finding,disposition:receipt.outcome==='correct'?'disproved':'repaired',resolution:{findingId:receipt.id,at:receipt.at,why:receipt.why}};
+    }
+  }
+  return finding;
+}
+
+export function advisoryLabel(finding) {
+  return finding?.disposition==='disproved' ? 'Disproved page concern: ' : finding?.disposition==='repaired' ? 'Resolved page concern: '
+    : finding?.severity==='warn' ? 'Unresolved page concern: ' : 'Reader’s note: ';
 }
 
 /* A plan never writes. It preserves the exact prefix/suffix around each unique
@@ -237,6 +272,7 @@ function checkedEvidence(entry,evidence,pages,kind='Evidence') {
   if (/^(brief|cast)$/i.test(raw)) id=raw.toLowerCase();
   else {
     const resolved=messageRefResult(pages,raw);
+    if (resolved.error==='inconsistent') return fail('source ordinal, handle or speaker disagree; cite one consistent original.');
     if (resolved.error==='ambiguous') return fail('source reference is ambiguous; use the exact message ID.');
     if (resolved.error==='unavailable') return fail('referenced original page is unavailable.');
     if (!resolved.message) return fail('source reference could not be resolved.');
@@ -439,7 +475,7 @@ async function recoverHistoricalFinding({connection,storyId,brief,castNotes,sign
     for (const id of ['brief','cast']) if (supplied.some(e=>String(e.source)===id)) sources.push({id,mark:fingerprint36(evidence.get(id))});
     node.auditRecovery=[...(node.auditRecovery || []),{id,input,outcome,dispositionPolicy:DISPOSITION_POLICY,evidencePolicy:EVIDENCE_POLICY,
       allegation:answer.allegation || (outcome==='correct'?'disproved':'confirmed'),noEdit:outcome==='correct',
-      sourceSpan:[...line.span],sources,finding:{id,from:original.from,to:original.to,issue:original.issue,why:original.why},
+      recordId:line.id,sourceSpan:[...line.span],sources,finding:{id,from:original.from,to:original.to,issue:original.issue,why:original.why},
       writer,why:answer.why,evidence:supplied,sourceFidelity:answer.sourceFidelity,reportedOutcome:answer.reportedOutcome,reportedAllegation:answer.reportedAllegation,
       before:outcome==='repaired'?before:undefined,after:{text:node.text,detail:node.detail},at:Date.now()}];
     // Save with the finding still present until the actual stored postcondition has passed.
@@ -456,6 +492,7 @@ async function recoverHistoricalFinding({connection,storyId,brief,castNotes,sign
     if (!intact || stopped()) return null;
     savedNode.auditOpen=savedNode.auditOpen.filter(f=>f.id!==id);
     await saveMemory(storyId,saved);
+    notify(storyId);
   }
   const after=auditProgress(saved,pagesNow.length,pagesNow);
   return {ok:true,recovery:outcome,from:original.from,to:original.to,mendedPages:0,applied:[],refused:[],faults:[],lineMended:outcome==='repaired'?answer.record.fixes.length:0,
@@ -1108,7 +1145,7 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
     if (Array.isArray(changed) && changed.length) { mendedPages += changed.length; continue; }
     notedFaults.push({ what: f.what, fix: f.fix, page: f.page, noted: false });
     if (itsStory && typeof note === 'function') {
-      try { await note(pg.id, { words: 'The continuous audit: ' + words, severity: 'warn', kind: 'audit' }); notedFaults[notedFaults.length - 1].noted = true; } catch (err) { /* it is still said on the workers' line */ }
+      try { await note(pg.id, { words: 'The continuous audit: ' + words, severity: 'warn', kind: 'audit', auditLink:{recordId:prompt.lineId,sourceId:pg.id,sourceMark:fingerprint36(pageText(pg)),allegation:f.what} }); notedFaults[notedFaults.length - 1].noted = true; } catch (err) { /* it is still said on the workers' line */ }
     }
   }
   if (mendedPages) {
