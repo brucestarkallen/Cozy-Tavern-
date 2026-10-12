@@ -1411,3 +1411,6 @@ html[data-theme='neon-tokyo-night'] {
   --pk-violet-3: #bb9bec;
   --pk-teal: #91e4d6;
 }
+
+/* M739: give the settings room chips breathing room from the panel edge. */
+.settings-quicknav { padding-inline: 0.6rem; }

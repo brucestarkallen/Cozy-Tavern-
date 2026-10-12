@@ -1411,3 +1411,16 @@ body.settings-open .immerse-show { display: none; }
 #search-folder-options { max-height: 180px; overflow-y: auto; }
 #search-folder-options label { display: flex; align-items: center; gap: 8px; padding: 5px 0; overflow-wrap: anywhere; }
 #search-folder-options input { flex: none; width: auto; }
+
+/* M739: center both status lights on the 14px immersive tab. */
+.immerse-show.room-btn::after,
+.immerse-show.room-btn.is-auditing::before {
+  right: 7px;
+  transform: translateX(50%);
+  box-sizing: border-box;
+}
+/* Keep the native story scrollbar as the single scroll handle.
+ * Page tracking still updates the existing label beneath the composer. */
+.page-mark { display: none; }
+/* The fixed shelf handle belongs to the story, never the settings overlay. */
+body.settings-open .panel-resize { display: none; }

@@ -137,7 +137,15 @@ export function initSpeechColours(ctx) {
     await db.settings.set(KEY, JSON.parse(JSON.stringify(map)));
     lay(coat, map);
     say(k, hex);
+    reset.disabled = false;
   }
+
+  const orange = document.getElementById('btn-speech-colours-orange');
+  if (orange) orange.addEventListener('click', async () => {
+    const hex = readable('#efb477', groundNow());
+    inputs.spoken.value = hex;
+    await keep('spoken', hex);
+  });
 
   for (const k of Object.keys(inputs)) {
     /* as the picker moves: the room follows live, and the number with it */

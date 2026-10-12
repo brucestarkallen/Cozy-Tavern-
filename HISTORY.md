@@ -20865,3 +20865,27 @@ The M737 report has an appended coverage qualification. Full correction evidence
 and fixture setup failures are in docs/M738_CORRECTION_REPORT.md. Publication
 identity comes from Git and the completion reply, not this precommit entry.
 
+
+# M739: settings spacing and reading controls
+
+Version m739-001. Base main f56e1fce6e7dc59eb247276a324d471f627e3e4a.
+The story shelf's fixed resize handle was above the settings overlay, blocking
+clicks in the real browser check. Hide that handle only while settings is open;
+add horizontal padding to settings navigation. Center immersive status and audit
+lights on their existing 14px tab. Hide the duplicate custom page scroll handle;
+the native scrollbar and page number beneath the composer remain.
+
+Add a cosy orange dialogue preset using the existing contrast adjustment and
+per-theme storage. Clarify the existing reset action for dialogue and thoughts;
+enable it immediately after a colour is saved. Reset restores the existing
+curated theme palette and preserves other themes' custom choices.
+
+Focused disposable Chromium check tests/m739_ui.py passed: actual orange/reset
+clicks, light and Neon Tokyo contrast, separate theme storage and reset, desktop
+and mobile navigation inset, exact immersive dot alignment and native scroll
+retention. Initial run exposed the resize handle intercepting reset clicks;
+fixed before the passing run. JS syntax and whitespace checks passed. No broad
+suite, external model calls or claim about the owner's live browser. Story,
+worker, ledger, provider and data code untouched. Version uses normal shell
+refresh. Publication is confirmed separately from Git.
+
