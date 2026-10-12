@@ -100,3 +100,28 @@ The stable frame and craft construction is unchanged across repeated requests. T
 There is no unfinished implementation stage or known publication blocker at review time. Selection and summary compression cannot guarantee that every meaningful fact survived a model’s answer. Legacy missing provenance is uncertain. Literal cues and local lexical plan ranking are bounded and can miss semantic relevance; the preserved optional selector supplies its existing semantic assistance. Finite contexts can still omit optional history, with precise gaps and graceful behavior.
 
 Live continuity, voice, agency, emotional specificity, real provider tokenizer agreement, physical device behavior, average token savings and cache economics remain unverified. No guaranteed prose improvement or universal saving percentage is claimed. No automatic next feature phase is implied.
+
+
+## M738 review correction and coverage qualification
+
+The original M737 small model fixture supplied `smallModelNow` and a plan but
+kept `modules: []`. It exercised fallback because parsed craft and all required
+LOAD_BEARING laws were absent. The small model branch coverage claim in the
+original checklist therefore exceeded that fixture's evidence. Its other
+historical results remain recorded above; they are not new M738 checks.
+The old fixture now names and asserts fallback explicitly. The focused
+`tests/harness/m738-knowledge.mjs` supplies real CRAFT_TEXT through core-craft,
+checks a nonempty generated plan row and the actual eight storyteller page
+window, and checks the same history without craft as a distinct fallback.
+No production gate was weakened; no planned branch defect was exposed.
+
+Review also reproduced two gaps in the original perspective guarantees:
+`perspectiveConveyed` could equate known, belief, suspicion and ignorance, and
+its raw quote shortcut bypassed stance checks; `addKnowledge` discarded kind
+before checking whether a belief was answered. M738 repairs those operations
+with one supported-form interpretation, exact stance and source comparisons,
+and recipient specific belief supersession. Full records remain available to
+blind spot views. Production mutation, persistence, exact undo, checkpoint
+replay and final request checks now cover both belief representations.
+See M738_CORRECTION_REPORT.md for the actual new checks and limitations.
+Live prose, average savings and tokenizer agreement remain unverified.

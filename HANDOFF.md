@@ -1,3 +1,35 @@
+# M738: M737 knowledge correction and planned small model verification
+
+Version m738-001. Base main ed378dc8cdd38f82f323cd7729ec1bb1f5b89b88.
+The reopened knowledge consistency findings are corrected and VERIFIED by the
+focused production module fixture tests/harness/m738-knowledge.mjs. One pure
+interpretation serves metadata and supported legacy forms. Duplicate omission
+requires the same recipient, perspective and exact proposition, with matching
+available date, pathway and source ownership. Raw quote occurrence is never
+proof. Uncertain or conflicting evidence stays visible. Final assembly binds
+actual carried original pages to their told page dates and selected versions;
+summary ranges do not establish perspective equivalence. Blind spot views
+retain the source record and never promote typed beliefs or suspicions.
+
+Both legacy and metadata beliefs with an explicit untrue correction now yield
+to the corresponding learned truth for its actual recipient. Other people's
+beliefs and unrelated beliefs remain. Actual save/load, mutations, exact undo,
+checkpoint replay and earlier boundaries passed with disposable storage.
+
+The original M737 empty craft case was fallback, not planned branch coverage.
+It remains an explicit control. Real CRAFT_TEXT plus a valid plan produced a
+56 token plan row, eight storyteller pages and 17 carried message identities;
+the same history without craft carried 31 messages and no plan row. Detail
+appeared once; conditions, finished steps, perspectives and custom instructions
+survived. Serialized input accounting and effective 16000 token answer matched.
+Comparable input estimate: 4250 before, 4269 after, preserving meaning. Zero
+model calls. Syntax and whitespace checks passed; no broad suite or live prose
+claim. No default, dependency, migration, audit policy or cache design change.
+The normal version refreshes existing shell assets. M735/M736 code is untouched.
+The M737 report has an appended coverage qualification. Full correction evidence
+and fixture setup failures are in docs/M738_CORRECTION_REPORT.md. Publication
+identity comes from Git and the completion reply, not this precommit entry.
+
 # M737: context selection, completion and token efficiency
 
 Version m737-001. Base main 68dbc6ce2386437f7965301ac80a7f5555e62142.

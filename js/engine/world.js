@@ -401,8 +401,10 @@ export function addKnowledge(knowledge, name, fact, atTurn, provenance = {}) {
    * recruit". The book only ever added: the belief stood beside the truth, and the storyteller was told, every page, that
    * she knew he was the captain AND believed he was a recruit. A line someone learns that answers the truth a belief of
    * theirs holds back lets that belief go (a take-back of the line puts it back: the undo is the book as it was). */
-  const learned = !['belief','suspicion','rumor','ignorance'].includes(provenance.kind) && !/^(?:believes|suspects|rumor|heard a rumor|has not learned)\b/i.test(what);
-  const kept = what && learned ? list.filter((k) => !(k && beliefAnswered(k.fact, what))) : list;
+  const incoming = { ...provenance, fact: what, atTurn };
+  const recipients = provenance.source?.recipients;
+  const forRecipient = !Array.isArray(recipients) || recipients.some(n => statementKey(findKnowledgeKey(next, n) || n) === statementKey(key));
+  const kept = forRecipient ? list.filter(k => !beliefAnswered(k, incoming)) : list;
   if (dup !== -1) {
     const at = kept.indexOf(list[dup]);
     if (at !== -1 && canon === what && what.length > kept[at].fact.length) kept[at] = { ...kept[at], fact: what };
@@ -417,21 +419,16 @@ export function addKnowledge(knowledge, name, fact, atTurn, provenance = {}) {
   next[key] = trimmedBook(kept, next, key); /* M681: a full book lets go of what others also know first */
   return next;
 }
-/* M681 (B3): does `fact` — a line learned — answer the truth the belief line `belief` says is being kept from them? The
- * truth is what follows "untrue:"; the learned line, with its "learned (that)" taken off, says it: the same fact (M92's
- * rule, or M484's paraphrase), or every word of the truth that tells (four letters or more, and every number) in it, with
- * at least two such words — "untrue: Kiba is a girl" is answered by "learned Kiba is a girl, not a boy". */
+/* An explicit belief/correction relationship, answered by this recipient's
+ * knowledge operation. Strings remain supported; metadata must not disappear. */
 export function beliefAnswered(belief, fact) {
-  const b = String(belief || '');
-  if (!/^believes\b/i.test(b.trim())) return false;
-  const m = b.match(/\buntrue\s*[:—–-]\s*([^)]+?)\s*\)?\s*$/i);
+  const b = interpretPerspective(belief);
+  const learned = interpretPerspective(fact);
+  if (b.uncertain || learned.uncertain || b.kind !== 'belief' || learned.kind !== 'known') return false;
+  if (Number.isFinite(b.record.atTurn) && Number.isFinite(learned.record.atTurn) && learned.record.atTurn < b.record.atTurn) return false;
+  const m = b.proposition.match(/\buntrue\s*[:—–-]\s*([^)]+?)\s*\)?\s*$/i);
   const truth = m ? m[1].trim() : '';
-  if (!truth) return false;
-  const said = String(fact || '').trim().replace(/^(?:learned|learns|has learned|found out|finds out|discovered|discovers|realized|realised|realizes|realises|knows|now knows)\s+(?:that\s+)?/i, '');
-  if (!said || /^believes\b/i.test(said)) return false;
-  if (sameFact(said, truth) || sameFact(said, truth, { fuzzy: true })) return true;
-  return false;
-
+  return Boolean(truth && sameFact(learned.proposition, truth));
 }
 
 /* M272: a line the model broke off mid-phrase. Only endings no finished
@@ -479,14 +476,42 @@ export function sameFact(a, b, { fuzzy = false } = {}) {
   const x = statementKey(a); const y = statementKey(b);
   return Boolean(x && y && x === y);
 }
+const PERSPECTIVE_KINDS = ['known','belief','suspicion','rumor','ignorance'];
+const PERSPECTIVE_FORMS = [
+  ['belief', /^believes(?:\s*:\s*|\s+)(?:that\s+)?/i],
+  ['suspicion', /^suspects(?:\s*:\s*|\s+)(?:that\s+)?/i],
+  ['rumor', /^(?:rumor(?:\s*:\s*|\s+)|heard a rumor\s+(?:that\s+)?)/i],
+  ['ignorance', /^(?:has not learned|does not know)(?:\s*:\s*|\s+)(?:that\s+)?/i],
+  ['known', /^(?:learned|learns|has learned|found out|finds out|discovered|discovers|realized|realised|realizes|realises|knows|now knows)(?:\s*:\s*|\s+)(?:that\s+)?/i],
+];
+/* Only the supported ledger forms, not a classifier for arbitrary prose.
+ * Conflicting wording/metadata remains unresolved in views and mutations. */
+export function interpretPerspective(value) {
+  const record = value && typeof value === 'object' ? value : { fact: value };
+  const fact = String(record.fact || '').trim();
+  const form = PERSPECTIVE_FORMS.find(([, re]) => re.test(fact));
+  const explicit = PERSPECTIVE_KINDS.includes(record.kind) ? record.kind : null;
+  const uncertain = Boolean(record.kind && !explicit || explicit && form && explicit !== form[0]);
+  return { record, kind: explicit || form?.[0] || 'known', proposition: form ? fact.replace(form[1], '') : fact, uncertain };
+}
 export function perspectiveConveyed(name, k, texts = []) {
-  const fact = statementKey(k.fact);
-  if (!fact) return false;
+  const view = interpretPerspective(k);
+  const fact = statementKey(view.proposition);
+  if (!fact || view.uncertain) return false;
   const who = statementKey(name);
-  const explicit = [who + ' knows: ' + fact,who + ' knows ' + fact,who + ' was told: ' + fact,who + ' believes: ' + fact.replace(/^believes\s+/, '')];
-  return texts.some(text => {
-    const clauses = String(text || '').split(/\n|(?<=[.!?])\s+/).map(statementKey);
-    return clauses.some(c => explicit.includes(c.replace(/^[-*•]\s*/,''))) || (k.source?.quote && k.source?.recipients?.includes(name) && String(text).includes(k.source.quote));
+  if (!who || Array.isArray(view.record.source?.recipients) && !view.record.source.recipients.some(n => statementKey(n) === who || samePersonName(n, name))) return false;
+  const verbs = { known:['knows'], belief:['believes'], suspicion:['suspects'], rumor:['rumor:'], ignorance:['has not learned','does not know'] }[view.kind];
+  const explicit = verbs.flatMap(verb => [who + ' ' + verb + ' ' + fact, who + ' ' + verb.replace(/:$/, '') + ': ' + fact, who + ' perspective: ' + verb + ' ' + fact]);
+  return texts.some(value => {
+    const evidence = value && typeof value === 'object' ? value : { text: value };
+    // A past sentence, unknown date, or another source version is not this record.
+    if (Number.isFinite(view.record.atTurn) && evidence.atTurn !== view.record.atTurn) return false;
+    if (evidence.historical && !Number.isFinite(view.record.atTurn) && !(view.record.source?.id && view.record.source?.version)) return false;
+    if (view.record.pathway && view.record.pathway !== evidence.pathway) return false;
+    if (view.record.source && !Object.entries(view.record.source).every(([key, v]) => JSON.stringify(evidence.source?.[key]) === JSON.stringify(v))) return false;
+    // A complete standalone statement only. A line inside quoted, reported,
+    // hypothetical or historical context cannot certify this perspective.
+    return explicit.includes(statementKey(evidence.text).replace(/^[-*•]\s*/, ''));
   });
 }
 
@@ -559,8 +584,9 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
    * and what is called back from long ago is handed over as what it is: about its own moment. */
   const nowTurn = scene && Number.isFinite(scene.turn) ? scene.turn : null;
   const aged = (k) => {
-    const prefix = { belief:'believes ',suspicion:'suspects ',rumor:'rumor: ',ignorance:'has not learned ' }[k.kind] || '';
-    const fact = (prefix && !new RegExp('^' + prefix.trim().replace(':',''), 'i').test(k.fact) ? prefix : '') + k.fact.replace(/\.+$/, '') + (k.pathway ? ' (source: ' + k.pathway + ')' : '');
+    const view = interpretPerspective(k);
+    const prefix = { belief:'believes ',suspicion:'suspects ',rumor:'rumor: ',ignorance:'has not learned ' }[view.kind] || '';
+    const fact = (view.uncertain ? 'perspective unresolved: ' + k.fact + ' (recorded as ' + k.kind + ')' : prefix + view.proposition.replace(/\.+$/, '')) + (k.pathway ? ' (source: ' + k.pathway + ')' : '');
     const age = nowTurn != null && Number.isFinite(k.atTurn) ? nowTurn - k.atTurn : 0;
     return age >= KNOWLEDGE_OLD_AFTER ? fact + ' (learned about ' + age + ' pages ago)' : fact;
   };
@@ -619,7 +645,7 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
   const norm = statementKey;
   const holders = new Map();
   const others = picked.filter((p) => !p.mc); /* M508: the sharing is among everyone here but the main character */
-  for (const p of others) for (const f of [...p.newest, ...p.recalled]) { if (/^(?:believes|suspects|rumor|heard a rumor|does not know|has not learned)\b/i.test(f)) continue; const k = norm(f); if (!holders.has(k)) holders.set(k, { text: f, who: [], atTurn: p.turns && p.turns.get(f) != null ? p.turns.get(f) : null }); if (!holders.get(k).who.includes(p.key)) holders.get(k).who.push(p.key); }
+  for (const p of others) for (const f of [...p.newest, ...p.recalled]) { if (/^(?:believes|suspects|rumor|heard a rumor|does not know|has not learned|perspective unresolved)\b/i.test(f)) continue; const k = norm(f); if (!holders.has(k)) holders.set(k, { text: f, who: [], atTurn: p.turns && p.turns.get(f) != null ? p.turns.get(f) : null }); if (!holders.get(k).who.includes(p.key)) holders.get(k).who.push(p.key); }
   /* M509-15: a public moment counts everyone who was in the room among its knowers — the reader wrote it into one book,
    * the whole courtyard saw it — so it is a shared line, not one witness's, and nobody's blind spot who was there */
   const roster = [];
@@ -648,7 +674,7 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
     const ownOld = p.recalled.filter((f) => !sharedKeys.has(norm(f)));
     if (!own.length && !ownOld.length && p.rest <= 0) continue;
     /* the final audit: a belief written as one (M510-48: "believes X — untrue: Y") reads as one, not "knows: believes" */
-    const isBelief = (f) => /^(?:believes|suspects|rumor|heard a rumor|does not know|has not learned)\b/i.test(f);
+    const isBelief = (f) => /^(?:believes|suspects|rumor|heard a rumor|does not know|has not learned|perspective unresolved)\b/i.test(f);
     const beliefs = own.filter(isBelief).map((f) => f.replace(/ \(learned about (\d+) pages ago\)$/, ' (since about $1 pages ago)')); /* a belief is held since, not learned */
     const knownOwn = own.filter((f) => !isBelief(f));
     lines.push(p.key + (knownOwn.length || !beliefs.length ? ' knows' + (knownOwn.length ? ': ' + knownOwn.join('; ') + '.' : ' what is shared above.') : '')
@@ -1093,19 +1119,20 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
     /* the final audit: a belief is no one else's blind spot; and a fact the knower was told is SHOWN, for someone who has
      * not found it out, as the fact itself ("was told Jovan serves…" read as if Rukia had been told) — the tests below
      * still read it as it was written (a telling is private, not a public moment) */
-    if (!fact || /^believes\b/i.test(fact)) return null;
+    const view = interpretPerspective(k);
+    if (!fact || view.uncertain || view.kind !== 'known') return null;
     const shown = fact.replace(/^(?:was told|were told|learned|learnt|found out)\s+(?:that\s+)?(?=\p{Lu})/u, ''); /* only a telling whose news follows as a sentence ("was told Jovan serves…"); "heard X say…" and "saw X do…" keep their verb — without it the sentence breaks */
     const age = Number.isFinite(turn) && Number.isFinite(k.atTurn) ? turn - k.atTurn : null;
     const atTurn = Number.isFinite(k.atTurn) ? k.atTurn : null;
     const words = factWords(fact);
     const score = sceneWords.size ? [...words].filter((w) => sceneWords.has(w) && !common.has(w)).length : 0;
-    return { fact, shown, age, words, score, atTurn };
+    return { fact, shown, age, words, score, atTurn, record: k };
   }).filter((f) => f && (f.age == null || f.age >= 0) && (f.score >= 2 || (f.age != null && f.age <= BLIND_RECENT_PAGES)))]); /* near the scene, or recent */
   for (const name of names) {
     if (name.trim().toLowerCase() === mcKey || (mc && samePersonName(name, mc))) continue; /* the main character is the writer's — under any form of his name (M449: "Oda" in the scene is Jovan Oda) */
     const mineKey = findKnowledgeKey(safe, name);
     const mineList = mineKey ? safe[mineKey] : [];
-    const mine = mineList.map((k) => ({ fact: k.fact, words: factWords(k.fact) }));
+    const mine = mineList.filter(k => { const v = interpretPerspective(k); return !v.uncertain && v.kind === 'known' && !(Number.isFinite(turn) && k.atTurn > turn); });
     /* M579: a list at the guard may have let older facts go — nothing older than its oldest kept fact is claimed unknown */
     /* M681: …read for a book that lets SHARED facts go first (trimmedBook): a fact someone else holds can have been hers and
      * let go only if it is older than the oldest fact she still shares (the shared go oldest first), or — when she shares
@@ -1132,7 +1159,7 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
     const heldMemo = new Map(); /* M681: fact text -> do they hold it (one person's pass) */
     for (const [other, list] of books) {
       if (other === mineKey || other.trim().toLowerCase() === name.trim().toLowerCase() || samePersonName(other, name)) continue; /* M449: their own lines under another form of their name are theirs — never "Rukia hasn't found out (Rukia knows)" */
-      for (const { fact, shown, age, words, score, atTurn } of list) {
+      for (const { fact, shown, age, words, score, atTurn, record } of list) {
         if (mayBeLetGo(atTurn)) continue; /* M579/M681: it may have been theirs, let go at the guard */
         // A name in a secret is not evidence of awareness.
 
@@ -1142,11 +1169,11 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
         if (holds === undefined) { holds = mine.some((m) => sameFact(m.fact, fact)); heldMemo.set(fact, holds); }
         if (holds) continue; /* they hold it, in these words or others */
         if (found.some((f) => sameFact(f.fact, fact))) continue; /* once is enough */
-        found.push({ fact: (shown || fact).replace(/\.+$/, ''), from: other, age, score, words });
+        found.push({ fact: (shown || fact).replace(/\.+$/, ''), from: other, age, score, words, record });
       }
     }
     found.sort((a, b) => (b.score - a.score) || ((a.age == null ? 1e9 : a.age) - (b.age == null ? 1e9 : b.age)));
-    if (found.length) out.push({ name, lacks: found.slice(0, per).map(({ fact, from, age }) => ({ fact, from, age })) });
+    if (found.length) out.push({ name, lacks: found.slice(0, per).map(({ fact, from, age, record }) => ({ fact, from, age, record })) });
   }
   return out;
 }
@@ -1158,13 +1185,13 @@ export function renderBlindSpots(spots, { selectedTexts = [] } = {}) {
    * (" hasn’t found out: "), the same names, the same knower. Facts lacked by the very same people share a line. */
   const byFact = new Map();
   for (const s of list) for (const l of s.lacks) {
-    const k = String(l.fact) + '\u0000' + String(l.from);
-    if (!byFact.has(k)) byFact.set(k, { fact: l.fact, from: l.from, who: [] });
+    const k = JSON.stringify([l.fact, l.from, l.record?.atTurn, l.record?.source]);
+    if (!byFact.has(k)) byFact.set(k, { fact: l.fact, from: l.from, record: l.record, who: [] });
     if (!byFact.get(k).who.includes(s.name)) byFact.get(k).who.push(s.name);
   }
   const bySet = new Map();
   /* M508: a long fact is clipped here — the whole of it stands above, under whoever knows it */
   const clip = (t) => { const s = String(t); if (s.length <= BLIND_CLIP) return s; const cut = s.slice(0, BLIND_CLIP); const at = Math.max(cut.lastIndexOf(' '), cut.lastIndexOf(','), cut.lastIndexOf(';')); return cut.slice(0, at > BLIND_CLIP / 2 ? at : BLIND_CLIP).replace(/[,;\s]+$/, '') + '…'; };
-  for (const f of byFact.values()) { const sig = f.who.join('|'); if (!bySet.has(sig)) bySet.set(sig, { who: f.who, facts: [] }); const reminder = perspectiveConveyed(f.from,{fact:f.fact},selectedTexts) ? 'the knowledge recorded for ' + f.from + ' in the selected history' : f.fact + ' (recorded for ' + f.from + ')'; if(!bySet.get(sig).facts.includes(reminder)) bySet.get(sig).facts.push(reminder); }
+  for (const f of byFact.values()) { const sig = f.who.join('|'); if (!bySet.has(sig)) bySet.set(sig, { who: f.who, facts: [] }); const reminder = perspectiveConveyed(f.from,f.record || {fact:f.fact},selectedTexts) ? 'the knowledge recorded for ' + f.from + ' in the selected history' : f.fact + ' (recorded for ' + f.from + ')'; if(!bySet.get(sig).facts.includes(reminder)) bySet.get(sig).facts.push(reminder); }
   return [...bySet.values()].map((g) => g.who.join(', ') + BLIND_LINE + g.facts.join('; ') + '.').join('\n'); /* M416 */
 }

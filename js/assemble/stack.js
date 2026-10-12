@@ -92,7 +92,7 @@
  */
 
 import { relevantPeople } from '../engine/relevance.js';
-import { recordId, uniqueRecords, selectWhole, requestSelection, historicalPassages, boundRecord } from './selection.js';
+import { recordId, uniqueRecords, selectWhole, requestSelection, historicalPassages, boundRecord, messageVersion } from './selection.js';
 import { essentialsMatch } from '../agents/essentials.js';
 import { requestTokens, inputRoom } from './budget.js';
 import { shownText } from '../engine/pagepatch.js'; /* M576 */
@@ -1763,8 +1763,20 @@ export function buildRequest({
    * or cut the newest exchange, standing instructions or writer's current move. */
   const transport = () => transportMeasure ? transportMeasure({ systemBlocks, messages: out }) : { inputTokens: requestTokens(systemBlocks,out), answerTokens: w.answerTokens || 16000, estimate: 'conservative character estimate, wrappers included' };
   const replaceGenerated = (text,replacement) => { if(!text) return; if(notesBlock) notesBlock.text = notesBlock.text.replace(text,replacement); if(notesMessage) notesMessage.content = notesMessage.content.slice(0,generatedStart) + notesMessage.content.slice(generatedStart).replace(text,replacement); };
+  // Knowledge dates use told pages, not visible message ordinals. Bind only
+  // the final visible wire to its original ownership and selected version.
+  let told = 0;
+  const perspectiveSources = new Map(sourceVisible.map(m => {
+    if (m.role === 'assistant') told++;
+    return [m.id, { atTurn: m.role === 'assistant' ? told : told + 1, source: { id: m.id, version: messageVersion(m) } }];
+  }));
   const refreshPerspective = () => {
-    const evidence = [...out.filter(m => wire.includes(m)).map(m => m.content), ...uniqueRecords(selectedRecordNodes).map(recordLine), ...historical.map(p => p.text), essentialsText];
+    const evidence = [
+      ...out.filter(m => wire.includes(m)).map(m => ({ text: m.content, historical: true, ...(!m.transformed ? perspectiveSources.get(m.id) : {}) })),
+      ...uniqueRecords(selectedRecordNodes).map(n => ({ text: recordLine(n), historical: true })),
+      ...historical.map(p => ({ text: p.text, historical: true, ...(!p.transformed ? perspectiveSources.get(p.sourceId) : {}) })),
+      { text: essentialsText, historical: true },
+    ];
     const revised = renderStateFacts(state, { ...stateFactsOptions, selectedTexts: evidence });
     replaceGenerated(facts,revised);
     const row = slots.find(s => s.name === 'The state of things');

@@ -100,3 +100,18 @@ certainty, negation, conditions and optional pathways remain distinct through
 knowledge writes, views and undo. Actual selected perspective evidence can
 remove a duplicate retelling while preserving another person’s belief.
 Existing factual audit authority and repair policy remain unchanged.
+
+
+## M738 perspective consistency correction
+
+Knowledge views and belief updates share the same interpretation of optional
+kind and clearly supported legacy prefixes. Exact duplicate equivalence is
+separate from learning an explicit belief's correcting truth. Conflicting
+metadata or uncertain source ownership never authorizes suppression or belief
+replacement. The actual recipient's knowledge operation may supersede a belief
+with the matching untrue relationship; rumor, suspicion and ignorance may not.
+Undo retains the prior full record and journal replay keeps recipient ownership.
+Final selected original evidence carries its existing message identity, version
+and told page date. Quotes alone, unknown chronology and transformed source
+copies cannot certify current perspective. Legacy records stay stored; no bulk
+rewrite, migration, additional reader or audit policy change is required.
