@@ -4,7 +4,7 @@ import ast,functools,threading
 from pathlib import Path
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from playwright.sync_api import sync_playwright
-ROOT=Path(__file__).resolve().parents[1];OUT=Path('/tmp/cozy-neon-proof');OUT.mkdir(exist_ok=True)
+ROOT=Path(__file__).resolve().parents[1];OUT=Path('/tmp/cozy-neon-redesign-details');OUT.mkdir(exist_ok=True)
 SEED=next(n.value.value for n in ast.parse((ROOT/'tests/paint_coats.py').read_text()).body if isinstance(n,ast.Assign) and getattr(n.targets[0],'id','')=='SEED')
 class Quiet(SimpleHTTPRequestHandler):
  def log_message(self,*a):pass
@@ -35,16 +35,16 @@ try:
   ratios=p.evaluate('''()=>{
    const rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
    const lum=c=>c.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((a,v,i)=>a+v*[.2126,.7152,.0722][i],0);
-   const css=getComputedStyle(document.documentElement), ground=rgb('#090b19').map(v=>v*.95+255*.05);
+   const css=getComputedStyle(document.documentElement), ground=rgb('#1d1231').map(v=>v*.94+255*.06);
    return Object.fromEntries(['text','text-2','muted','spoken','thought','danger','ok'].map(k=>{const a=lum(rgb(css.getPropertyValue('--'+k).trim())),b=lum(ground);return [k,(Math.max(a,b)+.05)/(Math.min(a,b)+.05)]}));
   }''')
   assert min(ratios.values())>=4.5,ratios
-  print('PASS default prose/color contrast against worst-case white art under 95% veil:',ratios,flush=True)
+  print('PASS default prose/color contrast against worst-case white art under 94% local panel:',ratios,flush=True)
   p.screenshot(path=str(OUT/'desktop-story.png'))
   # Artwork is outside prose bounds and below UI; pointer tests use the actual composer.
-  assert p.evaluate('''()=>{const el=document.querySelector('.thread-wrap'),c=getComputedStyle(el,'::after');const left=innerWidth-parseFloat(c.right)-parseFloat(c.width);return [...document.querySelectorAll('.msg')].every(m=>m.getBoundingClientRect().right<left)&&c.pointerEvents==='none'}''')
+  assert p.evaluate('''()=>{const el=document.querySelector('.neon-rias'),c=getComputedStyle(el);const left=el.getBoundingClientRect().left;return [...document.querySelectorAll('.msg')].every(m=>m.getBoundingClientRect().right<left)&&c.pointerEvents==='none'}''')
   p.locator('#btn-ledger').click();p.wait_for_function("document.querySelector('#drawer').classList.contains('open')");p.wait_for_timeout(350);p.screenshot(path=str(OUT/'desktop-ledger.png'));p.locator('#btn-drawer-close').click();p.wait_for_timeout(350)
-  for w,h in [(1440,900),(1920,1080),(390,844),(320,740)]:
+  for w,h in [(760,960),(950,760),(600,900),(390,844),(320,740)]:
    p.set_viewport_size({'width':w,'height':h});p.evaluate('async()=>{window.__cozy.setActiveStoryId(null);await window.__cozy.chat.renderThread({structural:true,opening:true})}');p.wait_for_function("document.documentElement.dataset.thread==='welcome'");p.screenshot(path=str(OUT/f'welcome-{w}.png'))
   p.evaluate('async(id)=>{window.__cozy.setActiveStoryId(id);await window.__cozy.chat.renderThread({structural:true,opening:true})}',sid)
   p.set_viewport_size({'width':390,'height':430});p.locator('#composer-input').click();p.locator('#composer-input').fill('Keyboard viewport check');assert p.locator('#composer-input').is_visible()

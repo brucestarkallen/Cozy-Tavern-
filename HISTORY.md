@@ -20435,3 +20435,65 @@ This establishes the transport and state paths in fixtures, not live resolution.
 Legacy advisories lacking sufficient provenance remain unresolved rather than
 being guessed away. Existing gap/worker prerequisites and genuine blocked
 findings remain visible; no full historical rebuild or automatic data migration.
+
+
+# M728: Neon Tokyo visual redesign for phones and unfolded screens
+
+Version m728-001. Base main 9568e5f5cd238db9bc3f6c895dccd68073193096.
+Reopened M721: the 1280px/650px gate excluded Rias on phones; narrow gutter
+placement minimized her elsewhere. The 95% full reading veil and nearly solid
+surfaces suppressed the scene, while prose kept the generic presentation.
+No additional old stacking defect was established. Passing M721 functional
+checks had not established the owner's visual acceptance.
+
+Replaces only the Neon Tokyo stylesheet's visual design. index.html adds one
+aria-hidden, noninteractive room stage outside the message DOM. Local positive
+stacking replaces the negative pseudo layers. Welcome allocates portrait space
+on every width; expanded welcome seats Rias beside centered controls. A container
+query uses actual story-area width (600px), not device or desktop width, to seat
+Rias beside active reading. Compact active reading omits the large figure but
+always retains her welcome presentation. The stage is stationary during scroll.
+
+Magenta neon brand, cyan navigation, luminous writing console/send button,
+illuminated story selection, glass settings and dashboard ledger now share a
+coherent appearance. Narration and user writing have separate padded glass
+panels, labels and corner treatments. Serif narration and chosen speech/thought
+colors remain. Scene headings and existing built-in scene-card tokens are styled
+without rewriting text or display rules. Local reading darkness leaves scenery
+visible around and between turns. No animation, filters, new dependencies, API
+calls, data migration or changes to application behavior.
+
+Modified: css/neon-tokyo-night.css, index.html, js/version.js,
+tests/neon_tokyo.py, tests/neon_tokyo_details.py, README.md, HANDOFF.md, SPEC.md.
+Created tests/neon_tokyo_resize.py. HISTORY.md appended only. Existing artwork,
+other coat rules, theme identity, registrations, tokens and preference storage
+are unchanged. Existing service-worker shell already includes all these runtime
+files; only normal VERSION changes its cache. M722-M727 behavior is retained.
+
+Checks actually run: neon_tokyo.py with the clean M727 baseline first confirmed
+all computed properties of nine Cyberpunk surfaces identical. Its first Neon
+check caught the new stage's hidden attribute conflicting with the global
+important hidden rule; corrected to an isolated default display rule. The focused
+runner then passed 1440x900, 760x960, 390x844, 320x740 selection/persistence,
+scrolling, typing, drawer/settings, switching, decoration bounds, no overflow,
+reduced motion and offline shell. Cyberpunk comparison screenshots are pixel
+identical above the version footer. No application page errors. Static test
+server logged harmless reset/broken-pipe errors for unavailable local sync
+endpoints during teardown; these are not production server verification.
+
+neon_tokyo_details.py passed separate custom speech/thought persistence/reset,
+unchanged fixture prose, nested-path offline assets and short viewport input.
+Worst-case white artwork behind the local narration panel gave default palette
+contrast from 7.12:1 to 13.20:1. neon_tokyo_resize.py passed active resizing at
+390,600,760,950,844 landscape,320 and 390x430 without reload, lost unsent input,
+clipped composer or artwork over prose. A targeted second run after welcome
+spacing and compact title refinement passed and captured final welcomes.
+
+Visually inspected narrow/expanded/desktop welcome and story screenshots,
+Neon ledger/settings and both Cyberpunk comparisons. The visual difference is
+substantial; owner's physical device and aesthetic acceptance remain unverified.
+Original 1092x935 scenery softens on large screens; fine extraction fringes
+remain, with a lower crop fade. No image pixels changed. Chromium responsive
+emulation only, not physical foldable hinges/keyboards or Safari. No unrelated
+worker suites, paid models or hosted deployment verification. Publication is a
+normal main push under the owner's standing authorization.

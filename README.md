@@ -254,7 +254,9 @@ need one initial refresh to receive this fix, after keeping any unsent words.
 ### Neon Tokyo Night
 
 Choose **Neon Tokyo Night** in Settings, The house, Appearance for an illustrated
-rainy Tokyo skyline and violet glass surfaces. Rias is decorative in spacious
-desktop margins and hidden on smaller screens. This is a separate coat; the
-original Cyberpunk appearance and saved color preferences are unchanged.
+rainy Tokyo skyline, luminous controls and glass reading panels. Rias appears
+on phone welcome screens and beside active stories when the reading area has
+room, including unfolded layouts. Compact reading keeps the full prose width.
+This is a separate coat; the original Cyberpunk appearance and saved color
+preferences are unchanged.
 Artwork and styling are local and included in the offline shell.

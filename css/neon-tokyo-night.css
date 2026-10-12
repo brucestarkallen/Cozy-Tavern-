@@ -1,108 +1,255 @@
-/* M721: static scenery behind the existing prose layout. Pseudo elements are
- * decorative, unfocusable and never receive input. No per-page selectors,
- * animation, backdrop filters, new story state or drawer stacking contexts. */
-html[data-theme='neon-tokyo-night'] .thread-wrap::before {
-  content: '';
-  position: fixed;
+/* M728: Tokyo apartment. All surfaces belong exclusively to this coat.
+ * Local positive stacking, static artwork, container-sized character seating.
+ * The thread scrolls above the stage. No filters, animation or story logic. */
+.neon-room { display: none; }
+html[data-theme='neon-tokyo-night'] .thread-wrap {
+  isolation: isolate;
+  container-type: inline-size;
+  background: #0c0b21;
+}
+html[data-theme='neon-tokyo-night'] .neon-room {
+  display: block;
+  position: absolute;
   inset: 0;
-  z-index: -1;
+  z-index: 0;
+  overflow: hidden;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(9, 11, 25, .18), rgba(9, 11, 25, .36)),
-    url(../assets/neon-tokyo/neon_tokyo_city.webp) center / cover no-repeat;
+  background: linear-gradient(180deg, rgba(15, 8, 34, .08), rgba(15, 8, 34, .24)),
+    url(../assets/neon-tokyo/neon_tokyo_city.webp) 60% center / cover no-repeat;
 }
-/* The spare right gutter is outside the existing 760px prose column. At
- * narrower widths there is no safe seat, so only the skyline remains. */
-@media (min-width: 1280px) and (min-height: 650px) {
-  html[data-theme='neon-tokyo-night'] .thread-wrap::after {
-    content: '';
-    position: fixed;
-    right: 20px;
-    bottom: 180px;
-    width: min(230px, calc((100vw - 1076px) / 2 - 24px));
-    aspect-ratio: 438 / 935;
-    /* Blend the supplied extraction's straight lower crop into the room. */
-    mask-image: linear-gradient(#000 86%, transparent);
-    z-index: -1;
-    pointer-events: none;
-    background: url(../assets/neon-tokyo/rias_seated_extracted.png) center bottom / contain no-repeat;
-  }
+html[data-theme='neon-tokyo-night'] .neon-rias {
+  display: none;
+  position: absolute;
+  right: 0;
+  bottom: 130px;
+  width: 27%;
+  height: min(70%, 620px);
+  background: url(../assets/neon-tokyo/rias_seated_extracted.png) center bottom / contain no-repeat;
+  mask-image: linear-gradient(#000 88%, transparent);
+  pointer-events: none;
 }
-html[data-theme='neon-tokyo-night'] .thread { background: transparent; }
-html[data-theme='neon-tokyo-night'][data-thread='story'] .thread-wrap {
-  background: linear-gradient(90deg, rgba(9, 11, 25, .18),
-    rgba(9, 11, 25, .95) max(0px, calc(50% - 396px)),
-    rgba(9, 11, 25, .95) min(100%, calc(50% + 396px)), rgba(9, 11, 25, .18));
+html[data-theme='neon-tokyo-night'] .thread {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  padding: 24px 14px 20px;
+  gap: 28px;
+}
+/* A real allocated portrait area on welcome, including the narrowest phone.
+ * It scrolls with the welcome card, so short screens never lose their buttons. */
+html[data-theme='neon-tokyo-night'] :is(.hearth, .no-connection) {
+  position: relative;
+  width: min(100%, 740px);
+  box-sizing: border-box;
+  padding: 20px;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(31, 14, 55, .88), rgba(8, 19, 37, .91));
+  border: 1px solid #bd79e5;
+  border-radius: 24px 6px 24px 6px;
+  box-shadow: inset 0 1px 0 #f9b3ec, 0 0 24px #bf4dcd40, 0 16px 40px #05041088;
+}
+html[data-theme='neon-tokyo-night'] :is(.hearth, .no-connection)::before {
+  content: '';
+  display: block;
+  flex: none;
+  width: 100%;
+  height: 245px;
+  background: url(../assets/neon-tokyo/rias_seated_extracted.png) center / contain no-repeat;
+  mask-image: linear-gradient(#000 88%, transparent);
+  pointer-events: none;
+}
+html[data-theme='neon-tokyo-night'] .hearth-mark { display: none; }
+html[data-theme='neon-tokyo-night'] .hearth-greeting {
+  color: #ffe1fa;
+  font-size: clamp(1.25rem, 3.5cqi, 1.8rem);
+  text-shadow: 0 0 16px #f075c866;
+}
+html[data-theme='neon-tokyo-night'] .hearth-chip {
+  background: #241a3b;
+  border-color: #bf80d9;
+  color: #f2dff8;
+}
+/* Darkness follows the words, leaving the window visible between turns. */
+html[data-theme='neon-tokyo-night'] .msg {
+  box-sizing: border-box;
+  max-width: 740px;
+  padding: clamp(16px, 3cqi, 28px);
+  border: 1px solid #b47ae38c;
+  border-radius: 18px 5px 18px 5px;
+  background: linear-gradient(125deg, rgba(29, 18, 49, .94), rgba(9, 17, 34, .94));
+  box-shadow: inset 2px 0 0 #d99af066, 0 8px 26px #04041266;
+}
+html[data-theme='neon-tokyo-night'] .msg-label {
+  color: #f3b5e4;
+  letter-spacing: .16em;
+  border-bottom: 1px solid #b879db66;
+  padding-bottom: 10px;
+  margin-bottom: 16px;
+}
+html[data-theme='neon-tokyo-night'] .msg-body { line-height: 1.85; }
+html[data-theme='neon-tokyo-night'] .msg-body p { margin-bottom: 1.1em; }
+html[data-theme='neon-tokyo-night'] .msg-user {
+  background: linear-gradient(115deg, rgba(10, 38, 54, .96), rgba(24, 24, 51, .94));
+  border-color: #76dce89c;
+  border-radius: 5px 18px 5px 18px;
+  box-shadow: inset 3px 0 0 #88e9ef, 0 6px 22px #06091866;
+}
+html[data-theme='neon-tokyo-night'] .msg-user .msg-label { color: #99e8ee; border-color: #6dd4e35c; }
+html[data-theme='neon-tokyo-night'] .msg-user .msg-body { background: none; border: 0; padding: 0; }
+html[data-theme='neon-tokyo-night'] .scene-head {
+  color: #b5f5fb;
+  padding: 12px 14px;
+  border-left: 2px solid #7ee7ef;
+  border-bottom: 1px solid #9c77c8;
+  background: linear-gradient(90deg, #22405280, #45255b60);
+  font-family: var(--mono);
+  line-height: 1.6;
+  letter-spacing: .06em;
+}
+/* The built-in scene card uses these existing variables in its inline style.
+ * No change to the user's display rules or their generated heading text. */
+html[data-theme='neon-tokyo-night'] .msg-assistant {
+  --pk-card-1: #272042;
+  --pk-card-2: #172a40;
+  --pk-card-3: #252044;
+  --pk-gold: #b5f5fb;
+  --pk-gold-dim: #77cbdc;
+  --pk-rule: #786098;
 }
 html[data-theme='neon-tokyo-night'] .topbar {
-  background: rgba(12, 13, 29, .97);
-  border-bottom-color: var(--border);
-  box-shadow: 0 1px 14px rgba(167, 112, 246, .16);
+  background: linear-gradient(100deg, #241131ed, #0d192bec);
+  border-bottom: 1px solid #dd8fe7;
+  box-shadow: 0 1px 0 #86e9ef80, 0 2px 18px #d35bc360;
 }
+html[data-theme='neon-tokyo-night'] .brand {
+  color: #ffc2ef;
+  font-style: italic;
+  text-shadow: 0 0 5px #e764cf, 0 0 16px #df58c799, 0 0 30px #793cb766;
+}
+html[data-theme='neon-tokyo-night'] .topbar .icon-btn { color: #a7edf3; }
+html[data-theme='neon-tokyo-night'] .topbar .icon-btn:hover { background: #56335f; color: #fff0fc; }
 html[data-theme='neon-tokyo-night'] .story-panel {
-  background: rgba(13, 16, 33, .94);
-  border-right-color: var(--border);
+  background: linear-gradient(160deg, #291636eb, #0b192cf5),
+    url(../assets/neon-tokyo/neon_tokyo_city.webp) left center / cover;
+  border-right: 1px solid #ab72d2;
+  box-shadow: inset -1px 0 16px #ad4fc42e;
 }
-html[data-theme='neon-tokyo-night'] .hearth,
-html[data-theme='neon-tokyo-night'] .no-connection {
-  background: rgba(13, 16, 33, .94);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, .4);
-}
-html[data-theme='neon-tokyo-night'] .hearth-greeting { color: var(--text); }
-html[data-theme='neon-tokyo-night'] .hearth-mark { color: var(--ember); }
-html[data-theme='neon-tokyo-night'] .msg-user .msg-body {
-  background: rgba(20, 37, 54, .96);
-  border-left-color: var(--spoken);
+html[data-theme='neon-tokyo-night'] .story-panel-head h2 { color: #a3ecf3; letter-spacing: .18em; }
+html[data-theme='neon-tokyo-night'] .story-item { border-radius: 12px 3px; }
+html[data-theme='neon-tokyo-night'] .story-item.active {
+  border-color: #ec9bdf;
+  background: linear-gradient(100deg, #572859, #25223e);
+  box-shadow: inset 3px 0 0 #f3a0df, 0 0 14px #e75fbe38;
 }
 html[data-theme='neon-tokyo-night'] .composer-zone {
-  background: rgba(12, 15, 31, .97);
+  position: relative;
+  z-index: 2;
+  background: linear-gradient(180deg, #1d1534df, #0d1123f2);
+  border-top: 1px solid #8fe1f0;
+  box-shadow: 0 -2px 18px #71d5ed26;
 }
 html[data-theme='neon-tokyo-night'] .composer {
-  background: #111426;
-  border-color: var(--border);
+  background: linear-gradient(110deg, #271935e8, #101c30eb);
+  border: 1px solid #dd8fe7;
+  border-radius: 16px 5px 16px 5px;
+  box-shadow: inset 0 0 12px #af69d526, 0 0 12px #e671cf33;
 }
 html[data-theme='neon-tokyo-night'] .composer:focus-within {
-  border-color: var(--ember);
-  box-shadow: 0 0 0 1px var(--ember), 0 0 18px rgba(197, 160, 255, .12);
+  border-color: #a6f5ff;
+  box-shadow: 0 0 0 1px #a6f5ff, 0 0 22px #db72d64d;
 }
 html[data-theme='neon-tokyo-night'] .send-btn {
-  background: linear-gradient(135deg, #c5a0ff, #f3b5d9);
-  color: var(--on-ember);
-  box-shadow: 0 0 16px rgba(211, 134, 231, .2);
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid #ffc6f7;
+  border-radius: 12px;
+  color: #210a30;
+  background: linear-gradient(145deg, #edafff, #f18dcd);
+  box-shadow: 0 0 9px #ea6bca99, 0 0 22px #ad59dc66;
 }
-html[data-theme='neon-tokyo-night'] .send-btn:hover { background: #e7bdff; }
-html[data-theme='neon-tokyo-night'] .view-settings { background: rgba(9, 11, 25, .97); }
+html[data-theme='neon-tokyo-night'] .send-btn:hover { background: #fad1fa; }
+html[data-theme='neon-tokyo-night'] :is(.composer-meta, .composer-note) { color: #d9c8e9; }
+html[data-theme='neon-tokyo-night'] .view-settings {
+  background: linear-gradient(125deg, #100d23e8, #131d35e8),
+    url(../assets/neon-tokyo/neon_tokyo_city.webp) center / cover no-repeat;
+}
 html[data-theme='neon-tokyo-night'] .settings-section {
-  background: #111426;
-  border-color: var(--border);
+  background: linear-gradient(130deg, #2c1a42df, #111d33ed);
+  border: 1px solid #9470b8;
+  border-radius: 18px 4px;
+  box-shadow: inset 0 1px 0 #eaa2ea66, 0 8px 24px #05081966;
 }
-html[data-theme='neon-tokyo-night'] .settings-quicknav { background: #111426; }
+html[data-theme='neon-tokyo-night'] .settings-section > h3:first-child {
+  color: #f6c0ed;
+  text-shadow: 0 0 12px #ee83d44d;
+  border-bottom: 1px solid #ad7aca;
+  padding-bottom: 12px;
+}
+html[data-theme='neon-tokyo-night'] :is(.settings-quicknav, #drawer .drawer-rooms) {
+  background: #19172fed;
+  border: 1px solid #a578c5;
+  border-radius: 12px;
+}
 html[data-theme='neon-tokyo-night'] #drawer {
-  --ledger-card: #1b1c35;
-  --ledger-slot: #111426;
-  --ledger-line: #645280;
-  --ledger-glyph: #99e8ee;
-  --ledger-title: #f0edf9;
-  background: #111426;
-  border-color: var(--border);
+  --ledger-card: #211d37;
+  --ledger-slot: #111c30;
+  --ledger-line: #7b5e9d;
+  --ledger-glyph: #a3f1f8;
+  --ledger-title: #f9d4f4;
+  background: linear-gradient(150deg, #251731f5, #0e1a2cf7),
+    url(../assets/neon-tokyo/neon_tokyo_city.webp) right center / cover;
+  border-color: #de91e2;
+  box-shadow: -2px 0 20px #c963d34d;
 }
 html[data-theme='neon-tokyo-night'] #drawer .drawer-head {
-  border-bottom-color: var(--border);
+  background: linear-gradient(90deg, #482349, #1c2c42);
+  border-bottom: 1px solid #a6eef4;
 }
-html[data-theme='neon-tokyo-night'] .nav-chip.current,
-html[data-theme='neon-tokyo-night'] .story-item.active {
-  background: #292743;
-  border-color: var(--ember);
-  box-shadow: inset 0 -2px 0 #c5a0ff;
+html[data-theme='neon-tokyo-night'] #drawer .drawer-head h2 { color: #f8d5f4; text-shadow: 0 0 10px #ed8bda66; }
+html[data-theme='neon-tokyo-night'] #drawer .ledger-panel {
+  background: linear-gradient(140deg, #322340b8, #15253cd9);
+  border-color: #9773b8;
+  border-radius: 14px 3px;
+  box-shadow: inset 0 1px 0 #c6a1e53d;
 }
-html[data-theme='neon-tokyo-night'] .btn-quiet:hover,
-html[data-theme='neon-tokyo-night'] .nav-chip:hover { border-color: var(--ember); }
-html[data-theme='neon-tokyo-night'] :focus-visible {
-  outline: 2px solid #99e8ee;
-  outline-offset: 3px;
+html[data-theme='neon-tokyo-night'] #drawer .ledger-panel > h3 {
+  border-bottom: 1px solid #86cfd559;
+  padding-bottom: 10px;
+  color: #b9f6fa;
 }
-@media (max-width: 900px) {
-  html[data-theme='neon-tokyo-night'] .thread-wrap::before { background-position: center, 58% center; }
-  html[data-theme='neon-tokyo-night'] .story-panel { background: #111426; }
+html[data-theme='neon-tokyo-night'] :is(.nav-chip.current, #drawer .nav-chip.current) {
+  color: #fff0fc;
+  background: linear-gradient(120deg, #653963, #273c57);
+  border-color: #dfa9ed;
+  box-shadow: inset 0 -2px 0 #92eef4, 0 0 12px #c56fdd40;
+}
+html[data-theme='neon-tokyo-night'] :is(.btn-quiet, .nav-chip, .hearth-chip):hover { border-color: #e9b0f3; box-shadow: 0 0 10px #dd7edf40; }
+html[data-theme='neon-tokyo-night'] :focus-visible { outline: 2px solid #a0f2ff; outline-offset: 3px; }
+@container (min-width: 600px) {
+  html[data-theme='neon-tokyo-night'][data-thread='story'] .neon-rias { display: block; }
+  html[data-theme='neon-tokyo-night'][data-thread='story'] .thread { padding-right: calc(27% + 12px); }
+  html[data-theme='neon-tokyo-night'] :is(.hearth, .no-connection) {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 470px;
+    padding-left: min(40%, 296px);
+  }
+  html[data-theme='neon-tokyo-night'] :is(.hearth, .no-connection)::before {
+    position: absolute;
+    left: 16px;
+    top: 20px;
+    width: 36%;
+    height: calc(100% - 40px);
+  }
+}
+@media (max-height: 520px) {
+  html[data-theme='neon-tokyo-night'] .neon-rias { bottom: 110px; height: 62%; }
+  html[data-theme='neon-tokyo-night'] :is(.hearth, .no-connection)::before { height: 180px; }
+}
+
+/* Keep the neon signature on compact phones without enlarging the bar. */
+@media (max-width: 380px) {
+  html[data-theme='neon-tokyo-night'] .brand { display: block; font-size: .78rem; }
+  html[data-theme='neon-tokyo-night'] .topbar-main { gap: .25rem; }
 }
