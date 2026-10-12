@@ -56,11 +56,11 @@ Changed files:
   this milestone without changing earlier entries.
 
 Focused checks actually run:
-* Before editing the behavior, `node tests/harness/m732-identity-contract.mjs`
-  was run against an archived M731 tree. It showed two calls, zero accepted
-  operations, two rejected unavailable bindings, seven outstanding strings,
-  `incomplete decisions`, and the old corrective instruction without local
-  scope or an engine eligible target list.
+* Before editing the behavior, a temporary copy of the M732 regression probe
+  ran against source files from an archived M731 tree. It showed two calls,
+  zero accepted operations, two rejected unavailable bindings, seven
+  outstanding strings, `incomplete decisions`, and the old corrective
+  instruction without local scope or an engine eligible target list.
 * After the change, `node tests/harness/m732-identity-contract.mjs` passes the
   reconstructed failure and one bounded repeated invalid reply; the failure
   remains yellow and no local disposition is guessed. It also passes partial
