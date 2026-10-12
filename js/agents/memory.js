@@ -1,3 +1,4 @@
+import { sourceBindings, messageVersion } from '../assemble/selection.js';
 /* Cozy Tavern — agents/memory.js
  * The memory keeper. M34: the Summaryception principle, ported whole.
  *
@@ -427,6 +428,7 @@ export const SUMMARIZER_USER = [
   '- Preserve the MANNER of an action when the text marks it: involuntary, reflexive, against the character\'s control, "before judgment caught up," forced, reluctant, deliberate, coldly. The manner is often the whole point — "Emilia corrected the misquote involuntarily, faster than her own judgment" is the record; "Emilia corrected the quote" falsifies her. Never flatten a charged action into a neutral one.',
   '- When a stat delta (P/R/S) has a clear cause in the passage, attach the triggering beat to that character\'s phrase; the number itself still bundles at the end per rule 9. A relationship\'s movement rides with the event that caused it — never a bare number with no reason.',
   '',
+  'EMOTIONAL CONTINUITY: preserve meaningful recurring rituals, private jokes, telling gestures, identity defining habits and relationship turning points with their reasons; do not save every atmosphere sentence or require callbacks on every page.',
   'VERBATIM PRESERVATION — quote exactly when the exact words ARE the fact:',
   'Default is paraphrase (rule 5). Override it with a SHORT exact quotation (in "double quotes", 15 words maximum) ONLY when the precise wording itself carries meaning paraphrase would destroy:',
   '- a line a character will be held to or that becomes a callback: an oath, a promise, a threat, a name spoken, a signature phrase;',
@@ -991,7 +993,7 @@ async function verify(connection, storyId, node, passage, record, playerName, si
 /* The discard-if-moved guard (M12). Exported for the harness. */
 export function nodeSignature(node) {
   if (!node || typeof node !== 'object') return '';
-  return [node.id, node.span && node.span[0], node.span && node.span[1], node.text].join('|');
+  return [node.id, node.span && node.span[0], node.span && node.span[1], node.text, node.detail || '', JSON.stringify(node.sourcePages || null)].join('|');
 }
 
 export function nodeUnmoved(nodes, id, signature) {
@@ -1610,6 +1612,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     const node = text === '(no new state)' || !text
       ? { id: nodeId(), span: [range[0], range[1] - 1], text: '', level: 1, at: Date.now(), empty: true, whole: true, ...(byHouse ? { byHouse: true } : {}) }
       : { id: nodeId(), span: [range[0], range[1] - 1], text, level: 1, at: Date.now(), whole: true, ...(byHouse ? { byHouse: true } : {}) }; /* M262: folded from whole pages */
+    node.sourcePages = sourceBindings(pages);
     /* M72: THE RECORD IS RE-READ BEFORE IT IS WRITTEN. The call above is slow;
      * while it ran, a hand or a rewind may have moved the record (a hole
      * punched for an edited page, lines let go after a retry, the
@@ -1623,7 +1626,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     const now = await loadMemory(storyId);
     const nowHistory = visiblePages(await db.messages.list(storyId));
     const stillDue = nowHistory.length >= range[1]
-      && pages.every((pg, i) => nowHistory[range[0] + i] && nowHistory[range[0] + i].id === pg.id && String(nowHistory[range[0] + i].text || '') === String(pg.text || ''))
+      && pages.every((pg, i) => nowHistory[range[0] + i] && nowHistory[range[0] + i].id === pg.id && messageVersion(nowHistory[range[0] + i]) === messageVersion(pg))
       && !now.nodes.some((n) => n && Array.isArray(n.span) && n.span[0] <= range[1] - 1 && range[0] <= n.span[1]);
     if (!stillDue) { lastKeeperTrouble = 'the pages or the record moved while it was reading'; break; }
     mem = now;
@@ -1703,6 +1706,7 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
       text,
       level: level + 1,
       at: Date.now(),
+      ...(toMerge.every(n => Array.isArray(n.sourcePages)) ? { sourcePages:toMerge.flatMap(n => n.sourcePages) } : {}),
       whole: toMerge.every((node) => node.whole === true), /* M263: squeezed from lines read whole */
     };
     /* M72: the sources must still stand, unmoved, when the merge lands */
@@ -1771,9 +1775,11 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
     if (!text) return { ok: false, why: 'the keeper gave nothing that is a line of the record, in ' + KEEPER_TRIES + ' tries' };
     mem = await loadMemory(storyId);
     const fresh = (mem.nodes || []).find((n) => n && n.id === nodeId);
-    if (!fresh) return { ok: false, why: 'that line moved while the keeper was reading' };
+    const sourceNow = visiblePages(await db.messages.list(storyId)).slice(node.span[0],node.span[1]+1);
+    if (!fresh || nodeSignature(fresh) !== nodeSignature(node) || JSON.stringify(sourceBindings(sourceNow)) !== JSON.stringify(sourceBindings(pages))) return { ok: false, why: 'the source or manual line changed while the keeper was reading' };
     fresh.text = text === '(no new state)' ? '' : text;
     fresh.empty = text === '(no new state)';
+    fresh.sourcePages = sourceBindings(pages);
     fresh.whole = true; /* M262: read again from whole pages */
     delete fresh.detail;              /* the old detail described the old line */
     delete fresh.audited;             /* M673: and the continuous audit read the old line — this one is read in its turn */
@@ -1872,11 +1878,13 @@ export async function rereadMergedLine({ connection, storyId, lineId, signal, re
     made.push(text === '(no new state)'
       ? { id: nodeId(), span: [a, b], text: '', level: 1, at: Date.now(), empty: true, whole: true }
       : { id: nodeId(), span: [a, b], text, level: 1, at: Date.now(), whole: true });
+    made.at(-1).sourcePages = sourceBindings(pages);
   }
   /* the swap: the squeezed line leaves only as its pages' lines take its place */
   const now = await loadMemory(storyId);
   const at = (now.nodes || []).findIndex((n) => n && n.id === lineId);
-  if (at === -1) return { ok: false, why: 'that line moved while its pages were read' };
+  const sourceNow = visiblePages(await db.messages.list(storyId)).slice(node.span[0],node.span[1]+1);
+  if (at === -1 || nodeSignature(now.nodes[at]) !== nodeSignature(node) || JSON.stringify(sourceBindings(sourceNow)) !== JSON.stringify(sourceBindings(history.slice(node.span[0],node.span[1]+1)))) return { ok: false, why: 'the source or manual line changed while its pages were read' };
   now.nodes.splice(at, 1, ...made);
   await saveMemory(storyId, now);
   for (const n of made) {

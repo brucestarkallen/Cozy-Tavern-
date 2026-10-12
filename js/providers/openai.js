@@ -1,3 +1,5 @@
+import { bodyAccounting, inputRoom } from '../assemble/budget.js';
+import { contextOf } from './room.js';
 /* Cozy Tavern — providers/openai.js
  * OpenAI-compatible chat completions (OpenAI, OpenRouter, or a custom
  * address), streamed over SSE.
@@ -319,6 +321,42 @@ function prefillReport(connection, sent, modelThought, full) {
   return { applied: true, working, seeded: Boolean(sent.seed), words: 'The prefill: ' + words + '.' };
 }
 
+export function openAIWire(connection, blocks, system, messages = []) {
+  const wire = [];
+  if (Array.isArray(blocks) && blocks.length) {
+    const stable = blocks
+    .filter((b) => b && b.cache && typeof b.text === 'string' && b.text.length)
+    .map((b) => b.text)
+    .join('\n\n');
+    /* M321: ONE SYSTEM MESSAGE, NOT A STACK OF THEM. The brief and "Here right now" rode as their own system
+     * messages after the prefix — three system messages in a row, and the storyteller's own thinking
+     * said so: "These hints are layered on each other, which is unusual. Let me look: hint 1… hint 2…
+     * hint 3…" — a turn's thinking spent sorting the house's wrapping instead of the scene. They follow
+     * the stable prefix inside the SAME message, in the same order: a provider's prefix cache keys on
+     * the leading bytes, which are unchanged (the frame and the craft still lead, byte for byte). */
+    const rest = blocks.filter((b) => b && !b.cache && typeof b.text === 'string' && b.text.length).map((b) => b.text);
+    const whole = [stable, ...rest].filter(Boolean).join('\n\n');
+    if (whole) wire.push({ role: 'system', content: whole });
+  } else {
+    const systemText = Array.isArray(system) ? system.join('\n\n') : system;
+    if (systemText) wire.push({ role: 'system', content: systemText });
+  }
+  /* M380: a system message after the story (the post-history words) — sent as a user one to a house that once refused it */
+  /* M510-38: a house that once refused a conversation opening on the assistant gets his one line first */
+  for (const m of (userFirstRequired(connection) ? withUserFirst(messages) : messages)) wire.push(withImagePart(m && m.role === 'system' && lateSystemRefused(connection) ? { ...m, role: 'user' } : m, 'openai'));
+  /* M466: DEEPSEEK'S REASONER TAKES NO TWO OF A ROLE IN A ROW ("deepseek-reasoner does not support successive user or
+   * assistant messages", a 400) — deepseek-chat and every other house take them. His own-voice entries (an assistant
+   * message beside a storyteller page) and the state message beside his first page would meet that wall; for a
+   * model named reasoner, neighbours of one role are folded into one message, a blank line between, order kept. */
+  /* M636: …and any other house that has said so once (userfirst.js twinsRefused) — one fold, one definition */
+  if (/reasoner/i.test(String(connection && connection.model || '')) || twinsRefused(connection)) foldTwins(wire);
+
+  return wire;
+}
+export function buildOpenAIRequest(connection, { systemBlocks, system, messages = [] }, opts = {}) {
+  return requestBody(connection, openAIWire(connection, systemBlocks, system, messages), opts).body;
+}
+
 export function createOpenAIProvider(connection) {
   const base = baseOf(connection);
   const name = nameOf(connection);
@@ -430,34 +468,7 @@ export function createOpenAIProvider(connection) {
      * separate system messages, in order, never merged into the stable
      * prefix. The M1 legacy `system` (string or array of strings) still
      * works, unchanged. */
-    const wire = [];
-    if (Array.isArray(blocks) && blocks.length) {
-      const stable = blocks
-        .filter((b) => b && b.cache && typeof b.text === 'string' && b.text.length)
-        .map((b) => b.text)
-        .join('\n\n');
-      /* M321: ONE SYSTEM MESSAGE, NOT A STACK OF THEM. The brief and "Here right now" rode as their own system
-       * messages after the prefix — three system messages in a row, and the storyteller's own thinking
-       * said so: "These hints are layered on each other, which is unusual. Let me look: hint 1… hint 2…
-       * hint 3…" — a turn's thinking spent sorting the house's wrapping instead of the scene. They follow
-       * the stable prefix inside the SAME message, in the same order: a provider's prefix cache keys on
-       * the leading bytes, which are unchanged (the frame and the craft still lead, byte for byte). */
-      const rest = blocks.filter((b) => b && !b.cache && typeof b.text === 'string' && b.text.length).map((b) => b.text);
-      const whole = [stable, ...rest].filter(Boolean).join('\n\n');
-      if (whole) wire.push({ role: 'system', content: whole });
-    } else {
-      const systemText = Array.isArray(system) ? system.join('\n\n') : system;
-      if (systemText) wire.push({ role: 'system', content: systemText });
-    }
-    /* M380: a system message after the story (the post-history words) — sent as a user one to a house that once refused it */
-    /* M510-38: a house that once refused a conversation opening on the assistant gets his one line first */
-    for (const m of (userFirstRequired(connection) ? withUserFirst(messages) : messages)) wire.push(withImagePart(m && m.role === 'system' && lateSystemRefused(connection) ? { ...m, role: 'user' } : m, 'openai'));
-    /* M466: DEEPSEEK'S REASONER TAKES NO TWO OF A ROLE IN A ROW ("deepseek-reasoner does not support successive user or
-     * assistant messages", a 400) — deepseek-chat and every other house take them. His own-voice entries (an assistant
-     * message beside a storyteller page) and the state message beside his first page would meet that wall; for a
-     * model named reasoner, neighbours of one role are folded into one message, a blank line between, order kept. */
-    /* M636: …and any other house that has said so once (userfirst.js twinsRefused) — one fold, one definition */
-    if (/reasoner/i.test(String(connection && connection.model || '')) || twinsRefused(connection)) foldTwins(wire);
+    const wire = openAIWire(connection, blocks, system, messages);
 
     const startedAt = Date.now();
     const notes = [];
@@ -488,6 +499,8 @@ export function createOpenAIProvider(connection) {
        * a body that does not stream must not carry it. An address that will not take it is taught once, below. */
       if (body.stream === true && !opts.noUsage) { const taught = learnedFacts(connection); if (!(taught && Array.isArray(taught.drop) && taught.drop.includes('stream_options'))) body.stream_options = { include_usage: true }; }
       /* M307: a started reply goes to DeepSeek's beta address, the only one that takes it */
+      const accounting = bodyAccounting(body);
+      if (accounting.inputTokens > inputRoom({ budgetTokens: contextOf(connection), answerTokens: accounting.answerTokens })) throw new Error('The complete provider request exceeds this connection’s context after reserving its answer. Saved pages are intact.');
       const beta = prefill.applied && prefillProfile(connection) === 'deepseek' ? deepseekBetaBase(connection.baseUrl) : '';
       const sentUrl = beta ? `${beta}/chat/completions` : `${base}/v1/chat/completions`; /* M347: outside the try — the answer's branch reads it */
       let out;
@@ -629,6 +642,7 @@ export function createOpenAIProvider(connection) {
     }
     if (!res) throw new Error(`The answer was no, without a reason (400).`);
 
+    let usage = null;
     let full = '';
     let thinking = '';
     let refusal = '';
@@ -697,6 +711,7 @@ export function createOpenAIProvider(connection) {
       return undefined;
     };
     await readSSE(res.body, (data) => {
+      if(data?.usage) usage = {...(usage || {}),...data.usage};
       const piece = data && data.choices && data.choices[0];
       const delta = piece && piece.delta;
       /* M9 (B9): why it stopped, when the stream says — 'length' means the
@@ -815,7 +830,8 @@ export function createOpenAIProvider(connection) {
       notes,
       prefill: prefillReport(connection, sentPrefill, modelThought, full),
       ...(emptyWhy && !full.trim() ? { emptyWhy } : {}),
-      sent: sentWire, /* M347 */
+      sent: sentWire,
+      usage, /* M347 */
       sources: [],
       ttftMs: ttftMs === null ? durationMs : ttftMs,
       tfftMs,

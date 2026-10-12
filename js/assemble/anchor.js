@@ -1,3 +1,4 @@
+import { fingerprint36 } from '../engine/fingerprint.js';
 /* Cozy Tavern — anchor.js
  * M343: THE OLDER-MODEL SWITCH ("derestricted / older model"), part one — the scene, said again at the END.
  *
@@ -79,7 +80,7 @@ export function recallFromRecord(nodes, scenePages, { ignore = [], max = RECALL_
     for (const w of String(name || '').toLowerCase().split(/[^\p{L}\p{N}]+/u)) if (w) skip.add(w);
     for (const w of sceneWordsOf([String(name || '')])) skip.add(w); /* a name as the scorer itself reads it ("mi-na" is one word to it) */
   }
-  const wordsOf = list.map((n) => sceneWordsOf([n.text]));
+  const wordsOf = list.map((n) => sceneWordsOf([n.text,n.detail || '']));
   const df = new Map();
   for (const ws of wordsOf) for (const w of ws) df.set(w, (df.get(w) || 0) + 1);
   const scored = [];
@@ -93,7 +94,7 @@ export function recallFromRecord(nodes, scenePages, { ignore = [], max = RECALL_
   far.sort((a, b) => b.score - a.score);
   return far.slice(0, max).sort((a, b) => a.n.span[0] - b.n.span[0]).map(({ n }) => {
     const text = n.text.replace(/\s+/g, ' ').trim();
-    return { from: n.span[0] + 1, to: n.span[1] + 1, text: text.length > RECALL_MAX_CHARS ? text.slice(0, RECALL_MAX_CHARS - 1).trimEnd() + '…' : text };
+    return { id: n.id || 'legacy:' + fingerprint36(JSON.stringify([n.span, n.text, n.detail || '', n.at || 0])), from: n.span[0] + 1, to: n.span[1] + 1, text: text.length > RECALL_MAX_CHARS ? text.slice(0, RECALL_MAX_CHARS - 1).trimEnd() + '…' : text };
   });
 }
 export function recallLine(recalled) {

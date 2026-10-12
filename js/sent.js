@@ -145,7 +145,7 @@ export function keepSent(args = {}) {
   }
   return p;
 }
-async function keepSentNow({ id, storyId, slots = [], requests = [] } = {}) {
+async function keepSentNow({ id, storyId, slots = [], requests = [], selection = null } = {}) {
   try {
     if (!id || !storyId) return false;
     const d = await openSent();
@@ -154,6 +154,7 @@ async function keepSentNow({ id, storyId, slots = [], requests = [] } = {}) {
     const enc = (text) => piecesOf(text).map((p) => { const k = pieceKey(storyId, p); if (!known.has(k) && !fresh.has(k)) fresh.set(k, p); return k; });
     const record = {
       id, storyId, ts: Date.now(), v: 1,
+      ...(selection ? { selection } : {}),
       slots: (Array.isArray(slots) ? slots : []).map((s) => ({ name: String((s && s.name) || ''), t: s && typeof s.text === 'string' && s.text ? enc(s.text) : [] })),
       requests: (Array.isArray(requests) ? requests : []).filter((r) => r && r.body).map((r) => ({ url: String(r.url || ''), body: encodeWith(enc)(r.body) })),
     };
@@ -194,6 +195,7 @@ export async function loadSent(id) {
     return {
       ts: record.ts,
       slots: (record.slots || []).map((s) => ({ name: s.name, text: text(s.t || []) })),
+      selection: record.selection || null,
       requests: (record.requests || []).map((r) => ({ url: r.url, body: decodeWith(text)(r.body) })),
     };
   } catch (err) {
@@ -628,6 +630,7 @@ export async function loadSentOrPull(id, storyId, report = null) {
     return {
       ts: record.ts,
       slots: (record.slots || []).map((s) => ({ name: s.name, text: text(s.t || []) })),
+      selection: record.selection || null,
       requests: (record.requests || []).map((r) => ({ url: r.url, body: decodeWith(text)(r.body) })),
     };
   } catch (err) {

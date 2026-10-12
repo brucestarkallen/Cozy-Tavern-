@@ -84,3 +84,19 @@ People core notes add supported facts; explicit corrections remain available.
 Unsuccessful sourced additions remain for the next ordinary People reading.
 The final independent auditor still checks real facts and historical originals.
 See M719.md for actual verification and remaining interpretation limits.
+
+
+## M737 request views and perspective boundaries
+
+Stored records remain durable. Request selection uses complete entry objects,
+attached detail, source identity and visible versions, with a final manifest of
+original, folded, compressed and unrepresented stretches. Essentials completion
+is structural source processing, not a certificate that every fact survived.
+Unusable candidates retain prior usable text and pending source material.
+Knowledge recipients belong to explicit source readings. Presence, a name in a
+secret and public sounding words do not supply acquisition evidence. Legacy
+missing books express uncertainty, never certain ignorance. Exact dates,
+certainty, negation, conditions and optional pathways remain distinct through
+knowledge writes, views and undo. Actual selected perspective evidence can
+remove a duplicate retelling while preserving another person’s belief.
+Existing factual audit authority and repair policy remain unchanged.

@@ -163,6 +163,7 @@ const VOCABULARY = [
    * burning in the ledger, read to the storyteller every turn as something
    * still hanging. */
   'thread.close {"type":"thread.close","title":"the title as the ledger holds it"} — a story thread THIS page resolved: the question answered, the plan abandoned, the promise kept, the thing found. Use the title the ledger shows, worded as it stands (each title is quoted on the thread list).',
+  'Knowledge metadata may include kind (known, belief, suspicion, rumor, ignorance), pathway in the page’s own words, and source {quote, recipients:[names]}. Use only supported evidence. Ignorance requires explicit secrecy or not having learned, never a missing book. Learning the truth updates only its actual recipients. Ordinary world knowledge and reasonable inference need no invented lesson.',
   'knowledge.add {"type":"knowledge.add","who":["NAME","OTHER NAME"],"fact":"that Orrin Vale lived in England"} — when someone in the scene LEARNS something that could matter later: a secret told, a name heard, a lie caught, a thing seen they were not meant to see. A LIE OR A COVER STORY THEY BELIEVE is written as what they believe AND that it is untrue — fact "believes Orrin Vale is only a recruit — untrue: Orrin Vale is the new captain of the guard" — and when the truth comes out in front of them, what they learned: "learned Orrin Vale is the new captain, not a recruit — he had told them otherwise". Only what THIS page put in front of them, and only where being told, or not told, could change what they do. WRITE IT IN THE PAGE\'S OWN TERMS: what was said, seen or overheard, exactly — "their mother" if the page said their mother, never "his stepmother" because you know the family; who said it to whom as the page has it; never what the person would conclude from it. A fact the page did not put in front of them is not knowledge, however likely. WHO IS YOURS TO DECIDE, FROM THE PAGE: "who" names EVERY person the page put it in front of, each by name — close enough to see or hear it, awake, and there when it happened (never someone who came in after it, had gone before it, or from whom it was kept: a whisper is the two it passed between). Write "who":"everyone here" when it happened or was said in front of the whole scene: that means everyone who was in the scene when this page opened and is still in it at its end. Anyone else who was there for it — someone who walked in before it happened, someone who left after it — is added by name: "who":["everyone here","NAME"]. One witness is a list of one. Never the main character, and the one who did or said it is no witness of their own act. ' + KNOWING_MEANS,
   'mode.snapshot {"type":"mode.snapshot","flags":["travel"]} — THE WHOLE BOARD, EVERY PAGE: every mood that holds at the END of this page, from: combat (a fight is on), intimate (sex or intimate touch is on), travel (in transit — a car, a train, a road; NOT once they have arrived and stepped out), socialField (a crowded public place full of voices), isolation (alone, far from help), group (in company of several). Anything you do not name is cleared. An empty list clears them all.',
   'body.injure {"type":"body.injure","name":"NAME","what":"left forearm fractured","sev":2,"treated":false} — only when a blow lands on-page; sev is 1 (a graze), 2 (a real wound), or 3 (severe); treated only if someone tends it on-page',
@@ -1192,7 +1193,7 @@ export function settleWitnesses(state, mutations, here) {
    * were not there for) */
   const stood = roomOfPage(state, list, here);
   const before = stood.filter((n) => isHere(state, n));
-  const room = before.length ? before : stood;
+  const room = before;
   const out = [];
   const has = (name, fact) => out.some((m) => m.type === 'knowledge.add' && m.fact === fact && typeof m.name === 'string' && (m.name.toLowerCase() === name.toLowerCase() || samePersonName(m.name, name)));
   for (const m of list) {
@@ -1208,25 +1209,8 @@ export function settleWitnesses(state, mutations, here) {
   return out;
 }
 export function broadcastPublicMoments(state, mutations, here) {
-  const list = Array.isArray(mutations) ? mutations : [];
-  /* M642: a line whose witnesses the reader named is never guessed over — only a line written the old way, with one name */
-  const settled = new Set(list.filter((m) => m && m.type === 'knowledge.add' && m.decided === true).map((m) => m.fact));
-  const facts = list.filter((m) => m && m.type === 'knowledge.add' && typeof m.fact === 'string' && typeof m.name === 'string' && !settled.has(m.fact) && publicMoment(m.fact));
-  if (!facts.length) return list;
-  const room = roomOfPage(state, list, here);
-  if (room.length < 2) return list;
-  /* M520/M522: a moment someone did is not written into their own book from another's eyes (didIt, above) */
-  const out = list.slice();
-  for (const f of facts) {
-    const holders = new Set(list.filter((m) => m && m.type === 'knowledge.add' && m.fact === f.fact).map((m) => String(m.name).trim().toLowerCase()));
-    for (const n of room) {
-      if (holders.has(n.toLowerCase()) || [...holders].some((h) => samePersonName(h, n))) continue;
-      if (didIt(n, f.fact)) continue;
-      out.push({ type: 'knowledge.add', name: n, fact: f.fact, ...(f.at ? { at: f.at } : {}) });
-      holders.add(n.toLowerCase());
-    }
-  }
-  return out;
+  // Explicit reader witnesses are settled above. Legacy one-person facts stay one-person facts.
+  return Array.isArray(mutations) ? mutations : [];
 }
 
 async function extractTurnRead({ connection, state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '', signal, renew, storyId = '', story = null, pageNumber = 0, moodOwed = true } = {}) {

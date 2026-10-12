@@ -1,3 +1,39 @@
+# M737: context selection, completion and token efficiency
+
+Version m737-001. Base main 68dbc6ce2386437f7965301ac80a7f5555e62142.
+Complete requested stages A through E are implemented. Whole source objects and
+visible message versions now drive assembly, recall exclusions, fitting and
+source coverage. Attached detail remains with its entry. Essentials reject
+clipped or incomplete replacements, budget source parts together and retain
+pending sources with prior usable text. Unchanged failed inputs avoid another
+helper attempt; the existing manual regeneration action still reads sources.
+Relevant conditional plans, complete character fields and bounded historical
+original excerpts reach the request. Knowledge no longer acquires recipients
+from presence or public sounding words, and missing books express uncertainty.
+Exact statements, dates, conditions and certainty remain distinct. Final body
+measurement uses the provider serializers and effective output allowance;
+receipts retain actual bodies, provider usage and precise final source gaps.
+
+Focused m737-context.mjs, m737-measure.mjs against unchanged M736, and actual
+browser tests/m737_send.py passed with disposable data and mocked transport.
+Changed JS syntax and diff checks passed. Actual ordinary send made one
+successful storyteller request and preserved original/custom wording.
+Duplicate fixture: estimated storyteller input 4531 to 4389, eight exact
+retellings removed with their recipient distinctions preserved. Detail fixture:
+6195 to 6515 because complete evidence now travels. Recall cue input: 1471 to
+716 in the paired operation, one call each. Corrected exclusion can restore a
+previously skipped optional helper call; no hidden savings claim. Essentials:
+one call each, 1612 to 1870 input characters, 126 output characters each.
+Main fixture estimated 9425 tokens at both 200000 and 500000 contexts.
+
+No live generation, broad suite or prose quality certification. No setting
+default, dependency, destructive migration, audit policy or storage architecture
+change. Added optional source metadata and the two local shell assets only.
+M735/M736 branch code, manual records and source ownership remain intact.
+Full scope, changed functions, failed fixture attempts, metrics, preservation
+and limits are in docs/M737_CONTEXT_REPORT.md. Publication status is determined
+from Git and the completion reply, never this precommit note.
+
 # M736: opening branch ledger reset and Housekeeper application receipts
 
 Version m736-001. Base 2c12f3333b318e9413232c89983d43755163d021.

@@ -56,6 +56,8 @@ const SHELL = [
   'js/providers/knobs.js', /* M510 */
   'js/assemble/stack.js',
   'js/assemble/budget.js',
+  'js/assemble/selection.js',
+  'js/providers/measure.js',
   'js/engine/relevance.js',
   'js/assemble/voice.js',
   'js/assemble/anchor.js',

@@ -46,7 +46,7 @@ import { isMc } from './people.js'; /* M588 */ /* M509-15: was this person in th
 import { renderBodies, dedupeInjuries } from './bodies.js'; /* M485: the wounds folded on load */
 import { axisWords, AXES } from './relationships.js';
 import { renderOffscreen, isDeadSeat, findSeat } from './offscreen.js'; /* M680: the dead are nobody's company */
-import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge, blindSpots, renderBlindSpots } from './world.js'; /* M29: the world beyond the page */
+import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge, statementKey, blindSpots, renderBlindSpots } from './world.js'; /* M29: the world beyond the page */
 import { renderCanon, lookKey } from './canon.js'; /* M681: one key for one look */
 import { renderFightLine, mcName } from './duels.js';
 import { migrateCharacters, healGhosts, partLookAlikes } from './people.js'; /* M485: the ghosts folded on load */
@@ -1063,7 +1063,7 @@ export function closeBy(state) {
   }
   return out;
 }
-export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, scenePages = [], noFight = false, peopleNames = [], omit = [] } = {}) {
+export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, scenePages = [], noFight = false, peopleNames = [], omit = [], selectedTexts = [] } = {}) {
   if (!state || typeof state !== 'object') return '';
 
   const clockMinutes = state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
@@ -1167,7 +1167,7 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   /* M305: the newest, and the older facts that bear on the scene the last pages tell */
   const known = {};
   const wasThere = wasThereFn(state); /* M509-15 */
-  const knowledgeAt = (per) => omit.includes('knowledge') ? '' : renderKnowledge(state.knowledge, present, per, { pages: scenePages, ignore: [mcName(state)], mc: mcName(state), turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, wasThere }, known);
+  const knowledgeAt = (per) => omit.includes('knowledge') ? '' : renderKnowledge(state.knowledge, present, per, { pages: scenePages, ignore: [mcName(state)], mc: mcName(state), selectedTexts, turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, wasThere }, known);
   let knowledgeLines = knowledgeAt(whole ? Infinity : undefined);
   /* M510-44: WHO KNOWS WHAT HAS A ROOM OF ITS OWN IN THE WHOLE VIEW. His Bleach duel: eleven people in the scene, and
    * who knows what was ~10,000 tokens a page — each person's newest twelve and four called back, most of them from the
@@ -1190,15 +1190,15 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   /* M338: and what each person here has NOT been shown learning — computed from the same lines, no model */
   /* M509: a fact that stands above as a shared line — "Everyone here but X knows" / "Known to A, B, C" — has already
    * said who is out of it; the blind spots name only what the lines above do not */
-  const normFact = (f) => String(f || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const normFact = statementKey;
   const spots = blindSpots(state.knowledge, present, { scenePages, turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, mc: mcName(state), wasThere })
     .map((s) => ({ ...s, lacks: s.lacks.filter((l) => !(known.shared && known.shared.has(normFact(l.fact)))) }))
     .filter((s) => s.lacks.length);
-  const blind = omit.includes('knowledge') ? '' : renderBlindSpots(spots);
+  const blind = omit.includes('knowledge') ? '' : renderBlindSpots(spots,{selectedTexts});
   const blindSec = blind ? { shed: 2, text: BLIND_HEAD + blind, trimTo: whole ? Infinity : 8, head: BLIND_HEAD } : null;
   if (blindSec) sections.push(blindSec);
   const absentNames = peopleNames.filter(n => !present.some(p => samePersonName(p?.name || p, n)));
-  const absentKnowledge = omit.includes('knowledge') ? '' : renderKnowledge(state.knowledge, absentNames, undefined, { pages: scenePages, mc: mcName(state), namedOnly: true });
+  const absentKnowledge = omit.includes('knowledge') ? '' : renderKnowledge(state.knowledge, absentNames, undefined, { pages: scenePages, mc: mcName(state), namedOnly: true, selectedTexts });
   if (absentKnowledge) sections.push({ shed: 2, text: 'Recalled people, not placed in this scene:\n' + absentKnowledge });
 
   /* M86: the living world is not the first thing the budget drops — who is

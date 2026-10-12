@@ -21,9 +21,28 @@ export function renderPlan(p) {
   const parts = p.parts.filter((x) => x && typeof x === 'object').map((x, i) => '  ' + (i + 1) + '. ' + t(x.who) + ' — ' + t(x.does).replace(/\.+$/, '') + (t(x.when) ? ' (' + t(x.when).replace(/\.+$/, '') + ')' : '') + (x.done ? ' — done.' : '.'));
   const said = (Array.isArray(p.words) ? p.words : []).filter((w) => typeof w === 'string' && w.trim());
   const words = said.length ? ['  The words to be said: ' + said.map((w) => '“' + w + '”').join('; ')] : [];
-  return [head, ...parts, ...words].join('\n');
+  const disposition = t(p.disposition) || t(p.outcome);
+  return [head, ...parts, ...words, disposition ? '  Current disposition: ' + disposition : ''].join('\n');
 }
 
-export function renderStanding(book) {
-  return standingPlans(book).slice(-STANDING_SHOWN).map(renderPlan).join('\n\n');
+export function renderStanding(book, options = {}) {
+  return (options.selected || selectStanding(book, options)).map(renderPlan).join('\n\n');
+}
+
+/* Match supported text for relevance, never as proof a condition was satisfied. */
+export function selectStanding(book, { move = '', scene = '', state = null, cap = Infinity, through = Infinity } = {}) {
+  const words = s => new Set(String(s || '').toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) || []);
+  const here = (state?.present || []).map(p => typeof p === 'string' ? p : p.name).filter(Boolean);
+  const concerns = here.flatMap(name => { const person = state?.characters?.[name]; return [person?.state || '',...(person?.threads || [])]; }).join('\n');
+  const wanted = words(move + '\n' + scene + '\n' + (state?.place?.name || '') + '\n' + (state?.clock?.label || '') + '\n' + concerns);
+  const overlap = text => [...words(text)].filter(w => wanted.has(w)).length;
+  const ranked = standingPlans(book).filter(p => !Number.isFinite(p.from) || p.from < through).map((p,i) => ({ p,i, score: 3 * overlap(p.title + ' ' + (p.goal || '')) + overlap(renderPlan(p)) + (p.parts || []).filter(x => !x.done && here.includes(x.who)).length }));
+  ranked.sort((a,b) => b.score - a.score || b.i - a.i);
+  const chosen = []; let used = 0;
+  for (const {p} of ranked) {
+    const cost = renderPlan(p).length + 2;
+    if (chosen.length >= STANDING_SHOWN || used + cost > cap) continue;
+    chosen.push(p); used += cost;
+  }
+  return chosen;
 }

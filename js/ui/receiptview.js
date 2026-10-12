@@ -359,7 +359,12 @@ export function openReceipt(receipt, extraction, findings, { storyId = '' } = {}
   if (receipt.noThought) parts.push('no thinking came back from the model'); /* M348 */
   if (receipt.thinkWhy) parts.push(receipt.thinkWhy); /* M521-2: the story's own level Off, or thinking settings a connection refused */
   if (typeof receipt.durationMs === 'number') parts.push(fmtSeconds(receipt.durationMs) + ' all told');
-  if (typeof receipt.totalTokens === 'number') parts.push('~' + receipt.totalTokens + ' tokens sent');
+  if (receipt.context?.transport?.inputTokens || receipt.context?.inputTokens) parts.push('estimated input ' + (receipt.context.transport?.inputTokens || receipt.context.inputTokens) + ' tokens, answer allowance ' + receipt.context.answerTokens);
+  else if (typeof receipt.totalTokens === 'number') parts.push('~' + receipt.totalTokens + ' tokens in sections');
+  const usage = receipt.context?.providerUsage;
+  if (usage?.prompt_tokens || usage?.input_tokens) parts.push('provider reported input ' + (usage.prompt_tokens || usage.input_tokens) + ' tokens');
+  if (receipt.selection?.gaps?.length) parts.push('source gaps: ' + receipt.selection.gaps.map(g => 'pages ' + (g.from+1) + ' to ' + (g.to+1)).join(', '));
+  if (receipt.selection?.essentials) parts.push('essentials compress their source range, fact retention is not certified');
   if (receipt.prefill) parts.push(receipt.prefill); /* M329: did the prefill work, on this turn */
   footer.textContent = parts.join(' · ');
 

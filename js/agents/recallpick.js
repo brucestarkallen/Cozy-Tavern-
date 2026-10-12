@@ -3,12 +3,17 @@
  * smartly think: Bruce probably means this from the record, so I should inject it — smart, yet careful?"
  * The word-match recall (M344) stands. Beside it, before each page of a story whose essentials exist, a worker reads HIS
  * move and the last page against the story's timeline (the essentials) and an index of the older record lines — each by
- * number, its pages and its opening words — and names the lines the next page needs that the timeline alone does not
+ * number, its pages and literal source excerpts, including separate detail — and names the lines the next page needs that the timeline alone does not
  * give: who was told what, exact words, a promise, an identity, a plan's detail.
  * Careful, by construction: it only NAMES lines; what rides is the record's own line, word for word — nothing it writes
  * reaches the storyteller. A number that is not in the index is ignored; at most PICK_MAX lines; and it waits at most
  * PICK_TIMEOUT_MS — slower, failing, or unsure, and the page goes with the word-match recall alone, as before. */
-import { callWorker } from './call.js';
+import { contextOf } from '../providers/room.js';
+import { sceneWordsOf } from '../engine/world.js';
+import { recordId, recordPrint } from '../assemble/selection.js';
+import { callWorker, workerConnection } from './call.js';
+import { measureTransport } from '../providers/measure.js';
+import { inputRoom } from '../assemble/budget.js';
 import { parseFirstObject } from './jsonutil.js'; /* M608 */
 
 export const PICK_MAX = 4;
@@ -16,21 +21,35 @@ export const PICK_TIMEOUT_MS = 8000;
 export const PICK_HEAD_CHARS = 220;
 
 /* the older lines, numbered from 1, oldest first — each by its pages and opening words */
-export function recallIndex(nodes, { skip = () => false } = {}) {
-  return (Array.isArray(nodes) ? nodes : [])
-    .filter((n) => n && !n.empty && !n.correction && typeof n.text === 'string' && n.text.trim() && Array.isArray(n.span) && !skip(n))
-    .sort((a, b) => a.span[0] - b.span[0])
-    .map((n, i) => {
-      const flat = n.text.replace(/\s+/g, ' ').trim();
-      return { n: i + 1, id: n.id, from: n.span[0] + 1, to: n.span[1] + 1, head: flat.length > PICK_HEAD_CHARS ? flat.slice(0, PICK_HEAD_CHARS - 1).trimEnd() + '…' : flat };
-    });
+const cueCache = new Map();
+function sourceSentences(n) {
+  const key = recordId(n) + ':' + recordPrint(n);
+  if (cueCache.has(key)) return cueCache.get(key);
+  const parts = [...new Set((n.text + '\n' + (n.detail || '')).split(/(?<=[.!?;])\s+|\n+/).filter(Boolean).flatMap(t => { const chunks = []; let part = ''; for (const word of t.split(/\s+/)) { if (part.length + word.length > 280 && part) { chunks.push(part); part = ''; } part += (part ? ' ' : '') + word; } if (part) chunks.push(part); return chunks; }))];
+  if (cueCache.size > 4000) cueCache.clear();
+  cueCache.set(key, parts); return parts;
+}
+export function recallIndex(nodes, { skip = () => false, move = '', lastPage = '', cap = 18000 } = {}) {
+  const scene = sceneWordsOf([move,lastPage]);
+  const rows = (nodes || []).filter(n => n && !n.empty && !n.correction && n.text?.trim() && Array.isArray(n.span) && !skip(n)).map(n => {
+    const parts = sourceSentences(n);
+    const score = t => [...sceneWordsOf([t])].filter(w => scene.has(w)).length;
+    const ranked = parts.map((text,i) => ({ text,i,score:score(text) })).sort((a,b) => b.score - a.score || a.i - b.i);
+    const useful = new Set([0,parts.length - 1,...ranked.slice(0,3).map(p => p.i)]);
+    // Literal source cues, labelled excerpts. They select IDs and never become facts.
+    const cues = [...useful].sort((a,b) => a-b).map(i => parts[i]?.slice(0,300) || '').join(' | ');
+    return { id: recordId(n), from: n.span[0] + 1, to: n.span[1] + 1, head: cues, score: ranked[0]?.score || 0 };
+  }).sort((a,b) => b.score - a.score || b.to - a.to);
+  const chosen = []; let used = 0;
+  for (const r of rows) { const cost = r.head.length + 80; if (used + cost > cap) continue; chosen.push(r); used += cost; }
+  return chosen.sort((a,b) => a.from - b.from).map((r,i) => ({ ...r,n:i+1 }));
 }
 
 export function pickAsk({ essentials = '', index = [], move = '', lastPage = '', mc = '' } = {}) {
   const who = mc ? mc : 'the main character';
   const system = [
     'You pick the older record lines of a long collaborative story that the NEXT page needs. You write nothing of the story.',
-    'You are given the story\'s timeline (its essentials), an index of the older record lines — each by number, its pages and its opening words — the last page, and the writer\'s newest move.',
+    'You are given the story\'s timeline (its essentials), an index of the older record lines — each by number, its pages and literal source excerpts, including separate detail — the last page, and the writer\'s newest move.',
     'Name the lines whose details the next page needs and the timeline alone does not give: who was told what and by whom, the exact words of a promise or a lie, an identity or a title and who knows it, a debt, a wound, a plan\'s detail. Think about what the move means, not only the words it uses: a question about a family tie may need the line where ' + who + '\'s standing was told; a name said may need the line where that person last dealt with ' + who + '.',
     'Pick none rather than guess. At most ' + PICK_MAX + '.',
     'Answer with ONLY this JSON: {"lines":[numbers]} — for example {"lines":[3,17]} or {"lines":[]}.',
@@ -62,25 +81,37 @@ export function readPick(raw, count) {
 }
 
 /* never throws: { ids, why } — ids of the nodes it named, [] when it could not (slow, failing, unsure) */
-export async function pickRecall({ connection, essentials = '', nodes = [], move = '', lastPage = '', mc = '', skip, timeoutMs = PICK_TIMEOUT_MS, callLLM = callWorker } = {}) {
+export async function pickRecall({ connection, essentials = '', nodes = [], move = '', lastPage = '', mc = '', skip, signal, timeoutMs = PICK_TIMEOUT_MS, callLLM = callWorker } = {}) {
   if (!connection) return { ids: [], why: 'no connection' };
-  const index = recallIndex(nodes, { skip });
+  if (signal?.aborted) return { ids: [], why: 'cancelled' };
+  const helper = workerConnection(connection,{maxTokens:200});
+  const shell = pickAsk({essentials,move,lastPage,mc});
+  const measure = measureTransport(helper,{system:shell.system,messages:[{role:'user',content:shell.user}]});
+  const helperRoom = Math.max(0,Math.floor((inputRoom({budgetTokens:contextOf(helper),answerTokens:measure.answerTokens}) - measure.inputTokens)*3) - 600);
+  const index = recallIndex(nodes, { skip, move, lastPage, cap: Math.min(24000, helperRoom) });
   if (index.length < 2) return { ids: [], why: 'too few older lines' };
   const ask = pickAsk({ essentials, index, move, lastPage, mc });
   const ctl = new AbortController();
   let timer = null;
+  let cancelResolve;
+  const cancelled = new Promise(resolve => { cancelResolve = resolve; });
+  const cancel = () => {ctl.abort(); cancelResolve({cancelled:true});};
+  signal?.addEventListener('abort', cancel, { once: true });
   try {
     const answer = await Promise.race([
+      cancelled,
       callLLM(connection, { system: ask.system, user: ask.user, maxTokens: 200, signal: ctl.signal }),
       new Promise((resolve) => { timer = setTimeout(() => { ctl.abort(); resolve({ timedOut: true }); }, Math.max(500, timeoutMs)); }),
     ]);
-    if (answer && answer.timedOut) return { ids: [], why: 'took too long' };
+    if (answer?.cancelled) return {ids:[],why:'cancelled',calls:1,inputChars:ask.system.length+ask.user.length};
+    if (answer && answer.timedOut) return { ids: [], why: 'took too long',calls:1,inputChars:ask.system.length+ask.user.length };
     const text = typeof answer === 'string' ? answer : (answer && answer.text) || '';
     const picked = readPick(text, index.length);
-    return { ids: picked.map((n) => index[n - 1].id), why: picked.length ? 'picked' : 'none needed' };
+    return { ids: picked.map((n) => index[n - 1].id), why: picked.length ? 'picked' : 'no usable selection', indexed: index.length, inputChars: ask.system.length + ask.user.length, outputChars: text.length, calls: 1 };
   } catch (err) {
     return { ids: [], why: 'could not ask' };
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener('abort', cancel);
   }
 }

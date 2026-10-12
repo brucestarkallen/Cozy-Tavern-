@@ -232,7 +232,7 @@ export function closeThread(threads, title) {
  * the hot, then the recent; other people's business away from the page stays in the ledger (the world agent reads all of
  * it) and never crowds the storyteller's few lines. */
 /* M416: one wording for someone who has not found something out — the anchor reads the lines by it (assemble/anchor.js) */
-export const BLIND_LINE = ' hasn’t found out: ';
+export const BLIND_LINE = ', learning is not established in the available record: ';
 
 /* M416: WHAT THE OWNER WILL DO, SAID THE WAY IT READS. "Rukia Kuchiki means to " + next is right for "corner him before
  * Renji leaves" and broken for "she tests whether Oda deserves it" ("means to she tests…") — a next written as a whole
@@ -367,7 +367,7 @@ export function trimmedBook(list, all, key, cap = Infinity) {
   for (let i = 0; out.length > cap && i < out.length - 1;) { if (heldElsewhere(out[i])) out.splice(i, 1); else i += 1; }
   return out.length > cap ? out.slice(-cap) : out;
 }
-export function addKnowledge(knowledge, name, fact, atTurn) {
+export function addKnowledge(knowledge, name, fact, atTurn, provenance = {}) {
   const next = copyKnowledge(knowledge);
   const who = cleanText(name, 120);
   const what = cleanText(fact, 1000);
@@ -394,21 +394,26 @@ export function addKnowledge(knowledge, name, fact, atTurn) {
    * (the shorter a prefix or a clipping of the longer) — the longer stays */
   /* within one person: the paraphrase fold only for a line from the page BESIDE this one — two lines the reader wrote
    * for one person on one page are two facts on purpose */
-  const dup = list.findIndex((k) => sameFact(k.fact, canon) || (Number.isFinite(k.atTurn) && Number.isFinite(atTurn) && Math.abs(k.atTurn - atTurn) === 1 && sameFact(k.fact, canon, { fuzzy: true })));
+  const dup = list.findIndex(k => (k.kind || '') === (provenance.kind || '') && JSON.stringify(k.source || null) === JSON.stringify(provenance.source || null) && (k.atTurn == null && atTurn == null || k.atTurn === atTurn) && sameFact(k.fact,canon));
   /* M681 — A BELIEF GOES WHEN THE TRUTH IS LEARNED (the books audit's B3, made to happen on m680-001). The page reader writes a
    * lie someone believes as "believes Orrin Vale is only a recruit — untrue: Orrin Vale is the new captain of the guard",
    * and when the truth comes out in front of them, what they learned: "learned Orrin Vale is the new captain, not a
    * recruit". The book only ever added: the belief stood beside the truth, and the storyteller was told, every page, that
    * she knew he was the captain AND believed he was a recruit. A line someone learns that answers the truth a belief of
    * theirs holds back lets that belief go (a take-back of the line puts it back: the undo is the book as it was). */
-  const kept = what && !/^believes\b/i.test(what) ? list.filter((k) => !(k && beliefAnswered(k.fact, what))) : list;
+  const learned = !['belief','suspicion','rumor','ignorance'].includes(provenance.kind) && !/^(?:believes|suspects|rumor|heard a rumor|has not learned)\b/i.test(what);
+  const kept = what && learned ? list.filter((k) => !(k && beliefAnswered(k.fact, what))) : list;
   if (dup !== -1) {
     const at = kept.indexOf(list[dup]);
     if (at !== -1 && canon === what && what.length > kept[at].fact.length) kept[at] = { ...kept[at], fact: what };
     next[key] = kept;
     return next;
   }
-  kept.push({ fact: canon, atTurn: Number.isFinite(atTurn) ? atTurn : null });
+  const metadata = {};
+  if (['known','belief','suspicion','rumor','ignorance'].includes(provenance.kind)) metadata.kind = provenance.kind;
+  if (typeof provenance.pathway === 'string') metadata.pathway = provenance.pathway;
+  if (provenance.source && typeof provenance.source === 'object') metadata.source = structuredClone(provenance.source);
+  kept.push({ fact: canon, atTurn: Number.isFinite(atTurn) ? atTurn : null, ...metadata });
   next[key] = trimmedBook(kept, next, key); /* M681: a full book lets go of what others also know first */
   return next;
 }
@@ -425,10 +430,8 @@ export function beliefAnswered(belief, fact) {
   const said = String(fact || '').trim().replace(/^(?:learned|learns|has learned|found out|finds out|discovered|discovers|realized|realised|realizes|realises|knows|now knows)\s+(?:that\s+)?/i, '');
   if (!said || /^believes\b/i.test(said)) return false;
   if (sameFact(said, truth) || sameFact(said, truth, { fuzzy: true })) return true;
-  const want = [...new Set(factKey(truth).split(' ').filter((w) => w.length > 3 || /\d/.test(w)))];
-  if (want.length < 2) return false;
-  const have = new Set(factKey(said).split(' '));
-  return want.every((w) => have.has(w));
+  return false;
+
 }
 
 /* M272: a line the model broke off mid-phrase. Only endings no finished
@@ -468,37 +471,25 @@ export function factKey(f) {
 /* M490-3: the paraphrase fold is OPT-IN ({ fuzzy: true }) and only for the same moment. As the default it merged
  * "…told Jovan about the cult…" with "…about the owls…" (a fact lost), and knowledge.forget — which asks sameFact what
  * to erase — would have erased the other fact too. M92's rule (the same words, or one inside the other) is the default. */
-export function sameFact(a, b, { fuzzy = false } = {}) {
-  const x = factKey(a); const y = factKey(b);
-  if (!x || !y) return false;
-  if (x === y) return true;
-  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
-  if (short.length >= 24 && long.includes(short)) return true;
-  if (!fuzzy) return false;
-  /* M484: THE SAME FACT IN OTHER WORDS. The page reader wrote "Jovan's red-glowing punch drove Zaraki three yards
-   * through the sand" one page and "observed the force of Jovan's red punch leave Zaraki's body and the skid furrows
-   * run three yards" the next, and both stood, and the storyteller read one moment three times. Two facts sharing
-   * most of their content words are one fact: six of ten of the shorter one's words in the longer, or five words
-   * shared and half; the longer wording stays. Two facts that merely share a subject ("Jovan", "the courtyard") do
-   * not reach it. */
-  const ws = keyWords(x); const wl = keyWords(y); /* M509-6: remembered per key */
-  if (ws.size < 4 || wl.size < 4) return false;
-  /* what tells two near facts apart — a number, a name (a capitalised word inside the sentence) — must agree: "told
-   * Vivi" is not "told Claire", "fact 1" is not "fact 2" */
-  const nums = factNums; const names = factNames; /* M509-6: remembered per text */
-  const na = nums(a); const nb = nums(b);
-  for (const n of na) if (!nb.has(n)) return false;
-  for (const n of nb) if (!na.has(n)) return false;
-  /* the names one carries must all be in the other ("her" against "Rukia Kuchiki" is the same girl; "Vivi" against
-   * "Claire" is two) */
-  const pa = names(a); const pb = names(b);
-  const within = (s, t) => [...s].every((n) => t.has(n));
-  if (!within(pa, pb) && !within(pb, pa)) return false;
-  let hit = 0;
-  for (const s of ws) if (wl.has(s)) hit += 1;
-  const small = Math.min(ws.size, wl.size);
-  return hit / small >= 0.6 || (hit >= 5 && hit / small >= 0.5);
+/* Exact statements only. Overlap cannot establish equivalent certainty, negation or conditions. */
+export function statementKey(value) {
+  return String(value || '').normalize('NFC').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g,' ').trim().replace(/\.+$/,'').toLowerCase();
 }
+export function sameFact(a, b, { fuzzy = false } = {}) {
+  const x = statementKey(a); const y = statementKey(b);
+  return Boolean(x && y && x === y);
+}
+export function perspectiveConveyed(name, k, texts = []) {
+  const fact = statementKey(k.fact);
+  if (!fact) return false;
+  const who = statementKey(name);
+  const explicit = [who + ' knows: ' + fact,who + ' knows ' + fact,who + ' was told: ' + fact,who + ' believes: ' + fact.replace(/^believes\s+/, '')];
+  return texts.some(text => {
+    const clauses = String(text || '').split(/\n|(?<=[.!?])\s+/).map(statementKey);
+    return clauses.some(c => explicit.includes(c.replace(/^[-*•]\s*/,''))) || (k.source?.quote && k.source?.recipients?.includes(name) && String(text).includes(k.source.quote));
+  });
+}
+
 /* M92: an existing book of knowledge with its duplicates folded — run on load,
  * so a store that gathered them before this law is clean the next time it is
  * read; no mutation, nothing for an auditor to note. */
@@ -507,7 +498,7 @@ export function dedupeKnowledge(knowledge) {
   for (const [name, list] of Object.entries(safe)) {
     const kept = [];
     for (const k of list) {
-      const at = kept.findIndex((x) => sameFact(x.fact, k.fact) || (Number.isFinite(x.atTurn) && Number.isFinite(k.atTurn) && Math.abs(x.atTurn - k.atTurn) === 1 && sameFact(x.fact, k.fact, { fuzzy: true })));
+      const at = kept.findIndex(x => (x.kind || '') === (k.kind || '') && JSON.stringify(x.source || null) === JSON.stringify(k.source || null) && x.atTurn === k.atTurn && sameFact(x.fact,k.fact));
       if (at === -1) kept.push({ ...k });
       else if (k.fact.length > kept[at].fact.length) kept[at] = { ...kept[at], fact: k.fact };
     }
@@ -568,7 +559,8 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
    * and what is called back from long ago is handed over as what it is: about its own moment. */
   const nowTurn = scene && Number.isFinite(scene.turn) ? scene.turn : null;
   const aged = (k) => {
-    const fact = k.fact.replace(/\.+$/, '');
+    const prefix = { belief:'believes ',suspicion:'suspects ',rumor:'rumor: ',ignorance:'has not learned ' }[k.kind] || '';
+    const fact = (prefix && !new RegExp('^' + prefix.trim().replace(':',''), 'i').test(k.fact) ? prefix : '') + k.fact.replace(/\.+$/, '') + (k.pathway ? ' (source: ' + k.pathway + ')' : '');
     const age = nowTurn != null && Number.isFinite(k.atTurn) ? nowTurn - k.atTurn : 0;
     return age >= KNOWLEDGE_OLD_AFTER ? fact + ' (learned about ' + age + ' pages ago)' : fact;
   };
@@ -600,7 +592,7 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
     /* M509-2: NEWEST BY THE PAGE IT WAS LEARNED ON. The list is in order of writing, and a 46-page-old fact written into a
      * book late (the auditor's hand, a merge) sat among the "newest" while it carried its true age. Facts with a page
      * stamp order by it; those without keep their place at the front. */
-    const list = sameFactsOnce(safe[key]).map((k, i) => ({ k, i })).sort((a, b) => ((Number.isFinite(a.k.atTurn) ? a.k.atTurn : -1) - (Number.isFinite(b.k.atTurn) ? b.k.atTurn : -1)) || (a.i - b.i)).map((x) => x.k);
+    const list = sameFactsOnce(safe[key]).filter(k => !(Number.isFinite(nowTurn) && Number.isFinite(k.atTurn) && k.atTurn > nowTurn)).filter(k => !perspectiveConveyed(key,k,scene?.selectedTexts || [])).map((k, i) => ({ k, i })).sort((a, b) => ((Number.isFinite(a.k.atTurn) ? a.k.atTurn : -1) - (Number.isFinite(b.k.atTurn) ? b.k.atTurn : -1)) || (a.i - b.i)).map((x) => x.k);
     const mine = isMcKey(key);
     const take = mine ? Math.min(recent, KNOWLEDGE_MC) : recent;
     const newest = list.slice(-take).reverse().map(aged);
@@ -624,10 +616,10 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
   /* M459: WHAT MANY HERE KNOW IS SAID ONCE. One sword stopped an inch from Zaraki's face in front of the whole courtyard,
    * and the notes said so thirteen times, a line for each witness. A fact three or more people here share rides once,
    * with who knows it; each person's line keeps what is theirs. */
-  const norm = (f) => f.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const norm = statementKey;
   const holders = new Map();
   const others = picked.filter((p) => !p.mc); /* M508: the sharing is among everyone here but the main character */
-  for (const p of others) for (const f of [...p.newest, ...p.recalled]) { const k = norm(f); if (!holders.has(k)) holders.set(k, { text: f, who: [], atTurn: p.turns && p.turns.get(f) != null ? p.turns.get(f) : null }); if (!holders.get(k).who.includes(p.key)) holders.get(k).who.push(p.key); }
+  for (const p of others) for (const f of [...p.newest, ...p.recalled]) { if (/^(?:believes|suspects|rumor|heard a rumor|does not know|has not learned)\b/i.test(f)) continue; const k = norm(f); if (!holders.has(k)) holders.set(k, { text: f, who: [], atTurn: p.turns && p.turns.get(f) != null ? p.turns.get(f) : null }); if (!holders.get(k).who.includes(p.key)) holders.get(k).who.push(p.key); }
   /* M509-15: a public moment counts everyone who was in the room among its knowers — the reader wrote it into one book,
    * the whole courtyard saw it — so it is a shared line, not one witness's, and nobody's blind spot who was there */
   const roster = [];
@@ -637,7 +629,7 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
     if (!roster.some((r) => r === key || samePersonName(r, key))) roster.push(key);
   }
   const wasThere = scene && typeof scene.wasThere === 'function' ? scene.wasThere : null;
-  if (wasThere) for (const h of holders.values()) { if (!publicMoment(h.text)) continue; for (const r of roster) if (!h.who.includes(r) && wasThere(r, h.atTurn)) h.who.push(r); }
+  /* Recipients come from their recorded books. Presence is not an acquisition pathway. */
   const shared = [...holders.values()].filter((h) => h.who.length >= 3);
   const sharedKeys = new Set(shared.map((h) => norm(h.text)));
   if (out && typeof out === 'object') out.shared = new Set(shared.map((h) => norm(h.text.replace(/ \(learned about \d+ pages ago\)$/, '')))); /* M509: the blind spots need not say them again */
@@ -649,18 +641,18 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
   for (const g of [...bySet.values()].sort((a, b) => (b.everyone - a.everyone) || (b.who.length - a.who.length))) {
     const but = roster.filter((k) => !g.who.includes(k));
     /* M509: the SHORTER list names the line — "Everyone here but" eight names beats "Known to" twelve */
-    lines.push((scene?.namedOnly ? 'Known to ' + g.who.join(', ') : g.everyone ? 'Everyone here knows' : but.length < g.who.length ? 'Everyone here but ' + but.join(', ') + ' knows' : 'Known to ' + g.who.join(', ')) + ': ' + g.facts.join('; ') + '.');
+    lines.push((scene?.namedOnly ? 'Known to ' + g.who.join(', ') : g.everyone ? 'Everyone here knows' : 'Known to ' + g.who.join(', ')) + ': ' + g.facts.join('; ') + '.');
   }
   for (const p of picked) {
     const own = p.newest.filter((f) => !sharedKeys.has(norm(f)));
     const ownOld = p.recalled.filter((f) => !sharedKeys.has(norm(f)));
     if (!own.length && !ownOld.length && p.rest <= 0) continue;
     /* the final audit: a belief written as one (M510-48: "believes X — untrue: Y") reads as one, not "knows: believes" */
-    const isBelief = (f) => /^believes\b/i.test(f);
-    const beliefs = own.filter(isBelief).map((f) => f.replace(/^believes\s+/i, '').replace(/ \(learned about (\d+) pages ago\)$/, ' (since about $1 pages ago)')); /* a belief is held since, not learned */
+    const isBelief = (f) => /^(?:believes|suspects|rumor|heard a rumor|does not know|has not learned)\b/i.test(f);
+    const beliefs = own.filter(isBelief).map((f) => f.replace(/ \(learned about (\d+) pages ago\)$/, ' (since about $1 pages ago)')); /* a belief is held since, not learned */
     const knownOwn = own.filter((f) => !isBelief(f));
     lines.push(p.key + (knownOwn.length || !beliefs.length ? ' knows' + (knownOwn.length ? ': ' + knownOwn.join('; ') + '.' : ' what is shared above.') : '')
-      + (beliefs.length ? (knownOwn.length || !beliefs.length ? ' ' + p.key.split(/\s+/)[0] : '') + ' believes: ' + beliefs.join('; ') + '.' : '')
+      + (beliefs.length ? (knownOwn.length || !beliefs.length ? ' ' + p.key.split(/\s+/)[0] : '') + ' perspective: ' + beliefs.join('; ') + '.' : '')
       + (ownOld.length ? ' From much earlier — each is about ITS OWN moment, not this scene; use one only where it truly fits: ' + ownOld.join('; ') + '.' : '')
       + (p.rest > 0 ? ' (and ' + p.rest + ' older ' + (p.rest === 1 ? 'thing' : 'things') + ' they know, kept in the ledger)' : ''));
   }
@@ -682,25 +674,8 @@ const keyWords = (t) => remember(KEY_WORDS, String(t), () => new Set(String(t).s
 const factNums = (t) => remember(FACT_NUMS, String(t || ''), () => new Set(String(t || '').match(/\b\d+\b/g) || []));
 const factNames = (t) => remember(FACT_NAMES, String(t || ''), () => new Set((String(t || '').match(/(?<=[^.!?]\s)[A-Z][\p{L}-]+/gu) || []).map((m) => m.toLowerCase())));
 function sameFactsOnce(list) {
-  const words = onceWords;
-  const numbers = onceNumbers;
-  const out = [];
-  for (let i = list.length - 1; i >= 0; i -= 1) {
-    const k = list[i];
-    const a = words(k && k.fact);
-    const at = out.findIndex((o) => {
-      const b = words(o.fact);
-      if (numbers(a) !== numbers(b)) return false; /* page 43 and page 44, 150 years and 160: never the same fact */
-      let both = 0;
-      for (const w of a) if (b.has(w)) both += 1;
-      const small = Math.min(a.size, b.size);
-      return small >= 4 && both / small >= 0.8;
-    });
-    if (at === -1) out.push(k);
-    /* the richer wording stands (the one that says more), dated as the newer — nothing a wording adds is lost */
-    else if (a.size > words(out[at].fact).size) out[at] = { ...k, atTurn: Math.max(Number(k.atTurn) || 0, Number(out[at].atTurn) || 0) };
-  }
-  return out.reverse();
+  const seen = new Set();
+  return list.filter(k => { const key = statementKey(k.fact) + '|' + (k.kind || '') + '|' + JSON.stringify(k.source || null) + '|' + (k.atTurn ?? 'undated'); if (seen.has(key)) return false; seen.add(key); return true; });
 }
 
 /* ---------- factions ---------- */
@@ -1125,7 +1100,7 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
     const words = factWords(fact);
     const score = sceneWords.size ? [...words].filter((w) => sceneWords.has(w) && !common.has(w)).length : 0;
     return { fact, shown, age, words, score, atTurn };
-  }).filter((f) => f && (f.score >= 2 || (f.age != null && f.age <= BLIND_RECENT_PAGES)))]); /* near the scene, or recent */
+  }).filter((f) => f && (f.age == null || f.age >= 0) && (f.score >= 2 || (f.age != null && f.age <= BLIND_RECENT_PAGES)))]); /* near the scene, or recent */
   for (const name of names) {
     if (name.trim().toLowerCase() === mcKey || (mc && samePersonName(name, mc))) continue; /* the main character is the writer's — under any form of his name (M449: "Oda" in the scene is Jovan Oda) */
     const mineKey = findKnowledgeKey(safe, name);
@@ -1159,14 +1134,14 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
       if (other === mineKey || other.trim().toLowerCase() === name.trim().toLowerCase() || samePersonName(other, name)) continue; /* M449: their own lines under another form of their name are theirs — never "Rukia hasn't found out (Rukia knows)" */
       for (const { fact, shown, age, words, score, atTurn } of list) {
         if (mayBeLetGo(atTurn)) continue; /* M579/M681: it may have been theirs, let go at the guard */
-        if (aboutThem(fact)) continue; /* about them: they were there */
-        if (typeof wasThere === 'function' && publicMoment(fact) && wasThere(name, atTurn)) continue; /* M509-15: the whole room saw it, and they were in the room */
+        // A name in a secret is not evidence of awareness.
+
         /* M681 (the send's worst frame, perf_send): a fact many books share (M484: one wording house-wide) was weighed against
          * their own book once for every book it stood in — the same answer each time; it is weighed once per person */
         let holds = heldMemo.get(fact);
-        if (holds === undefined) { holds = mine.some((m) => sameFact(m.fact, fact) || overlap(m.words, words) >= 0.6); heldMemo.set(fact, holds); }
+        if (holds === undefined) { holds = mine.some((m) => sameFact(m.fact, fact)); heldMemo.set(fact, holds); }
         if (holds) continue; /* they hold it, in these words or others */
-        if (found.some((f) => sameFact(f.fact, fact) || overlap(f.words, words) >= 0.6)) continue; /* once is enough */
+        if (found.some((f) => sameFact(f.fact, fact))) continue; /* once is enough */
         found.push({ fact: (shown || fact).replace(/\.+$/, ''), from: other, age, score, words });
       }
     }
@@ -1175,7 +1150,7 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
   }
   return out;
 }
-export function renderBlindSpots(spots) {
+export function renderBlindSpots(spots, { selectedTexts = [] } = {}) {
   const list = (Array.isArray(spots) ? spots : []).filter((s) => s && Array.isArray(s.lacks) && s.lacks.length);
   if (!list.length) return '';
   /* M460: A FACT THEY LACK IS SAID ONCE, WITH EVERYONE WHO LACKS IT. The same four facts rode under sixteen names, the
@@ -1190,6 +1165,6 @@ export function renderBlindSpots(spots) {
   const bySet = new Map();
   /* M508: a long fact is clipped here — the whole of it stands above, under whoever knows it */
   const clip = (t) => { const s = String(t); if (s.length <= BLIND_CLIP) return s; const cut = s.slice(0, BLIND_CLIP); const at = Math.max(cut.lastIndexOf(' '), cut.lastIndexOf(','), cut.lastIndexOf(';')); return cut.slice(0, at > BLIND_CLIP / 2 ? at : BLIND_CLIP).replace(/[,;\s]+$/, '') + '…'; };
-  for (const f of byFact.values()) { const sig = f.who.join('|'); if (!bySet.has(sig)) bySet.set(sig, { who: f.who, facts: [] }); bySet.get(sig).facts.push(clip(f.fact) + ' (' + f.from + ' knows)'); }
+  for (const f of byFact.values()) { const sig = f.who.join('|'); if (!bySet.has(sig)) bySet.set(sig, { who: f.who, facts: [] }); const reminder = perspectiveConveyed(f.from,{fact:f.fact},selectedTexts) ? 'the knowledge recorded for ' + f.from + ' in the selected history' : f.fact + ' (recorded for ' + f.from + ')'; if(!bySet.get(sig).facts.includes(reminder)) bySet.get(sig).facts.push(reminder); }
   return [...bySet.values()].map((g) => g.who.join(', ') + BLIND_LINE + g.facts.join('; ') + '.').join('\n'); /* M416 */
 }

@@ -14,11 +14,16 @@
  * essentials already kept stand. A failure to reach the model throws — the queue's retries are for that. */
 import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { db } from '../store.js';
-import { callWorker } from './call.js';
+import { callWorker, workerConnection } from './call.js';
+import { measureTransport } from '../providers/measure.js';
+import { inputRoom } from '../assemble/budget.js';
 import { contextOf } from '../providers/room.js'; /* M565: the record told in parts that fit its model */
+import { mcName } from '../engine/duels.js';
+import { brokenOff } from '../engine/world.js';
 import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M566 */
 
 export const ESSENTIALS_KEY = (storyId) => 'essentials:' + storyId;
+const PENDING_KEY = storyId => 'essentialsPending:' + storyId;
 /* M510-16: the same room the record's newest lines had (M510-14, about 4,000 tokens) — now spent on the whole story */
 export const ESSENTIALS_MAX_CHARS = 16000;   /* about 4,000 tokens — the whole story, streamlined */
 export const ESSENTIALS_MAX_TOKENS = 5000;
@@ -57,7 +62,8 @@ export function essentialsAsk({ record = '', brief = '', mc = '' } = {}) {
     'Write the essentials in THE SAME FORMAT: lines, oldest first, one per line, each opening with its time-and-place prefix and the pages it stands for, then short phrases separated by semicolons — "[Sept 1, 08:24 · the Wells kitchen] (pages 3–9) Orrin Vale did X → Tamsin Hale did Y; …".',
     'One essentials line may stand for several record lines that belong together — one scene, one stretch of days; its prefix is where and when that stretch began, and its pages run from the first to the last.',
     'Cut what nothing later depends on: small talk, errands, passers-by and crowds, weather and atmosphere, repeated reactions.',
-    'Keep, always: decisions and what caused them (→), who did what to whom, promises, oaths and threats (their exact words in "double quotes", 15 words at most), debts, secrets and who knows them, wounds, bonds and grudges, first meetings and first times, and every correction — written as the fact now stands.',
+    'Keep, always: decisions and what caused them (→), who did what to whom, promises, oaths and threats (their necessary exact words in "double quotes"), debts, secrets and who knows them, wounds, bonds and grudges, first meetings and first times, and every correction — written as the fact now stands.',
+    'Keep meaningful rituals, private jokes, telling gestures, identity defining habits and relationship turning points with their reasons. Keep only atmosphere that carries lasting meaning.',
     'Names, never pronouns, spelled as the record spells them. Invent nothing the record does not say.',
     'At most 2,000 words — far fewer while the story is young. Answer with the lines only.',
   ].join('\n');
@@ -71,13 +77,13 @@ export function essentialsAsk({ record = '', brief = '', mc = '' } = {}) {
 
 /* the answer, read as lines: no fences, no preface before the first line, clipped at a line's end; too little to be the
  * essentials — or no line at all — is refused */
-export function readEssentials(raw, cap = ESSENTIALS_MAX_CHARS) {
+export function inspectEssentials(raw, cap = ESSENTIALS_MAX_CHARS, finishReason = '') {
   /* M608: its thinking is not its answer — a thought with a line opening "[" became the first line of the essentials */
   const t = String(raw == null ? '' : raw).replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
-  if (/^[[{]\s*["{\]]/.test(t)) return '';
+  if (/^[[{]\s*["{\]]/.test(t)) return { text: '', complete: false, why: 'no usable record lines' };
   const lines = t.split('\n').map((l) => l.trim()).filter(Boolean);
   const first = lines.findIndex((l) => /^(?:[-*•]\s*)?\[/.test(l) || /^(?:[-*•]\s*)?\(pages?\s/i.test(l));
-  if (first === -1) return '';
+  if (first === -1) return { text: '', complete: false, why: 'no usable record lines' };
   /* M649 (the ledger audit, part six): what follows the list is not part of it — "Let me know if you'd like more detail." was
    * kept as one more line of the essentials and read to the small storyteller as story */
   const chatter = /^(?:[-*•]\s*)?(?:let me know|would you like|i hope (?:this|that)|feel free|if you(?:['’]d| would) like|is there anything|do you want me|that(?:['’]s| is) (?:the|all)|here (?:is|are) the|note:|end of (?:list|summary))\b/i;
@@ -85,15 +91,38 @@ export function readEssentials(raw, cap = ESSENTIALS_MAX_CHARS) {
   while (body.length && chatter.test(body[body.length - 1])) body.pop();
   const kept = body.map((l) => (/^[-*•]\s*/.test(l) ? '- ' + l.replace(/^[-*•]\s*/, '') : '- ' + l));
   let text = kept.join('\n');
-  if (text.length < 80) return '';
-  if (text.length > cap) { const cut = text.lastIndexOf('\n', cap); text = text.slice(0, cut > 0 ? cut : cap); }
-  return text;
+  if (text.length < 80) return { text: '', complete: false, why: 'no usable record lines' };
+  const clipped = text.length > cap;
+  const providerTruncated = /length|max_tokens|model_context_window_exceeded/i.test(finishReason);
+  const incomplete = body.some(l => !/^(?:[-*•]\s*)?(?:\[[^\]\n]+\]|\(pages?\s[^)]+\))/i.test(l)) || brokenOff(body.at(-1));
+  return { text, clipped, providerTruncated, incomplete, complete: !clipped && !providerTruncated && !incomplete, why: clipped ? 'over its allocated room' : providerTruncated ? 'provider truncated' : incomplete ? 'structurally incomplete' : '' };
+
+}
+
+/* Public parser remains a text parser; incomplete candidates never become saved essentials. */
+export function readEssentials(raw, cap = ESSENTIALS_MAX_CHARS) {
+  const result = inspectEssentials(raw, cap);
+  return result.complete ? result.text : '';
+}
+
+export function sourcePrint(nodes) {
+  return fp(JSON.stringify(recordOf(nodes).lines.map(n => [n.id, n.span, n.text, n.detail || '', n.correction === true, n.sourcePages || n.source || n.sources || null])));
+}
+export function essentialsMatch(kept, nodes, through = Infinity) {
+  if (!kept?.text || kept.complete === false || !Number.isFinite(kept.upTo) || kept.upTo >= through) return false;
+  const all = recordOf(nodes).lines;
+  const prefix = all.filter(n => n.correction || n.span[1] <= kept.upTo);
+  if (all.some(n => !n.correction && n.span[0] <= kept.upTo && n.span[1] > kept.upTo)) return false;
+  return kept.sourcePrint ? sourcePrint(prefix) === kept.sourcePrint : recordOf(prefix).print === kept.print;
 }
 
 export async function loadEssentials(storyId) {
   const kept = await db.settings.get(ESSENTIALS_KEY(storyId));
   const memory = await db.settings.get('memory:' + storyId);
-  if (memory?.essentialsCorrection && kept?.print !== recordOf(memory.nodes).print) return null;
+  const story = await db.stories.get(storyId);
+  const state = await db.settings.get('state:' + storyId);
+  if(kept?.setupPrint && story && state && kept.setupPrint !== fp((story.brief || '') + '\n' + mcName(state))) return null;
+  if (memory && !essentialsMatch(kept, memory.nodes)) return null;
   return kept && typeof kept === 'object' && typeof kept.text === 'string' && kept.text ? kept : null;
 }
 
@@ -116,47 +145,77 @@ export function recordParts(lines, room) {
   if (cur.length) parts.push(cur);
   return parts;
 }
-async function tellPart({ connection, lines, part, parts, share, brief, mc, signal, callLLM }) {
-  const record = lines.map(recordLine).join('\n');
-  const ask = essentialsAsk({ record, brief, mc });
-  const partNote = parts > 1 ? '\n\nThis is part ' + (part + 1) + ' of ' + parts + ' of the record, oldest first — tell THIS part only; the others are told on their own. Tell it in at most ' + share + ' characters.' : '';
+async function tellPart({ connection, lines, part, parts, share, brief, mc, signal, callLLM, usage }) {
+  const ask = essentialsAsk({ record: lines.map(recordLine).join('\n'), brief, mc });
+  const partNote = '\n\nPart ' + (part + 1) + ' of ' + parts + '. Tell only these original source entries, within ' + share + ' characters.';
   let user = ask.user + partNote;
-  /* an answer that is not the essentials is asked for once more (ESSENTIALS_TRIES in all, as ever); a telling over its share
-   * or cut off is asked once, tighter — and then the answer stands, held to its share at a line's end */
-  let unusable = 0; let tightened = false;
-  for (;;) {
+  let correctedLength = false;
+  for (let attempt = 0; attempt < ESSENTIALS_TRIES; attempt++) {
     const answer = await callLLM(connection, { system: ask.system, user, maxTokens: ESSENTIALS_MAX_TOKENS, signal });
-    const raw = typeof answer === 'string' ? answer : (answer && answer.text) || '';
-    const cutOff = Boolean(answer && typeof answer === 'object' && answer.finishReason === 'length');
-    const text = readEssentials(raw, share);
-    if (!text) {
-      unusable += 1;
-      if (unusable >= ESSENTIALS_TRIES) return '';
-      user = ask.user + partNote + '\n\nYour last answer was not the essentials asked for. Answer with the lines only, each opening with its time-and-place prefix.';
-      continue;
+    const raw = typeof answer === 'string' ? answer : answer?.text || '';
+    usage.calls++; usage.inputChars += ask.system.length + user.length; usage.outputChars += raw.length;
+    const result = inspectEssentials(raw, share, answer?.finishReason || '');
+    if (result.complete) return result.text;
+    if (result.clipped || result.providerTruncated) {
+      if (correctedLength) return '';
+      correctedLength = true;
     }
-    if ((!cutOff && raw.length <= share * 1.15) || tightened) return text;
-    tightened = true;
-    user = ask.user + partNote + '\n\nYour telling ran to ' + raw.length + ' characters' + (cutOff ? ' and was cut off' : '') + '. Tell it again within ' + share + ' characters: the oldest stretches shorter, every stretch still there, the newest whole.';
+    user = ask.user + partNote + '\n\nThe previous candidate was ' + result.why + '. Return complete record lines within your share, keeping causes, consequences, corrections and necessary emotional details. Do not leave the newest stretch unfinished.';
   }
+  return '';
 }
-export async function runEssentials({ connection, storyId, nodes, brief = '', mc = '', signal, callLLM = callWorker, force = false } = {}) {
+export async function runEssentials({ connection, storyId, nodes, brief = '', mc = '', signal, callLLM = callWorker, force = false, stale = () => false } = {}) {
   if (!connection || !storyId) return { wrote: false, why: 'no connection' };
   const rec = recordOf(nodes);
   if (!rec.lines.length) return { wrote: false, why: 'no record yet' };
-  const kept = await loadEssentials(storyId);
-  if (kept && kept.print === rec.print && !force) return { wrote: false, why: 'unchanged' }; /* final audit: made again by hand, whatever the print */
-  const room = Math.max(20000, Math.floor(contextOf(connection) * 3 * 0.6) - Math.min(String(brief || '').length, BRIEF_ROOM)); /* M566: the brief rides beside each part */
+  const original = await db.settings.get(ESSENTIALS_KEY(storyId));
+  const ownedMemory = await db.settings.get('memory:' + storyId);
+  const ownedStory = await db.stories.get(storyId);
+  const ownedState = await db.settings.get('state:' + storyId);
+  const ownerPrint = (story,state) => fp(JSON.stringify([story?.brief || '',state?.sheet?.playerName || '',state?.sheet?.playerAliases || []]));
+  const setupOwner = ownerPrint(ownedStory,ownedState);
+  const inputPrint = sourcePrint(nodes);
+  const setupPrint = fp(brief + '\n' + mc);
+  if (original?.print === rec.print && (!original.sourcePrint || original.sourcePrint === inputPrint) && (!original.setupPrint || original.setupPrint === setupPrint) && !force) return { wrote: false, why: 'unchanged' };
+  const helper = workerConnection(connection,{maxTokens:ESSENTIALS_MAX_TOKENS});
+  const shell = essentialsAsk({brief,mc});
+  const accounting = measureTransport(helper,{system:shell.system,messages:[{role:'user',content:shell.user}]});
+  const helperPrint = fp(JSON.stringify([helper.id,helper.model,helper.baseUrl,contextOf(helper),accounting.answerTokens,helper.reasoning]));
+  const pending = await db.settings.get(PENDING_KEY(storyId));
+  if(!force && pending?.sourcePrint === inputPrint && pending.setupPrint === setupPrint && pending.helperPrint === helperPrint) return {wrote:false,pending:true,why:'unchanged incomplete attempt, source range remains pending',usage:{calls:0,inputChars:0,outputChars:0}};
+  const room = Math.max(0,Math.floor((inputRoom({budgetTokens:contextOf(helper),answerTokens:accounting.answerTokens}) - accounting.inputTokens) * 3 * 0.75) - 600);
+  const usage = { calls: 0, inputChars: 0, outputChars: 0 };
+  const failed = async why => {
+    const latestMemory = await db.settings.get('memory:' + storyId);
+    if(!stale() && !signal?.aborted && (!ownedMemory || latestMemory && sourcePrint(latestMemory.nodes) === inputPrint)) await db.settings.set(PENDING_KEY(storyId),{sourcePrint:inputPrint,setupPrint,helperPrint,why});
+    return { wrote:false,why,pending:true,usage };
+  };
+  // An indivisible entry cannot be silently clipped or falsely certified.
+  if (rec.lines.some(n => recordLine(n).length + 1 > room)) return failed('an individual source entry exceeds the helper room');
   const parts = recordParts(rec.lines, room);
+  const available = ESSENTIALS_MAX_CHARS - Math.max(0, parts.length - 1);
+  const minimum = 100;
+  if (parts.length * minimum > available) return failed('too many source parts for complete combined essentials');
   const total = rec.lines.reduce((t, n) => t + recordLine(n).length + 1, 0) || 1;
-  const told = [];
-  for (let i = 0; i < parts.length; i += 1) {
-    const size = parts[i].reduce((t, n) => t + recordLine(n).length + 1, 0);
-    const share = parts.length > 1 ? Math.max(2000, Math.floor(ESSENTIALS_MAX_CHARS * size / total)) : ESSENTIALS_MAX_CHARS;
-    const text = await tellPart({ connection, lines: parts[i], part: i, parts: parts.length, share, brief, mc, signal, callLLM });
-    if (!text) return { wrote: false, why: 'its answer could not be used' };
-    told.push(text);
+  const spare = available - parts.length * minimum;
+  const shares = parts.map(part => minimum + Math.floor(spare * part.reduce((t,n) => t + recordLine(n).length + 1,0) / total));
+  const told = []; const savedParts = [];
+  const reuseSafe = !force && original?.setupPrint === setupPrint && !rec.lines.some(n => n.correction);
+  for (let i = 0; i < parts.length; i++) {
+    const print = sourcePrint(parts[i]);
+    const reused = reuseSafe && original?.parts?.find(p => p.print === print && p.share === shares[i] && p.complete);
+    const text = reused?.text || await tellPart({ connection, lines: parts[i], part: i, parts: parts.length, share: shares[i], brief, mc, signal, callLLM, usage });
+    if (!text) return failed('its answer could not be used as a complete replacement');
+    told.push(text); savedParts.push({ print, share: shares[i], text, complete: true });
   }
-  await db.settings.set(ESSENTIALS_KEY(storyId), { text: told.join('\n'), print: rec.print, upTo: rec.upTo, at: Date.now() });
-  return { wrote: true, parts: parts.length };
+  const text = told.join('\n');
+  if (text.length > ESSENTIALS_MAX_CHARS) return failed('combined output exceeds the essentials room');
+  const nowMemory = await db.settings.get('memory:' + storyId);
+  const nowEssentials = await db.settings.get(ESSENTIALS_KEY(storyId));
+  const nowStory = await db.stories.get(storyId);
+  const nowState = await db.settings.get('state:' + storyId);
+  if (stale() || signal?.aborted || setupOwner !== ownerPrint(nowStory,nowState) || JSON.stringify(nowEssentials) !== JSON.stringify(original) || (ownedMemory && (!nowMemory || sourcePrint(nowMemory.nodes) !== inputPrint))) return failed('source or manual ownership changed while reading');
+  await db.settings.set(ESSENTIALS_KEY(storyId), { text, print: rec.print, sourcePrint: inputPrint, setupPrint, upTo: rec.upTo, complete: true, parts: savedParts, sources: rec.lines.map(n => ({ id: n.id, span: n.span, print: sourcePrint([n]) })), at: Date.now() });
+  await db.settings.delete(PENDING_KEY(storyId));
+  return { wrote: true, parts: parts.length, usage };
 }

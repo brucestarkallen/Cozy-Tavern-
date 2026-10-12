@@ -1378,7 +1378,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
     const now = awayNow(k);
     if (bareCard(k)) return k + (now && now !== 'away' ? ' — ' + now : '');
     const entry = now ? { ...characters[k], state: now, updatedAtTurn: turn } : characters[k];
-    return cardText(k, entry, turn, RECALL_CARD_CAP, null, null, material);
+    return cardText(k, entry, turn, lim.budget, null, null, material);
   };
   /* M284: with room, the roster says who each one is and where — a bare name told the storyteller nothing */
   const shortLines = lim.budget >= PEOPLE_BUDGET * 4;
@@ -1538,7 +1538,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   if (!stayed.has(3)) tiers.roster = 0;
   if (!stayed.has(4)) tiers.important = 0;
   const text = join();
-  return text ? { text, tiers } : null;
+  return text ? { text, tiers, selected: keys.filter(k => cardKeys.includes(k) || (stayed.has(2) && recalled.includes(k)) || (stayed.has(4) && important.includes(k))).map(k => ({ name:k, reason:cardKeys.includes(k) ? 'present' : 'relevant absent person', completeCore: text.includes(characters[k].core || ''), chars:cardText(k,characters[k],turn).length })) } : null;
 }
 
 /* M320: the seats are found by the same rule the pages are */

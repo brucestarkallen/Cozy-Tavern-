@@ -51,6 +51,7 @@ export function finalizeReceipt(draft, timings) {
     prefill: typeof prefill === 'string' ? prefill : '',
     stateSummary: typeof safe.stateSummary === 'string' ? safe.stateSummary : '',
     ...(safe.context ? { context: { ...safe.context } } : {}),
+    ...(safe.selection ? { selection: { revision:safe.selection.revision, coverage:safe.selection.coverage, gaps:safe.selection.gaps, records:safe.selection.records.filter(r => r.selected).map(r => ({id:r.id,span:r.span,detail:r.detail})), essentials:safe.selection.essentials } } : {}),
     /* M347: where this page's words are kept (js/sent.js) — a receipt without it is from before they were kept */
     ...(typeof sentId === 'string' && sentId ? { sentId } : {}),
     /* M348: thinking was asked for and none came back — said on the page, so "did it think?" is never a guess */

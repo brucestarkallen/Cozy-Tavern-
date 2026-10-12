@@ -1,3 +1,5 @@
+import { bodyAccounting, inputRoom } from '../assemble/budget.js';
+import { contextOf } from './room.js';
 /* Cozy Tavern — providers/anthropic.js
  * Claude's messages API, streamed over SSE, ready for prompt caching.
  * Contract (M8.5): { test(): Promise<{ok, detail}>,
@@ -178,6 +180,10 @@ function requestBody(connection, blocks, legacySystem, messages, opts = {}) {
   return { body, prefill: pf };
 }
 
+export function buildAnthropicRequest(connection, { systemBlocks, system, messages = [] }, opts = {}) {
+  return requestBody(connection, systemBlocks, system, messages, opts).body;
+}
+
 export function createAnthropicProvider(connection) {
   const base = baseOf(connection);
 
@@ -236,6 +242,8 @@ export function createAnthropicProvider(connection) {
     let opts = {};
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const { body, prefill } = requestBody(connection, blocks, system, messages, opts);
+      const accounting = bodyAccounting(body);
+      if (accounting.inputTokens > inputRoom({ budgetTokens: contextOf(connection), answerTokens: accounting.answerTokens })) throw new Error('The complete provider request exceeds this connection’s context after reserving its answer. Saved pages are intact.');
       let res;
       try {
         res = await houseFetch(`${base}/v1/messages`, {
@@ -297,6 +305,7 @@ export function createAnthropicProvider(connection) {
     if (!wasRelay && connection.viaRelay) notes.push('This address refuses calls from a web page, so your own tavern server carried the turn — the key never left this phone. Every later turn on this connection goes the same way.');
     let lead = sent.lead || ''; /* M307: put back at the reply's first word (see openai.js) */
 
+    let usage = null;
     let full = '';
     let thinking = '';
     let refusal = '';
@@ -305,6 +314,7 @@ export function createAnthropicProvider(connection) {
     let tfftMs = null;
     const sources = [];
     await readSSE(res.body, (data) => {
+      if(data?.message?.usage || data?.usage) usage = {...(usage || {}),...(data.message?.usage || data.usage)};
       if (data.type === 'message_delta' && data.delta && typeof data.delta.stop_reason === 'string') {
         /* M9 (B9): why it stopped — 'max_tokens' means the page ran out
          * of room. */
@@ -364,7 +374,8 @@ export function createAnthropicProvider(connection) {
       finishReason,
       sources,
       notes,
-      sent: sent.wire || null, /* M347 */
+      sent: sent.wire || null,
+      usage, /* M347 */
       ttftMs: ttftMs === null ? durationMs : ttftMs,
       tfftMs,
       durationMs,

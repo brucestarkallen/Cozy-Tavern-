@@ -1,3 +1,6 @@
+import { measureTransport } from '../providers/measure.js';
+import { bodyAccounting } from '../assemble/budget.js';
+import { recordId } from '../assemble/selection.js';
 import {healthSnapshot,routeHealth,workerRecoveryDue,reconciledWorkerStatus} from '../agents/health.js';
 import { ledgerRepairStateKey, ledgerRepairInputKey, repairRetryCheckpoint, auditHasOpenWork, ledgerAuditVerified, ledgerRepairNeeded, LEDGER_REPAIR_POLICY } from '../agents/auditprogress.js';
 /* Cozy Tavern — ui/chat.js
@@ -2559,33 +2562,16 @@ export function initChat(ctx) {
    * record is empty, or when the worker is slow, failing or unsure. Kept out of its index: the lines the request will
    * carry word for word anyway — the newest of the record for a frontier storyteller (M510-50); for a small one, the
    * lines since the essentials and the newest with the people here (assemble/stack.js smallRecordWhole). */
-  async function smartRecallFor({ story, history, userText, state, small = false }) {
+  async function smartRecallFor({ story, history, userText, state, selection, nodes, essentials, signal }) {
     try {
-      if ((await db.settings.get('smartRecall')) === false) return [];
-      const essentials = await loadEssentials(story.id);
-      if (!essentials || typeof essentials.text !== 'string' || !essentials.text.trim()) return [];
-      const mem = await loadMemory(story.id);
-      const nodes = mem && Array.isArray(mem.nodes) ? mem.nodes : [];
-      if (!nodes.length) return [];
-      if (Number.isFinite(essentials.upTo)) {
-        const covered = nodes.filter((n) => n && !n.empty && Array.isArray(n.span)).reduce((mx, n) => Math.max(mx, n.span[1] + 1), 0);
-        if (essentials.upTo >= covered) return [];
-      }
+      if ((await db.settings.get('smartRecall')) === false) return {ids:[],why:'disabled',calls:0};
+      if (!essentials?.text || !selection?.essentials || !nodes?.length) return {ids:[],why:'no validated essentials or eligible record',calls:0};
+      const picked = new Set(selection.records.filter(r => r.selected).map(r => r.id));
       const pickConn = await resolveWorkerConnection(story, 'recall');
-      let skip;
-      if (small) {
-        const whole = smallRecordWhole(nodes, essentials, state);
-        skip = (n) => whole.has(n);
-      } else {
-        const byAge = [...nodes].filter((n) => n && typeof n.text === 'string' && Array.isArray(n.span)).sort((a, b) => b.span[0] - a.span[0]);
-        const newest = new Set(); let room = HYBRID_RECENT_CHARS;
-        for (const n of byAge) { room -= n.text.length + 3; if (room < 0) break; newest.add(n.id); }
-        skip = (n) => newest.has(n.id);
-      }
-      const lastA = [...(Array.isArray(history) ? history : [])].reverse().find((m) => m && m.role === 'assistant' && !m.hidden);
-      const out = await pickRecall({ connection: pickConn, essentials: essentials.text, nodes, move: userText, lastPage: lastA ? pageText(lastA) : '', mc: mcName(state), skip });
-      return Array.isArray(out && out.ids) ? out.ids : [];
-    } catch (err) { return []; }
+      const lastA = [...history].reverse().find(m => m && m.role === 'assistant' && !m.hidden);
+      const out = await pickRecall({ connection:pickConn, essentials:essentials.text, nodes:nodes.filter(n => selection.records.some(r => r.id === recordId(n) && r.available !== false)), move:userText, lastPage:lastA ? pageText(lastA) : '', mc:mcName(state), skip:n => picked.has(recordId(n)), signal });
+      return out;
+    } catch (err) { return {ids:[],why:'helper unavailable, local recall retained'}; }
   }
 
   /* Refresh the receipt affordance on a message already on the page, so
@@ -4009,10 +3995,10 @@ export function initChat(ctx) {
     const mem = await loadMemory(story.id);
     const fresh = (await db.stories.get(story.id)) || story;
     if (stale()) return { silent: true };
-    const out = await runEssentials({ connection, storyId: story.id, nodes: mem && mem.nodes, brief: fresh.brief || '', mc: mcName(await loadState(story.id)), signal, force });
+    const out = await runEssentials({ connection, storyId: story.id, nodes: mem && mem.nodes, brief: fresh.brief || '', mc: mcName(await loadState(story.id)), signal, force, stale });
     if (stale()) return { silent: true };
     if (out.wrote) return { detail: 'streamlined the whole record into the story’s essentials' };
-    return out.why === 'its answer could not be used' ? { detail: 'its answer could not be used' } : { silent: true };
+    return out.pending ? {detail:'kept the previous usable essentials; changed source material remains pending: ' + out.why} : { silent: true };
   }
   /* M517: THE WORLD KEEPER — for a story whose brief is Automatic: built once from everything the story has, then looked at
    * again only when the record has grown (GROUND_EVERY more pages folded), the story's position in canon moved, or its canon start
@@ -6349,11 +6335,8 @@ export function initChat(ctx) {
           return canonBeforeSend({ story, state, messages: history, connection: canonConnection, type: swipeTarget ? 'swipe' : 'normal' });
         })().catch(() => '')
         : null;
-      /* M547: THE SMART RECALL IS ASKED HERE, BESIDE THE REFEREE AND CANON — it reads only his move, the last page, the
-       * essentials and the record, none of which they change — and its answer is taken just before the request is built
-       * (below). Asked there, after them, its wait came on top of theirs; now it runs while they do. For every storyteller
-       * — a small one too (M547): its helper planned before his move, and his words alone matched the old lines. */
-      const recallPending = smartRecallFor({ story, history, userText, state, small: settingsValues.smallModelNow === true });
+      /* Recall selection waits for the same pure request plan that assembly uses.
+       * This is the existing optional helper, with its bounded local fallback. */
       /* M21: TRUE rollback — the boundary snapshot. Before the referee and
        * the worker chain commit anything for this turn, the state as it
        * stands is keyed by this turn's user-message id, so a later rewind
@@ -6502,6 +6485,7 @@ export function initChat(ctx) {
        * record. The nodes ride now, and the record's own cut is taken from
        * the plan that results, so a widened window still never sends a line
        * and the page it summarizes together (M44). */
+      let budgetConnection = { ...connection, reasoning: effectiveReasoning(connection,story), ...(ooc ? {prefill:''} : {}) };
       const windowInfo = {
         keeperOn,
         /* The story's memory keeps its own window once it has one; before
@@ -6509,7 +6493,7 @@ export function initChat(ctx) {
          * speaks — the help text under it is now true (M9, §1). */
         window: memWindow,
         nodes: mem && Array.isArray(mem.nodes) ? mem.nodes : undefined,
-        answerTokens: Number(connection.maxTokens) > 0 ? Number(connection.maxTokens) : 16000,
+        answerTokens: measureTransport(budgetConnection,{systemBlocks:[],messages:[]}).answerTokens,
         budgetTokens: roomOf(connection), /* M343; M285: the provider's room when none is set */
       };
       /* M44: a line and the page it summarizes never ride together — measured
@@ -6674,7 +6658,7 @@ export function initChat(ctx) {
       /* M510-50: SMART RECALL — with the essentials made and the switch on, a worker names the older record lines his move
        * means (they ride word for word); never more than 8 seconds; slower or unsure, none. M547: asked beside the referee
        * (smartRecallFor, above) for every storyteller; its answer is taken here. */
-      const recallPicked = (await recallPending) || [];
+      let recallPicked = [];
       /* M576: ONE SET OF ARGUMENTS for the two builds — the probe (to size the record) and the request itself had the same
        * thirty arguments written out twice, differing only in the record; one added to the one and not the other would have
        * sized the record against a request that is not the one sent */
@@ -6688,17 +6672,19 @@ export function initChat(ctx) {
         canonNote, /* M346 */
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy({ since: canonAskedAt }) : '', /* M486; M534: this turn's reason, or none */
         choicesOn: choicesNow, choiceTaken: choiceNow, choiceEchoes: choicesNow ? echoesText(choiceNow ? history.filter((m) => !(m && lastUser && m.id === lastUser.id)) : history) : '', /* M548 */
+        transportMeasure: req => measureTransport(budgetConnection,req),
         smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, quietPage: quietNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
         sensorNote, sensorOwn, sensorRole, /* M356; M636 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       };
-      const probeReceipt = buildRequest({ ...requestArgs, memory: '' }).receipt;
+      const probeReceipt = buildRequest({ ...requestArgs, memory: '', measureOnly:true }).receipt;
       /* M264: the record rides in the room the storyteller's context leaves it */
       const recordCap = recordRoom({
         contextTokens: roomOf(connection),
-        maxTokens: connection && connection.maxTokens,
+        maxTokens: windowInfo.answerTokens,
         fixedChars: fixedCharsOf(probeReceipt),
       });
+      windowInfo.recordCap = recordCap;
       const memoryText = renderMemory(memoryForWindow(mem, verbatimStart), recordCap);
       /* M265: A FULL ROOM IS SAID OUT LOUD. When the storyteller's room cannot
        * hold the whole record (squeezing set to never, or a small context), the
@@ -6711,7 +6697,12 @@ export function initChat(ctx) {
           toast('The storyteller’s context is full: the oldest ' + full[1] + ' record ' + (full[1] === '1' ? 'line was' : 'lines were') + ' left out of this page. Squeezing “Only when the whole record would no longer fit” (Settings) folds them in instead.');
         }
       }
-      const { systemBlocks, messages, receipt: receiptDraft } = buildRequest({ ...requestArgs, memory: memoryText }); /* M576: the same arguments, with the record */
+      const plannedRequest = buildRequest({ ...requestArgs, memory:memoryText, measureOnly:true });
+      const eligibleNodes = (mem?.nodes || []).filter(n => n.correction || n.span?.[1] < windowInfo.recordThrough);
+      const recallDiagnostic = await smartRecallFor({ story, history, userText, state, selection:plannedRequest.selection, nodes:eligibleNodes, essentials:smallEssentials, signal:mine.signal });
+      recallPicked = recallDiagnostic?.ids || [];
+      requestArgs.recallPicked = recallPicked;
+      let { systemBlocks, messages, receipt: receiptDraft } = buildRequest({ ...requestArgs, memory: memoryText }); /* M576: the same arguments, with the record */
 
       /* M6 consume-and-clear: the ruling rode into this turn's stack as a
        * fact; it clears now, so no later turn inherits it. */
@@ -6774,7 +6765,9 @@ export function initChat(ctx) {
       /* M375: and only where the provider truly continues a started thought — anywhere else the seed is an empty extra
        * turn the model reads, and reasons about in an assistant's voice */
       const seeded = grounding && (ooc || !ownPrefill) && seedContinues(connection) ? { prefill: grounding } : {};
-      const provider = createProvider({ ...connection, reasoning, ...seeded, ...(ooc ? { prefill: seeded.prefill || '' } : {}) });
+      budgetConnection = { ...connection, reasoning, ...seeded, ...(ooc ? { prefill: seeded.prefill || '' } : {}) };
+      ({ systemBlocks, messages, receipt: receiptDraft } = buildRequest({ ...requestArgs, memory:memoryText }));
+      const provider = createProvider(budgetConnection);
       const showThinking = (await db.settings.get('showThinking')) !== false;
       /* M319: THE THREE SWITCHES THAT STOP THE THINKING FOR EVERY MODEL AT ONCE SAY SO, WHEN THEY DO. The writer:
        * "all my models — DeepSeek, Kimi, everything — can't think", at low, medium, high, xhigh, max. The
@@ -7084,7 +7077,9 @@ export function initChat(ctx) {
           id: sentId, storyId: story.id,
           slots: (receiptDraft && Array.isArray(receiptDraft.slots) ? receiptDraft.slots : []).map((s) => ({ name: s.name, text: s.text || '' })),
           requests: result.sent ? [result.sent] : [],
+          selection: {...receiptDraft.selection,recall:recallDiagnostic},
         }).catch(() => false);
+        if (result.sent?.body) receiptDraft.context = { ...receiptDraft.context, transport:bodyAccounting(result.sent.body), providerUsage:result.usage || null, recall:recallDiagnostic };
         receipt = finalizeReceipt(receiptDraft, {
           sentId,
           noThought: reasoning.effort !== 'off' && !String(thinking || '').trim(), /* M348 */

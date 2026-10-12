@@ -1271,14 +1271,7 @@ const HANDLERS = {
     const key = personBookKey(state, state.knowledge, name, findKnowledgeKey); /* M419 */
     const list = key && state.knowledge && Array.isArray(state.knowledge[key]) ? state.knowledge[key] : [];
     if (!list.length) return { why: (key || name) + ' has nothing written down to let go' };
-    const want = factKey(fact);
-    /* M522: the fallback for a line quoted clipped covers MOST of that line — never a fuller line that merely contains the
-     * words being let go. Letting go of "…a place at his side" took the corrected "…a place at his side if they kneel…" with
-     * it, and the whole party forgot the moment. The exact line first; the clipped quote only when no exact line stands. */
-    const exact = list.filter((k) => factKey(k.fact) === want);
-    const keep = exact.length
-      ? list.filter((k) => factKey(k.fact) !== want)
-      : list.filter((k) => !(sameFact(k.fact, fact) && factKey(k.fact).length <= Math.max(want.length / 0.8, want.length + 12)) && !(want.length >= 12 && factKey(k.fact).includes(want) && want.length >= factKey(k.fact).length * 0.8));
+    const keep = list.filter(k => !sameFact(k.fact,fact) || (m.kind && m.kind !== k.kind));
     if (keep.length === list.length) return { why: 'no line of what ' + key + ' knows answers to “' + fact.slice(0, 80) + '”' };
     const before = list.map((k) => ({ ...k }));
     const gone = list.length - keep.length;
@@ -1294,7 +1287,7 @@ const HANDLERS = {
     if (!fact) return { why: 'it didn’t say what ' + name + ' learned' };
     const key = personBookKey(state, state.knowledge, name, findKnowledgeKey) || newBookKey(state, name); /* M419 */
     const before = state.knowledge && Array.isArray(state.knowledge[key]) ? state.knowledge[key].map((k) => ({ ...k })) : null;
-    const next = addKnowledge(state.knowledge, key, fact, storyTurn(state));
+    const next = addKnowledge(state.knowledge, key, fact, storyTurn(state), { kind: m.kind, pathway: m.pathway, source: m.source });
     const after = next[key] || [];
     /* M522: a line made fuller in place (the same fact, more of it) is a change that landed — not "already knows that",
      * which threw the fuller wording away */

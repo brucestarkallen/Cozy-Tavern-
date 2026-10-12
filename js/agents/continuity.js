@@ -100,7 +100,7 @@ const SYSTEM_PROMPT = [
   '',
   'UNTOLD KNOWLEDGE — the one case where what is NOT written counts. The ledger lists, for the',
   /* M416: the marker is the storyteller's own notes' words (engine/world.js BLIND_LINE), read from the one home */
-  'people here, what each HAS learned ("knows:") and what no page has shown them learning ("' + BLIND_LINE.trim() + '" \u2014',
+  'people here, what each HAS learned ("knows:") and what the available record has not established them learning, which is uncertainty rather than certain ignorance ("' + BLIND_LINE.trim() + '" \u2014',
   'the same words the storyteller\u2019s notes use). When a character on this page STATES or ACTS ON one of the',
   'things they have not been shown learning — or claims a telling the ledger gives no sign of ("you told me yesterday",',
   '"you gave me the schedule") — and neither the page nor THE STORY SO FAR (below: the record and the pages',
