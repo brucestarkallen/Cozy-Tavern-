@@ -1523,20 +1523,22 @@ const HANDLERS = {
     const kind = m.kind || 'person';
     const why = capText(m.cause || m.auditReason,1000);
     if (!receipt || !name || !why || !['person','place','organization','object','group','reference'].includes(kind)) return {why:'select an existing source mention and state its identity decision'};
-    const tracked = [...(state.present || []).map(p=>p.name), ...['offscreen','relationships','knowledge','canon'].flatMap(book=>Object.keys(state[book] || {}))];
-    const to = kind === 'person' ? (isMc(state,m.to) ? mcName(state) : findPersonKey(state.characters,m.to)
+    const local = kind === 'person' && m.scope === 'local';
+    if (local && m.to) return {why:'a source-local person must not claim a global target; omit to or bind the established identity'};
+    const tracked = [...(state.present || []).map(p=>p.name), ...['offscreen','relationships','knowledge','canon'].flatMap(book=>Object.keys(state[book] || {})),...Object.keys(state.sheet?.actors || {})];
+    const to = kind === 'person' && !local ? (isMc(state,m.to) ? mcName(state) : findPersonKey(state.characters,m.to)
       || tracked.find(n=>n.toLowerCase() === String(m.to || '').trim().toLowerCase())) : '';
-    if (kind === 'person' && !to) return {why:'supply the actual established person, creating a genuinely missing profile in the same answer first'};
+    if (kind === 'person' && !local && !to) return {why:'supply the actual established person, creating a genuinely missing profile in the same answer first'};
     const rows = [];
     const people = (receipt.people || []).map((p,index) => {
       if (p.name !== name) return p;
-      if (p.kind === kind && (p.ledgerName || '') === to && p.identityResolution?.kind === kind && (p.identityResolution?.to || '') === to) return p;
+      if (p.kind === kind && (p.ledgerName || '') === to && p.identityResolution?.kind === kind && (p.identityResolution?.to || '') === to && (p.identityResolution?.scope === 'local') === local) return p;
       rows.push({index,name:p.name,kind:p.kind,ledgerName:p.ledgerName,identityResolution:p.identityResolution});
-      return {...p,kind,ledgerName:to,identityResolution:{kind,to,why}};
+      return {...p,kind,ledgerName:to,identityResolution:{kind,to,why,...(local?{scope:'local'}:{})}};
     });
     if (!rows.length) return receipt.people?.some(p=>p.name === name) ? {why:'this source identity decision is already saved',same:true} : {why:'this name is not an extracted mention in the selected source'};
     state.auditSources = {...state.auditSources,[m.sourceId]:{...receipt,people}};
-    return {words:kind === 'person' ? name+' refers to '+to+' in this source; their People records remain unchanged.' : name+' was classified as '+kind+' in this source.',
+    return {words:local ? name+' remains a distinct person in this source, with original evidence retained.' : kind === 'person' ? name+' refers to '+to+' in this source; their People records remain unchanged.' : name+' was classified as '+kind+' in this source.',
       undo:{kind:'source.resolved',id:m.sourceId,mark:receipt.mark,rows}};
   },
   'people.wake'(state, m) {

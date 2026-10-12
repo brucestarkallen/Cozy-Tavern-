@@ -38,7 +38,11 @@ export function auditSources({ brief = '', castNotes = '', messages = [] } = {})
     const m = messages[i];
     if (!m || m.hidden || asideAt(messages, i)) continue;
     add('page:' + m.id, 'Page ' + (i + 1) + (m.role === 'user' ? ', writer' : ', story'), pageText(m));
-    for (const [v, voice] of (m.voices || []).entries()) if (voice?.content) add('voice:' + m.id + ':' + v, 'World voice after page ' + (i + 1), voice.speaker + (voice.channel ? ', ' + voice.channel : '') + ': ' + voice.content);
+    for (const [v, voice] of (m.voices || []).entries()) if (voice?.content) {
+      const start=documents.length;
+      add('voice:' + m.id + ':' + v, 'World voice after page ' + (i + 1), voice.speaker + (voice.channel ? ', ' + voice.channel : '') + ': ' + voice.content);
+      if (voice.identity) for (const document of documents.slice(start)) document.speakerIdentity={speaker:voice.speaker,...voice.identity};
+    }
   }
   return documents;
 }
@@ -65,7 +69,7 @@ export function sourcePassages(document) {
   }
   return passages;
 }
-const sourceDocument = d => ({ id:d.id, label:d.label,
+const sourceDocument = d => ({ id:d.id, label:d.label,...(d.speakerIdentity?{speakerIdentity:d.speakerIdentity}:{}),
   passages:sourcePassages(d).map(({id,text}) => ({id,text})) });
 function sourceEvidence(document, row, passages) {
   if (row?.evidence !== undefined) {
@@ -79,6 +83,7 @@ function sourceEvidence(document, row, passages) {
 }
 
 const SYSTEM = withFictionFrame([
+  'World speakerIdentity is an upstream identity hint, not proof. Preserve the original person and distinguish source-local temporary speakers from tracked continuing identities; the final auditor decides any required binding.',
   'SOURCE PEOPLE REVIEW. You are the ledger auditor reading ORIGINAL source documents, not a summary.',
   WRITER_FACTS,
   'Identify the actual subject FIRST. A proper-name occurrence is not proof of a person. Places, kingdoms, organizations and objects are not individuals unless explicitly personified as characters. In "Prince NAME of REALM", NAME owns his appearance and REALM is the place. Never assign the prince\'s eyes, face or age to his homeland. Resolve relative clauses and pronouns to their actual subject. Use kind:"person" for individual beings, kind:"place", "organization", "object" or "group" for a nonperson reference worth disambiguating. Nonperson rows retain provenance but do not create People or physical facts. Do not omit a real unnamed individual or an animal merely because they lack a proper name.',
@@ -241,6 +246,7 @@ export async function reviewAuditSources({ connection, documents, previous = {},
 export const contextualSourceName = name => /^(?:the|a|an|this|that|these|those)\s/i.test(String(name).trim());
 
 export function sourcePersonKey(state, name, remembered = '', resolution = null) {
+  if (resolution?.kind === 'person' && resolution.scope === 'local') return '';
   name = activeSpelling(name,state);
   remembered = activeSpelling(remembered,state);
   if (resolution?.to) resolution = {...resolution,to:activeSpelling(resolution.to,state)};
@@ -279,6 +285,7 @@ export function sourcePersonKey(state, name, remembered = '', resolution = null)
 
 export function sourceIdentityNeeded(state, person) {
   if (person.kind && person.kind !== 'person') return false;
+  if (person.identityResolution?.scope === 'local' && person.identityResolution?.kind === 'person' && person.identityResolution?.why) return false;
   const key = sourcePersonKey(state, person.name, person.ledgerName, person.identityResolution);
   if (isMc(state, key || person.name)) return false;
   if (!key) return true; // Unclassified original individual, including unique unnamed roles.
@@ -286,6 +293,7 @@ export function sourceIdentityNeeded(state, person) {
 }
 
 export function missingSourceIdentityFacts(state, person) {
+  if (person.identityResolution?.scope === 'local') return []; // Facts remain in the original receipt, not a fabricated permanent biography.
   const key=sourcePersonKey(state,person.name,person.ledgerName,person.identityResolution);
   if (!key || (person.kind && person.kind!=='person')) return [];
   const core=String(state.characters?.[key]?.core || '').replace(/\s+/g,' ').toLowerCase();

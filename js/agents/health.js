@@ -1,5 +1,29 @@
 /* Local health inventory. Recovery belongs to the existing queues, not the lamp. */
+import {ledgerAuditVerified} from './auditprogress.js';
 import {historicalAdvisoryView} from './continuous.js';
+
+// A historical run is evidence of that attempt, not the current audit result.
+// Reconcile only the auditor's own factual work; another worker's failed
+// simulation/transport cannot be certified by an unrelated successful audit.
+export function reconciledWorkerStatus(shelf,state,story,pages) {
+  const audit=state?.audit;
+  if (!Number.isFinite(audit?.at) || !ledgerAuditVerified(state,story,pages)) return shelf;
+  let out=shelf;
+  for (const name of ['auditor','world']) {
+    const row=shelf?.[name];
+    if (!row || !(row.ok===false || row.unfinished) || audit.at<row.at) continue;
+    // Only a specifically recorded identity-only World omission can be
+    // superseded by the final source audit. Other World work stays owed.
+    if (name==='world') {
+      if (!row.ok || !row.unfinished || !row.resume?.startsWith('voice-identities:')) continue;
+      const id=row.resume.slice('voice-identities:'.length),page=pages.find(p=>p.id===id);
+      if (!page?.voices?.length || page.voices.some((v,index)=>!state.auditSources?.['voice:'+id+':'+index+':0'])) continue;
+    }
+    out={...out,[name]:{...row,ok:true,unfinished:false,why:'',resume:'',
+      detail:'Current saved ledger and original sources verified after this earlier attempt.',superseded:row}};
+  }
+  return out;
+}
 
 export function workerRecoveryDue(checkpoint,input,now=Date.now()) {
   if (!checkpoint || checkpoint.input!==input) return 0;
@@ -10,6 +34,9 @@ export function workerRecoveryDue(checkpoint,input,now=Date.now()) {
 export function healthSnapshot({storyId,shelf={},state={},pages=[],mem={},story={},auditRead=null,
   recordBehind=false,ledgerBehind=false,verificationNeeded=false,repairOwed=false,repairPaused=false,
   guards=[],running=[],queued=0,otherOwner=false,historicalWait=-1,workerRecovery={}}={}) {
+  if (pages.some(p=>p.role==='assistant' && !p.hidden && !p.ooc)) verificationNeeded ||= !ledgerAuditVerified(state,story,pages);
+  shelf=reconciledWorkerStatus(shelf,state,story,pages);
+  guards=guards.filter(name=>name!=='auditor' || shelf.auditor?.ok===false);
   const issues=[];
   const add=(id,owner,reason,route=null,extra={})=>issues.push({id,owner,reason,route,...extra});
   for (const name of ['keeper','extractor','scribe','world']) {
@@ -17,7 +44,7 @@ export function healthSnapshot({storyId,shelf={},state={},pages=[],mem={},story=
     if (row && (row.ok===false || row.unfinished)) {
       const retry=workerRecovery[name];
       add('worker:'+name,name,[row.why || row.detail || 'Required worker did not complete.',retry?.reason].filter(Boolean).join(' '),
-        retry?.eligible?'worker:'+name:null,{checkpoint:retry?.input,blocked:retry?.reason || '',state:row.ok===false?'failed':'unfinished'});
+        name==='world' && row.ok && row.resume?.startsWith('voice-identities:')?(repairOwed?'auditor':null):retry?.eligible?'worker:'+name:null,{checkpoint:retry?.input,blocked:retry?.reason || '',state:row.ok===false?'failed':'unfinished'});
     }
   }
   if (recordBehind) add('record-gap','keeper','Original pages still need folding.','record');

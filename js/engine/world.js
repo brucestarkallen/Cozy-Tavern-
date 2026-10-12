@@ -891,7 +891,9 @@ export function normalizeVoices(raw) {
     const iconRaw = cleanText(v.icon, 8);
     const icon = iconRaw || '💬';
     const channel = cleanText(v.channel || v.where, 200);
-    out.push({ icon, speaker, channel, content });
+    const identity = v.identity && typeof v.identity === 'object' && ['local','tracked'].includes(v.identity.scope)
+      ? {scope:v.identity.scope,...(v.identity.scope==='tracked'?{to:cleanText(v.identity.to,120),create:v.identity.create===true}:{}),why:cleanText(v.identity.why,1000)} : null;
+    out.push({ icon, speaker, channel, content, ...(identity?{identity}:{}) });
     if (out.length >= VOICES_MAX) break;
   }
   return out;

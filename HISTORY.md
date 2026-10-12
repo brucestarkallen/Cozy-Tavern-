@@ -20566,3 +20566,86 @@ Eleven selected legacy checks passed. M683-1's old builtin pin assertion fails
 identically on untouched base; left outside scope. Runtime syntax and diff
 checks passed. No paid calls, full suites, physical device or large-story tests.
 The owner's database was not accessed. Detailed scope and limits: HANDOFF.md.
+
+
+# M731: executable source identities and evidence based worker status
+
+Version m731-001. Base main 0a1a7242f7967880664f721763e4d8872128a268.
+
+The production fixture reproduced a source.resolve rejection when its supported
+profile was in the SAME answer: parseAuditorAnswer put issues before profiles,
+and judgeAudit applied that binding before creating its target. All five
+reported live rejections prove unavailable targets at application time, but the
+capped diagnostic does not establish that ordering caused every live rejection.
+World additionally opened profiles for offscreen seats only, not voice speakers.
+The final review continuation listed missing mentions without the actual engine
+rejections, leaving the reader to repeat the same unavailable targets.
+
+Auditor now applies source bindings after other accepted operations in both
+rehearsal and final commit. Profiles support open:true for identity without an
+invented biography. The existing continuation includes exact rejection reasons
+and actual available People keys. The nonexistent target guard remains. Actor
+records accepted by sourcePersonKey are now also accepted by source.resolve.
+A missing target cannot count as satisfied merely because two lookups are empty.
+
+Explicit source.resolve kind person, scope local retains a temporary individual
+and all original receipt facts without a global alias or permanent People row.
+Its decision is journaled, idempotent and undoable, scoped to that source mention.
+Local facts remain literal in the source receipt rather than entering unrelated
+People inventories. This is a semantic reader decision, never an automatic
+conversion of real people into nonpersons. Ambiguous continuing identity remains
+in review.open. Later evidence can bind the local mention to an established row.
+
+World supplies speaker identity intent alongside unchanged voice text. Existing
+normalization and message persistence retain it. Canonical identities are reused;
+explicit new continuing speakers open minimal People pages with voice provenance.
+Temporary speakers remain local. Missing metadata/prerequisites get the existing
+bounded World continuation, not a new worker or approval loop. Repeated identical
+mutations from that continuation are deduplicated. Final saved targets are checked;
+remaining omissions are reported as identityPending. Source review receives these
+hints, but the independent auditor still judges originals and saves its verdict.
+World hints do not alter original source ids, marks, prose or review authority.
+
+Shared health, chat lamp and Workers drawer reconcile a stale auditor warning only
+against later current matching saved verification. A specifically recorded World
+voice identity ONLY omission can also be superseded by that source verification.
+Such pending work routes to Auditor, not a fresh World simulation. Other failed
+World work, transport errors, active workers and unresolved facts remain visible.
+Historical worker records are not deleted or rewritten. Shared health independently
+checks applicable current pages instead of trusting a caller's old success flag.
+Existing disabled worker/settings behavior and bounded recovery remain intact.
+Repair policy advances from 6 to 7 for the changed executable identity contract;
+old paused findings can resume, while healthy factual audits stay version independent.
+
+Affected runtime files: js/agents/auditor.js, auditsources.js, auditprogress.js,
+appearanceinventory.js, world.js, health.js; js/engine/apply.js, world.js;
+js/ui/chat.js, drawer.js; js/version.js. Tests: tests/harness/m731-identity.mjs
+and m731-world.mjs. SPEC.md and this entry document the change; HISTORY.md appends it.
+No new application dependency or module, mandatory worker, preliminary storyteller
+call, schema migration, deployment, source receipt invalidation or global alias.
+
+Focused evidence actually executed:
+* Before correction, m731-identity failed through auditLedger with the exact
+  unavailable target rejection despite a supported profile in the same response.
+* After correction, expanded m731-identity passes five voice findings, one named
+  person plus contextual role, existing empty core, new empty profile, temporary
+  source-local person, nonperson classification, separate same-label sources,
+  aliases/retired identities/actor target, persistence, undo, preserved manual
+  record/prose, cached sources, unchanged repeat with zero calls, exact same-review
+  prerequisite correction in two calls, visible genuine ambiguity, concurrent
+  manual edit and changed-source cancellation, stale versus verified status,
+  independent World failure and active-worker status.
+* m731-world passes actual worldTurn, existing bounded clarification, minimal
+  new identity and literal provenance, local temporary voice, normalization and
+  message persistence/reopen, reuse on a later voice, no duplicate or scene arrival.
+* m718-source-identity and m719-followups pass their targeted identity/People
+  regression scenarios. Changed JavaScript syntax and git diff --check pass.
+* During fixture development, expectations were corrected for existing state
+  normalization and auditLedger's no-call result object rather than null.
+
+These are scripted provider responses with the repository's disposable IndexedDB
+shim, not browser/device or paid model tests. No broad/theme/performance/gameplay
+suite was run. They verify the causal production paths, not the owner's actual
+Fallen Angel Exploring database. Full live target identities, a real provider's
+interpretations and device background operation remain unverified. No live story,
+manual content, credentials, provider settings or unrelated repository was changed.

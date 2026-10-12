@@ -1,3 +1,14 @@
+# M731: source identity execution and trustworthy recovery status
+
+Version m731-001. Source binding follows accepted prerequisites in rehearsal and
+commit. Source-local temporary people retain original evidence without invented
+biographies or global aliases. World preserves speaker identity intent, creates
+explicit continuing identities minimally, and reports unresolved prerequisites.
+Final source verification remains independent and reuses completed receipts.
+Current evidence can supersede a stale audit or identity-only World warning;
+other failed work and genuine ambiguity remain visible. See HANDOFF.md for the
+causal reproduction, exact changed files, focused checks and live-story limits.
+
 # M730: Housekeeper correction lifecycle
 
 Version m730-001. Implemented and verified in focused synthetic browser fixtures.

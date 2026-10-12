@@ -16,6 +16,7 @@ export function sourceAppearanceFacts(state, documents = null) {
     if (receipt.appearanceReviewed !== true) continue;
     for (const person of receipt.people || []) {
       if (person.kind && person.kind !== 'person') continue;
+      if (person.identityResolution?.scope === 'local') continue; // Keep these facts scoped to the original individual in its receipt.
       const binding = sourcePersonKey(state,person.name,person.ledgerName,person.identityResolution);
       if (!binding && contextualSourceName(person.name)) continue;
       const resolved = binding || person.name;
@@ -85,6 +86,7 @@ export function sourceIdentityFacts(state, documents = null) {
     if (sources && (!original || original.mark!==receipt.mark)) continue;
     for (const person of receipt.people || []) {
       if (person.kind && person.kind !== 'person') continue;
+      if (person.identityResolution?.scope === 'local') continue; // Keep these facts scoped to the original individual in its receipt.
       const binding=sourcePersonKey(state,person.name,person.ledgerName,person.identityResolution);
       if (!binding && contextualSourceName(person.name)) continue;
       const resolved=binding || person.name;

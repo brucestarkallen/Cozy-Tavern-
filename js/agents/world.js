@@ -43,6 +43,7 @@ import { LEDGER_READER_RULES, sharedStoryContext } from './ledgercontext.js';
  *     non-reasoning model does this well when the law is this explicit.
  */
 
+import {activeSpelling} from '../engine/spelling.js';
 import { HERE_MEANS } from './herewords.js'; /* M554 */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { db } from '../store.js';
@@ -57,7 +58,7 @@ import { applyMutations, clearsThatArrive, scenePartOf, walkInFromPage, seatAtSc
 import { renderOffscreen, seatLine, isDeadSeat, seatAgeWords } from '../engine/offscreen.js'; /* M684: freshness is an explicit review */
 import { renderClock } from '../engine/clock.js';
 import { mcName } from '../engine/duels.js';
-import { STANCES } from '../engine/world.js';
+import { STANCES, normalizeVoices } from '../engine/world.js';
 import { askWithFetch, fetchLaw, windowOfPages, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259/M261: it may look; the story so far, whole */
 import { renderAllThreads, renderAllKnowledge, renderAllFactions, wholePage, knowledgeRoomFor } from '../engine/whole.js'; /* M259: every thread, every line of who knows what, every faction; the page read to its end */
 
@@ -236,6 +237,7 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     '    discovery, a confrontation, a plan). Two absent people who share a place and a stake talk to',
     '    each other — that is a window worth opening, and what each learns goes into knowledge.add.',
     '    {"who","where","changed"}. null is the common answer.',
+    'Every voice includes identity:{scope:"tracked",to:"canonical existing name",why:"source identity"} for an established person. A genuinely new continuing person uses create:true on that identity; supply only supported core facts with people.set, or leave biography empty. A temporary speaker uses identity:{scope:"local",why:"a distinct temporary speaker, no continuing identity established"}. This retains a real person locally without another permanent cast record. Never bind generic roles across sources by label alone, invent a global alias, or seat someone in the main scene merely for speaking. Preserve speaker/channel/content verbatim when completing an omitted identity.',
     '  voices — THE WORLD TALKING TO ITSELF (the writer\'s Voices Block, shown to the reader under the page):',
     '    2-4 lines, people the main character cannot currently hear — other rooms, streets, channels,',
     '    comms nets. The prior is NEAR-ALWAYS: fire whenever a live social field is in reach (a market, a',
@@ -640,6 +642,27 @@ export function worldRecoveryMutations(mutations, state, targets) {
   ));
 }
 
+// World supplies identity intent in its existing answer. Opening a supported
+// continuing identity is not a biography inference or a scene arrival.
+export function worldVoiceIdentities(state, brief, {allowCreate=true}={}) {
+  const mutations=[], problems=[], voices=normalizeVoices(brief?.voices);
+  for (const voice of voices) {
+    const identity=voice.identity;
+    if (!identity?.why || !['local','tracked'].includes(identity.scope)) {
+      problems.push({speaker:voice.speaker,why:'Supply the speaker identity scope and reason, retaining the original voice.'}); continue;
+    }
+    if (identity.scope==='local') continue;
+    if (!identity.to) {problems.push({speaker:voice.speaker,why:'A tracked speaker needs its actual canonical target.'});continue;}
+    identity.to=activeSpelling(identity.to,state);
+    const target=findPersonKey(state.characters || {},identity.to);
+    if (target || isMc(state,identity.to)) {identity.to=target || mcName(state);continue;}
+    if (identity.create && allowCreate) mutations.push({type:'people.set',name:identity.to,field:'core',open:true,
+      shown:voice.speaker+(voice.channel?', '+voice.channel:'')+': '+voice.content,cause:identity.why});
+    else problems.push({speaker:voice.speaker,to:identity.to,why:'The claimed People target does not exist. Reuse its actual canonical name, explicitly establish a new continuing identity with create:true, or retain a temporary person locally.'});
+  }
+  return {mutations,problems,voices};
+}
+
 export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0, record = '', renew, story = null, pageNumber = 0, canonRecord = '', pageAt = null, recoveryTargets = null } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
@@ -662,6 +685,7 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   prompt.system += LEDGER_READER_RULES;
   let user = prompt.user;
   let best = null;
+  let identityContinuation=false;
   const worldCoverage = { material: brief + '\n' + castNotes, castNames };
   const recovery = Array.isArray(recoveryTargets);
   const reviewPlan = worldReviewPlan(state,worldCoverage);
@@ -695,11 +719,20 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
     }
     if (finishReason === 'length') read.note = 'cut short';
     if (read.note !== 'unusable' && read.note !== 'cut short') {
-      if (best) read = { ...read, mutations: [...best.mutations, ...read.mutations], brief: read.brief || best.brief };
+      if (best) {
+        const combined=[...best.mutations,...read.mutations];
+        read = {...read,mutations:identityContinuation?[...new Map(combined.map(m=>[JSON.stringify(m),m])).values()]:combined,brief:read.brief || best.brief};
+      }
       best = read;
       const proposed = applyMutations(state, read.mutations.map((m) => ({ ...m, source: 'world' }))).state;
       const pending = worldOwed(proposed, worldCoverage).filter((n) => owed.includes(n));
-      if (!pending.length || attempt > 0) break;
+      const voiceProblems=worldVoiceIdentities(proposed,read.brief).problems;
+      if ((!pending.length && !voiceProblems.length) || attempt > 0) break;
+      if (voiceProblems.length) {
+        identityContinuation=true;
+        user=prompt.user+recoveryInstruction+'\nComplete this SAME World answer, preserving its voices and decisions. Correct only these identity prerequisites: '+JSON.stringify(voiceProblems)+'\nPrior answer: '+JSON.stringify(read)+ '\nReturn mutations and brief JSON.';
+        continue;
+      }
       user = prompt.user + recoveryInstruction + '\n\nYour answer did not review these overdue people: ' + pending.join(', ') + '. Return only their missing decisions. Use offscreen.set with current whereabouts or offscreen.confirm with the reason a stay still holds. Do not repeat your other changes. JSON only.';
       continue;
     }
@@ -807,6 +840,10 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
    * revert it to whatever an older snapshot held, so a swipe got a stale
    * world's word. M30's "a window opened is a window remembered" (the last
    * six) lives in the applier now. */
+  const provisional=applyMutations(fresh,withPages.map(m=>({...m,source:'world'}))).state;
+  const voicePlan=worldVoiceIdentities(provisional,read.brief);
+  withPages.push(...voicePlan.mutations);
+  if (read.brief) read.brief={...read.brief,voices:voicePlan.voices};
   if (read.brief) withPages.push({ type: 'world.word', brief: read.brief });
   const { state: next, applied: appliedAll, rejected } = applyMutations(fresh, withPages.map((m) => ({ ...m, source: 'world' })));
   const applied = appliedAll.filter((a) => a.mutation.type !== 'world.word');
@@ -819,7 +856,8 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   const stillDue = worldOwed(next, worldCoverage);
   const pending = stillDue.filter(name=>owed.includes(name));
   const deferred = stillDue.filter(name=>!owed.includes(name));
-  return { applied, rejected, dropped: read.dropped, brief: normalized, note: read.note, raw, pending, deferred };
+  const identityPending=worldVoiceIdentities(next,normalized,{allowCreate:false}).problems;
+  return { applied, rejected, dropped: read.dropped, brief: normalized, note: read.note, raw, pending, deferred, identityPending };
 }
 
 /* The workers-line words for one run. */
@@ -829,6 +867,7 @@ export function worldRunWords(result) {
   if (result.note === 'cut short') return 'its answer ran out of room';
   const n = result.applied ? result.applied.length : 0;
   const bits = [];
+  if (result.identityPending?.length) bits.push('speaker identities await source reconciliation: '+result.identityPending.map(p=>p.speaker+': '+p.why).join('; '));
   if (result.deferred?.length) bits.push(result.deferred.length+' due lives retained for subsequent background readings');
   if (result.pending?.length) bits.push('still awaiting a current world decision: ' + result.pending.join(', '));
   bits.push(n ? `moved the world in ${n} ${n === 1 ? 'way' : 'ways'}` : 'the world stood still');

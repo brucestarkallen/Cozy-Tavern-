@@ -1,4 +1,4 @@
-import {healthSnapshot,routeHealth,workerRecoveryDue} from '../agents/health.js';
+import {healthSnapshot,routeHealth,workerRecoveryDue,reconciledWorkerStatus} from '../agents/health.js';
 import { ledgerRepairStateKey, ledgerRepairInputKey, repairRetryCheckpoint, auditHasOpenWork, ledgerAuditVerified, ledgerRepairNeeded, LEDGER_REPAIR_POLICY } from '../agents/auditprogress.js';
 /* Cozy Tavern — ui/chat.js
  * Story list, message thread, composer. Streaming renders token by token.
@@ -2890,11 +2890,11 @@ export function initChat(ctx) {
     try {
       const btn = document.getElementById('btn-ledger');
       if (!btn || !storyId) return;
-      const shelf = (await loadWorkerStatus(storyId)) || {};
+      let shelf = (await loadWorkerStatus(storyId)) || {};
       /* the workers whose silence costs the writer the story itself */
       const minders = ['keeper', 'extractor', 'scribe', 'world'];
-      const sore = minders.filter((n) => shelf[n] && shelf[n].ok === false);
-      const part = minders.filter((n) => shelf[n] && shelf[n].ok !== false && shelf[n].unfinished);
+      let sore = minders.filter((n) => shelf[n] && shelf[n].ok === false);
+      let part = minders.filter((n) => shelf[n] && shelf[n].ok !== false && shelf[n].unfinished);
 
       /* M254: GREEN MEANS SOMETHING, or it means nothing at all. The writer
        * asked for it as reassurance he can trust — "I don't need to worry and
@@ -2938,6 +2938,9 @@ export function initChat(ctx) {
          * its window), and because a tale that is "behind" is left to its fillers first, the continuous audit never read
          * on while the house was idle there (found by the walk: DOM-257, after a scenario that left a short window). */
         const tale = await db.stories.get(storyId);
+        shelf=reconciledWorkerStatus(shelf,st,tale,pages);
+        sore=minders.filter(n=>shelf[n]?.ok===false);
+        part=minders.filter(n=>shelf[n]?.ok!==false && shelf[n]?.unfinished);
         verificationNeeded = told > 0 && !ledgerAuditVerified(st, tale, pages);
         repairOwed = told > 0 && !assistants[assistants.length - 1]?.stopped && Boolean(pageText(assistants[assistants.length - 1]).trim()) && tale?.extraction !== false && await auditOn(tale) && ledgerRepairNeeded(st, shelf, tale, pages, await auditEvery());
         recordBehind = Boolean(dueRange(pages.length, window, mem.nodes, batch));
@@ -5155,7 +5158,8 @@ export function initChat(ctx) {
       /* M31: a garbled answer is not a transport failure — it is said out
        * loud, with what the agent actually said kept for the drawer, and
        * never retried five times over. */
-      return { silent: false, detail: worldRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.pending?.length) };
+      return { silent: false, detail: worldRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.pending?.length || result?.identityPending?.length),
+        resume:result?.identityPending?.length && !result?.pending?.length && !result?.rejected?.some(r=>!r.same)?'voice-identities:'+msg.id:'' };
     });
 
     /* 2. The scribe (M12): sparse deltas onto the character pages — who

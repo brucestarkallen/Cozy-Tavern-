@@ -1,3 +1,4 @@
+import {reconciledWorkerStatus} from '../agents/health.js';
 import {historicalAdvisoryView,advisoryLabel} from '../agents/continuous.js';
 import { ledgerDebugSection } from './ledgerdebug.js';
 import { auditScratchbookButton } from './auditscratchbook.js';
@@ -2353,8 +2354,8 @@ function workersPanel(ctx) {
       note.textContent = 'Open a story and the workers will keep their honest line here.';
       return;
     }
-    const shelf = await loadWorkerStatus(story.id);
     const repairState = await loadState(story.id);
+    const shelf = reconciledWorkerStatus(await loadWorkerStatus(story.id),repairState,story,visiblePages(await db.messages.list(story.id)));
     const paused = repairState.audit?.pausedPolicy === LEDGER_REPAIR_POLICY
       && repairState.audit?.pausedInput === ledgerRepairInputKey(repairState, story, visiblePages(await db.messages.list(story.id)));
     const autoRepair = !paused && story.extraction !== false && await auditOn(story);

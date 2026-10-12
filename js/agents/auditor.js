@@ -325,7 +325,7 @@ export function parseAuditorAnswer(raw) {
     const profiles = (Array.isArray(parsed.profiles) ? parsed.profiles : []).filter(p => p && typeof p.name === 'string').map(p => ({
       what:'Recover the established profile of '+p.name, fix:'Restore missing source facts while retaining valid traits.',
       targets:[{id:'characters:'+p.name}],
-      mutations:[...['core','state'].filter(field => p[field]?.text).map(field => ({type:'people.set',name:p.name,field,append:field === 'core',text:p[field].text,evidenceId:p[field].evidenceId,shown:p[field].shown})),
+      mutations:[...['core','state'].filter(field => (p[field]?.text || (field === 'core' && p.open === true))).map(field => ({type:'people.set',name:p.name,field,append:field === 'core',text:p[field]?.text,evidenceId:p[field]?.evidenceId,shown:p[field]?.shown,...(field === 'core' && p.open === true && !p[field]?.text ? {open:true} : {})})),
         ...(Array.isArray(p.facts) ? p.facts : []).filter(f => f?.key && f?.value).map(f => ({type:'canon.lock',name:p.name,key:f.key,value:f.value,evidenceId:f.evidenceId,shown:f.shown}))],
     })).filter(p => p.mutations.length);
     const checkFacts=(parsed.checks || []).filter(c=>c.id?.startsWith('characters:') && ['correct','repair'].includes(c.status) && c.why?.trim()).map(c=>({
@@ -333,7 +333,7 @@ export function parseAuditorAnswer(raw) {
       mutations:(Array.isArray(c.physicalFacts)?c.physicalFacts:[]).filter(f=>f.key && f.value).map(f=>({type:'canon.lock',name:c.id.slice(11),key:f.key,value:f.value,evidenceId:f.evidenceId,shown:f.shown})),
     })).filter(i=>i.mutations.length);
     const identities = (Array.isArray(parsed.identities) ? parsed.identities : []).filter(p=>p && typeof p.sourceId==='string' && typeof p.name==='string').map(p=>({
-      what:'Resolve '+p.name+' in its original source',mutations:[{type:'source.resolve',sourceId:p.sourceId,name:p.name,to:p.to,kind:p.kind || 'person',cause:p.why}]
+      what:'Resolve '+p.name+' in its original source',mutations:[{type:'source.resolve',sourceId:p.sourceId,name:p.name,to:p.to,kind:p.kind || 'person',scope:p.scope,cause:p.why}]
     }));
     const issueRows = [...(Array.isArray(parsed.issues) ? parsed.issues : []), ...profiles,...checkFacts,...identities, ...repairs.filter(r => r.status !== 'correct' || r.mutations?.length).map(r => ({...r, findingId:r.id, what:r.what || r.why || r.id, fix:r.fix || r.why}))];
     const issues = issueRows
@@ -576,7 +576,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     finalReview.requested = verificationRows.length;
     const requestedState=result.out;
     const sourceCandidates=originalFindings.filter(i=>i.profileRecovery && i.sourceId && !i.sourceFacts && !findingSettled(i,result,withdrawals,documents));
-    const sourceTasks=sourceCandidates.map(i=>({id:auditFindingId(i),sourceId:i.sourceId,name:i.sourceName || i.name,shown:i.shown}));
+    const sourceTasks=sourceCandidates.map(i=>({id:auditFindingId(i),sourceId:i.sourceId,name:i.sourceName || i.name,shown:i.shown,speakerIdentity:documents.find(d=>d.id===i.sourceId)?.speakerIdentity}));
     const reviewProblems=text=>{
       const read=parseAuditorAnswer(text);
       const problems=completeFinalAuditReply(read,[...verificationRows,...sourceTasks])?[]:[{why:'Return review:{status:"complete",why:"your completed verdict",open:[]} after reviewing all required entries and source mentions, or explicit entry checks. Use open for real unresolved facts.'}];
@@ -587,7 +587,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
         const proposed=judge(requestedState,bound.issues);
         const open=new Set((read.review?.open || []).map(o=>o.id));
         const missing=sourceCandidates.filter(i=>!open.has(auditFindingId(i)) && !findingSettled(i,proposed,bound.resolved,documents));
-        if (missing.length) problems.push({why:'Complete the source mention identity decisions in this SAME answer. Return identities:[{sourceId,name,to:"actual person",kind:"person",why}] for an existing person, or the actual nonperson/reference kind. Supply a profile first for a genuinely new individual. A contextual description needs no new People page or global alias. If genuinely unresolved, put its id in review.open.',mentions:sourceTasks.filter(t=>missing.some(i=>auditFindingId(i)===t.id))});
+        if (missing.length) problems.push({why:'Complete the source mention identity decisions in this SAME answer. Return identities:[{sourceId,name,to:"actual person",kind:"person",why}] for an existing person, or the actual nonperson/reference kind. Supply a profile first for a genuinely new individual. A contextual description needs no new People page or global alias. If genuinely unresolved, put its id in review.open.',mentions:sourceTasks.filter(t=>missing.some(i=>auditFindingId(i)===t.id)),rejected:proposed.rejected.filter(r=>!r.same).map(r=>({mutation:r.mutation,why:r.why})),availablePeople:Object.keys(proposed.out.characters || {})});
       }
       if (!standingsCached && !Array.isArray(read.standings)) problems.push({why:'Include standings:[] when no explicit starting digits are stated.'});
       return problems;
@@ -601,7 +601,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
           + '\nRETAINED SCRATCHBOOK CHECKS, already approved for these unchanged values and sources:\n'+JSON.stringify(Object.keys(previousVerification))
           + '\nHISTORICAL FINDINGS WITH ACTUAL CURRENT RECORDS:\n'+JSON.stringify(auditRepairChecklist(originalFindings,result.out))
           + '\nREQUIRED SOURCE MENTION DECISIONS:\n'+JSON.stringify(sourceTasks)
-          + '\nResolve each source mention from the original text. Return identities:[{sourceId,name,to:"actual existing person",kind:"person",why:"your identity decision"}]. This is the saved correction, not another certificate. Descriptions and pronouns usually refer to an already established individual. Bind this source locally, never make a global alias or create a biography merely for a temporary label. For genuinely new individuals supply their profiles in the same answer first. For a nonperson or comparison-only reference use kind place, organization, object, group or reference and omit to. Keep each mention scoped to its supplied sourceId. Use review.open with its finding id only for a genuinely unresolved identity.'
+          + '\nResolve each source mention from the original text. Return identities:[{sourceId,name,to:"actual existing person",kind:"person",why:"your identity decision"}]. This is the saved correction, not another certificate. Descriptions and pronouns usually refer to an already established individual. Bind this source locally, never make a global alias or create a biography merely for a temporary label. For genuinely new continuing individuals supply profiles:[{name:"canonical name",open:true}] when only identity is established, or a supported core, in the same answer. Bind only to actual saved People or tracked records, not names merely mentioned in prose. For a temporary individual who is not identified with a tracked person, use kind:"person",scope:"local", omit to, and explain why this source establishes only a local speaker. This preserves the person and their original facts in this source without a permanent People page. Uncertain equivalence to another person is not a nonperson: keep it local only when no continuing identity decision is needed; otherwise use review.open. For a nonperson or comparison-only reference use kind place, organization, object, group or reference and omit to. Keep each mention scoped to its supplied sourceId. Use review.open with its finding id only for a genuinely unresolved identity.'
           + '\nRECOVERED SOURCE FACTS. These are an extraction index, not authority over the original text. Read originals to resolve misread relations, ambiguous labels and alternate forms. A correct profile can express the same fact in different words. Retain every valid rank, family, personality, background and lasting appearance. Repair actual omissions, never rewrite a correct biography just to match this index. Correct partial hair fields without overwriting another face.'
           + '\nORIGINAL SOURCE REFERENCES:\n'+JSON.stringify(repairEvidence)
           + '\nEvidence IDs or exact shown quotes are optional provenance. If using an ID choose one actually supplied; source fact IDs in the required entries also refer to original quotes. Never invent an ID. If missing needed context, fetch its original page. An unavailable old ID does not mean the source page is missing.'
@@ -1217,8 +1217,11 @@ function compactFindings(findings, state) {
 function mutationSatisfied(state, m) {
   if (m.type==='source.resolve') {
     const p=state.auditSources?.[m.sourceId]?.people?.find(p=>p.name===m.name);
+    if (m.scope==='local') return Boolean(p?.kind==='person' && p.identityResolution?.scope==='local' && p.identityResolution?.why);
+    if (p?.identityResolution?.scope==='local') return false;
+    const target=m.to && sourcePersonKey(state,m.to,m.to,{kind:'person',to:m.to});
     return Boolean(p?.identityResolution && p.kind===(m.kind || 'person')
-      && (p.kind!=='person' || sourcePersonKey(state,p.name,p.ledgerName,p.identityResolution)===(isMc(state,m.to)?mcName(state):sourcePersonKey(state,m.to,m.to,{kind:'person',to:m.to}))));
+      && (p.kind!=='person' || (target && sourcePersonKey(state,p.name,p.ledgerName,p.identityResolution)===target)));
   }
   const textSame = (wanted, actual) => String(wanted || '').trim() === String(actual || '').trim();
   let at = m.name ? findPresent(state, m.name, { strict: true }) : -1;
@@ -1352,7 +1355,9 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
   const mcKnown = mcName(fresh) !== 'the player' ? mcName(fresh) : '';
   guarded.push(...standingsHousekeeping(fresh, brief, castNotes, mcKnown, statedByModel)); /* M680: the digits were read before the ledger was */
   /* M680: its writes are the newest page's, stamped with its index even when the page reader's call failed */
-  const { state: next, applied, rejected: rejectedByApplier } = applyMutations(newestAt !== -1 ? { ...fresh, page: newestAt } : fresh, guarded.filter(m => !manualRepairConflict(fresh, m, newestAt)));
+  // Bindings consume the resulting People state in rehearsal AND final commit.
+  // Preserve all other operation ordering and their existing ownership checks.
+  const { state: next, applied, rejected: rejectedByApplier } = applyMutations(newestAt !== -1 ? { ...fresh, page: newestAt } : fresh, [...guarded.filter(m=>m.type!=='source.resolve'),...guarded.filter(m=>m.type==='source.resolve')].filter(m => !manualRepairConflict(fresh, m, newestAt)));
   /* M679: a line of who knows what the ledger ALREADY holds is "already so", not a refusal — his turn-21 reading listed eight
    * "Seen; its change did not hold (Mirelia already knows that)" (M680: marked so at its source, apply.js knowledge.add,
    * for every worker's line) */
