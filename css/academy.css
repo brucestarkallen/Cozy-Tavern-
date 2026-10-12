@@ -723,11 +723,11 @@ html[data-theme='academy-night'] .academy-backdrop::before {
 html[data-theme='academy-night'][data-thread='story'] .thread-wrap {
   background: linear-gradient(90deg, rgba(9, 16, 27, 0.88), rgba(9, 16, 27, 0.95) 50%, rgba(9, 16, 27, 0.88));
 }
-html[data-theme='academy-night'] .topbar { background: #101923; border-color: #66543b; }
-html[data-theme='academy-night'] .story-panel { background-color: #111c2a; }
+html[data-theme='academy-night'] .topbar { background: #111113; border-color: #66543b; }
+html[data-theme='academy-night'] .story-panel { background-color: #111113; }
 html[data-theme='academy-night'] .hearth,
 html[data-theme='academy-night'] .no-connection {
-  background: radial-gradient(ellipse at 50% 15%, #253348, #111c2a 85%) padding-box;
+  background: radial-gradient(ellipse at 50% 15%, #253348, #111113 85%) padding-box;
   border-image: none;
   box-shadow: inset 0 0 0 1px rgba(230, 186, 114, 0.45), 0 14px 44px rgba(0, 0, 0, 0.5);
 }
@@ -740,12 +740,12 @@ html[data-theme='academy-night'] .hearth .lbl { color: #c6b99f; }
 html[data-theme='academy-night'] #drawer,
 html[data-theme='academy-night'] .settings-section {
 
-  --bg: #0b1320;
-  --bg-2: #111c2a;
-  --surface: #172333;
-  --surface-2: #213244;
-  --border: #4c5360;
-  --border-soft: #2d3d4e;
+  --bg: #090a0d;
+  --bg-2: #111113;
+  --surface: #1b1917;
+  --surface-2: #28231e;
+  --border: #665440;
+  --border-soft: #342d25;
   --text: #eee3ce;
   --text-2: #d0c6b4;
   --muted: #b2ab9b;
@@ -754,20 +754,20 @@ html[data-theme='academy-night'] .settings-section {
   --ember-dim: #816b48;
   --spoken: #edc587;
   --thought: #c8bddf;
-  --user-tint: #122334;
+  --user-tint: #201b15;
   --danger: #efa38e;
   --ok: #adcf98;
   --on-ember: #21190f;
   --font: 'Academy Caslon', Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
   --font-prose: 'Academy Caslon', Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
   --font-display: 'Academy Fell', 'Academy Caslon', Georgia, serif;
-  --pk-card-1: #172333;
-  --pk-card-2: #1d2a3a;
-  --pk-card-3: #15202e;
-  --pk-chip-bg: #243446;
-  --pk-box-bg: #101a27;
-  --pk-box-edge: #4c5360;
-  --pk-rule: #334355;
+  --pk-card-1: #1b1917;
+  --pk-card-2: #221e19;
+  --pk-card-3: #171615;
+  --pk-chip-bg: #30271e;
+  --pk-box-bg: #100f0e;
+  --pk-box-edge: #665440;
+  --pk-rule: #403429;
   --pk-place: #f8eacd;
   --pk-body: #eedfc0;
   --pk-body-2: #eedfc0;
@@ -797,50 +797,105 @@ html[data-theme='academy-night'] .settings-section {
   --warn: #e9c264;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.62);
   --scrim: rgba(10, 6, 2, 0.74);
-  --ledger-card: #172333; --ledger-slot: #111c2a; --ledger-line: #4c5360;
+  --ledger-card: #1b1917; --ledger-slot: #111113; --ledger-line: #665440;
   --ledger-glyph: #e6ba72; --ledger-title: #f0dfb6;
   color: var(--text);
-  background: #111c2a;
+  background: #111113;
   border-color: #66543b;
   box-shadow: inset 0 0 0 1px rgba(230, 186, 114, 0.14), var(--shadow);
 }
 html[data-theme='academy-night'] #drawer .drawer-head,
 html[data-theme='academy-night'] #drawer .ledger-panel { border-color: #66543b; }
 html[data-theme='academy-night'] #drawer .drawer-head h2 { color: #f0dfb6; }
-html[data-theme='academy-night'] #drawer .drawer-rooms { background: #172333; border-color: #66543b; box-shadow: none; }
+html[data-theme='academy-night'] #drawer .drawer-rooms { background: #1b1917; border-color: #66543b; box-shadow: none; }
 html[data-theme='academy-night'] #drawer .drawer-rooms .nav-chip { color: #d0c6b4; }
 html[data-theme='academy-night'] #drawer .drawer-rooms .nav-chip.current,
-html[data-theme='academy-night'] #drawer .drawer-rooms .nav-chip:hover { color: #f0dfb6; background: #28374a; box-shadow: inset 0 -2px 0 #e6ba72; }
-html[data-theme='academy-night'] #drawer .present-row { color: #eee3ce; border-color: #4c5360; }
-html[data-theme='academy-night'] #drawer .text-btn { color: #e6ba72; background: #172333; border-color: #66543b; box-shadow: none; }
-html[data-theme='academy-night'] #drawer .text-btn:hover { color: #f4d49e; background: #213244; border-color: #e6ba72; }
+html[data-theme='academy-night'] #drawer .drawer-rooms .nav-chip:hover { color: #f0dfb6; background: #30271e; box-shadow: inset 0 -2px 0 #e6ba72; }
+html[data-theme='academy-night'] #drawer .present-row { color: #eee3ce; border-color: #665440; }
+html[data-theme='academy-night'] #drawer .text-btn { color: #e6ba72; background: #1b1917; border-color: #66543b; box-shadow: none; }
+html[data-theme='academy-night'] #drawer .text-btn:hover { color: #f4d49e; background: #28231e; border-color: #e6ba72; }
 html[data-theme='academy-night'] #drawer .story-mini,
-html[data-theme='academy-night'] #drawer .work-banner { color: #d0c6b4; background: #172333; border-color: #4c5360; }
+html[data-theme='academy-night'] #drawer .work-banner { color: #d0c6b4; background: #1b1917; border-color: #665440; }
 html[data-theme='academy-night'] #drawer input,
 html[data-theme='academy-night'] #drawer select,
 html[data-theme='academy-night'] #drawer textarea,
-html[data-theme='academy-night'] #drawer option { color: #eee3ce; background: #101a27; border-color: #4c5360; }
+html[data-theme='academy-night'] #drawer option { color: #eee3ce; background: #100f0e; border-color: #665440; }
 html[data-theme='academy-night'] #drawer ::placeholder,
 html[data-theme='academy-night'] #drawer .lbl { color: #b2ab9b; }
 html[data-theme='academy-night'] .receipt-sheet,
 html[data-theme='academy-night'] #hk-sheet,
-html[data-theme='academy-night'] .welcome-card { background: #111c2a; border-color: #66543b; }
+html[data-theme='academy-night'] .welcome-card { background: #111113; border-color: #66543b; }
 
 html[data-theme='academy-night'] .settings-section h2 { color: #f0dfb6; border-color: #66543b; }
 html[data-theme='academy-night'] .settings-section input,
 html[data-theme='academy-night'] .settings-section select,
 html[data-theme='academy-night'] .settings-section textarea,
-html[data-theme='academy-night'] .settings-section option { background: #101a27; border-color: #4c5360; color: #eee3ce; }
+html[data-theme='academy-night'] .settings-section option { background: #100f0e; border-color: #665440; color: #eee3ce; }
 html[data-theme='academy-night'] .settings-section ::placeholder { color: #b2ab9b; }
 html[data-theme='academy-night'] .settings-section .btn { background: #e6ba72; color: #161c26; border-color: #e6ba72; box-shadow: none; }
 html[data-theme='academy-night'] .settings-section .btn:hover { background: #f4d49e; }
 html[data-theme='academy-night'] .settings-section .btn-quiet,
-html[data-theme='academy-night'] .settings-section .btn-danger { background: #172333; color: #e6ba72; border-color: #66543b; }
+html[data-theme='academy-night'] .settings-section .btn-danger { background: #1b1917; color: #e6ba72; border-color: #66543b; }
 html[data-theme='academy-night'] .settings-section .btn-danger { color: #f1a394; }
 
 html[data-theme='academy-night'] .settings-section > h3:first-child { color: #f0dfb6; }
 html[data-theme='academy-night'] .settings-section > h3:first-child:hover { color: #f4d49e; }
 html[data-theme='academy-night'] .settings-section .lbl { color: #b2ab9b; }
-html[data-theme='academy-night'] .settings-quicknav { background: #101923; }
-html[data-theme='academy-night'] .settings-quicknav .nav-chip { background: #172333; border-color: #66543b; color: #d0c6b4; }
-html[data-theme='academy-night'] .settings-quicknav .nav-chip.current { background: #213244; color: #f0dfb6; border-color: #e6ba72; }
+html[data-theme='academy-night'] .settings-quicknav { background: #111113; }
+html[data-theme='academy-night'] .settings-quicknav .nav-chip { background: #1b1917; border-color: #66543b; color: #d0c6b4; }
+html[data-theme='academy-night'] .settings-quicknav .nav-chip.current { background: #28231e; color: #f0dfb6; border-color: #e6ba72; }
+
+/* M729: the global hidden rule must not remove the scroll arrow's reserved
+ * slot. Otherwise Quick switch wraps when the arrow appears, lifting the bar.
+ * Invisible remains unfocusable; only these two coats opt into this repair. */
+html:is([data-theme='academy'], [data-theme='academy-night']) .jump-btn[hidden] {
+  display: inline-flex !important;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Academy after lights out: charcoal, old brass and steady lamplight.
+ * Existing map and lamps stay local. No new animation or scrolling layer. */
+html[data-theme='academy-night'] .academy-wide {
+  background-image: linear-gradient(rgba(8, 9, 12, .73), rgba(8, 9, 12, .73)), url(../assets/academy/map-wide.webp);
+}
+html[data-theme='academy-night'] .academy-tall {
+  background-image: linear-gradient(rgba(8, 9, 12, .73), rgba(8, 9, 12, .73)), url(../assets/academy/map-tall.webp);
+}
+html[data-theme='academy-night'] .academy-backdrop::after {
+  background: radial-gradient(ellipse at center, transparent 25%, rgba(0, 0, 0, .55));
+}
+html[data-theme='academy-night'] .academy-backdrop::before,
+html[data-theme='academy-night'][data-thread='story'] .academy-backdrop::before {
+  opacity: 1;
+  background:
+    radial-gradient(ellipse 5px 12px at 5% 28%, #fff0c4 5%, #e5ab52 35%, transparent 95%),
+    radial-gradient(ellipse 5px 12px at 95% 58%, #fff0c4 5%, #e5ab52 35%, transparent 95%),
+    radial-gradient(ellipse 190px 270px at 5% 28%, rgba(224, 146, 56, .35), transparent 75%),
+    radial-gradient(ellipse 190px 270px at 95% 58%, rgba(224, 146, 56, .3), transparent 75%);
+}
+html[data-theme='academy-night'] .ac-lamp { animation: none; opacity: .85; }
+html[data-theme='academy-night'][data-thread='story'] .thread-wrap {
+  background: linear-gradient(90deg, rgba(8, 8, 10, .35), rgba(8, 8, 10, .87) 18%, rgba(8, 8, 10, .92) 50%, rgba(8, 8, 10, .87) 82%, rgba(8, 8, 10, .35));
+}
+html[data-theme='academy-night'] .msg-body { text-shadow: 0 1px 3px #08080a; }
+html[data-theme='academy-night'] .msg-user .msg-body {
+  background: linear-gradient(135deg, #282016, #181614);
+  border-color: #665440;
+  border-left-color: #d5ad68;
+}
+html[data-theme='academy-night'] .composer-zone { background: rgba(10, 10, 12, .96); }
+html[data-theme='academy-night'] .composer {
+  background: linear-gradient(110deg, rgba(92, 63, 30, .16), transparent 55%), #111113;
+  border-color: #665440;
+  box-shadow: inset 0 1px 0 rgba(245, 205, 135, .08), 0 0 20px rgba(205, 143, 60, .04);
+}
+html[data-theme='academy-night'] .hearth,
+html[data-theme='academy-night'] .no-connection {
+  background: radial-gradient(ellipse at 15% 0%, #392b1c, #111113 75%) padding-box;
+}
+html[data-theme='academy-night'] .view-settings {
+  background-image: linear-gradient(rgba(9, 10, 13, .9), rgba(9, 10, 13, .94)), url(../assets/academy/map-wide.webp);
+  background-color: #090a0d;
+}
+html[data-theme='academy-night'] .settings-section .speech-sample { background: #090a0d; }

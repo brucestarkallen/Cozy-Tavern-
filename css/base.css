@@ -413,12 +413,12 @@ html[data-theme='academy'] {
 
 /* M683: a separate moonlit academy, with the same local type and complete coat tokens. */
 html[data-theme='academy-night'] {
-  --bg: #0b1320;
-  --bg-2: #111c2a;
-  --surface: #172333;
-  --surface-2: #213244;
-  --border: #4c5360;
-  --border-soft: #2d3d4e;
+  --bg: #090a0d;
+  --bg-2: #111113;
+  --surface: #1b1917;
+  --surface-2: #28231e;
+  --border: #665440;
+  --border-soft: #342d25;
   --text: #eee3ce;
   --text-2: #d0c6b4;
   --muted: #b2ab9b;
@@ -427,20 +427,20 @@ html[data-theme='academy-night'] {
   --ember-dim: #816b48;
   --spoken: #edc587;
   --thought: #c8bddf;
-  --user-tint: #122334;
+  --user-tint: #201b15;
   --danger: #efa38e;
   --ok: #adcf98;
   --on-ember: #21190f;
   --font: 'Academy Caslon', Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
   --font-prose: 'Academy Caslon', Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
   --font-display: 'Academy Fell', 'Academy Caslon', Georgia, serif;
-  --pk-card-1: #172333;
-  --pk-card-2: #1d2a3a;
-  --pk-card-3: #15202e;
-  --pk-chip-bg: #243446;
-  --pk-box-bg: #101a27;
-  --pk-box-edge: #4c5360;
-  --pk-rule: #334355;
+  --pk-card-1: #1b1917;
+  --pk-card-2: #221e19;
+  --pk-card-3: #171615;
+  --pk-chip-bg: #30271e;
+  --pk-box-bg: #100f0e;
+  --pk-box-edge: #665440;
+  --pk-rule: #403429;
   --pk-place: #f8eacd;
   --pk-body: #eedfc0;
   --pk-body-2: #eedfc0;

@@ -20515,3 +20515,28 @@ retained draft, visible composer and no overflow. Inspected actual 760px and
 1440px story screenshots. No unrelated suites or provider calls. Physical device
 confirmation remains the owner's; the picture may be substantially covered by
 reading panels, as requested. No source art edits or service-worker logic changes.
+
+# M729: steady Academy composer and lamplit Academy Night
+
+Version m729-001. Base a2588b9fb5b635a0156d86263aa00c8ce8bc97c3.
+The global [hidden] display:none!important beat the jump arrow's reserved-slot
+rule. Appearing while scrolling could wrap Quick switch and lift the composer.
+Academy and Academy Night now reserve that invisible, unfocusable slot with a
+scoped important display rule. Other coats retain their existing CSS.
+
+Academy Night replaces blue surfaces with near-black charcoal and brass edges,
+including scene cards, settings and ledger. Existing local map artwork remains;
+static amber light pools and small warm light sources illuminate its edges.
+The reading veil stays darkest centrally. Composer has a steady dark surface.
+No artwork edits, remote dependencies, new animation, data or behavior changes.
+Day Academy appearance is unchanged apart from the reserved arrow space.
+Cyberpunk and Neon Tokyo are untouched. VERSION rolls the existing shell cache;
+no service-worker logic or new runtime file requires changing its asset list.
+
+Focused tests/academy_scroll.py passed actual scrolling and jump-button return
+for both themes at 390x844, 696x620, 760x960 and 390x430. Composer top and height
+remain within 1px; typing/draft retained, no horizontal overflow, composer fits.
+Inspected rendered Night screenshots at 390 and 760 widths. Screenshots kept in
+/tmp/cozy-academy for local inspection. No broad suites or provider requests.
+Chromium viewport emulation is not physical foldable/Android keyboard testing;
+owner confirmation on the live device remains necessary.
