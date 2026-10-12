@@ -154,10 +154,7 @@ html[data-theme='neon-tokyo-night'] .composer {
   border-radius: 16px 5px 16px 5px;
   box-shadow: inset 0 0 12px #af69d526, 0 0 12px #e671cf33;
 }
-html[data-theme='neon-tokyo-night'] .composer:focus-within {
-  border-color: #a6f5ff;
-  box-shadow: 0 0 0 1px #a6f5ff, 0 0 22px #db72d64d;
-}
+
 html[data-theme='neon-tokyo-night'] .send-btn {
   min-width: 44px;
   min-height: 44px;
@@ -252,3 +249,6 @@ html[data-theme='neon-tokyo-night'] :focus-visible { outline: 2px solid #a0f2ff;
   html[data-theme='neon-tokyo-night'] .brand { display: block; font-size: .78rem; }
   html[data-theme='neon-tokyo-night'] .topbar-main { gap: .25rem; }
 }
+
+/* M733: the console already frames its input. Do not add a cyan rectangle on tap. */
+html[data-theme='neon-tokyo-night'] .composer textarea:focus-visible { outline: none; }

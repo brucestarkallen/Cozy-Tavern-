@@ -1,3 +1,30 @@
+# M733: compact Academy footer, upright cutaway prose, quiet Tokyo focus
+
+Version m733-001. Base af206ef (latest main, including M730 through M732).
+Academy's larger italic footer caused extra wrapping. Both Academy coats now
+use the standard compact mono size, a single flexible row, and a right-aligned
+Quick switch with a shrinking model selector. Long meter text truncates; full
+model choices remain available in the selector. M729's reserved jump slot stays.
+World Beyond's built-in display replacement explicitly forced all prose italic
+and smaller. It now inherits main prose size/leading and uses normal style;
+individual emphasis remains. Existing untouched built-ins update through the
+existing loadRules mechanism. Writer-edited regex rules are preserved and may
+retain their own typography. Saved story text is never rewritten.
+Neon Tokyo's generic focus-visible outline and cyan console focus border are
+removed only for the reply field/console; buttons keep keyboard focus indicators.
+Rias placement, Cyberpunk styling, workers and story behavior are unchanged.
+
+Modified css/academy.css, css/neon-tokyo-night.css, js/regex-styles.js and version.
+Added tests/m733_presentation.py. Existing service-worker shell covers these files.
+Focused Chromium check passed at 320, 390, 696 and 760 widths: one compact Academy
+footer row, right-aligned switch, no horizontal overflow, stable composer during
+scroll/jump changes. Actual rendered World Beyond is upright with italic emphasis;
+Tokyo input accepts typing without the outline/cyan border. Inspected Academy
+Night footer and Tokyo cutaway/input screenshots. Initial checks needed the local
+Chromium executable and test fixture/selector corrections; final check passed.
+No broad suites, provider requests, physical Android/foldable verification or
+changes to personal data. Custom edited regex typography remains user-controlled.
+
 # M732: source identity contract and saved recovery
 
 Version m732-001. Base main 743251f80a953261700ec07ef708525d40ee305b.
