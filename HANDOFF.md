@@ -1,3 +1,85 @@
+# M730: coordinated Housekeeper spelling corrections and card settlement
+
+Version m730-001. Base main 213a3762191193289b98f94cd90522709cfeb3eb.
+
+Confirmed defects: missing people.rename prompt vocabulary, typo aliases,
+refused-only panels without dismissal, label-only AI withdrawal, attempted-card
+counts reported as success, and partial ledger batches marked fully applied.
+Ordinary rename/merge semantics remain; spelling uses a dedicated corrections
+protocol with type name.spelling, from, to, scope story and reason.
+
+One deterministic card inventories fresh rows inside an IndexedDB transaction.
+It updates explicit active ledger fields, story title/brief/cast, user/assistant
+prose including hidden pages and selectable swipes, saved World voices, memory
+text/detail, lore names/keys/content, Essentials, standing and cached plans,
+and current director/editor prose. OOC messages, shared rules/cast templates,
+source quotes, receipts, journals, prior critiques and historical snapshots stay
+literal. Unknown active ledger fields still containing the typo are reported,
+not blindly changed. Separate existing character identities are refused rather
+than guessed together. Word boundaries, case variants and possessives follow
+exact requested spelling; unrelated Akane text remains unchanged.
+
+The transaction saves content and its Housekeeper undo receipt together. A
+separate uncached read verifies committed surfaces. Interrupted verification
+is checked again on session load. Queue layout ownership invalidates earlier
+readers and waits up to 30 seconds for their existing writes to settle; timeout
+is an explicit refusal. No new worker, provider dependency, migration or audit
+gate. Story-scoped rename receipts survive folds/swipes; active spelling maps
+route later ledger writes and source lookups without rewriting evidence or
+adding typo aliases. Genuine later renames advance that map. Original-source
+identity fact comparisons use the same correction when comparing active facts.
+
+Undo is coordinated and drift guarded. It preserves unrelated later fields,
+new messages and appended memory rows; conflicting changes refuse the whole
+transaction. The drawer refuses ledger-only undo of a coordinated spelling
+receipt, directing it to Housekeeper undo so pages and identity cannot split.
+Normal ledger rename and its existing undo are unchanged.
+
+Shared settlement handles individual UI Dismiss, Dismiss all, pending Skip,
+and structured AI dismissal by actual proposal IDs. Legacy supersede labels
+remain supported. Refused, stale and partial cards are dismissible, with prior
+status/reason retained. Applied cards and their batches remain intact. An already
+visible page is satisfied rather than refused. Batch results separate attempted,
+applied, satisfied, rejected and partial outcomes. The UI displays saved outcomes;
+original model wording remains available separately. Automatic and manual modes
+are explicit; spelling proposals need no clarification call to repair prose claims.
+
+Files: agents/housekeeper.js owns protocol, settlement, coordinated application,
+recovery and outcomes; ui/housekeeper.js owns controls and result rendering;
+engine/spelling.js owns explicit surface transforms, verification and leaf undo;
+engine/apply.js owns spelling rename receipts, future routing and coordinated
+undo protection; agents/ripple.js adds opt-in preservation during spelling;
+agents/auditsources.js resolves literal sources through explicit corrections;
+store.js adds the multi-store transaction; sw.js caches the new module.
+version.js, SPEC.md, HANDOFF.md and HISTORY.md record this release.
+
+Focused verification actually executed:
+- CHROMIUM_PATH=/tmp/cozy-chromium/chromium node tests/m730_housekeeper.mjs:
+  passed with real Chromium IndexedDB and actual application controls. Fixture
+  tests correction, linked facts/standing/injuries/combat, versions/hidden/writer
+  text, provenance, Essentials/plans/voices, saved verification, idempotence,
+  source identity after journal rollover, reader writes, replay, coordinated
+  undo and unrelated later edits. Existing identity conflicts and an injected
+  quota exception after a queued write leave content unchanged. Mixed ledger
+  application is partial; already visible is satisfied; AI IDs retire only their
+  target. DOM checks cover individual/refused-only bulk dismissal, session switch,
+  real reload, automatic application, repeat satisfaction and manual approval.
+  Mocked provider traffic is one chat request per spelling request, no paid calls.
+- 11 selected legacy checks passed: M683-2/3/4, M415-1, M397-1/2/3,
+  M163 rename, M191 rename undo, M681-22 knowledge and M681-23 World preservation.
+- M683-1 fails on its untouched old builtin pin expectation. Reproduced on the
+  unmodified base in an isolated worktree; unrelated and not changed here.
+- Changed runtime modules passed node --check; git diff --check passed.
+
+The standard browser download was unavailable; an isolated npm-provided Chromium
+binary ran the browser checks. A standards-oriented fake IndexedDB run also
+passed the earlier focused fixture; final evidence above uses actual IndexedDB.
+No application dependency was added. Test browser/dependencies are external to
+this repository. No full suite, visual redesign, paid model, physical Android,
+large-story stress or cross-device concurrency test was run. The owner's live
+IndexedDB was not accessed. This verifies the implementation's tested paths,
+not correction of the owner's saved story or every future model interpretation.
+
 # M729: steady Academy composer and lamplit Academy Night
 
 Version m729-001. Base a2588b9fb5b635a0156d86263aa00c8ce8bc97c3.

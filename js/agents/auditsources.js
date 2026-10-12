@@ -1,3 +1,4 @@
+import { activeSpelling } from '../engine/spelling.js';
 import { ownerAndDependent, sameOwnedDescriptor } from '../engine/names.js';
 /* M685: source coverage for the ledger audit. A missing person cannot be found
  * by checking only the records that survived. Read original answered pages,
@@ -240,6 +241,9 @@ export async function reviewAuditSources({ connection, documents, previous = {},
 export const contextualSourceName = name => /^(?:the|a|an|this|that|these|those)\s/i.test(String(name).trim());
 
 export function sourcePersonKey(state, name, remembered = '', resolution = null) {
+  name = activeSpelling(name,state);
+  remembered = activeSpelling(remembered,state);
+  if (resolution?.to) resolution = {...resolution,to:activeSpelling(resolution.to,state)};
   const characters = state?.characters || {};
   const tracked = [...(state?.present || []).map(p => p.name),
     ...['offscreen','relationships','knowledge','canon'].flatMap(book => Object.keys(state?.[book] || {})),
@@ -285,7 +289,7 @@ export function missingSourceIdentityFacts(state, person) {
   const key=sourcePersonKey(state,person.name,person.ledgerName,person.identityResolution);
   if (!key || (person.kind && person.kind!=='person')) return [];
   const core=String(state.characters?.[key]?.core || '').replace(/\s+/g,' ').toLowerCase();
-  return (person.identityFacts || []).filter(f=>f.text && f.shown && !core.includes(f.text.trim().replace(/\s+/g,' ').toLowerCase()));
+  return (person.identityFacts || []).filter(f=>f.text && f.shown && !core.includes(activeSpelling(f.text,state).trim().replace(/\s+/g,' ').toLowerCase()));
 }
 export function sourceFactScope(state, person) {
   const key=sourcePersonKey(state,person.name,person.ledgerName,person.identityResolution);

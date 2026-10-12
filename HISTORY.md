@@ -20540,3 +20540,29 @@ Inspected rendered Night screenshots at 390 and 760 widths. Screenshots kept in
 /tmp/cozy-academy for local inspection. No broad suites or provider requests.
 Chromium viewport emulation is not physical foldable/Android keyboard testing;
 owner confirmation on the live device remains necessary.
+
+
+# M730: coordinated Housekeeper spelling correction and card settlement
+
+Version m730-001, based on 213a3762191193289b98f94cd90522709cfeb3eb.
+Adds native name.spelling cards with explicit editable-surface inventory,
+transactional content/undo persistence, independent saved-result verification,
+reopening recovery and drift-guarded coordinated undo. Identity conflicts and
+unsupported active fields refuse safely. Source quotations and historical
+receipts remain literal; story-scoped correction maps keep replay and later
+reader writes consistent without typo aliases. Ordinary rename semantics stay.
+Refused/stale/partial cards support individual and bulk dismissal; structured
+AI withdrawal uses IDs through shared settlement. Legacy labels remain valid.
+Already-visible pages are satisfied. Mixed ledger application is partial;
+attempted/successful counts and actual UI outcomes replace assumed success.
+Original conversation wording, applied changes, themes and rules are retained.
+
+The focused production fixture and DOM runner passed using real Chromium
+IndexedDB, with mocked provider responses and one chat request per correction.
+Covers text/identity/voices/plans/memory/lore, preservation, hidden/swipe versions,
+reload, idempotence, replay, future writes, conflict refusal, quota rollback,
+coordinated undo, partial/satisfied results and durable dismissal controls.
+Eleven selected legacy checks passed. M683-1's old builtin pin assertion fails
+identically on untouched base; left outside scope. Runtime syntax and diff
+checks passed. No paid calls, full suites, physical device or large-story tests.
+The owner's database was not accessed. Detailed scope and limits: HANDOFF.md.

@@ -1,3 +1,4 @@
+import { spellingContent, spellingState, spellingBooks, spellingSettings, remainingLedgerSpellings, restoreSpelling } from '../engine/spelling.js';
 /* Cozy Tavern — agents/housekeeper.js
  * The housekeeper (M10): the one intelligence that can see the whole story
  * and surgically edit it — prose pages, the ledger, the rulebook — through
@@ -53,8 +54,8 @@ import { samePersonName } from '../engine/names.js'; /* M398 */
 import { findPersonKey, isMc, mcKey } from '../engine/people.js';
 import { roomChars } from '../engine/pagecut.js'; /* M288: the housekeeper's room */
 import { db } from '../store.js';
-import { pageLayoutChanged } from './queue.js';
-import { loadState, saveState, notify } from '../engine/state.js';
+import { pageLayoutChanged, holdPageLayout, workIsRunning } from './queue.js';
+import { loadState, saveState, notify, emptyState } from '../engine/state.js';
 import { applyMutations, undoEntry, personBookKey, findThingKey } from '../engine/apply.js'; /* M421: a card's slice found as the card writes it */
 import { listModules, saveModule, removeModule } from '../assemble/modules.js';
 import { loadLore, saveLore } from '../import/lorebook.js'; /* M38: the housekeeper keeps the lore shelf too */
@@ -608,7 +609,7 @@ function parseLabels(body) {
  * what the panel bubble shows. Never throws. */
 export function parseProtocol(raw) {
   const source = String(raw == null ? '' : raw);
-  const out = { edits: [], ledits: [], redits: [], lore: [], record: [], brief: [], fetch: [], supersede: [], fetchMalformed: false, unreadable: [], text: '' };
+  const out = { edits: [], ledits: [], redits: [], lore: [], record: [], brief: [], corrections: [], dismiss: [], fetch: [], supersede: [], fetchMalformed: false, unreadable: [], text: '' };
   /* M75-003: a brief edit written into the pages block (field brief/cast, no page
    * id) lands where it belongs; Chat Assistant's own tag names are read too. */
   const isBriefOp = (item) => item && typeof item === 'object' && !item.id && !item.messageId
@@ -616,7 +617,7 @@ export function parseProtocol(raw) {
   const ALIAS = { memedits: 'brief', wiedits: 'lore', bedits: 'brief' };
   try {
     const spans = [];
-    for (const tag of ['edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'memedits', 'wiedits', 'bedits', 'fetch', 'supersede']) {
+    for (const tag of ['edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'memedits', 'wiedits', 'bedits', 'fetch', 'supersede', 'corrections', 'dismiss']) {
       for (const block of innerBlocks(source, tag)) {
         spans.push(block);
         if (tag === 'fetch') {
@@ -651,7 +652,7 @@ export function parseProtocol(raw) {
     for (const s of spans) display = display.slice(0, s.start) + display.slice(s.end);
     /* M172: a bare protocol tag left in the words is the model naming one of
      * its own blocks — the writer never needs to read the machinery. */
-    display = display.replace(/<(\/?)((?:edits|ledits|redits|lore|record|brief|memedits|wiedits|bedits|fetch|supersede))>/gi, (all, slash, name) => (slash ? '' : name));
+    display = display.replace(/<(\/?)((?:edits|ledits|redits|lore|record|brief|memedits|wiedits|bedits|fetch|supersede|corrections|dismiss))>/gi, (all, slash, name) => (slash ? '' : name));
     out.text = display.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
   } catch (err) {
     out.text = source.trim();
@@ -824,7 +825,7 @@ function buildHousekeeperContextAt({
       let stale = '';
       if (pr.kind === 'edit' && pr.op && pr.op.messageId && !(Array.isArray(messages) ? messages : []).find((x) => x && x.id === pr.op.messageId)) stale = ' ⚠ STALE — the page is gone';
       else if (anchorIsDead(pr, { messages, memory, lore, modules, story })) stale = ' ⚠ STALE — its anchor no longer matches (already fixed, or the text changed)'; /* M83: every anchor kind, not pages only */
-      pending.push('- “' + pr.label + '”' + (pr.op && pr.op.messageId ? ' on ' + refOf({ id: pr.op.messageId }) : '') + (pr.groupName ? ' — group “' + pr.groupName + '”' : '') + stale);
+      pending.push('- [id:' + pr.id + '] “' + pr.label + '”' + (pr.op && pr.op.messageId ? ' on ' + refOf({ id: pr.op.messageId }) : '') + (pr.groupName ? ' — group “' + pr.groupName + '”' : '') + stale);
     }
   }
   /* M272: WHAT BECAME OF EVERY CARD, IN ONE PLACE. The fate of each answer's
@@ -833,8 +834,8 @@ function buildHousekeeperContextAt({
   const done = [];
   for (const turn of (session && Array.isArray(session.turns) ? session.turns : [])) {
     for (const pr of (Array.isArray(turn.proposals) ? turn.proposals : [])) {
-      if (!pr || pr.status === 'pending' || pr.kind === 'unreadable') continue;
-      done.push('- “' + pr.label + '”: ' + cardFate(pr, session));
+      if (!pr || pr.status === 'pending') continue;
+      done.push('- [id:' + pr.id + '] “' + pr.label + '”: ' + cardFate(pr, session));
     }
   }
   if (done.length) parts.push('CARDS ALREADY SETTLED (this list is what became of them NOW — trust it over anything an earlier answer said; never call one of these pending):\n' + done.slice(-60).join('\n'));
@@ -875,8 +876,11 @@ const SYSTEM_PROMPT = [
   'hidden from you when it stands above; quote it.',
   '',
   'Answer in plain, warm words. When a change is called for, propose it inside',
-  'your reply with these blocks — they are staged as cards the writer must',
-  'approve; nothing you write here changes the story on its own:',
+  'your reply with these blocks. Cards apply automatically unless the supplied setting says they wait for approval.',
+  'Your prose is a proposal, never proof of success. The application reports saved outcomes after applying:',
+  '<corrections>[{"type":"name.spelling","from":"old spelling","to":"correct spelling","scope":"story","reason":"explicit writer correction"}]</corrections>',
+  'For an explicit spelling correction everywhere, use ONE name.spelling card, no page or ledger imitation. It deterministically updates editable story text, versions, memory, lore and linked identity records, verifies storage and keeps undo. Never claim completion before the application result. Two existing identities require resolution, never guess a merge.',
+  '<dismiss>[{"ids":["actual proposal ID"],"reason":"obsolete proposal"}]</dismiss> retires exactly these unfinished cards without applying them. Use supplied IDs, never guess labels.',
   '',
   '<brief>[ ... ]</brief> — changes to THE BRIEF or THE CAST NOTES:',
   '  {"field":"brief","find":"the exact words","replace":"the new words","reason":"why"}',
@@ -935,6 +939,7 @@ const SYSTEM_PROMPT = [
   '  knowledge.add {name,fact} — who knows what; knowledge.forget {name,fact} — a fact they',
   '  do not know after all, or one written twice (quote it; every copy goes);',
   '  faction.set {name,stance,agenda,move}; faction.clear {name} — a faction the pages ended for good;',
+  '  people.rename {from,to,cause} — genuine identity rename, retaining the former name as an alias; use name.spelling for typos',
   '  people.set {name,field:core|state|arc|threads,text} — a whole field of a person’s page',
   '    (threads: the whole list, separated by semicolons; the main character takes state and',
   '    threads only); people.note {name,field:thread|unthread,text} — add or close ONE loose end;',
@@ -1073,12 +1078,12 @@ function stateHashOf(state) {
  * refuses; the reversal rides the journal so every fold reverses it too).
  * Pure on a copy; {state} or {refused}. An entry already taken back by the
  * hand is simply skipped. */
-export function undoJournalEntries(state, jids) {
+export function undoJournalEntries(state, jids, { coordinated = false } = {}) {
   let next = state;
   for (const jid of [...jids].reverse()) {
     const at = (next.log || []).findIndex((e) => e && e.jid === jid && !e.undone);
     if (at === -1) continue;
-    const r = undoEntry(next, at);
+    const r = undoEntry(next, at, {coordinated});
     if (!r) continue;
     if (r.refused) return { refused: r.refused };
     next = r.state;
@@ -1197,7 +1202,20 @@ export async function saveSessionRoot(storyId, root) {
   });
 }
 export async function loadSession(storyId) {
-  const root = await loadSessionRoot(storyId);
+  let root = await loadSessionRoot(storyId);
+  if (root.sessions.some(s => s.turns.some(t => (t.proposals || []).some(p => p.kind === 'spelling' && p.verification === 'pending')))) {
+    await db.editStoryAtomically(storyId,s => {
+      for (const room of s.settings.hk?.sessions || []) for (const turn of room.turns || []) for (const p of turn.proposals || []) {
+        if (p.kind !== 'spelling' || p.verification !== 'pending') continue;
+        try {
+          const left = spellingRemaining(s,p.op);
+          p.verification = left.length ? 'failed' : 'verified'; p.status = left.length ? 'partial' : 'applied';
+          p.words = left.length ? 'Correction remains incomplete in ' + left.join(', ') + '.' : 'Saved spelling correction verified after reopening. It can be undone.';
+        } catch (err) { p.verification = 'failed'; p.status = 'partial'; p.words = err.message; }
+      }
+    });
+    root = await loadSessionRoot(storyId);
+  }
   const active = root.sessions.find((x) => x.id === root.activeId) || root.sessions[0];
   return { id: active.id, name: active.name, turns: active.turns, batches: root.batches };
 }
@@ -1564,6 +1582,10 @@ function linesAround(text, located) {
 
 export function stageProposals(parsed, { messages, state, modules, lore, memory, session, story, writerText = '', repairIds = [] } = {}) {
   const proposals = [];
+  for (const op of parsed?.corrections || []) {
+    const valid = op.type === 'name.spelling' && op.scope === 'story' && typeof op.from === 'string' && op.from.trim() && typeof op.to === 'string' && op.to.trim() && op.from.toLowerCase() !== op.to.toLowerCase() && ![op.from,op.to].some(n=>['__proto__','prototype','constructor'].includes(n.trim().toLowerCase())) && typeof op.reason === 'string' && op.reason.trim();
+    proposals.push({id:uid(),ts:Date.now(),kind:'spelling',label:'Spelling: ' + op.from + ' to ' + op.to,reason:op.reason || '',op:{...op,from:op.from?.trim(),to:op.to?.trim()},status:valid?'pending':'refused',words:valid?'':'A spelling correction needs distinct names, story scope and a reason.',review:[]});
+  }
   const all = Array.isArray(messages) ? messages : [];
   const visible = all.filter((m) => m && !m.hidden);
   const mods = Array.isArray(modules) ? modules : [];
@@ -1970,7 +1992,7 @@ export function cardTarget(p) {
 export function cardSignature(p) {
   const op = (p && p.op) || {};
   const S = (v) => (v === undefined ? null : (v !== null && typeof v === 'object' ? JSON.stringify(v) : v));
-  return JSON.stringify([p.kind, cardTarget(p), S(op.find), S(op.replace), S(op.text), S(op.append), S(op.hide), S(op.patch), S(op.remove), S(op.mutations), S(op.ids), S(op.name), S(op.content)]);
+  return JSON.stringify([p.kind, cardTarget(p), S(op.find), S(op.replace), S(op.text), S(op.append), S(op.hide), S(op.patch), S(op.remove), S(op.mutations), S(op.ids), S(op.name), S(op.content), S(op.from), S(op.to), S(op.scope)]);
 }
 /* Does a NEW card make an OLD pending one obsolete? Identical, or a REFINEMENT:
  * the same target with the same anchor (or both whole replacements) and new
@@ -2207,6 +2229,19 @@ function labelKey(v) { return String(v || '').toLowerCase().replace(/[^a-z0-9]+/
 
 /* Supersede: retire still-pending cards whose labels the reply named.
  * Returns {count, unmatched}. */
+export function settleProposals(session, ids, {status = 'dismissed', reason = 'Dismissed by the writer.'} = {}) {
+  if (!['dismissed','superseded'].includes(status)) throw new Error('Invalid card settlement.');
+  let count = 0;
+  const unmatched = [];
+  for (const id of new Set(ids || [])) {
+    const p = findProposal(session,id);
+    if (!p || !['pending','refused','stale','partial'].includes(p.status)) { unmatched.push(id); continue; }
+    p.settlement = {previousStatus:p.status, previousWords:p.words || '', reason, at:Date.now()};
+    p.status = status; p.words = reason; count++;
+  }
+  return {count,unmatched};
+}
+
 export function applySupersede(session, labels) {
   /* M273: A WITHDRAWAL TAKES THE WHOLE GROUP — a card named, every pending card
    * of its group with it; "group: NAME" names a group; "only: NAME" takes that
@@ -2227,7 +2262,7 @@ export function applySupersede(session, labels) {
     else for (const part of line.split(',')) if (part.trim()) entries.push(part.trim());
   }
   const gone = new Set();
-  const withdrawable = (p) => p.status === 'pending' || p.status === 'refused' || p.status === 'stale';
+  const withdrawable = (p) => ['pending','refused','stale','partial'].includes(p.status);
   const groupsTaken = new Map();
   const unmatched = [];
   for (const entry of entries) {
@@ -2251,8 +2286,7 @@ export function applySupersede(session, labels) {
     if (gone.size === before) unmatched.push(entry);
   }
   for (const p of gone) {
-    p.status = 'superseded';
-    p.words = 'Set aside — a later answer withdrew it' + (p.group && groupsTaken.has(p.group) ? ', with the rest of “' + p.groupName + '”' : '') + '.';
+    settleProposals(session,[p.id],{status:'superseded',reason:'Set aside, a later answer withdrew it.'});
   }
   return { count: gone.size, unmatched, groups: [...new Set([...groupsTaken.values()].filter(Boolean))] };
 }
@@ -2420,7 +2454,7 @@ async function applyEditOp(storyId, p, batch) {
   if (saidYes(op.hide) || saidNo(op.hide)) {
     const hidden = saidYes(op.hide);
     if ((msg.hidden === true) === hidden) {
-      return { ok: false, words: hidden ? 'that page was already folded away' : 'that page already shows' };
+      return { ok: true, satisfied:true, words: hidden ? 'That page is already folded away.' : 'That page is already visible.' };
     }
     batch.items.push({
       kind: 'message',
@@ -2477,6 +2511,7 @@ async function applyLeditOp(storyId, p, batch) {
   const ledgerOps = mutations.filter((m) => m.type !== 'module.pin');
 
   const words = [];
+  let succeeded = 0, refused = 0, satisfied = 0;
   if (ledgerOps.length) {
     const fresh = await loadState(storyId);
     /* M263: a card the writer let land is the writer's own edit */
@@ -2508,7 +2543,10 @@ async function applyLeditOp(storyId, p, batch) {
       });
       words.push(...applied.map((a) => a.words));
     }
-    for (const r of rejected) words.push('Declined: ' + r.why + '.');
+    succeeded += applied.length;
+    refused += rejected.filter(r => !r.same).length;
+    satisfied += rejected.filter(r => r.same).length;
+    for (const r of rejected) words.push((r.same ? 'Already satisfied: ' : 'Declined: ') + r.why + '.');
   }
 
   for (const pin of pins) {
@@ -2516,9 +2554,10 @@ async function applyLeditOp(storyId, p, batch) {
     const wantedName = String(pin.module || '').trim().toLowerCase();
     const mod = mods.find((m) => m && typeof m.name === 'string'
       && m.name.trim().toLowerCase() === wantedName);
-    if (!mod) { words.push('Declined: the rulebook holds no rule called “' + (pin.module || '?') + '”.'); continue; }
+    if (!mod) { refused++; words.push('Declined: the rulebook holds no rule called “' + (pin.module || '?') + '”.'); continue; }
     const pinned = pin.pinned !== false;
     if (Boolean(mod.pinned) === pinned) {
+      satisfied++;
       words.push('“' + mod.name + '” was already ' + (pinned ? 'pinned on' : 'resting') + '.');
       continue;
     }
@@ -2536,13 +2575,11 @@ async function applyLeditOp(storyId, p, batch) {
       beforeRow,
       afterHash: moduleHashOf(saved || { ...mod, pinned }),
     });
+    succeeded++;
     words.push(pinned ? '“' + mod.name + '” is pinned on.' : '“' + mod.name + '” rests now.');
   }
 
-  if (!batch.items.length) {
-    return { ok: false, words: words.join(' ') || 'nothing in it held' };
-  }
-  return { ok: true, words: words.join(' ') };
+  return {ok:succeeded + satisfied > 0, partial:refused > 0 && succeeded + satisfied > 0, satisfied:!succeeded && !refused && satisfied > 0, operations:{attempted:mutations.length,applied:succeeded,rejected:refused,satisfied}, words:(refused && succeeded ? 'Partially applied. ' : '') + (words.join(' ') || 'Nothing in it held.')};
 }
 
 async function applyReditOp(storyId, p, batch) {
@@ -2685,6 +2722,121 @@ async function applyLoreOp(storyId, p, batch) {
   return { ok: true, words };
 }
 
+/* One spelling card owns one transaction, including its durable undo receipt.
+ * Queue layout ownership invalidates readers holding the preceding spelling. */
+function spellingSession(root, session) {
+  if (!root || !Array.isArray(root.sessions)) throw new Error('The saved Housekeeper session is unavailable.');
+  const saved = root.sessions.find(s => s.id === session.id);
+  if (!saved) throw new Error('The Housekeeper session changed.');
+  return saved;
+}
+function spellingView(s) {
+  return {story:s.story,messages:s.messages,settings:Object.fromEntries(spellingSettings.map(key=>[key,s.settings[key]]))};
+}
+function spellingRemaining(s, op) {
+  const view = spellingView(s);
+  const transformed = spellingContent(view,op.from,op.to);
+  const remains = [];
+  if (JSON.stringify(view.story) !== JSON.stringify(transformed.story)) remains.push('brief or cast notes');
+  for (let i=0;i<view.messages.length;i++) if (JSON.stringify(view.messages[i]) !== JSON.stringify(transformed.messages[i])) remains.push('message ' + view.messages[i].id);
+  for (const key of spellingSettings) if (JSON.stringify(view.settings[key]) !== JSON.stringify(transformed.settings[key])) remains.push(key);
+  const state = s.settings.state || emptyState(), after = spellingState(state,op.from,op.to);
+  for (const key of spellingBooks) if (JSON.stringify(state[key]) !== JSON.stringify(after[key])) remains.push('ledger.' + key);
+  return [...new Set([...remains,...remainingLedgerSpellings(state,op.from,op.to)])];
+}
+async function applySpellingProposal(session, storyId, p) {
+  p.status = 'applying';
+  const release = holdPageLayout(storyId);
+  let committed = false;
+  try {
+    pageLayoutChanged(storyId);
+    // Existing queue jobs must finish their stale checks before we read their rows.
+    const until = Date.now() + 30000;
+    while (workIsRunning(storyId) && Date.now() < until) await new Promise(r => setTimeout(r,50));
+    if (workIsRunning(storyId)) throw new Error('The story reader has not released its write. The correction remains unapplied.');
+    const result = await db.editStoryAtomically(storyId,s => {
+      if (!s.story) throw new Error('The story no longer exists.');
+      const saved = spellingSession(s.settings.hk,session);
+      const card = findProposal(saved,p.id);
+      if (!card || card.status !== 'pending' || JSON.stringify(card.op) !== JSON.stringify(p.op)) throw new Error('The saved correction card changed.');
+      const remaining = spellingRemaining(s,p.op);
+      if (!remaining.length) {
+        card.status = 'satisfied'; card.words = 'Already satisfied. Checked the saved editable story surfaces.';
+        return {card:structuredClone(card),satisfied:true};
+      }
+      const before = structuredClone(spellingView(s));
+      const after = spellingContent(before,p.op.from,p.op.to);
+      const changed = applyMutations(s.settings.state || emptyState(),[{type:'people.rename',from:p.op.from,to:p.op.to,spelling:true,coordinated:true,story:true,byHand:true,cause:p.op.reason}]);
+      if (changed.rejected.some(r => !r.same)) throw new Error(changed.rejected.map(r => r.why).join('; '));
+      s.story = after.story; s.messages = after.messages;
+      for (const key of spellingSettings) s.settings[key] = after.settings[key];
+      s.settings.state = changed.state;
+      const left = spellingRemaining(s,p.op);
+      if (left.length) throw new Error('Correction is incomplete in ' + left.join(', ') + '.');
+      // Only changed messages enter undo; unrelated future pages stay intact.
+      const ids = before.messages.filter((m,i) => JSON.stringify(m) !== JSON.stringify(after.messages[i])).map(m => m.id);
+      before.messages = before.messages.filter(m => ids.includes(m.id));
+      after.messages = after.messages.filter(m => ids.includes(m.id));
+      const batch = {id:uid(),ts:Date.now(),label:p.label,undone:false,items:[{kind:'spelling',before,after,jids:changed.applied.map(a=>a.jid)}]};
+      card.status = 'applied'; card.words = 'Correction saved. Verification is pending.';
+      card.verification = 'pending';
+      s.settings.hk.batches = [...(s.settings.hk.batches || []),batch].slice(-UNDO_CAP);
+      return {card:structuredClone(card),batch};
+    });
+    committed = true;
+    Object.assign(p,result.card);
+    if (result.batch) pushBatch(session,result.batch);
+    // A separate uncached transaction reads back the committed result.
+    const checked = await db.editStoryAtomically(storyId,s => {
+      const left = spellingRemaining(s,p.op);
+      const card = findProposal(spellingSession(s.settings.hk,session),p.id);
+      if (!card) throw new Error('The saved correction card disappeared before verification.');
+      card.verification = left.length ? 'failed' : 'verified';
+      card.status = left.length ? 'partial' : result.satisfied ? 'satisfied' : 'applied';
+      card.words = left.length ? 'Saved correction is incomplete in ' + left.join(', ') + '.' : result.satisfied ? result.card.words : 'Corrected ' + p.op.from + ' to ' + p.op.to + ' across the supported editable story surfaces. Checked the saved result. The correction can be undone.';
+      return structuredClone(card);
+    });
+    Object.assign(p,checked);
+    notify(storyId);
+    return {ok:true,partial:p.status==='partial',satisfied:p.status==='satisfied',words:p.words,touched:{messages:true,state:true,lore:true,story:true},edited:[]};
+  } catch (err) {
+    p.status = committed ? 'partial' : 'refused';
+    p.words = (committed ? 'The correction was saved, but verification did not finish: ' : 'Not applied: ') + err.message;
+    await saveSession(storyId,session);
+    return {ok:committed,partial:committed,words:p.words,touched:committed?{messages:true,state:true,lore:true,story:true}:{}};
+  } finally { release(); }
+}
+async function undoSpellingProposal(session,storyId,batch) {
+  const release = holdPageLayout(storyId);
+  try {
+    pageLayoutChanged(storyId);
+    const until = Date.now() + 30000;
+    while (workIsRunning(storyId) && Date.now() < until) await new Promise(r=>setTimeout(r,50));
+    if (workIsRunning(storyId)) throw new Error('The reader has not released its write. Nothing was taken back.');
+    const item = batch.items.find(i=>i.kind==='spelling');
+    await db.editStoryAtomically(storyId,s => {
+      const saved = (s.settings.hk?.batches || []).find(b=>b.id===batch.id && !b.undone);
+      if (!saved) throw new Error('The saved correction has already been taken back or is unavailable.');
+      const state = s.settings.state || emptyState();
+      if (item.jids.some(id => !(state.log || []).some(e=>e.jid===id && !e.undone))) throw new Error('The ledger undo receipt is no longer available.');
+      const restored = undoJournalEntries(state,item.jids,{coordinated:true});
+      if (restored.refused) throw new Error(restored.refused);
+      s.story = restoreSpelling(s.story,item.before.story,item.after.story,'brief/cast');
+      for (const after of item.after.messages) {
+        const at = s.messages.findIndex(m=>m.id===after.id);
+        if (at<0) throw new Error('A corrected page has been removed.');
+        s.messages[at] = restoreSpelling(s.messages[at],item.before.messages.find(m=>m.id===after.id),after,'message ' + after.id);
+      }
+      for (const key of spellingSettings) s.settings[key] = restoreSpelling(s.settings[key],item.before.settings[key],item.after.settings[key],key);
+      s.settings.state = restored.state;
+      saved.undone = true;
+    });
+    batch.undone = true; notify(storyId);
+    return {ok:true,words:'The spelling correction was taken back.',touched:{messages:true,state:true,lore:true,story:true},edited:[]};
+  } catch (err) { return {ok:false,refused:true,words:err.message}; }
+  finally { release(); }
+}
+
 /* Apply one card. Claim-then-apply: the status flips synchronously at the
  * door, so a second click (or a racing render) meets "already spoken for"
  * instead of a double write. Returns {ok, words, stale?, touched}. */
@@ -2696,7 +2848,9 @@ export async function applyProposal(session, storyId, proposalId) {
       ? 'that card is already being applied'
       : 'that card is already spoken for' };
   }
+  if (p.kind === 'spelling') return applySpellingProposal(session,storyId,p);
   p.status = 'applying'; // the claim — before any await
+  let batch;
   try {
     const stale = await stalenessCheck(storyId, p);
     if (stale) {
@@ -2704,7 +2858,7 @@ export async function applyProposal(session, storyId, proposalId) {
       p.words = stale + '.';
       return { ok: false, stale: true, words: p.words };
     }
-    const batch = {
+    batch = {
       id: uid(),
       ts: Date.now(),
       label: p.label,
@@ -2724,7 +2878,8 @@ export async function applyProposal(session, storyId, proposalId) {
       return { ok: false, words: result.words };
     }
     if (batch.items.length) pushBatch(session, batch);
-    p.status = 'applied';
+    p.status = result.partial ? 'partial' : result.satisfied ? 'satisfied' : 'applied';
+    p.operations = result.operations;
     p.words = result.words;
     if (result.missed) p.missed = true; /* M119: a loose anchor that missed — the house re-asks */
     /* M100: a page edit that landed carries what it changed, so the house can
@@ -2739,6 +2894,7 @@ export async function applyProposal(session, storyId, proposalId) {
     }
     return {
       ok: true,
+      partial:result.partial, satisfied:result.satisfied, operations:result.operations,
       words: result.words,
       edited,
       folded,
@@ -2751,10 +2907,11 @@ export async function applyProposal(session, storyId, proposalId) {
       },
     };
   } catch (err) {
-    /* a failed apply hands the card back, unspoken-for, with kind words */
-    p.status = 'pending';
-    p.words = '';
-    return { ok: false, words: (err && err.message) || 'it wouldn’t hold — nothing was changed' };
+    const partial = Boolean(batch?.items.length);
+    if (partial && !(session.batches || []).some(b=>b.id===batch.id)) pushBatch(session,batch);
+    p.status = partial ? 'partial' : 'refused';
+    p.words = (partial ? 'Partially applied. ' : 'Application did not finish. ') + (err?.message || 'The saved result could not be confirmed.');
+    return {ok:partial,partial,words:p.words,touched:partial?{messages:batch.items.some(i=>i.kind==='message'),state:batch.items.some(i=>i.kind==='ledger'),modules:batch.items.some(i=>i.kind==='module'),lore:batch.items.some(i=>i.kind==='lore'),story:batch.items.some(i=>i.kind==='story')}: {}};
   }
 }
 
@@ -2770,12 +2927,16 @@ export async function applyAllPending(session, storyId) {
   /* M601 (the audit): lore and the brief too — "Apply all" and every card landing by itself (his default) dropped them, so a
    * brief, cast-notes or lore change a card made never refreshed what shows them (his order: updates land without refreshing) */
   const touched = { messages: false, state: false, modules: false, lore: false, story: false };
-  let any = false;
+  let any = false, appliedCount = 0, satisfiedCount = 0, rejectedCount = 0, partialCount = 0;
   const edited = [];
   const missed = [];
   const flips = new Map(); /* M681 (B2): each page once, as it stands at the end — folded and brought back again is no change */
   for (const p of pending) {
     const result = await applyProposal(session, storyId, p.id);
+    if (result.partial) partialCount++;
+    else if (result.satisfied) satisfiedCount++;
+    else if (result.ok) appliedCount++;
+    else rejectedCount++;
     if (result.ok) {
       any = true;
       if (p.missed) missed.push(p);
@@ -2790,8 +2951,9 @@ export async function applyAllPending(session, storyId) {
       }
     }
     if (result.words) words.push(result.words);
+    await saveSession(storyId,session);
   }
-  return { ok: any, words: words.join(' '), touched, count: pending.length, edited, missed, folded: [...flips.values()] };
+  return { ok: any, words: words.join(' '), touched, count: appliedCount, attempted:pending.length, applied:appliedCount, satisfied:satisfiedCount, rejected:rejectedCount, partial:partialCount, complete:rejectedCount === 0 && partialCount === 0, edited, missed, folded: [...flips.values()] };
 }
 
 /* ---------- drift-guarded undo ---------- */
@@ -2806,6 +2968,7 @@ export async function undoLatest(session, storyId) {
     return { ok: false, words: 'Nothing the housekeeper changed still stands to take back.' };
   }
 
+  if (batch.items.some(i => i.kind === 'spelling')) return undoSpellingProposal(session,storyId,batch);
   const all = await db.messages.list(storyId);
   const edited = []; /* M296: the pages put back, for the room to read again */
   const flipped = []; /* M681 (B2): a fold taken back brings the page back to the story (and the other way round) */
@@ -3110,19 +3273,31 @@ export function claimsChange(prose) {
 /* an open tag with no close — the tail of an answer cut mid-block */
 export function unclosedBlock(raw) {
   const s = String(raw || '').toLowerCase();
-  return ['edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'fetch', 'supersede'].some((tag) => {
+  return ['corrections', 'dismiss', 'edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'fetch', 'supersede'].some((tag) => {
     const at = s.lastIndexOf('<' + tag + '>');
     return at !== -1 && s.indexOf('</' + tag + '>', at) === -1;
   });
 }
 export function hasAnyBlock(parsed) {
-  return Boolean(parsed) && ['edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'supersede'].some((k) => Array.isArray(parsed[k]) && parsed[k].length);
+  return Boolean(parsed) && ['corrections','dismiss','edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'supersede'].some((k) => Array.isArray(parsed[k]) && parsed[k].length);
 }
 
 export const WIRE_RAW_CAP = 16000; /* chars of a past answer (blocks included) sent back as history */
+export function proposalOutcome(turn,session) {
+  const cards = turn.proposals || [];
+  if (!cards.length) return turn.text;
+  return cards.map(p => {
+    if (p.status === 'pending') return p.label + ': pending application.';
+    if (p.status === 'applying') return p.label + ': application in progress.';
+    return p.label + ': ' + cardFate(p,session) + (p.status === 'applied' ? '. ' + (p.words || '') : '');
+  }).join('\n');
+}
 export function cardFate(p, session) {
   const takenBack = (session && Array.isArray(session.batches) ? session.batches : []).some((b) => b && b.undone && b.label === p.label);
   if (p.status === 'applied') return takenBack ? 'applied, then TAKEN BACK by the writer' : 'APPLIED';
+  if (p.status === 'dismissed') return 'DISMISSED, not repaired: ' + (p.settlement?.previousWords || p.words || '');
+  if (p.status === 'satisfied') return 'ALREADY SATISFIED: ' + p.words;
+  if (p.status === 'partial') return 'PARTIALLY APPLIED: ' + p.words;
   if (p.status === 'skipped') return 'SKIPPED by the writer';
   if (p.status === 'refused') return 'REFUSED — ' + (p.words || 'it could not land');
   if (p.status === 'stale') return 'NOT APPLIED — ' + (p.words || 'it went stale');
@@ -3136,9 +3311,9 @@ export function sessionWireOf(session) {
     if (t.role !== 'housekeeper') { out.push({ role: 'user', content: String(t.text || '') }); continue; }
     const whole = typeof t.raw === 'string' && t.raw.trim() ? t.raw : String(t.text || '');
     out.push({ role: 'assistant', content: whole.length > WIRE_RAW_CAP ? whole.slice(0, WIRE_RAW_CAP) + '\n…(cut for room)' : whole });
-    const cards = Array.isArray(t.proposals) ? t.proposals.filter((p) => p && p.kind !== 'unreadable') : [];
+    const cards = Array.isArray(t.proposals) ? t.proposals.filter((p) => p) : [];
     if (cards.length) {
-      out.push({ role: 'user', content: '[STATE] What became of the cards in the answer above, as they stand NOW:\n' + cards.map((p) => '- “' + p.label + '”: ' + cardFate(p, session)).join('\n') + '\nWhat was applied now stands in THE BRIEF, the pages, the ledger, the record or the lore above; what was not applied did not happen — never assume it did.' });
+      out.push({ role: 'user', content: '[STATE] What became of the cards in the answer above, as they stand NOW:\n' + cards.map((p) => '- [id:' + p.id + '] “' + p.label + '”: ' + cardFate(p, session)).join('\n') + '\nWhat was applied now stands in THE BRIEF, the pages, the ledger, the record or the lore above; what was not applied did not happen — never assume it did.' });
     }
   }
   return out;
@@ -3153,7 +3328,7 @@ export function sessionWireOf(session) {
  * bubble showed the raw wire — <fetch>["#a1c71a", …], <brief>[{"field":…
  * — until the answer was in. The blocks become cards; while they are written,
  * a quiet note stands where they are. */
-const LIVE_BLOCK_TAGS = ['edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'memedits', 'wiedits', 'bedits', 'fetch', 'supersede'];
+const LIVE_BLOCK_TAGS = ['edits', 'ledits', 'redits', 'lore', 'record', 'brief', 'memedits', 'wiedits', 'bedits', 'fetch', 'supersede', 'corrections', 'dismiss'];
 const LIVE_BLOCK_RES = LIVE_BLOCK_TAGS.map((tag) => [tag, new RegExp('<' + tag + '>[\\s\\S]*?</' + tag + '>', 'g')]); /* built once — this runs every frame */
 export function answerAsWritten(text) {
   let out = String(text || '');
@@ -3406,7 +3581,7 @@ export async function runConversation({
        * of a card in THIS answer is true — its own brief allows it — and handing it back cost a second model call
        * every time and turned a landed change into "once you apply it", an Apply that does not exist. A card that
        * cannot land is handed back above ([CANNOT LAND]); that was the "done, done, done" of M397. */
-      if (cardsWait && !nudgedClaim && hasAnyBlock(parsed) && claimsChange(parsed.text)) {
+      if (cardsWait && !parsed.corrections.length && !parsed.dismiss.length && !nudgedClaim && hasAnyBlock(parsed) && claimsChange(parsed.text)) {
         nudgedClaim = true;
         wire.push({ role: 'assistant', content: raw });
         wire.push({ role: 'user', content: '[NOT YET] Your answer says the change is done — nothing is done until the writer applies your cards. Re-send the same answer, the same blocks, with words that say what the cards WILL do once applied (never "done", "fixed", "updated", "I\'ve changed").' });
@@ -3463,6 +3638,10 @@ export async function housekeeperTurn({
 
     const proposals = stageProposals(result.parsed, { messages, state, modules, lore, memory: mem, session, story, writerText, repairIds });
     let withdrawNote = '';
+    for (const d of result.parsed.dismiss || []) {
+      const settled = settleProposals(session,Array.isArray(d.ids) ? d.ids : [],{reason:'Dismissed by the Housekeeper: ' + String(d.reason || 'obsolete proposal')});
+      withdrawNote += '\n\nDismissed ' + settled.count + ' cards.' + (settled.unmatched.length ? ' Unmatched IDs: ' + settled.unmatched.join(', ') + '.' : '');
+    }
     /* M82: what was set aside by this answer's cards, said in the talk */
     if (proposals.setAside) withdrawNote += '\n\n(' + proposals.setAside + (proposals.setAside === 1 ? ' older card' : ' older cards') + ' set aside — replaced by this answer’s; Apply all applies only the newest version of each fix.)';
     if (proposals.intraDups) withdrawNote += '\n\n(' + proposals.intraDups + (proposals.intraDups === 1 ? ' duplicate card' : ' duplicate cards') + ' within the answer merged.)';

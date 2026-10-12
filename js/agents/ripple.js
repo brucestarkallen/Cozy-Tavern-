@@ -141,7 +141,7 @@ function mergeEntry(kind, held, coming) {
   return { ...coming, ...held };
 }
 
-export function renameInState(state, from, to) {
+export function renameInState(state, from, to, { preserveKnowledge = false, preserveUnrelated = false } = {}) {
   const next = JSON.parse(JSON.stringify(state));
   let n = 0;
   const same = (k) => String(k || '').trim().toLowerCase() === String(from).trim().toLowerCase();
@@ -168,7 +168,7 @@ export function renameInState(state, from, to) {
    * twelve facts (the old size, before M305's sixty) — a rename of a misheard name threw away all but twelve of what the real
    * person knew. The book is held to the guard every book is held to, and lets what others also know go first. */
   for (const [k, list] of Object.entries(next.knowledge && typeof next.knowledge === 'object' ? next.knowledge : {})) {
-    if (Array.isArray(list) && list.length > KNOWLEDGE_GUARD) next.knowledge[k] = trimmedBook(list, next.knowledge, k);
+    if (!preserveKnowledge && Array.isArray(list) && list.length > KNOWLEDGE_GUARD) next.knowledge[k] = trimmedBook(list, next.knowledge, k);
   }
   next.canon = rekey(next.canon, 'canon');
   next.bodies = rekey(next.bodies, 'bodies');
@@ -192,14 +192,14 @@ export function renameInState(state, from, to) {
     for (const k of ['where', 'note']) if (typeof t[k] === 'string' && hasWord(t[k], from)) { t[k] = replaceWord(t[k], from, to); n += 1; }
   }
   for (const p of (next.present || [])) if (p && same(p.name)) { p.name = to; n += 1; }
-  if (Array.isArray(next.roomAt?.names)) next.roomAt.names = [...new Set(next.roomAt.names.map((name) => { if (!same(name)) return name; n += 1; return to; }))];
+  if (Array.isArray(next.roomAt?.names)) next.roomAt.names = preserveUnrelated ? next.roomAt.names.map(name => same(name) ? (n += 1,to) : name) : [...new Set(next.roomAt.names.map((name) => { if (!same(name)) return name; n += 1; return to; }))];
   /* M163: and the scene never seats the same person twice after a merge. */
   if (Array.isArray(next.present)) {
     const seen = new Set();
     next.present = next.present.filter((p) => {
       const key = String((p && p.name) || '').trim().toLowerCase();
       if (!key) return true;
-      if (seen.has(key)) return false;
+      if (seen.has(key) && (!preserveUnrelated || isTo(key))) return false;
       seen.add(key);
       return true;
     });

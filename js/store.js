@@ -1216,7 +1216,47 @@ async function importAll(json) {
 /* M507-6: the settings keys that belong to one tale (by the suffix rule) — the checkpoint index writers ask it to let
  * go of any row the index does not name, so a row orphaned by a lost index never lingers */
 export const settingsKeysOf = (storyId) => storyKeys(storyId);
+/* M730: synchronous planning within one IDB transaction. Content and the
+ * Housekeeper undo receipt commit together. Never read caches in this door. */
+async function editStoryAtomically(storyId, change) {
+  const d = await openDB();
+  let answer;
+  await new Promise((resolve, reject) => {
+    const tx = d.transaction(['settings','stories','messages'], 'readwrite');
+    const settingsStore = tx.objectStore('settings');
+    const snapshot = { story: null, messages: [], settings: {} };
+    const prefixes = ['state','memory','lore','essentials','standingPlans','plans','director','editor','hk'];
+    let waiting = prefixes.length + 2, failure;
+    const receive = (request, save) => { request.onsuccess = () => {
+      save(request.result);
+      if (--waiting) return;
+      try {
+        const original = structuredClone(snapshot);
+        answer = change(snapshot);
+        if (answer && typeof answer.then === 'function') throw new Error('An atomic story edit must be synchronous.');
+        const changed = (a,b) => JSON.stringify(a) !== JSON.stringify(b);
+        if (changed(original.story,snapshot.story)) tx.objectStore('stories').put(snapshot.story);
+        const oldMessages = new Map(original.messages.map(m=>[m.id,m]));
+        for (const row of snapshot.messages) if (changed(oldMessages.get(row.id),row)) tx.objectStore('messages').put(row);
+        for (const prefix of prefixes) if (changed(original.settings[prefix],snapshot.settings[prefix])) {
+          if (snapshot.settings[prefix] === undefined) settingsStore.delete(prefix + ':' + storyId);
+          else settingsStore.put({key:prefix + ':' + storyId,value:snapshot.settings[prefix]});
+        }
+      } catch (err) { failure = err; tx.abort(); }
+    }; };
+    receive(tx.objectStore('stories').get(storyId), row => { snapshot.story = row; });
+    receive(tx.objectStore('messages').index('byStory').getAll(storyId), rows => { snapshot.messages = rows; });
+    for (const prefix of prefixes) receive(settingsStore.get(prefix + ':' + storyId), row => { snapshot.settings[prefix] = row?.value; });
+    tx.oncomplete = resolve;
+    tx.onabort = () => reject(failure || tx.error || new Error('The story transaction was aborted.'));
+    tx.onerror = () => reject(failure || tx.error);
+  });
+  dropCaches();
+  return answer;
+}
+
 export const db = {
+  editStoryAtomically,
   settings,
   connections,
   stories,

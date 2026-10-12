@@ -1,3 +1,4 @@
+import { spellingState, spellingBooks, spellingReplace, restoreSpelling } from './spelling.js';
 /* Cozy Tavern — engine/apply.js
  * The mutation applier. The extractor (and the ledger's hand controls)
  * propose mutations in the closed v1 vocabulary; this module is the only
@@ -1397,17 +1398,28 @@ const HANDLERS = {
     if (!from || !to) return { why: 'a rename needs the old name and the new' };
     if (!m.byHand && !(m.source==='auditor' && m.auditorApproved===true) && ownerAndDependent(from, to)) return { why: 'the owner and their dependent are different people; do not merge them' };
     if (from.toLowerCase() === to.toLowerCase()) return { why: 'the same name', same: true };
-    const keys = ['characters', 'offscreen', 'relationships', 'knowledge', 'canon', 'bodies', 'present', 'roomAt', 'threads', 'factions', 'sheet', 'things', 'duel', 'battle'];
+    const keys = m.spelling ? [...spellingBooks, 'spellingCorrections'] : ['characters', 'offscreen', 'relationships', 'knowledge', 'canon', 'bodies', 'present', 'roomAt', 'threads', 'factions', 'sheet', 'things', 'duel', 'battle'];
+    if (!m.spelling && state.spellingCorrections) keys.push('spellingCorrections');
     const before = {};
-    for (const k of keys) before[k] = JSON.parse(JSON.stringify(state[k] === undefined ? null : state[k]));
+    for (const k of keys) before[k] = JSON.parse(JSON.stringify(state[k] === undefined ? (k === 'spellingCorrections' ? {} : null) : state[k]));
     const oldAliases = Object.entries(state.characters || {}).filter(([k]) => k.toLowerCase() === from.toLowerCase() || k.toLowerCase() === to.toLowerCase())
       .flatMap(([, c]) => Array.isArray(c.aliases) ? c.aliases.filter((a) => typeof a === 'string') : []);
-    const { state: renamed, count } = renameInState(state, from, to);
+    let renamed, count;
+    if (m.spelling) {
+      try { renamed = spellingState(state, from, to); } catch (err) { return {why:err.message}; }
+      count = spellingBooks.filter(k => JSON.stringify(state[k]) !== JSON.stringify(renamed[k])).length;
+      renamed.spellingCorrections = Object.fromEntries(Object.entries(state.spellingCorrections || {}).filter(([k])=>k.toLowerCase() !== to.toLowerCase()).map(([k,v])=>[k,spellingReplace(v,from,to)]));
+      renamed.spellingCorrections[from] = to;
+      if (state.spellingCorrections?.[from] !== to) count += 1;
+    } else {
+      ({state:renamed,count} = renameInState(state, from, to));
+      if (state.spellingCorrections) renamed.spellingCorrections = Object.fromEntries(Object.entries(state.spellingCorrections).map(([k,v])=>[k,spellingReplace(v,from,to)]));
+    }
     if (!count) return { why: 'nothing in the ledger is called ' + from };
     for (const k of keys) if (renamed[k] !== undefined) state[k] = renamed[k]; /* M607: whose a thing is — and where it is said to be — now follow inside renameInState, counted */
     const owner = Object.keys(state.characters || {}).find((k) => k.toLowerCase() === to.toLowerCase());
-    if (owner) state.characters[owner] = { ...state.characters[owner], aliases: [...new Set([...oldAliases, from])].filter((a) => a.toLowerCase() !== owner.toLowerCase()) };
-    return { words: from + ' is ' + to + ' now — ' + count + ' ' + (count === 1 ? 'place' : 'places') + ' in the ledger follow' + (m.cause ? ' (' + capText(m.cause, 1000) + ')' : '') + '.', undo: { kind: 'people.renamed', before } };
+    if (owner && !m.spelling) state.characters[owner] = { ...state.characters[owner], aliases: [...new Set([...oldAliases, from])].filter((a) => a.toLowerCase() !== owner.toLowerCase()) };
+    return { words: from + ' is ' + to + ' now — ' + count + ' ' + (count === 1 ? 'place' : 'places') + ' in the ledger follow' + (m.cause ? ' (' + capText(m.cause, 1000) + ')' : '') + '.', undo: { kind: 'people.renamed', before, ...(m.spelling ? {coordinated:m.coordinated === true,after:Object.fromEntries(keys.map(k=>[k,structuredClone(state[k] ?? null)]))} : {}) } };
   },
   // Restore two different people from the original journal, keeping the mixed
   // record as an archive and never rewinding unrelated ledger state.
@@ -3293,7 +3305,14 @@ export function applyMutations(state, mutations) {
     // Establish explicitly quoted player identities before routing their records.
     return [...raw.filter(m => m?.type === 'mc.alias'), ...raw.filter(m => m?.type !== 'mc.alias')];
   })();
-  for (const mutation of list) {
+  for (let mutation of list) {
+    // Evidence stays literal; active writes follow the explicit correction.
+    if (next.spellingCorrections && mutation && typeof mutation === 'object' && !['people.rename','undo'].includes(mutation.type) && !String(mutation.type).startsWith('source.')) {
+      mutation = {...mutation};
+      for (const [from,to] of Object.entries(next.spellingCorrections || {}))
+        for (const key of ['name','owner','who','target','text','fact','value','title','next','location','activity','agenda','position','attire','what'])
+          if (typeof mutation[key] === 'string') mutation[key] = spellingReplace(mutation[key],from,to);
+    }
     if (!mutation || typeof mutation !== 'object' || typeof mutation.type !== 'string') {
       rejected.push({ mutation, why: 'it isn’t shaped like a mutation at all' });
       continue;
@@ -3344,7 +3363,7 @@ export function applyMutations(state, mutations) {
    * (under any form of their name — folded letters, a first name, canon's other name for them) holds no elsewhere note:
    * a note that says otherwise is let go here, at the end of every batch, so a ledger that ever held both (older pages,
    * a name spelled two ways) heals on the next change, and a fold replays it the same. */
-  if (next.offscreen && typeof next.offscreen === 'object' && Array.isArray(next.present) && next.present.length) {
+  if (!list.every(m=>m?.type==='people.rename' && m.spelling) && next.offscreen && typeof next.offscreen === 'object' && Array.isArray(next.present) && next.present.length) {
     const stale = Object.keys(next.offscreen).filter((k) => isHere(next, k));
     if (stale.length) {
       next.offscreen = { ...next.offscreen };
@@ -3402,10 +3421,11 @@ function journalUndo(next, entry) {
   logEntry.jid = next.journalSeq;
 }
 
-export function undoEntry(state, index) {
+export function undoEntry(state, index, { coordinated = false } = {}) {
   const next = copyState(state);
   const entry = next.log[index];
   if (!entry || entry.undone || !entry.undo) return null;
+  if (entry.undo.coordinated && !coordinated) return {refused:'Use the Housekeeper undo to take back the whole spelling correction together.'};
   const target = undoTarget(entry.undo);
   for (let j = index + 1; j < next.log.length; j += 1) {
     const later = next.log[j];
@@ -3578,7 +3598,13 @@ function applyUndo(next, undo) {
       ok = true;
     } else if (undo.kind === 'people.renamed') {
       const b = undo.before || {};
-      for (const [k, v] of Object.entries(b)) if (v !== null) next[k] = JSON.parse(JSON.stringify(v));
+      if (undo.after) {
+        try {
+          const restored = {};
+          for (const k of Object.keys(b)) restored[k] = restoreSpelling(next[k] ?? null,b[k],undo.after[k],'ledger.' + k);
+          Object.assign(next,restored);
+        } catch { return false; }
+      } else for (const [k, v] of Object.entries(b)) if (v !== null) next[k] = JSON.parse(JSON.stringify(v));
       ok = true;
     } else if (undo.kind === 'source.resolved') {
       const receipt = next.auditSources?.[undo.id];
@@ -3633,6 +3659,7 @@ export function undoLast(state) {
   for (let i = next.log.length - 1; i >= 0; i -= 1) {
     const entry = next.log[i];
     if (!entry || entry.undone || !entry.undo) continue;
+    if (entry.undo.coordinated) return {refused:'Use the Housekeeper undo to take back the whole spelling correction together.'};
     if (!applyUndo(next, entry.undo)) continue; // the world moved on; look further back
     next.log[i] = { ...entry, undone: true };
     journalUndo(next, entry);

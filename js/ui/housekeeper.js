@@ -20,7 +20,7 @@ import { db } from '../store.js';
 import { holdPageLayout } from '../agents/queue.js';
 import {
   housekeeperTurn, loadSession, saveSession,
-  applyProposal, applyAllPending, undoLatest,
+  applyProposal, applyAllPending, undoLatest, settleProposals, proposalOutcome,
   cleanContextPages, DEFAULT_CONTEXT_PAGES,
   listSessions, switchSession, newSession, branchSession, renameSession, deleteSession, clearSession, deleteLastExchange,
   editTurnAt, deleteTurnAt, truncateForRetry, restoreAfterRetry, keepVersions, walkVersion, versionsOf, /* M73: the bubble row */
@@ -460,7 +460,7 @@ export function initHousekeeper(ctx) {
   }
 
   function cardKindWords(p) {
-    return p.kind === 'ledit' ? 'A ledger change'
+    return p.kind === 'spelling' ? 'A story spelling correction' : p.kind === 'ledit' ? 'A ledger change'
       : p.kind === 'redit' ? 'A rulebook change'
       : p.kind === 'brief' ? (p.op && p.op.field === 'castNotes' ? 'A change to the cast notes' : 'A change to the brief')
       : p.kind === 'record' ? 'A record change'
@@ -473,6 +473,10 @@ export function initHousekeeper(ctx) {
    * for the brief, the record or the lore showed a label and nothing else) */
   function appendDiff(card, p) {
     const op = p.op || {};
+    if (p.kind === 'spelling') {
+      card.append(diffBlock('del',op.from || ''),diffBlock('add',op.to || ''));
+      return;
+    }
     if (p.kind === 'edit' && !op.bulk && op.hide !== undefined) {
       const words = document.createElement('p');
       words.className = 'hk-card-words';
@@ -553,6 +557,9 @@ export function initHousekeeper(ctx) {
 
   function cardStatusWords(p) {
     switch (p.status) {
+      case 'partial': return p.words || 'Partially applied.';
+      case 'satisfied': return p.words || 'Already satisfied.';
+      case 'dismissed': return p.words || 'Dismissed.';
       case 'applied': return p.words || 'Applied.';
       case 'skipped': return 'Passed by.';
       case 'superseded': return p.words || 'Set aside — a later answer replaced it.';
@@ -611,6 +618,14 @@ export function initHousekeeper(ctx) {
       card.append(words);
     }
 
+    if (['pending','refused','partial','stale'].includes(p.status)) {
+      const dismiss = document.createElement('button');
+      dismiss.type = 'button'; dismiss.className = 'text-btn'; dismiss.textContent = 'Dismiss';
+      dismiss.addEventListener('click',async () => {
+        await dismissCards([p.id]);
+      });
+      card.append(dismiss);
+    }
     if (p.status === 'pending') {
       const actions = document.createElement('div');
       actions.className = 'hk-card-actions';
@@ -655,11 +670,7 @@ export function initHousekeeper(ctx) {
       skipBtn.className = 'text-btn';
       skipBtn.textContent = 'Skip';
       skipBtn.addEventListener('click', async () => {
-        if (await talkIsBusy()) return; /* M443 */
-        p.status = 'skipped';
-        p.words = 'Passed by.';
-        await persistSession();
-        render();
+        await dismissCards([p.id]);
       });
       actions.append(skipBtn);
       card.append(actions);
@@ -693,7 +704,13 @@ export function initHousekeeper(ctx) {
     }
     session.turns.forEach((turn, i) => {
       if (turn.thinking) thread.append(thinkingFold(turn.thinking)); /* M80: above the reply, where the live fold was */
-      if (turn.text) thread.append(bubble(turn.role, turn.text, i, turn));
+      if (turn.text || turn.proposals?.length) thread.append(bubble(turn.role, turn.proposals?.length ? proposalOutcome(turn,session) : turn.text, i, turn));
+      if (turn.proposals?.length && turn.text) {
+        const original = document.createElement('details');
+        const label = document.createElement('summary'); label.textContent = 'Original proposal wording';
+        const words = document.createElement('p'); words.textContent = turn.text;
+        original.append(label,words); thread.append(original);
+      }
       /* M75-003: what it said, whole — the blocks the talk hides, and the rounds it took */
       if (turn.role === 'housekeeper' && turn.raw) {
         const det = document.createElement('details');
@@ -709,7 +726,7 @@ export function initHousekeeper(ctx) {
       }
       /* M64: done cards leave a one-line receipt in the talk; the live ones stand in the cards box */
       for (const p of (turn.proposals || [])) {
-        if (p.status === 'pending' || p.status === 'refused' || p.status === 'superseded' || p.status === 'stale') continue;
+        if (p.status === 'pending' || p.status === 'refused' || p.status === 'partial' || p.status === 'stale' || p.status === 'superseded') continue;
         const r = document.createElement('div');
         r.className = 'hk-receipt';
         r.textContent = (p.status === 'applied' ? '✓ ' : '– ') + p.label + ' — ' + (p.words || cardStatusWords(p));
@@ -738,14 +755,14 @@ export function initHousekeeper(ctx) {
   /* M64: the cards box exists only while a card is pending or refused (Chat Assistant's renderEditCards) */
   function renderCardsBox() {
     if (!cardsBox) return;
-    const live = session.turns.flatMap((t) => (t.proposals || []).filter((p) => p.status === 'pending' || p.status === 'refused'));
+    const live = session.turns.flatMap((t) => (t.proposals || []).filter((p) => p.status === 'pending' || p.status === 'refused' || p.status === 'partial' || p.status === 'stale'));
     cardsBox.hidden = !live.length;
     if (!live.length) { cardsList.textContent = ''; return; }
     const pending = live.filter((p) => p.status === 'pending').length;
     const failed = live.length - pending;
-    cardsCount.textContent = pending + (pending === 1 ? ' card' : ' cards') + (failed ? ', ' + failed + ' refused' : '');
+    cardsCount.textContent = pending + (pending === 1 ? ' card' : ' cards') + (failed ? ', ' + failed + ' unfinished' : '');
     document.getElementById('hk-apply-all').hidden = pending < 2;
-    document.getElementById('hk-dismiss-all').hidden = pending < 1;
+    document.getElementById('hk-dismiss-all').hidden = live.length < 1;
     document.getElementById('hk-repropose').hidden = failed < 1;
     cardsBox.classList.toggle('folded', cardsFolded);
     document.getElementById('hk-toggle-cards').textContent = cardsFolded ? 'Show' : 'Hide';
@@ -793,8 +810,17 @@ export function initHousekeeper(ctx) {
   }
   async function persistSession() {
     if (sessionStoryId) {
-      await saveSession(sessionStoryId, session).catch(() => {});
+      await saveSession(sessionStoryId, session);
     }
+  }
+
+  async function dismissCards(ids) {
+    if (await talkIsBusy()) return;
+    const before = structuredClone(session);
+    settleProposals(session,ids);
+    try { await persistSession(); }
+    catch (err) { session = before; toast('Dismissal was not saved: ' + err.message); }
+    render();
   }
 
   /* Refresh the chat floor after pages were re-inked. */
@@ -1164,7 +1190,7 @@ export function initHousekeeper(ctx) {
         applying = true;
         try {
           const landed = await applyAllPending(asked, story.id);
-          if (landed.count) {
+          if (landed.attempted) {
             await saveSession(story.id, asked); /* M443: into the session that asked, wherever he is looking */
             if (landed.words) toast(landed.words);
             refreshStoryFloor(landed.touched);
@@ -1522,16 +1548,14 @@ export function initHousekeeper(ctx) {
   /* M64: the cards box */
   document.getElementById('hk-apply-all').addEventListener('click', () => { applyAll(); });
   document.getElementById('hk-dismiss-all').addEventListener('click', async () => {
-    if (await talkIsBusy()) return; /* M443 */
-    for (const p of pendingProposals()) { p.status = 'skipped'; p.words = 'Set aside by the writer.'; }
-    await persistSession(); render();
+    await dismissCards(session.turns.flatMap(t=>(t.proposals || []).map(p=>p.id)));
   });
   document.getElementById('hk-toggle-cards').addEventListener('click', () => { cardsFolded = !cardsFolded; renderCardsBox(); });
   document.getElementById('hk-clear').addEventListener('click', () => sessionAct('clear'));
   document.getElementById('hk-del-last').addEventListener('click', () => sessionAct('del-last'));
   document.getElementById('hk-dir-status').addEventListener('click', () => directorTool('status'));
   document.getElementById('hk-repropose').addEventListener('click', () => {
-    const failed = session.turns.flatMap((t) => (t.proposals || []).filter((p) => p.status === 'refused' || p.status === 'stale'));
+    const failed = session.turns.flatMap((t) => (t.proposals || []).filter((p) => p.status === 'refused' || p.status === 'stale' || p.status === 'partial'));
     if (!failed.length) { toast('No failed cards to re-propose.'); return; }
     send('These cards could not be applied: ' + failed.map((p) => '“' + p.label + '” (' + (p.words || 'refused') + ')').join('; ') + '. Re-read the CURRENT text of each target (fetch the pages you do not hold whole) and send corrected versions — anchors copied exactly — or withdraw the ones no longer needed with <supersede>.', { repairIds: failed.map((p) => p.id) });
   });

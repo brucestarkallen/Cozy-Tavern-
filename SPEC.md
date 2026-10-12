@@ -1,3 +1,13 @@
+# M730: Housekeeper correction lifecycle
+
+Version m730-001. Implemented and verified in focused synthetic browser fixtures.
+A name.spelling correction coordinates explicit editable story surfaces, saves
+content and undo together, then verifies storage. Refused and partial cards can
+be dismissed by controls or stable AI IDs. Application outcomes distinguish
+pending, satisfied, applied, partial, refused, dismissed and superseded states.
+Preserve original evidence and ordinary rename semantics. See HANDOFF.md for
+scope, exact checks, the preexisting M683-1 failure and live-story limitations.
+
 # M729: steady Academy composer and lamplit Academy Night
 
 Version m729-001. Base a2588b9fb5b635a0156d86263aa00c8ce8bc97c3.
