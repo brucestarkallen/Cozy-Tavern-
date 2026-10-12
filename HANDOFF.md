@@ -1,3 +1,14 @@
+# M740: richer cosy orange dialogue
+
+Version m740-001. Base main 44174951a5ecd70ff7a2192afa2573613ca5f006.
+Owner found the preset too close to normal prose. Change only the preset from
+pale peach #efb477 to richer orange #f49a45, retaining contrast adjustment for
+light themes. Existing saved colours remain unchanged; tap Cosy orange dialogue
+again to apply the revised preset. No story, theme default or thought changes.
+Focused existing browser check tests/m739_ui.py passed with the revised colour:
+Neon Tokyo contrast 8.9:1, light adjustment #925c29, theme reset and isolation,
+navigation and immersive controls intact. No live account or model calls.
+
 # M739: settings spacing and reading controls
 
 Version m739-001. Base main f56e1fce6e7dc59eb247276a324d471f627e3e4a.

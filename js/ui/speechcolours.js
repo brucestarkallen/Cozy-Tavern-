@@ -142,7 +142,7 @@ export function initSpeechColours(ctx) {
 
   const orange = document.getElementById('btn-speech-colours-orange');
   if (orange) orange.addEventListener('click', async () => {
-    const hex = readable('#efb477', groundNow());
+    const hex = readable('#f49a45', groundNow());
     inputs.spoken.value = hex;
     await keep('spoken', hex);
   });

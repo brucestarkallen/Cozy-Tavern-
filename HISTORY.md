@@ -20889,3 +20889,15 @@ suite, external model calls or claim about the owner's live browser. Story,
 worker, ledger, provider and data code untouched. Version uses normal shell
 refresh. Publication is confirmed separately from Git.
 
+
+# M740: richer cosy orange dialogue
+
+Version m740-001. Base main 44174951a5ecd70ff7a2192afa2573613ca5f006.
+Owner found the preset too close to normal prose. Change only the preset from
+pale peach #efb477 to richer orange #f49a45, retaining contrast adjustment for
+light themes. Existing saved colours remain unchanged; tap Cosy orange dialogue
+again to apply the revised preset. No story, theme default or thought changes.
+Focused existing browser check tests/m739_ui.py passed with the revised colour:
+Neon Tokyo contrast 8.9:1, light adjustment #925c29, theme reset and isolation,
+navigation and immersive controls intact. No live account or model calls.
+

@@ -19,7 +19,7 @@ with sync_playwright() as pw:
  p.locator('#btn-speech-colours-orange').click()
  p.wait_for_function("!document.getElementById('btn-speech-colours-reset').disabled")
  result=p.evaluate("""async()=>{const {db}=await import('/js/store.js');return {map:await db.settings.get('speechColours'),color:document.documentElement.style.getPropertyValue('--spoken'),theme:document.documentElement.dataset.theme}}""")
- assert result['color']=='#efb477',result
+ assert result['color']=='#f49a45',result
  p.locator('#btn-speech-colours-reset').click()
  p.wait_for_function("!document.documentElement.style.getPropertyValue('--spoken')")
  for theme in ['light','neon-tokyo-night']:
