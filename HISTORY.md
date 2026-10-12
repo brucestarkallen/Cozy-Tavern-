@@ -20734,3 +20734,30 @@ reload, restore, exact child folder/message retention and narrow overflow check.
 Initial fixture used the wrong message attribute; corrected to the app's data-id.
 JS syntax checks passed. No broad suites, live device-server search check,
 physical Android check or real user data was used. Remote search path retained.
+
+# M735: earlier branches rebuild their own automatic brief
+
+Version m735-001. Base 52da1296ebb052a27c08f908eed08b0b1c8b67bc.
+Confirmed branch gaps: an edited automatic world (by:writer) was copied even at
+an earlier page; rebuilding depended on a parent ground existing; initial brief
+material relied on folded memory, which can be empty near the opening.
+Earlier automatic branches now get an empty pendingBranch ground record, never
+the parent's later world. Missing ground at the tail also schedules generation.
+The branch's retained recent messages join its retained memory as rebuild input.
+Pending state survives missing connections, failures and reloads; normal open
+schedules it again. A successful ground write replaces the marker. No forced
+retry overwrites a new manual correction made on the branch. The original's
+edited ground, separate manual premise, pages and unrelated state stay intact.
+Tail copies of complete ground retain existing behavior. Existing previously
+created branches are not silently rewritten, since their origin boundary is not
+reliably recorded after completion. This fix applies when a branch is created.
+
+Modified js/ui/chat.js and version; added tests/m735_branch_brief.py. Existing
+service-worker assets already cover shipped changes. Focused Chromium test used
+the real first-message branch action with a future-bearing edited automatic
+brief. Verified empty pending ground, original/manual preservation, exactly one
+retained opening message, persistence with no connection, automatic rebuild on
+reopen through a mocked provider, retained opening in request and no future text.
+The initial async polling assertion was corrected to await actual persisted
+results. No real provider request, broad worker suite or personal story used.
+Actual model summary quality and the owner's live branch remain unverified.

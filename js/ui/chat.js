@@ -4044,7 +4044,9 @@ export function initChat(ctx) {
       concept, brief: String(fresh.brief || ''), canonStart: startWords, arc,
       ledger: { place: state && state.place, factions: state && state.factions, worldBrief: state ? briefAsTold(state.worldBrief, state, state.turn, state.page) : null }, /* M681 (W1, W2): the world's word as it is told — never one aged out, nor an arrival of someone already here */
       essentials: ess && typeof ess.text === 'string' ? ess.text : '',
-      recent: since.slice(-12).map((n) => n.text),
+      recent: have && have.pendingBranch
+        ? [...since.slice(-12).map(n => n.text), ...pages.filter(m => m && !m.hidden && (m.role === 'user' || m.role === 'assistant')).slice(-12).map(m => pageText(m))]
+        : since.slice(-12).map((n) => n.text),
       arcChanged: Boolean(have && arc && have.arcTitle !== arc.title),
       startChanged: Boolean(have && startWords && have.start !== fp(startWords)),
       startFingerprint: startWords ? fp(startWords) : '',
@@ -4232,7 +4234,7 @@ export function initChat(ctx) {
       const checked = enqueueWork(story.id, { name: 'startcheck', run: async ({ signal, stale }) => checkStartNext(story, { signal, stale }) });
       noteWork(story.id, checked);
       const world = story.briefMode === 'automatic' ? await db.settings.get(GROUND_KEY(story.id)) : null;
-      if (world && world.parts && world.by !== 'writer' && world.rules !== GROUND_RULES) {
+      if (world && (world.pendingBranch || (world.parts && world.by !== 'writer' && world.rules !== GROUND_RULES))) {
         const ground = enqueueWork(story.id, { name: 'ground', run: async ({ signal, stale }) => groundNext(story, { signal, stale }) });
         noteWork(story.id, ground);
       }
@@ -8567,10 +8569,17 @@ export function initChat(ctx) {
     /* M386: a branch keeps its canon — the series it found, the wiki he named, his pins, blocks and notes; what the
      * tracker derived from later pages (an advanced story position, the current setting) only from the newest page */
     await carryCanonMemory(story.id, branch.id, { fromTheTail });
-    /* M523: THE WORLD AS IT STANDS IS THE WORLD AT THE BRANCH. Carried whole, a branch from an early page kept "what stands in
-     * the world now" from pages it never had (a war won, a city fallen). It goes with the branch only from the newest page,
-     * or as his own words; otherwise the branch's world is written again from the branch's own pages, once it stands. */
-    { const kept = await db.settings.get(GROUND_KEY(story.id)); if (kept && (fromTheTail || kept.by === 'writer')) await db.settings.set(GROUND_KEY(branch.id), kept); else groundAnew = Boolean(kept); }
+    /* M735: an earlier branch owns a fresh automatic brief, including when
+     * the parent's generated brief was edited or never finished. The original
+     * and the separate manual brief stay intact. The empty pending record cannot
+     * inject later facts and survives interruption until a successful rebuild. */
+    {
+      const kept = await db.settings.get(GROUND_KEY(story.id));
+      if (story.briefMode === 'automatic' && (!fromTheTail || !kept)) {
+        await db.settings.set(GROUND_KEY(branch.id), { pendingBranch: true });
+        groundAnew = true;
+      } else if (kept && (fromTheTail || kept.by === 'writer')) await db.settings.set(GROUND_KEY(branch.id), kept);
+    }
     await db.stories.update(branch.id, { building: false }); /* M332: whole — from here it is a tale like any other (and this write sends it to the device) */
     } catch (err) {
       /* M332: a branch that could not be finished is not left half-made */
@@ -8584,7 +8593,7 @@ export function initChat(ctx) {
     giveCarriedWords(branch.id, { parent: story.id }); /* M675: the branch's carried pages are copied to it on the device */
     if (groundAnew) {
       const branchStory = (await db.stories.get(branch.id)) || branch;
-      const promise = enqueueWork(branch.id, { name: 'ground', run: async ({ signal, stale }) => groundNext(branchStory, { signal, stale, force: true }) });
+      const promise = enqueueWork(branch.id, { name: 'ground', run: async ({ signal, stale }) => groundNext(branchStory, { signal, stale }) });
       noteWork(branch.id, promise);
       promise.catch(() => {});
     }
