@@ -22,14 +22,14 @@ test('M529-2 ON: THE SIDE LANE RUNS BESIDE THE MAIN ONE — each lane keeps its 
   setSideBySide(true);
   const log = [];
   const t0 = Date.now();
-  const all = [enqueueWork('t-on', { ...job(log, 'extractor', 150), lane: 'main' }), enqueueWork('t-on', { ...job(log, 'keeper', 150), lane: 'side' }), enqueueWork('t-on', { ...job(log, 'scribe', 150), lane: 'main' }), enqueueWork('t-on', { ...job(log, 'essentials', 150), lane: 'side' })];
+  const all = [enqueueWork('t-on', { ...job(log, 'extractor', 150), lane: 'main' }), enqueueWork('t-on', { ...job(log, 'keeper', 150), lane: 'side' }), enqueueWork('t-on', { ...job(log, 'scribe', 150), lane: 'main' }), enqueueWork('t-on', { ...job(log, 'plans', 150), lane: 'side' })];
   await wait(20);
   eq(queuedCount('t-on'), 2, 'both lanes counted (one waiting in each)');
   assert(workIsRunning('t-on'), 'running');
   await Promise.all(all);
   const took = Date.now() - t0;
   assert(log.indexOf('keeper>') < log.indexOf('<extractor'), 'the keeper started while the extractor was still reading: ' + log.join(' '));
-  assert(log.indexOf('<extractor') < log.indexOf('scribe>') && log.indexOf('<keeper') < log.indexOf('essentials>'), 'each lane in its own order');
+  assert(log.indexOf('<extractor') < log.indexOf('scribe>') && log.indexOf('<keeper') < log.indexOf('plans>'), 'each lane in its own order');
   assert(took < 450, 'about the time of one lane (two jobs), not all four: ' + took + ' ms');
   assert(!workIsRunning('t-on') && queuedCount('t-on') === 0, 'and settled');
   setSideBySide(false);
@@ -65,13 +65,13 @@ test('M530-1 THE PROVIDER TURNS AWAY TWO AT ONCE: with both lanes in flight, a c
   const log = [];
   let tries = 0;
   const refusedOnce = { name: 'keeper', lane: 'side', run: async () => { tries += 1; log.push('keeper>' + tries); await wait(30); if (tries === 1) throw Object.assign(new Error('Too Many Requests'), { status: 429 }); log.push('<keeper'); return { silent: true }; } };
-  const all = [enqueueWork('t-429', { ...job(log, 'extractor', 200), lane: 'main' }), enqueueWork('t-429', refusedOnce), enqueueWork('t-429', { ...job(log, 'essentials', 20), lane: 'side' }), enqueueWork('t-429', { ...job(log, 'scribe', 20), lane: 'main' })];
+  const all = [enqueueWork('t-429', { ...job(log, 'extractor', 200), lane: 'main' }), enqueueWork('t-429', refusedOnce), enqueueWork('t-429', { ...job(log, 'plans', 20), lane: 'side' }), enqueueWork('t-429', { ...job(log, 'scribe', 20), lane: 'main' })];
   const out = await Promise.all(all);
   eq(sideBySideOn(), false, 'back to one at a time');
   eq(JSON.stringify(told), '[429]', 'the handler was told once');
   assert(out.every((o) => o && o.ok), 'every worker landed: ' + JSON.stringify(out));
   assert(log.includes('<keeper') && tries === 2, 'the refused call was tried again and landed');
-  assert(log.indexOf('<scribe') < log.indexOf('essentials>'), 'the side lane\'s waiting worker joined the main lane, after what was already there: ' + log.join(' '));
+  assert(log.indexOf('<scribe') < log.indexOf('plans>'), 'the side lane\'s waiting worker joined the main lane, after what was already there: ' + log.join(' '));
   setTooManyHandler(null);
   setSleepForHarness((ms) => new Promise((r) => setTimeout(r, ms))); /* the real waits back, for every law after this one */
   setSideBySide(false);

@@ -1,9 +1,11 @@
 /* Cozy Tavern — agents/recallpick.js (M510-50)
  * SMART RECALL — his word: "recall matches words; 'uncle' won't bring back a line that only says 'attendant'. Can the AI
  * smartly think: Bruce probably means this from the record, so I should inject it — smart, yet careful?"
- * The word-match recall (M344) stands. Beside it, before each page of a story whose essentials exist, a worker reads HIS
- * move and the last page against the story's timeline (the essentials) and an index of the older record lines — each by
- * number, its pages and literal source excerpts, including separate detail — and names the lines the next page needs that the timeline alone does not
+ * The word-match recall (M344) stands. Beside it, before each page whose request does not carry the whole record (a small
+ * storyteller's, or a record longer than the context holds), a worker reads HIS move and the last page against what the
+ * page already has of the story (the helper's story in short and the record lines the request carries — M750: it was the
+ * Essentials, retired) and an index of the older record lines the request does not carry — each by number, its pages and
+ * literal source excerpts, including separate detail — and names the lines the next page needs that what it has does not
  * give: who was told what, exact words, a promise, an identity, a plan's detail.
  * Careful, by construction: it only NAMES lines; what rides is the record's own line, word for word — nothing it writes
  * reaches the storyteller. A number that is not in the index is ignored; at most PICK_MAX lines; and it waits at most
@@ -19,6 +21,15 @@ import { parseFirstObject } from './jsonutil.js'; /* M608 */
 export const PICK_MAX = 4;
 export const PICK_TIMEOUT_MS = 8000;
 export const PICK_HEAD_CHARS = 220;
+/* M750: what the page already has, as the picker reads it — the newest of it when it is long (an index needs the room) */
+export const PICK_KNOWN_CHARS = 24000;
+export function knownTail(text, cap = PICK_KNOWN_CHARS) {
+  const t = String(text == null ? '' : text).trim();
+  if (t.length <= cap) return t;
+  const cut = t.slice(t.length - cap);
+  const at = cut.indexOf('\n- ');
+  return '(older lines it has are not shown here)\n' + (at !== -1 && at < cap / 2 ? cut.slice(at + 1) : cut);
+}
 
 /* the older lines, numbered from 1, oldest first — each by its pages and opening words */
 const cueCache = new Map();
@@ -45,18 +56,18 @@ export function recallIndex(nodes, { skip = () => false, move = '', lastPage = '
   return chosen.sort((a,b) => a.from - b.from).map((r,i) => ({ ...r,n:i+1 }));
 }
 
-export function pickAsk({ essentials = '', index = [], move = '', lastPage = '', mc = '' } = {}) {
+export function pickAsk({ known = '', index = [], move = '', lastPage = '', mc = '' } = {}) {
   const who = mc ? mc : 'the main character';
   const system = [
     'You pick the older record lines of a long collaborative story that the NEXT page needs. You write nothing of the story.',
-    'You are given the story\'s timeline (its essentials), an index of the older record lines — each by number, its pages and literal source excerpts, including separate detail — the last page, and the writer\'s newest move.',
-    'Name the lines whose details the next page needs and the timeline alone does not give: who was told what and by whom, the exact words of a promise or a lie, an identity or a title and who knows it, a debt, a wound, a plan\'s detail. Think about what the move means, not only the words it uses: a question about a family tie may need the line where ' + who + '\'s standing was told; a name said may need the line where that person last dealt with ' + who + '.',
+    'You are given what the next page already has of the story (the story in short and the record lines it carries word for word), an index of the older record lines it does not have — each by number, its pages and literal source excerpts, including separate detail — the last page, and the writer\'s newest move.',
+    'Name the older lines whose details the next page needs and what it already has does not give: who was told what and by whom, the exact words of a promise or a lie, an identity or a title and who knows it, a debt, a wound, a plan\'s detail. Think about what the move means, not only the words it uses: a question about a family tie may need the line where ' + who + '\'s standing was told; a name said may need the line where that person last dealt with ' + who + '.',
     'Pick none rather than guess. At most ' + PICK_MAX + '.',
     'Answer with ONLY this JSON: {"lines":[numbers]} — for example {"lines":[3,17]} or {"lines":[]}.',
   ].join('\n');
   const user = [
-    'THE TIMELINE (the story\'s essentials):', String(essentials || '').trim() || '(none yet)', '',
-    'THE OLDER RECORD LINES:', index.map((x) => x.n + '. (pages ' + x.from + '–' + x.to + ') ' + x.head).join('\n') || '(none)', '',
+    'WHAT THE NEXT PAGE ALREADY HAS:', knownTail(known) || '(nothing yet)', '',
+    'THE OLDER RECORD LINES IT DOES NOT HAVE:', index.map((x) => x.n + '. (pages ' + x.from + '–' + x.to + ') ' + x.head).join('\n') || '(none)', '',
     'THE LAST PAGE:', String(lastPage || '').trim().slice(-4000) || '(none)', '',
     'THE WRITER\'S NEWEST MOVE:', String(move || '').trim() || '(none)',
   ].join('\n');
@@ -81,16 +92,16 @@ export function readPick(raw, count) {
 }
 
 /* never throws: { ids, why } — ids of the nodes it named, [] when it could not (slow, failing, unsure) */
-export async function pickRecall({ connection, essentials = '', nodes = [], move = '', lastPage = '', mc = '', skip, signal, timeoutMs = PICK_TIMEOUT_MS, callLLM = callWorker } = {}) {
+export async function pickRecall({ connection, known = '', nodes = [], move = '', lastPage = '', mc = '', skip, signal, timeoutMs = PICK_TIMEOUT_MS, callLLM = callWorker } = {}) {
   if (!connection) return { ids: [], why: 'no connection' };
   if (signal?.aborted) return { ids: [], why: 'cancelled' };
   const helper = workerConnection(connection,{maxTokens:200});
-  const shell = pickAsk({essentials,move,lastPage,mc});
+  const shell = pickAsk({known,move,lastPage,mc});
   const measure = measureTransport(helper,{system:shell.system,messages:[{role:'user',content:shell.user}]});
   const helperRoom = Math.max(0,Math.floor((inputRoom({budgetTokens:contextOf(helper),answerTokens:measure.answerTokens}) - measure.inputTokens)*3) - 600);
   const index = recallIndex(nodes, { skip, move, lastPage, cap: Math.min(24000, helperRoom) });
   if (index.length < 2) return { ids: [], why: 'too few older lines' };
-  const ask = pickAsk({ essentials, index, move, lastPage, mc });
+  const ask = pickAsk({ known, index, move, lastPage, mc });
   const ctl = new AbortController();
   let timer = null;
   let cancelResolve;

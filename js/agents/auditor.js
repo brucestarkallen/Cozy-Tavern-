@@ -1,6 +1,6 @@
 import { ledgerRepairInputKey, ledgerRepairStateKey, ledgerVerificationRows, verificationReceiptMatches,reusableAuditCheckpoint,saveAuditCheckpoint,auditCheckpointStart,matchingAuditSourceCheckpoint } from './auditprogress.js';
 import { fingerprint36 } from '../engine/fingerprint.js';
-import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sceneEndingFields, sharedStoryContext } from './ledgercontext.js';
+import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sceneEndingFields } from './ledgercontext.js';
 /* Cozy Tavern — agents/auditor.js
  * M41: the auditor — the one reader who sees the whole ledger at once and
  * holds it against the story as written, the writer's brief, and the
@@ -493,7 +493,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   // Size the answer for this ledger instead of forcing 32 entries per run.
   const replyTokens = Math.max(MAX_TOKENS, Math.min(16000, 3000 + (state.audit?.unresolved?.length || 0)*180));
   const room = roomChars(connection, replyTokens);
-  const record = recordWithPages(mem, Math.max(20000, Math.min(AUDIT_RECORD_CAP, Math.floor(room * 0.35)))) + await sharedStoryContext(storyId);
+  const record = recordWithPages(mem, Math.max(20000, Math.min(AUDIT_RECORD_CAP, Math.floor(room * 0.35))));
   const foldedTo = Math.max(0, ...((mem && Array.isArray(mem.nodes)) ? mem.nodes : []).filter((n) => n && Array.isArray(n.span)).map((n) => n.span[1] + 1));
   /* M681 (S13): the board no reader stated for the newest page is the auditor's to restate (boardStale) */
   const toldNow = all.filter((m) => m && m.role === 'assistant');

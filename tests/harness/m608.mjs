@@ -50,11 +50,7 @@ test('M608-3 THE SMART RECALL\u2019S PICK IS READ PAST A THOUGHT', async () => {
   eq(JSON.stringify(readPick('<think>Lines {3} and {7} look relevant.</think>\n{"lines":[3,7]}', 10)), '[3,7]', 'the lines it names');
 });
 
-test('M608-4 THE ESSENTIALS, THE POLISHED CONCEPT AND THE EDITOR\u2019S NOTES NEVER CARRY THE MODEL\u2019S THINKING', async () => {
-  const { readEssentials } = await import('../../js/agents/essentials.js');
-  const ess = readEssentials('<think>\n[Sept 1] I should start with the kitchen scene and keep it short.\n</think>\n- [Sept 1, 08:24 · the Wells kitchen] (pages 1–4) Jovan meets Vivi; she hides the letter → he notices.\n- [Sept 2, 09:00 · the school gate] (pages 5–9) Kara walks him in; the rumour starts.');
-  assert(ess && !/I should start/.test(ess), 'no thought in the essentials: ' + JSON.stringify(ess));
-  assert(/Jovan meets Vivi/.test(ess) && /Kara walks him in/.test(ess), 'the lines themselves are kept');
+test('M608-4 THE POLISHED CONCEPT AND THE EDITOR\u2019S NOTES NEVER CARRY THE MODEL\u2019S THINKING (M750: the essentials are retired)', async () => {
   const { polishConcept } = await import('../../js/agents/concept.js');
   const out = await withHouse(scriptedHouse(async () => '<think>Fix the grammar.</think>\nJovan Oda becomes the new captain of the 13th Division; Rukia is his lieutenant.'),
     () => polishConcept({ connection: CONN, concept: 'jovan Oda become new captain 13th division, Rukia his lieutenant' }));

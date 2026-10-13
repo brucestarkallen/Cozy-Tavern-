@@ -333,9 +333,9 @@ test('M510-13 A SMALL MODEL REMEMBERS THE WHOLE STORY: the helper keeps it short
   const notes = notesOf(r);
   assert(notes.includes('In brief, as I remember it:\n' + STORY) && notes.indexOf('Our story so far') < notes.indexOf('In brief, as I remember it'), 'the story in short is the brief of our story so far (M510-53): ' + notes.slice(0, 200));
   assert(r.receipt.slots.some((s) => s.name === 'The story in short' && s.tokens > 0), 'with its own receipt row');
-  const last = String(r.messages[r.messages.length - 1].content);
-  assert(/And from our story so far, each from its own time — \(pages 1–6\) Kaelen swore an oath on the broken lantern at the mountain shrine/.test(last), 'the fold his move names, word for word, with its pages: ' + last.slice(last.indexOf('And from'), last.indexOf('And from') + 160));
-  assert(!/drilled the recruits|flooded the lower barracks/.test(last), 'the folds nothing named stay out');
+  /* M750 (since M510-14 a small model carries the newest of the record in full): five short folds all ride, each once, with
+   * their pages — the fold his move names among them */
+  assert(/\(pages 1–6\) Kaelen swore an oath on the broken lantern at the mountain shrine/.test(notes) && notes.split('Kaelen swore an oath').length === 2, 'the fold his move names, word for word, with its pages, once');
   const calm = buildRequest({ story: {}, messages: pages(12), settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallPlan: { ...PLAN, intense: false } });
   assert(!/And from our story so far/.test(String(calm.messages[calm.messages.length - 1].content)) && calm.receipt.slots.some((s) => s.name === 'The story in short' && s.tokens === 0 && /not written yet/.test(s.reason)), 'nothing named, nothing called back; no story kept — its row stands at 0 saying why (M510-20)');
 });
@@ -400,57 +400,7 @@ test('M510-16 THE RECORD RIDES FOR A SMALL MODEL — the keeper’s folds, writt
 });
 
 
-test('M510-17 THE STORY’S ESSENTIALS (his design): the whole record streamlined, rebuilt only when the record changes and always from the record itself, always in front of a small model; the detailed lines ride only when named, or when folded since', async () => {
-  const { recordOf, runEssentials, loadEssentials, essentialsAsk } = await import('../../js/agents/essentials.js');
-  const nodes = [
-    { span: [0, 5], text: 'OLDEST-LINE Jovan arrived at the Seireitei; Kaelen swore an oath on the broken lantern at the mountain shrine.', level: 1, at: 1 },
-    { span: [6, 11], text: 'Rukia saw Jovan leave the captain’s quarters at dawn and told no one.', level: 1, at: 2 },
-    { span: [12, 17], text: 'NEWEST-LINE The captain named Jovan fourth seat; Kaelen walked the wall alone.', level: 1, at: 3 },
-  ];
-  const rec = recordOf(nodes);
-  assert(rec.text.indexOf('OLDEST-LINE') < rec.text.indexOf('NEWEST-LINE') && rec.upTo === 17 && /\(pages 1–6\)/.test(rec.text), 'the whole record, oldest first, with its pages');
-  const ESS = '- [Sept 1 · the Seireitei] (pages 1–12) Jovan arrived; Kaelen swore "I will guard this lantern" on the broken lantern; Rukia witnessed Jovan’s dawn exit from the captain’s quarters → kept it secret.\n- [Sept 9 · the wall] (pages 13–24) The captain named Jovan fourth seat → Kaelen resents Jovan; Kaelen challenged Jovan to a duel at the autumn review.';
-  const house = thinkingHouse({ answer: ESS });
-  const out = await withHouse(house, () => runEssentials({ connection: CONN, storyId: 's-ess', nodes, brief: 'Bleach.', mc: 'Jovan' }));
-  assert(out.wrote && house.calls.length === 1, 'made once');
-  const sent = JSON.stringify(house.calls[0].body);
-  assert(sent.includes('OLDEST-LINE') && sent.includes('NEWEST-LINE'), 'from the WHOLE record — its beginning too');
-  const kept = await loadEssentials('s-ess');
-  assert(kept.text.startsWith('- [Sept 1 · the Seireitei] (pages 1–12)') && kept.upTo === 17, 'kept in the record’s own format, with how far the record reached');
-  const again = await withHouse(house, () => runEssentials({ connection: CONN, storyId: 's-ess', nodes, mc: 'Jovan' }));
-  assert(!again.wrote && again.why === 'unchanged' && house.calls.length === 1, 'the record unchanged: nothing asked');
-  const grown = [...nodes, { span: [18, 23], text: 'Kaelen challenged Jovan to a duel at the autumn review.', level: 1, at: 4 }];
-  await withHouse(house, () => runEssentials({ connection: CONN, storyId: 's-ess', nodes: grown, mc: 'Jovan' }));
-  assert(house.calls.length === 2 && JSON.stringify(house.calls[1].body).includes('OLDEST-LINE') && (await loadEssentials('s-ess')).upTo === 23, 'the record grew: made again from the whole record, never from the last essentials');
-  const bad = thinkingHouse({ answer: '{"sorry": true}' });
-  const failed = await withHouse(bad, () => runEssentials({ connection: CONN, storyId: 's-ess', nodes: [...grown, { span: [24, 29], text: 'A new fold.', level: 1, at: 5 }], mc: 'Jovan' }));
-  /* M666: it was "asked once more" (two asks). He asked that a worker whose answer is not a summary be tried again as the
-   * others are; the essentials are asked three times now (ESSENTIALS_TRIES), and the count below follows that. */
-  assert(!failed.wrote && bad.calls.length === 3 && (await loadEssentials('s-ess')).upTo === 23, 'an unusable answer: asked twice more, then the essentials already kept stand');
-  { const sys = essentialsAsk({ record: 'x' }).system; assert(/THE SAME FORMAT/.test(sys) && /\[Sept 1, 08:24 · the Wells kitchen\]/.test(sys) && /Cut what nothing later depends on: small talk, errands, passers-by and crowds/.test(sys) && /every correction/.test(sys) && /At most 2,000 words/.test(sys), 'M510-21: his format — the record’s own lines, told shorter; trivia cut; time and place kept; in the room the record’s newest lines had'); }
-  const { readEssentials, ESSENTIALS_MAX_CHARS } = await import('../../js/agents/essentials.js');
-  eq(ESSENTIALS_MAX_CHARS, 16000);
-  const long = readEssentials(Array.from({ length: 400 }, (_, i) => '[Day ' + i + ' · the yard] (pages ' + i + '–' + i + ') Kaelen resents Jovan; Rukia watched.').join('\n'));
-  assert(long.length <= ESSENTIALS_MAX_CHARS && long.length > ESSENTIALS_MAX_CHARS - 200 && /Rukia watched\.$/.test(long), 'a longer answer is kept to about 4,000 tokens, cut at a line’s end: ' + long.length);
-  eq(readEssentials('Who they are to each other: Kaelen resents Jovan for the seat, and Rukia knows about the dawn, and more.'), '', 'prose with no line of the record’s shape is refused');
-  eq(readEssentials('Here are the essentials:\n[Sept 1 · gate] (pages 1–3) Jovan arrived; Rukia greeted Jovan at the gate of the Seireitei.').startsWith('- [Sept 1 · gate]'), true, 'a preface before the first line is dropped');
-  /* the small request: the essentials in front, the detailed lines only when named or folded since */
-  const withLater = [...grown, { span: [24, 29], text: 'LATER-LINE Jovan trained with Rukia at night.', level: 1, at: 5 }];
-  const msgs = pages(40);
-  msgs[msgs.length - 1] = { ...msgs[msgs.length - 1], text: 'I show Kaelen the broken lantern from the mountain shrine.' };
-  /* M510-21: with Kaelen and Rukia in the scene their own lines ride (who's here, in the record) — here the MC is alone,
-   * so what the essentials stand for is seen standing for it */
-  const alone = { ...applyMutations({ ...emptyState(), page: 20 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Training yard' }, { type: 'presence.enter', name: 'Jovan' }]).state, page: 20 };
-  const r = buildRequest({ story: {}, messages: msgs, settings: { smallModelNow: true, frameOn: false, noteOn: false }, state: alone, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: withLater.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: withLater }, smallPlan: { ...PLAN, intense: false }, smallEssentials: { text: ESS, upTo: 23 } });
-  const notes = notesOf(r);
-  assert(/In brief, from the beginning \(pages 1–\d+\):\n/.test(notes) && notes.includes(ESS), 'the essentials are in front — the brief of our story so far (M510-53)');
-  assert(!notes.includes('NEWEST-LINE') && !notes.includes('Rukia saw Jovan leave'), 'the lines the essentials stand for do not ride as they are');
-  assert(/In full, since then \(pages \d+–\d+\):\n- \(pages \d+–\d+\) LATER-LINE/.test(notes), 'what was folded since rides as it is — in full, with its pages (M510-53): ' + (notes.match(/In full, since then[\s\S]{0,160}/) || [''])[0]);
-  const last = String(r.messages[r.messages.length - 1].content);
-  assert(/\(pages 1–6\) OLDEST-LINE Jovan arrived at the Seireitei; Kaelen swore an oath on the broken lantern/.test(last), 'a line his move names comes back in detail, word for word');
-  assert(r.receipt.slots.some((s) => s.name === 'Story essentials' && s.tokens > 0) && r.receipt.slots.some((s) => s.name === 'What remains' && /folded since the essentials/.test(s.source)), 'each with its receipt row');
-});
-
+/* M510-17 (a law of the Essentials and the hybrid) went with them in M750 — the record rides whole; see m750.mjs. */
 test('M510-18 A FIRST PAGE’S HEADER IN ANOTHER DRESS IS THE HEADER: it opens the page as it streams (never the whole page into the thinking and back), it is kept in the shape the ledger reads, and a page with no header still gets its paragraphs', async () => {
   const { makeHeaderGate, isHeaderLine } = await import('../../js/ui/headergate.js');
   const { tidyPage } = await import('../../js/ui/pageshape.js');
@@ -495,7 +445,7 @@ test('M510-19 WHO KNOWS WHAT, FOR A SMALL MODEL: the rule every time (his Episte
 });
 
 
-test('M510-20 EVERY ROW, EVERY PAGE: "What the storyteller saw" names every part the house can send, in the order it rides — one that did not ride stands with 0 tokens and why (on his first scene: the essentials are not made yet, the record is still empty)', async () => {
+test('M510-20 EVERY ROW, EVERY PAGE: "What the storyteller saw" names every part the house can send, in the order it rides — one that did not ride stands with 0 tokens and why (on his first scene: the record is still empty; M750: the essentials row is retired)', async () => {
   const { EVERY_ROW } = await import('../../js/assemble/stack.js');
   const st = { ...applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the cemetery' }, { type: 'presence.enter', name: 'Jovan' }]).state, page: 1 };
   const mk = (small, extra = {}) => buildRequest({ story: { brief: 'A grieving story.' }, messages: [{ id: 'u', role: 'user', text: 'I kneel at the grave.' }], settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: [] }, ...(small ? { smallPlan: { ...PLAN, intense: false } } : {}), ...extra });
@@ -505,10 +455,12 @@ test('M510-20 EVERY ROW, EVERY PAGE: "What the storyteller saw" names every part
     eq(silent.map((s) => s.name).join(', '), '', label + ': every empty row says why');
   }
   const row = (r, n) => r.receipt.slots.find((s) => s.name === n);
-  assert(/^being made|^not made yet|^the memory keeper is off/.test(row(mk(false), 'Story essentials').reason) && /^small model only/.test(row(mk(false), 'The plan for this page').reason), 'on the normal model: the essentials are every storyteller’s now (M510-48), the plan the small model’s — its row says exactly where they stand (M510-57)');
-  assert(/not made yet — the record is still empty: the memory keeper folds pages once they are older than its 30-page window/.test(row(mk(true), 'Story essentials').reason), 'his first scene: ' + row(mk(true), 'Story essentials').reason);
-  const withRecord = mk(true, { memory: '- Jovan arrived.', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: [{ span: [0, 5], text: 'Jovan arrived.', level: 1, at: 1 }] } });
-  assert(/^being made/.test(row(withRecord, 'Story essentials').reason), 'a record, no essentials yet: being made');
+  assert(!row(mk(false), 'Story essentials') && !row(mk(true), 'Story essentials'), 'M750: no essentials row on either model');
+  assert(/^small model only/.test(row(mk(false), 'The plan for this page').reason), 'the plan is the small model’s — its row says so');
+  assert(/the record is still empty — the memory keeper folds pages once they are older than its 30-page window/.test(row(mk(false), 'What remains').reason), 'his first scene: ' + row(mk(false), 'What remains').reason);
+  assert(/reads the whole record/.test(row(mk(false), 'Earlier moments, in full').reason), 'the normal model reads the whole record: ' + row(mk(false), 'Earlier moments, in full').reason);
+  const withRecord = mk(false, { memory: '- Jovan arrived.', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: [{ span: [0, 5], text: 'Jovan arrived.', level: 1, at: 1 }] } });
+  assert(/your whole record, each line once/.test(row(withRecord, 'What remains').source), 'a record: it rides whole — ' + row(withRecord, 'What remains').source);
   const r = mk(false); const sum = r.receipt.slots.reduce((n, s) => n + s.tokens, 0);
   eq(r.receipt.totalTokens, sum, 'the rows added carry nothing: the count is the parts that rode');
 });
@@ -534,14 +486,13 @@ test('M510-21 WHO’S HERE, IN THE RECORD (his idea, bounded): while someone is 
   eq(recordOfWhoIsHere(lines, gone).text, '', 'gone from the scene, gone from the page');
   /* through the request */
   const msgs = pages(40);
-  const mk = (small, state) => buildRequest({ story: {}, messages: msgs, settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: lines.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: lines }, ...(small ? { smallPlan: { ...PLAN, intense: false }, smallEssentials: { text: '- [Day 1 · the yard] (pages 1–42) Jovan trained with Rukia; Kaelen swore on the lantern.', upTo: 41 } } : {}) });
+  const mk = (small, state) => buildRequest({ story: {}, messages: msgs, settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: lines.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: lines }, ...(small ? { smallPlan: { ...PLAN, intense: false } } : {}) });
   const small = mk(true, here);
   const notes = notesOf(small);
-  assert(/In full, earlier moments with the people here:\n- \(pages/.test(notes) && notes.includes('RUKIA-12'), 'it rides for the small model — inside our story so far (M510-53)');
-  const row = small.receipt.slots.find((s) => s.name === 'Earlier moments, in full'); /* M511: the row is named for the part it holds */
-  assert(row && row.tokens > 0 && /Rukia Kuchiki/.test(row.reason), 'with its row: ' + JSON.stringify(row && row.reason));
+  /* M750: fourteen short lines fit a small model's newest stretch whole — Rukia's lines ride there, each once */
+  assert(notes.includes('RUKIA-12') && notes.split('RUKIA-12').length === 2, 'it rides for the small model, once — inside our story so far');
   const normal = mk(false, here);
-  assert(!/What the record holds of who is here/.test(notesOf(normal)) && /every earlier moment is in it|essentials are still being made/.test(normal.receipt.slots.find((s) => s.name === 'Earlier moments, in full').reason), 'the frontier model, before its essentials are made, reads the whole record — its row says so, exactly (M510-48/57)');
+  assert(!/What the record holds of who is here/.test(notesOf(normal)) && /reads the whole record/.test(normal.receipt.slots.find((s) => s.name === 'Earlier moments, in full').reason), 'the frontier model reads the whole record — its row says so, exactly');
 });
 
 
@@ -594,7 +545,7 @@ test('M510-22 A PLAN, KEPT WHOLE (his battle plan): written down the moment a pa
   const mk = (small) => buildRequest({ story: {}, messages: pages(40), settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state: yard(), modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000 }, ...(small ? { smallPlan: { ...PLAN, intense: false }, smallPlansBook: plansBook } : { smallPlansBook: plansBook /* M510-48: every storyteller reads the plans the keeper wrote down */ }) });
   const small = mk(true);
   const notes = notesOf(small);
-  assert(notes.includes('Plans standing — laid out on the page, kept whole until carried out:\nThe feint at the forest — Jovan’s plan') && notes.includes('“Retreat! Protect the gold convoy!”'), 'the small storyteller reads it word for word');
+  assert(notes.includes('Plans standing — laid out on the page, kept whole until carried out; any of them can still change or fall through:\nThe feint at the forest — Jovan’s plan') && notes.includes('“Retreat! Protect the gold convoy!”'), 'the small storyteller reads it word for word');
   const row = small.receipt.slots.find((s) => s.name === 'Plans standing');
   assert(row && row.tokens > 0 && /The feint at the forest/.test(row.reason), 'with its row');
   const normal = mk(false);
@@ -1070,62 +1021,7 @@ test('M510-46 "TAKE A COPY" / "BRING A COPY BACK" — EVERYTHING, AND ONLY THE C
   await store.stories.remove(tale.id).catch(() => {});
 });
 
-test('M510-48 THE HYBRID, ALWAYS ON (his word: "even a frontier model needs information that is not overwhelming — a coherent timeline"): with the essentials made, a frontier storyteller reads the essentials, the record’s newest lines word for word, the record’s lines about who is here, the older lines this scene names WHOLE, and the plans standing — not the whole record; before the essentials exist, the whole record rides as always; and the rulebook’s Exposed law rides every storyteller', async () => {
-  const st = { ...applyMutations({ ...emptyState(), page: 200 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Training yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Byakuya Kuchiki' }]).state, page: 200 };
-  const nodes = [];
-  for (let i = 0; i < 120; i += 1) nodes.push({ id: 'n' + i, span: [i * 2, i * 2 + 1], level: 1, text: 'Line ' + i + ': Jovan trained with the Thirteenth Division; ' + 'the drills went on and the yard rang. '.repeat(30) /* long enough that the newest lines' room holds only the last few dozen */ + (i === 7 ? 'At the captains’ meeting Jovan told every captain he serves as Head Captain Yamamoto’s personal attendant.' : '') + (i === 30 ? 'Byakuya Kuchiki watched Jovan spar and said nothing.' : '') });
-  const mods = [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }];
-  const msgs = pages(15);
-  msgs.push({ id: 'ux', role: 'user', text: 'Byakuya asks me whose attendant I really am, in front of the whole Thirteenth Division.' });
-  const args = (essentials) => ({ story: {}, messages: msgs, settings: {}, state: st, modules: mods, memory: nodes.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallEssentials: essentials, smallPlansBook: { plans: [{ id: 'p1', title: 'The duel with Zaraki', whose: 'Jovan', aim: 'prove he is fit to be captain', parts: [{ who: 'Jovan', does: 'meets Zaraki at noon' }], status: 'standing' }] } });
-  const whole = buildRequest(args(null));
-  assert(/Our story so far, in full — everything before the pages that follow/.test(notesOf(whole)) && /Line 0:/.test(notesOf(whole)), 'before the essentials exist: the whole record, as always');
-  const hybrid = buildRequest(args({ text: '[Seireitei · spring] (pages 1–240) Jovan arrives; serves as Yamamoto’s personal attendant (told the captains); trains with the Thirteenth.', upTo: 239 }));
-  const notes = notesOf(hybrid);
-  assert(/In brief, from the beginning \(pages 1–240\):\n\[Seireitei/.test(notes), 'the essentials: the whole story as a timeline, with the pages it covers (M510-51)');
-  assert(/In full, just before the pages that follow \(pages \d+–240\)/.test(notes) && /Line 119:/.test(notes) && !/Our story so far, in full — everything before the pages that follow/.test(notes), 'the newest lines word for word — not the whole record');
-  assert(!/Line 1: /.test(notes.split('In full, earlier moments')[0]), 'the oldest lines are not in the newest part');
-  assert(/In full, earlier moments that matter now[^\n]*\n[\s\S]*personal attendant/.test(notes), 'the older line this scene names (his move: attendant) comes back WHOLE: ' + (notes.match(/In full, earlier moments[\s\S]{0,300}/) || [''])[0].slice(0, 300));
-  assert(/Plans standing[\s\S]*The duel with Zaraki/.test(notes), 'the plans standing ride for a frontier storyteller');
-  const wordsWhole = notesOf(whole).length; const wordsHybrid = notes.length;
-  assert(wordsHybrid < wordsWhole, 'lighter than the whole record: ' + wordsWhole + ' → ' + wordsHybrid + ' characters');
-  const { ALWAYS_LAWS } = await import('../../js/assemble/laws.js');
-  assert(/^Exposed = /m.test(CRAFT_TEXT) && ALWAYS_LAWS.includes('Exposed'), 'the Exposed law: in the rulebook, and among the small model’s always-laws');
-  const { SHIPPED_BEFORE } = await import('../../js/assemble/modules.js');
-  assert(SHIPPED_BEFORE['core-craft'].includes('99fpod'), 'an unedited saved rulebook follows the new one');
-});
-
-test('M510-49 (final audit of the hybrid) NO HOLE, FAIR ROOM, MADE AGAIN BY HAND: every line folded since the essentials rides word for word; essentials far behind the record give way to the whole record; who is here shares a tight room so each person keeps their newest line; the essentials keeper makes them again when asked, whatever it kept', async () => {
-  const { recordOfWhoIsHere, HYBRID_RECENT_CHARS } = await import('../../js/assemble/stack.js');
-  const { runEssentials, ESSENTIALS_KEY } = await import('../../js/agents/essentials.js');
-  const { db: store } = await import('../../js/store.js');
-  const st = { ...applyMutations({ ...emptyState(), page: 300 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Training yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Byakuya Kuchiki' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state, page: 300 };
-  const long = (i, extra = '') => 'Line ' + i + ': ' + 'the drills went on and the yard rang with it. '.repeat(40) + extra;
-  const nodes = []; for (let i = 0; i < 60; i += 1) nodes.push({ id: 'n' + i, span: [i * 4, i * 4 + 3], level: 1, text: long(i, i === 5 ? 'Byakuya named Jovan a liar before the captains.' : i >= 50 ? 'Rukia sparred beside Jovan.' : '') });
-  const mods = [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }];
-  const build = (upTo) => buildRequest({ story: {}, messages: pages(12), settings: {}, state: st, modules: mods, memory: nodes.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallEssentials: { text: '[Seireitei] (pages 1–' + (upTo + 1) + ') essentials', upTo } });
-  /* the essentials made through line 49's pages; lines 50–59 folded since (~19,000 characters): all ride */
-  const recent = notesOf(build(nodes[49].span[1]));
-  assert(/In brief, from the beginning/.test(recent) && nodes.slice(50).every((n) => recent.includes(n.text.slice(0, 20) + ' ') || recent.includes('Line ' + n.id.slice(1) + ':')), 'every line folded since the essentials rides word for word');
-  /* made through line 5 only (the keeper failing since): ~100,000 characters folded since — more than twice the room: the whole record */
-  const stale = notesOf(build(nodes[5].span[1]));
-  assert(/Our story so far, in full — everything before the pages that follow/.test(stale) && !/In full, just before the pages that follow/.test(stale), 'essentials far behind give way to the whole record (' + HYBRID_RECENT_CHARS * 2 + ' characters the limit)');
-  /* fair: Byakuya named only in line 5, Rukia in the ten newest — a room for two long lines keeps one each */
-  const fair = recordOfWhoIsHere(nodes, st, { each: 6, cap: long(0).length * 2 + 400 });
-  assert(/Byakuya named Jovan a liar/.test(fair.text) && /Rukia sparred beside Jovan/.test(fair.text), 'each person here keeps their newest line: ' + fair.lines + ' lines');
-  /* made again by hand */
-  const sid = 'story-remake';
-  let asked = 0;
-  const fake = async () => { asked += 1; return '[Monday · Seireitei] (pages 1–4) Jovan arrives at the gate; tells the captains he serves Yamamoto; Byakuya names him a liar before them all.'; }; /* the keeper’s own shape, long enough to be kept */
-  const recNodes = [{ id: 'a', span: [0, 3], level: 1, text: 'Jovan arrives.' }];
-  await runEssentials({ connection: CONN, storyId: sid, nodes: recNodes, callLLM: fake });
-  const again = await runEssentials({ connection: CONN, storyId: sid, nodes: recNodes, callLLM: fake });
-  eq(again.why, 'unchanged', 'the record unchanged: the keeper does not ask by itself');
-  const forced = await runEssentials({ connection: CONN, storyId: sid, nodes: recNodes, callLLM: fake, force: true });
-  assert(forced.wrote && asked === 2, 'asked by hand: made again (' + asked + ' asks)');
-  await store.settings.delete(ESSENTIALS_KEY(sid));
-});
-
+/* M510-48 (a law of the Essentials and the hybrid) went with them in M750 — the record rides whole; see m750.mjs. */
 test('M510-50 SMART RECALL (his word: "can the AI smartly think: Bruce probably means this from the record — smart, yet careful?"): a worker names older record lines by number for what his move MEANS (a family tie → the line where his standing was told); only numbers in the index count, at most four; slow or failing, none — and the page goes on; the named lines ride whole, the record’s own words', async () => {
   const { pickRecall, readPick, recallIndex, PICK_MAX } = await import('../../js/agents/recallpick.js');
   const nodes = [
@@ -1139,40 +1035,41 @@ test('M510-50 SMART RECALL (his word: "can the AI smartly think: Bruce probably 
   eq(JSON.stringify(readPick('Line 1, I think.', 4)), '[]', 'no JSON: none');
   let seen = null;
   const smart = async (conn, { system, user }) => { seen = { system, user }; return '{"lines":[1,3]}'; };
-  const out = await pickRecall({ connection: CONN, essentials: '[Seireitei] Jovan arrives…', nodes, move: 'Byakuya asks who my uncle is, in front of the whole division.', lastPage: 'The division gathered.', mc: 'Jovan', callLLM: smart });
+  const out = await pickRecall({ connection: CONN, known: '[Seireitei] Jovan arrives…', nodes, move: 'Byakuya asks who my uncle is, in front of the whole division.', lastPage: 'The division gathered.', mc: 'Jovan', callLLM: smart });
   eq(out.ids.join(','), 'a,c', 'the lines it named, by id');
   assert(/THE WRITER'S NEWEST MOVE:\nByakuya asks who my uncle is/.test(seen.user) && /1\. \(pages 1–6\) At the captains’ meeting/.test(seen.user) && /Think about what the move means, not only the words/.test(seen.system), 'it reads his move, the index, and is told to read for meaning');
   const slow = await pickRecall({ connection: CONN, nodes, move: 'x', timeoutMs: 600, callLLM: () => new Promise((r) => setTimeout(() => r('{"lines":[1]}'), 3000)) });
   assert(slow.ids.length === 0 && slow.why === 'took too long', 'slow: none, and the page goes on');
   const broken = await pickRecall({ connection: CONN, nodes, move: 'x', callLLM: async () => { throw new Error('down'); } });
   assert(broken.ids.length === 0 && broken.why === 'could not ask', 'failing: none');
-  /* the builder: the named line rides whole under the older lines */
+  /* the builder: the named line rides whole under the older lines — M750: when the whole record does not fit (a frontier
+   * storyteller reads it whole otherwise, and the recall has nothing to name), in its own place among the lines that ride */
   const st = { ...applyMutations({ ...emptyState(), page: 300 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Training yard' }, { type: 'presence.enter', name: 'Jovan' }]).state, page: 300 };
   const many = []; for (let i = 0; i < 60; i += 1) many.push({ id: 'n' + i, span: [i * 4, i * 4 + 3], level: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(40) /* no word of the scene: only the smart recall can name it */ + (i === 3 ? 'SMART-MARK: Jovan tells the captains he serves Yamamoto.' : '') });
-  const r = buildRequest({ story: {}, messages: pages(12), settings: {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: many.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: many }, smallEssentials: { text: '[Seireitei] (pages 1–240) essentials', upTo: 239 }, recallPicked: ['n3'] });
-  assert(/In full, earlier moments that matter now[\s\S]*\(pages 13–16\) Line 3:[\s\S]*SMART-MARK/.test(notesOf(r)), 'the named line rides whole, under its pages');
-  assert(/1 of them named by the smart recall/.test(r.receipt.slots.find((s) => s.name === 'Earlier moments, in full').source), 'the receipt says the smart recall picked it (the source line of the row that holds it — M511: the lines called back are the earlier moments’ row, as in the request)');
+  const r = buildRequest({ story: {}, messages: pages(12), settings: {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: many.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: many, recordCap: 60000 }, recallPicked: ['n3'] });
+  assert(/Our story so far — what came before the pages that follow, oldest first\.[\s\S]*\(pages 13–16\) Line 3:[\s\S]*SMART-MARK[\s\S]*\(pages \d+–\d+\) Line \d\d:/.test(notesOf(r)), 'the named line rides whole, under its pages, in its place before the newer lines');
+  assert(!/\(pages 9–12\) Line 2:/.test(notesOf(r)), 'its neighbour, not named, stays out');
+  assert(/named by the smart recall/.test(r.receipt.slots.find((s) => s.name === 'What remains').reason), 'the receipt says the smart recall picked it: ' + r.receipt.slots.find((s) => s.name === 'What remains').reason);
 });
 
 test('M510-51 OUR STORY SO FAR, ONE PART READ ONE WAY (his look at the raw request: "does the storyteller understand \'the 54 older lines are in the essentials above, each kept whole on the device\'? even I am confused"): it says first how to read it; then the whole story in brief, the stretch just before the pages in full and the earlier moments in full — each line with its own pages, the earlier ones in the order they happened, never twice — then the plans; it stands after canon and before the people and the state of things; no count, no device', async () => {
   const st = { ...applyMutations({ ...emptyState(), page: 300 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Thirteenth Division yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Byakuya Kuchiki' }]).state, page: 300 };
   const nodes = []; for (let i = 0; i < 60; i += 1) nodes.push({ id: 'n' + i, span: [i * 4, i * 4 + 3], level: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(40) + (i === 3 ? 'Jovan tells every captain he serves Yamamoto as his personal attendant.' : '') + (i === 9 ? 'Byakuya Kuchiki watches Jovan spar and says nothing.' : '') });
   const msgs = pages(12); msgs.push({ id: 'ux', role: 'user', text: 'Byakuya asks whose attendant I really am.' });
-  const r = buildRequest({ story: {}, messages: msgs, settings: {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: nodes.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallEssentials: { text: '- [Seireitei] (pages 1–240) Jovan arrives; serves Yamamoto; trains.', upTo: 239 }, recallPicked: ['n3'], smallPlansBook: { plans: [{ id: 'p', title: 'The duel with Zaraki', whose: 'Jovan', aim: 'prove himself', parts: [{ who: 'Jovan', does: 'meets Zaraki at noon' }], status: 'standing' }] } });
+  const r = buildRequest({ story: {}, messages: msgs, settings: {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: nodes.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallPlansBook: { plans: [{ id: 'p', title: 'The duel', parts: [{ who: 'Zaraki', does: 'fights Jovan' }], status: 'standing' }] } });
   const notes = notesOf(r);
   const at = (t) => notes.indexOf(t);
-  const order = ['Our story so far — first the whole of it in brief', 'In brief, from the beginning (pages 1–240):', 'In full, just before the pages that follow (pages ', 'In full, earlier moments that matter now', 'Plans standing', 'The ground: '];
+  /* M750: ONE part — how to read it, then the record itself, every line once, oldest first; then the plans; then the state of things */
+  const order = ['Our story so far — everything that came before the pages that follow, oldest first. Each line tells what happened on its own pages: the past, not now.', 'Plans standing', 'The ground: '];
   assert(order.every((t) => at(t) !== -1), 'every piece is there: ' + order.filter((t) => at(t) === -1).join(' | '));
   assert(order.every((t, i) => i === 0 || at(order[i - 1]) < at(t)), 'in that order — the past, the plans, then the state of things now');
-  assert(/Where the brief and a full line differ, the full line is right; the pages that follow are right over both/.test(notes), 'it says how to read it');
-  assert(!/kept whole on the device|older lines are in the essentials|What the record holds of who is here|From the older record|The newest of the record/.test(notes), 'no count, no device, no old heading');
-  const earlier = notes.slice(at('In full, earlier moments'), at('Plans standing')).split('\n').slice(1).filter((l) => l.startsWith('- '));
-  assert(earlier.length >= 2 && earlier.every((l) => /^- \(pages \d+–\d+\) /.test(l)), 'every earlier line with its own pages');
-  assert(earlier.some((l) => /personal attendant/.test(l)) && earlier.some((l) => /Byakuya Kuchiki watches Jovan/.test(l)), 'the line his move means and the line of the person here — one list');
-  const firsts = earlier.map((l) => Number(l.match(/\(pages (\d+)/)[1]));
-  assert(firsts.every((p, i) => i === 0 || firsts[i - 1] < p), 'in the order they happened, never twice: ' + firsts.join(', '));
-  const recentBlock = notes.slice(at('In full, just before'), at('In full, earlier moments')).split('\n').slice(1).filter((l) => l.startsWith('- '));
-  assert(recentBlock.length && recentBlock.every((l) => /^- \(pages \d+–\d+\) Line \d+:/.test(l)), 'the stretch just before the pages: each line with its own pages too');
+  assert(!/kept whole on the device|older lines are in the essentials|What the record holds of who is here|From the older record|The newest of the record|In brief, from the beginning|Complete folded|compressed/.test(notes), 'no count, no device, no old heading, no second telling');
+  const past = notes.slice(at('Our story so far — '), at('Plans standing')).split('\n').slice(1).filter((l) => l.startsWith('- '));
+  eq(past.length, nodes.length, 'every line of the record, once');
+  assert(past.every((l) => /^- \(pages \d+–\d+\) Line \d+:/.test(l)), 'each with its own pages');
+  const firsts = past.map((l) => Number(l.match(/\(pages (\d+)/)[1]));
+  assert(firsts.every((p, i) => i === 0 || firsts[i - 1] < p), 'in the order they happened');
+  assert(past.some((l) => /personal attendant/.test(l)), 'the line his move means is among them');
 });
 
 test('M510-52 (the whole request read top to bottom, as the storyteller) PAST, PLANS, PRESENT — NOTHING TWICE, NOTHING UNNATURAL: the whole record stands where the hybrid does, named plainly, after canon and before the people; no brief beside a record that fits in full; a belief reads "believes", never "knows: believes"; a blind spot shows the fact, never the knower\'s "was told", and a belief is no one\'s blind spot; every age is in pages', async () => {
@@ -1180,27 +1077,18 @@ test('M510-52 (the whole request read top to bottom, as the storyteller) PAST, P
   let st = applyMutations({ ...emptyState(), page: 300 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Thirteenth Division yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Byakuya Kuchiki' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state;
   st = { ...st, page: 300, knowledge: { 'Rukia Kuchiki': [{ fact: 'believes Jovan is only a recruit — untrue: Jovan is the new captain', atTurn: 299 }], 'Byakuya Kuchiki': [{ fact: 'was told Jovan serves Yamamoto as his personal attendant', atTurn: 299 }] } };
   const small = []; for (let i = 0; i < 10; i += 1) small.push({ id: 's' + i, span: [i * 6, i * 6 + 5], level: 1, text: '[Day ' + (i + 1) + '] Jovan trains with the Thirteenth.' });
-  const build = (essentials) => buildRequest({ story: {}, messages: pages(6), settings: { tellerName: 'Hulk', writerName: 'Bruce' }, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: small.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: small }, smallEssentials: essentials, smallPlansBook: { plans: [{ id: 'p', title: 'The duel with Zaraki', whose: 'Jovan', aim: 'prove himself', parts: [{ who: 'Jovan', does: 'meets Zaraki at noon' }], status: 'standing' }] } });
+  const build = () => buildRequest({ story: {}, messages: pages(6), settings: { tellerName: 'Hulk', writerName: 'Bruce' }, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: small.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: small }, smallPlansBook: { plans: [{ id: 'p', title: 'The duel with Zaraki', whose: 'Jovan', aim: 'prove himself', parts: [{ who: 'Jovan', does: 'meets Zaraki at noon' }], status: 'standing' }] } });
   {
-    const notes = notesOf(build(null));
+    const notes = notesOf(build());
     const at = (t) => notes.indexOf(t);
-    assert(at('Our story so far, in full — everything before the pages that follow') !== -1 && at('Our story so far, in full') < at('Plans standing') && at('Plans standing') < at('The ground: '), 'without essentials: the whole record after canon, then the plans, then the state of things now');
-    assert(!/In brief, from the beginning|What our story holds, in essentials/.test(notes), 'no essentials: no brief');
+    assert(at('Our story so far — everything that came before the pages that follow') !== -1 && at('Our story so far — ') < at('Plans standing') && at('Plans standing') < at('The ground: '), 'the whole record after canon, then the plans, then the state of things now');
+    assert(!/In brief, from the beginning|What our story holds, in essentials/.test(notes), 'no second telling beside it');
+    for (const n of small) eq(notes.split(n.text).length - 1, 1, 'each line once: ' + n.id);
   }
-  /* M510-58: with the essentials made the hybrid ALWAYS starts — his decision — even for a record this short; the full part
-   * is at most half the record, the older half in the brief */
-  {
-    const notes = notesOf(build({ text: '- [Day 1–10] (pages 1–60) Jovan trains.', upTo: 59 }));
-    const at = (t) => notes.indexOf(t);
-    assert(at('In brief, from the beginning') !== -1 && at('In full, just before the pages that follow') > at('In brief, from the beginning') && at('Plans standing') < at('The ground: '), 'with essentials, a short record: the hybrid, then the plans, then the state of things now');
-    const full = notes.slice(at('In full, just before the pages that follow'), at('Plans standing')).split('\n').filter((l) => /^- \(pages/.test(l));
-    assert(full.length >= 1 && full.length <= 5, 'at most half of the ten lines in full: ' + full.length);
-  }
-  /* "fits in full" is the record's own size, not the text handed over (cut to a small context's room): a long record cut
-   * short is the one the essentials stand in for */
+  /* M750: a long record whose text was handed over cut short still rides from its lines — every one that fits the room */
   const big = []; for (let i = 0; i < 60; i += 1) big.push({ id: 'b' + i, span: [i * 4, i * 4 + 3], level: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(40) });
-  const cut = buildRequest({ story: {}, messages: pages(6), settings: {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: big.slice(-3).map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: big }, smallEssentials: { text: '- [Day 1–60] (pages 1–240) Jovan trains.', upTo: 239 } });
-  assert(/In brief, from the beginning/.test(notesOf(cut)), 'a long record handed over cut short: the hybrid, with its brief');
+  const cut = buildRequest({ story: {}, messages: pages(6), settings: {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: big.slice(-3).map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: big } });
+  assert(big.every((n) => notesOf(cut).includes(n.text.trim())), 'a long record handed over cut short: every line rides from the record itself');
   const kn = renderKnowledge(st.knowledge, ['Rukia Kuchiki', 'Byakuya Kuchiki'], Infinity);
   assert(/Rukia Kuchiki believes: Jovan is only a recruit — untrue: Jovan is the new captain\./.test(kn) && !/knows: believes/.test(kn), 'a belief reads as a belief: ' + kn);
   const spots = renderBlindSpots(blindSpots(st.knowledge, ['Rukia Kuchiki', 'Byakuya Kuchiki', 'Jovan'], { turn: 300, mc: 'Jovan' }));
@@ -1223,45 +1111,21 @@ test('M510-55 WHAT THE STORYTELLER SAW, IN THE ORDER IT WAS SENT (his word: "the
   const st = { ...applyMutations({ ...emptyState(), page: 300 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Thirteenth Division yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state, page: 300 };
   const big = []; for (let i = 0; i < 60; i += 1) big.push({ id: 'b' + i, span: [i * 4, i * 4 + 3], level: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(40) + (i === 9 ? 'Rukia Kuchiki corrects his stance.' : '') });
   const mods = [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }, { mod: { id: 'fight-acoustics', name: 'How a fight sounds', text: 'Both lanes, every beat.' }, reason: 'a fight' }];
-  const r = buildRequest({ story: { brief: 'A Bleach story.' }, messages: pages(8), settings: { frameText: 'I am Hulk.', noteText: 'Keep it LOUD.', noteOn: true }, state: st, modules: mods, memory: big.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: big }, smallEssentials: { text: '- [Day 1–60] (pages 1–240) Jovan trains.', upTo: 239 }, smallPlansBook: { plans: [{ id: 'p', title: 'The duel', whose: 'Jovan', aim: 'win', parts: [{ who: 'Jovan', does: 'fights' }], status: 'standing' }] } });
+  const r = buildRequest({ story: { brief: 'A Bleach story.' }, messages: pages(8), settings: { frameText: 'I am Hulk.', noteText: 'Keep it LOUD.', noteOn: true }, state: st, modules: mods, memory: big.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: big }, smallPlansBook: { plans: [{ id: 'p', title: 'The duel', whose: 'Jovan', aim: 'win', parts: [{ who: 'Jovan', does: 'fights' }], status: 'standing' }] } });
   const rows = r.receipt.slots;
   const rode = rows.filter((s) => s.tokens > 0).map((s) => s.name);
-  const expect = ['The frame', 'The craft', 'The brief', 'Active modules', 'Story essentials', 'What remains', 'Plans standing', 'The state of things', 'The pages, word for word', 'The note at the end'];
+  const expect = ['The frame', 'The craft', 'The brief', 'Active modules', 'What remains', 'Plans standing', 'The state of things', 'The pages, word for word', 'The note at the end'];
   const got = rode.filter((n) => expect.includes(n));
   eq(got.join(' → '), expect.filter((n) => rode.includes(n)).join(' → '), 'the rows that rode, in the order they were sent');
   const wire = [...r.systemBlocks.map((b) => b.text), ...r.messages.map((m) => String(m.content))].join('\n');
-  assert(/sent as “Our story so far — In brief, from the beginning”/.test(rows.find((s) => s.name === 'Story essentials').source), 'the brief’s row names what it is sent under');
-  assert(/sent inside “Our story so far” as “In full, just before the pages that follow”/.test(rows.find((s) => s.name === 'What remains').source) && /In full, just before the pages that follow/.test(wire), 'and the record’s — words the raw request holds');
+  assert(!rows.some((s) => s.name === 'Story essentials'), 'M750: no essentials row');
+  assert(/sent as “Our story so far”/.test(rows.find((s) => s.name === 'What remains').source) && /Our story so far — everything that came before the pages that follow/.test(wire), 'the record’s row names what it is sent under — words the raw request holds');
   assert(rows.some((s) => s.name === 'The pages, word for word' && s.tokens > 0) && !rows.some((s) => s.name === 'The story so far'), 'the pages are named as what they are');
   const at = (n) => rows.findIndex((s) => s.name === n);
   assert(at('Who’s here, in the recent pages') > at('What remains') && at('Who’s here, in the recent pages') < at('On their mind'), 'a row that did not ride stands where it would have (with the story so far, before the people)');
 });
 
-test('M510-57 THE RECEIPT EXPLAINS EXACTLY (his word: "make sure the explanation is good"): before the essentials exist, their row says when they are made and what is sent meanwhile — in the raw request\'s own words; with the whole record sent, "Who\'s here, in the record" says every line about them is in it (not "or…"); the pages\' row points to "Our story so far"', async () => {
-  const st = { ...applyMutations({ ...emptyState(), page: 300 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state, page: 300 };
-  const big = []; for (let i = 0; i < 60; i += 1) big.push({ id: 'b' + i, span: [i * 4, i * 4 + 3], level: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(40) });
-  const r = buildRequest({ story: {}, messages: pages(20), settings: {}, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: big.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: big } });
-  const row = (n) => r.receipt.slots.find((s) => s.name === n);
-  assert(/when the story opens, and after each page/.test(row('Story essentials').reason) && /“Our story so far, in full”/.test(row('Story essentials').reason), 'the essentials’ row: when they are made, and what is sent meanwhile, in the raw’s words');
-  assert(/Our story so far, in full — everything before the pages that follow/.test(notesOf(r)), 'which is what the raw says');
-  eq(row('Earlier moments, in full').reason, 'your whole record is sent in full — every earlier moment is in it', 'no "or"');
-  assert(/are in Our story so far \(the What remains row\)/.test(row('The pages, word for word').source), 'the pages’ row points to what the raw calls it: ' + row('The pages, word for word').source);
-});
-
-test('M510-58 THE HYBRID ALWAYS STARTS (his word, angry and right: "the essentials are made but everything still uses the old system — story essentials not part of this turn"): with the essentials made, the hybrid rides at every record size — a short record included (M510-52 had put a threshold back); the full part is at most half the record and never past its room; only essentials far behind give way', async () => {
-  const st = { ...applyMutations({ ...emptyState(), page: 300 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Yard' }, { type: 'presence.enter', name: 'Jovan' }]).state, page: 300 };
-  const mods = [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }];
-  for (const [count, width] of [[8, 1], [40, 3], [60, 40]]) {
-    const nodes = []; for (let i = 0; i < count; i += 1) nodes.push({ id: 'h' + i, span: [i * 4, i * 4 + 3], level: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(width) });
-    const r = buildRequest({ story: {}, messages: pages(20), settings: {}, state: st, modules: mods, memory: nodes.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallEssentials: { text: '- [Day 1] (pages 1–' + (count * 4) + ') Jovan trains.', upTo: count * 4 - 1 } });
-    const notes = notesOf(r);
-    const ess = r.receipt.slots.find((s) => s.name === 'Story essentials');
-    assert(/In brief, from the beginning/.test(notes) && ess.tokens > 0, count + ' lines of ' + width + ': the essentials ride (' + ess.tokens + ' tokens)');
-    const full = notes.split('\n').filter((l) => /^- \(pages \d+–\d+\) Line \d+:/.test(l)).length;
-    assert(full <= Math.ceil(count / 2) && full >= 1, count + ' lines: at most half in full (' + full + ')');
-  }
-});
-
+/* M510-57 (a law of the Essentials and the hybrid) went with them in M750 — the record rides whole; see m750.mjs. */
 test('M510-59 THE FOLD SIZE DOES NOT MATTER (his question: "what if my fold is every 10, 20 or 30 pages?"): the older lines called back have a room of their own (~4,000 tokens) — whole lines of 30 pages each once made the memory balloon (28,000 tokens for a 600-page story, measured on m510-058); now any fold size stays about the same; the smart picks go first; at least one always rides', async () => {
   const { HYBRID_RECALL_CHARS } = await import('../../js/assemble/stack.js');
   const st = { ...applyMutations({ ...emptyState(), page: 600 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state, page: 600 };
@@ -1271,7 +1135,7 @@ test('M510-59 THE FOLD SIZE DOES NOT MATTER (his question: "what if my fold is e
   for (const batch of [6, 30]) {
     const count = Math.floor(600 / batch);
     const nodes = []; for (let i = 0; i < count; i += 1) nodes.push({ id: 'b' + i, span: [i * batch, i * batch + batch - 1], level: 1, text: 'Line ' + i + ': Rukia at the gate; the attendant and the drills. ' + 'the drills went on and the bells rang with it. '.repeat(Math.round(batch * 420 / 48)) });
-    const r = buildRequest({ story: {}, messages: msgs, settings: {}, state: st, modules: mods, memory: nodes.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, smallEssentials: { text: '- [Day 1–100] (pages 1–600) Jovan trains.', upTo: count * batch - 1 }, recallPicked: ['b1', 'b2', 'b3', 'b4'] });
+    const r = buildRequest({ story: {}, messages: msgs, settings: {}, state: st, modules: mods, memory: nodes.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, recallPicked: ['b1', 'b2', 'b3', 'b4'] });
     const notes = notesOf(r);
     const earlier = notes.slice(notes.indexOf('In full, earlier moments'), notes.indexOf('Plans standing') === -1 ? undefined : notes.indexOf('Plans standing'));
     assert(earlier.length > 0, 'fold every ' + batch + ': older moments still called back');
@@ -1286,11 +1150,11 @@ test('M510-60 (the deep audit, read as the storyteller) THE REFERENCE BEFORE THE
   const st = { ...applyMutations({ ...emptyState(), page: 300 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }]).state, page: 300 };
   const nodes = []; for (let i = 0; i < 60; i += 1) nodes.push({ id: 'n' + i, span: [i * 4, i * 4 + 3], level: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(30) + (i === 9 ? 'Rukia Kuchiki corrects his stance.' : '') });
   for (const notesRole of [undefined, 'user', 'assistant']) {
-    const r = buildRequest({ story: {}, messages: pages(8), settings: { tellerName: 'Hulk', writerName: 'Bruce', notesRole }, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: nodes.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, canonNote: 'CANON-MARK Rukia: violet eyes.', lore: 'LORE-MARK The Seireitei: a walled city.', smallEssentials: { text: '- [Day 1–60] (pages 1–240) Jovan trains.', upTo: 239 } });
+    const r = buildRequest({ story: {}, messages: pages(8), settings: { tellerName: 'Hulk', writerName: 'Bruce', notesRole }, state: st, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: nodes.map((n) => '- ' + n.text).join('\n'), window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes }, canonNote: 'CANON-MARK Rukia: violet eyes.', lore: 'LORE-MARK The Seireitei: a walled city.' });
     const notes = notesRole ? String(r.messages[0].content) : notesOf(r);
     const at = (t) => notes.indexOf(t);
     assert(at('CANON-MARK') !== -1 && at('CANON-MARK') < at('LORE-MARK') && at('LORE-MARK') < at('Our story so far'), (notesRole || 'system') + ': canon, then the lore, then our story so far');
-    assert(!/the pages you have|my move is about/.test(notes) && /the pages that follow/.test(notes) && /the newest move brings up/.test(notes), (notesRole || 'system') + ': the headings hold in this voice');
+    assert(!/the pages you have|my move is about/.test(notes) && /Our story so far — everything that came before the pages that follow/.test(notes), (notesRole || 'system') + ': the headings hold in this voice');
   }
 });
 

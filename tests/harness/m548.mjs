@@ -32,7 +32,7 @@ test('M548-1 THE HELPER\'S ANSWER IS READ STRICTLY: two to four whole choices, e
 });
 
 test('M548-2 THE HELPER IS ASKED WITHOUT KNOWING WHICH HE WILL PICK, AND EVERY ANSWER COMES BACK WHOLE: its question carries the story, the ledger, the people, the pages, the newest page and what his earlier choices set in motion — and nothing of any choice of his to come; a failing call is no answer', async () => {
-  const ask = choiceAsk({ brief: 'BRIEF-M', essentials: 'ESS-M', facts: 'FACTS-M', people: 'PEOPLE-M', pages: ['PAGE-A', 'The writer: MOVE-A'], newest: 'NEWEST-M', mc: 'Jovan', echoes: ['- ECHO-M'] });
+  const ask = choiceAsk({ brief: 'BRIEF-M', record: 'ESS-M', facts: 'FACTS-M', people: 'PEOPLE-M', pages: ['PAGE-A', 'The writer: MOVE-A'], newest: 'NEWEST-M', mc: 'Jovan', echoes: ['- ECHO-M'] });
   for (const mark of ['BRIEF-M', 'ESS-M', 'FACTS-M', 'PEOPLE-M', 'PAGE-A', 'MOVE-A', 'NEWEST-M', 'ECHO-M']) assert(ask.user.includes(mark), 'it reads ' + mark);
   assert(/decided now, before he chooses/.test(ask.system) && /never by what would please him/.test(ask.system), 'sealed before, by the people, not to please him');
   assert(/never decide whether a blow lands or a skill succeeds/.test(ask.system), 'an attempt is for the dice');

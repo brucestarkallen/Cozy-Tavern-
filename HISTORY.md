@@ -21138,3 +21138,20 @@ green, no repeat on unchanged reopen, one request on append and one on an edit,
 accepted snapshot/manual/source preservation, rewind safety and deliberate Stop.
 Syntax and diff checks passed. No live provider, owner database access, broad
 suite or deployment.
+
+## M750: Our story so far is the record itself; Essentials retired
+
+Version m750-001. The owner measured Essentials as long as the detailed record
+they shortened; the M510-48 hybrid sent them beside the newest half of the
+record and the people-here lines in full, so most entries were told twice. He
+chose the record alone. A frontier storyteller reads every record line once,
+oldest first, under plain words; overflow leaves the oldest out, says how many,
+and brings back the lines his move names in place. Original page excerpts for
+the lines his move names are kept. The small request keeps its focused shape.
+Smart recall runs only when lines are left out and is told what the page has.
+Helpers read the record; the world keeper got its own worker row with a boot
+migration; old Essentials rows are swept; Essentials code, panel, route, jobs
+and tests removed. Measured on one 60-entry record: story so far 14,591 tokens
+(47 entries twice) to 8,342 (none twice); request 48,017 to 39,516. Focused
+harness, DOM, browser and lint checks passed; four selection laws fail exactly
+as on M749. No live provider, owner data, full suite or long play.

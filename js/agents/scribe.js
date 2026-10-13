@@ -1,4 +1,4 @@
-import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sharedStoryContext, workerPeopleContext, workerProfileSources, retainPeopleFailures } from './ledgercontext.js';
+import { LEDGER_READER_RULES, SCENE_ENDING_TASK, workerPeopleContext, workerProfileSources, retainPeopleFailures } from './ledgercontext.js';
 import { db } from '../store.js';
 import { auditSources } from './auditsources.js';
 import { findCanonKey, findFact } from '../engine/canon.js';
@@ -221,7 +221,7 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
     ...(String(castNotes || '').trim() ? ['The writer\u2019s cast notes:', '"""', writerText(castNotes, CAST_ROOM, 'cast notes'), '"""', ''] : []),
     /* M386: "written from the REAL RECORD" — handed to it at last (canon verification on, and someone here is canon) */
     ...(String(canonRecord || '').trim() ? ['What the series itself says of its people in this story — their real record. Keep every page true to it (never a made-up family, role or past), but do not repeat it on the pages: the storyteller already reads it from the series itself on every page they are in, and their faces are kept in the ledger\u2019s truths. A page holds what THIS story has made of them — where they are, what they have done and learned here, how they stand — and names the record only where this story departs from it:', '"""', String(canonRecord).trim(), '"""', ''] : []),
-    ...(record ? ['The detailed story record and essentials:', record] : []),
+    ...(record ? ['The detailed story record:', record] : []),
     ...(() => { const w = windowOfPages(pages, contextBudget); return [...w.shown, ...(w.index.length ? ['Earlier pages available through lookup:', ...w.index] : [])]; })(),
     'Shared scene, relationships, knowledge and elsewhere state:',
     renderWholeLedger(state),
@@ -308,7 +308,6 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   const writerOriginals = documents.filter(d => /^(brief|cast):/.test(d.id) || d.label.endsWith(', writer')).map(d => d.text).join('\n');
   const budget = scribeBudget(connection);
   const peopleRoom = Math.max(12000, Math.floor(roomChars(connection, budget) * 0.2));
-  record += await sharedStoryContext(storyId);
   const bare = buildScribeMessages({ state: before, userText, assistantText, brief, castNotes, canonRecord, record, documents, peopleRoom });
   const prompt = buildScribeMessages({ state: before, userText, assistantText, brief, castNotes, canonRecord, record, pages,
     documents, peopleRoom, contextBudget: viewBudget(connection, budget, bare.system.length + bare.user.length) });

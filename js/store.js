@@ -905,6 +905,9 @@ async function sweepOrphans() {
   living.add('_house');
   const keys = await run('settings', 'readonly', (s) => s.getAllKeys());
   const doomed = (keys || []).filter((k) => {
+    /* M750: THE ESSENTIALS ARE RETIRED — their saved rows (a tale's essentials, and the unfinished work beside them, which
+     * held copies of the record and rode _house.json at every fold) are read by nothing now, and go with the orphans */
+    if (typeof k === 'string' && /^essentials(?:Pending)?:/.test(k)) return true;
     if (typeof k !== 'string' || !STORY_PREFIXED.test(k)) return false;
     const at = k.lastIndexOf(':'); /* M507: a tale's row wears its id as the SUFFIX (storyKeys, STORY_ROW) — a checkpoint row snap:<turn>:<tale> was read from the first colon and swept as an orphan at every boot */
     const id = k.slice(at + 1);
@@ -1245,7 +1248,7 @@ async function editStoryAtomically(storyId, change, {extraSettings=[]} = {}) {
     const tx = d.transaction(['settings','stories','messages'], 'readwrite');
     const settingsStore = tx.objectStore('settings');
     const snapshot = { story: null, messages: [], settings: {} };
-    const prefixes = [...new Set(['state','memory','lore','essentials','standingPlans','plans','director','editor','hk',...extraSettings])];
+    const prefixes = [...new Set(['state','memory','lore','standingPlans','plans','director','editor','hk',...extraSettings])]; /* M750: the essentials are retired — no edit reads or writes them */
     let waiting = prefixes.length + 2, failure;
     const receive = (request, save) => { request.onsuccess = () => {
       save(request.result);

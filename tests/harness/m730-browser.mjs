@@ -2,7 +2,6 @@ import {db,dropCaches} from '../../js/store.js';
 import {emptyState,loadState,saveState,withStoryWrites} from '../../js/engine/state.js';
 import {applyMutations,undoEntry} from '../../js/engine/apply.js';
 import {sourcePersonKey,missingSourceIdentityFacts} from '../../js/agents/auditsources.js';
-import {recordOf} from '../../js/agents/essentials.js';
 import * as hk from '../../js/agents/housekeeper.js';
 const assert = (v,m) => {if(!v) throw new Error(m);};
 const eq = (a,b,m) => assert(JSON.stringify(a)===JSON.stringify(b),m + ': ' + JSON.stringify(a));
@@ -26,7 +25,6 @@ export async function run() {
   await db.messages.append(id,{id:'m730writer',role:'user',text:'I greet aakeno.',extra:'Keep'});
   await db.settings.set('memory:'+id,{nodes:[{id:'n',span:[0,0],text:'Aakeno arrived.',detail:'Aakeno’s book.',original:'Aakeno',verified:{quote:'Aakeno'}}]});
   await db.settings.set('lore:'+id,[{id:'l',name:'Aakeno',keys:['Aakeno'],secondaryKeys:['Aakeno’s book'],content:'Aakeno reads. Akane waits.',source:'Aakeno'}]);
-  await db.settings.set('essentials:'+id,{text:'Aakeno arrived.',print:recordOf((await db.settings.get('memory:'+id)).nodes).print});
   await db.settings.set('standingPlans:'+id,{plans:[{title:'Aakeno’s book',by:'Aakeno',goal:'Find it',parts:[{who:'Aakeno',does:'Read',when:'Now'}],words:['Aakeno promised.']}]});
   const before=await db.editStoryAtomically(id,s=>structuredClone(s));
   let calls=0;
@@ -40,7 +38,6 @@ export async function run() {
   eq(saved.relationships.Akeno.p,60,'earned standing');eq(saved.relationships.Akeno.history,state.relationships.Aakeno.history,'historical evidence');eq(saved.auditSources,state.auditSources,'source provenance');
   eq(sourcePersonKey({...saved,journal:[]},'Aakeno'),'Akeno','source mapping survives journal rollover');
   eq(missingSourceIdentityFacts(saved,{name:'Aakeno',identityFacts:[{text:'Aakeno is a scholar.',shown:'Aakeno is a scholar.'}]}),[],'original identity fact still satisfied');
-  eq((await db.settings.get('essentials:'+id)).text,'Akeno arrived.','essentials');
   eq((await db.settings.get('standingPlans:'+id)).plans[0].by,'Akeno','standing plans');
   eq(saved.present[0].name,'Akeno','presence');eq(saved.worldBrief.voices[0].speaker,'Akeno','world voice');eq(saved.duel.opp.name,'Akeno','live duel identity');eq(saved.duel.opp.poise,9,'combat score');eq(saved.bodies.Akeno.injuries[0].what,'Akeno’s wrist','injury');eq(saved.knowledge.Akeno[0].fact,'Akeno knows the gate.','knowledge');
   let pages=await db.messages.list(id);eq(pages[0].text,"Akeno’s book. Akane waits.\nUntouched.",'hidden narration');eq(pages[0].swipes[0].text,'Akeno waits.','alternate version');eq(pages[0].receipt,{original:'Aakeno'},'page receipt');eq(pages[0].voices[0].speaker,'Akeno','saved message voice');eq(pages[1].text,'I greet Akeno.','writer');

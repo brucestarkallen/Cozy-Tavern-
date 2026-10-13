@@ -1,4 +1,4 @@
-import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sceneEndingFields, sharedStoryContext, workerPeopleContext } from './ledgercontext.js';
+import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sceneEndingFields, workerPeopleContext } from './ledgercontext.js';
 /* Cozy Tavern — agents/extractor.js
  * The extractor: a quiet background worker that reads each finished page —
  * what the writer wrote and what the storyteller answered — and proposes
@@ -1219,7 +1219,7 @@ async function extractTurnRead({ connection, state, userText, assistantText, bef
   const young = typeof founding === 'boolean' ? founding : isYoungLedger(state);
   /* M259: THE RECORD RIDES. chat.js has handed it over since M226; this line
    * dropped it on arrival, so the extractor never once saw it. */
-  record = (record || '') + await sharedStoryContext(storyId);
+  record = record || '';
   const budget = readerBudget(connection); /* M679 */
   const knowledgeRoom = knowledgeRoomFor(roomChars(connection, budget)); /* M664 */
   const bare = buildExtractorMessages({ state, userText, assistantText, before: [], founding: young, brief, castNotes, record, pageNumber, knowledgeRoom });

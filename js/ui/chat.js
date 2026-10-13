@@ -60,7 +60,7 @@ import { db, shelvesOf } from '../store.js';
 import { createProvider } from '../providers/index.js';
 import { contextOf } from '../providers/room.js'; /* M285: one answer for the model's room */
 import { learnContext, learnContextWithin } from '../providers/detect.js'; /* M289: the provider's own word on its room */
-import { buildRequest, pageText, windowPlan, heatedNow, HYBRID_RECENT_CHARS, smallRecordWhole, addedNotes, HOUSE_COT_ID } from '../assemble/stack.js'; /* M510-50: the newest lines' room; M547: what a small storyteller reads whole */
+import { buildRequest, pageText, windowPlan, heatedNow, recordLine, addedNotes, HOUSE_COT_ID } from '../assemble/stack.js'; /* M750: a record line as it rides, for what the smart recall is told the page has */
 import { beginWork, waitVisibly, bannerKnowsTales } from './workbanner.js'; /* M203: what the house is doing; M510-42: whose */
 import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
@@ -95,8 +95,7 @@ import { mcName, isMcAlias, findActorKeySamePerson } from '../engine/duels.js'; 
 import { mineLeak, mineWord, mineCutAt, soundCount } from '../assemble/plain.js'; /* M510: the cut where a page began playing him; the sounds a page carried */
 import { plannerAsk, runPlanner, loadPlan, planEntry, loadPlans, keepSound, keepTexture, planKey, hashText, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper; M519: the texture kept */
 import { lawsOf } from '../assemble/laws.js'; /* M510 */
-import { runEssentials, loadEssentials, essentialsRecoveryState, essentialsRunNote, ESSENTIALS_KEY, PENDING_KEY } from '../agents/essentials.js'; /* M510-15: the story's essentials */
-import { pickRecall } from '../agents/recallpick.js'; /* M510-50: smart recall */
+import { pickRecall, knownTail, PICK_KNOWN_CHARS } from '../agents/recallpick.js'; /* M510-50: smart recall; M750: what the page has, held to the picker's room */
 import { throughLens, overlayFor } from '../agents/canonlens.js'; /* M549: the wiki's lines, seen through his story */
 import { wikiMaterial, worldClaims, worldWithout, claimsPrint, checkClaims } from '../agents/canoncheck.js'; /* M551: one check for what a helper wrote from memory */
 import { GROUND_RULES } from '../agents/worldground.js'; /* M549 */
@@ -107,10 +106,10 @@ import { voiceSampleOf, pageTexture, tooLoud as tooLoudNow } from '../assemble/s
 import { CANON_START_KEY, placeInCanon, canonStartWords, checkCanonStart, applyStartCheck, startCheckPrint } from '../agents/canonstart.js'; /* M516: where our story began in its canon; M550: checked against the wiki */
 import { GROUND_KEY, runGround, groundWords, canonWithoutWorld } from '../agents/worldground.js'; /* M517: the automatic brief — the world, written once */
 import { canonBlocks, lastingLines } from '../assemble/canonpages.js'; /* M518: canon on their own page */
-const SIDE_JOBS = new Set(['keeper', 'sensors', 'essentials', 'placer', 'startcheck', 'ground', 'worldcheck', 'plans']); /* M529: the helpers that may run beside the ledger's readers */
+const SIDE_JOBS = new Set(['keeper', 'sensors', 'placer', 'startcheck', 'ground', 'worldcheck', 'plans']); /* M529: the helpers that may run beside the ledger's readers */
 /* M675 (the second reading) — ARE THE LEDGER'S READERS OUT? The ledger's healing on open and the finishing of a chain cut
  * short ask this before they touch the ledger. They asked "is anything queued or running for this tale?" — and the
- * opening of a tale itself sends helpers out (planAhead: the essentials, where the tale began, its world, a small
+ * opening of a tale itself sends helpers out (planAhead: where the tale began, its world, a small
  * model's planner). So both worked only when they happened to ask before those were queued: a race the walk won until
  * M675 put the settling of out-of-character pages in front of them — and then neither ever ran on open (found by the
  * walk: DOM-105, 109, 128, 133). The helpers named here write their own books and never the ledger; anyone else out
@@ -2392,9 +2391,9 @@ export function initChat(ctx) {
       const recentText = told.slice(-3).map((m) => pageText(m));
       const facts = planFacts(state, { ...planStateView(big), scenePages: recentText });
       const people = (planPeople(state, { recentPages: recentText, rotation: told.length, view: planPeopleView(big), brief: String(story.brief || '') + '\n' + String(story.castNotes || '') }) || {}).text || '';
-      const essentials = ((await loadEssentials(sid)) || {}).text || '';
+      const record = wholeRecord(await loadMemory(sid), Math.floor(roomChars(connection) * 0.35)); /* M750: the record itself — the Essentials are retired */
       const before = lastPagesOf(told.slice(0, -1), CHOICE_PAGES).map((m) => (m.role === 'user' ? 'The writer: ' : '') + pageText(m));
-      const ask = choiceAsk({ brief: story.brief || '', essentials, facts, people, pages: before, newest: pageText(last), mc: mcName(state), echoes: echoLines(told) });
+      const ask = choiceAsk({ brief: story.brief || '', record, facts, people, pages: before, newest: pageText(last), mc: mcName(state), echoes: echoLines(told) });
       const w = workerSignal(); /* every helper's own ceiling: a call that hangs is let go, never waited on */
       let read = null;
       try { read = await makeChoices({ connection, ask, signal: w.signal }); } finally { w.done(); }
@@ -2558,18 +2557,28 @@ export function initChat(ctx) {
   }
 
   /* M547: THE SMART RECALL'S QUESTION (M510-50), asked for any storyteller — never throws; [] when it is off, when the
-   * essentials are not made or are made over more pages than the record now covers (M527: pages taken back), when the
-   * record is empty, or when the worker is slow, failing or unsure. Kept out of its index: the lines the request will
-   * carry word for word anyway — the newest of the record for a frontier storyteller (M510-50); for a small one, the
-   * lines since the essentials and the newest with the people here (assemble/stack.js smallRecordWhole). */
-  async function smartRecallFor({ story, history, userText, state, selection, nodes, essentials, signal }) {
+   * record is empty, when the request already carries every line of the record (M750: a frontier storyteller reads it
+   * whole — then no helper is asked and the page never waits on one), or when the worker is slow, failing or unsure.
+   * Kept out of its index: every line the request carries word for word, read off the request's own selection. What it is
+   * told the page already has: the helper's story in short (a small storyteller) and those very lines — M750: it was the
+   * Essentials, retired. */
+  async function smartRecallFor({ story, history, userText, state, selection, nodes, storyShort = '', signal }) {
     try {
       if ((await db.settings.get('smartRecall')) === false) return {ids:[],why:'disabled',calls:0};
-      if (!essentials?.text || !selection?.essentials || !nodes?.length) return {ids:[],why:'no validated essentials or eligible record',calls:0};
+      if (!nodes?.length || !Array.isArray(selection?.records)) return {ids:[],why:'no eligible record',calls:0};
       const picked = new Set(selection.records.filter(r => r.selected).map(r => r.id));
+      const offered = nodes.filter(n => selection.records.some(r => r.id === recordId(n) && r.available !== false));
+      if (!offered.some(n => !n.correction && !n.empty && !picked.has(recordId(n)))) return {ids:[],why:'the request carries every line of the record',calls:0};
+      const carried = offered.filter(n => picked.has(recordId(n)) && !n.empty && typeof n.text === 'string' && n.text.trim())
+        .sort((a, b) => (Boolean(a.correction) - Boolean(b.correction)) || (a.span[0] - b.span[0]));
+      /* the lines it carries, the newest kept when they are many (the index of the older lines needs the room) — under
+       * their own heading, which is never the part cut */
+      const short = String(storyShort || '').trim();
+      const lines = knownTail(carried.map(n => '- ' + recordLine(n)).join('\n'), PICK_KNOWN_CHARS - 2000 - short.length);
+      const known = [short ? 'The story in short:\n' + short : '', lines ? 'The record lines it carries word for word:\n' + lines : ''].filter(Boolean).join('\n\n');
       const pickConn = await resolveWorkerConnection(story, 'recall');
       const lastA = [...history].reverse().find(m => m && m.role === 'assistant' && !m.hidden);
-      const out = await pickRecall({ connection:pickConn, essentials:essentials.text, nodes:nodes.filter(n => selection.records.some(r => r.id === recordId(n) && r.available !== false)), move:userText, lastPage:lastA ? pageText(lastA) : '', mc:mcName(state), skip:n => picked.has(recordId(n)), signal });
+      const out = await pickRecall({ connection:pickConn, known, nodes:offered, move:userText, lastPage:lastA ? pageText(lastA) : '', mc:mcName(state), skip:n => picked.has(recordId(n)), signal });
       return out;
     } catch (err) { return {ids:[],why:'helper unavailable, local recall retained'}; }
   }
@@ -2847,47 +2856,6 @@ export function initChat(ctx) {
     });
   }
   const healthWorkerActive=new Set(),healthWorkerLook=new Map();
-  const essentialsLook=new Map();
-  async function essentialsHealth(story,mem,shelf) {
-    const storyId=story.id;
-    const state=await loadState(storyId);
-    const view=essentialsRecoveryState({kept:await db.settings.get(ESSENTIALS_KEY(storyId)),pending:await db.settings.get(PENDING_KEY(storyId)),
-      nodes:mem.nodes,pages:visiblePages(await db.messages.list(storyId)),story,state,brief:story.brief || '',mc:mcName(state),connection:await resolveWorkerConnection(story,'essentials')});
-    if (!view.needed) return view;
-    const row=shelf.essentials;
-    const stopped=row?.ok===false && [row.why,row.detail].includes('stopped by hand');
-    if (view.blocked || stopped) {
-      const look=essentialsLook.get(storyId);if (look) clearTimeout(look.timer);essentialsLook.delete(storyId);
-      return {...view,eligible:false,why:stopped?'Plot essentials was stopped by hand.':view.why};
-    }
-    // A queue timeout has no answer to inspect. Give it a cooldown too.
-    const retryAt=Math.max(view.retryAt || 0,row?.ok===false ? row.at+60000 : 0);
-    const wait=Math.max(0,retryAt-Date.now());
-    const wakeAt=Date.now()+Math.min(60000,wait || 60000)+50;
-    const look=essentialsLook.get(storyId);
-    if (!look || look.at>wakeAt) {
-      if (look) clearTimeout(look.timer);
-      essentialsLook.set(storyId,{at:wakeAt,timer:setTimeout(()=>{
-      essentialsLook.delete(storyId);
-      if (ctx.getActiveStoryId()===storyId) markLedgerTrouble(storyId);
-      },Math.max(0,wakeAt-Date.now()))});
-    }
-    return {...view,retryAt,eligible:wait===0};
-  }
-  async function recoverEssentials(storyId) {
-    if (healthWorkerActive.has(storyId) || busy || isReplaying() || otherHandAt(storyId) || workIsRunning(storyId) || queuedCount(storyId) || ctx.getActiveStoryId()!==storyId) return;
-    healthWorkerActive.add(storyId);
-    try {
-      const story=await db.stories.get(storyId);
-      if (!story) return;
-      const view=await essentialsHealth(story,await loadMemory(storyId),await loadWorkerStatus(storyId));
-      if (!view.needed || !view.eligible || busy || isReplaying() || otherHandAt(storyId) || workIsRunning(storyId) || queuedCount(storyId) || ctx.getActiveStoryId()!==storyId) return;
-      const promise=enqueueWork(storyId,{name:'essentials',once:true,run:({signal,stale,renew})=>essentialsNext(story,{signal,stale,renew})});
-      noteWork(storyId,promise);
-      await promise;
-    } catch (err) { /* The saved pending state and next health look survive a failed local read. */ }
-    finally {healthWorkerActive.delete(storyId);markLedgerTrouble(storyId);}
-  }
   const healthWorkerKey=(story,pages,name)=>fingerprint36(JSON.stringify([1,name,story?.brief,story?.castNotes,pages.map(p=>[p.id,pageText(p)])]));
   async function workerHealthInputs(storyId,story,pages,shelf) {
     const failed=['keeper','extractor','scribe','world','continuity'].filter(name=>shelf[name] && (shelf[name].ok===false || shelf[name].unfinished));
@@ -2997,7 +2965,7 @@ export function initChat(ctx) {
         /* M673: only where it can read — its switch on, and this story's readers not switched off */
         if (await continuousAuditOn()) { if (tale && tale.extraction !== false) auditRead = auditProgress(mem, pages.length, pages, tale); }
         const recovery=await workerHealthInputs(storyId,tale,pages,shelf);
-        healthInputs={storyId,story:tale,shelf,state:st,pages,mem,auditRead,workerRecovery:recovery,essentials:await essentialsHealth(tale,mem,shelf),
+        healthInputs={storyId,story:tale,shelf,state:st,pages,mem,auditRead,workerRecovery:recovery,
           historicalWait:auditRead && (auditRead.left || auditRead.open)?auditWaits(storyId,mem,pages,tale):-1};
       } catch (err) { behind = true; }   /* if it cannot be checked, it is not green */
 
@@ -3088,7 +3056,6 @@ export function initChat(ctx) {
           btn.setAttribute('title','The ledger: '+health.reasons.join('; '));
         }
         routeHealth(health,{record:()=>fillRecordGap(storyId),ledger:()=>fillLedgerGap(storyId),
-          essentials:()=>recoverEssentials(storyId),
           auditor:()=>scheduleLedgerRepair(storyId),historical:()=>continuousCatchUp(storyId),
           ...Object.fromEntries(['extractor','world','scribe','keeper','continuity'].map(name=>['worker:'+name,()=>recoverHealthWorker(storyId,name)]))});
       }
@@ -4040,20 +4007,7 @@ export function initChat(ctx) {
     if (!plan) return { detail: 'its answer could not be used', raw }; /* the next page goes whole, as before a plan existed */
     return { detail: 'read the story and planned the next page' + (plan.intense ? ' — a heated one' : '') };
   }
-  /* M510-15: THE ESSENTIALS KEEPER — the whole record streamlined, rebuilt when the record changed; M510-48: for every
-   * storyteller (his word: the hybrid always on) */
-  async function essentialsNext(story, { signal, stale = () => false, force = false, renew = () => {} } = {}) {
-    const row=(await loadWorkerStatus(story.id)).essentials;
-    if (!force && row?.ok===false && [row.why,row.detail].includes('stopped by hand')) return {silent:true};
-    const connection = await resolveWorkerConnection(story, 'essentials');
-    const mem = await loadMemory(story.id);
-    if (!connection) return mem?.nodes?.some(n=>!n.empty && n.text?.trim()) ? { unfinished:true,detail:'Plot essentials needs a connection before its update can finish.' } : {silent:true};
-    const fresh = (await db.stories.get(story.id)) || story;
-    if (stale()) return { silent: true };
-    const out = await runEssentials({ connection, storyId: story.id, nodes: mem && mem.nodes, brief: fresh.brief || '', mc: mcName(await loadState(story.id)), signal, force, stale, renew });
-    if (stale()) return { silent: true };
-    return essentialsRunNote(out);
-  }
+  /* M750: the essentials keeper (M510-15) is retired — the storyteller and every helper read the record itself */
   /* M517: THE WORLD KEEPER — for a story whose brief is Automatic: built once from everything the story has, then looked at
    * again only when the record has grown (GROUND_EVERY more pages folded), the story's position in canon moved, or its canon start
    * changed — and then only the parts of the world that changed are rewritten. His own correction stands unless he asks
@@ -4061,7 +4015,7 @@ export function initChat(ctx) {
   async function groundNext(story, { signal, stale = () => false, force = false } = {}) {
     const fresh = (await db.stories.get(story.id)) || story;
     if (fresh.briefMode !== 'automatic') return { silent: true };
-    const connection = await resolveWorkerConnection(fresh, 'essentials');
+    const connection = await resolveWorkerConnection(fresh, 'ground'); /* M750: its own hands — it rode the essentials keeper's */
     if (!connection) return { silent: true };
     const key = GROUND_KEY(story.id);
     const have = (await db.settings.get(key)) || null;
@@ -4076,14 +4030,15 @@ export function initChat(ctx) {
     let arc = null;
     try { if (await canonOn(story.id)) { const meta = await canonMeta(story.id); const a = meta && meta.canon_grounding_arc; if (a && typeof a === 'object' && a.summary) arc = { title: String(a.title || ''), summary: String(a.summary || '') }; } } catch (err) { arc = null; }
     const wiki = await wikiLinesFor(story.id); /* M549: who holds which seat, from the wiki — never the keeper's memory */
-    const ess = await loadEssentials(story.id);
     const covered = nodes.reduce((mx, n) => Math.max(mx, n.span[1] + 1), 0); /* pages folded into the record — they only grow */ /* M575: no spread */
     const since = have && Number.isFinite(have.recordLines) ? nodes.filter((n) => n.span[1] >= have.recordLines) : nodes.slice(-12);
     const fp = (t) => fingerprint36(String(t || '')); /* M575: one fingerprint */
     const input = {
       concept, brief: String(fresh.brief || ''), canonStart: startWords, arc,
       ledger: { place: state && state.place, factions: state && state.factions, worldBrief: state ? briefAsTold(state.worldBrief, state, state.turn, state.page) : null }, /* M681 (W1, W2): the world's word as it is told — never one aged out, nor an arrival of someone already here */
-      essentials: ess && typeof ess.text === 'string' ? ess.text : '',
+      /* M750: the record before the newest stretch below, each line once, as much as its helper holds (the oldest let go
+       * first, and said) — it was the Essentials cut to their first 6,000 characters */
+      record: wholeRecord({ nodes: nodes.slice(0, Math.max(0, nodes.length - Math.min(12, since.length))) }, Math.floor(roomChars(connection) * 0.35)),
       recent: have && have.pendingBranch
         ? [...since.slice(-12).map(n => n.text), ...pages.filter(m => m && !m.hidden && (m.role === 'user' || m.role === 'assistant')).slice(-12).map(m => pageText(m))]
         : since.slice(-12).map((n) => n.text),
@@ -4224,15 +4179,6 @@ export function initChat(ctx) {
     try { await promise; } catch (err) { /* the book says what stands */ }
     return { ok: true };
   }
-  /* final audit: "Make the essentials again" — the essentials keeper asked now, from the whole record, whatever it kept */
-  async function remakeEssentials() {
-    const story = await activeStory();
-    if (!story) return { ok: false };
-    const promise = enqueueWork(story.id, { name: 'essentials', once: true, run: async ({ signal, stale, renew }) => essentialsNext(story, { signal, stale, renew, force: true }) });
-    noteWork(story.id, promise);
-    try { await promise; } catch (err) { /* the book says what stands */ }
-    return { ok: true };
-  }
   /* M510-22: THE PLANS KEEPER — a plan laid out on the page, written down whole; M510-48: for every storyteller */
   async function plansNext(story, { signal, stale = () => false } = {}) {
     const connection = await resolveWorkerConnection(story, 'plans');
@@ -4254,19 +4200,13 @@ export function initChat(ctx) {
     (async () => {
       const story = await activeStory();
       if (!story) return;
-      /* M510-56: THE KEEPERS RUN FOR EVERY STORYTELLER. His ongoing story, told by a frontier model, never got its
-       * essentials: M510-48 opened the essentials and plans keepers to every storyteller — but they were queued only from
-       * here, after the small model's gate, so for a frontier storyteller they were never asked, the essentials never
-       * made, and the hybrid never began. The essentials keeper is asked here for every storyteller (it asks a model only when
-       * the record changed or none were made); the planning helper and the plans keeper's reading on open stay the small
-       * model's — the plans keeper reads every page after it is written, for everyone. */
+      /* M510-56: the planning helper and the plans keeper's reading on open stay the small model's — the plans keeper reads
+       * every page after it is written, for everyone. (M750: the essentials keeper once asked here too; it is retired.) */
       const small = isSmallModel(await resolveConnection(story));
       if (small) {
         const promise = enqueueWork(story.id, { name: 'planner', run: async ({ signal, stale }) => planNext(story, { signal, stale }) });
         noteWork(story.id, promise);
       }
-      const kept = enqueueWork(story.id, { name: 'essentials', once: true, run: async ({ signal, stale, renew }) => essentialsNext(story, { signal, stale, renew }) }); /* M510-15 */
-      noteWork(story.id, kept);
       offerChoices(story); /* M548: a page that has none yet, with the switch on */
       /* M550: on open, only what is due to be REPAIRED — opening a tale to look at it otherwise asks no one: where it began,
        * checked against the wiki (asks only while unchecked); and an automatic brief written under the old rules (when a seat
@@ -4828,7 +4768,7 @@ export function initChat(ctx) {
     const enqueue = (name, run, { once = false } = {}) => {
       if (healthOnly && (name!==healthOnly || healthSelected.has(name))) return Promise.resolve({silent:true});
       if (healthOnly) {healthSelected.add(name);once=true;}
-      /* M529: the record keeper, the sensors, the essentials, the placer, the world keeper and the plans keeper read the pages
+      /* M529: the record keeper, the sensors, the placer, the world keeper and the plans keeper read the pages
        * and the record and write only their own books — with two workers at once they run in their own lane */
       const lane = SIDE_JOBS.has(name) ? 'side' : 'main';
       const promise = enqueueWork(story.id, { name, lane, layoutRebased, ...(once ? { once: true } : {}), run: chainJob(run, () => (chainGen.get(story.id) || 0) !== gen) }); /* M259: the leash's renew rides through */
@@ -5563,11 +5503,7 @@ export function initChat(ctx) {
       if (stale()) return { silent: true };
       return planNext(story, { signal, stale });
     });
-    /* 9. M510-15: THE ESSENTIALS KEEPER — after the keeper folded, the whole record streamlined again. Small model only. */
-    enqueue('essentials', async ({ signal, stale, renew }) => {
-      if (stale()) return { silent: true };
-      return essentialsNext(story, { signal, stale, renew });
-    }, { once: true }); // Essentials owns its durable recovery; the queue must not repeat a whole run.
+    /* 9. (M750: the essentials keeper's link is gone — retired) */
     /* 9b. M527: WHERE A TALE UNDER WAY BEGAN — placed once after a page (its #story line, else its brief and first page),
      * asked again when that line changed; its answer rides from the next page. Never before the storyteller's request. */
     enqueue('placer', async ({ signal, stale }) => {
@@ -5579,7 +5515,7 @@ export function initChat(ctx) {
       if (stale()) return { silent: true };
       return checkStartNext(story, { signal, stale });
     });
-    /* 9c. M517: THE WORLD KEEPER — after the essentials, for a story whose brief is Automatic: the world, only if it moved */
+    /* 9c. M517: THE WORLD KEEPER — for a story whose brief is Automatic: the world, only if it moved */
     enqueue('ground', async ({ signal, stale }) => {
       if (stale()) return { silent: true };
       return groundNext(story, { signal, stale });
@@ -6646,7 +6582,7 @@ export function initChat(ctx) {
       }
       /* M510: THE SMALL REQUEST'S PLAN — the one the helper made after the page this turn follows (Try again finds the
        * plan for the page before the one it replaces); none yet → the whole request goes, as before */
-      let smallPlan = null; let smallIntense = false; let lastSound = null; let smallEssentials = null; let smallPlansBook = null; let voiceSample = null; /* M512 */
+      let smallPlan = null; let smallIntense = false; let lastSound = null; let smallPlansBook = null; let voiceSample = null; /* M512 */
       let loudNow = false; /* M519: the last pages drowned in sounds and dashes */
       let quietNow = false; /* M519-5: the last page, with people in it, let almost no one speak */
       const canonStartNow = canonStartWords(await db.settings.get(CANON_START_KEY(story.id))); /* M516: where our story began in its canon */
@@ -6694,24 +6630,16 @@ export function initChat(ctx) {
           voiceSample = voiceSampleOf(told.map((m) => ({ text: pageText(m), big: bigHand(m) })), { skipNewest: SMALL_PAGES });
         } catch (err) { voiceSample = null; }
       }
-      /* M510-48: the essentials and the plans ride for every storyteller (the hybrid, always on) */
-      smallEssentials = await loadEssentials(story.id);
-      /* M527: essentials made over more pages than the record now covers (pages taken back) may tell what those pages did —
-       * not sent; the record's own lines stand in, and the essentials keeper makes them again after this page */
-      if (smallEssentials && Number.isFinite(smallEssentials.upTo)) {
-        const nodesNow = ((await loadMemory(story.id)) || {}).nodes || [];
-        const coveredNow = nodesNow.filter((n) => n && !n.empty && Array.isArray(n.span)).reduce((mx, n) => Math.max(mx, n.span[1] + 1), 0);
-        if (smallEssentials.upTo >= coveredNow) smallEssentials = null;
-      }
+      /* M510-48: the plans ride for every storyteller (M750: the essentials beside them are retired — the record rides) */
       smallPlansBook = await loadPlansBook(story.id);
       /* M527: a plan born on a page since taken back is not standing — it is not sent (the plans keeper mends its book) */
       if (smallPlansBook && Array.isArray(smallPlansBook.plans)) {
         const standingNow = visiblePages(history).length;
         smallPlansBook = { ...smallPlansBook, plans: smallPlansBook.plans.filter((p) => !(Number.isFinite(p.from) && p.from >= standingNow)).map((p) => (Number.isFinite(p.closedAt) && p.closedAt >= standingNow ? { ...p, status: 'standing', outcome: undefined, closedAt: undefined } : p)) };
       }
-      /* M510-50: SMART RECALL — with the essentials made and the switch on, a worker names the older record lines his move
-       * means (they ride word for word); never more than 8 seconds; slower or unsure, none. M547: asked beside the referee
-       * (smartRecallFor, above) for every storyteller; its answer is taken here. */
+      /* M510-50: SMART RECALL — with the switch on and older record lines this request does not carry, a worker names the ones
+       * his move means (they ride word for word); never more than 8 seconds; slower or unsure, none. M547: asked for every
+       * storyteller (smartRecallFor, above); M750: with the whole record riding, nothing is left to name and no one is asked. */
       let recallPicked = [];
       /* M576: ONE SET OF ARGUMENTS for the two builds — the probe (to size the record) and the request itself had the same
        * thirty arguments written out twice, differing only in the record; one added to the one and not the other would have
@@ -6727,7 +6655,7 @@ export function initChat(ctx) {
         canonOn: Boolean(canonPending), canonWhy: canonPending && !canonNote ? canonWhy({ since: canonAskedAt }) : '', /* M486; M534: this turn's reason, or none */
         choicesOn: choicesNow, choiceTaken: choiceNow, choiceEchoes: choicesNow ? echoesText(choiceNow ? history.filter((m) => !(m && lastUser && m.id === lastUser.id)) : history) : '', /* M548 */
         transportMeasure: req => measureTransport(budgetConnection,req),
-        smallPlan, smallIntense, lastSound, smallEssentials, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, quietPage: quietNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
+        smallPlan, smallIntense, lastSound, smallPlansBook, recallPicked, voiceSample, refereeWhy, canonStart: groundNow ? '' : canonStartNow, worldGround: groundNow, canonOnPages, tooLoud: loudNow, quietPage: quietNow, /* M510; M510-15; M510-22; M510-50; M512; M513; M516; M517; M518; M519 */
         sensorNote, sensorOwn, sensorRole, /* M356; M636 */
         pageFilter: (text, role) => sentPage(applyRules(text, currentRules(), { on: role, mode: 'wire' }), role),
       };
@@ -6753,7 +6681,10 @@ export function initChat(ctx) {
       }
       const plannedRequest = buildRequest({ ...requestArgs, memory:memoryText, measureOnly:true });
       const eligibleNodes = (mem?.nodes || []).filter(n => n.correction || n.span?.[1] < windowInfo.recordThrough);
-      const recallDiagnostic = await smartRecallFor({ story, history, userText, state, selection:plannedRequest.selection, nodes:eligibleNodes, essentials:smallEssentials, signal:mine.signal });
+      /* M750: the story in short as the request itself carries it — a small request only (a plan whose craft lost the laws a
+       * small page stands on goes as a frontier request, without it) */
+      const shortRow = (plannedRequest.receipt?.slots || []).find((s) => s && s.name === 'The story in short' && s.tokens > 0);
+      const recallDiagnostic = await smartRecallFor({ story, history, userText, state, selection:plannedRequest.selection, nodes:eligibleNodes, storyShort: shortRow ? shortRow.text : '', signal:mine.signal });
       recallPicked = recallDiagnostic?.ids || [];
       requestArgs.recallPicked = recallPicked;
       let { systemBlocks, messages, receipt: receiptDraft } = buildRequest({ ...requestArgs, memory: memoryText }); /* M576: the same arguments, with the record */
@@ -9546,7 +9477,6 @@ export function initChat(ctx) {
     restoreRecordNow,
     restorePeopleNow,
     unmend,
-    remakeEssentials, /* final audit */
     remakeGround, /* M517 */
     renderPromptChips,
     refreshStories,

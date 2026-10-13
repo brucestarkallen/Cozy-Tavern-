@@ -4,7 +4,7 @@
  * folds and the essentials… and it works without canon too." One home per fact:
  *   the WORLD (the setting, where in canon the story stands, how power works, the factions, the places that matter,
  *     what stands in the world now) — here, in the brief's seat, the same on every page;
- *   the STORY (what happened, who is what to whom) — the record and the essentials, never retold here;
+ *   the STORY (what happened, who is what to whom) — the record, never retold here (M750: the Essentials are retired);
  *   each PERSON — their own page in the ledger, never listed here.
  * Rewritten only where the world itself changed: checked after a page when the record has grown, only the parts that
  * changed are asked for and replaced (never a whole rewrite from its own last version), and the whole is held to its room.
@@ -62,7 +62,7 @@ const PART_WORDS = [
   'standing — what stands in the world now because of what happened: wars, treaties, seals, the fallen and the risen.',
 ].join('\n');
 
-function material({ concept = '', brief = '', canonStart = '', arc = null, ledger = {}, essentials = '', recent = [], wiki = [], foundWrong = [] } = {}) {
+function material({ concept = '', brief = '', canonStart = '', arc = null, ledger = {}, record = '', recent = [], wiki = [], foundWrong = [] } = {}) {
   const out = [];
   if (String(concept).trim()) out.push('HOW HE BEGAN THE STORY (his #story line):', String(concept).trim(), '');
   if (String(brief).trim()) out.push('HIS OWN BRIEF (already in front of the storyteller — do not repeat it):', String(brief).trim(), '');
@@ -81,7 +81,9 @@ function material({ concept = '', brief = '', canonStart = '', arc = null, ledge
   if (l.factions && typeof l.factions === 'object' && Object.keys(l.factions).length) facts.push('Factions in the ledger: ' + clip(JSON.stringify(l.factions), 1200));
   if (l.worldBrief) facts.push('The world beyond the scene: ' + clip(typeof l.worldBrief === 'string' ? l.worldBrief : JSON.stringify(l.worldBrief), 1200));
   if (facts.length) out.push('THE LEDGER (the story\u2019s own record of its world):', ...facts, '');
-  if (String(essentials).trim()) out.push('THE STORY SO FAR, IN BRIEF (for what it LEFT standing in the world — never to retell):', clip(essentials, 6000), '');
+  /* M750: the record itself, oldest first, up to the newest stretch below (each line once) — sized by the caller to the
+   * helper's room; it was the Essentials cut to their first 6,000 characters (the opening of the story only) */
+  if (String(record).trim()) out.push('OUR STORY SO FAR, THE RECORD (oldest first — for what it LEFT standing in the world; never to retell):', String(record).trim(), '');
   const lines = (Array.isArray(recent) ? recent : []).map((t) => clip(t, 500)).filter(Boolean);
   if (lines.length) out.push('WHAT HAPPENED MOST RECENTLY:', ...lines.map((t) => '- ' + t), '');
   return out.join('\n');

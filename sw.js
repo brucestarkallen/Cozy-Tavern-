@@ -110,7 +110,6 @@ const SHELL = [
   'js/assemble/plainvoice.js',
   'js/agents/sensors.js',
   'js/agents/planner.js', /* M510 */
-  'js/agents/essentials.js', /* M510-15 */
   'js/agents/recallpick.js', /* M510-50 */
   'js/agents/choices.js', /* M548: Choices matter */
   'js/agents/canoncheck.js', /* M551: one check for what a helper wrote from memory */

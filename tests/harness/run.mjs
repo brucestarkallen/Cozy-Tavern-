@@ -225,7 +225,6 @@ import './m561.mjs'; /* M561: the whole brief, the whole story in brief, the rec
 import './m562.mjs'; /* M562: one game master's procedure; the better fighter counted once; the ruling quick */
 import './m563.mjs'; /* M563: every helper's request, as the model receives it */
 import './m564.mjs'; /* M564: the founder is handed the real record */
-import './m565.mjs'; /* M565: the essentials of a long tale, in parts */
 import './m566.mjs'; /* M566: the brief held to the shared room in every helper */
 import './m568.mjs'; /* M568: a world part of the wrong kind is left out */
 import './m570.mjs'; /* M570: the ledger's pages shared between checkpoints */
@@ -266,6 +265,7 @@ import './m680.mjs'; /* M680: the whole ledger, room by room — the spot with i
 import './m681.mjs'; /* M681: the clock — the days between two headers, the story's own weekday, a #time skip with a bare hour, his hand on the clock; and every open finding of M680's audit */
 import { runAll } from './lib.mjs';
 import './m682.mjs';
+import './m750.mjs'; /* M750: our story so far, the record itself — each line once; the Essentials retired */
 
 console.log('Cozy Tavern — harness');
 await import('./m683.mjs');

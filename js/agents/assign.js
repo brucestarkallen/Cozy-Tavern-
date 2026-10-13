@@ -19,13 +19,23 @@ export const WORKER_ROWS = [
   ['sensors', 'The sensors — read each finished page against your craft’s rules, handed what the storyteller was handed (a model with room is the pick; a decisions model such as Jev or Clef also answers)'], /* M636 */
   ['planner', 'The planning helper — for a small model: reads the whole story after each page and writes down what the next page needs'],
   ['plans', 'The plans keeper — writes a plan down the moment a page lays it out — who does what, on what signal — and keeps it whole until it is carried out'],
-  ['recall', 'The smart recall — before each page, reads your move against the story’s timeline and names the older record lines it means (they ride word for word)'],
+  ['recall', 'The smart recall — when the storyteller does not read the whole record (a small model, or a record longer than its context), reads your move before the page and names the older record lines it means (they ride word for word)'],
   ['opener', 'The opener — for a structured prefill with [[pg]]: writes the first few words of the page, and the storyteller has to carry on from them (an uncensored model is the usual pick)'], /* M581 */
   ['choices', 'The choices keeper — Choices matter: at a turning point, writes the two to four choices and seals what each leads to, before you see them'], /* M549 */
-  ['essentials', 'The essentials keeper — streamlines your whole record (Summaryception) into the story’s essentials whenever it grows'],
+  ['ground', 'The world keeper — for a brief set to Automatic: writes the world of your story from canon, the ledger and the record, and rewrites only the parts that changed'], /* M750: it rode the retired essentials keeper's hands */
   ['showrunner', 'The showrunners — the director and the editor'],
   ['housekeeper', 'The housekeeper — the one you talk to, who tidies everything'],
 ];
+
+/* M750: THE ESSENTIALS KEEPER IS RETIRED; its hands were also the world keeper's (chat.js groundNext asked for
+ * 'essentials'). A pick he made for it moves to the world keeper's own row — never lost, never doubled. Pure: the map out. */
+export function movedWorkerPicks(map) {
+  const m = map && typeof map === 'object' && !Array.isArray(map) ? { ...map } : {};
+  if (!Object.prototype.hasOwnProperty.call(m, 'essentials')) return { map: m, changed: false };
+  if (m.essentials && !m.ground) m.ground = m.essentials;
+  delete m.essentials;
+  return { map: m, changed: true };
+}
 
 /* map: settings.workerConnections ({worker: connectionId}); legacy: the M3
  * general workers' pick; connections: all saved connections.

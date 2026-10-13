@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
 import { db } from '../../js/store.js';
 import { buildRequest, planRecordSelection, recordLine } from '../../js/assemble/stack.js';
-import { recordOf, sourcePrint, essentialsMatch, runEssentials, inspectEssentials, loadEssentials } from '../../js/agents/essentials.js';
 import { recallIndex, pickRecall } from '../../js/agents/recallpick.js';
 import { renderMemory } from '../../js/agents/memory.js';
 import { emptyState } from '../../js/engine/state.js';
@@ -26,8 +25,6 @@ const state = {...emptyState(),page:100,sheet:{playerName:'Neri',actors:{}},plac
 },knowledge:{Mara:[{fact:'The key is hidden in the chapel',atTurn:10}],Ivo:[{fact:'saw Mara enter the chapel',atTurn:10}],Sera:[{fact:'believes the key is in the vault',atTurn:11}],Late:[]}};
 const nodes = Array.from({length:12},(_,i)=>({id:'r'+i,span:[i*4,i*4+3],text:'[Dawn, the chapel] '+('Quiet scene '+i+'. ').repeat(22)+'End of scene '+i+'.',detail:i===1?'Mara promised help only after her brother was released. EXACT_WORDS: "Tap twice and wait for me."':'An ordinary lasting detail '+i+'.'}));
 nodes[1].text += ' The copper key opens the chapel chest BEYOND_OPENING_SIGNAL.';
-const summaryNodes=nodes.slice(0,10);
-const essentials={text:'[Dawn, chapel] (pages 1 to 40) Neri met Mara. Mara and Neri earned trust by rescuing her brother. The key was hidden; the promise remains conditional.',print:recordOf(summaryNodes).print,sourcePrint:sourcePrint(summaryNodes),upTo:39,complete:true};
 const history=Array.from({length:53},(_,i)=>({id:'m'+i,role:i%2?'assistant':'user',text:'Original event '+i+'. A quiet road continues.',ts:i}));
 history[5].text='Mara took the copper key to the chapel chest. She touched Neri’s wrist and tapped twice. "Tap twice and wait for me," she said.\n\nNeri waited because her brother was still imprisoned.';
 history.at(-2).text='Mara pauses at the chapel chest. Absent has sent a letter.';
@@ -36,7 +33,7 @@ const plan={id:'old',title:'Open the chapel chest',goal:'Recover the copper key'
 const plans={plans:[plan,...Array.from({length:6},(_,i)=>({id:'new'+i,title:'Unrelated errand '+i,status:'standing',from:20+i,parts:[{who:'Absent',does:'Buy supplies '+i,done:false}]}))]};
 const conn={type:'openai',baseUrl:'https://fixture.example/v1',model:'fixture',preset:'custom',contextSize:200000,maxTokens:8000,reasoning:{effort:'off'}};
 const settings={frameText:'CUSTOM_FRAME_KEEP',frameOn:true,noteText:'LONG_CLOSING_KEEP '.repeat(300),noteOn:true,refereeOn:false,notesRole:'assistant',ownWords:[{name:'Own exact words',role:'house',place:'after-your-message',text:'CUSTOM_OWN_WORDS_KEEP'}]};
-const base={story:{id:'fixture',brief:'WRITER_PREMISE_KEEP. Reference canon yields to this story’s accepted divergence.',castNotes:'AUTHOR_CAST_KEEP'},state,messages:history,settings,modules:[],memory:renderMemory({nodes},Infinity),smallEssentials:essentials,smallPlansBook:plans,recallPicked:['r1'],window:{keeperOn:true,window:5,recordThrough:48,nodes,budgetTokens:200000,answerTokens:8000},transportMeasure:req=>measureTransport(conn,req)};
+const base={story:{id:'fixture',brief:'WRITER_PREMISE_KEEP. Reference canon yields to this story’s accepted divergence.',castNotes:'AUTHOR_CAST_KEEP'},state,messages:history,settings,modules:[],memory:renderMemory({nodes},Infinity),smallPlansBook:plans,recallPicked:['r1'],window:{keeperOn:true,window:5,recordThrough:48,nodes,budgetTokens:200000,answerTokens:8000},transportMeasure:req=>measureTransport(conn,req)};
 const textOf=r=>r.systemBlocks.map(b=>b.text).join('\n')+'\n'+r.messages.map(m=>m.content).join('\n');
 const originals=structuredClone({state,nodes,history,settings,plans});
 const revised=buildRequest(base);const text=textOf(revised);
@@ -49,11 +46,11 @@ assert(revised.selection.excerpts.some(p=>p.sourceId==='m5'));
 assert.equal(text.includes('hasn’t found out'),false,'no categorical legacy ignorance');
 assert(text.includes('believes the key is in the vault'));
 assert.deepEqual({state,nodes,history,settings,plans},originals,'rendering preserves all original and manual records');
-const planned=planRecordSelection({nodes,essentials,state,through:48});
-assert(!planned.protectedIds.has('r1'),'old 32000 character exclusion would skip every short entry; actual half-record selection does not');
+const planned=planRecordSelection({nodes,state,through:48,cap:2000}); /* M750: a request that cannot carry every line */
+assert(!planned.protectedIds.has('r1'),'a line the request cannot carry is offered to the recall');
 const index=recallIndex(nodes,{move:history.at(-1).text,lastPage:history.at(-2).text,skip:n=>planned.protectedIds.has(n.id)});
 assert(index.some(r=>r.id==='r1'&&r.head.includes('copper key')&&r.head.includes('EXACT_WORDS')));
-const selected=await pickRecall({connection:conn,nodes,essentials:essentials.text,move:history.at(-1).text,lastPage:history.at(-2).text,skip:n=>planned.protectedIds.has(n.id),callLLM:async(_c,ask)=>({text:JSON.stringify({lines:[index.find(r=>r.id==='r1').n,99999]})})});
+const selected=await pickRecall({connection:conn,nodes,known:'',move:history.at(-1).text,lastPage:history.at(-2).text,skip:n=>planned.protectedIds.has(n.id),callLLM:async(_c,ask)=>({text:JSON.stringify({lines:[index.find(r=>r.id==='r1').n,99999]})})});
 assert.deepEqual(selected.ids,['r1']);
 assert.equal((await pickRecall({connection:conn,nodes,callLLM:async()=>({text:'malformed'})})).why,'no usable selection');
 const timeout=await pickRecall({connection:conn,nodes,timeoutMs:500,callLLM:async()=>new Promise(()=>{})});assert.equal(timeout.why,'took too long');
@@ -62,30 +59,7 @@ const collision=[{id:'one',span:[0,0],text:'Same rendered description.',detail:'
 const collisionPlan=planRecordSelection({nodes:collision,cap:100,state});assert.equal(collisionPlan.recent.nodes.length,1);assert.equal(collisionPlan.recent.nodes[0].id,'two');
 assert.equal(collisionPlan.recent.text.includes('DETAIL_ONE'),false);
 
-// Previous complete replacement is retained on both length failure and a failed tightening.
-const sid='ess';const prior={text:'[Dawn, old chapel] A usable earlier account. '.repeat(3),print:recordOf([nodes[0]]).print,sourcePrint:sourcePrint([nodes[0]]),upTo:3,complete:true};
-await db.settings.set('essentials:'+sid,prior);await db.settings.set('memory:'+sid,{nodes});
-let calls=0;
-const failed=await runEssentials({connection:conn,storyId:sid,nodes,callLLM:async()=>{calls++;return {text:'[Dawn, chapel] '+ 'Overflow detail. '.repeat(1500),finishReason:'length'};}});
-assert.equal(calls,3);assert.equal(failed.wrote,false);assert.equal(failed.pending,true);assert.deepEqual(await db.settings.get('essentials:'+sid),prior);assert.equal((await loadEssentials(sid)).upTo,3);
-assert.equal(inspectEssentials('[Dawn, chapel] '+ 'Text '.repeat(50)+'because').complete,false);
-const notRepeated=await runEssentials({connection:conn,storyId:sid,nodes,callLLM:async()=>{throw Error('unchanged failed source must not spend again');}});assert.equal(notRepeated.usage.calls,0);assert(notRepeated.pending);
-const forced=await runEssentials({connection:conn,storyId:sid,nodes,force:true,callLLM:async()=>({text:'[Dawn, chapel] The writer correction now stands. Mara kept the conditional promise because her brother was released.',finishReason:'stop'})});assert(forced.wrote);assert.equal(forced.usage.calls,1,'manual regeneration must perform a new source reading');
-const ownedStory=await db.stories.create({title:'Ownership'});await db.settings.set('memory:'+ownedStory.id,{nodes:[nodes[0]]});
-const briefChanged=await runEssentials({connection:conn,storyId:ownedStory.id,nodes:[nodes[0]],callLLM:async()=>{await db.stories.update(ownedStory.id,{brief:'NEW_MANUAL_PREMISE'});return {text:'[Dawn, chapel] A complete source account that must not overwrite the writer’s changed premise during this reading.',finishReason:'stop'};}});assert(!briefChanged.wrote);assert.equal(await db.settings.get('essentials:'+ownedStory.id),undefined);
-const huge=await runEssentials({connection:{...conn,contextSize:12000},storyId:'huge',nodes:[{id:'huge',span:[0,0],text:'x'.repeat(100000)}],callLLM:async()=>{throw Error('must not ask');}});assert(huge.why.includes('individual source'));
-const divided=Array.from({length:12},(_,i)=>({id:'d'+i,span:[i,i],text:'[Dawn, chapel] '+('Original event '+i+'. ').repeat(700)}));
-const combined=await runEssentials({connection:{...conn,contextSize:20000,maxTokens:5000},storyId:'divided',nodes:divided,callLLM:async(_c,ask)=>({text:'[Dawn, chapel] Complete source part: Neri kept the promise because Mara kept her brother safe. '+ 'A lasting consequence. '.repeat(15),finishReason:'stop'})});
-assert(combined.wrote);const keptDivided=await db.settings.get('essentials:divided');assert(keptDivided.text.length<=16000);assert.equal(keptDivided.parts.reduce((s,p)=>s+p.share,0)+keptDivided.parts.length-1<=16000,true);
-const unchanged=await runEssentials({connection:conn,storyId:'divided',nodes:divided,callLLM:async()=>{throw Error('unchanged source must reuse');}});assert.equal(unchanged.why,'unchanged');
-await db.settings.set('memory:late',{nodes:[nodes[0]]});
-const manual={text:'MANUAL_CORRECTION_KEEP',upTo:3,print:'manual'};
-const late=await runEssentials({connection:conn,storyId:'late',nodes:[nodes[0]],callLLM:async()=>{await db.settings.set('essentials:late',manual);return {text:'[Dawn, chapel] Complete source part: Mara kept her promise because Neri returned her brother safely to the chapel.',finishReason:'stop'};}});assert(!late.wrote);assert.deepEqual(await db.settings.get('essentials:late'),manual);
-await db.settings.set('memory:rewind',{nodes:[nodes[0]]});
-const rewind=await runEssentials({connection:conn,storyId:'rewind',nodes:[nodes[0]],callLLM:async()=>{await db.settings.set('memory:rewind',{nodes:[]});return {text:'[Dawn, chapel] Complete source part: Mara kept her promise because Neri returned her brother safely to the chapel.',finishReason:'stop'};}});assert(!rewind.wrote);
-assert(!essentialsMatch(essentials,[{...summaryNodes[0],detail:'Changed selected source'},...summaryNodes.slice(1)]));
-assert(!essentialsMatch(essentials,summaryNodes,20));
-assert(!essentialsMatch(essentials,[...summaryNodes,{id:'correction',span:[-1,-1],correction:true,text:'The writer withdraws the old promise.'}]));
+// M750: the Essentials (their replacement, length, ownership and source-match laws) are retired.
 
 // Perspectives expected independently: private Mara, observation Ivo, mistaken Sera, late arrival has no evidence.
 const kp={Mara:[{fact:'The key is hidden in the chapel',atTurn:10},{fact:'heard a rumor that the wine is poisoned',atTurn:11}],Ivo:[{fact:'saw Mara enter the chapel',atTurn:10}],Sera:[{fact:'believes the key is in the vault, untrue: the key is hidden in the chapel',atTurn:10}],Late:[]};
@@ -129,7 +103,7 @@ const claude={...conn,type:'anthropic',model:'claude-fixture',maxTokens:1000,rea
 const ac=measureTransport(claude,revised);assert.equal(ac.answerTokens,buildAnthropicRequest(claude,revised).max_tokens);assert(ac.answerTokens>1000);
 const constrainedMessages=Array.from({length:14},(_,i)=>({id:'long'+i,role:i%2?'assistant':'user',text:'UNFOLDED_'+i+' '+('Original long dialogue. ').repeat(600)}));constrainedMessages.push({id:'lastA',role:'assistant',text:'LATEST_EXCHANGE_KEEP'},{id:'lastU',role:'user',text:'CURRENT_MOVE_KEEP'});
 const constrainedConn={...conn,contextSize:22000,maxTokens:6000};
-const constrained=buildRequest({...base,settings:{...settings,notesRole:'user'},messages:constrainedMessages,memory:'',smallEssentials:null,window:{keeperOn:true,window:30,nodes:[],budgetTokens:22000,answerTokens:6000},transportMeasure:req=>measureTransport(constrainedConn,req)});
+const constrained=buildRequest({...base,settings:{...settings,notesRole:'user'},messages:constrainedMessages,memory:'',window:{keeperOn:true,window:30,nodes:[],budgetTokens:22000,answerTokens:6000},transportMeasure:req=>measureTransport(constrainedConn,req)});
 assert(textOf(constrained).includes('LATEST_EXCHANGE_KEEP'));assert(textOf(constrained).includes('CURRENT_MOVE_KEEP'));assert(constrained.selection.gaps.length>0);assert(constrained.receipt.context.inputTokens<=constrained.receipt.context.inputRoom);
 for(const m of constrained.selection.messages) assert.equal(m.selected,constrained.messages.some(x=>x.id===m.id));
 assert.throws(()=>buildRequest({...base,settings:{...settings,frameText:'MANUAL '.repeat(20000)},window:{...base.window,budgetTokens:12000}}),/standing instructions exceed/);
@@ -141,7 +115,7 @@ const smallFallback=buildRequest({...base,settings:{...settings,smallModelNow:tr
 const keeperOff=buildRequest({...base,window:{...base.window,keeperOn:false}});assert(textOf(keeperOff).includes('CURRENT_MOVE_KEEP')||textOf(keeperOff).includes(history.at(-1).text));
 const swipeHistory=structuredClone(history);swipeHistory[5]={...swipeHistory[5],swipes:[{text:'OLD_SWIPE_PRIVATE'},{text:'Mara spoke of the copper key at the chapel chest. NEW_SWIPE_PRIVATE.'}],swipeIdx:1};
 const swiped=buildRequest({...base,messages:swipeHistory,pageFilter:t=>t.replace('NEW_SWIPE_PRIVATE','AUTHORIZED_WIRE_VIEW')});assert(!textOf(swiped).includes('OLD_SWIPE_PRIVATE'));assert(!textOf(swiped).includes('NEW_SWIPE_PRIVATE'));assert(textOf(swiped).includes('AUTHORIZED_WIRE_VIEW'));assert(swiped.selection.revision!==revised.selection.revision);
-const branch=buildRequest({...base,messages:history.slice(0,9),window:{...base.window,nodes:[],recordThrough:0},memory:'',smallEssentials:essentials,smallPlansBook:{plans:[]},state:emptyState()});assert(!textOf(branch).includes('BEYOND_OPENING_SIGNAL'));assert(!branch.selection.essentials);
+const branch=buildRequest({...base,messages:history.slice(0,9),window:{...base.window,nodes:[],recordThrough:0},memory:'',smallPlansBook:{plans:[]},state:emptyState()});assert(!textOf(branch).includes('BEYOND_OPENING_SIGNAL'));assert(!branch.selection.essentials);
 assert.equal(revised.systemBlocks[1].text,buildRequest({...base,messages:[...history.slice(0,-1),{...history.at(-1),text:'Another move.'}]}).systemBlocks[1].text);
 assert.equal(revised.systemBlocks[0].text,buildRequest({...base,messages:[...history.slice(0,-1),{...history.at(-1),text:'Another move.'}]}).systemBlocks[0].text);
 const image=buildOpenAIRequest(conn,{systemBlocks:[],messages:[{role:'user',content:'A photo.',image:{dataUrl:'data:image/png;base64,'+'A'.repeat(100000)}}]});assert(bodyAccounting(image).imagesUncertain);assert(bodyAccounting(image).inputTokens<10000);
@@ -154,4 +128,4 @@ try {
  await keepSent({id:'receipt',storyId:'fixture',slots:revised.receipt.slots,requests:[o.sent],selection:revised.selection});const kept=await loadSent('receipt');assert.deepEqual(kept.selection,revised.selection);assert.deepEqual(kept.requests[0].body,o.sent.body);
 } finally {globalThis.fetch=originalFetch;}
 assert.deepEqual({state,nodes,history,settings,plans},originals);
-console.log(JSON.stringify({result:'pass',metrics,summaryFailure:{calls:failed.usage.calls,inputChars:failed.usage.inputChars,outputChars:failed.usage.outputChars},divided:{parts:combined.parts,calls:combined.usage.calls,chars:keptDivided.text.length},transportCalls:sent.length,liveProviderCalls:0,selectedRecords:revised.selection.records.filter(r=>r.selected).map(r=>r.id),selectedPlans:revised.selection.plans.filter(p=>p.selected).map(p=>p.id),gaps:constrained.selection.gaps}));
+console.log(JSON.stringify({result:'pass',metrics,excerpts:revised.selection.excerpts.map(p=>p.sourceId),transportCalls:sent.length,liveProviderCalls:0,selectedRecords:revised.selection.records.filter(r=>r.selected).map(r=>r.id),selectedPlans:revised.selection.plans.filter(p=>p.selected).map(p=>p.id),gaps:constrained.selection.gaps}));

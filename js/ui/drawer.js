@@ -55,7 +55,6 @@ import { historicalRunStatus, loadWorkerStatus, WORKER_NAMES, runningWorkers, on
 import { renderArrival, renderVoicesBlock, briefAsTold, briefAge, BRIEF_STALE_TURNS, factionMoveWords } from '../engine/world.js'; /* M29: the world beyond the page; M97: the voices; M681: what of the world's word is told, a faction's move with its age */
 import { applyRules, currentRules } from '../regex.js'; /* M97: the voices in the 🎨 dress */
 import { renderHtmlProse, looksHtml } from './richhtml.js';
-import { loadEssentialsView } from '../agents/essentials.js'; /* Saved history and request eligibility have different uses. */
 import { loadPlansBook } from '../agents/plans.js'; /* M510-22: the plans, kept whole */
 import { flowOf, choicesOn } from '../agents/choices.js'; /* M548: the paths he took */
 import { loadMemory, saveMemory, orderedLines, visiblePages, windowFor } from '../agents/memory.js'; /* M101: the record, read and mended by hand */
@@ -2593,74 +2592,7 @@ function recordPanel(ctx) {
   return wrap;
 }
 
-/* M510-21: THE STORY ESSENTIALS, WHERE HE CAN READ THEM — his word: "why not put them in the ledger, so I can see them".
- * What every storyteller reads on every page in place of the whole record (M510-48); or, when there are none, why. */
-function essentialsPanel(ctx) {
-  const wrap = document.createElement('div');
-  wrap.className = 'record-panel essentials-panel';
-  const note = quietNote('');
-  const list = document.createElement('ul');
-  list.className = 'present-list record-list essentials-list';
-  wrap.append(note, list);
-  /* final audit: when they read wrong — or before the first page has made them — he has them made now, from the whole
-   * record: the one button, in the book itself */
-  let redraw = () => {}; /* the book's own render, once it stands (below) */
-  const addAgain = () => {
-      if (wrap.querySelector('.essentials-again')) return;
-      const again = document.createElement('button');
-      again.type = 'button';
-      again.className = 'text-btn essentials-again';
-      again.textContent = 'Make the essentials again';
-      again.addEventListener('click', async () => {
-        if (!(ctx.chat && typeof ctx.chat.remakeEssentials === 'function')) return;
-        again.disabled = true;
-        note.textContent = 'Making a concise version of each record section…';
-        try { await ctx.chat.remakeEssentials(); } finally { again.disabled = false; redraw(); }
-      });
-      wrap.insertBefore(again, list);
-  };
-  const render = latestWins(async () => {
-    const story = await currentStory(ctx);
-    list.textContent = '';
-    if (!story) { note.textContent = 'Open a story and its essentials will be here.'; return; }
-    const view = await loadEssentialsView(story.id);
-    const kept = view.snapshot;
-    const mem = await loadMemory(story.id);
-    if (!kept && !view.progress?.length) {
-      note.textContent = !orderedLines(mem).some((n) => !n.correction)
-        ? 'Not made yet — the record is still empty: the memory keeper folds pages once they are older than its window (' + windowFor(mem, await db.settings.get('memoryWindow')) + ' pages), and the essentials are made from the record.'
-        : 'No accepted essentials are saved yet. The replacement is made automatically from the current record; your storyteller uses that record while it is prepared.';
-      if (orderedLines(mem).some((n) => !n.correction)) addAgain();
-      return;
-    }
-    const row=(await loadWorkerStatus(story.id)).essentials;
-    const stopped=row?.ok===false && [row.why,row.detail].includes('stopped by hand');
-    const current = view.current && !view.pending;
-    note.textContent = !kept ? view.progress.length+' of '+view.pending.plan.length+' concise record sections saved. '
-      +(stopped ? 'Stopped by hand.' : view.pending.outcome==='blocked' ? 'Waiting: '+view.pending.why : 'The remaining sections continue automatically.')
-      +' The storyteller uses the current detailed record until the complete collection is ready.'
-      : current ? 'The current story essentials, made from the record through page '+(kept.upTo+1)+'.'
-      : 'Previous accepted version, through page '+(kept.upTo+1)+'. '+(view.eligible
-        ? 'Unchanged earlier essentials can still be used with the newer record entries. '
-        : 'Kept here as history. The storyteller uses the current record while its replacement is prepared. ')
-        +(stopped ? 'The replacement was stopped by hand.' : view.pending?.outcome==='blocked'
-          ? 'The replacement is paused: '+view.pending.why : 'The replacement continues automatically when the workers are idle.');
-    addAgain();
-    const text=kept?.text || view.progress.map(p=>p.text).join('\n');
-    for (const line of text.split('\n').map((l) => l.trim()).filter(Boolean)) {
-      const li = document.createElement('li');
-      li.className = 'present-row mind-row record-row essentials-row';
-      const body = document.createElement('div');
-      body.className = 'quiet';
-      body.textContent = line.replace(/^- /, '');
-      li.appendChild(body);
-      list.appendChild(li);
-    }
-  });
-  redraw = render;
-  render();
-  return wrap;
-}
+/* M750: the Story essentials panel is gone with the Essentials — the record panel above is what the storyteller reads. */
 
 /* M510-22: THE PLANS, WHERE HE CAN READ THEM — each plan laid out on the page, part by part, until it is carried out;
  * the ones that ended, with what came of them. */
@@ -2768,7 +2700,7 @@ const ROOM_OF = {
   'the-clock': 'scene', 'the-ruling': 'scene', 'how-they-measure': 'scene', 'whos-here': 'scene', 'the-mood': 'scene',
   'the-people': 'people', 'whats-true': 'people', 'what-canon-says': 'people', 'holding-up': 'people', 'on-their-mind': 'people',
   'elsewhere': 'world', 'the-world-beyond': 'world', 'voices': 'world',
-  'the-record': 'books', 'the-essentials': 'books', 'the-plans': 'books', 'the-choices': 'books', 'what-changed': 'books', 'something-drifted': 'books', 'the-workers': 'books',
+  'the-record': 'books', 'the-plans': 'books', 'the-choices': 'books', 'what-changed': 'books', 'something-drifted': 'books', 'the-workers': 'books',
 };
 function roomOfPanel(id) { return ROOM_OF[id] || 'books'; }
 let drawerRoomNow = 'scene';
@@ -2862,11 +2794,6 @@ const PANELS = [
     id: 'the-record',
     title: 'Our story so far — the record',
     render: (ctx) => recordPanel(ctx),
-  },
-  {
-    id: 'the-essentials',
-    title: 'Story essentials — the record, told shorter',
-    render: (ctx) => essentialsPanel(ctx),
   },
   {
     id: 'the-plans',

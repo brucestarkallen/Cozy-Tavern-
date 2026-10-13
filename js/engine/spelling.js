@@ -1,7 +1,6 @@
 /* Only active editable surfaces. Evidence, journals and receipts stay literal. */
-import { recordOf } from '../agents/essentials.js';
 import { renameInState } from '../agents/ripple.js';
-export const spellingSettings = ['memory','lore','essentials','standingPlans','plans','director','editor'];
+export const spellingSettings = ['memory','lore','standingPlans','plans','director','editor']; /* M750: the essentials are retired */
 export function activeSpelling(text,state) {
   for (const [from,to] of Object.entries(state?.spellingCorrections || {})) text = spellingReplace(text,from,to);
   return text;
@@ -68,8 +67,6 @@ export function spellingContent(snapshot, from, to) {
     }
   }
   for (const n of next.settings.memory?.nodes || []) fields(n, ['text','detail'], r);
-  fields(next.settings.essentials,['text'],r);
-  if (snapshot.settings.essentials?.print === recordOf(snapshot.settings.memory?.nodes || []).print) next.settings.essentials.print = recordOf(next.settings.memory?.nodes || []).print;
   fields(next.settings.director,['text'],r);
   fields(next.settings.editor?.critique,['northStar'],r);
   if (Array.isArray(next.settings.editor?.critique?.notes)) next.settings.editor.critique.notes = next.settings.editor.critique.notes.map(r);

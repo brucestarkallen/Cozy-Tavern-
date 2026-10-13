@@ -1,4 +1,4 @@
-import { LEDGER_READER_RULES, sharedStoryContext } from './ledgercontext.js';
+import { LEDGER_READER_RULES } from './ledgercontext.js';
 /* Cozy Tavern — agents/world.js
  * M29: the world agent — the sandbox.
  *
@@ -672,7 +672,7 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   /* M259: THE RECORD RIDES. chat.js has handed it over since M249; this line
    * dropped it on arrival. */
   /* M304: the people list has a room of its own — a fifth of the connection's, the same in both builds, so the pages' window is measured against the list it will really ride beside */
-  record = (record || '') + await sharedStoryContext(storyId);
+  record = record || '';
   const peopleRoom = Math.max(12000, Math.floor(roomChars(connection, MAX_TOKENS) * 0.2));
   const knowledgeRoom = knowledgeRoomFor(roomChars(connection, MAX_TOKENS)); /* M664 */
   const bare = buildWorldMessages({ state, userText, assistantText, before: [], brief, castNotes, castNames, voicesBefore, jumpedMinutes, record, pageNumber, peopleRoom, canonRecord, knowledgeRoom });

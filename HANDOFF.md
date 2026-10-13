@@ -1,3 +1,42 @@
+# M750: Our story so far is the record itself; Essentials retired
+
+Version m750-001. Base f3c4b5a (M749).
+The owner measured M749 Essentials at the same length as the detailed record,
+and the hybrid sent them beside the newest half of the record and the
+people-here lines in full, so most entries reached the storyteller twice. His
+decision: send "Our story so far" (the Summaryception record) and retire
+Essentials. Squeeze is unchanged (his Settings choice; Summaryception at
+infinity).
+
+Frontier storyteller: the whole record, each line once, oldest first, detail
+beneath it, under one plain heading. If the context cannot hold every line, the
+oldest go, the heading says how many, and lines his move names (word match plus
+smart recall picks) ride in their own place. Original passages his move names
+still ride word for word ("From page N, word for word"), found among the
+carried lines, so M737 excerpts survive. Small storyteller keeps its focused
+request (story in short, newest lines, people here, recalled lines, plans);
+corrections now sit at the foot of the newest lines. System labels are gone from
+the wire. Smart recall runs only when the request leaves lines out; it is told
+what the page already has (the story in short as the request carries it, and
+the carried lines) and indexes only lines not carried, so a frontier storyteller
+whose record fits never waits on it. Choices keeper, world keeper, referee
+weighing and ledger readers read the record (sharedStoryContext removed).
+The world keeper has its own worker row "ground"; boot moves an essentials pick
+there. essentials:/essentialsPending: rows are swept at boot; drawer panel,
+health route, queue jobs, Settings text, CSS and SW entry removed;
+js/agents/essentials.js deleted.
+
+Measured, same 60-entry record (32,281 chars) through both builds' buildRequest:
+M749 story so far 14,591 tokens with Essentials as long as the record (8,051 +
+4,041 + 2,499), 47 of 60 entries told twice; 10,158 at the 45% target; M750
+8,342 tokens, every entry once. Whole request 48,017 to 39,516 tokens.
+Checks, simulated providers and disposable storage only: tests/harness/m750.mjs
+8/8 (M750-8 fails with the excerpt fix reverted); affected harness selection 99
+pass, 4 fail (M510-40, M510-52, M548-5, M598 fail identically on M749); DOM
+selection 21/21; m737-context, m722-focused, m730 housekeeper, m735 and m736
+browser tests pass; lint 0 errors. Not run: full harness, full DOM walk, long
+play, live provider, owner device.
+
 # M749: concise counterparts for individual detailed record sections
 
 Version m749-001. Base 09f47a5128c329b9d52477de1dab8a13adbb2962.

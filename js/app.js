@@ -25,6 +25,7 @@ import { startUpdates } from './updates.js';
 import { acquirePen } from './tablock.js';
 import { initSync } from './sync.js';
 import { setAliasScope } from './engine/names.js'; /* M427: canon's other names are heard only in their own story */
+import { movedWorkerPicks } from './agents/assign.js'; /* M750: the essentials keeper's pick moves to the world keeper */
 
 /* ---------- theme: lamplight by default; "follow the sky" is a choice ----
  * M8: the hearth (dark) is the default face. Nothing stored → dark. The
@@ -273,6 +274,14 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
       await db.settings.set('migrated:m97', true);
     }
   } catch (err) { /* a store that will not take the note is left as it is */ }
+
+  /* M750: THE ESSENTIALS KEEPER IS RETIRED. Its hands (Settings → The workers) were the world keeper's too: a pick he made
+   * for it moves to the world keeper's own row, so the world keeps riding the connection he chose. Idempotent — a map
+   * with no essentials pick is left exactly as it is. */
+  try {
+    const moved = movedWorkerPicks(await db.settings.get('workerConnections'));
+    if (moved.changed) await db.settings.set('workerConnections', moved.map);
+  } catch (err) { /* a store that will not take the move keeps its pick; the world keeper then follows the house */ }
 
   /* restore the open tale before the chat view wakes, so it renders the
    * right thread on its first pass */

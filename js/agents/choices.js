@@ -61,7 +61,7 @@ export function openOffer(messages) {
 }
 
 /* the helper's question — it reads the story, never the storyteller's request */
-export function choiceAsk({ brief = '', essentials = '', facts = '', people = '', pages = [], newest = '', mc = '', echoes = [] } = {}) {
+export function choiceAsk({ brief = '', record = '', facts = '', people = '', pages = [], newest = '', mc = '', echoes = [] } = {}) {
   const who = mc || 'the main character';
   const system = [
     'You keep the turning points of a long collaborative story, the way Detroit: Become Human does. You never write the story itself.',
@@ -78,7 +78,7 @@ export function choiceAsk({ brief = '', essentials = '', facts = '', people = ''
   ].join('\n');
   const user = [
     'THE STORY\'S BRIEF:', writerText(String(brief || ''), BRIEF_ROOM, 'brief') || '(none)', '',
-    'THE STORY SO FAR, IN BRIEF:', String(essentials || '').trim() || '(not made yet)', '',
+    'OUR STORY SO FAR (the record, oldest first — the pages below come after it):', String(record || '').trim() || '(nothing folded yet)', '', /* M750: the record itself — the Essentials are retired */
     'WHERE THINGS STAND (the ledger):', String(facts || '').trim() || '(nothing yet)', '',
     'THE PEOPLE:', String(people || '').trim() || '(no one written yet)', '',
     ...(Array.isArray(echoes) && echoes.length ? ['WHAT HIS EARLIER CHOICES SET IN MOTION:', echoes.join('\n'), ''] : []),

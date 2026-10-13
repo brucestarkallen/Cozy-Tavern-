@@ -13,7 +13,7 @@ import {ledgerVerificationRows,ledgerRepairInputKey,ledgerRepairStateKey,saveAud
 import {auditStretch,auditProgress,nextStretch,parseStretchAnswer,scopeStretch,auditWaits,RECOVERY_DELAY,continuousRunStatus,recoveryWords} from '../../js/agents/continuous.js';
 import {noteWorkerRun,loadWorkerStatus,historicalRunStatus} from '../../js/agents/status.js';
 import {loadMemory,saveMemory} from '../../js/agents/memory.js';
-import {loadEssentials,recordOf,runEssentials} from '../../js/agents/essentials.js';
+/* M750: the Essentials are retired — their invalidation checks below went with them */
 const connection={type:'openai',baseUrl:'https://fixture.example/v1',apiKey:'fixture',model:'fixture',preset:'custom',contextSize:200000,reasoning:{effort:'off'}};
 const quote='A bodyguard in house mail stood two paces behind William.';
 const source='page:guard:0';
@@ -95,7 +95,6 @@ try {
   const s=await db.stories.create({title:'Memory correction'});
   await db.messages.append(s.id,{role:'assistant',text:original,...(legacy?{findings:[{kind:'audit',words:'The record names the man as a captain without supporting evidence.'}]}:{})});
   await saveMemory(s.id,{window:12,nodes:[{id:'line',span:[0,0],text:"Prince William's captain watched from the yard door; Corven knocked twice and announced Jugram.",level:1,whole:true,...(legacy?{audited:1}:{}),...(protectedLine?{verified:{fixed:'the writer'}}:{})}]});
-  await db.settings.set('essentials:'+s.id,{text:'Outdated captain account.',print:recordOf((await loadMemory(s.id)).nodes).print});
   return s;
  }
  const recordIssue={target:'record',pages:true,page:1,what:'The folded record gives the man an unsupported captain identity.',fix:'Do not rewrite the original story.',record:{fixes:[{from:"Prince William's captain",to:'man',shown:original,why:'The original identifies only a man in travel-dark clothing.'}]}};
@@ -105,10 +104,7 @@ try {
  assert.equal(result.lineMended,1);assert.equal(result.open,0);assert.equal(mends,0);
  let memory=await loadMemory(s.id);assert.equal(memory.nodes[0].text,'man watched from the yard door; Corven knocked twice and announced Jugram.');
  assert.equal((await db.messages.list(s.id))[0].text,original);
- assert.equal(await loadEssentials(s.id),null,'Contradictory old Essentials must not be injected.');
  assert.equal(await auditStretch({connection,storyId:s.id}),null);assert.equal(calls,beforeCalls+1);
- const rebuilt=await runEssentials({connection,storyId:s.id,nodes:memory.nodes,callLLM:async()=>({text:'- [Evening, yard] The man watched from the yard door. Corven knocked twice and announced Jugram at the queen’s door; both events remain in their original order.'})});
- assert(rebuilt.wrote);assert(await loadEssentials(s.id));
  const legacyStory=await memoryStory(false,true);
  const legacyResult=await auditStretch({connection,storyId:legacyStory.id});
  assert.equal(legacyResult.lineMended,1,'Reconsider an existing advisory without restarting historical coverage.');
@@ -154,7 +150,6 @@ try {
  assert.equal(auto.open,0);assert.equal(auto.lineMended,1);
  assert.equal((await db.messages.list(automatic.id))[0].text,original);
  assert.equal((await loadMemory(automatic.id)).nodes[0].detail,undefined);
- assert.equal(await loadEssentials(automatic.id),null);
  const healthyCalls=calls;
  assert.equal(await auditStretch({connection,storyId:automatic.id}),null);
  assert.equal(auditWaits(automatic.id,await loadMemory(automatic.id),await db.messages.list(automatic.id)),-1);
@@ -360,7 +355,6 @@ try {
  const fidelityStory=await pendingStory();const fp=await db.messages.list(fidelityStory.id);
  await db.messages.update(fidelityStory.id,fp[0].id,{text:captainQuote});
  const fidelityBefore=await loadMemory(fidelityStory.id);
- const essentialsBefore=await db.settings.get('essentials:'+fidelityStory.id);
  const supportedFidelity={status:'supported',claim:"Prince William's captain",sameReferent:true,sameEvent:true,
   assertion:'direct',relation:'supports',preservesAssertion:true,conflicts:[],why:'The narrative directly identifies the same man at the same yard door event.'};
  let fidelityCalls=0;
@@ -372,7 +366,6 @@ try {
  assert.equal(fidelityCalls,2,'One targeted clarification requests the missing source fidelity decision.');
  assert.equal((await loadMemory(fidelityStory.id)).nodes[0].text,fidelityBefore.nodes[0].text);
  assert.equal((await db.messages.list(fidelityStory.id))[0].text,captainQuote);
- assert.deepEqual(await db.settings.get('essentials:'+fidelityStory.id),essentialsBefore);
  const fidelitySaved=await loadMemory(fidelityStory.id);
  assert.equal(fidelitySaved.nodes[0].auditRecovery.at(-1).sourceFidelity.status,'supported');
  assert.equal(fidelitySaved.nodes[0].auditRecovery.at(-1).reportedOutcome,'blocked');
@@ -415,7 +408,7 @@ try {
   status:vagueCalls===1?'genuinelyAmbiguous':'supported',uncertainty:'Perhaps an unseen source could disagree.'}};};
  assert.equal((await auditStretch({connection,storyId:vague.id})).open,0);assert.equal(vagueCalls,2);
 
- // A source-grounded contradiction uses the existing precise repair and Essentials invalidation.
+ // A source-grounded contradiction uses the existing precise repair.
  const wrong=await pendingStory();const wps=await db.messages.list(wrong.id);
  const contrary='The man at the yard door is an unranked visitor, not the captain. Corven knocked twice and announced Jugram.';
  await db.messages.update(wrong.id,wps[0].id,{text:contrary});
@@ -424,9 +417,9 @@ try {
   record:{fixes:[{from:"Prince William's captain",to:'man',shown:contrary,why:'Preserve the man and event without the contradicted title.'}]}};
  const repaired725=await auditStretch({connection,storyId:wrong.id});assert.equal(repaired725.open,0);
  assert.equal((await loadMemory(wrong.id)).nodes[0].text,'man watched from the yard door; Corven knocked twice and announced Jugram.');
- assert.equal((await db.messages.list(wrong.id))[0].text,contrary);assert.equal(await loadEssentials(wrong.id),null);
+ assert.equal((await db.messages.list(wrong.id))[0].text,contrary);
 
- // Protected but correct words may be confirmed, with no rewrite or Essentials rebuild.
+ // Protected but correct words may be confirmed, with no rewrite.
  const owned=await pendingStory();const ownedMemory=await loadMemory(owned.id);ownedMemory.nodes[0].verified={fixed:'the writer'};
  await saveMemory(owned.id,ownedMemory);const ownedPages=await db.messages.list(owned.id);
  await db.messages.update(owned.id,ownedPages[0].id,{text:captainQuote});
@@ -633,8 +626,8 @@ try {
  assert.equal(healthSnapshot({...conditions,guards:['continuity'],shelf:{continuity:{ok:false}},workerRecovery:{continuity:{eligible:true}}}).next,'worker:continuity');
  console.log('M727 passed: generated compound reference through search/fetch/settlement, disagreement rejection, scoped old transport retry, durable receipt-based advisory disposition, full health inventory, ordered mock-owner recovery, clean/blocked/busy states, durable retry bounds. Mocked provider and controlled state only.');
  console.log('M726 passed: displayed p72 and numeric control, canonical source aliases, fetched p36, precise invalid/ambiguous/unavailable/quote/conflict diagnostics, OOC exclusion, scoped M725 transport recovery, unchanged memory and controlled green lamp. Mocked provider only.');
- console.log('M725 passed: unknown/blocked reproduction settles via source fidelity, one clarification maximum, policy-1 recovery, different referent and invalid evidence rejected, genuine ambiguity bounded, exact repairs preserved, no-edit memory/Essentials retained, controlled production lamp changes from yellow to green with other verification complete. Mocked provider and DOM facade only.');
+ console.log('M725 passed: unknown/blocked reproduction settles via source fidelity, one clarification maximum, policy-1 recovery, different referent and invalid evidence rejected, genuine ambiguity bounded, exact repairs preserved, no-edit memory retained, controlled production lamp changes from yellow to green with other verification complete. Mocked provider and DOM facade only.');
  console.log('M724 passed: contradictory and omitted dispositions clarified once, supported dismissal without edits, one-time legacy recovery, exact finding settlement, invalid evidence rejection, persisted receipts, changed-source reopening, truthful completion, zero unchanged-material calls. Mocked provider only.');
- console.log('M723 passed: automatic and saved-finding recovery, earlier-source withdrawal, bounded durable retries, uncertainty and manual protection, status round-trip, stale writes, Essentials invalidation, zero healthy-case calls. Mocked provider only.');
- console.log('M722 passed: idempotent/undoable source bindings, separate stable facts, paused review reuses receipts; grounded record correction, protected unresolved coverage, no unchanged repeat calls, Essentials invalidation and story-mend eligibility. Mocked provider only.');
+ console.log('M723 passed: automatic and saved-finding recovery, earlier-source withdrawal, bounded durable retries, uncertainty and manual protection, status round-trip, stale writes, zero healthy-case calls. Mocked provider only.');
+ console.log('M722 passed: idempotent/undoable source bindings, separate stable facts, paused review reuses receipts; grounded record correction, protected unresolved coverage, no unchanged repeat calls and story-mend eligibility. Mocked provider only.');
 } finally {globalThis.fetch=originalFetch;}

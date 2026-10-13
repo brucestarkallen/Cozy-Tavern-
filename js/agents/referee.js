@@ -43,7 +43,6 @@ import { renderBodies, findInjury, sameHurt } from '../engine/bodies.js'; /* M68
 import { renderCanon } from '../engine/canon.js';
 import { writerText, wholePage } from '../engine/whole.js';
 import { loadMemory, recordFor } from './memory.js';
-import { loadEssentials } from './essentials.js'; /* M560: the whole story, told shorter, for the cast's weighing */
 import { contextOf } from '../providers/room.js';
 import { db } from '../store.js';
 import {
@@ -419,7 +418,7 @@ export const SEED_SYSTEM = [
   'You keep the cast sheet of a story, as its game master: how capable each person truly is, 0-10, at the things that decide contests, and what lasting harm or gear changes that. The referee rolls every contest from these numbers, so set them as a sharp, fair game master who has read the whole story would.',
   RATING_GUIDE,
   'HOW TO WEIGH EACH PERSON, in this order:',
-  '1. Read all of it first: <brief> (their true ability, history and growth), <story_in_brief>, <record>, <pages>.',
+  '1. Read all of it first: <brief> (their true ability, history and growth), <record>, <pages>.',
   '2. What they have DONE weighs most. Take every contest and feat in its context — was the other side all-out or holding back, one exchange or a long fight, won by skill, by preparation, by surprise or by luck? A feat measures them against that person in that art: someone who parried a fighter rated 8 is near 8 there — a little above, level, a little below, or well below when preparation or luck carried it; the whole story decides which.',
   '3. The truth, never the mask: rate what they can truly do when it counts — never their public rank, their reputation, what others believe of them, or the level they pretend to be. Concealed or sealed arts are rated; a low official tier the brief says is a mask is only what others believe.',
   '4. Where the story has not shown their measure yet, their place in the world sets it, read as the world\'s own people would read it: where power decides rank, rank tells power (the head of an academy of mages is a master mage, 8-9 in their art; a school\'s strongest student sits near its top); where standing rests on politics or money, rate that. What the pages show then moves them from there.',
@@ -1594,8 +1593,10 @@ function seedSheetBlock(state, { numbers = true } = {}) {
  * first), and the brief cut at 15% of its room (on a smaller model, most of the brief: the people further down unseen). Its
  * instructions were rewritten four times (M554–M558) while it still could not see the evidence. Now it is handed the
  * story's essentials (the whole story told shorter, oldest first), the brief at twice the room, and the record's room; and
- * it must write, for each person, the evidence its numbers rest on — shown under them in the drawer. */
-export function buildSeedUser({ state, pages = [], brief = '', castNotes = '', record = '', essentials = '', room = 300000, blind = false } = {}) {
+ * it must write, for each person, the evidence its numbers rest on — shown under them in the drawer.
+ * M750: the Essentials are retired — the record itself rides whole, and when it must be shortened it keeps BOTH ends (the
+ * opening, where Jovan parried Ivar, and the newest), which is what the story in brief was there for. */
+export function buildSeedUser({ state, pages = [], brief = '', castNotes = '', record = '', room = 300000, blind = false } = {}) {
   /* M561: HIS ORDER — "it should watch all the pages, as much as the story remembers; the WHOLE essentials, the WHOLE brief,
    * the detailed fold summary — without context how would it know someone's power, or that someone is injured?" Fixed
    * shares cut each part to a slice of the room whatever the rest needed. Now the room is filled in the order a game
@@ -1619,17 +1620,16 @@ export function buildSeedUser({ state, pages = [], brief = '', castNotes = '', r
     return keep('<' + tag + '>\n' + body + '\n</' + tag + '>');
   };
   const briefPart = whole('brief', brief, left * 0.6, 'brief');
-  const storyPart = whole('story_in_brief', essentials, left * 0.4, 'story in brief', 'ends');
   const castPart = whole('cast_notes', castNotes, left * 0.3, 'cast notes');
   const peoplePart = keep('<people>\n' + (seedPeople(state, String(brief || '') + '\n' + String(castNotes || ''), Math.max(4000, Math.floor(left * 0.35))) || '(no pages written yet)') + '\n</people>');
   const bodies = (() => { try { return renderBodies(state.bodies, state.clock && state.clock.minutes, storyTurn(state)); } catch (err) { return ''; } })();
   const locked = (() => { try { return state.canon && typeof state.canon === 'object' ? renderCanon(state.canon, Object.keys(state.canon), Infinity) : ''; } catch (err) { return ''; } })(); /* M680: every lock — the weighing was shown six a person under a heading that holds them all */
   const bodiesPart = bodies && bodies.trim() ? keep('<bodies>\n' + cut(bodies, 12000) + '\n</bodies>') : null;
   const lockedPart = locked && locked.trim() ? keep('<locked>\n' + cut(locked, 12000) + '\n</locked>') : null;
-  /* the detailed record: whole when it fits beside a page or two; else its newest part */
+  /* the detailed record: whole when it fits beside a page or two; else its opening and its newest part (M750) */
   const rec = String(record || '').trim();
   const recordRoom = Math.max(4000, Math.floor(left * 0.6));
-  const recordPart = rec ? keep('<record>\n' + (rec.length <= recordRoom ? rec : cut(rec, recordRoom)) + '\n</record>') : null;
+  const recordPart = rec ? keep('<record>\n' + (rec.length <= recordRoom ? rec : bothEnds(rec, recordRoom)) + '\n</record>') : null;
   /* and every page that still fits, newest first, whole */
   const told = [];
   for (let i = pages.length - 1; i >= 0; i -= 1) {
@@ -1643,7 +1643,7 @@ export function buildSeedUser({ state, pages = [], brief = '', castNotes = '', r
     left -= line.length + 2;
   }
   told.reverse();
-  return [...head, briefPart, storyPart, castPart, peoplePart, bodiesPart, lockedPart, recordPart, '<pages>\n' + (told.join('\n\n') || '(none yet)') + '\n</pages>'].filter(Boolean).join('\n\n');
+  return [...head, briefPart, castPart, peoplePart, bodiesPart, lockedPart, recordPart, '<pages>\n' + (told.join('\n\n') || '(none yet)') + '\n</pages>'].filter(Boolean).join('\n\n');
 }
 
 function normalizeLasting(list) {
@@ -1826,9 +1826,7 @@ export async function maybeSeedSheet({ connection, storyId, signal, callLLM, bri
     try { record = recordFor(await loadMemory(storyId), 1, 1200000); } catch (err) { record = ''; } /* M561: the detailed record whole; the room decides what rides */
     const room = Math.max(40000, Math.min(1200000, Math.floor(contextOf(connection) * 3 * 0.8))); /* M561: what its own model holds — the answer and the instructions keep the rest */
     const blind = why === 'heal' || force === true; /* M556: by hand, or healing an older sheet — weighed from the story, never from the old numbers */
-    let essentials = '';
-    try { const e = await loadEssentials(storyId); essentials = e && typeof e.text === 'string' ? e.text : ''; } catch (err) { essentials = ''; }
-    let user = buildSeedUser({ state, pages: messages, brief, castNotes, record, essentials, room, blind }); /* M561: every page offered; the room decides */
+    let user = buildSeedUser({ state, pages: messages, brief, castNotes, record, room, blind }); /* M561: every page offered; the room decides */
     if (typeof renew === 'function') renew(240000);
     const shown = harmShown(state); /* M681 (S7): what each person carries, as this weighing is shown it */
     let parsed = await callReferee(connection, withFictionFrame(SEED_SYSTEM), user, signal, callLLM, SEED_MAX_TOKENS, (o) => Array.isArray(o.actors) || (o.actors && typeof o.actors === 'object'));

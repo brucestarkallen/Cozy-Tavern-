@@ -33,7 +33,7 @@ export function workerRecoveryDue(checkpoint,input,now=Date.now()) {
 
 export function healthSnapshot({storyId,shelf={},state={},pages=[],mem={},story={},auditRead=null,
   recordBehind=false,ledgerBehind=false,verificationNeeded=false,repairOwed=false,repairPaused=false,
-  guards=[],running=[],queued=0,otherOwner=false,historicalWait=-1,workerRecovery={},essentials=null}={}) {
+  guards=[],running=[],queued=0,otherOwner=false,historicalWait=-1,workerRecovery={}}={}) {
   if (pages.some(p=>p.role==='assistant' && !p.hidden && !p.ooc)) verificationNeeded ||= !ledgerAuditVerified(state,story,pages);
   shelf=reconciledWorkerStatus(shelf,state,story,pages);
   guards=guards.filter(name=>name!=='auditor' || shelf.auditor?.ok===false);
@@ -49,7 +49,6 @@ export function healthSnapshot({storyId,shelf={},state={},pages=[],mem={},story=
   }
   if (recordBehind) add('record-gap','keeper','The memory record needs current original-page coverage.','record');
   if (ledgerBehind) add('ledger-gap','extractor','Story pages remain unread by the ledger.','ledger');
-  if (essentials?.needed) add('essentials-pending','essentials',essentials.why || 'Plot essentials is not current.',essentials.eligible?'essentials':null,{retryAt:essentials.retryAt});
   const audit=state.audit || {};
   if (verificationNeeded) add('verification','auditor','Current ledger verification is incomplete.',repairOwed?'auditor':null);
   if (audit.coverage && audit.coverage.read<audit.coverage.total) add('source-coverage','auditor','Original source coverage is incomplete.',repairOwed?'auditor':null,{checkpoint:audit.coverage});
@@ -64,7 +63,7 @@ export function healthSnapshot({storyId,shelf={},state={},pages=[],mem={},story=
     'continuous',f.recovery?.reason || f.why || f.issue?.what,historicalWait>=0?'historical':null,{finding:f,state:f.recovery?.status || 'open'});
   const advisories=pages.flatMap(message=>(message.findings || []).filter(f=>f.kind==='audit').map(f=>({sourceId:message.id,...historicalAdvisoryView(f,message,mem,pages,story)})));
   const active=running.length>0 || queued>0;
-  const priority=['record','ledger','worker:extractor','worker:world','worker:scribe','worker:keeper','worker:continuity','essentials','auditor','historical'];
+  const priority=['record','ledger','worker:extractor','worker:world','worker:scribe','worker:keeper','worker:continuity','auditor','historical'];
   const routes=active || otherOwner?[]:priority.filter(route=>issues.some(i=>i.route===route));
   return {storyId,issues,advisories,running,queued,otherOwner,clean:issues.length===0 && !active,
     status:active?'working':issues.length?'yellow':'green',next:routes[0] || null,reasons:issues.map(i=>i.reason)};

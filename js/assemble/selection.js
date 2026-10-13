@@ -15,7 +15,7 @@ export function boundRecord(n, visible) {
   const pages = visible.slice(Math.max(0,n.span[0]),n.span[1]+1);
   return pages.length === n.sourcePages.length && pages.every((m,i) => m.id === n.sourcePages[i].id && messageVersion(m) === n.sourcePages[i].version);
 }
-/* The memory keeper and Essentials must agree on source validity. Range
+/* The memory keeper and the request must agree on source validity. Range
  * coverage alone cannot tell whether a folded line still describes the pages
  * at that range. Callers pass the canonical visible page order. */
 export function sourceBindingIssues(nodes, visible = []) {
@@ -67,31 +67,28 @@ export function selectWhole(nodes, cap, render, { newest = false } = {}) {
   selected.sort((a,b) => a.span[0] - b.span[0]);
   return { nodes: selected, text: selected.map(render).join('\n'), chars, omitted, rested: omitted.length };
 }
-export function requestSelection({ story, history, pages, nodes, selected, essentials, plans = [], characters = [], excerpts = [] }) {
+export function requestSelection({ story, history, pages, nodes, selected, plans = [], characters = [], excerpts = [] }) {
   const originals = (history || []).filter(m => m && !m.hidden);
   const sent = new Set(pages.map(m => m.id));
   const byId = new Map(pages.map(m => [m.id,m]));
   const held = new Set(selected.map(recordId));
   const represented = n => held.has(recordId(n));
-  const summarized = n => Boolean(essentials && (essentials.sourcePages?.length ? n.span[1]<=essentials.upTo
-    : essentials.sources ? essentials.sources.some(x => x.id === n.id && x.span?.[0] === n.span[0] && x.span?.[1] === n.span[1]) : n.span[1] <= essentials.upTo));
   const messages = (history || []).filter(Boolean).map(m => ({ id: m.id, version: messageVersion(m), selected: sent.has(m.id), transformed:byId.get(m.id)?.transformed === true, reason: sent.has(m.id) ? 'original page window' : m.hidden ? 'hidden nudge, handled separately' : 'outside final original window' }));
   const coverage = [];
-  const foldedDelta = new Map(); const briefDelta = new Map();
+  const foldedDelta = new Map();
   const addSpan = (map,n) => { const a=Math.max(0,n.span[0]), b=Math.min(originals.length,n.span[1]+1); if(b<=a)return; map.set(a,(map.get(a)||0)+1);map.set(b,(map.get(b)||0)-1); };
-  for(const n of nodes) if(!n.correction) { if(represented(n)) addSpan(foldedDelta,n); if(summarized(n)) addSpan(briefDelta,n); }
-  let folded=0, brief=0;
+  for(const n of nodes) if(!n.correction && represented(n)) addSpan(foldedDelta,n);
+  let folded=0;
   originals.forEach((m,i) => {
-    folded += foldedDelta.get(i) || 0; brief += briefDelta.get(i) || 0;
+    folded += foldedDelta.get(i) || 0;
     const excerpt = excerpts.some(e => e.sourceId === m.id);
-    const kind = sent.has(m.id) ? 'original' : folded ? 'folded' : brief ? 'essentials' : excerpt ? 'excerpt only' : 'unrepresented';
+    const kind = sent.has(m.id) ? 'original' : folded ? 'folded' : excerpt ? 'excerpt only' : 'unrepresented';
     const prev = coverage.at(-1);
     if (prev && prev.kind === kind && prev.to + 1 === i) { prev.to = i; prev.lastId = m.id; }
     else coverage.push({ from: i, to: i, firstId: m.id, lastId: m.id, kind });
   });
   return { v: 1, storyId: story?.id || '', revision: fingerprint36(JSON.stringify(messages.map(m => [m.id,m.version]))), messages,
-    records: nodes.map(n => ({ id: recordId(n), print: recordPrint(n), span: n.span, sourceBinding: n.sourcePages ? 'identity and visible version' : 'legacy span', detail: Boolean(n.detail?.trim()), selected: held.has(recordId(n)), reason: held.has(recordId(n)) ? n.correction ? 'writer correction' : 'bridge or scene relevance' : summarized(n) ? 'compressed source representation, details not certified' : 'outside allocation, source pending', chars: n.text.length + (n.detail?.length || 0) })),
-    essentials: essentials ? { print: essentials.print, sourcePrint: essentials.sourcePrint || '', complete: essentials.complete === true ? 'structurally complete' : 'legacy range checked, semantic retention unverified', upTo: essentials.upTo } : null,
+    records: nodes.map(n => ({ id: recordId(n), print: recordPrint(n), span: n.span, sourceBinding: n.sourcePages ? 'identity and visible version' : 'legacy span', detail: Boolean(n.detail?.trim()), selected: held.has(recordId(n)), reason: held.has(recordId(n)) ? n.correction ? 'writer correction' : 'in the record as sent' : 'not sent this page (no room, or a small storyteller’s focused request) — kept on the device', chars: n.text.length + (n.detail?.length || 0) })),
     plans, characters, excerpts, coverage, gaps: coverage.filter(c => c.kind === 'unrepresented') };
 }
 

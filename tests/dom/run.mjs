@@ -7212,29 +7212,7 @@ test('DOM-136 A FIRST PAGE’S HEADER IN ANOTHER DRESS, IN THE APP (M510-17): ke
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-137 THE STORY ESSENTIALS IN THE LEDGER (M510-21): the drawer’s books show them under the record, in the record’s own format; a story with none says why', async () => {
-  const before = errors.length;
-  const withEss = await db.stories.create({ title: 'the essentials, shown' });
-  await db.settings.set('essentials:' + withEss.id, { text: '- [Sept 1 · the Seireitei] (pages 1–12) Jovan arrived; Kaelen swore "I will guard this lantern".\n- [Sept 9 · the wall] (pages 13–24) The captain named Jovan fourth seat → Kaelen resents Jovan.', print: 'x', upTo: 23, at: Date.now() });
-  const bare = await db.stories.create({ title: 'a first scene' });
-  const panelText = async (id) => {
-    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); }
-    env.window.__cozy.setActiveStoryId(id);
-    await env.window.__cozy.chat.renderThread({ structural: true });
-    click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer');
-    await env.ctx.drawer.renderAllRooms(); await tick(400);
-    const panel = qa('#drawer-panels .ledger-panel').find((p) => /Story essentials — the record, told shorter/.test(p.textContent));
-    assert(panel, 'the essentials book stands in the drawer');
-    return panel.textContent;
-  };
-  const shown = await panelText(withEss.id);
-  assert(/\[Sept 1 · the Seireitei\] \(pages 1–12\) Jovan arrived; Kaelen swore "I will guard this lantern"\./.test(shown) && /The captain named Jovan fourth seat → Kaelen resents Jovan/.test(shown), 'its lines, as the keeper made them: ' + shown.slice(0, 200));
-  assert(/Made from the record through page 24/.test(shown), 'and how far the record reached');
-  const none = await panelText(bare.id);
-  assert(/Not made yet — the record is still empty: the memory keeper folds pages once they are older than its window \(\d+ pages\)/.test(none), 'a first scene says why: ' + none.slice(0, 220));
-  click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away');
-  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
-});
+/* DOM-137 (the Story essentials book) went with the Essentials in M750. */
 
 test('DOM-138 A BATTLE PLAN, KEPT WHOLE, THROUGH THE APP (M510-22): laid out on a page, the plans keeper writes it down part by part with the cry to be shouted; the drawer shows it; the small storyteller’s next request carries it word for word', async () => {
   const before = errors.length;
@@ -7956,12 +7934,11 @@ test('DOM-182 CONTINGENCIES THAT HEAL THEMSELVES (M526 — the deep audit): a wo
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-183 PAGES TAKEN BACK, AND A TALE WITH NO #STORY LINE (M527 — the deep audit): a small storyteller\'s next page after a rewind carries neither the essentials made over pages that are gone nor a plan born on them; a tale with no #story line is placed once, from its brief and its first page', async () => {
+test('DOM-183 PAGES TAKEN BACK, AND A TALE WITH NO #STORY LINE (M527 — the deep audit): a small storyteller\'s next page after a rewind carries no plan born on pages that are gone (M750: the essentials are retired); a tale with no #story line is placed once, from its brief and its first page', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
   const { saveState, emptyState } = await import('../../js/engine/state.js');
   const { applyMutations } = await import('../../js/engine/apply.js');
-  const { ESSENTIALS_KEY } = await import('../../js/agents/essentials.js');
   const { PLANS_KEY } = await import('../../js/agents/plans.js');
   const { CANON_START_KEY } = await import('../../js/agents/canonstart.js');
   const st = await db.stories.create({ title: 'the rewound road' });
@@ -7970,7 +7947,6 @@ test('DOM-183 PAGES TAKEN BACK, AND A TALE WITH NO #STORY LINE (M527 — the dee
   const ledger = applyMutations({ ...emptyState(), page: 2 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the gate' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia' }]).state;
   await saveState(st.id, { ...ledger, page: 2, readTo: 2, tidiedGen: 999 });
   /* what forty pages once left, before they were taken back */
-  await db.settings.set(ESSENTIALS_KEY(st.id), { text: 'GONE-ESSENTIALS: Jovan killed Aizen on page 38.', print: 'x', upTo: 39, at: Date.now() });
   await db.settings.set(PLANS_KEY(st.id), { readTo: 39, readHash: 'x', plans: [{ title: 'GONE-PLAN: storm Las Noches', status: 'standing', from: 30, to: 35, parts: [], goal: 'storm it' }, { title: 'Guard the gate', status: 'standing', from: 1, to: 1, parts: [], goal: 'guard' }] });
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
@@ -7992,7 +7968,6 @@ test('DOM-183 PAGES TAKEN BACK, AND A TALE WITH NO #STORY LINE (M527 — the dee
     await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'readers', 40000);
     const told = house.state.calls.slice(from).find((c) => !c.isWorker && Array.isArray(c.body.messages) && JSON.stringify(c.body.messages).includes('I guard the gate.'));
     const wire = JSON.stringify(told.body);
-    assert(!/GONE-ESSENTIALS/.test(wire), 'the essentials made over pages that are gone were not sent');
     assert(!/GONE-PLAN/.test(wire), 'nor a plan born on them');
     eq(placed, 1, 'a tale with no #story line was placed once');
     eq(((await db.settings.get(CANON_START_KEY(st.id))) || {}).series, 'Bleach', 'and kept');
@@ -11043,7 +11018,7 @@ test('DOM-267 HIS MESSAGE LET GO WITH BOTH PAGES THAT ANSWERED IT, IN THE MIDDLE
     eq(await here(), 'Ada Bo Cy Di Ed', 'fixture: five pages read, each brought someone in');
     /* something of the tale's other work is still out when he lets the message go (a helper on the tale's own lane) */
     const held = new Promise((r) => { letCome = r; });
-    const helper = enqueueWork(st.id, { name: 'essentials', once: true, run: async () => { await held; return { silent: true }; } });
+    const helper = enqueueWork(st.id, { name: 'plans', once: true, run: async () => { await held; return { silent: true }; } }); /* M750: a helper of the tale's own book (was the retired essentials) */
     await until(() => workIsRunning(st.id), 'the helper out', 5000);
     const his = userPages().find((n) => /I look around\./.test(bodyText(n)));
     const priorConfirm = env.window.confirm; env.window.confirm = () => true;
@@ -11128,7 +11103,7 @@ test('DOM-269 “SUMMARIZE NOW” WAITS ITS TURN BEHIND THE TALE’S OTHER WORK,
     await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the house free', 30000);
     /* 1. a helper of the tale is out */
     const helper = heldBack();
-    const out = enqueueWork(st.id, { name: 'essentials', once: true, run: async () => { await helper.p; return { silent: true }; } });
+    const out = enqueueWork(st.id, { name: 'plans', once: true, run: async () => { await helper.p; return { silent: true }; } }); /* M750: a helper of the tale's own book (was the retired essentials) */
     await until(() => workIsRunning(st.id), 'the helper out', 5000);
     eq(await env.ctx.chat.summarizeNow(), true, 'the press is taken while a helper of the tale is still out (it was turned away: “A pass is finishing”)');
     assert(!/A pass is finishing/.test(what()), 'and nothing says a pass is finishing: ' + what());
@@ -11880,50 +11855,23 @@ test('DOM-145 HIS MANY SAVED PRESETS, FOLDED (M510-45): twelve saved presets —
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-146 "MAKE THE ESSENTIALS AGAIN" (final audit): the essentials book has its one button; a tap asks the essentials keeper now, from the whole record, whatever it kept — and the book shows what it made', async () => {
-  const before = errors.length;
-  const DEFAULT = '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}';
-  const st = await db.stories.create({ title: 'essentials made again' });
-  await db.settings.set('memory:' + st.id, { window: 30, nodes: [{ id: 'm1', span: [0, 5], level: 1, text: 'Jovan arrives at the Seireitei and tells the captains he serves Yamamoto.' }, { id: 'm2', span: [6, 11], level: 1, text: 'Byakuya names Jovan a liar before the captains.' }] });
-  await db.settings.set('essentials:' + st.id, { text: '- [Day 1 · the Seireitei] (pages 1–12) OLD-ESSENTIALS: Jovan arrives; tells the captains he serves Yamamoto; is named a liar before them all.', print: 'as-kept', upTo: 11, at: 1 });
-  const prior = house.state.workerAnswer;
-  house.state.workerAnswer = (body, sys) => (/condense the record of a long collaborative story/.test(sys) ? '[Day 1 · the Seireitei] (pages 1–12) NEW-ESSENTIALS: Jovan arrives at the Seireitei; tells every captain he serves Yamamoto; Byakuya names him a liar before them.' : (typeof prior === 'function' ? prior(body, sys) : (prior || DEFAULT)));
-  try {
-    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); }
-    env.window.__cozy.setActiveStoryId(st.id);
-    await env.window.__cozy.chat.renderThread({ structural: true });
-    click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer');
-    await env.ctx.drawer.renderAllRooms(); await tick(400);
-    const panel = () => qa('#drawer-panels .ledger-panel').find((x) => /Story essentials — the record, told shorter/.test(x.textContent));
-    await until(() => panel() && /OLD-ESSENTIALS/.test(panel().textContent), 'the book shows what was kept');
-    const btn = panel().querySelector('button.essentials-again');
-    assert(btn && btn.textContent === 'Make the essentials again', 'the one button, in the book itself');
-    const from = house.state.calls.length;
-    click(btn);
-    await until(() => house.state.calls.slice(from).some((c) => /condense the record of a long collaborative story/.test(JSON.stringify(c.body))), 'the essentials keeper asked now');
-    await until(async () => /NEW-ESSENTIALS/.test(((await db.settings.get('essentials:' + st.id)) || {}).text || ''), 'made again, whatever it kept');
-    await until(() => panel() && /NEW-ESSENTIALS/.test(panel().textContent), 'and the book shows it');
-  } finally {
-    house.state.workerAnswer = prior;
-    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); }
-    await db.stories.remove(st.id).catch(() => {});
-    await env.ctx.chat.refreshStories(true).catch(() => {});
-  }
-  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
-});
+/* DOM-146 (the Story essentials book) went with the Essentials in M750. */
 
-test('DOM-147 SMART RECALL THROUGH THE APP (M510-50): with the essentials made, the picker reads his move before the page and the older line it names rides word for word in the storyteller’s request; with the switch off, the picker is never asked', async () => {
+test('DOM-147 / M750 SMART RECALL THROUGH THE APP: a frontier storyteller reads the whole record, so the line his move means rides word for word, once — and the picker is never asked (no wait before the page)', async () => {
   const before = errors.length;
   const DEFAULT = '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}';
   const st = await db.stories.create({ title: 'smart recall tale' });
+  await db.stories.update(st.id, { keeper: false, extraction: false });
+  /* a record over pages the tale really has (a line over pages that are not there is never sent): 20 lines over pages 1–40,
+   * and 80 pages, so the 30 sent word for word stand after them */
   const nodes = [];
-  for (let i = 0; i < 60; i += 1) nodes.push({ id: 'sr' + i, span: [i * 4, i * 4 + 3], level: 1, at: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(40) + (i === 3 ? 'SMART-LINE: Jovan told every captain he serves Head Captain Yamamoto as his personal attendant.' : '') });
+  for (let i = 0; i < 20; i += 1) nodes.push({ id: 'sr' + i, span: [i * 2, i * 2 + 1], level: 1, at: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(40) + (i === 3 ? 'SMART-LINE: Jovan told every captain he serves Head Captain Yamamoto as his personal attendant.' : '') });
   await db.settings.set('memory:' + st.id, { window: 30, nodes });
-  await db.settings.set('essentials:' + st.id, { text: '- [Day 1 · the Seireitei] (pages 1–240) Jovan arrives; serves Yamamoto; trains; the duel is set for noon, and the whole division waits on it.', print: 'kept', upTo: 239, at: 1 });
+  for (let i = 0; i < 40; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'I drill. (' + i + ')' }); await db.messages.append(st.id, { role: 'assistant', text: '[The yard — Monday, March 3, 2025 | 09:' + String(i).padStart(2, '0') + ' | clear]\n\nThe drill went on. (' + i + ')' }); }
   const prior = house.state.workerAnswer;
   let picks = 0;
   house.state.workerAnswer = (body, sys) => {
-    if (/pick the older record lines of a long collaborative story/.test(sys)) { picks += 1; const user = String((body.messages || []).map((m) => m.content).join('\n')); const m = user.match(/(\d+)\. \(pages \d+–\d+\) Line 3:/); return '{"lines":[' + (m ? m[1] : '') + ']}'; }
+    if (/pick the older record lines of a long collaborative story/.test(sys)) { picks += 1; return '{"lines":[]}'; }
     return typeof prior === 'function' ? prior(body, sys) : (prior || DEFAULT);
   };
   const priorSwitch = await db.settings.get('smartRecall');
@@ -11936,15 +11884,11 @@ test('DOM-147 SMART RECALL THROUGH THE APP (M510-50): with the essentials made, 
     type(q('#composer-input'), 'Byakuya asks who my uncle is, in front of the whole division.'); submit(q('#composer'));
     await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked');
     const teller = house.state.calls.slice(from).find((c) => !c.isWorker);
-    eq(picks, 1, 'the picker was asked once, before the page');
-    assert(/In full, earlier moments that matter now[\s\S]*SMART-LINE: Jovan told every captain/.test(notesInBody(teller.body)), 'the line it named rides word for word in the storyteller’s request');
+    eq(picks, 0, 'the whole record rides — the picker is never asked');
+    const notes = notesInBody(teller.body);
+    assert(/Our story so far — everything that came before the pages that follow, oldest first\.[\s\S]*SMART-LINE: Jovan told every captain/.test(notes), 'the line his move means rides word for word, inside our story so far');
+    eq(JSON.stringify(teller.body).split('SMART-LINE').length - 1, 1, 'once');
     await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 20000);
-    await db.settings.set('smartRecall', false);
-    const from2 = house.state.calls.length; const picks2 = picks;
-    type(q('#composer-input'), 'I wait for his answer.'); submit(q('#composer'));
-    await until(() => house.state.calls.slice(from2).some((c) => !c.isWorker), 'asked again');
-    eq(picks, picks2, 'switched off: the picker is never asked');
-    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the second page landed', 20000);
   } finally {
     house.state.workerAnswer = prior;
     if (priorSwitch == null) await db.settings.delete('smartRecall'); else await db.settings.set('smartRecall', priorSwitch);
@@ -11988,38 +11932,52 @@ test('DOM-148 ONE RUKIA (M510-54): a canon memory that kept the same wiki page u
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-149 AN ONGOING STORY GETS ITS ESSENTIALS BY ITSELF (M510-56, his report: "my ongoing story, from before the memory update, doesn\'t use the new system — no essentials"): a frontier story with a long record and no essentials — opening it asks the essentials keeper, the essentials are kept, and the next page is sent with "Our story so far — In brief, from the beginning"', async () => {
+test('DOM-750 OUR STORY SO FAR, THE RECORD ITSELF (M750 — his choice: the Essentials were as long as the record and doubled it): an ongoing story asks no essentials keeper on opening or after a page; the storyteller reads every record line once, under plain words; the light names no essentials; the drawer has no essentials book; the world keeper has its own hands in Settings', async () => {
   const before = errors.length;
   const DEFAULT = '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}';
-  const st = await db.stories.create({ title: 'ongoing, before the update' });
+  const st = await db.stories.create({ title: 'ongoing, after the update' });
+  await db.stories.update(st.id, { keeper: false, extraction: false });
+  /* thirty record lines over pages 1–60, and ninety pages — the 30 sent word for word stand after the record */
   const nodes = [];
-  for (let i = 0; i < 60; i += 1) nodes.push({ id: 'og' + i, span: [i * 4, i * 4 + 3], level: 1, at: 1, text: 'Line ' + i + ': ' + 'the drills went on and the bells rang with it. '.repeat(40) });
+  for (let i = 0; i < 30; i += 1) nodes.push({ id: 'og' + i, span: [i * 2, i * 2 + 1], level: 1, at: 1, text: 'Line ' + i + ': OG-' + i + ' ' + 'the drills went on and the bells rang with it. '.repeat(40) });
   await db.settings.set('memory:' + st.id, { window: 30, nodes });
-  for (let i = 0; i < 3; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'I train. (' + i + ')' }); await db.messages.append(st.id, { role: 'assistant', text: '[The yard — Monday, March 3, 2025 | 09:0' + i + ' | clear]\n\nThe bells rang. (' + i + ')' }); }
+  for (let i = 0; i < 45; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'I train. (' + i + ')' }); await db.messages.append(st.id, { role: 'assistant', text: '[The yard — Monday, March 3, 2025 | 09:' + String(i).padStart(2, '0') + ' | clear]\n\nThe bells rang. (' + i + ')' }); }
   const prior = house.state.workerAnswer;
-  let asked = 0;
+  let condensed = 0;
   house.state.workerAnswer = (body, sys) => {
-    if (/condense the record of a long collaborative story/.test(sys)) { asked += 1; return '[Day 1–60 · the yard] (pages 1–240) ONGOING-ESSENTIALS: Jovan trains for sixty days; the bells ring; the yard holds.'; }
+    if (/condense (?:one detailed record section|the record) of a (?:long )?collaborative story/.test(String(sys || ''))) { condensed += 1; return '[Day 1] ESSENTIALS-SHOULD-NOT-EXIST'; }
     return typeof prior === 'function' ? prior(body, sys) : (prior || DEFAULT);
   };
   try {
     await env.ctx.chat.refreshStories(true);
     await env.ctx.chat.openStory(st.id);
-    await until(async () => /ONGOING-ESSENTIALS/.test(((await db.settings.get('essentials:' + st.id)) || {}).text || ''), 'opening the story made its essentials', 30000);
-    assert(asked >= 1, 'the essentials keeper was asked by itself');
     await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
     const from = house.state.calls.length;
     type(q('#composer-input'), 'I ring the bell myself.'); submit(q('#composer'));
     await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked');
     const teller = house.state.calls.slice(from).find((c) => !c.isWorker);
-    assert(/Our story so far — first the whole of it in brief[\s\S]*In brief, from the beginning[\s\S]*ONGOING-ESSENTIALS/.test(notesInBody(teller.body)), 'the next page is sent with the new memory');
+    const notes = notesInBody(teller.body);
+    assert(notes.includes('Our story so far — everything that came before the pages that follow, oldest first. Each line tells what happened on its own pages: the past, not now.'), 'the plain heading');
+    for (let i = 0; i < nodes.length; i += 1) eq(notes.split('OG-' + i + ' ').length - 1, 1, 'line ' + i + ' rides once');
+    assert(!/essentials|In brief, from the beginning|Complete folded|Selected complete folded|compressed/i.test(JSON.stringify(teller.body)), 'no second telling, no system labels');
     await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 20000);
-    /* and after a page, by itself too: with the essentials let go, the page's own chain makes them again */
-    await db.settings.delete('essentials:' + st.id);
-    const askedBefore = asked;
-    type(q('#composer-input'), 'I wait for the bells to stop.'); submit(q('#composer'));
-    await until(async () => asked > askedBefore && /ONGOING-ESSENTIALS/.test(((await db.settings.get('essentials:' + st.id)) || {}).text || ''), 'the page’s chain made them again', 40000);
-    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the second page landed', 20000);
+    const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the page\'s helpers', 40000);
+    eq(condensed, 0, 'no essentials keeper asked — on opening or after the page');
+    eq(await db.settings.get('essentials:' + st.id), undefined, 'and nothing written for it');
+    const btn = q('#btn-ledger');
+    assert(!/essentials/i.test(btn.getAttribute('title') || ''), 'the light names no essentials: ' + (btn.getAttribute('title') || ''));
+    click(btn); await until(() => !q('#drawer').hidden, 'the drawer');
+    await env.ctx.drawer.renderAllRooms(); await tick(300);
+    assert(!qa('#drawer-panels .ledger-panel').some((p) => /Story essentials/.test(p.textContent)), 'no essentials book in the drawer');
+    assert(qa('#drawer-panels .ledger-panel').some((p) => /Our story so far — the record/.test(p.textContent)), 'the record\'s own book stands');
+    click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away');
+    await openSettings();
+    await until(() => qa('#worker-assignments .worker-assign-row').length > 0, 'the workers\' rows', 10000);
+    const rows = qa('#worker-assignments .worker-assign-row').map((r) => r.textContent);
+    assert(rows.some((t) => /^The world keeper — for a brief set to Automatic/.test(t)), 'the world keeper has its own hands');
+    assert(!rows.some((t) => /essentials keeper/i.test(t)), 'no essentials keeper row');
+    await closeSettings();
   } finally {
     house.state.workerAnswer = prior;
     await db.stories.remove(st.id).catch(() => {});
@@ -12102,8 +12060,9 @@ test('DOM-181 EVERY ROW A TALE WRITES GOES WITH THE TALE (M525 — the deep audi
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-/* M547: the record a smart-recall scenario stands on — forty lines over pages 1–160, the essentials over 1–120 (so 31–40
- * are "since then"); line 3 names no one in the scene, line 7 names Rukia (here), lines 30–39 are the newest */
+/* M547: the record a smart-recall scenario stands on — forty lines over pages 1–160; line 3 names no one in the scene, line 7
+ * names Rukia (here), lines 30–39 are the newest. M750: with long lines a small storyteller carries only the newest few
+ * in full, and the picker is offered the rest; a frontier storyteller carries them all. */
 async function smartRecallTale(title, { here = 'Rukia', long = false } = {}) {
   const { saveState, emptyState } = await import('../../js/engine/state.js');
   const { applyMutations } = await import('../../js/engine/apply.js');
@@ -12115,28 +12074,27 @@ async function smartRecallTale(title, { here = 'Rukia', long = false } = {}) {
     if (i === 3) text = 'Line 3: SMALL-LINE: Jovan told every captain that the old attendant of the manor raised him, and asked them to leave it there.';
     if (i === 7) text = 'Line 7: RUKIA-LINE: ' + here + ' kept the division\'s ledger of debts and showed it to no one.';
     if (i >= 30) text = 'Line ' + i + ': SINCE-LINE-' + i + ': the rematch was set for the first snow.';
-    if (long) text += ' ' + 'the bells rang again and the yard stood in its rows. '.repeat(40); /* a frontier storyteller reads the newest ~32,000 characters whole: long lines leave older ones for the picker */
-    nodes.push({ id: 'srs' + i, span: [i * 4, i * 4 + 3], level: 1, at: 1, text });
+    if (long) text += ' ' + 'the banners were mended and the kettles were scrubbed again. '.repeat(36); /* long lines: a small storyteller's newest stretch holds only a few of them (words no page of the scene says, so his words alone never call one back) */
+    nodes.push({ id: 'srs' + i, span: [i * 2, i * 2 + 1], level: 1, at: 1, text }); /* M750: over pages the tale has (below) */
   }
   await db.settings.set('memory:' + st.id, { window: 30, nodes });
-  await db.settings.set('essentials:' + st.id, { text: '- [Day 1 · the Seireitei] (pages 1–120) Jovan arrives; serves the Tenth; trains; the rematch waits.', print: 'kept', upTo: 119, at: 1 });
-  const H = (n) => '[The Tenth Division courtyard — Monday, March 3, 2025 | 12:' + String(10 + n).padStart(2, '0') + ' | noon | haori | at the rail]\n\n';
-  for (let i = 0; i < 4; i += 1) {
+  const H = (n) => '[The Tenth Division courtyard — Monday, March 3, 2025 | 12:' + String(10 + (n % 49)).padStart(2, '0') + ' | noon | haori | at the rail]\n\n';
+  for (let i = 0; i < 56; i += 1) { /* M750: 112 pages — the record's 80 pages stand before the 30 sent word for word */
     await db.messages.append(st.id, { role: 'user', text: 'I wait, move ' + i + '.' });
     await db.messages.append(st.id, { role: 'assistant', text: H(i) + here + ' kept her hand on the rail while the dust lifted in the noon wind, page ' + i + '.' });
   }
-  const ledger = applyMutations({ ...emptyState(), page: 4 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the Tenth Division courtyard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: here }]).state;
-  await saveState(st.id, { ...ledger, page: 4, readTo: 4, tidiedGen: 999 });
+  const ledger = applyMutations({ ...emptyState(), page: 56 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the Tenth Division courtyard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: here }]).state;
+  await saveState(st.id, { ...ledger, page: 56, readTo: 56, tidiedGen: 999 });
   return { st, H };
 }
 const PICK_SYS = /pick the older record lines of a long collaborative story/;
 const sysTextOf = (c) => (Array.isArray(c.body.messages) ? c.body.messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n') : String(c.body.system || ''));
 const userTextOf = (c) => (Array.isArray(c.body.messages) ? c.body.messages.filter((m) => m.role === 'user').map((m) => String(m.content)).join('\n') : '');
 
-test('DOM-195 SMART RECALL FOR A SMALL STORYTELLER, THROUGH THE APP (M547 — his find: a site promising "infinite context, nothing missing" searches what you just typed by meaning; the small storyteller had only the words): the picker reads his move before the page and the older line it names rides whole in the small storyteller\'s closing words; the lines the small request already carries in full (since the essentials, and with the people here) are never offered to it; the receipt says so; switched off, it is never asked', async () => {
+test('DOM-195 SMART RECALL FOR A SMALL STORYTELLER, THROUGH THE APP (M547 — his find: a site promising "infinite context, nothing missing" searches what you just typed by meaning; the small storyteller had only the words): the picker reads his move before the page and the older line it names rides whole in the small storyteller\'s story so far (M750); the lines the small request already carries in full (since the essentials, and with the people here) are never offered to it; the receipt says so; switched off, it is never asked', async () => {
   const before = errors.length;
   const { queuedCount } = await import('../../js/agents/queue.js');
-  const { st, H } = await smartRecallTale('small recall tale');
+  const { st, H } = await smartRecallTale('small recall tale', { long: true });
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
@@ -12162,20 +12120,26 @@ test('DOM-195 SMART RECALL FOR A SMALL STORYTELLER, THROUGH THE APP (M547 — hi
     const pickAt = calls.findIndex((c) => c.isWorker && PICK_SYS.test(sysTextOf(c)));
     const tellAt = calls.findIndex((c) => !c.isWorker);
     assert(pickAt !== -1 && tellAt !== -1 && pickAt < tellAt, 'asked before the page: pick ' + pickAt + ', storyteller ' + tellAt);
-    const index = userTextOf(calls[pickAt]);
+    const asked = userTextOf(calls[pickAt]);
+    /* M750: what it is told the page already has, and the index of what it does not */
+    const index = asked.slice(asked.indexOf('THE OLDER RECORD LINES IT DOES NOT HAVE:'), asked.indexOf('THE LAST PAGE:'));
+    const known = asked.slice(asked.indexOf('WHAT THE NEXT PAGE ALREADY HAS:'), asked.indexOf('THE OLDER RECORD LINES IT DOES NOT HAVE:'));
+    assert(/The record lines it carries word for word:[\s\S]*SINCE-LINE-39/.test(known), 'it is told what the page already has — the lines it carries: ' + known.slice(0, 300));
+    assert(known.includes('The story in short:\nJovan serves the Tenth.'), 'and the story in short the small request carries: ' + known.slice(0, 300));
     assert(/Line 3: SMALL-LINE/.test(index), 'the older line is offered to it');
-    assert(!/SINCE-LINE/.test(index), 'never the lines since the essentials — the small storyteller reads them in full');
-    assert(!/RUKIA-LINE/.test(index), 'never a line with the people here — read in full while they are here');
     const told = calls[tellAt];
     const wire = JSON.stringify(told.body.messages);
+    /* M750: never a line the request carries in full — the newest it reads whole, and the line of the person here */
+    const carriedSince = [...wire.matchAll(/SINCE-LINE-(\d+)/g)].map((m) => m[1]);
+    assert(carriedSince.length && carriedSince.every((k) => !index.includes('SINCE-LINE-' + k)), 'never a line the small storyteller already reads in full: ' + carriedSince.join(','));
+    assert(!/RUKIA-LINE/.test(index), 'never a line with the people here — read in full while they are here');
     assert(/What I have in mind for this page/.test(wire), 'the small storyteller\'s request (its plan)');
     const closing = String(told.body.messages[told.body.messages.length - 1].content || '');
-    assert(/\(pages 13–16\) Line 3: SMALL-LINE: Jovan told every captain that the old attendant of the manor raised him, and asked them to leave it there\./.test(closing), 'the line it named rides whole, with its pages, in the closing words: ' + closing.slice(-500));
+    assert(/\(pages 7–8\) Line 3: SMALL-LINE: Jovan told every captain that the old attendant of the manor raised him, and asked them to leave it there\./.test(wire.replace(/\\n/g, '\n').replace(/\\"/g, '"')), 'the line it named rides whole, with its pages: ' + closing.slice(-500));
     eq(wire.split('SMALL-LINE').length - 1, 1, 'said once in the whole request');
-    console.log('    DOM-195 the small storyteller read: ' + (closing.match(/And from our story so far[^\n]*/) || ['(no recall sentence)'])[0].slice(0, 400));
     const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
-    const row = page.receipt && page.receipt.slots.find((x) => x.name === 'The plan for this page');
-    assert(row && /with 1 older line named by the smart recall for what your move means/.test(row.source), 'the receipt says so: ' + (row && row.source));
+    const row = page.receipt && page.receipt.slots.find((x) => x.name === 'Earlier moments, in full');
+    assert(row && /named by the smart recall/.test(row.source), 'the receipt says so, on the row that holds it: ' + (row && row.source));
     await db.settings.set('smartRecall', false);
     const asks2 = pickAsks;
     const calls2 = await send('I answer him plainly.');
@@ -12192,7 +12156,7 @@ test('DOM-195 SMART RECALL FOR A SMALL STORYTELLER, THROUGH THE APP (M547 — hi
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-196 THE SMART RECALL WAITS BESIDE THE REFEREE, NOT AFTER IT (M547): a fight move whose referee and picker each take 1.5 seconds reaches the storyteller in about 1.5 seconds, not 3 — the picker is asked while the referee is still out', async () => {
+test('DOM-196 / M750 ONE WAIT BEFORE A FIGHT PAGE: a fight move whose referee takes 1.5 seconds reaches the storyteller after that one wait — a frontier storyteller reads the whole record, so the picker is never asked and never adds a second', async () => {
   const before = errors.length;
   const { queuedCount } = await import('../../js/agents/queue.js');
   const { saveState, loadState } = await import('../../js/engine/state.js');
@@ -12224,9 +12188,8 @@ test('DOM-196 THE SMART RECALL WAITS BESIDE THE REFEREE, NOT AFTER IT (M547): a 
     await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked', 30000);
     const took = Date.now() - t0;
     eq(at.ref.length, 1, 'the referee was asked');
-    eq(at.pick.length, 1, 'the picker was asked');
-    assert(at.pick[0] < at.ref[0] + D, 'the picker was asked while the referee was still out: ' + (at.pick[0] - at.ref[0]) + ' ms after it');
-    console.log('    DOM-196: referee and picker ' + D + ' ms each — the storyteller was asked after ' + took + ' ms');
+    eq(at.pick.length, 0, 'the picker was not asked — the whole record rides');
+    console.log('    DOM-196: referee ' + D + ' ms — the storyteller was asked after ' + took + ' ms');
     assert(took < 2 * D, 'one wait, not two: ' + took + ' ms (two in a row would be ' + 2 * D + ' ms or more)');
     await until(async () => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 30000);
     await until(() => queuedCount(st.id) === 0, 'readers', 40000);
@@ -12714,8 +12677,8 @@ test('DOM-205 "WEIGH THEM AGAIN", THROUGH THE DRAWER (M556 — his report: "I ch
     'Ivar van Emreis': { default: 8, domains: { melee: 8 }, _auto: true, seed: SEED_VERSION },
   } };
   await saveState(st.id, { ...s, page: 1, readTo: 1, tidiedGen: 999 });
-  const { ESSENTIALS_KEY } = await import('../../js/agents/essentials.js');
-  await db.settings.set(ESSENTIALS_KEY(st.id), { text: '- [Day 1 · the gate] (pages 1-2) OPENING-FEAT: Jovan parried Ivar\u2019s first strike before anyone saw him move.', upTo: 1, at: Date.now() }); /* M560: the whole story, told shorter */
+  /* M750: the whole story is the record itself (the story in brief is retired) */
+  await db.settings.set('memory:' + st.id, { window: 30, nodes: [{ id: 'of', span: [0, 1], level: 1, at: 1, text: '[Day 1 · the gate] OPENING-FEAT: Jovan parried Ivar\u2019s first strike before anyone saw him move.' }] });
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   const prior = house.state.workerAnswer;
@@ -12741,7 +12704,7 @@ test('DOM-205 "WEIGH THEM AGAIN", THROUGH THE DRAWER (M556 — his report: "I ch
     await until(() => asked, 'the helper asked', 20000);
     const sheetShown = (asked.match(/<sheet>\\n([\s\S]*?)\\n<\/sheet>/) || [])[1] || '';
     assert(/Jovan Wessex \(the main character\)/.test(sheetShown) && !/default 5|melee 6|melee 8/.test(sheetShown), 'no old number in front of it: ' + sheetShown);
-    assert(/<story_in_brief>[\s\S]*OPENING-FEAT: Jovan parried Ivar/.test(asked.replace(/\\n/g, '\n')), 'the whole story, told shorter, is in front of it (M560): ' + asked.slice(0, 200));
+    assert(/<record>[\s\S]*OPENING-FEAT: Jovan parried Ivar/.test(asked.replace(/\\n/g, '\n')) && !/<story_in_brief>/.test(asked), 'the whole story, the record itself, is in front of it (M560/M750): ' + asked.slice(0, 200));
     await until(() => queuedCount(st.id) === 0, 'the weighing done', 30000);
     try {
       await until(() => panel() && /Jovan Wessex \(you\) — melee 8 · ice 8 · everything else 7/.test(panel().textContent) && /why: parried Ivar in the opening scene/.test(panel().textContent), 'the drawer shows the new numbers, and why (M560)', 20000);
@@ -12760,11 +12723,10 @@ test('DOM-205 "WEIGH THEM AGAIN", THROUGH THE DRAWER (M556 — his report: "I ch
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-206 THE RULING READS THE WHOLE STORY, THROUGH THE APP (M561 — his order: "without context how would it know someone\'s power, or that someone is injured?"): his move\'s ruling is asked with the story in brief, each person\'s evidence beside the numbers, and who is hurt', async () => {
+test('DOM-206 THE RULING READS THE WHOLE STORY, THROUGH THE APP (M561 — his order: "without context how would it know someone\'s power, or that someone is injured?"): his move\'s ruling is asked with each person\'s evidence beside the numbers, and who is hurt', async () => {
   const before = errors.length;
   const { saveState, emptyState } = await import('../../js/engine/state.js');
   const { applyMutations } = await import('../../js/engine/apply.js');
-  const { ESSENTIALS_KEY } = await import('../../js/agents/essentials.js');
   const { queuedCount } = await import('../../js/agents/queue.js');
   const st = await db.stories.create({ title: 'the ruling reads' });
   await db.stories.update(st.id, { keeper: false, extraction: false, brief: 'Jovan Wessex (16), E-tier in name only; he hides his skill. Ivar van Emreis, the strongest student.' });
@@ -12776,7 +12738,6 @@ test('DOM-206 THE RULING READS THE WHOLE STORY, THROUGH THE APP (M561 — his or
     'Ivar van Emreis': { default: 7, domains: { melee: 8 }, why: 'the strongest student', _auto: true },
   } };
   await saveState(st.id, { ...s, page: 1, readTo: 1, tidiedGen: 999 });
-  await db.settings.set(ESSENTIALS_KEY(st.id), { text: '- (pages 1-2) RULING-ESS: Jovan parried Ivar\u2019s first strike at the gate.', upTo: 1, at: Date.now() });
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };

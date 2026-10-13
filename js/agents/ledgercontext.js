@@ -1,8 +1,6 @@
 /* Shared interpretation contract for the ledger readers. No model call. */
 import { fingerprint36 } from '../engine/fingerprint.js';
 import { quotedSource } from '../engine/evidence.js';
-import { loadEssentials } from './essentials.js';
-import { loadMemory } from './memory.js';
 import { isMc, findPersonKey } from '../engine/people.js';
 import { findCanonKey, findFact } from '../engine/canon.js';
 import { isHere, nameOnPage } from '../engine/names.js';
@@ -132,10 +130,5 @@ For changes retain the cause and supporting quotation when available. Distinguis
 Before answering, reconcile your proposed changes with the current ledger and the complete turn. Keep exact established identities, titles and relationships; register an explicitly introduced person even when quiet or absent. Do not erase existing facts to make a shorter record.
 `;
 
-export async function sharedStoryContext(storyId) {
-  if (!storyId) return '';
-  const [ess, mem] = await Promise.all([loadEssentials(storyId), loadMemory(storyId)]);
-  const end = Math.max(-1, ...(mem?.nodes || []).filter(n => Array.isArray(n.span)).map(n => n.span[1]));
-  if (!ess?.text || !Number.isFinite(ess.upTo) || ess.upTo > end) return '';
-  return '\nSTORY ESSENTIALS, through page ' + (ess.upTo + 1) + '. A summary, not a replacement for later evidence or the detailed record:\n' + ess.text + '\n';
-}
+/* M750: sharedStoryContext (the Essentials added under each reader's record) is gone with the Essentials — every reader
+ * already reads the record itself, handed to it by chat.js. */

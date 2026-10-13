@@ -39,7 +39,7 @@ try:
    payload='data: '+json.dumps({'choices':[{'delta':{'content':words}}]})+'\n\ndata: [DONE]\n\n'
    route.fulfill(status=200,content_type='text/event-stream',body=payload)
   p.route('**/fixture-provider/**',answer)
-  p.evaluate("""async id=>{const {db}=await import('/js/store.js');const conn=await db.connections.add({label:'Fixture',type:'openai',baseUrl:location.origin+'/fixture-provider/v1',apiKey:'fixture',model:'fixture'});await db.stories.update(id,{connectionId:conn.id,workerConnections:{essentials:conn.id}});await window.__cozy.chat.openStory(id);}""",branch)
+  p.evaluate("""async id=>{const {db}=await import('/js/store.js');const conn=await db.connections.add({label:'Fixture',type:'openai',baseUrl:location.origin+'/fixture-provider/v1',apiKey:'fixture',model:'fixture'});await db.stories.update(id,{connectionId:conn.id,workerConnections:{ground:conn.id}});await window.__cozy.chat.openStory(id);}""",branch)
   for _ in range(80):
    ground=p.evaluate("async id=>{const {db}=await import('/js/store.js');return await db.settings.get('worldGround:'+id)}",branch)
    if ground and ground.get('parts'):break

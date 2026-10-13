@@ -701,19 +701,7 @@ test('M648-3 THE WORLD’S WORD KEEPS ONLY WHAT IS A LINE: one string is a list 
 });
 
 /* M649 — the ledger audit, part six: the books' doors, and what the storyteller is told. */
-test('M649-1 THE ESSENTIALS KEEP THE LIST AND NOTHING AFTER IT: a refusal or a list that never starts is nothing; a preamble before it and chatter after it are not lines of it', async () => {
-  const { readEssentials } = await import('../../js/agents/essentials.js');
-  const list = ['(pages 1–6) Jovan reached the Wells house in rain and Aunt Vera took the bank letter from Rias.', '(pages 7–12) Tom swore to mend the roof before the storm; Rias owes the ferryman two coppers.'];
-  const want = list.map((l) => '- ' + l).join('\n');
-  eq(readEssentials(list.join('\n')), want, 'the list, as it is');
-  eq(readEssentials('Here are the essentials:\n\n' + list.join('\n')), want, 'a preamble before it is not a line of it');
-  eq(readEssentials(list.join('\n') + '\n\nLet me know if you’d like more detail on any of these!'), want, 'nor is chatter after it');
-  eq(readEssentials('- ' + list.join('\n- ') + '\n\nWould you like me to continue?'), want, 'bulleted, with a question after it');
-  eq(readEssentials('I’m sorry, but I can’t help with summarizing this content.'), '', 'a refusal is nothing');
-  eq(readEssentials('Could you provide the record you would like condensed?'), '', 'a question back is nothing');
-  eq(readEssentials('<think>[the list should start with pages]</think>\n' + list.join('\n')), want, 'its thinking is not its answer (M608)');
-});
-
+/* M649-1 (the essentials' answer read as a list) went with the essentials, retired in M750. */
 test('M649-2 WHAT THE STORYTELLER IS TOLD HOLDS NO BROKEN WORD: a ledger as a tale leaves it — full books, with the ragged edges real data has (an empty core, a seat with no place, a thread with no owner or next step, a standing on one axis) — is worded with no “undefined”, “null”, “NaN”, “[object Object]”, empty brackets or doubled dashes', async () => {
   const { renderStateFacts, renderMasthead } = await import('../../js/engine/state.js');
   const { renderWholeLedger } = await import('../../js/engine/whole.js');
@@ -1577,7 +1565,6 @@ test('M666-1 THE TAVERN DOES NOT WALK INTO THE ALLEY: on a near move, when the p
 
 test('M666-2 AN ANSWER THAT IS NOT A SUMMARY IS ASKED FOR AGAIN, IN THE SAME RUN (his: “gibberish, or the AI breaking character, or ‘I can’t help with this’ — automatically try again, same as the other workers”): the keeper’s line for a batch, its merge of two lines, and the plot essentials each take three asks to get a real one; what is not a summary is never kept', async () => {
   const { notASummary, KEEPER_TRIES, maybeSummarize, loadMemory, saveMemory, NOTES_PER_LAYER } = await import('../../js/agents/memory.js');
-  const { runEssentials, loadEssentials, ESSENTIALS_TRIES } = await import('../../js/agents/essentials.js');
   const { db } = await import('../../js/store.js');
   const pagesText = 'Liara leaned on the rail and the street went quiet. Jovan stayed on the porch a while longer; she asked him to stay for the fair on Friday.';
   eq(notASummary('Jovan stayed on the porch with Liara; the street went quiet; she asked him to stay for the fair.', pagesText), '', 'a line of the record is a summary');
@@ -1586,7 +1573,7 @@ test('M666-2 AN ANSWER THAT IS NOT A SUMMARY IS ASKED FOR AGAIN, IN THE SAME RUN
   assert(/page of story/.test(notASummary('[The Wells house — Friday | 20:50 | clear | coat | on the porch]\n\nLiara turned from the rail. “Stay,” she said.', pagesText)), 'a page of story written on is not');
   assert(/not words/.test(notASummary('@@## $$%% ^^&& **(( ))__ ++== ~~`` ||\\\\ <<>> ??// ;;::', pagesText)), 'noise is not');
   assert(/nothing of what it was asked/.test(notASummary('The quarterly revenue forecast exceeded analyst expectations across European markets despite currency headwinds.', pagesText)), 'words about something else are not');
-  eq(KEEPER_TRIES + ' / ' + ESSENTIALS_TRIES, '3 / 3', 'three asks for each');
+  eq(KEEPER_TRIES, 3, 'three asks'); /* M750: the essentials' three asks went with them */
   const sse = (pieces) => { const t = pieces.map((p) => 'data: ' + JSON.stringify(p) + '\n\n').join('') + 'data: [DONE]\n\n'; return { ok: true, status: 200, headers: new Headers(), body: new Response(t).body, text: async () => t }; };
   const say = (text) => sse([{ choices: [{ delta: { content: text } }] }, { choices: [{ delta: {}, finish_reason: 'stop' }] }]);
   const DS = { type: 'openai', baseUrl: 'https://api.deepseek.com/v1', apiKey: 'k', model: 'deepseek-chat', reasoning: { effort: 'off' } };
@@ -1616,13 +1603,6 @@ test('M666-2 AN ANSWER THAT IS NOT A SUMMARY IS ASKED FOR AGAIN, IN THE SAME RUN
     const folded = (await loadMemory('m666-fold')).nodes.filter((n) => n.level === 2);
     eq(merges + ' | ' + folded.length + ' | ' + /two evenings on the porch/.test(folded[0] ? folded[0].text : ''), '2 | 1 | true', 'the merge was asked for again at once, and the real merged line is the promotion');
     assert(!(await loadMemory('m666-fold')).nodes.some((n) => /As an AI/.test(String(n.text || ''))), 'the assistant’s chatter is nowhere in the record');
-    /* the plot essentials: two answers that are not them, then the essentials */
-    let tells = 0;
-    const good = '[Friday evening, the Wells house porch] Jovan comes home and Liara meets him; they talk until the lamps go out.\n[Saturday, the fair] She asks him to stay for the fair; he says he will think on it.';
-    const out = await runEssentials({ connection: { ...DS }, storyId: 'm666-essentials', nodes: [{ id: 'a', span: [0, 5], text: 'Jovan came home; Liara met him on the porch; the street was quiet; they talked until the lamps went out.', level: 1, at: 1 }, { id: 'b', span: [6, 11], text: 'She asked him to stay for the fair; he said he would think on it; the ferry was late.', level: 1, at: 2 }], brief: 'A harbour town story.', mc: 'Jovan', force: true,
-      callLLM: async () => { tells += 1; return tells === 1 ? 'I’m sorry, but I can’t help with that.' : tells === 2 ? 'asdf qwer zxcv uiop hjkl' : good; } });
-    eq(tells + ' | ' + out.wrote, '3 | true', 'the essentials were asked for three times and written');
-    assert(/Friday evening, the Wells house porch/.test((await loadEssentials('m666-essentials')).text), 'and what is kept is the essentials');
   } finally {
     globalThis.fetch = prior;
     for (const [key, v] of [['memoryWindow', kept.window], ['memoryBatch', kept.batch], ['memorySqueeze', kept.squeeze], ['memoryKeeper', kept.keeper]]) { if (v === undefined) await db.settings.delete(key); else await db.settings.set(key, v); }

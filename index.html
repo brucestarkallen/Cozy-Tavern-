@@ -860,7 +860,7 @@
           <select id="worker-fallback"></select>
           <p class="quiet" id="worker-fallback-last" hidden></p>
           <!-- M529: two helpers at once -->
-          <div class="row"><label class="radio-row"><input type="checkbox" id="helpers-side-by-side"> Two workers at once — the record keeper, the essentials, the plans and the world run beside the ledger’s readers, so a page’s workers finish sooner. Sends two requests at the same time — if your workers’ provider turns that away, they go back to one at a time by themselves.</label></div>
+          <div class="row"><label class="radio-row"><input type="checkbox" id="helpers-side-by-side"> Two workers at once — the record keeper, the plans and the world run beside the ledger’s readers, so a page’s workers finish sooner. Sends two requests at the same time — if your workers’ provider turns that away, they go back to one at a time by themselves.</label></div>
           <p class="quiet" id="helpers-side-by-side-note" hidden></p>
           <label class="stack-label" for="story-connection">Who tells <span id="story-conn-name">this story</span></label>
           <p class="quiet">The storyteller's connection for this tale alone — overrides the house's active one here.</p>
@@ -953,9 +953,9 @@
           </div>
           <!-- M510-50: smart recall -->
           <div class="row">
-            <label class="radio-row"><input type="checkbox" id="smart-recall"> Smart recall — before each page, a worker reads your move against the story’s timeline and brings back the older record lines it means, word for word</label>
+            <label class="radio-row"><input type="checkbox" id="smart-recall"> Smart recall — when your storyteller doesn’t read the whole record (a small model, or a record longer than its context), a worker reads your move before the page and brings back the older record lines it means, word for word</label>
           </div>
-          <p class="quiet">It only names lines of your record — what rides is the record’s own words. It waits at most 8 seconds; slower, and the page goes with the word-for-word recall alone. On once the story’s essentials are made.</p>
+          <p class="quiet">It only names lines of your record — what rides is the record’s own words. It waits at most 8 seconds; slower, and the page goes with the word-for-word recall alone. When the whole record already goes to your storyteller, there is nothing to bring back and it isn’t asked.</p>
           <label class="stack-label" for="memory-window">Pages kept word for word: <span id="memory-window-value">30</span></label>
           <input id="memory-window" type="range" min="10" max="100" step="5" value="30" aria-label="How many recent pages stay word for word">
           <p class="quiet">Fewer pages kept word for word means smaller, quicker turns; more means the recent tale stays exactly as written for longer.</p>

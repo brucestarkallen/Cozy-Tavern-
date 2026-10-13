@@ -10,18 +10,17 @@ import { applyMutations } from '../../js/engine/apply.js';
 
 const st = applyMutations({ ...emptyState(), page: 30 }, [{ type: 'mc.set', name: 'Jovan Wessex' }, { type: 'presence.enter', name: 'Jovan Wessex' }, { type: 'presence.enter', name: 'Ivar van Emreis' }, { type: 'body.injure', name: 'Ivar van Emreis', what: 'a cracked rib', severity: 'moderate' }]).state;
 const brief = 'BRIEF-START Jovan Wessex (16), E-tier in name only. ' + 'b'.repeat(60000) + ' BRIEF-END Ivar van Emreis — the strongest student.';
-const essentials = '- (pages 1-2) ESS-OPENING: Jovan parried Ivar\u2019s first strike.\n' + Array.from({ length: 200 }, (_, i) => '- (page ' + (i + 3) + ') the drills went on.').join('\n') + '\n- (page 220) ESS-NEWEST: the rib cracked.';
 const record = 'REC-OLDEST the gate.\n' + 'r'.repeat(90000) + '\nREC-NEWEST the yard.';
 const pages = [];
 for (let i = 0; i < 30; i += 1) { pages.push({ id: 'u' + i, role: 'user', text: 'I move ' + i + '.' }); pages.push({ id: 'a' + i, role: 'assistant', text: 'PAGE-' + i + ' ' + 'p'.repeat(2500) }); }
 
-test('M561-1 THE WEIGHING FILLS ITS MODEL\'S ROOM AS A GAME MASTER READS: on a large model the whole brief, the whole story in brief, the whole detailed record and every page; on a small one the brief is cut with a note, the story in brief keeps its opening and its newest, and the newest pages still ride', () => {
-  const big = buildSeedUser({ state: st, pages, brief, essentials, record, room: 1000000, blind: true });
-  for (const mark of ['BRIEF-START', 'BRIEF-END', 'ESS-OPENING', 'ESS-NEWEST', 'REC-OLDEST', 'REC-NEWEST', 'PAGE-0 ', 'PAGE-29 ']) assert(big.includes(mark), 'the large room holds ' + mark);
+test('M561-1 THE WEIGHING FILLS ITS MODEL\'S ROOM AS A GAME MASTER READS: on a large model the whole brief, the whole detailed record and every page; on a small one the brief is cut with a note, the record keeps its opening and its newest (M750: the story in brief is retired), and the newest pages still ride', () => {
+  const big = buildSeedUser({ state: st, pages, brief, record, room: 1000000, blind: true });
+  for (const mark of ['BRIEF-START', 'BRIEF-END', 'REC-OLDEST', 'REC-NEWEST', 'PAGE-0 ', 'PAGE-29 ']) assert(big.includes(mark), 'the large room holds ' + mark);
   assert(/cracked rib/.test(big), 'who is hurt rides');
-  const small = buildSeedUser({ state: st, pages, brief, essentials, record, room: 40000, blind: true });
+  const small = buildSeedUser({ state: st, pages, brief, record, room: 40000, blind: true });
   assert(small.includes('BRIEF-START') && /the brief continues/.test(small), 'the brief cut, and said to be');
-  assert(small.includes('ESS-OPENING') && small.includes('ESS-NEWEST'), 'the story in brief keeps both ends');
+  assert(small.includes('REC-OLDEST') && small.includes('REC-NEWEST'), 'the record keeps both ends');
   assert(small.includes('PAGE-29 '), 'the newest page rides');
   assert(small.length < 60000, 'and it stays inside its room: ' + small.length);
 });
