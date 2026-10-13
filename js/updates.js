@@ -25,7 +25,8 @@ export function startUpdates(ctx) {
       book[name] = async function (...args) {
         writes++; touch();
         try { return await original.apply(this, args); }
-        catch (err) { failedSave = true; throw err; }
+        // A call that refused its input before writing anything (store.js marks it) lost nothing.
+        catch (err) { if (!err?.nothingWritten) failedSave = true; throw err; }
         finally { writes--; touch(); }
       };
     }
@@ -36,7 +37,8 @@ export function startUpdates(ctx) {
     || Boolean(document.getElementById('composer-input')?.value) || ctx.chat?.hasDraft?.()
     || visible(document.querySelector('#view-settings:not([hidden])'))
     || [...document.querySelectorAll('[role="dialog"], dialog[open], form:not(#composer), [contenteditable="true"], textarea.edit-box')].some(visible)
-    || document.activeElement?.matches('input, textarea, select, [contenteditable="true"]');
+    // The composer's words and attachments are read above; the caret alone in an empty composer is no draft.
+    || (document.activeElement?.matches('input, textarea, select, [contenteditable="true"]') && document.activeElement.id !== 'composer-input');
   async function settle() {
     if (!pending || reloading || checking) return;
     if (blocked()) {

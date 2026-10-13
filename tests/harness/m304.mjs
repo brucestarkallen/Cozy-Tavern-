@@ -7,6 +7,7 @@ import { applyMutations, undoLast } from '../../js/engine/apply.js';
 import { renderOffscreen, seatLine, seatOrder } from '../../js/engine/offscreen.js';
 import { carriedBy, seatHousekeeping, wakeHousekeeping, peopleHousekeeping, SEAT_CAP, RETIRE_AFTER } from '../../js/agents/auditor.js';
 import { buildWorldMessages, peopleForWorld } from '../../js/agents/world.js';
+import { renderPeopleTiers } from '../../js/engine/people.js';
 
 const at = (state, page, list) => applyMutations({ ...state, page }, list).state;
 const scene = () => at(emptyState(), 0, [
@@ -29,7 +30,7 @@ test('M304-1 someone who leaves the page is kept where they were last seen, and 
   assert(!kim.agenda && !kim.stance, 'no want and no stance are invented');
   eq(kim.sinceMinutes, st.clock.minutes, 'stamped with the hour');
   eq(seatLine('Kim', kim, st.clock.minutes), 'Kim — last seen at The Bluebird');
-  eq(seatLine('Kim', kim, st.clock.minutes + 45), 'Kim — last seen at The Bluebird (last updated 45 minutes ago in story time; awaiting the world’s next review)', 'and it says its age like any seat (M300)');
+  eq(seatLine('Kim', kim, st.clock.minutes + 45), 'Kim — last seen at The Bluebird (as of 45 minutes ago in story time)', 'and it says its age like any seat (M300)');
   /* the main character is never written elsewhere */
   const gone = at(st, 2, [{ type: 'presence.leave', name: 'Jovan' }]);
   assert(!Object.keys(gone.offscreen).some((k) => /jovan/i.test(k)), 'the main character is never seated');
@@ -87,7 +88,7 @@ test('M304-4 a sighting and the ground-as-it-was survive a save and a load', asy
   eq(JSON.stringify(again.groundWas), JSON.stringify({ name: 'The Bluebird', page: 1 }));
 });
 
-test('M304-5 the seat law knows what the people law knows: the brief’s first name, an invited card, a locked truth, a loose end, the writer’s hand and a fresh history each keep a seat — and its person', () => {
+test('M304-5 the seat law knows what the people law knows: the brief’s first name, an invited card, a loose end, an open want, the writer’s hand and a fresh history each keep a seat — and its person; a locked look alone no longer does (M719)', () => {
   let st = { ...emptyState(), turn: 200 };
   st = applyMutations({ ...st, page: 60 }, [
     { type: 'mc.set', name: 'Jovan' },
@@ -97,7 +98,7 @@ test('M304-5 the seat law knows what the people law knows: the brief’s first n
     { type: 'offscreen.set', name: 'Akeno Himejima', location: 'the shrine', activity: 'sweeping' },
     { type: 'people.set', name: 'Mira', field: 'core', text: 'his sister' },
     { type: 'offscreen.set', name: 'Mira', location: 'Osaka', activity: 'at work' },
-    { type: 'canon.lock', name: 'Mira', key: 'kin', value: 'Jovan’s younger sister' },
+    { type: 'canon.lock', name: 'Mira', key: 'hair', value: 'black, to the shoulder' },
     { type: 'people.set', name: 'Old Tom', field: 'core', text: 'the landlord' },
     { type: 'offscreen.set', name: 'Old Tom', location: 'his office', activity: 'counting rent' },
     { type: 'people.note', name: 'Old Tom', field: 'thread', text: 'promised to fix the boiler before winter' },
@@ -106,19 +107,31 @@ test('M304-5 the seat law knows what the people law knows: the brief’s first n
     { type: 'offscreen.set', name: 'Sona', location: 'the council room', activity: 'working late' },
     { type: 'people.set', name: 'Wendell', field: 'core', text: 'a cab driver' },
     { type: 'offscreen.set', name: 'Wendell', location: 'the boardwalk', activity: 'parked' },
+    { type: 'people.set', name: 'Gaspar', field: 'core', text: 'the courier' },
+    { type: 'offscreen.set', name: 'Gaspar', location: 'the post road', activity: 'riding hard', agenda: 'put the sealed letter in the duke’s own hand' },
   ]).state;
-  for (const k of Object.keys(st.offscreen)) st.offscreen[k].atTurn = 1; /* seated long ago */
+  /* seated long ago — M719: a seat's retention clock is its first page (firstAtTurn), which no later write resets */
+  for (const k of Object.keys(st.offscreen)) { st.offscreen[k].atTurn = 1; st.offscreen[k].firstAtTurn = 1; }
   const pages = Array.from({ length: 20 }, (_, i) => ({ role: 'assistant', text: 'Page ' + i + ': Jovan walked alone along the river and thought about the exam.' }));
   const opts = { brief: 'Jovan is engaged to Rias, who does not know he is leaving.', castNotes: '', castNames: ['Akeno Himejima'], pages };
   eq(carriedBy(st, 'Rias Gremory', opts), 'the brief names them', 'the brief says "Rias" — material.includes("rias gremory") carried no one');
   eq(carriedBy(st, 'Akeno Himejima', opts), 'the brief names them', 'an invited card is the writer’s own person');
-  eq(carriedBy(st, 'Mira', opts), 'something locked true of them');
+  /* M719: "physical facts no longer force permanent seats or wakeups" (its own case, tests/harness/m719-ledger.mjs: a driver
+   * with blue eyes locked retires) — a locked look carries nobody; an unresolved want does, until the world closes it */
+  eq(carriedBy(st, 'Mira', opts), '', 'a locked look alone carries no one (M719)');
   eq(carriedBy(st, 'Old Tom', opts), 'a loose end on their page');
   eq(carriedBy(st, 'Sona', opts), 'a history with the main character');
+  eq(carriedBy(st, 'Gaspar', opts), 'an active world objective', 'an open want carries (M719)');
   eq(carriedBy(st, 'Wendell', opts), '', 'nothing carries the cab driver');
   const sweep = seatHousekeeping(st, opts);
-  eq(sweep.filter((m) => m.type === 'offscreen.clear').map((m) => m.name).join(','), 'Wendell', 'only the passer-through loses his seat: ' + JSON.stringify(sweep));
-  eq(sweep.filter((m) => m.type === 'people.retire').map((m) => m.name).join(','), 'Wendell', 'and only he passes out of the story');
+  eq(sweep.filter((m) => m.type === 'offscreen.clear').map((m) => m.name).sort().join(','), 'Mira,Wendell', 'only those nothing carries lose their seats: ' + JSON.stringify(sweep));
+  eq(sweep.filter((m) => m.type === 'people.retire').map((m) => m.name).sort().join(','), 'Mira,Wendell', 'and only they pass out of the story');
+  /* M719: "retirement preserves all character fields … original sources, relationships, canon and knowledge are never erased
+   * by retirement" — and a dormant identity is in the storyteller's recall the moment the story names her */
+  const after = applyMutations({ ...st, page: 61 }, sweep).state;
+  assert(after.characters.Mira.retired && after.characters.Mira.core === 'his sister' && after.canon.Mira && after.canon.Mira.facts.some((f) => f.value === 'black, to the shoulder'), 'retired whole: her page and her locked look kept');
+  assert(/Mira/.test(JSON.stringify(renderPeopleTiers(after, { recentPages: ['Mira called from Osaka.'] }))), 'named, she is recalled');
+  assert(!applyMutations({ ...st, page: 61 }, [{ type: 'people.retire', name: 'Gaspar', cause: 'quiet' }]).state.characters.Gaspar.retired, 'one with a want still open is not retired by a worker (M719)');
   /* a history that has gone quiet as long as M57 itself waits no longer carries */
   const quiet = JSON.parse(JSON.stringify(st));
   quiet.characters.Sona.updatedAtTurn = (quiet.characters.Sona.updatedAtTurn || 0) - RETIRE_AFTER - 1;
@@ -154,6 +167,11 @@ test('M304-7 whoever the story still carries is brought back from among the pass
     { type: 'people.set', name: 'Wendell', field: 'core', text: 'a cab driver' },
     { type: 'people.retire', name: 'Wendell', cause: 'passed through' },
   ]).state;
+  /* M719: a worker can no longer retire someone the story still carries ("present people, manual records and outstanding
+   * structured obligations resist automatic retirement") — the sister was retired by the OLD seat law, before that guard,
+   * and a ledger written then still holds her so */
+  assert(!st.characters.Mira.retired, 'today her retirement is refused: she has a standing');
+  st = { ...st, characters: { ...st.characters, Mira: { ...st.characters.Mira, retired: true, retiredAtTurn: 30 } } };
   assert(st.characters.Mira.retired && st.characters.Wendell.retired);
   const woken = wakeHousekeeping(st, { brief: '', castNotes: '', castNames: [] });
   eq(woken.map((m) => m.type + ':' + m.name).join(','), 'people.wake:Mira', 'the sister with a standing comes back; the cab driver does not');
@@ -169,28 +187,36 @@ test('M304-8 the world agent is shown everyone the story carries, the most impor
   const VILLAGERS = ['Abel Moreau', 'Bruna Katz', 'Cedric Vale', 'Dalia Orne', 'Emeric Stahl', 'Fenna Quist', 'Goran Pell', 'Hedda Ruiz', 'Ivo Marchetti', 'Jorun Ashby',
     'Kasimir Lund', 'Lotte Brandt', 'Marek Oyelaran', 'Nives Corbin', 'Osric Thane', 'Petra Vogel', 'Quillon Reyes', 'Rosalind Kerr', 'Stellan Moss', 'Tamsin Wray',
     'Ulric Banner', 'Vesna Dahl', 'Wystan Holt', 'Xanthe Piper', 'Yorick Salo', 'Zelda Farrow', 'Anselm Drury', 'Beatrix Noll', 'Caspian Hurst', 'Delphine Aubry'];
-  for (const name of VILLAGERS) muts.push({ type: 'people.set', name, field: 'core', text: 'someone from the opening chapters, met once at the market' });
+  /* M719: the world simulates whom the story CARRIES — "worldParticipation now distinguishes ongoing goals, threads,
+   * relationships and writer material from those view scores … Do not simulate every known person". The thirty here are
+   * the opening chapters' neighbours, each with a small standing the pages gave them (so the story carries them); three
+   * strangers met once at the market, with nothing, are carried by nothing */
+  for (const name of VILLAGERS) muts.push({ type: 'people.set', name, field: 'core', text: 'someone from the opening chapters, a neighbour on the river path' }, { type: 'rel.shift', name, axis: 'p', delta: 3, cause: 'a kind word on the path' });
+  const STRANGERS = ['Market Stranger Ilse', 'Market Stranger Odo', 'Market Stranger Pim'];
+  for (const name of STRANGERS) muts.push({ type: 'people.set', name, field: 'core', text: 'met once at the market' });
   muts.push({ type: 'people.set', name: 'Rias Gremory', field: 'core', text: 'his fiancée; heir of her house; proud, watchful, in love and hiding it' });
   muts.push({ type: 'rel.shift', name: 'Rias Gremory', axis: 'r', delta: 20, cause: 'the page' }, { type: 'rel.shift', name: 'Rias Gremory', axis: 'p', delta: 20, cause: 'the page' });
   muts.push({ type: 'people.set', name: 'Gone Guy', field: 'core', text: 'a courier' }, { type: 'people.retire', name: 'Gone Guy', cause: 'passed through' });
   st = applyMutations({ ...st, page: 120 }, muts).state;
   /* the villagers are OLD — a person's first ten pages weigh as someone who matters (M284), and these are from the opening chapters */
-  for (const name of VILLAGERS) st.characters[name] = { ...st.characters[name], firstSeenTurn: 1, updatedAtTurn: 1 };
+  for (const name of [...VILLAGERS, ...STRANGERS]) st.characters[name] = { ...st.characters[name], firstSeenTurn: 1, updatedAtTurn: 1 };
   const { user, system } = buildWorldMessages({ state: st, userText: 'I walk.', assistantText: 'He walked.', brief: 'Jovan and Rias.', castNotes: '' });
   const list = user.slice(user.indexOf('THE PEOPLE THE STORY CARRIES'));
   assert(/Rias Gremory \[NO SEAT — seat them\]/.test(list), 'the one who matters most — written LAST, thirty-first — is shown (the old loop stopped at twenty)');
-  assert(list.indexOf('Rias Gremory') < list.indexOf('Abel Moreau'), 'and first, by importance, not by when her page was made');
+  assert(list.indexOf('Abel Moreau') > 0 && list.indexOf('Rias Gremory') < list.indexOf('Abel Moreau'), 'and first, by importance, not by when her page was made');
   assert(/WITH NO WHEREABOUTS RIGHT NOW[^\n]*Rias Gremory/.test(user), 'and named among those to seat in this answer');
   assert(!/Gone Guy/.test(list), 'a passer-through is not the world agent’s to move');
-  eq(VILLAGERS.filter((n) => list.includes(n)).length, 30, 'everyone fits a room this size — no one is cut');
-  assert(!/Abel Moreau \[NO SEAT/.test(list), 'someone met once, long ago, with no bond is not pushed onto the world agent to seat');
+  eq(VILLAGERS.filter((n) => list.includes(n)).length, 30, 'everyone the story carries fits a room this size — no one is cut');
+  assert(!STRANGERS.some((n) => list.includes(n)), 'someone met once, long ago, with no bond is not pushed onto the world agent at all (M719)');
   /* a small room: whole, then lean, then a stated cut that names the rest */
   const tight = peopleForWorld(st, { material: 'Jovan and Rias.', room: 1200 });
   assert(tight.shown < tight.total && /more the ledger knows did not fit[^\n]*Zelda Farrow/.test(tight.text), 'the cut is said, with the names it left out: ' + tight.text.slice(-200));
   eq(tight.shown + tight.text.match(/the least important: ([^\n]*?) — fetch/)[1].split(', ').length, tight.total, 'every person is either shown or named in the cut — no one is silently dropped');
   assert(tight.text.startsWith('Rias Gremory'), 'and what is kept is the most important');
-  /* the law no longer tells it to leave people nowhere, or to keep twelve */
-  assert(/leave the AGENDA\s+out, never the person/.test(system.replace(/\n/g, ' ')), 'a missing want never unseats a person');
+  /* the law no longer tells it to leave people nowhere, or to keep twelve — and a missing want never unseats a person: the
+   * want is asked for only when it can be named (M719 dropped "leave the AGENDA out, never the person" with its old ABSENT
+   * paragraph; the request it is sent says it here) */
+  assert(/where they are at this hour and what they are doing[^\n]*the want only if you can name it/.test(user) && /EVERYONE WHO MATTERS TO THE STORY HAS A WHEREABOUTS AT EVERY HOUR/.test(system), 'a missing want never unseats a person');
   assert(!/leave them\s+unseated/.test(system) && !/at most twelve seats/.test(system), 'the two lines that emptied the room are gone');
   assert(/last seen at/.test(system), 'and it is told what the house’s own sighting is');
   /* the drawer's order is the storyteller's order */

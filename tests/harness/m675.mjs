@@ -328,6 +328,9 @@ async function auditTale(title, lines) {
   return st;
 }
 const CLEAN = '{"issues":[]}';
+/* what page 2 cannot be true beside. M722: a story fault is mended or noted only when the reader quotes the page's own
+ * wrong words and the brief's (or the earlier record's) it conflicts with */
+const AUDIT_BRIEF = 'Renji has stood watch at the gate since the night before the story opens. Jovan keeps the seal of the Thirteenth sewn into his boot.';
 
 test('M675-6 A JOB THE HOUSE STARTED BY ITSELF IS TRIED ONCE, AND NEVER HOLDS A SEND (the audit: a send landing while the continuous audit’s failed call slept out the queue’s ladder waited 1.7 s, then 5 s — its whole ceiling): a job marked `once` that fails is settled at once — no wait, one try, the failure said; the same job without the mark is tried again as a page’s reader is; and whoever waits for the workers right after is not held', async () => {
   const sid = 'm675-once';
@@ -430,13 +433,17 @@ test('M675-8 WHAT THE RECORD KEEPS IS KEPT RIGHT (the audit): two fixes that swa
   { const all = await db.messages.list(st.id); await db.messages.update(st.id, all[1].id, { mended: { before: all[1].text + ' *', why: 'tidied — took off a stray mark', at: 5 } }); }
   forgetAuditTrouble();
   const mends = [];
+  /* the shape the reader is asked for now (M722): a target for every issue, the supporting passage of a record fix, and for a
+   * story fault the page's wrong words and the brief's it conflicts with — two such faults on page 2 */
   const answer = JSON.stringify({ issues: [
-    { what: 'The detail gives Rukia green eyes; the pages say grey.', record: { fixes: [{ from: 'green eyes', to: 'grey eyes' }] } },
-    { what: 'Page 2 has Renji leave at dawn, though he had been at the gate since the night before.', pages: true, page: 2, fix: 'Renji had been at the gate since the night before.' },
-    { what: 'Page 2 calls the seal the seal of the Tenth.', pages: true, page: 2, fix: 'It is the seal of the Thirteenth.' },
+    { what: 'The detail gives Rukia green eyes; the pages say grey.', target: 'record', record: { fixes: [{ from: 'green eyes', to: 'grey eyes', shown: 'Her grey eyes did not leave his.', why: 'Page 4 gives Rukia grey eyes.' }] } },
+    { what: 'Page 2 has Renji leave at dawn, though he had been at the gate since the night before.', target: 'story', pages: true, page: 2, fix: 'Renji had been at the gate since the night before.',
+      evidence: { page: 'he had left for the gate at dawn', prior: 'Renji has stood watch at the gate since the night before the story opens', why: 'The brief has him on watch at the gate all night.' } },
+    { what: 'Page 2 has Jovan draw the seal of the Thirteenth from his coat, though he keeps it sewn into his boot.', target: 'story', pages: true, page: 2, fix: 'Jovan drew the seal of the Thirteenth from his boot.',
+      evidence: { page: 'Jovan drew the seal of the Thirteenth from his coat', prior: 'Jovan keeps the seal of the Thirteenth sewn into his boot', why: 'The brief has the seal sewn into his boot.' } },
   ] });
   let request = '';
-  const first = await withFetch(async (url, opts) => { request = bodyOf(opts).user; return say(answer); }, () => auditStretch({ connection: CONN, storyId: st.id, mend: async (id, words) => { mends.push({ id, words }); return [id]; } }));
+  const first = await withFetch(async (url, opts) => { request = bodyOf(opts).user; return say(answer); }, () => auditStretch({ connection: CONN, storyId: st.id, brief: AUDIT_BRIEF, mend: async (id, words) => { mends.push({ id, words }); return [id]; } }));
   eq(mends.length, 1, 'two faults found on one page: the mender is sent to it ONCE (it was sent twice, the second time over its own words)');
   assert(/gate since the night before/.test(mends[0].words) && /seal of the Thirteenth/.test(mends[0].words), 'with both faults said together: ' + mends[0].words.slice(0, 200));
   eq(first.mendedPages, 1, 'and one page is counted as mended — though the landing finisher had already tidied it (a tidy is not a mend of what the page says)');
@@ -446,7 +453,7 @@ test('M675-8 WHAT THE RECORD KEEPS IS KEPT RIGHT (the audit): two fixes that swa
   assert(/the keeper folds the mended words, and they are read once more/.test(stretchWords({ ...first, lineKept: false })), 'and it says so when the line was let go');
   eq(isHouseTidy({ why: 'tidied — took off a stray mark' }) + ' | ' + isHouseTidy({ why: 'the header named only the area — the house wrote in where the ledger has the scene' }) + ' | ' + isHouseTidy({ why: 'Renji cannot have left at dawn' }) + ' | ' + isHouseTidy(null), 'true | true | false | false', 'which mends are only the house tidying');
   /* the same answer with no mender: the detail is repaired, the page faults noted */
-  const again = await withFetch(async () => say(answer), () => auditStretch({ connection: CONN, storyId: st.id }));
+  const again = await withFetch(async () => say(answer), () => auditStretch({ connection: CONN, storyId: st.id, brief: AUDIT_BRIEF }));
   const line = (await loadMemory(st.id)).nodes.find((n) => n.id === 'a');
   eq(line.detail + ' | ' + again.lineMended, 'Rukia has grey eyes | 1', 'a wrong fact in the Detail beneath the line is repaired there (it was dropped without a word)');
   /* 3. the brief, to the room */

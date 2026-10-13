@@ -10,13 +10,25 @@ export const LEDGER_REPAIR_POLICY = 9;
 // already completed M713/M714 review. New receipts never include app VERSION.
 const LEGACY_REVIEW_RELEASES = ['m713-001','m714-001'];
 import { sourceAppearanceFacts,sourceIdentityFacts } from './appearanceinventory.js';
+import { foldName } from '../engine/names.js';
+import { findPersonKey } from '../engine/people.js';
+import { lookKey } from '../engine/canon.js';
 
 export function ledgerRepairStateKey(state) {
   // Identical values stay reviewed when only timestamps/history metadata move.
   return fingerprint36(JSON.stringify(ledgerVerificationRows(state).map(r => [r.id,r.print,r.scope])));
 }
+/* M110: the visible pages up to the last STORY page — a trailing writer's page is an attempt, not yet a source. The
+ * auditor reads and keys answered pages only; M752: every check of its saved work makes the same cut (one rule), or a
+ * failed send's waiting page unverified a verified ledger and the repair loop paused over findings that did not exist. */
+export function answeredPages(list) {
+  const visible = (Array.isArray(list) ? list : []).filter((m) => m && !m.hidden);
+  let cut = visible.length;
+  while (cut > 0 && visible[cut - 1].role === 'user') cut -= 1;
+  return visible.slice(0, cut);
+}
 export function ledgerRepairInputKey(state, story, pages) {
-  const sources = auditSources({brief:story?.brief || '',castNotes:story?.castNotes || '',messages:pages || []});
+  const sources = auditSources({brief:story?.brief || '',castNotes:story?.castNotes || '',messages:answeredPages(pages)});
   return sourceInputKey(sources,state);
 }
 
@@ -25,6 +37,7 @@ function sourceInputKey(documents,state = {}) {
 }
 function legacySourceMatches(state,story,pages) {
   if (!Array.isArray(pages)) return false;
+  pages = answeredPages(pages); // M713/M714 keyed the auditor's own answered pages
   const fields = ['sheet','clock','place','present','offscreen','characters','relationships','knowledge','canon','threads','things','bodies','factions','mode','worldBrief','lastVerdict','pendingVerdict','duel','battle','composure'];
   const emptyLedger = fingerprint36(JSON.stringify(fields.map(() => null)));
   const inputs = [story?.brief,story?.castNotes,story?.connections,pages.map(p => [p.id,p.role,p.ooc,pageText(p),p.voices || []]),emptyLedger];
@@ -97,9 +110,14 @@ export function repairRetryCheckpoint(before, after, story, pages) {
   const source = ledgerRepairInputKey({}, story, (pages || []).map(p => ({ ...p, voices: [] })));
   const previous = before.audit?.retryProgress;
   const count = state => (state.audit?.pending || []).length;
+  // M752: a repair's work is its TARGET: one person (under any form of the name), field and look. A model that respelled
+  // one refused repair each pass ("hair", "hair colour", "Hair color") made "new work" every pass, so the loop never
+  // paused and paid for another audit every fifteen seconds while the same target stayed refused.
+  const target = (state,m) => { const name = m.name || m.from || ''; return [m.type,foldName(findPersonKey(state.characters || {},name) || name),m.field || '',m.sourceId || '',
+    /^canon\./.test(m.type) ? lookKey(m.key || '') : foldName(m.key || ''),foldName(m.title || '')]; };
   const work = state => [...new Set((state.audit?.unresolved || []).map(i=>i.id || i.findingId || fingerprint36(JSON.stringify(
     i.sourceId ? [i.sourceId,i.sourceName || i.name,Boolean(i.sourceFacts),i.facts?.map(f=>f.text)]
-      : i.targets?.length ? i.targets : i.mutations?.length ? i.mutations.map(m=>[m.type,m.name,m.from,m.field,m.sourceId,m.key,m.title]) : i.what))))].sort();
+      : i.targets?.length ? i.targets : i.mutations?.length ? i.mutations.map(m=>target(state,m)) : i.what))))].sort();
   const currentSource = ledgerRepairInputKey({},story,pages);
   const currentEntries = state => state.audit?.verification?.source === currentSource
     ? ledgerVerificationRows(state).filter(row => verificationReceiptMatches(state.audit.verification.entries?.[row.id],row)) : [];
@@ -119,15 +137,24 @@ export function repairRetryCheckpoint(before, after, story, pages) {
   const old = previous?.source === source && previous.policy===LEDGER_REPAIR_POLICY ? previous : {
     source, bestPending: count(before), bestRead: read(before), stalled: 0, work:work(before),
   };
+  // M752: progress is measured against what this series of repairs has already done, not only against the pass before.
+  // Measured pass to pass, work that only took turns counted as new every turn and never paused: a finding that closed
+  // and came back ("discovered" again), the same one closing again, an entry verified again after it was reopened — the
+  // 1/2/1 churn of M692 in its other forms. A target, a closing and a verified entry count once in a series.
+  const afterWork=work(after),beforeWork=work(before);
+  const seen=new Set([...(old.seen || []),...(old.work || beforeWork)]);
+  const closedOnce=new Set(old.closed || []), verifiedOnce=new Set(old.verified || []);
   const beforeEntries = new Map(currentEntries(before).map(row => [row.id,row.print]));
-  const newlyVerified = currentEntries(after).some(row => beforeEntries.get(row.id) !== row.print);
-  const afterWork=work(after),beforeWork=work(before),priorWork=old.work || beforeWork;
-  const discovered=afterWork.some(id=>!priorWork.includes(id)) || (old.bestPending===0 && count(after)>0);
-  const closed=beforeWork.some(id=>!afterWork.includes(id));
+  const reverified = currentEntries(after).filter(row => beforeEntries.get(row.id) !== row.print).map(row => fingerprint36(row.id+'\n'+row.print));
+  const newlyVerified = reverified.some(k => !verifiedOnce.has(k));
+  const discovered=afterWork.some(id=>!seen.has(id)) || (old.bestPending===0 && count(after)>0);
+  const closedNow=beforeWork.filter(id=>!afterWork.includes(id));
+  const closed=closedNow.some(id=>!closedOnce.has(id));
   const decisions=state=>Object.keys(state.audit?.sourceFactDecisions || {});
   const savedDecision=decisions(after).some(id=>!decisions(before).includes(id));
-  const improved = closed || savedDecision || count(after) < count(before) || count(after) < old.bestPending || read(after) > old.bestRead || newlyVerified;
+  const improved = closed || savedDecision || count(after) < old.bestPending || read(after) > old.bestRead || newlyVerified;
   return { source, policy:LEDGER_REPAIR_POLICY,work:afterWork,progress:improved || discovered,
+    seen:[...new Set([...seen,...afterWork])], closed:[...new Set([...closedOnce,...closedNow])], verified:[...new Set([...verifiedOnce,...reverified])],
     bestPending: discovered ? count(after) : Math.min(old.bestPending, count(after)),
     bestRead: Math.max(old.bestRead, read(after)), stalled: improved || discovered ? 0 : old.stalled + 1 };
 }
@@ -149,11 +176,18 @@ export function ledgerAuditVerified(state, story, pages) {
   const audit = state?.audit;
   if (!audit?.verifiedInput || auditHasOpenWork(audit) || !audit.coverage
     || audit.coverage.read < audit.coverage.total || !audit.verification) return false;
-  if (!ledgerVerificationRows(state).every(row => verificationReceiptMatches(audit.verification.entries?.[row.id],row))) return false;
+  const rows = ledgerVerificationRows(state);
+  if (!rows.every(row => verificationReceiptMatches(audit.verification.entries?.[row.id],row))) return false;
+  // M752: and every approved entry still exists. A write that only REMOVED rows (a thread closed, a seat cleared)
+  // left each remaining row matching its receipt, and the checkpoint fallback below compares sources only. The
+  // approved ids are the rows of the verified ledger (verifyLedgerChecks keeps receipts for current rows only),
+  // so an unchanged legacy M713/M714 completion, whose ledger key was another formula, still matches.
+  const current = new Set(rows.map(row => row.id));
+  if (!Object.keys(audit.verification.entries || {}).every(id => current.has(id))) return false;
   if (audit.verification.source === ledgerRepairInputKey({},story,pages)
     && audit.verification.ledger === ledgerRepairStateKey(state)
     && audit.verifiedInput === ledgerRepairInputKey(state,story,pages)) return true;
-  return matchingAuditSourceCheckpoint(state,story,auditSources({brief:story?.brief || '',castNotes:story?.castNotes || '',messages:pages || []}),pages);
+  return matchingAuditSourceCheckpoint(state,story,auditSources({brief:story?.brief || '',castNotes:story?.castNotes || '',messages:answeredPages(pages)}),pages);
 }
 export function ledgerRepairNeeded(state, shelf = {}, story = null, pages = null, every = 1) {
   if (story && pages && ledgerAuditVerified(state,story,pages)) return false;

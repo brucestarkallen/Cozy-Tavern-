@@ -237,14 +237,31 @@ const auditorHouse = (answer) => {
   return { calls, fetch: async (url, opts) => { const body = JSON.parse(opts.body); calls.push(body); const sys = String((body.messages || [])[0] && body.messages[0].content || ''); return say(/auditor of the ledger/i.test(sys) ? JSON.stringify(answer) : '{"standings":[]}', body.stream); } };
 };
 
-test('M679-6 HIS TURN 21, AUDITED: the page reader had the room as the page ENDS (Azrael at the small council room door with the page; Corven left at the hall; the cloak over the steward’s hand) — the auditor’s reading from the page’s START changes none of it: no one walked back in (Corven, Ser Holvard, Mirelia), his place not put back, the cloak not moved back; what lasts (a line of who knows what) still lands', async () => {
+/* what the auditor was sent, as one run of words; and the final review's answer (M698–M712), as an auditor gives it */
+const toldIn = (house) => house.calls.filter((b) => /auditor of the ledger/i.test(String(((b.messages || [])[0] || {}).content || ''))).map((b) => b.messages.map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n')).join('\n').replace(/\s+/g, ' ');
+const reviewed = (more) => ({ scene: [], issues: [], review: { status: 'complete', why: 'every entry read against the newest page, to its end', open: [] }, standings: [], ...more });
+
+/* M689 (the pipeline review he agreed to, docs/LEDGER-PIPELINE-M689.md): "production no longer runs [auditorScope]" — the
+ * held-to-the-ending doors went with it; M709 left the final review's scope with supported operations and ownership only,
+ * M710 gave the auditor the whole newest page with "an opening header or earlier retreat cannot override a later stopping
+ * position", and M712 made its own "repair:false" final (docs/LEDGER_PIPELINE.md: no new regex guards over its judgment).
+ * What carries the law now: what it is TOLD, what an auditor that does as told writes, and the doors in code — an ending
+ * read in other words that it judges the same writes nothing; a line already held is held once and is no refusal. */
+test('M679-6 HIS TURN 21, AUDITED: the page reader had the room as the page ENDS (Azrael at the small council room door with the page; Corven left at the hall; the cloak over the steward’s hand) — the auditor is told the ledger is the scene as the page ends and is handed the page to its end; as told, its reading changes none of it (its own ending read for him, in other words and judged the same, writes nothing): no one walked back in, his place not put back, the cloak not moved back; what lasts (a line of who knows what) still lands, once; on a page its readers never read, it sets the room from the ending', async () => {
   const { auditLedger } = await import('../../js/agents/auditor.js');
   const { withHouse, HOUSES } = await import('./thinkinghouse.mjs');
   const storyId = 'm679-turn21';
   await turnTwentyOne(storyId);
-  const house = auditorHouse(AUDIT_21);
+  const house = auditorHouse(reviewed({
+    scene: [{ name: 'Azrael Jugram', repair: false, earlier: 'swept the cloak off at the hall’s threshold and went with the boy', ending: { position: 'at the door of the small council room, the page beside him', shown: 'The boy led Jugram down the side passage, past the kitchens’ heat, to the small council room’s door' } }],
+    issues: [AUDIT_21.issues[4], AUDIT_21.issues[6]] }));
   const r = await withHouse(house, () => auditLedger({ connection: HOUSES[0].conn, storyId, stale: () => false }));
   assert(r && r.note === 'ok', 'the auditor read: ' + JSON.stringify(r && r.note));
+  const words = toldIn(house);
+  for (const rule of ['the ledger you read is the scene as that page ENDS. Where its start differs (he walked off, the room emptied) the end is the present.',
+    'COMPLETE NEWEST MAIN STORY. Read each person through the ending; an opening header or earlier retreat cannot override a later stopping position',
+    'A later departure, death, changed position or scene move still wins. Never restore an earlier moment over it.']) assert(words.includes(rule), 'the auditor is told: ' + rule);
+  assert(words.includes('where a grey steward took the cloak over his hand.'), 'and is handed the page to its end');
   const after = await loadState(storyId);
   const az = after.present.find((p) => /Azrael/.test(p.name));
   eq(az && az.position, 'at the small council room door with the page', 'his place is where the page ENDS, as the reader wrote it');
@@ -257,16 +274,15 @@ test('M679-6 HIS TURN 21, AUDITED: the page reader had the room as the page ENDS
   assert(!/refused|did not hold/.test(auditRunWords(r)), 'a line Corven already holds is no refusal in the workers line: ' + auditRunWords(r));
   /* the auditor's doors on a page its readers never read (their call failed): it is the only one to set the room, and does
    * — from the page's ending: the boy who leads him comes in, the cloak goes over the steward's hand; Ser Holvard, shown
-   * only at the page's start, stays seated where the world has him */
+   * only at the page's start, keeps his seat where the world has him */
   const unread = 'm679-turn21-unread';
   await turnTwentyOne(unread, { read: false });
   const before = await loadState(unread);
   assert(!(before.journal || []).some((j) => j.p === 1), 'nothing was written on the unread page');
-  const r2 = await withHouse(auditorHouse({ issues: [
+  const r2 = await withHouse(auditorHouse(reviewed({ issues: [
     { what: 'the boy who leads him is not in the scene', fix: 'he is', pages: false, mutations: [{ type: 'presence.enter', name: 'the page', shown: 'The boy led Jugram down the side passage' }] },
-    AUDIT_21.issues[2],
     { what: 'the cloak is still over his shoulders in the ledger', fix: 'the steward has it', pages: false, mutations: [{ type: 'thing.set', name: 'the cloak', where: 'over the grey steward’s hand at the small council room’s door' }] },
-  ] }), () => auditLedger({ connection: HOUSES[0].conn, storyId: unread, stale: () => false }));
+  ] })), () => auditLedger({ connection: HOUSES[0].conn, storyId: unread, stale: () => false }));
   assert(r2 && r2.note === 'ok', 'the auditor read the unread page');
   const after2 = await loadState(unread);
   assert(after2.present.some((p) => p.name === 'the page'), 'the boy the ending shows comes in: ' + after2.present.map((p) => p.name).join(', '));
@@ -274,7 +290,10 @@ test('M679-6 HIS TURN 21, AUDITED: the page reader had the room as the page ENDS
   eq(after2.things['the cloak'].where, 'over the grey steward’s hand at the small council room’s door', 'the cloak goes where the ending puts it');
 });
 
-test('M679-7 HIS TURN 19: the header gives his dress on every page; a reader that moved only his place no longer stands it aside — "bared to the waist" from the courtyard is not kept once a page dresses him', async () => {
+/* M710 ("save and reconcile the completed scene"): "Removed automatic header pose/outfit injection; retained clock/place
+ * parsing. MC receives the same explicit ending question" — the header's cells open the page; read as his ending they let
+ * an opening state stand over a later change. His dress is the reader's ending answer for him, asked by name. */
+test('M679-7 HIS TURN 19: the reader is asked where he is and what he wears as the page ends, by name, with the ledger’s words (M710 — the header opens the page and is not read as his ending); answering from the telling, "bared to the waist" from the courtyard is not kept once a page dresses him; a reader that moves only his place gets no dress promoted from the header', async () => {
   const st = applyMutations({ ...emptyState(), page: 18 }, [
     { type: 'mc.set', name: 'Azrael Jugram' }, { type: 'place.set', name: 'Kingsreach, the colonnade' },
     { type: 'presence.enter', name: 'Azrael Jugram', position: 'against the courtyard wall', attire: 'cloak and wool dropped where he stood, bared to the waist and below' },
@@ -282,11 +301,16 @@ test('M679-7 HIS TURN 19: the header gives his dress on every page; a reader tha
   ]).state;
   const page = '[Kingsreach — Thornday, October 16, 1247 | 19:10 | cold | wool on, cloak turned and settled, hood down | at the foot of the hall steps at Corven’s side]\n\n'
     + 'He had the wool on again and the cloak turned and settled, hood down, by the time Corven’s lamp found them. They walked to the foot of the hall steps, Corven at his side.';
-  const { read } = await readWith(st, page, { mutations: [{ type: 'presence.update', name: 'Azrael Jugram', position: 'at the foot of the hall steps at Corven’s side' }, { type: 'mode.snapshot', flags: [] }], here: ['Azrael Jugram', 'Corven'] });
+  const { read, request } = await readWith(st, page, { mutations: [{ type: 'mode.snapshot', flags: [] }], here: [{ name: 'Azrael Jugram', ending: { position: 'at the foot of the hall steps at Corven’s side', attire: 'wool on, cloak turned and settled, hood down', shown: 'He had the wool on again and the cloak turned and settled, hood down' } }, 'Corven'] });
+  assert(/\d\. Azrael Jugram — the ledger has: against the courtyard wall; wearing cloak and wool dropped where he stood, bared to the waist and below/.test(request), 'he is asked about by name, with the ledger’s place and dress');
+  assert(request.includes('Add ending.attire only when known; preserve clothes the page did not change.'), 'and the reader is told to give his dress when the page shows it');
   const after = applyMutations(st, read.mutations).state;
   const az = after.present.find((p) => /Azrael/.test(p.name));
   eq(az.position, 'at the foot of the hall steps at Corven’s side', 'the reader’s own place for him');
-  eq(az.attire, 'wool on, cloak turned and settled, hood down', 'and his header’s dress, which the page bears out');
+  eq(az.attire, 'wool on, cloak turned and settled, hood down', 'and his dress as the telling shows it — the courtyard’s is not kept');
+  /* a reader that gives only his place: his header's dress is not promoted in its stead (M710) */
+  const { read: placeOnly } = await readWith(st, page, { mutations: [{ type: 'presence.update', name: 'Azrael Jugram', position: 'at the foot of the hall steps at Corven’s side' }, { type: 'mode.snapshot', flags: [] }], here: ['Azrael Jugram', 'Corven'] });
+  assert(!placeOnly.mutations.some((m) => m.type === 'presence.update' && /Azrael/.test(m.name) && m.attire !== undefined), 'no dress is read from the header’s cells: ' + JSON.stringify(placeOnly.mutations));
 });
 
 /* his turn 19's loose ends: closed by the auditor as "answered by the pages" — the page that said them */
@@ -295,42 +319,59 @@ const NOON = 'She wants to know where Jugram went at noon, and has not asked him
 const STEPS = '[Kingsreach — Thornday, October 16, 1247 | 19:10 | cold | wool on, cloak turned and settled, hood down | at the foot of the hall steps at Corven’s side]\n\n'
   + '“Where were you at noon?” Mirelia asked him at the last column. “The docks,” he told her, and she let it be.\n\n'
   + 'At the foot of the hall steps Corven reached over and unpicked the inside-out fold of the cloak. “Square that before the king’s hall,” he said, and nothing else.';
-test('M679-8 HIS TURN 19’S LOOSE ENDS: one answers a loose end only by what comes after it — the scribe, the page reader and the auditor are told so in the same words; a loose end written from the newest page (Corven’s: “what it means remains unnamed between them”) is not closed on that same page’s word; one an earlier page wrote and this page answers (Mirelia’s question, answered) is still the auditor’s to close', async () => {
+/* M689 (the pipeline review he agreed to, docs/LEDGER-PIPELINE-M689.md): "production no longer runs [auditorScope]" — the
+ * page-of-its-own-writing door for loose ends went with it; the final review is "subordinate to writer decisions,
+ * chronological evidence and valid worker judgments" (M719), its scope keeps supported operations and ownership (M709). What
+ * carries the law now: the scribe, the page reader and the auditor are told what answers a loose end in the same words,
+ * and the auditor that a worker's valid judgment is not its to undo; an auditor that does as told closes only the one this
+ * page answered; and a loose end on HIS hand is never the auditor's to close — refused, and the refusal stays visible. */
+test('M679-8 HIS TURN 19’S LOOSE ENDS: one answers a loose end only by what comes after it — the scribe, the page reader and the auditor are told so in the same words, and the auditor that a worker’s valid judgment is not its to undo; as told, a loose end written from the newest page (Corven’s: “what it means remains unnamed between them”) stays open and one an earlier page wrote and this page answers (Mirelia’s question, answered) is closed; one he wrote by hand is never the auditor’s to close, and its refused close stays visible', async () => {
   const { auditLedger } = await import('../../js/agents/auditor.js');
   const { buildScribeMessages } = await import('../../js/agents/scribe.js');
   const { LOOSE_ANSWERED_MEANS } = await import('../../js/agents/herewords.js');
   const { withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  const seed = async (storyId, byHand = false) => {
+    let st = applyMutations({ ...emptyState(), page: 0, sheet: { actors: {}, playerName: 'Azrael Jugram' } }, [
+      { type: 'mc.set', name: 'Azrael Jugram' }, { type: 'place.set', name: 'Kingsreach, the colonnade' },
+      { type: 'presence.enter', name: 'Azrael Jugram' }, { type: 'presence.enter', name: 'Corven' }, { type: 'presence.enter', name: 'Mirelia' },
+      { type: 'people.set', name: 'Mirelia', field: 'core', text: 'the queen, cool in public' },
+      { type: 'people.note', name: 'Mirelia', field: 'thread', text: NOON },
+    ]).state;
+    /* the newest page's scribe wrote Corven's (or, in the second story, he wrote it by hand) */
+    st = applyMutations({ ...st, page: 1 }, [
+      { type: 'people.set', name: 'Corven', field: 'core', text: 'captain of the king’s guard, a lamp and few words' },
+      { type: 'people.note', name: 'Corven', field: 'thread', text: UNNAMED, ...(byHand ? { byHand: true } : {}) },
+    ]).state;
+    await saveState(storyId, { ...st, readTo: 1 });
+    await db.messages.append(storyId, { role: 'user', text: 'We wait in the colonnade.' });
+    await db.messages.append(storyId, { role: 'assistant', text: '[Kingsreach — Thornday, October 16, 1247 | 18:50 | cold | wool on | the colonnade]\n\nThe colonnade was cold.' });
+    await db.messages.append(storyId, { role: 'user', text: 'We walk to the hall.' });
+    await db.messages.append(storyId, { role: 'assistant', text: STEPS });
+  };
+  const CLOSE_MIRELIA = { what: 'Mirelia’s loose end is answered — she asked and he said the docks', fix: 'close it', pages: false, mutations: [{ type: 'people.note', name: 'Mirelia', field: 'unthread', text: NOON, shown: '“The docks,” he told her, and she let it be.' }] };
   const storyId = 'm679-turn19-loose';
-  let st = applyMutations({ ...emptyState(), page: 0, sheet: { actors: {}, playerName: 'Azrael Jugram' } }, [
-    { type: 'mc.set', name: 'Azrael Jugram' }, { type: 'place.set', name: 'Kingsreach, the colonnade' },
-    { type: 'presence.enter', name: 'Azrael Jugram' }, { type: 'presence.enter', name: 'Corven' }, { type: 'presence.enter', name: 'Mirelia' },
-    { type: 'people.set', name: 'Mirelia', field: 'core', text: 'the queen, cool in public' },
-    { type: 'people.note', name: 'Mirelia', field: 'thread', text: NOON },
-  ]).state;
-  /* the newest page's scribe wrote Corven's */
-  st = applyMutations({ ...st, page: 1 }, [
-    { type: 'people.set', name: 'Corven', field: 'core', text: 'captain of the king’s guard, a lamp and few words' },
-    { type: 'people.note', name: 'Corven', field: 'thread', text: UNNAMED },
-  ]).state;
-  await saveState(storyId, { ...st, readTo: 1 });
-  await db.messages.append(storyId, { role: 'user', text: 'We wait in the colonnade.' });
-  await db.messages.append(storyId, { role: 'assistant', text: '[Kingsreach — Thornday, October 16, 1247 | 18:50 | cold | wool on | the colonnade]\n\nThe colonnade was cold.' });
-  await db.messages.append(storyId, { role: 'user', text: 'We walk to the hall.' });
-  await db.messages.append(storyId, { role: 'assistant', text: STEPS });
-  const house = auditorHouse({ issues: [
-    { what: 'Corven’s loose end is answered — the pages show he unpicked the fold and said it should be squared', fix: 'close it', pages: false, mutations: [{ type: 'people.note', name: 'Corven', field: 'unthread', text: UNNAMED }] },
-    { what: 'Mirelia’s loose end is answered — she asked and he said the docks', fix: 'close it', pages: false, mutations: [{ type: 'people.note', name: 'Mirelia', field: 'unthread', text: NOON }] },
-  ] });
+  await seed(storyId);
+  const house = auditorHouse(reviewed({ issues: [CLOSE_MIRELIA] }));
   const r = await withHouse(house, () => auditLedger({ connection: HOUSES[0].conn, storyId, stale: () => false }));
   assert(r && r.note === 'ok', 'the auditor read');
-  const asked = house.calls.find((c) => /auditor of the ledger/i.test(String(c.messages[0].content)));
-  assert(asked && String(asked.messages[0].content).includes(LOOSE_ANSWERED_MEANS), 'the auditor is told what answers a loose end');
+  const words = toldIn(house);
+  assert(words.includes(LOOSE_ANSWERED_MEANS.replace(/\s+/g, ' ')), 'the auditor is told what answers a loose end');
+  assert(words.includes('Preserve valid judgments by the responsible worker.'), 'and that a worker’s valid judgment is not its to undo');
   const after = await loadState(storyId);
   assert(after.characters.Corven.threads.some((t) => /remain unnamed/.test(t)), 'Corven’s, written from this very page, stays open: ' + JSON.stringify(after.characters.Corven.threads));
   assert(!after.characters.Mirelia.threads.some((t) => /noon/.test(t)), 'Mirelia’s, which this page answered, is closed');
-  assert(r.issues.some((i) => /Corven’s loose end/.test(i.what) && !i.landed && i.refused.length), 'the rejected close remains visible for a corrected reading');
   const scribe = buildScribeMessages({ state: after, userText: 'x', assistantText: STEPS });
   assert(String(scribe.system || '').includes(LOOSE_ANSWERED_MEANS) || String(scribe.user || '').includes(LOOSE_ANSWERED_MEANS), 'the scribe is told the same');
+  /* his own loose end, whatever the auditor answers: the writer's field is never the auditor's to close (manualRepairConflict) */
+  const handId = 'm679-turn19-loose-hand';
+  await seed(handId, true);
+  const r2 = await withHouse(auditorHouse(reviewed({ issues: [
+    { what: 'Corven’s loose end is answered — the pages show he unpicked the fold and said it should be squared', fix: 'close it', pages: false, mutations: [{ type: 'people.note', name: 'Corven', field: 'unthread', text: UNNAMED }] }, CLOSE_MIRELIA] })),
+  () => auditLedger({ connection: HOUSES[0].conn, storyId: handId, stale: () => false }));
+  const hand = await loadState(handId);
+  assert(hand.characters.Corven.threads.some((t) => /remain unnamed/.test(t)), 'the loose end he wrote by hand stays open: ' + JSON.stringify(hand.characters.Corven.threads));
+  assert(r2.issues.some((i) => /Corven’s loose end/.test(i.what) && !i.landed && i.refused.some((w) => /writer explicitly controls/.test(w))), 'the refused close remains visible, with why: ' + JSON.stringify(r2.issues.map((i) => [i.what, i.landed, i.refused])));
+  assert(!hand.characters.Mirelia.threads.some((t) => /noon/.test(t)), 'and Mirelia’s, answered, is closed beside it');
 });
 
 test('M679-9 THE HOUSE’S OWN HEAL OF WHO IS HERE READS THE PAGE’S ENDING TOO, AND NEVER UNDOES ITS READER: his turn 21 — the reader took Corven out (no “to”: it was he who walked away), the house noted him last seen at the hall, and the heal, finding him named on that page and not going, wrote him straight back in; now nobody this very page took out is written back in, nobody against the room its reader named, nobody only its start shows, and nobody when it ends on HIM walking off — and someone the ending shows coming in, with no room named, still is', async () => {
@@ -374,8 +415,14 @@ test('M679-10 A SEAT LET GO IS A WALK-IN TOO, AND THE ROOM THE READER NAMES IS I
 });
 
 
-test('M679-11 HIS TURN 19’S MIRELIA: the page ends with her staying in the column’s shadow while he and Corven cross to the hall steps — named in its ending, and left there. The reader named the room as the page ends (him and Corven); the auditor’s walk-in of her, seated in the colonnade, does not stand against it — and when the room the reader named has her in it, it does', async () => {
+/* M689 (the pipeline review he agreed to): "production no longer runs [auditorScope]" — the auditor's walk-ins are no longer
+ * held in code to the room this page's reader named; M709 left the final review's scope with supported operations and
+ * ownership only. What carries the law now: the auditor is TOLD what "here" means and to follow each person through the whole
+ * page, and is handed the page to its end; an auditor that does as told leaves her in the column's shadow — and brings her
+ * in, letting her seat go, on the page where she comes with them. */
+test('M679-11 HIS TURN 19’S MIRELIA: the page ends with her staying in the column’s shadow while he and Corven cross to the hall steps — named in its ending, and left there. The auditor is told what being in the scene means and to follow each person to the page’s end; as told, she keeps her seat in the colonnade — and when the page has her come with them, it walks her in and her seat lets go', async () => {
   const { auditLedger } = await import('../../js/agents/auditor.js');
+  const { HERE_MEANS } = await import('../../js/agents/herewords.js');
   const { withHouse, HOUSES } = await import('./thinkinghouse.mjs');
   const PAGE19 = '[Kingsreach, the king’s palace — Thornday, October 16, 1247 | 19:10 | cold | wool on, cloak turned and settled, hood down | at the foot of the hall steps at Corven’s side]\n\n'
     + 'He had the wool on again and the cloak turned and settled, hood down, by the time Corven’s lamp found them.\n\n'
@@ -392,21 +439,22 @@ test('M679-11 HIS TURN 19’S MIRELIA: the page ends with her staying in the col
     await db.messages.append(storyId, { role: 'user', text: 'We walk on.' });
     await db.messages.append(storyId, { role: 'assistant', text: page });
   };
-  const WALK_IN = { issues: [
-    { what: 'the ledger’s presence lists only Azrael and Corven, but the latest page shows Mirelia still in the scene', fix: 'Mirelia is present', pages: false, mutations: [{ type: 'presence.enter', name: 'Mirelia', position: 'in the colonnade shadow by the last column', shown: 'Mirelia stayed where she was in the column’s shadow' }] },
-    { what: 'Mirelia’s elsewhere note is stale', fix: 'let it go', pages: false, mutations: [{ type: 'offscreen.clear', name: 'Mirelia' }] },
-  ] };
   await seed('m679-turn19-room', ['Azrael Jugram', 'Corven']);
-  await withHouse(auditorHouse(WALK_IN), () => auditLedger({ connection: HOUSES[0].conn, storyId: 'm679-turn19-room', stale: () => false }));
+  const house = auditorHouse(reviewed({ scene: [{ name: 'Corven', repair: true, ending: { position: 'at the foot of the hall steps beside Azrael', shown: 'Azrael and Corven crossed to the foot of the hall steps.' } }] }));
+  await withHouse(house, () => auditLedger({ connection: HOUSES[0].conn, storyId: 'm679-turn19-room', stale: () => false }));
+  const words = toldIn(house);
+  for (const rule of [HERE_MEANS.replace(/\s+/g, ' '), 'Follow each person through the entire newest scene.', 'Their last established position continues while others act;']) assert(words.includes(rule), 'the auditor is told: ' + rule.slice(0, 80));
+  assert(words.includes('Mirelia stayed where she was in the column’s shadow, and Corven said nothing more to her.'), 'and is handed the page to its end');
   let after = await loadState('m679-turn19-room');
   assert(!after.present.some((p) => p.name === 'Mirelia') && Object.keys(after.offscreen || {}).includes('Mirelia'), 'she keeps her seat in the colonnade: ' + after.present.map((p) => p.name).join(', '));
-  /* the page where she comes with them, and the room its reader named has her: the auditor's walk-in stands */
+  eq((after.present.find((p) => p.name === 'Corven') || {}).position, 'at the foot of the hall steps beside Azrael', 'and Corven stands where the page ends him');
+  /* the page where she comes with them: the auditor's walk-in stands, and her seat lets go (nobody is in two places) */
   const ALONG = PAGE19.replace('Mirelia stayed where she was in the column’s shadow, and Corven said nothing more to her. Azrael and Corven crossed to the foot of the hall steps.', 'They came to the foot of the hall steps, Corven at his side, and Mirelia came with them out of the column’s shadow, her hand on Corven’s arm.');
   assert(ALONG !== PAGE19, 'the page where she comes along');
   await seed('m679-turn19-with-her', ['Azrael Jugram', 'Corven', 'Mirelia'], ALONG);
-  await withHouse(auditorHouse({ issues: [{ ...WALK_IN.issues[0], mutations: [{ type: 'presence.enter', name: 'Mirelia', shown: 'Mirelia came with them out of the column’s shadow' }] }] }), () => auditLedger({ connection: HOUSES[0].conn, storyId: 'm679-turn19-with-her', stale: () => false }));
+  await withHouse(auditorHouse(reviewed({ issues: [{ what: 'the ledger’s presence lists only Azrael and Corven, but the latest page has Mirelia come with them', fix: 'Mirelia is present', pages: false, mutations: [{ type: 'presence.enter', name: 'Mirelia', shown: 'Mirelia came with them out of the column’s shadow' }] }] })), () => auditLedger({ connection: HOUSES[0].conn, storyId: 'm679-turn19-with-her', stale: () => false }));
   after = await loadState('m679-turn19-with-her');
-  assert(after.present.some((p) => p.name === 'Mirelia'), 'in a room that has her, the auditor brings her in');
+  assert(after.present.some((p) => p.name === 'Mirelia') && !Object.keys(after.offscreen || {}).includes('Mirelia'), 'in a room that has her, the auditor brings her in and her seat lets go');
 });
 
 test('M679-12 AN OLDER READER’S BARE LEAVE IS NOT THE PAGE’S WORD: the auditor’s walk-in is held back only by a leave this page’s reader held to the page by its own words for the going — an older reader’s leave with none (M452’s stuck Rukia, here Corven at his shoulder with the lamp) is still the auditor’s to set right when the ending shows him there', async () => {

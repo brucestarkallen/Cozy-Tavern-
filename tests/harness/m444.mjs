@@ -4,13 +4,13 @@
  * the real engine, and the real page reader, world agent and auditor on a scripted model. */
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
-import { HOUSES, withHouse } from './thinkinghouse.mjs';
+import { HOUSES, withHouse, thinkingHouse } from './thinkinghouse.mjs';
 import { db } from '../../js/store.js';
 import { applyMutations, undoEntry, seatAtScene, clearsThatArrive, shownOnPage, wrongWalkIns } from '../../js/engine/apply.js';
 import { emptyState, saveState, loadState } from '../../js/engine/state.js';
 import { extractTurn, hereFromBoard } from '../../js/agents/extractor.js';
 import { worldTurn } from '../../js/agents/world.js';
-import { auditLedger, auditorScope } from '../../js/agents/auditor.js';
+import { auditLedger } from '../../js/agents/auditor.js';
 
 const ROOM = "13th Division Barracks — Captain's Office";
 const streamed = (answer) => async (url, opts) => {
@@ -90,7 +90,8 @@ test('M444-3 THE ROOM, RESTATED ON EVERY PAGE — the page reader’s "here" wri
   const after = applyMutations(st, read.mutations).state;
   eq(after.present.map((p) => p.name).sort().join(), 'Iba Tetsuzaemon,Jovan Oda,Rukia Kuchiki,Sentarō Kotsubaki', 'Rukia stays (the other Kuchiki’s leaving took nobody), Sentarō is back, quiet Iba stays');
   assert(!after.offscreen['Sentarō Kotsubaki'], 'his wrong note let go');
-  assert(after.log.some((e) => /Sentarō Kotsubaki came into the scene — the page shows them here/.test(e.words)), 'said why in What changed and why');
+  /* M689: the reader's restated room says why in Scene's own words (extractor.js hereFromBoard) */
+  assert(after.log.some((e) => /Sentarō Kotsubaki came into the scene — Scene confirms physical presence at the end of this turn/.test(e.words)), 'said why in What changed and why: ' + after.log.map((e) => e.words).join(' | '));
   /* the same page with no "here" (an older answer): nothing written in, nothing lost */
   const bare = await withHouse({ fetch: streamed(JSON.stringify({ mutations: [{ type: 'mode.snapshot', flags: [] }] })) }, () => extractTurn({ connection: HOUSES[0].conn, state: st, userText: 'u', assistantText: PAGE }));
   eq(bare.mutations.filter((m) => m.type === 'presence.enter').length, 0, 'no board, no entries');
@@ -115,21 +116,47 @@ test('M444-4 CLEARED IS NEVER NOWHERE — the world agent lets Renji’s note go
   assert(result.applied.some((a) => /Renji Abarai came into the scene — the page shows them here/.test(a.words)), 'said why');
 });
 
-test('M444-5 THE AUDITOR — its letting go of a note of someone the latest page shows there is him walking in; and "Captain Kuchiki" walking in is not "Rukia, already here"', async () => {
-  const s0 = await db.stories.create({ title: 'The office' });
-  await db.messages.append(s0.id, { role: 'user', text: 'I look up.' });
-  await db.messages.append(s0.id, { role: 'assistant', text: "[13th Division Barracks — Captain's Office]\n\nSentarō hovered by the window while Rukia filed the reports." });
-  const st = office(['Jovan Oda', 'Rukia Kuchiki']);
-  st.offscreen = { 'Sentarō Kotsubaki': { location: '13th Division Barracks — the training yard', activity: 'drilling', stance: 'busy', sinceMinutes: null, atTurn: 1 } };
-  await saveState(s0.id, st);
-  const answer = JSON.stringify({ issues: [{ what: 'the ledger has Sentarō in the yard; the page has him at the window', fix: 'he is here', pages: false, mutations: [{ type: 'offscreen.clear', name: 'Sentarō Kotsubaki' }] }] });
-  const result = await withHouse({ fetch: streamed(answer) }, () => auditLedger({ connection: HOUSES[0].conn, storyId: s0.id, brief: 'A Bleach story.' }));
-  const after = await loadState(s0.id);
+/* M689 (the pipeline review he agreed to, docs/LEDGER-PIPELINE-M689.md) took the auditor's walk-ins out of code: production
+ * "no longer runs [auditorScope]", and with it the turn of a note let go into a walk-in (clearsThatArrive) — M709 left the
+ * final review's scope with supported operations and ownership only. What carries the law now: the auditor is TOLD that
+ * someone the page shows here and seated elsewhere is a presence.enter (which lets the note go) and that a clear is only
+ * for someone already in the scene; an auditor that does as told walks him in; and the ledger's own door still never lets
+ * a kept person's note go into nowhere (M588), nor takes "Captain Kuchiki" for Rukia, already here (M414/M444). */
+const told = (house) => house.calls.map((c) => (c.body.messages || []).map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n')).join('\n').replace(/\s+/g, ' ');
+const review = (more) => JSON.stringify({ scene: [], issues: [], review: { status: 'complete', why: 'every entry read against the newest page, to its end', open: [] }, standings: [], ...more });
+test('M444-5 THE AUDITOR — someone the latest page shows here, seated elsewhere, is walked in by its presence.enter, as it is told (and his note let go); its note let go by the wrong door (offscreen.clear) leaves him seated, never nowhere; and "Captain Kuchiki" walking in is not "Rukia, already here"', async () => {
+  const seed = async () => {
+    const s0 = await db.stories.create({ title: 'The office' });
+    await db.messages.append(s0.id, { role: 'user', text: 'I look up.' });
+    await db.messages.append(s0.id, { role: 'assistant', text: "[13th Division Barracks — Captain's Office]\n\nSentarō hovered by the window while Rukia filed the reports." });
+    const st = office(['Jovan Oda', 'Rukia Kuchiki']);
+    st.offscreen = { 'Sentarō Kotsubaki': { location: '13th Division Barracks — the training yard', activity: 'drilling', stance: 'busy', sinceMinutes: null, atTurn: 1 } };
+    await saveState(s0.id, st);
+    return s0.id;
+  };
+  const id = await seed();
+  const house = thinkingHouse({ answer: review({ issues: [{ what: 'the ledger has Sentarō in the yard; the page has him at the window', fix: 'he is here', pages: false,
+    mutations: [{ type: 'presence.enter', name: 'Sentarō Kotsubaki', shown: 'Sentarō hovered by the window', position: 'by the window' }] }] }) });
+  const result = await withHouse(house, () => auditLedger({ connection: HOUSES[0].conn, storyId: id, brief: 'A Bleach story.' }));
+  const words = told(house);
+  for (const rule of ['presence.enter — it lets the note go', 'a clear only for someone in the scene now', 'a person the story keeps is always somewhere']) assert(words.includes(rule), 'the auditor is told: ' + rule);
+  const after = await loadState(id);
   assert(after.present.some((p) => p.name === 'Sentarō Kotsubaki'), 'Sentarō is in the scene: ' + JSON.stringify(after.present));
   assert(!after.offscreen['Sentarō Kotsubaki'], 'not elsewhere, not nowhere');
   assert(result.applied.some((a) => a.mutation.type === 'presence.enter'), 'the report says what landed');
-  const scoped = auditorScope([{ what: 'Byakuya came in and is not written', fix: 'write him in', mutations: [{ type: 'presence.enter', name: 'Captain Kuchiki' }] }], office(), { header: [] });
-  eq(scoped.length === 1 && scoped[0].mutations.length, 1, '"Captain Kuchiki" walking in is not taken for Rukia already here');
+  /* the wrong door, whatever the auditor answers: a note let go while he is not in the scene would leave him nowhere — the
+   * ledger keeps it (M588) */
+  const id2 = await seed();
+  await withHouse(thinkingHouse({ answer: review({ issues: [{ what: 'the ledger has Sentarō in the yard; the page has him at the window', fix: 'he is here', pages: false, mutations: [{ type: 'offscreen.clear', name: 'Sentarō Kotsubaki' }] }] }) }),
+    () => auditLedger({ connection: HOUSES[0].conn, storyId: id2, brief: 'A Bleach story.' }));
+  const kept = await loadState(id2);
+  assert(!kept.present.some((p) => p.name === 'Sentarō Kotsubaki') && kept.offscreen['Sentarō Kotsubaki'] && /training yard/.test(kept.offscreen['Sentarō Kotsubaki'].location), 'his note stands: never nowhere — ' + JSON.stringify(kept.offscreen));
+  /* "already here" is asked the way entering asks it — through the real audit, Captain Kuchiki walks in beside Rukia */
+  const id3 = await seed();
+  await withHouse(thinkingHouse({ answer: review({ issues: [{ what: 'Byakuya came in and is not written', fix: 'write him in', pages: false, mutations: [{ type: 'presence.enter', name: 'Captain Kuchiki' }] }] }) }),
+    () => auditLedger({ connection: HOUSES[0].conn, storyId: id3, brief: 'A Bleach story.' }));
+  const both = (await loadState(id3)).present.map((p) => p.name);
+  assert(both.includes('Rukia Kuchiki') && both.length === 3 && both.some((n) => n !== 'Rukia Kuchiki' && /Kuchiki/.test(n)), '"Captain Kuchiki" walking in is not taken for Rukia already here: ' + both.join(', '));
 });
 
 test('M444-6 WHO WALKED IN FROM ANOTHER ROOM GOES BACK — Kiyone, pulled into the office by the old compound test and on no page since, is seated where the world had her; Sentarō, a page has shown since, stays; Isane, seated in the office itself, stays; Rukia stays', () => {

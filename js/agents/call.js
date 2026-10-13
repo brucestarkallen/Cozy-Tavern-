@@ -36,6 +36,9 @@ import { db } from '../store.js'; /* M510-30: the fallback is a setting */
 import { createProvider } from '../providers/index.js';
 import { alwaysThinks } from '../providers/effort.js';
 import { WORKER_UNSAFE } from '../providers/knobs.js'; /* M510 */
+import { measureTransport } from '../providers/measure.js'; /* M752: a worker's prompt measured as its call is refused */
+import { contextOf } from '../providers/room.js';
+import { refusalRoom, CONTEXT_MARGIN } from '../assemble/budget.js';
 
 export const WORKER_MAX_TOKENS = 1200;
 export const ALWAYS_THINKS_FLOOR = 16000; /* M303 */
@@ -123,6 +126,24 @@ export function workerConnection(connection, { maxTokens, maxTokensLimit, effort
   return c;
 }
 
+/* M752: THE ROOM A WORKER'S PROMPT LEAVES ITS GROWING PART, MEASURED AS ITS CALL IS REFUSED. Every call passes the provider
+ * adapters' check (budget.js refusalRoom: the body at three characters a token with its wrappers, the answer room the body
+ * carries kept free — M737). A worker that sized its prompt as a share of the model's context — the cast's weighing at 80% of
+ * it, the planner's record at 45% — was refused before sending once the house measured that way: a 64k connection that
+ * thinks (its answer room raised to 16,000) got a 52,662-token weighing against 45,000, a 100k one 81,814 against 81,000, and
+ * the refusal was swallowed — the weighing, and the small storyteller's plan, silently never happened. Measured with the
+ * connection as the call will carry it (workerConnection: its answer room, raised for thinking), the fixed part of the prompt
+ * (`system`, and `user` without the part that grows) is taken off, and the characters left are given to what grows, less a
+ * little slack for the line a retry adds. */
+export const WORKER_ROOM_SLACK = 1500; /* characters: the "answer with JSON only" line a retry adds, and the like */
+export function workerRoom(connection, { system = '', user = '', maxTokens, effort, temperature, slack = WORKER_ROOM_SLACK } = {}) {
+  if (!connection || typeof connection !== 'object') return 0;
+  const conn = workerConnection(connection, { maxTokens, effort, temperature });
+  const shell = measureTransport(conn, { system: String(system || ''), messages: [{ role: 'user', content: String(user || '') }] });
+  const limit = refusalRoom({ budgetTokens: contextOf(conn), answerTokens: shell.answerTokens, answerEstimate: shell.answerEstimate });
+  return Math.floor((limit - shell.inputTokens) * 3) - slack; /* below zero: the fixed part alone would be refused */
+}
+
 /* M510-30: THE FALLBACK FOR EVERY WORKER — his word: "add a fallback model for the workers, universal, so if anything is
  * down it moves to this one". Settings → The workers → "Fallback for every worker" (settings workerFallbackId). When a
  * worker's own connection fails — down, out of credit, too busy, gone — its call goes again at once on the fallback; a
@@ -183,8 +204,11 @@ async function callWorkerOn(connection, { system, user, messages, maxTokens, max
    * once, with room to finish thinking and answer; the second answer stands whatever it is. */
   const said = typeof result.text === 'string' ? result.text.replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').trim() : '';
   const thoughtItAway = !said && ((typeof result.thinking === 'string' && result.thinking.trim()) || String(result.finishReason || '').toLowerCase() === 'length');
-  if (thoughtItAway && conn.maxTokens < ALWAYS_THINKS_FLOOR && !(signal && signal.aborted)) {
-    const roomier = await ask(createProvider({ ...conn, maxTokens: ALWAYS_THINKS_FLOOR }));
+  /* M752: never more answer room than the context leaves beside this very prompt — raised past it, the second ask was refused
+   * before sending (the adapters' check) and the call failed where it could have answered */
+  const raisedTo = thoughtItAway ? Math.min(ALWAYS_THINKS_FLOOR, contextOf(conn) - CONTEXT_MARGIN - measureTransport(conn, { system: String(system || ''), messages: list }).inputTokens) : 0;
+  if (thoughtItAway && conn.maxTokens < raisedTo && !(signal && signal.aborted)) {
+    const roomier = await ask(createProvider({ ...conn, maxTokens: raisedTo }));
     result = { ...roomier, notes: [...(Array.isArray(result.notes) ? result.notes : []), ...(Array.isArray(roomier.notes) ? roomier.notes : []), 'the first answer was all thinking and no words — asked again with room to answer'] };
   }
   return {

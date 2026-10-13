@@ -54,7 +54,7 @@ import { loadState, saveState, notify, renderStateFacts } from '../engine/state.
 import { findPersonKey, thinsCore, worldParticipation, importanceOf, IMPORTANT_AT, placeWords, isMc, namedInText, seatForPerson } from '../engine/people.js'; /* M304: who matters, as the storyteller's own people block weighs it */
 import { isHere, samePersonName, nameOnPage } from '../engine/names.js'; /* M396/M401: one answer to "the same person?"; M414: one answer to "named on the page?" */
 import { storyTurn } from '../engine/apply.js';
-import { applyMutations, clearsThatArrive, scenePartOf, walkInFromPage, seatAtScene } from '../engine/apply.js'; /* M444: cleared is never nowhere; M680: its walk-ins held to the page's ending and its reader */
+import { applyMutations, clearsThatArrive, scenePartOf, walkInFromPage, seatAtScene, withoutGrantedFlags } from '../engine/apply.js'; /* M444: cleared is never nowhere; M680: its walk-ins held to the page's ending and its reader */
 import { renderOffscreen, seatLine, isDeadSeat, seatAgeWords } from '../engine/offscreen.js'; /* M684: freshness is an explicit review */
 import { renderClock } from '../engine/clock.js';
 import { mcName } from '../engine/duels.js';
@@ -147,7 +147,8 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     'When an established canon or real-person record is supplied, preserve its actual names, family and background; never replace known relatives with invented ones.',
     'Give meaningful recurring people coherent lives when their relationships, plans or consequences matter, including NPC-to-NPC ties.',
     'Record significant ongoing consequences as threads so they survive long absences. Do not simulate every known person.',
-    'Unknown whereabouts remain unknown; old sightings are historical evidence. For relevant active lives use established constraints and fictional elapsed time.',
+    'Someone the story does not actively follow keeps unknown whereabouts unknown; an old sighting is historical evidence, never anyone\'s current place.',
+    'A relevant active life — everyone the people list marks [NO SEAT …] or [ONLY LAST SEEN …], and anyone whose arrival time has passed — is placed in THIS answer with offscreen.set and its cause: a simulated development from established constraints and fictional elapsed time, never a claim that someone saw them there.',
     'Keep an unresolved agenda until it ends. Omission preserves it; agenda:"" explicitly closes it only with a supported cause.',
     'The clock governs availability: at small hours most people sleep, and whoever is up is up',
     'for a reason. Someone moving toward the main character gets stance "toward" and an ETA; before the',
@@ -611,7 +612,7 @@ export function parseWorldAnswer(raw) {
     for (const m of list) {
       if (!m || typeof m !== 'object' || typeof m.type !== 'string') { dropped += 1; continue; }
       if (!WORLD_TYPES.has(m.type.trim())) { dropped += 1; continue; }
-      mutations.push(m);
+      mutations.push(withoutGrantedFlags(m)); /* M752: never the writer's hand (a retired participant, a raised grave, his core) */
     }
     const brief = parsed.brief && typeof parsed.brief === 'object' ? parsed.brief : null;
     return { mutations, dropped, brief, note: mutations.length || brief ? 'ok' : 'empty' };
@@ -620,16 +621,37 @@ export function parseWorldAnswer(raw) {
   }
 }
 
+/* M752: who can only be answered with offscreen.set — no seat, a last sighting, or an arrival whose time has passed
+ * (the three offscreen.confirm refuses) */
+function mustBePlaced(state, name) {
+  const seat = seatForPerson(state, name)?.entry;
+  const now = state?.clock?.minutes;
+  return !seat || seat.lastSeen === true || (Number.isFinite(now) && Number.isFinite(seat.arrivesAtMinutes) && seat.arrivesAtMinutes <= now);
+}
 /* The contract. Resolves null when there was nothing to read; otherwise
  * {applied, rejected, dropped, brief, note}. Throws on transport failure. */
 export function worldOwed(state, { material = '', castNames = [] } = {}) {
   const now = state?.clock?.minutes;
   const seated = Object.entries(state?.offscreen || {}).filter(([name, entry]) => entry && !isHere(state, name) && !isDeadSeat(entry)
     && worldParticipation(state, name, {material, castNames})
-    && (entry.lastSeen || (Number.isFinite(now) && !Number.isFinite(entry.sinceMinutes)) || seatAgeWords(entry, now)
+    && (entry.lastSeen || (Number.isFinite(now) && !Number.isFinite(entry.sinceMinutes) && !Number.isFinite(entry.checkedMinutes)) || seatAgeWords(entry, now) /* M752: a confirmation in story time places a seat written before the clock */
       || (Number.isFinite(now) && Number.isFinite(entry.arrivesAtMinutes) && entry.arrivesAtMinutes <= now)))
     .sort((a, b) => (a[1].checkedMinutes ?? a[1].sinceMinutes ?? -Infinity) - (b[1].checkedMinutes ?? b[1].sinceMinutes ?? -Infinity)).map(([name]) => name);
   return [...new Set([...seated, ...peopleForWorld(state, { material, castNames }).unseated])];
+}
+
+/* M752: WHAT AN AUDIT OWES THE WORLD IS A MISSING DECISION, NOT THE NEXT ROUND OF REVIEWS. worldOwed also counts every
+ * participating seat whose last review is half an hour of story time old — the ordinary readings' budgeted work, which
+ * M719 defers to later readings without making anything unfinished. The audit's recovery took all of them: on a cast of
+ * forty with half-hour pages, twenty stayed owed after every perfect World answer, so the audit was never finished and
+ * every audit made one more World call. Missing: no seat, a last sighting, an arrival whose time has passed, a seat never
+ * placed or reviewed in story time. */
+export function worldDecisionsMissing(state, options = {}) {
+  const now = state?.clock?.minutes;
+  return worldOwed(state, options).filter((name) => {
+    const seat = seatForPerson(state, name)?.entry;
+    return mustBePlaced(state, name) || (Boolean(seat) && Number.isFinite(now) && !Number.isFinite(seat.sinceMinutes) && !Number.isFinite(seat.checkedMinutes));
+  });
 }
 
 // An audit recovery reviews missing decisions, not another turn of the world.
@@ -675,8 +697,13 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   record = record || '';
   const peopleRoom = Math.max(12000, Math.floor(roomChars(connection, MAX_TOKENS) * 0.2));
   const knowledgeRoom = knowledgeRoomFor(roomChars(connection, MAX_TOKENS)); /* M664 */
+  const recovery = Array.isArray(recoveryTargets);
+  const toPlace = recovery ? recoveryTargets.filter((n) => mustBePlaced(state, n)) : [];
+  const recoveryInstruction = recovery ? '\n\nAUDIT RECOVERY AT THE SAME STORY MOMENT. Review ONLY these missing decisions: ' + recoveryTargets.join(', ') + '. Return offscreen.set or offscreen.confirm for each, with a cause.' + (toPlace.length ? ' ' + toPlace.join(', ') + ' need offscreen.set: a last sighting, a missing seat or a lapsed arrival cannot be confirmed.' : '') + ' Only provide people.set core when originals establish missing identity facts. Unknown biography is not unfinished work. Preserve everyone else and all completed judgments. Do not create people, threads, voices, windows or a new world brief. No time has elapsed. Return {"mutations":[...],"brief":null}.' : '';
   const bare = buildWorldMessages({ state, userText, assistantText, before: [], brief, castNotes, castNames, voicesBefore, jumpedMinutes, record, pageNumber, peopleRoom, canonRecord, knowledgeRoom });
-  const contextBudget = viewBudget(connection, MAX_TOKENS, bare.system.length + bare.user.length);
+  /* M689's shared reader rules (and a recovery's own instruction) ride with the request — measured with the rest before
+   * the pages are fitted, so the view keeps its room to look (M261) */
+  const contextBudget = viewBudget(connection, MAX_TOKENS, bare.system.length + LEDGER_READER_RULES.length + bare.user.length + recoveryInstruction.length);
   const prompt = buildWorldMessages({ state, userText, assistantText, before, brief, castNotes, castNames, voicesBefore, jumpedMinutes, record, pageNumber, contextBudget, peopleRoom, canonRecord, knowledgeRoom });
   /* M31: an answer we can't use earns ONE second ask with a sharper word;
    * the raw answer rides out so the drawer can show it. */
@@ -687,10 +714,8 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   let best = null;
   let identityContinuation=false;
   const worldCoverage = { material: brief + '\n' + castNotes, castNames };
-  const recovery = Array.isArray(recoveryTargets);
   const reviewPlan = worldReviewPlan(state,worldCoverage);
   const owed = recovery ? recoveryTargets : reviewPlan.selected;
-  const recoveryInstruction = recovery ? '\n\nAUDIT RECOVERY AT THE SAME STORY MOMENT. Review ONLY these missing decisions: ' + recoveryTargets.join(', ') + '. Return offscreen.set or offscreen.confirm for each, with a cause. Only provide people.set core when originals establish missing identity facts. Unknown biography is not unfinished work. Preserve everyone else and all completed judgments. Do not create people, threads, voices, windows or a new world brief. No time has elapsed. Return {"mutations":[...],"brief":null}.' : '';
   user += recoveryInstruction;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     /* M259: every call gets its own minute (M213), and it may look */
@@ -733,7 +758,15 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
         user=prompt.user+recoveryInstruction+'\nComplete this SAME World answer, preserving its voices and decisions. Correct only these identity prerequisites: '+JSON.stringify(voiceProblems)+'\nPrior answer: '+JSON.stringify(read)+ '\nReturn mutations and brief JSON.';
         continue;
       }
-      user = prompt.user + recoveryInstruction + '\n\nYour answer did not review these overdue people: ' + pending.join(', ') + '. Return only their missing decisions. Use offscreen.set with current whereabouts or offscreen.confirm with the reason a stay still holds. Do not repeat your other changes. JSON only.';
+      /* M752: ASK ONLY FOR AN ANSWER THE LEDGER CAN TAKE. A last sighting, no seat at all, or an arrival whose time has
+       * passed cannot be confirmed (apply.js offscreen.confirm refuses all three) — asked to "set or confirm", a reader that
+       * confirmed one left that person owed for good, the run and the audit unfinished. */
+      const place = pending.filter((n) => mustBePlaced(proposed, n));
+      const review = pending.filter((n) => !place.includes(n));
+      user = prompt.user + recoveryInstruction + '\n\nYour answer did not review these overdue people: ' + pending.join(', ') + '. Return only their missing decisions.'
+        + (place.length ? ' Place ' + place.join(', ') + ' with offscreen.set and a cause (a last sighting, a missing seat or a lapsed arrival cannot be confirmed).' : '')
+        + (review.length ? ' For ' + review.join(', ') + ' use offscreen.set with current whereabouts or offscreen.confirm with the reason a stay still holds.' : '')
+        + ' Do not repeat your other changes. JSON only.';
       continue;
     }
     user = prompt.user + recoveryInstruction + '\n\nYour last answer was not a JSON object with "mutations" and "brief". Answer with the JSON object only — no words before or after it, and keep it short.';

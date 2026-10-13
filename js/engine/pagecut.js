@@ -12,19 +12,22 @@
  * its ending.
  *
  * A page is read whole. Only a page past `cap` is shortened, and then from
- * the MIDDLE, never the end. No imports: the record keeper and the engine
- * both use it. */
+ * the MIDDLE, never the end. The record keeper and the engine both use it. */
 
-import { contextOf } from '../providers/room.js'; /* M285: one answer for the model's room */
+import { workerRoom } from '../agents/call.js'; /* M752: a worker's room, measured as its call is refused */
 export const PAGE_CAP = 60000;
 
 /* M265: the room a connection has, in characters (about three a token, less
  * the answer's own budget), so the record keeper and every worker measure it
  * the same way. M285: a connection with no size set is taken at its
- * provider's (providers/room.js — itself without imports). */
+ * provider's (providers/room.js).
+ * M752: MEASURED AS THE CALL IS REFUSED. It was (context − the asked answer − 2,000) × 3, while the provider adapters refuse
+ * a body past budget.js refusalRoom: its wrappers counted, a 3,000 margin, and the answer room the call really carries —
+ * raised to 16,000 for a worker whose connection thinks (call.js workerConnection; Kimi K3 always does). A look-up round
+ * filled to its room was refused before sending on 64k and 128k connections (on a thinking 64k at 85% of it). One measure
+ * now: call.js workerRoom, the same one the cast weighing and the planner size themselves by. */
 export function roomChars(connection, maxTokens = 6000) {
-  const size = contextOf(connection);
-  return Math.max(30000, Math.floor((size - maxTokens - 2000) * 3));
+  return Math.max(30000, workerRoom(connection && typeof connection === 'object' ? connection : {}, { maxTokens }));
 }
 
 export function wholePage(text, cap = PAGE_CAP) {

@@ -176,8 +176,12 @@ test('M72-8 the rewind is the fold; the replay is sequenced; a writer’s page d
    * gate and then run themselves. */
   assert(!/still being rebuilt — one moment/.test(c), 'no history action refuses with a try-again');
   assert(/async function waitForRebuild\(\)/.test(c) && /function afterReplay\(/.test(c), 'the gate a history action waits on exists');
-  for (const fn of ['retryUserMessage', 'regenerateFrom', 'swipeTo', 'swipeRegenerate', 'beginEdit', 'branchFrom', 'deleteMessage']) {
-    const body = c.slice(c.indexOf('async function ' + fn + '('), c.indexOf('async function ' + fn + '(') + 700);
+  /* M720 (a87d357): branchFrom is the update-held door now (ctx.updates.run) and the branch is made in branchForUpdate — the
+   * body that waits is that one (M43-2 holds that branchFrom routes there) */
+  for (const fn of ['retryUserMessage', 'regenerateFrom', 'swipeTo', 'swipeRegenerate', 'beginEdit', 'branchForUpdate', 'deleteMessage']) {
+    const at = c.indexOf('async function ' + fn + '(');
+    assert(at !== -1, fn + ' is found');
+    const body = c.slice(at, at + 700);
     assert(/await waitForRebuild\(\)/.test(body), fn + ' waits for a rebuild instead of refusing');
   }
   /* M635 moved this: the one-page delete lives in letOnePageGo now — deleteMessage lets his message go with its answer
@@ -199,7 +203,9 @@ test('M72-8 the rewind is the fold; the replay is sequenced; a writer’s page d
   const walk = readFileSync(new URL('../dom/run.mjs', import.meta.url), 'utf8');
   assert(/'swipe-new-old', 'edit-last', 'delete-user-mid', 'send', 'delete-tail', 'send'/.test(walk), 'the invariant walk drives the new cases');
   assert(/the standing ledger is the last page’s/.test(walk), 'and checks the ledger as it stands, not only the branches');
-  const br = ((at) => c.slice(at, c.indexOf('\n  async function ', at + 10)))(c.indexOf('async function branchFrom(')); /* M523: the whole of branchFrom, to its end — its fixed 15,000-character window (grown by hand in M332, M50x) cut the checks off again when M523 added lines above them */
+  const brAt = c.indexOf('async function branchForUpdate('); /* M720: the branch is made in branchForUpdate */
+  assert(brAt !== -1, 'the branch’s maker is found');
+  const br = c.slice(brAt, c.indexOf('\n  async function ', brAt + 10)); /* M523: the whole of it, to its end — its fixed 15,000-character window (grown by hand in M332, M50x) cut the checks off again when M523 added lines above them */
   assert(/carriedNow\.refHistory = /.test(br) && /msgId: idMap\[e\.msgId\]/.test(br), 'the branch re-keys the referee’s timeline');
 });
 

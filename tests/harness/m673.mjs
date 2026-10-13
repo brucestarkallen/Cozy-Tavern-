@@ -8,12 +8,15 @@ import { applyMutations } from '../../js/engine/apply.js';
 import { KNOWLEDGE_GUARD } from '../../js/engine/world.js';
 import { db } from '../../js/store.js';
 import {
-  loadMemory, saveMemory, auditedOf, auditedAcross, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, maybeSummarize, redoLine,
+  loadMemory, saveMemory, auditedOf, auditedAcross, memoryAfterDeletion, memoryTruncatedAt, memoryWithoutPage, maybeSummarize, redoLine, visiblePages,
 } from '../../js/agents/memory.js';
 import {
   auditProgress, nextStretch, buildStretchMessages, parseStretchAnswer, scopeStretch, pagesSay, storyPageAt, auditStretch, stretchWords,
   ledgerForPages, lineIsHis, beginReading, endReading, pauseContinuousAudit, continuousAuditOn, STRETCH_PAGES, LEDGER_ADDS, PAGE_FIXES, UNREADABLE_TRIES,
+  auditWaits, RECOVERY_DELAY,
 } from '../../js/agents/continuous.js';
+import { fingerprint36 } from '../../js/engine/fingerprint.js';
+import { pageText } from '../../js/assemble/stack.js';
 import { markWorkerRunning } from '../../js/agents/status.js';
 import { pendingWork } from '../../js/agents/extractor.js';
 
@@ -53,16 +56,21 @@ async function tale(title, { lines } = {}) {
   return st;
 }
 const withFetch = async (impl, fn) => { const prior = globalThis.fetch; globalThis.fetch = impl; try { return await fn(); } finally { globalThis.fetch = prior; } };
+/* the writer's brief, which page 2 cannot be true beside. M722: a story fault is mended or noted only when the reader
+ * quotes its wrong words on that page AND the brief or earlier record it conflicts with — the answer below is the shape the
+ * reader is asked for now (a target for every issue; for a record fix the passage that supports it and why) */
+const BRIEF = 'A story of the Thirteenth Division. Renji has stood watch at the gate since the night before the story opens.';
 const ANSWER = JSON.stringify({ issues: [
-  { what: 'The line names Marcus; the pages have Renji come back from the gate.', record: { fixes: [{ from: 'Marcus', to: 'Renji' }], detail: 'Rukia promised Jovan to keep the seal hidden from the captains; Rukia has grey eyes; The dragon ate the moon' } },
-  { what: 'Rukia learned that Jovan carries the seal.', mutations: [
+  { what: 'The line names Marcus; the pages have Renji come back from the gate.', target: 'record', record: { fixes: [{ from: 'Marcus', to: 'Renji', shown: 'Renji came back from the gate before noon', why: 'The pages have Renji come back from the gate, not Marcus.' }], detail: 'Rukia promised Jovan to keep the seal hidden from the captains; Rukia has grey eyes; The dragon ate the moon' } },
+  { what: 'Rukia learned that Jovan carries the seal.', target: 'knowledge', mutations: [
     { type: 'knowledge.add', name: 'Rukia', fact: 'Jovan carries the seal of the Thirteenth' },
     { type: 'place.set', name: 'The gate' },
     { type: 'knowledge.add', name: 'Marcus', fact: 'Renji came back from the gate' },
     { type: 'knowledge.add', name: 'Jovan', fact: 'Rukia promised to keep the seal hidden' },
     { type: 'knowledge.add', name: 'Rukia', fact: 'The dragon ate the moon over the harbour' },
   ] },
-  { what: 'Page 2 has Renji leave at dawn, but the story so far has him at the gate since the night before.', pages: true, page: 2, fix: 'Renji had been at the gate since the night before.' },
+  { what: 'Page 2 has Renji leave at dawn, but the story so far has him at the gate since the night before.', target: 'story', pages: true, page: 2, fix: 'Renji had been at the gate since the night before.',
+    evidence: { page: 'he had left for the gate at dawn', prior: 'Renji has stood watch at the gate since the night before the story opens', why: 'The brief has Renji on watch at the gate all night; page 2 has him leave for it only at dawn.' } },
 ] });
 
 test('M673-1 THE MARK IS ON THE RECORD LINE, AND GOES WHERE THE LINE GOES: how far the audit has read is counted from the lines; the next stretch is the oldest line not read to its end, six pages at most; a line that slides keeps its mark, a line let go takes it along, and lines squeezed into one hand theirs on', async () => {
@@ -74,12 +82,15 @@ test('M673-1 THE MARK IS ON THE RECORD LINE, AND GOES WHERE THE LINE GOES: how f
     { id: 'd', span: [18, 19], text: '', level: 1, empty: true },
     { id: 'm', span: [20, 31], text: 'two lines squeezed', level: 2 },
     { id: 'x', span: [-1, -1], text: '[Correction] it was Tuesday.', level: 1, correction: true, audited: 9 },
-    { id: 'gone', span: [70, 75], text: 'a line over pages the story no longer has', level: 1 },
+    { id: 'gone', span: [70, 75], text: 'a line over pages the story no longer has', level: 1,
+      auditOpen: [{ issue: { target: 'record', what: 'an allegation about pages the story no longer has' }, why: 'Missing exact replacement text in record.fixes.', from: 70, to: 75 }] },
   ] };
   eq(auditedOf(mem.nodes[0]), 6); eq(auditedOf(mem.nodes[1]), 2); eq(auditedOf(mem.nodes[2]), 0);
   eq(auditedOf({ span: [0, 5], audited: 99 }), 6, 'never more than the line has pages');
   eq(auditedOf({ span: [0, 5], audited: 'x' }), 0); eq(auditedOf(mem.nodes[5]), 0, 'a correction covers no page and has no mark');
-  eq(JSON.stringify(auditProgress(mem, pages.length)), JSON.stringify({ done: 8, folded: 32, left: 24 }), 'eight of thirty-two folded pages read (the line past the story’s end is not counted)');
+  /* M722/M723: the unresolved historical corrections are counted beside the reading's coverage, never in it (open; pending —
+   * those still queued for their bounded recovery); the line past the story's end counts in neither */
+  eq(JSON.stringify(auditProgress(mem, pages.length)), JSON.stringify({ done: 8, folded: 32, left: 24, open: 0, pending: 0, unresolved: [] }), 'eight of thirty-two folded pages read (the line past the story’s end is not counted)');
   let s = nextStretch(mem, pages);
   eq([s.from, s.to, s.line.id, s.lineWhole].join(), '8,11,b,false', 'the oldest line not read to its end, from where the reading stopped');
   mem.nodes[1].audited = 6;
@@ -201,11 +212,16 @@ test('M673-3 WHAT IT IS ASKED: the brief, the record BEFORE the pages (never aft
 test('M673-4 WHAT IT MAY DO IS DECIDED IN CODE: a fact is written only for someone the ledger keeps (never the main character), who is named on these pages, in words these pages hold, that the person does not already know in other words — and never into a full list something older than all of it; nothing but what someone learned; a record fix only when the whole line was read; a page fault only for a page of the stretch', () => {
   const pagesText = SIX.join('\n\n');
   const state = applyMutations(ledgerOf(), [{ type: 'knowledge.add', name: 'Rukia', fact: 'Jovan carries the seal of the Thirteenth Division' }]).state;
+  /* the tale's pages and the brief a story fault is held to (M722: a page fault stands only with the page's own wrong words
+   * and the brief's, quoted) */
+  const pagesOf = [...SIX, ...Array.from({ length: 38 }, (_, k) => ((k + 6) % 2 ? 'The yard was quiet that hour, and Rukia swept it. Page ' + (k + 6) + '.' : 'I wait. ' + (k + 6)))].map((t, i) => page(i, t));
+  const priorText = 'Rukia has violet eyes. Rukia never sweeps the yard herself. ' + BRIEF;
   const read = parseStretchAnswer('Here it is:\n```json\n' + JSON.stringify({ issues: [
-    { what: 'a', mutations: [
-      { type: 'knowledge.add', name: 'Rukia', fact: 'Jovan carries the seal of the Thirteenth' },
+    { what: 'a', target: 'knowledge', mutations: [
+      /* M737: what someone knows is held by its exact statement — the same statement, however it is cased or ended, is known */
+      { type: 'knowledge.add', name: 'Rukia', fact: 'jovan carries the seal of the Thirteenth Division.' },
       { type: 'knowledge.add', name: 'Renji', fact: 'Jovan and Rukia were together in the yard before noon' },
-      { type: 'knowledge.add', name: 'Renji', fact: 'Jovan was together with Rukia in the yard before noon' },
+      { type: 'knowledge.add', name: 'Renji', fact: 'Jovan and Rukia were together in the yard  before noon.' },
       { type: 'knowledge.add', name: 'OTHER NAME', fact: 'Renji came back from the gate' },
       { type: 'knowledge.add', name: 'Byakuya', fact: 'Renji came back from the gate' },
       { type: 'knowledge.add', name: 'Jovan', fact: 'Rukia promised to keep the seal hidden' },
@@ -216,29 +232,46 @@ test('M673-4 WHAT IT MAY DO IS DECIDED IN CODE: a fact is written only for someo
       { type: 'rel.shift', name: 'Rukia', axis: 'trust', by: 5 },
     ] },
     { what: 'b', record: 'Rukia promised Jovan to keep the seal hidden; the pages\' own words; NAME learned it' },
-    { what: 'c', record: { fixes: [{ from: 'Marcus', to: 'Renji' }, { from: 'the line\'s own wrong words', to: 'Renji' }, { from: 'same', to: 'same' }] } },
-    { what: 'd', pages: 'yes', page: 'p4', fix: 'Her eyes are violet, as the brief says.' },
-    { what: 'e', pages: true, page: 40, fix: 'A fault that names a page outside the stretch.' },
-    { what: 'f', pages: true, page: 2, fix: 'A third fault.' },
+    { what: 'c', target: 'record', record: { fixes: [{ from: 'Marcus', to: 'Renji', shown: 'Renji came back from the gate before noon', why: 'The pages have Renji come back, not Marcus.' }, { from: 'the line\'s own wrong words', to: 'Renji' }, { from: 'same', to: 'same' }] } },
+    { what: 'd', target: 'story', pages: 'yes', page: 'p4', fix: 'Her eyes are violet, as the brief says.', evidence: { page: 'Her grey eyes did not leave his.', prior: 'Rukia has violet eyes', why: 'The brief gives Rukia violet eyes; page 4 calls them grey.' } },
+    { what: 'e', target: 'story', pages: true, page: 40, fix: 'A fault that names a page outside the stretch.', evidence: { page: 'Rukia swept it. Page 39', prior: 'Rukia never sweeps the yard herself', why: 'The brief says she never sweeps it.' } },
+    { what: 'f', target: 'story', pages: true, page: 2, fix: 'A third fault.', evidence: { page: 'he had left for the gate at dawn', prior: 'Renji has stood watch at the gate since the night before the story opens', why: 'The brief has him at the gate all night.' } },
     { what: 'g says something stands', pages: false },
   ] }) + '\n```');
   eq(read.note, 'ok'); eq(read.issues.length, 6, 'an issue that asks for nothing is not an issue');
   eq(read.issues[3].page, 4, '"p4" is page 4'); eq(read.issues[3].pages, true, '"yes" is yes');
-  const s = scopeStretch(read.issues, { state, pagesText, from: 0, to: 5, lineWhole: true, turn: 3 });
+  const s = scopeStretch(read.issues, { state, pagesText, from: 0, to: 5, lineWhole: true, turn: 3, pages: pagesOf, priorText });
   eq(JSON.stringify(s.mutations), JSON.stringify([{ type: 'knowledge.add', name: 'Renji', fact: 'Jovan and Rukia were together in the yard before noon' }]), 'one fact stands: ' + JSON.stringify(s.mutations));
+  eq(JSON.stringify(s.unresolved), '[]', 'and nothing is left as an unresolved correction: each claim went through its own door — the issue that asked for nothing least of all (M723 made it one, with a recovery call of its own)');
   const why = s.refused.map((r) => r.why).join(' | ');
-  assert(/Rukia already knows that/.test(why), 'known in other words: ' + why);
+  assert(/Rukia already knows that/.test(why), 'known, as the same statement: ' + why);
   assert(/Renji already knows that/.test(why), 'said twice in one answer');
+  /* M737: a statement in OTHER words is another statement to the ledger (exact statements, dates, conditions and certainty
+   * stay distinct) — what keeps the reader from writing a thing already listed in other words is its own instruction,
+   * over the list it is shown of what that person knows: both in what the reader is actually sent */
+  eq(scopeStretch([{ target: 'knowledge', mutations: [{ type: 'knowledge.add', name: 'Rukia', fact: 'Jovan carries the seal of the Thirteenth' }] }], { state, pagesText, from: 0, to: 5, turn: 3 }).mutations.length, 1, 'other words are another statement to the code');
+  const lineA = { id: 'a', span: [0, 5], text: LINE_A, level: 1 };
+  const sent = buildStretchMessages({ state, brief: BRIEF, mem: { nodes: [lineA] }, pages: pagesOf, stretch: nextStretch({ nodes: [lineA] }, pagesOf) });
+  assert(/ONLY WHAT IS MISSING: a thing listed in other words is ALREADY\s+there -- never write it again\./.test(sent.system), 'the reader is told a thing listed in other words is already there');
+  assert(/Rukia\n {2}knows: Jovan carries the seal of the Thirteenth Division/.test(sent.user), 'and is shown what she knows: ' + sent.user.slice(sent.user.indexOf('WHAT THE LEDGER HOLDS TODAY'), sent.user.indexOf('WHAT THE LEDGER HOLDS TODAY') + 260));
   assert(/keeps no page for OTHER NAME|keeps no page for that name/.test(why) && /keeps no page for Byakuya/.test(why), 'nobody the ledger does not keep, and never a placeholder');
   assert(/nothing is written for the main character/.test(why) && /these pages do not say that/.test(why) && /did not say what Renji learned/.test(why), why);
   assert(/“canon\.lock” is not the continuous audit’s to write/.test(why) && /“presence\.leave” is not/.test(why) && /“rel\.shift” is not/.test(why), 'nothing but what someone learned: ' + why);
-  eq(JSON.stringify(s.record.fixes), JSON.stringify([{ from: 'Marcus', to: 'Renji' }]), 'the prompt’s own example words are never a fix');
+  /* M722: a record fix carries the passage that supports it, why, and whether it replaces or removes; and the allegation it
+   * answers (what), so one that cannot land is kept as an unresolved correction in its own words */
+  eq(JSON.stringify(s.record.fixes), JSON.stringify([{ from: 'Marcus', to: 'Renji', shown: 'Renji came back from the gate before noon', why: 'The pages have Renji come back, not Marcus.', operation: 'replace', what: 'c' }]), 'the prompt’s own example words are never a fix');
   eq(s.record.detail, 'Rukia promised Jovan to keep the seal hidden', 'a detail is kept clause by clause, each one the pages hold; a placeholder or an echo is not one');
   eq(s.pageFixes.length, PAGE_FIXES, 'two page faults a reading, at most');
   eq(s.pageFixes[0].page, 4); eq(s.pageFixes[1].page, null, 'a page outside the stretch is no page');
-  /* the line read in part: what it is missing may be said, what it says may not be judged */
-  const part = scopeStretch(read.issues, { state, pagesText, from: 0, to: 5, lineWhole: false, turn: 3 });
+  /* the line read in part: what it is missing may be said, what it says may not be judged — the fix is not made; it is kept
+   * as an unresolved correction, for its focused review over the whole line (M722/M723) */
+  const part = scopeStretch(read.issues, { state, pagesText, from: 0, to: 5, lineWhole: false, turn: 3, pages: pagesOf, priorText });
   eq(part.record.fixes.length, 0); eq(part.record.detail, 'Rukia promised Jovan to keep the seal hidden');
+  eq(JSON.stringify(part.unresolved.map((u) => [u.issue.what, u.why])), JSON.stringify([['c', 'Insufficient context: this reading did not cover the complete record source section.']]), 'the fix of a line read in part waits for the whole line');
+  /* a line the keeper left EMPTY has no words a fix could correct: a fix said of it is neither made nor kept as a correction
+   * still owed (it was: "did not cover the complete record source section", for a line read whole) — what lasts is its line */
+  const empty = scopeStretch(read.issues, { state, pagesText, from: 0, to: 5, lineWhole: false, lineEmpty: true, turn: 3, pages: pagesOf, priorText });
+  eq(JSON.stringify([empty.record.fixes.length, empty.unresolved.length, empty.record.detail]), JSON.stringify([0, 0, 'Rukia promised Jovan to keep the seal hidden']), 'an empty line is given what lasts, and no correction is owed on it');
   /* these pages do not name him */
   eq(scopeStretch([{ mutations: [{ type: 'knowledge.add', name: 'Renji', fact: 'Rukia swept the yard' }] }], { state, pagesText: 'Rukia swept the yard.', from: 0, to: 0 }).mutations.length, 0);
   /* a full list: something older than everything in it would only push a newer thing out */
@@ -268,9 +301,10 @@ test('M673-5 ONE READING, END TO END: the record line is put right where its wro
   const notes = [];
   const mends = [];
   await withFetch(async (url, opts) => { const b = bodyOf(opts); calls.push(b); return say(/pages 1-6 of the story/.test(b.user) ? ANSWER : '{"issues":[]}'); }, async () => {
-    const r = await auditStretch({ connection: { ...CONN }, storyId: st.id, brief: 'A story of the Thirteenth Division.', stale: () => false, renew: () => true,
+    const r = await auditStretch({ connection: { ...CONN }, storyId: st.id, brief: BRIEF, stale: () => false, renew: () => true,
       mend: async (id, words) => { mends.push({ id, words }); return []; }, note: async (id, finding) => { notes.push({ id, finding }); } });
     eq(calls.length, 1, 'one call');
+    eq(r.open, 0, 'and nothing it found is left as an unresolved correction (each finding went through its own door)');
     assert(/continuity editor/.test(calls[0].system) && calls[0].user.includes(LINE_A) && /\[p4\] STORY: Rukia promised Jovan/.test(calls[0].user), 'the reader was sent the pages and the line');
     eq([r.ok, r.from, r.to, r.sealed, r.passedBy, r.mendedPages].join(), 'true,0,5,true,false,0');
     const mem = await loadMemory(st.id);
@@ -322,8 +356,14 @@ test('M673-6 A PAGE THAT CANNOT BE TRUE IS MENDED BY THE HOUSE’S OWN MENDER, O
     await saveMemory(st.id, memoryWithoutPage(await loadMemory(st.id), k)); /* as the house's applyMend does */
     return [{ id }];
   };
-  await withFetch(async (url, opts) => say(/pages 1-6 of the story/.test(bodyOf(opts).user) ? ANSWER : '{"issues":[]}'), async () => {
-    const r = await auditStretch({ connection: { ...CONN }, storyId: st.id, stale: () => false, renew: () => true, mend, note: async () => { throw new Error('nothing is noted when the page was mended'); } });
+  /* the brief holds a second thing page 2 cannot be true beside; the reading after the mend finds it, on the page as it now
+   * stands (the reader quotes the page's own words: M722) */
+  const brief = BRIEF + ' Jovan keeps the seal of the Thirteenth sewn into his boot.';
+  const AGAIN = JSON.stringify({ issues: [...JSON.parse(ANSWER).issues.slice(0, 2),
+    { what: 'Page 2 has Jovan draw the seal from his coat, though he keeps it sewn into his boot.', target: 'story', pages: true, page: 2, fix: 'Jovan drew the seal of the Thirteenth from his boot.',
+      evidence: { page: 'Jovan drew the seal of the Thirteenth from his coat', prior: 'Jovan keeps the seal of the Thirteenth sewn into his boot', why: 'The brief has the seal sewn into his boot; page 2 has him draw it from his coat.' } }] });
+  await withFetch(async (url, opts) => say(/pages 1-6 of the story/.test(bodyOf(opts).user) ? (mendCalls ? AGAIN : ANSWER) : '{"issues":[]}'), async () => {
+    const r = await auditStretch({ connection: { ...CONN }, storyId: st.id, brief, stale: () => false, renew: () => true, mend, note: async () => { throw new Error('nothing is noted when the page was mended'); } });
     eq([r.ok, r.mendedPages, r.sealed, r.applied.length].join(), 'true,1,false,0');
     const mem = await loadMemory(st.id);
     assert(!mem.nodes.some((n) => n.id === 'a'), 'the line over the mended page was let go');
@@ -333,7 +373,7 @@ test('M673-6 A PAGE THAT CANNOT BE TRUE IS MENDED BY THE HOUSE’S OWN MENDER, O
     mem.nodes.push({ id: 'a2', span: [0, 5], text: LINE_A, level: 1, at: 9, whole: true });
     await saveMemory(st.id, mem);
     const notes = [];
-    const r2 = await auditStretch({ connection: { ...CONN }, storyId: st.id, stale: () => false, renew: () => true, mend, note: async (id, f) => { notes.push({ id, f }); } });
+    const r2 = await auditStretch({ connection: { ...CONN }, storyId: st.id, brief, stale: () => false, renew: () => true, mend, note: async (id, f) => { notes.push({ id, f }); } });
     eq(mendCalls, 1, 'a page already mended is never mended again');
     eq(notes.length, 1); eq(notes[0].id, all0[1].id, 'the fault is noted on it instead');
     eq([r2.sealed, r2.mendedPages, r2.applied.length, r2.lineMended].join(), 'true,0,1,1', 'and this time the reading goes through');
@@ -345,7 +385,7 @@ test('M673-6 A PAGE THAT CANNOT BE TRUE IS MENDED BY THE HOUSE’S OWN MENDER, O
   await db.messages.update(st2.id, pg.id, { keptText: pg.text });
   let asked = 0;
   await withFetch(async () => say(ANSWER), async () => {
-    const r = await auditStretch({ connection: { ...CONN }, storyId: st2.id, stale: () => false, mend: async () => { asked += 1; return [{ id: pg.id }]; }, note: async () => {} });
+    const r = await auditStretch({ connection: { ...CONN }, storyId: st2.id, brief: BRIEF, stale: () => false, mend: async () => { asked += 1; return [{ id: pg.id }]; }, note: async () => {} });
     eq(asked, 0, 'the mender is not sent to a page whose words he put back');
     eq(r.sealed, true);
   });
@@ -411,9 +451,13 @@ test('M673-7 IT NEVER WRITES OVER ANOTHER HAND, AND NEVER GETS STUCK: while the 
   /* a line the keeper left empty */
   const st4 = await tale('an empty line', { lines: [{ id: 'e', span: [0, 5], text: '', level: 1, at: 1, empty: true, whole: true }, { id: 'h', span: [6, 6], text: '', level: 1, at: 2, empty: true, byHouse: true, whole: true }] });
   const lasting = JSON.stringify({ issues: [{ what: 'Something lasting happened here.', record: { fixes: [{ from: 'x', to: 'Renji' }], detail: 'Rukia promised Jovan to keep the seal hidden from the captains' } }] });
-  await withFetch(async (url, opts) => say(/pages 1-6 of the story/.test(bodyOf(opts).user) ? lasting : '{"issues":[]}'), async () => {
+  let emptyCalls = 0;
+  await withFetch(async (url, opts) => { emptyCalls += 1; return say(/pages 1-6 of the story/.test(bodyOf(opts).user) ? lasting : '{"issues":[]}'); }, async () => {
     const r = await auditStretch({ connection: { ...CONN }, storyId: st4.id, stale: () => false });
     eq([r.sealed, r.lineWritten].join(), 'true,true');
+    /* a line with no words has nothing a fix could correct: the fix said of it is not kept as a correction still owed (it was
+     * — "this reading did not cover the complete record source section" — and a recovery call was made for it at once) */
+    eq([r.open, emptyCalls].join(), '0,1', 'no correction is owed on a line that had no words, and nothing more is asked');
     const e = (await loadMemory(st4.id)).nodes.find((n) => n.id === 'e');
     eq(e.text, 'Rukia promised Jovan to keep the seal hidden from the captains'); eq(e.empty, false); eq(auditedOf(e), 6);
     assert(/wrote the record line the keeper had left empty: Rukia promised Jovan/.test(stretchWords(r)), stretchWords(r));
@@ -426,15 +470,21 @@ test('M673-7 IT NEVER WRITES OVER ANOTHER HAND, AND NEVER GETS STUCK: while the 
 test('M673-7b HIS OWN WORDS ARE HIS, AND A FIX IS NEVER SWEPT WIDER THAN IT WAS MEANT: a record line he rewrote by hand, or that the housekeeper changed for him, is read and marked but never written over (what someone learned is still written); a line the keeper folds again is the keeper’s once more; a fix whose wrong words stand twice in the line is not applied, nor one that would swap a phrase for a fragment', async () => {
   eq(lineIsHis({ verified: { at: 1, fixed: 'the writer' } }), true); eq(lineIsHis({ verified: { at: 1, fixed: 'the housekeeper' } }), true);
   eq(lineIsHis({ verified: { at: 1, fixed: 'Jovan is sixteen, not seventeen' } }), false, 'the keeper’s own correction is not his hand'); eq(lineIsHis({}), false);
+  /* M722/M723: the fix the reader proposed for his line stays VISIBLE as an unresolved correction ("Protected memory remains
+   * unresolved"), and the same job gives it its one focused review — which may confirm the fault, never edit his words */
+  const PROTECTED = JSON.stringify({ sourceFidelity: { status: 'contradicted', claim: 'Marcus', sameReferent: true, sameEvent: true, assertion: 'direct', relation: 'contradicts', preservesAssertion: false, why: 'The pages have Renji, not Marcus, come back from the gate before noon.', conflicts: [] },
+    allegation: 'confirmed', blocker: 'protected', outcome: 'blocked', why: 'The line names Marcus where the pages have Renji; it is the writer’s own memory and is not edited.', evidence: [{ source: '6', shown: 'Renji came back from the gate before noon' }] });
   for (const by of ['the writer', 'the housekeeper']) {
     const st = await tale('his own words ' + by, { lines: [{ id: 'a', span: [0, 5], text: LINE_A, detail: 'Rukia stared at the seal', level: 1, at: 1, whole: true, verified: { at: 5, fixed: by } }] });
-    await withFetch(async () => say(ANSWER), async () => {
-      const r = await auditStretch({ connection: { ...CONN }, storyId: st.id, stale: () => false, mend: async () => [], note: async () => {} });
+    await withFetch(async (url, opts) => say(/TARGETED HISTORICAL RECOVERY/.test(bodyOf(opts).user) ? PROTECTED : ANSWER), async () => {
+      const r = await auditStretch({ connection: { ...CONN }, storyId: st.id, brief: BRIEF, stale: () => false, mend: async () => [], note: async () => {} });
       const a = (await loadMemory(st.id)).nodes.find((n) => n.id === 'a');
       eq(a.text, LINE_A, 'the line stands as ' + by + ' left it'); eq(a.detail, 'Rukia stared at the seal', 'and so does its detail');
       eq([r.sealed, r.lineLeft, r.lineMended, r.detailAdded, auditedOf(a)].join(), 'true,true,0,,6', 'read, marked, not written over');
       eq(((await loadState(st.id)).knowledge.Rukia || []).length, 1, 'what she learned is still written to the ledger');
       assert(/the record line is in your own words \(or the housekeeper’s for you\) — left as it is/.test(stretchWords(r)), stretchWords(r));
+      eq([r.recovery, r.open, r.pending].join(), 'blocked,1,0', 'the fix for his line is kept as an open correction, reviewed once, and not asked for again');
+      assert(/Rukia now knows: Jovan carries the seal/.test(stretchWords(r)) && /1 historical correction remains unresolved after automatic source review\. Protected writer-controlled memory cannot be overwritten\.$/.test(stretchWords(r)), 'the workers’ line says what the reading did, then what became of the correction: ' + stretchWords(r));
     });
   }
   /* folded again by the keeper: it is the keeper's line once more */
@@ -471,4 +521,144 @@ test('M673-8 THE STORYTELLER COMES FIRST, AND THE SWITCH IS OFF UNLESS HE TURNS 
   eq(pauseContinuousAudit('tale-one'), false, 'a reading that has ended is not held');
   eq(pauseContinuousAudit('tale-two'), true); eq(other.signal.aborted, true);
   endReading('tale-two', other);
+});
+
+/* ---------- what M722's routing kept before its guards were put back (the audit of M722-M751): settled by the audit itself ---------- */
+/* the recovery state M723 leaves on a finding after its two attempts — its input is the line, its pages and no fetched
+ * originals (continuous.js recoveryInput), its writer the story's empty brief and cast */
+const exhausted = (line, pages, reason) => ({
+  input: fingerprint36(JSON.stringify([line.span, fingerprint36(JSON.stringify([line.text, line.detail, line.verified?.fixed, pages.slice(line.span[0], line.span[1] + 1).map((p) => [p.id, pageText(p)])])), []])),
+  writer: fingerprint36(JSON.stringify(['', ''])), dispositionPolicy: 2, evidencePolicy: 2, attempts: 2, status: 'blocked', reason, nextAt: 0, sources: [],
+});
+const UNCLASSIFIED = 'The fault needs grounded story versus record classification.';
+const PARTIAL = 'Insufficient context: this reading did not cover the complete record source section.';
+
+test('M673-9 WHAT WAS NEVER A CLAIM IS CLEARED BY THE AUDIT ITSELF — A PAGE OUT OF CHARACTER (the audit of M722-M751: before its guard, M722 kept a fault said of an out-of-character page as an unresolved historical correction; its two recovery attempts left it blocked — the lamp amber for good, its line unable to fold): the next look clears it with no call, keeps a receipt and says so on the workers’ line; not a word of the line is touched, nor a finding said of a page of the story, nor anything on a line in his own words; a second look has nothing to do', async () => {
+  const P = [
+    { role: 'user', text: 'I show Rukia the seal.' },
+    { role: 'assistant', text: 'Jovan drew the seal of the Thirteenth from his coat. Rukia stared at it.' },
+    { role: 'user', text: '((does Renji know about the seal?))', ooc: true },
+    { role: 'assistant', text: 'No — Renji knows nothing of the seal yet.', ooc: true },
+    { role: 'user', text: 'I ask her to keep it hidden.' },
+    { role: 'assistant', text: 'Rukia promised Jovan she would keep the seal hidden from the captains.' },
+  ];
+  const make = async (title, his) => {
+    const st = await db.stories.create({ title: title + ' ' + Math.random() });
+    for (const pg of P) await db.messages.append(st.id, pg);
+    for (let i = 6; i < 44; i += 1) await db.messages.append(st.id, page(i, i % 2 ? 'The yard was quiet that hour, and Rukia swept it. Page ' + i + '.' : 'I wait. ' + i));
+    await saveState(st.id, ledgerOf());
+    const pages = visiblePages(await db.messages.list(st.id));
+    const a = { id: 'a', span: [0, 5], text: 'Jovan showed Rukia the seal of the Thirteenth.', level: 1, at: 1, whole: true, audited: 6, correctionReviewed: true, ...(his ? { verified: { at: 5, fixed: 'the writer' } } : {}) };
+    const b = { id: 'b', span: [6, 11], text: 'Rukia swept the yard; nothing else moved.', level: 1, at: 2, whole: true, audited: 6, correctionReviewed: true };
+    const said = (what, pageNo, fix) => ({ what, target: 'unknown', evidence: { page: '', prior: '', why: '' }, pages: true, page: pageNo, fix, record: null, mutations: [] });
+    const used = 'The focused response did not provide a usable correction verdict.';
+    a.auditOpen = [{ issue: said('Page 4 says Renji knows nothing, but the story has him told.', 4, 'Renji already knew of the seal by then.'), why: used, from: 0, to: 5, recovery: exhausted(a, pages, used) }];
+    b.auditOpen = [{ issue: said('Page 8 may not agree with the brief.', 8, 'The yard was swept at dawn.'), why: used, from: 6, to: 11, recovery: exhausted(b, pages, used) }];
+    await saveMemory(st.id, { window: 30, nodes: [a, b] });
+    return st;
+  };
+  let calls = 0;
+  const st = await make('said of an out-of-character page');
+  await withFetch(async () => { calls += 1; return say('{"issues":[]}'); }, async () => {
+    const before = await loadMemory(st.id);
+    const r = await auditStretch({ connection: { ...CONN }, storyId: st.id, stale: () => false });
+    eq(calls, 0, 'nothing is asked of any model');
+    eq([r && r.recovery, ((r && r.cleared) || []).length, r && r.open].join(), 'cleared,1,1', 'the finding said of the out-of-character page is cleared; the one said of a page of the story stays');
+    const after = await loadMemory(st.id);
+    const a0 = before.nodes.find((n) => n.id === 'a'); const a1 = after.nodes.find((n) => n.id === 'a');
+    eq(JSON.stringify([a1.text, a1.detail, a1.span, a1.audited, a1.verified]), JSON.stringify([a0.text, a0.detail, a0.span, a0.audited, a0.verified]), 'not a word of the line is touched');
+    eq(a1.auditOpen.length, 0, 'its line holds no open correction (the keeper folds only lines that hold none)');
+    const receipt = (a1.auditRecovery || []).find((x) => x.outcome === 'cleared');
+    assert(receipt && receipt.finding.issue.page === 4 && /out-of-character page/.test(receipt.why), 'a receipt keeps what was cleared, and why: ' + JSON.stringify(receipt));
+    eq(JSON.stringify(after.nodes.find((n) => n.id === 'b')), JSON.stringify(before.nodes.find((n) => n.id === 'b')), 'the finding said of a page of the story is as it was');
+    assert(/Cleared 1 historical correction with nothing to correct: “Page 4 says Renji knows nothing, but the story has him told” — it was said of an out-of-character page\. 1 historical correction remains unresolved after automatic source review\./.test(stretchWords(r)), 'the workers’ line says what was cleared: ' + stretchWords(r));
+    eq(auditProgress(after, 44, visiblePages(await db.messages.list(st.id))).open, 1, 'and the lamp counts only what is left');
+    eq(await auditStretch({ connection: { ...CONN }, storyId: st.id, stale: () => false }), null, 'a second look has nothing to do');
+    eq(JSON.stringify(await loadMemory(st.id)), JSON.stringify(after), 'and changes nothing');
+  });
+  /* a line in his own words: nothing on it is touched */
+  const st2 = await make('said of an out-of-character page, on his line', true);
+  await withFetch(async () => { calls += 1; return say('{"issues":[]}'); }, async () => {
+    const before = JSON.stringify(await loadMemory(st2.id));
+    eq(await auditStretch({ connection: { ...CONN }, storyId: st2.id, stale: () => false }), null, 'nothing is due');
+    eq(JSON.stringify(await loadMemory(st2.id)), before, 'his line keeps all that is on it');
+  });
+  eq(calls, 0, 'and no model was asked anything');
+});
+
+test('M673-10 WHAT WAS NEVER A CLAIM IS CLEARED BY THE AUDIT ITSELF — A LINE WITH NO WORDS (the audit of M722-M751: before its guard, M722 kept a fix said of a line the keeper had left without words as an unresolved correction — "this reading did not cover the complete record source section", for a line read whole): a record correction on a line that has no words, or one kept with that reason for a whole line (only a line with no words was ever so read), is cleared at the next look with no call and said so; the correction of a line read in part stays, and so does everything on a line in his own words; not a word of any line is touched', async () => {
+  const st = await db.stories.create({ title: 'no words ' + Math.random() });
+  for (let i = 0; i < 6; i += 1) await db.messages.append(st.id, page(i, SIX[i]));
+  for (let i = 6; i < 44; i += 1) await db.messages.append(st.id, page(i, i % 2 ? 'The yard was quiet that hour, and Rukia swept it. Page ' + i + '.' : 'I wait. ' + i));
+  await saveState(st.id, ledgerOf());
+  const pages = visiblePages(await db.messages.list(st.id));
+  const fix = { what: 'Something lasting happened here.', target: 'record', evidence: { page: '', prior: '', why: '' }, pages: false, page: null, fix: '',
+    record: { fixes: [{ from: 'x', to: 'Renji', shown: '', why: '', operation: 'replace' }], detail: 'Rukia promised Jovan to keep the seal hidden from the captains' }, mutations: [] };
+  const e = { id: 'e', span: [0, 5], text: '', level: 1, at: 1, empty: true, whole: true, audited: 6, correctionReviewed: true };
+  const w = { id: 'w', span: [6, 11], text: 'Rukia promised Jovan to keep the seal hidden from the captains', level: 1, at: 2, whole: true, audited: 6, correctionReviewed: true };
+  const l = { id: 'l', span: [12, 23], text: 'Rukia swept the yard for days; nothing else moved.', level: 2, at: 3, audited: 12, correctionReviewed: true };
+  const h = { id: 'h', span: [24, 29], text: 'Rukia swept the yard again, as he wrote it.', level: 1, at: 4, whole: true, audited: 6, correctionReviewed: true, verified: { at: 5, fixed: 'the writer' } };
+  const mismatch = 'Exact record text mismatch: the proposed from span does not occur.';
+  /* the line the keeper left without words (its reading wrote nothing lasting): the finding its two attempts left blocked */
+  e.auditOpen = [{ issue: fix, why: mismatch, from: 0, to: 5, recovery: exhausted(e, pages, mismatch) }];
+  /* a line its reading wrote from what lasted: the finding as that reading kept it, its review cut off before it ended */
+  w.auditOpen = [{ issue: fix, why: PARTIAL, from: 6, to: 11, recovery: { ...exhausted(w, pages, PARTIAL), attempts: 1, status: 'running', nextAt: Date.now() + 60000 } }];
+  /* a line read in part — a real correction waiting for the whole line — and his own line: both stay */
+  l.auditOpen = [{ issue: { ...fix, what: 'The line has the wrong day.' }, why: PARTIAL, from: 12, to: 17, recovery: exhausted(l, pages, PARTIAL) }];
+  h.auditOpen = [{ issue: fix, why: PARTIAL, from: 24, to: 29, recovery: exhausted(h, pages, PARTIAL) }];
+  await saveMemory(st.id, { window: 30, nodes: [e, w, l, h] });
+  let calls = 0;
+  await withFetch(async () => { calls += 1; return say('{"issues":[]}'); }, async () => {
+    const r1 = await auditStretch({ connection: { ...CONN }, storyId: st.id, stale: () => false });
+    eq([r1 && r1.recovery, ((r1 && r1.cleared) || []).map((c) => c.why).join()].join(' | '), 'cleared | it is a correction for a record line with no words', 'the line left without words first (the oldest)');
+    assert(/Cleared 1 historical correction with nothing to correct: “Something lasting happened here” — it is a correction for a record line with no words\./.test(stretchWords(r1)), 'said on the workers’ line: ' + stretchWords(r1));
+    const r2 = await auditStretch({ connection: { ...CONN }, storyId: st.id, stale: () => false });
+    eq([r2 && r2.recovery, ((r2 && r2.cleared) || []).map((c) => c.why).join()].join(' | '), 'cleared | it is a correction kept for a record line that had no words when it was read', 'then the line that had no words when it was read');
+    eq(await auditStretch({ connection: { ...CONN }, storyId: st.id, stale: () => false }), null, 'then nothing is due');
+    const mem = await loadMemory(st.id);
+    eq(JSON.stringify(mem.nodes.map((n) => [n.id, (n.auditOpen || []).length])), JSON.stringify([['e', 0], ['w', 0], ['l', 1], ['h', 1]]), 'the part-read line keeps its correction, and his line all that is on it');
+    eq(JSON.stringify(mem.nodes.map((n) => [n.text, n.detail, n.empty, n.verified, n.span, n.audited])), JSON.stringify([e, w, l, h].map((n) => [n.text, n.detail, n.empty === true, n.verified, n.span, n.audited])), 'not a word of any line is touched');
+  });
+  eq(calls, 0, 'and no model was asked anything');
+});
+
+test('M673-11 A BARE ISSUE KEPT AS AN UNRESOLVED CORRECTION BEFORE ITS PARSE WAS PUT RIGHT IS SETTLED BY ITS ONE BOUNDED REVIEW (the audit of M722-M751: M723 kept an untargeted issue that asked for nothing as an unresolved correction; the house cannot tell one saved so from a correction the reader deliberately left for review, so it is not cleared in code): a reader answering that nothing needs correcting settles it in ONE call and nothing is asked again; a reader whose answers cannot be used is asked twice, a minute apart, and never a third time — the review cannot loop', async () => {
+  const bare = { what: 'Rukia stands as the pages tell her.', target: 'unknown', evidence: { page: '', prior: '', why: '' }, pages: false, page: null, fix: '', record: null, mutations: [] };
+  const LINE = 'Jovan showed Rukia the seal of the Thirteenth; Rukia promised to keep it hidden.';
+  const lines = () => [
+    { id: 'a', span: [0, 5], text: LINE, level: 1, at: 1, whole: true, audited: 6, correctionReviewed: true, auditOpen: [{ issue: bare, why: UNCLASSIFIED, from: 0, to: 5 }] },
+    { id: 'b', span: [6, 11], text: 'Rukia swept the yard; nothing else moved.', level: 1, at: 2, whole: true, audited: 6, correctionReviewed: true },
+  ];
+  /* "nothing needs correcting", in the verdict its focused review asks for */
+  const NOTHING = JSON.stringify({ sourceFidelity: { status: 'supported', claim: 'Rukia promised to keep it hidden', sameReferent: true, sameEvent: true, assertion: 'direct', relation: 'supports', preservesAssertion: true,
+    why: 'Page 4 has Rukia promise to keep the seal hidden; the record says just that.', conflicts: [] },
+    allegation: 'disproved', outcome: 'correct', why: 'The record line says what the pages say; nothing needs correcting.', evidence: [{ source: '4', shown: 'Rukia promised Jovan she would keep the seal hidden from the captains.' }] });
+  const st = await tale('a bare issue, settled', { lines: lines() });
+  let calls = 0;
+  await withFetch(async (url, opts) => { calls += 1; assert(/TARGETED HISTORICAL RECOVERY/.test(bodyOf(opts).user), 'only its focused review is asked'); return say(NOTHING); }, async () => {
+    const r = await auditStretch({ connection: { ...CONN }, storyId: st.id, stale: () => false });
+    eq([r.recovery, r.open, calls].join(), 'correct,0,1', 'one call settles it: nothing needed correcting');
+    eq((await loadMemory(st.id)).nodes.find((n) => n.id === 'a').text, LINE, 'the record line is as it was');
+    eq(await auditStretch({ connection: { ...CONN }, storyId: st.id, stale: () => false }), null, 'and nothing is asked again');
+    eq(auditWaits(st.id, await loadMemory(st.id), visiblePages(await db.messages.list(st.id))), -1, 'nor waiting to be');
+  });
+  eq(calls, 1, 'one call in all');
+  /* answers that cannot be used: two attempts, a minute apart — then blocked, and never a third */
+  const st2 = await tale('a bare issue, unusable answers', { lines: lines() });
+  let asked = 0;
+  const clock = Date.now; let now = clock(); Date.now = () => now;
+  try {
+    await withFetch(async () => { asked += 1; return say('{"issues":[]}'); }, async () => {
+      const first = await auditStretch({ connection: { ...CONN }, storyId: st2.id, stale: () => false });
+      eq([first.recovery, first.open, first.pending, asked].join(), 'blocked,1,1,1', 'its first review could not be used: one call, the correction still queued');
+      eq(await auditStretch({ connection: { ...CONN }, storyId: st2.id, stale: () => false }), null, 'looked at again at once: nothing is asked (it waits its minute)');
+      now += RECOVERY_DELAY + 1;
+      const second = await auditStretch({ connection: { ...CONN }, storyId: st2.id, stale: () => false });
+      eq([second.open, second.pending, asked].join(), '1,0,2', 'its second and last review: two calls in all, nothing more queued');
+      now += RECOVERY_DELAY * 10;
+      eq(await auditStretch({ connection: { ...CONN }, storyId: st2.id, stale: () => false }), null, 'and never a third');
+      eq(auditWaits(st2.id, await loadMemory(st2.id), visiblePages(await db.messages.list(st2.id))), -1);
+    });
+  } finally { Date.now = clock; }
+  eq(asked, 2, 'two calls, and no more');
 });

@@ -6,7 +6,7 @@ import { findPersonKey } from '../../js/engine/people.js';
 import { samePersonName } from '../../js/engine/names.js';
 import { applyMutations, duplicatePages } from '../../js/engine/apply.js';
 import { sourcePersonKey } from '../../js/agents/auditsources.js';
-import { auditLedger, auditorRepairScope } from '../../js/agents/auditor.js';
+import { auditLedger } from '../../js/agents/auditor.js';
 const princess = 'Alexia', attendant = "Alexia's woman";
 assert(!samePersonName(princess, attendant));
 assert.equal(findPersonKey({[attendant]: {core:'attendant'}}, princess),'');
@@ -51,34 +51,56 @@ await db.messages.append(id,{role:'user',text:'I give ground.',ts:1});
 await db.messages.append(id,{role:'assistant',text:page,ts:2});
 await saveState(id,{...recovered,sheet:{...recovered.sheet,playerName:'Azrael'},present:[{name:'Azrael',position:'at the wall'}],audit:{coverage:{read:2,total:2},retryProgress:{source:'retained',stalled:1},pending:['Azrael is not at the wall'],unresolved:[{what:'Azrael is not at the wall',fix:'move him back',mutations:[],pendingReason:'no repair was supplied'}]}});
 const originalFetch=globalThis.fetch;
-let verified=false;
+// M708 replaced the provisional discovery + verification pair with ONE combined
+// review; M710 made its scene array the working ending read. The stale earlier
+// position is therefore proposed inside that same answer, beside the ending read.
+let calls=0,request='';
 globalThis.fetch=async (_,options)=>{
  const body=JSON.parse(options.body);
  const content=body.messages.map(m=>String(m.content)).join('\n');
- let answer;
- if(content.includes('Find every place the writer STATES')) answer={standings:[]};
- else if(content.includes('PROVISIONAL SCENE CHANGES TO VERIFY BEFORE SAVING')) {
-   verified=true;
-   assert(content.includes(ending));
-   answer={issues:[{what:'The provisional position missed the later wall contact',fix:'at the wall',mutations:[{type:'presence.update',name:'Azrael',position:'at the wall',shown:ending}]},{what:'Her woman is here',fix:'enter her',mutations:[{type:'presence.enter',name:attendant,position:'two seats behind Alexia',shown:woman}]}],resolved:[{what:'Azrael is not at the wall',shown:ending,why:'The later movement reached the wall.'}]};
- } else answer={issues:[{what:'Azrael should be giving ground',fix:'on the ground',mutations:[{type:'presence.update',name:'Azrael',position:'giving ground, not yet at the wall',shown:earlier}]}]};
+ calls++;request=content;
+ const answer={scene:[{name:'Azrael',ending:{position:'at the wall',shown:ending}}],
+  issues:[{what:'Azrael should be giving ground',fix:'on the ground',mutations:[{type:'presence.update',name:'Azrael',position:'giving ground, not yet at the wall',shown:earlier}]},
+   {what:'Her woman is here',fix:'enter her',mutations:[{type:'presence.enter',name:attendant,position:'two seats behind Alexia',shown:woman}]}],
+  resolved:[{what:'Azrael is not at the wall',shown:ending,why:'The later movement reached the wall.'}],
+  review:{status:'complete',why:'Followed the retreat through the final wall contact; the attendant is a separate spectator.',open:[]},standings:[]};
  const text=JSON.stringify(answer);
  return new Response(body.stream ? 'data: '+JSON.stringify({choices:[{delta:{content:text}}]})+'\n\ndata: '+JSON.stringify({choices:[{delta:{},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n' : JSON.stringify({choices:[{message:{content:text},finish_reason:'stop'}]}),{headers:{'Content-Type':body.stream?'text/event-stream':'application/json'}});
 };
 try {
  const result=await auditLedger({storyId:id,connection:{type:'openai',baseUrl:'https://fixture.example/v1',apiKey:'fixture',model:'m',preset:'custom',context:64000}});
- assert(verified);
+ assert.equal(calls,1,'One combined review; no separate provisional verification request.');
+ assert(request.includes(earlier+'\n'+ending),'The review reads the completed page through its ending.');
+ assert(request.includes('an opening header or earlier retreat cannot override a later stopping position'));
  const final=await loadState(id);
- assert.equal(final.present.find(p=>p.name==='Azrael').position,'at the wall');
+ assert.equal(final.present.find(p=>p.name==='Azrael').position,'at the wall','The ending read supersedes the stale earlier position in the same answer.');
+ assert(!final.journal.some(j=>j.m?.position==='giving ground, not yet at the wall'));
  assert(final.present.some(p=>p.name===attendant));
  assert(final.characters[princess]);
  assert(!result.pending.some(p=>p.startsWith('Azrael is not at the wall')));
  assert.equal(final.audit.retryProgress.source,'retained');
  assert.equal((await db.messages.list(id)).at(-1).text,page);
- console.log('PASS production audit verifies provisional movement, enters the attendant separately, closes the disproved legacy finding and preserves prose and retry metadata.');
+ console.log('PASS production audit keeps the completed ending over a stale earlier position, enters the attendant separately, closes the disproved legacy finding and preserves prose and retry metadata.');
 } finally {globalThis.fetch=originalFetch;}
 
+// M709: the final auditor no longer runs auditorRepairScope's quote gate; the
+// persona evidence now reaches production through auditLedger's source persona
+// repair (sourcePersonaMutations over the brief, cast and pages).
 const personaQuote = "Jugram is Azrael's own persona.";
-const personaState = {...emptyState(),sheet:{actors:{},playerName:'Azrael'}};
-assert.equal(auditorRepairScope([{what:'false separate seat',mutations:[{type:'offscreen.clear',name:'Jugram',shown:personaQuote}]}],personaState,{sources:personaQuote,identitySources:personaQuote,sceneSource:'Azrael reached the wall.'})[0].mutations.length,1);
+const personaId=(await db.stories.create({title:'Persona fixture',brief:personaQuote})).id;
+await db.messages.append(personaId,{role:'user',text:'I reach the wall.',ts:1});
+await db.messages.append(personaId,{role:'assistant',text:'Azrael reached the wall.',ts:2});
+await saveState(personaId,applyMutations({...emptyState(),sheet:{actors:{},playerName:'Azrael'}},[{type:'offscreen.set',name:'Jugram',location:'the far gallery',activity:'waiting'}]).state);
+assert((await loadState(personaId)).offscreen.Jugram,'The false separate seat exists before the audit.');
+globalThis.fetch=async (_,options)=>{
+ const body=JSON.parse(options.body);
+ const text=JSON.stringify({issues:[],review:{status:'complete',why:'Reviewed the brief and the page.',open:[]},standings:[]});
+ return new Response(body.stream ? 'data: '+JSON.stringify({choices:[{delta:{content:text}}]})+'\n\ndata: '+JSON.stringify({choices:[{delta:{},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n' : JSON.stringify({choices:[{message:{content:text},finish_reason:'stop'}]}),{headers:{'Content-Type':body.stream?'text/event-stream':'application/json'}});
+};
+try {
+ await auditLedger({storyId:personaId,brief:personaQuote,connection:{type:'openai',baseUrl:'https://fixture.example/v1',apiKey:'fixture',model:'m',preset:'custom',context:64000}});
+ const personaFinal=await loadState(personaId);
+ assert(personaFinal.sheet.playerAliases.includes('Jugram'),'The brief establishes Jugram as the player persona.');
+ assert(!personaFinal.offscreen.Jugram,'The persona no longer keeps a separate elsewhere seat.');
+} finally {globalThis.fetch=originalFetch;}
 console.log('PASS explicit MC persona evidence remains usable when its identity quote is in the brief.');

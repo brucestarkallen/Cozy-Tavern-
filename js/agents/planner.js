@@ -18,7 +18,7 @@
 import { shownIndex } from '../engine/pagepatch.js'; /* M576 */
 import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { db } from '../store.js';
-import { callWorker } from './call.js';
+import { callWorker, workerRoom } from './call.js'; /* M752: the room its own call is measured by */
 import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M566 */
 import { parseFirstObject } from './jsonutil.js';
 import { lawsOf, lawKey, ALWAYS_LAWS, PROSE_LAWS, PEOPLE_LAWS } from '../assemble/laws.js';
@@ -94,6 +94,22 @@ export function plannerAsk({ craft = '', brief = '', castNotes = '', facts = '',
     pages.length ? 'The latest pages, oldest first:\n' + pages.map((p, i) => '--- ' + (i + 1) + ' ---\n' + p).join('\n') : 'The story has not begun yet.',
   ].filter(Boolean).join('\n\n');
   return { system, user };
+}
+
+/* M752: THE ASK WITH ITS RECORD FITTED TO THE ROOM ITS OWN CALL LEAVES. M566 gave the record 45% of the planner model's
+ * context beside the whole craft and thirty pages, all of them whole — measured as every call is now (the provider adapters'
+ * check, M737: three characters a token, the answer room kept free), that was refused before sending on a 64k model, or a
+ * 128k one that thinks, and the refusal is a throw: the queue's retries held the tale's channel for a plan that never came,
+ * and the small storyteller went without one. The rest of the ask is measured first (agents/call.js workerRoom) and the
+ * record, newest kept and the cut said (recordAt(cap) — memory.js wholeRecord), takes what is left. null when the rest of
+ * the ask alone would be refused. */
+export const PLAN_RECORD_HEAD = 200; /* the record's heading in the ask, and the line that counts the oldest lines let go */
+export function plannerAskFitted(connection, parts = {}, recordAt = () => '') {
+  const bare = plannerAsk({ ...parts, record: '' });
+  const room = workerRoom(connection, { system: bare.system, user: bare.user, maxTokens: PLAN_MAX_TOKENS }) - PLAN_RECORD_HEAD;
+  if (room < 0) return null;
+  const record = room > 0 ? String(recordAt(Math.min(400000, room)) || '') : '';
+  return record ? plannerAsk({ ...parts, record }) : bare;
 }
 
 /* The answer, read as data: present people only (never him), the craft's own law names only, everything clipped. */

@@ -26,17 +26,32 @@ test('M33-1 every act the row renders is routed by the thread’s click listener
   for (const a of ['copy', 'regenerate', 'try again', 'edit', 'delete', 'go on']) assert(menu.includes("'" + a + "'"), 'menu routes ' + a);
 });
 
-test('M33-2 every button the house creates wears a class (never the browser’s own white)', () => {
+/* The scanner, kept apart so it can be held to both directions. A class set later in the creating line itself counts —
+ * js/ui/auditscratchbook.js makes its Close button in one line of several statements, and the scanner, which looked only
+ * at the lines after, called that button bare. Its name is matched whole (`tab.className` is not `b`'s class), and a
+ * button made by a plain assignment (`back = document.createElement('button')`) is read as well. */
+function bareButtons(text, file) {
   const bare = [];
-  for (const f of readdirSync(new URL('../../js/ui/', import.meta.url)).filter((x) => x.endsWith('.js'))) {
-    const lines = src('js/ui/' + f).split('\n');
-    lines.forEach((l, i) => {
-      const m = l.match(/(?:const|let)\s+(\w+)\s*=\s*document\.createElement\('button'\)/);
-      if (!m) return;
-      const win = lines.slice(i + 1, i + 12).join('\n');
-      if (!new RegExp(m[1] + '\\.className\\s*=|' + m[1] + '\\.classList\\.add').test(win)) bare.push(f + ':' + (i + 1) + ' ' + m[1]);
-    });
-  }
+  const lines = String(text).split('\n');
+  lines.forEach((l, i) => {
+    const m = l.match(/(?<![\w$.])(\w+)\s*=\s*document\.createElement\(['"]button['"]\)/);
+    if (!m) return;
+    const rest = l.slice(m.index + m[0].length) + '\n' + lines.slice(i + 1, i + 12).join('\n');
+    if (!new RegExp('(?<![\\w$.])' + m[1] + '\\.(?:className\\s*=|classList\\.add\\()').test(rest)) bare.push(file + ':' + (i + 1) + ' ' + m[1]);
+  });
+  return bare;
+}
+
+test('M33-2 every button the house creates wears a class (never the browser’s own white)', () => {
+  /* the scanner itself, both ways, on words written for it */
+  eq(bareButtons("const close=document.createElement('button');close.type='button';close.className='text-btn';close.textContent='Close';", 'x').length, 0, 'a class set in the creating line is worn');
+  eq(bareButtons("const b = document.createElement('button');\nb.type = 'button';\nb.className = 'text-btn';", 'x').length, 0, 'a class set on a line after is worn');
+  eq(bareButtons("let chip = document.createElement('button');\nchip.classList.add('chip');", 'x').length, 0, 'classList.add is worn');
+  eq(bareButtons("const close=document.createElement('button');close.type='button';close.textContent='Close';", 'x').length, 1, 'one line and no class: bare');
+  eq(bareButtons("const b = document.createElement('button');\nb.textContent = 'Go';\ntab.className = 'quiet';", 'x').length, 1, 'another name’s class is not this button’s');
+  eq(bareButtons("back = document.createElement('button');\nback.textContent = 'Back';", 'x').length, 1, 'a button made by a plain assignment is read too');
+  const bare = [];
+  for (const f of readdirSync(new URL('../../js/ui/', import.meta.url)).filter((x) => x.endsWith('.js'))) bare.push(...bareButtons(src('js/ui/' + f), f));
   eq(bare.length, 0, 'bare buttons: ' + bare.join(', '));
 });
 

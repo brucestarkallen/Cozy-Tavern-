@@ -91,6 +91,7 @@ const SHELL = [
   'js/agents/auditprogress.js',
   'js/agents/auditevidence.js',
   'js/agents/auditsources.js',
+  'js/agents/appearanceinventory.js', /* imported at boot by auditprogress, auditor, ledgercontext and ledgerdebug */
   'js/agents/founder.js',
   'js/agents/concept.js', /* M478 */
   'js/agents/rebuild.js',

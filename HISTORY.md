@@ -21168,3 +21168,29 @@ shared knowledge") and a house thinking note asking a persona teller for
 shorthand against the craft's natural Pass. All fixed in plain words with the
 meanings kept. Seven older wording laws pass again (DOM-64 too); five knowledge
 laws M737 broke by changing which facts are listed are left as they were.
+
+## M752: every update after M681 audited; regressions fixed, the suite whole again
+
+Version m752-001. The owner asked for an audit of every update after M680/M681,
+so that what they tackle works, with as few bugs as possible and no regression.
+M681 (f087472) was the last version whose whole suite passed (1434 laws);
+M682–M749 shipped without it. At M751 155 laws failed and M134-1 looped forever
+(THREADS_MAX became Infinity in M713); the DOM walk failed 30 of 304; 22 of 38
+standalone fixtures failed and none ran in the suite. Each failing law was
+bisected to its commit and classified: regression (app fixed), stale fixture
+(updated to the shape the current prompts ask for), contract changed by an
+owner-agreed milestone (re-aimed with equal strength), obsolete (removed). Five
+area reviews reproduced about 60 more defects no law covered; each fix has a
+law that fails without it (HANDOFF lists them by area). The walk's rare DOM-8a
+failure was run down to a drawing of a branch landing after the tale he went
+back to was drawn: renderThread and rerenderMessage now stand down when another
+tale was opened meanwhile, and a failed telling is said in its own tale
+(DOM-M752-6/7 fail without each). Final tree: harness 1664 of 1664 (the focused
+fixtures inside it), DOM walk 311 of 311, lint 0 errors (253 warnings; M751 246,
+the new ones read: constants used inside functions, shadowed names),
+tests/m739_ui.py and tests/m730_housekeeper.mjs pass. The walk's first
+eighteen laws under the same CPU load, interleaved: M751 0 of 10 runs failed,
+this tree before the drawing fix 1 of 10 (DOM-8a), after it 0 of 10; without load
+0 of 15 on both. Not run: a live provider, a phone, long play. Known, not
+changed: a branch reads its sources and runs the final review again (receipts
+keyed by page ids); checkpoint pruning keeps about 41 (before M681).

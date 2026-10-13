@@ -87,7 +87,7 @@ assert.deepEqual(await db.settings.get('memory:'+parent.story.id),{nodes:parent.
 
 // Span-only drift is repaired from exact unchanged original ids and versions.
 const relocated=await make('Relocated metadata',3);
-const moved={...relocated.nodes[0],span:[1,1]};
+const moved={...relocated.nodes[0],span:[1,1],auditOpen:[{issue:{target:'record',what:'An open historical correction.'},why:'Needs review.',from:1,to:1}]}; /* M752: its open correction moves with it */
 await db.settings.set('memory:'+relocated.story.id,{nodes:[moved]});
 assert.equal(sourceBindingIssues([moved],relocated.pages)[0].kind,'relocated');
 calls.length=0;
@@ -95,25 +95,33 @@ repair=await repairInvalidRecordSources({connection,storyId:relocated.story.id})
 mem=await loadMemory(relocated.story.id);
 assert(repair.ok && !repair.remaining && calls.length===0,JSON.stringify(repair));
 assert.deepEqual(mem.nodes[0].span,[0,0]);assert.equal(mem.nodes[0].text,moved.text);
+assert.deepEqual(mem.nodes[0].auditOpen.map(f=>[f.from,f.to]),[[0,0]]);
 
 // Page deletion, insertion and rewind update source receipts with their spans.
 const refs=sourceBindings(edited.pages);
 const covering={id:'cover',span:[0,3],text:'cover',level:1,sourcePages:refs};
+/* M752 (contract changed): a covering line kept where no keeper folds those pages again stands on its own words, as his own
+ * line does. M745 left it source-invalid "so it cannot make an Essentials snapshot current" (docs/M745_REPAIR_REPORT.md);
+ * Essentials were retired in M750, and since M737 a source-invalid line is left out of the storyteller's request — with the
+ * keeper off, for good (review C finding 4). The stale receipt shape is still classified, held on that shape itself. */
 const afterDelete=memoryAfterDeletion({nodes:[covering]},1,{keepCovering:()=>true}).nodes[0];
-assert.deepEqual(afterDelete.span,[0,2]);assert.deepEqual(afterDelete.sourcePages,refs);
-assert.equal(sourceBindingIssues([afterDelete],edited.pages.filter((_,i)=>i!==1))[0].kind,'binding-shape');
+assert.deepEqual(afterDelete.span,[0,2]);assert.equal(afterDelete.sourcePages,undefined);assert.deepEqual(afterDelete.sourceOrigins,refs);assert.equal(afterDelete.text,covering.text);
+assert.equal(sourceBindingIssues([afterDelete],edited.pages.filter((_,i)=>i!==1)).length,0);
+assert.equal(sourceBindingIssues([{...covering,span:[0,2]}],edited.pages.filter((_,i)=>i!==1))[0].kind,'binding-shape');
 const manualCover={...covering,verified:{fixed:'the writer'}};
 const manualDelete=memoryAfterDeletion({nodes:[manualCover]},1,{keepCovering:()=>true}).nodes[0];
 assert.equal(manualDelete.sourcePages,undefined);assert.deepEqual(manualDelete.sourceOrigins,refs);assert.equal(manualDelete.text,manualCover.text);
 const insertedPages=[edited.pages[0],{id:'new-page',ts:1000.5,role:'assistant',text:'a restored page'},...edited.pages.slice(1)];
 const afterInsert=memoryAfterInsertion({nodes:[covering]},1,{keepCovering:()=>true}).nodes[0];
-assert.deepEqual(afterInsert.span,[0,4]);assert.deepEqual(afterInsert.sourcePages,refs);
-assert.equal(sourceBindingIssues([afterInsert],insertedPages)[0].kind,'binding-shape');
+assert.deepEqual(afterInsert.span,[0,4]);assert.equal(afterInsert.sourcePages,undefined);assert.deepEqual(afterInsert.sourceOrigins,refs);assert.equal(afterInsert.text,covering.text);
+assert.equal(sourceBindingIssues([afterInsert],insertedPages).length,0);
+assert.equal(sourceBindingIssues([{...covering,span:[0,4]}],insertedPages)[0].kind,'binding-shape');
 const manualInsert=memoryAfterInsertion({nodes:[manualCover]},1,{keepCovering:()=>true}).nodes[0];
 assert.equal(manualInsert.sourcePages,undefined);assert.deepEqual(manualInsert.sourceOrigins,refs);assert.equal(manualInsert.text,manualCover.text);
 const cut=memoryTruncatedAt({nodes:[covering]},2,{keepCovering:()=>true}).nodes[0];
-assert.deepEqual(cut.span,[0,1]);assert.deepEqual(cut.sourcePages,refs);
-assert.equal(sourceBindingIssues([cut],edited.pages.slice(0,2))[0].kind,'binding-shape');
+assert.deepEqual(cut.span,[0,1]);assert.equal(cut.sourcePages,undefined);assert.deepEqual(cut.sourceOrigins,refs);assert.equal(cut.text,covering.text);
+assert.equal(sourceBindingIssues([cut],edited.pages.slice(0,2)).length,0);
+assert.equal(sourceBindingIssues([{...covering,span:[0,1]}],edited.pages.slice(0,2))[0].kind,'binding-shape');
 const manualCut=memoryTruncatedAt({nodes:[manualCover]},2,{keepCovering:()=>true}).nodes[0];
 assert.equal(manualCut.sourcePages,undefined);assert.deepEqual(manualCut.sourceOrigins,refs);assert.equal(manualCut.text,manualCover.text);
 const promotedPair={id:'pair',span:[0,1],text:'pair',level:2,sourcePages:refs.slice(0,2)};

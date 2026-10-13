@@ -2,14 +2,17 @@ import './idb-shim.mjs';
 import assert from 'node:assert/strict';
 import {db} from '../../js/store.js';
 import {emptyState,saveState,loadState} from '../../js/engine/state.js';
-import {auditLedger,profileReconciliationTasks,restoreProfileReconciliation,verifyLedgerChecks} from '../../js/agents/auditor.js';
+import {auditLedger} from '../../js/agents/auditor.js';
 import {auditSources} from '../../js/agents/auditsources.js';
-import {ledgerAuditVerified,ledgerVerificationRows} from '../../js/agents/auditprogress.js';
+import {ledgerAuditVerified} from '../../js/agents/auditprogress.js';
 import {applyMutations} from '../../js/engine/apply.js';
 
 const cast="Neri was once a royal guardian. Neri has dark hair and handsome features. Valen is Neri's blonde public face. Elin is queen of the north, calculating and blunt, with purple hair.";
 const prose='Neri waited alone at the gate. Elin remained in her northern chambers.';
 const {id}=await db.stories.create({title:'Semantic profile handoff',castNotes:cast});
+// The story holds what its audit is handed, as every caller hands it (chat.js: story.brief, story.castNotes; create keeps
+// a title only). M752: the audit's receipts name the brief and cast notes it READ.
+await db.stories.update(id,{castNotes:cast});
 await db.messages.append(id,{role:'assistant',text:prose,ts:1});
 const story=await db.stories.get(id),pages=await db.messages.list(id),documents=auditSources({castNotes:cast,messages:pages});
 const writer=documents.find(d=>d.id.startsWith('cast:'));
@@ -28,31 +31,25 @@ state=applyMutations(state,[{type:'canon.lock',name:'Neri',key:'hair',value:'dar
   {type:'canon.lock',name:'Neri',key:'build',value:'handsome features'},
   {type:'canon.lock',name:'Neri',key:'eyes',value:'grey',byHand:true}]).state;
 await saveState(id,state);state=await loadState(id);
-let broad=0,focused=0,source=0;
+// M708 removed the separate focused profile request and M709 the per-fact mapping gate it fed
+// (restoreProfileReconciliation, profileReconciliationTasks and the non-authoritative
+// verifyLedgerChecks branch no longer decide anything in the audit). M743 carries the same
+// semantic hand-off: an unmatched source identity fact is a SOURCE FACT DECISION inside the one
+// combined review, and a completed verdict approves equivalent wording without a cosmetic write.
+let reviews=0,source=0;
 const originalFetch=globalThis.fetch;
 globalThis.fetch=async(_,options)=>{
   const body=JSON.parse(options.body),content=body.messages.map(m=>String(m.content)).join('\n');let reply;
   if(content.includes('SOURCE DOCUMENTS\n')){source++;throw Error('Cached sources should not be reread.');}
-  else if(content.includes('Find every place the writer STATES'))reply={standings:[]};
-  else if(content.includes('REQUIRED PROFILE FACTS WITH ACTUAL SAVED TARGETS:\n')){
-    focused++;
-    const tasks=JSON.parse(content.split('REQUIRED PROFILE FACTS WITH ACTUAL SAVED TARGETS:\n')[1]);
-    assert.equal(tasks.length,2);assert(!content.includes('REQUIRED CURRENT LEDGER CHECKS'));
-    reply={checks:tasks.map(t=>({id:t.id,status:t.name==='Elin'?'repair':'correct',why:'The individual source meanings were compared with the actual saved targets.',
-      evidenceId:(t.appearance[0] || t.identity[0]).id,
-      appearance:t.appearance.map(f=>({id:f.id,status:'held',key:t.name==='Neri'?(f.key==='features'?'build':'hair'):'hair',
-        value:t.name==='Neri'?(f.key==='features'?'handsome features':'dark in his own face; blonde in his Valen face'):'purple',why:'This saved field represents this source fact in the correct face.',evidenceId:f.id})),
-      identity:t.identity.map(f=>({id:f.id,status:'held',coreText:t.name==='Neri'?'formerly guarded the royal house':'shrewd and plain spoken',why:'This existing core excerpt has the same established meaning.',evidenceId:f.id})),
-      ...(t.name==='Elin'?{physicalFacts:[{key:'hair',value:'purple',evidenceId:t.appearance[0].id}]}:{}),
-    }))};
-  }else if(content.includes('REPAIR FOLLOWUP')){
-    broad++;
-    const rows=JSON.parse(content.split('REQUIRED CURRENT LEDGER CHECKS:\n')[1].split('\n')[0]);
-    const bank=JSON.parse(content.split('ORIGINAL SOURCE PASSAGES FOR REPAIR TARGETS, not summary quotes:\n')[1].split('\n')[0]);
-    reply={checks:rows.map(r=>({id:r.id,status:'correct',why:'Profile and ledger checked against sources.',shown:cast,
-      ...(r.section==='presence'?{position:r.value.position,positionMatches:true,lastEvidenceId:bank.find(p=>p.text.includes(prose)).evidenceId}:{})
-    }))}; // Actual failure shape: all ordinary checks arrive, no nested source mappings.
-  }else reply={issues:[]};
+  else {
+    reviews++;
+    const tasks=JSON.parse(content.split('REQUIRED SOURCE MENTION DECISIONS:\n')[1].split('\n')[0]);
+    const elin=tasks.find(t=>t.name==='Elin');
+    assert(elin && elin.sourceFacts && elin.facts.some(f=>f.text==='calculating and blunt') && elin.originalPassage.includes(queenQuote),'The unmatched writer fact reaches the review with its original passage.');
+    assert(elin.currentEntries.some(r=>r.id==='characters:Elin' && r.value.core==='Queen of the north; shrewd and plain spoken.'),'It is compared with the actual saved profile.');
+    reply={issues:[],profiles:[{name:'Elin',facts:[{key:'hair',value:'purple',shown:queenQuote}]}],
+      review:{status:'complete',why:'Shrewd and plain spoken is the established calculating and blunt; the combined hair field keeps both faces; the missing purple hair is saved.',open:[]},standings:[]};
+  }
   const answer=JSON.stringify(reply);
   return new Response(body.stream?'data: '+JSON.stringify({choices:[{delta:{content:answer}}]})+'\n\ndata: '+JSON.stringify({choices:[{delta:{},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n':JSON.stringify({choices:[{message:{content:answer},finish_reason:'stop'}]}));
 };
@@ -60,21 +57,12 @@ try{
   const result=await auditLedger({storyId:id,castNotes:cast,reviewSources:'all',connection:{type:'openai',baseUrl:'https://fixture.example/v1',apiKey:'fixture',model:'m',preset:'custom',contextSize:64000}});
   const done=await loadState(id);
   assert.deepEqual(result.pending,[]);assert(ledgerAuditVerified(done,story,pages));
-  assert.equal(source,0);assert.equal(broad,1);assert.equal(focused,1);
+  assert.equal(source,0);assert.equal(reviews,1,'One combined review settles the profile facts; no separate focused request.');
   assert.equal(done.canon.Elin.facts[0].value,'purple');
-  assert.equal(done.characters.Neri.core,state.characters.Neri.core);assert.equal(done.characters.Elin.core,state.characters.Elin.core);
+  assert.equal(done.characters.Neri.core,state.characters.Neri.core);assert.equal(done.characters.Elin.core,state.characters.Elin.core,'Equivalent wording is not rewritten.');
   assert.deepEqual(done.canon.Neri,state.canon.Neri);assert.deepEqual(done.relationships,state.relationships);assert.deepEqual(await db.messages.list(id),pages);
-  const rows=ledgerVerificationRows(done),neri=rows.find(r=>r.id==='characters:Neri');
-  const receipt=done.audit.verification.entries[neri.id];
-  const partial={...receipt,id:neri.id,status:'correct',appearance:receipt.appearance.slice(0,1),identity:[]};
-  const saved=verifyLedgerChecks({state:done,snapshot:done,checks:[partial],documents,source:'same'});
-  assert(!saved.entries[neri.id],'One accounted atom does not falsely approve the whole profile.');
-  const restored=restoreProfileReconciliation(done,[{id:neri.id,status:'correct',why:'Profile read.',shown:cast}],saved.profiles);
-  const remaining=profileReconciliationTasks(done,restored,documents);
-  assert.equal(remaining[0].appearance.length,2,'The completed appearance mapping is not asked again.');
-  const changed={...done,characters:{...done.characters,Neri:{...done.characters.Neri,core:'A changed biography.'}}};
-  assert.equal(restoreProfileReconciliation(changed,[{id:neri.id}],saved.profiles)[0].appearance,undefined,'Changed data cannot reuse prior semantic mappings.');
-  const forged={...partial,appearance:receipt.appearance.map(a=>({...a,value:'invented'})),identity:receipt.identity};
-  assert(!verifyLedgerChecks({state:done,snapshot:done,checks:[forged],documents,source:'same'}).entries[neri.id],'A mapping to absent saved values cannot pass.');
-  console.log('PASS: ordinary complete review with omitted mappings reaches a single focused semantic task; combined faces and paraphrased identity reconciled; missing hair saved and verified immediately; partial fact decisions retained only for unchanged data; false mappings rejected; manual eyes, biographies, prose and p60/r50 preserved. Mocked provider, not the live story.');
+  assert.equal(Object.keys(done.audit.sourceFactDecisions||{}).length,1,'The completed semantic decision is saved for that source and profile.');
+  const again=await auditLedger({storyId:id,castNotes:cast,reviewSources:'all',connection:{type:'openai',baseUrl:'https://fixture.example/v1',apiKey:'fixture',model:'m',preset:'custom',contextSize:64000}});
+  assert.deepEqual(again.pending,[]);assert.equal(reviews,1,'An unchanged settled profile is not asked again.');
+  console.log('PASS: an unmatched writer fact reaches the one combined review with its original passage and saved profile; paraphrased identity and combined faces approved without rewrites; missing hair saved and verified immediately; the decision persists and is not asked again; manual eyes, biographies, prose and p60/r50 preserved. Mocked provider, not the live story.');
 }finally{globalThis.fetch=originalFetch;}

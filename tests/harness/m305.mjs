@@ -27,10 +27,17 @@ test('M305-1 the ledger keeps what a person learned long ago: the secret of page
   assert(/summon fire/.test(st.knowledge.Liara[0].fact), 'the oldest among them');
   await saveState('m305-know', st);
   eq((await loadState('m305-know')).knowledge.Liara.length, 21, 'and a save and a load keep them');
-  /* the guard is a runaway guard */
+  /* the guard was a runaway guard; M713 let it go: "learned knowledge no longer evicts facts at60" (docs/LEDGER_PIPELINE.md)
+   * — KNOWLEDGE_GUARD stays only as the legacy loss horizon blindSpots reads (M579). The book grows; the view does not. */
   let many = st;
   for (let i = 0; i < KNOWLEDGE_GUARD + 10; i += 1) many = applyMutations(many, [{ type: 'knowledge.add', name: 'Liara', fact: 'counted ' + i + ' swallows on wire number ' + (i * 7 + 3) }]).state;
-  eq(many.knowledge.Liara.length, KNOWLEDGE_GUARD, 'past the guard the oldest goes');
+  eq(many.knowledge.Liara.length, 21 + KNOWLEDGE_GUARD + 10, 'past the old guard nothing is let go');
+  assert(/summon fire/.test(many.knowledge.Liara[0].fact), 'the secret of page one is still the oldest');
+  await saveState('m305-many', many);
+  eq((await loadState('m305-many')).knowledge.Liara.length, 21 + KNOWLEDGE_GUARD + 10, 'and a save and a load keep them all');
+  const view = renderKnowledge(many.knowledge, many.present, Infinity, { pages: ['They talked about the weather.'], ignore: ['Jovan'] });
+  eq((view.match(/swallows on wire/g) || []).length, KNOWLEDGE_RECENT, 'the storyteller is shown the newest twelve of ninety-one');
+  assert(new RegExp('\\(and ' + (21 + KNOWLEDGE_GUARD + 10 - KNOWLEDGE_RECENT) + ' older things they know, kept in the ledger\\)').test(view), 'and the rest are counted: ' + view.slice(-90));
 });
 
 test('M305-2 the storyteller is shown the newest — and the old fact comes back when the scene is about it, and only then; what is not shown is counted', () => {

@@ -22,7 +22,7 @@ export async function run() {
   state.auditSources={original:{people:[{name:'Aakeno',quote:'Aakeno arrived.'}],mark:'original'}};
   await saveState(id,state); state=await loadState(id);
   await db.messages.append(id,{id:'m730page',role:'assistant',text:"Aakeno’s book. Akane waits.\nUntouched.",hidden:true,swipes:[{text:'AAKENO waits.',receipt:{quote:'Aakeno'}},{text:"Aakeno’s book. Akane waits.\nUntouched."}],swipeIdx:1,receipt:{original:'Aakeno'},voices:[{speaker:'Aakeno',channel:'Library',content:'Aakeno’s book.'}]});
-  await db.messages.append(id,{id:'m730writer',role:'user',text:'I greet aakeno.',extra:'Keep'});
+  await db.messages.append(id,{id:'m730writer',role:'user',text:'I greet Aakeno; aakeno, I typed.',extra:'Keep'}); /* M752: the name as a name is corrected on his page; a word in another case is his own typing */
   await db.settings.set('memory:'+id,{nodes:[{id:'n',span:[0,0],text:'Aakeno arrived.',detail:'Aakeno’s book.',original:'Aakeno',verified:{quote:'Aakeno'}}]});
   await db.settings.set('lore:'+id,[{id:'l',name:'Aakeno',keys:['Aakeno'],secondaryKeys:['Aakeno’s book'],content:'Aakeno reads. Akane waits.',source:'Aakeno'}]);
   await db.settings.set('standingPlans:'+id,{plans:[{title:'Aakeno’s book',by:'Aakeno',goal:'Find it',parts:[{who:'Aakeno',does:'Read',when:'Now'}],words:['Aakeno promised.']}]});
@@ -40,7 +40,7 @@ export async function run() {
   eq(missingSourceIdentityFacts(saved,{name:'Aakeno',identityFacts:[{text:'Aakeno is a scholar.',shown:'Aakeno is a scholar.'}]}),[],'original identity fact still satisfied');
   eq((await db.settings.get('standingPlans:'+id)).plans[0].by,'Akeno','standing plans');
   eq(saved.present[0].name,'Akeno','presence');eq(saved.worldBrief.voices[0].speaker,'Akeno','world voice');eq(saved.duel.opp.name,'Akeno','live duel identity');eq(saved.duel.opp.poise,9,'combat score');eq(saved.bodies.Akeno.injuries[0].what,'Akeno’s wrist','injury');eq(saved.knowledge.Akeno[0].fact,'Akeno knows the gate.','knowledge');
-  let pages=await db.messages.list(id);eq(pages[0].text,"Akeno’s book. Akane waits.\nUntouched.",'hidden narration');eq(pages[0].swipes[0].text,'Akeno waits.','alternate version');eq(pages[0].receipt,{original:'Aakeno'},'page receipt');eq(pages[0].voices[0].speaker,'Akeno','saved message voice');eq(pages[1].text,'I greet Akeno.','writer');
+  let pages=await db.messages.list(id);eq(pages[0].text,"Akeno’s book. Akane waits.\nUntouched.",'hidden narration');eq(pages[0].swipes[0].text,'AKENO waits.','alternate version, its capitals kept (M752)');eq(pages[0].receipt,{original:'Aakeno'},'page receipt');eq(pages[0].voices[0].speaker,'Akeno','saved message voice');eq(pages[1].text,'I greet Akeno; aakeno, I typed.','writer: the name corrected, his lowercase typing kept (M752)');
   eq((await db.stories.get(id)).brief,'Akeno knows Akane.','brief');eq((await db.settings.get('memory:'+id)).nodes[0].detail,'Akeno’s book.','memory');eq((await db.settings.get('lore:'+id))[0].name,'Akeno','lore');
   eq(session.turns.at(-1).proposals[0].verification,'verified','durable verification');
   const frozen=await db.editStoryAtomically(id,s=>JSON.stringify({...s,settings:{...s.settings,hk:null}}));

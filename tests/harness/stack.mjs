@@ -2,6 +2,7 @@
 import { test, assert, eq } from './lib.mjs';
 import { readFileSync } from 'node:fs';
 import { buildRequest, windowPlan, wireable, pageText, DEFAULT_WINDOW } from '../../js/assemble/stack.js';
+import { requestTokens, contentTokens, ANSWER_RESERVE, CONTEXT_MARGIN } from '../../js/assemble/budget.js'; /* M752: the room as the final fit measures it (M714) */
 
 function pages(n) {
   const out = [];
@@ -31,13 +32,19 @@ test('A1: window boundary holds under the size; custom window honored', () => {
 test('A1: keeper off — token-budgeted cutoff with an honest receipt line', () => {
   /* M379: the room is sized from the house's own words (they grew by the shortcuts), plus a little for pages — so the law
    * tested is the honest cutoff line, never a guess at how big the standing words are */
+  /* M714/M752: the connection's number is its whole context — the answer and a margin are kept apart — and the request is
+   * measured as the final fit measures it (three characters a token, and each block's and message's wrapper): the house's
+   * own words in that measure, plus a little for pages, is the room */
   const whole = buildRequest({ story: {}, messages: pages(40), settings: {}, state: {}, modules: [], memory: '', window: { keeperOn: false, budgetTokens: 10000000 } });
-  const fixed = whole.receipt.slots.filter((x) => x.name !== 'The pages, word for word').reduce((n, x) => n + x.tokens, 0);
-  const r = buildRequest({ story: {}, messages: pages(40), settings: {}, state: {}, modules: [], memory: '', window: { keeperOn: false, budgetTokens: fixed + 120 } });
+  const storyPages = whole.messages.filter((m) => /^page \d+ lorem/.test(String(m.content)));
+  const fixed = requestTokens(whole.systemBlocks, whole.messages) - storyPages.reduce((n, m) => n + contentTokens(m.content) + 24, 0);
+  const room = fixed + 120;
+  const r = buildRequest({ story: {}, messages: pages(40), settings: {}, state: {}, modules: [], memory: '', window: { keeperOn: false, budgetTokens: room + ANSWER_RESERVE + CONTEXT_MARGIN } });
   const s = slot(r, 'The pages, word for word');
   assert(/pages carried word for word, the rest rests/.test(s.source), 'honest cutoff line: ' + s.source);
   const carried = parseInt(s.source, 10);
   assert(carried > 0 && carried < 40, 'a budgeted subset rides');
+  assert(requestTokens(r.systemBlocks, r.messages) <= room, 'and what rides fits the room, measured as the final fit measures it');
 });
 
 test('A1: hidden pages never join the wire but still fire the nudge', () => {
@@ -154,10 +161,11 @@ test('M162: the coverage law reaches back only as far as the room allows', () =>
   eq(tight.resting, 10 + tight.uncovered, 'the arithmetic closes');
 
   /* the receipt says so in plain words */
+  /* M714/M752: the connection's number is its whole context — the answer and a margin are kept apart from it */
   const r = buildRequest({
     story: {}, messages: pages.map((p, i) => ({ id: 'm' + i, role: p.role, text: p.content })),
     settings: {}, state: {}, modules: [], memory: 'the record',
-    window: { keeperOn: true, window: 30, nodes, budgetTokens: 20000 },
+    window: { keeperOn: true, window: 30, nodes, budgetTokens: 20000 + ANSWER_RESERVE + CONTEXT_MARGIN },
   });
   const slot8 = r.receipt.slots.find((s) => s.name === 'The pages, word for word');
   assert(/no line yet and would not fit the room/.test(slot8.source), 'the receipt names them: ' + slot8.source);

@@ -66,14 +66,17 @@ test('M508-4 a blind spot names a long fact in its first words; the whole fact s
   assert(BLIND_CLIP >= 120, 'a blind spot still says what the fact is about');
 });
 
-test('M509-1 the shorter list names a shared fact ("Everyone here but" eight, not "Known to" twelve); a fact that stands as a shared line is not said again as a blind spot; a word in most facts calls nothing back', () => {
+test('M509-1 a shared fact is said once with who holds it (since M737 "Known to" its twelve, never "Everyone here but" eight); a fact that stands as a shared line is not said again as a blind spot; a word in most facts calls nothing back', () => {
   const present = Array.from({ length: 20 }, (_, i) => 'Person' + String.fromCharCode(65 + i) + ' Vale');
   let st = H(present);
   const fact = 'heard Jovan Oda thank the courtyard and promise to do his duty and his best to serve, and saw him run out of the Tenth’s ground';
   st = applyMutations(st, present.slice(0, 12).map((n) => ({ type: 'knowledge.add', name: n, fact }))).state;
   const facts = renderStateFacts(st, { whole: true, budget: 60000, scenePages: ['The courtyard watched him run.'] });
   const line = facts.split('\n').find((l) => l.includes('thank the courtyard')).replace(/^Who knows what: /, '');
-  assert(/^Everyone here but /.test(line) && (line.match(/Vale/g) || []).length === 8, 'eight named, not twelve: ' + line);
+  /* M737: a shared line names who HOLDS it — "Everyone here but …" told the storyteller the eight did not know, and "missing
+   * books express uncertainty, never certain ignorance" (HISTORY M737); the line is said once, with its twelve */
+  assert(/^Known to /.test(line) && !/Everyone here but/.test(line) && (line.match(/Vale/g) || []).length === 12, 'its twelve holders named, never the eight as not knowing: ' + line);
+  eq((facts.match(/thank the courtyard/g) || []).length, 1, 'the fact said once');
   assert(!/no page has shown them learning: heard Jovan Oda thank the courtyard/.test(facts), 'the eight are out of it by the line above — not again as a blind spot: ' + facts.split('\n').filter((l) => /no page has shown them learning/.test(l) || /hasn’t found out/.test(l)).join(' | '));
   /* a private word to one person is still a blind spot for the rest */
   st = applyMutations(st, [{ type: 'knowledge.add', name: present[0], fact: 'heard Hitsugaya say, close, that whatever he just remembered stays out of the stones' }]).state;
@@ -207,35 +210,53 @@ test('M509-13b the crowd is left behind only on a move to another place altogeth
   eq(r3.mutations.filter((m) => m.type === 'presence.leave').map((m) => m.name).sort().join(','), 'Renji Abarai,the cook', 'another place altogether: the two the room does not name are left behind');
 });
 
-test('M509-15 a moment the whole room saw is in every book in the room, and nobody’s blind spot who was there; a whisper stays a whisper', async () => {
+test('M509-15 a moment the whole room saw is in every book in the room, and nobody’s blind spot who was there; a whisper stays a whisper (since M642/M737 by the reader’s own "who", never guessed from presence or public words)', async () => {
   const { publicMoment, blindSpots, renderBlindSpots } = await import('../../js/engine/world.js');
-  const { broadcastPublicMoments } = await import('../../js/agents/extractor.js');
+  const { broadcastPublicMoments, parseExtractorAnswer, settleWitnesses } = await import('../../js/agents/extractor.js');
   const { wasThereFn } = await import('../../js/engine/state.js');
   eq(publicMoment('watched Jovan Oda bow to him a final time, then lean in and whisper to Rukia Kuchiki at two paces'), true, 'seen by all — the whisper is what was watched, not what was heard');
   eq(publicMoment('heard Shunsui declare Jovan Oda Captain of the Thirteenth Division in open courtyard'), true);
   eq(publicMoment('heard Jovan Oda say I love you, brotha in front of the whole courtyard'), true);
   eq(publicMoment('heard Hitsugaya say, close, at his own rail, that whatever Jovan just remembered stays out of the stones'), false, 'a whisper');
   eq(publicMoment('heard Zaraki say that old Yachiru watched Jovan’s Bankai and never mentioned it'), false, 'heard, with no mark of being said before all');
-  /* at the reader: the fact for one witness is written for the room */
+  /* at the reader: who saw it is the reader's own answer (M642) — "everyone here" writes the moment into every book in the
+   * room; M737: nothing is guessed from presence or from public-sounding words */
   let st = H(['Shunsui', 'Rukia', 'Kensei', 'the cook']);
-  const muts = [{ type: 'knowledge.add', name: 'Shunsui', fact: 'watched Jovan Oda bow a final time and then whisper to Rukia at two paces' }, { type: 'knowledge.add', name: 'Rukia', fact: 'heard Jovan say, close, that he is afraid' }, { type: 'presence.leave', name: 'the cook' }];
-  const out = broadcastPublicMoments(st, muts, null);
+  const read = parseExtractorAnswer(JSON.stringify({ mutations: [
+    { type: 'knowledge.add', who: 'everyone here', fact: 'watched Jovan Oda bow a final time and then whisper to Rukia at two paces' },
+    { type: 'knowledge.add', who: ['Rukia'], fact: 'heard Jovan say, close, that he is afraid' },
+    { type: 'presence.leave', name: 'the cook' }] }));
+  const out = broadcastPublicMoments(st, settleWitnesses(st, read.mutations, null), null);
   const bow = out.filter((m) => m.type === 'knowledge.add' && /bow a final time/.test(m.fact)).map((m) => m.name).sort();
   eq(bow.join(','), 'Kensei,Rukia,Shunsui', 'the room has it — not the main character, not the one leaving; Rukia, whispered to, was there and saw it (M522: only the one who DID it is left out — here Jovan, the main character)');
   eq(out.filter((m) => /afraid/.test(m.fact)).map((m) => m.name).join(','), 'Rukia', 'the whisper stays hers');
-  /* at the render, for books already written: a witness’s public fact is nobody’s blind spot who was in the room then
-   * (the room walked in on page 5, the ground was set on page 10, the moment was on page 12, Late Vale walked in on 14) */
-  st = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'presence.enter', name: 'Jovan Oda' }, ...['Shunsui', 'Rukia', 'Kensei', 'the cook'].map((n) => ({ type: 'presence.enter', name: n }))]).state;
-  st = applyMutations({ ...st, page: 10 }, [{ type: 'place.set', name: 'the courtyard' }]).state;
-  st = applyMutations({ ...st, page: 12 }, [{ type: 'knowledge.add', name: 'Shunsui', fact: 'watched Jovan bow a final time and whisper to Rukia' }, { type: 'knowledge.add', name: 'Shunsui', fact: 'heard Jovan say, close, that the ghost is real' }]).state;
+  /* a line written the old way — one name — is never copied round the room by its words (M737: "legacy one-person facts
+   * stay one-person facts") */
+  const legacy = broadcastPublicMoments(st, [{ type: 'knowledge.add', name: 'Shunsui', fact: 'watched Jovan Oda bow a final time and then whisper to Rukia at two paces' }], null);
+  eq(legacy.filter((m) => m.type === 'knowledge.add').map((m) => m.name).join(','), 'Shunsui', 'a one-name line stays one person’s');
+  /* at the render (the room walked in on page 5, the ground was set on page 10, the moment was on page 12, Late Vale walked
+   * in on 14): the books the reader wrote for the room hold it, so nobody who was there is told as not having learned it */
+  const walk = () => {
+    let s = applyMutations({ ...emptyState(), page: 5 }, [{ type: 'mc.set', name: 'Jovan Oda' }, { type: 'presence.enter', name: 'Jovan Oda' }, ...['Shunsui', 'Rukia', 'Kensei', 'the cook'].map((n) => ({ type: 'presence.enter', name: n }))]).state;
+    return applyMutations({ ...s, page: 10 }, [{ type: 'place.set', name: 'the courtyard' }]).state;
+  };
+  st = walk();
+  const roomRead = parseExtractorAnswer(JSON.stringify({ mutations: [{ type: 'knowledge.add', who: 'everyone here', fact: 'watched Jovan bow a final time and whisper to Rukia' }, { type: 'knowledge.add', who: ['Shunsui'], fact: 'heard Jovan say, close, that the ghost is real' }] }));
+  st = applyMutations({ ...st, page: 12 }, settleWitnesses(st, roomRead.mutations, null)).state;
   st = applyMutations({ ...st, page: 14 }, [{ type: 'presence.enter', name: 'Late Vale' }]).state;
   st.page = 15;
   const spots = renderBlindSpots(blindSpots(st.knowledge, st.present, { scenePages: ['the courtyard'], turn: 16, mc: 'Jovan Oda', wasThere: wasThereFn(st) }));
-  assert(!/(?:Kensei|Rukia|the cook)[^\n]*no page has shown them learning: watched Jovan bow/.test(spots), 'the room was there: ' + spots);
-  assert(/Late Vale[^\n]*no page has shown them learning: watched Jovan bow/.test(spots), 'one who walked in after is still blind to it: ' + spots);
+  assert(!/(?:Kensei|Rukia|the cook)[^\n]*no page has shown them learning: watched Jovan bow/.test(spots), 'the room was there, and its books hold it: ' + spots);
   assert(/Kensei[^\n]*no page has shown them learning: heard Jovan say, close/.test(spots) || /Rukia[^\n]*no page has shown them learning: heard Jovan say, close/.test(spots), 'the whisper is still a blind spot: ' + spots);
   const facts = renderStateFacts({ ...st, present: st.present }, { whole: true, budget: 60000, scenePages: ['the courtyard'] });
-  assert(/Everyone here but Late Vale knows: watched Jovan bow/.test(facts) || /Everyone here but Late Vale knows:[^\n]*watched Jovan bow/.test(facts), 'and the shared line counts the room: ' + (facts.match(/[^\n]*watched Jovan bow[^\n]*/) || [''])[0]);
+  assert(/Known to Shunsui, Rukia, Kensei, the cook: watched Jovan bow/.test(facts), 'and the shared line names the room that holds it — never "everyone but" Late Vale (M737): ' + (facts.match(/[^\n]*watched Jovan bow[^\n]*/) || [''])[0]);
+  /* the same moment in ONE witness's book (an old reader's line): presence writes no one else's (M737) — who was there is
+   * told only as not shown learning it, never as knowing */
+  st = walk();
+  st = applyMutations({ ...st, page: 12 }, [{ type: 'knowledge.add', name: 'Shunsui', fact: 'watched Jovan bow a final time and whisper to Rukia' }]).state;
+  st.page = 15;
+  const one = renderBlindSpots(blindSpots(st.knowledge, st.present, { scenePages: ['the courtyard'], turn: 16, mc: 'Jovan Oda', wasThere: wasThereFn(st) }));
+  assert(/Kensei[^\n]*no page has shown them learning: watched Jovan bow/.test(one) && !/Everyone here/.test(renderStateFacts(st, { whole: true, budget: 60000, scenePages: ['the courtyard'] })), 'presence alone puts nothing in a book: ' + one);
 });
 
 test('M509-16 a thought whose opener lost its second tilde ("~tHe’s very handsome…~") is written in the exact form; a tilde before a word ("~tomorrow") is not a thought; the exact form is untouched', async () => {

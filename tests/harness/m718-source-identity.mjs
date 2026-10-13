@@ -50,7 +50,13 @@ globalThis.fetch=async(_,options)=>{
   const tasks=JSON.parse(request.split('REQUIRED SOURCE MENTION DECISIONS:\n')[1].split('\n')[0]);
   assert.equal(new Set(tasks.map(t=>t.id)).size,tasks.length,'Same-label sections have distinct required decisions.');
   const continued=body.messages.some(m=>m.role==='assistant');
-  if (continued) assert(all.includes('Complete the source mention identity decisions'),'An omitted source decision is completed in the same conversation.');
+  // M732: the same-conversation correction names each unfinished mention with its original
+  // passage and the engine's eligible person targets (one executable identity contract).
+  if (continued) {
+    const correction=body.messages.at(-1).content;
+    assert(correction.includes('Complete the SAME review') && correction.includes('"type":"source_identity"'),'An omitted source decision is completed in the same conversation.');
+    assert(tasks.every(t=>correction.includes(JSON.stringify(t.sourceId))) && correction.includes('"originalPassage":"') && correction.includes('"engineEligibleTargets":') && correction.includes('SOURCE IDENTITY DECISION CONTRACT'));
+  }
   const reply={issues:[],identities:omitFirst && !continued ? [] : tasks.map(task=>({sourceId:task.sourceId,name:task.name,to:'Sela',kind:'person',why:'This page names Sela before the same girl gives her instruction.'})),
     review:{status:'complete',why:'The actual ledger is correct and the contextual source mention belongs to Sela.',open:[]},standings:[]};
   const content=JSON.stringify(reply);
@@ -75,7 +81,7 @@ try {
   assert.equal(undone.auditSources[saved.documents[1].id].people[0].ledgerName,'Rina');
   assert(!ledgerAuditVerified(undone,saved.story,saved.history),'Undoing an identity decision invalidates completion.');
   assert.deepEqual((await db.messages.list(saved.story.id)).map(m=>m.text),saved.history.map(m=>m.text));
-  const reference=applyMutations(saved.state,[{type:'source.resolve',sourceId:saved.documents[3].id,name:'the girl',kind:'reference',cause:'This is a comparison-only reference.',auditorApproved:true}]);
+  const reference=applyMutations(saved.state,[{type:'source.resolve',sourceId:saved.documents[3].id,name:'the girl',kind:'reference',cause:'This is a comparison-only reference.',auditorApproved:true,source:'auditor'}]);
   assert.equal(reference.applied.length,1);assert.deepEqual(reference.state.characters,saved.state.characters);
   assert.equal(applyMutations(saved.state,[{type:'source.resolve',sourceId:saved.documents[3].id,name:'the girl',to:'Sela',cause:'Unapproved'}]).applied.length,0);
 

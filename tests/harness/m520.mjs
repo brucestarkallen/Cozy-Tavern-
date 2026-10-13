@@ -3,7 +3,7 @@
  * that belong to another… can this be prevented before the auditor saw it?"). */
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
-import { broadcastPublicMoments } from '../../js/agents/extractor.js';
+import { broadcastPublicMoments, parseExtractorAnswer, settleWitnesses } from '../../js/agents/extractor.js';
 import { publicMoment } from '../../js/engine/world.js';
 import { emptyState } from '../../js/engine/state.js';
 import { applyMutations } from '../../js/engine/apply.js';
@@ -19,8 +19,14 @@ const LINES = [
 ];
 const holders = (out, re) => out.filter((m) => m.type === 'knowledge.add' && re.test(m.fact)).map((m) => m.name).sort().join(', ');
 
+/* M642/M737: who saw it is the page reader's own answer — the same lines as the reader writes them now, each with its "who"
+ * ("everyone here" for what the room saw; the one who caught a hidden act, by name). Code no longer guesses the room from a
+ * line's first word (broadcastPublicMoments passes a one-name line through as it is). */
+const WHO = (fact) => (/slip a vial/.test(fact) ? ['the mage'] : 'everyone here');
+const decided = (lines) => settleWitnesses(chapel(), parseExtractorAnswer(JSON.stringify({ mutations: lines.map(({ name: _one, ...m }) => ({ ...m, who: WHO(m.fact) })) })).mutations, null);
+
 test('M520-1 A MOMENT THE ROOM SAW GOES TO THE ROOM — never into the book of the one it is about (they know what they did), never the main character\'s; a hidden act stays with the one who caught it', () => {
-  const out = broadcastPublicMoments(chapel(), LINES, null);
+  const out = broadcastPublicMoments(chapel(), decided(LINES), null);
   eq(holders(out, /altar crack/), 'the assassin, the mage, the paladin, the priestess', 'a moment the whole room saw: every book in the room');
   eq(holders(out, /paladin hesitate/), 'the assassin, the mage, the priestess', 'not the paladin — it is about him');
   eq(holders(out, /hand glow/), 'the assassin, the paladin, the priestess', 'not the mage');
@@ -29,8 +35,10 @@ test('M520-1 A MOMENT THE ROOM SAW GOES TO THE ROOM — never into the book of t
   assert(!out.some((m) => m.type === 'knowledge.add' && m.name === 'the hero'), 'never the main character');
   eq(out.filter((m) => m.type === 'knowledge.add').length, 14, 'fourteen lines where twenty were written (m519): six that the auditor would have to take back are never written');
   /* M522: named is not the one who did it — the demon prince's offer to them all is every listener's, the paladin's too */
-  const offer = broadcastPublicMoments(chapel(), [{ type: 'knowledge.add', name: 'the mage', fact: 'heard the demon prince offer all of them — even the paladin — a place at his side, aloud before the whole company' }], null);
+  const offer = broadcastPublicMoments(chapel(), decided([{ type: 'knowledge.add', name: 'the mage', fact: 'heard the demon prince offer all of them — even the paladin — a place at his side, aloud before the whole company' }]), null);
   eq(holders(offer, /demon prince offer/), 'the assassin, the mage, the paladin, the priestess', 'every listener, the paladin named among them');
+  /* a line written the old way, one name, is never copied round the room by its first word (M737) */
+  eq(holders(broadcastPublicMoments(chapel(), LINES, null), /altar crack/), 'the priestess', 'a one-name line stays one person’s');
 });
 
 test('M520-2 WHAT IS A HIDDEN ACT: done secretly, slipped, palmed, pocketed, hidden, unnoticed, when no one was looking, behind someone\'s back — not a whisper seen (the room saw him lean in), not a plain act', () => {

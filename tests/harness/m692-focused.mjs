@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { auditHasOpenWork, repairRetryCheckpoint } from '../../js/agents/auditprogress.js';
-import { auditorRepairScope } from '../../js/agents/auditor.js';
 const state = n => ({audit: { pending: Array.from({length:n}, (_,i)=>'finding '+i), coverage: {read:67,total:67} }});
 assert(auditHasOpenWork(state(2).audit));
 assert(!auditHasOpenWork({pending:[],unfinished:false}));
@@ -17,8 +16,7 @@ const improved = repairRetryCheckpoint(before,state(0),story,pages);
 assert.equal(improved.stalled,0);
 const newPage = repairRetryCheckpoint(before,state(1),story,[{role:'assistant',text:'new page'}]);
 assert.equal(newPage.stalled,1);
-const quote = 'Commodus stood at the rail.';
-const issues = [{what:'missing',mutations:[{type:'presence.enter',name:'Commodus',shown:quote}]}];
-assert.equal(auditorRepairScope(issues,{}, {sources:quote,sceneSource:'The room was empty.'})[0].mutations.length,0);
-assert.equal(auditorRepairScope(issues,{}, {sources:quote,sceneSource:quote})[0].mutations.length,1);
-console.log('PASS open findings, 1/2/1 retry cycle, new evidence reset, newest scene quote scope.');
+// The newest-page-only quote scope was withdrawn in M694 as incorrect (earlier arrival or posture
+// evidence stays valid for a quiet spectator), and M709 removed auditorRepairScope's quote gate
+// from the audit entirely (finalAuditorScope); nothing remains for that scope check to protect.
+console.log('PASS open findings, 1/2/1 retry cycle, new evidence reset.');

@@ -106,7 +106,10 @@ test('M34-5 end to end: lines are written at the catch-up pace, "(no new state)"
   const history = await db.messages.list(storyId);
   const r = buildRequest({ story: {}, messages: history, settings: {}, state: {}, modules: [], memory: renderMemory(mem), window: { keeperOn: true, nodes: mem.nodes, window: 30 } });
   const inj = notesOf(r);
-  assert(inj.includes(RECORD_HEADER) && inj.includes('- [Day 1] the player did a thing'), 'the record rides');
+  /* M750/M751: the storyteller's record rides as "Our story so far" in plain words — every line once, oldest first, each
+   * with the pages it tells (M737); the covered batch with no new state says nothing */
+  assert(/Our story so far — everything that came before the pages that follow, oldest first\./.test(inj) && /\n- \(pages 1–6\) \[Day 1\] the player did a thing; Liara answered\n- \(pages 13–18\) \[Day 1\] the player did a thing; Liara answered/.test(inj), 'the record rides: ' + inj.slice(0, 500));
+  assert(!/pages 7–12/.test(inj), 'the batch that had no new state adds no line');
   /* promotion: a layer past NOTES_PER_LAYER merges its oldest two; a thin merge is asked again */
   const many = { window: 30, nodes: Array.from({ length: NOTES_PER_LAYER + 1 }, (_, i) => ({ id: 'n' + i, span: [i * 6, i * 6 + 5], text: 'line ' + i + ': ' + 'fact '.repeat(20), level: 1, at: i })) };
   await saveMemory(storyId, many);

@@ -340,10 +340,14 @@ test('M10 edits: hide folds a page away; bulk re-inks across pages', async () =>
   r = await applyProposal(session, story.id, hideCards[0].id);
   assert(r.ok, 'hidden: ' + r.words);
   /* M78: a hide needs only the page to exist — the bulk re-ink before it changes nothing; the
-   * page is already folded away by the fresh card, so the older hide is refused for THAT reason */
+   * page is already folded away by the fresh card. M730 (0a1a724, "an already visible page is satisfied rather than
+   * refused"): the older hide is SATISFIED for THAT reason — it says why, writes nothing and puts no batch on the shelf
+   * (the take-back below is still the fresh hide's) — never stale */
+  const shelved = session.batches.length;
   const staleTry = await applyProposal(session, story.id, cards[0].id);
-  assert(!staleTry.ok && /already folded away/.test(staleTry.words), 'the second hide says why: ' + staleTry.words);
-  eq(cards[0].status, 'refused', 'and reads refused, not stale');
+  assert(staleTry.ok && staleTry.satisfied === true && /already folded away/.test(staleTry.words), 'the second hide says why: ' + staleTry.words);
+  eq(cards[0].status, 'satisfied', 'and reads satisfied, not stale');
+  eq(session.batches.length, shelved, 'it wrote nothing, so nothing waits to be taken back');
   const after = await db.messages.list(story.id);
   eq(after[0].hidden, true, 'the first page is folded away');
   assert(after[1].text.includes('Mara sat down.'), 'the name was re-inked on the visible page');

@@ -39,10 +39,13 @@ with sync_playwright() as pw:
   assert metrics['inset']>=9 and not metrics['overflow'],metrics
  p.evaluate("location.hash='#/chat';document.body.classList.add('immersed');let e=document.getElementById('btn-immerse-show');e.hidden=false;e.classList.add('all-well')")
  p.wait_for_timeout(100)
- assert p.evaluate("getComputedStyle(document.getElementById('page-mark')).display")=='none'
+ # M752: the page mark he asked for in M466 ("a scroll thumb on the right showing which page number is under the eye")
+ # stands again — M739 hid it as a duplicate with no request of his; a phone's native scrollbar cannot be dragged.
+ # (with no pages to scroll here the mark is [hidden]; un-hidden, no sheet may hide it)
+ assert p.evaluate("(()=>{const e=document.getElementById('page-mark'),was=e.hidden;e.hidden=false;const d=getComputedStyle(e).display;e.hidden=was;return d})()")!='none'
  metrics=p.evaluate("""()=>{let e=document.getElementById('btn-immerse-show'),s=e.querySelector('span').getBoundingClientRect(),r=e.getBoundingClientRect(),a=getComputedStyle(e,'::after');return {tabCenter:s.x+s.width/2,dotCenter:r.right-parseFloat(a.right),scroll:getComputedStyle(document.getElementById('thread')).overflowY}}""")
  assert abs(metrics['tabCenter']-metrics['dotCenter'])<.1,metrics
  assert metrics['scroll']=='auto',metrics
- print(json.dumps({'passed':'orange selection, contrast, per theme persistence and reset, desktop/mobile nav inset, immersive dot centering, native scrollbar retained','metrics':metrics,'colours':data}))
+ print(json.dumps({'passed':'orange selection, contrast, per theme persistence and reset, desktop/mobile nav inset, immersive dot centering, native scrollbar and the page mark both kept','metrics':metrics,'colours':data}))
  b.close()
 server.shutdown()

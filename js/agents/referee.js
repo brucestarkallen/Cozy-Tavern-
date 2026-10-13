@@ -35,7 +35,7 @@ import { parseFirstObject } from './jsonutil.js';
 import { isHere } from '../engine/names.js'; /* M398 */
 import { pageText as wirePageText } from '../assemble/stack.js'; /* M174: the one reader of a page's words */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
-import { callWorker } from './call.js'; /* M28: the one wire path for workers */
+import { callWorker, workerRoom } from './call.js'; /* M28: the one wire path for workers; M752: and the room its calls are measured by */
 import { applyMutations, storyTurn, canonNamesFor } from '../engine/apply.js'; /* M680: truths under the name they are kept by */
 import { loadState, saveState, notify } from '../engine/state.js';
 import { findPersonKey, importanceOf } from '../engine/people.js'; /* M345: the seeder and the referee read who people ARE */
@@ -43,7 +43,6 @@ import { renderBodies, findInjury, sameHurt } from '../engine/bodies.js'; /* M68
 import { renderCanon } from '../engine/canon.js';
 import { writerText, wholePage } from '../engine/whole.js';
 import { loadMemory, recordFor } from './memory.js';
-import { contextOf } from '../providers/room.js';
 import { db } from '../store.js';
 import {
   clamp, probFromDelta, sliceOutcome, rngFloat, TIER_MEANING, presetFor,
@@ -1471,6 +1470,9 @@ export const SEED_VERSION = 8; /* M562: weighed again once, by one game master's
 export const SEED_EVERY = 100;        /* Arbiter's fallback timer: a long quiet stretch still refreshes growth */
 export const SEED_NEW_FACE_GAP = 1; /* M616: a new face is weighed by itself on the next page (was 3) — never on the wait before his page */   /* pages between re-seeds called by someone in the scene the sheet does not have */
 export const SEED_MAX_TOKENS = 8000;  /* a large cast needs room to answer (the old 600 cut a big sheet off mid-list) */
+/* M752: the least room the weighing's own parts take (buildSeedUser keeps the brief, the cast, the people and a page whole at
+ * a few thousand characters each) — below it the weighing would be refused before sending, so it is not asked for */
+export const SEED_LEAST_ROOM = 40000;
 const SEED_MAX_ACTORS = 80;           /* runaway guard, never a size a real cast reaches */
 const PLAIN_SELF = /^(?:you|i|me|myself|player|the player|writer|the writer|narrator|the narrator|storyteller|the storyteller)$/i;
 
@@ -1824,7 +1826,12 @@ export async function maybeSeedSheet({ connection, storyId, signal, callLLM, bri
     if (!why) return { ok: false, why: 'not due' };
     let record = '';
     try { record = recordFor(await loadMemory(storyId), 1, 1200000); } catch (err) { record = ''; } /* M561: the detailed record whole; the room decides what rides */
-    const room = Math.max(40000, Math.min(1200000, Math.floor(contextOf(connection) * 3 * 0.8))); /* M561: what its own model holds — the answer and the instructions keep the rest */
+    /* M561: what its own model holds — the answer and the instructions keep the rest. M752: measured as its call is refused
+     * (agents/call.js workerRoom) — 80% of the context was refused before sending on a 64k model that thinks (52,662 against
+     * 45,000) or a 100k one (81,814 against 81,000), and the failure was swallowed: the cast was never weighed. A room too
+     * small for the weighing's own parts is said, not sent to be refused. */
+    const room = Math.min(1200000, workerRoom(connection, { system: withFictionFrame(SEED_SYSTEM), maxTokens: SEED_MAX_TOKENS }));
+    if (room < SEED_LEAST_ROOM) return { ok: false, why: 'the model’s context is too small to weigh the cast' };
     const blind = why === 'heal' || force === true; /* M556: by hand, or healing an older sheet — weighed from the story, never from the old numbers */
     let user = buildSeedUser({ state, pages: messages, brief, castNotes, record, room, blind }); /* M561: every page offered; the room decides */
     if (typeof renew === 'function') renew(240000);

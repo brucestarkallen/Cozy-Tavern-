@@ -56,7 +56,10 @@ test('M73-3 the row is on both voices; the top button is a copy and says so', ()
   assert(!/\.disabled = at/.test(b), 'the version arrows are never disabled (a dropped click is a dead button)');
   assert(/if \(isLast\) \{[\s\S]*mk\('◂'[\s\S]*mk\('▸'[\s\S]*\} else \{[\s\S]*mk\('↻ Retry'/.test(b), 'the last answer always wears ◂ n/N ▸; an older answer wears ↻ (M73-002)');
   assert(/if \(at >= versions\.length - 1\) \{ await turnAct\('retry-at', index\); return; \}/.test(ui), '▸ past the last version asks for another answer');
-  assert(/thread\.append\(bubble\(turn\.role, turn\.text, i, turn\)\)/.test(ui), 'every turn gets the row');
+  /* M730 (0a1a724): a turn that carried cards shows what became of them (proposalOutcome) in its bubble — the model's own
+   * wording stays under it, folded ("Original proposal wording") — and a turn of cards alone is drawn too. Every turn drawn
+   * is drawn through bubble(), which builds the row (walk DOM-11d presses it on both voices). */
+  assert(/if \(turn\.text \|\| turn\.proposals\?\.length\) thread\.append\(bubble\(turn\.role, turn\.proposals\?\.length \? proposalOutcome\(turn,session\) : turn\.text, i, turn\)\);/.test(ui), 'every turn gets the row');
   assert(/id="hk-sess-branch"[^>]*>⧉ Copy</.test(html), 'the top button is a copy of the whole talk, and says so');
   assert(/await turnAct\('retry-at', i\);/.test(ui.slice(ui.indexOf('async function retryLast('))), 'the toolbar’s ↻ is the bubble’s ↻ on the last answer');
 });

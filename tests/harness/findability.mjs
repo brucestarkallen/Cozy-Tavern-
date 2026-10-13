@@ -67,7 +67,12 @@ test('M18 the reload-once bridge stands in install.sh and the shipped launcher',
   const launcher = read('cozytavern.sh');
   const line = 'A new coat is on — if the tavern looks the same, pull the page down once to reload.';
   assert(inst.includes(line), 'install.sh speaks the bridge');
-  assert(launcher.includes(line), 'the launcher speaks the bridge');
+  /* M720 (a87d357): an open tab now finds the new coat itself and refreshes once nothing would be lost (js/updates.js;
+   * README "Automatic browser updates"), so the launcher no longer asks for a pull-down: after a pull that moved HEAD it
+   * says what the tabs will do, and what an update notice means. (install.sh, run rarely, keeps the bridge: a tab still
+   * on an update handler from before M720 may need that one pull — M720's own stated limit.) */
+  assert(/if \[ -n "\$HEAD_BEFORE" \] && \[ "\$HEAD_BEFORE" != "\$HEAD_AFTER" \]; then\n\s*echo "Fresh coat on: the tavern is now at \$TAVERN_VER\."\n\s*echo "Open tabs check for the new version and refresh when writing and saves are finished\."\n\s*echo "An update notice means your draft, open form or active work is being protected\."/.test(launcher),
+    'the launcher speaks the bridge');
   assert(inst.includes('rev-parse HEAD'), 'the installer weighs HEAD around the pull');
   assert(launcher.includes('rev-parse HEAD'), 'the launcher weighs HEAD itself');
 });
@@ -87,8 +92,13 @@ test('M20 the launcher re-arms itself and reports the version', () => {
 test('M18 the README keeps the "Keeping it current" word', () => {
   const src = read('README.md');
   assert(src.includes('## Keeping it current'), 'the section stands');
-  assert(src.includes('A new coat is on the tavern — tap to refresh.'), 'the nudge law (M16+) is told');
-  assert(src.includes('pull the page down once'), 'the reload-once bridge for older shells is told');
+  /* M752: told as it works since M720 (js/updates.js) — the tab refreshes itself once nothing would be lost; the toast
+   * "A new coat is on the tavern — tap to refresh." and the pull-down bridge are gone from the app and the launcher */
+  assert(src.includes('refreshes on its own as soon') && src.includes('Update ready'), 'the self-refresh and its notice are told');
+  const updates = read('js/updates.js'), launcher = read('cozytavern.sh');
+  assert(updates.includes('Update ready.'), 'and the notice the README names is the one the app shows');
+  assert(launcher.includes('Fresh coat on: the tavern is now at') && src.includes('Fresh coat on: the'), 'the launcher\'s word is the one the README names');
+  assert(!src.includes('tap to refresh') && !updates.includes('tap to refresh'), 'no toast the app no longer shows is promised');
   assert(src.includes('the shelves · <version>'), 'where the running version stands is told');
   assert(/under your stories/.test(src) && /top of Settings/.test(src),
     'both places the version stands are named');

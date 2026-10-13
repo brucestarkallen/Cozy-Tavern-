@@ -45,8 +45,8 @@ import { samePersonName, nameOnPage } from './names.js';
 import { isMc } from './people.js'; /* M588 */ /* M509-15: was this person in the room */
 import { renderBodies, dedupeInjuries } from './bodies.js'; /* M485: the wounds folded on load */
 import { axisWords, AXES } from './relationships.js';
-import { renderOffscreen, isDeadSeat, findSeat } from './offscreen.js'; /* M680: the dead are nobody's company */
-import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge, statementKey, blindSpots, renderBlindSpots } from './world.js'; /* M29: the world beyond the page */
+import { renderOffscreen, renderSeatsForReading, isDeadSeat, findSeat } from './offscreen.js'; /* M680: the dead are nobody's company; M752: a whole view's seats chosen for the scene */
+import { renderThreads, renderKnowledge, renderFactions, dedupeKnowledge, statementKey, blindSpots, renderBlindSpots, THREADS_VIEW } from './world.js'; /* M29: the world beyond the page */
 import { renderCanon, lookKey } from './canon.js'; /* M681: one key for one look */
 import { renderFightLine, mcName } from './duels.js';
 import { migrateCharacters, healGhosts, partLookAlikes } from './people.js'; /* M485: the ghosts folded on load */
@@ -527,7 +527,7 @@ const BUILT_FROM = new WeakMap();
  * back, a checkpoint is the same whole ledger as before, every map its own object; an entry the bank has lost makes the
  * checkpoint unusable (null) — never a ledger with a hole: the nearest other checkpoint or the re-read serves, as for a
  * missing journal entry. slim 3; a slim-2 row reads as it is and is shared when it is written again (shareCheckpoints). */
-const SHARED_MAPS = ['characters', 'relationships', 'offscreen', 'canon', 'knowledge', 'factions', 'bodies'];
+const SHARED_MAPS = ['characters', 'relationships', 'offscreen', 'canon', 'knowledge', 'factions', 'bodies', 'auditSources'];
 const SHARED_WHOLE = ['threads', 'worldShown', 'sheet', 'worldBrief', 'refHistory', 'readAhead', 'canonLetGo'];
 function shareSections(known, fresh, rest, was) {
   const pk = {}; const pw = {};
@@ -1218,7 +1218,12 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
    * then what the story touched lately. Before writing how anyone gets anywhere or what they can do, this is what they have. */
   const thingLines = renderThings(state, 12, scenePages.join('\n'));
   if (thingLines) sections.push({ shed: 1, text: 'Things that matter — where each stands now (what they have to hand before anything is invented):\n' + thingLines });
-  const elsewhere = omit.includes('elsewhere') ? '' : renderOffscreen(farOffscreen, present, clockMinutes, whole ? 1000 : undefined, state.characters || {});
+  /* M752: a whole view held a thousand seats — since M719 keeps every seat, three hundred of them shed the whole state of
+   * things on a 128k storyteller (the threads, the arrivals, Elsewhere itself). It holds the forty this scene bears on
+   * (engine/offscreen.js seatsForReading) and counts the rest; the compact view keeps its six. */
+  const elsewhere = omit.includes('elsewhere') ? '' : whole
+    ? renderSeatsForReading(state, { offscreen: farOffscreen, material: scenePages.map((p) => String(p || '')).join('\n') })
+    : renderOffscreen(farOffscreen, present, clockMinutes, undefined, state.characters || {});
   if (elsewhere) sections.push({ shed: 3, text: 'Elsewhere: ' + elsewhere.split('\n').join('\n') });
 
   const factionLines = omit.includes('factions') ? '' : renderFactions(state.factions, whole ? Infinity : undefined, storyTurn(state));
@@ -1242,7 +1247,9 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
     : [];
   /* M368: the threads that touch this scene first — someone present, or the main character */
   const sceneNames = [mcName(state), ...(Array.isArray(state.present) ? state.present.map((p) => (typeof p === 'string' ? p : p && p.name)) : [])].filter((n) => n && n !== 'the player');
-  const threadText = omit.includes('threads') ? '' : [renderThreads(structured, whole ? Infinity : undefined, whole ? null : { names: [...peopleNames, ...sceneNames] }), legacy.join('; ')].filter(Boolean).join('\n');
+  /* M752: a whole view showed every open thread (Infinity) while the ledger kept forty; M713 keeps them all — the view
+   * keeps its forty, hot and lately touched first, and counts the rest */
+  const threadText = omit.includes('threads') ? '' : [renderThreads(structured, whole ? THREADS_VIEW : undefined, whole ? null : { names: [...peopleNames, ...sceneNames] }, { counted: whole }), legacy.join('; ')].filter(Boolean).join('\n');
   if (threadText) sections.push({ shed: 4, text: 'Threads still open: ' + threadText.split('\n').join('\n') });
 
   /* The budget: shed the least vital until the block fits. The ruling, the

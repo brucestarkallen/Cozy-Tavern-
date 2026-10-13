@@ -3,6 +3,8 @@
  * (B19), not grepped. */
 import { readFileSync } from 'node:fs';
 import { test, assert, eq } from './lib.mjs';
+import { VERSION } from '../../js/version.js';
+import { updatePage, serviceWorkerScope } from './updatesim.mjs';
 
 const root = new URL('../../', import.meta.url);
 const src = (p) => readFileSync(new URL(p, root), 'utf8');
@@ -102,11 +104,26 @@ test('A5: every background worker call gets a 60s hard timeout', () => {
   assert(src('js/agents/status.js').includes('60000'), 'the ceiling is 60s');
 });
 
-test('A8: one VERSION, the sw cache derives from it, harnesses shipped', () => {
+test('A8: one VERSION, the sw cache derives from it, harnesses shipped', async () => {
   assert(/export const VERSION = 'm\d+-/.test(src('js/version.js')), 'single source of version');
   assert(src('sw.js').includes("import { VERSION } from './js/version.js'"), 'sw imports it');
   assert(src('sw.js').includes("'cozytavern-shell-' + VERSION"), 'cache name derives');
-  assert(src('js/app.js').includes("{ type: 'module' }"), 'module worker registration');
+  /* the worker, installed, fills the cache of this very version */
+  const scope = await serviceWorkerScope();
+  try {
+    await scope.install();
+    eq(scope.opened[0], 'cozytavern-shell-' + VERSION, 'the cache it fills is named by the one VERSION');
+  } finally { scope.close(); }
+  /* M720 (a87d357): the registration moved from app.js into js/updates.js — this line read app.js and found nothing. Run,
+   * the page registers sw.js as a MODULE worker (the worker imports js/version.js: a classic worker could not load at
+   * all), and every look at it goes past the HTTP cache. */
+  const page = await updatePage();
+  try {
+    eq(page.registered.length, 1, 'registered once');
+    eq(page.registered[0].url, 'sw.js', 'the shipped worker, beside the page');
+    eq(page.registered[0].options && page.registered[0].options.type, 'module', 'module worker registration');
+    eq(page.registered[0].options.updateViaCache, 'none', 'never a worker script answered from the HTTP cache (M720)');
+  } finally { page.close(); }
 });
 
 test('B19: the quiet/accent text tokens meet AA (4.5:1) on their grounds', () => {

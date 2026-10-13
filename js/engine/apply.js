@@ -48,12 +48,12 @@ import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TO
 import { seat, findSeat, isDeadSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact, lookKey } from './canon.js'; /* M681: one key for one look */
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight, findActorKeySamePerson, safeKey, explicitMcPersona, groundedMcPersona } from './duels.js';
-import { withoutStandingNumbers, setPersonField, findPersonKey, mergeDeltas, worldParticipation, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf, sourceIdentityTargetKey } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
+import { withoutStandingNumbers, setPersonField, personFieldKey, findPersonKey, mergeDeltas, worldParticipation, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf, sourceIdentityTargetKey } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
 import { ownerAndDependent, samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage, isTitleWord } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { quotedSource } from './evidence.js';
 import { renameInState } from '../agents/ripple.js'; /* M100: the ripple's rename */
-import { setThread, closeThread, findThread, sameThreadTitle, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES, sameFact, factKey, brokenOff } from './world.js'; /* M29: the world beyond the page */
+import { setThread, closeThread, findThread, sameThreadTitle, addKnowledge, findKnowledgeKey, setFaction, findFactionKey, STANCES, sameFact, factKey, brokenOff, interpretPerspective, statementKey } from './world.js'; /* M29: the world beyond the page; M752: one reading of a kind of knowing */
 /* M456: the stances that stay where they are — no arrival ever rides them (a seat with no stance keeps its ETA, M29) */
 const STAYS_PUT = new Set(['busy', 'waiting', 'tense']);
 
@@ -404,6 +404,20 @@ function describeDelta(minutes) {
   }
   const days = Math.round(minutes / (60 * 24));
   return days === 1 ? 'about a day' : 'about ' + days + ' days';
+}
+
+/* M752: WHAT ONLY THE HOUSE'S OWN CODE MAY SAY OF A WRITE. The writer's hand (byHand), a writer-proven fact
+ * (writerEstablished), the final reader's approval (auditorApproved), a coordinated spelling correction, a whole-story write,
+ * an exact-identity forget, a source recovery, an entity review — each is stamped by the code that checked it (the hand,
+ * finalAuditorScope, the founder's and the scribe's quote checks, the Housekeeper), never taken from a model's answer. A
+ * page reader's answer carrying "byHand": true made any person the main character's persona and wrote an invented core
+ * over his writer biography, marked as his own hand. Each worker's answer is read through this before anything is applied. */
+const GRANTED_FLAGS = ['byHand', 'writerEstablished', 'auditorApproved', 'spelling', 'coordinated', 'story', 'exactIdentity', 'sourceRecovery', 'entityReviewed'];
+export function withoutGrantedFlags(m) {
+  if (!m || typeof m !== 'object') return m;
+  const out = { ...m };
+  for (const k of GRANTED_FLAGS) delete out[k];
+  return out;
 }
 
 /* ---------- the individual mutations ---------- */
@@ -955,6 +969,18 @@ const HANDLERS = {
     const rel = state.relationships[key];
     for (const [axis, value] of Object.entries(given)) rel[axis] = value;
     if (m.byHand === true) rel.hand = true; /* M263: a standing the writer set is his */
+    /* M50: a duplicate folded into the fuller name (mergeFrom, the house's housekeeping) brings its history and the axes the
+     * pages earned with its numbers — so the brief's starting digits, reconciled only on unearned axes since M689, never
+     * write over a beat the pages earned. Only the same person's own standing can be folded in. */
+    const folded = typeof m.mergeFrom === 'string' && m.mergeFrom !== key ? state.relationships[m.mergeFrom] : null;
+    if (folded && samePersonName(m.mergeFrom, key)) {
+      const beats = Array.isArray(folded.history) ? folded.history : [];
+      rel.history.push(...beats.map((h) => ({ ...h })));
+      /* a beat moved its axis (only rel.shift writes a delta) — kept as earned even when the history cap lets the line go */
+      const earned = { ...(folded.earnedAxes && typeof folded.earnedAxes === 'object' ? folded.earnedAxes : {}) };
+      for (const h of beats) if (h && AXES.includes(h.axis) && Number(h.delta)) earned[h.axis] = true;
+      if (Object.keys(earned).length) rel.earnedAxes = { ...earned, ...rel.earnedAxes };
+    }
     rel.history.push({
       atMinutes: clockMinutesOf(state),
       axis: Object.keys(given)[0],
@@ -1131,7 +1157,11 @@ const HANDLERS = {
     const pageKey = findPersonKey(state.characters || {}, seated.key) || findPersonKey(state.characters || {}, name);
     /* M598: a person who has left the story (retired) is not kept — the house's upkeep retires a passer-through, then
      * lets the seat go */
-    const keptPerson = Boolean(pageKey && !(state.characters[pageKey] && state.characters[pageKey].retired));
+    const retired = Boolean(pageKey && state.characters[pageKey] && state.characters[pageKey].retired);
+    /* M719: the story keeps more than those with a page — a standing toward him, a thread they own, a world objective on
+     * their seat, an approach under way (worldParticipation: the one answer to "does the story still carry them") keeps a
+     * page-less person somewhere too; a stray nothing carries may still be let go */
+    const keptPerson = !retired && Boolean(pageKey || worldParticipation(state, seated.key));
     /* M680 (the world audit): his own "Let it go" in the drawer was refused for every person with a page — a button that
      * never did anything. His hand lets the note go; the world agent is told they have no seat and places them anew. */
     /* M681 (W13, the world audit — made to happen on m680-001): A DEATH IS NEVER LET GO BUT BY HIS HAND. The seat "dead — on
@@ -1271,7 +1301,27 @@ const HANDLERS = {
     const key = personBookKey(state, state.knowledge, name, findKnowledgeKey); /* M419 */
     const list = key && state.knowledge && Array.isArray(state.knowledge[key]) ? state.knowledge[key] : [];
     if (!list.length) return { why: (key || name) + ' has nothing written down to let go' };
-    const keep = list.filter(k => !sameFact(k.fact,fact) || (m.kind && m.kind !== k.kind));
+    /* M522 (restored, M752): LETTING GO TAKES THE LINE MEANT. The exact line first (M737: its exact statement, of the kind
+     * named when one is named). Then the one line the words name in its kind's own wording — the readers are shown
+     * "Mara believes: X" for the line "believes X" (engine/world.js knowledgeWords) and quote "X". Only when no line
+     * answers so, a quote clipped at its end lets go of the line it mostly covers: M737 dropped this, and a reader's
+     * correction quoting a line cut short was refused, the wrong line kept, and found again the next reading. Never a
+     * fuller line that merely contains the words: "Mara promised to help" never takes "…only after her brother was
+     * released" (M737's own case — four tenths of it). */
+    const kindOf = (k) => interpretPerspective(k).kind;
+    const asked = interpretPerspective({ fact, kind: m.kind });
+    const namesKind = Boolean(m.kind) || statementKey(asked.proposition) !== statementKey(fact);
+    const ofKind = (k) => !m.kind || kindOf(k) === m.kind;
+    let meant = list.filter((k) => sameFact(k.fact, fact) && ofKind(k));
+    if (!meant.length && !asked.uncertain) {
+      const byMeaning = list.filter((k) => { const v = interpretPerspective(k); return !v.uncertain && statementKey(v.proposition) === statementKey(asked.proposition) && (!namesKind || v.kind === asked.kind); });
+      if (namesKind || byMeaning.length === 1) meant = byMeaning; /* a bare quote answering two kinds of knowing names neither */
+    }
+    if (!meant.length) {
+      const want = factKey(fact);
+      meant = list.filter((k) => ofKind(k) && want.length >= 12 && factKey(k.fact).includes(want) && want.length >= factKey(k.fact).length * 0.8);
+    }
+    const keep = list.filter((k) => !meant.includes(k));
     if (keep.length === list.length) return { why: 'no line of what ' + key + ' knows answers to “' + fact.slice(0, 80) + '”' };
     const before = list.map((k) => ({ ...k }));
     const gone = list.length - keep.length;
@@ -1287,7 +1337,14 @@ const HANDLERS = {
     if (!fact) return { why: 'it didn’t say what ' + name + ' learned' };
     const key = personBookKey(state, state.knowledge, name, findKnowledgeKey) || newBookKey(state, name); /* M419 */
     const before = state.knowledge && Array.isArray(state.knowledge[key]) ? state.knowledge[key].map((k) => ({ ...k })) : null;
-    const next = addKnowledge(state.knowledge, key, fact, storyTurn(state), { kind: m.kind, pathway: m.pathway, source: m.source });
+    /* M752: KNOWLEDGE PROVENANCE RIDES IN ITS OWN FIELD. A mutation's `source` is the label of the worker that wrote it
+     * ("extractor", "world", "auditor") — and it was handed to addKnowledge as the line's source receipt, so every worker's
+     * re-send of a known fact was "another source", hence another line. The reader's receipt ({quote, recipients}) rides as
+     * `provenance` (agents/extractor.js); an object `source` (the M737/M738 shape a direct caller writes) is still read
+     * as one. A label is never a receipt. */
+    const receipt = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : undefined);
+    const provenance = receipt(m.provenance) || receipt(m.source);
+    const next = addKnowledge(state.knowledge, key, fact, storyTurn(state), { kind: m.kind, pathway: m.pathway, source: provenance });
     const after = next[key] || [];
     /* M522: a line made fuller in place (the same fact, more of it) is a change that landed — not "already knows that",
      * which threw the fuller wording away */
@@ -1408,7 +1465,9 @@ const HANDLERS = {
       ({state:renamed,count} = renameInState(state, from, to));
       if (state.spellingCorrections) renamed.spellingCorrections = Object.fromEntries(Object.entries(state.spellingCorrections).map(([k,v])=>[k,spellingReplace(v,from,to)]));
     }
-    if (!count) return { why: 'nothing in the ledger is called ' + from };
+    /* M752: a spelling correction the ledger already follows (its books hold no old spelling, its map already routes it) is
+     * already so, never a refusal: a later page that repeats the old spelling is corrected by the same card again */
+    if (!count) return { why: 'nothing in the ledger is called ' + from, ...(m.spelling ? { same: true } : {}) };
     for (const k of keys) if (renamed[k] !== undefined) state[k] = renamed[k]; /* M607: whose a thing is — and where it is said to be — now follow inside renameInState, counted */
     const owner = Object.keys(state.characters || {}).find((k) => k.toLowerCase() === to.toLowerCase());
     if (owner && !m.spelling) state.characters[owner] = { ...state.characters[owner], aliases: [...new Set([...oldAliases, from])].filter((a) => a.toLowerCase() !== owner.toLowerCase()) };
@@ -1474,7 +1533,9 @@ const HANDLERS = {
     const name = normalizeName(m.name);
     const kind = String(m.kind || '');
     if (!name || !['place','organization','object','group'].includes(kind)) return {why:'an entity correction needs its exact name and nonperson kind'};
-    if (!m.auditorApproved && !(m.source === 'scribe' && m.entityReviewed && m.shown)) return {why:'an entity correction needs a reviewed source decision'};
+    /* M752: the final reader's approval is the auditor's own stamp (finalAuditorScope sets both after its checks), as for
+     * every other auditor-only write — a reader's answer that merely carried "auditorApproved" archived a real person */
+    if (!(m.source === 'auditor' && m.auditorApproved === true) && !(m.source === 'scribe' && m.entityReviewed && m.shown)) return {why:'an entity correction needs a reviewed source decision'};
     if (isMc(state,name)) return {why:'the player identity belongs to the writer'};
     const same = n => String(n || '').trim().toLowerCase() === name.toLowerCase();
     const page = Object.keys(state.characters || {}).find(same);
@@ -1502,15 +1563,24 @@ const HANDLERS = {
     if (!removed && !sourceUndo.length) return {why:'this entity is already classified',same:true};
     state.auditSources = sources;
     const records = removed?.undo?.before || {};
-    state.entityCorrections = {...(state.entityCorrections || {}),[name]:{kind,cause:capText(m.cause || m.auditReason,1000),records:prior?.records || records,
-      sources:sourceUndo.map(({id,mark})=>({id,mark}))}};
+    /* M752: A SECOND CORRECTION ADDS TO THE ARCHIVE, IT NEVER REPLACES IT. A later reader re-created the page with new
+     * material (a core, a known fact) and the second reclassify kept only the first batch — the new records survived
+     * only in the take-back log, which keeps 200 lines. The first batch stays `records`; every later batch with anything
+     * in it is kept in `laterRecords`; the annotated sources accumulate. The take-back restores the prior entry whole. */
+    const filled = (r) => Boolean(r && typeof r === 'object' && Object.values(r).some((v) => v !== null && v !== undefined));
+    const first = filled(prior?.records) ? prior.records : null;
+    const laterRecords = [...(Array.isArray(prior?.laterRecords) ? prior.laterRecords : []), ...(first && filled(records) ? [records] : [])];
+    const archivedSources = [...(Array.isArray(prior?.sources) ? prior.sources : []), ...sourceUndo.map(({id,mark})=>({id,mark}))]
+      .filter((s, i, all) => all.findIndex((x) => x.id === s.id && x.mark === s.mark) === i);
+    state.entityCorrections = {...(state.entityCorrections || {}),[name]:{kind,cause:capText(m.cause || m.auditReason,1000),records:first || records,
+      ...(laterRecords.length ? {laterRecords} : {}),sources:archivedSources}};
     return {words:name+' is '+(kind === 'organization' ? 'an organization' : 'a '+kind)+'; its misplaced People records were archived.',
       undo:{kind:'people.forgotten',name,before:records,classification:{prior,sourceUndo}}};
   },
   // Resolve one extracted mention, not a global character alias. Two source
   // pages may use the same descriptor for entirely different people.
   'source.resolve'(state, m) {
-    if (!m.auditorApproved) return {why:'a source identity needs the final reader decision'};
+    if (!(m.source === 'auditor' && m.auditorApproved === true)) return {why:'a source identity needs the final reader decision'}; /* M752: the auditor's own stamp */
     const receipt = state.auditSources?.[m.sourceId];
     const name = String(m.name || '').trim();
     const kind = m.kind || 'person';
@@ -1549,7 +1619,7 @@ const HANDLERS = {
       && (Boolean(m.shown) || (m.source === 'auditor' && m.auditorApproved===true && m.sourceRefs?.length));
     let text = m.text;
     if (field === 'core' && m.append === true && m.open !== true && m.clear !== true) {
-      const key = findPersonKey(state.characters,m.name);
+      const key = personFieldKey(state, state.characters || {}, m.name); /* M752: the page the setter writes ("you" → his page) */
       const old = state.characters?.[key]?.core || '';
       if (old && old.includes(String(text || '').trim())) return {why:'the identity fact is already saved',same:true};
       if (old && !String(text || '').includes(old)) text = old + '\n' + text;
@@ -2847,7 +2917,12 @@ export function lockedLooks(state, looks, pageText = '', userText = '') {
     // A worker's sourced paraphrase need not overlap half the value words.
     // Exact original evidence keeps pronoun-linked descriptions attributable.
     const quote = quotedSource(String(userText || ''), l.shown) || quotedSource(telling, l.shown);
-    const shown = quote ? { text: quote, his: Boolean(quotedSource(String(userText || ''), l.shown)) } : whereShown(value);
+    /* M752: A QUOTE PROVES THE WORDS ARE THE PAGE'S, NOT WHOSE THEY ARE. With any quote the paragraph test was skipped — and
+     * the reader is asked for one every time — so Rias's "copper hair, cut to the jaw" was locked as absent Mira's, and
+     * "Her green eyes" (Rias's: the sentence before names her) as Tom's. The quote's own paragraph says whose, as an
+     * unquoted value's paragraph does; the pronoun-linked description still counts for the person that paragraph is about. */
+    const fromHim = Boolean(quote && quotedSource(String(userText || ''), l.shown));
+    const shown = quote ? (paragraphs.find((p) => p.his === fromHim && quotedSource(p.text, quote)) || { text: quote, his: fromHim }) : whereShown(value);
     if (!shown) continue; /* not this page's words, nor his */
     const lasting = lastingLook(value); /* M681 (P2) */
     if (!lasting) continue;
@@ -2855,7 +2930,7 @@ export function lockedLooks(state, looks, pageText = '', userText = '') {
     if (isMc(state, said)) name = mc && mc !== 'the player' ? mc : '';
     else { const at = findPresent(state, said, { strict: true }); name = at !== -1 ? state.present[at].name : (findPersonKey(chars, said) || ''); }
     if (!name) continue; /* someone the story knows — never a face in a crowd */
-    if (!quote && !aboutThem(shown, name)) continue; /* legacy unquoted word-overlap attribution */
+    if (!aboutThem(shown, name)) continue; /* whose paragraph it is, quoted or not (M752) */
     const canonKey = personBookKey(state, canon, name, findCanonKey);
     const entry = canonKey ? canon[canonKey] : null;
     const same = (a, b) => String(a || '').trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ') === String(b || '').trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ');
@@ -3432,6 +3507,33 @@ export function undoEntry(state, index, { coordinated = false } = {}) {
   return { state: next, words: 'Taken back — ' + entry.words };
 }
 
+/* M752: A SPELLING CORRECTION'S TAKE-BACK OUTLIVES ITS LOG LINE. The log keeps its newest 200 lines; the Housekeeper's
+ * receipt keeps the ledger's half of the correction (spelling.js spellingLedgerReceipt: {jid, words, undo}). With the line
+ * gone it is taken back from the receipt by the same rules as undoEntry: refused under a later standing change to the
+ * same thing, refused where what it restores changed since (named), and journaled under the correction's own page so
+ * every fold reverses it too. Returns {state} | {refused}. */
+export function undoFromReceipt(state, receipt) {
+  const undo = receipt && receipt.undo;
+  if (!undo || undo.kind !== 'people.renamed' || !undo.after) return { refused: 'The receipt holds no ledger take-back.' };
+  const next = copyState(state);
+  const target = undoTarget(undo);
+  const later = (next.log || []).find((e) => e && !e.undone && e.undo && e.jid !== receipt.jid && undoTarget(e.undo) === target);
+  if (later) return { refused: 'a later change touched the same thing — take that one back first: ' + later.words };
+  try { restoreSpellingBooks(next, undo); } catch (err) { return { refused: err.message }; }
+  journalUndo(next, { jid: receipt.jid, words: receipt.words, undo });
+  return { state: next };
+}
+
+/* A coordinated spelling take-back, book by book, three-way (spelling.js restoreSpelling): what changed since the correction
+ * stays, what it changed goes back, and a corrected part changed since throws, named. All or nothing: the books are laid on
+ * `next` only once every one of them could be restored. */
+function restoreSpellingBooks(next, undo) {
+  const b = undo.before || {};
+  const restored = {};
+  for (const k of Object.keys(b)) restored[k] = restoreSpelling(next[k] ?? null, b[k], undo.after[k], 'ledger.' + k);
+  Object.assign(next, restored);
+}
+
 /* The reversal of one payload against a copy of the state. Shared by
  * undoLast and undoEntry. Returns true when it could be applied. */
 function applyUndo(next, undo) {
@@ -3592,11 +3694,7 @@ function applyUndo(next, undo) {
     } else if (undo.kind === 'people.renamed') {
       const b = undo.before || {};
       if (undo.after) {
-        try {
-          const restored = {};
-          for (const k of Object.keys(b)) restored[k] = restoreSpelling(next[k] ?? null,b[k],undo.after[k],'ledger.' + k);
-          Object.assign(next,restored);
-        } catch { return false; }
+        try { restoreSpellingBooks(next, undo); } catch { return false; }
       } else for (const [k, v] of Object.entries(b)) if (v !== null) next[k] = JSON.parse(JSON.stringify(v));
       ok = true;
     } else if (undo.kind === 'source.resolved') {

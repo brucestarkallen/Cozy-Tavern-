@@ -40,6 +40,9 @@ async function tale(title, { page = PAGE, input = 'I continue the bout.', mutati
   return id;
 }
 const issue = (what, mutation) => ({ what, fix: 'Correct the ledger from the newest page.', mutations: [mutation] });
+/* M698/M709: the final review answers its FINAL REVIEW CONTRACT — repairs in issues beside a completed whole-review verdict,
+ * and standings:[] for a brief that states no starting digits. Repairs with no verdict leave every entry unapproved. */
+const reviewed = (answer) => ({ review: { status: 'complete', why: 'Every required entry was checked against the brief and the newest page.', open: [] }, standings: [], ...answer });
 
 const arrival = "Princess Alexia came in through the side gallery and sat in the third row, her woman settling two seats behind with the expression of someone who had not been consulted.";
 const watching = "In the third row of the gallery, Alexia's hooked ankle had come down off the other knee. She was leaning forward now, gloves folded under her chin.";
@@ -47,11 +50,22 @@ const newPage = '[the palace salle, Ilvarren | 10:00 | cold | wool gambeson | ba
 const absent = [{ type: 'offscreen.set', name: 'Princess Alexia', location: 'the palace salle gallery', activity: 'watching the bout' }];
 const room = { roomAt: { page: 0, names: ['Jugram', 'Kelstrum', 'Kerroc', 'Corven', 'Garett'] } };
 async function checkRepair(id, mutation, verify, what = 'Correct this entry from the story page.') {
-  await wire(() => ({ issues: [issue(what, mutation)] }), async () => {
+  await wire(() => reviewed({ issues: [issue(what, mutation)] }), async () => {
     const result = await auditLedger({ connection, storyId: id });
     await verify(await loadState(id), result);
   });
 }
+/* M689/M709: production no longer runs the old prose acceptance filter (auditorScope) or a quotation gate over the final
+ * reviewer's repairs — the reviewer judges chronology, subjects and identity from the originals (finalAuditorScope keeps
+ * only operation, ownership and player rules). A protection that moved to the reviewer is held where it lives now: in the
+ * request the code actually sends, and in the reviewer's verdict being saved exactly as given. */
+async function reviewerJudges(id, answer, verify, options = {}) {
+  await wire(() => reviewed(answer), async (calls) => {
+    const result = await auditLedger({ connection, storyId: id, ...options });
+    await verify(await loadState(id), result, calls.map(sent).join('\n'));
+  });
+}
+const toldTo = (request, rules) => { for (const rule of rules) assert(request.includes(rule), 'the final reviewer is told: ' + rule); };
 
 test('M688-1 the reported ankle and pronoun quote restores Alexia to the gallery', async () => {
   const id = await tale('m688-ankle', { page: newPage, mutations: absent, extra: room });
@@ -88,10 +102,17 @@ test('M688-4 the documented presence update form validates against the person la
 });
 
 test('M688-5 recovering named evidence still refuses a later departure and a quoted conversation', async () => {
-  for (const page of [newPage + '\n\nPrincess Alexia left the salle for her chambers.', '[the palace salle, Ilvarren | 10:00]\n\nJugram said, "Princess Alexia is watching from the gallery."\n\n' + END]) {
+  const left = 'Princess Alexia left the salle for her chambers.';
+  /* the reviewer follows her to where the later departure took her; a mention in speech moves nobody */
+  for (const [page, answer, where] of [
+    [newPage + '\n\n' + left, { issues: [issue('Alexia left the salle for her chambers.', { type: 'offscreen.set', name: 'Princess Alexia', location: 'her chambers', activity: 'gone from the salle', shown: left })] }, 'her chambers'],
+    ['[the palace salle, Ilvarren | 10:00]\n\nJugram said, "Princess Alexia is watching from the gallery."\n\n' + END, { issues: [] }, 'the palace salle gallery'],
+  ]) {
     const id = await tale('m688-leave-or-talk', { page, mutations: absent, extra: room });
-    await checkRepair(id, { type: 'presence.enter', name: 'Princess Alexia', position: 'third row of the gallery' }, (state) => {
-      assert(!state.present.some((p) => p.name === 'Princess Alexia'), 'a departure or a mention in speech cannot restore her');
+    await reviewerJudges(id, answer, (state, result, request) => {
+      toldTo(request, ['A later departure, death, changed position or scene move still wins. Never restore an earlier moment over it.', 'Dialogue can establish an identity without placing its speaker’s subject nearby.', 'Silence is not departure; mentioning a remote person is not presence.']);
+      assert(!state.present.some((p) => p.name === 'Princess Alexia') && state.offscreen['Princess Alexia']?.location === where, 'a departure or a mention in speech cannot restore her');
+      assert(!result.unfinished, 'the reviewer’s verdict completes without restoring her: ' + JSON.stringify(result.pending));
     });
   }
 });
@@ -99,8 +120,16 @@ test('M688-5 recovering named evidence still refuses a later departure and a quo
 test('M688-6 deriving current evidence never restores an earlier posture over a later pronoun move', async () => {
   const page = '[the palace salle, Ilvarren | 10:00]\n\nKerroc sat on his witness stool with the ledger shut on his knees. He then stood at the rail with the ledger open again.\n\n' + END;
   const id = await tale('m688-late-pronoun', { page, mutations: [{ type: 'presence.enter', name: 'Kerroc', position: 'at the rail with the ledger open again' }] });
-  await checkRepair(id, { type: 'presence.update', name: 'Kerroc', position: 'on his witness stool, ledger shut on his knees' }, (state) => {
-    assert(state.present.find((p) => p.name === 'Kerroc').position.includes('rail'), 'the later current pose is retained');
+  /* M710/M712: the reviewer derives the ending first and marks an already-right saved pose repair:false */
+  const ending = { name: 'Kerroc', repair: false, earlier: 'sat on his witness stool with the ledger shut on his knees', ending: { position: 'at the rail with the ledger open again', shown: 'He then stood at the rail with the ledger open again.' } };
+  /* …and the confirmed ending outranks a stray update in the same answer that restores the earlier pose (M710/M712) */
+  const stray = issue('The ledger pose is outdated.', { type: 'presence.update', name: 'Kerroc', position: 'on his witness stool, ledger shut on his knees', shown: 'Kerroc sat on his witness stool with the ledger shut on his knees.' });
+  await reviewerJudges(id, { scene: [ending], issues: [stray] }, (state, result, request) => {
+    toldTo(request, ['A quote from earlier in the same page does not overrule that person reaching a different position later in that page.', 'Discard intermediate states replaced later in the sequence.', 'Earlier wording appearing anywhere on the page does not make it current.']);
+    eq(state.present.find((p) => p.name === 'Kerroc').position, 'at the rail with the ledger open again', 'the later current pose is retained');
+    assert(!result.applied.some((a) => a.mutation.type === 'presence.update'), 'a right ending read writes nothing');
+    eq(state.audit.finalReview.scene.people[0].ending.position, ending.ending.position, 'the ending read stays in the scratchbook');
+    assert(!result.unfinished, JSON.stringify(result.pending));
   });
 });
 
@@ -113,7 +142,7 @@ test('M688-7 an exact writer established MC persona quote clears only its false 
   await saveState(id, state);
   const old = globalThis.fetch;
   try {
-    await wire(() => ({ issues: [issue('The MC persona cannot occupy another seat.', { type: 'offscreen.clear', name: 'Jugram', shown: persona })] }), async () => {
+    await wire(() => reviewed({ issues: [issue('The MC persona cannot occupy another seat.', { type: 'offscreen.clear', name: 'Jugram', shown: persona })] }), async () => {
       const result = await auditLedger({ connection, storyId: id, brief: persona });
       const after = await loadState(id);
       assert(!after.offscreen.Jugram, 'the false persona seat clears');
@@ -130,10 +159,16 @@ test('M688-8 an unrelated person or a hoped for persona cannot lose their seat o
     const id = await tale('m688-not-persona', { page: '[the palace salle, Ilvarren | 10:00]\n\nAzrael fenced in the salle.' });
     const state = await loadState(id); state.sheet.playerName = 'Azrael'; state.present = [{ name: 'Azrael' }];
     state.offscreen.Jugram = { location: 'the north barracks', activity: 'resting' }; await saveState(id, state);
-    await wire(() => ({ issues: [issue('A guessed persona.', { type: 'offscreen.clear', name: 'Jugram', shown: text })] }), async () => {
-      await auditLedger({ connection, storyId: id, brief: text });
-      assert((await loadState(id)).offscreen.Jugram, 'the real other person remains elsewhere');
-    });
+    /* the MC identity rule the code itself runs in every audit (sourcePersonaMutations) never reads these as his persona */
+    await reviewerJudges(id, { issues: [] }, (after, result, request) => {
+      toldTo(request, ['Never guess a persona from a similar name or from an intention to impersonate someone.']);
+      assert(after.offscreen.Jugram && !(after.sheet.playerAliases || []).includes('Jugram'), 'the real other person remains elsewhere');
+    }, { brief: text });
+    /* …and a person the story keeps cannot be left nowhere, even by a clear the reviewer approved (apply.js offscreen.clear) */
+    await saveState(id, applyMutations(await loadState(id), [{ type: 'people.set', name: 'Jugram', field: 'core', text: 'A swordsman of the salle, a different man from Azrael.' }]).state);
+    await reviewerJudges(id, { issues: [issue('A guessed persona.', { type: 'offscreen.clear', name: 'Jugram', shown: text })] }, (after) => {
+      assert(after.offscreen.Jugram, 'the real other person remains elsewhere');
+    }, { brief: text });
   }
 });
 
@@ -147,9 +182,13 @@ test('M688-9 a finding quotation supplies scene evidence without requiring it tw
 
 test('M688-10 a quotation about someone else cannot establish an unshown person', async () => {
   const id = await tale('m688-other-person-quote', { page: newPage, mutations: [{ type: 'people.set', name: 'Prince Caelan', field: 'core', text: 'The prince at his own castle.' }, { type: 'offscreen.set', name: 'Prince Caelan', location: 'his own castle' }], extra: room });
-  await checkRepair(id, { type: 'presence.enter', name: 'Prince Caelan', position: 'at the rail beside Garett' }, (state) => {
-    assert(!state.present.some((p) => p.name === 'Prince Caelan'), 'another person quotation is not his presence');
-  }, "Caelan is supposedly here: '" + COMMODUS + "'");
+  /* the reviewer reads the quotation as its own subject's: Commodus at the rail, and nobody else */
+  await reviewerJudges(id, { issues: [issue('Commodus is at the salle rail but missing from the scene.', { type: 'presence.enter', name: 'Commodus', position: 'at the rail', shown: COMMODUS })] }, (state, result, request) => {
+    toldTo(request, ['Resolve descriptive clauses and pronouns to their actual subject, not every name appearing in the quotation.', 'Silence is not departure; mentioning a remote person is not presence.']);
+    assert(state.present.some((p) => p.name === 'Commodus'), 'the quotation lands on its own subject');
+    assert(!state.present.some((p) => p.name === 'Prince Caelan') && state.offscreen['Prince Caelan']?.location === 'his own castle', 'another person quotation is not his presence');
+    assert(!result.unfinished, JSON.stringify(result.pending));
+  });
 });
 
 test('M688-11 the singular maid continuation repairs a legacy plural role posture from the reported broom passage', async () => {
@@ -184,8 +223,16 @@ test('M688-13 typographic apostrophes in a copied scene quotation do not change 
 test('M688-14 a role shared by two distinct maid records is not guessed from a singular mention', async () => {
   const late = "The maid's broom lay forgotten against the wall. The nearer maid had gone still watching the bout.";
   const id = await tale('m688-two-maids', { page: '[the palace salle, Ilvarren | 10:00]\n\n' + late + '\n\n' + END, mutations: [{ type: 'presence.enter', name: 'salle-maids', position: 'against the flags, broom held still' }, { type: 'people.set', name: 'the kitchen maid', field: 'core', text: 'A different maid from the kitchens.' }] });
-  await checkRepair(id, { type: 'presence.update', name: 'salle-maids', position: 'broom abandoned upright against the wall, nearer maid gone still watching', shown: late }, (state) => {
+  /* an owner the reviewer cannot settle is left open, never guessed: the entry keeps its value and stays visibly unfinished */
+  const open = { id: 'presence:salle-maids', why: 'The singular maid may be the salle maid or the kitchen maid; the page does not say which.' };
+  /* the review's ending read keeps the role seat's saved pose (repair:false), and it outranks a guessed update in the same
+   * answer that hands the singular maid's broom and stillness to the role seat (M710/M712) */
+  const kept = { name: 'salle-maids', repair: false, ending: { position: 'against the flags, broom held still' } };
+  const guessed = issue('The maids moved.', { type: 'presence.update', name: 'salle-maids', position: 'broom abandoned upright against the wall, nearer maid gone still watching', shown: late });
+  await reviewerJudges(id, { scene: [kept], issues: [guessed], review: { status: 'complete', why: 'Reviewed every entry; one role owner is unsettled.', open: [open] } }, (state, result, request) => {
+    toldTo(request, ['Resolve pronouns and titles in context, not by keyword matching.', 'Put genuinely unresolved items in open', 'A role or title that more than one established person holds identifies none of them by itself']);
     eq(state.present.find((p) => p.name === 'salle-maids').position, 'against the flags, broom held still', 'ambiguous role ownership is preserved');
+    assert(result.unfinished && result.pending.some((p) => p.includes(open.id + ': ' + open.why)), 'the unsettled owner stays visibly unresolved: ' + JSON.stringify(result.pending));
   });
 });
 
@@ -196,7 +243,7 @@ test('M688-15 the reported old persona finding with no mutation closes after the
   state.offscreen.Jugram = { location: 'the palace salle', activity: 'dueling' };
   state.audit = { unfinished: true, unresolved: [{ what: "Jugram is seated among the absent as though he were away from the salle, but Jugram is Azrael's own persona and the man on the raked ground is Azrael himself; the persona does not take a separate seat while worn.", pendingReason: 'no repair was supplied', mutations: [] }] };
   await saveState(id, state);
-  await wire(() => ({ issues: [issue('Clear the false persona seat.', { type: 'offscreen.clear', name: 'Jugram', shown: persona })] }), async () => {
+  await wire(() => reviewed({ issues: [issue('Clear the false persona seat.', { type: 'offscreen.clear', name: 'Jugram', shown: persona })] }), async () => {
     const result = await auditLedger({ connection, storyId: id, brief: persona });
     assert(!(await loadState(id)).offscreen.Jugram, 'the actual seat clears');
     assert(!result.unfinished, 'the old seat concern does not linger after the real repair: ' + JSON.stringify(result.pending));
@@ -210,7 +257,7 @@ test('M688-16 a seat repair does not close a different old identity concern with
   state.offscreen.Jugram = { location: 'the palace salle', activity: 'dueling' };
   state.audit = { unfinished: true, unresolved: [{ what: "Jugram has the wrong birthplace in the record.", pendingReason: 'no repair was supplied', mutations: [] }] };
   await saveState(id, state);
-  await wire(() => ({ issues: [issue('Clear the false persona seat.', { type: 'offscreen.clear', name: 'Jugram', shown: persona })] }), async () => {
+  await wire(() => reviewed({ issues: [issue('Clear the false persona seat.', { type: 'offscreen.clear', name: 'Jugram', shown: persona })] }), async () => {
     const result = await auditLedger({ connection, storyId: id, brief: persona });
     assert(result.unfinished && result.pending.some((p) => p.includes('birthplace')), 'the different durable concern remains');
   });
@@ -219,8 +266,15 @@ test('M688-16 a seat repair does not close a different old identity concern with
 test('M688-17 a quote containing both poses cannot overwrite the saved later pronoun pose with its earlier half', async () => {
   const quote = 'Kerroc sat on his witness stool with the ledger shut on his knees. He then stood at the rail with the ledger open again.';
   const id = await tale('m688-whole-pose-quote', { page: '[the palace salle, Ilvarren | 10:00]\n\n' + quote + '\n\n' + END, mutations: [{ type: 'presence.enter', name: 'Kerroc', position: 'at the rail with the ledger open again' }] });
-  await checkRepair(id, { type: 'presence.update', name: 'Kerroc', position: 'on his witness stool, ledger shut on his knees', shown: quote }, (state) => {
-    assert(state.present.find((p) => p.name === 'Kerroc').position.includes('rail'), 'the later field remains');
+  /* the whole quotation is the reviewer's evidence; its ending read keeps only the later half as the current pose */
+  const ending = { name: 'Kerroc', repair: false, earlier: 'sat on his witness stool with the ledger shut on his knees', ending: { position: 'at the rail with the ledger open again', shown: quote } };
+  /* …and a stray update in the same answer that takes the earlier half of that quotation cannot outrank the ending read */
+  const stray = issue('The quoted pose.', { type: 'presence.update', name: 'Kerroc', position: 'on his witness stool, ledger shut on his knees', shown: quote });
+  await reviewerJudges(id, { scene: [ending], issues: [stray] }, (state, result, request) => {
+    toldTo(request, ['A quote from earlier in the same page does not overrule that person reaching a different position later in that page.', 'Separate sequence from snapshot: optional earlier describes completed movement; ending contains ONLY the final physical state.']);
+    eq(state.present.find((p) => p.name === 'Kerroc').position, 'at the rail with the ledger open again', 'the later field remains');
+    assert(!result.applied.some((a) => a.mutation.type === 'presence.update'), 'a right ending read writes nothing');
+    assert(!result.unfinished, JSON.stringify(result.pending));
   });
 });
 
@@ -267,8 +321,12 @@ test('M688-21 another person arrival in the same quotation cannot move a watcher
     { type: 'people.set', name: 'Renji Abarai', field: 'core', text: 'The man who enters.' },
     { type: 'offscreen.set', name: 'Kiyone Kotetsu', location: 'the north barracks corridor', activity: 'watching from outside' },
   ], extra: room });
-  await checkRepair(id, { type: 'presence.enter', name: 'Kiyone Kotetsu', shown: quote }, (state) => {
-    assert(!state.present.some((p) => p.name === 'Kiyone Kotetsu') && state.offscreen['Kiyone Kotetsu'], 'Renji arrival is not Kiyone arrival');
+  /* the reviewer follows actor and subject: the arrival in the quotation is Renji's */
+  await reviewerJudges(id, { issues: [issue('Renji came into the salle and is missing from the scene.', { type: 'presence.enter', name: 'Renji Abarai', shown: quote })] }, (state, result, request) => {
+    toldTo(request, ['track the actor, recipient and resulting state.', 'Resolve descriptive clauses and pronouns to their actual subject, not every name appearing in the quotation.']);
+    assert(state.present.some((p) => p.name === 'Renji Abarai'), 'the arrival lands on its own subject');
+    assert(!state.present.some((p) => p.name === 'Kiyone Kotetsu') && state.offscreen['Kiyone Kotetsu']?.location === 'the north barracks corridor', 'Renji arrival is not Kiyone arrival');
+    assert(!result.unfinished, JSON.stringify(result.pending));
   });
 });
 
@@ -293,7 +351,22 @@ test('M688-23 a whole quote with an earlier state cannot overwrite the saved lat
     { type: 'presence.enter', name: 'Kerroc', position: 'at the rail with the ledger open again' },
     { type: 'people.set', name: 'Kerroc', field: 'state', text: late },
   ] });
-  await checkRepair(id, { type: 'people.set', name: 'Kerroc', field: 'state', text: early, shown: early + ' ' + late }, (state) => {
+  /* M709: with a completed verdict the reviewer's own judgment keeps the later now — held where it lives, in the rules
+   * the review is sent and in its verdict being saved as given */
+  await reviewerJudges(id, { issues: [] }, (state, result, request) => {
+    toldTo(request, ['For a now use that person\'s latest established evidence on the newest scene', 'Never restore an earlier changed moment.', 'A state repair uses that person\'s latest own account on the newest scene']);
     eq(state.characters.Kerroc.state, late, 'the saved later current state remains');
+    assert(!result.unfinished, JSON.stringify(result.pending));
+  });
+  /* …and when the review leaves his now open, that open row holds back a stray earlier now riding in the same answer */
+  const unsettled = await tale('m688-later-state-open', { page: '[the palace salle, Ilvarren | 10:00]\n\n' + early + ' ' + late + '\n\n' + END, mutations: [
+    { type: 'presence.enter', name: 'Kerroc', position: 'at the rail with the ledger open again' },
+    { type: 'people.set', name: 'Kerroc', field: 'state', text: late },
+  ] });
+  const open = { id: 'characterState:Kerroc', why: 'Which of his two states is current is not settled in this reading.' };
+  const stray = issue('His now is outdated.', { type: 'people.set', name: 'Kerroc', field: 'state', text: early, shown: early + ' ' + late });
+  await reviewerJudges(unsettled, { issues: [stray], review: { status: 'complete', why: 'Reviewed every entry; his current state is unsettled.', open: [open] } }, (state, result) => {
+    eq(state.characters.Kerroc.state, late, 'the open row keeps the saved later current state');
+    assert(result.unfinished && result.pending.some((p) => p.includes(open.id + ': ' + open.why)), 'the unsettled now stays visibly open: ' + JSON.stringify(result.pending));
   });
 });

@@ -33,7 +33,10 @@ function room() {
 }
 const posOf = (st, n) => (st.present.find((p) => p.name === n) || {}).position;
 
-test('M677-1 WHERE EACH OF THEM IS, ASKED BY NAME: the page reader is handed, by name, every person his page 20 shows (its telling, before the window) with what the ledger says of them — never the main character (his place is his header’s), never someone here the page does not show, never someone in the window', async () => {
+/* M710 ("save and reconcile the completed scene"): "Removed automatic header pose/outfit injection … MC receives the same
+ * explicit ending question, including pronoun-only actions" — his place is no longer his header's (the header opens the
+ * page), so he is asked about by name like everyone the page shows. */
+test('M677-1 WHERE EACH OF THEM IS, ASKED BY NAME: the page reader is handed, by name, every person his page 20 shows (its telling, before the window) with what the ledger says of them — and the main character himself (M710: his ending is the reader’s to say, never his header’s); never someone here the page does not show, never someone in the window', async () => {
   const { buildExtractorMessages } = await import('../../js/agents/extractor.js');
   const st = room();
   const p = buildExtractorMessages({ state: st, userText: 'Ask me something easier.', assistantText: P20, pageNumber: 20 });
@@ -44,7 +47,7 @@ test('M677-1 WHERE EACH OF THEM IS, ASKED BY NAME: the page reader is handed, by
     assert(block.includes(n + ' — the ledger has: ') && block.includes(was), 'asked about ' + n + ', with the ledger’s words: ' + block);
   }
   assert(/wearing a travel blanket wrapped to the chin/.test(block), 'and what the ledger says they wear');
-  assert(!/\d\. Jovan /.test(block), 'never the main character');
+  assert(/\d\. Jovan — the ledger has: no place written\n/.test(block + '\n'), 'the main character too, by name, with what the ledger has of him: ' + block);
   assert(!block.includes('Oda Haruto'), 'never someone here the page does not show (quiet is not gone, and not asked about)');
   assert(!block.includes('Megumi'), 'never someone in the window');
   const first = buildExtractorMessages({ state: { ...emptyState() }, userText: 'x', assistantText: P20, founding: true });

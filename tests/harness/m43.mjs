@@ -13,7 +13,11 @@ test('M43-1 no chip on a mended page; the take-back lives in the drawer', () => 
 
 test('M43-2 a branch carries its checkpoint: the ledger after the branch page, the snapshots, the versions, the record’s lines, the lore', () => {
   const c = chat();
-  const b = ((at) => c.slice(at, c.indexOf('\n  async function ', at + 10)))(c.indexOf('async function branchFrom(')); /* M517: the whole of branchFrom, to its end — a fixed window (15,000 characters, grown by hand in M72, M91, M127, M332) cut off the re-read call when five lines were added above it */
+  /* M720 (a87d357): branchFrom became the update-held door — ctx.updates.run(() => branchForUpdate(id)) — and the branch is
+   * made in branchForUpdate. This law read from 'async function branchFrom(', found nothing, and sliced from -1. */
+  const at = c.indexOf('async function branchForUpdate(');
+  assert(at !== -1 && /function branchFrom\(messageId\) \{ return ctx\.updates \? ctx\.updates\.run\(\(\) => branchForUpdate\(messageId\)\) : branchForUpdate\(messageId\); \}/.test(c), 'branchFrom makes the branch in branchForUpdate');
+  const b = c.slice(at, c.indexOf('\n  async function ', at + 10)); /* M517: the whole of the branch's maker, to its end — a fixed window (15,000 characters, grown by hand in M72, M91, M127, M332) cut off the re-read call when five lines were added above it */
   assert(/carried = await versionStateFor\(story\.id, target\.id, idx\);/.test(b), 'the version checkpoint first');
   assert(/const hit = snaps\.find\(\(e\) => e\.id === nextUser\.id\);/.test(b), 'else the next turn’s boundary');
   /* M66: never a LATER state — the nearest earlier checkpoint, else a clean ledger plus a re-reading */
@@ -38,7 +42,9 @@ test('M43-2 a branch carries its checkpoint: the ledger after the branch page, t
 
 test('M112-1 a branch taken while the readers are still on the newest page re-reads that page itself; an origin\'s chain is never touched', () => {
   const c = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
-  const b = ((at) => c.slice(at, c.indexOf('\n  async function ', at + 10)))(c.indexOf('async function branchFrom(')); /* M523: the whole of branchFrom, to its end — a fixed 15,000-character window cut off the re-read call when lines were added above it (as M43-2 in M517) */
+  const at = c.indexOf('async function branchForUpdate('); /* M720: the branch is made in branchForUpdate (branchFrom holds it as an operation the update waits on — M43-2) */
+  assert(at !== -1, 'the branch’s maker is found');
+  const b = c.slice(at, c.indexOf('\n  async function ', at + 10)); /* M523: the whole of it, to its end — a fixed 15,000-character window cut off the re-read call when lines were added above it (as M43-2 in M517) */
   assert(/chainStillRunning = \(await pendingWork\(story\.id, 8000\)\) === false && workInFlight\(story\.id\);/ /* M332: declared above the branch's try, assigned here; M506: a settled tale is not "still running" */.test(b), 'the wait says whether the chain settled — and only a reader still out means still running (M506)');
   assert(/\} else if \(fromTheTail\) \{\s*carried = nowState;\s*exact = true;/.test(b) && /if \(fromTheTail && chainStillRunning\) \{[\s\S]*?exact = false;\s*mustReread = true;/.test(b), 'the newest page is exact only once the readers landed (the behaviour: walk DOM-127)');
   assert(/if \(fromTheTail && chainStillRunning\) \{\s*startBackgroundWork\(branchStory, last, lastUser \? pageText\(lastUser\) : '', \{ deep: false, audit: true \}\)/.test(b), 'a light re-read of the last page, not the deep one');

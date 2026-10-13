@@ -21,6 +21,25 @@ export function estimateTokens(text) {
   return Math.ceil(String(text).length / 4);
 }
 
+/* M752: THE SELECTION AS THE SENT STORE KEEPS IT (js/sent.js, beside the page's words). The request's own selection lists
+ * every message of the tale and every record line with its reason — about 198 KB a page on a 600-page tale, kept for the
+ * newest 200 pages and pushed to the device — and nothing reads those lists. Their counts are kept, with the parts that
+ * are small and say what the request held: the coverage and its gaps, the plans, the people, the passages, and what the
+ * caller adds (the smart recall's answer). */
+export function selectionForSent(selection, extra = {}) {
+  if (!selection || typeof selection !== 'object') return null;
+  const records = Array.isArray(selection.records) ? selection.records : [];
+  const messages = Array.isArray(selection.messages) ? selection.messages : [];
+  return {
+    v: selection.v, storyId: selection.storyId, revision: selection.revision,
+    messages: { carried: messages.filter((m) => m && m.selected).length, total: messages.length },
+    records: { selected: records.filter((r) => r && r.selected).length, unavailable: records.filter((r) => r && r.available === false).length, total: records.length },
+    plans: selection.plans, characters: selection.characters, excerpts: selection.excerpts,
+    coverage: selection.coverage, gaps: selection.gaps,
+    ...extra,
+  };
+}
+
 export function finalizeReceipt(draft, timings) {
   const { ttftMs, tfftMs, durationMs, model, effort, prefill, sentId, noThought, small, thinkWhy, connId, label } = timings || {};
   const safe = draft && typeof draft === 'object' ? draft : {};
@@ -51,7 +70,10 @@ export function finalizeReceipt(draft, timings) {
     prefill: typeof prefill === 'string' ? prefill : '',
     stateSummary: typeof safe.stateSummary === 'string' ? safe.stateSummary : '',
     ...(safe.context ? { context: { ...safe.context } } : {}),
-    ...(safe.selection ? { selection: { revision:safe.selection.revision, coverage:safe.selection.coverage, gaps:safe.selection.gaps, records:safe.selection.records.filter(r => r.selected).map(r => ({id:r.id,span:r.span,detail:r.detail})) } } : {}),
+    /* M752: what the page keeps of the request's selection is what is read of it (receiptview: the source gaps). Every
+     * record line selected rode on every page's receipt — 16.8 KB a page on a 292-line record, against 4.2 KB for the rest
+     * of the receipt — synced and backed up with the book, and read by nothing (M347: nothing heavy rides the page) */
+    ...(safe.selection ? { selection: { gaps: Array.isArray(safe.selection.gaps) ? safe.selection.gaps : [] } } : {}),
     /* M347: where this page's words are kept (js/sent.js) — a receipt without it is from before they were kept */
     ...(typeof sentId === 'string' && sentId ? { sentId } : {}),
     /* M348: thinking was asked for and none came back — said on the page, so "did it think?" is never a guess */

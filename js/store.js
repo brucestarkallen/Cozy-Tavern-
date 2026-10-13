@@ -886,7 +886,8 @@ const STORY_PREFIXES = ['state', 'memory', 'lore', 'workers', 'snapshots', 'snap
   'plans', 'standingPlans', 'essentials', 'pagesMended', 'canonStart', 'worldGround',
   'canonGroundingSettings', /* M525: canon verification's own settings, kept per story (bridge.js storySettingsKey) — found by DOM-181, not by the search */
   'hkNotes', /* M525: the housekeeper's notes per story — found by DOM-181 over the whole walk */
-  'asidesSettled' /* M675: the once-a-tale mark that its out-of-character pages were settled (chat.js settleAsides) — found by DOM-181 again: the row of a tale that was gone rode the house book and no start swept it */];
+  'asidesSettled', /* M675: the once-a-tale mark that its out-of-character pages were settled (chat.js settleAsides) — found by DOM-181 again: the row of a tale that was gone rode the house book and no start swept it */
+  'healthWorkers' /* M727: each tale's automatic worker-recovery checkpoints (chat.js recoverHealthWorker) — the list never learned it, and DOM-181 found a gone tale's row riding the house book */];
 const STORY_PREFIXED = new RegExp('^(?:' + STORY_PREFIXES.join('|') + '):.+$');
 
 /* M160: every tale-shaped row whose tale is gone, let go for good. Stores
@@ -1184,16 +1185,22 @@ async function importHouse(json, { dropMissing = false, keep = [] } = {}) {
   dropCaches();
 }
 
+/* A REFUSAL WRITES NOTHING, AND SAYS SO ON ITSELF. Each refusal below is thrown before a row is cleared or written. The
+ * update coordinator (js/updates.js) keeps a page open for good after a save that did not land — the words may live only
+ * on the screen — and it read "Bring a copy back" with the wrong file as one: every update held off for the rest of the
+ * session, and "A save failed" said of a file that was only turned away at the door. */
+function refusedBeforeWriting(message) { return Object.assign(new Error(message), { nothingWritten: true }); }
+
 async function importAll(json) {
   dropCaches(); /* M137: a restore replaces every row */
   let envelope;
   try {
     envelope = typeof json === 'string' ? JSON.parse(json) : json;
   } catch (err) {
-    throw new Error('That file doesn’t read like a Cozy Tavern backup.');
+    throw refusedBeforeWriting('That file doesn’t read like a Cozy Tavern backup.');
   }
   if (!envelope || envelope.namespace !== NAMESPACE) {
-    throw new Error('That file doesn’t read like a Cozy Tavern backup.');
+    throw refusedBeforeWriting('That file doesn’t read like a Cozy Tavern backup.');
   }
   /* M9 (B17): every row is read and checked BEFORE anything is cleared —
    * a backup with a bent row fails kindly with everything left as it was. */
@@ -1202,20 +1209,20 @@ async function importAll(json) {
   for (const name of STORES) {
     const rows = envelope[name] == null ? [] : envelope[name];
     if (!Array.isArray(rows)) {
-      throw new Error(`That backup’s “${name}” shelf isn’t a list — nothing was touched.`);
+      throw refusedBeforeWriting(`That backup’s “${name}” shelf isn’t a list — nothing was touched.`);
     }
     for (let i = 0; i < rows.length; i += 1) {
       const row = rows[i];
       const key = keyOf[name];
       if (!row || typeof row !== 'object' || Array.isArray(row)
         || typeof row[key] !== 'string' || !row[key]) {
-        throw new Error(`Row ${i + 1} of that backup’s “${name}” shelf wouldn’t read — nothing was touched.`);
+        throw refusedBeforeWriting(`Row ${i + 1} of that backup’s “${name}” shelf wouldn’t read — nothing was touched.`);
       }
     }
     if (name === 'messages') {
       for (const row of rows) {
         if (typeof row.storyId !== 'string' || !row.storyId) {
-          throw new Error('A page in that backup doesn’t say which tale it belongs to — nothing was touched.');
+          throw refusedBeforeWriting('A page in that backup doesn’t say which tale it belongs to — nothing was touched.');
         }
       }
     }

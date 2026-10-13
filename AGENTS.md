@@ -113,3 +113,26 @@ borrow another source's ledgerName when resolving a row without a local binding.
 Keep source finding ids distinct across same-label chunks. A final source
 withdrawal must save its actual disposition, so it cannot reappear next turn.
 Omitted decisions complete in the existing conversation, no independent checker.
+
+After M752 (the audit of M682–M751), keep these; each has a law that fails without it:
+- One measure of room: the storyteller's request is planned and fitted in budget.js's
+  measure; a worker's room is call.js workerRoom (pagecut.js roomChars uses it). With
+  no Max tokens set, refuse only below ANSWER_FLOOR; a refusal is said in the thread.
+- A model answer never grants itself byHand, auditorApproved, writerEstablished,
+  spelling, story or similar flags: every reader's parser strips them.
+- Durable books, bounded views: threads and seats are kept whole and shown 40 at a time,
+  chosen for what is read, with a count and a fetch ("person: NAME" returns the seat).
+- One knowledge record per kind and exact statement; a worker label is never a receipt
+  (receipts ride in `provenance`).
+- The final review: an open verdict holds every write to its row; a confirmed scene
+  ending outranks a contradicting update; two writes to one field are refused; a
+  refused repair is never certified; rows past the room stay open, never approved unread.
+- Record lines stay bound when the house itself rewrites or copies pages (spelling,
+  branch, mends: restampRecord, branchRecord, recordAfterPageChange).
+- A spelling correction matches the name as written (and in capitals), never an
+  ordinary word; a month, a weekday or a word the story writes in lower case is refused.
+- The thread shows the tale that is open: a drawing or a page redrawn after waits stands
+  down when another tale was opened meanwhile (renderThread, rerenderMessage); a telling's
+  failure is said in its own tale's thread, or by the tale's name (generate's sayFailed).
+- tests/harness/focused.mjs runs the standalone milestone fixtures inside the suite; a new
+  focused fixture is added there, not left outside it.

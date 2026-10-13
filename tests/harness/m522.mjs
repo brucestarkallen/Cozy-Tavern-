@@ -25,7 +25,12 @@ test('M522-1 THE AUDITOR SETS A SHARED LINE RIGHT, IN EITHER ORDER: letting go o
 test('M522-2 ONE WORDING HOUSE-WIDE, BUT THE LONGER STAYS: a shorter or paraphrased line takes the wording others hold (M484); a fuller line keeps its own', () => {
   let st = applyMutations({ ...emptyState(), page: 12 }, [{ type: 'knowledge.add', name: 'Rukia', fact: 'heard the demon prince offer all of them a place at his side if they kneel' }]).state;
   st = applyMutations({ ...st, page: 12 }, [{ type: 'knowledge.add', name: 'Renji', fact: 'heard the demon prince offer all of them a place at his side' }]).state;
-  eq(st.knowledge.Renji[0].fact, 'heard the demon prince offer all of them a place at his side if they kneel', 'the shorter takes the fuller wording already held');
+  /* M737: a shorter line is another statement — it can lack a condition ("Mara promised to help" is not "…only after her
+   * brother was released", tests/harness/m737-context.mjs): Renji keeps what he heard, never a condition he did not */
+  eq(st.knowledge.Renji[0].fact, 'heard the demon prince offer all of them a place at his side', 'the shorter keeps its own words, never takes a condition (M737)');
+  /* the same statement in other clothes takes the wording already held (M484) */
+  st = applyMutations({ ...st, page: 12 }, [{ type: 'knowledge.add', name: 'Kensei', fact: 'Heard the demon prince offer all of them a place at his side if they kneel.' }]).state;
+  eq(st.knowledge.Kensei[0].fact, 'heard the demon prince offer all of them a place at his side if they kneel', 'the same statement takes the wording others hold');
   st = applyMutations({ ...st, page: 12 }, [{ type: 'knowledge.add', name: 'Ichigo', fact: 'heard the demon prince offer all of them a place at his side if they kneel before dawn' }]).state;
   eq(st.knowledge.Ichigo[0].fact, 'heard the demon prince offer all of them a place at his side if they kneel before dawn', 'a fuller line keeps its own words');
 });

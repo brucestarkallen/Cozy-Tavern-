@@ -331,7 +331,7 @@ test('M90-2 the auditor reads "the brief wins": a pages issue with a fix is fixa
   assert(/found 2 things/.test(words) && /1 the brief wins — 2 pages mended, their record lines folded again/.test(words) && /1 seen, nothing to change/.test(words), words);
 });
 
-test('M92-1 knowledge never holds the same fact twice — quotes, full stops and clippings are one fact; a store that gathered duplicates is clean on load', async () => {
+test('M92-1 knowledge never holds the same fact twice — quotes, full stops and a later page telling it again are one fact (a clipping is another statement since M737); a store that gathered duplicates is clean on load', async () => {
   const { addKnowledge, sameFact, dedupeKnowledge } = await import('../../js/engine/world.js');
   const { loadState, saveState } = await import('../../js/engine/state.js');
   let k = {};
@@ -339,13 +339,18 @@ test('M92-1 knowledge never holds the same fact twice — quotes, full stops and
   k = addKnowledge(k, 'Rias Wells', "Jovan agreed to come to Vanessa's party with her on Saturday", 4);
   k = addKnowledge(k, 'Rias Wells', 'Jovan agreed to come to Vanessa’s party', 5);
   k = addKnowledge(k, 'Rias Wells', 'saw the captain leave', 6);
-  eq(k['Rias Wells'].length, 2, 'the party fact once, the captain once: ' + JSON.stringify(k));
+  /* M752: the very same statement told again on the next page is the same fact, kept from the page she learned it (M737
+   * kept one line a page). M737 (its own case: "Mara promised to help" is not "…only after her brother was released"):
+   * a clipping is another statement, kept as its own line — no longer folded into the fuller one. */
+  eq(k['Rias Wells'].map((f) => f.fact + ' @' + f.atTurn).join(' | '), 'Jovan agreed to come to Vanessa’s party with her on Saturday. @3 | Jovan agreed to come to Vanessa’s party @5 | saw the captain leave @6',
+    'the party fact once, from page 3; the clipping its own statement; the captain once: ' + JSON.stringify(k));
   assert(!sameFact('saw him leave', 'saw him leave the hall at dusk'), 'a short fact is not a clipping of a long one');
-  assert(sameFact('Jovan agreed to come to Vanessa’s party with her', 'Jovan agreed to come to Vanessa’s party with her on Saturday'), 'a clipping is the same fact');
+  assert(sameFact('Jovan agreed to come to Vanessa’s party with her on Saturday.', "jovan agreed to come to Vanessa's party with her on Saturday"), 'quotes, case and a full stop are one fact');
+  assert(!sameFact('Jovan agreed to come to Vanessa’s party with her', 'Jovan agreed to come to Vanessa’s party with her on Saturday'), 'a clipping is another statement (M737)');
   const st = { ...(await loadState('dupe-story')), knowledge: { Rias: [{ fact: 'Jovan agreed to come to Vanessa’s party with her on Saturday', atTurn: 1 }, { fact: 'Jovan agreed to come to Vanessa’s party with her on Saturday', atTurn: 2 }, { fact: 'other', atTurn: 3 }] } };
   await saveState('dupe-story', st);
   const back = await loadState('dupe-story');
-  eq(back.knowledge.Rias.length, 2, 'the duplicate folded on load');
+  eq(back.knowledge.Rias.map((f) => f.fact + ' @' + f.atTurn).join(' | '), 'Jovan agreed to come to Vanessa’s party with her on Saturday @1 | other @3', 'the duplicate a later page wrote folds on load, the first page kept');
   eq(JSON.stringify(dedupeKnowledge({})), '{}');
 });
 
@@ -477,9 +482,9 @@ test('M100-1 the ripple: one fact changed by an edit is made true everywhere —
   assert(/nothing in the ledger/.test(applyMutations(st, [{ type: 'people.rename', from: 'Nobody', to: 'Someone' }]).rejected[0].why));
 });
 
-test('M103-1 seats have a life in code: a passer-through the world agent kept seated is cleared and retired once nothing carries them; the carried stay; the pool is capped', async () => {
+test('M103-1 seats have a life in code: a passer-through the world agent kept seated is cleared and retired once nothing carries them (since M719 an open want carries until the world closes it); the carried stay; the pool is never capped — its views are', async () => {
   const { seatHousekeeping, SEAT_MENTION_PAGES, SEAT_FRESH_TURNS, SEAT_CAP } = await import('../../js/agents/auditor.js');
-  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { applyMutations, storyTurn } = await import('../../js/engine/apply.js');
   let st = { ...emptyState(), turn: 40 };
   st = applyMutations(st, [
     { type: 'mc.set', name: 'Jovan' },
@@ -491,39 +496,61 @@ test('M103-1 seats have a life in code: a passer-through the world agent kept se
     { type: 'offscreen.set', name: 'Aurora', location: 'the bus', activity: 'riding', agenda: 'reach him', stance: 'toward', etaMinutes: 20 },
     { type: 'offscreen.set', name: 'Kim', location: 'her flat', activity: 'texting', agenda: 'get an answer', stance: 'waiting' },
     { type: 'thread.set', title: 'Kim and the letter', owner: 'Kim', heat: 'hot', next: 'text again' },
-    { type: 'offscreen.set', name: 'Sophie Dale', location: 'her house', activity: 'texting Emilia', agenda: 'keep Emilia out of the violin', stance: 'busy' },
+    /* M719: an open want carries on its own (an active world objective) — Sophie's seat holds none, so it is the recent page
+     * that keeps her (the reason this law names) */
+    { type: 'offscreen.set', name: 'Sophie Dale', location: 'her house', activity: 'texting Emilia', stance: 'busy' },
     { type: 'offscreen.set', name: 'Mi-na Song', location: 'her city', activity: 'reviewing files', agenda: 'set the siblings up', stance: 'busy' },
   ]).state;
-  /* the seats were made long ago */
-  for (const k of Object.keys(st.offscreen)) st.offscreen[k].atTurn = 10;
+  /* the seats were made long ago — M719: a seat's retention clock is its FIRST page (firstAtTurn; "seat updates retain their
+   * firstAtTurn, so repeated confirmations or updates cannot reset the temporary retention clock") */
+  for (const k of Object.keys(st.offscreen)) { st.offscreen[k].atTurn = 10; st.offscreen[k].firstAtTurn = 10; }
   const pages = [{ role: 'assistant', text: 'Sophie texted Emilia again about the party.' }];
-  const sweep = seatHousekeeping(st, { brief: 'Jovan comes home; Mi-na Song is the guardian.', castNotes: '', pages });
+  const opts = { brief: 'Jovan comes home; Mi-na Song is the guardian.', castNotes: '', pages };
+  /* M719: an open want carries its person — "explicit agenda closure remains a normal semantic World decision": while his
+   * fare is open the cab driver is the world agent's to let go (people.retire, then offscreen.clear), never code's */
+  eq(seatHousekeeping(st, opts).filter((m) => m.type === 'offscreen.clear').length, 0, 'with his one clean fare still open, no seat is swept');
+  st = applyMutations(st, [{ type: 'offscreen.set', name: 'Wendell', location: 'the boardwalk', activity: 'parked', agenda: '', cause: 'the fare was driven and paid' }]).state;
+  eq(st.offscreen.Wendell.agenda, undefined, 'the world closes the fare');
+  eq(st.offscreen.Wendell.firstAtTurn, 10, 'and the seat keeps its first page');
+  const sweep = seatHousekeeping(st, opts);
   const cleared = sweep.filter((m) => m.type === 'offscreen.clear').map((m) => m.name).sort();
   eq(cleared.join(','), 'Wendell', 'only the cab driver goes — the standing, the thread, the clock, the brief, and a recent mention each keep a seat: ' + JSON.stringify(sweep));
+  const { carriedBy } = await import('../../js/agents/auditor.js');
+  eq(['Rias Wells', 'Kim', 'Aurora', 'Mi-na Song', 'Sophie Dale'].map((n) => carriedBy(st, n, opts)).join(' | '), 'a standing toward the main character | an open thread | on the way to the main character | the brief names them | named on a recent page', 'each kept by the reason it has');
   assert(sweep.some((m) => m.type === 'people.retire' && m.name === 'Wendell'), 'and his page retires at once, not in thirty turns');
+  const gone = applyMutations(st, sweep).state;
+  assert(gone.characters.Wendell.retired && !gone.offscreen.Wendell && gone.characters.Wendell.core === 'a cab driver', 'retired, his seat let go, his page whole (M719)');
   /* a fresh seat stands even with nothing else */
-  st.offscreen.Wendell.atTurn = st.turn - SEAT_FRESH_TURNS + 1;
+  st.offscreen.Wendell.firstAtTurn = storyTurn(st) - SEAT_FRESH_TURNS + 1;
   eq(seatHousekeeping(st, { pages }).filter((m) => m.name === 'Wendell').length, 0, 'seated just now, he stands');
-  st.offscreen.Wendell.atTurn = 10;
-  /* the cap: many carried seats, the least reachable go first, never the brief's people */
+  st.offscreen.Wendell.firstAtTurn = 10;
+  /* the cap: M719 — "the destructive 40 seat eviction loop was removed … capacity limits belong to prompt views, never
+   * deletion of stored seats". Forty-three carried seats all stay; the views are what is held to a size */
   let big = { ...emptyState(), turn: 40 };
   const muts = [{ type: 'mc.set', name: 'Jovan' }];
   /* M320: DIFFERENT people — a seat is found the way a page is now, and "Guest1"/"Guest12" are one name a slip apart
    * (the same rule that has merged such PAGES since M164); forty-three names no rule could take for each other */
   const GUESTS = ['Abel', 'Bruna', 'Cedric', 'Dalia', 'Emeric', 'Fenna', 'Goran', 'Hedda', 'Ivo', 'Jorun', 'Kasimir', 'Lotte', 'Marek', 'Nives', 'Osric', 'Petra', 'Quillon', 'Rosalind', 'Stellan', 'Tamsin', 'Ulric', 'Vesna', 'Wystan', 'Xanthe', 'Yorick', 'Zelda', 'Anselm', 'Beatrix', 'Caspian', 'Delphine', 'Evander', 'Florentyna', 'Gwendolyn', 'Hyacinth', 'Isambard', 'Jacinta', 'Klementyna', 'Leopold', 'Mordecai', 'Nicodemus', 'Ottoline', 'Persephone', 'Quentin', 'Rutherford', 'Seraphina', 'Thaddeus'];
-  for (let i = 0; i < SEAT_CAP + 3; i += 1) muts.push({ type: 'offscreen.set', name: GUESTS[i], location: 'town', activity: 'waiting', agenda: 'x', stance: i < 2 ? 'toward' : 'waiting', etaMinutes: i < 2 ? 15 : undefined });
+  const OLD_CAP = 40;
+  eq(SEAT_CAP, Infinity, 'no seat cap (M719)');
+  for (let i = 0; i < OLD_CAP + 3; i += 1) muts.push({ type: 'offscreen.set', name: GUESTS[i], location: 'town', activity: 'waiting', agenda: 'x', stance: i < 2 ? 'toward' : 'waiting', etaMinutes: i < 2 ? 15 : undefined });
   big = applyMutations(big, muts).state;
   for (const k of Object.keys(big.offscreen)) big.offscreen[k].atTurn = 39; /* all fresh — all carried */
   const capped = seatHousekeeping(big, { brief: GUESTS[14] + ' is the landlord.', pages: [] });
-  eq(capped.filter((m) => m.type === 'offscreen.clear').length, 3, 'three over the cap go');
-  assert(!capped.some((m) => m.name === GUESTS[0] || m.name === GUESTS[1]), 'the ones on the clock stay');
-  assert(!capped.some((m) => m.name === GUESTS[14]), 'the brief’s person is never capped out');
+  eq(capped.filter((m) => m.type === 'offscreen.clear').length, 0, 'none of forty-three carried seats is let go past forty');
+  eq(Object.keys(big.offscreen).length, OLD_CAP + 3);
+  const { worldSeatView } = await import('../../js/agents/world.js');
+  const view = worldSeatView(big, { room: 1200 });
+  assert(view.text.length <= 1200 && view.deferred.length > 0 && /additional seats remain stored/.test(view.text), 'the world agent’s view of them is held to its room, and says the rest are stored: ' + view.text.slice(-160));
+  const { renderOffscreen } = await import('../../js/engine/offscreen.js');
+  const few = renderOffscreen(big.offscreen, [], null).split('\n');
+  assert(few.length === 6 && [GUESTS[0], GUESTS[1]].every((g) => few.slice(0, 2).some((l) => l.startsWith(g))), 'the storyteller’s six, the ones on the clock first: ' + few.join(' | '));
   eq(SEAT_MENTION_PAGES, 12);
 });
 
 test('M104-1 carriedBy says in words why a person is carried — in the scene, the brief, a standing, a thread, on the way, a recent page, seated just now — or nothing', async () => {
   const { carriedBy } = await import('../../js/agents/auditor.js');
-  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { applyMutations, storyTurn } = await import('../../js/engine/apply.js');
   let st = { ...emptyState(), turn: 40 };
   st = applyMutations(st, [
     { type: 'mc.set', name: 'Jovan' },
@@ -533,7 +560,8 @@ test('M104-1 carriedBy says in words why a person is carried — in the scene, t
     { type: 'offscreen.set', name: 'Aurora', location: 'the bus', activity: 'riding', agenda: 'reach him', stance: 'toward', etaMinutes: 20 },
     { type: 'offscreen.set', name: 'Wendell', location: 'the boardwalk', activity: 'parked', agenda: 'a fare', stance: 'waiting' },
   ]).state;
-  st.offscreen.Wendell.atTurn = 1;
+  /* seated long ago — M719: the retention clock is the seat's first page (firstAtTurn), which no later write resets */
+  st.offscreen.Wendell.atTurn = 1; st.offscreen.Wendell.firstAtTurn = 1;
   const opts = { brief: 'Mi-na Song is the guardian.', castNotes: '', pages: [{ role: 'assistant', text: 'Sophie texted again.' }] };
   eq(carriedBy(st, 'Rias Wells', opts), 'in the scene');
   eq(carriedBy(st, 'Mi-na Song', opts), 'the brief names them');
@@ -541,8 +569,12 @@ test('M104-1 carriedBy says in words why a person is carried — in the scene, t
   eq(carriedBy(st, 'Kim', opts), 'an open thread');
   eq(carriedBy(st, 'Aurora', opts), 'on the way to the main character');
   eq(carriedBy(st, 'Sophie', opts), 'named on a recent page');
-  eq(carriedBy(st, 'Wendell', opts), '', 'nothing carries the cab driver');
-  st.offscreen.Wendell.atTurn = st.turn;
+  /* M719: "active goals survive omitted agenda fields; explicit agenda closure remains a normal semantic World decision" —
+   * a fare still open on his seat carries the cab driver; once the world closes it, nothing does */
+  eq(carriedBy(st, 'Wendell', opts), 'an active world objective', 'his open fare carries him');
+  st = applyMutations(st, [{ type: 'offscreen.set', name: 'Wendell', location: 'the boardwalk', activity: 'parked', agenda: '', cause: 'the fare was driven and paid' }]).state;
+  eq(carriedBy(st, 'Wendell', opts), '', 'nothing carries the cab driver — a seat written again keeps its first page, so it is no fresher');
+  st.offscreen.Wendell.firstAtTurn = storyTurn(st);
   eq(carriedBy(st, 'Wendell', opts), 'seated just now');
 });
 
@@ -735,9 +767,30 @@ test('M129-1 a person who appears only inside the window is never seated present
 });
 
 test('M130-1 one now per person: the scribe never writes state for a seated absent person; a recall card carries the seat', async () => {
-  const src = (await import('node:fs')).readFileSync(new URL('../../js/agents/scribe.js', import.meta.url), 'utf8');
-  /* M398: the rule now asks the one matcher (isHere, seatForPerson) — the behaviour is M398-2's to prove, under both forms of a name */
-  assert(/ONLY for people IN THE SCENE/.test(src) && /!isHere\(fresh, d\.name\) && seatForPerson\(fresh, d\.name\)/.test(src), 'the law and the code');
+  /* the law, in what the scribe is sent — and the code, RUN (M713 moved the rule: the scribe keeps a now only for someone
+   * here or the main character; an absent person's now is the world agent's seat. The source line this law read is gone;
+   * M398-2 proves the one matcher under both forms of a name) */
+  const { buildScribeMessages, scribeTurn } = await import('../../js/agents/scribe.js');
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  const { withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+  assert(/ONLY for people IN THE SCENE\. A person who is elsewhere has a\s+seat the world agent keeps/.test(buildScribeMessages({ state: emptyState(), userText: 'u', assistantText: 'a' }).system), 'the law');
+  const { applyMutations: apply } = await import('../../js/engine/apply.js');
+  const story = apply({ ...emptyState(), page: 2 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rias' },
+    { type: 'people.set', name: 'Rias', field: 'core', text: 'the neighbour' }, { type: 'people.set', name: 'Vanessa', field: 'core', text: 'the loud friend' }, { type: 'people.set', name: 'Vanessa', field: 'state', text: 'at the sedan' },
+    { type: 'offscreen.set', name: 'Vanessa', location: 'the sedan, Mariner’s Lane', activity: 'arms crossed on the roof' }]).state;
+  await saveState('m130-scribe', story);
+  const answer = JSON.stringify({ deltas: [{ name: 'Rias', field: 'state', text: 'at the hedge, laughing at the lane' }, { name: 'Vanessa', field: 'state', text: 'leaning on the hedge, phone in hand' }] });
+  const lines = 'data: ' + JSON.stringify({ choices: [{ delta: { content: answer } }] }) + '\n\ndata: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n';
+  const fetchImpl = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    if (body.stream) return { ok: true, status: 200, headers: new Headers(), body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(lines)); c.close(); } }), json: async () => ({}), text: async () => lines, clone() { return this; } };
+    const obj = { choices: [{ message: { role: 'assistant', content: answer }, finish_reason: 'stop' }] };
+    return { ok: true, status: 200, headers: new Headers(), json: async () => obj, text: async () => JSON.stringify(obj), clone() { return this; } };
+  };
+  await withHouse({ fetch: fetchImpl }, () => scribeTurn({ connection: HOUSES[0].conn, storyId: 'm130-scribe', userText: 'I wave.', assistantText: 'Rias laughed at the hedge. Vanessa watched from the lane.' }));
+  const read = await loadState('m130-scribe');
+  eq(read.characters.Rias.state, 'at the hedge, laughing at the lane', 'here: the scribe’s now is kept');
+  eq(read.characters.Vanessa.state, 'at the sedan', 'seated elsewhere: the scribe writes no now — the seat is hers');
   const { renderPeopleTiers } = await import('../../js/engine/people.js');
   const { applyMutations } = await import('../../js/engine/apply.js');
   let st = emptyState();
@@ -773,8 +826,29 @@ test('M131-1 OWNERSHIP OF THE LEDGER: every fact has one writer; every second wr
     eq(auditorScope([{ what: 'w', fix: 'f', mutations: [{ type: 'people.note', name: 'A', field: 'unthread', text: 'x' }] }], who)[0].mutations.length, 1,
       'while a finished loose end is what lasts, and lands');
   }
-  /* the now of an absent person — the world agent’s seat; the scribe writes state for the present only */
-  assert(/!isHere\(fresh, d\.name\) && seatForPerson\(fresh, d\.name\)/.test(scribe), 'the scribe drops state for the seated absent (M398: by the one matcher — M398-2 proves it running)');
+  /* the now of an absent person — the world agent’s seat; the scribe writes state for the present only. RUN, not read (the
+   * line this law read moved in M713, which widened it to every absent person but the main character): */
+  {
+    const { scribeTurn } = await import('../../js/agents/scribe.js');
+    const { saveState, loadState } = await import('../../js/engine/state.js');
+    const { withHouse, HOUSES } = await import('./thinkinghouse.mjs');
+    const story = applyMutations({ ...emptyState(), page: 2 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rias' },
+      { type: 'people.set', name: 'Rias', field: 'core', text: 'the neighbour' }, { type: 'people.set', name: 'Kara', field: 'core', text: 'the courier' },
+      { type: 'offscreen.set', name: 'Kara', location: 'the depot', activity: 'sorting parcels' }, { type: 'people.set', name: 'Milo', field: 'core', text: 'the baker' }]).state;
+    await saveState('m131-scribe', story);
+    const answer = JSON.stringify({ deltas: [{ name: 'Rias', field: 'state', text: 'at the gate' }, { name: 'Kara', field: 'state', text: 'at the gate too' }, { name: 'Milo', field: 'state', text: 'kneading dough' }, { name: 'Jovan', field: 'state', text: 'by the gate' }] });
+    const lines = 'data: ' + JSON.stringify({ choices: [{ delta: { content: answer } }] }) + '\n\ndata: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n';
+    const fetchImpl = async (url, opts) => {
+      const body = JSON.parse(opts.body);
+      if (body.stream) return { ok: true, status: 200, headers: new Headers(), body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(lines)); c.close(); } }), json: async () => ({}), text: async () => lines, clone() { return this; } };
+      const obj = { choices: [{ message: { role: 'assistant', content: answer }, finish_reason: 'stop' }] };
+      return { ok: true, status: 200, headers: new Headers(), json: async () => obj, text: async () => JSON.stringify(obj), clone() { return this; } };
+    };
+    await withHouse({ fetch: fetchImpl }, () => scribeTurn({ connection: HOUSES[0].conn, storyId: 'm131-scribe', userText: 'I wait by the gate.', assistantText: 'Rias came to the gate. Kara and Milo were spoken of.' }));
+    const after = await loadState('m131-scribe');
+    eq(after.characters.Rias.state, 'at the gate', 'here: the scribe writes the now');
+    assert(!after.characters.Kara.state && !after.characters.Milo.state, 'absent — seated or not — the scribe writes no now; the world agent keeps it: ' + JSON.stringify([after.characters.Kara, after.characters.Milo]));
+  }
   /* the ground and the hour — the header, in code, over the extractor’s own guess */
   assert(/headerHas\.has\(m\.type\)/.test(chat), 'the header wins over the extractor’s place/clock');
   /* people in a window — never present */
@@ -787,7 +861,10 @@ test('M131-1 OWNERSHIP OF THE LEDGER: every fact has one writer; every second wr
    * without a nameable want unseated — two of the five causes of an empty "elsewhere". The law
    * that replaced it still says who is NOT seated (the passer-through), which is what this guard
    * is for; what the agent is actually sent is run in M304-8. */
-  assert(/export function seatHousekeeping/.test(aud) && /WHO IS SEATED/.test(world) && /A passer-through[^\n]*is not seated at all/.test(world), 'seats have a life in code and in law');
+  /* M719 rewrote the passer-through's line ("a completed one-time involvement … needs no active seat … use people.retire then
+   * offscreen.clear") — held by what the world agent is SENT, and by the code that runs (M103-1, M304-5) */
+  const worldLaw = buildWorldMessages({ state: emptyState(), userText: 'u', assistantText: 'a' }).system;
+  assert(/export function seatHousekeeping/.test(aud) && /WHO IS SEATED/.test(worldLaw) && /A completed one-time involvement without continuing consequences needs no active seat\./.test(worldLaw) && /use people\.retire then offscreen\.clear when their involvement ends/.test(worldLaw), 'seats have a life in code and in law');
   /* the record — the keeper writes; verifier, detail auditor, hard tokens, housekeeper, ripple edit in place */
   const mem = read('memory');
   assert(/export function hardTokens/.test(mem) && /export function addCorrection/.test(mem), 'the record’s guards');
@@ -818,7 +895,7 @@ test('M132-1 a rule that teaches a house block never rides the wire; the import 
   }
 });
 
-test('M134-1 loose ends close on sense and the list evicts the oldest; the hour’s law is spoken from the clock; a jump makes the world agent re-seat everyone', async () => {
+test('M134-1 loose ends close on sense and the list keeps every open one (M713: it evicted the oldest); the hour’s law is spoken from the clock; a jump makes the world agent re-seat everyone', async () => {
   const { mergeDeltas, sameLooseEnd, THREADS_MAX } = await import('../../js/engine/people.js');
   assert(sameLooseEnd('She is waiting for Jovan’s self-introduction, which she will grade', 'waiting for Jovan’s self-introduction to grade it against the rumors'), 'the same loose end in other words');
   assert(!sameLooseEnd('She has not said what Bluebird means to her', 'Vanessa wants a photo of the brother'), 'different loose ends');
@@ -831,10 +908,14 @@ test('M134-1 loose ends close on sense and the list evicts the oldest; the hour�
   /* M559: the room is forty now (it was eight) — the list is filled past it with ends that mean different things */
   const W = ['amber','basalt','cobalt','dune','ember','fjord','garnet','harbor','iris','juniper','kestrel','lagoon','marble','nectar','onyx','pewter','quartz','raven','saffron','tundra','umber','velvet','willow','xenon','yarrow','zephyr','acorn','bramble','citrine','delta','eagle','falcon','glacier','heron','indigo','jasper','kelp','lilac','mesa','nutmeg','opal','plume','quiver','reef','sable','thistle','urchin','vapor','walnut','yew'];
   const V = ['polish','bury','sell','paint','find','mend','carry','hide','trade','sharpen','burn','plant','seal','borrow','weigh','count','return','forge','study','guard','ferry','chart','brew','gather','sketch','buckle','tether','harvest','gild','trace','smuggle','cradle','salt','varnish','unearth','barter','kindle','lacquer','muzzle','nurse','oil','pickle','quench','rinse','stitch','tan','unravel','vouch','whittle','yoke'];
-  for (let i = 0; ends.length < THREADS_MAX + 2; i += 1) ends.push(V[i] + 's the ' + W[i]);
-  for (let i = 0; i < THREADS_MAX + 2; i += 1) full = mergeDeltas({ turn: i }, full, [{ name: 'Kim', field: 'thread', text: ends[i] }], i).characters;
-  eq(full.Kim.threads.length, THREADS_MAX, 'the list holds its cap');
-  assert(full.Kim.threads[full.Kim.threads.length - 1] === ends[ends.length - 1] && !/apology for the party/.test(full.Kim.threads.join('|')), 'the newest stays, the oldest went');
+  /* M713: THREADS_MAX is Infinity — "the durable ledger must not discard an open obligation merely because the next one was
+   * recorded" (people.js). The old room of forty, passed by two — a finite count (filling to THREADS_MAX never ends) */
+  eq(THREADS_MAX, Infinity, 'no room lets an open end go');
+  const OLD_ROOM = 40;
+  for (let i = 0; ends.length < OLD_ROOM + 2; i += 1) ends.push(V[i] + 's the ' + W[i]);
+  for (let i = 0; i < OLD_ROOM + 2; i += 1) full = mergeDeltas({ turn: i }, full, [{ name: 'Kim', field: 'thread', text: ends[i] }], i).characters;
+  eq(full.Kim.threads.length, OLD_ROOM + 2, 'the list keeps every open end past the old room');
+  assert(full.Kim.threads[full.Kim.threads.length - 1] === ends[ends.length - 1] && /apology for the party/.test(full.Kim.threads[0]), 'the newest stays, and the oldest stays too');
   const { hourLaw, buildWorldMessages } = await import('../../js/agents/world.js');
   assert(/THE SMALL HOURS \(23:00\)/.test(hourLaw({ minutes: 23 * 60 + 10 })), hourLaw({ minutes: 23 * 60 + 10 }));
   eq(hourLaw({ minutes: 14 * 60 }), '');

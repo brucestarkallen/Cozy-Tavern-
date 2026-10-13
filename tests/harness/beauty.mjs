@@ -11,6 +11,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
+import { VERSION } from '../../js/version.js';
+import { updatePage, serviceWorkerScope } from './updatesim.mjs';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -227,7 +229,7 @@ test('M199: the ledger panel keeps its place, and every action says what it is d
  *    worker's write-back all threw the reader out of the scene.
  *  - a new coat's takeover was chained after cache.addAll(SHELL), which is
  *    all-or-nothing: one missing file and the old coat served forever. */
-test('M200: a rebuild keeps the reader’s place, and a new coat is never held up by one file', () => {
+test('M200: a rebuild keeps the reader’s place, and a new coat is never held up by one file', async () => {
   const here = path.dirname(fileURLToPath(import.meta.url));
   const chat = fs.readFileSync(path.join(here, '../../js/ui/chat.js'), 'utf8');
 
@@ -242,21 +244,35 @@ test('M200: a rebuild keeps the reader’s place, and a new coat is never held u
   const rebuilds = (chat.match(/renderThread\(\{ structural: true/g) || []).length;
   assert(openings >= 4 && openings < rebuilds, openings + ' openings of ' + rebuilds + ' rebuilds — the rest keep the place');
 
-  const sw = fs.readFileSync(path.join(here, '../../sw.js'), 'utf8');
-  /* the code alone — the comment above it quotes the old call while
-   * explaining why it went */
-  const install = sw.slice(sw.indexOf("addEventListener('install'"), sw.indexOf("addEventListener('activate'"))
-    .replace(/\/\*[\s\S]*?\*\//g, '');
-  assert(/self\.skipWaiting\(\);/.test(install), 'the takeover happens');
-  assert(install.indexOf('self.skipWaiting()') < install.indexOf('caches.open'), 'BEFORE the cache is filled, never chained after it');
-  assert(!/cache\.addAll\(SHELL\)/.test(install), 'the shell is not filled all-or-nothing');
-  assert(/cache\.add\(path\)\.catch\(\(\) => null\)/.test(install), 'a file that will not come is simply not cached');
-  assert(/event\.data\.kind === 'takeOver'/.test(sw), 'and a waiting coat takes over when the room asks');
+  /* M720 (a87d357) re-made the update: the install asks for every shell file afresh (cache: 'reload'), and the looking
+   * moved from app.js into js/updates.js. These lines read both sources and stopped matching though the coat still went
+   * on as M200 meant; the worker and the page are RUN now (updatesim.mjs), with one shell file that will not come. */
+  const scope = await serviceWorkerScope({ unreachable: ['css/base.css'] });
+  try {
+    const installed = scope.install();
+    assert(scope.log[0] === 'skipWaiting' && scope.log[1] === 'open', 'the takeover happens BEFORE the cache is filled, never chained after it: ' + scope.log.slice(0, 3).join(', '));
+    await installed; /* a rejected install is a coat that never takes over */
+    assert(!scope.log.includes('addAll'), 'the shell is not filled all-or-nothing');
+    assert(scope.added.length > 100 && new Set(scope.added.map((a) => a.url)).size === scope.added.length, 'file by file, each once: ' + scope.added.length);
+    assert(scope.added.some((a) => a.url === 'css/base.css') && scope.added.some((a) => a.url === 'js/app.js') && scope.added.some((a) => a.url === 'index.html'),
+      'a file that will not come is simply not cached — and the install still finished');
+    assert(scope.added.every((a) => a.cache === 'reload'), 'each file asked for afresh, never the HTTP cache’s old copy (M720)');
+    const took = scope.log.filter((x) => x === 'skipWaiting').length;
+    scope.message({ kind: 'takeOver' });
+    eq(scope.log.filter((x) => x === 'skipWaiting').length, took + 1, 'and a waiting coat takes over when the room asks');
+    eq(JSON.stringify(scope.message({ kind: 'appVersion' })), JSON.stringify([{ version: VERSION }]), 'and tells the room which coat it serves (M720)');
+  } finally { scope.close(); }
 
-  const app = fs.readFileSync(path.join(here, '../../js/app.js'), 'utf8');
-  assert(/for \(const wait of \[2000, 6000, 15000, 30000\]\) setTimeout\(lookForUpdate, wait\);/.test(app),
-    'the look is retried while the server is restarting');
-  assert(/registration\.waiting\.postMessage\(\{ kind: 'takeOver' \}\)/.test(app), 'and a stuck coat is woken');
+  const page = await updatePage();
+  try {
+    eq(page.timeouts.filter((t) => [2000, 6000, 15000, 30000].includes(t.ms)).map((t) => t.ms).join(','), '2000,6000,15000,30000',
+      'the look is retried while the server is restarting');
+    const looked = page.looks;
+    page.registration.waiting = { told: [], postMessage(m) { this.told.push(m); } };
+    for (const ms of [2000, 6000, 15000, 30000]) await page.runTimers(ms);
+    eq(page.looks, looked + 4, 'each retry looks again');
+    assert(page.registration.waiting.told.length >= 1 && page.registration.waiting.told.every((m) => m && m.kind === 'takeOver'), 'and a stuck coat is woken');
+  } finally { page.close(); }
 });
 
 /* M203: every manual action handed its work to the background chain and then
@@ -469,19 +485,28 @@ test('M248: a run says whether it FINISHED, and the house carries on when it did
   row = (await loadWorkerStatus('m253')).keeper;
   eq(row.unfinished, false, 'a stumble is not an unfinished run');
   eq(row.resume, '', 'and offers no ghost Finish it');
+  /* the third state is stored only when it is said: a run that names a way on but finished, or says "unfinished" in some
+   * other word than true, is green and offers nothing. (These were three lines of status.js read as text; M723 gave the
+   * note a `historical` word and the first of them stopped matching though nothing it guarded had changed — the round
+   * trip above and here is what holds them.) */
+  await noteWorkerRun('m253', 'keeper', { ok: true, detail: 'folded 98 of 98', resume: 'rebuildRecordNow' });
+  row = (await loadWorkerStatus('m253')).keeper;
+  eq(row.unfinished, false, 'a finished run that names a way on is still finished');
+  eq(row.resume, '', 'and it keeps no way on');
+  await noteWorkerRun('m253', 'keeper', { ok: true, detail: 'folded 50 of 98', unfinished: 'yes', resume: 'rebuildRecordNow' });
+  row = (await loadWorkerStatus('m253')).keeper;
+  eq(row.unfinished, false, 'only true is unfinished');
+  eq(row.resume, '', 'and nothing else earns a Finish it');
+  await noteWorkerRun('m253', 'keeper', { ok: true, detail: 'folded 50 of 98', unfinished: true, resume: { not: 'a name' } });
+  row = (await loadWorkerStatus('m253')).keeper;
+  eq(row.unfinished, true, 'unfinished');
+  eq(row.resume, '', 'but a way on that is not a name is not kept');
 
   const here = path.dirname(fileURLToPath(import.meta.url));
-  const status = fs.readFileSync(path.join(here, '../../js/agents/status.js'), 'utf8');
   const queue = fs.readFileSync(path.join(here, '../../js/agents/queue.js'), 'utf8');
   const chat = fs.readFileSync(path.join(here, '../../js/ui/chat.js'), 'utf8');
   const drawer = fs.readFileSync(path.join(here, '../../js/ui/drawer.js'), 'utf8');
 
-  /* the third state: not ok, not merely stumbled — unfinished */
-  assert(/unfinished, resume \} = \{\} \) =>|unfinished, resume \} = \{\}\) \{/.test(status) || /unfinished, resume \}/.test(status),
-    'a run can be recorded as unfinished');
-  assert(/unfinished: unfinished === true,/.test(status), 'and it is stored');
-  assert(/resume: unfinished === true && typeof resume === 'string' \? resume : '',/.test(status),
-    'with what it would take to finish');
   assert(/unfinished: Boolean\(value && value\.unfinished\)/.test(queue), 'the queue carries it up from the job');
 
   /* the three long jobs report it */
@@ -494,8 +519,18 @@ test('M248: a run says whether it FINISHED, and the house carries on when it did
   }
   assert(/resume: 'summarizeNow'/.test(chat), 'and the catch-up too');
 
-  /* the mark the writer reads */
-  assert(/const state = !row\.ok \? 'bad' : \(row\.unfinished \? 'part' : 'good'\);/.test(drawer), 'three states, not two');
+  /* the mark the writer reads. M723 (e178e4b): the continuous audit's row may carry its own historical reading, which
+   * names its state first (historicalRunStatus — only ever good or part, and only for a run that went well); every other
+   * row is read by the three states as before */
+  assert(/const state = historical\?\.state \|\| \(!row\.ok \? 'bad' : \(row\.unfinished \? 'part' : 'good'\)\);/.test(drawer), 'three states, not two');
+  {
+    const { historicalRunStatus } = await import('../../js/agents/status.js');
+    eq(historicalRunStatus({ ok: true, unfinished: true }), null, 'a row with no historical reading keeps the three states');
+    eq(historicalRunStatus({ ok: false, historical: { open: 2 } }), null, 'a stumble stays a stumble');
+    eq(historicalRunStatus({ ok: true, historical: { open: 2, done: 3, folded: 9 } }).state, 'part', 'open corrections are not green');
+    eq(historicalRunStatus({ ok: true, unfinished: true, historical: { open: 0, done: 3, folded: 9 } }).state, 'part', 'nor is a reading cut short');
+    eq(historicalRunStatus({ ok: true, historical: { open: 0, done: 9, folded: 9 } }).state, 'good', 'all read, nothing open: green');
+  }
   assert(/mark\.className = 'run-mark run-mark-' \+ state;/.test(drawer), 'each with its own mark');
   assert(/aria-label/.test(drawer.slice(drawer.indexOf('run-mark'), drawer.indexOf('run-mark') + 400)),
     'and a name for a screen reader, not colour alone');
@@ -581,7 +616,7 @@ test('M252: the workers’ line is newest first, and an empty answer draws no fo
  * confirmation everything is perfect, I don't need to worry and just continue
  * the story". So green is not "no errors seen lately": a light that lies once
  * is worse than no light. */
-test('M254: green means read, folded and waiting on nothing — and a third coat', () => {
+test('M254: green means read, folded and waiting on nothing — and a third coat', async () => {
   const here = path.dirname(fileURLToPath(import.meta.url));
   const chat = fs.readFileSync(path.join(here, '../../js/ui/chat.js'), 'utf8');
   const css = fs.readFileSync(path.join(here, '../../css/chat.css'), 'utf8');
@@ -598,12 +633,50 @@ test('M254: green means read, folded and waiting on nothing — and a third coat
   /* M276: declared beside `behind` so the light can send the reader to the pages it missed */
   /* M510-43: "behind" is any page the reader has not read — counted as the reader counts (a page read ahead of the mark is
    * read); the old line counted such a page unread, and the light showed behind while the reader found nothing */
-  assert(/for \(let k = readTo \+ 1; k < told; k \+= 1\) if \(!ahead\.has\(k\)\) unreadPages \+= 1;/.test(chat) && /ledgerBehind = told > 0 && unreadPages > 0;/.test(chat) && /if \(ledgerBehind && !busy && !trouble\) fillLedgerGap\(storyId\);/.test(chat), 'the ledger must have read every page told');
-  /* M275: declared beside `behind` so the light can send the keeper to a gap it sees */
-  assert(/recordBehind = Boolean\(dueRange\(pages\.length, window, mem\.nodes, batch\)\);/.test(chat) && /if \(recordBehind && !busy && !trouble\) fillRecordGap\(storyId\);/.test(chat),
+  assert(/for \(let k = readTo \+ 1; k < told; k \+= 1\) if \(!ahead\.has\(k\)\) unreadPages \+= 1;/.test(chat) && /ledgerBehind = told > 0 && unreadPages > 0;/.test(chat), 'the ledger must have read every page told');
+  /* M275: declared beside `behind` so the light can send the keeper to a gap it sees; M745 (c6164d6): a line whose own
+   * pages moved or changed under it is a gap too */
+  assert(/recordBehind = Boolean\(dueRange\(pages\.length, window, mem\.nodes, batch\) \|\| sourceBindingIssues\(mem\.nodes,pages\)\.length\);/.test(chat),
     'and the record must have nothing due');
+  /* M727 (9568e5f): WHAT THE LIGHT SEES, THE HOUSE FILLS — through one inventory (agents/health.js) that hands one owner the
+   * work at a time: the record's gap, then the ledger's, then a stumbled worker's own retry, the auditor, the continuous
+   * audit. These were two lines here ("if (ledgerBehind && !busy && !trouble) fillLedgerGap"), each held back while a minder
+   * had stumbled; M727 sends the gaps first even then — its own law (tests/harness/m722-focused.mjs) routes record and
+   * ledger ahead of a failed world worker — and each filler keeps its own wait between tries. Never while anything reads. */
+  assert(/routeHealth\(health,\{record:\(\)=>fillRecordGap\(storyId\),ledger:\(\)=>fillLedgerGap\(storyId\),/.test(chat), 'the light hands each gap to its filler');
+  /* M752: the inventory's word on the lamp is health.js healthLamp — working, trouble or nothing; it has no green to give,
+   * and the light only ever takes 'all-well' away for it (the continuous audit reading alone is not "reading this scene") */
+  assert(/if \(over==='working'\) \{btn\.classList\.remove\('all-well'\);/.test(chat) && /else if \(over==='trouble'\) \{\s*btn\.classList\.remove\('all-well'\);/.test(chat), 'and the inventory can take the green away');
+  {
+    const lampBlock = chat.slice(chat.indexOf('const over=healthLamp(health);'), chat.indexOf('routeHealth(health,{record:'));
+    assert(lampBlock.length > 0 && !/classList\.add\('all-well'\)/.test(lampBlock), 'never give it');
+    const { healthSnapshot, healthLamp } = await import('../../js/agents/health.js');
+    const lamps = [healthSnapshot({ storyId: 'm254' }), healthSnapshot({ storyId: 'm254', ledgerBehind: true }), healthSnapshot({ storyId: 'm254', running: ['extractor'] }),
+      healthSnapshot({ storyId: 'm254', running: ['continuous'] }), healthSnapshot({ storyId: 'm254', recordBehind: true, queued: 1 })].map(healthLamp);
+    assert(lamps.every((l) => l === null || l === 'working' || l === 'trouble'), 'the inventory has no green to give: ' + lamps.join(','));
+    eq(lamps[0], null, 'a clean inventory says nothing over the light');
+    eq(lamps[1], 'trouble', 'an unread page takes the green away');
+    eq(lamps[2], 'working', 'a reader at the scene is work');
+  }
+  {
+    const { healthSnapshot, routeHealth } = await import('../../js/agents/health.js');
+    const sent = (h) => { const went = []; routeHealth(h, { record: () => went.push('record'), ledger: () => went.push('ledger'), 'worker:extractor': () => went.push('extractor') }); return went.join(','); };
+    let h = healthSnapshot({ storyId: 'm254', ledgerBehind: true });
+    assert(h.status === 'yellow' && !h.clean, 'a page the ledger has not read is not green: ' + h.status);
+    eq(sent(h), 'ledger', 'the reader is sent to it');
+    eq(sent(healthSnapshot({ storyId: 'm254', ledgerBehind: true, recordBehind: true })), 'record', 'one at a time — the record’s gap first');
+    eq(sent(healthSnapshot({ storyId: 'm254', ledgerBehind: true, shelf: { extractor: { ok: false, why: 'unreachable' } } })), 'ledger', 'a stumbled minder no longer holds the gap back (M727)');
+    h = healthSnapshot({ storyId: 'm254', ledgerBehind: true, running: ['extractor'] });
+    assert(h.status === 'working' && sent(h) === '', 'never while a reader is out');
+    eq(sent(healthSnapshot({ storyId: 'm254', ledgerBehind: true, queued: 1 })), '', 'nor while one waits its turn');
+    eq(sent(healthSnapshot({ storyId: 'm254', recordBehind: true, otherOwner: true })), '', 'nor while another hand holds the tale, a replay runs or the storyteller writes');
+    h = healthSnapshot({ storyId: 'm254' });
+    assert(h.status === 'green' && h.clean && sent(h) === '', 'nothing waiting: green, and nobody is sent');
+  }
   assert(/catch \(err\) \{ behind = true; \}/.test(chat), 'and if it cannot be checked, it is NOT green');
-  assert(/everything is read and folded\. Nothing is waiting\. Write on\./.test(chat), 'and it says so plainly');
+  /* M694 (90ca6b0): green also needs the auditor's verification of the ledger as it stands now, and its words say so */
+  assert(/const allWellNow = allWell && !guards\.length && !repairOwed && !repairPaused && !openAudit && !verificationNeeded;/.test(chat), 'green waits on the current verification');
+  assert(/The current ledger is read, folded and audited with no unresolved findings\. Write on\./.test(chat), 'and it says so plainly');
 
   /* the lamp */
   assert(/\.room-btn\.all-well::after/.test(css), 'green has its own lamp');
@@ -632,5 +705,23 @@ test('M254: green means read, folded and waiting on nothing — and a third coat
     assert(block, 'the ' + coat + ' coat exists');
     for (const t of colourTokens) assert(block.includes(t + ':'), 'the ' + coat + ' coat defines ' + t);
     assert(new RegExp('name="theme" value="' + coat + '"').test(html), 'and the writer can choose ' + coat);
+  }
+});
+
+/* M465: "each value is that coat's --bg in base.css, so the phone's own bar wears the room's ground". M729 (213a376) gave
+ * Academy Night a new ground (#0b1320 → #090a0d) and left the bar on the old navy: two tables that must agree, held here
+ * (DOM-42 wears every coat and finds each bar a colour of its own; this is that the colour is the room's). */
+test('M465 the phone’s own bar wears each coat’s ground: the colour app.js gives the bar is that coat’s --bg', () => {
+  const literal = read('js/app.js').match(/const COATS = (\{[\s\S]*?\});/);
+  assert(literal, 'the coats and the colours of their bars');
+  const bars = Function('return (' + literal[1] + ');')();
+  const base = read('css/base.css');
+  const blockOf = (sel) => { const at = base.indexOf(sel); return at === -1 ? '' : base.slice(at, base.indexOf('}', at)); };
+  assert(Object.keys(bars).length >= 11, 'every coat: ' + Object.keys(bars).join(', '));
+  for (const [coat, bar] of Object.entries(bars)) {
+    const block = coat === 'dark' ? blockOf(':root') : blockOf("html[data-theme='" + coat + "'] {");
+    const ground = (block.match(/--bg:\s*(#[0-9a-fA-F]{6})/) || [])[1];
+    assert(ground, 'the ' + coat + ' coat has a ground');
+    eq(String(bar).toLowerCase(), ground.toLowerCase(), 'the bar of the ' + coat + ' coat');
   }
 });

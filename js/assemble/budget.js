@@ -1,5 +1,13 @@
 /* Conservative transport accounting, separate from the readable receipt. */
 export const ANSWER_RESERVE = 16000;
+/* M752: THE LEAST ROOM AN ANSWER IS REFUSED BELOW. A connection with no Max tokens sends nothing for the answer (his rule:
+ * if he set nothing, nothing is sent and the provider's default applies), so ANSWER_RESERVE is only the house's own
+ * assumption — the room it keeps free for a long, thinking answer when it can, and the room the pages are sized against.
+ * Refusing every request that left less than that refused requests the provider would answer: no OpenAI-style
+ * connection under ~47k context could send at all, and a 32k local model failed on every page. With no Max tokens set, a
+ * request is refused only when not even this much would be left for the answer; between the two it is sent, and the
+ * receipt says the answer had less room than usual. A Max tokens he set stays a hard limit: input and that answer fit. */
+export const ANSWER_FLOOR = 4096;
 export const CONTEXT_MARGIN = 3000;
 /* Images are an allowance, not their base64 byte count. Without provider dimensions/usage it remains uncertain. */
 export const UNKNOWN_IMAGE_ALLOWANCE = 4096;
@@ -28,4 +36,11 @@ export function inputRoom(window) {
   if (!context) return Infinity;
   const answer = Number(window?.answerTokens) > 0 ? Number(window.answerTokens) : ANSWER_RESERVE;
   return Math.max(0, context - answer - CONTEXT_MARGIN);
+}
+/* M752: the input a request may not exceed — where it is refused, by the house (assemble/stack.js) and by the provider
+ * adapters alike. `answerEstimate` (bodyAccounting: no max tokens in the body) means the answer allowance is only the
+ * house's assumed reserve, so ANSWER_FLOOR is what must stay free; otherwise the allowance the body carries is a hard
+ * limit. */
+export function refusalRoom({ budgetTokens, answerTokens, answerEstimate } = {}) {
+  return inputRoom({ budgetTokens, answerTokens: answerEstimate === true ? ANSWER_FLOOR : answerTokens });
 }

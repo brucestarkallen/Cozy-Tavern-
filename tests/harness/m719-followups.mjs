@@ -41,7 +41,7 @@ try {
  assert.equal(sourcePersonKey(state,'the girl','the girl'),'');
  assert.equal(missingSourcePeople(state,[{...mention,source:id}]).length,1);
  assert.equal(sourceAppearanceFacts(state,docs).length,0,'Ambiguous appearance must not attach to the globally identical label.');
- const bind=(s,to)=>applyMutations(s,[{type:'source.resolve',sourceId:id,name:'the girl',to,kind:'person',cause:'This source identifies the speaker.',auditorApproved:true}]);
+ const bind=(s,to)=>applyMutations(s,[{type:'source.resolve',sourceId:id,name:'the girl',to,kind:'person',cause:'This source identifies the speaker.',auditorApproved:true,source:'auditor'}]);
  const first=bind(state,'Rina');assert.equal(first.applied.length,1);
  assert.equal(sourceAppearanceFacts(first.state,docs)[0].name,'Rina');
  const other=bind(state,'Sela');assert.equal(sourceAppearanceFacts(other.state,docs)[0].name,'Sela');

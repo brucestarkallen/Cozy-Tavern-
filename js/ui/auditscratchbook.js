@@ -4,6 +4,9 @@ import { auditSources } from '../agents/auditsources.js';
 import { visiblePages } from '../agents/memory.js';
 import { ledgerVerificationRows,verificationReceiptMatches,reusableAuditCheckpoint,ledgerRepairInputKey } from '../agents/auditprogress.js';
 
+// The scratchbook open now, closed by opening another (one at a time).
+let closeShown=null;
+
 // A read-only view of the auditor's real saved work, not another model call.
 export function auditScratchbookButton(getStory) {
   const button=document.createElement('button');
@@ -18,13 +21,27 @@ export function auditScratchbookButton(getStory) {
       const documents=auditSources({brief:story.brief,castNotes:story.castNotes,messages:pages});
       const kept=reusableAuditCheckpoint(state,story,documents),verification=state.audit?.verification;
       const currentInput=verification?.source===ledgerRepairInputKey({},story,pages);
-      const dialog=document.createElement('dialog');
-      dialog.style.cssText='width:min(42rem,90vw);max-height:85vh;overflow:auto;background:var(--surface,var(--bg));color:var(--text);border:1px solid var(--border);border-radius:12px;padding:1.25rem';
-      dialog.setAttribute('aria-label','Auditor scratchbook');
-      const heading=document.createElement('h2');heading.textContent='Auditor scratchbook';
+      /* The house's own pop-up, as the housekeeper's viewers open (M77): a veil over the page holding one card; Close, Esc
+       * and a tap on the veil close it, and Esc closes it before the ledger behind it. It was a <dialog> opened with
+       * showModal(), which a browser without that call does not have (the walk's jsdom, an older Safari): "dialog.showModal
+       * is not a function" and the button answered nothing — and where it had it, Esc reached the ledger's own Esc too and
+       * shut the drawer behind the scratchbook. */
+      closeShown?.();
+      const pop=document.createElement('div');
+      pop.className='hk-pop';pop.setAttribute('role','dialog');pop.setAttribute('aria-modal','true');pop.setAttribute('aria-label','Auditor scratchbook');
+      const card=document.createElement('div');card.className='hk-pop-card';
+      const head=document.createElement('div');head.className='hk-pop-head';
+      const heading=document.createElement('h2');heading.className='hk-pop-title';heading.textContent='Auditor scratchbook';
       const close=document.createElement('button');close.type='button';close.className='text-btn';close.textContent='Close';
-      close.addEventListener('click',()=>dialog.close());
-      dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+      const body=document.createElement('div');body.className='hk-pop-body';
+      const onKey=e=>{if (e.key==='Escape') {e.preventDefault();e.stopPropagation();shut();}};
+      const shut=()=>{
+        document.removeEventListener('keydown',onKey,true);pop.remove();
+        if (closeShown===shut) closeShown=null;
+        if (button.isConnected) button.focus();
+      };
+      close.addEventListener('click',shut);
+      pop.addEventListener('click',e=>{if (e.target===pop) shut();});
       const summary=document.createElement('p');
       summary.textContent=(state.audit?.coverage?.read || 0)+' of '+(state.audit?.coverage?.total || 0)+' source passages read. '
         +Object.keys(kept.entries).length+' lasting profile checks retained. '
@@ -51,7 +68,8 @@ export function auditScratchbookButton(getStory) {
       const work=document.createElement('ul');
       for (const text of state.audit?.pending || []) { const li=document.createElement('li');li.textContent=text;work.append(li); }
       if (!work.children.length) {const li=document.createElement('li');li.textContent='No open findings in the last completed review.';work.append(li);}
-      dialog.append(heading,close,summary,note,timing,list,pending,work);document.body.append(dialog);dialog.showModal();
+      head.append(heading,close);body.append(summary,note,timing,list,pending,work);card.append(head,body);pop.append(card);
+      document.body.append(pop);document.addEventListener('keydown',onKey,true);closeShown=shut;close.focus();
     } finally {button.disabled=false;}
   });
   return button;

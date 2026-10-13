@@ -10,7 +10,7 @@ import {applyMutations,undoLast} from '../../js/engine/apply.js';
 import {auditSources,missingSourcePeople,sourceIdentityNeeded,sourceFactScope} from '../../js/agents/auditsources.js';
 import {auditLedger,findingSettled} from '../../js/agents/auditor.js';
 import {ledgerVerificationRows,ledgerRepairInputKey,ledgerRepairStateKey,saveAuditCheckpoint,ledgerAuditVerified,ledgerRepairNeeded} from '../../js/agents/auditprogress.js';
-import {auditStretch,auditProgress,nextStretch,parseStretchAnswer,scopeStretch,auditWaits,RECOVERY_DELAY,continuousRunStatus,recoveryWords} from '../../js/agents/continuous.js';
+import {auditStretch,auditProgress,nextStretch,parseStretchAnswer,scopeStretch,auditWaits,RECOVERY_DELAY,continuousRunStatus,recoveryWords,openCorrections} from '../../js/agents/continuous.js';
 import {noteWorkerRun,loadWorkerStatus,historicalRunStatus} from '../../js/agents/status.js';
 import {loadMemory,saveMemory} from '../../js/agents/memory.js';
 /* M750: the Essentials are retired — their invalidation checks below went with them */
@@ -20,7 +20,7 @@ const source='page:guard:0';
 const person={name:'the bodyguard',kind:'person',shown:quote,identityFacts:[{text:'Stands behind William.',shown:quote}],facts:[]};
 const base={...emptyState(),present:[{name:'the bodyguard'},{name:'William'},{name:'Other Guard'}],characters:{William:{core:'The prince.'}},canon:{William:{facts:[{key:'hair',value:'dark'}]}},auditSources:{[source]:{mark:'original',people:[person]}}};
 const issue=missingSourcePeople(base,[{...person,source,label:'Page 86'}])[0];
-const resolution={type:'source.resolve',sourceId:source,name:person.name,to:person.name,kind:'person',cause:'This particular guard stands behind William.',auditorApproved:true};
+const resolution={type:'source.resolve',sourceId:source,name:person.name,to:person.name,kind:'person',cause:'This particular guard stands behind William.',auditorApproved:true,source:'auditor'};
 const bound=applyMutations(base,[resolution]);
 assert.equal(bound.applied.length,1);
 assert(findingSettled(issue,{out:bound.state,applied:[],rejected:[]},[],[]));
@@ -441,13 +441,15 @@ try {
  const lampStart=chatSource.indexOf('      const busy = runningWorkers(storyId).length > 0 || queuedCount(storyId) > 0;');
  const lampEnd=chatSource.indexOf('      /* M275:',lampStart);
  assert(lampStart>0 && lampEnd>lampStart);
- const lamp=new Function('auditRead','verificationNeeded','shelf',`
+ // The lamp's own words for open corrections come from continuous.js (openCorrections), as the workers' line's do.
+ const lampCode=new Function('auditRead','verificationNeeded','shelf','openCorrections',`
   const storyId='controlled',runningWorkers=()=>[],queuedCount=()=>0;
   const trouble=false,partly=false,behind=false,ran=4,told=1,guards=[],repairOwed=false,repairPaused=false,openAudit=false;
   const otherHandAt=()=>false,ledgerBehind=false,sore=[],part=[],savedAudit={},unfoldedForGood=false;
   let ledgerMark;const classes=new Set();const btn={classList:{toggle:(name,on)=>on?classes.add(name):classes.delete(name)},setAttribute:()=>{}};
   ${chatSource.slice(lampStart,lampEnd)}
   return {ledgerMark,green:classes.has('all-well'),yellow:classes.has('has-trouble')};`);
+ const lamp=(auditRead,verificationNeeded,shelf)=>lampCode(auditRead,verificationNeeded,shelf,openCorrections);
  await noteWorkerRun(fidelityStory.id,'continuous',{ok:true,...continuousRunStatus(fidelityResult),detail:recoveryWords(fidelityResult)});
  const fidelityShelf=await loadWorkerStatus(fidelityStory.id);
  const verified=!ledgerAuditVerified(landed,story,history);

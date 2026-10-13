@@ -97,7 +97,11 @@ test('M44-6 the house wires the laws: retry truncates the record, delete slides 
   assert(/memoryAfterDeletion\(await loadMemory\(story\.id\), kGone\b/.test(chat), 'delete slides'); /* M680: with the tale's own rule for which lines stay (recordCutRule) — run by DOM-273 */
   assert(/replayFrom\(story, after\.id, \{ changed: false, shiftAfter: goneK, kOverride: goneK, atOverride: kGone(, held: true)? \}\)/.test(chat), 'delete folds back and re-applies the later pages’ writes, shifted down (M69)'); /* M680: held — the delete took the rebuild gate itself */
   /* M682: putting a mend's earlier words back is the fifth door, exercised by DOM-315. */
-  eq((chat.match(/memoryWithoutPage\(await loadMemory\(story\.id\), k\)/g) || []).length, 5, 'swipe-new, swipe-walk (last page), edit, read again (M113), and words put back leave a hole');
+  /* M752: the four doors whose page's words change go through one rule (memory.js recordAfterPageChange — the line let go
+   * where a keeper folds it again, a line that stays standing on its own words; run by m752-record.mjs); "read again"
+   * (M113), whose words do not change, still lets the line go only where a keeper folds it */
+  eq((chat.match(/recordAfterPageChange\(story\.id, k\)/g) || []).length, 4, 'swipe-new, swipe-walk (last page), edit and words put back leave a hole');
+  eq((chat.match(/memoryWithoutPage\(await loadMemory\(story\.id\), k\)/g) || []).length, 1, 'read again (M113) leaves a hole');
   const edit = chat.slice(chat.indexOf('const isLast = !history.slice'), chat.indexOf('const isLast = !history.slice') + 1200); /* M680: a comment on the held gate sits before the replay */
   /* M296: the edit's follow-up is one door (pageReinked) — the housekeeper's re-inks pass through it too */
   assert(/if \(isLast\) \{[\s\S]*rewindTo\(story, history, boundary\.id\)/.test(edit) && /else \{[\s\S]*replayFrom\(story, msg\.id, \{ changed: true(, held: true)? \}\)/.test(edit), 'the last page rewinds; an older page folds back and is read again');

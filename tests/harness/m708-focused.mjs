@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {db} from '../../js/store.js';
 import {emptyState,saveState,loadState} from '../../js/engine/state.js';
 import {applyMutations} from '../../js/engine/apply.js';
-import {auditLedger,bindAuditEvidence,completeAuditCheckReply,verifyLedgerChecks,auditView,auditReviewProblems} from '../../js/agents/auditor.js';
+import {auditLedger,bindAuditEvidence,completeFinalAuditReply,parseAuditorAnswer,verifyLedgerChecks,auditView} from '../../js/agents/auditor.js';
 import {auditSources} from '../../js/agents/auditsources.js';
 import {auditEvidenceBook,auditEvidencePassages} from '../../js/agents/auditevidence.js';
 import {ledgerVerificationRows,ledgerAuditVerified,reusableAuditCheckpoint,auditCheckpointStart} from '../../js/agents/auditprogress.js';
@@ -13,6 +13,9 @@ import {fingerprint36} from '../../js/engine/fingerprint.js';
 const cast="Neri was once a royal guardian. Neri has dark hair and handsome features.\n\nValen is Neri's blonde public face. Elin is queen of the north, calculating and blunt, with\n purple hair.";
 const prose='Neri waited alone at the gate. Elin remained in her northern chambers.';
 const {id}=await db.stories.create({title:'Durable auditor scratchbook',castNotes:cast});
+// create keeps a title only: the story holds the cast notes the audit is handed, as every caller hands them (chat.js:
+// story.castNotes). M752: the audit's receipts name the notes it READ.
+await db.stories.update(id,{castNotes:cast});
 await db.messages.append(id,{role:'assistant',text:prose,ts:1});
 const story=await db.stories.get(id),pages=await db.messages.list(id),documents=auditSources({castNotes:cast,messages:pages});
 const writer=documents.find(d=>d.id.startsWith('cast:'));
@@ -35,24 +38,16 @@ await saveState(id,state);state=await loadState(id);
 let reviewCalls=0,sourceCalls=0;const prior=globalThis.fetch;
 globalThis.fetch=async(_,options)=>{
   const body=JSON.parse(options.body),content=body.messages.map(m=>String(m.content)).join('\n');
-  assert(content.includes('FINAL LEDGER REVIEW'),'No discovery, focused profile or separate standings call.');
+  if(content.includes('SOURCE DOCUMENTS\n')){sourceCalls++;throw Error('Unchanged originals must remain cached.');}
+  assert(content.includes('FINAL REVIEW CONTRACT'),'No discovery, focused profile or separate standings call.');
   reviewCalls++;
   const rows=JSON.parse(content.split('REQUIRED CURRENT LEDGER CHECKS:\n')[1].split('\n')[0]);
-  const bank=JSON.parse(content.split('ORIGINAL SOURCE PASSAGES FOR REPAIR TARGETS, not summary quotes:\n')[1].split('\n')[0]);
-  const reply={standings:[],checks:rows.map(r=>({id:r.id,status:'correct',why:'Saved meaning and chronology agree with originals.',evidenceId:oldId,
-    ...(r.section==='presence'?{position:r.value.position,positionMatches:true,lastEvidenceId:bank.find(p=>p.text.includes(prose)).evidenceId}:{}),
-    ...(r.section==='characters'?{
-      appearance:(r.value.appearanceSources || []).map(f=>({id:f.id,status:'held',key:f.key==='features'?'build':'hair',
-        value:f.name==='Elin'?'long purple':f.key==='features'?'handsome features':'dark in his own face; blonde in Valen',
-        why:'This complete saved field represents this source fact and retains the other face.',evidenceId:f.id})),
-      identity:(r.value.identitySources || []).map(f=>({id:f.id,status:'held',coreText:r.name==='Neri'?'formerly guarded the royal house':'shrewd and plain spoken',why:'Equivalent identity.',evidenceId:f.id})),
-      ...(r.name==='Neri'?{physicalFacts:[{key:'hair',value:'dark in his own face; blonde in Valen',evidenceId:oldId}]}:{}),
-    }:{}),
-  }))};
-  if (reviewCalls===2) {
-    const neri=reply.checks.find(c=>c.id==='characters:Neri');
-    neri.physicalFacts=[{key:'hair',value:'dark',evidenceId:oldId},{key:'hair',value:'blonde',evidenceId:oldId}];
-  }
+  assert(!rows.some(r=>r.section==='canon' && rows.some(c=>c.id==='characters:'+r.name)),'Canonical appearance shares its People approval.');
+  // M709: the whole-review verdict approves the resulting ledger; working repairs ride with it.
+  const reply={standings:[],issues:[{what:'Keep both faces in one hair field.',mutations:[{type:'canon.lock',name:'Neri',key:'hair',value:'dark in his own face; blonde in Valen',evidenceId:oldId}]}],
+    review:{status:'complete',why:'Saved meaning and chronology agree with originals; the complete hair field retains the other face.',open:[]}};
+  if (reviewCalls===2) reply.issues=[{what:'Two faces',mutations:[
+    {type:'canon.lock',name:'Neri',key:'hair',value:'dark',evidenceId:oldId},{type:'canon.lock',name:'Neri',key:'hair',value:'blonde',evidenceId:oldId}]}];
   if (reviewCalls===3) assert(content.includes('Complete the SAME review'),'Contradictory faces are finished in the original conversation, not saved then reopened.');
   const answer=JSON.stringify(reply);
   return new Response(body.stream?'data: '+JSON.stringify({choices:[{delta:{content:answer}}]})+'\n\ndata: '+JSON.stringify({choices:[{delta:{},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n':JSON.stringify({choices:[{message:{content:answer},finish_reason:'stop'}]}));
@@ -94,22 +89,19 @@ try {
   assert(forged.issues[0].mutations[0].evidenceError,'An invented reference without original evidence does not pass.');
   const literal=bindAuditEvidence({issues:[{mutations:[{evidenceId:'source:old-unavailable',shown:cast}]}]},[],[],documents);
   assert(!literal.issues[0].mutations[0].evidenceError,'Valid original quotation does not need a redundant opaque id.');
-  assert(!completeAuditCheckReply('{"issues":[]}',ledgerVerificationRows(done)),'Zero checks cannot be called a completed review.');
+  assert(!completeFinalAuditReply(parseAuditorAnswer('{"issues":[]}'),ledgerVerificationRows(done)),'Zero checks cannot be called a completed review.');
   const stateRow=ledgerVerificationRows(done).find(r=>r.id==='characterState:Neri');
   const repaired={...done,characters:{...done.characters,Neri:{...done.characters.Neri,state:'Waiting at the gate.'}}};
   const check={id:stateRow.id,print:stateRow.print,status:'correct',why:'The corrected resulting state agrees with the page.',shown:prose};
   const write={mutation:{type:'people.set',name:'Neri',field:'state',text:'Waiting at the gate.'}};
-  assert(verifyLedgerChecks({state:repaired,snapshot:done,approvedState:repaired,checks:[check],applied:[write],documents,source:'s'}).entries[stateRow.id],
+  // auditLedger verifies through the final auditor's authoritative path; check that one.
+  assert(verifyLedgerChecks({state:repaired,snapshot:done,approvedState:repaired,checks:[check],applied:[write],documents,source:'s',authoritative:true}).entries[stateRow.id],
     'The same approved supported repair closes even when its resulting entry was called correct.');
   const concurrent={...repaired,characters:{...repaired.characters,Neri:{...repaired.characters.Neri,state:'A later manual change.'}}};
-  assert(!verifyLedgerChecks({state:concurrent,snapshot:done,approvedState:repaired,checks:[check],applied:[write],documents,source:'s'}).entries[stateRow.id],
+  assert(!verifyLedgerChecks({state:concurrent,snapshot:done,approvedState:repaired,checks:[check],applied:[write],documents,source:'s',authoritative:true}).entries[stateRow.id],
     'A concurrent unreviewed value cannot borrow the old repair approval.');
-  const charRow=ledgerVerificationRows(done).find(r=>r.id==='characters:Neri');
-  const conflicts={checks:[{id:charRow.id,status:'correct',why:'Review.',evidenceId:oldId}],issues:[{what:'Two faces',mutations:[
-    {type:'canon.lock',name:'Neri',key:'hair',value:'dark',evidenceId:oldId},
-    {type:'canon.lock',name:'Neri',key:'hair',value:'blonde',evidenceId:oldId}]}]};
-  assert(auditReviewProblems({text:JSON.stringify(conflicts),rows:[charRow],state:done,documents,passages,
-    preview:()=>done}).some(p=>p.why.includes('Conflicting writes')),'Two faces cannot supply competing writes to one hair field.');
+  // The conflicting-write refusal formerly lived in auditReviewProblems, which M709 stopped calling;
+  // the end-to-end conflicting answer below exercises the audit itself.
   const quote='Elin is queen of the north, calculating and blunt, with purple hair.';
   const normalized=auditEvidenceBook(documents,[{source:writer.id,evidenceId:'appearance:multiline',text:quote}]);
   assert(auditEvidencePassages(documents,normalized).some(p=>p.evidenceId==='appearance:multiline' && p.text.includes('with\n purple')),'Normalized evidence binds its actual original multiline span.');

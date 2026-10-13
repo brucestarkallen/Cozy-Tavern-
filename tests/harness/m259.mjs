@@ -124,11 +124,17 @@ test('M259-3: a finished loose end the auditor closes is closed (it was thrown a
   eq(r.issues.length, 1, 'and the finding is reported');
   eq(r.issues[0].landed, 1, 'with its change landed');
   assert(auditLineWords(after.audit.issues[0]).text.startsWith('Set right:'), 'the drawer says set right');
-  /* the other fields of people.note are still the page reader's */
+  /* M685: a source-supported repair may correct a wrong "now" line (M709: the quotation is provenance — the final auditor's
+   * verdict stands); what stays in code is the writer's own hand: a now line he wrote is never the auditor's */
   const house2 = scriptedHouse([issuesAnswer([{ what: 'her now line is stale', fix: 'x', pages: false,
-    mutations: [{ type: 'people.note', name: 'Mira', field: 'state', text: 'at the dock' }] }])]);
+    mutations: [{ type: 'people.set', name: 'Mira', field: 'state', text: 'at the ferry, her debt paid', shown: 'Mira hands the ferryman his coin at last' }] }])]);
   await withHouse(house2, () => auditLedger({ connection: CONN, storyId, stale: () => false }));
-  assert(!/dock/.test((await loadState(storyId)).characters.Mira.state || ''), 'a "now" line is never the auditor’s');
+  eq((await loadState(storyId)).characters.Mira.state, 'at the ferry, her debt paid', 'a sourced correction of a now line lands (M685)');
+  await saveState(storyId, applyMutations(await loadState(storyId), [{ type: 'people.set', name: 'Mira', field: 'state', text: 'asleep upstairs', byHand: true }]).state);
+  const house3 = scriptedHouse([issuesAnswer([{ what: 'her now line is stale', fix: 'x', pages: false,
+    mutations: [{ type: 'people.set', name: 'Mira', field: 'state', text: 'at the ferry again', shown: 'Mira hands the ferryman his coin at last' }] }])]);
+  await withHouse(house3, () => auditLedger({ connection: CONN, storyId, stale: () => false }));
+  eq((await loadState(storyId)).characters.Mira.state, 'asleep upstairs', 'a "now" line the writer wrote by hand is never the auditor’s');
 });
 
 test('M259-4: the report says what LANDED; a finding the ledger already held is not reported', async () => {
@@ -167,43 +173,69 @@ test('M259-4: the report says what LANDED; a finding the ledger already held is 
   assert(auditLineWords({ what: 'old', fix: 'f', fixable: true }).text.startsWith('Set right:'), 'old reports keep their words');
 });
 
-test('M259-5: the auditor restores a zero standing but never moves one the pages moved', async () => {
-  const storyId = 'm259-stand';
-  let st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan' };
-  st = applyMutations(st, [{ type: 'presence.enter', name: 'Jovan' }, { type: 'rel.set', name: 'Caleb Thorne', p: 20, cause: 'the brief says they were friends' }]).state;
-  st = applyMutations(st, [{ type: 'rel.shift', name: 'Caleb Thorne', axis: 'p', delta: -15, cause: 'he lied to her about the photos' }]).state;
-  eq(st.relationships['Caleb Thorne'].p, 5, 'fixture: the pages brought Caleb down to 5');
-  await saveState(storyId, st);
-  await db.messages.append(storyId, { role: 'user', text: 'I call Rias.' });
-  await db.messages.append(storyId, { role: 'assistant', text: 'Rias answers on the first ring.' });
-  const house = scriptedHouse([issuesAnswer([
+test('M259-5: a zero standing is restored from the brief’s explicit digits, never over one the pages moved, never on the auditor’s own numbers', async () => {
+  const fixture = async (storyId) => {
+    let st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan' };
+    st = applyMutations(st, [{ type: 'presence.enter', name: 'Jovan' }, { type: 'rel.set', name: 'Caleb Thorne', p: 20, cause: 'the brief says they were friends' }]).state;
+    st = applyMutations(st, [{ type: 'rel.shift', name: 'Caleb Thorne', axis: 'p', delta: -15, cause: 'he lied to her about the photos' }]).state;
+    eq(st.relationships['Caleb Thorne'].p, 5, 'fixture: the pages brought Caleb down to 5');
+    await saveState(storyId, st);
+    await db.messages.append(storyId, { role: 'user', text: 'I call Rias.' });
+    await db.messages.append(storyId, { role: 'assistant', text: 'Rias answers on the first ring.' });
+  };
+  const moves = [
     { what: 'Caleb’s standing is below the brief', fix: 'P:20', pages: false, mutations: [{ type: 'rel.set', name: 'Caleb Thorne', p: 20, cause: 'the brief says they are old friends' }] },
     { what: 'Rias has no standing though the brief makes her his devoted sister', fix: 'P:60', pages: false, mutations: [{ type: 'rel.set', name: 'Rias Wells', p: 60, r: 0, s: 0, cause: 'the brief says she is Jovan’s devoted sister' }] },
-  ])]);
-  await withHouse(house, () => auditLedger({ connection: CONN, storyId, brief: 'Rias Wells is Jovan’s devoted older sister. Caleb Thorne is an old friend.', stale: () => false }));
+  ];
+  /* M689 (docs/LEDGER-PIPELINE-M689.md): "Numeric auditor suggestions cannot replace Scene's judgments. Explicit starting
+   * digits are reconciled axis by axis only where no earned development or manual control exists." The auditor reads the
+   * brief's digits in its one combined answer (standings, M708); the house writes them. */
+  const storyId = 'm259-stand';
+  await fixture(storyId);
+  const house = scriptedHouse([JSON.stringify({ issues: moves, standings: [{ name: 'Rias Wells', p: 60, r: 0, s: 0 }, { name: 'Caleb Thorne', p: 20, r: 0, s: 0 }] })]);
+  const r = await withHouse(house, () => auditLedger({ connection: CONN, storyId, brief: 'Rias Wells is Jovan’s devoted older sister (P:60 R:0 S:0). Caleb Thorne is an old friend (P:20 R:0 S:0).', stale: () => false }));
   const after = await loadState(storyId);
-  eq(after.relationships['Caleb Thorne'].p, 5, 'the drop the pages earned stands');
-  eq(after.relationships['Rias Wells'].p, 60, 'the missing bond is restored');
-  /* M277: a standing move the auditor may not make is counted, not listed — the restore is the one finding */
-  eq(after.audit.issues.length, 1, 'only the restore is reported: ' + JSON.stringify(after.audit.issues.map((i) => i.what)));
-  eq(after.audit.issues[0].landed, 1, 'and it landed');
-  eq(after.audit.leftStandings, 1, 'the refused raise is counted for the workers line');
+  eq(after.relationships['Caleb Thorne'].p, 5, 'the drop the pages earned stands — the brief’s starting digit never writes over it');
+  eq(after.relationships['Rias Wells'].p, 60, 'the missing bond is restored from the brief’s explicit digits');
+  assert(r.applied.some((a) => a.mutation.type === 'rel.set' && a.mutation.name === 'Rias Wells' && /explicit starting digits/.test(a.mutation.cause)), 'by the house, from the brief — never on the auditor’s own number');
+  /* M277: a standing move the auditor may not make is counted, not listed */
+  eq(after.audit.issues.length, 0, 'neither standing move is reported as a finding: ' + JSON.stringify(after.audit.issues.map((i) => i.what)));
+  eq(after.audit.leftStandings, 2, 'both refused moves are counted for the workers line');
+  /* a bond the brief only describes is never turned into a number ("Do not invent scores from a bond description") */
+  await fixture('m259-stand-plain');
+  await withHouse(scriptedHouse([JSON.stringify({ issues: moves, standings: [] })]), () => auditLedger({ connection: CONN, storyId: 'm259-stand-plain', brief: 'Rias Wells is Jovan’s devoted older sister. Caleb Thorne is an old friend.', stale: () => false }));
+  const plain = await loadState('m259-stand-plain');
+  assert(!plain.relationships['Rias Wells'], 'no digits in the brief: no standing is invented for her');
+  eq(plain.relationships['Caleb Thorne'].p, 5, 'and the earned drop stands');
 });
 
-test('M259-6: the header line owns the ground and the hour — the auditor never overrides it', async () => {
+test('M259-6: the header line owns the ground and the hour — the auditor is told so in what it is sent, and an hour his own hand set is never moved', async () => {
   const storyId = 'm259-header';
   let st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan' };
   st = applyMutations(st, [{ type: 'place.set', name: 'Wells Gate' }, { type: 'clock.set', year: 2026, month: 3, day: 13, hour: 14, minute: 20 }, { type: 'presence.enter', name: 'Jovan' }]).state;
-  const minutes = st.clock.minutes;
   await saveState(storyId, st);
   await db.messages.append(storyId, { role: 'user', text: 'I wait.' });
   await db.messages.append(storyId, { role: 'assistant', text: '[Wells Gate — Friday, March 13, 2026 | 14:20 | clear | hoodie | standing]\n\nJovan waits at the gate.' });
-  const house = scriptedHouse([issuesAnswer([{ what: 'the ground and hour are wrong', fix: 'the Stone gate at 15:00', pages: false,
-    mutations: [{ type: 'place.set', name: 'the Stone gate' }, { type: 'clock.set', year: 2026, month: 3, day: 13, hour: 15, minute: 0 }] }])]);
+  /* M689 retired the scope filter that held the auditor to the header in code (docs/LEDGER-PIPELINE-M689.md: "The old
+   * auditorScope export remains for compatibility, but production no longer runs it"), and M709 made the final auditor's
+   * factual verdict final ("Production finalAuditorScope keeps supported operations and ownership rules"). The header's
+   * ownership now rides in what the auditor is sent; the guard that stays in code is the writer's own hand on the clock. */
+  const house = scriptedHouse([issuesAnswer([])]);
   await withHouse(house, () => auditLedger({ connection: CONN, storyId, stale: () => false }));
+  const sent = bodyText(house.calls[0]);
+  assert(/clock\.set \{[^\n]*\} — to the latest header line's own hour, or when the latest STORY page has none/.test(sent), 'the auditor is told the hour is the header line’s');
+  assert(/place\.set \{[^\n]*\} — to the latest header line's own place, or when the latest STORY page has none/.test(sent), 'and the ground too');
+  assert(sent.includes('[Wells Gate — Friday, March 13, 2026 | 14:20 | clear | hoodie | standing]'), 'and it reads the header line itself');
+  /* his hand on the clock since this page: the auditor's hour never lands over it */
+  const now = await loadState(storyId);
+  const hand = applyMutations({ ...now, page: 0 }, [{ type: 'clock.set', year: 2026, month: 3, day: 13, hour: 16, minute: 5, byHand: true }]).state;
+  await saveState(storyId, { ...hand, page: now.page });
+  const minutes = hand.clock.minutes;
+  const house2 = scriptedHouse([issuesAnswer([{ what: 'the hour is wrong', fix: '15:00', pages: false,
+    mutations: [{ type: 'clock.set', year: 2026, month: 3, day: 13, hour: 15, minute: 0 }] }])]);
+  await withHouse(house2, () => auditLedger({ connection: CONN, storyId, stale: () => false }));
   const after = await loadState(storyId);
-  eq(after.place.name, 'Wells Gate', 'the ground stays as the header wrote it');
-  eq(after.clock.minutes, minutes, 'the hour stays as the header wrote it');
+  eq(after.clock.minutes, minutes, 'the hour his hand set stays');
   assert(after.audit.issues.every((i) => i.landed === 0), 'nothing is reported as set right');
   assert(after.audit.pending.length > 0, 'the blocked proposal remains available for correction');
 });
@@ -522,14 +554,21 @@ test('M259-17: a long reading gets a longer leash, and every call in the page ch
   const wrapped2 = chainJob(async (args) => args.stale(), () => false);
   eq(await wrapped2({ stale: () => true }), true, 'stale when the queue says so');
 
-  /* the auditor asks for a leash that fits what it reads, and a fresh minute for its second question */
+  /* the auditor asks for a leash that fits what it reads, before every call it makes. M708 folded the brief's digits into
+   * its one combined review ("Explicit starting standings are included in that same answer ... eliminating a separate
+   * recurring digits call"): no second question waits for a minute of its own — the reading itself asks for them. */
   const leashes = [];
-  const house = scriptedHouse([issuesAnswer([])]);
+  const atCall = [];
+  const inner = scriptedHouse([issuesAnswer([])]);
+  const house = { calls: inner.calls, fetch: async (url, opts) => { atCall.push(leashes[leashes.length - 1]); return inner.fetch(url, opts); } };
   await withHouse(house, () => auditLedger({ connection: CONN, storyId: 'm259-pages', stale: () => false, renew: (ms) => { leashes.push(ms); return true; } }));
-  const size = house.calls[0].body.messages.reduce((n, m) => n + String(m.content || '').length, 0);
-  assert(leashes[0] > 60000 + 5000, 'longer than a minute for a big reading: ' + leashes[0]);
-  assert(Math.abs(leashes[0] - (60000 + Math.ceil(size / 4000) * 1000)) <= 3000, 'scaled to what it was handed: ' + leashes[0] + ' for ' + size);
-  assert(leashes.slice(1).includes(undefined), 'a fresh minute before the brief’s digits are read');
+  assert(house.calls.length >= 1, 'the auditor read');
+  house.calls.forEach((call, i) => {
+    const size = call.body.messages.reduce((n, m) => n + String(m.content || '').length, 0);
+    assert(Math.abs(atCall[i] - (60000 + Math.ceil(size / 4000) * 1000)) <= 3000, 'call ' + (i + 1) + ' goes out on a leash scaled to what it was handed: ' + atCall[i] + ' for ' + size);
+  });
+  assert(atCall[0] > 60000 + 5000, 'longer than a minute for a big reading: ' + atCall[0]);
+  assert(/Return standings:\[\{name,p,r,s\}\] ONLY for explicit starting digits/.test(bodyText(house.calls[0])), 'the brief’s digits are asked in that same reading');
 
   /* the extractor, the world agent and the scribe renew before every call */
   const count = { n: 0 };
@@ -542,11 +581,18 @@ test('M259-17: a long reading gets a longer leash, and every call in the page ch
   const wh = thinkingHouse({ answer: 'not json at all' });
   await withHouse(wh, () => worldTurn({ connection: CONN, storyId: 'm259-renew', userText: 'u', assistantText: 'a page', stale: () => false, renew: tick }).catch(() => null));
   eq(count.n, wh.calls.length, 'the world agent: one minute per call (' + wh.calls.length + ')');
-  count.n = 0;
-  const sh = scriptedHouse([{ text: '{"deltas":[{"name":"Rias Wells","field":"state","text":"at the sto', finish: 'length' }, '{"deltas":[]}']);
-  await withHouse(sh, () => scribeTurn({ connection: CONN, storyId: 'm259-renew', userText: 'u', assistantText: 'a page', stale: () => false, renew: tick }));
+  /* the scribe asks through the shared lookup since M689 (askWithFetch renews before every call with a leash scaled to what
+   * the call holds, M261) and keeps its own fresh minute in front of each ask: every call goes out on its own leash */
+  const scribeLeashes = [];
+  const scribeAtCall = [];
+  const shInner = scriptedHouse([{ text: '{"deltas":[{"name":"Rias Wells","field":"state","text":"at the sto', finish: 'length' }, '{"deltas":[]}']);
+  const sh = { calls: shInner.calls, fetch: async (url, opts) => { scribeAtCall.push(scribeLeashes.length ? scribeLeashes[scribeLeashes.length - 1] : null); scribeLeashes.length = 0; return shInner.fetch(url, opts); } };
+  await withHouse(sh, () => scribeTurn({ connection: CONN, storyId: 'm259-renew', userText: 'u', assistantText: 'a page', stale: () => false, renew: (ms) => { scribeLeashes.push(ms); return true; } }));
   eq(sh.calls.length, 2, 'fixture: the scribe asked twice');
-  eq(count.n, 2, 'the scribe: one minute per call');
+  sh.calls.forEach((call, i) => {
+    const size = call.body.messages.reduce((n, m) => n + String(m.content || '').length, 0);
+    assert(scribeAtCall[i] !== null && Math.abs(scribeAtCall[i] - (60000 + Math.ceil(size / 4000) * 1000)) <= 3000, 'the scribe: call ' + (i + 1) + ' goes out on a leash of its own, scaled to what it holds: ' + scribeAtCall[i] + ' for ' + size);
+  });
 });
 
 /* ---------- looking: the view that fits, and anything else on request ---------- */
@@ -615,8 +661,14 @@ test('M259-18: the auditor is shown what fits, looks for the rest, and a reading
   const g = await withHouse(greedy, () => auditLedger({ connection: CONN, storyId, stale: () => false }));
   assert(greedy.calls.length <= 6, 'looking is bounded: ' + greedy.calls.length + ' calls');
   assert(greedy.calls.some((c) => /no more <fetch>/.test(bodyText(c))), 'it was told to answer now');
-  eq(g.note, 'unusable', 'a reading spent on looking is reported as unusable, never as a finding');
+  /* M708 made the auditor's reading one combined review — the early "unusable" return went with the separate discovery
+   * call; a review that never answers is kept unfinished and says so (M689: open work stays amber, never green) */
+  assert(g.unfinished === true && g.pending.includes('the combined ledger review did not finish'), 'a reading spent on looking is kept unfinished: ' + JSON.stringify(g.pending));
+  eq(g.issues.length, 0, 'never reported as a finding');
   eq(g.applied.length, 0, 'and writes nothing');
+  assert(!/no discrepancy found/.test(auditRunWords(g)) && /still checking/.test(auditRunWords(g)), 'the workers line never calls it clean: ' + auditRunWords(g));
+  const saved = await loadState(storyId);
+  assert(saved.audit.unfinished === true && saved.audit.finalReview && saved.audit.finalReview.status !== 'ok', 'and the saved audit says the review did not finish: ' + JSON.stringify(saved.audit.finalReview));
 });
 
 test('M259-19: the extractor and the world agent look for what the page leans on', async () => {
@@ -694,20 +746,29 @@ test('M259-21: the extractor and the world agent read the story so far whole, wi
   for (let i = 1; i <= 12; i += 1) assert(ends(sent, i), 'the extractor reads page ' + i + ' whole');
   assert(/ALREADY READ/.test(sent) && /ONLY THE NEW PAGE IS NEWS/.test(sent), 'and is told the pages before are not news');
 
-  /* a small house: the newest fit, the rest stand by number, and room is kept for looking */
-  const small = { ...CONN, contextSize: 20000 };
-  const sh = thinkingHouse({ answer: '{"mutations":[{"type":"mode.snapshot","flags":[]}]}' });
-  await withHouse(sh, () => extractTurn({ connection: small, state: emptyState(), userText: 'u', assistantText: 'The new page.', founding: false, before, pageNumber: 13 }));
-  const ss = bodyText(sh.calls[0]);
-  assert(ends(ss, 12) && !ends(ss, 2), 'the newest pages whole, the oldest not');
-  assert(/p2 The storyteller — CONTEXT PAGE 2/.test(ss), 'the oldest stand in the index by number');
+  /* a small house: the newest fit, the rest stand by number, and room is kept for looking.
+   * M689 put the shared ledger reader rules (over 5,000 characters) on the page reader's system, beside M684–M713's grounding,
+   * people and scene-ending tasks: a 20,000-token house no longer holds a 9,000-character page beside them, so the small houses
+   * here start at 24,000 tokens. Those rules are measured before the pages are fitted — at every size the view keeps its room.
+   * M752: and the room is measured as the reader's call is refused (pagecut.js roomChars: wrappers and the 3,000 margin) — the
+   * old measure promised about 3,500 characters the provider check never allowed, so the smallest house holding that page
+   * beside the rules is 26,000 tokens. */
   const { roomChars, LOOK_RESERVE } = await import('../../js/agents/lookup.js');
-  const { readerBudget } = await import('../../js/agents/extractor.js'); /* M679: the reader's answer budget is its room's (2400 for this 20,000-token house) */
-  const size = sh.calls[0].body.messages.reduce((n, mm) => n + String(mm.content || '').length, 0);
-  /* M444: measured against the page reader's OWN room (its answer budget is EXTRACTOR_MAX_TOKENS, 2400 since M37 — this
-   * line read 4000, a room 4,800 characters smaller, and held with 246 to spare until the reader's law grew); the index
-   * of the pages that did not fit is inside the 70% now, and only the two headings around the pages ride over it */
-  assert(size <= roomChars(small, readerBudget(small)) * 0.7 + 400, 'the view leaves room to look — at most 70% of the room: ' + size + ' of ' + roomChars(small, readerBudget(small)));
+  const { readerBudget } = await import('../../js/agents/extractor.js'); /* M679: the reader's answer budget is its room's (2400 below 32,000 tokens) */
+  const sizeOf = (call) => call.body.messages.reduce((n, mm) => n + String(mm.content || '').length, 0);
+  for (const tokens of [26000, 28000, 30000, 32000]) {
+    const small = { ...CONN, contextSize: tokens };
+    const sh = thinkingHouse({ answer: '{"mutations":[{"type":"mode.snapshot","flags":[]}]}' });
+    await withHouse(sh, () => extractTurn({ connection: small, state: emptyState(), userText: 'u', assistantText: 'The new page.', founding: false, before, pageNumber: 13 }));
+    const ss = bodyText(sh.calls[0]);
+    assert(ends(ss, 12) && !ends(ss, 2), tokens + ': the newest pages whole, the oldest not');
+    assert(/p2 The storyteller — CONTEXT PAGE 2/.test(ss), tokens + ': the oldest stand in the index by number');
+    /* M444: measured against the page reader's OWN room (its answer budget is EXTRACTOR_MAX_TOKENS, 2400 since M37 — this
+     * line read 4000, a room 4,800 characters smaller, and held with 246 to spare until the reader's law grew); the index
+     * of the pages that did not fit is inside the 70% now, and only the two headings around the pages ride over it */
+    const size = sizeOf(sh.calls[0]);
+    assert(size <= roomChars(small, readerBudget(small)) * 0.7 + 400, tokens + ': the view leaves room to look — at most 70% of the room: ' + size + ' of ' + roomChars(small, readerBudget(small)));
+  }
   eq(LOOK_RESERVE, 0.3, 'three tenths of every room are kept for looking');
 
   const storyId = 'm259-world-window';
@@ -716,6 +777,17 @@ test('M259-21: the extractor and the world agent read the story so far whole, wi
   await withHouse(wh, () => worldTurn({ connection: CONN, storyId, userText: 'u', assistantText: 'The new page.', before, pageNumber: 13, stale: () => false }));
   const ws = bodyText(wh.calls[0]);
   for (let i = 1; i <= 12; i += 1) assert(ends(ws, i), 'the world agent reads page ' + i + ' whole');
+  /* the world agent's view keeps its room the same way — measured against the answer room it actually asked for */
+  for (const tokens of [24000, 30000]) { /* M752: measured as its call is refused, the world agent holds that page whole from 30,000 (28,000 before) */
+    const small = { ...CONN, contextSize: tokens };
+    const sid = 'm259-world-window-' + tokens;
+    await saveState(sid, emptyState());
+    const sw = thinkingHouse({ answer: '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null,"voices":[]}}' });
+    await withHouse(sw, () => worldTurn({ connection: small, storyId: sid, userText: 'u', assistantText: 'The new page.', before, pageNumber: 13, stale: () => false }));
+    const room = roomChars(small, sw.calls[0].body.max_tokens);
+    assert(sizeOf(sw.calls[0]) <= room * 0.7 + 400, tokens + ': the world agent’s view leaves room to look: ' + sizeOf(sw.calls[0]) + ' of ' + room);
+    if (tokens === 30000) assert(ends(bodyText(sw.calls[0]), 12) && !ends(bodyText(sw.calls[0]), 2), 'and holds the newest pages whole, the oldest by number');
+  }
 
   const { buildHousekeeperContext } = await import('../../js/agents/housekeeper.js');
   const hk = buildHousekeeperContext({ story: { title: 't', brief: 'b' }, messages: [], state: bigLedger(), modules: [], lore: [], memory: null, session: null, contextPages: 12 });
@@ -1100,13 +1172,18 @@ test('M259-30: every note in the ledger is kept whole — no “…and privately
   assert(!/…/.test(JSON.stringify(st.bodies)), 'a wound, whole');
   assert(!/…/.test(JSON.stringify(st.log.map((l) => l.words))), 'and every line of the log says it whole');
 
-  /* the storyteller\u2019s card for someone off the scene sheds whole lines, never a word */
-  const lean = { ...st, present: [], offscreen: {}, characters: { 'Caleb Thorne': { core: 'the captain', state: 'posting', arc: 'x'.repeat(1500), threads: ['y'.repeat(900)], updatedAtTurn: 0 } } };
-  const tiers = renderPeopleTiers(lean, { recentPages: ['Caleb Thorne texted again.'] });
-  const card = JSON.stringify(tiers);
+  /* the storyteller\u2019s card for someone off the scene sheds whole lines, never a word. M737 gave a recalled card the
+   * shared people allocation (docs/M737_CONTEXT_REPORT.md: "renderPeopleTiers and absent card allocation retain complete
+   * relevant fields when the shared allocation permits") — a card past THAT room still lets its loose ends go first */
+  const { PEOPLE_BUDGET } = await import('../../js/engine/people.js');
+  const past = Math.ceil(PEOPLE_BUDGET * 0.6);
+  const calebCard = (arc, ends) => ({ ...st, present: [], offscreen: {}, characters: { 'Caleb Thorne': { core: 'the captain', state: 'posting', arc: 'x'.repeat(arc), threads: ['y'.repeat(ends)], updatedAtTurn: 0 } } });
+  const card = JSON.stringify(renderPeopleTiers(calebCard(past, past), { recentPages: ['Caleb Thorne texted again.'] }));
   assert(card.includes('the captain') && card.includes('posting'), 'who they are and where they are ride whole');
+  assert(card.includes('x'.repeat(past)), 'how things stand between them rides whole');
   assert(!card.includes('yyyy'), 'the loose ends go first when the card is past its room');
   assert(!/(x|y)…/.test(card), 'and nothing is cut mid-line');
+  assert(JSON.stringify(renderPeopleTiers(calebCard(1500, 900), { recentPages: ['Caleb Thorne texted again.'] })).includes('y'.repeat(900)), 'a card its room holds rides complete, loose ends and all (M737)');
 
   /* a page the old limits cut is healed once */
   const cutOld = { characters: { 'Caleb Thorne': { core: 'the captain', state: caleb.slice(0, 225).trimEnd() + '…', arc: '', threads: [] } } };
@@ -1560,7 +1637,7 @@ test('M259-40: an outage closes while the writer plays on — no page read twice
   assert(rebuilt && Array.isArray(rebuilt.readAhead) && rebuilt.readAhead.length === 0 && rebuilt.page === 3 && rebuilt.readTo <= 3, 'a ledger rebuilt to an earlier page has read no further and holds nothing past it: ' + JSON.stringify(rebuilt && { page: rebuilt.page, readTo: rebuilt.readTo, readAhead: rebuilt.readAhead }));
 });
 
-test('M259-41: the main character holds no standing; the auditor starts a standing only from the brief; its refused standing moves are counted, not listed', async () => {
+test('M259-41: the main character holds no standing; a standing starts only from the brief’s explicit digits (the house’s, since M689); the auditor’s refused standing moves are counted, not listed', async () => {
   const { auditRunWords } = await import('../../js/agents/auditor.js');
   let base = emptyState(); base.sheet = { actors: {}, playerName: 'Jovan' };
   const mcTry = applyMutations(base, [
@@ -1577,23 +1654,27 @@ test('M259-41: the main character holds no standing; the auditor starts a standi
   await saveState(storyId, st);
   await db.messages.append(storyId, { role: 'user', text: 'I open the old folder.' });
   await db.messages.append(storyId, { role: 'assistant', text: 'Rias watched him. Across town, Sophie counted the minutes on a violin case.' });
-  const house = scriptedHouse([issuesAnswer([
+  /* M689 (docs/LEDGER-PIPELINE-M689.md): "Numeric auditor suggestions cannot replace Scene's judgments. Explicit starting
+   * digits are reconciled axis by axis" \u2014 every rel.* the auditor proposes is left to the page reader; the brief's explicit
+   * digits, read in its one combined answer (standings, M708), are written by the house */
+  const house = scriptedHouse([JSON.stringify({ issues: [
     { what: 'The ledger has no standing for Jovan, but he opened the old folder', fix: 'moved by the folder', pages: false, mutations: [{ type: 'rel.set', name: 'Jovan', p: 10, cause: 'moved by the old folder' }] },
     { what: 'The ledger has no standing for Sophie Dale, but she counted eleven minutes on the latch', fix: 'moved by the evening', pages: false, mutations: [{ type: 'rel.set', name: 'Sophie Dale', p: 8, cause: 'moved by the evening\u2019s events' }] },
     { what: 'Rias\u2019s standing is P:65 but the page moves her', fix: 'P:70', pages: false, mutations: [{ type: 'rel.set', name: 'Rias Wells', p: 70, cause: 'the page moves her' }] },
     { what: 'The ledger has no standing for Claire Stone though the brief makes her his oldest friend', fix: 'P:40', pages: false, mutations: [{ type: 'rel.set', name: 'Claire Stone', p: 40, cause: 'the brief says she is Jovan\u2019s oldest friend' }] },
     { what: 'The ledger has no standing for Maya Bell', fix: 'P:12', pages: false, mutations: [{ type: 'rel.set', name: 'Maya Bell', p: 12, cause: 'the brief says she keeps a folder on him' }] },
-  ])]);
-  const r = await withHouse(house, () => auditLedger({ connection: CONN, storyId, brief: 'Rias Wells is his sister. Claire Stone is his oldest friend.', stale: () => false }));
+  ], standings: [{ name: 'Claire Stone', p: 40, r: 0, s: 0 }] })]);
+  const r = await withHouse(house, () => auditLedger({ connection: CONN, storyId, brief: 'Rias Wells is his sister. Claire Stone is his oldest friend (P:40 R:0 S:0).', stale: () => false }));
   const after = await loadState(storyId);
   assert(!after.relationships.Jovan, 'no standing was started for the main character');
   assert(!after.relationships['Sophie Dale'], 'nor for someone the brief does not name, on a page\u2019s reason');
   assert(!after.relationships['Maya Bell'], 'nor for someone the brief does not name, whatever reason is given');
   eq(after.relationships['Rias Wells'].p, 65, 'a standing the pages moved is the page reader\u2019s');
-  eq(after.relationships['Claire Stone'].p, 40, 'a bond the brief names, at zero, is restored');
-  eq(after.audit.issues.length, 1, 'only the restore is reported: ' + JSON.stringify(after.audit.issues.map((i) => i.what.slice(0, 40))));
-  eq(after.audit.leftStandings, 4, 'the four standing moves it may not make are counted');
-  assert(/left 4 standing changes to the page reader/.test(auditRunWords(r)), 'and the workers line says so: ' + auditRunWords(r));
+  eq(after.relationships['Claire Stone'].p, 40, 'a bond the brief sets in digits, at zero, is restored');
+  assert(r.applied.some((a) => a.mutation.type === 'rel.set' && a.mutation.name === 'Claire Stone' && /explicit starting digits/.test(a.mutation.cause)), 'by the house, from the brief\u2019s digits');
+  eq(after.audit.issues.length, 0, 'no standing move is reported as a finding: ' + JSON.stringify(after.audit.issues.map((i) => i.what.slice(0, 40))));
+  eq(after.audit.leftStandings, 5, 'the five standing moves it may not make are counted');
+  assert(/left 5 standing changes to the page reader/.test(auditRunWords(r)), 'and the workers line says so: ' + auditRunWords(r));
 });
 
 test('M259-42: a standing is toward the main character — never one the brief set toward someone else; a zero one is no change; the house lets go of what an older auditor wrote so', async () => {
@@ -1607,23 +1688,25 @@ test('M259-42: a standing is toward the main character — never one the brief s
   await db.messages.append(storyId, { role: 'user', text: 'u' });
   await db.messages.append(storyId, { role: 'assistant', text: 'a page' });
   /* the writer's shape: a heading, and an arrow line toward someone else (M50-1) */
-  const brief = 'Sophie Dale \u2014 Emilia\u2019s shadow.\n\u2192 Emilia (P:65 R:0 S:0)\nClaire Stone is Jovan\u2019s oldest friend.\nGerald is a farmer at the Bluebird counter.\nNora Stone runs the bakery.';
-  const house = scriptedHouse([issuesAnswer([
+  const brief = 'Sophie Dale \u2014 Emilia\u2019s shadow.\n\u2192 Emilia (P:65 R:0 S:0)\nClaire Stone is Jovan\u2019s oldest friend (P:40 R:0 S:0).\nGerald is a farmer at the Bluebird counter.\nNora Stone runs the bakery.';
+  /* M689: no rel.* of the auditor's lands \u2014 what the brief sets toward him in digits is read in its one combined answer
+   * (standings, M708: only toward the main character) and written by the house */
+  const house = scriptedHouse([JSON.stringify({ issues: [
     { what: 'The ledger\u2019s standing for Sophie Dale is P:0, but the brief establishes her toward Emilia as P:65', fix: 'restored to the brief\u2019s digits', pages: false, mutations: [{ type: 'rel.set', name: 'Sophie Dale', p: 65, r: 0, s: 0, cause: 'the brief says' }] },
     { what: 'Sophie has no standing', fix: 'P:65', pages: false, mutations: [{ type: 'rel.set', name: 'Sophie Dale', p: 65, cause: 'the brief says Sophie is devoted toward Emilia, and Jovan knows her' }] },
     { what: 'Gerald has no standing', fix: 'neutral', pages: false, mutations: [{ type: 'rel.set', name: 'Gerald', p: 0, r: 0, s: 0, cause: 'the brief says he is a farmer' }] },
     { what: 'Nora Stone has no standing', fix: 'P:20', pages: false, mutations: [{ type: 'rel.set', name: 'Nora Stone', p: 20, cause: 'the brief says' }] },
     { what: 'Claire has no standing though the brief makes her Jovan\u2019s oldest friend', fix: 'P:40', pages: false, mutations: [{ type: 'rel.set', name: 'Claire Stone', p: 40, cause: 'the brief says she is Jovan\u2019s oldest friend' }] },
-  ])]);
+  ], standings: [{ name: 'Claire Stone', p: 40, r: 0, s: 0 }] })]);
   const r = await withHouse(house, () => auditLedger({ connection: CONN, storyId, brief, stale: () => false }));
   const after = await loadState(storyId);
   assert(!after.relationships['Sophie Dale'], 'a standing the brief set toward Emilia is not written toward Jovan');
   assert(!after.relationships.Gerald, 'a zero standing is not written for a bystander');
   assert(!after.relationships['Nora Stone'], 'nor one on a bare \u201cthe brief says\u201d, for someone the brief names but sets toward no one');
-  eq(after.relationships['Claire Stone'].p, 40, 'a bond the brief sets toward him is restored');
-  eq(after.audit.issues.length, 1, 'one finding: ' + JSON.stringify(after.audit.issues.map((i) => i.what.slice(0, 30))));
+  eq(after.relationships['Claire Stone'].p, 40, 'a bond the brief sets toward him is restored \u2014 by the house, from its digits');
+  eq(after.audit.issues.length, 0, 'no standing move is a finding: ' + JSON.stringify(after.audit.issues.map((i) => i.what.slice(0, 30))));
   const words = auditRunWords(r);
-  assert(/left 3 standing changes to the page reader/.test(words) && !/refused/.test(words), 'the refusals are counted once: ' + words);
+  assert(/left 5 standing changes to the page reader/.test(words) && !/refused/.test(words), 'the refusals are counted once: ' + words);
 
   const old = { ...base, relationships: {
     'Sophie Dale': { p: 65, r: 0, s: 0, history: [{ axis: 'p', delta: 0, cause: 'set \u2014 the brief says' }] },
@@ -1892,9 +1975,14 @@ test('M259-48: the scribe reads the brief and every page it keeps; the writer\u2
   const ask = (budgetTokens) => JSON.stringify(buildRequest({ story: { title: 't', brief: 'b', castNotes: cast }, messages: [{ id: 'u1', role: 'user', text: 'go' }], settings: {}, state: emptyState(), modules: [], memory: 'm'.repeat(29000), lore, loreFired: [{ name: 'L' }], window: { mode: 'keeper', window: 30, budgetTokens } }));
   const roomy = ask(500000);
   assert(roomy.includes('LAST-CAST-LINE') && roomy.includes('LAST-LORE-LINE'), 'a large room carries the cast notes and the lore whole (' + cast.length + ' and ' + lore.length + ' characters)');
+  /* M737 keeps the writer's authored fields whole ("Complete authored fields fit coherent allocations" — the Who's here
+   * slot's cast-notes cut went in the same change as the card trims; required content that cannot fit raises the clear
+   * size error instead): an unknown room no longer clips his cast notes. What it still cuts, the lore, is cut at the end
+   * of a whole line, never mid-word. */
   const tight = ask(0);
-  assert(!tight.includes('LAST-CAST-LINE') && /Cast line \d+ \\u2014 w+\u2026|Cast line \d+ \u2014 w+\u2026/.test(tight), 'an unknown room still cuts \u2014 at the end of a whole line');
-  assert(!/w{1,49}\u2026/.test(tight.replace(/w{50}\u2026/g, '')), 'never mid-word');
+  assert(tight.includes('LAST-CAST-LINE'), 'the writer\u2019s cast notes ride whole even when the room is unknown');
+  assert(!tight.includes('LAST-LORE-LINE') && /Lore line \d+ v{60}\u2026/.test(tight), 'an unknown room still cuts \u2014 the lore, at the end of a whole line');
+  assert(!/v{1,59}\u2026/.test(tight.replace(/v{60}\u2026/g, '')) && !/w{1,49}\u2026/.test(tight.replace(/w{50}\u2026/g, '')), 'never mid-word');
 
   /* the story's ground and its latest names */
   const town = emptyState(); town.sheet = { actors: {}, playerName: 'Jovan' }; town.page = 80;
@@ -2123,8 +2211,12 @@ test('M259-53: the record takes the room the rest of the request truly leaves �
   /* the old guess took the big brief past the room */
   const old = tale(80000, 20000, 20000);
   const oldCap = recordRoom({ contextTokens: 128000, maxTokens: undefined, windowTokens: old.messages.reduce((n, m) => n + Math.ceil(m.text.length / 4), 0) });
-  const oldReq = buildRequest({ ...old, memory: para(oldCap, 'record') });
-  assert(Math.ceil(wireChars(oldReq) / 3) + 8000 > 128000, 'the old guess sends past a 128k room with a big brief (' + Math.ceil(wireChars(oldReq) / 3) + ' + an answer)');
+  /* M714/M752: the house no longer sends a request past the room — its final fit takes the older pages out first (or refuses
+   * before sending) — so the old guess is measured as it would have gone: the rest of the request and that record */
+  const oldWhole = Math.ceil((fixedCharsOf(buildRequest({ ...old, memory: '' }).receipt) + oldCap) / 3);
+  assert(oldWhole + 8000 > 128000, 'the old guess sends past a 128k room with a big brief (' + oldWhole + ' + an answer)');
+  const oldReq = buildRequest({ ...old, memory: para(oldCap, 'record'), measureOnly: true });
+  assert(oldReq.receipt.context.removedHistory > 0, 'and the final fit has to take older pages out to make room for it (' + oldReq.receipt.context.removedHistory + ')');
   /* a typical tale gets at least the room the old guess gave it */
   const typ = tale(15000, 5000, 5000);
   const newTyp = recordRoom({ contextTokens: 128000, fixedChars: fixedCharsOf(buildRequest({ ...typ, memory: '' }).receipt) });
@@ -2332,7 +2424,9 @@ test('M259-57: the character pages are tidied once — who they are out of "now"
   /* the founder and the scribe are told the same thing */
   const fo = await import('../../js/agents/founder.js');
   const sc = await import('../../js/agents/scribe.js');
-  assert(/who they are in their life \(school year, age, role, family, home\) belongs in their core, never in "state"/.test(fo.buildFounderMessages({ state: base, brief: 'b' }).system), 'the founder puts who they are in the core');
+  /* M713 reworded the founder's people.set line (and added rank): "school year, age, rank, role, family and home belong in
+   * core, never in state" — the same rule, in what the founder is sent */
+  assert(/school year, age, rank, role, family and home belong in core, never in state/.test(fo.buildFounderMessages({ state: base, brief: 'b' }).system), 'the founder puts who they are in the core');
   assert(/is not a[\s\S]*state: add those facts to their core/.test(sc.buildScribeMessages({ state: base, userText: 'u', assistantText: 'a' }).system), 'and the scribe moves it there');
 });
 
@@ -2367,3 +2461,29 @@ test('M259-58: a title\u2019s period does not end a sentence; where the absent a
   const tight = renderPeopleTiers(st, { recentPages: [], view: peopleView(0), brief: '', scenePages: [], seatsInState: false }).text;
   assert(tight.includes('SEAT-AURORA'), 'where the state of things may shed its seats, the card keeps hers');
 });
+
+test('M259-59: an auditor’s clear never leaves someone the story carries nowhere — a page is not the only thing that keeps them', async () => {
+  const { seatForPerson } = await import('../../js/engine/people.js');
+  const clearAfter = async (storyId, extra) => {
+    let st = emptyState(); st.sheet = { actors: {}, playerName: 'Jovan' };
+    st = applyMutations(st, [
+      { type: 'place.set', name: 'the Wells kitchen' }, { type: 'presence.enter', name: 'Jovan' },
+      { type: 'offscreen.set', name: 'Mrs. Hale', location: 'the bakery on Elm Street', activity: 'closing up' }, ...extra,
+    ]).state;
+    await saveState(storyId, st);
+    await db.messages.append(storyId, { role: 'user', text: 'I make tea.' });
+    await db.messages.append(storyId, { role: 'assistant', text: 'Jovan set the kettle on in the Wells kitchen.' });
+    await withHouse(scriptedHouse([issuesAnswer([{ what: 'Mrs. Hale’s seat is stale', fix: 'let it go', pages: false, mutations: [{ type: 'offscreen.clear', name: 'Mrs. Hale' }] }])]),
+      () => auditLedger({ connection: CONN, storyId, stale: () => false }));
+    const after = await loadState(storyId);
+    return { seat: seatForPerson(after, 'Mrs. Hale'), here: (after.present || []).some((p) => /Hale/.test(p.name)) };
+  };
+  /* M588: A PERSON IS ALWAYS SOMEWHERE — its guard asked only "has a page?"; M719 named what the story still carries
+   * (worldParticipation): a standing toward him, a thread, a world objective, an approach under way */
+  const standing = await clearAfter('m259-clear-standing', [{ type: 'rel.set', name: 'Mrs. Hale', p: 30, cause: 'the brief says she has known him since he was a boy' }]);
+  assert(standing.seat && !standing.here, 'a standing toward him keeps her somewhere, page or none');
+  assert((await clearAfter('m259-clear-thread', [{ type: 'thread.set', title: 'Mrs. Hale’s unpaid invoice', owner: 'Mrs. Hale', heat: 'hot', next: 'she will ask again' }])).seat, 'so does a thread she owns');
+  assert((await clearAfter('m259-clear-page', [{ type: 'people.set', name: 'Mrs. Hale', field: 'core', text: 'the baker next door' }])).seat, 'and a page of her own, as always');
+  eq((await clearAfter('m259-clear-stray', [])).seat, null, 'a stray nothing carries may still be let go');
+});
+

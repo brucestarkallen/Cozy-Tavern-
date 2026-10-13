@@ -336,10 +336,12 @@ export function recordChars(mem) {
  * merged into a higher layer has no pages of its own to read again. */
 export const OLD_PAGE_CUT = 6000;
 export const OLD_BATCH_CUT = 24000;
+/* M752: never a line in his own words (M675) — he rewrote it by hand (the drawer's "Rewrite", which leaves the line's old
+ * reading as it was), and this reading by itself wrote the keeper's words over his. His own "Fold again" still does. */
 export function partlyReadLines(mem, messages) {
   const pages = visiblePages(messages);
   return (mem && Array.isArray(mem.nodes) ? mem.nodes : [])
-    .filter((n) => n && n.level === 1 && !n.whole && !n.empty && !n.correction && !((n.healTries || 0) >= 3) && Array.isArray(n.span) && n.span[0] >= 0)
+    .filter((n) => n && n.level === 1 && !n.whole && !n.empty && !n.correction && !lineIsHis(n) && !((n.healTries || 0) >= 3) && Array.isArray(n.span) && n.span[0] >= 0)
     .filter((n) => {
       const span = pages.slice(n.span[0], n.span[1] + 1);
       if (!span.length) return false;
@@ -1081,6 +1083,67 @@ function boundRecordForMemory(node,pages) {
   return actual.length===node.sourcePages.length && actual.every((page,i)=>page.id===node.sourcePages[i].id && messageVersion(page)===node.sourcePages[i].version);
 }
 
+/* M752 — A BRANCH'S RECORD NAMES THE BRANCH'S OWN PAGES. A branch copies every page whole under a new id (ui/chat.js
+ * branchFrom, db.messages.copy) and carried the record as it stood: its receipts (M737 sourcePages) named the parent's
+ * pages, so every line of the branch was unbound — left out of the storyteller's request, and read again by the keeper,
+ * three a run, paid — unless rebindCopiedRecord could still prove each copy against a parent page that had not changed
+ * or gone since. The branch KNOWS its copies (`idMap`: parent page id -> the copy's id): each receipt names the copy (the
+ * same words, so the same version), and so does a line's provenance (sourceOrigins: the page versions a line kept over
+ * changed pages was read from); and the continuous audit's settled and open corrections name the copies too (a settled
+ * correction whose evidence named a page the branch does not have was reopened there, to be paid for again). Nothing the
+ * branch's record keeps names the parent's pages (continuous.js branchAdvisories and branchRecoveries do the same for the
+ * audit's notes on the pages and its reservations). Pure. */
+export function branchRecord(mem, idMap) {
+  const own = (id) => (idMap && typeof id === 'string' && Object.prototype.hasOwnProperty.call(idMap, id) ? idMap[id] : id);
+  const cited = (list) => (Array.isArray(list) ? list.map((e) => (e && typeof e === 'object' && typeof e.source === 'string' ? { ...e, source: own(e.source) } : e)) : list);
+  const renamed = (refs) => refs.map((ref) => (ref && typeof ref === 'object' ? { ...ref, id: own(ref.id) } : ref));
+  const settled = (r) => {
+    if (!r || typeof r !== 'object') return r;
+    const out = { ...r };
+    if (Array.isArray(r.sources)) out.sources = r.sources.map((s) => (typeof s === 'string' ? own(s) : s && typeof s === 'object' ? { ...s, id: own(s.id) } : s));
+    if (Array.isArray(r.evidence)) out.evidence = cited(r.evidence);
+    if (r.sourceFidelity && typeof r.sourceFidelity === 'object' && Array.isArray(r.sourceFidelity.conflicts)) out.sourceFidelity = { ...r.sourceFidelity, conflicts: cited(r.sourceFidelity.conflicts) };
+    return out;
+  };
+  const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).map((n) => {
+    if (!n || typeof n !== 'object') return n;
+    const out = { ...n };
+    if (Array.isArray(n.sourcePages)) out.sourcePages = renamed(n.sourcePages);
+    if (Array.isArray(n.sourceOrigins)) out.sourceOrigins = renamed(n.sourceOrigins);
+    if (Array.isArray(n.auditRecovery)) out.auditRecovery = n.auditRecovery.map(settled);
+    if (Array.isArray(n.auditOpen)) out.auditOpen = n.auditOpen.map((f) => (f && typeof f === 'object' && f.recovery ? { ...f, recovery: settled(f.recovery) } : f));
+    return out;
+  });
+  return { ...mem, nodes };
+}
+
+/* M752 — WHEN THE HOUSE ITSELF REWRITES PAGES IT MEANS TO LEAVE THE STORY AS IT WAS (the Housekeeper's spelling correction —
+ * which corrects the record's own words in the same stroke — and its take-back; the mend of the pages' marks; his page-mode
+ * rules run over every page), the record's lines stay bound to them. Their receipts named the page versions they were
+ * read from, and those versions were gone: every line over a corrected page was unbound — left out of the storyteller's
+ * request (after one spelling fix, 27 lines of 27, and the request ran from 32 messages to 302), and read again by the
+ * keeper, paid, losing the continuous audit's work beneath each line. A receipt that matched its page just before the
+ * rewrite is moved to that page's new version; one that already did not match stays as it was — the house never
+ * certifies a line it had found stale. `before` and `after`: the rewritten pages as they were and as they are. Pure. */
+export function restampRecord(mem, before, after) {
+  const was = new Map((Array.isArray(before) ? before : []).filter((m) => m && m.id).map((m) => [m.id, messageVersion(m)]));
+  const now = new Map((Array.isArray(after) ? after : []).filter((m) => m && m.id).map((m) => [m.id, messageVersion(m)]));
+  let moved = false;
+  const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).map((n) => {
+    if (!n || !Array.isArray(n.sourcePages)) return n;
+    let mine = false;
+    const sourcePages = n.sourcePages.map((ref) => {
+      if (!ref || !was.has(ref.id) || !now.has(ref.id) || was.get(ref.id) !== ref.version || now.get(ref.id) === ref.version) return ref;
+      mine = true;
+      return { ...ref, version: now.get(ref.id) };
+    });
+    if (!mine) return n;
+    moved = true;
+    return { ...n, sourcePages };
+  });
+  return moved ? { ...mem, nodes } : mem;
+}
+
 /* One past the last page any node covers. */
 export function coveredEnd(mem) {
   const nodes = mem && Array.isArray(mem.nodes) ? mem.nodes : [];
@@ -1146,15 +1209,11 @@ export function memoryAfterDeletion(mem, index, { keepCovering = lineIsHis } = {
     if (n.span[1] < index) return [n];
     if (n.span[0] <= index && index <= n.span[1]) {
       if (!keepCovering(n) || n.span[0] === n.span[1]) return [];
-      const kept = { ...n, span: [n.span[0], n.span[1] - 1] };
-      if (Array.isArray(n.sourcePages) && lineIsHis(n)) {
-        kept.sourceOrigins=[...new Map([...(Array.isArray(n.sourceOrigins)?n.sourceOrigins:[]),...n.sourcePages].map(p=>[p.id+':'+p.version,p])).values()];
-        delete kept.sourcePages; /* The writer's line stands on its own words, not the deleted page. */
-      }
+      const kept = standsOnItsWords({ ...n, span: [n.span[0], n.span[1] - 1] }, n); /* it stands on its own words, not the deleted page */
       if (n.audited !== undefined) { const read = auditedOf(n); kept.audited = read && index < n.span[0] + read ? read - 1 : read; }
-      return [kept];
+      return [findingsMoved(kept, ([a, b]) => (b < index ? [a, b] : a > index ? [a - 1, b - 1] : a <= b - 1 ? [a, b - 1] : null), n.span)];
     }
-    return [{ ...n, span: [n.span[0] - 1, n.span[1] - 1] }];
+    return [findingsMoved({ ...n, span: [n.span[0] - 1, n.span[1] - 1] }, ([a, b]) => [a - 1, b - 1])];
   });
   const next = { ...mem, nodes };
   if (mem && mem.stuck && Number.isInteger(mem.stuck.at)) {
@@ -1174,15 +1233,11 @@ export function memoryAfterInsertion(mem, index, { keepCovering = lineIsHis } = 
   const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).flatMap((n) => {
     if (!n || !Array.isArray(n.span)) return [];
     if (n.span[1] < index) return [n];
-    if (n.span[0] >= index) return [{ ...n, span: [n.span[0] + 1, n.span[1] + 1] }];
+    if (n.span[0] >= index) return [findingsMoved({ ...n, span: [n.span[0] + 1, n.span[1] + 1] }, ([a, b]) => [a + 1, b + 1])];
     if (!keepCovering(n)) return [];
-    const kept = { ...n, span: [n.span[0], n.span[1] + 1] };
-    if (Array.isArray(n.sourcePages) && lineIsHis(n)) {
-      kept.sourceOrigins=[...new Map([...(Array.isArray(n.sourceOrigins)?n.sourceOrigins:[]),...n.sourcePages].map(p=>[p.id+':'+p.version,p])).values()];
-      delete kept.sourcePages;
-    }
+    const kept = standsOnItsWords({ ...n, span: [n.span[0], n.span[1] + 1] }, n);
     if (n.audited !== undefined) kept.audited = Math.min(auditedOf(n), index - n.span[0]);
-    return [kept];
+    return [findingsMoved(kept, ([a, b]) => (a >= index ? [a + 1, b + 1] : b >= index ? [a, b + 1] : [a, b]))];
   });
   const next = { ...mem, nodes };
   if (mem && mem.stuck && Number.isInteger(mem.stuck.at) && mem.stuck.at >= index) next.stuck = { ...mem.stuck, at: mem.stuck.at + 1 };
@@ -1200,13 +1255,9 @@ export function memoryTruncatedAt(mem, index, { keepCovering = lineIsHis } = {})
     if (!n || !Array.isArray(n.span)) return [];
     if (n.span[1] < index) return [n];
     if (n.span[0] >= index || !keepCovering(n)) return [];
-    const kept = { ...n, span: [n.span[0], index - 1] };
-    if (Array.isArray(n.sourcePages) && lineIsHis(n)) {
-      kept.sourceOrigins=[...new Map([...(Array.isArray(n.sourceOrigins)?n.sourceOrigins:[]),...n.sourcePages].map(p=>[p.id+':'+p.version,p])).values()];
-      delete kept.sourcePages;
-    }
+    const kept = standsOnItsWords({ ...n, span: [n.span[0], index - 1] }, n);
     if (n.audited !== undefined) kept.audited = Math.min(auditedOf(n), index - n.span[0]);
-    return [kept];
+    return [findingsMoved(kept, ([a, b]) => (a >= index ? null : [a, Math.min(b, index - 1)]), n.span)];
   });
   const next = { ...mem, nodes };
   if (mem && mem.stuck && Number.isInteger(mem.stuck.at) && mem.stuck.at >= index) delete next.stuck;
@@ -1232,7 +1283,7 @@ export async function putBackMistakenMends(storyId) {
     back.push(page.id);
     try {
       const k = visiblePages(await db.messages.list(storyId)).findIndex((m) => m.id === page.id);
-      if (k !== -1 && (await keeperOnFor(await db.stories.get(storyId)))) await saveMemory(storyId, memoryWithoutPage(await loadMemory(storyId), k)); /* M675: only where a keeper will fold it again */
+      if (k !== -1) await recordAfterPageChange(storyId, k); /* M675: let go only where a keeper will fold it again */
       if (k !== -1) await pageRewritten(storyId, k); /* M681 (B1's pattern): and the plans keeper reads the words put back again */
     } catch (err) { /* the keeper's next pass covers the hole anyway */ }
   }
@@ -1244,12 +1295,89 @@ export async function putBackMistakenMends(storyId) {
  * old page, walks to another version, presses "read again" — and a record line he had rewritten by hand was gone
  * without a word, replaced by the keeper's. His line stays exactly as it is, here, for every caller. (Whether a line
  * is let go at all — only where a keeper is there to write the one that takes its place — is the caller's to ask:
- * keeperOnFor.) */
-export function memoryWithoutPage(mem, index) {
-  const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).filter((n) => !(n && Array.isArray(n.span) && n.span[0] <= index && index <= n.span[1]) || lineIsHis(n));
+ * keeperOnFor; `keepCovering` is the same rule the other doors pass, M680.)
+ * M752: A LINE THAT STAYS OVER WORDS THAT CHANGED STANDS ON ITS OWN WORDS. It stayed bound to the page versions it was read
+ * from (M737's sourcePages), which the page no longer has: the request leaves such a line out (it may lie about its pages)
+ * and the keeper reads it again — so his line, and in a tale whose keeper is off every line, vanished from what the
+ * storyteller is told, for good where no keeper ever comes. Kept, its old receipts become its provenance (sourceOrigins),
+ * as M745 already did for his line over a page let go. */
+export function memoryWithoutPage(mem, index, { keepCovering = lineIsHis } = {}) {
+  const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).flatMap((n) => {
+    if (!(n && Array.isArray(n.span) && n.span[0] <= index && index <= n.span[1])) return [n];
+    return keepCovering(n) ? [standsOnItsWords({ ...n }, n)] : [];
+  });
   const next = { ...mem, nodes };
   if (mem && mem.stuck && mem.stuck.at === index) delete next.stuck;
   return next;
+}
+
+/* M752: THE RECORD WHEN THE WORDS OF VISIBLE PAGE `index` CHANGE (his edit, a mend or its take-back, a version walked to or
+ * written, a housekeeper's re-ink, a page put back) — one rule for every door: the line over it is let go only where a
+ * keeper will write the one that takes its place (M675); a line that stays stands on its own words (memoryWithoutPage).
+ * "Read again", which leaves the words as they are, keeps asking keeperOnFor itself. */
+export async function recordAfterPageChange(storyId, index) {
+  if (!storyId || !Number.isInteger(index) || index < 0) return;
+  const keep = (await keeperOnFor(await db.stories.get(storyId))) ? {} : { keepCovering: () => true };
+  const mem = await loadMemory(storyId); /* read just before it is written (M72) */
+  if (!mem.nodes.some((n) => Array.isArray(n.span) && n.span[0] <= index && index <= n.span[1])) return;
+  await saveMemory(storyId, memoryWithoutPage(mem, index, keep));
+}
+
+/* M752: A TALE WHOSE KEEPER IS OFF HAS NO ONE TO READ A LINE AGAIN. Before M752 every door that changed a page under such a
+ * tale's line left the line bound to words its pages no longer hold: it was left out of every request, for good — nothing
+ * repairs a record whose keeper is off, and the lamp, rightly not waiting for that keeper, was green. Settled in code when
+ * the tale opens, with no model: a line whose pages only moved is moved with them (as the keeper's repair moves it); a
+ * line reaching past the tale's end ends with it; every other unbound line stands on its own words, its receipts its
+ * provenance. Returns true when something was written. */
+export async function settleRecordWithoutKeeper(storyId) {
+  if (!storyId || (await keeperOnFor(await db.stories.get(storyId)))) return false;
+  const pages = visiblePages(await db.messages.list(storyId));
+  const mem = await loadMemory(storyId);
+  const issues = sourceBindingIssues(mem.nodes, pages);
+  if (!issues.length) return false;
+  const byId = new Map(issues.filter((i) => i.kind !== 'rewound').map((i) => [i.id, i]));
+  const cut = issues.some((i) => i.kind === 'rewound') ? memoryTruncatedAt(mem, pages.length, { keepCovering: () => true }) : mem;
+  const nodes = cut.nodes.map((n) => {
+    const issue = byId.get(n.id);
+    if (!issue || !Array.isArray(n.sourcePages)) return n;
+    if (issue.kind === 'relocated') { const d = issue.target[0] - n.span[0]; return findingsMoved({ ...n, span: issue.target, sourcePages: sourceBindings(pages.slice(issue.target[0], issue.target[1] + 1)) }, ([a, b]) => [a + d, b + d]); }
+    return standsOnItsWords({ ...n }, n);
+  });
+  await saveMemory(storyId, { ...cut, nodes });
+  return true;
+}
+
+/* M752: a line kept over pages that changed under it stands on its own words — the receipts of the page versions it was read
+ * from (M737) are its provenance now, never a claim about the pages as they stand. `kept` is the node's new copy. */
+function standsOnItsWords(kept, node) {
+  if (!Array.isArray(node.sourcePages)) return kept;
+  kept.sourceOrigins = [...new Map([...(Array.isArray(node.sourceOrigins) ? node.sourceOrigins : []), ...node.sourcePages].map((p) => [p.id + ':' + p.version, p])).values()];
+  delete kept.sourcePages;
+  return kept;
+}
+/* M752: a historical finding the continuous audit left open on a line names the line's pages (from, to); when the line's pages
+ * move, its findings move with them — `move([from, to])` gives their new pages, or null when every page it named is gone.
+ * The page among them a finding is said of (issue.page, counted from 1) moves with them: left behind, its recovery was shown
+ * the fault on another page than the one it read, and the out-of-character check looked at the wrong page. A fault said of
+ * a page that is gone goes with it (a record correction keeps its other pages and only loses the page it cited).
+ * `was`: the line's pages before, where they were cut (a page let go inside it, a rewind into it). A finding read from part
+ * of the line that now names all of what is left says so (narrowedFrom): the continuous audit took a record correction "not
+ * read whole" over its whole line for one kept from a line with no words, and cleared it with no call (continuous.js
+ * mootFinding). */
+function findingsMoved(kept, move, was = null) {
+  if (!Array.isArray(kept.auditOpen) || !kept.auditOpen.length) return kept;
+  kept.auditOpen = kept.auditOpen.flatMap((f) => {
+    if (!f || !Number.isInteger(f.from) || !Number.isInteger(f.to)) return [f];
+    const to = move([f.from, f.to]);
+    if (!to) return [];
+    const narrowed = Array.isArray(was) && !(f.from === was[0] && f.to === was[1]) && to[0] === kept.span[0] && to[1] === kept.span[1] ? { narrowedFrom: [...was] } : {};
+    const p = f.issue && typeof f.issue === 'object' && Number.isInteger(f.issue.page) ? f.issue.page - 1 : -1;
+    if (p < f.from || p > f.to) return [{ ...f, from: to[0], to: to[1], ...narrowed }];
+    const page = move([p, p]);
+    if (!page && f.issue.target !== 'record') return [];
+    return [{ ...f, from: to[0], to: to[1], ...narrowed, issue: { ...f.issue, page: page ? page[0] + 1 : null } }];
+  });
+  return kept;
 }
 
 /* A LINE IN HIS OWN WORDS IS HIS. A record line he rewrote by hand (the drawer's "Rewrite"), or that the housekeeper
@@ -1547,6 +1675,9 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     lastKeeperTrouble='some record lines still need their current original pages';
     return changed ? mem : null;
   }
+  /* M752: a line the keeper could not read again this run (set aside, counted on the line) stops nothing — the pages that
+   * are due are folded all the same, and the run says what it could not do */
+  if (sourceRepair.failed?.length) lastKeeperTrouble='a record line could not be read again from its changed pages (' + sourceRepair.failed[0] + ') — it is asked again on the next run';
   for (let n = 0; n < BATCHES_PER_RUN; n += 1) {
     const range = dueRange(history.length, window, mem.nodes, batch);
     if (!range) break;
@@ -1558,7 +1689,14 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     if (typeof renew === 'function' && !renew()) { lastKeeperTrouble = 'its turn was over before it could ask'; break; }
     let pages = history.slice(range[0], range[1]);
     const pagesText = pages.map((p) => String((p && p.text) || '')).join('\n');
-    let { text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) }), signal, pagesText, renew); /* M666: asked again, in this run, until it is a line */
+    /* M752: a provider that REFUSES these pages' words (a 400 "Content Exists Risk", a request too large) is a keeper that
+     * gave no line for them — M316's ladder below (the oldest page alone; twice on separate runs, and a model that answers
+     * a one-word question: the page covered without words) — never a stop for the whole record: the refusal was thrown
+     * out of the run, and the same pages were asked for on every run, for ever, nothing after them ever folded */
+    let text = '';
+    let refused = null;
+    try { ({ text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor(mem, 1, keeperRecordCap(connection)) }), signal, pagesText, renew)); } /* M666: asked again, in this run, until it is a line */
+    catch (err) { if ((signal && signal.aborted) || !refusedForItsWords(err)) throw err; refused = err; }
     let byHouse = false;
     /* M316: THE RECORD CAN NEVER STAY STUCK ON A PAGE. A keeper that answered with nothing was read as "went
      * quiet — these pages wait for next time", and next time it asked the very same pages the very same
@@ -1580,7 +1718,8 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
       } catch (err) { /* counted as one more silence below */ }
     }
     if (!text) {
-      const why = lastKeeperWasTruncated ? 'the keeper’s model spent its whole answer on thinking and wrote no line' : 'the keeper’s model answered with nothing it could use';
+      const why = refused ? 'the keeper’s provider refused those pages (' + String(refused.message || refused.status).slice(0, 120).replace(/[.\s]+$/, '') + ')'
+        : lastKeeperWasTruncated ? 'the keeper’s model spent its whole answer on thinking and wrote no line' : 'the keeper’s model answered with nothing it could use';
       const before = await loadMemory(storyId);
       const tries = (before.stuck && before.stuck.at === range[0] ? Number(before.stuck.tries) || 0 : 0) + 1;
       if (tries < STUCK_TRIES) {
@@ -1730,8 +1869,10 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     const meets = (a, b) => {
       const gap = between(a, b);
       /* M681 (B4): a page the house covered without words, still to be asked again (askCoveredAgain), is no empty marker to
-       * take in: a merged line over it would claim it for good, though nothing of it was ever written */
-      if (gap.some((n) => !n.empty || (n.byHouse === true && !((n.healTries || 0) >= COVER_TRIES)))) return false;
+       * take in: a merged line over it would claim it for good, though nothing of it was ever written.
+       * M752: nor is a marker the continuous audit left a historical correction open on — taken in, the correction went with
+       * it, unresolved and unsaid (the lines being merged are held back for the same reason, below) */
+      if (gap.some((n) => !n.empty || n.auditOpen?.length || (n.byHouse === true && !((n.healTries || 0) >= COVER_TRIES)))) return false;
       const filled = coveredSet(gap);
       for (let pg = a.span[1] + 1; pg < b.span[0]; pg += 1) if (!filled.has(pg)) return false;
       return true;
@@ -1742,7 +1883,8 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
     const blocked = candidates.findIndex(node => node.auditOpen?.length);
     const toMerge = blocked < 0 ? candidates : candidates.slice(0, blocked);
     if (toMerge.length < 2) continue; /* Keep unresolved edits attached to their line; other lines may still fold. */
-    const absorbed = between(toMerge[0], toMerge[toMerge.length - 1]).map((n) => n.id); /* empty marker lines the merge takes in */
+    const takenIn = between(toMerge[0], toMerge[toMerge.length - 1]); /* empty marker lines the merge takes in */
+    const absorbed = takenIn.map((n) => n.id);
     const record = recordFor(mem, level + 1, keeperRecordCap(connection));
     if (typeof renew === 'function') renew();
     const sourcesText = toMerge.map((node) => lineWithDetail(node)).join('\n'); /* M675: what the merge is shown — the lines with what is kept beneath them */
@@ -1762,22 +1904,29 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
       text,
       level: level + 1,
       at: Date.now(),
-      ...(toMerge.every(n => Array.isArray(n.sourcePages)) ? { sourcePages:toMerge.flatMap(n => n.sourcePages) } : {}),
       whole: toMerge.every((node) => node.whole === true), /* M263: squeezed from lines read whole */
     };
-    /* M72: the sources must still stand, unmoved, when the merge lands */
+    /* M72: the sources must still stand, unmoved, when the merge lands (M752: the markers it takes in too — a marker let go
+     * meanwhile left a hole the merged line would claim for good) */
     if (gone()) return changed ? mem : null;
     const now = await loadMemory(storyId);
-    if (!toMerge.every((node) => nodeUnmoved(now.nodes, node.id, nodeSignature(node)))) break;
+    if (![...toMerge, ...takenIn].every((node) => nodeUnmoved(now.nodes, node.id, nodeSignature(node)))) break;
     mem = now;
     mem.window = window;
     /* COPY, don't cut: the sources leave only once the merged line stands (and the empty markers it took in, M425) */
     for (const id of absorbed) ids.add(id);
+    const sources = mem.nodes.filter((node) => ids.has(node.id)).sort((a, b) => a.span[0] - b.span[0]);
+    /* M752: THE MERGED LINE IS BOUND TO EVERY PAGE IT COVERS. Its receipts were its two lines' alone — the pages of an empty
+     * marker it took in were left out, so a line over six pages carried four receipts: the request left it out as a line
+     * whose pages no longer match it, and the keeper read it apart again (paid), losing what the continuous audit had read
+     * under it. In page order, from every line it takes the place of; with any of them unbound, none (a legacy span). */
+    const receipts = sources.every((node) => Array.isArray(node.sourcePages)) ? sources.flatMap((node) => node.sourcePages) : null;
+    if (receipts && receipts.length === merged.span[1] - merged.span[0] + 1) merged.sourcePages = receipts;
     /* M673: what the continuous audit had read under these lines stays read under the line they become */
-    const carried = auditedAcross(mem.nodes.filter((node) => ids.has(node.id)));
+    const carried = auditedAcross(sources);
     if (carried > 0) merged.audited = carried;
-    merged.correctionReviewed = toMerge.every(node => node.correctionReviewed === true);
-    const recoveries = toMerge.flatMap(node => node.auditRecovery || []);
+    merged.correctionReviewed = sources.every(node => node.correctionReviewed === true);
+    const recoveries = sources.flatMap(node => node.auditRecovery || []); /* M752: a marker's settled corrections too */
     if (recoveries.length) merged.auditRecovery = recoveries;
     mem.nodes = mem.nodes.filter((node) => !ids.has(node.id));
     mem.nodes.push(merged);
@@ -1828,7 +1977,7 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
      * when it was first written — never the lines that come after it */
     const before = { ...mem, nodes: (mem.nodes || []).filter((n) => n && Array.isArray(n.span) && n.span[1] < node.span[0]) };
     const { text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor(before, 1, keeperRecordCap(connection)) }), signal, pages.map((p) => String((p && p.text) || '')).join('\n'), renew); /* M666 */
-    if (!text) return { ok: false, why: 'the keeper gave nothing that is a line of the record, in ' + KEEPER_TRIES + ' tries' };
+    if (!text) return { ok: false, noLine: true, why: 'the keeper gave nothing that is a line of the record, in ' + KEEPER_TRIES + ' tries' };
     mem = await loadMemory(storyId);
     const fresh = (mem.nodes || []).find((n) => n && n.id === nodeId);
     const sourceNow = visiblePages(await db.messages.list(storyId)).slice(node.span[0],node.span[1]+1);
@@ -1844,6 +1993,7 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
      * the next opening of the tale take the line's words away again (chat.js takeBackHouseNotes: a cover with words is
      * M316's old worded marker), and the drawer went on saying the keeper had given that page no line */
     delete fresh.byHouse; delete fresh.healTries;
+    delete fresh.sourceTries; /* M752: read again from its pages — the count of failed rereadings starts afresh */
     fresh.at = Date.now();
     await saveMemory(storyId, mem);
   }
@@ -1882,7 +2032,11 @@ export async function askCoveredAgain({ connection, storyId, signal, renew } = {
   const node = (mem.nodes || []).filter((n) => n && n.byHouse === true && n.level === 1 && Array.isArray(n.span) && n.span[0] >= 0 && !((n.healTries || 0) >= COVER_TRIES))
     .sort((a, b) => a.span[0] - b.span[0])[0];
   if (!node) return null;
-  const r = await redoLine({ connection, storyId, nodeId: node.id, signal, renew });
+  /* M752: a provider that refuses the page's words has failed this try too — it was thrown as a wire failure that "counts
+   * no try", and the page was asked for on every run, for ever */
+  let r = null;
+  try { r = await redoLine({ connection, storyId, nodeId: node.id, signal, renew }); }
+  catch (err) { if ((signal && signal.aborted) || !refusedForItsWords(err)) throw err; }
   if (r && r.ok) return { ok: true, page: node.span[0] };
   const held = await loadMemory(storyId);
   const still = (held.nodes || []).find((n) => n && n.id === node.id && n.byHouse === true);
@@ -1899,7 +2053,7 @@ export async function askCoveredAgain({ connection, storyId, signal, renew } = {
 export function partlyReadMerged(mem, messages) {
   const pages = visiblePages(messages);
   return (mem && Array.isArray(mem.nodes) ? mem.nodes : [])
-    .filter((n) => n && n.level >= 2 && !n.whole && !n.empty && !((n.healTries || 0) >= 3) && Array.isArray(n.span) && n.span[0] >= 0)
+    .filter((n) => n && n.level >= 2 && !n.whole && !n.empty && !lineIsHis(n) && !((n.healTries || 0) >= 3) && Array.isArray(n.span) && n.span[0] >= 0) /* M752: never his (partlyReadLines) */
     .filter((n) => {
       const lengths = pages.slice(n.span[0], n.span[1] + 1).map((m) => pageTextOf(m).length);
       if (!lengths.length) return false;
@@ -1911,6 +2065,55 @@ export function partlyReadMerged(mem, messages) {
     })
     .sort((a, b) => a.span[0] - b.span[0])
     .map((n) => n.id);
+}
+
+/* M752 — A SQUEEZED LINE READ AGAIN KEEPS THE CONTINUOUS AUDIT'S CORRECTIONS (M263's reading of a line read in part, and
+ * M745's repair of a promoted line whose pages changed). The lines read again from its pages took its place without them:
+ * a historical correction left open under it went with it, unresolved and unsaid (the lamp said none remained), and every
+ * settled one too — a page concern it had disproved or resolved read as unresolved again, and a dismissal could no longer
+ * be reopened when its evidence changed. The same loss a squeeze is kept from (an open correction holds its lines out of a
+ * merge; the merged line keeps the settled ones of the lines it takes the place of). Each goes to the new line over the
+ * pages it is about: an open one to the line holding most of its pages, its pages narrowed to that line's — and one against
+ * the old line's own words is reconsidered against the new line's (the words it disputed are gone with it; its recovery
+ * starts afresh); a settled one, kept as it was, to the line holding most of the pages its evidence cites (else the pages
+ * it read; else where it was found) — every receipt of one finding together, placed by its latest (the one that counts,
+ * continuous.js historicalFindings), and an open finding of the same id with them (a dismissal reopened for review: apart
+ * from its receipt it was reopened again on the receipt's line). Ties go to the earlier line. `pages`: the tale's visible
+ * pages. Pure. */
+const RECONSIDER_WHY = 'The record line was written again from its pages; reconsider this correction against the new line.';
+function correctionsCarried(old, made, pages) {
+  const open = Array.isArray(old && old.auditOpen) ? old.auditOpen.filter((f) => f && typeof f === 'object') : [];
+  const settled = Array.isArray(old && old.auditRecovery) ? old.auditRecovery.filter((r) => r && typeof r === 'object') : [];
+  if (!made.length || (!open.length && !settled.length)) return made;
+  const at = new Map((Array.isArray(pages) ? pages : []).map((p, i) => [p && p.id, i]));
+  const holder = (positions) => {
+    const counts = made.map((n) => positions.filter((i) => n.span[0] <= i && i <= n.span[1]).length);
+    const most = Math.max(...counts);
+    return most > 0 ? counts.indexOf(most) : -1;
+  };
+  const span = (a, b) => Array.from({ length: Math.max(0, b - a + 1) }, (_, k) => a + k);
+  const cited = (list) => (Array.isArray(list) ? list : []).map((e) => (typeof e === 'string' ? e : e && typeof e === 'object' ? (typeof e.source === 'string' ? e.source : e.id) : null))
+    .filter((id) => at.has(id)).map((id) => at.get(id));
+  const placed = (r) => {
+    let k = holder([...cited(r.evidence), ...cited(r.sourceFidelity && r.sourceFidelity.conflicts)]);
+    if (k < 0) k = holder(cited(r.sources));
+    if (k < 0 && r.finding && Number.isInteger(r.finding.from) && Number.isInteger(r.finding.to)) k = holder(span(r.finding.from, r.finding.to));
+    return Math.max(0, k);
+  };
+  const home = new Map([...new Map(settled.filter((r) => r.id !== undefined).map((r) => [r.id, r]))].map(([id, r]) => [id, placed(r)]));
+  const out = made.map((n) => ({ ...n }));
+  for (const r of settled) {
+    const line = out[r.id !== undefined ? home.get(r.id) : placed(r)];
+    line.auditRecovery = [...(line.auditRecovery || []), r];
+  }
+  for (const f of open) {
+    const ranged = Number.isInteger(f.from) && Number.isInteger(f.to);
+    const line = out[f.id !== undefined && home.has(f.id) ? home.get(f.id) : Math.max(0, ranged ? holder(span(f.from, f.to)) : -1)];
+    const kept = !ranged ? { ...f } : f.from <= line.span[1] && f.to >= line.span[0] ? { ...f, from: Math.max(f.from, line.span[0]), to: Math.min(f.to, line.span[1]) } : { ...f, from: line.span[0], to: line.span[1] };
+    if (f.issue && f.issue.target === 'record') { kept.why = RECONSIDER_WHY; delete kept.recovery; }
+    line.auditOpen = [...(line.auditOpen || []), kept];
+  }
+  return out;
 }
 
 export async function rereadMergedLine({ connection, storyId, lineId, signal, renew } = {}) {
@@ -1930,7 +2133,7 @@ export async function rereadMergedLine({ connection, storyId, lineId, signal, re
     if (!pages.length) return { ok: false, why: 'the pages behind that line are gone' };
     if (typeof renew === 'function') renew();
     const { text } = await keeperLine(connection, buildMemoryMessages(pages, { playerName, record: recordFor({ ...mem, nodes: [...older, ...made] }, 1, keeperRecordCap(connection)) }), signal, pages.map((p) => String((p && p.text) || '')).join('\n'), renew); /* M666 */
-    if (!text) return { ok: false, why: 'the keeper gave nothing that is a line of the record, in ' + KEEPER_TRIES + ' tries' };
+    if (!text) return { ok: false, noLine: true, why: 'the keeper gave nothing that is a line of the record, in ' + KEEPER_TRIES + ' tries' };
     made.push(text === '(no new state)'
       ? { id: nodeId(), span: [a, b], text: '', level: 1, at: Date.now(), empty: true, whole: true }
       : { id: nodeId(), span: [a, b], text, level: 1, at: Date.now(), whole: true });
@@ -1941,7 +2144,7 @@ export async function rereadMergedLine({ connection, storyId, lineId, signal, re
   const at = (now.nodes || []).findIndex((n) => n && n.id === lineId);
   const sourceNow = visiblePages(await db.messages.list(storyId)).slice(node.span[0],node.span[1]+1);
   if (at === -1 || nodeSignature(now.nodes[at]) !== nodeSignature(node) || JSON.stringify(sourceBindings(sourceNow)) !== JSON.stringify(sourceBindings(history.slice(node.span[0],node.span[1]+1)))) return { ok: false, why: 'the source or manual line changed while its pages were read' };
-  now.nodes.splice(at, 1, ...made);
+  now.nodes.splice(at, 1, ...correctionsCarried(now.nodes[at], made, history)); /* M752: with the corrections it held, as they stand now */
   await saveMemory(storyId, now);
   for (const n of made) {
     if (n.empty) continue;
@@ -1962,7 +2165,7 @@ async function relocateSourceNode(storyId,node,target,pages,{signal,stale}={}) {
     if (!sameVisiblePages(current,pages) || !current.slice(target[0],target[1]+1).every((page,i)=>page.id===bindings[i]?.id && messageVersion(page)===bindings[i]?.version)) return false;
     const nodes=s.settings.memory?.nodes || [],at=nodes.findIndex(n=>n && n.id===node.id);
     if (at<0 || nodeSignature(nodes[at])!==signature) return false;
-    const moved=[...nodes];moved[at]={...nodes[at],span:target,sourcePages:sourceBindings(current.slice(target[0],target[1]+1))};
+    const moved=[...nodes],d=target[0]-nodes[at].span[0];moved[at]=findingsMoved({...nodes[at],span:target,sourcePages:sourceBindings(current.slice(target[0],target[1]+1))},([a,b])=>[a+d,b+d]); /* M752: its open corrections move with it */
     s.settings.memory={...s.settings.memory,nodes:moved};return true;
   });
 }
@@ -1984,19 +2187,46 @@ async function preserveManualSourceNode(storyId,node,pages,{signal,stale}={}) {
  * Exact branch copies and position-only metadata drift keep their text. Edited,
  * reordered or unavailable pages are read again through the keeper's existing
  * single-line and merged-line paths. */
+/* M752 — ONE LINE THE KEEPER CANNOT READ AGAIN NEVER STOPS THE RECORD (M316: "the record can never stay stuck"). A line whose
+ * changed pages its model would not write for (an answer that is no line, or a provider that refuses those words) made
+ * this return before the fold: no page was folded again, ever, and the same line was asked for on every run — and a
+ * refusal (a thrown 400) made every page's keeper job be tried five times over. Now such a line is set aside for the run
+ * (the rest of the record is repaired and folded); a run it failed is counted on the line itself (sourceTries, kept with
+ * it like healTries); and after SOURCE_TRIES such runs, once a one-word question proves the keeper's model answers, the
+ * line stands on its own words — its text kept, its old receipts its provenance (sourceOrigins) — and is asked for no
+ * more. A stumble of the wire (a 429, a 5xx, a dropped line) says nothing of the line and counts nothing; his Stop and
+ * the leash still end the run (thrown). Each try, failed or not, is one of the run's repairs (the catch-up pace). */
+export const SOURCE_TRIES = 3;
+export function refusedForItsWords(err) { return Number.isFinite(err && err.status) && [400, 413, 414, 422, 451].includes(err.status); } /* M675's statuses (agents/continuous.js) */
+async function sourceTryFailed({connection,storyId,nodeId,signature,signal,stale}) {
+  const held=await loadMemory(storyId),node=held.nodes.find(n=>n && n.id===nodeId);
+  if (!node || nodeSignature(node)!==signature) return false;
+  const tries=(Number(node.sourceTries) || 0)+1;
+  node.sourceTries=tries;
+  await saveMemory(storyId,held);
+  if (tries<SOURCE_TRIES || stale?.() || !(await keeperAlive(connection,signal))) return false;
+  if (signal?.aborted || stale?.()) return false;
+  const now=await loadMemory(storyId),at=now.nodes.findIndex(n=>n && n.id===nodeId);
+  if (at<0 || nodeSignature(now.nodes[at])!==signature || !Array.isArray(now.nodes[at].sourcePages)) return false;
+  now.nodes[at]=standsOnItsWords({...now.nodes[at]},now.nodes[at]);
+  await saveMemory(storyId,now);
+  return true;
+}
 export async function repairInvalidRecordSources({connection,storyId,signal,stale,renew,maxRepairs=BATCHES_PER_RUN}={}) {
   if (!storyId) return {ok:false,why:'no story'};
   if (signal?.aborted) throw signal.reason || new Error('reading stopped');
   if (stale?.()) return {ok:false,why:'the source repair no longer owns this story'};
   let changed=0,repairs=0;
+  const failed=new Map(); /* M752: lines set aside for this run — id -> why */
+  const outcome=extra=>({...extra,...(failed.size?{failed:[...failed.values()]}:{})});
   let mem=await loadMemory(storyId),pages=visiblePages(await db.messages.list(storyId));
   const rebound=await rebindCopiedRecord(storyId,mem.nodes,{signal,stale});
   if (Array.isArray(rebound)) {changed+=1;mem=await loadMemory(storyId);pages=visiblePages(await db.messages.list(storyId));}
   while (repairs<maxRepairs) {
     if (signal?.aborted) throw signal.reason || new Error('reading stopped');
-    if (stale?.()) return {ok:false,changed,why:'the source repair no longer owns this story'};
-    const issue=sourceBindingIssues(mem.nodes,pages)[0];
-    if (!issue) return {ok:true,changed,remaining:false};
+    if (stale?.()) return outcome({ok:false,changed,why:'the source repair no longer owns this story'});
+    const issue=sourceBindingIssues(mem.nodes,pages).find(i=>!failed.has(i.id));
+    if (!issue) return outcome({ok:true,changed,remaining:false});
     const node=mem.nodes.find(n=>n && n.id===issue.id);
     if (!node) {mem=await loadMemory(storyId);continue;}
     if (issue.kind==='rewound') {
@@ -2025,21 +2255,34 @@ export async function repairInvalidRecordSources({connection,storyId,signal,stal
       if (!saved) return {ok:false,changed,why:'the manual record line changed while its source receipt was being retired'};
       changed+=1;mem=await loadMemory(storyId);pages=visiblePages(await db.messages.list(storyId));continue;
     }
-    if (!connection) return {ok:false,changed,why:'the keeper needs a connection to reread an affected record line'};
+    if (!connection) return outcome({ok:false,changed,why:'the keeper needs a connection to reread an affected record line'});
     const before=nodeSignature(node);
-    const result=node.level>=2
-      ? await rereadMergedLine({connection,storyId,lineId:node.id,signal,renew})
-      : await redoLine({connection,storyId,nodeId:node.id,signal,renew});
-    if (!result?.ok) return {ok:false,changed,why:result?.why || 'the keeper could not repair an affected record line'};
+    let result=null,thrown=null;
+    try {
+      result=node.level>=2
+        ? await rereadMergedLine({connection,storyId,lineId:node.id,signal,renew})
+        : await redoLine({connection,storyId,nodeId:node.id,signal,renew});
+    } catch (err) {
+      if (signal?.aborted) throw err; /* his Stop, or the leash: the queue says so, as before */
+      thrown=err;
+    }
+    repairs+=1;
     mem=await loadMemory(storyId);pages=visiblePages(await db.messages.list(storyId));
     const still=mem.nodes.find(n=>n && n.id===node.id);
-    if (still && nodeSignature(still)===before && sourceBindingIssues([still],pages).length) {
-      return {ok:false,changed,why:'the keeper reply did not repair the original page binding'};
+    const unbound=Boolean(still && nodeSignature(still)===before && sourceBindingIssues([still],pages).length);
+    if (result?.ok && !unbound) {changed+=1;continue;}
+    failed.set(node.id,thrown ? String(thrown.message || 'the keeper’s model did not answer').slice(0,160).replace(/[.\s]+$/,'')
+      : result?.ok ? 'the keeper reply did not repair the original page binding' : (result?.why || 'the keeper could not repair an affected record line'));
+    /* counted only where the line itself is the trouble: its model gave no line for it, refused its words, or wrote one
+     * that still does not match its pages — never a line or a page that moved meanwhile, never a stumble of the wire */
+    const counts=thrown ? refusedForItsWords(thrown) : Boolean(result?.noLine || (result?.ok && unbound));
+    if (counts && still && nodeSignature(still)===before && await sourceTryFailed({connection,storyId,nodeId:node.id,signature:before,signal,stale})) {
+      changed+=1;failed.delete(node.id);
     }
-    changed+=1;repairs+=1;
+    mem=await loadMemory(storyId);
   }
   mem=await loadMemory(storyId);pages=visiblePages(await db.messages.list(storyId));
-  return {ok:true,changed,remaining:sourceBindingIssues(mem.nodes,pages).length>0};
+  return outcome({ok:true,changed,remaining:sourceBindingIssues(mem.nodes,pages).some(i=>!failed.has(i.id))});
 }
 
 /* M218: FOLD EVERYTHING THAT IS DUE, NOW — Summaryception's "Force Summarize

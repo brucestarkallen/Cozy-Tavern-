@@ -1,5 +1,5 @@
 /* One selection vocabulary for prompt views. Never edits stored records. */
-import { nameOnPage, samePersonName } from './names.js';
+import { nameOnPage, samePersonName, isDescriptorName } from './names.js';
 import { mcName, mcAliases } from './duels.js';
 import { onTheWay } from './world.js';
 
@@ -24,7 +24,7 @@ export function relevantPeople(state, material = '') {
   for (const name of keys) {
     if (!name || name === 'the player') continue;
     const here = present.some(p => samePersonName(p, name));
-    const aliases = state?.characters?.[name]?.aliases || [];
+    const aliases = (state?.characters?.[name]?.aliases || []).filter(a => typeof a === 'string' && !isDescriptorName(a)); /* M752: a recorded description is not their name */
     const mentioned = nameOnPage(material, name) || aliases.some(a => nameOnPage(material, a));
     const player = name === mcName(state);
     const playerMention = player && mcAliases(state).some(a => nameOnPage(material, a));

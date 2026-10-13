@@ -138,7 +138,9 @@ test('M15 scene heads: the tracker line becomes typography', async () => {
 test('M15 branch: the fork is wired end to end', () => {
   const src = read('js/ui/chat.js');
   assert(src.includes("acts.push('branch')"), 'branch in the action row');
-  assert(/async function branchFrom\(/.test(src), 'branchFrom defined');
+  /* M720 (a87d357): branchFrom is the door, held as an operation the update waits on; the branch is made in branchForUpdate */
+  assert(/function branchFrom\(messageId\) \{ return ctx\.updates \? ctx\.updates\.run\(\(\) => branchForUpdate\(messageId\)\) : branchForUpdate\(messageId\); \}/.test(src)
+    && /async function branchForUpdate\(/.test(src), 'branchFrom defined');
   assert(/act === 'branch'/.test(src), 'click handler routes branch');
   assert(src.includes('BRANCH_CARRY'), 'story ways carry to the fork');
   assert(src.includes("— a branch"), 'the fork is named as one');

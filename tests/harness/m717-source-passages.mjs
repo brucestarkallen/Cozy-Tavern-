@@ -76,9 +76,12 @@ try {
   const verification={source:ledgerRepairInputKey({},story,history),ledger:ledgerRepairStateKey(state),read:rows.length,total:rows.length,
     entries:Object.fromEntries(rows.map(r=>[r.id,{print:r.print,scope:r.scope,status:'correct',why:'The actual ledger was already reviewed.'}])),profiles:{}};
   state.audit={verification,coverage:{read:1,total:2},finalReview:{status:'ok'},pending:['One source response remains unfinished.'],unresolved:[],unfinished:true,
-    pausedPolicy:2,pausedInput:ledgerRepairInputKey(state,story,history)};
+    pausedPolicy:LEDGER_REPAIR_POLICY-1,pausedInput:ledgerRepairInputKey(state,story,history)};
   state.audit.checkpoint=saveAuditCheckpoint(state,story,documents,verification);
-  assert.equal(LEDGER_REPAIR_POLICY,3);assert(ledgerRepairNeeded(state,{},story,history),'The paused preceding procedure can resume once.');
+  // Later milestones advanced LEDGER_REPAIR_POLICY for changed repair procedures (AGENTS.md);
+  // a pause saved under the preceding procedure resumes once, one under the current one holds.
+  assert(ledgerRepairNeeded(state,{},story,history),'The paused preceding procedure can resume once.');
+  assert(!ledgerRepairNeeded({...state,audit:{...state.audit,pausedPolicy:LEDGER_REPAIR_POLICY}},{},story,history),'A pause under the current procedure holds.');
   await saveState(story.id,state);
   const result=await auditLedger({connection,storyId:story.id,reviewSources:'all'});
   assert(result);assert.equal(result.unfinished,false,JSON.stringify(result.pending));assert.equal(calls,1,'One normal source call, zero repeated ledger calls.');

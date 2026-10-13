@@ -51,7 +51,7 @@ try {
  assert.equal(healthSnapshot({state:saved,story,pages,shelf:old,running:['world']}).status,'working');
  const reopened={...saved,audit:{...saved.audit,unfinished:true,pending:['Uncertain speaker.']}};
  assert.equal(reconciledWorkerStatus(old,reopened,story,pages),old);assert.equal(healthSnapshot({state:reopened,story,pages,shelf:{auditor:{ok:true}}}).status,'yellow');
- const localDoc=docs.at(-1),localOp={type:'source.resolve',sourceId:localDoc.id,name:'a scullery girl',kind:'person',scope:'local',cause:'A distinct source-local person.',auditorApproved:true};
+ const localDoc=docs.at(-1),localOp={type:'source.resolve',sourceId:localDoc.id,name:'a scullery girl',kind:'person',scope:'local',cause:'A distinct source-local person.',auditorApproved:true,source:'auditor'};
  assert.equal(applyMutations(saved,[localOp]).applied.length,0);
  const localBase={...saved,auditSources:{...saved.auditSources,other:{mark:'other',people:[{name:'a scullery girl',kind:'person',shown:'Another girl speaks.',facts:[],identityFacts:[]}]}}};
  assert.equal(missingSourcePeople(localBase,[{...localBase.auditSources.other.people[0],source:'other'}]).length,1);

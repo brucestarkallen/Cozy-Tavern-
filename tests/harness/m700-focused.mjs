@@ -10,6 +10,9 @@ import {isMcAlias,explicitMcPersona} from '../../js/engine/duels.js';
 
 const {id}=await db.stories.create({title:'M700 reported failure paths'});
 const brief='The player is Neri. Talin is my own persona. What happens next?';
+// The story holds what its audit is handed, as every caller hands it (chat.js: story.brief, story.castNotes; create keeps
+// a title only). M752: the audit's receipts name the brief and cast notes it READ.
+await db.stories.update(id,{brief});
 // The informative passage is beyond the first three occurrences and well
 // beyond the first excerpt of its page, just as the live profile was missed.
 for(let n=0;n<4;n++){
@@ -44,28 +47,26 @@ globalThis.fetch=async(_,opts)=>{
  try {
  const body=JSON.parse(opts.body),content=body.messages.map(m=>String(m.content)).join('\n');
  let reply;
- if(content.includes('Find every place the writer STATES'))reply={standings:[]};
- else{
+ {
+  // M708: ONE combined review: its original passages, the historical findings with their
+  // ACTUAL current records, the repairs and (M709) the explicit whole-review verdict.
   calls++;
-  const follow=content.includes('REPAIR FOLLOWUP');
-  const marker=follow?'ORIGINAL SOURCE PASSAGES FOR REPAIR TARGETS, not summary quotes:\n':'ORIGINAL SOURCE PASSAGES FOR THESE TARGETS, labelled by original page and in source order. Earlier facts may be superseded:\n';
-  const bank=JSON.parse(content.split(marker)[1].split('\n')[0]);
+  const bank=JSON.parse(content.split('ORIGINAL SOURCE REFERENCES:\n')[1].split('\n')[0]);
   const old=bank.find(p=>p.text.includes(description)),now=bank.find(p=>p.text.includes('witness stool')),persona=bank.find(p=>p.text.includes('Talin is my own persona'));
   assert(old&&now&&persona,'Actual needed original passages must be supplied.');
-  if(!follow)reply={issues:[{what:'Talin is the player own persona, not an absent NPC.',evidenceId:persona.evidenceId,mutations:[{type:'offscreen.clear',name:'Talin'}]}],
-   profiles:[{name:'Mara',core:{text:'Fourth princess of the coast; cautious and blunt.',evidenceId:old.evidenceId}},
-    {name:'Soren',state:{text:'On a witness stool with his ledger shut.',evidenceId:now.evidenceId}}]};
-  else{
-   const rows=JSON.parse(content.split('REQUIRED CURRENT LEDGER CHECKS:\n')[1].split('\n')[0]);
-   const checklist=JSON.parse(content.split('HISTORICAL FINDING IDS TO RECONCILE, including ACTUAL current target records. For every id either repair a real remaining error or return resolved with shown and why; do not leave already-correct items hanging:\n')[1].split('\n')[0]);
-   assert(checklist.find(i=>i.what===complaints[1].what).currentEntries.some(r=>r.id==='characters:Soren' && r.value.state.includes('witness stool')));
-   // Deliberately omit separate resolved/repairs echoes: verified current
-   // records must close old no-operation allegations without extra AI runs.
-   reply={issues:[],profiles:[{name:'Mara',facts:[{key:'hair',value:'silver',evidenceId:old.evidenceId}]}],checks:rows.map(row=>({id:row.id,print:row.print,status:row.id==='characters:Mara'?'repair':'correct',why:'The actual current fields agree; the completed ankle movement means the same resting pose.',
-    ...(row.section==='presence'?{position:row.name==='Mara'?'ankle came down off the other knee, leaning forward with gloves under her chin':row.value.position,positionMatches:true,lastEvidenceId:now.evidenceId}:{evidenceId:row.name==='Mara'?old.evidenceId:now.evidenceId}),
-    ...(row.section==='characters'?{identityReviewed:true,appearanceReviewed:true,identityFacts:row.name==='Mara'?[{text:'Fourth princess; cautious and blunt.',inCore:true,evidenceId:old.evidenceId}]:[],physicalFacts:row.name==='Mara'?[{key:'hair',value:'silver',evidenceId:old.evidenceId}]:[]}:{}),
-   }))};
-  }
+  const checklist=JSON.parse(content.split('HISTORICAL FINDINGS WITH ACTUAL CURRENT RECORDS:\n')[1].split('\n')[0]);
+  // The current ledger rows keep a person's changing state in its own characterState row.
+  assert(checklist.find(i=>i.what===complaints[1].what).currentEntries.some(r=>r.id==='characterState:Soren' && r.value.state==='At the council table.'));
+  // Deliberately omit separate resolved/repairs echoes: verified current
+  // records must close old no-operation allegations without extra AI runs.
+  // M719: profiles recovery appends missing facts to a core; replacing a wrong event
+  // sentence is an explicit correction, which keeps its replacing meaning.
+  reply={issues:[{what:'Talin is the player own persona, not an absent NPC.',evidenceId:persona.evidenceId,mutations:[{type:'offscreen.clear',name:'Talin'}]},
+    {what:'Mara needs her established identity, not an event sentence.',evidenceId:old.evidenceId,mutations:[{type:'people.set',name:'Mara',field:'core',text:'Fourth princess of the coast; cautious and blunt.'}]}],
+   profiles:[{name:'Mara',facts:[{key:'hair',value:'silver',evidenceId:old.evidenceId}]},
+    {name:'Soren',state:{text:'On a witness stool with his ledger shut.',evidenceId:now.evidenceId}}],
+   scene:[{name:'Mara',repair:false,ending:{position:'ankle came down off the other knee, leaning forward with gloves under her chin',shown:"Mara's hooked ankle had come down off the other knee."}}],
+   review:{status:'complete',why:'The actual current fields agree; the completed ankle movement means the same resting pose.',open:[]},standings:[]};
  }
  const answer=JSON.stringify(reply);
  return new Response(body.stream?'data: '+JSON.stringify({choices:[{delta:{content:answer}}]})+'\n\ndata: '+JSON.stringify({choices:[{delta:{},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n':JSON.stringify({choices:[{message:{content:answer},finish_reason:'stop'}]}));
@@ -75,7 +76,7 @@ try{
  const connection={type:'openai',baseUrl:'https://fixture.example/v1',apiKey:'fixture',model:'m',preset:'custom',contextSize:64000};
  const result=await auditLedger({storyId:id,connection,brief});
  const final=await loadState(id);
- assert.deepEqual(result.pending,[]);assert.equal(calls,2);
+ assert.deepEqual(result.pending,[]);assert.equal(calls,1);
  assert(ledgerAuditVerified(final,await db.stories.get(id),pages));
  assert.equal(final.characters.Mara.core,'Fourth princess of the coast; cautious and blunt.');
  assert.equal(final.characters.Soren.state,'On a witness stool with his ledger shut.');

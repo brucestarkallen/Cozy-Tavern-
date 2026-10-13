@@ -23,7 +23,10 @@ const initial={...emptyState(),sheet:{actors:{},playerName:'Neri'},place:{name:'
  relationships:{'Mara Vale':{p:60,r:50,s:0,history:[]}},
  threads:Array.from({length:145},(_,n)=>({title:'Crew errand '+n,owner:'Tarin',heat:'cold',next:'Awaiting the tide'})),
  auditSources:cache,audit:{coverage:{read:documents.length,total:documents.length},pending:[],unresolved:[],unfinished:false}};
-assert.deepEqual(missingSourcePeople(initial,[{name:'Tarin',shown:'Tarin is the dockmaster.',label:'old page'}])[0].mutations,[],
+// M719: a tracked person's missing core is requested only when the original reading
+// carries identity facts for it; the quoted fact still never becomes the core by itself.
+assert.deepEqual(missingSourcePeople(initial,[{name:'Tarin',shown:'Tarin is the dockmaster.',label:'old page',source:identity.id,
+ identityFacts:[{text:'Dockmaster of the harbor',shown:'Tarin is the dockmaster.'}]}])[0].mutations,[],
  'A quotation must never be committed automatically as core.');
 await saveState(id,initial);
 const before=await loadState(id),oldFetch=globalThis.fetch;
@@ -33,29 +36,24 @@ globalThis.fetch=async(_,opts)=>{
  let reply;
  if(scribe) reply={deltas:[],facts:[{name:'Mara Vale',key:'eyes',value:'grey',shown:'Her hair is copper red and her eyes are grey.'},
    {name:'Mara Vale',key:'hair',value:'black',shown:oldPage}]};
- else if(content.includes('Find every place the writer STATES'))reply={standings:[]};
  else {
+  // M708: ONE combined review: discovery, repairs and the verdict for every required
+  // entry together. M709: a whole-review verdict replaces per-entry certificates, and
+  // M712: an equivalent scene read is scratchbook work (repair:false), not a rewrite.
   calls++;
   assert(content.includes('PEOPLE SOURCE INDEX'));
-  const follow=content.includes('REPAIR FOLLOWUP');
-  const marker=follow?'ORIGINAL SOURCE PASSAGES FOR REPAIR TARGETS, not summary quotes:\n':'ORIGINAL SOURCE PASSAGES FOR THESE TARGETS, labelled by original page and in source order. Earlier facts may be superseded:\n';
-  const bank=JSON.parse(content.split(marker)[1].split('\n')[0]);
+  const bank=JSON.parse(content.split('ORIGINAL SOURCE REFERENCES:\n')[1].split('\n')[0]);
   const past=bank.find(p=>p.text.includes('second captain'));
   const present=bank.find(p=>p.text.includes('Neri stopped'));
   assert(past&&present,'Earlier identity/appearance source is supplied proactively.');
-  if(!follow)reply={issues:[
+  const rows=JSON.parse(content.split('REQUIRED CURRENT LEDGER CHECKS:\n')[1].split('\n')[0]);
+  assert(rows.length>160,'The entire large ledger is checked together, not 32 at a time.');
+  assert.equal(body.max_tokens,6000,'M709: the answer budget no longer grows with unchanged entries.');
+  reply={scene:[{name:'Neri',repair:false,ending:{position:'standing at the iron gate',shown:'Neri stopped at the iron gate.'}}],issues:[
    {what:'Mara needs her established identity, not an event sentence.',evidenceId:past.evidenceId,mutations:[{type:'people.set',name:'Mara Vale',field:'core',text:'Second captain of the harbor; cautious and blunt.'}]},
    {what:'Her established hair is missing.',evidenceId:past.evidenceId,mutations:[{type:'canon.lock',name:'Mara Vale',key:'hair',value:'copper red'}]},
-   {what:'Tarin needs his stable identity.',evidenceId:past.evidenceId,mutations:[{type:'people.set',name:'Tarin',field:'core',text:'Dockmaster of the harbor.'}]}]};
-  else {
-   const rows=JSON.parse(content.split('REQUIRED CURRENT LEDGER CHECKS:\n')[1].split('\n')[0]);
-   assert(rows.length>160,'The entire large ledger is checked together, not 32 at a time.');
-   assert(body.max_tokens>6000,'Answer space scales with the actual ledger.');
-   reply={issues:[],checks:rows.map(row=>({id:row.id,print:row.print,status:'correct',why:'Current facts and completeness checked; valid judgments retained.',
-    ...(row.section==='presence'?{position:row.name==='Neri'?'standing at the iron gate':row.value.position,positionMatches:true,lastEvidenceId:present.evidenceId}
-      :{evidenceId:past.evidenceId}),
-    ...(row.section==='characters'?{identityReviewed:true,appearanceReviewed:true}:{})}))};
-  }
+   {what:'Tarin needs his stable identity.',evidenceId:past.evidenceId,mutations:[{type:'people.set',name:'Tarin',field:'core',text:'Dockmaster of the harbor.'}]}],
+   review:{status:'complete',why:'Current facts and completeness checked against both pages; valid judgments retained.',open:[]},standings:[]};
  }
  const text=JSON.stringify(reply);
  return new Response(body.stream?'data: '+JSON.stringify({choices:[{delta:{content:text}}]})+'\n\ndata: '+JSON.stringify({choices:[{delta:{},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n':JSON.stringify({choices:[{message:{content:text},finish_reason:'stop'}]}));
@@ -64,7 +62,7 @@ const connection={type:'openai',baseUrl:'https://fixture.example/v1',apiKey:'fix
 try {
  const result=await auditLedger({storyId:id,connection});
  const final=await loadState(id);
- assert.deepEqual(result.pending,[]);assert.equal(calls,2);
+ assert.deepEqual(result.pending,[]);assert.equal(calls,1);
  assert(ledgerAuditVerified(final,await db.stories.get(id),pages));
  assert.equal(final.characters['Mara Vale'].core,'Second captain of the harbor; cautious and blunt.');
  assert.equal(final.characters.Tarin.core,'Dockmaster of the harbor.');
@@ -77,5 +75,5 @@ try {
  assert.equal(kept.canon['Mara Vale'].facts.find(f=>f.key==='eyes').value,'grey','People can recover an original old-page physical fact without an event delta.');
  assert.equal(kept.canon['Mara Vale'].facts.find(f=>f.key==='hair').value,'copper red','Existing physical facts are preserved.');
  assert.deepEqual(kept.relationships,before.relationships);assert.deepEqual(await db.messages.list(id),pages);
- console.log('PASS observed lastEvidenceId-only checks; all 160+ entries together; no cosmetic pose rewrite; original-source identity and physical recovery; no raw quote cores; People fills missing physical facts; prose and scores preserved. Controlled replies only.');
+ console.log('PASS one whole-review verdict; all 160+ entries together with a fixed answer budget; no cosmetic pose rewrite; original-source identity and physical recovery; no raw quote cores; People fills missing physical facts; prose and scores preserved. Controlled replies only.');
 }finally{globalThis.fetch=oldFetch;}

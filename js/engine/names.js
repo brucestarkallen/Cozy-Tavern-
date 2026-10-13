@@ -159,6 +159,18 @@ export function sameOwnedDescriptor(a, b) {
   return Boolean(A && B && foldName(A[2]) === foldName(B[2]) && samePersonName(A[1], B[1]));
 }
 
+/* M752: A DESCRIPTION IS NOT A NAME. "the girl", "a stranger", "this captain", "his sister", "Jovan's driver", "Silas'
+ * brother" or a label with no capital letter at all means whoever the sentence it stands in means — on another page,
+ * someone else (M718: the same descriptor on different pages can be different people). Such a label kept on a page
+ * after a merge is a record of that merge, never a name the person answers to. */
+export function isDescriptorName(name) {
+  const n = String(name || '').trim();
+  if (!n) return false;
+  return /^(?:the|a|an|this|that|these|those|his|her|their|my|your|our|its)\s/iu.test(n)
+    || /^\S.*?(?:['’‘ʼ]s|s['’‘ʼ])\s+\S/u.test(n)
+    || (/\p{Ll}/u.test(n) && !/\p{Lu}/u.test(n));
+}
+
 /* Is `a` the same person as `b`? The same name (folded, a rank or courtesy set aside), a first or last name of the
  * other, one cut short of the other, the same names in another order ("Kuchiki Rukia"), or two names the story's
  * canon knows as one person. Never a near miss: seating is a hard fact. Never two titles that disagree (M414). */
@@ -258,8 +270,11 @@ export function isHere(state, name) {
   if (!present.length || !foldName(name)) return false;
   const f = foldName(name);
   if (present.some((p) => foldName(p) === f)) return true;
-  if (!oneMeaning(state, name)) return false;
-  return present.some((p) => samePersonName(p, name));
+  /* M752: the same answer, the cheap question first — a name no one here answers to is not here, whatever else it may
+   * mean. oneMeaning reads every name the ledger knows, and was asked first for every seat: three hundred seats were
+   * half a second of every render of the state of things (engine/offscreen.js renderOffscreen asks it of each seat). */
+  if (!present.some((p) => samePersonName(p, name))) return false;
+  return oneMeaning(state, name);
 }
 
 /* Is this person among `names` (plain strings or {name})? */

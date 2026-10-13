@@ -28,22 +28,18 @@ const mergeFinding='finding:generic_courier';
 const oldFetch=globalThis.fetch;let dispute=false,calls=0;
 globalThis.fetch=async(_,opts)=>{
  const body=JSON.parse(opts.body),content=body.messages.map(m=>String(m.content)).join('\n');
- let reply;
- if(content.includes('Find every place the writer STATES'))reply={standings:[]};
- else {
-  calls++;
-  const marker='ORIGINAL SOURCE PASSAGES FOR THESE TARGETS, labelled by original page and in source order. Earlier facts may be superseded:\n';
-  const follow=content.includes('REPAIR FOLLOWUP');
-  const bank=JSON.parse(content.split(follow?'ORIGINAL SOURCE PASSAGES FOR REPAIR TARGETS, not summary quotes:\n':marker)[1].split('\n')[0]);
-  const local=bank.find(p=>p.text.includes('Neri crossed'));
-  const remote=bank.find(p=>p.text.includes('Mara Vale, our courier'));
-  assert(local?.evidenceId);assert(remote?.evidenceId);
-  if(follow)reply={issues:[],repairs:[{id:auditFindingId(complaint),status:'correct',evidenceId:local.evidenceId,why:'Her saved coat now agrees with the story.'},
-    ...(dispute?[{id:mergeFinding,status:'open',why:'Treat this identity merge as disputed in this fixture.'}]:[])]};
-  else reply={repairs:[{id:auditFindingId(complaint),status:'repair',evidenceId:local.evidenceId,why:'Add the coat already established in the story.',mutations:[{type:'presence.update',name:'Mara Vale',attire:'oilskin coat'}]}],
-   issues:[{what:'The ending puts Neri at the iron gate.',evidenceId:local.evidenceId,mutations:[{type:'presence.update',name:'Neri',position:'at the iron gate'}]},
-    {what:'The courier is Mara Vale.',findingId:mergeFinding,evidenceId:remote.evidenceId,mutations:[{type:'people.rename',from:'the courier',to:'Mara Vale'}]}]};
- }
+ // M708: ONE combined review; its original passages are offered under ORIGINAL SOURCE
+ // REFERENCES and the answer ends with the explicit completed verdict (M698/M709).
+ calls++;
+ const bank=JSON.parse(content.split('ORIGINAL SOURCE REFERENCES:\n')[1].split('\n')[0]);
+ const local=bank.find(p=>p.text.includes('Neri crossed'));
+ const remote=bank.find(p=>p.text.includes('Mara Vale, our courier'));
+ assert(local?.evidenceId);assert(remote?.evidenceId);
+ // A disputed identity merge is an open People entry in the same verdict.
+ const reply={repairs:[{id:auditFindingId(complaint),status:'repair',evidenceId:local.evidenceId,why:'Add the coat already established in the story.',mutations:[{type:'presence.update',name:'Mara Vale',attire:'oilskin coat'}]}],
+  issues:[{what:'The ending puts Neri at the iron gate.',evidenceId:local.evidenceId,mutations:[{type:'presence.update',name:'Neri',position:'at the iron gate'}]},
+   {what:'The courier is Mara Vale.',findingId:mergeFinding,evidenceId:remote.evidenceId,mutations:[{type:'people.rename',from:'the courier',to:'Mara Vale'}]}],
+  review:{status:'complete',why:'Each entry was compared with the original page and the World report.',open:dispute?[{id:'characters:the courier',why:'Treat this identity merge as disputed in this fixture.'}]:[]},standings:[]};
  const text=JSON.stringify(reply);
  return new Response(body.stream?'data: '+JSON.stringify({choices:[{delta:{content:text}}]})+'\n\ndata: '+JSON.stringify({choices:[{delta:{},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n':JSON.stringify({choices:[{message:{content:text},finish_reason:'stop'}]}));
 };
@@ -56,7 +52,7 @@ try{
  assert.equal(final.present.find(p=>p.name==='Neri').position,'at the iron gate');
  assert.equal(final.present.find(p=>p.name==='Mara Vale').attire,'oilskin coat');
  assert.deepEqual(final.relationships,before.relationships);assert.deepEqual(await db.messages.list(id),pages);
- assert(ledgerAuditVerified(final,await db.stories.get(id),pages));assert.equal(calls,2);
+ assert(ledgerAuditVerified(final,await db.stories.get(id),pages));assert.equal(calls,1);
  // A disputed provisional merge must be withheld, not committed then labelled open.
  await saveState(id,initial);dispute=true;
  const refused=await auditLedger({storyId:id,connection});

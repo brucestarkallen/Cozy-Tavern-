@@ -6,7 +6,7 @@ import { inlineMd, inlineMarks } from '../../js/ui/prose.js';
 import { loadRules, BUILTIN_RULES, REGEX_KEY } from '../../js/regex.js';
 import { buildExtractorMessages } from '../../js/agents/extractor.js';
 import { buildWorldMessages } from '../../js/agents/world.js';
-import { emptyState } from '../../js/engine/state.js';
+import { emptyState, headerMutations } from '../../js/engine/state.js';
 import { db } from '../../js/store.js';
 
 test('M32-1 spoken lines are tokens with the marks kept; thoughts are tokens with the marks removed; both carry inline marks', () => {
@@ -46,12 +46,18 @@ test('M32-2 an untouched builtin follows the coat; a touched one stands', async 
 
 test('M32-3 the header line is the clock’s truth for the extractor; a person named in passing exists for the world agent', () => {
   const young = buildExtractorMessages({ state: emptyState(), userText: 'u', assistantText: 'a' });
-  assert(/bracketed header line/.test(young.system) && /clock\.set \(all five numbers are in it\)/.test(young.system));
+  /* M710 reworded the founding rule ("that line supplies opening place and clock"; its attire and position are folded
+   * through the later narration) — the five numbers ride from the header line itself, in code */
+  assert(/bracketed header line/.test(young.system) && /that line supplies opening place and clock/.test(young.system));
+  const fromHeader = headerMutations('[McDonald’s — Friday, March 14, 2025 | 15:10 | ☀️ | hoodie | booth]\n\nKenji had left.').find((m) => m.type === 'clock.set');
+  eq([fromHeader.year, fromHeader.month, fromHeader.day, fromHeader.hour, fromHeader.minute].join(','), '2025,3,14,15,10', 'all five numbers come from the header line');
   const settled = emptyState(); settled.place = { name: 'x' }; settled.present = [{ name: 'L' }];
   const s2 = buildExtractorMessages({ state: settled, userText: 'u', assistantText: 'a' });
   assert(/bracketed header line/.test(s2.system) && /clock\.set when the date or hour differs/.test(s2.system));
   const w = buildWorldMessages({ state: emptyState(), userText: 'u', assistantText: 'a' });
-  assert(/my sister NAME would laugh/.test(w.system) && /from that line on, that sister exists/.test(w.system)); /* M95: placeholders, never a name */
+  /* M719 (43e15fe: "World no longer requires a biography or location merely because a passing name exists"): someone named
+   * in passing is an established identity the world agent keeps — nothing is invented around the mention */
+  assert(/Preserve individually established identities, including uniquely identified unnamed relatives\./.test(w.system) && /A mention establishes only what it actually says\./.test(w.system));
 });
 
 test('M32-4 the colour switch exists, is wired, and the theme carries both colours', () => {

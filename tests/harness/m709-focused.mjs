@@ -13,6 +13,9 @@ import {fingerprint36} from '../../js/engine/fingerprint.js';
 const cast="Neri was once a royal guardian. Neri has dark hair and handsome features. Valen is Neri's blonde public face. Elin is queen of the north, calculating and blunt, with purple hair.";
 const prose='Neri waited alone at the gate. Elin remained in her northern chambers.';
 const {id}=await db.stories.create({title:'Durable auditor scratchbook',castNotes:cast});
+// The story holds what its audit is handed, as every caller hands it (chat.js: story.brief, story.castNotes; create keeps
+// a title only). M752: the audit's receipts name the brief and cast notes it READ.
+await db.stories.update(id,{castNotes:cast});
 await db.messages.append(id,{role:'assistant',text:prose,ts:1});
 const story=await db.stories.get(id),pages=await db.messages.list(id),documents=auditSources({castNotes:cast,messages:pages});
 const writer=documents.find(d=>d.id.startsWith('cast:'));
@@ -42,10 +45,13 @@ globalThis.fetch=async(_,options)=>{
   if(calls===1) {
     // Actual live shape: identityFacts + inCore, no redundant identity arrays.
     // Unknown old source ids on an appearance write no longer block the auditor.
-    reply={standings:[],checks:rows.map(r=>({id:r.id,status:'correct',why:'Original sources and complete saved meaning agree.',
+    // M743: unresolved source fact tasks join the same required decisions, one verdict each.
+    const tasks=JSON.parse(content.split('REQUIRED SOURCE MENTION DECISIONS:\n')[1].split('\n')[0]);
+    assert(tasks.some(t=>t.sourceFacts && t.name==='Elin'),'The unmatched writer fact is a required decision.');
+    reply={standings:[],checks:[...rows.map(r=>({id:r.id,status:'correct',why:'Original sources and complete saved meaning agree.',
       ...(r.section==='characters'?{identityFacts:(r.value.identitySources || []).map(f=>({text:f.text,inCore:true,evidenceId:f.id})),
         ...(r.name==='Elin'?{physicalFacts:[{key:'hair',value:'long purple',evidenceId:'source:old-unavailable'}]}:{})}:{}),
-    }))};
+    })),...tasks.map(t=>({id:t.id,status:'correct',why:'Shrewd and plain spoken is the established calculating and blunt.'}))]};
   }else{
     assert.equal(calls,2,'There is one request per review, no identity format continuation.');
     reply={issues:[],review:{status:'complete',why:'Reviewed every required entry; no further discrepancy.',open:[]}};

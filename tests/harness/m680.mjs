@@ -157,29 +157,32 @@ test('M680-5 TWO WRITERS NO LONGER ERASE EACH OTHER (the scene audit): the send 
   assert(now.offscreen['Ikkaku Madarame'] && now.bodies['Renji Abarai'] && now.audit, 'his seat, Renji’s cut and the audit report stand');
   assert(now.pendingVerdict && now.lastVerdict && Array.isArray(now.refHistory) && now.refHistory.length, 'and so do the ruling and its committed fate');
   eq(now.page, 5, 'with this turn’s page stamp');
-  /* the auditor's side: the referee saves during the auditor's second call */
+  /* the auditor's side. M708 made the auditor's review ONE combined call and asks the brief's digits in it ("Explicit
+   * starting standings are included in that same answer … eliminating a separate recurring digits call"): the referee
+   * saves while THAT call is out, and the auditor's save — made from the ledger as it stands after its calls — keeps it */
   const { auditLedger } = await import('../../js/agents/auditor.js');
   const { thinkingHouse, HOUSES } = await import('./thinkinghouse.mjs');
   const AID = 'm680-auditor-clobber';
   await db.messages.append(AID, { role: 'user', text: 'I square up to Renji.' });
   await db.messages.append(AID, { role: 'assistant', text: '[Tenth Division Courtyard — Monday, June 1, 2026 | 09:20 | sun | black shihakushō | on the sand]\n\nRenji rolled his shoulders and drew Zabimaru.' });
   await saveState(AID, applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Tenth Division Courtyard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Renji Abarai' }]).state);
-  const audit = thinkingHouse({ answer: JSON.stringify({ issues: [] }) });
-  const stand = thinkingHouse({ answer: JSON.stringify({ standings: [] }) });
+  /* the answer its final-review contract asks for: the scene read, the issues, the completed verdict and the brief's digits */
+  const audit = thinkingHouse({ answer: JSON.stringify({ scene: [], issues: [], review: { status: 'complete', why: 'Every entry agrees with the two pages.', open: [] }, standings: [] }) });
   let raced = false;
   const real = globalThis.fetch;
   globalThis.fetch = async (url, opts) => {
     const text = String(opts && opts.body || '');
-    if (/STATES a standing in digits/.test(text)) {
-      if (!raced) { raced = true; let s = await loadState(AID); s = applyMutations({ ...s, page: 1 }, [{ type: 'combat.begin', kind: 'duel', opponent: 'Renji Abarai', domain: 'melee', opponentRating: 7 }]).state; await saveState(AID, { ...s, pendingVerdict: { words: 'succeeds', forUser: 'u2' }, refHistory: [{ key: 'h', msgId: 'u2', verdict: { words: 'succeeds' } }] }); }
-      return stand.fetch(url, opts);
+    if (!raced && /Return standings:\[\{name,p,r,s\}\] ONLY for explicit starting digits in the writer brief\/cast/.test(text)) {
+      raced = true; let s = await loadState(AID); s = applyMutations({ ...s, page: 1 }, [{ type: 'combat.begin', kind: 'duel', opponent: 'Renji Abarai', domain: 'melee', opponentRating: 7 }]).state; await saveState(AID, { ...s, pendingVerdict: { words: 'succeeds', forUser: 'u2' }, refHistory: [{ key: 'h', msgId: 'u2', verdict: { words: 'succeeds' } }] });
     }
     return audit.fetch(url, opts);
   };
-  try { await auditLedger({ connection: HOUSES[0].conn, storyId: AID, brief: 'Jovan is a new recruit of the Tenth. (Rangiku → Jovan: P:40 R:10 S:0)', castNotes: '' }); } finally { globalThis.fetch = real; }
+  try { await auditLedger({ connection: { ...HOUSES[0].conn, reasoning: { effort: 'off' } }, storyId: AID, brief: 'Jovan is a new recruit of the Tenth. (Rangiku → Jovan: P:40 R:10 S:0)', castNotes: '' }); } finally { globalThis.fetch = real; }
   const a = await loadState(AID);
-  assert(raced, 'the referee saved during the auditor’s second call');
+  assert(raced, 'the referee saved during the auditor’s call that reads the brief’s digits');
+  eq(audit.calls.length, 1, 'that is the auditor’s one call: nothing else is asked between its load of the ledger and its save');
   assert(a.duel && a.duel.active && a.pendingVerdict && a.refHistory.length === 1 && a.journal.some((j) => j.m.type === 'combat.begin'), 'the duel, the ruling and its fate stand after the auditor saved');
+  assert(a.audit && a.audit.finalReview && a.audit.finalReview.status === 'ok', 'and the auditor’s own review landed beside them: ' + JSON.stringify(a.audit && a.audit.finalReview));
 });
 
 test('M680-6 A PERSON’S NOW HAS ITS OWN AGE AND ITS OWN GROUND, AND THE CARD AND THE DRAWER TELL IT ONE WAY (the people audit): the scribe’s now (people.note) never knew the ground it was written on, so it never went stale by fact when the scene moved; any write to a page refreshed the now’s age (a loose end closed made a fifteen-page-old now fresh); and the storyteller’s card said "Now:" over a note fifteen pages old while Here now placed her elsewhere in the room', async () => {

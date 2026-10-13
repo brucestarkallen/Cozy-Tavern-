@@ -1,4 +1,4 @@
-import { bodyAccounting, inputRoom } from '../assemble/budget.js';
+import { bodyAccounting, refusalRoom } from '../assemble/budget.js'; /* M752: one refusal line, the house's and the adapters' */
 import { contextOf } from './room.js';
 /* Cozy Tavern — providers/openai.js
  * OpenAI-compatible chat completions (OpenAI, OpenRouter, or a custom
@@ -500,7 +500,7 @@ export function createOpenAIProvider(connection) {
       if (body.stream === true && !opts.noUsage) { const taught = learnedFacts(connection); if (!(taught && Array.isArray(taught.drop) && taught.drop.includes('stream_options'))) body.stream_options = { include_usage: true }; }
       /* M307: a started reply goes to DeepSeek's beta address, the only one that takes it */
       const accounting = bodyAccounting(body);
-      if (accounting.inputTokens > inputRoom({ budgetTokens: contextOf(connection), answerTokens: accounting.answerTokens })) throw new Error('The complete provider request exceeds this connection’s context after reserving its answer. Saved pages are intact.');
+      if (accounting.inputTokens > refusalRoom({ budgetTokens: contextOf(connection), answerTokens: accounting.answerTokens, answerEstimate: accounting.answerEstimate })) throw new Error('The complete provider request exceeds this connection’s context after reserving its answer. Saved pages are intact.');
       const beta = prefill.applied && prefillProfile(connection) === 'deepseek' ? deepseekBetaBase(connection.baseUrl) : '';
       const sentUrl = beta ? `${beta}/chat/completions` : `${base}/v1/chat/completions`; /* M347: outside the try — the answer's branch reads it */
       let out;

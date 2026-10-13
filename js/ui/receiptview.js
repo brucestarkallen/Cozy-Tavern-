@@ -11,6 +11,7 @@
  */
 
 import { loadSentOrPull, KEEP_PAGES } from '../sent.js'; /* M347: the words each page was sent */
+import { ANSWER_RESERVE } from '../assemble/budget.js'; /* M752: the room the house keeps free for an answer when it can */
 
 let wired = false;
 let openGeneration = 0; /* M347: a sheet reopened on another page never takes the words that were on their way to the last */
@@ -359,12 +360,13 @@ export function openReceipt(receipt, extraction, findings, { storyId = '' } = {}
   if (receipt.noThought) parts.push('no thinking came back from the model'); /* M348 */
   if (receipt.thinkWhy) parts.push(receipt.thinkWhy); /* M521-2: the story's own level Off, or thinking settings a connection refused */
   if (typeof receipt.durationMs === 'number') parts.push(fmtSeconds(receipt.durationMs) + ' all told');
-  if (receipt.context?.transport?.inputTokens || receipt.context?.inputTokens) parts.push('estimated input ' + (receipt.context.transport?.inputTokens || receipt.context.inputTokens) + ' tokens, answer allowance ' + receipt.context.answerTokens);
+  if (receipt.context?.transport?.inputTokens || receipt.context?.inputTokens) parts.push('estimated input ' + (receipt.context.transport?.inputTokens || receipt.context.inputTokens) + ' tokens, answer allowance ' + (receipt.context.answerShort ? 'about ' + receipt.context.answerRoom : receipt.context.answerTokens));
   else if (typeof receipt.totalTokens === 'number') parts.push('~' + receipt.totalTokens + ' tokens in sections');
+  /* M752: sent with less room for the answer than the house keeps free when it can — said, never a silent squeeze */
+  if (receipt.context?.answerShort) parts.push('the answer had less room than usual — about ' + receipt.context.answerRoom + ' tokens were left for it in this connection’s context (no Max tokens is set on it, so nothing was asked for and its provider’s own limit applied; the house keeps ' + ANSWER_RESERVE.toLocaleString('en') + ' free when it can)');
   const usage = receipt.context?.providerUsage;
   if (usage?.prompt_tokens || usage?.input_tokens) parts.push('provider reported input ' + (usage.prompt_tokens || usage.input_tokens) + ' tokens');
   if (receipt.selection?.gaps?.length) parts.push('source gaps: ' + receipt.selection.gaps.map(g => 'pages ' + (g.from+1) + ' to ' + (g.to+1)).join(', '));
-  if (receipt.selection?.essentials) parts.push('essentials compress their source range, fact retention is not certified');
   if (receipt.prefill) parts.push(receipt.prefill); /* M329: did the prefill work, on this turn */
   footer.textContent = parts.join(' · ');
 

@@ -22,7 +22,9 @@ export function renderPlan(p) {
   const said = (Array.isArray(p.words) ? p.words : []).filter((w) => typeof w === 'string' && w.trim());
   const words = said.length ? ['  The words to be said: ' + said.map((w) => '“' + w + '”').join('; ')] : [];
   const disposition = t(p.disposition) || t(p.outcome);
-  return [head, ...parts, ...words, disposition ? '  Current disposition: ' + disposition : ''].join('\n');
+  /* M752: no disposition, no line — M737 joined an empty one on, so every plan ended in a stray newline (between plans a
+   * blank line too many; M751 trimmed only the last one, stack.js) */
+  return [head, ...parts, ...words, ...(disposition ? ['  Current disposition: ' + disposition] : [])].join('\n');
 }
 
 export function renderStanding(book, options = {}) {

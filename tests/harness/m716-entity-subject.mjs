@@ -68,7 +68,7 @@ try {
   assert.deepEqual(undone.characters.Linden,before.characters.Linden);assert.deepEqual(undone.canon.Linden,before.canon.Linden);
   assert.equal(undone.auditSources[upstream.documents[0].id].people[0].kind,undefined);
   const protectedState=structuredClone(before);protectedState.characters.Linden.hand={core:true};
-  assert.equal(applyMutations(protectedState,[{type:'people.reclassify',name:'Linden',kind:'place',auditorApproved:true}]).applied.length,0);
+  assert.equal(applyMutations(protectedState,[{type:'people.reclassify',name:'Linden',kind:'place',auditorApproved:true,source:'auditor'}]).applied.length,0);
   assert.equal(finalAuditorScope([{mutations:[{type:'people.reclassify',name:'Keir',kind:'place'}]}],before)[0].mutations.length,0,'Player cannot be reclassified.');
 
   // The actual final transaction must certify the same resulting Rowan record,

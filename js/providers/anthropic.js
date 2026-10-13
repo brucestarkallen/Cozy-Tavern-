@@ -1,4 +1,4 @@
-import { bodyAccounting, inputRoom } from '../assemble/budget.js';
+import { bodyAccounting, refusalRoom } from '../assemble/budget.js'; /* M752: one refusal line, the house's and the adapters' */
 import { contextOf } from './room.js';
 /* Cozy Tavern — providers/anthropic.js
  * Claude's messages API, streamed over SSE, ready for prompt caching.
@@ -243,7 +243,7 @@ export function createAnthropicProvider(connection) {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const { body, prefill } = requestBody(connection, blocks, system, messages, opts);
       const accounting = bodyAccounting(body);
-      if (accounting.inputTokens > inputRoom({ budgetTokens: contextOf(connection), answerTokens: accounting.answerTokens })) throw new Error('The complete provider request exceeds this connection’s context after reserving its answer. Saved pages are intact.');
+      if (accounting.inputTokens > refusalRoom({ budgetTokens: contextOf(connection), answerTokens: accounting.answerTokens, answerEstimate: accounting.answerEstimate })) throw new Error('The complete provider request exceeds this connection’s context after reserving its answer. Saved pages are intact.');
       let res;
       try {
         res = await houseFetch(`${base}/v1/messages`, {

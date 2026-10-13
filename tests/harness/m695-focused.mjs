@@ -17,7 +17,9 @@ const complaint={what:'The guards must be at the far wall.',fix:'Correct the sea
 const initial={...emptyState(),sheet:{actors:{},playerName:'Azrael'},clock:{minutes:100},place:{name:'the salle'},
   characters:{Captain:{core:'Captain of the guard.'},Corven:{core:'A captain.'},'the guards':{core:'Guards of the salle.'},"Alexia's woman":{core:'Attendant of Alexia.'}},
   present:[{name:'Azrael',position:'not yet at the wall'},{name:'the guards',position:'far wall'},{name:"Alexia's woman",position:'two seats behind Alexia'}],
-  offscreen:{Captain:{location:'the gate',activity:'watching the wicket',sinceMinutes:0},Corven:{location:'the hall',activity:'waiting',sinceMinutes:100}},
+  // M719: World simulates participants (goals, threads, standings, writer material), not every seat;
+  // the owed Captain holds an active objective at the gate.
+  offscreen:{Captain:{location:'the gate',activity:'watching the wicket',agenda:'keep the wicket shut until the third pass',sinceMinutes:0},Corven:{location:'the hall',activity:'waiting',sinceMinutes:100}},
   relationships:{Corven:{P:60,R:50}},worldBrief:{pressure:['The existing fourth pass.']},
   audit:{coverage:{read:3,total:3},pending:[complaint.what],unresolved:[complaint]}};
 await saveState(id,initial);
@@ -40,17 +42,16 @@ globalThis.fetch=async(_,opts)=>{
       {type:'people.set',name:'new prince',field:'core',text:'An unsolicited new person.'},
       {type:'thread.set',title:'extra story',owner:'Captain',next:'invented rerun'},
     ],brief:{pressure:['A regenerated fourth pass.'],voices:[{speaker:'new prince',content:'A regenerated voice.'}]}};
-  }else if(content.includes('Find every place the writer STATES'))reply={standings:[]};
-  else if(content.includes('REPAIR FOLLOWUP')){
-    auditCalls++;
-    assert(content.includes('"position":"at the wall"'));
-    reply={issues:[]};
   }else{
+    // M708: ONE combined review with the actual current records; M698/M709: its
+    // explicit completed verdict. No discovery request plus REPAIR FOLLOWUP pair.
     auditCalls++;
+    assert(content.includes('HISTORICAL FINDINGS WITH ACTUAL CURRENT RECORDS'));
+    assert(content.includes('"presence":{"name":"the guards","position":"far wall"}'),'The reviewer sees the actual current record, not only the old complaint.');
     reply={issues:[
       {what:'The ending puts Azrael at the wall.',mutations:[{type:'presence.update',name:'Azrael',position:'at the wall',shown:'His shoulder blade found the cold stone of the salle wall.'}]},
       {what:'The guards need their current location.',mutations:[{type:'presence.update',name:'the guards',position:'at the far wall',shown:'The guards watched at the far wall.'}]},
-    ]};
+    ],review:{status:'complete',why:'Followed the retreat to the wall; every other entry matches the page.',open:[]},standings:[]};
   }
   const text=JSON.stringify(reply);
   return new Response(body.stream?'data: '+JSON.stringify({choices:[{delta:{content:text}}]})+'\n\ndata: '+JSON.stringify({choices:[{delta:{},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n':JSON.stringify({choices:[{message:{content:text},finish_reason:'stop'}]}));
@@ -73,6 +74,6 @@ try{
   assert.equal(final.present.find(p=>p.name==='Azrael').position,'at the wall');
   assert.deepEqual(final.relationships,recovered.relationships);
   assert.deepEqual(await db.messages.list(id),pages);
-  assert.equal(worldCalls,1);assert.equal(auditCalls,2);
+  assert.equal(worldCalls,1);assert.equal(auditCalls,1);
   console.log('PASS focused same-page World recovery, stable retry history, actual-record checklist, placeholder-attire closure, final scene repair, unchanged saved voices/prose/earned scores. Mock replies only; no live-story certification.');
 }finally{globalThis.fetch=oldFetch;}

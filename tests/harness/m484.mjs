@@ -22,18 +22,31 @@ test('M484-1 one wound per body part: a wound written again on the same part is 
   eq(bodyPartOf('right knee struck by Varkhos’s descending fist'), 'right knee'); eq(bodyPartOf('kidney struck twice through the back'), 'kidney'); eq(bodyPartOf('broken ribs'), 'rib');
 });
 
-test('M484-2 one fact in one wording: paraphrases are one fact (the longer stays); a fact someone else holds is written for the next person in those very words; two facts that merely share a subject stay two', () => {
-  assert(sameFact('that Jovan Oda treats her as a child — rubbed her hair and asked her age in front of the whole courtyard', 'that Jovan Oda rubbed Rukia Kuchiki\'s hair and asked her age in front of the courtyard', { fuzzy: true }));
-  assert(sameFact('Jovan Oda said he is not here to replace anyone but to continue Captain Ukitake\'s legacy, so that when their times come they can smile', 'that Jovan Oda intends to tell the Thirteenth Division he is not there to replace anyone but to continue Captain Ukitake\'s legacy', { fuzzy: true }));
+test('M484-2 one fact in one wording: a fact someone else holds is written for the next person in those very words; a paraphrase is another statement since M737, and the readers are told never to write a held fact again in other words; two facts that merely share a subject stay two', async () => {
+  /* M737: "exact statement, date, certainty and source distinctions replace overlap deduplication" — shared words no longer
+   * make two lines one (they merged a condition, a negation, another kind of knowing: tests/harness/m737-context.mjs);
+   * `fuzzy` folds nothing now. Two wordings are two statements: */
+  assert(!sameFact('that Jovan Oda treats her as a child — rubbed her hair and asked her age in front of the whole courtyard', 'that Jovan Oda rubbed Rukia Kuchiki\'s hair and asked her age in front of the courtyard', { fuzzy: true }), 'a paraphrase is another statement (M737)');
+  assert(!sameFact('Jovan Oda said he is not here to replace anyone but to continue Captain Ukitake\'s legacy, so that when their times come they can smile', 'that Jovan Oda intends to tell the Thirteenth Division he is not there to replace anyone but to continue Captain Ukitake\'s legacy', { fuzzy: true }), 'a said thing and an intention are two statements');
   assert(!sameFact('heard the intercom buzzer go off twice, then a third time, while Kara was kneeling at the sofa', 'that her name is Kara Zor-El, offered plainly as an introduction', { fuzzy: true }));
   assert(!sameFact('that Jovan lives in the Arden tower with a sun panel', 'that Jovan kept his stepsister\'s sun panel and turned it on', { fuzzy: true }), 'a shared subject is not the same fact');
+  /* one wording house-wide for one statement: the next person's line takes the words already held */
   let k = {};
   k = addKnowledge(k, 'Rukia', 'that Jovan Oda rubbed Rukia Kuchiki\'s hair and asked her age in front of the courtyard', 3);
-  k = addKnowledge(k, 'Renji', 'that Jovan Oda rubbed Rukia\'s hair and asked her age in front of the whole courtyard', 3);
+  k = addKnowledge(k, 'Renji', 'That Jovan Oda rubbed Rukia Kuchiki’s hair and asked her age in front of the courtyard.', 3);
   k = addKnowledge(k, 'Rangiku', 'that Jovan Oda rubbed Rukia Kuchiki\'s hair and asked her age in front of two hundred officers', 3);
-  eq(k.Renji[0].fact, k.Rukia[0].fact, 'Renji holds it in Rukia’s words'); eq(k.Rangiku[0].fact, k.Rukia[0].fact);
+  eq(k.Renji[0].fact, k.Rukia[0].fact, 'Renji holds it in Rukia’s words');
+  eq(k.Rangiku[0].fact, 'that Jovan Oda rubbed Rukia Kuchiki\'s hair and asked her age in front of two hundred officers', 'another statement keeps its own words');
+  /* what keeps one moment from being written again in new words is now the readers' own instruction — in what they are sent */
+  const { buildExtractorMessages } = await import('../../js/agents/extractor.js');
+  const { buildWorldMessages } = await import('../../js/agents/world.js');
+  const st = { ...emptyState(), knowledge: k };
+  const page = buildExtractorMessages({ state: st, userText: 'I rest.', assistantText: 'Rukia folded her arms.' });
+  assert(/Who knows what already holds for that person, in those words or others, is already known: never write it again/.test(page.system + '\n' + page.user), 'the page reader is told a held fact in other words is known');
+  assert(/a fact already here in other words is already known/.test(buildWorldMessages({ state: st, userText: 'I rest.', assistantText: 'Rukia folded her arms.' }).user), 'and the world agent');
+  /* a re-wording that comes anyway is its own line — nothing is folded by its words (M737) */
   k = addKnowledge(k, 'Rukia', 'that Jovan Oda treats her as a child — rubbed her hair and asked her age in front of the whole courtyard', 4);
-  eq(k.Rukia.length, 1, 'a paraphrase adds no line');
+  eq(k.Rukia.length, 2, 'a re-wording stands as its own statement');
 });
 
 test('M484-3 a role is its holder; a group is not a person — at every door', () => {
@@ -169,7 +182,7 @@ test('M490-3 the identity doors match who someone IS, exactly one or nobody: a w
   for (const [n, want] of [['the driver', null], ['his friend', null], ["Jovan's stepsister", 'Vivi'], ['his stepsister', 'Vivi'], ["Superman's cousin", 'Kara Zor-El'], ['The news drone operator', 'Dev Okafor'], ['the woman in scrubs', 'Marta'], ['the lieutenant', 'Rukia'], ['the older sister', 'Claire'], ["Jovan's sister", null], ['his sister', null], ['the innkeeper', 'Mara']]) eq(resolveDescriptor(s, n), want, n);
 });
 
-test('M490-3 the paraphrase fold is the same moment only, and never the default: two facts one word apart from different pages stay two; knowledge.forget erases only the fact named', () => {
+test('M490-3 the paraphrase fold is never the default (and since M737 not even for the same moment): two facts one word apart stay two; knowledge.forget erases only the fact named', () => {
   let k = {};
   k = addKnowledge(k, 'Kara', 'that the ninja told Jovan about the cult three months ago', 3);
   k = addKnowledge(k, 'Kara', 'that the ninja told Jovan about the owls three months ago', 9);
@@ -180,7 +193,14 @@ test('M490-3 the paraphrase fold is the same moment only, and never the default:
   let h = {};
   h = addKnowledge(h, 'Rukia', "that Jovan Oda rubbed Rukia Kuchiki's hair and asked her age in front of the courtyard", 3);
   h = addKnowledge(h, 'Renji', "that Jovan Oda rubbed Rukia's hair and asked her age in front of the whole courtyard", 3);
-  eq(h.Renji[0].fact, h.Rukia[0].fact, 'the same moment for another person: one wording');
+  /* M737: the fold is gone even for the same moment — "exact statement … distinctions replace overlap deduplication" ("the
+   * whole courtyard" is not "the courtyard"); the same statement still takes the one wording */
+  eq(h.Renji[0].fact, "that Jovan Oda rubbed Rukia's hair and asked her age in front of the whole courtyard", 'the same moment in other words: its own statement (M737)');
+  h = addKnowledge(h, 'Rangiku', 'That Jovan Oda rubbed Rukia Kuchiki’s hair and asked her age in front of the courtyard.', 3);
+  eq(h.Rangiku[0].fact, h.Rukia[0].fact, 'the same statement for another person: one wording');
+  /* and forget is held to the line named: "…in front of the courtyard" never takes "…in front of the whole courtyard" */
+  const f = applyMutations({ knowledge: { Renji: [...h.Renji, { fact: "that Jovan Oda rubbed Rukia Kuchiki's hair and asked her age in front of the courtyard", atTurn: 3 }] } }, [{ type: 'knowledge.forget', name: 'Renji', fact: "that Jovan Oda rubbed Rukia Kuchiki's hair and asked her age in front of the courtyard" }]);
+  eq(f.state.knowledge.Renji.map((x) => x.fact).join(' | '), "that Jovan Oda rubbed Rukia's hair and asked her age in front of the whole courtyard", 'forget took the line named, only');
 });
 
 test('M490-3 the canon trim takes death only from the world’s own word (a dead seat) — a living face whose past holds a death keeps her canon whole', async () => {

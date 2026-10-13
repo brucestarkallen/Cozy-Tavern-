@@ -1,5 +1,5 @@
 import {reconciledWorkerStatus} from '../agents/health.js';
-import {historicalAdvisoryView,advisoryLabel} from '../agents/continuous.js';
+import {historicalAdvisoryView,advisoryLabel,withoutStop} from '../agents/continuous.js';
 import { ledgerDebugSection } from './ledgerdebug.js';
 import { auditScratchbookButton } from './auditscratchbook.js';
 /* Cozy Tavern — ui/drawer.js
@@ -1825,7 +1825,7 @@ function driftPanel(ctx) {
       const li = document.createElement('li');
       li.className = 'log-row';
       const words = document.createElement('span');
-      words.textContent = 'Mended a page' + (m.mended.why ? ' — ' + m.mended.why : '') + '. ';
+      words.textContent = 'Mended a page' + (withoutStop(m.mended.why) ? ' — ' + withoutStop(m.mended.why) : '') + '. '; /* a why that ends its sentence is not given a second stop */
       const back = document.createElement('button');
       back.type = 'button';
       back.className = 'text-btn';
@@ -2400,10 +2400,12 @@ function workersPanel(ctx) {
       li.appendChild(mark);
       const words = document.createElement('span');
       const when = fmtWhenWords(row.at);
-      words.textContent = (WORKER_WORDS[name] || name) + ' ran ' + when
+      /* a detail or a reason that already ends its sentence is not given a second stop (the continuous audit's words since
+       * M723 end with one: "…remain unresolved.." on this row) */
+      words.textContent = ((WORKER_WORDS[name] || name) + ' ran ' + when
         + (historical ? historical.words + (row.detail ? '. ' + row.detail : '') + '.' : !row.ok ? (' and stumbled — ' + (row.why || 'stumbled') + '.')
           : row.unfinished ? ((name === 'auditor' && paused ? ' has unresolved findings; repeated attempts are paused until the story or ledger changes' : name === 'auditor' && autoRepair ? ' and is continuing its repairs automatically' : ' and stopped partway') + (row.detail ? ' — ' + row.detail : '') + '.')
-            : (' and it went well' + (row.detail ? ' — ' + row.detail : '') + '.'));
+            : (' and it went well' + (row.detail ? ' — ' + row.detail : '') + '.'))).replace(/([.!?…])\s*\.$/u, '$1');
       li.appendChild(words);
       /* M248: and the way to finish it, one tap — or none at all, if the
        * house is set to carry on by itself. */

@@ -77,13 +77,14 @@ first.
 The tavern tops itself up: every `cozytavern` run pulls the latest tales
 before lighting the lamps.
 
-- **When a new version lands, the tavern tells you.** A small toast appears
-  — *"A new coat is on the tavern — tap to refresh."* One tap and you're
-  running the new coat.
-- **On an older tavern (before the nudge existed), the word comes from the
-  command instead.** If `cozytavern` says *"A new coat is on — if the tavern
-  looks the same, pull the page down once to reload."*, do just that: pull
-  the page down once in your browser and the new version takes over.
+- **When a new version lands, the tavern refreshes itself.** Every open tab
+  checks for a new version when it opens, when you come back to it, when the
+  connection returns and every ten minutes, and refreshes on its own as soon
+  as nothing would be lost — no words in the box, no form open, no page being
+  written or read. Until then a quiet notice says *"Update ready…"* and why
+  it is waiting; your draft and your work are kept.
+- **`cozytavern` says so too.** After a pull it prints *"Fresh coat on: the
+  tavern is now at …"*; open tabs pick the new version up by themselves.
 - **To see which version is running:** the quiet line under your stories in
   the sidebar, or the top of Settings — both read `the shelves · <version>`.
 

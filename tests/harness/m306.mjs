@@ -32,5 +32,9 @@ test('M306-2 a card tells the storyteller the NEWEST loose ends, newest first �
   const line = block.split('\n').find((l) => l.startsWith('Loose ends:')) || '';
   assert(/^Loose ends: agreed to meet the ferryman at dawn on Thursday; means to ask Jovan about the scar on his wrist; still has not returned the borrowed violin bow/.test(line), 'the newest three, newest first: ' + line);
   assert(!/torn atlas/.test(line), 'not the stalest');
-  assert(/\(and 2 older\)/.test(line), 'and the rest are counted');
+  /* M714: "relevance chooses People threads; recency breaks ties … the rest remain stored and counted" — the rest are kept in
+   * her record, no longer "older": an old end the scene turns on rides, and a newer one waits */
+  assert(/\(and 2 more in their record\)$/.test(line), 'and the rest are counted: ' + line);
+  const atlas = renderPeopleTiers(st, { recentPages: ['The librarian held up the torn atlas and waited.'], brief: '' }).text.split('\n').find((l) => l.startsWith('Loose ends:')) || '';
+  assert(/^Loose ends: owes the librarian an apology for the torn atlas; agreed to meet the ferryman at dawn on Thursday; means to ask Jovan about the scar on his wrist \(and 2 more in their record\)$/.test(atlas), 'the end the scene is about first, then the newest: ' + atlas);
 });

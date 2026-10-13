@@ -302,15 +302,20 @@ test('M674-5 OUT OF CHARACTER IS NOT THE STORY: the continuous audit is told whi
     { what: 'Renji learned of the seal.', mutations: [{ type: 'knowledge.add', name: 'Renji', fact: 'Jovan carries the seal' }] },
     { what: 'Rukia means to sell the seal.', mutations: [{ type: 'knowledge.add', name: 'Rukia', fact: 'Rukia could sell the seal to the captains for a pardon' }] },
     { what: 'Rukia saw the seal.', mutations: [{ type: 'knowledge.add', name: 'Rukia', fact: 'Jovan carries the seal of the Thirteenth' }] },
-    { what: 'Page 4 says Renji knows nothing, but the story has him told.', pages: true, page: 4, fix: 'Renji already knew of the seal by then.' },
+    /* M722: a story fault quotes the page's wrong words and the brief's — this one does, of an out-of-character page; the
+     * next is said as a reader may still say it, with no target or quotes (an uncertain fault, kept unresolved for its
+     * own recovery call when it is about a page of the story) */
+    { what: 'Page 4 says Renji knows nothing, but the story has him told.', target: 'story', pages: true, page: 4, fix: 'Renji already knew of the seal by then.',
+      evidence: { page: 'Renji knows nothing of the seal yet', prior: 'Renji was told of the seal before the story opens', why: 'The brief has Renji told of the seal before the story opens.' } },
     { what: 'Page 6 has Rukia selling the seal.', pages: true, page: 6, fix: 'Rukia would never sell the seal to anyone.' },
     { what: 'What lasts.', record: { fixes: [], detail: 'Renji could tell the captains at the gate; Rukia stared at the seal of the Thirteenth' } },
   ] });
   const calls = []; const mends = []; const notes = [];
   await withFetch(async (url, opts) => { const b = bodyOf(opts); calls.push(b); return say(ANSWER); }, async () => {
-    const r = await auditStretch({ connection: { ...CONN }, storyId: st.id, brief: 'A story of the Thirteenth Division.', stale: () => false, renew: () => true,
+    const r = await auditStretch({ connection: { ...CONN }, storyId: st.id, brief: 'A story of the Thirteenth Division. Renji was told of the seal before the story opens.', stale: () => false, renew: () => true,
       mend: async (id, words) => { mends.push({ id, words }); return [{ id }]; }, note: async (id, finding) => { notes.push({ id, finding }); } });
     eq(calls.length, 1, 'one call');
+    eq(r.open, 0, 'nothing said of an out-of-character page is kept as an unresolved correction either (it was, with a recovery call of its own)');
     const asked = calls[0];
     assert(/A page marked OUT OF CHARACTER is the two writers talking ABOUT the story/.test(asked.system) && /Never\s+report such a page as a fault, and write no knowledge\.add and no "detail" from it\./.test(asked.system), 'the reader is told what such a page is');
     assert(/A background fact the WRITER\s+states there is the writer's own word, as the brief is: a record line that holds it is not wrong for holding it\./.test(asked.system), 'and that the writer’s own word, said out of character, is still his word (the keeper’s own rule for the record)');
@@ -339,10 +344,15 @@ test('M674-5 OUT OF CHARACTER IS NOT THE STORY: the continuous audit is told whi
   });
   /* the scope alone: a page fault against a story page of the same reading still stands */
   const scoped = scopeStretch([
-    { what: 'a', pages: true, page: 4, fix: 'Renji already knew of the seal by then.', record: null, mutations: [] },
-    { what: 'b', pages: true, page: 2, fix: 'Rukia looked away from the seal at once.', record: null, mutations: [] },
-  ], { state: ledger, pagesText: P[0].text + '\n\n' + P[1].text, from: 0, to: 5, lineWhole: true, turn: 3, asides: [3, 4, 5, 6] });
+    { what: 'a', target: 'story', pages: true, page: 4, fix: 'Renji already knew of the seal by then.', record: null, mutations: [],
+      evidence: { page: 'Renji knows nothing of the seal yet', prior: 'Renji was told of the seal before the story opens', why: 'The brief has him told.' } },
+    { what: 'b', target: 'story', pages: true, page: 2, fix: 'Rukia looked away from the seal at once.', record: null, mutations: [],
+      evidence: { page: 'Rukia stared at it.', prior: 'Rukia cannot bear to look at the seal', why: 'The brief says she cannot bear to look at it.' } },
+    { what: 'c', target: 'unknown', pages: true, page: 6, fix: 'Rukia would never sell the seal to anyone.', record: null, mutations: [] },
+  ], { state: ledger, pagesText: P[0].text + '\n\n' + P[1].text, from: 0, to: 5, lineWhole: true, turn: 3, asides: [3, 4, 5, 6],
+    pages: P, priorText: 'Renji was told of the seal before the story opens. Rukia cannot bear to look at the seal.' });
   eq(JSON.stringify(scoped.pageFixes.map((f) => f.page)), '[2]', 'only the story page’s fault is carried');
+  eq(JSON.stringify(scoped.unresolved), '[]', 'and a fault said of an out-of-character page, grounded or uncertain, is not kept as an unresolved correction');
   await db.stories.remove(st.id);
 });
 

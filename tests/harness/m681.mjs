@@ -202,7 +202,15 @@ test('M681-16 A FULL BOOK KEEPS ITS SECRETS (B9): past the guard the oldest fact
   for (let i = 0; i < KNOWLEDGE_GUARD + 2; i += 1) st = applyMutations({ ...st, page: 10 + i * 3 }, [{ type: 'knowledge.add', name: 'Rias', fact: FAIR[i] }, { type: 'knowledge.add', name: 'Kiba', fact: FAIR[i] }]).state;
   const facts = st.knowledge.Rias.map((k) => k.fact);
   assert(facts.includes('the duke poisoned her father'), 'the secret only she holds stays');
-  eq(facts.length, KNOWLEDGE_GUARD, 'the book is held to its guard');
+  /* M713: a book is no longer held to the guard — "learned knowledge no longer evicts facts at60" (docs/LEDGER_PIPELINE.md);
+   * every fact stays, and what a reader is shown is fitted instead: the storyteller is told her secret when the scene bears
+   * on it, among the newest of sixty-three */
+  eq(facts.length, KNOWLEDGE_GUARD + 3, 'past the old guard nothing is let go: all sixty-three');
+  const { renderKnowledge, KNOWLEDGE_RECENT } = await import('../../js/engine/world.js');
+  const told = renderKnowledge(st.knowledge, [{ name: 'Rias' }, { name: 'Kiba' }], Infinity, { pages: ['The duke raised his cup to her; her father had been poisoned at that same table.'], turn: st.page + 1 });
+  const hers = told.split('\n').find((l) => l.startsWith('Rias knows')) || '';
+  assert(/From much earlier[^\n]*the duke poisoned her father/.test(hers), 'her secret is told when the scene is about it: ' + hers.slice(-200));
+  eq((told.match(/was sold at the fair stall/g) || []).length <= 2 * KNOWLEDGE_RECENT, true, 'and the view stays its size');
 });
 
 test('M681-17 A DEATH IS NEVER LET GO BUT BY HIS HAND (W13): a worker’s clear let go the one record that a man with no page of his own had died', () => {
@@ -774,21 +782,53 @@ test('M681-35 THE REFEREE’S HARM ANSWERS TO THE WEIGHING THAT WAS SHOWN IT (th
 });
 
 test('M681-36 A MOOD BOARD NO READER STATED FOR THE NEWEST PAGE IS THE AUDITOR’S TO RESTATE (the scene audit’s S13): a reader that forgot the board twice, or failed, left an older page’s moods standing, and the one reader of the whole ledger had no door to it', async () => {
-  const { auditorScope, boardStale, buildAuditorMessages } = await import('../../js/agents/auditor.js');
-  const page = '[the inn — Monday | 20:00]\n\nThey had arrived; Mara set her pack down by the hearth.';
-  const st = applyMutations({ ...emptyState(), page: 3 }, [{ type: 'place.set', name: 'the inn' }, { type: 'mode.snapshot', flags: ['travel'] }]).state;
-  st.moodAt = 3; /* the reader of page 4 (index 3) stated the board; page 5 (index 4)'s did not */
-  const issue = [{ what: 'still marked as travelling — they arrived', fix: 'clear travel', mutations: [{ type: 'mode.snapshot', flags: ['group'] }] }];
-  eq(auditorScope(issue, st, { page, pageAt: 4 }).length, 1, 'its restated board lands');
-  eq(boardStale(st, 4), true, 'stale: stated for an older page');
-  eq(applyMutations(st, auditorScope(issue, st, { page, pageAt: 4 })[0].mutations).state.mode.travel, false, 'and travel is off');
-  eq(auditorScope(issue, { ...st, moodAt: 4 }, { page, pageAt: 4 }).length, 0, 'the board its reader stated for this page is the reader’s alone (M47)');
-  const written = applyMutations({ ...st, page: 4 }, [{ type: 'mode.snapshot', flags: ['group'] }]).state;
-  eq(auditorScope(issue, written, { page, pageAt: 4 }).length, 0, 'nor one its readers wrote on this page');
-  eq(auditorScope(issue, { ...st, moodAt: undefined }, { page, pageAt: 4 }).length, 0, 'a ledger that never marked it: as before');
-  eq(auditorScope(issue, st).length, 0, 'no page in hand: as before');
-  assert(/THE MOOD BOARD IS STALE/.test(buildAuditorMessages({ state: st, pages: [{ role: 'assistant', text: page }], staleBoard: true }).user), 'the auditor is told when the board is its');
-  assert(!/THE MOOD BOARD IS STALE/.test(buildAuditorMessages({ state: st, pages: [{ role: 'assistant', text: page }] }).user), 'and only then');
+  /* M752: held on the PRODUCTION auditor — auditLedger, whose verdict goes through finalAuditorScope (M709) — and no longer
+   * on the legacy auditorScope it does not call (this law passed with the production rule absent). Since M685 a mood the
+   * newest ending contradicts is a source-supported repair the final auditor may make, and M709 replaced the code quote
+   * gate with its own reading: what keeps the reader's board the reader's is now what the auditor is SENT — told the board
+   * is stale only when no reader stated it for the newest page, and that the moment is not its to invent but by the
+   * newest ending's own words. */
+  const { boardStale, auditLedger } = await import('../../js/agents/auditor.js');
+  const conn = { type: 'openai', baseUrl: 'https://fixture.example/v1', apiKey: 'fixture', model: 'fixture', preset: 'custom', contextSize: 200000, reasoning: { effort: 'off' } };
+  const ending = 'They had arrived; Mara set her pack down by the hearth.';
+  const tale = async (title, more = {}) => {
+    const { id } = await db.stories.create({ title });
+    for (let i = 0; i < 5; i += 1) {
+      await db.messages.append(id, { role: 'user', text: 'We ride on, turn ' + i + '.' });
+      await db.messages.append(id, { role: 'assistant', text: i === 4 ? '[the inn — Monday | 20:00]\n\n' + ending : '[the north road — Monday | 1' + i + ':00]\n\nThe road went on under the rain.' });
+    }
+    const st = applyMutations({ ...emptyState(), page: 3 }, [{ type: 'mc.set', name: 'Keir' }, { type: 'place.set', name: 'the inn' }, { type: 'mode.snapshot', flags: ['travel'] }]).state;
+    st.moodAt = 3; /* the reader of page 4 (index 3) stated the board; page 5 (index 4)'s did not */
+    await saveState(id, { ...st, ...more });
+    return id;
+  };
+  const audit = async (id) => {
+    let sent = '';
+    const before = globalThis.fetch;
+    globalThis.fetch = async (_, options) => {
+      const body = JSON.parse(options.body);
+      const user = body.messages.find((m) => m.role === 'user').content;
+      const answer = user.startsWith('SOURCE DOCUMENTS') ? { checked: JSON.parse(user.slice('SOURCE DOCUMENTS\n'.length)).map((d) => d.id), people: [] }
+        : (sent = JSON.stringify(body.messages), { issues: [{ what: 'still marked as travelling — they arrived', fix: 'clear travel', mutations: [{ type: 'mode.snapshot', flags: ['group'], shown: ending }] }],
+          review: { status: 'complete', why: 'The newest ending was read to its end.', open: [] }, standings: [], scene: [] });
+      return new Response('data: ' + JSON.stringify({ choices: [{ delta: { content: JSON.stringify(answer) } }] }) + '\n\ndata: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n');
+    };
+    try { await auditLedger({ connection: conn, storyId: id, reviewSources: 'all' }); } finally { globalThis.fetch = before; }
+    return { sent, mode: (await loadState(id)).mode };
+  };
+  const stale = await tale('m681-36 stale');
+  eq(boardStale(await loadState(stale), 4), true, 'stale: stated for an older page');
+  const s = await audit(stale);
+  assert(/THE MOOD BOARD IS STALE/.test(s.sent), 'the auditor is told when the board is its');
+  eq(s.mode.travel, false, 'its restated board lands: travel is off');
+  eq(s.mode.group, true, 'and the moods that hold as the page ends are on');
+  for (const [title, more, why] of [['m681-36 stated', { moodAt: 4 }, 'the board its reader stated for this page'], ['m681-36 unmarked', { moodAt: undefined }, 'a ledger that never marked it']]) {
+    const id = await tale(title, more);
+    eq(boardStale(await loadState(id), 4), false, why + ' is not stale');
+    const r = await audit(id);
+    assert(!/THE MOOD BOARD IS STALE/.test(r.sent), why + ': the auditor is not told the board is its');
+    assert(r.sent.includes('THE MOMENT IS NOT YOURS TO INVENT') && r.sent.includes('a mood repair uses the newest scene ending'), why + ': the board is the reader’s but by the newest ending’s own words — in what the auditor is sent');
+  }
 });
 
 /* ---------- the books audit (M680's B1–B10), laws M681-70 … M681-89 ---------- */
@@ -821,7 +861,17 @@ test('M681-70 A BELIEF GOES WHEN THE TRUTH IS LEARNED (the books audit’s B3): 
     { type: 'knowledge.add', name: 'Kiyone', fact: 'believes Orrin Vale is only a recruit — untrue: Orrin Vale is the new captain of the guard' },
     { type: 'knowledge.add', name: 'Kiyone', fact: 'believes the duke is in the capital — untrue: the duke rode for the border at dawn' },
   ]).state;
-  const out = applyMutations({ ...st, page: 9 }, [{ type: 'knowledge.add', name: 'Kiyone', fact: 'learned Orrin Vale is the new captain, not a recruit — he had told them otherwise' }]);
+  /* M738: a belief yields to the learned truth itself — "exact corrected truth, not subject word overlap" (a paraphrase, or
+   * the truth with a condition, never answers it). M752: the page reader is taught to write it so — its instruction's own
+   * example of the learned line was a paraphrase ("learned Orrin Vale is the new captain, not a recruit — …"), which since
+   * M738 never let the belief go. The line it is taught, read from the request it is actually sent: */
+  const { buildExtractorMessages } = await import('../../js/agents/extractor.js');
+  const taught = buildExtractorMessages({ state: st, userText: 'I tell them.', assistantText: 'The captain named Orrin Vale before the company.' });
+  const sent = taught.system + '\n' + taught.user;
+  eq((sent.match(/"(believes Orrin Vale[^"]*)"/) || [])[1], 'believes Orrin Vale is only a recruit — untrue: Orrin Vale is the new captain of the guard', 'the reader is taught the line for the lie');
+  const learned = (sent.match(/"(learned Orrin Vale[^"]*)"/) || [])[1];
+  assert(learned, 'and the line for the truth when it comes out: ' + sent.slice(sent.indexOf('A LIE OR A COVER'), sent.indexOf('A LIE OR A COVER') + 420));
+  const out = applyMutations({ ...st, page: 9 }, [{ type: 'knowledge.add', name: 'Kiyone', fact: learned }]);
   const facts = out.state.knowledge.Kiyone.map((k) => k.fact);
   assert(!facts.some((f) => /only a recruit — untrue/.test(f)), 'the belief the truth answers goes: ' + JSON.stringify(facts));
   assert(facts.some((f) => /duke is in the capital/.test(f)), 'a belief it does not answer stands');
@@ -829,10 +879,11 @@ test('M681-70 A BELIEF GOES WHEN THE TRUTH IS LEARNED (the books audit’s B3): 
   eq(out.applied.length, 1, 'the write landed');
   assert(!/believes: Orrin Vale is only a recruit/.test(renderStateFacts(out.state)), 'the storyteller is not told she believes it');
   const { beliefAnswered } = await import('../../js/engine/world.js');
-  eq(beliefAnswered('believes Kiba is a boy — untrue: Kiba is a girl', 'learned Kiba is a girl, not a boy'), true, 'a short truth, said, answers it');
+  eq(beliefAnswered('believes Kiba is a boy — untrue: Kiba is a girl', 'learned Kiba is a girl'), true, 'the truth, learned, answers it');
   eq(beliefAnswered('believes Kiba is a boy (untrue: Kiba is a girl)', 'Kiba is a girl'), true, 'in brackets too, and without “learned”');
   eq(beliefAnswered('believes Kiba is a boy — untrue: Kiba is a girl', 'learned Kiba likes tea'), false, 'another fact about him does not');
   eq(beliefAnswered('believes Kiba is a boy — untrue: Kiba is a girl', 'believes Kiba is a girl'), false, 'nor another belief');
+  eq(beliefAnswered('believes Kiba is a boy — untrue: Kiba is a girl', 'learned Kiba is a girl only on festival days'), false, 'nor the truth under a condition (M738)');
   /* a later page's own belief, laid down beside a truth learned before it, is not touched by this rule (only learning answers a belief) */
   const back = applyMutations({ ...out.state, page: 12 }, [{ type: 'knowledge.add', name: 'Kiyone', fact: 'believes the vault is empty — untrue: the gold was moved to the vault' }]).state;
   assert(back.knowledge.Kiyone.some((k) => /vault is empty/.test(k.fact)), 'a new belief is written');

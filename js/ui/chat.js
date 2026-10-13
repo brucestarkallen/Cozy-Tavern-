@@ -1,7 +1,7 @@
 import { measureTransport } from '../providers/measure.js';
 import { bodyAccounting } from '../assemble/budget.js';
 import { recordId, sourceBindingIssues } from '../assemble/selection.js';
-import {healthSnapshot,routeHealth,workerRecoveryDue,reconciledWorkerStatus} from '../agents/health.js';
+import {healthSnapshot,routeHealth,workerRecoveryDue,reconciledWorkerStatus,verificationOwed,healthLamp} from '../agents/health.js';
 import { ledgerRepairStateKey, ledgerRepairInputKey, repairRetryCheckpoint, auditHasOpenWork, ledgerAuditVerified, ledgerRepairNeeded, LEDGER_REPAIR_POLICY } from '../agents/auditprogress.js';
 /* Cozy Tavern — ui/chat.js
  * Story list, message thread, composer. Streaming renders token by token.
@@ -62,7 +62,7 @@ import { contextOf } from '../providers/room.js'; /* M285: one answer for the mo
 import { learnContext, learnContextWithin } from '../providers/detect.js'; /* M289: the provider's own word on its room */
 import { buildRequest, pageText, windowPlan, heatedNow, recordLine, addedNotes, HOUSE_COT_ID } from '../assemble/stack.js'; /* M750: a record line as it rides, for what the smart recall is told the page has */
 import { beginWork, waitVisibly, bannerKnowsTales } from './workbanner.js'; /* M203: what the house is doing; M510-42: whose */
-import { finalizeReceipt, estimateTokens } from '../assemble/receipt.js';
+import { finalizeReceipt, estimateTokens, selectionForSent } from '../assemble/receipt.js'; /* M752: the sent store keeps the selection's counts and gaps */
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
 import { renderClock } from '../engine/clock.js'; /* M493 */
@@ -81,10 +81,11 @@ import { enqueueWork, stopWork, workIsRunning, queuedCount, chainJob, workOut } 
 import { pickWorkerConnection } from '../agents/assign.js';
 import { scribeTurn } from '../agents/scribe.js';
 import { refereeStep, maybeSeedSheet, refereeWhyWords, gatePasses, seenAndLeftOff, refereeBase, refereeOnto } from '../agents/referee.js'; /* M531: the referee's own gate decides when fighters are weighed first; M680: its writes laid onto the ledger as it stands */
-import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryAfterInsertion, memoryTruncatedAt, memoryWithoutPage, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom, putBackMistakenMends, fixedCharsOf, keeperOnFor } from '../agents/memory.js';
+import { maybeSummarize, redoLine, catchUpRecord, dueRange, coveredSet, cleanWindow, cleanBatch, recordFor, loadMemory, renderMemory, saveMemory, memoryAfterDeletion, memoryAfterInsertion, memoryTruncatedAt, memoryWithoutPage, recordAfterPageChange, settleRecordWithoutKeeper, branchRecord, restampRecord, refusedForItsWords, memoryForWindow, visiblePages, addCorrection, storySoFar, partlyReadLines, partlyReadMerged, rereadMergedLine, recordRoom, putBackMistakenMends, fixedCharsOf, keeperOnFor } from '../agents/memory.js';
 import { checkTurn, mendPages } from '../agents/continuity.js';
 import { lintPage, houseEyeWords } from '../agents/lint.js'; /* M88: the house's eye */
 import { factChange, isNameLike, hasWord, replaceWord, againstTheBrief } from '../agents/ripple.js'; /* M100: the ripple */
+import { spellingOrdinaryUse } from '../engine/spelling.js'; /* M752: a name that is also a word is never swept story-wide */
 import { wholeRecord, keeperTrouble, windowFor, coveredEnd, recordLinesBefore } from '../agents/memory.js'; /* M445: coveredEnd — the pages not yet folded; M673: the record before a page */
 import { loadSessionRoot } from '../agents/housekeeper.js'; /* M331 */
 import { voiceOf, groundingSeed } from '../assemble/voice.js'; /* M327: the two names; M358: the grounding phrase */
@@ -93,7 +94,7 @@ import { makeHeaderGate, splitAtHeader, pageOnly } from './headergate.js';
 import { tidyPage, readHeader, partParagraphs } from './pageshape.js'; /* M340: the page made whole before it is kept; M510-17 */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName, isMcAlias, findActorKeySamePerson } from '../engine/duels.js'; /* M531: who is on the sheet already */
 import { mineLeak, mineWord, mineCutAt, soundCount } from '../assemble/plain.js'; /* M510: the cut where a page began playing him; the sounds a page carried */
-import { plannerAsk, runPlanner, loadPlan, planEntry, loadPlans, keepSound, keepTexture, planKey, hashText, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper; M519: the texture kept */
+import { plannerAskFitted, runPlanner, loadPlan, planEntry, loadPlans, keepSound, keepTexture, planKey, hashText, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper; M519: the texture kept */
 import { lawsOf } from '../assemble/laws.js'; /* M510 */
 import { pickRecall, knownTail, PICK_KNOWN_CHARS } from '../agents/recallpick.js'; /* M510-50: smart recall; M750: what the page has, held to the picker's room */
 import { throughLens, overlayFor } from '../agents/canonlens.js'; /* M549: the wiki's lines, seen through his story */
@@ -118,8 +119,8 @@ const OWN_BOOKS = new Set([...SIDE_JOBS, 'planner']);
 const readersOut = (storyId) => workOut(storyId).some((name) => !OWN_BOOKS.has(name));
 import { renderStateFacts as planFacts, stateView as planStateView, closeBy } from '../engine/state.js'; /* M510: what the helper reads; M589: who is close by */
 import { renderPeopleTiers as planPeople, peopleView as planPeopleView, findPersonKey } from '../engine/people.js'; /* M510; M518: a canon block's person in the ledger */
-import { worldTurn, worldRunWords, worldAgentOn, worldEffort, worldOwed } from '../agents/world.js'; /* M29: the world beyond the page */
-import { continuousAuditOn, auditStretch, stretchWords, continuousRunStatus, auditProgress, auditWaits, beginReading, endReading, pauseContinuousAudit } from '../agents/continuous.js'; /* M673: the continuous audit */
+import { worldTurn, worldRunWords, worldAgentOn, worldEffort, worldDecisionsMissing } from '../agents/world.js'; /* M29: the world beyond the page */
+import { continuousAuditOn, auditStretch, stretchWords, continuousRunStatus, auditProgress, auditWaits, beginReading, endReading, pauseContinuousAudit, openCorrections, withoutStop, branchAdvisories, branchRecoveries } from '../agents/continuous.js'; /* M673: the continuous audit */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, healStampDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
@@ -1468,6 +1469,8 @@ export function initChat(ctx) {
    *     ledger heals — one after the other, handed back as `ledger` (the start waits for it, as it always did; opening
    *     from the shelf does not);
    *   - M488: the kept pages' marks are mended (once a tale a build);
+   *   - M752: in a tale whose keeper is off, a record line an older build left bound to words its pages no longer hold
+   *     stands on its own words (memory.js settleRecordWithoutKeeper — no model);
    *   - M675: its carried pages are given to it on the device. */
   async function taleOpened(story) {
     if (!story || !story.id) return null;
@@ -1478,7 +1481,9 @@ export function initChat(ctx) {
     { const now = await db.stories.get(story.id); if (!now || now.shallow) return null; }
     try { await settleAsides(story); } catch (err) { /* asked again at the next open */ }
     const ledger = repairTimeline(story).then(() => resumeUnfinishedChain(story)).then((resumed) => (resumed ? null : healLedgerOnOpen(story))).catch(() => {});
-    mendPagesOnOpen(story).catch(() => {});
+    /* M752: after the marks are mended (each writes the record — one after the other, never over each other): a keeper-off
+     * tale's lines an older build left bound to words their pages no longer hold stand on their own words */
+    mendPagesOnOpen(story).catch(() => {}).then(() => settleRecordWithoutKeeper(story.id)).catch(() => {});
     giveCarriedWords(story.id);
     return { ledger };
   }
@@ -2119,12 +2124,20 @@ export function initChat(ctx) {
     threadRedrawOwed = null;
     const place = structural ? markPlace() : null;
     const wasAtTail = nearBottom();
+    /* M752: A DRAWING IS OF THE TALE THAT IS OPEN WHEN IT LANDS. The tale is read first and drawn after six waits; another tale
+     * opened in them (he branched, then opened the tale he came from at once) was drawn first, and this drawing then laid
+     * the branch's pages over it — the open tale was another, so every press on those pages fell through (a ▸ that wrote
+     * nothing, walk DOM-8a) until the next drawing. A drawing whose tale is no longer open stands down: the door that
+     * opened the other tale draws it (every door that changes the open tale does). */
+    const drawingFor = ctx.getActiveStoryId() || null;
+    const stillOpen = () => (ctx.getActiveStoryId() || null) === drawingFor;
     const story = await activeStory();
     const showThinking = (await db.settings.get('showThinking')) !== false;
     const turnsShownSetting = Number(await db.settings.get('turnsShown')); /* M136 */
     const mastheadOn = (await db.settings.get('masthead')) !== false;
     const connections = els.noConnection ? await db.connections.list() : [];
     const cutThinking = story ? await db.settings.get(CUT_KEY + story.id) : null; /* M301 */
+    if (!stillOpen()) return;
     if (!story) {
       els.thread.textContent = '';
       lastRender = { storyId: null, ids: [] };
@@ -2135,6 +2148,7 @@ export function initChat(ctx) {
       return;
     }
     const history = await db.messages.list(story.id);
+    if (!stillOpen()) return; /* M752: see above */
     /* Hidden pages (the continue nudge) never render — they live in the
      * store for the audit and nowhere else. */
     const visible = history.filter((m) => m && !m.hidden);
@@ -2265,6 +2279,9 @@ export function initChat(ctx) {
      * that on every turn — so switching the masthead off lasted until the
      * next page landed. */
     const mastheadOn = (await db.settings.get('masthead')) !== false;
+    /* M752: the tale may have been changed in those waits (renderThread's drawingFor) — its page was then not found in the
+     * other tale's thread and was put at the end of it */
+    if (ctx.getActiveStoryId() !== storyId) return;
     const lastAssistant = [...history].reverse().find((m) => m && !m.hidden && m.role === 'assistant');
     const fresh = msgNode(msg, showThinking, {
       isLastAssistant: lastAssistant ? lastAssistant.id === messageId : false,
@@ -2583,6 +2600,13 @@ export function initChat(ctx) {
     } catch (err) { return {ids:[],why:'helper unavailable, local recall retained'}; }
   }
 
+  /* M752: what the smart recall is asked about, as one key — each eligible line, whether the request carries it and whether it
+   * may be offered (smartRecallFor reads exactly these) */
+  function recallOfferKey(selection, nodes) {
+    const records = new Map((Array.isArray(selection?.records) ? selection.records : []).map((r) => [r.id, r]));
+    return (Array.isArray(nodes) ? nodes : []).map((n) => { const id = recordId(n); const r = records.get(id); return id + ':' + (r ? (r.selected ? 'carried' : '') + (r.available === false ? '-held' : '-offered') : 'none'); }).sort().join('|');
+  }
+
   /* Refresh the receipt affordance on a message already on the page, so
    * late-arriving worker notes (extraction, drift findings) can speak. */
   function refreshReceiptNode(msg) {
@@ -2883,12 +2907,17 @@ export function initChat(ctx) {
       const checkpoints=await db.settings.get(key) || {},old=checkpoints[name];
       if (workerRecoveryDue(old,input)!==0) return;
       if (busy || isReplaying() || otherHandAt(storyId) || workIsRunning(storyId) || queuedCount(storyId)) return;
-      checkpoints[name]={input,attempts:(old?.input===input?old.attempts:0)+1,nextAt:Date.now()+60000,status:'running'};
+      const reservation={input,attempts:(old?.input===input?old.attempts:0)+1,nextAt:Date.now()+60000,status:'running'};
+      checkpoints[name]=reservation;
       await db.settings.set(key,checkpoints);
       attempted=true;
-      if (busy || isReplaying() || otherHandAt(storyId) || workIsRunning(storyId) || queuedCount(storyId)) return;
+      /* M752: the house became busy (or the page moved) between the reservation and the worker being sent — a step aside,
+       * not an attempt (M675). The reservation stood: two sends at that moment used up both attempts with nothing ever
+       * tried, and the worker's recovery was paused "after two unchanged attempts". It is given back as it was. */
+      const giveBack=async()=>{const held=await db.settings.get(key) || {};if (JSON.stringify(held[name])!==JSON.stringify(reservation)) return;if (old===undefined) delete held[name]; else held[name]=old;await db.settings.set(key,held);};
+      if (busy || isReplaying() || otherHandAt(storyId) || workIsRunning(storyId) || queuedCount(storyId)) {await giveBack();return;}
       const latestStory=await db.stories.get(storyId),latestPages=visiblePages(await db.messages.list(storyId));
-      if (healthWorkerKey(latestStory,latestPages,name)!==input || busy || isReplaying() || otherHandAt(storyId) || workIsRunning(storyId) || queuedCount(storyId)) return;
+      if (healthWorkerKey(latestStory,latestPages,name)!==input || busy || isReplaying() || otherHandAt(storyId) || workIsRunning(storyId) || queuedCount(storyId)) {await giveBack();return;}
       const at=pages.findIndex(p=>p.id===last.id),user=[...pages.slice(0,at)].reverse().find(p=>p.role==='user');
       await startBackgroundWork(story,last,user?pageText(user):'',{healthOnly:name});
       // The existing worker saves and reports its own postcondition; never infer
@@ -2932,6 +2961,8 @@ export function initChat(ctx) {
       let repairOwed = false;
       let verificationNeeded = false;
       let auditRead = null; /* M673: how far the continuous audit has read, when it is on */
+      let unauditedWhy = ''; /* M752: why a ledger that is well is not audited now (a switch off, or the auditor's next page not reached) */
+      let readersOff = false; /* M752: this story's readers are switched off — nothing is read into its ledger */
       try {
         const pages = visiblePages(await db.messages.list(storyId));
         const assistants = pages.filter((m) => m.role === 'assistant');
@@ -2957,8 +2988,22 @@ export function initChat(ctx) {
         shelf=reconciledWorkerStatus(shelf,st,tale,pages);
         sore=minders.filter(n=>shelf[n]?.ok===false);
         part=minders.filter(n=>shelf[n]?.ok!==false && shelf[n]?.unfinished);
-        verificationNeeded = told > 0 && !ledgerAuditVerified(st, tale, pages);
-        repairOwed = told > 0 && !assistants[assistants.length - 1]?.stopped && Boolean(pageText(assistants[assistants.length - 1]).trim()) && tale?.extraction !== false && await auditOn(tale) && ledgerRepairNeeded(st, shelf, tale, pages, await auditEvery());
+        /* M752: THE LEDGER IS BEHIND, AND OWES AN AUDIT, ONLY WHERE SOMEONE READS IT — the record's own rule (M675, above). With
+         * this story's readers switched off no page is ever read into the ledger and nothing audits it; with the auditor off
+         * nothing verifies it; and with the auditor reading every few pages a page between two readings owes nothing yet.
+         * Each was a yellow lamp for good, with no one to send (health.js verificationOwed). */
+        const every = await auditEvery();
+        const auditEnabled = tale?.extraction !== false && await auditOn(tale);
+        readersOff = tale?.extraction === false;
+        if (ledgerBehind && readersOff) ledgerBehind = false;
+        verificationNeeded = told > 0 && verificationOwed({ state: st, story: tale, pages, auditEnabled, auditEvery: every });
+        if (told > 0 && !verificationNeeded && !ledgerAuditVerified(st, tale, pages)) {
+          const left = every - (told % every);
+          unauditedWhy = readersOff ? 'This story’s readers are switched off, so its pages are not read into the ledger and nothing is audited.'
+            : !auditEnabled ? 'The auditor is switched off, so the ledger is not audited.'
+              : 'The auditor reads the ledger every ' + every + ' pages; the next reading comes after ' + left + (left === 1 ? ' more page.' : ' more pages.');
+        }
+        repairOwed = told > 0 && !assistants[assistants.length - 1]?.stopped && Boolean(pageText(assistants[assistants.length - 1]).trim()) && auditEnabled && ledgerRepairNeeded(st, shelf, tale, pages, every);
         recordBehind = Boolean(dueRange(pages.length, window, mem.nodes, batch) || sourceBindingIssues(mem.nodes,pages).length);
         if (recordBehind && !(await keeperOnFor(tale))) { recordBehind = false; unfoldedForGood = true; }
         behind = ledgerBehind || recordBehind;
@@ -2966,7 +3011,9 @@ export function initChat(ctx) {
         if (await continuousAuditOn()) { if (tale && tale.extraction !== false) auditRead = auditProgress(mem, pages.length, pages, tale); }
         const recovery=await workerHealthInputs(storyId,tale,pages,shelf);
         healthInputs={storyId,story:tale,shelf,state:st,pages,mem,auditRead,workerRecovery:recovery,
-          historicalWait:auditRead && (auditRead.left || auditRead.open)?auditWaits(storyId,mem,pages,tale):-1};
+          historicalWait:auditRead && (auditRead.left || auditRead.open)?auditWaits(storyId,mem,pages,tale):-1,
+          auditEnabled,auditEvery:every,
+          recordWait:recordBehind?await recordFillWait(storyId,tale):0,ledgerWait:ledgerBehind?await ledgerFillWait(storyId,tale,st):0};
       } catch (err) { behind = true; }   /* if it cannot be checked, it is not green */
 
       const ran = minders.filter((n) => shelf[n]).length;
@@ -3018,7 +3065,7 @@ export function initChat(ctx) {
       const wellNow = (allWellNow && !auditSore) || sceneWell;
       const waitingNow = (waiting && !auditSore) || sceneWaiting;
       const guardWords = guards.map((g) => (g === 'continuity' ? 'the second reader' : 'the auditor')).join(' and ') + ' did not finish on the newest page; the story is safe, and it is asked again on the next';
-      const auditSoreWords = auditRead?.open ? auditRead.open + ' historical corrections remain unresolved: ' + auditRead.unresolved.map(f => [f.issue?.what,f.recovery?.reason || f.why].filter(Boolean).join(': ')).join('; ') : 'the continuous audit could not finish its last reading; the story is safe, and it tries again by itself';
+      const auditSoreWords = auditRead?.open ? openCorrections(auditRead) : 'the continuous audit could not finish its last reading; the story is safe, and it tries again by itself';
       const auditWords = !auditRead ? ''
         : auditRead.left > 0 ? ' The continuous audit has read ' + auditRead.done + ' of ' + auditRead.folded + ' folded pages' + (auditing ? ' and is reading on — it steps aside when you write.' : '; it reads on when the house is idle.')
           : auditRead.folded > 0 ? ' The continuous audit has read every folded page (' + auditRead.folded + ').' : '';
@@ -3050,10 +3097,16 @@ export function initChat(ctx) {
       if (healthInputs) {
         const health=healthSnapshot({...healthInputs,recordBehind,ledgerBehind,verificationNeeded,repairOwed,repairPaused,guards,
           running:runningWorkers(storyId),queued:queuedCount(storyId),otherOwner:otherHandAt(storyId) || isReplaying() || ctx.chat?.isBusy?.()});
-        if (health.status==='working') {btn.classList.remove('all-well');btn.classList.add('is-working');ledgerMark='working';}
-        else if (!health.clean) {
+        /* M752: the continuous audit reading older pages alone is not "reading this scene" (M673) — health.js healthLamp */
+        const over=healthLamp(health);
+        if (over==='working') {btn.classList.remove('all-well');btn.classList.add('is-working');ledgerMark='working';}
+        else if (over==='trouble') {
           btn.classList.remove('all-well');btn.classList.add('has-trouble');ledgerMark='trouble';
-          btn.setAttribute('title','The ledger: '+health.reasons.join('; '));
+          btn.setAttribute('title','The ledger: '+health.reasons.map(withoutStop).filter(Boolean).join('; ')+'.'); /* each reason is a sentence of its own: one stop, at the end */
+        } else if (wellNow && unauditedWhy) {
+          /* M752: green, and saying so honestly — never "audited" where no audit is owed or none will come */
+          btn.setAttribute('title', (readersOff ? unauditedWhy : 'The current ledger is read' + (unfoldedForGood ? '' : ' and folded') + ' with no unresolved findings.'
+            + (unfoldedForGood ? ' The record keeper is switched off, so older pages are not folded.' : '') + ' ' + unauditedWhy) + ' Write on.' + auditWords);
         }
         routeHealth(health,{record:()=>fillRecordGap(storyId),ledger:()=>fillLedgerGap(storyId),
           auditor:()=>scheduleLedgerRepair(storyId),historical:()=>continuousCatchUp(storyId),
@@ -3196,6 +3249,18 @@ export function initChat(ctx) {
   const ledgerBackoffMs = () => (Number(globalThis.__cozyLedgerBackoffMs) > 0 ? Number(globalThis.__cozyLedgerBackoffMs) : 60000);
   const ledgerTries = new Map();
   const ledgerLookAgain = new Map(); /* M483 */
+  /* M752: how long until fillLedgerGap may send the readers — 0 now; Infinity where it never will (an unfounded ledger is
+   * founded by the page chain; no connection for the reader) — the same rules the fill keeps, below */
+  async function ledgerFillWait(storyId, tale, st) {
+    const left = Math.min(30 * 60000, ledgerBackoffMs() * 2 ** (ledgerTries.get(storyId) || 0)) - (Date.now() - (ledgerFilledAt.get(storyId) || 0));
+    if (left > 0) {
+      /* M483: the wait books its own look (fillLedgerGap did, when it was sent during its wait) */
+      if (!ledgerLookAgain.has(storyId)) ledgerLookAgain.set(storyId, setTimeout(() => { ledgerLookAgain.delete(storyId); if (ctx.getActiveStoryId() === storyId) markLedgerTrouble(storyId); }, left + 500));
+      return left;
+    }
+    if (!tale || tale.extraction === false || isYoungLedger(st)) return Infinity;
+    return (await resolveWorkerConnection(tale, 'extractor')) ? 0 : Infinity;
+  }
   async function fillLedgerGap(storyId) {
     try {
       if (otherHandAt(storyId)) return; /* M293: another browser's readers may still be at it */
@@ -3478,6 +3543,16 @@ export function initChat(ctx) {
   /* one minute, two, four… thirty at most (read when used, so a test may shorten it for one scenario) */
   const gapBackoffMs = () => (Number(globalThis.__cozyGapBackoffMs) > 0 ? Number(globalThis.__cozyGapBackoffMs) : 60000);
   const gapLookAgain = new Map();
+  /* M752: how long until fillRecordGap may send the keeper — 0 now; Infinity with no connection for it (health.js: an owner
+   * that is waiting is not sent, and the next one is) — the same pause the fill itself keeps, below */
+  async function recordFillWait(storyId, tale) {
+    const left = Math.min(30 * 60000, gapBackoffMs() * 2 ** (gapTries.get(storyId) || 0)) - (Date.now() - (gapFilledAt.get(storyId) || 0));
+    if (left > 0) {
+      if (!gapLookAgain.has(storyId)) gapLookAgain.set(storyId, setTimeout(() => { gapLookAgain.delete(storyId); if (ctx.getActiveStoryId() === storyId) markLedgerTrouble(storyId); }, left + 500));
+      return left;
+    }
+    return (tale && (await resolveWorkerConnection(tale, 'keeper'))) ? 0 : Infinity;
+  }
   async function fillRecordGap(storyId) {
     try {
       if (otherHandAt(storyId)) return; /* M293: another browser's keeper may still be folding it */
@@ -3743,7 +3818,7 @@ export function initChat(ctx) {
     if (!currentStory || !(await worldAgentOn(currentStory))) return result;
     const castNames = await castNamesFor(currentStory);
     const coverage = { material: (currentStory.brief || '') + '\n' + (currentStory.castNotes || ''), castNames };
-    const owed = worldOwed(await loadState(story.id), coverage);
+    const owed = worldDecisionsMissing(await loadState(story.id), coverage); /* M752: missing decisions — routine reviews stay the ordinary readings' (M719) */
     if (!owed.length) return result;
     let worldResult = null;
     if (await worldAgentOn(currentStory)) {
@@ -3770,7 +3845,7 @@ export function initChat(ctx) {
     }
     if (stale() || signal?.aborted) return result;
     const fresh = await loadState(story.id);
-    const pendingWorld = worldOwed(fresh, coverage).map((name) => name + ' still needs a current world review');
+    const pendingWorld = worldDecisionsMissing(fresh, coverage).map((name) => name + ' still needs a current world review');
     if (worldResult && fresh.audit?.at === result.reportAt) await noteWorkerRun(story.id, 'world', { ok: worldResult.note === 'ok', detail: worldRunWords(worldResult), raw: worldResult.raw, unfinished: pendingWorld.length > 0 });
     const pending = [...new Set([...(result.pending || []), ...pendingWorld])];
     result = { ...result, pending, unfinished: pending.length > 0,
@@ -3989,7 +4064,6 @@ export function initChat(ctx) {
     const recentText = pagesAll.slice(-3).map((m) => pageText(m));
     const facts = planFacts(state, { ...planStateView(big), scenePages: recentText });
     const people = (planPeople(state, { recentPages: recentText, rotation: pagesAll.length, view: planPeopleView(big), brief: String(fresh.brief || '') + '\n' + String(fresh.castNotes || '') }) || {}).text || '';
-    const record = wholeRecord(await loadMemory(story.id), Math.min(400000, Math.max(40000, Math.floor(contextOf(connection) * 3 * 0.45)))); /* M566: what the planner's own model holds — the newest kept, the cut said */
     const lore = matchLoreDetailed(await loadLore(story.id), recentText).text || '';
     const world = renderWorldBrief(state.worldBrief, state.turn, state.page, state) || '';
     const director = renderDirectorNote(await loadDirector(story.id)) || '';
@@ -4000,7 +4074,11 @@ export function initChat(ctx) {
     const mc = mcName(state);
     /* M589: who is close by (behind the door he is at) may be planned too — a woman behind her door answers it */
     const present = [...(Array.isArray(state.present) ? state.present : []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean), ...closeBy(state).map((n) => n.key)];
-    const ask = plannerAsk({ craft, brief: fresh.brief || '', castNotes: fresh.castNotes || '', facts, people, record, lore, world, director, pages, mc, lastSound });
+    /* M566: the record in what the planner's own model holds — the newest kept, the cut said. M752: what the rest of the ask
+     * leaves, measured as its call is refused (agents/planner.js plannerAskFitted) */
+    const mem = await loadMemory(story.id);
+    const ask = plannerAskFitted(connection, { craft, brief: fresh.brief || '', castNotes: fresh.castNotes || '', facts, people, lore, world, director, pages, mc, lastSound }, (cap) => wholeRecord(mem, cap));
+    if (!ask) return { detail: 'its model’s context is too small for the craft and the latest pages it reads — the page goes as the whole request' };
     if (stale()) return { silent: true };
     const { plan, raw } = await runPlanner({ connection, storyId: story.id, forKey, hash, ask, present, mc, lawNames, signal });
     if (stale()) return { silent: true };
@@ -4299,7 +4377,7 @@ export function initChat(ctx) {
         const patch = shownTextPatch(m, before, { mended: null }); /* M575: one home */
         await db.messages.update(story.id, m.id, patch);
         /* (M44-6 counts the four moments a page's line is let go by their literal; this fifth is named apart) */
-        try { const vis = visiblePages(await db.messages.list(story.id)); const holeAt = vis.findIndex((x) => x.id === m.id); if (holeAt !== -1 && (await keeperOnFor(story))) { const record = await loadMemory(story.id); await saveMemory(story.id, memoryWithoutPage(record, holeAt)); } } catch (err) { /* the keeper's next pass covers it */ }
+        try { const vis = visiblePages(await db.messages.list(story.id)); const holeAt = vis.findIndex((x) => x.id === m.id); if (holeAt !== -1) await recordAfterPageChange(story.id, holeAt); /* M752: let go only where a keeper folds it again; kept, it stands on its own words */ } catch (err) { /* the keeper's next pass covers it */ }
         await rerenderMessage(story.id, m.id);
         back += 1; said = '“' + change.added + '” back to “' + change.removed + '”';
       }
@@ -4338,6 +4416,14 @@ export function initChat(ctx) {
         });
         if (undoingRename) {
           return { silent: false, detail: '“' + removed + '” is “' + added + '” on this page. The rest of the story keeps “' + removed + '” — this reads as walking back a rename, not a new one.' };
+        }
+        /* M752: A NAME THAT IS ALSO A WORD IS NEVER SWEPT. "May" → "Mae" on one page rewrote "May I go?" and "the first of
+         * May" on every other page, in the record and the brief — the sweep matches the name as written, and a month, a
+         * weekday or a word the story also writes in lower case ("Will", "Grace") is that word at a sentence's start too.
+         * The Housekeeper's spelling card refuses the same (spelling.js spellingOrdinaryUse); here it holds on this page. */
+        const ordinary = spellingOrdinaryUse({ messages: all, story: await db.stories.get(story.id), settings: { memory: await loadMemory(story.id), lore: await loadLore(story.id) } }, removed);
+        if (ordinary) {
+          return { silent: false, detail: '“' + removed + '” is “' + added + '” on this page. The rest of the story keeps “' + removed + '”: ' + ordinary.replace(/ Nothing was changed\..*$/, '').replace(/[.\s]*$/, '') + ' — correct the pages where it is the name one by one.' };
         }
         const r = applyMutations(st, [{ type: 'people.rename', from: removed, to: added, cause: who + '’s edit', story: true }]); /* M681 (B13): a write about the whole story — it outlives a fold (state.js withStoryWrites) */
         if (r.applied.length) { await saveState(story.id, r.state); notify(story.id); words.push(r.applied[0].words.replace(/\.$/, '')); }
@@ -4429,7 +4515,7 @@ export function initChat(ctx) {
     if (!connection) { banner.failed('The referee needs a connection first'); return false; }
     const promise = enqueueWork(story.id, { name: 'seeder', run: async ({ signal, renew, stale }) => {
       const result = await maybeSeedSheet({ connection, storyId: story.id, signal, renew, stale, force: true, brief: story.brief || '', castNotes: story.castNotes || '' }); /* M681 (S8): its writes ask stale() too */
-      return { silent: false, detail: result && result.ok ? 'the cast weighed again — ' + (result.touched || 0) + ' considered' : 'the weighing brought nothing usable' };
+      return { silent: false, detail: result && result.ok ? 'the cast weighed again — ' + (result.touched || 0) + ' considered' : (result && result.why === 'the model’s context is too small to weigh the cast' ? result.why : 'the weighing brought nothing usable') }; /* M752: a room too small is said */
     } });
     noteWork(story.id, promise);
     banner.say('reading the brief and the pages');
@@ -4489,11 +4575,16 @@ export function initChat(ctx) {
      * screen has its turn); and when it runs by itself and he starts a page meanwhile it stops, to be taken up at the
      * next open (a page already repaired is passed over at once). */
     let turnBegan = Date.now();
+    /* M752: MARKS ARE NOT THE STORY — the record's lines stay bound to the pages mended here (memory.js restampRecord). This
+     * runs by itself on the first open after a new build: every record line over a page it touched was left unbound —
+     * out of the storyteller's request, and read again by the keeper, paid. */
+    const was = []; const now = [];
+    const keepBound = async () => { if (!now.length) return; const mem = await loadMemory(story.id), next = restampRecord(mem, was, now); if (next !== mem) await saveMemory(story.id, next); };
     for (const page of pages) {
       if (Date.now() - turnBegan > 12) {
         await new Promise((r) => setTimeout(r, 0));
         turnBegan = Date.now();
-        if (quiet && busy) return { mended, of: pages.length, stopped: true };
+        if (quiet && busy) { await keepBound(); return { mended, of: pages.length, stopped: true }; }
       }
       const before = String(pageText(page) || '');
       if (!before.trim()) continue;
@@ -4504,20 +4595,24 @@ export function initChat(ctx) {
        * read at the start (the very fault applyMend was cured of). Each write is decided on the row itself
        * (db.messages.change): a page that no longer reads as it did when it was looked at is left exactly as it is. */
       const redone = refinishedFromEarlier(page, before, mcOfTale); /* M675 */
+      let row = null;
       if (redone) {
-        if (await db.messages.change(story.id, page.id, (now) => (pageText(now) !== before ? undefined : refinishedFromEarlier(now, before, mcOfTale) || undefined))) mended += 1;
+        const landedAgain = await db.messages.change(story.id, page.id, (current) => { row = current; return pageText(current) !== before ? undefined : refinishedFromEarlier(current, before, mcOfTale) || undefined; });
+        if (landedAgain) { mended += 1; was.push(row); now.push(landedAgain); }
         continue;
       }
       const t = tidyPage(before, { mc: mcOfTale, finish: !page.ooc }); /* M510-34: finished too — never an out-of-character answer */
       if (t.text === before) continue;
-      const landed = await db.messages.change(story.id, page.id, (now) => {
-        if (pageText(now) !== before || (typeof now.keptText === 'string' && now.keptText === before)) return undefined;
-        const patch = shownTextPatch(now, t.text); /* M575: one home */
-        if (Array.isArray(t.removed) && t.removed.length && !now.mended) patch.mended = { before, why: tidyWhy(t.removed), at: Date.now() };
+      const landed = await db.messages.change(story.id, page.id, (current) => {
+        row = current;
+        if (pageText(current) !== before || (typeof current.keptText === 'string' && current.keptText === before)) return undefined;
+        const patch = shownTextPatch(current, t.text); /* M575: one home */
+        if (Array.isArray(t.removed) && t.removed.length && !current.mended) patch.mended = { before, why: tidyWhy(t.removed), at: Date.now() };
         return patch;
       });
-      if (landed) mended += 1;
+      if (landed) { mended += 1; was.push(row); now.push(landed); }
     }
+    await keepBound();
     if (mended && ctx.getActiveStoryId() === story.id && !busy) await renderThread({ structural: true }); /* M675: never a redraw of the thread under a page being told (M186) — the next draw shows them */
     if (!quiet) toast((mended ? (mended === 1 ? 'One page’s marks mended' : mended + ' pages’ marks mended') : 'Every page’s marks are whole already') + ' (the repair of ' + VERSION + ').'); /* M489-2: the build says which repair ran — "still the same" then names its cause */
     return { mended, of: pages.length };
@@ -4612,7 +4707,7 @@ export function initChat(ctx) {
       const k = vis.findIndex((m) => m.id === page.id);
       /* (M675, the second reading: both halves now live where every such moment can use them — memory.js
        * memoryWithoutPage keeps his line, keeperOnFor says whether anyone will fold the hole) */
-      if (k !== -1 && (await keeperOnFor(await db.stories.get(storyId)))) await saveMemory(storyId, memoryWithoutPage(await loadMemory(storyId), k));
+      if (k !== -1) await recordAfterPageChange(storyId, k); /* M752: the one rule — memory.js recordAfterPageChange */
       if (k !== -1) await pageRewritten(storyId, k); /* M681 (B1's pattern): the plans keeper reads the mended words again (a page not read yet is read in its turn) */
     } catch (err) { /* the keeper's next pass covers the hole anyway */ }
     await rerenderMessage(storyId, page.id);
@@ -4675,7 +4770,7 @@ export function initChat(ctx) {
     try {
       const k = visiblePages(await db.messages.list(story.id)).findIndex((m) => m && m.id === page.id);
       if (k !== -1) {
-        if (await keeperOnFor(story)) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k));
+        await recordAfterPageChange(story.id, k); /* M752: the one rule — memory.js recordAfterPageChange */
         await pageRewritten(story.id, k);
       }
     } catch (err) { /* read in its turn */ }
@@ -5018,7 +5113,10 @@ export function initChat(ctx) {
         if (cur && given !== said) {
           const patch = shownTextPatch(cur, given);
           if (!cur.mended) patch.mended = { before: said, why: 'the header named only the area — the house wrote in where the ledger has the scene', at: Date.now() };
-          await db.messages.update(story.id, msg.id, patch);
+          const written = await db.messages.update(story.id, msg.id, patch);
+          /* M752: the ground written into the header leaves the story as it was — a record line over the page (an older page
+           * read again in a replay) stays bound to it (memory.js restampRecord) */
+          if (written) { const kept = await loadMemory(story.id), next = restampRecord(kept, [cur], [written]); if (next !== kept) await saveMemory(story.id, next); }
           await rerenderMessage(story.id, msg.id);
         }
       } catch { /* a masthead is a courtesy, never a crisis */ }
@@ -5128,7 +5226,13 @@ export function initChat(ctx) {
       /* M134: how far the clock moved across this page (a #time skip, a night) — the
        * world agent re-seats everyone when it jumped */
       const clockNow = (await loadState(story.id)).clock;
-      const clockWas = chainClock.before;
+      /* M752: a health rerun of the world link alone (recoverHealthWorker) never ran the page reader that notes the clock as
+       * the page began — the jump came out 0, and nobody was moved on after a #time skip; the page's boundary (M21's
+       * snapshot, keyed by the writer's page before it) holds that clock */
+      let clockWas = chainClock.before;
+      if (!clockWas && healthOnly === 'world') {
+        try { const own = boundaryFor(await db.messages.list(story.id), msg.id); const hit = own ? (await loadSnapshots(story.id)).find((e) => e && e.id === own.id) : null; clockWas = hit && hit.snap && hit.snap.clock ? { ...hit.snap.clock } : null; } catch (err) { clockWas = null; }
+      }
       const jumpedMinutes = clockNow && clockWas && Number.isFinite(clockNow.minutes) && Number.isFinite(clockWas.minutes) ? Math.max(0, clockNow.minutes - clockReached(clockWas)) : 0; /* M681 (S9): from where the last page ENDED */
       const result = await worldTurn({
         connection,
@@ -5243,7 +5347,10 @@ export function initChat(ctx) {
       try {
         for (const nodeId of partlyReadLines(await loadMemory(story.id), await db.messages.list(story.id)).slice(0, 2)) {
           if (stale()) break;
-          const r = await redoLine({ connection, storyId: story.id, nodeId, signal, renew });
+          /* M752: a provider that refuses the line's words has failed this try (it was thrown past the count, and the same
+           * line was asked for on every page, for ever) */
+          let r = null;
+          try { r = await redoLine({ connection, storyId: story.id, nodeId, signal, renew }); } catch (err) { if ((signal && signal.aborted) || !refusedForItsWords(err)) throw err; }
           if (r && r.ok) { reread += 1; continue; }
           const held = await loadMemory(story.id);
           const node = (held.nodes || []).find((n) => n && n.id === nodeId);
@@ -5252,7 +5359,8 @@ export function initChat(ctx) {
         /* M263: and a squeezed line, one a page, when no first-layer line waits */
         if (!reread && !stale()) {
           for (const lineId of partlyReadMerged(await loadMemory(story.id), await db.messages.list(story.id)).slice(0, 1)) {
-            const r = await rereadMergedLine({ connection, storyId: story.id, lineId, signal, renew });
+            let r = null;
+            try { r = await rereadMergedLine({ connection, storyId: story.id, lineId, signal, renew }); } catch (err) { if ((signal && signal.aborted) || !refusedForItsWords(err)) throw err; } /* M752: as above */
             if (r && r.ok) { reread += 1; continue; }
             const held = await loadMemory(story.id);
             const node = (held.nodes || []).find((n) => n && n.id === lineId);
@@ -5949,7 +6057,7 @@ export function initChat(ctx) {
       if (changed) {
         const visNow = visiblePages(await db.messages.list(story.id));
         const atNow = atOverride !== null ? atOverride : visNow.findIndex((m) => m.id === fromMessageId);
-        if (atNow !== -1 && (await keeperOnFor(story))) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), atNow));
+        if (atNow !== -1) await recordAfterPageChange(story.id, atNow); /* M752: the one rule — memory.js recordAfterPageChange */
       }
       /* the readers in flight land first — their writes belong to the timeline being folded */
       await pendingWork(story.id, 120000);
@@ -6091,7 +6199,6 @@ export function initChat(ctx) {
     const last = [...vis].reverse().find((m) => m.role === 'assistant');
     if (!last || last.ooc) return false;
     if (last.stopped || (typeof last.text === 'string' && !last.text.trim())) return false;
-    if (ledgerAuditVerified(await loadState(story.id),story,vis)) return false;
     const idx = shownIndex(last); /* M576: the key the checkpoint step wrote — read by another rule, a page with versions and none chosen was "unfinished" on every open and read again */
     if (await versionStateFor(story.id, last.id, idx)) return false;
     /* a chain still running in THIS session is not unfinished (M675: its readers — the helpers a tale's opening sends
@@ -6100,6 +6207,12 @@ export function initChat(ctx) {
     /* M293: nor is one another browser's readers are still finishing — its
      * checkpoint comes with that browser's next whole-book push */
     if (otherHandAt(story.id)) return false;
+    /* M715: a ledger its audit has verified is not read again on open. M752: but a chain cut off after its auditor never
+     * reached its last link — the page's version checkpoint — and this returned before looking for it, on every open:
+     * the newest page kept no ledger of its own, so walking to another version and back found nothing to put back and
+     * read the page again. The verified ledger as it stands is that checkpoint; it is written, and nothing is read. */
+    const verifiedState = await loadState(story.id);
+    if (ledgerAuditVerified(verifiedState, story, vis)) { await saveVersionState(story.id, last.id, idx, verifiedState); return false; }
     await rereadPage(last.id, { quiet: true });
     toast('The readers had not finished the last page — reading it now.');
     return true;
@@ -6183,9 +6296,34 @@ export function initChat(ctx) {
     let cutMine = false; /* M510: the small model began playing him, and the page ended there */
     let releaseCheckpoint = () => {}; /* M570: the turn's checkpoint is kept once the page is done with the main thread — released on every path */
     let checkpointPending = null; /* M570: and the next send never starts before it is kept */
+    let asking = false; /* M752: true once the page is being asked for — from then on a failure is said by the stream's own path */
+    let stopEarlyRecall = () => {}; /* M752: the smart recall asked beside the referee, let go if its answer is never taken */
+    /* M302: "ASK AGAIN" ASKS FOR THE SAME THING — a failed new version of a standing page is asked for again as a version,
+     * through the door the ▸ uses; anything else as the turn it was. M752: one closure, for every failure this telling says. */
+    let askAgain = () => retryAsk();
+    /* M752: A FAILURE IS SAID IN THE THREAD OF THE TALE IT HAPPENED IN, WHILE THAT TALE IS OPEN. He may open another tale while
+     * a page is being written (the telling goes on in its own tale); its failure was then put in the OTHER tale's thread,
+     * with an Ask again that asks in the tale that is open (retryAsk, swipeRegenerate) — a page of the wrong tale, paid for.
+     * With another tale open it is said by the tale's name; his message stands in its tale, with its own "try again". */
+    let toldStory = null;
+    const sayFailed = (words, { clearStale = false } = {}) => {
+      if (!toldStory || ctx.getActiveStoryId() === toldStory.id) {
+        if (clearStale) for (const stale of els.thread.querySelectorAll('.msg-retry')) stale.remove(); /* M669: one word for the one failure standing */
+        els.thread.appendChild(retryNoteNode(words, askAgain));
+        scrollToBottom();
+      } else {
+        toast('“' + (toldStory.title || 'a tale') + '” — ' + String(words || 'no page came').replace(/[.\s]+$/u, '') + '. Open it to ask again.');
+      }
+    };
     try {
       const story = await activeStory();
       if (!story) return;
+      toldStory = story;
+      askAgain = async () => {
+        if (!swipeTarget) { retryAsk(); return; }
+        const standing = (await db.messages.list(story.id)).find((m) => m.id === swipeTarget.id);
+        if (standing) swipeRegenerate(standing); else retryAsk();
+      };
       /* M675 (the second reading): THE TELLING SAYS WHOSE IT IS, AND CAN BE STOPPED FROM ITS FIRST MOMENT. Until the
        * request itself began there was nothing to stop (the controller was made just before it): a tale let go in the
        * seconds before — while the readers of the page before are waited for, the referee rules, the opener writes —
@@ -6325,6 +6463,42 @@ export function initChat(ctx) {
           return canonBeforeSend({ story, state, messages: history, connection: canonConnection, type: swipeTarget ? 'swipe' : 'normal' });
         })().catch(() => '')
         : null;
+      /* M752: THE SMART RECALL IS ASKED BESIDE THE REFEREE AND CANON AGAIN, WHERE ITS ANSWER CAN BE KNOWN EXACT THIS EARLY. M547
+       * asked it here, beside them, on purpose — its wait ran while theirs did. M737 made it read the request's own planned
+       * selection (so it is never offered a line the request carries, and never misses one it does not) and moved it after
+       * the referee, canon and two builds: on a fight page its eight seconds came on top of the referee's twelve. A small
+       * storyteller's record selection (the newest lines, the lines of the people here, the lines his words name — M750) does
+       * not depend on the room the canon note or the ruling take, so it is planned now, from the request's own builder with the
+       * ledger as it stands, and the picker is asked at once. The planned selection is read again once the request is built;
+       * only if the two differ (the ledger moved under the referee, a record line came in) is the picker asked again, as
+       * before. A frontier storyteller's selection is the record as far as the measured room holds it — that room is known
+       * only once canon and the ruling are in, so it is asked then (and only when not every line fits: M750). */
+      const earlyRecallCtl = new AbortController();
+      stopEarlyRecall = () => earlyRecallCtl.abort(); /* an answer never taken is let go when the telling ends */
+      if (mine.signal.aborted) earlyRecallCtl.abort(); else mine.signal.addEventListener('abort', () => earlyRecallCtl.abort(), { once: true });
+      const earlyRecall = settingsValues.smallModelNow === true ? (async () => {
+        const memE = await loadMemory(story.id);
+        const keeperOnE = story.keeper === true ? true : story.keeper === false ? false : (await db.settings.get('memoryKeeper')) !== false;
+        const memWindowE = windowFor(memE, await db.settings.get('memoryWindow'));
+        const nodesE = memE && Array.isArray(memE.nodes) ? memE.nodes : undefined;
+        const visibleE = visiblePages(history);
+        const throughE = keeperOnE ? windowPlan({ pages: visibleE, memory: { window: memWindowE, nodes: nodesE } }).resting : Math.max(0, visibleE.length - memWindowE);
+        const beforeE = [...visibleE].reverse().find((m) => m && m.role === 'assistant' && !m.ooc && pageText(m).trim());
+        const planE = await loadPlan(story.id, planKey(beforeE));
+        const coreE = (await listModules()).find((m) => m && m.id === 'core-craft');
+        if (!planE || !coreE || earlyRecallCtl.signal.aborted) return null;
+        const connE = { ...connection, reasoning: effectiveReasoning(connection, story) };
+        const planned = buildRequest({
+          story, messages: history, settings: settingsValues, state, modules: [{ mod: coreE, reason: '' }], smallPlan: planE, recallPicked: [], measureOnly: true,
+          memory: renderMemory(memoryForWindow(memE, throughE), 1), /* whether a line rides at all — the cap is the build's own */
+          window: { keeperOn: keeperOnE, window: memWindowE, nodes: nodesE, answerTokens: measureTransport(connE, { systemBlocks: [], messages: [] }).answerTokens, budgetTokens: roomOf(connection), recordThrough: throughE }, /* the record's room left to the builder: a small request's lines stay within it whatever the canon note and the ruling take */
+        });
+        const shortE = (planned.receipt.slots || []).find((s) => s && s.name === 'The story in short' && s.tokens > 0);
+        if (!shortE) return null; /* not a small request after all (its craft lacks the laws a small page stands on): asked later, exactly */
+        const eligibleE = (memE?.nodes || []).filter((n) => n.correction || n.span?.[1] < throughE);
+        return { selection: planned.selection, nodes: eligibleE, storyShort: shortE.text, mc: mcName(state),
+          answer: smartRecallFor({ story, history, userText, state, selection: planned.selection, nodes: eligibleE, storyShort: shortE.text, signal: earlyRecallCtl.signal }) };
+      })().catch(() => null) : null;
       /* Recall selection waits for the same pure request plan that assembly uses.
        * This is the existing optional helper, with its bounded local fallback. */
       /* M21: TRUE rollback — the boundary snapshot. Before the referee and
@@ -6684,21 +6858,17 @@ export function initChat(ctx) {
       /* M750: the story in short as the request itself carries it — a small request only (a plan whose craft lost the laws a
        * small page stands on goes as a frontier request, without it) */
       const shortRow = (plannedRequest.receipt?.slots || []).find((s) => s && s.name === 'The story in short' && s.tokens > 0);
-      const recallDiagnostic = await smartRecallFor({ story, history, userText, state, selection:plannedRequest.selection, nodes:eligibleNodes, storyShort: shortRow ? shortRow.text : '', signal:mine.signal });
+      /* M752: the answer asked beside the referee stands only when this request plans the very selection it was asked about —
+       * the same lines carried, the same lines offered, the same story in short; otherwise it is let go and asked now */
+      const early = earlyRecall ? await earlyRecall : null;
+      const askedAlready = Boolean(early && early.storyShort === (shortRow ? shortRow.text : '') && early.mc === mcName(state) && recallOfferKey(early.selection, early.nodes) === recallOfferKey(plannedRequest.selection, eligibleNodes));
+      if (early && !askedAlready) stopEarlyRecall();
+      const recallDiagnostic = askedAlready ? await early.answer : await smartRecallFor({ story, history, userText, state, selection:plannedRequest.selection, nodes:eligibleNodes, storyShort: shortRow ? shortRow.text : '', signal:mine.signal });
       recallPicked = recallDiagnostic?.ids || [];
       requestArgs.recallPicked = recallPicked;
-      let { systemBlocks, messages, receipt: receiptDraft } = buildRequest({ ...requestArgs, memory: memoryText }); /* M576: the same arguments, with the record */
-
-      /* M6 consume-and-clear: the ruling rode into this turn's stack as a
-       * fact; it clears now, so no later turn inherits it. */
-      if (state.pendingVerdict) {
-        try {
-          /* M680: cleared on the ledger as it stands now — this copy was read before the page's waits */
-          const now = await loadState(story.id);
-          await saveState(story.id, { ...now, pendingVerdict: null });
-          notify(story.id);
-        } catch (err) { /* the turn is already assembled; never mind */ }
-      }
+      /* M576: the same arguments, with the record. M752: built once, below, with the connection as the page will be asked on —
+       * a first build here was used only by the opener and thrown away on every send (four builds a send) */
+      let systemBlocks; let messages; let receiptDraft;
 
       const turnVoice = voiceOf(await gatherSettings()); /* M327 */
       /* M8.5: the thinking voice for this turn. */
@@ -6726,6 +6896,7 @@ export function initChat(ctx) {
         connection = { ...connection, prefill: seedOnly ? '<think>' + seedOnly : '' };
       }
       if (!ooc && !goingOn && structuredPlanFor(connection) && /\[\[\s*pg\s*\]\]/i.test(String(connection.prefill || ''))) {
+        ({ systemBlocks, messages } = buildRequest({ ...requestArgs, memory: memoryText })); /* M752: the request the opener reads (a refusal is said before it is asked) */
         let opening = '';
         try {
           const openerConn = await resolveWorkerConnection(story, 'opener');
@@ -6735,7 +6906,10 @@ export function initChat(ctx) {
             try {
               const asked = await callWorker(openerConn, {
                 system: systemBlocks.map((b) => (typeof b === 'string' ? b : b && b.text) || '').join('\n\n') + '\n\nWrite ONLY the first few words of the next reply — ten to fifteen words, in the story\u2019s own voice, no preamble, nothing after them.',
-                messages: messages.filter((m) => m && m.role !== 'system'), maxTokens: 120, signal: w.signal,
+                /* M752: the opener is a helper — his picture is said in words, as on every older page (stack.js wireable); the
+                 * storyteller itself is sent the picture. A text-only opener model refused the request with it (M737 began
+                 * carrying the picture through the build), and the page went on without its first words. */
+                messages: messages.filter((m) => m && m.role !== 'system').map((m) => (m.image ? { role: m.role, content: (m.content ? m.content + ' ' : '') + '[a picture was shared here]' } : m)), maxTokens: 120, signal: w.signal,
               });
               opening = String((asked && asked.text) || '').replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/\[\[|\]\]/g, '').trim().split(/\n/)[0].split(/\s+/).slice(0, 15).join(' ');
             } finally { w.done(); hideComposerNote(); }
@@ -6752,6 +6926,17 @@ export function initChat(ctx) {
       const seeded = grounding && (ooc || !ownPrefill) && seedContinues(connection) ? { prefill: grounding } : {};
       budgetConnection = { ...connection, reasoning, ...seeded, ...(ooc ? { prefill: seeded.prefill || '' } : {}) };
       ({ systemBlocks, messages, receipt: receiptDraft } = buildRequest({ ...requestArgs, memory:memoryText }));
+      /* M6 consume-and-clear: the ruling rode into this turn's stack as a
+       * fact; it clears now, so no later turn inherits it. M752: once the request that carries it is built — a request
+       * refused for its size leaves it standing for Ask again */
+      if (state.pendingVerdict) {
+        try {
+          /* M680: cleared on the ledger as it stands now — this copy was read before the page's waits */
+          const now = await loadState(story.id);
+          await saveState(story.id, { ...now, pendingVerdict: null });
+          notify(story.id);
+        } catch (err) { /* the turn is already assembled; never mind */ }
+      }
       const provider = createProvider(budgetConnection);
       const showThinking = (await db.settings.get('showThinking')) !== false;
       /* M319: THE THREE SWITCHES THAT STOP THE THINKING FOR EVERY MODEL AT ONCE SAY SO, WHEN THEY DO. The writer:
@@ -6779,6 +6964,7 @@ export function initChat(ctx) {
        * begins, the old one is gone. */
       if (letGoNow()) return landed; /* M675: stopped before the request began — nothing was asked, nothing is drawn */
       await clearCutThinking(story.id);
+      asking = true; /* M752: the page is asked for from here — its own path says what goes wrong */
       const pending = document.createElement('article');
       pending.className = 'msg msg-assistant pending';
       const pendingLabel = document.createElement('div');
@@ -7062,7 +7248,7 @@ export function initChat(ctx) {
           id: sentId, storyId: story.id,
           slots: (receiptDraft && Array.isArray(receiptDraft.slots) ? receiptDraft.slots : []).map((s) => ({ name: s.name, text: s.text || '' })),
           requests: result.sent ? [result.sent] : [],
-          selection: {...receiptDraft.selection,recall:recallDiagnostic},
+          selection: selectionForSent(receiptDraft.selection, { recall: recallDiagnostic }), /* M752: counts and gaps, never every message and line */
         }).catch(() => false);
         if (result.sent?.body) receiptDraft.context = { ...receiptDraft.context, transport:bodyAccounting(result.sent.body), providerUsage:result.usage || null, recall:recallDiagnostic };
         receipt = finalizeReceipt(receiptDraft, {
@@ -7347,15 +7533,7 @@ export function initChat(ctx) {
          * answering itself (reproduced: user / assistant became user /
          * assistant / assistant). A failed version is asked for again as a
          * version, through the same door the ▸ uses. */
-        els.thread.appendChild(retryNoteNode(
-          failedWords || providerEmptyWhy || emptyPageWhy(finishReason, thinking, leadThinking), /* M545: the provider's own reason, never a guess; M591: and the house's own part said; M596: the house's own reading when it has one */
-          async () => {
-            if (!swipeTarget) { retryAsk(); return; }
-            const standing = (await db.messages.list(story.id)).find((m) => m.id === swipeTarget.id);
-            if (standing) swipeRegenerate(standing); else retryAsk();
-          }
-        ));
-        scrollToBottom();
+        sayFailed(failedWords || providerEmptyWhy || emptyPageWhy(finishReason, thinking, leadThinking)); /* M545: the provider's own reason, never a guess; M591: and the house's own part said; M596: the house's own reading when it has one; M752: in its own tale (sayFailed) */
       } else if (thinking.trim()) {
         /* M301: stopped while it was still thinking — the thinking stays on the
          * page, whole and copyable, until the next page lands */
@@ -7363,7 +7541,18 @@ export function initChat(ctx) {
       } else {
         pending.remove();
       }
+    } catch (err) {
+      /* M752: A TELLING THAT FAILS BEFORE THE PAGE IS ASKED FOR IS SAID WHERE A FAILED TELLING IS SAID. Building the request can
+       * refuse it (assemble/stack.js: the current move, the latest exchange and the standing words do not fit this
+       * connection's context) — and nothing before the request caught anything: send() and the doors that ask again hold
+       * try/finally only, and the house has no unhandled-rejection handler. His message stood, and then nothing — no page,
+       * no word, no way to ask again; the worded refusal never reached him. Before the request is asked for, any failure is
+       * said in the thread with its "Ask again", as a provider's failure is; once it is asked, the stream's own path says it. */
+      if (asking || (err && err.name === 'AbortError')) throw err;
+      sayFailed((err && err.message) || 'The page could not be asked for. Your saved pages are intact.', { clearStale: true });
+      return false;
     } finally {
+      stopEarlyRecall();
       releaseCheckpoint(); /* M570: a page that failed or was stopped still keeps its turn's checkpoint — kept before the house is free again, so a Try again finds it */
       if (checkpointPending) { try { await checkpointPending; } catch (err) { /* kept or not, the house goes on */ } }
       abort = null;
@@ -7983,7 +8172,7 @@ export function initChat(ctx) {
     } else {
       const boundary = boundaryFor(history, msg.id);
       if (boundary) await rewindTo(story, history, boundary.id);
-      { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1 && (await keeperOnFor(story))) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); } /* M675: see letting a line go, below (swipeRegenerate) */
+      { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await recordAfterPageChange(story.id, k); } /* M675: see letting a line go, below (swipeRegenerate); M752: memory.js recordAfterPageChange */
       /* (M675: the tale's page-reader switch no longer stands in front of this — M674 took the same condition off the new
        * version's landing: with that switch off every other helper still has the version to read, each by its own switch) */
       if (updated && msg.role === 'assistant' && !msg.ooc) {
@@ -8072,7 +8261,7 @@ export function initChat(ctx) {
        * storyteller had known them. Now: once the new words have landed, and only where a keeper will write the line
        * that takes its place. (Nothing of the request needs it gone sooner: a line reaching the page being told again
        * never rides with it — memoryForWindow.) */
-      if (landed && (await keeperOnFor(story))) { const vis = visiblePages(historyNow); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); }
+      if (landed) { const vis = visiblePages(historyNow); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) await recordAfterPageChange(story.id, k); } /* M752: memory.js recordAfterPageChange */
       /* M302: a new version of an out-of-character answer is out of character (turnArgsBefore) */
       /* M72: a new version on an OLDER page is history changed at that page —
        * fold back, read the new words once, re-apply the rest (it used to be
@@ -8131,7 +8320,7 @@ export function initChat(ctx) {
       const history = await db.messages.list(story.id);
       const msg = history.find((m) => m && m.id === pageId);
       if (!msg) return false;
-      { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) { if (await keeperOnFor(story)) await saveMemory(story.id, memoryWithoutPage(await loadMemory(story.id), k)); await pageRewritten(story.id, k); } } /* M528: the plans keeper reads it again; M675: the line goes only where a keeper will fold it again */
+      { const vis = visiblePages(history); const k = vis.findIndex((m) => m.id === msg.id); if (k !== -1) { await recordAfterPageChange(story.id, k); await pageRewritten(story.id, k); } } /* M528: the plans keeper reads it again; M675: the line goes only where a keeper will fold it again (M752: memory.js recordAfterPageChange) */
       if (msg.role === 'assistant' && story.extraction !== false && !msg.ooc) {
         const before = history.slice(0, history.indexOf(msg));
         const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
@@ -8396,6 +8585,11 @@ export function initChat(ctx) {
       const saved = await db.messages.copy(branch.id, page); /* M511: the page whole — every field it carries */
       if (saved && saved.id) idMap[m.id] = saved.id;
     }
+    /* M752: the continuous audit's notes name the pages they stand on — the copies now (continuous.js branchAdvisories) */
+    for (const m of pages) {
+      const findings = branchAdvisories(m.findings, idMap);
+      if (findings !== m.findings && idMap[m.id]) await db.messages.update(branch.id, idMap[m.id], { findings });
+    }
     /* M43: the branch carries its checkpoint (Summaryception's law). The
      * ledger as it stood after the branch page: that page's version
      * checkpoint when the readers have finished it; else the boundary
@@ -8548,7 +8742,11 @@ export function initChat(ctx) {
     const mem = await loadMemory(story.id);
     const visibleCount = pages.length;
     const nodes = restartOpening ? [] : mem.nodes.filter((n) => n.span[1] < visibleCount);
-    await saveMemory(branch.id, { ...mem, nodes });
+    /* M752: the record's receipts name the branch's own copies (memory.js branchRecord) — carried as they stood they named the
+     * parent's pages, and every line of the branch was left out of its requests and read again by its keeper; and what the
+     * continuous audit had set aside stays set aside over the copies (continuous.js branchRecoveries) */
+    const carriedRecord = { ...mem, nodes };
+    await saveMemory(branch.id, branchRecoveries(carriedRecord, branchRecord(carriedRecord, idMap), pages, visiblePages(await db.messages.list(branch.id))));
     const lore = await loadLore(story.id);
     if (lore.length) await saveLore(branch.id, lore.map((e) => ({ ...e })));
     /* M386: a branch keeps its canon — the series it found, the wiki he named, his pins, blocks and notes; what the

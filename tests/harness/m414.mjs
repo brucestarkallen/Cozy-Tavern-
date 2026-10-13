@@ -3,7 +3,7 @@
  * going the NARRATION shows. Every test runs the real ledger (applyMutations) or the real reader on a scripted model. */
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
-import { HOUSES, withHouse } from './thinkinghouse.mjs';
+import { HOUSES, withHouse, thinkingHouse } from './thinkinghouse.mjs';
 import { db } from '../../js/store.js';
 import { auditLedger, showsDeparture } from '../../js/agents/auditor.js';
 import { leavesTheyWereShown } from '../../js/agents/extractor.js';
@@ -12,14 +12,6 @@ import { emptyState, saveState, loadState } from '../../js/engine/state.js';
 import { applyMutations } from '../../js/engine/apply.js';
 import { findPersonKey } from '../../js/engine/people.js';
 import { samePersonName, nameOnPage, isHere } from '../../js/engine/names.js';
-
-const streamed = (answer) => async (url, opts) => {
-  const body = JSON.parse(opts.body);
-  const lines = 'data: ' + JSON.stringify({ choices: [{ delta: { content: answer } }] }) + '\n\ndata: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n';
-  if (body.stream) return { ok: true, status: 200, headers: new Headers(), body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(lines)); c.close(); } }), json: async () => ({}), text: async () => lines, clone() { return this; } };
-  const obj = { choices: [{ message: { role: 'assistant', content: answer }, finish_reason: 'stop' }] };
-  return { ok: true, status: 200, headers: new Headers(), json: async () => obj, text: async () => JSON.stringify(obj), clone() { return this; } };
-};
 
 test('M414-1 THE OWNER IS NOT THE PERSON: "Jovan\'s mother" keeps her seat while he is in the scene, walks in when she comes, and a leave meant for her never takes HIM out', () => {
   eq(samePersonName("Jovan's mother", 'Jovan'), false, 'a possessive names its owner, not the person');
@@ -83,24 +75,37 @@ test('M414-3 NAMED ON THE PAGE, ONE ANSWER: never a title, "the" or an owner; a 
   eq(leaves.map((m) => m.name).join(', '), 'Ed', 'Ed, shown walking out, may leave (a two-letter name was never "named" before); the lieutenant the page never names stays');
 });
 
-test('M414-4 THE AUDITOR\'S "SHOWN GOING" IS NARRATED: a side ("to his left", "her left hand") and a line someone says ("Don\'t leave") are not goings — on the real auditor and a scripted answer', async () => {
+/* what the auditor was sent, as one run of words; and its final review's answer (M698–M712), as an auditor gives it */
+const told = (house) => house.calls.map((c) => (c.body.messages || []).map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n')).join('\n').replace(/\s+/g, ' ');
+const review = (more) => JSON.stringify({ scene: [], issues: [], review: { status: 'complete', why: 'every entry read against the newest page, to its end', open: [] }, standings: [], ...more });
+
+/* M689 (the pipeline review he agreed to, docs/LEDGER-PIPELINE-M689.md): "production no longer runs [auditorScope] or the
+ * separate departure keyword filter" — whether a sentence is a going is the auditor's own reading now (M709: its final
+ * scope keeps supported operations and ownership; docs/LEDGER_PIPELINE.md: no new regex guards over its judgment). The
+ * one reading of a going (showsDeparture) still serves the page reader and the house; the auditor is TOLD what a going
+ * is, and an auditor that does as it is told takes out only the one the page shows going. */
+test('M414-4 THE AUDITOR\'S "SHOWN GOING" IS NARRATED: a side ("to his left", "her left hand") and a line someone says ("Don\'t leave") are not goings — in the house\'s one reading of a going, and in what the real auditor is told; as told, Rukia stays and Byakuya goes', async () => {
   const sentences = {
     'Rukia stood to his left.': false, 'She raised her left hand.': false, '"Don\'t leave," Rukia said.': false, 'He didn\'t leave.': false,
     'Rukia wanted to leave.': false, 'He left the sword untouched.': false, 'The sword was left on the table.': false, 'Rukia turned away from him.': false,
     'Byakuya turned and left the courtyard.': true, 'Renji left.': true, 'Lisa leaves the hall.': true, 'Byakuya flash-stepped away.': true, 'Iba was gone by morning.': true,
   };
   for (const [s, want] of Object.entries(sentences)) eq(showsDeparture(s), want, s);
+  const PAGE = 'Rukia stood to his left, arms folded. "Don\'t leave yet," Renji said to her. Byakuya turned and left the courtyard.';
   const st0 = await db.stories.create({ title: 'The barracks' });
   await db.messages.append(st0.id, { role: 'user', text: 'I read the report.' });
-  await db.messages.append(st0.id, { role: 'assistant', text: 'Rukia stood to his left, arms folded. "Don\'t leave yet," Renji said to her. Byakuya turned and left the courtyard.' });
+  await db.messages.append(st0.id, { role: 'assistant', text: PAGE });
   const st = applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Oda' }, { type: 'place.set', name: '13th Division barracks — courtyard' },
     ...['Oda', 'Rukia Kuchiki', 'Renji Abarai', 'Byakuya Kuchiki'].map((n) => ({ type: 'presence.enter', name: n }))]).state;
   await saveState(st0.id, st);
-  const answer = JSON.stringify({ issues: [
-    { what: 'Rukia is gone', fix: 'take her out', pages: false, mutations: [{ type: 'presence.leave', name: 'Rukia Kuchiki' }] },
-    { what: 'Byakuya left', fix: 'he walked out', pages: false, mutations: [{ type: 'presence.leave', name: 'Byakuya Kuchiki' }] },
-  ] });
-  await withHouse({ fetch: streamed(answer) }, () => auditLedger({ connection: HOUSES[0].conn, storyId: st0.id, brief: 'A Bleach story.' }));
+  const house = thinkingHouse({ answer: review({
+    scene: [{ name: 'Rukia Kuchiki', repair: false, ending: { position: 'to his left, arms folded', shown: 'Rukia stood to his left, arms folded' } }],
+    issues: [{ what: 'Byakuya left the courtyard and is still listed here', fix: 'he walked out', pages: false, mutations: [{ type: 'presence.leave', name: 'Byakuya Kuchiki', shown: 'Byakuya turned and left the courtyard' }] }] }) });
+  await withHouse(house, () => auditLedger({ connection: HOUSES[0].conn, storyId: st0.id, brief: 'A Bleach story.' }));
+  const words = told(house);
+  for (const rule of ['the page\'s own words that show them going, copied exactly', 'Questions, wishes, hypotheticals and requests are not completed events.',
+    'Resolve pronouns and titles in context, not by keyword matching.', 'Silence is not departure']) assert(words.includes(rule), 'the auditor is told: ' + rule);
+  assert(words.includes(PAGE.replace(/\s+/g, ' ')), 'and is handed the page whole');
   const here = (await loadState(st0.id)).present.map((p) => p.name);
   assert(here.includes('Rukia Kuchiki'), 'Rukia, standing to his left, stays: ' + here.join(', '));
   assert(!here.includes('Byakuya Kuchiki'), 'Byakuya, shown leaving, goes');

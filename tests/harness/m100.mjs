@@ -1705,15 +1705,21 @@ test('M227: the scribe sees the loose ends it is meant to close', async () => {
   assert(/CLOSE WHAT THE PAGE ANSWERED/.test(seen), 'and the scribe is told to close what was answered');
   assert(/a ledger full of finished business is/.test(seen), 'with the reason it matters');
 
+  /* M713: "Founder/Scene/People read complete selected People records, not storyteller card and recall limits. Every omitted
+   * name remains available for lookup" (HISTORY M713) — the scribe is no longer shown the storyteller's tiers: every page,
+   * loose ends and all, while its room holds them, the people this very page names first */
   const unnamed = buildScribeMessages({ state: st, userText: 'x',
     assistantText: 'Nobody mentioned her at all.', playerName: 'Jovan' });
-  assert(!/finished her self-introduction/.test((unnamed.system || '') + (unnamed.user || '')),
-    'while someone the page never names is still left out — the tiers are not abandoned');
-
-  const src = readFileSync(new URL('../../js/agents/scribe.js', import.meta.url), 'utf8');
-  assert(/recentPages: \[String\(userText \|\| ''\), String\(assistantText \|\| ''\)\]/.test(src),
-    'the pages of this very turn are what decide who is recalled');
-  assert(!/renderPeopleTiers\(state, \{ recentPages: \[\] \}\)/.test(src), 'never an empty list again');
+  assert(/finished her self-introduction/.test(unnamed.user || ''),
+    'someone the page never names still shows the loose ends a reading may close — the tiers are abandoned for the scribe (M713)');
+  /* past its room the cut is said — the pages it does not show are NAMED, to be fetched, never read as empty; the person
+   * this page names is the one kept (the pages of this very turn decide who comes first) */
+  st.characters.Bram = { core: 'the ferryman', state: '', arc: '', threads: ['owes Jovan a crossing before the thaw'], updatedAtTurn: 1 };
+  const tight = buildScribeMessages({ state: st, userText: 'x', assistantText: 'Alexia finished introducing herself at last.', peopleRoom: 160 });
+  assert(/finished her self-introduction/.test(tight.user) && !/owes Jovan a crossing/.test(tight.user) && /Records not shown here, NOT empty: Bram\. Fetch "person: NAME" before changing any unshown field\./.test(tight.user),
+    'the page’s own person kept, the other named for lookup: ' + tight.user.slice(tight.user.indexOf('character pages currently say'), tight.user.indexOf('character pages currently say') + 400));
+  const turned = buildScribeMessages({ state: st, userText: 'x', assistantText: 'Bram poled the ferry across.', peopleRoom: 160 });
+  assert(/owes Jovan a crossing/.test(turned.user) && /Records not shown here, NOT empty: Alexia\./.test(turned.user), 'and on a page about Bram, Bram is the one kept');
 });
 
 /* M228: M226 gave the extractor the folded record and I told the writer it
@@ -2300,8 +2306,12 @@ test('M249: the world agent is given the story it is told to fill a life from', 
     record: '- [Aug 20] Rias Wells kept the house two years', stale: () => false }));
   assert(JSON.stringify(house.calls[0].body).includes('Rias Wells kept the house two years'), 'and handed over — the record reaches the wire');
 
-  /* and the brief that demanded it is still there — this closes that loop */
-  assert(/filled from the real record, not invented/.test(withRecord.system),
+  /* and the brief that demanded it is still there — this closes that loop. M719 rewrote THE ABSENT: a life is filled from
+   * what is established (established constraints and fictional elapsed time), and the
+   * record the request now carries is named as that source, never to be invented over */
+  /* M752 (g8): the rule now places a relevant active life "as a simulated development from established constraints and
+   * fictional elapsed time" — the same source named, without the old line's contradiction with the seat it must write */
+  assert(/a simulated development from established constraints and fictional elapsed time/.test(withRecord.system) && /filled from THIS, never invented over it/.test(withRecord.user),
     'the brief still demands a record, and now there is one');
 });
 

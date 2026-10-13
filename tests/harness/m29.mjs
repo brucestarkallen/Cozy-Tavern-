@@ -36,8 +36,24 @@ test('M29-1 threads: set, update in place, hot before cold, cap, close', () => {
    * now (M266's law); fourteen threads are fourteen threads, and the guard still holds far out. */
   eq(t.length, 14, 'every thread is kept');
   for (let i = 12; i < 60; i += 1) t = setThread(t, { title: 'thread ' + i, heat: i % 2 ? 'cold' : 'hot' }, 10 + i);
-  assert(t.length <= 40, 'the runaway guard holds: ' + t.length);
-  assert(t.some((x) => x.title === 'thread 59'), 'the newest survives the guard');
+  /* M713: THE LEDGER KEEPS EVERY OPEN THREAD — only its resolution closes one (docs/LEDGER_PIPELINE.md: durable open threads
+   * "no longer disappear at40"; "prompt limits are view limits"). The guard of forty is the VIEWS' now (M752): the
+   * storyteller's whole view and every worker's whole ledger show forty — the hot, then the lately touched — and count the
+   * rest; a small view keeps its five. */
+  eq(t.length, 62, 'every open thread is kept — none let go past forty');
+  assert(t.some((x) => x.title === 'thread 59') && t.some((x) => x.title === 'Aurora and the letter'), 'the newest and the oldest both stand');
+  const st = { ...emptyState(), threads: t };
+  const told = (renderStateFacts(st, { whole: true, budget: 500000 }).split('Threads still open: ')[1] || '').split('\n').filter(Boolean);
+  eq(told.length, 41, 'the storyteller’s whole view: forty lines and the count');
+  eq(told[40], '(and 22 more open threads, kept in the ledger)', 'the rest counted, never silently dropped');
+  eq(told.slice(0, 40).filter((l) => !l.startsWith('(cold)')).length, 31, 'every hot thread is among the forty');
+  assert(told.slice(0, 31).every((l) => !l.startsWith('(cold)')) && told.slice(31, 40).every((l) => l.startsWith('(cold)')), 'the hot before the cold');
+  const worker = buildWorldMessages({ state: st, userText: 'u', assistantText: 'a' }).user;
+  const listed = worker.slice(worker.indexOf('THREADS:'), worker.indexOf('WHO KNOWS WHAT')).split('\n').filter((l) => /^(?:\(cold\) )?"/.test(l));
+  eq(listed.length, 40, 'the world agent’s request: forty threads, each title in quotes');
+  assert(/\(and 22 more open threads, untouched longest, kept in the ledger and not shown here/.test(worker), 'and it is told the rest stand');
+  assert(listed.some((l) => l.includes('"thread 59"')) && listed.some((l) => l.includes('"Aurora and the letter"')), 'the newest, and the oldest hot one, among them');
+  eq(renderThreads(t).split('\n').length, 5, 'a small view keeps its five');
   eq(closeThread(t, 'THREAD 59').length, t.length - 1, 'close by title, case-insensitive');
 });
 

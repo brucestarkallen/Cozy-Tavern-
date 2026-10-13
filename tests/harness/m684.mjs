@@ -4,7 +4,7 @@ import { db } from '../../js/store.js';
 import { emptyState, saveState, loadState } from '../../js/engine/state.js';
 import { applyMutations, undoEntry } from '../../js/engine/apply.js';
 import { extractTurn } from '../../js/agents/extractor.js';
-import { auditLedger, auditLineWords } from '../../js/agents/auditor.js';
+import { auditLedger, auditLineWords, ledgerUpkeep } from '../../js/agents/auditor.js';
 import { worldTurn } from '../../js/agents/world.js';
 import { seatAgeWords } from '../../js/engine/offscreen.js';
 
@@ -24,6 +24,12 @@ const base = () => applyMutations({ ...emptyState(), page: 0, clock: { minutes: 
   { type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the palace salon' }, { type: 'presence.enter', name: 'Jovan' },
 ]).state;
 const reader = (state, userText, assistantText, reply) => wire({ mutations: [{ type: 'mode.snapshot', flags: ['group'] }], ...reply }, () => extractTurn({ connection, state, userText, assistantText, founding: false }));
+/* M698/M709: the final auditor answers with its repairs beside a completed whole-review verdict and the standings extraction.
+ * M689/M709: production no longer runs the old prose filter over that reviewer's repairs; it judges departures and
+ * chronology itself, so those rules are held in the request the code actually sends. */
+const reviewed = (answer) => ({ review: { status: 'complete', why: 'Every required entry was checked against the brief and the pages.', open: [] }, standings: [], ...answer });
+const requestOf = (calls) => calls.flatMap((b) => b.messages.map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content)))).join('\n');
+const toldTo = (calls, rules) => { const request = requestOf(calls); for (const rule of rules) assert(request.includes(rule), 'the final reviewer is told: ' + rule); };
 
 test('M684-1 the writer introduces nearby people and a pronoun-only reply does not erase the room board', async () => {
   const state = base();
@@ -35,7 +41,7 @@ test('M684-1 the writer introduces nearby people and a pronoun-only reply does n
 
 test('M684-2 explicit introductions make People pages without invented surnames or ranks', async () => {
   const state = base(); const quote = 'Prince Caelan is the Third Prince and lives at the northern estate.';
-  const r = await reader(state, quote, 'The conversation turns to the weather.', { people: [{ name: 'Prince Caelan', shown: quote }] });
+  const r = await reader(state, quote, 'The conversation turns to the weather.', { people: [{ name: 'Prince Caelan', core: 'The Third Prince; he lives at the northern estate.', shown: quote }] });
   const next = applyMutations(state, r.mutations).state;
   assert(next.characters['Prince Caelan']?.core.includes('Third Prince'), 'the writer’s exact identity is kept even while absent');
   assert(!next.present.some((p) => p.name === 'Prince Caelan'), 'a biography does not place someone nearby');
@@ -103,14 +109,19 @@ test('M684-8 the world explicitly revisits an overdue seat, including a reasoned
   assert(back && seatAgeWords(back.state.offscreen.Mira, state.clock.minutes), 'undo restores the actual old freshness');
 });
 test('M684-9 a world answer omitting a stale person gets one targeted followup and reports an unresolved omission honestly', async () => {
-  const id = 'm684-omission'; const old = applyMutations(base(), [{ type: 'offscreen.set', name: 'Mira', location: 'the infirmary', activity: 'resting' }]).state;
-  await saveState(id, { ...old, page: 1, clock: { minutes: 1380 } });
-  await wire({ mutations: [], brief: { pressure: [], ripe: [], twb: null } }, async (calls) => {
-    const r = await worldTurn({ connection, storyId: id, userText: 'I wait.', assistantText: 'Night falls.', pageAt: 1 });
-    eq(calls.length, 2, 'one bounded followup for the omitted person');
-    assert(r.pending?.includes('Mira'), 'omission is reported');
-    assert(seatAgeWords((await loadState(id)).offscreen.Mira, 1380), 'no false freshness stamp');
-  });
+  /* M719: a stale seat is owed a World decision while that person still takes part in the story (here her own objective);
+   * a seat nothing carries is no longer simulated, so it costs no followup and is never reported as owed */
+  for (const agenda of ['walk again before the spring festival', '']) {
+    const id = 'm684-omission' + (agenda ? '' : '-uncarried');
+    const old = applyMutations(base(), [{ type: 'offscreen.set', name: 'Mira', location: 'the infirmary', activity: 'resting', ...(agenda ? { agenda } : {}) }]).state;
+    await saveState(id, { ...old, page: 1, clock: { minutes: 1380 } });
+    await wire({ mutations: [], brief: { pressure: [], ripe: [], twb: null } }, async (calls) => {
+      const r = await worldTurn({ connection, storyId: id, userText: 'I wait.', assistantText: 'Night falls.', pageAt: 1 });
+      eq(calls.length, agenda ? 2 : 1, agenda ? 'one bounded followup for the omitted person' : 'no followup for a seat nothing carries');
+      assert(agenda ? r.pending?.includes('Mira') : !r.pending?.length, agenda ? 'omission is reported' : 'nothing uncarried is reported as owed');
+      assert(seatAgeWords((await loadState(id)).offscreen.Mira, 1380), 'no false freshness stamp');
+    });
+  }
 });
 test('M684-10 stale information describes a missed update, never invents a likely departure', () => {
   const words = seatAgeWords({ sinceMinutes: 600 }, 1380);
@@ -127,7 +138,12 @@ test('M684-11 many quiet pages in the same room are not evidence that a companio
     await db.messages.append(id, { role: 'user', text: 'I continue reading my letter in the salon.', ts: n * 2 + 3 });
     await db.messages.append(id, { role: 'assistant', text: 'Jovan reads another paragraph. The fire burns quietly in the palace salon.', ts: n * 2 + 4 });
   }
-  await wire({ issues: [{ what: 'Mira has not been mentioned recently.', mutations: [{ type: 'presence.leave', name: 'Mira' }] }] }, () => auditLedger({ connection, storyId: id }));
+  await wire(reviewed({ issues: [] }), async (calls) => {
+    const result = await auditLedger({ connection, storyId: id });
+    toldTo(calls, ['Silence is not departure; mentioning a remote person is not presence.', 'A quiet spectator remains present unless later events establish departure or a scene move.']);
+    assert(!result.unfinished, JSON.stringify(result.pending));
+  });
+  await ledgerUpkeep({ storyId: id }); /* the house's own upkeep between readings never reads silence as leaving either */
   assert((await loadState(id)).present.some((p) => p.name === 'Mira'), 'quiet company stays in the room');
 });
 
@@ -201,8 +217,14 @@ test('M684-19 the auditor can recover a writer-established companion from a pron
     await db.messages.append(id, { role: 'user', text: shown });
     await db.messages.append(id, { role: 'assistant', text: departed ? 'Princess Alexia leaves the salon and goes back to the tower.' : 'She draws a chair beside him. ' + 'The fire crackles while the conversation continues. '.repeat(10) });
     await saveState(id, applyMutations(base(), [{ type: 'people.set', name: 'Princess Alexia', field: 'core', text: 'Second Princess.' }, { type: 'offscreen.set', name: 'Princess Alexia', location: 'the tower', activity: 'reading' }]).state);
-    await wire({ issues: [{ what: 'The writer brought her into the room.', mutations: [{ type: 'presence.enter', name: 'Princess Alexia', shown }] }] }, () => auditLedger({ connection, storyId: id }));
+    /* the reviewer recovers the writer's arrival; told that a later departure wins, it leaves her tower seat after one */
+    await wire(reviewed({ issues: departed ? [] : [{ what: 'The writer brought her into the room.', mutations: [{ type: 'presence.enter', name: 'Princess Alexia', shown }] }] }), async (calls) => {
+      const result = await auditLedger({ connection, storyId: id });
+      toldTo(calls, ['Read actions in both messages in order: a later departure still wins.', 'A PLAYER page states what the main character ATTEMPTS; only the STORY page after it makes it so.']);
+      assert(!result.unfinished, JSON.stringify(result.pending));
+    });
     eq((await loadState(id)).present.some((p) => p.name === 'Princess Alexia'), !departed, 'the latest action decides');
+    if (departed) eq((await loadState(id)).offscreen['Princess Alexia']?.location, 'the tower', 'her seat after the departure stands');
   }
 });
 

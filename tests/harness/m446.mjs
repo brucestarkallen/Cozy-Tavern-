@@ -3,7 +3,7 @@
  * narrates them going. Runs the real engine, the real page reader and the real auditor on scripted models. */
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
-import { HOUSES, withHouse } from './thinkinghouse.mjs';
+import { HOUSES, withHouse, thinkingHouse } from './thinkinghouse.mjs';
 import { db } from '../../js/store.js';
 import { applyMutations, goneAtTheEnd } from '../../js/engine/apply.js';
 import { emptyState, saveState, loadState } from '../../js/engine/state.js';
@@ -55,17 +55,34 @@ test('M446-2 THE PAGE READER’S LEAVE STANDS ONLY WHEN THE PAGE ENDS ON IT — 
   }
 });
 
-test('M446-3 THE AUDITOR’S LEAVE, THE SAME LAW: the latest page that names her decides — back with the files, she stays; bowed and left, she goes', async () => {
-  for (const [page, stays] of [[BACK, true], [GONE, false]]) {
+/* M689 (the pipeline review he agreed to, docs/LEDGER-PIPELINE-M689.md): "production no longer runs [auditorScope] or the
+ * separate departure keyword filter" — the auditor's leave is its own reading of the page to its end (M709: its final scope
+ * keeps supported operations and ownership; docs/LEDGER_PIPELINE.md: no new regex guards over its judgment). What carries
+ * the law now: what it is TOLD (follow each person through the whole scene; the later going or coming back wins), what an
+ * auditor that does as told writes, and the ledger's door, which still takes nobody out on a name two people share. */
+const told = (house) => house.calls.map((c) => (c.body.messages || []).map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n')).join('\n').replace(/\s+/g, ' ');
+const review = (more) => JSON.stringify({ scene: [], issues: [], review: { status: 'complete', why: 'every entry read against the newest page, to its end', open: [] }, standings: [], ...more });
+test('M446-3 THE AUDITOR’S LEAVE, THE SAME LAW: it is told the latest line that names her decides; as told — back with the files, she stays; bowed and left, she goes — and another Kuchiki’s going, on a name two people share, takes nobody', async () => {
+  const run = async (page, answer) => {
     const s0 = await db.stories.create({ title: 'The office, audited' });
     await db.messages.append(s0.id, { role: 'user', text: 'I wait.' });
     await db.messages.append(s0.id, { role: 'assistant', text: page });
     await saveState(s0.id, office());
-    const answer = JSON.stringify({ issues: [{ what: 'Rukia left the office', fix: 'take her out', pages: false, mutations: [{ type: 'presence.leave', name: 'Rukia Kuchiki' }] }] });
-    await withHouse({ fetch: streamed(answer) }, () => auditLedger({ connection: HOUSES[0].conn, storyId: s0.id, brief: 'A Bleach story.' }));
-    const after = await loadState(s0.id);
-    eq(after.present.some((p) => p.name === 'Rukia Kuchiki'), stays, stays ? 'back with the files: she stays' : 'bowed and left: she goes');
-  }
+    const house = thinkingHouse({ answer: review(answer) });
+    await withHouse(house, () => auditLedger({ connection: HOUSES[0].conn, storyId: s0.id, brief: 'A Bleach story.' }));
+    return { after: await loadState(s0.id), words: told(house) };
+  };
+  const back = await run(BACK, { scene: [{ name: 'Rukia Kuchiki', repair: false, earlier: 'stepped out to fetch the duty rosters', ending: { position: 'back at Oda’s desk with the files', shown: 'Rukia came back with the files and set them on Oda’s desk.' } }] });
+  for (const rule of ['Follow each person through the entire newest scene.', 'A later departure, death, changed position or scene move still wins. Never restore an earlier moment over it.',
+    'Discard intermediate states replaced later in the sequence.', 'the page\'s own words that show them going, copied exactly']) assert(back.words.includes(rule), 'the auditor is told: ' + rule);
+  assert(back.words.includes('Rukia came back with the files and set them on Oda’s desk.'), 'and is handed the page to its end');
+  eq(back.after.present.some((p) => p.name === 'Rukia Kuchiki'), true, 'back with the files: she stays');
+  const gone = await run(GONE, { issues: [{ what: 'Rukia left the office', fix: 'take her out', pages: false, mutations: [{ type: 'presence.leave', name: 'Rukia Kuchiki', shown: 'Rukia bowed to both captains and left the office' }] }] });
+  eq(gone.after.present.some((p) => p.name === 'Rukia Kuchiki'), false, 'bowed and left: she goes');
+  assert(gone.after.offscreen['Rukia Kuchiki'], 'and is seated where she was last seen, never nowhere');
+  /* the ledger's door, whatever the answer: "Kuchiki-taichō" could be either Kuchiki here — it takes nobody out */
+  const other = await run(OTHER, { issues: [{ what: 'Kuchiki-taichō left', fix: 'take him out', pages: false, mutations: [{ type: 'presence.leave', name: 'Kuchiki-taichō', shown: 'Kuchiki-taichō nodded to Oda, then left without a word' }] }] });
+  eq(other.after.present.map((p) => p.name).join(), 'Jovan Oda,Rukia Kuchiki,Byakuya Kuchiki', 'a going on a name two people share takes nobody out');
 });
 
 test('M446-4 WHEN THE PAGE MOVES THE GROUND, THE SCENE LEAVES PEOPLE BEHIND — Ms. June waving them off from the diner door is left at the Bluebird (the page reader’s leave stands, no word of her own going needed); whoever the page’s own room says came along stays', async () => {

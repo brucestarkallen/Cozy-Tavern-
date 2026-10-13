@@ -4,18 +4,25 @@ import { test, assert, eq } from './lib.mjs';
 import { readFileSync } from 'node:fs';
 import { db } from '../../js/store.js';
 import { CRAFT_TEXT } from '../../js/assemble/craft.js';
-import { listModules, saveModule } from '../../js/assemble/modules.js';
+import { listModules, saveModule, fingerprint } from '../../js/assemble/modules.js';
 import { buildRequest } from '../../js/assemble/stack.js';
 import { emptyState } from '../../js/engine/state.js';
 import { autoSupersede, applySupersede, housekeeperTurn, saveSession, loadSession } from '../../js/agents/housekeeper.js';
 const oldVoice = readFileSync(new URL('../fixtures/retired_voice_line.txt', import.meta.url), 'utf8').trimEnd();
+/* The craft exactly as it shipped through M682, the factory voice line in it (its fingerprint, 1d184md, has stood in
+ * SHIPPED_BEFORE since M683). M683-1 used to build it as today's craft with that line put back — the M682 craft only while
+ * nothing else in the craft had changed. M714 (5d1ff01) re-worded one line (Who Knows What), and the text built from it
+ * became a craft that never shipped, which no stored pin can hold. */
+const craftAsShippedThroughM682 = readFileSync(new URL('../fixtures/craft_m682.txt', import.meta.url), 'utf8');
 const bad = (id, tag = 'brief') => ({ id, kind: 'unreadable', status: 'refused', label: id, op: { tag }, words: 'Could not read the block.' });
 const replacement = { id: 'valid', kind: 'brief', status: 'pending', op: { field: 'brief', find: 'twenty', replace: 'nineteen' } };
 
 test('M683-1 the actual storyteller request has no female voice ban; edited rules keep all other words and their stored original', async () => {
   const saved = await db.settings.get('modules');
   try {
-    const original = CRAFT_TEXT.includes(oldVoice) ? CRAFT_TEXT : CRAFT_TEXT.replace('Shape Follows Spine =', oldVoice + '\nShape Follows Spine =');
+    const original = craftAsShippedThroughM682;
+    eq(fingerprint(original), '1d184md', 'the fixture is the craft byte for byte as it shipped through M682');
+    assert(original.includes(oldVoice) && !CRAFT_TEXT.includes(oldVoice), 'it carries the factory voice line; today’s craft does not');
     await saveModule({ id: 'core-craft', text: original, pinned: true });
     let craft = (await listModules()).find((m) => m.id === 'core-craft');
     assert(!craft.overridden, 'an untouched older pinned copy follows the builtin');

@@ -27,9 +27,9 @@ import { isHere, samePersonName } from './names.js'; /* M398 */
 import { seatForPerson } from './people.js'; /* M660: someone seated elsewhere has no "now" in the room */
 import { renderBodies } from './bodies.js';
 import { renderCanon } from './canon.js';
-import { renderOffscreen } from './offscreen.js';
+import { renderSeatsForReading, SEATS_VIEW } from './offscreen.js'; /* M752: the seats chosen for the reading */
 import { renderFightLine, mcName, mcAliases } from './duels.js';
-import { findKnowledgeKey, threadNextWords, factionMoveWords } from './world.js'; /* M416: one wording for a thread's next; M681: and for a faction's move */
+import { findKnowledgeKey, threadNextWords, factionMoveWords, knowledgeWords, knowingSentences, THREADS_VIEW } from './world.js'; /* M416: one wording for a thread's next; M681: and for a faction's move; M752: and for a kind of knowing */
 import { storyTurn } from './apply.js';
 import { firstSentence } from './sentence.js'; /* M292 */
 
@@ -62,9 +62,23 @@ export function renderAllStandings(relationships) {
 
 /* Every open thread, cold ones too, the title in quotes exactly as the
  * ledger holds it — a reader asked to close one must be able to name it. */
-export function renderAllThreads(threads) {
+/* M752: A ROOM FOR THE THREADS, AS FOR WHO KNOWS WHAT. M713 made open threads durable (only a thread's resolution closes
+ * it) and said the views stay fitted — this one was not: every reader of the whole ledger, and the world agent, was handed
+ * every open thread ever written, a list that only grows with the tale. Forty is what the ledger itself held before M713
+ * (M305: the world's threads forty); past it the threads touched longest ago are COUNTED and stay in the ledger — a
+ * thread.set under the same title still finds its own (findThread reads them all). */
+export const ALL_THREADS_SHOWN = THREADS_VIEW;
+export function renderAllThreads(threads, shown = ALL_THREADS_SHOWN) {
+  const all = (Array.isArray(threads) ? threads : []).filter((t) => (typeof t === 'string' ? t.trim() : t && typeof t === 'object' && clean(t.title || t.label || t.name)));
+  const touched = (t) => (t && typeof t === 'object' && Number.isFinite(t.atTurn) ? t.atTurn : -1);
+  const cold = (t) => (t && typeof t === 'object' && t.heat === 'cold' ? 1 : 0);
+  /* which forty: the hot before the cold, then the most lately touched (the storyteller's own order, renderThreads) —
+   * shown in the ledger's order */
+  const list = Number.isFinite(shown) && all.length > shown
+    ? all.map((t, i) => ({ t, i })).sort((a, b) => (cold(a.t) - cold(b.t)) || (touched(b.t) - touched(a.t)) || (b.i - a.i)).slice(0, shown).sort((a, b) => a.i - b.i).map((x) => x.t)
+    : all;
   const rows = [];
-  for (const t of (Array.isArray(threads) ? threads : [])) {
+  for (const t of list) {
     if (typeof t === 'string') { if (t.trim()) rows.push('"' + clean(t) + '"'); continue; }
     if (!t || typeof t !== 'object') continue;
     const title = clean(t.title || t.label || t.name);
@@ -74,6 +88,8 @@ export function renderAllThreads(threads) {
     if (t.next) line += threadNextWords(t.owner && clean(t.owner), clean(t.next)); /* M416 */
     rows.push(line);
   }
+  const rest = all.length - list.length;
+  if (rest > 0) rows.push('(and ' + rest + ' more open ' + (rest === 1 ? 'thread' : 'threads') + ', untouched longest, kept in the ledger and not shown here — a thread.set under the same title updates its own)');
   return rows.join('\n');
 }
 
@@ -110,7 +126,12 @@ export function renderAllKnowledge(knowledge, present = [], room = ALL_KNOWLEDGE
   const people = [];
   for (const [name, list] of Object.entries(safe)) {
     if (!Array.isArray(list)) continue;
-    const facts = list.filter((k) => k && typeof k.fact === 'string' && k.fact.trim()).map((k) => clean(k.fact).replace(/\.+$/, ''));
+    /* M752: EACH LINE SAID AS ITS KIND, AS THE STORYTELLER IS TOLD IT. M737 began keeping the kind of knowing beside the
+     * line ({fact, kind:"ignorance"}), and this view still read every line as known: the page reader, the world agent, the
+     * scribe, the auditor and the housekeeper were told "Mara knows: the key is in the vault" while the storyteller was
+     * told "Mara has not learned: the key is in the vault" — so a reader skipped a real learning ("she already knows") or
+     * "corrected" a true belief. One rendering (engine/world.js knowledgeWords, knowingSentences). */
+    const facts = list.filter((k) => k && typeof k.fact === 'string' && k.fact.trim()).map((k) => clean(knowledgeWords(k)));
     if (!facts.length) continue;
     people.push({ name, here: hereKeys.has(name), facts });
   }
@@ -120,7 +141,7 @@ export function renderAllKnowledge(knowledge, present = [], room = ALL_KNOWLEDGE
     const shown = Number.isFinite(mine) ? (mine > 0 ? p.facts.slice(-mine) : []) : p.facts;
     const left = p.facts.length - shown.length;
     if (!shown.length) return p.name + ' knows ' + left + (left === 1 ? ' thing' : ' things') + ' — already known; never write them again (look them up by name before writing anything of what ' + p.name + ' knows).';
-    return p.name + (p.here ? ' (in the scene)' : '') + ' knows: ' + shown.join('; ') + '.'
+    return knowingSentences(p.name + (p.here ? ' (in the scene)' : ''), shown)
       + (left > 0 ? ' (and ' + left + ' older ' + (left === 1 ? 'thing' : 'things') + ' — already known; never write them again)' : '');
   }).join('\n');
   let text = build(Infinity);
@@ -155,7 +176,10 @@ export function renderAllFactions(factions, nowTurn = null) {
 }
 
 /* The whole ledger, every book, nothing shed. */
-export function renderWholeLedger(state, { knowledgeRoom = 0 } = {}) {
+/* M752: `material` — what this reader is reading (its page, its pages, the writer's words): the seats are chosen for it
+ * (engine/offscreen.js seatsForReading); `fetchable` — the reader can fetch "person: NAME", so the seats not shown are
+ * named with the way to them (a reader that cannot look is told only how many) */
+export function renderWholeLedger(state, { knowledgeRoom = 0, material = '', fetchable = false } = {}) {
   if (!state || typeof state !== 'object') return '';
   const out = [];
   out.push('Main character: ' + mcName(state) + '. Their own names/personas: ' + mcAliases(state).join(', ') + '. These are one player, never separate absent people.');
@@ -183,12 +207,12 @@ export function renderWholeLedger(state, { knowledgeRoom = 0 } = {}) {
   const section = (head, body, empty) => out.push(head + '\n' + (body || empty));
   section('Standings toward ' + mcName(state) + ' — EVERY one written; a person not listed has none:',
     renderAllStandings(state.relationships), '(none)');
-  section('Threads still open — ALL of them, each title in quotes exactly as the ledger holds it:',
+  section('Threads still open — every one (past ' + ALL_THREADS_SHOWN + ', the longest untouched are counted), each title in quotes exactly as the ledger holds it:',
     renderAllThreads(state.threads), '(none)');
   section('Who knows what — EVERY line written, for everyone:',
     renderAllKnowledge(state.knowledge, present, ALL_KNOWLEDGE_ROOM, { fitRoom: knowledgeRoom > 0 ? knowledgeRoom : 0 }), '(nothing written)'); /* M664: a worker's view, fitted to its room */
-  section('Elsewhere — every seat of the absent:',
-    renderOffscreen(state.offscreen, present, clockMinutes, Infinity, state.characters || {}), '(nobody seated)');
+  section('Elsewhere — where the absent are (every seat up to ' + SEATS_VIEW + '; past that, the ones this reading bears on, the rest counted):',
+    renderSeatsForReading(state, { material, fetchable }), '(nobody seated)');
   section('What their bodies carry:',
     renderBodies(state.bodies, clockMinutes, storyTurn(state)), '(nothing written)');
   section('What is locked true:',

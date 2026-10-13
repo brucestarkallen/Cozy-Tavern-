@@ -139,7 +139,26 @@ function recoveryInput(line,pages,f) {
   return fingerprint36(JSON.stringify([line.span,stretchMark(line,pages,line.span[0],line.span[1]),
     (f.recovery?.sources || []).map(id=>{const p=pages.find(p=>p.id===id);return [id,p && pageText(p)];})]));
 }
+/* A finding the house can SHOW was never a claim about the record — kept by M722's routing before the guards in
+ * scopeStretch (an out-of-character page; a line with no words) — is settled by the audit itself, in code, with no call:
+ * one said of a page out of character (M674: such a page is never a fault), and a record correction for a line with no
+ * words at all, or one kept as "not the complete section" for a line read whole (only a line with no words ever was).
+ * It is due at once, however its recovery stood (a blocked one too: it held the lamp amber and the line from folding) —
+ * but one whose saved repair is being verified is left to that (it finishes with no call, recoverHistoricalFinding).
+ * Never on a line in his own words; never a word of any line. Returns why it is moot, or ''. */
+const PARTIAL_WHY = 'Insufficient context: this reading did not cover the complete record source section.';
+function mootFinding(line,pages,f) {
+  if (!isLine(line) || !f || !f.issue || typeof f.issue!=='object' || lineIsHis(line) || f.recovery?.status==='verifying') return '';
+  const [first,last]=line.span, page=f.issue.page;
+  if (f.issue.target!=='record' && Number.isInteger(page) && Number.isInteger(f.from) && Number.isInteger(f.to)
+    && f.from>=first && f.to<=last && page-1>=f.from && page-1<=f.to && Array.isArray(pages) && asideAt(pages,page-1)) return 'it was said of an out-of-character page';
+  if (f.issue.target==='record' && !String(line.text || '').trim() && !String(line.detail || '').trim()) return 'it is a correction for a record line with no words';
+  /* (M752: not one read from part of a line that has since lost its other pages — memory.js findingsMoved, narrowedFrom) */
+  if (f.issue.target==='record' && f.why===PARTIAL_WHY && f.from===first && f.to===last && !f.narrowedFrom) return 'it is a correction kept for a record line that had no words when it was read';
+  return '';
+}
 function recoveryWait(line,pages,f,writer=null) {
+  if (mootFinding(line,pages,f)) return 0;
   const r=f.recovery;
   if (!r || legacyDisposition(r) || r.input!==recoveryInput(line,pages,f) || (writer && r.writer!==fingerprint36(JSON.stringify([writer.brief || '',writer.castNotes || ''])))) return 0;
   if (r.status==='verifying') return 0;
@@ -196,6 +215,52 @@ export function historicalAdvisoryView(finding,message,mem,pages,writer=null) {
     }
   }
   return finding;
+}
+
+/* M752 — A BRANCH'S PAGES CARRY THE AUDIT'S NOTES UNDER THEIR OWN NAMES. A note the continuous audit leaves on a page names
+ * the page it stands on (auditLink.sourceId, M727). Copied whole into a branch (ui/chat.js branchForUpdate) it named the
+ * parent's page, so the branch never matched it to the receipt that settles it (historicalAdvisoryView, whose receipts
+ * memory.js branchRecord renames): a concern disproved or resolved in the parent read as unresolved in every branch.
+ * `idMap`: parent page id -> the copy's id. The same list when no note names a parent page. Pure. */
+export function branchAdvisories(findings, idMap) {
+  if (!Array.isArray(findings) || !idMap) return findings;
+  let renamed = false;
+  const out = findings.map((f) => {
+    const id = f && f.auditLink && f.auditLink.sourceId;
+    if (typeof id !== 'string' || !Object.prototype.hasOwnProperty.call(idMap, id)) return f;
+    renamed = true;
+    return { ...f, auditLink: { ...f.auditLink, sourceId: idMap[id] } };
+  });
+  return renamed ? out : findings;
+}
+
+/* M752 — A BRANCH KEEPS WHAT THE CONTINUOUS AUDIT HAD SET ASIDE. A historical correction's recovery is reserved for the line
+ * and the pages it was tried with, and they are named by their ids (recoveryInput). A branch's copies have new ids, so
+ * every reservation there was void: a correction the parent had set aside (blocked — "ambiguity and protected text stay
+ * visible without endless calls", M723), or had tried as often as it may, was due again at once in every branch, and
+ * paid for again. A reservation that held for the parent's line and pages holds for the same line over the copies; one
+ * that did not is left as it was. `before`, `pages`: the record and the visible pages as the parent has them; `after`,
+ * `copies`: as the branch has them (memory.js branchRecord). Pure. */
+export function branchRecoveries(before, after, pages, copies) {
+  const was = new Map((before && Array.isArray(before.nodes) ? before.nodes : []).filter(Boolean).map((n) => [n.id, n]));
+  let moved = false;
+  const nodes = (after && Array.isArray(after.nodes) ? after.nodes : []).map((n) => {
+    const old = n && was.get(n.id);
+    if (!old || !isLine(n) || !isLine(old) || !Array.isArray(n.auditOpen) || !Array.isArray(old.auditOpen) || n.auditOpen.length !== old.auditOpen.length) return n;
+    let mine = false;
+    const auditOpen = n.auditOpen.map((f, i) => {
+      const g = old.auditOpen[i];
+      if (!f || !f.recovery || !g || !g.recovery || g.recovery.input !== recoveryInput(old, pages, g)) return f;
+      const input = recoveryInput(n, copies, f);
+      if (input === f.recovery.input) return f;
+      mine = true;
+      return { ...f, recovery: { ...f.recovery, input } };
+    });
+    if (!mine) return n;
+    moved = true;
+    return { ...n, auditOpen };
+  });
+  return moved ? { ...after, nodes } : after;
 }
 
 export function advisoryLabel(finding) {
@@ -348,12 +413,27 @@ async function recoverHistoricalFinding({connection,storyId,brief,castNotes,sign
   const live=await loadMemory(storyId),liveLine=live.nodes.find(n=>n.id===line.id);
   if (!liveLine || JSON.stringify(liveLine)!==snapshot) return null;
   let item=liveLine.auditOpen?.find(f=>findingId(liveLine,f)===id);
+  let reopened=false; /* M752: taken into auditOpen here (a settled correction its sources reopened) */
   if (!item) {
     item=historicalFindings(liveLine,pages,story).find(f=>findingId(liveLine,f)===id);
-    if (item) liveLine.auditOpen=[...(liveLine.auditOpen || []),item];
+    if (item) {liveLine.auditOpen=[...(liveLine.auditOpen || []),item];reopened=true;}
   }
   if (!item) return null;
   item.id=id;
+  /* moot (mootFinding): settled in code with no call — every moot finding of this line at once. A receipt says so, and
+   * being the latest for its id it keeps a dismissal from reopening; the line's words and ownership are not touched. */
+  if (mootFinding(liveLine,pages,item)) {
+    if (stopped()) return null;
+    const cleared=[],kept=[];
+    for (const f of liveLine.auditOpen || []) { const why=mootFinding(liveLine,pages,f); if (why) cleared.push({f,why}); else kept.push(f); }
+    liveLine.auditOpen=kept;
+    liveLine.auditRecovery=[...(liveLine.auditRecovery || []),...cleared.map(({f,why})=>({id:findingId(liveLine,f),outcome:'cleared',recordId:liveLine.id,sourceSpan:[...liveLine.span],
+      finding:{id:findingId(liveLine,f),from:f.from,to:f.to,issue:f.issue,why:f.why},why:'Cleared with no call: '+why+'.',at:Date.now()}))];
+    await saveMemory(storyId,live);
+    notify(storyId);
+    return {ok:true,recovery:'cleared',cleared:cleared.map(({f,why})=>({what:f.issue?.what || f.why || '',why})),from:original.from,to:original.to,mendedPages:0,applied:[],refused:[],faults:[],lineMended:0,
+      detailAdded:'',lineWritten:false,lineLeft:false,sealed:true,raw:'',calls:0,...auditProgress(live,pages.length,pages)};
+  }
   if (old.status==='verifying') {
     const receipt=liveLine.auditRecovery?.findLast(r=>r.id===id);
     const latest=visiblePages(await db.messages.list(storyId));
@@ -366,10 +446,26 @@ async function recoverHistoricalFinding({connection,storyId,brief,castNotes,sign
         detailAdded:'',lineWritten:false,sealed:true,raw:'',calls:0,...auditProgress(live,pages.length,pages)};
     }
   }
+  const prior=item.recovery;
   item.recovery={...old,input,writer,dispositionPolicy:DISPOSITION_POLICY,evidencePolicy:EVIDENCE_POLICY,attempts:(old.attempts || 0)+1,status:'running',reason:old.reason || item.why,
     nextAt:Date.now()+RECOVERY_DELAY};
   await saveMemory(storyId,live);
   const reserved=JSON.stringify(liveLine);
+  /* M752: A STEP ASIDE IS NO ATTEMPT (M675: his Stop, a step aside for the storyteller and a tale that moved on are no failure).
+   * The attempt is reserved before the call so that a reload mid-call cannot reset the bound (M723) — and a reading that
+   * stepped aside left that reservation standing: two sends during a recovery spent both attempts with no answer ever
+   * read, and the correction was stranded for good ("the final recovery attempt was interrupted; the attempt limit is
+   * reached"). Stepped aside, the reservation is given back exactly as it stood, while the line is as it was reserved. */
+  const giveBack=async()=>{
+    const held=await loadMemory(storyId),heldLine=held.nodes.find(n=>n.id===line.id);
+    if (!heldLine || JSON.stringify(heldLine)!==reserved) return;
+    const at=(heldLine.auditOpen || []).findIndex(f=>f.id===id);
+    if (at<0) return;
+    if (reopened) heldLine.auditOpen=heldLine.auditOpen.filter((f,i)=>i!==at);
+    else if (prior===undefined) delete heldLine.auditOpen[at].recovery;
+    else heldLine.auditOpen[at].recovery=prior;
+    await saveMemory(storyId,held);
+  };
   const observed=new Map(pages.slice(line.span[0],line.span[1]+1).map(p=>[p.id,pageText(p)]));
   const evidence=new Map();
   const actualBrief=String(brief || story.brief || ''),actualCast=String(castNotes || story.castNotes || '');
@@ -429,7 +525,7 @@ async function recoverHistoricalFinding({connection,storyId,brief,castNotes,sign
   } catch (err) {
     reason='Provider transport failure: '+String(err?.message || err).slice(0,250);retryable=true;
   }
-  if (stopped()) return null; // The durable running reservation permits only the bounded deferred attempt.
+  if (stopped()) {await giveBack();return null;} // M752: stepped aside — no attempt was made (a reload mid-call keeps the reservation, M723)
   const pagesNow=visiblePages(await db.messages.list(storyId));
   const storyNow=await db.stories.get(storyId);
   const current=await loadMemory(storyId),node=current.nodes.find(n=>n.id===line.id);
@@ -503,13 +599,28 @@ export function continuousRunStatus(result) {
     historical:{done:result.done,folded:result.folded,open:result.open || 0,pending:result.pending || 0}};
 }
 
+/* A reason or an allegation said inside a sentence: its own closing stop goes, so a join never doubles one
+ * ("1 historical corrections remain unresolved: X.: reason.; next"). */
+export const withoutStop = (t) => String(t || '').trim().replace(/[\s.;:,]+$/u, '');
+/* "1 historical correction remains unresolved: what: why; …" — one way, on the workers' line and on the lamp (chat.js) */
+export function openCorrections(read) {
+  const n = Number(read && read.open) || 0;
+  const items = (read && Array.isArray(read.unresolved) ? read.unresolved : [])
+    .map((f) => [f.issue?.what, f.recovery?.reason || f.why].map(withoutStop).filter(Boolean).join(': ')).filter(Boolean);
+  return n + ' historical ' + (n === 1 ? 'correction remains' : 'corrections remain') + ' unresolved' + (items.length ? ': ' + items.join('; ') : '');
+}
+
 export function recoveryWords(result) {
   const read=result.left ? 'Reviewed '+result.done+' of '+result.folded+' folded pages.' : 'Finished reviewing all '+result.folded+' folded pages.';
+  const cleared=Array.isArray(result.cleared) ? result.cleared : [];
   const action=result.recovery==='repaired' ? ' Corrected and verified the historical memory. Original story pages were preserved.'
-    : result.recovery==='correct' ? ' Original evidence supports the record. The mistaken finding was withdrawn.' : '';
+    : result.recovery==='correct' ? ' Original evidence supports the record. The mistaken finding was withdrawn.'
+    : result.recovery==='cleared' ? ' Cleared '+cleared.length+' historical '+(cleared.length===1?'correction':'corrections')+' with nothing to correct: '
+      +cleared.map(c=>(withoutStop(c.what) ? '“'+withoutStop(c.what)+'” — ' : '')+withoutStop(c.why)).join('; ')+'.' : '';
+  const reasons=(result.unresolved || []).map(f=>withoutStop(recoveryReason(f))).filter(Boolean).join('; ');
   const open=result.open ? ' '+result.open+' historical '+(result.open===1?'correction remains':'corrections remain')
-    +(result.pending ? ' queued for bounded automatic recovery. ' : ' unresolved after automatic source review. ')
-    +result.unresolved.map(recoveryReason).join('; ') : ' No historical corrections remain unresolved.';
+    +(result.pending ? ' queued for bounded automatic recovery.' : ' unresolved after automatic source review.')
+    +(reasons ? ' '+reasons+'.' : '') : ' No historical corrections remain unresolved.';
   return read+action+open;
 }
 
@@ -830,7 +941,8 @@ export function parseStretchAnswer(raw) {
     if (!parsed) return { issues: [], note: 'unusable' };
     const yes = (v) => v === true || v === 1 || (typeof v === 'string' && /^\s*(?:true|yes|y|1)\s*$/i.test(v));
     const words = (v, cap) => (typeof v === 'string' ? v.trim().slice(0, cap) : '');
-    const issues = parsed.issues.filter((i) => i && typeof i === 'object').map((i) => {
+    const TARGETS = ['story', 'record', 'knowledge', 'unknown'];
+    const issues = parsed.issues.filter((i) => i && typeof i === 'object').flatMap((i) => {
       const rec = typeof i.record === 'string' ? { detail: i.record } : (i.record && typeof i.record === 'object' ? i.record : null);
       const detail = words(rec && rec.detail, 1200) || words(i.detail, 1200);
       const fixes = (Array.isArray(rec && rec.fixes) ? rec.fixes : [])
@@ -839,9 +951,9 @@ export function parseStretchAnswer(raw) {
         .filter((f) => f.from && (f.to || f.operation==='remove') && f.from !== f.to && f.from.length <= 160 && f.to.length <= 160)
         .slice(0, 6);
       const page = Math.round(Number(typeof i.page === 'string' ? i.page.replace(/^\s*\[?p(?:age)?\s*/i, '') : i.page));
-      return {
+      const issue = {
         what: words(i.what, 2000),
-        target:['story','record','knowledge','unknown'].includes(i.target)?i.target:(rec?'record':i.mutations?.length?'knowledge':'unknown'),
+        target:TARGETS.includes(i.target)?i.target:(rec?'record':i.mutations?.length?'knowledge':'unknown'),
         evidence:{page:words(i.evidence?.page,2000),prior:words(i.evidence?.prior,2000),why:words(i.evidence?.why,1000)},
         pages: yes(i.pages),
         page: Number.isFinite(page) && page > 0 ? page : null,
@@ -849,7 +961,15 @@ export function parseStretchAnswer(raw) {
         record: fixes.length || detail ? { fixes, detail } : null,
         mutations: Array.isArray(i.mutations) ? i.mutations.filter((m) => m && typeof m === 'object' && typeof m.type === 'string') : [],
       };
-    }).filter((i) => i.what || (i.pages && i.fix) || i.record || i.mutations.length).slice(0, 12);
+      /* An issue the model gave a target (M722: "what and target are required") keeps its routing. One with no target asks
+       * for something when it carries a page fix, a record, a ledger write -- or, described, flags a page or brings a record
+       * (M722 routed those to a focused review). A bare "what" with no target ("the line stands as it is") asks for nothing:
+       * M722 left it inert, and M723's default made it target:unknown, an unresolved historical correction with a recovery
+       * call of its own and a warning with no claim behind it. */
+      const asks = TARGETS.includes(i.target) ? Boolean(issue.what || (issue.pages && issue.fix) || issue.record || issue.mutations.length)
+        : Boolean((issue.pages && issue.fix) || issue.record || issue.mutations.length || (issue.what && (issue.pages || rec)));
+      return asks ? [issue] : [];
+    }).slice(0, 12);
     return { issues, note: 'ok' };
   } catch (err) {
     return { issues: [], note: 'unusable' };
@@ -873,7 +993,7 @@ const ECHO = /\bthe line'?s own wrong words\b|\bthe pages'? own words\b|\bwhat (
 
 /* What a reading may do, decided in code: who may be written for, what may be written, and how much.
  *   turn: the story's turn these pages end on (what an added fact is dated with, and what a full list is held to). */
-export function scopeStretch(issues, { state, pagesText = '', from = 0, to = 0, lineWhole = true, turn = null, asides = [], priorText = '', pages = [] } = {}) {
+export function scopeStretch(issues, { state, pagesText = '', from = 0, to = 0, lineWhole = true, lineEmpty = false, turn = null, asides = [], priorText = '', pages = [] } = {}) {
   const text = String(pagesText || '');
   const aside = new Set(Array.isArray(asides) ? asides : []); /* M674: the page numbers that are out of character */
   const low = lower(text);
@@ -889,15 +1009,21 @@ export function scopeStretch(issues, { state, pagesText = '', from = 0, to = 0, 
     if (!issue) continue;
     /* 1. a page against the story */
     const storyEvidence=issue.target==='story' && issue.evidence?.why && quotedSource(pageText(pages[(issue.page || 0)-1]),issue.evidence.page) && quotedSource(priorText,issue.evidence.prior);
-    if ((issue.pages || issue.target==='unknown') && !storyEvidence && issue.target!=='record') unresolved.push({issue,why:'The fault needs grounded story versus record classification.'});
+    /* M674: a fault said of an out-of-character page is no finding at all -- not mended, not noted, and not kept as an
+     * unresolved historical correction either (M722's routing took it for an uncertain story fault, with its own
+     * recovery call and warning) */
+    const offStory = Number.isInteger(issue.page) && aside.has(issue.page);
+    if ((issue.pages || issue.target==='unknown') && !storyEvidence && issue.target!=='record' && !offStory) unresolved.push({issue,why:'The fault needs grounded story versus record classification.'});
     if (storyEvidence && issue.pages && issue.fix && !PLACEHOLDER.test(issue.fix) && !ECHO.test(issue.fix) && issue.fix.length >= 8 && pageFixes.length < PAGE_FIXES) {
       const page = Number.isInteger(issue.page) && issue.page >= from + 1 && issue.page <= to + 1 ? issue.page : null;
       /* M674: an out-of-character page is not the story -- it is never wrong against it, never mended, never noted */
       if (!(page && aside.has(page)) && !pageFixes.some((f) => f.page === page && f.fix === issue.fix)) pageFixes.push({ what: issue.what, fix: issue.fix, page });
     }
-    /* 2. the record line */
-    if (issue.target==='record' && !issue.record?.fixes?.length && !issue.record?.detail) unresolved.push({issue,why:'Missing exact replacement text in record.fixes.'});
-    if (issue.target==='record' && !lineWhole && issue.record?.fixes?.length) unresolved.push({issue,why:'Insufficient context: this reading did not cover the complete record source section.'});
+    /* 2. the record line. An EMPTY line has no words a fix could correct (it is given what lasts, as its detail): a fix
+     * said of it is not a correction left unfinished -- it was kept as one, "this reading did not cover the complete
+     * record source section", for a line read whole, with a recovery call that could only fail */
+    if (issue.target==='record' && !lineEmpty && !issue.record?.fixes?.length && !issue.record?.detail) unresolved.push({issue,why:'Missing exact replacement text in record.fixes.'});
+    if (issue.target==='record' && !lineEmpty && !lineWhole && issue.record?.fixes?.length) unresolved.push({issue,why:PARTIAL_WHY});
     if (issue.record && issue.target==='record') {
       if (lineWhole) for (const f of issue.record.fixes) if (!PLACEHOLDER.test(f.to) && !ECHO.test(f.from) && !ECHO.test(f.to)) fixes.push({...f,what:issue.what});
       for (const clause of String(issue.record.detail || '').split(/\s*;\s*/)) {
@@ -1105,7 +1231,7 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
    * was -1, and the ledger then dated the fact with its count of writes ("turn 302" in a tale of 22 pages) */
   const endPage = Math.max(0, storyPageAt(pages, prompt.to));
   const turn = endPage + 1;
-  const first = scopeStretch(read.issues, { state, pagesText: prompt.sourceText, from: prompt.from, to: prompt.to, lineWhole: prompt.lineWhole && !prompt.lineEmpty, turn, asides: prompt.asides, priorText:prompt.priorText, pages });
+  const first = scopeStretch(read.issues, { state, pagesText: prompt.sourceText, from: prompt.from, to: prompt.to, lineWhole: prompt.lineWhole && !prompt.lineEmpty, lineEmpty: prompt.lineEmpty, turn, asides: prompt.asides, priorText:prompt.priorText, pages });
 
   /* 1. THE PAGES — the house's own mender, with his switch; a page already mended, or one whose words he put back, is
    * never mended again (noted, where the second reader's notes are). A reading that mends a page writes nothing else:
@@ -1162,7 +1288,7 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
   let refused = first.refused;
   if (first.mutations.length) {
     const fresh = await loadState(storyId);
-    const scoped = scopeStretch(read.issues, { state: fresh, pagesText: prompt.sourceText, from: prompt.from, to: prompt.to, lineWhole: prompt.lineWhole && !prompt.lineEmpty, turn, asides: prompt.asides, priorText:prompt.priorText, pages });
+    const scoped = scopeStretch(read.issues, { state: fresh, pagesText: prompt.sourceText, from: prompt.from, to: prompt.to, lineWhole: prompt.lineWhole && !prompt.lineEmpty, lineEmpty: prompt.lineEmpty, turn, asides: prompt.asides, priorText:prompt.priorText, pages });
     refused = scoped.refused;
     if (scoped.mutations.length) {
       const result = applyMutations({ ...fresh, page: endPage }, scoped.mutations);
@@ -1250,7 +1376,9 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
   const next=current && nextStretch(current,pagesNow);
   if (sealed && next?.recovery && next.line.id===prompt.lineId) {
     const recovered=await recoverHistoricalFinding({connection,storyId,brief,castNotes,signal,stale,renew,mem:current,pages:pagesNow,stretch:next});
-    if (recovered) return {...recovered,applied,refused,faults:notedFaults,lineMended:lineMended+recovered.lineMended,detailAdded,lineWritten,lineLeft,raw:raw+'\n'+recovered.raw};
+    /* `reading`: this reading's own account, said before the recovery's on the workers' line (stretchWords) */
+    if (recovered) return {...recovered,applied,refused,faults:notedFaults,lineMended:lineMended+recovered.lineMended,detailAdded,lineWritten,lineLeft,raw:raw+'\n'+recovered.raw,
+      reading:{from:prompt.from,to:prompt.to,lineMended,passedBy,passedWhy:refusedWhy,passedRefusals:refusedTimes}};
   }
   const after = auditProgress(current || (await loadMemory(storyId)), pagesNow.length,pagesNow);
   return { ok: true, from: prompt.from, to: prompt.to, mendedPages: 0, applied, refused, faults: notedFaults, lineMended, detailAdded, lineWritten, lineLeft, passedBy, passedWhy: refusedWhy, passedRefusals: refusedTimes, sealed, raw, ...after };
@@ -1259,8 +1387,16 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
 /* The line for the workers' shelf: what it read, what it set right, how far it has got. */
 export function stretchWords(result) {
   if (!result) return '';
-  if (result.recovery) return recoveryWords(result);
-  const meter = ' — ' + result.done + ' of ' + result.folded + ' folded pages read';
+  /* M723: a focused recovery says what it did. One that followed a READING in the same job carries that reading's account
+   * too (auditStretch, `reading`) -- the recovery's words alone were said, and what the reading wrote to the ledger, put
+   * right, kept, noted on a page or left as his was gone from the workers' line. The reading first, then the recovery
+   * (whose words carry how far the audit has read and what remains unresolved). */
+  if (result.recovery && !result.reading) return recoveryWords(result);
+  if (result.reading) return readingWords({ ...result, ...result.reading, open: 0 }, '. ' + recoveryWords(result));
+  return readingWords(result);
+}
+function readingWords(result, then = '') {
+  const meter = then || (' — ' + result.done + ' of ' + result.folded + ' folded pages read');
   const pagesRead = result.from === result.to ? 'page ' + (result.from + 1) : 'pages ' + (result.from + 1) + '–' + (result.to + 1);
   if (result.mendedPages) {
     return 'read ' + pagesRead + ': mended ' + result.mendedPages + (result.mendedPages === 1 ? ' page' : ' pages')
@@ -1277,10 +1413,10 @@ export function stretchWords(result) {
   ];
   const faults = Array.isArray(result.faults) ? result.faults : [];
   const faultWords = faults.length ? '; ' + faults.length + (faults.length === 1 ? ' page fault' : ' page faults') + ' noted, not mended: ' + faults.map((f) => f.what || f.fix).join(' · ') : '';
-  const refusedWords = result.refused.length ? '; ' + result.refused.length + ' not written (' + [...new Set(result.refused.map((r) => r.why))].slice(0, 2).join('; ') + ')' : '';
+  const refusedWords = result.refused.length ? '; ' + result.refused.length + ' not written (' + [...new Set(result.refused.map((r) => withoutStop(r.why)))].filter(Boolean).slice(0, 2).join('; ') + ')' : '';
   const unsealed = result.sealed ? '' : '; the record moved while it read — these pages are read again';
   const left = result.lineLeft ? '; the record line is in your own words (or the housekeeper’s for you) — left as it is' : '';
   return 'read ' + pagesRead + ' against the story before, the record line and the ledger: '
     + (did.length ? 'set ' + did.length + (did.length === 1 ? ' thing' : ' things') + ' right — ' + did.join(' · ') : 'nothing to set right')
-    + faultWords + refusedWords + left + unsealed + (result.open ? '; '+result.open+' historical corrections remain unresolved: '+result.unresolved.map(f=>[f.issue?.what,f.recovery?.reason || f.why].filter(Boolean).join(': ')).join('; ') : '') + meter;
+    + faultWords + refusedWords + left + unsealed + (result.open ? '; ' + openCorrections(result) : '') + meter;
 }

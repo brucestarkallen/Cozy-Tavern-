@@ -104,7 +104,8 @@ export function fetchLaw({ rounds = WORKER_FETCH_ROUNDS, when = '' } = {}) {
     '  <fetch>["12", "find: Caleb", "brief", "person: Caleb"]</fetch>',
     '  "12" (or a page\'s #code) — that page, first word to last; "find: WORDS" — every page that holds',
     '  those words, newest first, with the numbers to fetch them by; "brief" / "cast" — the writer\'s',
-    '  own words, whole; "person: NAME" — that person\'s character page, whole.',
+    '  own words, whole; "person: NAME" — that person\'s character page, whole, and where they are now (their seat,',
+    '  when they are elsewhere) — anyone the ledger holds, shown here or not.',
     when || 'Look when something you must judge rests on a page or a passage you were not shown whole.',
     'You may look ' + (rounds === 1 ? 'once' : 'up to ' + rounds + ' times') + '; then answer in the form asked for.',
   ].join('\n');
@@ -156,7 +157,7 @@ export async function askWithFetch(connection, {
     const { refs, blocks } = fetchRefsIn(text);
     if (toldToAnswer && blocks) return { ...answer, looked, rounds: served };
     if (!blocks) {
-      const correction=!repairedAnswer && typeof repairAnswer==='function' ? repairAnswer(text) : '';
+      const correction=!repairedAnswer && typeof repairAnswer==='function' ? repairAnswer(text, res) : '';
       if (correction) {
         repairedAnswer=true;
         convo.push({role:'assistant',content:text},{role:'user',content:correction});

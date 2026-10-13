@@ -120,11 +120,14 @@ test('M597 CLOSE BY READS A ROOM WITHIN REACH, NOT ONLY THE SCENE\'S EXACT NAME:
 
 test('M598 A PASSER-THROUGH STILL PASSES OUT OF THE STORY: the house\'s upkeep retires one nothing carries and then lets the seat go — the always-somewhere rule (M588) never keeps a seat for someone who has left the story', async () => {
   const { seatHousekeeping } = await import('../../js/agents/auditor.js');
-  let st = applyMutations({ ...emptyState(), page: 200 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the yard' }, { type: 'presence.enter', name: 'Jovan' },
+  /* his seat was written on the first page and the tale is two hundred pages on — written by the seat writer itself, so it
+   * carries the turn it was FIRST written (M719: firstAtTurn is the seat's age; a later update never makes a seat fresh) */
+  let st = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the yard' }, { type: 'presence.enter', name: 'Jovan' },
     { type: 'people.set', name: 'Hideo the porter', field: 'core', text: 'a porter who carried one crate' }, { type: 'offscreen.set', name: 'Hideo the porter', location: 'the east gate', activity: 'unloading' }]).state;
-  st.offscreen['Hideo the porter'].atTurn = 1;
+  st = { ...st, page: 200 };
+  eq(st.offscreen['Hideo the porter'].firstAtTurn, 1, 'the seat was first written at turn 1');
   const muts = seatHousekeeping(st, { brief: '', castNotes: '', pages: [], castNames: [] });
-  assert(muts.findIndex((m) => m.type === 'people.retire') < muts.findIndex((m) => m.type === 'offscreen.clear'), 'retired first: ' + JSON.stringify(muts));
+  assert(muts.some((m) => m.type === 'people.retire') && muts.findIndex((m) => m.type === 'people.retire') < muts.findIndex((m) => m.type === 'offscreen.clear'), 'retired first: ' + JSON.stringify(muts));
   const r = applyMutations(st, muts);
   assert(!r.state.offscreen['Hideo the porter'], 'the seat is let go: ' + JSON.stringify(r.rejected));
   /* a kept person (not retired) still keeps hers */
@@ -140,24 +143,46 @@ test('M598-2 THE AUDITOR\'S LEAVE STANDS WHEN THE PAGE ENDS ON HIM GOING, as the
   assert(!mcWalksOff('Kuchiki-taichō nodded to Oda, then left without a word.', 'Jovan Oda'), 'the captain goes, not him');
 });
 
-test('M599 THE AUDITOR CAN RESTORE WHAT IT IS TOLD TO: a lover the brief names, at P+2 (moved by a page) with R at 0 — its R is restored at the brief\'s level, and the P the page earned is left exactly as it stands; lowering an earned axis is still refused', async () => {
+/* what an auditor was sent, as one run of words; and the final review's answer (M698–M712), as an auditor gives it */
+const toldTo = (house) => house.calls.map((c) => (c.body.messages || []).map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n')).join('\n').replace(/\s+/g, ' ');
+const finalReview = (more) => JSON.stringify({ scene: [], issues: [], review: { status: 'complete', why: 'every entry read against the newest page, to its end', open: [] }, standings: [], ...more });
+
+/* M689 (the pipeline review he agreed to, docs/LEDGER-PIPELINE-M689.md): "Numeric auditor suggestions cannot replace Scene's
+ * judgments. Explicit starting digits are reconciled axis by axis only where no earned development or manual control
+ * exists" — the auditor writes no standing of its own (judgeAudit: "relationship judgments belong to Scene; explicit
+ * starting digits are reconciled separately") and is told "Do not invent scores from a bond description" (the founder too:
+ * "never infer them from a bond"). What it is told to restore — the brief's own digits, which it reads back in its
+ * answer — the house restores at the brief's level on each axis no page moved (standingsHousekeeping); an earned axis
+ * stands exactly as it is. */
+test('M599 THE AUDITOR CAN RESTORE WHAT IT IS TOLD TO: a lover the brief gives digits, at P+2 (moved by a page) with R at 0 — her R is restored at the brief\'s level, and the P the page earned is left exactly as it stands; a level guessed from a bond with no digits writes no standing; lowering an earned axis is still refused', async () => {
   const { auditLedger } = await import('../../js/agents/auditor.js');
   const { saveState, loadState } = await import('../../js/engine/state.js');
   const { db } = await import('../../js/store.js');
-  const story = await db.stories.create({ title: 'the lover' });
-  await db.stories.update(story.id, { brief: 'Rukia has loved Jovan since they were children; she has never said it.' });
-  await db.messages.append(story.id, { role: 'user', text: 'I nod to her.' });
-  await db.messages.append(story.id, { role: 'assistant', text: '[The yard — Monday, March 3, 2025 | 09:00 | clear | uniform | by the rail]\n\nRukia smiled at him, a little too long.' });
-  let st = applyMutations({ ...emptyState(), page: 3 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia' },
-    { type: 'rel.shift', name: 'Rukia', axis: 'p', delta: 2, cause: 'she smiled at him across the yard' }]).state;
-  await saveState(story.id, st);
-  const answer = JSON.stringify({ issues: [{ what: 'Rukia loves Jovan per the brief, but her standing reads P+2 with R at 0', fix: 'R at the brief\u2019s level', pages: false,
-    mutations: [{ type: 'rel.set', name: 'Rukia', p: 40, r: 65, cause: 'the brief says Rukia has loved Jovan since they were children' }] }] });
   const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
-  await withHouse(thinkingHouse({ answer }), () => auditLedger({ connection: HOUSES[0].conn, storyId: story.id, brief: 'Rukia has loved Jovan since they were children; she has never said it.' }));
-  const rel = (await loadState(story.id)).relationships.Rukia;
-  eq(rel.r, 65, 'R restored at the brief\u2019s level');
-  eq(rel.p, 2, 'the P the page earned is left exactly as it stands (not raised to 40)');
+  const run = async (brief, answer) => {
+    const story = await db.stories.create({ title: 'the lover' });
+    await db.stories.update(story.id, { brief });
+    await db.messages.append(story.id, { role: 'user', text: 'I nod to her.' });
+    await db.messages.append(story.id, { role: 'assistant', text: '[The yard — Monday, March 3, 2025 | 09:00 | clear | uniform | by the rail]\n\nRukia smiled at him, a little too long.' });
+    await saveState(story.id, applyMutations({ ...emptyState(), page: 3 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia' },
+      { type: 'rel.shift', name: 'Rukia', axis: 'p', delta: 2, cause: 'she smiled at him across the yard' }]).state);
+    const house = thinkingHouse({ answer: finalReview(answer) });
+    const result = await withHouse(house, () => auditLedger({ connection: HOUSES[0].conn, storyId: story.id, brief }));
+    return { rel: (await loadState(story.id)).relationships.Rukia, words: toldTo(house), result };
+  };
+  const DIGITS = 'Rukia has loved Jovan since they were children; she has never said it. Rukia — P:40 R:65 toward Jovan.';
+  const told = await run(DIGITS, { standings: [{ name: 'Rukia', p: 40, r: 65 }] });
+  for (const rule of ['Return standings:[{name,p,r,s}] ONLY for explicit starting digits', 'the house restores the brief\'s explicit starting digits, axis by axis, only before earned changes', 'never invent scores from a bond description', 'never rel.set, rel.shift or rel.clear']) assert(told.words.includes(rule), 'the auditor is told: ' + rule);
+  eq(told.rel.r, 65, 'R restored at the brief\u2019s level');
+  eq(told.rel.p, 2, 'the P the page earned is left exactly as it stands (not raised to 40)');
+  /* a brief that names the bond and gives no digits: no standing is made of it — the auditor's own rel.set is refused in code */
+  const bond = await run('Rukia has loved Jovan since they were children; she has never said it.', { issues: [{ what: 'Rukia loves Jovan per the brief, but her standing reads P+2 with R at 0', fix: 'R at the brief\u2019s level', pages: false,
+    mutations: [{ type: 'rel.set', name: 'Rukia', p: 40, r: 65, cause: 'the brief says Rukia has loved Jovan since they were children' }] }] });
+  eq(bond.rel.r + ' | ' + bond.rel.p, '0 | 2', 'no level is guessed from a bond: R stays 0, P as the page earned it');
+  assert(bond.result.rejected.some((r) => r.mutation.type === 'rel.set' && /relationship judgments belong to Scene/.test(r.why)), 'refused, and why: ' + JSON.stringify(bond.result.rejected.map((r) => r.why)));
+  /* lowering an earned axis is still refused, beside the digits the house restores */
+  const lower = await run(DIGITS, { standings: [{ name: 'Rukia', p: 40, r: 65 }], issues: [{ what: 'her warmth is wrong', fix: 'zero it', pages: false, mutations: [{ type: 'rel.set', name: 'Rukia', p: 0, cause: 'the brief says' }] }] });
+  eq(lower.rel.p + ' | ' + lower.rel.r, '2 | 65', 'the earned P is never lowered; the untouched R takes the brief\u2019s digits');
 });
 
 /* M641 — his report: "How they feel toward you, after #story — twenty scenes and it keeps being empty… sometimes it's fine". */
@@ -264,9 +289,12 @@ test('M642-1 WHO SAW IT IS THE READER’S OWN ANSWER: a fact with its "who" is w
   assert(settled.filter((m) => m.type === 'knowledge.add').every((m) => typeof m.name === 'string' && m.name && m.room === undefined), 'every line has its one person; no “everyone” is left unsettled');
   const after = applyMutations(st, settled).state;
   eq(Object.keys(after.knowledge).sort().join(','), 'Captain Ukitake,Renji,Rukia,Sentaro', 'and that is what the ledger holds');
-  /* the same page read the old way — one name a fact — is shared by the old rule, as it always was (nothing regresses for a reader that has not learned the new word) */
-  const old = broadcastPublicMoments(st, settleWitnesses(st, [{ type: 'knowledge.add', name: 'Rukia', fact: 'saw the fresh bandage on Jovan’s hand' }], here), here);
-  assert(old.filter((m) => m.type === 'knowledge.add').length > 1, 'the old rule copies a “saw…” line round the room — the guess the reader’s own “who” replaces');
+  /* M737 (docs/M737_CONTEXT_REPORT.md: "settleWitnesses respects explicit recipients and late arrivals; legacy
+   * broadcastPublicMoments no longer invents recipients" — presence and public-sounding words are no evidence of who learned
+   * what): a line written the old way, one name a fact, is left exactly as it was — the old guess that copied a "saw…" line
+   * round the room is gone */
+  const oldWay = [{ type: 'knowledge.add', name: 'Rukia', fact: 'saw the fresh bandage on Jovan’s hand' }];
+  eq(JSON.stringify(broadcastPublicMoments(st, settleWitnesses(st, oldWay, here), here)), JSON.stringify(oldWay), 'a line written the old way is left as it was: hers alone, word for word');
   /* shapes a reader may give */
   eq(parseExtractorAnswer(JSON.stringify({ mutations: [{ type: 'knowledge.add', name: 'Rukia', who: [{ name: 'Renji' }, 'rukia'], fact: 'f' }] })).mutations.map((m) => m.name).join(','), 'Rukia,Renji', 'a name beside the list joins it once; a witness given as an object is read');
   eq(parseExtractorAnswer(JSON.stringify({ mutations: [{ type: 'knowledge.add', who: 'Everyone here', fact: 'f' }] })).mutations[0].room, true, '“everyone here” waits for the room');
@@ -404,7 +432,13 @@ test('M644-3 THROUGH THE READER ITSELF: a leaving in words the list does not kno
   assert(/\\"shown\\" is the page\\\\'s own words that show them going, COPIED EXACTLY|"shown\\" is the page/.test(told) || /COPIED EXACTLY from its telling/.test(told), 'the reader is told to hand over the page’s own words');
 });
 
-test('M644-4 THE AUDITOR’S LEAVING, THE SAME WAY: backed by the page’s words it stands and seats her where she went; unbacked, in words the list does not know, it is refused as before', async () => {
+/* M689 (the pipeline review he agreed to, docs/LEDGER-PIPELINE-M689.md) took the auditor's goings out of code — "production
+ * no longer runs [auditorScope] or the separate departure keyword filter" — and M709 dropped the final review's quote gate
+ * ("without inventing quotations or blocking the model's approved factual repair"). What carries the law now: the auditor is
+ * TOLD to hand over the page's own words for a going; a going it backs lands and seats her where she went, with the page it
+ * stood on in the journal; one it does not back stands on its verdict alone, and the journal says so (no page behind it) —
+ * and she is never nowhere. */
+test('M644-4 THE AUDITOR’S LEAVING, THE SAME WAY: it is told to hand over the page’s words for a going; backed by them, the leave stands, seats her where she went, and the journal keeps the page it stood on; unbacked, the journal shows no page behind it, and she is never nowhere', async () => {
   const { auditLedger } = await import('../../js/agents/auditor.js');
   const { saveState, loadState } = await import('../../js/engine/state.js');
   const { db } = await import('../../js/store.js');
@@ -414,14 +448,18 @@ test('M644-4 THE AUDITOR’S LEAVING, THE SAME WAY: backed by the page’s words
     await db.messages.append(story.id, { role: 'user', text: 'I say goodnight.' });
     await db.messages.append(story.id, { role: 'assistant', text: '[Wells house kitchen, 8 Mariner\u2019s Lane — Monday, March 3, 2025 | 21:40 | rain | sweater | at the table]\n\nAunt Vera set her cup in the sink. “Goodnight, all of you.” She returned to her room, and the house settled.' });
     await saveState(story.id, applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen, 8 Mariner\u2019s Lane' }, ...['Jovan', 'Aunt Vera', 'Rias'].map((name) => ({ type: 'presence.enter', name }))]).state);
-    const answer = JSON.stringify({ issues: [{ what: 'Aunt Vera went to her room and is still listed in the kitchen', fix: 'take her out', pages: false, mutations: [leave] }] });
-    await withHouse(thinkingHouse({ answer }), () => auditLedger({ connection: HOUSES[0].conn, storyId: story.id, brief: '' }));
-    return loadState(story.id);
+    const house = thinkingHouse({ answer: finalReview({ issues: [{ what: 'Aunt Vera went to her room and is still listed in the kitchen', fix: 'take her out', pages: false, mutations: [leave] }] }) });
+    await withHouse(house, () => auditLedger({ connection: HOUSES[0].conn, storyId: story.id, brief: '' }));
+    const led = await loadState(story.id);
+    return { led, words: toldTo(house), left: (led.journal || []).find((j) => j && j.m && j.m.type === 'presence.leave' && j.m.name === 'Aunt Vera') };
   };
   const quoted = await run({ type: 'presence.leave', name: 'Aunt Vera', shown: 'She returned to her room', to: 'her room upstairs in the Wells house' });
-  eq(quoted.present.some((p) => p.name === 'Aunt Vera') + ' | ' + ((quoted.offscreen['Aunt Vera'] || {}).location || ''), 'false | her room upstairs in the Wells house', 'backed by the page: out of the scene, and where she went');
+  assert(quoted.words.includes('the page\'s own words that show them going, copied exactly'), 'the auditor is told to hand over the page’s own words for a going');
+  eq(quoted.led.present.some((p) => p.name === 'Aunt Vera') + ' | ' + ((quoted.led.offscreen['Aunt Vera'] || {}).location || ''), 'false | her room upstairs in the Wells house', 'backed by the page: out of the scene, and where she went');
+  assert((quoted.left.m.sourceRefs || []).some((r) => /^page:/.test(r)) && quoted.left.m.shown === 'She returned to her room', 'the journal keeps the page’s words and the page it stood on');
   const bare = await run({ type: 'presence.leave', name: 'Aunt Vera' });
-  eq(bare.present.some((p) => p.name === 'Aunt Vera'), true, 'unbacked: refused, as before');
+  assert(bare.left && !(bare.left.m.sourceRefs || []).length && !bare.left.m.shown, 'unbacked: the journal shows no page behind it: ' + JSON.stringify(bare.left && bare.left.m));
+  assert(bare.led.offscreen['Aunt Vera'] && bare.led.offscreen['Aunt Vera'].lastSeen, 'and she is seated where she was last seen, never nowhere');
 });
 
 test('M644-5 SOMEONE WHO WALKS IN IS IN THE SCENE, HOWEVER THE TELLING NAMES HER: “his aunt came in”, a nickname, a name only in someone’s mouth while the telling says “she came in” — backed by the page’s own words the walk-in stands and her elsewhere note is let go; talked about is still not here', async () => {
@@ -538,7 +576,7 @@ test('M645-4 ELSEWHERE, AS THE STORYTELLER READS IT: a want is said once (never 
   assert(/overdue by about 10 minutes — likely already here or delayed/.test(at(21, 30)), 'a little late is said');
   assert(/overdue by about 2\.5 hours/.test(at(23, 50)), 'and for a while after');
   const stale = at(8, 0, 4);
-  assert(!/overdue|toward|arriving/.test(stale) && /last updated about 11 hours ago in story time; awaiting the world’s next review/.test(stale), 'half a day on, the approach is not said — only how old the note is: ' + stale);
+  assert(!/overdue|toward|arriving/.test(stale) && /as of about 11 hours ago in story time/.test(stale), 'half a day on, the approach is not said — only how old the note is: ' + stale);
   assert(!/overdue|toward/.test(at(8, 0, 7)), 'nor three days on');
 });
 
@@ -732,27 +770,38 @@ test('M649-2 WHAT THE STORYTELLER IS TOLD HOLDS NO BROKEN WORD: a ledger as a ta
   assert(/- the sealed letter from the bank \(Aunt Vera’s\) — in the dresser, locked/.test(blocks['the state of things']), 'the letter, where it is and whose');
 });
 
-test('M649-3 THE AUDITOR’S WALK-IN, HELD TO THE PAGE THE SAME WAY: someone seated elsewhere whom the newest page brings in as “his aunt” is walked in when the auditor hands over the page’s words for it — and still not on a name the page only speaks, nor on words that are not there', async () => {
+/* M689 took the auditor's walk-ins out of code ("production no longer runs [auditorScope]"), and M709 dropped the final
+ * review's quote gate: "Unknown old evidence references are retained as an honest provenance note … without inventing
+ * quotations or blocking the model's approved factual repair". What carries the law now: the auditor is TOLD that a
+ * walk-in needs the newest page's own words for the presence and that a person only spoken of is not here; an auditor that
+ * does as told walks her in on the page's words and on nothing less; and the journal keeps the page each change stood on. */
+test('M649-3 THE AUDITOR’S WALK-IN, HELD TO THE PAGE THE SAME WAY: it is told a walk-in needs the page’s own words for her being there and that talk of someone is not their presence; as told, someone seated elsewhere whom the newest page brings in as “his aunt” is walked in on the page’s words (and the journal keeps the page it stood on; one it does not back shows none) — and not on a name the page only speaks, nor on words that are not there', async () => {
   const { auditLedger } = await import('../../js/agents/auditor.js');
   const { saveState, loadState } = await import('../../js/engine/state.js');
   const { db } = await import('../../js/store.js');
   const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
-  const run = async (text, enter) => {
+  const run = async (text, answer) => {
     const story = await db.stories.create({ title: 'the aunt comes in ' + Math.random() });
     await db.messages.append(story.id, { role: 'user', text: 'I look up.' });
     await db.messages.append(story.id, { role: 'assistant', text: '[Wells house kitchen — Tuesday, March 4, 2025 | 07:10 | rain | sweater | at the table]\n\n' + text });
     await saveState(story.id, applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rias' },
       { type: 'people.set', name: 'Aunt Vera', field: 'core', text: 'runs the house' }, { type: 'offscreen.set', name: 'Aunt Vera', location: 'upstairs in the Wells house', activity: 'asleep' }]).state);
-    const answer = JSON.stringify({ issues: [{ what: 'Aunt Vera came into the kitchen and is still listed upstairs', fix: 'write her in', pages: false, mutations: [enter] }] });
-    await withHouse(thinkingHouse({ answer }), () => auditLedger({ connection: HOUSES[0].conn, storyId: story.id, brief: '' }));
+    const house = thinkingHouse({ answer: finalReview(answer) });
+    await withHouse(house, () => auditLedger({ connection: HOUSES[0].conn, storyId: story.id, brief: '' }));
     const led = await loadState(story.id);
-    return (led.present.some((p) => p.name === 'Aunt Vera') ? 'here' : 'not here') + ' / ' + ((led.offscreen || {})['Aunt Vera'] ? 'still seated upstairs' : 'no elsewhere note');
+    const entered = (led.journal || []).find((j) => j && j.m && j.m.type === 'presence.enter' && j.m.name === 'Aunt Vera');
+    return { where: (led.present.some((p) => p.name === 'Aunt Vera') ? 'here' : 'not here') + ' / ' + ((led.offscreen || {})['Aunt Vera'] ? 'still seated upstairs' : 'no elsewhere note'), words: toldTo(house), entered };
   };
   const came = 'The back door opened and his aunt came in, shaking rain from her coat.';
-  eq(await run(came, { type: 'presence.enter', name: 'Aunt Vera', shown: 'his aunt came in, shaking rain from her coat' }), 'here / no elsewhere note', 'backed by the page’s words: she is in the kitchen');
-  eq(await run(came, { type: 'presence.enter', name: 'Aunt Vera' }), 'not here / still seated upstairs', 'unbacked, and not named in the telling: refused, as before');
-  eq(await run('Rias poured the tea. “Aunt Vera will be down soon,” she said.', { type: 'presence.enter', name: 'Aunt Vera', shown: 'Aunt Vera will be down soon' }), 'not here / still seated upstairs', 'talked about is not here');
-  eq(await run('Rias poured the tea and said nothing.', { type: 'presence.enter', name: 'Aunt Vera', shown: 'his aunt came in' }), 'not here / still seated upstairs', 'words that are not on the page are no evidence');
+  const backed = await run(came, { issues: [{ what: 'Aunt Vera came into the kitchen and is still listed upstairs', fix: 'write her in', pages: false, mutations: [{ type: 'presence.enter', name: 'Aunt Vera', shown: 'his aunt came in, shaking rain from her coat' }] }] });
+  for (const rule of ['exact newest-page words establishing their presence', 'Silence is not departure; mentioning a remote person is not presence.', 'presence.enter — it lets the note go']) assert(backed.words.includes(rule), 'the auditor is told: ' + rule);
+  eq(backed.where, 'here / no elsewhere note', 'backed by the page’s words: she is in the kitchen');
+  assert(backed.entered && backed.entered.m.shown === 'his aunt came in, shaking rain from her coat' && (backed.entered.m.sourceRefs || []).some((r) => /^page:/.test(r)), 'and the journal keeps the page’s words and the page it stood on: ' + JSON.stringify(backed.entered && backed.entered.m));
+  /* unbacked: the walk-in stands on the auditor's verdict alone (M709), and the journal shows no page behind it */
+  const bare = await run(came, { issues: [{ what: 'Aunt Vera came into the kitchen and is still listed upstairs', fix: 'write her in', pages: false, mutations: [{ type: 'presence.enter', name: 'Aunt Vera' }] }] });
+  assert(bare.entered && !(bare.entered.m.sourceRefs || []).length && !bare.entered.m.shown, 'unbacked: the journal shows no page behind the walk-in: ' + JSON.stringify(bare.entered && bare.entered.m));
+  eq((await run('Rias poured the tea. “Aunt Vera will be down soon,” she said.', {})).where, 'not here / still seated upstairs', 'talked about is not here');
+  eq((await run('Rias poured the tea and said nothing.', {})).where, 'not here / still seated upstairs', 'words that are not on the page are no evidence');
 });
 
 test('M649-4 A FINDING THAT FINDS NOTHING IS NOT A FINDING: the second reader’s “no issues”, “none”, “the page is consistent”, “nothing drifted” are not shown as something that drifted; the same finding twice is one; a real finding that begins with “No” is kept', async () => {
@@ -1016,6 +1065,10 @@ test('M656-1 THE PAGE-KEEPING WORKER, END TO END, WITH EVERYTHING A MODEL GETS W
   const story = await db.stories.create({ title: 'the page keeper, end to end ' + Math.random() });
   await saveState(story.id, st);
   const page = '[Wells house kitchen, 8 Mariner\u2019s Lane — Monday, March 3, 2025 | 21:45 | rain | sweater | at the table]\n\nRias counted two coppers into the ferryman\u2019s jar on the sill and did not look at anyone. Tom set the tar bucket by the door. Mira, the ferry pilot, shook rain from her coat and asked for tea.';
+  /* the turn is stored before the page keeper reads it, as the app's chain does (chat.js) — since M713 a new name is
+   * checked against the story's own stored original pages */
+  await db.messages.append(story.id, { role: 'user', text: 'I pour the tea.' });
+  await db.messages.append(story.id, { role: 'assistant', text: page });
   const deltas = [
     { name: 'Rias', field: 'State', text: 'At the sill, paying the ferryman\u2019s jar, not looking at anyone.' },
     { name: 'Rias', field: 'unthread', text: 'She paid the ferryman his two coppers.' },
@@ -1028,6 +1081,7 @@ test('M656-1 THE PAGE-KEEPING WORKER, END TO END, WITH EVERYTHING A MODEL GETS W
     { name: 'Aunt Vera', field: 'state', text: 'In the kitchen, pouring tea.' },
     { name: 'you', field: 'thread', text: 'Still has not told Rias about the letter.' },
     { name: 'NAME', field: 'state', text: 'Standing by.' },
+    { name: 'NAME', field: 'thread', text: 'Waits for orders.' },
     { name: 'Tom', field: 'mood', text: 'cheerful' }];
   const out = await withHouse(thinkingHouse({ answer: JSON.stringify({ deltas }) }), () => scribeTurn({ connection: HOUSES[0].conn, storyId: story.id, userText: 'I pour the tea.', assistantText: page }));
   const c = (await loadState(story.id)).characters;
@@ -1037,8 +1091,11 @@ test('M656-1 THE PAGE-KEEPING WORKER, END TO END, WITH EVERYTHING A MODEL GETS W
   eq(c.Mina.core + ' | ' + c.Mina.state, 'the harbourmaster\u2019s daughter; counts everything | ', 'and Mina’s is untouched');
   eq(c['Aunt Vera'].state, '', 'no “now” in the kitchen for someone upstairs');
   eq(JSON.stringify(c.Jovan.threads) + ' | ' + c.Jovan.core, '["Still has not told Rias about the letter."] | ', 'a note for “you” is on his record — and nothing defines him');
+  assert(!c.NAME, 'a placeholder gets no page — not its “now” (nobody of that name is in the scene: the now is never written, M713), not its loose end');
   const why = out.dropped.map((d) => d.delta.name + '.' + d.delta.field + ': ' + d.why).join(' || ');
-  assert(/NAME\.state: “NAME” is a placeholder/.test(why) && /Tom\.mood: “mood” isn’t a page of the ledger/.test(why) && /Rias\.core: who Rias is stands as written/.test(why) && /Tom\.thread: that loose end is already written down/.test(why), 'the run says what it did not write, and why: ' + why);
+  assert(/NAME\.thread: “NAME” is a placeholder/.test(why) && /Tom\.mood: “mood” isn’t a page of the ledger/.test(why) && /Rias\.core: who Rias is stands as written/.test(why), 'the run says what it did not write, and why: ' + why);
+  /* M719: a loose end already written is already so — the run does not count it among the notes it could not save */
+  assert(!/Tom\.thread/.test(why), 'Tom’s loose end, said twice, is written once and is no failed note: ' + why);
 });
 
 test('M656-2 THE AUDITOR, END TO END, WITH A MESSY ANSWER: a leave and a walk-in backed by the page’s words land (and she is seated where she went); a thread closes in other words; a wound heals by the part it is on; a fault on the pages flagged "true" is kept; “No issues found.” is not a finding; a standing is left to the page reader, as designed', async () => {
@@ -1262,7 +1319,11 @@ test('M660-3 SOMEONE SEATED ELSEWHERE HAS NO “NOW” IN THE ROOM, AND THE WORL
 });
 
 /* M661 — the same audit of his, two repairs more: the header's own cells for the main character; the auditor's own repair. */
-test('M661-1 THE MAIN CHARACTER’S DRESS AND PLACE ARE READ FROM THE HEADER’S OWN CELLS when the page’s telling bears them out — with a reader that names the room and says no more; never from a cell the telling does not bear out, never the same thing in other words', async () => {
+/* M710 ("save and reconcile the completed scene"): "Removed automatic header pose/outfit injection; retained clock/place
+ * parsing. MC receives the same explicit ending question, including pronoun-only actions." The header is how the page
+ * OPENS; its cells read as his ending let an opening state stand over a later stop. His place and dress are now the
+ * reader's own ending answer for him, asked by name like everyone the page shows (extractor.js placesBlock). */
+test('M661-1 THE MAIN CHARACTER’S DRESS AND PLACE ARE THE READER’S ENDING FOR HIM, asked of it by name (M710) — written from the telling when it gives them; never promoted from the header’s cells, which open the page; never from a cell the telling does not bear out, never the same thing in other words', async () => {
   const { headerDress } = await import('../../js/engine/state.js');
   const { headerMutations } = await import('../../js/engine/state.js');
   const { staleAfterJump } = await import('../../js/engine/apply.js');
@@ -1274,34 +1335,50 @@ test('M661-1 THE MAIN CHARACTER’S DRESS AND PLACE ARE READ FROM THE HEADER’S
   const G = 'Wayne Manor — the stairway bend';
   const night = applyMutations({ ...emptyState(), page: 30 }, [{ type: 'mc.set', name: 'Bruce' }, { type: 'place.set', name: G }, { type: 'clock.set', year: 2027, month: 1, day: 2, hour: 23, minute: 30 },
     { type: 'presence.enter', name: 'Bruce', position: 'at the stairway bend', attire: 'the batsuit, armored, cowl on' }, { type: 'presence.enter', name: 'Barbara' }, { type: 'rel.set', name: 'Barbara', p: 60, cause: 'years' }]).state;
-  const bruce = async (page) => {
-    const read = await withHouse(thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }], resolved: [], here: ['Bruce', 'Barbara'] }) }), () => extractTurn({ connection: HOUSES[0].conn, state: night, userText: 'I wait.', assistantText: page, pageNumber: 31 }));
+  const bruce = async (page, him = 'Bruce') => {
+    const house = thinkingHouse({ answer: JSON.stringify({ mutations: [{ type: 'mode.snapshot', modes: [] }], resolved: [], here: [him, 'Barbara'] }) });
+    const read = await withHouse(house, () => extractTurn({ connection: HOUSES[0].conn, state: night, userText: 'I wait.', assistantText: page, pageNumber: 31 }));
     const header = headerMutations(page, { ground: G });
     const p = applyMutations(night, [...header, ...staleAfterJump(night, header), ...read.mutations]).state.present.find((x) => x.name === 'Bruce');
-    return [p.position, p.attire].filter(Boolean).join('; ');
+    return { worn: [p.position, p.attire].filter(Boolean).join('; '), asked: (house.calls[0].body.messages || []).map((m) => (typeof m.content === 'string' ? m.content : '')).join('\n') };
   };
-  eq(await bruce('[Wayne Manor — the stairway bend — Sunday, January 3, 2027 | 09:10 | low winter sun | dark sweater | at the bend]\n\nBarbara stood three steps above the bend. Bruce, out of the cowl and armor, wore a dark sweater and the night still written on him.'), 'at the bend; dark sweater', 'the morning after: his header’s cells, borne out by the telling — the reader said nothing of him');
-  eq(await bruce('[Wayne Manor — the stairway bend — Saturday, January 2, 2027 | 23:45 | cold | dark sweater | at the bend]\n\nBarbara waited. Bruce had not moved, armored still.'), 'at the stairway bend; the batsuit, armored, cowl on', 'a cell the telling does not bear out (“dark sweater” while the page says armored) changes nothing');
-  eq(await bruce('[Wayne Manor — the stairway bend — Saturday, January 2, 2027 | 23:45 | cold | the batsuit | at the bend]\n\nBarbara waited. Bruce stood at the bend in the batsuit.'), 'at the stairway bend; the batsuit, armored, cowl on', 'the same dress and place in other words is no change');
+  const MORNING = '[Wayne Manor — the stairway bend — Sunday, January 3, 2027 | 09:10 | low winter sun | dark sweater | at the bend]\n\nBarbara stood three steps above the bend. Bruce, out of the cowl and armor, wore a dark sweater and the night still written on him.';
+  const told = await bruce(MORNING, { name: 'Bruce', ending: { position: 'at the bend', attire: 'a dark sweater', shown: 'Bruce, out of the cowl and armor, wore a dark sweater' } });
+  assert(/\d\. Bruce — the ledger has: at the stairway bend; wearing the batsuit, armored, cowl on/.test(told.asked), 'the reader is asked where he is as the page ends, by name, with the ledger’s words');
+  eq(told.worn, 'at the bend; a dark sweater', 'the morning after: his place and dress as the reader reads them from the telling');
+  eq((await bruce(MORNING)).worn, '', 'a reader that says nothing of him: the night’s place and armour are let go by the jump, and nothing is promoted from the header’s cells');
+  eq((await bruce('[Wayne Manor — the stairway bend — Saturday, January 2, 2027 | 23:45 | cold | dark sweater | at the bend]\n\nBarbara waited. Bruce had not moved, armored still.')).worn, 'at the stairway bend; the batsuit, armored, cowl on', 'a cell the telling does not bear out (“dark sweater” while the page says armored) changes nothing');
+  eq((await bruce('[Wayne Manor — the stairway bend — Saturday, January 2, 2027 | 23:45 | cold | the batsuit | at the bend]\n\nBarbara waited. Bruce stood at the bend in the batsuit.')).worn, 'at the stairway bend; the batsuit, armored, cowl on', 'the same dress and place in other words is no change');
 });
 
-test('M661-2 THE AUDITOR CAN SET A PLACE OR AN OUTFIT RIGHT ITSELF, HELD TO THE NEWEST PAGE: “still in a heavy coat” against a page that shows jeans and a dark sweater is repaired by its own change; words the page does not hold are refused, as before', async () => {
+/* M689–M712: the auditor's own repair of a place or an outfit is its final review's ending read (M710: "Actual position/
+ * attire differences become ordinary approved presence writes"; M711: ending holds ONLY the final state, which "may
+ * paraphrase the source faithfully"; M712: repair:false for an equivalent state, "The model owns equivalence, not another
+ * English classifier"). The literal-words test of the old scope went with auditorScope (M689). What it is told, what a
+ * reading that does as told writes, and the doors that hold in code: an equivalent state is never rewritten, and a dash
+ * for clothes never erases what she wears. */
+test('M661-2 THE AUDITOR CAN SET A PLACE OR AN OUTFIT RIGHT ITSELF, HELD TO THE NEWEST PAGE: “still in a heavy coat” against a page that shows jeans and a dark sweater is repaired by its own ending read; it is told to put only the final state there and leave unknown clothes out; an equivalent state is never rewritten, and a dash for clothes is no clothes', async () => {
   const { auditLedger } = await import('../../js/agents/auditor.js');
   const { saveState, loadState } = await import('../../js/engine/state.js');
   const { db } = await import('../../js/store.js');
   const { thinkingHouse, withHouse, HOUSES } = await import('./thinkinghouse.mjs');
-  const run = async (update) => {
+  const SHOWN = 'Barbara stood three steps above the bend in jeans and a dark sweater, her coat hung by the door.';
+  const run = async (scene, saved = { position: 'in the entrance hall, by the door', attire: 'a heavy coat still on' }) => {
     const story = await db.stories.create({ title: 'her coat ' + Math.random() });
     await db.messages.append(story.id, { role: 'user', text: 'I look up.' });
-    await db.messages.append(story.id, { role: 'assistant', text: '[Wayne Manor — the stairway bend — Sunday, January 3, 2027 | 09:10 | low winter sun | dark sweater | at the bend]\n\nBarbara stood three steps above the bend in jeans and a dark sweater, her coat hung by the door.' });
-    await saveState(story.id, applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Bruce' }, { type: 'place.set', name: 'Wayne Manor — the stairway bend' }, { type: 'presence.enter', name: 'Bruce' }, { type: 'presence.enter', name: 'Barbara', position: 'in the entrance hall, by the door', attire: 'a heavy coat still on' }]).state);
-    const answer = JSON.stringify({ issues: [{ what: 'the presence list still has Barbara in a heavy coat; the latest page shows her coat hung and her in jeans and a dark sweater', fix: 'her dress and place as the page shows them', pages: false, mutations: [update] }] });
-    await withHouse(thinkingHouse({ answer }), () => auditLedger({ connection: HOUSES[0].conn, storyId: story.id, brief: '' }));
+    await db.messages.append(story.id, { role: 'assistant', text: '[Wayne Manor — the stairway bend — Sunday, January 3, 2027 | 09:10 | low winter sun | dark sweater | at the bend]\n\n' + SHOWN });
+    await saveState(story.id, applyMutations({ ...emptyState(), page: 1 }, [{ type: 'mc.set', name: 'Bruce' }, { type: 'place.set', name: 'Wayne Manor — the stairway bend' }, { type: 'presence.enter', name: 'Bruce' }, { type: 'presence.enter', name: 'Barbara', ...saved }]).state);
+    const house = thinkingHouse({ answer: finalReview({ scene }) });
+    await withHouse(house, () => auditLedger({ connection: HOUSES[0].conn, storyId: story.id, brief: '' }));
     const p = (await loadState(story.id)).present.find((x) => x.name === 'Barbara');
-    return [p.position, p.attire].filter(Boolean).join('; ');
+    return { worn: [p.position, p.attire].filter(Boolean).join('; '), words: toldTo(house) };
   };
-  eq(await run({ type: 'presence.update', name: 'Barbara', position: 'three steps above the bend', attire: 'jeans and a dark sweater' }), 'three steps above the bend; jeans and a dark sweater', 'the auditor’s own change lands: her place and her dress as the newest page shows them');
-  eq(await run({ type: 'presence.update', name: 'Barbara', attire: 'a ballgown and a tiara' }), 'in the entrance hall, by the door; a heavy coat still on', 'a dress the page does not show is not written');
+  const fixed = await run([{ name: 'Barbara', repair: true, ending: { position: 'three steps above the bend', attire: 'jeans and a dark sweater', shown: SHOWN } }]);
+  for (const rule of ['Put ONLY their final current position and attire in ending.', 'Unknown clothes are omitted.', 'Mark repair:false for an already-correct or equivalent state', 'Do not invent motion, injury, recovery or a change in feelings. Preserve facts the scene did not change.']) assert(fixed.words.includes(rule), 'the auditor is told: ' + rule);
+  eq(fixed.worn, 'three steps above the bend; jeans and a dark sweater', 'the auditor’s own ending read lands: her place and her dress as the newest page shows them');
+  eq((await run([{ name: 'Barbara', repair: false, ending: { position: 'a few steps above the bend', attire: 'dark sweater and jeans', shown: SHOWN } }], { position: 'three steps above the bend', attire: 'jeans and a dark sweater' })).worn,
+    'three steps above the bend; jeans and a dark sweater', 'an equivalent state, judged so, is never rewritten in other words');
+  eq((await run([{ name: 'Barbara', repair: true, ending: { position: 'three steps above the bend', attire: '—', shown: SHOWN } }])).worn, 'three steps above the bend; a heavy coat still on', 'a dash for clothes is no clothes: what she wears is not erased by it');
 });
 
 /* M662 — his: "once it's mentioned anatomy or appearance it should be saved because sometimes I see it's missing". */
@@ -1419,7 +1496,11 @@ test('M664-1 A WORKER’S VIEW FITS ITS ROOM IN A VERY LONG TALE: a hundred peop
   const tight = renderAllKnowledge(knowledge, here, undefined, { fitRoom: 12000 });
   assert(/ knows 30 things — already known; never write them again \(look them up by name/.test(tight) && here.every((n) => linesOf(tight, n) === 12), 'tighter still: the absent are counted only; the scene keeps its lines');
   eq(renderAllKnowledge(knowledge, here, undefined, { fitRoom: 5000000 }), before, 'a worker with room to spare is shown exactly what it was — never more');
-  eq(knowledgeRoomFor(roomChars({ type: 'openai', model: 'x', contextSize: 64000 }, 6000)) + ' / ' + knowledgeRoomFor(roomChars({ type: 'openai', model: 'x', contextSize: 1000000 }, 6000)) + ' / ' + knowledgeRoomFor(NaN), '60000 / 744000 / 60000', 'the room for it comes from the worker’s own connection');
+  /* M752: roomChars is measured as the worker's call is refused (budget.js refusalRoom, with wrappers and the 3,000 margin) —
+   * a quarter of THAT room, never a fixed figure */
+  const bigRoom = roomChars({ type: 'openai', model: 'x', contextSize: 1000000 }, 6000);
+  assert(bigRoom > (1000000 - 6000 - 3000) * 3 * 0.99 && bigRoom <= (1000000 - 6000 - 3000) * 3, 'the worker’s room is its own connection’s, as its call is measured: ' + bigRoom);
+  eq(knowledgeRoomFor(roomChars({ type: 'openai', model: 'x', contextSize: 64000 }, 6000)) + ' / ' + knowledgeRoomFor(bigRoom) + ' / ' + knowledgeRoomFor(NaN), '60000 / ' + Math.floor(bigRoom * 0.25) + ' / 60000', 'the room for it comes from the worker’s own connection');
   /* and the three requests themselves, for a 64k worker */
   const st = applyMutations({ ...emptyState(), page: 2000 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Wells house kitchen' }, { type: 'presence.enter', name: 'Jovan' }, ...here.map((name) => ({ type: 'presence.enter', name }))]).state;
   st.knowledge = knowledge;

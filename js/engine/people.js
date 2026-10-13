@@ -31,7 +31,7 @@
 
 import { selectRelevant } from './relevance.js';
 import { isMcAlias, mcName } from './duels.js';
-import { ownerAndDependent, foldName, canonAliasOf, samePersonName, titlesConflict, isTitleWord } from './names.js'; /* M398: one person, one page; M414: one list of titles */
+import { ownerAndDependent, foldName, canonAliasOf, samePersonName, titlesConflict, isTitleWord, isDescriptorName } from './names.js'; /* M398: one person, one page; M414: one list of titles; M752: a description is not a name */
 import { firstSentence } from './sentence.js'; /* M292 */
 import { storyTurn } from './apply.js';
 import { onTheWay } from './world.js'; /* M681 (W5): who is on the way, one answer */
@@ -173,6 +173,19 @@ export function thinsCore(standing, offered) {
   for (const w of was) if (now.has(w)) kept += 1;
   return kept / was.size < 0.6 && neu.length < old.length;
 }
+/* M752: the names a page answers to besides its own — its recorded former names, descriptions set aside */
+export function personAliases(entry) {
+  return (Array.isArray(entry?.aliases) ? entry.aliases : []).filter((a) => typeof a === 'string' && a.trim() && !isDescriptorName(a));
+}
+/* M752: the page a recorded former name — a description too — was merged into: exactly one page, or none. For following
+ * a record written before the merge (an old finding about "the marshal"), never for reading a new mention. */
+export function formerNameOwner(characters, name) {
+  const wanted = keyLower(name);
+  if (!wanted) return '';
+  const owners = Object.keys(characters && typeof characters === 'object' ? characters : {})
+    .filter((k) => Array.isArray(characters[k]?.aliases) && characters[k].aliases.some((a) => typeof a === 'string' && keyLower(a) === wanted));
+  return owners.length === 1 ? owners[0] : '';
+}
 function nearName(a, b) {
   const x = foldName(a).split(' ').filter(Boolean);
   const y = foldName(b).split(' ').filter(Boolean);
@@ -195,10 +208,17 @@ export function findPersonKey(characters, name) {
   const exact = keys.find((k) => k.toLowerCase() === wanted);
   if (exact) return exact;
   /* M687: original sources follow identities that were actually renamed. */
-  const aliases = keys.filter((k) => Array.isArray(characters[k]?.aliases)
-    && characters[k].aliases.some((a) => keyLower(a) === wanted));
-  if (aliases.length === 1) return aliases[0];
+  /* M752: A FORMER NAME IS ONE MORE CANDIDATE, NEVER A TRUMP — AND A DESCRIPTION IS NEVER A NAME. The page "Kuchiki" joined
+   * into "Rukia Kuchiki" left "Kuchiki" on her page, and when Byakuya Kuchiki came a bare "Kuchiki" still went to her (his
+   * loose end on her page); "the girl" merged into Vivi on page 3 took a different girl's core and loose ends forty pages
+   * later. A recorded name answers only when no other page answers to it too (M414: exactly one page); a recorded
+   * description ("the girl", "his sister") is the record of a merge (formerNameOwner), not a name anyone answers to. */
+  const aliases = keys.filter((k) => Array.isArray(characters[k]?.aliases) && characters[k].aliases.some((a) => typeof a === 'string' && keyLower(a) === wanted && !isDescriptorName(a)));
   if (aliases.length > 1) return '';
+  if (aliases.length === 1) {
+    const rival = keys.some((k) => k !== aliases[0] && !titlesDiffer(k, wanted) && (samePersonName(k, name) || nearName(k, wanted)));
+    return rival ? '' : aliases[0];
+  }
   /* M398: ONE PERSON, ONE PAGE — THE SAME LETTERS, OR CANON'S OTHER NAME FOR THEM. "Suì-Fēng" (from canon) and
    * "Sui-Feng" (on the page) are one person with folded letters; "Soi Fon" is her too when canon says so. Only a
    * match that is exactly one page, and only by folded letters or canon's names — first names keep their own rule
@@ -904,6 +924,15 @@ export function healGhosts(state) {
 }
 
 const m_open = (clear, text, f) => clear === 'open' && f === 'core' && !String(text || '').trim();
+/* M752: THE PAGE A WRITE LANDS ON, ONE ANSWER. The persona redirect ("you", "the player", an own persona → his page) and
+ * the descriptor door (M482) — for the setter below and for anyone who must read that same page first (people.set's
+ * addition read the old core under findPersonKey alone: a fact written under "you" found no old core, and the whole
+ * writer biography was replaced by the one new fact). */
+export function personFieldKey(state, characters, name) {
+  const cleanName = normalizeName(name);
+  if (!cleanName) return '';
+  return isMc(state, cleanName) ? mcKey(state) : (findPersonKey(characters, cleanName) || resolveDescriptor(state, cleanName) || cleanName); /* M482 */
+}
 export function setPersonField(state, characters, name, field, text, turn, { clear = false, writerCore = false, byHand = false } = {}) {
   const cleanName = normalizeName(name);
   if (!cleanName) return { why: 'no name came with it' };
@@ -918,7 +947,7 @@ export function setPersonField(state, characters, name, field, text, turn, { cle
   if (isGroupName(cleanName)) return { why: '“' + cleanName + '” is a group, not a person — a faction, if anything' }; /* M484 */
   /* The persona redirect holds for the hand as it does for the scribe: a
    * page addressed to "you" is the main character's record. */
-  const key = forMc ? mcKey(state) : (findPersonKey(characters, cleanName) || resolveDescriptor(state, cleanName) || cleanName); /* M482 */
+  const key = personFieldKey(state, characters, cleanName); /* M482; M752: one answer with the addition's read */
   const before = characters[key] ? { ...characters[key], threads: (characters[key].threads || []).slice() } : null;
   const entry = before ? { ...before, threads: before.threads.slice() } : emptyPerson();
   const atTurn = Number.isFinite(turn) ? turn : (Number.isFinite(state && state.turn) ? state.turn : 0);
@@ -1238,6 +1267,9 @@ export function worldParticipation(state, name, { material = '', castNames = [] 
   if (Object.entries(state?.relationships || {}).some(([n,r]) => same(n) && (r?.p || r?.r || r?.s))) return 'a standing toward the main character';
   if (String(seat?.agenda || '').trim()) return 'an active world objective';
   if (onTheWay(seat, state?.clock?.minutes)) return 'on the way to the main character';
+  /* An arrival that has come due stays an open obligation however late it is: the World decides where that journey
+   * stands now (offscreen.confirm cannot rubber-stamp it, M684). onTheWay's lapse (M681 W5) only stops calling it a road. */
+  if (Number.isFinite(seat?.arrivesAtMinutes) && Number.isFinite(state?.clock?.minutes) && seat.arrivesAtMinutes <= state.clock.minutes) return 'an arrival that has come due';
   return '';
 }
 
@@ -1317,7 +1349,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
   const characters = state.characters && typeof state.characters === 'object' ? state.characters : {};
   const keys = Object.keys(characters).filter((k) => {
     const e = characters[k];
-    return e && typeof e === 'object' && (!e.retired || namedIn(recentPages,k) || (e.aliases || []).some(a=>namedIn(recentPages,a)))
+    return e && typeof e === 'object' && (!e.retired || namedIn(recentPages,k) || personAliases(e).some(a=>namedIn(recentPages,a))) /* M752: a description is not their name */
       && (String(e.core || '').trim() || String(e.state || '').trim()
         || String(e.arc || '').trim() || (Array.isArray(e.threads) && e.threads.length));
   });
@@ -1352,7 +1384,7 @@ export function renderPeopleTiers(state, { recentPages = [], rotation = 0, view 
    * world agent's word. M281: whoever is on their way is recalled too. */
   const offScene = keys.filter((k) => !presentKeys.includes(k) && !isMc(state, k));
   const seatOf = (k) => { const found = seatForPerson(state, k); return found ? found.entry : null; }; /* M320 */
-  const mentioned = (pages, k) => namedIn(pages, k) || (characters[k]?.aliases || []).some(a => namedIn(pages, a));
+  const mentioned = (pages, k) => namedIn(pages, k) || personAliases(characters[k]).some(a => namedIn(pages, a)); /* M752 */
   const named = offScene.filter((k) => mentioned(recentPages, k)).sort((a, b) => {
     const at = k => recentPages.reduce((last, text, i) => mentioned([text], k) ? i : last, -1);
     return at(b) - at(a) || byWeight(a, b);

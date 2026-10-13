@@ -1,5 +1,5 @@
 import { activeSpelling } from '../engine/spelling.js';
-import { ownerAndDependent, sameOwnedDescriptor } from '../engine/names.js';
+import { ownerAndDependent, sameOwnedDescriptor, foldName } from '../engine/names.js';
 /* M685: source coverage for the ledger audit. A missing person cannot be found
  * by checking only the records that survived. Read original answered pages,
  * keep receipts tied to their exact text, and recover only quoted identities.
@@ -10,8 +10,8 @@ import { withFictionFrame } from './voice.js';
 import { asideAt } from '../commands.js';
 import { pageText } from '../assemble/stack.js';
 import { djb2 } from '../engine/fingerprint.js';
-import { exactNameIn, quotedSource, WRITER_FACTS } from '../engine/evidence.js';
-import { findPersonKey, isMc, isGroupName } from '../engine/people.js';
+import { quotedSource, WRITER_FACTS } from '../engine/evidence.js';
+import { findPersonKey, isMc, isGroupName, personAliases } from '../engine/people.js';
 import { leashFor } from './lookup.js';
 import { contextOf } from '../providers/room.js';
 
@@ -180,8 +180,16 @@ export async function reviewAuditSources({ connection, documents, previous = {},
   let calls = 0; let cursor = 0; let failure = '';
   const sourceProblems = new Map();
   let retryBatch = false;
+  /* M752: a reading that went stale or was stopped no longer throws away what it paid for. Every answer already read
+   * stays a receipt for exactly the text it was given (its section's mark), is handed back with interrupted:true and
+   * fresh (the sections read in this run), and is checked again, mark and quotes, before any later reuse. Nothing
+   * else is asked once the reading has moved: no further batch, no correction call. */
+  let interrupted = false;
+  const fresh = new Set();
+  const keep = receipts => { for (const [id,receipt] of Object.entries(receipts)) { cache[id] = receipt; fresh.add(id); } };
+  const moved = () => Boolean(stale?.() || signal?.aborted);
   while (cursor < todo.length && (mode === 'all' || calls === 0 || retryBatch)) {
-    if (stale?.() || signal?.aborted) return null;
+    if (moved()) { interrupted = true; break; }
     retryBatch = false;
     const start = cursor;
     const batch = []; let size = 0;
@@ -190,15 +198,22 @@ export async function reviewAuditSources({ connection, documents, previous = {},
       if (size + cost > limit) break;
       batch.push(d); size += cost; cursor++;
     }
-    if (!batch.length) { failure = 'the source page does not fit the auditor’s configured context'; break; }
+    if (!batch.length) {
+      // One original section is the smallest reading. The packing share above can be smaller than a section the
+      // transport still carries with this answer allowance (its request wrapper is ~300 characters more); read that
+      // section alone rather than leaving it unread forever. Only a section that cannot fit at all stays unread.
+      const cost = JSON.stringify(sourceDocument(todo[cursor])).length + 1;
+      if (cost + 300 > available) { failure = 'the source page does not fit the auditor’s configured context'; break; }
+      batch.push(todo[cursor]); size = cost; cursor++;
+    }
     renew?.(); calls++;
     try {
       const user = 'SOURCE DOCUMENTS\n' + JSON.stringify(batch.map(sourceDocument));
       renew?.(leashFor(system.length + user.length));
       const result = await callWorker(connection, { system, messages: [{ role: 'user', content: user }], maxTokens: replyTokens, signal });
-      if (stale?.() || signal?.aborted) return null;
       // A truncated answer cannot certify that its final document was read.
       if (result.finishReason === 'length') {
+        if (moved()) { interrupted = true; break; }
         failure = 'the source review ran out of answer space';
         if (batch.length > 1) {
           // Retry this work at a smaller size rather than losing the entire
@@ -208,7 +223,8 @@ export async function reviewAuditSources({ connection, documents, previous = {},
         continue;
       }
       const first = sourceReviewResult(result.text,batch);
-      Object.assign(cache,first.receipts);
+      keep(first.receipts);
+      if (moved()) { interrupted = true; break; }
       const missing = batch.filter(d => !cache[d.id]);
       let problems = first.problems;
       for (const d of missing) sourceProblems.set(d.id,problems.filter(p => p.source === d.id));
@@ -222,16 +238,16 @@ export async function reviewAuditSources({ connection, documents, previous = {},
           + '\nReturn complete JSON with checked and people for ONLY these unfinished source ids. Select evidence passage ids from the original documents above; the application attaches their original text. Do not copy quotations. Name labels, titles and pronouns need not match word for word inside each passage: you decide their actual subject from the full document. Include facts and identityFacts arrays, even when empty. Keep every supported individual and their established facts. Do not omit a fact merely to pass validation. Collectives remain tracked in Scene; they are not individual identity rows. Valid receipts for other sources are already saved.';
         renew?.(leashFor(system.length + user.length + result.text.length + correction.length)); calls++;
         const fixed = await callWorker(connection,{system,messages:[{role:'user',content:user},{role:'assistant',content:result.text},{role:'user',content:correction}],maxTokens:replyTokens,signal});
-        if (stale?.() || signal?.aborted) return null;
         if (fixed.finishReason !== 'length') {
           const repaired = sourceReviewResult(fixed.text,missing);
-          Object.assign(cache,repaired.receipts); problems = repaired.problems;
+          keep(repaired.receipts); problems = repaired.problems;
         } else problems = missing.map(d => ({source:d.id,why:'The focused source correction ran out of answer space.'}));
+        if (moved()) { interrupted = true; break; }
       }
       for (const d of missing) if (!cache[d.id]) sourceProblems.set(d.id,problems.filter(p => p.source === d.id));
       if (missing.some(d => !cache[d.id])) failure = 'source identity or appearance evidence was incomplete';
     } catch (err) {
-      if (signal?.aborted || stale?.()) return null;
+      if (moved()) { interrupted = true; break; }
       failure = 'the source review did not finish';
       break;
     }
@@ -243,7 +259,7 @@ export async function reviewAuditSources({ connection, documents, previous = {},
   });
   const people = documents.flatMap((d) => (cache[d.id]?.people || []).map((p) => ({ ...p, source: d.id, label: d.label })));
   const failures = unread.map(d => ({source:d.id,label:d.label,mark:d.mark,problems:(sourceProblems.get(d.id) || [{why:failure || 'This original section has not been read yet.'}]).slice(0,8)}));
-  return { cache, people, calls, failures, total: documents.length, read: documents.length - unread.length,
+  return { cache, people, calls, failures, total: documents.length, read: documents.length - unread.length, interrupted, fresh,
     pending: unread.length ? [unread.length + ' original source sections still need review' + (failure ? ': ' + failure : '')] : [] };
 }
 
@@ -268,7 +284,7 @@ export function sourcePersonKey(state, name, remembered = '', resolution = null)
   const contextual = contextualSourceName(name);
   if (resolution?.kind === 'person') remembered = resolution.to;
   if (contextual && !resolution && (!remembered || remembered.toLowerCase() === String(name).toLowerCase())) return '';
-  if (remembered) {
+  if (remembered && (resolution?.kind === 'person' || !ownerAndDependent(name, remembered))) {
     if (isMc(state,remembered)) return state.sheet?.playerName || remembered;
     const resolved = findPersonKey(characters,remembered);
     if (resolved) return resolved;
@@ -348,14 +364,22 @@ export function missingSourcePeople(state, people = []) {
 // This is a lookup index, not another model call or an inferred biography.
 export function peopleSourceIndex(state, documents, people = []) {
   people = people.filter(p => !p.kind || p.kind === 'person');
-  const names = new Set([...Object.keys(state?.characters || {}), ...people.map(p => sourcePersonKey(state,p.name,p.ledgerName,p.identityResolution) || p.name)]);
+  /* M752: each mention is bound once and each original section folded once (exactNameIn's own test, from a cheap
+   * index): it bound every mention again for every name and folded every section again for every name and alias,
+   * 3.6 s of the audit's main thread for 300 pages and 60 people. The same answer, in the same order. */
+  const keyed = people.map(p => sourcePersonKey(state,p.name,p.ledgerName,p.identityResolution) || p.name);
+  const byName = new Map();
+  people.forEach((p,i) => { if (!byName.has(keyed[i])) byName.set(keyed[i],[]); byName.get(keyed[i]).push(p); });
+  const folded = documents.map(d => ' ' + foldName(d.text) + ' ');
+  const names = new Set([...Object.keys(state?.characters || {}), ...keyed]);
   return [...names].filter(name => name && !isMc(state,name) && !isGroupName(name)).map(name => {
-    const mentions = people.filter(p => (sourcePersonKey(state,p.name,p.ledgerName,p.identityResolution) || p.name) === name);
-    const aliases = [...new Set([name,...(state.characters?.[name]?.aliases || []),...mentions.map(p => p.name)])];
+    const mentions = byName.get(name) || [];
+    const aliases = [...new Set([name,...personAliases(state.characters?.[name]),...mentions.map(p => p.name)])]; // M752: a recorded description is a merge record, not a name to search every page for
+    const wanted = aliases.map(alias => foldName(alias)).filter(Boolean).map(n => ' ' + n + ' ');
     const selectedSources = new Set(mentions.map(p => p.source));
     // The reader already bound this identity to an original section. Do not
     // lose that reference because its label differs from the local wording.
-    return {name,aliases,sources:documents.filter(d => selectedSources.has(d.id) || aliases.some(alias => exactNameIn(d.text,alias))).map(d => ({id:d.id,label:d.label}))};
+    return {name,aliases,sources:documents.filter((d,i) => selectedSources.has(d.id) || wanted.some(n => folded[i].includes(n))).map(d => ({id:d.id,label:d.label}))};
   });
 }
 

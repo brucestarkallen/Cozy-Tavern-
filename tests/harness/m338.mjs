@@ -24,9 +24,14 @@ test('M338-1 THE WRITER’S REPORT: Claire "was given the schedule yesterday" �
   const spots = blindSpots(st.knowledge, st.present, { scenePages: ['Jovan asked Claire how she found them at four o’clock.'], turn: 45, mc: 'Jovan' });
   const claire = spots.find((s) => s.name === 'Claire Maxwell');
   assert(claire && claire.lacks.some((l) => /agreed by text to walk with her at four o’clock/.test(l.fact) && l.from === 'Aurora Sterling'), 'Claire was never shown learning the four o’clock: ' + JSON.stringify(claire));
-  assert(!claire.lacks.some((l) => /Claire left for the west bench/.test(l.fact)), 'what is ABOUT her she was there for');
-  assert(!claire.lacks.some((l) => /fenced/.test(l.fact)), 'what she holds in OTHER WORDS she holds (the fencing, told two ways)');
-  assert(claire.lacks.some((l) => /lied to Mi-na about football training/.test(l.fact)), 'and what MC did out of her sight: ' + JSON.stringify(claire.lacks.map((l) => l.fact)));
+  /* M737: "a name in a secret is not evidence of awareness" (its own case, tests/harness/m737-context.mjs: "The secret
+   * concerns Ivo…" is Ivo's blind spot) and "exact statement … distinctions replace overlap deduplication": a line ABOUT her,
+   * and the fencing in OTHER WORDS than hers, are no longer assumed hers — said in M751's honest words (no page has shown
+   * her learning them), never as what she does not know */
+  assert(claire.lacks.some((l) => /Claire left for the west bench/.test(l.fact)), 'what is about her is no longer assumed hers (M737): ' + JSON.stringify(claire.lacks.map((l) => l.fact)));
+  assert(claire.lacks.some((l) => /fenced on the path with a stick, like something out of a movie/.test(l.fact)) && !claire.lacks.some((l) => l.fact === 'Jovan fenced with a stick on the path'), 'another wording is another statement; her own wording she holds (M737)');
+  const four = blindSpots(st.knowledge, st.present, { scenePages: ['Jovan asked Claire how she found them at four o’clock.'], turn: 45, mc: 'Jovan', per: 4 }).find((s) => s.name === 'Claire Maxwell');
+  assert(four && four.lacks.some((l) => /lied to Mi-na about football training/.test(l.fact)), 'and what MC did out of her sight: ' + JSON.stringify(four && four.lacks.map((l) => l.fact)));
   assert(!spots.some((s) => s.name === 'Jovan'), 'the main character is the writer’s — never listed');
   const facts = renderStateFacts(st, { scenePages: ['Jovan asked Claire how she found them at four o’clock.'] });
   assert(/What they haven’t found out — no page has shown them learning these\./.test(facts) && /nobody remembers being told something they never were: /.test(facts) && /Claire Maxwell — no page has shown them learning: Jovan agreed by text[^.]*\(Aurora Sterling knows\)/.test(facts), 'it rides in the ledger’s words: ' + facts.slice(facts.indexOf('Who does NOT'), facts.indexOf('Who does NOT') + 420));

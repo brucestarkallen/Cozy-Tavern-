@@ -107,11 +107,45 @@ test('M28-2b: a worker may still ask for thought — the ladder decides the spel
   eq('reasoning' in c, false, 'and nothing about thinking, because the connection said nothing (M232)');
 });
 
-test('M28-3: no fetch() survives in any worker — one wire path in the house', () => {
+test('M28-3: no fetch() survives in any worker — one wire path in the house', async () => {
   for (const f of ['extractor', 'scribe', 'memory', 'continuity', 'referee']) {
     const src = readFileSync(new URL(`../../js/agents/${f}.js`, import.meta.url), 'utf8');
     assert(!/\bfetch\(/.test(src), `${f}.js carries no fetch of its own`);
-    assert(/from '\.\/call\.js'/.test(src), `${f}.js imports the shared call`);
+  }
+  /* M689 moved the scribe's asks onto the shared lookup (agents/lookup.js askWithFetch, which rides call.js), so "the module
+   * imports call.js" stopped being the test of one wire path. Run it instead: the shared call is the one door with the
+   * workers' fallback (M510-30) — a worker whose own connection is down is answered by the fallback only through it. */
+  const { db: store } = await import('../../js/store.js');
+  const { maybeSummarize } = await import('../../js/agents/memory.js');
+  const { maybeSeedSheet } = await import('../../js/agents/referee.js');
+  const { saveState } = await import('../../js/engine/state.js');
+  const primary = await store.connections.add({ type: 'openai', preset: 'custom', baseUrl: 'https://down.example/v1', apiKey: 'k', model: 'reader', label: 'the worker’s own' });
+  const backup = await store.connections.add({ type: 'openai', preset: 'custom', baseUrl: 'https://backup.example/v1', apiKey: 'k', model: 'backup', label: 'the fallback' });
+  const down = () => new Response(JSON.stringify({ error: { message: 'Service Unavailable' } }), { status: 503, headers: { 'content-type': 'application/json' } });
+  const throughTheCall = async (name, answer, fn) => {
+    const inner = thinkingHouse({ answer });
+    const hits = [];
+    await withHouse({ fetch: async (url, opts) => { hits.push(String(url)); return /down\.example/.test(String(url)) ? down() : inner.fetch(url, opts); } }, fn);
+    assert(hits.some((u) => /down\.example/.test(u)) && hits.some((u) => /backup\.example/.test(u)), name + ' asks through the shared call — its own connection first, then the fallback: ' + hits.join(' '));
+  };
+  await store.settings.set('workerFallbackId', backup.id);
+  let story = null;
+  try {
+    await throughTheCall('extractor.js', FOUNDING, () => extractTurn({ connection: primary, state: emptyState(), userText, assistantText }));
+    await throughTheCall('scribe.js', '{"deltas":[]}', () => scribeTurn({ connection: primary, storyId: 'm28-wire', userText, assistantText, stale: () => false }).catch(() => null));
+    await throughTheCall('continuity.js', '{"findings":[]}', () => checkTurn({ connection: primary, state: emptyState(), assistantText }));
+    story = await store.stories.create({ title: 'one wire path' });
+    for (let i = 0; i < 16; i += 1) await store.messages.append(story.id, { role: i % 2 ? 'assistant' : 'user', text: (i % 2 ? 'Page ' : 'Turn ') + i + ': Jovan and Liara talked on the porch about the letter. ' + 'The street went quiet. '.repeat(6) });
+    await store.settings.set('memoryWindow', 4); await store.settings.set('memoryBatch', 6);
+    await throughTheCall('memory.js', 'Jovan and Liara talked on the porch about the letter; the street went quiet.', () => maybeSummarize({ connection: primary, storyId: story.id, stale: () => false, renew: () => true }));
+    const seeded = emptyState(); seeded.sheet.playerName = 'Jovan';
+    await saveState(story.id, seeded);
+    await throughTheCall('referee.js', '{"actors":[{"name":"Jovan","default":5}]}', () => maybeSeedSheet({ connection: primary, storyId: story.id, force: true }));
+  } finally {
+    await store.settings.set('workerFallbackId', null);
+    await store.settings.delete('memoryWindow'); await store.settings.delete('memoryBatch');
+    await store.connections.remove(primary.id); await store.connections.remove(backup.id);
+    if (story) await store.stories.remove(story.id);
   }
   const sw = readFileSync(new URL('../../sw.js', import.meta.url), 'utf8');
   assert(sw.includes("'js/agents/call.js'"), 'the shell list carries call.js');

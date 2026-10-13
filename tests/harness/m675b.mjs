@@ -153,8 +153,11 @@ test('M675-B1 A READING CUT OFF BY ITS LEASH IS A FAILURE OF THAT STRETCH, NOT A
     const asked3 = [];
     const notes = [];
     let mendsAsked = 0;
-    const fault = JSON.stringify({ issues: [{ what: 'Page 2 has Renji leave at dawn, though he had been at the gate since the night before.', pages: true, page: 2, fix: 'Renji had been at the gate since the night before.' }] });
+    /* M722: a story fault as the reader is asked for it — the page's own wrong words and the brief's it conflicts with */
+    const fault = JSON.stringify({ issues: [{ what: 'Page 2 has Renji leave at dawn, though he had been at the gate since the night before.', target: 'story', pages: true, page: 2, fix: 'Renji had been at the gate since the night before.',
+      evidence: { page: 'he had left for the gate at dawn', prior: 'Renji has stood watch at the gate since the night before the story opens', why: 'The brief has him on watch at the gate all night.' } }] });
     const slowMender = (own) => ({
+      brief: 'Renji has stood watch at the gate since the night before the story opens.',
       mend: () => { mendsAsked += 1; return never({ signal: own.signal }); },
       note: async (id, finding) => { notes.push(finding.words); },
     });

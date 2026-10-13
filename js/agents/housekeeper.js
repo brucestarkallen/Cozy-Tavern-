@@ -1,4 +1,4 @@
-import { spellingContent, spellingState, spellingBooks, spellingSettings, remainingLedgerSpellings, restoreSpelling } from '../engine/spelling.js';
+import { spellingContent, spellingState, spellingBooks, spellingSettings, remainingLedgerSpellings, restoreSpelling, spellingOrdinaryUse, spellingLedgerReceipt } from '../engine/spelling.js';
 /* Cozy Tavern — agents/housekeeper.js
  * The housekeeper (M10): the one intelligence that can see the whole story
  * and surgically edit it — prose pages, the ledger, the rulebook — through
@@ -50,16 +50,17 @@ import { spellingContent, spellingState, spellingBooks, spellingSettings, remain
 
 import { shownTextPatch } from '../engine/pagepatch.js'; /* M576 */
 import { nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M288: the lean steps */
-import { samePersonName } from '../engine/names.js'; /* M398 */
-import { findPersonKey, isMc, mcKey } from '../engine/people.js';
+import { samePersonName, isHere } from '../engine/names.js'; /* M398 */
+import { findPersonKey, isMc, mcKey, seatForPerson } from '../engine/people.js';
+import { seatLine } from '../engine/offscreen.js'; /* M752: a person fetched is served with where they are */
 import { roomChars } from '../engine/pagecut.js'; /* M288: the housekeeper's room */
 import { db } from '../store.js';
 import { pageLayoutChanged, holdPageLayout, workIsRunning } from './queue.js';
 import { loadState, saveState, notify, emptyState } from '../engine/state.js';
-import { applyMutations, undoEntry, personBookKey, findThingKey } from '../engine/apply.js'; /* M421: a card's slice found as the card writes it */
+import { applyMutations, undoEntry, personBookKey, findThingKey, undoFromReceipt } from '../engine/apply.js'; /* M421: a card's slice found as the card writes it */
 import { listModules, saveModule, removeModule } from '../assemble/modules.js';
 import { loadLore, saveLore } from '../import/lorebook.js'; /* M38: the housekeeper keeps the lore shelf too */
-import { loadMemory, saveMemory } from './memory.js'; /* M61: and the record */
+import { loadMemory, saveMemory, restampRecord } from './memory.js'; /* M61: and the record; M752: its receipts kept bound */
 import { pageText } from '../assemble/stack.js';
 import { renderWholeLedger } from '../engine/whole.js';
 import { createProvider } from '../providers/index.js';
@@ -70,6 +71,7 @@ const saidNo = (v) => v === false || v === 0 || (typeof v === 'string' && /^\s*(
 
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { fallbackFor, noteFallback, nameOfConnection } from './call.js'; /* M510-30: the fallback for every worker */
+import { withoutGrantedFlags } from '../engine/apply.js'; /* M752: a card's own answer never claims the auditor's stamp */
 
 const SESSION_PREFIX = 'hk:';
 const SESSION_TURNS_CAP = 60;
@@ -746,7 +748,7 @@ export function buildHousekeeperContext(args = {}) {
   return doc;
 }
 function buildHousekeeperContextAt({
-  story, messages, state, modules, lore, memory, session, directorText, editorText, contextPages,
+  story, messages, state, modules, lore, memory, session, directorText, editorText, contextPages, writerText = '',
 } = {}, lean = 0) {
   const visible = (Array.isArray(messages) ? messages : []).filter((m) => m && !m.hidden);
   const n = cleanContextPages(contextPages);
@@ -765,7 +767,8 @@ function buildHousekeeperContextAt({
   /* M261: the WHOLE ledger — it was shown the storyteller's trimmed copy (six
    * standings, five threads, four facts a person knows, no ground), and asked
    * to keep that ledger true */
-  const ledger = renderWholeLedger(state) || 'The ledger is blank so far.';
+  /* M752: the seats chosen for what it reads — the writer's words to it and the pages it holds whole — the rest named, to fetch */
+  const ledger = renderWholeLedger(state, { material: [writerText, ...visible.slice(-n).map((m) => pageText(m))].map((t) => String(t || '')).join('\n'), fetchable: true }) || 'The ledger is blank so far.';
   const rulebook = (Array.isArray(modules) ? modules : [])
     .map((mod) => mod && typeof mod.name === 'string'
       ? mod.name + (mod.pinned ? ' (pinned on)' : '')
@@ -880,6 +883,7 @@ const SYSTEM_PROMPT = [
   'Your prose is a proposal, never proof of success. The application reports saved outcomes after applying:',
   '<corrections>[{"type":"name.spelling","from":"old spelling","to":"correct spelling","scope":"story","reason":"explicit writer correction"}]</corrections>',
   'For an explicit spelling correction everywhere, use ONE name.spelling card, no page or ledger imitation. It deterministically updates editable story text, versions, memory, lore and linked identity records, verifies storage and keeps undo. Never claim completion before the application result. Two existing identities require resolution, never guess a merge.',
+  'Give "from" exactly as the story writes the name: it is changed only where it stands as written or in capitals. A name that is also an ordinary word, a month or a weekday (May, Will, Rose, June) is refused, because one story-wide change cannot tell the name from the word; correct those pages one by one with <edits> instead.',
   '<dismiss>[{"ids":["actual proposal ID"],"reason":"obsolete proposal"}]</dismiss> retires exactly these unfinished cards without applying them. Use supplied IDs, never guess labels.',
   '',
   '<brief>[ ... ]</brief> — changes to THE BRIEF or THE CAST NOTES:',
@@ -968,7 +972,7 @@ const SYSTEM_PROMPT = [
   '  {"entry":"NAME","remove":true,"reason":"why"}',
   '  "entry" is the entry’s name or its first key. Content is the truth the',
   '  storyteller should carry when the key is spoken — facts, not prose.',
-  '<fetch>["#a1b2c3", "#r7k2p9x", "rule: The Prose", "lore: NAME", "person: NAME", "find: WORDS", "brief"]</fetch> — ask to be served (a page by its #handle, a record line by its #r… mark, a rule or a lore entry by name, a person\'s whole page, every page that holds some words, the brief or the cast notes whole)',
+  '<fetch>["#a1b2c3", "#r7k2p9x", "rule: The Prose", "lore: NAME", "person: NAME", "find: WORDS", "brief"]</fetch> — ask to be served (a page by its #handle, a record line by its #r… mark, a rule or a lore entry by name, a person\'s whole page with where they are now, every page that holds some words, the brief or the cast notes whole)',
   '  whole: pages you only have one-line previews of, a rulebook rule’s text, a lore',
   '  entry cut short above. You may ask up to three times in a turn.',
   '<supersede>label, label</supersede> — retire still-pending cards from your',
@@ -1740,7 +1744,11 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
   }
 
   const ledits = parsed && Array.isArray(parsed.ledits) ? parsed.ledits : [];
-  const mutations = ledits.filter((m) => m && typeof m === 'object' && typeof m.type === 'string' && m.type.trim());
+  /* M752: a card is the writer's edit once he lets it land (the hand is stamped by applyLeditOp), never the final reader's
+   * approval or a coordinated spelling correction its answer claims: "source":"auditor","auditorApproved":true staged a card
+   * that archived his sister as a place, and with cards applied as they arrive it landed unread */
+  const mutations = ledits.filter((m) => m && typeof m === 'object' && typeof m.type === 'string' && m.type.trim())
+    .map((m) => { const { source: _claimed, ...rest } = withoutGrantedFlags(m); return rest; });
   markSource(mutations.find((m) => typeof m.group === 'string' && m.group.trim()) || null);
   if (mutations.length) {
     const reasonOp = ledits.find((m) => m && typeof m.reason === 'string' && m.reason.trim());
@@ -2286,7 +2294,9 @@ export function applySupersede(session, labels) {
     if (gone.size === before) unmatched.push(entry);
   }
   for (const p of gone) {
-    settleProposals(session,[p.id],{status:'superseded',reason:'Set aside, a later answer withdrew it.'});
+    /* M273: a card withdrawn with its group says which problem took it (M730's shared settlement kept, its reason per card) */
+    settleProposals(session,[p.id],{status:'superseded',reason:'Set aside, a later answer withdrew it'
+      + (p.group && groupsTaken.has(p.group) ? ', with the rest of “' + p.groupName + '”' : '') + '.'});
   }
   return { count: gone.size, unmatched, groups: [...new Set([...groupsTaken.values()].filter(Boolean))] };
 }
@@ -2764,8 +2774,11 @@ async function applySpellingProposal(session, storyId, p) {
         card.status = 'satisfied'; card.words = 'Already satisfied. Checked the saved editable story surfaces.';
         return {card:structuredClone(card),satisfied:true};
       }
+      const ordinary = spellingOrdinaryUse(spellingView(s),p.op.from); if (ordinary) throw new Error(ordinary); /* M752 */
       const before = structuredClone(spellingView(s));
       const after = spellingContent(before,p.op.from,p.op.to);
+      /* M752: the record's words are corrected with the pages — its lines stay bound to them (memory.js restampRecord) */
+      if (after.settings.memory) after.settings.memory = restampRecord(after.settings.memory,before.messages,after.messages);
       const changed = applyMutations(s.settings.state || emptyState(),[{type:'people.rename',from:p.op.from,to:p.op.to,spelling:true,coordinated:true,story:true,byHand:true,cause:p.op.reason}]);
       if (changed.rejected.some(r => !r.same)) throw new Error(changed.rejected.map(r => r.why).join('; '));
       s.story = after.story; s.messages = after.messages;
@@ -2777,7 +2790,7 @@ async function applySpellingProposal(session, storyId, p) {
       const ids = before.messages.filter((m,i) => JSON.stringify(m) !== JSON.stringify(after.messages[i])).map(m => m.id);
       before.messages = before.messages.filter(m => ids.includes(m.id));
       after.messages = after.messages.filter(m => ids.includes(m.id));
-      const batch = {id:uid(),ts:Date.now(),label:p.label,undone:false,items:[{kind:'spelling',before,after,jids:changed.applied.map(a=>a.jid)}]};
+      const batch = {id:uid(),ts:Date.now(),label:p.label,undone:false,items:[{kind:'spelling',before,after,jids:changed.applied.map(a=>a.jid),ledger:spellingLedgerReceipt((changed.state.log || []).find(e=>changed.applied.some(a=>a.jid===e.jid)))}]}; /* M752: ledger's half kept */
       card.batchId = batch.id;
       card.status = 'applied'; card.words = 'Correction saved. Verification is pending.';
       card.verification = 'pending';
@@ -2807,6 +2820,24 @@ async function applySpellingProposal(session, storyId, p) {
     return {ok:committed,partial:committed,words:p.words,touched:committed?{messages:true,state:true,lore:true,story:true}:{}};
   } finally { release(); }
 }
+/* M752: the ledger's half of a spelling receipt. Its log line takes it back while the line stands (the log keeps the
+ * newest 200 lines); after that the receipt's own copy does (apply.js undoFromReceipt). A receipt saved before M752 kept
+ * no copy: what it holds (the pages, the brief, the record, the lore) is still taken back, and the words say plainly that
+ * the ledger keeps the correction. Returns {state, kept?} | {refused}. */
+function spellingLedgerTakeBack(state, item) {
+  const jids = Array.isArray(item.jids) ? item.jids : [];
+  if (jids.every(id => (state.log || []).some(e => e.jid === id && !e.undone))) return undoJournalEntries(state, jids, {coordinated:true});
+  if (item.ledger) return undoFromReceipt(state, item.ledger);
+  const where = [];
+  for (const [field, words] of [['title','the title'],['brief','the brief'],['castNotes','the cast notes']]) if (item.before?.story?.[field] !== item.after?.story?.[field]) where.push(words);
+  const pages = (item.after?.messages || []).length;
+  if (pages) where.push(pages === 1 ? 'one page' : pages + ' pages');
+  for (const [key, words] of [['memory','the record'],['lore','the lore'],['standingPlans','the plans'],['plans','the plans'],['director','the director’s notes'],['editor','the editor’s notes']]) if (JSON.stringify(item.before?.settings?.[key]) !== JSON.stringify(item.after?.settings?.[key])) where.push(words);
+  const why = 'its part of this correction was kept only in the ledger’s log, which holds the newest 200 changes, and it has left it';
+  if (!where.length) return {refused: 'Nothing was taken back: this correction changed only the ledger, and ' + why + '.'};
+  const list = [...new Set(where)];
+  return {state, kept: 'Taken back in ' + (list.length > 1 ? list.slice(0, -1).join(', ') + ' and ' + list[list.length - 1] : list[0]) + '. The ledger keeps the new spelling: ' + why + '. To change the ledger back too, ask for a spelling correction back to the old spelling.'};
+}
 async function undoSpellingProposal(session,storyId,batch) {
   const release = holdPageLayout(storyId);
   try {
@@ -2815,25 +2846,29 @@ async function undoSpellingProposal(session,storyId,batch) {
     while (workIsRunning(storyId) && Date.now() < until) await new Promise(r=>setTimeout(r,50));
     if (workIsRunning(storyId)) throw new Error('The reader has not released its write. Nothing was taken back.');
     const item = batch.items.find(i=>i.kind==='spelling');
+    let words = 'The spelling correction was taken back.';
     await db.editStoryAtomically(storyId,s => {
       const saved = (s.settings.hk?.batches || []).find(b=>b.id===batch.id && !b.undone);
       if (!saved) throw new Error('The saved correction has already been taken back or is unavailable.');
       const state = s.settings.state || emptyState();
-      if (item.jids.some(id => !(state.log || []).some(e=>e.jid===id && !e.undone))) throw new Error('The ledger undo receipt is no longer available.');
-      const restored = undoJournalEntries(state,item.jids,{coordinated:true});
+      const restored = spellingLedgerTakeBack(state,item); /* M752: its log line, else the receipt's own copy */
       if (restored.refused) throw new Error(restored.refused);
       s.story = restoreSpelling(s.story,item.before.story,item.after.story,'brief/cast');
+      const shown = [...s.messages]; /* M752: the pages as they stand before the take-back */
       for (const after of item.after.messages) {
         const at = s.messages.findIndex(m=>m.id===after.id);
         if (at<0) throw new Error('A corrected page has been removed.');
         s.messages[at] = restoreSpelling(s.messages[at],item.before.messages.find(m=>m.id===after.id),after,'message ' + after.id);
       }
       for (const key of spellingSettings) s.settings[key] = restoreSpelling(s.settings[key],item.before.settings[key],item.after.settings[key],key);
+      /* M752: and every line still bound to a page it puts back stays bound (a line folded since from the corrected words too) */
+      if (s.settings.memory) s.settings.memory = restampRecord(s.settings.memory,shown,s.messages);
       s.settings.state = restored.state;
       saved.undone = true;
+      if (restored.kept) words = restored.kept;
     });
     batch.undone = true; notify(storyId);
-    return {ok:true,words:'The spelling correction was taken back.',touched:{messages:true,state:true,lore:true,story:true},edited:[]};
+    return {ok:true,words,touched:{messages:true,state:true,lore:true,story:true},edited:[]};
   } catch (err) { return {ok:false,refused:true,words:err.message}; }
   finally { release(); }
 }
@@ -3011,6 +3046,10 @@ export async function undoLatest(session, storyId) {
     } else if (item.kind === 'ledger') {
       const fresh = await loadState(storyId);
       if (Array.isArray(item.jids) && item.jids.length) {
+        /* M752: a card's ledger changes are taken back through their own log lines, and the log keeps its newest 200. A
+         * line that has left it has nothing left to take back safely (later changes to the same thing may have left with
+         * it), and the take-back skipped it and still said "Taken back" while the ledger kept the card's change. */
+        if (item.jids.some((jid) => !(fresh.log || []).some((e) => e && e.jid === jid))) return { ok: false, refused: true, words: 'Not taken back — what “' + batch.label + '” wrote in the ledger has left the ledger’s log (it keeps the newest 200 changes), so it can no longer be taken back safely. The change stands; change the ledger by hand if it must move.' };
         /* M83: a dry run of every entry's own take-back — refused whole when any is */
         const dry = undoJournalEntries(fresh, item.jids);
         if (dry.refused) return { ok: false, refused: true, words: 'Not taken back — ' + dry.refused + '. The change stands; the drawer’s own “Take it back” can walk the log.' };
@@ -3184,13 +3223,22 @@ export function serveFetch(refs, messages, { modules = [], lore = [], memory = n
     const said = String(ref).trim();
     const find = /^find:\s*(.+)$/i.exec(said);
     if (find) { push(ref, findInPages(messages, find[1])); continue; }
-    /* M288: one person's page, whole */
+    /* M288: one person's page, whole. M752: AND WHERE THEY ARE NOW. A view that holds forty seats (engine/offscreen.js
+     * seatsForReading) names the rest "to fetch" — and "person: NAME" served the page only: no reader could learn where
+     * someone not shown was (the world agent's own "Fetch person: NAME before changing an unshown record" never could
+     * either). The seat rides with the page — and a seat with no page is served on its own. */
     const person = /^person:\s*(.+)$/i.exec(said);
     if (person) {
       const chars = (serveState && serveState.characters) || {};
       const wanted = isMc(serveState, person[1]) ? mcKey(serveState) : person[1];
       const key = findPersonKey(chars, wanted);
-      push(ref, key ? '[the page of ' + key + '] (COMPLETE)' + personBlock(key, chars[key], leanPage(nearNames({}), key, chars[key], 0)).replace(/^\[[^\]]*\]/, '') : 'No page is written for \u201c' + person[1].trim() + '\u201d.');
+      const seatFound = serveState ? seatForPerson(serveState, key || person[1].trim()) : null;
+      const clock = serveState && serveState.clock && Number.isFinite(serveState.clock.minutes) ? serveState.clock.minutes : null;
+      const where = seatFound ? '\n  WHERE THEY ARE NOW (their seat elsewhere): ' + seatLine(seatFound.key, seatFound.entry, clock)
+        : key && serveState && isHere(serveState, key) ? '\n  WHERE THEY ARE NOW: in the scene.' : key ? '\n  WHERE THEY ARE NOW: no seat is written for them.' : '';
+      push(ref, key ? '[the page of ' + key + '] (COMPLETE)' + personBlock(key, chars[key], leanPage(nearNames({}), key, chars[key], 0)).replace(/^\[[^\]]*\]/, '') + where
+        : seatFound ? '[the seat of ' + seatFound.key + '] (no character page is written for them)' + where
+          : 'No page is written for \u201c' + person[1].trim() + '\u201d.');
       continue;
     }
     if (/^(brief|cast)$/i.test(said)) {
@@ -3403,7 +3451,7 @@ export async function runConversation({
     /* M288: what a fetch may still add — the room less everything the conversation already holds */
     const fetchRoom = () => Math.max(4000, roomChars(connection, HK_MAX_TOKENS) - (typeof wire !== 'undefined' && Array.isArray(wire) ? wire.reduce((n, m) => n + String((m && m.content) || '').length, 0) : 0));
     const contextDoc = buildHousekeeperContext({
-      story, messages, state, modules, lore, memory, session, directorText, editorText, contextPages,
+      story, messages, state, modules, lore, memory, session, directorText, editorText, contextPages, writerText,
       room: roomChars(connection, HK_MAX_TOKENS), /* M288: its own answer's room */
     });
     /* M61: which pages the model holds WHOLE — the served window plus every

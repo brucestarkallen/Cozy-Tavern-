@@ -70,10 +70,21 @@ export function isNameLike(text) {
 function escapeRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 export function wordRe(from) { return new RegExp('(?<![\\p{L}\\p{N}])' + escapeRe(from) + '(?![\\p{L}\\p{N}])', 'gu'); }
 export function hasWord(text, from) { return wordRe(from).test(String(text || '')); }
+/* M752: A NAME ALREADY IN ITS NEW FORM IS LEFT AS IT IS. A rename onto a fuller name ("Rukia" → "Rukia Kuchiki": the page
+ * and book joins of M406/M419 after every page; "Renji" → "Renji Abarai" by the writer's hand) rewrote the old name
+ * inside the new one too — "Rukia Kuchiki Kuchiki" in every line that already said it, and once more on every pass. An
+ * occurrence lying inside an occurrence of the new form is that form already; a second pass changes nothing. */
+export function replaceOutside(text, re, to, form) {
+  const held = form ? [...text.matchAll(form)].map((m) => [m.index, m.index + m[0].length]) : [];
+  return text.replace(re, (hit, ...rest) => {
+    const at = rest.find((x) => typeof x === 'number');
+    return held.some(([a, b]) => at >= a && at + hit.length <= b) ? hit : to;
+  });
+}
 /* M509-4: a descriptor renamed onto a name it stood beside — "the courier Hachigorō" → "Hachigorō Hachigorō",
  * "Hachigorō, the courier" → "Hachigorō, Hachigorō" — is said once */
 export function replaceWord(text, from, to) {
-  const out = String(text || '').replace(wordRe(from), to);
+  const out = replaceOutside(String(text || ''), wordRe(from), String(to), wordRe(to));
   const esc = String(to || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return esc ? out.replace(new RegExp('(?<![\\p{L}\\p{N}])(' + esc + ')(?:,?\\s+)\\1(?![\\p{L}\\p{N}])', 'giu'), '$1') : out;
 }
@@ -112,7 +123,11 @@ function mergeEntry(kind, held, coming) {
     const history = [...(held.history || []), ...(coming.history || [])]
       .filter((h) => h && typeof h === 'object')
       .sort((x, y) => (Number(x.atMinutes) || 0) - (Number(y.atMinutes) || 0));
-    return { ...coming, ...held, p: pick(held.p, coming.p), r: pick(held.r, coming.r), s: pick(held.s, coming.s), history: history.slice(-30) };
+    /* M689's earned axes are both standings' — the brief's starting digits never write over a beat either one earned,
+     * even when the history cap lets the beat's own line go */
+    const earnedAxes = { ...(coming.earnedAxes || {}), ...(held.earnedAxes || {}) };
+    return { ...coming, ...held, p: pick(held.p, coming.p), r: pick(held.r, coming.r), s: pick(held.s, coming.s), history: history.slice(-30),
+      ...(Object.keys(earnedAxes).length ? { earnedAxes } : {}) };
   }
   if (kind === 'bodies') {
     return {
@@ -141,9 +156,17 @@ function mergeEntry(kind, held, coming) {
   return { ...coming, ...held };
 }
 
-export function renameInState(state, from, to, { preserveKnowledge = false, preserveUnrelated = false } = {}) {
+export function renameInState(state, from, to, { preserveKnowledge = false, preserveUnrelated = false, text = true } = {}) {
   const next = JSON.parse(JSON.stringify(state));
   let n = 0;
+  /* M752: a line counts when its words changed (the old name standing only inside the new form is no change); a caller
+   * that rewrites the words itself (the spelling correction, with its own rule for what is the name) moves keys only */
+  const follow = (value) => {
+    if (!text || typeof value !== 'string' || !hasWord(value, from)) return value;
+    const out = replaceWord(value, from, to);
+    if (out !== value) n += 1;
+    return out;
+  };
   const same = (k) => String(k || '').trim().toLowerCase() === String(from).trim().toLowerCase();
   const isTo = (k) => String(k || '').trim().toLowerCase() === String(to).trim().toLowerCase();
   const rekey = (map, kind) => {
@@ -189,7 +212,7 @@ export function renameInState(state, from, to, { preserveKnowledge = false, pres
   for (const t of Object.values(next.things && typeof next.things === 'object' ? next.things : {})) {
     if (!t || typeof t !== 'object') continue;
     if (typeof t.owner === 'string' && same(t.owner)) { t.owner = to; n += 1; }
-    for (const k of ['where', 'note']) if (typeof t[k] === 'string' && hasWord(t[k], from)) { t[k] = replaceWord(t[k], from, to); n += 1; }
+    for (const k of ['where', 'note']) if (typeof t[k] === 'string') t[k] = follow(t[k]);
   }
   for (const p of (next.present || [])) if (p && same(p.name)) { p.name = to; n += 1; }
   if (Array.isArray(next.roomAt?.names)) next.roomAt.names = preserveUnrelated ? next.roomAt.names.map(name => same(name) ? (n += 1,to) : name) : [...new Set(next.roomAt.names.map((name) => { if (!same(name)) return name; n += 1; return to; }))];
@@ -207,29 +230,35 @@ export function renameInState(state, from, to, { preserveKnowledge = false, pres
   for (const t of (next.threads || [])) {
     if (!t || typeof t !== 'object') continue;
     if (same(t.owner)) { t.owner = to; n += 1; }
-    if (typeof t.title === 'string' && hasWord(t.title, from)) { t.title = replaceWord(t.title, from, to); n += 1; }
-    if (typeof t.next === 'string' && hasWord(t.next, from)) { t.next = replaceWord(t.next, from, to); n += 1; }
+    if (typeof t.title === 'string') t.title = follow(t.title);
+    if (typeof t.next === 'string') t.next = follow(t.next);
   }
   for (const c of Object.values(next.characters || {})) {
     if (!c || typeof c !== 'object') continue;
-    for (const k of ['core', 'state', 'arc']) if (typeof c[k] === 'string' && hasWord(c[k], from)) { c[k] = replaceWord(c[k], from, to); n += 1; }
-    if (Array.isArray(c.threads)) c.threads = c.threads.map((t) => (typeof t === 'string' && hasWord(t, from) ? (n += 1, replaceWord(t, from, to)) : t));
+    /* M752: A WRITER-PROVEN CORE STAYS PROVEN WHEN A NAME IN IT CHANGES. coreOrigin.text is the core as the writer's quote
+     * proved it, and the open-heal keeps a main character's core only while the two are the same text (mcPageOnlyHis):
+     * a join ("Vivi" into "Vivi Hart") or his own new name rewrote the core and not its proof, and the next opening let
+     * his whole biography go. The proof follows the same rewrite; a core that was not proven before stays unproven. */
+    const proven = c.coreOrigin && typeof c.coreOrigin === 'object' && typeof c.core === 'string' && c.coreOrigin.text === c.core;
+    for (const k of ['core', 'state', 'arc']) if (typeof c[k] === 'string') c[k] = follow(c[k]);
+    if (proven && c.coreOrigin.text !== c.core) c.coreOrigin = { ...c.coreOrigin, text: c.core };
+    if (Array.isArray(c.threads)) c.threads = c.threads.map(follow);
   }
   for (const list of Object.values(next.knowledge || {})) {
     if (!Array.isArray(list)) continue;
-    for (const k of list) if (k && typeof k.fact === 'string' && hasWord(k.fact, from)) { k.fact = replaceWord(k.fact, from, to); n += 1; }
+    for (const k of list) if (k && typeof k.fact === 'string') k.fact = follow(k.fact);
   }
   for (const c of Object.values(next.canon || {})) {
     if (!c || !Array.isArray(c.facts)) continue;
-    for (const f of c.facts) if (f && typeof f.value === 'string' && hasWord(f.value, from)) { f.value = replaceWord(f.value, from, to); n += 1; }
+    for (const f of c.facts) if (f && typeof f.value === 'string') f.value = follow(f.value);
   }
   for (const s of Object.values(next.offscreen || {})) {
     if (!s || typeof s !== 'object') continue;
-    for (const k of ['location', 'activity', 'agenda']) if (typeof s[k] === 'string' && hasWord(s[k], from)) { s[k] = replaceWord(s[k], from, to); n += 1; }
+    for (const k of ['location', 'activity', 'agenda']) if (typeof s[k] === 'string') s[k] = follow(s[k]);
   }
   for (const f of Object.values(next.factions || {})) {
     if (!f || typeof f !== 'object') continue;
-    for (const k of ['stance', 'agenda', 'move']) if (typeof f[k] === 'string' && hasWord(f[k], from)) { f[k] = replaceWord(f[k], from, to); n += 1; }
+    for (const k of ['stance', 'agenda', 'move']) if (typeof f[k] === 'string') f[k] = follow(f[k]);
   }
   return { state: next, count: n };
 }

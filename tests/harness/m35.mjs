@@ -95,10 +95,15 @@ test('M35-4 the second reader’s findings carry a fix on a warn; the house mend
   assert(/db\.settings\.set\('mendPages'/.test(settings));
 });
 
-test('M35-5 a person by relation exists; a real person’s relations and core come from the real record', () => {
+test('M35-5 a person by relation is kept as who the pages say (since M719 a mention establishes only what it says); a real person’s relations and core come from the real record', () => {
   const w = buildWorldMessages({ state: emptyState(), userText: 'u', assistantText: 'a' });
-  assert(/referred to only by[\s\S]*RELATION[\s\S]*"your mother" said to a known person/.test(w.system), 'relation references');
-  assert(/THE REAL RECORD/.test(w.system) && /her real mother, by her real name/.test(w.system) && /Never rename a real person/.test(w.system), 'the real record — taught without a real family as the example (M95)');
+  /* M719 rewrote THE ABSENT ("World no longer requires a biography or location merely because a passing name exists", HISTORY
+   * M719): a relative the pages identify is kept as who they are, and a mention establishes only what it says — the law no
+   * longer orders a name and a seat invented for every "your mother"; a real record supplied is kept as it stands */
+  assert(/Preserve individually established identities, including uniquely identified unnamed relatives\./.test(w.system) && /A mention establishes only what it actually says\./.test(w.system), 'relation references');
+  assert(/When an established canon or real-person record is supplied, preserve its actual names, family and background; never replace known relatives with invented ones\./.test(w.system), 'the real record — taught without a real family as the example (M95)');
+  const withRecord = buildWorldMessages({ state: emptyState(), userText: 'u', assistantText: 'a', canonRecord: 'Rukia Kuchiki: adopted sister of Byakuya Kuchiki.' });
+  assert(/their real record — a canon character's family, role and life are these, never invented\):\n"""\nRukia Kuchiki: adopted sister of Byakuya Kuchiki\./.test(withRecord.user), 'and the record itself rides when there is one');
   assert(!/Kris Jenner|Kendall|Kardashian/.test(w.system), 'no real family in the law');
   const sc = buildScribeMessages({ state: emptyState(), userText: 'u', assistantText: 'a' });
   assert(/REAL RECORD/.test(sc.system), 'the scribe writes real people from the record');

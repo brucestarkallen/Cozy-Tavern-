@@ -35,7 +35,7 @@
  */
 
 import { renderArrival, onTheWay } from './world.js'; /* M29: stance and arrival on the clock; M681: an approach that lapsed */
-import { samePersonName, isHere } from './names.js'; /* M396: one answer to "the same person?" */
+import { samePersonName, isHere, nameOnPage } from './names.js'; /* M396: one answer to "the same person?"; M752: and to "named here?" */
 
 const RENDER_TOP = 6;
 
@@ -132,14 +132,18 @@ function recencyKey(entry) {
  * never proves a departure; the world agent must decide whether to move them
  * or explicitly confirm that their activity still holds. */
 export function seatAgeWords(entry, clockMinutes) {
-  if (!entry || !Number.isFinite(entry.sinceMinutes) || !Number.isFinite(clockMinutes)) return '';
-  const checked = Number.isFinite(entry.checkedMinutes) ? Math.max(entry.sinceMinutes, entry.checkedMinutes) : entry.sinceMinutes;
+  /* M752: a seat written before the story had a clock, then confirmed in story time, ages from that confirmation */
+  if (!entry || !Number.isFinite(clockMinutes) || (!Number.isFinite(entry.sinceMinutes) && !Number.isFinite(entry.checkedMinutes))) return '';
+  const checked = Number.isFinite(entry.checkedMinutes) ? Math.max(Number.isFinite(entry.sinceMinutes) ? entry.sinceMinutes : -Infinity, entry.checkedMinutes) : entry.sinceMinutes;
   const ago = Math.round(clockMinutes - checked);
   if (ago < 30) return '';
   const span = ago < 60 ? ago + ' minutes'
     : ago < 24 * 60 ? 'about ' + Math.round(ago / 60) + (Math.round(ago / 60) === 1 ? ' hour' : ' hours')
       : Math.round(ago / (24 * 60)) + (Math.round(ago / (24 * 60)) === 1 ? ' day' : ' days');
-  return 'last updated ' + span + ' ago in story time; awaiting the world’s next review';
+  /* M752: said as the age of what is known — "awaiting the world’s next review" (M684) named the house's own worker to the
+   * storyteller and the drawer; the World is told whom to review in its own request (REVIEW REQUIRED NOW). Age alone still
+   * proves no departure (M684): never "likely elsewhere by now". */
+  return 'as of ' + span + ' ago in story time';
 }
 
 /* M304: one line for a seat, wherever it is read — the storyteller's state of
@@ -187,11 +191,16 @@ function deadWords(name, entry) {
 }
 export function renderOffscreen(offscreen, present, clockMinutes, top = RENDER_TOP, characters = {}) {
   const safe = offscreen && typeof offscreen === 'object' ? offscreen : {};
+  return seatLines(awaySeats(safe, present, characters), clockMinutes, top).join('\n');
+}
+/* the seats of those not in the scene — under any form of their name (M396) */
+function awaySeats(safe, present, characters) {
+  return Object.entries(safe).filter(([name, entry]) => entry && typeof entry === 'object' && !isHere({ present, offscreen: safe, characters }, name));
+}
+function seatLines(pairs, clockMinutes, top = Infinity) {
   const rows = [];
   const dead = [];
-  for (const [name, entry] of Object.entries(safe)) {
-    if (!entry || typeof entry !== 'object') continue;
-    if (isHere({ present, offscreen: safe, characters }, name)) continue; // they're in the scene — under any form of their name (M396)
+  for (const [name, entry] of pairs) {
     if (isDeadSeat(entry)) { dead.push(deadWords(name, entry)); continue; } /* M484 */
     rows.push({ line: seatWords(name, entry, clockMinutes), recency: recencyKey(entry), rank: stanceRank(entry, clockMinutes) });
   }
@@ -203,7 +212,64 @@ export function renderOffscreen(offscreen, present, clockMinutes, top = RENDER_T
   rows.sort((a, b) => (a.rank - b.rank) || (b.recency - a.recency));
   const lines = rows.slice(0, top).map((r) => r.line);
   if (dead.length) lines.push('Dead: ' + dead.join('; ') + '.'); /* M484: one line, no clock */
-  return lines.join('\n');
+  return lines;
+}
+
+/* M752: THE ELSEWHERE OF A LONG TALE, FITTED TO THE READING. M719 let the seats grow with the tale (the forty-seat
+ * eviction went: "capacity limits belong to prompt views, never deletion of stored seats") and fitted only the world
+ * agent's own view (agents/world.js worldSeatView). The whole ledger every page reader, scribe, auditor, housekeeper and
+ * founder is sent (engine/whole.js), and the storyteller's whole view (engine/state.js), still listed EVERY seat: three
+ * hundred seats were 46,282 characters in each of those requests (a request over its connection is refused before it is
+ * sent, providers/*.js), and on a 128k storyteller the whole state of things was shed to its first line, threads and all.
+ * A view holds SEATS_VIEW seats — the forty the pool itself held before M719 — chosen for what is being read: everyone
+ * the reading names (never left out, however many: they are bounded by the reading, not by the tale), then those on
+ * their way to the scene or due, then those tied to the people here (an open thread between them, the page of someone
+ * here naming them, their own seat naming someone here), then those with an open want, then the most lately seated.
+ * The rest are counted, and named where the reader can fetch them (housekeeper.js serveFetch "person: NAME" serves the
+ * seat with the page). */
+export const SEATS_VIEW = 40;
+export const SEAT_NAMES_ROOM = 2000; /* characters for the names of the seats not shown */
+export function seatsForReading(state, { offscreen = state && state.offscreen, material = '', shown = SEATS_VIEW } = {}) {
+  const safe = offscreen && typeof offscreen === 'object' ? offscreen : {};
+  const present = Array.isArray(state && state.present) ? state.present : [];
+  const characters = (state && state.characters && typeof state.characters === 'object') ? state.characters : {};
+  const away = awaySeats(safe, present, characters);
+  if (!Number.isFinite(shown) || away.length <= shown) return { chosen: away, rest: [] };
+  const clockMinutes = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
+  const text = String(material || '');
+  const hereNames = present.map((p) => (typeof p === 'string' ? p : p && p.name)).filter((n) => typeof n === 'string' && n.trim());
+  const isHereName = (n) => typeof n === 'string' && n.trim() && hereNames.some((h) => h === n || samePersonName(h, n));
+  const pageOf = (n) => { const key = Object.keys(characters).find((k) => k === n || samePersonName(k, n)); return key ? characters[key] : null; };
+  const hereText = hereNames.map(pageOf).filter((c) => c && typeof c === 'object')
+    .map((c) => [c.core, c.state, c.arc, ...(Array.isArray(c.threads) ? c.threads : [])].filter((s) => typeof s === 'string').join('\n')).join('\n');
+  const threads = (Array.isArray(state && state.threads) ? state.threads : []).filter((t) => t && typeof t === 'object');
+  const tied = (name, entry) => threads.some((t) => (isHereName(t.owner) && typeof t.with === 'string' && samePersonName(t.with, name)) || (isHereName(t.with) && typeof t.owner === 'string' && samePersonName(t.owner, name)))
+    || (hereText && nameOnPage(hereText, name))
+    || (() => { const own = [entry.agenda, entry.activity, entry.location].map(cleanText).filter(Boolean).join('\n'); return Boolean(own) && hereNames.some((h) => nameOnPage(own, h)); })();
+  const due = (entry) => onTheWay(entry, clockMinutes) || (Number.isFinite(entry.arrivesAtMinutes) && Number.isFinite(clockMinutes) && entry.arrivesAtMinutes <= clockMinutes);
+  const tier = (name, entry) => (text.trim() && nameOnPage(text, name) ? 0 : due(entry) ? 1 : tied(name, entry) ? 2 : cleanText(entry.agenda) ? 3 : 4);
+  const ranked = away.map(([name, entry], i) => ({ name, entry, tier: tier(name, entry), recency: recencyKey(entry), i }))
+    .sort((a, b) => (a.tier - b.tier) || (b.recency - a.recency) || (a.i - b.i));
+  const room = Math.max(shown, ranked.filter((r) => r.tier === 0).length);
+  return { chosen: ranked.slice(0, room).map((r) => [r.name, r.entry]), rest: ranked.slice(room).map((r) => r.name) };
+}
+/* the view itself: the chosen seats in the storyteller's own order (seatLines), and the rest counted — named, with the way
+ * to fetch each, for a reader that can look (`fetchable`) */
+export function renderSeatsForReading(state, { offscreen = state && state.offscreen, material = '', shown = SEATS_VIEW, fetchable = false } = {}) {
+  const clockMinutes = state && state.clock && Number.isFinite(state.clock.minutes) ? state.clock.minutes : null;
+  const { chosen, rest } = seatsForReading(state, { offscreen, material, shown });
+  const lines = seatLines(chosen, clockMinutes);
+  if (!rest.length) return lines.join('\n');
+  if (!fetchable) return [...lines, '(and ' + rest.length + ' more seated elsewhere, kept in the ledger and not shown here)'].join('\n');
+  let names = '';
+  let listed = 0;
+  for (const name of rest) {
+    if (names.length + name.length + 2 > SEAT_NAMES_ROOM) break;
+    names += (names ? ', ' : '') + name;
+    listed += 1;
+  }
+  return [...lines, '(and ' + rest.length + ' more seated elsewhere — each keeps their seat in the ledger, not shown here; fetch "person: NAME" for anyone’s page and where they are now, and before writing where someone not shown here is: '
+    + names + (listed < rest.length ? ', and ' + (rest.length - listed) + ' more' : '') + ')'].join('\n');
 }
 
 /* M304: the same order, as names — the drawer lists the absent the way the

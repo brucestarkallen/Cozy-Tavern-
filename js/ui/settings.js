@@ -46,7 +46,7 @@ import {
   loreToWorldbook, worldbookFilename,
 } from '../import/lorebook.js';
 import { parseSTChat, importAsStory } from '../import/chats.js';
-import { cleanWindow, cleanBatch, cleanSqueeze } from '../agents/memory.js';
+import { cleanWindow, cleanBatch, cleanSqueeze, loadMemory, saveMemory, restampRecord } from '../agents/memory.js';
 import { WORKER_ROWS } from '../agents/assign.js';
 /* M16: the house's version word stands in the header line. */
 import { VERSION } from '../version.js';
@@ -2748,6 +2748,7 @@ export function initSettings(ctx) {
     const rules = await loadRules();
     const pages = await db.messages.list(story.id);
     let changed = 0;
+    const was = []; const now = []; /* M752: the pages rewritten, as they were and as they are (memory.js restampRecord) */
     for (const m of pages) {
       if (m.hidden || (m.role !== 'assistant' && m.role !== 'user')) continue;
       const patch = {};
@@ -2759,10 +2760,14 @@ export function initSettings(ctx) {
         if (swipes.some((sw, i) => sw && m.swipes[i] && sw.text !== m.swipes[i].text)) patch.swipes = swipes;
       }
       if (Object.keys(patch).length) {
-        await db.messages.update(story.id, m.id, patch);
+        const written = await db.messages.update(story.id, m.id, patch);
         changed += 1;
+        if (written) { was.push(m); now.push(written); }
       }
     }
+    /* M752: his page-mode rules dress the pages; they do not retell the story — the record's lines over the pages rewritten
+     * stay bound to them (left unbound, every one was dropped from the storyteller's request and read again by the keeper) */
+    if (now.length) { const mem = await loadMemory(story.id), kept = restampRecord(mem, was, now); if (kept !== mem) await saveMemory(story.id, kept); }
     say(els.regexCleanNote, changed ? `${changed} ${changed === 1 ? 'page' : 'pages'} rewritten.` : 'Nothing on these pages matched — they were clean already.');
     if (ctx.chat && typeof ctx.chat.renderThread === 'function') ctx.chat.renderThread({ structural: true });
     if (ctx.onStoriesChanged) ctx.onStoriesChanged();

@@ -32,7 +32,10 @@ test('M50-2 housekeeping in code: junk keys go, duplicates merge to the fuller n
   s = applyMutations(s, [
     { type: 'rel.set', name: '→ Jovan', p: 65, r: 30, s: 5, cause: 'x' },
     { type: 'rel.set', name: '→ Vanessa Reynolds', p: 70, r: 0, s: 0, cause: 'x' },
-    { type: 'rel.set', name: 'Rias', p: 50, r: 60, s: 25, cause: 'x' },
+    { type: 'rel.set', name: 'Rias', p: 50, r: 50, s: 25, cause: 'x' },
+    /* M689: the brief's explicit starting digits are reconciled axis by axis on every axis no page earned — what the merge
+     * must carry to the fuller name is the beat the pages earned under the shorter one */
+    { type: 'rel.shift', name: 'Rias', axis: 'r', delta: 10, cause: 'she held his hand at the station' },
     { type: 'rel.set', name: 'Sophie Dale', p: 12, r: 0, s: 0, cause: 'the page' },
   ]).state;
   /* M278: the engine writes no zero standing for someone with none — an older ledger may hold these */
@@ -43,9 +46,31 @@ test('M50-2 housekeeping in code: junk keys go, duplicates merge to the fuller n
   const keys = Object.keys(after.relationships);
   assert(!keys.some((k) => /^→/.test(k)), 'arrow keys gone: ' + keys.join(', '));
   assert(!keys.includes('Rias'), 'the shorter duplicate gone');
-  eq(after.relationships['Rias Wells'].r, 60, 'the numbers moved to the fuller name');
+  eq(after.relationships['Rias Wells'].r, 60, 'the numbers moved to the fuller name — with the beat the pages earned');
+  eq(after.relationships['Rias Wells'].p + '/' + after.relationships['Rias Wells'].s, '85/45', 'an axis no page earned takes the brief’s explicit digits (M689)');
+  eq(applyMutations(after, standingsHousekeeping(after, BRIEF, '', 'Jovan')).state.relationships['Rias Wells'].r, 60, 'and the next housekeeping leaves the earned beat where it stands');
   eq(after.relationships['Aurora Sterling'].p, 65, 'restored from the brief');
   eq(after.relationships['Sophie Dale'].p, 12, 'a living standing untouched');
+});
+
+test('M50-5 a rename that folds two standings into one keeps what either earned — the brief’s starting digits never write over it (M689)', () => {
+  let s = emptyState(); s.sheet.playerName = 'Jovan';
+  s = applyMutations(s, [
+    { type: 'people.set', name: 'Rias Wells', field: 'core', text: 'his older sister' },
+    { type: 'people.set', name: 'Rias Gremory', field: 'core', text: 'the same girl under her other name' },
+    { type: 'rel.set', name: 'Rias Wells', p: 10, cause: 'x' },
+    { type: 'rel.shift', name: 'Rias Wells', axis: 'p', delta: 10, cause: 'she waited up for him' },
+    { type: 'rel.set', name: 'Rias Gremory', r: 20, cause: 'y' },
+    { type: 'rel.shift', name: 'Rias Gremory', axis: 'r', delta: 15, cause: 'she kissed his cheek at the gate' },
+  ]).state;
+  /* a long-kept standing: the line of its earned beat has scrolled past the thirty the merged history keeps */
+  for (let i = 0; i < 32; i += 1) s.relationships['Rias Gremory'].history.push({ atMinutes: null, axis: 'p', delta: 0, cause: 'set — a later line ' + i });
+  const merged = applyMutations(s, [{ type: 'people.rename', from: 'Rias Gremory', to: 'Rias Wells', cause: 'one person', byHand: true }]);
+  eq(merged.applied.length, 1, 'the rename landed');
+  const rel = merged.state.relationships['Rias Wells'];
+  eq(rel.p + '/' + rel.r, '20/35', 'both standings’ numbers are kept');
+  const after = applyMutations(merged.state, standingsHousekeeping(merged.state, 'Rias Wells — his sister (P:60 R:0 S:0)', '', 'Jovan')).state.relationships['Rias Wells'];
+  eq(after.p + '/' + after.r, '20/35', 'the brief’s starting digits write over neither earned axis');
 });
 
 test('M50-3 the rebuild: everything let go, the digits written in code, the model’s rel.set kept only toward the MC with a cause naming him', async () => {

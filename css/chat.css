@@ -1419,8 +1419,8 @@ body.settings-open .immerse-show { display: none; }
   transform: translateX(50%);
   box-sizing: border-box;
 }
-/* Keep the native story scrollbar as the single scroll handle.
- * Page tracking still updates the existing label beneath the composer. */
-.page-mark { display: none; }
+/* The page mark stays (M466, his: "a scroll button on the right showing which page number is scrolled"; made a thin bar
+ * in the gutter in M675, never taken away). M739 hid it here as a duplicate of the native scrollbar — nothing he said
+ * asked for that, and on an Android phone the native scrollbar cannot be dragged: the mark is the handle that can. */
 /* The fixed shelf handle belongs to the story, never the settings overlay. */
 body.settings-open .panel-resize { display: none; }

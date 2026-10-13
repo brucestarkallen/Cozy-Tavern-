@@ -28,6 +28,39 @@ const WORLD = JSON.stringify({ mutations: [
   { type: 'thread.set', title: 'Kim and the sighting', owner: 'Kim', next: 'text Liara' },
 ], brief: { pressure: ['Kim could reach the restaurant in about forty minutes'], ripe: [], twb: null } });
 
+/* M698/M709: THE AUDITOR ANSWERS ITS FINAL REVIEW CONTRACT. A reading is complete only with an explicit verdict beside its
+ * repairs — review:{status:'complete',why,open:[]} — and standings:[] for a brief that states no starting digits (no brief in
+ * this walk does). The walk's auditor still answered the old shape ({"issues":[]}), which the house now takes for a review
+ * that did not finish: every entry left unapproved ("ledger verification: checked 0 of 25 entries"), the light never green. */
+const reviewed = (answer = {}) => JSON.stringify({ issues: [], review: { status: 'complete', why: 'Every required entry was checked against the brief and the pages.', open: [] }, standings: [], ...answer });
+/* M717 (4954b69): THE SOURCE READING SELECTS ORIGINAL PASSAGES BY ID. Each original section reaches it as ordered passages
+ * with local ids ({id,label,passages:[{id,text}]}, no whole text), and every person it names carries its kind, an evidence
+ * passage id, identityFacts and facts (M715, 1a9efdd) — a row without them is refused for its section and recovers nobody.
+ * The walk's readers answered the old shape ({name,source,shown}, matched on a d.text the documents no longer carry). */
+const passageIn = (doc, words) => doc.passages.find((p) => p.text.includes(words));
+const sourcePerson = (doc, name, words, identityFacts = []) => { const evidence = passageIn(doc, words).id; return { name, kind: 'person', source: doc.id, evidence, identityFacts: identityFacts.map((text) => ({ text, evidence })), facts: [] }; };
+/* M718: the final review is handed every unbound original individual (REQUIRED SOURCE MENTION DECISIONS) and decides each */
+const sourceTasks = (body) => { const text = (body.messages || []).map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n'); const at = text.split('REQUIRED SOURCE MENTION DECISIONS:\n')[1]; return at ? JSON.parse(at.split('\n')[0]) : []; };
+/* …an individual the ledger does not hold yet is decided by a saved identity binding (a source-facts task is a profile's) */
+const sourceIdentities = (body, why = 'The writer introduces this individual by name and rank.') => sourceTasks(body).filter((task) => !task.sourceFacts).map((task) => ({ sourceId: task.sourceId, name: task.name, to: task.name, kind: 'person', why }));
+/* M694 (90ca6b0): GREEN IS A LEDGER THE AUDITOR HAS VERIFIED — its sources read, a verdict on every entry, the input it
+ * verified. A fixture that stands for "everything read and folded" carried the old audit's word for it ({coverage,
+ * pending:[], unfinished:false}) and none of that: the lamp is yellow on it now ("Current ledger verification is
+ * incomplete"). The house's own auditor reads the fixture's pages and ledger, as its repair does, and saves the real
+ * receipts — the walk's stand-in answering it as a model does. */
+async function auditedLedger(storyId) {
+  const { auditLedger } = await import('../../js/agents/auditor.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const all = await db.connections.list();
+  const connection = all.find((c) => /mock\.example/.test(c.baseUrl || '')) || all[0];
+  const prior = house.state.workerAnswer;
+  house.state.workerAnswer = walkDefaultWorker;
+  try {
+    const result = await auditLedger({ connection, storyId, reviewSources: 'all' });
+    assert(result && !result.unfinished, 'fixture: the auditor verified the ledger: ' + JSON.stringify(result && result.pending));
+  } finally { house.state.workerAnswer = prior; }
+}
+
 /* the workers answer by what they were asked */
 house.state.mend = false;
 /* M136: only the latest turns are drawn — a scenario that reaches for the first page shows them all first */
@@ -63,7 +96,7 @@ const walkDefaultWorker = (body, sys) => {
   if (/world beyond the page/i.test(sys)) return WORLD;
   if (/character scribe/i.test(sys)) return '{"deltas":[]}';
   if (/continuity reader/i.test(sys)) return house.state.mend ? '{"findings":[{"words":"Kim is written as the mother; the record says Kris.","severity":"warn","fix":"Kris is the mother"}]}' : '{"findings":[]}';
-  if (/auditor of the ledger/i.test(sys)) return '{"issues":[]}';
+  if (/auditor of the ledger/i.test(sys)) return reviewed();
   if (/found the ledger/i.test(sys)) return '{"mutations":[]}';
   if (/reading a story's past/i.test(sys)) return '{"deltas":[],"shifts":[]}';
   return '{"mutations":[],"deltas":[],"findings":[]}';
@@ -530,6 +563,10 @@ test('DOM-8a branch 0→0 keeps the ledger; branch N→0 carries page 0’s ledg
   const row = qa('.story-item').find((li) => /Checkpoints/.test(li.textContent) && !/a branch/.test(li.textContent));
   click(q('.story-open', row) || row);
   await until(async () => (await storyId()) === sid, 'back on the origin', 10000);
+  /* M752: and its pages are drawn — he presses what he sees (the tale is named open a moment before its pages are drawn;
+   * a press in that moment was on the branch's page, a page of another tale) */
+  const originIds = new Set((await db.messages.list(sid)).map((m) => m.id));
+  await until(() => assistantPages().length && assistantPages().every((n) => originIds.has(n.dataset.id)), 'the origin’s pages drawn', 10000);
   /* M675: page 0 gets its second telling NOW, while it is the newest page — an older page wears a swipe bar only when it
    * has versions to walk (M40, swipeNode). This walk used to press ▸ on the lone "◂ 1 / 1 ▸" a page kept from the
    * moment it had been the newest: a leftover the next whole draw took away, and M675 takes away at once. What is held
@@ -1380,9 +1417,20 @@ async function sweep(rootSel, { skip = /reload|start over|wipe|forget everything
     swept.rooms[rootSel] = pressed;
     const label = words(btn);
     const n = errors.length;
+    const popsBefore = new Set(qa('[role="dialog"][aria-modal="true"]'));
     try { click(btn); } catch (err) { errors.push('threw on click: ' + label + ' — ' + err.message); }
     await tick(40);
     if (errors.length > n) found.push(label + ' → ' + errors.slice(n).join(' | '));
+    /* M752: a pop-up the press opened is shut again, as he would shut it — the house's modal pop-ups (the auditor
+     * scratchbook since M752) hold Esc while they stand, and one left open by the sweep took the Esc of every later law
+     * (DOM-222's search never cleared). A press that opens one must also close by its own Close. */
+    for (const pop of qa('[role="dialog"][aria-modal="true"]')) {
+      if (popsBefore.has(pop) || !pop.isConnected) continue;
+      const shut = [...pop.querySelectorAll('button')].find((b) => /^close$/i.test(words(b)));
+      if (!shut) { errors.push('a pop-up opened by ' + label + ' has no Close'); continue; }
+      click(shut); await tick(20);
+      if (pop.isConnected) errors.push('the pop-up opened by ' + label + ' did not close by its Close');
+    }
   }
   return found;
 }
@@ -1486,28 +1534,53 @@ test('DOM-18 the ledger keeps the writer’s place through a rebuild’s refresh
  * over could play four scenes without a word of it, while nothing of those
  * pages was being folded, and find out only when he happened to open the
  * ledger. The button carries a quiet mark instead. */
-test('DOM-19 a worker that stumbles marks the ledger, and success clears it', async () => {
+test('DOM-19 a worker that stumbles marks the ledger, and success clears it (M727: the house sends a stumbled worker again by itself — a keeper with nothing to do comes back at once; a world agent whose model stays down keeps the mark through the retry)', async () => {
   const { db } = await import('../../js/store.js');
-  const { noteWorkerRun } = await import('../../js/agents/status.js');
+  const { noteWorkerRun, loadWorkerStatus } = await import('../../js/agents/status.js');
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
   const st = await db.stories.create({ title: 'a keeper that fell over' });
   for (let i = 0; i < 6; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: 'page ' + i });
+  /* M694: all is well — its three pages read into the ledger and the ledger verified by the auditor. (The light was looked
+   * at before this tale's own look had run, and wore the scenario before's: a tale never read nor audited is not "well"
+   * since M694, and the walk's last tale was one.) */
+  await saveState(st.id, { ...emptyState(), page: 2 });
+  await auditedLedger(st.id);
+  await db.stories.update(st.id, { keeper: true }); /* its own keeper on, whatever the house's switch (the walk turned it off in DOM-2) */
   env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
   await tick(600);
 
   const btn = q('#btn-ledger');
-  eq(btn.classList.contains('has-trouble'), false, 'clean while all is well');
+  eq(btn.classList.contains('has-trouble'), false, 'clean while all is well: ' + btn.className + ' — ' + btn.getAttribute('title'));
 
-  await noteWorkerRun(st.id, 'keeper', { ok: false, why: 'could not reach the storyteller' });
-  await env.window.__cozy.chat.renderThread({ structural: true });
-  await tick(500);
-  eq(btn.classList.contains('has-trouble'), true, 'marked the moment the keeper stumbles');
-  assert(/keeper stumbled/.test(btn.getAttribute('title')), 'and says which worker: ' + btn.getAttribute('title'));
-  assert(/the pages are safe/.test(btn.getAttribute('title')), 'and that nothing is lost');
-
-  await noteWorkerRun(st.id, 'keeper', { ok: true, detail: 'folded six pages' });
-  await env.window.__cozy.chat.renderThread({ structural: true });
-  await tick(500);
-  eq(btn.classList.contains('has-trouble'), false, 'and clears itself the moment it comes back');
+  /* every look of the light, as it is drawn — M727's own retry of a stumbled worker may set it right a moment after the
+   * look that marked it, and the mark is what this law reads */
+  const looks = [];
+  const watch = new env.window.MutationObserver(() => looks.push({ trouble: btn.classList.contains('has-trouble'), title: btn.getAttribute('title') || '' }));
+  watch.observe(btn, { attributes: true, attributeFilter: ['class', 'title'] });
+  const priorWorker = house.state.workerAnswer;
+  try {
+    /* 1. the keeper stumbles: the light marks it, names it, and says nothing is lost; the house sends it again by itself
+     * (M727) and a keeper with nothing to fold comes back — success clears the mark with no hand on it */
+    await noteWorkerRun(st.id, 'keeper', { ok: false, why: 'could not reach the storyteller' });
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    const marked = await until(() => looks.find((l) => l.trouble && /keeper stumbled/.test(l.title)), 'marked the moment the keeper stumbles', 10000).catch((err) => { throw new Error(err.message + ' — the looks: ' + JSON.stringify(looks.slice(-4))); });
+    assert(/the pages are safe/.test(marked.title), 'and that nothing is lost: ' + marked.title);
+    await until(async () => ((await loadWorkerStatus(st.id)).keeper || {}).ok === true && !btn.classList.contains('has-trouble'), 'the house sent the keeper again by itself, and it came back: ' + btn.getAttribute('title'), 10000);
+    /* 2. the world agent stumbles and its model stays down: the house's own retry fails too, and the mark stays, naming it */
+    house.state.workerAnswer = (body, sys) => { if (/world beyond the page/i.test(sys)) throw new Error('the house is unreachable'); return priorWorker(body, sys); };
+    await noteWorkerRun(st.id, 'world', { ok: false, why: 'could not reach the storyteller' });
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(async () => ((await db.settings.get('healthWorkers:' + st.id)) || {}).world, 'the house sent the world agent again by itself', 10000);
+    await until(() => !btn.classList.contains('is-working') && btn.classList.contains('has-trouble') && /world stumbled/.test(btn.getAttribute('title') || ''), 'marked while it stays down — and says which worker: ' + btn.getAttribute('title'), 10000);
+    await tick(500);
+    assert(btn.classList.contains('has-trouble') && /world stumbled/.test(btn.getAttribute('title')) && /the pages are safe/.test(btn.getAttribute('title')), 'the mark stays while it is down, and says nothing is lost: ' + btn.className + ' — ' + btn.getAttribute('title'));
+    /* 3. its model answers again, and its next run is well: success clears it */
+    house.state.workerAnswer = priorWorker;
+    await noteWorkerRun(st.id, 'world', { ok: true, detail: 'seated two people' });
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(() => !btn.classList.contains('has-trouble'), 'and clears itself the moment it comes back: ' + btn.className + ' — ' + btn.getAttribute('title'), 10000);
+  } finally { watch.disconnect(); house.state.workerAnswer = priorWorker; }
 });
 
 
@@ -1529,8 +1602,11 @@ test('DOM-20 the ledger light follows the work itself: blue, then green, with no
     await db.messages.append(st.id, { role: 'assistant', text: 'The scene turns.' });
   }
   await db.settings.set('memoryWindow', 20);
-  await saveState(st.id, { ...emptyState(), page: 3, audit: { coverage: { read: 8, total: 8 }, pending: [], unfinished: false } });
+  /* M694: everything read and folded — and audited: the house's own auditor verifies the ledger (it carried the old audit's
+   * {coverage, pending:[], unfinished:false} and no verification, and the light is yellow on that now) */
+  await saveState(st.id, { ...emptyState(), page: 3 });
   await saveMemory(st.id, { window: 20, nodes: [] });
+  await auditedLedger(st.id);
   for (const w of ['keeper', 'extractor', 'scribe', 'world']) await noteWorkerRun(st.id, w, { ok: true, detail: 'well' });
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
@@ -1554,14 +1630,20 @@ test('DOM-20 the ledger light follows the work itself: blue, then green, with no
   await tick(500);
   eq(lamp(), 'green', 'and comes back to green when it settles — no reload');
 
-  /* and a stumble while working shows blue, not amber: wait, then look */
-  markWorkerRunning(st.id, 'keeper', true);
-  await noteWorkerRun(st.id, 'scribe', { ok: false, why: 'could not be reached' });
-  await tick(400);
-  eq(lamp(), 'blue', 'while the house is still reading, the light says wait');
-  markWorkerRunning(st.id, 'keeper', false);
-  await tick(500);
-  eq(lamp(), 'amber', 'and only then does it say look');
+  /* and a stumble while working shows blue, not amber: wait, then look. M727: once the house is free it sends the stumbled
+   * scribe again by itself — its model is down here, so that try fails too and the light says look */
+  const priorWorker = house.state.workerAnswer;
+  house.state.workerAnswer = (body, sys) => { if (/character scribe/i.test(sys)) throw new Error('could not be reached'); return priorWorker(body, sys); };
+  try {
+    markWorkerRunning(st.id, 'keeper', true);
+    await noteWorkerRun(st.id, 'scribe', { ok: false, why: 'could not be reached' });
+    await tick(400);
+    eq(lamp(), 'blue', 'while the house is still reading, the light says wait');
+    markWorkerRunning(st.id, 'keeper', false);
+    await until(() => lamp() === 'amber', 'and only then does it say look: ' + lamp(), 10000);
+    await until(async () => ((await db.settings.get('healthWorkers:' + st.id)) || {}).scribe, 'the house sent the scribe again by itself', 10000);
+    await until(() => lamp() === 'amber' && /scribe stumbled/.test(btn.getAttribute('title') || ''), 'and its try failed too: the light still says look, and which reader: ' + btn.getAttribute('title'), 10000);
+  } finally { house.state.workerAnswer = priorWorker; }
 });
 
 test('DOM-21 the page chain looks: a worker that asks for page 1 by its number is served it whole (M260)', async () => {
@@ -1702,7 +1784,12 @@ test('DOM-23 the record rides in the room the storyteller’s context leaves, an
   const activeId = await db.settings.get('activeConnectionId');
   const conn = conns.find((c) => c.id === activeId) || conns[0];
   const sizeWas = conn.contextSize;
-  await db.connections.update(conn.id, { contextSize: 20000 });
+  /* M714 (5d1ff01): the context size is the WHOLE context now — the answer (max tokens, 800 here) and a 3,000-token margin come
+   * out of it, and the request is measured as it goes on the wire (characters / 3 and each message's wrapper). This tale's
+   * request without a single record line measures 26,906 tokens at a 30,000 context (the standing words have grown since
+   * M681): 20,000 could not hold even that, and the house refused the page (said in the thread since M752). 40,000 holds the
+   * request and five of the ten record lines — still a room too small for the record, which is what this part is about. */
+  await db.connections.update(conn.id, { contextSize: 40000 });
   await db.settings.set('memorySqueeze', 'never');
   /* every word the house says, kept — a later toast must not hide this one */
   const said = [];
@@ -1877,7 +1964,7 @@ test('DOM-26 a gap in the record is folded by the house itself and the light com
   }
 });
 
-test('DOM-27 the ledger reads the pages it missed — while the writer plays and while the house is idle — and a quiet page counts (M276)', async () => {
+test('DOM-27 the ledger reads the pages it missed — while the house is idle, even with a reader stumbled (M727), and the next page by its own chain — and a quiet page counts (M276)', async () => {
   const { noteWorkerRun } = await import('../../js/agents/status.js');
   const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');
   const { saveMemory } = await import('../../js/agents/memory.js');
@@ -1896,8 +1983,10 @@ test('DOM-27 the ledger reads the pages it missed — while the writer plays and
   await saveState(st.id, { ...missedState, page: 2, place: { name: 'The kitchen' }, present: [{ name: 'Jovan' }] });
   await saveMemory(st.id, { window: 20, nodes: [] });
   for (const w of ['keeper', 'extractor', 'scribe', 'world']) await noteWorkerRun(st.id, w, { ok: true, detail: 'well' });
-  /* a worker marked stumbling holds the light, so the idle reading does not close the gap before the writer
-   * plays on — the page chain reads the new page out of turn first; the world agent's own run then clears it */
+  /* the outage stumbled the world agent too. M276 let a stumbled worker hold the idle reading back (this scenario used it to make
+   * the writer's next page read the oldest missed page out of turn); M727 (9568e5f) sends the gaps first even then — "a stumbled
+   * minder no longer holds the gap back" (harness M254) — so the idle house reads what it missed the moment the tale opens.
+   * The chain's out-of-turn reading is held by DOM-279 and the harness laws M259 and M453. */
   await noteWorkerRun(st.id, 'world', { ok: false, why: 'held for the scenario' });
   const ledgerReads = () => house.state.calls.filter((c) => c.isWorker && /keep the ledger/i.test(String(((c.body.messages || [])[0] || {}).content || ''))).length;
   house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? '{"mutations":[]}' : walkDefaultWorker(body, sys));
@@ -1905,15 +1994,13 @@ test('DOM-27 the ledger reads the pages it missed — while the writer plays and
     const before = ledgerReads();
     env.window.__cozy.setActiveStoryId(st.id);
     await env.window.__cozy.chat.renderThread({ structural: true });
-    await tick(300);
+    await until(async () => (await loadState(st.id)).readTo === 5, 'the idle house to read the pages it missed, a reader stumbled or not', 20000);
     await until(() => queuedCount(st.id) === 0 && !btn.classList.contains('is-working'), 'the house to settle after opening', 20000);
     const opened = ledgerReads() - before;
-    eq(opened, 0, 'the light held: nothing read on opening');
-    /* the writer plays on: one page, and the chain reads the oldest missed page beside it */
+    eq(opened, 3, 'pages 3, 4 and 5 read once each by the idle house — quiet pages count');
+    /* the writer plays on: one page, read by its own chain — and the mark takes 6 */
     click(q('.msg-act[data-act="go on"]'));
     await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !q('.msg.pending'), 'the chain to finish', 40000);
-    /* the chain read page 3 (the oldest missed) and the new page 6 out of turn; the idle reading, the moment
-     * the chain is done, reads 4 and 5 — and the mark takes 6 without reading it again */
     await until(async () => (await loadState(st.id)).readTo === 6, 'the reading mark to reach the newest page', 30000);
     await until(() => queuedCount(st.id) === 0 && lamp() === 'green', 'the light to come back green: ' + lamp(), 20000).catch(async (err) => { throw new Error(err.message + ' | workers=' + JSON.stringify(await db.settings.get('workers:' + st.id))); });
     const total = ledgerReads() - before;
@@ -3002,8 +3089,11 @@ test('DOM-53 the light heals the record BY ITSELF and ends green: a tale folded 
     const a = await db.stories.create({ title: 'folded under another window' });
     await db.stories.update(a.id, { keeper: true });
     for (let i = 0; i < 40; i += 1) await db.messages.append(a.id, { role: i % 2 ? 'assistant' : 'user', text: 'Page ' + i + ': they talked on the porch about the letter and the fair.' });
-    await saveState(a.id, { ...emptyState(), page: 19, readTo: 19, tidiedGen: 999, audit: { coverage: { read: 40, total: 40 }, pending: [], unfinished: false } });
+    /* M694: read, folded — and audited: the house's own auditor verifies the ledger (the old audit's {coverage, pending:[],
+     * unfinished:false} carries no verification, and the light is yellow on that now) */
+    await saveState(a.id, { ...emptyState(), page: 19, readTo: 19, tidiedGen: 999 });
     await saveMemory(a.id, { window: 10, nodes: [0, 6, 12, 18].map((from, i) => ({ id: 'w' + i, span: [from, from + 5], text: 'Pages ' + (from + 1) + '-' + (from + 6) + ': they talked.', level: 1, at: 1, whole: true })) });
+    await auditedLedger(a.id);
     await db.settings.set('memoryWindow', 30); await db.settings.set('memoryBatch', 6);
     let keeperCalls = 0;
     house.state.workerAnswer = (body, sys) => { if (/memory keeper|narrative-state tracker/i.test(sys)) { keeperCalls += 1; return 'They talked on the porch about the letter and the fair; nothing else changed.'; } return priorWorker(body, sys); };
@@ -3017,7 +3107,8 @@ test('DOM-53 the light heals the record BY ITSELF and ends green: a tale folded 
     const b = await db.stories.create({ title: 'a stumble, then a line' });
     await db.stories.update(b.id, { keeper: true });
     for (let i = 0; i < 24; i += 1) await db.messages.append(b.id, { role: i % 2 ? 'assistant' : 'user', text: 'Page ' + i + ': they talked on the porch about the letter and the fair.' });
-    await saveState(b.id, { ...emptyState(), page: 11, readTo: 11, tidiedGen: 999, audit: { coverage: { read: 24, total: 24 }, pending: [], unfinished: false } });
+    await saveState(b.id, { ...emptyState(), page: 11, readTo: 11, tidiedGen: 999 });
+    await auditedLedger(b.id); /* M694: read and audited, as above */
     let asks = 0;
     house.state.workerAnswer = (body, sys) => { if (/memory keeper|narrative-state tracker/i.test(sys)) { asks += 1; return asks <= 6 ? '' : 'They talked on the porch about the letter and the fair; nothing else changed.'; } return priorWorker(body, sys); }; /* M666: a run of the keeper asks three times for the batch and three for its first page alone — a stumble is the WHOLE run coming back empty (six asks), where it was two */
     globalThis.__cozyGapBackoffMs = 700;
@@ -3034,7 +3125,9 @@ test('DOM-53 the light heals the record BY ITSELF and ends green: a tale folded 
     assert((await loadMemory(b.id)).nodes.length >= 2, 'more than one line: it carried on past the first');
     await tick(600);
     assert(!mark().classList.contains('has-trouble'), 'and the light is not yellow any more: ' + mark().className + ' — ' + mark().getAttribute('title'));
-    assert(/everything is read and folded/.test(mark().getAttribute('title') || ''), 'it says what the writer wants to read: ' + mark().getAttribute('title'));
+    /* M694 (90ca6b0): green says audited too — "The ledger — everything is read and folded. Nothing is waiting. Write on." became
+     * the words of a verified ledger */
+    assert(/^The current ledger is read, folded and audited with no unresolved findings\. Write on\./.test(mark().getAttribute('title') || ''), 'it says what the writer wants to read: ' + mark().getAttribute('title'));
   } finally {
     delete globalThis.__cozyGapBackoffMs;
     house.state.workerAnswer = priorWorker;
@@ -7388,8 +7481,9 @@ test('DOM-171 THE PEOPLE OF A #STORY OPENING GET THEIR PAGES BY THEMSELVES (M514
     if (/You keep the ledger for a story/.test(s)) return JSON.stringify({ mutations: [{ type: 'mc.set', name: 'Jovan' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia Kuchiki' }, { type: 'presence.enter', name: 'Kenpachi Zaraki' }] });
     if (/You keep the character pages of a story/.test(s)) {
       scribeAsked = u;
-      /* a reader answers what it is asked: pages for the people it is told have none */
-      const m = u.match(/NO CHARACTER PAGE YET: (.+?) — open a page/);
+      /* a reader answers what it is asked: pages for the people it is told have none (M719 reworded what follows the names —
+       * "record only identity facts the originals establish…" — the names still come first, before the dash) */
+      const m = u.match(/NO CHARACTER PAGE YET: (.+?) — /);
       const names = m ? m[1].split(/,\s*/).map((x) => x.trim()).filter(Boolean) : [];
       return JSON.stringify({ deltas: names.flatMap((n) => [{ name: n, field: 'core', text: n + ', as the opening shows them.' }, { name: n, field: 'state', text: 'In the barracks, at the door.' }]) });
     }
@@ -8439,7 +8533,7 @@ test('DOM-240 A STORY’S OWN CALENDAR, AND THE MORNING AFTER, IN THE APP (M660 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-241 THE SHELF, TIDY (M662 — his: “add plus button so I can easily add new story in project… Start new story just create new story on loose tales… Search: if I open multiple projects it can search words on those projects”): “Start a new story” starts a loose tale whatever tale is open; the + on a shelf starts one on that shelf; the search looks through the shelves that are open, says which, and reaches every tale in one tap', async () => {
+test('DOM-241 THE SHELF, TIDY (M662 — his: “add plus button so I can easily add new story in project… Start new story just create new story on loose tales… Search: if I open multiple projects it can search words on those projects”): “Start a new story” starts a loose tale whatever tale is open; the + on a shelf starts one on that shelf; the search (M734: the scope is his to choose) looks through every tale — a folded shelf hides nothing — or through the folders he ticks, says where it looked, and stands the latest first', async () => {
   const before = errors.length;
   const gotham = await db.projects.create({ name: 'Gotham nights' });
   const bleach = await db.projects.create({ name: 'Seireitei' });
@@ -8481,9 +8575,19 @@ test('DOM-241 THE SHELF, TIDY (M662 — his: “add plus button so I can easily 
   await until(() => !q('#new-story-form').hidden, 'the form once more');
   eq(q('#new-story-where').textContent, 'It starts among your loose tales.', 'the plus is not remembered');
   click(q('#btn-cancel-story'));
-  /* the search: every shelf open — every tale */
+  /* the search. M734 (52da129) put the scope in his hands: M662 searched only the shelves that stood open, and a folded or
+   * archived shelf silently hid its matching tales — the cause M734 found behind a search of his that came back short.
+   * Now every tale is searched unless he chooses "Selected folders" and ticks the ones he means; the line says where it
+   * looked, and the tales stand the latest played first. */
   const titles = () => [...document.querySelectorAll('#search-results .search-tale-title')].map((n) => n.textContent).sort().join(' | ');
-  const input = q('#story-search');
+  const inOrder = () => [...document.querySelectorAll('#search-results .search-tale-title')].map((n) => n.textContent).join(' | ');
+  const latestFirst = async (names) => (await db.stories.list()).map((x) => x.title).filter((t) => names.includes(t)).join(' | '); /* the store's own order: the latest played first */
+  const summary = () => (q('#search-results .search-summary') || {}).textContent || '';
+  const answered = (what) => until(() => !q('#search-results').hidden && !/Searching/.test(q('#search-results').textContent) && (q('#search-results .search-summary') || /Choose one or more folders/.test(q('#search-results').textContent)), what, 15000);
+  const scope = q('#search-scope');
+  const choose = (value) => { scope.value = value; scope.dispatchEvent(new env.window.Event('change', { bubbles: true })); };
+  const tickFolder = (value, on) => { const box = q('#search-folder-options input[value="' + value + '"]'); box.checked = on; box.dispatchEvent(new env.window.Event('change', { bubbles: true })); };
+  const ticked = [];
   /* the walk before this one may have left shelves folded (the fold is remembered): open them all, and fold them back after */
   const wasFolded = [];
   for (let guard = 0; guard < 40; guard += 1) {
@@ -8496,24 +8600,40 @@ test('DOM-241 THE SHELF, TIDY (M662 — his: “add plus button so I can easily 
   }
   try {
     await until(() => shelfHead('Seireitei') && !document.querySelector('#story-list .shelf.collapsed'), 'the list, every shelf open');
+    eq(scope.value, 'all', 'every tale is searched until he chooses folders');
+    assert(q('#search-folders').hidden, 'and no folder list stands in the way');
     await env.ctx.search.run('ghostlamp');
-    await until(() => !q('#search-results').hidden && q('#search-results .search-summary') && !/Searching/.test(q('#search-results').textContent), 'the results', 15000);
-    eq(titles(), 'A loose one | The captains meet | The ghostlamp at the pier', 'nothing folded: every tale that holds the word');
-    assert(!q('#search-results .search-scope'), 'and no choice of where to search is offered');
+    await answered('the results');
+    eq(titles(), 'A loose one | The captains meet | The ghostlamp at the pier', 'every tale that holds the word');
+    eq(inOrder(), await latestFirst(['A loose one', 'The captains meet', 'The ghostlamp at the pier']), 'the latest played first');
+    eq(summary(), '3 tales hold “ghostlamp” — the latest first.', 'and the line says so');
     assert(/Gotham nights/.test([...document.querySelectorAll('#search-results .search-tale')].find((c) => /pier/.test(c.textContent)).textContent), 'each tale says the shelf it is on');
     env.ctx.search.close();
-    /* fold Seireitei: the search is the open shelves' */
+    /* fold Seireitei: a folded shelf hides nothing (it hid “The captains meet” before M734) */
     click(shelfHead('Seireitei').querySelector(':scope > .shelf-head .shelf-toggle'));
     await until(() => shelfHead('Seireitei') && shelfHead('Seireitei').classList.contains('collapsed'), 'Seireitei folded');
     await env.ctx.search.run('ghostlamp');
-    await until(() => !q('#search-results').hidden && q('#search-results .search-summary') && !/Searching/.test(q('#search-results').textContent), 'the results again', 15000);
-    eq(titles(), 'A loose one | The ghostlamp at the pier', 'the folded shelf’s tale is not searched');
-    assert(/on the open shelves \([^)]*Gotham nights[^)]*\)/.test(q('#search-results .search-summary').textContent), 'the line says which shelves: ' + q('#search-results .search-summary').textContent);
-    eq(q('#search-results .search-scope').textContent, 'Search every tale', 'and every tale is one tap away');
-    click(q('#search-results .search-scope'));
-    await until(() => /The captains meet/.test(titles()), 'every tale', 15000);
-    eq(titles() + ' // ' + q('#search-results .search-scope').textContent, 'A loose one | The captains meet | The ghostlamp at the pier // Only the open shelves', 'every tale, and the way back');
+    await answered('the results again');
+    eq(titles(), 'A loose one | The captains meet | The ghostlamp at the pier', 'the folded shelf’s tale is searched too');
+    /* the folders he chooses: none yet — nothing searched, and the line asks; then each one ticked narrows to it */
+    choose('selected');
+    await until(() => !q('#search-folders').hidden && q('#search-folder-options input[value="project:' + gotham.id + '"]') && q('#search-folder-options input[value="project:' + bleach.id + '"]') && q('#search-folder-options input[value="loose"]'), 'the folders to choose from', 10000);
+    await until(() => /Choose one or more folders to search\./.test(q('#search-results').textContent) && !q('#search-results .search-tale'), 'nothing chosen: nothing searched, and the line asks', 10000);
+    tickFolder('project:' + gotham.id, true); ticked.push('project:' + gotham.id);
+    await until(() => titles() === 'The ghostlamp at the pier', 'only Gotham’s tales: ' + titles(), 15000);
+    eq(summary(), 'One tale in the selected folders holds “ghostlamp” — the latest first.', 'the line says where it looked');
+    tickFolder('loose', true); ticked.push('loose');
+    await until(() => titles() === 'A loose one | The ghostlamp at the pier', 'Gotham and the loose tales: ' + titles(), 15000);
+    eq(summary(), '2 tales in the selected folders hold “ghostlamp” — the latest first.', 'two folders, two tales');
+    tickFolder('project:' + bleach.id, true); ticked.push('project:' + bleach.id);
+    await until(() => /The captains meet/.test(titles()), 'a folded shelf ticked is searched', 15000);
+    /* and every tale is one choice away */
+    for (const v of ticked.splice(0)) tickFolder(v, false);
+    choose('all');
+    await until(() => q('#search-folders').hidden && titles() === 'A loose one | The captains meet | The ghostlamp at the pier' && summary() === '3 tales hold “ghostlamp” — the latest first.', 'every tale again: ' + titles(), 15000);
   } finally {
+    for (const v of ticked) tickFolder(v, false);
+    if (scope.value !== 'all') choose('all');
     env.ctx.search.close();
     if (shelfHead('Seireitei') && shelfHead('Seireitei').classList.contains('collapsed')) click(shelfHead('Seireitei').querySelector(':scope > .shelf-head .shelf-toggle'));
     for (const name of wasFolded) { const sh = shelfHead(name); if (sh && !sh.classList.contains('collapsed')) { click(sh.querySelector(':scope > .shelf-head .shelf-toggle')); await new Promise((r) => setTimeout(r, 30)); } }
@@ -8592,7 +8712,10 @@ test('DOM-242 THE STORY SCREEN, AS HE ASKED (M668; M675: the bottom line holds n
       for (const guard of ['auditor', 'continuity']) {
         await noteWorkerRun(st.id, guard, { ok: false, detail: 'its model gave nothing that could be read' });
         await env.window.__cozy.chat.renderThread({ structural: true });
-        await until(() => lampNow.classList.contains('has-trouble') && !lampNow.classList.contains('all-well'), 'the light yellow when the ' + guard + ' fails on the newest page: ' + lampNow.className, 20000);
+        /* …and its words name the check that failed and say the story is safe (M668; the lamp's reasons since M727) */
+        const named = new RegExp((guard === 'auditor' ? 'the auditor' : 'the second reader') + ' did not finish on the newest page; the story is safe');
+        await until(() => lampNow.classList.contains('has-trouble') && !lampNow.classList.contains('all-well') && named.test(lampNow.getAttribute('title') || ''), 'the light yellow when the ' + guard + ' fails on the newest page, naming it', 20000)
+          .catch((err) => { throw new Error(err.message + ': ' + lampNow.className + ' — ' + lampNow.getAttribute('title')); });
         await noteWorkerRun(st.id, guard, { ok: true, detail: 'well' });
         await env.window.__cozy.chat.renderThread({ structural: true });
         await until(() => lampNow.classList.contains('all-well'), 'and green again when it has run well', 20000);
@@ -8645,7 +8768,11 @@ test('DOM-243 THE CONTINUOUS AUDIT, IN THE APP (M673 — his: “step by step it
     '[Thirteenth Division barracks — Monday, March 3, 2025 | 09:40 | clear]\n\nRenji came back from the gate before noon and found them in the yard. He asked nothing.',
   ];
   const LINE_A = 'Jovan showed Rukia the seal of the Thirteenth; Marcus came back from the gate before noon.';
+  /* M722: a story fault is mended only when the reader quotes the page's own wrong words AND the brief (or the earlier record)
+   * they cannot be true beside — the brief says where Renji has been, and where Jovan keeps the seal */
+  const BRIEF = 'A story of the Thirteenth Division. Renji has stood watch at the gate since the night before the story opens. Jovan keeps the seal of the Thirteenth sewn into his boot.';
   const st = await db.stories.create({ title: 'a tale read as it folds' });
+  await db.stories.update(st.id, { brief: BRIEF });
   for (let i = 0; i < 6; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: SIX[i] });
   for (let i = 6; i < 40; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: i % 2 ? '[Thirteenth Division barracks — Monday, March 3, 2025 | 1' + String(i % 10) + ':00 | clear]\n\nThe yard was quiet that hour, and Rukia swept it. Page ' + i + '.' : 'I wait. ' + i });
   const led = applyMutations({ ...emptyState() }, [
@@ -8654,16 +8781,28 @@ test('DOM-243 THE CONTINUOUS AUDIT, IN THE APP (M673 — his: “step by step it
     { type: 'presence.enter', name: 'Jovan' },
     { type: 'people.set', name: 'Rukia', field: 'core', text: 'a shinigami of the Thirteenth Division' },
     { type: 'people.set', name: 'Renji', field: 'core', text: 'a lieutenant, posted at the gate' },
+    /* M719: a ledger read whole holds the hour its newest page left, and the world's word for everyone the story carries who
+     * is not here — the brief names Renji, at the gate */
+    { type: 'clock.set', year: 2025, month: 3, day: 3, hour: 19, minute: 0 },
+    { type: 'offscreen.set', name: 'Renji', location: 'the gate', activity: 'standing watch' },
   ]).state;
   await saveState(st.id, { ...led, page: 19, readTo: 19, tidiedGen: 999, healedGen: 999, audit: { coverage: { read: 40, total: 40 }, pending: [], unfinished: false } });
   const line = (id, a, text) => ({ id, span: [a, a + 5], text, level: 1, at: a + 1, whole: true });
   await saveMemory(st.id, { window: 30, nodes: [line('a', 0, LINE_A), line('b', 6, 'Rukia swept the yard; nothing else moved.'), line('c', 12, 'The yard stayed quiet; Rukia swept on.')] });
   await noteWorkerRun(st.id, 'keeper', { ok: true, detail: 'well' });
+  /* M722: the shape the reader is asked for now — a target for every issue; a record fix with the passage that supports it and
+   * why; a story fault with the page's own wrong words and the brief's they cannot be true beside */
   const ANSWER = JSON.stringify({ issues: [
-    { what: 'The line names Marcus; the pages have Renji come back from the gate.', record: { fixes: [{ from: 'Marcus', to: 'Renji' }], detail: 'Rukia promised Jovan to keep the seal hidden from the captains' } },
-    { what: 'Rukia learned that Jovan carries the seal.', mutations: [{ type: 'knowledge.add', name: 'Rukia', fact: 'Jovan carries the seal of the Thirteenth' }, { type: 'place.set', name: 'The gate' }] },
-    { what: 'Page 2 has Renji leave at dawn, but the story so far has him at the gate since the night before.', pages: true, page: 2, fix: 'Renji had been at the gate since the night before.' },
+    { what: 'The line names Marcus; the pages have Renji come back from the gate.', target: 'record', record: { fixes: [{ from: 'Marcus', to: 'Renji', shown: 'Renji came back from the gate before noon', why: 'The pages have Renji come back from the gate, not Marcus.' }], detail: 'Rukia promised Jovan to keep the seal hidden from the captains' } },
+    { what: 'Rukia learned that Jovan carries the seal.', target: 'knowledge', mutations: [{ type: 'knowledge.add', name: 'Rukia', fact: 'Jovan carries the seal of the Thirteenth' }, { type: 'place.set', name: 'The gate' }] },
+    { what: 'Page 2 has Renji leave at dawn, but the brief has him at the gate since the night before.', target: 'story', pages: true, page: 2, fix: 'Renji had been at the gate since the night before.',
+      evidence: { page: 'he had left for the gate at dawn', prior: 'Renji has stood watch at the gate since the night before the story opens', why: 'The brief has Renji on watch at the gate all night; page 2 has him leave for it only at dawn.' } },
   ] });
+  /* the reading of the mended page finds what still stands on it as it now reads (M722: the reader quotes the page's own words
+   * — the fault it mended is no longer there to quote) */
+  const AGAIN = JSON.stringify({ issues: [...JSON.parse(ANSWER).issues.slice(0, 2),
+    { what: 'Page 2 has Jovan draw the seal from his coat, though he keeps it sewn into his boot.', target: 'story', pages: true, page: 2, fix: 'Jovan drew the seal of the Thirteenth from his boot.',
+      evidence: { page: 'Jovan drew the seal of the Thirteenth from his coat', prior: 'Jovan keeps the seal of the Thirteenth sewn into his boot', why: 'The brief has the seal sewn into his boot; page 2 has him draw it from his coat.' } }] });
   const asked = [];          /* every reading the continuous audit asked for: the pages it named */
   const queuedAt = [];       /* …and how many readers were waiting behind it when it was asked */
   let hold = null;           /* a scenario may hold one answer back */
@@ -8674,12 +8813,17 @@ test('DOM-243 THE CONTINUOUS AUDIT, IN THE APP (M673 — his: “step by step it
       const m = user.match(/THE PAGES \(pages (\d+)-(\d+) of the story/);
       asked.push(m ? m[1] + '-' + m[2] : '?');
       queuedAt.push(queuedCount(st.id));
-      const answer = m && m[1] === '1' ? ANSWER : '{"issues":[]}';
+      const answer = m && m[1] === '1' ? (menderAsked ? AGAIN : ANSWER) : '{"issues":[]}';
       if (hold) { const h = hold; hold = null; return h.then(() => answer); }
       return answer;
     }
-    if (/mend a story/i.test(sys) && /Renji had been at the gate since the night before/.test(user)) { menderAsked += 1; return JSON.stringify([{ index: 0, find: 'he had left for the gate at dawn', replace: 'he had been at the gate since the night before' }]); }
+    if (/mend a story/i.test(sys)) { /* every mender this tale is sent, counted: a page already mended is never mended again */
+      menderAsked += 1;
+      return /Renji had been at the gate since the night before/.test(user) ? JSON.stringify([{ index: 0, find: 'he had left for the gate at dawn', replace: 'he had been at the gate since the night before' }]) : '[]';
+    }
     if (/narrative-state tracker/i.test(sys) && /drew the seal of the Thirteenth/.test(user)) return LINE_A;
+    /* M719: the world keeps everyone the story carries who is not here — the brief names Renji, and he is at the gate */
+    if (/world beyond the page/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'offscreen.set', name: 'Renji', location: 'the gate', activity: 'standing watch' }], brief: { pressure: [], ripe: [], twb: null } });
     return priorWorker(body, sys);
   };
   const lamp = q('#btn-ledger');
@@ -8714,7 +8858,8 @@ test('DOM-243 THE CONTINUOUS AUDIT, IN THE APP (M673 — his: “step by step it
     eq(queuedAt[0], 0, 'sent by itself, with nothing else at work');
     await until(() => lamp.classList.contains('is-auditing'), 'the audit’s own light: ' + lamp.className, 10000);
     assert(lamp.classList.contains('all-well') && !lamp.classList.contains('is-working'), 'the lamp still says what is true of the scene — green, not “reading this scene”: ' + lamp.className);
-    assert(/everything is read and folded\. Nothing is waiting\. Write on\. The continuous audit has read 0 of 18 folded pages and is reading on/.test(says()), 'and its words say how far: ' + says());
+    /* M694 (90ca6b0): the green words are a verified ledger's now */
+    assert(/^The current ledger is read, folded and audited with no unresolved findings\. Write on\. The continuous audit has read 0 of 18 folded pages and is reading on/.test(says()), 'and its words say how far: ' + says());
     release();
     /* 2a. the page that could not be true is mended by the house's own mender, and that reading writes nothing else */
     await until(async () => { const p = (await db.messages.list(st.id))[1]; return Boolean(p && p.mended); }, 'page 2 to be mended', 20000);
@@ -8734,7 +8879,7 @@ test('DOM-243 THE CONTINUOUS AUDIT, IN THE APP (M673 — his: “step by step it
     eq(JSON.stringify((ledger.knowledge.Rukia || []).map((k) => [k.fact, k.atTurn])), JSON.stringify([['Jovan carries the seal of the Thirteenth', 3]]), 'what she learned is in the ledger, dated with the pages she learned it on');
     eq((ledger.place || {}).name, 'Thirteenth Division barracks', 'and the scene is not its to move');
     const noted = (await db.messages.list(st.id))[1].findings || [];
-    assert(noted.some((f) => /^The continuous audit: /.test(f.words) && /Renji had been at the gate since the night before/.test(f.words)), 'the fault it did not mend twice is noted on the page: ' + JSON.stringify(noted));
+    assert(noted.some((f) => /^The continuous audit: /.test(f.words) && /Jovan drew the seal of the Thirteenth from his boot/.test(f.words)), 'the fault it did not mend twice is noted on the page: ' + JSON.stringify(noted));
     const row = (await loadWorkerStatus(st.id)).continuous;
     assert(row && row.ok && /read pages 13–18 against the story before, the record line and the ledger: nothing to set right — 18 of 18 folded pages read/.test(row.detail), 'its row among the workers says what it read and how far: ' + JSON.stringify(row));
     await until(() => !lamp.classList.contains('is-auditing') && lamp.classList.contains('all-well') && /The continuous audit has read every folded page \(18\)\./.test(says()), 'the light at rest, saying it is all read: ' + lamp.className + ' — ' + says(), 15000);
@@ -9233,6 +9378,9 @@ test('DOM-248 AN OUT-OF-CHARACTER ANSWER IS NEVER READ INTO THE LEDGER (M674): t
   /* the ledger read pages 0..2; the three after them went unread */
   await saveState(st.id, { ...emptyState(), page: 2, place: { name: 'The lake' }, present: [{ name: 'Jovan' }] });
   await saveMemory(st.id, { window: 20, nodes: [] });
+  /* M694: and audited — a ledger no auditor has verified keeps the light yellow whatever lands out of character (an aside is
+   * no source of the audit: it leaves a verified ledger verified) */
+  await auditedLedger(st.id);
   for (const w of ['keeper', 'extractor', 'scribe', 'world']) await noteWorkerRun(st.id, w, { ok: true, detail: 'well' });
   const pageRead = (c) => newPageOf(String(((c.body.messages || []).slice(-1)[0] || {}).content || ''));
   const readers = (from) => house.state.calls.slice(from).filter((c) => c.isWorker && /keep the ledger/i.test(String(((c.body.messages || [])[0] || {}).content || '')));
@@ -10014,13 +10162,18 @@ test('DOM-257 A MEND NEVER LETS GO A LINE IN HIS OWN WORDS, NOR A LINE NOTHING W
   const priorWorker = house.state.workerAnswer;
   const windowWas257 = await db.settings.get('memoryWindow');
   const H = (t) => '[Thirteenth Division barracks — Monday, March 3, 2025 | ' + t + ' | clear]\n\n';
+  /* M722: a story fault is mended only when the reader quotes the page's own wrong words and the brief's (or the earlier
+   * record's) they cannot be true beside — the brief says where Renji has been */
+  const BRIEF = 'A story of the Thirteenth Division. Renji has stood watch at the gate since the night before the story opens.';
   const make = async (title, line, tale = {}, mark = '') => {
     const st = await db.stories.create({ title });
-    if (Object.keys(tale).length) await db.stories.update(st.id, tale);
+    await db.stories.update(st.id, { brief: BRIEF, ...tale });
     const OLD = ['I show Rukia the seal.', H('09:10') + 'Jovan drew the seal from his coat. Renji was nowhere near; he had left for the gate at dawn.', 'I nod.', H('09:20') + 'Rukia said nothing more of it.', 'I wait.', H('09:40') + 'The yard was quiet.'];
     for (let i = 0; i < 6; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: OLD[i] });
     for (let i = 6; i < 40; i += 1) await db.messages.append(st.id, { role: i % 2 ? 'assistant' : 'user', text: i % 2 ? H('1' + (i % 10) + ':00') + 'The yard was quiet that hour, and Rukia swept it. ' + mark + 'Page ' + i + '.' : 'I wait. ' + i });
-    const led = applyMutations({ ...emptyState() }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Thirteenth Division barracks' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'people.set', name: 'Renji', field: 'core', text: 'a lieutenant, posted at the gate' }]).state;
+    /* M719: a ledger read whole holds the hour its newest page left and the world's word for Renji, whom the brief names */
+    const led = applyMutations({ ...emptyState() }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Thirteenth Division barracks' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'people.set', name: 'Renji', field: 'core', text: 'a lieutenant, posted at the gate' },
+      { type: 'clock.set', year: 2025, month: 3, day: 3, hour: 19, minute: 0 }, { type: 'offscreen.set', name: 'Renji', location: 'the gate', activity: 'standing watch' }]).state;
     await saveState(st.id, { ...led, page: 19, readTo: 19, tidiedGen: 999, healedGen: 999 });
     await saveMemory(st.id, { window: 34, nodes: [line] });
     await noteWorkerRun(st.id, 'keeper', { ok: true, detail: 'well' });
@@ -10029,7 +10182,9 @@ test('DOM-257 A MEND NEVER LETS GO A LINE IN HIS OWN WORDS, NOR A LINE NOTHING W
   let menderAsked = 0; let keeperAsked = 0; let keeperAskedOff = 0;
   house.state.workerAnswer = (body, sys) => {
     const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
-    if (/continuity editor of a long story/i.test(sys)) return /he had left for the gate at dawn/.test(user) ? JSON.stringify({ issues: [{ what: 'Page 2 has Renji leave at dawn, but he had been at the gate since the night before.', pages: true, page: 2, fix: 'Renji had been at the gate since the night before.' }] }) : '{"issues":[]}';
+    /* the shape the reader is asked for now (M722): a target, and for a story fault the page's wrong words and the brief's */
+    if (/continuity editor of a long story/i.test(sys)) return /he had left for the gate at dawn/.test(user) ? JSON.stringify({ issues: [{ what: 'Page 2 has Renji leave at dawn, but he had been at the gate since the night before.', target: 'story', pages: true, page: 2, fix: 'Renji had been at the gate since the night before.',
+      evidence: { page: 'he had left for the gate at dawn', prior: 'Renji has stood watch at the gate since the night before the story opens', why: 'The brief has Renji on watch at the gate all night; page 2 has him leave for it only at dawn.' } }] }) : '{"issues":[]}';
     if (/mend a story/i.test(sys)) { menderAsked += 1; return JSON.stringify([{ index: 0, find: 'he had left for the gate at dawn', replace: 'he had been at the gate since the night before' }]); }
     if (/narrative-state tracker/i.test(sys)) { keeperAsked += 1; if (/KEEPEROFF-MARK/.test(JSON.stringify(body))) keeperAskedOff += 1; return 'Jovan showed Rukia the seal; Renji had been at the gate since the night before.'; }
     return priorWorker(body, sys);
@@ -10294,7 +10449,8 @@ test('DOM-260 A GAP FILL WHOSE KEEPER DOES NOT ANSWER IS ASKED ONCE, SAYS SO, AN
     await tick(400);
     eq(keeperAsked, 1, 'asked once (the queue asked six times, two seconds, four, eight … apart)');
     const row = (await loadWorkerStatus(st.id)).keeper;
-    assert(row && row.ok !== false && /could not fold a gap in the record yet \(.+[^.]\) — it tries again later/.test(String(row.detail || '')), 'the workers’ line says so with the reason, and the keeper is not marked failed (a failed keeper stops the house folding the gap by itself): ' + JSON.stringify(row && { ok: row.ok, why: row.why, detail: row.detail }));
+    /* M745 (c6164d6): the house's own record job repairs stale page references as well as folding gaps, and says so plainly */
+    assert(row && row.ok !== false && /could not repair the record yet \(.+[^.]\) — it tries again later/.test(String(row.detail || '')), 'the workers’ line says so with the reason, and the keeper is not marked failed (a failed keeper stops the house folding the gap by itself): ' + JSON.stringify(row && { ok: row.ok, why: row.why, detail: row.detail }));
     await until(() => lamp() === 'amber' && /stopped partway; it will carry on by itself/.test(btn.getAttribute('title') || ''), 'the light says it will carry on by itself: ' + lamp() + ' — ' + btn.getAttribute('title'), 10000);
     /* the keeper answers again: the gap is folded with nothing pressed */
     keeperDown = false;
@@ -13982,20 +14138,21 @@ test('DOM-272 HIS TURN 21, THROUGH THE APP (M679 — his: "why my mc at the end 
     + '“I guess I should go, Captain Corven,” Jugram said, and asked the boy to walk him to the small council room.\n\n'
     + 'Corven let him go without another word about the cloak. The boy led Jugram down the side passage, past the kitchens’ heat, to the small council room’s door, where a grey steward took the cloak over his hand.';
   house.state.storyAnswer = () => HALL;
-  let audited = 0;
+  let audited = 0; let toldAuditor = '';
   house.state.workerAnswer = (body, sys) => {
     const system = String(sys || '');
     if (/auditor of the ledger/i.test(system)) {
       audited += 1;
-      /* his auditor's reading of turn 21 — the page's START taken for the present */
-      return JSON.stringify({ issues: [
-        { what: 'the ledger’s presence has Azrael at the small council room door with the page, but the latest page shows him at the hall’s threshold beside Corven, cloak off over his forearm', fix: 'Azrael is at the hall’s threshold beside Corven', pages: false, mutations: [{ type: 'presence.update', name: 'Azrael', position: 'at the hall’s threshold beside Corven, cloak off over his forearm' }] },
-        { what: 'the ledger’s Here now does not list Corven, but the latest page shows him at the hall’s threshold beside Jugram', fix: 'Corven is in the scene', pages: false, mutations: [{ type: 'presence.enter', name: 'Corven', shown: 'Corven stood beside him, lamp up, waiting' }] },
-        { what: 'the ledger’s Here now does not list Ser Holvard, but the latest page shows him down the great table’s lower end', fix: 'Ser Holvard is in the scene', pages: false, mutations: [{ type: 'offscreen.clear', name: 'Ser Holvard' }] },
-        { what: 'the ledger’s Things list has the cloak over the grey steward’s hand, but the latest page shows Jugram folding it over his forearm at the hall’s threshold', fix: 'the cloak is over Jugram’s forearm', pages: false, mutations: [{ type: 'thing.set', name: 'the cloak', where: 'over Jugram’s forearm at the hall’s threshold' }] },
-        { what: 'the ledger lacks Mirelia', fix: 'Mirelia is here', pages: false, mutations: [{ type: 'presence.enter', name: 'Mirelia' }] },
-        { what: 'Corven has no line for Jugram’s leave-taking', fix: 'Corven knows it', pages: false, mutations: [{ type: 'knowledge.add', name: 'Corven', fact: 'that Jugram took his leave with “I guess I should go, Captain Corven” and went with the boy to the small council room' }] },
-      ] });
+      toldAuditor += (body.messages || []).map((m) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content))).join('\n').replace(/\s+/g, ' ');
+      /* M689/M709/M712 (CONTRACT CHANGED): production no longer holds the auditor's prose readings to the page's ending in code
+       * (auditorScope went with M689; M712 made its ending read final) — the auditor is TOLD the ledger is the scene as the
+       * page ends, handed the page to its end, and told a later departure wins. His auditor's turn-21 reading took the page's
+       * start for the present; an auditor that does as it is told answers as below (harness M679-6, as restored): its own
+       * ending read for him, judged the same as the ledger's (repair:false — it writes nothing), and what lasts. */
+      return reviewed({
+        scene: [{ name: 'Azrael Jugram', repair: false, earlier: 'swept the cloak off at the hall’s threshold and went with the boy', ending: { position: 'at the door of the small council room, the page beside him', shown: 'The boy led Jugram down the side passage, past the kitchens’ heat, to the small council room’s door' } }],
+        issues: [{ what: 'Corven has no line for Jugram’s leave-taking', fix: 'Corven knows it', pages: false, mutations: [{ type: 'knowledge.add', name: 'Corven', fact: 'that Jugram took his leave with “I guess I should go, Captain Corven” and went with the boy to the small council room' }] }],
+      });
     }
     if (/keep the ledger/i.test(system) && !/THE LEDGER IS YOUNG/.test(system)) {
       return JSON.stringify({
@@ -14018,6 +14175,10 @@ test('DOM-272 HIS TURN 21, THROUGH THE APP (M679 — his: "why my mc at the end 
     await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'its readers', 60000);
     const now = await loadState(st.id);
     assert(audited >= 1, 'the auditor read the page');
+    for (const rule of ['the ledger you read is the scene as that page ENDS. Where its start differs (he walked off, the room emptied) the end is the present.',
+      'COMPLETE NEWEST MAIN STORY. Read each person through the ending; an opening header or earlier retreat cannot override a later stopping position',
+      'A later departure, death, changed position or scene move still wins. Never restore an earlier moment over it.']) assert(toldAuditor.includes(rule), 'the auditor is told: ' + rule);
+    assert(toldAuditor.includes('where a grey steward took the cloak over his hand.'), 'and is handed the page to its end');
     eq(now.present.map((p) => p.name).sort().join(', '), 'Azrael Jugram, the page', 'the room as the page ends — nobody walked back in (not Corven, not Ser Holvard, not Mirelia)');
     const az = now.present.find((p) => p.name === 'Azrael Jugram');
     eq(az && az.position, 'at the small council room door with the page', 'he is where the page ends');
@@ -15116,10 +15277,12 @@ test('DOM-M684-1 introductions survive the full reader chain, a world cut, the d
   const caelan = 'Prince Caelan is the Third Prince and lives at the northern estate.';
   const input = alexia + ' ' + caelan + ' I offer her a chair.';
   house.state.workerAnswer = (body, sys) => {
-    if (/keep the ledger/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'mode.snapshot', flags: ['group'] }], people: [{ name: 'Princess Alexia', shown: alexia }, { name: 'Prince Caelan', shown: caelan }], here: ['Jovan', 'Princess Alexia'] });
+    /* M699: the reader records each introduced identity with its stable core kept apart from the quotation that shows it (the
+     * prompt's own shape: {name, core, shown}) — a quotation alone is no core */
+    if (/keep the ledger/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'mode.snapshot', flags: ['group'] }], people: [{ name: 'Princess Alexia', core: 'The Second Princess.', shown: alexia }, { name: 'Prince Caelan', core: 'The Third Prince; he lives at the northern estate.', shown: caelan }], here: ['Jovan', 'Princess Alexia'] });
     if (/world beyond the page/i.test(sys)) return JSON.stringify({ mutations: [{ type: 'offscreen.set', name: 'Prince Caelan', location: 'the northern estate', activity: 'meeting his steward', cause: 'He remains at his established estate while the salon conversation continues.' }], brief: { pressure: [], ripe: [], twb: null } });
     if (/character pages/i.test(sys)) return '{"deltas":[]}';
-    if (/auditor of the ledger/i.test(sys)) return '{"issues":[]}';
+    if (/auditor of the ledger/i.test(sys)) return reviewed(); /* M698/M709: the final review answers its contract */
     return previous(body, sys);
   };
   try {
@@ -15170,11 +15333,17 @@ test('DOM-M685-1 the actual audit button restores lost identities, nearby presen
   const caelan = 'Prince Caelan is the Third Prince and lives at the northern estate.';
   let worldCalls = 0;
   house.state.sourcePeopleAnswer = (body, docs) => JSON.stringify({ checked: docs.map((d) => d.id), people: docs.flatMap((d) => [
-    ...(d.text.includes(alexia) ? [{ name: 'Princess Alexia', source: d.id, shown: alexia }] : []),
-    ...(d.text.includes(caelan) ? [{ name: 'Prince Caelan', source: d.id, shown: caelan }] : []),
+    ...(passageIn(d, alexia) ? [sourcePerson(d, 'Princess Alexia', alexia, ['Second Princess'])] : []),
+    ...(passageIn(d, caelan) ? [sourcePerson(d, 'Prince Caelan', caelan, ['Third Prince'])] : []),
   ]) });
   house.state.workerAnswer = (body, sys) => {
-    if (/auditor of the ledger/i.test(sys)) return JSON.stringify({ issues: [{ what: 'The nearby princess is missing from the scene.', mutations: [{ type: 'presence.enter', name: 'Princess Alexia', shown: alexia }] }] });
+    /* M699/M708/M718: a source reading restores nobody by itself — the one final review writes each recovered profile, decides
+     * each original individual handed to it, and returns its verdict beside the scene repair */
+    if (/auditor of the ledger/i.test(sys)) return reviewed({
+      issues: [{ what: 'The nearby princess is missing from the scene.', mutations: [{ type: 'presence.enter', name: 'Princess Alexia', shown: alexia }] }],
+      profiles: [{ name: 'Princess Alexia', core: { text: 'Second Princess.', shown: alexia } }, { name: 'Prince Caelan', core: { text: 'Third Prince.', shown: caelan } }],
+      identities: sourceIdentities(body),
+    });
     if (/world beyond the page/i.test(sys)) {
       worldCalls++;
       return JSON.stringify({ mutations: [{ type: 'offscreen.set', name: 'Prince Caelan', location: 'the northern estate', activity: 'meeting his steward', cause: 'His established estate remains his base while he tends its affairs.' }], brief: { pressure: [], ripe: [], twb: null } });
@@ -15183,7 +15352,10 @@ test('DOM-M685-1 the actual audit button restores lost identities, nearby presen
   };
   try {
     const st = await db.stories.create({ title: 'M685 recover an existing ledger' });
-    await db.stories.update(st.id, { keeper: false, continuity: false, extraction: true, world: true });
+    /* M719 (43e15fe): the World simulates the people who take part in the story — the brief naming them first among the
+     * reasons — not every identity the ledger holds; the absent prince the audit restores is the writer's own, named in
+     * the brief, so the audit owes him his world decision */
+    await db.stories.update(st.id, { keeper: false, continuity: false, extraction: true, world: true, brief: caelan });
     await db.messages.append(st.id, { role: 'user', text: alexia + ' ' + caelan });
     await db.messages.append(st.id, { role: 'assistant', text: '[the palace salon — Monday | 10:00]\n\nShe takes the chair beside him and smiles.' });
     await saveState(st.id, applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the palace salon' }, { type: 'presence.enter', name: 'Jovan' }]).state);
@@ -15243,16 +15415,23 @@ async function autonomousLedgerFixture(run, { sourceRecovery = false, failFirst 
   await saveState(st.id, state);
   let calls = 0, restored = false;
   let release = () => {};
-  house.state.sourcePeopleAnswer = (body, docs) => JSON.stringify({ checked: docs.map((d) => d.id), people: sourceRecovery ? docs.filter((d) => d.text.includes(quote)).map((d) => ({ name: 'Princess Alexia', source: d.id, shown: quote })) : [] });
+  house.state.sourcePeopleAnswer = (body, docs) => JSON.stringify({ checked: docs.map((d) => d.id), people: sourceRecovery ? docs.filter((d) => passageIn(d, quote)).map((d) => sourcePerson(d, 'Princess Alexia', quote, ['Second Princess'])) : [] });
+  /* M699/M708/M718: the original reading restores nobody by itself — the one final review writes her profile and decides the
+   * original individual handed to it, beside its completed verdict (M698) */
+  const recovered = (body) => reviewed({ profiles: [{ name: 'Princess Alexia', core: { text: 'Second Princess.', shown: quote } }], identities: sourceIdentities(body) });
   house.state.workerAnswer = (body, sys) => {
     if (/auditor of the ledger/i.test(sys)) {
       calls++;
-      if (holdFirst && calls === 1) return new Promise((resolve) => { release = () => resolve('{"issues":[]}'); });
+      if (holdFirst && calls === 1) return new Promise((resolve) => { release = () => resolve(recovered(body)); });
       if (calls <= failFirst) throw new Error('fixture temporary provider outage');
-      if (sourceRecovery || restored) return '{"issues":[]}';
-      if (calls <= 8) return JSON.stringify({ issues: [{ what: 'Princess Alexia has no People identity.', mutations: [{ type: 'people.note', name: 'Princess Alexia', field: 'core', text: 'Second Princess.' }] }] });
+      if (sourceRecovery) return recovered(body);
+      if (restored) return reviewed();
+      /* M689 (cf9bd4a), M692: a pass whose repair does not land is followed by the next by itself; passes that make no
+       * progress pause (the findings stay open, the lamp amber) instead of asking forever — the eight refused passes this
+       * stand-in once gave before its landing are past that pause. One repair the ledger cannot write, then the working one. */
+      if (calls === 1) return reviewed({ issues: [{ what: 'Princess Alexia has no People identity.', mutations: [{ type: 'people.restore', name: 'Princess Alexia', field: 'core', text: 'Second Princess.' }] }] });
       restored = true;
-      return JSON.stringify({ issues: [{ what: 'Restore her established identity.', mutations: [{ type: 'people.set', name: 'Princess Alexia', field: 'core', text: 'Second Princess.' }] }] });
+      return reviewed({ issues: [{ what: 'Princess Alexia has no People identity.', mutations: [{ type: 'people.set', name: 'Princess Alexia', field: 'core', text: 'Second Princess.', shown: quote }] }] });
     }
     return before.worker(body, sys);
   };
@@ -15287,9 +15466,9 @@ test('DOM-M686-1 opening an existing story recovers missing identities without a
 test('DOM-M686-2 unresolved repairs continue while idle until corrected, without a Finish it action', async () => {
   await autonomousLedgerFixture(async ({ id, open, load, calls }) => {
     await open();
-    await until(async () => Boolean((await load()).characters['Princess Alexia']), 'the fifth automatic repair pass restores her identity', 7000);
+    await until(async () => Boolean((await load()).characters['Princess Alexia']), 'the next automatic repair pass restores her identity', 7000);
     await until(async () => (await load()).audit?.unfinished === false, 'the repaired concern is closed', 5000);
-    assert(calls() >= 9, 'recovery has no three attempt abandonment limit');
+    assert(calls() >= 2, 'a repair pass that did not land is followed by the next by itself');
     const settled = calls(); await tick(650);
     eq(calls(), settled, 'a completed repair stops asking');
     eq((await db.messages.list(id)).length, 2, 'no new story turn or button was needed');
@@ -15391,9 +15570,9 @@ test('DOM-M687-1 an accumulated salle repair backlog finishes automatically, tur
   })) };
   await saveState(st.id, state); await noteWorkerRun(st.id, 'extractor', { ok: true, detail: 'well' });
   let calls = 0;
-  house.state.sourcePeopleAnswer = (body, docs) => JSON.stringify({ checked: docs.map((d) => d.id), people: docs.filter((d) => d.text === original).map((d) => ({ name: 'Lord Marshal Kelstrum', source: d.id, shown: original })) });
+  house.state.sourcePeopleAnswer = (body, docs) => JSON.stringify({ checked: docs.map((d) => d.id), people: docs.filter((d) => passageIn(d, original)).map((d) => sourcePerson(d, 'Lord Marshal Kelstrum', original)) });
   house.state.workerAnswer = (body, sys) => /auditor of the ledger/i.test(sys)
-    ? (calls++, JSON.stringify({ issues: repairs.map((m, i) => ({ what: 'Restore the salle record ' + i, mutations: [m] })) }))
+    ? (calls++, reviewed({ issues: repairs.map((m, i) => ({ what: 'Restore the salle record ' + i, mutations: [m] })) }))
     : before.worker(body, sys);
   globalThis.__cozyLedgerRepairPauseMs = 20; globalThis.__cozyLedgerRepairBackoffMs = 20;
   const open = async (id) => { env.window.__cozy.setActiveStoryId(id); await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true }); };
@@ -15481,9 +15660,9 @@ test('DOM-M688-1 the reported spectator quotes, maid continuation and MC persona
   state.audit.unresolved.push({ what: 'The marshal has a duplicate seat.', pendingReason: 'blocked', mutations: [{ type: 'presence.update', name: 'the marshal', position: 'the middle of the raked ground' }] });
   await saveState(st.id, state); await noteWorkerRun(st.id, 'extractor', { ok: true, detail: 'well' });
   let calls = 0;
-  house.state.sourcePeopleAnswer = (body, docs) => JSON.stringify({ checked: docs.map((d) => d.id), people: docs.filter((d) => d.text === original).map((d) => ({ name: 'Lord Marshal Kelstrum', source: d.id, shown: original })) });
+  house.state.sourcePeopleAnswer = (body, docs) => JSON.stringify({ checked: docs.map((d) => d.id), people: docs.filter((d) => passageIn(d, original)).map((d) => sourcePerson(d, 'Lord Marshal Kelstrum', original)) });
   house.state.workerAnswer = (body, sys) => /auditor of the ledger/i.test(sys)
-    ? (calls++, JSON.stringify({ issues: repairs.map((m, i) => ({ what: m.name === 'Commodus' ? "Commodus is at the salle rail: '" + commodus + "'" : 'Restore the salle record ' + i, mutations: [m] })) }))
+    ? (calls++, reviewed({ issues: repairs.map((m, i) => ({ what: m.name === 'Commodus' ? "Commodus is at the salle rail: '" + commodus + "'" : 'Restore the salle record ' + i, mutations: [m] })) }))
     : before.worker(body, sys);
   globalThis.__cozyLedgerRepairPauseMs = 20; globalThis.__cozyLedgerRepairBackoffMs = 20;
   const open = async (id) => { env.window.__cozy.setActiveStoryId(id); await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true }); };
@@ -15516,6 +15695,413 @@ test('DOM-M688-1 the reported spectator quotes, maid continuation and MC persona
     house.state.workerAnswer = before.worker; house.state.sourcePeopleAnswer = before.source;
     await db.settings.set('auditOn', before.audit);
     delete globalThis.__cozyLedgerRepairPauseMs; delete globalThis.__cozyLedgerRepairBackoffMs;
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+  }
+});
+
+test('DOM-M752-1 A REQUEST THE HOUSE REFUSES BEFORE ASKING IS SAID WHERE A FAILED TELLING IS SAID: a connection whose context cannot hold the standing words and his move gets the worded refusal in the thread with its “Ask again” — no storyteller call, his message kept, no unhandled rejection; asked again, one note stands (M752)', async () => {
+  const before = errors.length;
+  const conn = await db.connections.add({ name: 'too small', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', contextSize: 8000 });
+  const st = await db.stories.create({ title: 'a request too large' });
+  await db.stories.update(st.id, { connectionId: conn.id, extraction: false, keeper: false, continuity: false });
+  const prior = await db.settings.get('activeStoryId');
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(() => !env.ctx.chat.isBusy(), 'the house free', 10000);
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'I walk into the hall.'); submit(q('#composer'));
+    const note = await until(() => !env.ctx.chat.isBusy() && q('.msg-note.msg-retry'), 'the refusal, said in the thread', 15000);
+    assert(/exceed this connection’s context after reserving its answer/.test(note.querySelector('.msg-body').textContent), 'the house’s own words: ' + note.querySelector('.msg-body').textContent);
+    assert(q('.msg-act.retry', note), 'with its way to ask again');
+    eq(house.state.calls.slice(from).filter((c) => !c.isWorker).length, 0, 'nothing was sent to the storyteller');
+    eq((await db.messages.list(st.id)).filter((m) => m.role === 'user').length, 1, 'his message is kept');
+    click(q('.msg-act.retry', note));
+    await tick(50);
+    await until(() => !env.ctx.chat.isBusy() && q('.msg-note.msg-retry'), 'asked again, said again', 15000);
+    eq(qa('#thread .msg-note.msg-retry').length, 1, 'one note for the one failure standing');
+    await tick(200); /* an unhandled rejection would land in errors (env.mjs) */
+  } finally {
+    env.window.__cozy.setActiveStoryId(prior || null);
+    await db.stories.remove(st.id).catch(() => {});
+    await db.connections.remove(conn.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-M752-2 ONE WAIT BEFORE A SMALL STORYTELLER’S FIGHT PAGE (M547, restored after M737): a fight move whose referee and picker each take 1.5 seconds reaches the small storyteller after one wait, not two — the picker is asked while the referee is still out, about the very lines the request then leaves out; the line it names rides', async () => {
+  const before = errors.length;
+  const { queuedCount } = await import('../../js/agents/queue.js');
+  const { saveState, loadState } = await import('../../js/engine/state.js');
+  const { st, H } = await smartRecallTale('the small waiting fight', { here: 'Kaelen', long: true });
+  const ledger = await loadState(st.id);
+  ledger.sheet = { ...(ledger.sheet || {}), playerName: 'Jovan', actors: { Jovan: { default: 6, domains: { melee: 7 } }, Kaelen: { default: 5, domains: { melee: 6 } } } };
+  await saveState(st.id, ledger);
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const D = 1500;
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  const PLAN = { scene: 'Noon at the rail; Kaelen squares up.', people: [{ name: 'Kaelen', now: 'circling', wants: 'to win', against: 'the seat', voice: 'in short, proud sentences', pressed: 'goes cold' }], unknown: [], pressing: [], earlier: [], laws: ['MC Agency'], intense: false, loud: false, sounds: [], leaveTo: 'what Jovan does', story: 'Jovan serves the Tenth.' };
+  const refSys = /You are the referee of a story|referee of a one-on-one duel/;
+  const at = { ref: [], pick: [], timing: false };
+  const later = (v) => new Promise((resolve) => setTimeout(() => resolve(v), D));
+  house.state.workerAnswer = (body, sys) => {
+    if (refSys.test(String(sys || ''))) { at.ref.push(Date.now()); return at.timing ? later(JSON.stringify({ check: true, actor: 'Jovan', action: 'feint low, then the disarm', kind: 'actor', domain: 'melee', opposition: 'Kaelen', tier: 'peer', circumstance: 0, stakes: 'his sword' })) : '{"check":false}'; }
+    if (PICK_SYS.test(String(sys || ''))) { at.pick.push(Date.now()); const m = userTextOf({ body }).match(/(\d+)\. \(pages \d+–\d+\) Line 3: SMALL-LINE/); const answer = '{"lines":[' + (m ? m[1] : '') + ']}'; return at.timing ? later(answer) : answer; }
+    if (/You prepare a storyteller for the next page/.test(String(sys || ''))) return JSON.stringify(PLAN);
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}');
+  };
+  house.state.storyAnswer = () => H(31) + 'Steel rang in the courtyard.';
+  const priorRef = await db.settings.get('refereeOn'); const priorSwitch = await db.settings.get('smartRecall');
+  const activeId = await tellerConnectionId();
+  try {
+    await db.settings.delete('refereeOn'); await db.settings.delete('smartRecall');
+    await db.connections.update(activeId, { smallModel: true });
+    await env.ctx.chat.refreshQuickSwitch();
+    await until(() => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the house free', 20000);
+    /* a calm page first — the planning helper plans after it, so the fight page goes as a small storyteller's request */
+    const had = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length;
+    type(q('#composer-input'), 'I look at the bells.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length > had && !env.ctx.chat.isBusy(), 'the calm page', 30000);
+    await until(() => queuedCount(st.id) === 0, 'readers, the planner among them', 40000);
+    at.ref.length = 0; at.pick.length = 0; at.timing = true;
+    const from = house.state.calls.length;
+    const t0 = Date.now();
+    type(q('#composer-input'), 'I try to disarm Kaelen with a feint low.'); submit(q('#composer'));
+    await until(() => house.state.calls.slice(from).some((c) => !c.isWorker), 'the storyteller asked', 30000);
+    const took = Date.now() - t0;
+    const told = house.state.calls.slice(from).find((c) => !c.isWorker);
+    eq(at.ref.length, 1, 'the referee was asked');
+    eq(at.pick.length, 1, 'the picker was asked once');
+    assert(at.pick[0] < at.ref[0] + D, 'the picker was asked while the referee was still out: ' + (at.pick[0] - at.ref[0]) + ' ms after it');
+    console.log('    DOM-M752-2: referee and picker ' + D + ' ms each — the small storyteller was asked after ' + took + ' ms');
+    assert(took < 2 * D, 'one wait, not two: ' + took + ' ms (two in a row would be ' + 2 * D + ' ms or more)');
+    const wire = JSON.stringify(told.body.messages);
+    assert(/What I have in mind for this page/.test(wire), 'a small storyteller’s request (its plan)');
+    eq(wire.split('SMALL-LINE').length - 1, 1, 'the line the picker named rides, once');
+    await until(async () => !env.ctx.chat.isBusy() && !q('.msg-pending'), 'the page landed', 30000);
+    await until(() => queuedCount(st.id) === 0, 'readers', 40000);
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.connections.update(activeId, { smallModel: null });
+    await env.ctx.chat.refreshQuickSwitch();
+    if (priorRef == null) await db.settings.delete('refereeOn'); else await db.settings.set('refereeOn', priorRef);
+    if (priorSwitch == null) await db.settings.delete('smartRecall'); else await db.settings.set('smartRecall', priorSwitch);
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-M752-3 THE OPENER IS TOLD OF HIS PICTURE IN WORDS, THE STORYTELLER IS SENT IT (M752): a structured prefill with [[pg]] and a picture with his move — the opener (a helper, often a text-only model) is asked with “[a picture was shared here]” and no picture part; the storyteller’s request carries the picture itself and opens with the opener’s words', async () => {
+  const before = errors.length;
+  const activeBefore = await db.settings.get('activeConnectionId');
+  const mapBefore = await db.settings.get('workerConnections');
+  const teller = await db.connections.add({ label: 'M752 structured teller', type: 'openai', baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'k', model: 'openai/gpt-5', prefill: '[The gate — [[pg]]', prefillMode: 'structured' });
+  const opener = await db.connections.add({ label: 'M752 opener', type: 'openai', baseUrl: 'https://openrouter.ai/api/v1', apiKey: 'k', model: 'mistralai/mistral-large' });
+  await db.settings.set('activeConnectionId', teller.id);
+  await db.settings.set('workerConnections', { ...(mapBefore || {}), opener: opener.id });
+  const st = await db.stories.create({ title: 'the opener and the picture' });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const OPEN = /Write ONLY the first few words of the next reply/;
+  const prior = { worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  house.state.workerAnswer = (body, sys) => (OPEN.test(String(sys || '')) ? 'Kaelen drew his blade before anyone spoke' : (typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}')));
+  house.state.storyAnswer = (body) => (OPEN.test(JSON.stringify(body)) ? 'Kaelen drew his blade before anyone spoke' : '[The gate — Kaelen drew his blade before anyone spoke] PICTURE-PAGE the bell rang.');
+  const input = q('#attach-file');
+  const choose = (file) => { Object.defineProperty(input, 'files', { value: [file], configurable: true }); input.dispatchEvent(new env.window.Event('change', { bubbles: true })); };
+  const was = { Image: globalThis.Image, create: URL.createObjectURL, revoke: URL.revokeObjectURL, ctx: env.window.HTMLCanvasElement.prototype.getContext, blob: env.window.HTMLCanvasElement.prototype.toBlob };
+  globalThis.Image = class { set src(v) { setTimeout(() => { this.width = 12; this.height = 8; if (this.onload) this.onload(); }, 0); } };
+  URL.createObjectURL = () => 'blob:walk'; URL.revokeObjectURL = () => {};
+  env.window.HTMLCanvasElement.prototype.getContext = () => ({ drawImage() {} });
+  env.window.HTMLCanvasElement.prototype.toBlob = (cb) => cb(new env.window.Blob(['jpeg'], { type: 'image/jpeg' }));
+  try {
+    choose(new env.window.File([new Uint8Array([1, 2, 3])], 'p.png', { type: 'image/png' }));
+    await until(() => !q('#attach-preview').hidden && q('#attach-preview img'), 'the picture, waiting', 5000);
+    const from = house.state.calls.length;
+    type(q('#composer-input'), 'Look at this banner.'); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).some((m) => /PICTURE-PAGE/.test(m.text || '')) && !env.ctx.chat.isBusy(), 'the page', 30000);
+    assert((await db.messages.list(st.id)).find((m) => m.role === 'user').image, 'fixture: the picture rides in his page');
+    const calls = house.state.calls.slice(from);
+    const openerCall = calls.find((c) => OPEN.test(JSON.stringify(c.body)));
+    const tellerCall = calls.find((c) => !OPEN.test(JSON.stringify(c.body)) && c.body && c.body.response_format);
+    assert(openerCall, 'the opener was asked');
+    assert(tellerCall, 'the storyteller was asked');
+    const pictureIn = (c) => /"image_url"|"type":"image"/.test(JSON.stringify(c.body.messages || []));
+    assert(!pictureIn(openerCall), 'the opener is sent no picture part');
+    const openerWords = JSON.stringify(openerCall.body.messages);
+    assert(openerWords.includes('Look at this banner. [a picture was shared here]'), 'it is told of the picture in words, after his: ' + openerWords.slice(-300));
+    assert(pictureIn(tellerCall), 'the storyteller is sent the picture itself');
+    const pattern = tellerCall.body.response_format.json_schema.schema.properties.response.pattern;
+    assert(new RegExp(pattern).test('[The gate — Kaelen drew his blade before anyone spoke, and the bell rang twice over the yard as the gate swung wide and the captain stepped through the dust.'), 'and its page opens with the opener’s words: ' + pattern.slice(0, 120));
+  } finally {
+    if (was.Image === undefined) delete globalThis.Image; else globalThis.Image = was.Image;
+    URL.createObjectURL = was.create; URL.revokeObjectURL = was.revoke;
+    env.window.HTMLCanvasElement.prototype.getContext = was.ctx; env.window.HTMLCanvasElement.prototype.toBlob = was.blob;
+    house.state.workerAnswer = prior.worker; house.state.storyAnswer = prior.story;
+    await db.settings.set('activeConnectionId', activeBefore);
+    await db.settings.set('workerConnections', mapBefore || {});
+    await db.connections.remove(teller.id).catch(() => {}); await db.connections.remove(opener.id).catch(() => {});
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-M752-4 A NAME THAT IS ALSO A WORD IS NEVER SWEPT (M752, the ripple): he corrects “May” to “Mae” on one page by hand, in a tale whose other pages say “May I sit?” and “the first of May” — those pages, the record, the brief and the ledger keep their words, and the workers’ line says why; a plain name (“Rukia” → “Rukiya”) still goes everywhere', async () => {
+  const before = errors.length;
+  const { emptyState, saveState, loadState } = await import('../../js/engine/state.js');
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  const { loadWorkerStatus } = await import('../../js/agents/status.js');
+  const { pageText } = await import('../../js/assemble/stack.js');
+  const priorStory = await storyId();
+  const H = '[The inn — Monday, March 3, 2025 | 09:00 | clear | coat | by the hearth]\n\n';
+  /* a tale with its readers, keeper and second reader off: what moves here is the ripple's alone */
+  const tale = async (title, { brief, pages, record, ledger }) => {
+    const st = await db.stories.create({ title });
+    await db.stories.update(st.id, { brief, keeper: false, extraction: false, continuity: false });
+    for (const [i, text] of pages.entries()) { await db.messages.append(st.id, { role: 'user', text: 'I wait, ' + i + '.' }); await db.messages.append(st.id, { role: 'assistant', text: H + text }); }
+    await saveMemory(st.id, { window: 30, nodes: record.map((text, k) => ({ id: 'ripple-line-' + title.length + '-' + k, span: [k * 2, k * 2 + 1], level: 1, text, at: k + 1, whole: true })) });
+    await saveState(st.id, { ...emptyState(), ...ledger, page: pages.length - 1 });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+    await showAllPages();
+    return st;
+  };
+  /* his hand on the newest page: ✎, the words, Save — as he does it */
+  const editNewest = async (st, from, to) => {
+    const row = assistantPages()[assistantPages().length - 1];
+    click(q('.msg-act[data-act="edit"]', row));
+    const box = await until(() => q('.edit-box', row), 'the edit box');
+    const now = (await db.messages.list(st.id)).find((m) => m.id === row.dataset.id);
+    type(box, pageText(now).replace(from, to));
+    click(q('.edit-row button:not(.text-btn)', row));
+    await until(async () => pageText((await db.messages.list(st.id)).find((m) => m.id === row.dataset.id)).includes(to), 'his edit kept');
+    return row.dataset.id;
+  };
+  const rippled = (st) => until(async () => { const r = ((await loadWorkerStatus(st.id)) || {}).ripple; return r && r.detail ? r : null; }, 'the ripple’s word on the workers’ line', 20000);
+  const otherPages = async (st, id) => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant' && m.id !== id).map((m) => pageText(m).slice(H.length));
+  try {
+    /* 1. "May", a name and a month and a word at a sentence's start */
+    const may = await tale('May or Mae', {
+      brief: 'May keeps the inn. The fair opens on the first of May.',
+      pages: ['Jovan stood in the doorway. “May I sit?” he asked.', 'The fair opens on the first of May.', 'May poured the tea.'],
+      record: ['Jovan asked, “May I sit?”', 'The fair opens on the first of May.'],
+      ledger: { characters: { May: { core: 'the innkeeper', state: '', arc: '', threads: [] } }, present: [{ name: 'May', position: 'by the hearth' }] },
+    });
+    const id = await editNewest(may, 'May poured', 'Mae poured');
+    const said = await rippled(may);
+    assert(/“May” is “Mae” on this page\. The rest of the story keeps “May”: “May” is also the name of a month/.test(said.detail) && /correct the pages where it is the name one by one/.test(said.detail), 'the workers’ line says why: ' + said.detail);
+    eq((await otherPages(may, id)).join(' | '), 'Jovan stood in the doorway. “May I sit?” he asked. | The fair opens on the first of May.', 'the other pages keep their words');
+    eq((await loadMemory(may.id)).nodes.map((n) => n.text).join(' | '), 'Jovan asked, “May I sit?” | The fair opens on the first of May.', 'the record keeps its words');
+    eq((await db.stories.get(may.id)).brief, 'May keeps the inn. The fair opens on the first of May.', 'the brief keeps its words');
+    const kept = await loadState(may.id);
+    assert(kept.characters.May && !kept.characters.Mae && kept.present.some((p) => p.name === 'May'), 'and the ledger is not swept either: ' + Object.keys(kept.characters).join(','));
+    assert(/Mae poured the tea\./.test(pageText((await db.messages.list(may.id)).find((m) => m.id === id))), 'his own page says what he wrote');
+    /* 2. the control: a plain name goes everywhere, as M100 made it */
+    const rukia = await tale('Rukia or Rukiya', {
+      brief: 'Rukia guards the gate.',
+      pages: ['Rukia waited by the gate.', 'Rukia drew her sword.', 'Rukia smiled.'],
+      record: ['Rukia waited by the gate.', 'Rukia drew her sword.'],
+      ledger: { characters: { Rukia: { core: 'the gate guard', state: '', arc: '', threads: [] } }, present: [{ name: 'Rukia', position: 'at the gate' }] },
+    });
+    const rid = await editNewest(rukia, 'Rukia smiled', 'Rukiya smiled');
+    const went = await rippled(rukia);
+    assert(/“Rukia” is “Rukiya” everywhere now/.test(went.detail), 'the workers’ line says it went everywhere: ' + went.detail);
+    await until(async () => (await otherPages(rukia, rid)).join(' | ') === 'Rukiya waited by the gate. | Rukiya drew her sword.', 'the other pages follow', 20000);
+    eq((await loadMemory(rukia.id)).nodes.map((n) => n.text).join(' | '), 'Rukiya waited by the gate. | Rukiya drew her sword.', 'the record follows');
+    eq((await db.stories.get(rukia.id)).brief, 'Rukiya guards the gate.', 'the brief follows');
+    const moved = await loadState(rukia.id);
+    assert(moved.characters.Rukiya && !moved.characters.Rukia && moved.present.some((p) => p.name === 'Rukiya'), 'the ledger follows: ' + Object.keys(moved.characters).join(','));
+    await until(async () => { const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js'); return queuedCount(rukia.id) === 0 && !workIsRunning(rukia.id); }, 'the house settled', 20000);
+    eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+  } finally {
+    env.window.__cozy.setActiveStoryId(priorStory);
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+  }
+});
+
+test('DOM-M752-5 A MERGE ALREADY MADE IS NO OPEN REPAIR (the auditor, M687 — his report of the salle backlog, M688): an old finding asking that “the marshal” be merged into Kelstrum, made since and kept on Kelstrum’s page as his former name, closes on the next idle audit with nothing written and the light turns green; the same finding naming another man stays open', async () => {
+  const { emptyState, saveState, loadState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { noteWorkerRun } = await import('../../js/agents/status.js');
+  const { pendingWork } = await import('../../js/agents/extractor.js');
+  const before = { story: await storyId(), worker: house.state.workerAnswer, source: house.state.sourcePeopleAnswer, audit: await db.settings.get('auditOn'), errors: errors.length };
+  const page = '[the palace salle, Ilvarren | 10:00]\n\nKelstrum, the marshal of Ilvarren, raised his hand from the middle of the raked ground, and Jugram saluted him.';
+  let calls = 0;
+  const made = [];
+  /* the review approves the ledger as it stands and proposes nothing: what closes the old finding is the ledger itself */
+  house.state.sourcePeopleAnswer = (body, docs) => JSON.stringify({ checked: docs.map((d) => d.id), people: [] });
+  house.state.workerAnswer = (body, sys) => (/auditor of the ledger/i.test(sys) ? (calls++, reviewed()) : before.worker(body, sys));
+  globalThis.__cozyLedgerRepairPauseMs = 20; globalThis.__cozyLedgerRepairBackoffMs = 20;
+  await db.settings.set('auditOn', true);
+  const tale = async (to) => {
+    const st = await db.stories.create({ title: 'the marshal is ' + to });
+    made.push(st.id);
+    await db.stories.update(st.id, { keeper: false, continuity: false, extraction: true, world: false, audit: true });
+    await db.messages.append(st.id, { role: 'user', text: 'I salute the marshal.' });
+    await db.messages.append(st.id, { role: 'assistant', text: page });
+    const state = applyMutations({ ...emptyState(), page: 0, readTo: 0 }, [
+      { type: 'mc.set', name: 'Jugram' }, { type: 'place.set', name: 'the palace salle, Ilvarren' }, { type: 'presence.enter', name: 'Jugram' },
+      { type: 'people.set', name: 'Kelstrum', field: 'core', text: 'Marshal of Ilvarren.' }, { type: 'people.set', name: 'Garett', field: 'core', text: 'A fencer of the salle.' },
+      { type: 'presence.enter', name: 'Kelstrum', position: 'the middle of the raked ground' },
+    ]).state;
+    state.characters.Kelstrum.aliases = ['the marshal']; /* the merge an earlier audit made: “the marshal” is his former name */
+    state.audit = { unfinished: true, pending: ['The marshal is ' + to + '.: blocked'], unresolved: [{ what: 'The marshal is ' + to + '.', pendingReason: 'blocked', mutations: [{ type: 'people.rename', from: 'the marshal', to }] }] };
+    await saveState(st.id, state); await noteWorkerRun(st.id, 'extractor', { ok: true, detail: 'well' });
+    return st;
+  };
+  const open = async (id) => { env.window.__cozy.setActiveStoryId(id); await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true }); };
+  try {
+    /* 1. the merge is made: the finding asks for nothing the ledger lacks */
+    const done = await tale('Kelstrum');
+    await open(done.id);
+    await until(async () => (await loadState(done.id)).audit?.unfinished === false, 'the made merge closes its old finding', 7000).catch(async (err) => {
+      throw new Error(err.message + ': ' + JSON.stringify({ calls, audit: (await loadState(done.id)).audit }));
+    });
+    await until(() => q('#btn-ledger').classList.contains('all-well'), 'the light turns green', 5000);
+    const after = await loadState(done.id);
+    eq((after.audit.unresolved || []).length, 0, 'no finding is left');
+    assert(!after.characters['the marshal'] && (after.characters.Kelstrum.aliases || []).includes('the marshal'), 'nothing is written: his page keeps the merge, and no page of the old name comes back');
+    eq((await db.messages.list(done.id)).at(-1).text, page, 'the story page stays exact');
+    const completed = calls; await tick(650); eq(calls, completed, 'a finished audit asks no more');
+    /* 2. the control: the same finding naming another man asks for what the ledger does not hold — it stays open */
+    const other = await tale('Garett');
+    const asked = calls;
+    await open(other.id);
+    await until(async () => calls > asked && Number.isFinite((await loadState(other.id)).audit?.at), 'the idle audit reads the other tale', 7000);
+    await until(() => !env.ctx.chat.isBusy(), 'the audit settles', 5000);
+    const open2 = await loadState(other.id);
+    assert(open2.audit.unfinished && (open2.audit.pending || []).some((p) => p.startsWith('The marshal is Garett')), 'a merge into another man is not taken as made: ' + JSON.stringify(open2.audit.pending));
+    assert(!q('#btn-ledger').classList.contains('all-well'), 'and the light is not green over it');
+    eq(errors.length, before.errors, 'no app errors');
+  } finally {
+    for (const id of made) await db.stories.update(id, { audit: false });
+    env.window.__cozy.setActiveStoryId(before.story);
+    for (const id of made) await pendingWork(id, 10000);
+    house.state.workerAnswer = before.worker; house.state.sourcePeopleAnswer = before.source;
+    await db.settings.set('auditOn', before.audit);
+    delete globalThis.__cozyLedgerRepairPauseMs; delete globalThis.__cozyLedgerRepairBackoffMs;
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+  }
+});
+
+test('DOM-M752-6 A DRAWING IS OF THE TALE OPEN WHEN IT LANDS (walk DOM-8a’s rare failure, run down: a ▸ that wrote nothing): a drawing of one tale still reading when he opens another stands down — the other tale’s pages stand, and ▸ on its newest page writes its second version; a page of the first tale drawn again in that moment is not put into the other tale’s thread', async () => {
+  const before = { story: await storyId(), errors: errors.length, answer: house.state.storyAnswer };
+  const realGet = db.settings.get;
+  const realList = db.messages.list;
+  let slowNext = false;
+  let slowList = null;
+  /* the next read of "show thinking" — the first wait of a drawing, after it has read which tale is open — takes 400 ms */
+  db.settings.get = async (...a) => { if (slowNext && a[0] === 'showThinking') { slowNext = false; await tick(400); } return realGet.apply(db.settings, a); };
+  /* and, for the page drawn again, every read of that tale's pages begun in the next 300 ms (the page's own among them) */
+  db.messages.list = async (id, ...rest) => { if (slowList && id === slowList.id && Date.now() < slowList.until) await tick(400); return realList.call(db.messages, id, ...rest); };
+  const made = [];
+  const tale = async (title, words) => {
+    const st = await db.stories.create({ title });
+    made.push(st.id);
+    await db.stories.update(st.id, { keeper: false, continuity: false, extraction: false });
+    const at = Date.now();
+    await db.messages.append(st.id, { role: 'user', text: 'I wait by the door.', ts: at - 1000 });
+    const page = await db.messages.append(st.id, { role: 'assistant', text: words, ts: at });
+    return { st, page };
+  };
+  const shows = (page) => assistantPages().length > 0 && assistantPages().every((n) => n.dataset.id === page.id);
+  try {
+    const first = await tale('the tale drawn late', 'The lamp in the first tale burned low.');
+    const second = await tale('the tale he opened', 'Rain on the second tale’s window.');
+    env.window.__cozy.setActiveStoryId(first.st.id);
+    await env.ctx.chat.refreshStories(true);
+    await env.ctx.chat.renderThread({ structural: true });
+    await until(() => shows(first.page), 'the first tale drawn');
+    /* 1. a drawing of the first tale begins (a shelf change, a branch's last drawing) and waits; he opens the second meanwhile */
+    slowNext = true;
+    const late = env.ctx.chat.renderThread({ structural: true });
+    await tick(20);
+    const row = qa('.story-item').find((li) => li.textContent.includes('the tale he opened'));
+    assert(row, 'the second tale is on the shelf');
+    click(q('.story-open', row) || row);
+    await until(() => shows(second.page), 'the second tale drawn', 5000);
+    await late; await tick(60);
+    assert(shows(second.page), 'the late drawing of the first tale stood down: ' + assistantPages().map((n) => n.dataset.id === first.page.id ? 'FIRST' : n.dataset.id === second.page.id ? 'second' : n.dataset.id).join(','));
+    /* 2. what he sees answers: ▸ on the second tale's newest page writes its second version */
+    house.state.storyAnswer = () => 'Rain, and then the knock he had waited for.';
+    click(q('.swipe-bar .msg-act[data-act="swipe-next"]', assistantPages()[0]));
+    await until(() => q('.swipe-count', assistantPages()[0]) && /2/.test(q('.swipe-count', assistantPages()[0]).textContent), 'its second version', 10000);
+    await settled();
+    eq(((await db.messages.list(second.st.id)).find((m) => m.id === second.page.id).swipes || []).length, 2, 'kept in the tale he pressed it in');
+    eq(((await db.messages.list(first.st.id)).find((m) => m.id === first.page.id).swipes || []).length, 0, 'and nothing was written in the other');
+    /* 3. a page of the first tale drawn again in that moment (a reader's write-back) is not put at the end of the second's thread */
+    env.window.__cozy.setActiveStoryId(first.st.id);
+    await env.ctx.chat.renderThread({ structural: true });
+    await until(() => shows(first.page), 'the first tale drawn again');
+    slowList = { id: first.st.id, until: Date.now() + 300 };
+    const reinked = env.ctx.chat.rerenderMessage(first.st.id, first.page.id);
+    await tick(20);
+    const row2 = qa('.story-item').find((li) => li.textContent.includes('the tale he opened'));
+    click(q('.story-open', row2) || row2);
+    await until(() => shows(second.page), 'the second tale drawn again', 5000);
+    await reinked; await tick(60);
+    assert(shows(second.page), 'no page of the first tale in the second’s thread: ' + assistantPages().length + ' pages');
+    eq(errors.length, before.errors, 'no app errors: ' + errorsSince(before.errors).join(' | '));
+  } finally {
+    slowNext = false; slowList = null;
+    db.settings.get = realGet; db.messages.list = realList;
+    house.state.storyAnswer = before.answer;
+    env.window.__cozy.setActiveStoryId(before.story);
+    for (const id of made) await db.stories.remove(id).catch(() => {});
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+  }
+});
+
+test('DOM-M752-7 A FAILED TELLING IS SAID IN ITS OWN TALE (M752): he sends, opens another tale while the page is being written, and no page comes — the other tale’s thread gets no note and no “Ask again” (which would have asked in the tale that is open); he is told by the tale’s name, his message stands in its tale, and nothing is written in the other', async () => {
+  const before = { story: await storyId(), errors: errors.length, answer: house.state.storyAnswer };
+  const made = [];
+  const tale = async (title, words) => {
+    const st = await db.stories.create({ title });
+    made.push(st.id);
+    await db.stories.update(st.id, { keeper: false, continuity: false, extraction: false });
+    const at = Date.now();
+    await db.messages.append(st.id, { role: 'user', text: 'I knock twice.', ts: at - 1000 });
+    const page = await db.messages.append(st.id, { role: 'assistant', text: words, ts: at });
+    return { st, page };
+  };
+  const shows = (page) => assistantPages().length > 0 && assistantPages().every((n) => n.dataset.id === page.id);
+  let release = null;
+  try {
+    const told = await tale('the telling that fails', 'The door stayed shut.');
+    const other = await tale('the tale opened meanwhile', 'Snow on the other tale’s roofs.');
+    env.window.__cozy.setActiveStoryId(told.st.id);
+    await env.ctx.chat.refreshStories(true);
+    await env.ctx.chat.renderThread({ structural: true });
+    await until(() => shows(told.page), 'the telling’s tale drawn');
+    await until(() => !env.ctx.chat.isBusy(), 'the house free', 10000);
+    house.state.storyAnswer = () => new Promise((resolve) => { release = resolve; });
+    type(q('#composer-input'), 'I knock a third time.'); submit(q('#composer'));
+    await until(() => release, 'the storyteller is asked', 10000);
+    const row = qa('.story-item').find((li) => li.textContent.includes('the tale opened meanwhile'));
+    click(q('.story-open', row) || row);
+    await until(() => shows(other.page), 'the other tale drawn', 5000);
+    const toastsBefore = q('#toasts') ? q('#toasts').textContent : '';
+    release(''); /* no page comes */
+    await until(() => !env.ctx.chat.isBusy(), 'the telling over', 10000);
+    await tick(120);
+    eq(qa('#thread .msg-retry').length, 0, 'no note of the other tale’s failure in this thread');
+    assert(shows(other.page), 'the other tale’s page stands alone');
+    const said = (q('#toasts') ? q('#toasts').textContent : '').slice(toastsBefore.length);
+    assert(/“the telling that fails” — /.test(said) && /Open it to ask again\./.test(said), 'he is told by the tale’s name: ' + said);
+    const toldNow = await db.messages.list(told.st.id);
+    eq(toldNow.filter((m) => m.role === 'user').map((m) => m.text).at(-1), 'I knock a third time.', 'his message stands in its tale');
+    eq(toldNow.filter((m) => m.role === 'assistant').length, 1, 'no page was written there');
+    eq((await db.messages.list(other.st.id)).length, 2, 'and nothing in the other tale');
+    eq(errors.length, before.errors, 'no app errors: ' + errorsSince(before.errors).join(' | '));
+  } finally {
+    if (release) release('');
+    house.state.storyAnswer = before.answer;
+    await until(() => !env.ctx.chat.isBusy(), 'the house free again', 10000).catch(() => {});
+    env.window.__cozy.setActiveStoryId(before.story);
+    for (const id of made) await db.stories.remove(id).catch(() => {});
     await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
   }
 });

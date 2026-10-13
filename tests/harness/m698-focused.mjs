@@ -19,33 +19,34 @@ await saveState(id,initial);
 const pages=await db.messages.list(id),story=await db.stories.get(id);
 const legacy={...initial,audit:{...initial.audit,verifiedInput:ledgerRepairInputKey(initial,story,pages)}};
 assert(!ledgerAuditVerified(legacy,story,pages),'An empty legacy report cannot certify green.');
-const oldFetch=globalThis.fetch;let fix=false,extracting=false,calls=0;
+const oldFetch=globalThis.fetch;let empty=true,fix=false,extracting=false,calls=0;const requests=[];
 globalThis.fetch=async(_,opts)=>{
   const body=JSON.parse(opts.body),content=body.messages.map(m=>String(m.content)).join('\n');
   let reply;
   if(extracting)reply={mutations:[{type:'presence.update',name:'Neri',position:'backing across the quay'}],
     here:[{name:'Neri',at:'at the iron gate',shown:stop},{name:'Mara Vale',at:'beside the pier',wears:'oilskin coat',shown:'Mara Vale, the harbor courier, watched beside the pier in her oilskin coat.'}]};
-  else if(content.includes('Find every place the writer STATES'))reply={standings:[]};
   else {
-    calls++;
-    if(!content.includes('REPAIR FOLLOWUP'))reply={issues:[]}; // Real regression: the first reading misses the error.
-    else {
-      assert(content.includes(prose),'The final reading receives the whole completed page.');
-      const rows=JSON.parse(content.split('REQUIRED CURRENT LEDGER CHECKS:\n')[1].split('\n')[0]);
-      const bank=JSON.parse(content.split('ORIGINAL SOURCE PASSAGES FOR REPAIR TARGETS, not summary quotes:\n')[1].split('\n')[0]);
-      const evidenceId=bank.find(p=>p.text.includes(stop)).evidenceId;
-      const checks=rows.map(row=>({id:row.id,print:row.print,status:fix&&row.id==='presence:Neri'?'repair':'correct',
-        evidenceId,why:row.section==='presence'?'Read the last stop; the later attacker action does not move this person.':'All factual fields agree; preserve the valid worker judgments.',
-        ...(row.section==='presence'?{position:row.name==='Neri'?'at the iron gate':row.value.position,lastEvidenceId:evidenceId}:{})}));
-      reply={checks,issues:fix?[{what:'The saved opening retreat is superseded by the later stop.',evidenceId,
-        mutations:[{type:'presence.update',name:'Neri',position:'at the iron gate'}]}]:[]};
-    }
+    // M708: ONE combined review per audit. M709: a whole-review verdict with explicit
+    // open entries replaces per-entry certificates; M710: its scene array is the working
+    // ending read, written when it differs from the saved presence.
+    calls++;requests.push(content);
+    assert(content.includes(prose),'The final reading receives the whole completed page.');
+    if(empty)reply={issues:[]}; // Real regression: an empty reading that misses the error and gives no verdict.
+    else if(!fix)reply={issues:[],review:{status:'complete',why:'The other entries agree with the page.',
+      open:[{id:'presence:Neri',why:'The saved retreat has not been reconciled with the later stop at the iron gate.'}]},standings:[]};
+    else reply={scene:[{name:'Neri',ending:{position:'at the iron gate',shown:stop}},{name:'Mara Vale',repair:false,ending:{position:'beside the pier',attire:'oilskin coat'}}],
+      issues:[],review:{status:'complete',why:'Read the last stop; the later attacker action does not move this person.',open:[]}};
   }
   const text=JSON.stringify(reply);
   return new Response(body.stream?'data: '+JSON.stringify({choices:[{delta:{content:text}}]})+'\n\ndata: '+JSON.stringify({choices:[{delta:{},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n':JSON.stringify({choices:[{message:{content:text},finish_reason:'stop'}]}));
 };
 const connection={type:'openai',baseUrl:'https://fixture.example/v1',apiKey:'fixture',model:'m',preset:'custom',context:64000};
 try {
+  const silent=await auditLedger({storyId:id,connection});
+  assert(silent.unfinished,'An empty findings list without a completed verdict cannot certify green.');
+  assert.equal(calls,2,'One bounded completion of the same review, no new audit loop.');
+  assert.equal((await loadState(id)).audit.verification.read,0);assert(!ledgerAuditVerified(await loadState(id),story,pages));
+  empty=false;
   const missed=await auditLedger({storyId:id,connection});
   const unfinished=await loadState(id);
   assert(missed.unfinished);assert(!ledgerAuditVerified(unfinished,story,pages));
@@ -55,6 +56,8 @@ try {
   const repaired=await auditLedger({storyId:id,connection});
   const final=await loadState(id);
   assert.equal(calls-beforeCalls,1,'Resume only unfinished entry checks, no duplicate broad read.');
+  const resumed=JSON.parse(requests.at(-1).split('REQUIRED CURRENT LEDGER CHECKS:\n')[1].split('\n')[0]).map(r=>r.id);
+  assert(resumed.includes('presence:Neri'));assert(!resumed.includes('characters:Mara Vale'),'Approved unchanged entries are not requested again.');
   assert.deepEqual(repaired.pending,[]);assert.equal(final.present[0].position,'at the iron gate');
   assert.equal(final.audit.verification.read,ledgerVerificationRows(final).length);
   assert(ledgerAuditVerified(final,story,pages));

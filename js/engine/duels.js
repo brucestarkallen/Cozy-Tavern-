@@ -29,7 +29,7 @@
  * trained (4).
  */
 
-import { isTitleWord } from './names.js'; /* M584 */
+import { isTitleWord, nameCore } from './names.js'; /* M584; M752: a persona answers to its own name */
 import {
   clamp, probFromDelta, sliceOutcome, tieCheck, rngFloat,
   TIERS, TIER_RATINGS, EXCHANGE_EFFECTS, RECOVER_EFFECTS, STRATAGEM_EFFECTS,
@@ -112,31 +112,67 @@ export function isMcAlias(state, name) {
   const n = String(name || '').trim();
   if (!n) return false;
   if (PLAIN_LABELS.has(n.toLowerCase().replace(/\s+/g, ' '))) return true;
-  return mcAliases(state).filter(alias => !PLAIN_LABELS.has(alias.toLowerCase()))
-    .some(alias => samePersonName(n, alias));
+  const story = mcName(state);
+  if (story !== 'the player' && samePersonName(n, story)) return true;
+  /* M752: AN OWN PERSONA ANSWERS TO ITS OWN NAME, NOT TO EVERY NAME THAT SHARES A WORD WITH IT. The loose word match
+   * kept for his story name made a persona "Kira" swallow "Kira Yamato" and "Lacus Kira": their seats were let go, their
+   * loose ends written on his page. The same name with a rank or a courtesy is still the persona ("Sir Talin"). */
+  const core = nameCore(n);
+  return Boolean(core) && (Array.isArray(state?.sheet?.playerAliases) ? state.sheet.playerAliases : [])
+    .some(alias => typeof alias === 'string' && !PLAIN_LABELS.has(alias.trim().toLowerCase()) && nameCore(alias) === core);
+}
+
+/* M752: WHAT SOMEONE SAYS IS NOT THE WRITER ESTABLISHING WHO THEY ARE. A quoted line — double or single quotes,
+ * guillemets, corner brackets; an apostrophe inside a word ("Byakuya's", "won't") never opens or closes one — is speech
+ * and is set aside, in the writer's own messages as in the story's ("'I am Byakuya Kuchiki,' I tell the guard" is a
+ * bluff, not a persona). A quotation that holds nothing but the name being judged stays: "My persona is 'Talin'." */
+const SPOKEN = /"[^"\n]*"|“[^”]*”|«[^»]*»|「[^」]*」|『[^』]*』|(?<![\p{L}\p{N}])['‘](?:[^'‘’\n]|(?<=[\p{L}\p{N}])['’](?=[\p{L}\p{N}]))+?['’](?![\p{L}\p{N}])/gu;
+const personaFold = s => String(s || '').toLowerCase().replace(/[’‘]/g, "'").replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+export function withoutSpeech(text, name = '') {
+  const alias = personaFold(name);
+  return String(text || '').replace(SPOKEN, (span) => (alias && personaFold(span) === alias ? span : ' '));
 }
 
 /* Identity is explicit writer material, never inferred from a shared pose,
  * title, an NPC speaking as "I", or a wish to impersonate someone. */
+/* M752: THE NAME IS THE WHOLE OF WHAT IS SAID, AND THE ONE IT IS SAID OF. Folded text turned "Byakuya Kuchiki's" into
+ * "byakuya kuchiki s", and every pattern accepted anything after the name — "I am Byakuya Kuchiki's lieutenant", "I play
+ * Rukia's song", "the one who found Rukia is me", "My other persona is Jugram's brother" each made another person the
+ * main character's own persona (his seat let go, his loose ends written on the main character's page). Each statement
+ * is judged clause by clause (a comma, a semicolon, a colon, a dash or a bracket closes one): the name — and the persona
+ * word — must END its clause, and a name that is the subject must OPEN it. "I play X" alone is no identity ("I play Rukia
+ * a song"); "I play as X" is. */
 export function explicitMcPersona(state, name, quote) {
-  const fold = s => String(s || '').toLowerCase().replace(/[’‘]/g, "'").replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const fold = personaFold;
   const alias = fold(name), owner = fold(mcName(state));
   if (!alias) return false;
   const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const kinds = '(?:persona|guise|alias|assumed identity|character|main character|mc)';
   const modifiers = '(?:(?:own|worn|other|alternate|story|in story|mc s|main character s) )*';
   const a = esc(alias), o = esc(owner);
+  /* M688: a possessive relative is someone else — "Azrael's own persona's brother", "my other persona is Jugram's
+   * brother" (folded, the possessive reads " s"). A statement ends at the persona or the name, never at its owner's s. */
+  /* M752: and never at anything else — each clause is judged on its own, and the persona word or the name ENDS it ("I am
+   * Rukia and Ichigo's friend", "I play Rukia a song", "Neri goes to the gate as Talin watches" are not identities); a
+   * name that is the subject OPENS it ("the one who found Rukia is me" is not Rukia). */
+  const end = '$';
+  const lead = '^(?:(?:and|but|so) )?';
+  const patterns = [
+    new RegExp(lead + a + ' is (?:me|my ' + modifiers + kinds + ')' + end),
+    new RegExp(lead + '(?:my ' + modifiers + kinds + ' is|my name is|i am|i play as) ' + a + end),
+    ...(owner !== 'the player' ? [
+      new RegExp(lead + a + ' is ' + o + ' s ' + modifiers + kinds + end),
+      new RegExp(lead + o + ' s ' + modifiers + kinds + ' is ' + a + end),
+      new RegExp('(?:^| )' + o + ' (?:walks|travels|appears|goes|is known|presents himself|presents herself|presents themself)(?: [\\p{L}\\p{N}]+){0,8} as ' + a + end, 'u'),
+      new RegExp('(?:^| )' + o + ' (?:uses|wears|assumes) ' + a + ' as (?:his|her|their) (?:own |public )?(?:persona|identity|alias|face)' + end),
+    ] : []),
+  ];
   // Evidence references can include surrounding text. Judge the explicit
   // statement, not an unrelated question or hypothetical in that passage.
-  return String(quote || '').split(/(?<=[.!?])\s+|\n/u).some(statement => {
-    const q = fold(statement);
-    if (!q || /[?]|\b(?:if|maybe|hypothetically|might|could|would|no longer)\b/i.test(statement)) return false;
-    return new RegExp('(?:^| )' + a + ' is (?:me|my ' + modifiers + kinds + ')(?: |$)').test(q)
-      || new RegExp('^(?:my ' + modifiers + kinds + ' is|my name is|i am|i play as|i play) ' + a + '(?: |$)').test(q)
-      || (owner !== 'the player' && (new RegExp('(?:^| )' + a + ' is ' + o + ' s ' + modifiers + kinds + '(?: |$)').test(q)
-        || new RegExp('(?:^| )' + o + ' s ' + modifiers + kinds + ' is ' + a + '(?: |$)').test(q)
-        || new RegExp('(?:^| )' + o + ' (?:walks|travels|appears|goes|is known|presents himself|presents herself|presents themself)(?: [\\p{L}\\p{N}]+){0,8} as ' + a + '(?: |$)','u').test(q)
-        || new RegExp('(?:^| )' + o + ' (?:uses|wears|assumes) ' + a + ' as (?:his|her|their) (?:own |public )?(?:persona|identity|alias|face)(?: |$)').test(q)));
+  return withoutSpeech(quote, name).split(/(?<=[.!?])\s+|\n/u).some(statement => {
+    if (!fold(statement) || /[?]|\b(?:if|maybe|hypothetically|might|could|would|no longer)\b/i.test(statement)) return false;
+    return statement.split(/[,;:()[\]{}—–]|\s-\s/u).map(fold).filter(Boolean)
+      .some(clause => patterns.some(p => p.test(clause)));
   });
 }
 
@@ -156,15 +192,32 @@ export function groundedMcPersona(state, name, quote) {
 /* Reconcile already tracked names from explicit original identity statements.
  * This does not need the model to remember to propose another operation.
  * Caller supplies only writer material or completed main narration. */
+/* M752: speech is set aside in the writer's messages too, and before the text is cut into sentences — a quoted line of
+ * two sentences ("I came from the north. I am Talin," he lied.) is never judged half outside its quotation marks. */
+/* M752: and each source is set apart from its speech, cut into sentences and folded ONCE — not once per tracked name
+ * and sentence: on every page read it re-read the brief and up to a hundred pages for every person the ledger keeps (a
+ * hundred people over sixty pages took twelve seconds on a desktop). Only a sentence that names the person as whole words
+ * is judged. */
+const SENTENCES = /(?<=[.!?])\s+|\n/u;
+const foldedSentences = (text) => text.split(SENTENCES).map((s) => ({ s, f: ' ' + personaFold(s) + ' ' }));
 export function sourcePersonaMutations(state, sources, extraNames = []) {
   const names = [...new Set([...Object.keys(state.characters || {}),...Object.keys(state.offscreen || {}),...(state.present || []).map(p => p.name),...extraNames])];
+  const candidates = names.filter(n => n && !isMcAlias(state,n));
+  if (!candidates.length) return [];
+  const prepared = (Array.isArray(sources) ? sources : []).map((source) => {
+    const raw = String(source?.text || '');
+    return { raw, sentences: foldedSentences(withoutSpeech(raw)), quoted: new Set((raw.match(SPOKEN) || []).map(personaFold)) };
+  });
   const repairs = [];
-  for (const name of names.filter(n => n && !isMcAlias(state,n))) {
-    for (const source of sources) {
-      const text = source.narrative ? String(source.text || '').replace(/"[^"\n]*"|“[^”]*”|«[^»]*»|「[^」]*」|『[^』]*』/g,' ') : String(source.text || '');
-      const shown = text.split(/(?<=[.!?])\s+|\n/u).find(sentence => explicitMcPersona(state,name,sentence));
-      if (!shown) continue;
-      repairs.push({type:'mc.alias',name,shown:shown.trim(),cause:'Original sources explicitly establish this tracked name as the main character’s own persona.'});
+  for (const name of candidates) {
+    const alias = personaFold(name);
+    if (!alias) continue;
+    for (const source of prepared) {
+      /* a quotation holding only this name stays in the text for this name ("My persona is 'Talin'.") */
+      const sentences = source.quoted.has(alias) ? foldedSentences(withoutSpeech(source.raw, name)) : source.sentences;
+      const hit = sentences.find(({ s, f }) => f.includes(' ' + alias + ' ') && explicitMcPersona(state,name,s));
+      if (!hit) continue;
+      repairs.push({type:'mc.alias',name,shown:hit.s.trim(),cause:'Original sources explicitly establish this tracked name as the main character’s own persona.'});
       break;
     }
   }

@@ -40,13 +40,24 @@ async function tale(title, { page = PAGE, input = 'I continue the bout.', mutati
   return id;
 }
 const issue = (what, mutation) => ({ what, fix: 'Correct the ledger from the newest page.', mutations: [mutation] });
+/* The answer the CURRENT final review asks for: one combined review whose explicit completed verdict approves the
+ * required entries (M698/M708/M709), with standings:[] when no starting digits are stated, and the working ending
+ * read of the completed scene in scene[] (M710/M712: repair:false keeps an equivalent saved state). Source readings
+ * receive ordered passages and select them by id, with identityFacts and facts arrays (M699/M704/M717). */
+const reviewed = (answer = {}) => ({ scene: [], issues: [], ...answer, review: { status: 'complete', why: 'Every required entry was compared with the completed originals.', open: [], ...answer.review }, standings: [] });
+const reading = (body) => sent(body).includes('SOURCE PEOPLE REVIEW');
+const sourceDocs = (body) => JSON.parse(String(body.messages.find((m) => m.role === 'user').content).split('SOURCE DOCUMENTS\n')[1]);
+const sourcePerson = (doc, name, words, identityFacts = []) => {
+  const evidence = doc.passages.find((p) => p.text.includes(words)).id;
+  return { name, kind: 'person', source: doc.id, evidence, identityFacts: identityFacts.map((text) => ({ text, evidence })), facts: [] };
+};
 
 test('M687-1 the full auditor restores gallery spectators shown before a long bout ending, even when the reader omitted them', async () => {
   const id = await tale('m687-spectators', { mutations: [
     { type: 'offscreen.set', name: 'Princess Alexia', location: 'the palace salle gallery', activity: 'watching the bout' },
     { type: 'offscreen.set', name: 'Commodus', location: 'the palace salle rail', activity: 'with Garett' },
   ], extra: { roomAt: { page: 0, names: ['Jugram', 'Kelstrum', 'Kerroc', 'Corven', 'Garett'] } } });
-  await wire(() => ({ issues: [
+  await wire(() => reviewed({ issues: [
     issue('Alexia is missing from the scene.', { type: 'presence.enter', name: 'Princess Alexia', position: 'third row of the gallery', shown: ALEXIA }),
     issue('Her woman is also missing.', { type: 'presence.enter', name: "Alexia's woman", position: 'two seats behind Alexia', shown: ALEXIA }),
     issue('Commodus is incorrectly absent.', { type: 'presence.enter', name: 'Commodus', position: 'at the rail beside Garett', shown: COMMODUS }),
@@ -63,7 +74,7 @@ test('M687-18 a full header main character pose is not the room used to judge a 
   const id = await tale('m687-header-room', { page, mutations: [
     { type: 'offscreen.set', name: 'Commodus', location: 'the palace salle rail', activity: 'with Garett' },
   ], extra: { roomAt: { page: 0, names: ['Jugram', 'Kelstrum', 'Kerroc', 'Corven', 'Garett'] } } });
-  await wire(() => ({ issues: [issue('Commodus is at the rail in this scene.', {
+  await wire(() => reviewed({ issues: [issue('Commodus is at the rail in this scene.', {
     type: 'presence.enter', name: 'Commodus', position: 'at the rail beside Garett', shown: COMMODUS,
   })] }), async () => {
     const result = await auditLedger({ connection, storyId: id }); const state = await loadState(id);
@@ -79,9 +90,12 @@ test('M687-2 a posture and now repair uses the last evidence about its person ra
     { type: 'presence.enter', name: 'Corven', position: 'in the yard' },
     { type: 'people.set', name: 'Corven', field: 'state', text: 'Filing a retreat in the yard.' },
   ] });
-  await wire(() => ({ issues: [
-    issue('Kerroc closed the ledger.', { type: 'presence.update', name: 'Kerroc', position: 'on his witness stool, ledger shut on his knees', shown: KERROC }),
-    issue('Corven took his seat.', { type: 'presence.update', name: 'Corven', position: 'on the other witness stool', shown: CORVEN }),
+  /* M710: postures come from the review's own ending read of the completed scene (repair:true writes them); a People
+   * now stays an ordinary issue */
+  await wire(() => reviewed({ scene: [
+    { name: 'Kerroc', repair: true, ending: { position: 'on his witness stool, ledger shut on his knees', shown: KERROC } },
+    { name: 'Corven', repair: true, ending: { position: 'on the other witness stool', shown: CORVEN } },
+  ], issues: [
     issue('Corven is not filing a retreat.', { type: 'people.set', name: 'Corven', field: 'state', text: CORVEN, shown: CORVEN }),
   ] }), async () => {
     const result = await auditLedger({ connection, storyId: id }); const state = await loadState(id);
@@ -95,7 +109,7 @@ test('M687-2 a posture and now repair uses the last evidence about its person ra
 test('M687-3 a stale main character elsewhere record is removed without requiring an arrival in the final paragraph', async () => {
   const id = await tale('m687-mc-seat');
   const state = await loadState(id); state.offscreen.Jugram = { location: 'the palace salle', activity: 'dueling' }; await saveState(id, state);
-  await wire(() => ({ issues: [issue('The main character cannot be elsewhere.', { type: 'offscreen.clear', name: 'Jugram' })] }), async () => {
+  await wire(() => reviewed({ issues: [issue('The main character cannot be elsewhere.', { type: 'offscreen.clear', name: 'Jugram' })] }), async () => {
     const result = await auditLedger({ connection, storyId: id });
     assert(!(await loadState(id)).offscreen.Jugram, 'the corrupt old main character seat is cleared');
     assert(!result.unfinished);
@@ -104,7 +118,7 @@ test('M687-3 a stale main character elsewhere record is removed without requirin
 
 test('M687-4 an already cleared elsewhere note is satisfied work rather than a permanent missing-seat refusal', async () => {
   const id = await tale('m687-already-clear', { mutations: [{ type: 'presence.enter', name: 'Kelstrum' }] });
-  await wire(() => ({ issues: [issue('Kelstrum should not be elsewhere.', { type: 'offscreen.clear', name: 'Kelstrum' })] }), async () => {
+  await wire(() => reviewed({ issues: [issue('Kelstrum should not be elsewhere.', { type: 'offscreen.clear', name: 'Kelstrum' })] }), async () => {
     const result = await auditLedger({ connection, storyId: id });
     assert(!result.unfinished && !result.pending.length, 'no phantom repair remains when the note is already absent');
   });
@@ -118,11 +132,11 @@ test('M687-5 source recovery does not recreate a titled identity that the audito
   ] });
   let sources = 0;
   await wire((body) => {
-    if (sent(body).includes('SOURCE PEOPLE REVIEW')) {
-      sources++; const docs = JSON.parse(sent(body).split('SOURCE DOCUMENTS\n')[1]); const source = docs.find((d) => d.text.includes(quote));
-      return { checked: docs.map((d) => d.id), people: [{ name: 'Lord Marshal Kelstrum', source: source.id, shown: quote }] };
+    if (reading(body)) {
+      sources++; const docs = sourceDocs(body); const source = docs.find((d) => d.passages.some((p) => p.text.includes(quote)));
+      return { checked: docs.map((d) => d.id), people: [sourcePerson(source, 'Lord Marshal Kelstrum', quote)] };
     }
-    return { issues: [] };
+    return reviewed();
   }, async () => {
     for (let i = 0; i < 3; i++) {
       const result = await auditLedger({ connection, storyId: id, reviewSources: 'all' });
@@ -150,7 +164,7 @@ test('M687-7 a successful alternate presence operation clears saved enter and up
     { what: 'Alexia is missing.', pendingReason: 'blocked', mutations: [{ type: 'presence.enter', name: 'Princess Alexia' }] },
     { what: 'Her seat could not be updated.', pendingReason: 'blocked', mutations: [{ type: 'presence.update', name: 'Princess Alexia', position: 'beside Jugram' }] },
   ], unfinished: true, pending: ['old failed arrival'] }; await saveState(id, state);
-  await wire(() => ({ issues: [issue('Restore her arrival.', { type: 'presence.enter', name: 'Princess Alexia', position: 'beside Jugram' })] }), async () => {
+  await wire(() => reviewed({ issues: [issue('Restore her arrival.', { type: 'presence.enter', name: 'Princess Alexia', position: 'beside Jugram' })] }), async () => {
     const result = await auditLedger({ connection, storyId: id });
     assert(!result.unfinished, 'actual saved presence and position settle both older proposals');
   });
@@ -158,11 +172,17 @@ test('M687-7 a successful alternate presence operation clears saved enter and up
 
 test('M687-8 a proposal about an early pose cannot overwrite a later change for that same person', async () => {
   const later = 'Kerroc stood and opened the ledger again at the rail.';
-  const id = await tale('m687-later-pose', { page: PAGE.replace(CORVEN, CORVEN + '\n\n' + later), mutations: [{ type: 'presence.enter', name: 'Kerroc', position: 'at the rail, ledger open again' }] });
-  await wire(() => ({ issues: [issue('The early closed ledger pose.', { type: 'presence.update', name: 'Kerroc', position: 'on his witness stool, ledger shut on his knees', shown: KERROC })] }), async () => {
-    await auditLedger({ connection, storyId: id });
-    eq((await loadState(id)).present.find((p) => p.name === 'Kerroc').position, 'at the rail, ledger open again', 'later action wins');
-  });
+  /* M689 moved chronology from the old prose filter to the review's own reading of the completed page; since M710 that
+   * review's ending read outranks a presence update it also proposes for the same person, and since M712 it may
+   * confirm the saved later pose as already correct (repair:false) — either way the early pose is not written back */
+  for (const repair of [false, true]) {
+    const id = await tale('m687-later-pose-' + repair, { page: PAGE.replace(CORVEN, CORVEN + '\n\n' + later), mutations: [{ type: 'presence.enter', name: 'Kerroc', position: 'at the rail, ledger open again' }] });
+    await wire(() => reviewed({ scene: [{ name: 'Kerroc', repair, earlier: KERROC, ending: { position: 'at the rail, ledger open again', shown: later } }],
+      issues: [issue('The early closed ledger pose.', { type: 'presence.update', name: 'Kerroc', position: 'on his witness stool, ledger shut on his knees', shown: KERROC })] }), async () => {
+      await auditLedger({ connection, storyId: id });
+      eq((await loadState(id)).present.find((p) => p.name === 'Kerroc').position, 'at the rail, ledger open again', 'later action wins');
+    });
+  }
 });
 
 test('M687-9 old merges from M686 are followed without recreating their source identity', async () => {
@@ -175,9 +195,9 @@ test('M687-9 old merges from M686 are followed without recreating their source i
   state.audit = { unfinished: true, unresolved: [{ what: 'The old titled page is a duplicate.', pendingReason: 'blocked', mutations: [{ type: 'people.rename', from: 'Lord Marshal Kelstrum', to: 'Kelstrum' }] }] };
   await saveState(id, state);
   await wire((body) => {
-    if (!sent(body).includes('SOURCE PEOPLE REVIEW')) return { issues: [] };
-    const docs = JSON.parse(sent(body).split('SOURCE DOCUMENTS\n')[1]); const source = docs.find((d) => d.text.includes(quote));
-    return { checked: docs.map((d) => d.id), people: [{ name: 'Lord Marshal Kelstrum', source: source.id, shown: quote }] };
+    if (!reading(body)) return reviewed();
+    const docs = sourceDocs(body); const source = docs.find((d) => d.passages.some((p) => p.text.includes(quote)));
+    return { checked: docs.map((d) => d.id), people: [sourcePerson(source, 'Lord Marshal Kelstrum', quote)] };
   }, async () => {
     await auditLedger({ connection, storyId: id, reviewSources: 'all', castNames: ['Lord Marshal Kelstrum'] });
     const after = await loadState(id); assert(!after.characters['Lord Marshal Kelstrum'], 'the previous release merge remains respected');
@@ -195,7 +215,7 @@ test('M687-10 an explicitly named role merges through the auditor without losing
     { type: 'people.set', name: 'the marshal', field: 'core', text: 'Marshal of Ilvarren.' },
     { type: 'knowledge.add', name: 'the marshal', fact: 'He knows the agreed rules of the bout.' },
   ] });
-  await wire(() => ({ issues: [issue('The marshal and Kelstrum are one man.', { type: 'people.rename', from: 'the marshal', to: 'Kelstrum' })] }), async () => {
+  await wire(() => reviewed({ issues: [issue('The marshal and Kelstrum are one man.', { type: 'people.rename', from: 'the marshal', to: 'Kelstrum' })] }), async () => {
     const result = await auditLedger({ connection, storyId: id }); const state = await loadState(id);
     assert(!state.characters['the marshal'] && state.characters.Kelstrum, 'the source apposition supports the merge');
     assert(state.knowledge.Kelstrum?.length, 'the role knowledge remains');
@@ -213,9 +233,17 @@ test('M687-11 knowing two marshals prevents a guessed role merge', async () => {
     { type: 'people.set', name: 'Lorian', field: 'core', text: 'Marshal of the coast.' },
     { type: 'people.set', name: 'the marshal', field: 'core', text: 'An unresolved marshal identity.' },
   ] });
-  await wire(() => ({ issues: [issue('A proposed role merge.', { type: 'people.rename', from: 'the marshal', to: 'Kelstrum' })] }), async () => {
-    await auditLedger({ connection, storyId: id });
-    assert((await loadState(id)).characters['the marshal'], 'ambiguous identity is preserved');
+  /* M709 made identity the final review's semantic decision and retired the engine classifier that refused a guessed role
+   * merge (AGENTS.md: no name gates in place of the reader's judgment). The guard is now the rule the review is sent, and
+   * the review's open verdict, which keeps both records, holds back a guessed merge riding in the same answer (M697: an
+   * open merge is withheld) and leaves the audit unfinished. */
+  await wire(() => reviewed({ issues: [issue('A proposed role merge.', { type: 'people.rename', from: 'the marshal', to: 'Kelstrum' })],
+    review: { open: [{ id: 'characters:the marshal', why: 'Kelstrum and Lorian are both marshals; the page does not say which of them this record is.' }] } }), async (calls) => {
+    const result = await auditLedger({ connection, storyId: id });
+    const state = await loadState(id);
+    assert(calls.length && calls.every((body) => sent(body).includes('A role or title that more than one established person holds identifies none of them by itself')), 'the review is told that a role two known people hold names neither of them');
+    assert(state.characters['the marshal'] && state.characters.Kelstrum && state.characters.Lorian, 'ambiguous identity is preserved');
+    assert(result.unfinished && result.pending.some((p) => p.includes('characters:the marshal: Kelstrum and Lorian are both marshals')), 'the undecided identity stays open by name');
   });
 });
 
@@ -226,9 +254,19 @@ test('M687-12 evidence for a gallery arrival never overrides a later departure, 
     ['move', PAGE.replace(END, 'Jugram turned and walked away down the passage to the council room.'), [{ type: 'offscreen.set', name: 'Princess Alexia', location: 'the palace salle gallery' }], { groundWas: { page: 0, name: 'the palace salle' } }],
   ]) {
     const id = await tale('m687-guard-' + label, { page, mutations, extra });
-    await wire(() => ({ issues: [issue('Earlier gallery arrival.', { type: 'presence.enter', name: 'Princess Alexia', position: 'third row of the gallery', shown: ALEXIA })] }), async () => {
+    /* M689 (owner-agreed pipeline review) retired the prose filter that refused such arrivals: the review interprets
+     * the evidence and arrivals are its explicit operations (M710). The guard is now what the review is sent — the rule,
+     * the whole completed page and the saved seat — and a review that follows it leaves her where the story put her. */
+    const seat = (await loadState(id)).offscreen['Princess Alexia'];
+    await wire(() => reviewed(), async (calls) => {
       await auditLedger({ connection, storyId: id });
-      assert(!(await loadState(id)).present.some((p) => p.name === 'Princess Alexia'), label + ' is never undone');
+      const asked = calls.map(sent).join('\n');
+      assert(asked.includes('A later departure, death, changed position or scene move still wins. Never restore an earlier moment over it.'), 'the review is told that a later departure, death or scene move wins');
+      assert(asked.includes('COMPLETE NEWEST MAIN STORY') && asked.includes(page.slice(page.lastIndexOf('\n\n') + 2)) && (label !== 'departure' || asked.includes('Princess Alexia left the salle and returned to her rooms.')), 'the review reads the whole completed page through its ending');
+      assert(!seat || asked.includes(seat.location), 'the review sees her saved seat');
+      const after = await loadState(id);
+      assert(!after.present.some((p) => p.name === 'Princess Alexia'), label + ' is never undone');
+      assert(JSON.stringify(after.offscreen['Princess Alexia']) === JSON.stringify(seat), 'her saved seat stands');
     });
   }
 });
@@ -240,7 +278,7 @@ test('M687-13 saved findings close after another worker completed the repair, ev
     { what: 'Old seat update failed.', pendingReason: 'blocked', mutations: [{ type: 'presence.update', name: 'Princess Alexia', position: 'beside Jugram' }] },
     { what: 'Old elsewhere clear failed.', pendingReason: 'blocked', mutations: [{ type: 'offscreen.clear', name: 'Princess Alexia' }] },
   ] }; await saveState(id, state);
-  await wire(() => ({ issues: [] }), async (calls) => {
+  await wire(() => reviewed(), async (calls) => {
     const result = await auditLedger({ connection, storyId: id });
     assert(!result.unfinished && !result.pending.length, 'the saved successful repair closes all three old findings');
     eq(calls.length, 1, 'no pointless repair followup');
@@ -253,8 +291,15 @@ test('M687-14 a dress correction cannot close an unrelated blocked posture repai
   const state = await loadState(id); state.audit = { unfinished: true, unresolved: [
     { what: 'Kerroc has a wrong posture.', pendingReason: 'blocked', mutations: [{ type: 'presence.update', name: 'Kerroc', position: 'by the rail' }] },
   ] }; await saveState(id, state);
-  await wire(() => ({ issues: [issue('His cloak is blue.', { type: 'presence.update', name: 'Kerroc', attire: 'blue cloak', shown: page })] }), async () => {
+  /* a reply that corrects the cloak but never completes its verdict (not even in its completion turn): its repair still
+   * lands and nothing is approved, so only the posture itself could settle the saved posture repair — not the cloak.
+   * (A completed verdict approves his entry and closes old findings on it; an open one holds back writes to it.) */
+  const cloak = { issues: [issue('His cloak is blue.', { type: 'presence.update', name: 'Kerroc', attire: 'blue cloak', shown: page })] };
+  await wire(() => cloak, async () => {
     const result = await auditLedger({ connection, storyId: id });
+    const after = await loadState(id);
+    eq(after.present.find((p) => p.name === 'Kerroc').attire, 'blue cloak', 'the cloak correction lands');
+    assert(after.audit.unresolved.some((u) => u.mutations?.some((m) => m.position === 'by the rail')), 'the saved posture repair is kept');
     assert(result.unfinished && result.pending.some((p) => p.includes('posture')), 'unrelated field repair cannot erase the uncorrected posture');
   });
 });
@@ -262,11 +307,15 @@ test('M687-14 a dress correction cannot close an unrelated blocked posture repai
 test('M687-15 an earlier named pose does not override a later pronoun continuation', async () => {
   const early = 'Kerroc sat at the rail with the ledger open.';
   const page = '[the palace salle, Ilvarren | 10:00]\n\n' + early + ' He moved to the witness stool and shut the ledger on his knees.\n\n' + END;
-  const id = await tale('m687-pronoun-posture', { page, mutations: [{ type: 'presence.enter', name: 'Kerroc', position: 'the witness stool, ledger shut on his knees' }] });
-  await wire(() => ({ issues: [issue('An outdated posture.', { type: 'presence.update', name: 'Kerroc', position: 'at the rail with the ledger open', shown: early })] }), async () => {
-    await auditLedger({ connection, storyId: id });
-    eq((await loadState(id)).present.find((p) => p.name === 'Kerroc').position, 'the witness stool, ledger shut on his knees', 'the later pose remains');
-  });
+  /* as M687-8: the review's ending read of the pronoun continuation outranks its own stray update for Kerroc */
+  for (const repair of [false, true]) {
+    const id = await tale('m687-pronoun-posture-' + repair, { page, mutations: [{ type: 'presence.enter', name: 'Kerroc', position: 'the witness stool, ledger shut on his knees' }] });
+    await wire(() => reviewed({ scene: [{ name: 'Kerroc', repair, earlier: early, ending: { position: 'the witness stool, ledger shut on his knees', shown: 'He moved to the witness stool and shut the ledger on his knees.' } }],
+      issues: [issue('An outdated posture.', { type: 'presence.update', name: 'Kerroc', position: 'at the rail with the ledger open', shown: early })] }), async () => {
+      await auditLedger({ connection, storyId: id });
+      eq((await loadState(id)).present.find((p) => p.name === 'Kerroc').position, 'the witness stool, ledger shut on his knees', 'the later pose remains');
+    });
+  }
 });
 
 test('M687-16 compacting repeated reports retains distinct posture and attire repairs', async () => {
@@ -286,7 +335,7 @@ test('M687-17 the reported Lord Marshal title establishes the unique owner of th
   const id = await tale('m687-reported-marshal-title', { input: quote, page: 'Kelstrum watched Jugram on the raked ground. The marshal lifted his practice sword.', mutations: [
     { type: 'people.set', name: 'the marshal', field: 'core', text: 'Marshal of Ilvarren.' },
   ] });
-  await wire(() => ({ issues: [issue('The marshal is the established Kelstrum.', { type: 'people.rename', from: 'the marshal', to: 'Kelstrum' })] }), async () => {
+  await wire(() => reviewed({ issues: [issue('The marshal is the established Kelstrum.', { type: 'people.rename', from: 'the marshal', to: 'Kelstrum' })] }), async () => {
     const result = await auditLedger({ connection, storyId: id });
     assert(!(await loadState(id)).characters['the marshal'], 'the actual quoted title supports the identity repair');
     assert(!result.unfinished, 'the role merge finishes');

@@ -108,8 +108,11 @@ test('M12 tiers: full cards cap at 6, mention-recall at 3, the roster at 12', ()
   eq(out.tiers.roster, 12, 'the roster caps at twelve');
   assert(out.text.includes('Named, though not in the scene'), 'recall framed as not in the scene');
   assert(!out.text.includes('should never be injected'), 'the MC record is never injected');
-  /* M283: the roster names the nearest to the story first and counts the rest — no wheel */
-  assert(/Elsewhere in the tale: Mentioned4 [^\n]*, and 5 more the ledger knows\./.test(out.text), 'the roster names the lately-named first and counts the ones it does not name');
+  /* M283: the roster names the nearest to the story first and counts the rest — no wheel. M714 ("current named recalls take
+   * priority", docs/LEDGER_FOUNDATION_M714.md): the three RECALLED are the most lately named — Mentioned5 from the newest
+   * page, then Mentioned3 and Mentioned4 — and the roster names the earlier-named next, before anyone unnamed */
+  assert(/Named, though not in the scene right now:\nMentioned5 — [\s\S]*?\nMentioned3 — [\s\S]*?\nMentioned4 — /.test(out.text) && !/\nMentioned[12] — /.test(out.text), 'the newest named are the ones recalled: ' + out.text.slice(out.text.indexOf('Named, though'), out.text.indexOf('Named, though') + 120));
+  assert(/Elsewhere in the tale: Mentioned1 [^\n]*Mentioned2 [^\n]*, and 5 more the ledger knows\./.test(out.text), 'the roster names the lately-named first and counts the ones it does not name');
   eq(renderPeopleTiers(state, { recentPages, rotation: 1 }).text, out.text, 'and does not turn from page to page');
 });
 

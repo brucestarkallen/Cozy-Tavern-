@@ -36,12 +36,18 @@ test('M578-2 THE MAIN CHARACTER\'S NAME, REFUSED, POINTS AT THE WAY THAT WORKS �
 });
 
 test('M579 A SECRET LEARNED LONG AGO IS NEVER TOLD AS ONE THEY "HAVEN\'T FOUND OUT": past the guard a person\'s oldest facts are let go — and a fact older than what their full list still holds is no longer claimed unknown to them; one inside it still is', async () => {
-  const { blindSpots, KNOWLEDGE_GUARD } = await import('../../js/engine/world.js');
+  const { blindSpots, KNOWLEDGE_GUARD, trimmedBook } = await import('../../js/engine/world.js');
   let st = applyMutations({ ...emptyState() }, [{ type: 'mc.set', name: 'Jovan' }]).state;
   st.page = 9; /* page 10: both learn Jovan is a Quincy */
   st = applyMutations(st, [{ type: 'knowledge.add', name: 'Rukia', fact: 'that Jovan is secretly a Quincy' }, { type: 'knowledge.add', name: 'Kaelen', fact: 'that Jovan is secretly a Quincy' }]).state;
   for (let i = 0; i < KNOWLEDGE_GUARD + 5; i += 1) { st.page = 20 + i; st = applyMutations(st, [{ type: 'knowledge.add', name: 'Rukia', fact: 'small detail number ' + i + ' about the barracks schedule' }]).state; }
-  assert(!st.knowledge.Rukia.some((k) => /Quincy/.test(k.fact)), 'fixture: her oldest fact was let go at the guard');
+  /* M713: the ledger no longer lets anything go — her secret is still hers */
+  assert(st.knowledge.Rukia.some((k) => /Quincy/.test(k.fact)) && st.knowledge.Rukia.length === KNOWLEDGE_GUARD + 6, 'M713: nothing is let go at the guard');
+  /* …but a book an older build kept was trimmed there, and what it let go is gone (M713: "legacy knowledge-loss horizons
+   * remain conservative because M713 cannot recover already-deleted facts", docs/LEDGER_PIPELINE.md). That book, made by
+   * the very trim the older builds ran (trimmedBook at the guard): */
+  st.knowledge = { ...st.knowledge, Rukia: trimmedBook(st.knowledge.Rukia, st.knowledge, 'Rukia', KNOWLEDGE_GUARD) };
+  assert(!st.knowledge.Rukia.some((k) => /Quincy/.test(k.fact)) && st.knowledge.Rukia.length === KNOWLEDGE_GUARD, 'fixture: a legacy book whose oldest fact was let go at the guard');
   st.page = 400;
   const spots = blindSpots(st.knowledge, [{ name: 'Rukia' }], { scenePages: ['Jovan the Quincy stood by Rukia.'], turn: 401, mc: 'Jovan' });
   assert(!spots.some((sp) => sp.lacks.some((l) => /Quincy/.test(l.fact))), 'never told as a secret she has not found out: ' + JSON.stringify(spots));

@@ -29,8 +29,13 @@ test('M459-2 WHAT MANY HERE KNOW IS SAID ONCE, AND A RE-WORDED FACT IS ONE FACT 
   const present = [{ name: 'Jovan Oda' }, ...witnesses.map((n) => ({ name: n })), { name: 'Zaraki Kenpachi' }];
   const said = renderKnowledge(knowledge, present, undefined, { pages: ['the sand'], ignore: ['Jovan Oda'], turn: 42 });
   eq((said.match(/stopped one inch/g) || []).length, 1, 'said once: ' + said);
-  assert(/Everyone here but Zaraki Kenpachi knows: that the blade stopped one inch/.test(said), 'with who knows it');
+  /* M737: a shared line names who holds it — never "Everyone here but X knows", which told the storyteller X does not know
+   * ("missing books express uncertainty, never certain ignorance", HISTORY M737) */
+  assert(/^Known to Hitsugaya, Isane Kotetsu, Suì-Fēng, Kensei: that the blade stopped one inch/m.test(said), 'with who knows it: ' + said);
+  assert(!/Everyone here but/.test(said), 'never with who does not');
   for (const w of witnesses) assert(said.includes(w + ' counted four beats'), w + '’s own fact stays');
-  eq((said.match(/named (him|Jovan) captain of the 13th/g) || []).length, 1, 'the same fact in new words, once (the newer)');
+  /* M737: "exact statement … distinctions replace overlap deduplication" — two wordings are two statements, and nothing a
+   * person knows goes unsaid: both stand (the readers are told a fact held in other words is already known, M484-2) */
+  eq((said.match(/named (him|Jovan) captain of the 13th/g) || []).length, 2, 'two wordings are two statements, both said (M737)');
   assert(/felt the blade enter him/.test(said), 'Zaraki’s own');
 });

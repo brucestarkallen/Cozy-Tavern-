@@ -224,7 +224,7 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
     ...(record ? ['The detailed story record:', record] : []),
     ...(() => { const w = windowOfPages(pages, contextBudget); return [...w.shown, ...(w.index.length ? ['Earlier pages available through lookup:', ...w.index] : [])]; })(),
     'Shared scene, relationships, knowledge and elsewhere state:',
-    renderWholeLedger(state),
+    renderWholeLedger(state, { material: String(userText || '') + '\n' + String(assistantText || ''), fetchable: true }), /* M752: the seats this page bears on */
     'Here is what the character pages currently say:',
     ledger,
     ...(profileSources ? [profileSources] : []),
@@ -405,6 +405,13 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
     if (owner && fresh.characters[owner]?.hand?.[field]) { thinned.push({ delta: d, why: 'the writer explicitly controls this field' }); return false; }
     if (isMc(fresh, d.name) && d.field === 'core' && !quotedSource(writerOriginals, d.shown)) {
       thinned.push({ delta: d, why: 'player biography needs original writer facts' }); return false;
+    }
+    /* M648, kept under M719's additive notes: an addition to who someone is is a supported fact. A note with no original
+     * words behind it that says less than the nature standing ("a girl", a nature turned gentle) is a worker restating
+     * them thinner, not an addition — appended, it would sit in their core as drift. Who they are stands as written. */
+    if (String(d.field).trim().toLowerCase() === 'core' && owner && !quotedSource(originals, d.shown) && thinsCore(fresh.characters[owner].core, d.text)) {
+      thinned.push({ delta: { type: 'people.note', name: d.name, field: 'core', text: d.text }, why: 'who ' + owner + ' is stands as written — a nature is added to, never thinned to “' + String(d.text).trim().slice(0, 60) + '”' });
+      return false;
     }
     return true; // Core notes merge additively at the durable write boundary.
 

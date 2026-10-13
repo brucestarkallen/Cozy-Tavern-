@@ -89,10 +89,21 @@ test('M81-1 the model sees its own past answer WHOLE (blocks included) and what 
   assert(/“the brief”: applied, then TAKEN BACK by the writer/.test(wire[2].content), wire[2].content);
   assert(/“lore: add Kim”: REFUSED — the shelf already holds “Kim”/.test(wire[2].content));
   assert(/“re-ink #abc”: still pending/.test(wire[2].content));
-  assert(!/could not be read/.test(wire[2].content), 'an unreadable-block card is not a fate to report');
+  /* M730 (0a1a724): every card is named by its id — <dismiss> retires exactly the ids it is given (settleProposals takes a
+   * refused card too), and an unreadable block's card stands refused in his panel until it is dismissed, superseded or
+   * asked again. So it is reported like any other refused card, by its id: the older law ("not a fate to report") would
+   * keep the one id the housekeeper needs to retire it out of its sight. */
+  assert(/^- \[id:d\] “a <brief> block that could not be read”: REFUSED — /m.test(wire[2].content), 'an unreadable-block card is reported by its id, refused: ' + wire[2].content);
+  assert(['a', 'b', 'c'].every((id) => new RegExp('^- \\[id:' + id + '\\] “', 'm').test(wire[2].content)), 'every card by its id');
   /* it rides on the real wire */
   let seen = null;
-  const call = async ({ messages }) => { seen = messages; return { text: 'Nothing more.' }; };
+  let told = '';
+  const call = async ({ system, messages }) => { seen = messages; told = JSON.stringify(system); return { text: 'Nothing more.' }; };
   await runConversation({ story: { title: 'T', brief: '' }, messages: [], state: emptyState(), modules: [], lore: [], memory: { nodes: [] }, session, writerText: 'is it done?', contextPages: 8, call });
   assert(seen.some((m) => m.role === 'assistant' && /<brief>\[/.test(m.content)) && seen.some((m) => /^\[STATE\]/.test(m.content)), 'the wire carries both');
+  assert(/<dismiss>\[\{\\"ids\\":\[\\"actual proposal ID\\"\]/.test(told) && /Use supplied IDs, never guess labels\./.test(told), 'and the model is told to retire a card by the id it was given');
+  /* and that id retires that card, and only it */
+  const { settleProposals } = await import('../../js/agents/housekeeper.js');
+  eq(settleProposals(session, ['d'], { reason: 'Dismissed by the Housekeeper: the block was sent again' }).count, 1, 'the refused unreadable card is retired by its id');
+  eq(session.turns[1].proposals.map((p) => p.status).join(','), 'applied,refused,pending,dismissed', 'the other cards stand as they were');
 });

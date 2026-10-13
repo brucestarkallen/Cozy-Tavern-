@@ -54,7 +54,9 @@ globalThis.fetch=async(_,options)=>{
   const body=JSON.parse(options.body);
   const user=body.messages.findLast(m=>String(m.content).includes('SOURCE DOCUMENTS\n')).content;
   const batch=JSON.parse(user.split('SOURCE DOCUMENTS\n')[1]);packed=Math.max(packed,batch.length);
-  const people=batch.filter(d=>d.text.includes(quote)).map(d=>({name:'Elin',source:d.id,shown:quote,identityFacts:[{text:'Sovereign of the northern realm.',shown:quote}],facts:[{key:'hair',value:'violet',shown:quote}]}));
+  // M717: each document arrives as ordered original passages; the reader selects passage ids.
+  const people=batch.flatMap(d=>d.passages.filter(p=>p.text.includes(quote)).slice(0,1).map(p=>({name:'Elin',kind:'person',source:d.id,evidence:p.id,
+    identityFacts:[{text:'Sovereign of the northern realm.',evidence:p.id}],facts:[{key:'hair',value:'violet',evidence:p.id}]})));
   const finish=truncate&&batch.length>1?'length':'stop';truncate=false;
   const content=JSON.stringify({checked:batch.map(d=>d.id),people});
   return new Response(body.stream?'data: '+JSON.stringify({choices:[{delta:{content}}]})+'\n\ndata: '+JSON.stringify({choices:[{delta:{},finish_reason:finish}]})+'\n\ndata: [DONE]\n\n':JSON.stringify({choices:[{message:{content},finish_reason:finish}]}));

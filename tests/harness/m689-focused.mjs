@@ -40,7 +40,9 @@ try {
   const sceneState = applyMutations(baseline, scene.mutations).state;
   assert(sceneState.present.some(p => p.name === 'Princess Alexia' && p.position === 'leaning forward in the third row'));
   console.log('PASS Scene saves the supported spectator and posture.');
-  reply = { issues: [{ what: 'Alexia is missing despite the gallery passage.', fix: 'Restore her presence.', shown: quote, mutations: [{ type: 'presence.enter', name: 'Princess Alexia', position: 'leaning forward in the third row' }] }] };
+  reply = { issues: [{ what: 'Alexia is missing despite the gallery passage.', fix: 'Restore her presence.', shown: quote, mutations: [{ type: 'presence.enter', name: 'Princess Alexia', position: 'leaning forward in the third row' }] }],
+    review: { status: 'complete', why: 'Every required entry was compared with the gallery page; Alexia was missing and is restored.', open: [] },
+    standings: [{ name: 'Princess Alexia', p: 60, r: 50, s: 0 }] };
   const result = await auditLedger({ connection, storyId: id, brief });
   const repaired = await loadState(id);
   assert(repaired.present.some(p => p.name === 'Princess Alexia'));

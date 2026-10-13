@@ -93,7 +93,7 @@
 
 import { relevantPeople } from '../engine/relevance.js';
 import { recordId, uniqueRecords, selectWhole, requestSelection, historicalPassages, boundRecord, messageVersion } from './selection.js';
-import { requestTokens, inputRoom } from './budget.js';
+import { requestTokens, contentTokens, inputRoom, refusalRoom, ANSWER_RESERVE, CONTEXT_MARGIN, UNKNOWN_IMAGE_ALLOWANCE } from './budget.js';
 import { shownText } from '../engine/pagepatch.js'; /* M576 */
 import { renderStanding, standingPlans, selectStanding } from './planbook.js'; /* M510-22 */
 import { estimateTokens } from './receipt.js';
@@ -290,8 +290,11 @@ export function coveredUntil(nodes) {
  * memory        — null when the keeper is OFF for this story; when it
  *                 carries a `nodes` array, the coverage law (above) applies
  * budgetTokens  — the connection's estimated context room (keeper-off only)
- * prefixTokens  — what slots 1–7, 9 and 10 already spent (keeper-off only) */
-export function windowPlan({ pages, memory, budgetTokens, prefixTokens } = {}) {
+ * prefixTokens  — what slots 1–7, 9 and 10 already spent (keeper-off only)
+ * cost          — M752: what one page costs, in the same measure as the room and the prefix (default: the receipt's
+ *                 four characters a token; buildRequest hands the final fit's own measure) */
+const receiptCost = (m) => estimateTokens(pageText(m));
+export function windowPlan({ pages, memory, budgetTokens, prefixTokens, cost: pageCostOf = receiptCost, keepFrom } = {}) {
   const all = Array.isArray(pages) ? pages : [];
   const total = all.length;
   if (!memory) {
@@ -301,7 +304,7 @@ export function windowPlan({ pages, memory, budgetTokens, prefixTokens } = {}) {
     let used = 0;
     let start = total;
     while (start > 0) {
-      const cost = estimateTokens(pageText(all[start - 1]));
+      const cost = pageCostOf(all[start - 1]);
       if (used + cost > room) break;
       used += cost;
       start -= 1;
@@ -312,7 +315,9 @@ export function windowPlan({ pages, memory, budgetTokens, prefixTokens } = {}) {
      * the state block and NOT ONE LINE OF THE STORY. It wrote into the void
      * and the page came back belonging to nothing. The last exchange always
      * rides, whatever the arithmetic says; the receipt names the squeeze. */
-    const floor = Math.max(0, total - 2);
+    /* M752: and the latest exchange is what rides, whatever shape it takes — from the storyteller's latest page when an aside
+     * of his stands between it and his move (buildRequest's keepFrom); the last two pages otherwise */
+    const floor = Math.max(0, Math.min(total - 2, Number.isInteger(keepFrom) ? keepFrom : total - 2));
     const squeezed = start > floor;
     if (squeezed) start = floor;
     return {
@@ -349,10 +354,10 @@ export function windowPlan({ pages, memory, budgetTokens, prefixTokens } = {}) {
         ? Math.max(0, budgetTokens - (Number.isFinite(prefixTokens) ? prefixTokens : 0))
         : Infinity;
       let used = 0;
-      for (let i = start; i < total; i += 1) used += estimateTokens(pageText(all[i]));
+      for (let i = start; i < total; i += 1) used += pageCostOf(all[i]);
       let at = start;
       while (at > reach) {
-        const cost = estimateTokens(pageText(all[at - 1]));
+        const cost = pageCostOf(all[at - 1]);
         if (used + cost > room) break;
         used += cost;
         at -= 1;
@@ -586,6 +591,9 @@ const EARLIER_HEAD = 'In full, earlier moments that matter now — with the peop
  * same meaning, in the words a storyteller reads */
 const PEOPLE_HEAD = 'On their mind — each person’s own, not what the others know:';
 const leftOutWords = (k) => '(' + k + ' older ' + (k === 1 ? 'line doesn’t fit here and is' : 'lines don’t fit here and are') + ' left out — what happened in ' + (k === 1 ? 'it' : 'them') + ' still stands.)';
+/* M752: a line whose pages changed since it was written is held back until the keeper writes it again (M737) — said, so the
+ * gap is never read as "nothing happened" */
+const withheldWords = (k) => '(' + k + ' older ' + (k === 1 ? 'line is' : 'lines are') + ' left out while ' + (k === 1 ? 'it is' : 'they are') + ' written again — what happened in ' + (k === 1 ? 'it' : 'them') + ' still stands.)';
 export const HYBRID_RECALL_LINES = 6;        /* older lines this scene names, whole — when the whole record cannot ride, and for a small model */
 /* M510-59: and never more than this, whatever a line holds — his fold may be 10, 20 or 30 pages a line, and ten whole
  * lines of 30 pages each would be a record of their own. About 4,000 tokens; the smart recall's picks first (read for
@@ -743,7 +751,7 @@ function emptyWhy(name, c) {
     case 'The story in short': return !c.small ? 'small model only — your storyteller reads the pages themselves' : !c.planned ? noPlan : 'not written yet — the planning helper writes it with each plan';
     case 'Plans standing': return !c.small ? 'no plan standing — the plans keeper writes one down the moment a page lays it out' : !c.planned ? noPlan : 'no plan standing — the plans keeper writes one down the moment a page lays it out'; /* M510-48: every storyteller */
     case 'Who’s here, in the recent pages': return !c.small ? 'small model only — your storyteller reads those pages whole' : !c.planned ? noPlan + ', with the pages whole' : 'no one here is named in the pages between the last eight and the record (or the story is still short enough for the eight)';
-    case 'Earlier moments, in full': return !c.small ? (c.recordWhole === false ? 'your storyteller reads the record itself (What remains) — not every older line fits this connection’s context; the ones your newest move brings up ride there, in their place' : 'your storyteller reads the whole record (What remains) — every earlier moment is in it') : !c.planned ? noPlan + ', with the whole record' : 'no one here is named in the record yet, or their lines already ride above'; /* M511: was “Who’s here, in the record”; M750: the whole record rides for a frontier storyteller */
+    case 'Earlier moments, in full': return !c.small ? (c.recordWhole === false ? 'your storyteller reads the record itself (What remains) — ' + (c.withheld && c.recordWhole === false && !c.leftOut ? 'all but the lines being written again after their pages changed' : 'not every older line fits this connection’s context; the ones your newest move brings up ride there, in their place') : 'your storyteller reads the whole record (What remains) — every earlier moment is in it') : !c.planned ? noPlan + ', with the whole record' : 'no one here is named in the record yet, or their lines already ride above'; /* M511: was “Who’s here, in the record”; M750: the whole record rides for a frontier storyteller */
     case 'The plan for this page': return !c.small ? 'small model only — the planning helper writes one for a small storyteller' : noPlan + ', with the scene said once more';
     case 'The sounds': return !c.small ? 'small model only — on a heated page' : !c.planned ? noPlan + ', with the whole craft' : 'a calm page — no sound laws needed';
     case 'On their mind': return 'no one’s page to show — the ledger has no one in it yet';
@@ -1173,12 +1181,22 @@ export function buildRequest({
    * a small one reads its focused part (M510-14/M510-53). No second telling of the story rides beside it. */
   const recordCap = Number.isFinite(windowInfo?.recordCap) ? windowInfo.recordCap : Math.max(SMALL_RECORD_CHARS, (inputRoom(windowInfo) || 0) * 3 * 0.25);
   const sourceVisible = history.filter(m => m && !m.hidden);
-  const validNodes = (windowInfo?.nodes || []).filter(n => n.correction || boundRecord(n, sourceVisible));
-  const recordPlan = planRecordSelection({ nodes: validNodes, state, small: Boolean(smallB), through: windowInfo?.recordThrough ?? Infinity, cap: memory ? recordCap : 0 });
+  /* M752: the record's lines as the caller handed them (chat.js hands every line, mem.nodes) — null when it hands none and
+   * the record comes as text alone */
+  const handedNodes = Array.isArray(windowInfo?.nodes) ? windowInfo.nodes.filter(n => n && typeof n === 'object' && Array.isArray(n.span)) : null;
+  const validNodes = (handedNodes || []).filter(n => n.correction || boundRecord(n, sourceVisible));
+  const recordThrough = windowInfo?.recordThrough ?? Infinity;
+  /* M752: A LINE WHOSE PAGES CHANGED IS WITHHELD, AND COUNTED. M737 holds back a line whose pages no longer read as they did
+   * when it was written (its source binding: edited, reordered, gone) until the keeper reads it again in its place
+   * (memory.js repairInvalidRecordSources). With every line held back the record's whole text rode instead (every page told
+   * twice when the window reached back too), and with some held back the part still said "everything that came before".
+   * They are counted here, so the part and its row say how many wait. */
+  const withheldNodes = uniqueRecords((handedNodes || []).filter(n => !n.correction && n.span[1] < recordThrough && !validNodes.includes(n)));
+  const recordPlan = planRecordSelection({ nodes: validNodes, state, small: Boolean(smallB), through: recordThrough, cap: memory ? recordCap : 0 });
   const recordNodes = recordPlan.list;
-  /* no line handed that still stands (a caller that hands the record as text alone, or every line waiting to be made again
-   * after its pages changed): the record's text, its newest within a small model's room (M510-14) — as before M750 */
-  const smallRecord = smallB ? recordPlan.list.length ? recordPlan.recent : { nodes: [], ...newestLines(memoryText, Math.min(recordCap, SMALL_RECORD_CHARS)) } : null;
+  /* no line handed (a caller that hands the record as text alone): the record's text, its newest within a small model's room
+   * (M510-14) — as before M750. M752: lines handed and all held back is not that — the text holds those very lines. */
+  const smallRecord = smallB ? handedNodes ? recordPlan.recent : { nodes: [], ...newestLines(memoryText, Math.min(recordCap, SMALL_RECORD_CHARS)) } : null;
   const presentRecord = recordPlan.present;
   const selectedRecordNodes = [...recordPlan.recent.nodes,...(presentRecord?.nodes || []),...recordPlan.corrections];
   const selectedIds = new Set(selectedRecordNodes.map(recordId));
@@ -1188,6 +1206,8 @@ export function buildRequest({
    * M750: only lines the request does not already carry are called back — with the whole record riding there are none; the
    * passages of the pages his move names still come back, word for word (excerptNodes, below). */
   let earlierRows = ''; let earlierCalled = 0; let smallSinceRows = ''; let pastRows = ''; let leftOut = 0; /* M511: each part's lines exactly as they ride — the receipt's words */
+  const withheld = memoryText ? withheldNodes.length : 0; /* M752: only where the record rides at all (the probe sizes the request without it) */
+  let pastGaps = []; /* M752: the words under "Our story so far" for what it does not carry (a frontier storyteller) */
   let recalledNodes = []; /* M511: the older lines called back, as the record's own lines (each rendered as it rides) */
   let excerptNodes = []; /* M750: the lines whose own pages give the passages his move brings up, word for word (M737) */
   let recallSmart = 0; /* M510-50 */
@@ -1251,7 +1271,7 @@ export function buildRequest({
    * M750: for a frontier storyteller the part is the record itself — every line once, in the order it happened, the older
    * lines this scene names in their own place among them; when the context cannot hold every line, the part says how many
    * are left out, so a gap is never read as "nothing happened". */
-  if (smallB && (storyShort || (smallRecord && smallRecord.text) || (presentRecord && presentRecord.text) || recalledNodes.length || recordPlan.corrections.length || standingText)) {
+  if (smallB && (storyShort || (smallRecord && smallRecord.text) || (presentRecord && presentRecord.text) || recalledNodes.length || recordPlan.corrections.length || standingText || withheld)) {
     /* M510-53: THE SMALL MODEL'S STORY SO FAR — the helper's story in short; in full, the record's newest lines (each with
      * its pages); the people here in the pages just before the eight (filled in below, once the window is known); the
      * earlier moments that matter now; the plans. Past first — the people's minds and the state of things now follow it,
@@ -1267,7 +1287,7 @@ export function buildRequest({
     earlierRows = earlierNodes.map((n) => '- ' + recordLine(n)).join('\n');
     earlierCalled = earlierNodes.filter((n) => recalledNodes.includes(n)).length;
     const block = [
-      SMALL_PAST_HEAD,
+      withheld ? SMALL_PAST_HEAD + '\n' + withheldWords(withheld) : SMALL_PAST_HEAD, /* M752: a line held back is said, never a silent gap */
       storyShort ? 'In brief, as I remember it:\n' + storyShort : '',
       /* M751: "the newest of it" only when older lines rest — a record that fits whole is not called its newest part */
       smallSinceRows ? 'In full' + (smallRecord.rested ? ', the newest of it' : '') + (sinceNodes.length ? ' (' + spanOf(sinceNodes) + ')' : '') + ':\n' + smallSinceRows : '',
@@ -1284,10 +1304,13 @@ export function buildRequest({
     const shownIds = new Set(shown.map(recordId));
     leftOut = recordNodes.filter((n) => !n.correction && !shownIds.has(recordId(n))).length;
     pastRows = [...shown,...recordPlan.corrections].map((n) => '- ' + recordLine(n)).join('\n');
-    const past = recordNodes.length
-      ? (pastRows ? (leftOut ? PAST_HEAD_PART + '\n' + leftOutWords(leftOut) : PAST_HEAD) + '\n' + pastRows : '')
-      : memoryText; /* no line handed that still stands (see smallRecord above): the record's text rides as the keeper wrote it, under its own header — as before M750 */
-    if (!recordNodes.length) pastRows = memoryText;
+    /* M752: what is missing is said under the heading — lines with no room, and lines held back while they are written again;
+     * "everything that came before" only when nothing is */
+    pastGaps = [leftOut ? leftOutWords(leftOut) : '', withheld ? withheldWords(withheld) : ''].filter(Boolean);
+    const past = handedNodes
+      ? (pastRows || pastGaps.length ? (pastGaps.length ? PAST_HEAD_PART + '\n' + pastGaps.join('\n') : PAST_HEAD) + (pastRows ? '\n' + pastRows : '') : '')
+      : memoryText; /* no line handed (see smallRecord above): the record's text rides as the keeper wrote it, under its own header — as before M750 */
+    if (!handedNodes) pastRows = memoryText;
     const block = [
       past,
       historicalText,
@@ -1323,13 +1346,15 @@ export function buildRequest({
   /* --- 7. What remains (M6) — the newest memory nodes; then (M7) the lore
    * hits, sharing the slot's budget. The receipt lists each sub-part only
    * when it has something to say; M9 names the lore entries that fired. --- */
-  if (!smallB && pastRows) {
+  /* M752: lines held back while they are written again, said on the row as on the wire */
+  const withheldRow = withheld ? withheld + ' ' + (withheld === 1 ? 'line' : 'lines') + ' left out while the keeper writes ' + (withheld === 1 ? 'it' : 'them') + ' again — ' + (withheld === 1 ? 'its pages were' : 'their pages were') + ' changed after ' + (withheld === 1 ? 'it was' : 'they were') + ' written' : '';
+  if (!smallB && (pastRows || pastGaps.length)) {
     /* M750: the record itself, every line once — the row holds exactly the lines of the part */
-    pushSlot('What remains', pastRows, 'sent as “Our story so far”, after canon: ' + (leftOut ? 'your record, each line once, oldest first — as much of it as this connection’s context holds' : 'your whole record, each line once, oldest first'),
-      leftOut ? leftOut + ' older ' + (leftOut === 1 ? 'line' : 'lines') + ' left out — no room in this connection’s context' + (recalledNodes.length ? '; ' + recalledNodes.length + ' older ' + (recalledNodes.length === 1 ? 'line' : 'lines') + ' your newest move brings up ' + (recalledNodes.length === 1 ? 'rides' : 'ride') + ' in place' + (recallSmart ? ' (' + recallSmart + ' named by the smart recall)' : '') : '') : '');
-  } else if (smallB && (smallSinceRows || (smallRecord && smallRecord.text))) {
+    pushSlot('What remains', pastRows, 'sent as “Our story so far”, after canon: ' + (leftOut || withheld ? 'your record, each line once, oldest first — ' + (leftOut ? 'as much of it as this connection’s context holds' : 'all but the lines being written again') : 'your whole record, each line once, oldest first'),
+      [leftOut ? leftOut + ' older ' + (leftOut === 1 ? 'line' : 'lines') + ' left out — no room in this connection’s context' + (recalledNodes.length ? '; ' + recalledNodes.length + ' older ' + (recalledNodes.length === 1 ? 'line' : 'lines') + ' your newest move brings up ' + (recalledNodes.length === 1 ? 'rides' : 'ride') + ' in place' + (recallSmart ? ' (' + recallSmart + ' named by the smart recall)' : '') : '') : '', withheldRow].filter(Boolean).join('; '));
+  } else if (smallB && (smallSinceRows || (smallRecord && smallRecord.text) || withheld)) {
     /* M510-14: the keeper's record rides for a small model too, its newest folds first (M510-9 held it back) */
-    pushSlot('What remains', smallSinceRows || smallRecord.text, 'sent inside “Our story so far” as “In full, the newest of it”: what the keeper has folded of the older pages — the newest, up to about 4,000 tokens (small model)', smallRecord.rested ? smallRecord.rested + ' older lines rest outside this page — read by the planning helper, and called back when your move names them' : '');
+    pushSlot('What remains', smallSinceRows || smallRecord.text, 'sent inside “Our story so far” as “In full, the newest of it”: what the keeper has folded of the older pages — the newest, up to about 4,000 tokens (small model)', [smallRecord.rested ? smallRecord.rested + ' older lines rest outside this page — read by the planning helper, and called back when your move names them' : '', withheldRow].filter(Boolean).join('; '));
   }
   if (loreText) {
     pushSlot(
@@ -1344,7 +1369,12 @@ export function buildRequest({
    * dynamic tail before history; empty = omitted (the slot-7 law). --- */
   /* M486: the row stands whenever canon verification is ON for the tale — with the note, or empty with the reason it
    * had nothing to say (the writer could not tell whether canon ran at all) */
-  if (standingText) pushSlot('Plans standing', standingText, 'the plans keeper — each plan laid out on the page, kept whole until it is carried out or dropped', standingPlans(smallPlansBook).map((p) => p.title).join('; ')); /* M510-22 */
+  /* M752: the row names the plans that were SENT (selectStanding: at most STANDING_SHOWN, the most relevant, in the room) and
+   * counts the ones still standing that were not — it listed every standing plan's title, sent or not */
+  if (standingText) {
+    const notSent = standingPlans(smallPlansBook).filter((p) => !plansSelected.includes(p)).length;
+    pushSlot('Plans standing', standingText, 'the plans keeper — each plan laid out on the page, kept whole until it is carried out or dropped', plansSelected.map((p) => p.title).join('; ') + (notSent ? ' — ' + notSent + ' more ' + (notSent === 1 ? 'plan stands' : 'plans stand') + ', not sent this page (fewer bear on this scene, or no room); kept until carried out' : '')); /* M510-22 */
+  }
   /* M510-21; M511: one row for the one part the request sends — its lines exactly as they ride */
   if (earlierRows) {
     const ofPeople = presentRecord && presentRecord.text ? 'the record’s own lines that name the people here (the newest few of each), word for word while they are here' : '';
@@ -1413,26 +1443,59 @@ export function buildRequest({
   /* M375: the phrase is no longer glued to the front of a command's law — a quotation hanging before "#time skip" is
    * exactly what his teller's thinking started calling "the wrapper" */
   const directiveText = '';
-  const prefixTokens = slots.reduce((sum, s) => sum + s.tokens, 0)
-    + estimateTokens(hasNote ? note.text : '')
-    + estimateTokens(nudges ? CONTINUE_NUDGE : '')
-    + estimateTokens(directiveText)
-    + estimateTokens(echoOn ? frameText : '');
+  /* M752: THE WINDOW IS PLANNED IN THE FINAL FIT'S OWN MEASURE. M714 made the room the input room in transport tokens (three
+   * characters a token, and the wrapper of every block and message) but left the window planned at the receipt's four
+   * characters a token: every window cut to the room came out about a third too long, and the final fit took the rest out
+   * one exchange at a time, measuring the whole request again each time — on a 600-page tale with the keeper off, 102 to
+   * 170 rounds and over a second for every build of a send (four builds a send). Planned in the same measure, the window the
+   * plan cuts is the window that goes; the final fit only checks it (and the step back to his move, and a small model's
+   * eight pages, are measured the same way). */
+  /* the blocks and messages besides the pages, each with its wrapper (budget.js requestTokens) — counted low rather than
+   * high: what the plan leaves over the room the final fit takes back; what it leaves under would be pages lost unsaid */
+  const ownWordsNow = ownWordsFor(safeSettings, voice);
+  const prefixWrappers = 1 + [frameText, craftWhole, brief, whosHere, activeText].filter((t) => typeof t === 'string' && t.trim()).length
+    + (stateParts.length ? 1 : 0) + ownWordsNow.length + (nudges ? 1 : 0) + (hasNote || rulingText || choiceText || echoOn ? 1 : 0);
+  const prefixTokens = slots.reduce((sum, s) => sum + contentTokens(s.text || ''), 0)
+    + contentTokens(hasNote ? note.text : '')
+    + contentTokens(nudges ? CONTINUE_NUDGE : '')
+    + contentTokens(directiveText)
+    + contentTokens(echoOn ? frameText : '')
+    + ownWordsNow.reduce((sum, ow) => sum + contentTokens(ow.text), 0)
+    + 24 * prefixWrappers;
+  const pageCost = (m) => contentTokens(typeof m.content === 'string' ? m.content : pageText(m)) + (m.image ? Number(m.image.estimatedTokens) || UNKNOWN_IMAGE_ALLOWANCE : 0) + 24;
 
   /* --- 8. The story so far — the verbatim window ONLY (M9, A1). Hidden
    * pages never join; the shown swipe's text is what rides. Keeper ON: the
    * memory window. Keeper OFF: a token-budgeted cutoff against the
    * connection's context room, with the cutoff named on the receipt. --- */
   const pages = wireable(history, pageFilter);
+  /* M752: THE LATEST EXCHANGE, WHATEVER SHAPE IT TAKES. The window's floor (M162), a small model's cut and the final fit (M714)
+   * each kept "the last two messages" — and when those were two of his (an aside and his move, "((who is Kara?))" then "I go
+   * on"; or a move that got no answer and the next), the storyteller's latest page, the one they answer, was the first to go
+   * under pressure (made to happen: a room for one page sent the aside and the move, and no page). What rides is everything
+   * from the storyteller's latest page on — never less than the last two. */
+  const mustKeepFrom = (list) => {
+    let lastPage = -1;
+    for (let i = list.length - 1; i >= 0; i -= 1) if (list[i] && list[i].role === 'assistant') { lastPage = i; break; }
+    return Math.max(0, lastPage === -1 ? list.length - 2 : Math.min(list.length - 2, lastPage));
+  };
   const w = windowInfo && typeof windowInfo === 'object' ? windowInfo : {};
   const win = windowPlan({
     pages,
     /* The keeper decides the window. Callers that don't say (older call
      * sites) get the keeper's law at the default window; a caller that
      * passes {keeperOn:false} gets the token-budgeted cutoff instead. */
-    memory: w.keeperOn === false ? null : { window:w.window,nodes:validNodes },
+    /* M752: THE WINDOW AND THE RECORD'S CUT AGREE. The coverage law reads every line the caller handed — the same lines the
+     * send path read for the record's cut (chat.js verbatimStart → recordThrough). M737 handed only the lines still bound
+     * to their pages: one old page changed under a line and the window reached back toward page 0 (358 messages where 32
+     * went before), while the record still sent the lines past that page — a line and its pages together (M44). A line held
+     * back while it is written again still holds its pages' place: the keeper rewrites it there, and until then its pages
+     * are counted on the receipt as having no line riding. No line handed at all: the keeper's window as it stands (M9). */
+    memory: w.keeperOn === false ? null : { window: w.window, nodes: handedNodes || undefined },
     budgetTokens: inputRoom(w),
     prefixTokens,
+    cost: pageCost,
+    keepFrom: mustKeepFrom(pages),
   });
   /* M510: the small request carries the last SMALL_PAGES of his story's pages word for word (and his message between
    * them), never opening on the storyteller's page; the planning helper read the rest */
@@ -1454,15 +1517,18 @@ export function buildRequest({
   }
   /* M510-53: no paragraphs for the people here — the mark goes with its blank line */
   if (stateInjection && stateInjection.content.includes(RECENT_HERE_MARK)) stateInjection.content = stateInjection.content.replace('\n\n' + RECENT_HERE_MARK, '').replace(RECENT_HERE_MARK + '\n\n', '').replace(RECENT_HERE_MARK, '');
-  const recentTokens = recentOfHere && recentOfHere.text ? estimateTokens(recentOfHere.text) + 12 : 0;
+  const recentTokens = recentOfHere && recentOfHere.text ? contentTokens(recentOfHere.text) + 24 : 0; /* M752: the final fit's measure */
   /* and never past the room the connection names (M285/M343): the oldest of the eight go first, the window still
    * opening on his message; his message and the page before it always ride */
-  if (smallWindow && Number.isFinite(w.budgetTokens) && w.budgetTokens > 0) {
-    const cost = (list) => list.reduce((sum, m) => sum + estimateTokens(typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '')), 0);
-    while (smallWindow.length > 2 && prefixTokens + recentTokens + cost(smallWindow) > w.budgetTokens) {
+  /* M752: the room is the INPUT room (M714 made budgetTokens the whole context, the answer and a margin kept apart) — this
+   * cut, and the step back to his move below, still measured against the whole context */
+  const smallRoom = inputRoom(w);
+  if (smallWindow && Number.isFinite(smallRoom)) {
+    const cost = (list) => list.reduce((sum, m) => sum + pageCost(m), 0); /* M752: the final fit's measure */
+    while (smallWindow.length > 2 && prefixTokens + recentTokens + cost(smallWindow) > smallRoom) {
       let cut = 1;
       while (cut < smallWindow.length - 1 && smallWindow[cut].role !== 'user') cut += 1;
-      if (cut >= smallWindow.length - 1) break;
+      if (cut >= smallWindow.length - 1 || cut > mustKeepFrom(smallWindow)) break; /* M752: never past the latest exchange */
       smallWindow = smallWindow.slice(cut);
     }
   }
@@ -1489,9 +1555,9 @@ export function buildRequest({
      * the window stays as it was cut, opening on the teller's page; the provider opens it with his one line where a house
      * insists (providers/userfirst.js) */
     if (at > 0 && pages[from] && pages[from].role === 'user') {
-      const tokensOf = (list) => list.reduce((sum, m) => sum + estimateTokens(typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '')), 0);
+      const tokensOf = (list) => list.reduce((sum, m) => sum + pageCost(m), 0); /* M752: the final fit's measure */
       const step = pages.slice(from, at);
-      const room = Number.isFinite(w.budgetTokens) && w.budgetTokens > 0 ? w.budgetTokens - prefixTokens - tokensOf(storyWindow) : Infinity;
+      const room = inputRoom(w) - prefixTokens - tokensOf(storyWindow); /* M752: the input room (Infinity when the connection names none) */
       if (tokensOf(step) <= room) storyWindow = step.concat(storyWindow);
     }
   }
@@ -1772,13 +1838,16 @@ export function buildRequest({
     small: safeSettings.smallModelNow === true, planned: Boolean(smallB), frameOn, choicesOn: choicesOn === true,
     keeperOn: Boolean(windowInfo && windowInfo.keeperOn), keeperWindow: windowInfo && Number.isFinite(windowInfo.window) ? windowInfo.window : 30,
     hasRecord: Boolean(String(memoryText || '').trim()),
-    recordWhole: leftOut === 0, /* M750: whether every line of the record rode (a frontier storyteller) */
+    recordWhole: leftOut === 0 && withheld === 0, /* M750: whether every line of the record rode (a frontier storyteller); M752: none held back either */
+    withheld, leftOut,
   });
 
   /* Fit the FINAL wire, including closing notes, own words and the answer.
    * Earlier estimates only selected a candidate window. Never edit source pages
    * or cut the newest exchange, standing instructions or writer's current move. */
-  const transport = () => transportMeasure ? transportMeasure({ systemBlocks, messages: out }) : { inputTokens: requestTokens(systemBlocks,out), answerTokens: w.answerTokens || 16000, estimate: 'conservative character estimate, wrappers included' };
+  /* M752: without the connection's own measure (a caller that hands none), an answer allowance it names is a limit; none named
+   * is the house's assumed reserve, as a body with no max tokens is (budget.js bodyAccounting) */
+  const transport = () => transportMeasure ? transportMeasure({ systemBlocks, messages: out }) : { inputTokens: requestTokens(systemBlocks,out), answerTokens: Number(w.answerTokens) > 0 ? Number(w.answerTokens) : ANSWER_RESERVE, answerEstimate: !(Number(w.answerTokens) > 0), estimate: 'conservative character estimate, wrappers included' };
   const replaceGenerated = (text,replacement) => { if(!text) return; if(notesBlock) notesBlock.text = notesBlock.text.replace(text,replacement); if(notesMessage) notesMessage.content = notesMessage.content.slice(0,generatedStart) + notesMessage.content.slice(generatedStart).replace(text,replacement); };
   // Knowledge dates use told pages, not visible message ordinals. Bind only
   // the final visible wire to its original ownership and selected version.
@@ -1822,10 +1891,11 @@ export function buildRequest({
   };
   while (inputTokens > room && carriedWire.length > 2) {
     const groups = [];
-    for(let start=0;start<carriedWire.length-2;) {
+    const keepAt = mustKeepFrom(carriedWire); /* M752: the latest exchange, whatever its shape — at most the last two before */
+    for(let start=0;start<keepAt;) {
       let end = start + 1;
-      while(end < carriedWire.length-2 && carriedWire[end].role !== 'user') end++;
-      if(end > carriedWire.length-2) break;
+      while(end < keepAt && carriedWire[end].role !== 'user') end++;
+      if(end > keepAt) break;
       groups.push({start,end}); start=end;
     }
     const group = groups.find(g => carriedWire.slice(g.start,g.end).every(representedOriginal)) || groups[0];
@@ -1837,13 +1907,66 @@ export function buildRequest({
     refreshPerspective(); accounting = transport(); inputTokens = accounting.inputTokens;
   }
 
-  if (!measureOnly && inputTokens > room) throw new Error('The current move, latest exchange and standing instructions exceed this connection’s context after reserving its answer. Increase the context size or shorten the current move or standing instructions. Your saved pages are intact.');
+  /* M752: THE REFUSAL LINE. The pages above were sized against the comfortable answer reserve; a request is refused only past
+   * the line the provider adapters refuse at too (budget.js refusalRoom): with no Max tokens on the connection, when not even
+   * ANSWER_FLOOR would be left for the answer. Between the two it is sent, and the receipt says the answer had less room. */
+  const refusal = refusalRoom({ budgetTokens: w.budgetTokens, answerTokens: accounting.answerTokens, answerEstimate: accounting.answerEstimate === true });
+  if (!measureOnly && inputTokens > refusal) {
+    const tooLarge = new Error('The current move, latest exchange and standing instructions exceed this connection’s context after reserving its answer. Increase the context size or shorten the current move or standing instructions. Your saved pages are intact.');
+    tooLarge.name = 'RequestTooLarge'; /* M752: chat.js says it where a failed telling is said, with its Ask again */
+    throw tooLarge;
+  }
+  const answerShort = inputTokens > room && inputTokens <= refusal;
+  const answerRoom = Number(w.budgetTokens) > 0 ? Math.max(0, Number(w.budgetTokens) - CONTEXT_MARGIN - inputTokens) : null;
   if (removed) {
     const row = slots.find(s => s.name === 'The pages, word for word');
     if (row) {
       row.text = carriedWire.map(m => m.content).join('\n\n');
       row.tokens = estimateTokens(row.text);
-      row.source = carriedWire.length + ' of ' + win.total + ' messages carried word for word; ' + removed + ' older messages left out to fit the complete request and answer. Originals remain available; folded coverage is not assumed.';
+    }
+  }
+  /* M752: THE PAGES ROW SAYS WHAT WAS SENT, AFTER THE FINAL FIT. The fit wrote over the window plan's words with "N of M
+   * messages carried word for word; K older messages left out to fit … folded coverage is not assumed" — and lost what M162
+   * had the row say: the older pages that no line holds. Measured: 44 of 300 pages carried, the row said 24 left out, while
+   * some 230 pages between the record's last line and the window were neither on the wire nor in the record. The row is
+   * said from what was sent: the pages carried (and how many were taken out to fit), and how many older pages no line in
+   * this request tells — counted from the first page carried, against the lines that ride. */
+  {
+    const row = slots.find(s => s.name === 'The pages, word for word');
+    if (row && win.total) {
+      const pl = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+      const firstShown = carriedWire.find((m) => Number.isInteger(m.sourceOrdinal));
+      const before = firstShown ? firstShown.sourceOrdinal : sourceVisible.length;
+      let unfolded = 0; let waiting = 0; let untold = 0;
+      if (handedNodes && !smallWindow && before > 0) {
+        const mark = (list) => { const on = new Uint8Array(before); for (const n of list) for (let i = Math.max(0, n.span[0]); i <= Math.min(before - 1, n.span[1]); i += 1) on[i] = 1; return on; };
+        const told = mark(handedNodes.filter((n) => !n.correction && (n.empty || selectedRecordNodes.includes(n)))); /* a fold that kept nothing worth a line holds its pages too */
+        const lined = mark(handedNodes.filter((n) => !n.correction && !n.empty));
+        const held = mark(withheldNodes);
+        for (let i = 0; i < before; i += 1) { if (told[i]) continue; if (!lined[i]) unfolded += 1; else if (held[i]) waiting += 1; else untold += 1; }
+      }
+      const keeperMode = win.mode === 'keeper';
+      /* with the keeper off, pages no line ever held are what "the rest rests" already says; only lines that exist and do not
+       * ride are news */
+      const noLine = (keeperMode ? unfolded : 0) + waiting + untold;
+      const gap = !noLine ? ''
+        : keeperMode && noLine === unfolded
+          ? ' — ' + pl(noLine, 'older page has', 'older pages have') + ' no line yet and would not fit the room; the keeper fills those holes first' /* M162's words, where they are the whole truth */
+          : ' — ' + pl(noLine, 'older page has', 'older pages have') + ' no line riding in this request: ' + [keeperMode && unfolded ? unfolded + ' not folded yet (the keeper fills those holes first)' : '', waiting ? waiting + ' under ' + (withheld === 1 ? 'a line' : 'lines') + ' being written again after the pages changed' : '', untold ? untold + ' whose lines are not in it (see What remains)' : ''].filter(Boolean).join(', ');
+      const fitWords = removed ? pl(removed, 'older page', 'older pages') + ' taken out to fit the whole request and its answer' : '';
+      let words;
+      if (smallWindow) words = (removed ? 'the last ' + carriedWire.filter((m) => m.role === 'assistant').length + ' pages word for word — small model; the planning helper read the whole story' : historySource) + (fitWords ? ' — ' + fitWords : '');
+      else if (!removed && !gap) words = historySource; /* the window plan's own words: what it planned is what went */
+      else if (keeperMode) {
+        const head = removed ? carriedWire.length + ' of ' + win.total + ' pages word for word — ' + fitWords
+          : win.extended > 0 ? win.carried + ' of ' + win.total + ' pages word for word — ' + win.extended + ' past the usual window, still unfolded by the keeper'
+          : 'the last ' + win.carried + ' of ' + win.total + ' pages word for word';
+        const toldCount = handedNodes ? before - unfolded - waiting - untold : 0;
+        words = head + (toldCount > 0 ? '; the older ' + toldCount + ' are in Our story so far (the What remains row)' : '') + gap;
+      } else {
+        words = (win.squeezed ? historySource : carriedWire.length + ' pages carried word for word, the rest rests' + (fitWords ? ' — ' + fitWords : '') + ' (the keeper is off — only what fits the room)') + gap;
+      }
+      row.source = words + (eased ? ' — their strung-out sounds and dashes eased while the pages are too loud (your pages are kept as written)' : '');
     }
   }
   const blockedRecords = (windowInfo?.nodes || []).filter(n => n && !n.empty && n.text?.trim() && Array.isArray(n.span) && !recordNodes.some(r => recordId(r) === recordId(n))).map(n => ({id:recordId(n),span:n.span,selected:false,available:false,reason:!n.correction && n.span[1] >= (windowInfo?.recordThrough ?? Infinity) ? 'outside folded source boundary; originals have their own selection' : 'source identity or visible version changed, derived entry pending',chars:n.text.length+(n.detail?.length||0)}));
@@ -1854,7 +1977,10 @@ export function buildRequest({
     totalTokens: slots.reduce((sum, s) => sum + s.tokens, 0),
     stateSummary,
     selection: requestSelection({ story: safeStory, history, pages: carriedWire, nodes: recordNodes, selected: uniqueRecords(selectedRecordNodes), plans: standingPlans(smallPlansBook).map(p => ({ id:p.id || p.title, selected:plansSelected.includes(p), reason:plansSelected.includes(p) ? 'current move, participants, goals or conditions, recency as fallback' : 'outside detailed selection, remains unresolved in storage', chars:renderStanding(null,{selected:[p]}).length })), characters: people?.selected || [], excerpts: historical.map(({text,...p}) => ({...p, chars:text.length})) }),
-    context: { estimate: accounting.estimate, imagesUncertain: accounting.imagesUncertain === true, answerEstimate: accounting.answerEstimate === true, inputTokens, inputRoom: Number.isFinite(room) ? room : null, answerTokens: accounting.answerTokens, removedHistory: removed, omittedForFit, cardOmissions },
+    context: { estimate: accounting.estimate, imagesUncertain: accounting.imagesUncertain === true, answerEstimate: accounting.answerEstimate === true, inputTokens, inputRoom: Number.isFinite(room) ? room : null, answerTokens: accounting.answerTokens, removedHistory: removed, omittedForFit, cardOmissions,
+      /* M752: sent with less than the answer reserve free — no Max tokens on the connection, so the provider's own default
+       * stands; answerRoom is what the context leaves the answer (receiptview says it in words) */
+      ...(answerShort ? { answerShort: true, answerRoom } : {}) },
   };
 
   receipt.selection.records.push(...blockedRecords);

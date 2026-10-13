@@ -29,11 +29,11 @@ import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify } from '../engine/state.js';
 import { renderWholeLedger } from '../engine/whole.js'; /* M259: what the ledger already says — all of it */
-import { applyMutations } from '../engine/apply.js';
+import { applyMutations, withoutGrantedFlags } from '../engine/apply.js';
 import { mcName } from '../engine/duels.js';
 import { samePersonName } from '../engine/names.js'; /* M681: one answer to "the same person?" */
 import { quotedSource } from '../engine/evidence.js';
-import { findPersonKey, thinsCore } from '../engine/people.js';
+import { findPersonKey } from '../engine/people.js';
 import { LEDGER_READER_RULES, workerPeopleContext } from './ledgercontext.js';
 
 const MAX_TOKENS = 6000;
@@ -240,6 +240,12 @@ export function validateStatedStandings(list, mc = '') {
   return out;
 }
 
+/* M752: the digits the brief states, and only those. Since stated standings keep only the axes the brief gives (a P alone
+ * no longer zeroes an earned R and S), the cause said "(P:40 R:undefined S:undefined)" in the standing's history and the log. */
+export function statedDigits(st) {
+  return ['p', 'r', 's'].filter((ax) => Number.isFinite(st && st[ax])).map((ax) => ax.toUpperCase() + ':' + st[ax]).join(' ');
+}
+
 /* The model first; the line parser only when the model gave nothing usable. */
 export async function readStatedStandings({ connection, brief = '', castNotes = '', mc = '', signal } = {}) {
   const material = String(brief || '').trim() || String(castNotes || '').trim();
@@ -283,7 +289,8 @@ export function buildFounderMessages({ state, brief = '', castNotes = '', cast =
     return '## ' + c.name + '\n' + bits.join('\n');
   }).join('\n\n');
   const shelf = (Array.isArray(lore) ? lore : []).filter((e) => e && e.enabled !== false).map((e) => '- ' + (e.name || (e.keys || [])[0] || 'an entry') + ' [' + (e.keys || []).join(', ') + ']: ' + String(e.content || '').slice(0, 800)).join('\n');
-  const facts = renderWholeLedger(state) || 'Nothing is written in the ledger yet.';
+  /* M752: the seats of everyone the writer's material names come first (the founder cannot fetch: it is told how many more) */
+  const facts = renderWholeLedger(state, { material: [brief, castNotes, cards, shelf].map((t) => String(t || '')).join('\n') }) || 'Nothing is written in the ledger yet.';
   const user = [
     'THE BRIEF (the writer\'s own words):',
     FENCE, writerText(brief, BRIEF_ROOM, 'brief') || '(none written)', FENCE, /* M283 */
@@ -319,7 +326,7 @@ export function parseFounderAnswer(raw) {
     let parsed = null;
     for (const c of candidates) { const p = parseLenient(c); if (p && Array.isArray(p.mutations)) { parsed = p; break; } }
     if (!parsed) return { mutations: [], note: 'unusable' };
-    const mutations = parsed.mutations.filter((m) => m && typeof m === 'object' && typeof m.type === 'string' && m.type.trim());
+    const mutations = parsed.mutations.filter((m) => m && typeof m === 'object' && typeof m.type === 'string' && m.type.trim()).map(withoutGrantedFlags); /* M752: its quote check grants writerEstablished, never its answer */
     return { mutations, note: mutations.length ? 'ok' : 'empty' };
   } catch (err) {
     return { mutations: [], note: 'unusable' };
@@ -386,7 +393,7 @@ async function guardFounding({ read, ledgerMc = '', connection, brief = '', cast
       existing.cause = 'the brief states explicit starting digits toward ' + (mcKnown || 'the main character');
       continue;
     }
-    guarded.push({ type: 'rel.set', name: st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (P:' + st.p + ' R:' + st.r + ' S:' + st.s + ') toward ' + (mcKnown || 'the main character') });
+    guarded.push({ type: 'rel.set', name: st.name, p: st.p, r: st.r, s: st.s, cause: 'the brief states (' + statedDigits(st) + ') toward ' + (mcKnown || 'the main character') });
   }
   return { guarded, refusedByLock };
 }
@@ -411,13 +418,25 @@ export async function foundWorld({ connection, storyId, brief = '', castNotes = 
   /* a founder's own move of a standing says it is the founder's (the drawer's history line, and the test above); and a founding
    * read again does not move a standing it already moved — only a standing nobody has yet takes a move */
   const hasStanding = (name) => Object.keys(fresh.relationships && typeof fresh.relationships === 'object' ? fresh.relationships : {}).some((k) => samePersonName(k, name));
+  /* M752: A FOUNDING READ AGAIN NEVER WRITES OVER WHAT THE PAGES ADDED. Any edit of the brief founds the world again, and
+   * its core for each person REPLACED the core that stood whenever the replacement kept three-fifths of the old words or ran
+   * longer (thinsCore) — what the pages had added ("plays violin at the Bluebird on Fridays", the scar on his own palm) was
+   * gone; and its arc set an arc the pages had moved back to the opening's words. A core is added to (people.set append, the
+   * M719 contract: the same words are already saved, new ones join them, an overflow is refused with nothing lost); an arc
+   * is written only where none stands or the one that stands is the founder's own (the journal's last word on it). */
+  const arcWriter = (key) => {
+    const last = [...(Array.isArray(fresh.journal) ? fresh.journal : [])].reverse()
+      .find((j) => j && j.m && /^people\.(?:set|note)$/.test(j.m.type) && String(j.m.field || '').trim().toLowerCase() === 'arc' && typeof j.m.name === 'string' && samePersonName(j.m.name, key));
+    return last ? String(last.m.source || '') : '';
+  };
   const guarded = founding
     .filter(m => {
       if (!/^people\./.test(m.type)) return true;
       const owner = findPersonKey(fresh.characters || {}, m.name);
       if (owner && fresh.characters[owner]?.hand?.[m.field]) return false;
-      return !(m.field === 'core' && owner && thinsCore(fresh.characters[owner]?.core, m.text));
+      return !(m.field === 'arc' && owner && String(fresh.characters[owner]?.arc || '').trim() && arcWriter(owner) !== 'founder');
     })
+    .map((m) => (m && m.type === 'people.set' && m.field === 'core' && m.open !== true && m.clear !== true ? { ...m, append: true } : m))
     .filter((m) => !(m && (m.type === 'rel.set' || m.type === 'rel.shift') && typeof m.name === 'string' && pagesMoved(m.name)))
     .filter((m) => !(m && m.type === 'rel.shift' && fresh.founded && typeof m.name === 'string' && hasStanding(m.name)))
     .map((m) => (m && m.type === 'rel.shift' && !/^the founder\b/i.test(String(m.cause || '').trim()) ? { ...m, cause: 'the founder — ' + String(m.cause || '').trim() } : m));

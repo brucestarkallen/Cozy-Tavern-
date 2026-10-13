@@ -39,20 +39,16 @@ assert(auditRepairEvidence(findings,auditSources({messages:pages})).some(p=>p.te
 const oldFetch=globalThis.fetch;let calls=0;
 globalThis.fetch=async(_,opts)=>{
  const body=JSON.parse(opts.body),content=body.messages.map(m=>String(m.content)).join('\n');
- let reply;
- if(content.includes('Find every place the writer STATES'))reply={standings:[]};
- else if(content.includes('REPAIR FOLLOWUP')){
-  calls++;assert(content.includes('final full-ledger verification'));
-  reply={issues:[],repairs:findings.map((f,i)=>({id:auditFindingId(f),status:'correct',shown:[guards,fur,report,king][i],why:'The verified current record now satisfies the actual source fact.'}))};
- }else{
-  calls++;assert(content.includes('REPAIR EXISTING FINDINGS FIRST'));assert(content.includes(king));
-  reply={repairs:[
+ // M708: ONE combined review repairs the inherited findings first and certifies the
+ // resulting ledger in the same answer (M698/M709 completed verdict); no REPAIR FOLLOWUP.
+ calls++;assert(content.includes('HISTORICAL FINDINGS WITH ACTUAL CURRENT RECORDS'));assert(content.includes('FINAL REVIEW CONTRACT'));assert(content.includes(king));
+ const reply={repairs:[
    {id:auditFindingId(findings[0]),status:'correct',shown:guards,why:'Current location already includes both the far wall and odds.'},
    {id:auditFindingId(findings[1]),status:'repair',shown:fur,why:'Keep the existing presence and add the missing fur.',mutations:[{type:'presence.update',name:'Commodus',attire:'wrapped in fur',shown:fur}]},
    {id:auditFindingId(findings[2]),status:'repair',shown:report,why:'The full and short owner labels name the same captain.',mutations:[{type:'people.rename',from:captain,to:short,shown:report}]},
    {id:auditFindingId(findings[3]),status:'repair',shown:king,why:'Original World report identifies the king by name.',mutations:[{type:'people.rename',from:'the king',to:'Theodagar',shown:king}]},
-  ],issues:[{what:'Azrael ended at the wall.',mutations:[{type:'presence.update',name:'Azrael',position:'at the wall',shown:wall}]}]};
- }
+  ],issues:[{what:'Azrael ended at the wall.',mutations:[{type:'presence.update',name:'Azrael',position:'at the wall',shown:wall}]}],
+  review:{status:'complete',why:'Each inherited finding was checked against the original page and World voice; the resulting ledger is correct.',open:[]},standings:[]};
  const text=JSON.stringify(reply);
  return new Response(body.stream?'data: '+JSON.stringify({choices:[{delta:{content:text}}]})+'\n\ndata: '+JSON.stringify({choices:[{delta:{},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n':JSON.stringify({choices:[{message:{content:text},finish_reason:'stop'}]}));
 };
@@ -66,6 +62,6 @@ try{
  assert.equal(final.present.find(p=>p.name==='Commodus').attire,'wrapped in fur');
  assert.equal(final.present.find(p=>p.name==='the guards').position,before.present.find(p=>p.name==='the guards').position);
  assert.deepEqual(final.relationships,before.relationships);assert.deepEqual(await db.messages.list(id),pages);
- assert(ledgerAuditVerified(final,await db.stories.get(id),pages));assert.equal(calls,2);
+ assert(ledgerAuditVerified(final,await db.stories.get(id),pages));assert.equal(calls,1);
  console.log('PASS focused inherited findings: equivalent guard closure, missing fur, same-owner captain merge, identity proof in World voice, original passages, final scene check and unchanged prose/scores. Mock model only.');
 }finally{globalThis.fetch=oldFetch;}

@@ -266,6 +266,13 @@ import './m681.mjs'; /* M681: the clock — the days between two headers, the st
 import { runAll } from './lib.mjs';
 import './m682.mjs';
 import './m750.mjs'; /* M750: our story so far, the record itself — each line once; the Essentials retired */
+import './m752-record.mjs'; /* M752: the record keeper, the continuous audit's corrections and the lamp, after the review of M682–M751 */
+import './m752-audit.mjs'; /* M752: the auditor's completion, storage and upkeep (the review of every update since M681) */
+import './m752-spelling.mjs'; /* M752: the Housekeeper's spelling correction, held to the name — never a word, said once, taken back from its own receipt */
+import './m752-knowledge.mjs'; /* M752: who knows what, one record a fact — a worker's label is no receipt; a learned truth answers its belief; "everyone here" on a page that opened empty; the readers told each kind of knowing; durable threads shown to a size */
+import './m752-people.mjs'; /* M752: identity, persona, aliases and the people's core */
+import './focused.mjs'; /* M689–M745: the standalone milestone fixtures, each run in its own process */
+import './m752-request.mjs'; /* M752: the storyteller's request — its size, its fit, its receipts */
 
 console.log('Cozy Tavern — harness');
 await import('./m683.mjs');

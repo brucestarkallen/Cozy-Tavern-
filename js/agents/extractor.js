@@ -38,7 +38,7 @@ import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sceneEndingFields, workerPeople
 import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition; M677: what goes into who knows what — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning, foldName } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey, noOneSpot, deathToldOf, comesInAtTheEnd, readerTimeOverHeader } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey, noOneSpot, deathToldOf, comesInAtTheEnd, readerTimeOverHeader, withoutGrantedFlags } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
 import { headerMutations, closeBy, headerCells } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey, seatForPerson } from '../engine/people.js'; /* M681: the dead's seat */
 import { isDeadSeat, seatNowWords } from '../engine/offscreen.js'; /* M680: the dead, and a seat said as every reader says it */
@@ -164,7 +164,7 @@ const VOCABULARY = [
    * still hanging. */
   'thread.close {"type":"thread.close","title":"the title as the ledger holds it"} — a story thread THIS page resolved: the question answered, the plan abandoned, the promise kept, the thing found. Use the title the ledger shows, worded as it stands (each title is quoted on the thread list).',
   'Knowledge metadata may include kind (known, belief, suspicion, rumor, ignorance), pathway in the page’s own words, and source {quote, recipients:[names]}. Use only supported evidence. Ignorance requires explicit secrecy or not having learned, never a missing book. Learning the truth updates only its actual recipients. Ordinary world knowledge and reasonable inference need no invented lesson.',
-  'knowledge.add {"type":"knowledge.add","who":["NAME","OTHER NAME"],"fact":"that Orrin Vale lived in England"} — when someone in the scene LEARNS something that could matter later: a secret told, a name heard, a lie caught, a thing seen they were not meant to see. A LIE OR A COVER STORY THEY BELIEVE is written as what they believe AND that it is untrue — fact "believes Orrin Vale is only a recruit — untrue: Orrin Vale is the new captain of the guard" — and when the truth comes out in front of them, what they learned: "learned Orrin Vale is the new captain, not a recruit — he had told them otherwise". Only what THIS page put in front of them, and only where being told, or not told, could change what they do. WRITE IT IN THE PAGE\'S OWN TERMS: what was said, seen or overheard, exactly — "their mother" if the page said their mother, never "his stepmother" because you know the family; who said it to whom as the page has it; never what the person would conclude from it. A fact the page did not put in front of them is not knowledge, however likely. WHO IS YOURS TO DECIDE, FROM THE PAGE: "who" names EVERY person the page put it in front of, each by name — close enough to see or hear it, awake, and there when it happened (never someone who came in after it, had gone before it, or from whom it was kept: a whisper is the two it passed between). Write "who":"everyone here" when it happened or was said in front of the whole scene: that means everyone who was in the scene when this page opened and is still in it at its end. Anyone else who was there for it — someone who walked in before it happened, someone who left after it — is added by name: "who":["everyone here","NAME"]. One witness is a list of one. Never the main character, and the one who did or said it is no witness of their own act. ' + KNOWING_MEANS,
+  'knowledge.add {"type":"knowledge.add","who":["NAME","OTHER NAME"],"fact":"that Orrin Vale lived in England"} — when someone in the scene LEARNS something that could matter later: a secret told, a name heard, a lie caught, a thing seen they were not meant to see. A LIE OR A COVER STORY THEY BELIEVE is written as what they believe AND that it is untrue — fact "believes Orrin Vale is only a recruit — untrue: Orrin Vale is the new captain of the guard" — and when the truth comes out in front of them, what they learned is that very truth, word for word as it stands after "untrue:" — fact "learned Orrin Vale is the new captain of the guard" (how it came out goes in "pathway", in the page\'s words: "the captain named him before the company"): only the truth in those very words lets the belief go. Only what THIS page put in front of them, and only where being told, or not told, could change what they do. What the ledger\'s Who knows what already holds for that person, in those words or others, is already known: never write it again. WRITE IT IN THE PAGE\'S OWN TERMS: what was said, seen or overheard, exactly — "their mother" if the page said their mother, never "his stepmother" because you know the family; who said it to whom as the page has it; never what the person would conclude from it. A fact the page did not put in front of them is not knowledge, however likely. WHO IS YOURS TO DECIDE, FROM THE PAGE: "who" names EVERY person the page put it in front of, each by name — close enough to see or hear it, awake, and there when it happened (never someone who came in after it, had gone before it, or from whom it was kept: a whisper is the two it passed between). Write "who":"everyone here" when it happened or was said in front of the whole scene: that means everyone who was in the scene when this page opened and is still in it at its end. Anyone else who was there for it — someone who walked in before it happened, someone who left after it — is added by name: "who":["everyone here","NAME"]. One witness is a list of one. Never the main character, and the one who did or said it is no witness of their own act: when they stand in the room, write "who":"everyone here but NAME". ' + KNOWING_MEANS,
   'mode.snapshot {"type":"mode.snapshot","flags":["travel"]} — THE WHOLE BOARD, EVERY PAGE: every mood that holds at the END of this page, from: combat (a fight is on), intimate (sex or intimate touch is on), travel (in transit — a car, a train, a road; NOT once they have arrived and stepped out), socialField (a crowded public place full of voices), isolation (alone, far from help), group (in company of several). Anything you do not name is cleared. An empty list clears them all.',
   'body.injure {"type":"body.injure","name":"NAME","what":"left forearm fractured","sev":2,"treated":false} — only when a blow lands on-page; sev is 1 (a graze), 2 (a real wound), or 3 (severe); treated only if someone tends it on-page',
   'body.strain {"type":"body.strain","name":"NAME","what":"the long climb"} — weariness short of injury, when the prose shows it',
@@ -347,7 +347,7 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
   /* founding: passed explicitly by the send path (it already knows), else
    * read off the ledger's own youth. */
   if (typeof founding !== 'boolean') founding = isYoungLedger(state);
-  const facts = renderWholeLedger(state, { knowledgeRoom }) || 'Nothing is written in the ledger yet.'; /* M259; M664: fitted to this worker's room */
+  const facts = renderWholeLedger(state, { knowledgeRoom, material: String(userText || '') + '\n' + String(assistantText || ''), fetchable: true }) || 'Nothing is written in the ledger yet.'; /* M259; M664: fitted to this worker's room; M752: the seats this page bears on */
   const known = mcName(state);
   const mc = known && known !== 'the player' ? known : '';
   const onNow = Object.entries((state && state.mode) || {}).filter(([, v]) => v).map(([k]) => k);
@@ -424,8 +424,8 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
  * across the room, so nothing was written, and the ledger went on telling the storyteller that Mei's hands were over
  * her mouth. The auditor (told the moment is not its job, and doing it anyway) was the only one who restated them. The
  * house knows exactly who is here and what the ledger says of each: the people THIS page shows (its telling, before
- * any window, never the main character — his place is his header's) are handed to the reader by name, each with the
- * ledger's words, and it answers for each in "here". Its words are written where they are the page's own and say
+ * any window) — and, since M710, the main character too, asked by name (his header's cells are never promoted) — are
+ * handed to the reader by name, each with the ledger's words, and it answers for each in "here". Its words are written where they are the page's own and say
  * something the ledger does not (engine/apply.js restatedPresence); the ledger's own words back are no change. */
 export function placesBlock(state, pageText = '') {
   const told = narrationOf(scenePartOf(String(pageText || '').replace(/^\s*\[[^\n]*\][ \t]*/, '')));
@@ -752,7 +752,7 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
     const list = Array.isArray(parsed.mutations) ? parsed.mutations : [];
     const mutations = list.filter(
       (m) => m && typeof m === 'object' && typeof m.type === 'string' && m.type.trim()
-    );
+    ).map(withoutGrantedFlags); /* M752: a reader's answer never grants itself the writer's hand or the auditor's approval */
     /* M642: WHO SAW IT IS THE READER'S OWN ANSWER. A knowledge.add that says "who" is written for exactly those people —
      * one line each, marked `decided` so nothing downstream guesses again; "everyone here" waits (room: true) for the room
      * this page ends with, which extractTurn knows. A line with only a "name", as the reader always wrote them, is left
@@ -762,13 +762,18 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
       if (m.type !== 'knowledge.add' || m.who === undefined || m.who === null) continue;
       const { who, ...rest } = m;
       /* the whole phrase, never a name that merely begins like it ("All Might" is a person) */
-      const EVERYONE = /^\s*(?:(?:everyone|everybody)(?:\s+(?:here|present|there|in\s+the\s+\p{L}+))?|all\s+(?:here|present|of\s+them))\s*$/iu;
+      const EVERYONE = EVERYONE_HERE;
       const listed = (Array.isArray(who) ? who : [who]).map((n) => (typeof n === 'string' ? n : n && typeof n.name === 'string' ? n.name : '')).map((n) => String(n || '').trim()).filter((n) => n && n.length <= 80);
-      const wholeRoom = listed.some((n) => EVERYONE.test(n));
+      /* M752: "everyone here but NAME" is the room less the ones it names — the one who did or said it, above all (the
+       * taught "that …" line names no one the way "saw X…" does, so code cannot tell who did it). It was read as a PERSON
+       * called "everyone here but Rias", with a book of her own act. */
+      const roomWords = listed.filter((n) => EVERYONE.test(n) || EVERYONE_BUT.test(n));
+      const wholeRoom = roomWords.length > 0;
+      const leftOut = roomWords.flatMap((n) => { const b = EVERYONE_BUT.exec(n); return b ? b[1].split(/\s*(?:,|;|&|\band\b)\s*/iu).map((x) => x.trim()).filter(Boolean) : []; });
       const names = [];
-      for (const n of [typeof rest.name === 'string' ? rest.name.trim() : '', ...listed.filter((x) => !EVERYONE.test(x))]) if (n && !names.some((x) => x.toLowerCase() === n.toLowerCase())) names.push(n);
+      for (const n of [typeof rest.name === 'string' ? rest.name.trim() : '', ...listed.filter((x) => !roomWords.includes(x))]) if (n && !names.some((x) => x.toLowerCase() === n.toLowerCase())) names.push(n);
       const lines = names.map((n) => ({ ...rest, name: n, decided: true }));
-      if (wholeRoom) { const { name: _one, ...roomLine } = rest; lines.unshift({ ...roomLine, room: true, decided: true }); }
+      if (wholeRoom) { const { name: _one, ...roomLine } = rest; lines.unshift({ ...roomLine, room: true, decided: true, ...(leftOut.length ? { except: leftOut } : {}) }); }
       mutations.splice(i, 1, ...(lines.length ? lines : [rest]));
     }
     /* M280: each title the page resolved closes its thread (once) */
@@ -889,7 +894,8 @@ export function hereFromBoard(state, here, assistantText, mutations = [], userTe
     }
     if (isHere(state, n) || said(['presence.enter', 'presence.leave', 'offscreen.set'], n) || !oneMeaning(state, n)) continue;
     const name = pageNameFor(state, n) || n;
-    const proof = notes.find(h => samePersonName(h.name, n) && quotedSource(userText + '\n' + assistantText, h.shown));
+    /* M444/M541: the proof is the telling — words someone only says, or the window beyond the page, put nobody here */
+    const proof = notes.find(h => samePersonName(h.name, n) && quotedSource(told, h.shown));
     if (!proof && goneAtTheEnd(state, assistantText, name)) continue;
     if (!proof && !shownOnPage(state, told, n) && !shownOnPage(state, told, name)) continue; /* named as themself, never by a family name another shares */
     if (out.some((m) => samePersonName(m.name, name))) continue;
@@ -902,8 +908,11 @@ export { mcWalksOff } from '../engine/apply.js'; /* M598: one reading, kept with
 export async function extractTurn(args = {}) {
   const read = await extractTurnRead(args);
   const turnScene = scenePartOf(args.userText) + '\n\n' + scenePartOf(args.assistantText);
+  /* M644/M541: presence is proved by the turn's telling — its spoken lines are someone talking about a person, not that
+   * person in the room ("Aunt Vera will be down soon" walks nobody in and lets no seat go) */
+  const turnTold = narrationOf(scenePartOf(args.userText)) + '\n\n' + narrationOf(scenePartOf(args.assistantText));
   const confirmedHere = m => (read.here || []).some(n => samePersonName(n, m.name))
-    && Boolean(quotedSource(turnScene, m.shown) || (read.hereNotes || []).some(n => samePersonName(n.name, m.name) && quotedSource(turnScene, n.shown)));
+    && Boolean(quotedSource(turnTold, m.shown) || (read.hereNotes || []).some(n => samePersonName(n.name, m.name) && quotedSource(turnTold, n.shown)));
   const groundNames = () => {
     if (!read?.mutations || !args.state) return;
     const recent = (Array.isArray(args.before) ? args.before : []).filter((p) => p && !p.aside && !p.ooc).map((p) => p.text || '');
@@ -1134,7 +1143,7 @@ export async function extractTurn(args = {}) {
       read.mutations = settleWitnesses(args.state, read.mutations, read.here); /* M642: what the reader itself decided */
       read.mutations = broadcastPublicMoments(args.state, read.mutations, read.here);
       /* the mark has done its work: what goes to the ledger and its journal is the line as it has always been written */
-      read.mutations = read.mutations.map((m) => { if (!m || m.decided === undefined) return m; const line = { ...m }; delete line.decided; delete line.room; return line; });
+      read.mutations = read.mutations.map((m) => { if (!m || m.decided === undefined) return m; const line = { ...m }; delete line.decided; delete line.room; delete line.except; return line; });
     }
   }
   if (read?.mutations) {
@@ -1144,11 +1153,20 @@ export async function extractTurn(args = {}) {
     read.mutations = [...personas,...read.mutations]
     .filter(m => m.type !== 'mc.alias' || [args.brief,args.castNotes,args.userText,narrationOf(args.assistantText),...(args.before || []).filter(p => !p.cut && !p.aside).map(p => p.role === 'assistant' ? narrationOf(p.text) : p.text)]
       .some(source => quotedSource(source,m.shown)))
-    .map((m) => ({ ...m, source: m.source === 'writer' ? 'writer' : 'extractor' }));
+    /* M752: a knowledge line's receipt ({quote, recipients} — what the vocabulary asks the reader for) rides as its own
+     * `provenance`; `source` is this worker's label (engine/apply.js knowledge.add) — it was overwritten here and lost */
+    .map((m) => {
+      if (m && m.type === 'knowledge.add' && m.source && typeof m.source === 'object' && !Array.isArray(m.source)) { const { source: receipt, ...line } = m; return { ...line, provenance: receipt, source: 'extractor' }; }
+      return { ...m, source: m.source === 'writer' ? 'writer' : 'extractor' };
+    });
   }
   groundNames();
   return read;
 }
+/* M642: "everyone here" — the whole phrase, never a name that merely begins like it ("All Might" is a person) */
+const EVERYONE_HERE = /^\s*(?:(?:everyone|everybody)(?:\s+(?:here|present|there|in\s+the\s+\p{L}+))?|all\s+(?:here|present|of\s+them))\s*$/iu;
+/* M752: the room less some — "everyone here but Rias", "everybody except Rias and Tom", "all of them but the captain" */
+const EVERYONE_BUT = /^\s*(?:(?:everyone|everybody)(?:\s+(?:here|present|there|in\s+the\s+\p{L}+))?|all(?:\s+(?:here|present|of\s+them))?)\s*,?\s+(?:but|except(?:\s+for)?|save|other\s+than|apart\s+from|besides)\s+(.+?)\s*$/iu;
 /* the room a page ends with: the reader's own "here" when it named one, else everyone present after this page's walk-ins
  * and leaves — never the main character, never someone the same answer takes out */
 function roomOfPage(state, list, here) {
@@ -1193,14 +1211,27 @@ export function settleWitnesses(state, mutations, here) {
    * were not there for) */
   const stood = roomOfPage(state, list, here);
   const before = stood.filter((n) => isHere(state, n));
-  const room = before;
+  /* M752 (M642's own rule, restored): when NOBODY stood in the scene as the page opened — the founding page, or a page
+   * that moved the whole scene somewhere new — the room is everyone it ends with. M737 dropped this, and every "everyone
+   * here" of such a page went into nobody's book, with no refusal said anywhere. A late arrival still stays out wherever
+   * someone did stand there before (M737's own case). */
+  const room = before.length ? before : stood;
   const out = [];
   const has = (name, fact) => out.some((m) => m.type === 'knowledge.add' && m.fact === fact && typeof m.name === 'string' && (m.name.toLowerCase() === name.toLowerCase() || samePersonName(m.name, name)));
   for (const m of list) {
     if (!m || m.type !== 'knowledge.add' || m.decided !== true) { out.push(m); continue; }
     if (m.room === true) {
-      const { room: _wholeRoom, ...rest } = m;
-      for (const n of room) if (!didIt(n, m.fact) && !has(n, m.fact)) out.push({ ...rest, name: n });
+      const { room: _wholeRoom, except: _leftOut, ...rest } = m;
+      /* M752: the room less the ones the reader left out ("everyone here but Rias") and the one who did a seen or heard thing */
+      const leftOut = (Array.isArray(m.except) ? m.except : []).filter((x) => typeof x === 'string' && x.trim());
+      const forRoom = room.filter((n) => !didIt(n, m.fact) && !leftOut.some((x) => x.trim().toLowerCase() === n.toLowerCase() || samePersonName(x, n)));
+      /* M752: the reader's receipt for a line said to the whole room names the room ("recipients":["everyone here"]) — its
+       * recipients are the people it is written for, so a truth the room learned answers each one's belief (addKnowledge) */
+      const roomPhrase = (r) => typeof r === 'string' && (EVERYONE_HERE.test(r) || EVERYONE_BUT.test(r));
+      const said = rest.source && typeof rest.source === 'object' && Array.isArray(rest.source.recipients) ? rest.source : null;
+      const roomWide = said && said.recipients.some(roomPhrase);
+      const receipt = roomWide ? { ...said, recipients: [...new Set([...said.recipients.filter((r) => !roomPhrase(r)), ...forRoom])] } : null;
+      for (const n of forRoom) if (!has(n, m.fact)) out.push({ ...rest, ...(receipt ? { source: receipt } : {}), name: n });
       continue;
     }
     if (typeof m.name !== 'string' || isMc(state, m.name) || has(m.name, m.fact)) continue; /* never him; one line a witness */
@@ -1222,13 +1253,16 @@ async function extractTurnRead({ connection, state, userText, assistantText, bef
   record = record || '';
   const budget = readerBudget(connection); /* M679 */
   const knowledgeRoom = knowledgeRoomFor(roomChars(connection, budget)); /* M664 */
+  /* M689's shared reader rules ride on the system — measured with the rest before the pages are fitted, so the view
+   * keeps its room to look (M261) */
+  const readerRules = LEDGER_READER_RULES + '\nFor each here entry use {name, earlier, ending:{position, attire, shown}}, omitting unknown fields. The exact quotation can come from either original message. This list is your final scene judgment: include quiet spectators still present, exclude remote voices and people merely mentioned. Follow arrivals and departures through the entire scene before deciding. Do not omit a known companion merely because the ending focuses on someone else.';
   const bare = buildExtractorMessages({ state, userText, assistantText, before: [], founding: young, brief, castNotes, record, pageNumber, knowledgeRoom });
-  const contextBudget = viewBudget(connection, budget, bare.system.length + bare.user.length);
+  const contextBudget = viewBudget(connection, budget, bare.system.length + readerRules.length + bare.user.length);
   const prompt = buildExtractorMessages({ state, userText, assistantText, before, founding: young, brief, castNotes, record, pageNumber, contextBudget, knowledgeRoom });
   /* M31: an answer we can't use, or a founding that came back empty, earns
    * ONE second ask with a sharper word — here, not five blind retries in
    * the queue. The raw answer rides out so the drawer can show it. */
-  prompt.system += LEDGER_READER_RULES + '\nFor each here entry use {name, earlier, ending:{position, attire, shown}}, omitting unknown fields. The exact quotation can come from either original message. This list is your final scene judgment: include quiet spectators still present, exclude remote voices and people merely mentioned. Follow arrivals and departures through the entire scene before deciding. Do not omit a known companion merely because the ending focuses on someone else.';
+  prompt.system += readerRules;
   let user = prompt.user;
   let last = null;
   /* M163: THE BEST READING IS KEPT. The sharper second ask (a missing

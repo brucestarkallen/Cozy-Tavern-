@@ -58,6 +58,9 @@ export const STANCE_WORDS = {
  * the wire with the length of the tale. */
 const THREADS_MAX = Infinity; // Only a resolved thread closes; view limits are separate.
 const THREADS_RENDER = 5;
+/* M752: the view limit M713 promised and never set: the most open threads a whole view shows (the size the ledger itself
+ * kept before M713); the rest are counted (renderThreads `counted`, whole.js renderAllThreads) */
+export const THREADS_VIEW = 40;
 /* Sixty, not six hundred: every snapshot and every version's ledger is a WHOLE
  * copy of this (state.js keeps up to 120), so each fact kept is kept a hundred
  * times over and rides every push of the tale's book. Sixty facts a person is
@@ -262,7 +265,10 @@ export function threadNextWords(owner, next) {
   return sentence ? ' — next: ' + n : ' means to ' + (/^\p{Lu}\p{Ll}/u.test(n) ? n[0].toLowerCase() + n.slice(1) : n);
 }
 
-export function renderThreads(threads, top = THREADS_RENDER, scene = null) {
+/* M752: `counted` — a whole view (the frontier storyteller's) says how many open threads it does not show. Its `top` was
+ * Infinity while the ledger held forty; since M713 keeps every open thread, the whole view is held to forty as well
+ * (engine/state.js, whole.js ALL_THREADS_SHOWN) and the rest are counted, never silently dropped. */
+export function renderThreads(threads, top = THREADS_RENDER, scene = null, { counted = false } = {}) {
   const list = copyThreads(threads);
   if (!list.length) return '';
   const names = scene && Array.isArray(scene.names) ? scene.names : [];
@@ -273,12 +279,15 @@ export function renderThreads(threads, top = THREADS_RENDER, scene = null) {
    * ride once — the first by rank; the other still stands in the ledger */
   const seenNext = new Set();
   const once = list.filter((t) => { const key = String(t.next || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim(); if (!key) return true; if (seenNext.has(key)) return false; seenNext.add(key); return true; });
-  return once.slice(0, top).map((t) => {
+  const lines = once.slice(0, top).map((t) => {
     let line = (t.heat === 'cold' ? '(cold) ' : '') + t.title;
     if (t.owner) line += ' — ' + t.owner + (t.with ? ' (with ' + t.with + ')' : '');
     if (t.next) line += threadNextWords(t.owner, t.next); /* M416 */
     return line;
-  }).join('\n');
+  });
+  const rest = once.length - lines.length;
+  if (counted && rest > 0) lines.push('(and ' + rest + ' more open ' + (rest === 1 ? 'thread' : 'threads') + ', kept in the ledger)');
+  return lines.join('\n');
 }
 
 /* ---------- knowledge ---------- */
@@ -401,16 +410,19 @@ export function addKnowledge(knowledge, name, fact, atTurn, provenance = {}) {
      * words for each person in turn, because the others still held them; the whole party kept the wrong line. */
     if (held && !(factKey(what).length > factKey(held.fact).length && factKey(what).includes(factKey(held.fact)))) { canon = held.fact; break; }
   }
-  /* M92: the same fact in different clothes is the same fact — quotes and
-   * apostrophes normalized, punctuation gone, one fact wholly inside another
-   * (the shorter a prefix or a clipping of the longer) — the longer stays */
-  /* within one person: the paraphrase fold only for a line from the page BESIDE this one — two lines the reader wrote
-   * for one person on one page are two facts on purpose */
-  const dup = list.findIndex(k => (k.kind || '') === (provenance.kind || '') && JSON.stringify(k.source || null) === JSON.stringify(provenance.source || null) && (k.atTurn == null && atTurn == null || k.atTurn === atTurn) && sameFact(k.fact,canon));
+  /* M92: the same fact in different clothes is the same fact — quotes and apostrophes normalized, a full stop gone (M737:
+   * exact statements only; a clipping or a condition is another statement) — the longer wording stays */
+  /* M752: AND THE SAME FACT LEARNED AGAIN IS STILL ONE FACT. M737 held a line to be another fact when it came on another
+   * page, or with another `source` — and every worker's write carried its own label there ("extractor", "world",
+   * "auditor"), so a fact re-sent by any of them, even on the same page, was a second line: "Rias Wells knows: X; X (learned
+   * about 6 pages ago); X (learned about 7 pages ago)". One record per person, kind of knowing and exact proposition
+   * (knowledgeIdentity); the first keeps its page — when they first learned it. */
+  const dup = list.findIndex((k) => knowledgeIdentity(k) === knowledgeIdentity({ fact: canon, kind: provenance.kind }));
   /* M681 — A BELIEF GOES WHEN THE TRUTH IS LEARNED (the books audit's B3, made to happen on m680-001). The page reader writes a
    * lie someone believes as "believes Orrin Vale is only a recruit — untrue: Orrin Vale is the new captain of the guard",
-   * and when the truth comes out in front of them, what they learned: "learned Orrin Vale is the new captain, not a
-   * recruit". The book only ever added: the belief stood beside the truth, and the storyteller was told, every page, that
+   * and when the truth comes out in front of them, what they learned: that very truth, "learned Orrin Vale is the new
+   * captain of the guard" (M738: only the exact corrected truth answers it; M752: the reader is taught so, extractor.js
+   * VOCABULARY). The book only ever added: the belief stood beside the truth, and the storyteller was told, every page, that
    * she knew he was the captain AND believed he was a recruit. A line someone learns that answers the truth a belief of
    * theirs holds back lets that belief go (a take-back of the line puts it back: the undo is the book as it was). */
   const incoming = { ...provenance, fact: what, atTurn };
@@ -419,7 +431,8 @@ export function addKnowledge(knowledge, name, fact, atTurn, provenance = {}) {
   const kept = forRecipient ? list.filter(k => !beliefAnswered(k, incoming)) : list;
   if (dup !== -1) {
     const at = kept.indexOf(list[dup]);
-    if (at !== -1 && canon === what && what.length > kept[at].fact.length) kept[at] = { ...kept[at], fact: what };
+    /* the longer wording of the very same statement stays (a full stop, curly quotes) — never another statement's words */
+    if (at !== -1 && canon === what && statementKey(what) === statementKey(kept[at].fact) && what.length > kept[at].fact.length) kept[at] = { ...kept[at], fact: what };
     next[key] = kept;
     return next;
   }
@@ -506,6 +519,15 @@ export function interpretPerspective(value) {
   const uncertain = Boolean(record.kind && !explicit || explicit && form && explicit !== form[0]);
   return { record, kind: explicit || form?.[0] || 'known', proposition: form ? fact.replace(form[1], '') : fact, uncertain };
 }
+/* M752: WHAT MAKES TWO LINES OF ONE PERSON'S BOOK ONE RECORD — the same kind of knowing and the very same proposition
+ * (M738's one interpretation: "believes X" and {fact:"X", kind:"belief"} are one belief; "learned X" and "X" one thing
+ * known). Never the page it came on, nor the label of the worker that wrote it, nor its source receipt: learning it again
+ * is not learning more. A record whose wording and kind disagree (uncertain) is one only with its exact twin. */
+export function knowledgeIdentity(k) {
+  const view = interpretPerspective(k);
+  if (view.uncertain) return 'uncertain|' + String(view.record.kind || '') + '|' + statementKey(view.record.fact);
+  return view.kind + '|' + statementKey(view.proposition);
+}
 export function perspectiveConveyed(name, k, texts = []) {
   const view = interpretPerspective(k);
   const fact = statementKey(view.proposition);
@@ -530,14 +552,19 @@ export function perspectiveConveyed(name, k, texts = []) {
 /* M92: an existing book of knowledge with its duplicates folded — run on load,
  * so a store that gathered them before this law is clean the next time it is
  * read; no mutation, nothing for an auditor to note. */
+/* M752: by the one identity addKnowledge keeps (knowledgeIdentity) — so the copies M737–M751 wrote of one fact on later
+ * pages, or under a worker's label, fold the next time the story is opened: the first stays, with its page. One pass, a
+ * map per book (the old pairwise search grew with the square of a book that no longer has a cap). */
 export function dedupeKnowledge(knowledge) {
   const safe = copyKnowledge(knowledge);
   for (const [name, list] of Object.entries(safe)) {
     const kept = [];
+    const at = new Map();
     for (const k of list) {
-      const at = kept.findIndex(x => (x.kind || '') === (k.kind || '') && JSON.stringify(x.source || null) === JSON.stringify(k.source || null) && x.atTurn === k.atTurn && sameFact(x.fact,k.fact));
-      if (at === -1) kept.push({ ...k });
-      else if (k.fact.length > kept[at].fact.length) kept[at] = { ...kept[at], fact: k.fact };
+      const id = knowledgeIdentity(k);
+      if (!at.has(id)) { at.set(id, kept.length); kept.push({ ...k }); continue; }
+      const i = at.get(id);
+      if (statementKey(k.fact) === statementKey(kept[i].fact) && k.fact.length > kept[i].fact.length) kept[i] = { ...kept[i], fact: k.fact };
     }
     safe[name] = kept;
   }
@@ -580,6 +607,29 @@ function factScore(fact, sceneWords, ignore) {
  * COUNTED, never silently dropped. `scene` = { pages, ignore:[names] }. */
 export const KNOWLEDGE_OLD_AFTER = 6; /* pages: older than this, a fact says its age */
 export const KNOWLEDGE_MC = 4;        /* M508: the main character's newest few */
+/* M751: one line of what someone knows, in the words its kind is said in (KNOWING_KINDS) — what they know bare, a belief
+ * "believes …", a suspicion "suspects …", a record whose wording and kind disagree "may know, or may only believe: …" —
+ * and how it was learned, in the page's own words (M738's pathway). M752: the one rendering every reader is shown, the
+ * workers' whole ledger as well as the storyteller (engine/whole.js renderAllKnowledge read a stated ignorance as "knows"). */
+export function knowledgeWords(k) {
+  const view = interpretPerspective(k);
+  const prefix = { belief:'believes ',suspicion:'suspects ',rumor:'has heard a rumor: ',ignorance:'has not learned ' }[view.kind] || '';
+  return (view.uncertain ? 'may know, or may only believe: ' : prefix) + view.proposition.replace(/\.+$/, '') + (k && k.pathway ? ' (how: ' + k.pathway + ')' : '');
+}
+/* M752: one person's lines in one sentence a kind: "Rukia Kuchiki knows: a; b. Rukia believes: c. Rukia suspects: d." —
+ * what they know first (or "knows what is shared above." when only the shared line holds it), each other kind under its
+ * own verb, the full name once (M751's wording, for every reader). `lines` are knowledgeWords lines. */
+export function knowingSentences(name, lines, { shared = false } = {}) {
+  const typed = (f) => Boolean(knowingOf(f));
+  const known = lines.filter((f) => !typed(f));
+  const others = lines.filter(typed);
+  const said = known.length || !others.length ? [name + ' knows' + (known.length ? ': ' + known.join('; ') + '.' : shared ? ' what is shared above.' : '.')] : [];
+  for (const [re, verb] of KNOWING_KINDS) {
+    const held = others.filter((f) => re.test(f)).map((f) => f.replace(re, ''));
+    if (held.length) said.push((said.length ? name.split(/\s+/)[0] : name) + ' ' + verb + ': ' + held.join('; ') + '.');
+  }
+  return said.join(' ');
+}
 export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scene = null, out = null) {
   const safe = copyKnowledge(knowledge);
   const names = (Array.isArray(present) ? present : [])
@@ -596,10 +646,8 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
    * and what is called back from long ago is handed over as what it is: about its own moment. */
   const nowTurn = scene && Number.isFinite(scene.turn) ? scene.turn : null;
   const aged = (k) => {
-    const view = interpretPerspective(k);
-    const prefix = { belief:'believes ',suspicion:'suspects ',rumor:'has heard a rumor: ',ignorance:'has not learned ' }[view.kind] || '';
     /* M751: the kinds as KNOWING_KINDS says them; how it was learned, in the page's own words (M738's pathway), plainly */
-    const fact = (view.uncertain ? 'may know, or may only believe: ' : prefix) + view.proposition.replace(/\.+$/, '') + (k.pathway ? ' (how: ' + k.pathway + ')' : '');
+    const fact = knowledgeWords(k);
     const age = nowTurn != null && Number.isFinite(k.atTurn) ? nowTurn - k.atTurn : 0;
     return age >= KNOWLEDGE_OLD_AFTER ? fact + ' (learned about ' + age + ' pages ago)' : fact;
   };
@@ -687,16 +735,9 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
     const ownOld = p.recalled.filter((f) => !sharedKeys.has(norm(f)));
     if (!own.length && !ownOld.length && p.rest <= 0) continue;
     /* the final audit: a belief written as one (M510-48: "believes X — untrue: Y") reads as one, not "knows: believes" */
-    const isBelief = (f) => Boolean(knowingOf(f));
-    const beliefs = own.filter(isBelief).map((f) => f.replace(/ \(learned about (\d+) pages ago\)$/, ' (since about $1 pages ago)')); /* a belief is held since, not learned */
-    const knownOwn = own.filter((f) => !isBelief(f));
+    const held = own.map((f) => (knowingOf(f) ? f.replace(/ \(learned about (\d+) pages ago\)$/, ' (since about $1 pages ago)') : f)); /* a belief is held since, not learned */
     /* M751: "Renji Abarai believes: …. Renji suspects: …." — each kind under its own verb, the full name once */
-    const said = knownOwn.length || !beliefs.length ? [p.key + ' knows' + (knownOwn.length ? ': ' + knownOwn.join('; ') + '.' : ' what is shared above.')] : [];
-    for (const [re, verb] of KNOWING_KINDS) {
-      const held = beliefs.filter((f) => re.test(f)).map((f) => f.replace(re, ''));
-      if (held.length) said.push((said.length ? p.key.split(/\s+/)[0] : p.key) + ' ' + verb + ': ' + held.join('; ') + '.');
-    }
-    lines.push(said.join(' ')
+    lines.push(knowingSentences(p.key, held, { shared: true })
       + (ownOld.length ? ' From much earlier — each is about ITS OWN moment, not this scene; use one only where it truly fits: ' + ownOld.join('; ') + '.' : '')
       + (p.rest > 0 ? ' (and ' + p.rest + ' older ' + (p.rest === 1 ? 'thing' : 'things') + ' they know, kept in the ledger)' : ''));
   }
@@ -717,9 +758,11 @@ const onceNumbers = (set) => remember(ONCE_NUMS, set, () => [...set].filter((w) 
 const keyWords = (t) => remember(KEY_WORDS, String(t), () => new Set(String(t).split(' ').filter((s) => s.length > 3 || /\d/.test(s))));
 const factNums = (t) => remember(FACT_NUMS, String(t || ''), () => new Set(String(t || '').match(/\b\d+\b/g) || []));
 const factNames = (t) => remember(FACT_NAMES, String(t || ''), () => new Set((String(t || '').match(/(?<=[^.!?]\s)[A-Z][\p{L}-]+/gu) || []).map((m) => m.toLowerCase())));
+/* M752: the view holds a person's record once, by the one identity storage keeps (knowledgeIdentity) — never once a page
+ * or once a worker's label ("X; X (learned about 6 pages ago); X (learned about 7 pages ago)"). The first stands. */
 function sameFactsOnce(list) {
   const seen = new Set();
-  return list.filter(k => { const key = statementKey(k.fact) + '|' + (k.kind || '') + '|' + JSON.stringify(k.source || null) + '|' + (k.atTurn ?? 'undated'); if (seen.has(key)) return false; seen.add(key); return true; });
+  return list.filter(k => { const key = knowledgeIdentity(k); if (seen.has(key)) return false; seen.add(key); return true; });
 }
 
 /* ---------- factions ---------- */
