@@ -2614,7 +2614,7 @@ function essentialsPanel(ctx) {
       again.addEventListener('click', async () => {
         if (!(ctx.chat && typeof ctx.chat.remakeEssentials === 'function')) return;
         again.disabled = true;
-        note.textContent = 'Making the essentials again from the whole record…';
+        note.textContent = 'Making a concise version of each record section…';
         try { await ctx.chat.remakeEssentials(); } finally { again.disabled = false; redraw(); }
       });
       wrap.insertBefore(again, list);
@@ -2626,7 +2626,7 @@ function essentialsPanel(ctx) {
     const view = await loadEssentialsView(story.id);
     const kept = view.snapshot;
     const mem = await loadMemory(story.id);
-    if (!kept) {
+    if (!kept && !view.progress?.length) {
       note.textContent = !orderedLines(mem).some((n) => !n.correction)
         ? 'Not made yet — the record is still empty: the memory keeper folds pages once they are older than its window (' + windowFor(mem, await db.settings.get('memoryWindow')) + ' pages), and the essentials are made from the record.'
         : 'No accepted essentials are saved yet. The replacement is made automatically from the current record; your storyteller uses that record while it is prepared.';
@@ -2636,14 +2636,18 @@ function essentialsPanel(ctx) {
     const row=(await loadWorkerStatus(story.id)).essentials;
     const stopped=row?.ok===false && [row.why,row.detail].includes('stopped by hand');
     const current = view.current && !view.pending;
-    note.textContent = current ? 'The current story essentials, made from the record through page '+(kept.upTo+1)+'.'
+    note.textContent = !kept ? view.progress.length+' of '+view.pending.plan.length+' concise record sections saved. '
+      +(stopped ? 'Stopped by hand.' : view.pending.outcome==='blocked' ? 'Waiting: '+view.pending.why : 'The remaining sections continue automatically.')
+      +' The storyteller uses the current detailed record until the complete collection is ready.'
+      : current ? 'The current story essentials, made from the record through page '+(kept.upTo+1)+'.'
       : 'Previous accepted version, through page '+(kept.upTo+1)+'. '+(view.eligible
         ? 'Unchanged earlier essentials can still be used with the newer record entries. '
         : 'Kept here as history. The storyteller uses the current record while its replacement is prepared. ')
         +(stopped ? 'The replacement was stopped by hand.' : view.pending?.outcome==='blocked'
           ? 'The replacement is paused: '+view.pending.why : 'The replacement continues automatically when the workers are idle.');
     addAgain();
-    for (const line of kept.text.split('\n').map((l) => l.trim()).filter(Boolean)) {
+    const text=kept?.text || view.progress.map(p=>p.text).join('\n');
+    for (const line of text.split('\n').map((l) => l.trim()).filter(Boolean)) {
       const li = document.createElement('li');
       li.className = 'present-row mind-row record-row essentials-row';
       const body = document.createElement('div');

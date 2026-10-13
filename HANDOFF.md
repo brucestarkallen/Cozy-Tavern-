@@ -1,3 +1,54 @@
+# M749: concise counterparts for individual detailed record sections
+
+Version m749-001. Base 09f47a5128c329b9d52477de1dab8a13adbb2962.
+The owner clarified the intended design: each detailed Summaryception entry has
+its own shorter Essentials counterpart. The saved collection grows with those
+entries. It is not the entire story repeatedly forced into 16000/17000 characters.
+The earlier fixes repaired retries around that wrong global assumption. This
+clarification supersedes the earlier fixed global product allocation directions.
+
+runEssentials now plans per detailed entry, including its attached detail.
+Each request aims for a concise counterpart around 45% of that source's size;
+its acceptance allowance follows its source, with a 256 character minimum for
+short entries. Sections do not borrow from one shared character pool. A source
+too large for helper input can still divide at existing meaningful boundaries.
+The completed collection and public parser have no global character cap.
+Storyteller assembly still includes the whole eligible collection and measures
+the actual request against the configured context. No connection, reasoning,
+context setting, Auditor procedure or storyteller call count changed.
+
+Completed parts retain source fingerprints, original page/version receipts and
+their text. An append reads only the new entry; a changed entry reads only its
+affected source. Compatible completed pending work and accepted parts are reused
+under matching setup and evidence. Completed older grouped receipts can remain
+grouped; an unusable whole-story draft is never mistaken for a single entry.
+Policy9 resumes the already blocked prior procedure automatically. Previously
+accepted collections remain visible and unchanged until atomic publication;
+unchanged legacy accepted work is not reset simply on upgrading. Source edits,
+rewinds and concurrent changes still invalidate injection/publication as before.
+
+Removed M748's direct whole-record copy shortcut for new generation, since
+copying the detailed record is not making its entries concise. The existing
+drawer now shows completed candidate sections during first generation, clearly
+labelled incomplete; they are not injected as a complete accepted collection.
+Twelve requests yield to the normal idle queue without failure cooldown, and
+completed work survives reopen. M748's streaming renewal and single queue
+attempt remain. Real provider failure backoff and deliberate Stop remain.
+
+Focused checks passed, all with simulated responses and disposable storage:
+tests/harness/m749-essentials-entries.mjs reproduces 48 pages / 15 detailed entries
+and an old blocked global plan. It saves every concise section, crosses the old
+17000 collection limit, survives interruption, sends the full result through
+actual storyteller assembly, makes one call on append and one on a manual entry
+edit, preserves original records and accepted memory on failure, and excludes
+future sections after rewind. The public parser accepts the full collection.
+tests/m749_essentials_entries.py uses production Chromium, scheduler and provider
+adapter: 15 source requests, 12 saved sections visibly pending, automatic idle
+continuation, 29016 characters saved/displayed/selected, pending cleared and green.
+Unchanged reopen makes no call; Stop on a later changed entry stays stopped and
+keeps the accepted text. Syntax and whitespace checks passed. No live model or
+owner browser database was accessed. No broad suite or deployment.
+
 # M748: finish active Essentials streams and reuse complete compact records
 
 Version m748-001. Base 9b09862fe803f21bf425034ca06d954de3164774.

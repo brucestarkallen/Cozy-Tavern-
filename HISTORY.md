@@ -21110,3 +21110,31 @@ with all originals plus the old partial draft streamed for 100 virtual seconds,
 saved/displayed/selected a summary, cleared pending and turned green; unchanged
 reopen made no additional request. Syntax and diff checks passed. No live
 provider or owner database was accessed; the particular live wait was not traced.
+
+
+## M749: each detailed record entry has a concise counterpart
+
+Version m749-001. The owner clarified that Essentials should shorten each
+detailed Summaryception section, not repeatedly compress the entire story into
+one 16000 character allocation. Replaced the global generation plan with
+independent source entries and durable counterparts. Each request receives its
+entry and attached detail, with its own source-relative allowance. The saved
+collection and parser no longer impose the old global cap. Storyteller context
+accounting and provider settings remain unchanged.
+
+Completed counterparts reuse exact source fingerprints and page versions.
+Appends and edits regenerate only their affected entries. Existing completed
+pending work, accepted snapshots and concurrent ownership remain protected.
+Policy9 resumes old blocked candidates; unusable whole-story drafts are not
+rebound to unrelated single entries. Removed the raw-record copy shortcut.
+The drawer shows completed first-generation sections while work continues,
+without treating them as a complete accepted memory. Atomic publication,
+streaming renewal, finite failure recovery, idle yielding and Stop remain.
+
+Focused module and Chromium checks passed with simulated replies and disposable
+storage: 48 pages / 15 entries, recovery of an old blocked global plan, one request
+per entry, interruption/reopen, 29,016 characters saved/displayed/selected and
+green, no repeat on unchanged reopen, one request on append and one on an edit,
+accepted snapshot/manual/source preservation, rewind safety and deliberate Stop.
+Syntax and diff checks passed. No live provider, owner database access, broad
+suite or deployment.

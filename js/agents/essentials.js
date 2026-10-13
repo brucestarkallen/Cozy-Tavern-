@@ -3,15 +3,15 @@
  * coherent; the small model always sees it; if something is mentioned it uses the more detailed Summaryception".
  *
  * The keeper's record (Summaryception, M34) is the accurate memory: dense lines, only what is new, layered as it grows —
- * and it grows (eleven thousand tokens and more on a long tale). A small model cannot carry all of it, and carrying its
- * newest part hid the story's beginning. So a reader turns the WHOLE record into the story's essentials: who these people
- * are to each other, what happened in order, and what still stands — promises, debts, secrets, wounds, who knows what —
- * leaving out what no later page depends on. It is rebuilt from the record itself whenever the record changes (never
- * from its own last version, so it cannot drift from the record), and a small model reads it on every page; the record's
+ * and it grows (eleven thousand tokens and more on a long tale). A reader shortens each detailed entry independently:
+ * the saved essentials are those concise counterparts in source order, not one fixed-size summary of the WHOLE record.
+ * They retain who these people are to each other, what happened in order, and what still stands — promises, debts,
+ * secrets, wounds, who knows what —
+ * leaving out what no later page depends on. Changed entries are rebuilt from their original record material (never
+ * from their own last version); unchanged counterparts stay saved. A small model reads the essentials; the record's
  * own lines come back word for word when a move names them (anchor.js recall).
  *
- * Only for a tale whose storyteller is a small model. A complete compact record can serve directly. Larger records
- * use bounded revision; progress and failures are persisted here so the queue does not repeat entire failed jobs. */
+ * Progress and failures are persisted here so the queue does not repeat entire failed jobs. */
 import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { db } from '../store.js';
 import { callWorker, workerConnection } from './call.js';
@@ -26,15 +26,15 @@ import { rebindCopiedRecord } from './memory.js';
 
 export const ESSENTIALS_KEY = (storyId) => 'essentials:' + storyId;
 export const PENDING_KEY = storyId => 'essentialsPending:' + storyId;
-/* M510-16: the same room the record's newest lines had (M510-14, about 4,000 tokens) — now spent on the whole story */
+/* Historical limits retained for legacy receipts and parser callers. They are
+ * not limits on the saved collection. New entry budgets follow their sources. */
 export const ESSENTIALS_TARGET_CHARS = 16000;
-export const ESSENTIALS_MAX_CHARS = 17000; /* M747: owner-approved 1000 character completion tolerance. */
+export const ESSENTIALS_MAX_CHARS = 17000; /* Legacy receipt allowance, not the current collection limit. */
 export const ESSENTIALS_MAX_TOKENS = 5000;
 export const ESSENTIALS_TRIES = 3; /* M666: his — "it automatically tries again, same as all other workers": three asks, as the keeper's lines have */
-const ESSENTIALS_REPAIR_POLICY = 8; /* M748: streaming progress, precise coverage and compatible plan recovery. */
+const ESSENTIALS_REPAIR_POLICY = 9; /* M749: one durable concise counterpart per detailed record entry. */
 const REPAIR_DRAFT_MAX_CHARS = 128000;
 const RUN_CALL_LIMIT = 12;
-const PART_MIN_CHARS = 800;
 const CONTINUE_DELAY = 1500;
 const MAX_FAILED_ROUNDS = 4;
 const answerOptions = share => ({maxTokens:ESSENTIALS_MAX_TOKENS,maxTokensLimit:Math.min(ESSENTIALS_MAX_TOKENS,Math.max(256,Math.ceil(share/3)))});
@@ -44,8 +44,8 @@ const fp = (t) => fingerprint36(t);
 /* M741: unfinished sources are durable work, not a permanent failed-input lock.
  * Short recovery first, then a patient ceiling while the story stays open. */
 export const essentialsRetryDelay = attempts => [60000, 300000, 900000, 1800000][Math.min(3, Math.max(0, attempts - 1))];
-function helperPrintOf(connection, brief, mc) {
-  const helper = workerConnection(connection, answerOptions(ESSENTIALS_MAX_CHARS));
+function helperPrintOf(connection, brief, mc, cap=ESSENTIALS_MAX_TOKENS*3) {
+  const helper = workerConnection(connection, answerOptions(cap));
   const shell = essentialsAsk({brief,mc});
   const accounting = measureTransport(helper,{system:shell.system,messages:[{role:'user',content:shell.user}]});
   return {helper,accounting,print:fp(JSON.stringify([helper.id,helper.type,helper.model,helper.baseUrl,contextOf(helper),accounting.answerTokens,helper.reasoning,helper.temperature,helper.topP,helper.prefill]))};
@@ -72,7 +72,7 @@ export function essentialsRecoveryState({kept,pending,nodes,pages,story,state,br
 }
 
 export function essentialsRunNote(out) {
-  if (out.wrote || out.why==='unchanged') return {detail:out.wrote ? out.usedRecord ? 'saved the complete compact record as the story’s essentials' : 'streamlined the whole record into the story’s essentials' : 'the saved essentials match the current record'};
+  if (out.wrote || out.why==='unchanged') return {detail:out.wrote ? 'saved the concise record sections as the story’s essentials' : 'the saved essentials match the current record'};
   if (!out.pending) return {silent:true};
   const previous=out.previousAvailable ? ' Previous accepted essentials remain available.' : ' No previous accepted essentials are saved yet.';
   const progress=out.progress?.done ? ' Saved '+out.progress.done+(out.progress.total?' of '+out.progress.total:' completed')+' source sections.' : '';
@@ -108,27 +108,27 @@ export function recordOf(nodes) {
  * stretch that belongs together, oldest first. (M510-15 wrote four headed sections instead.) */
 export function essentialsAsk({ record = '', brief = '', mc = '' } = {}) {
   const system = [
-    'You condense the record of a long collaborative story into its essentials: the same record, told again shorter — the way a person remembers a story, with everything that matters still there.',
-    'You are given the whole record, oldest first. Each line stands for a stretch of pages: a prefix with its time and place, like "[Sept 1, 08:24 · the Wells kitchen]", then short phrases separated by semicolons.',
+    'You condense one detailed record section of a collaborative story into its concise counterpart, keeping everything that matters to later scenes.',
+    'You are given this section and its attached detail, not the whole story. Preserve its time and place, like "[Sept 1, 08:24 · the Wells kitchen]", then short phrases separated by semicolons.',
     'Write the essentials in THE SAME FORMAT: lines, oldest first, one per line, each opening with its time-and-place prefix and the pages it stands for, then short phrases separated by semicolons — "[Sept 1, 08:24 · the Wells kitchen] (pages 3–9) Orrin Vale did X → Tamsin Hale did Y; …".',
-    'One essentials line may stand for several record lines that belong together — one scene, one stretch of days; its prefix is where and when that stretch began, and its pages run from the first to the last.',
+    'Keep this section distinct from other sections. Related events within it may share a line; preserve their order and cover all of its supplied pages.',
     'Cut what nothing later depends on: small talk, errands, passers-by and crowds, weather and atmosphere, repeated reactions.',
     'Keep, always: decisions and what caused them (→), who did what to whom, promises, oaths and threats (their necessary exact words in "double quotes"), debts, secrets and who knows them, wounds, bonds and grudges, first meetings and first times, and every correction — written as the fact now stands.',
     'Keep meaningful rituals, private jokes, telling gestures, identity defining habits and relationship turning points with their reasons. Keep only atmosphere that carries lasting meaning.',
     'Names, never pronouns, spelled as the record spells them. Invent nothing the record does not say.',
-    'At most 2,000 words — far fewer while the story is young. Answer with the lines only.',
+    'Make this section substantially shorter than its detailed source, without losing necessary meaning. Answer with the lines only.',
   ].join('\n');
   const user = [
     mc ? 'The main character (the writer plays him): ' + mc : '',
     brief ? 'What this story is about, in the writer\'s words:\n' + writerText(brief, BRIEF_ROOM, 'brief') : '',
-    'The record, oldest first:\n' + record,
+    'The authoritative record section, with its detail:\n' + record,
   ].filter(Boolean).join('\n\n');
   return { system, user };
 }
 
-/* the answer, read as lines: no fences, no preface before the first line, clipped at a line's end; too little to be the
- * essentials — or no line at all — is refused */
-export function inspectEssentials(raw, cap = ESSENTIALS_MAX_CHARS, finishReason = '') {
+/* Parse complete record lines without clipping. A generation request supplies
+ * its own entry allowance; reading the saved collection has no global cap. */
+export function inspectEssentials(raw, cap = Infinity, finishReason = '') {
   /* M608: its thinking is not its answer — a thought with a line opening "[" became the first line of the essentials */
   const t = String(raw == null ? '' : raw).replace(/<think>[\s\S]*?(<\/think>|$)/gi, '').replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
   if (/^[[{]\s*["{\]]/.test(t)) return { text: '', complete: false, why: 'no usable record lines' };
@@ -151,7 +151,7 @@ export function inspectEssentials(raw, cap = ESSENTIALS_MAX_CHARS, finishReason 
 }
 
 /* Public parser remains a text parser; incomplete candidates never become saved essentials. */
-export function readEssentials(raw, cap = ESSENTIALS_MAX_CHARS) {
+export function readEssentials(raw, cap = Infinity) {
   const result = inspectEssentials(raw, cap);
   return result.complete ? result.text : '';
 }
@@ -191,14 +191,18 @@ export async function loadEssentialsView(storyId) {
     && (!kept?.setupOwner || kept.setupOwner===setupOwnerOf(story,state));
   const eligible=Boolean(snapshot && setupMatches && memory && essentialsMatch(kept,memory.nodes,Infinity,pages));
   const current=eligible && (!memory || kept.upTo===recordOf(memory.nodes).upTo);
-  return {snapshot,eligible,current,pending:await db.settings.get(PENDING_KEY(storyId))};
+  const pending=await db.settings.get(PENDING_KEY(storyId));
+  const progressCurrent=pending?.sourcePrint===sourcePrint(memory?.nodes) && pending.pagesPrint===originalPrint(pages,recordOf(memory?.nodes).upTo)
+    && pending.setupPrint===fp((story?.brief || '')+'\n'+mcName(state)) && (!pending.setupOwner || pending.setupOwner===setupOwnerOf(story,state));
+  const progress=progressCurrent ? (pending.plan || []).filter(p=>completeSection(p)) : [];
+  return {snapshot,eligible,current,pending,progress};
 }
 export async function loadEssentials(storyId) {
   const view=await loadEssentialsView(storyId);
   return view.eligible ? view.snapshot : null;
 }
 
-/* one reading: when the record has changed since the essentials were made, make them again from the whole record */
+/* Legacy input packing, also used to recover completed pre M749 receipts. */
 /* M565 (the audit): THE ESSENTIALS OF A LONG TALE. The keeper was handed the WHOLE record in one request, however long, and
  * its answer was cut at 16,000 characters keeping the OLDEST lines: a record past its model's room was refused every time
  * (the essentials never made again — the story in brief standing still while the tale went on), and a telling past the
@@ -265,8 +269,8 @@ function sectionCoverage(text,lines) {
 
 async function tellPart({ connection, lines, part, parts, share, brief, mc, signal, renew, callLLM, usage, previous, requiredCoverage=false, fresh=false, target=Math.floor(share*0.65), tries=ESSENTIALS_TRIES, checkpoint=async()=>{} }) {
   const ask = essentialsAsk({ record: lines.map(recordLine).join('\n'), brief, mc });
-  const partNote = '\n\nPart ' + (part + 1) + ' of ' + parts + '. Tell only these original source entries, within ' + share + ' characters.'
-    + ' The global target is '+ESSENTIALS_TARGET_CHARS+' characters. Aim for '+target+' characters for this complete section, leaving room for the other sections and formatting. '+(fresh ? 'FRESH SOURCE READING. Reconstruct the coherent story memory from these authoritative source entries, combining related events and preserving their causes and consequences. ' : '')
+  const partNote = '\n\nRecord section ' + (part + 1) + ' of ' + parts + '. Tell only this supplied source material, within ' + share + ' characters.'
+    + ' Aim for about '+target+' characters for its concise counterpart. Other sections are saved independently and do not share this allowance. '+(fresh ? 'Read the authoritative source and preserve its causes and consequences. ' : '')
     + (requiredCoverage ? ' This is a chronological source section. Include explicit (pages first to last) ranges covering EVERY supplied source span through the final entry, including the resulting correction facts.' : '');
   const correction = result => '\n\nThe previous candidate was ' + result.why + (result.chars ? ' ('+result.chars+' characters)' : '') + '. '+
     (result.clipped || result.providerTruncated ? 'Aim for at most '+Math.floor(share*0.7)+' characters, using fewer complete lines for related entries. ' : 'Every line must begin with [time, place] (pages first to last). No headings, commentary or separate continuation lines. ')+
@@ -376,6 +380,61 @@ function acceptedPageReceipts(lines,upTo,pages=[]) {
   return originals.size===upTo+1 ? [...originals.values()].sort((a,b)=>a.ordinal-b.ordinal) : undefined;
 }
 
+function sectionPages(lines,pages) {
+  const ordinals=new Set();
+  for (const n of lines.filter(n=>!n.correction)) for (let i=n.span[0];i<=n.span[1];i++) ordinals.add(i);
+  return [...ordinals].sort((a,b)=>a-b).map(ordinal=>({ordinal,id:pages[ordinal]?.id,version:pages[ordinal] ? messageVersion(pages[ordinal]) : ''}));
+}
+function boundSectionPages(lines=[]) {
+  if (lines.some(n=>!n.correction && n.sourcePages?.length!==n.span[1]-n.span[0]+1)) return undefined;
+  return lines.filter(n=>!n.correction).flatMap(n=>n.sourcePages.map((p,i)=>({...p,ordinal:n.span[0]+i})));
+}
+function sameSectionPages(section,lines,pages,fallback) {
+  const saved=section.pages || fallback || boundSectionPages(section.lines);
+  if (!Array.isArray(saved)) return false;
+  const current=sectionPages(lines,pages),held=new Map(saved.map(p=>[p.ordinal,p]));
+  return current.every(p=>p.id && held.get(p.ordinal)?.id===p.id && held.get(p.ordinal)?.version===p.version);
+}
+const sectionLimit=lines=>Math.max(256,lines.map(recordLine).join('\n').length);
+const completeSection=(part,lines=part.lines)=>part.complete && inspectEssentials(part.text,Infinity).complete && sectionCoverage(part.text,lines);
+
+// Reuse only exact source entries and their original page versions. Storage is
+// one accepted collection plus one candidate, not an archive of every run.
+function entryPlan({lines,room,pages,pending,kept}) {
+  const plan=[];
+  const pendingParts=[...(pending?.plan || []),...(pending?.parts || [])];
+  const pendingByPrint=new Map(pendingParts.filter(p=>p.complete).map(p=>[p.print,p]));
+  const keptByPrint=new Map((kept?.parts || []).filter(p=>p.complete).map(p=>[p.print,p]));
+  const grouped=[...(pending?.plan || []).map(part=>({part,owner:pending,count:part.lines?.length})),
+    ...(kept?.parts || []).map(part=>({part,owner:kept,count:part.sourceKeys?.length}))].filter(g=>g.count>1 && g.part.complete);
+  const wholePrint=sourcePrint(lines);
+  const samePendingPages=pending?.pagesPrint===originalPrint(pages,recordOf(lines).upTo);
+  const usable=(part,source,owner,print=sourcePrint(source))=>part && part.print===print && completeSection(part,source)
+    && (sameSectionPages(part,source,pages,owner?.sourcePages)
+      || owner===pending && samePendingPages && pending.sourcePrint===wholePrint);
+  for (let i=0;i<lines.length;i++) {
+    // A completed older grouped receipt remains useful. Do not discard it
+    // merely because new work is now performed per detailed record entry.
+    const group=grouped.find(({part,owner,count})=>count>1 && !part.lines?.some(n=>n.sourceSegment)
+      && usable(part,lines.slice(i,i+count),owner));
+    if (group) {
+      const source=lines.slice(i,i+group.count);
+      plan.push({...group.part,lines:source,pages:sectionPages(source,pages)});i+=group.count-1;continue;
+    }
+    const pieces=inputSections([lines[i]],room(lines[i]));
+    for (const source of pieces || [[lines[i]]]) {
+      const print=sourcePrint(source);
+      const pendingPart=pendingByPrint.get(print),keptPart=keptByPrint.get(print);
+      const fromPending=usable(pendingPart,source,pending,print) && pendingPart;
+      const fromKept=usable(keptPart,source,kept,print) && keptPart;
+      const held=fromPending || fromKept;
+      plan.push({lines:source,print,pages:sectionPages(source,pages),...(held ? {text:held.text,complete:true}
+        : !pieces ? {inputBlocked:true} : {})});
+    }
+  }
+  return plan;
+}
+
 export async function runEssentials({ connection, storyId, nodes, brief = '', mc = '', signal, renew = () => {}, callLLM = callWorker, force = false, stale = () => false } = {}) {
   if (!connection || !storyId) return {wrote:false,why:'no connection'};
   if (stale() || signal?.aborted) {if (signal?.aborted) throw signal.reason || new Error('reading stopped');return {wrote:false,outcome:'superseded'};}
@@ -397,56 +456,35 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
     return {wrote:false,why:'unchanged'};
   }
   const usage={calls:0,inputChars:0,outputChars:0};
-  const {helper,accounting,print:helperPrint}=helperPrintOf(connection,brief,mc);
+  const {print:helperPrint}=helperPrintOf(connection,brief,mc);
   const result=async (outcome,why='')=>({wrote:false,pending:outcome!=='superseded',outcome,why,retryAt:pending?.nextAt,
     previousAvailable:previousExists(await db.settings.get(ESSENTIALS_KEY(storyId))),progress:{done:pending?.parts?.length || 0,total:pending?.plan?.length || 0},usage});
   if (!force && recovery.blocked) return result('blocked',recovery.why);
   if (!force && recovery.same && recovery.retryAt>Date.now()) return result(pending?.outcome || 'failed',recovery.why);
-  const room=Math.max(0,Math.floor((inputRoom({budgetTokens:contextOf(helper),answerTokens:accounting.answerTokens})-accounting.inputTokens)*3*0.75)-1600);
-  const roots=inputSections(rec.lines,room);
+  const room=node=>{
+    const {helper,accounting}=helperPrintOf(connection,brief,mc,sectionLimit([node]));
+    return Math.max(0,Math.floor((inputRoom({budgetTokens:contextOf(helper),answerTokens:accounting.answerTokens})-accounting.inputTokens)*3*0.75)-1600);
+  };
   let expectedPending=pending;
   const sameAttempt=!force && recovery.same;
-  const modern=sameAttempt && pending.repairPolicy>=4 && pending.repairPolicy<=ESSENTIALS_REPAIR_POLICY && pending.generationId
+  const modern=sameAttempt && pending.repairPolicy===ESSENTIALS_REPAIR_POLICY && pending.generationId
     && pending.plan?.length && pending.plan.every(p=>p.lines?.length && p.print===sourcePrint(p.lines));
+  const sameSetup=value=>value && (!value.setupPrint || value.setupPrint===setupPrint) && (!value.setupOwner || value.setupOwner===setupOwner);
+  const reusePending=!force && sameSetup(pending) && (!pending.acceptedPrint || pending.acceptedPrint===fp(JSON.stringify(original))) ? pending : null;
+  const reuseKept=!force && sameSetup(original) ? original : null;
   let candidate=modern ? structuredClone(pending) : {generationId:generationId(),sourcePrint:inputPrint,setupPrint,setupOwner,helperPrint,
-    repairPolicy:ESSENTIALS_REPAIR_POLICY,required:true,explicit:force,acceptedPrint:fp(JSON.stringify(original)),pagesPrint:originalPrint(ownedPages,rec.upTo),phase:'whole',
-    plan:(roots || []).map(lines=>({lines,print:sourcePrint(lines)})),parts:[],attempts:0,restarts:0};
-  if (modern && candidate.repairPolicy!==ESSENTIALS_REPAIR_POLICY) {
-    candidate.repairPolicy=ESSENTIALS_REPAIR_POLICY;candidate.validationRounds=0;
-    // Keep the failed draft and all compatible completed sections. The new
-    // procedure edits that draft immediately, rather than rereading from zero.
-    if (candidate.diagnostic?.draft) candidate.phase='sections';
-    const diagnostic=candidate.diagnostic,index=Number(diagnostic?.part)-1;
-    if (diagnostic && !diagnostic.print && Number.isInteger(index) && index===candidate.cursor
-      && diagnostic.parts===candidate.plan.length && candidate.plan[index] && !candidate.plan[index].complete) {
-      diagnostic.print=candidate.plan[index].print;
-    }
+    repairPolicy:ESSENTIALS_REPAIR_POLICY,required:true,explicit:force,acceptedPrint:fp(JSON.stringify(original)),pagesPrint:originalPrint(ownedPages,rec.upTo),phase:'entries',
+    plan:entryPlan({lines:rec.lines,room,pages:ownedPages,pending:reusePending,kept:reuseKept}),parts:[],attempts:0,restarts:0};
+  if (!modern && reusePending?.diagnostic?.draft) {
+    const held=reusePending.diagnostic;
+    const section=candidate.plan.find(p=>!p.complete && p.print===held.print);
+    // Whole-story drafts have no reliable per-entry ownership and are never
+    // passed off as a concise counterpart for an individual source section.
+    const prior=reusePending.plan?.find(p=>p.print===held.print);
+    if (section && prior && (sameSectionPages(prior,section.lines,ownedPages,reusePending.sourcePages)
+      || sameAttempt && reusePending.pagesPrint===originalPrint(ownedPages,rec.upTo))) candidate.diagnostic={...held};
   }
-  if (!modern && sameAttempt && roots) {
-    const leaves=legacySections(pending,recordParts(rec.lines,room+1000)),done=leaves.filter(p=>p.complete);
-    if (done.length) {
-      const plan=[];let unfinished=[];
-      const flush=()=>{for (const lines of recordParts(unfinished,room)) plan.push({lines,print:sourcePrint(lines)});unfinished=[];};
-      for (const leaf of leaves) {if (leaf.complete) {flush();plan.push(leaf);} else unfinished.push(...leaf.lines);}flush();
-      candidate.plan=plan;candidate.parts=done.map(p=>({print:p.print,text:p.text,complete:true}));candidate.phase='sections';
-    } else if (/request limit|bounded recovery round/i.test(pending.why || pending.diagnostic?.why || '')) candidate.phase='fresh';
-  }
-  // Old output-driven splits can survive several policy upgrades. When no
-  // section is complete and the actual full-source editing conversation fits,
-  // continue that draft against all originals in one request. Retain its
-  // earlier scope as provenance; it cannot be accepted locally as whole work.
-  if (roots?.length===1 && candidate.plan.length>1 && !candidate.plan.some(p=>p.complete)) {
-    const held=candidate.diagnostic,ask=essentialsAsk({record:rec.text,brief,mc});
-    const fullUser=ask.user+'\nInclude every original source range through the final entry.'+' '.repeat(1600);
-    const fits=held?.draft && essentialsRepairMessages({connection,system:ask.system,user:fullUser,draft:held.draft,share:ESSENTIALS_MAX_CHARS});
-    if (fits) {
-      candidate.plan=[{lines:rec.lines,print:inputPrint}];candidate.phase='whole';
-      candidate.diagnostic={...held,print:inputPrint,part:1,parts:1,draftScopePrint:held.draftScopePrint || held.print,
-        partialSourceDraft:true,why:(held.why || 'incomplete')+'; this partial draft must also incorporate the remaining original source entries'};
-    }
-  }
-  for (const section of candidate.plan) if (section.complete
-    && (!inspectEssentials(section.text,ESSENTIALS_MAX_CHARS).complete || !sectionCoverage(section.text,section.lines))) {
+  for (const section of candidate.plan) if (section.complete && !completeSection(section)) {
     section.complete=false;delete section.text;
   }
   const owns=(s,requireSources=true,allowTimeout=false)=>{
@@ -460,7 +498,7 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
   };
   const persist=async(outcome='running',why='',diagnostic=candidate.diagnostic)=>{
     candidate={...candidate,outcome,why,diagnostic,nextAt:outcome==='yielded'?Date.now()+CONTINUE_DELAY:outcome==='failed'?candidate.nextAt:0,
-      parts:candidate.plan.filter(p=>p.complete).map(p=>({print:p.print,text:p.text,complete:true})),cursor:candidate.plan.findIndex(p=>!p.complete)};
+      parts:candidate.plan.filter(p=>p.complete).map(p=>({print:p.print,text:p.text,complete:true,pages:sectionPages(p.lines,ownedPages),sourceKeys:p.lines.map(n=>sourcePrint([n]))})),cursor:candidate.plan.findIndex(p=>!p.complete)};
     const wrote=await db.editStoryAtomically(storyId,s=>{
       if (!owns(s,outcome!=='blocked',outcome==='failed' || outcome==='blocked')) return false;
       s.settings.essentialsPending=structuredClone(candidate);return true;
@@ -481,38 +519,26 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
     if (!await persist(outcome,why,diagnostic)) return result('superseded','The source or saved version changed while reading.');
     return result(outcome,why);
   };
-  const compactRecord=inspectEssentials(rec.text,ESSENTIALS_MAX_CHARS);
-  const usedRecord=!force && !candidate.explicit && compactRecord.complete && compactRecord.text===rec.text && sectionCoverage(compactRecord.text,rec.lines);
   const invalidSources=ownedStory && (rec.upTo>=ownedPages.length || sourceBindingIssues(rec.lines,ownedPages).length>0);
-  if (invalidSources || !usedRecord && (!roots || candidate.plan.filter(p=>p.complete).reduce((n,p)=>n+p.text.length,0)
-    +candidate.plan.filter(p=>!p.complete).length*80+Math.max(0,candidate.plan.length-1)>ESSENTIALS_MAX_CHARS)) {
-    const why=invalidSources?'The record does not match the current original pages; its source coverage must be repaired first.'
-      : !roots?'An indivisible source section exceeds the helper context.'
-        : 'The complete source sections exceed the 17000 character acceptance limit.';
+  if (invalidSources) {
+    const why='The record does not match the current original pages; its source coverage must be repaired first.';
     if (!await persist('blocked',why)) return result('superseded');
     return result('blocked',why);
   }
   if (!await persist()) return result('superseded','The source or saved version changed while reading.');
-  // Summaryception has already summarized the originals. If that complete
-  // current record fits the Essentials allocation, retain all its words rather
-  // than paying a model to recreate and possibly expand the same memory.
-  if (usedRecord) {
-    candidate.plan=[{lines:rec.lines,print:inputPrint,text:compactRecord.text,complete:true}];
-    candidate.diagnostic=null;candidate.attempts=0;candidate.validationRounds=0;
-    if (!await persist()) return result('superseded');
-  }
   for (let i=0;i<candidate.plan.length;i++) {
     const section=candidate.plan[i];
     // Completed answers, including ones later in the plan, are checked before
     // the call allowance. A checkpoint never drops unvisited compatible work.
-    if (section.complete && inspectEssentials(section.text,ESSENTIALS_MAX_CHARS).complete && sectionCoverage(section.text,section.lines)) continue;
+    if (completeSection(section)) continue;
     section.complete=false;delete section.text;
     if (signal?.aborted) throw signal.reason || new Error('reading stopped');
-    const missing=candidate.plan.filter(p=>!p.complete),used=candidate.plan.filter(p=>p.complete).reduce((n,p)=>n+p.text.length,0);
-    const free=ESSENTIALS_MAX_CHARS-Math.max(0,candidate.plan.length-1)-used;
-    const reserve=Math.max(80,Math.min(PART_MIN_CHARS,Math.floor(free/missing.length*0.75)));
-    const share=free-(missing.length-1)*reserve;
-    if (share<80) {await persist('blocked','Complete source sections exceed the 17000 character acceptance limit.');return result('blocked',candidate.why);}
+    if (section.inputBlocked) {
+      const why='Record section '+(i+1)+' exceeds the helper input context and has no smaller source boundary.';
+      if (!await persist('blocked',why)) return result('superseded');
+      return result('blocked',why);
+    }
+    const share=sectionLimit(section.lines);
     const held=candidate.diagnostic?.print===section.print?candidate.diagnostic:null;
     if (held?.draft && !held.partialSourceDraft) {
       const checked=inspectEssentials(held.draft,share,held.finishReason || '');
@@ -526,8 +552,7 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
       if (!await persist('yielded','Waiting for the next idle opportunity.')) return result('superseded');
       return result('yielded');
     }
-    const weight=p=>p.lines.reduce((n,line)=>n+recordLine(line).length+1,0);
-    const target=Math.min(Math.floor(share*0.8),Math.max(reserve,Math.floor(Math.min(free,ESSENTIALS_TARGET_CHARS)*weight(section)/missing.reduce((n,p)=>n+weight(p),0)*0.65)));
+    const target=Math.max(120,Math.floor(share*0.45));
     let told;
     try {
       told=await tellPart({connection,lines:section.lines,part:i,parts:candidate.plan.length,share,target,brief,mc,signal,renew,callLLM,usage,
@@ -542,21 +567,21 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
     }
     if (told.yielded) {if (!await persist('yielded','Waiting for the next idle opportunity.')) return result('superseded');return result('yielded');}
     if (!told.text) {
-      return fail('Source section '+(i+1)+' of '+candidate.plan.length+': '+told.diagnostic.why+' (answer '+told.diagnostic.chars+' characters; available '+share+' of the global '+ESSENTIALS_MAX_CHARS+')',told.diagnostic);
+      return fail('Source section '+(i+1)+' of '+candidate.plan.length+': '+told.diagnostic.why+' (answer '+told.diagnostic.chars+' characters; section allowance '+share+')',told.diagnostic);
     }
     section.text=told.text;section.complete=true;candidate.attempts=0;candidate.validationRounds=0;candidate.diagnostic=null;
     if (!await persist()) return result('superseded');
   }
   const text=candidate.plan.map(p=>p.text).join('\n');
-  if (!inspectEssentials(text,ESSENTIALS_MAX_CHARS).complete) return fail('The complete combined candidate exceeds the 17000 character acceptance limit.');
+  if (!candidate.plan.every(p=>completeSection(p)) || !inspectEssentials(text,Infinity).complete || !sectionCoverage(text,rec.lines)) return fail('One or more record sections are incomplete.');
   // Accepted text and pending removal land together. There is no empty state,
   // and a newer manual/accepted value or another generation wins this guard.
   const saved=await db.editStoryAtomically(storyId,s=>{
     if (!owns(s)) return false;
     s.settings.essentials={text,print:rec.print,sourcePrint:inputPrint,setupPrint,setupOwner,generationId:candidate.generationId,upTo:rec.upTo,complete:true,
-      parts:candidate.parts,sources:rec.lines.map(n=>({id:n.id,span:n.span,print:sourcePrint([n])})),
+      format:'entries',parts:candidate.parts,sources:rec.lines.map(n=>({id:n.id,span:n.span,print:sourcePrint([n])})),
       sourcePages:acceptedPageReceipts(rec.lines,rec.upTo,ownedPages),correctionsPrint:sourcePrint(rec.lines.filter(n=>n.correction)),at:Date.now()};
     delete s.settings.essentialsPending;return true;
   },{extraSettings:['essentialsPending']});
-  return saved ? {wrote:true,outcome:'completed',parts:candidate.plan.length,usage,usedRecord} : result('superseded','The source or saved version changed while reading.');
+  return saved ? {wrote:true,outcome:'completed',parts:candidate.plan.length,usage} : result('superseded','The source or saved version changed while reading.');
 }
