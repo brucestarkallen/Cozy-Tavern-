@@ -21,6 +21,7 @@ import { contextOf } from '../providers/room.js'; /* M565: the record told in pa
 import { mcName } from '../engine/duels.js';
 import { brokenOff } from '../engine/world.js';
 import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M566 */
+import { boundRecord, messageVersion } from '../assemble/selection.js';
 
 export const ESSENTIALS_KEY = (storyId) => 'essentials:' + storyId;
 export const PENDING_KEY = storyId => 'essentialsPending:' + storyId;
@@ -28,10 +29,12 @@ export const PENDING_KEY = storyId => 'essentialsPending:' + storyId;
 export const ESSENTIALS_MAX_CHARS = 16000;   /* about 4,000 tokens — the whole story, streamlined */
 export const ESSENTIALS_MAX_TOKENS = 5000;
 export const ESSENTIALS_TRIES = 3; /* M666: his — "it automatically tries again, same as all other workers": three asks, as the keeper's lines have */
-const ESSENTIALS_REPAIR_POLICY = 3; /* M743: bounded chronological output partitioning. */
+const ESSENTIALS_REPAIR_POLICY = 4; /* M744: continuation and accepted snapshots are separate. */
 const REPAIR_DRAFT_MAX_CHARS = 128000;
 const RUN_CALL_LIMIT = 12;
-const PART_MIN_CHARS = 100;
+const PART_MIN_CHARS = 800;
+const CONTINUE_DELAY = 1500;
+const MAX_FAILED_ROUNDS = 4;
 const answerOptions = share => ({maxTokens:ESSENTIALS_MAX_TOKENS,maxTokensLimit:Math.min(ESSENTIALS_MAX_TOKENS,Math.max(256,Math.ceil(share/3)))});
 
 const fp = (t) => fingerprint36(t);
@@ -45,22 +48,36 @@ function helperPrintOf(connection, brief, mc) {
   const accounting = measureTransport(helper,{system:shell.system,messages:[{role:'user',content:shell.user}]});
   return {helper,accounting,print:fp(JSON.stringify([helper.id,helper.type,helper.model,helper.baseUrl,contextOf(helper),accounting.answerTokens,helper.reasoning,helper.temperature,helper.topP,helper.prefill]))};
 }
-export function essentialsRecoveryState({kept,pending,nodes,brief='',mc='',connection,now=Date.now()}={}) {
+export function essentialsRecoveryState({kept,pending,nodes,pages,story,state,brief='',mc='',connection,now=Date.now()}={}) {
   const rec=recordOf(nodes),inputPrint=sourcePrint(nodes),setupPrint=fp(brief+'\n'+mc);
   if (!rec.lines.length) return {needed:false,why:'no record yet'};
-  if (kept?.text && kept.complete!==false && kept.print===rec.print && (!kept.sourcePrint || kept.sourcePrint===inputPrint) && (!kept.setupPrint || kept.setupPrint===setupPrint)) return {needed:false,why:'unchanged'};
+  const setupOwner=story && state ? setupOwnerOf(story,state) : null;
+  const requested=pending?.required && pending.sourcePrint===inputPrint && pending.setupPrint===setupPrint
+    && pending.acceptedPrint===fp(JSON.stringify(kept)) && pending.generationId!==kept?.generationId;
+  if (essentialsMatch(kept,nodes,Infinity,pages) && kept.upTo===rec.upTo && (!kept.setupPrint || kept.setupPrint===setupPrint)
+    && (!setupOwner || !kept.setupOwner || kept.setupOwner===setupOwner) && !requested) return {needed:false,why:'unchanged'};
   if (!connection) return {needed:true,why:'Plot essentials needs a connection.',retryAt:now+60000};
   const {print:helperPrint}=helperPrintOf(connection,brief,mc);
-  const same=pending?.sourcePrint===inputPrint && pending.setupPrint===setupPrint && pending.helperPrint===helperPrint;
-  return {needed:true,same,inputPrint,setupPrint,helperPrint,retryAt:same && pending.repairPolicy===ESSENTIALS_REPAIR_POLICY ? Number(pending.nextAt)||0 : 0,
+  const same=pending?.sourcePrint===inputPrint && pending.setupPrint===setupPrint && pending.helperPrint===helperPrint
+    && (!setupOwner || !pending.setupOwner || pending.setupOwner===setupOwner)
+    && (!pending.acceptedPrint || pending.acceptedPrint===fp(JSON.stringify(kept)))
+    && (!pending.pagesPrint || !Array.isArray(pages) || pending.pagesPrint===originalPrint(pages,rec.upTo));
+  const modern=same && pending.repairPolicy===ESSENTIALS_REPAIR_POLICY;
+  const legacyTransport=same && !/bounded recovery round|request limit/i.test(pending.why || pending.diagnostic?.why || '')
+    && /unavailable|provider could not|could not be reached|429|outwaited/i.test(pending.why || '');
+  return {needed:true,same,inputPrint,setupPrint,helperPrint,blocked:modern && pending.outcome==='blocked',retryAt:modern || legacyTransport ? Number(pending.nextAt)||0 : 0,
     why:same ? pending.why || 'The previous essentials answer was incomplete.' : 'Plot essentials has not finished reading the current record.'};
 }
 
 export function essentialsRunNote(out) {
   if (out.wrote || out.why==='unchanged') return {detail:out.wrote ? 'streamlined the whole record into the story’s essentials' : 'the saved essentials match the current record'};
   if (!out.pending) return {silent:true};
+  const previous=out.previousAvailable ? ' Previous accepted essentials remain available.' : ' No previous accepted essentials are saved yet.';
+  const progress=out.progress?.done ? ' Saved '+out.progress.done+(out.progress.total?' of '+out.progress.total:' completed')+' source sections.' : '';
+  if (out.outcome==='yielded') return {unfinished:true,detail:'Plot essentials replacement is continuing.'+progress+previous+' It resumes automatically when the workers are idle.'};
+  if (out.outcome==='blocked') return {unfinished:true,detail:'Plot essentials replacement needs attention: '+out.why+'.'+progress+previous};
   const wait=Math.max(1,Math.ceil(((out.retryAt || Date.now()+60000)-Date.now())/60000));
-  return {unfinished:true,detail:'Plot essentials update pending: '+out.why+'. Previous saved essentials were left intact. Automatic recovery will check again in about '+wait+(wait===1?' minute':' minutes')};
+  return {unfinished:true,detail:'Plot essentials update pending: '+out.why+'.'+progress+previous+' Automatic recovery will check again in about '+wait+(wait===1?' minute':' minutes')};
 }
 
 /* the record's lines in its own order (a correction reads last), and a fingerprint of all of them */
@@ -140,22 +157,43 @@ export function readEssentials(raw, cap = ESSENTIALS_MAX_CHARS) {
 export function sourcePrint(nodes) {
   return fp(JSON.stringify(recordOf(nodes).lines.map(n => [n.id, n.span, n.text, n.detail || '', n.correction === true, n.sourcePages || n.source || n.sources || null,...(n.sourceSegment?[n.sourceSegment]:[])])));
 }
-export function essentialsMatch(kept, nodes, through = Infinity) {
+export function essentialsMatch(kept, nodes, through = Infinity, pages) {
   if (!kept?.text || kept.complete === false || !Number.isFinite(kept.upTo) || kept.upTo >= through) return false;
   const all = recordOf(nodes).lines;
   const prefix = all.filter(n => n.correction || n.span[1] <= kept.upTo);
-  if (all.some(n => !n.correction && n.span[0] <= kept.upTo && n.span[1] > kept.upTo)) return false;
-  return kept.sourcePrint ? sourcePrint(prefix) === kept.sourcePrint : recordOf(prefix).print === kept.print;
+  if (Array.isArray(pages) && (kept.upTo>=pages.length || prefix.some(n=>!n.correction && !boundRecord(n,pages)))) return false;
+  if (Array.isArray(pages)) {
+    if (kept.sourcePages) {
+      if (kept.sourcePages.length!==kept.upTo+1 || !kept.sourcePages.every((p,i)=>p.ordinal===i && pages[i]?.id===p.id && messageVersion(pages[i])===p.version)) return false;
+    } else if (prefix.some(n=>!n.correction && !Array.isArray(n.sourcePages))) return false;
+  }
+  const straddles=all.some(n => !n.correction && n.span[0] <= kept.upTo && n.span[1] > kept.upTo);
+  if (!straddles && (kept.sourcePrint ? sourcePrint(prefix) === kept.sourcePrint : recordOf(prefix).print === kept.print)) return true;
+  // Repacking unchanged originals is different from correcting a record. Only
+  // proven page versions and a real folded layout can reuse the earlier view.
+  if (!Array.isArray(pages) || kept.sourcePages?.length!==kept.upTo+1 || kept.correctionsPrint!==sourcePrint(all.filter(n=>n.correction))) return false;
+  if (!kept.sourcePages.every((p,i)=>p.ordinal===i && pages[i]?.id===p.id && messageVersion(pages[i])===p.version)) return false;
+  const held=new Map((kept.sources || []).map(n=>[n.id,n]));
+  return all.filter(n=>!n.correction && n.span[0]<=kept.upTo).every(n=>boundRecord(n,pages) && n.sourcePages?.length
+    && (held.has(n.id) ? held.get(n.id).print===sourcePrint([n]) : n.level>1));
 }
 
-export async function loadEssentials(storyId) {
+export async function loadEssentialsView(storyId) {
   const kept = await db.settings.get(ESSENTIALS_KEY(storyId));
   const memory = await db.settings.get('memory:' + storyId);
   const story = await db.stories.get(storyId);
   const state = await db.settings.get('state:' + storyId);
-  if(kept?.setupPrint && story && state && kept.setupPrint !== fp((story.brief || '') + '\n' + mcName(state))) return null;
-  if (memory && !essentialsMatch(kept, memory.nodes)) return null;
-  return kept && typeof kept === 'object' && typeof kept.text === 'string' && kept.text ? kept : null;
+  const pages=(await db.messages.list(storyId)).filter(m=>!m.hidden);
+  const snapshot=typeof kept?.text==='string' && kept.text.trim() && kept.complete!==false ? kept : null;
+  const setupMatches=(!kept?.setupPrint || !story || !state || kept.setupPrint===fp((story.brief || '')+'\n'+mcName(state)))
+    && (!kept?.setupOwner || kept.setupOwner===setupOwnerOf(story,state));
+  const eligible=Boolean(snapshot && setupMatches && memory && essentialsMatch(kept,memory.nodes,Infinity,pages));
+  const current=eligible && (!memory || kept.upTo===recordOf(memory.nodes).upTo);
+  return {snapshot,eligible,current,pending:await db.settings.get(PENDING_KEY(storyId))};
+}
+export async function loadEssentials(storyId) {
+  const view=await loadEssentialsView(storyId);
+  return view.eligible ? view.snapshot : null;
 }
 
 /* one reading: when the record has changed since the essentials were made, make them again from the whole record */
@@ -206,21 +244,22 @@ function sectionCoverage(text,lines) {
   });
 }
 
-async function tellPart({ connection, lines, part, parts, share, brief, mc, signal, renew, callLLM, usage, previous, requiredCoverage=false }) {
+async function tellPart({ connection, lines, part, parts, share, brief, mc, signal, renew, callLLM, usage, previous, requiredCoverage=false, fresh=false, target=Math.floor(share*0.65), tries=ESSENTIALS_TRIES, checkpoint=async()=>{} }) {
   const ask = essentialsAsk({ record: lines.map(recordLine).join('\n'), brief, mc });
   const partNote = '\n\nPart ' + (part + 1) + ' of ' + parts + '. Tell only these original source entries, within ' + share + ' characters.'
-    + (requiredCoverage ? ' This is a smaller chronological section after oversized whole-record revisions. Include explicit (pages first to last) ranges covering EVERY supplied source span through the final entry, including the resulting correction facts.' : '');
+    + ' The global accepted budget is 16000 characters. Aim for '+target+' characters for this complete section, leaving room for the other sections and formatting. '+(fresh ? 'FRESH SOURCE READING. Discard the rejected draft and its plan. Reconstruct the coherent story memory from these authoritative source entries, combining related events and preserving their causes and consequences. ' : '')
+    + (requiredCoverage ? ' This is a chronological source section. Include explicit (pages first to last) ranges covering EVERY supplied source span through the final entry, including the resulting correction facts.' : '');
   const correction = result => '\n\nThe previous candidate was ' + result.why + (result.chars ? ' ('+result.chars+' characters)' : '') + '. '+
     (result.clipped || result.providerTruncated ? 'Aim for at most '+Math.floor(share*0.7)+' characters, using fewer complete lines for related entries. ' : 'Every line must begin with [time, place] (pages first to last). No headings, commentary or separate continuation lines. ')+
     'Return complete record lines, keeping causes, consequences, corrections and necessary emotional details. Cover all supplied source entries; do not leave the newest stretch unfinished.';
   let user = ask.user + partNote + (previous ? correction(previous) : '');
   let last;
-  let draft=previous?.draft || '';
-  for (let attempt = 0; attempt < ESSENTIALS_TRIES; attempt++) {
+  let draft=fresh?'':previous?.draft || '';
+  for (let attempt = 0; attempt < tries; attempt++) {
     if (signal?.aborted) throw signal.reason || new Error('reading stopped');
-    if (usage.calls>=RUN_CALL_LIMIT) return {text:'',diagnostic:last || previous || {why:'bounded recovery round reached its request limit',part:part+1,parts,share,chars:0}};
+    if (usage.calls>=RUN_CALL_LIMIT) return {text:'',yielded:true};
     renew();
-    const messages=essentialsRepairMessages({connection,system:ask.system,user:ask.user+partNote,draft,share,attempt:attempt+(previous?.draft ? 2 : 0)});
+    const messages=fresh?null:essentialsRepairMessages({connection,system:ask.system,user:ask.user+partNote,draft,share,attempt:attempt+(previous?.draft ? 2 : 0)});
     usage.calls++; usage.inputChars += ask.system.length + (messages ? messages.reduce((n,m)=>n+m.content.length,0) : user.length);
     const answer = await callLLM(connection, { system: ask.system, user, ...(messages ? {messages} : {}), ...answerOptions(share), signal });
     const raw = typeof answer === 'string' ? answer : answer?.text || '';
@@ -233,140 +272,254 @@ async function tellPart({ connection, lines, part, parts, share, brief, mc, sign
     // Keep the entire rejected draft only as editing material, never completed
     // memory. Even a truncated draft is repaired against ALL original entries.
     draft=(result.clipped || result.providerTruncated) && result.text.length<=REPAIR_DRAFT_MAX_CHARS ? result.text : '';
-    last={why:result.why,clipped:result.clipped,providerTruncated:result.providerTruncated,chars:result.text.length,finishReason:answer?.finishReason || '',part:part+1,parts,share,...(draft ? {draft} : {})};
+    last={why:result.why,clipped:result.clipped,providerTruncated:result.providerTruncated,chars:raw.length,finishReason:answer?.finishReason || '',part:part+1,parts,share,...(draft ? {draft} : {})};
+    await checkpoint(last);
     user = ask.user + partNote + correction(last);
   }
   return {text:'',diagnostic:last};
 }
-export async function runEssentials({ connection, storyId, nodes, brief = '', mc = '', signal, renew = () => {}, callLLM = callWorker, force = false, stale = () => false } = {}) {
-  if (!connection || !storyId) return { wrote: false, why: 'no connection' };
-  const rec = recordOf(nodes);
-  if (!rec.lines.length) return { wrote: false, why: 'no record yet' };
-  const original = await db.settings.get(ESSENTIALS_KEY(storyId));
-  const ownedMemory = await db.settings.get('memory:' + storyId);
-  const ownedStory = await db.stories.get(storyId);
-  const ownedState = await db.settings.get('state:' + storyId);
-  const ownerPrint = (story,state) => fp(JSON.stringify([story?.brief || '',state?.sheet?.playerName || '',state?.sheet?.playerAliases || []]));
-  const setupOwner = ownerPrint(ownedStory,ownedState);
-  const inputPrint = sourcePrint(nodes);
-  const setupPrint = fp(brief + '\n' + mc);
-  const pending = await db.settings.get(PENDING_KEY(storyId));
-  const recovery=essentialsRecoveryState({kept:original,pending,nodes,brief,mc,connection});
-  if (!force && !recovery.needed) return {wrote:false,why:'unchanged'};
-  const {helper,accounting,print:helperPrint}=helperPrintOf(connection,brief,mc);
-  if (!force && recovery.same && recovery.retryAt>Date.now()) return {wrote:false,pending:true,why:recovery.why,retryAt:recovery.retryAt,usage:{calls:0,inputChars:0,outputChars:0}};
-  const room = Math.max(0,Math.floor((inputRoom({budgetTokens:contextOf(helper),answerTokens:accounting.answerTokens}) - accounting.inputTokens) * 3 * 0.75) - 600);
-  const usage = { calls: 0, inputChars: 0, outputChars: 0 };
-  const savedParts = [];
-  const splits = [];
-  const owns = async () => {
-    const latestMemory=await db.settings.get('memory:'+storyId);
-    const latestStory=await db.stories.get(storyId),latestState=await db.settings.get('state:'+storyId);
-    const latestEssentials=await db.settings.get(ESSENTIALS_KEY(storyId));
-    return !stale() && !signal?.aborted && setupOwner===ownerPrint(latestStory,latestState)
-      && JSON.stringify(latestEssentials)===JSON.stringify(original)
-      && (!ownedMemory || latestMemory && sourcePrint(latestMemory.nodes)===inputPrint);
-  };
-  const saveProgress = async (why,diagnostic,nextAt=0,attempts=0) => {
-    if (await owns()) await db.settings.set(PENDING_KEY(storyId),{sourcePrint:inputPrint,setupPrint,helperPrint,why,diagnostic,
-      attempts,nextAt,parts:savedParts,splits,repairPolicy:ESSENTIALS_REPAIR_POLICY});
-  };
-  const failed = async (why,diagnostic) => {
-    const attempts=(recovery.same && pending.repairPolicy===ESSENTIALS_REPAIR_POLICY ? Number(pending.attempts)||0 : 0)+1;
-    const retryAt=Date.now()+essentialsRetryDelay(attempts);
-    await saveProgress(why,diagnostic,retryAt,attempts);
-    return { wrote:false,why,pending:true,retryAt,usage };
-  };
-  // An indivisible entry cannot be silently clipped or falsely certified.
-  if (rec.lines.some(n => recordLine(n).length + 1 > room)) return failed('an individual source entry exceeds the helper room');
-  const parts = recordParts(rec.lines, room);
-  const available = ESSENTIALS_MAX_CHARS - Math.max(0, parts.length - 1);
-  const minimum = PART_MIN_CHARS;
-  if (parts.length * minimum > available) return failed('too many source parts for complete combined essentials');
-  const total = rec.lines.reduce((t, n) => t + recordLine(n).length + 1, 0) || 1;
-  const spare = available - parts.length * minimum;
-  const shares = parts.map(part => minimum + Math.floor(spare * part.reduce((t,n) => t + recordLine(n).length + 1,0) / total));
-  const told = [];
-  const reuseSafe = !force && original?.setupPrint === setupPrint && !rec.lines.some(n => n.correction);
-  const candidates=[...(reuseSafe ? original?.parts || [] : []),...(!force && recovery.same ? pending?.parts || [] : [])];
-  const priorSplits=!force && recovery.same ? pending?.splits || [] : [];
-  // Split at original entry boundaries near the chronological midpoint. No
-  // source or failed draft is clipped, and child allocations fit their parent.
-  const divide = (lines,share) => {
-    if (share<2*minimum+1) return null;
-    if (lines.length===1) {
-      const node=lines[0],text=node.text;
-      // A folded node may itself hold multiple chronological record lines.
-      // Keep its original identity/span and exact contiguous source offsets.
-      const boundaries=[...text.matchAll(/\n(?=\s*(?:[-*•]\s*)?\[[^\]\n]+\])|\n[ \t]*\n/g)].map(m=>m.index+m[0].length)
-        .filter(at=>text.slice(0,at).trim() && text.slice(at).trim());
-      if (!boundaries.length) return null;
-      const at=boundaries.reduce((best,n)=>Math.abs(n-text.length/2)<Math.abs(best-text.length/2)?n:best);
-      const start=node.sourceSegment?.start || 0;
-      const first=minimum+Math.floor((share-1-2*minimum)*at/text.length);
-      const segment=(from,to)=>({...node,text:text.slice(from,to),detail:to===text.length?node.detail:'',
-        sourceSegment:{sourceId:node.id,span:node.span,start:start+from,end:start+to}});
-      return [{lines:[segment(0,at)],share:first},{lines:[segment(at,text.length)],share:share-1-first}];
-    }
-    const sizes=lines.map(n=>recordLine(n).length+1),sum=sizes.reduce((a,b)=>a+b,0);
-    let left=sizes[0],at=1;
-    while (at<lines.length-1 && Math.abs(left+sizes[at]-sum/2)<Math.abs(left-sum/2)) left+=sizes[at++];
-    const spare=share-1-2*minimum,first=minimum+Math.floor(spare*left/sum);
-    return [{lines:lines.slice(0,at),share:first},{lines:lines.slice(at),share:share-1-first}];
-  };
-  const readSection = async (lines,share,i,path='',depth=0) => {
-    const print=sourcePrint(lines);
-    const reused=candidates.find(p=>p.print===print && p.share===share && p.complete && inspectEssentials(p.text,share).complete && (!depth || sectionCoverage(p.text,lines)));
-    if (reused) {savedParts.push(reused);await saveProgress('Reading remaining source sections.');return {text:reused.text};}
-    const priorSplit=priorSplits.some(p=>p.print===print && p.share===share);
-    let result;
-    if (!priorSplit) {
-      const previous=recovery.same && pending.diagnostic?.print===print && pending.diagnostic?.share===share ? pending.diagnostic
-        : recovery.same && !pending.diagnostic?.print && !path && pending.diagnostic?.part===i+1 ? pending.diagnostic : null;
-      result=await tellPart({connection,lines,part:i,parts:parts.length,share,brief,mc,signal,renew,callLLM,usage,previous,requiredCoverage:depth>0});
-      if (result.text) {
-        savedParts.push({print,share,text:result.text,complete:true});
-        await saveProgress('Reading remaining source sections.');
-        return result;
-      }
-      result.diagnostic={...result.diagnostic,print,path};
-      if (!(result.diagnostic.clipped || result.diagnostic.providerTruncated)) return result;
-    }
-    const children=depth<4 ? divide(lines,share) : null;
-    if (!children) return result || {text:'',diagnostic:{why:'source section cannot be divided further within the accepted memory budget',print,path,part:i+1,parts:parts.length,share,chars:0}};
-    splits.push({print,share});
-    await saveProgress('Reading smaller chronological source sections.',result?.diagnostic);
-    const complete=[];
-    for (const [childIndex,child] of children.entries()) {
-      if (usage.calls>=RUN_CALL_LIMIT) return {text:'',diagnostic:{why:'bounded recovery round reached its request limit; completed sections are saved',print:sourcePrint(child.lines),path:path+childIndex,part:i+1,parts:parts.length,share:child.share,chars:0}};
-      const next=await readSection(child.lines,child.share,i,path+childIndex,depth+1);
-      if (!next.text) return next;
-      complete.push(next.text);
-    }
-    return {text:complete.join('\n')};
-  };
-  for (let i = 0; i < parts.length; i++) {
-    let result;
-    try {
-      result=await readSection(parts[i],shares[i],i);
-    } catch (err) {
-      // Cancellation belongs to the queue. A provider failure gets the same durable
-      // patient recovery as a rejected answer, including any completed source parts.
-      if (signal?.aborted || err?.name==='AbortError') throw err;
-      return failed('source part '+(i+1)+' of '+parts.length+': '+String(err?.message || 'the provider could not be reached').slice(0,300));
-    }
-    const text=result.text;
-    if (!text) return failed('source part '+(i+1)+' of '+parts.length+': '+result.diagnostic.why+' (answer '+result.diagnostic.chars+' characters; allowed '+result.diagnostic.share+')',result.diagnostic);
-    told.push(text);
+// Source boundaries are chosen once for the attempt, not recursively shrunk
+// together with a local character quota after every rejected response.
+function divideSources(lines) {
+  if (lines.length===1) {
+    const node=lines[0],text=node.text;
+    const boundaries=[...text.matchAll(/\n(?=\s*(?:[-*•]\s*)?\[[^\]\n]+\])|\n[ \t]*\n/g)].map(m=>m.index+m[0].length)
+      .filter(at=>text.slice(0,at).trim() && text.slice(at).trim());
+    if (!boundaries.length) return null;
+    const at=boundaries.reduce((best,n)=>Math.abs(n-text.length/2)<Math.abs(best-text.length/2)?n:best);
+    const start=node.sourceSegment?.start || 0;
+    const segment=(from,to)=>({...node,text:text.slice(from,to),detail:to===text.length?node.detail:'',
+      sourceSegment:{sourceId:node.id,span:node.span,start:start+from,end:start+to}});
+    return [[segment(0,at)],[segment(at,text.length)]];
   }
-  const text = told.join('\n');
-  if (text.length > ESSENTIALS_MAX_CHARS) return failed('combined output exceeds the essentials room');
-  const nowMemory = await db.settings.get('memory:' + storyId);
-  const nowEssentials = await db.settings.get(ESSENTIALS_KEY(storyId));
-  const nowStory = await db.stories.get(storyId);
-  const nowState = await db.settings.get('state:' + storyId);
-  if (stale() || signal?.aborted || setupOwner !== ownerPrint(nowStory,nowState) || JSON.stringify(nowEssentials) !== JSON.stringify(original) || (ownedMemory && (!nowMemory || sourcePrint(nowMemory.nodes) !== inputPrint))) return failed('source or manual ownership changed while reading');
-  await db.settings.set(ESSENTIALS_KEY(storyId), { text, print: rec.print, sourcePrint: inputPrint, setupPrint, upTo: rec.upTo, complete: true, parts: savedParts, sources: rec.lines.map(n => ({ id: n.id, span: n.span, print: sourcePrint([n]) })), at: Date.now() });
-  await db.settings.delete(PENDING_KEY(storyId));
-  return { wrote: true, parts: parts.length, usage };
+  const sizes=lines.map(n=>recordLine(n).length+1),total=sizes.reduce((a,b)=>a+b,0);
+  let size=sizes[0],at=1;
+  while (at<lines.length-1 && Math.abs(size+sizes[at]-total/2)<Math.abs(size-total/2)) size+=sizes[at++];
+  return [lines.slice(0,at),lines.slice(at)];
+}
+function inputSections(lines,room) {
+  const entries=[];
+  for (const original of lines) {
+    const todo=[[original]];
+    while (todo.length) {
+      const part=todo.shift();
+      if (part.map(recordLine).join('\n').length+1<=room) entries.push(...part);
+      else {
+        const divided=divideSources(part);
+        if (!divided) return null;
+        todo.unshift(...divided);
+      }
+    }
+  }
+  return recordParts(entries,room);
+}
+const generationId=()=>globalThis.crypto?.randomUUID?.() || 'ess-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
+const previousExists=kept=>typeof kept?.text==='string' && Boolean(kept.text.trim()) && kept.complete!==false;
+const setupOwnerOf=(story,state)=>fp(JSON.stringify([story?.brief || '',state?.sheet?.playerName || '',state?.sheet?.playerAliases || []]));
+function originalPrint(pages,upTo) {
+  return fp(JSON.stringify(pages.slice(0,upTo+1).map(p=>[p.id,messageVersion(p)])));
+}
+
+// Recover M743's completed leaves locally. Its tiny unfinished quota/recursive
+// plan is abandoned; adjacent unfinished originals are repacked into real input
+// sections while every compatible completed leaf remains available.
+function legacySections(pending,roots) {
+  const total=roots.flat().reduce((sum,n)=>sum+recordLine(n).length+1,0),minimum=100;
+  const spare=ESSENTIALS_MAX_CHARS-(roots.length-1)-roots.length*minimum;
+  const leaves=[];
+  const walk=(lines,share,depth=0)=>{
+    const print=sourcePrint(lines),kept=(pending.parts || []).find(p=>p.print===print && p.complete && inspectEssentials(p.text,ESSENTIALS_MAX_CHARS).complete);
+    if (kept) {leaves.push({lines,print,text:kept.text,complete:true});return;}
+    if (depth<4 && pending.splits?.some(p=>p.print===print && p.share===share)) {
+      const children=divideSources(lines);
+      if (children && share>=201) {
+        // Match the former allocation only to identify its existing receipts.
+        const left=children[0].reduce((s,n)=>s+recordLine(n).length+1,0),sum=lines.reduce((s,n)=>s+recordLine(n).length+1,0);
+        const first=lines.length===1 ? 100+Math.floor((share-201)*children[0][0].text.length/lines[0].text.length) : 100+Math.floor((share-201)*left/sum);
+        walk(children[0],first,depth+1);walk(children[1],share-1-first,depth+1);return;
+      }
+    }
+    leaves.push({lines,print});
+  };
+  for (const lines of roots) walk(lines,minimum+Math.floor(spare*lines.reduce((s,n)=>s+recordLine(n).length+1,0)/total));
+  return leaves;
+}
+function acceptedPageReceipts(lines,upTo,pages=[]) {
+  const originals=new Map();
+  for (const n of lines.filter(n=>!n.correction)) {
+    if (!Array.isArray(n.sourcePages) || n.sourcePages.length!==n.span[1]-n.span[0]+1) return pages.length>upTo
+      ? pages.slice(0,upTo+1).map((p,ordinal)=>({id:p.id,version:messageVersion(p),ordinal})) : undefined;
+    n.sourcePages.forEach((p,i)=>originals.set(n.span[0]+i,{...p,ordinal:n.span[0]+i}));
+  }
+  return originals.size===upTo+1 ? [...originals.values()].sort((a,b)=>a.ordinal-b.ordinal) : undefined;
+}
+
+async function rebindCopiedRecord(storyId,nodes,{signal,stale}={}) {
+  const pages=(await db.messages.list(storyId)).filter(m=>!m.hidden);
+  const copied=(nodes || []).filter(n=>!n.correction && n.sourcePages?.length && !boundRecord(n,pages)
+    && n.sourcePages.every((p,i)=>{const copy=pages[n.span[0]+i];return copy && copy.id!==p.id && messageVersion(copy)===p.version;}));
+  if (!copied.length) return null;
+  const originals=await db.messages.byIds(copied.flatMap(n=>n.sourcePages.map(p=>p.id)));
+  const copyText=page=>JSON.stringify(Object.fromEntries(Object.entries(page || {}).filter(([key])=>!['id','storyId'].includes(key))));
+  const proven=copied.filter(n=>n.sourcePages.every((p,i)=>{
+    const origin=originals.get(p.id),copy=pages[n.span[0]+i];
+    return origin && origin.storyId!==storyId && origin.id===p.id && messageVersion(origin)===p.version && copyText(origin)===copyText(copy);
+  }));
+  if (!proven.length) return null;
+  const before=sourcePrint(nodes);
+  return db.editStoryAtomically(storyId,s=>{
+    if (signal?.aborted || stale?.() || sourcePrint(s.settings.memory?.nodes)!==before) return null;
+    const current=s.messages.filter(m=>!m.hidden).sort((a,b)=>(a.ts || 0)-(b.ts || 0));
+    if (!proven.every(n=>n.sourcePages.every((p,i)=>copyText(originals.get(p.id))===copyText(current[n.span[0]+i])))) return null;
+    const held=new Map(proven.map(n=>[n.id,n]));
+    const repaired=s.settings.memory.nodes.map(n=>!held.has(n.id)?n:{...n,
+      sourceOrigins:n.sourceOrigins || n.sourcePages,
+      sourcePages:n.sourcePages.map((p,i)=>({...p,id:current[n.span[0]+i].id}))});
+    s.settings.memory={...s.settings.memory,nodes:repaired};return repaired;
+  });
+}
+
+export async function runEssentials({ connection, storyId, nodes, brief = '', mc = '', signal, renew = () => {}, callLLM = callWorker, force = false, stale = () => false } = {}) {
+  if (!connection || !storyId) return {wrote:false,why:'no connection'};
+  if (stale() || signal?.aborted) {if (signal?.aborted) throw signal.reason || new Error('reading stopped');return {wrote:false,outcome:'superseded'};}
+  const rebound=await rebindCopiedRecord(storyId,nodes,{signal,stale});
+  if (rebound) nodes=rebound;
+  const rec=recordOf(nodes);
+  if (!rec.lines.length) return {wrote:false,why:'no record yet'};
+  const original=await db.settings.get(ESSENTIALS_KEY(storyId));
+  const ownedMemory=await db.settings.get('memory:'+storyId),ownedStory=await db.stories.get(storyId),ownedState=await db.settings.get('state:'+storyId);
+  const ownedPages=(await db.messages.list(storyId)).filter(m=>!m.hidden);
+  const ownedSources=ownedPages.slice(0,rec.upTo+1).map((p,ordinal)=>({id:p.id,version:messageVersion(p),ordinal}));
+  const setupOwner=setupOwnerOf(ownedStory,ownedState),inputPrint=sourcePrint(nodes),setupPrint=fp(brief+'\n'+mc);
+  let pending=await db.settings.get(PENDING_KEY(storyId));
+  const recovery=essentialsRecoveryState({kept:original,pending,nodes,pages:ownedPages,story:ownedStory,state:ownedState,brief,mc,connection});
+  if (!force && !recovery.needed) {
+    if (pending) await db.editStoryAtomically(storyId,s=>{
+      if (JSON.stringify(s.settings.essentials)===JSON.stringify(original) && JSON.stringify(s.settings.essentialsPending)===JSON.stringify(pending)) delete s.settings.essentialsPending;
+    },{extraSettings:['essentialsPending']});
+    return {wrote:false,why:'unchanged'};
+  }
+  const usage={calls:0,inputChars:0,outputChars:0};
+  const {helper,accounting,print:helperPrint}=helperPrintOf(connection,brief,mc);
+  const result=async (outcome,why='')=>({wrote:false,pending:outcome!=='superseded',outcome,why,retryAt:pending?.nextAt,
+    previousAvailable:previousExists(await db.settings.get(ESSENTIALS_KEY(storyId))),progress:{done:pending?.parts?.length || 0,total:pending?.plan?.length || 0},usage});
+  if (!force && recovery.blocked) return result('blocked',recovery.why);
+  if (!force && recovery.same && recovery.retryAt>Date.now()) return result(pending?.outcome || 'failed',recovery.why);
+  const room=Math.max(0,Math.floor((inputRoom({budgetTokens:contextOf(helper),answerTokens:accounting.answerTokens})-accounting.inputTokens)*3*0.75)-1600);
+  const roots=inputSections(rec.lines,room);
+  let expectedPending=pending;
+  const sameAttempt=!force && recovery.same;
+  const modern=sameAttempt && pending.repairPolicy===ESSENTIALS_REPAIR_POLICY && pending.generationId
+    && pending.plan?.length && pending.plan.every(p=>p.lines?.length && p.print===sourcePrint(p.lines));
+  let candidate=modern ? structuredClone(pending) : {generationId:generationId(),sourcePrint:inputPrint,setupPrint,setupOwner,helperPrint,
+    repairPolicy:ESSENTIALS_REPAIR_POLICY,required:true,acceptedPrint:fp(JSON.stringify(original)),pagesPrint:originalPrint(ownedPages,rec.upTo),phase:'whole',
+    plan:(roots || []).map(lines=>({lines,print:sourcePrint(lines)})),parts:[],attempts:0,restarts:0};
+  if (!modern && sameAttempt && roots) {
+    const leaves=legacySections(pending,recordParts(rec.lines,room+1000)),done=leaves.filter(p=>p.complete);
+    if (done.length) {
+      const plan=[];let unfinished=[];
+      const flush=()=>{for (const lines of recordParts(unfinished,room)) plan.push({lines,print:sourcePrint(lines)});unfinished=[];};
+      for (const leaf of leaves) {if (leaf.complete) {flush();plan.push(leaf);} else unfinished.push(...leaf.lines);}flush();
+      candidate.plan=plan;candidate.parts=done.map(p=>({print:p.print,text:p.text,complete:true}));candidate.phase='sections';
+    } else if (/request limit|bounded recovery round/i.test(pending.why || pending.diagnostic?.why || '')) candidate.phase='fresh';
+  }
+  for (const section of candidate.plan) if (section.complete
+    && (!inspectEssentials(section.text,ESSENTIALS_MAX_CHARS).complete || !sectionCoverage(section.text,section.lines))) {
+    section.complete=false;delete section.text;
+  }
+  const owns=(s,requireSources=true)=>{
+    const pages=s.messages.filter(m=>!m.hidden).sort((a,b)=>(a.ts || 0)-(b.ts || 0));
+    return !stale() && !signal?.aborted && setupOwner===setupOwnerOf(s.story,s.settings.state)
+      && JSON.stringify(s.settings.essentials)===JSON.stringify(original)
+      && (!ownedMemory || s.settings.memory && sourcePrint(s.settings.memory.nodes)===inputPrint)
+      && ownedSources.every((p,i)=>pages[i]?.id===p.id && messageVersion(pages[i])===p.version)
+      && (!requireSources || rec.lines.every(n=>n.correction || !n.sourcePages || boundRecord(n,pages)))
+      && JSON.stringify(s.settings.essentialsPending)===JSON.stringify(expectedPending);
+  };
+  const persist=async(outcome='running',why='',diagnostic=candidate.diagnostic)=>{
+    candidate={...candidate,outcome,why,diagnostic,nextAt:outcome==='yielded'?Date.now()+CONTINUE_DELAY:outcome==='failed'?candidate.nextAt:0,
+      parts:candidate.plan.filter(p=>p.complete).map(p=>({print:p.print,text:p.text,complete:true})),cursor:candidate.plan.findIndex(p=>!p.complete)};
+    const wrote=await db.editStoryAtomically(storyId,s=>{
+      if (!owns(s,outcome!=='blocked')) return false;
+      s.settings.essentialsPending=structuredClone(candidate);return true;
+    },{extraSettings:['essentialsPending']});
+    if (wrote) {pending=structuredClone(candidate);expectedPending=pending;}
+    return wrote;
+  };
+  const fail=async(why,diagnostic,err)=>{
+    candidate.attempts=(Number(candidate.attempts)||0)+1;
+    candidate.nextAt=Date.now()+Math.max(essentialsRetryDelay(candidate.attempts),Number(err?.retryAfterMs)||0);
+    const outcome=candidate.attempts>=MAX_FAILED_ROUNDS?'blocked':'failed';
+    if (!await persist(outcome,why,diagnostic)) return result('superseded','The source or saved version changed while reading.');
+    return result(outcome,why);
+  };
+  const invalidSources=ownedStory && (rec.upTo>=ownedPages.length || rec.lines.some(n=>!n.correction && n.sourcePages && !boundRecord(n,ownedPages)));
+  if (!roots || invalidSources || candidate.plan.filter(p=>p.complete).reduce((n,p)=>n+p.text.length,0)
+    +candidate.plan.filter(p=>!p.complete).length*80+Math.max(0,candidate.plan.length-1)>ESSENTIALS_MAX_CHARS) {
+    const why=!roots?'An indivisible source section exceeds the helper context.'
+      : invalidSources?'The record does not match the current original pages; its source coverage must be repaired first.'
+        : 'The complete source sections exceed the current 16000 character memory allocation.';
+    if (!await persist('blocked',why)) return result('superseded');
+    return result('blocked',why);
+  }
+  if (!await persist()) return result('superseded','The source or saved version changed while reading.');
+  for (let i=0;i<candidate.plan.length;i++) {
+    const section=candidate.plan[i];
+    // Completed answers, including ones later in the plan, are checked before
+    // the call allowance. A checkpoint never drops unvisited compatible work.
+    if (section.complete && inspectEssentials(section.text,ESSENTIALS_MAX_CHARS).complete && sectionCoverage(section.text,section.lines)) continue;
+    section.complete=false;delete section.text;
+    if (signal?.aborted) throw signal.reason || new Error('reading stopped');
+    if (usage.calls>=RUN_CALL_LIMIT) {
+      if (!await persist('yielded','Waiting for the next idle opportunity.')) return result('superseded');
+      return result('yielded');
+    }
+    const missing=candidate.plan.filter(p=>!p.complete),used=candidate.plan.filter(p=>p.complete).reduce((n,p)=>n+p.text.length,0);
+    const free=ESSENTIALS_MAX_CHARS-Math.max(0,candidate.plan.length-1)-used;
+    const reserve=Math.max(80,Math.min(PART_MIN_CHARS,Math.floor(free/missing.length*0.75)));
+    const share=free-(missing.length-1)*reserve;
+    if (share<80) {await persist('blocked','Complete source sections need more than the current 16000 character allocation.');return result('blocked',candidate.why);}
+    const weight=p=>p.lines.reduce((n,line)=>n+recordLine(line).length+1,0);
+    const target=Math.min(Math.floor(share*0.8),Math.max(reserve,Math.floor(free*weight(section)/missing.reduce((n,p)=>n+weight(p),0)*0.65)));
+    let told;
+    try {
+      told=await tellPart({connection,lines:section.lines,part:i,parts:candidate.plan.length,share,target,brief,mc,signal,renew,callLLM,usage,
+        fresh:candidate.phase==='fresh',tries:candidate.phase==='fresh'?1:ESSENTIALS_TRIES,requiredCoverage:true,
+        previous:candidate.diagnostic?.print===section.print?candidate.diagnostic:null,
+        checkpoint:async diagnostic=>{candidate.diagnostic={...diagnostic,print:section.print};if (!await persist()) throw Object.assign(new Error('The source or saved version changed while reading.'),{superseded:true});}});
+    } catch (err) {
+      if (signal?.aborted || err?.name==='AbortError') throw err;
+      if (err?.superseded) return result('superseded',err.message);
+      return fail('Source section '+(i+1)+' of '+candidate.plan.length+': '+String(err?.message || 'the provider could not be reached').slice(0,300),candidate.diagnostic,err);
+    }
+    if (told.yielded) {if (!await persist('yielded','Waiting for the next idle opportunity.')) return result('superseded');return result('yielded');}
+    if (!told.text) {
+      if (candidate.plan.length===1 && ['whole','fresh'].includes(candidate.phase) && (told.diagnostic?.clipped || told.diagnostic?.providerTruncated)) {
+        if (candidate.phase==='whole') {
+          candidate.generationId=generationId();candidate.phase='fresh';candidate.restarts++;candidate.diagnostic=null;
+        } else {
+          const divided=divideSources(rec.lines);
+          if (!divided) return fail('The fresh complete candidate still exceeds the global 16000 character budget, and the source has no meaningful section boundary.',told.diagnostic);
+          candidate.phase='sections';candidate.plan=divided.flatMap(lines=>inputSections(lines,room) || []).map(lines=>({lines,print:sourcePrint(lines)}));candidate.diagnostic=null;
+        }
+        if (!await persist()) return result('superseded');
+        i=-1;continue;
+      }
+      return fail('Source section '+(i+1)+' of '+candidate.plan.length+': '+told.diagnostic.why+' (answer '+told.diagnostic.chars+' characters; available '+share+' of the global 16000)',told.diagnostic);
+    }
+    section.text=told.text;section.complete=true;candidate.attempts=0;candidate.diagnostic=null;
+    if (!await persist()) return result('superseded');
+  }
+  const text=candidate.plan.map(p=>p.text).join('\n');
+  if (!inspectEssentials(text,ESSENTIALS_MAX_CHARS).complete) return fail('The complete combined candidate does not fit the global 16000 character budget.');
+  // Accepted text and pending removal land together. There is no empty state,
+  // and a newer manual/accepted value or another generation wins this guard.
+  const saved=await db.editStoryAtomically(storyId,s=>{
+    if (!owns(s)) return false;
+    s.settings.essentials={text,print:rec.print,sourcePrint:inputPrint,setupPrint,setupOwner,generationId:candidate.generationId,upTo:rec.upTo,complete:true,
+      parts:candidate.parts,sources:rec.lines.map(n=>({id:n.id,span:n.span,print:sourcePrint([n])})),
+      sourcePages:acceptedPageReceipts(rec.lines,rec.upTo,ownedPages),correctionsPrint:sourcePrint(rec.lines.filter(n=>n.correction)),at:Date.now()};
+    delete s.settings.essentialsPending;return true;
+  },{extraSettings:['essentialsPending']});
+  return saved ? {wrote:true,outcome:'completed',parts:candidate.plan.length,usage} : result('superseded','The source or saved version changed while reading.');
 }

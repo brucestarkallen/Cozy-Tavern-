@@ -426,6 +426,18 @@ async function storyKeys(storyId) {
 }
 
 const messages = {
+  // Targeted provenance lookup for records carried into a branch. No story scan.
+  async byIds(ids) {
+    const keys=[...new Set(ids || [])],found=new Map();
+    if (!keys.length) return found;
+    const d=await openDB();
+    await new Promise((resolve,reject)=>{
+      const tx=d.transaction('messages','readonly'),store=tx.objectStore('messages');
+      for (const id of keys) {const req=store.get(id);req.onsuccess=()=>{if (req.result) found.set(id,req.result);};}
+      tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+    });
+    return found;
+  },
   async list(storyId) {
     if (messagesCache.has(storyId)) return messagesCache.get(storyId).map((r) => ({ ...r }));
     const d = await openDB();
@@ -1226,14 +1238,14 @@ async function importAll(json) {
 export const settingsKeysOf = (storyId) => storyKeys(storyId);
 /* M730: synchronous planning within one IDB transaction. Content and the
  * Housekeeper undo receipt commit together. Never read caches in this door. */
-async function editStoryAtomically(storyId, change) {
+async function editStoryAtomically(storyId, change, {extraSettings=[]} = {}) {
   const d = await openDB();
   let answer;
   await new Promise((resolve, reject) => {
     const tx = d.transaction(['settings','stories','messages'], 'readwrite');
     const settingsStore = tx.objectStore('settings');
     const snapshot = { story: null, messages: [], settings: {} };
-    const prefixes = ['state','memory','lore','essentials','standingPlans','plans','director','editor','hk'];
+    const prefixes = [...new Set(['state','memory','lore','essentials','standingPlans','plans','director','editor','hk',...extraSettings])];
     let waiting = prefixes.length + 2, failure;
     const receive = (request, save) => { request.onsuccess = () => {
       save(request.result);

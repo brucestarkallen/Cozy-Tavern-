@@ -2850,18 +2850,28 @@ export function initChat(ctx) {
   const essentialsLook=new Map();
   async function essentialsHealth(story,mem,shelf) {
     const storyId=story.id;
+    const state=await loadState(storyId);
     const view=essentialsRecoveryState({kept:await db.settings.get(ESSENTIALS_KEY(storyId)),pending:await db.settings.get(PENDING_KEY(storyId)),
-      nodes:mem.nodes,brief:story.brief || '',mc:mcName(await loadState(storyId)),connection:await resolveWorkerConnection(story,'essentials')});
+      nodes:mem.nodes,pages:visiblePages(await db.messages.list(storyId)),story,state,brief:story.brief || '',mc:mcName(state),connection:await resolveWorkerConnection(story,'essentials')});
     if (!view.needed) return view;
     const row=shelf.essentials;
-    if (row?.ok===false && row.why==='stopped by hand') return {...view,eligible:false,why:'Plot essentials was stopped by hand.'};
+    const stopped=row?.ok===false && [row.why,row.detail].includes('stopped by hand');
+    if (view.blocked || stopped) {
+      const look=essentialsLook.get(storyId);if (look) clearTimeout(look.timer);essentialsLook.delete(storyId);
+      return {...view,eligible:false,why:stopped?'Plot essentials was stopped by hand.':view.why};
+    }
     // A queue timeout has no answer to inspect. Give it a cooldown too.
     const retryAt=Math.max(view.retryAt || 0,row?.ok===false ? row.at+60000 : 0);
     const wait=Math.max(0,retryAt-Date.now());
-    if (!essentialsLook.has(storyId)) essentialsLook.set(storyId,setTimeout(()=>{
+    const wakeAt=Date.now()+Math.min(60000,wait || 60000)+50;
+    const look=essentialsLook.get(storyId);
+    if (!look || look.at>wakeAt) {
+      if (look) clearTimeout(look.timer);
+      essentialsLook.set(storyId,{at:wakeAt,timer:setTimeout(()=>{
       essentialsLook.delete(storyId);
       if (ctx.getActiveStoryId()===storyId) markLedgerTrouble(storyId);
-    },Math.min(60000,wait || 60000)+50));
+      },Math.max(0,wakeAt-Date.now()))});
+    }
     return {...view,retryAt,eligible:wait===0};
   }
   async function recoverEssentials(storyId) {
@@ -4018,6 +4028,8 @@ export function initChat(ctx) {
   /* M510-15: THE ESSENTIALS KEEPER — the whole record streamlined, rebuilt when the record changed; M510-48: for every
    * storyteller (his word: the hybrid always on) */
   async function essentialsNext(story, { signal, stale = () => false, force = false, renew = () => {} } = {}) {
+    const row=(await loadWorkerStatus(story.id)).essentials;
+    if (!force && row?.ok===false && [row.why,row.detail].includes('stopped by hand')) return {silent:true};
     const connection = await resolveWorkerConnection(story, 'essentials');
     const mem = await loadMemory(story.id);
     if (!connection) return mem?.nodes?.some(n=>!n.empty && n.text?.trim()) ? { unfinished:true,detail:'Plot essentials needs a connection before its update can finish.' } : {silent:true};

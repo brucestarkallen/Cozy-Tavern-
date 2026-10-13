@@ -55,7 +55,7 @@ import { historicalRunStatus, loadWorkerStatus, WORKER_NAMES, runningWorkers, on
 import { renderArrival, renderVoicesBlock, briefAsTold, briefAge, BRIEF_STALE_TURNS, factionMoveWords } from '../engine/world.js'; /* M29: the world beyond the page; M97: the voices; M681: what of the world's word is told, a faction's move with its age */
 import { applyRules, currentRules } from '../regex.js'; /* M97: the voices in the 🎨 dress */
 import { renderHtmlProse, looksHtml } from './richhtml.js';
-import { loadEssentials, recordOf } from '../agents/essentials.js'; /* M510-21: the story essentials, where he can read them */
+import { loadEssentialsView } from '../agents/essentials.js'; /* Saved history and request eligibility have different uses. */
 import { loadPlansBook } from '../agents/plans.js'; /* M510-22: the plans, kept whole */
 import { flowOf, choicesOn } from '../agents/choices.js'; /* M548: the paths he took */
 import { loadMemory, saveMemory, orderedLines, visiblePages, windowFor } from '../agents/memory.js'; /* M101: the record, read and mended by hand */
@@ -2623,18 +2623,25 @@ function essentialsPanel(ctx) {
     const story = await currentStory(ctx);
     list.textContent = '';
     if (!story) { note.textContent = 'Open a story and its essentials will be here.'; return; }
-    const kept = await loadEssentials(story.id);
+    const view = await loadEssentialsView(story.id);
+    const kept = view.snapshot;
     const mem = await loadMemory(story.id);
     if (!kept) {
       note.textContent = !orderedLines(mem).some((n) => !n.correction)
         ? 'Not made yet — the record is still empty: the memory keeper folds pages once they are older than its window (' + windowFor(mem, await db.settings.get('memoryWindow')) + ' pages), and the essentials are made from the record.'
-        : 'Not made yet — the essentials keeper makes them after your next page; until then your storyteller reads the whole record.';
+        : 'No accepted essentials are saved yet. The replacement is made automatically from the current record; your storyteller uses that record while it is prepared.';
       if (orderedLines(mem).some((n) => !n.correction)) addAgain();
       return;
     }
-    const current = recordOf(mem.nodes).print === kept.print;
-    note.textContent = 'The whole record, told shorter — what your storyteller reads on every page as the story’s timeline, beside the record’s newest lines word for word; an older line comes back word for word when the scene names it. Made from the record through page ' + (kept.upTo + 1)
-      + (current ? '.' : ' — the record has grown since; they are made again after your next page.');
+    const row=(await loadWorkerStatus(story.id)).essentials;
+    const stopped=row?.ok===false && [row.why,row.detail].includes('stopped by hand');
+    const current = view.current && !view.pending;
+    note.textContent = current ? 'The current story essentials, made from the record through page '+(kept.upTo+1)+'.'
+      : 'Previous accepted version, through page '+(kept.upTo+1)+'. '+(view.eligible
+        ? 'Unchanged earlier essentials can still be used with the newer record entries. '
+        : 'Kept here as history. The storyteller uses the current record while its replacement is prepared. ')
+        +(stopped ? 'The replacement was stopped by hand.' : view.pending?.outcome==='blocked'
+          ? 'The replacement is paused: '+view.pending.why : 'The replacement continues automatically when the workers are idle.');
     addAgain();
     for (const line of kept.text.split('\n').map((l) => l.trim()).filter(Boolean)) {
       const li = document.createElement('li');

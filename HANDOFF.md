@@ -1,3 +1,56 @@
+# M744: visible accepted Essentials and useful automatic continuation
+
+Version m744-001. Base a52ff50bcf35240b68e786bad10f83ac01f6e2da.
+Reopened by the owner after the M743 twelve request stop, an internal505 character
+allowance, fifteen minute cooldown and disappearing previous panel. The zero
+length came from application yielding, not an observed empty provider answer.
+The previous snapshot could be hidden by request eligibility; deletion in the
+owner's real browser was not established. See docs/M744_REPAIR_REPORT.md.
+
+The drawer now reads the accepted snapshot separately from request eligibility.
+An older or invalid snapshot remains visible as history. Safe unchanged earlier
+coverage travels with newer record entries; changed originals, manual record
+facts, corrections, setup and rewinds invalidate injection. Refold reuse needs
+real page/version proof and a folded layout. New generation captures actual
+original versions, including for legacy nodes, and retains strict boundaries.
+
+Candidate progress has an identity, complete plan, next position and accepted
+owner fingerprint. All compatible completed sections survive every checkpoint,
+including ones not yet revisited. Reaching12 requests yields for the next idle
+opportunity without incrementing failures. Cached sections and final assembly
+remain possible after the last permitted call. M743 request limit cooldowns
+migrate immediately; compatible saved leaves remain and unfinished sources are
+repacked without their tiny quotas. True failures honor backoff and Retry After;
+four unsuccessful rounds pause visibly until relevant input changes or an
+explicit fresh request. Essentials policy advances to4, audit policy stays9.
+
+Whole record generation retains its existing draft revisions. Repeated length
+failure then makes one fresh coherent source reading, with a global target below
+16000. If sections are needed, one flat source plan shares the remaining global
+space; unused room is borrowable. No repeated quota subdivision or extra judge.
+The existing atomic story transaction saves accepted text and removes pending
+state together, guarding sources, setup, original versions, manual values and
+candidate ownership. Proven exact page copies in existing branches rebind only
+their record page ids; original provenance and parent records remain intact.
+No story prose, canon, character decisions or audit receipts are rewritten.
+
+Idle continuation uses the existing queues and health timer, rearming an earlier
+wake when needed. Actual owner Stop is recognized in both why and detail, and
+survives reopen. Reporting states actual saved progress and prior availability;
+no invented zero length response or unconditional preservation reassurance.
+
+Two focused checks passed: tests/harness/m744-essentials.mjs with transaction
+capable disposable IndexedDB, and tests/m744_essentials.py with real Chromium,
+provider adapters, streamed fixture replies, drawer, queue, health and Stop.
+The fixtures create their previous accepted version through normal generation.
+They cover safe selection/accounting, edits, rewind, refold, exact copied branch
+provenance, fresh completion, interruption, old505 recovery, bounded failure and
+manual/concurrent protection. Syntax and diff checks passed. One test dependency,
+fake-indexeddb6.2.5, is confined to tests; no application dependency was added.
+Zero live model calls, broad suites or access to the owner's browser database.
+The actual saved text was not observed or personally recovered. Model meaning
+retention and compliance remain unverified live. Publication is reported in Git.
+
 # M743: source fact completion and bounded Essentials partitioning
 
 Version m743-001. Base main daa7c9ec346ed53d1fab55f770ef71a2a0ade57c.

@@ -703,9 +703,9 @@ export function recordOfWhoIsHere(nodes, state, { skip = () => false, each = PRE
  * branch goes through (newestLines, recordOfWhoIsHere, the same skip), so the two never part — law M547-2 holds them
  * together. Nothing without the essentials: the smart recall is never asked then. */
 export const SMALL_PICK_CHARS = 6000; /* about 1,500 tokens: the lines the smart recall names, whole, for a small storyteller */
-export function planRecordSelection({ nodes = [], essentials = null, state, small = false, through = Infinity, cap = Infinity } = {}) {
+export function planRecordSelection({ nodes = [], essentials = null, pages, state, small = false, through = Infinity, cap = Infinity } = {}) {
   const list = uniqueRecords(nodes).filter(n => n.correction || n.span[1] < through);
-  const usable = essentialsMatch(essentials, nodes, through) ? essentials : null;
+  const usable = essentialsMatch(essentials, nodes, through,pages) ? essentials : null;
   const render = n => '- ' + recordLine(n);
   const since = list.filter(n => !n.correction && (!usable || n.span[1] > usable.upTo));
   const size = list.reduce((sum,n) => sum + render(n).length + 1,0);
@@ -1171,7 +1171,7 @@ export function buildRequest({
   const recordCap = Number.isFinite(windowInfo?.recordCap) ? windowInfo.recordCap : Math.max(SMALL_RECORD_CHARS, (inputRoom(windowInfo) || 0) * 3 * 0.25);
   const sourceVisible = history.filter(m => m && !m.hidden);
   const validNodes = (windowInfo?.nodes || []).filter(n => n.correction || boundRecord(n, sourceVisible));
-  const recordPlan = planRecordSelection({ nodes: validNodes, essentials: smallEssentials, state, small: Boolean(smallB), through: windowInfo?.recordThrough ?? Infinity, cap: memory ? recordCap : 0 });
+  const recordPlan = planRecordSelection({ nodes: validNodes, essentials: smallEssentials,pages:sourceVisible, state, small: Boolean(smallB), through: windowInfo?.recordThrough ?? Infinity, cap: memory ? recordCap : 0 });
   const essentialsText = recordPlan.usable?.text?.trim() || '';
   const essentialsUpTo = essentialsText ? recordPlan.usable.upTo : -1;
   const hybridB = !smallB && Boolean(essentialsText);

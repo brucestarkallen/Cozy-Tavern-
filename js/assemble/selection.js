@@ -41,7 +41,8 @@ export function requestSelection({ story, history, pages, nodes, selected, essen
   const byId = new Map(pages.map(m => [m.id,m]));
   const held = new Set(selected.map(recordId));
   const represented = n => held.has(recordId(n));
-  const summarized = n => Boolean(essentials && (essentials.sources ? essentials.sources.some(x => x.id === n.id && x.span?.[0] === n.span[0] && x.span?.[1] === n.span[1]) : n.span[1] <= essentials.upTo));
+  const summarized = n => Boolean(essentials && (essentials.sourcePages?.length ? n.span[1]<=essentials.upTo
+    : essentials.sources ? essentials.sources.some(x => x.id === n.id && x.span?.[0] === n.span[0] && x.span?.[1] === n.span[1]) : n.span[1] <= essentials.upTo));
   const messages = (history || []).filter(Boolean).map(m => ({ id: m.id, version: messageVersion(m), selected: sent.has(m.id), transformed:byId.get(m.id)?.transformed === true, reason: sent.has(m.id) ? 'original page window' : m.hidden ? 'hidden nudge, handled separately' : 'outside final original window' }));
   const coverage = [];
   const foldedDelta = new Map(); const briefDelta = new Map();

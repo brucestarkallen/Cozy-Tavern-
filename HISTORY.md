@@ -21004,3 +21004,22 @@ Five focused module fixtures passed with simulated replies and disposable storag
 M742 baseline reproduces the missing extracted label blocker and output allowance
 failure; the owner's exact original receipt and live model were unavailable.
 No live/browser/broad checks. Full evidence and limits: docs/M743_REPAIR_REPORT.md.
+
+
+## M744: preserve visible Essentials and separate yielding from failure
+
+Version m744-001. Base a52ff50bcf35240b68e786bad10f83ac01f6e2da.
+Confirmed M743 treated its12 request limit as a failed response and cooldown,
+rejected old snapshots through the display loader, and rebuilt checkpoints from
+only the sections visited so far. The zero answer length was a placeholder.
+Separate historical display from source checked injection; retain complete
+candidate checkpoints and yield normally without failure backoff. Replace
+recursive shrinking with fresh authoritative source reading and shared global
+allocation. Guard atomic publication and pending cleanup against later changes.
+Recognize the queue's actual Stop detail. Rebind record ids only for proven full
+page copies across branches, preserving original provenance and parent data.
+Essentials policy4, audit policy9 unchanged. Existing Auditor repairs preserved.
+Focused module and real Chromium workflow passed with simulated replies and
+disposable storage. The previous snapshot was normally generated in both checks.
+No live provider or owner's browser data access, no broad suite or deployment.
+Details and verification boundaries: docs/M744_REPAIR_REPORT.md.
