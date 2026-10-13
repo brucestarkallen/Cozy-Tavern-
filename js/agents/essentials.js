@@ -30,7 +30,7 @@ export const PENDING_KEY = storyId => 'essentialsPending:' + storyId;
 export const ESSENTIALS_MAX_CHARS = 16000;   /* about 4,000 tokens — the whole story, streamlined */
 export const ESSENTIALS_MAX_TOKENS = 5000;
 export const ESSENTIALS_TRIES = 3; /* M666: his — "it automatically tries again, same as all other workers": three asks, as the keeper's lines have */
-const ESSENTIALS_REPAIR_POLICY = 5; /* M745: stale record bindings are repaired through the keeper before replacement. */
+const ESSENTIALS_REPAIR_POLICY = 6; /* M746: revise rejected answers without transport cooldown. */
 const REPAIR_DRAFT_MAX_CHARS = 128000;
 const RUN_CALL_LIMIT = 12;
 const PART_MIN_CHARS = 800;
@@ -218,13 +218,13 @@ export function recordParts(lines, room) {
 }
 /* A rejected draft is editing material only. Original sources stay authoritative
  * in every repair request, and the full serialized conversation must fit. */
-export function essentialsRepairMessages({connection,system,user,draft,share,attempt=1}) {
+export function essentialsRepairMessages({connection,system,user,draft,share,attempt=1,target:sectionTarget=share,why=''}) {
   if (!draft) return null;
-  const target=Math.floor(share*(attempt>1 ? 0.5 : 0.65));
+  const target=Math.floor(Math.min(sectionTarget,share*(attempt>1 ? 0.5 : 0.65)));
   const reduction=Math.max(1,Math.ceil((1-target/draft.length)*100));
   const messages=[{role:'user',content:user},{role:'assistant',content:draft},{role:'user',content:
-    'Revise the draft above; do not generate another expanded record. It is '+draft.length+' characters, but the saved essentials can hold at most '+share+' characters. '+
-    'Rewrite the COMPLETE draft to about '+target+' characters or fewer, reducing its length by at least '+reduction+' percent. '+
+    'Revise the draft above; do not generate another expanded record. '+(why?'Validation rejected it because: '+why+'. ':'')+'It is '+draft.length+' characters, but this section of the saved essentials can hold at most '+share+' characters. '+
+    'Rewrite the COMPLETE draft to about '+target+' characters or fewer'+(draft.length>target?', reducing its length by at least '+reduction+' percent':', correcting the reported problem')+'. '+
     'Combine related entries, remove repeated wording and incidental description, and use concise clauses. Preserve chronological coverage through the final source entry, names, causes, conditions, decisions, corrections, unresolved promises and meaningful relationship changes. '+
     'The original source entries in the first message remain authoritative. The rejected draft is not new evidence and may be cut off or incomplete. Check the originals and include their final stretch even if the draft missed it. Do not invent missing time or place. '+
     'Return only the complete replacement record lines, each beginning with its time and place and page range. Do not explain the revision or copy the old draft before it.'}];
@@ -255,12 +255,12 @@ async function tellPart({ connection, lines, part, parts, share, brief, mc, sign
     'Return complete record lines, keeping causes, consequences, corrections and necessary emotional details. Cover all supplied source entries; do not leave the newest stretch unfinished.';
   let user = ask.user + partNote + (previous ? correction(previous) : '');
   let last;
-  let draft=fresh?'':previous?.draft || '';
+  let draft=previous?.draft || '';
   for (let attempt = 0; attempt < tries; attempt++) {
     if (signal?.aborted) throw signal.reason || new Error('reading stopped');
     if (usage.calls>=RUN_CALL_LIMIT) return {text:'',yielded:true};
     renew();
-    const messages=fresh?null:essentialsRepairMessages({connection,system:ask.system,user:ask.user+partNote,draft,share,attempt:attempt+(previous?.draft ? 2 : 0)});
+    const messages=essentialsRepairMessages({connection,system:ask.system,user:ask.user+partNote,draft,share,target,why:last?.why || previous?.why,attempt:attempt+(previous?.draft ? 2 : 0)});
     usage.calls++; usage.inputChars += ask.system.length + (messages ? messages.reduce((n,m)=>n+m.content.length,0) : user.length);
     const answer = await callLLM(connection, { system: ask.system, user, ...(messages ? {messages} : {}), ...answerOptions(share), signal });
     const raw = typeof answer === 'string' ? answer : answer?.text || '';
@@ -272,8 +272,9 @@ async function tellPart({ connection, lines, part, parts, share, brief, mc, sign
     if (result.complete) return {text:result.text};
     // Keep the entire rejected draft only as editing material, never completed
     // memory. Even a truncated draft is repaired against ALL original entries.
-    draft=(result.clipped || result.providerTruncated) && result.text.length<=REPAIR_DRAFT_MAX_CHARS ? result.text : '';
-    last={why:result.why,clipped:result.clipped,providerTruncated:result.providerTruncated,chars:raw.length,finishReason:answer?.finishReason || '',part:part+1,parts,share,...(draft ? {draft} : {})};
+    const rejected=result.text || raw;
+    draft=rejected.length<=REPAIR_DRAFT_MAX_CHARS ? rejected : '';
+    last={why:result.why,clipped:result.clipped,providerTruncated:result.providerTruncated,chars:raw.length,finishReason:answer?.finishReason || '',part:part+1,parts,share,print:sourcePrint(lines),...(draft ? {draft} : {})};
     await checkpoint(last);
     user = ask.user + partNote + correction(last);
   }
@@ -385,11 +386,22 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
   const roots=inputSections(rec.lines,room);
   let expectedPending=pending;
   const sameAttempt=!force && recovery.same;
-  const modern=sameAttempt && pending.repairPolicy===ESSENTIALS_REPAIR_POLICY && pending.generationId
+  const modern=sameAttempt && pending.repairPolicy>=4 && pending.repairPolicy<=ESSENTIALS_REPAIR_POLICY && pending.generationId
     && pending.plan?.length && pending.plan.every(p=>p.lines?.length && p.print===sourcePrint(p.lines));
   let candidate=modern ? structuredClone(pending) : {generationId:generationId(),sourcePrint:inputPrint,setupPrint,setupOwner,helperPrint,
     repairPolicy:ESSENTIALS_REPAIR_POLICY,required:true,acceptedPrint:fp(JSON.stringify(original)),pagesPrint:originalPrint(ownedPages,rec.upTo),phase:'whole',
     plan:(roots || []).map(lines=>({lines,print:sourcePrint(lines)})),parts:[],attempts:0,restarts:0};
+  if (modern && candidate.repairPolicy!==ESSENTIALS_REPAIR_POLICY) {
+    candidate.repairPolicy=ESSENTIALS_REPAIR_POLICY;candidate.validationRounds=0;
+    // Keep the failed draft and all compatible completed sections. The new
+    // procedure edits that draft immediately, rather than rereading from zero.
+    if (candidate.diagnostic?.draft) candidate.phase='sections';
+    const diagnostic=candidate.diagnostic,index=Number(diagnostic?.part)-1;
+    if (diagnostic && !diagnostic.print && Number.isInteger(index) && index===candidate.cursor
+      && diagnostic.parts===candidate.plan.length && candidate.plan[index] && !candidate.plan[index].complete) {
+      diagnostic.print=candidate.plan[index].print;
+    }
+  }
   if (!modern && sameAttempt && roots) {
     const leaves=legacySections(pending,recordParts(rec.lines,room+1000)),done=leaves.filter(p=>p.complete);
     if (done.length) {
@@ -423,9 +435,15 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
     return wrote;
   };
   const fail=async(why,diagnostic,err)=>{
-    candidate.attempts=(Number(candidate.attempts)||0)+1;
-    candidate.nextAt=Date.now()+Math.max(essentialsRetryDelay(candidate.attempts),Number(err?.retryAfterMs)||0);
-    const outcome=candidate.attempts>=MAX_FAILED_ROUNDS?'blocked':'failed';
+    let outcome;
+    if (err) {
+      candidate.attempts=(Number(candidate.attempts)||0)+1;
+      candidate.nextAt=Date.now()+Math.max(essentialsRetryDelay(candidate.attempts),Number(err?.retryAfterMs)||0);
+      outcome=candidate.attempts>=MAX_FAILED_ROUNDS?'blocked':'failed';
+    } else {
+      candidate.validationRounds=(Number(candidate.validationRounds)||0)+1;
+      outcome=candidate.validationRounds>=MAX_FAILED_ROUNDS?'blocked':'yielded';
+    }
     if (!await persist(outcome,why,diagnostic)) return result('superseded','The source or saved version changed while reading.');
     return result(outcome,why);
   };
@@ -460,7 +478,7 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
     let told;
     try {
       told=await tellPart({connection,lines:section.lines,part:i,parts:candidate.plan.length,share,target,brief,mc,signal,renew,callLLM,usage,
-        fresh:candidate.phase==='fresh',tries:candidate.phase==='fresh'?1:ESSENTIALS_TRIES,requiredCoverage:true,
+        fresh:candidate.phase==='fresh',tries:ESSENTIALS_TRIES,requiredCoverage:true,
         previous:candidate.diagnostic?.print===section.print?candidate.diagnostic:null,
         checkpoint:async diagnostic=>{candidate.diagnostic={...diagnostic,print:section.print};if (!await persist()) throw Object.assign(new Error('The source or saved version changed while reading.'),{superseded:true});}});
     } catch (err) {
@@ -483,7 +501,7 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
       }
       return fail('Source section '+(i+1)+' of '+candidate.plan.length+': '+told.diagnostic.why+' (answer '+told.diagnostic.chars+' characters; available '+share+' of the global 16000)',told.diagnostic);
     }
-    section.text=told.text;section.complete=true;candidate.attempts=0;candidate.diagnostic=null;
+    section.text=told.text;section.complete=true;candidate.attempts=0;candidate.validationRounds=0;candidate.diagnostic=null;
     if (!await persist()) return result('superseded');
   }
   const text=candidate.plan.map(p=>p.text).join('\n');

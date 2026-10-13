@@ -1,3 +1,34 @@
+# M746: revise rejected Essentials without the minute wait
+
+Version m746-001. Base main c6164d6cc19e171e6391ebf75503a9796ef5242b.
+The owner reported an 18000 character answer for the first of two sections,
+followed by a minute cooldown and no accepted Essentials. A rejected answer
+used the transport failure ladder. More importantly, tellPart's returned
+diagnostic lacked the section fingerprint added by its checkpoint callback;
+the final failure save overwrote that checkpoint, so the next run could ignore
+the saved draft and generate again. Fresh attempts also disabled draft edits.
+
+The rejected draft now retains its source fingerprint through the final save.
+Compatible policy4/5 pending plans migrate with their completed sections and
+draft intact; a missing fingerprint is recovered only from matching section
+number, cursor, plan count and unchanged source ownership. Revisions include
+the actual validation error, originals and weighted section target. Fresh
+attempts can revise their own answer; malformed nonempty drafts can be repaired
+too. Validation failures yield to the existing idle scheduler after bounded
+edits, using its 1.5 second fairness delay rather than transport backoff. Four
+unsuccessful validation rounds still stop; real provider failures retain
+backoff and Retry-After. The 16000 character budget, context checks, ownership,
+accepted snapshot and atomic publication remain intact. Essentials policy6;
+Auditor and M745 source repair unchanged.
+
+Focused module regression passed: exact 18000 character draft, old cooldown
+migration, reload, completed section reuse, fresh draft revision, format repair,
+finite rejection and transport backoff. Disposable Chromium passed the real
+idle queue with three rejected edits, automatic continuation, saved Essentials,
+drawer, storyteller assembly, green and unchanged reopen without another call.
+All replies simulated; no owner database or live model was accessed. JavaScript
+syntax and diff checks passed. No broad suite or deployment.
+
 # M745: repair stale memory sources before Essentials
 
 Version m745-001. Base main f9845b04653e5ee40b15736273dcad27520ac32d.

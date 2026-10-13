@@ -21046,3 +21046,24 @@ made no additional call. Existing M744 module and Chromium fixtures passed too.
 All provider replies were simulated. No live provider call or owner database
 access; actual story recovery and live model compliance remain unverified.
 Detailed evidence: docs/M745_REPAIR_REPORT.md.
+
+
+## M746: revise rejected Essentials without the minute wait
+
+Version m746-001. The reported 18000 character answer entered the transport
+failure cooldown despite being a validation rejection. The final failure save
+also lost the rejected draft's section fingerprint, so later attempts could
+ignore it and generate again. Keep that fingerprint; migrate compatible pending
+plans and recover the missing binding only from their exact cursor and section
+metadata. Revisions include the actual problem and the source section target.
+Fresh attempts can edit their own first answer. Validation retries yield through
+the existing idle queue, without the minute ladder; unchanged failure remains
+bounded. Transport errors retain backoff and provider Retry-After. Completed
+parts, source ownership, accepted snapshots and atomic publication are preserved.
+
+Focused module and Chromium regressions passed with simulated replies and
+disposable storage. The browser reproduced the old two-section cooldown and
+missing draft binding, then automatically revised, saved, displayed and selected
+Essentials and turned green. Reopening made no repeat request. Module checks
+also cover reload, completed section reuse, fresh edits, format repair, finite
+rejection and real transport backoff. No live provider or owner database access.
