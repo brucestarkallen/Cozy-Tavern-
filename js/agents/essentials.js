@@ -27,10 +27,11 @@ import { rebindCopiedRecord } from './memory.js';
 export const ESSENTIALS_KEY = (storyId) => 'essentials:' + storyId;
 export const PENDING_KEY = storyId => 'essentialsPending:' + storyId;
 /* M510-16: the same room the record's newest lines had (M510-14, about 4,000 tokens) — now spent on the whole story */
-export const ESSENTIALS_MAX_CHARS = 16000;   /* about 4,000 tokens — the whole story, streamlined */
+export const ESSENTIALS_TARGET_CHARS = 16000;
+export const ESSENTIALS_MAX_CHARS = 17000; /* M747: owner-approved 1000 character completion tolerance. */
 export const ESSENTIALS_MAX_TOKENS = 5000;
 export const ESSENTIALS_TRIES = 3; /* M666: his — "it automatically tries again, same as all other workers": three asks, as the keeper's lines have */
-const ESSENTIALS_REPAIR_POLICY = 6; /* M746: revise rejected answers without transport cooldown. */
+const ESSENTIALS_REPAIR_POLICY = 7; /* M747: completion tolerance, no automatic whole-record restart. */
 const REPAIR_DRAFT_MAX_CHARS = 128000;
 const RUN_CALL_LIMIT = 12;
 const PART_MIN_CHARS = 800;
@@ -248,7 +249,7 @@ function sectionCoverage(text,lines) {
 async function tellPart({ connection, lines, part, parts, share, brief, mc, signal, renew, callLLM, usage, previous, requiredCoverage=false, fresh=false, target=Math.floor(share*0.65), tries=ESSENTIALS_TRIES, checkpoint=async()=>{} }) {
   const ask = essentialsAsk({ record: lines.map(recordLine).join('\n'), brief, mc });
   const partNote = '\n\nPart ' + (part + 1) + ' of ' + parts + '. Tell only these original source entries, within ' + share + ' characters.'
-    + ' The global accepted budget is 16000 characters. Aim for '+target+' characters for this complete section, leaving room for the other sections and formatting. '+(fresh ? 'FRESH SOURCE READING. Discard the rejected draft and its plan. Reconstruct the coherent story memory from these authoritative source entries, combining related events and preserving their causes and consequences. ' : '')
+    + ' The global target is '+ESSENTIALS_TARGET_CHARS+' characters. Aim for '+target+' characters for this complete section, leaving room for the other sections and formatting. '+(fresh ? 'FRESH SOURCE READING. Reconstruct the coherent story memory from these authoritative source entries, combining related events and preserving their causes and consequences. ' : '')
     + (requiredCoverage ? ' This is a chronological source section. Include explicit (pages first to last) ranges covering EVERY supplied source span through the final entry, including the resulting correction facts.' : '');
   const correction = result => '\n\nThe previous candidate was ' + result.why + (result.chars ? ' ('+result.chars+' characters)' : '') + '. '+
     (result.clipped || result.providerTruncated ? 'Aim for at most '+Math.floor(share*0.7)+' characters, using fewer complete lines for related entries. ' : 'Every line must begin with [time, place] (pages first to last). No headings, commentary or separate continuation lines. ')+
@@ -327,7 +328,7 @@ function originalPrint(pages,upTo) {
 // sections while every compatible completed leaf remains available.
 function legacySections(pending,roots) {
   const total=roots.flat().reduce((sum,n)=>sum+recordLine(n).length+1,0),minimum=100;
-  const spare=ESSENTIALS_MAX_CHARS-(roots.length-1)-roots.length*minimum;
+  const spare=ESSENTIALS_TARGET_CHARS-(roots.length-1)-roots.length*minimum; // Historical M743 split receipts used 16000.
   const leaves=[];
   const walk=(lines,share,depth=0)=>{
     const print=sourcePrint(lines),kept=(pending.parts || []).find(p=>p.print===print && p.complete && inspectEssentials(p.text,ESSENTIALS_MAX_CHARS).complete);
@@ -452,7 +453,7 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
     +candidate.plan.filter(p=>!p.complete).length*80+Math.max(0,candidate.plan.length-1)>ESSENTIALS_MAX_CHARS) {
     const why=!roots?'An indivisible source section exceeds the helper context.'
       : invalidSources?'The record does not match the current original pages; its source coverage must be repaired first.'
-        : 'The complete source sections exceed the current 16000 character memory allocation.';
+        : 'The complete source sections exceed the 17000 character acceptance limit.';
     if (!await persist('blocked',why)) return result('superseded');
     return result('blocked',why);
   }
@@ -464,17 +465,26 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
     if (section.complete && inspectEssentials(section.text,ESSENTIALS_MAX_CHARS).complete && sectionCoverage(section.text,section.lines)) continue;
     section.complete=false;delete section.text;
     if (signal?.aborted) throw signal.reason || new Error('reading stopped');
-    if (usage.calls>=RUN_CALL_LIMIT) {
-      if (!await persist('yielded','Waiting for the next idle opportunity.')) return result('superseded');
-      return result('yielded');
-    }
     const missing=candidate.plan.filter(p=>!p.complete),used=candidate.plan.filter(p=>p.complete).reduce((n,p)=>n+p.text.length,0);
     const free=ESSENTIALS_MAX_CHARS-Math.max(0,candidate.plan.length-1)-used;
     const reserve=Math.max(80,Math.min(PART_MIN_CHARS,Math.floor(free/missing.length*0.75)));
     const share=free-(missing.length-1)*reserve;
-    if (share<80) {await persist('blocked','Complete source sections need more than the current 16000 character allocation.');return result('blocked',candidate.why);}
+    if (share<80) {await persist('blocked','Complete source sections exceed the 17000 character acceptance limit.');return result('blocked',candidate.why);}
+    const held=candidate.diagnostic?.print===section.print?candidate.diagnostic:null;
+    if (held?.draft) {
+      const checked=inspectEssentials(held.draft,share,held.finishReason || '');
+      if (checked.complete && !held.providerTruncated && sectionCoverage(checked.text,section.lines)) {
+        section.text=checked.text;section.complete=true;candidate.attempts=0;candidate.validationRounds=0;candidate.diagnostic=null;
+        if (!await persist()) return result('superseded');
+        continue;
+      }
+    }
+    if (usage.calls>=RUN_CALL_LIMIT) {
+      if (!await persist('yielded','Waiting for the next idle opportunity.')) return result('superseded');
+      return result('yielded');
+    }
     const weight=p=>p.lines.reduce((n,line)=>n+recordLine(line).length+1,0);
-    const target=Math.min(Math.floor(share*0.8),Math.max(reserve,Math.floor(free*weight(section)/missing.reduce((n,p)=>n+weight(p),0)*0.65)));
+    const target=Math.min(Math.floor(share*0.8),Math.max(reserve,Math.floor(Math.min(free,ESSENTIALS_TARGET_CHARS)*weight(section)/missing.reduce((n,p)=>n+weight(p),0)*0.65)));
     let told;
     try {
       told=await tellPart({connection,lines:section.lines,part:i,parts:candidate.plan.length,share,target,brief,mc,signal,renew,callLLM,usage,
@@ -488,24 +498,13 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
     }
     if (told.yielded) {if (!await persist('yielded','Waiting for the next idle opportunity.')) return result('superseded');return result('yielded');}
     if (!told.text) {
-      if (candidate.plan.length===1 && ['whole','fresh'].includes(candidate.phase) && (told.diagnostic?.clipped || told.diagnostic?.providerTruncated)) {
-        if (candidate.phase==='whole') {
-          candidate.generationId=generationId();candidate.phase='fresh';candidate.restarts++;candidate.diagnostic=null;
-        } else {
-          const divided=divideSources(rec.lines);
-          if (!divided) return fail('The fresh complete candidate still exceeds the global 16000 character budget, and the source has no meaningful section boundary.',told.diagnostic);
-          candidate.phase='sections';candidate.plan=divided.flatMap(lines=>inputSections(lines,room) || []).map(lines=>({lines,print:sourcePrint(lines)}));candidate.diagnostic=null;
-        }
-        if (!await persist()) return result('superseded');
-        i=-1;continue;
-      }
-      return fail('Source section '+(i+1)+' of '+candidate.plan.length+': '+told.diagnostic.why+' (answer '+told.diagnostic.chars+' characters; available '+share+' of the global 16000)',told.diagnostic);
+      return fail('Source section '+(i+1)+' of '+candidate.plan.length+': '+told.diagnostic.why+' (answer '+told.diagnostic.chars+' characters; available '+share+' of the global '+ESSENTIALS_MAX_CHARS+')',told.diagnostic);
     }
     section.text=told.text;section.complete=true;candidate.attempts=0;candidate.validationRounds=0;candidate.diagnostic=null;
     if (!await persist()) return result('superseded');
   }
   const text=candidate.plan.map(p=>p.text).join('\n');
-  if (!inspectEssentials(text,ESSENTIALS_MAX_CHARS).complete) return fail('The complete combined candidate does not fit the global 16000 character budget.');
+  if (!inspectEssentials(text,ESSENTIALS_MAX_CHARS).complete) return fail('The complete combined candidate exceeds the 17000 character acceptance limit.');
   // Accepted text and pending removal land together. There is no empty state,
   // and a newer manual/accepted value or another generation wins this guard.
   const saved=await db.editStoryAtomically(storyId,s=>{

@@ -1,3 +1,30 @@
+# M747: completion tolerance and no output-driven whole restart
+
+Version m747-001. Base ece23e115ecd3543d49d585f1f2bc99eae5c97c9.
+The owner explicitly approved a complete 17000 character summary passing the
+former 16000 character limit. Keep 16000 as the generation target and allow
+1000 characters of global completion tolerance. All source, finish reason,
+structural coverage and publication checks still apply; partial answers do not
+become accepted memory. Storyteller assembly carries the complete saved text
+and accounts for its actual size.
+
+Removed automatic whole-record fresh restart and output-driven subdivision
+after three rejected replies. Those transitions multiplied full source reads
+and discarded the draft before trying sections. Continue the same bound draft
+through the existing finite revision flow instead. Input-context partitioning
+remains available when the sources cannot fit one request. A compatible saved
+draft is checked before making a call and can publish immediately under the
+new tolerance. Policy7 resumes compatible pending policy4/5/6 work, including
+previously blocked size failures, without restarting valid completed sections.
+Historical M743 split receipt matching retains its original 16000 allocation.
+
+Focused M747 module test passed: exact 17000 one-call save and full storyteller
+selection, old draft publication without a call, accepted snapshot preservation,
+no automatic whole restart, unchanged reopen, and rejection of truncated output.
+The M746 revision module and disposable Chromium queue/drawer/assembly/green
+workflow also passed with simulated replies. Syntax and whitespace checks pass.
+No live model or owner's database was accessed; no unrelated changes.
+
 # M746: revise rejected Essentials without the minute wait
 
 Version m746-001. Base main c6164d6cc19e171e6391ebf75503a9796ef5242b.

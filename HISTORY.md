@@ -21067,3 +21067,22 @@ missing draft binding, then automatically revised, saved, displayed and selected
 Essentials and turned green. Reopening made no repeat request. Module checks
 also cover reload, completed section reuse, fresh edits, format repair, finite
 rejection and real transport backoff. No live provider or owner database access.
+
+
+## M747: completion tolerance and no automatic whole restart
+
+Version m747-001. Owner approved complete 17000 character Essentials as a
+margin around the 16000 target. Added the global 1000 character tolerance,
+retaining full validation and actual storyteller context accounting. Check
+compatible saved drafts locally before calling the model, allowing an older
+size rejection to publish without another request. Removed the automatic
+whole-record restart and output-driven subdivision after failed revisions;
+continue the same draft with original sources and bounded recovery instead.
+Input-driven partitioning remains. Policy7 preserves compatible pending work.
+Historical M743 split receipt matching retains its original allocation.
+
+Focused M747 module passed exact 17000 save/selection, zero-call saved draft
+recovery, snapshot preservation, no whole restart and truncation rejection.
+M746 module and Chromium workflow passed revision, automatic continuation,
+saved/displayed/selected Essentials and green health. All model replies were
+simulated; no owner data accessed. Syntax and diff checks passed.

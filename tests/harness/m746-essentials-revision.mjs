@@ -55,13 +55,14 @@ assert((await runEssentials({...partial,connection,callLLM:async(c,ask)=>{
  calls++;assert(!ask.messages[0].content.includes(facts[0]));assert(ask.messages[0].content.includes(facts[1]));return {text:line(1)};
 }})).wrote);assert.equal(calls,1);
 // A genuinely fresh source attempt can revise its own first oversized answer.
-const fresh=await fixture();await db.settings.set(PENDING_KEY(fresh.storyId),undefined);calls=0;
+const fresh=await fixture();let freshPending=await db.settings.get(PENDING_KEY(fresh.storyId));
+await db.settings.set(PENDING_KEY(fresh.storyId),{...freshPending,repairPolicy:7,phase:'fresh',diagnostic:null,nextAt:0,plan:[{lines:fresh.nodes,print:sourcePrint(fresh.nodes)}]});calls=0;
 assert((await runEssentials({...fresh,connection,callLLM:async(c,ask)=>{
  calls++;
- if(calls<=4)return {text:oversized};
- assert.equal(calls,5);assert.equal(ask.messages[1].content,oversized);assert(ask.messages[0].content.includes('FRESH SOURCE READING'));
+ if(calls===1)return {text:oversized};
+ assert.equal(calls,2);assert.equal(ask.messages[1].content,oversized);assert(ask.messages[0].content.includes('FRESH SOURCE READING'));
  return {text:line(0)+'\n'+line(1)};
-}})).wrote);assert.equal(calls,5);
+}})).wrote);assert.equal(calls,2);
 // Four unsuccessful editing rounds remain finite, even with no minute delays.
 const bad=await fixture();calls=0;let result;
 for(let i=0;i<4;i++){
