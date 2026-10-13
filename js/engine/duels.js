@@ -224,6 +224,39 @@ export function sourcePersonaMutations(state, sources, extraNames = []) {
   return repairs;
 }
 
+/* M752: A PERSONA THE HOUSE WOULD REFUSE TODAY IS LET GO. Before M752 the rule above read "I am Byakuya Kuchiki's
+ * lieutenant" or "I play Rukia's song" as his own persona, and the persona it wrote stayed: nothing took it back, and
+ * the person stood as the main character to every reader (their seat let go, their loose ends written on his page).
+ * Each persona on his sheet is judged again by the writes in the journal that made it, through today's door (apply.js
+ * 'mc.alias'). It stays when he set it by hand, when the final reviewer approved it, when any of its writes is still
+ * established by today's rule, when no write of it is left in the journal to judge, or when it was let go once and he
+ * took that back. The rest are offered back as mc.unalias, stamped by this code (`heal`), never by a model's answer. */
+export function personasRefusedToday(state) {
+  const aliases = Array.isArray(state?.sheet?.playerAliases) ? state.sheet.playerAliases : [];
+  if (!aliases.length) return [];
+  const fold = (s) => String(s || '').trim().toLowerCase();
+  const writes = new Map();
+  const letGoOnce = new Set(); /* a persona let go once and on his sheet again was taken back by him: it is his */
+  for (const e of Array.isArray(state.journal) ? state.journal : []) {
+    const m = e && e.m;
+    if (m && m.type === 'mc.unalias' && typeof m.name === 'string') letGoOnce.add(fold(m.name));
+    if (!m || m.type !== 'mc.alias' || typeof m.name !== 'string') continue;
+    if (!writes.has(fold(m.name))) writes.set(fold(m.name), []);
+    writes.get(fold(m.name)).push(m);
+  }
+  const out = [];
+  for (const alias of aliases) {
+    if (typeof alias !== 'string' || !alias.trim()) continue;
+    const made = writes.get(fold(alias));
+    if (!made || letGoOnce.has(fold(alias))) continue;
+    const standsToday = made.some((m) => m.byHand === true || (m.source === 'auditor' && m.auditorApproved === true)
+      || explicitMcPersona(state, alias, m.shown) || (m.source === 'auditor' && groundedMcPersona(state, alias, m.shown)));
+    /* `story`: a fact about the whole tale, so a rewind or a page read again never brings the persona back (withStoryWrites) */
+    if (!standsToday) out.push({ type: 'mc.unalias', name: alias, heal: true, story: true, shown: String(made[made.length - 1].shown || '').slice(0, 300) });
+  }
+  return out;
+}
+
 /* Sheet key for a name, or null. Exact (case-insensitive) first, then a
  * loose WHOLE-WORD match so "Kaiser" resolves to "Kaiser von Adler" —
  * token-based, never a bare substring. */

@@ -203,5 +203,8 @@ Keep these; each has a law that fails without it:
 - The thread shows the tale that is open: a drawing or a page redrawn after waits stands
   down when another tale was opened meanwhile (renderThread, rerenderMessage); a telling's
   failure is said in its own tale's thread, or by the tale's name (generate's sayFailed).
+- A persona on his sheet that today's persona rule refuses (and he did not set by hand, the
+  final reviewer did not approve, he did not take back) is let go when the tale opens,
+  journaled and undoable (duels.js personasRefusedToday, chat.js letGoOldRulePersonas).
 - Every law runs in the suite: a new harness file is imported by tests/harness/run.mjs,
   and a standalone fixture is listed in tests/harness/focused.mjs, never left outside it.

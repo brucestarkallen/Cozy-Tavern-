@@ -92,7 +92,7 @@ import { voiceOf, groundingSeed } from '../assemble/voice.js'; /* M327: the two 
 import { noteTellerConnection } from '../agents/call.js'; /* M328 */
 import { makeHeaderGate, splitAtHeader, pageOnly } from './headergate.js';
 import { tidyPage, readHeader, partParagraphs } from './pageshape.js'; /* M340: the page made whole before it is kept; M510-17 */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
-import { mcName, isMcAlias, findActorKeySamePerson } from '../engine/duels.js'; /* M531: who is on the sheet already */
+import { mcName, isMcAlias, findActorKeySamePerson, personasRefusedToday } from '../engine/duels.js'; /* M531: who is on the sheet already; M752: personas the old rule made */
 import { mineLeak, mineWord, mineCutAt, soundCount } from '../assemble/plain.js'; /* M510: the cut where a page began playing him; the sounds a page carried */
 import { plannerAskFitted, runPlanner, loadPlan, planEntry, loadPlans, keepSound, keepTexture, planKey, hashText, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper; M519: the texture kept */
 import { lawsOf } from '../assemble/laws.js'; /* M510 */
@@ -1480,7 +1480,7 @@ export function initChat(ctx) {
      * and never looked at again once its pages came). It is opened again when they are in. */
     { const now = await db.stories.get(story.id); if (!now || now.shallow) return null; }
     try { await settleAsides(story); } catch (err) { /* asked again at the next open */ }
-    const ledger = repairTimeline(story).then(() => resumeUnfinishedChain(story)).then((resumed) => (resumed ? null : healLedgerOnOpen(story))).catch(() => {});
+    const ledger = letGoOldRulePersonas(story).catch(() => {}).then(() => repairTimeline(story)).then(() => resumeUnfinishedChain(story)).then((resumed) => (resumed ? null : healLedgerOnOpen(story))).catch(() => {}); /* M752: the old rule's personas first */
     /* M752: after the marks are mended (each writes the record — one after the other, never over each other): a keeper-off
      * tale's lines an older build left bound to words their pages no longer hold stand on their own words */
     mendPagesOnOpen(story).catch(() => {}).then(() => settleRecordWithoutKeeper(story.id)).catch(() => {});
@@ -1588,6 +1588,21 @@ export function initChat(ctx) {
     if (r && r.stopped) return; /* M675: he began a page meanwhile — taken up again at the next open */
     await db.settings.set(mark, VERSION).catch(() => {});
     if (r && r.mended) toast((r.mended === 1 ? 'One page’s marks were mended on opening' : r.mended + ' pages’ marks were mended on opening') + ' (the repair of ' + VERSION + ').');
+  }
+
+  /* M752: A PERSONA THE RULE BEFORE M752 MADE OF AN ORDINARY SENTENCE IS LET GO WHEN THE TALE OPENS (duels.js
+   * personasRefusedToday) — first, before the chain is resumed or the ledger healed, in every tale: its readers on or off,
+   * its ledger verified or not. The persona was the old rule's mistake, not a reading; no model is asked. */
+  async function letGoOldRulePersonas(story) {
+    if (!story || !story.id || busy || isReplaying() || readersOut(story.id) || otherHandAt(story.id)) return false;
+    const held = await loadState(story.id);
+    const wrong = personasRefusedToday(held);
+    if (!wrong.length || busy || isReplaying() || readersOut(story.id)) return false;
+    const { state: next, applied } = applyMutations(held, wrong);
+    if (!applied.length) return false;
+    await saveState(story.id, next);
+    notify(story.id);
+    return true;
   }
 
   /* M452: THE LEDGER HEALS WHEN A STORY OPENS — nothing to press. A ledger an older reader left (someone "elsewhere" at the

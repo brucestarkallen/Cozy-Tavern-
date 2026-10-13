@@ -16106,5 +16106,60 @@ test('DOM-M752-7 A FAILED TELLING IS SAID IN ITS OWN TALE (M752): he sends, open
   }
 });
 
+test('DOM-M752-8 A PERSONA THE OLD RULE MADE IS LET GO WHEN HIS TALE OPENS (his tales from before M752 heal themselves): before M752 “I am Byakuya Kuchiki’s lieutenant.” made Byakuya his own persona, and nothing took it back; opening the tale lets that one go — journaled, said in What changed and why, taken back if he wants it, and never let go twice — while the persona he set by hand, one his writing establishes (“My persona is Talin.”), one the final reviewer approved and one with no write left to judge all stay; no ledger reader or auditor is asked; a tale with its readers off heals too', async () => {
+  const before = errors.length;
+  const { saveState, loadState, emptyState, saveVersionStates } = await import('../../js/engine/state.js');
+  const { applyMutations, undoEntry } = await import('../../js/engine/apply.js');
+  const { isMcAlias } = await import('../../js/engine/duels.js');
+  const prior = await storyId();
+  const st = await db.stories.create({ title: 'The lieutenant, opened' });
+  await db.stories.update(st.id, { keeper: false, extraction: false, createdAt: Date.now() - 3600000 });
+  await db.messages.append(st.id, { role: 'user', text: 'I am Byakuya Kuchiki’s lieutenant. My persona is Talin.', ts: Date.now() - 2000 });
+  const page = await db.messages.append(st.id, { role: 'assistant', text: '[The 6th Division — 09:00]\n\nByakuya Kuchiki read the reports while his lieutenant waited.', ts: Date.now() - 1000 });
+  /* the ledger as M751 left it: the old rule's persona among the others */
+  const ledger = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' },
+    { type: 'people.set', name: 'Byakuya Kuchiki', field: 'core', text: 'Captain of the 6th Division.' }]).state;
+  ledger.sheet = { ...ledger.sheet, playerAliases: ['Byakuya Kuchiki', 'Talin', 'Shadow', 'Mira', 'Kage'] };
+  const seq = ledger.journal.length;
+  ledger.journal = [...ledger.journal,
+    { id: seq + 1, p: 0, m: { type: 'mc.alias', name: 'Byakuya Kuchiki', shown: 'I am Byakuya Kuchiki’s lieutenant.', cause: 'Original sources explicitly establish this tracked name as the main character’s own persona.' } },
+    { id: seq + 2, p: 0, m: { type: 'mc.alias', name: 'Talin', shown: 'My persona is Talin.' } },
+    { id: seq + 3, p: 0, m: { type: 'mc.alias', name: 'Shadow', byHand: true } },
+    { id: seq + 4, p: 0, m: { type: 'mc.alias', name: 'Mira', shown: 'The kettle sang.', source: 'auditor', auditorApproved: true } }];
+  ledger.journalSeq = seq + 4;
+  await saveState(st.id, { ...ledger, readTo: 0 });
+  await saveVersionStates(st.id, { [page.id + ':0']: { ...ledger, readTo: 0 } }); /* the page's readers finished long ago */
+  assert(isMcAlias(await loadState(st.id), 'Byakuya Kuchiki'), 'set up: Byakuya stands as his persona, as M751 left him');
+  const callsBefore = house.state.calls.length;
+  try {
+    await env.ctx.chat.openStory(st.id); /* what tapping the tale on the shelf does */
+    await until(async () => !(await loadState(st.id)).sheet.playerAliases.includes('Byakuya Kuchiki'), 'the old rule’s persona let go', 10000);
+    const after = await loadState(st.id);
+    eq(after.sheet.playerAliases.join(','), 'Talin,Shadow,Mira,Kage', 'his hand, his words, the reviewer’s approval and a persona with nothing left to judge it by all stay');
+    assert(!isMcAlias(after, 'Byakuya Kuchiki'), 'Byakuya is his own person again');
+    const at = after.log.findIndex((e) => /Byakuya Kuchiki is their own person again/.test(e.words));
+    assert(at !== -1, 'said in What changed and why: ' + after.log.map((e) => e.words).slice(-3).join(' | '));
+    assert(after.journal.some((e) => e.m && e.m.type === 'mc.unalias' && e.m.name === 'Byakuya Kuchiki'), 'journaled, so every fold keeps it');
+    /* the opening's own helpers (the plans keeper) read a tale's pages as on any opening; the heal itself asks nobody */
+    const readers = house.state.calls.slice(callsBefore).filter((c) => /auditor of the ledger|keep the ledger|SOURCE PEOPLE REVIEW|world beyond the page/i.test(JSON.stringify(c.body.messages || c.body.system || '')));
+    eq(readers.length, 0, 'no ledger reader or auditor was asked for the persona');
+    /* he takes it back: Byakuya is his persona again, and opening the tale again leaves it so */
+    const taken = undoEntry(after, at);
+    assert(taken && taken.state, 'the take-back works: ' + JSON.stringify(taken && taken.refused));
+    await saveState(st.id, taken.state);
+    if (prior) { await env.ctx.chat.openStory(prior); await until(() => !env.ctx.chat.isBusy(), 'the other tale open', 10000); }
+    await env.ctx.chat.openStory(st.id);
+    await tick(400);
+    assert((await loadState(st.id)).sheet.playerAliases.includes('Byakuya Kuchiki'), 'a persona he took back is never let go again');
+    /* a model's answer cannot let a persona go */
+    eq(applyMutations(await loadState(st.id), [{ type: 'mc.unalias', name: 'Talin' }]).applied.length, 0, 'only the house lets a persona go');
+  } finally {
+    if (prior) await env.ctx.chat.openStory(prior);
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true);
+  }
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

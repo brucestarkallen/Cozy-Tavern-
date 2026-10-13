@@ -7,10 +7,28 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m752-001 on main, published 14 October 2026 (d73bbaf). The agent documents
-  were tidied after it; no application code changed.
-- Measured on that tree: the law suite 1664 of 1664, the DOM walk 311 of 311, lint
-  0 errors (253 warnings, read), tests/m739_ui.py and tests/m730_housekeeper.mjs pass.
+- Version m752-002 on main, 14 October 2026. m752-001 (d73bbaf) was the audit;
+  m752-002 lets go, when a tale opens, a persona the old rule made of an ordinary
+  sentence (below).
+- Measured on m752-002: the law suite 1664 of 1664, the DOM walk 312 of 312. On
+  m752-001: lint 0 errors (253 warnings, read), tests/m739_ui.py and
+  tests/m730_housekeeper.mjs pass.
+- Tales stored by M751, opened in place by m752 (an M751-made shelf of five tales,
+  its device rows kept as they were): every tale opens and draws; every checkpoint
+  reads byte for byte as M751 reads it; the completed audit stays verified (no audit
+  again after the update); no reader or auditor is asked on opening; a page, a swipe
+  and a branch work; no errors.
+- What heals itself when a tale opens or its next page is read: copies of one
+  knowledge fact fold on load; bare continuous-audit findings are cleared; a keeper-off
+  tale's record lines are rebound to their pages; a seat owed to the World is placed;
+  a persona the rule before M752 made of an ordinary sentence ("I am Byakuya Kuchiki's
+  lieutenant.") is let go, journaled and undoable (js/engine/duels.js
+  personasRefusedToday, run first in chat.js taleOpened; DOM-M752-8).
+- Not repaired on their own, on purpose: a spelling correction made before M752 that
+  rewrote an ordinary word ("may", "the first of May") stays in his pages until he
+  takes that correction back with the Housekeeper's undo; the house does not rewrite
+  his pages again by itself. Seats the old loose persona match let go are not brought
+  back; the World seats people again as the story goes on.
 - Never verified in this environment: a live provider, the owner's phone, long play.
 - No milestone is open; SPEC.md is empty until one is.
 - Testing is by judgment since 14 October: real checks, not rituals (AGENTS.md).

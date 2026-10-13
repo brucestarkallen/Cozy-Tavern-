@@ -21217,3 +21217,22 @@ for M731 and M690). WORKFLOW.md lists every check with its command and measured 
 tests/harness/_dbg4.mjs, a 60-line debug copy of M580's laws committed in M749 and
 never run, was removed; tests/m739_ui.py reads CHROMIUM_PATH like the other browser
 checks (run with and without it: pass). No other checks: documentation.
+
+## M752 followup 2 (m752-002): tales from before M752, opened by it
+
+The owner asked whether every M752 change is compatible with his existing tales and
+keeps the house autonomous and self-healing. Measured: an M751-made shelf (five tales,
+an audited one among them, branches, swipes, checkpoints) opened in place by m752 —
+every tale draws, every checkpoint reads byte for byte as M751 reads it, the completed
+audit stays verified (no paid audit after the update), no reader or auditor is asked
+on opening, a page, a swipe and a branch work, no errors. One fault M752 stopped did
+not heal: a persona the old rule made of an ordinary sentence ("I am Byakuya Kuchiki's
+lieutenant.") stayed on his sheet, nothing could take it back, and the person stood as
+the main character. Now each persona is judged again, when a tale opens, by the writes
+in the journal that made it, through today's door; the ones today's rule refuses are
+let go as a journaled, undoable whole-tale write (mc.unalias, stamped only by the
+house); his hand, his writing, the final reviewer's approval, a persona with no write
+left to judge, and one he took back stay. DOM-M752-8 fails without it. Law suite 1664
+of 1664, DOM walk 312 of 312. Not healed on purpose: a pre-M752 spelling correction
+that rewrote an ordinary word stays until he takes it back (the house does not rewrite
+his pages again by itself).

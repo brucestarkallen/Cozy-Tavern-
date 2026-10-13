@@ -412,7 +412,7 @@ function describeDelta(minutes) {
  * finalAuditorScope, the founder's and the scribe's quote checks, the Housekeeper), never taken from a model's answer. A
  * page reader's answer carrying "byHand": true made any person the main character's persona and wrote an invented core
  * over his writer biography, marked as his own hand. Each worker's answer is read through this before anything is applied. */
-const GRANTED_FLAGS = ['byHand', 'writerEstablished', 'auditorApproved', 'spelling', 'coordinated', 'story', 'exactIdentity', 'sourceRecovery', 'entityReviewed'];
+const GRANTED_FLAGS = ['byHand', 'writerEstablished', 'auditorApproved', 'spelling', 'coordinated', 'story', 'exactIdentity', 'sourceRecovery', 'entityReviewed', 'heal'];
 export function withoutGrantedFlags(m) {
   if (!m || typeof m !== 'object') return m;
   const out = { ...m };
@@ -434,6 +434,19 @@ const HANDLERS = {
     for (const n of Object.keys(seats)) delete state.offscreen[n];
     return { words: name + ' is the main character’s own persona; their separate elsewhere note was let go.',
       undo:{kind:'mc.aliases.restore',before,seats} };
+  },
+  'mc.unalias'(state, m) {
+    /* M752: a persona the house would refuse today, let go on opening the tale (duels.js personasRefusedToday). Only the
+     * house's own code stamps `heal`; a model's answer never carries it (withoutGrantedFlags). */
+    if (m.heal !== true) return { why: 'only the house lets a persona go' };
+    const name = normalizeName(m.name);
+    const fold = (s) => String(s || '').trim().toLowerCase();
+    const before = [...(state.sheet?.playerAliases || [])];
+    const after = before.filter((a) => typeof a !== 'string' || fold(a) !== fold(name));
+    if (!name || after.length === before.length) return { why: 'not one of his personas', same: true };
+    state.sheet = { ...state.sheet, playerAliases: after };
+    return { words: name + ' is their own person again: the words that made them the main character’s persona did not say so.',
+      undo: { kind: 'mc.aliases.restore', before, seats: {} } };
   },
   'mc.set'(state, m) {
     /* M28: who the writer plays. Until now the ledger learned the main
