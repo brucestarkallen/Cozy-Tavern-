@@ -23,13 +23,40 @@ import { brokenOff } from '../engine/world.js';
 import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M566 */
 
 export const ESSENTIALS_KEY = (storyId) => 'essentials:' + storyId;
-const PENDING_KEY = storyId => 'essentialsPending:' + storyId;
+export const PENDING_KEY = storyId => 'essentialsPending:' + storyId;
 /* M510-16: the same room the record's newest lines had (M510-14, about 4,000 tokens) — now spent on the whole story */
 export const ESSENTIALS_MAX_CHARS = 16000;   /* about 4,000 tokens — the whole story, streamlined */
 export const ESSENTIALS_MAX_TOKENS = 5000;
 export const ESSENTIALS_TRIES = 3; /* M666: his — "it automatically tries again, same as all other workers": three asks, as the keeper's lines have */
 
 const fp = (t) => fingerprint36(t);
+
+/* M741: unfinished sources are durable work, not a permanent failed-input lock.
+ * Short recovery first, then a patient ceiling while the story stays open. */
+export const essentialsRetryDelay = attempts => [60000, 300000, 900000, 1800000][Math.min(3, Math.max(0, attempts - 1))];
+function helperPrintOf(connection, brief, mc) {
+  const helper = workerConnection(connection, {maxTokens:ESSENTIALS_MAX_TOKENS});
+  const shell = essentialsAsk({brief,mc});
+  const accounting = measureTransport(helper,{system:shell.system,messages:[{role:'user',content:shell.user}]});
+  return {helper,accounting,print:fp(JSON.stringify([helper.id,helper.type,helper.model,helper.baseUrl,contextOf(helper),accounting.answerTokens,helper.reasoning,helper.temperature,helper.topP,helper.prefill]))};
+}
+export function essentialsRecoveryState({kept,pending,nodes,brief='',mc='',connection,now=Date.now()}={}) {
+  const rec=recordOf(nodes),inputPrint=sourcePrint(nodes),setupPrint=fp(brief+'\n'+mc);
+  if (!rec.lines.length) return {needed:false,why:'no record yet'};
+  if (kept?.text && kept.complete!==false && kept.print===rec.print && (!kept.sourcePrint || kept.sourcePrint===inputPrint) && (!kept.setupPrint || kept.setupPrint===setupPrint)) return {needed:false,why:'unchanged'};
+  if (!connection) return {needed:true,why:'Plot essentials needs a connection.',retryAt:now+60000};
+  const {print:helperPrint}=helperPrintOf(connection,brief,mc);
+  const same=pending?.sourcePrint===inputPrint && pending.setupPrint===setupPrint && pending.helperPrint===helperPrint;
+  return {needed:true,same,inputPrint,setupPrint,helperPrint,retryAt:same ? Number(pending.nextAt)||0 : 0,
+    why:same ? pending.why || 'The previous essentials answer was incomplete.' : 'Plot essentials has not finished reading the current record.'};
+}
+
+export function essentialsRunNote(out) {
+  if (out.wrote || out.why==='unchanged') return {detail:out.wrote ? 'streamlined the whole record into the story’s essentials' : 'the saved essentials match the current record'};
+  if (!out.pending) return {silent:true};
+  const wait=Math.max(1,Math.ceil(((out.retryAt || Date.now()+60000)-Date.now())/60000));
+  return {unfinished:true,detail:'Plot essentials update pending: '+out.why+'. Previous saved essentials were left intact. Automatic recovery will check again in about '+wait+(wait===1?' minute.':' minutes.')};
+}
 
 /* the record's lines in its own order (a correction reads last), and a fingerprint of all of them */
 /* one record line as the keeper reads it (M565: shared with the parts) */
@@ -145,26 +172,34 @@ export function recordParts(lines, room) {
   if (cur.length) parts.push(cur);
   return parts;
 }
-async function tellPart({ connection, lines, part, parts, share, brief, mc, signal, callLLM, usage }) {
+async function tellPart({ connection, lines, part, parts, share, brief, mc, signal, renew, callLLM, usage, previous }) {
   const ask = essentialsAsk({ record: lines.map(recordLine).join('\n'), brief, mc });
   const partNote = '\n\nPart ' + (part + 1) + ' of ' + parts + '. Tell only these original source entries, within ' + share + ' characters.';
-  let user = ask.user + partNote;
+  const correction = result => '\n\nThe previous candidate was ' + result.why + (result.chars ? ' ('+result.chars+' characters)' : '') + '. '+
+    (result.clipped || result.providerTruncated ? 'Aim for at most '+Math.floor(share*0.7)+' characters, using fewer complete lines for related entries. ' : 'Every line must begin with [time, place] (pages first to last). No headings, commentary or separate continuation lines. ')+
+    'Return complete record lines, keeping causes, consequences, corrections and necessary emotional details. Cover all supplied source entries; do not leave the newest stretch unfinished.';
+  let user = ask.user + partNote + (previous ? correction(previous) : '');
   let correctedLength = false;
+  let last;
   for (let attempt = 0; attempt < ESSENTIALS_TRIES; attempt++) {
+    if (signal?.aborted) throw signal.reason || new Error('reading stopped');
+    renew();
+    usage.calls++; usage.inputChars += ask.system.length + user.length;
     const answer = await callLLM(connection, { system: ask.system, user, maxTokens: ESSENTIALS_MAX_TOKENS, signal });
     const raw = typeof answer === 'string' ? answer : answer?.text || '';
-    usage.calls++; usage.inputChars += ask.system.length + user.length; usage.outputChars += raw.length;
+    usage.outputChars += raw.length;
     const result = inspectEssentials(raw, share, answer?.finishReason || '');
-    if (result.complete) return result.text;
+    if (result.complete) return {text:result.text};
+    last={why:result.why,clipped:result.clipped,providerTruncated:result.providerTruncated,chars:result.text.length,finishReason:answer?.finishReason || '',part:part+1,parts,share};
     if (result.clipped || result.providerTruncated) {
-      if (correctedLength) return '';
+      if (correctedLength) break;
       correctedLength = true;
     }
-    user = ask.user + partNote + '\n\nThe previous candidate was ' + result.why + '. Return complete record lines within your share, keeping causes, consequences, corrections and necessary emotional details. Do not leave the newest stretch unfinished.';
+    user = ask.user + partNote + correction(last);
   }
-  return '';
+  return {text:'',diagnostic:last};
 }
-export async function runEssentials({ connection, storyId, nodes, brief = '', mc = '', signal, callLLM = callWorker, force = false, stale = () => false } = {}) {
+export async function runEssentials({ connection, storyId, nodes, brief = '', mc = '', signal, renew = () => {}, callLLM = callWorker, force = false, stale = () => false } = {}) {
   if (!connection || !storyId) return { wrote: false, why: 'no connection' };
   const rec = recordOf(nodes);
   if (!rec.lines.length) return { wrote: false, why: 'no record yet' };
@@ -176,19 +211,22 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
   const setupOwner = ownerPrint(ownedStory,ownedState);
   const inputPrint = sourcePrint(nodes);
   const setupPrint = fp(brief + '\n' + mc);
-  if (original?.print === rec.print && (!original.sourcePrint || original.sourcePrint === inputPrint) && (!original.setupPrint || original.setupPrint === setupPrint) && !force) return { wrote: false, why: 'unchanged' };
-  const helper = workerConnection(connection,{maxTokens:ESSENTIALS_MAX_TOKENS});
-  const shell = essentialsAsk({brief,mc});
-  const accounting = measureTransport(helper,{system:shell.system,messages:[{role:'user',content:shell.user}]});
-  const helperPrint = fp(JSON.stringify([helper.id,helper.model,helper.baseUrl,contextOf(helper),accounting.answerTokens,helper.reasoning]));
   const pending = await db.settings.get(PENDING_KEY(storyId));
-  if(!force && pending?.sourcePrint === inputPrint && pending.setupPrint === setupPrint && pending.helperPrint === helperPrint) return {wrote:false,pending:true,why:'unchanged incomplete attempt, source range remains pending',usage:{calls:0,inputChars:0,outputChars:0}};
+  const recovery=essentialsRecoveryState({kept:original,pending,nodes,brief,mc,connection});
+  if (!force && !recovery.needed) return {wrote:false,why:'unchanged'};
+  const {helper,accounting,print:helperPrint}=helperPrintOf(connection,brief,mc);
+  if (!force && recovery.same && recovery.retryAt>Date.now()) return {wrote:false,pending:true,why:recovery.why,retryAt:recovery.retryAt,usage:{calls:0,inputChars:0,outputChars:0}};
   const room = Math.max(0,Math.floor((inputRoom({budgetTokens:contextOf(helper),answerTokens:accounting.answerTokens}) - accounting.inputTokens) * 3 * 0.75) - 600);
   const usage = { calls: 0, inputChars: 0, outputChars: 0 };
-  const failed = async why => {
+  const savedParts = [];
+  const failed = async (why,diagnostic) => {
     const latestMemory = await db.settings.get('memory:' + storyId);
-    if(!stale() && !signal?.aborted && (!ownedMemory || latestMemory && sourcePrint(latestMemory.nodes) === inputPrint)) await db.settings.set(PENDING_KEY(storyId),{sourcePrint:inputPrint,setupPrint,helperPrint,why});
-    return { wrote:false,why,pending:true,usage };
+    const latestStory=await db.stories.get(storyId),latestState=await db.settings.get('state:'+storyId);
+    const latestEssentials=await db.settings.get(ESSENTIALS_KEY(storyId));
+    const attempts=(recovery.same ? Number(pending.attempts)||0 : 0)+1;
+    const retryAt=Date.now()+essentialsRetryDelay(attempts);
+    if(!stale() && !signal?.aborted && setupOwner===ownerPrint(latestStory,latestState) && JSON.stringify(latestEssentials)===JSON.stringify(original) && (!ownedMemory || latestMemory && sourcePrint(latestMemory.nodes) === inputPrint)) await db.settings.set(PENDING_KEY(storyId),{sourcePrint:inputPrint,setupPrint,helperPrint,why,diagnostic,attempts,nextAt:retryAt,parts:savedParts});
+    return { wrote:false,why,pending:true,retryAt,usage };
   };
   // An indivisible entry cannot be silently clipped or falsely certified.
   if (rec.lines.some(n => recordLine(n).length + 1 > room)) return failed('an individual source entry exceeds the helper room');
@@ -199,13 +237,23 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
   const total = rec.lines.reduce((t, n) => t + recordLine(n).length + 1, 0) || 1;
   const spare = available - parts.length * minimum;
   const shares = parts.map(part => minimum + Math.floor(spare * part.reduce((t,n) => t + recordLine(n).length + 1,0) / total));
-  const told = []; const savedParts = [];
+  const told = [];
   const reuseSafe = !force && original?.setupPrint === setupPrint && !rec.lines.some(n => n.correction);
   for (let i = 0; i < parts.length; i++) {
     const print = sourcePrint(parts[i]);
-    const reused = reuseSafe && original?.parts?.find(p => p.print === print && p.share === shares[i] && p.complete);
-    const text = reused?.text || await tellPart({ connection, lines: parts[i], part: i, parts: parts.length, share: shares[i], brief, mc, signal, callLLM, usage });
-    if (!text) return failed('its answer could not be used as a complete replacement');
+    const candidates=[...(reuseSafe ? original?.parts || [] : []),...(!force && recovery.same ? pending?.parts || [] : [])];
+    const reused = candidates.find(p => p.print === print && p.share === shares[i] && p.complete && inspectEssentials(p.text,shares[i]).complete);
+    let result;
+    try {
+      result=reused ? {text:reused.text} : await tellPart({ connection, lines: parts[i], part: i, parts: parts.length, share: shares[i], brief, mc, signal, renew, callLLM, usage,previous:recovery.same && pending.diagnostic?.part===i+1 ? pending.diagnostic : null });
+    } catch (err) {
+      // Cancellation belongs to the queue. A provider failure gets the same durable
+      // patient recovery as a rejected answer, including any completed source parts.
+      if (signal?.aborted || err?.name==='AbortError') throw err;
+      return failed('source part '+(i+1)+' of '+parts.length+': '+String(err?.message || 'the provider could not be reached').slice(0,300));
+    }
+    const text=result.text;
+    if (!text) return failed('source part '+(i+1)+' of '+parts.length+': '+result.diagnostic.why+' (answer '+result.diagnostic.chars+' characters; allowed '+shares[i]+')',result.diagnostic);
     told.push(text); savedParts.push({ print, share: shares[i], text, complete: true });
   }
   const text = told.join('\n');

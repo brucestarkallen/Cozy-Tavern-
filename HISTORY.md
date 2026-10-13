@@ -20901,3 +20901,47 @@ Focused existing browser check tests/m739_ui.py passed with the revised colour:
 Neon Tokyo contrast 8.9:1, light adjustment #925c29, theme reset and isolation,
 navigation and immersive controls intact. No live account or model calls.
 
+
+# M741: autonomous Plot Essentials recovery and honest scene health
+
+Version m741-001. Base main 4eb8cb148169267a176f5f3c6a996c4838f5e7c7.
+Confirmed M737 stored an indefinite failed-input lock, dropped the precise
+answer rejection and returned pending as an ordinary successful worker run.
+The scene health inventory also omitted Essentials coverage entirely.
+
+Essentials now records the failed source part, answer reason and size, keeps
+previous saved text intact, and resumes unchanged pending sources after a
+persisted cooldown. Delays are 1, 5, 15 and then 30 minutes while the story is
+open; each round retains the existing two length asks or three format asks.
+Existing M737 locks resume automatically. Corrective prompts target the actual
+rejection. Completed pending parts are reused only with matching source, setup,
+helper and allocation. Each request renews the worker timeout. Transport errors
+use this durable cooldown after the existing configured provider fallback;
+queue cancellation and timeout ownership remain intact. Manual regeneration
+still bypasses the cooldown. No source clipping or relaxed completion checks.
+
+Scene health compares the saved Essentials against the current record and
+setup, independently of the latest worker success label. Pending work prevents
+green, schedules the existing queue while idle and restores green only when
+its saved completion and all other required checks pass. Stops by hand, active
+work, replay, story switches and another browser's ownership gate idle recovery.
+The worker row reports pending rather than success, preserving its reason.
+
+Focused production-module test tests/harness/m741-essentials.mjs passed:
+49 source entries, rejected answers, no calls during cooldown, expired-input
+recovery without force, real queue/status persistence, health gating, legacy
+lock recovery, transport errors, partial resume, cancellation and manual-write
+preservation. Focused Chromium tests/m741_essentials.py passed through actual
+UI scheduling, provider adapter, IndexedDB and status: 49 source pages, two
+rejected calls, zero calls on cooldown/reopen, one idle recovery call, and green
+only after successful saved completion. The browser fixture initially returned
+JSON to the streaming adapter and was corrected to SSE before the passing run.
+JS syntax and diff whitespace checks passed. Zero live model calls; no broad
+suite. The owner's actual first rejection and live story quality remain
+unverified. Green is completion of required checks, not proof of AI perfection.
+
+Preserved original prose, record nodes, prior usable essentials, ownership
+checks, ledger audits, all other worker recovery policies, themes, branch fixes,
+provider settings and dependencies. No audit-policy reset, destructive migration
+or new shell asset. Publication identity is reported separately from Git.
+

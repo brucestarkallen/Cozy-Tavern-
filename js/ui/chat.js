@@ -95,7 +95,7 @@ import { mcName, isMcAlias, findActorKeySamePerson } from '../engine/duels.js'; 
 import { mineLeak, mineWord, mineCutAt, soundCount } from '../assemble/plain.js'; /* M510: the cut where a page began playing him; the sounds a page carried */
 import { plannerAsk, runPlanner, loadPlan, planEntry, loadPlans, keepSound, keepTexture, planKey, hashText, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper; M519: the texture kept */
 import { lawsOf } from '../assemble/laws.js'; /* M510 */
-import { runEssentials, loadEssentials } from '../agents/essentials.js'; /* M510-15: the story's essentials */
+import { runEssentials, loadEssentials, essentialsRecoveryState, essentialsRunNote, ESSENTIALS_KEY, PENDING_KEY } from '../agents/essentials.js'; /* M510-15: the story's essentials */
 import { pickRecall } from '../agents/recallpick.js'; /* M510-50: smart recall */
 import { throughLens, overlayFor } from '../agents/canonlens.js'; /* M549: the wiki's lines, seen through his story */
 import { wikiMaterial, worldClaims, worldWithout, claimsPrint, checkClaims } from '../agents/canoncheck.js'; /* M551: one check for what a helper wrote from memory */
@@ -2847,6 +2847,37 @@ export function initChat(ctx) {
     });
   }
   const healthWorkerActive=new Set(),healthWorkerLook=new Map();
+  const essentialsLook=new Map();
+  async function essentialsHealth(story,mem,shelf) {
+    const storyId=story.id;
+    const view=essentialsRecoveryState({kept:await db.settings.get(ESSENTIALS_KEY(storyId)),pending:await db.settings.get(PENDING_KEY(storyId)),
+      nodes:mem.nodes,brief:story.brief || '',mc:mcName(await loadState(storyId)),connection:await resolveWorkerConnection(story,'essentials')});
+    if (!view.needed) return view;
+    const row=shelf.essentials;
+    if (row?.ok===false && row.why==='stopped by hand') return {...view,eligible:false,why:'Plot essentials was stopped by hand.'};
+    // A queue timeout has no answer to inspect. Give it a cooldown too.
+    const retryAt=Math.max(view.retryAt || 0,row?.ok===false ? row.at+60000 : 0);
+    const wait=Math.max(0,retryAt-Date.now());
+    if (!essentialsLook.has(storyId)) essentialsLook.set(storyId,setTimeout(()=>{
+      essentialsLook.delete(storyId);
+      if (ctx.getActiveStoryId()===storyId) markLedgerTrouble(storyId);
+    },Math.min(60000,wait || 60000)+50));
+    return {...view,retryAt,eligible:wait===0};
+  }
+  async function recoverEssentials(storyId) {
+    if (healthWorkerActive.has(storyId) || busy || isReplaying() || otherHandAt(storyId) || workIsRunning(storyId) || queuedCount(storyId) || ctx.getActiveStoryId()!==storyId) return;
+    healthWorkerActive.add(storyId);
+    try {
+      const story=await db.stories.get(storyId);
+      if (!story) return;
+      const view=await essentialsHealth(story,await loadMemory(storyId),await loadWorkerStatus(storyId));
+      if (!view.needed || !view.eligible || busy || isReplaying() || otherHandAt(storyId) || workIsRunning(storyId) || queuedCount(storyId) || ctx.getActiveStoryId()!==storyId) return;
+      const promise=enqueueWork(storyId,{name:'essentials',run:({signal,stale,renew})=>essentialsNext(story,{signal,stale,renew})});
+      noteWork(storyId,promise);
+      await promise;
+    } catch (err) { /* The saved pending state and next health look survive a failed local read. */ }
+    finally {healthWorkerActive.delete(storyId);markLedgerTrouble(storyId);}
+  }
   const healthWorkerKey=(story,pages,name)=>fingerprint36(JSON.stringify([1,name,story?.brief,story?.castNotes,pages.map(p=>[p.id,pageText(p)])]));
   async function workerHealthInputs(storyId,story,pages,shelf) {
     const failed=['keeper','extractor','scribe','world','continuity'].filter(name=>shelf[name] && (shelf[name].ok===false || shelf[name].unfinished));
@@ -2956,7 +2987,7 @@ export function initChat(ctx) {
         /* M673: only where it can read — its switch on, and this story's readers not switched off */
         if (await continuousAuditOn()) { if (tale && tale.extraction !== false) auditRead = auditProgress(mem, pages.length, pages, tale); }
         const recovery=await workerHealthInputs(storyId,tale,pages,shelf);
-        healthInputs={storyId,story:tale,shelf,state:st,pages,mem,auditRead,workerRecovery:recovery,
+        healthInputs={storyId,story:tale,shelf,state:st,pages,mem,auditRead,workerRecovery:recovery,essentials:await essentialsHealth(tale,mem,shelf),
           historicalWait:auditRead && (auditRead.left || auditRead.open)?auditWaits(storyId,mem,pages,tale):-1};
       } catch (err) { behind = true; }   /* if it cannot be checked, it is not green */
 
@@ -3047,6 +3078,7 @@ export function initChat(ctx) {
           btn.setAttribute('title','The ledger: '+health.reasons.join('; '));
         }
         routeHealth(health,{record:()=>fillRecordGap(storyId),ledger:()=>fillLedgerGap(storyId),
+          essentials:()=>recoverEssentials(storyId),
           auditor:()=>scheduleLedgerRepair(storyId),historical:()=>continuousCatchUp(storyId),
           ...Object.fromEntries(['extractor','world','scribe','keeper','continuity'].map(name=>['worker:'+name,()=>recoverHealthWorker(storyId,name)]))});
       }
@@ -3989,16 +4021,15 @@ export function initChat(ctx) {
   }
   /* M510-15: THE ESSENTIALS KEEPER — the whole record streamlined, rebuilt when the record changed; M510-48: for every
    * storyteller (his word: the hybrid always on) */
-  async function essentialsNext(story, { signal, stale = () => false, force = false } = {}) {
+  async function essentialsNext(story, { signal, stale = () => false, force = false, renew = () => {} } = {}) {
     const connection = await resolveWorkerConnection(story, 'essentials');
-    if (!connection) return { silent: true };
     const mem = await loadMemory(story.id);
+    if (!connection) return mem?.nodes?.some(n=>!n.empty && n.text?.trim()) ? { unfinished:true,detail:'Plot essentials needs a connection before its update can finish.' } : {silent:true};
     const fresh = (await db.stories.get(story.id)) || story;
     if (stale()) return { silent: true };
-    const out = await runEssentials({ connection, storyId: story.id, nodes: mem && mem.nodes, brief: fresh.brief || '', mc: mcName(await loadState(story.id)), signal, force, stale });
+    const out = await runEssentials({ connection, storyId: story.id, nodes: mem && mem.nodes, brief: fresh.brief || '', mc: mcName(await loadState(story.id)), signal, force, stale, renew });
     if (stale()) return { silent: true };
-    if (out.wrote) return { detail: 'streamlined the whole record into the story’s essentials' };
-    return out.pending ? {detail:'kept the previous usable essentials; changed source material remains pending: ' + out.why} : { silent: true };
+    return essentialsRunNote(out);
   }
   /* M517: THE WORLD KEEPER — for a story whose brief is Automatic: built once from everything the story has, then looked at
    * again only when the record has grown (GROUND_EVERY more pages folded), the story's position in canon moved, or its canon start
@@ -4174,7 +4205,7 @@ export function initChat(ctx) {
   async function remakeEssentials() {
     const story = await activeStory();
     if (!story) return { ok: false };
-    const promise = enqueueWork(story.id, { name: 'essentials', run: async ({ signal, stale }) => essentialsNext(story, { signal, stale, force: true }) });
+    const promise = enqueueWork(story.id, { name: 'essentials', run: async ({ signal, stale, renew }) => essentialsNext(story, { signal, stale, renew, force: true }) });
     noteWork(story.id, promise);
     try { await promise; } catch (err) { /* the book says what stands */ }
     return { ok: true };
@@ -4211,7 +4242,7 @@ export function initChat(ctx) {
         const promise = enqueueWork(story.id, { name: 'planner', run: async ({ signal, stale }) => planNext(story, { signal, stale }) });
         noteWork(story.id, promise);
       }
-      const kept = enqueueWork(story.id, { name: 'essentials', run: async ({ signal, stale }) => essentialsNext(story, { signal, stale }) }); /* M510-15 */
+      const kept = enqueueWork(story.id, { name: 'essentials', run: async ({ signal, stale, renew }) => essentialsNext(story, { signal, stale, renew }) }); /* M510-15 */
       noteWork(story.id, kept);
       offerChoices(story); /* M548: a page that has none yet, with the switch on */
       /* M550: on open, only what is due to be REPAIRED — opening a tale to look at it otherwise asks no one: where it began,
@@ -5510,9 +5541,9 @@ export function initChat(ctx) {
       return planNext(story, { signal, stale });
     });
     /* 9. M510-15: THE ESSENTIALS KEEPER — after the keeper folded, the whole record streamlined again. Small model only. */
-    enqueue('essentials', async ({ signal, stale }) => {
+    enqueue('essentials', async ({ signal, stale, renew }) => {
       if (stale()) return { silent: true };
-      return essentialsNext(story, { signal, stale });
+      return essentialsNext(story, { signal, stale, renew });
     });
     /* 9b. M527: WHERE A TALE UNDER WAY BEGAN — placed once after a page (its #story line, else its brief and first page),
      * asked again when that line changed; its answer rides from the next page. Never before the storyteller's request. */
