@@ -1,5 +1,5 @@
 import { fingerprint36 } from '../engine/fingerprint.js';
-import { quotedSource } from '../engine/evidence.js';
+import { quotedSource, literalSpan } from '../engine/evidence.js';
 
 // Source receipts normalize whitespace. Recover the literal original span so
 // a valid multiline quote still gets a durable pointer rather than vanishing.
@@ -7,7 +7,10 @@ function originalSpan(text,quote) {
   if (!quotedSource(text,quote)) return null;
   const escaped=quote.trim().split(/\s+/).map(s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('\\s+');
   const match=new RegExp(escaped).exec(text);
-  return match?{start:match.index,text:match[0]}:null;
+  if (match) return {start:match.index,text:match[0]};
+  // M752 (followup 4): the same words echoed with other marks point at the original's own span
+  const span=literalSpan(text,quote);
+  return span?{start:span.start,text:text.slice(span.start,span.end)}:null;
 }
 
 // References are durable pointers into originals, not another story judgment.

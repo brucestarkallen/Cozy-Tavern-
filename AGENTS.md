@@ -210,5 +210,15 @@ Keep these; each has a law that fails without it:
   wrote while the readers were still out; the send waits five seconds at most, M3), the state
   of things opens with which pages, and that they are right where they differ (buildRequest
   notReadYet, from state.js unreadPages, the ledger light's own count).
+- A historical correction is set aside only by an answer that says its sources do not
+  settle it, or that its line is his. A verdict the house cannot read is said back as its
+  mistakes, all at once, twice at most (continuous.js fidelityDecision, CLARIFICATIONS);
+  then the attempt has failed and is tried once more after the wait with that reason.
+  A claim, a quote or a record edit in the original's words with other marks (curly or
+  straight quotes, dashes, an ellipsis, emphasis, white space) is the original's own text
+  (engine/evidence.js quotedSource and literalSpan; recordClaim; literalFixes), and a page
+  named with its context, "p94 (#8793a1, the court, …)", is that page (housekeeper.js
+  decoratedRef). "Manual continuous audit" asks again by hand, with the switch off too
+  (chat.js continuousAuditNow, continuous.js freshTryForCorrections).
 - Every law runs in the suite: a new harness file is imported by tests/harness/run.mjs,
   and a standalone fixture is listed in tests/harness/focused.mjs, never left outside it.

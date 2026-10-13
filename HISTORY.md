@@ -21252,3 +21252,47 @@ page — its reading is still on its way. Where that page shows a change …, th
 right." DOM-M752-9 fails without it. The light law M254 read the count's old inline
 source text; it now checks the light uses the shared count and runs the count on data.
 Law suite 1664 of 1664, DOM walk 313 of 313.
+
+## M752 followup 4 (m752-004): historical corrections settled, not stranded; Manual continuous audit
+
+The owner's tale stood on a yellow lamp: "Finished reviewing all 96 folded pages. 1
+historical correction remains unresolved after automatic source review. The recovery
+verdict remains inconsistent after clarification: The fidelity decision needs an exact
+claim from this record and a valid status." The recovery's own answer had said, rightly,
+that page 94 holds the record's words. Reproduced with his answer through the real
+recovery on m752-003: two calls, a clarification that said only "needs an exact claim",
+then blocked with no attempt left. Each part of a right answer was refused: the claim
+was the record's words under "Alexia:" in quotation marks (an exact-substring gate); the
+pages were cited "p94 (#8793a1, the court, Oct 15 1247 10:20)" (no resolver knew a page
+named with its context); straight apostrophes for the page's curly ones (a literal quote
+gate the auditor had dropped in M694); and page 64, an earlier scene, was listed as a
+conflict and explained away — a real mistake, never said back. A verdict that failed the
+contract after one clarification was blocked for good, as if it were a fact about the
+story. M723–M727 had each patched one such shape.
+
+Now the house reads what it can: a claim pointing at the record's words is those words
+(continuous.js recordClaim: a label, quotation marks, other marks, letter case, an
+ellipsis); a page named with its context is that page when its number, handle and
+speaker agree (housekeeper.js decoratedRef in the shared resolver, so fetches and
+Housekeeper edits too); a quote, or a record edit, in the original's words with other
+marks is the original's own text wherever quotes are held to originals (engine/evidence.js
+quotedSource and literalSpan; literalFixes; a removal is no longer "grounded" when the page
+holds the words with other marks). It says back every mistake at once — "HERE IS YOUR
+MISTAKE" — with how to put it right, twice at most; a verdict still unreadable is a failed
+attempt, tried once more after the wait carrying its reason; only an answer that says
+the sources do not settle it, or that the line is his, sets a correction aside. A
+correction blocked by the old reading is asked again once, by itself (VERDICT_POLICY).
+"Manual continuous audit" in the workers' room (his name for it) reads every folded page
+not yet read and asks again about every open correction, with the switch off too; it
+steps aside for his page and "Finish it" carries on.
+
+Laws: tests/harness/m752-continuous.mjs (C1–C5, six laws) each fail on m752-003 at their
+fault and pass now; DOM-M752-10/11/12 (the button, the step aside, every correction asked —
+M752-12 fails under a count-based stop). m722-focused re-aimed where the contract changed:
+two clarifications then a bounded retry (it was blocked after one); a quote with curly
+apostrophes for the page's straight ones is accepted and kept in the page's words (it was
+refused), one changed word still refused. Law suite 1670 of 1670, DOM walk 316 of 316, lint 0
+errors (253 warnings). Chromium at 390 px: the button wraps with the others, no overflow.
+Limits: his stored tale and his provider were not run; C1's scripted model is one that
+reads the clarification. A model that keeps answering inconsistently spends six calls (two
+attempts) and the correction waits for his press.

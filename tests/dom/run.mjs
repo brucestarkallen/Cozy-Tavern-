@@ -16228,5 +16228,214 @@ test('DOM-M752-9 HE SENDS WHILE THE LIGHT IS BLUE (the readers still on the page
   }
 });
 
+test('DOM-M752-10 “MANUAL CONTINUOUS AUDIT” (HIS, 14 October 2026: “Add manual continuous audit”): in the workers’ room, named as he named it; with the house-wide switch off, his press asks again about a historical correction the automatic recovery had set aside — and an answer in his own answer’s shape (the claim under “Alexia:” in quotation marks, the page named with its place and hour, a straight apostrophe for the page’s curly one) settles it: the banner says every folded page is read and nothing is open, its row that the mistaken finding was withdrawn; the record and the pages as they were; a second press finds nothing due and asks nobody; a tale whose readers are off is not read', async () => {
+  const before = { story: await storyId(), errors: errors.length, worker: house.state.workerAnswer, auditSwitch: await db.settings.get('continuousAudit') };
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  const { loadWorkerStatus } = await import('../../js/agents/status.js');
+  const { auditStretch } = await import('../../js/agents/continuous.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const connection = (await db.connections.list()).find((c) => /mock\.example/.test(c.baseUrl || '')) || (await db.connections.list())[0];
+  const COURT = 'Alexia crossed the last of the court at a walking pace that didn’t hurry and didn’t yield, silver hair pinned up plain, dark riding dress, no gloves — her hands bare, small, and held loose at her sides like a fighter’s hands.';
+  const RECORD = 'Freeday, Oct 15 1247: Alexia crossed the court to test Jugram before the dressing bell — silver hair pinned up plain, dark riding dress, no gloves, hands bare, small, held loose like a fighter’s.';
+  const what = () => q('#work-banner-what').textContent;
+  const st = await db.stories.create({ title: 'Alexia, audited by hand' });
+  await db.stories.update(st.id, { keeper: false, continuity: false });
+  for (let i = 0; i < 3; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'I wait in the court. (' + i + ')' });
+    await db.messages.append(st.id, { role: 'assistant', ...(i === 2 ? { id: '8793a1-court' } : {}), text: '[The court — Freeday | 1' + i + ':00]\n\n' + (i === 2 ? COURT : 'The court went on with its morning. (' + i + ')') });
+  }
+  await saveMemory(st.id, { window: 12, nodes: [
+    { id: 'early', span: [0, 3], level: 1, text: 'The court went on with its morning.', whole: true, audited: 4, correctionReviewed: true },
+    { id: 'court', span: [4, 5], level: 1, text: RECORD, whole: true, audited: 2, correctionReviewed: true,
+      auditOpen: [{ issue: { target: 'record', what: 'The record has Alexia barehanded, but she wore riding gloves that morning.' }, why: 'The record says no gloves.', from: 4, to: 5 }] },
+  ] });
+  let mode = 'unsettled';
+  let asked = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (/historical memory correction/i.test(sys)) {
+      asked += 1;
+      if (mode === 'unsettled') return JSON.stringify({ sourceFidelity: { status: 'genuinelyAmbiguous', claim: 'no gloves, hands bare', sameReferent: null, sameEvent: true, assertion: 'unclear', relation: 'unclear', why: 'Unsettled.', uncertainty: 'Which morning is meant is unsettled.', conflicts: [] },
+        allegation: 'unknown', outcome: 'blocked', why: 'Unsettled.', evidence: [{ source: 'p6', shown: 'no gloves — her hands bare' }] });
+      return JSON.stringify({ sourceFidelity: { status: 'supported', claim: "Alexia: 'silver hair pinned up plain, dark riding dress, no gloves, hands bare, small, held loose like a fighter's'", sameReferent: true, sameEvent: true, assertion: 'direct', relation: 'supports', preservesAssertion: true, why: 'Page 6 says it in these words.', conflicts: [], uncertainty: '' },
+        allegation: 'disproved', outcome: 'correct', why: 'Page 6 holds the record’s words.', evidence: [{ source: 'p6 (#8793a1, the court, Freeday 12:00)', shown: "a walking pace that didn't hurry and didn't yield, silver hair pinned up plain, dark riding dress, no gloves" }] });
+    }
+    return before.worker(body, sys);
+  };
+  await db.settings.set('continuousAudit', false);
+  try {
+    /* set up: the automatic recovery tried once and set it aside — the sources, it said, did not settle it */
+    await auditStretch({ connection, storyId: st.id });
+    eq((await loadMemory(st.id)).nodes.find((n) => n.id === 'court').auditOpen[0].recovery.status, 'blocked', 'set up: the correction is set aside');
+    eq(asked, 1, 'set up: asked once');
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the house at rest', 20000);
+    const pagesBefore = JSON.stringify(await db.messages.list(st.id));
+    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'closed drawer'); }
+    click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the ledger opens');
+    click(q('#drawer [data-room="books"]')); /* the books, where the workers keep their line */
+    const press = () => qa('#drawer [data-panel="the-workers"] button').find((b) => b.textContent.trim() === 'Manual continuous audit');
+    await until(() => press(), 'the workers’ room has “Manual continuous audit”', 5000);
+    mode = 'his';
+    click(press());
+    await until(() => /^The continuous audit: /.test(what()), 'the run says it is done: ' + what(), 20000);
+    eq(what(), 'The continuous audit: every folded page is read (6); no historical correction is open', 'its banner');
+    eq(asked, 2, 'one call: the correction asked about again, settled at once');
+    const line = (await loadMemory(st.id)).nodes.find((n) => n.id === 'court');
+    eq((line.auditOpen || []).length + ' ' + line.auditRecovery.at(-1).outcome, '0 correct', 'settled: the finding withdrawn');
+    eq(line.text, RECORD, 'the record line as it was');
+    eq(JSON.stringify(await db.messages.list(st.id)), pagesBefore, 'the pages as they were');
+    await until(async () => /The mistaken finding was withdrawn/.test(((await loadWorkerStatus(st.id)).continuous || {}).detail || ''), 'its row says so', 5000);
+    const rowSays = /the continuous audit ran .*By hand: 1 open correction asked about again; finished reviewing all 6 folded pages\. Original evidence supports the record\. The mistaken finding was withdrawn\. No historical corrections remain unresolved/;
+    await until(() => qa('#drawer [data-panel="the-workers"] .log-row').some((li) => rowSays.test(li.textContent)), 'the workers’ line says it', 8000)
+      .catch((err) => { throw new Error(err.message + ': ' + qa('#drawer [data-panel="the-workers"] .log-row').map((li) => li.textContent).filter((t) => /continuous/.test(t)).join(' | ')); });
+    /* a second press: nothing is due, nobody is asked */
+    await until(() => !/Running the continuous audit/.test(what()) || q('#work-banner').hidden, 'the banner has ended', 6000).catch(() => {});
+    click(press());
+    await until(() => /^Nothing was due — /.test(what()), 'a second press says nothing was due: ' + what(), 10000);
+    eq(what(), 'Nothing was due — every folded page is read (6); no historical correction is open', 'its banner');
+    eq(asked, 2, 'nobody asked');
+    /* a tale whose readers he switched off is not read */
+    await db.stories.update(st.id, { extraction: false });
+    click(press());
+    await until(() => /readers are switched off/.test(what()), 'it says why it does not read: ' + what(), 5000);
+    eq(asked, 2, 'nobody asked');
+    eq(errors.length, before.errors, 'no app errors: ' + errorsSince(before.errors).join(' | '));
+  } finally {
+    house.state.workerAnswer = before.worker;
+    if (before.auditSwitch === undefined) await db.settings.delete('continuousAudit'); else await db.settings.set('continuousAudit', before.auditSwitch);
+    if (!q('#drawer').hidden) click(q('#btn-drawer-close'));
+    env.window.__cozy.setActiveStoryId(before.story);
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+  }
+});
+
+test('DOM-M752-11 “MANUAL CONTINUOUS AUDIT” STEPS ASIDE FOR HIS PAGE (the storyteller comes first): he presses it with two historical corrections open, then writes while the first is being asked about — the call is let go, his page is told, no attempt is spent, and the banner says it stepped aside with what is left; “Finish it” on its row carries on and settles both', async () => {
+  const before = { story: await storyId(), errors: errors.length, worker: house.state.workerAnswer, auditSwitch: await db.settings.get('continuousAudit') };
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const what = () => q('#work-banner-what').textContent;
+  const st = await db.stories.create({ title: 'Two corrections, and a page' });
+  await db.stories.update(st.id, { keeper: false, continuity: false });
+  for (let i = 0; i < 3; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'I wait in the court. (' + i + ')' });
+    await db.messages.append(st.id, { role: 'assistant', text: '[The court — Freeday | 1' + i + ':00]\n\nThe court went on with its morning. (' + i + ')' });
+  }
+  const open = (what) => [{ issue: { target: 'record', what }, why: what, from: 0, to: 0 }];
+  await saveMemory(st.id, { window: 12, nodes: [
+    { id: 'early', span: [0, 3], level: 1, text: 'The court went on with its morning.', whole: true, audited: 4, correctionReviewed: true, auditOpen: open('The record has the court quiet; it was not.').map((f) => ({ ...f, from: 0, to: 3 })) },
+    { id: 'late', span: [4, 5], level: 1, text: 'The court went on with its morning, still.', whole: true, audited: 2, correctionReviewed: true, auditOpen: open('The record has the morning go on; it ended.').map((f) => ({ ...f, from: 4, to: 5 })) },
+  ] });
+  let held = null, asked = 0, aborted = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (/historical memory correction/i.test(sys)) {
+      asked += 1;
+      const said = String(body.messages.filter((m) => m.role === 'user').at(-1).content || '');
+      const payload = JSON.parse(said.split('TARGETED HISTORICAL RECOVERY\n')[1].split('\nAUTHORITATIVE BRIEF')[0]);
+      const answer = JSON.stringify({ sourceFidelity: { status: 'supported', claim: payload.record, sameReferent: true, sameEvent: true, assertion: 'direct', relation: 'supports', preservesAssertion: true, why: 'The page says so.', conflicts: [] },
+        allegation: 'disproved', outcome: 'correct', why: 'The page says so.', evidence: [{ source: 'p' + (payload.sourceSpan[1] + 1), shown: 'The court went on with its morning' }] });
+      if (held) return held.then(() => answer, () => { aborted += 1; throw new Error('let go'); });
+      return answer;
+    }
+    return before.worker(body, sys);
+  };
+  await db.settings.set('continuousAudit', false);
+  let release = () => {};
+  held = new Promise((resolve) => { release = resolve; });
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the house at rest', 20000);
+    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'closed drawer'); }
+    click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the ledger opens');
+    click(q('#drawer [data-room="books"]'));
+    const press = () => qa('#drawer [data-panel="the-workers"] button').find((b) => b.textContent.trim() === 'Manual continuous audit');
+    await until(() => press(), 'the button', 5000);
+    click(press());
+    await until(() => asked === 1, 'the first correction is being asked about', 10000);
+    click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer closes');
+    const pagesBefore = assistantPages().length;
+    type(q('#composer-input'), 'I cross the court to the well.'); submit(q('#composer'));
+    await until(() => /^Stepped aside for your page — /.test(what()), 'the run steps aside and says so: ' + what(), 15000);
+    assert(/6 folded pages|every folded page is read \(6\)/.test(what()) && /2 historical corrections are still open\. “Finish it” on its row carries on$/.test(what()), 'with what is left: ' + what());
+    await until(() => assistantPages().length === pagesBefore + 1 && !env.ctx.chat.isBusy(), 'his page is told', 20000);
+    held = null; release();
+    const mem = await loadMemory(st.id);
+    eq(mem.nodes.map((n) => (n.auditOpen || []).length + ':' + ((n.auditOpen || [])[0]?.recovery?.attempts ?? 'none')).join(' '), '1:none 1:none', 'both still open, no attempt spent on the one let go');
+    /* “Finish it” on its row */
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the page’s readers done', 30000);
+    click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the ledger opens again');
+    click(q('#drawer [data-room="books"]'));
+    const finish = () => qa('#drawer [data-panel="the-workers"] .log-row').filter((li) => /the continuous audit ran/.test(li.textContent)).map((li) => li.querySelector('.run-fix')).find(Boolean);
+    await until(() => finish(), 'its row offers “Finish it”', 8000);
+    click(finish());
+    await until(() => /^The continuous audit: /.test(what()), 'it carries on and finishes: ' + what(), 20000);
+    eq(what(), 'The continuous audit: every folded page is read (6); no historical correction is open', 'its banner');
+    eq((await loadMemory(st.id)).nodes.map((n) => (n.auditOpen || []).length).join(' '), '0 0', 'both settled');
+    eq(errors.length, before.errors, 'no app errors: ' + errorsSince(before.errors).join(' | '));
+  } finally {
+    held = null; release();
+    house.state.workerAnswer = before.worker;
+    if (before.auditSwitch === undefined) await db.settings.delete('continuousAudit'); else await db.settings.set('continuousAudit', before.auditSwitch);
+    if (!q('#drawer').hidden) click(q('#btn-drawer-close'));
+    env.window.__cozy.setActiveStoryId(before.story);
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+  }
+});
+
+test('DOM-M752-12 “MANUAL CONTINUOUS AUDIT” ASKS ABOUT EVERY OPEN CORRECTION, AND SAYS WHAT IS LEFT: four corrections whose answers it cannot read — each is asked, with its two clarifications (twelve calls; a run that stopped at two unchanged readings in a row asked three), none is dropped and none dismissed; each waits for another try with the reason it failed; with the switch off the banner says to press it again', async () => {
+  const before = { story: await storyId(), errors: errors.length, worker: house.state.workerAnswer, auditSwitch: await db.settings.get('continuousAudit') };
+  const { saveMemory, loadMemory } = await import('../../js/agents/memory.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const what = () => q('#work-banner-what').textContent;
+  const st = await db.stories.create({ title: 'Four corrections, unreadable' });
+  await db.stories.update(st.id, { keeper: false, continuity: false });
+  for (let i = 0; i < 4; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'I wait in the court. (' + i + ')' });
+    await db.messages.append(st.id, { role: 'assistant', text: '[The court — Freeday | 1' + i + ':00]\n\nThe court went on with its morning. (' + i + ')' });
+  }
+  const line = (id, a) => ({ id, span: [a, a + 1], level: 1, text: 'The court went on with its morning, part ' + id + '.', whole: true, audited: 2, correctionReviewed: true,
+    auditOpen: [{ issue: { target: 'record', what: 'Line ' + id + ' may be wrong.' }, why: 'Line ' + id + ' may be wrong.', from: a, to: a + 1 }] });
+  await saveMemory(st.id, { window: 12, nodes: [line('a', 0), line('b', 2), line('c', 4), line('d', 6)] });
+  let asked = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (/historical memory correction/i.test(sys)) {
+      asked += 1;
+      const said = String(body.messages.filter((m) => m.role === 'user').at(-1).content || '');
+      const first = String(body.messages.find((m) => m.role === 'user').content || '');
+      const payload = JSON.parse(first.split('TARGETED HISTORICAL RECOVERY\n')[1].split('\nAUTHORITATIVE BRIEF')[0]);
+      assert(said === first || /HERE IS YOUR MISTAKE/.test(said), 'a clarification says the mistake');
+      return JSON.stringify({ sourceFidelity: { status: 'supported', claim: 'words this record never had', sameReferent: true, sameEvent: true, assertion: 'direct', relation: 'supports', preservesAssertion: true, why: 'So it says.', conflicts: [] },
+        allegation: 'disproved', outcome: 'correct', why: 'So it says.', evidence: [{ source: 'p' + (payload.sourceSpan[1] + 1), shown: 'The court went on with its morning' }] });
+    }
+    return before.worker(body, sys);
+  };
+  await db.settings.set('continuousAudit', false);
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the house at rest', 20000);
+    eq(await env.ctx.chat.continuousAuditNow(), true, 'the run starts');
+    await until(() => /^The continuous audit: /.test(what()), 'the run ends and says so: ' + what(), 20000);
+    eq(asked, 12, 'each of the four asked, each with its two clarifications');
+    eq(what(), 'The continuous audit: every folded page is read (8); 4 historical corrections are still open — press it again to ask again', 'its banner');
+    const open = (await loadMemory(st.id)).nodes.map((n) => n.auditOpen[0].recovery);
+    eq(open.map((r) => r.status + ':' + r.attempts).join(' '), 'retry:1 retry:1 retry:1 retry:1', 'none dropped, none dismissed: each waits for another try');
+    assert(open.every((r) => /^The recovery verdict remains inconsistent after clarification: The fidelity decision needs an exact claim from this record/.test(r.reason)), 'each with the reason it failed: ' + open[0].reason.slice(0, 160));
+    eq(errors.length, before.errors, 'no app errors: ' + errorsSince(before.errors).join(' | '));
+  } finally {
+    house.state.workerAnswer = before.worker;
+    if (before.auditSwitch === undefined) await db.settings.delete('continuousAudit'); else await db.settings.set('continuousAudit', before.auditSwitch);
+    env.window.__cozy.setActiveStoryId(before.story);
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

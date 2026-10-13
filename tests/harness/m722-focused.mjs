@@ -310,12 +310,21 @@ try {
   assert(request.includes('DISPOSITION CLARIFICATION'));return correctReply;};
  assert.equal((await auditStretch({connection,storyId:omitted.id})).open,0);assert.equal(omittedCalls,2);
 
- // Still inconsistent after one clarification stays visible and never loops on reload.
+ // Still inconsistent after its clarifications stays visible and never loops on reload.
+ // M752 (followup 4) — HIS (14 October 2026): "sending back to continuous Audit here's your mistake". A verdict still
+ // unreadable after TWO clarifications is a failed attempt, not a fact about the story: queued once more after the wait
+ // (with its reason), then set aside — never a dismissal and never a loop. (It was set aside after one clarification.)
  const inconsistent=await pendingStory();reply={...correctReply,outcome:'blocked'};const inconsistentCalls=calls;
  const conflict=await auditStretch({connection,storyId:inconsistent.id});
- assert.equal(conflict.open,1);assert.equal(conflict.pending,0);assert.equal(calls,inconsistentCalls+2);
+ assert.equal(conflict.open,1);assert.equal(conflict.pending,1);assert.equal(calls,inconsistentCalls+3);
  assert.match(conflict.unresolved[0].recovery.reason,/inconsistent after clarification/);
  assert.equal(await auditStretch({connection,storyId:inconsistent.id}),null);
+ { const clock=Date.now;Date.now=()=>clock()+RECOVERY_DELAY+1;
+  try {
+   const again=await auditStretch({connection,storyId:inconsistent.id});
+   assert.equal(again.open,1);assert.equal(again.pending,0);assert.equal(calls,inconsistentCalls+6);
+   assert.equal(await auditStretch({connection,storyId:inconsistent.id}),null);assert.equal(calls,inconsistentCalls+6);
+  } finally {Date.now=clock;} }
 
  // Fabricated evidence cannot dismiss a finding, regardless of the selected conclusion.
  const invalid=await pendingStory();reply={...correctReply,evidence:[{source:'1',shown:'This fabricated captain quotation never appeared.'}]};
@@ -428,11 +437,13 @@ try {
  assert.equal((await loadMemory(owned.id)).nodes[0].text,ownedMemory.nodes[0].text);
  assert.deepEqual((await loadMemory(owned.id)).nodes[0].verified,ownedMemory.nodes[0].verified);
 
- // A fabricated fidelity quotation gets one clarification, never a dismissal.
+ // A fabricated fidelity quotation gets its clarifications, never a dismissal.
+ // M752 (followup 4): two clarifications, then a failed attempt queued once more after the wait (pending), never a receipt.
  const falseProof=await pendingStory();
  reply={...correctReply,evidence:[{source:'1',shown:'Invented original evidence of a captain.'}],sourceFidelity:supportedFidelity};
- const falseResult=await auditStretch({connection,storyId:falseProof.id});assert.equal(falseResult.open,1);assert.equal(falseResult.pending,0);
+ const falseResult=await auditStretch({connection,storyId:falseProof.id});assert.equal(falseResult.open,1);assert.equal(falseResult.pending,1);
  assert.match(falseResult.unresolved[0].recovery.reason,/quoted passage does not occur/);
+ assert.equal((await loadMemory(falseProof.id)).nodes[0].auditRecovery?.length || 0,0);
  assert.equal(await auditStretch({connection,storyId:falseProof.id}),null);
 
  // Execute the actual lamp state/class code against controlled completed ledger state.
@@ -507,17 +518,25 @@ try {
  assert(fetchedReceipt.sources.some(s=>s.id===originals72[35].id && s.mark));
 
  // Diagnose lookup, availability, quote, and conflict failures without fuzzy acceptance.
+ // M752 (followup 4): each is said back as the answer's mistake (two clarifications), then the attempt fails and is queued
+ // once more after the wait (pending), never a dismissal.
  async function rejectedReference(ref,shown,pattern,conflict=false) {
   await saveMemory(page72.id,before72);
   reply=conflict?{...pageReply('p72'),sourceFidelity:{...supportedFidelity,conflicts:[{source:ref,shown,why:'Purported conflict.'}]}}:
    {...pageReply(ref),evidence:[{source:ref,shown}]};
-  const r=await auditStretch({connection,storyId:page72.id});assert.equal(r.open,1);assert.equal(r.pending,0);
+  const r=await auditStretch({connection,storyId:page72.id});assert.equal(r.open,1);assert.equal(r.pending,1);
   assert.match(r.unresolved[0].recovery.reason,pattern);
   assert.equal(lamp(auditProgress(await loadMemory(page72.id),75),false,fidelityShelf).green,false);
  }
  await rejectedReference('p72','A fabricated captain quotation.',/Evidence "p72": quoted passage does not occur/);
  await rejectedReference('p71',captainQuote,/quoted passage does not occur/);
- await rejectedReference('p72',captainQuote.replaceAll("'",'’'),/quoted passage does not occur/);
+ // M752 (followup 4) — HIS (14 October 2026): a right answer was refused for its marks. The page's words with curly
+ // apostrophes for its straight ones ARE the page's words (the auditor's rule since M694): settled, and the receipt keeps
+ // the page's own text; one changed word is still refused.
+ await saveMemory(page72.id,before72);reply={...pageReply('p72'),evidence:[{source:'p72',shown:captainQuote.replaceAll("'",'’')}]};
+ assert.equal((await auditStretch({connection,storyId:page72.id})).open,0);
+ assert.equal((await loadMemory(page72.id)).nodes[1].auditRecovery.at(-1).evidence[0].shown,captainQuote);
+ await rejectedReference('p72',captainQuote.replace('yard door','garden door'),/quoted passage does not occur/);
  await rejectedReference('p76',captainQuote,/original page is unavailable/);
  await rejectedReference('not-a-source',captainQuote,/source reference could not be resolved/);
  await rejectedReference('p36',earlierQuote,/unavailable as supplied story evidence/);
@@ -628,8 +647,8 @@ try {
  assert.equal(healthSnapshot({...conditions,guards:['continuity'],shelf:{continuity:{ok:false}},workerRecovery:{continuity:{eligible:true}}}).next,'worker:continuity');
  console.log('M727 passed: generated compound reference through search/fetch/settlement, disagreement rejection, scoped old transport retry, durable receipt-based advisory disposition, full health inventory, ordered mock-owner recovery, clean/blocked/busy states, durable retry bounds. Mocked provider and controlled state only.');
  console.log('M726 passed: displayed p72 and numeric control, canonical source aliases, fetched p36, precise invalid/ambiguous/unavailable/quote/conflict diagnostics, OOC exclusion, scoped M725 transport recovery, unchanged memory and controlled green lamp. Mocked provider only.');
- console.log('M725 passed: unknown/blocked reproduction settles via source fidelity, one clarification maximum, policy-1 recovery, different referent and invalid evidence rejected, genuine ambiguity bounded, exact repairs preserved, no-edit memory retained, controlled production lamp changes from yellow to green with other verification complete. Mocked provider and DOM facade only.');
- console.log('M724 passed: contradictory and omitted dispositions clarified once, supported dismissal without edits, one-time legacy recovery, exact finding settlement, invalid evidence rejection, persisted receipts, changed-source reopening, truthful completion, zero unchanged-material calls. Mocked provider only.');
+ console.log('M725 passed: unknown/blocked reproduction settles via source fidelity, clarifications bounded (two since M752 followup 4, then a bounded retry), policy-1 recovery, different referent and invalid evidence rejected, genuine ambiguity bounded, exact repairs preserved, no-edit memory retained, controlled production lamp changes from yellow to green with other verification complete. Mocked provider and DOM facade only.');
+ console.log('M724 passed: contradictory and omitted dispositions clarified, supported dismissal without edits, one-time legacy recovery, exact finding settlement, invalid evidence rejection, persisted receipts, changed-source reopening, truthful completion, zero unchanged-material calls. Mocked provider only.');
  console.log('M723 passed: automatic and saved-finding recovery, earlier-source withdrawal, bounded durable retries, uncertainty and manual protection, status round-trip, stale writes, zero healthy-case calls. Mocked provider only.');
  console.log('M722 passed: idempotent/undoable source bindings, separate stable facts, paused review reuses receipts; grounded record correction, protected unresolved coverage, no unchanged repeat calls and story-mend eligibility. Mocked provider only.');
 } finally {globalThis.fetch=originalFetch;}

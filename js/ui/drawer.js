@@ -2289,6 +2289,18 @@ function workersPanel(ctx) {
     });
   });
 
+  /* M752 (followup 4) — HIS (14 October 2026): "Add manual continuous audit." Named as he named it. It reads what the
+   * continuous audit has not read, now, and asks again about every historical correction still open — with its switch off
+   * too. Its banner says how far it read and what is left; a run out by hand is the only one (chat.js continuousAuditNow). */
+  const continuousNow = document.createElement('button');
+  continuousNow.type = 'button';
+  continuousNow.className = 'text-btn';
+  continuousNow.textContent = 'Manual continuous audit';
+  continuousNow.title = 'The continuous audit, now, by hand: every folded page it has not read yet is read against the story before it, its record line and the ledger, and every historical correction still open is asked about again. It steps aside when you write.';
+  continuousNow.addEventListener('click', async () => {
+    if (ctx.chat && typeof ctx.chat.continuousAuditNow === 'function') await ctx.chat.continuousAuditNow();
+  });
+
   /* M218: fold everything that is due, now — never a wipe, only the gaps. */
   const catchUp = document.createElement('button');
   catchUp.type = 'button';
@@ -2340,7 +2352,7 @@ function workersPanel(ctx) {
     mendMarksBtn.disabled = true;
     try { if (ctx.chat && typeof ctx.chat.mendAllPages === 'function') await ctx.chat.mendAllPages(); } finally { mendMarksBtn.disabled = false; }
   });
-  row.append(found, rescan, audit, mendMarksBtn);
+  row.append(found, rescan, audit, continuousNow, mendMarksBtn);
   const row2 = document.createElement('div');
   row2.className = 'row';
   row2.append(catchUp, refold, unfold);

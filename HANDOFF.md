@@ -7,20 +7,29 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m752-003 on main, 14 October 2026. m752-001 (d73bbaf) was the audit;
+- Version m752-004 on main, 14 October 2026. m752-001 (d73bbaf) was the audit;
   m752-002 lets go, when a tale opens, a persona the old rule made of an ordinary
-  sentence; m752-003 makes the notes say when they have not read the newest page
-  (below).
-- Measured on m752-003: the law suite 1664 of 1664 (M254 re-aimed at the shared
-  count, run alone after), the DOM walk 313 of 313. On m752-001: lint 0 errors (253
-  warnings, read), tests/m739_ui.py and tests/m730_housekeeper.mjs pass.
-- Writing while the light is blue (the readers still on the page before), measured
-  with a reader that takes 8 seconds (DOM-M752-9): the send waits 5 seconds at most
-  (M3), then goes out with the page before word for word; the notes open with "Not in
-  these notes yet: the newest page … the page is right" (they had said "Here now:
-  Liara" as she walked out); the slow reading lands after, at its own page, before the
-  new page is read; each page is read once; the ledger ends right; the light turns
-  green after. A page sent with the ledger caught up carries no such line.
+  sentence; m752-003 makes the notes say when they have not read the newest page;
+  m752-004 settles the continuous audit's historical corrections instead of
+  stranding them, and adds "Manual continuous audit" (below).
+- Measured on m752-004: the law suite 1670 of 1670, the DOM walk 316 of 316, lint 0
+  errors (253 warnings, as before). Chromium at 390 px: the new button wraps with the
+  others, no page or panel overflow. On m752-001: tests/m739_ui.py and
+  tests/m730_housekeeper.mjs pass.
+- His stuck correction ("The recovery verdict remains inconsistent after
+  clarification: The fidelity decision needs an exact claim from this record and a
+  valid status"): its answer had said, rightly, that page 94 holds the record's words.
+  The house now reads the claim under "Alexia:" in quotation marks as the record's
+  words, "p94 (#8793a1, the court, Oct 15 1247 10:20)" as page 94, and "didn't" as
+  the page's "didn’t"; it says back the one real mistake (page 64, an earlier scene,
+  listed as a conflict) with what a conflict is. A correction the old reading blocked
+  is asked again once, by itself, when the house is idle (VERDICT_POLICY); M752-C1/C2
+  settle his answer's shape in two calls and his saved state in one.
+- Still yellow, on purpose: a correction whose answer says its sources do not settle
+  it (with the specific reason), or whose line is his; and one whose verdict could not
+  be read in two attempts (six calls) — until he presses "Manual continuous audit"
+  (the workers' room), which asks again, with the switch off too, and steps aside for
+  his page ("Finish it" carries on).
 - Tales stored by M751, opened in place by m752 (an M751-made shelf of five tales,
   its device rows kept as they were): every tale opens and draws; every checkpoint
   reads byte for byte as M751 reads it; the completed audit stays verified (no audit
@@ -31,13 +40,17 @@ older files sit beside it). Search them with
   tale's record lines are rebound to their pages; a seat owed to the World is placed;
   a persona the rule before M752 made of an ordinary sentence ("I am Byakuya Kuchiki's
   lieutenant.") is let go, journaled and undoable (js/engine/duels.js
-  personasRefusedToday, run first in chat.js taleOpened; DOM-M752-8).
+  personasRefusedToday, run first in chat.js taleOpened; DOM-M752-8); a historical
+  correction blocked by the reading before m752-004 is asked again once.
+- Writing while the light is blue: the send waits 5 seconds at most (M3), then the
+  notes open with "Not in these notes yet: the newest page …" (DOM-M752-9).
 - Not repaired on their own, on purpose: a spelling correction made before M752 that
   rewrote an ordinary word ("may", "the first of May") stays in his pages until he
   takes that correction back with the Housekeeper's undo; the house does not rewrite
   his pages again by itself. Seats the old loose persona match let go are not brought
   back; the World seats people again as the story goes on.
-- Never verified in this environment: a live provider, the owner's phone, long play.
+- Never verified in this environment: a live provider, the owner's phone, long play,
+  his own stored story.
 - No milestone is open; SPEC.md is empty until one is.
 - Testing is by judgment since 14 October: real checks, not rituals (AGENTS.md).
 

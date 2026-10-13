@@ -709,7 +709,43 @@ export function messageRefResult(messages, ref) {
     if (matches.length===1) return {message:matches[0]};
     if (matches.length>1) return {error:'ambiguous'};
   }
+  const named=decoratedRef(raw);
+  if (named) {
+    if (named.ordinals.length>1 || named.handles.length>1) return {error:'ambiguous'};
+    /* each resolved as the plain forms above resolve it (never through this label again) */
+    const visible=list.filter(m=>m && !m.hidden);
+    const byOrdinal=at=>Number.isSafeInteger(at) && at>0 && at<=visible.length ? {message:visible[at-1]} : {error:'unavailable'};
+    const byHandle=h=>{ const matches=list.filter(m=>m && typeof m.id==='string' && m.id.startsWith(h)); return matches.length===1 ? {message:matches[0]} : {error:matches.length ? 'ambiguous' : 'unresolved'}; };
+    const found=[...named.ordinals.map(byOrdinal),...named.handles.map(byHandle)];
+    const failed=found.find(r=>r.error);
+    if (failed) return {error:failed.error};
+    if (found.some(r=>r.message.id!==found[0].message.id)) return {error:'inconsistent'};
+    if (named.speaker && (named.speaker==='the storyteller' ? found[0].message.role!=='assistant' : found[0].message.role!=='user')) return {error:'inconsistent'};
+    return found[0];
+  }
   return {error:'unresolved'};
+}
+
+/* M752 (followup 4) — A PAGE NAMED WITH ITS CONTEXT. HIS story: the continuous audit's recovery cited
+ * "p94 (#8793a1, the court, Oct 15 1247 10:20)" — the page's number and handle, then where and when it happens — and no
+ * page answered to it, so a right answer was refused. A label that BEGINS with a page's number, handle or id and goes on
+ * with words of context set apart (in brackets, after a comma, a colon or a dash, or a handle and the speaker) names
+ * that one page, when every page number and handle in it names the same page, and a speaker it says is that page's.
+ * Two pages named in one label name nothing (ambiguous); a label that does not begin with a page, or runs straight on into
+ * words ("page 72 extra"), is no page. */
+function decoratedRef(raw) {
+  const head=/^(?:\[p([0-9]+)\]|p([0-9]+)|page\s+([0-9]+)|([0-9]+)|#([a-z0-9_-]{4,128}))(?=$|[\s(\[,;:—–-])/i.exec(raw);
+  if (!head) return null;
+  const rest=raw.slice(head[0].length);
+  if (!rest.trim()) return null; /* nothing after the page: the plain forms said all there is */
+  if (!/^\s*(?:[(\[,;:—–-]|#[a-z0-9_-]{4,}|the storyteller\b|the writer\b)/i.test(rest)) return null;
+  const ordinals=new Set(),handles=new Set();
+  const n=head[1] || head[2] || head[3] || head[4];
+  if (n) ordinals.add(Number(n)); else handles.add(head[5]);
+  for (const m of rest.matchAll(/(?:^|[^a-z0-9#])(?:\[p([0-9]+)\]|p([0-9]+)|page\s+([0-9]+))(?![a-z0-9])/gi)) ordinals.add(Number(m[1] || m[2] || m[3]));
+  for (const m of rest.matchAll(/#([a-z0-9_-]{4,128})/gi)) handles.add(m[1]);
+  const speaker=/\b(the storyteller|the writer)\b/i.exec(rest);
+  return {ordinals:[...ordinals],handles:[...handles],speaker:speaker?speaker[1].toLowerCase():''};
 }
 
 export function resolveMessageRef(messages, ref) {

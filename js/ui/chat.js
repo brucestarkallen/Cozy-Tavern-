@@ -120,7 +120,7 @@ const readersOut = (storyId) => workOut(storyId).some((name) => !OWN_BOOKS.has(n
 import { renderStateFacts as planFacts, stateView as planStateView, closeBy } from '../engine/state.js'; /* M510: what the helper reads; M589: who is close by */
 import { renderPeopleTiers as planPeople, peopleView as planPeopleView, findPersonKey } from '../engine/people.js'; /* M510; M518: a canon block's person in the ledger */
 import { worldTurn, worldRunWords, worldAgentOn, worldEffort, worldDecisionsMissing } from '../agents/world.js'; /* M29: the world beyond the page */
-import { continuousAuditOn, auditStretch, stretchWords, continuousRunStatus, auditProgress, auditWaits, beginReading, endReading, pauseContinuousAudit, openCorrections, withoutStop, branchAdvisories, branchRecoveries } from '../agents/continuous.js'; /* M673: the continuous audit */
+import { continuousAuditOn, auditStretch, stretchWords, continuousRunStatus, auditProgress, auditWaits, beginReading, endReading, pauseContinuousAudit, openCorrections, withoutStop, branchAdvisories, branchRecoveries, freshTryForCorrections, forgetAuditTrouble, nextStretch } from '../agents/continuous.js'; /* M673: the continuous audit */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, healStampDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
 import { foundWorld, founderRunWords, founderFingerprint } from '../agents/founder.js'; /* M45: the founder */
@@ -3359,11 +3359,11 @@ export function initChat(ctx) {
    * replayed, and a reading in flight holds a stop of its own, pulled the moment he asks for a page or anything waits for
    * the workers (pauseContinuousAudit, from generate and from pendingWork) -- its call is dropped, nothing is written,
    * and the same pages are read later. */
-  async function continuousStep(story, { signal, stale, renew } = {}) {
+  async function continuousStep(story, { signal, stale, renew, byHand = false } = {}) {
     const isStale = () => typeof stale === 'function' && stale();
     if (!story || story.extraction === false || isStale()) return { silent: true };
     if (busy || isReplaying()) return { silent: true };
-    if (!(await continuousAuditOn())) return { silent: true };
+    if (!byHand && !(await continuousAuditOn())) return { silent: true }; /* M752 (followup 4): his own press reads with the switch off too */
     const connection = await resolveWorkerConnection(story, 'continuous');
     if (!connection) return { silent: true };
     /* M675 (the second reading): the reading's own stop follows the job's AND CARRIES ITS REASON (continuous.js
@@ -3405,7 +3405,8 @@ export function initChat(ctx) {
         },
       });
       if (!result) return { silent: true };
-      return { silent: false, ...continuousRunStatus(result), detail: stretchWords(result), raw: result.raw };
+      const automatic = !byHand || (await continuousAuditOn()); /* M752 (followup 4): with its switch off nothing asks again by itself */
+      return { silent: false, ...continuousRunStatus(result), detail: stretchWords(result, { automatic }), raw: result.raw };
     } catch (err) {
       if (own.signal.aborted && !(signal && signal.aborted)) return { silent: true }; /* stepped aside for the storyteller */
       throw err;
@@ -3687,6 +3688,85 @@ export function initChat(ctx) {
     } });
     noteWork(story.id, promise);
     bannerEndsWith(banner, promise); /* M675 */
+    return true;
+  }
+
+  /* M752 (followup 4) — HIS (14 October 2026): "Add manual continuous audit." THE CONTINUOUS AUDIT, NOW, BY HAND. What it
+   * has not read is read now — every folded page not yet read, oldest line first — and every historical correction still
+   * open is asked about again, carrying the reason it last failed (continuous.js freshTryForCorrections): one its own
+   * attempts gave up on too, since a correction the house will not ask about again by itself is his to ask about again
+   * (AGENTS: he retries by hand). It reads with the house-wide switch off as well — it is his press — and never a tale
+   * whose readers he switched off (nothing reads into its ledger). One reading after another, in the readers' own queue,
+   * as the idle audit reads (continuousStep); THE STORYTELLER COMES FIRST: a page he asks for steps it aside, what was read
+   * is kept, and "Finish it" on its row carries on. His Stop stops it. A call that fails ends the run, and its banner and
+   * row say why. The banner counts the folded pages read; its last word says what is left open. A second press while a
+   * run by hand is out starts no second run — the one out has the banner. */
+  const continuousByHand = new Set();
+  async function continuousAuditNow() {
+    const open = await activeStory();
+    if (open && continuousByHand.has(open.id)) return false;
+    const banner = beginWork('Running the continuous audit', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was read is kept'); });
+    const story = open;
+    if (!story) { banner.failed('Open a story first'); return false; }
+    if (story.extraction === false) { banner.failed('This story’s readers are switched off, so the continuous audit does not read it — turn them on first'); return false; }
+    const connection = await resolveWorkerConnection(story, 'continuous');
+    if (!connection) { banner.failed('The continuous audit needs a connection first'); return false; }
+    continuousByHand.add(story.id);
+    const where = async () => {
+      const pages = visiblePages(await db.messages.list(story.id));
+      const mem = await loadMemory(story.id);
+      return { pages, mem, read: auditProgress(mem, pages.length, pages, story) };
+    };
+    const promise = enqueueWork(story.id, { name: 'continuous', once: true, run: async ({ signal, stale, renew }) => {
+      const given = await freshTryForCorrections(story.id);
+      forgetAuditTrouble(story.id); /* the lines the wire refused are asked for again too */
+      let { read } = await where();
+      if (!read.folded) { banner.done('Nothing is folded yet — the continuous audit reads pages once the record has folded them'); return { silent: true }; }
+      banner.step(read.done, read.folded, 'page', read.open ? read.open + (read.open === 1 ? ' correction open' : ' corrections open') : '');
+      let readings = 0, last = null, lastPick = '', repeats = 0;
+      for (;;) {
+        if (stoppedRun(signal) || stale() || busy || isReplaying()) break;
+        const here = await where();
+        if (auditWaits(story.id, here.mem, here.pages, story) !== 0) break; /* nothing more to read now */
+        /* the same stretch (or correction) due a third time in a row has not moved — its line moved while it was read, or
+         * the keeper holds it: the run ends there and says so, never asking for it over and over */
+        const pick = nextStretch(here.mem, here.pages, { writer: story });
+        const pickKey = pick ? JSON.stringify([pick.line.id, pick.from, pick.recovery ? (pick.recovery.id || pick.recovery.issue?.what || pick.recovery.why || '') : '']) : '';
+        repeats = pickKey === lastPick ? repeats + 1 : 0;
+        lastPick = pickKey;
+        if (repeats >= 2) break;
+        if (typeof renew === 'function') renew();
+        const r = await continuousStep(story, { signal, stale, renew, byHand: true });
+        if (!r || r.silent) break; /* stepped aside for his page, or the keeper at the record: said below */
+        readings += 1;
+        last = r;
+        ({ read } = await where());
+        banner.step(read.done, read.folded, 'page', read.open ? read.open + (read.open === 1 ? ' correction open' : ' corrections open') : '');
+      }
+      if (stoppedRun(signal)) return { silent: true }; /* his Stop said its own word */
+      const end = await where();
+      read = end.read;
+      /* left to do NOW: a folded page not read, or a correction due (one waiting out the minute before its next try is not) */
+      const unfinished = Boolean(read.left) || auditWaits(story.id, end.mem, end.pages, story) === 0;
+      const automatic = await continuousAuditOn();
+      const pagesWords = read.left ? read.done + ' of ' + read.folded + ' folded pages read' : 'every folded page is read (' + read.folded + ')';
+      const stillOpen = read.open + (read.open === 1 ? ' historical correction is' : ' historical corrections are') + ' still open';
+      if (unfinished) banner.paused((busy || isReplaying() ? 'Stepped aside for your page — ' : 'Paused — ') + pagesWords + (read.open ? '; ' + stillOpen : '') + '. “Finish it” on its row carries on');
+      else banner.done((readings ? 'The continuous audit: ' : 'Nothing was due — ') + pagesWords + '; ' + (!read.open ? 'no historical correction is open'
+        : stillOpen + ' — ' + (read.pending && automatic ? 'asked again by itself in a minute' : read.pending ? 'press it again to ask again' : 'the workers’ line says why')));
+      const tried = given ? given + (given === 1 ? ' open correction' : ' open corrections') + ' asked about again; ' : '';
+      return {
+        silent: false,
+        detail: 'By hand: ' + tried + (last ? String(last.detail || '').replace(/^./u, (c) => c.toLowerCase()) : 'nothing was due'),
+        raw: last ? last.raw : '',
+        historical: { done: read.done, folded: read.folded, open: read.open || 0, pending: read.pending || 0 },
+        unfinished,
+        resume: unfinished ? 'continuousAuditNow' : '',
+      };
+    } });
+    promise.finally(() => continuousByHand.delete(story.id));
+    noteWork(story.id, promise);
+    bannerEndsWith(banner, promise); /* M675: a run that ends some other way (a call that failed) says so */
     return true;
   }
 
@@ -9667,6 +9747,7 @@ export function initChat(ctx) {
     taleOpened, /* M675 */
     rescanLedger,
     auditNow,
+    continuousAuditNow, /* M752 (followup 4): "Manual continuous audit" */
     weighCast, /* M474 */
     mendAllPages, /* M477 */
     rerenderMessage, /* M483: the walk proves a re-ink keeps the page's number */
