@@ -7,12 +7,20 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m752-002 on main, 14 October 2026. m752-001 (d73bbaf) was the audit;
+- Version m752-003 on main, 14 October 2026. m752-001 (d73bbaf) was the audit;
   m752-002 lets go, when a tale opens, a persona the old rule made of an ordinary
-  sentence (below).
-- Measured on m752-002: the law suite 1664 of 1664, the DOM walk 312 of 312. On
-  m752-001: lint 0 errors (253 warnings, read), tests/m739_ui.py and
-  tests/m730_housekeeper.mjs pass.
+  sentence; m752-003 makes the notes say when they have not read the newest page
+  (below).
+- Measured on m752-003: the law suite 1664 of 1664 (M254 re-aimed at the shared
+  count, run alone after), the DOM walk 313 of 313. On m752-001: lint 0 errors (253
+  warnings, read), tests/m739_ui.py and tests/m730_housekeeper.mjs pass.
+- Writing while the light is blue (the readers still on the page before), measured
+  with a reader that takes 8 seconds (DOM-M752-9): the send waits 5 seconds at most
+  (M3), then goes out with the page before word for word; the notes open with "Not in
+  these notes yet: the newest page … the page is right" (they had said "Here now:
+  Liara" as she walked out); the slow reading lands after, at its own page, before the
+  new page is read; each page is read once; the ledger ends right; the light turns
+  green after. A page sent with the ledger caught up carries no such line.
 - Tales stored by M751, opened in place by m752 (an M751-made shelf of five tales,
   its device rows kept as they were): every tale opens and draws; every checkpoint
   reads byte for byte as M751 reads it; the completed audit stays verified (no audit

@@ -21236,3 +21236,19 @@ left to judge, and one he took back stay. DOM-M752-8 fails without it. Law suite
 of 1664, DOM walk 312 of 312. Not healed on purpose: a pre-M752 spelling correction
 that rewrote an ordinary word stays until he takes it back (the house does not rewrite
 his pages again by itself).
+
+## M752 followup 3 (m752-003): writing while the light is blue
+
+The owner asked what happens if he sends while the ledger's light is still blue, and
+whether a guard is needed. Measured with a page reader held 8 seconds: the send waits 5
+seconds at most (M3, pendingWork) and goes out; the slow reading still lands, journaled
+at its own page, before the new page is read; each page is read once; the ledger ends
+right; the light turns green after; no errors. The one fault: the notes said "where
+things stand right now" and "Here now: Liara" while the page before, riding word for
+word, had her walk out. Now, when the ledger has not read the newest storyteller pages
+(the light's own count, moved into engine/state.js unreadPages and shared by the light
+and the request), the state of things opens with "Not in these notes yet: the newest
+page — its reading is still on its way. Where that page shows a change …, the page is
+right." DOM-M752-9 fails without it. The light law M254 read the count's old inline
+source text; it now checks the light uses the shared count and runs the count on data.
+Law suite 1664 of 1664, DOM walk 313 of 313.

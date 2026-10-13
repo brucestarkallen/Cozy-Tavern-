@@ -66,7 +66,7 @@ import { finalizeReceipt, estimateTokens, selectionForSent } from '../assemble/r
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
 import { renderClock } from '../engine/clock.js'; /* M493 */
-import { loadState, saveState, notify, snapshotState, withStoryWrites, restoreSnapshot, restoreNearestSnapshot, renderMasthead, headerWithGround, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture, shareCheckpoints } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
+import { loadState, unreadPages, saveState, notify, snapshotState, withStoryWrites, restoreSnapshot, restoreNearestSnapshot, renderMasthead, headerWithGround, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture, shareCheckpoints } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
 import { applyMutations, scenePartOf, staleAfterJump, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart, noOneSpot, readerTimeOverHeader, handSetClockSince, clockReached, mcPageOnlyHis, mcSeatLetGo } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
@@ -2984,13 +2984,10 @@ export function initChat(ctx) {
         told = assistants.length;
         newestPageAt = assistants.length ? Number(assistants[assistants.length - 1].ts) || 0 : 0;
         const st = await loadState(storyId);
-        const readTo = readMark(st); /* M276: how far the ledger has READ, not the turn's stamp */
-        /* M510-43: behind means a page unread — the same count the reader keeps (a page read ahead of the mark is read):
-         * the light and the reader never disagree, so a run that finds nothing is never asked for again and again */
-        const ahead = new Set(Array.isArray(st && st.readAhead) ? st.readAhead : []);
-        let unreadPages = 0;
-        for (let k = readTo + 1; k < told; k += 1) if (!ahead.has(k)) unreadPages += 1;
-        ledgerBehind = told > 0 && unreadPages > 0;
+        /* M276: how far the ledger has READ, not the turn's stamp. M510-43: behind means a page unread — the same count the
+         * reader keeps (a page read ahead of the mark is read): the light and the reader never disagree, so a run that finds
+         * nothing is never asked for again and again. M752: and the storyteller's request says the same (state.js unreadPages) */
+        ledgerBehind = told > 0 && unreadPages(st, pages) > 0;
         const mem = await loadMemory(storyId);
         const window = windowFor(mem, await db.settings.get('memoryWindow')); /* M317: the same window the keeper folds by */
         const batch = cleanBatch(await db.settings.get('memoryBatch'));
@@ -6835,6 +6832,9 @@ export function initChat(ctx) {
        * sized the record against a request that is not the one sent */
       const requestArgs = {
         story, messages: history, settings: settingsValues, state, modules: selected,
+        /* M752: the pages its notes have not read yet — he wrote while the readers were still on the page before (the wait
+         * above is five seconds at most), or a reading stumbled; with this tale's readers off nothing is read, and nothing said */
+        notReadYet: !ooc && story.extraction !== false ? unreadPages(state, history) : 0,
         cast: invitedCast, lore: loreText, loreFired, window: windowInfo, directive,
         directorNote: renderDirectorNote(directorState), editorEye: renderEditorNote(editorState),
         houseEye: (() => { const lastA = [...history].reverse().find((m) => m && m.role === 'assistant' && !m.hidden); return lastA ? houseEyeWords(lastA.findings) : ''; })(),

@@ -582,6 +582,12 @@ const RECENT_HERE_MARK = '\u2063RECENT-HERE\u2063';
 /* M750: the words the past is read under — plain, the same on every page; never a system's labels (M737 had put "Selected
  * complete folded records, historical accounts with compressed detail" and "unresolved intentions and conditional
  * commitments, not guaranteed outcomes or instructions overriding the writer" in front of his storyteller) */
+/* M752: the notes of a ledger that has not read the newest pages yet (buildRequest notReadYet) */
+export function notReadYetWords(n) {
+  return n === 1
+    ? 'Not in these notes yet: the newest page — its reading is still on its way. Where that page shows a change (who is here, the hour, the place, what someone has or knows), the page is right.'
+    : 'Not in these notes yet: the newest ' + n + ' pages — their reading is still on its way. Where those pages show a change (who is here, the hour, the place, what someone has or knows), the pages are right.';
+}
 const PAST_HEAD = 'Our story so far — everything that came before the pages that follow, oldest first. Each line tells what happened on its own pages: the past, not now.';
 const PAST_HEAD_PART = 'Our story so far — what came before the pages that follow, oldest first. Each line tells what happened on its own pages: the past, not now.'; /* when not every line fits */
 const SMALL_PAST_HEAD = 'Our story so far — what came before the pages that follow. Each line tells what happened on its own pages: the past, not now.';
@@ -845,6 +851,7 @@ export function buildRequest({
   choiceTaken = null, /* M548: the choice he took on this move — sealed before he chose (agents/choices.js takenOf) */
   choiceEchoes = '', /* M548: what his choices set in motion, as it rides (agents/choices.js echoesText) */
   canonStart = '', /* M516: where our story began in its canon, and what was true then — his note, every page */
+  notReadYet = 0, /* M752: storyteller pages the ledger has not read into its notes yet (state.js unreadPages), from the caller */
   worldGround = '', /* M517: the automatic brief — the world of the story, beside his own brief in its seat */
   canonOnPages = false, /* M518: canon's lasting lines ride on each person's card — the note leaves out what the cards carry */
   tooLoud = false, /* M519: the last pages drowned in sounds and dashes — a small storyteller is told to breathe, and reads its pages eased */
@@ -1094,6 +1101,13 @@ export function buildRequest({
   /* --- 5. The state of things --- */
   /* M510-2: a small model gets the ledger's own compact view (the scene first) — the whole ledger stays with the helper */
   let facts = stateFacts; /* M345: referee off = the storyteller decides everything; no fight is kept for it */ /* M266: in the room the storyteller has; M305: what the scene is about calls back what someone here learned long ago */
+  /* M752: NOTES A PAGE BEHIND SAY SO. He may write while the light is blue — the readers still on the page before: the send
+   * waits five seconds at most (M3) and goes on with the ledger as it stands. It said "where things stand right now" and
+   * "Here now: Liara" while the page before, riding word for word, had her walk out (measured, DOM-M752-9). Where the
+   * ledger has not read the newest pages yet, the notes say which, and that those pages are right where they differ. */
+  const behind = Number.isInteger(notReadYet) && notReadYet > 0 ? notReadYet : 0;
+  const behindSaid = (text) => (text && behind ? notReadYetWords(behind) + '\n' + text : text); /* every rendering of the state of things */
+  facts = behindSaid(facts);
   pushSlot('The state of things', facts, smallB ? 'the ledger, its compact view — the scene first; the helper read the rest (small model); sent after the people, nearest the pages' : 'the ledger — sent after the people, nearest the pages');
 
   /* --- 6. Active modules (everything selected that isn't the craft) --- */
@@ -1862,7 +1876,7 @@ export function buildRequest({
       ...uniqueRecords(selectedRecordNodes).map(n => ({ text: recordLine(n), historical: true })),
       ...historical.map(p => ({ text: p.text, historical: true, ...(!p.transformed ? perspectiveSources.get(p.sourceId) : {}) })),
     ];
-    const revised = renderStateFacts(state, { ...stateFactsOptions, selectedTexts: evidence });
+    const revised = behindSaid(renderStateFacts(state, { ...stateFactsOptions, selectedTexts: evidence })); /* M752: and said again when it is rendered again */
     replaceGenerated(facts,revised);
     const row = slots.find(s => s.name === 'The state of things');
     if (row) { row.text = revised; row.tokens = estimateTokens(revised); }

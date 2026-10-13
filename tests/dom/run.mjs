@@ -16161,5 +16161,72 @@ test('DOM-M752-8 A PERSONA THE OLD RULE MADE IS LET GO WHEN HIS TALE OPENS (his 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-M752-9 HE SENDS WHILE THE LIGHT IS BLUE (the readers still on the page before): his page goes out after five seconds of waiting at most (M3), with the page before word for word, and its notes say they have not read that page yet — where it shows a change, the page is right (they said “Here now: Liara” as she walked out); the slow reader’s writes still land, at their own page, before the new page is read; each page is read once; the ledger ends right; a page sent with the ledger caught up says nothing of the kind', async () => {
+  const before = { story: await storyId(), errors: errors.length, worker: house.state.workerAnswer, answer: house.state.storyAnswer };
+  const { loadState } = await import('../../js/engine/state.js');
+  const st = await db.stories.create({ title: 'Blue light' });
+  await db.stories.update(st.id, { keeper: false, continuity: false });
+  const PAGE1 = 'Liara picked up her bag and left the restaurant without a word.';
+  const PAGE2 = 'Kim walked in and sat down across from him.';
+  const NOT_YET = 'Not in these notes yet: the newest page — its reading is still on its way.';
+  let releasedAt = 0;
+  const reads = [];
+  house.state.workerAnswer = (body, sys) => {
+    const user = String((body.messages || []).slice(-1)[0] && (body.messages || []).slice(-1)[0].content || '');
+    if (/keep the ledger/i.test(sys)) {
+      const page = newPageOf(user);
+      if (page.includes(PAGE1)) { reads.push('page 1'); return new Promise((r) => setTimeout(() => { releasedAt = Date.now(); r(JSON.stringify({ mutations: [{ type: 'presence.leave', name: 'Liara' }, { type: 'mode.snapshot', flags: [] }] })); }, 8000)); }
+      if (page.includes(PAGE2)) { reads.push('page 2 (page 1 ' + (releasedAt ? 'read' : 'not read') + ')'); return JSON.stringify({ mutations: [{ type: 'presence.enter', name: 'Kim', position: 'across from him' }, { type: 'mode.snapshot', flags: [] }] }); }
+    }
+    if (/world beyond the page/i.test(sys)) return '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null}}';
+    return before.worker(body, sys);
+  };
+  const requests = [];
+  let toldAt = 0;
+  house.state.storyAnswer = (body) => {
+    requests.push(JSON.stringify(body.messages || body.system || ''));
+    if (requests.length === 1) return '[McDonald’s — 14:30]\n\nThe booth was quiet.';
+    if (requests.length === 2) return '[McDonald’s — 14:35]\n\n' + PAGE1;
+    toldAt = Date.now();
+    return '[McDonald’s — 14:40]\n\n' + PAGE2;
+  };
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.ctx.chat.refreshStories(true);
+    await env.ctx.chat.renderThread({ structural: true });
+    type(q('#composer-input'), 'I sit in the booth with Liara.'); submit(q('#composer'));
+    await until(() => assistantPages().length === 1, 'page 0', 10000); await settled(); await readersDone(st.id);
+    type(q('#composer-input'), 'I ask Liara if she is staying.'); submit(q('#composer'));
+    await until(() => assistantPages().length === 2 && !env.ctx.chat.isBusy(), 'page 1', 10000);
+    assert(!requests[1].includes('Not in these notes yet'), 'a page sent with the ledger caught up says nothing of the kind');
+    await until(() => reads.includes('page 1'), 'page 1’s reader at work', 10000);
+    await until(() => q('#btn-ledger').classList.contains('is-working'), 'the light blue while page 1 is read: ' + q('#btn-ledger').className, 4000); /* the light is drawn again as the work changes */
+    const sentAt = Date.now();
+    type(q('#composer-input'), 'I wait to see who comes in.'); submit(q('#composer'));
+    await until(() => assistantPages().length === 3, 'page 2', 20000);
+    const waited = toldAt - sentAt;
+    assert(waited >= 4000 && waited < 7000, 'his page waited about five seconds, no more: ' + waited + ' ms');
+    assert(toldAt < releasedAt || !releasedAt, 'and went out before the slow reader answered');
+    const told = requests[2];
+    assert(told.includes(PAGE1.slice(0, 40)), 'the page before rides word for word');
+    assert(/Here now:[^"]*Liara/.test(told), 'set up: the notes still hold Liara, a page behind');
+    assert(told.includes(NOT_YET), 'and say they have not read the newest page, which is right where it shows a change');
+    await settled(); await readersDone(st.id, 60000); await tick(300);
+    const after = await loadState(st.id);
+    const names = (after.present || []).map((p) => p.name);
+    assert(!names.includes('Liara') && names.includes('Kim'), 'the ledger ends right: ' + names.join(','));
+    eq(reads.join(' → '), 'page 1 → page 2 (page 1 read)', 'each page read once, the page before first');
+    eq((after.journal || []).filter((e) => e.m && /^presence\./.test(e.m.type) && e.p >= 1).map((e) => e.p + ':' + e.m.type + ':' + e.m.name).join(', '), '1:presence.leave:Liara, 2:presence.enter:Kim', 'each write journaled at its own page');
+    await until(() => !q('#btn-ledger').classList.contains('is-working'), 'the light no longer blue: ' + q('#btn-ledger').className, 4000);
+    eq(errors.length, before.errors, 'no app errors: ' + errorsSince(before.errors).join(' | '));
+  } finally {
+    house.state.workerAnswer = before.worker; house.state.storyAnswer = before.answer;
+    env.window.__cozy.setActiveStoryId(before.story);
+    await readersDone(st.id, 60000).catch(() => {});
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

@@ -1769,6 +1769,16 @@ export function readMark(state) {
   if (Number.isInteger(state.readTo)) return state.readTo;
   return Number.isInteger(state.page) ? state.page : -1;
 }
+/* M752: HOW MANY STORYTELLER PAGES THE LEDGER HAS NOT READ YET — the one count the ledger's light and the storyteller's
+ * request share (a page read out of turn, ahead of the mark, is read). `pages`: the tale's messages; hidden ones are left out. */
+export function unreadPages(state, pages) {
+  const told = (Array.isArray(pages) ? pages : []).filter((m) => m && !m.hidden && m.role === 'assistant').length;
+  const readTo = readMark(state);
+  const ahead = new Set(Array.isArray(state && state.readAhead) ? state.readAhead : []);
+  let n = 0;
+  for (let k = readTo + 1; k < told; k += 1) if (!ahead.has(k)) n += 1;
+  return n;
+}
 export function markPageRead(state, k) {
   if (!state || typeof state !== 'object' || !Number.isInteger(k) || k < 0) return state;
   const page = readMark(state);

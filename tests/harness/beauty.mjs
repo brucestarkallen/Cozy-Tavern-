@@ -633,7 +633,18 @@ test('M254: green means read, folded and waiting on nothing — and a third coat
   /* M276: declared beside `behind` so the light can send the reader to the pages it missed */
   /* M510-43: "behind" is any page the reader has not read — counted as the reader counts (a page read ahead of the mark is
    * read); the old line counted such a page unread, and the light showed behind while the reader found nothing */
-  assert(/for \(let k = readTo \+ 1; k < told; k \+= 1\) if \(!ahead\.has\(k\)\) unreadPages \+= 1;/.test(chat) && /ledgerBehind = told > 0 && unreadPages > 0;/.test(chat), 'the ledger must have read every page told');
+  /* M752: the count is one function now (engine/state.js unreadPages), shared by the light and the storyteller's request, so
+   * the notes say "not read yet" exactly when the light says behind — the light uses it, and it counts as the reader counts */
+  assert(/ledgerBehind = told > 0 && unreadPages\(st, pages\) > 0;/.test(chat), 'the ledger must have read every page told');
+  {
+    const { unreadPages } = await import('../../js/engine/state.js');
+    const pagesOf = (n) => Array.from({ length: n }, (_, i) => [{ role: 'user', text: 'move ' + i }, { role: 'assistant', text: 'page ' + i }]).flat();
+    const five = pagesOf(5);
+    eq(unreadPages({ readTo: 4 }, five), 0, 'every page read: nothing behind');
+    eq(unreadPages({ readTo: 1, readAhead: [3] }, five), 2, 'pages 2 and 4 unread; a page read ahead of the mark is read');
+    eq(unreadPages({ readTo: 3 }, [...five, { role: 'assistant', text: 'a nudge', hidden: true }]), 1, 'a hidden page is no page');
+    eq(unreadPages({ page: 2 }, five), 2, 'an older ledger’s stamp is its mark');
+  }
   /* M275: declared beside `behind` so the light can send the keeper to a gap it sees; M745 (c6164d6): a line whose own
    * pages moved or changed under it is a gap too */
   assert(/recordBehind = Boolean\(dueRange\(pages\.length, window, mem\.nodes, batch\) \|\| sourceBindingIssues\(mem\.nodes,pages\)\.length\);/.test(chat),
