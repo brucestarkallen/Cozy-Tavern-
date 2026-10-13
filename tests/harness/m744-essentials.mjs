@@ -34,7 +34,7 @@ async function fixture(count=4,pad=0) {
  await db.settings.set('memory:'+story.id,{nodes});
  return {story,state,nodes,connection};
 }
-const output=(lines,extra='')=>lines.map(n=>'- [Dawn, chapel] (pages '+(n.span[0]+1)+' to '+(n.span[1]+1)+') '+meanings[Number(n.id.replace(/\D/g,''))%meanings.length]+' SOURCE_'+Number(n.id.replace(/\D/g,''))+'_KEEP.'+(n.detail?' '+n.detail:'')+extra).join('\n');
+const output=(lines,extra='')=>lines.map(n=>'- '+(n.text.match(/^\[[^\]]+\]/)?.[0] || '[Dawn, chapel]')+' (pages '+(n.span[0]+1)+' to '+(n.span[1]+1)+') '+meanings[Number(n.id.replace(/\D/g,''))%meanings.length]+' SOURCE_'+Number(n.id.replace(/\D/g,''))+'_KEEP.'+(n.detail?' '+n.detail:'')+extra).join('\n');
 const inAsk=(ask,nodes)=>{const user=ask.messages?.[0].content || ask.user;return nodes.filter(n=>user.includes('SOURCE_'+Number(n.id.replace(/\D/g,''))+'_KEEP.'));};
 const run=(f,callLLM,opts={})=>runEssentials({...f,storyId:f.story.id,brief:f.story.brief,mc:'Neri',callLLM,...opts});
 async function accept(f,nodes=f.nodes) {const result=await run({...f,nodes},async()=>({text:output(nodes)}));assert(result.wrote,JSON.stringify(result));return await db.settings.get(ESSENTIALS_KEY(f.story.id));}
@@ -107,7 +107,7 @@ const completed=await run(replanned,async(c,ask)=>{
  const extra=calls===5?' '+('A lasting narrative detail. '.repeat(105)):'';
  return {text:output(lines,extra)};
 });assert(completed.wrote && fresh);assert.equal(calls,6);assert(sectionCaps[0]>15000);assert(sectionCaps[1]>5000);
-const replacement=await db.settings.get(ESSENTIALS_KEY(replanned.story.id));assert(replacement.text.length<=16000);
+const replacement=await db.settings.get(ESSENTIALS_KEY(replanned.story.id));assert(replacement.text.length<=16000);assert(replacement.text.indexOf('[Noon, chapel]')>replacement.text.indexOf('[Dawn, chapel]'));
 for(const token of ['FIRST_MEETING','RELATIONSHIP_CHANGE','only if Neri returned','KNOWLEDGE_BOUNDARY','LATE_CORRECTION','Ivo, not Neri','LATEST_OBLIGATION','before sunset','UNRESOLVED_OBLIGATION','tap twice and wait'])assert(replacement.text.includes(token),token);
 assert.equal(await db.settings.get(PENDING_KEY(replanned.story.id)),undefined);assert.deepEqual((await db.settings.get('memory:'+replanned.story.id)).nodes,replanNodes);
 assert.equal((await run(replanned,async()=>{throw Error('completed input must not repeat');})).why,'unchanged');
