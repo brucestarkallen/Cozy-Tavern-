@@ -20986,3 +20986,21 @@ live model compliance and semantic compression quality remain unverified.
 No broad suite, live model cost, schema change, new dependency, source deletion,
 UI redesign or changes to unrelated workers. Publication is reported from Git.
 
+
+
+## M743: complete source facts and recover oversized Essentials
+
+Version m743-001. Base daa7c9ec346ed53d1fab55f770ef71a2a0ade57c.
+Repair lost source label metadata only through a unique existing source binding;
+carry unresolved source facts through the existing semantic review and persist
+source/profile scoped decisions. Explicit uncertainty survives later audits.
+Progress distinguishes discovery and closure from repeated failed work; policy9
+resumes paused failures once without resetting completed factual approvals.
+Essentials output ceilings, bounded chronological partitioning and durable leaf
+progress replace repeated whole record length failure after M742 revisions.
+Original sources, story prose, manual facts, local identities, prior Essentials,
+reasoning settings, fallback and stale ownership contracts remain.
+Five focused module fixtures passed with simulated replies and disposable storage.
+M742 baseline reproduces the missing extracted label blocker and output allowance
+failure; the owner's exact original receipt and live model were unavailable.
+No live/browser/broad checks. Full evidence and limits: docs/M743_REPAIR_REPORT.md.

@@ -1,3 +1,46 @@
+# M743: source fact completion and bounded Essentials partitioning
+
+Version m743-001. Base main daa7c9ec346ed53d1fab55f770ef71a2a0ade57c.
+The owner's M742 report remains reopened in the live browser. Code corrections
+are verified with focused simulated provider fixtures, not that live database.
+See docs/M743_REPAIR_REPORT.md for causes, changed functions and limits.
+
+A persisted fact complaint can retain a canonical name but lose its original
+extracted label. M742 then cannot select its receipt even when the bound People
+core is already correct. Restore only a uniquely matching original source fact
+and its existing row binding; preserve that metadata when a failed finding is
+saved again. Include unresolved source facts in the existing semantic review.
+Persist its decision against the exact source mark, binding, facts and profile.
+Explicit uncertainty remains open across subsequent audits. Unchanged completed
+source and ledger receipts remain reusable, with zero calls for completed work.
+
+Repair progress now follows outstanding factual identities and actual closures,
+not a historical minimum of zero or cosmetic ledger rewrites. New work starts a
+new baseline; two genuinely stalled runs still pause. Repair policy advances
+once to 9; existing completed factual audits are not reset by this version.
+
+Essentials retains initial generation and two full draft revisions. Persistent
+length failure divides only that section at chronological entry boundaries,
+with fixed child shares inside the same 16000 character allocation. A folded
+node can divide at record line or paragraph boundaries, retaining original id,
+span and contiguous source offsets. No arbitrary sentence or character cutting.
+Each accepted leaf and split plan is saved before another request. Recovery
+reuses only matching complete leaves; unchanged completed work is not retold.
+Each run permits at most 12 worker requests and four split levels, followed by
+the existing durable cooldown when work remains. Provider transport/fallback
+retries remain. Request output ceilings apply only when explicitly requested
+by Essentials; mandatory thinking floors and reasoning choices remain intact.
+Structural truncation and missing chronological page ranges cannot be saved.
+
+Focused M743 Auditor and Essentials fixtures passed, including the 31922/16000
+failure, both existing revisions, chronological repair, folded node identity,
+partial reload resume, source isolation, uncertainty, missing fact additions,
+manual/concurrent ownership, cached completion and truthful health. Existing
+M741 recovery, M742 revision and M732 identity contract checks also passed after
+updating their request/policy assumptions. Syntax and diff whitespace checked.
+Zero live provider calls, broad suites, browser runs or user data changes.
+Provider obedience and preservation of every story meaning remain live limits.
+
 # M742: repair the actual oversized Essentials draft
 
 Version m742-001. Base main 581112a8fd264433a87c5aa89cb69cdef12fedc2.

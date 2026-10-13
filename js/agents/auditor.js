@@ -502,6 +502,9 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const staleBoard = boardStale(state, lastTold ? toldNow.indexOf(lastTold) : null);
   const sourcePeople = sourceReview?.people || documents.flatMap(d => (state.auditSources?.[d.id]?.people || []).map(p => ({...p,source:d.id,label:d.label})));
   const restoredForReading = missingSourcePeople(state, sourcePeople);
+  // Recover only a uniquely source-bound legacy complaint. Similar labels on
+  // other pages do not establish that two people are the same individual.
+  state = {...state,audit:{...state.audit,unresolved:restoreSourceFactFindings(state.audit?.unresolved || [],state,documents)}};
   const checkpoint=reusableAuditCheckpoint(state,storyAtStart,documents);
   const profileIndex = peopleSourceIndex(state, documents, sourcePeople).filter(p=>!checkpoint.entries['characters:'+sourcePersonKey(state,p.name)]);
   if (mcName(state) !== 'the player' && !checkpoint.entries['characters:'+mcName(state)]) profileIndex.push({name:mcName(state),writerOnly:true,
@@ -556,6 +559,8 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   let followupFailed = false;
   let verificationChecks = [];
   let verificationSnapshot = null;
+  const reviewedSourceFacts = new Map();
+  const openSourceFacts = new Map();
   let finalReview = {status:'not completed',requested:0,received:0,replyCharacters:0};
   // Source receipt repair does not require another completed ledger review
   // when its originals and every actual entry still match the saved verdict.
@@ -576,11 +581,13 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     finalReview.requested = verificationRows.length;
     const requestedState=result.out;
     const sourceCandidateMap=new Map();
-    for (const issue of originalFindings.filter(i=>i.profileRecovery && i.sourceId && !i.sourceFacts && !findingSettled(i,result,withdrawals,documents))) {
-      sourceCandidateMap.set(JSON.stringify([issue.sourceId,issue.sourceName || issue.name]),issue);
+    for (const issue of originalFindings.filter(i=>i.profileRecovery && i.sourceId && !findingSettled(i,result,withdrawals,documents))) {
+      sourceCandidateMap.set(JSON.stringify([issue.sourceId,issue.sourceName || issue.name,Boolean(issue.sourceFacts)]),issue);
     }
     const sourceCandidates=[...sourceCandidateMap.values()];
-    const sourceTasks=sourceCandidates.map(i=>({id:auditFindingId(i),sourceId:i.sourceId,name:i.sourceName || i.name,shown:i.shown,speakerIdentity:documents.find(d=>d.id===i.sourceId)?.speakerIdentity}));
+    const sourceTasks=sourceCandidates.map(i=>({id:auditFindingId(i),sourceId:i.sourceId,name:i.sourceName || i.name,shown:i.shown,
+      ...(i.sourceFacts?{sourceFacts:true,facts:i.facts,currentEntries:findingRows(i,result.out),originalPassage:documents.find(d=>d.id===i.sourceId)?.text}:{}),
+      speakerIdentity:documents.find(d=>d.id===i.sourceId)?.speakerIdentity}));
     const reviewProblems=text=>{
       const read=parseAuditorAnswer(text);
       const problems=completeFinalAuditReply(read,[...verificationRows,...sourceTasks])?[]:[{why:'Return review:{status:"complete",why:"your completed verdict",open:[]} after reviewing all required entries and source mentions, or explicit entry checks. Use open for real unresolved facts.'}];
@@ -590,7 +597,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
         const bound=bindFinalAuditEvidence(read,registeredEvidence(),verificationRows,documents);
         const proposed=judge(requestedState,bound.issues);
         const open=new Set((read.review?.open || []).map(o=>o.id));
-        const missing=sourceCandidates.filter(i=>!open.has(auditFindingId(i)) && !findingSettled(i,proposed,bound.resolved,documents));
+        const missing=sourceCandidates.filter(i=>!i.sourceFacts && !open.has(auditFindingId(i)) && !findingSettled(i,proposed,bound.resolved,documents));
         if (missing.length) {
           const missingTasks=sourceTasks.filter(t=>missing.some(i=>auditFindingId(i)===t.id));
           const identityRejections=proposed.rejected.filter(r=>!r.same && r.mutation?.type==='source.resolve');
@@ -618,6 +625,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
           + '\nRETAINED SCRATCHBOOK CHECKS, already approved for these unchanged values and sources:\n'+JSON.stringify(Object.keys(previousVerification))
           + '\nHISTORICAL FINDINGS WITH ACTUAL CURRENT RECORDS:\n'+JSON.stringify(auditRepairChecklist(originalFindings,result.out))
           + '\nREQUIRED SOURCE MENTION DECISIONS:\n'+JSON.stringify(sourceTasks)
+          + '\nSOURCE FACT DECISIONS. For every sourceFacts task compare its original passage with the bound current People record. Complete approves equivalent wording without a cosmetic write. For a real omission supply additive people.note core or profiles preserving existing facts. Put the task id in review.open if its fact or binding remains uncertain. Completion covers these tasks as well as ledger entries.'
           + '\nSOURCE IDENTITY DECISION CONTRACT.\n'+SOURCE_IDENTITY_DECISION_GUIDANCE
           + '\nENGINE ELIGIBLE PERSON TARGETS for this saved snapshot, including actors and tracked people:\n'+JSON.stringify(sourceIdentityTargetChoices(result.out))
           + '\nFACTIONS ARE GROUP CONTEXT, not person targets:\n'+JSON.stringify(Object.keys(result.out.factions || {}))
@@ -644,7 +652,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       const currentInventoryEvidence=[...sourceAppearanceFacts(result.out,documents),...sourceIdentityFacts(result.out,documents)]
         .map(f=>({evidenceId:f.id,source:f.source,text:f.shown}));
       evidenceBook=auditEvidenceBook(documents,currentInventoryEvidence,evidenceBook);
-      const corrected = bindFinalAuditEvidence(reconcileAuditScene(parseAuditorAnswer(reply.text),requestedState), registeredEvidence(), verificationRows,documents);
+      const corrected = bindHistoricalFindings(bindFinalAuditEvidence(reconcileAuditScene(parseAuditorAnswer(reply.text),requestedState), registeredEvidence(), verificationRows,documents),originalFindings);
       finalReview = {...finalReview,status:reply.finishReason === 'length' ? 'cut short' : reviewProblems(reply.text).length?'incomplete decisions':corrected.note,
         received:finalAuditChecks(corrected,verificationRows).length,approval:corrected.review?'whole required ledger':'entry verdicts',replyCharacters:reply.text.length,finishReason:reply.finishReason,
         calls:reply.calls || 1,fetches:reply.rounds || 0,formatContinuation:Boolean(reply.formatContinuation),sourceCalls:sourceReview?.calls || 0,
@@ -669,6 +677,15 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
             .filter(r=>!verificationRows.some(old=>old.id===r.id) && !verificationReceiptMatches(previousVerification[r.id],r))
             .map(r=>before.get(r.id) || r)]);
         }
+        // The semantic decision approves the actual resulting profile. A
+        // concurrent edit cannot borrow it when the saved state is reloaded.
+        if (corrected.review?.status==='complete') for (const issue of sourceCandidates.filter(i=>i.sourceFacts)) {
+          const open=(corrected.review.open || []).find(o=>o.id===auditFindingId(issue));
+          if (open) {openSourceFacts.set(auditFindingId(issue),open.why);continue;}
+          const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
+          if (mention && !sourceIdentityNeeded(result.out,mention)) reviewedSourceFacts.set(auditFindingId(issue),{
+            scope:sourceFactScope(result.out,{...mention,source:issue.sourceId}),why:corrected.review.why,shown:mention.shown,sourceId:issue.sourceId});
+        }
         withdrawals.push(...(corrected.resolved || []));
         raw += '\n\nCombined review:\n' + reply.text;
       } else followupFailed = true;
@@ -692,14 +709,23 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const approvedState = result.out;
   const finalState = await loadState(storyId);
   result = judge(sourceReview ? {...finalState,auditSources:sourceReview.cache} : finalState, offered);
-  const verification = verifyLedgerChecks({state:result.out, snapshot:verificationSnapshot, checks:verificationChecks,
-    previous:previousVerification, documents, source:verificationSource, applied:result.applied,approvedState,authoritative:true});
+  const openProfiles=new Map(originalFindings.filter(i=>openSourceFacts.has(auditFindingId(i)))
+    .flatMap(i=>findingRows(i,result.out).map(row=>[row.id,openSourceFacts.get(auditFindingId(i))])));
+  const verification = verifyLedgerChecks({state:result.out, snapshot:verificationSnapshot,
+    checks:verificationChecks.map(c=>openProfiles.has(c.id)?{...c,status:'open',why:openProfiles.get(c.id)}:c),
+    previous:Object.fromEntries(Object.entries(previousVerification).filter(([id])=>!openProfiles.has(id))),
+    documents, source:verificationSource, applied:result.applied,approvedState,authoritative:true});
   const sourceFactDecisions={...(result.out.audit?.sourceFactDecisions || {})};
   for (const issue of originalFindings.filter(i=>i.sourceFacts)) {
     const decision=withdrawals.find(r=>(r.what===issue.what || r.id===auditFindingId(issue)) && documents.some(d=>d.id===issue.sourceId && auditorSourceQuote(d.text,r.shown)));
     const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
-    if (mention && (decision || findingSettled(issue,result,withdrawals,documents,verification))) {
-      sourceFactDecisions[sourceFactScope(result.out,{...mention,source:issue.sourceId})]=decision
+    const reviewed=reviewedSourceFacts.get(auditFindingId(issue));
+    const scope=mention && sourceFactScope(result.out,{...mention,source:issue.sourceId});
+    const currentSource=documents.some(d=>d.id===issue.sourceId && d.mark===result.out.auditSources?.[issue.sourceId]?.mark);
+    const approvedMention=approvedState.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
+    const approvedScope=approvedMention && sourceFactScope(approvedState,{...approvedMention,source:issue.sourceId});
+    if (!openSourceFacts.has(auditFindingId(issue)) && mention && currentSource && !sourceIdentityNeeded(result.out,mention) && (reviewed?.scope===scope || (decision && scope===approvedScope) || findingSettled(issue,result,withdrawals,documents,verification))) {
+      sourceFactDecisions[scope]=reviewed?.scope===scope ? reviewed : decision
         ? {why:decision.why || decision.what,shown:decision.shown}
         : {why:'The actual People core and original source facts passed factual review.'};
     }
@@ -707,7 +733,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const identityDispositionHistory=supersededSourceIdentityHistory(
     [...originalFindings,...unresolvedFindings(result)],result.out,result.out.audit?.identityDispositionHistory);
   result.out.audit={...result.out.audit,sourceFactDecisions,identityDispositionHistory};
-  const outstanding = compactFindings([...originalFindings, ...missingSourcePeople(result.out,documents.flatMap(d=>(result.out.auditSources?.[d.id]?.people || []).map(p=>({...p,source:d.id,label:d.label})))), ...unresolvedFindings(result)].filter((i) => !findingSettled(i, result, withdrawals, documents, verification)), result.out);
+  const outstanding = compactFindings([...originalFindings, ...missingSourcePeople(result.out,documents.flatMap(d=>(result.out.auditSources?.[d.id]?.people || []).map(p=>({...p,source:d.id,label:d.label})))), ...unresolvedFindings(result)].filter((i) => openSourceFacts.has(auditFindingId(i)) || !findingSettled(i, result, withdrawals, documents, verification)), result.out);
   pending = [...new Set([...outstanding.map((i) => i.what + ': ' + (i.pendingReason || (i.sourceFacts ? 'source-supported profile facts still need reconciliation' : 'identity or entity classification still needs a working repair'))), ...(sourceReview?.pending || []), ...(answerProblem ? [answerProblem] : []), ...(followupFailed ? ['the combined ledger review did not finish'] : []), ...(verification.read < verification.total ? [`ledger verification: checked ${verification.read} of ${verification.total} entries; ${verification.pending.slice(0, 2).join('; ')}`] : [])])];
   result.unfinished = pending.length > 0;
   result.pending = pending;
@@ -730,9 +756,35 @@ function repairKey(mutation) {
   return JSON.stringify(Object.fromEntries(Object.keys(mutation).filter((k) => !metadata.has(k)).sort().map((k) => [k, mutation[k]])));
 }
 
+function bindHistoricalFindings(read,findings) {
+  return {...read,issues:read.issues.map(issue=>{
+    const matches=findings.filter(old=>(issue.findingId && auditFindingId(old)===issue.findingId) || old.what===issue.what);
+    return matches.length===1 ? {...matches[0],...issue,
+      ...Object.fromEntries(['name','sourceId','sourceName','sourceFacts','profileRecovery','facts'].filter(k=>matches[0][k]!==undefined).map(k=>[k,matches[0][k]]))} : issue;
+  })};
+}
+
+export function restoreSourceFactFindings(findings,state,documents) {
+  const candidates=documents.flatMap(d=>d.mark===state.auditSources?.[d.id]?.mark
+    ? (state.auditSources[d.id].people || []).flatMap(p=>{
+      const key=sourcePersonKey(state,p.name,p.ledgerName,p.identityResolution);
+      const facts=p.identityFacts || [];
+      return key && facts.length ? [{what:key+' has source identity facts to reconcile: '+facts.map(f=>f.text).join('; '),
+        name:key,sourceId:d.id,sourceName:p.name,sourceFacts:true,profileRecovery:true,shown:p.shown,facts,pages:false}] : [];
+    }) : []);
+  return findings.map(issue=>{
+    if (issue.mutations?.length) return issue;
+    if (issue.sourceId && state.auditSources?.[issue.sourceId]?.people?.some(p=>p.name===(issue.sourceName || issue.name))) return issue;
+    const matches=candidates.filter(c=>c.what===issue.what && (!issue.sourceId || c.sourceId===issue.sourceId));
+    return matches.length===1 ? {...issue,...matches[0]} : issue;
+  });
+}
+
 function unresolvedFindings(result) {
   return result.issues.filter((i) => i.refused?.length || (!i.landed && !(i.pages && i.fix))).map((i) => ({
-    what: i.what, fix: i.fix, ...(i.findingId ? {id:i.findingId} : {}), ...(i.targets ? {targets:i.targets} : {}), pendingReason: i.refused?.join('; ') || 'no repair was supplied',
+    what: i.what, fix: i.fix, pages:i.pages,
+    ...Object.fromEntries(['name','sourceId','sourceName','sourceFacts','profileRecovery','shown','facts'].filter(k=>i[k]!==undefined).map(k=>[k,i[k]])),
+    ...(i.findingId ? {id:i.findingId} : {}), ...(i.targets ? {targets:i.targets} : {}), pendingReason: i.refused?.join('; ') || 'no repair was supplied',
     mutations: result.rejected.filter((r) => i.mutations.includes(r.mutation) && !r.same && !r.standing).map((r) => r.mutation),
   }));
 }
@@ -1219,7 +1271,7 @@ export function findingSettled(issue, result, withdrawals, documents, verificati
   }
   if (issue.sourceFacts && issue.sourceId) {
     const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
-    if (!mention) return false;
+    if (!mention || !documents.some(d=>d.id===issue.sourceId && d.mark===result.out.auditSources?.[issue.sourceId]?.mark)) return false;
     if (!sourceIdentityNeeded(result.out,mention) && !missingSourceIdentityFacts(result.out,mention).length) return true;
     if (result.out.audit?.sourceFactDecisions?.[sourceFactScope(result.out,{...mention,source:issue.sourceId})]) return true;
     // Specific missing facts can be settled by grounded withdrawal or the actual

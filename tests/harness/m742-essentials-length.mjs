@@ -28,12 +28,13 @@ const saved=await db.settings.get(ESSENTIALS_KEY('exact33851'));
 assert.equal(saved.text,compact);assert.equal(saved.upTo,48);assert.equal(saved.sources.length,49);
 assert.equal(await db.settings.get(PENDING_KEY('exact33851')),undefined);
 // A bounded failed editing round keeps the full draft, not a clipped 16000-char prefix.
-const failed=await runEssentials({connection,storyId:'persist',nodes,callLLM:async()=>({text:oversized,finishReason:'stop'})});
+const indivisible=[{...nodes[0],span:[0,48],text:nodes.map(n=>n.text).join(' ')}];
+const failed=await runEssentials({connection,storyId:'persist',nodes:indivisible,callLLM:async()=>({text:oversized,finishReason:'stop'})});
 assert(failed.pending);let pending=await db.settings.get(PENDING_KEY('persist'));
 assert.equal(pending.diagnostic.draft,oversized);assert.equal(await db.settings.get(ESSENTIALS_KEY('persist')),undefined);
 await db.settings.set(PENDING_KEY('persist'),{...pending,nextAt:0});
 let resumed=0;
-assert((await runEssentials({connection,storyId:'persist',nodes,callLLM:async(c,ask)=>{resumed++;assert.equal(ask.messages[1].content,oversized);assert.match(ask.messages[2].content,/about 8000 characters/);return {text:compact};}})).wrote);
+assert((await runEssentials({connection,storyId:'persist',nodes:indivisible,callLLM:async(c,ask)=>{resumed++;assert.equal(ask.messages[1].content,oversized);assert.match(ask.messages[2].content,/about 8000 characters/);return {text:compact};}})).wrote);
 assert.equal(resumed,1);
 // Changed original material never borrows an older draft.
 await db.settings.set(PENDING_KEY('changed'),pending);

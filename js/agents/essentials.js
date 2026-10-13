@@ -28,8 +28,11 @@ export const PENDING_KEY = storyId => 'essentialsPending:' + storyId;
 export const ESSENTIALS_MAX_CHARS = 16000;   /* about 4,000 tokens — the whole story, streamlined */
 export const ESSENTIALS_MAX_TOKENS = 5000;
 export const ESSENTIALS_TRIES = 3; /* M666: his — "it automatically tries again, same as all other workers": three asks, as the keeper's lines have */
-const ESSENTIALS_REPAIR_POLICY = 2; /* M742: edit the oversized draft, rather than merely regenerate it. */
+const ESSENTIALS_REPAIR_POLICY = 3; /* M743: bounded chronological output partitioning. */
 const REPAIR_DRAFT_MAX_CHARS = 128000;
+const RUN_CALL_LIMIT = 12;
+const PART_MIN_CHARS = 100;
+const answerOptions = share => ({maxTokens:ESSENTIALS_MAX_TOKENS,maxTokensLimit:Math.min(ESSENTIALS_MAX_TOKENS,Math.max(256,Math.ceil(share/3)))});
 
 const fp = (t) => fingerprint36(t);
 
@@ -37,7 +40,7 @@ const fp = (t) => fingerprint36(t);
  * Short recovery first, then a patient ceiling while the story stays open. */
 export const essentialsRetryDelay = attempts => [60000, 300000, 900000, 1800000][Math.min(3, Math.max(0, attempts - 1))];
 function helperPrintOf(connection, brief, mc) {
-  const helper = workerConnection(connection, {maxTokens:ESSENTIALS_MAX_TOKENS});
+  const helper = workerConnection(connection, answerOptions(ESSENTIALS_MAX_CHARS));
   const shell = essentialsAsk({brief,mc});
   const accounting = measureTransport(helper,{system:shell.system,messages:[{role:'user',content:shell.user}]});
   return {helper,accounting,print:fp(JSON.stringify([helper.id,helper.type,helper.model,helper.baseUrl,contextOf(helper),accounting.answerTokens,helper.reasoning,helper.temperature,helper.topP,helper.prefill]))};
@@ -135,7 +138,7 @@ export function readEssentials(raw, cap = ESSENTIALS_MAX_CHARS) {
 }
 
 export function sourcePrint(nodes) {
-  return fp(JSON.stringify(recordOf(nodes).lines.map(n => [n.id, n.span, n.text, n.detail || '', n.correction === true, n.sourcePages || n.source || n.sources || null])));
+  return fp(JSON.stringify(recordOf(nodes).lines.map(n => [n.id, n.span, n.text, n.detail || '', n.correction === true, n.sourcePages || n.source || n.sources || null,...(n.sourceSegment?[n.sourceSegment]:[])])));
 }
 export function essentialsMatch(kept, nodes, through = Infinity) {
   if (!kept?.text || kept.complete === false || !Number.isFinite(kept.upTo) || kept.upTo >= through) return false;
@@ -186,14 +189,27 @@ export function essentialsRepairMessages({connection,system,user,draft,share,att
     'Combine related entries, remove repeated wording and incidental description, and use concise clauses. Preserve chronological coverage through the final source entry, names, causes, conditions, decisions, corrections, unresolved promises and meaningful relationship changes. '+
     'The original source entries in the first message remain authoritative. The rejected draft is not new evidence and may be cut off or incomplete. Check the originals and include their final stretch even if the draft missed it. Do not invent missing time or place. '+
     'Return only the complete replacement record lines, each beginning with its time and place and page range. Do not explain the revision or copy the old draft before it.'}];
-  const helper=workerConnection(connection,{maxTokens:ESSENTIALS_MAX_TOKENS});
+  const helper=workerConnection(connection,answerOptions(share));
   const measured=measureTransport(helper,{system,messages});
   return measured.inputTokens<=inputRoom({budgetTokens:contextOf(helper),answerTokens:measured.answerTokens}) ? messages : null;
 }
 
-async function tellPart({ connection, lines, part, parts, share, brief, mc, signal, renew, callLLM, usage, previous }) {
+function sectionCoverage(text,lines) {
+  const ranges=String(text).split('\n').flatMap(line=>{
+    const m=line.match(/^(?:[-*•]\s*)?(?:\[[^\]\n]+\]\s*)?\(pages?\s+(\d+)(?:\s*(?:to|[-–—])\s*(\d+))?\)/i);
+    return m ? [[Number(m[1])-1,Number(m[2] || m[1])-1]] : [];
+  }).sort((a,b)=>a[0]-b[0]);
+  return lines.filter(n=>!n.correction).every(n=>{
+    let next=n.span[0];
+    for (const [start,end] of ranges) if (start<=next && end>=next) next=end+1;
+    return next>n.span[1];
+  });
+}
+
+async function tellPart({ connection, lines, part, parts, share, brief, mc, signal, renew, callLLM, usage, previous, requiredCoverage=false }) {
   const ask = essentialsAsk({ record: lines.map(recordLine).join('\n'), brief, mc });
-  const partNote = '\n\nPart ' + (part + 1) + ' of ' + parts + '. Tell only these original source entries, within ' + share + ' characters.';
+  const partNote = '\n\nPart ' + (part + 1) + ' of ' + parts + '. Tell only these original source entries, within ' + share + ' characters.'
+    + (requiredCoverage ? ' This is a smaller chronological section after oversized whole-record revisions. Include explicit (pages first to last) ranges covering EVERY supplied source span through the final entry, including the resulting correction facts.' : '');
   const correction = result => '\n\nThe previous candidate was ' + result.why + (result.chars ? ' ('+result.chars+' characters)' : '') + '. '+
     (result.clipped || result.providerTruncated ? 'Aim for at most '+Math.floor(share*0.7)+' characters, using fewer complete lines for related entries. ' : 'Every line must begin with [time, place] (pages first to last). No headings, commentary or separate continuation lines. ')+
     'Return complete record lines, keeping causes, consequences, corrections and necessary emotional details. Cover all supplied source entries; do not leave the newest stretch unfinished.';
@@ -202,13 +218,17 @@ async function tellPart({ connection, lines, part, parts, share, brief, mc, sign
   let draft=previous?.draft || '';
   for (let attempt = 0; attempt < ESSENTIALS_TRIES; attempt++) {
     if (signal?.aborted) throw signal.reason || new Error('reading stopped');
+    if (usage.calls>=RUN_CALL_LIMIT) return {text:'',diagnostic:last || previous || {why:'bounded recovery round reached its request limit',part:part+1,parts,share,chars:0}};
     renew();
     const messages=essentialsRepairMessages({connection,system:ask.system,user:ask.user+partNote,draft,share,attempt:attempt+(previous?.draft ? 2 : 0)});
     usage.calls++; usage.inputChars += ask.system.length + (messages ? messages.reduce((n,m)=>n+m.content.length,0) : user.length);
-    const answer = await callLLM(connection, { system: ask.system, user, ...(messages ? {messages} : {}), maxTokens: ESSENTIALS_MAX_TOKENS, signal });
+    const answer = await callLLM(connection, { system: ask.system, user, ...(messages ? {messages} : {}), ...answerOptions(share), signal });
     const raw = typeof answer === 'string' ? answer : answer?.text || '';
     usage.outputChars += raw.length;
     const result = inspectEssentials(raw, share, answer?.finishReason || '');
+    if (result.complete && requiredCoverage && !sectionCoverage(result.text,lines)) {
+      result.complete=false;result.incomplete=true;result.why='chronological source ranges are incomplete';
+    }
     if (result.complete) return {text:result.text};
     // Keep the entire rejected draft only as editing material, never completed
     // memory. Even a truncated draft is repaired against ALL original entries.
@@ -238,33 +258,97 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
   const room = Math.max(0,Math.floor((inputRoom({budgetTokens:contextOf(helper),answerTokens:accounting.answerTokens}) - accounting.inputTokens) * 3 * 0.75) - 600);
   const usage = { calls: 0, inputChars: 0, outputChars: 0 };
   const savedParts = [];
-  const failed = async (why,diagnostic) => {
-    const latestMemory = await db.settings.get('memory:' + storyId);
+  const splits = [];
+  const owns = async () => {
+    const latestMemory=await db.settings.get('memory:'+storyId);
     const latestStory=await db.stories.get(storyId),latestState=await db.settings.get('state:'+storyId);
     const latestEssentials=await db.settings.get(ESSENTIALS_KEY(storyId));
+    return !stale() && !signal?.aborted && setupOwner===ownerPrint(latestStory,latestState)
+      && JSON.stringify(latestEssentials)===JSON.stringify(original)
+      && (!ownedMemory || latestMemory && sourcePrint(latestMemory.nodes)===inputPrint);
+  };
+  const saveProgress = async (why,diagnostic,nextAt=0,attempts=0) => {
+    if (await owns()) await db.settings.set(PENDING_KEY(storyId),{sourcePrint:inputPrint,setupPrint,helperPrint,why,diagnostic,
+      attempts,nextAt,parts:savedParts,splits,repairPolicy:ESSENTIALS_REPAIR_POLICY});
+  };
+  const failed = async (why,diagnostic) => {
     const attempts=(recovery.same && pending.repairPolicy===ESSENTIALS_REPAIR_POLICY ? Number(pending.attempts)||0 : 0)+1;
     const retryAt=Date.now()+essentialsRetryDelay(attempts);
-    if(!stale() && !signal?.aborted && setupOwner===ownerPrint(latestStory,latestState) && JSON.stringify(latestEssentials)===JSON.stringify(original) && (!ownedMemory || latestMemory && sourcePrint(latestMemory.nodes) === inputPrint)) await db.settings.set(PENDING_KEY(storyId),{sourcePrint:inputPrint,setupPrint,helperPrint,why,diagnostic,attempts,nextAt:retryAt,parts:savedParts,repairPolicy:ESSENTIALS_REPAIR_POLICY});
+    await saveProgress(why,diagnostic,retryAt,attempts);
     return { wrote:false,why,pending:true,retryAt,usage };
   };
   // An indivisible entry cannot be silently clipped or falsely certified.
   if (rec.lines.some(n => recordLine(n).length + 1 > room)) return failed('an individual source entry exceeds the helper room');
   const parts = recordParts(rec.lines, room);
   const available = ESSENTIALS_MAX_CHARS - Math.max(0, parts.length - 1);
-  const minimum = 100;
+  const minimum = PART_MIN_CHARS;
   if (parts.length * minimum > available) return failed('too many source parts for complete combined essentials');
   const total = rec.lines.reduce((t, n) => t + recordLine(n).length + 1, 0) || 1;
   const spare = available - parts.length * minimum;
   const shares = parts.map(part => minimum + Math.floor(spare * part.reduce((t,n) => t + recordLine(n).length + 1,0) / total));
   const told = [];
   const reuseSafe = !force && original?.setupPrint === setupPrint && !rec.lines.some(n => n.correction);
+  const candidates=[...(reuseSafe ? original?.parts || [] : []),...(!force && recovery.same ? pending?.parts || [] : [])];
+  const priorSplits=!force && recovery.same ? pending?.splits || [] : [];
+  // Split at original entry boundaries near the chronological midpoint. No
+  // source or failed draft is clipped, and child allocations fit their parent.
+  const divide = (lines,share) => {
+    if (share<2*minimum+1) return null;
+    if (lines.length===1) {
+      const node=lines[0],text=node.text;
+      // A folded node may itself hold multiple chronological record lines.
+      // Keep its original identity/span and exact contiguous source offsets.
+      const boundaries=[...text.matchAll(/\n(?=\s*(?:[-*•]\s*)?\[[^\]\n]+\])|\n[ \t]*\n/g)].map(m=>m.index+m[0].length)
+        .filter(at=>text.slice(0,at).trim() && text.slice(at).trim());
+      if (!boundaries.length) return null;
+      const at=boundaries.reduce((best,n)=>Math.abs(n-text.length/2)<Math.abs(best-text.length/2)?n:best);
+      const start=node.sourceSegment?.start || 0;
+      const first=minimum+Math.floor((share-1-2*minimum)*at/text.length);
+      const segment=(from,to)=>({...node,text:text.slice(from,to),detail:to===text.length?node.detail:'',
+        sourceSegment:{sourceId:node.id,span:node.span,start:start+from,end:start+to}});
+      return [{lines:[segment(0,at)],share:first},{lines:[segment(at,text.length)],share:share-1-first}];
+    }
+    const sizes=lines.map(n=>recordLine(n).length+1),sum=sizes.reduce((a,b)=>a+b,0);
+    let left=sizes[0],at=1;
+    while (at<lines.length-1 && Math.abs(left+sizes[at]-sum/2)<Math.abs(left-sum/2)) left+=sizes[at++];
+    const spare=share-1-2*minimum,first=minimum+Math.floor(spare*left/sum);
+    return [{lines:lines.slice(0,at),share:first},{lines:lines.slice(at),share:share-1-first}];
+  };
+  const readSection = async (lines,share,i,path='',depth=0) => {
+    const print=sourcePrint(lines);
+    const reused=candidates.find(p=>p.print===print && p.share===share && p.complete && inspectEssentials(p.text,share).complete && (!depth || sectionCoverage(p.text,lines)));
+    if (reused) {savedParts.push(reused);await saveProgress('Reading remaining source sections.');return {text:reused.text};}
+    const priorSplit=priorSplits.some(p=>p.print===print && p.share===share);
+    let result;
+    if (!priorSplit) {
+      const previous=recovery.same && pending.diagnostic?.print===print && pending.diagnostic?.share===share ? pending.diagnostic
+        : recovery.same && !pending.diagnostic?.print && !path && pending.diagnostic?.part===i+1 ? pending.diagnostic : null;
+      result=await tellPart({connection,lines,part:i,parts:parts.length,share,brief,mc,signal,renew,callLLM,usage,previous,requiredCoverage:depth>0});
+      if (result.text) {
+        savedParts.push({print,share,text:result.text,complete:true});
+        await saveProgress('Reading remaining source sections.');
+        return result;
+      }
+      result.diagnostic={...result.diagnostic,print,path};
+      if (!(result.diagnostic.clipped || result.diagnostic.providerTruncated)) return result;
+    }
+    const children=depth<4 ? divide(lines,share) : null;
+    if (!children) return result || {text:'',diagnostic:{why:'source section cannot be divided further within the accepted memory budget',print,path,part:i+1,parts:parts.length,share,chars:0}};
+    splits.push({print,share});
+    await saveProgress('Reading smaller chronological source sections.',result?.diagnostic);
+    const complete=[];
+    for (const [childIndex,child] of children.entries()) {
+      if (usage.calls>=RUN_CALL_LIMIT) return {text:'',diagnostic:{why:'bounded recovery round reached its request limit; completed sections are saved',print:sourcePrint(child.lines),path:path+childIndex,part:i+1,parts:parts.length,share:child.share,chars:0}};
+      const next=await readSection(child.lines,child.share,i,path+childIndex,depth+1);
+      if (!next.text) return next;
+      complete.push(next.text);
+    }
+    return {text:complete.join('\n')};
+  };
   for (let i = 0; i < parts.length; i++) {
-    const print = sourcePrint(parts[i]);
-    const candidates=[...(reuseSafe ? original?.parts || [] : []),...(!force && recovery.same ? pending?.parts || [] : [])];
-    const reused = candidates.find(p => p.print === print && p.share === shares[i] && p.complete && inspectEssentials(p.text,shares[i]).complete);
     let result;
     try {
-      result=reused ? {text:reused.text} : await tellPart({ connection, lines: parts[i], part: i, parts: parts.length, share: shares[i], brief, mc, signal, renew, callLLM, usage,previous:recovery.same && pending.diagnostic?.part===i+1 ? pending.diagnostic : null });
+      result=await readSection(parts[i],shares[i],i);
     } catch (err) {
       // Cancellation belongs to the queue. A provider failure gets the same durable
       // patient recovery as a rejected answer, including any completed source parts.
@@ -272,8 +356,8 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
       return failed('source part '+(i+1)+' of '+parts.length+': '+String(err?.message || 'the provider could not be reached').slice(0,300));
     }
     const text=result.text;
-    if (!text) return failed('source part '+(i+1)+' of '+parts.length+': '+result.diagnostic.why+' (answer '+result.diagnostic.chars+' characters; allowed '+shares[i]+')',result.diagnostic);
-    told.push(text); savedParts.push({ print, share: shares[i], text, complete: true });
+    if (!text) return failed('source part '+(i+1)+' of '+parts.length+': '+result.diagnostic.why+' (answer '+result.diagnostic.chars+' characters; allowed '+result.diagnostic.share+')',result.diagnostic);
+    told.push(text);
   }
   const text = told.join('\n');
   if (text.length > ESSENTIALS_MAX_CHARS) return failed('combined output exceeds the essentials room');

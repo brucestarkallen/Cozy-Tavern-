@@ -115,3 +115,18 @@ Final selected original evidence carries its existing message identity, version
 and told page date. Quotes alone, unknown chronology and transformed source
 copies cannot certify current perspective. Legacy records stay stored; no bulk
 rewrite, migration, additional reader or audit policy change is required.
+
+
+## M743 completion and recovery
+
+A source fact finding retains sourceId and sourceName independently of the
+canonical People key. Missing legacy labels recover only from a unique matching
+fact in a current original receipt with an established row binding. Semantic
+completion is scoped to the actual source mark, facts, binding and saved profile;
+uncertainty stays open and completed unchanged reviews generate no new calls.
+Repair policy9 resumes previously paused failures once. New factual work and
+saved closures refresh progress; two repeated stalled runs remain bounded.
+Essentials retains the same 16000 character budget, existing source ownership
+and previous usable text. Oversized sections divide chronologically after the
+existing draft revisions; complete leaf receipts survive reload and only the
+remaining sections are retried. Structural coverage is not a semantic guarantee.

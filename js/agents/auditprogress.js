@@ -5,7 +5,7 @@ import { auditSources } from './auditsources.js';
 const AUDIT_INPUT_VERSION = 1;
 // A changed repair procedure can resume an old paused failure once, without
 // invalidating completed factual audits merely because an app release changed.
-export const LEDGER_REPAIR_POLICY = 8;
+export const LEDGER_REPAIR_POLICY = 9;
 // Fixed legacy formats, so skipping a future app release does not erase an
 // already completed M713/M714 review. New receipts never include app VERSION.
 const LEGACY_REVIEW_RELEASES = ['m713-001','m714-001'];
@@ -97,6 +97,9 @@ export function repairRetryCheckpoint(before, after, story, pages) {
   const source = ledgerRepairInputKey({}, story, (pages || []).map(p => ({ ...p, voices: [] })));
   const previous = before.audit?.retryProgress;
   const count = state => (state.audit?.pending || []).length;
+  const work = state => [...new Set((state.audit?.unresolved || []).map(i=>i.id || i.findingId || fingerprint36(JSON.stringify(
+    i.sourceId ? [i.sourceId,i.sourceName || i.name,Boolean(i.sourceFacts),i.facts?.map(f=>f.text)]
+      : i.targets?.length ? i.targets : i.mutations?.length ? i.mutations.map(m=>[m.type,m.name,m.from,m.field,m.sourceId,m.key,m.title]) : i.what))))].sort();
   const currentSource = ledgerRepairInputKey({},story,pages);
   const currentEntries = state => state.audit?.verification?.source === currentSource
     ? ledgerVerificationRows(state).filter(row => verificationReceiptMatches(state.audit.verification.entries?.[row.id],row)) : [];
@@ -113,14 +116,20 @@ export function repairRetryCheckpoint(before, after, story, pages) {
     },0);
   };
   const read = state => (Number(state.audit?.coverage?.read) || 0) + currentEntries(state).length + factProgress(state);
-  const old = previous?.source === source ? previous : {
-    source, bestPending: count(before), bestRead: read(before), stalled: 0,
+  const old = previous?.source === source && previous.policy===LEDGER_REPAIR_POLICY ? previous : {
+    source, bestPending: count(before), bestRead: read(before), stalled: 0, work:work(before),
   };
   const beforeEntries = new Map(currentEntries(before).map(row => [row.id,row.print]));
   const newlyVerified = currentEntries(after).some(row => beforeEntries.get(row.id) !== row.print);
-  const improved = count(after) < old.bestPending || read(after) > old.bestRead || newlyVerified;
-  return { source, bestPending: Math.min(old.bestPending, count(after)),
-    bestRead: Math.max(old.bestRead, read(after)), stalled: improved ? 0 : old.stalled + 1 };
+  const afterWork=work(after),beforeWork=work(before),priorWork=old.work || beforeWork;
+  const discovered=afterWork.some(id=>!priorWork.includes(id)) || (old.bestPending===0 && count(after)>0);
+  const closed=beforeWork.some(id=>!afterWork.includes(id));
+  const decisions=state=>Object.keys(state.audit?.sourceFactDecisions || {});
+  const savedDecision=decisions(after).some(id=>!decisions(before).includes(id));
+  const improved = closed || savedDecision || count(after) < count(before) || count(after) < old.bestPending || read(after) > old.bestRead || newlyVerified;
+  return { source, policy:LEDGER_REPAIR_POLICY,work:afterWork,progress:improved || discovered,
+    bestPending: discovered ? count(after) : Math.min(old.bestPending, count(after)),
+    bestRead: Math.max(old.bestRead, read(after)), stalled: improved || discovered ? 0 : old.stalled + 1 };
 }
 export function auditHasOpenWork(audit) {
   return Boolean(audit?.unfinished || audit?.pending?.length || audit?.unresolved?.length);

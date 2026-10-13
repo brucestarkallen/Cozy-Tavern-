@@ -13,7 +13,7 @@ await db.settings.set(ESSENTIALS_KEY('recovery'),prior);
 await db.settings.set('memory:recovery',{nodes});
 let calls=0,renewals=0;const asks=[];
 const failed=await runEssentials({connection,storyId:'recovery',nodes,renew:()=>renewals++,callLLM:async(c,ask)=>{calls++;asks.push(ask);return {text:'[Dawn, chapel] '+ 'Long detail. '.repeat(1500),finishReason:'length'};}});
-assert.equal(calls,3);assert.equal(renewals,3);assert(failed.pending);assert.match(failed.why,/over its allocated room/);
+assert.equal(calls,12);assert.equal(renewals,12);assert(failed.pending);assert.match(failed.why,/bounded recovery round reached its request limit/);
 assert.match(asks[1].messages.at(-1).content,/Revise the draft above/);
 assert.deepEqual(await db.settings.get(ESSENTIALS_KEY('recovery')),prior);
 let pending=await db.settings.get(PENDING_KEY('recovery'));assert(pending.nextAt>Date.now());assert.equal(pending.diagnostic.part,1);
@@ -28,8 +28,8 @@ assert.equal(healthSnapshot({essentials:{...view,eligible:true},running:['essent
 assert.equal(healthSnapshot({essentials:{...view,eligible:true},otherOwner:true}).next,null);
 // Durable cooldown can expire without changing the source or pressing regenerate.
 await db.settings.set(PENDING_KEY('recovery'),{...pending,nextAt:Date.now()-1});
-const recovered=await runEssentials({connection,storyId:'recovery',nodes,callLLM:async(c,ask)=>{assert.match(ask.messages.at(-1).content,/Revise the draft above/);return {text:good,finishReason:'stop'};}});
-assert(recovered.wrote);assert.equal(recovered.usage.calls,1);assert.equal(await db.settings.get(PENDING_KEY('recovery')),undefined);
+const recovered=await runEssentials({connection,storyId:'recovery',nodes,callLLM:async(c,ask)=>{assert(ask.user.includes('original source entries'));return {text:good,finishReason:'stop'};}});
+assert(recovered.wrote);assert(recovered.usage.calls>=1 && recovered.usage.calls<=12);assert.equal(await db.settings.get(PENDING_KEY('recovery')),undefined);
 await enqueueWork('recovery',{name:'essentials',run:async()=>essentialsRunNote(recovered)});
 assert.equal((await loadWorkerStatus('recovery')).essentials.unfinished,false);
 view=essentialsRecoveryState({kept:await db.settings.get(ESSENTIALS_KEY('recovery')),nodes,connection});
@@ -60,4 +60,4 @@ await db.settings.set(PENDING_KEY('parts'),{...saved,nextAt:0});partCalls=[];
 assert((await runEssentials({connection:smallConn,storyId:'parts',nodes:large,callLLM:async(c,ask)=>{partCalls.push(Number(ask.user.match(/Part (\d+) of/)[1]));return {text:good};}})).wrote);
 assert(!partCalls.includes(1));
 assert.equal(essentialsRetryDelay(50),1800000);
-console.log(JSON.stringify({result:'pass',sourceEntries:49,initialAttempts:3,cooldownCalls:0,automaticRecoveryCalls:1,legacyRecovery:true,partialResume:true,manualPreserved:true,liveCalls:0}));
+console.log(JSON.stringify({result:'pass',sourceEntries:49,initialAttempts:12,cooldownCalls:0,automaticRecoveryCalls:recovered.usage.calls,legacyRecovery:true,partialResume:true,manualPreserved:true,liveCalls:0}));

@@ -3412,19 +3412,15 @@ export function initChat(ctx) {
         const after = await loadState(storyId);
         again = ledgerRepairNeeded(after, await loadWorkerStatus(storyId), story, repairPages, await auditEvery());
         if (again) {
-          const progress = ledgerRepairStateKey(after) !== ledgerRepairStateKey(before)
-            || (after.audit?.coverage?.read || 0) > (before.audit?.coverage?.read || 0)
-            || (after.audit?.verification?.read || 0) > (before.audit?.verification?.read || 0)
-            || Object.keys(after.characters || {}).length > Object.keys(before.characters || {}).length
-            || (after.audit?.pending?.length || 0) < (before.audit?.pending?.length || 0);
           const checkpoint = repairRetryCheckpoint(before, after, story, repairPages);
+          const progress = checkpoint.progress;
           if (run.ok && !run.value?.silent) {
             const currentStory = await db.stories.get(storyId);
             const currentPages = visiblePages(await db.messages.list(storyId));
             const fresh = await loadState(storyId);
             // Do not pause over a concurrent user edit or new turn.
             if (ledgerRepairInputKey(fresh, currentStory, currentPages) === ledgerRepairInputKey(after, story, repairPages)) {
-              const pause = (!progress && checkpoint.stalled > 0) || checkpoint.stalled >= 2;
+              const pause = checkpoint.stalled >= 2;
               await saveState(storyId, { ...fresh, audit: { ...fresh.audit,
                 retryProgress: checkpoint,
                 pausedInput: pause ? ledgerRepairInputKey(fresh, currentStory, currentPages) : null,

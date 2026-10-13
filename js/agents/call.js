@@ -59,7 +59,7 @@ export const ALWAYS_THINKS_FLOOR = 16000; /* M303 */
 let tellerConnectionId = null;
 export function noteTellerConnection(id) { tellerConnectionId = typeof id === 'string' && id ? id : null; }
 
-export function workerConnection(connection, { maxTokens, effort, temperature } = {}) {
+export function workerConnection(connection, { maxTokens, maxTokensLimit, effort, temperature } = {}) {
   const c = { ...connection };
   /* M328: A STORY'S PREFILL IS NOT WELDED ONTO A WORKER. The extension's law for "utility generations", and its
    * reason: a prefill written for the storyteller — "[The Bluebird —", or a thinking seed in the teller's
@@ -89,6 +89,9 @@ export function workerConnection(connection, { maxTokens, effort, temperature } 
   else if (!Number.isFinite(c.temperature)) delete c.temperature;
   const room = Number.isFinite(maxTokens) && maxTokens > 0 ? Math.round(maxTokens) : WORKER_MAX_TOKENS;
   c.maxTokens = Math.max(room, Number.isFinite(c.maxTokens) ? Math.round(c.maxTokens) : 0) || room;
+  // A bounded memory request can specify its own output allocation. Reasoning
+  // floors below still apply; saved connection dials are never changed.
+  if (Number.isFinite(maxTokensLimit) && maxTokensLimit>0) c.maxTokens=Math.min(c.maxTokens,Math.round(maxTokensLimit));
   /* M303: A HOUSE THAT CANNOT STOP THINKING NEEDS ROOM TO THINK AND ANSWER.
    * The workers ask for 400 to 4,000 tokens, and on every other house a
    * worker's thinking can be switched off so the room is all answer. Kimi K3
@@ -155,9 +158,9 @@ export async function callWorker(connection, opts = {}) {
   }
 }
 
-async function callWorkerOn(connection, { system, user, messages, maxTokens, effort, temperature, signal } = {}) {
+async function callWorkerOn(connection, { system, user, messages, maxTokens, maxTokensLimit, effort, temperature, signal } = {}) {
   if (!connection || typeof connection !== 'object') throw new Error('no connection');
-  const conn = workerConnection(connection, { maxTokens, effort, temperature });
+  const conn = workerConnection(connection, { maxTokens, maxTokensLimit, effort, temperature });
   const provider = createProvider(conn);
   const list = Array.isArray(messages) && messages.length
     ? messages
