@@ -67,7 +67,7 @@ const sid='ess';const prior={text:'[Dawn, old chapel] A usable earlier account. 
 await db.settings.set('essentials:'+sid,prior);await db.settings.set('memory:'+sid,{nodes});
 let calls=0;
 const failed=await runEssentials({connection:conn,storyId:sid,nodes,callLLM:async()=>{calls++;return {text:'[Dawn, chapel] '+ 'Overflow detail. '.repeat(1500),finishReason:'length'};}});
-assert.equal(calls,2);assert.equal(failed.wrote,false);assert.equal(failed.pending,true);assert.deepEqual(await db.settings.get('essentials:'+sid),prior);assert.equal((await loadEssentials(sid)).upTo,3);
+assert.equal(calls,3);assert.equal(failed.wrote,false);assert.equal(failed.pending,true);assert.deepEqual(await db.settings.get('essentials:'+sid),prior);assert.equal((await loadEssentials(sid)).upTo,3);
 assert.equal(inspectEssentials('[Dawn, chapel] '+ 'Text '.repeat(50)+'because').complete,false);
 const notRepeated=await runEssentials({connection:conn,storyId:sid,nodes,callLLM:async()=>{throw Error('unchanged failed source must not spend again');}});assert.equal(notRepeated.usage.calls,0);assert(notRepeated.pending);
 const forced=await runEssentials({connection:conn,storyId:sid,nodes,force:true,callLLM:async()=>({text:'[Dawn, chapel] The writer correction now stands. Mara kept the conditional promise because her brother was released.',finishReason:'stop'})});assert(forced.wrote);assert.equal(forced.usage.calls,1,'manual regeneration must perform a new source reading');

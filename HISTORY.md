@@ -20945,3 +20945,44 @@ checks, ledger audits, all other worker recovery policies, themes, branch fixes,
 provider settings and dependencies. No audit-policy reset, destructive migration
 or new shell asset. Publication identity is reported separately from Git.
 
+
+# M742: repair the actual oversized Essentials draft
+
+Version m742-001. Base main 581112a8fd264433a87c5aa89cb69cdef12fedc2.
+REOPENED by the owner after M741: source part 1 of 1 returned 33,851 characters
+against its 16,000-character share. M741 repaired indefinite retry suppression
+and dishonest completion reporting but its correction still regenerated from
+original sources without showing the rejected draft. That was insufficient for
+the reported live model. This followup repairs that specific shortening path.
+
+A length rejection now becomes a real editing conversation: original source
+request, full rejected draft, and a request to rewrite it to 65 percent of the
+available share, then 50 percent if needed. Original sources remain authoritative
+through the final entry, including when the rejected draft was provider-truncated.
+Transport accounting checks that this entire conversation plus the effective
+answer allowance fits; if not, the existing original-source correction remains.
+No input or output is silently clipped, and completion validation is unchanged.
+
+Up to three requests per round now allow generation and two direct revisions.
+The entire rejected draft, at most 128,000 characters, can persist as pending
+editing material only. The next recovery edits it immediately; it is never
+loaded as accepted Essentials. Source/setup/helper matching isolates reuse.
+Completed source parts and ownership guards remain. The repair policy resumes
+existing M741 cooldowns immediately once, without reopening completed Essentials
+or ledger audits. Existing provider settings and fallback are unchanged. The
+pending status no longer produces a doubled final period in the worker drawer.
+
+Focused tests/harness/m742-essentials-length.mjs passed the exact 33,851-character
+rejection, two direct revisions and saving a 6,302-character replacement with
+49 source receipts; truncated draft repair, persisted draft resume, changed-source
+isolation, M741 cooldown migration and full conversation context guarding passed.
+Updated M741 module recovery test passed, including previous text, manual writes,
+stop handling, cooldown, partial resume and truthful status. Updated actual
+Chromium M741 test passed: three rejected streamed replies, zero calls during
+cooldown/reopen, one idle recovery call and green only after saved completion;
+all 49 original test pages remained. Syntax and whitespace checks passed.
+All responses were simulated. The owner's real draft was not supplied, and
+live model compliance and semantic compression quality remain unverified.
+No broad suite, live model cost, schema change, new dependency, source deletion,
+UI redesign or changes to unrelated workers. Publication is reported from Git.
+

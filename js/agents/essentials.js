@@ -28,6 +28,8 @@ export const PENDING_KEY = storyId => 'essentialsPending:' + storyId;
 export const ESSENTIALS_MAX_CHARS = 16000;   /* about 4,000 tokens — the whole story, streamlined */
 export const ESSENTIALS_MAX_TOKENS = 5000;
 export const ESSENTIALS_TRIES = 3; /* M666: his — "it automatically tries again, same as all other workers": three asks, as the keeper's lines have */
+const ESSENTIALS_REPAIR_POLICY = 2; /* M742: edit the oversized draft, rather than merely regenerate it. */
+const REPAIR_DRAFT_MAX_CHARS = 128000;
 
 const fp = (t) => fingerprint36(t);
 
@@ -47,7 +49,7 @@ export function essentialsRecoveryState({kept,pending,nodes,brief='',mc='',conne
   if (!connection) return {needed:true,why:'Plot essentials needs a connection.',retryAt:now+60000};
   const {print:helperPrint}=helperPrintOf(connection,brief,mc);
   const same=pending?.sourcePrint===inputPrint && pending.setupPrint===setupPrint && pending.helperPrint===helperPrint;
-  return {needed:true,same,inputPrint,setupPrint,helperPrint,retryAt:same ? Number(pending.nextAt)||0 : 0,
+  return {needed:true,same,inputPrint,setupPrint,helperPrint,retryAt:same && pending.repairPolicy===ESSENTIALS_REPAIR_POLICY ? Number(pending.nextAt)||0 : 0,
     why:same ? pending.why || 'The previous essentials answer was incomplete.' : 'Plot essentials has not finished reading the current record.'};
 }
 
@@ -55,7 +57,7 @@ export function essentialsRunNote(out) {
   if (out.wrote || out.why==='unchanged') return {detail:out.wrote ? 'streamlined the whole record into the story’s essentials' : 'the saved essentials match the current record'};
   if (!out.pending) return {silent:true};
   const wait=Math.max(1,Math.ceil(((out.retryAt || Date.now()+60000)-Date.now())/60000));
-  return {unfinished:true,detail:'Plot essentials update pending: '+out.why+'. Previous saved essentials were left intact. Automatic recovery will check again in about '+wait+(wait===1?' minute.':' minutes.')};
+  return {unfinished:true,detail:'Plot essentials update pending: '+out.why+'. Previous saved essentials were left intact. Automatic recovery will check again in about '+wait+(wait===1?' minute':' minutes')};
 }
 
 /* the record's lines in its own order (a correction reads last), and a fingerprint of all of them */
@@ -172,6 +174,23 @@ export function recordParts(lines, room) {
   if (cur.length) parts.push(cur);
   return parts;
 }
+/* A rejected draft is editing material only. Original sources stay authoritative
+ * in every repair request, and the full serialized conversation must fit. */
+export function essentialsRepairMessages({connection,system,user,draft,share,attempt=1}) {
+  if (!draft) return null;
+  const target=Math.floor(share*(attempt>1 ? 0.5 : 0.65));
+  const reduction=Math.max(1,Math.ceil((1-target/draft.length)*100));
+  const messages=[{role:'user',content:user},{role:'assistant',content:draft},{role:'user',content:
+    'Revise the draft above; do not generate another expanded record. It is '+draft.length+' characters, but the saved essentials can hold at most '+share+' characters. '+
+    'Rewrite the COMPLETE draft to about '+target+' characters or fewer, reducing its length by at least '+reduction+' percent. '+
+    'Combine related entries, remove repeated wording and incidental description, and use concise clauses. Preserve chronological coverage through the final source entry, names, causes, conditions, decisions, corrections, unresolved promises and meaningful relationship changes. '+
+    'The original source entries in the first message remain authoritative. The rejected draft is not new evidence and may be cut off or incomplete. Check the originals and include their final stretch even if the draft missed it. Do not invent missing time or place. '+
+    'Return only the complete replacement record lines, each beginning with its time and place and page range. Do not explain the revision or copy the old draft before it.'}];
+  const helper=workerConnection(connection,{maxTokens:ESSENTIALS_MAX_TOKENS});
+  const measured=measureTransport(helper,{system,messages});
+  return measured.inputTokens<=inputRoom({budgetTokens:contextOf(helper),answerTokens:measured.answerTokens}) ? messages : null;
+}
+
 async function tellPart({ connection, lines, part, parts, share, brief, mc, signal, renew, callLLM, usage, previous }) {
   const ask = essentialsAsk({ record: lines.map(recordLine).join('\n'), brief, mc });
   const partNote = '\n\nPart ' + (part + 1) + ' of ' + parts + '. Tell only these original source entries, within ' + share + ' characters.';
@@ -179,22 +198,22 @@ async function tellPart({ connection, lines, part, parts, share, brief, mc, sign
     (result.clipped || result.providerTruncated ? 'Aim for at most '+Math.floor(share*0.7)+' characters, using fewer complete lines for related entries. ' : 'Every line must begin with [time, place] (pages first to last). No headings, commentary or separate continuation lines. ')+
     'Return complete record lines, keeping causes, consequences, corrections and necessary emotional details. Cover all supplied source entries; do not leave the newest stretch unfinished.';
   let user = ask.user + partNote + (previous ? correction(previous) : '');
-  let correctedLength = false;
   let last;
+  let draft=previous?.draft || '';
   for (let attempt = 0; attempt < ESSENTIALS_TRIES; attempt++) {
     if (signal?.aborted) throw signal.reason || new Error('reading stopped');
     renew();
-    usage.calls++; usage.inputChars += ask.system.length + user.length;
-    const answer = await callLLM(connection, { system: ask.system, user, maxTokens: ESSENTIALS_MAX_TOKENS, signal });
+    const messages=essentialsRepairMessages({connection,system:ask.system,user:ask.user+partNote,draft,share,attempt:attempt+(previous?.draft ? 2 : 0)});
+    usage.calls++; usage.inputChars += ask.system.length + (messages ? messages.reduce((n,m)=>n+m.content.length,0) : user.length);
+    const answer = await callLLM(connection, { system: ask.system, user, ...(messages ? {messages} : {}), maxTokens: ESSENTIALS_MAX_TOKENS, signal });
     const raw = typeof answer === 'string' ? answer : answer?.text || '';
     usage.outputChars += raw.length;
     const result = inspectEssentials(raw, share, answer?.finishReason || '');
     if (result.complete) return {text:result.text};
-    last={why:result.why,clipped:result.clipped,providerTruncated:result.providerTruncated,chars:result.text.length,finishReason:answer?.finishReason || '',part:part+1,parts,share};
-    if (result.clipped || result.providerTruncated) {
-      if (correctedLength) break;
-      correctedLength = true;
-    }
+    // Keep the entire rejected draft only as editing material, never completed
+    // memory. Even a truncated draft is repaired against ALL original entries.
+    draft=(result.clipped || result.providerTruncated) && result.text.length<=REPAIR_DRAFT_MAX_CHARS ? result.text : '';
+    last={why:result.why,clipped:result.clipped,providerTruncated:result.providerTruncated,chars:result.text.length,finishReason:answer?.finishReason || '',part:part+1,parts,share,...(draft ? {draft} : {})};
     user = ask.user + partNote + correction(last);
   }
   return {text:'',diagnostic:last};
@@ -223,9 +242,9 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
     const latestMemory = await db.settings.get('memory:' + storyId);
     const latestStory=await db.stories.get(storyId),latestState=await db.settings.get('state:'+storyId);
     const latestEssentials=await db.settings.get(ESSENTIALS_KEY(storyId));
-    const attempts=(recovery.same ? Number(pending.attempts)||0 : 0)+1;
+    const attempts=(recovery.same && pending.repairPolicy===ESSENTIALS_REPAIR_POLICY ? Number(pending.attempts)||0 : 0)+1;
     const retryAt=Date.now()+essentialsRetryDelay(attempts);
-    if(!stale() && !signal?.aborted && setupOwner===ownerPrint(latestStory,latestState) && JSON.stringify(latestEssentials)===JSON.stringify(original) && (!ownedMemory || latestMemory && sourcePrint(latestMemory.nodes) === inputPrint)) await db.settings.set(PENDING_KEY(storyId),{sourcePrint:inputPrint,setupPrint,helperPrint,why,diagnostic,attempts,nextAt:retryAt,parts:savedParts});
+    if(!stale() && !signal?.aborted && setupOwner===ownerPrint(latestStory,latestState) && JSON.stringify(latestEssentials)===JSON.stringify(original) && (!ownedMemory || latestMemory && sourcePrint(latestMemory.nodes) === inputPrint)) await db.settings.set(PENDING_KEY(storyId),{sourcePrint:inputPrint,setupPrint,helperPrint,why,diagnostic,attempts,nextAt:retryAt,parts:savedParts,repairPolicy:ESSENTIALS_REPAIR_POLICY});
     return { wrote:false,why,pending:true,retryAt,usage };
   };
   // An indivisible entry cannot be silently clipped or falsely certified.

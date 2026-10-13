@@ -56,7 +56,7 @@ try:
    result=page.evaluate(snapshot,story)
    if result.get('pending') and not result['working'] and result['shelf'].get('essentials',{}).get('unfinished'):break
    page.wait_for_timeout(100)
-  assert len(calls)==2,(len(calls),result,errors)
+  assert len(calls)==3,(len(calls),result,errors)
   assert result['kept']['text']=='PREVIOUS_ESSENTIALS_KEEP',result
   assert result['shelf']['essentials']['unfinished'],result
   page.wait_for_timeout(400)
@@ -64,7 +64,7 @@ try:
   # Reopening must respect persisted cooldown, not restart paid calls.
   await_open="""async id=>{await window.__cozy.chat.openStory(id)}"""
   page.evaluate(await_open,story);page.wait_for_timeout(700)
-  assert len(calls)==2,(len(calls),errors)
+  assert len(calls)==3,(len(calls),errors)
   # Advance browser time only. Existing health timer must resume without a button.
   mode[0]='good'
   page.clock.fast_forward(61000)
@@ -73,13 +73,13 @@ try:
    result=page.evaluate(snapshot,story)
    if not result.get('pending') and not result['working'] and 'all-well' in result['lamp']:break
    page.wait_for_timeout(50)
-  assert len(calls)==3,(len(calls),result,errors)
+  assert len(calls)==4,(len(calls),result,errors)
   assert not result.get('pending'),result
   assert result['kept']['complete'] and result['kept']['upTo']==48,result
   assert not result['shelf']['essentials']['unfinished'],result
   assert 'all-well' in result['lamp'],result
   assert result['pages']==49
   assert not errors,errors
-  print(json.dumps({'result':'pass','initialRejectedCalls':2,'cooldownAndReopenCalls':0,'idleRecoveryCalls':1,'lamp':'green only after saved completion','sourcePagesPreserved':49,'liveCalls':0}))
+  print(json.dumps({'result':'pass','initialRejectedCalls':3,'cooldownAndReopenCalls':0,'idleRecoveryCalls':1,'lamp':'green only after saved completion','sourcePagesPreserved':49,'liveCalls':0}))
   browser.close()
 finally:server.shutdown()
