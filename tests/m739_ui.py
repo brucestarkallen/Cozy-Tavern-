@@ -54,6 +54,6 @@ with sync_playwright() as pw:
   assert abs(centre['offset'])<.1,centre
  p.evaluate("document.getElementById('btn-immerse-show').classList.replace('is-working','all-well')")
  assert metrics['scroll']=='auto',metrics
- print(json.dumps({'passed':'orange selection, contrast, per theme persistence and reset, desktop/mobile nav inset, immersive dot centering, native scrollbar and the page mark both kept','metrics':metrics,'colours':data}))
+ print(json.dumps({'passed':'orange selection, contrast, per theme persistence and reset, desktop/mobile nav inset, immersive dot centering, the story scrolling with the page mark as its one thumb','metrics':metrics,'colours':data}))
  b.close()
 server.shutdown()

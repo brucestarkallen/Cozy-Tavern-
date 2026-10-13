@@ -21319,3 +21319,13 @@ only once a drag moves. Desktop hover grip unchanged. Measured in Chromium phone
 (tests/shelf_handle.py, fails on m752-005): grip at rest grey 56 px → none; a tap → nothing;
 a 60 px drag widens 284 → 344 px and lights the edge. No law covered the handle before;
 harness and DOM walk not run (CSS and the handle's own listener only).
+
+## M752 followup 7 (m752-007): one scroll thumb on the story
+
+The owner: two scroll bars on the right of the main screen, "the big and very small one —
+choose one". They were the page mark (M466, his: says the page, drags to any page) and the
+browser's own thumb on the thread, both drawn while the story scrolls. Kept the page mark
+(on a phone the browser's thumb cannot be dragged); the thread's own thumb is not drawn
+(scrollbar-width: none and its WebKit twin). The story scrolls as before. tests/pagemark.py
+now checks it (computed thumb 'auto' on m752-006 → 'none'; still scrolls; no gutter) and
+passes whole; tests/m739_ui.py passes. CSS only: harness and DOM walk not run.

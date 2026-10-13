@@ -376,6 +376,13 @@ body.panel-resizing .story-panel, body.panel-resizing .panel-resize { user-selec
     var(--bg) 78%);
 }
 
+/* M752 (followup 7) — HIS: "remove double scroll bar on the right main screen, the big and very small one, and choose one".
+ * Two thumbs rode the story's right edge as it scrolled: the browser's own (the very small one) and the page mark (M466,
+ * his: the big one, which says the page and drags to any page — on a phone the browser's cannot be dragged). The page mark
+ * is the one kept; the story still scrolls exactly as before, only the browser's thumb is not drawn. */
+.thread { scrollbar-width: none; }
+.thread::-webkit-scrollbar { display: none; }
+
 .thread-empty {
   margin: auto;
   max-width: 760px;

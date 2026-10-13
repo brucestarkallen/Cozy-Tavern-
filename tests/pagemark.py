@@ -109,6 +109,11 @@ try:
             if got != want: fails.append('%s: got %s, wanted %s' % (what, got, want))
         pages = page.evaluate("() => document.getElementById('thread').dataset.pages")
         if pages != '40': fails.append('forty pages numbered, got ' + str(pages))
+        # M752 (followup 7), his: "remove double scroll bar on the right … the big and very small one and choose one" — the
+        # page mark is the one thumb: the browser's own is not drawn, and the story still scrolls
+        one = page.evaluate("() => { const t = document.getElementById('thread'), c = getComputedStyle(t); return { drawn: c.scrollbarWidth, overflow: c.overflowY, scrolls: t.scrollHeight > t.clientHeight + 100, gutter: t.offsetWidth - t.clientWidth }; }")
+        print('  %-42s %s' % ('the browser’s own thumb', one))
+        if one != {'drawn': 'none', 'overflow': 'auto', 'scrolls': True, 'gutter': 0}: fails.append('two thumbs on the story, or it no longer scrolls: %s' % one)
         page.evaluate("() => { const t = document.getElementById('thread'); t.scrollTop = t.scrollHeight; }")
         page.wait_for_timeout(250)
         check('at the end (opened there)', 40)
