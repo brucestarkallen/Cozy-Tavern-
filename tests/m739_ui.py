@@ -45,6 +45,14 @@ with sync_playwright() as pw:
  assert p.evaluate("(()=>{const e=document.getElementById('page-mark'),was=e.hidden;e.hidden=false;const d=getComputedStyle(e).display;e.hidden=was;return d})()")!='none'
  metrics=p.evaluate("""()=>{let e=document.getElementById('btn-immerse-show'),s=e.querySelector('span').getBoundingClientRect(),r=e.getBoundingClientRect(),a=getComputedStyle(e,'::after');return {tabCenter:s.x+s.width/2,dotCenter:r.right-parseFloat(a.right),scroll:getComputedStyle(document.getElementById('thread')).overflowY}}""")
  assert abs(metrics['tabCenter']-metrics['dotCenter'])<.1,metrics
+ # M752 (followup 5), his: the blue dot "is not on the right center like the green and yellow". Its pulse animated
+ # `transform`, replacing the tab's centering translateX(50%); each lamp's drawn centre (its translate included) is the tab's.
+ for lamp in ['all-well','has-trouble','is-working']:
+  centre=p.evaluate("""(lamp)=>{const e=document.getElementById('btn-immerse-show');e.classList.remove('all-well','has-trouble','is-working');e.classList.add(lamp);
+   const s=e.querySelector('span').getBoundingClientRect(),r=e.getBoundingClientRect(),a=getComputedStyle(e,'::after'),m=new DOMMatrix(a.transform==='none'?undefined:a.transform);
+   return {lamp,offset:(r.right-parseFloat(a.right)-parseFloat(a.width)/2+m.m41)-(s.x+s.width/2)}}""",lamp)
+  assert abs(centre['offset'])<.1,centre
+ p.evaluate("document.getElementById('btn-immerse-show').classList.replace('is-working','all-well')")
  assert metrics['scroll']=='auto',metrics
  print(json.dumps({'passed':'orange selection, contrast, per theme persistence and reset, desktop/mobile nav inset, immersive dot centering, native scrollbar and the page mark both kept','metrics':metrics,'colours':data}))
  b.close()

@@ -1257,9 +1257,11 @@ body.read-only .send-btn { opacity: 0.4; }
   animation: ledger-working 1.4s ease-in-out infinite;
 }
 
+/* M752 (followup 5): the pulse uses `scale`, never `transform` — an animated transform replaced the full-screen tab's
+ * centering translateX(50%) (M739), and the blue dot sat half a dot right of where green and yellow sit */
 @keyframes ledger-working {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.86); }
+  0%, 100% { opacity: 1; scale: 1; }
+  50% { opacity: 0.5; scale: 0.86; }
 }
 
 /* the amber one breathes, so a glance catches it; the green one is steady,

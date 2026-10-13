@@ -21296,3 +21296,14 @@ errors (253 warnings). Chromium at 390 px: the button wraps with the others, no 
 Limits: his stored tale and his provider were not run; C1's scripted model is one that
 reads the clarification. A model that keeps answering inconsistently spends six calls (two
 attempts) and the correction waits for his press.
+
+## M752 followup 5 (m752-005): the blue full-screen dot centred
+
+The owner: the full-screen tab's blue dot was not centred like the green and yellow.
+Cause: the blue pulse (ledger-working) animated `transform: scale(…)`, which replaced the
+tab's centring `transform: translateX(50%)` (M739); green has no animation and yellow
+animates only opacity. The pulse now animates `scale`, which composes with the centring;
+the small auditing dot used the same animation and is fixed with it. Measured in Chromium
+(390 px): blue 3.68 px off the tab's centre before, within 0.1 px after, green and yellow
+unchanged. tests/m739_ui.py now checks every lamp's drawn centre (fails on m752-004).
+CSS only: no harness or DOM walk run (jsdom cannot see it).
