@@ -47,7 +47,7 @@ export function healthSnapshot({storyId,shelf={},state={},pages=[],mem={},story=
         name==='world' && row.ok && row.resume?.startsWith('voice-identities:')?(repairOwed?'auditor':null):retry?.eligible?'worker:'+name:null,{checkpoint:retry?.input,blocked:retry?.reason || '',state:row.ok===false?'failed':'unfinished'});
     }
   }
-  if (recordBehind) add('record-gap','keeper','Original pages still need folding.','record');
+  if (recordBehind) add('record-gap','keeper','The memory record needs current original-page coverage.','record');
   if (ledgerBehind) add('ledger-gap','extractor','Story pages remain unread by the ledger.','ledger');
   if (essentials?.needed) add('essentials-pending','essentials',essentials.why || 'Plot essentials is not current.',essentials.eligible?'essentials':null,{retryAt:essentials.retryAt});
   const audit=state.audit || {};

@@ -1,6 +1,6 @@
 import { measureTransport } from '../providers/measure.js';
 import { bodyAccounting } from '../assemble/budget.js';
-import { recordId } from '../assemble/selection.js';
+import { recordId, sourceBindingIssues } from '../assemble/selection.js';
 import {healthSnapshot,routeHealth,workerRecoveryDue,reconciledWorkerStatus} from '../agents/health.js';
 import { ledgerRepairStateKey, ledgerRepairInputKey, repairRetryCheckpoint, auditHasOpenWork, ledgerAuditVerified, ledgerRepairNeeded, LEDGER_REPAIR_POLICY } from '../agents/auditprogress.js';
 /* Cozy Tavern — ui/chat.js
@@ -2991,7 +2991,7 @@ export function initChat(ctx) {
         part=minders.filter(n=>shelf[n]?.ok!==false && shelf[n]?.unfinished);
         verificationNeeded = told > 0 && !ledgerAuditVerified(st, tale, pages);
         repairOwed = told > 0 && !assistants[assistants.length - 1]?.stopped && Boolean(pageText(assistants[assistants.length - 1]).trim()) && tale?.extraction !== false && await auditOn(tale) && ledgerRepairNeeded(st, shelf, tale, pages, await auditEvery());
-        recordBehind = Boolean(dueRange(pages.length, window, mem.nodes, batch));
+        recordBehind = Boolean(dueRange(pages.length, window, mem.nodes, batch) || sourceBindingIssues(mem.nodes,pages).length);
         if (recordBehind && !(await keeperOnFor(tale))) { recordBehind = false; unfoldedForGood = true; }
         behind = ledgerBehind || recordBehind;
         /* M673: only where it can read — its switch on, and this story's readers not switched off */
@@ -3495,14 +3495,19 @@ export function initChat(ctx) {
   }
   const gapFilledAt = new Map();
   const gapTries = new Map(); /* fills in a row that folded nothing — each waits twice as long */
-  async function recordGap(storyId) {
+  async function recordGapState(storyId) {
     const mem = await loadMemory(storyId);
     const pages = visiblePages(await db.messages.list(storyId));
     const window = windowFor(mem, await db.settings.get('memoryWindow')); /* M317: the same window the keeper folds by */
     const batch = cleanBatch(await db.settings.get('memoryBatch'));
-    return Boolean(dueRange(pages.length, window, mem.nodes, batch));
+    const issues=sourceBindingIssues(mem.nodes,pages),due=Boolean(dueRange(pages.length,window,mem.nodes,batch));
+    return {due,issues,needed:due || issues.length>0};
   }
-  const coveredCount = async (storyId) => coveredSet((await loadMemory(storyId)).nodes).size;
+  const recordGap=async storyId=>(await recordGapState(storyId)).needed;
+  const recordProgressPrint = async storyId => {
+    const mem=await loadMemory(storyId),pages=visiblePages(await db.messages.list(storyId));
+    return fingerprint36(JSON.stringify([(mem.nodes || []).map(n=>[n.id,n.span,n.text,n.detail || '',n.sourcePages || null]),sourceBindingIssues(mem.nodes,pages).map(i=>[i.id,i.kind])]));
+  };
   /* one minute, two, four… thirty at most (read when used, so a test may shorten it for one scenario) */
   const gapBackoffMs = () => (Number(globalThis.__cozyGapBackoffMs) > 0 ? Number(globalThis.__cozyGapBackoffMs) : 60000);
   const gapLookAgain = new Map();
@@ -3528,7 +3533,8 @@ export function initChat(ctx) {
        * said on the workers' line with its reason, and the next look comes by itself — a minute, two, four … apart. */
       const promise = enqueueWork(storyId, { name: 'keeper', once: true, run: async ({ signal, stale, renew }) => {
         if (!(await recordGap(storyId))) { gapTries.delete(storyId); return { silent: true }; }
-        const before = await coveredCount(storyId);
+        const beforeState=await recordGapState(storyId);
+        const before = await recordProgressPrint(storyId);
         /* a line's passage that contradicts the record is mended here too, as in the page's own chain */
         const onSourceIssue = async ({ issue, fix, span }) => {
           const ids = await pagesOfLine(storyId, span); /* M674: the line's own pages */
@@ -3541,8 +3547,10 @@ export function initChat(ctx) {
           if (stoppedRun(signal)) throw err; /* stopped by hand: the queue says so */
           stumbled = (signal && signal.aborted) || (err && err.message === 'timeout') ? 'the keeper’s model took too long to answer' : String((err && err.message) || 'the keeper’s model did not answer').slice(0, 160).replace(/[.\s]+$/, '');
         }
-        const moved = (await coveredCount(storyId)) > before;
-        const still = await recordGap(storyId);
+        const moved = (await recordProgressPrint(storyId)) !== before;
+        const afterState=await recordGapState(storyId),still=afterState.needed;
+        const repairedSources=beforeState.issues.length>afterState.issues.length;
+        const foldedPages=beforeState.due && !afterState.due;
         if (!still) gapTries.delete(storyId);
         else if (moved) gapTries.set(storyId, 0); /* a backlog folding on: soon again */
         else gapTries.set(storyId, tries + 1);
@@ -3555,9 +3563,16 @@ export function initChat(ctx) {
           clearTimeout(gapLookAgain.get(storyId));
           gapLookAgain.set(storyId, setTimeout(() => { gapLookAgain.delete(storyId); if (ctx.getActiveStoryId() === storyId) markLedgerTrouble(storyId); }, wait + 500));
         }
+        const detail=!still
+          ? repairedSources && foldedPages ? 'repaired original-page references and folded the outstanding pages'
+            : repairedSources ? 'repaired stale original-page references'
+              : 'folded a gap in the record'
+          : moved && repairedSources ? 'repaired some original-page references — the rest follows'
+            : moved ? 'folded part of a gap in the record — the rest follows'
+              : 'could not repair the record yet';
         return {
           silent: false,
-          detail: (!still ? 'folded a gap in the record' : moved ? 'folded part of a gap in the record — the rest follows' : 'could not fold a gap in the record yet') + (stumbled ? ' (' + stumbled + ')' : keeperTrouble() ? ' (' + keeperTrouble() + ')' : '') + (!still || moved ? '' : ' — it tries again later'), /* M315: the reason, said; M316: also when the house had to step in; M675: also when its model could not be reached */
+          detail: detail + (stumbled ? ' (' + stumbled + ')' : keeperTrouble() ? ' (' + keeperTrouble() + ')' : '') + (!still || moved ? '' : ' — it tries again later'),
           unfinished: still,
         };
       } });

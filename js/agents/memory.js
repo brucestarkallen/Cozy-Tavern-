@@ -1,4 +1,4 @@
-import { sourceBindings, messageVersion } from '../assemble/selection.js';
+import { sourceBindings, messageVersion, sourceBindingIssues } from '../assemble/selection.js';
 /* Cozy Tavern — agents/memory.js
  * The memory keeper. M34: the Summaryception principle, ported whole.
  *
@@ -1047,6 +1047,40 @@ export function visiblePages(history) {
   return (Array.isArray(history) ? history : []).filter((m) => m && !m.hidden);
 }
 
+/* A branch may carry a record whose source ids still name the parent's pages.
+ * Rebind only a complete, ordered copy whose full stored page rows match the
+ * originals exactly. Similar wording or a matching version alone is not proof. */
+export async function rebindCopiedRecord(storyId,nodes,{signal,stale}={}) {
+  const pages=visiblePages(await db.messages.list(storyId));
+  const copied=(nodes || []).filter(n=>!n.correction && Array.isArray(n.sourcePages)
+    && n.sourcePages.length===n.span[1]-n.span[0]+1 && !boundRecordForMemory(n,pages)
+    && n.sourcePages.every((ref,i)=>{const copy=pages[n.span[0]+i];return copy && copy.id!==ref.id && messageVersion(copy)===ref.version;}));
+  if (!copied.length) return null;
+  const originals=await db.messages.byIds(copied.flatMap(n=>n.sourcePages.map(p=>p.id)));
+  const copyText=page=>JSON.stringify(Object.fromEntries(Object.entries(page || {}).filter(([key])=>!['id','storyId'].includes(key))));
+  const proven=copied.filter(n=>n.sourcePages.every((ref,i)=>{
+    const origin=originals.get(ref.id),copy=pages[n.span[0]+i];
+    return origin && origin.storyId!==storyId && origin.id===ref.id && messageVersion(origin)===ref.version && copyText(origin)===copyText(copy);
+  }));
+  if (!proven.length) return null;
+  const nodePrint=list=>JSON.stringify((list || []).map(n=>[n?.id,n?.span,n?.text,n?.detail || '',n?.sourcePages || null]));
+  const before=nodePrint(nodes);
+  return db.editStoryAtomically(storyId,s=>{
+    if (signal?.aborted || stale?.() || nodePrint(s.settings.memory?.nodes)!==before) return null;
+    const current=visiblePages(s.messages.sort((a,b)=>(a.ts || 0)-(b.ts || 0)));
+    if (!proven.every(n=>n.sourcePages.every((ref,i)=>copyText(originals.get(ref.id))===copyText(current[n.span[0]+i])))) return null;
+    const held=new Map(proven.map(n=>[n.id,n]));
+    s.settings.memory={...s.settings.memory,nodes:s.settings.memory.nodes.map(n=>!held.has(n.id)?n:{...n,
+      sourceOrigins:n.sourceOrigins || n.sourcePages,
+      sourcePages:n.sourcePages.map((ref,i)=>({...ref,id:current[n.span[0]+i].id}))})};
+    return s.settings.memory.nodes;
+  });
+}
+function boundRecordForMemory(node,pages) {
+  const actual=pages.slice(Math.max(0,node.span[0]),node.span[1]+1);
+  return actual.length===node.sourcePages.length && actual.every((page,i)=>page.id===node.sourcePages[i].id && messageVersion(page)===node.sourcePages[i].version);
+}
+
 /* One past the last page any node covers. */
 export function coveredEnd(mem) {
   const nodes = mem && Array.isArray(mem.nodes) ? mem.nodes : [];
@@ -1113,6 +1147,10 @@ export function memoryAfterDeletion(mem, index, { keepCovering = lineIsHis } = {
     if (n.span[0] <= index && index <= n.span[1]) {
       if (!keepCovering(n) || n.span[0] === n.span[1]) return [];
       const kept = { ...n, span: [n.span[0], n.span[1] - 1] };
+      if (Array.isArray(n.sourcePages) && lineIsHis(n)) {
+        kept.sourceOrigins=[...new Map([...(Array.isArray(n.sourceOrigins)?n.sourceOrigins:[]),...n.sourcePages].map(p=>[p.id+':'+p.version,p])).values()];
+        delete kept.sourcePages; /* The writer's line stands on its own words, not the deleted page. */
+      }
       if (n.audited !== undefined) { const read = auditedOf(n); kept.audited = read && index < n.span[0] + read ? read - 1 : read; }
       return [kept];
     }
@@ -1139,6 +1177,10 @@ export function memoryAfterInsertion(mem, index, { keepCovering = lineIsHis } = 
     if (n.span[0] >= index) return [{ ...n, span: [n.span[0] + 1, n.span[1] + 1] }];
     if (!keepCovering(n)) return [];
     const kept = { ...n, span: [n.span[0], n.span[1] + 1] };
+    if (Array.isArray(n.sourcePages) && lineIsHis(n)) {
+      kept.sourceOrigins=[...new Map([...(Array.isArray(n.sourceOrigins)?n.sourceOrigins:[]),...n.sourcePages].map(p=>[p.id+':'+p.version,p])).values()];
+      delete kept.sourcePages;
+    }
     if (n.audited !== undefined) kept.audited = Math.min(auditedOf(n), index - n.span[0]);
     return [kept];
   });
@@ -1159,6 +1201,10 @@ export function memoryTruncatedAt(mem, index, { keepCovering = lineIsHis } = {})
     if (n.span[1] < index) return [n];
     if (n.span[0] >= index || !keepCovering(n)) return [];
     const kept = { ...n, span: [n.span[0], index - 1] };
+    if (Array.isArray(n.sourcePages) && lineIsHis(n)) {
+      kept.sourceOrigins=[...new Map([...(Array.isArray(n.sourceOrigins)?n.sourceOrigins:[]),...n.sourcePages].map(p=>[p.id+':'+p.version,p])).values()];
+      delete kept.sourcePages;
+    }
     if (n.audited !== undefined) kept.audited = Math.min(auditedOf(n), index - n.span[0]);
     return [kept];
   });
@@ -1491,6 +1537,16 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
 
   /* 1. the lines that are due, at the catch-up pace */
   lastKeeperTrouble = '';
+  const sourceRepair=await repairInvalidRecordSources({connection,storyId,signal,stale,renew});
+  if (sourceRepair.changed) {changed=true;mem=await loadMemory(storyId);mem.window=window;}
+  if (!sourceRepair.ok) {
+    lastKeeperTrouble=sourceRepair.why || 'a record line still needs its current original pages';
+    return changed ? mem : null;
+  }
+  if (sourceRepair.remaining) {
+    lastKeeperTrouble='some record lines still need their current original pages';
+    return changed ? mem : null;
+  }
   for (let n = 0; n < BATCHES_PER_RUN; n += 1) {
     const range = dueRange(history.length, window, mem.nodes, batch);
     if (!range) break;
@@ -1893,6 +1949,97 @@ export async function rereadMergedLine({ connection, storyId, lineId, signal, re
     await audit(connection, storyId, n, passage, signal, knownNames, renew);
   }
   return { ok: true, lines: made.length };
+}
+
+function sameVisiblePages(a,b) {
+  return JSON.stringify(sourceBindings(a))===JSON.stringify(sourceBindings(b));
+}
+async function relocateSourceNode(storyId,node,target,pages,{signal,stale}={}) {
+  const signature=nodeSignature(node),bindings=node.sourcePages;
+  return db.editStoryAtomically(storyId,s=>{
+    if (signal?.aborted || stale?.()) return false;
+    const current=visiblePages(s.messages.sort((a,b)=>(a.ts || 0)-(b.ts || 0)));
+    if (!sameVisiblePages(current,pages) || !current.slice(target[0],target[1]+1).every((page,i)=>page.id===bindings[i]?.id && messageVersion(page)===bindings[i]?.version)) return false;
+    const nodes=s.settings.memory?.nodes || [],at=nodes.findIndex(n=>n && n.id===node.id);
+    if (at<0 || nodeSignature(nodes[at])!==signature) return false;
+    const moved=[...nodes];moved[at]={...nodes[at],span:target,sourcePages:sourceBindings(current.slice(target[0],target[1]+1))};
+    s.settings.memory={...s.settings.memory,nodes:moved};return true;
+  });
+}
+async function preserveManualSourceNode(storyId,node,pages,{signal,stale}={}) {
+  const signature=nodeSignature(node);
+  return db.editStoryAtomically(storyId,s=>{
+    if (signal?.aborted || stale?.()) return false;
+    const current=visiblePages(s.messages.sort((a,b)=>(a.ts || 0)-(b.ts || 0)));
+    if (!sameVisiblePages(current,pages)) return false;
+    const nodes=s.settings.memory?.nodes || [],at=nodes.findIndex(n=>n && n.id===node.id);
+    if (at<0 || nodeSignature(nodes[at])!==signature) return false;
+    const old=nodes[at],origins=new Map([...(Array.isArray(old.sourceOrigins)?old.sourceOrigins:[]),...(Array.isArray(old.sourcePages)?old.sourcePages:[])].map(ref=>[ref.id+':'+ref.version,ref]));
+    const kept={...old,sourceOrigins:[...origins.values()]};delete kept.sourcePages;
+    const next=[...nodes];next[at]=kept;s.settings.memory={...s.settings.memory,nodes:next};return true;
+  });
+}
+
+/* Repair only lines whose source receipts no longer match the visible record.
+ * Exact branch copies and position-only metadata drift keep their text. Edited,
+ * reordered or unavailable pages are read again through the keeper's existing
+ * single-line and merged-line paths. */
+export async function repairInvalidRecordSources({connection,storyId,signal,stale,renew,maxRepairs=BATCHES_PER_RUN}={}) {
+  if (!storyId) return {ok:false,why:'no story'};
+  if (signal?.aborted) throw signal.reason || new Error('reading stopped');
+  if (stale?.()) return {ok:false,why:'the source repair no longer owns this story'};
+  let changed=0,repairs=0;
+  let mem=await loadMemory(storyId),pages=visiblePages(await db.messages.list(storyId));
+  const rebound=await rebindCopiedRecord(storyId,mem.nodes,{signal,stale});
+  if (Array.isArray(rebound)) {changed+=1;mem=await loadMemory(storyId);pages=visiblePages(await db.messages.list(storyId));}
+  while (repairs<maxRepairs) {
+    if (signal?.aborted) throw signal.reason || new Error('reading stopped');
+    if (stale?.()) return {ok:false,changed,why:'the source repair no longer owns this story'};
+    const issue=sourceBindingIssues(mem.nodes,pages)[0];
+    if (!issue) return {ok:true,changed,remaining:false};
+    const node=mem.nodes.find(n=>n && n.id===issue.id);
+    if (!node) {mem=await loadMemory(storyId);continue;}
+    if (issue.kind==='rewound') {
+      const saved=await db.editStoryAtomically(storyId,s=>{
+        if (signal?.aborted || stale?.()) return false;
+        const current=visiblePages(s.messages.sort((a,b)=>(a.ts || 0)-(b.ts || 0)));
+        const nodes=s.settings.memory?.nodes || [];
+        if (!sameVisiblePages(current,pages)) return false;
+        const target=nodes.find(n=>n && n.id===node.id);
+        if (!target || nodeSignature(target)!==nodeSignature(node)) return false;
+        s.settings.memory=memoryTruncatedAt(s.settings.memory,current.length);return true;
+      });
+      if (!saved && signal?.aborted) throw signal.reason || new Error('reading stopped');
+      if (!saved) return {ok:false,changed,why:'the record changed while its rewound pages were being removed'};
+      changed+=1;mem=await loadMemory(storyId);pages=visiblePages(await db.messages.list(storyId));continue;
+    }
+    if (issue.kind==='relocated') {
+      const saved=await relocateSourceNode(storyId,node,issue.target,pages,{signal,stale});
+      if (!saved && signal?.aborted) throw signal.reason || new Error('reading stopped');
+      if (!saved) return {ok:false,changed,why:'the source pages moved while their record binding was being repaired'};
+      changed+=1;mem=await loadMemory(storyId);pages=visiblePages(await db.messages.list(storyId));continue;
+    }
+    if (lineIsHis(node)) {
+      const saved=await preserveManualSourceNode(storyId,node,pages,{signal,stale});
+      if (!saved && signal?.aborted) throw signal.reason || new Error('reading stopped');
+      if (!saved) return {ok:false,changed,why:'the manual record line changed while its source receipt was being retired'};
+      changed+=1;mem=await loadMemory(storyId);pages=visiblePages(await db.messages.list(storyId));continue;
+    }
+    if (!connection) return {ok:false,changed,why:'the keeper needs a connection to reread an affected record line'};
+    const before=nodeSignature(node);
+    const result=node.level>=2
+      ? await rereadMergedLine({connection,storyId,lineId:node.id,signal,renew})
+      : await redoLine({connection,storyId,nodeId:node.id,signal,renew});
+    if (!result?.ok) return {ok:false,changed,why:result?.why || 'the keeper could not repair an affected record line'};
+    mem=await loadMemory(storyId);pages=visiblePages(await db.messages.list(storyId));
+    const still=mem.nodes.find(n=>n && n.id===node.id);
+    if (still && nodeSignature(still)===before && sourceBindingIssues([still],pages).length) {
+      return {ok:false,changed,why:'the keeper reply did not repair the original page binding'};
+    }
+    changed+=1;repairs+=1;
+  }
+  mem=await loadMemory(storyId);pages=visiblePages(await db.messages.list(storyId));
+  return {ok:true,changed,remaining:sourceBindingIssues(mem.nodes,pages).length>0};
 }
 
 /* M218: FOLD EVERYTHING THAT IS DUE, NOW — Summaryception's "Force Summarize

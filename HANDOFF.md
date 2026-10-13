@@ -1,3 +1,37 @@
+# M745: repair stale memory sources before Essentials
+
+Version m745-001. Base main f9845b04653e5ee40b15736273dcad27520ac32d.
+The reopened Essentials blocker came from strict source validation meeting a
+keeper gap check that counted page ranges only. A covered record with an edited
+or stale page binding was blocked by Essentials, while the keeper saw no work.
+M744 blocked-state rows also disabled their Essentials retry timer.
+
+The shared source-binding check now feeds Essentials, the keeper's idle health
+route and record-gap scheduling. The existing keeper repairs only affected
+entries: exact unchanged copies retain their text and are rebound with original
+provenance; shifted but identical page groups move with their span; changed,
+reordered or unavailable sources are reread through redoLine or
+rereadMergedLine. Rewind tails use the existing truncation lifecycle. Manual
+record lines keep their words and retire stale page bindings as independent
+writer-owned facts. Generated text retained while the keeper is off remains
+unverified and cannot make Essentials current.
+
+The keeper now sees stale bindings even when ranges are fully covered. Its
+normal queue repairs those entries, then Essentials resumes on the next health
+pass. Essentials policy5 makes M744 blocked candidates eligible for that path;
+completed sections and accepted snapshots keep their existing ownership and
+atomic publication guards. Source-repair progress is counted even when page
+coverage does not change. Stop and another writer's newer source remain guarded.
+
+The focused M745 module and Chromium workflows passed with disposable storage
+and simulated streamed replies. They cover edited and promoted lines, copied
+branches, span-only metadata drift, deletion/reorder/rewind classification,
+manual preservation, the seeded M744 blocked state, actual Essentials save,
+storyteller assembly, drawer rendering, green health and unchanged reopen with
+no repeat call. Existing M744 Essentials module and Chromium recovery checks
+also passed. No live provider request or owner database access was made. See
+docs/M745_REPAIR_REPORT.md for detailed results and limits.
+
 # M744: visible accepted Essentials and useful automatic continuation
 
 Version m744-001. Base a52ff50bcf35240b68e786bad10f83ac01f6e2da.

@@ -21023,3 +21023,26 @@ Focused module and real Chromium workflow passed with simulated replies and
 disposable storage. The previous snapshot was normally generated in both checks.
 No live provider or owner's browser data access, no broad suite or deployment.
 Details and verification boundaries: docs/M744_REPAIR_REPORT.md.
+
+
+## M745: repair stale memory sources before Essentials
+
+Version m745-001. Base main f9845b04653e5ee40b15736273dcad27520ac32d.
+Essentials rejected stale original-page bindings and persisted a blocked result,
+while the keeper saw complete range coverage and did not inspect those bindings.
+The shared source check now drives both Essentials validation and the keeper's
+existing idle repair route. Exact copies and unchanged relocated bindings retain
+their summary text; edited, reordered or unavailable originals reread only the
+affected level-one or promoted entry. Rewinds use the established truncation
+path. Manual record text and original provenance remain intact. Essentials
+policy5 resumes M744 blocked candidates without resetting auditor work.
+
+The M745 disposable module fixture passed for edited/promoted entries, exact
+branch copies, relocated metadata, manual preservation, structural mismatch
+classification and Stop. The Chromium workflow recovered an M744 blocked state,
+repaired a single source line, saved a complete simulated Essentials, used it in
+storyteller assembly, displayed it and turned health green; unchanged reopen
+made no additional call. Existing M744 module and Chromium fixtures passed too.
+All provider replies were simulated. No live provider call or owner database
+access; actual story recovery and live model compliance remain unverified.
+Detailed evidence: docs/M745_REPAIR_REPORT.md.

@@ -21,7 +21,8 @@ import { contextOf } from '../providers/room.js'; /* M565: the record told in pa
 import { mcName } from '../engine/duels.js';
 import { brokenOff } from '../engine/world.js';
 import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M566 */
-import { boundRecord, messageVersion } from '../assemble/selection.js';
+import { boundRecord, messageVersion, sourceBindingIssues } from '../assemble/selection.js';
+import { rebindCopiedRecord } from './memory.js';
 
 export const ESSENTIALS_KEY = (storyId) => 'essentials:' + storyId;
 export const PENDING_KEY = storyId => 'essentialsPending:' + storyId;
@@ -29,7 +30,7 @@ export const PENDING_KEY = storyId => 'essentialsPending:' + storyId;
 export const ESSENTIALS_MAX_CHARS = 16000;   /* about 4,000 tokens — the whole story, streamlined */
 export const ESSENTIALS_MAX_TOKENS = 5000;
 export const ESSENTIALS_TRIES = 3; /* M666: his — "it automatically tries again, same as all other workers": three asks, as the keeper's lines have */
-const ESSENTIALS_REPAIR_POLICY = 4; /* M744: continuation and accepted snapshots are separate. */
+const ESSENTIALS_REPAIR_POLICY = 5; /* M745: stale record bindings are repaired through the keeper before replacement. */
 const REPAIR_DRAFT_MAX_CHARS = 128000;
 const RUN_CALL_LIMIT = 12;
 const PART_MIN_CHARS = 800;
@@ -354,31 +355,6 @@ function acceptedPageReceipts(lines,upTo,pages=[]) {
   return originals.size===upTo+1 ? [...originals.values()].sort((a,b)=>a.ordinal-b.ordinal) : undefined;
 }
 
-async function rebindCopiedRecord(storyId,nodes,{signal,stale}={}) {
-  const pages=(await db.messages.list(storyId)).filter(m=>!m.hidden);
-  const copied=(nodes || []).filter(n=>!n.correction && n.sourcePages?.length && !boundRecord(n,pages)
-    && n.sourcePages.every((p,i)=>{const copy=pages[n.span[0]+i];return copy && copy.id!==p.id && messageVersion(copy)===p.version;}));
-  if (!copied.length) return null;
-  const originals=await db.messages.byIds(copied.flatMap(n=>n.sourcePages.map(p=>p.id)));
-  const copyText=page=>JSON.stringify(Object.fromEntries(Object.entries(page || {}).filter(([key])=>!['id','storyId'].includes(key))));
-  const proven=copied.filter(n=>n.sourcePages.every((p,i)=>{
-    const origin=originals.get(p.id),copy=pages[n.span[0]+i];
-    return origin && origin.storyId!==storyId && origin.id===p.id && messageVersion(origin)===p.version && copyText(origin)===copyText(copy);
-  }));
-  if (!proven.length) return null;
-  const before=sourcePrint(nodes);
-  return db.editStoryAtomically(storyId,s=>{
-    if (signal?.aborted || stale?.() || sourcePrint(s.settings.memory?.nodes)!==before) return null;
-    const current=s.messages.filter(m=>!m.hidden).sort((a,b)=>(a.ts || 0)-(b.ts || 0));
-    if (!proven.every(n=>n.sourcePages.every((p,i)=>copyText(originals.get(p.id))===copyText(current[n.span[0]+i])))) return null;
-    const held=new Map(proven.map(n=>[n.id,n]));
-    const repaired=s.settings.memory.nodes.map(n=>!held.has(n.id)?n:{...n,
-      sourceOrigins:n.sourceOrigins || n.sourcePages,
-      sourcePages:n.sourcePages.map((p,i)=>({...p,id:current[n.span[0]+i].id}))});
-    s.settings.memory={...s.settings.memory,nodes:repaired};return repaired;
-  });
-}
-
 export async function runEssentials({ connection, storyId, nodes, brief = '', mc = '', signal, renew = () => {}, callLLM = callWorker, force = false, stale = () => false } = {}) {
   if (!connection || !storyId) return {wrote:false,why:'no connection'};
   if (stale() || signal?.aborted) {if (signal?.aborted) throw signal.reason || new Error('reading stopped');return {wrote:false,outcome:'superseded'};}
@@ -453,7 +429,7 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
     if (!await persist(outcome,why,diagnostic)) return result('superseded','The source or saved version changed while reading.');
     return result(outcome,why);
   };
-  const invalidSources=ownedStory && (rec.upTo>=ownedPages.length || rec.lines.some(n=>!n.correction && n.sourcePages && !boundRecord(n,ownedPages)));
+  const invalidSources=ownedStory && (rec.upTo>=ownedPages.length || sourceBindingIssues(rec.lines,ownedPages).length>0);
   if (!roots || invalidSources || candidate.plan.filter(p=>p.complete).reduce((n,p)=>n+p.text.length,0)
     +candidate.plan.filter(p=>!p.complete).length*80+Math.max(0,candidate.plan.length-1)>ESSENTIALS_MAX_CHARS) {
     const why=!roots?'An indivisible source section exceeds the helper context.'

@@ -15,6 +15,38 @@ export function boundRecord(n, visible) {
   const pages = visible.slice(Math.max(0,n.span[0]),n.span[1]+1);
   return pages.length === n.sourcePages.length && pages.every((m,i) => m.id === n.sourcePages[i].id && messageVersion(m) === n.sourcePages[i].version);
 }
+/* The memory keeper and Essentials must agree on source validity. Range
+ * coverage alone cannot tell whether a folded line still describes the pages
+ * at that range. Callers pass the canonical visible page order. */
+export function sourceBindingIssues(nodes, visible = []) {
+  const pages=Array.isArray(visible)?visible:[];
+  const positions=new Map(pages.map((page,index)=>[page.id,{page,index}]));
+  const issues=[];
+  for (const node of Array.isArray(nodes)?nodes:[]) {
+    if (!node || node.correction || !Array.isArray(node.span) || node.span[0]<0) continue;
+    const [from,to]=node.span;
+    if (!Number.isInteger(from) || !Number.isInteger(to) || to<from) continue;
+    if (to>=pages.length) {issues.push({id:node.id,span:node.span,level:node.level||1,kind:'rewound'});continue;}
+    if (!Array.isArray(node.sourcePages)) continue;
+    if (boundRecord(node,pages)) continue;
+    const refs=node.sourcePages;
+    if (refs.length===to-from+1) {
+      const found=refs.map(ref=>positions.get(ref?.id));
+      if (found.every(Boolean) && found.every((entry,i)=>entry.page && messageVersion(entry.page)===refs[i].version)
+        && found.every((entry,i)=>!i || entry.index===found[0].index+i)) {
+        issues.push({id:node.id,span:node.span,level:node.level||1,kind:'relocated',target:[found[0].index,found.at(-1).index]});
+        continue;
+      }
+      if (refs.some(ref=>{const entry=positions.get(ref?.id);return entry && messageVersion(entry.page)!==ref.version;})) {
+        issues.push({id:node.id,span:node.span,level:node.level||1,kind:'edited'});continue;
+      }
+      if (found.every(Boolean)) {issues.push({id:node.id,span:node.span,level:node.level||1,kind:'reordered'});continue;}
+      issues.push({id:node.id,span:node.span,level:node.level||1,kind:'unavailable'});continue;
+    }
+    issues.push({id:node.id,span:node.span,level:node.level||1,kind:'binding-shape'});
+  }
+  return issues;
+}
 export const recordId = n => String(n.id || 'legacy:' + fingerprint36(JSON.stringify([n.span, n.text, n.detail || '', n.at || 0])));
 export const recordPrint = n => fingerprint36(JSON.stringify([n.span, n.text, n.detail || '', n.correction === true, n.sourcePages || n.source || n.sources || null]));
 export function uniqueRecords(nodes) {
