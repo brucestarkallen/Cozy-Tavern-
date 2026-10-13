@@ -21194,3 +21194,26 @@ this tree before the drawing fix 1 of 10 (DOM-8a), after it 0 of 10; without loa
 0 of 15 on both. Not run: a live provider, a phone, long play. Known, not
 changed: a branch reads its sources and runs the final review again (receipts
 keyed by page ids); checkpoint pruning keeps about 41 (before M681).
+
+## M752 followup: testing by judgment, and the agent documents tidied
+
+No version change; no application code changed. The owner, 14 October 2026: "Do the
+agent only test if the agent genuinely believes it needs testing but differentiate
+stupid unnecessary testing than real testing and tidy up everything agent handoff
+etc based what you think is best". AGENTS.md's 11 October "default to no tests"
+became "Testing: real checks, not rituals": read the diff first; reproduce a bug
+when reading does not settle it; one law that fails without the fix; the laws of
+what changed while iterating and the whole law suite (about 5 minutes) once before
+publishing a version that changed shared code, the check whose absence let
+M682-M749 break 155 laws; DOM laws for the flow touched; real-browser checks for
+layout and speed; never long play, unrelated suites, re-runs until green, source
+text tests or paid provider calls without cause. AGENTS.md also states the owner's
+standing rules (Codex never saw them). HANDOFF.md went from 2931 lines of stacked
+handoffs to the present state (125 lines); SPEC.md, stale since M738 (1931 lines),
+holds only an open milestone's plan; both, AGENTS.md and WORKFLOW.md were archived
+verbatim in docs/archive (*.before-M752-tidy.md). docs/README.md says which documents
+are current. tools/context.py searches the archived handoffs with --in handoff (run
+for M731 and M690). WORKFLOW.md lists every check with its command and measured time.
+tests/harness/_dbg4.mjs, a 60-line debug copy of M580's laws committed in M749 and
+never run, was removed; tests/m739_ui.py reads CHROMIUM_PATH like the other browser
+checks (run with and without it: pass). No other checks: documentation.

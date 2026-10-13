@@ -1,4 +1,4 @@
-import functools,threading,json
+import functools,threading,json,os
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
 from playwright.sync_api import sync_playwright
 from pathlib import Path
@@ -8,7 +8,7 @@ class Quiet(SimpleHTTPRequestHandler):
 server=ThreadingHTTPServer(('127.0.0.1',0),functools.partial(Quiet,directory=ROOT))
 threading.Thread(target=server.serve_forever,daemon=True).start()
 with sync_playwright() as pw:
- b=pw.chromium.launch(executable_path='/tmp/cozy-chromium/chromium',args=['--no-sandbox'])
+ b=pw.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH','/tmp/cozy-chromium/chromium'),args=['--no-sandbox'])
  p=b.new_page(service_workers='block',viewport={'width':1440,'height':900})
  p.goto(f'http://127.0.0.1:{server.server_port}');p.wait_for_function('!!window.__cozy?.chat')
  if p.locator('#welcome-overlay').is_visible():p.locator('#btn-welcome-enough').click()

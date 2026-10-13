@@ -203,9 +203,9 @@ Settings → Backup → **Take a copy** / **Bring a copy back**.
 Plain ES modules, IndexedDB for storage, a service worker for the offline
 shell. No frameworks, no CDNs, no fonts fetched from elsewhere. See
 [AGENTS.md](AGENTS.md) and [the editing workflow](docs/WORKFLOW.md) if you're here
-to tend the code. Default to no tests. At a meaningful milestone, use only a tiny
-check directly relevant to the requested fix when needed. Existing walkthroughs
-and broad suites are references, not mandatory editing or publication gates.
+to tend the code. Checks are run when they answer a real question about a change:
+a law that fails without the fix, and the law suite once before a version that
+changes shared code. Long play and checks unrelated to the change are not run.
 
 ## Where your tales live
 

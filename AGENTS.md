@@ -1,6 +1,8 @@
-# Cozy Tavern: current working rules
+# Cozy Tavern: working rules
 
-Read this file and HANDOFF.md once. SPEC.md describes the current milestone.
+For any agent, human or AI. Read in this order, once: this file, HANDOFF.md (the
+present state), SPEC.md (the open milestone, if any), docs/WORKFLOW.md (commands).
+History is looked up, never loaded whole: tools/context.py (see Context map).
 The owner's current request takes priority; preserve established contracts.
 
 ## Product contracts
@@ -19,17 +21,83 @@ The owner's current request takes priority; preserve established contracts.
 - Keep local records, undo/replay, backup safety and custom rules intact. Warm, plain UI copy;
   serif story text, readable controls, dark/light coats and reduced motion.
 
-## Owner priority: specific fixes, minimal verification
+## The owner's standing rules
 
-Fix X does not mean test the whole application. A ledger or auditor fix must not
-trigger theme, pixel, performance, long gameplay or hundreds of turns of testing.
-Run a check only if it resolves a named uncertainty in the requested change, and
-only at a meaningful milestone or after useful iterations. Default to no tests.
-Publishing is not a reason to run a release matrix. A passing relevant check is
-not repeated after documentation or commit changes. Documentation needs no tests.
-This policy overrides all older gate commands, templates and historical notes.
+The owner (LO) plays; the agent builds, checks and maintains. These hold for every task.
 
-## Owner standing publication permission
+- A report is a symptom. Find why it happens before changing anything; fix the cause,
+  then search the codebase for the same fault and fix every instance.
+- Finish the whole job in one pass. No "next pass", no offers to do more later, never
+  ask him to test, check, confirm or report back. Verify it yourself and say what is true.
+- A list from him gets a disposition for every item: fixed, not a bug (because...), or
+  not understood yet. A question is not an order: answer it before changing anything.
+- Preserve unrelated working code, data, prose and settings. Make the smallest correct
+  change, and understand why code exists before modifying it.
+- His connection settings are sent exactly as he set them; nothing set means nothing
+  sent. The only override is a floor that prevents corruption (a minimum token budget).
+- Controls are named what he calls them. One button, one meaning; no behaviour that
+  changes on hidden state; activity lists sort by recency.
+- If the app can detect a problem, the app repairs it. It is a finished product: no
+  debug surfaces aimed at him, no asking him to find or paste anything to diagnose.
+- No content filters, censorship or safety checks he did not ask for.
+- A page that fails is never asked again by the app on its own: it names the real
+  cause and he retries by hand.
+- Everything above the chat history is system role (SillyTavern preset convention).
+- In replies: plain words, the answer first, no generic disclaimers. Say exactly what
+  was checked, what it proved and what was not covered.
+
+## Testing: real checks, not rituals
+
+The owner, 14 October 2026, 00:40 Jakarta: "Do the agent only test if the agent
+genuinely believes it needs testing but differentiate stupid unnecessary testing
+than real testing". This replaces the 11 October "default to no tests" rule
+(archived in docs/archive/AGENTS.before-M752-tidy.md). Use judgment: a check is
+real when it answers a question about this change that reading the code cannot.
+
+First, always: read your own diff line by line. Most bugs here were in code written
+minutes earlier and were found by reading it, not by running anything. A green
+suite over new code proves nothing until a law covers that code.
+
+Real testing (do it when it applies):
+- Reproduce a reported bug before fixing it when reading does not settle the cause:
+  a law or a scratch run on the real shape of the data the code expects.
+- Prove the fix with one law that runs the feature (writes data, runs the code,
+  asserts on what comes back) and fails without the fix. Run it both ways once.
+- A change to shared code (js/engine, js/assemble, js/agents, js/store.js,
+  js/ui/chat.js, sw.js, or a contract in this file) can break code you did not
+  touch. While iterating, run the laws that exercise what you changed (grep
+  tests/harness and tests/dom for the function). Before publishing that version,
+  run the whole law suite once (about 5 minutes, no provider calls). M682-M749
+  shipped without it: 155 laws broke unseen and cost a full audit (M752).
+- A change to a UI flow: run the DOM walk laws of that flow (ONLY=...). The whole
+  walk (about 13 minutes) only when the change touches what every scenario passes
+  through: drawing the thread, sending, opening or branching tales, the store.
+- Layout, scrolling, contrast, performance, offline and update behaviour need a real
+  browser (Playwright with Chromium, tests/*.py): jsdom cannot see them. Measure
+  before and after.
+- A number he reports (tokens, ms, MB, a count) is measured before and after.
+
+Unnecessary testing (do not):
+- Checks after every edit; re-running a passing check because notes, a commit
+  message or a rebase changed nothing in the code. Documentation needs no tests.
+- Long play, hundreds of turns, multi-session runs, thousand-case mock runs. If a
+  bug only appears over a long run, use the shortest run that shows it.
+- Checks unrelated to the change (theme, pixel or performance for a ledger fix;
+  the auditor for a CSS fix); several suites or trees with no question to answer.
+- Tests that read source text, comments or file lists, mirror the implementation,
+  or would still pass with the feature deleted.
+- Re-running an intermittent failure until it passes. Find the mechanism
+  (instrument the path), compare with the previous version under the same load.
+- Live provider calls, which cost him money, unless the bug is in a provider's
+  real behaviour.
+
+Always: when a law you did not write fails, suspect your change first; never loosen
+or delete a law to make a build green; change an expectation only when you can say
+why the old one is wrong under the current contract. Keep verification in proportion:
+minutes for a narrow fix. Report the checks you ran, what they proved, and what you
+did not run. A scripted pass does not prove the owner's live story is repaired.
+
+## Publishing (standing permission)
 
 On 11 October 2026 at 19:27 Jakarta, the owner explicitly said:
 "Yes for every version you can publish anything."
@@ -40,37 +108,36 @@ changes when necessary, and verify the exact remote head. Preserve prose,
 manual edits, data, credentials and valid worker judgments under the existing
 contracts. This permission does not authorize unrelated work or destructive
 repository actions. If automatic review nevertheless rejects publication,
-report the actual rejection and do not bypass it. No extra tests for publishing.
+report the actual rejection and do not bypass it. Publishing itself is never a
+reason to test; the law suite runs because of what a version changed (Testing).
 
 ## Working loop
 
-1. Use tools/context.py to locate the relevant historical entries; read source and those
-   entries, rather than loading the entire history. HISTORY.md is an append only archive.
-2. Follow the owner's testing instruction of 11 October 2026: default to no tests.
-   Only consider an extremely small, directly relevant check after a meaningful milestone
-   or several useful implementation iterations. Do not test after every edit.
-3. When verification is warranted, use the smallest causal check of the actual reported
-   failure. Avoid blind bulk tests, unrelated suites, repetitive checks, and tests that
-   merely mirror implementation. A scripted pass does not establish success in the
-   owner's live story; report that distinction honestly.
-4. No automatic fast, release, full, or all test matrix is required. This instruction
-   supersedes conflicting test mandates in HANDOFF.md, docs/WORKFLOW.md, historical
-   milestones, and other project notes. Do not spend an hour on verification for a narrow
-   fix or repeat a long testing cycle. Keep diagnosis and repair focused and timely.
-5. Documentation only changes require no tests. Do not rerun passing checks because
-   notes or a commit message changed. Report checks actually run, or state none were run.
-6. Update version, concise HANDOFF and append HISTORY with measured results and limits.
-   Verify remote main, publish without force when authorized, then verify its exact head.
+1. Locate the relevant history with tools/context.py; read the source and those
+   entries, not the whole history.
+2. Diagnose to the cause, fix it, search for the same fault elsewhere.
+3. Read the diff. Run the checks the change genuinely needs (Testing above).
+4. Version a functional change (js/version.js; the service worker cache follows it).
+   Rewrite HANDOFF.md as the present state, append a short HISTORY.md entry with
+   measured results and limits. Documentation-only work needs no version bump.
+5. Verify remote main, publish without force, then verify its exact head.
 
 ## Context map
 
-HANDOFF.md: present state. docs/WORKFLOW.md: commands and release practices.
-HISTORY.md: complete milestone record, never automatically loaded in full.
-docs/archive: verbatim instructions and handoff before M683, for targeted archaeology.
-Do not resurrect old milestone instructions as current tasks. Test npm dependencies are
-allowed inside tests; the application itself has no npm/build dependency.
+- HANDOFF.md: the present state, the latest milestone and known open items. It is
+  rewritten each milestone, never grown into a second history.
+- SPEC.md: the open milestone's plan, when one is open.
+- HISTORY.md: the complete milestone record, append only, never loaded in full.
+- tools/context.py "M731" searches HISTORY.md; add --in handoff for the detailed
+  per-milestone handoffs archived in docs/archive, or --in all.
+- docs/README.md: which documents are current references and which are history.
+- docs/archive: verbatim earlier instructions, handoffs and specs, for archaeology.
+  Do not resurrect old milestone instructions as current tasks.
+- Test npm dependencies are allowed inside tests; the application has no npm/build step.
 
-## Ledger ownership after M713
+## Ledger and auditor contracts
+
+### Ledger ownership after M713
 
 Fix upstream omissions where they arise; do not deliberately reserve known
 writer biography or missing profiles for the auditor. Founder and People may
@@ -81,7 +148,7 @@ inside existing worker calls. Preserve original prose, manual edits, earned
 standings, undo and exact page ownership. Final audit remains the factual check.
 See docs/LEDGER_PIPELINE.md before another broad ledger repair.
 
-## Audit completion after M715
+### Audit completion after M715
 
 Do not restart completed unchanged audits on open/reload, provider changes or
 new app versions. Completion is factual; require matching semantic receipts
@@ -114,7 +181,9 @@ Keep source finding ids distinct across same-label chunks. A final source
 withdrawal must save its actual disposition, so it cannot reappear next turn.
 Omitted decisions complete in the existing conversation, no independent checker.
 
-After M752 (the audit of M682–M751), keep these; each has a law that fails without it:
+### After the M752 audit (M682-M751)
+
+Keep these; each has a law that fails without it:
 - One measure of room: the storyteller's request is planned and fitted in budget.js's
   measure; a worker's room is call.js workerRoom (pagecut.js roomChars uses it). With
   no Max tokens set, refuse only below ANSWER_FLOOR; a refusal is said in the thread.
@@ -134,5 +203,5 @@ After M752 (the audit of M682–M751), keep these; each has a law that fails wit
 - The thread shows the tale that is open: a drawing or a page redrawn after waits stands
   down when another tale was opened meanwhile (renderThread, rerenderMessage); a telling's
   failure is said in its own tale's thread, or by the tale's name (generate's sayFailed).
-- tests/harness/focused.mjs runs the standalone milestone fixtures inside the suite; a new
-  focused fixture is added there, not left outside it.
+- Every law runs in the suite: a new harness file is imported by tests/harness/run.mjs,
+  and a standalone fixture is listed in tests/harness/focused.mjs, never left outside it.
