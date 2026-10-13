@@ -12,7 +12,9 @@ older files sit beside it). Search them with
   sentence; m752-003 makes the notes say when they have not read the newest page;
   m752-004 settles the continuous audit's historical corrections instead of
   stranding them, and adds "Manual continuous audit" (below); m752-005 centres the
-  blue full-screen dot like the green and yellow (tests/m739_ui.py, every lamp).
+  blue full-screen dot like the green and yellow (tests/m739_ui.py, every lamp);
+  m752-006 takes the shelf handle's grey grip off a phone's open shelf (the edge still
+  drags; it glows only while dragged; tests/shelf_handle.py).
 - Measured on m752-004: the law suite 1670 of 1670, the DOM walk 316 of 316, lint 0
   errors (253 warnings, as before). Chromium at 390 px: the new button wraps with the
   others, no page or panel overflow. On m752-001: tests/m739_ui.py and

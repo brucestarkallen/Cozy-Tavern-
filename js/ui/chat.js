@@ -9316,6 +9316,7 @@ export function initChat(ctx) {
     let startW = 0;
     const move = (e) => {
       if (!dragging) return;
+      document.body.classList.add('panel-resizing'); /* M752 (followup 6): lit once it moves — a tap draws nothing */
       const x = e.touches ? e.touches[0].clientX : e.clientX;
       applyWidth(startW + (x - startX));
       e.preventDefault();
@@ -9333,7 +9334,6 @@ export function initChat(ctx) {
       dragging = true;
       startX = e.touches ? e.touches[0].clientX : e.clientX;
       startW = els.panel.getBoundingClientRect().width;
-      document.body.classList.add('panel-resizing');
       window.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
       window.addEventListener('touchmove', move, { passive: false }); window.addEventListener('touchend', end); window.addEventListener('touchcancel', end);
       e.preventDefault();

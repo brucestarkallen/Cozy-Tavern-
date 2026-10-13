@@ -263,7 +263,15 @@ button.shelf-head:hover { color: var(--text); background: var(--surface-2); }
   transition: background 0.15s ease, height 0.15s ease;
 }
 .panel-resize:hover::before, body.panel-resizing .panel-resize::before { background: var(--ember); height: 64px; }
-@media (pointer: coarse) { .panel-resize { width: 26px; } .panel-resize::before { width: 4px; height: 56px; background: var(--muted); } }
+/* M752 (followup 6) — HIS: "when I tap the bar on the left there's a wide long thin square at the middle". That was this
+ * handle's grip (M109), a grey bar floating at the middle of the open shelf's edge on a phone. The 26 px strip that takes
+ * the finger stays where it was — drag the shelf's right edge to widen it, double-tap to put it back — and nothing is
+ * drawn there at rest: the shelf's own edge is the handle. While it is being dragged, its whole edge glows. */
+@media (pointer: coarse) {
+  .panel-resize { width: 26px; }
+  .panel-resize::before { width: 3px; height: 100%; border-radius: 0; background: transparent; }
+  body.panel-resizing .panel-resize::before { height: 100%; background: var(--ember); }
+}
 body.panel-resizing { cursor: col-resize; }
 body.panel-resizing .story-panel, body.panel-resizing .panel-resize { user-select: none; } /* M114: never the whole body — a stuck class froze every selection */
 .story-item { min-width: 0; }

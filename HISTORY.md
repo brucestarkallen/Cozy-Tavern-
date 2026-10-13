@@ -21307,3 +21307,15 @@ the small auditing dot used the same animation and is fixed with it. Measured in
 (390 px): blue 3.68 px off the tab's centre before, within 0.1 px after, green and yellow
 unchanged. tests/m739_ui.py now checks every lamp's drawn centre (fails on m752-004).
 CSS only: no harness or DOM walk run (jsdom cannot see it).
+
+## M752 followup 6 (m752-006): no grip floating at the middle of the open shelf
+
+The owner: tapping the bar on the left showed "a wide long thin square at the middle". It
+was the shelf's resize handle grip (M109): on a touch screen a grey 4 × 56 px bar drawn at
+the middle of the open shelf's right edge, and on a tap the body took the dragging state.
+Now on touch screens nothing is drawn there at rest or on a tap; the same 26 px strip still
+takes the finger (drag to widen, double-tap to put it back), and the whole edge glows ember
+only once a drag moves. Desktop hover grip unchanged. Measured in Chromium phone emulation
+(tests/shelf_handle.py, fails on m752-005): grip at rest grey 56 px → none; a tap → nothing;
+a 60 px drag widens 284 → 344 px and lights the edge. No law covered the handle before;
+harness and DOM walk not run (CSS and the handle's own listener only).
