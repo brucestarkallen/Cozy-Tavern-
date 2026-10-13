@@ -44,7 +44,7 @@ assert(revised.selection.records.find(r=>r.id==='r1').selected);
 assert(revised.selection.plans.some(p=>p.id==='old'));
 assert(revised.selection.excerpts.some(p=>p.sourceId==='m5'));
 assert.equal(text.includes('hasn’t found out'),false,'no categorical legacy ignorance');
-assert(text.includes('believes the key is in the vault'));
+assert(text.includes('believes: the key is in the vault'));
 assert.deepEqual({state,nodes,history,settings,plans},originals,'rendering preserves all original and manual records');
 const planned=planRecordSelection({nodes,state,through:48,cap:2000}); /* M750: a request that cannot carry every line */
 assert(!planned.protectedIds.has('r1'),'a line the request cannot carry is offered to the recall');
@@ -67,9 +67,9 @@ const knowledge=renderKnowledge(kp,state.present,undefined,{turn:12,wasThere:()=
 assert(!knowledge.includes('Everyone here knows'));
 assert(!knowledge.includes('Late knows'));
 assert(knowledge.includes('Mara knows: The key is hidden'));
-assert(knowledge.includes('rumor'));assert(knowledge.includes('Sera perspective: believes'));
+assert(knowledge.includes('Mara has heard a rumor: the wine is poisoned'));assert(knowledge.includes('Sera believes: the key is in the vault'));assert(!knowledge.includes('perspective'));
 const missing=renderBlindSpots(blindSpots(kp,state.present,{turn:12,scenePages:['the key is hidden in the chapel'],mc:'Neri',wasThere:()=>true}));
-assert(missing.includes('Late, learning is not established')||missing.includes('Late, '));assert(!missing.includes('hasn’t found out'));
+assert(missing.split('\n').some(l=>l.includes(' — no page has shown them learning: ')&&/\bLate\b/.test(l.split(' — no page has shown them learning: ')[0])),missing);assert(!missing.includes('hasn’t found out'));
 const about={Mara:[{fact:'The secret concerns Ivo and the chapel key',atTurn:11}],Ivo:[]};assert(blindSpots(about,[{name:'Ivo'}],{turn:12,scenePages:['chapel secret key']}).some(s=>s.name==='Ivo'));
 assert(!sameFact('Ivo knows the wine is poisoned','Ivo suspects the wine is poisoned',{fuzzy:true}));
 assert(!sameFact('Mara promised to help','Mara promised to help only after her brother was released',{fuzzy:true}));

@@ -3,6 +3,7 @@
  * table before the page, never a form or a third authority (M495). The helper's answer is data (agents/planner.js reads
  * and checks it); these two turn it into his words. Pure. */
 import { toTeller } from './voice.js';
+import { BLIND_LINE } from '../engine/world.js'; /* M751: the one wording of what someone has not been shown learning */
 
 const clip = (s, n = 280) => {
   const t = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
@@ -30,7 +31,7 @@ export function renderPlan(plan, { voice = null, anchor = [], cores = {}, mc = '
     if (p.against) { const what = p.against.replace(/[.]+$/, '').trim(); line += /^(?:him|me)$/i.test(what) || what.toLowerCase() === String(him || '').toLowerCase() ? ' Set against ' + him + ' — and that holds this page.' : ' Set against ' + him + ': ' + what + ' — and that holds this page.'; }
     out.push(line);
   }
-  for (const u of plan.unknown) out.push(u.name + ', learning is not established in the available record: ' + u.fact.replace(/[.]+$/, '') + '.');
+  for (const u of plan.unknown) out.push(u.name + BLIND_LINE + u.fact.replace(/[.]+$/, '') + '.'); /* M751: the notes' own words — M737 had written a copy of the old jargon here */
   if (plan.pressing.length) out.push('What’s pressing: ' + plan.pressing.map((s) => s.replace(/[.]+$/, '')).join('; ') + '.');
   if (plan.earlier.length) out.push('From earlier, still true: ' + plan.earlier.map((s) => s.replace(/[.]+$/, '')).join('; ') + '.');
   if (plan.leaveTo) out.push('Leave off where ' + him + ' has the next choice — before my move, that looked like: ' + plan.leaveTo.replace(/^(?:at |where )/i, '').replace(/[.]+$/, '') + '. ' + him + '’s choices are mine to make.');

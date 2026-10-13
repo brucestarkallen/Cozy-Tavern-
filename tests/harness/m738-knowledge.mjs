@@ -107,7 +107,7 @@ if (process.argv.includes('--baseline')) {
   }
   const conflict = { fact: 'believes ' + proposition, kind: 'known' };
   assert.equal(perspectiveConveyed('Mara', conflict, [knows, 'Mara believes ' + proposition]), false);
-  assert(renderKnowledge({ Mara: [conflict] }, ['Mara']).includes('perspective unresolved'));
+  assert(renderKnowledge({ Mara: [conflict] }, ['Mara']).includes('Mara may know, or may only believe: ' + proposition.replace(/\.+$/, ''))); /* M751: still shown as unresolved, in plain words */
   assert.equal(beliefAnswered(legacyBelief, 'learned the key is hidden in the chapel'), true);
   assert.equal(beliefAnswered(typedBelief, { fact: 'learned the key is hidden in the chapel', kind: 'known', atTurn: 4 }), true);
   assert.equal(beliefAnswered(typedBelief, { fact: 'learned the key is hidden in the chapel', kind: 'known', atTurn: 2 }), false);
@@ -119,7 +119,7 @@ if (process.argv.includes('--baseline')) {
   const spots = blindSpots({ Mara: [bound], Sera: [] }, ['Sera'], { turn: 21 });
   assert.equal(spots[0].lacks[0].record.kind, 'known');
   assert(renderBlindSpots(spots, { selectedTexts: ['Mara believes: ' + proposition + '.'] }).includes(proposition));
-  assert(renderBlindSpots(spots, { selectedTexts: [evidence] }).includes('the knowledge recorded for Mara'));
+  assert(renderBlindSpots(spots, { selectedTexts: [evidence] }).includes(proposition.replace(/\.+$/, '').slice(0, 40)) && renderBlindSpots(spots).includes('(Mara knows)')); /* M751: the fact itself, and its knower — never only a pointer at history */
   assert(!renderBlindSpots(spots).includes('hasn’t found out'));
 
   const unrelated = { fact: 'Mara believes the guard is asleep', kind: 'belief', atTurn: 3, source: { id: 'other' } };
@@ -198,8 +198,8 @@ if (process.argv.includes('--baseline')) {
     }
     const knowledgeRow = request.receipt.slots.find(s => s.name === 'The state of things').text;
     assert(knowledgeRow.includes('Mara knows: ' + proposition));
-    assert(knowledgeRow.includes('Sera perspective: believes The key is in the vault'));
-    assert(knowledgeRow.includes('suspects ' + proposition));
+    assert(knowledgeRow.includes('Sera believes: The key is in the vault'));
+    assert(knowledgeRow.includes('suspects: ' + proposition));
     const body = buildOpenAIRequest(plannedConnection, request);
     const account = bodyAccounting(body);
     assert.equal(request.receipt.context.inputTokens, account.inputTokens);

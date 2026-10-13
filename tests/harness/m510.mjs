@@ -576,7 +576,7 @@ test('M510-23 WHO’S HERE, IN THE RECENT PAGES (his duchy): the storyteller’s
   const mk = (small, state) => buildRequest({ story: {}, messages: msgs, settings: small ? { smallModelNow: true, frameOn: false, noteOn: false } : {}, state, modules: [{ mod: { id: 'core-craft', name: 'The craft', text: CRAFT_TEXT }, reason: 'always' }], memory: '', window: { keeperOn: true, window: 30, budgetTokens: 262000, nodes: [] }, ...(small ? { smallPlan: { ...PLAN, intense: false } } : {}) });
   const small = mk(true, here);
   const notes = notesOf(small);
-  const part = (notes.split('In full, the people here in the pages just before the ones you have:\n')[1] || ''); /* M510-53: inside our story so far */
+  const part = (notes.split('In full, the people here in the pages just before the ones that follow:\n')[1] || ''); /* M510-53: inside our story so far */
   assert(part.includes('(page 16) Lord Varen VAREN-16') && part.includes('(page 24) Lord Varen VAREN-24'), 'Varen’s newest two in the pages between: the purse, the oath:\n' + part.slice(0, 600));
   assert(!part.includes('VAREN-10'), 'the newest two, not every one');
   assert(part.includes('(page 12) Lady Mira MIRA-12') && !part.includes('MIRA-28') && JSON.stringify(small.messages).includes('MIRA-28'), 'Mira: she never came (the pages between); her test is within the last eight and rides whole');
@@ -895,7 +895,7 @@ test('M510-39 HIS SWITCH FOR THE NOTES’ ROLE (his word: "the notes as user or 
     } else {
       const notes = r.messages[0];
       eq(notes.role, role, role + ': one message before the story');
-      assert(/What this story is about:\nBRIEF-MARK/.test(notes.content) && /Who’s here:\n[\s\S]*CAST-MARK/.test(notes.content) && !/BRIEF-MARK|CAST-MARK/.test(sys), role + ': the brief and who’s here travel with the notes, out of the system');
+      assert(/What this story is about:\nBRIEF-MARK/.test(notes.content) && /The cast:\n[\s\S]*CAST-MARK/.test(notes.content) && !/BRIEF-MARK|CAST-MARK/.test(sys), role + ': the brief and who’s here travel with the notes, out of the system');
       assert(role === 'assistant' ? /^Hulk’s notebook — where things stand in our story right now/.test(notes.content) : /^Hulk — Bruce here\. This is where things stand/.test(notes.content), role + ': opened in its voice: ' + notes.content.slice(0, 60));
       eq(r.messages[1].content, 'OWN-WORDS Hulk still here.', role + ': his own words right after the notes, before the first story page');
       if (role === 'assistant') eq(withUserFirst(r.messages)[0].content, STORY_BEGINS, 'assistant: a house that insists gets his one line first, from the provider');
@@ -960,7 +960,9 @@ test('M510-44 WHO KNOWS WHAT HAS A ROOM OF ITS OWN IN THE WHOLE VIEW (his Bleach
     people.forEach((n, i) => { knowledge[n] = []; for (let t = 0; t < per; t += 1) knowledge[n].push({ fact: 'Jovan did thing ' + ((t + i) % 12) + ' in front of ' + n.split(' ')[0] + ', who took it as a sign of how he would stand with the Eleventh Division when the captains next met (' + t + ')', atTurn: 2 + t + (i % 2) }); });
     st = { ...st, knowledge, page: per + 4 };
     const text = renderStateFacts(st, { whole: true, budget: Infinity, scenePages: ['Zaraki grinned and drew his notched blade.'] });
-    return { people, kw: text.split('\n').filter((l) => /knows/.test(l)).join('\n') };
+    /* M751: the room is the who-knows-what section's (KNOWLEDGE_WHOLE_CHARS governs it in state.js); a blind spot ends “(X knows)”
+     * again, and stands in its own section with its own fit — not counted here */
+    return { people, kw: text.split('\n').filter((l) => /knows/.test(l) && !l.includes(' — no page has shown them learning: ')).join('\n') };
   };
   const crowd = scene(11, 30);
   assert(crowd.kw.length <= KNOWLEDGE_WHOLE_CHARS, 'eleven in the scene fit the room: ' + crowd.kw.length + ' characters');
@@ -1092,8 +1094,8 @@ test('M510-52 (the whole request read top to bottom, as the storyteller) PAST, P
   const kn = renderKnowledge(st.knowledge, ['Rukia Kuchiki', 'Byakuya Kuchiki'], Infinity);
   assert(/Rukia Kuchiki believes: Jovan is only a recruit — untrue: Jovan is the new captain\./.test(kn) && !/knows: believes/.test(kn), 'a belief reads as a belief: ' + kn);
   const spots = renderBlindSpots(blindSpots(st.knowledge, ['Rukia Kuchiki', 'Byakuya Kuchiki', 'Jovan'], { turn: 300, mc: 'Jovan' }));
-  assert(/Rukia Kuchiki hasn’t found out: Jovan serves Yamamoto as his personal attendant \(Byakuya Kuchiki knows\)/.test(spots) && !/hasn’t found out: was told/.test(spots), 'the blind spot shows the fact: ' + spots);
-  assert(!/Byakuya Kuchiki hasn’t found out: (?:believes )?Jovan is only a recruit/.test(spots), 'a belief is no one’s blind spot');
+  assert(/Rukia Kuchiki — no page has shown them learning: Jovan serves Yamamoto as his personal attendant \(Byakuya Kuchiki knows\)/.test(spots) && !/learning: was told/.test(spots), 'the blind spot shows the fact: ' + spots);
+  assert(!/Byakuya Kuchiki — no page has shown them learning: (?:believes )?Jovan is only a recruit/.test(spots), 'a belief is no one’s blind spot');
   /* ages in pages: the people's own law says it (finishing.mjs, "Last noted 30 pages ago") */
 });
 

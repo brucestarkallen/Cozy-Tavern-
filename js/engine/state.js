@@ -1194,7 +1194,7 @@ export function renderStateFacts(state, { budget = STATE_BUDGET, whole = false, 
   const spots = blindSpots(state.knowledge, present, { scenePages, turn: Number.isInteger(state.page) && state.page >= 0 ? state.page + 1 : null, mc: mcName(state), wasThere })
     .map((s) => ({ ...s, lacks: s.lacks.filter((l) => !(known.shared && known.shared.has(normFact(l.fact)))) }))
     .filter((s) => s.lacks.length);
-  const blind = omit.includes('knowledge') ? '' : renderBlindSpots(spots,{selectedTexts});
+  const blind = omit.includes('knowledge') ? '' : renderBlindSpots(spots);
   const blindSec = blind ? { shed: 2, text: BLIND_HEAD + blind, trimTo: whole ? Infinity : 8, head: BLIND_HEAD } : null;
   if (blindSec) sections.push(blindSec);
   const absentNames = peopleNames.filter(n => !present.some(p => samePersonName(p?.name || p, n)));

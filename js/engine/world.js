@@ -231,8 +231,20 @@ export function closeThread(threads, title) {
 /* M368: the storyteller is shown the threads that touch THIS scene first — someone in it, or the main character — then
  * the hot, then the recent; other people's business away from the page stays in the ledger (the world agent reads all of
  * it) and never crowds the storyteller's few lines. */
-/* M416: one wording for someone who has not found something out — the anchor reads the lines by it (assemble/anchor.js) */
-export const BLIND_LINE = ', learning is not established in the available record: ';
+/* M416: one wording for someone who has not found something out — the anchor reads the lines by it (assemble/anchor.js).
+ * M751: said plainly and honestly — M737 rightly stopped calling it certain ignorance ("hasn’t found out"), but said so in
+ * a system's words ("learning is not established in the available record"); the storyteller reads what is true: no page
+ * has shown them learning it. One wording for one name or many (the notes' heading says the same). */
+export const BLIND_LINE = ' — no page has shown them learning: ';
+/* M751: EACH KIND OF KNOWING IN ITS OWN PLAIN VERB. M737/M738 keep a belief, a suspicion, a rumor and a stated ignorance
+ * apart from what someone knows (interpretPerspective) — and put a label in front of them all ("Renji perspective: believes
+ * …"). His law (M510-52): a belief reads "believes", never a label. The kinds stay exactly as apart as before; a record
+ * whose own wording and kind disagree stays visible as what it is: maybe known, maybe only believed. */
+const KNOWING_KINDS = [
+  [/^believes\s+/i, 'believes'], [/^suspects\s+/i, 'suspects'], [/^has heard a rumou?r:\s*/i, 'has heard a rumor'],
+  [/^has not learned\s+/i, 'has not learned'], [/^may know, or may only believe:\s*/i, 'may know, or may only believe'],
+];
+const knowingOf = (f) => KNOWING_KINDS.find(([re]) => re.test(String(f || ''))) || null;
 
 /* M416: WHAT THE OWNER WILL DO, SAID THE WAY IT READS. "Rukia Kuchiki means to " + next is right for "corner him before
  * Renji leaves" and broken for "she tests whether Oda deserves it" ("means to she tests…") — a next written as a whole
@@ -585,8 +597,9 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
   const nowTurn = scene && Number.isFinite(scene.turn) ? scene.turn : null;
   const aged = (k) => {
     const view = interpretPerspective(k);
-    const prefix = { belief:'believes ',suspicion:'suspects ',rumor:'rumor: ',ignorance:'has not learned ' }[view.kind] || '';
-    const fact = (view.uncertain ? 'perspective unresolved: ' + k.fact + ' (recorded as ' + k.kind + ')' : prefix + view.proposition.replace(/\.+$/, '')) + (k.pathway ? ' (source: ' + k.pathway + ')' : '');
+    const prefix = { belief:'believes ',suspicion:'suspects ',rumor:'has heard a rumor: ',ignorance:'has not learned ' }[view.kind] || '';
+    /* M751: the kinds as KNOWING_KINDS says them; how it was learned, in the page's own words (M738's pathway), plainly */
+    const fact = (view.uncertain ? 'may know, or may only believe: ' : prefix) + view.proposition.replace(/\.+$/, '') + (k.pathway ? ' (how: ' + k.pathway + ')' : '');
     const age = nowTurn != null && Number.isFinite(k.atTurn) ? nowTurn - k.atTurn : 0;
     return age >= KNOWLEDGE_OLD_AFTER ? fact + ' (learned about ' + age + ' pages ago)' : fact;
   };
@@ -645,7 +658,7 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
   const norm = statementKey;
   const holders = new Map();
   const others = picked.filter((p) => !p.mc); /* M508: the sharing is among everyone here but the main character */
-  for (const p of others) for (const f of [...p.newest, ...p.recalled]) { if (/^(?:believes|suspects|rumor|heard a rumor|does not know|has not learned|perspective unresolved)\b/i.test(f)) continue; const k = norm(f); if (!holders.has(k)) holders.set(k, { text: f, who: [], atTurn: p.turns && p.turns.get(f) != null ? p.turns.get(f) : null }); if (!holders.get(k).who.includes(p.key)) holders.get(k).who.push(p.key); }
+  for (const p of others) for (const f of [...p.newest, ...p.recalled]) { if (knowingOf(f)) continue; const k = norm(f); if (!holders.has(k)) holders.set(k, { text: f, who: [], atTurn: p.turns && p.turns.get(f) != null ? p.turns.get(f) : null }); if (!holders.get(k).who.includes(p.key)) holders.get(k).who.push(p.key); }
   /* M509-15: a public moment counts everyone who was in the room among its knowers — the reader wrote it into one book,
    * the whole courtyard saw it — so it is a shared line, not one witness's, and nobody's blind spot who was there */
   const roster = [];
@@ -674,11 +687,16 @@ export function renderKnowledge(knowledge, present, per = KNOWLEDGE_RENDER, scen
     const ownOld = p.recalled.filter((f) => !sharedKeys.has(norm(f)));
     if (!own.length && !ownOld.length && p.rest <= 0) continue;
     /* the final audit: a belief written as one (M510-48: "believes X — untrue: Y") reads as one, not "knows: believes" */
-    const isBelief = (f) => /^(?:believes|suspects|rumor|heard a rumor|does not know|has not learned|perspective unresolved)\b/i.test(f);
+    const isBelief = (f) => Boolean(knowingOf(f));
     const beliefs = own.filter(isBelief).map((f) => f.replace(/ \(learned about (\d+) pages ago\)$/, ' (since about $1 pages ago)')); /* a belief is held since, not learned */
     const knownOwn = own.filter((f) => !isBelief(f));
-    lines.push(p.key + (knownOwn.length || !beliefs.length ? ' knows' + (knownOwn.length ? ': ' + knownOwn.join('; ') + '.' : ' what is shared above.') : '')
-      + (beliefs.length ? (knownOwn.length || !beliefs.length ? ' ' + p.key.split(/\s+/)[0] : '') + ' perspective: ' + beliefs.join('; ') + '.' : '')
+    /* M751: "Renji Abarai believes: …. Renji suspects: …." — each kind under its own verb, the full name once */
+    const said = knownOwn.length || !beliefs.length ? [p.key + ' knows' + (knownOwn.length ? ': ' + knownOwn.join('; ') + '.' : ' what is shared above.')] : [];
+    for (const [re, verb] of KNOWING_KINDS) {
+      const held = beliefs.filter((f) => re.test(f)).map((f) => f.replace(re, ''));
+      if (held.length) said.push((said.length ? p.key.split(/\s+/)[0] : p.key) + ' ' + verb + ': ' + held.join('; ') + '.');
+    }
+    lines.push(said.join(' ')
       + (ownOld.length ? ' From much earlier — each is about ITS OWN moment, not this scene; use one only where it truly fits: ' + ownOld.join('; ') + '.' : '')
       + (p.rest > 0 ? ' (and ' + p.rest + ' older ' + (p.rest === 1 ? 'thing' : 'things') + ' they know, kept in the ledger)' : ''));
   }
@@ -1177,12 +1195,12 @@ export function blindSpots(knowledge, present, { scenePages = [], turn = null, m
   }
   return out;
 }
-export function renderBlindSpots(spots, { selectedTexts = [] } = {}) {
+export function renderBlindSpots(spots) { /* M751: what the history sent says is no reason to leave the fact out (above) */
   const list = (Array.isArray(spots) ? spots : []).filter((s) => s && Array.isArray(s.lacks) && s.lacks.length);
   if (!list.length) return '';
   /* M460: A FACT THEY LACK IS SAID ONCE, WITH EVERYONE WHO LACKS IT. The same four facts rode under sixteen names, the
    * whole fact each time; now each fact is said once, after the names of all who have not found it out — the same marker
-   * (" hasn’t found out: "), the same names, the same knower. Facts lacked by the very same people share a line. */
+   * (BLIND_LINE), the same names, the same knower. Facts lacked by the very same people share a line. */
   const byFact = new Map();
   for (const s of list) for (const l of s.lacks) {
     const k = JSON.stringify([l.fact, l.from, l.record?.atTurn, l.record?.source]);
@@ -1192,6 +1210,9 @@ export function renderBlindSpots(spots, { selectedTexts = [] } = {}) {
   const bySet = new Map();
   /* M508: a long fact is clipped here — the whole of it stands above, under whoever knows it */
   const clip = (t) => { const s = String(t); if (s.length <= BLIND_CLIP) return s; const cut = s.slice(0, BLIND_CLIP); const at = Math.max(cut.lastIndexOf(' '), cut.lastIndexOf(','), cut.lastIndexOf(';')); return cut.slice(0, at > BLIND_CLIP / 2 ? at : BLIND_CLIP).replace(/[,;\s]+$/, '') + '…'; };
-  for (const f of byFact.values()) { const sig = f.who.join('|'); if (!bySet.has(sig)) bySet.set(sig, { who: f.who, facts: [] }); const reminder = perspectiveConveyed(f.from,f.record || {fact:f.fact},selectedTexts) ? 'the knowledge recorded for ' + f.from + ' in the selected history' : f.fact + ' (recorded for ' + f.from + ')'; if(!bySet.get(sig).facts.includes(reminder)) bySet.get(sig).facts.push(reminder); }
+  /* M751: THE FACT, IN ITS FIRST WORDS (M508), AND WHO KNOWS IT — "(Rukia Kuchiki knows)". M737 dropped the clip and said
+   * "(recorded for …)"; where the history sent already said the knower knows it, only "the knowledge recorded for X in
+   * the selected history" stood — a blind spot that named no fact, so the storyteller could not tell what was lacked. */
+  for (const f of byFact.values()) { const sig = f.who.join('|'); if (!bySet.has(sig)) bySet.set(sig, { who: f.who, facts: [] }); const said = clip(f.fact) + ' (' + f.from + ' knows)'; if (!bySet.get(sig).facts.includes(said)) bySet.get(sig).facts.push(said); }
   return [...bySet.values()].map((g) => g.who.join(', ') + BLIND_LINE + g.facts.join('; ') + '.').join('\n'); /* M416 */
 }

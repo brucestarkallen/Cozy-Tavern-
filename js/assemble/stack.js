@@ -103,7 +103,7 @@ import { shortcutsText, attachedPart, typedWords } from '../commands.js'; /* M37
 import { mcName as mcNameOf } from '../engine/duels.js'; /* M344: the main character's name never scores a recall */
 import { withoutAuthorshipFrame, CRAFT_TEXT } from './craft.js'; /* M309; M345: today's line about a settled outcome */
 import { outcomeWords } from '../agents/choices.js'; /* M548: Choices matter — what the storyteller is told */
-import { voiceOf, inVoice, toTeller, briefingOpening, notebookOpening, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave, withCardNames } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
+import { voiceOf, inVoice, toTeller, briefingOpening, notebookOpening, personOf, inPerson, naturalThinking, eyeWithoutRuleNames, thinkOnPageLine, groundingWeave, withCardNames, tellerHasSelf } from './voice.js'; /* M327: the two names; M334: the person the teller thinks in */
 import { renderPeopleTiers, peopleView, findPersonKey, PEOPLE_BUDGET, PRESENT_CARDS_MAX, RECALL_MAX } from '../engine/people.js';
 import { wornPhrases, calmPage } from './smallprose.js'; /* M512: the turns of phrase the last pages keep using; M519: the loud pages eased in the copy it reads */
 import { canonOffPages } from './canonpages.js'; /* M518: canon on their own page — the note goes quiet on what the cards carry */
@@ -443,6 +443,16 @@ L — the last look:
 · your bans bind the words (Banned Constructs, Plain Prose, Sound as Onomatopoeia at every contact beat).
 Then write the page.`;
 
+/* M751: THE PASS SAID AGAIN, IN THE SAME VOICE AS THE CRAFT'S. The note is the craft's Pass said again at the end (M631); for a
+ * teller with a self (a name, or a frame in the first person) the craft's own Pass asks for plain sentences in its own voice,
+ * never shorthand or labels (M335, his: "the teller's thinking read like an auditor's") — and the note, the last thing it
+ * reads, still said "shorthand". For such a teller the note asks what the craft asks; its checks are untouched. */
+const HOUSE_PASS_SHORTHAND = 'run your pass to yourself — shorthand, a few words each, never on the page.';
+const HOUSE_PASS_NATURAL = 'run your pass to yourself — briefly, in your own voice, a few plain words each, never on the page; never name a rule or a heading while you think.';
+export function housePassFor(text, voice, person) {
+  return text === HOUSE_COT && tellerHasSelf(voice, person) ? text.replace(HOUSE_PASS_SHORTHAND, HOUSE_PASS_NATURAL) : text;
+}
+
 /* M622: the house's thinking note stands in his list unless he has it already — first, on — so the notes he never touched
  * carry it, and a list he arranged keeps his order and his switch */
 export function withHouseNote(list) {
@@ -572,6 +582,9 @@ const PAST_HEAD_PART = 'Our story so far — what came before the pages that fol
 const SMALL_PAST_HEAD = 'Our story so far — what came before the pages that follow. Each line tells what happened on its own pages: the past, not now.';
 const PLANS_HEAD = 'Plans standing — laid out on the page, kept whole until carried out; any of them can still change or fall through:'; /* the receipt's own name for the part (M510-22) */
 const EARLIER_HEAD = 'In full, earlier moments that matter now — with the people here, and the ones the newest move brings up:';
+/* M751: each person's own page — M737 had headed it "On their mind, personal reference rather than shared knowledge": the
+ * same meaning, in the words a storyteller reads */
+const PEOPLE_HEAD = 'On their mind — each person’s own, not what the others know:';
 const leftOutWords = (k) => '(' + k + ' older ' + (k === 1 ? 'line doesn’t fit here and is' : 'lines don’t fit here and are') + ' left out — what happened in ' + (k === 1 ? 'it' : 'them') + ' still stands.)';
 export const HYBRID_RECALL_LINES = 6;        /* older lines this scene names, whole — when the whole record cannot ride, and for a small model */
 /* M510-59: and never more than this, whatever a line holds — his fold may be 10, 20 or 30 pages a line, and ten whole
@@ -1152,7 +1165,7 @@ export function buildRequest({
    * on the receipt as "On their mind", since M12 — and never put in the
    * request: the storyteller has told every page without the people's pages.
    * It leads the story-state, just before the state of things. */
-  if (peopleText) stateParts.push('On their mind, personal reference rather than shared knowledge:\n' + peopleText);
+  if (peopleText) stateParts.push(PEOPLE_HEAD + '\n' + peopleText);
   if (facts) stateParts.push(facts);
   /* M510-39: the rules a scene wakes are instructions — they ride in the system, their own block after who's here, never in
    * the notes (whatever role he gives the notes) */
@@ -1218,10 +1231,18 @@ export function buildRequest({
       excerptNodes = uniqueRecords([...recalledNodes, ...sceneNamed]);
     }
   }
+  /* M750: the passages his move brings up, from the pages of the lines in excerptNodes (above). M751: made here, before the
+   * part they belong to is built — they are the past, and stand inside "Our story so far" right after its lines (M737 had
+   * put them after the state of things, so the storyteller read "here now" and then a page from long ago) */
+  const historical = historicalPassages({ history, nodes: excerptNodes, pages: wireable(history,pageFilter), move: recentPages.at(-1) || '', cap: Math.min(6000,recordCap / 4) });
+  /* M750: said plainly — the page it is from and that it is the past; a page's internal id and "authorized wire view"
+   * (M737) meant nothing to a storyteller */
+  const historicalText = historical.map(p => 'From page ' + (p.ordinal + 1) + ', word for word — the past, not the scene now:\n' + p.text).join('\n\n');
+  let historicalPlaced = false;
   /* M510-22: THE PLANS STANDING — laid out on the page, kept whole by the plans keeper until carried out: part by part, with
    * the exact words to be said. A summary retells history; a plan is what is still to happen, and every part of it matters. */
   const plansSelected = selectStanding(smallPlansBook, { move: recentPages.at(-1) || '', scene: recentPages.join('\n'), state, through:history.filter(m => m && !m.hidden).length, cap: Math.min(recordCap,Math.max(6000,inputRoom(windowInfo) * 3 * 0.06)) });
-  const standingText = renderStanding(smallPlansBook, { selected: plansSelected }); /* M510-48: every storyteller, whenever a plan stands */
+  const standingText = renderStanding(smallPlansBook, { selected: plansSelected }).trimEnd(); /* M510-48: every storyteller, whenever a plan stands; M751: no stray blank line after it */
 
   /* M510-51: OUR STORY SO FAR, ONE PART, READ IN ONE WAY — his look at the raw request: "does the storyteller understand
    * 'the 54 older lines are in the essentials above, each kept whole on the device'? … even I am confused". ONE part, "Our
@@ -1248,11 +1269,14 @@ export function buildRequest({
     const block = [
       SMALL_PAST_HEAD,
       storyShort ? 'In brief, as I remember it:\n' + storyShort : '',
-      smallSinceRows ? 'In full, the newest of it' + (sinceNodes.length ? ' (' + spanOf(sinceNodes) + ')' : '') + ':\n' + smallSinceRows : '',
+      /* M751: "the newest of it" only when older lines rest — a record that fits whole is not called its newest part */
+      smallSinceRows ? 'In full' + (smallRecord.rested ? ', the newest of it' : '') + (sinceNodes.length ? ' (' + spanOf(sinceNodes) + ')' : '') + ':\n' + smallSinceRows : '',
       RECENT_HERE_MARK,
       earlierRows ? EARLIER_HEAD + '\n' + earlierRows : '',
+      historicalText,
       standingText ? PLANS_HEAD + '\n' + standingText : '',
     ].filter(Boolean).join('\n\n');
+    historicalPlaced = Boolean(historicalText);
     const at = canonText && stateParts.includes(canonText) ? stateParts.indexOf(canonText) + 1 : 0;
     stateParts.splice(at, 0, block);
   } else if (!smallB && (memoryText || standingText)) {
@@ -1266,8 +1290,10 @@ export function buildRequest({
     if (!recordNodes.length) pastRows = memoryText;
     const block = [
       past,
+      historicalText,
       standingText ? PLANS_HEAD + '\n' + standingText : '',
     ].filter(Boolean).join('\n\n');
+    historicalPlaced = Boolean(historicalText);
     const at = canonText && stateParts.includes(canonText) ? stateParts.indexOf(canonText) + 1 : 0;
     if (block) stateParts.splice(at, 0, block);
   }
@@ -1279,7 +1305,7 @@ export function buildRequest({
     stateParts.splice(atLore, 0, lorePart);
   }
   if (echoText) {
-    const peopleAt = peopleText ? stateParts.indexOf('On their mind, personal reference rather than shared knowledge:\n' + peopleText) : -1;
+    const peopleAt = peopleText ? stateParts.indexOf(PEOPLE_HEAD + '\n' + peopleText) : -1;
     const factsAt = facts ? stateParts.indexOf(facts) : -1;
     const at = peopleAt !== -1 ? peopleAt : factsAt;
     if (at === -1) stateParts.push(echoText); else stateParts.splice(at, 0, echoText);
@@ -1288,11 +1314,8 @@ export function buildRequest({
   if (directorText) stateParts.push(directorText); /* M495: it opens in his own words ("Episode 2 — where I want this episode to go") — no third party's label */
   if (editorText) stateParts.push(editorText); /* M495: "My notes on the telling…" — his, not an editor's */
   if (eyeText) stateParts.push(toTeller(eyeWithoutRuleNames(eyeText, voice, person), voice)); /* the eye speaks its own name — M327: and the teller's */
-  const historical = historicalPassages({ history, nodes: excerptNodes, pages: wireable(history,pageFilter), move: recentPages.at(-1) || '', cap: Math.min(6000,recordCap / 4) }); /* M750: excerptNodes, above */
-  /* M750: said plainly — the page it is from and that it is the past; a page's internal id and "authorized wire view"
-   * (M737) meant nothing to a storyteller */
-  const historicalText = historical.map(p => 'From page ' + (p.ordinal + 1) + ', word for word — the past, not the scene now:\n' + p.text).join('\n\n');
-  if (historicalText) { stateParts.push(historicalText); pushSlot('Historical original excerpts',historicalText,'a passage or two from the pages of the older lines your move brings up, word for word'); }
+  if (historicalText && !historicalPlaced) stateParts.push(historicalText); /* never lost: a request whose story so far was not built */
+  if (historicalText) pushSlot('Historical original excerpts',historicalText,'sent inside “Our story so far”, after its lines: a passage or two from the pages of the lines your move brings up, word for word');
   const stateInjection = stateParts.length
     ? { role: 'user', content: briefingOpening(voice) + '\n\n' + stateParts.join('\n\n') }
     : null;
@@ -1368,7 +1391,7 @@ export function buildRequest({
    * stand at the end alone. */
   /* M624: "Send the note at the end" is HIS note's switch alone — his: "can I still deactivate my persona note and
    * activate the additional notes?" Each added note rides by its own tick. */
-  const noteAdds = addedNotes(safeSettings.noteAdds, { ooc: oocTurn }).map((n) => ({ ...n, text: inVoice(n.text, voice) }));
+  const noteAdds = addedNotes(safeSettings.noteAdds, { ooc: oocTurn }).map((n) => ({ ...n, text: inVoice(housePassFor(n.text, voice, person), voice) })); /* M751: the house's words, in the craft's voice for a teller with a self */
   const noteOwn = notePicked.source === 'the starter text' ? '' : notePicked.text;
   /* M623: in the order they ride — the notes above his note, his note, the notes below it */
   const notesAbove = noteAdds.filter((n) => n.place !== 'below');
@@ -1424,8 +1447,8 @@ export function buildRequest({
     const byMove = recallFromPages(pages, [lastUserZ ? String(lastUserZ.text || '') : ''], { ignore: namesZ, ...zone }).map((r) => String(r.text || '').slice(0, 80));
     recentOfHere = pagesOfWhoIsHere(pages, state, { ...zone, skip: (t) => byMove.includes(t.slice(0, 80)) });
     if (recentOfHere.text) {
-      stateInjection.content = stateInjection.content.includes(RECENT_HERE_MARK) ? stateInjection.content.replace(RECENT_HERE_MARK, 'In full, the people here in the pages just before the ones you have:\n' + recentOfHere.text) : stateInjection.content + '\n\nIn full, the people here in the pages just before the ones you have:\n' + recentOfHere.text; /* M510-53: inside the story so far */
-      pushSlot('Who’s here, in the recent pages', recentOfHere.text, 'sent inside “Our story so far” as “In full, the people here in the pages just before the ones you have”: the storyteller’s own paragraphs that name who is here, from the pages between the last eight and the record — word for word, while they are here (small model)', recentOfHere.who.join(', '));
+      stateInjection.content = stateInjection.content.includes(RECENT_HERE_MARK) ? stateInjection.content.replace(RECENT_HERE_MARK, 'In full, the people here in the pages just before the ones that follow:\n' + recentOfHere.text) : stateInjection.content + '\n\nIn full, the people here in the pages just before the ones that follow:\n' + recentOfHere.text; /* M751: never you here — the notes can be the storyteller's own notebook */ /* M510-53: inside the story so far */
+      pushSlot('Who’s here, in the recent pages', recentOfHere.text, 'sent inside “Our story so far” as “In full, the people here in the pages just before the ones that follow”: the storyteller’s own paragraphs that name who is here, from the pages between the last eight and the record — word for word, while they are here (small model)', recentOfHere.who.join(', '));
       placeRow(slots, 'Who’s here, in the recent pages');
     }
   }
@@ -1548,14 +1571,25 @@ export function buildRequest({
   let notesMessage = null;
   let notesBlock = null;
   let generatedStart = 0;
+  /* M751: THE BRIEF AND THE CAST SAY WHAT THEY ARE, IN EVERY ROLE. Sent as user or assistant they were headed (M510-39); in
+   * the system — his default — they rode bare, and an OpenAI-style house joins the system into one message: his brief stood
+   * right after the shortcuts' last line ("…apply the recolor in the next story output.") as if it were part of it. One
+   * heading for each, the same in all three roles. "The cast" (was "Who’s here"): his cast notes speak of people who are not
+   * here too, and "Here now:" in the state of things says who is. */
+  const BRIEF_HEAD = 'What this story is about:';
+  const CAST_HEAD = 'The cast:';
   if (notesRole === 'system') {
+    for (const [seat, head] of [[2, BRIEF_HEAD], [3, CAST_HEAD]]) {
+      const t = systemBlocks[seat] && typeof systemBlocks[seat].text === 'string' ? systemBlocks[seat].text.trim() : '';
+      if (t) systemBlocks[seat] = { ...systemBlocks[seat], text: head + '\n' + t };
+    }
     if (stateInjection) { notesBlock = { text:stateInjection.content,cache:false }; systemBlocks.push(notesBlock); }
   } else {
     const opening = briefingOpening(voice);
     const told = stateInjection && stateInjection.content.startsWith(opening) ? stateInjection.content.slice(opening.length).replace(/^\n+/, '') : (stateInjection ? stateInjection.content : '');
     const briefText = systemBlocks[2] && typeof systemBlocks[2].text === 'string' ? systemBlocks[2].text.trim() : '';
     const hereText = systemBlocks[3] && typeof systemBlocks[3].text === 'string' ? systemBlocks[3].text.trim() : '';
-    const parts = [briefText ? 'What this story is about:\n' + briefText : '', hereText ? 'Who’s here:\n' + hereText : '', told].filter(Boolean);
+    const parts = [briefText ? BRIEF_HEAD + '\n' + briefText : '', hereText ? CAST_HEAD + '\n' + hereText : '', told].filter(Boolean);
     if (parts.length) notesMessage = { role: notesRole, content: (notesRole === 'assistant' ? notebookOpening(voice) : opening) + '\n\n' + parts.join('\n\n') };
     if(notesMessage && told) generatedStart = notesMessage.content.lastIndexOf(told);
     systemBlocks[2] = { ...systemBlocks[2], text: '' };
@@ -1778,7 +1812,7 @@ export function buildRequest({
     if (row) { row.text = ''; row.tokens = 0; row.reason = 'optional historical material omitted to fit the final request'; }
   };
   if (inputTokens > room && historicalText) {
-    removeGenerated(historicalText,'Historical original excerpts');
+    removeGenerated('\n\n' + historicalText,'Historical original excerpts'); /* M751: with the blank line before it — they stand between parts now */
     historical.length = 0; omittedForFit.push('historical excerpts');
     refreshPerspective(); accounting = transport(); inputTokens = accounting.inputTokens;
   }

@@ -12,6 +12,6 @@ test('M420-1 HER OWN SECRET IS HERS: "Suì-Fēng" in the scene reads the knowled
     knowledge: { 'Sui-Feng': [{ fact: 'the Onmitsukido watches Oda', atTurn: 3 }], 'Rukia Kuchiki': [{ fact: 'Oda skipped the captains meeting yesterday', atTurn: 3 }] } };
   const facts = renderStateFacts(st, { scenePages: ['The Onmitsukido watches from the roof; Oda skipped the meeting.'] });
   assert(/Sui-Feng knows: the Onmitsukido watches Oda/.test(facts), 'her fact, as hers: ' + facts);
-  assert(!/Suì-Fēng hasn’t found out:[^\n]*Onmitsukido/.test(facts), 'never told she hasn’t found out her own secret: ' + facts);
-  assert(/Suì-Fēng hasn’t found out: Oda skipped the captains meeting yesterday \(Rukia Kuchiki knows\)/.test(facts), 'what she truly has not learned is still said');
+  assert(!/Suì-Fēng — no page has shown them learning:[^\n]*Onmitsukido/.test(facts), 'never told she hasn’t found out her own secret: ' + facts);
+  assert(/Suì-Fēng — no page has shown them learning: Oda skipped the captains meeting yesterday \(Rukia Kuchiki knows\)/.test(facts), 'what she truly has not learned is still said');
 });

@@ -100,7 +100,7 @@ test('M548-5 WHAT HIS CHOICES SET IN MOTION rides in his notes on the pages afte
   assert(text.includes('- (page 6, when I chose to lie again) Byakuya — hears the lie and will check it.'), 'with its page and its choice: ' + text);
   const r = build(after, { choicesOn: true, choiceEchoes: text });
   const notes = wireOf(r);
-  assert(notes.indexOf('What my choices set in motion') !== -1 && notes.indexOf('What my choices set in motion') < notes.indexOf('On their mind:'), 'in the notes, before the people\'s minds');
+  assert(notes.indexOf('What my choices set in motion') !== -1 && notes.indexOf('On their mind') !== -1 && notes.indexOf('What my choices set in motion') < notes.indexOf('On their mind'), 'in the notes, before the people\'s minds'); /* M751: the heading carries words after its name since M737 — the order is the law */
   assert(row(r, 'What your choices set in motion').tokens > 0, 'its receipt row');
   eq(echoesText(thread({ edited: true }).out), '', 'an edited move is his own — nothing set in motion');
   const many = [];

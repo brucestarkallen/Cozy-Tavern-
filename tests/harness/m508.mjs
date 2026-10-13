@@ -58,7 +58,7 @@ test('M508-4 a blind spot names a long fact in its first words; the whole fact s
   st = applyMutations(st, [{ type: 'knowledge.add', name: 'Renji', fact: long }]).state;
   const spots = blindSpots(st.knowledge, st.present, { scenePages: ['the roster acceptance and the out-box'], turn: 31, mc: 'Jovan Oda' });
   const said = renderBlindSpots(spots);
-  assert(/Rukia hasn’t found out: heard Nanao Ise report that the roster acceptance/.test(said), said);
+  assert(/Rukia — no page has shown them learning: heard Nanao Ise report that the roster acceptance/.test(said), said);
   assert(said.includes('… (Renji knows)') && !said.includes('no routing entries'), 'clipped, with the knower: ' + said);
   assert(said.length < long.length, 'shorter than the fact');
   const facts = renderStateFacts(st, { whole: true, budget: 60000, scenePages: ['the roster acceptance and the out-box'] });
@@ -74,11 +74,11 @@ test('M509-1 the shorter list names a shared fact ("Everyone here but" eight, no
   const facts = renderStateFacts(st, { whole: true, budget: 60000, scenePages: ['The courtyard watched him run.'] });
   const line = facts.split('\n').find((l) => l.includes('thank the courtyard')).replace(/^Who knows what: /, '');
   assert(/^Everyone here but /.test(line) && (line.match(/Vale/g) || []).length === 8, 'eight named, not twelve: ' + line);
-  assert(!/hasn’t found out: heard Jovan Oda thank the courtyard/.test(facts), 'the eight are out of it by the line above — not again as a blind spot: ' + facts.split('\n').filter((l) => /hasn’t found out/.test(l)).join(' | '));
+  assert(!/no page has shown them learning: heard Jovan Oda thank the courtyard/.test(facts), 'the eight are out of it by the line above — not again as a blind spot: ' + facts.split('\n').filter((l) => /no page has shown them learning/.test(l) || /hasn’t found out/.test(l)).join(' | '));
   /* a private word to one person is still a blind spot for the rest */
   st = applyMutations(st, [{ type: 'knowledge.add', name: present[0], fact: 'heard Hitsugaya say, close, that whatever he just remembered stays out of the stones' }]).state;
   const facts2 = renderStateFacts(st, { whole: true, budget: 60000, scenePages: ['The stones and the courtyard.'] });
-  assert(/hasn’t found out: heard Hitsugaya say, close/.test(facts2), 'a private word stays a blind spot');
+  assert(/no page has shown them learning: heard Hitsugaya say, close/.test(facts2), 'a private word stays a blind spot');
 });
 
 test('M509-2 a word that is in most facts is not what makes an old fact bear on the scene: a 46-page-old report is called back for "post station", never for "courtyard"', () => {
@@ -231,9 +231,9 @@ test('M509-15 a moment the whole room saw is in every book in the room, and nobo
   st = applyMutations({ ...st, page: 14 }, [{ type: 'presence.enter', name: 'Late Vale' }]).state;
   st.page = 15;
   const spots = renderBlindSpots(blindSpots(st.knowledge, st.present, { scenePages: ['the courtyard'], turn: 16, mc: 'Jovan Oda', wasThere: wasThereFn(st) }));
-  assert(!/(?:Kensei|Rukia|the cook)[^\n]*hasn’t found out: watched Jovan bow/.test(spots), 'the room was there: ' + spots);
-  assert(/Late Vale[^\n]*hasn’t found out: watched Jovan bow/.test(spots), 'one who walked in after is still blind to it: ' + spots);
-  assert(/Kensei[^\n]*hasn’t found out: heard Jovan say, close/.test(spots) || /Rukia[^\n]*hasn’t found out: heard Jovan say, close/.test(spots), 'the whisper is still a blind spot: ' + spots);
+  assert(!/(?:Kensei|Rukia|the cook)[^\n]*no page has shown them learning: watched Jovan bow/.test(spots), 'the room was there: ' + spots);
+  assert(/Late Vale[^\n]*no page has shown them learning: watched Jovan bow/.test(spots), 'one who walked in after is still blind to it: ' + spots);
+  assert(/Kensei[^\n]*no page has shown them learning: heard Jovan say, close/.test(spots) || /Rukia[^\n]*no page has shown them learning: heard Jovan say, close/.test(spots), 'the whisper is still a blind spot: ' + spots);
   const facts = renderStateFacts({ ...st, present: st.present }, { whole: true, budget: 60000, scenePages: ['the courtyard'] });
   assert(/Everyone here but Late Vale knows: watched Jovan bow/.test(facts) || /Everyone here but Late Vale knows:[^\n]*watched Jovan bow/.test(facts), 'and the shared line counts the room: ' + (facts.match(/[^\n]*watched Jovan bow[^\n]*/) || [''])[0]);
 });

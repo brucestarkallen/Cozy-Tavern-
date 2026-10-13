@@ -1,3 +1,33 @@
+# M751: the storyteller's request read top to bottom, in plain words
+
+Version m751-001. Base 4478c04 (M750).
+The owner asked whether the order, the explanations and the persona's words
+are clear in all three notes roles. Read through the real buildRequest (frontier,
+past its room, small; notes as system, user, assistant; a named persona):
+- Brief and cast now carry "What this story is about:" and "The cast:" in every
+  role. In the system role (default) they rode bare, and the OpenAI-style wire
+  joined them onto the shortcuts' last line.
+- The word-for-word passage his move names stands inside "Our story so far",
+  after its lines and before the plans (it came after "Here now").
+- M737 jargon replaced with plain words, meanings kept: "On their mind — each
+  person's own, not what the others know"; "Renji believes: ...", "Kenpachi
+  suspects: ...", "may know, or may only believe: ..."; "(how: saw)"; blind spots
+  "X — no page has shown them learning: fact (Y knows)", fact clipped (M508) and
+  always named; the small plan uses the same marker.
+- For a teller with a self, the house thinking note asks for its pass "briefly,
+  in your own voice", as the craft's Pass already did (it said "shorthand").
+- Small model: "In full (pages ...)" when nothing rests; "the ones that follow"
+  replaces "the ones you have"; no stray blank line after the plans.
+
+Checks, simulated replies and disposable storage only. Wording/order laws: 142
+pass, 8 fail; published M750: 136 pass, 14 fail. Fixed: M338-2, M343-2, M416-4,
+M420-1, M508-4, M510-52, M548-5 (stale heading). Remaining failures are
+identical on M750 and untouched here: M305-1, M338-1, M459-2, M509-1, M509-15
+(knowledge rules M737 changed: presence, re-worded facts, facts about oneself),
+M510-40, M598. DOM selection 26/26 (DOM-64 failed on M750); m737-context,
+m738-knowledge, m735, m736 pass; lint 0 errors. Not run: full suite, long
+play, live provider.
+
 # M750: Our story so far is the record itself; Essentials retired
 
 Version m750-001. Base f3c4b5a (M749).

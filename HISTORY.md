@@ -21155,3 +21155,16 @@ and tests removed. Measured on one 60-entry record: story so far 14,591 tokens
 (47 entries twice) to 8,342 (none twice); request 48,017 to 39,516. Focused
 harness, DOM, browser and lint checks passed; four selection laws fail exactly
 as on M749. No live provider, owner data, full suite or long play.
+
+## M751: the storyteller's request read top to bottom, in plain words
+
+Version m751-001. The owner asked whether order, explanations and the persona's
+words hold in every notes role. Reading the real request showed the brief and
+cast unlabeled in the system role (joined onto the shortcuts' last line on
+OpenAI-style wires), the word-for-word passage after the present state, M737
+labels on the storyteller's wire ("perspective:", "learning is not established
+in the available record", "(recorded for ...)", "personal reference rather than
+shared knowledge") and a house thinking note asking a persona teller for
+shorthand against the craft's natural Pass. All fixed in plain words with the
+meanings kept. Seven older wording laws pass again (DOM-64 too); five knowledge
+laws M737 broke by changing which facts are listed are left as they were.

@@ -29,10 +29,10 @@ test('M338-1 THE WRITER’S REPORT: Claire "was given the schedule yesterday" �
   assert(claire.lacks.some((l) => /lied to Mi-na about football training/.test(l.fact)), 'and what MC did out of her sight: ' + JSON.stringify(claire.lacks.map((l) => l.fact)));
   assert(!spots.some((s) => s.name === 'Jovan'), 'the main character is the writer’s — never listed');
   const facts = renderStateFacts(st, { scenePages: ['Jovan asked Claire how she found them at four o’clock.'] });
-  assert(/What they haven’t found out — no page has shown them learning these\./.test(facts) && /nobody remembers being told something they never were: /.test(facts) && /Claire Maxwell hasn’t found out: Jovan agreed by text[^.]*\(Aurora Sterling knows\)/.test(facts), 'it rides in the ledger’s words: ' + facts.slice(facts.indexOf('Who does NOT'), facts.indexOf('Who does NOT') + 420));
+  assert(/What they haven’t found out — no page has shown them learning these\./.test(facts) && /nobody remembers being told something they never were: /.test(facts) && /Claire Maxwell — no page has shown them learning: Jovan agreed by text[^.]*\(Aurora Sterling knows\)/.test(facts), 'it rides in the ledger’s words: ' + facts.slice(facts.indexOf('Who does NOT'), facts.indexOf('Who does NOT') + 420));
   /* …and it reaches the storyteller's request */
   const r = buildRequest({ story: {}, messages: [{ id: 'u', role: 'user', text: 'How did you find us?' }], settings: { noteText: STARTER_NOTE }, state: st, modules: [], memory: '', window: { keeperOn: true } });
-  assert(/Claire Maxwell hasn’t found out: Jovan agreed by text/.test(notesOf(r)), 'in the briefing, before the page is written');
+  assert(/Claire Maxwell — no page has shown them learning: Jovan agreed by text/.test(notesOf(r)), 'in the briefing, before the page is written');
 });
 
 test('M338-2 after the page, the second reader is GIVEN the duty and the list: a character who speaks of what no page showed them learning is a finding, and the fix is the nearest TRUE way', () => {
@@ -40,7 +40,7 @@ test('M338-2 after the page, the second reader is GIVEN the duty and the list: a
   assert(/UNTOLD KNOWLEDGE/.test(system) && /claims a telling the ledger gives no sign of \("you told me yesterday",/.test(system), 'the duty');
   assert(/`fix` is the nearest TRUE way/.test(system) && /Never a finding: a character lying or\s+bluffing on purpose/.test(system) && /the main character, whose knowledge is the writer's/.test(system), 'the fix, and what is the story and not a slip');
   assert(/ABSENCE IS NEVER DRIFT/.test(system), 'the older law stands for everything else');
-  assert(/Claire Maxwell hasn’t found out: Jovan agreed by text to walk with her at four o’clock from her driveway \(Aurora Sterling knows\)/.test(user), 'and it is shown what she was never shown — keyed to this page: ' + user.slice(user.indexOf('Who does NOT'), user.indexOf('Who does NOT') + 300));
+  assert(/Claire Maxwell — no page has shown them learning: Jovan agreed by text to walk with her at four o’clock from her driveway \(Aurora Sterling knows\)/.test(user), 'and it is shown what she was never shown — keyed to this page: ' + user.slice(user.indexOf('Who does NOT'), user.indexOf('Who does NOT') + 300));
   assert(user.includes(PAGE), 'beside the page itself');
 });
 

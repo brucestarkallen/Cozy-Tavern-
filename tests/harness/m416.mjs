@@ -58,7 +58,7 @@ test('M416-4 WHO HASN\u2019T FOUND OUT WHAT, SAID PLAINLY — no capitals, no ru
   const facts = renderStateFacts(st, { scenePages: ['Rukia folded her arms. Renji laughed at the gate.'] });
   assert(facts.includes(BLIND_HEAD), 'the head: ' + facts);
   assert(!/\b(NOT|SPEAK|ACT|must)\b/.test(BLIND_HEAD), 'no shouted words, no "must": ' + BLIND_HEAD);
-  assert(/Renji Abarai hasn’t found out: Oda skipped the captains’ meeting yesterday \(Rukia Kuchiki knows\)\./.test(facts), facts);
+  assert(/Renji Abarai — no page has shown them learning: Oda skipped the captains’ meeting yesterday \(Rukia Kuchiki knows\)\./.test(facts), facts);
   const anchor = sceneAnchor(st, { scenePages: ['Rukia folded her arms. Renji laughed at the gate.'] });
   assert(anchor.includes('Renji Abarai' + BLIND_LINE + 'Oda skipped'), 'the anchor (derestricted switch) still picks the line up: ' + anchor);
   const reader = buildContinuityMessages({ state: st, userText: 'u', assistantText: 'Renji grinned.' });
