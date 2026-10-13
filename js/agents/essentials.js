@@ -10,8 +10,8 @@
  * from its own last version, so it cannot drift from the record), and a small model reads it on every page; the record's
  * own lines come back word for word when a move names them (anchor.js recall).
  *
- * Only for a tale whose storyteller is a small model. An answer that cannot be used is asked for once more, then the
- * essentials already kept stand. A failure to reach the model throws — the queue's retries are for that. */
+ * Only for a tale whose storyteller is a small model. A complete compact record can serve directly. Larger records
+ * use bounded revision; progress and failures are persisted here so the queue does not repeat entire failed jobs. */
 import { fingerprint36 } from '../engine/fingerprint.js'; /* M575 */
 import { db } from '../store.js';
 import { callWorker, workerConnection } from './call.js';
@@ -31,7 +31,7 @@ export const ESSENTIALS_TARGET_CHARS = 16000;
 export const ESSENTIALS_MAX_CHARS = 17000; /* M747: owner-approved 1000 character completion tolerance. */
 export const ESSENTIALS_MAX_TOKENS = 5000;
 export const ESSENTIALS_TRIES = 3; /* M666: his — "it automatically tries again, same as all other workers": three asks, as the keeper's lines have */
-const ESSENTIALS_REPAIR_POLICY = 7; /* M747: completion tolerance, no automatic whole-record restart. */
+const ESSENTIALS_REPAIR_POLICY = 8; /* M748: streaming progress, precise coverage and compatible plan recovery. */
 const REPAIR_DRAFT_MAX_CHARS = 128000;
 const RUN_CALL_LIMIT = 12;
 const PART_MIN_CHARS = 800;
@@ -72,7 +72,7 @@ export function essentialsRecoveryState({kept,pending,nodes,pages,story,state,br
 }
 
 export function essentialsRunNote(out) {
-  if (out.wrote || out.why==='unchanged') return {detail:out.wrote ? 'streamlined the whole record into the story’s essentials' : 'the saved essentials match the current record'};
+  if (out.wrote || out.why==='unchanged') return {detail:out.wrote ? out.usedRecord ? 'saved the complete compact record as the story’s essentials' : 'streamlined the whole record into the story’s essentials' : 'the saved essentials match the current record'};
   if (!out.pending) return {silent:true};
   const previous=out.previousAvailable ? ' Previous accepted essentials remain available.' : ' No previous accepted essentials are saved yet.';
   const progress=out.progress?.done ? ' Saved '+out.progress.done+(out.progress.total?' of '+out.progress.total:' completed')+' source sections.' : '';
@@ -234,11 +234,28 @@ export function essentialsRepairMessages({connection,system,user,draft,share,att
   return measured.inputTokens<=inputRoom({budgetTokens:contextOf(helper),answerTokens:measured.answerTokens}) ? messages : null;
 }
 
+// Read page receipts only from the opening header, never from narrative text.
+// Punctuation and page-label spelling do not change the source ranges they name.
+function headerPageRanges(line) {
+  const opening=String(line).replace(/^\s*(?:[-*•]\s*)?/, '');
+  const header=opening.match(/^\[([^\]\n]+)\]\s*/);
+  const after=header ? opening.slice(header[0].length) : opening;
+  const parens=after.match(/^\(([^)\n]+)\)/);
+  const fields=[...(header ? header[1].split(/[·|;]/) : []),...(parens ? [parens[1]] : [])];
+  return fields.flatMap(field=>{
+    const receipt=field.match(/(?:^|[\s,(])(?:pages?\b|pp?\.)\s*:?\s*(.+?)\s*\)?$/i);
+    if (!receipt) return [];
+    const ranges=receipt[1].split(/\s*(?:,|\band\b|&)\s*/i).map(range=>{
+      const match=range.match(/^(\d+)(?:\s*(?:to|[-–—])\s*(\d+))?$/i);
+      if (!match) return null;
+      const first=Number(match[1]),last=Number(match[2] || match[1]);
+      return Number.isSafeInteger(first) && Number.isSafeInteger(last) && first>0 && last>=first ? [first-1,last-1] : null;
+    });
+    return ranges.every(Boolean) ? ranges : [];
+  });
+}
 function sectionCoverage(text,lines) {
-  const ranges=String(text).split('\n').flatMap(line=>{
-    const m=line.match(/^(?:[-*•]\s*)?(?:\[[^\]\n]+\]\s*)?\(pages?\s+(\d+)(?:\s*(?:to|[-–—])\s*(\d+))?\)/i);
-    return m ? [[Number(m[1])-1,Number(m[2] || m[1])-1]] : [];
-  }).sort((a,b)=>a[0]-b[0]);
+  const ranges=String(text).split('\n').flatMap(headerPageRanges).sort((a,b)=>a[0]-b[0]);
   return lines.filter(n=>!n.correction).every(n=>{
     let next=n.span[0];
     for (const [start,end] of ranges) if (start<=next && end>=next) next=end+1;
@@ -263,7 +280,9 @@ async function tellPart({ connection, lines, part, parts, share, brief, mc, sign
     renew();
     const messages=essentialsRepairMessages({connection,system:ask.system,user:ask.user+partNote,draft,share,target,why:last?.why || previous?.why,attempt:attempt+(previous?.draft ? 2 : 0)});
     usage.calls++; usage.inputChars += ask.system.length + (messages ? messages.reduce((n,m)=>n+m.content.length,0) : user.length);
-    const answer = await callLLM(connection, { system: ask.system, user, ...(messages ? {messages} : {}), ...answerOptions(share), signal });
+    let lastProgress=Date.now();
+    const answer = await callLLM(connection, { system: ask.system, user, ...(messages ? {messages} : {}), ...answerOptions(share), signal,
+      onProgress:()=>{const now=Date.now();if(now-lastProgress>=1000){lastProgress=now;renew();}} });
     const raw = typeof answer === 'string' ? answer : answer?.text || '';
     usage.outputChars += raw.length;
     const result = inspectEssentials(raw, share, answer?.finishReason || '');
@@ -390,7 +409,7 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
   const modern=sameAttempt && pending.repairPolicy>=4 && pending.repairPolicy<=ESSENTIALS_REPAIR_POLICY && pending.generationId
     && pending.plan?.length && pending.plan.every(p=>p.lines?.length && p.print===sourcePrint(p.lines));
   let candidate=modern ? structuredClone(pending) : {generationId:generationId(),sourcePrint:inputPrint,setupPrint,setupOwner,helperPrint,
-    repairPolicy:ESSENTIALS_REPAIR_POLICY,required:true,acceptedPrint:fp(JSON.stringify(original)),pagesPrint:originalPrint(ownedPages,rec.upTo),phase:'whole',
+    repairPolicy:ESSENTIALS_REPAIR_POLICY,required:true,explicit:force,acceptedPrint:fp(JSON.stringify(original)),pagesPrint:originalPrint(ownedPages,rec.upTo),phase:'whole',
     plan:(roots || []).map(lines=>({lines,print:sourcePrint(lines)})),parts:[],attempts:0,restarts:0};
   if (modern && candidate.repairPolicy!==ESSENTIALS_REPAIR_POLICY) {
     candidate.repairPolicy=ESSENTIALS_REPAIR_POLICY;candidate.validationRounds=0;
@@ -412,13 +431,27 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
       candidate.plan=plan;candidate.parts=done.map(p=>({print:p.print,text:p.text,complete:true}));candidate.phase='sections';
     } else if (/request limit|bounded recovery round/i.test(pending.why || pending.diagnostic?.why || '')) candidate.phase='fresh';
   }
+  // Old output-driven splits can survive several policy upgrades. When no
+  // section is complete and the actual full-source editing conversation fits,
+  // continue that draft against all originals in one request. Retain its
+  // earlier scope as provenance; it cannot be accepted locally as whole work.
+  if (roots?.length===1 && candidate.plan.length>1 && !candidate.plan.some(p=>p.complete)) {
+    const held=candidate.diagnostic,ask=essentialsAsk({record:rec.text,brief,mc});
+    const fullUser=ask.user+'\nInclude every original source range through the final entry.'+' '.repeat(1600);
+    const fits=held?.draft && essentialsRepairMessages({connection,system:ask.system,user:fullUser,draft:held.draft,share:ESSENTIALS_MAX_CHARS});
+    if (fits) {
+      candidate.plan=[{lines:rec.lines,print:inputPrint}];candidate.phase='whole';
+      candidate.diagnostic={...held,print:inputPrint,part:1,parts:1,draftScopePrint:held.draftScopePrint || held.print,
+        partialSourceDraft:true,why:(held.why || 'incomplete')+'; this partial draft must also incorporate the remaining original source entries'};
+    }
+  }
   for (const section of candidate.plan) if (section.complete
     && (!inspectEssentials(section.text,ESSENTIALS_MAX_CHARS).complete || !sectionCoverage(section.text,section.lines))) {
     section.complete=false;delete section.text;
   }
-  const owns=(s,requireSources=true)=>{
+  const owns=(s,requireSources=true,allowTimeout=false)=>{
     const pages=s.messages.filter(m=>!m.hidden).sort((a,b)=>(a.ts || 0)-(b.ts || 0));
-    return !stale() && !signal?.aborted && setupOwner===setupOwnerOf(s.story,s.settings.state)
+    return !stale() && (!signal?.aborted || allowTimeout && signal.reason?.message==='timeout') && setupOwner===setupOwnerOf(s.story,s.settings.state)
       && JSON.stringify(s.settings.essentials)===JSON.stringify(original)
       && (!ownedMemory || s.settings.memory && sourcePrint(s.settings.memory.nodes)===inputPrint)
       && ownedSources.every((p,i)=>pages[i]?.id===p.id && messageVersion(pages[i])===p.version)
@@ -429,7 +462,7 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
     candidate={...candidate,outcome,why,diagnostic,nextAt:outcome==='yielded'?Date.now()+CONTINUE_DELAY:outcome==='failed'?candidate.nextAt:0,
       parts:candidate.plan.filter(p=>p.complete).map(p=>({print:p.print,text:p.text,complete:true})),cursor:candidate.plan.findIndex(p=>!p.complete)};
     const wrote=await db.editStoryAtomically(storyId,s=>{
-      if (!owns(s,outcome!=='blocked')) return false;
+      if (!owns(s,outcome!=='blocked',outcome==='failed' || outcome==='blocked')) return false;
       s.settings.essentialsPending=structuredClone(candidate);return true;
     },{extraSettings:['essentialsPending']});
     if (wrote) {pending=structuredClone(candidate);expectedPending=pending;}
@@ -448,16 +481,26 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
     if (!await persist(outcome,why,diagnostic)) return result('superseded','The source or saved version changed while reading.');
     return result(outcome,why);
   };
+  const compactRecord=inspectEssentials(rec.text,ESSENTIALS_MAX_CHARS);
+  const usedRecord=!force && !candidate.explicit && compactRecord.complete && compactRecord.text===rec.text && sectionCoverage(compactRecord.text,rec.lines);
   const invalidSources=ownedStory && (rec.upTo>=ownedPages.length || sourceBindingIssues(rec.lines,ownedPages).length>0);
-  if (!roots || invalidSources || candidate.plan.filter(p=>p.complete).reduce((n,p)=>n+p.text.length,0)
-    +candidate.plan.filter(p=>!p.complete).length*80+Math.max(0,candidate.plan.length-1)>ESSENTIALS_MAX_CHARS) {
-    const why=!roots?'An indivisible source section exceeds the helper context.'
-      : invalidSources?'The record does not match the current original pages; its source coverage must be repaired first.'
+  if (invalidSources || !usedRecord && (!roots || candidate.plan.filter(p=>p.complete).reduce((n,p)=>n+p.text.length,0)
+    +candidate.plan.filter(p=>!p.complete).length*80+Math.max(0,candidate.plan.length-1)>ESSENTIALS_MAX_CHARS)) {
+    const why=invalidSources?'The record does not match the current original pages; its source coverage must be repaired first.'
+      : !roots?'An indivisible source section exceeds the helper context.'
         : 'The complete source sections exceed the 17000 character acceptance limit.';
     if (!await persist('blocked',why)) return result('superseded');
     return result('blocked',why);
   }
   if (!await persist()) return result('superseded','The source or saved version changed while reading.');
+  // Summaryception has already summarized the originals. If that complete
+  // current record fits the Essentials allocation, retain all its words rather
+  // than paying a model to recreate and possibly expand the same memory.
+  if (usedRecord) {
+    candidate.plan=[{lines:rec.lines,print:inputPrint,text:compactRecord.text,complete:true}];
+    candidate.diagnostic=null;candidate.attempts=0;candidate.validationRounds=0;
+    if (!await persist()) return result('superseded');
+  }
   for (let i=0;i<candidate.plan.length;i++) {
     const section=candidate.plan[i];
     // Completed answers, including ones later in the plan, are checked before
@@ -471,7 +514,7 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
     const share=free-(missing.length-1)*reserve;
     if (share<80) {await persist('blocked','Complete source sections exceed the 17000 character acceptance limit.');return result('blocked',candidate.why);}
     const held=candidate.diagnostic?.print===section.print?candidate.diagnostic:null;
-    if (held?.draft) {
+    if (held?.draft && !held.partialSourceDraft) {
       const checked=inspectEssentials(held.draft,share,held.finishReason || '');
       if (checked.complete && !held.providerTruncated && sectionCoverage(checked.text,section.lines)) {
         section.text=checked.text;section.complete=true;candidate.attempts=0;candidate.validationRounds=0;candidate.diagnostic=null;
@@ -492,6 +535,7 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
         previous:candidate.diagnostic?.print===section.print?candidate.diagnostic:null,
         checkpoint:async diagnostic=>{candidate.diagnostic={...diagnostic,print:section.print};if (!await persist()) throw Object.assign(new Error('The source or saved version changed while reading.'),{superseded:true});}});
     } catch (err) {
+      if (signal?.aborted && signal.reason?.message==='timeout') return fail('The provider stopped responding before the source section completed.',candidate.diagnostic,signal.reason);
       if (signal?.aborted || err?.name==='AbortError') throw err;
       if (err?.superseded) return result('superseded',err.message);
       return fail('Source section '+(i+1)+' of '+candidate.plan.length+': '+String(err?.message || 'the provider could not be reached').slice(0,300),candidate.diagnostic,err);
@@ -514,5 +558,5 @@ export async function runEssentials({ connection, storyId, nodes, brief = '', mc
       sourcePages:acceptedPageReceipts(rec.lines,rec.upTo,ownedPages),correctionsPrint:sourcePrint(rec.lines.filter(n=>n.correction)),at:Date.now()};
     delete s.settings.essentialsPending;return true;
   },{extraSettings:['essentialsPending']});
-  return saved ? {wrote:true,outcome:'completed',parts:candidate.plan.length,usage} : result('superseded','The source or saved version changed while reading.');
+  return saved ? {wrote:true,outcome:'completed',parts:candidate.plan.length,usage,usedRecord} : result('superseded','The source or saved version changed while reading.');
 }

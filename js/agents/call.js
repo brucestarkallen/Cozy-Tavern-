@@ -158,7 +158,7 @@ export async function callWorker(connection, opts = {}) {
   }
 }
 
-async function callWorkerOn(connection, { system, user, messages, maxTokens, maxTokensLimit, effort, temperature, signal } = {}) {
+async function callWorkerOn(connection, { system, user, messages, maxTokens, maxTokensLimit, effort, temperature, signal, onProgress } = {}) {
   if (!connection || typeof connection !== 'object') throw new Error('no connection');
   const conn = workerConnection(connection, { maxTokens, maxTokensLimit, effort, temperature });
   const provider = createProvider(conn);
@@ -169,7 +169,12 @@ async function callWorkerOn(connection, { system, user, messages, maxTokens, max
     system: String(system || ''),
     messages: list,
     signal,
-    onToken() { /* a worker's words are read whole, never streamed to a page */ },
+    onToken(token) {
+      // Words still arrive whole to the worker. A caller may renew its idle
+      // timeout only when the provider actually streams prose or thinking.
+      if (typeof onProgress === 'function' && (token?.channel === 'prose' || token?.channel === 'thinking')
+        && typeof token.text === 'string' && token.text.length) onProgress();
+    },
   });
   let result = await ask(provider);
   /* M315: …AND A HOUSE THAT THINKS WITHOUT BEING ASKED. A connection that says nothing about thinking sends

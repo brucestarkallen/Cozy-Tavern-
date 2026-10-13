@@ -1,3 +1,45 @@
+# M748: finish active Essentials streams and reuse complete compact records
+
+Version m748-001. Base 9b09862fe803f21bf425034ca06d954de3164774.
+The owner reported ten minutes of repeated Essentials attempts after M747.
+Confirmed code paths, without asserting an unobserved live provider trace:
+the 60 second worker timer was renewed before a request but not while tokens
+arrived; its abort escaped durable Essentials recovery and all four queue
+entry points could repeat the entire job six times. Equivalent page headers
+were also rejected, and old unfinished split plans remained split even when
+the full source and draft fit one request. Earlier pre M737 speed also included
+clipping oversized answers; that incomplete acceptance is not restored.
+
+callWorkerOn now exposes actual text/thinking progress, and tellPart renews
+its inactivity timer while receiving it. runEssentials persists genuine timeout
+failures under unchanged ownership; Essentials queue jobs use once:true so its
+own bounded recovery is the only retry lifecycle. Stop remains Stop. Structural
+coverage accepts equivalent page/pp. labels and header punctuation, while
+missing ranges and narrative page mentions still fail. Compatible all unfinished
+plans consolidate only when the complete source editing conversation fits;
+the partial draft retains provenance and cannot itself certify the whole record.
+
+When the complete current Summaryception record already fits 17000 characters,
+automatic Essentials saves that exact text through normal source validation and
+atomic publication, without another model request. No source words or details
+are discarded. Explicit regeneration still asks the model; larger records keep
+the bounded revision path. Input context limits do not block a local complete
+save. Policy8 resumes compatible older pending work, retaining completed parts,
+accepted snapshots and source ownership. Auditor policy and settings unchanged.
+
+Focused tests passed with simulated replies and disposable storage:
+tests/harness/m748-essentials-completion.mjs saved 48 pages/15 folded records
+without a provider call, preserved all words and original records, survived
+reload, accepted three equivalent header shapes in one call each, rejected
+missing final coverage, preserved accepted text, bounded genuine timeouts at
+four attempts, and respected Stop. tests/m748_essentials_stream.py exercised
+the real Chromium scheduler and provider adapter with a record over 17000
+characters and an old two section candidate: one request streamed at 35,70,100
+virtual seconds, saved a complete summary, supplied it to storyteller assembly,
+displayed it, cleared pending state and turned green. Reopen made no extra call.
+Syntax and whitespace checks passed. No live provider or owner database access;
+the owner's exact ten minute request and saved data were not observed.
+
 # M747: completion tolerance and no output-driven whole restart
 
 Version m747-001. Base ece23e115ecd3543d49d585f1f2bc99eae5c97c9.

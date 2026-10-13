@@ -21086,3 +21086,27 @@ recovery, snapshot preservation, no whole restart and truncation rejection.
 M746 module and Chromium workflow passed revision, automatic continuation,
 saved/displayed/selected Essentials and green health. All model replies were
 simulated; no owner data accessed. Syntax and diff checks passed.
+
+
+## M748: complete Essentials without repeated whole jobs
+
+Version m748-001. Renew the Essentials inactivity timer on actual streamed
+prose/thinking, persist genuine timeouts under source ownership, and use one
+queue attempt because Essentials already owns durable bounded recovery.
+Previously an active stream could hit 60 seconds and the queue repeat the
+whole job six times. Accept equivalent page header formats without accepting
+missing coverage. Consolidate old all unfinished split plans only when the
+full source and draft editing conversation fit; retain partial draft provenance.
+For automatic work, a complete current folded record already within 17000
+characters is saved exactly, without asking a model to recreate it. Explicit
+regeneration and larger records retain generation. Accepted memory, source
+checks, completed sections, Stop, atomic publication and Auditor remain intact.
+
+Focused M748 module and Chromium checks passed with disposable storage and
+simulated provider replies. Module:48 pages/15 folds saved with zero calls,
+exact words/current reload, equivalent headers, real coverage rejection,
+accepted snapshot preservation and bounded timeout recovery. Browser:one request
+with all originals plus the old partial draft streamed for 100 virtual seconds,
+saved/displayed/selected a summary, cleared pending and turned green; unchanged
+reopen made no additional request. Syntax and diff checks passed. No live
+provider or owner database was accessed; the particular live wait was not traced.

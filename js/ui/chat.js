@@ -2882,7 +2882,7 @@ export function initChat(ctx) {
       if (!story) return;
       const view=await essentialsHealth(story,await loadMemory(storyId),await loadWorkerStatus(storyId));
       if (!view.needed || !view.eligible || busy || isReplaying() || otherHandAt(storyId) || workIsRunning(storyId) || queuedCount(storyId) || ctx.getActiveStoryId()!==storyId) return;
-      const promise=enqueueWork(storyId,{name:'essentials',run:({signal,stale,renew})=>essentialsNext(story,{signal,stale,renew})});
+      const promise=enqueueWork(storyId,{name:'essentials',once:true,run:({signal,stale,renew})=>essentialsNext(story,{signal,stale,renew})});
       noteWork(storyId,promise);
       await promise;
     } catch (err) { /* The saved pending state and next health look survive a failed local read. */ }
@@ -4228,7 +4228,7 @@ export function initChat(ctx) {
   async function remakeEssentials() {
     const story = await activeStory();
     if (!story) return { ok: false };
-    const promise = enqueueWork(story.id, { name: 'essentials', run: async ({ signal, stale, renew }) => essentialsNext(story, { signal, stale, renew, force: true }) });
+    const promise = enqueueWork(story.id, { name: 'essentials', once: true, run: async ({ signal, stale, renew }) => essentialsNext(story, { signal, stale, renew, force: true }) });
     noteWork(story.id, promise);
     try { await promise; } catch (err) { /* the book says what stands */ }
     return { ok: true };
@@ -4265,7 +4265,7 @@ export function initChat(ctx) {
         const promise = enqueueWork(story.id, { name: 'planner', run: async ({ signal, stale }) => planNext(story, { signal, stale }) });
         noteWork(story.id, promise);
       }
-      const kept = enqueueWork(story.id, { name: 'essentials', run: async ({ signal, stale, renew }) => essentialsNext(story, { signal, stale, renew }) }); /* M510-15 */
+      const kept = enqueueWork(story.id, { name: 'essentials', once: true, run: async ({ signal, stale, renew }) => essentialsNext(story, { signal, stale, renew }) }); /* M510-15 */
       noteWork(story.id, kept);
       offerChoices(story); /* M548: a page that has none yet, with the switch on */
       /* M550: on open, only what is due to be REPAIRED — opening a tale to look at it otherwise asks no one: where it began,
@@ -5567,7 +5567,7 @@ export function initChat(ctx) {
     enqueue('essentials', async ({ signal, stale, renew }) => {
       if (stale()) return { silent: true };
       return essentialsNext(story, { signal, stale, renew });
-    });
+    }, { once: true }); // Essentials owns its durable recovery; the queue must not repeat a whole run.
     /* 9b. M527: WHERE A TALE UNDER WAY BEGAN — placed once after a page (its #story line, else its brief and first page),
      * asked again when that line changed; its answer rides from the next page. Never before the storyteller's request. */
     enqueue('placer', async ({ signal, stale }) => {
