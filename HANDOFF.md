@@ -7,7 +7,7 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m752-009 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
+- Version m752-010 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
   m752-002 lets go, when a tale opens, a persona the old rule made of an ordinary
   sentence; m752-003 makes the notes say when they have not read the newest page;
   m752-004 settles the continuous audit's historical corrections instead of
@@ -19,7 +19,10 @@ older files sit beside it). Search them with
   m752-008: a shelf he opened inside a giant project no longer folds shut again — a
   setting read while its own write is under way is the new value (store.js; law
   M752-ST1; law suite 1671 of 1671, DOM walk 316 of 316); m752-009: a historical
-  correction's conversation ends on a verdict, not on a mistake nobody said (below).
+  correction's conversation ends on a verdict, not on a mistake nobody said (below);
+  m752-010: "Manual yellow check", first in the workers' room — every owner the light is
+  yellow about is given a fresh try now, one after another, and the banner says what is
+  still yellow and why (chat.js yellowCheckNow; DOM-M752-13).
 - Measured on m752-004: the law suite 1670 of 1670, the DOM walk 316 of 316, lint 0
   errors (253 warnings, as before). Chromium at 390 px: the new button wraps with the
   others, no page or panel overflow. On m752-001: tests/m739_ui.py and
@@ -48,8 +51,8 @@ older files sit beside it). Search them with
   it (with the specific reason), whose line is his, or for which no edit in the
   originals' own words can set it right (blocker "unsafe", with its reason); and one whose
   verdict could not be read in two attempts (six calls) — until he presses "Manual
-  continuous audit" (the workers' room), which asks again, with the switch off too, and
-  steps aside for his page ("Finish it" carries on).
+  continuous audit" or "Manual yellow check" (the workers' room), which ask again by hand
+  and step aside for his page ("Finish it" carries on).
 - Tales stored by M751, opened in place by m752 (an M751-made shelf of five tales,
   its device rows kept as they were): every tale opens and draws; every checkpoint
   reads byte for byte as M751 reads it; the completed audit stays verified (no audit

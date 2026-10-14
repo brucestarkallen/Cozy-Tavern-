@@ -2301,6 +2301,19 @@ function workersPanel(ctx) {
     if (ctx.chat && typeof ctx.chat.continuousAuditNow === 'function') await ctx.chat.continuousAuditNow();
   });
 
+  /* M752 (followup 10) — HIS (15 October 2026): "It should have manual yellow checked to push to automatically fix
+   * everything that's yellow." Named as he named it, first in the row: every owner the light is yellow about is given a fresh
+   * try now, one after another, and the banner ends with what is green and what is still yellow, and why (chat.js
+   * yellowCheckNow). */
+  const yellowNow = document.createElement('button');
+  yellowNow.type = 'button';
+  yellowNow.className = 'text-btn';
+  yellowNow.textContent = 'Manual yellow check';
+  yellowNow.title = 'Everything the light is yellow about, set right now, by hand: the record, the pages the ledger missed, each reader that stumbled or stopped partway, the auditor and the continuous audit are each given a fresh try, one after another — even those that have stopped trying by themselves. The banner says what is still yellow, and why. It steps aside when you write.';
+  yellowNow.addEventListener('click', async () => {
+    if (ctx.chat && typeof ctx.chat.yellowCheckNow === 'function') await ctx.chat.yellowCheckNow();
+  });
+
   /* M218: fold everything that is due, now — never a wipe, only the gaps. */
   const catchUp = document.createElement('button');
   catchUp.type = 'button';
@@ -2352,7 +2365,7 @@ function workersPanel(ctx) {
     mendMarksBtn.disabled = true;
     try { if (ctx.chat && typeof ctx.chat.mendAllPages === 'function') await ctx.chat.mendAllPages(); } finally { mendMarksBtn.disabled = false; }
   });
-  row.append(found, rescan, audit, continuousNow, mendMarksBtn);
+  row.append(yellowNow, found, rescan, audit, continuousNow, mendMarksBtn);
   const row2 = document.createElement('div');
   row2.className = 'row';
   row2.append(catchUp, refold, unfold);

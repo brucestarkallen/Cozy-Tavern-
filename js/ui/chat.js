@@ -2731,8 +2731,10 @@ export function initChat(ctx) {
   /* M210: a stop just stops. There is no mark to clear any more — Rebuild
    * always starts from the first page (agents/rebuild.js), so the writer
    * never has to reason about what the last run did. */
+  const handStops = new Map(); /* M752 (followup 10): storyId -> when his Stop was last pressed */
   function stoppedByHand(storyId) {
     if (storyId) stopWork(storyId);
+    if (storyId) handStops.set(storyId, Date.now()); /* M752 (followup 10): a manual yellow check under way ends with it; no later press reads it */
   }
 
 
@@ -2944,6 +2946,7 @@ export function initChat(ctx) {
       }
     } catch (err) { /* durable reservation survives interruption; the next look is bounded */ }
     finally {healthWorkerActive.delete(storyId);if(attempted)markLedgerTrouble(storyId);}
+    return attempted; /* M752 (followup 10): sent (an early return above says it was not) — for "Manual yellow check" */
   }
 
   async function markLedgerTroubleNow(storyId) {
@@ -3123,8 +3126,10 @@ export function initChat(ctx) {
         routeHealth(health,{record:()=>fillRecordGap(storyId),ledger:()=>fillLedgerGap(storyId),
           auditor:()=>scheduleLedgerRepair(storyId),historical:()=>continuousCatchUp(storyId),
           ...Object.fromEntries(['extractor','world','scribe','keeper','continuity'].map(name=>['worker:'+name,()=>recoverHealthWorker(storyId,name)]))});
+        return health; /* M752 (followup 10): what the light is yellow about, for "Manual yellow check" */
       }
     } catch (err) { /* a mark is never worth a thrown turn */ }
+    return null; /* (the light could not be read: it is not green — M254) */
   }
 
   /* M293: ANOTHER HAND AT THIS TALE. A second browser holding the same tale
@@ -3768,6 +3773,105 @@ export function initChat(ctx) {
     noteWork(story.id, promise);
     bannerEndsWith(banner, promise); /* M675: a run that ends some other way (a call that failed) says so */
     return true;
+  }
+
+  /* M752 (followup 10) — "MANUAL YELLOW CHECK". HIS (15 October 2026): "It should have manual yellow checked to push to
+   * automatically fix everything that's yellow." The light is yellow about what it lists (health.js healthSnapshot: the
+   * record or the ledger behind, a reader that stumbled or stopped partway, the auditor's open work, the continuous audit's
+   * open corrections). Each has an owner that mends it by itself — within its bounds: a minute, two, four between tries, two
+   * attempts, then it waits for him ("a page that fails is never asked again by the app on its own"). This is his press for
+   * all of them at once: every owner the light is yellow about is given a fresh try now, one after another in the light's own
+   * order (the record, the ledger's missed pages, each reader, the auditor, the continuous audit), waiting for each to finish
+   * — each says what it is doing on the banner as it works — and then the light is looked at again and the banner says what
+   * is green and what is still yellow, with why. THE STORYTELLER COMES FIRST: a page he asks for steps it aside (what was set
+   * right is kept; press it again to carry on); his Stop stops it. One press at a time per tale. */
+  const yellowByHand = new Set();
+  async function yellowCheckNow() {
+    const story = await activeStory();
+    if (story && yellowByHand.has(story.id)) return false;
+    const say = beginWork('Manual yellow check', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); say.failed('Stopped — what was set right is kept'); });
+    if (!story) { say.failed('Open a story first'); return false; }
+    const id = story.id;
+    yellowByHand.add(id);
+    const started = Date.now();
+    const stopped = () => (handStops.get(id) || 0) >= started;
+    const otherTale = () => ctx.getActiveStoryId() !== id; /* the owners act on the open tale: another opened, it ends */
+    const asideNow = () => Boolean(busy) || isReplaying() || otherTale();
+    const rest = () => new Promise((r) => setTimeout(r, 250));
+    /* every owner works through the one queue: a step is over when the tale's work is (its own banner says how it went) */
+    const settled = async () => { while (!stopped() && !asideNow() && (workIsRunning(id) || queuedCount(id) > 0)) await rest(); };
+    const yellowOf = (h) => (h && Array.isArray(h.issues) ? h.issues.filter((i) => !i.progress) : []);
+    /* its last word, on a banner of its own (each owner it sent held the banner while it worked) — with a Stop like every banner */
+    const lastWord = () => beginWork('Manual yellow check', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); }, id);
+    const done = [];
+    const unsent = [];
+    let end = 'done';
+    try {
+      say.say('looking at the light');
+      await settled();
+      const health = stopped() || asideNow() ? null : await markLedgerTroubleNow(id);
+      if (!health) {
+        if (!stopped() && !asideNow()) say.failed('The light could not be read just now — press it again in a moment');
+        end = stopped() ? 'stopped' : asideNow() ? 'aside' : 'unread';
+      } else {
+        const yellow = yellowOf(health);
+        if (!yellow.length) { say.done('Manual yellow check: nothing is yellow' + (health.issues.length ? ' — ' + withoutStop(health.reasons.join('; ')) : '')); return true; }
+        const has = (test) => yellow.some(test);
+        const shelf = (await loadWorkerStatus(id)) || {};
+        const steps = [];
+        /* each step says whether it sent its owner (one that could not be sent — no connection, another hand at the tale — is
+         * said so, and the light says why) */
+        if (has((i) => i.id === 'record-gap')) steps.push(['the record', async () => { gapTries.delete(id); gapFilledAt.delete(id); await fillRecordGap(id); return gapFilledAt.has(id); }]);
+        if (has((i) => i.id === 'ledger-gap')) steps.push(['the pages the ledger missed', async () => { ledgerTries.delete(id); ledgerFilledAt.delete(id); await fillLedgerGap(id); return ledgerFilledAt.has(id); }]);
+        for (const name of ['extractor', 'world', 'scribe', 'keeper', 'continuity']) {
+          const mine = yellow.filter((i) => i.id === 'worker:' + name || i.id === 'guard:' + name);
+          if (!mine.length) continue;
+          if (name === 'keeper' && has((i) => i.id === 'record-gap')) continue; /* the record's own errand, above */
+          if (mine.every((i) => i.route === 'auditor')) continue; /* the auditor's (a world identity it verifies), below */
+          const row = shelf[name];
+          steps.push([name === 'continuity' ? 'the second reader' : 'the ' + name, async () => {
+            /* "Finish it", where the row has one: carry on from where it stopped */
+            if (row && row.ok !== false && row.unfinished && row.resume && row.resume !== 'continuousAuditNow' && typeof ctx.chat[row.resume] === 'function') return (await ctx.chat[row.resume]()) !== false;
+            const key = 'healthWorkers:' + id;
+            const saved = (await db.settings.get(key)) || {};
+            if (saved[name]) { delete saved[name]; await db.settings.set(key, saved); } /* its automatic attempts spent: a fresh try, by hand */
+            return (await recoverHealthWorker(id, name)) === true;
+          }]);
+        }
+        if (has((i) => i.owner === 'auditor' || i.id === 'guard:auditor' || i.route === 'auditor')) steps.push(['the auditor', async () => (await auditNow()) === true]);
+        if (has((i) => i.owner === 'continuous')) steps.push(['the continuous audit', async () => (await continuousAuditNow()) === true]);
+        for (const [what, run] of steps) {
+          await settled();
+          if (stopped() || asideNow()) break;
+          const sent = await run();
+          (sent ? done : unsent).push(what);
+          await rest();
+          await settled();
+          if (stopped() || asideNow()) break;
+        }
+        end = stopped() ? 'stopped' : asideNow() ? 'aside' : 'done';
+      }
+      if (end !== 'done') {
+        if (end === 'aside') {
+          const last = lastWord();
+          last.paused('Manual yellow check stepped aside ' + (otherTale() ? '— another tale was opened' : 'for your page') + '; what was set right is kept — press it again to carry on');
+        }
+        return end !== 'unread';
+      }
+      /* the light, looked at again: what is green now, and what is still yellow and why */
+      await settled();
+      const after = await markLedgerTroubleNow(id);
+      const still = yellowOf(after);
+      const last = lastWord();
+      const tried = (done.length ? done.join(', ') + (done.length === 1 ? ' was given a fresh try' : ' were given a fresh try') : 'nothing could be sent')
+        + (done.length && unsent.length ? '; ' + unsent.join(', ') + ' could not be sent' : '');
+      if (!after) last.failed('Manual yellow check: ' + tried + '; the light could not be read just now');
+      else if (!still.length) last.done('Manual yellow check: ' + tried + ' — the light is no longer yellow');
+      else last.failed('Manual yellow check: ' + tried + '; still yellow — ' + still.map((i) => withoutStop(i.reason)).filter(Boolean).join('; '));
+      return true;
+    } finally {
+      yellowByHand.delete(id);
+    }
   }
 
   async function rebuildRecordNow() {
@@ -9748,6 +9852,7 @@ export function initChat(ctx) {
     rescanLedger,
     auditNow,
     continuousAuditNow, /* M752 (followup 4): "Manual continuous audit" */
+    yellowCheckNow, /* M752 (followup 10): "Manual yellow check" — every owner the light is yellow about, a fresh try now */
     weighCast, /* M474 */
     mendAllPages, /* M477 */
     rerenderMessage, /* M483: the walk proves a re-ink keeps the page's number */

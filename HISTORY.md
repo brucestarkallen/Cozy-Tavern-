@@ -21394,3 +21394,31 @@ and M622-5, run from the wrong folder); DOM laws DOM-M752-10/11/12 pass (the who
 no flow every scenario passes through changed); lint 0 errors, 253 warnings as before. Not
 verified: his own stored tale and a live provider — whether his model's next answers settle his
 three is its judgment; a correction its sources do not settle stays yellow with its reason.
+
+## M752 followup 10 (m752-010): "Manual yellow check"
+
+The owner (15 October 2026): "It should have manual yellow checked to push to automatically fix
+everything that's yellow." Each thing the light is yellow about has an owner that mends it by
+itself, within bounds (a minute, two, four between tries; two attempts; then it waits for him).
+Before this his only presses were one owner at a time ("Manual continuous audit", "Audit the
+ledger", a row's "Finish it"), and a reader whose two automatic tries were spent had none at all.
+Now "Manual yellow check", first in the workers' room: the light is looked at (health.js
+healthSnapshot, now returned by chat.js markLedgerTroubleNow), and every owner it is yellow about
+is given a fresh try by hand in the light's own order, each waited for — the record (its backoff
+forgotten), the pages the ledger missed (likewise), each reader that stumbled or stopped partway
+(its spent checkpoint forgotten, or its row's "Finish it"), the auditor ("Audit the ledger"), the
+continuous audit ("Manual continuous audit"); each says what it does on the banner as it works.
+Then the light is looked at again and the banner says which were tried, which could not be sent,
+and that the light is no longer yellow — or what is still yellow and why. A page he asks for steps
+it aside, his Stop stops it (stoppedByHand now notes when), another tale opened ends it; one press
+at a time per tale. recoverHealthWorker now says whether it sent the reader.
+Law DOM-M752-13: a tale yellow for good (the second reader stumbled on the newest page with both
+automatic tries spent; a historical correction set aside) — nothing asks by itself for 1.5 s;
+the press runs the second reader and asks the correction again; it settles; the light is green;
+a second press finds nothing yellow and asks nobody. Fails on m752-009 (no such control), passes.
+Measured: law suite 1676 of 1676 (the first run failed M208 and M210 on my code: two last-word
+banners had no Stop and the stop's first line had moved — every banner now carries a Stop and
+the stop still stops the queue first; the laws unchanged); DOM-M752-10..13 pass; lint 0 errors,
+253 warnings. Chromium at 390 px and 1280 px: the button is first in the row, the row wraps, no
+horizontal overflow. Not run: the whole DOM walk (nothing every scenario passes through changed
+beyond the lamp's look now returning its inventory); a live provider; his own tale.

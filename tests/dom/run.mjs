@@ -16437,5 +16437,98 @@ test('DOM-M752-12 “MANUAL CONTINUOUS AUDIT” ASKS ABOUT EVERY OPEN CORRECTION
   }
 });
 
+test('DOM-M752-13 “MANUAL YELLOW CHECK” (HIS, 15 October 2026: “It should have manual yellow checked to push to automatically fix everything that’s yellow”): first in the workers’ room, named as he named it; on a tale whose light is yellow for good — the second reader stumbled on the newest page with its two automatic tries spent, and a historical correction the automatic recovery set aside — nothing asks again by itself; his press gives each a fresh try, one after another: the second reader reads the page, the correction is asked about again and settles; the banner says what was tried and that the light is no longer yellow; the light is green; a second press finds nothing yellow and asks nobody', async () => {
+  const before = { story: await storyId(), errors: errors.length, worker: house.state.workerAnswer, auditSwitch: await db.settings.get('continuousAudit') };
+  const { saveMemory, loadMemory, visiblePages } = await import('../../js/agents/memory.js');
+  const { loadWorkerStatus, noteWorkerRun } = await import('../../js/agents/status.js');
+  const { auditStretch } = await import('../../js/agents/continuous.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  const { emptyState, saveState } = await import('../../js/engine/state.js');
+  const { fingerprint36 } = await import('../../js/engine/fingerprint.js');
+  const { pageText } = await import('../../js/assemble/stack.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const connection = (await db.connections.list()).find((c) => /mock\.example/.test(c.baseUrl || '')) || (await db.connections.list())[0];
+  const COURT = 'Alexia crossed the last of the court at a walking pace that didn’t hurry and didn’t yield, silver hair pinned up plain, dark riding dress, no gloves — her hands bare, small, and held loose at her sides like a fighter’s hands.';
+  const RECORD = 'Freeday, Oct 15 1247: Alexia crossed the court to test Jugram before the dressing bell — silver hair pinned up plain, dark riding dress, no gloves, hands bare, small, held loose like a fighter’s.';
+  const what = () => q('#work-banner-what').textContent;
+  const lamp = () => q('#btn-ledger');
+  const st = await db.stories.create({ title: 'Alexia, yellow for good' });
+  await db.stories.update(st.id, { keeper: false, audit: false }); /* the record keeper and the auditor off: the light is about these two alone */
+  for (let i = 0; i < 3; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'I wait in the court. (' + i + ')' });
+    await db.messages.append(st.id, { role: 'assistant', text: '[The court — Freeday | 1' + i + ':00]\n\n' + (i === 2 ? COURT : 'The court went on with its morning. (' + i + ')') });
+  }
+  await saveState(st.id, { ...emptyState(), place: { name: 'the court' }, readTo: 2, page: 2 }); /* every page read into the ledger */
+  await saveMemory(st.id, { window: 12, nodes: [
+    { id: 'early', span: [0, 3], level: 1, text: 'The court went on with its morning.', whole: true, audited: 4, correctionReviewed: true },
+    { id: 'court', span: [4, 5], level: 1, text: RECORD, whole: true, audited: 2, correctionReviewed: true,
+      auditOpen: [{ issue: { target: 'record', what: 'The record has Alexia barehanded, but she wore riding gloves that morning.' }, why: 'The record says no gloves.', from: 4, to: 5 }] },
+  ] });
+  let mode = 'unsettled';
+  let asked = 0;
+  let second = 0;
+  const DEFAULT = '{"mutations":[],"brief":{"pressure":[],"ripe":[],"twb":null},"deltas":[],"findings":[]}';
+  house.state.workerAnswer = (body, sys) => {
+    if (/historical memory correction/i.test(sys)) {
+      asked += 1;
+      if (mode === 'unsettled') return JSON.stringify({ sourceFidelity: { status: 'genuinelyAmbiguous', claim: 'no gloves, hands bare', sameReferent: null, sameEvent: true, assertion: 'unclear', relation: 'unclear', why: 'Unsettled.', uncertainty: 'Which morning is meant is unsettled.', conflicts: [] },
+        allegation: 'unknown', outcome: 'blocked', why: 'Unsettled.', evidence: [{ source: 'p6', shown: 'no gloves — her hands bare' }] });
+      return JSON.stringify({ sourceFidelity: { status: 'supported', claim: 'silver hair pinned up plain, dark riding dress, no gloves, hands bare', sameReferent: true, sameEvent: true, assertion: 'direct', relation: 'supports', preservesAssertion: true, why: 'Page 6 says it in these words.', conflicts: [], uncertainty: '' },
+        allegation: 'disproved', outcome: 'correct', why: 'Page 6 holds the record’s words.', evidence: [{ source: 'p6', shown: 'silver hair pinned up plain, dark riding dress, no gloves' }] });
+    }
+    if (/continuity reader|second reader/i.test(sys)) second += 1;
+    return typeof before.worker === 'function' ? before.worker(body, sys) : DEFAULT;
+  };
+  await db.settings.set('continuousAudit', true);
+  try {
+    /* set up: the automatic recovery tried and set the correction aside; the second reader stumbled on the newest page and
+     * its two automatic tries are spent (the light's own checkpoint, as chat.js recoverHealthWorker leaves it) */
+    await auditStretch({ connection, storyId: st.id });
+    eq((await loadMemory(st.id)).nodes.find((n) => n.id === 'court').auditOpen[0].recovery.status, 'blocked', 'set up: the correction is set aside');
+    await noteWorkerRun(st.id, 'extractor', { ok: true, detail: 'read the page' });
+    await noteWorkerRun(st.id, 'continuity', { ok: false, why: 'its model did not answer' });
+    const story = await db.stories.get(st.id);
+    const pages = visiblePages(await db.messages.list(st.id));
+    const input = fingerprint36(JSON.stringify([1, 'continuity', story.brief, story.castNotes, pages.map((p) => [p.id, pageText(p)])]));
+    await db.settings.set('healthWorkers:' + st.id, { continuity: { input, attempts: 2, nextAt: 0, status: 'blocked' } });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the house at rest', 20000);
+    await until(() => lamp().classList.contains('has-trouble'), 'the light is yellow: ' + lamp().className + ' — ' + lamp().getAttribute('title'), 5000);
+    await new Promise((r) => setTimeout(r, 1500));
+    eq(asked + ' ' + second, '1 0', 'nothing asks again by itself: its tries are spent');
+    assert(lamp().classList.contains('has-trouble'), 'still yellow, for good');
+    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'closed drawer'); }
+    click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the ledger opens');
+    click(q('#drawer [data-room="books"]'));
+    const press = () => qa('#drawer [data-panel="the-workers"] button').find((b) => b.textContent.trim() === 'Manual yellow check');
+    await until(() => press(), 'the workers’ room has “Manual yellow check”', 5000);
+    eq(qa('#drawer [data-panel="the-workers"] .row')[0].querySelector('button'), press(), 'first in its row');
+    mode = 'his';
+    click(press());
+    await until(() => /^Manual yellow check: /.test(what()), 'the check says what it did: ' + what(), 30000);
+    eq(what(), 'Manual yellow check: the second reader, the continuous audit were given a fresh try — the light is no longer yellow', 'its banner');
+    eq(second, 1, 'the second reader read the page again');
+    eq(asked, 2, 'the correction was asked about again, once');
+    eq(((await loadWorkerStatus(st.id)).continuity || {}).ok, true, 'the second reader’s row is well');
+    const line = (await loadMemory(st.id)).nodes.find((n) => n.id === 'court');
+    eq((line.auditOpen || []).length + ' ' + line.auditRecovery.at(-1).outcome + ' | ' + line.text, '0 correct | ' + RECORD, 'the correction settled, the record as it was');
+    await until(() => lamp().classList.contains('all-well') && !lamp().classList.contains('has-trouble'), 'the light is green: ' + lamp().className + ' — ' + lamp().getAttribute('title'), 5000);
+    /* a second press: nothing yellow, nobody asked */
+    await until(() => q('#work-banner').hidden || !/^Manual yellow check: the second/.test(what()), 'the banner has ended', 6000).catch(() => {});
+    click(press());
+    await until(() => /^Manual yellow check: nothing is yellow/.test(what()), 'a second press finds nothing yellow: ' + what(), 10000);
+    eq(asked + ' ' + second, '2 1', 'nobody asked');
+    eq(errors.length, before.errors, 'no app errors: ' + errorsSince(before.errors).join(' | '));
+  } finally {
+    house.state.workerAnswer = before.worker;
+    if (before.auditSwitch === undefined) await db.settings.delete('continuousAudit'); else await db.settings.set('continuousAudit', before.auditSwitch);
+    if (!q('#drawer').hidden) click(q('#btn-drawer-close'));
+    env.window.__cozy.setActiveStoryId(before.story);
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

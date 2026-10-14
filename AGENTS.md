@@ -230,6 +230,12 @@ Keep these; each has a law that fails without it:
   A page named with its context, "p94 (#8793a1, the court, …)", is that page (housekeeper.js
   decoratedRef). "Manual continuous audit" asks again by hand, with the switch off too
   (chat.js continuousAuditNow, continuous.js freshTryForCorrections).
+- "Manual yellow check" (the workers' room, first in its row) gives every owner the light is
+  yellow about a fresh try by hand — the record, the ledger's missed pages, each reader, the
+  auditor, the continuous audit — one after another in the light's own order, waiting for each,
+  then says what is still yellow and why. The light's inventory is the one list (health.js
+  healthSnapshot, returned by chat.js markLedgerTroubleNow); it steps aside for his page, his
+  Stop stops it (chat.js yellowCheckNow).
 - A setting read while its own write is under way is the value being written (store.js settingsWrites): a tap's
   write is never waited for, and a redraw on its way must not read the value from before it.
 - Every law runs in the suite: a new harness file is imported by tests/harness/run.mjs,
