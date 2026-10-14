@@ -219,8 +219,30 @@ const dropListeners = new Set();
 export function onDropCaches(fn) { if (typeof fn === 'function') dropListeners.add(fn); }
 export function dropCaches() { settingsCache.clear(); messagesCache.clear(); for (const fn of dropListeners) { try { fn(); } catch (err) { /* a listener's own trouble */ } } }
 
+/* M752 (followup 8) — A VALUE READ WHILE ITS OWN WRITE IS UNDER WAY IS THE VALUE BEING WRITTEN. The cache took a new value
+ * only once its write had landed, and a read in between was answered from the cache: the OLD value. HIS: "when I opened a
+ * large archive and opened its sub project, it suddenly threw me back to the large archive" — he unfolded a giant project
+ * and a shelf in it (one write each, not waited for); a shelf redraw already on its way (they come with every page, every
+ * sync, and on a large library each takes long) read the folds in that moment, got the ones from before his taps, and
+ * folded the shelf shut again. Every key's reads now wait for that key's own writes in flight (set, setMany, delete,
+ * deleteMany); a read of any other key never waits. */
+const settingsWrites = new Map(); /* key -> the promise of its latest write in flight */
+function settingsWrite(keys, write) {
+  const p = write();
+  const settled = p.then(() => {}, () => {});
+  for (const key of keys) settingsWrites.set(key, settled);
+  settled.then(() => { for (const key of keys) if (settingsWrites.get(key) === settled) settingsWrites.delete(key); });
+  return p;
+}
+async function settingsWritten(keys) {
+  const waits = [];
+  for (const key of keys) { const w = settingsWrites.get(key); if (w) waits.push(w); }
+  if (waits.length) await Promise.all(waits);
+}
+
 const settings = {
   async get(key) {
+    await settingsWritten([key]);
     if (settingsCache.has(key)) return cloneValue(settingsCache.get(key));
     const row = await run('settings', 'readonly', (s) => s.get(key));
     const value = row ? row.value : undefined;
@@ -232,6 +254,7 @@ const settings = {
    * Rows the cache holds are answered from it; the rest are cached as they arrive. Returns a Map(key -> value). */
   async getMany(keys) {
     const want = [...new Set((Array.isArray(keys) ? keys : []).filter((k) => typeof k === 'string'))];
+    await settingsWritten(want);
     const out = new Map();
     const missing = [];
     for (const k of want) { if (settingsCache.has(k)) out.set(k, cloneValue(settingsCache.get(k))); else missing.push(k); }
@@ -249,8 +272,10 @@ const settings = {
     return out;
   },
   async set(key, val) {
-    await run('settings', 'readwrite', (s) => s.put({ key, value: val }));
-    settingsCache.set(key, cloneValue(val));
+    await settingsWrite([key], async () => {
+      await run('settings', 'readwrite', (s) => s.put({ key, value: val }));
+      settingsCache.set(key, cloneValue(val));
+    });
     return val;
   },
   /* M507-6: many rows written, and many let go, in ONE transaction each — a branch's hundred checkpoint rows or a
@@ -258,14 +283,18 @@ const settings = {
   async setMany(entries) {
     const list = (Array.isArray(entries) ? entries : []).filter((e) => Array.isArray(e) && typeof e[0] === 'string');
     if (!list.length) return;
-    await run('settings', 'readwrite', (s) => { let last = null; for (const [key, value] of list) last = s.put({ key, value }); return last; });
-    for (const [key, value] of list) settingsCache.set(key, cloneValue(value));
+    await settingsWrite(list.map(([key]) => key), async () => {
+      await run('settings', 'readwrite', (s) => { let last = null; for (const [key, value] of list) last = s.put({ key, value }); return last; });
+      for (const [key, value] of list) settingsCache.set(key, cloneValue(value));
+    });
   },
   async deleteMany(keys) {
     const list = [...new Set((Array.isArray(keys) ? keys : []).filter((k) => typeof k === 'string'))];
     if (!list.length) return;
-    await run('settings', 'readwrite', (s) => { let last = null; for (const key of list) last = s.delete(key); return last; });
-    for (const key of list) settingsCache.delete(key);
+    await settingsWrite(list, async () => {
+      await run('settings', 'readwrite', (s) => { let last = null; for (const key of list) last = s.delete(key); return last; });
+      for (const key of list) settingsCache.delete(key);
+    });
   },
   /* Additive helpers (M7, see header): list every key (the cast library
    * lists its `cast:` shelf this way), and let a key go for good. */
@@ -280,8 +309,10 @@ const settings = {
     return (keys || []).filter((k) => typeof k === 'string');
   },
   async delete(key) {
-    await run('settings', 'readwrite', (s) => s.delete(key));
-    settingsCache.delete(key);
+    await settingsWrite([key], async () => {
+      await run('settings', 'readwrite', (s) => s.delete(key));
+      settingsCache.delete(key);
+    });
   },
 };
 

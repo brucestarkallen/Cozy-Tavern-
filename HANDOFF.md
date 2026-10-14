@@ -15,7 +15,10 @@ older files sit beside it). Search them with
   blue full-screen dot like the green and yellow (tests/m739_ui.py, every lamp);
   m752-006 takes the shelf handle's grey grip off a phone's open shelf (the edge still
   drags; it glows only while dragged; tests/shelf_handle.py); m752-007 leaves the page
-  mark as the story's one scroll thumb (the browser's own is not drawn; tests/pagemark.py).
+  mark as the story's one scroll thumb (the browser's own is not drawn; tests/pagemark.py);
+  m752-008: a shelf he opened inside a giant project no longer folds shut again — a
+  setting read while its own write is under way is the new value (store.js; law
+  M752-ST1; law suite 1671 of 1671, DOM walk 316 of 316).
 - Measured on m752-004: the law suite 1670 of 1670, the DOM walk 316 of 316, lint 0
   errors (253 warnings, as before). Chromium at 390 px: the new button wraps with the
   others, no page or panel overflow. On m752-001: tests/m739_ui.py and

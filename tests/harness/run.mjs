@@ -274,6 +274,7 @@ import './m752-people.mjs'; /* M752: identity, persona, aliases and the people's
 import './focused.mjs'; /* M689–M745: the standalone milestone fixtures, each run in its own process */
 import './m752-request.mjs'; /* M752: the storyteller's request — its size, its fit, its receipts */
 import './m752-continuous.mjs'; /* M752 (followup 4): the continuous audit's historical corrections settled, not stranded; quotes and pages read as written */
+import './m752-store.mjs'; /* M752 (followup 8): a setting read while its own write is under way is the value being written */
 
 console.log('Cozy Tavern — harness');
 await import('./m683.mjs');

@@ -220,5 +220,7 @@ Keep these; each has a law that fails without it:
   named with its context, "p94 (#8793a1, the court, …)", is that page (housekeeper.js
   decoratedRef). "Manual continuous audit" asks again by hand, with the switch off too
   (chat.js continuousAuditNow, continuous.js freshTryForCorrections).
+- A setting read while its own write is under way is the value being written (store.js settingsWrites): a tap's
+  write is never waited for, and a redraw on its way must not read the value from before it.
 - Every law runs in the suite: a new harness file is imported by tests/harness/run.mjs,
   and a standalone fixture is listed in tests/harness/focused.mjs, never left outside it.

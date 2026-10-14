@@ -21329,3 +21329,18 @@ browser's own thumb on the thread, both drawn while the story scrolls. Kept the 
 (scrollbar-width: none and its WebKit twin). The story scrolls as before. tests/pagemark.py
 now checks it (computed thumb 'auto' on m752-006 → 'none'; still scrolls; no gutter) and
 passes whole; tests/m739_ui.py passes. CSS only: harness and DOM walk not run.
+
+## M752 followup 8 (m752-008): a shelf opened in a giant project stays open
+
+The owner: opening a large archive (a giant project) and then a sub project (a shelf in it)
+threw him back to the giant project with the shelf shut, so he had to open it again. Cause:
+each tap writes the folds without waiting (chat.js toggleShelf), and the store's settings
+cache took a new value only after its write had landed — a read in between got the value
+from before the tap. A shelf redraw already on its way (refreshStories runs with every page,
+sync and preview, and on a large library it is long; a settings write also queues behind the
+ledger's big writes) read the folds in that window and drew the shelf shut. The fix is in the
+store, for every key: a read waits for that key's own writes in flight (set, setMany, delete,
+deleteMany; another key never waits). The shelf sort had the same window and is covered.
+Law M752-ST1 (tests/harness/m752-store.mjs) fails on m752-007 (the read got the folds from
+before the taps) and passes. Law suite 1671 of 1671, DOM walk 316 of 316. Not covered: the
+store's whole-tale sweeps that delete a gone tale's rows directly (no reader of those keys).
