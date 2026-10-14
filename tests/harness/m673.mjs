@@ -525,10 +525,12 @@ test('M673-8 THE STORYTELLER COMES FIRST, AND THE SWITCH IS OFF UNLESS HE TURNS 
 
 /* ---------- what M722's routing kept before its guards were put back (the audit of M722-M751): settled by the audit itself ---------- */
 /* the recovery state M723 leaves on a finding after its two attempts — its input is the line, its pages and no fetched
- * originals (continuous.js recoveryInput), its writer the story's empty brief and cast */
+ * originals (continuous.js recoveryInput), its writer the story's empty brief and cast. M752 (followup 9): spent under
+ * today's reading of a verdict (verdictPolicy 2) — a "did not provide a usable correction verdict" from before it is
+ * asked about again once, on purpose (m752-historical.mjs H5), and these laws are not about that */
 const exhausted = (line, pages, reason) => ({
   input: fingerprint36(JSON.stringify([line.span, fingerprint36(JSON.stringify([line.text, line.detail, line.verified?.fixed, pages.slice(line.span[0], line.span[1] + 1).map((p) => [p.id, pageText(p)])])), []])),
-  writer: fingerprint36(JSON.stringify(['', ''])), dispositionPolicy: 2, evidencePolicy: 2, attempts: 2, status: 'blocked', reason, nextAt: 0, sources: [],
+  writer: fingerprint36(JSON.stringify(['', ''])), dispositionPolicy: 2, evidencePolicy: 2, verdictPolicy: 2, attempts: 2, status: 'blocked', reason, nextAt: 0, sources: [],
 });
 const UNCLASSIFIED = 'The fault needs grounded story versus record classification.';
 const PARTIAL = 'Insufficient context: this reading did not cover the complete record source section.';
@@ -643,22 +645,23 @@ test('M673-11 A BARE ISSUE KEPT AS AN UNRESOLVED CORRECTION BEFORE ITS PARSE WAS
     eq(auditWaits(st.id, await loadMemory(st.id), visiblePages(await db.messages.list(st.id))), -1, 'nor waiting to be');
   });
   eq(calls, 1, 'one call in all');
-  /* answers that cannot be used: two attempts, a minute apart — then blocked, and never a third */
+  /* answers that cannot be used: two attempts, a minute apart — then blocked, and never a third. M752 (followup 9): within
+   * each attempt an answer that is no verdict is said back to the reader, twice at most (CLARIFICATIONS) — three calls */
   const st2 = await tale('a bare issue, unusable answers', { lines: lines() });
   let asked = 0;
   const clock = Date.now; let now = clock(); Date.now = () => now;
   try {
     await withFetch(async () => { asked += 1; return say('{"issues":[]}'); }, async () => {
       const first = await auditStretch({ connection: { ...CONN }, storyId: st2.id, stale: () => false });
-      eq([first.recovery, first.open, first.pending, asked].join(), 'blocked,1,1,1', 'its first review could not be used: one call, the correction still queued');
+      eq([first.recovery, first.open, first.pending, asked].join(), 'blocked,1,1,3', 'its first review could not be used: its answer and two clarifications, the correction still queued');
       eq(await auditStretch({ connection: { ...CONN }, storyId: st2.id, stale: () => false }), null, 'looked at again at once: nothing is asked (it waits its minute)');
       now += RECOVERY_DELAY + 1;
       const second = await auditStretch({ connection: { ...CONN }, storyId: st2.id, stale: () => false });
-      eq([second.open, second.pending, asked].join(), '1,0,2', 'its second and last review: two calls in all, nothing more queued');
+      eq([second.open, second.pending, asked].join(), '1,0,6', 'its second and last review: two attempts in all, nothing more queued');
       now += RECOVERY_DELAY * 10;
       eq(await auditStretch({ connection: { ...CONN }, storyId: st2.id, stale: () => false }), null, 'and never a third');
       eq(auditWaits(st2.id, await loadMemory(st2.id), visiblePages(await db.messages.list(st2.id))), -1);
     });
   } finally { Date.now = clock; }
-  eq(asked, 2, 'two calls, and no more');
+  eq(asked, 6, 'two attempts, and no more');
 });

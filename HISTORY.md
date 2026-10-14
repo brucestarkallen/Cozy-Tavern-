@@ -21344,3 +21344,53 @@ deleteMany; another key never waits). The shelf sort had the same window and is 
 Law M752-ST1 (tests/harness/m752-store.mjs) fails on m752-007 (the read got the folds from
 before the taps) and passes. Law suite 1671 of 1671, DOM walk 316 of 316. Not covered: the
 store's whole-tale sweeps that delete a gone tale's rows directly (no reader of those keys).
+
+## M752 followup 9 (m752-009): a historical correction's conversation ends on a verdict
+
+The owner (15 October 2026), his 316-page tale on m752-007, lamp still yellow: "3 historical
+corrections remain unresolved after automatic source review. Incorrect original-source
+quotation; The recovery verdict remains inconsistent after clarification: Evidence "p242":
+quoted passage does not occur in that original. Copy the words exactly as p242 writes them…;
+The focused response did not provide a usable correction verdict." (the "donations in eleven
+minutes" line, why Caleb knew the four o'clock walk, whether the postman's wife's "Edie" is
+Mrs. Dale). Each was one recovery conversation ending on a mistake the house could have read
+or said back, and did not:
+- The repair's supporting passage (record.fixes[].shown) was checked by recordRepairPlan only
+  after the conversation: refused with no word to the model, the same answer a minute later,
+  then blocked. A passage that marks words left out ("…", as his own readers quote — the
+  final review's scene quotes in his report do) was refused everywhere in the recovery.
+- A quote of what a page says across its markup (his storyteller writes phones as a <div>
+  per message and per sender) was refused, and the clarification only said "copy exactly",
+  which the model believed it had done, twice.
+- "person: NAME", offered by the recovery's own fetch law (the natural look for "is Edie Dale
+  Mrs. Dale?"), was dropped by its filter without a word; served nothing, the model asked
+  again, and its third look ended the conversation with no verdict. An answer that was no
+  verdict (outcome or why missing, no JSON, cut off) or a look past the two ended it the
+  same way, unexplained.
+Fixed at the causes. engine/evidence.js: plainMarks reads markup as marks (a block tag parts
+the words, an inline tag does not; comments too), character references as their characters
+and unseen characters (zero-width, variation selectors, soft hyphen) as nothing, for every
+reader that holds a quote to its original; elidedSource reads a quote with words left out
+where every piece it keeps is the original's, in order (receipt: the original's pieces joined
+by " … "); quoteDeparture says where a quote departs and what the original says there.
+continuous.js: the recovery checks a readable verdict's evidence and its repair inside the
+conversation (settlementProblem) and says a refused edit back — which edit, why, what the page
+says where its passage departs; says back an answer that is no verdict (unreadableProblem) and
+a look past two; serves "person: NAME" as the pages that hold the name and names any look not
+served with why; one loop bounded by two clarifications and two looks (five calls at most, as
+before). A contradicted claim with blocker "unsafe" (its law offered it; the code forced a
+repair) is set aside with the model's reason. A line in his own words keeps its old path (the
+repair's refusal settles it). VERDICT_POLICY 2 asks once more, by itself, about corrections
+blocked by these failures (his three); an honest "the sources do not settle it" is not reopened.
+Laws M752-H1..H5 (tests/harness/m752-historical.mjs), each failing on m752-008 and passing.
+Changed expectations, with why: M673-11 an unusable answer is now said back twice in each
+attempt (3 calls an attempt, 6 in all; still two attempts, never a third); the M673 exhausted
+fixture is marked as spent under today's verdict policy (its "did not provide a usable verdict"
+control is otherwise asked again once, by design, which those laws are not about).
+Measured: law suite 1676 of 1676 (run whole twice; the first run's four failures were M673-7b,
+M673-9 and M673-11 — the first a real regression of mine, a line in his own words sent back to
+the model as a repair mistake, put back to its old path; the other two the expectations above —
+and M622-5, run from the wrong folder); DOM laws DOM-M752-10/11/12 pass (the whole walk not run:
+no flow every scenario passes through changed); lint 0 errors, 253 warnings as before. Not
+verified: his own stored tale and a live provider — whether his model's next answers settle his
+three is its judgment; a correction its sources do not settle stays yellow with its reason.

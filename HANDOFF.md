@@ -7,7 +7,7 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m752-004 on main, 14 October 2026. m752-001 (d73bbaf) was the audit;
+- Version m752-009 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
   m752-002 lets go, when a tale opens, a persona the old rule made of an ordinary
   sentence; m752-003 makes the notes say when they have not read the newest page;
   m752-004 settles the continuous audit's historical corrections instead of
@@ -18,7 +18,8 @@ older files sit beside it). Search them with
   mark as the story's one scroll thumb (the browser's own is not drawn; tests/pagemark.py);
   m752-008: a shelf he opened inside a giant project no longer folds shut again — a
   setting read while its own write is under way is the new value (store.js; law
-  M752-ST1; law suite 1671 of 1671, DOM walk 316 of 316).
+  M752-ST1; law suite 1671 of 1671, DOM walk 316 of 316); m752-009: a historical
+  correction's conversation ends on a verdict, not on a mistake nobody said (below).
 - Measured on m752-004: the law suite 1670 of 1670, the DOM walk 316 of 316, lint 0
   errors (253 warnings, as before). Chromium at 390 px: the new button wraps with the
   others, no page or panel overflow. On m752-001: tests/m739_ui.py and
@@ -32,11 +33,23 @@ older files sit beside it). Search them with
   listed as a conflict) with what a conflict is. A correction the old reading blocked
   is asked again once, by itself, when the house is idle (VERDICT_POLICY); M752-C1/C2
   settle his answer's shape in two calls and his saved state in one.
+- His three yellow corrections on his 316-page tale (m752-009): "Incorrect original-source
+  quotation" (a repair whose passage left words out, refused after the conversation with no
+  word to the model), "Evidence "p242": quoted passage does not occur" (a quote of what the
+  page says across its phone markup, told only "copy exactly") and "did not provide a usable
+  correction verdict" ("person: Edie Dale", offered by its own law, dropped without a word,
+  until its third look ended the talk). Now: markup, character references and unseen
+  characters are marks; a quote with words left out is read where every piece is the
+  page's; a refused repair, a quote that departs (with what the page says there), an answer
+  that is no verdict and a look past two are said back in the same conversation, twice at
+  most; "person: NAME" is served as the pages that hold the name. VERDICT_POLICY 2 asks
+  about his three once more, by itself, when the house is idle (laws M752-H1..H5).
 - Still yellow, on purpose: a correction whose answer says its sources do not settle
-  it (with the specific reason), or whose line is his; and one whose verdict could not
-  be read in two attempts (six calls) — until he presses "Manual continuous audit"
-  (the workers' room), which asks again, with the switch off too, and steps aside for
-  his page ("Finish it" carries on).
+  it (with the specific reason), whose line is his, or for which no edit in the
+  originals' own words can set it right (blocker "unsafe", with its reason); and one whose
+  verdict could not be read in two attempts (six calls) — until he presses "Manual
+  continuous audit" (the workers' room), which asks again, with the switch off too, and
+  steps aside for his page ("Finish it" carries on).
 - Tales stored by M751, opened in place by m752 (an M751-made shelf of five tales,
   its device rows kept as they were): every tale opens and draws; every checkpoint
   reads byte for byte as M751 reads it; the completed audit stays verified (no audit

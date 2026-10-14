@@ -211,13 +211,23 @@ Keep these; each has a law that fails without it:
   of things opens with which pages, and that they are right where they differ (buildRequest
   notReadYet, from state.js unreadPages, the ledger light's own count).
 - A historical correction is set aside only by an answer that says its sources do not
-  settle it, or that its line is his. A verdict the house cannot read is said back as its
-  mistakes, all at once, twice at most (continuous.js fidelityDecision, CLARIFICATIONS);
-  then the attempt has failed and is tried once more after the wait with that reason.
+  settle it, that its line is his, or that no edit in the originals' own words can set it
+  right (blocker "unsafe", which its law offers). A verdict the house cannot read, a repair
+  it would refuse (recordRepairPlan, checked inside the conversation), an answer that is no
+  verdict and a look past the two allowed are said back as their mistakes, all at once,
+  twice at most (continuous.js fidelityDecision, settlementProblem, unreadableProblem,
+  CLARIFICATIONS); a quote that is not the original's is said back with where it departs
+  and what the original says there (engine/evidence.js quoteDeparture); then the attempt
+  has failed and is tried once more after the wait with that reason. A look the recovery
+  does not serve is answered with why; "person: NAME" is served as the pages that hold it.
   A claim, a quote or a record edit in the original's words with other marks (curly or
-  straight quotes, dashes, an ellipsis, emphasis, white space) is the original's own text
-  (engine/evidence.js quotedSource and literalSpan; recordClaim; literalFixes), and a page
-  named with its context, "p94 (#8793a1, the court, …)", is that page (housekeeper.js
+  straight quotes, dashes, an ellipsis, emphasis, white space, markup between the words,
+  character references, unseen characters) is the original's own text (engine/evidence.js
+  quotedSource and literalSpan; recordClaim; literalFixes); in the continuous audit a
+  quote that marks words left out ("…") is the original's where every piece it keeps is,
+  in order, in the original it cites (a repair's passage: in the originals supplied), and
+  is kept as those pieces joined by " … " (elidedSource).
+  A page named with its context, "p94 (#8793a1, the court, …)", is that page (housekeeper.js
   decoratedRef). "Manual continuous audit" asks again by hand, with the switch off too
   (chat.js continuousAuditNow, continuous.js freshTryForCorrections).
 - A setting read while its own write is under way is the value being written (store.js settingsWrites): a tap's
