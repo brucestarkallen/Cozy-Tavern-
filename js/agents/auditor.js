@@ -1,4 +1,4 @@
-import { ledgerRepairInputKey, ledgerRepairStateKey, ledgerVerificationRows, verificationReceiptMatches,reusableAuditCheckpoint,saveAuditCheckpoint,auditCheckpointStart,matchingAuditSourceCheckpoint,answeredPages } from './auditprogress.js';
+import { ledgerRepairInputKey, ledgerRepairStateKey, ledgerVerificationRows, verificationReceiptMatches,reusableAuditCheckpoint,saveAuditCheckpoint,auditCheckpointStart,matchingAuditSourceCheckpoint,answeredPages,carriedApprovals,verificationSourcesOf } from './auditprogress.js';
 import { fingerprint36 } from '../engine/fingerprint.js';
 import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sceneEndingFields } from './ledgercontext.js';
 /* Cozy Tavern — agents/auditor.js
@@ -623,7 +623,9 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const repairTargets = [...(readingState.audit?.unresolved || []), ...restoredForReading];
   const verificationSource = ledgerRepairInputKey({}, readStory, visiblePages(all));
   const sameReviewedSources = state.audit?.verification?.source === verificationSource || matchingAuditSourceCheckpoint(state,readStory,documents,visiblePages(all));
-  const previousVerification = {...checkpoint.entries,...(sameReviewedSources
+  /* M752 (followup 22): an unchanged entry the new pages do not name keeps its approval over pages only added
+   * (auditprogress.js carriedApprovals) — it was asked again on every page */
+  const previousVerification = {...(sameReviewedSources ? {} : carriedApprovals(state,documents)),...checkpoint.entries,...(sameReviewedSources
     ? Object.fromEntries(ledgerVerificationRows(state).filter(row => verificationReceiptMatches(state.audit?.verification?.entries?.[row.id],row))
       .map(row => [row.id,state.audit.verification.entries[row.id]])) : {})};
   const profileTargets = profileIndex.map(p => ({profileReview:true,writerOnly:p.writerOnly,what:'Stable identity and lasting appearance for '+p.name,mutations:p.aliases.map(name => ({name}))}));
@@ -907,6 +909,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       ...deferredRows.filter(r=>!openProfiles.has(r.id)).map(r=>({id:r.id,print:r.print,scope:r.scope,status:'open',why:'not read yet: the ledger is larger than one reading, and this entry waits for the next'}))],
     previous:Object.fromEntries(Object.entries(previousVerification).filter(([id])=>!openProfiles.has(id))),
     documents, source:verificationSource, applied:result.applied,approvedState,authoritative:true});
+  verification.sources=verificationSourcesOf(documents); /* M752 (followup 22): what these approvals were given */
   const sourceFactDecisions={...(result.out.audit?.sourceFactDecisions || {})};
   for (const issue of originalFindings.filter(i=>i.sourceFacts)) {
     const decision=withdrawals.find(r=>(r.what===issue.what || r.id===auditFindingId(issue)) && documents.some(d=>d.id===issue.sourceId && auditorSourceQuote(d.text,r.shown)));

@@ -7,7 +7,7 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m752-020 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
+- Version m752-021 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
   m752-002 lets go, when a tale opens, a persona the old rule made of an ordinary
   sentence; m752-003 makes the notes say when they have not read the newest page;
   m752-004 settles the continuous audit's historical corrections instead of
@@ -39,7 +39,8 @@ older files sit beside it). Search them with
   m752-018: Choices matter says what it is doing — sealing, waiting for the page's readers,
   or why there are no choices, with "Restart choices" to ask again (DOM-M752-19); m752-019:
   a page the helper found quiet says so, with "Restart choices" (DOM-M752-20); m752-020: nothing
-  he does waits for the auditor, and a description it cannot tie to anyone is set aside (below).
+  he does waits for the auditor, and a description it cannot tie to anyone is set aside (below);
+  m752-021: an unchanged entry the new page does not name keeps its approval (below).
 - Measured on m752-013: the law suite 1682 of 1682, the DOM walk 318 of 318 (a first
   walk was red once on DOM-263, a fixture race present on m752-008 too, fixed — below),
   lint 0 errors (253 warnings, as before). On m752-004: Chromium at 390 px, the new
@@ -79,6 +80,16 @@ older files sit beside it). Search them with
   house-knight", his page 122) was owed on every pass until the automatic audit paused; it is kept as
   a person of its page only with the reader's reason (M752-SA1..SA5). A ledger entry the reader keeps
   open (scene:clock) still stays open: approving it would certify a value it doubts.
+- The auditor's approvals (m752-021). A new page used to send almost the whole ledger back to review
+  (an approval was tied to the whole set of originals): on large ledgers the review could never catch
+  up — measured, 60 people at 128k context stuck at 286 of 313 entries for good, 200 people at 631 of
+  969 — and every page re-sent ~70,000 characters of unchanged entries. An unchanged standing,
+  knowledge, thread, thing, body or faction entry now keeps its approval over pages only added, unless
+  the new pages name its subject or the subject is in the scene; the scene and current states are
+  reviewed every page; an edited older page sends everything back. Measured: 313 of 313 by the second
+  page and kept (71 entries asked a page, not 227; ~48,000 tokens a page, not ~71,000); 969 of 969 by
+  the fourth. My earlier line that the housekeeper reads "a page or a short stretch" was wrong: it is
+  served the whole house too (measured 25,000–45,000 tokens against the auditor's 38,000–100,000).
 - Branches and the auditor (m752-015): a source section is named by its page's id, and a
   branch copies every page under a new id, so a branch of his long tale found none of the
   auditor's receipts and read the whole tale again ("278 original source sections still need

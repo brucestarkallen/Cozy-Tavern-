@@ -21684,3 +21684,36 @@ to stay open), M743 (an open fact was to stay open), M752-A1 (its fixture kept t
 a failed second turn, the law's subject unchanged). LEDGER_REPAIR_POLICY 9 → 10, so his paused audit resumes once.
 pendingAudit is declared before its first use (lint 253 → 247 warnings, 0 errors).
 Measured: law suite 1691 of 1691; DOM walk 325 of 325; lint 0 errors, 247 warnings. Not run: a live provider; his tale.
+
+## M752 followup 22 (m752-021): an unchanged entry the new page does not name keeps its approval
+
+The owner (15 October 2026): "Lol wtf housekeeper only read 1 page? … if your explanation are wrong means the auditor
+can be optimized to be fast while still give the same or better results. Housekeeper literally look the whole thing …
+and my token is literally 100 tps" and "make sure it's audit quality the same or actually be better not just for the
+sake of fast … simulate". He was right: the housekeeper is served the whole house too (measured on synthetic tales:
+25,000–45,000 tokens; the auditor's review 38,000–100,000). Measuring the auditor found the real waste: with every
+entry approved, the next page's review was asked again for 334 of 413 entries (200 pages, 80 people) — every standing,
+knowledge entry and thread — because an approval was tied to the whole set of originals and a new page changes the
+set; 70,000 of the review's 221,000 characters each page. On larger ledgers or smaller rooms the entries that did not
+fit waited for the next reading, which asked again for everything: 60 people at 128k stuck at 286 of 313 for good,
+200 people at 631 of 969 — the audit never finished during play (his "checked 4 of 257 entries").
+Now (auditprogress.js carriedApprovals, auditor.js): an unchanged relationship, knowledge, thread, thing, body or
+faction entry keeps its approval over pages only added — every original it was given still there letter for letter
+(verification.sources: their count and fingerprint) — unless the added pages name its subject or the subject is in
+the scene; the scene, presence, offscreen and current states are reviewed every page (M707); an edited, swiped or
+deleted older page sends every entry back. The reviewer is still shown the whole ledger (measured: every standing,
+fact and thread in its request at 80 and 200 people) and may repair any entry.
+Simulated with the real auditor and a scripted wire, old against new: 60 people, 128k, 120 pages — old stuck at 286
+of 313 with 227 entries asked a page and ~71,000 tokens; new 313 of 313 by the second page and kept, 71 asked, ~48,000
+tokens. 200 people — old 631 of 969 for good, 455 asked; new 969 of 969 by the fourth page, 189 asked. 80 people,
+200k — 334 asked a page → 91, review 221,000 → 174,000 characters.
+Laws M752-CA1..CA5 (CA1, CA3, CA5 fail on m752-020; CA2 and CA4 guard what must still be asked). Three walk fixtures
+fixed, each a race the faster audit exposed (found with instrumented runs, not reruns): DOM-6d relied on its audit not
+having finished (a verified ledger is not read again since M752: it now starts from an unverified one); DOM-13a took
+any auditor run within 600 ms of the second save for the save's own (since followup 17 the house's automatic audit may
+start then): it now lets the house settle and asks of the save itself — no audit asked (a spy on auditNow, shown to
+catch a real ask); DOM-M752-19 rejected the helper's call before it was made (it waits for the call). DOM-199 failed
+once ("waited too long for the edit box": the edit press found the house busy or the page redrawn) in one of three
+full walks; instrumented, it did not recur in the next two, and its mechanism was not found.
+Measured: law suite 1696 of 1696; DOM walk 325 of 325 (the last full walk, same application code); lint 0 errors,
+247 warnings. Not run: a live provider; his tale. Output token counts on his provider were not measured.

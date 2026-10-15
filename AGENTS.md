@@ -279,6 +279,13 @@ Keep these; each has a law that fails without it:
   second turn failed; journaled and undone one by one. A person's facts it keeps open with a reason are
   decided as left as they stand (sourceFactDecisions). His rule, 15 October 2026: "send them back and if
   can't debate then it's resolve" (auditor.js; laws M752-SA1..SA5; LEDGER_REPAIR_POLICY 10).
+- An approval carries over pages only added (followup 22): an unchanged relationship, knowledge, thread,
+  thing, body or faction entry keeps its approval when every original it was given is still there, letter
+  for letter (verification.sources: their count and fingerprint), its subject is not named on the added
+  pages and is not in the scene (auditprogress.js carriedApprovals). The scene, presence, offscreen and
+  everyone's current state are reviewed every page (M707); an edited, swiped or deleted older page sends
+  every entry back to review; the reviewer still reads the whole ledger and may repair any entry (laws
+  M752-CA1..CA5). Each new page used to ask again for every entry, and a large ledger never finished.
 - The automatic audit (chat.js scheduleLedgerRepair) starts as soon as the house is idle and
   again as soon as a pass that got somewhere ends; after a pass that got nowhere or failed it
   holds 5–30 s, and the light's looks never cut that hold short (a failing provider is not asked

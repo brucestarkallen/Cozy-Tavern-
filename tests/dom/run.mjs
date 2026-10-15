@@ -987,7 +987,10 @@ test('DOM-6d THE READERS FINISH WHAT THEY STARTED: a last page whose chain never
   const at0 = (((await db.settings.get('workers:' + sid)) || {}).extractor || {}).at || 0;
   const ran0 = await env.ctx.chat.resumeUnfinishedChain(await db.stories.get(sid));
   eq(ran0, false, 'a page with its checkpoint is not re-read');
-  /* the app closed mid-chain: the last page has no checkpoint */
+  /* the app closed mid-chain: the last page has no checkpoint — and its audit had not finished (M752: a ledger its audit
+   * verified is that checkpoint, written and not read again; whether the walk's own audit had finished by now was a race,
+   * which an audit finishing sooner — followup 22 — lost every time) */
+  { const { loadState, saveState } = await import('../../js/engine/state.js'); const st = await loadState(sid); await saveState(sid, { ...st, audit: { ...(st.audit || {}), verification: null } }); }
   { const { loadVersionStates, saveVersionStates } = await import('../../js/engine/state.js'); /* M507-6: through the store's own doors */
     const vs = await loadVersionStates(sid);
     delete vs[last.dataset.id + ':' + idx];
@@ -1213,11 +1216,20 @@ test('DOM-13a a rewritten brief is held against the ledger at once — saving it
   type(q('#brief-story'), 'Jovan comes home to Ravenwood. Rias is his older sister; her hair is now silver.');
   click(q('#btn-save-brief'));
   await until(async () => { const w = (await db.settings.get('workers:' + sid)) || {}; return w.auditor && w.auditor.at && w.auditor.at > wasAt; }, 'the auditor ran on the brief change', 15000);
-  /* saving the same words again does not run it */
-  const afterAt = ((await db.settings.get('workers:' + sid)) || {}).auditor.at;
-  click(q('#btn-save-brief'));
-  await tick(600);
-  eq(((await db.settings.get('workers:' + sid)) || {}).auditor.at, afterAt, 'the same brief saved twice is no change');
+  /* (the light's own look after the change may send the auditor once more, right behind it — a reading with nothing left to
+   * do; the house is let settle before the second save) */
+  await readersDone(sid, 20000);
+  /* saving the same words again does not run it. M752 (followup 22): asked of the save itself — the auditor it asks for —
+   * not of the auditor's last run: since followup 17 the house's own automatic audit starts as soon as the house is idle,
+   * and a pass of its own then and there (a walk under load found one 150 ms after the save) was taken for the save's */
+  const asked = [];
+  const realAuditNow = env.ctx.chat.auditNow;
+  env.ctx.chat.auditNow = (...a) => { asked.push(Date.now()); return realAuditNow(...a); };
+  try {
+    click(q('#btn-save-brief'));
+    await tick(600);
+  } finally { env.ctx.chat.auditNow = realAuditNow; }
+  eq(asked.length, 0, 'the same brief saved twice asks for no audit');
   await closeSettings();
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
@@ -16785,6 +16797,7 @@ test('DOM-M752-19 CHOICES SAY WHAT THEY ARE DOING (HIS, 15 October 2026: “i ju
     click(q('#choice-row .choice-restart'));
     await until(() => /Sealing choices/.test(note()), 'while the helper works, the row says new choices are being sealed', 20000);
     eq(qa('#choice-row .choice-btn').length, 0, 'the old choices are gone');
+    await until(() => held !== null, 'the helper is asked', 20000); /* (the row says so from the moment it is claimed — before the call) */
     held.reject(new TypeError('Failed to fetch')); /* the wire dropped */
     await until(() => /No choices for this page/.test(note()), 'a helper that failed is said', 20000);
     assert(/Couldn’t reach/.test(note()), 'with its real reason: ' + note());

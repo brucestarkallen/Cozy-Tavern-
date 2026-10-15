@@ -51,6 +51,62 @@ export function verificationReceiptMatches(receipt, row) {
     && ['correct','repair'].includes(receipt.status));
 }
 
+/* M752 (followup 22) — HIS (15 October 2026): "if your explanation are wrong means the auditor can be optimized to be fast
+ * while still give the same or better results". Measured on a 200-page, 80-person tale: with every one of its 413 entries
+ * approved, the next page's review was asked again for 334 of them — every standing, every person's knowledge and every
+ * thread — though not one had changed: an approval was tied to the whole set of originals, and a new page changes the set.
+ * 70,000 of its 221,000 characters, every page. An approval of an entry whose value is unchanged now carries over a page that
+ * was only ADDED (every original it was given is still there, letter for letter) when that page does not name its subject;
+ * an entry of someone the new page names, or of someone in the scene, is reviewed again, the scene and everyone's current
+ * state are reviewed every page (M707), and an edited, swiped or deleted older page takes every approval back to review. The reviewer still reads the new
+ * page against the whole ledger and may repair any entry. `sources` is what the approvals were given: how many originals,
+ * and their fingerprint in order. */
+const CARRIED_SECTIONS = new Set(['relationships', 'knowledge', 'threads', 'things', 'bodies', 'factions']);
+export function verificationSourcesOf(documents) {
+  return { count: documents.length, key: fingerprint36(JSON.stringify(documents.map(d => [d.id, d.mark]))) };
+}
+/* the words that name a row's subject: its name, a person's other names, a thread's owner; capitalized words of a name
+ * stand for it alone ("Kaelen" names "Kaelen Ashford"), a name without capitals is matched whole ("the groom") */
+function rowSubjects(state, row) {
+  const names = [row.name];
+  const key = findPersonKey(state?.characters || {}, row.name);
+  if (key) names.push(key, ...(state.characters[key]?.aliases || []));
+  if (row.section === 'threads' && row.value?.owner) names.push(row.value.owner);
+  return names.filter((n) => typeof n === 'string' && n.trim() && n !== '(empty)');
+}
+function subjectNamedIn(text, names) {
+  const folded = ' ' + foldName(text) + ' ';
+  return names.some((name) => {
+    const words = String(name).match(/\p{Lu}[\p{L}\p{M}'’-]{2,}/gu) || [];
+    if (words.length) return words.some((w) => new RegExp('(^|[^\\p{L}\\p{M}])' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}\\p{M}])', 'u').test(text));
+    const n = foldName(name);
+    return Boolean(n) && folded.includes(' ' + n + ' ');
+  });
+}
+export function carriedApprovals(state, documents) {
+  const verification = state?.audit?.verification;
+  const given = verification?.sources;
+  if (!verification?.entries || !given || !Number.isInteger(given.count) || given.count <= 0 || documents.length <= given.count) return {};
+  if (verificationSourcesOf(documents.slice(0, given.count)).key !== given.key) return {};
+  const added = documents.slice(given.count);
+  if (added.some((d) => !/^(?:page|voice):/.test(d.id))) return {};
+  const text = added.map((d) => d.text).join('\n');
+  /* someone in the scene is often meant without a name ("the lieutenant", "you"): their entries are reviewed again */
+  const here = (state?.present || []).map((p) => (typeof p === 'string' ? p : p && p.name)).filter(Boolean);
+  const keyOf = (n) => findPersonKey(state?.characters || {}, n) || foldName(n);
+  const hereKeys = new Set(here.map(keyOf));
+  const inScene = (names) => names.some((n) => hereKeys.has(keyOf(n)));
+  const out = {};
+  for (const row of ledgerVerificationRows(state)) {
+    if (!CARRIED_SECTIONS.has(row.section)) continue;
+    const receipt = verification.entries[row.id];
+    const subjects = rowSubjects(state, row);
+    if (!verificationReceiptMatches(receipt, row) || subjectNamedIn(text, subjects) || inScene(subjects)) continue;
+    out[row.id] = receipt;
+  }
+  return out;
+}
+
 const CHECKPOINT_VERSION=1;
 const checkpointAuthority=story=>fingerprint36(JSON.stringify([story?.brief || '',story?.castNotes || '']));
 const durableSection=row=>['characters','canon'].includes(row.section);
