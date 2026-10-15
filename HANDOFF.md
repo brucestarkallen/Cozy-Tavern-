@@ -7,7 +7,7 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m752-016 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
+- Version m752-017 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
   m752-002 lets go, when a tale opens, a persona the old rule made of an ordinary
   sentence; m752-003 makes the notes say when they have not read the newest page;
   m752-004 settles the continuous audit's historical corrections instead of
@@ -34,7 +34,8 @@ older files sit beside it). Search them with
   Settings → Choices matter → "Choices are written as" I or You, per story (DOM-M752-15);
   m752-015: a branch keeps what the auditor paid for — its receipts and approvals name the
   copies, and a branch made before reuses same-text receipts (laws M752-BR1/BR2, DOM-M752-16);
-  m752-016: "Restart choices" under the choices — new ones sealed blind (DOM-M752-17).
+  m752-016: "Restart choices" under the choices — new ones sealed blind (DOM-M752-17);
+  m752-017: the automatic audit starts as soon as the house is idle (DOM-M752-18).
 - Measured on m752-013: the law suite 1682 of 1682, the DOM walk 318 of 318 (a first
   walk was red once on DOM-263, a fixture race present on m752-008 too, fixed — below),
   lint 0 errors (253 warnings, as before). On m752-004: Chromium at 390 px, the new
@@ -63,6 +64,11 @@ older files sit beside it). Search them with
   (auditsources.js reviewAuditSources). A branch from an older page still re-reads its newest
   page and runs one audit (M66), now over reused sections. The 503 in his report ("Service is too
   busy") is his provider's own answer to one auditor call; the call is tried again.
+- The automatic audit's waits (m752-017, chat.js scheduleLedgerRepair): it starts a quarter
+  second after the house is idle and again as soon as a pass that got somewhere ends (both
+  were 15 s); after a pass that got nowhere or failed, 5, 10, 20, 30 s at most (were 1–5 min),
+  and that wait is never cut short; two stalled passes in a row still pause it. A house busy
+  with his page or its readers: the light's next look starts it, 5 s at the latest.
 - His stuck correction ("The recovery verdict remains inconsistent after
   clarification: The fidelity decision needs an exact claim from this record and a
   valid status"): its answer had said, rightly, that page 94 holds the record's words.

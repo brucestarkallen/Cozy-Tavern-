@@ -10223,7 +10223,10 @@ test('DOM-257 A MEND NEVER LETS GO A LINE IN HIS OWN WORDS, NOR A LINE NOTHING W
     await tick(700);
     { const lamp = q('#btn-ledger'); const words = lamp.getAttribute('title') || '';
       assert(!lamp.classList.contains('is-waiting') && !/waiting for the keeper/.test(words), 'the light does not wait for a keeper that is switched off: ' + words);
-      assert(!lamp.classList.contains('all-well') || /record keeper is switched off for this story/.test(words), 'and where it is green it does not say the pages are folded: ' + words); }
+      /* M752 (followup 17): green with the keeper off says so in its own words since M752 ("The record keeper is switched off,
+       * so older pages are not folded") — this read the older words "…switched off for this story", which no light says, so
+       * it held only while the auditor had not yet run (it waited fifteen seconds); it runs at once now and the light is green */
+      assert(!lamp.classList.contains('all-well') || (/record keeper is switched off/.test(words) && !/read, folded/.test(words)), 'and where it is green it does not say the pages are folded: ' + words); }
   } finally {
     if (windowWas257 === undefined) await db.settings.delete('memoryWindow'); else await db.settings.set('memoryWindow', windowWas257);
     delete globalThis.__cozyContinuousPauseMs; delete globalThis.__cozyGapBackoffMs;
@@ -10331,6 +10334,10 @@ test('DOM-259 A CATCH-UP WHOSE MODEL DOES NOT ANSWER SAYS SO, STEPS BACK AT ONCE
   const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer, fail: house.state.fail };
   const H = (t) => '[The kitchen — Monday, March 3, 2025 | ' + t + ' | clear | coat | by the stove]\n\n';
   const st = await db.stories.create({ title: 'a reader that cannot be reached' });
+  /* M752 (followup 17): the auditor is not this scenario's subject — its automatic pass starts at once now (it waited fifteen
+   * seconds, longer than this scenario, so it never ran here) and, while the reading waits out its pause, the house sends it
+   * by right (health.js: the waiting owner holds no other back); the failure below is the READING's, so it is switched off */
+  await db.stories.update(st.id, { audit: false });
   env.window.__cozy.setActiveStoryId(st.id);
   await env.window.__cozy.chat.renderThread({ structural: true });
   let readerDown = false; let readerHangs = false; let readerAsked = 0;
@@ -16742,6 +16749,38 @@ test('DOM-M752-17 “RESTART CHOICES” (HIS, 15 October 2026: “give choice ma
     await db.stories.remove(st.id).catch(() => {});
     await env.ctx.chat.refreshStories(true).catch(() => {});
   }
+});
+
+test('DOM-M752-18 THE AUTOMATIC AUDIT STARTS AS SOON AS IT CAN (HIS, 15 October 2026: “the auditor ran a minute ago and is continuing its repairs automatically — the next automatic audit is too slow. It should start as soon as possible”): with the house’s own waits (no fixture timings), an owed repair is asked the moment the tale is open and idle, and a pass that did not land is followed within seconds — it was fifteen seconds before the first, and a minute after one that got nowhere', async () => {
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  await autonomousLedgerFixture(async ({ id, open, load, calls }) => {
+    delete globalThis.__cozyLedgerRepairPauseMs; delete globalThis.__cozyLedgerRepairBackoffMs; /* the house's own waits */
+    const t0 = Date.now();
+    await open();
+    await until(() => calls() >= 1, 'the first pass', 20000);
+    const first = Date.now() - t0;
+    await until(async () => (await load()).audit && !(await import('../../js/agents/queue.js')).workIsRunning(id), 'the first pass ends', 20000);
+    const ended = Date.now();
+    await until(() => calls() >= 2, 'the next pass, by itself', 70000);
+    const next = Date.now() - ended;
+    if (process.env.SHOW_WAITS) console.log('WAITS first ' + first + ' ms, next ' + next + ' ms');
+    assert(first < 3000, 'the first pass is asked at once: ' + first + ' ms');
+    assert(next < 8000, 'a pass that did not land is followed within seconds: ' + next + ' ms');
+    await until(async () => (await load()).audit?.unfinished === false, 'the repaired concern is closed', 20000);
+  });
+  /* …but a provider that keeps failing is not asked again and again: the wait after a pass that got nowhere is kept, the
+   * light's own looks (a quarter second apart) never cut it short */
+  await autonomousLedgerFixture(async ({ id, open, calls }) => {
+    delete globalThis.__cozyLedgerRepairPauseMs; delete globalThis.__cozyLedgerRepairBackoffMs;
+    const queue = await import('../../js/agents/queue.js');
+    await open();
+    await until(() => calls() >= 1, 'the failing pass', 20000);
+    await until(() => !queue.workIsRunning(id) && queue.queuedCount(id) === 0, 'the failing pass ends', 20000);
+    const after = calls();
+    await tick(3000);
+    if (process.env.SHOW_WAITS) console.log('WAITS calls in the 3 s after a failed pass: ' + (calls() - after));
+    eq(calls() - after, 0, 'no pass for at least the five seconds after one that failed');
+  }, { failFirst: 99 });
 });
 
 await runAll();

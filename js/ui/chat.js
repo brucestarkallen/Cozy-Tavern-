@@ -3480,18 +3480,38 @@ export function initChat(ctx) {
   /* M686: unresolved audit work belongs to the house. Each idle pass uses
    * current sources, yields to a new turn, and schedules its own next look.
    * Saved reports and source coverage resume the loop after reopening. */
+  /* M752 (followup 17) — HIS (15 October 2026): "the auditor ran a minute ago and is continuing its repairs automatically —
+   * the next automatic audit is too slow. It should start as soon as possible." It waited fifteen seconds before its first
+   * pass and between passes that were getting somewhere, and a minute, two, four, five after a pass that was not (a 503
+   * from his provider among them) — while the house sat idle. Now: the moment the house is idle (a quarter second, for a
+   * burst of the light's looks to settle), and again the moment a pass that got somewhere ends; a pass that got nowhere is
+   * tried again after five seconds, ten, twenty, thirty at most (two of them in a row still pause it — repairRetryCheckpoint);
+   * a house busy with his page or its readers is looked at again when it settles (the light's next look starts it at
+   * once: an earlier start replaces a later one), five seconds at the latest. Only a missing connection waits a minute. */
   const ledgerRepairTimers = new Map();
+  const ledgerRepairDue = new Map(); /* storyId → {at: when its timer fires, hold: a wait after a pass that got nowhere} */
   const ledgerRepairActive = new Set();
   const ledgerRepairTries = new Map();
-  const repairPause = () => Number(globalThis.__cozyLedgerRepairPauseMs) > 0 ? Number(globalThis.__cozyLedgerRepairPauseMs) : 15000;
+  const REPAIR_START_MS = 250;
+  const repairPause = () => Number(globalThis.__cozyLedgerRepairPauseMs) > 0 ? Number(globalThis.__cozyLedgerRepairPauseMs) : 5000;
+  const repairStart = () => Math.min(REPAIR_START_MS, repairPause());
   const repairBackoff = () => Number(globalThis.__cozyLedgerRepairBackoffMs) > 0 ? Number(globalThis.__cozyLedgerRepairBackoffMs) : 60000;
-  function scheduleLedgerRepair(storyId, delay = repairPause()) {
-    if (!storyId || ledgerRepairTimers.has(storyId) || ledgerRepairActive.has(storyId)) return;
+  function scheduleLedgerRepair(storyId, delay = repairStart(), { hold = false } = {}) {
+    if (!storyId || ledgerRepairActive.has(storyId)) return;
+    if (ledgerRepairTimers.has(storyId)) {
+      const due = ledgerRepairDue.get(storyId) || { at: 0, hold: false };
+      /* a wait after a pass that got nowhere (or failed, or had no connection) is kept — the light's looks never cut it
+       * short, or a provider that is down would be asked four times a second; a wait for a busy house is cut short */
+      if (due.hold || due.at <= Date.now() + delay) return;
+      clearTimeout(ledgerRepairTimers.get(storyId)); /* sooner than the one waiting: it goes now */
+    }
+    ledgerRepairDue.set(storyId, { at: Date.now() + delay, hold });
     ledgerRepairTimers.set(storyId, setTimeout(async () => {
       ledgerRepairTimers.delete(storyId);
+      ledgerRepairDue.delete(storyId);
       if (ctx.getActiveStoryId() !== storyId) return;
       ledgerRepairActive.add(storyId);
-      let again = false, nextDelay = repairPause();
+      let again = false, nextDelay = repairPause(), holdNext = false; /* (the house busy: five seconds at the latest — the light's next look, sooner) */
       try {
         const story = await db.stories.get(storyId);
         if (!story || story.extraction === false || !(await auditOn(story))) return;
@@ -3501,8 +3521,12 @@ export function initChat(ctx) {
         const before = await loadState(storyId);
         if (!ledgerRepairNeeded(before, await loadWorkerStatus(storyId), story, repairPages, await auditEvery())) { ledgerRepairTries.delete(storyId); return; }
         if (busy || isReplaying() || readersOut(storyId) || workIsRunning(storyId) || queuedCount(storyId) > 0 || otherHandAt(storyId)) { again = true; return; }
+        /* M752 (followup 17): the light's own order — a page the ledger has not read goes before the auditor (health.js), or a
+         * pass started a quarter second after a look could go ahead of the reading the same look sends, and audit a ledger a
+         * page behind. A reading waiting out its own pause holds no one back (health.js): then the auditor goes. */
+        if (unreadPages(before, repairPages) > 0 && (await ledgerFillWait(storyId, story, before)) === 0) { again = true; return; }
         const connection = await resolveWorkerConnection(story, 'auditor');
-        if (!connection) { again = true; nextDelay = repairBackoff(); return; }
+        if (!connection) { again = true; holdNext = true; nextDelay = repairBackoff(); return; }
         if (ctx.getActiveStoryId() !== storyId || busy || isReplaying() || workIsRunning(storyId) || queuedCount(storyId) > 0) { again = true; return; }
         const gen = chainGen.get(storyId) || 0;
         const promise = enqueueWork(storyId, { name: 'auditor', once: true, run: chainJob(async ({ signal, stale, renew }) => {
@@ -3544,13 +3568,20 @@ export function initChat(ctx) {
           }
           const tries = progress ? 0 : Math.min(4, (ledgerRepairTries.get(storyId) || 0) + 1);
           ledgerRepairTries.set(storyId, tries);
-          nextDelay = progress ? repairPause() : Math.min(5 * 60000, repairBackoff() * 2 ** Math.max(0, tries - 1));
+          nextDelay = progress ? repairStart() : Math.min(30000, repairPause() * 2 ** Math.max(0, tries - 1));
+          holdNext = !progress;
         } else ledgerRepairTries.delete(storyId);
-      } catch (err) { again = true; nextDelay = repairBackoff(); }
+      } catch (err) { /* a call that failed outright (a provider too busy, the network): five seconds, ten, twenty, thirty at most */
+        again = true;
+        const tries = Math.min(4, (ledgerRepairTries.get(storyId) || 0) + 1);
+        ledgerRepairTries.set(storyId, tries);
+        nextDelay = Math.min(30000, repairPause() * 2 ** (tries - 1));
+        holdNext = true;
+      }
       finally {
         ledgerRepairActive.delete(storyId);
         if (ctx.getActiveStoryId() === storyId) {
-          if (again) scheduleLedgerRepair(storyId, nextDelay);
+          if (again) scheduleLedgerRepair(storyId, nextDelay, { hold: holdNext });
           markLedgerTrouble(storyId);
         }
       }

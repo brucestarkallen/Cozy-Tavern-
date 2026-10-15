@@ -263,6 +263,10 @@ Keep these; each has a law that fails without it:
   (chat.js choicesInOtherVoice); a call for the other voice still out writes nothing.
   "Restart choices" (chat.js restartChoices) lets the open choices go, kept nowhere, and asks
   afresh; the helper is never shown an earlier offer.
+- The automatic audit (chat.js scheduleLedgerRepair) starts as soon as the house is idle and
+  again as soon as a pass that got somewhere ends; after a pass that got nowhere or failed it
+  holds 5–30 s, and the light's looks never cut that hold short (a failing provider is not asked
+  again and again).
 - A branch keeps what the auditor paid for: its ledger, checkpoints and versions name the copies
   (auditprogress.js branchAuditBooks, chat.js branchForUpdate); approvals and completion keys
   move only where they were the parent's for the same pages. A receipt for the same text (kind,

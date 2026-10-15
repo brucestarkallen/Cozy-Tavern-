@@ -21587,3 +21587,29 @@ on m752-015 and passes. Chromium at 320/390/760 px, default, Academy and Neon To
 button sits centred under the choices, inside the row, 32 px tall, no page overflow.
 Measured: law suite 1685 of 1685; DOM walk 321 of 321; lint 0 errors, 253 warnings. Not run: a live
 provider.
+
+## M752 followup 17 (m752-017): the automatic audit starts as soon as it can
+
+The owner (15 October 2026): "the auditor ran a minute ago and is continuing its repairs
+automatically — the next automatic audit is too slow. It should start as soon as possible." The
+repair loop (chat.js scheduleLedgerRepair) waited 15 s before its first pass and between passes
+that were getting somewhere, and 1, 2, 4, 5 min after one that got nowhere or failed (his 503
+among them), with the house idle. Now: a quarter second after the house is idle and after a pass
+that got somewhere; 5, 10, 20, 30 s at most after one that got nowhere, failed outright or had no
+progress — a wait the light's looks never cut short (an earlier start replaces a later one only for
+a wait on a busy house), so a provider that is down is not asked again and again; two stalled
+passes in a row still pause it (repairRetryCheckpoint, unchanged); no connection still waits a
+minute. A page the ledger has not read and whose reading is ready goes first (the light's order);
+a reading waiting out its own pause holds no one back, as health.js already says.
+Law DOM-M752-18, with the house's own waits: first pass 15,333 ms → 578 ms after the tale opens;
+the next pass 15,023 ms → 274 ms after one ends; a failing provider: no new pass in the 3 s after
+a failed one (1 when the hold is cut short by the light). Fails on m752-016, passes.
+Two walk laws moved with it. DOM-257 asserted green "…switched off for this story", words no light
+has said since M752 — it held only while the auditor had not run (15 s); green with the keeper off
+now says "The record keeper is switched off, so older pages are not folded", which the law reads.
+DOM-259 makes a failing shelf read hit "whatever work is running"; with the auditor sent at once
+during the reading's pause (health.js's own rule) it hit the auditor, so its tale's auditor is off
+(not its subject). DOM-262 failed in a partial run (DOM-25x–26x) on m752-016 and m752-017 alike —
+an order dependency of that subset, not of the whole walk.
+Measured: law suite 1685 of 1685; DOM walk 322 of 322; lint 0 errors, 253 warnings. Not run: a live
+provider; his tale.
