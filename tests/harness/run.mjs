@@ -277,6 +277,7 @@ import './m752-continuous.mjs'; /* M752 (followup 4): the continuous audit's his
 import './m752-store.mjs'; /* M752 (followup 8): a setting read while its own write is under way is the value being written */
 import './m752-historical.mjs'; /* M752 (followup 9): a historical correction's conversation ends on a verdict — quotes across markup and with words left out read, mistakes said back, looks served */
 import './m752-choices.mjs'; /* M752 (followup 13): Choices matter is handed the whole of what the storyteller saw */
+import './m752-setaside.mjs'; /* M752 (followup 21): a source mention the auditor cannot tie to anyone is set aside, not owed forever */
 import './m752-branch.mjs'; /* M752 (followup 15): a branch keeps what the auditor paid for */
 
 console.log('Cozy Tavern — harness');

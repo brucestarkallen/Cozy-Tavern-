@@ -60,8 +60,13 @@ try {
  const second={...mention,source:'distinct',ledgerName:undefined,identityResolution:undefined};
  assert.equal(sourcePersonKey(saved,second.name,second.ledgerName,second.identityResolution),'');assert.equal(missingSourcePeople(saved,[second]).length,1);
  await saveState(story.id,equivalent);mode='open';const open=await auditLedger({connection,storyId:story.id,reviewSources:'all'});
- saved=await loadState(story.id);assert(open.unfinished);assert(!ledgerAuditVerified(saved,story,pages));assert(saved.audit.unresolved.every(i=>i.sourceId===d.id && i.sourceFacts));assert.equal(healthSnapshot({state:saved,story,pages}).status,'yellow');
- assert((await auditLedger({connection,storyId:story.id,reviewSources:'all'})).unfinished,'an open semantic fact stays open on the next audit');
+ // M752 (followup 21) — HIS (15 October 2026): "send them back and if can't debate then it's resolve". A fact the reader kept
+ // open stayed owed on every audit until the automatic audit paused, the lamp yellow for good; it is now decided as left as it
+ // stands, with the reader's own reason — the profile untouched — and the next unchanged audit owes nothing.
+ saved=await loadState(story.id);assert.equal(open.unfinished,false,JSON.stringify(open.pending));assert(ledgerAuditVerified(saved,story,pages));
+ assert(Object.values(saved.audit.sourceFactDecisions || {}).some(x=>/remains uncertain/.test(x.why)),'decided with the reader’s reason');
+ assert.deepEqual(saved.characters[key],equivalent.characters[key],'the profile is left as it stands');assert.equal(healthSnapshot({state:saved,story,pages}).status,'green');
+ {const before=calls;assert.equal((await auditLedger({connection,storyId:story.id,reviewSources:'all'})).unfinished,false,'not owed on the next audit');assert.equal(calls,before,'and that audit costs nothing');}
  await saveState(story.id,fixture('A candle seller.'));mode='repair';const repaired=await auditLedger({connection,storyId:story.id,reviewSources:'all'});
  saved=await loadState(story.id);assert.equal(repaired.unfinished,false,JSON.stringify(repaired.pending));assert(saved.characters[key].core.includes('A candle seller.'));assert(saved.characters[key].core.includes(fact));assert.deepEqual(saved.characters.Mira,equivalent.characters.Mira);
  await saveState(story.id,equivalent);mode='concurrent';const stale=await auditLedger({connection,storyId:story.id,reviewSources:'all'});
@@ -73,5 +78,5 @@ try {
  after.audit.retryProgress=progress;const stuck=repairRetryCheckpoint(after,after,story,pages);assert.equal(stuck.stalled,1);after.audit.retryProgress=stuck;assert.equal(repairRetryCheckpoint(after,after,story,pages).stalled,2);
  assert(ledgerRepairNeeded(equivalent,{},story,pages),'changed policy resumes the previous paused repair once');
  assert.deepEqual(await db.messages.list(story.id),pages);
- console.log('PASS M743 auditor: represented legacy finding closes without calls, semantic scoped persistence, reload/source/profile invalidation, missing fact additive repair, distinct identity and local receipts, manual/concurrent preservation, open remains yellow, discovery resets zero baseline and repeated stalls stay bounded. Simulated provider, disposable IndexedDB.');
+ console.log('PASS M743 auditor: represented legacy finding closes without calls, semantic scoped persistence, reload/source/profile invalidation, missing fact additive repair, distinct identity and local receipts, manual/concurrent preservation, a fact kept open is left as it stands with its reason (green), discovery resets zero baseline and repeated stalls stay bounded. Simulated provider, disposable IndexedDB.');
 } finally {globalThis.fetch=fetchBefore;}

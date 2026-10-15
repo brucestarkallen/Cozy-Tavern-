@@ -7,7 +7,7 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m752-019 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
+- Version m752-020 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
   m752-002 lets go, when a tale opens, a persona the old rule made of an ordinary
   sentence; m752-003 makes the notes say when they have not read the newest page;
   m752-004 settles the continuous audit's historical corrections instead of
@@ -38,7 +38,8 @@ older files sit beside it). Search them with
   m752-017: the automatic audit starts as soon as the house is idle (DOM-M752-18);
   m752-018: Choices matter says what it is doing — sealing, waiting for the page's readers,
   or why there are no choices, with "Restart choices" to ask again (DOM-M752-19); m752-019:
-  a page the helper found quiet says so, with "Restart choices" (DOM-M752-20).
+  a page the helper found quiet says so, with "Restart choices" (DOM-M752-20); m752-020: nothing
+  he does waits for the auditor, and a description it cannot tie to anyone is set aside (below).
 - Measured on m752-013: the law suite 1682 of 1682, the DOM walk 318 of 318 (a first
   walk was red once on DOM-263, a fixture race present on m752-008 too, fixed — below),
   lint 0 errors (253 warnings, as before). On m752-004: Chromium at 390 px, the new
@@ -65,6 +66,19 @@ older files sit beside it). Search them with
   "no turning point" says so too. Since m752-019 every quiet page on the newest page says "No
   turning point on this page — no choices." with "Restart choices" (choices he let go could not
   be asked for again before). A restart during a fight is refused with a toast.
+- The auditor and his waiting (m752-020). Per page the auditor makes two calls one after the other —
+  the newest page's source reading, then a review of the whole ledger against the tale (measured on a
+  synthetic 60-page tale: ~43,000 tokens in; 200 pages: ~108,000) — and answers for every entry it
+  checks, so even a fast model without thinking takes far longer than a page reader. It is no longer
+  waited for: the choices wait only for the readers that write the page into the ledger; his next
+  move, try again, an edit, a branch let its reading go at once (it was 5 s for a send, up to 2 min
+  for an edit, and the next page's readers queued behind it while its answer, made worthless by the
+  new page, was thrown away); the automatic audit finishes the check when he pauses. DOM-M752-21:
+  send → storyteller 5,080 ms → 40 ms; new page → its reader never within 90 s → 6 ms.
+  A description the reader cannot tie to anyone ("the groom", "the under-steward's boy", "the older
+  house-knight", his page 122) was owed on every pass until the automatic audit paused; it is kept as
+  a person of its page only with the reader's reason (M752-SA1..SA5). A ledger entry the reader keeps
+  open (scene:clock) still stays open: approving it would certify a value it doubts.
 - Branches and the auditor (m752-015): a source section is named by its page's id, and a
   branch copies every page under a new id, so a branch of his long tale found none of the
   auditor's receipts and read the whole tale again ("278 original source sections still need

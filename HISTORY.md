@@ -21652,3 +21652,35 @@ reported). Law DOM-M752-20 (fails on m752-018: "waited too long for a quiet page
 Chromium 320/390/760 px, three coats: the line and the button inside the row, no overflow.
 Measured: law suite 1686 of 1686; DOM walk 324 of 324; lint 0 errors, 253 warnings. Not run: a live
 provider; his tale.
+
+## M752 followup 21 (m752-020): nothing he does waits for the auditor; what it cannot tie to anyone is set aside
+
+The owner (15 October 2026): "using fast model the auditor is very slow unlike other worker why? It's starting
+breaking my immersion for waiting" and "Isn't we already using send them back and if can't debate then it's resolve??
+… the under-steward's boy / the older house-knight / the groom is listed as an individual by the source reading in
+Page 122 … identity or entity classification still needs a working repair" (repeated attempts paused).
+Why it is slow (measured with the real auditor and a scripted wire): per page it makes two calls in a row — the newest
+page's source reading (~5,000–8,000 tokens in) and the review of the whole ledger against the tale (60 pages: ~38,000
+tokens in; 200 pages: ~100,000) — and its answer covers every entry it checks and every open source mention; a missing
+decision costs a third call that sends the conversation again. A page reader is one call (61,000–98,000 tokens in)
+with a short answer. A fast model without thinking speeds the writing of the answer, not its length or the reading.
+Output token counts on his provider were not measured.
+What he waited on, and the causes: (1) the choices waited for "the page's own readers" — the founder to the auditor;
+(2) the page's auditor was not a reading, so his next move waited 5 s for it (pendingWork), an edit or delete up to
+2 min, and the next page's readers waited in the queue behind it — while its answer was thrown away anyway once the
+new page landed (its sources had changed); a hung auditor call blocked them through the queue's five retries.
+Now the choices wait for the readers who write the page (chat.js pageReadersOut), and the page's auditor is a reading
+(continuous.js beginReading) that steps aside for anything that waits for the workers; what its source review paid
+for is held, an audit he asked for stays owed, the automatic audit finishes the check when the house is idle.
+DOM-M752-21: send → storyteller 5,080 ms → 40 ms; new page → its reader not within 90 s → 6 ms; choices stand while
+the auditor still reads (they never did).
+Stuck findings: a source mention the final reader kept open, or left undecided after the same review asked again,
+was owed on every pass; two passes without progress paused the audit, the lamp yellow for good. A description
+(isDescriptorName) is now kept as a person of its page only — source.resolve local, with the reader's reason or
+that it gave none, or why its own answer could not be saved — never a name (Tarn stays owed: M732), never after a
+review cut short or whose second turn failed. Facts kept open with a reason are decided as left as they stand. Laws
+M752-SA1..SA5 (each fails on m752-019). Three expectations changed with his rule: M731 (an ambiguous scullery girl was
+to stay open), M743 (an open fact was to stay open), M752-A1 (its fixture kept the warden open; it now stays owed by
+a failed second turn, the law's subject unchanged). LEDGER_REPAIR_POLICY 9 → 10, so his paused audit resumes once.
+pendingAudit is declared before its first use (lint 253 → 247 warnings, 0 errors).
+Measured: law suite 1691 of 1691; DOM walk 325 of 325; lint 0 errors, 247 warnings. Not run: a live provider; his tale.

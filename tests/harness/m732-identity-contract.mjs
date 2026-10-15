@@ -114,7 +114,7 @@ try {
   assert(eligible.includes('Quiet Visitor'),'tracked actor target appears in the actual operation registry');
   assert(eligible.includes('Selene'),'retired aliases resolve to their canonical target');
   assert(!eligible.includes('The Gate Watch'),'faction names are context, not source.resolve person targets');
-  assert.equal(auditProgress.LEDGER_REPAIR_POLICY,9);
+  assert(auditProgress.LEDGER_REPAIR_POLICY>7,'the repair procedure changed since the M731 pause (policy 7)');
   assert(auditProgress.ledgerRepairNeeded(seeded,{},story,pages),'paused M731 work resumes under the changed repair policy');
   assert(blocked.unfinished,'the repeated unavailable target stays unresolved');
   assert.equal(calls,2,'the existing single corrective continuation remains bounded');

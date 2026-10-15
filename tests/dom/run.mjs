@@ -16840,6 +16840,67 @@ test('DOM-M752-20 A PAGE WITH NO CHOICES CAN BE ASKED AGAIN (HIS, 15 October 202
   }
 });
 
+test('DOM-M752-21 NOTHING HE DOES WAITS FOR THE AUDITOR (HIS, 15 October 2026: “using fast model the auditor is very slow unlike other worker why? It’s starting breaking my immersion for waiting”): with the auditor still reading the newest page, the choices are sealed from what the page’s readers wrote; his next move goes to the storyteller at once (it waited five seconds for the auditor); the auditor’s reading steps aside for it, so the new page’s readers start the moment it lands (they waited behind a reading the new page had already made worthless)', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const was = { keeper: await db.settings.get('memoryKeeper'), audit: await db.settings.get('auditOn'), every: await db.settings.get('auditEvery'), worker: house.state.workerAnswer, story: house.state.storyAnswer };
+  await db.settings.set('memoryKeeper', false);
+  await db.settings.set('auditOn', true);
+  await db.settings.set('auditEvery', 1);
+  const st = await db.stories.create({ title: 'the auditor waits for him' });
+  try {
+    let ts = Date.now() - 60000;
+    const H = (m) => '[The yard — Monday, March 3, 2025 | 09:' + m + ' | clear]\n\n';
+    await db.messages.append(st.id, { role: 'user', text: 'I walk into the yard.', ts: (ts += 100) });
+    await db.messages.append(st.id, { role: 'assistant', text: H('00') + 'Rukia was sparring in the yard when Jovan came in.', ts: (ts += 100) });
+    const led = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia' }]).state;
+    await saveState(st.id, { ...led, readTo: 0, tidiedGen: 999, healedGen: 999 });
+    await db.stories.update(st.id, { choices: true });
+    let told = 0;
+    house.state.storyAnswer = () => { told += 1; return H(String(10 + told)) + 'Rukia lowered her sword and looked at Jovan, waiting for his answer. (page ' + told + ')'; };
+    let auditorOut = 0; let auditorLetGo = 0; const readerAt = []; let choicesAsked = 0;
+    house.state.workerAnswer = (body, sys) => {
+      const s = String(sys || '');
+      if (/keep the turning points/i.test(s)) { choicesAsked += 1; return JSON.stringify(SEALED); }
+      if (/auditor of the ledger/i.test(s)) { auditorOut += 1; return new Promise(() => {}); } /* a slow auditor: still reading */
+      if (/keep the ledger/i.test(s)) { readerAt.push(Date.now()); return '{"mutations":[]}'; }
+      return walkDefaultWorker(body, sys);
+    };
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await tick(200);
+    type(q('#composer-input'), 'I ask Rukia what that was about.');
+    submit(q('#composer'));
+    await until(() => auditorOut >= 1, 'the auditor reads the new page', 30000);
+    await until(() => qa('#choice-row .choice-btn').length === 3, 'the choices stand while the auditor is still reading', 20000);
+    eq(choicesAsked, 1, 'the choices helper was asked once');
+    const reads = readerAt.length;
+    const tellerCalls = () => house.state.calls.filter((c) => !c.isWorker).length;
+    const t0 = Date.now(); const asked0 = tellerCalls();
+    type(q('#composer-input'), 'I tell her it was nothing.');
+    submit(q('#composer'));
+    await until(() => tellerCalls() > asked0, 'the storyteller is asked', 10000);
+    const waited = Date.now() - t0;
+    if (process.env.SHOW_WAITS) console.log('WAITS send → storyteller ' + waited + ' ms');
+    assert(waited < 2500, 'his move goes to the storyteller at once, not after the auditor: ' + waited + ' ms');
+    await tellerIdle('the new page', 20000);
+    const landed = Date.now();
+    await until(() => readerAt.length > reads, 'the new page’s reader starts', 15000);
+    if (process.env.SHOW_WAITS) console.log('WAITS page landed → its reader ' + (readerAt[readerAt.length - 1] - landed) + ' ms');
+    assert(readerAt[readerAt.length - 1] - landed < 5000, 'the new page’s reader starts at once: ' + (readerAt[readerAt.length - 1] - landed) + ' ms');
+    eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+  } finally {
+    house.state.workerAnswer = was.worker; house.state.storyAnswer = was.story;
+    for (const [k, v] of [['memoryKeeper', was.keeper], ['auditOn', was.audit], ['auditEvery', was.every]]) { if (v === undefined) await db.settings.delete(k); else await db.settings.set(k, v); }
+    const { stopWork } = await import('../../js/agents/queue.js');
+    stopWork(st.id);
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+});
+
 test('DOM-M752-18 THE AUTOMATIC AUDIT STARTS AS SOON AS IT CAN (HIS, 15 October 2026: “the auditor ran a minute ago and is continuing its repairs automatically — the next automatic audit is too slow. It should start as soon as possible”): with the house’s own waits (no fixture timings), an owed repair is asked the moment the tale is open and idle, and a pass that did not land is followed within seconds — it was fifteen seconds before the first, and a minute after one that got nowhere', async () => {
   if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
   await autonomousLedgerFixture(async ({ id, open, load, calls }) => {

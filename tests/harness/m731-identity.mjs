@@ -64,10 +64,16 @@ try {
  await saveState(story.id,state);mode='prerequisite';calls=0;
  const corrected=await auditLedger({connection,storyId:story.id,reviewSources:'all'});assert.equal(corrected.unfinished,false,JSON.stringify(corrected.pending));assert.equal(calls,2);
  await saveState(story.id,state);mode='ambiguous';calls=0;
- const blocked=await auditLedger({connection,storyId:story.id,reviewSources:'all'});assert(blocked.unfinished);assert(!ledgerAuditVerified(await loadState(story.id),story,pages));
+ // M752 (followup 21) — HIS (15 October 2026): "send them back and if can't debate then it's resolve". An ambiguity was kept
+ // open here, and so owed on every pass until the automatic audit paused; a description the reader cannot tie to anyone is
+ // now kept as a person of its page only, with the reader's own reason, and the audit completes (a NAME stays owed: M732).
+ const blocked=await auditLedger({connection,storyId:story.id,reviewSources:'all'});assert.equal(blocked.unfinished,false,JSON.stringify(blocked.pending));
+ {const after=await loadState(story.id),girl=Object.values(after.auditSources).flatMap(r=>r.people||[]).find(p=>p.name==='a scullery girl');
+  assert.equal(girl.identityResolution.scope,'local');assert.match(girl.identityResolution.why,/does not establish whether this is the missing continuing person/);
+  assert.equal(girl.ledgerName,'');assert(ledgerAuditVerified(after,story,pages));}
  await saveState(story.id,state);mode='manual';
  await auditLedger({connection,storyId:story.id,reviewSources:'all'});assert.equal((await loadState(story.id)).characters.Mira.core,'A manual revision during review.');
  await saveState(story.id,state);mode='stale';
  assert.equal(await auditLedger({connection,storyId:story.id,reviewSources:'all'}),null);assert.equal((await loadState(story.id)).characters.Tarn,undefined);
- console.log('PASS M731: five voice findings settle, profile ordering, empty biography, source-local identities, undo, cached receipts and zero unchanged calls, exact prerequisite clarification, ambiguity stays open, manual/concurrent source protection, verified versus stale worker status. Scripted provider and disposable IndexedDB shim.');
+ console.log('PASS M731: five voice findings settle, profile ordering, empty biography, source-local identities, undo, cached receipts and zero unchanged calls, exact prerequisite clarification, an ambiguous description set aside as a person of its page with its reason, manual/concurrent source protection, verified versus stale worker status. Scripted provider and disposable IndexedDB shim.');
 } finally {globalThis.fetch=originalFetch;}

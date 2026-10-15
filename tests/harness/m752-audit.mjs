@@ -52,11 +52,12 @@ test('M752-A1 A SOURCE FINDING WHOSE MENTION IS GONE CLOSES: his edit took the w
   const id = await tale('m752-a1', [['user', 'Keir walks to the bridge.'], ['assistant', 'Captain Rhee led the guards across the bridge. The bridge warden, a stooped old man, waved them through without a word.']]);
   await saveState(id, keir({ characters: { 'Captain Rhee': { ...emptyPerson(), core: 'Captain of the city guard.' } } }));
   const source = (docs) => docs.flatMap((d) => [...(/Captain Rhee/.test(JSON.stringify(d)) ? [person('Captain Rhee', d)] : []), ...(/bridge warden/.test(JSON.stringify(d)) ? [person('the bridge warden', d, 'bridge warden')] : [])]);
-  const tasksOf = (user) => JSON.parse(user.split('REQUIRED SOURCE MENTION DECISIONS:\n')[1].split('\n')[0]);
-  const keepOpen = (user) => ({ review: { status: 'complete', why: 'Reviewed.', open: tasksOf(user).map((t) => ({ id: t.id, why: 'Whether the warden goes on in the story is not settled yet.' })) } });
+  /* M752 (followup 21): a description the reader keeps open is set aside now (M752-SA1); what stays owed is a decision the
+   * review could not finish — no decision, and the turn that asked again failed on the wire */
+  const keepOpen = (user, calls, messages) => { if (messages.some((m) => m.role === 'assistant')) throw new Error('the provider is too busy'); return { review: { status: 'complete', why: 'Reviewed.', open: [] } }; };
   await onWire({ source, review: keepOpen }, () => auditLedger({ connection: CONN, storyId: id, reviewSources: 'all' }));
   const warden = (await loadState(id)).audit.unresolved.find((i) => i.sourceName === 'the bridge warden');
-  assert(warden, 'the reader kept the warden open: a genuine uncertainty is saved');
+  assert(warden, 'the warden stays owed while its review could not finish');
   const page = (await db.messages.list(id)).find((m) => m.role === 'assistant');
   await db.messages.update(id, page.id, { text: 'Captain Rhee led the guards across the bridge.' });
   /* not read at its new text yet (an audit that reads no sources): still open, never closed on an old receipt */

@@ -26,7 +26,7 @@ import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
 import { samePlace, seatAtScene, handSetClockSince } from '../engine/apply.js'; /* M403; M681: a seat at the scene's own place */
 import { seatForPerson, sameLooseEnd, roleOwnersNamed, roleWordOf } from '../engine/people.js'; /* M398; M679: a loose end matched by sense, as the applier matches it */
-import { isHere, nameOnPage, samePersonName, oneMeaning, foldName, nameCore, sameOwnedDescriptor } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
+import { isHere, nameOnPage, samePersonName, oneMeaning, foldName, nameCore, sameOwnedDescriptor, isDescriptorName } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
 import { shownOnPage, personBookKey, groundTheTellingStandsOn, narrationOf } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
 import { findRelationship } from '../engine/relationships.js';
 import { db } from '../store.js';
@@ -817,6 +817,35 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
         // The approval belongs to the snapshot actually shown, plus its own
         // approved repairs. Later writes cannot borrow this final verdict.
         result=judge(requestedState,offered);
+        /* M752 (followup 21) — HIS (15 October 2026): "Isn't we already using send them back and if can't debate then it's
+         * resolve?? … the groom is listed as an individual by the source reading in Page 122, story; confirm its identity or
+         * correct its entity classification: identity or entity classification still needs a working repair". A role the
+         * page never names, which the reader keeps open with its reason — or still leaves without a decision once this same
+         * conversation has asked again — was owed for good: asked on every pass, holding the audit unfinished until two
+         * passes that got nowhere paused it. Such a mention is now kept as a person of that page only (the reader's own
+         * "person local to this source": no profile, name, alias or feeling is touched, the original stays its evidence),
+         * with the reader's reason or the plain fact that it gave none. Journaled and undone like any source decision; a
+         * later change to that page asks again. Only after a whole review — never one cut short or whose second turn failed. */
+        const asideResolved=[...withdrawals,...(corrected.resolved || [])];
+        const openWhy=new Map((corrected.review?.open || []).map(o=>[o.id,String(o.why || '').trim()]));
+        const askedAgain=Boolean(completed) && !reply.completionFailed;
+        /* Only a description ("the groom", "the under-steward's boy"), never a name: a named person left unsettled ("Tarn")
+         * is someone the story goes on with, and stays owed with the engine's reason (M732) */
+        const setAside=sourceCandidates.filter(i=>!i.sourceFacts && isDescriptorName(i.sourceName || i.name)
+          && !findingSettled(i,result,asideResolved,documents) && (openWhy.get(auditFindingId(i)) || askedAgain));
+        if (setAside.length) {
+          offered=[...offered,...setAside.map(i=>{
+            const said=openWhy.get(auditFindingId(i));
+            const name=i.sourceName || i.name;
+            const refused=(result.rejected || []).find(r=>!r.same && r.mutation?.type==='source.resolve' && r.mutation.sourceId===i.sourceId && r.mutation.name===name);
+            const tried=refused ? 'The auditor’s answer for this mention'+(refused.mutation.to ? ' (that it is '+refused.mutation.to+')' : '')+' could not be saved — '+String(refused.why || 'refused').replace(/[.\s]+$/u,'')+' — even when asked again in the same review.' : '';
+            return {what:'Keep '+name+' as a person of this page only',mutations:[{type:'source.resolve',sourceId:i.sourceId,name,kind:'person',scope:'local',
+              cause:(said ? 'The auditor could not tie this mention to anyone the story has named: '+said.replace(/[.\s]+$/u,'')+'.'
+                : tried || 'The auditor gave no decision for this mention, even when asked again in the same review.')
+                +' Kept as a person of this page only; no one’s page, name or feelings were changed.'}]};
+          })];
+          result=judge(requestedState,offered);
+        }
         if (corrected.review) {
           const before=new Map(ledgerVerificationRows(requestedState).map(r=>[r.id,r]));
           // An explicitly reviewed repair may affect a formerly retained row,
@@ -830,8 +859,16 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
         // concurrent edit cannot borrow it when the saved state is reloaded.
         if (corrected.review?.status==='complete') for (const issue of sourceCandidates.filter(i=>i.sourceFacts)) {
           const open=(corrected.review.open || []).find(o=>o.id===auditFindingId(issue));
-          if (open) {openSourceFacts.set(auditFindingId(issue),open.why);continue;}
           const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
+          /* M752 (followup 21): facts the reader keeps open, with its reason, are left as they stand — decided with that
+           * reason (her page untouched), never owed on every pass until the automatic audit pauses (the same fault as a
+           * description it cannot tie to anyone, above) */
+          if (open && mention && !sourceIdentityNeeded(result.out,mention) && String(open.why || '').trim()) {
+            reviewedSourceFacts.set(auditFindingId(issue),{scope:sourceFactScope(result.out,{...mention,source:issue.sourceId}),
+              why:'Left as it stands — '+String(open.why).trim(),shown:mention.shown,sourceId:issue.sourceId});
+            continue;
+          }
+          if (open) {openSourceFacts.set(auditFindingId(issue),open.why);continue;}
           if (mention && !sourceIdentityNeeded(result.out,mention)) reviewedSourceFacts.set(auditFindingId(issue),{
             scope:sourceFactScope(result.out,{...mention,source:issue.sourceId}),why:corrected.review.why,shown:mention.shown,sourceId:issue.sourceId});
         }

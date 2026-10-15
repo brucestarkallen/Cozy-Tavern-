@@ -2391,6 +2391,7 @@ export function initChat(ctx) {
    * choices of a turning point onto the page itself — outside the page chain, so no send ever waits for it, and written only
    * if the page is still the newest, at the same version, with no move of his after it and the switch still on. A quiet page
    * is kept as {turning:false}, so it is asked once. A fight under way is the referee's: nothing is offered then. */
+  const pendingAudit = new Set(); /* M44: story ids owed an audit on their next page (an inexact landing, a restored checkpoint, his ask) */
   const choicesAsking = new Map(); /* story id → the page and version being asked about */
   /* M752 (followup 19) — HIS (15 October 2026): "i just press restart choice matter how do i know it's processing and not
    * stuck lol it's been 5 minutes nothing happened no pop up". The asking was invisible from end to end: the wait for the
@@ -2420,7 +2421,7 @@ export function initChat(ctx) {
       key = last.id + ':' + versionOf(last) + ':' + voice; /* a call for the other voice, still out, writes nothing (below) */
       choicesAsking.set(sid, key);
       choiceTrouble.delete(sid);
-      choiceWork.set(sid, { key, pageId: last.id, version: versionOf(last), phase: readersStillOn(sid, last.id) ? 'readers' : 'asking' });
+      choiceWork.set(sid, { key, pageId: last.id, version: versionOf(last), phase: pageReadersStillOn(sid, last.id) ? 'readers' : 'asking' });
       choiceRowFor(sid);
       /* M680 (the books audit): THE CHOICES ARE MADE FROM THE LEDGER AS THIS PAGE LEFT IT. They were asked for the moment
        * the page landed — before its own readers had written who is here, what was learned, who stands where — so the
@@ -5178,26 +5179,40 @@ export function initChat(ctx) {
    * What stands after them (the audit of older pages, the once-a-tale tidies, the join, the checkpoint itself) is
    * upkeep the next chain does again; whoever takes him away from the page writes its checkpoint, as since M40. */
   const ledgerLinksOut = new Map(); /* 'tale:page' -> that page's own readers not yet settled */
-  const ledgerLinksWaiting = new Map(); /* M681: 'tale:page' -> whoever waits for that page's own readers to settle */
-  function noteLedgerLink(storyId, pageId, promise) {
+  /* M752 (followup 21) — HIS (15 October 2026): "using fast model the auditor is very slow unlike other worker why? It's
+   * starting breaking my immersion for waiting". The choices waited for "that page's own readers" — the founder to the
+   * auditor — and the auditor, which reads the whole tale and answers for every ledger entry it checks, is the longest of
+   * them by far: the choices stood minutes after the page while the readers who write the page into the ledger had long
+   * finished. The choices wait for those readers (pageReadersOut), not for the auditor's check of the whole ledger: the
+   * ledger they read is the one his next page is written from. The count of every reader (ledgerLinksOut) still says
+   * whether a version's own reading was cut short (M675). */
+  const pageReadersOut = new Map(); /* 'tale:page' -> that page's readers, the auditor aside, not yet settled */
+  const ledgerLinksWaiting = new Map(); /* M681: 'tale:page' -> whoever waits for that page's readers to settle */
+  function noteLedgerLink(storyId, pageId, promise, { auditor = false } = {}) {
     const key = storyId + ':' + pageId;
-    ledgerLinksOut.set(key, (ledgerLinksOut.get(key) || 0) + 1);
+    const count = (book, n) => { if (n > 0) book.set(key, n); else book.delete(key); };
+    count(ledgerLinksOut, (ledgerLinksOut.get(key) || 0) + 1);
+    if (!auditor) count(pageReadersOut, (pageReadersOut.get(key) || 0) + 1);
     const settle = () => {
-      const n = (ledgerLinksOut.get(key) || 1) - 1;
-      if (n > 0) { ledgerLinksOut.set(key, n); return; }
-      ledgerLinksOut.delete(key);
+      count(ledgerLinksOut, (ledgerLinksOut.get(key) || 1) - 1);
+      if (auditor) return;
+      const n = (pageReadersOut.get(key) || 1) - 1;
+      count(pageReadersOut, n);
+      if (n > 0) return;
       const waiting = ledgerLinksWaiting.get(key) || [];
       ledgerLinksWaiting.delete(key);
       for (const done of waiting) { try { done(); } catch (err) { /* a waiter's trouble is its own */ } }
     };
     promise.then(settle, settle);
   }
-  function readersStillOn(storyId, pageId) { return (ledgerLinksOut.get(storyId + ':' + pageId) || 0) > 0; } /* a function: offerChoices, above, asks it too (M680) */
-  /* M681: the moment a page's own readers have settled — never a poll (M680's half-second look let Choices ask its helper
-   * up to half a second after the house had gone quiet: walk DOM-204 on m680-001) — or `ms` at the most */
+  function readersStillOn(storyId, pageId) { return (ledgerLinksOut.get(storyId + ':' + pageId) || 0) > 0; } /* M675: was this version's own reading cut short? */
+  function pageReadersStillOn(storyId, pageId) { return (pageReadersOut.get(storyId + ':' + pageId) || 0) > 0; } /* a function: offerChoices, above, asks it (M680) */
+  /* M681: the moment a page's readers have settled (the auditor aside, followup 21) — never a poll (M680's half-second look
+   * let Choices ask its helper up to half a second after the house had gone quiet: walk DOM-204 on m680-001) — or `ms` at
+   * the most */
   function untilReadersSettled(storyId, pageId, ms = 600000) {
     const key = storyId + ':' + pageId;
-    if (!readersStillOn(storyId, pageId)) return Promise.resolve();
+    if (!pageReadersStillOn(storyId, pageId)) return Promise.resolve();
     return new Promise((resolve) => {
       let timer = null;
       const done = () => { clearTimeout(timer); resolve(); };
@@ -5222,7 +5237,7 @@ export function initChat(ctx) {
       const promise = enqueueWork(story.id, { name, lane, layoutRebased, ...(once ? { once: true } : {}), run: chainJob(run, () => (chainGen.get(story.id) || 0) !== gen) }); /* M259: the leash's renew rides through */
       noteWork(story.id, promise);
       if (healthOnly) healthJobs.push(promise);
-      if (ownReading && lane === 'main' && msg && msg.id) noteLedgerLink(story.id, msg.id, promise);
+      if (ownReading && lane === 'main' && msg && msg.id) noteLedgerLink(story.id, msg.id, promise, { auditor: name === 'auditor' });
       return promise;
     };
 
@@ -5820,10 +5835,26 @@ export function initChat(ctx) {
       const connection = await resolveWorkerConnection(story, 'auditor');
       if (!connection) return upkeepOnly();
       if (stale()) return { silent: true };
-      let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal, stale, renew, canonRecord: await canonRecordOf(story), reviewSources: 'next' });
-      if (result && !stale()) result = await finishLedgerAudit(story, connection, result, { signal, stale, renew });
-      if (signal?.aborted) throw signal.reason || new Error('timeout');
-      return { silent: false, detail: auditRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.unfinished) };
+      /* M752 (followup 21): THE AUDITOR'S READING STEPS ASIDE FOR HIM, as the automatic audit's and the continuous audit's
+       * do (agents/continuous.js beginReading; M673). It reads the whole tale and answers for every ledger entry it checks
+       * — minutes on a long tale, however fast the model — and it is the last of the page's readers. Anything that waits
+       * for the workers (his next page, try again, an edit, a branch: pendingWork) waited up to five seconds for it, or two
+       * minutes for an edit, and the next page's readers waited in line behind it; and once that page landed its answer was
+       * thrown away (the pages it read had changed). Now it is let go at once: what its source review paid for is held for
+       * the next reading (auditor.js holdReadings), nothing is written, an audit he asked for stays owed, and the automatic
+       * audit takes the check up again when the house is idle (scheduleLedgerRepair). */
+      const own = beginReading(story.id, signal);
+      try {
+        const moved = () => stale() || own.signal.aborted;
+        let result = await auditLedger({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', castNames: await castNamesFor(story), signal: own.signal, stale: moved, renew, canonRecord: await canonRecordOf(story), reviewSources: 'next' });
+        if (result && !moved()) result = await finishLedgerAudit(story, connection, result, { signal: own.signal, stale: moved, renew });
+        if (own.signal.aborted && !signal?.aborted) { if (owed) pendingAudit.add(story.id); return { silent: true }; }
+        if (signal?.aborted) throw signal.reason || new Error('timeout');
+        return { silent: false, detail: auditRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.unfinished) };
+      } catch (err) {
+        if (own.signal.aborted && !signal?.aborted) { if (owed) pendingAudit.add(story.id); return { silent: true }; }
+        throw err;
+      } finally { endReading(story.id, own); }
     });
 
     /* 4a''. M673: THE CONTINUOUS AUDIT -- the oldest record line it has not read: its pages, whole, against the story
@@ -6153,8 +6184,8 @@ export function initChat(ctx) {
    * checkpoint when it stands, else the nearest earlier one (sparse
    * retention keeps old ones), and then the auditor is asked to set the
    * ledger right against the pages, since a nearest checkpoint is close,
-   * not exact. Returns true when something was restored. */
-  const pendingAudit = new Set();
+   * not exact. Returns true when something was restored. (pendingAudit, the audit owed, is declared before every use: above
+   * the Choices helper.) */
 
   /* M72: THE FOLD IS THE ONLY REWIND. The ledger at the end of storyteller
    * page `targetPage`, rebuilt from the journal (foldJournal: the nearest

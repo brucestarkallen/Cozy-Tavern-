@@ -267,6 +267,18 @@ Keep these; each has a law that fails without it:
   choiceTrouble): sealing, waiting for its readers, or why none came (choices.js makeChoices onFail),
   or that the page has no turning point, each with "Restart choices"; never an empty row after it
   was asked.
+- Nothing he does waits for the auditor (followup 21): the page's own auditor is a reading that steps
+  aside for anything that waits for the workers (chat.js chain 'auditor', continuous.js beginReading), as
+  the automatic and continuous audits do; what its source review paid for is held, an audit he asked for
+  stays owed, and the automatic audit takes the check up when the house is idle. The choices wait for the
+  page's readers, the auditor aside (chat.js pageReadersOut, untilReadersSettled); ledgerLinksOut still
+  counts every reader for a version's checkpoint (M675).
+- A description the final reader keeps open with its reason, or leaves without a decision after the same
+  review asked again, is kept as a person of its page only (source.resolve, scope local, that reason or
+  that it gave none) — never a name ("Tarn" stays owed, M732), never after a review cut short or whose
+  second turn failed; journaled and undone one by one. A person's facts it keeps open with a reason are
+  decided as left as they stand (sourceFactDecisions). His rule, 15 October 2026: "send them back and if
+  can't debate then it's resolve" (auditor.js; laws M752-SA1..SA5; LEDGER_REPAIR_POLICY 10).
 - The automatic audit (chat.js scheduleLedgerRepair) starts as soon as the house is idle and
   again as soon as a pass that got somewhere ends; after a pass that got nowhere or failed it
   holds 5–30 s, and the light's looks never cut that hold short (a failing provider is not asked
