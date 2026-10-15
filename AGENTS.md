@@ -251,6 +251,14 @@ Keep these; each has a law that fails without it:
   then says what is still yellow and why. The light's inventory is the one list (health.js
   healthSnapshot, returned by chat.js markLedgerTroubleNow); it steps aside for his page, his
   Stop stops it (chat.js yellowCheckNow).
+- Choices matter's helper is handed the request the newest page was written from (the shown
+  version's, from the device when the browser holds none): everything above the history in the
+  system role, his preset first; the history as sent; the newest page as the storyteller's turn;
+  its question last, with the ledger as the page left it (M680) and his choices' echoes. Cut to a
+  smaller room, the oldest turns go first, never the preset or the newest page. The story's
+  summary (with the cast notes) only when no request is kept (choices.js choiceAskWhole,
+  chat.js offerChoices). It never sees which choice he takes; the storyteller never sees an
+  outcome before he takes it.
 - A setting read while its own write is under way is the value being written (store.js settingsWrites): a tap's
   write is never waited for, and a redraw on its way must not read the value from before it.
 - Every law runs in the suite: a new harness file is imported by tests/harness/run.mjs,

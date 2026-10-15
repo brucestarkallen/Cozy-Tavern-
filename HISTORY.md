@@ -21486,3 +21486,40 @@ Measured: law suite 1680 of 1680 (a first run failed M552-1 — my clarification
 characters as an example, now neutral — and M195 — the record line had been allowed to vouch for its
 own fix; grounding is the originals only); DOM-M752-10..13 pass; lint 0 errors, 253 warnings. Not
 run: the whole DOM walk; a live provider; his tale.
+
+## M752 followup 13 (m752-013): Choices matter is handed what the storyteller saw
+
+The owner (15 October 2026), after hearing that Choices matter did not share the storyteller's
+context: "if it doesn't have the whole storyteller saw and create predetermined outcome, how can it
+create realistic predetermined outcome? And the preset have so many important things like anti
+positivity bias even horny characters that prevent the core bias of model." He was right. The helper
+that decides whether a page ends at a turning point and seals what follows each choice
+(chat.js offerChoices, choices.js choiceAsk) was handed the brief, the record, the ledger's facts, the
+people and six pages — never his preset, the cast notes, the world, lore, canon or any rule above the
+history — so each sealed outcome followed the model's own leanings (a kind choice turns out kindly),
+the bias his preset is written against, and people's written natures it was never shown.
+Fixed: choices.js choiceAskWhole builds its question from the request the newest page was written
+from (the shown version's receipt, sent.js loadSentOrPull, read by sensors.js packageFromRequest in
+either provider's shape): everything above the history in the system role, his preset first; the
+history as sent; the newest page as the storyteller's own turn; then the house's question, with where
+things stand now (the ledger after the page's readers) and what his earlier choices set in motion. Cut
+to the Choices connection's room (pagecut.js roomChars), the oldest turns go first, then the middle of
+the instructions — never their head or the newest page. A page from before requests were kept falls
+back to the summary, which now carries the cast notes. The helper still never sees which choice he
+takes, and the storyteller never sees an outcome before he takes it.
+Laws M752-CH1 (both provider shapes; the trim) and CH2 (the call carries that conversation; the
+fallback's cast notes) fail on m752-008 and pass; DOM-M752-14 (a page told with a preset and cast
+notes: the helper's request carries both in its system, the history as sent, the page, the question
+last; the choices shown) fails on m752-008 and passes. The walk's house reads the helper by its
+question now that its system is the storyteller's (tests/dom/env.mjs).
+DOM-263 was red once in the first whole walk ("fixture: summarizeNow starts — got false"). Cause,
+instrumented: the house folds a gap in the open tale's record by itself (the light's look, 250 ms
+after a worker's change or a redraw, health.js route 'record' → fillRecordGap, a failed keeper or
+not), and the fixture pressed "Summarize now" only after drawing the shelf and 32 pages; when that
+took longer than the look, the house's keeper was out and the press said, rightly, "A pass is
+finishing". Forced with the press 400 ms late it fails the same way on m752-008. The fixture now sets
+the tale up unopened, opens it and presses at once, then draws; with 1.5 s lags forced before the
+open, during the set-up and after the press it passes.
+Measured: law suite 1682 of 1682; DOM walk 318 of 318 (the second whole walk; DOM-263 under the
+forced lags above); lint 0 errors, 253 warnings. Cost: each page with Choices on sends about the
+storyteller's whole request again on the Choices connection. Not run: a live provider; his tale.

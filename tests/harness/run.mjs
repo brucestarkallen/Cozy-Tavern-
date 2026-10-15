@@ -276,6 +276,7 @@ import './m752-request.mjs'; /* M752: the storyteller's request — its size, it
 import './m752-continuous.mjs'; /* M752 (followup 4): the continuous audit's historical corrections settled, not stranded; quotes and pages read as written */
 import './m752-store.mjs'; /* M752 (followup 8): a setting read while its own write is under way is the value being written */
 import './m752-historical.mjs'; /* M752 (followup 9): a historical correction's conversation ends on a verdict — quotes across markup and with words left out read, mistakes said back, looks served */
+import './m752-choices.mjs'; /* M752 (followup 13): Choices matter is handed the whole of what the storyteller saw */
 
 console.log('Cozy Tavern — harness');
 await import('./m683.mjs');

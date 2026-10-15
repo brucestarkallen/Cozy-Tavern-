@@ -60,11 +60,9 @@ export function openOffer(messages) {
   return offer && offer.turning === true && offer.options.length >= CHOICES_MIN ? { page: last, offer } : null;
 }
 
-/* the helper's question — it reads the story, never the storyteller's request */
-export function choiceAsk({ brief = '', record = '', facts = '', people = '', pages = [], newest = '', mc = '', echoes = [] } = {}) {
-  const who = mc || 'the main character';
-  const system = [
-    'You keep the turning points of a long collaborative story, the way Detroit: Become Human does. You never write the story itself.',
+/* what the helper is asked to do, and how — the same words whichever way the story is handed to it */
+function choiceRules(who) {
+  return [
     'Read the newest page. Decide whether it ends at a real turning point for ' + who + ': a moment where what ' + who + ' does next will change how someone sees him, what happens to someone, or which way the story goes. Most pages are not one — a quiet beat, small talk, a walk, a fight already under way. If it is not, answer {"turning":false}.',
     'If it is, write two to four choices ' + who + ' could take from exactly where the page ends — different in kind, never one choice said four ways. For each:',
     '- "label": two to six words, the way a game shows a choice ("Tell her the truth", "Say nothing", "Walk away").',
@@ -75,9 +73,20 @@ export function choiceAsk({ brief = '', record = '', facts = '', people = '', pa
     'A choice is a decision, not an attempt: never decide whether a blow lands or a skill succeeds — that is for the dice.',
     'Write every name as the ledger writes it.',
     'Answer with ONLY this JSON: {"turning":true,"choices":[{"label":"","move":"","outcome":"","echoes":[{"who":"","what":""}]}]} — or {"turning":false}.',
+  ];
+}
+
+/* the helper's question when the newest page's own request is not kept (a page from before requests were kept, a store
+ * that let it go): the story itself — the brief and the cast notes, the record, the ledger, the people, the pages */
+export function choiceAsk({ brief = '', castNotes = '', record = '', facts = '', people = '', pages = [], newest = '', mc = '', echoes = [] } = {}) {
+  const who = mc || 'the main character';
+  const system = [
+    'You keep the turning points of a long collaborative story, the way Detroit: Become Human does. You never write the story itself.',
+    ...choiceRules(who),
   ].join('\n');
   const user = [
     'THE STORY\'S BRIEF:', writerText(String(brief || ''), BRIEF_ROOM, 'brief') || '(none)', '',
+    ...(String(castNotes || '').trim() ? ['THE CAST NOTES:', writerText(String(castNotes), BRIEF_ROOM, 'cast notes'), ''] : []),
     'OUR STORY SO FAR (the record, oldest first — the pages below come after it):', String(record || '').trim() || '(nothing folded yet)', '', /* M750: the record itself — the Essentials are retired */
     'WHERE THINGS STAND (the ledger):', String(facts || '').trim() || '(nothing yet)', '',
     'THE PEOPLE:', String(people || '').trim() || '(no one written yet)', '',
@@ -86,6 +95,52 @@ export function choiceAsk({ brief = '', record = '', facts = '', people = '', pa
     'THE NEWEST PAGE:', String(newest || '').trim() || '(none)',
   ].join('\n');
   return { system, user };
+}
+
+/* M752 (followup 13) — THE WHOLE OF WHAT THE STORYTELLER SAW. HIS (15 October 2026): "if it doesn't have the whole storyteller
+ * saw and create predetermined outcome, how can it create realistic predetermined outcome? And the preset have so many
+ * important things like anti positivity bias … that prevent the core bias of model." The helper was handed a summary of the
+ * story — the brief, the record, the ledger, the people, six pages — and none of his preset, his cast notes, the world, the
+ * lore, canon or his rules; it sealed what follows each choice by the model's own leanings (a kind choice turns out kindly),
+ * the very bias his preset is written against, and by people whose written natures it was never shown. Now it is handed the
+ * request the newest page was written from, as the storyteller had it: everything above the history in the system role (his
+ * preset first, then all it was given), the history as it was sent, the newest page as the storyteller's own turn — and only
+ * then its question, with where things stand now (the ledger after the page's own readers, M680) and what his earlier choices
+ * set in motion. It still never sees which choice he will take, and the storyteller never sees an outcome before he takes it.
+ * `pkg`: the kept request as {instructions, turns} (sensors.js packageFromRequest); `room`: the characters the helper's own
+ * connection may be sent — the oldest turns go first (the record carries them), then the middle of the instructions, never
+ * their head (the preset) or the newest page. null without a request. Pure. */
+export function choiceAskWhole({ pkg, newest = '', mc = '', echoes = [], facts = '', room = Infinity } = {}) {
+  if (!pkg || !Array.isArray(pkg.turns) || !String(newest || '').trim()) return null;
+  const who = mc || 'the main character';
+  const textOf = (t) => String((t && t.text) || '');
+  const notes = pkg.turns.filter((t) => t && t.who === 'notes').map(textOf).filter((t) => t.trim());
+  let system = [String(pkg.instructions || ''), ...notes].filter((t) => t.trim()).join('\n\n');
+  const turns = [];
+  for (const t of pkg.turns) {
+    if (!t || t.who === 'notes' || !textOf(t).trim()) continue;
+    const role = t.who === 'teller' ? 'assistant' : 'user';
+    if (turns.length && turns[turns.length - 1].role === role) turns[turns.length - 1].content += '\n\n' + textOf(t);
+    else turns.push({ role, content: textOf(t) });
+  }
+  while (turns.length && turns[turns.length - 1].role === 'assistant') turns.pop(); /* the newest page is the storyteller's turn, below */
+  const task = [
+    'THE HOUSE\'S QUESTION — this is not a page of the story, and you do not write one. The storyteller\'s last turn above is the newest page.',
+    'You keep the turning points of this story, the way Detroit: Become Human does. Everything above — the storyteller\'s own instructions and rules, the world, the people, the story so far — is the story you seal outcomes in: each one is what would follow by those rules, by the people as they are written, and by the world\'s own logic.',
+    ...(String(facts || '').trim() ? ['', 'WHERE THINGS STAND NOW (the ledger, after this page):', String(facts).trim()] : []),
+    ...(Array.isArray(echoes) && echoes.length ? ['', 'WHAT HIS EARLIER CHOICES SET IN MOTION:', ...echoes] : []),
+    '',
+    ...choiceRules(who),
+  ].join('\n');
+  const size = () => system.length + turns.reduce((n, m) => n + m.content.length, 0) + String(newest).length + task.length;
+  while (size() > room && turns.length > 4) { turns.shift(); while (turns.length && turns[0].role !== 'user') turns.shift(); }
+  if (size() > room && system.length > 4000) {
+    const keep = Math.max(4000, system.length - (size() - room));
+    const head = Math.floor(keep * 0.4);
+    system = system.slice(0, head) + '\n[…]\n' + system.slice(system.length - (keep - head));
+  }
+  if (!turns.length) turns.push({ role: 'user', content: '(the story begins)' });
+  return { system, messages: [...turns, { role: 'assistant', content: String(newest) }, { role: 'user', content: task }] };
 }
 
 /* its answer, read strictly — two to four whole choices, each named once; anything less is no answer */
@@ -120,7 +175,7 @@ export function readChoices(raw) {
 export async function makeChoices({ connection, ask, signal, callLLM = callWorker } = {}) {
   if (!connection || !ask) return null;
   try {
-    const answer = await callLLM(connection, { system: ask.system, user: ask.user, maxTokens: CHOICE_MAX_TOKENS, signal });
+    const answer = await callLLM(connection, { system: ask.system, ...(Array.isArray(ask.messages) ? { messages: ask.messages } : { user: ask.user }), maxTokens: CHOICE_MAX_TOKENS, signal });
     return readChoices(typeof answer === 'string' ? answer : (answer && answer.text) || '');
   } catch (err) { return null; }
 }

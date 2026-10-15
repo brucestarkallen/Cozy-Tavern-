@@ -70,8 +70,8 @@ import { loadState, unreadPages, saveState, notify, snapshotState, withStoryWrit
 import { applyMutations, scenePartOf, staleAfterJump, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart, noOneSpot, readerTimeOverHeader, handSetClockSince, clockReached, mcPageOnlyHis, mcSeatLetGo } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
-import { newSentId, keepSent, loadSent, pushSentToDevice, giveSentToTale } from '../sent.js'; /* M347: the words each page was sent, kept beside it; M636: read back for the sensors; M675: a tale's carried pages are given to it on the device */
-import { readPageFull, readingWords, SAMPLE_READ, sensorWordForTurn, sensorRoleFor, takePageWord, keepPageWord, senseOf, sensePatch, SENSOR_LOOK } from '../agents/sensors.js'; /* M356/M357; M636: a reading lives on its page, and the one line the readings earn */
+import { newSentId, keepSent, loadSent, loadSentOrPull, pushSentToDevice, giveSentToTale } from '../sent.js'; /* M347: the words each page was sent, kept beside it; M636: read back for the sensors; M675: a tale's carried pages are given to it on the device */
+import { readPageFull, readingWords, SAMPLE_READ, sensorWordForTurn, sensorRoleFor, takePageWord, keepPageWord, senseOf, sensePatch, SENSOR_LOOK, packageFromRequest } from '../agents/sensors.js'; /* M356/M357; M636: a reading lives on its page, and the one line the readings earn */
 import { twinsRefused } from '../providers/userfirst.js'; /* M636: a model that takes no two turns of one role in a row */
 import { onToast as onCanonToast } from '../canon/host.js';
 import { canonNote as keepCanonNote, canonWhy } from '../canon/bridge.js'; /* M395: canon's own notes go to its room, never onto the screen; M486: why it had nothing to say */
@@ -100,7 +100,7 @@ import { pickRecall, knownTail, PICK_KNOWN_CHARS } from '../agents/recallpick.js
 import { throughLens, overlayFor } from '../agents/canonlens.js'; /* M549: the wiki's lines, seen through his story */
 import { wikiMaterial, worldClaims, worldWithout, claimsPrint, checkClaims } from '../agents/canoncheck.js'; /* M551: one check for what a helper wrote from memory */
 import { GROUND_RULES } from '../agents/worldground.js'; /* M549 */
-import { choicesOn, choiceAsk, makeChoices, offerOf, offerPatch, openOffer, takenRecord, takenOf, echoLines, echoesText, versionOf, CHOICE_PAGES } from '../agents/choices.js'; /* M548: Choices matter */
+import { choicesOn, choiceAsk, choiceAskWhole, makeChoices, offerOf, offerPatch, openOffer, takenRecord, takenOf, echoLines, echoesText, versionOf, CHOICE_PAGES, CHOICE_MAX_TOKENS } from '../agents/choices.js'; /* M548: Choices matter */
 import { runPlans, loadPlansBook, pageRewritten, pageLeft, pageCameBack } from '../agents/plans.js'; /* M510-22: the plans, kept whole until carried out; M528: a rewritten page read again; M681 (B2): a page that leaves or comes back */
 import { lastPagesOf, SMALL_PAGES } from '../assemble/stack.js'; /* M510 */
 import { voiceSampleOf, pageTexture, tooLoud as tooLoudNow } from '../assemble/smallprose.js'; /* M512: how the story sounds at its best, for a small storyteller; M519: the brake on sounds and dashes */
@@ -2422,10 +2422,20 @@ export function initChat(ctx) {
       const big = 400000;
       const recentText = told.slice(-3).map((m) => pageText(m));
       const facts = planFacts(state, { ...planStateView(big), scenePages: recentText });
-      const people = (planPeople(state, { recentPages: recentText, rotation: told.length, view: planPeopleView(big), brief: String(story.brief || '') + '\n' + String(story.castNotes || '') }) || {}).text || '';
-      const record = wholeRecord(await loadMemory(sid), Math.floor(roomChars(connection) * 0.35)); /* M750: the record itself — the Essentials are retired */
-      const before = lastPagesOf(told.slice(0, -1), CHOICE_PAGES).map((m) => (m.role === 'user' ? 'The writer: ' : '') + pageText(m));
-      const ask = choiceAsk({ brief: story.brief || '', record, facts, people, pages: before, newest: pageText(last), mc: mcName(state), echoes: echoLines(told) });
+      /* M752 (followup 13): the request this very page was written from — his preset and everything the storyteller was
+       * given, the history as it was sent (agents/choices.js choiceAskWhole); the story's own summary only when that request
+       * is not kept (the shown version's own, from the device when this browser holds none) */
+      const version = Array.isArray(last.swipes) && last.swipes.length ? last.swipes[versionOf(last)] : null;
+      const sentId = (version && version.receipt && version.receipt.sentId) || (last.receipt && last.receipt.sentId) || '';
+      const sent = sentId ? await loadSentOrPull(sentId, sid) : null;
+      const kept = sent && Array.isArray(sent.requests) && sent.requests[0] ? sent.requests[0].body : null;
+      let ask = choiceAskWhole({ pkg: packageFromRequest(kept), newest: pageText(last), mc: mcName(state), echoes: echoLines(told), facts, room: roomChars(connection, CHOICE_MAX_TOKENS) });
+      if (!ask) {
+        const people = (planPeople(state, { recentPages: recentText, rotation: told.length, view: planPeopleView(big), brief: String(story.brief || '') + '\n' + String(story.castNotes || '') }) || {}).text || '';
+        const record = wholeRecord(await loadMemory(sid), Math.floor(roomChars(connection) * 0.35)); /* M750: the record itself — the Essentials are retired */
+        const before = lastPagesOf(told.slice(0, -1), CHOICE_PAGES).map((m) => (m.role === 'user' ? 'The writer: ' : '') + pageText(m));
+        ask = choiceAsk({ brief: story.brief || '', castNotes: story.castNotes || '', record, facts, people, pages: before, newest: pageText(last), mc: mcName(state), echoes: echoLines(told) });
+      }
       const w = workerSignal(); /* every helper's own ceiling: a call that hangs is let go, never waited on */
       let read = null;
       try { read = await makeChoices({ connection, ask, signal: w.signal }); } finally { w.done(); }

@@ -10653,7 +10653,7 @@ test('DOM-263 THE × LETS A TALE GO AS “DELETE” DOES (M675 — one way to le
   const { saveState, emptyState } = await import('../../js/engine/state.js');
   const { applyMutations } = await import('../../js/engine/apply.js');
   const { saveMemory } = await import('../../js/agents/memory.js');
-  const { queuedCount, workIsRunning, enqueueWork } = await import('../../js/agents/queue.js');
+  const { queuedCount, workIsRunning, workOut, enqueueWork } = await import('../../js/agents/queue.js');
   const letCome = []; /* every answer this scenario holds back is let come at its end, whatever happens — one left held kept the house busy for every scenario after it */
   const heldBack = () => { let go = () => {}; const p = new Promise((r) => { go = r; }); letCome.push(go); return { p, go }; };
   if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
@@ -10720,7 +10720,13 @@ test('DOM-263 THE × LETS A TALE GO AS “DELETE” DOES (M675 — one way to le
     /* 3. let go while “Rebuild the record” / “Summarize now” is at work on it: the banner is ended */
     for (const action of ['rebuildRecordNow', 'summarizeNow']) {
       const title = 'let go mid-' + action;
-      const st = await open(title);
+      /* set up out of sight, then opened and pressed at once: the house folds a gap in the open tale's record by itself —
+       * the light's look, 250 ms after a worker's change or a redraw, sends the keeper (health.js routeHealth 'record',
+       * chat.js fillRecordGap), a failed keeper or not (M675). A tale set up while open, or pressed only after its shelf
+       * and its 32 pages were drawn, was folded by the house first whenever the walk ran slower than that, and “Summarize
+       * now” said, rightly, “A pass is finishing” (red once in a whole walk at m752-013; the same on m752-008 with the
+       * press 400 ms late). The house looks only at the open tale, so the press is the work at hand. */
+      const st = await db.stories.create({ title });
       for (let i = 0; i < 16; i += 1) {
         await db.messages.append(st.id, { role: 'user', text: 'on ' + i });
         await db.messages.append(st.id, { role: 'assistant', text: H('1' + (i % 10) + ':00') + 'The scene turns, page ' + i + '.' });
@@ -10729,15 +10735,16 @@ test('DOM-263 THE × LETS A TALE GO AS “DELETE” DOES (M675 — one way to le
       await saveState(st.id, { ...founded, page: 15, readTo: 15, tidiedGen: 999, healedGen: 999 });
       await saveMemory(st.id, { window: 20, nodes: [{ id: 'b', span: [6, 11], level: 1, text: 'The scene turned on and on.', at: 2, whole: true }] }); /* pages 1–6 are due */
       await db.stories.update(st.id, { keeper: true });
-      /* the keeper last ran badly: the house does not fold the gap by itself, so the work at hand is the action’s alone */
+      /* the keeper last ran badly */
       for (const w of ['extractor', 'scribe', 'world']) await noteWorkerRun(st.id, w, { ok: true, detail: 'well' });
       await noteWorkerRun(st.id, 'keeper', { ok: false, why: 'unreachable' });
       let keeperOut = 0;
       const { p: never } = heldBack();
       house.state.workerAnswer = (body, sys) => (/narrative-state tracker/i.test(String(sys || '')) ? (keeperOut += 1, never.then(() => '{}')) : walkDefaultWorker(body, sys));
+      env.window.__cozy.setActiveStoryId(st.id);
+      { const started = await env.ctx.chat[action](); eq(started, true, 'fixture: ' + action + ' starts — the banner: ' + what() + ' · out: ' + JSON.stringify(workOut(st.id))); }
       await env.ctx.chat.refreshStories(true);
       await env.ctx.chat.renderThread({ structural: true });
-      eq(await env.ctx.chat[action](), true, 'fixture: ' + action + ' starts');
       await until(() => keeperOut > 0 && workIsRunning(st.id), 'the keeper out for ' + action, 20000);
       assert(!stopBtn.hidden && count() !== 'stopped' && count() !== 'done', 'fixture: its banner is on show, at work, with a Stop: ' + what() + ' · ' + count());
       click(await xNow(title));
@@ -12373,7 +12380,7 @@ async function choicesTale(title) {
   await saveState(st.id, { ...ledger, page: 3, readTo: 3, tidiedGen: 999 });
   return { st, H };
 }
-const TURNING_SYS = /keep the turning points of a long collaborative story/;
+const TURNING_SYS = /keep the turning points of (?:a long collaborative|this) story/; /* M752 (followup 13): the helper's question rides last when it is handed the storyteller's own request */
 const SEALED = { turning: true, choices: [
   { label: 'Tell him to stop', move: 'I tell Kaelen to put the sword down before someone gets hurt.', outcome: 'Kaelen laughs and lowers it — and the whole yard hears him call Jovan a coward.', echoes: [{ who: 'Kaelen', what: 'tells the yard that Jovan backed down' }] },
   { label: 'Draw on him', move: 'I try to disarm Kaelen with a feint low.', outcome: 'Kaelen sees the feint coming: it is Jovan\'s practice sword that spins across the stones, and the yard goes quiet.', echoes: [{ who: 'Kaelen', what: 'will tell the captain that Jovan drew first' }] },
@@ -16527,6 +16534,49 @@ test('DOM-M752-13 “MANUAL YELLOW CHECK” (HIS, 15 October 2026: “It should 
     env.window.__cozy.setActiveStoryId(before.story);
     await db.stories.remove(st.id).catch(() => {});
     await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+  }
+});
+
+test('DOM-M752-14 CHOICES MATTER IS HANDED THE WHOLE OF WHAT THE STORYTELLER SAW (HIS, 15 October 2026: “if it doesn’t have the whole storyteller saw … how can it create realistic predetermined outcome? And the preset have so many important things like anti positivity bias”): a page told with his preset and cast notes — the helper that seals its choices is asked with that very request: his preset and the cast notes in its system, the history as it was sent, the newest page as the storyteller’s own turn, and its question last with where things stand now; its choices stand above where he types', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const { st, H } = await choicesTale('the choices see the preset');
+  const PRESET = 'PRESET-MARK: there is no positivity bias in this story; people act by their natures, and a kind choice is not rewarded for being kind.';
+  const CAST = 'CAST-MARK: Kaelen never forgives a slight made in front of the yard.';
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer, frame: await db.settings.get('frameText') };
+  await db.settings.set('frameText', PRESET);
+  await db.stories.update(st.id, { castNotes: CAST, choices: true });
+  let asked = null;
+  house.state.workerAnswer = (body, sys) => {
+    if (TURNING_SYS.test(String(sys || ''))) { asked = body; return JSON.stringify(SEALED); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}');
+  };
+  const PAGE = 'Kaelen lowered the practice sword an inch. "Well?" he said, and the whole yard waited for Jovan.';
+  house.state.storyAnswer = () => H(30) + PAGE;
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the house at rest', 20000);
+    asked = null; /* (the page already there may be offered from the story's summary: it kept no request) */
+    type(q('#composer-input'), 'I hold my ground and say nothing.');
+    submit(q('#composer'));
+    await until(() => asked !== null && /the whole yard waited for Jovan/.test(JSON.stringify(asked.messages)), 'the helper is asked about the new page', 60000)
+      .catch(async (err) => { throw new Error(err.message + ' — pages: ' + JSON.stringify((await db.messages.list(st.id)).map((m) => [m.role, String(m.text).slice(-40), Boolean(m.choiceOffer), Boolean(m.receipt && m.receipt.sentId)])) + ' — calls: ' + JSON.stringify(house.state.calls.slice(-6).map((c) => [c.isWorker, String((c.body.messages || []).filter((m) => m.role === 'user').at(-1)?.content || '').slice(0, 60)]))); });
+    const system = (asked.messages || []).filter((m) => m.role === 'system').map((m) => String(m.content)).join('\n') || String(asked.system || '');
+    assert(system.includes('PRESET-MARK') && system.includes('CAST-MARK'), 'his preset and his cast notes, in its system: ' + system.slice(0, 300));
+    const turns = (asked.messages || []).filter((m) => m.role !== 'system');
+    const last = String(turns.at(-1).content);
+    assert(/^THE HOUSE'S QUESTION — this is not a page of the story/.test(last) && /WHERE THINGS STAND NOW/.test(last), 'its question last, with where things stand now');
+    eq(turns.at(-2).role, 'assistant', 'the newest page is the storyteller’s own turn');
+    assert(String(turns.at(-2).content).includes('the whole yard waited for Jovan'), 'the newest page itself');
+    eq(String(turns.at(-3).content).trim().endsWith('I hold my ground and say nothing.'), true, 'his move, as the storyteller was sent it');
+    assert(turns.some((m) => m.role === 'assistant' && /show me what the captain saw in you/.test(String(m.content))), 'the history as sent');
+    await until(() => !q('#choice-row').hidden && qa('#choice-row .choice-btn').length === 3, 'its choices stand above where he types', 20000);
+    eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    if (prior.frame === undefined) await db.settings.delete('frameText'); else await db.settings.set('frameText', prior.frame);
   }
 });
 
