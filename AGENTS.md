@@ -227,6 +227,16 @@ Keep these; each has a law that fails without it:
   quote that marks words left out ("…") is the original's where every piece it keeps is,
   in order, in the original it cites (a repair's passage: in the originals supplied), and
   is kept as those pieces joined by " … " (elidedSource).
+  The same words in the same order with other punctuation (a quotation mark closed where the
+  page runs on, a first capital) are the original's too (evidence.js wordSpan, in quotedSource
+  for every reader); a changed, added or missing word is not, and the recovery gives back the
+  page's own passage there, found as the housekeeper finds an anchor (housekeeper.js locate),
+  to decide again with. A verdict is read for what it says before anything is said back
+  (continuous.js readVerdict, recorded in sourceFidelity.houseRead): a field it left out is the
+  one its verdict names; "supported" with preservesAssertion false for the same person and
+  moment is a contradicted record; a contradicted claim's listed conflicts are its evidence; an
+  explicit false or null is never read away. VERDICT_POLICY is exported; a fixture of a spent
+  recovery reads it, never a number.
   A page named with its context, "p94 (#8793a1, the court, …)", is that page (housekeeper.js
   decoratedRef). "Manual continuous audit" asks again by hand, with the switch off too
   (chat.js continuousAuditNow, continuous.js freshTryForCorrections).

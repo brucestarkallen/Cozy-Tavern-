@@ -335,6 +335,8 @@ function fuzzyLocate(hay, ned) {
     end: Math.max(tightStart + 1, tightEnd),
     via: 'fuzzy',
     similarity: best.sim,
+    passageStart: start, /* M752 (followup 11): the whole passage it matched, before the salvage — for a reader that wants */
+    passageEnd: end,     /* the page's words there, not only what would change (continuous.js nearestPassage) */
   };
 }
 

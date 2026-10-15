@@ -21422,3 +21422,37 @@ the stop still stops the queue first; the laws unchanged); DOM-M752-10..13 pass;
 253 warnings. Chromium at 390 px and 1280 px: the button is first in the row, the row wraps, no
 horizontal overflow. Not run: the whole DOM walk (nothing every scenario passes through changed
 beyond the lamp's look now returning its inventory); a live provider; his own tale.
+
+## M752 followup 11 (m752-011): the verdict read for what it says, as the housekeeper reads an edit
+
+The owner (15 October 2026), yellow again after "Manual yellow check": "(1) Supported fidelity
+conflicts with … preservesAssertion is false, not true. Resolve that specific inconsistency.
+(2) Evidence "p52": quoted passage does not occur … where your quote has "thing?"" — "should not
+become chat gpt that doing flex tape; look at housekeeper: literally housekeeper can know which is
+wrong and right and if wrong compare it again and give the better one." Cause, one fault in two
+places: the recovery held a model's answer to its exact form and sent back whatever was not, where
+the housekeeper reads an edit for what it means (housekeeper.js locate). (2) the model had closed a
+quotation mark where p52's line runs on ("…a chain thing?"" for "…a chain thing? — and the town
+council…"); told exactly that, it did it again. (1) it called the donations line "supported" (the
+words are on the page) and said the record does not preserve the page's assertion (Rias says it,
+not Vanessa): a contradiction, said in two fields.
+Fixed: engine/evidence.js wordSpan — the same words in the same order, punctuation aside (and the
+first word's capital), are the original's, for every reader (quotedSource); a changed, added or
+missing word still is not. When a word differs, the recovery gives the model the page's own
+passage there, found by the housekeeper's anchor (locate, now also returning the whole passage it
+matched), in its whole sentences, beside the quote as it was. continuous.js readVerdict reads a
+verdict before saying anything back: a left-out field is the one its verdict names; "supported"
+with preservesAssertion false for the same person and moment is contradicted (repaired, or its
+repair asked for once); a contradicted claim's listed conflicts become its evidence; an outcome
+or why left out is the one its sourceFidelity names (recoveryAnswer); an explicit false or null is
+never read away (M725). What it read is kept on the receipt (sourceFidelity.houseRead). A claim
+pointing at the record is found as an anchor is. VERDICT_POLICY 3 (now exported): a correction
+blocked by the reading before is asked again once by itself — his included.
+Laws M752-H6 (a closing mark where the page runs on: one call; a changed word: the page's passage
+given back, then settled), H7 (supported + not preserved: repaired in one call; his blocked state,
+word for word, due again and repaired; no repair: asked once), H8 (left-out fields, conflicts as
+evidence, each one call; sameReferent false still never settles). Each fails on m752-010 and
+passes. H4's no-outcome case now names no verdict at all (an answer missing only its outcome is
+read — H8); the M673 spent-recovery fixture reads VERDICT_POLICY instead of a number.
+Measured: law suite 1679 of 1679; DOM-M752-10..13 pass; lint 0 errors, 253 warnings. Not run:
+the whole DOM walk (no flow every scenario passes through changed); a live provider; his tale.

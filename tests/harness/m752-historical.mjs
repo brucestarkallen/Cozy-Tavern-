@@ -214,11 +214,11 @@ test('M752-H4 “person: Edie Dale” IS SERVED AS THE PAGES THAT HOLD THE NAME 
     assert(/no more <fetch>/.test(wire.asked[2]), 'its second look is served with “no more”: ' + wire.asked[2].slice(-200));
     eq(r.recovery + ' ' + r.open, 'correct 0', 'settled');
   });
-  /* an answer the house cannot read: told what is wrong in it, it answers */
+  /* an answer that names no verdict at all: told what is wrong in it, it answers (M752 followup 11: one that left out only
+   * its outcome is read by the verdict it names — M752-H8) */
   const u = await hisTale('Edie, no outcome', ['post']);
-  const noOutcome = { ...postVerdict([P13]) };
-  delete noOutcome.outcome;
-  await withWire((said) => (/outcome must be "repair", "correct" or "blocked" \(it was missing\)/.test(said) ? postVerdict([P13]) : noOutcome), async (wire) => {
+  const noVerdict = { why: 'Edie is Mrs. Dale.', evidence: [P13] };
+  await withWire((said) => (/outcome must be "repair", "correct" or "blocked" \(it was missing\)/.test(said) ? postVerdict([P13]) : noVerdict), async (wire) => {
     const r = await auditStretch({ connection: CONN, storyId: u.id });
     eq(wire.calls + ' ' + r.recovery + ' ' + r.open, '2 correct 0', 'told once, settled');
   });
@@ -285,4 +285,107 @@ test('M752-H5 HIS TALE AS IT STANDS — THE CORRECTIONS BLOCKED BY THESE FAILURE
   rec.verdictPolicy = 1;
   await saveMemory(t.id, tm);
   eq(auditWaits(t.id, await loadMemory(t.id), await pagesOf(t)), -1, 'not due again');
+});
+
+/* ---------- M752 (followup 11): the verdict read for what it says, as the housekeeper reads an edit ----------
+ * HIS (15 October 2026), the lamp yellow again: "(1) Supported fidelity conflicts with … preservesAssertion is false, not true.
+ * (2) Evidence "p52": quoted passage does not occur … It is p52's own words as far as "…like a chain"; there p52 goes on
+ * "thing? — and the town council chased him out…", where your quote has "thing?"" — "look at housekeeper: literally
+ * housekeeper can know which is wrong and right and if wrong compare it again and give the better one."
+ *   H6  a quote that closes (or opens) a quotation mark where the page's line runs on, or moves other punctuation, is the
+ *       page's words; a changed word is not — and the page's own passage there is given back to decide again with
+ *   H7  "supported" with preservesAssertion false (the same person and moment) is a contradicted record: its repair is made
+ *   H8  what a verdict left out is the one it names; a contradicted claim's listed conflicts are its evidence */
+const WALK_SAID = '"That," Rias said, "is the whole reason Caleb knew the walk."'; /* the page runs on: "…the walk. The video and the squad." */
+test('M752-H6 A QUOTE THAT CLOSES A QUOTATION MARK WHERE THE PAGE’S LINE RUNS ON IS THE PAGE’S WORDS (p52: “where your quote has "thing?"" — told so twice, the same quote again, then blocked): punctuation and a first capital aside, the same words in the same order settle the walk correction in one call, the receipt in the page’s characters; one changed word is still refused, and the page’s own passage there is given back, whole, to decide again with', async () => {
+  const { quotedSource } = evidenceMod;
+  eq(quotedSource(SQUAD, WALK_SAID), '“That,” Rias said, “is the whole reason Caleb knew the walk.', 'the page’s own words, with the marks that hug its first and last word');
+  assert(quotedSource(RIM_ROAD, '"The council chased him out with donations." Vanessa said'), 'a stop for the page’s comma, a quotation mark where it runs on');
+  assert(quotedSource(RIM_ROAD, 'rias didn’t look up from the road'), 'a first word in lower case');
+  eq(quotedSource(SQUAD, '"That," Rias said, "is the whole reason Caleb knew the path."'), '', 'a changed word is refused');
+  eq(quotedSource(SQUAD, '"That," Rias said, "is the reason Caleb knew the walk."'), '', 'a word left out with no mark is refused');
+  eq(quotedSource(SQUAD, '"That," rias said'), '', 'a capital changed inside the quote is refused');
+  const s = await hisTale('the walk, a closing mark', ['walk']);
+  await withWire(() => walkVerdict([{ source: 'p11', shown: WALK_SAID }]), async (wire) => {
+    const r = await auditStretch({ connection: CONN, storyId: s.id });
+    eq(wire.calls + ' ' + r.recovery + ' ' + r.open, '1 correct 0', 'one call, settled');
+  });
+  eq((await lineOf(s, 'walk')).auditRecovery.at(-1).evidence[0].shown, '“That,” Rias said, “is the whole reason Caleb knew the walk.', 'the receipt in the page’s characters');
+  /* a changed word: the page's passage there is given back; the model decides again with it */
+  const t = await hisTale('the walk, a changed word', ['walk']);
+  const WRONG = '"That," Rias said, "is the whole reason Caleb knew the path."';
+  await withWire((said) => (/What p11 says there: .*the whole reason Caleb knew the walk/.test(said) ? walkVerdict([{ source: 'p11', shown: WALK_SAID }]) : walkVerdict([{ source: 'p11', shown: WRONG }])), async (wire) => {
+    const r = await auditStretch({ connection: CONN, storyId: t.id });
+    eq(wire.calls + ' ' + r.recovery + ' ' + r.open, '2 correct 0', 'the page’s words given back once, then settled');
+    assert(/your quote: .*knew the path/.test(wire.asked[1]) && /Decide again with its own words/.test(wire.asked[1]), 'beside the quote as it was: ' + wire.asked[1].slice(0, 900));
+  });
+});
+
+const RIGHT_RIM = '“Donations in eleven minutes,” Rias corrected her.';
+test('M752-H7 “SUPPORTED” WITH preservesAssertion FALSE, OF THE SAME PERSON AND MOMENT, IS A CONTRADICTED RECORD (“preservesAssertion is false, not true. Resolve that specific inconsistency” — twice, then a failed attempt): the donations line — the words are the page’s, the speaker is not — is repaired in one call when its repair came with it, and asked for its repair, once, when it did not; the house says how it read it', async () => {
+  const words = { ...rimVerdict({ shown: RIGHT_RIM }), allegation: 'confirmed', outcome: 'repair' };
+  words.sourceFidelity = { ...words.sourceFidelity, status: 'supported', relation: 'supports', preservesAssertion: false, why: 'The eleven minutes are on p9, but Rias says them, correcting Vanessa; the record gives them to Vanessa.' };
+  const s = await hisTale('the rim road, supported words', ['rim']);
+  await withWire(() => words, async (wire) => {
+    const r = await auditStretch({ connection: CONN, storyId: s.id });
+    eq(wire.calls + ' ' + r.recovery + ' ' + r.open, '1 repaired 0', 'one call, repaired');
+  });
+  const line = await lineOf(s, 'rim');
+  eq(line.text, 'On the rim road Vanessa told the story of the development scheme: donations in eleven minutes, Rias corrected her, chased the developer out.', 'Rias corrects Vanessa in the record');
+  assert((line.auditRecovery.at(-1).sourceFidelity.houseRead || []).some((w) => /^contradicted: /.test(w)), 'how the house read it is kept: ' + JSON.stringify(line.auditRecovery.at(-1).sourceFidelity.houseRead));
+  /* his tale as it stands: the correction blocked with his reason, word for word, under the reading before — due again,
+   * once, and settled by the same answer */
+  const h = await hisTale('the rim road, his reason', ['rim']);
+  const HIS = 'The recovery verdict remains inconsistent after clarification: (1) Supported fidelity conflicts with the referent, event, assertion scope or cited conflicting evidence: preservesAssertion is false, not true. Resolve that specific inconsistency. (2) Evidence "p52": quoted passage does not occur in that original.';
+  await withWire(() => ({ sourceFidelity: { status: 'genuinelyAmbiguous', claim: RIM_CLAIM, sameReferent: null, sameEvent: true, assertion: 'unclear', relation: 'unclear', why: 'Unsettled.', uncertainty: 'Unsettled.', conflicts: [] }, allegation: 'unknown', outcome: 'blocked', why: 'Unsettled.', evidence: [{ source: 'p9', shown: RIGHT_RIM }] }), async () => {
+    await auditStretch({ connection: CONN, storyId: h.id });
+  });
+  const hm = await loadMemory(h.id);
+  Object.assign(hm.nodes.find((n) => n.id === 'rim').auditOpen[0].recovery, { status: 'blocked', attempts: 2, reason: HIS, verdictPolicy: 2 });
+  await saveMemory(h.id, hm);
+  eq(auditWaits(h.id, await loadMemory(h.id), await pagesOf(h)), 0, 'his blocked correction is due again');
+  await withWire(() => words, async (wire) => {
+    const r = await auditStretch({ connection: CONN, storyId: h.id });
+    eq(wire.calls + ' ' + r.recovery + ' ' + r.open, '1 repaired 0', 'one call, repaired');
+  });
+  /* the same verdict with no repair: asked for it, once */
+  const t = await hisTale('the rim road, no repair', ['rim']);
+  const bare = { ...words, outcome: 'correct', allegation: 'disproved' };
+  delete bare.record;
+  await withWire((said) => (/A claim the originals contradict is repaired by record\.fixes/.test(said) ? words : bare), async (wire) => {
+    const r = await auditStretch({ connection: CONN, storyId: t.id });
+    eq(wire.calls + ' ' + r.recovery + ' ' + r.open, '2 repaired 0', 'asked for its repair once, then repaired');
+  });
+});
+
+test('M752-H8 WHAT A VERDICT LEFT OUT IS THE ONE IT NAMES, AND A CONTRADICTED CLAIM’S LISTED CONFLICTS ARE ITS EVIDENCE (each was a clarification, and a failed attempt when the model did it again): no outcome and no why, a missing status whose allegation and outcome agree, a contradicted claim whose contradicting page was listed as a conflict — each settles in one call; matching words about someone else still never settle a claim', async () => {
+  const quote = [{ source: 'p11', shown: 'did u see the lake path vid' }];
+  const noOutcome = walkVerdict(quote);
+  delete noOutcome.outcome; delete noOutcome.why;
+  const noStatus = walkVerdict(quote);
+  delete noStatus.sourceFidelity.status; delete noStatus.sourceFidelity.relation; delete noStatus.sourceFidelity.preservesAssertion;
+  for (const [name, answer] of [['no outcome, no why', noOutcome], ['no status', noStatus]]) {
+    const s = await hisTale('the walk, ' + name, ['walk']);
+    await withWire(() => answer, async (wire) => {
+      const r = await auditStretch({ connection: CONN, storyId: s.id });
+      eq(wire.calls + ' ' + r.recovery + ' ' + r.open, '1 correct 0', name + ': one call, settled');
+    });
+  }
+  const listed = rimVerdict({ shown: RIGHT_RIM });
+  listed.evidence = [];
+  listed.sourceFidelity = { ...listed.sourceFidelity, conflicts: [{ source: 'p9', shown: RIGHT_RIM, why: 'Rias says it, correcting Vanessa.' }] };
+  const t = await hisTale('the rim road, its page listed as a conflict', ['rim']);
+  await withWire(() => listed, async (wire) => {
+    const r = await auditStretch({ connection: CONN, storyId: t.id });
+    eq(wire.calls + ' ' + r.recovery + ' ' + r.open, '1 repaired 0', 'one call, repaired');
+  });
+  eq((await lineOf(t, 'rim')).auditRecovery.at(-1).evidence[0].shown, RIGHT_RIM, 'its evidence: the page that contradicts the record');
+  /* explicit words about someone else are never read away */
+  const u = await hisTale('the walk, someone else', ['walk']);
+  const other = walkVerdict(quote);
+  other.sourceFidelity = { ...other.sourceFidelity, sameReferent: false };
+  await withWire(() => other, async (wire) => {
+    const r = await auditStretch({ connection: CONN, storyId: u.id });
+    eq(wire.calls + ' ' + r.open, '3 1', 'said back twice, never settled');
+  });
 });

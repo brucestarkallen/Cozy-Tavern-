@@ -7,7 +7,7 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m752-010 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
+- Version m752-011 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
   m752-002 lets go, when a tale opens, a persona the old rule made of an ordinary
   sentence; m752-003 makes the notes say when they have not read the newest page;
   m752-004 settles the continuous audit's historical corrections instead of
@@ -22,7 +22,10 @@ older files sit beside it). Search them with
   correction's conversation ends on a verdict, not on a mistake nobody said (below);
   m752-010: "Manual yellow check", first in the workers' room — every owner the light is
   yellow about is given a fresh try now, one after another, and the banner says what is
-  still yellow and why (chat.js yellowCheckNow; DOM-M752-13).
+  still yellow and why (chat.js yellowCheckNow; DOM-M752-13); m752-011: the continuous audit
+  reads a verdict for what it says, as the housekeeper reads an edit — quotes held word by
+  word (punctuation aside), the page's own passage given back when a word differs, and
+  "supported but the record does not preserve it" read as a contradiction to repair (below).
 - Measured on m752-004: the law suite 1670 of 1670, the DOM walk 316 of 316, lint 0
   errors (253 warnings, as before). Chromium at 390 px: the new button wraps with the
   others, no page or panel overflow. On m752-001: tests/m739_ui.py and
@@ -47,6 +50,13 @@ older files sit beside it). Search them with
   that is no verdict and a look past two are said back in the same conversation, twice at
   most; "person: NAME" is served as the pages that hold the name. VERDICT_POLICY 2 asks
   about his three once more, by itself, when the house is idle (laws M752-H1..H5).
+- His fourth (m752-011): "(1) … preservesAssertion is false, not true. (2) Evidence "p52":
+  … where your quote has "thing?"" — the model had closed a quotation mark where the page's
+  line runs on, and called the donations line "supported" while saying the record does not
+  preserve what the page asserts (Rias says it, not Vanessa). Both are read now, in code
+  (evidence.js wordSpan; continuous.js readVerdict): the quote is the page's words, the
+  verdict a contradiction, and the line is repaired. Blocked by the reading before,
+  it is asked again once by itself (VERDICT_POLICY 3; laws M752-H6..H8).
 - Still yellow, on purpose: a correction whose answer says its sources do not settle
   it (with the specific reason), whose line is his, or for which no edit in the
   originals' own words can set it right (blocker "unsafe", with its reason); and one whose

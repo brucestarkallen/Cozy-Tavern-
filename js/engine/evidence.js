@@ -113,14 +113,55 @@ export function literalSpan(source, quote, { caseless = false, after = 0 } = {})
   return { start, end };
 }
 
+/* M752 (followup 11) — THE SAME WORDS IN THE SAME ORDER, PUNCTUATION ASIDE. HIS (15 October 2026), the lamp yellow again:
+ * "Evidence "p52": quoted passage does not occur in that original … It is p52's own words as far as "…some guy tried to put
+ * a — like a chain"; there p52 goes on "thing? — and the town council chased him out…", where your quote has "thing?"" —
+ * the model had closed its quotation with a quotation mark where the page's line runs on, and, told exactly that, did it
+ * again. A model quoting a page moves its punctuation: it closes or opens a quotation mark at the quote's ends, drops a
+ * comma or a dash, ends on a stop the page does not have, capitalizes the word it begins with. Those are marks too, as the
+ * housekeeper has always read an edit's anchor (housekeeper.js locate: quote- and white-space-normalized). Here the words
+ * themselves are held: each letter of each word, in order, none left out or added — a word's case aside only for the first
+ * (a quotation begins with a capital). Where `source` holds `quote` so: { start, end } from its first word to its last,
+ * or null. `after`: look from that index of `source` on. */
+const WORD = /[\p{L}\p{N}]+(?:'[\p{L}\p{N}]+)*/gu;
+const HUG_BEFORE = /["'“‘«(\[*_`]/u;
+const HUG_AFTER = /[.,;:!?…"'”’»)\]*_`]/u;
+function wordsWithPlaces(value) {
+  const plain = plainMarks(String(value == null ? '' : value), false);
+  const out = [];
+  for (const m of plain.text.matchAll(WORD)) out.push({ w: m[0], start: plain.at[m.index], end: plain.ends[m.index + m[0].length - 1] });
+  return out;
+}
+export function wordSpan(source, quote, { after = 0 } = {}) {
+  const want = wordsWithPlaces(quote).map((x) => x.w);
+  if (!want.length || want.join(' ').length < 4) return null;
+  const src = wordsWithPlaces(source);
+  for (let i = 0; i + want.length <= src.length; i += 1) {
+    if (src[i].start < after) continue;
+    let k = 0;
+    while (k < want.length && (src[i + k].w === want[k] || (k === 0 && src[i].w.toLowerCase() === want[0].toLowerCase()))) k += 1;
+    if (k === want.length) {
+      /* the marks that hug its first and last word go with them ("“That," … "the walk."), never past white space */
+      const text = String(source);
+      let start = src[i].start;
+      let end = src[i + want.length - 1].end;
+      while (start > 0 && HUG_BEFORE.test(text[start - 1])) start -= 1;
+      while (end < text.length && HUG_AFTER.test(text[end])) end += 1;
+      return { start, end };
+    }
+  }
+  return null;
+}
+
 export function quotedSource(text, quote) {
   const tidy = (s) => String(s || '').replace(/\s+/g, ' ').trim();
   const q = tidy(quote);
   // Provenance depends on literal source membership, not an arbitrary quote
   // size. Readers supply longer original spans; those remain valid evidence.
   if (q.length >= 4 && tidy(text).includes(q)) return q;
-  /* M752 (followup 4): the same words with other marks — the original's own text comes back */
-  const span = literalSpan(text, quote);
+  /* M752 (followup 4): the same words with other marks — the original's own text comes back; (followup 11) and with
+   * other punctuation */
+  const span = literalSpan(text, quote) || wordSpan(text, quote);
   return span ? tidy(String(text).slice(span.start, span.end)) : '';
 }
 
@@ -141,7 +182,7 @@ export function elidedSource(text, quote) {
   const kept = [];
   let after = 0;
   for (const piece of pieces) {
-    const span = literalSpan(src, piece, { after });
+    const span = literalSpan(src, piece, { after }) || wordSpan(src, piece, { after });
     if (!span) return '';
     kept.push(src.slice(span.start, span.end).replace(/\s+/g, ' ').trim());
     after = span.end;

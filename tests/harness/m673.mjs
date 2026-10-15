@@ -13,7 +13,7 @@ import {
 import {
   auditProgress, nextStretch, buildStretchMessages, parseStretchAnswer, scopeStretch, pagesSay, storyPageAt, auditStretch, stretchWords,
   ledgerForPages, lineIsHis, beginReading, endReading, pauseContinuousAudit, continuousAuditOn, STRETCH_PAGES, LEDGER_ADDS, PAGE_FIXES, UNREADABLE_TRIES,
-  auditWaits, RECOVERY_DELAY,
+  auditWaits, RECOVERY_DELAY, VERDICT_POLICY,
 } from '../../js/agents/continuous.js';
 import { fingerprint36 } from '../../js/engine/fingerprint.js';
 import { pageText } from '../../js/assemble/stack.js';
@@ -526,11 +526,11 @@ test('M673-8 THE STORYTELLER COMES FIRST, AND THE SWITCH IS OFF UNLESS HE TURNS 
 /* ---------- what M722's routing kept before its guards were put back (the audit of M722-M751): settled by the audit itself ---------- */
 /* the recovery state M723 leaves on a finding after its two attempts — its input is the line, its pages and no fetched
  * originals (continuous.js recoveryInput), its writer the story's empty brief and cast. M752 (followup 9): spent under
- * today's reading of a verdict (verdictPolicy 2) — a "did not provide a usable correction verdict" from before it is
- * asked about again once, on purpose (m752-historical.mjs H5), and these laws are not about that */
+ * today's reading of a verdict (VERDICT_POLICY, whatever it is today) — a "did not provide a usable correction verdict"
+ * from before it is asked about again once, on purpose (m752-historical.mjs H5), and these laws are not about that */
 const exhausted = (line, pages, reason) => ({
   input: fingerprint36(JSON.stringify([line.span, fingerprint36(JSON.stringify([line.text, line.detail, line.verified?.fixed, pages.slice(line.span[0], line.span[1] + 1).map((p) => [p.id, pageText(p)])])), []])),
-  writer: fingerprint36(JSON.stringify(['', ''])), dispositionPolicy: 2, evidencePolicy: 2, verdictPolicy: 2, attempts: 2, status: 'blocked', reason, nextAt: 0, sources: [],
+  writer: fingerprint36(JSON.stringify(['', ''])), dispositionPolicy: 2, evidencePolicy: 2, verdictPolicy: VERDICT_POLICY, attempts: 2, status: 'blocked', reason, nextAt: 0, sources: [],
 });
 const UNCLASSIFIED = 'The fault needs grounded story versus record classification.';
 const PARTIAL = 'Insufficient context: this reading did not cover the complete record source section.';

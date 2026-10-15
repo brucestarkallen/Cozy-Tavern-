@@ -38,13 +38,13 @@
 
 import { db } from '../store.js';
 import { fingerprint36 } from '../engine/fingerprint.js';
-import { quotedSource, literalSpan, elidedSource, quoteDeparture } from '../engine/evidence.js';
+import { quotedSource, literalSpan, wordSpan, elidedSource, quoteDeparture } from '../engine/evidence.js';
 import { callWorker } from './call.js';
 import { runningWorkers } from './status.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
 import { roomChars, leashFor, fetchLaw, fetchRefsIn } from './lookup.js';
-import { serveFetch, resolveMessageRef, messageRefResult, compositeMessageRef } from './housekeeper.js';
+import { serveFetch, resolveMessageRef, messageRefResult, compositeMessageRef, locate } from './housekeeper.js';
 import { wholePage } from '../engine/pagecut.js';
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js';
 import { isHouseTidy } from '../engine/pagepatch.js'; /* M675: a page the finisher only tidied is not "already mended" */
@@ -162,7 +162,9 @@ const oldEvidenceFailure = r => r?.evidencePolicy!==EVIDENCE_POLICY
  * are said back in the same conversation, within the same two clarifications (settlementProblem, unreadableProblem); and
  * a look the recovery does not serve is answered with what it serves instead, or why not. A correction blocked by a
  * failure of these, or by the old reading of a verdict, is tried again, once (VERDICT_POLICY 2). */
-const VERDICT_POLICY = 2;
+/* M752 (followup 11): 3 — the verdict read for what it says (readVerdict), quotes held word by word (engine/evidence.js
+ * wordSpan) and the page's own passage given back: a correction blocked by the reading before it is asked again, once */
+export const VERDICT_POLICY = 3;
 export const CLARIFICATIONS = 2;
 const VERDICT_FAILURE = /^(?:The recovery verdict remains inconsistent after clarification|(?:Conflicting evidence|Evidence) "[^\n]*?": (?:source reference could not be resolved|quoted passage does not occur)|Exact record text mismatch|Incorrect original-source quotation|The focused response did not provide a usable correction verdict|Missing (?:exact replacement text|supporting original quotation)|Unsafe (?:broad replacement|shortening|overlapping edits)|Ambiguous record span|A removal needs explicit source grounding|Replacement is not supported by the supplied original evidence|The disputed original span would survive)/;
 const verdictFailure = r => r?.verdictPolicy!==VERDICT_POLICY && VERDICT_FAILURE.test(String(r?.reason || ''));
@@ -326,10 +328,10 @@ export function literalFixes(node,fixes,sourceText) {
     if (!f || typeof f !== 'object' || typeof f.from!=='string' || typeof f.to!=='string') return f;
     const out={...f};
     if (f.from && !fields.some(t=>t.includes(f.from))) {
-      for (const t of fields) { const at=literalSpan(t,f.from); if (at) { out.from=t.slice(at.start,at.end); break; } }
+      for (const t of fields) { const at=literalSpan(t,f.from) || wordSpan(t,f.from); if (at) { out.from=t.slice(at.start,at.end); break; } }
     }
     if (f.to && !source.toLowerCase().includes(f.to.toLowerCase())) {
-      const at=literalSpan(source,f.to),words=at?source.slice(at.start,at.end):'';
+      const at=literalSpan(source,f.to) || wordSpan(source,f.to),words=at?source.slice(at.start,at.end):'';
       /* (a span across a line break, or the page's markup, is not one the record can take) */
       if (words && !/\n|\s\s|<[A-Za-z!/]|&#?\w+;/.test(words)) out.to=words;
     }
@@ -376,11 +378,23 @@ export function recordRepairPlan(node,fixes,sourceText,{strict=false}={}) {
   return plan;
 }
 
+/* M752 (followup 11): an answer is read for what it says — an outcome it left out is the one its own verdict names (its
+ * sourceFidelity.status, else its allegation), and a why it left out is its interpretation's — and only an answer that
+ * names no verdict at all is none (unreadableProblem) */
+const OUTCOME_OF={supported:'correct',contradicted:'repair',genuinelyAmbiguous:'blocked'};
+const OUTCOME_OF_ALLEGATION={disproved:'correct',confirmed:'repair',unknown:'blocked'};
 function recoveryAnswer(raw) {
   try {
     const candidate=balancedCandidates(String(raw)).find(t=>t.trim().startsWith('{'));
     const a=parseLenient(candidate || raw);
-    if (!['repair','correct','blocked'].includes(a?.outcome) || typeof a.why!=='string' || !a.why.trim()) return null;
+    if (!a || typeof a!=='object' || Array.isArray(a)) return null;
+    const f=a.sourceFidelity && typeof a.sourceFidelity==='object' ? a.sourceFidelity : null;
+    if (!['repair','correct','blocked'].includes(a.outcome)) {
+      const named=OUTCOME_OF[f?.status] || OUTCOME_OF_ALLEGATION[a.allegation];
+      if (named) a.outcome=named;
+    }
+    if ((typeof a.why!=='string' || !a.why.trim()) && f) { const why=[f.why,f.uncertainty].find(w=>typeof w==='string' && w.trim()); if (why) a.why=why; }
+    if (!['repair','correct','blocked'].includes(a.outcome) || typeof a.why!=='string' || !a.why.trim()) return null;
     return a;
   } catch { return null; }
 }
@@ -429,7 +443,9 @@ function settlementProblem(answer,outcome,evidence,node,pages) {
     if (plan.why) {
       const f=Number.isInteger(plan.fix) && Array.isArray(fixes) ? fixes[plan.fix] : null;
       const help=(PLAN_HELP.find(([re])=>re.test(plan.why)) || [null,''])[1];
-      const where=/^Incorrect original-source quotation/.test(plan.why) && typeof f?.shown==='string' ? departureWords(quoteDeparture(sourceText,f.shown),'the original') : '';
+      const near=/^Incorrect original-source quotation/.test(plan.why) && typeof f?.shown==='string' ? passageAround(sourceText,f.shown) : '';
+      const where=/^Incorrect original-source quotation/.test(plan.why) && typeof f?.shown==='string'
+        ? (near ? ' What the original says there: '+JSON.stringify(clip(near,600))+'.' : departureWords(quoteDeparture(sourceText,f.shown),'the original')) : '';
       const record=/^Exact record text mismatch/.test(plan.why) ? ' The record line reads: '+JSON.stringify(String(node.text || ''))+(node.detail ? '; its detail reads: '+JSON.stringify(String(node.detail)) : '')+'.' : '';
       const exit=' If no edit in the originals’ own words can set it right, return "outcome":"blocked" with "blocker":"unsafe" and say why.';
       problems.push('The record repair is refused'+(f && typeof f.from==='string' ? ' — record edit '+(plan.fix+1)+' (from '+JSON.stringify(clip(f.from,120))+')' : '')+': '+plan.why+(help ? ' '+help : '')+where+record+exit);
@@ -481,7 +497,40 @@ function recordClaim(node,claim) {
       if (whole && first) return t.slice(first.start,after);
     }
   }
+  /* M752 (followup 11): its words with other punctuation; and, as the housekeeper reads an edit's anchor (locate), the
+   * record's passage it plainly names — a claim only points at the record, it is never evidence */
+  for (const words of [...new Set([said,bare])].filter(Boolean)) {
+    for (const t of fields) { const at=wordSpan(t,words); if (at) return t.slice(at.start,at.end); }
+  }
+  for (const words of [...new Set([said,bare])].filter(Boolean)) {
+    for (const t of fields) { const near=nearestPassage(t,words); if (near) return near; }
+  }
   return '';
+}
+/* M752 (followup 11): where an original holds the passage a quote plainly means — the housekeeper's one anchor
+ * (housekeeper.js locate: exact, then marks and white space aside, then word by word within a fifth, and never where two
+ * passages read alike) — in the original's own characters; '' when none */
+function nearestPassage(text,quote) {
+  try {
+    const source=String(text || '');
+    const at=locate(source,String(quote || ''));
+    return at.ok ? source.slice(at.passageStart ?? at.start,at.passageEnd ?? at.end) : '';
+  } catch { return ''; }
+}
+/* …and, to be given back to the model, that passage in its whole sentences (the word it changed may lie just past where
+ * the anchor's closest window ends), its white space tidied */
+function passageAround(text,quote) {
+  try {
+    const source=String(text || '');
+    const at=locate(source,String(quote || ''));
+    if (!at.ok) return '';
+    const from=at.passageStart ?? at.start,to=at.passageEnd ?? at.end;
+    let start=from,end=to;
+    while (start>0 && !/[.!?\n]/.test(source[start-1]) && from-start<300) start-=1;
+    while (end<source.length && !/[.!?\n]/.test(source[end]) && end-to<300) end+=1;
+    while (end<source.length && /[.!?…"'”’»)]/.test(source[end])) end+=1;
+    return source.slice(start,end).replace(/\s+/g,' ').trim();
+  } catch { return ''; }
 }
 /* How a page is named back in a clarification: its number on the page index ("p94"), or the writer's notes. */
 const citedName=(id,pages)=>id==='brief' || id==='cast' ? id : 'p'+((Array.isArray(pages) ? pages.findIndex(p=>p && p.id===id) : -1)+1);
@@ -510,8 +559,14 @@ function checkedEvidence(entry,evidence,pages,kind='Evidence') {
   if (!evidence.has(id)) return fail('referenced original is unavailable as supplied story evidence; fetch that original first'
     +(id==='brief' || id==='cast' ? '' : ' (<fetch>["'+citedName(id,pages)+'"]</fetch>), then cite it')+'. Out-of-character discussion is not story evidence.');
   const shown=passageIn(evidence.get(id),entry.shown);
-  if (!shown) return fail('quoted passage does not occur in that original. Copy the words exactly as '+citedName(id,pages)+' writes them, as one unbroken passage, without leaving words out or changing them.'
-    +departureWords(quoteDeparture(evidence.get(id),entry.shown),citedName(id,pages)));
+  if (!shown) {
+    /* M752 (followup 11): what the page says where the quote plainly points — given back whole, to be read again ("compare
+     * it again and give the better one"): its words differ from the page's, so the house cannot take the copy for the page */
+    const near=passageAround(evidence.get(id),entry.shown);
+    return fail('quoted passage does not occur in that original. Copy the words exactly as '+citedName(id,pages)+' writes them, as one unbroken passage, without leaving words out or changing them.'
+      +(near ? ' What '+citedName(id,pages)+' says there: '+JSON.stringify(clip(near,600))+'; your quote: '+JSON.stringify(clip(String(entry.shown).replace(/\s+/g,' ').trim(),300))+'. Decide again with its own words.'
+        : departureWords(quoteDeparture(evidence.get(id),entry.shown),citedName(id,pages))));
+  }
   return {entry:{...entry,source:id,shown,citedAs:entry.citedAs || raw}};
 }
 /* M752 (followup 9): where a quote departs from its original, in words a model can act on (quoteDeparture) */
@@ -535,7 +590,56 @@ function departureWords(dep,name) {
  * place and hour, an earlier scene listed as a conflict and explained away). A claim in the record's own words under a
  * label or with other marks is read as the record's words (recordClaim), and kept so. */
 const CONFLICT_IS = 'A conflict is an original passage that says the opposite of this claim about the same person at the same moment. A passage from another moment (earlier or later, before or after a change) or about someone else is no conflict: leave it out of conflicts and explain it in sourceFidelity.why.';
+/* M752 (followup 11) — THE VERDICT READ FOR WHAT IT SAYS, AS THE HOUSEKEEPER READS AN EDIT. HIS (15 October 2026): "it keeps
+ * to be yellow … look at housekeeper — literally housekeeper can know which is wrong and right and if wrong compare it again
+ * and give the better one." The recovery sent back, twice, "preservesAssertion is false, not true": the model had said the
+ * record's words are supported by the page and that the record does NOT preserve what the page asserts (the donations line:
+ * the page has Rias say it, the record Vanessa) — which is a contradiction of the record, said in two fields. What a verdict
+ * says plainly is read so, in code, and recorded (sourceFidelity.houseRead); only a real disagreement is said back:
+ *   - a field left out is the one its own verdict names (status from an allegation and outcome that agree; the relation,
+ *     assertion, referent, event and preservation a supported or contradicted claim states; its why; no conflicts);
+ *   - the same person and moment, a record that does not preserve the page's assertion: contradicted, whatever the words;
+ *   - a contradicted claim's listed "conflicts" are its evidence (the original that contradicts the record IS the evidence).
+ * An explicit false or null is never overridden: matching words about someone else never settle a claim (M725). */
+function readVerdict(answer) {
+  const f=answer.sourceFidelity;
+  if (!f || typeof f!=='object') return;
+  const read=[];
+  const STATUS_OF={disproved:'supported',confirmed:'contradicted',unknown:'genuinelyAmbiguous'};
+  if (!['supported','contradicted','genuinelyAmbiguous'].includes(f.status)) {
+    const named=STATUS_OF[answer.allegation];
+    if (named && (OUTCOME_OF[named]===answer.outcome || (named==='contradicted' && answer.outcome==='blocked'))) { f.status=named; read.push('status '+named+', from its allegation and outcome'); }
+  }
+  const s=f.status;
+  if (!['supported','contradicted','genuinelyAmbiguous'].includes(s)) return;
+  const plain=s!=='genuinelyAmbiguous';
+  const fill=(key,value)=>{ if (f[key]===undefined) { f[key]=value; read.push(key+' '+JSON.stringify(value)+', as a '+s+' claim states it'); } };
+  fill('relation',s==='supported' ? 'supports' : s==='contradicted' ? 'contradicts' : 'unclear');
+  fill('assertion',plain ? 'direct' : 'unclear');
+  fill('sameReferent',plain ? true : null);
+  fill('sameEvent',plain ? true : null);
+  fill('preservesAssertion',s==='supported');
+  if (typeof f.why!=='string' || !f.why.trim()) { if (typeof answer.why==='string' && answer.why.trim()) { f.why=answer.why; read.push('why, from its own'); } }
+  if (f.conflicts===undefined) f.conflicts=[];
+  if (s==='genuinelyAmbiguous' && (typeof f.uncertainty!=='string' || !f.uncertainty.trim()) && typeof answer.why==='string' && answer.why.trim()) { f.uncertainty=answer.why; read.push('uncertainty, from its why'); }
+  if (s==='supported' && f.preservesAssertion===false && f.sameReferent===true && f.sameEvent===true) {
+    f.status='contradicted';
+    if (f.relation!=='contradicts') f.relation='contradicts';
+    read.push('contradicted: the same person and moment, and the record does not preserve what the page asserts');
+  } else if (s==='contradicted' && f.preservesAssertion===false && f.relation==='supports') {
+    f.relation='contradicts';
+    read.push('relation "contradicts": the record does not preserve what the page asserts');
+  }
+  if (f.status==='contradicted' && Array.isArray(f.conflicts) && f.conflicts.length) {
+    const evidence=Array.isArray(answer.evidence) ? answer.evidence : [];
+    answer.evidence=[...evidence,...f.conflicts.filter(c=>c && typeof c==='object').map(({source,shown})=>({source,shown}))];
+    f.conflicts=[];
+    read.push('its listed conflicts as its evidence: the original that contradicts the record is the evidence');
+  }
+  if (read.length) f.houseRead=[...(Array.isArray(f.houseRead) ? f.houseRead : []),...read];
+}
 function fidelityDecision(answer,evidence,node,pages) {
+  readVerdict(answer);
   const f=answer.sourceFidelity;
   const fail=problem=>({problem});
   if (!f) return answer.outcome==='blocked'
