@@ -21542,3 +21542,32 @@ Settings shows You; a branch keeps it) fail on m752-013 and pass.
 Measured: law suite 1683 of 1683; DOM walk 319 of 319 (a first whole walk failed DOM-M752-15
 itself: an earlier scenario left Settings open on another tale, so it was not filled for this one —
 the law now opens Settings afresh); lint 0 errors, 253 warnings. Not run: a live provider.
+
+## M752 followup 15 (m752-015): a branch keeps what the auditor paid for
+
+The owner (15 October 2026), on a branch of his long tale from older pages, Choices matter on: "the
+audit is so slow while my tps minimum is 60 without thinking" — "278 original source sections still
+need review … ledger verification: checked 4 of 257 entries … (503): Service is too busy". Not
+Choices matter. Cause: an audit source section is named by its page's id ('page:<id>:<offset>'),
+and a branch copies every page under a new id; the ledger it carried held every receipt the auditor
+had paid for — the source review, the people it resolved, the ledger's citations, the approved
+entries, its checkpoint — under the parent's names, so the branch found none and read the whole tale
+again, one batch of up to 120,000 characters per auditor run (reviewAuditSources 'next'), each
+answer up to 16,000 tokens. Speed was never the provider's: it was ~280 sections asked again.
+Fixed: auditprogress.js branchAuditBooks gives the branch's ledger, checkpoints and versions the
+copies' names; approvals whose print was the parent ledger's move to the same rows, and completion
+keys move only where they were computed over the parent's same pages (a ledger folded from another
+point stays unverified). Checkpoints and versions get the names only (the rows are costly on a long
+tale; their approvals are checked again if one is ever opened). A branch made before this reuses a
+receipt for the same text — same kind, offset and mark — under a name the tale does not hold
+(auditsources.js reviewAuditSources), checked like any other; a page's own receipt is never lent to
+another page of the same tale. The 503 was his provider's own answer to one auditor call.
+Laws M752-BR1 (the branch's books; a ledger from another point stays unverified), BR2 (a branch
+made before; a changed page is read again) and DOM-M752-16 (a completed audit, branched by the page's
+Branch: every section's receipt is the copy's — "1 of 7" before, "7 of 7" now — and the audit
+stands complete; the parent untouched) fail without the fix and pass. M43-2 (reads chat.js) kept as
+written: the remap is applied to the carried ledger before its cut.
+Measured: on a synthetic 632-page ledger (750 KB), the names for 120 checkpoints take 1.2 s and the
+ledger the branch opens on 3.6 s, once per branch (node, this machine). Law suite 1685 of 1685; DOM
+walk 320 of 320; lint 0 errors, 253 warnings. Not run: a live provider; his tale (his branch's
+existing receipts are reused at its next audit by the same-text rule).

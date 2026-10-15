@@ -2,7 +2,7 @@ import { measureTransport } from '../providers/measure.js';
 import { bodyAccounting } from '../assemble/budget.js';
 import { recordId, sourceBindingIssues } from '../assemble/selection.js';
 import {healthSnapshot,routeHealth,workerRecoveryDue,reconciledWorkerStatus,verificationOwed,healthLamp} from '../agents/health.js';
-import { ledgerRepairStateKey, ledgerRepairInputKey, repairRetryCheckpoint, auditHasOpenWork, ledgerAuditVerified, ledgerRepairNeeded, LEDGER_REPAIR_POLICY } from '../agents/auditprogress.js';
+import { ledgerRepairStateKey, ledgerRepairInputKey, repairRetryCheckpoint, auditHasOpenWork, ledgerAuditVerified, ledgerRepairNeeded, LEDGER_REPAIR_POLICY, branchAuditBooks } from '../agents/auditprogress.js';
 /* Cozy Tavern — ui/chat.js
  * Story list, message thread, composer. Streaming renders token by token.
  * One generation call per user turn — the send path is sacred (see SPEC.md
@@ -8935,19 +8935,24 @@ export function initChat(ctx) {
     const restartOpening = !fromTheTail && kBranch <= 0;
     if (restartOpening) { carried = emptyState(); exact = false; }
     else carried = withStoryWrites(carried, nowState, applyMutations);
+    /* M752 (followup 15): the auditor's receipts name the copies (auditprogress.js branchAuditBooks) — named for the parent's
+     * pages, the branch found none and read the whole tale again */
+    const branchPages = await db.messages.list(branch.id);
+    const auditBooks = (st, keys = true) => branchAuditBooks(st, idMap, keys ? { story, from: pages, to: branchPages } : {});
+    carried = auditBooks(carried);
     const carriedNow = dropTheFuture(JSON.parse(JSON.stringify(carried)), kBranch + 1).state;
     carriedNow.refHistory = (Array.isArray(carriedNow.refHistory) ? carriedNow.refHistory : [])
       .filter((e) => e && (!e.msgId || idMap[e.msgId]))
       .map((e) => (e.msgId ? { ...e, msgId: idMap[e.msgId] } : e));
     await saveState(branch.id, carriedNow);
     const carriedIds = new Set(pages.map((m) => m.id));
-    const snaps = (await loadSnapshots(story.id)).filter((e) => carriedIds.has(e.id)).map((e) => ({ ...e, id: idMap[e.id] }));
+    const snaps = (await loadSnapshots(story.id)).filter((e) => carriedIds.has(e.id)).map((e) => ({ ...e, id: idMap[e.id], ...(e.snap ? { snap: auditBooks(e.snap, false) } : {}) }));
     if (!restartOpening && snaps.length) await saveSnapshots(branch.id, snaps);
     const versions = await loadVersionStates(story.id);
     const branchVersions = {};
     for (const [key, st] of Object.entries(versions)) {
       const [oldId, idx] = key.split(':');
-      if (!restartOpening && idMap[oldId]) branchVersions[idMap[oldId] + ':' + idx] = st;
+      if (!restartOpening && idMap[oldId]) branchVersions[idMap[oldId] + ':' + idx] = auditBooks(st, false);
     }
     /* M127: the branch's last page owns the carried ledger as its checkpoint
      * (exact carries only) — so the readers' resume on open finds the page

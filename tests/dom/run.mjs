@@ -16644,5 +16644,62 @@ test('DOM-M752-15 “I” OR “YOU” FOR CHOICES MATTER (HIS, 15 October 2026:
   }
 });
 
+test('DOM-M752-16 A BRANCH KEEPS WHAT THE AUDITOR PAID FOR (HIS, 15 October 2026, a branch of his long tale: “the audit is so slow” — “278 original source sections still need review … checked 4 of 257 entries”): a tale whose audit is complete, branched by its page’s Branch — the branch’s ledger and its checkpoints hold the auditor’s receipts under the copies’ names, every section is reused, and its audit stands complete', async () => {
+  const before = errors.length;
+  const progress = await import('../../js/agents/auditprogress.js');
+  const { auditSources } = await import('../../js/agents/auditsources.js');
+  const { saveState, loadState, emptyState, saveSnapshots, loadSnapshots } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const st = await db.stories.create({ title: 'audited, then branched' });
+  await db.stories.update(st.id, { brief: 'Jovan trains at Ravenwood.', keeper: false, extraction: false });
+  const story = await db.stories.get(st.id);
+  const H = (n) => '[Ravenwood courtyard — Monday, September 7, 2026 | 08:' + String(n).padStart(2, '0') + ' | clear | gi | at the gate]\n\n';
+  for (let i = 0; i < 3; i += 1) { await db.messages.append(st.id, { role: 'user', text: 'I circle, move ' + i + '.' }); await db.messages.append(st.id, { role: 'assistant', text: H(i) + 'Kaelen raised his practice sword, red hair tied back, turn ' + i + '.' }); }
+  const pages = (await db.messages.list(st.id)).filter((m) => !m.hidden);
+  const docs = auditSources({ brief: story.brief, castNotes: '', messages: pages });
+  const named = docs.find((d) => d.id.startsWith('page:' + pages[1].id)).id;
+  const state = applyMutations({ ...emptyState(), page: 2 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'Ravenwood courtyard' }, { type: 'presence.enter', name: 'Jovan' }]).state;
+  state.characters = { Kaelen: { core: 'Kaelen, fourth seat of Ravenwood.', aliases: [], appearanceSources: [{ key: 'hair', value: 'red', shown: 'red hair', source: named, references: [named] }] } };
+  state.auditSources = Object.fromEntries(docs.map((d) => [d.id, { mark: d.mark, appearanceReviewed: true, profileReviewed: 1, people: [] }]));
+  await saveState(st.id, { ...state, readTo: 2, tidiedGen: 999 });
+  { /* the audit as a completed one leaves it, over the ledger as it is kept */
+    const kept = await loadState(st.id);
+    const rows = progress.ledgerVerificationRows(kept);
+    kept.audit = { coverage: { read: docs.length, total: docs.length, failures: [] }, verification: { source: progress.ledgerRepairInputKey({}, story, pages), ledger: progress.ledgerRepairStateKey(kept),
+      entries: Object.fromEntries(rows.map((r) => [r.id, { print: r.print, scope: r.scope, status: 'correct', why: 'read' }])), profiles: {}, read: rows.length, total: rows.length, pending: [] } };
+    kept.audit.verifiedInput = progress.ledgerRepairInputKey(kept, story, pages);
+    await saveState(st.id, kept);
+    await saveSnapshots(st.id, [{ id: pages[4].id, snap: JSON.parse(JSON.stringify(kept)) }]);
+  }
+  let branchId = null;
+  try {
+    eq(progress.ledgerAuditVerified(await loadState(st.id), story, pages), true, 'fixture: its audit is complete');
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await until(() => !env.ctx.chat.isBusy(), 'at rest', 20000);
+    const storiesBefore = (await db.stories.list()).length;
+    await showAllPages();
+    click(q('.msg-act[data-act="branch"]', assistantPages()[assistantPages().length - 1]));
+    await until(async () => (await db.stories.list()).length === storiesBefore + 1, 'the branch on the shelf', 20000);
+    await until(async () => (await storyId()) !== st.id, 'the branch is open', 20000);
+    branchId = await storyId();
+    await until(async () => !((await db.stories.get(branchId)) || {}).building, 'the branch whole', 20000);
+    const bpages = (await db.messages.list(branchId)).filter((m) => !m.hidden);
+    const bstory = await db.stories.get(branchId);
+    const bstate = await loadState(branchId);
+    const bdocs = auditSources({ brief: bstory.brief, castNotes: '', messages: bpages });
+    eq(bdocs.filter((d) => bstate.auditSources && bstate.auditSources[d.id] && bstate.auditSources[d.id].mark === d.mark).length + ' of ' + bdocs.length, bdocs.length + ' of ' + bdocs.length, 'every section of the branch has its receipt — none is read again');
+    eq(bstate.characters.Kaelen.appearanceSources[0].source, 'page:' + bpages[1].id + ':0', 'what its ledger cites names the copy');
+    eq(progress.ledgerAuditVerified(bstate, bstory, bpages), true, 'its audit stands complete');
+    const snap = (await loadSnapshots(branchId)).find((e) => e.id === bpages[4].id);
+    assert(snap && snap.snap.auditSources['page:' + bpages[1].id + ':0'], 'its checkpoint names the copies too');
+    eq((await loadState(st.id)).characters.Kaelen.appearanceSources[0].source, named, 'the tale it was taken from is untouched');
+    eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+  } finally {
+    for (const id of [st.id, branchId]) if (id) await db.stories.remove(id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

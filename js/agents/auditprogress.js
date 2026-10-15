@@ -14,9 +14,11 @@ import { foldName } from '../engine/names.js';
 import { findPersonKey } from '../engine/people.js';
 import { lookKey } from '../engine/canon.js';
 
+const rowsKey = rows => fingerprint36(JSON.stringify(rows.map(r => [r.id,r.print,r.scope])));
+const inputKeyOf = (documents,stateKey) => fingerprint36(JSON.stringify([AUDIT_INPUT_VERSION,documents.map(d => [d.id,d.mark,d.label.endsWith(', writer')]),stateKey]));
 export function ledgerRepairStateKey(state) {
   // Identical values stay reviewed when only timestamps/history metadata move.
-  return fingerprint36(JSON.stringify(ledgerVerificationRows(state).map(r => [r.id,r.print,r.scope])));
+  return rowsKey(ledgerVerificationRows(state));
 }
 /* M110: the visible pages up to the last STORY page — a trailing writer's page is an attempt, not yet a source. The
  * auditor reads and keys answered pages only; M752: every check of its saved work makes the same cut (one rule), or a
@@ -33,7 +35,7 @@ export function ledgerRepairInputKey(state, story, pages) {
 }
 
 function sourceInputKey(documents,state = {}) {
-  return fingerprint36(JSON.stringify([AUDIT_INPUT_VERSION,documents.map(d => [d.id,d.mark,d.label.endsWith(', writer')]),ledgerRepairStateKey(state)]));
+  return inputKeyOf(documents,ledgerRepairStateKey(state));
 }
 function legacySourceMatches(state,story,pages) {
   if (!Array.isArray(pages)) return false;
@@ -253,4 +255,56 @@ export function ledgerVerificationRows(state) {
   add('rules', 'lastVerdict', semantic(state?.lastVerdict || null), true);
   for (const field of ['pendingVerdict','duel','battle','composure']) add('rules', field, semantic(state?.[field] ?? null), true);
   return rows;
+}
+
+/* M752 (followup 15) — A BRANCH'S ORIGINALS ARE THE SAME ORIGINALS. HIS (15 October 2026), on a branch of his long tale
+ * with Choices matter on: "the audit is so slow" — "278 original source sections still need review … ledger verification:
+ * checked 4 of 257 entries". A source section is named by its page's id ('page:<id>:<offset>', 'voice:<id>:<n>:<offset>')
+ * and a branch copies every page under a new id: the ledger it carried held every receipt the auditor had paid for (the
+ * source review, the people it resolved, the entries it approved, its checkpoint), each named for the parent's pages, so
+ * the branch found none of them and read the whole tale again, a section batch per run. The copies are the same text (a
+ * section's mark is its length and hash, checked again before any reuse), so every name for a parent page is turned to its
+ * copy's; an approval whose print was the parent ledger's is kept for the same row of this one (only the names in it
+ * moved); and a completion key computed over the parent's pages is recomputed over the copies — only where it was that
+ * key, so a ledger carried from another point stays unverified. Pages not copied keep their names (nothing reads them). */
+const SOURCE_NAME = /^(page|voice):([^:]+)(:.+)$/;
+export function branchAuditBooks(state, idMap, { story = null, from = [], to = [] } = {}) {
+  if (!state || typeof state !== 'object' || !idMap || !Object.keys(idMap).length) return state;
+  const named = s => { const m = SOURCE_NAME.exec(s); return m && idMap[m[2]] ? m[1] + ':' + idMap[m[2]] + m[3] : s; };
+  const walk = v => {
+    if (typeof v === 'string') return named(v);
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [named(k), walk(x)]));
+    return v;
+  };
+  const out = walk(state);
+  const audit = out.audit;
+  if (!audit || typeof audit !== 'object') return out;
+  if (audit.checkpoint && idMap[audit.checkpoint.completedThrough]) audit.checkpoint.completedThrough = idMap[audit.checkpoint.completedThrough];
+  /* the approvals and completion keys only for the ledger the branch opens on (story given): the rows are costly to read
+   * on a long tale, and a checkpoint's approvals, if one is ever opened again, are checked again — its sources are not */
+  if (!story || !Array.isArray(from) || !Array.isArray(to)) return out;
+  const rowsBefore = ledgerVerificationRows(state), rowsAfter = ledgerVerificationRows(out);
+  const before = new Map(rowsBefore.map(r => [r.id, r])), after = new Map(rowsAfter.map(r => [r.id, r]));
+  const reprint = book => {
+    for (const [id, receipt] of Object.entries(book || {})) {
+      const was = before.get(id), now = after.get(id);
+      if (receipt && was && now && receipt.print === was.print && receipt.scope === was.scope) book[id] = { ...receipt, print: now.print, scope: now.scope };
+    }
+  };
+  reprint(audit.verification?.entries); reprint(audit.verification?.profiles);
+  reprint(audit.checkpoint?.entries); reprint(audit.checkpoint?.profiles);
+  const docs = pages => auditSources({ brief: story.brief || '', castNotes: story.castNotes || '', messages: answeredPages(pages) });
+  const docsFrom = docs(from), docsTo = docs(to);
+  const keyBefore = rowsKey(rowsBefore), keyAfter = rowsKey(rowsAfter);
+  const swap = (field, holder, old, now) => { if (holder && holder[field] && holder[field] === old) holder[field] = now; };
+  /* the same keys as ledgerRepairInputKey, ledgerRepairStateKey and sourceInputKey, each read once */
+  const inputBefore = inputKeyOf(docsFrom, keyBefore), inputAfter = inputKeyOf(docsTo, keyAfter);
+  swap('verifiedInput', audit, inputBefore, inputAfter);
+  swap('pausedInput', audit, inputBefore, inputAfter);
+  const bare = rowsKey(ledgerVerificationRows({}));
+  swap('source', audit.verification, inputKeyOf(docsFrom, bare), inputKeyOf(docsTo, bare));
+  swap('ledger', audit.verification, keyBefore, keyAfter);
+  swap('source', audit.checkpoint, inputKeyOf(docsFrom, bare), inputKeyOf(docsTo, bare));
+  return out;
 }

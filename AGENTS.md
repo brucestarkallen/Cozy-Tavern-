@@ -261,6 +261,10 @@ Keep these; each has a law that fails without it:
   outcome before he takes it. "Choices are written as" I or You (story.choicesVoice, "I" unless
   set) is how each move is written; open choices sealed in the other voice are sealed again
   (chat.js choicesInOtherVoice); a call for the other voice still out writes nothing.
+- A branch keeps what the auditor paid for: its ledger, checkpoints and versions name the copies
+  (auditprogress.js branchAuditBooks, chat.js branchForUpdate); approvals and completion keys
+  move only where they were the parent's for the same pages. A receipt for the same text (kind,
+  offset, mark) under a name the tale does not hold is reused (auditsources.js reviewAuditSources).
 - A setting read while its own write is under way is the value being written (store.js settingsWrites): a tap's
   write is never waited for, and a redraw on its way must not read the value from before it.
 - Every law runs in the suite: a new harness file is imported by tests/harness/run.mjs,

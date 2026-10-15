@@ -162,8 +162,15 @@ export function parseSourceReview(text, batch) { return sourceReviewResult(text,
 
 export async function reviewAuditSources({ connection, documents, previous = {}, mode = 'next', state = {}, signal, stale, renew } = {}) {
   const cache = {};
+  /* M752 (followup 15): a receipt named for a page this tale does not hold — a branch made before its copies took the
+   * parent's names — is the receipt of the very same text when its kind, offset and mark (length and hash) are a section's
+   * here; it is reused for that section under its own name, and checked like any other below */
+  const here = new Set(documents.map((d) => d.id));
+  const sameText = (id, mark) => id.split(':')[0] + '|' + id.slice(id.lastIndexOf(':') + 1) + '|' + mark;
+  const strays = new Map();
+  for (const [id, receipt] of Object.entries(previous || {})) if (!here.has(id) && /^(?:page|voice):/.test(id) && receipt && receipt.mark) strays.set(sameText(id, receipt.mark), receipt);
   for (const d of documents) {
-    const old = previous[d.id];
+    const old = previous[d.id] || strays.get(sameText(d.id, d.mark));
     if (old?.mark === d.mark && old.appearanceReviewed === true && (!writerSource(d) || old.profileReviewed===1) && Array.isArray(old.people) && old.people.every((p) => quotedSource(d.text, p.shown)
       && (p.identityFacts || []).every(f=>f.text && quotedSource(d.text,f.shown))
       && Array.isArray(p.facts) && p.facts.every(f => f.key && f.value && quotedSource(d.text,f.shown)))) cache[d.id] = old;
