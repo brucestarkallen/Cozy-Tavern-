@@ -21456,3 +21456,33 @@ passes. H4's no-outcome case now names no verdict at all (an answer missing only
 read — H8); the M673 spent-recovery fixture reads VERDICT_POLICY instead of a number.
 Measured: law suite 1679 of 1679; DOM-M752-10..13 pass; lint 0 errors, 253 warnings. Not run:
 the whole DOM walk (no flow every scenario passes through changed); a live provider; his tale.
+
+## M752 followup 12 (m752-012): a record found wrong is repaired in its own voice
+
+The owner (15 October 2026), still yellow: the recovery itself said "The attribution error is real:
+the original p52 shows Vanessa says "pitchforks" and Rias supplies "Donations… It took eleven
+minutes," while the record credits Vanessa … no edit in the originals' exact words can set the
+attribution right … blocked as unsafe" — "give the auditor what's wrong, and whether it can debate
+it or not; if not, then green. Tell me if I'm wrong." He was right: a finding the reader cannot
+dispute should be repaired, and then the light is green. The cause was the house's own rule, since
+M195: a repair's right words had to occur in the pages letter for letter. A record line is a summary
+in its keeper's voice; a wrong speaker found in dialogue can never be set right with the dialogue's
+own words, so every such confirmed error was refused, then set aside, yellow for good. The same rule
+stood in three places: the keeper's audit (memory.js applyAuditFixes, and its prompt: "the right
+ones in the pages"), the continuous audit's reading (its prompt: "the pages' own words") and its
+recovery (recordRepairPlan).
+Fixed in all three, one rule (engine/evidence.js ungroundedWords): the right words may be in the
+record line's own voice, and every name, place and number in them — a word with a capital or a
+digit, a number written out — must be one the originals give (never the disputed record, which
+cannot vouch for its own fix). "she said" → "Rias, not Vanessa, said" is made; "Chloe said" or
+"twelve minutes" where the pages give neither is refused, and the recovery says back which word.
+applyAuditFixes also refuses a fix that changes nothing (it had relied on the old rule for that).
+REPAIR_POLICY 1 (exported): a correction found wrong and set aside under the old rule (its record
+contradicted, or refused as unsupported) is asked again once by itself — his donations line.
+Law M752-H9 (the keeper's audit takes it; the recovery repairs in one call; an invented name is said
+back by name; his set-aside state is asked again and repaired), failing on m752-011, passing. H3's
+replacement case is now an invented figure (the record-voice replacement it used is accepted — H9).
+Measured: law suite 1680 of 1680 (a first run failed M552-1 — my clarification named his
+characters as an example, now neutral — and M195 — the record line had been allowed to vouch for its
+own fix; grounding is the originals only); DOM-M752-10..13 pass; lint 0 errors, 253 warnings. Not
+run: the whole DOM walk; a live provider; his tale.

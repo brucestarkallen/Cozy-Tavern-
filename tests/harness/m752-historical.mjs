@@ -165,12 +165,13 @@ test('M752-H3 A REPAIR THE HOUSE WOULD REFUSE IS SAID BACK IN THE CONVERSATION (
     eq(r.recovery + ' ' + r.open, 'repaired 0', 'the repair is made');
   });
   eq((await lineOf(s, 'rim')).text, 'On the rim road Vanessa told the story of the development scheme: donations in eleven minutes, Rias corrected her, chased the developer out.', 'in the record');
-  /* a replacement that is no words of the page: said back, then the page's words */
-  const t = await hisTale('the rim road, a paraphrase', ['rim']);
-  await withWire((said) => (/Replacement is not supported/.test(said) ? rimVerdict({ shown: RIGHT }) : rimVerdict({ shown: RIGHT, to: 'Rias, not Vanessa, said' })), async (wire) => {
+  /* a replacement that brings in a fact the originals do not give: said back, then set right (M752 followup 12: one in
+   * the record's own voice is made — M752-H9) */
+  const t = await hisTale('the rim road, a figure not given', ['rim']);
+  await withWire((said) => (/Replacement is not supported/.test(said) ? rimVerdict({ shown: RIGHT }) : rimVerdict({ shown: RIGHT, to: 'Rias said, in twelve minutes' })), async (wire) => {
     const r = await auditStretch({ connection: CONN, storyId: t.id });
     eq(wire.calls + ' ' + r.recovery, '2 repaired', 'said back once, then made');
-    assert(/"to" must be words an original supplied writes/.test(wire.asked[1]), 'with what a replacement must be');
+    assert(/"twelve" is not in the originals supplied/.test(wire.asked[1]) && /every name, place and number in it must be one the originals supplied give/.test(wire.asked[1]), 'with what a replacement must be: ' + wire.asked[1].slice(0, 600));
   });
   /* the honest exit its law offers: the claim is contradicted, and no edit in the originals' own words sets it right */
   const u = await hisTale('the rim road, no safe edit', ['rim']);
@@ -388,4 +389,48 @@ test('M752-H8 WHAT A VERDICT LEFT OUT IS THE ONE IT NAMES, AND A CONTRADICTED CL
     const r = await auditStretch({ connection: CONN, storyId: u.id });
     eq(wire.calls + ' ' + r.open, '3 1', 'said back twice, never settled');
   });
+});
+
+/* ---------- M752 (followup 12): a confirmed wrong record is repaired in its own voice ----------
+ * HIS (15 October 2026): "It's still yellow … The attribution error is real … no edit in the originals' exact words can
+ * set the attribution right … blocked as unsafe" — "give the auditor what's wrong, and whether it can debate it or not;
+ * if not, then green." */
+const RIM_RIGHT = 'On the rim road Vanessa told the story of the development scheme: donations in eleven minutes, Rias, not Vanessa, said, chased the developer out.';
+test('M752-H9 A CONFIRMED WRONG SPEAKER IS SET RIGHT IN THE RECORD’S OWN VOICE (the model agreed the record was wrong and could not repair it — the right words had to be the page’s, letter for letter, and the page has Rias say it in dialogue — so it was set aside “unsafe”, yellow for good): “she said” → “Rias, not Vanessa, said” is made in one call; a name or a number the originals do not give is still refused, said back by name; the keeper’s own audit takes the same rule; his correction, set aside so, is asked again once and repaired', async () => {
+  const { applyAuditFixes } = await import('../../js/agents/memory.js');
+  const line = 'Vanessa told it: donations in eleven minutes, she said.';
+  eq(applyAuditFixes(line, [{ from: 'she said', to: 'Rias, not Vanessa, said' }], RIM_ROAD).text, 'Vanessa told it: donations in eleven minutes, Rias, not Vanessa, said.', 'the keeper’s audit: in the line’s own voice');
+  eq(applyAuditFixes(line, [{ from: 'she said', to: 'Chloe, not Vanessa, said' }], RIM_ROAD).used.length, 0, 'a name the pages and the line do not give: refused');
+  eq(applyAuditFixes(line, [{ from: 'eleven', to: 'twelve' }], RIM_ROAD).used.length, 0, 'a number they do not give: refused');
+  const voice = rimVerdict({ shown: RIGHT_RIM, to: 'Rias, not Vanessa, said' });
+  const s = await hisTale('the rim road, in its own voice', ['rim']);
+  await withWire(() => voice, async (wire) => {
+    const r = await auditStretch({ connection: CONN, storyId: s.id });
+    eq(wire.calls + ' ' + r.recovery + ' ' + r.open, '1 repaired 0', 'one call, repaired');
+  });
+  eq((await lineOf(s, 'rim')).text, RIM_RIGHT, 'the record says who said it');
+  /* an invented name: said back by name, then set right */
+  const t = await hisTale('the rim road, a name not given', ['rim']);
+  await withWire((said) => (/"Chloe" is not in the originals supplied/.test(said) ? voice : rimVerdict({ shown: RIGHT_RIM, to: 'Chloe, not Vanessa, said' })), async (wire) => {
+    const r = await auditStretch({ connection: CONN, storyId: t.id });
+    eq(wire.calls + ' ' + r.recovery + ' ' + r.open, '2 repaired 0', 'said back once by name, then repaired');
+  });
+  /* his tale as it stands: set aside "unsafe" under the rule before — due again once, and repaired */
+  const h = await hisTale('the rim road, set aside unsafe', ['rim']);
+  const HIS = 'The attribution error is real: the original p52 shows Vanessa says "pitchforks" and Rias supplies "Donations... It took eleven minutes," while the record credits Vanessa with the donations and the eleven-minute figure. … so the fix is blocked as unsafe rather than rewritten.';
+  const unsafe = { ...rimVerdict({ shown: RIGHT_RIM }), outcome: 'blocked', blocker: 'unsafe', why: HIS };
+  delete unsafe.record;
+  await withWire(() => unsafe, async () => { await auditStretch({ connection: CONN, storyId: h.id }); });
+  const hm = await loadMemory(h.id);
+  const rec = hm.nodes.find((n) => n.id === 'rim').auditOpen[0].recovery;
+  eq(rec.status + ' ' + rec.sourceFidelity.status, 'blocked contradicted', 'fixture: set aside, the record found wrong');
+  delete rec.repairPolicy;
+  await saveMemory(h.id, hm);
+  eq(auditWaits(h.id, await loadMemory(h.id), await pagesOf(h)), 0, 'due again, once');
+  await withWire(() => voice, async (wire) => {
+    const r = await auditStretch({ connection: CONN, storyId: h.id });
+    eq(wire.calls + ' ' + r.recovery + ' ' + r.open, '1 repaired 0', 'one call, repaired');
+  });
+  eq((await lineOf(h, 'rim')).text, RIM_RIGHT, 'set right');
+  eq(await auditStretch({ connection: CONN, storyId: h.id }), null, 'nothing left to ask');
 });

@@ -49,6 +49,7 @@ import { loadState } from '../engine/state.js';
 import { mcName } from '../engine/duels.js';
 import { wholePage, roomChars } from '../engine/pagecut.js';
 import { renderCanon } from '../engine/canon.js'; /* M268: the brief and the locks for the checker */ /* M259: every page of a batch, read to its end; M265: the room */
+import { ungroundedWords } from '../engine/evidence.js'; /* M752 (followup 12): a repair in the record's own voice brings in no fact */
 import { pageRewritten } from './plans.js'; /* M681: a page whose words are put back is read again by the plans keeper */
 
 const KEY_PREFIX = 'memory:';
@@ -679,8 +680,8 @@ const AUDIT_SYSTEM = [
   'A WRONG FACT IS NOT A MISSING ONE. If the line states something the pages',
   'contradict — a wrong age, count, height, name, title or time — that is a',
   'FIX, not a detail. Give it as the line\'s own words and the words that',
-  'belong there instead. Both must appear exactly: the wrong words in the',
-  'line, the right ones in the pages.',
+  'belong there instead. The wrong words exactly as the line writes them; the',
+  'right ones in the line\'s own voice, every name and number as the pages give it.',
   '',
   'WRITE IT SO IT READS BESIDE THE LINE. The detail sits directly under the',
   'record line and is read with it, by a storyteller in the middle of a scene.',
@@ -738,8 +739,9 @@ export function parseAuditFixes(raw) {
 }
 
 /* A fix is applied only when it is provably safe: the wrong words really are
- * in the line, and the right words really are in the pages. Anything else is
- * the model rewriting the record, which it may not do. */
+ * in the line, and the right words really are in the pages — or (M752 followup 12)
+ * in the line's own voice, bringing in no name, place or number the pages do not
+ * give. Anything else is the model rewriting the record, which it may not do. */
 /* M675 — EVERY FIX IS READ AGAINST THE LINE AS IT STOOD, AND THEY LAND TOGETHER. They were applied one after another, each
  * to what the one before had left: two fixes that swap ("Renji" -> "Rukia" and "Rukia" -> "Renji", for a line that had
  * the two the wrong way round) turned "Renji handed Rukia the seal" into "Renji handed Renji the seal"; a chain
@@ -755,7 +757,10 @@ export function applyAuditFixes(lineText, fixes, sourceText) {
   for (const fix of (Array.isArray(fixes) ? fixes : [])) {
     if (!fix || typeof fix.from !== 'string' || !fix.from || typeof fix.to !== 'string') continue;
     if (!original.includes(fix.from)) continue;
-    if (!source.includes(fix.to.toLowerCase())) continue;
+    if (fix.from === fix.to) continue; /* a fix that changes nothing */
+    /* M752 (followup 12): the right words in the pages, or in the line's own voice with no name, place or number the pages
+     * do not give (evidence.js ungroundedWords) */
+    if (!source.includes(fix.to.toLowerCase()) && ungroundedWords(fix.to, sourceText).length) continue;
     const mine = [];
     for (let at = original.indexOf(fix.from); at !== -1; at = original.indexOf(fix.from, at + fix.from.length)) mine.push({ start: at, end: at + fix.from.length, to: fix.to });
     if (mine.some((m) => places.some((p) => m.start < p.end && p.start < m.end))) continue;

@@ -217,4 +217,29 @@ export function quoteDeparture(source, quote) {
   return { skipped: '', held: '', quoteGoesOn: words.join(' '), pageGoesOn: '' };
 }
 
+/* M752 (followup 12) — THE RIGHT WORDS, IN THE RECORD'S OWN VOICE. HIS (15 October 2026): "It's still yellow … The
+ * attribution error is real … no edit in the originals' exact words can set the attribution right … blocked as unsafe" —
+ * "give the auditor what's wrong, and whether it can debate it or not; if not, then green." A record line is a summary in
+ * its keeper's voice ("Vanessa told the story … donations in eleven minutes, she said"), and every repair of it had to be
+ * words the page itself writes, letter for letter: the page has Rias say it in dialogue ("Donations … It took eleven
+ * minutes"), which no third-person line can take as it stands, so a confirmed wrong speaker could never be set right and
+ * the light stayed yellow for good. What a repair must not do is bring in a fact: a name, a place, a title, a number. So
+ * the right words may be in the record's own voice, and every such word in them — one with a capital or a digit, a number
+ * written out — must be one the originals already give (a possessive "'s" aside; never the disputed record itself, which
+ * cannot vouch for its own fix). The words of the replacement that are such a fact and not found there: [] when it brings
+ * in none. Pure. */
+const NUMBER_WORD = /^(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|billion|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|eleventh|twelfth|half|dozen|twice|thrice)$/i;
+export function ungroundedWords(replacement, ...grounds) {
+  const plainWord = (w) => w.toLowerCase().replace(/'s$/, '');
+  const known = new Set();
+  for (const g of grounds) for (const x of wordsWithPlaces(g)) known.add(plainWord(x.w));
+  const out = [];
+  for (const x of wordsWithPlaces(replacement)) {
+    const w = x.w;
+    const fact = /\d/.test(w) || /^\p{Lu}/u.test(w) || NUMBER_WORD.test(w);
+    if (fact && !known.has(plainWord(w)) && !out.includes(w)) out.push(w);
+  }
+  return out;
+}
+
 export const WRITER_FACTS = 'The writer’s explicit names, ranks, relations and biographies are story facts, even if the reply uses pronouns or omits them. Keep exact names and roles; invent no surname or rank. Read actions in both messages in order: a later departure still wins. Dialogue can establish an identity without placing its speaker’s subject nearby. Questions, wishes, hypotheticals and requests are not completed events. A person deliberately introduced by the writer gets a People page even if absent or quiet; an unnamed extra does not.';

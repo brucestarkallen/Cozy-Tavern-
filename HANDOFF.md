@@ -7,7 +7,7 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m752-011 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
+- Version m752-012 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
   m752-002 lets go, when a tale opens, a persona the old rule made of an ordinary
   sentence; m752-003 makes the notes say when they have not read the newest page;
   m752-004 settles the continuous audit's historical corrections instead of
@@ -25,7 +25,9 @@ older files sit beside it). Search them with
   still yellow and why (chat.js yellowCheckNow; DOM-M752-13); m752-011: the continuous audit
   reads a verdict for what it says, as the housekeeper reads an edit — quotes held word by
   word (punctuation aside), the page's own passage given back when a word differs, and
-  "supported but the record does not preserve it" read as a contradiction to repair (below).
+  "supported but the record does not preserve it" read as a contradiction to repair (below);
+  m752-012: a record found wrong is repaired in its own voice — the right name or figure where
+  the wrong one stands, every name and number from the pages (below).
 - Measured on m752-004: the law suite 1670 of 1670, the DOM walk 316 of 316, lint 0
   errors (253 warnings, as before). Chromium at 390 px: the new button wraps with the
   others, no page or panel overflow. On m752-001: tests/m739_ui.py and
@@ -57,6 +59,13 @@ older files sit beside it). Search them with
   (evidence.js wordSpan; continuous.js readVerdict): the quote is the page's words, the
   verdict a contradiction, and the line is repaired. Blocked by the reading before,
   it is asked again once by itself (VERDICT_POLICY 3; laws M752-H6..H8).
+- His fifth (m752-012): the model agreed the donations line is wrong (Rias says it, not
+  Vanessa) and could not repair it, because a repair's right words had to be the page's,
+  letter for letter, and the page has it as Rias's dialogue; it was set aside "unsafe", yellow
+  for good. Now a repair may be in the record line's own voice ("she said" → "Rias, not
+  Vanessa, said"), provided every name, place and number in it is one the pages give; the
+  keeper's own audit, the continuous audit's reading and its recovery share that one rule.
+  His correction is asked again once by itself (REPAIR_POLICY; law M752-H9).
 - Still yellow, on purpose: a correction whose answer says its sources do not settle
   it (with the specific reason), whose line is his, or for which no edit in the
   originals' own words can set it right (blocker "unsafe", with its reason); and one whose

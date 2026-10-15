@@ -236,7 +236,12 @@ Keep these; each has a law that fails without it:
   one its verdict names; "supported" with preservesAssertion false for the same person and
   moment is a contradicted record; a contradicted claim's listed conflicts are its evidence; an
   explicit false or null is never read away. VERDICT_POLICY is exported; a fixture of a spent
-  recovery reads it, never a number.
+  recovery reads it, never a number. A repair's right words may be in the record line's own
+  voice; every name, place and number in them must be one the originals give, never the
+  disputed record (evidence.js ungroundedWords) — one rule for the keeper's audit
+  (memory.js applyAuditFixes), the continuous audit's reading and its recovery
+  (recordRepairPlan). A correction set aside under the letter-for-letter rule is asked again
+  once (REPAIR_POLICY, exported).
   A page named with its context, "p94 (#8793a1, the court, …)", is that page (housekeeper.js
   decoratedRef). "Manual continuous audit" asks again by hand, with the switch off too
   (chat.js continuousAuditNow, continuous.js freshTryForCorrections).
