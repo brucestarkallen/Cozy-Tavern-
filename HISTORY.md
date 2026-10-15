@@ -21571,3 +21571,19 @@ Measured: on a synthetic 632-page ledger (750 KB), the names for 120 checkpoints
 ledger the branch opens on 3.6 s, once per branch (node, this machine). Law suite 1685 of 1685; DOM
 walk 320 of 320; lint 0 errors, 253 warnings. Not run: a live provider; his tale (his branch's
 existing receipts are reused at its next audit by the same-text rule).
+
+## M752 followup 16 (m752-016): "Restart choices"
+
+The owner (15 October 2026): "give choice matter restart choice means give new choices but don't give
+the previous choice (blind new) just precaution if something is wrong". Under the choices stands
+"Restart choices" (chat.js restartChoices, drawn by drawChoices): the choices open on the newest page
+are let go — kept nowhere — and the helper is asked afresh from the page, exactly as the first time;
+it never sees an earlier offer (the kept storyteller request and the pages never carried one; the
+echoes are only choices he took). Only while he has not moved since they were sealed; a double press
+asks once; while the storyteller writes it waits. One helper call.
+Law DOM-M752-17 (three choices; Restart: asked once more, its question holds none of the old labels,
+moves or outcomes beyond the rules' own examples; the new two stand; one tapped goes as his) fails
+on m752-015 and passes. Chromium at 320/390/760 px, default, Academy and Neon Tokyo coats: the
+button sits centred under the choices, inside the row, 32 px tall, no page overflow.
+Measured: law suite 1685 of 1685; DOM walk 321 of 321; lint 0 errors, 253 warnings. Not run: a live
+provider.

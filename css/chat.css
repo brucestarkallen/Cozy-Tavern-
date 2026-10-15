@@ -1089,6 +1089,8 @@ body.panel-resizing .story-panel, body.panel-resizing .panel-resize { user-selec
 }
 .choice-btn:hover, .choice-btn:focus-visible { border-color: var(--ember); outline: none; }
 .choice-btn:active { transform: scale(0.98); }
+/* M752 (followup 16): "Restart choices" — under the choices, across the row, quieter than they are */
+.choice-restart { grid-column: 1 / -1; justify-self: center; min-height: 32px; font-size: 0.85em; color: var(--muted); padding: 6px 14px; }
 
 /* A6: the read-only notice (another tab holds the pen). */
 .read-only-notice {

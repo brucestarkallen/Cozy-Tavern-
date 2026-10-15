@@ -2587,6 +2587,13 @@ export function initChat(ctx) {
         b.addEventListener('click', () => { takeChoice(open.page, k); });
         row.appendChild(b);
       });
+      /* M752 (followup 16): "Restart choices" — new choices for this page, sealed blind */
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.className = 'text-btn choice-restart';
+      again.textContent = 'Restart choices';
+      again.addEventListener('click', () => { restartChoices(open.page); });
+      row.appendChild(again);
       row.hidden = false;
     } catch (err) { hide(); }
   }
@@ -2609,6 +2616,29 @@ export function initChat(ctx) {
     const draft = els.input.value;
     await send(taken.move, { choiceTaken: taken });
     if (draft && !els.input.value) els.input.value = draft;
+  }
+  /* M752 (followup 16) — HIS (15 October 2026): "give choice matter restart choice means give new choices but don't give the
+   * previous choice (blind new) just precaution if something is wrong". The choices standing on the newest page are let go
+   * unseen — none of their names, moves or outcomes are kept anywhere or handed on — and the helper is asked afresh, from the
+   * page itself, exactly as it was the first time (offerChoices: it is never shown an earlier offer). Only while he has not
+   * moved since they were sealed; a choice he took keeps its seal on his move. */
+  let restartingChoices = false;
+  async function restartChoices(page) {
+    if (restartingChoices || takingChoice) return;
+    if (busy) { toast('The storyteller is still busy — one moment.'); return; }
+    restartingChoices = true;
+    if (els.choiceRow) els.choiceRow.hidden = true;
+    try {
+      const story = await activeStory();
+      if (!story || !choicesOn(story)) return;
+      const open = openOffer(await db.messages.list(story.id));
+      if (!open || open.page.id !== page.id || versionOf(open.page) !== versionOf(page)) return;
+      const next = { ...(open.page.choiceOffer || {}) };
+      delete next[String(versionOf(open.page))];
+      await db.messages.update(story.id, open.page.id, { choiceOffer: next });
+      toast('New choices are being sealed — the old ones are gone unseen.');
+      offerChoices(story);
+    } catch (err) { /* never worth a page */ } finally { restartingChoices = false; drawChoices(); }
   }
 
   /* M547: THE SMART RECALL'S QUESTION (M510-50), asked for any storyteller — never throws; [] when it is off, when the

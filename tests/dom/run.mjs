@@ -16701,5 +16701,48 @@ test('DOM-M752-16 A BRANCH KEEPS WHAT THE AUDITOR PAID FOR (HIS, 15 October 2026
   }
 });
 
+test('DOM-M752-17 “RESTART CHOICES” (HIS, 15 October 2026: “give choice matter restart choice means give new choices but don’t give the previous choice (blind new) just precaution if something is wrong”): under the choices, a press lets them go and the helper is asked afresh — shown none of their names, moves or outcomes — and the new ones stand; a tapped one goes as his', async () => {
+  const before = errors.length;
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const { st, H } = await choicesTale('choices asked again');
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  const AGAIN = { turning: true, choices: [
+    { label: 'Bow to him', move: 'I bow to Kaelen and step back.', outcome: 'Kaelen bows back, stiffly.', echoes: [] },
+    { label: 'Ask for the captain', move: 'I ask Kaelen where the captain is.', outcome: 'Kaelen says the captain is watching.', echoes: [] },
+  ] };
+  const asks = [];
+  house.state.workerAnswer = (body, sys) => {
+    if (TURNING_SYS.test(String(sys || ''))) { asks.push(JSON.stringify(body)); return JSON.stringify(asks.length === 1 ? SEALED : AGAIN); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}');
+  };
+  house.state.storyAnswer = () => H(41) + 'Kaelen nodded once.';
+  try {
+    await db.stories.update(st.id, { choices: true });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await env.ctx.chat.choicesChanged();
+    await until(() => qa('#choice-row .choice-btn').length === 3, 'the first choices stand', 20000);
+    const restart = q('#choice-row .choice-restart');
+    assert(restart && restart.textContent === 'Restart choices', 'the button, by his name, under the choices');
+    click(restart);
+    await until(() => qa('#choice-row .choice-btn').length === 2, 'new choices stand', 20000);
+    eq(asks.length, 2, 'the helper was asked once more');
+    eq(qa('#choice-row .choice-btn').map((b) => b.textContent).join(' | '), 'Bow to him | Ask for the captain', 'the new ones, by name');
+    /* (the rules' own examples — "Walk away" — were in the first question too, before any choice existed) */
+    const blind = SEALED.choices.flatMap((c) => [c.label, c.move, c.outcome]).filter((w) => asks[1].includes(w) && !asks[0].includes(w));
+    eq(blind.join(' | '), '', 'the helper was shown none of the old choices');
+    const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    assert(!JSON.stringify(page.choiceOffer).includes('spins across the stones'), 'the old ones are kept nowhere');
+    click(qa('#choice-row .choice-btn')[0]);
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'user').pop().text === 'I bow to Kaelen and step back.', 'a new one goes as his', 30000);
+    await until(() => !env.ctx.chat.isBusy(), 'the page', 30000);
+    eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

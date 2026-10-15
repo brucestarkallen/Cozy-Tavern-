@@ -261,6 +261,8 @@ Keep these; each has a law that fails without it:
   outcome before he takes it. "Choices are written as" I or You (story.choicesVoice, "I" unless
   set) is how each move is written; open choices sealed in the other voice are sealed again
   (chat.js choicesInOtherVoice); a call for the other voice still out writes nothing.
+  "Restart choices" (chat.js restartChoices) lets the open choices go, kept nowhere, and asks
+  afresh; the helper is never shown an earlier offer.
 - A branch keeps what the auditor paid for: its ledger, checkpoints and versions name the copies
   (auditprogress.js branchAuditBooks, chat.js branchForUpdate); approvals and completion keys
   move only where they were the parent's for the same pages. A receipt for the same text (kind,
