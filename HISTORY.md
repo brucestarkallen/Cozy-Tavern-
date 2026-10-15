@@ -21636,3 +21636,19 @@ inside the row, no page overflow (a long 503 is 100 px tall at 390 px).
 Measured: law suite 1686 of 1686; DOM walk 323 of 323 (before the 160-character cut, which
 M752-CH4 and DOM-M752-19 then passed again); lint 0 errors, 253 warnings. Not run: a live provider;
 his tale.
+
+## M752 followup 19 (m752-019): a page with no choices can be asked again
+
+The owner (15 October 2026): "If it's already gone how to restart the choice there are no
+button???????" m752-018 showed "Restart choices" with standing choices, after a failure (kept in
+memory only, gone on reload) and after a restart answered "no turning point" — but a page the
+helper found quiet by itself showed nothing, and so did his page: a restart on m752-017 answered
+"no turning point" was kept without the restart mark. No button, and no way to ask again. Now any
+quiet newest page says "No turning point on this page — no choices." with "Restart choices"; the
+restart mark is gone (the row no longer depends on how the answer came). A page with no answer at
+all is asked when the tale opens, as before, and the row says so while it is. DOM-197's quiet page
+now reads that line and the button instead of an empty row (the old expectation was the bug he
+reported). Law DOM-M752-20 (fails on m752-018: "waited too long for a quiet page says so").
+Chromium 320/390/760 px, three coats: the line and the button inside the row, no overflow.
+Measured: law suite 1686 of 1686; DOM walk 324 of 324; lint 0 errors, 253 warnings. Not run: a live
+provider; his tale.

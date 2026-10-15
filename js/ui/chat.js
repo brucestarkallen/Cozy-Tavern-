@@ -2401,7 +2401,7 @@ export function initChat(ctx) {
   const choiceWork = new Map(); /* story id → { key, pageId, version, phase: 'readers' | 'asking' } while it is asked */
   const choiceTrouble = new Map(); /* story id → { pageId, version, why } — the last asking for that page failed */
   const choiceRowFor = (sid) => { if (ctx.getActiveStoryId() === sid) drawChoices(); };
-  async function offerChoices(storyIn, { restarted = false } = {}) {
+  async function offerChoices(storyIn) {
     const sid = storyIn && storyIn.id;
     if (!sid) return;
     let key = '';
@@ -2460,8 +2460,7 @@ export function initChat(ctx) {
       const fresh = visiblePages(await db.messages.list(sid)).filter((m) => m && !m.hidden && !m.ooc);
       const tail = fresh[fresh.length - 1];
       if (!tail || tail.id !== last.id || versionOf(tail) !== versionOf(last) || offerOf(tail)) return;
-      /* a fresh answer of no turning point, to his own "Restart choices", is kept as such: the row says so (drawChoices) */
-      await db.messages.update(sid, last.id, offerPatch(tail, read.turning ? { ...read, voice, at: Date.now() } : { ...read, ...(restarted ? { restarted: true } : {}), at: Date.now() }));
+      await db.messages.update(sid, last.id, offerPatch(tail, read.turning ? { ...read, voice, at: Date.now() } : { ...read, at: Date.now() }));
       if (ctx.getActiveStoryId() === sid) drawChoices();
     } catch (err) { failed = 'something went wrong while asking: ' + String((err && err.message) || err).replace(/[.\s]+$/u, ''); } finally {
       if (key && choicesAsking.get(sid) === key) choicesAsking.delete(sid);
@@ -2625,18 +2624,24 @@ export function initChat(ctx) {
         } else if (!offer && trouble && trouble.pageId === last.id && trouble.version === v) {
           words = 'No choices for this page — ' + trouble.why + (/[.…!?]$/u.test(trouble.why) ? '' : '.');
           again = true;
-        } else if (offer && offer.turning === false && offer.restarted === true) {
-          words = 'No turning point on this page this time — the helper offered no choices.';
+        } else if (offer && offer.turning === false) {
+          /* M752 (followup 20) — HIS: "If it's already gone how to restart the choice there are no button???????" A page the
+           * helper found quiet showed nothing at all, so choices he had let go (and a page he thinks deserves them) could
+           * never be asked for again. The answer is said, with the button that asks afresh. */
+          words = 'No turning point on this page — no choices.';
           again = true;
         }
         if (!words) return hide();
         row.textContent = '';
+        const line = document.createElement('div');
+        line.className = 'choice-line';
         const said = document.createElement('p');
         said.className = 'choice-note';
         said.setAttribute('role', 'status');
         said.textContent = words;
-        row.appendChild(said);
-        if (again) row.appendChild(restartButton(last));
+        line.appendChild(said);
+        if (again) line.appendChild(restartButton(last));
+        row.appendChild(line);
         row.hidden = false;
         return;
       }
@@ -2688,8 +2693,8 @@ export function initChat(ctx) {
     try {
       const story = await activeStory();
       if (!story || !choicesOn(story)) return;
-      /* M752 (followup 19): the newest page — with choices standing, or with none after it was asked (a failure, no turning
-       * point): "Restart choices" asks again for it either way, while he has not moved since */
+      /* M752 (followups 19, 20): the newest page — with choices standing, or with none after it was asked (a failure, no
+       * turning point): "Restart choices" asks again for it either way, while he has not moved since */
       const told = (await db.messages.list(story.id)).filter((m) => m && !m.hidden && !m.ooc);
       const last = told[told.length - 1];
       if (!last || last.role !== 'assistant' || last.id !== page.id || versionOf(last) !== versionOf(page)) return;
@@ -2705,7 +2710,7 @@ export function initChat(ctx) {
       if (had) await db.messages.update(story.id, last.id, { choiceOffer: next });
       choiceTrouble.delete(story.id);
       toast(openOffer([last]) ? 'New choices are being sealed — the old ones are gone unseen.' : 'New choices are being sealed.');
-      offerChoices(story, { restarted: true });
+      offerChoices(story);
     } catch (err) { /* never worth a page */ } finally { restartingChoices = false; drawChoices(); }
   }
 

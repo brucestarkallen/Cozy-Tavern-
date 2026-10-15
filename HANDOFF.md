@@ -7,7 +7,7 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m752-018 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
+- Version m752-019 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
   m752-002 lets go, when a tale opens, a persona the old rule made of an ordinary
   sentence; m752-003 makes the notes say when they have not read the newest page;
   m752-004 settles the continuous audit's historical corrections instead of
@@ -37,7 +37,8 @@ older files sit beside it). Search them with
   m752-016: "Restart choices" under the choices — new ones sealed blind (DOM-M752-17);
   m752-017: the automatic audit starts as soon as the house is idle (DOM-M752-18);
   m752-018: Choices matter says what it is doing — sealing, waiting for the page's readers,
-  or why there are no choices, with "Restart choices" to ask again (DOM-M752-19).
+  or why there are no choices, with "Restart choices" to ask again (DOM-M752-19); m752-019:
+  a page the helper found quiet says so, with "Restart choices" (DOM-M752-20).
 - Measured on m752-013: the law suite 1682 of 1682, the DOM walk 318 of 318 (a first
   walk was red once on DOM-263, a fixture race present on m752-008 too, fixed — below),
   lint 0 errors (253 warnings, as before). On m752-004: Chromium at 390 px, the new
@@ -61,8 +62,9 @@ older files sit beside it). Search them with
   while its readers are out (up to ten minutes, M680). A helper that gives none says why —
   its call failed (with what the provider said), its answer could not be read, it was
   outwaited, no connection — with "Restart choices" to ask again by hand; a restart answered
-  "no turning point" says so too (kept on the page as restarted). A quiet page asked by the
-  house itself still shows nothing. A restart during a fight is refused with a toast.
+  "no turning point" says so too. Since m752-019 every quiet page on the newest page says "No
+  turning point on this page — no choices." with "Restart choices" (choices he let go could not
+  be asked for again before). A restart during a fight is refused with a toast.
 - Branches and the auditor (m752-015): a source section is named by its page's id, and a
   branch copies every page under a new id, so a branch of his long tale found none of the
   auditor's receipts and read the whole tale again ("278 original source sections still need

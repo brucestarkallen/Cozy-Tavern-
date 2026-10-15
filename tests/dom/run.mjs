@@ -12454,7 +12454,10 @@ test('DOM-197 CHOICES MATTER, THROUGH THE APP (M548 — his ask: "like Detroit: 
     const choiceRow = page.receipt.slots.find((x) => x.name === 'Your choice');
     assert(choiceRow && choiceRow.tokens > 0, 'its receipt row');
     assert(/you took a choice/.test(page.receipt.slots.find((x) => x.name === 'The house has ruled').reason), 'and why the referee did not rule');
-    assert(q('#choice-row').hidden, 'the new page has no turning point: nothing stands');
+    /* M752 (followup 20): no choice stands — the row says the page has no turning point, with the button that asks afresh */
+    await until(() => !q('#choice-row').hidden && /No turning point on this page/.test(q('#choice-row').textContent), 'the new page has no turning point: the row says so', 20000);
+    eq(qa('#choice-row .choice-btn').length, 0, 'no choice stands');
+    assert(q('#choice-row .choice-restart'), 'and “Restart choices” is there to ask again');
     /* Try again keeps the seal */
     const fromTry = house.state.calls.length;
     await tellerIdle();
@@ -16801,6 +16804,36 @@ test('DOM-M752-19 CHOICES SAY WHAT THEY ARE DOING (HIS, 15 October 2026: “i ju
   } finally {
     if (held) held.resolve('{}');
     house.state.fail = null;
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+});
+
+test('DOM-M752-20 A PAGE WITH NO CHOICES CAN BE ASKED AGAIN (HIS, 15 October 2026: “If it’s already gone how to restart the choice there are no button???????”): a page the helper found quiet by itself — as his was, after the choices he let go — shows that it has no turning point, with “Restart choices”; pressed, the helper is asked afresh and the new choices stand', async () => {
+  const before = errors.length;
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const { st } = await choicesTale('choices asked for again');
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  let asks = 0;
+  house.state.workerAnswer = (body, sys) => {
+    if (TURNING_SYS.test(String(sys || ''))) { asks += 1; return JSON.stringify(asks === 1 ? { turning: false } : SEALED); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}');
+  };
+  try {
+    await db.stories.update(st.id, { choices: true });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await env.ctx.chat.choicesChanged();
+    await until(() => !q('#choice-row').hidden && /No turning point on this page/.test(q('#choice-row').textContent), 'a quiet page says so', 20000);
+    eq(asks, 1, 'asked once, by the house');
+    const again = q('#choice-row .choice-restart');
+    assert(again && again.textContent === 'Restart choices', 'with the button, by his name');
+    click(again);
+    await until(() => qa('#choice-row .choice-btn').length === 3, 'asked afresh, the choices stand', 20000);
+    eq(asks, 2, 'asked once more');
+    eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+  } finally {
     house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
     await db.stories.remove(st.id).catch(() => {});
     await env.ctx.chat.refreshStories(true).catch(() => {});
