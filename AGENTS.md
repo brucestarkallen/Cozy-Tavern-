@@ -258,7 +258,9 @@ Keep these; each has a law that fails without it:
   smaller room, the oldest turns go first, never the preset or the newest page. The story's
   summary (with the cast notes) only when no request is kept (choices.js choiceAskWhole,
   chat.js offerChoices). It never sees which choice he takes; the storyteller never sees an
-  outcome before he takes it.
+  outcome before he takes it. "Choices are written as" I or You (story.choicesVoice, "I" unless
+  set) is how each move is written; open choices sealed in the other voice are sealed again
+  (chat.js choicesInOtherVoice); a call for the other voice still out writes nothing.
 - A setting read while its own write is under way is the value being written (store.js settingsWrites): a tap's
   write is never waited for, and a redraw on its way must not read the value from before it.
 - Every law runs in the suite: a new harness file is imported by tests/harness/run.mjs,

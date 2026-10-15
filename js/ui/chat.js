@@ -100,7 +100,7 @@ import { pickRecall, knownTail, PICK_KNOWN_CHARS } from '../agents/recallpick.js
 import { throughLens, overlayFor } from '../agents/canonlens.js'; /* M549: the wiki's lines, seen through his story */
 import { wikiMaterial, worldClaims, worldWithout, claimsPrint, checkClaims } from '../agents/canoncheck.js'; /* M551: one check for what a helper wrote from memory */
 import { GROUND_RULES } from '../agents/worldground.js'; /* M549 */
-import { choicesOn, choiceAsk, choiceAskWhole, makeChoices, offerOf, offerPatch, openOffer, takenRecord, takenOf, echoLines, echoesText, versionOf, CHOICE_PAGES, CHOICE_MAX_TOKENS } from '../agents/choices.js'; /* M548: Choices matter */
+import { choicesOn, choicesVoice, choiceAsk, choiceAskWhole, makeChoices, offerOf, offerPatch, openOffer, takenRecord, takenOf, echoLines, echoesText, versionOf, CHOICE_PAGES, CHOICE_MAX_TOKENS } from '../agents/choices.js'; /* M548: Choices matter */
 import { runPlans, loadPlansBook, pageRewritten, pageLeft, pageCameBack } from '../agents/plans.js'; /* M510-22: the plans, kept whole until carried out; M528: a rewritten page read again; M681 (B2): a page that leaves or comes back */
 import { lastPagesOf, SMALL_PAGES } from '../assemble/stack.js'; /* M510 */
 import { voiceSampleOf, pageTexture, tooLoud as tooLoudNow } from '../assemble/smallprose.js'; /* M512: how the story sounds at its best, for a small storyteller; M519: the brake on sounds and dashes */
@@ -2399,14 +2399,15 @@ export function initChat(ctx) {
     try {
       const story = await db.stories.get(sid);
       if (!choicesOn(story)) return;
+      const voice = choicesVoice(story); /* M752 (followup 14): "I" or "You" — how its moves are written */
       const told = visiblePages(await db.messages.list(sid)).filter((m) => m && !m.hidden && !m.ooc);
       const last = told[told.length - 1];
       /* M552 (the audit): a page he stopped mid-way ends nowhere — no turning point is read into half a page */
       if (!last || last.role !== 'assistant' || last.stopped || !pageText(last).trim() || offerOf(last)) return;
       /* M552 (the audit): the page is claimed BEFORE any wait — two callers at once (a page landing and a story opening) both
        * passed the check while the other was still reading the ledger, and the helper was asked twice */
-      if (choicesAsking.get(sid) === last.id + ':' + versionOf(last)) return;
-      key = last.id + ':' + versionOf(last);
+      if (choicesAsking.get(sid) === last.id + ':' + versionOf(last) + ':' + voice) return;
+      key = last.id + ':' + versionOf(last) + ':' + voice; /* a call for the other voice, still out, writes nothing (below) */
       choicesAsking.set(sid, key);
       /* M680 (the books audit): THE CHOICES ARE MADE FROM THE LEDGER AS THIS PAGE LEFT IT. They were asked for the moment
        * the page landed — before its own readers had written who is here, what was learned, who stands where — so the
@@ -2429,23 +2430,23 @@ export function initChat(ctx) {
       const sentId = (version && version.receipt && version.receipt.sentId) || (last.receipt && last.receipt.sentId) || '';
       const sent = sentId ? await loadSentOrPull(sentId, sid) : null;
       const kept = sent && Array.isArray(sent.requests) && sent.requests[0] ? sent.requests[0].body : null;
-      let ask = choiceAskWhole({ pkg: packageFromRequest(kept), newest: pageText(last), mc: mcName(state), echoes: echoLines(told), facts, room: roomChars(connection, CHOICE_MAX_TOKENS) });
+      let ask = choiceAskWhole({ pkg: packageFromRequest(kept), newest: pageText(last), mc: mcName(state), echoes: echoLines(told), facts, room: roomChars(connection, CHOICE_MAX_TOKENS), voice });
       if (!ask) {
         const people = (planPeople(state, { recentPages: recentText, rotation: told.length, view: planPeopleView(big), brief: String(story.brief || '') + '\n' + String(story.castNotes || '') }) || {}).text || '';
         const record = wholeRecord(await loadMemory(sid), Math.floor(roomChars(connection) * 0.35)); /* M750: the record itself — the Essentials are retired */
         const before = lastPagesOf(told.slice(0, -1), CHOICE_PAGES).map((m) => (m.role === 'user' ? 'The writer: ' : '') + pageText(m));
-        ask = choiceAsk({ brief: story.brief || '', castNotes: story.castNotes || '', record, facts, people, pages: before, newest: pageText(last), mc: mcName(state), echoes: echoLines(told) });
+        ask = choiceAsk({ brief: story.brief || '', castNotes: story.castNotes || '', record, facts, people, pages: before, newest: pageText(last), mc: mcName(state), echoes: echoLines(told), voice });
       }
       const w = workerSignal(); /* every helper's own ceiling: a call that hangs is let go, never waited on */
       let read = null;
       try { read = await makeChoices({ connection, ask, signal: w.signal }); } finally { w.done(); }
       if (!read) return;
       const now = await db.stories.get(sid);
-      if (!choicesOn(now)) return;
+      if (!choicesOn(now) || choicesVoice(now) !== voice) return;
       const fresh = visiblePages(await db.messages.list(sid)).filter((m) => m && !m.hidden && !m.ooc);
       const tail = fresh[fresh.length - 1];
       if (!tail || tail.id !== last.id || versionOf(tail) !== versionOf(last) || offerOf(tail)) return;
-      await db.messages.update(sid, last.id, offerPatch(tail, { ...read, at: Date.now() }));
+      await db.messages.update(sid, last.id, offerPatch(tail, read.turning ? { ...read, voice, at: Date.now() } : { ...read, at: Date.now() }));
       if (ctx.getActiveStoryId() === sid) drawChoices();
     } catch (err) { /* a choice is never worth a page */ } finally {
       if (key && choicesAsking.get(sid) === key) choicesAsking.delete(sid);
@@ -2548,6 +2549,18 @@ export function initChat(ctx) {
       await db.messages.update(story.id, pageId, { choiceOffer: next });
       await drawChoices();
       offerChoices(story);
+    } catch (err) { /* never worth a page */ }
+  }
+  /* M752 (followup 14): "I" or "You" CHANGED — choices still open on the newest page, sealed in the other voice, are let go
+   * and sealed again in his (as an edited page's are, above): tapped, their move would have gone in the voice he had just
+   * turned away from. He has not moved since they were sealed, so nothing of his is touched; a quiet page has no moves. */
+  async function choicesInOtherVoice(story) {
+    try {
+      const open = openOffer(await db.messages.list(story.id));
+      if (!open || (open.offer.voice === 'you' ? 'you' : 'i') === choicesVoice(story)) return;
+      const next = { ...(open.page.choiceOffer || {}) };
+      delete next[String(versionOf(open.page))];
+      await db.messages.update(story.id, open.page.id, { choiceOffer: next });
     } catch (err) { /* never worth a page */ }
   }
   /* DRAW: only their names, above where he types — on the newest page of the story, with no move of his after it, while
@@ -8742,6 +8755,7 @@ export function initChat(ctx) {
     'workerConnections', 'mend', 'audit', 'worldAgent',
     'briefMode', /* M517: Manual or Automatic */
     'choices', /* M548: Choices matter — the switch goes with the tale; the choices themselves ride on its pages */
+    'choicesVoice', /* M752 (followup 14): and how its moves are written, "I" or "You" */
   ];
 
   function branchFrom(messageId) { return ctx.updates ? ctx.updates.run(() => branchForUpdate(messageId)) : branchForUpdate(messageId); }
@@ -9853,7 +9867,7 @@ export function initChat(ctx) {
     canonTest, /* M386 */
     isBusy: () => Boolean(busy),
     hasDraft: () => Boolean(els.input.value || pendingImage || pendingFile),
-    choicesChanged: async () => { const st = await activeStory(); if (st) offerChoices(st); await drawChoices(); }, /* M548: Settings → Choices matter */
+    choicesChanged: async () => { const st = await activeStory(); if (st) { await choicesInOtherVoice(st); offerChoices(st); } await drawChoices(); }, /* M548: Settings → Choices matter; M752 (followup 14): and "I" or "You" */
     /* M673: Settings → Continuous audit. Off: a reading in flight is let go. Either way the light looks again (on, it sends the first reading). */
     continuousAuditChanged: async () => { const id = ctx.getActiveStoryId(); if (!id) return; if (!(await continuousAuditOn())) pauseContinuousAudit(id); markLedgerTrouble(id); },
     isReplaying,

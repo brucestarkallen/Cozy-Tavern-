@@ -16580,5 +16580,69 @@ test('DOM-M752-14 CHOICES MATTER IS HANDED THE WHOLE OF WHAT THE STORYTELLER SAW
   }
 });
 
+test('DOM-M752-15 “I” OR “YOU” FOR CHOICES MATTER (HIS, 15 October 2026: “add you or I setting for choice matter so it’s not always I do x but you do x”): Settings → Choices matter → “Choices are written as”; choices open on the newest page, sealed in “I”, are sealed again in “You” when he picks it — the helper told to write the move as “you” — and a tapped choice goes as his in that voice; a branch keeps it', async () => {
+  const before = errors.length;
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const { st, H } = await choicesTale('choices in my voice');
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  const YOU = { turning: true, choices: [
+    { label: 'Tell him to stop', move: 'You tell Kaelen to put the sword down.', outcome: 'Kaelen laughs and lowers it.', echoes: [] },
+    { label: 'Draw on him', move: 'You try to disarm Kaelen with a feint low.', outcome: 'Kaelen sees the feint coming.', echoes: [] },
+  ] };
+  const questions = [];
+  house.state.workerAnswer = (body, sys) => {
+    if (TURNING_SYS.test(String(sys || ''))) { const you = /the second person/.test(String(sys)); questions.push(you ? 'you' : 'i'); return JSON.stringify(you ? YOU : SEALED); }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}');
+  };
+  house.state.storyAnswer = () => H(40) + 'Kaelen waited, the sword low.';
+  let branchId = null;
+  try {
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    /* Settings opened afresh for this tale: an earlier scenario of the whole walk left it open on another tale (its switch
+     * on), openSettings then did not open it again, nothing filled it for this one, and the tap switched it off */
+    await closeSettings();
+    await openSettings();
+    await until(() => !q('#choices-story').disabled && !q('#choices-story').checked && q('#choices-voice-i').checked && !q('#choices-voice-you').checked, '“I”, as it shipped, with the switch off, for this tale', 20000);
+    click(q('#choices-story'));
+    await until(async () => ((await db.stories.get(st.id)) || {}).choices === true, 'switched on');
+    await until(() => qa('#choice-row .choice-btn').length === 3, 'choices sealed in “I”', 20000);
+    eq(questions.join(','), 'i', 'the helper was told the first person');
+    /* he picks “You” */
+    click(q('#choices-voice-you'));
+    await until(async () => ((await db.stories.get(st.id)) || {}).choicesVoice === 'you', 'kept for the story');
+    await until(() => qa('#choice-row .choice-btn').length === 2, 'the open choices sealed again in “You”', 20000);
+    eq(questions.join(','), 'i,you', 'asked again, told the second person');
+    const page = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').pop();
+    const sealed = Object.values(page.choiceOffer || {}).find((o) => o && o.turning);
+    eq(sealed && sealed.voice, 'you', 'the seal says its voice');
+    await closeSettings();
+    /* reopened, Settings shows it */
+    await openSettings();
+    await until(() => q('#choices-voice-you').checked && !q('#choices-voice-i').checked, 'Settings shows “You”', 20000);
+    await closeSettings();
+    /* he taps one: it goes in his voice */
+    click(qa('#choice-row .choice-btn')[1]);
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'user').pop().text === 'You try to disarm Kaelen with a feint low.', 'its move went as his, in “You”', 30000);
+    await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the page and its readers', 40000);
+    /* a branch keeps it */
+    const storiesBefore = (await db.stories.list()).length;
+    await showAllPages();
+    click(q('.msg-act[data-act="branch"]', assistantPages()[assistantPages().length - 1]));
+    await until(async () => (await db.stories.list()).length === storiesBefore + 1, 'the branch on the shelf', 20000);
+    await until(async () => (await storyId()) !== st.id, 'the branch is open', 20000);
+    branchId = await storyId();
+    await until(async () => !((await db.stories.get(branchId)) || {}).building, 'the branch whole', 20000);
+    eq(((await db.stories.get(branchId)) || {}).choicesVoice, 'you', 'the branch keeps “You”');
+    eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+  } finally {
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await closeSettings().catch(() => {});
+    for (const id of [st.id, branchId]) if (id) await db.stories.remove(id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

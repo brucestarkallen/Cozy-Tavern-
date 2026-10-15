@@ -21523,3 +21523,22 @@ open, during the set-up and after the press it passes.
 Measured: law suite 1682 of 1682; DOM walk 318 of 318 (the second whole walk; DOM-263 under the
 forced lags above); lint 0 errors, 253 warnings. Cost: each page with Choices on sends about the
 storyteller's whole request again on the Choices connection. Not run: a live provider; his tale.
+
+## M752 followup 14 (m752-014): "Choices are written as" I or You
+
+The owner (15 October 2026): "add you or I setting for choice matter so it's not always I do x but
+you do x". A choice's move — the words that go as his when he taps it — was always written in the
+first person ("I tell her the truth"). Settings → Choices matter → "Choices are written as": I (as it
+shipped) or You ("You draw your sword"), kept on the story (choicesVoice) and carried by a branch.
+The helper's rule for the move follows it, in the whole request and in the summary alike
+(choices.js choiceRules). Choices still open on the newest page, sealed in the other voice, are
+let go and sealed again in the new one (chat.js choicesInOtherVoice, as an edited page's are); a
+call for the other voice still out writes nothing (its key carries the voice; the write checks
+it). A choice already taken keeps its words; the outcome, the echoes and what the storyteller is
+told are unchanged.
+Laws M752-CH3 (the rule for each voice, both ways of asking) and DOM-M752-15 (Settings shows I;
+"You" seals the open choices again with the second-person rule; the tapped move goes as "You …";
+Settings shows You; a branch keeps it) fail on m752-013 and pass.
+Measured: law suite 1683 of 1683; DOM walk 319 of 319 (a first whole walk failed DOM-M752-15
+itself: an earlier scenario left Settings open on another tale, so it was not filled for this one —
+the law now opens Settings afresh); lint 0 errors, 253 warnings. Not run: a live provider.

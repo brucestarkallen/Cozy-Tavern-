@@ -29,6 +29,10 @@ export const CHOICE_MAX_TOKENS = 1600;
 export const CHOICE_PAGES = 6;         /* the pages the helper reads before the newest, his moves between them */
 
 export function choicesOn(story) { return Boolean(story && story.choices === true); }
+/* M752 (followup 14) — HIS (15 October 2026): "add you or I setting for choice matter so it's not always I do x but you do x".
+ * Settings → Choices matter → "Choices are written as": "I" (as it shipped) or "You". It is how a choice's move is written —
+ * the words that go as his when he taps it; nothing else changes. */
+export function choicesVoice(story) { return story && story.choicesVoice === 'you' ? 'you' : 'i'; }
 
 const clip = (s, n) => {
   const t = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
@@ -61,12 +65,15 @@ export function openOffer(messages) {
 }
 
 /* what the helper is asked to do, and how — the same words whichever way the story is handed to it */
-function choiceRules(who) {
+function choiceRules(who, voice = 'i') {
+  const move = voice === 'you'
+    ? '- "move": what ' + who + ' does, the way he writes his own moves — the second person, ' + who + ' as "you", one or two sentences ("You tell Tamsin Hale the truth about the attendant."). Never "I".'
+    : '- "move": what ' + who + ' does, the way he writes his own moves — the first person, one or two sentences ("I tell Tamsin Hale the truth about the attendant.").';
   return [
     'Read the newest page. Decide whether it ends at a real turning point for ' + who + ': a moment where what ' + who + ' does next will change how someone sees him, what happens to someone, or which way the story goes. Most pages are not one — a quiet beat, small talk, a walk, a fight already under way. If it is not, answer {"turning":false}.',
     'If it is, write two to four choices ' + who + ' could take from exactly where the page ends — different in kind, never one choice said four ways. For each:',
     '- "label": two to six words, the way a game shows a choice ("Tell her the truth", "Say nothing", "Walk away").',
-    '- "move": what ' + who + ' does, the way he writes his own moves — the first person, one or two sentences ("I tell Tamsin Hale the truth about the attendant.").',
+    move,
     '- "outcome": what follows, decided now, before he chooses — what the people and the world do in answer, what it costs him or wins him, what can no longer be undone. One to three sentences. Never what ' + who + ' feels, thinks, says or does beyond the move.',
     '- "echoes": up to two things it leaves behind that will matter later — {"who":"a name","what":"what they will remember, or do"}.',
     'Seal every outcome by the people — their natures, what they know, what they want — and by the world\'s own logic, never by what would please him. A kind choice can go badly; a hard one can work. At least one choice costs him something real. No outcome may break what the ledger says.',
@@ -78,11 +85,11 @@ function choiceRules(who) {
 
 /* the helper's question when the newest page's own request is not kept (a page from before requests were kept, a store
  * that let it go): the story itself — the brief and the cast notes, the record, the ledger, the people, the pages */
-export function choiceAsk({ brief = '', castNotes = '', record = '', facts = '', people = '', pages = [], newest = '', mc = '', echoes = [] } = {}) {
+export function choiceAsk({ brief = '', castNotes = '', record = '', facts = '', people = '', pages = [], newest = '', mc = '', echoes = [], voice = 'i' } = {}) {
   const who = mc || 'the main character';
   const system = [
     'You keep the turning points of a long collaborative story, the way Detroit: Become Human does. You never write the story itself.',
-    ...choiceRules(who),
+    ...choiceRules(who, voice),
   ].join('\n');
   const user = [
     'THE STORY\'S BRIEF:', writerText(String(brief || ''), BRIEF_ROOM, 'brief') || '(none)', '',
@@ -110,7 +117,7 @@ export function choiceAsk({ brief = '', castNotes = '', record = '', facts = '',
  * `pkg`: the kept request as {instructions, turns} (sensors.js packageFromRequest); `room`: the characters the helper's own
  * connection may be sent — the oldest turns go first (the record carries them), then the middle of the instructions, never
  * their head (the preset) or the newest page. null without a request. Pure. */
-export function choiceAskWhole({ pkg, newest = '', mc = '', echoes = [], facts = '', room = Infinity } = {}) {
+export function choiceAskWhole({ pkg, newest = '', mc = '', echoes = [], facts = '', room = Infinity, voice = 'i' } = {}) {
   if (!pkg || !Array.isArray(pkg.turns) || !String(newest || '').trim()) return null;
   const who = mc || 'the main character';
   const textOf = (t) => String((t && t.text) || '');
@@ -130,7 +137,7 @@ export function choiceAskWhole({ pkg, newest = '', mc = '', echoes = [], facts =
     ...(String(facts || '').trim() ? ['', 'WHERE THINGS STAND NOW (the ledger, after this page):', String(facts).trim()] : []),
     ...(Array.isArray(echoes) && echoes.length ? ['', 'WHAT HIS EARLIER CHOICES SET IN MOTION:', ...echoes] : []),
     '',
-    ...choiceRules(who),
+    ...choiceRules(who, voice),
   ].join('\n');
   const size = () => system.length + turns.reduce((n, m) => n + m.content.length, 0) + String(newest).length + task.length;
   while (size() > room && turns.length > 4) { turns.shift(); while (turns.length && turns[0].role !== 'user') turns.shift(); }

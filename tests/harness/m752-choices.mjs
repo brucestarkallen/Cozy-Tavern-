@@ -66,3 +66,14 @@ test('M752-CH2 THE HELPER IS CALLED WITH THAT CONVERSATION — and with no kept 
   const fallback = choices.choiceAsk({ brief: 'BRIEF', castNotes: CAST, record: 'R', facts: 'F', people: 'P', pages: ['p'], newest: 'n', mc: 'Jovan' });
   assert(fallback.user.includes('THE CAST NOTES:') && fallback.user.includes('Kaelen never forgives'), 'the summary carries the cast notes');
 });
+
+test('M752-CH3 “I” OR “YOU” (HIS, 15 October 2026: “so it’s not always I do x but you do x”): the story’s setting decides how the helper is told to write each move — the first person as it shipped, the second person when he picks “You” — in the whole request and in the summary alike', () => {
+  eq(typeof choices.choicesVoice, 'function', 'the setting is read');
+  eq(choices.choicesVoice({}) + ' ' + choices.choicesVoice({ choicesVoice: 'you' }) + ' ' + choices.choicesVoice({ choicesVoice: 'odd' }), 'i you i', '“I” unless he picked “You”');
+  const whole = (voice) => choices.choiceAskWhole({ pkg: packageFromRequest(openaiKept), newest: NEWEST, mc: 'Jovan', voice }).messages.at(-1).content;
+  const summary = (voice) => choices.choiceAsk({ newest: 'n', mc: 'Jovan', voice }).system;
+  for (const [name, ask] of [['whole', whole], ['summary', summary]]) {
+    assert(/"move": what Jovan does[^\n]*the first person[^\n]*"I tell/.test(ask()) && !/the second person/.test(ask()), name + ': “I” as it shipped');
+    assert(/"move": what Jovan does[^\n]*the second person, Jovan as "you"[^\n]*"You tell[^\n]*Never "I"/.test(ask('you')) && !/the first person/.test(ask('you')), name + ': “You” when he picks it');
+  }
+});

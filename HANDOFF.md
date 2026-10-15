@@ -7,7 +7,7 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m752-013 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
+- Version m752-014 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
   m752-002 lets go, when a tale opens, a persona the old rule made of an ordinary
   sentence; m752-003 makes the notes say when they have not read the newest page;
   m752-004 settles the continuous audit's historical corrections instead of
@@ -30,7 +30,8 @@ older files sit beside it). Search them with
   the wrong one stands, every name and number from the pages (below); m752-013: Choices
   matter's helper is handed the whole request the newest page was written from — his preset
   (its anti-positivity rules), cast notes, world, lore, canon and rules, the history as sent —
-  and asks its question after the page (choices.js choiceAskWhole; DOM-M752-14).
+  and asks its question after the page (choices.js choiceAskWhole; DOM-M752-14); m752-014:
+  Settings → Choices matter → "Choices are written as" I or You, per story (DOM-M752-15).
 - Measured on m752-013: the law suite 1682 of 1682, the DOM walk 318 of 318 (a first
   walk was red once on DOM-263, a fixture race present on m752-008 too, fixed — below),
   lint 0 errors (253 warnings, as before). On m752-004: Chromium at 390 px, the new
@@ -43,7 +44,10 @@ older files sit beside it). Search them with
   newest page was written from, his preset first, and its question after the page; the
   summary (now with the cast notes) only for a page from before requests were kept. Each
   turning-point check therefore sends about the storyteller's whole request again, on the
-  Choices connection (smaller rooms cut the oldest turns first).
+  Choices connection (smaller rooms cut the oldest turns first). "Choices are written as"
+  (m752-014): I ("I draw my sword", as it shipped) or You ("You draw your sword"), kept on
+  the story and carried by a branch; switching it seals the newest page's open choices again
+  in the new voice (one helper call); a choice already taken keeps its words.
 - His stuck correction ("The recovery verdict remains inconsistent after
   clarification: The fidelity decision needs an exact claim from this record and a
   valid status"): its answer had said, rightly, that page 94 holds the record's words.

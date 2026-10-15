@@ -200,6 +200,7 @@ export function initSettings(ctx) {
     briefFromConcept: document.getElementById('btn-brief-from-concept'), /* M479 */
     conceptToBrief: document.getElementById('concept-to-brief'), /* M479 */
     choicesStory: document.getElementById('choices-story'), /* M548: Choices matter */
+    choicesVoiceI: document.getElementById('choices-voice-i'), choicesVoiceYou: document.getElementById('choices-voice-you'), /* M752 (followup 14) */
     briefStoryName: document.getElementById('brief-story-name'),
     castStory: document.getElementById('cast-story'),
     castStoryName: document.getElementById('cast-story-name'),
@@ -1328,6 +1329,9 @@ export function initSettings(ctx) {
     if (els.briefManual) { els.briefManual.checked = !automatic; els.briefManual.disabled = !story; }
     if (els.briefAutomatic) { els.briefAutomatic.checked = automatic; els.briefAutomatic.disabled = !story; }
     if (els.choicesStory) { els.choicesStory.checked = Boolean(story && story.choices === true); els.choicesStory.disabled = !story; } /* M548 */
+    { const you = Boolean(story && story.choicesVoice === 'you'); /* M752 (followup 14): "I" as it shipped */
+      if (els.choicesVoiceI) { els.choicesVoiceI.checked = !you; els.choicesVoiceI.disabled = !story; }
+      if (els.choicesVoiceYou) { els.choicesVoiceYou.checked = you; els.choicesVoiceYou.disabled = !story; } }
     if (els.groundBox) els.groundBox.hidden = !automatic;
     if (els.ground && !drafting(els.ground)) els.ground.value = story ? groundWords(await db.settings.get(GROUND_KEY(story.id))) : '';
     if (els.briefModeNew) els.briefModeNew.checked = (await db.settings.get('briefModeNew')) === 'automatic';
@@ -1452,6 +1456,15 @@ export function initSettings(ctx) {
     els.choicesStory.checked = asked;
     if (ctx.chat && typeof ctx.chat.choicesChanged === 'function') await ctx.chat.choicesChanged();
   });
+  /* M752 (followup 14): "I" or "You" — this story's own; choices still open on the newest page are sealed again in it */
+  const setChoicesVoice = async (voice) => {
+    const story = await activeStory();
+    if (!story) return;
+    await db.stories.update(story.id, { choicesVoice: voice });
+    if (ctx.chat && typeof ctx.chat.choicesChanged === 'function') await ctx.chat.choicesChanged();
+  };
+  if (els.choicesVoiceI) els.choicesVoiceI.addEventListener('change', () => { if (els.choicesVoiceI.checked) setChoicesVoice('i'); });
+  if (els.choicesVoiceYou) els.choicesVoiceYou.addEventListener('change', () => { if (els.choicesVoiceYou.checked) setChoicesVoice('you'); });
   document.getElementById('btn-save-world-ground').addEventListener('click', async () => {
     const story = await activeStory();
     if (!story) return;
