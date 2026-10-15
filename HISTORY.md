@@ -21717,3 +21717,18 @@ once ("waited too long for the edit box": the edit press found the house busy or
 full walks; instrumented, it did not recur in the next two, and its mechanism was not found.
 Measured: law suite 1696 of 1696; DOM walk 325 of 325 (the last full walk, same application code); lint 0 errors,
 247 warnings. Not run: a live provider; his tale. Output token counts on his provider were not measured.
+
+## 16 October 2026 (no version): the scratchbook checked, the workers measured
+
+The owner: "Does auditor scratch book still being use? And does it already and perfect? And audit everything for the
+worker for optimization (fast) but fast not reduce quality". The "Auditor scratchbook" (the workers' room) is in use
+and had no law: DOM-M752-22 opens it after a whole audit and on a page added since — its counts are the saved
+audit's own, identities and current states read Checked, the new scene awaits its review while profiles stay
+checked, Close and Esc close it, no model is asked. It passed as written; nothing in it was wrong.
+Every worker of a page was measured in the real app (jsdom, a scripted wire answering each contract): seven worker
+calls a page, each once, no repeats and no repair pass after the chain (numbers in HANDOFF). Answered with incomplete
+JSON the same chain made 19 calls — the world asked again for missing seats, its recovery after the audit, the
+seeder and a referee format retry — which is what an unfinished first answer costs, not waste of the house's own.
+Nothing further was changed: the auditor's re-asked entries (m752-021) were the one waste found; reordering other
+workers' prompts for a provider's prompt cache would change what each model reads first, and its quality cannot be
+shown without a live model. Not run: a live provider.

@@ -16914,6 +16914,66 @@ test('DOM-M752-21 NOTHING HE DOES WAITS FOR THE AUDITOR (HIS, 15 October 2026: �
   }
 });
 
+test('DOM-M752-22 THE AUDITOR SCRATCHBOOK SAYS WHAT THE AUDITOR SAVED (HIS, 16 October 2026: “Does auditor scratch book still being use? And does it already and perfect?”): in the workers’ room, read-only — after a whole audit its counts are the saved audit’s own (originals read, entry checks complete, profiles retained), each person’s identity and current state reads Checked, nothing is left; on a page added since, it says the scene awaits its review while the profiles stay checked; Close and Esc close it and nothing is asked of any model', async () => {
+  const before = errors.length;
+  const { saveState, emptyState, loadState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const st = await db.stories.create({ title: 'the scratchbook' });
+  await db.stories.update(st.id, { keeper: false, extraction: false });
+  try {
+    const H = '[The yard — Monday, March 3, 2025 | 09:00 | clear]\n\n';
+    await db.messages.append(st.id, { role: 'user', text: 'I walk into the yard.' });
+    await db.messages.append(st.id, { role: 'assistant', text: H + 'Rukia Kuchiki trained in the yard. Renji Abarai watched from the wall.' });
+    const led = applyMutations({ ...emptyState(), sheet: { playerName: 'Jovan', playerAliases: [], actors: {} } }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The yard' }, { type: 'presence.enter', name: 'Jovan' }]).state;
+    led.characters = { 'Rukia Kuchiki': { core: 'A shinigami of the thirteenth.' }, 'Renji Abarai': { core: 'Lieutenant of the sixth.' } };
+    await saveState(st.id, { ...led, tidiedGen: 999, healedGen: 999 });
+    await auditedLedger(st.id);
+    const saved = (await loadState(st.id)).audit;
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.ctx.chat.refreshStories(true); await env.ctx.chat.renderThread({ structural: true });
+    const open = async () => {
+      if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'closed drawer'); }
+      click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the ledger opens');
+      click(q('#drawer [data-room="books"]'));
+      const button = await until(() => qa('#drawer [data-panel="the-workers"] button').find((b) => b.textContent.trim() === 'Auditor scratchbook'), 'the workers’ room has “Auditor scratchbook”', 5000);
+      const calls = house.state.calls.length;
+      click(button);
+      const pop = await until(() => q('.hk-pop[aria-label="Auditor scratchbook"]'), 'the scratchbook opens', 5000);
+      eq(house.state.calls.length, calls, 'nothing is asked of a model');
+      return pop;
+    };
+    let pop = await open();
+    const said = () => [...pop.querySelectorAll('p, li')].map((n) => n.textContent);
+    const summary = said()[0];
+    assert(summary.startsWith(saved.coverage.read + ' of ' + saved.coverage.total + ' source passages read.'), 'its originals read, as saved: ' + summary);
+    assert(summary.includes(saved.verification.read + ' of ' + saved.verification.total + ' current entry checks complete.'), 'its entry checks, as saved: ' + summary);
+    eq(saved.verification.read, saved.verification.total, 'fixture: the audit is whole');
+    for (const who of ['Rukia Kuchiki', 'Renji Abarai']) {
+      assert(said().some((t) => t.startsWith(who + '. Identity and appearance. Checked.')), who + '’s identity reads Checked: ' + said().join(' | '));
+      assert(said().some((t) => t.startsWith(who + '. Current character state. Checked.')), who + '’s current state reads Checked');
+    }
+    assert(said().includes('No open findings in the last completed review.'), 'nothing is left');
+    click([...pop.querySelectorAll('button')].find((b) => b.textContent === 'Close'));
+    await until(() => !q('.hk-pop[aria-label="Auditor scratchbook"]'), 'Close closes it', 3000);
+    /* a page added since: the scene awaits its review, the profiles stay checked */
+    await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+    await db.messages.append(st.id, { role: 'assistant', text: H.replace('09:00', '09:10') + 'Rukia Kuchiki lowered her sword.' });
+    pop = await open();
+    assert(said()[0].includes('Current scene awaiting its review.'), 'the new page’s scene awaits its review: ' + said()[0]);
+    assert(said().some((t) => t.startsWith('Rukia Kuchiki. Identity and appearance. Checked.')), 'her checked identity is kept over a page added');
+    assert(said().some((t) => t.startsWith('Rukia Kuchiki. Current character state. Awaiting review.')), 'her current state awaits the new page’s review');
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await until(() => !q('.hk-pop[aria-label="Auditor scratchbook"]'), 'Esc closes it', 3000);
+    eq(q('#drawer').hidden, false, 'and leaves the ledger open behind it');
+    eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+  } finally {
+    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'closed drawer').catch(() => {}); }
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+});
+
 test('DOM-M752-18 THE AUTOMATIC AUDIT STARTS AS SOON AS IT CAN (HIS, 15 October 2026: “the auditor ran a minute ago and is continuing its repairs automatically — the next automatic audit is too slow. It should start as soon as possible”): with the house’s own waits (no fixture timings), an owed repair is asked the moment the tale is open and idle, and a pass that did not land is followed within seconds — it was fifteen seconds before the first, and a minute after one that got nowhere', async () => {
   if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
   await autonomousLedgerFixture(async ({ id, open, load, calls }) => {

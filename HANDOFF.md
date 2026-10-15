@@ -90,6 +90,16 @@ older files sit beside it). Search them with
   page and kept (71 entries asked a page, not 227; ~48,000 tokens a page, not ~71,000); 969 of 969 by
   the fourth. My earlier line that the housekeeper reads "a page or a short stretch" was wrong: it is
   served the whole house too (measured 25,000–45,000 tokens against the auditor's 38,000–100,000).
+- The workers, measured per page (16 October 2026, a 40-page, 25-person tale at 128k, every worker answering its
+  contract): the storyteller and seven worker calls, each once — the page reader (~12,800 tokens in), the world
+  (~10,500), the scribe (~8,500), the second reader (~3,300), the auditor's source reading (~2,600) and review
+  (~23,900), the plans keeper (~900); no repeated call and no repair pass after the chain. From one page to the next
+  each request keeps its beginning: the page reader 81%, the world 90%, the auditor's source reading 80%, the scribe
+  61%, the plans keeper 48%, the second reader 43%, the auditor's review 36% (it shows only the new page after its
+  checkpoint) — what a provider that caches a prompt's beginning does not read again. A second call happens only when
+  a first answer leaves its contract unfinished (the world's seats, the auditor's decisions, the seeder's main
+  character); how often his model does that was not measured. The "Auditor scratchbook" (workers' room, read-only)
+  shows the saved audit itself: law DOM-M752-22.
 - Branches and the auditor (m752-015): a source section is named by its page's id, and a
   branch copies every page under a new id, so a branch of his long tale found none of the
   auditor's receipts and read the whole tale again ("278 original source sections still need
