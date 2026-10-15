@@ -16751,6 +16751,62 @@ test('DOM-M752-17 “RESTART CHOICES” (HIS, 15 October 2026: “give choice ma
   }
 });
 
+test('DOM-M752-19 CHOICES SAY WHAT THEY ARE DOING (HIS, 15 October 2026: “i just press restart choice matter how do i know it’s processing and not stuck lol it’s been 5 minutes nothing happened no pop up”): while new choices are sealed the row says so; a helper that fails says why, with “Restart choices” to ask again by hand; a fresh answer of no turning point says so too — the row is never silently empty after he asked', async () => {
+  const before = errors.length;
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const { st } = await choicesTale('choices that say so');
+  const prior = { story: house.state.storyAnswer, worker: house.state.workerAnswer };
+  const AGAIN = { turning: true, choices: [
+    { label: 'Bow to him', move: 'I bow to Kaelen and step back.', outcome: 'Kaelen bows back, stiffly.', echoes: [] },
+    { label: 'Ask for the captain', move: 'I ask Kaelen where the captain is.', outcome: 'Kaelen says the captain is watching.', echoes: [] },
+  ] };
+  let asks = 0;
+  let held = null;
+  house.state.workerAnswer = (body, sys) => {
+    if (TURNING_SYS.test(String(sys || ''))) {
+      asks += 1;
+      if (asks === 1) return JSON.stringify(SEALED);
+      if (asks === 2) return new Promise((resolve, reject) => { held = { resolve, reject }; }); /* the helper is slow, then down */
+      if (asks === 3) return JSON.stringify({ turning: false });
+      return JSON.stringify(AGAIN);
+    }
+    return typeof prior.worker === 'function' ? prior.worker(body, sys) : (prior.worker || '{"mutations":[]}');
+  };
+  const note = () => { const n = q('#choice-row .choice-note'); return n && !q('#choice-row').hidden ? n.textContent : ''; };
+  try {
+    await db.stories.update(st.id, { choices: true });
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await env.ctx.chat.choicesChanged();
+    await until(() => qa('#choice-row .choice-btn').length === 3, 'the first choices stand', 20000);
+    click(q('#choice-row .choice-restart'));
+    await until(() => /Sealing choices/.test(note()), 'while the helper works, the row says new choices are being sealed', 20000);
+    eq(qa('#choice-row .choice-btn').length, 0, 'the old choices are gone');
+    held.reject(new TypeError('Failed to fetch')); /* the wire dropped */
+    await until(() => /No choices for this page/.test(note()), 'a helper that failed is said', 20000);
+    assert(/Couldn’t reach/.test(note()), 'with its real reason: ' + note());
+    const again = q('#choice-row .choice-restart');
+    assert(again && again.textContent === 'Restart choices', 'and the same button asks again by hand');
+    house.state.fail = 503; /* his provider, this morning: too busy */
+    click(again);
+    await until(() => /No choices for this page/.test(note()) && /503/.test(note()), 'a provider that said no is said, with what it said: ' + note(), 20000);
+    house.state.fail = null;
+    click(q('#choice-row .choice-restart'));
+    await until(() => /No turning point on this page/.test(note()), 'a fresh answer of no turning point is said', 20000);
+    eq(asks, 3, 'asked once for each press the provider answered');
+    click(q('#choice-row .choice-restart'));
+    await until(() => qa('#choice-row .choice-btn').length === 2, 'asked again, the new choices stand', 20000);
+    eq(note(), '', 'and the note is gone');
+    eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+  } finally {
+    if (held) held.resolve('{}');
+    house.state.fail = null;
+    house.state.storyAnswer = prior.story; house.state.workerAnswer = prior.worker;
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
+});
+
 test('DOM-M752-18 THE AUTOMATIC AUDIT STARTS AS SOON AS IT CAN (HIS, 15 October 2026: “the auditor ran a minute ago and is continuing its repairs automatically — the next automatic audit is too slow. It should start as soon as possible”): with the house’s own waits (no fixture timings), an owed repair is asked the moment the tale is open and idle, and a pass that did not land is followed within seconds — it was fifteen seconds before the first, and a minute after one that got nowhere', async () => {
   if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
   await autonomousLedgerFixture(async ({ id, open, load, calls }) => {

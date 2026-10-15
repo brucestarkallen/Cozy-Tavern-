@@ -2392,10 +2392,20 @@ export function initChat(ctx) {
    * if the page is still the newest, at the same version, with no move of his after it and the switch still on. A quiet page
    * is kept as {turning:false}, so it is asked once. A fight under way is the referee's: nothing is offered then. */
   const choicesAsking = new Map(); /* story id → the page and version being asked about */
-  async function offerChoices(storyIn) {
+  /* M752 (followup 19) — HIS (15 October 2026): "i just press restart choice matter how do i know it's processing and not
+   * stuck lol it's been 5 minutes nothing happened no pop up". The asking was invisible from end to end: the wait for the
+   * page's own readers (up to ten minutes), the helper's call, a call that failed (his provider's 503 this morning), an
+   * answer that could not be read, and a fresh answer of "no turning point" all left the same empty row. What the asking
+   * is doing for the newest page is now said in the row itself (drawChoices): sealing, and whether it waits for the page's
+   * readers first; a failure with its real reason and "Restart choices" to ask again by hand. */
+  const choiceWork = new Map(); /* story id → { key, pageId, version, phase: 'readers' | 'asking' } while it is asked */
+  const choiceTrouble = new Map(); /* story id → { pageId, version, why } — the last asking for that page failed */
+  const choiceRowFor = (sid) => { if (ctx.getActiveStoryId() === sid) drawChoices(); };
+  async function offerChoices(storyIn, { restarted = false } = {}) {
     const sid = storyIn && storyIn.id;
     if (!sid) return;
     let key = '';
+    let failed = '';
     try {
       const story = await db.stories.get(sid);
       if (!choicesOn(story)) return;
@@ -2409,6 +2419,9 @@ export function initChat(ctx) {
       if (choicesAsking.get(sid) === last.id + ':' + versionOf(last) + ':' + voice) return;
       key = last.id + ':' + versionOf(last) + ':' + voice; /* a call for the other voice, still out, writes nothing (below) */
       choicesAsking.set(sid, key);
+      choiceTrouble.delete(sid);
+      choiceWork.set(sid, { key, pageId: last.id, version: versionOf(last), phase: readersStillOn(sid, last.id) ? 'readers' : 'asking' });
+      choiceRowFor(sid);
       /* M680 (the books audit): THE CHOICES ARE MADE FROM THE LEDGER AS THIS PAGE LEFT IT. They were asked for the moment
        * the page landed — before its own readers had written who is here, what was learned, who stands where — so the
        * outcomes were sealed against the ledger as it stood BEFORE the page (a man who had just walked out still in the
@@ -2416,10 +2429,11 @@ export function initChat(ctx) {
        * else waits on this — it is outside the chain); a page that is no longer the newest by then is offered nothing
        * (the check after the call already says so). */
       await untilReadersSettled(sid, last.id); /* M681: woken the moment they settle */
+      if (choiceWork.get(sid)?.key === key) { choiceWork.set(sid, { ...choiceWork.get(sid), phase: 'asking' }); choiceRowFor(sid); }
       const state = await loadState(sid);
       if ((state.duel && state.duel.active) || (state.battle && state.battle.active) || (state.war && state.war.active)) return;
       const connection = await resolveWorkerConnection(story, 'choices');
-      if (!connection) return;
+      if (!connection) { failed = 'there is no connection for the helper'; return; }
       const big = 400000;
       const recentText = told.slice(-3).map((m) => pageText(m));
       const facts = planFacts(state, { ...planStateView(big), scenePages: recentText });
@@ -2439,17 +2453,24 @@ export function initChat(ctx) {
       }
       const w = workerSignal(); /* every helper's own ceiling: a call that hangs is let go, never waited on */
       let read = null;
-      try { read = await makeChoices({ connection, ask, signal: w.signal }); } finally { w.done(); }
+      try { read = await makeChoices({ connection, ask, signal: w.signal, onFail: (why) => { failed = why; } }); } finally { w.done(); }
       if (!read) return;
       const now = await db.stories.get(sid);
       if (!choicesOn(now) || choicesVoice(now) !== voice) return;
       const fresh = visiblePages(await db.messages.list(sid)).filter((m) => m && !m.hidden && !m.ooc);
       const tail = fresh[fresh.length - 1];
       if (!tail || tail.id !== last.id || versionOf(tail) !== versionOf(last) || offerOf(tail)) return;
-      await db.messages.update(sid, last.id, offerPatch(tail, read.turning ? { ...read, voice, at: Date.now() } : { ...read, at: Date.now() }));
+      /* a fresh answer of no turning point, to his own "Restart choices", is kept as such: the row says so (drawChoices) */
+      await db.messages.update(sid, last.id, offerPatch(tail, read.turning ? { ...read, voice, at: Date.now() } : { ...read, ...(restarted ? { restarted: true } : {}), at: Date.now() }));
       if (ctx.getActiveStoryId() === sid) drawChoices();
-    } catch (err) { /* a choice is never worth a page */ } finally {
+    } catch (err) { failed = 'something went wrong while asking: ' + String((err && err.message) || err).replace(/[.\s]+$/u, ''); } finally {
       if (key && choicesAsking.get(sid) === key) choicesAsking.delete(sid);
+      if (key && choiceWork.get(sid)?.key === key) {
+        const work = choiceWork.get(sid);
+        choiceWork.delete(sid);
+        if (failed) choiceTrouble.set(sid, { pageId: work.pageId, version: work.version, why: failed });
+        choiceRowFor(sid);
+      }
     }
   }
   /* M636: THE SENSORS READ THE PAGE THAT JUST LANDED (agents/sensors.js) — outside the page chain, so no helper and no
@@ -2575,9 +2596,50 @@ export function initChat(ctx) {
       if (busy) return hide();
       const story = await activeStory();
       if (!story || !choicesOn(story)) return hide();
-      const open = openOffer(await db.messages.list(story.id));
+      const pages = await db.messages.list(story.id);
+      const open = openOffer(pages);
       if (ticket !== drawingChoices) return;
-      if (!open || busy) return hide();
+      if (busy) return hide();
+      const restartButton = (page) => {
+        const again = document.createElement('button');
+        again.type = 'button';
+        again.className = 'text-btn choice-restart';
+        again.textContent = 'Restart choices';
+        again.addEventListener('click', () => { restartChoices(page); });
+        return again;
+      };
+      if (!open) {
+        /* M752 (followup 19): no choices to take — the row says what the asking is doing for the newest page, or why there
+         * are none after it was asked: never an empty row while he waits for an answer that is not coming */
+        const told = pages.filter((m) => m && !m.hidden && !m.ooc);
+        const last = told[told.length - 1];
+        if (!last || last.role !== 'assistant') return hide();
+        const v = versionOf(last);
+        const work = choiceWork.get(story.id);
+        const trouble = choiceTrouble.get(story.id);
+        const offer = offerOf(last);
+        let words = '';
+        let again = false;
+        if (work && work.pageId === last.id && work.version === v) {
+          words = work.phase === 'readers' ? 'Sealing choices — waiting for this page’s readers to finish first…' : 'Sealing choices for this page…';
+        } else if (!offer && trouble && trouble.pageId === last.id && trouble.version === v) {
+          words = 'No choices for this page — ' + trouble.why + (/[.…!?]$/u.test(trouble.why) ? '' : '.');
+          again = true;
+        } else if (offer && offer.turning === false && offer.restarted === true) {
+          words = 'No turning point on this page this time — the helper offered no choices.';
+          again = true;
+        }
+        if (!words) return hide();
+        row.textContent = '';
+        const said = document.createElement('p');
+        said.className = 'choice-note';
+        said.setAttribute('role', 'status');
+        said.textContent = words;
+        row.appendChild(said);
+        if (again) row.appendChild(restartButton(last));
+        row.hidden = false;
+        return;
+      }
       row.textContent = '';
       open.offer.options.forEach((o, k) => {
         const b = document.createElement('button');
@@ -2588,12 +2650,7 @@ export function initChat(ctx) {
         row.appendChild(b);
       });
       /* M752 (followup 16): "Restart choices" — new choices for this page, sealed blind */
-      const again = document.createElement('button');
-      again.type = 'button';
-      again.className = 'text-btn choice-restart';
-      again.textContent = 'Restart choices';
-      again.addEventListener('click', () => { restartChoices(open.page); });
-      row.appendChild(again);
+      row.appendChild(restartButton(open.page));
       row.hidden = false;
     } catch (err) { hide(); }
   }
@@ -2631,13 +2688,24 @@ export function initChat(ctx) {
     try {
       const story = await activeStory();
       if (!story || !choicesOn(story)) return;
-      const open = openOffer(await db.messages.list(story.id));
-      if (!open || open.page.id !== page.id || versionOf(open.page) !== versionOf(page)) return;
-      const next = { ...(open.page.choiceOffer || {}) };
-      delete next[String(versionOf(open.page))];
-      await db.messages.update(story.id, open.page.id, { choiceOffer: next });
-      toast('New choices are being sealed — the old ones are gone unseen.');
-      offerChoices(story);
+      /* M752 (followup 19): the newest page — with choices standing, or with none after it was asked (a failure, no turning
+       * point): "Restart choices" asks again for it either way, while he has not moved since */
+      const told = (await db.messages.list(story.id)).filter((m) => m && !m.hidden && !m.ooc);
+      const last = told[told.length - 1];
+      if (!last || last.role !== 'assistant' || last.id !== page.id || versionOf(last) !== versionOf(page)) return;
+      if (String(choicesAsking.get(story.id) || '').startsWith(last.id + ':' + versionOf(last) + ':')) return; /* already being asked for this page: the row says so */
+      const state = await loadState(story.id);
+      if ((state.duel && state.duel.active) || (state.battle && state.battle.active) || (state.war && state.war.active)) {
+        toast('A fight is under way — the referee decides what happens now, so no new choices until it ends.');
+        return;
+      }
+      const next = { ...(last.choiceOffer || {}) };
+      const had = Boolean(offerOf(last));
+      delete next[String(versionOf(last))];
+      if (had) await db.messages.update(story.id, last.id, { choiceOffer: next });
+      choiceTrouble.delete(story.id);
+      toast(openOffer([last]) ? 'New choices are being sealed — the old ones are gone unseen.' : 'New choices are being sealed.');
+      offerChoices(story, { restarted: true });
     } catch (err) { /* never worth a page */ } finally { restartingChoices = false; drawChoices(); }
   }
 

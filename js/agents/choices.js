@@ -178,13 +178,24 @@ export function readChoices(raw) {
   return { turning: true, options };
 }
 
-/* never throws: the reading, or null when it could not be had */
-export async function makeChoices({ connection, ask, signal, callLLM = callWorker } = {}) {
-  if (!connection || !ask) return null;
+/* never throws: the reading, or null when it could not be had — and then `onFail` is told why, in plain words (M752,
+ * followup 19: a failure was silent, and the row above where he types stayed empty for good) */
+export async function makeChoices({ connection, ask, signal, callLLM = callWorker, onFail = null } = {}) {
+  const fail = (why) => { if (typeof onFail === 'function') { try { onFail(why); } catch (err) { /* the caller's trouble */ } } return null; };
+  if (!connection) return fail('there is no connection for the helper');
+  if (!ask) return fail('there was nothing to ask it');
   try {
     const answer = await callLLM(connection, { system: ask.system, ...(Array.isArray(ask.messages) ? { messages: ask.messages } : { user: ask.user }), maxTokens: CHOICE_MAX_TOKENS, signal });
-    return readChoices(typeof answer === 'string' ? answer : (answer && answer.text) || '');
-  } catch (err) { return null; }
+    return readChoices(typeof answer === 'string' ? answer : (answer && answer.text) || '') || fail('the helper’s answer could not be read as choices');
+  } catch (err) {
+    const reason = signal && signal.aborted ? String((signal.reason && signal.reason.message) || '') : '';
+    if (reason === 'timeout') return fail('the helper did not answer within its minute');
+    if (signal && signal.aborted) return fail('the helper’s call was stopped');
+    /* what the provider said, kept to its first 160 characters — the row sits above where he types (a provider's 503 runs
+     * on with advice and a request id) */
+    const said = String((err && err.message) || 'no reason given').replace(/\s+/g, ' ').trim();
+    return fail('the helper’s call failed: ' + (said.length > 160 ? said.slice(0, 159).trimEnd() + '…' : said.replace(/[.\s]+$/u, '')));
+  }
 }
 
 /* what he took, kept on HIS message — whole, so it needs nothing else to be read again */

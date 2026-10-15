@@ -21613,3 +21613,26 @@ during the reading's pause (health.js's own rule) it hit the auditor, so its tal
 an order dependency of that subset, not of the whole walk.
 Measured: law suite 1685 of 1685; DOM walk 322 of 322; lint 0 errors, 253 warnings. Not run: a live
 provider; his tale.
+
+## M752 followup 18 (m752-018): Choices matter says what it is doing
+
+The owner (15 October 2026): "i just press restart choice matter how do i know it's processing and
+not stuck lol it's been 5 minutes nothing happened no pop up". The asking was invisible from end to
+end: after "Restart choices" the row above where he types emptied, and the wait for the page's own
+readers (up to ten minutes, M680), the helper's call (a minute at most), a call that failed (his
+provider gave 503s that morning), an answer that could not be read, and a fresh answer of "no
+turning point" all left that same empty row, for good. Which of these his five minutes were cannot
+be read from here; each of them now says itself. The row says "Sealing choices for this page…" (or
+"…waiting for this page's readers to finish first…") while it is asked, on every page; a helper that
+gives none says why (choices.js makeChoices onFail: the call failed with what the provider said,
+kept to 160 characters; an answer that is no choices; outwaited; no connection) with "Restart
+choices" to ask again by hand (no automatic retry); a restart answered "no turning point" says so,
+kept on the page as restarted, with the same button. A quiet page the house asked about by itself
+still shows nothing. A restart during a fight is refused with a toast instead of emptying the row.
+Laws: DOM-M752-19 (slow, the wire dropped, a 503, no turning point, then new choices; fails on
+m752-017 — "waited too long for … the row says new choices are being sealed"), M752-CH4 (each
+reason; fails on m752-017). Chromium 320/390/760 px, three coats: the note and the button stay
+inside the row, no page overflow (a long 503 is 100 px tall at 390 px).
+Measured: law suite 1686 of 1686; DOM walk 323 of 323 (before the 160-character cut, which
+M752-CH4 and DOM-M752-19 then passed again); lint 0 errors, 253 warnings. Not run: a live provider;
+his tale.

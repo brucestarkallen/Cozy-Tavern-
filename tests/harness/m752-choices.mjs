@@ -77,3 +77,20 @@ test('M752-CH3 “I” OR “YOU” (HIS, 15 October 2026: “so it’s not alwa
     assert(/"move": what Jovan does[^\n]*the second person, Jovan as "you"[^\n]*"You tell[^\n]*Never "I"/.test(ask('you')) && !/the first person/.test(ask('you')), name + ': “You” when he picks it');
   }
 });
+
+test('M752-CH4 A HELPER THAT GIVES NO CHOICES SAYS WHY (HIS, 15 October 2026: “how do i know it’s processing and not stuck … nothing happened no pop up”): the call that failed, with what the provider said; an answer that cannot be read; a call outwaited by its minute; no connection — each is told to the caller in plain words, and the answer is still none', async () => {
+  const ask = choices.choiceAskWhole({ pkg: packageFromRequest(openaiKept), newest: NEWEST, mc: 'Jovan' });
+  const why = async (opts) => { let said = ''; const read = await choices.makeChoices({ ask, connection: { id: 'c' }, ...opts, onFail: (w) => { said = w; } }); return { read, said }; };
+  const down = await why({ callLLM: async () => { throw new Error('the storyteller said no (503): Service is too busy.'); } });
+  eq(down.read, null, 'a failed call is no answer');
+  eq(down.said, 'the helper’s call failed: the storyteller said no (503): Service is too busy', 'and says what the provider said');
+  const long = await why({ callLLM: async () => { throw new Error('the storyteller said no (503): Service is too busy. We advise users to temporarily switch to alternative LLM API service providers. (request_id: 9603ce07-73d7-4a98-949b-a28b59255687)'); } });
+  assert(long.said.startsWith('the helper’s call failed: the storyteller said no (503): Service is too busy.') && long.said.endsWith('…') && long.said.length <= 'the helper’s call failed: '.length + 160, 'a long refusal is kept to its start: ' + long.said);
+  eq((await why({ callLLM: async () => ({ text: 'Sure! Here are some choices: …' }) })).said, 'the helper’s answer could not be read as choices', 'an answer that is no choices');
+  const c = new AbortController(); c.abort(new Error('timeout'));
+  eq((await why({ signal: c.signal, callLLM: async () => { const e = new Error('The operation was aborted.'); e.name = 'AbortError'; throw e; } })).said, 'the helper did not answer within its minute', 'a call outwaited');
+  eq((await why({ connection: null })).said, 'there is no connection for the helper', 'no connection');
+  let said = 'untouched';
+  await choices.makeChoices({ connection: { id: 'c' }, ask, callLLM: async () => ({ text: JSON.stringify({ turning: false }) }), onFail: (w) => { said = w; } });
+  eq(said, 'untouched', 'an answer of no turning point is an answer, not a failure');
+});

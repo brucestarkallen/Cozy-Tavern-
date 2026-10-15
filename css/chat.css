@@ -1091,6 +1091,8 @@ body.panel-resizing .story-panel, body.panel-resizing .panel-resize { user-selec
 .choice-btn:active { transform: scale(0.98); }
 /* M752 (followup 16): "Restart choices" — under the choices, across the row, quieter than they are */
 .choice-restart { grid-column: 1 / -1; justify-self: center; min-height: 32px; font-size: 0.85em; color: var(--muted); padding: 6px 14px; }
+/* M752 (followup 19): what the asking is doing for the newest page, or why there are no choices after it was asked */
+.choice-note { grid-column: 1 / -1; margin: 0; padding: 4px 6px; text-align: center; font-size: 0.9em; color: var(--muted); overflow-wrap: anywhere; }
 
 /* A6: the read-only notice (another tab holds the pen). */
 .read-only-notice {

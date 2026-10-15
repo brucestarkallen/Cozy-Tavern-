@@ -263,6 +263,9 @@ Keep these; each has a law that fails without it:
   (chat.js choicesInOtherVoice); a call for the other voice still out writes nothing.
   "Restart choices" (chat.js restartChoices) lets the open choices go, kept nowhere, and asks
   afresh; the helper is never shown an earlier offer.
+  The row says what the asking is doing for the newest page (chat.js drawChoices, choiceWork,
+  choiceTrouble): sealing, waiting for its readers, or why none came (choices.js makeChoices onFail),
+  with "Restart choices"; never an empty row after he asked.
 - The automatic audit (chat.js scheduleLedgerRepair) starts as soon as the house is idle and
   again as soon as a pass that got somewhere ends; after a pass that got nowhere or failed it
   holds 5–30 s, and the light's looks never cut that hold short (a failing provider is not asked
