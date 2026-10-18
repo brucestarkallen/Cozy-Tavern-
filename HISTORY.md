@@ -21810,3 +21810,39 @@ DOM-254 failed on the calendar alone: its fixture dated M669's finisher at Date.
 Measured: law suite 1704 of 1704; DOM walk 327 of 327; lint 0 errors, 247 warnings (as before, the same warnings). Not run: a live
 provider — whether his workers' provider keeps a request's beginning was not checked (a Claude connection keeps only
 what the house marks, a worker's system words: the world's are now the same every page); his tale; his phone.
+
+## M754 (m754-001): an old close the ledger already holds is settled; a loose end is closed where it is written
+
+The owner (18 October 2026): "Why it's still stupid!! It keeps stuck on yellow the auditor ran just now has unresolved
+findings; repeated attempts are paused until the story or ledger changes — still checking: Jugram's loose end 'first bell
+tomorrow: he must show Marshal Kelstrum what fourth place at Angmar looks like on Ilvarren flags, blunted steel and
+witnesses' was answered when the duel was fought at first bell on Freeday: no such loose end is written for them. I though
+from many version it's already solved".
+Reproduced with the real auditor and a scripted model that asks the same close again, as his did (law M754-1 on
+m753-001): pending stayed "The duel answered it: no such loose end is written for them" and "ledger verification: checked
+22 of 25 entries; presence:Jugram: no such loose end …; characters:Jugram: no such loose end …" — the refused repair held
+Jugram's rows open as well. The chain of causes: the loose end was closed already (the page that answered it had been read);
+the auditor's old finding to close it was kept and handed to every review (HISTORICAL REPAIR CHECKLIST); the people door
+refused the close of a loose end that is not open, where its twin — a loose end already written — has been "already so"
+since M680; a historical finding counted as settled only for presence, a seat cleared, an alias, a person's field and a
+rename (auditor.js mutationSatisfied), never a loose end — nor a thread, a line of what someone knows, a faction, a truth,
+a wound, a departure or a thing; and the checklist showed the reviewer the person's field "unthread", which no page has,
+so it never saw the loose end was gone and asked the same close every pass, until two passes without progress paused it.
+Now: people.js looseEndOn — a person's loose ends are looked for on the page every writer writes to (his own record for his
+names) and, for his names, on a page kept under another of them; a close found nowhere is already so (same, for the
+auditor, the page reader, the scribe, the housekeeper — one door), and one near another of theirs but not it is still
+refused, the refusal saying what is written; an opening already written on any of their pages is already written. An old
+close is settled once its door finds nothing left to close (a dry run on a copy; something still there, or two threads that
+could answer, is not). The checklist shows the loose ends as they stand on that page and on his other pages.
+LEDGER_REPAIR_POLICY 10 → 11, so his paused audit resumes once by itself and settles the finding.
+Laws M754-1 (his stuck finding settles, nothing pending), M754-2 (the door: closed already is already so; on his other
+page; near is refused with what is written), M754-3 (the checklist shows the loose ends), M754-4 (every closing kind
+settles once gone, not while standing or ambiguous) — 4 of 4 fail on m753-001. M237's loose-end line read people.js's
+source and broke on the new path; it runs the door now (the same loose end in other words, noted twice, is written once).
+DOM-6d failed once in a walk run beside the lint: it clears the audit's verification and asks for the unfinished page to be
+read again, and the house starts the audit by itself a quarter second after its light looks — an auditor out is a reader
+out, so the page was not resumed. A race of the fixture on a loaded machine (the stretch before it, unloaded, showed nothing
+out); the tale's audit is switched off for that moment now and put back after.
+Measured: law suite 1708 of 1708; DOM walk 327 of 327; lint 0 errors, 247 warnings (the same warnings). Not run: his tale — its ledger
+was not available here, so how his loose end had gone from Jugram's page (closed by the readers of the page that answered
+it, or kept on another page) was not seen; the stuck finding settles either way.

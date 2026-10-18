@@ -414,6 +414,52 @@ export function sameLooseEnd(a, b) {
   return hit / small >= 0.6;
 }
 
+/* M754 — A LOOSE END IS FOUND WHERE IT IS WRITTEN, AND ONE THAT IS NOT OPEN IS CLOSED ALREADY. His light stayed yellow for
+ * good: "Jugram's loose end 'first bell tomorrow: he must show Marshal Kelstrum …' was answered when the duel was fought at
+ * first bell on Freeday: no such loose end is written for them". The page that answered it had been read, and its readers had
+ * closed it; the auditor's old finding still asked to close it, the close of a loose end that is not open was refused, and
+ * every pass asked it again. The pages a person's loose ends may stand on: the one every writer writes to (his own record for
+ * his names), and — for his names — a page kept under another of them (written before the name was his). Written there, it is
+ * found there; not on any of them, it is closed already — unless one of theirs is near it and is not it, which is no guess
+ * the house makes (the close is refused, saying what IS written). */
+export function looseEndPages(state, characters, name) {
+  const chars = characters && typeof characters === 'object' ? characters : {};
+  const asked = normalizeName(name);
+  if (!asked) return [];
+  const keys = [];
+  const add = (k) => { if (k && chars[k] && !keys.includes(k)) keys.push(k); };
+  const forMc = isMc(state, asked);
+  add(findPersonKey(chars, forMc ? mcKey(state) : asked));
+  if (forMc) {
+    add(findPersonKey(chars, asked));
+    for (const k of Object.keys(chars)) if (isMc(state, k)) add(k);
+  }
+  return keys;
+}
+/* near it but not it: half the words of the shorter one shared (any word of a short one) — the matcher asks more (sameLooseEnd) */
+function nearLooseEnd(a, b) {
+  const words = (t) => new Set(plainLoose(t).split(' ').filter((w) => w.length > 3));
+  const x = words(a); const y = words(b);
+  const small = Math.min(x.size, y.size);
+  if (!small) return false;
+  let hit = 0;
+  for (const w of x) if (y.has(w)) hit += 1;
+  return small < 3 ? hit > 0 : hit / small >= 0.5;
+}
+/* where a loose end of NAME is written: { key, at } — or { near: [loose ends of theirs near it] } — or {} when it is not
+ * written for them at all (closed already) */
+export function looseEndOn(state, characters, name, text) {
+  const pages = looseEndPages(state, characters, name);
+  const near = [];
+  for (const key of pages) {
+    const threads = Array.isArray(characters[key].threads) ? characters[key].threads : [];
+    const at = threads.findIndex((t) => sameLooseEnd(String(t), text));
+    if (at !== -1) return { key, at };
+    for (const t of threads) if (nearLooseEnd(String(t), text) && !near.includes(String(t))) near.push(String(t));
+  }
+  return near.length ? { near } : {};
+}
+
 export function mergeDeltas(state, characters, deltas, turn) {
   const next = {};
   const src = characters && typeof characters === 'object' ? characters : {};
@@ -441,6 +487,7 @@ export function mergeDeltas(state, characters, deltas, turn) {
 
     /* The persona redirect: a note addressed to "you" belongs to the main
      * character's record. */
+    const asked = name; /* M754: the name as it came — a loose end may stand on a page kept under it */
     const forMc = isMc(state, name);
     if (forMc) name = mcKey(state);
 
@@ -457,6 +504,19 @@ export function mergeDeltas(state, characters, deltas, turn) {
 
     let key = findPersonKey(next, name);
     if (!key) key = name;
+    /* M754: a close opens no page — the loose end is on one of theirs, or closed already */
+    if (field === 'unthread') {
+      const found = looseEndOn(state, next, asked, text);
+      if (!found.key) {
+        if (found.near) why('no such loose end is written for them — theirs: ' + found.near.slice(0, 6).map((t) => '“' + t + '”').join('; '));
+        else dropped.push({ delta, why: 'that loose end is not open for them — it is closed already', gone: true }); /* already so */
+        continue;
+      }
+      next[found.key].threads.splice(found.at, 1);
+      next[found.key].updatedAtTurn = atTurn;
+      changes.push({ name: found.key, field });
+      continue;
+    }
     if (!next[key]) { next[key] = emptyPerson(); next[key].firstSeenTurn = atTurn; } /* M284: when they came into the tale */
 
     if (field === 'thread' || field === 'unthread') {
@@ -465,15 +525,10 @@ export function mergeDeltas(state, characters, deltas, turn) {
        * ever closed, the list filled, and every new loose end was dropped:
        * pages stuck twenty turns behind. When the list is full the oldest
        * goes, never the newest. */
-      const at = next[key].threads.findIndex((t) => sameLooseEnd(String(t), text));
-      if (field === 'thread') {
-        if (at !== -1) { why('that loose end is already written down'); continue; }
-        if (next[key].threads.length >= THREADS_MAX) next[key].threads.shift();
-        next[key].threads.push(text);
-      } else {
-        if (at === -1) { why('no such loose end is written for them'); continue; }
-        next[key].threads.splice(at, 1);
-      }
+      /* (an opening; a close was taken up above) — M754: already written on any of their pages is already written */
+      if (looseEndOn(state, next, asked, text).key) { why('that loose end is already written down'); continue; }
+      if (next[key].threads.length >= THREADS_MAX) next[key].threads.shift();
+      next[key].threads.push(text);
       next[key].updatedAtTurn = atTurn;
       changes.push({ name: key, field });
       continue;

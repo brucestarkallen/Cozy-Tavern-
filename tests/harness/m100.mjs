@@ -1914,7 +1914,17 @@ test('M237: no cap in the house severs a word, and no list has an unguarded door
   /* the ledger's lists: every one that can be written twice asks the same question */
   const people = read('js/engine/people.js');
   assert(/if \(list\.some\(\(kept\) => sameLooseEnd\(kept, t\)\)\) continue;/.test(people), 'threads: the whole-list path dedupes');
-  assert(/const at = next\[key\]\.threads\.findIndex\(\(t\) => sameLooseEnd\(String\(t\), text\)\);/.test(people), 'threads: and the one-at-a-time path');
+  /* M754: this line read the one-at-a-time path's source text; the path now asks the same question on every page of the person
+   * (people.js looseEndOn) — it runs the door instead: the same loose end in other words, noted twice, is written once */
+  {
+    const { applyMutations } = await import('../../js/engine/apply.js');
+    const { emptyState } = await import('../../js/engine/state.js');
+    const twice = applyMutations({ ...emptyState(), characters: { Mira: { core: 'the innkeeper', state: '', arc: '', threads: [] } } }, [
+      { type: 'people.note', name: 'Mira', field: 'thread', text: 'She still owes the ferryman for the crossing.' },
+      { type: 'people.note', name: 'Mira', field: 'thread', text: 'still owes the ferryman for the crossing' },
+    ]);
+    eq(twice.state.characters.Mira.threads.length, 1, 'threads: and the one-at-a-time path — ' + JSON.stringify(twice.state.characters.Mira.threads));
+  }
 
   const apply = read('js/engine/apply.js');
   /* M414: this line read the handler's source text (so a guard that changed its spelling failed it, and a guard that

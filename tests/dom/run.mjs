@@ -990,6 +990,12 @@ test('DOM-6d THE READERS FINISH WHAT THEY STARTED: a last page whose chain never
   /* the app closed mid-chain: the last page has no checkpoint — and its audit had not finished (M752: a ledger its audit
    * verified is that checkpoint, written and not read again; whether the walk's own audit had finished by now was a race,
    * which an audit finishing sooner — followup 22 — lost every time) */
+  /* M754: an audit not finished is one the house starts again by itself a quarter second after its light looks (chat.js
+   * scheduleLedgerRepair) — and an auditor out is a reader out, so the page is not resumed under it: on a loaded machine
+   * these writes can outlast that quarter second, and the law then fails on the clock (it did once, the walk run beside the
+   * lint). The tale's audit is switched off for the moment the law is about, and put back after. */
+  const auditWas = (await db.stories.get(sid)).audit;
+  await db.stories.update(sid, { audit: false });
   { const { loadState, saveState } = await import('../../js/engine/state.js'); const st = await loadState(sid); await saveState(sid, { ...st, audit: { ...(st.audit || {}), verification: null } }); }
   { const { loadVersionStates, saveVersionStates } = await import('../../js/engine/state.js'); /* M507-6: through the store's own doors */
     const vs = await loadVersionStates(sid);
@@ -999,6 +1005,7 @@ test('DOM-6d THE READERS FINISH WHAT THEY STARTED: a last page whose chain never
   eq(ran1, true, 'an unfinished last page is read again');
   await until(async () => { const w = (await db.settings.get('workers:' + sid)) || {}; return w.extractor && w.extractor.at > at0; }, 'the extractor read it', 15000);
   await settled();
+  await db.stories.update(sid, { audit: auditWas });
   assert(await (await import('../../js/engine/state.js')).versionStateOf(sid, last.dataset.id + ':' + idx), 'and the checkpoint stands again');
   { const problems = await checkStoreConsistency(db, sid); eq(problems.length, 0, 'the store agrees with itself: ' + problems.join(' | ')); }
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));

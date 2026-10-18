@@ -25,7 +25,7 @@ import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sceneEndingFields } from './led
 import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M554; M677: what goes into who knows what — the reader's own rule; M679: what answers a loose end — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
 import { samePlace, seatAtScene, handSetClockSince } from '../engine/apply.js'; /* M403; M681: a seat at the scene's own place */
-import { seatForPerson, sameLooseEnd, roleOwnersNamed, roleWordOf } from '../engine/people.js'; /* M398; M679: a loose end matched by sense, as the applier matches it */
+import { seatForPerson, sameLooseEnd, roleOwnersNamed, roleWordOf, looseEndOn, looseEndPages } from '../engine/people.js'; /* M398; M679: a loose end matched by sense, as the applier matches it */
 import { isHere, nameOnPage, samePersonName, oneMeaning, foldName, nameCore, sameOwnedDescriptor, isDescriptorName } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
 import { shownOnPage, personBookKey, groundTheTellingStandsOn, narrationOf } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
 import { findRelationship } from '../engine/relationships.js';
@@ -1012,15 +1012,22 @@ export function auditRepairChecklist(findings, state) {
       current:state.auditSources?.[i.sourceId]?.people?.find(p=>p.name===(i.sourceName || i.name))}}:{}),
     currentEntries: findingRows(i,state),
     targets: (i.mutations || []).map(m => {
-      const name = findPersonKey(state.characters || {}, m.name || m.from) || m.name || m.from;
+      /* M754: a loose end's page is the one the door closes it on (his own record for his names), and what the reviewer is
+       * shown of it is the loose ends written there — the person's "unthread", which no page has, was shown before: never
+       * the loose end, so never that it had already been closed */
+      const loose = m.type === 'people.note' && /^(?:un)?thread$/i.test(String(m.field || '').trim());
+      const pagesOf = loose ? looseEndPages(state, state.characters || {}, m.name) : [];
+      const name = pagesOf[0] || findPersonKey(state.characters || {}, m.name || m.from) || m.name || m.from;
       const at = name ? findPresent(state, name, { strict: true }) : -1;
       const {shown,evidence,evidenceId,evidenceError,...proposed} = m;
+      const field = loose ? 'threads' : m.field;
       return { proposed, canonicalName: name, current: {
         presence: at < 0 ? null : state.present[at],
         elsewhere: seatForPerson(state, name)?.entry || null,
         ...(m.type.startsWith('people.') ? { person: state.characters?.[name] ? {
           core:state.characters[name].core, aliases:state.characters[name].aliases,
-          ...(m.field && m.field !== 'core' ? {[m.field]:state.characters[name][m.field]} : {}),
+          ...(field && field !== 'core' ? {[field]:loose ? state.characters[name].threads || [] : state.characters[name][field]} : {}),
+          ...(pagesOf.length > 1 ? { looseEndsOnTheirOtherPages: Object.fromEntries(pagesOf.slice(1).map((k) => [k, state.characters[k].threads || []])) } : {}),
           manualFields:Object.keys(state.characters[name].hand || {}),
         } : null } : {}),
       } };
@@ -1611,6 +1618,16 @@ function compactFindings(findings, state) {
   return [...kept.values()];
 }
 
+/* each closing door's own words for "there is nothing of that name left to close" (engine/apply.js) */
+const CLOSED_ALREADY = {
+  'thread.close': /^no thread called .* is open$/,
+  'knowledge.forget': /has nothing written down to let go|^no line of what .* knows answers to/,
+  'faction.clear': /^no faction called .* is written$/,
+  'canon.unlock': /^nothing is locked true of|^no truth called .* is locked for/,
+  'body.heal': /^the ledger knows no such hurt on .* still needing to heal$/,
+  'presence.leave': /^no one here answers to /,
+  'thing.clear': /^the ledger holds no thing called /,
+};
 function mutationSatisfied(state, m) {
   if (m.type==='source.resolve') {
     const p=state.auditSources?.[m.sourceId]?.people?.find(p=>p.name===m.name);
@@ -1640,6 +1657,22 @@ function mutationSatisfied(state, m) {
      * merge (formerNameOwner, M752), as an old presence finding follows it above */
     return !Object.keys(state.characters || {}).some((k) => foldName(k) === foldName(m.from))
       && (sourcePersonKey(state, m.from) === key || formerNameOwner(state.characters || {}, m.from) === key);
+  }
+  /* M754: a loose end to open is so when it is written on a page of theirs; one to close, when none of theirs holds it (nor
+   * anything near it — the door refuses those, saying what is written). His finding to close a loose end the duel's own
+   * readers had already closed was never so, and every pass asked it again: yellow for good. */
+  if (m.type === 'people.note' && /^(?:un)?thread$/i.test(String(m.field || '').trim()) && m.name && m.text) {
+    const found = looseEndOn(state, state.characters || {}, m.name, m.text);
+    return /^un/i.test(String(m.field).trim()) ? !found.key && !found.near : Boolean(found.key);
+  }
+  /* …and every other closing door the auditor uses: an old close is so when its door finds nothing left to close — a dry
+   * run on a copy, never a write. Something still there, or a name that could be two, is not so. */
+  if (CLOSED_ALREADY[m.type]) {
+    if (m.type === 'thread.close' && (Array.isArray(state.threads) ? state.threads : []).some((t) => findThread([t], m.title || m.name) === 0)) return false; /* one answers, or two do (findThread gives neither) */
+    const tried = applyMutations(state, [m]);
+    if (tried.applied.length) return false;
+    const answer = tried.rejected[0];
+    return Boolean(answer && (answer.same === true || CLOSED_ALREADY[m.type].test(String(answer.why || ''))));
   }
   return false;
 }

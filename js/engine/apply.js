@@ -1701,7 +1701,7 @@ const HANDLERS = {
   'people.note'(state, m) {
     const noted = typeof m.text === 'string' ? withoutStandingNumbers(m.text) : m.text; /* M524: a standing's number is the ledger's, never a page's words */
     const { characters, changes, dropped } = mergeDeltas(state, state.characters, [{ name: m.name, field: m.field, text: noted }], storyTurn(state));
-    if (!changes.length) { const why = (dropped[0] && dropped[0].why) || 'the note said nothing new'; return { why, recoverable: dropped[0]?.recoverable === true, ...(/already written down|said nothing new/.test(why) ? { same: true } : {}) }; } /* M680: a loose end already written is already so */
+    if (!changes.length) { const why = (dropped[0] && dropped[0].why) || 'the note said nothing new'; return { why, recoverable: dropped[0]?.recoverable === true, ...(dropped[0]?.gone === true || /already written down|said nothing new/.test(why) ? { same: true } : {}) }; } /* M680: a loose end already written is already so; M754: and one closed already */
     const key = changes[0].name;
     const before = state.characters && state.characters[key] ? cloneMap({ [key]: state.characters[key] })[key] : null;
     state.characters = characters;

@@ -7,8 +7,9 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m753-001 on main, 18 October 2026: speech marks paired as the screen pairs them, and a page's
-  readers sooner (M753 — the next two items). Before it, m752-021 on 15 October; m752-001 (d73bbaf) was the audit;
+- Version m754-001 on main, 18 October 2026: an old close the ledger already holds no longer keeps the auditor's
+  light yellow (M754, the next item). m753-001 the same day: speech marks paired as the screen pairs them, and a
+  page's readers sooner (M753, the two items after it). Before them, m752-021 on 15 October; m752-001 (d73bbaf) was the audit;
   m752-002 lets go, when a tale opens, a persona the old rule made of an ordinary
   sentence; m752-003 makes the notes say when they have not read the newest page;
   m752-004 settles the continuous audit's historical corrections instead of
@@ -42,6 +43,22 @@ older files sit beside it). Search them with
   a page the helper found quiet says so, with "Restart choices" (DOM-M752-20); m752-020: nothing
   he does waits for the auditor, and a description it cannot tie to anyone is set aside (below);
   m752-021: an unchanged entry the new page does not name keeps its approval (below).
+- The auditor's light, yellow for good (m754-001). His: "the auditor ran just now has unresolved findings; repeated
+  attempts are paused until the story or ledger changes — still checking: Jugram's loose end 'first bell tomorrow: he must
+  show Marshal Kelstrum …' was answered when the duel was fought at first bell on Freeday: no such loose end is written for
+  them". The loose end was closed already; the auditor's old finding to close it was kept and shown to each review, the
+  close of a loose end that is not open was refused ("no such loose end"), a finding was counted as so only for a few kinds
+  of change (never a loose end, a thread, a line of what someone knows, a faction, a truth, a wound, a departure, a thing),
+  and the review was shown the person's "unthread" — a field no page has — so it never saw the loose end was gone; every
+  pass asked the same close again, held the person's rows open with it, and paused. Now a close of a loose end not open on
+  any of their pages is already so, for every reader (people.js looseEndOn; one near it that is not it is still refused,
+  saying what is written); a loose end on a page of his kept under another of his names is closed there; an old close is
+  settled once its door finds nothing left to close (auditor.js mutationSatisfied: a dry run, never a write; something
+  still there, or two that could answer, is not); the review is shown the loose ends as they stand. LEDGER_REPAIR_POLICY
+  10 → 11: his paused audit resumes once by itself. Laws M754-1..4 (each fails on m753-001); M237's loose-end line runs
+  the door instead of reading its source; DOM-6d holds the tale's audit off while it asks for the unfinished page (the
+  house's own restart of the audit, a quarter second after the light looks, raced it on a loaded machine). Measured on m754-001: the law suite 1708 of 1708, the DOM walk 327 of 327, lint 0 errors
+  (247 warnings, as before). Not run: his tale (its ledger was not available here).
 - Speech marks (m753-001). His page under a green light: `"A gift,* she said, slowly, … "From my sister. …"` — the
   closing quote came out as an asterisk, and the screen, which pairs straight quotes in order, coloured the narration as
   speech and her words as narration. The auditor reads the ledger, never a page's marks, and the page repair knew only
