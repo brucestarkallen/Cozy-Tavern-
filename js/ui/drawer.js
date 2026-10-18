@@ -2360,7 +2360,7 @@ function workersPanel(ctx) {
   mendMarksBtn.type = 'button';
   mendMarksBtn.className = 'text-btn';
   mendMarksBtn.textContent = 'Mend the pages’ marks';
-  mendMarksBtn.title = 'Runs the page repair over every page kept so far — brackets, a stray or open quote, an asterisk, a soft wrap, the window’s marker. Marks and white space only; never a word.';
+  mendMarksBtn.title = 'Runs the page repair over every page kept so far — brackets, a stray or open quote, an asterisk, a soft wrap, the window’s marker; a quotation mark left out goes to the second reader to place. Marks and white space only; never a word.';
   mendMarksBtn.addEventListener('click', async () => {
     mendMarksBtn.disabled = true;
     try { if (ctx.chat && typeof ctx.chat.mendAllPages === 'function') await ctx.chat.mendAllPages(); } finally { mendMarksBtn.disabled = false; }

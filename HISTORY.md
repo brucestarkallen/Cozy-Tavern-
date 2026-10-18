@@ -21732,3 +21732,81 @@ seeder and a referee format retry — which is what an unfinished first answer c
 Nothing further was changed: the auditor's re-asked entries (m752-021) were the one waste found; reordering other
 workers' prompts for a provider's prompt cache would change what each model reads first, and its quality cannot be
 shown without a live model. Not run: a live provider.
+
+## M753 (m753-001): speech marks paired as the screen pairs them; the readers' requests begin the same way page to page; readers that need nothing of each other read together
+
+The owner (18 October 2026): "Why the audit not automatically fix this bad formatting" — his page, under a green light:
+`"A gift,* she said, slowly, working the arithmetic aloud now, undisguised. "From my sister. For asking about her
+sister's family. …"` — and "Audit the worker is there any possible way for optimization to make everything the process
+more fast while doesn't decrease accuracy or quality … It's become slow on 70k token story."
+
+The marks. Why it stood: the auditor reads the ledger, never a page's marks; the page repair (pageshape.js mendMarks)
+knew some shapes of a broken mark — speech wrapped in asterisks, a quote left open at the END of its paragraph, an
+asterisk opened before a word — and a closing quote come out as an asterisk is none of them; nothing in the house asked
+whether a line's speech marks pair. The screen pairs straight quotes in the order they stand (prose.js QUOTE_RE), so the
+narration ("she said, slowly, working the arithmetic…") was coloured as speech and her words were not.
+Now, line by line as the screen draws them (pageshape.js pairSpeech): each double quote is read by where it stands
+(before a word it opens, after one it closes; a curly mark by its face where its place says nothing); where a line's
+marks do not pair, the one mark standing where the missing quote belongs — a lone asterisk, or a single quote after
+, . ! ? … — that no other single quote pairs with — is made that quote, only when it alone makes every pair whole; a pair
+written in two kinds ("…” or “…") is written in one; a curly mark facing the wrong way is turned; an asterisk opened and
+never closed is closed inside its own stretch (M458 closed it at the paragraph's end: '"I *mean it," she said.*' showed
+two strays where there was one); „…“ and «…» keep their own rules (the old curly rule appended a ” to every German „…“
+paragraph). A quote simply left out mid-line leaves no mark to turn: the house sees it (speechFaults) and asks the
+second reader's mender, with his mend switch, to add the quotation marks; its edit is kept only if it ADDS quotation
+marks and nothing else (insertsOnlyMarks) and fewer lines are left unpaired. Asked after a page's readers and before
+its auditor, who then reads the page as it stands (a page changed after the auditor read it is read again, and every
+approval with it) — that page and any page the storyteller reads word for word; once when a tale opens on this build;
+and on "Mend the pages' marks" (every page; its toast says what the repair could not place by itself and that the second reader is setting it
+— it said "Every page's marks are whole already"). It never holds him up: it does not begin while he sends, a call out
+when he writes steps aside (continuous.js beginReading), and what it had not reached is taken up at the next page's end;
+each telling is put to it once (`marksAsked`, its words' fingerprint), his press asking again; a page's marks are read
+once a session per text, in short turns. His stored pages are mended by the repair the first time each tale opens on
+m753-001 (the pagesMended mark). The mend switch's words say it now: "…a quotation mark the storyteller left out (marks
+only, never a word)".
+Laws M753-1..5 (his page; the same fault in its other shapes; what is never touched — long speech, feet and inches, a
+quotation inside speech, the plural's apostrophe, emphasis, „…“, two candidates, the old M476/M458 repairs; the open
+asterisk; what only the mender can set and its guard) fail on m752-021. DOM-M753-1: set after its readers, the screen
+draws her words as speech; a mend that changed a word refused and not asked again; with the mender out, send →
+storyteller 47 ms (5,053 ms when it does not step aside, measured by taking the step aside out); set at the next page's
+end; the press says what it cannot place and sends it.
+
+The workers. Measured with the real app (jsdom) on a 60-page, ~80,000-token tale (15 record lines), two pages sent
+through the composer, every worker answering its contract, each call timed by a latency model (0.6 s a call, a request's
+new part read at 6,000 tokens/s, the part that begins as the same worker's request on the page before at 60,000 tokens/s,
+answers at 100 tokens/s — assumed speeds, not his provider):
+- How much of each reader's request began as its request on the page before (what a provider that keeps a request's
+  beginning does not read again): the page reader 19% (its request began with the ledger, the hour first), the world 0%
+  (its system words carried the hour: "The hour on the clock is Monday, March 3, 2025 — 19:14"), the second reader 9%
+  (the ledger before the story), the scribe 79% (0% on a page that owes someone a page or a now: that list stood first).
+  The 16 October figures (page reader 81%, world 90%) were measured on two pages whose ledger did not change between
+  them; in play it changes every page. Now what stays the same comes first — the brief, cast notes, what the series
+  says, the record, the pages already read — then the hour and the ledger and what changes with them, then the page
+  and the task: 77%, 83%, 89%, 78%. The same words, none added or left out. Laws M753-6; M29-7 and M134-1 now find the
+  hour, the hour's law and a jump in the request, before the ledger (they asserted them in the system words).
+- The world agent, the scribe and the second reader ran one after another, though each reads the same page and the
+  ledger as the page reader left it and they write apart (the world: the absent, threads, who knows what, the quiet ones
+  in the room; the scribe: the people this page shows; the second reader: its findings and a mend of the page). With
+  "Two workers at once" they read together (agents/queue.js `beside`; never more than two requests at a time for a tale);
+  the world and the scribe write the ledger one at a time, each over the ledger as it stands at its own write
+  (engine/state.js ledgerTurn; the world's M401/M648 checks run on that ledger, so a now or a core the scribe wrote first
+  stands). The second reader moved before the record keeper (it never needed it) and holds the page against the ledger
+  as it stood BEFORE the page's readers wrote, as its words always said ("THE SCENE LEDGER IS THE MOMENT BEFORE THIS
+  PAGE"): a fact the page reader took from this very page no longer makes the page agree with itself. M72-9 reads that
+  line. Laws M753-7 (the queue: together, the next waits for both, at
+  most two, his Stop reaches both, with the switch off one at a time in the same order) and M753-8 (the world and the
+  scribe writing at the same moment: both writes land).
+- "Two workers at once" is on unless he turned it off (it shipped off in M529); a provider that turns two away puts it
+  back to one at a time by itself and keeps it off (M530, DOM-186).
+- Modelled, from the page landing: its readers done 59.6 → 35.2 s; the choices sealed 71.5 → 47.2 s; everything settled,
+  the auditor's review included, 104.8 → 76.6 s. Before: two at once off, as it shipped. With two at once already on,
+  the old code (measured the same way) still ran its readers one after another — done 59.6 s — and settled at 100.9 s.
+- Left as it is: the storyteller's own request keeps 44% of its beginning, because its notes ride above the story in the
+  system by his word (M510-37); the auditor's source reading (7%) and review (31%), the plans keeper and Choices matter
+  (it is handed the storyteller's own request) as they were. The house's own computing for a page's readers is about
+  0.4 s here, several times that on a phone — not where the time goes.
+DOM-254 failed on the calendar alone: its fixture dated M669's finisher at Date.now(), which left the finisher's window
+(7–16 October, chat.js FINISHER_PUT_RIGHT) on 16 October; it is dated inside it now (it fails the same way on m752-021 today).
+Measured: law suite 1704 of 1704; DOM walk 327 of 327; lint 0 errors, 247 warnings (as before, the same warnings). Not run: a live
+provider — whether his workers' provider keeps a request's beginning was not checked (a Claude connection keeps only
+what the house marks, a worker's system words: the world's are now the same every page); his tale; his phone.

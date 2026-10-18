@@ -151,17 +151,13 @@ export function buildContinuityMessages({ state, assistantText, brief = '', reco
   const dress = him ? [said(him.attire) ? 'attire: ' + said(him.attire) : '', said(him.position) ? 'position: ' + said(him.position) : ''].filter(Boolean) : [];
   const hisLine = dress.length ? 'THE MAIN CHARACTER AS THE LEDGER HELD HIM BEFORE THIS PAGE — for THE HEADER LINE only (the page itself may dress or move him; that is the story): ' + him.name + ' — ' + dress.join('; ') + '.' : '';
   const canon = Object.keys(hisCanon).length ? renderCanon(hisCanon, Object.keys(hisCanon), Infinity) : ''; /* M448: his truths, never the series'; M680: every one of them, not the first six */
+  /* M753: WHAT STAYS THE SAME FROM ONE PAGE TO THE NEXT COMES FIRST — the brief, the record, the pages already read — and
+   * what changes every page after it: the locks, the ledger, his own dress for the header, then the page. The ledger (its
+   * hour, who is here, how long ago each thing was learned) stood before the story, so this reader's request parted from
+   * the page before's at the ledger's first line, and a provider that keeps what it has read of a request's beginning read
+   * the whole story again — 91% of the request, every page, on a long tale. The same words. */
   const user = [
-    'What is locked true of them:',
-    canon || 'Nothing is locked yet.',
-    '',
     ...(String(brief || '').trim() ? ['The writer\'s brief — what the writer set down; it COUNTS AS WRITTEN (a kinship, a home, an age here needs no lock):', writerText(brief, BRIEF_ROOM, 'brief'), ''] : []), /* M267/M283: the whole brief */
-    'What the ledgers hold that LASTS — who is here by name, what is locked (never where anyone stands or what they wear: those are the page\'s to move; a body this',
-    'page moves, a posture it changes, a thing it takes off or picks up, is the story moving —',
-    'never drift):',
-    facts,
-    '',
-    ...(hisLine ? [hisLine, ''] : []),
     /* M450: WHO COULD KNOW THIS IS READ AGAINST THE STORY, NOT ONLY THE LEDGER. The blind spots come from the ledger's
      * knowledge lines, and a line the page reader missed made a TRUE telling look untold — and this reader's warn MENDS
      * the page. It reads what the other readers read: the record, and the pages before this one, whole into its room. */
@@ -171,6 +167,15 @@ export function buildContinuityMessages({ state, assistantText, brief = '', reco
       return ['THE PAGES JUST BEFORE THIS ONE (already read — who was told or shown what):', '"""', w.shown.join('\n\n') || '(none fit)', '"""',
         ...(w.index.length ? ['Earlier pages not shown whole:', ...w.index] : []), ''];
     })() : []),
+    'What is locked true of them:',
+    canon || 'Nothing is locked yet.',
+    '',
+    'What the ledgers hold that LASTS — who is here by name, what is locked (never where anyone stands or what they wear: those are the page\'s to move; a body this',
+    'page moves, a posture it changes, a thing it takes off or picks up, is the story moving —',
+    'never drift):',
+    facts,
+    '',
+    ...(hisLine ? [hisLine, ''] : []),
     ...(String(userText || '').trim() ? ['WHAT THE WRITER ASKED FOR ON HIS TURN — the story itself, never drift:', '"""', String(userText).trim().slice(0, 4000), '"""', ''] : []), /* M458 */
     'The page just finished:',
     '"""',

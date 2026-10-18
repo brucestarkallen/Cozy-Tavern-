@@ -91,7 +91,7 @@ import { loadSessionRoot } from '../agents/housekeeper.js'; /* M331 */
 import { voiceOf, groundingSeed } from '../assemble/voice.js'; /* M327: the two names; M358: the grounding phrase */
 import { noteTellerConnection } from '../agents/call.js'; /* M328 */
 import { makeHeaderGate, splitAtHeader, pageOnly } from './headergate.js';
-import { tidyPage, readHeader, partParagraphs } from './pageshape.js'; /* M340: the page made whole before it is kept; M510-17 */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
+import { tidyPage, readHeader, partParagraphs, speechFaults, insertsOnlyMarks } from './pageshape.js'; /* M753: the speech marks the repair could not set */ /* M340: the page made whole before it is kept; M510-17 */ /* M322, M324, M325, M326 */ /* M35/M51: the whole record as the mender's canon; M315: why a keeper's run folded nothing */
 import { mcName, isMcAlias, findActorKeySamePerson, personasRefusedToday } from '../engine/duels.js'; /* M531: who is on the sheet already; M752: personas the old rule made */
 import { mineLeak, mineWord, mineCutAt, soundCount } from '../assemble/plain.js'; /* M510: the cut where a page began playing him; the sounds a page carried */
 import { plannerAskFitted, runPlanner, loadPlan, planEntry, loadPlans, keepSound, keepTexture, planKey, hashText, PLAN_PAGES } from '../agents/planner.js'; /* M510: the planning helper; M519: the texture kept */
@@ -1586,6 +1586,17 @@ export function initChat(ctx) {
     if ((await db.settings.get(mark)) === VERSION) return;
     const r = await mendAllPages({ quiet: true, story });
     if (r && r.stopped) return; /* M675: he began a page meanwhile — taken up again at the next open */
+    /* M753: …and a speech mark only the mender can place (a quote left out mid-line), on the pages the storyteller still
+     * reads word for word — the house's own work in the workers' queue, tried once; it steps aside the moment he writes,
+     * and what it had not reached is taken up at the next page's end */
+    try {
+      if ((await mendOn(story)) && (await speechMarksDue(story)).length) {
+        enqueueWork(story.id, { name: 'eye', once: true, run: async ({ signal, renew }) => {
+          const done = await mendSpeechMarksDue(story, { signal, renew });
+          return done.mended ? { silent: false, detail: speechMarksWords(done.mended) } : { silent: true };
+        } });
+      }
+    } catch (err) { /* taken up at the next page's end */ }
     await db.settings.set(mark, VERSION).catch(() => {});
     if (r && r.mended) toast((r.mended === 1 ? 'One page’s marks were mended on opening' : r.mended + ' pages’ marks were mended on opening') + ' (the repair of ' + VERSION + ').');
   }
@@ -4915,7 +4926,8 @@ export function initChat(ctx) {
 
   /* M477: "Mend the pages' marks" — the page repair over every page already kept, by hand. tidyPage is marks and
    * white space only (brackets, the window's marker, a stray or open quote, an asterisk, a soft wrap); a page it would
-   * not change is not written. No model, no ledger work; the readers need no re-read for a mark. */
+   * not change is not written. No ledger work; the readers need no re-read for a mark. M753: pressed by hand, a quotation
+   * mark only the mender can place goes to it (mendSpeechMarksDue) — marks only, in the workers' queue. */
   async function mendAllPages({ quiet = false, story: given = null } = {}) {
     const story = given || await activeStory();
     if (!story) return { mended: 0, of: 0 };
@@ -4968,7 +4980,20 @@ export function initChat(ctx) {
     }
     await keepBound();
     if (mended && ctx.getActiveStoryId() === story.id && !busy) await renderThread({ structural: true }); /* M675: never a redraw of the thread under a page being told (M186) — the next draw shows them */
-    if (!quiet) toast((mended ? (mended === 1 ? 'One page’s marks mended' : mended + ' pages’ marks mended') : 'Every page’s marks are whole already') + ' (the repair of ' + VERSION + ').'); /* M489-2: the build says which repair ran — "still the same" then names its cause */
+    if (!quiet) {
+      /* M753: A QUOTATION MARK LEFT OUT IS NEVER CALLED WHOLE. What the repair cannot place by itself (a quote left out
+       * mid-line) is seen (speechFaults) and sent to the second reader's mender — every page of the tale, his press asking
+       * again of pages it was asked about before — in the workers' queue, marks only; it steps aside the moment he writes */
+      const left = await speechMarksDue(story, { every: true, again: true });
+      const mendsOn = left.length > 0 && (await mendOn(story));
+      const canMend = mendsOn && Boolean(await resolveWorkerConnection(story, 'continuity'));
+      if (canMend) enqueueWork(story.id, { name: 'eye', once: true, run: async ({ signal, renew }) => { const done = await mendSpeechMarksDue(story, { signal, renew, every: true, again: true }); return done.mended ? { silent: false, detail: speechMarksWords(done.mended) } : { silent: true }; } });
+      const said = mended ? (mended === 1 ? 'One page’s marks mended' : mended + ' pages’ marks mended') : left.length ? 'Nothing the repair sets by itself was out of place' : 'Every page’s marks are whole already';
+      const them = left.length === 1 ? 'it' : 'them';
+      const leftWords = !left.length ? '' : '; ' + (left.length === 1 ? 'one page has' : left.length + ' pages have') + ' a quotation mark left out — '
+        + (canMend ? 'the second reader is setting ' + them + ' now, marks only' : 'only the second reader can place ' + them + ', and ' + (mendsOn ? 'it has no connection' : story.mend === false ? 'page mends are off for this tale' : '“Let the second reader mend the page by the smallest edit” is off'));
+      toast(said + leftWords + ' (the repair of ' + VERSION + ').'); /* M489-2: the build says which repair ran — "still the same" then names its cause */
+    }
     return { mended, of: pages.length };
   }
 
@@ -5076,6 +5101,105 @@ export function initChat(ctx) {
   async function pagesOfLine(storyId, span) {
     return visiblePages(await db.messages.list(storyId)).slice(span[0], span[1] + 1).map((m) => m.id);
   }
+
+  /* M753: THE SPEECH MARKS THE PAGE REPAIR CANNOT SET. The repair writes a quotation mark only where a mark already stands
+   * for it (pageshape.js pairSpeech); a quote the storyteller simply left out in the middle of a line — "A gift, she said.
+   * "From my sister." — leaves no mark to turn, and where it belongs is a reading of the sentence, not of its marks. The
+   * house sees such a line (speechFaults), and what it sees it puts right: the mender (the second reader's connection, with
+   * his mend switch) is shown the page and those lines, and its edit is kept only if it ADDS quotation marks and nothing
+   * else — no word, no other mark, nothing taken away (insertsOnlyMarks) — and fewer lines are left unpaired after it. Marks
+   * are not the story: the record's line stays bound to the page (restampRecord), as for the repair's own marks.
+   * It is the house's own work and never holds him up: it does not begin while he is sending or a page is being told or
+   * rebuilt, and a call still out when he writes steps aside (continuous.js beginReading — the send's wait and the telling
+   * pull it), to be asked again at the next page's end. Each telling of a page is put to it once (`marksAsked`, its words'
+   * fingerprint): a line it could not set is not asked about again until the words change. */
+  const MARKS_ASIDE = 'aside';
+  async function mendSpeechMarks(story, pageId, signal, { again = false } = {}) {
+    const cur = (await db.messages.list(story.id)).find((m) => m && m.id === pageId);
+    if (!cur || cur.role !== 'assistant' || cur.ooc || cur.hidden) return 0;
+    const before = pageText(cur);
+    if (typeof cur.keptText === 'string' && cur.keptText === before) return 0; /* M510-43: the words he put back stay as he put them */
+    const faults = speechFaults(before);
+    if (!faults.length) return 0;
+    const asked = hashText(before);
+    if (cur.marksAsked === asked && !again) return 0; /* this telling was put to the mender already (his own press asks again) */
+    if (busy || isReplaying()) return MARKS_ASIDE;
+    const connection = await resolveWorkerConnection(story, 'continuity');
+    if (!connection) return 0;
+    const contradiction = 'The speech marks of these lines do not pair, so the screen colours narration as speech and speech as narration: '
+      + faults.map((l) => '«' + l + '»').join(' ')
+      + ' Add the quotation marks each spoken line is missing, where its spoken words begin and end, in the kind of quotation mark the page already uses. Change no word and no other mark, and take nothing away.';
+    const held = await loadState(story.id);
+    const playerName = mcName(held) !== 'the player' ? mcName(held) : 'the player';
+    let was = null;
+    let landed = null;
+    const own = beginReading(story.id, signal);
+    try {
+      await mendPages({ connection, storyId: story.id, pages: [{ id: cur.id, role: 'assistant', text: before }], contradiction, record: '', playerName, signal: own.signal,
+        apply: async (page, after) => {
+          if (!insertsOnlyMarks(before, after) || speechFaults(after).length >= faults.length) return false;
+          landed = await db.messages.change(story.id, cur.id, (now) => { was = now; return pageText(now) === before && !(typeof now.keptText === 'string' && now.keptText === before) ? shownTextPatch(now, after) : undefined; });
+          return Boolean(landed);
+        } });
+    } catch (err) {
+      if (own.signal.aborted && !(signal && signal.aborted)) return MARKS_ASIDE; /* stepped aside for his page: asked again at the next page's end */
+      throw err;
+    } finally { endReading(story.id, own); }
+    if (!landed) {
+      /* nothing it offered could be kept: this telling is not asked about again (its words, changed, are) */
+      await db.messages.change(story.id, cur.id, (now) => (pageText(now) === before ? { marksAsked: asked } : undefined));
+      return 0;
+    }
+    try { const mem = await loadMemory(story.id), next = restampRecord(mem, [was], [landed]); if (next !== mem) await saveMemory(story.id, next); } catch (err) { /* the keeper binds it on its next pass */ }
+    await rerenderMessage(story.id, cur.id);
+    return 1;
+  }
+  /* the pages whose speech marks only the mender can set — the pages the storyteller reads word for word (the keeper's own
+   * window), or every page when he asks for every page's marks; never an out-of-character exchange, never words he put back */
+  /* a page's words are read for their marks once (its fingerprint, and whether its speech pairs, kept for the session), and
+   * never in one long hold of the screen (M675: a dozen milliseconds, then the screen has its turn) — about a millisecond
+   * and a half a page here, every page's end over thirty pages, his press over the whole tale */
+  const speechRead = new Map(); /* fingerprint:length -> whether a spoken line does not pair */
+  async function speechMarksDue(story, { every = false, again = false } = {}) {
+    if (!story || !story.id) return [];
+    const shown = visiblePages(await db.messages.list(story.id));
+    const told = shown.filter((m, i) => !asideAt(shown, i));
+    const reach = every ? told : told.slice(-windowFor(await loadMemory(story.id), await db.settings.get('memoryWindow')));
+    const due = [];
+    let turnBegan = Date.now();
+    for (const m of reach) {
+      if (!m || m.role !== 'assistant' || m.ooc) continue;
+      const words = pageText(m);
+      if (typeof m.keptText === 'string' && m.keptText === words) continue; /* M510-43 */
+      const print = hashText(words);
+      if (!again && m.marksAsked === print) continue;
+      const key = print + ':' + words.length;
+      let unpaired = speechRead.get(key);
+      if (unpaired === undefined) {
+        if (Date.now() - turnBegan > 12) { await new Promise((r) => setTimeout(r, 0)); turnBegan = Date.now(); }
+        unpaired = speechFaults(words).length > 0;
+        if (speechRead.size > 5000) speechRead.clear();
+        speechRead.set(key, unpaired);
+      }
+      if (unpaired) due.push(m);
+    }
+    return due;
+  }
+  /* one walk of the mender over them, the newest first, the leash renewed for each page (M207: one call each); it ends
+   * the moment it steps aside */
+  async function mendSpeechMarksDue(story, { signal = null, renew = null, every = false, again = false } = {}) {
+    const out = { mended: 0, aside: false };
+    if (!story || !story.id || !(await mendOn(story))) return out;
+    for (const page of (await speechMarksDue(story, { every, again })).reverse()) {
+      if (signal && signal.aborted) break;
+      if (typeof renew === 'function') renew();
+      const r = await mendSpeechMarks(story, page.id, signal, { again });
+      if (r === MARKS_ASIDE) { out.aside = true; break; }
+      out.mended += r;
+    }
+    return out;
+  }
+  function speechMarksWords(n) { return 'set the speech marks right where a quotation mark was left out, on ' + (n === 1 ? 'one page' : n + ' pages') + ' (marks only — no word changed)'; }
 
   async function mendAround(story, connection, pageIds, contradiction, signal, reach = 5, who = 'The second reader', recordBefore = null) { /* M673: who asked for the mend, and — for an old page — the record as it stood before it */
     if (!(await mendOn(story))) return [];
@@ -5228,16 +5352,21 @@ export function initChat(ctx) {
     const chainClock = { before: null };
     const healthJobs=[];const healthSelected=new Set();
     let ownReading = true; /* M675: the page's own readers — what "this page was read" means (see ledgerLinksOut) */
-    const enqueue = (name, run, { once = false } = {}) => {
+    /* M753: the ledger as it stood before this page's own readers wrote — what the second reader holds the page against
+     * (its words say so: "THE SCENE LEDGER IS THE MOMENT BEFORE THIS PAGE", "as the ledger held him BEFORE this page") */
+    const chainLedger = { before: null };
+    const enqueue = (name, run, { once = false, beside = false, reader = true } = {}) => {
       if (healthOnly && (name!==healthOnly || healthSelected.has(name))) return Promise.resolve({silent:true});
       if (healthOnly) {healthSelected.add(name);once=true;}
       /* M529: the record keeper, the sensors, the placer, the world keeper and the plans keeper read the pages
        * and the record and write only their own books — with two workers at once they run in their own lane */
       const lane = SIDE_JOBS.has(name) ? 'side' : 'main';
-      const promise = enqueueWork(story.id, { name, lane, layoutRebased, ...(once ? { once: true } : {}), run: chainJob(run, () => (chainGen.get(story.id) || 0) !== gen) }); /* M259: the leash's renew rides through */
+      /* M753: `beside` — this reader needs nothing of the one queued before it, and starts with it when two workers at once
+       * is on (agents/queue.js drain) */
+      const promise = enqueueWork(story.id, { name, lane, layoutRebased, ...(once ? { once: true } : {}), ...(beside && !healthOnly ? { beside: true } : {}), run: chainJob(run, () => (chainGen.get(story.id) || 0) !== gen) }); /* M259: the leash's renew rides through */
       noteWork(story.id, promise);
       if (healthOnly) healthJobs.push(promise);
-      if (ownReading && lane === 'main' && msg && msg.id) noteLedgerLink(story.id, msg.id, promise, { auditor: name === 'auditor' });
+      if (ownReading && reader && lane === 'main' && msg && msg.id) noteLedgerLink(story.id, msg.id, promise, { auditor: name === 'auditor' }); /* M753: `reader: false` — a job of the chain that reads no ledger */
       return promise;
     };
 
@@ -5311,6 +5440,7 @@ export function initChat(ctx) {
       if (!connection) return { silent: true };
       const stateBefore = await loadState(story.id);
       chainClock.before = stateBefore && stateBefore.clock ? { ...stateBefore.clock } : null; /* M134 */
+      chainLedger.before = stateBefore; /* M753: the moment before this page, for the second reader */
       /* M27: the founding read. A young ledger (no ground named yet, nobody
        * here yet) reads the pages just before too — the writer often sets
        * the scene in the first posts, and a one-pair read would starve it.
@@ -5639,7 +5769,10 @@ export function initChat(ctx) {
 
     /* 2. The scribe (M12): sparse deltas onto the character pages — who
      * they are, where they are, how things stand, loose ends. It answers
-     * to the ledger's own switch, like the extractor. */
+     * to the ledger's own switch, like the extractor.
+     * M753: beside the world agent — both read the ledger as the page reader left it and write apart (the world: the
+     * absent, the threads, who knows what, the quiet ones in the room; the scribe: the people this page shows), each in
+     * the ledger's turn (engine/state.js ledgerTurn). */
     enqueue('scribe', async ({ signal, stale, renew }) => {
       if (story.extraction === false || stale()) return { silent: true };
       const connection = await resolveWorkerConnection(story, 'scribe');
@@ -5667,7 +5800,64 @@ export function initChat(ctx) {
         + (kept.note === 'cut short' ? ' (its answer was incomplete; every note that arrived whole was kept)' : '');
       return { silent: false, detail: detail + (kept.dropped?.length ? '; ' + kept.dropped.length + ' proposed notes were not saved: ' + kept.dropped.slice(0,2).map(d=>d.why).join('; ') : '') + (kept.pending?.length ? '; ' + kept.pending.length + ' sourced identity proposals remain for the next People reading' : ''),
         ...(kept.unfinished ? {unfinished:true} : {}) };
-    });
+    }, { beside: true });
+
+    /* 4. The continuity reader (M6): advisory drift notes against canon and
+     * the ledgers, stored on the same message. M9 (B12): its own per-story
+     * switch too. It never touches the words. */
+    /* M753: it runs beside the world agent and the scribe (with two workers at once on), right after them otherwise —
+     * before the record keeper, which it never needed: it writes nothing of the ledger, only its findings and a mend of the
+     * page; and it holds the page against the ledger as it stood BEFORE this page's readers wrote (as its words always
+     * said), not as they left it — a fact the page reader took from this very page (a face, a thing learned) no longer
+     * makes the page look true to itself. */
+    enqueue('continuity', async ({ signal, stale, renew }) => {
+      /* M35: the second reader is ON by default now — the writer asked for
+       * no continuity issues, and a reader that only speaks when asked
+       * cannot keep that promise. */
+      const on = story.continuity === true
+        || (story.continuity !== false && (await db.settings.get('continuityCheck')) !== false);
+      if (!on) return { silent: true };
+      const connection = await resolveWorkerConnection(story, 'continuity');
+      if (!connection) return { silent: true };
+      if (stale()) return { silent: true };
+      const fresh = chainLedger.before || await loadState(story.id); /* M753: the moment before this page (a health rerun alone reads the ledger as it stands) */
+      /* M450: the story so far — the record and the pages before this one, as the page reader reads them — so a telling
+       * the ledger missed is never called untold (and the page mended) */
+      let soFar = { before: [], record: '' };
+      const msgsForTurn = await db.messages.list(story.id).catch(() => []);
+      try { soFar = storySoFar(msgsForTurn, await loadMemory(story.id), msg.id, { least: 4, recordCap: Math.floor(roomChars(connection) * 0.35) }); } catch (err) { soFar = { before: [], record: '' }; }
+      const { findings } = await checkTurn({
+        connection,
+        state: fresh,
+        assistantText: pageText(msg),
+        signal,
+        brief: String((story && story.brief) || '') + (story && story.castNotes ? '\n\n' + story.castNotes : ''), /* M129: the brief counts as written */
+        record: soFar.record,
+        before: soFar.before,
+        renew,
+        /* M458: what he asked for on his turn — a page doing it is never drift */
+        userText: (() => { const all = visiblePages(msgsForTurn || []); const at = all.findIndex((m) => m.id === msg.id); const u = at > 0 ? [...all.slice(0, at)].reverse().find((m) => m && m.role === 'user') : null; return u ? pageText(u) : ''; })(),
+      });
+      const list = Array.isArray(findings) ? findings : [];
+      if (stale()) return { silent: true };
+      if (!list.length) return { silent: false };
+      if (!(await stillThere(story.id, msg.id))) return { silent: true };
+      /* M88: the house's eye wrote its craft findings first — keep them */
+      const current = (await db.messages.list(story.id)).find((m) => m.id === msg.id);
+      const craft = Array.isArray(current && current.findings) ? current.findings.filter((f) => f && f.kind === 'craft') : [];
+      await reink(story.id, msg.id, { findings: [...craft, ...list] });
+      notify(story.id); // the drawer's "Something drifted" listens
+      /* M35: a warn that carries a fix mends the page by the smallest edit */
+      const fixes = list.filter((f) => f.severity === 'warn' && f.fix);
+      let mended = 0;
+      if (fixes.length) {
+        const contradiction = fixes.map((f) => f.words + ' It should read: ' + f.fix).join(' ');
+        const changed = await mendAround(story, connection, [msg.id], contradiction, signal);
+        mended = changed.length;
+      }
+      return { silent: false, detail: `${list.length} ${list.length === 1 ? 'finding' : 'findings'}` + (mended ? `, mended ${mended} ${mended === 1 ? 'page' : 'pages'}` : '') };
+    }, { beside: true });
+
 
     /* 3. The memory keeper (M6; M12 grew the detail auditor inside it):
      * fold what has scrolled past the verbatim window into layered notes.
@@ -5762,56 +5952,16 @@ export function initChat(ctx) {
       return { silent: false, detail: `${added > 0 ? 'wrote ' + added + (added === 1 ? ' line' : ' lines') : 'reshaped the record'} — ${lines} ${lines === 1 ? 'line' : 'lines'} on the record` + stopped + healed, ...(owed ? { unfinished: true } : {}) };
     });
 
-    /* 4. The continuity reader (M6): advisory drift notes against canon and
-     * the ledgers, stored on the same message. M9 (B12): its own per-story
-     * switch too. It never touches the words. */
-    enqueue('continuity', async ({ signal, stale, renew }) => {
-      /* M35: the second reader is ON by default now — the writer asked for
-       * no continuity issues, and a reader that only speaks when asked
-       * cannot keep that promise. */
-      const on = story.continuity === true
-        || (story.continuity !== false && (await db.settings.get('continuityCheck')) !== false);
-      if (!on) return { silent: true };
-      const connection = await resolveWorkerConnection(story, 'continuity');
-      if (!connection) return { silent: true };
+    /* M753: the speech marks the page repair could not set, by the mender — this page's, and any page the storyteller still
+     * reads word for word that a walk stepped aside from; tried once, and it never holds him up. Before the auditor, so the
+     * auditor reads the page as it stands (a page changed after its reading is read again, and every approval with it —
+     * auditprogress.js carriedApprovals); not one of the page's readers (it writes no ledger): the choices never wait for
+     * it, and a reading of the page is never "cut short" by it */
+    enqueue('eye', async ({ signal, stale, renew }) => {
       if (stale()) return { silent: true };
-      const fresh = await loadState(story.id);
-      /* M450: the story so far — the record and the pages before this one, as the page reader reads them — so a telling
-       * the ledger missed is never called untold (and the page mended) */
-      let soFar = { before: [], record: '' };
-      const msgsForTurn = await db.messages.list(story.id).catch(() => []);
-      try { soFar = storySoFar(msgsForTurn, await loadMemory(story.id), msg.id, { least: 4, recordCap: Math.floor(roomChars(connection) * 0.35) }); } catch (err) { soFar = { before: [], record: '' }; }
-      const { findings } = await checkTurn({
-        connection,
-        state: fresh,
-        assistantText: pageText(msg),
-        signal,
-        brief: String((story && story.brief) || '') + (story && story.castNotes ? '\n\n' + story.castNotes : ''), /* M129: the brief counts as written */
-        record: soFar.record,
-        before: soFar.before,
-        renew,
-        /* M458: what he asked for on his turn — a page doing it is never drift */
-        userText: (() => { const all = visiblePages(msgsForTurn || []); const at = all.findIndex((m) => m.id === msg.id); const u = at > 0 ? [...all.slice(0, at)].reverse().find((m) => m && m.role === 'user') : null; return u ? pageText(u) : ''; })(),
-      });
-      const list = Array.isArray(findings) ? findings : [];
-      if (stale()) return { silent: true };
-      if (!list.length) return { silent: false };
-      if (!(await stillThere(story.id, msg.id))) return { silent: true };
-      /* M88: the house's eye wrote its craft findings first — keep them */
-      const current = (await db.messages.list(story.id)).find((m) => m.id === msg.id);
-      const craft = Array.isArray(current && current.findings) ? current.findings.filter((f) => f && f.kind === 'craft') : [];
-      await reink(story.id, msg.id, { findings: [...craft, ...list] });
-      notify(story.id); // the drawer's "Something drifted" listens
-      /* M35: a warn that carries a fix mends the page by the smallest edit */
-      const fixes = list.filter((f) => f.severity === 'warn' && f.fix);
-      let mended = 0;
-      if (fixes.length) {
-        const contradiction = fixes.map((f) => f.words + ' It should read: ' + f.fix).join(' ');
-        const changed = await mendAround(story, connection, [msg.id], contradiction, signal);
-        mended = changed.length;
-      }
-      return { silent: false, detail: `${list.length} ${list.length === 1 ? 'finding' : 'findings'}` + (mended ? `, mended ${mended} ${mended === 1 ? 'page' : 'pages'}` : '') };
-    });
+      const done = await mendSpeechMarksDue(story, { signal, renew });
+      return done.mended && !stale() ? { silent: false, detail: speechMarksWords(done.mended) } : { silent: true };
+    }, { once: true, reader: false });
 
     /* 4a. M41: the auditor — every few turns (or by hand), the whole ledger
      * against the brief, the pages and the record; what is wrong is set

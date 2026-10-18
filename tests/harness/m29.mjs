@@ -156,7 +156,10 @@ test('M29-7 the world agent: the law and the ledger reach the worker; foreign mu
   s.present = [{ name: 'Liara' }];
   const p = buildWorldMessages({ state: s, userText: 'u', assistantText: 'a', brief: 'A celebrity and a friend.', castNotes: 'Liara — his oldest friend.' });
   assert(/The main character is Jovan\./.test(p.system));
-  assert(/The hour on the clock is/.test(p.system));
+  /* M753: the hour rides in the request with the ledger, after what stays the same from page to page (in the system
+   * words it parted every page's request from the page before's at its first lines — no provider could keep any of it) */
+  assert(/The hour on the clock is/.test(p.user) && !/The hour on the clock is/.test(p.system), 'the hour reaches the worker, with the ledger');
+  assert(p.user.indexOf('The hour on the clock is') < p.user.indexOf('THE LEDGER (the state of the scene):'), 'read before the ledger');
   for (const k of ['THE ABSENT', 'THREADS', 'RIPENING', 'WHO KNOWS WHAT', 'FACTIONS', 'NEW PEOPLE', 'THE BRIEF', 'SYMMETRY']) assert(p.system.includes(k), 'law: ' + k);
   assert(/[Nn]ever move the clock, the ground, who is present/.test(p.system));
   assert(p.user.includes('A celebrity and a friend.') && p.user.includes('his oldest friend'));

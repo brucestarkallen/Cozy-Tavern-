@@ -1490,7 +1490,7 @@ export function initSettings(ctx) {
     if (box) {
       const note = document.getElementById('helpers-side-by-side-note');
       (async () => {
-        box.checked = (await db.settings.get('helpersSideBySide')) === true;
+        box.checked = (await db.settings.get('helpersSideBySide')) !== false; /* M753: on unless turned off */
         const off = await db.settings.get('helpersSideBySideTurnedOff'); /* M530: why it went back to one at a time */
         if (note && off && !box.checked) { note.hidden = false; note.textContent = 'Your workers’ provider turned away two requests at once (' + (off.why || 'too many requests') + '), so they are back to one at a time. Turn it on again to try once more.'; }
       })();
@@ -2988,7 +2988,7 @@ export function initSettings(ctx) {
     } catch (err) { /* a rulebook that will not read is left as it is */ }
     ctx.setTheme('dark');
     document.body.classList.remove('plain-speech');
-    setSideBySide(false); /* M618: the helpers' pace is a live switch too — back to one at a time, as the default */
+    setSideBySide(true); /* M618: the helpers' pace is a live switch too — back to the default (M753: two at once) */
     if (ctx.chat && typeof ctx.chat.continuousAuditChanged === 'function') ctx.chat.continuousAuditChanged(); /* M673: and the continuous audit, off again, lets a reading in flight go */
     if (ctx.chat && typeof ctx.chat.showTopBar === 'function') ctx.chat.showTopBar(); /* M675: and the top bar stands again */
     await onShow({ all: true });

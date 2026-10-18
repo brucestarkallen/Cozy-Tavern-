@@ -27,7 +27,7 @@ import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { isHere, nameOnPage, samePersonName } from '../engine/names.js'; /* M398/M412; M414: named by the one answer */
 import { lookKey } from '../engine/canon.js';
 import { wholePage, writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M259: the page read to its end; M283: the writer's own, to the room */
-import { loadState, saveState, notify } from '../engine/state.js';
+import { loadState, saveState, notify, ledgerTurn } from '../engine/state.js'; /* M753: one write of the ledger at a time */
 import { mcKey, findPersonKey, thinsCore, isMc } from '../engine/people.js';
 import { applyMutations, placeholderIn } from '../engine/apply.js'; /* M72: the scribe writes through the journal */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
@@ -214,9 +214,16 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
     return out;
   })();
   const noNowWithPage = noNow.filter((n) => !noPage.some((o) => findPersonKey({ [o]: 1 }, n)));
-  const user = [
-    ...(noPage.length ? ['NO CHARACTER PAGE YET: ' + noPage.join(', ') + ' \u2014 record only identity facts the originals establish, with no compulsory biography for a temporary participant, and their state if they are in the scene.', ''] : []), /* the names first, plainly */
+  /* M753: WHAT STAYS THE SAME FROM ONE PAGE TO THE NEXT COMES FIRST — the brief, the cast notes, the series, the record, the
+   * pages already read — and what changes every page after it. The names owed a page or a now stood first ("the names first,
+   * plainly"), so a request whose list had changed parted from the page before's at its first line, and a provider that
+   * keeps what it has read of a request's beginning read the whole story again. They stand right before the page now, as
+   * plain as before and nearer the task. */
+  const owed = [
+    ...(noPage.length ? ['NO CHARACTER PAGE YET: ' + noPage.join(', ') + ' \u2014 record only identity facts the originals establish, with no compulsory biography for a temporary participant, and their state if they are in the scene.', ''] : []), /* the names, plainly */
     ...(noNowWithPage.length ? ['IN THE SCENE WITH NO NOW YET \u2014 for each one this page shows, write their state now (what they are doing this minute, from the page): ' + noNowWithPage.join(', '), ''] : []),
+  ];
+  const user = [
     ...(String(brief || '').trim() ? ['The writer\u2019s brief \u2014 who these people are; it outranks every page:', '"""', writerText(brief, BRIEF_ROOM, 'brief'), '"""', ''] : []),
     ...(String(castNotes || '').trim() ? ['The writer\u2019s cast notes:', '"""', writerText(castNotes, CAST_ROOM, 'cast notes'), '"""', ''] : []),
     /* M386: "written from the REAL RECORD" — handed to it at last (canon verification on, and someone here is canon) */
@@ -230,6 +237,7 @@ export function buildScribeMessages({ state, userText, assistantText, brief = ''
     ...(profileSources ? [profileSources] : []),
     ...(mcRecord ? ['', mcRecord] : []),
     '',
+    ...owed,
     'The writer just wrote:',
     '"""',
     wholePage(userText, 12000),
@@ -367,7 +375,9 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   if (stale && stale()) return null; /* the writer has moved on — discard */
 
   /* Re-read at write time — the ledger may have been touched by hand while
-   * the scribe was reading. */
+   * the scribe was reading. M753: inside the ledger's turn — the world agent may be writing beside it */
+  const giveBack = await ledgerTurn(storyId);
+  try {
   const fresh = await loadState(storyId);
   const entities = (read.entities || []).flatMap(e=>{
     const shown = quotedSource(originals,e.shown);
@@ -452,6 +462,8 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
   if (!changes.length && !recoveryChanged) return { changes, dropped, note, pending:recovery, unfinished:note !== 'ok' || recovery.length > 0 };
   if (stale && stale()) return null;
   await saveState(storyId, stamped !== fresh ? { ...next, page: fresh.page } : next); /* M680: the ledger's own stamp is not the scribe's to move */
+  giveBack();
   notify(storyId);
   return { changes, dropped, note, pending:recovery, unfinished:note !== 'ok' || recovery.length > 0 };
+  } finally { giveBack(); } /* M753: the ledger's turn goes back however the write ends */
 }

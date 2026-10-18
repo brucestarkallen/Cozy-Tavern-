@@ -50,7 +50,7 @@ import { db } from '../store.js';
 import { callWorker } from './call.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
-import { loadState, saveState, notify, renderStateFacts } from '../engine/state.js';
+import { loadState, saveState, notify, renderStateFacts, ledgerTurn } from '../engine/state.js'; /* M753: one write of the ledger at a time */
 import { findPersonKey, thinsCore, worldParticipation, importanceOf, IMPORTANT_AT, placeWords, isMc, namedInText, seatForPerson } from '../engine/people.js'; /* M304: who matters, as the storyteller's own people block weighs it */
 import { isHere, samePersonName, nameOnPage } from '../engine/names.js'; /* M396/M401: one answer to "the same person?"; M414: one answer to "named on the page?" */
 import { storyTurn } from '../engine/apply.js';
@@ -98,7 +98,7 @@ export function hourLaw(clock) {
   return '';
 }
 
-function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
+function law({ mc }) {
   const who = mc
     ? `The main character is ${mc}.`
     : 'The main character\'s name is not yet known; the writer plays the one whose actions they type.';
@@ -110,9 +110,6 @@ function law({ mc, clockWords, hourWords = '', jumpWords = '' }) {
     'a short brief for the storyteller.',
     '',
     who,
-    clockWords ? `The hour on the clock is ${clockWords}.` : 'The clock is not set; reckon time in turns and plain words.',
-    ...(hourWords ? [hourWords] : []),
-    ...(jumpWords ? [jumpWords] : []),
     '',
     'Read the ledger, then the page just finished, then ADVANCE THE WORLD BY THE CLOCK:',
     '',
@@ -511,12 +508,38 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
   const people = peopleForWorld(state, { material: String(brief || '') + '\n' + String(castNotes || ''), castNames, room: peopleRoom }); /* M304 */
   const cores = people.text;
   const reviewPlan = worldReviewPlan(state,{material:brief+'\n'+castNotes,castNames});
+  /* M753: WHAT STAYS THE SAME FROM ONE PAGE TO THE NEXT COMES FIRST. The hour stood in the world agent's SYSTEM words — "The
+   * hour on the clock is Monday, March 3, 2025 — 19:14", the hour's law and a jump — so its request parted from the page
+   * before's within its first few hundred characters, and a provider that keeps what it has read of a request's beginning
+   * had to read all of it again on every page: the record, the brief, the pages already read (99.5% of the request, measured
+   * on a 70,000-token tale). The story comes first now, as M249 put the record first — the record, the writer's own words,
+   * what the series says, the pages already read — and then the hour, the ledger and everything that moves, and the page.
+   * The same words. */
+  const hourWords = hourLaw(state && state.clock);
+  const jumpWords = Number.isFinite(jumpedMinutes) && jumpedMinutes >= 180
+    ? 'THE CLOCK JUMPED ' + (jumpedMinutes >= 1440 ? Math.round(jumpedMinutes / 1440) + ' day(s)' : Math.round(jumpedMinutes / 60) + ' hours') + ' since the last page. Every seat is stale: re-seat EVERY absent person for the new hour — where they are now, asleep or awake as the hour decides, what changed for them in the gap; close any arrival, want or thread the gap resolved; nothing seated before the jump stands unexamined.'
+    : '';
   const user = [
     /* M249: the story, before the ledger's bare facts — so a life beyond the
      * scene is filled from what has actually happened, as the brief demands */
     ...(recordSoFar ? ['THE STORY SO FAR, FOLDED — what the pages before these ones hold. A person\u2019s life',
       'beyond the scene is filled from THIS, never invented over it:',
       FENCE3, recordSoFar, FENCE3, ''] : []), /* M265: it was cut again to its first 12,000 — the newest lines lost */
+    ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, writerText(brief, BRIEF_ROOM, 'brief', true), FENCE, ''] : []), /* M283 */
+    ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT, in the writer\'s words:', FENCE, writerText(castNotes, CAST_ROOM, 'cast notes', true), FENCE, ''] : []), /* M283 */
+    ...(String(canonRecord || '').trim() ? ['WHAT THE SERIES ITSELF SAYS OF ITS PEOPLE HERE (their real record — a canon character\'s family, role and life are these, never invented):', FENCE, String(canonRecord).trim(), FENCE,
+      /* M445: one home for a fact — the storyteller reads the series itself on every page such a person is in */
+      'A core you write for someone this record covers says who they are to THIS story in a short line — their place here and their tie to the people here — never the looks, powers or past written above: the storyteller reads those from the series itself.', ''] : []), /* M386 */
+    ...(before.length ? (() => {
+      /* M261: the story so far, whole, newest first, into the room */
+      const w = windowOfPages(before, contextBudget);
+      return ['THE PAGES JUST BEFORE (already read — the world they show is already written):', FENCE, w.shown.join('\n\n') || '(none fit — fetch them by number)', FENCE,
+        ...(w.index.length ? ['Earlier pages not shown above (fetch any by its number):', ...w.index] : []), ''];
+    })() : []),
+    clockWords ? `The hour on the clock is ${clockWords}.` : 'The clock is not set; reckon time in turns and plain words.',
+    ...(hourWords ? [hourWords] : []),
+    ...(jumpWords ? [jumpWords] : []),
+    '',
     'THE LEDGER (the state of the scene):',
     facts,
     '',
@@ -549,17 +572,6 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     '',
     ...(cores ? ['THE PEOPLE THE STORY CARRIES, THE MOST IMPORTANT FIRST (everyone; "[NO SEAT — seat them]" marks someone who matters and has no whereabouts at all):', cores, '',
       ...(people.unseated.some(n=>reviewPlan.selected.includes(n)) ? ['WITH NO WHEREABOUTS RIGHT NOW — seat EVERY ONE of these in this answer (offscreen.set: where they are at this hour and what they are doing, from their page, the story so far and the clock; the want only if you can name it): ' + people.unseated.filter(n=>reviewPlan.selected.includes(n)).join(', '), ''] : [])] : []),
-    ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, writerText(brief, BRIEF_ROOM, 'brief', true), FENCE, ''] : []), /* M283 */
-    ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT, in the writer\'s words:', FENCE, writerText(castNotes, CAST_ROOM, 'cast notes', true), FENCE, ''] : []), /* M283 */
-    ...(String(canonRecord || '').trim() ? ['WHAT THE SERIES ITSELF SAYS OF ITS PEOPLE HERE (their real record — a canon character\'s family, role and life are these, never invented):', FENCE, String(canonRecord).trim(), FENCE,
-      /* M445: one home for a fact — the storyteller reads the series itself on every page such a person is in */
-      'A core you write for someone this record covers says who they are to THIS story in a short line — their place here and their tie to the people here — never the looks, powers or past written above: the storyteller reads those from the series itself.', ''] : []), /* M386 */
-    ...(before.length ? (() => {
-      /* M261: the story so far, whole, newest first, into the room */
-      const w = windowOfPages(before, contextBudget);
-      return ['THE PAGES JUST BEFORE (already read — the world they show is already written):', FENCE, w.shown.join('\n\n') || '(none fit — fetch them by number)', FENCE,
-        ...(w.index.length ? ['Earlier pages not shown above (fetch any by its number):', ...w.index] : []), ''];
-    })() : []),
     /* M660 — HIS REPORT: Batman on the phone to Superman with Batgirl beside him; Supergirl, at the other end, says "Is that
      * Bruce?" — and the ledger wrote Kara as jealous of BATGIRL saying it. A misreading of whose line it was. The house
      * cannot check who spoke a line the page gives no name to; it can put the cast of the page in front of the reader
@@ -584,11 +596,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     '',
     'Advance the world by the clock and write the brief. JSON only.',
   ].join('\n');
-  const hourWords = hourLaw(state && state.clock);
-  const jumpWords = Number.isFinite(jumpedMinutes) && jumpedMinutes >= 180
-    ? 'THE CLOCK JUMPED ' + (jumpedMinutes >= 1440 ? Math.round(jumpedMinutes / 1440) + ' day(s)' : Math.round(jumpedMinutes / 60) + ' hours') + ' since the last page. Every seat is stale: re-seat EVERY absent person for the new hour — where they are now, asleep or awake as the hour decides, what changed for them in the gap; close any arrival, want or thread the gap resolved; nothing seated before the jump stands unexamined.'
-    : '';
-  return { system: withFictionFrame(law({ mc, clockWords, hourWords, jumpWords }) + '\n\n' + fetchLaw({ rounds: WORLD_LOOKS, when: 'Look only when the world you must move rests on a page or a passage you were not shown — who someone is, what they promised, where they went. Most pages need no look.' })), user };
+  return { system: withFictionFrame(law({ mc }) + '\n\n' + fetchLaw({ rounds: WORLD_LOOKS, when: 'Look only when the world you must move rests on a page or a passage you were not shown — who someone is, what they promised, where they went. Most pages need no look.' })), user };
 }
 
 /* Exported for the harness. Thinking spans stripped, fences stripped, up to
@@ -776,7 +784,10 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   if (stale && stale()) return null;
 
   /* Re-read at write time — the ledger may have moved (the extractor's
-   * masthead, a hand edit) while the world was being read. */
+   * masthead, a hand edit) while the world was being read. M753: inside the ledger's turn — the scribe may be writing
+   * beside it (agents/queue.js, readers beside each other) */
+  const giveBack = await ledgerTurn(storyId);
+  try {
   const loaded = await loadState(storyId);
   /* M680 (the world audit): ITS WRITES ARE THIS PAGE'S. Only the page reader stamped the ledger with the page in hand; when
    * its call failed the world agent's moves for page 5 were journaled as page 4's — and "Try again" on page 5, folding to
@@ -885,12 +896,14 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   /* M680: its writes carry the page they are about; the ledger's own stamp is the page reader's and the send path's to move —
    * a world agent still out when the next send has stamped the coming page never sets it back */
   await saveState(storyId, fresh !== loaded ? { ...next, page: loaded.page } : next);
+  giveBack();
   notify(storyId);
   const stillDue = worldOwed(next, worldCoverage);
   const pending = stillDue.filter(name=>owed.includes(name));
   const deferred = stillDue.filter(name=>!owed.includes(name));
   const identityPending=worldVoiceIdentities(next,normalized,{allowCreate:false}).problems;
   return { applied, rejected, dropped: read.dropped, brief: normalized, note: read.note, raw, pending, deferred, identityPending };
+  } finally { giveBack(); } /* M753: the ledger's turn goes back however the write ends (a stale page, a throw) */
 }
 
 /* The workers-line words for one run. */

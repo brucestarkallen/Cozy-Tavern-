@@ -399,6 +399,32 @@ export async function saveState(storyId, state) {
   await db.settings.set(KEY_PREFIX + storyId, normalize(state));
 }
 
+/* M753: ONE WRITE OF THE LEDGER AT A TIME. Two readers of a page may now run together (agents/queue.js, "Two workers at
+ * once"): the world agent and the scribe each read the ledger as it stands when they write, change it and save it — and
+ * two of those, interleaved, would let the second save write over the first. A reader's read-change-save runs inside this
+ * lock, one after another; every writer still reads the ledger as it stands at its own write. */
+const ledgerTurns = new Map();
+/* waits for the ledger's turn and returns the hand that gives it back (call it once, however the write ends) */
+export async function ledgerTurn(storyId) {
+  const before = ledgerTurns.get(storyId) || Promise.resolve();
+  let release;
+  const mine = new Promise((resolve) => { release = resolve; });
+  const turn = before.then(() => mine);
+  ledgerTurns.set(storyId, turn);
+  await before;
+  let given = false;
+  return () => {
+    if (given) return;
+    given = true;
+    release();
+    if (ledgerTurns.get(storyId) === turn) ledgerTurns.delete(storyId);
+  };
+}
+export async function withLedger(storyId, fn) {
+  const done = await ledgerTurn(storyId);
+  try { return await fn(); } finally { done(); }
+}
+
 /* ---------- M21: TRUE rollback — turn-boundary snapshots ----------
  * Before the worker chain (and the referee) commits a turn's mutations,
  * the send path saves a deep snapshot of the state object keyed by that

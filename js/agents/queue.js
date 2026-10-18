@@ -51,7 +51,12 @@ export function holdPageLayout(storyId) {
  * everything still queued for that story, and is honest about it: the work
  * already done stands (a part-built record is kept and resumed, M205), and
  * the banner says it was stopped by hand, not that it failed. */
-const stopping = new Map();   // lane (a story's id, or its side lane) -> a live abort for the job in flight
+const stopping = new Map();   // lane (a story's id, or its side lane) -> the live aborts of the jobs in flight (a Set)
+/* M753: a lane may have two jobs in flight (the readers that run together, below) — each keeps its own stop */
+const NO_HOLDS = new Set();
+const holdsIn = (lane) => stopping.get(lane) || NO_HOLDS;
+function addHold(lane, hold) { let set = stopping.get(lane); if (!set) { set = new Set(); stopping.set(lane, set); } set.add(hold); }
+function dropHold(lane, hold) { const set = stopping.get(lane); if (!set) return; set.delete(hold); if (!set.size) stopping.delete(lane); }
 
 /* M529: HELPERS SIDE BY SIDE. His question: "can the workers be faster — a setting to use more than one request at once?"
  * The page chain ran one helper at a time: the page's readers of the ledger, then the record keeper, the essentials, the
@@ -111,15 +116,15 @@ export function stopWork(storyId) {
       try { job.resolve({ ok: false, stopped: true, why: 'stopped by hand' }); } catch (err) { /* a resolver that can't settle is no one's trouble */ }
     }
   }
-  const live = stopping.get(lane);
-  if (live && typeof live.abort === 'function') { try { live.abort(); } catch (err) { /* fine */ } }
-  wasLive = wasLive || Boolean(live);
+  const live = [...holdsIn(lane)];
+  for (const hold of live) if (hold && typeof hold.abort === 'function') { try { hold.abort(); } catch (err) { /* fine */ } }
+  wasLive = wasLive || live.length > 0;
   }
   return wasLive || queued > 0;
 }
 
 export function workIsRunning(storyId) {
-  return lanesOf(storyId).some((lane) => Boolean(stopping.get(lane)) || Boolean((queues.get(lane) || []).length));
+  return lanesOf(storyId).some((lane) => holdsIn(lane).size > 0 || Boolean((queues.get(lane) || []).length));
 }
 /* M675 (the second reading) — WHO IS OUT FOR A TALE: the names of its jobs, in flight and waiting, on both lanes. "Is this
  * page still being read?" was asked as "is anything out at all?" — and a tale's own opening sends helpers out (the
@@ -130,8 +135,7 @@ export function workOut(storyId) {
   if (!storyId) return [];
   const names = [];
   for (const lane of lanesOf(storyId)) {
-    const live = stopping.get(lane);
-    if (live && live.name) names.push(live.name);
+    for (const live of holdsIn(lane)) if (live && live.name) names.push(live.name);
     for (const job of queues.get(lane) || []) if (job && job.name) names.push(job.name);
   }
   return names;
@@ -219,15 +223,49 @@ export function enqueueWork(storyId, job) {
   });
 }
 
+/* M753: READERS THAT NEED NOTHING OF EACH OTHER RUN TOGETHER. His (18 October 2026): "It's become slow on 70k token
+ * story… make the process more fast while it doesn't decrease accuracy or quality." A page's readers ran one after
+ * another, each waiting for the one before even where it needed nothing of it: the character pages waited for the world
+ * agent, and the second reader for both, though the three read the same page and the ledger as the page reader left it,
+ * and write apart (the world: the absent, the threads, who knows what; the scribe: the people this page shows; the second
+ * reader: nothing of the ledger). A job queued `beside` the one before it starts with it — with "Two workers at once" on,
+ * as every helper beside another does (M529) — and the lane goes on only when every one of them has settled; never more
+ * than two requests for one tale at a time (takeSlot). With the switch off the order is the same and one runs at a time. */
+const AT_ONCE = 2;
+const slots = new Map(); /* storyId -> { used, waiting } */
+async function takeSlot(storyId) {
+  if (!sideBySide) return () => {};
+  let s = slots.get(storyId);
+  if (!s) { s = { used: 0, waiting: [] }; slots.set(storyId, s); }
+  if (s.used < AT_ONCE) s.used += 1;
+  else await new Promise((resolve) => { s.waiting.push(resolve); }); /* woken with a slot handed over */
+  let given = false;
+  return () => {
+    if (given) return;
+    given = true;
+    const next = s.waiting.shift();
+    if (next) next(); else s.used = Math.max(0, s.used - 1);
+  };
+}
+function inFlight(storyId) {
+  return lanesOf(storyId).reduce((n, lane) => n + holdsIn(lane).size, 0);
+}
+
 async function drain(storyId) {
   if (running.get(storyId)) return;
   running.set(storyId, true);
   try {
     for (;;) {
+      /* a page's readers are queued in one breath (chat.js startBackgroundWork) — the readers beside the first one queued
+       * are in the list before it starts, even when the lane was empty */
+      if (sideBySide) await null;
       const list = queues.get(storyId);
       if (!list || !list.length) break;
       const job = list.shift();
-      job.resolve(await runJob(job));
+      const together = [job];
+      while (sideBySide && list.length && list[0] && list[0].beside === true && list[0].storyId === job.storyId) together.push(list.shift());
+      if (together.length === 1) job.resolve(await runJob(job));
+      else await Promise.all(together.map((j) => runJob(j).then((r) => j.resolve(r))));
     }
   } finally {
     running.set(storyId, false);
@@ -268,9 +306,9 @@ async function runJob(job) {
   let abortNow = null;   /* the call in flight, while there is one */
   let wake = null;       /* the wait between two tries, while it is being waited */
   const hold = { name, abort: () => { stoppedByHand = true; if (abortNow) abortNow(); if (wake) wake(); } };
-  stopping.set(laneKey, hold);
+  addHold(laneKey, hold);
   const stopped = async () => {
-    stopping.delete(laneKey);
+    dropHold(laneKey, hold);
     markWorkerRunning(storyId, name, false);
     await noteWorkerRun(storyId, name, { ok: false, detail: 'stopped by hand' });
     return { ok: false, stopped: true, why: 'stopped by hand' };
@@ -283,13 +321,18 @@ async function runJob(job) {
         if (stoppedByHand) return await stopped(); /* M675: stopped while it waited — it does not wake and ask again */
         if (isStale()) return { ok: false, stale: true, why: 'left behind' };
       }
+      /* M753: never more than two requests at once for one tale — a reader beside another waits here for its turn */
+      const freeSlot = await takeSlot(storyId);
+      if (stoppedByHand) { freeSlot(); return await stopped(); }
+      if (isStale()) { freeSlot(); return { ok: false, stale: true, why: 'left behind' }; }
       const { signal, done, renew, abort } = workerSignal();
       /* M208: the writer's own stop reaches the call in flight */
       abortNow = abort;
       markWorkerRunning(storyId, name, true); /* M46: "reading now…" on the workers line */
       try {
         /* M207: a job that works in rounds renews its leash each round */
-        const value = await job.run({ signal, stale: isStale, renew });
+        let value;
+        try { value = await job.run({ signal, stale: isStale, renew }); } finally { freeSlot(); } /* M753: its slot goes back however the try ends */
         done();
         if (stoppedByHand) return await stopped(); /* M685: a reader may save partial work and return normally after abort; his Stop still wins. */
         if (isStale()) { markWorkerRunning(storyId, name, false); return { ok: false, stale: true, why: 'left behind' }; }
@@ -310,7 +353,7 @@ async function runJob(job) {
          * and the light, which looks the moment a worker settles, read the result
          * before this one — green for an instant after a job that stopped partway. */
         markWorkerRunning(storyId, name, false);
-        stopping.delete(laneKey);
+        dropHold(laneKey, hold);
         return { ok: true, value };
       } catch (err) {
         done();
@@ -319,7 +362,7 @@ async function runJob(job) {
         markWorkerRunning(storyId, name, false);
         lastErr = err;
         /* M530: two in flight for this story, and this one turned away as too many — back to one at a time */
-        if (sideBySide && refusedAsTooMany(err) && stopping.has(storyId) && stopping.has(storyId + SIDE)) backToOneAtATime(storyId, err);
+        if (sideBySide && refusedAsTooMany(err) && inFlight(storyId) >= 2) backToOneAtATime(storyId, err); /* M753: two in flight on either lane */
         if (isStale()) return { ok: false, stale: true, why: 'left behind' };
       }
     }
@@ -327,7 +370,7 @@ async function runJob(job) {
     await noteWorkerRun(storyId, name, { ok: false, why, raw: lastErr && typeof lastErr.raw === 'string' ? lastErr.raw : '' });
     return { ok: false, why };
   } finally {
-    if (stopping.get(laneKey) === hold) stopping.delete(laneKey); /* M675: however it ended */
+    dropHold(laneKey, hold); /* M675: however it ended */
   }
 }
 

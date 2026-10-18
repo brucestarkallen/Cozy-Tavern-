@@ -9931,7 +9931,10 @@ test('DOM-254 WHAT M669’S FINISHER GOT WRONG ON PAGES ALREADY KEPT, THE HOUSE 
   await db.stories.update(st.id, { extraction: false, keeper: false, continuity: false });
   let ts = Date.now() - 600000;
   const add = (m) => db.messages.append(st.id, { ...m, ts: (ts += 1000) });
-  const now = Date.now();
+  /* a moment M669's finisher was at work (chat.js FINISHER_OF_M669 .. FINISHER_PUT_RIGHT, 7–16 October 2026): the fixture said
+   * Date.now(), which left that window on 16 October — from then its pages read as finished after the fault was put right,
+   * which the house rightly leaves alone (as `afterTheFix` below), and the law failed on the calendar alone */
+  const now = Date.UTC(2026, 9, 12);
   await add({ role: 'user', text: 'One.' });
   const flattened = await add({ role: 'assistant', text: asM669LeftIt, mended: { before: asWritten, why: why(RULE), at: now } });
   await add({ role: 'user', text: 'Two.' });
@@ -17004,6 +17007,126 @@ test('DOM-M752-18 THE AUTOMATIC AUDIT STARTS AS SOON AS IT CAN (HIS, 15 October 
     if (process.env.SHOW_WAITS) console.log('WAITS calls in the 3 s after a failed pass: ' + (calls() - after));
     eq(calls() - after, 0, 'no pass for at least the five seconds after one that failed');
   }, { failFirst: 99 });
+});
+
+test('DOM-M753-1 A QUOTATION MARK LEFT OUT IS SET BY THE HOUSE, AND NEVER HOLDS HIM UP (HIS, 18 October 2026: “Why the audit not automatically fix this bad formatting”): a page whose speech the repair cannot pair by itself — a quote left out mid-line, no mark standing in for it — is put to the mender after its readers, and its edit, quotation marks only, lands: the screen draws her words as speech and the narration as narration; a mender answer that changes a word is refused, and that telling is not asked about again; a mender still out when he writes steps aside — his move goes to the storyteller at once — and that page is set at the next page’s end; “Mend the pages’ marks” says what it cannot place by itself and sends it to the mender', async () => {
+  const before = errors.length;
+  const { saveState, emptyState } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { speechFaults, insertsOnlyMarks } = await import('../../js/ui/pageshape.js');
+  const { queuedCount, workIsRunning, stopWork } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 });
+  const was = { keeper: await db.settings.get('memoryKeeper'), audit: await db.settings.get('auditOn'), worker: house.state.workerAnswer, story: house.state.storyAnswer, toast: env.ctx.toast };
+  await db.settings.set('memoryKeeper', false);
+  await db.settings.set('auditOn', false);
+  const st = await db.stories.create({ title: 'the quote left out' });
+  const said = [];
+  env.ctx.toast = (w) => { said.push(String(w)); return was.toast ? was.toast(w) : undefined; };
+  try {
+    let ts = Date.now() - 60000;
+    const H = (m) => '[The yard — Monday, March 3, 2025 | 09:' + m + ' | clear]\n\n';
+    await db.messages.append(st.id, { role: 'user', text: 'I walk into the yard.', ts: (ts += 100) });
+    await db.messages.append(st.id, { role: 'assistant', text: H('00') + 'Rukia was sparring in the yard when Jovan came in.', ts: (ts += 100) });
+    const led = applyMutations({ ...emptyState(), page: 0 }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'The yard' }, { type: 'presence.enter', name: 'Jovan' }, { type: 'presence.enter', name: 'Rukia' }]).state;
+    await saveState(st.id, { ...led, readTo: 0, tidiedGen: 999, healedGen: 999 });
+    const LEFT = {
+      gift: H('10') + 'Rukia lowered her sword.\n\n"A gift, she said, slowly, working it out. "From my sister. How the gifts do grow."',
+      again: H('20') + 'Rukia sheathed the blade.\n\n"Again, she said, flatly. "You drop your guard every time."',
+      stance: H('30') + 'Rukia circled him once.\n\n"Hm, she said, quietly. "Show me that stance once more."',
+      whole: H('40') + 'Rukia smiled at last.\n\n"Better," she said. "Much better."',
+    };
+    const order = ['gift', 'again', 'stance', 'whole'];
+    let told = 0;
+    house.state.storyAnswer = () => LEFT[order[Math.min(told++, order.length - 1)]];
+    const FIX = { gift: ['A gift, she said', 'A gift," she said'], again: ['Again, she said', 'Again," she said'], stance: ['Hm, she said', 'Hm," she said'] };
+    const asked = { gift: 0, again: 0, stance: 0 };
+    let answerAs = 'marks'; /* 'marks': quotation marks only — 'word': a word changed with them — 'hold': still out */
+    house.state.workerAnswer = (body, sys) => {
+      const user = String(((body.messages || []).slice(-1)[0] || {}).content || '');
+      if (/mend a story/i.test(String(sys || '')) && /The speech marks of these lines do not pair/.test(user)) {
+        const which = Object.keys(FIX).find((k) => user.includes(FIX[k][0]));
+        if (!which) return '[]';
+        asked[which] += 1;
+        if (answerAs === 'hold') return new Promise(() => {});
+        const [find, replace] = FIX[which];
+        return JSON.stringify([{ index: 0, find, replace: answerAs === 'word' ? replace.replace('she said', 'she whispered') : replace }]);
+      }
+      return walkDefaultWorker(body, sys);
+    };
+    const page = async (words) => (await db.messages.list(st.id)).find((m) => m.role === 'assistant' && String(m.text || '').includes(words));
+    const bodyOf = (t) => String(t || '').split('\n\n').slice(1).join('\n\n'); /* the page under its header (the house finishes a header from the ledger) */
+    const chainDone = (what) => until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), what, 60000);
+    env.window.__cozy.setActiveStoryId(st.id);
+    await env.window.__cozy.chat.renderThread({ structural: true });
+    await tick(200);
+
+    /* 1. set at the end of its own readers — quotation marks only */
+    type(q('#composer-input'), 'I ask what that was about.'); submit(q('#composer'));
+    await tellerIdle('the first page', 20000);
+    await chainDone('the first page’s workers');
+    const one = await page('working it out');
+    assert(one && one.text.includes('"A gift," she said, slowly'), 'the quote left out is set: ' + JSON.stringify(one && one.text.slice(-120)));
+    assert(insertsOnlyMarks(bodyOf(LEFT.gift), bodyOf(one.text)) && bodyOf(one.text).length === bodyOf(LEFT.gift).length + 1, 'one quotation mark added, nothing else moved: ' + JSON.stringify(bodyOf(one.text)));
+    eq(speechFaults(one.text).length, 0, 'every spoken line pairs');
+    eq(asked.gift, 1, 'the mender was asked once');
+    await until(() => qa('#thread .msg-assistant').some((n) => /working it out/.test(n.textContent) && [...n.querySelectorAll('.spoken')].some((s) => /From my sister/.test(s.textContent))), 'the screen draws her words as speech', 5000);
+    const art = qa('#thread .msg-assistant').find((n) => /working it out/.test(n.textContent));
+    assert(![...art.querySelectorAll('.spoken')].some((s) => /working it out/.test(s.textContent)), 'and the narration as narration');
+
+    /* 2. an answer that changes a word is refused; that telling is not asked about again */
+    answerAs = 'word';
+    type(q('#composer-input'), 'I ask her to go again.'); submit(q('#composer'));
+    await tellerIdle('the second page', 20000);
+    await chainDone('the second page’s workers');
+    eq(bodyOf((await page('You drop your guard')).text), bodyOf(LEFT.again), 'a mend that changed a word is not kept');
+    eq(asked.again, 1, 'asked once');
+
+    /* 3. still out when he writes: it steps aside, his move goes at once, and the page is set at the next page's end */
+    answerAs = 'hold';
+    type(q('#composer-input'), 'I take my stance.'); submit(q('#composer'));
+    await tellerIdle('the third page', 20000);
+    await until(() => asked.stance === 1, 'the mender is out for the third page', 30000);
+    const tellerCalls = () => house.state.calls.filter((c) => !c.isWorker).length;
+    const t0 = Date.now(); const calls0 = tellerCalls();
+    type(q('#composer-input'), 'I hold it.'); submit(q('#composer'));
+    await until(() => tellerCalls() > calls0, 'the storyteller is asked', 10000);
+    const waited = Date.now() - t0;
+    if (process.env.SHOW_WAITS) console.log('WAITS send → storyteller with the mender out ' + waited + ' ms');
+    assert(waited < 2500, 'his move goes to the storyteller at once, not after the mender: ' + waited + ' ms');
+    answerAs = 'marks';
+    await tellerIdle('the fourth page', 20000);
+    await chainDone('the fourth page’s workers');
+    const three = await page('Show me that stance');
+    assert(three.text.includes('"Hm," she said, quietly'), 'the page it stepped aside from is set at the next page’s end: ' + JSON.stringify(three.text.slice(-100)));
+    eq(asked.stance, 2, 'asked once more, after stepping aside');
+    eq(asked.again, 1, 'the telling it could not set is not asked about again');
+    eq(bodyOf((await page('You drop your guard')).text), bodyOf(LEFT.again), 'and stays as it came');
+    eq(asked.gift, 1, 'a page set right is never asked again');
+
+    /* 4. his press: what the repair cannot place by itself is said, and sent to the mender */
+    { if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); } click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); }
+    await tick(300);
+    click(qa('#drawer-panels .nav-chip').find((c) => c.dataset.room === 'books')); await tick(400);
+    const btn = qa('#drawer-panels button').find((b) => b.textContent === 'Mend the pages’ marks');
+    assert(btn, 'the button is in The workers');
+    said.length = 0;
+    click(btn);
+    await until(() => said.some((w) => /one page has a quotation mark left out — the second reader is setting it now, marks only/.test(w)), 'the press says what it cannot set by itself: ' + JSON.stringify(said), 5000);
+    assert(!said.some((w) => /whole already/.test(w)), 'never “whole already” over a mark left out');
+    await until(async () => (await page('You drop your guard')).text.includes('"Again," she said'), 'set by his press', 20000);
+    eq(asked.again, 2, 'his press asks again');
+    await chainDone('the press’s mender');
+    click(q('#btn-drawer-close')); await tick(200);
+    eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+  } finally {
+    env.ctx.toast = was.toast;
+    house.state.workerAnswer = was.worker; house.state.storyAnswer = was.story;
+    for (const [k, v] of [['memoryKeeper', was.keeper], ['auditOn', was.audit]]) { if (v === undefined) await db.settings.delete(k); else await db.settings.set(k, v); }
+    stopWork(st.id);
+    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'closed drawer').catch(() => {}); }
+    await db.stories.remove(st.id).catch(() => {});
+    await env.ctx.chat.refreshStories(true).catch(() => {});
+  }
 });
 
 await runAll();

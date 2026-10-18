@@ -353,13 +353,14 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
   const onNow = Object.entries((state && state.mode) || {}).filter(([, v]) => v).map(([k]) => k);
   const FENCE = '"""';
   const unwritten = founding ? [] : unwrittenStandings(state, scenePartOf(assistantText)); /* M641: the people here, or named on this page, whose standing was never written */
+  /* M753: WHAT STAYS THE SAME FROM ONE PAGE TO THE NEXT COMES FIRST — the writer's brief and cast notes, the record, the
+   * pages already read — and what changes every page after it: the ledger, the people this page bears on, the moods, then
+   * the page itself. A provider keeps what it has read of a request's beginning and does not read it again when the next
+   * request begins the same way (the auditor's reading has been laid out so since M259); with the ledger first, the page
+   * reader's request parted from the page before's at the ledger's hour line, and the whole story after it — 80% of the
+   * request on a long tale — was read again on every page. The same words, in the order the story happened: what came
+   * before, how things stand now, the new page. */
   const user = [
-    'Here is what the ledger currently says:',
-    facts,
-    'Character identities and established arcs:',
-    workerPeopleContext(state, { material: [brief, castNotes, userText, assistantText].join('\n') }),
-    'Moods on the board right now: ' + (onNow.length ? onNow.join(', ') : 'none') + ' — restate the whole board with mode.snapshot.',
-    '',
     ...(brief && String(brief).trim()
       ? ['What this story is about, in the writer\'s words:', FENCE, writerText(brief, BRIEF_ROOM, 'brief', true), FENCE, ''] /* M283 */
       : []),
@@ -390,6 +391,12 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
         ];
       })()
       : []),
+    'Here is what the ledger currently says:',
+    facts,
+    'Character identities and established arcs:',
+    workerPeopleContext(state, { material: [brief, castNotes, userText, assistantText].join('\n') }),
+    'Moods on the board right now: ' + (onNow.length ? onNow.join(', ') : 'none') + ' — restate the whole board with mode.snapshot.',
+    '',
     'The writer just wrote:',
     '"""',
     wholePage(userText, 12000),

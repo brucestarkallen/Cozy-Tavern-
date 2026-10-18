@@ -920,7 +920,9 @@ test('M134-1 loose ends close on sense and the list keeps every open one (M713: 
   assert(/THE SMALL HOURS \(23:00\)/.test(hourLaw({ minutes: 23 * 60 + 10 })), hourLaw({ minutes: 23 * 60 + 10 }));
   eq(hourLaw({ minutes: 14 * 60 }), '');
   const m = buildWorldMessages({ state: { ...emptyState(), clock: { minutes: 23 * 60 } }, userText: 'x', assistantText: 'y', jumpedMinutes: 6 * 60 });
-  assert(/THE SMALL HOURS/.test(m.system) && /THE CLOCK JUMPED 6 hours/.test(m.system) && /re-seat EVERY absent person/.test(m.system), 'the jump and the hour ride');
+  /* M753: they ride in the request, with the ledger, after what stays the same from page to page */
+  assert(/THE SMALL HOURS/.test(m.user) && /THE CLOCK JUMPED 6 hours/.test(m.user) && /re-seat EVERY absent person/.test(m.user), 'the jump and the hour ride');
+  assert(!/THE SMALL HOURS|THE CLOCK JUMPED/.test(m.system), 'never in the system words, which stay the same');
 });
 
 /* M162: THE BRIEF IS AGED BY PAGES, NOT BY WRITES. state.turn counts

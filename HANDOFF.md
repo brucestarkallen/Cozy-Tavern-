@@ -7,7 +7,8 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m752-021 on main, 15 October 2026. m752-001 (d73bbaf) was the audit;
+- Version m753-001 on main, 18 October 2026: speech marks paired as the screen pairs them, and a page's
+  readers sooner (M753 — the next two items). Before it, m752-021 on 15 October; m752-001 (d73bbaf) was the audit;
   m752-002 lets go, when a tale opens, a persona the old rule made of an ordinary
   sentence; m752-003 makes the notes say when they have not read the newest page;
   m752-004 settles the continuous audit's historical corrections instead of
@@ -41,6 +42,44 @@ older files sit beside it). Search them with
   a page the helper found quiet says so, with "Restart choices" (DOM-M752-20); m752-020: nothing
   he does waits for the auditor, and a description it cannot tie to anyone is set aside (below);
   m752-021: an unchanged entry the new page does not name keeps its approval (below).
+- Speech marks (m753-001). His page under a green light: `"A gift,* she said, slowly, … "From my sister. …"` — the
+  closing quote came out as an asterisk, and the screen, which pairs straight quotes in order, coloured the narration as
+  speech and her words as narration. The auditor reads the ledger, never a page's marks, and the page repair knew only
+  some shapes of a broken mark; nothing asked whether a line's speech pairs. The repair now pairs each line's speech marks
+  as the screen does (pageshape.js pairSpeech): a lone asterisk, or a single quote after , . ! ? … — that nothing else
+  pairs, standing where the missing quote belongs, becomes that quote when it alone makes every pair whole; a pair in two
+  kinds is written in one; a curly mark facing the wrong way is turned; an open asterisk is closed inside its own
+  stretch; „…“ and «…» keep their own rules. A quote simply left out mid-line is seen (speechFaults) and put to the
+  second reader's mender under his mend switch — kept only if it adds quotation marks and nothing else, and fewer
+  lines are left unpaired (insertsOnlyMarks): after a page's readers and before its auditor, which then reads the page
+  as it stands (that page and the pages the storyteller reads word for word), once when a tale opens on this build, and
+  on "Mend the pages' marks" (every page; it says what it could not place by itself, never "whole already" then). It
+  never holds him up — it does not begin while he sends, steps aside when he writes, and is taken up at the next page's
+  end; each telling is asked once (`marksAsked`). His stored pages are mended by the repair the first time each tale
+  opens on m753-001. Laws M753-1..5, DOM-M753-1.
+- The workers' speed (m753-001), measured with the real app on a 60-page, ~80,000-token tale (two pages sent; every
+  worker answering its contract; times from a latency model — 0.6 s a call, a request's new part read at 6,000
+  tokens/s, the part that begins as the same worker's request on the page before at 60,000 tokens/s, answers at 100
+  tokens/s; not his provider). Each reader's request began with what changes every page — the ledger (its hour first),
+  the world's hour in its system words, the scribe's list of who is owed a page or a now — so a provider that keeps what
+  it has read of a request's beginning kept little: the page reader 19%, the world 0%, the second reader 9%. What stays
+  the same comes first now — the brief, cast notes, the series, the record, the pages already read — then the hour and
+  the ledger, then the page and the task: 77%, 83%, 89% (the scribe 78%; it was 79%, and 0% on a page that owed someone
+  a page or a now). The same words. The world agent, the scribe and the second reader, which need nothing of each other,
+  read together with "Two workers at once" (at most two requests at a time for a tale); the world and the scribe write
+  the ledger one at a time, each over the ledger as it then stands (engine/state.js ledgerTurn); the second reader holds
+  the page against the ledger as it stood before the page's readers wrote, as its words say. "Two workers at once" is on
+  unless he turned it off; a provider that turns two away puts it back to one at a time by itself, and it stays off
+  (M530). Modelled from the page landing: its readers done 59.6 → 35.2 s, the choices sealed 71.5 → 47.2 s, everything
+  settled 104.8 → 76.6 s (before: two at once off, as it shipped). With two at once already on, the old code still ran
+  its readers one after another (59.6 s) and settled at 100.9 s. Left as it is: the storyteller's own request keeps 44%
+  of its beginning, its notes riding above the story by his word (M510-37); the auditor, the plans keeper and Choices
+  matter as they were. A Claude connection keeps only what the house marks (a worker's system words — the world's are
+  now the same every page), so the reordering gains on providers that keep a request's beginning by themselves
+  (DeepSeek, OpenAI and others); whether his workers' provider does was not checked.
+- Measured on m753-001: the law suite 1704 of 1704, the DOM walk 327 of 327, lint 0 errors (247 warnings, the same as
+  before). DOM-254 had begun failing on the calendar alone (its finisher dated Date.now(), past that finisher's window
+  since 16 October); it is dated inside the window now.
 - Measured on m752-013: the law suite 1682 of 1682, the DOM walk 318 of 318 (a first
   walk was red once on DOM-263, a fixture race present on m752-008 too, fixed — below),
   lint 0 errors (253 warnings, as before). On m752-004: Chromium at 390 px, the new
@@ -96,8 +135,9 @@ older files sit beside it). Search them with
   (~23,900), the plans keeper (~900); no repeated call and no repair pass after the chain. From one page to the next
   each request keeps its beginning: the page reader 81%, the world 90%, the auditor's source reading 80%, the scribe
   61%, the plans keeper 48%, the second reader 43%, the auditor's review 36% (it shows only the new page after its
-  checkpoint) — what a provider that caches a prompt's beginning does not read again. A second call happens only when
-  a first answer leaves its contract unfinished (the world's seats, the auditor's decisions, the seeder's main
+  checkpoint) — what a provider that caches a prompt's beginning does not read again. Those two pages left the ledger as
+  it was; in play it changes every page, and the readers kept far less until m753-001 (above). A second call happens
+  only when a first answer leaves its contract unfinished (the world's seats, the auditor's decisions, the seeder's main
   character); how often his model does that was not measured. The "Auditor scratchbook" (workers' room, read-only)
   shows the saved audit itself: law DOM-M752-22.
 - Branches and the auditor (m752-015): a source section is named by its page's id, and a

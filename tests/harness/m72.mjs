@@ -220,7 +220,8 @@ test('M72-9 every job in the chain answers to the chain generation, and the keep
   assert(/stale, \/\* M72: a keeper whose ledger was rewound under it writes nothing \*\//.test(bw), 'the keeper is told');
   assert(/enqueue\('seeder', async \(\{ signal, stale(?:, renew)? \}\) => \{\n\s*try \{\n\s*if \(stale\(\)\) return/.test(bw), 'the seeder too'); /* M345: it may renew its leash — a large cast is a long answer */
   const cont = bw.slice(bw.indexOf("enqueue('continuity'"), bw.indexOf("enqueue('auditor'"));
-  assert(/if \(stale\(\)\) return \{ silent: true \};\n\s*const fresh = await loadState\(story\.id\);/.test(cont), 'the second reader checks before reading');
+  /* M753: it reads the ledger as it stood before this page (the page reader's own), the ledger as it stands only alone */
+  assert(/if \(stale\(\)\) return \{ silent: true \};\n\s*const fresh = chainLedger\.before \|\| await loadState\(story\.id\);/.test(cont), 'the second reader checks before reading');
 });
 
 test('M72-10 the keeper re-reads the record before it writes: a hole punched during its call stays a hole; another writer’s line survives; a stale keeper writes nothing', async () => {

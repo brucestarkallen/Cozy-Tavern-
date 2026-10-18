@@ -866,7 +866,7 @@
           <select id="worker-fallback"></select>
           <p class="quiet" id="worker-fallback-last" hidden></p>
           <!-- M529: two helpers at once -->
-          <div class="row"><label class="radio-row"><input type="checkbox" id="helpers-side-by-side"> Two workers at once — the record keeper, the plans and the world run beside the ledger’s readers, so a page’s workers finish sooner. Sends two requests at the same time — if your workers’ provider turns that away, they go back to one at a time by themselves.</label></div>
+          <div class="row"><label class="radio-row"><input type="checkbox" id="helpers-side-by-side"> Two workers at once — the record keeper, the plans and the world run beside the ledger’s readers, and the readers that need nothing of each other read together (the world agent, the character pages and the second reader), so a page’s workers finish sooner. Never more than two requests at a time for a tale — if your workers’ provider turns that away, they go back to one at a time by themselves.</label></div>
           <p class="quiet" id="helpers-side-by-side-note" hidden></p>
           <label class="stack-label" for="story-connection">Who tells <span id="story-conn-name">this story</span></label>
           <p class="quiet">The storyteller's connection for this tale alone — overrides the house's active one here.</p>
@@ -981,7 +981,7 @@
           </div>
           <p class="quiet">On by default. The second reader notes drift in the ledger ("Something drifted") and on the receipt — and, with the switch below, mends it.</p>
           <div class="row">
-            <label class="radio-row"><input type="checkbox" id="mend-pages"> Let the second reader mend the page by the smallest edit — a fact the narration gets wrong against the ledger (an age, a home town, a name), a sudden run of another language nobody here speaks; a lie, a joke or a tease in character is left alone</label>
+            <label class="radio-row"><input type="checkbox" id="mend-pages"> Let the second reader mend the page by the smallest edit — a fact the narration gets wrong against the ledger (an age, a home town, a name), a sudden run of another language nobody here speaks, a quotation mark the storyteller left out (marks only, never a word); a lie, a joke or a tease in character is left alone</label>
           </div>
           <p class="quiet">Summaryception's law: when a finished page contradicts what lasts — the locked truths, the ledgers, your brief — the reader edits the fewest storyteller pages by the smallest amount so it no longer does. Someone speaking who left an hour ago, a healed arm sore again, hair written blonde where black is locked, a mother who is not the mother. Never your own pages; never more than a small change; every mended page shows a chip that takes the earlier words back.</p>
           <p class="quiet">The record's own lines are <b>not</b> this reader's work. They are checked by the audit, which reads one finished record line against the pages it was written from — the opposite direction. A fact the line gets wrong is mended in the line itself; anything the line left out is written beneath it as <b>Detail worth keeping</b>. The audit never touches your prose, and this reader never touches the record.</p>

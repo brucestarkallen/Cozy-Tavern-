@@ -252,7 +252,7 @@ document.getElementById('btn-housekeeper').addEventListener('click', () => {
    * It is detected exactly, and put back to what he typed — once, on the first boot of this version. */
   try { await repairStoryPlaceholder(); } catch (err) { /* the next boot tries again */ }
   try { if (typeof db.sweepOrphans === 'function') await db.sweepOrphans(); } catch (err) { /* the shelf is no worse for it */ }
-  try { setSideBySide((await db.settings.get('helpersSideBySide')) === true); } catch (err) { /* one at a time, as it ships */ } /* M529: two workers at once, as he left it */
+  try { setSideBySide((await db.settings.get('helpersSideBySide')) !== false); } catch (err) { /* one at a time */ } /* M529: two workers at once, as he left it — M753: on unless he turned it off, or his provider turned two at once away (M530) */
   /* M530: a provider that turns away two at once puts the house back to one at a time — kept, and said where the switch is */
   setTooManyHandler((err) => {
     db.settings.set('helpersSideBySide', false).catch(() => {});

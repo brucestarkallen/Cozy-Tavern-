@@ -280,6 +280,7 @@ import './m752-choices.mjs'; /* M752 (followup 13): Choices matter is handed the
 import './m752-setaside.mjs'; /* M752 (followup 21): a source mention the auditor cannot tie to anyone is set aside, not owed forever */
 import './m752-carry.mjs'; /* M752 (followup 22): an unchanged entry the new page does not name keeps its approval */
 import './m752-branch.mjs'; /* M752 (followup 15): a branch keeps what the auditor paid for */
+import './m753.mjs'; /* M753: speech marks paired as the screen pairs them; the readers' requests begin the same way page to page; readers that need nothing of each other read together */
 
 console.log('Cozy Tavern — harness');
 await import('./m683.mjs');
