@@ -108,3 +108,11 @@ test('M755-7 THE PAGE SAYS IT OPENS A NEW SCENE: the reader’s own "newScene" �
   const same = await turn(manor(), page, answer([], ['Jovan', 'Vanessa']), 4);
   eq(same.mutations.filter((m) => m.type === 'presence.leave').length, 0, 'no such word: nobody is taken out');
 });
+
+test('M755-8 A NEW SCENE IS READ FROM THE PAGE, NOT FROM THE OLD ROOM: the reader’s "here" is written from the ledger’s own "Here now", so it carries Claire into a scene the page never has her in — on a new scene only the page decides, and she is left behind even though the room names her', async () => {
+  const page = '[Ashford Manor — Monday, October 20, 2026 | 21:52 | rain | a dark coat | on the gravel drive]\n\nJovan stopped under the rose arch, the phone cold at his ear. Vanessa stood three paces off on the gravel, her back to him, watching the gate lights.';
+  const read = await turn(manor(), page, JSON.stringify({ mutations: [], here: ['Jovan', 'Claire', 'Vanessa'], newScene: true, brief: { pressure: [], ripe: [], twb: null }, deltas: [] }), 4);
+  eq(read.mutations.filter((m) => m.type === 'presence.leave').map((m) => m.name).sort().join(','), 'Claire', 'the page never has her there: ' + JSON.stringify(read.mutations));
+  const after = applyMutations(manor(), read.mutations).state;
+  eq(after.present.map((p) => p.name).join(','), 'Jovan,Vanessa', 'the two the page shows under the rose arch');
+});

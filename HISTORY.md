@@ -21930,3 +21930,17 @@ Law M755-7 (his parlour: "newScene" with the same manor header leaves Claire beh
 nobody out) fails on m755-002. The 255 presence laws of M304–M755 pass, 0 failed, and the 101 auditor, request and worker
 laws of M41, M403, M685, M688, M750, M752-audit, M752-request and M753 pass, 0 failed. Not run: the DOM walk; lint (no npm
 here); his live tale — whether his model answers "newScene" on the page he is looking at could not be seen from here.
+
+## M755 (m755-004): a new scene is read from the page, not from the old room
+
+The owner, the same evening, looking at Who's here: "It doesn't work!!! Look at it Claire still there!! … Jovan and Claire is
+on the previous scene Jovan is not with Claire." The fault was in the reader's own room: it is written from the ledger's
+"Here now" line ("everyone on the ledger's 'Here now' line who is still with him — whom the page did not show leaving"), so
+on a page that opened a new scene the reader carried Claire into it, exactly as the instruction said to. The house then took
+that room as the witness and kept her.
+Now, on a page the reader marks as a new scene, THE PAGE ALONE SAYS WHO IS THERE: whoever the page's telling does not name
+is left behind, however the reader's room lists them (extractor.js: the "here" instruction says so — the room the last scene
+ended in is not this one — and the crowd rule judges by shownOnPage instead of the room when read.newScene is true).
+Law M755-8 (his rose arch: the reader's room names Jovan, Claire and Vanessa, the page shows only Jovan and Vanessa — Claire
+is left behind) fails on m755-003. The 256 presence laws of M304–M755 pass, 0 failed. Not run: the DOM walk; lint (no npm
+here); his live tale.

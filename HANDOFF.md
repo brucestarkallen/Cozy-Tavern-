@@ -34,8 +34,13 @@ older files sit beside it). Search them with
   not a new scene changes nothing — silence is not leaving, the quiet stay. (The first cut — the room made the truth on every
   page — was tried and withdrawn before shipping: it took the quiet ones out, and M444-3, M446-2, M509-13b, M644-3, M645-3 and
   M666-1 — his own reports — failed.) So "the manor" alone is enough when the page opens something new.
-  Laws M755-1..7 (1, 2, 5, 6 and 7 fail on the version before them); M755-3 and M755-4 hold the readings and the shape.
-  Measured here: the 255 presence laws of M304, M402, M414, M444, M446, M452, M491, M508, M535, M541, M542, M588, M679, M680,
+  m755-004: the reader's own room was the leak — it is written from the ledger's "Here now", so on a page that opened a new
+  scene it carried Claire in, exactly as its instruction said to ("whom the page did not show leaving"), and the house took
+  that room as the witness. On a page marked as a new scene THE PAGE ALONE says who is there now: whoever its telling does not
+  name is left behind, however the room lists them. Law M755-8 (the rose arch: room names Jovan, Claire, Vanessa; the page
+  shows Jovan and Vanessa — Claire is out).
+  Laws M755-1..8 (1, 2, 5, 6, 7 and 8 fail on the version before them); M755-3 and M755-4 hold the readings and the shape.
+  Measured here: the 256 presence laws of M304, M402, M414, M444, M446, M452, M491, M508, M535, M541, M542, M588, M679, M680,
   M681, M684, M752-knowledge, M754 and M755 all pass (0 failed), and so do the 101 auditor, request and worker laws of M41,
   M403, M685, M688, M750, M752-audit, M752-request and M753; m710-ending and m711-ending pass each in its own process. The
   whole suite was run on m755-001: every law it reported failing fails the same way on m754-001 in this environment (python3,

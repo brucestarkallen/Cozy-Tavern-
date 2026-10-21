@@ -313,6 +313,11 @@ function systemPrompt({ mc, founding }) {
     'Ending describes the final physical state faithfully, not a chronological summary. Omit unknown fields; legacy at/wears remain supported. Include the main',
     'character, everyone the page shows there with him, and everyone on the ledger\'s "Here now" line who is still with',
     'him — whom the page did not show leaving and he did not walk away from (quiet is not gone; left behind is gone).',
+    /* M755 (his "It doesn't work!!!… Claire still there!!"): the old room was leaking into the new scene through this very
+     * instruction — the reader carried everyone the ledger held, because the page never showed them leaving the scene they
+     * were not in any more. On a page that opens a new scene, the page alone says who is there. */
+    'ON A PAGE THAT OPENS A NEW SCENE (your "newScene"), the room the last scene ended in is not this one: here names only the',
+    'people THIS page puts there with him — never someone the page does not show, however the ledger had them a moment ago.',
     'Never someone only spoken of or remembered, heard on a phone or seen',
     'on a screen, and never anyone in the window. ' + HERE_MEANS + ' Whoever you name here that the ledger has not written in is',
     'written in; nobody is taken out for being left off — a leaving (theirs, or his walking away from them) is still',
@@ -1066,10 +1071,17 @@ export async function extractTurn(args = {}) {
     const sceneChanged = farMove || nearMove || (moved && partOfOld) || wentOut || jumped || read.newScene === true;
     if (sceneChanged && args.state) {
       const leaving = new Set(read.mutations.filter((m) => m && m.type === 'presence.leave').map((m) => String(m.name || '').trim().toLowerCase()));
+      /* M755: on a page that opens a new scene the PAGE alone says who is in it. The reader's room is no help there: it is
+       * written from the ledger's own "Here now", so it carried Claire into a scene that never had her (his: "It doesn't
+       * work!!! Look at it Claire still there!!"). */
+      const opensScene = read.newScene === true;
+      const sceneText = narrationOf(scenePartOf(args.assistantText));
       for (const p of (Array.isArray(args.state.present) ? args.state.present : [])) {
         const n = p && typeof p.name === 'string' ? p.name.trim() : '';
-        if (!n || isMc(args.state, n) || shownHere(n) || leaving.has(n.toLowerCase())) continue;
-        read.mutations.push({ type: 'presence.leave', name: n, cause: moved ? 'left behind at ' + was + ' when the scene moved to ' + ground : wentOut ? 'left behind when he went out — the page does not bring them' : 'left behind when the scene moved on — hours passed; the page does not bring them' });
+        if (!n || isMc(args.state, n) || leaving.has(n.toLowerCase())) continue;
+        if (opensScene ? shownOnPage(args.state, sceneText, n) : shownHere(n)) continue;
+        const why = moved ? 'left behind at ' + was + ' when the scene moved to ' + ground : wentOut ? 'left behind when he went out — the page does not bring them' : jumped ? 'left behind when the scene moved on — hours passed; the page does not bring them' : 'not in the scene the page opens — the page does not bring them';
+        read.mutations.push({ type: 'presence.leave', name: n, cause: why });
       }
     }
     /* M666: …and nobody the ledger has SEATED ELSEWHERE is written in against the page's own room. Taken out by the
