@@ -2377,21 +2377,56 @@ export function pageEnding(pageText) {
   return out.join('\n\n');
 }
 /* M588: does the scene end on the main character going? His name (whole, or its first word) opening a clause — not after
- * "to", "at", "with", "toward", "past", "behind", "for", "from" — with a going in the same sentence. */
+ * "to", "at", "with", "toward", "past", "behind", "for", "from" — with a going in the same sentence.
+ * M755 (his report: outside on the manor's grounds, Claire still "here — beside Jovan" from three pages back): the going
+ * he leaves on is often not told with his name at all. "Vanessa asked Jovan to walk with her. He nodded, and the two of
+ * them went out into the garden" was no going by this reading — so the page reader's own leave of Claire (the page never
+ * names her) was thrown away by M594's name gate, no move was read (the header still named the manor), nobody was left
+ * behind, and she stood in his room with her old position for page after page. Three ordinary shapes are read now:
+ * the going verbs that carry someone out (follow, lead, draw, pull, guide, usher, hurry, steer, bring, take, escort,
+ * accompany, dash, rush, run) with out/outside/home/upstairs/downstairs; his name as the object of one of them ("she led
+ * Jovan outside" — a possessive between, "Vanessa took Jovan's hand and led him outside"); and the company's going
+ * ("they / the two of them / both of them / the pair went out") when his name stands in the page's ending too. */
+/* M755: the going verbs — leaving a room on his own foot, or carried out by someone's hand */
+const ALL_GOING = 'walked|walks|walk|strode|strides|headed|heads|went|goes|left|leaves|stalked|marched|stormed|slipped|stepped|turned|followed|follows|follow|led|leads|lead|drew|draws|draw|pulled|pulls|pull|guided|guides|guide|ushered|ushers|usher|hurried|hurries|hurry|steered|steers|steer|brought|brings|bring|took|takes|take|escorted|escorts|escort|accompanied|accompanies|accompany|dashed|dashes|dash|rushed|rushes|rush|ran|run|runs';
 export function mcWalksOff(pageText, mc) {
-  const scene = narrationOf(scenePartOf(String(pageText || '')));
+  return endingGoing(pageText, mc, { verbs: ALL_GOING, particles: 'away|off|out|on|back|toward|towards|to|into|from|down|up|through|outside|home|upstairs|downstairs', gap: 40 });
+}
+/* M755: DID THE PAGE END ON HIM LEAVING THE ROOM? The same readings, with the outward words only — out, outside, off, away,
+ * home, upstairs, downstairs — and close to the verb that carries him: "walked to the window and looked out" is no leaving
+ * (the "out" belongs to the looking), "he walked out" and "she led Jovan outside" are. A turn is no going out either
+ * ("he turned away" at the window), so "turned" is the one verb left out here. */
+export function mcGoesOut(pageText, mc) {
+  return endingGoing(pageText, mc, { verbs: ALL_GOING.replace('|turned', ''), particles: 'away|off|out|outside|home|upstairs|downstairs', gap: 12 });
+}
+function endingGoing(pageText, mc, { verbs, particles, gap }) {
+  /* M755: the header is furniture, not the page's first sentence — "[Ashford Manor — Monday … ]\n\nJovan walked out" glued
+   * the header to that sentence, so a one-sentence page never matched the name at its start */
+  const scene = narrationOf(scenePartOf(String(pageText || ''))).replace(/^\s*\[[^\]\n]*\][ \t]*\n+/, '');
   const sentences = scene.split(/(?<=[.!?…])\s+/).map((x) => x.trim()).filter(Boolean).slice(-3);
   const parts = String(mc || '').trim().split(/\s+/).filter(Boolean);
   const names = [...new Set([parts.join(' '), parts[0], parts.length > 1 ? parts[parts.length - 1] : ''].filter((n) => n && n.length >= 2))];
   const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const GO = '(?:walked|walks|walk|strode|strides|headed|heads|went|goes|left|leaves|stalked|marched|stormed|slipped|stepped|turned)\\b[^.!?]{0,40}?\\b(?:away|off|out|on|back|toward|towards|to|into|from|down|up|through)\\b|\\b(?:left|leaves|departed|departs)\\b';
+  const GO = '(?:' + verbs + ')\\b[^.!?]{0,' + gap + '}?\\b(?:' + particles + ')\\b|\\b(?:left|leaves|departed|departs)\\b';
   for (const sentence of sentences) {
     for (const n of names) {
-      const re = new RegExp('(?:^|[,;—–]\\s*|\\band\\s+|\\bthen\\s+)(?<!\\b(?:to|at|with|toward|towards|past|behind|for|from|beside|by)\\s)' + esc(n) + '\\b(?:\\s+\\p{L}+){0,8}?\\s+' + '(?:' + GO + ')', 'iu');
+      const re = new RegExp('(?:^|[,;—–]\\s*|\\band\\s+|\\bthen\\s+)(?<!\\b(?:to|at|with|toward|towards|past|behind|for|from|beside|by)\\s)' + esc(n) + '(?:[\'’]s)?\\b(?:\\s+\\p{L}+){0,8}?\\s+' + '(?:' + GO + ')', 'iu');
       if (re.test(sentence)) return true;
     }
   }
-  return false;
+  /* M755: the ending names him and carries him out by the hand — "Vanessa took Jovan's hand and led him outside" */
+  const namedIn = (t) => names.some((n) => new RegExp('(?<![\\p{L}])' + esc(n) + '(?![\\p{L}])', 'iu').test(t));
+  const OUT_TO = /(?:led|leads|lead|drew|draws|draw|pulled|pulls|pull|guided|guides|guide|ushered|ushers|usher|hurried|hurries|hurry|steered|steers|steer|brought|brings|bring|took|takes|take|escorted|escorts|escort|followed|follows|follow|accompanied|accompanies|accompany)\b[^.!?]{0,30}?\b(?:him|her|them)\s+(?:out|outside|off|away|upstairs|downstairs|into)\b/i;
+  /* M755: the company goes out — "the two of them went out into the garden", "they left the room" — with him named in the
+   * ending (the page takes the pair out, and he is one of the pair: his name stands there). What counts as a going is the
+   * house's own reader of goings, so "they left the door open" is no leaving. */
+  const companyGoes = (t) => {
+    const m = /\b(?:they|the two of them|both of them|the pair)\b([^.!?]{0,60})/i.exec(String(t || ''));
+    return Boolean(m) && showsDeparture(m[1]);
+  };
+  const toldEnding = sentences.map((s) => narrationOf(s));
+  if (toldEnding.some((t) => namedIn(t) && OUT_TO.test(t))) return true;
+  return toldEnding.some(namedIn) && toldEnding.some(companyGoes);
 }
 /* M644: THE PAGE'S OWN WORDS FOR THE GOING. showsDeparture is a list of ways to say "left", and a list is always short:
  * of thirty ordinary goings it knew fifteen ("the door closed behind her", "went up to bed", "her footsteps faded up the

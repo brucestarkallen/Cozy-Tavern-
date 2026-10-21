@@ -21846,3 +21846,42 @@ out); the tale's audit is switched off for that moment now and put back after.
 Measured: law suite 1708 of 1708; DOM walk 327 of 327; lint 0 errors, 247 warnings (the same warnings). Not run: his tale — its ledger
 was not available here, so how his loose end had gone from Jugram's page (closed by the readers of the page that answered
 it, or kept on another page) was not seen; the stuck finding settles either way.
+
+## M755 (m755-001): the page ends on him going out with her, and the one who stayed is left behind
+
+The owner (21 October 2026): "in my supernatural story let say on turn 3 there's mc Jovan, Claire and Vanessa. Turn 4 Vanessa
+ask Jovan to walk with her. Turn 5 they're outside turn 6 they're talking. But on the scene and the people Claire still stuck
+as standing beside Jovan as turn 3." His header, asked by name: "the header still same location?? It's on a manor but doesn't
+say outside" — the header kept naming the manor while the prose had the two of them out in its garden.
+Reproduced with the real page reader and a scripted answer on m754-001: the manor for the ground, Jovan, Claire and Vanessa
+in it, a page ending "Vanessa set down her teacup and asked Jovan to walk with her. He nodded, and the two of them went out
+into the garden, the door clicking shut behind them." The ground did not move (the header named the same place — so no move
+is read, and no position is let go), and the reader's own right leave of Claire was thrown away by M594's name gate: a leave
+needed its person named on the page, unless the page ended on HIM going — and "the two of them went out" was no going by
+mcWalksOff, which read only his name at the head of a clause with walk/went/left… So nobody was left behind, and Claire stood
+"here — beside Jovan" with her page-3 position for as long as the scene stayed on the manor. Two faults, one behind the other.
+Now (apply.js endingGoing; one reading behind mcWalksOff and the new mcGoesOut): the going verbs that carry someone out
+(follow, lead, draw, pull, guide, usher, hurry, steer, bring, take, escort, accompany, dash, rush, run) with
+out/outside/home/upstairs/downstairs, his name as the subject of one, as the object of one ("she led Jovan outside", a
+possessive allowed: "took Jovan's hand and led him outside"), and the company's going ("they / the two of them / both of them
+/ the pair" + a going, read by showsDeparture so "they left the door open" is no leaving) when his name stands in the page's
+ending. The header line is set aside before the sentence split (it used to glue onto a one-sentence page and hide his name at
+its start). mcGoesOut is the same reading with the outward words only and close to the verb — "walked to the window and
+looked out" is no leaving — and it is what the new house-side leave uses: when the page ends on him going out and the
+ground's name did not change, whoever the page's room does not hold is left where they were, as on a move (extractor.js;
+M594's own word — "the room is left behind him, named or not"). The reader's leave, when it wrote one, now stands through the
+same gate.
+Laws M755-1 (his manor: her leave stands; she is not in the scene and is somewhere; his own place is untouched) and M755-2
+(the house writes the leave itself when the reader forgot it; a step to the window empties nobody) fail on m754-001; M755-3
+(the readings: the company's going, the carrying hand, another pair going, "they" on a page that never names him, a quiet
+page, the captain going instead of him, what someone says) and M755-4 (the two who went out keep their places, and a third
+the page shows at the door stays) hold the shape.
+Measured on Windows, beside the reference sandbox: the law suite was run whole; every law it reported failing fails the same
+way on m754-001 in this environment (M13, M24, M18 and M30-8 want python3, npm or a shell path; M30-6, M72-7, M72-9 and
+M247 fail untouched; M293-2 boots a sync worker and calls document.createElement — "document is not defined" — and stops the
+run there). Beside it, the laws this change could touch were run as their own slices: the 252 presence laws (M304, M402,
+M414, M444, M446, M452, M491, M508, M535, M541, M542, M588, M679, M680, M681, M684, M752-knowledge, M754, M755) — 252 of 252;
+the 89 auditor and worker laws (M41, M403, M685, M688, M750, M752-audit, M753) — 89 of 89; and the ending fixtures
+m710-ending and m711-ending, each in its own process — both pass. Lint: not run here (tests/audit_lint.sh installs eslint with
+npm, and this machine has no npm). Not run: the DOM walk; his tale itself (its ledger is not here, so whether his reader wrote
+the leave or the house had to is not known — both paths are lawed).

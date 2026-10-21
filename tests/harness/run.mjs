@@ -282,6 +282,7 @@ import './m752-carry.mjs'; /* M752 (followup 22): an unchanged entry the new pag
 import './m752-branch.mjs'; /* M752 (followup 15): a branch keeps what the auditor paid for */
 import './m753.mjs'; /* M753: speech marks paired as the screen pairs them; the readers' requests begin the same way page to page; readers that need nothing of each other read together */
 import './m754.mjs'; /* M754: a loose end closed already is already so, and an old close the ledger already holds is settled — the auditor's light is never yellow for it */
+import './m755.mjs'; /* M755: the page ends on him going out with her — the one who stayed is left behind, named on the page or not */
 
 console.log('Cozy Tavern — harness');
 await import('./m683.mjs');

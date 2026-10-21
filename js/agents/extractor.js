@@ -38,7 +38,7 @@ import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sceneEndingFields, workerPeople
 import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition; M677: what goes into who knows what — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning, foldName } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, personBookKey, noOneSpot, deathToldOf, comesInAtTheEnd, readerTimeOverHeader, withoutGrantedFlags } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end */
+import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, mcGoesOut, personBookKey, noOneSpot, deathToldOf, comesInAtTheEnd, readerTimeOverHeader, withoutGrantedFlags } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end; M755: and the goings out */
 import { headerMutations, closeBy, headerCells } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey, seatForPerson } from '../engine/people.js'; /* M681: the dead's seat */
 import { isDeadSeat, seatNowWords } from '../engine/offscreen.js'; /* M680: the dead, and a seat said as every reader says it */
@@ -1033,12 +1033,18 @@ export async function extractTurn(args = {}) {
     const BESIDE = /(?<![\p{L}])(?:outside|behind|off|beyond|near|across from|across|opposite|below|beneath|above|under|past|beside|next to|in front of|back of|rear of|round the corner from|around the corner from)(?![\p{L}])/iu;
     const namedByNeighbour = (longer, shorterW) => { const m = String(longer || '').match(BESIDE); return Boolean(m) && holds(shorterW, tellingWords(String(longer).slice(m.index + m[0].length))); };
     const nearMove = moved && !farMove && roomNamed && ((holds(wasW, groundW) && namedByNeighbour(ground, wasW)) || (holds(groundW, wasW) && namedByNeighbour(was, groundW)));
-    if ((farMove || nearMove) && args.state) {
+    /* M755: HE WENT OUT AND THE GROUND'S NAME DID NOT CHANGE. His manor: the header still named the manor while the two of
+     * them walked out into its garden, so no move was read, the crowd that only rides along on a move stayed — and Claire,
+     * left in the drawing room, stood "here — beside Jovan" page after page. The room is left behind him on the page that
+     * ends on him going (M594's own word), named or not: whoever the page's room does not hold is left where they were,
+     * as on a move. */
+    const wentOut = Boolean(args.state && mcNow && mcNow !== 'the player' && !farMove && !nearMove && mcGoesOut(turnScene, mcNow));
+    if ((farMove || nearMove || wentOut) && args.state) {
       const leaving = new Set(read.mutations.filter((m) => m && m.type === 'presence.leave').map((m) => String(m.name || '').trim().toLowerCase()));
       for (const p of (Array.isArray(args.state.present) ? args.state.present : [])) {
         const n = p && typeof p.name === 'string' ? p.name.trim() : '';
         if (!n || isMc(args.state, n) || shownHere(n) || leaving.has(n.toLowerCase())) continue;
-        read.mutations.push({ type: 'presence.leave', name: n, cause: 'left behind at ' + was + ' when the scene moved to ' + ground });
+        read.mutations.push({ type: 'presence.leave', name: n, cause: farMove || nearMove ? 'left behind at ' + was + ' when the scene moved to ' + ground : 'left behind when he went out — the page does not bring them' });
       }
     }
     /* M666: …and nobody the ledger has SEATED ELSEWHERE is written in against the page's own room. Taken out by the
