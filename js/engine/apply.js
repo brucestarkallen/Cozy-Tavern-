@@ -2865,6 +2865,14 @@ export function staleAfterJump(state, headerMutations) {
   return (Array.isArray(state.present) ? state.present : []).filter((p) => p && typeof p.name === 'string' && ((typeof p.position === 'string' && p.position.trim()) || (typeof p.attire === 'string' && p.attire.trim())))
     .map((p) => ({ type: 'presence.update', name: p.name, ...(typeof p.position === 'string' && p.position.trim() ? { position: '' } : {}), ...(typeof p.attire === 'string' && p.attire.trim() ? { attire: '' } : {}), cause: 'hours have passed since' }));
 }
+/* M755: DID THE CLOCK MOVE HOURS ON — the house's own mark of a scene that has ended (the measure staleAfterJump clears
+ * every place and dress on)? His next scene kept the same ground and only moved the hour, so nobody was ever left. */
+export function jumpedFar(state, headerMutations) {
+  const was = state ? clockReached(state.clock) : null;
+  const sets = (Array.isArray(headerMutations) ? headerMutations : []).filter((m) => m && (m.type === 'clock.set' || m.type === 'clock.advance'));
+  if (was === null || !sets.length) return false;
+  try { const after = applyMutations(state, sets).state; const now = after.clock && Number.isFinite(after.clock.minutes) ? after.clock.minutes : null; return now !== null && now - was >= STALE_JUMP_MINUTES; } catch (err) { return false; }
+}
 const tellingOf = (t) => new Set(String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 3 && !/^(?:the|and|with|his|her|their|its|still|now|into|onto|from|over|under|near|beside|behind|front|side|back|that|this|has|have|had|was|were|are|for|one|two|out|off)$/.test(w)));
 /* M666 — HIS PASTED AUDIT: "the presence list still holds the hooded girl with her hood up, but the latest page shows her hood
  * pushed back" — found by the auditor, and its own repair REFUSED ("1 refused"). The refusal was this rule, as M660

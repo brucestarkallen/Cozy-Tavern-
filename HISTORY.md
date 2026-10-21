@@ -21885,3 +21885,27 @@ the 89 auditor and worker laws (M41, M403, M685, M688, M750, M752-audit, M753) �
 m710-ending and m711-ending, each in its own process — both pass. Lint: not run here (tests/audit_lint.sh installs eslint with
 npm, and this machine has no npm). Not run: the DOM walk; his tale itself (its ledger is not here, so whether his reader wrote
 the leave or the house had to is not known — both paths are lawed).
+
+## M755 (m755-002): the next scene is not the last one — the room it opens holds who the page holds
+
+The owner, the same day, on the same tale: "Please this is a next scene and there are no Claire on scene why it's still have
+Claire in the scene right now?" m755-001 read the page that ends on him goING out; a scene that simply OPENS somewhere else
+still kept the old room, in three shapes:
+- a move whose names share a word but name a part of the old place ("the garden of Ashford Manor" from "Ashford Manor", "the
+  manor's garden", "Ashford Manor, the garden") was neither a far move (a word is shared) nor a near one (no "outside" /
+  "behind" before the name), so no crowd rule ran at all — the garden held everyone who had been in the drawing room
+  (extractor.js partOfOld). A name that only says the same place more fully ("The Gilded Eel" written "The Gilded Eel
+  tavern", "the Tenth's courtyard" written "Tenth Division courtyard") names no part of anything and is still no move.
+- a near move whose room the reader did not name ("its 'here'") ran no crowd rule — the room must be named was the near
+  move's own condition. It no longer is: when the room is unnamed the page decides, as it always did on a far move (M588).
+- a scene that opens on the same ground after hours have passed (his "next morning, at the manor"): moved was false and no
+  one had gone, so the room was untouched. Hours passing is the house's own measure of a scene that has ended (staleAfterJump
+  clears every place and dress at four hours or more) — apply.js jumpedFar exposes that measure, and the crowd rule runs on it.
+All three write the leaves themselves (whoever the page's room does not hold is left where they were), so a reader that named
+nobody is no longer a room that never changes.
+Laws M755-5 (the garden: the page alone leaves the two it never shows; the room it names keeps its own) and M755-6 (hours
+later: the two not shown are out, the one the page shows stays) — both fail on m755-001. The 254 presence laws of M304, M402,
+M414, M444, M446, M452, M491, M508, M535, M541, M542, M588, M679, M680, M681, M684, M752-knowledge, M754 and M755 pass, 0
+failed (M509-13b's "same courtyard by another name" and M666-1's "Gilded Eel tavern" head off the wider move rule, which is
+why the part-of reading is the one used); the 89 auditor and worker laws of M41, M403, M685, M688, M750, M752-audit and M753
+pass, 0 failed. Not run: the DOM walk; lint (no npm here); his tale's own ledger.

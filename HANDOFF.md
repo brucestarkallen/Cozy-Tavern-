@@ -7,26 +7,34 @@ older files sit beside it). Search them with
 
 ## Now
 
-- The one who stayed (M755, m755-001 on 21 October 2026). His: "turn 4 Vanessa asks Jovan to walk with her. Turn 5 they're
-  outside… But in the scene and the people Claire still stuck as standing beside Jovan as in turn 3", and "the header still
-  same location?? It's on a manor but doesn't say outside". The header named the same manor, so no move was read and no
-  position was let go; and the page reader's own leave of Claire was thrown away by M594's name gate, because "the two of
-  them went out into the garden" was no going by mcWalksOff (his name had to head a clause with walk/went/left). Now a going
-  is read from the verbs that carry someone out (follow, lead, draw, pull, guide, usher, hurry, steer, bring, take, escort,
-  accompany, dash, rush, run) with out/outside/home/upstairs/downstairs, his name as their subject or object ("she led Jovan
-  outside"), and the company's going ("they / the two of them / both of them / the pair", read by showsDeparture, so "they
-  left the door open" is no leaving) when his name stands in the page's ending; the header line is set aside before the
-  sentence split (a one-sentence page used to glue it onto the sentence and hide his name at its start); and when the page
-  ends on him going out while the ground's name did not change, the house writes the leaves itself — whoever the page's room
-  does not hold is left where they were, as on a move (apply.js endingGoing/mcGoesOut, extractor.js). Laws M755-1 and M755-2
-  fail on m754-001; M755-3 and M755-4 hold the readings and the shape. Measured here: the 252 presence laws of M304, M402,
-  M414, M444, M446, M452, M491, M508, M535, M541, M542, M588, M679, M680, M681, M684, M752-knowledge, M754 and M755 all pass
-  (0 failed), and so do the 89 auditor and worker laws of M41, M403, M685, M688, M750, M752-audit and M753; m710-ending and
-  m711-ending pass each in its own process. The whole suite was run too: the eight laws it reports failing here fail the same
-  way on m754-001 in this environment (python3, npm and a shell path are missing; M30-6, M72-7, M72-9 and M247 fail untouched;
-  M293-2's sync worker boot needs a browser and stops the run). Lint was not run (its script installs eslint with npm, which
-  this machine has not). Not run: the DOM walk; his tale (its ledger is not here, so whether his reader wrote the leave or the
-  house had to is not known — both are lawed).
+- The one who stayed, and the next scene (M755, m755-001 then m755-002 on 21 October 2026). His: "turn 4 Vanessa asks Jovan
+  to walk with her. Turn 5 they're outside… But in the scene and the people Claire still stuck as standing beside Jovan as in
+  turn 3", "the header still same location?? It's on a manor but doesn't say outside", and "this is a next scene and there are
+  no Claire on scene why it's still have Claire in the scene right now?"
+  m755-001: the header named the same manor, so no move was read and no position was let go; and the page reader's own leave
+  of Claire was thrown away by M594's name gate, because "the two of them went out into the garden" was no going by
+  mcWalksOff (his name had to head a clause with walk/went/left). Now a going is read from the verbs that carry someone out
+  (follow, lead, draw, pull, guide, usher, hurry, steer, bring, take, escort, accompany, dash, rush, run) with
+  out/outside/home/upstairs/downstairs, his name as their subject or object ("she led Jovan outside"), and the company's
+  going ("they / the two of them / both of them / the pair", read by showsDeparture, so "they left the door open" is no
+  leaving) when his name stands in the page's ending; the header line is set aside before the sentence split (a one-sentence
+  page used to glue it onto the sentence and hide his name at its start); and when the page ends on him going out while the
+  ground's name did not change, the house writes the leaves itself — whoever the page's room does not hold is left where they
+  were, as on a move (apply.js endingGoing/mcGoesOut, extractor.js).
+  m755-002: a scene that OPENS somewhere else kept the old room in three shapes, all closed: a move naming a part of the old
+  place ("the garden of Ashford Manor", "the manor's garden", "Ashford Manor, the garden") was neither a far move nor a near
+  one, so no crowd rule ran (partOfOld; a fuller name of the same place — "The Gilded Eel tavern", "Tenth Division courtyard"
+  — is still no move); a near move whose room the reader did not name ran none either (the page decides now, as on a far
+  move); and a scene opening on the same ground hours later had no rule at all (apply.js jumpedFar — staleAfterJump's own
+  four hours — now moves the room). All three leave behind whoever the page's room does not hold, written by the house.
+  Laws M755-1..6 (1, 2, 5 and 6 fail on the version before them); M755-3 and M755-4 hold the readings and the shape. Measured
+  here: the 254 presence laws of M304, M402, M414, M444, M446, M452, M491, M508, M535, M541, M542, M588, M679, M680, M681,
+  M684, M752-knowledge, M754 and M755 all pass (0 failed), and so do the 89 auditor and worker laws of M41, M403, M685, M688,
+  M750, M752-audit and M753; m710-ending and m711-ending pass each in its own process. The whole suite was run on m755-001:
+  every law it reported failing fails the same way on m754-001 in this environment (python3, npm and a shell path are missing;
+  M30-6, M72-7, M72-9 and M247 fail untouched; M293-2's sync worker boot needs a browser and stops the run). Lint was not run
+  (its script installs eslint with npm, which this machine has not). Not run: the DOM walk; his tale (its ledger is not here,
+  so whether his reader wrote the leave or the house had to is not known — both are lawed).
 - Version m754-001 on main, 18 October 2026: an old close the ledger already holds no longer keeps the auditor's
   light yellow (M754, the next item). m753-001 the same day: speech marks paired as the screen pairs them, and a
   page's readers sooner (M753, the two items after it). Before them, m752-021 on 15 October; m752-001 (d73bbaf) was the audit;

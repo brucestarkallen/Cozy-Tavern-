@@ -74,3 +74,26 @@ test('M755-4 THE HOUSE KEEPS WHAT THE PAGE BRINGS: the two who went out stay in 
   const after = applyMutations(manor(), read.mutations).state;
   eq(after.present.map((p) => p.name).join(','), 'Jovan,Claire,Vanessa', 'nobody moved who the page did not take');
 });
+
+test('M755-5 A NEW SCENE NEXT DOOR, THE READER NAMED NOBODY: on a near move ("the garden of Ashford Manor" from "Ashford Manor") the page decides who is there — the one it never shows is left behind, named room or not', async () => {
+  const page = '[the garden of Ashford Manor — Monday, October 20, 2026 | 20:40 | rain | a dark coat | on the gravel]\n\nJovan walked the gravel path alone. The garden was empty and dark.';
+  const read = await turn(manor(), page, answer([], []), 3);
+  const leaves = read.mutations.filter((m) => m.type === 'presence.leave').map((m) => m.name).sort();
+  eq(leaves.join(','), 'Claire,Vanessa', 'the two the page never shows stay at the manor: ' + JSON.stringify(read.mutations));
+  const after = applyMutations(manor(), read.mutations).state;
+  eq(after.present.map((p) => p.name).join(','), 'Jovan', 'the garden holds him alone');
+});
+
+test('M755-6 THE CLOCK MOVED HOURS ON: the page opens a new scene on the same ground — whoever it does not show is not in the room it opens, and whoever it shows is kept', async () => {
+  const next = '[Ashford Manor — Tuesday, October 21, 2026 | 09:10 | clear | a dark coat | in the drawing room]\n\nMorning came grey and quiet. Jovan sat alone at the long table with his coffee going cold.';
+  const read = await turn(manor(), next, answer([], ['Jovan']), 4);
+  const leaves = read.mutations.filter((m) => m.type === 'presence.leave').map((m) => m.name).sort();
+  eq(leaves.join(','), 'Claire,Vanessa', 'the night before is over: ' + JSON.stringify(read.mutations));
+  const after = applyMutations(manor(), read.mutations).state;
+  eq(after.present.map((p) => p.name).join(','), 'Jovan', 'the new morning holds him alone');
+  /* …and a page that shows her keeps her, even hours on */
+  const withHer = '[Ashford Manor — Tuesday, October 21, 2026 | 09:10 | clear | a dark coat | in the drawing room]\n\nClaire poured his coffee and set the pot down without a word.';
+  const kept = await turn(manor(), withHer, answer([], []), 4);
+  assert(kept.mutations.some((m) => m.type === 'presence.leave' && m.name === 'Vanessa'), 'the one the page never shows is still left behind');
+  assert(!kept.mutations.some((m) => m.type === 'presence.leave' && m.name === 'Claire'), 'the one it shows is kept: ' + JSON.stringify(kept.mutations));
+});
