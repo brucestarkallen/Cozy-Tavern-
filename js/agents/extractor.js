@@ -296,8 +296,14 @@ function systemPrompt({ mc, founding }) {
     who,
     '',
     'Answer with JSON ONLY, in exactly this shape:',
-    '{"mutations":[ ... ], "people":[ ... ], "threads":[ ... ], "healed":[ ... ], "things":[ ... ], "loose":[ ... ], "here":[ ... ], "looks":[ ... ], "spot":"…"}',
+    '{"mutations":[ ... ], "people":[ ... ], "threads":[ ... ], "healed":[ ... ], "things":[ ... ], "loose":[ ... ], "here":[ ... ], "looks":[ ... ], "spot":"…", "newScene":false}',
     WRITER_FACTS,
+    /* M755 (his word: "this is a next scene and there are no Claire on scene… why it's still have Claire"): THE PAGE SAYS WHEN
+     * IT OPENS A SCENE OF ITS OWN. A scene that opens with the same place named in the header and nothing else moved is
+     * otherwise indistinguishable from the last scene going on — so the one who reads the page is asked, and its answer is the
+     * witness: on a new scene the room it names is the room, and the quiet ones it does not name are not in it. */
+    '"newScene": true only when this page opens a scene apart from the one the page before it ended in — another time,',
+    'another place, or after a break; leave it out (or false) when the scene simply goes on from where it was.',
     '"people" records each newly established individual identity from EITHER message: {"name":"the exact name or unique singular role used","core":"their stable role, rank, family and nature actually established here","shown":"an exact quote establishing these facts"}. Distinct ranked siblings and unique unnamed individuals get separate records under their stated role, never an invented personal name. Design comparisons are not additional people. Keep core separate from the quotation: an action is not an identity. Leave core empty if no stable fact is given. Include people the writer introduces even if they do not act or speak in the reply. Physical facts go in looks. Do not use a question or hypothetical as an introduction. Use here separately for physical presence.',
     '"threads" decides EVERY open thread listed under the page, one entry each — {"title":"…","now":"resolved"} or',
     '{"title":"…","now":"open"} (a thread the story has only moved is still open). "healed", "things", "loose" and "spot"',
@@ -851,8 +857,10 @@ export function parseExtractorAnswer(raw, { standingsFor = [] } = {}) {
       .map((t) => ({ name: t.name.trim().slice(0, 120), where: t.where.trim().slice(0, 240), ...(typeof t.owner === 'string' && t.owner.trim() ? { owner: t.owner.trim().slice(0, 120) } : {}) })); /* M679: whose it is, when the page changed that */
     /* M679: where in the area the scene stands as the page ends (spotBlock) — the house holds it to the page (spotOnPage) */
     const spot = typeof parsed.spot === 'string' ? parsed.spot.trim().slice(0, 160) : '';
+    /* M755: the page's own word that it opens a scene of its own (see the shape's "newScene") */
+    const newScene = parsed.newScene === true;
     const people = (Array.isArray(parsed.people) ? parsed.people : []).filter((p) => p && typeof p.name === 'string' && typeof p.shown === 'string');
-    return { mutations, note: mutations.length || here.length || people.length || looks.length || things.length || spot ? 'ok' : 'empty', here, hereNotes, looks, things, spot, people };
+    return { mutations, note: mutations.length || here.length || people.length || looks.length || things.length || spot ? 'ok' : 'empty', here, hereNotes, looks, things, spot, people, newScene };
   } catch (err) {
     return { mutations: [], note: 'unusable' };
   }
@@ -1052,7 +1060,10 @@ export async function extractTurn(args = {}) {
      * same place more fully ("The Gilded Eel" written "The Gilded Eel tavern", "the Tenth's courtyard" written "Tenth
      * Division courtyard") is no part of anything and is still no move for the crowd. */
     const partOfOld = /\s(?:of|inside|within|in)\s|\p{L}['’]s\s|,/iu.test(ground);
-    const sceneChanged = farMove || nearMove || (moved && partOfOld) || wentOut || jumped;
+    /* M755: AND THE PAGE ITSELF MAY SAY SO — the reader's own "newScene" (the page opens another time, another place, or after
+     * a break, with the header still naming the same coarse ground). Its room is the room then, and whoever it does not name
+     * is not in it: his next scene, where the header still said only "the manor" and Claire was nowhere on the page. */
+    const sceneChanged = farMove || nearMove || (moved && partOfOld) || wentOut || jumped || read.newScene === true;
     if (sceneChanged && args.state) {
       const leaving = new Set(read.mutations.filter((m) => m && m.type === 'presence.leave').map((m) => String(m.name || '').trim().toLowerCase()));
       for (const p of (Array.isArray(args.state.present) ? args.state.present : [])) {

@@ -21909,3 +21909,24 @@ M414, M444, M446, M452, M491, M508, M535, M541, M542, M588, M679, M680, M681, M6
 failed (M509-13b's "same courtyard by another name" and M666-1's "Gilded Eel tavern" head off the wider move rule, which is
 why the part-of reading is the one used); the 89 auditor and worker laws of M41, M403, M685, M688, M750, M752-audit and M753
 pass, 0 failed. Not run: the DOM walk; lint (no npm here); his tale's own ledger.
+
+## M755 (m755-003): the page says when it opens a scene of its own — and then its room is the room
+
+The owner, the same day: "If the header still just manor it's ok? Same as with Claire" — and then, when told it was not:
+"Don't be stupid!! I swear don't create regression or mistake!!!" The honest state of it: a scene that opens with the same
+coarse place in the header and nothing else moved (no jump of hours, no one walking out, no part of the place named) carries
+no evidence in the text that it is another scene at all. The only witness that can tell "the next scene, and Claire is not in
+it" from "the same room and Claire is quiet" is the one who reads the page.
+The first cut was tried and withdrawn before it shipped: the reader's room made the truth on EVERY page. It takes the quiet
+ones out — the six laws that hold his own reports failed (M444-3 "the quiet stay", M446-2, M509-13b, M644-3, M645-3, M666-1):
+a room that merely leaves someone off is not evidence, since a reader (or a model) may forget the one who says nothing.
+Now the answer is asked for: the page reader's answer carries "newScene": true when the page opens a scene apart from the one
+the page before it ended in (another time, another place, after a break) — left out or false when the scene simply goes on
+(extractor.js: the shape, its own line of law, parseExtractorAnswer's read.newScene, and the crowd rule in extractTurn). On a
+new scene the room the reader names is the room: whoever is not in it — and whom the page does not show either — is left
+behind, with the same leaves as a move. On a page that is not a new scene nothing changes: silence is not leaving, the quiet
+stay. So a header that says only "the manor" is enough, provided the page itself opens something new.
+Law M755-7 (his parlour: "newScene" with the same manor header leaves Claire behind; the same page without the word takes
+nobody out) fails on m755-002. The 255 presence laws of M304–M755 pass, 0 failed, and the 101 auditor, request and worker
+laws of M41, M403, M685, M688, M750, M752-audit, M752-request and M753 pass, 0 failed. Not run: the DOM walk; lint (no npm
+here); his live tale — whether his model answers "newScene" on the page he is looking at could not be seen from here.

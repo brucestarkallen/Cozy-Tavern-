@@ -97,3 +97,14 @@ test('M755-6 THE CLOCK MOVED HOURS ON: the page opens a new scene on the same gr
   assert(kept.mutations.some((m) => m.type === 'presence.leave' && m.name === 'Vanessa'), 'the one the page never shows is still left behind');
   assert(!kept.mutations.some((m) => m.type === 'presence.leave' && m.name === 'Claire'), 'the one it shows is kept: ' + JSON.stringify(kept.mutations));
 });
+
+test('M755-7 THE PAGE SAYS IT OPENS A NEW SCENE: the reader’s own "newScene" — with the header still naming only the manor and nothing else moved — makes its room the room, so the one it leaves out is not there; with no such word the quiet stay, as they always did', async () => {
+  const page = '[Ashford Manor — Monday, October 20, 2026 | 21:40 | rain | a dark coat | in the small parlour]\n\nLater, in the small parlour, Jovan sat with Vanessa and the fire burned low between them.';
+  const fresh = await turn(manor(), page, JSON.stringify({ mutations: [], here: ['Jovan', 'Vanessa'], newScene: true, brief: { pressure: [], ripe: [], twb: null }, deltas: [] }), 4);
+  eq(fresh.mutations.filter((m) => m.type === 'presence.leave').map((m) => m.name).sort().join(','), 'Claire', 'the new scene’s room is the room: ' + JSON.stringify(fresh.mutations));
+  const after = applyMutations(manor(), fresh.mutations).state;
+  eq(after.present.map((p) => p.name).join(','), 'Jovan,Vanessa', 'Claire is not in the parlour');
+  /* the same page with no newScene: the scene goes on, and the room restated takes nobody out (M402/M444-3) */
+  const same = await turn(manor(), page, answer([], ['Jovan', 'Vanessa']), 4);
+  eq(same.mutations.filter((m) => m.type === 'presence.leave').length, 0, 'no such word: nobody is taken out');
+});

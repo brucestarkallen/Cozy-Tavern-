@@ -27,14 +27,21 @@ older files sit beside it). Search them with
   — is still no move); a near move whose room the reader did not name ran none either (the page decides now, as on a far
   move); and a scene opening on the same ground hours later had no rule at all (apply.js jumpedFar — staleAfterJump's own
   four hours — now moves the room). All three leave behind whoever the page's room does not hold, written by the house.
-  Laws M755-1..6 (1, 2, 5 and 6 fail on the version before them); M755-3 and M755-4 hold the readings and the shape. Measured
-  here: the 254 presence laws of M304, M402, M414, M444, M446, M452, M491, M508, M535, M541, M542, M588, M679, M680, M681,
-  M684, M752-knowledge, M754 and M755 all pass (0 failed), and so do the 89 auditor and worker laws of M41, M403, M685, M688,
-  M750, M752-audit and M753; m710-ending and m711-ending pass each in its own process. The whole suite was run on m755-001:
-  every law it reported failing fails the same way on m754-001 in this environment (python3, npm and a shell path are missing;
-  M30-6, M72-7, M72-9 and M247 fail untouched; M293-2's sync worker boot needs a browser and stops the run). Lint was not run
-  (its script installs eslint with npm, which this machine has not). Not run: the DOM walk; his tale (its ledger is not here,
-  so whether his reader wrote the leave or the house had to is not known — both are lawed).
+  m755-003: a scene opening with the SAME coarse place in the header and nothing else moved carries no evidence in the text,
+  so the page reader is asked for it — its answer carries "newScene": true when the page opens a scene apart from the one the
+  page before ended in (another time, another place, after a break), left out or false when the scene goes on. On a new scene
+  the room it names is the room: whoever is not in it, and whom the page does not show either, is left behind. A page that is
+  not a new scene changes nothing — silence is not leaving, the quiet stay. (The first cut — the room made the truth on every
+  page — was tried and withdrawn before shipping: it took the quiet ones out, and M444-3, M446-2, M509-13b, M644-3, M645-3 and
+  M666-1 — his own reports — failed.) So "the manor" alone is enough when the page opens something new.
+  Laws M755-1..7 (1, 2, 5, 6 and 7 fail on the version before them); M755-3 and M755-4 hold the readings and the shape.
+  Measured here: the 255 presence laws of M304, M402, M414, M444, M446, M452, M491, M508, M535, M541, M542, M588, M679, M680,
+  M681, M684, M752-knowledge, M754 and M755 all pass (0 failed), and so do the 101 auditor, request and worker laws of M41,
+  M403, M685, M688, M750, M752-audit, M752-request and M753; m710-ending and m711-ending pass each in its own process. The
+  whole suite was run on m755-001: every law it reported failing fails the same way on m754-001 in this environment (python3,
+  npm and a shell path are missing; M30-6, M72-7, M72-9 and M247 fail untouched; M293-2's sync worker boot needs a browser and
+  stops the run). Lint was not run (its script installs eslint with npm, which this machine has not). Not run: the DOM walk;
+  his tale (its ledger is not here; whether his model answers "newScene" on the page he is looking at was not seen).
 - Version m754-001 on main, 18 October 2026: an old close the ledger already holds no longer keeps the auditor's
   light yellow (M754, the next item). m753-001 the same day: speech marks paired as the screen pairs them, and a
   page's readers sooner (M753, the two items after it). Before them, m752-021 on 15 October; m752-001 (d73bbaf) was the audit;
