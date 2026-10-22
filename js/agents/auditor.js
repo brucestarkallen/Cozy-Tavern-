@@ -859,9 +859,14 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
         }
         // The semantic decision approves the actual resulting profile. A
         // concurrent edit cannot borrow it when the saved state is reloaded.
-        if (corrected.review?.status==='complete') for (const issue of sourceCandidates.filter(i=>i.sourceFacts)) {
+        /* M756-002: an answer is a verdict whether or not it calls itself complete — its own open entries name what it wants
+         * kept, and a review that never reaches "complete" used to leave these facts owed on every pass (a dead end). */
+        if (corrected.review) for (const issue of sourceCandidates.filter(i=>i.sourceFacts)) {
           const open=(corrected.review.open || []).find(o=>o.id===auditFindingId(issue));
-          const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
+          /* M756-002 (his "Vanessa is exist… it's supposed not making mistake autonomous and self heal"): the mention is
+           * found by the house's own name matching, never by an exact string — a source entry kept as "Vanessa Langley" and
+           * a finding naming "Vanessa" found no mention, so no decision could be recorded and the finding was owed forever. */
+          const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name) || samePersonName(p.name, issue.sourceName || issue.name));
           /* M752 (followup 21): facts the reader keeps open, with its reason, are left as they stand — decided with that
            * reason (her page untouched), never owed on every pass until the automatic audit pauses (the same fault as a
            * description it cannot tie to anyone, above) */
@@ -870,7 +875,17 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
               why:'Left as it stands — '+String(open.why).trim(),shown:mention.shown,sourceId:issue.sourceId});
             continue;
           }
-          if (open) {openSourceFacts.set(auditFindingId(issue),open.why);continue;}
+          /* M756-002: an open entry with no reason is no verdict the house can act on — it named nothing to add and nothing
+           * to leave, and owed on every pass it is a dead end that pauses the whole audit. It is decided here, in the
+           * reviewer's own words for it, and the finding closes; a review that wants a fact kept open says why (the branch
+           * above), and one that wants it written supplies the additive note. */
+          if (open) {
+            if (mention && !sourceIdentityNeeded(result.out,mention)) reviewedSourceFacts.set(auditFindingId(issue),{
+              scope:sourceFactScope(result.out,{...mention,source:issue.sourceId}),
+              why:'Left as it stands — the review kept it open without a reason',shown:mention.shown,sourceId:issue.sourceId});
+            else openSourceFacts.set(auditFindingId(issue),open.why);
+            continue;
+          }
           if (mention && !sourceIdentityNeeded(result.out,mention)) reviewedSourceFacts.set(auditFindingId(issue),{
             scope:sourceFactScope(result.out,{...mention,source:issue.sourceId}),why:corrected.review.why,shown:mention.shown,sourceId:issue.sourceId});
         }
