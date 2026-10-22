@@ -22050,3 +22050,30 @@ run: the run is finished then, and its line says the speakers stay unnamed (worl
 owed only where someone will do it). Other unfinished world work is owed as before.
 Laws M759-1 (the request's voice shape), M759-2 (the words, the state, the light's reason and route), M759-3 (auditor off).
 Measured on m759-001: the whole law suite 1730 of 1730; the whole DOM walk 327 of 327; lint 0 errors.
+
+## M760 (m760-001): the review fits its connection with every owed source fact
+
+The owner, 23 October 2026, 00:12 Jakarta: "What's this why the auditor still do this kind of thing Manual yellow check: the
+auditor was given a fresh try; still yellow — Current ledger verification is incomplete; Ledger entry receipts are incomplete;
+Vanessa Langley has source identity facts to reconcile: Having a secret affair with Jovan Wessex that nobody knows: no review
+answer for it — the review did not finish this pass; …" — a dozen findings of hers, each from a different page.
+Cause: each owed source fact was sent to the final review as its own task carrying the WHOLE source section it was read from
+(up to 12,000 characters, auditsources.js CHUNK) and the person's whole current record, and the historical checklist sent
+that record again for each — none of it inside the room the review is planned in (M752 planned the pages, the entries and
+the evidence). Reproduced on m759-001 with his tale's shape (forty pages of 7,000 characters, a fact of Vanessa's read on
+twelve, ten people, 51 entries): the parts measured 147,455 (ledger and pages), 144,964 (source tasks), 69,320 (checklist),
+34,522 (evidence), 31,427 (system) characters against a room of 356,856 — the transport refused the request before it left,
+on a 128k connection and on a 200k one (its view of the pages grows with the room), every pass: no fact decided, 0 of 51
+entries verified, the light yellow for good. M758-F3 counts a review never sent as no ask, so nothing ever set them aside.
+Now (auditor.js): a source fact's task carries the passage around its quotes (factPassage: 600 characters each side, at most
+2,400) and the person's current record once (later tasks name the first); its checklist entry points at its task; the owed
+findings are counted, compact, before the pages are fitted (at most a third of what the entries leave); and the tasks are
+fitted to the room the bare request leaves (identity decisions first; half the spare room at least, more when the entries
+need less). Tasks that do not fit are not asked this pass (never counted as asked) and say "waits for the next review — this
+one had room for N of the source tasks". Measured on the same tale: one review of 276,941 characters, the twelve tasks in
+18,040; every fact and all 51 entries decided; at 64k and 200k the review is sent too; with forty facts, 13 carried and the
+review fits (279,591 characters). LEDGER_REPAIR_POLICY 13 (his paused audit resumes once).
+Laws M760-1 (twelve facts, one review that fits, each task's passage holds its quote, her record once, everything decided)
+and M760-2 (forty: the review fits, the rest wait and say so, only those asked are counted) — both fail on m759-001 ("the
+review was sent — got 0").
+Measured on m760-001: the whole law suite 1732 of 1732; the whole DOM walk 327 of 327; lint 0 errors. Not run: his tale and his model (no provider calls) — his own review's saved reason was not seen; the refusal was reproduced with his tale's shape, and gives his exact lines.

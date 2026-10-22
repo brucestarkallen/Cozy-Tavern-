@@ -50,7 +50,7 @@ import { isMc, namedInText, findPersonKey, sourceIdentityTargetKey, sourceIdenti
 import { explicitStandings, readStatedStandings, validateStatedStandings, samePersonLoose, isLabel, statedDigits } from './founder.js'; /* M49/M50: the writer's digits, read the way the brief is shaped */
 import { visiblePages, loadMemory, wholeRecord, recordWithPages } from './memory.js'; /* M51: the whole record, not the summarizer's tail */
 import { pageText } from '../assemble/stack.js';
-import { exactNameIn, quotedSource, WRITER_FACTS } from '../engine/evidence.js';
+import { exactNameIn, quotedSource, WRITER_FACTS, literalSpan, wordSpan } from '../engine/evidence.js';
 import { auditSources, reviewAuditSources, missingSourcePeople, missingSourceIdentityFacts, sourceFactScope, sourceIdentityNeeded, sourcePersonKey, peopleSourceIndex, SOURCE_IDENTITY_DECISION_GUIDANCE } from './auditsources.js';
 import { reconcileAppearance,reconcileIdentity,sourceAppearanceFacts,sourceIdentityFacts } from './appearanceinventory.js';
 import { lookKey } from '../engine/canon.js';
@@ -618,7 +618,13 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
    * outgrew the connection: the transport refused the request before it left and the review "did not finish", for ever. */
   const readingLeft = viewBudget(connection, replyTokens, bare.system.length + bare.user.length + profileLookup.length + evidenceBudget + pageText(lastTold).length);
   const rowsReserve = Math.min(JSON.stringify(leanCheckRows(ledgerVerificationRows(state), bare.user + profileLookup)).length, Math.max(0, Math.floor(readingLeft / 2)));
-  const view = auditView(all, Math.max(foldedTo,checkpointStart), Math.min(AUDIT_VIEW_CHARS, readingLeft - rowsReserve),checkpointStart);
+  /* M760: the owed findings ride beside the pages — their checklist and source tasks are counted, as compact as they are
+   * sent, before the pages are fitted: at most a third of what the entries leave */
+  const owedFindings = compactFindings([...(readingState.audit?.unresolved || []), ...restoredForReading], readingState);
+  const findingsSize = JSON.stringify(auditRepairChecklist(owedFindings, readingState)).length
+    + JSON.stringify(reviewSourceTasks(owedFindings.filter((i) => i.profileRecovery && i.sourceId), readingState, documents)).length;
+  const findingsReserve = Math.min(findingsSize, Math.max(0, Math.floor((readingLeft - rowsReserve) / 3)));
+  const view = auditView(all, Math.max(foldedTo,checkpointStart), Math.min(AUDIT_VIEW_CHARS, readingLeft - rowsReserve - findingsReserve),checkpointStart);
   if (!view.shown.length) return null;
   const repairTargets = [...(readingState.audit?.unresolved || []), ...restoredForReading];
   const verificationSource = ledgerRepairInputKey({}, readStory, visiblePages(all));
@@ -660,6 +666,8 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   let deferredRows = []; /* M752: required entries left for the next reading, open, never approved unread */
   const deferredRead = new Map(); /* M758: those of them a reading of their own answered for, this pass */
   const askedFacts = new Set(); /* M758: source facts a review answer was read for, this pass (M756-004 counts only these) */
+  const waitingTasks = new Set(); /* M760: source tasks the review had no room for this pass — asked in the next */
+  let tasksCarried = 0;
   const reviewedSourceFacts = new Map();
   const openSourceFacts = new Map();
   let finalReview = {status:'not completed',requested:0,received:0,replyCharacters:0};
@@ -684,20 +692,20 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     for (const issue of originalFindings.filter(i=>i.profileRecovery && i.sourceId && !findingSettled(i,result,withdrawals,documents))) {
       sourceCandidateMap.set(JSON.stringify([issue.sourceId,issue.sourceName || issue.name,Boolean(issue.sourceFacts)]),issue);
     }
-    const sourceCandidates=[...sourceCandidateMap.values()];
-    const sourceTasks=sourceCandidates.map(i=>({id:auditFindingId(i),sourceId:i.sourceId,name:i.sourceName || i.name,shown:i.shown,
-      ...(i.sourceFacts?{sourceFacts:true,facts:i.facts,currentEntries:findingRows(i,result.out),originalPassage:documents.find(d=>d.id===i.sourceId)?.text}:{}),
-      speakerIdentity:documents.find(d=>d.id===i.sourceId)?.speakerIdentity}));
+    /* M760: identity decisions first, then the facts, each in the order it was found; each compact (reviewSourceTasks) */
+    const allCandidates=[...sourceCandidateMap.values()].sort((a,b)=>Number(Boolean(a.sourceFacts))-Number(Boolean(b.sourceFacts)));
+    const allTasks=reviewSourceTasks(allCandidates,result.out,documents);
     /* M752: THE REQUIRED ENTRIES FIT THE READING, HONESTLY. Each is sent lean (a text the request shows word for word
      * already is marked, not sent twice) and as many as the transport will take beside everything else, leaving the room
      * to look (LOOK_RESERVE); the rest wait for the next reading, open and never approved (verifyLedgerChecks below). */
     const reviewSystem=follow.system+'\nINDEPENDENT FACTUAL REVIEW. Explicit writer facts and manual decisions govern; original evidence is read chronologically, including valid later developments. Preserve durable facts and legitimate worker judgments. You are the final independent consistency reviewer, not an authority over story meaning. Unknown optional biography is not a defect. Judge story meaning and profile completeness yourself using originals. Your explicit completed verdict is the approval. Do not echo a certificate for each source fact or repeat identity/appearance mappings. The FINAL REVIEW CONTRACT below replaces older per-entry output examples. Source IDs and quotations are useful optional provenance, never a second semantic approval. Preserve manual fields, valid worker judgments, earned scores, established identities and every valid alternate face.';
     const beforeRows=follow.user + profileLookup
       + '\nFINAL REVIEW CONTRACT. Review ALL required entries together and their resulting repairs, then return JSON: {"scene":[{"name":"actual person","repair":false,"earlier":"optional completed movement","ending":{"position":"current place and pose","shown":"short original evidence"}}],"issues":[],"review":{"status":"complete","why":"brief verdict explaining actual review","open":[]},"standings":[]}. Derive scene FIRST from the completed narration: include the main character and people whose physical state this page establishes or changes. Put ONLY their final current position and attire in ending. Earlier movement may be recorded in earlier; its original past-tense quotation belongs in ending.shown. Never append an arrival fact to a superseded movement or copy a scene summary into position. A final position may paraphrase the source faithfully. Keep factual history in the story and scratchbook, not in current pose. Unknown clothes are omitted. It is your working ending read, not a second approval certificate. After deriving ending, YOU judge whether the actual saved physical state is wrong or missing a relevant established fact. Mark repair:true only for that factual correction; the app writes it even when issues is empty. Mark repair:false for an already-correct or equivalent state, keeping the ending read in the scratchbook without rewriting the ledger. Changed wording, reordered clothing, shorter descriptions and optional extra narrative detail are not discrepancies. Preserve valid specific details such as a seat count. Correct contradictory movement, not prose style. Quotations may be in ending.shown or the scene entry shown. Use ordinary issue mutations for arrivals, departures, bodies, factual People now corrections and other fields. Issues contain only real discrepancies with working mutations or page concerns. Complete means you reviewed every required entry against originals, including all established identity and physical facts, and the repairs you provide leave them correct. Never say complete if you did not finish. Put genuinely unresolved items in open:[{"id":"required entry id","why":"specific missing fact or evidence"}]. Use status:"open" if the entire reading is unfinished. You may supply detailed checks instead, but identityFacts inCore:true or an explicit complete profile verdict suffices; no second identity/appearance array is required.';
-    const afterRows='\nRETAINED SCRATCHBOOK CHECKS, already approved for these unchanged values and sources:\n'+JSON.stringify(Object.keys(previousVerification))
-      + '\nHISTORICAL FINDINGS WITH ACTUAL CURRENT RECORDS:\n'+JSON.stringify(auditRepairChecklist(originalFindings,result.out))
-      + '\nREQUIRED SOURCE MENTION DECISIONS:\n'+JSON.stringify(sourceTasks)
+    const afterRowsFor=(tasks)=>'\nRETAINED SCRATCHBOOK CHECKS, already approved for these unchanged values and sources:\n'+JSON.stringify(Object.keys(previousVerification))
+      + '\nHISTORICAL FINDINGS WITH ACTUAL CURRENT RECORDS:\n'+JSON.stringify(auditRepairChecklist(originalFindings.filter(i=>!i.sourceFacts || tasks.some(t=>t.id===auditFindingId(i))),result.out))
+      + '\nREQUIRED SOURCE MENTION DECISIONS:\n'+JSON.stringify(tasks)
       + '\nSOURCE FACT DECISIONS. For every sourceFacts task compare its original passage with the bound current People record. Complete approves equivalent wording without a cosmetic write. For a real omission supply additive people.note core or profiles preserving existing facts. Put the task id in review.open if its fact or binding remains uncertain. Completion covers these tasks as well as ledger entries.'
+      + (tasks.length<allTasks.length?' This reading carries '+tasks.length+' of the '+allTasks.length+' source tasks; the other '+(allTasks.length-tasks.length)+' wait for the next one. Decide only those listed.':'')
       + '\nSOURCE IDENTITY DECISION CONTRACT.\n'+SOURCE_IDENTITY_DECISION_GUIDANCE
       + '\nENGINE ELIGIBLE PERSON TARGETS for this saved snapshot, including actors and tracked people:\n'+JSON.stringify(sourceIdentityTargetChoices(result.out))
       + '\nFACTIONS ARE GROUP CONTEXT, not person targets:\n'+JSON.stringify(Object.keys(result.out.factions || {}))
@@ -716,6 +724,18 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     // the explanation at its longest. The room to look stays free whenever the reading leaves it (a fetch round the
     // transport refuses loses the whole reading, every time); a connection too small for that carries what fits in the rest.
     const requestRoom=workerRoom(connection,{maxTokens:replyTokens,slack:0});
+    /* M760: THE SOURCE TASKS FIT THE READING TOO, as the entries do (M752): measured with none, they take what the entries
+     * do not need, half at least; the rest wait for the next reading — never asked, so never counted as asked (M758) */
+    const lookRoom=Math.ceil(requestRoom*LOOK_RESERVE);
+    const bareLeft=workerRoom(connection,{system:reviewSystem,user:beforeRows+rowsWords(outstandingRows.length,outstandingRows.length)+'[]'+afterRowsFor([]),maxTokens:replyTokens});
+    const spare=Math.max(0,bareLeft-lookRoom);
+    let taskFits=Math.max(Math.floor(spare/2),spare-JSON.stringify(lean).length);
+    const sourceTasks=allTasks.filter(t=>{const size=JSON.stringify(t).length+1+(t.sourceFacts?400:0); if (size>taskFits) return false; taskFits-=size; return true;});
+    const sourceCandidates=allCandidates.filter(i=>sourceTasks.some(t=>t.id===auditFindingId(i)));
+    for (const t of allTasks) if (!sourceTasks.includes(t)) waitingTasks.add(t.id);
+    tasksCarried=sourceTasks.length;
+    if (waitingTasks.size) finalReview.sourceTasksWaiting = waitingTasks.size;
+    const afterRows=afterRowsFor(sourceTasks);
     const left=workerRoom(connection,{system:reviewSystem,user:beforeRows+rowsWords(outstandingRows.length,outstandingRows.length)+'[]'+afterRows,maxTokens:replyTokens});
     const reserved=left-Math.ceil(requestRoom*LOOK_RESERVE);
     let rowsRoom=reserved>0 ? reserved : left;
@@ -1026,14 +1046,17 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
    * said only "source-supported profile facts still need reconciliation" for every one of them, so a review that never
    * answered, a review that kept the task open (with its reason) and a review that decided it and wrote it all read the
    * same. Each now names its own case, and the reason the review gave, when it gave one. */
+  /* M760: a task the review had no room for says so, and that the next one reads it */
+  const waitingWhy = 'waits for the next review — this one had room for ' + tasksCarried + ' of the source tasks';
   const sourceFactWhy = (issue, id) => {
     if (issue.pendingReason) return issue.pendingReason;
+    if (waitingTasks.has(id)) return waitingWhy;
     const open = String(openSourceFacts.get(id) || '').trim();
     if (open) return 'kept open by the review: ' + open;
     if (reviewedSourceFacts.has(id)) return 'decided by the review, but her profile or its page changed while it read — it is asked again';
     return 'no review answer for it — the review did not finish this pass';
   };
-  pending = [...new Set([...outstanding.map((i) => pendingLine(i.what, i.sourceFacts ? sourceFactWhy(i, auditFindingId(i)) : (i.pendingReason || 'identity or entity classification still needs a working repair'))), ...(sourceReview?.pending || []), ...(answerProblem ? [answerProblem] : []), ...(followupFailed ? ['the combined ledger review did not finish' + (typeof followupFailed === 'string' ? ': ' + followupFailed : '')] : []), ...(verification.read < verification.total ? [`ledger verification: checked ${verification.read} of ${verification.total} entries; ${verification.pending.slice(0, 2).join('; ')}`] : [])])];
+  pending = [...new Set([...outstanding.map((i) => pendingLine(i.what, i.sourceFacts ? sourceFactWhy(i, auditFindingId(i)) : (i.pendingReason || (waitingTasks.has(auditFindingId(i)) ? waitingWhy : 'identity or entity classification still needs a working repair')))), ...(sourceReview?.pending || []), ...(answerProblem ? [answerProblem] : []), ...(followupFailed ? ['the combined ledger review did not finish' + (typeof followupFailed === 'string' ? ': ' + followupFailed : '')] : []), ...(verification.read < verification.total ? [`ledger verification: checked ${verification.read} of ${verification.total} entries; ${verification.pending.slice(0, 2).join('; ')}`] : [])])];
   result.unfinished = pending.length > 0;
   result.pending = pending;
   result.issues = result.issues.filter(i => i.mutations.length || i.pages || !findingSettled(i,result,withdrawals,documents,verification));
@@ -1100,8 +1123,54 @@ export function auditFindingId(issue) {
   return issue.id || issue.findingId || 'finding:' + fingerprint36(issue.profileRecovery && issue.sourceId
     ? JSON.stringify([issue.sourceId,issue.sourceName || issue.name,...(issue.sourceFacts?['facts',issue.facts?.map(f=>f.text)]:[])]) : String(issue.what || '').trim());
 }
+/* M760 — HIS: "why the auditor still do this kind of thing … Vanessa Langley has source identity facts to reconcile: … no
+ * review answer for it — the review did not finish this pass" (twelve of them, and "Current ledger verification is
+ * incomplete"). Each owed source fact was sent to the review with the WHOLE section it was read from (up to 12,000
+ * characters) and the person's whole current record — and the record again in the historical checklist — once per page
+ * she was read on, outside the room the review is planned in. Twelve of Vanessa's took 145,000 characters of tasks and
+ * 69,000 of checklist: the request outgrew a 128k connection (and a 200k one, whose view of the pages grows with it), the
+ * transport refused it before it left, and every pass ended "did not finish" — nothing decided, no entry verified, for
+ * good (M758-F3 rightly counts a review never sent as no ask). A source fact's task carries the passage around its
+ * quotes, and her record once; and the tasks are fitted to a room of their own (auditLedger). */
+const PASSAGE_ROOM = 2400;
+export function factPassage(document, quotes) {
+  const text = String(document?.text || '');
+  if (!text) return '';
+  const spans = quotes.filter(Boolean).map(q => literalSpan(text, q) || wordSpan(text, q)).filter(Boolean).sort((a,b) => a.start - b.start);
+  if (!spans.length) return text.slice(0, 1800);
+  const parts = [];
+  for (const span of spans) {
+    const start = Math.max(0, span.start - 600), end = Math.min(text.length, span.end + 600);
+    const last = parts[parts.length - 1];
+    if (last && start <= last.end) last.end = Math.max(last.end, end); else parts.push({start, end});
+  }
+  let out = '';
+  for (const part of parts) {
+    const piece = (part.start > 0 ? '…' : '') + text.slice(part.start, part.end) + (part.end < text.length ? '…' : '');
+    if (out && out.length + piece.length > PASSAGE_ROOM) break;
+    out += (out ? '\n' : '') + piece;
+  }
+  return out;
+}
+export function reviewSourceTasks(candidates, state, documents) {
+  const recordOf = new Map();
+  return candidates.map(i => {
+    const d = documents.find(x => x.id === i.sourceId);
+    const task = {id:auditFindingId(i),sourceId:i.sourceId,...(d?.label ? {source:d.label} : {}),name:i.sourceName || i.name,shown:i.shown};
+    if (!i.sourceFacts) return {...task,speakerIdentity:d?.speakerIdentity};
+    const rows = findingRows(i, state);
+    const key = rows.map(r => r.id).join('|');
+    const first = key ? recordOf.get(key) : '';
+    if (key && !first) recordOf.set(key, task.id);
+    return {...task,sourceFacts:true,facts:i.facts,currentEntries:first ? 'the same current records as task '+first : rows,
+      originalPassage:factPassage(d, [i.shown, ...(i.facts || []).map(f => f.shown)]),speakerIdentity:d?.speakerIdentity};
+  });
+}
 export function auditRepairChecklist(findings, state) {
-  return findings.map(i => ({ id: auditFindingId(i), what: i.what, fix: i.fix,
+  return findings.map(i => i.sourceFacts ? { id: auditFindingId(i), what: i.what, fix: i.fix, ...(i.pendingReason ? {pendingReason:i.pendingReason} : {}),
+    /* M760: its facts, the passage they were read from and her current record ride in its own task below — sent here as
+     * well they were the same record again for every page she was read on (69,000 characters for twelve of Vanessa's) */
+    sourceFacts:true, decide:'in its task under REQUIRED SOURCE MENTION DECISIONS' } : ({ id: auditFindingId(i), what: i.what, fix: i.fix,
     // The engine's reason an earlier repair did not land; the single combined review is its only way back (M708).
     ...(i.pendingReason ? {pendingReason:i.pendingReason} : {}),
     ...(i.sourceId?{sourceMention:{sourceId:i.sourceId,name:i.sourceName || i.name,shown:i.shown,

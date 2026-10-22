@@ -7,7 +7,21 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m759-001 on main, 22 October 2026: the world agent's voices (M759). His: "Is this normal the world agent sometimes
+- Version m760-001 on main, 23 October 2026: the review fits its connection with every owed source fact (M760). His manual
+  yellow check: "Current ledger verification is incomplete; Ledger entry receipts are incomplete; Vanessa Langley has source
+  identity facts to reconcile: … no review answer for it — the review did not finish this pass" (a dozen of them). Each owed
+  source fact went to the final review with the whole section it was read from (up to 12,000 characters) and her whole
+  record, and the record again in the historical checklist, once per page she was read on — outside the room the review is
+  planned in (only the pages, the entries and the evidence were planned). Reproduced with his shape (forty 7,000-character
+  pages, a fact of hers on twelve, ten people): 145,000 characters of tasks and 69,000 of checklist; on a 128k connection and
+  on a 200k one the transport refused the request before it left, every pass — nothing decided, 0 of 51 entries verified,
+  and M758-F3 (rightly) never counts a review that was not sent as an ask. Now (auditor.js reviewSourceTasks, factPassage,
+  auditRepairChecklist): a fact's task carries the passage around its quotes (at most 2,400 characters) and her record once;
+  the checklist entry of a source fact points at its task; the findings get a room of their own before the pages are fitted,
+  and the tasks are fitted to it (identity decisions first) — the rest wait, are not asked, and say "waits for the next review
+  — this one had room for N of the source tasks". Same tale: one review of 277,000 characters, the twelve tasks in 18,000,
+  every fact and all 51 entries decided; forty facts: 13 carried, the review fits. LEDGER_REPAIR_POLICY 13. Laws M760-1/2.
+- Version m759-001, 22 October 2026: the world agent's voices (M759). His: "Is this normal the world agent sometimes
   yellow but then become green once auditor finish?" Yes, by M731's design: a voice whose speaker the world agent does not
   identify (identity:{scope local|tracked, why}), even when asked again in the same answer, is settled by the auditor from the
   page (auditSources voice:… receipts), and health.js reconciledWorkerStatus turns the run green once the audit has. Why it
