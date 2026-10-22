@@ -285,6 +285,7 @@ import './m754.mjs'; /* M754: a loose end closed already is already so, and an o
 import './m755.mjs'; /* M755: the page ends on him going out with her — the one who stayed is left behind, named on the page or not */
 import './m756.mjs'; /* M756: a source fact is reconciled when its words are in the profile, not when its sentence is copied */
 import './m758.mjs'; /* M758: the audit of m755-001…m757-001 — the goings that are not his, the quiet raven, a fact never waved through, the review's own answer, the entries left over read and approved */
+import './m759.mjs'; /* M759: the world agent's voices — who is speaking is in the shape it is given, and his line says what waits on the auditor */
 
 console.log('Cozy Tavern — harness');
 await import('./m683.mjs');

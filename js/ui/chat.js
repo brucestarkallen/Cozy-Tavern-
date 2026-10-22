@@ -119,7 +119,7 @@ const OWN_BOOKS = new Set([...SIDE_JOBS, 'planner']);
 const readersOut = (storyId) => workOut(storyId).some((name) => !OWN_BOOKS.has(name));
 import { renderStateFacts as planFacts, stateView as planStateView, closeBy } from '../engine/state.js'; /* M510: what the helper reads; M589: who is close by */
 import { renderPeopleTiers as planPeople, peopleView as planPeopleView, findPersonKey } from '../engine/people.js'; /* M510; M518: a canon block's person in the ledger */
-import { worldTurn, worldRunWords, worldAgentOn, worldEffort, worldDecisionsMissing } from '../agents/world.js'; /* M29: the world beyond the page */
+import { worldTurn, worldRunWords, worldRunState, worldAgentOn, worldEffort, worldDecisionsMissing } from '../agents/world.js'; /* M29: the world beyond the page */
 import { continuousAuditOn, auditStretch, stretchWords, continuousRunStatus, auditProgress, auditWaits, beginReading, endReading, pauseContinuousAudit, openCorrections, withoutStop, branchAdvisories, branchRecoveries, freshTryForCorrections, forgetAuditTrouble, nextStretch } from '../agents/continuous.js'; /* M673: the continuous audit */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
 import { rebuildRecord, rebuildPeople, restoreRecord, restorePeople, rebuildRecordWords, rebuildPeopleWords, peopleHealDue, healStampDue, HEAL_GEN } from '../agents/rebuild.js'; /* M52: the gradual rebuilder */
@@ -5763,8 +5763,12 @@ export function initChat(ctx) {
       /* M31: a garbled answer is not a transport failure — it is said out
        * loud, with what the agent actually said kept for the drawer, and
        * never retried five times over. */
-      return { silent: false, detail: worldRunWords(result), raw: result && result.raw, unfinished: Boolean(result?.pending?.length || result?.identityPending?.length),
-        resume:result?.identityPending?.length && !result?.pending?.length && !result?.rejected?.some(r=>!r.same)?'voice-identities:'+msg.id:'' };
+      /* M759: a voice whose speaker it did not say is the auditor's to settle — owed only while the auditor is on (world.js
+       * worldRunState) */
+      const auditor = story.extraction !== false && await auditOn(story);
+      const runState = worldRunState(result, { auditor });
+      return { silent: false, detail: worldRunWords(result, { auditor }), raw: result && result.raw, unfinished: runState.unfinished,
+        resume: runState.resume ? runState.resume + ':' + msg.id : '' };
     });
 
     /* 2. The scribe (M12): sparse deltas onto the character pages — who

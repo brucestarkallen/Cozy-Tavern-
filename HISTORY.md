@@ -22027,3 +22027,26 @@ LEDGER_REPAIR_POLICY 12 (a changed procedure: his audit paused over Vanessa's fa
 Measured on m758-001: the whole law suite 1727 of 1727 (d962b86: 1718 of 1719); the whole DOM walk 327 of 327 (d962b86: 326
 of 327); lint 0 errors. The eight M758 laws fail on d962b86 and pass here (each was run both ways). Not run: his tale and his
 model (no provider calls); a real browser (nothing on screen changed).
+
+## M759 (m759-001): who is speaking in the world's voices
+
+The owner, 22 October 2026, 23:40 Jakarta: "Is this normal the world agent sometimes yellow but then become green once auditor
+finish? the world agent ran just now and stopped partway — speaker identities await source reconciliation: Deputy Vance:
+Supply the speaker identity scope and reason, retaining the original voice.; Dr. Hollis Rennick: …".
+The answer is yes, by M731's design: each voice the world agent hears carries who is speaking (identity: local to the scene,
+or tracked to a person the ledger holds); a voice without it is asked for once more in the same answer, and what is still
+missing is settled by the auditor from the voice's own source (auditSources voice:… receipts), after which health.js
+reconciledWorkerStatus turns the world's run green. Nothing is lost meanwhile: the voices land under the page as written.
+Why it happened often: the shape the model copies for each voice listed {"icon","speaker","channel","content"}, and the
+identity rule stood as a separate line placed before the voices section opened. The shape now names identity and the rule
+sits inside the voices section (world.js law). Measured on the request the world agent sends: the shape names identity
+(false on m758-001, true now); the rule after the voices heading (false, true). Whether his model now answers with it was
+not measured (no provider call).
+His line said "stopped partway" and showed the model's own instruction. It says now: "… and is waiting for the auditor — the
+auditor will say who is speaking in 2 voices (it reads them from the page): Deputy Vance, Dr. Hollis Rennick"; the light:
+"world is waiting for the auditor to say who is speaking in its voices", routed to the auditor as before (worldRunWords,
+drawer.js, health.js). With the auditor switched off nobody would settle it and the light stayed yellow until the next world
+run: the run is finished then, and its line says the speakers stay unnamed (world.js worldRunState, chat.js — M752's rule:
+owed only where someone will do it). Other unfinished world work is owed as before.
+Laws M759-1 (the request's voice shape), M759-2 (the words, the state, the light's reason and route), M759-3 (auditor off).
+Measured on m759-001: the whole law suite 1730 of 1730; the whole DOM walk 327 of 327; lint 0 errors.

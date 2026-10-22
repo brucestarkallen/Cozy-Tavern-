@@ -72,7 +72,9 @@ export function healthSnapshot({storyId,shelf={},state={},pages=[],mem={},story=
        * while the record waits out its pause: a keeper that could not be reached was asked twice as often, the same pages
        * each time (walk DOM-260). The keeper's own retry is for what is not a record gap. */
       const ownedByRecord=name==='keeper' && recordBehind;
-      add('worker:'+name,name,[saidWith(name+(row.ok===false?' stumbled; the pages are safe and will be folded when it comes back':' stopped partway; it will carry on by itself'),row),retry?.reason].filter(Boolean).join(' '),
+      /* M759: a world run whose only open work is who its voices are waits for the auditor, which settles it */
+      const voicesOnly=name==='world' && row.ok && row.resume?.startsWith('voice-identities:');
+      add('worker:'+name,name,[saidWith(name+(row.ok===false?' stumbled; the pages are safe and will be folded when it comes back':voicesOnly?' is waiting for the auditor to say who is speaking in its voices':' stopped partway; it will carry on by itself'),row),retry?.reason].filter(Boolean).join(' '),
         name==='world' && row.ok && row.resume?.startsWith('voice-identities:')?(repairOwed?'auditor':null):retry?.eligible && !ownedByRecord?'worker:'+name:null,{checkpoint:retry?.input,blocked:retry?.reason || '',state:row.ok===false?'failed':'unfinished'});
     }
   }

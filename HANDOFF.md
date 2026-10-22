@@ -7,7 +7,17 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m758-001 on main, 22 October 2026: the audit of the laptop's m755-001 … m757-001 (M758). What stands now:
+- Version m759-001 on main, 22 October 2026: the world agent's voices (M759). His: "Is this normal the world agent sometimes
+  yellow but then become green once auditor finish?" Yes, by M731's design: a voice whose speaker the world agent does not
+  identify (identity:{scope local|tracked, why}), even when asked again in the same answer, is settled by the auditor from the
+  page (auditSources voice:… receipts), and health.js reconciledWorkerStatus turns the run green once the audit has. Why it
+  happened often: the per-voice shape the model copies listed {"icon","speaker","channel","content"} and the identity rule
+  stood as a line of its own BEFORE the voices were described — the shape now names identity and the rule sits inside the
+  voices section (world.js). His line said "stopped partway" and showed the model's own instruction; it now says "is waiting
+  for the auditor — the auditor will say who is speaking in 2 voices (it reads them from the page): Deputy Vance, Dr. Hollis
+  Rennick" (world.js worldRunWords, drawer.js, health.js). With the auditor switched off nobody would settle it, so the run is
+  finished and says the speakers stay unnamed (world.js worldRunState, chat.js). Laws M759-1..3.
+- Version m758-001, 22 October 2026: the audit of the laptop's m755-001 … m757-001 (M758). What stands now:
   - THE GOINGS (apply.js endingGoing, behind mcWalksOff and mcGoesOut). Three kinds of verb, each with its own shape: his own
     feet (the M588 list, read as before, plus outside/home/upstairs/downstairs); running with the direction straight after
     the verb ("ran out", "hurried back outside"); carrying with a PERSON between the verb and the direction ("led her out",

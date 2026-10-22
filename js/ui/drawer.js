@@ -2429,7 +2429,7 @@ function workersPanel(ctx) {
        * M723 end with one: "…remain unresolved.." on this row) */
       words.textContent = ((WORKER_WORDS[name] || name) + ' ran ' + when
         + (historical ? historical.words + (row.detail ? '. ' + row.detail : '') + '.' : !row.ok ? (' and stumbled — ' + (row.why || 'stumbled') + '.')
-          : row.unfinished ? ((name === 'auditor' && paused ? ' has unresolved findings; repeated attempts are paused until the story or ledger changes' : name === 'auditor' && autoRepair ? ' and is continuing its repairs automatically' : ' and stopped partway') + (row.detail ? ' — ' + row.detail : '') + '.')
+          : row.unfinished ? ((name === 'auditor' && paused ? ' has unresolved findings; repeated attempts are paused until the story or ledger changes' : name === 'auditor' && autoRepair ? ' and is continuing its repairs automatically' : name === 'world' && String(row.resume || '').startsWith('voice-identities:') ? ' and is waiting for the auditor' /* M759 */ : ' and stopped partway') + (row.detail ? ' — ' + row.detail : '') + '.')
             : (' and it went well' + (row.detail ? ' — ' + row.detail : '') + '.'))).replace(/([.!?…])\s*\.$/u, '$1');
       li.appendChild(words);
       /* M248: and the way to finish it, one tap — or none at all, if the

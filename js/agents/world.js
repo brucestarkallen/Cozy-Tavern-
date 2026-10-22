@@ -235,7 +235,6 @@ function law({ mc }) {
     '    discovery, a confrontation, a plan). Two absent people who share a place and a stake talk to',
     '    each other — that is a window worth opening, and what each learns goes into knowledge.add.',
     '    {"who","where","changed"}. null is the common answer.',
-    'Every voice includes identity:{scope:"tracked",to:"canonical existing name",why:"source identity"} for an established person. A genuinely new continuing person uses create:true on that identity; supply only supported core facts with people.set, or leave biography empty. A temporary speaker uses identity:{scope:"local",why:"a distinct temporary speaker, no continuing identity established"}. This retains a real person locally without another permanent cast record. Never bind generic roles across sources by label alone, invent a global alias, or seat someone in the main scene merely for speaking. Preserve speaker/channel/content verbatim when completing an omitted identity.',
     '  voices — THE WORLD TALKING TO ITSELF (the writer\'s Voices Block, shown to the reader under the page):',
     '    2-4 lines, people the main character cannot currently hear — other rooms, streets, channels,',
     '    comms nets. The prior is NEAR-ALWAYS: fire whenever a live social field is in reach (a market, a',
@@ -262,9 +261,13 @@ function law({ mc }) {
     '    Act: a voice that overhears something valuable does not merely comment — whoever holds it acts',
     '    per their core, and that action is a thread.set or an offscreen.set in this same answer. Icons:',
     '    📸 social | 💬 DM | 👥 group chat | 📋 notice | 👤 whisper | 🍺 tavern | 🏪 street/market |',
-    '    🔥 campfire/barracks | 📜 dispatch | ⚠️ official. Each: {"icon","speaker","channel","content"}',
+    '    🔥 campfire/barracks | 📜 dispatch | ⚠️ official. Each: {"icon","speaker","channel","content","identity"}',
     '    where channel is the place or medium plus timing only ("the east market · midday"), no speech',
     '    descriptors; a reply carries no channel. An empty list only when the world is genuinely silent.',
+    /* M759: who is speaking, in the voice's own shape — it stood as a line of its own BEFORE the voices were described, and
+     * the shape the model copies listed four fields without it: his voices came back without it, and the world's line
+     * stayed yellow until the auditor said who they were */
+    '    Every voice includes identity:{scope:"tracked",to:"canonical existing name",why:"source identity"} for an established person. A genuinely new continuing person uses create:true on that identity; supply only supported core facts with people.set, or leave biography empty. A temporary speaker uses identity:{scope:"local",why:"a distinct temporary speaker, no continuing identity established"}. This retains a real person locally without another permanent cast record. Never bind generic roles across sources by label alone, invent a global alias, or seat someone in the main scene merely for speaking. Preserve speaker/channel/content verbatim when completing an omitted identity.',
     '',
     'SYMMETRY. The world bends for no one — no gifts on a timer, no ambushes on a timer. Outcome follows',
     'cause. Be conservative about the page (only what it shows), generous about the world (invent what',
@@ -679,16 +682,16 @@ export function worldVoiceIdentities(state, brief, {allowCreate=true}={}) {
   for (const voice of voices) {
     const identity=voice.identity;
     if (!identity?.why || !['local','tracked'].includes(identity.scope)) {
-      problems.push({speaker:voice.speaker,why:'Supply the speaker identity scope and reason, retaining the original voice.'}); continue;
+      problems.push({speaker:voice.speaker,why:'Supply the speaker identity scope and reason, retaining the original voice.',said:'not said who is speaking'}); continue;
     }
     if (identity.scope==='local') continue;
-    if (!identity.to) {problems.push({speaker:voice.speaker,why:'A tracked speaker needs its actual canonical target.'});continue;}
+    if (!identity.to) {problems.push({speaker:voice.speaker,why:'A tracked speaker needs its actual canonical target.',said:'not said which person'});continue;}
     identity.to=activeSpelling(identity.to,state);
     const target=findPersonKey(state.characters || {},identity.to);
     if (target || isMc(state,identity.to)) {identity.to=target || mcName(state);continue;}
     if (identity.create && allowCreate) mutations.push({type:'people.set',name:identity.to,field:'core',open:true,
       shown:voice.speaker+(voice.channel?', '+voice.channel:'')+': '+voice.content,cause:identity.why});
-    else problems.push({speaker:voice.speaker,to:identity.to,why:'The claimed People target does not exist. Reuse its actual canonical name, explicitly establish a new continuing identity with create:true, or retain a temporary person locally.'});
+    else problems.push({speaker:voice.speaker,to:identity.to,why:'The claimed People target does not exist. Reuse its actual canonical name, explicitly establish a new continuing identity with create:true, or retain a temporary person locally.',said:'named as '+identity.to+', who has no page'});
   }
   return {mutations,problems,voices};
 }
@@ -906,14 +909,32 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
   } finally { giveBack(); } /* M753: the ledger's turn goes back however the write ends (a stale page, a throw) */
 }
 
+/* M759 — HIS: "Is this normal the world agent sometimes yellow but then become green once auditor finish?" Yes, by M731's
+ * design: a voice whose speaker the world agent did not identify, even when asked again in the same answer, is settled by
+ * the auditor from the page itself, and the run turns green when it has. The line said it "stopped partway" and handed him
+ * the model's own instruction ("Supply the speaker identity scope and reason, retaining the original voice"). It says what
+ * is waiting and on whom now; and with the auditor switched off nobody would ever settle it, so the run is finished then
+ * and the line says the speakers stay unnamed (M752's rule: owed only where someone will do it). */
+export function worldRunState(result, { auditor = true } = {}) {
+  const voicesOnly = Boolean(result?.identityPending?.length) && !result?.pending?.length && !result?.rejected?.some((r) => !r.same);
+  return {
+    unfinished: Boolean(result?.pending?.length || (result?.identityPending?.length && auditor)),
+    resume: voicesOnly && auditor ? 'voice-identities' : '',
+  };
+}
 /* The workers-line words for one run. */
-export function worldRunWords(result) {
+export function worldRunWords(result, { auditor = true } = {}) {
   if (!result) return 'nothing to read';
   if (result.note === 'unusable') return 'its answer could not be used';
   if (result.note === 'cut short') return 'its answer ran out of room';
   const n = result.applied ? result.applied.length : 0;
   const bits = [];
-  if (result.identityPending?.length) bits.push('speaker identities await source reconciliation: '+result.identityPending.map(p=>p.speaker+': '+p.why).join('; '));
+  if (result.identityPending?.length) {
+    const who = result.identityPending.map((p) => p.speaker + (p.said && p.said !== 'not said who is speaking' ? ' (' + p.said + ')' : '')).join(', ');
+    const voices = result.identityPending.length === 1 ? 'one voice' : result.identityPending.length + ' voices';
+    bits.push(auditor ? 'the auditor will say who is speaking in ' + voices + ' (it reads ' + (result.identityPending.length === 1 ? 'it' : 'them') + ' from the page): ' + who
+      : 'nobody will say who is speaking in ' + voices + ' — the auditor is switched off: ' + who);
+  }
   if (result.deferred?.length) bits.push(result.deferred.length+' due lives retained for subsequent background readings');
   if (result.pending?.length) bits.push('still awaiting a current world decision: ' + result.pending.join(', '));
   bits.push(n ? `moved the world in ${n} ${n === 1 ? 'way' : 'ways'}` : 'the world stood still');
