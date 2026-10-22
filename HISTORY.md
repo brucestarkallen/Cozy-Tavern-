@@ -22077,3 +22077,28 @@ Laws M760-1 (twelve facts, one review that fits, each task's passage holds its q
 and M760-2 (forty: the review fits, the rest wait and say so, only those asked are counted) — both fail on m759-001 ("the
 review was sent — got 0").
 Measured on m760-001: the whole law suite 1732 of 1732; the whole DOM walk 327 of 327; lint 0 errors. Not run: his tale and his model (no provider calls) — his own review's saved reason was not seen; the refusal was reproduced with his tale's shape, and gives his exact lines.
+
+## M761 (m761-001): a value that lost its closing quote; "went well — its answer could not be used"
+
+The owner, 23 October 2026, 06:31 Jakarta: "Why it said this the world agent ran just now and it went well — its answer could
+not be used. what it said {"mutations":[{"type":"offscreen.set","name":"Sheriff Odell Cray", …". His paste is exactly 2,000
+characters: the drawer keeps the first 2,000 of an answer (status.js RAW_CAP), so the answer itself ran on past it.
+Cause 1 (the answer): one value lost its closing quote — "activity":"Refreshing the live blog feed: 'Sheriff investigating
+interior',"agenda":"Get a name or a quote before midnight deadline" — the quote meant to open "agenda" closed the activity,
+every quote after it was read the wrong way round, no balanced object was found, and the whole answer (seven people placed,
+the world's word) was thrown away; the sharper second ask fared no better. jsonutil.js stringEndsAt: inside a string, a comma
+followed by a quoted plain key and a colon is where that string ended — valid JSON never has an unescaped quote there, so an
+answer that parses already reads as it did; balancedCandidates, firstBalancedObject and repairJson read it alike, which is
+every reader that parses a model's answer (world, page reader, scribe, auditor, founder, keepers, continuity, tidy …).
+Measured on his answer (its first 2,000 characters and a closing world's word, the fixture's own): m760-001 "unusable", 0
+people; now "ok", 7 people placed, Ellis Grady's activity "Refreshing the live blog feed: 'Sheriff investigating interior'".
+Cause 2 (the words): a run whose answer could not be used, or was cut short, was recorded as ok and finished — "went well" —
+so the light stayed green and nothing asked again. The world agent (worldRunState), the page reader, the founder (both
+doors), the planner, the world-of-the-story keeper and the plans keeper now record it unfinished: the drawer says "stopped
+partway — its answer could not be used", and for the four readers the light watches (keeper, page reader, scribe, world) the
+house's bounded recovery asks again (chat.js recoverHealthWorker: two tries for a page, a minute apart). M31's rule stands:
+a garbled answer never throws into the queue's five retries.
+Laws M761-1 (his answer: parsed, seven people, Grady's activity whole; through worldTurn, Grady seated in the press van) and
+M761-2 (unusable and cut short are unfinished; the light says "stopped partway" and routes the world's recovery) — both fail
+on m760-001. A guard that a parsing answer reads unchanged was written and dropped: it passes without the change too.
+Measured on m761-001: the whole law suite 1734 of 1734; the whole DOM walk 327 of 327; lint 0 errors. Not seen: the rest of his answer past the drawer's 2,000 characters (it may hold another fault; the one in the part he pasted is the one fixed).

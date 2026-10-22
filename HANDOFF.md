@@ -7,7 +7,18 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m760-001 on main, 23 October 2026: the review fits its connection with every owed source fact (M760). His manual
+- Version m761-001 on main, 23 October 2026: a value that lost its closing quote is read; an answer that could not be used is
+  not "went well" (M761). His: "the world agent ran just now and it went well — its answer could not be used" with its answer
+  (his paste is the drawer's 2,000-character cut, status.js RAW_CAP). One value lost its closing quote —
+  "activity":"Refreshing the live blog feed: 'Sheriff investigating interior',"agenda":… — so every quote after it read the
+  wrong way round and seven placed people and the world's word were thrown away, both asks. jsonutil.js stringEndsAt: inside a
+  string, a comma, a quoted plain key and a colon is where the string ended (valid JSON never has an unescaped quote there);
+  the candidate finder, the first-object finder and the repair read it alike — every reader that parses a model's answer.
+  And a run whose answer could not be used (or was cut short) was recorded as one that went well: the world agent, the page
+  reader, the founder, the planner, the world-of-the-story keeper and the plans keeper now record it unfinished, so the drawer
+  says "stopped partway" and, for the four readers the light watches, the house's bounded recovery asks again
+  (chat.js recoverHealthWorker, two tries a page). Laws M761-1/2.
+- Version m760-001, 23 October 2026: the review fits its connection with every owed source fact (M760). His manual
   yellow check: "Current ledger verification is incomplete; Ledger entry receipts are incomplete; Vanessa Langley has source
   identity facts to reconcile: … no review answer for it — the review did not finish this pass" (a dozen of them). Each owed
   source fact went to the final review with the whole section it was read from (up to 12,000 characters) and her whole

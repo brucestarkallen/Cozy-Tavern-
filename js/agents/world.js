@@ -917,8 +917,11 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
  * and the line says the speakers stay unnamed (M752's rule: owed only where someone will do it). */
 export function worldRunState(result, { auditor = true } = {}) {
   const voicesOnly = Boolean(result?.identityPending?.length) && !result?.pending?.length && !result?.rejected?.some((r) => !r.same);
+  /* M761: an answer it could not use (or one cut short) moved nothing — that run did not go well: it is unfinished, so the
+   * light says so and the house's own bounded recovery asks again (chat.js recoverHealthWorker) */
+  const lost = result?.note === 'unusable' || result?.note === 'cut short';
   return {
-    unfinished: Boolean(result?.pending?.length || (result?.identityPending?.length && auditor)),
+    unfinished: Boolean(lost || result?.pending?.length || (result?.identityPending?.length && auditor)),
     resume: voicesOnly && auditor ? 'voice-identities' : '',
   };
 }

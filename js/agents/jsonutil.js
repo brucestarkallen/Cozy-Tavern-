@@ -8,6 +8,15 @@
  *     text so a brace inside a sentence doesn't count. '' when none
  *     balances.
  */
+/* M761 — HIS WORLD AGENT, "its answer could not be used": a value that lost its closing quote —
+ *   "activity":"Refreshing the live blog feed: 'Sheriff investigating interior',"agenda":"Get a name…"
+ * The quote meant to open "agenda" closed the activity instead, every quote after it read the wrong way round, and the
+ * whole answer — seven people placed, the world's word — was thrown away (both asks). Inside a string, a comma followed by
+ * a quoted plain key and a colon is where that string ended: valid JSON never has it there (a quote inside a string is
+ * always escaped), so this changes nothing an answer that parses already says. The finder, the first-object finder and
+ * the repair read it alike, so the object is found whole and mended. */
+const STRING_ENDS_HERE = /^,\s*"[A-Za-z_][A-Za-z0-9_]*"\s*:/;
+export function stringEndsAt(src, i) { return src[i] === ',' && STRING_ENDS_HERE.test(src.slice(i, i + 80)); }
 /* M26: not just the first — up to maxN balanced top-level objects, in order.
  * A reasoning model's first braces often live in its notes, not its answer. */
 export function balancedCandidates(text, maxN = 5) {
@@ -20,7 +29,7 @@ export function balancedCandidates(text, maxN = 5) {
     let depth = 0; let inStr = false; let esc = false; let end = -1;
     for (let j = start; j < src.length; j++) {
       const ch = src[j];
-      if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue; }
+      if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"' || stringEndsAt(src, j)) inStr = false; continue; }
       if (ch === '"') inStr = true;
       else if (ch === '{') depth++;
       else if (ch === '}') { depth--; if (depth === 0) { end = j; break; } }
@@ -44,7 +53,7 @@ export function firstBalancedObject(text) {
     if (inString) {
       if (escaped) escaped = false;
       else if (ch === '\\') escaped = true;
-      else if (ch === '"') inString = false;
+      else if (ch === '"' || stringEndsAt(s, i)) inString = false;
       continue;
     }
     if (ch === '"') { inString = true; continue; }
@@ -95,6 +104,7 @@ export function repairJson(text) {
       if (esc) { out += ch; esc = false; continue; }
       if (ch === '\\') { out += ch; esc = true; continue; }
       if (ch === '"') { out += ch; inStr = false; continue; }
+      if (stringEndsAt(src, i)) { out += '"'; inStr = false; i -= 1; continue; } /* M761: the quote it lost; the comma is read again, outside */
       /* M607: A LINE BREAK INSIDE A STRING IS KEPT, written the way JSON writes one. It was made a space: a page the mender
        * hands back whole, written with real line breaks, came back as ONE paragraph — its own size check then refused it
        * (every line differed), so the fix never landed; a find spanning a paragraph matched nothing. Every ledger field

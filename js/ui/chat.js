@@ -2938,7 +2938,7 @@ export function initChat(ctx) {
       const cast = await castForStory(story);
       const lore = await loadLore(story.id);
       const result = await foundWorld({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', cast, lore, signal, stale, canonRecord: await canonRecordOf(story) }); /* M564: the real record it is told to write canon people from */
-      return { silent: false, detail: founderRunWords(result), raw: result && result.raw };
+      return { silent: false, detail: founderRunWords(result), raw: result && result.raw, ...(result?.note === 'unusable' || result?.note === 'cut short' ? { unfinished: true } : {}) }; /* M761: not "went well" */
     } });
     noteWork(story.id, promise);
     banner.say('reading the brief, the cast, the cards and the lore');
@@ -4447,7 +4447,7 @@ export function initChat(ctx) {
     if (stale()) return { silent: true };
     const { plan, raw } = await runPlanner({ connection, storyId: story.id, forKey, hash, ask, present, mc, lawNames, signal });
     if (stale()) return { silent: true };
-    if (!plan) return { detail: 'its answer could not be used', raw }; /* the next page goes whole, as before a plan existed */
+    if (!plan) return { detail: 'its answer could not be used', raw, unfinished: true }; /* the next page goes whole, as before a plan existed; M761: not "went well" */
     return { detail: 'read the story and planned the next page' + (plan.intense ? ' — a heated one' : '') };
   }
   /* M750: the essentials keeper (M510-15) is retired — the storyteller and every helper read the record itself */
@@ -4499,7 +4499,7 @@ export function initChat(ctx) {
     };
     if (stale()) return { silent: true };
     const out = await runGround({ connection, have, input, recordLines: covered, force, signal });
-    if (stale() || !out.wrote) return out.why === 'its answer could not be used' ? { detail: 'its answer could not be used' } : { silent: true };
+    if (stale() || !out.wrote) return out.why === 'its answer could not be used' ? { detail: 'its answer could not be used', unfinished: true } : { silent: true }; /* M761 */
     await db.settings.set(key, { ...out.ground, rules: GROUND_RULES, wikiFp: input.wikiFingerprint }); /* M549 */
     if (!have || force) return { detail: 'wrote the world of the story — the brief is automatic' };
     return out.changed ? { detail: 'the world changed — rewrote the parts that moved' } : { silent: true };
@@ -4637,7 +4637,7 @@ export function initChat(ctx) {
     if (out.wrote && (out.fresh || out.progress || out.closed)) {
       return { detail: [out.fresh ? out.fresh + (out.fresh === 1 ? ' plan' : ' plans') + ' written down' : '', out.progress ? out.progress + ' moved on' : '', out.closed ? out.closed + ' ended' : ''].filter(Boolean).join(', ') };
     }
-    return out.why === 'its answer could not be used' ? { detail: 'its answer could not be used' } : { silent: true };
+    return out.why === 'its answer could not be used' ? { detail: 'its answer could not be used', unfinished: true } : { silent: true }; /* M761 */
   }
   function planAhead() {
     (async () => {
@@ -5394,7 +5394,7 @@ export function initChat(ctx) {
       if (!connection) return { silent: true };
       if (stale()) return { silent: true };
       const result = await foundWorld({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', cast, lore, signal, stale, canonRecord: await canonRecordOf(story), thingsOnly }); /* M564: the real record it is told to write canon people from */
-      return { silent: false, detail: founderRunWords(result), raw: result && result.raw };
+      return { silent: false, detail: founderRunWords(result), raw: result && result.raw, ...(result?.note === 'unusable' || result?.note === 'cut short' ? { unfinished: true } : {}) }; /* M761: not "went well" */
     });
 
     /* 0b. M88: the house's eye — the page against the craft's mechanical
@@ -5626,7 +5626,9 @@ export function initChat(ctx) {
         : extractNote === 'cut short'
           ? 'its answer ran out of room'
           : n ? `wrote ${n} ${n === 1 ? 'change' : 'changes'}: ` + applied.slice(0, 5).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (n > 5 ? ' · …' : '') + refused : 'nothing to write down' + refused;
-      return { silent: false, detail, raw: extractRaw };
+      /* M761: an answer it could not use, or one cut short, is not a reading that went well — the light says so and the
+       * house's bounded recovery asks again */
+      return { silent: false, detail, raw: extractRaw, ...(extractNote === 'unusable' || extractNote === 'cut short' ? { unfinished: true } : {}) };
     });
 
     /* M405: A "NOW" OF A GROUND THE SCENE HAS LEFT is let go before the world agent and the scribe write the true ones —
