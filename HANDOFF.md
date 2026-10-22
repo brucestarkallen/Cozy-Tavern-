@@ -7,6 +7,15 @@ older files sit beside it). Search them with
 
 ## Now
 
+- A source fact and the profile's own words (M756, m756-001 on 22 October 2026). His yellow light: "still checking: Vanessa
+  Langley has source identity facts to reconcile: Having a secret affair with Jovan Wessex that nobody knows…; Gives orders
+  to the room and to deputies; authorizes new work order on the bodies; Addresses Jovan as Wessex…". The source reader
+  writes its facts as compound sentences; a People core keeps the facts separately, so the exact-substring check never
+  matched, the finding was re-created every pass, and two passes without progress paused the audit. Now each part of a fact
+  (split at a semicolon, colon, dash or "and") is looked for by its own telling words — half a part's words in the profile
+  is that part, every part must be there — and a fact whose substance is absent is still owed. Laws M756-1..3 (1 fails on
+  m755-004). The 88 auditor laws pass. Not run: the DOM walk; lint; his live audit (whether his three facts are in her
+  profile in other words or truly absent was not seen).
 - The one who stayed, and the next scene (M755, m755-001 then m755-002 on 21 October 2026). His: "turn 4 Vanessa asks Jovan
   to walk with her. Turn 5 they're outside… But in the scene and the people Claire still stuck as standing beside Jovan as in
   turn 3", "the header still same location?? It's on a manor but doesn't say outside", and "this is a next scene and there are

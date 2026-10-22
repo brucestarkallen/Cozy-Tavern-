@@ -21944,3 +21944,25 @@ ended in is not this one — and the crowd rule judges by shownOnPage instead of
 Law M755-8 (his rose arch: the reader's room names Jovan, Claire and Vanessa, the page shows only Jovan and Vanessa — Claire
 is left behind) fails on m755-003. The 256 presence laws of M304–M755 pass, 0 failed. Not run: the DOM walk; lint (no npm
 here); his live tale.
+
+## M756 (m756-001): a source fact is reconciled when its words are in the profile, not when its sentence is copied
+
+The owner, 22 October 2026: "the auditor ran just now has unresolved findings; repeated attempts are paused until the story
+or ledger changes — still checking: Vanessa Langley has source identity facts to reconcile: Having a secret affair with
+Jovan Wessex that nobody knows: source-supported profile facts still need reconciliation; … Gives orders to the room and to
+deputies; authorizes new work order on the bodies; Addresses Jovan as Wessex and asks him to walk with her …"
+The source reader writes its identity facts as COMPOUND SENTENCES; a People core keeps the facts they hold, separately
+("gives orders to the deputies", "authorizes the new work order"). missingSourceIdentityFacts asked whether the whole
+sentence appeared in her core (an exact substring after the spelling map), so a fact written into the profile in the words
+the house itself asks for never matched: the finding was re-created on every pass by missingSourcePeople, the auditor's
+review never got a scope to settle it on, two passes made no progress, and the automatic audit paused itself — the light
+yellow, exactly as he sees it.
+Now (auditsources.js factInProfile): each part of a fact — split at a semicolon, a colon, a dash or an "and" — is looked
+for by its own telling words, at the bar this house already uses for "the same thing said in other words": half a part's
+words in the profile is that part, every part must be there, and the whole sentence still counts when it is copied whole.
+A fact whose substance is absent is still owed on every pass, as before; nothing is waved through.
+Laws M756-1 (the compound sentence split into the profile's own facts is reconciled — fails on m755-004), M756-2 (a fact
+the profile does not hold is still owed) and M756-3 (the sentence copied whole; a local description keeps its facts in its
+receipt). Measured: the 88 auditor laws of M41, M403, M685, M688, M752-audit, M754, M755 and M756 pass, 0 failed. Not run:
+the DOM walk; lint (no npm here); his live audit — its ledger is not here, so whether his three facts are in Vanessa's
+profile in other words, or are truly absent (and so are still asked for, rightly), was not seen.

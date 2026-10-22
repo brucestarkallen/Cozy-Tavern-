@@ -1,4 +1,4 @@
-/* Cozy Tavern — the in-repo harness (M9, A8).
+﻿/* Cozy Tavern â€” the in-repo harness (M9, A8).
  * Run it: node tests/harness/run.mjs */
 import './stack.mjs';
 import './store.mjs';
@@ -185,21 +185,21 @@ import './m505.mjs';
 import './m507.mjs';
 import './m508.mjs';
 import './m510.mjs'; /* M510: the small-model mode */
-import './m511.mjs'; /* M511: after the crash — a branch keeps its pages whole; what the storyteller saw is what was sent */
-import './m512.mjs'; /* M512: the small model at its best — his prose laws, the story's voice, no worn phrases, each person's voice */
-import './m514.mjs'; /* M514: a person with no page gets one — the people of a #story opening fill in by themselves */
-import './m515.mjs'; /* M515: how people really take it — his laws on reactions on every small page; each person under pressure */
-import './m516.mjs'; /* M516: where our story began in its canon — asked once on a #story, carried every page */
-import './m517.mjs'; /* M517: the automatic brief — the world, written once, rewritten only where it moved */
-import './m518.mjs'; /* M518: canon on their own page — the note goes quiet on what the cards carry */
-import './m519.mjs'; /* M519: when the sound drowns the story — the brake, the breath, the mirror eased */
-import './m520.mjs'; /* M520: who knows what, unscrambled — no moment in its own subject's book, no hidden act in the room's */
-import './m522.mjs'; /* M522: the auditor can set a shared line right — the longer wording stays, letting go takes the line meant */
-import './m524.mjs'; /* M524: a block of tags after the page — off at the door, the wire and the mend; standings stay the ledger's */
-import './m527.mjs'; /* M527: the deep audit, second pass — what pages taken back leave behind */
-import './m528.mjs'; /* M528: the deep audit, third pass — a page rewritten by hand */
-import './m529.mjs'; /* M529: two workers at once — the side lane */
-import './m535.mjs'; /* M535: the captains who left stay gone — the auditor's walk-ins held to the newest page, and put right */
+import './m511.mjs'; /* M511: after the crash â€” a branch keeps its pages whole; what the storyteller saw is what was sent */
+import './m512.mjs'; /* M512: the small model at its best â€” his prose laws, the story's voice, no worn phrases, each person's voice */
+import './m514.mjs'; /* M514: a person with no page gets one â€” the people of a #story opening fill in by themselves */
+import './m515.mjs'; /* M515: how people really take it â€” his laws on reactions on every small page; each person under pressure */
+import './m516.mjs'; /* M516: where our story began in its canon â€” asked once on a #story, carried every page */
+import './m517.mjs'; /* M517: the automatic brief â€” the world, written once, rewritten only where it moved */
+import './m518.mjs'; /* M518: canon on their own page â€” the note goes quiet on what the cards carry */
+import './m519.mjs'; /* M519: when the sound drowns the story â€” the brake, the breath, the mirror eased */
+import './m520.mjs'; /* M520: who knows what, unscrambled â€” no moment in its own subject's book, no hidden act in the room's */
+import './m522.mjs'; /* M522: the auditor can set a shared line right â€” the longer wording stays, letting go takes the line meant */
+import './m524.mjs'; /* M524: a block of tags after the page â€” off at the door, the wire and the mend; standings stay the ledger's */
+import './m527.mjs'; /* M527: the deep audit, second pass â€” what pages taken back leave behind */
+import './m528.mjs'; /* M528: the deep audit, third pass â€” a page rewritten by hand */
+import './m529.mjs'; /* M529: two workers at once â€” the side lane */
+import './m535.mjs'; /* M535: the captains who left stay gone â€” the auditor's walk-ins held to the newest page, and put right */
 import './m537.mjs'; /* M537: a misspelling of someone found is not "not found" */
 import './m540.mjs'; /* M540: short names are the same day */
 import './m541.mjs'; /* M541: last seen is when they were last in the scene */
@@ -213,8 +213,8 @@ import './m548.mjs'; /* M548: Choices matter */
 import './m549.mjs'; /* M549: the automatic brief's seats from the wiki; the choices keeper's own model */
 import './m550.mjs'; /* M550: where our story began, checked against the wiki */
 import './m551.mjs'; /* M551: one check for what a helper wrote from memory */
-import './m552.mjs'; /* M552: the audit — the house's examples, the world keeper's memory of what was wrong */
-import './m553.mjs'; /* M553: the audit, part 2 — what is read back from storage passes through its shape */
+import './m552.mjs'; /* M552: the audit â€” the house's examples, the world keeper's memory of what was wrong */
+import './m553.mjs'; /* M553: the audit, part 2 â€” what is read back from storage passes through its shape */
 import './m554.mjs'; /* M554: the sheet by evidence; who is in the scene, one definition */
 import './m555.mjs'; /* M555: Weigh them again weighs fresh; the sharp game master; his hand means his hand */
 import './m556.mjs'; /* M556: a weighing he asks for is blind to the old numbers */
@@ -261,30 +261,31 @@ import './m675.mjs'; /* M675: the judge's moment; the audit of the session befor
 import './m675b.mjs'; /* M675, the second reading: the continuous audit's failures; the record's cut */
 import './m677.mjs'; /* M677: where each of them is, asked by name; one rule for who knows what; the window marker is not bold */
 import './m679.mjs'; /* M679: the story's own weekday; the spot in a city; each person with him or left behind; a verdict for every thread and loose end; the things its people carry; the auditor and the house's heal held to how the page ENDS; what answers a loose end */
-import './m680.mjs'; /* M680: the whole ledger, room by room — the spot with its city, the world agent and the auditor held to the page's reader, the dead at every door, a sighting is not company, two writers never erase each other, a now's age and ground, "already so" is no refusal, a take-back outlives try again, the record's one rule when pages go, what is true of them told to every reader, a worker's writes stamped with their page */
-import './m681.mjs'; /* M681: the clock — the days between two headers, the story's own weekday, a #time skip with a bare hour, his hand on the clock; and every open finding of M680's audit */
+import './m680.mjs'; /* M680: the whole ledger, room by room â€” the spot with its city, the world agent and the auditor held to the page's reader, the dead at every door, a sighting is not company, two writers never erase each other, a now's age and ground, "already so" is no refusal, a take-back outlives try again, the record's one rule when pages go, what is true of them told to every reader, a worker's writes stamped with their page */
+import './m681.mjs'; /* M681: the clock â€” the days between two headers, the story's own weekday, a #time skip with a bare hour, his hand on the clock; and every open finding of M680's audit */
 import { runAll } from './lib.mjs';
 import './m682.mjs';
-import './m750.mjs'; /* M750: our story so far, the record itself — each line once; the Essentials retired */
-import './m752-record.mjs'; /* M752: the record keeper, the continuous audit's corrections and the lamp, after the review of M682–M751 */
+import './m750.mjs'; /* M750: our story so far, the record itself â€” each line once; the Essentials retired */
+import './m752-record.mjs'; /* M752: the record keeper, the continuous audit's corrections and the lamp, after the review of M682â€“M751 */
 import './m752-audit.mjs'; /* M752: the auditor's completion, storage and upkeep (the review of every update since M681) */
-import './m752-spelling.mjs'; /* M752: the Housekeeper's spelling correction, held to the name — never a word, said once, taken back from its own receipt */
-import './m752-knowledge.mjs'; /* M752: who knows what, one record a fact — a worker's label is no receipt; a learned truth answers its belief; "everyone here" on a page that opened empty; the readers told each kind of knowing; durable threads shown to a size */
+import './m752-spelling.mjs'; /* M752: the Housekeeper's spelling correction, held to the name â€” never a word, said once, taken back from its own receipt */
+import './m752-knowledge.mjs'; /* M752: who knows what, one record a fact â€” a worker's label is no receipt; a learned truth answers its belief; "everyone here" on a page that opened empty; the readers told each kind of knowing; durable threads shown to a size */
 import './m752-people.mjs'; /* M752: identity, persona, aliases and the people's core */
-import './focused.mjs'; /* M689–M745: the standalone milestone fixtures, each run in its own process */
-import './m752-request.mjs'; /* M752: the storyteller's request — its size, its fit, its receipts */
+import './focused.mjs'; /* M689â€“M745: the standalone milestone fixtures, each run in its own process */
+import './m752-request.mjs'; /* M752: the storyteller's request â€” its size, its fit, its receipts */
 import './m752-continuous.mjs'; /* M752 (followup 4): the continuous audit's historical corrections settled, not stranded; quotes and pages read as written */
 import './m752-store.mjs'; /* M752 (followup 8): a setting read while its own write is under way is the value being written */
-import './m752-historical.mjs'; /* M752 (followup 9): a historical correction's conversation ends on a verdict — quotes across markup and with words left out read, mistakes said back, looks served */
+import './m752-historical.mjs'; /* M752 (followup 9): a historical correction's conversation ends on a verdict â€” quotes across markup and with words left out read, mistakes said back, looks served */
 import './m752-choices.mjs'; /* M752 (followup 13): Choices matter is handed the whole of what the storyteller saw */
 import './m752-setaside.mjs'; /* M752 (followup 21): a source mention the auditor cannot tie to anyone is set aside, not owed forever */
 import './m752-carry.mjs'; /* M752 (followup 22): an unchanged entry the new page does not name keeps its approval */
 import './m752-branch.mjs'; /* M752 (followup 15): a branch keeps what the auditor paid for */
 import './m753.mjs'; /* M753: speech marks paired as the screen pairs them; the readers' requests begin the same way page to page; readers that need nothing of each other read together */
-import './m754.mjs'; /* M754: a loose end closed already is already so, and an old close the ledger already holds is settled — the auditor's light is never yellow for it */
-import './m755.mjs'; /* M755: the page ends on him going out with her — the one who stayed is left behind, named on the page or not */
+import './m754.mjs'; /* M754: a loose end closed already is already so, and an old close the ledger already holds is settled â€” the auditor's light is never yellow for it */
+import './m755.mjs';
+import './m756.mjs'; /* M756: a source fact is reconciled when its words are in the profile, not when its sentence is copied */ /* M755: the page ends on him going out with her â€” the one who stayed is left behind, named on the page or not */
 
-console.log('Cozy Tavern — harness');
+console.log('Cozy Tavern â€” harness');
 await import('./m683.mjs');
 await import('./m684.mjs');
 await import('./m685.mjs');
@@ -292,6 +293,7 @@ await import('./m687.mjs');
 await import('./m688.mjs');
 
 await runAll();
-/* M386: it ends when its tests end, like the walk — a timer some module left (a debounce, a worker's ceiling) kept the
+/* M386: it ends when its tests end, like the walk â€” a timer some module left (a debounce, a worker's ceiling) kept the
  * process alive after the summary, and every run left an idle node behind */
 process.exit(process.exitCode || 0);
+
