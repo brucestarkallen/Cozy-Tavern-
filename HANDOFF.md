@@ -7,6 +7,15 @@ older files sit beside it). Search them with
 
 ## Now
 
+- A source fact is never a dead end (M756, m756-002 on 22 October 2026). His, after m756-001: "It's the latest version and
+  Vanessa is exist… it's supposed not making mistake autonomous and self heal." Two branches still left a source-fact
+  finding owed for good, and an owed finding pauses the audit: the mention was found by an exact string (a finding naming
+  "Vanessa" and a source entry kept as "Vanessa Langley" found none, so no decision could be recorded), and a decision needed
+  a review that called itself complete, with an open entry carrying no reason kept open forever. Now the mention is matched
+  by the house's own samePersonName, any answer from the review is read (open with a reason: left as it stands; open with no
+  reason: decided in the reviewer's own words and closed; not complete: no longer owed). The 93 auditor laws pass, 0 failed.
+  Not run: a dedicated law for the two new branches (inside finishLedgerAudit's scripted-wire path), the DOM walk, lint,
+  his live audit.
 - A source fact and the profile's own words (M756, m756-001 on 22 October 2026). His yellow light: "still checking: Vanessa
   Langley has source identity facts to reconcile: Having a secret affair with Jovan Wessex that nobody knows…; Gives orders
   to the room and to deputies; authorizes new work order on the bodies; Addresses Jovan as Wessex…". The source reader

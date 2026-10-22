@@ -21966,3 +21966,19 @@ the profile does not hold is still owed) and M756-3 (the sentence copied whole; 
 receipt). Measured: the 88 auditor laws of M41, M403, M685, M688, M752-audit, M754, M755 and M756 pass, 0 failed. Not run:
 the DOM walk; lint (no npm here); his live audit — its ledger is not here, so whether his three facts are in Vanessa's
 profile in other words, or are truly absent (and so are still asked for, rightly), was not seen.
+
+## M756 (m756-002): a source fact is never a dead end — the review's own answer closes it
+
+The owner, the same day, after m756-001: "Don't be stupid! It's the latest version and Vanessa is exist wtf is it seems like
+you're asking me to manually fix while it's supposed not making mistake autonomous and self heal." He was right that the loop
+could still dead-end: two branches left a source-fact finding owed for good, and an owed finding pauses the whole audit.
+- THE MENTION WAS FOUND BY AN EXACT STRING. `auditSources[...].people.find(p => p.name === (issue.sourceName || issue.name))`
+  — a finding naming "Vanessa" and a source entry kept as "Vanessa Langley" found no mention, so no decision could be recorded
+  at all: the finding came back every pass. It is matched by the house's own samePersonName now (auditor.js).
+- A DECISION NEEDED A REVIEW THAT CALLED ITSELF COMPLETE, and an open entry with no reason was kept open forever
+  (openSourceFacts). Now any answer from the review is read: an open entry with a reason is left as it stands (as M752
+  decided), an open entry with NO reason is decided in the reviewer's own words for it and closes, and a review that never
+  reaches "complete" no longer leaves these facts owed.
+Measured: the 93 auditor laws of M41, M403, M502, M552, M553, M685, M688, M752-audit, M754, M755 and M756 pass, 0 failed. Not
+run: a dedicated law for the two new branches (they sit inside finishLedgerAudit's scripted-wire path, which these laws
+exercise but do not drive into a bare-open review); the DOM walk; lint; his live audit.
