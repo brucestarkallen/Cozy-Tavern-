@@ -789,12 +789,40 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       const currentInventoryEvidence=[...sourceAppearanceFacts(result.out,documents),...sourceIdentityFacts(result.out,documents)]
         .map(f=>({evidenceId:f.id,source:f.source,text:f.shown}));
       evidenceBook=auditEvidenceBook(documents,currentInventoryEvidence,evidenceBook);
-      const corrected = bindHistoricalFindings(bindFinalAuditEvidence(reconcileAuditScene(parseAuditorAnswer(answerText),requestedState), registeredEvidence(), verificationRows,documents),originalFindings);
+      let corrected = bindHistoricalFindings(bindFinalAuditEvidence(reconcileAuditScene(parseAuditorAnswer(answerText),requestedState), registeredEvidence(), verificationRows,documents),originalFindings);
       finalReview = {...finalReview,status:finish === 'length' ? 'cut short' : reviewProblems(answerText).length?'incomplete decisions':corrected.note,
         received:finalAuditChecks(corrected,verificationRows).length,approval:corrected.review?'whole required ledger':'entry verdicts',replyCharacters:reply.text.length,finishReason:finish,
         calls:reply.calls || 1,fetches:reply.rounds || 0,formatContinuation:Boolean(reply.formatContinuation),sourceCalls:sourceReview?.calls || 0,
         ...(corrected.scene?{scene:{pageId:lastTold.id,people:corrected.scene}}:{})};
       if (reply.completionFailed) {followupFailed = 'its completion turn failed: ' + reply.error; finalReview = {...finalReview,error:reply.error};}
+      /* M757: THE ENTRIES THAT DID NOT FIT ARE READ IN A READING OF THEIR OWN. His: turn 12 "8 of 62", turn 13 "9 of 62" —
+       * the whole-ledger reading left room for one required entry a page, so a 62-entry ledger could never finish. The
+       * entries left over are sent now in a reading made of themselves (their own values and prints, the newest page, no
+       * whole ledger, no original index), which is small enough to carry a batch; only an explicit check for an entry is
+       * taken, so an answer that skips one approves nothing, and a reading that fails leaves them waiting as they were. */
+      if (deferredRows.length && corrected.note === 'ok' && finish !== 'length' && !signal?.aborted && !stale?.()) {
+        try {
+          renew?.();
+          const alone = deferredRows.map(r => ({ id: r.id, section: r.section, name: r.name, print: r.print, scope: r.scope, value: r.value }));
+          const system = reviewSystem + '\nTHIS READING CARRIES THE ENTRIES THE WHOLE-LEDGER READING HAD NO ROOM FOR. Review only the entries below, each against its original sources — fetch a person with "person: NAME" or a page by its number when you need one — and answer with a check for EVERY entry you actually read. Leave an entry out if you could not read it: an entry without a check is held for the next reading, never approved.';
+          const user = 'REQUIRED CURRENT LEDGER CHECKS (this reading only):\n' + JSON.stringify(alone)
+            + '\nCOMPLETE NEWEST MAIN STORY. Read each person through the ending:\n' + pageText(lastTold)
+            + '\nReturn JSON only: {"checks":[{"id":"the entry id","status":"checked","why":"short verdict"}],"issues":[],"review":{"status":"complete","why":"brief verdict","open":[]}}. Put an entry you doubt in review.open with its reason and leave out of checks what you did not read. The other entries of this ledger belong to another reading.';
+          const reply2 = await askWithFetch(connection, { system, user, maxTokens: replyTokens, signal, renew, leash: leashFor,
+            source: { storyId, messages: allRaw, memory: mem, story: { brief, castNotes }, state: result.out }, room: Math.min(room, requestRoom) });
+          const read2 = parseAuditorAnswer(reply2.text);
+          const said = new Map((Array.isArray(read2.checks) ? read2.checks : []).filter(c => c && typeof c.id === 'string').map(c => [c.id, c]));
+          const extra = deferredRows.filter(r => said.has(r.id)).map(r => ({
+            id: r.id, print: r.print, scope: r.scope, finalReview: true,
+            status: String(said.get(r.id).status || '').toLowerCase() === 'checked' || String(said.get(r.id).status || '').toLowerCase() === 'correct' ? 'correct' : 'open',
+            why: said.get(r.id).why || said.get(r.id).fix || 'the reading did not approve it',
+          }));
+          if (extra.length) {
+            corrected = { ...corrected, checks: [...(corrected.checks || []), ...extra] };
+            finalReview = { ...finalReview, deferredRead: extra.length, deferredLeft: deferredRows.length - extra.length };
+          }
+        } catch (err) { finalReview = { ...finalReview, deferredRead: 0, deferredWhy: String(err?.message || err || 'the reading did not answer').slice(0, 200) }; }
+      }
       if (corrected.note === 'ok' && finish !== 'length') {
         verificationChecks = finalAuditChecks(corrected,verificationRows);
         answerProblem = '';
