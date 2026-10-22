@@ -952,7 +952,18 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     .filter(entry=>documents.some(d=>d.id===entry.sourceId));
   result.out.audit={...result.out.audit,sourceFactDecisions,identityDispositionHistory};
   const outstanding = compactFindings([...originalFindings, ...missingSourcePeople(result.out,documents.flatMap(d=>(result.out.auditSources?.[d.id]?.people || []).map(p=>({...p,source:d.id,label:d.label})))), ...unresolvedFindings(result)].filter((i) => openSourceFacts.has(auditFindingId(i)) || !findingSettled(i, result, withdrawals, documents, verification)), result.out);
-  pending = [...new Set([...outstanding.map((i) => pendingLine(i.what, i.pendingReason || (i.sourceFacts ? 'source-supported profile facts still need reconciliation' : 'identity or entity classification still needs a working repair'))), ...(sourceReview?.pending || []), ...(answerProblem ? [answerProblem] : []), ...(followupFailed ? ['the combined ledger review did not finish' + (typeof followupFailed === 'string' ? ': ' + followupFailed : '')] : []), ...(verification.read < verification.total ? [`ledger verification: checked ${verification.read} of ${verification.total} entries; ${verification.pending.slice(0, 2).join('; ')}`] : [])])];
+  /* M756-003: THE LIGHT SAYS WHY A FACT IS STILL OWED — his "where the fuck it said the context is too big???" The line
+   * said only "source-supported profile facts still need reconciliation" for every one of them, so a review that never
+   * answered, a review that kept the task open (with its reason) and a review that decided it and wrote it all read the
+   * same. Each now names its own case, and the reason the review gave, when it gave one. */
+  const sourceFactWhy = (issue, id) => {
+    if (issue.pendingReason) return issue.pendingReason;
+    const open = String(openSourceFacts.get(id) || '').trim();
+    if (open) return 'kept open by the review: ' + open;
+    if (reviewedSourceFacts.has(id)) return 'the review left it as it stands (no durable fact to add)';
+    return 'no review answer for it — the review did not finish this pass';
+  };
+  pending = [...new Set([...outstanding.map((i) => pendingLine(i.what, i.sourceFacts ? sourceFactWhy(i, auditFindingId(i)) : (i.pendingReason || 'identity or entity classification still needs a working repair'))), ...(sourceReview?.pending || []), ...(answerProblem ? [answerProblem] : []), ...(followupFailed ? ['the combined ledger review did not finish' + (typeof followupFailed === 'string' ? ': ' + followupFailed : '')] : []), ...(verification.read < verification.total ? [`ledger verification: checked ${verification.read} of ${verification.total} entries; ${verification.pending.slice(0, 2).join('; ')}`] : [])])];
   result.unfinished = pending.length > 0;
   result.pending = pending;
   result.issues = result.issues.filter(i => i.mutations.length || i.pages || !findingSettled(i,result,withdrawals,documents,verification));
