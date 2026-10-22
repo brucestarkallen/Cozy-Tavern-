@@ -658,6 +658,8 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   let verificationChecks = [];
   let verificationSnapshot = null;
   let deferredRows = []; /* M752: required entries left for the next reading, open, never approved unread */
+  const deferredRead = new Map(); /* M758: those of them a reading of their own answered for, this pass */
+  const askedFacts = new Set(); /* M758: source facts a review answer was read for, this pass (M756-004 counts only these) */
   const reviewedSourceFacts = new Map();
   const openSourceFacts = new Map();
   let finalReview = {status:'not completed',requested:0,received:0,replyCharacters:0};
@@ -789,40 +791,12 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       const currentInventoryEvidence=[...sourceAppearanceFacts(result.out,documents),...sourceIdentityFacts(result.out,documents)]
         .map(f=>({evidenceId:f.id,source:f.source,text:f.shown}));
       evidenceBook=auditEvidenceBook(documents,currentInventoryEvidence,evidenceBook);
-      let corrected = bindHistoricalFindings(bindFinalAuditEvidence(reconcileAuditScene(parseAuditorAnswer(answerText),requestedState), registeredEvidence(), verificationRows,documents),originalFindings);
+      const corrected = bindHistoricalFindings(bindFinalAuditEvidence(reconcileAuditScene(parseAuditorAnswer(answerText),requestedState), registeredEvidence(), verificationRows,documents),originalFindings);
       finalReview = {...finalReview,status:finish === 'length' ? 'cut short' : reviewProblems(answerText).length?'incomplete decisions':corrected.note,
         received:finalAuditChecks(corrected,verificationRows).length,approval:corrected.review?'whole required ledger':'entry verdicts',replyCharacters:reply.text.length,finishReason:finish,
         calls:reply.calls || 1,fetches:reply.rounds || 0,formatContinuation:Boolean(reply.formatContinuation),sourceCalls:sourceReview?.calls || 0,
         ...(corrected.scene?{scene:{pageId:lastTold.id,people:corrected.scene}}:{})};
       if (reply.completionFailed) {followupFailed = 'its completion turn failed: ' + reply.error; finalReview = {...finalReview,error:reply.error};}
-      /* M757: THE ENTRIES THAT DID NOT FIT ARE READ IN A READING OF THEIR OWN. His: turn 12 "8 of 62", turn 13 "9 of 62" —
-       * the whole-ledger reading left room for one required entry a page, so a 62-entry ledger could never finish. The
-       * entries left over are sent now in a reading made of themselves (their own values and prints, the newest page, no
-       * whole ledger, no original index), which is small enough to carry a batch; only an explicit check for an entry is
-       * taken, so an answer that skips one approves nothing, and a reading that fails leaves them waiting as they were. */
-      if (deferredRows.length && corrected.note === 'ok' && finish !== 'length' && !signal?.aborted && !stale?.()) {
-        try {
-          renew?.();
-          const alone = deferredRows.map(r => ({ id: r.id, section: r.section, name: r.name, print: r.print, scope: r.scope, value: r.value }));
-          const system = reviewSystem + '\nTHIS READING CARRIES THE ENTRIES THE WHOLE-LEDGER READING HAD NO ROOM FOR. Review only the entries below, each against its original sources — fetch a person with "person: NAME" or a page by its number when you need one — and answer with a check for EVERY entry you actually read. Leave an entry out if you could not read it: an entry without a check is held for the next reading, never approved.';
-          const user = 'REQUIRED CURRENT LEDGER CHECKS (this reading only):\n' + JSON.stringify(alone)
-            + '\nCOMPLETE NEWEST MAIN STORY. Read each person through the ending:\n' + pageText(lastTold)
-            + '\nReturn JSON only: {"checks":[{"id":"the entry id","status":"checked","why":"short verdict"}],"issues":[],"review":{"status":"complete","why":"brief verdict","open":[]}}. Put an entry you doubt in review.open with its reason and leave out of checks what you did not read. The other entries of this ledger belong to another reading.';
-          const reply2 = await askWithFetch(connection, { system, user, maxTokens: replyTokens, signal, renew, leash: leashFor,
-            source: { storyId, messages: allRaw, memory: mem, story: { brief, castNotes }, state: result.out }, room: Math.min(room, requestRoom) });
-          const read2 = parseAuditorAnswer(reply2.text);
-          const said = new Map((Array.isArray(read2.checks) ? read2.checks : []).filter(c => c && typeof c.id === 'string').map(c => [c.id, c]));
-          const extra = deferredRows.filter(r => said.has(r.id)).map(r => ({
-            id: r.id, print: r.print, scope: r.scope, finalReview: true,
-            status: String(said.get(r.id).status || '').toLowerCase() === 'checked' || String(said.get(r.id).status || '').toLowerCase() === 'correct' ? 'correct' : 'open',
-            why: said.get(r.id).why || said.get(r.id).fix || 'the reading did not approve it',
-          }));
-          if (extra.length) {
-            corrected = { ...corrected, checks: [...(corrected.checks || []), ...extra] };
-            finalReview = { ...finalReview, deferredRead: extra.length, deferredLeft: deferredRows.length - extra.length };
-          }
-        } catch (err) { finalReview = { ...finalReview, deferredRead: 0, deferredWhy: String(err?.message || err || 'the reading did not answer').slice(0, 200) }; }
-      }
       if (corrected.note === 'ok' && finish !== 'length') {
         verificationChecks = finalAuditChecks(corrected,verificationRows);
         answerProblem = '';
@@ -885,37 +859,87 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
             .filter(r=>!verificationRows.some(old=>old.id===r.id) && !deferredRows.some(old=>old.id===r.id) && !verificationReceiptMatches(previousVerification[r.id],r))
             .map(r=>before.get(r.id) || r)]);
         }
+        /* M757 → M758: THE ENTRIES THAT DID NOT FIT ARE READ IN READINGS OF THEIR OWN. His: turn 12 "8 of 62", turn 13 "9 of
+         * 62" — the whole-ledger reading has room for a few required entries beside the ledger, the pages and the sources, so a
+         * long tale's ledger was never verified at the pace pages come. m757-001 asked for them in one more reading, and its
+         * checks were added where nothing reads them (finalAuditChecks takes only the rows a review was sent): the reading
+         * was paid for and approved nothing (law M758-A1). Now the rows left over are sent in batches that fit the
+         * connection (the same measure as the whole reading: workerRoom, with the room to look), each with the newest page and
+         * the right to fetch, and an entry is approved only by an explicit check for it, on the value it was shown — a row
+         * the whole reading's own repair changed meanwhile is not approved by a reading that saw it before. A batch that
+         * fails, is cut short or answers for nothing ends the readings for this pass; what was not read waits, open. */
+        if (deferredRows.length && !signal?.aborted && !stale?.()) {
+          const shownNow=new Map(ledgerVerificationRows(result.out).map(r=>[r.id,r.print]));
+          let waiting=deferredRows.filter(r=>shownNow.get(r.id)===r.print);
+          const newest=pageText(lastTold);
+          const aloneSystem=reviewSystem+'\nTHIS READING CARRIES ENTRIES THE WHOLE-LEDGER READING HAD NO ROOM FOR. Review only the entries listed, each against its original sources — <fetch> a person ("person: NAME") or a page by its number when you need it. Answer with a check for EVERY entry you actually read: status "correct" when the entry is right, "open" with the reason when it is wrong or you cannot settle it. Leave an entry out if you could not read it: an entry without a check waits for the next reading, never approved.';
+          const aloneHead='REQUIRED CURRENT LEDGER CHECKS FOR THIS READING (the rest of the ledger belongs to another reading). A value that reads '+JSON.stringify(SHOWN_ABOVE)+' is that exact text as it stands in the newest page below: read it there.\n';
+          const aloneTail='\nCOMPLETE NEWEST MAIN STORY. Read each person through the ending:\n'+newest
+            +'\nReturn JSON only: {"checks":[{"id":"the entry id","status":"correct","why":"short verdict from the originals"}],"issues":[],"review":{"status":"complete","why":"brief verdict","open":[]}}.';
+          const aloneLeft=workerRoom(connection,{system:aloneSystem,user:aloneHead+'[]'+aloneTail,maxTokens:replyTokens});
+          const aloneReserved=aloneLeft-Math.ceil(requestRoom*LOOK_RESERVE);
+          const aloneRoom=aloneReserved>0 ? aloneReserved : aloneLeft;
+          let aloneCalls=0,aloneWhy='';
+          while (waiting.length && !signal?.aborted && !stale?.()) {
+            const leanAlone=leanCheckRows(waiting,newest);
+            let fits=aloneRoom;
+            const batch=[];
+            leanAlone.forEach((row,at)=>{const size=JSON.stringify(row).length+1; if (size<=fits) {batch.push(at);fits-=size;}});
+            if (!batch.length) {aloneWhy='an entry is larger than one reading of this connection';break;}
+            const sent=batch.map(at=>waiting[at]);
+            let reply2;
+            try {
+              renew?.();
+              reply2=await askWithFetch(connection,{system:aloneSystem,user:aloneHead+JSON.stringify(batch.map(at=>leanAlone[at]))+aloneTail,
+                maxTokens:replyTokens,signal,renew,leash:leashFor,
+                source:{storyId,messages:allRaw,memory:mem,story:{brief,castNotes},state:result.out},room:Math.min(room,requestRoom)});
+            } catch (err) {
+              if (!signal?.aborted && !stale?.()) aloneWhy=String(err?.message || err || 'the reading did not answer').slice(0,200);
+              break;
+            }
+            aloneCalls+=reply2.calls || 1;
+            const said=new Map((parseAuditorAnswer(reply2.text).checks || []).filter(c=>c && typeof c.id==='string').map(c=>[c.id,c]));
+            for (const r of sent) {
+              const c=said.get(r.id);
+              if (!c) continue;
+              const correct=['correct','checked'].includes(String(c.status || '').toLowerCase());
+              const why=String(c.why || c.fix || '').trim();
+              deferredRead.set(r.id,{id:r.id,print:r.print,scope:r.scope,finalReview:true,status:correct?'correct':'open',
+                why:why || (correct?'Checked against the originals in a reading of its own.':'the reading did not approve it')});
+            }
+            waiting=waiting.filter(r=>!sent.includes(r));
+            if (reply2.finishReason==='length') {aloneWhy='a reading of the entries left over was cut short';break;}
+            if (!sent.some(r=>said.has(r.id))) {aloneWhy='a reading of the entries left over answered for none of them';break;}
+          }
+          verificationChecks=[...verificationChecks.filter(c=>!deferredRead.has(c.id)),...deferredRead.values()];
+          const approvedAlone=[...deferredRead.values()].filter(c=>c.status==='correct').length;
+          finalReview={...finalReview,deferredRead:approvedAlone,deferredLeft:deferredRows.length-approvedAlone,deferredCalls:aloneCalls,...(aloneWhy?{deferredWhy:aloneWhy}:{})};
+        }
         // The semantic decision approves the actual resulting profile. A
         // concurrent edit cannot borrow it when the saved state is reloaded.
-        /* M756-002: an answer is a verdict whether or not it calls itself complete — its own open entries name what it wants
-         * kept, and a review that never reaches "complete" used to leave these facts owed on every pass (a dead end). */
+        /* M752 (followup 21) and M756-002 → M758: THE REVIEW'S OWN ANSWER DECIDES A SOURCE FACT. A fact it keeps open with its
+         * reason is left as it stands, with that reason (her page untouched), whatever the reading says of itself; an open
+         * entry with no reason, after the same review was asked again for one, is left as it stands and says so; and the
+         * facts it did not single out are approved by a review that says it is COMPLETE — only then. m756-002 took every
+         * answer for that approval, so a review that said it had not finished ("open") certified facts it never read; a fact
+         * a finished review never decides is set aside after two such answers (M756-004, below), never on the first. */
         if (corrected.review) for (const issue of sourceCandidates.filter(i=>i.sourceFacts)) {
-          const open=(corrected.review.open || []).find(o=>o.id===auditFindingId(issue));
-          /* M756-002 (his "Vanessa is exist… it's supposed not making mistake autonomous and self heal"): the mention is
-           * found by the house's own name matching, never by an exact string — a source entry kept as "Vanessa Langley" and
-           * a finding naming "Vanessa" found no mention, so no decision could be recorded and the finding was owed forever. */
-          const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name) || samePersonName(p.name, issue.sourceName || issue.name));
-          /* M752 (followup 21): facts the reader keeps open, with its reason, are left as they stand — decided with that
-           * reason (her page untouched), never owed on every pass until the automatic audit pauses (the same fault as a
-           * description it cannot tie to anyone, above) */
-          if (open && mention && !sourceIdentityNeeded(result.out,mention) && String(open.why || '').trim()) {
-            reviewedSourceFacts.set(auditFindingId(issue),{scope:sourceFactScope(result.out,{...mention,source:issue.sourceId}),
-              why:'Left as it stands — '+String(open.why).trim(),shown:mention.shown,sourceId:issue.sourceId});
+          const id=auditFindingId(issue);
+          if (!reply.completionFailed) askedFacts.add(id);
+          const open=(corrected.review.open || []).find(o=>o.id===id);
+          const mention=findingMention(result.out,issue);
+          const decidable=mention && !sourceIdentityNeeded(result.out,mention);
+          const scope=decidable ? sourceFactScope(result.out,{...mention,source:issue.sourceId}) : '';
+          if (open && decidable && String(open.why || '').trim()) {
+            reviewedSourceFacts.set(id,{scope,why:'Left as it stands — '+String(open.why).trim(),shown:mention.shown,sourceId:issue.sourceId});
             continue;
           }
-          /* M756-002: an open entry with no reason is no verdict the house can act on — it named nothing to add and nothing
-           * to leave, and owed on every pass it is a dead end that pauses the whole audit. It is decided here, in the
-           * reviewer's own words for it, and the finding closes; a review that wants a fact kept open says why (the branch
-           * above), and one that wants it written supplies the additive note. */
           if (open) {
-            if (mention && !sourceIdentityNeeded(result.out,mention)) reviewedSourceFacts.set(auditFindingId(issue),{
-              scope:sourceFactScope(result.out,{...mention,source:issue.sourceId}),
-              why:'Left as it stands — the review kept it open without a reason',shown:mention.shown,sourceId:issue.sourceId});
-            else openSourceFacts.set(auditFindingId(issue),open.why);
+            if (decidable && askedAgain) reviewedSourceFacts.set(id,{scope,why:'Left as it stands — the review kept it open without a reason, even when asked again for one',shown:mention.shown,sourceId:issue.sourceId});
+            else openSourceFacts.set(id,open.why);
             continue;
           }
-          if (mention && !sourceIdentityNeeded(result.out,mention)) reviewedSourceFacts.set(auditFindingId(issue),{
-            scope:sourceFactScope(result.out,{...mention,source:issue.sourceId}),why:corrected.review.why,shown:mention.shown,sourceId:issue.sourceId});
+          if (decidable && corrected.review.status==='complete') reviewedSourceFacts.set(id,{scope,why:corrected.review.why,shown:mention.shown,sourceId:issue.sourceId});
         }
         withdrawals.push(...(corrected.resolved || []));
         raw += '\n\nCombined review:\n' + (completed ? completed.text + '\n\nCompletion:\n' : '') + reply.text;
@@ -949,18 +973,18 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     if (!openProfiles.has(row.id)) openProfiles.set(row.id,finding.pendingReason);
   const verification = verifyLedgerChecks({state:result.out, snapshot:verificationSnapshot,
     checks:[...verificationChecks.map(c=>openProfiles.has(c.id)?{...c,status:'open',why:openProfiles.get(c.id)}:c),
-      ...deferredRows.filter(r=>!openProfiles.has(r.id)).map(r=>({id:r.id,print:r.print,scope:r.scope,status:'open',why:'not read yet: the ledger is larger than one reading, and this entry waits for the next'}))],
+      ...deferredRows.filter(r=>!openProfiles.has(r.id) && !deferredRead.has(r.id)).map(r=>({id:r.id,print:r.print,scope:r.scope,status:'open',why:'not read yet: the ledger is larger than one reading, and this entry waits for the next'}))],
     previous:Object.fromEntries(Object.entries(previousVerification).filter(([id])=>!openProfiles.has(id))),
     documents, source:verificationSource, applied:result.applied,approvedState,authoritative:true});
   verification.sources=verificationSourcesOf(documents); /* M752 (followup 22): what these approvals were given */
   const sourceFactDecisions={...(result.out.audit?.sourceFactDecisions || {})};
   for (const issue of originalFindings.filter(i=>i.sourceFacts)) {
     const decision=withdrawals.find(r=>(r.what===issue.what || r.id===auditFindingId(issue)) && documents.some(d=>d.id===issue.sourceId && auditorSourceQuote(d.text,r.shown)));
-    const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
+    const mention=findingMention(result.out,issue);
     const reviewed=reviewedSourceFacts.get(auditFindingId(issue));
     const scope=mention && sourceFactScope(result.out,{...mention,source:issue.sourceId});
     const currentSource=documents.some(d=>d.id===issue.sourceId && d.mark===result.out.auditSources?.[issue.sourceId]?.mark);
-    const approvedMention=approvedState.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
+    const approvedMention=findingMention(approvedState,issue);
     const approvedScope=approvedMention && sourceFactScope(approvedState,{...approvedMention,source:issue.sourceId});
     if (!openSourceFacts.has(auditFindingId(issue)) && mention && currentSource && !sourceIdentityNeeded(result.out,mention) && (reviewed?.scope===scope || (decision && scope===approvedScope) || findingSettled(issue,result,withdrawals,documents,verification))) {
       sourceFactDecisions[scope]=reviewed?.scope===scope ? reviewed : decision
@@ -980,16 +1004,18 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     .filter(entry=>documents.some(d=>d.id===entry.sourceId));
   result.out.audit={...result.out.audit,sourceFactDecisions,identityDispositionHistory};
   /* M756-004: NO DEAD ENDS. A source fact the review has been asked about twice and never decided — no note written, no
-   * reason given, no answer at all — is set aside by the house, in a line that says so, and the finding closes. His light
-   * could otherwise stay yellow for good over facts nobody had declined and nobody had added; the facts themselves stay
-   * where they were read, in the original receipt of their page. */
+   * reason given — is set aside by the house, in a line that says so, and the finding closes; the facts themselves stay
+   * where they were read, in the original receipt of their page. M758: an ask is a pass whose review ANSWERED for it
+   * (askedFacts): m756-004 counted every pass, so two provider failures — a review never asked — set his facts aside
+   * "asked twice" (law M758-F3). A pass without an answer neither counts nor clears. */
   const sourceFactAsks = { ...(result.out.audit?.sourceFactAsks || {}) };
   for (const issue of originalFindings.filter(i => i.sourceFacts)) {
     const id = auditFindingId(issue);
     if (findingSettled(issue, result, withdrawals, documents, verification) || openSourceFacts.has(id) || reviewedSourceFacts.has(id)) { delete sourceFactAsks[id]; continue; }
+    if (!askedFacts.has(id)) continue;
     sourceFactAsks[id] = (sourceFactAsks[id] || 0) + 1;
     if (sourceFactAsks[id] < 2) continue;
-    const mention = result.out.auditSources?.[issue.sourceId]?.people?.find(p => p.name === (issue.sourceName || issue.name) || samePersonName(p.name, issue.sourceName || issue.name));
+    const mention = findingMention(result.out, issue);
     if (!mention || sourceIdentityNeeded(result.out, mention)) continue;
     const scope = sourceFactScope(result.out, { ...mention, source: issue.sourceId });
     if (!sourceFactDecisions[scope]) sourceFactDecisions[scope] = { why: 'Asked twice and never decided by the review — set aside; its facts stay in the original receipt of their page.' };
@@ -1004,7 +1030,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     if (issue.pendingReason) return issue.pendingReason;
     const open = String(openSourceFacts.get(id) || '').trim();
     if (open) return 'kept open by the review: ' + open;
-    if (reviewedSourceFacts.has(id)) return 'the review left it as it stands (no durable fact to add)';
+    if (reviewedSourceFacts.has(id)) return 'decided by the review, but her profile or its page changed while it read — it is asked again';
     return 'no review answer for it — the review did not finish this pass';
   };
   pending = [...new Set([...outstanding.map((i) => pendingLine(i.what, i.sourceFacts ? sourceFactWhy(i, auditFindingId(i)) : (i.pendingReason || 'identity or entity classification still needs a working repair'))), ...(sourceReview?.pending || []), ...(answerProblem ? [answerProblem] : []), ...(followupFailed ? ['the combined ledger review did not finish' + (typeof followupFailed === 'string' ? ': ' + followupFailed : '')] : []), ...(verification.read < verification.total ? [`ledger verification: checked ${verification.read} of ${verification.total} entries; ${verification.pending.slice(0, 2).join('; ')}`] : [])])];
@@ -1519,7 +1545,7 @@ export function verifyLedgerChecks({state, snapshot, checks, previous = {}, docu
 export function findingRows(issue, state) {
   const rows = ledgerVerificationRows(state);
   if (issue.sourceFacts) {
-    const p=state.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
+    const p=findingMention(state,issue);
     const key=p && sourcePersonKey(state,p.name,p.ledgerName,p.identityResolution);
     return rows.filter(row=>row.section==='characters' && row.name===key);
   }
@@ -1591,15 +1617,23 @@ function supersededSourceIdentityHistory(findings, state, previous=[]) {
  * an obsolete one. Both branches below returned before any withdrawal was weighed, so such a finding could never close:
  * every later audit paid a continuation call for it and the lamp never turned green. It stays open only while its
  * section waits to be read at its new text (no current receipt yet). */
+/* M758: THE MENTION A SOURCE FINDING IS ABOUT — its own label as the source reading wrote it, or (a legacy finding without
+ * its label) the mention bound to the ledger person it names. One lookup for every reader of a finding: m756-002 matched
+ * by samePersonName where the review records its decision, while the commit and findingSettled still matched the label
+ * exactly — a decision found by one lookup was never kept by the other, and a legacy finding owed for good. */
+export function findingMention(state, issue) {
+  const people = state?.auditSources?.[issue.sourceId]?.people || [];
+  const label = issue.sourceName || issue.name;
+  return people.find(p => p.name === label)
+    || (!issue.sourceName ? people.find(p => sourcePersonKey(state,p.name,p.ledgerName,p.identityResolution) === issue.name) : undefined);
+}
 function sourceMentionGone(issue, state, documents) {
   const document = documents.find(d => d.id === issue.sourceId);
   if (!document) return true;
   const receipt = state.auditSources?.[issue.sourceId];
   if (receipt?.mark !== document.mark) return false;
-  const label = issue.sourceName || issue.name;
   // A legacy finding without its extracted label names the ledger person it was bound to.
-  return !(receipt.people || []).some(p => p.name === label
-    || (!issue.sourceName && sourcePersonKey(state,p.name,p.ledgerName,p.identityResolution) === issue.name));
+  return !findingMention(state, issue);
 }
 
 export function findingSettled(issue, result, withdrawals, documents, verification) {
@@ -1610,7 +1644,7 @@ export function findingSettled(issue, result, withdrawals, documents, verificati
       : mutationSatisfied(result.out,m))) return true;
   if (issue.profileRecovery && issue.sourceId && sourceMentionGone(issue,result.out,documents)) return true;
   if (issue.profileRecovery && issue.sourceId && !issue.sourceFacts) {
-    const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
+    const mention=findingMention(result.out,issue);
     if (mention?.kind && mention.kind!=='person') return true;
     const key=mention && sourcePersonKey(result.out,mention.name,mention.ledgerName,mention.identityResolution);
     // A withdrawal without a saved source decision would regenerate the same
@@ -1618,7 +1652,7 @@ export function findingSettled(issue, result, withdrawals, documents, verificati
     return Boolean(mention && !sourceIdentityNeeded(result.out, mention));
   }
   if (issue.sourceFacts && issue.sourceId) {
-    const mention=result.out.auditSources?.[issue.sourceId]?.people?.find(p=>p.name===(issue.sourceName || issue.name));
+    const mention=findingMention(result.out,issue);
     if (!mention || !documents.some(d=>d.id===issue.sourceId && d.mark===result.out.auditSources?.[issue.sourceId]?.mark)) return false;
     if (!sourceIdentityNeeded(result.out,mention) && !missingSourceIdentityFacts(result.out,mention).length) return true;
     if (result.out.audit?.sourceFactDecisions?.[sourceFactScope(result.out,{...mention,source:issue.sourceId})]) return true;

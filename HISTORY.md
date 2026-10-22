@@ -21982,3 +21982,48 @@ could still dead-end: two branches left a source-fact finding owed for good, and
 Measured: the 93 auditor laws of M41, M403, M502, M552, M553, M685, M688, M752-audit, M754, M755 and M756 pass, 0 failed. Not
 run: a dedicated law for the two new branches (they sit inside finishLedgerAudit's scripted-wire path, which these laws
 exercise but do not drive into a bare-open review); the DOM walk; lint; his live audit.
+
+## M758 (m758-001): the audit of the laptop's m755-001 … m757-001
+
+The owner, 22 October 2026, 22:36 Jakarta: "My harness on laptop have given me update please audit make sure everything good
+and analyze wheter you're agree with the update". Eleven commits (e51f056..d962b86) were read line by line and run on Linux:
+the whole law suite (1718 of 1719 — M743-F failed, broken by m756-001) and the whole DOM walk (326 of 327 — DOM-271, his own
+turn 7, failed, broken by m755-002). The laptop had run neither the walk, lint nor M743-F (Windows: no npm, python3 or DOM).
+Each fault below was reproduced on d962b86 before it was changed, and each M758 law fails there.
+- m755-001 (the goings): the header-glue fix is right (endingGoing was the one sentence splitter without a line break) and so
+  is the aim. The widened verb list was not: any of took/pulled/drew/brought/ran/led/followed with any of out/up/to/through
+  /from within 40 letters was "his going", and the house now writes leaves on mcGoesOut. 27 of 52 ordinary endings read wrong.
+  Through the real page reader: "Jovan took out his phone and showed Vanessa the message" took the quiet Tobin out of the room
+  (whether the reader named the room without him or named nobody), and an arrival on that ending was refused as "the page
+  ends on him walking off". Now three kinds with their own shapes (HANDOFF): 0 wrong of 80 (52 + 28 held out), and every
+  going the m754-001 reading caught is still caught. Laws M758-G1, M758-G2.
+- m755-002 (the room on a move): the near move with no room named and the four-hour jump are right. The part-of move made a
+  named room the truth, and walk DOM-271 (his turn 7) went red: "Ilvarren" to "Cooper's Row, Ilvarren" took the quiet raven
+  out for silence — the very fault m755-003 withdrew its own first cut over. Now a part-of move lets the page decide only when
+  the reader named no room (M755-5 unchanged). Law M758-G3; DOM-271 green.
+- m755-003, m755-004 (newScene): kept as they are. They trust his model's flag (no provider call was made to see it), and a
+  person a new-scene page names only by an alias or a pronoun is not "shown" — the same test a far move with no named room uses.
+- m756-001 (a fact in other words): reverted. Whether a profile holds a fact in other words is meaning, and meaning is the
+  reader's (M717); half of a fact's long words waved "Having a secret affair with Jovan Wessex that nobody knows" through into
+  a profile that never mentions an affair, and M743-F's changed page was no longer asked about. M756-1's expectation changed
+  accordingly (owed until the review decides; its decision closes it; a rewritten profile asks again). Law M758-F1.
+- m756-002 (the review's answer): the lookup by samePersonName was put in one of the five places that look a finding's mention
+  up — the commit and findingSettled still matched the label exactly, so the decision it found was never kept. One lookup now
+  (findingMention: the label, or a legacy finding's bound person), everywhere. And it took ANY answer as approval of every
+  fact not singled out — a review that said it had not finished certified facts it never read. Now: open with a reason, left
+  as it stands with it; open without one, left as it stands only after being asked again for one (M752's own condition);
+  the rest only by a review that says it is complete. Law M758-F2.
+- m756-003 (the light's reasons): kept; a decided fact that did not land now says her profile or page changed while it read.
+- m756-004 (asked twice, set aside): kept; it counted every pass, so two provider failures set his facts aside "asked twice".
+  An ask is now a pass whose review answered for the fact. Law M758-F3.
+- m757-001 (the entries left over): the diagnosis was right and the code was dead — its checks were added to the answer where
+  finalAuditChecks never reads, so the extra reading was paid for and approved nothing (the M752-A11 ledger: 63 of 142, "79
+  read", 0 approved). Now the left-over entries are read in batches fitted to the connection, in the same pass, each approved
+  only by an explicit check on the value it was shown; an entry the whole reading's repair changed is not sent; a batch that
+  fails, is cut short or answers for none ends them for the pass. Same ledger: 142 of 142 in 2 review calls. Laws M758-A1/A2.
+- 12bc210 (run.mjs restored) and 45e4509 (docs): no fault. The laptop's commit messages from 12bc210 on open with a byte-order
+  mark (cosmetic, left). HISTORY has no entries for m756-003, m756-004 and m757-001; this entry records them.
+LEDGER_REPAIR_POLICY 12 (a changed procedure: his audit paused over Vanessa's facts resumes once).
+Measured on m758-001: the whole law suite 1727 of 1727 (d962b86: 1718 of 1719); the whole DOM walk 327 of 327 (d962b86: 326
+of 327); lint 0 errors. The eight M758 laws fail on d962b86 and pass here (each was run both ways). Not run: his tale and his
+model (no provider calls); a real browser (nothing on screen changed).

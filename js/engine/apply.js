@@ -2387,19 +2387,47 @@ export function pageEnding(pageText) {
  * accompany, dash, rush, run) with out/outside/home/upstairs/downstairs; his name as the object of one of them ("she led
  * Jovan outside" — a possessive between, "Vanessa took Jovan's hand and led him outside"); and the company's going
  * ("they / the two of them / both of them / the pair went out") when his name stands in the page's ending too. */
-/* M755: the going verbs — leaving a room on his own foot, or carried out by someone's hand */
-const ALL_GOING = 'walked|walks|walk|strode|strides|headed|heads|went|goes|left|leaves|stalked|marched|stormed|slipped|stepped|turned|followed|follows|follow|led|leads|lead|drew|draws|draw|pulled|pulls|pull|guided|guides|guide|ushered|ushers|usher|hurried|hurries|hurry|steered|steers|steer|brought|brings|bring|took|takes|take|escorted|escorts|escort|accompanied|accompanies|accompany|dashed|dashes|dash|rushed|rushes|rush|ran|run|runs';
+/* M755: the going verbs, in three kinds — and M758 (the audit of m755-001: "Jovan took out his phone and showed Vanessa the
+ * message" was read as his going, and the house wrote the quiet Tobin out of the room he never left; so were "pulled out a
+ * chair", "drew her into his arms", "ran a hand through his hair", "followed her gaze to the window" — 27 of 52 ordinary
+ * endings read wrong). Each kind has its own shape:
+ *   - his own feet (the M588 list, read as it always was): "walked out", "went home", "stepped away";
+ *   - running, the direction straight after the verb: "ran out", "hurried back outside" — never "ran a hand through";
+ *   - carrying, a PERSON between the verb and the direction: "led her out", "took Vanessa out", "followed her out", "led
+ *     the way out" — never "took out his phone", "pulled her coat off the hook", "drew her into his arms". */
+const SELF_GOING = 'walked|walks|walk|strode|strides|headed|heads|went|goes|left|leaves|stalked|marched|stormed|slipped|stepped|turned';
+/* told, never only wished or bid: no bare form — "to take her out", "let the guard lead her out", "would follow her out
+ * later" are not his going on this page */
+const RUNNING = 'hurried|hurries|dashed|dashes|rushed|rushes|ran|runs';
+const CARRYING = 'followed|follows|led|leads|pulled|pulls|guided|guides|ushered|ushers|steered|steers|brought|brings|took|takes|escorted|escorts|accompanied|accompanies';
+/* "took them out of the box", "pulled them out": "them" is things as often as people after these verbs ("drew" is left out
+ * altogether — "drew her out" is getting her to talk, "drew her into his arms" a hug) */
+const CARRIES_THINGS = /^(?:took|takes|brought|brings|pulled|pulls)$/i;
+const OUTWARD = 'away|off|out|outside|home|upstairs|downstairs';
+const ON_THE_WAY = '(?:(?:back|\\p{L}+ly)\\s+){0,2}'; /* "ran back out", "hurried quietly outside" */
+/* the words between his name and a running or carrying verb that make that verb someone else's: a clause of its own ("as
+ * the guard led her outside") or his only looking on, waiting or staying ("watched the guard, then the door") */
+const ANOTHER_CLAUSE = /\b(?:as|while|when|whilst|until|before|after|because|though|although|that|who|whom|which|where|once|since|if)\b/i;
+const ONLY_LOOKING = /\b(?:watch\w*|saw|sees?|look(?:s|ed)?|star(?:e|es|ed)|glanc(?:e|es|ed)|wait(?:s|ed)?|stay(?:s|ed)?|remain(?:s|ed)?|linger(?:s|ed)?|wave[sd]?)\b/i;
+/* a person carried along: a pronoun, the way, the others, or a name (capitals, read without the case-blind flag) */
+const carriedPerson = (verb, said) => (/^(?:him|her|us|me|the\s+way|the\s+others)$/i.test(said) || (/^them$/i.test(said) && !CARRIES_THINGS.test(verb)))
+  || said.split(/\s+/).every((w) => /^\p{Lu}/u.test(w) && !/^(?:The|A|An|His|Her|Their|Its|My|Your|Our|This|That)$/.test(w));
+/* "pulled her out of the way" is no going */
+const NOT_THE_WAY = '(?!\\s+of\\s+(?:the|his|her|their)\\s+way\\b)';
+const carryRe = (outward) => new RegExp('\\b(' + CARRYING + ')\\s+((?:him|her|them|us|me|the\\s+way|the\\s+others)|\\p{L}[\\p{L}\'’-]*(?:\\s+\\p{L}[\\p{L}\'’-]*){0,2}?)\\s+' + ON_THE_WAY + '(?:' + outward + ')\\b' + NOT_THE_WAY, 'giu');
 export function mcWalksOff(pageText, mc) {
-  return endingGoing(pageText, mc, { verbs: ALL_GOING, particles: 'away|off|out|on|back|toward|towards|to|into|from|down|up|through|outside|home|upstairs|downstairs', gap: 40 });
+  return endingGoing(pageText, mc, { selfVerbs: SELF_GOING, particles: 'away|off|out|on|back|toward|towards|to|into|from|down|up|through|outside|home|upstairs|downstairs', gap: 40, runParticles: OUTWARD + '|back|toward|towards', out: false });
 }
 /* M755: DID THE PAGE END ON HIM LEAVING THE ROOM? The same readings, with the outward words only — out, outside, off, away,
  * home, upstairs, downstairs — and close to the verb that carries him: "walked to the window and looked out" is no leaving
  * (the "out" belongs to the looking), "he walked out" and "she led Jovan outside" are. A turn is no going out either
- * ("he turned away" at the window), so "turned" is the one verb left out here. */
+ * ("he turned away" at the window), so "turned" is the one verb left out here. M758: and the outward word must be his
+ * going, not a thing's — "slipped off his coat", "stepped out of the way", "left the cup on the table" are no leaving
+ * (the house's own reader of "left", showsDeparture, decides that one). */
 export function mcGoesOut(pageText, mc) {
-  return endingGoing(pageText, mc, { verbs: ALL_GOING.replace('|turned', ''), particles: 'away|off|out|outside|home|upstairs|downstairs', gap: 12 });
+  return endingGoing(pageText, mc, { selfVerbs: SELF_GOING.replace('|turned', ''), particles: OUTWARD, gap: 12, runParticles: OUTWARD, out: true });
 }
-function endingGoing(pageText, mc, { verbs, particles, gap }) {
+function endingGoing(pageText, mc, { selfVerbs, particles, gap, runParticles, out }) {
   /* M755: the header is furniture, not the page's first sentence — "[Ashford Manor — Monday … ]\n\nJovan walked out" glued
    * the header to that sentence, so a one-sentence page never matched the name at its start */
   const scene = narrationOf(scenePartOf(String(pageText || ''))).replace(/^\s*\[[^\]\n]*\][ \t]*\n+/, '');
@@ -2407,26 +2435,64 @@ function endingGoing(pageText, mc, { verbs, particles, gap }) {
   const parts = String(mc || '').trim().split(/\s+/).filter(Boolean);
   const names = [...new Set([parts.join(' '), parts[0], parts.length > 1 ? parts[parts.length - 1] : ''].filter((n) => n && n.length >= 2))];
   const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const GO = '(?:' + verbs + ')\\b[^.!?]{0,' + gap + '}?\\b(?:' + particles + ')\\b|\\b(?:left|leaves|departed|departs)\\b';
+  /* an outward word that belongs to a thing or to the way, not to his going (mcGoesOut only) */
+  const notHis = out ? '(?!\\s+(?:his|her|their|its|my|your|our|a|an)\\b)(?!\\s+of\\s+(?:the|his|her|their)\\s+way\\b)' : '';
+  const ownFeet = new RegExp('^(?:\\s+\\p{L}+){0,8}?\\s+(?:' + selfVerbs + ')\\b[^.!?]{0,' + gap + '}?\\b(?:' + particles + ')\\b' + notHis, 'iu');
+  const leftWord = /^(?:\s+\p{L}+){0,8}?\s+(\b(?:left|leaves|departed|departs)\b[^]*)$/iu;
+  const runs = new RegExp('\\b(?:' + RUNNING + ')\\s+' + ON_THE_WAY + '(?:' + runParticles + ')\\b' + notHis, 'giu');
+  const carries = carryRe(OUTWARD);
+  /* his name opening a clause — not after "to", "at", "with", "toward", "past", "behind", "for", "from", "beside", "by" */
+  const clauseStarts = (sentence, n) => [...sentence.matchAll(new RegExp('(?:^|[,;—–]\\s*|\\band\\s+|\\bthen\\s+)(?<!\\b(?:to|at|with|toward|towards|past|behind|for|from|beside|by)\\s)(' + esc(n) + ')\\b', 'giu'))]
+    .map((m) => m.index + m[0].length - m[1].length);
+  /* a running or carrying verb is his when the words before it (eight at most) open no clause of their own and are not his looking on */
+  const his = (before) => /^(?:\s+[\p{L}'’]+){0,8}\s*$/u.test(before) && !ANOTHER_CLAUSE.test(before) && !ONLY_LOOKING.test(before); /* "Jovan’s gaze followed her out" is his gaze's */
   for (const sentence of sentences) {
     for (const n of names) {
-      const re = new RegExp('(?:^|[,;—–]\\s*|\\band\\s+|\\bthen\\s+)(?<!\\b(?:to|at|with|toward|towards|past|behind|for|from|beside|by)\\s)' + esc(n) + '(?:[\'’]s)?\\b(?:\\s+\\p{L}+){0,8}?\\s+' + '(?:' + GO + ')', 'iu');
-      if (re.test(sentence)) return true;
+      for (const at of clauseStarts(sentence, n)) {
+        const rest = sentence.slice(at + n.length);
+        if (ownFeet.test(rest)) return true;
+        const left = leftWord.exec(rest);
+        if (left && (!out || showsDeparture(left[1]))) return true;
+        for (const m of rest.matchAll(runs)) if (his(rest.slice(0, m.index))) return true;
+        for (const m of rest.matchAll(carries)) if (carriedPerson(m[1], m[2]) && his(rest.slice(0, m.index))) return true;
+      }
     }
   }
-  /* M755: the ending names him and carries him out by the hand — "Vanessa took Jovan's hand and led him outside" */
-  const namedIn = (t) => names.some((n) => new RegExp('(?<![\\p{L}])' + esc(n) + '(?![\\p{L}])', 'iu').test(t));
-  const OUT_TO = /(?:led|leads|lead|drew|draws|draw|pulled|pulls|pull|guided|guides|guide|ushered|ushers|usher|hurried|hurries|hurry|steered|steers|steer|brought|brings|bring|took|takes|take|escorted|escorts|escort|followed|follows|follow|accompanied|accompanies|accompany)\b[^.!?]{0,30}?\b(?:him|her|them)\s+(?:out|outside|off|away|upstairs|downstairs|into)\b/i;
-  /* M755: the company goes out — "the two of them went out into the garden", "they left the room" — with him named in the
-   * ending (the page takes the pair out, and he is one of the pair: his name stands there). What counts as a going is the
-   * house's own reader of goings, so "they left the door open" is no leaving. */
-  const companyGoes = (t) => {
-    const m = /\b(?:they|the two of them|both of them|the pair)\b([^.!?]{0,60})/i.exec(String(t || ''));
-    return Boolean(m) && showsDeparture(m[1]);
-  };
+  const mentions = (t) => names.flatMap((n) => [...t.matchAll(new RegExp('(?<![\\p{L}])' + esc(n) + '(?![\\p{L}])', 'giu'))].map((m) => ({ n, at: m.index })));
   const toldEnding = sentences.map((s) => narrationOf(s));
-  if (toldEnding.some((t) => namedIn(t) && OUT_TO.test(t))) return true;
-  return toldEnding.some(namedIn) && toldEnding.some(companyGoes);
+  /* M755: the ending names him and another carries him out by the hand — "Vanessa took Jovan's hand and led him outside".
+   * M758: his name stands where another's hand takes him (not opening his own clause: "Jovan watched as the guard led her
+   * outside" is the guard's going and hers), before the carrying, with no clause of its own between ("Vanessa smiled at
+   * Jovan as the guard led her out" is hers) */
+  for (const t of toldEnding) {
+    /* …or names him as the one carried: "Vanessa led Jovan outside", "she pulled Jovan away" */
+    if (names.some((n) => new RegExp('\\b(?:' + CARRYING + ')\\s+' + esc(n) + '\\s+' + ON_THE_WAY + '(?:' + OUTWARD + ')\\b' + NOT_THE_WAY, 'iu').test(t))) return true;
+    const starts = new Set(names.flatMap((n) => clauseStarts(t, n)));
+    for (const { at } of mentions(t).filter((x) => !starts.has(x.at))) {
+      for (const m of t.slice(at).matchAll(new RegExp('\\b(?:' + CARRYING + ')\\s+(?:him|her)\\s+' + ON_THE_WAY + '(?:' + OUTWARD + ')\\b' + NOT_THE_WAY, 'giu'))) {
+        if (!ANOTHER_CLAUSE.test(t.slice(at, at + m.index))) return true;
+      }
+    }
+  }
+  /* M755: the company goes out — "the two of them went out into the garden", "they left the room" — and he is one of the
+   * company. What counts as a going is the house's own reader of goings, so "they left the door open" is no leaving.
+   * M758: his name stands in that sentence or the one before it, and as one of the company — not looking on ("Jovan
+   * watched the two of them leave"), not apart from a pair the page names without him ("Jovan nodded to Claire and Tobin,
+   * and they left together" is theirs). */
+  const COMPANY = /\b(?:they|the two of them|both of them|the pair)\b([^.!?]{0,60})/giu;
+  for (let i = 0; i < toldEnding.length; i += 1) {
+    for (const m of toldEnding[i].matchAll(COMPANY)) {
+      if (!showsDeparture(m[1])) continue;
+      const said = [...(i > 0 ? [toldEnding[i - 1]] : []), toldEnding[i].slice(0, m.index)];
+      const before = said.join(' ');
+      if (!mentions(before).length) continue;
+      const looking = said.some((t) => names.some((n) => clauseStarts(t, n).some((at) => ONLY_LOOKING.test(t.slice(at + n.length).split(/\s+/).slice(0, 3).join(' ')))));
+      const otherPair = [...before.matchAll(/(\p{Lu}[\p{L}'’-]*)\s+and\s+(\p{Lu}[\p{L}'’-]*)/gu)]
+        .some((p) => ![p[1], p[2]].some((w) => /^(?:He|She|I|We|They)$/.test(w) || names.some((n) => n.split(/\s+/).includes(w.replace(/['’]s$/, '')))));
+      if (!looking && !otherPair) return true;
+    }
+  }
+  return false;
 }
 /* M644: THE PAGE'S OWN WORDS FOR THE GOING. showsDeparture is a list of ways to say "left", and a list is always short:
  * of thirty ordinary goings it knew fifteen ("the door closed behind her", "went up to bed", "her footsteps faded up the

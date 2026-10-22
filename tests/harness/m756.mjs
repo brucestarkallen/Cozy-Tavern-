@@ -21,11 +21,21 @@ function scene(core) {
   return st;
 }
 
-test('M756-1 A FACT SPLIT INTO THE PROFILE’S OWN SENTENCES IS RECONCILED: the source reader’s compound sentence and the profile’s separate facts are one fact — the finding is not owed again', async () => {
-  const { missingSourcePeople } = await import('../../js/agents/auditsources.js');
+/* M758 (the audit of m756-001): the expectation of M756-1 changed. m756-001 had the HOUSE judge that a profile holds the
+ * source reader's compound sentence in other words (half of each part's long words present) — a judgment of meaning,
+ * which is the reader's (M717), and the same measure waved "Having a secret affair with Jovan Wessex that nobody knows"
+ * through into a profile that never mentions an affair (M758-F1) and broke M743-F. What ends the dead end he saw is the
+ * review's own answer, kept as a decision on her profile as it stands: owed until the review decides, and never again
+ * after (M758-F2 drives the review itself). */
+test('M756-1 A FACT SPLIT INTO THE PROFILE’S OWN SENTENCES IS THE REVIEW’S TO RECONCILE, AND ITS DECISION CLOSES IT: owed while undecided; once the review’s decision is kept for her profile as it stands, not owed again', async () => {
+  const { missingSourcePeople, sourceFactScope } = await import('../../js/agents/auditsources.js');
   const st = scene('an FBI agent; gives orders to the deputies; authorizes the new work order on the bodies');
-  const issues = missingSourcePeople(st, [{ name: 'Vanessa Langley', source: 'page:1', label: 'page 1', shown: 'Vanessa gave the order', identityFacts: st.auditSources['page:1'].people[0].identityFacts }]);
-  eq(issues.length, 0, 'reconciled: ' + JSON.stringify(issues));
+  const mention = { name: 'Vanessa Langley', source: 'page:1', label: 'page 1', shown: 'Vanessa gave the order', identityFacts: st.auditSources['page:1'].people[0].identityFacts };
+  eq(missingSourcePeople(st, [mention]).length, 1, 'owed to the review');
+  const decided = { ...st, audit: { sourceFactDecisions: { [sourceFactScope(st, mention)]: { why: 'The profile states both facts in its own words.' } } } };
+  eq(missingSourcePeople(decided, [mention]).length, 0, 'decided: not owed again');
+  const changed = { ...decided, characters: { ...decided.characters, 'Vanessa Langley': { ...decided.characters['Vanessa Langley'], core: 'an FBI agent' } } };
+  eq(missingSourcePeople(changed, [mention]).length, 1, 'her profile rewritten: asked again');
 });
 
 test('M756-2 A FACT THE PROFILE DOES NOT HOLD IS STILL OWED: nothing is waved through — a fact whose substance is absent is asked for, as it always was', async () => {

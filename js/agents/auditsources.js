@@ -323,33 +323,19 @@ export function sourceIdentityNeeded(state, person) {
   return false; // Binding and factual completeness are separate questions.
 }
 
-/* M756 — A FACT IS IN THE PROFILE WHEN ITS WORDS ARE THERE, NOT WHEN ITS SENTENCE IS COPIED. His light, yellow for good:
- * "Vanessa Langley has source identity facts to reconcile: Gives orders to the room and to deputies; authorizes new work
- * order on the bodies; Addresses Jovan as Wessex and asks him to walk with her." The source reader writes its facts as
- * compound sentences; a profile keeps them as the facts they are — "gives orders to the deputies", "authorizes the new
- * work order", "calls him Wessex" — so the whole sentence never appears in her core and the finding was owed on every
- * pass until the audit paused itself. Each part of a fact (split at a semicolon, a colon, a dash or an "and") is looked
- * for by its own words now, at the bar this house already uses for "the same thing said in other words": half a part's
- * telling words in the profile is that part. A fact whose substance is absent is still owed, as it always was. */
-const FACT_STOP = new Set(['the', 'and', 'with', 'that', 'this', 'from', 'into', 'onto', 'over', 'under', 'near', 'their', 'them', 'they', 'him', 'her', 'his', 'she', 'who', 'what', 'when', 'where', 'have', 'has', 'had', 'was', 'were', 'are', 'been', 'being', 'for', 'but', 'not', 'its', 'also', 'just', 'only']);
-const factParts = (text) => String(text || '').toLowerCase().split(/\s*[;:—–]\s*|\s+and\s+/u).map((p) => p.trim()).filter(Boolean);
-const tellingWords = (text) => foldName(String(text || '')).split(' ').filter((w) => w.length >= 4 && !FACT_STOP.has(w));
-function factInProfile(text, core, state) {
-  const whole = activeSpelling(String(text || ''), state).replace(/\s+/g, ' ').toLowerCase().trim();
-  if (!whole) return true;
-  if (core.includes(whole)) return true;
-  return factParts(whole).every((part) => {
-    const words = tellingWords(part);
-    if (!words.length) return true;
-    return words.filter((w) => core.includes(w)).length / words.length >= 0.5;
-  });
-}
+/* M758 (the audit of m756-001): whether a profile already holds a source fact IN OTHER WORDS is a judgment of meaning, and
+ * meaning is the reader's (M717): the final review approves equivalent wording and its verdict is kept as a decision
+ * (sourceFactDecisions), and only the words as they stand are the house's to compare. m756-001 counted half of a fact's
+ * long words in the profile as the fact — "Having a secret affair with Jovan Wessex that nobody knows" passed as written
+ * into a profile that only "calls Jovan by his surname, Wessex" and "knows the secret of the bodies", and was never asked
+ * about again (law M758-F1); and M743-F's changed page no longer asked again. The exact comparison is back; what ended
+ * his dead end is the review's own answer (auditor.js: the decisions, and a fact asked twice and never decided). */
 export function missingSourceIdentityFacts(state, person) {
   if (person.identityResolution?.scope === 'local') return []; // Facts remain in the original receipt, not a fabricated permanent biography.
   const key=sourcePersonKey(state,person.name,person.ledgerName,person.identityResolution);
   if (!key || (person.kind && person.kind!=='person')) return [];
   const core=String(state.characters?.[key]?.core || '').replace(/\s+/g,' ').toLowerCase();
-  return (person.identityFacts || []).filter(f=>f.text && f.shown && !factInProfile(f.text, core, state));
+  return (person.identityFacts || []).filter(f=>f.text && f.shown && !core.includes(activeSpelling(f.text,state).trim().replace(/\s+/g,' ').toLowerCase()));
 }
 export function sourceFactScope(state, person) {
   const key=sourcePersonKey(state,person.name,person.ledgerName,person.identityResolution);

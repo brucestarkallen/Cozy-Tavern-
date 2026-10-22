@@ -7,65 +7,48 @@ older files sit beside it). Search them with
 
 ## Now
 
-- A source fact is never a dead end (M756, m756-002 on 22 October 2026). His, after m756-001: "It's the latest version and
-  Vanessa is exist… it's supposed not making mistake autonomous and self heal." Two branches still left a source-fact
-  finding owed for good, and an owed finding pauses the audit: the mention was found by an exact string (a finding naming
-  "Vanessa" and a source entry kept as "Vanessa Langley" found none, so no decision could be recorded), and a decision needed
-  a review that called itself complete, with an open entry carrying no reason kept open forever. Now the mention is matched
-  by the house's own samePersonName, any answer from the review is read (open with a reason: left as it stands; open with no
-  reason: decided in the reviewer's own words and closed; not complete: no longer owed). The 93 auditor laws pass, 0 failed.
-  Not run: a dedicated law for the two new branches (inside finishLedgerAudit's scripted-wire path), the DOM walk, lint,
-  his live audit.
-- A source fact and the profile's own words (M756, m756-001 on 22 October 2026). His yellow light: "still checking: Vanessa
-  Langley has source identity facts to reconcile: Having a secret affair with Jovan Wessex that nobody knows…; Gives orders
-  to the room and to deputies; authorizes new work order on the bodies; Addresses Jovan as Wessex…". The source reader
-  writes its facts as compound sentences; a People core keeps the facts separately, so the exact-substring check never
-  matched, the finding was re-created every pass, and two passes without progress paused the audit. Now each part of a fact
-  (split at a semicolon, colon, dash or "and") is looked for by its own telling words — half a part's words in the profile
-  is that part, every part must be there — and a fact whose substance is absent is still owed. Laws M756-1..3 (1 fails on
-  m755-004). The 88 auditor laws pass. Not run: the DOM walk; lint; his live audit (whether his three facts are in her
-  profile in other words or truly absent was not seen).
-- The one who stayed, and the next scene (M755, m755-001 then m755-002 on 21 October 2026). His: "turn 4 Vanessa asks Jovan
-  to walk with her. Turn 5 they're outside… But in the scene and the people Claire still stuck as standing beside Jovan as in
-  turn 3", "the header still same location?? It's on a manor but doesn't say outside", and "this is a next scene and there are
-  no Claire on scene why it's still have Claire in the scene right now?"
-  m755-001: the header named the same manor, so no move was read and no position was let go; and the page reader's own leave
-  of Claire was thrown away by M594's name gate, because "the two of them went out into the garden" was no going by
-  mcWalksOff (his name had to head a clause with walk/went/left). Now a going is read from the verbs that carry someone out
-  (follow, lead, draw, pull, guide, usher, hurry, steer, bring, take, escort, accompany, dash, rush, run) with
-  out/outside/home/upstairs/downstairs, his name as their subject or object ("she led Jovan outside"), and the company's
-  going ("they / the two of them / both of them / the pair", read by showsDeparture, so "they left the door open" is no
-  leaving) when his name stands in the page's ending; the header line is set aside before the sentence split (a one-sentence
-  page used to glue it onto the sentence and hide his name at its start); and when the page ends on him going out while the
-  ground's name did not change, the house writes the leaves itself — whoever the page's room does not hold is left where they
-  were, as on a move (apply.js endingGoing/mcGoesOut, extractor.js).
-  m755-002: a scene that OPENS somewhere else kept the old room in three shapes, all closed: a move naming a part of the old
-  place ("the garden of Ashford Manor", "the manor's garden", "Ashford Manor, the garden") was neither a far move nor a near
-  one, so no crowd rule ran (partOfOld; a fuller name of the same place — "The Gilded Eel tavern", "Tenth Division courtyard"
-  — is still no move); a near move whose room the reader did not name ran none either (the page decides now, as on a far
-  move); and a scene opening on the same ground hours later had no rule at all (apply.js jumpedFar — staleAfterJump's own
-  four hours — now moves the room). All three leave behind whoever the page's room does not hold, written by the house.
-  m755-003: a scene opening with the SAME coarse place in the header and nothing else moved carries no evidence in the text,
-  so the page reader is asked for it — its answer carries "newScene": true when the page opens a scene apart from the one the
-  page before ended in (another time, another place, after a break), left out or false when the scene goes on. On a new scene
-  the room it names is the room: whoever is not in it, and whom the page does not show either, is left behind. A page that is
-  not a new scene changes nothing — silence is not leaving, the quiet stay. (The first cut — the room made the truth on every
-  page — was tried and withdrawn before shipping: it took the quiet ones out, and M444-3, M446-2, M509-13b, M644-3, M645-3 and
-  M666-1 — his own reports — failed.) So "the manor" alone is enough when the page opens something new.
-  m755-004: the reader's own room was the leak — it is written from the ledger's "Here now", so on a page that opened a new
-  scene it carried Claire in, exactly as its instruction said to ("whom the page did not show leaving"), and the house took
-  that room as the witness. On a page marked as a new scene THE PAGE ALONE says who is there now: whoever its telling does not
-  name is left behind, however the room lists them. Law M755-8 (the rose arch: room names Jovan, Claire, Vanessa; the page
-  shows Jovan and Vanessa — Claire is out).
-  Laws M755-1..8 (1, 2, 5, 6, 7 and 8 fail on the version before them); M755-3 and M755-4 hold the readings and the shape.
-  Measured here: the 256 presence laws of M304, M402, M414, M444, M446, M452, M491, M508, M535, M541, M542, M588, M679, M680,
-  M681, M684, M752-knowledge, M754 and M755 all pass (0 failed), and so do the 101 auditor, request and worker laws of M41,
-  M403, M685, M688, M750, M752-audit, M752-request and M753; m710-ending and m711-ending pass each in its own process. The
-  whole suite was run on m755-001: every law it reported failing fails the same way on m754-001 in this environment (python3,
-  npm and a shell path are missing; M30-6, M72-7, M72-9 and M247 fail untouched; M293-2's sync worker boot needs a browser and
-  stops the run). Lint was not run (its script installs eslint with npm, which this machine has not). Not run: the DOM walk;
-  his tale (its ledger is not here; whether his model answers "newScene" on the page he is looking at was not seen).
-- Version m754-001 on main, 18 October 2026: an old close the ledger already holds no longer keeps the auditor's
+- Version m758-001 on main, 22 October 2026: the audit of the laptop's m755-001 … m757-001 (M758). What stands now:
+  - THE GOINGS (apply.js endingGoing, behind mcWalksOff and mcGoesOut). Three kinds of verb, each with its own shape: his own
+    feet (the M588 list, read as before, plus outside/home/upstairs/downstairs); running with the direction straight after
+    the verb ("ran out", "hurried back outside"); carrying with a PERSON between the verb and the direction ("led her out",
+    "took Vanessa out", "followed her out", "led the way out"). No bare forms ("to take her out", "let the guard lead her
+    out"), no "drew", and "them" only after verbs that carry people. Another's hand on him ("Vanessa led Jovan out", "took
+    Jovan's hand and led him outside") and the company going ("the two of them went out") count when his name stands as one
+    of them — not when he only looks on ("Jovan watched the two of them leave") or a pair is named without him ("nodded to
+    Claire and Tobin, and they left together"). mcGoesOut also refuses an outward word that is a thing's ("slipped off his
+    coat", "stepped out of the way", "left the cup on the table"). m755-001's widened reading had 27 of 52 ordinary endings
+    wrong ("took out his phone and showed Vanessa the message" emptied the room of the quiet Tobin and refused arrivals);
+    now 0 of 80 (52 + 28 held out), and every going the m754-001 reading caught is still caught. Law M758-G1/G2.
+  - THE ROOM ON A MOVE (extractor.js). Far and near moves as before (a near move with no room named: the page decides,
+    m755-002); his going out with the ground unchanged leaves behind whoever the page's room does not hold (m755-001); a jump
+    of four hours or more moves the room (m755-002); the reader's "newScene" makes the page alone the witness (m755-003/004 —
+    it trusts his model's flag; a person the page names only by an alias or a pronoun is not "shown" there, the same test a
+    far move with no named room uses). A move to a PART of the old ground ("the garden of Ashford Manor", "Cooper's Row,
+    Ilvarren") lets the page decide only when the reader named no room: m755-002 made a named room the truth there and took
+    the quiet raven out of his own turn 7 (walk DOM-271, red on the laptop's head). Law M758-G3.
+  - SOURCE FACTS (auditsources.js, auditor.js). Whether her profile already holds a fact in other words is the review's to
+    say (M717); the house compares the words as they stand. m756-001's half-the-words match was reverted: it waved "Having a
+    secret affair with Jovan Wessex that nobody knows" through into a profile that never mentions an affair, and broke M743-F.
+    The review decides: a fact kept open with a reason is left as it stands with that reason; open without one, after being
+    asked again, is left as it stands and says so; the rest are approved only by a review that says it is complete (m756-002
+    took any answer as approval, an unfinished one too). A fact a review ANSWERED for twice without deciding is set aside in a
+    line that says so (m756-004 counted every pass, so two provider failures set his facts aside). One lookup for a finding's
+    mention everywhere (findingMention: its own label, or a legacy finding's bound person — m756-002 changed one of five
+    lookups). The light says why each fact is owed (m756-003). Laws M758-F1..F3, M756-1 (expectation changed: owed until the
+    review decides), M743-F.
+  - THE ENTRIES LEFT OVER (auditor.js). His "8 of 62", "9 of 62": the whole-ledger reading carries what fits beside the
+    ledger and the sources; the rest are now read in batches of their own in the same pass, each fitted to the connection
+    (workerRoom, with the room to look), with the newest page and the right to fetch. An entry is approved only by an explicit
+    check on the value it was shown; one the whole reading's own repair changed is not sent; a batch that fails, is cut short
+    or answers for none ends the readings for that pass. m757-001's one extra reading was paid for and approved nothing (its
+    checks went where finalAuditChecks never reads). The 142-entry ledger of M752-A11: 63 of 142 after a pass before, 142 of
+    142 now, in 2 review calls. Laws M758-A1/A2.
+  - LEDGER_REPAIR_POLICY 12: his audit paused over Vanessa's facts resumes once.
+  Measured: see HISTORY M758 for the suite, walk and lint numbers. Not run: his live tale and his model (no provider calls).
+- The laptop's own record of m755-001 … m756-002 is in HISTORY (M755, M756); m756-003, m756-004 and m757-001 left no entry
+  there (their commit messages and HISTORY M758 record them). Where those records and the item above differ, the item above
+  is the code as it stands.
+- Version m754-001, 18 October 2026: an old close the ledger already holds no longer keeps the auditor's
   light yellow (M754, the next item). m753-001 the same day: speech marks paired as the screen pairs them, and a
   page's readers sooner (M753, the two items after it). Before them, m752-021 on 15 October; m752-001 (d73bbaf) was the audit;
   m752-002 lets go, when a tale opens, a persona the old rule made of an ordinary

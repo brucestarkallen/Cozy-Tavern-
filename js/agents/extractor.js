@@ -1065,10 +1065,16 @@ export async function extractTurn(args = {}) {
      * same place more fully ("The Gilded Eel" written "The Gilded Eel tavern", "the Tenth's courtyard" written "Tenth
      * Division courtyard") is no part of anything and is still no move for the crowd. */
     const partOfOld = /\s(?:of|inside|within|in)\s|\p{L}['’]s\s|,/iu.test(ground);
+    /* M758 (the audit of m755-002 — walk DOM-271, his own turn 7, red): a part of the old ground is not another place
+     * altogether. From "Ilvarren" to "Cooper’s Row, Ilvarren" the reader named the room without the quiet raven over the
+     * rooftops, and the raven was taken out for silence — the very thing M755-003 withdrew its first cut over (a room that
+     * leaves someone off is no evidence; the quiet stay). On a part-of move the page decides only when the reader named no
+     * room at all (M755-5: "the garden was empty and dark"); a named room keeps the quiet, and its own leaves still stand. */
+    const partMove = moved && partOfOld && !roomNamed;
     /* M755: AND THE PAGE ITSELF MAY SAY SO — the reader's own "newScene" (the page opens another time, another place, or after
      * a break, with the header still naming the same coarse ground). Its room is the room then, and whoever it does not name
      * is not in it: his next scene, where the header still said only "the manor" and Claire was nowhere on the page. */
-    const sceneChanged = farMove || nearMove || (moved && partOfOld) || wentOut || jumped || read.newScene === true;
+    const sceneChanged = farMove || nearMove || partMove || wentOut || jumped || read.newScene === true;
     if (sceneChanged && args.state) {
       const leaving = new Set(read.mutations.filter((m) => m && m.type === 'presence.leave').map((m) => String(m.name || '').trim().toLowerCase()));
       /* M755: on a page that opens a new scene the PAGE alone says who is in it. The reader's room is no help there: it is
