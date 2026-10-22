@@ -951,6 +951,22 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     [...originalFindings,...unresolvedFindings(result)],result.out,result.out.audit?.identityDispositionHistory)
     .filter(entry=>documents.some(d=>d.id===entry.sourceId));
   result.out.audit={...result.out.audit,sourceFactDecisions,identityDispositionHistory};
+  /* M756-004: NO DEAD ENDS. A source fact the review has been asked about twice and never decided — no note written, no
+   * reason given, no answer at all — is set aside by the house, in a line that says so, and the finding closes. His light
+   * could otherwise stay yellow for good over facts nobody had declined and nobody had added; the facts themselves stay
+   * where they were read, in the original receipt of their page. */
+  const sourceFactAsks = { ...(result.out.audit?.sourceFactAsks || {}) };
+  for (const issue of originalFindings.filter(i => i.sourceFacts)) {
+    const id = auditFindingId(issue);
+    if (findingSettled(issue, result, withdrawals, documents, verification) || openSourceFacts.has(id) || reviewedSourceFacts.has(id)) { delete sourceFactAsks[id]; continue; }
+    sourceFactAsks[id] = (sourceFactAsks[id] || 0) + 1;
+    if (sourceFactAsks[id] < 2) continue;
+    const mention = result.out.auditSources?.[issue.sourceId]?.people?.find(p => p.name === (issue.sourceName || issue.name) || samePersonName(p.name, issue.sourceName || issue.name));
+    if (!mention || sourceIdentityNeeded(result.out, mention)) continue;
+    const scope = sourceFactScope(result.out, { ...mention, source: issue.sourceId });
+    if (!sourceFactDecisions[scope]) sourceFactDecisions[scope] = { why: 'Asked twice and never decided by the review — set aside; its facts stay in the original receipt of their page.' };
+  }
+  result.out.audit = { ...result.out.audit, sourceFactAsks };
   const outstanding = compactFindings([...originalFindings, ...missingSourcePeople(result.out,documents.flatMap(d=>(result.out.auditSources?.[d.id]?.people || []).map(p=>({...p,source:d.id,label:d.label})))), ...unresolvedFindings(result)].filter((i) => openSourceFacts.has(auditFindingId(i)) || !findingSettled(i, result, withdrawals, documents, verification)), result.out);
   /* M756-003: THE LIGHT SAYS WHY A FACT IS STILL OWED — his "where the fuck it said the context is too big???" The line
    * said only "source-supported profile facts still need reconciliation" for every one of them, so a review that never
