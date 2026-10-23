@@ -7,7 +7,24 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m762-001 on main, 23 October 2026: the continuous audit's reading may look before it alleges (M762). His: "why would
+- Version m763-001 on main, 23 October 2026: a forget that loses nothing is the final review's to make (M763). His: "Why
+  it's still yellow for auditor wtf … Convenience Store Clerk is listed as an individual by the source reading in World voice
+  after page 14; confirm its identity …; The ledger lists 'Convenience Store Clerk' as a People record, but the source text
+  identifies them as a temporary speaker by role … : preserve established records; correct identity with a rename; … : no
+  repair was supplied." Reproduced exactly: the clerk had NO People page (the world kept the speaker a voice of that page,
+  M759); the final review, asked to decide the voice's mention, answered people.forget — which its vocabulary offers and
+  finalAuditorScope refused every time, whatever the ledger held, with a reason that has no answer (rename what?); asked again
+  in the same review it kept the finding without the repair ("no repair was supplied"); every pass the same, then paused.
+  Now (auditor.js forgetLosesNothing, nothingWrittenOn, forgottenMentions; apply.js people.forget): a forget of a name the
+  ledger holds nothing of is already so (the door answers same:true, CLOSED_ALREADY knows it), and one of an EMPTY page
+  (nothing written, no seat, standing, knowledge, lock, body, thread, hand, not on his sheet or in the scene) lands, journaled;
+  either way the name's undecided source mentions are decided as people of their own source only, for the review's cause,
+  unless the same answer decides them itself. A historical finding answered by its id with a change the ledger already holds
+  closes (judgeAudit `already`, findingSettled). A forget of a page with anything written on it is still refused with the same
+  reason. Vocabulary says a source mention is not a People record. LEDGER_REPAIR_POLICY 14: his paused audit resumes once.
+  Laws M763-1 (his case: one answer, nothing owed), M763-2 (his saved findings close on the resumed review), M763-3 (an empty
+  page goes; a written one stays).
+- Version m762-001, 23 October 2026: the continuous audit's reading may look before it alleges (M762). His: "why would
   an audit keep mistaken and mistaken and mistaken while the housekeeper could find on its own audit perfectly … The
   continuous Audit is kinda supposed like housekeeper audit". The two were not given the same tools: the housekeeper's
   fidelity audit fetches the pages it does not hold whole; the continuous audit's stretch reading was a plain call

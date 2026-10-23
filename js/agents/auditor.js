@@ -90,7 +90,7 @@ const VOCABULARY = [
   'people.set {"type":"people.set","name":"NAME","field":"core|state|arc","text":"…"} — player core may record explicit original writer biography; never invent player nature or arc',
   'people.note {"type":"people.note","name":"NAME","field":"unthread","text":"the loose end as it stands"} \u2014 closes ONE finished loose end (field "thread" opens one); matched by sense, so word it close to how it reads',
   'Evidence-backed repairs: people.note field core|arc|thread, people.set field state|arc, and mode.snapshot flags are allowed with "shown": an exact source quote. Text must be supported by that quote. A state repair uses that person\'s latest own account on the newest scene; a mood repair uses the newest scene ending. Correct what the source established, never invent a new simulation.',
-  'people.forget {"type":"people.forget","name":"NAME","cause":"…"} — ONLY for a person who was never the story\'s (a name no page, no brief and no cast note ever held); erases their page, seat, standing, knowledge and locks for good',
+  'people.forget {"type":"people.forget","name":"NAME","cause":"…"} — ONLY for a person who was never the story\'s (a name no page, no brief and no cast note ever held), or an EMPTY People page (nothing written on it: no nature, now, arc, loose end, alias, seat, standing, knowledge, lock, body or hand of the writer) left by a one-time speaker; erases it for good. A page with anything written on it is kept: correct its identity with a rename. A source mention ("NAME is listed as an individual by the source reading in …") is not a People record: decide it with identities. Forgetting a name the ledger holds nothing of decides its undecided source mentions as people of their own source only, for the cause you give',
 ].join('\n');
 
 function law({ mc }) {
@@ -1741,6 +1741,9 @@ export function findingSettled(issue, result, withdrawals, documents, verificati
   // when it uses another operation than the refused proposal saved with it. Source findings keep their own rules.
   if (!issue.pages && !issue.profileRecovery && (result.issues || []).some(i => auditFindingId(i) === auditFindingId(issue)
     && i.mutations?.length && i.landed > 0 && !i.refused?.length)) return true;
+  /* M763: …or when every change of that repair the ledger already holds (judgeAudit's `already`): his clerk's finding, saved
+   * with no repair at all, answered by a forget of a name nothing is written of, was otherwise owed for good */
+  if (!issue.pages && !issue.profileRecovery && (result.already || []).some(i => auditFindingId(i) === auditFindingId(issue))) return true;
   /* M700: completed checks of a finding's actual entries close it — the entries it names as its targets (M702: an obsolete
    * proposal against a merged record is reconciled on the canonical one), or, for an allegation with no operation, the
    * records its words name. A finding that only proposes an operation is answered by that operation: it closes when the
@@ -1800,6 +1803,7 @@ const CLOSED_ALREADY = {
   'body.heal': /^the ledger knows no such hurt on .* still needing to heal$/,
   'presence.leave': /^no one here answers to /,
   'thing.clear': /^the ledger holds no thing called /,
+  'people.forget': /^nothing is written of /, /* M763 */
 };
 function mutationSatisfied(state, m) {
   if (m.type==='source.resolve') {
@@ -1926,7 +1930,8 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
     const hasLinks = (name) => isHere(fresh, name) || Object.keys(fresh.knowledge || {}).some((n) => samePersonName(n, name))
       || Object.keys(fresh.relationships || {}).some((n) => samePersonName(n, name))
       || (fresh.threads || []).some((t) => samePersonName(t.owner || '', name));
-    if (m.type === 'people.forget' && (nameOnPage(identitySource, m.name) || hasLinks(m.name))) {
+    /* M763: a forget that loses nothing (an empty page, or nothing written of the name) keeps no records apart */
+    if (m.type === 'people.forget' && !forgetLosesNothing(fresh, m.name) && (nameOnPage(identitySource, m.name) || hasLinks(m.name))) {
       identityRefused.push({ mutation: m, why: 'the story establishes this person; correct their name with a rename so their records stay together' });
       continue;
     }
@@ -2002,6 +2007,7 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
   const whyOf = new Map();
   for (const r of rejected) if (r && r.mutation) whyOf.set(r.mutation, r);
   const issues = [];
+  const already = []; /* M763: findings whose every change the ledger already holds — an answer to a historical one by its id */
   let leftStandings = 0;
   const reportIssues = read.issues.map((i) => ({ ...i, mutations: [...i.mutations] }));
   for (const r of scopeRejected) {
@@ -2013,7 +2019,7 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
     const landed = i.mutations.filter((m) => landedSet.has(m)).length;
     const missed = i.mutations.filter((m) => !landedSet.has(m));
     const alreadySo = (m) => Boolean(whyOf.get(m) && whyOf.get(m).same);
-    if (!landed && missed.length && missed.every(alreadySo) && !(i.pages && i.fix)) continue;
+    if (!landed && missed.length && missed.every(alreadySo) && !(i.pages && i.fix)) { already.push(i); continue; }
     /* M277: a finding whose every change was a standing move the auditor may not make is not reported */
     if (!landed && missed.length && missed.every((m) => standingRefused.has(m) || alreadySo(m)) && !(i.pages && i.fix)) { leftStandings += 1; continue; }
     const refused = [...new Set(missed.filter((m) => !alreadySo(m) && !standingRefused.has(m)).map((m) => (whyOf.get(m) && whyOf.get(m).why) || 'it did not hold'))].slice(0, 3); /* M752: one reason once */
@@ -2021,7 +2027,7 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
   }
   const report = { at: Date.now(), turn: storyTurn(next), leftStandings, issues: issues.map((i) => ({ what: i.what, fix: i.fix, pages: i.pages === true, fixable: i.mutations.length > 0 || (i.pages === true && Boolean(i.fix)), landed: i.landed, refused: i.refused })) };
   const out = { ...next, audit: { ...fresh.audit, ...report }, ...(newestAt !== -1 ? { page: fresh.page } : {}) }; /* M680: its writes carry the newest page; the ledger's own stamp is not the auditor's to move */
-  return { out, applied, rejected, issues, note: 'ok', leftStandings, reportAt: report.at };
+  return { out, applied, rejected, issues, already, note: 'ok', leftStandings, reportAt: report.at };
 }
 
 /* M261: THE LEDGER'S UPKEEP DOES NOT WAIT FOR THE AUDITOR. Retiring those who
@@ -2356,29 +2362,76 @@ export function auditorRepairScope(issues, state, { sources = '', sceneSource = 
   }) }));
 }
 
+/* M763 — HIS: "Why it's still yellow for auditor wtf … Convenience Store Clerk is listed as an individual by the source
+ * reading in World voice after page 14; confirm its identity …; The ledger lists 'Convenience Store Clerk' as a People record,
+ * but the source text identifies them as a temporary speaker by role … : preserve established records; correct identity with
+ * a rename; … : no repair was supplied". The clerk had no People page at all — the world named the voice's speaker a person
+ * of that voice only (M759) — and the final review, asked to decide the mention, answered with people.forget, which its
+ * vocabulary offers and its own scope refused every time, whatever the ledger held, with a reason (rename what?) that has no
+ * answer. Asked again, it kept the finding and dropped the repair ("no repair was supplied"); every pass the same, until the
+ * automatic audit paused. A forget loses nothing when nothing of the name is written in the ledger (the door's own answer,
+ * on a copy: already so) or when the page is EMPTY — nothing ever written on it, no seat, standing, knowledge, lock, body,
+ * thread, the writer's hand, no place on his sheet or in the scene. Such a forget is the review's to make (journaled; undo
+ * brings it back); a page with anything written on it is kept, as before. */
+export function nothingWrittenOn(state, name) {
+  const key = findPersonKey(state?.characters || {}, name);
+  if (!key || isMc(state, key)) return '';
+  const page = state.characters[key] || {};
+  const said = (v) => Array.isArray(v) ? v.length > 0 : Boolean(String(v ?? '').trim());
+  if (['core', 'state', 'arc', 'threads', 'aliases', 'canon'].some((f) => said(page[f])) || Object.keys(page.hand || {}).length || page.coreOrigin) return '';
+  const same = (n) => String(n || '').trim().toLowerCase() === key.toLowerCase();
+  const rel = Object.entries(state.relationships || {}).find(([n]) => same(n));
+  if (rel && (rel[1]?.p || rel[1]?.r || rel[1]?.s || rel[1]?.hand || (Array.isArray(rel[1]?.history) && rel[1].history.length))) return '';
+  if (['offscreen', 'knowledge', 'bodies', 'canon'].some((book) => Object.keys(state[book] || {}).some(same)) || Object.keys(state.sheet?.actors || {}).some(same)) return '';
+  if ((state.present || []).some((p) => p && same(p.name)) || (state.threads || []).some((t) => t && same(t.owner))) return '';
+  return key;
+}
+export function forgetLosesNothing(state, name) {
+  if (nothingWrittenOn(state, name)) return true;
+  const tried = applyMutations(state, [{ type: 'people.forget', name }]);
+  return !tried.applied.length && tried.rejected.some((r) => r.same);
+}
+/* …and the review that lets the name go has said who its undecided source mentions are: no one the story goes on with. Each
+ * is kept as a person of its own source only (source.resolve, scope local — no page, name or feeling touched), for the cause
+ * it gave; a mention the same answer decides itself (its identities) is its own decision, never overruled. */
+function forgottenMentions(state, m, why, decided) {
+  const after = applyMutations(state, [{ type: 'people.forget', name: m.name }]).state;
+  const wanted = String(m.name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const out = [];
+  for (const [sourceId, receipt] of Object.entries(after.auditSources || {})) for (const p of receipt?.people || []) {
+    if (!p || String(p.name || '').trim().replace(/\s+/g, ' ').toLowerCase() !== wanted || (p.kind && p.kind !== 'person')) continue;
+    const key = JSON.stringify([sourceId, p.name]);
+    if (decided.has(key) || !sourceIdentityNeeded(after, p)) continue;
+    decided.add(key);
+    out.push({ type: 'source.resolve', sourceId, name: p.name, kind: 'person', scope: 'local', cause: why, source: 'auditor', auditorApproved: true });
+  }
+  return out;
+}
 // The final auditor judges chronology, identity and equivalent wording.
 // Keep ownership and supported operations, not another prose interpretation
 // or a mandatory source-id echo after the model has reviewed originals.
 export function finalAuditorScope(issues,state,{writerSources='',pageAt=null,rejected=[]}={}) {
-  return (issues || []).map(issue=>({...issue,mutations:(issue.mutations || []).filter(m=>{
+  const decided=new Set((issues || []).flatMap(i=>(i.mutations || []).filter(m=>m && m.type==='source.resolve').map(m=>JSON.stringify([m.sourceId,m.name])))); /* M763 */
+  return (issues || []).map(issue=>({...issue,mutations:(issue.mutations || []).flatMap(m=>{
     if (m.type === 'people.forget' && ['place','organization','object','group'].includes(m.kind)) m.type='people.reclassify';
     delete m.byHand;
     delete m.writerEstablished;
     delete m.auditorApproved;
     // M689: every relationship judgment is Scene's — judgeAudit's standing door refuses and counts it (M277), never a finding
-    if (/^rel\./.test(m.type)) return true;
+    if (/^rel\./.test(m.type)) return [m];
     let why='';
     if (!AUDITOR_TYPES.has(m.type) && m.type!=='presence.update') why='unsupported ledger operation';
     else if (manualRepairConflict(state,m,pageAt)) why='the writer explicitly controls this field';
-    else if (m.type==='people.forget') why='preserve established records; correct identity with a rename';
+    else if (m.type==='people.forget' && !forgetLosesNothing(state,m.name)) why='preserve established records; correct identity with a rename'; /* M763 */
     else if (m.type==='people.rename' && isMc(state,m.from)) why='the player identity belongs to the writer';
     else if (m.type==='people.reclassify' && isMc(state,m.name)) why='the player identity belongs to the writer';
     else if (isMc(state,m.name) && m.type==='people.set' && m.field==='arc') why='the player arc belongs to the writer';
     else if (isMc(state,m.name) && m.type==='people.set' && m.field==='core' && !writerSources.trim()) why='no original writer biography was supplied';
-    if (why) {rejected.push({mutation:m,issue,why});return false;}
+    if (why) {rejected.push({mutation:m,issue,why});return [];}
     m.source='auditor';m.auditorApproved=true;
     if (isMc(state,m.name) && m.type==='people.set' && m.field==='core') m.writerEstablished=true;
-    return true;
+    if (m.type==='people.forget') return [m,...forgottenMentions(state,m,String(m.cause || '').trim() || String(issue.what || '').trim(),decided)]; /* M763 */
+    return [m];
   })}));
 }
 

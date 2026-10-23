@@ -1516,7 +1516,8 @@ const HANDLERS = {
     const actors = state.sheet && state.sheet.actors && typeof state.sheet.actors === 'object' ? state.sheet.actors : {};
     const actorKey = Object.keys(actors).find(same);
     const owned = Array.isArray(state.threads) ? state.threads.filter((t) => t && typeof t === 'object' && same(t.owner)) : [];
-    if (!pageKey && !seatKey && !relKey && !knowKey && !canonKey && !bodyKey && !actorKey && presentAt === -1) return { why: 'nothing is written of ' + name };
+    /* M763: already so — nothing of them is left to forget (a review's forget of a name the ledger never held is not a refusal) */
+    if (!pageKey && !seatKey && !relKey && !knowKey && !canonKey && !bodyKey && !actorKey && presentAt === -1) return { why: 'nothing is written of ' + name, same: true };
     const before = {
       threads: owned.length ? JSON.parse(JSON.stringify(state.threads)) : null,
       actor: actorKey ? { key: actorKey, value: JSON.parse(JSON.stringify(actors[actorKey])) } : null,

@@ -22126,3 +22126,34 @@ is untouched (askWithFetch throws the same transport errors callWorker does).
 Law M762-1 (the Edie Dale shape: the reading fetches page 3, answers no issue, the line stands read with no correction left)
 fails on m761-001 ("its answer could not be read": it could not look).
 Measured on m762-001: the whole law suite 1735 of 1735; the whole DOM walk 327 of 327; lint 0 errors. Not measured: how often his own model now looks instead of alleging (no provider calls); a doubt the fetched pages still leave open goes to recovery as before.
+
+## M763 (m763-001): a forget that loses nothing is the final review's to make
+
+The owner, 23 October 2026, 12:17 Jakarta: "Why it's still yellow for auditor wtf the auditor ran just now has unresolved
+findings; repeated attempts are paused until the story or ledger changes — still checking: Convenience Store Clerk is listed
+as an individual by the source reading in World voice after page 14; confirm its identity or correct its entity
+classification: identity or entity classification still needs a working repair; The ledger lists 'Convenience Store Clerk'
+as a People record, but the source text identifies them as a temporary speaker by role at a location with no continuing
+identity or biography: preserve established records; correct identity with a rename; … : no repair was supplied."
+Cause (reproduced with his words, line for line): the clerk had no People page — the world kept the speaker a voice of that
+page (M759), so the voice's mention was owed a decision. The final review answered it with people.forget, which its
+vocabulary offers and finalAuditorScope refused every time, whatever the ledger held, with "preserve established records;
+correct identity with a rename" — there was no record and nothing to rename. Asked again in the same review it kept the
+finding and dropped the repair; saved, that finding ("no repair was supplied") could only close by a withdrawal. Two passes
+the same, then the automatic audit paused. The same dead end stood for an EMPTY page the house opens for a voice or a seat
+the review judges a one-time speaker's.
+Now: forgetLosesNothing — a forget of a name the ledger holds nothing of is already so (apply.js people.forget answers
+same:true; CLOSED_ALREADY knows it, so the saved copy carrying the forget closes), and one of an empty page (nothingWrittenOn:
+no nature, now, arc, loose end, alias, canon lines, hand, seat, standing, knowledge, lock, body, thread, not on his sheet or in
+the scene) lands, journaled; the judgeAudit gate takes the same test. Either way the name's undecided source mentions are kept
+as people of their own source only, for the review's cause (forgottenMentions, source.resolve scope local), never over a
+decision the same answer made. A historical finding answered by its id with changes the ledger already holds closes
+(judgeAudit `already`, findingSettled). A forget of a page with anything written on it is refused as before. The vocabulary
+says a source mention is not a People record. LEDGER_REPAIR_POLICY 14: his paused audit resumes once.
+Laws M763-1 (his case: one answer, the voice decided with the review's cause, nothing owed; m762-001: his first two lines,
+asked twice), M763-2 (his saved findings: the resumed review answers the bare finding by its id with the forget and decides
+the voice — nothing owed; m762-001: his third line stood), M763-3 (an empty page goes, a written one stays with the reason;
+m762-001: refused). All three fail on m762-001.
+Measured on m763-001: the whole law suite 1738 of 1738; the whole DOM walk 327 of 327; lint 0 errors (247 warnings, as
+before). Not seen: his tale's own saved audit — the laws rebuild it from his words. A review that ignores the saved finding
+altogether (neither repairs nor withdraws it) still leaves it owed, by the M700 contract.
