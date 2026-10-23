@@ -22157,3 +22157,25 @@ m762-001: refused). All three fail on m762-001.
 Measured on m763-001: the whole law suite 1738 of 1738; the whole DOM walk 327 of 327; lint 0 errors (247 warnings, as
 before). Not seen: his tale's own saved audit — the laws rebuild it from his words. A review that ignores the saved finding
 altogether (neither repairs nor withdraws it) still leaves it owed, by the M700 contract.
+
+## M764 (m764-001): someone the page only talks about is asked where they are
+
+The owner, 23 October 2026, 16:26 Jakarta, with his two pages: "* Jovan Wessex — standing by the sedans, phone to his ear …
+* Vanessa Langley — camel coat * Deputy Vance — at the gate, holding the log sheet for signatures, county uniform — why
+Vanessa still on the scene and not elsewhere??? AND JUST camel coat wtf is camel coat … latest scene no Vanessa".
+Cause (reproduced with his latest page through the real page reader and header — the same three lines): Vanessa walked to her
+car on the page before; on the latest the telling never shows her — Vance: "Langley's car's still behind the holly", and her
+sedan swings for the gate. placesBlock hands the reader, by name, only the present people the TELLING shows, so it was never
+asked where she is; its law keeps whoever the page does not show ("quiet, not gone"); and the header's part-of move ("the
+drive" → "the drive by the gate") with a named room keeps the quiet (M758). She stayed "here"; the move let her place go, and
+what was left was the coat an earlier page gave her (these two pages never mention it).
+Now: a present person the page names anywhere (speech too: nameOnPage, the M402 rule for who may be taken out) but never
+shows in the telling is listed for the reader too, marked "the page only TALKS about them", with what to decide (still with
+him only where nothing on the page puts them elsewhere; else a leave, "to" where the page puts them). Someone the page never
+names is still quiet and not asked (M755-003/M758's raven).
+Law M764-1 (his page; a reader that answers for whoever it is asked about): she is seated where the page puts her, Marcus Hale
+(never named) is not asked and stays, Vance stands where the page ends him; on m763-001: "Jovan Wessex, Vanessa Langley (no
+place), Marcus Hale (no place), Deputy Vance".
+Measured on m764-001: the whole law suite 1739 of 1739; the whole DOM walk 327 of 327; lint 0 errors (247 warnings). Not seen:
+his own reader's answer — whether his model, now asked, says she left (the law scripts a reader that does as it is told); his
+earlier page that gave her the camel coat.

@@ -7,7 +7,16 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m763-001 on main, 23 October 2026: a forget that loses nothing is the final review's to make (M763). His: "Why
+- Version m764-001 on main, 23 October 2026: someone the page only talks about is asked where they are (M764). His: "why
+  Vanessa still on the scene and not elsewhere??? AND JUST camel coat wtf is camel coat … latest scene no Vanessa".
+  Reproduced with his page: she walked to her car on the page before; on the latest the telling never shows her (Vance:
+  "Langley's car's still behind the holly"; her sedan swings for the gate). placesBlock asked the page reader where each
+  person is only for those the telling shows, so it was never asked about her; its law keeps whoever the page does not show
+  ("quiet, not gone"), and on the header's part-of move ("the drive" → "the drive by the gate") a named room keeps the quiet
+  (M758) — she stayed, and the move let her place go: "Vanessa Langley — camel coat" (the coat an earlier page gave her).
+  Now a present person the page names anywhere (speech too) but never shows is listed for the reader, marked "the page only
+  TALKS about them", with what to decide; one the page never names is still quiet and not asked. Law M764-1.
+- Version m763-001, 23 October 2026: a forget that loses nothing is the final review's to make (M763). His: "Why
   it's still yellow for auditor wtf … Convenience Store Clerk is listed as an individual by the source reading in World voice
   after page 14; confirm its identity …; The ledger lists 'Convenience Store Clerk' as a People record, but the source text
   identifies them as a temporary speaker by role … : preserve established records; correct identity with a rename; … : no

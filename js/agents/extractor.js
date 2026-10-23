@@ -446,14 +446,25 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
  * handed to the reader by name, each with the ledger's words, and it answers for each in "here". Its words are written where they are the page's own and say
  * something the ledger does not (engine/apply.js restatedPresence); the ledger's own words back are no change. */
 export function placesBlock(state, pageText = '') {
-  const told = narrationOf(scenePartOf(String(pageText || '').replace(/^\s*\[[^\n]*\][ \t]*/, '')));
+  const page = scenePartOf(String(pageText || '').replace(/^\s*\[[^\n]*\][ \t]*/, ''));
+  const told = narrationOf(page);
   const rows = [];
+  let talkedOf = 0;
   for (const p of Array.isArray(state && state.present) ? state.present : []) {
     if (!p || typeof p.name !== 'string' || !p.name.trim()) continue;
-    if (!isMc(state, p.name) && !shownOnPage(state, told, p.name)) continue;
+    /* M764 — HIS: "why Vanessa still on the scene and not elsewhere??? AND JUST camel coat". She walked to her car on one page;
+     * on the next the telling never shows her — Vance says "Langley's car's still behind the holly", her sedan swings for the
+     * gate — so she was not in this list, the reader was never asked where she is, its law keeps whoever the page does not
+     * show ("quiet, not gone"), and the house kept her (a named room on a part-of move keeps the quiet, M758). The header's
+     * new ground let her place go, and she stood "here" in the camel coat an earlier page gave her. One the page only TALKS
+     * about is asked too, marked so; one it never names at all is still quiet and not asked. */
+    const shown = isMc(state, p.name) || shownOnPage(state, told, p.name);
+    const talked = !shown && nameOnPage(page, p.name);
+    if (!shown && !talked) continue;
+    if (talked) talkedOf += 1;
     const at = typeof p.position === 'string' && p.position.trim() ? p.position.trim() : '';
     const wears = typeof p.attire === 'string' && p.attire.trim() ? p.attire.trim() : '';
-    rows.push(p.name + ' \u2014 the ledger has: ' + (at || 'no place written') + (wears ? '; wearing ' + wears : ''));
+    rows.push(p.name + ' \u2014 the ledger has: ' + (at || 'no place written') + (wears ? '; wearing ' + wears : '') + (talked ? ' \u2014 the page only TALKS about them' : ''));
   }
   if (!rows.length) return [];
   /* M679 — HIS AUDIT: "the ledger seats the cobbler, the fruit-seller, the young priest, the pie-seller and the raven as
@@ -472,6 +483,10 @@ export function placesBlock(state, pageText = '') {
     'NO LONGER WITH HIM — they went, or he walked off and left them where they were: NOT in "here", but a presence.leave',
     'for them, with "to" (where they are now, said so it stands on its own) and "shown" (the page’s own words for the',
     'going — theirs, or his).',
+    /* M764: the talked-about, decided from what the page says of them */
+    ...(talkedOf ? ['Someone marked "the page only TALKS about them" is not shown in the telling: still with him only where nothing on the page',
+      'puts them anywhere else (give the ledger’s words back). Where what is said or told puts them elsewhere — at their car, in another room,',
+      'on the road — they are no longer with him: a presence.leave, "to" where the page puts them, "shown" the telling’s own words for their going or his.'] : []),
     ...rows.map((r, i) => (i + 1) + '. ' + r),
     '',
   ];
