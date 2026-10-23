@@ -7,7 +7,19 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m764-001 on main, 23 October 2026: someone the page only talks about is asked where they are (M764). His: "why
+- Version m765-001 on main, 23 October 2026: talked about is never walked in; the manor's cellar is not its drive (M765).
+  His (the same page, Claire's line edited to "I'm inside with Pruitt … finishing the cellar sweep"): "why the fuck the scene
+  have pruit??? … Deputy Pruitt — in the cellar, finishing the sweep with Claire Ashford". Two faults, each reproduced: the
+  page reader's walk-in was held to the page's telling only for someone the world had seated elsewhere (M541) — anyone
+  without a seat walked in on a line in someone's mouth, with the position that line gave (extractor.js: the M541 test now
+  holds too the walk-in of anyone this page names only in someone's mouth; one the page does not name at all is the
+  reader's reading, as before, M684-22); and seatAtScene read "the drive" as a street address, so on "Blackwood Manor, the drive" the scene was
+  the whole manor and a seat in "the cellar of Blackwood Manor" walked into it (apply.js: an address names its street — a
+  number, or a street word after a name; "the drive" alone is a spot). Claire's entry follows the page's own last line
+  ("Claire's wheels crunching slow gravel toward the gap in the work-lights"), which his edit left contradicting her words —
+  the narration is what the ledger reads, by design. Laws M764-2/3. Open: DOM-47 fails when run alone with ONLY (on m764-001
+  too); it passes in the whole walk.
+- Version m764-001, 23 October 2026: someone the page only talks about is asked where they are (M764). His: "why
   Vanessa still on the scene and not elsewhere??? AND JUST camel coat wtf is camel coat … latest scene no Vanessa".
   Reproduced with his page: she walked to her car on the page before; on the latest the telling never shows her (Vance:
   "Langley's car's still behind the holly"; her sedan swings for the gate). placesBlock asked the page reader where each

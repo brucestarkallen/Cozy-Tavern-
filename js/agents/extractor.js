@@ -1134,15 +1134,23 @@ export async function extractTurn(args = {}) {
      * wrote her back "here" (she stood in Who's here in a blouse with nowhere to stand, the world's seat let go). The page
      * reader's walk-in of someone seated elsewhere stands only when the newest page's own telling shows them and does not
      * show them going at its end — the test the auditor's walk-ins are held to (M535). */
-    if (args.state && args.state.offscreen && typeof args.state.offscreen === 'object') {
+    /* M764 — HIS: "why the fuck the scene have pruit??? … Deputy Pruitt — in the cellar, finishing the sweep with Claire
+     * Ashford". Claire, on the phone: "I'm inside with Pruitt … We're finishing the cellar sweep" — and Pruitt stood in the
+     * scene at the gate. The test above held only someone the world had SEATED elsewhere; a walk-in of anyone without a seat
+     * stood on whatever the reader said, a line in someone's mouth too. Now the walk-in of someone this page TALKS about —
+     * named on it only in someone's mouth — is held to the same test, seat or no seat: talked about is not here (M644:
+     * "Aunt Vera will be down soon" walks nobody in). One the page does not name at all ("she sits beside him", the name
+     * from the pages before) is the reader's reading, as before (M684-22). */
+    if (args.state) {
       const told = narrationOf(scenePartOf(args.userText)) + '\n' + narrationOf(scenePartOf(args.assistantText));
+      const spoken = scenePartOf(args.userText) + '\n' + scenePartOf(args.assistantText);
       read.mutations = read.mutations.filter((m) => {
         if (!m || m.type !== 'presence.enter' || typeof m.name !== 'string') return true;
         if (isHere(args.state, m.name) || isMc(args.state, m.name)) return true;
         const held = seatForPerson(args.state, m.name);
         if (held && isDeadSeat(held.entry)) return false;
-        const seated = Object.keys(args.state.offscreen).some((k) => samePersonName(k, m.name));
-        if (!seated) return true;
+        const seated = Object.keys(args.state.offscreen || {}).some((k) => samePersonName(k, m.name));
+        if (!seated && !(nameOnPage(spoken, m.name) && !shownOnPage(args.state, told, m.name))) return true;
         /* M644: THE TELLING OFTEN DOES NOT USE THE NAME. "The back door opened and his aunt came in", "Auntie", a name only in
          * someone's mouth while the telling says "she came in" — the walk-in of someone the world had seated elsewhere
          * was thrown away on each, and she stood "upstairs, asleep" on the ledger while she shook the rain off in the

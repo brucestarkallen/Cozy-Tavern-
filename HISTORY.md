@@ -22179,3 +22179,28 @@ place), Marcus Hale (no place), Deputy Vance".
 Measured on m764-001: the whole law suite 1739 of 1739; the whole DOM walk 327 of 327; lint 0 errors (247 warnings). Not seen:
 his own reader's answer — whether his model, now asked, says she left (the law scripts a reader that does as it is told); his
 earlier page that gave her the camel coat.
+
+## M765 (m765-001): talked about is never walked in; the manor's cellar is not its drive
+
+The owner, 23 October 2026, 16:57 Jakarta, the same page with Claire's line edited ("I'm inside with Pruitt, thank you.
+We're finishing the cellar sweep, and I'll head out once the log is countersigned."): "Wtf is this tell if I'm wrong Claire
+still in the basement isn't … Why the fuck Claire Ashford — in her rusted hatchback, crunching slow gravel toward the gate …
+and why the fuck the scene have pruit??? … Deputy Pruitt — in the cellar, finishing the sweep with Claire Ashford".
+Claire: by her own words she is in the cellar, but the page's last sentence still says "Claire's wheels crunching slow gravel
+toward the gap in the work-lights" — the edit left the page contradicting itself, and the ledger reads the narration, not
+what someone says (M644). Her "rusted hatchback" is not in this version of the page; it is not traced here.
+Pruitt, two faults, each reproduced through the real code:
+- extractor.js (the M541 filter): the page reader's walk-in was held to the page's telling only for someone the world had
+  seated elsewhere. Anyone without a seat walked in on a line in someone's mouth, with the position that line gave — his
+  exact entry. Now the walk-in of anyone the page names only in someone's mouth is held to the same test, seat or no seat. A
+  walk-in of someone the page does not name at all (a pronoun, the name from the pages before) is the reader's reading as
+  before: the first cut held every walk-in and broke M684-21/22, which it was narrowed to keep.
+- apply.js seatAtScene: "the drive" was read as a street address (a lone street word), so on "Blackwood Manor, the drive"
+  the scene was the whole manor and a seat in "the cellar of Blackwood Manor" walked into the scene. An address names its
+  street (a number, or a street word after a name: "8 Mariner's Lane", "Cooper's Row"); "the drive" alone is a spot.
+Laws M764-2 (his Pruitt, no seat: not walked in; shown walking up the drive, he is) and M764-3 (a cellar seat stays
+elsewhere on the drive; a seat on the drive is the scene; M647/M680's streets unchanged) fail on m764-001.
+Measured on m765-001: the whole law suite 1741 of 1741; the whole DOM walk 327 of 327; lint 0 errors (247 warnings).
+DOM-47 fails when run alone with ONLY on m764-001 and m765-001 alike ("waited too long for the page"); it passes in the whole
+walk. Not seen: which of the two faults wrote his Pruitt (his ledger is not here); the final review's own walk-ins are not
+held in code (M689/M709 by design).

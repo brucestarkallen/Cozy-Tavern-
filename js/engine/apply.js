@@ -2206,7 +2206,10 @@ export function seatAtScene(location, sceneName) {
    * stood in, listed under Elsewhere and not in the room. A part that is an address (a number and a street, or a street
    * by its word) or only an area need not be named; every other part still must. */
   const STREET = /^(?:lane|street|st|road|rd|avenue|ave|boulevard|blvd|drive|way|row|alley|court|square|plaza|quay|pier|highway|route|terrace|crescent|close)$/;
-  const isAddress = (ws) => ws.length > 0 && (/^\d+[a-z]?$/.test(ws[0]) || STREET.test(ws[ws.length - 1])) ;
+  /* M764: an address NAMES its street — "8 Mariner's Lane", "Cooper's Row". A street word alone is a spot of the place it
+   * stands in: "Blackwood Manor, the drive" read "the drive" as an address, so the scene was the whole manor and a seat in
+   * "the cellar of Blackwood Manor" walked into the scene on the drive. */
+  const isAddress = (ws) => ws.length > 0 && (/^\d+[a-z]?$/.test(ws[0]) || (ws.length > 1 && STREET.test(ws[ws.length - 1])));
   const spots = everyPart.filter((ws) => !isAddress(ws) && !(ws.length === 1 && PLACE_REGION.has(ws[0])));
   /* M680 (the people audit): …but only while another part IS a spot. M679 writes the street a page stands on with its
    * area — "Cooper's Row, Ilvarren" — and the street, read as an address, was set aside: all that was left to name was the

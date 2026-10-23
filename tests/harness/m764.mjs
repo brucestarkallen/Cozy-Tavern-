@@ -1,4 +1,4 @@
-/* Cozy Tavern — harness law of M764: someone the page only talks about is asked about. His (23 October 2026, 16:26), with his
+/* Cozy Tavern — harness laws of M764: someone the page only talks about is asked about, and never walked in by it. His (23 October 2026, 16:26), with his
  * two pages: "* Jovan Wessex — standing by the sedans, phone to his ear … * Vanessa Langley — camel coat * Deputy Vance — at the
  * gate, holding the log sheet for signatures, county uniform — why Vanessa still on the scene and not elsewhere??? AND JUST
  * camel coat wtf is camel coat … latest scene no Vanessa". She walked to her car on the page before; on his latest page the
@@ -7,11 +7,15 @@
  * whoever the page does not show ("quiet, not gone"), and the house kept her (a named room on a part-of move keeps the quiet,
  * M758). The header's new ground ("the drive by the gate") let her place go: "Vanessa Langley — camel coat". Runs the real
  * page reader with the provider scripted at the wire — a reader that answers for whoever it is asked about — and the real
- * header; fails on m763-001. */
+ * header; fails on m763-001.
+ * And his next (16:57), the same page with Claire's line edited — "I'm inside with Pruitt, thank you. We're finishing the
+ * cellar sweep" — "why the fuck the scene have pruit??? … Deputy Pruitt — in the cellar, finishing the sweep with Claire
+ * Ashford": a walk-in proved only by someone's words stood for anyone without a seat (M764-2); and a seat anywhere in the
+ * manor was "where the scene is" on "Blackwood Manor, the drive" — "the drive" read as a street address (M764-3). */
 import './idb-shim.mjs';
 import { test, assert, eq } from './lib.mjs';
 import { emptyState, headerMutations } from '../../js/engine/state.js';
-import { applyMutations } from '../../js/engine/apply.js';
+import { applyMutations, seatAtScene } from '../../js/engine/apply.js';
 import { extractTurn } from '../../js/agents/extractor.js';
 
 const CONN = { type: 'openai', baseUrl: 'https://fixture.example/v1', apiKey: 'fixture', model: 'fixture', preset: 'custom', contextSize: 200000, reasoning: { effort: 'off' } };
@@ -75,4 +79,37 @@ test('M764-1 HIS DRIVE BY THE GATE: SHE IS ONLY TALKED ABOUT, AND THE READER IS 
   eq(after.present.find((p) => p.name === 'Deputy Vance').position, 'at the gate, holding the log sheet for signatures', 'Vance where the page ends him');
   assert(asked.some((u) => /\n\d+\. Vanessa Langley — the ledger has: on the drive, turning toward her car; wearing camel coat — the page only TALKS about them/.test(u)), 'the reader was asked where she is');
   assert(!asked.some((u) => /\n\d+\. Marcus Hale — the ledger has/.test(u)), 'never one the page does not name');
+});
+
+const EDITED = LATEST.replace("I'm landed, thank you. Mine's the rusted hatchback by the holly, I've been herding it around this county all week and it knows the way better than I do.", "I'm inside with Pruitt, thank you. We're finishing the cellar sweep, and I'll head out once the log is countersigned.");
+async function readWith(st, page, answer) {
+  const was = globalThis.fetch;
+  globalThis.fetch = async () => stream({ brief: { pressure: [], ripe: [], twb: null }, deltas: [], ...answer });
+  try { return await extractTurn({ connection: CONN, state: st, userText: 'I call Claire.', assistantText: page, pageNumber: 42 }); } finally { globalThis.fetch = was; }
+}
+const ROOM = [{ name: 'Jovan Wessex', ending: { position: 'standing by the sedans, phone to his ear', shown: 'Jovan thumbed Claire\'s number' } },
+  { name: 'Deputy Vance', ending: { position: 'at the gate, holding the log sheet for signatures', shown: 'Vance glanced up from the gate log with a pen out' } }];
+
+test('M764-2 HIS PRUITT: TALKED ABOUT IS NOT HERE, SEAT OR NO SEAT — Claire on the phone: "I\'m inside with Pruitt … finishing the cellar sweep"; the reader walks him in with that line, and he has no seat: he is not put in the scene at the gate (on m764-001 he stood there, "in the cellar, finishing the sweep with Claire Ashford"); a walk-in the telling shows still stands', async () => {
+  assert(EDITED.includes("I'm inside with Pruitt"), 'his edited line');
+  const st = applyMutations(before(), [{ type: 'people.set', name: 'Deputy Pruitt', field: 'core', text: 'County deputy on the Blackwood scene.' }]).state;
+  const enter = { type: 'presence.enter', name: 'Deputy Pruitt', position: 'in the cellar, finishing the sweep with Claire Ashford', shown: "I'm inside with Pruitt" };
+  const read = await readWith(st, EDITED, { mutations: [enter], here: ROOM });
+  const after = applyMutations(st, [...headerMutations(EDITED, { ground: st.place.name, day: '' }), ...read.mutations]).state;
+  assert(!after.present.some((p) => p.name === 'Deputy Pruitt'), 'not in the scene: ' + JSON.stringify(after.present.map((p) => [p.name, p.position])));
+  /* …and when the telling shows him coming up the drive, his walk-in stands */
+  const comes = EDITED.replace('The pencil waited,', 'Deputy Pruitt came up the drive from the cellar door, dusting off his sleeves, and stopped beside Vance. The pencil waited,');
+  const read2 = await readWith(st, comes, { mutations: [{ type: 'presence.enter', name: 'Deputy Pruitt', position: 'beside Vance at the gate', shown: 'Deputy Pruitt came up the drive from the cellar door' }], here: [...ROOM, { name: 'Deputy Pruitt', ending: { position: 'beside Vance at the gate', shown: 'stopped beside Vance' } }] });
+  const after2 = applyMutations(st, [...headerMutations(comes, { ground: st.place.name, day: '' }), ...read2.mutations]).state;
+  assert(after2.present.some((p) => p.name === 'Deputy Pruitt'), 'shown walking up, he is here: ' + JSON.stringify(read2.mutations.map((m) => m.type + ':' + m.name)));
+});
+
+test('M764-3 A SEAT IN THE MANOR\'S CELLAR IS NOT THE DRIVE: with the scene on "Blackwood Manor, the drive", the world\'s seat for Pruitt in "the cellar of Blackwood Manor" keeps him elsewhere (on m764-001 "the drive" was read as a street address, the scene was the whole manor, and the seat walked him into the scene); a seat on the drive is still the scene, and a street address is still only an address', () => {
+  const st = before();
+  const seated = applyMutations(st, [{ type: 'offscreen.set', name: 'Deputy Pruitt', location: 'the cellar of Blackwood Manor', activity: 'finishing the sweep with Claire Ashford' }]).state;
+  assert(!seated.present.some((p) => p.name === 'Deputy Pruitt'), 'not in the scene on the drive: ' + seated.present.map((p) => p.name).join(', '));
+  eq(seated.offscreen['Deputy Pruitt']?.location, 'the cellar of Blackwood Manor', 'seated in the cellar');
+  const onDrive = applyMutations(st, [{ type: 'offscreen.set', name: 'Deputy Pruitt', location: 'the drive of Blackwood Manor', activity: 'walking up to the gate' }]).state;
+  assert(onDrive.present.some((p) => p.name === 'Deputy Pruitt'), 'a seat on the drive is where the scene is');
+  assert(seatAtScene('Wells house kitchen', "Wells house kitchen, 8 Mariner's Lane") && seatAtScene("on Cooper's Row", "Cooper's Row, Ilvarren"), 'a named street is still an address (M647, M680)');
 });
