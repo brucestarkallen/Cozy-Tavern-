@@ -22102,3 +22102,27 @@ Laws M761-1 (his answer: parsed, seven people, Grady's activity whole; through w
 M761-2 (unusable and cut short are unfinished; the light says "stopped partway" and routes the world's recovery) — both fail
 on m760-001. A guard that a parsing answer reads unchanged was written and dropped: it passes without the change too.
 Measured on m761-001: the whole law suite 1734 of 1734; the whole DOM walk 327 of 327; lint 0 errors. Not seen: the rest of his answer past the drawer's 2,000 characters (it may hold another fault; the one in the part he pasted is the one fixed).
+
+## M762 (m762-001): the continuous audit's reading may look before it alleges
+
+The owner, 23 October 2026, 07:59 Jakarta: "the continuous audit ran just now finished reviewing all folded pages. Finished
+reviewing all 42 folded pages. Original evidence supports the record. The mistaken finding was withdrawn. No historical
+corrections remain unresolved. My head thinking there must be something wrong on the system because why would an audit keep
+mistaken and mistaken and mistaken while the housekeeper could find on its own audit perfectly", and at 08:01: "The
+continuous Audit is kinda supposed like housekeeper audit while housekeeper if 400 pages audit can take long due to audit the
+whole thing The continuous Audit already audit from turn 1 until the latest that's why it's fast".
+Cause (his rule 10, a worker's tools before its model): the housekeeper's fidelity audit is told to "fetch the pages you do
+not hold whole" and can; the continuous audit's stretch reading was sent through callWorker — its stretch's pages, the record
+before them, nothing else — and its law said an identity or a title it could not settle there goes "target:unknown so focused
+recovery can fetch earlier originals". Every such doubt was kept as a historical correction (scopeStretch: "The fault needs
+grounded story versus record classification", or a record complaint with no exact fix), the recovery call — the only one
+allowed to fetch — read the earlier page and found the record right ("The mistaken finding was withdrawn"), one extra call
+each, the lamp amber meanwhile. His own corrections of 15 October were of this shape ("whether the postman's wife's 'Edie' is
+Mrs. Dale": page 3 says so).
+Now: auditStretch asks through askWithFetch (STRETCH_LOOKS 2; the second ask after an unusable answer may look once), the
+system carries the shared fetchLaw ("look before you allege"), and the law's two "if uncertain, target:unknown" lines say to
+look first — only what the fetched pages still leave uncertain goes to recovery, which is unchanged. The M675 failure handling
+is untouched (askWithFetch throws the same transport errors callWorker does).
+Law M762-1 (the Edie Dale shape: the reading fetches page 3, answers no issue, the line stands read with no correction left)
+fails on m761-001 ("its answer could not be read": it could not look).
+Measured on m762-001: the whole law suite 1735 of 1735; the whole DOM walk 327 of 327; lint 0 errors. Not measured: how often his own model now looks instead of alleging (no provider calls); a doubt the fetched pages still leave open goes to recovery as before.

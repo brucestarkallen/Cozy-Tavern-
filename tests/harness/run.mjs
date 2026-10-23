@@ -288,6 +288,7 @@ import './m758.mjs'; /* M758: the audit of m755-001…m757-001 — the goings th
 import './m759.mjs'; /* M759: the world agent's voices — who is speaking is in the shape it is given, and his line says what waits on the auditor */
 import './m760.mjs'; /* M760: the auditor's review fits its connection with every owed source fact — compact tasks, fitted to a room of their own */
 import './m761.mjs'; /* M761: a value that lost its closing quote is read; an answer that could not be used is not "went well" */
+import './m762.mjs'; /* M762: the continuous audit's reading may look before it alleges, as the housekeeper does */
 
 console.log('Cozy Tavern — harness');
 await import('./m683.mjs');

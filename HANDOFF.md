@@ -7,7 +7,18 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m761-001 on main, 23 October 2026: a value that lost its closing quote is read; an answer that could not be used is
+- Version m762-001 on main, 23 October 2026: the continuous audit's reading may look before it alleges (M762). His: "why would
+  an audit keep mistaken and mistaken and mistaken while the housekeeper could find on its own audit perfectly … The
+  continuous Audit is kinda supposed like housekeeper audit". The two were not given the same tools: the housekeeper's
+  fidelity audit fetches the pages it does not hold whole; the continuous audit's stretch reading was a plain call
+  (callWorker) with only its stretch's pages and the record before them, and its law sent whatever those could not settle
+  (an identity, a title told on an earlier page) to "focused recovery" as target:unknown — the one reading that may fetch.
+  Every such doubt became a historical correction, a second call fetched the earlier page, found the record right, and the
+  line said "The mistaken finding was withdrawn". Now (continuous.js auditStretch, buildStretchMessages, law): the reading
+  goes through askWithFetch (STRETCH_LOOKS 2) with the shared fetchLaw, is told to look before it alleges, and only what the
+  pages it fetched still leave uncertain goes to recovery. Law M762-1 (his Edie Dale case: page 3 fetched, the line right,
+  no correction left).
+- Version m761-001, 23 October 2026: a value that lost its closing quote is read; an answer that could not be used is
   not "went well" (M761). His: "the world agent ran just now and it went well — its answer could not be used" with its answer
   (his paste is the drawer's 2,000-character cut, status.js RAW_CAP). One value lost its closing quote —
   "activity":"Refreshing the live blog feed: 'Sheriff investigating interior',"agenda":… — so every quote after it read the

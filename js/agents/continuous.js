@@ -43,7 +43,7 @@ import { callWorker } from './call.js';
 import { runningWorkers } from './status.js';
 import { balancedCandidates, parseLenient } from './jsonutil.js';
 import { withFictionFrame } from './voice.js';
-import { roomChars, leashFor, fetchLaw, fetchRefsIn } from './lookup.js';
+import { roomChars, leashFor, fetchLaw, fetchRefsIn, askWithFetch } from './lookup.js';
 import { serveFetch, resolveMessageRef, messageRefResult, compositeMessageRef, locate } from './housekeeper.js';
 import { wholePage } from '../engine/pagecut.js';
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js';
@@ -1121,7 +1121,7 @@ function law({ mc }) {
     'report such a page as a fault, and write no knowledge.add and no "detail" from it. (A background fact the WRITER',
     'states there is the writer\'s own word, as the brief is: a record line that holds it is not wrong for holding it.)',
     '',
-    'Give every issue target: story, record, knowledge, or unknown. For story faults, evidence.page must quote the wrong words in that numbered STORY page and evidence.prior must quote the conflicting brief or earlier record; explain the conflict in evidence.why. Never mend a story merely because its folded record is wrong. For record faults, use record.fixes, never pages:true. If uncertain, target:unknown and explain what needs checking.',
+    'Give every issue target: story, record, knowledge, or unknown. For story faults, evidence.page must quote the wrong words in that numbered STORY page and evidence.prior must quote the conflicting brief or earlier record; explain the conflict in evidence.why. Never mend a story merely because its folded record is wrong. For record faults, use record.fixes, never pages:true. If uncertain, look at the pages that would settle it first; only what they still leave uncertain is target:unknown, with what needs checking.',
     'For a record fix quote the exact wrong span in from, the source wording in to, and the supporting original passage in shown; explain why the record is wrong in why. A short unsupported title can be replaced by its source description. To remove only an unsupported short assertion use operation:remove, to:"", shown and why. Never remove an event, replace the whole line, or append a conflicting detail instead of correcting the wrong claim. Protected memory remains unresolved.',
     'Find only these three kinds of fault. Anything else is not yours.',
     '',
@@ -1134,7 +1134,7 @@ function law({ mc }) {
     '   "fix" that says in one plain sentence what the page should read instead. The house mends the page by the',
     '   smallest edit; you never rewrite a page.',
     '',
-    'An identity or title may have been established before this section. Absence from these local pages alone is not proof that the record invented it. If earlier context cannot settle the identity, report target:unknown so focused recovery can fetch earlier originals.',
+    'An identity or title may have been established before this section. Absence from these local pages alone is not proof that the record invented it. LOOK FIRST: fetch the earlier page that would establish it (by its number, or find: its words) and read it before you report anything. Report target:unknown only when what you fetched still cannot settle it.',
     '',
     '2. THE RECORD LINE AGAINST THE PAGES. (a) A fact the line states that these pages do not -- a wrong name, number,',
     '   place, or who did what: give "fixes", each the line\'s OWN wrong words exactly as they stand in the line (enough',
@@ -1217,11 +1217,20 @@ export function ledgerForPages(state, text, room = 12000, turn = null) {
 export { lineIsHis };
 
 /* The request for one stretch. Shrinks the stretch (never below one page) until it fits the reader's room. */
+/* M762 — HIS: "why would an audit keep mistaken and mistaken and mistaken while the housekeeper could find on its own audit
+ * perfectly". The reading that RAISES a historical correction could not look: it was sent through callWorker with the
+ * stretch's own pages and the record before them, and told that what it could not settle from those ("Edie" on these
+ * pages, "Edie Dale — Mrs. Dale" on page 3) goes to "focused recovery" — the one reading that may fetch. So every doubt
+ * about something established earlier became an allegation, a second call fetched the page that settles it, and the
+ * workers' line said "The mistaken finding was withdrawn", page after page. The housekeeper looks at any page it needs,
+ * which is why it does not make them. This reading may look now (askWithFetch, STRETCH_LOOKS), is told to look before it
+ * alleges, and only what the pages it fetched still leave uncertain goes to recovery. */
+export const STRETCH_LOOKS = 2;
 export function buildStretchMessages({ state, brief = '', castNotes = '', mem, pages, stretch, room = Infinity } = {}) {
   const list = Array.isArray(pages) ? pages : [];
   const known = mcName(state);
   const mc = known && known !== 'the player' ? known : '';
-  const system = withFictionFrame(law({ mc }));
+  const system = withFictionFrame(law({ mc }) + '\n\n' + fetchLaw({ rounds: STRETCH_LOOKS, when: 'Look before you allege: a name, a title, an identity, a promise or an event these pages or the record line take as already known was told on an earlier page — fetch that page (its number, or find: its words) and read it before you report the record line or a page wrong for it. A record line reached by looking is right if the page you fetched says it.' }));
   const budget = Number.isFinite(room) && room > 0 ? room : 400000;
   const line = stretch.line;
   const lineEmpty = line.empty === true || !String(line.text || '').trim();
@@ -1537,7 +1546,10 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
     if (typeof renew === 'function') renew(leashFor(prompt.system.length + user.length));
     let text = '';
     try {
-      ({ text } = await callWorker(connection, { system: prompt.system, user, maxTokens: MAX_TOKENS, signal }));
+      /* M762: and it may look, as every other reader may (askWithFetch) — before it alleges anything */
+      ({ text } = await askWithFetch(connection, { system: prompt.system, user, maxTokens: MAX_TOKENS, signal, renew, leash: leashFor,
+        room, rounds: attempt === 0 ? STRETCH_LOOKS : 1, isAnswer: (t) => parseStretchAnswer(t).note === 'ok',
+        source: { storyId, story: { brief: writer.brief, castNotes: writer.castNotes } } }));
     } catch (err) {
       if (halted() || isStale()) throw err; /* his Stop, a step aside, or the tale moved on: not the wire's doing */
       /* M675: the wire would not answer for these pages (see `troubled`) */
