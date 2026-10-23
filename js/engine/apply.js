@@ -2209,16 +2209,19 @@ export function seatAtScene(location, sceneName) {
   /* M764: an address NAMES its street — "8 Mariner's Lane", "Cooper's Row". A street word alone is a spot of the place it
    * stands in: "Blackwood Manor, the drive" read "the drive" as an address, so the scene was the whole manor and a seat in
    * "the cellar of Blackwood Manor" walked into the scene on the drive. */
-  const isAddress = (ws) => ws.length > 0 && (/^\d+[a-z]?$/.test(ws[0]) || (ws.length > 1 && STREET.test(ws[ws.length - 1])));
-  const spots = everyPart.filter((ws) => !isAddress(ws) && !(ws.length === 1 && PLACE_REGION.has(ws[0])));
+  /* …and the name is a NAME, written with its capital: "the front drive", "the gravel drive", "the inner court" are spots of
+   * the place too (the final audit of M765), where "Main Street" and "Baker Street" are streets */
+  const pieces = scene.split(/\s*(?:—|–|,|;|\(|\)|\s-\s)\s*/).filter((r) => placeWordsOf(r).length); /* as written, one for each part */
+  const nameWritten = (i) => /^\p{Lu}/u.test(String(pieces[i] || '').replace(/^\s*(?:the|a|an)\s+/i, ''));
+  const isAddress = (ws, i) => ws.length > 0 && (/^\d+[a-z]?$/.test(ws[0]) || (ws.length > 1 && STREET.test(ws[ws.length - 1]) && nameWritten(i)));
+  const spots = everyPart.filter((ws, i) => !isAddress(ws, i) && !(ws.length === 1 && PLACE_REGION.has(ws[0])));
   /* M680 (the people audit): …but only while another part IS a spot. M679 writes the street a page stands on with its
    * area — "Cooper's Row, Ilvarren" — and the street, read as an address, was set aside: all that was left to name was the
    * city, so every seat in Ilvarren was "at the scene" (Old Hesk at his own tavern walked into Cooper's Row; a now on
    * Gilder's Row was never stale at the Bent Kettle). When no part besides the address is a spot by M396's measure (two
    * words or more as written, not a town or a city), the street IS the spot, and it is the street a seat must name. */
-  const pieces = scene.split(/\s*(?:—|–|,|;|\(|\)|\s-\s)\s*/).filter((r) => placeWordsOf(r).length); /* as written, one for each part */
-  const realSpot = everyPart.some((ws, i) => !isAddress(ws) && !noOneSpot(pieces[i] || ws.join(' ')));
-  const streets = everyPart.filter((ws) => isAddress(ws));
+  const realSpot = everyPart.some((ws, i) => !isAddress(ws, i) && !noOneSpot(pieces[i] || ws.join(' ')));
+  const streets = everyPart.filter((ws, i) => isAddress(ws, i));
   const parts = !realSpot && streets.length ? streets : (spots.length ? spots : everyPart);
   /* "the kitchen of the Wells house" is "the Wells house kitchen" */
   const ofTurned = (ws) => { const at = ws.indexOf('of'); return at > 0 && at < ws.length - 1 ? [...ws.slice(at + 1), ...ws.slice(0, at)] : ws; };
@@ -2228,7 +2231,7 @@ export function seatAtScene(location, sceneName) {
       if (!p.every((w, k) => q[i + k] === w)) continue;
       const before = i > 0 ? q[i - 1] : '';
       const after = i + p.length < q.length ? q[i + p.length] : '';
-      if ((!before || PLACE_IN.has(before) || (before === 'on' && isAddress(p))) && (!after || PLACE_WITHIN.has(after))) return true; /* M680: "on Cooper's Row" is on the street */
+      if ((!before || PLACE_IN.has(before) || (before === 'on' && streets.includes(p))) && (!after || PLACE_WITHIN.has(after))) return true; /* M680: "on Cooper's Row" is on the street */
     }
     return false;
   });

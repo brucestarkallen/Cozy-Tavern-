@@ -1743,7 +1743,10 @@ export function findingSettled(issue, result, withdrawals, documents, verificati
     && i.mutations?.length && i.landed > 0 && !i.refused?.length)) return true;
   /* M763: …or when every change of that repair the ledger already holds (judgeAudit's `already`): his clerk's finding, saved
    * with no repair at all, answered by a forget of a name nothing is written of, was otherwise owed for good */
-  if (!issue.pages && !issue.profileRecovery && (result.already || []).some(i => auditFindingId(i) === auditFindingId(issue))) return true;
+  /* …a repair about what the finding speaks of: an already-so change of someone it never names answers nothing (the final
+   * audit of M763: a forget of "Gas-N-Go night clerk" closed the finding about "Convenience Store Clerk") */
+  if (!issue.pages && !issue.profileRecovery && (result.already || []).some(i => auditFindingId(i) === auditFindingId(issue)
+    && (i.mutations || []).length && i.mutations.every(m => [m.name, m.from, m.to, m.title].some(n => typeof n === 'string' && n.trim() && exactNameIn(String(issue.what || ''), n))))) return true;
   /* M700: completed checks of a finding's actual entries close it — the entries it names as its targets (M702: an obsolete
    * proposal against a merged record is reconciled on the canonical one), or, for an allegation with no operation, the
    * records its words name. A finding that only proposes an operation is answered by that operation: it closes when the
@@ -2379,7 +2382,9 @@ export function nothingWrittenOn(state, name) {
   const page = state.characters[key] || {};
   const said = (v) => Array.isArray(v) ? v.length > 0 : Boolean(String(v ?? '').trim());
   if (['core', 'state', 'arc', 'threads', 'aliases', 'canon'].some((f) => said(page[f])) || Object.keys(page.hand || {}).length || page.coreOrigin) return '';
-  const same = (n) => String(n || '').trim().toLowerCase() === key.toLowerCase();
+  /* the page's name and the name asked for alike: the forget door lets go of the books under the name it is given */
+  const asked = String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const same = (n) => [key.toLowerCase(), asked].includes(String(n || '').trim().replace(/\s+/g, ' ').toLowerCase());
   const rel = Object.entries(state.relationships || {}).find(([n]) => same(n));
   if (rel && (rel[1]?.p || rel[1]?.r || rel[1]?.s || rel[1]?.hand || (Array.isArray(rel[1]?.history) && rel[1].history.length))) return '';
   if (['offscreen', 'knowledge', 'bodies', 'canon'].some((book) => Object.keys(state[book] || {}).some(same)) || Object.keys(state.sheet?.actors || {}).some(same)) return '';
@@ -2412,6 +2417,8 @@ function forgottenMentions(state, m, why, decided) {
 // or a mandatory source-id echo after the model has reviewed originals.
 export function finalAuditorScope(issues,state,{writerSources='',pageAt=null,rejected=[]}={}) {
   const decided=new Set((issues || []).flatMap(i=>(i.mutations || []).filter(m=>m && m.type==='source.resolve').map(m=>JSON.stringify([m.sourceId,m.name])))); /* M763 */
+  const writesFor=(f)=>(issues || []).some(i=>(i.mutations || []).some(x=>x && x!==f && !['people.forget','source.resolve'].includes(x.type)
+    && [x.name,x.from,x.to].some(n=>typeof n==='string' && n.trim() && samePersonName(n,f.name))));
   return (issues || []).map(issue=>({...issue,mutations:(issue.mutations || []).flatMap(m=>{
     if (m.type === 'people.forget' && ['place','organization','object','group'].includes(m.kind)) m.type='people.reclassify';
     delete m.byHand;
@@ -2423,6 +2430,8 @@ export function finalAuditorScope(issues,state,{writerSources='',pageAt=null,rej
     if (!AUDITOR_TYPES.has(m.type) && m.type!=='presence.update') why='unsupported ledger operation';
     else if (manualRepairConflict(state,m,pageAt)) why='the writer explicitly controls this field';
     else if (m.type==='people.forget' && !forgetLosesNothing(state,m.name)) why='preserve established records; correct identity with a rename'; /* M763 */
+    /* …nor a page this same answer writes on (the final audit of M763: its state line went with the forget) */
+    else if (m.type==='people.forget' && writesFor(m)) why='this answer also writes to their record; a record it writes on is not let go';
     else if (m.type==='people.rename' && isMc(state,m.from)) why='the player identity belongs to the writer';
     else if (m.type==='people.reclassify' && isMc(state,m.name)) why='the player identity belongs to the writer';
     else if (isMc(state,m.name) && m.type==='people.set' && m.field==='arc') why='the player arc belongs to the writer';

@@ -112,4 +112,7 @@ test('M764-3 A SEAT IN THE MANOR\'S CELLAR IS NOT THE DRIVE: with the scene on "
   const onDrive = applyMutations(st, [{ type: 'offscreen.set', name: 'Deputy Pruitt', location: 'the drive of Blackwood Manor', activity: 'walking up to the gate' }]).state;
   assert(onDrive.present.some((p) => p.name === 'Deputy Pruitt'), 'a seat on the drive is where the scene is');
   assert(seatAtScene('Wells house kitchen', "Wells house kitchen, 8 Mariner's Lane") && seatAtScene("on Cooper's Row", "Cooper's Row, Ilvarren"), 'a named street is still an address (M647, M680)');
+  /* the final audit of M765: a street word after a plain word is a spot too — "the front drive", "the inner court" */
+  for (const ground of ['Blackwood Manor, the front drive', 'Blackwood Manor, the gravel drive', 'Blackwood Manor, the inner court']) eq(seatAtScene('the cellar of Blackwood Manor', ground), false, 'the cellar is not ' + ground);
+  assert(seatAtScene('the Bluebird diner', 'the Bluebird diner, Main Street'), 'Main Street is still an address');
 });

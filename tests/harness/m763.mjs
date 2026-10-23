@@ -117,3 +117,31 @@ test('M763-3 AN EMPTY PAGE OPENED FOR A ONE-TIME VOICE, NOTHING EVER WRITTEN ON 
   assert(st2.characters[CLERK] && /Gas-N-Go/.test(st2.characters[CLERK].core), 'the written page and its nature stand');
   assert(r2.pending.some((p) => p.includes(WHAT) && /preserve established records; correct identity with a rename/.test(p)), 'refused, said why: ' + JSON.stringify(r2.pending).slice(0, 400));
 });
+
+/* The final audit of M763-M765 (an independent review, 23 October 2026), two holes in M763 itself */
+test('M763-4 AN ALREADY-SO REPAIR ANSWERS ONLY WHAT ITS FINDING SPEAKS OF: his saved bare finding about the clerk, answered by its id with a forget of a name the finding never mentions ("Gas-N-Go night clerk", nothing of it in the ledger) — the finding stays owed; the same answer with the clerk\'s own name closes it (M763-2)', async () => {
+  const { id, voice, st } = await bare('m763-4');
+  st.audit = { ...(st.audit || {}), unresolved: [{ what: WHAT, fix: '', pages: false, pendingReason: 'no repair was supplied', mutations: [] }], unfinished: true };
+  await saveState(id, st);
+  const r = await audit(id, () => ({ issues: [], standings: [],
+    repairs: [{ id: 'finding:' + fingerprint36(WHAT), status: 'repair', what: WHAT, mutations: [{ type: 'people.forget', name: 'Gas-N-Go night clerk', cause: 'temporary speaker' }] }],
+    identities: [{ sourceId: voice.id, name: CLERK, kind: 'person', scope: 'local', why: 'A one-time voice at the store counter.' }],
+    review: { status: 'complete', why: 'Checked against the originals.', open: [] } }));
+  assert(r.pending.some((p) => p.startsWith(WHAT)), 'still owed: ' + JSON.stringify(r.pending).slice(0, 300));
+});
+
+test('M763-5 A PAGE THE SAME ANSWER WRITES ON IS NOT LET GO: an empty page, and one review answer that writes Pruitt\'s now and forgets him — the forget is refused with why, his now stands', async () => {
+  const { id } = await db.stories.create({ title: 'm763-5' });
+  await db.messages.append(id, { role: 'user', text: 'I look around.' });
+  await db.messages.append(id, { role: 'assistant', text: 'Deputy Pruitt was in the cellar of Blackwood Manor, finishing the sweep.' });
+  const docs = auditSources({ messages: await db.messages.list(id) });
+  const st = applyMutations({ ...emptyState(), sheet: { actors: {}, playerName: 'Jovan Wessex', playerAliases: [] } }, [{ type: 'people.set', name: 'Deputy Pruitt', field: 'core', open: true, source: 'world' }]).state;
+  st.auditSources = Object.fromEntries(docs.map((d) => [d.id, { mark: d.mark, appearanceReviewed: true, profileReviewed: 1, people: [] }]));
+  await saveState(id, st);
+  const r = await audit(id, () => ({ standings: [], identities: [], review: { status: 'complete', why: 'ok', open: [] },
+    issues: [{ what: 'Pruitt\'s now is missing', mutations: [{ type: 'people.set', name: 'Deputy Pruitt', field: 'state', text: 'In the cellar of Blackwood Manor, finishing the sweep.', shown: 'Deputy Pruitt was in the cellar of Blackwood Manor, finishing the sweep.' }] },
+      { what: 'Pruitt is a one-time role', mutations: [{ type: 'people.forget', name: 'Deputy Pruitt', cause: 'one-time role' }] }] }));
+  const after = await loadState(id);
+  assert(after.characters['Deputy Pruitt'], 'his page stands: ' + JSON.stringify(r.pending).slice(0, 300));
+  assert(r.pending.some((p) => /this answer also writes to their record/.test(p)), 'refused, said why: ' + JSON.stringify(r.pending).slice(0, 300));
+});

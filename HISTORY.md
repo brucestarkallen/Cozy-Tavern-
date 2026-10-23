@@ -22204,3 +22204,24 @@ Measured on m765-001: the whole law suite 1741 of 1741; the whole DOM walk 327 o
 DOM-47 fails when run alone with ONLY on m764-001 and m765-001 alike ("waited too long for the page"); it passes in the whole
 walk. Not seen: which of the two faults wrote his Pruitt (his ledger is not here); the final review's own walk-ins are not
 held in code (M689/M709 by design).
+
+## M766 (m766-001): the final audit of M763-M765
+
+The owner, 23 October 2026, 17:31 Jakarta: "Ok this is the finals session here do final audit make sure everything is
+perfect and finally production ready". An independent reviewer (no sight of the reasoning) read the diff 1359b94..bc73c8b
+and ran the real modules; it confirmed three faults, all in this session's own code, each now fixed with a law that fails on
+m765-001:
+- findingSettled's `already` branch (M763) closed a historical finding answered by its id with ANY already-so change — a
+  forget of "Gas-N-Go night clerk" closed the finding about "Convenience Store Clerk". Now every change must name what the
+  finding speaks of (exactNameIn). Law M763-4. (In the reviewer's own case the finding still closes, by M700: the complete
+  review approved the clerk's record its words name — the existing contract.)
+- finalAuditorScope let a forget of an empty page through while the same answer wrote that page's now; the write landed and
+  the forget erased it. Now refused with its reason. Law M763-5.
+- seatAtScene (M765) still read "the front drive", "the gravel drive", "the inner court" as street addresses. An address's
+  name is now one written with its capital ("Main Street", "Cooper's Row"); the "on Cooper's Row" rule reads the same list.
+  Law M764-3 (extended). My first cut of this broke "on Cooper's Row" (the law caught it) and was corrected.
+Also: nothingWrittenOn checks the other books under the name asked for as well as the page's (the reviewer's unconfirmed
+seat-under-a-shorter-name case). Not changed, by contract: a new person named only in dialogue whose reader gives no telling
+quote is not walked in (the reader's law requires the quote); one-word street spots ("the square") now need the place named
+too, as other one-word spots do.
+Measured on m766-001: the whole law suite 1743 of 1743; the whole DOM walk 327 of 327; lint 0 errors (247 warnings).

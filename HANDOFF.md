@@ -7,7 +7,13 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m765-001 on main, 23 October 2026: talked about is never walked in; the manor's cellar is not its drive (M765).
+- Version m766-001 on main, 23 October 2026: the final audit of M763-M765 (M766). An independent review of the three
+  versions confirmed three faults by running them, each fixed with a law that fails on m765-001: an already-so repair closed
+  a historical finding by its id alone, whatever it named (now only a repair naming what the finding speaks of, M763-4); a
+  forget passed as "loses nothing" while the same answer wrote on that page, and erased the write (now refused, M763-5);
+  "the front drive", "the inner court" were still read as addresses (an address's name is written with its capital now,
+  M764-3). nothingWrittenOn also checks the books under the name asked for. Suite 1743/1743, walk 327/327.
+- Version m765-001, 23 October 2026: talked about is never walked in; the manor's cellar is not its drive (M765).
   His (the same page, Claire's line edited to "I'm inside with Pruitt … finishing the cellar sweep"): "why the fuck the scene
   have pruit??? … Deputy Pruitt — in the cellar, finishing the sweep with Claire Ashford". Two faults, each reproduced: the
   page reader's walk-in was held to the page's telling only for someone the world had seated elsewhere (M541) — anyone
