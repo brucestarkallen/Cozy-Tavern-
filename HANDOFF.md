@@ -7,7 +7,15 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m766-001 on main, 23 October 2026: the final audit of M763-M765 (M766). An independent review of the three
+- Version m767-001 on main, 23 October 2026: a world voice's speaker the world kept local stands (M767). His: "Night Shift
+  Cook is listed as an individual by the source reading in World voice after page 76 … DO I NEED TO KEEP IT DOING FLEX TAPE
+  AND NO ROOT CAUSE!!" — the same root as M763's clerk: a voice's speaker is often a role in capitals, the final review's
+  set-aside (M752) took any capitalised label for a name (owed for good, M732), and the world agent's own decision on who
+  speaks (M759: local, with its reason) was never used — store.js's append also threw voice identities away (the live
+  update path kept them). Now, when the review asked about such a mention gives no other decision, the world's local
+  decision stands (source.resolve local, its reason, journaled); a speaker the world tied to someone or gave no decision for
+  is owed as before. LEDGER_REPAIR_POLICY 15: his paused audit resumes once. Law M767-1.
+- Version m766-001, 23 October 2026: the final audit of M763-M765 (M766). An independent review of the three
   versions confirmed three faults by running them, each fixed with a law that fails on m765-001: an already-so repair closed
   a historical finding by its id alone, whatever it named (now only a repair naming what the finding speaks of, M763-4); a
   forget passed as "loses nothing" while the same answer wrote on that page, and erased the write (now refused, M763-5);

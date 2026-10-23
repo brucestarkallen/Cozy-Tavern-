@@ -530,7 +530,10 @@ const messages = {
       const voices = msg.voices
         .filter((v) => v && typeof v === 'object' && typeof v.content === 'string' && v.content && typeof v.speaker === 'string' && v.speaker)
         .slice(0, 4)
-        .map((v) => ({ icon: typeof v.icon === 'string' ? v.icon.slice(0, 8) : '💬', speaker: v.speaker.slice(0, 60), channel: typeof v.channel === 'string' ? v.channel.slice(0, 90) : '', content: v.content.slice(0, 280) }));
+        .map((v) => ({ icon: typeof v.icon === 'string' ? v.icon.slice(0, 8) : '💬', speaker: v.speaker.slice(0, 60), channel: typeof v.channel === 'string' ? v.channel.slice(0, 90) : '', content: v.content.slice(0, 280),
+          /* M767: who is speaking, as the world agent said (M759) — the page's update kept it, its append threw it away */
+          ...(v.identity && typeof v.identity === 'object' && ['local', 'tracked'].includes(v.identity.scope) ? { identity: { scope: v.identity.scope, why: String(v.identity.why || '').slice(0, 1000),
+            ...(v.identity.scope === 'tracked' ? { to: String(v.identity.to || '').slice(0, 120), create: v.identity.create === true } : {}) } } : {}) }));
       if (voices.length) row.voices = voices;
     }
     if (msg.mended && typeof msg.mended === 'object' && typeof msg.mended.before === 'string') row.mended = msg.mended;

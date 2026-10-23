@@ -855,8 +855,19 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
         const askedAgain=Boolean(completed) && !reply.completionFailed;
         /* Only a description ("the groom", "the under-steward's boy"), never a name: a named person left unsettled ("Tarn")
          * is someone the story goes on with, and stays owed with the engine's reason (M732) */
-        const setAside=sourceCandidates.filter(i=>!i.sourceFacts && isDescriptorName(i.sourceName || i.name)
-          && !findingSettled(i,result,asideResolved,documents) && (openWhy.get(auditFindingId(i)) || askedAgain));
+        /* M767 — HIS: "Night Shift Cook is listed as an individual by the source reading in World voice after page 76 …
+         * PLEASE WTF IS THIS DO I NEED TO KEEP IT DOING FLEX TAPE AND NO ROOT CAUSE!!" (the Convenience Store Clerk before it,
+         * M763). A world voice's speaker is a role in capitals as often as a name — "Night Shift Cook", "Dispatch" — so the
+         * rule above took it for a name and it stayed owed for good whenever the review said nothing of it. Yet the world agent
+         * that wrote the voice had already said who speaks: a person of that voice only, with its reason (M759). When the
+         * review, asked, gives no other decision, that decision stands — for any label, capitals or not. A speaker the world
+         * tied to a tracked person, or gave no decision for, is owed as before. */
+        const worldSaid=(i)=>{
+          const d=documents.find(x=>x.id===i.sourceId)?.speakerIdentity;
+          return d && d.scope==='local' && String(d.why || '').trim() && String(d.speaker || '').trim().toLowerCase()===String(i.sourceName || i.name || '').trim().toLowerCase() ? String(d.why).trim() : '';
+        };
+        const setAside=sourceCandidates.filter(i=>!i.sourceFacts && (isDescriptorName(i.sourceName || i.name) || worldSaid(i))
+          && !findingSettled(i,result,asideResolved,documents) && (openWhy.get(auditFindingId(i)) || askedAgain || worldSaid(i)));
         if (setAside.length) {
           offered=[...offered,...setAside.map(i=>{
             const said=openWhy.get(auditFindingId(i));
@@ -865,7 +876,8 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
             const tried=refused ? 'The auditor’s answer for this mention'+(refused.mutation.to ? ' (that it is '+refused.mutation.to+')' : '')+' could not be saved — '+String(refused.why || 'refused').replace(/[.\s]+$/u,'')+' — even when asked again in the same review.' : '';
             return {what:'Keep '+name+' as a person of this page only',mutations:[{type:'source.resolve',sourceId:i.sourceId,name,kind:'person',scope:'local',
               cause:(said ? 'The auditor could not tie this mention to anyone the story has named: '+said.replace(/[.\s]+$/u,'')+'.'
-                : tried || 'The auditor gave no decision for this mention, even when asked again in the same review.')
+                : tried || (worldSaid(i) ? 'The world agent that wrote this voice kept its speaker a person of this voice only: '+worldSaid(i).replace(/[.\s]+$/u,'')+'; the auditor gave no other decision.'
+                : 'The auditor gave no decision for this mention, even when asked again in the same review.'))
                 +' Kept as a person of this page only; no one’s page, name or feelings were changed.'}]};
           })];
           result=judge(requestedState,offered);

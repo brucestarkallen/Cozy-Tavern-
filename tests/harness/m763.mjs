@@ -145,3 +145,31 @@ test('M763-5 A PAGE THE SAME ANSWER WRITES ON IS NOT LET GO: an empty page, and 
   assert(after.characters['Deputy Pruitt'], 'his page stands: ' + JSON.stringify(r.pending).slice(0, 300));
   assert(r.pending.some((p) => /this answer also writes to their record/.test(p)), 'refused, said why: ' + JSON.stringify(r.pending).slice(0, 300));
 });
+
+/* M767 — his (18:01): "Night Shift Cook is listed as an individual by the source reading in World voice after page 76; confirm
+ * its identity … identity or entity classification still needs a working repair … DO I NEED TO KEEP IT DOING FLEX TAPE" */
+test('M767-1 A WORLD VOICE\'S SPEAKER THE WORLD KEPT LOCAL STANDS WHEN THE REVIEW SAYS NOTHING ELSE — "Night Shift Cook", a role in capitals: the review answers complete and never decides it; the mention is kept a person of that voice only, with the world\'s own reason, journaled, nothing owed (on m766-001 it was owed for good, as a name); a speaker the world gave no decision for is still owed', async () => {
+  const COOK = 'Night Shift Cook';
+  async function cook(title, identity) {
+    const { id } = await db.stories.create({ title });
+    await db.messages.append(id, { role: 'user', text: 'I order coffee.' });
+    await db.messages.append(id, { role: 'assistant', text: 'Jovan took the corner booth at the diner.',
+      voices: [{ icon: '🍳', speaker: COOK, channel: 'the diner kitchen · 02:10', content: 'Order up, two eggs over easy.', ...(identity ? { identity } : {}) }] });
+    const docs = auditSources({ messages: await db.messages.list(id) });
+    const voice = docs.find((d) => d.id.startsWith('voice:'));
+    const st = { ...emptyState(), sheet: { actors: {}, playerName: 'Jovan Wessex', playerAliases: [] } };
+    st.auditSources = Object.fromEntries(docs.map((d) => [d.id, { mark: d.mark, appearanceReviewed: true, profileReviewed: 1,
+      people: d === voice ? [{ name: COOK, kind: 'person', shown: 'Order up, two eggs over easy.', facts: [], identityFacts: [] }] : [] }]));
+    await saveState(id, st);
+    const r = await audit(id, () => ({ issues: [], identities: [], standings: [], review: { status: 'complete', why: 'Checked against the originals.', open: [] } }));
+    return { r, voice, after: await loadState(id) };
+  }
+  const { r, voice, after } = await cook('m767-1', { scope: 'local', why: 'a cook heard through the kitchen hatch this once' });
+  eq(r.pending.length, 0, 'nothing owed: ' + JSON.stringify(r.pending).slice(0, 300));
+  const res = after.auditSources[voice.id].people[0].identityResolution;
+  eq(res?.scope, 'local', 'a person of that voice only');
+  assert(/the world agent that wrote this voice kept its speaker a person of this voice only: a cook heard through the kitchen hatch this once/i.test(res?.why || ''), 'with the world’s own reason: ' + res?.why);
+  assert((after.journal || []).some((j) => j.m && j.m.type === 'source.resolve' && j.m.name === COOK), 'journaled');
+  const none = await cook('m767-1 none', null);
+  assert(none.r.pending.some((p) => p.startsWith(COOK + ' is listed as an individual')), 'no word from the world: still owed');
+});

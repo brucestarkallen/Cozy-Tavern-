@@ -22225,3 +22225,24 @@ seat-under-a-shorter-name case). Not changed, by contract: a new person named on
 quote is not walked in (the reader's law requires the quote); one-word street spots ("the square") now need the place named
 too, as other one-word spots do.
 Measured on m766-001: the whole law suite 1743 of 1743; the whole DOM walk 327 of 327; lint 0 errors (247 warnings).
+
+## M767 (m767-001): a world voice's speaker the world kept local stands
+
+The owner, 23 October 2026, 18:01 Jakarta: "the auditor ran just now has unresolved findings; repeated attempts are paused …
+Night Shift Cook is listed as an individual by the source reading in World voice after page 76; confirm its identity or
+correct its entity classification: identity or entity classification still needs a working repair (looked at: 2 pages).
+PLEASE WTF IS THIS DO I NEED TO KEEP IT DOING FLEX TAPE AND NO ROOT CAUSE!!"
+Cause — the root under M763's clerk too: a world voice's speaker is a role in capitals as often as a name. The final review's
+set-aside for a mention it cannot or does not decide (M752) covers only descriptions by their shape (an article, lower case),
+so "Night Shift Cook" read as a name and stayed owed for good (M732's rule for named people) whenever the review said nothing
+of it — two passes, paused. Meanwhile the world agent that wrote the voice had said who speaks (M759: scope local, with its
+reason), carried to the audit sources as speakerIdentity — and never used by the decision. store.js's append also dropped a
+voice's identity (the live re-ink through update kept it; fixtures and appended pages lost it).
+Now (auditor.js, the set-aside): a voice mention whose world decision is local, with a reason, and which the review asked
+about leaves undecided, is kept a person of that voice only for the world's reason (source.resolve, journaled); a review's
+own decision, an open reason or a refused answer still come first; a speaker the world tied to a tracked person, or gave no
+decision for, is owed as before. store.js append keeps the identity. LEDGER_REPAIR_POLICY 15.
+Law M767-1 fails on m766-001 (owed for good); with no word from the world it is still owed.
+Measured on m767-001: the whole law suite 1744 of 1744; the whole DOM walk 327 of 327; lint 0 errors. Not seen: whether his
+world agent gave the cook a local decision (the drawer would have said it waits for the auditor if it gave none); if it gave
+none, the mention stays owed to the review, by contract.
