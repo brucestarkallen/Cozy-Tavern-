@@ -210,6 +210,12 @@ function uid() {
  * always could); a page list hands out shallow copies of its rows. */
 const settingsCache = new Map();
 const messagesCache = new Map();
+/* M768: every write to a tale's pages moves its mark (and a pull that replaced rows moves them all) — the search keeps an
+ * index of each tale's words and reads them again only when the mark has moved */
+const messagesMarks = new Map();
+let messagesEpoch = 0;
+const forgetMessages = (storyId) => { messagesCache.delete(storyId); messagesMarks.set(storyId, (messagesMarks.get(storyId) || 0) + 1); };
+export function messagesMark(storyId) { return messagesEpoch + ':' + (messagesMarks.get(storyId) || 0); }
 const cloneValue = (v) => {
   if (v === undefined || v === null || typeof v !== 'object') return v;
   try { return typeof structuredClone === 'function' ? structuredClone(v) : JSON.parse(JSON.stringify(v)); } catch (err) { return JSON.parse(JSON.stringify(v)); }
@@ -217,7 +223,7 @@ const cloneValue = (v) => {
 const dropListeners = new Set();
 /* M507: a module that keeps its own cache over the store (the checkpoint bank's keys) hears when a pull replaced rows */
 export function onDropCaches(fn) { if (typeof fn === 'function') dropListeners.add(fn); }
-export function dropCaches() { settingsCache.clear(); messagesCache.clear(); for (const fn of dropListeners) { try { fn(); } catch (err) { /* a listener's own trouble */ } } }
+export function dropCaches() { settingsCache.clear(); messagesCache.clear(); messagesEpoch += 1; for (const fn of dropListeners) { try { fn(); } catch (err) { /* a listener's own trouble */ } } }
 
 /* M752 (followup 8) — A VALUE READ WHILE ITS OWN WRITE IS UNDER WAY IS THE VALUE BEING WRITTEN. The cache took a new value
  * only once its write had landed, and a read in between was answered from the cache: the OLD value. HIS: "when I opened a
@@ -415,7 +421,7 @@ const stories = {
       const t = d.transaction('messages', 'readwrite');
       const s = t.objectStore('messages');
       for (const m of pages) s.delete(m.id);
-      t.oncomplete = () => { messagesCache.delete(id); resolve(); };
+      t.oncomplete = () => { forgetMessages(id); resolve(); };
       t.onerror = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
     });
     /* M160: EVERYTHING OF A TALE GOES WITH THE TALE. Five prefixes were
@@ -464,12 +470,16 @@ const messages = {
     const d=await openDB();
     await new Promise((resolve,reject)=>{
       const tx=d.transaction('messages','readonly'),store=tx.objectStore('messages');
-      for (const id of keys) {const req=store.get(id);req.onsuccess=()=>{if (req.result) found.set(id,req.result);};}
-      tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+      /* M768: done when every read has answered (the search's places ride this, not only a branch's provenance) */
+      let left=keys.length;
+      for (const id of keys) {const req=store.get(id);req.onsuccess=()=>{if (req.result) found.set(id,req.result);if (--left===0) resolve();};req.onerror=()=>reject(req.error);}
+      tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
     });
     return found;
   },
-  async list(storyId) {
+  /* M768: { keep: false } reads without keeping the rows (the search reads every tale once; holding all their rows,
+   * versions and thinking included, only weighed the phone down) */
+  async list(storyId, { keep = true } = {}) {
     if (messagesCache.has(storyId)) return messagesCache.get(storyId).map((r) => ({ ...r }));
     const d = await openDB();
     const rows = await new Promise((resolve, reject) => {
@@ -480,6 +490,7 @@ const messages = {
       req.onerror = () => reject(req.error);
     });
     const sorted = rows.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    if (!keep) return sorted;
     messagesCache.set(storyId, sorted);
     return sorted.map((r) => ({ ...r }));
   },
@@ -596,7 +607,7 @@ const messages = {
       if (!row.sources.length) delete row.sources;
     }
     await run('messages', 'readwrite', (s) => s.put(row));
-    messagesCache.delete(storyId);
+    forgetMessages(storyId);
     // Touch the story so last-active sorting stays honest.
     const story = await stories.get(storyId);
     if (story) await stories.update(storyId, {});
@@ -607,9 +618,9 @@ const messages = {
    * a quiet no-op returning undefined — the workers rely on this when the
    * page they were reading has gone (B5). */
   async update(storyId, messageId, patch) {
-    messagesCache.delete(storyId);
+    forgetMessages(storyId);
     const out = await modify('messages', messageId, (found) => (found.storyId !== storyId ? undefined : { ...found, ...(patch || {}), id: found.id, storyId: found.storyId }));
-    messagesCache.delete(storyId);
+    forgetMessages(storyId);
     return out;
   },
   /* M675: A CHANGE DECIDED FROM THE PAGE AS IT STANDS. update() takes a patch its caller worked out from a copy of the
@@ -620,13 +631,13 @@ const messages = {
    * leave the page exactly as it is. Returns the row as written, or undefined when nothing was. */
   async change(storyId, messageId, decide) {
     if (typeof decide !== 'function') return undefined;
-    messagesCache.delete(storyId);
+    forgetMessages(storyId);
     const out = await modify('messages', messageId, (found) => {
       if (found.storyId !== storyId) return undefined;
       const patch = decide(found);
       return patch && typeof patch === 'object' ? { ...found, ...patch, id: found.id, storyId: found.storyId } : undefined;
     });
-    messagesCache.delete(storyId);
+    forgetMessages(storyId);
     return out;
   },
   /* M511: A BRANCH CARRIES ITS PAGES WHOLE. The branch copied each page through append — the maker of NEW pages, which
@@ -638,7 +649,7 @@ const messages = {
     if (!storyId || !msg || typeof msg !== 'object') return undefined;
     const row = { ...msg, id: uid(), storyId };
     await run('messages', 'readwrite', (s) => s.put(row));
-    messagesCache.delete(storyId);
+    forgetMessages(storyId);
     const story = await stories.get(storyId);
     if (story) await stories.update(storyId, {});
     return row;
@@ -675,7 +686,7 @@ const messages = {
       const t = d.transaction('messages', 'readwrite');
       const s = t.objectStore('messages');
       for (const row of rows) s.put(row);
-      t.oncomplete = () => { checkStorage(); messagesCache.clear(); resolve(); };
+      t.oncomplete = () => { checkStorage(); messagesCache.clear(); messagesEpoch += 1; resolve(); };
       t.onerror = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
       t.onabort = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
     });
@@ -690,13 +701,13 @@ const messages = {
     const at = all.findIndex((m) => m.id === messageId);
     if (at === -1) return 0;
     const doomed = all.slice(at);
-    messagesCache.delete(storyId);
+    forgetMessages(storyId);
     const d = await openDB();
     await new Promise((resolve, reject) => {
       const t = d.transaction('messages', 'readwrite');
       const s = t.objectStore('messages');
       for (const m of doomed) s.delete(m.id);
-      t.oncomplete = () => { messagesCache.delete(storyId); resolve(); };
+      t.oncomplete = () => { forgetMessages(storyId); resolve(); };
       t.onerror = () => reject(isQuotaError(t.error) ? new Error(QUOTA_MESSAGE) : t.error);
     });
     return doomed.length;
@@ -708,7 +719,7 @@ const messages = {
     const found = all.find((m) => m.id === messageId);
     if (!found) return false;
     await run('messages', 'readwrite', (s) => s.delete(messageId));
-    messagesCache.delete(storyId);
+    forgetMessages(storyId);
     return true;
   },
 };

@@ -7,10 +7,27 @@
  * the device holds through the device (api/books/search — the browser keeps only what it has opened, M313). The
  * tales stand newest-played first, each with its places newest page first; a tap on a place opens the tale at that
  * page, however far back it stands. An empty box, or Escape, brings the shelf back. */
-import { db } from '../store.js';
-import { searchPages, searchKey, SEARCH_MIN } from '../engine/search.js';
+import { db, messagesMark } from '../store.js';
+import { indexPages, searchIndex, dress, searchKey, SEARCH_MIN } from '../engine/search.js';
 
 const SHOWN = 3; /* places shown per tale before "Show all" */
+/* M768: each tale's pages made into an index once — read again only when that tale's pages changed (store.js messagesMark) */
+const indexes = new Map();
+const reading = new Map(); /* a tale being read for its index, so two askers share one reading */
+async function taleIndex(storyId) {
+  const mark = messagesMark(storyId);
+  const held = indexes.get(storyId);
+  if (held && held.mark === mark) return held.pages;
+  const out = reading.get(storyId);
+  if (out && out.mark === mark) return out.promise;
+  const promise = db.messages.list(storyId, { keep: false }).then((rows) => {
+    const pages = indexPages(rows);
+    if (messagesMark(storyId) === mark) indexes.set(storyId, { mark, pages }); /* a write while it read: not kept */
+    return pages;
+  }).finally(() => { if (reading.get(storyId)?.promise === promise) reading.delete(storyId); });
+  reading.set(storyId, { mark, promise });
+  return promise;
+}
 
 export function initStorySearch(ctx) {
   const input = document.getElementById('story-search');
@@ -21,6 +38,7 @@ export function initStorySearch(ctx) {
 
   let seq = 0;
   let timer = null;
+  let deviceAsk = null; /* M768: the device's search still out */
   const scopeControl = document.getElementById('search-scope');
   const folderBox = document.getElementById('search-folders');
   const folderOptions = document.getElementById('search-folder-options');
@@ -66,6 +84,7 @@ export function initStorySearch(ctx) {
 
   function closeResults() {
     seq += 1;
+    if (deviceAsk) { deviceAsk.abort(); deviceAsk = null; }
     box.hidden = true;
     box.textContent = '';
     list.hidden = false;
@@ -114,18 +133,30 @@ export function initStorySearch(ctx) {
     card.appendChild(head);
     const rows = document.createElement('div');
     rows.className = 'search-hits';
+    const kept = () => (tale.places ? tale.places.length : tale.hits.length); /* M768: the places found, words read or not */
     const draw = (all) => {
       rows.textContent = '';
       for (const hit of (all ? tale.hits : tale.hits.slice(0, SHOWN))) rows.appendChild(placeButton(tale, hit));
-      if (!all && tale.hits.length > SHOWN) {
+      if (!all && kept() > SHOWN) {
         const more = document.createElement('button');
         more.type = 'button';
         more.className = 'text-btn';
-        more.textContent = 'Show all ' + tale.hits.length + (tale.count > tale.hits.length ? ' of ' + tale.count : '');
-        more.addEventListener('click', () => draw(true));
+        more.textContent = 'Show all ' + kept() + (tale.count > kept() ? ' of ' + tale.count : '');
+        more.addEventListener('click', async () => {
+          /* M768: the rest of the places read from their pages now — only when he asks for them */
+          if (tale.places && tale.hits.length < tale.places.length) {
+            more.disabled = true;
+            try {
+              const rest = tale.places.slice(tale.hits.length);
+              const found = await db.messages.byIds(rest.map((h) => h.id));
+              tale.hits = [...tale.hits, ...rest.filter((h) => found.has(h.id)).map((h) => dress(h, found.get(h.id).text, tale.key)).filter(Boolean)];
+            } catch (err) { more.disabled = false; rows.appendChild(line('These places could not load. Please try again.')); return; }
+          }
+          draw(true);
+        });
         rows.appendChild(more);
-      } else if (all && tale.count > tale.hits.length) {
-        rows.appendChild(line('…and ' + (tale.count - tale.hits.length) + ' more in this tale — a longer phrase narrows them.'));
+      } else if (all && tale.count > kept()) {
+        rows.appendChild(line('…and ' + (tale.count - kept()) + ' more in this tale — a longer phrase narrows them.'));
       }
     };
     draw(false);
@@ -156,29 +187,43 @@ export function initStorySearch(ctx) {
     const shelfNames = new Map(projects.map(p => [p.id, (giantNames.get(p.giantId) ? giantNames.get(p.giantId) + ' / ' : '') + p.name]));
     const shelfOf = (st) => (st.projectId && shelfNames.get(st.projectId)) || 'Loose tales';
     const local = new Map();
-    for (const st of shelf) {
-      if (st.shallow) continue; /* its pages are on the device, not here */
-      local.set(st.id, searchPages(await db.messages.list(st.id), key));
+    /* M768: the device is asked at once, beside the browser's own reading, and a search he has typed past is called off */
+    if (deviceAsk) deviceAsk.abort();
+    const ask = (shelf.some((s) => s.shallow) && ctx && ctx.booksStatus && ctx.booksStatus.backed) ? new AbortController() : null;
+    deviceAsk = ask;
+    const fromDevice = ask ? fetch(new URL('api/books/search?q=' + encodeURIComponent(key), document.baseURI), { cache: 'no-store', signal: ask.signal })
+      .then((res) => (res.ok ? res.json() : null)).catch(() => null) : null;
+    const held = shelf.filter((st) => !st.shallow); /* a shallow tale's pages are on the device, not here */
+    let readSoFar = 0;
+    const progress = box.firstChild;
+    for (const st of held) {
+      if (!indexes.has(st.id) || indexes.get(st.id).mark !== messagesMark(st.id)) {
+        readSoFar += 1;
+        if (progress && readSoFar % 5 === 0) progress.textContent = 'Searching your tales for “' + raw.trim() + '”… (' + local.size + ' of ' + held.length + ')';
+      }
+      local.set(st.id, searchIndex(await taleIndex(st.id), key));
       if (my !== seq) return;
     }
     let remote = [];
     let deviceSilent = false;
     /* M675: the device is asked only when the tavern's server stands behind this page — the words he searches for are
      * never sent to a host that is not it (a shelf row with no pages can also come from a partial copy brought back) */
-    if (shelf.some((s) => s.shallow) && !(ctx && ctx.booksStatus && ctx.booksStatus.backed)) deviceSilent = true;
-    else if (shelf.some((s) => s.shallow)) {
-      try {
-        const res = await fetch(new URL('api/books/search?q=' + encodeURIComponent(key), document.baseURI), { cache: 'no-store' });
-        const body = res.ok ? await res.json() : null;
-        if (body && Array.isArray(body.results)) remote = body.results; else deviceSilent = true;
-      } catch (err) { deviceSilent = true; }
+    if (shelf.some((s) => s.shallow) && !ask) deviceSilent = true;
+    else if (ask) {
+      const body = await fromDevice;
+      if (body && Array.isArray(body.results)) remote = body.results; else deviceSilent = true;
     }
     if (my !== seq) return;
+    /* M768: the places found take their words from their own pages — read only those (a few a tale), never the tales whole */
+    const wanted = [...local.values()].flatMap((r) => r.hits.slice(0, SHOWN).map((h) => h.id)); /* the rest when he asks to see all */
+    const rows = wanted.length ? await db.messages.byIds(wanted) : new Map();
+    if (my !== seq) return;
+    for (const [id, r] of local) local.set(id, { count: r.count, places: r.hits, key, hits: r.hits.slice(0, SHOWN).filter((h) => rows.has(h.id)).map((h) => dress(h, rows.get(h.id).text, key)).filter(Boolean) });
     const byId = new Map(shelf.map((s) => [s.id, s]));
     const results = [];
     for (const st of shelf) {
       const r = local.get(st.id);
-      if (r && r.count) results.push({ id: st.id, title: st.title, shelf: shelfOf(st), updatedAt: st.updatedAt || 0, count: r.count, hits: r.hits });
+      if (r && r.count) results.push({ id: st.id, title: st.title, shelf: shelfOf(st), updatedAt: st.updatedAt || 0, count: r.count, hits: r.hits, places: r.places, key: r.key });
     }
     for (const r of remote) {
       const st = r && byId.get(r.id);
@@ -200,6 +245,15 @@ export function initStorySearch(ctx) {
     for (const tale of results) box.appendChild(taleCard(tale));
   }
 
+  /* M768: the moment he steps into the box, the tales' indexes are made while he types — the first search finds them ready */
+  let warming = null;
+  input.addEventListener('focus', () => {
+    if (warming) return;
+    warming = (async () => {
+      const tales = (await db.stories.list()).filter((s) => s && !s.shallow && !(s.building && typeof s.building === 'object'));
+      for (const st of tales) await taleIndex(st.id);
+    })().catch(() => {}).finally(() => { warming = null; });
+  });
   input.addEventListener('input', () => {
     clearTimeout(timer);
     const value = input.value;

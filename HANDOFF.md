@@ -7,7 +7,17 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m767-001 on main, 23 October 2026: a world voice's speaker the world kept local stands (M767). His: "Night Shift
+- Version m768-001 on main, 23 October 2026: the search reads each tale once (M768). His: "The search function is very slow
+  i can't search anything.. Especially all tales". Every search (every pause in his typing) read every tale's whole rows —
+  versions and thinking — into the page cache and flattened and lower-cased every page again. Now (js/ui/search.js,
+  js/engine/search.js, js/store.js): each tale's pages become an index once (lower-case words only), kept until that tale's
+  pages change (store.js messagesMark, moved by every page write; dropCaches moves them all); the rows are read without
+  filling the page cache; the few places shown are read from their own pages (db.messages.byIds), the rest on "Show all";
+  the indexes are made from the moment he steps into the box; the device is asked alongside and a search he typed past is
+  called off; serve.py warms its own search cache at start. Measured in Chromium at a phone's pace (CPU ×6), 40 tales of
+  300 pages: every search 2.2–2.7 s before; 0.33–0.71 s after (two seconds of typing first). Device: first search 0.93 s →
+  0.02 s. Law DOM-M768-1.
+- Version m767-001, 23 October 2026: a world voice's speaker the world kept local stands (M767). His: "Night Shift
   Cook is listed as an individual by the source reading in World voice after page 76 … DO I NEED TO KEEP IT DOING FLEX TAPE
   AND NO ROOT CAUSE!!" — the same root as M763's clerk: a voice's speaker is often a role in capitals, the final review's
   set-aside (M752) took any capitalised label for a name (owed for good, M732), and the world agent's own decision on who

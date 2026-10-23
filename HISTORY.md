@@ -22246,3 +22246,23 @@ Law M767-1 fails on m766-001 (owed for good); with no word from the world it is 
 Measured on m767-001: the whole law suite 1744 of 1744; the whole DOM walk 327 of 327; lint 0 errors. Not seen: whether his
 world agent gave the cook a local decision (the drawer would have said it waits for the auditor if it gave none); if it gave
 none, the mention stays owed to the review, by contract.
+
+## M768 (m768-001): the search reads each tale once
+
+The owner, 23 October 2026, 21:13 Jakarta: "The search function is very slow i can't search anything.. Especially all tales".
+Cause, measured: every search — every pause in his typing — read every tale's whole rows (versions and thinking too) through
+the page cache, which then held them all, and flattened and lower-cased every page of every tale again. In Chromium at a
+phone's pace (CPU throttled ×6), 40 tales of 300 pages: 2.2–2.7 s for EVERY search, however small the change in what he typed.
+Now: js/engine/search.js indexPages (each page's words once, lower case only), searchIndex (where each place is), dress (a
+place's words from its own page; none when the page no longer holds them); js/ui/search.js keeps each tale's index until that
+tale's pages change (store.js messagesMark: every page write moves its tale's mark, dropCaches moves all), reads rows without
+filling the page cache (db.messages.list keep:false), reads only the three shown places' pages (byIds) and the rest on "Show
+all", builds the indexes from the moment he steps into the box (one reading per tale shared), asks the device alongside and
+calls off a device search he typed past. store.js byIds finishes when its own reads have answered. serve.py warms its search
+cache at start (_warm_search).
+Measured after, same shelf and pace, two seconds of typing first: 0.33–0.71 s per search; desktop pace 0.06–0.22 s (first
+0.46 s). Device (40 books, 138 MB, desktop): first search 0.93 s → 0.02 s. Memory: the index costs about one copy of the
+tales' words (+30 MB on this shelf).
+Law DOM-M768-1 (the second search reads no tale; a changed tale is read again, alone, and its new words are found) fails on
+m767-001. Browser test tests/m734_search.py passes. Suite 1744/1744; walk 328/328; lint 0 errors.
+Not measured: his own phone and library.

@@ -8660,6 +8660,34 @@ test('DOM-241 THE SHELF, TIDY (M662 — his: “add plus button so I can easily 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
+test('DOM-M768-1 THE SEARCH READS EACH TALE ONCE (M768 — his: "The search function is very slow i can\'t search anything.. Especially all tales"): every search read every tale\'s whole pages again and flattened every page; now the first search makes each tale\'s index, the next search reads no tale again, and a tale whose pages changed is read again — and its new words are found', async () => {
+  const q = (sel) => document.querySelector(sel);
+  const answered = (what) => until(() => !q('#search-results').hidden && !/Searching/.test(q('#search-results').textContent) && q('#search-results .search-summary'), what, 15000);
+  const tales = (await db.stories.list()).filter((s) => !s.shallow);
+  const was = db.messages.list;
+  const reads = [];
+  db.messages.list = function (storyId, ...rest) { reads.push(storyId); return was.call(this, storyId, ...rest); };
+  try {
+    await env.ctx.search.run('ghostlamp');
+    await answered('the first search');
+    const first = reads.length;
+    reads.length = 0;
+    await env.ctx.search.run('the ghostlamp');
+    await answered('the second search');
+    eq(reads.length, 0, 'the second search reads no tale again (the first read ' + first + ' of ' + tales.length + ')');
+    const tale = tales.find((t) => t.title === 'A loose one') || tales[0];
+    const page = (await was.call(db.messages, tale.id)).find((m) => m.role === 'assistant') || (await was.call(db.messages, tale.id))[0];
+    await db.messages.update(tale.id, page.id, { text: page.text + ' A zephyrquill hung over the door.' });
+    reads.length = 0;
+    await env.ctx.search.run('zephyrquill');
+    await answered('a search after the page changed');
+    eq(reads.join(','), tale.id, 'only the changed tale is read again');
+    assert([...document.querySelectorAll('#search-results .search-tale-title')].some((n) => n.textContent === tale.title), 'and its new words are found');
+    assert(/zephyrquill/i.test(q('#search-results mark')?.textContent || ''), 'the place shows the words from the page');
+    await db.messages.update(tale.id, page.id, { text: page.text });
+  } finally { db.messages.list = was; env.ctx.search.close(); }
+});
+
 test('DOM-242 THE STORY SCREEN, AS HE ASKED (M668; M675: the bottom line holds no links at all — his: “delete all the button like try again, this story, the ledger, everything”; the ledger opens from its book, Settings from the sun); the top bar hides and a small button — wearing the ledger’s light — brings it back; a text file rides in the page and reaches the storyteller; and after a swipe that fails, “Try again” is the swipe again — the page’s earlier version is kept', async () => {
   const before = errors.length;
   const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');

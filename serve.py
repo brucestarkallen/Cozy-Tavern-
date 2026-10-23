@@ -243,6 +243,22 @@ def _search_entry(book_path):
     return entry
 
 
+def _warm_search():
+    """M768: every book read into the search's cache once, quietly, at start — the first search of all tales was the one
+    that read and merged every book on the device while he waited."""
+    folder = os.path.join(DATA_DIR, 'books')
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        return
+    for name in names:
+        if name.endswith('.json') and not name.startswith('_house'):
+            try:
+                _search_entry(os.path.join(folder, name))
+            except Exception:
+                pass
+
+
 def search_books(query):
     key = ' '.join(str(query or '').split()).lower()
     if len(key) < _SEARCH_MIN:
@@ -2335,6 +2351,10 @@ if __name__ == '__main__':
         pass
     try:
         threading.Thread(target=_daily_backup, daemon=True).start()  # M310: a safety copy at every start, once a day
+    except Exception:
+        pass
+    try:
+        threading.Thread(target=_warm_search, daemon=True).start()  # M768: the search's cache is ready before he asks
     except Exception:
         pass
     # Bind AND print 127.0.0.1 (M13): on some Android setups "localhost"
