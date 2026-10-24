@@ -242,7 +242,7 @@ export function personBookKey(state, book, name, finder) {
   const key = personBookKeyOf(state, book, name, finder);
   /* M769 (the final audit of the people): "Mrs. Arden" is not Jovan Arden — a name that is not the main character never
    * writes into his books by a surname the matchers share */
-  return key && isMc(state, key) && !isMc(state, name) ? null : key;
+  return key && isMc(state, key) && !isMc(state, name) && !samePersonName(name, key) ? null : key; /* M771: "Mr. Wayne" is his */
 }
 function personBookKeyOf(state, book, name, finder) {
   const map = book && typeof book === 'object' ? book : {};
@@ -281,7 +281,7 @@ function strictPageKey(state, name) {
   const wanted = String(name || '').trim().toLowerCase();
   const exact = pages.find((k) => k.trim().toLowerCase() === wanted);
   if (exact) return exact;
-  const same = pages.filter((k) => samePersonName(k, name) && !(isMc(state, k) && !isMc(state, name)) && !pageGivesOtherRank(state, k, name)); /* M769: never his page by a surname, nor a page that gives another rank */
+  const same = pages.filter((k) => samePersonName(k, name) && !pageGivesOtherRank(state, k, name)); /* M769: never a page that gives another rank; M771: his own name with a title is his page (the one matcher already keeps "Mrs. Arden" off it) */
   return same.length === 1 && oneMeaning(state, name) ? same[0] : '';
 }
 /* M444: the name a person's page stands under, found the way a seat is (the same letters, or the one matcher when exactly

@@ -1023,8 +1023,10 @@ const m_open = (clear, text, f) => clear === 'open' && f === 'core' && !String(t
 /* M769 (the final audit of the people): A NAME THAT IS NOT HIM NEVER LANDS ON HIS PAGE. isMc says who the main character is
  * (his story name and the persona names he gave); the page finders' looser matcher took "Mrs. Arden" — his mother — for
  * "Jovan Arden" by the surname, and wrote her nature, her now, her loose end, a standing and what she knows onto him. */
+/* M771: …but his own name with a title is still his — "Mr. Wayne", "Master Bruce" are Bruce Wayne (they were, before M769):
+ * only a name the one matcher does not call his (a married-in title, "Mrs. Arden", names.js) is kept off his page */
 export function notHisPage(state, key, name) {
-  return key && isMc(state, key) && !isMc(state, name) ? '' : key;
+  return key && isMc(state, key) && !isMc(state, name) && !samePersonName(name, key) ? '' : key;
 }
 export function personFieldKey(state, characters, name) {
   const cleanName = normalizeName(name);

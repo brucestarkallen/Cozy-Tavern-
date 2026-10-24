@@ -7,7 +7,14 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m770-001 on main, 24 October 2026: the housekeeper retires its own replaced cards; an ending is where the page
+- Version m771-001 on main, 24 October 2026: his persona and his own titled name, as before M769 (M771). His: "Nothing on your
+  update broke my persona right?" Measured against m768-001: the persona he gives in plain words ("I am Batman", "My persona
+  is Batman") is read exactly as before. Two regressions of M769 found and fixed: his own name with a title ("Mr. Wayne",
+  "Master Bruce") opened pages of their own beside his (people.js notHisPage, apply.js personBookKey/strictPageKey keep a name
+  off his page only when the one matcher does not call it his); a woman main character's own titled name became another person
+  ("Miss Kyle", "Ms. Kyle" walked into Selina Kyle's scene) — the titles that name a wife or another generation are now only
+  Mrs., Aunt, Grandma (names.js). "Mrs. Arden" / "Mrs. Sterling" stay their own people. Laws M771-1..3. Suite 1781/1781; walk 332/332; lint 0 errors.
+- Version m770-001, 24 October 2026: the housekeeper retires its own replaced cards; an ending is where the page
   leaves someone; the workers' room holds the buttons he keeps and two new ones (M770). His three items: (1) "Why the
   housekeeper is so stupid!! And always not doing the superseded command??" — a brief append and its corrected re-append were
   two cards (supersededByNew compared whole-text cards only): an append, a later append or whole text that adds the same

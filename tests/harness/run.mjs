@@ -293,6 +293,7 @@ import './m763.mjs'; /* M763: a forget that loses nothing (a name the ledger nev
 import './m764.mjs'; /* M764: someone the page only talks about is asked where they are */
 import './m769.mjs'; /* M769: the final audit — the scene, the people, the world and the book */
 import './m770.mjs'; /* M770: the housekeeper retires its own replaced cards; an ending is where the page leaves someone */
+import './m771.mjs'; /* M771: his persona and his own titled name, as before M769 */
 
 console.log('Cozy Tavern — harness');
 await import('./m683.mjs');

@@ -182,7 +182,10 @@ export function isDescriptorName(name) {
  * other, one cut short of the other, the same names in another order ("Kuchiki Rukia"), or two names the story's
  * canon knows as one person. Never a near miss: seating is a hard fact. Never two titles that disagree (M414). */
 /* M769: the titles a woman who married into a family, or a daughter of it, is called by with its surname alone */
-const MARRIED_IN = new Set(['mrs', 'ms', 'miss', 'madam', 'lady', 'dame', 'aunt', 'grandma']);
+/* M771: only the titles that name another generation or a wife — Mrs., Aunt, Grandma. Miss, Ms. and Lady name a woman
+ * herself as often as a daughter or a wife: with them "Miss Kyle" was no longer Selina Kyle, and a main character who is a
+ * woman walked into her own scene twice ("Miss Kyle", "Ms. Kyle" beside her). */
+const MARRIED_IN = new Set(['mrs', 'aunt', 'grandma']);
 const bySurname = (one, oneTitles, whole, wholeTitles) => whole[whole.length - 1] === one[0] && whole[0] !== one[0]
   && [...oneTitles].some((t) => MARRIED_IN.has(t)) && ![...oneTitles].some((t) => wholeTitles.has(t));
 function familySurnameOnly(A, B) {
@@ -202,9 +205,9 @@ export function samePersonName(a, b) {
   const wa = A.words;
   const wb = B.words;
   /* M769 (the final audit of the people): THE WIFE IS NOT THE HUSBAND'S WHOLE NAME. "Mrs. Sterling" was John Sterling — the
-   * surname alone matched his whole name, and "His wife, a florist" was written into the banker's own page. The title a
-   * woman who married into a family (or a daughter of it) is called by — Mrs., Ms., Miss, Madam, Lady, Dame, Aunt, Grandma —
-   * with the surname alone names one of the family, not the one whose given name the page has; it finds a whole name only
+   * surname alone matched his whole name, and "His wife, a florist" was written into the banker's own page. A title that
+   * names a wife or another generation — Mrs., Aunt, Grandma (M771: not Miss, Ms. or Lady, which as often name the woman
+   * herself) — with the surname alone names one of the family, not the one whose given name the page has; it finds a whole name only
    * when that name carries the same title ("Mrs. Martha Sterling"). "Mr. Wells" still finds Tom Wells (M646), a rank or
    * an office its person (M414). A missed merge is a second page the auditor folds; a wrong one wrote one person's life
    * onto another's page (M490-3). */

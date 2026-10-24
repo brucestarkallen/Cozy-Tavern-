@@ -22375,3 +22375,20 @@ again) — both fail on m769-001. Text laws M40-4, M45-3, M52-3 and the beauty l
 about them are gone, DOM-7b presses the re-run instead.
 Checked: harness 1778/1778 (a first whole run had 5 failures — M15's source scan read a backtick in the moved helper as a
 template's start, and four text laws still named the removed buttons; fixed, then the whole suite again); the DOM walk 332/332; lint 0 errors (247 warnings, the baseline). Not run: a live provider; his tale.
+
+## M771 (m771-001): his persona and his own titled name, as before M769
+
+The owner, 24 October 2026, 09:25 Jakarta: "Nothing on your update broke my persona right? Everything still try to make my
+persona he's batman or something everything natural language". Checked by running the same persona cases on m768-001 and on
+m770-001 side by side (the real appliers and the persona reader, duels.js sourcePersonaMutations): "I am Batman", "My
+persona is Batman, the Dark Knight" made Batman his alias, the same on both; Batman, "you", "Bruce", "Wayne" were him on
+both. Two regressions of M769 found: (1) his own name with a title — "Mr. Wayne", "Master Bruce" — had been written onto his
+page; M769's guard (no name that is not him lands on his page, for "Mrs. Arden") opened pages of their own for them, his
+knowledge split between three people. The guard now keeps a name off his page only when the one matcher (names.js
+samePersonName) does not call it his. (2) M769's married-in titles included Miss, Ms., Lady, Dame and Madam: a woman main
+character's own name with one ("Miss Kyle", "Ms. Kyle") was no longer her, and walked into her scene beside her. Those
+titles name the woman herself as often as a daughter or a wife; the rule keeps Mrs., Aunt and Grandma only. "Mrs. Arden"
+(his mother) and "Mrs. Sterling" (the banker's wife) stay their own people (M769-P1, M769-P5); his mother "Mrs. Wayne" is
+her own person and may walk in (on m768-001 she was refused as already in the scene — taken for him).
+Laws M771-1 (the persona in plain words; passes on both — a guard), M771-2 and M771-3 (fail on m770-001).
+Checked: harness 1781/1781; the DOM walk 332/332; lint 0 errors (247 warnings). Not run: his own tale.
