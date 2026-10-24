@@ -181,8 +181,9 @@ const recoveryPending = f => !f.recovery || legacyDisposition(f.recovery) || (f.
 const recoveryReason = f => !recoveryPending(f) && f.recovery?.status==='running'
   ? 'The final recovery attempt was interrupted. The automatic attempt limit is reached.' : f.recovery?.reason || f.why;
 const findingId = (line,f) => f.id || fingerprint36(JSON.stringify([line.id,f.from,f.to,f.issue?.what || f.why,f.issue?.record?.fixes || []]));
+/* M769: the span the reservation was made under, when the line has only slid since (memory.js findingsMoved) */
 function recoveryInput(line,pages,f) {
-  return fingerprint36(JSON.stringify([line.span,stretchMark(line,pages,line.span[0],line.span[1]),
+  return fingerprint36(JSON.stringify([Array.isArray(f.recovery?.stampSpan) ? f.recovery.stampSpan : line.span,stretchMark(line,pages,line.span[0],line.span[1]),
     (f.recovery?.sources || []).map(id=>{const p=pages.find(p=>p.id===id);return [id,p && pageText(p)];})]));
 }
 /* A finding the house can SHOW was never a claim about the record — kept by M722's routing before the guards in
@@ -366,6 +367,9 @@ export function recordRepairPlan(node,fixes,sourceText,{strict=false}={}) {
     if (!places.length) return fail('Exact record text mismatch: the proposed from span does not occur.',i);
     const field=places[0],text=String(node[field] || '');
     if (places.length!==1 || text.split(f.from).length!==2) return fail('Ambiguous record span: the wrong words occur more than once.',i);
+    /* M769: whole words — "Ren" is not the start of "Renewed" (the applier, memory.js applyAuditFixes, holds the same) */
+    {const at=text.indexOf(f.from),wordy=c=>/[\p{L}\p{N}]/u.test(c || '');
+      if ((wordy(f.from[0]) && wordy(text[at-1])) || (wordy(f.from[f.from.length-1]) && wordy(text[at+f.from.length]))) return fail('Ambiguous record span: the wrong words begin or end inside a word.',i);}
     if (text.trim()===f.from || f.from===f.to || f.to.includes(f.from)) return fail('Unsafe broad replacement or unchanged disputed claim.',i);
     const grounded=f.why && passageIn(sourceText,f.shown) && count(f.from)<=12
       && (f.operation==='remove' ? !onPage(sourceText,f.from) : f.to && (f.shown.includes(f.to) || !ungroundedWords(f.to,f.shown).length));
@@ -431,6 +435,7 @@ function unreadableProblem(raw,finishReason) {
 const PLAN_HELP=[
   [/^Incorrect original-source quotation/,'Its "shown" must be words an original supplied writes, copied exactly.'],
   [/^Exact record text mismatch/,'Its "from" must be words copied exactly from the record line or its detail.'],
+  [/^Ambiguous record span: the wrong words begin/,'Its "from" begins or ends inside a word of the record: copy whole words.'],
   [/^Ambiguous record span/,'Its "from" occurs more than once in the record: take a few words around it, so that it occurs once.'],
   [/^Replacement is not supported/,'Its "to" is written in the record line\'s own voice, and every name, place and number in it must be one the originals supplied give — or, when the originals ground taking the wrong words out, "operation":"remove" with "to":"".'],
   [/^Missing supporting original quotation/,'Every edit needs "shown" (the exact supporting words of an original) and "why".'],
@@ -1542,6 +1547,15 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
   let user = prompt.user;
   let refusedWhy = ''; /* M675: the provider refused this one page for its own words, three times: it is passed by */
   let refusedTimes = 0; /* …how many times it was (the workers' line says this count) */
+  /* M769: IT LOOKS BACK, NEVER AHEAD. It may look at any page up to the line's last — a page the story has not reached at
+   * that line is no ground for it: the record line for pages 1-3 that already calls the captain "Ilse Varga" was read
+   * against page 6, where she first gives her surname, and passed (made to happen) — a line that tells what nobody knew
+   * yet. The pages it may fetch, and the record lines, end where the line ends. */
+  const allMessages = await db.messages.list(storyId);
+  const lastOfLine = pages[Math.min(pages.length - 1, stretch.line.span[1])];
+  const cutAt = lastOfLine ? allMessages.findIndex((m) => m && m.id === lastOfLine.id) : -1;
+  const upToLine = cutAt === -1 ? allMessages : allMessages.slice(0, cutAt + 1);
+  const recordUpToLine = { ...mem, nodes: (mem.nodes || []).filter((n) => n && Array.isArray(n.span) && n.span[1] <= stretch.line.span[1]) };
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (typeof renew === 'function') renew(leashFor(prompt.system.length + user.length));
     let text = '';
@@ -1549,7 +1563,7 @@ export async function auditStretch({ connection, storyId, brief = '', castNotes 
       /* M762: and it may look, as every other reader may (askWithFetch) — before it alleges anything */
       ({ text } = await askWithFetch(connection, { system: prompt.system, user, maxTokens: MAX_TOKENS, signal, renew, leash: leashFor,
         room, rounds: attempt === 0 ? STRETCH_LOOKS : 1, isAnswer: (t) => parseStretchAnswer(t).note === 'ok',
-        source: { storyId, story: { brief: writer.brief, castNotes: writer.castNotes } } }));
+        source: { storyId, messages: upToLine, memory: recordUpToLine, story: { brief: writer.brief, castNotes: writer.castNotes } } }));
     } catch (err) {
       if (halted() || isStale()) throw err; /* his Stop, a step aside, or the tale moved on: not the wire's doing */
       /* M675: the wire would not answer for these pages (see `troubled`) */

@@ -161,9 +161,18 @@ export function renameInState(state, from, to, { preserveKnowledge = false, pres
   let n = 0;
   /* M752: a line counts when its words changed (the old name standing only inside the new form is no change); a caller
    * that rewrites the words itself (the spelling correction, with its own rule for what is the name) moves keys only */
+  /* M769 (the final audit of the people): A FAMILY NAME JOINED TO ONE PERSON'S FULL NAME IS STILL THE FAMILY'S. "Kuchiki" →
+   * "Rukia Kuchiki" rewrote every "Kuchiki" in the ledger: "Captain Byakuya Rukia Kuchiki", "the Rukia Kuchiki clan". When the
+   * old name is the new one's last word, it follows only where it stands alone — not after another name or a title ("Byakuya
+   * Kuchiki", "Captain Kuchiki"), not before a family word ("the Kuchiki clan"). A first name joined ("Rukia") follows as before. */
+  const fromWords = String(from || '').trim().split(/\s+/).filter(Boolean);
+  const toWords = String(to || '').trim().split(/\s+/).filter(Boolean);
+  const surname = fromWords.length === 1 && toWords.length > 1 && toWords[toWords.length - 1].toLowerCase() === fromWords[0].toLowerCase();
+  const esc = (t) => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const lone = surname ? new RegExp('(?<!\\p{Lu}[\\p{L}.\'’-]*\\s+)(?<![\\p{L}\\p{N}])' + esc(fromWords[0]) + '(?![\\p{L}\\p{N}])(?!\\s+(?:clan|family|house|household|estate|manor|line|name|men|women|elders|heir|heirs|name)\\b)', 'gu') : null;
   const follow = (value) => {
     if (!text || typeof value !== 'string' || !hasWord(value, from)) return value;
-    const out = replaceWord(value, from, to);
+    const out = surname ? replaceOutside(value, lone, String(to), wordRe(to)) : replaceWord(value, from, to);
     if (out !== value) n += 1;
     return out;
   };

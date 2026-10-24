@@ -271,7 +271,7 @@ export function parseScribeAnswer(raw) {
         && typeof d.name === 'string' && d.name.trim()
         && typeof d.field === 'string' && d.field.trim()
         && typeof d.text === 'string' && d.text.trim()
-    );
+    ).map((d) => ({ ...d, field: d.field.trim().toLowerCase() })); /* M769 (the final audit of the world): "State" is state to every guard, as to the applier */
     for (const c of balancedCandidates(text, 5)) {
       const p = parseLenient(c);
       if (p && Array.isArray(p.deltas)) return { deltas: keep(p.deltas), recoveries:Array.isArray(p.recoveries) ? p.recoveries : [], facts:(Array.isArray(p.facts) ? p.facts : []).filter(f => f && typeof f.name === 'string' && typeof f.key === 'string' && typeof f.value === 'string' && typeof f.shown === 'string'),

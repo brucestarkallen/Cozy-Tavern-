@@ -14368,7 +14368,9 @@ test('DOM-273 A REPLAY KEEPS THE RECORD OF THE PAGES IT DOES NOT CHANGE (M680 �
       await settle(st.id);
       const want = keeper ? 'his 0–3 | his2 4–7' : 'his 0–3 | k2 4–7';
       eq((await nodesOf(st.id)).map((n) => n.id + ' ' + n.span.join('–')).join(' | '), want, keeper ? 'his line that reached into the pages gone stands over the pages that stand (the rewind let it go, whoever had written it); the keeper’s line over the pages gone alone goes' : 'with no keeper to fold again, the line that reached into the pages gone stands over the pages that stand (it went, and pages 4–7 were gone from the record for good)');
-      if (!keeper) eq((await byId(st.id, 'k2')).audited, 4, 'the continuous audit’s mark goes no further than the pages that stand');
+      /* M769: and no further than the words it read — the answer told again (page 8, the line's last) is new words the
+       * continuous audit has not read, so the mark stops before it (memory.js memoryWithoutPage): it said 4, the new words read */
+      if (!keeper) eq((await byId(st.id, 'k2')).audited, 3, 'the continuous audit’s mark goes no further than the pages that stand, read as they stand');
     }
   } finally {
     if (windowWas === undefined) await db.settings.delete('memoryWindow'); else await db.settings.set('memoryWindow', windowWas);
@@ -17162,6 +17164,51 @@ test('DOM-M753-1 A QUOTATION MARK LEFT OUT IS SET BY THE HOUSE, AND NEVER HOLDS 
     await db.stories.remove(st.id).catch(() => {});
     await env.ctx.chat.refreshStories(true).catch(() => {});
   }
+});
+
+/* M769 — the final audit of the scene, through the app: the page's writes as the send path lays them (chat.js pageWrites) */
+async function m769Page(title, ledgerMuts, oldPage, newPage, reader) {
+  const { saveState: saveLedger, emptyState: blankLedger } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const st = await db.stories.create({ title });
+  await db.messages.append(st.id, { role: 'user', text: 'I wait.' });
+  await db.messages.append(st.id, { role: 'assistant', text: oldPage });
+  const led = applyMutations({ ...blankLedger(), sheet: { actors: {}, playerName: 'Jovan Wessex' } }, [{ type: 'mc.set', name: 'Jovan Wessex' }, ...ledgerMuts]).state;
+  await saveLedger(st.id, { ...led, page: 1, readTo: 1, tidiedGen: 999, healedGen: 999 });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.window.__cozy.chat.renderThread({ structural: true });
+  const prior = house.state.storyAnswer; const priorWorker = house.state.workerAnswer;
+  house.state.storyAnswer = () => newPage;
+  house.state.workerAnswer = (body, sys) => (/keep the ledger/i.test(sys) ? JSON.stringify(reader) : walkDefaultWorker(body, sys));
+  try {
+    type(q('#composer-input'), 'I go on.');
+    submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === 2 && !env.ctx.chat.isBusy(), 'the page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'its readers', 60000);
+    return await db.settings.get('state:' + st.id);
+  } finally { house.state.storyAnswer = prior; house.state.workerAnswer = priorWorker; }
+}
+
+test('DOM-M769-1 HE WALKS OUT, AND THE GROUND GOES WITH HIM, THROUGH THE APP (the final audit of the scene: his header still said the taproom, and it overruled the reader’s “the street outside” — he stood in the taproom with the barman)', async () => {
+  const after = await m769Page('M769 the Gilded Eel', [{ type: 'place.set', name: 'the Gilded Eel taproom' }, { type: 'clock.set', year: 2025, month: 11, day: 8, hour: 21, minute: 0 },
+    { type: 'presence.enter', name: 'Jovan Wessex', position: 'at the corner table', attire: 'wool coat' }, { type: 'presence.enter', name: 'Tobin Hale', position: 'behind the bar' }, { type: 'people.set', name: 'Tobin Hale', field: 'core', text: 'Barman.' }],
+    '[The Gilded Eel taproom — Saturday, November 8, 2025 | 21:00 | rain on the shutters | wool coat | at the corner table]\n\nTobin dried a glass.',
+    '[The Gilded Eel taproom — Saturday, November 8, 2025 | 21:10 | rain on the shutters | wool coat | at the corner table]\n\nTobin slid the last glass onto the rack. "That’s me closing, Wessex."\n\nJovan left a coin on the bar, turned up his collar and walked out into the rain. The street outside was black and shining, and he stood under the Eel’s dripping sign a moment, looking up toward the harbor.',
+    { mutations: [{ type: 'place.set', name: 'the street outside the Gilded Eel' }], here: [{ name: 'Jovan Wessex', ending: { position: 'under the Eel’s dripping sign in the street', shown: 'he stood under the Eel’s dripping sign a moment' } }] });
+  eq((after.place || {}).name, 'the street outside the Gilded Eel', 'the ground is the street he walked out to');
+  assert(!(after.present || []).some((p) => p && p.name === 'Tobin Hale'), 'and the barman stayed inside: ' + (after.present || []).map((p) => p.name).join(', '));
+});
+
+test('DOM-M769-2 AFTER A NIGHT, HIS OWN HEADER DRESSES HIM, THROUGH THE APP (the final audit of the scene: the long jump let his dress go after the header had set it — the next morning’s “a dark coat” was gone)', async () => {
+  const after = await m769Page('M769 the next morning', [{ type: 'place.set', name: 'Ashford Manor' }, { type: 'clock.set', year: 2026, month: 10, day: 20, hour: 21, minute: 0 },
+    { type: 'presence.enter', name: 'Jovan Wessex', position: 'in the drawing room', attire: 'charcoal suit' }],
+    '[Ashford Manor — Monday, October 20, 2026 | 21:00 | rain | charcoal suit | in the drawing room]\n\nThe fire burned low.',
+    '[Ashford Manor — Tuesday, October 21, 2026 | 09:10 | clear | a dark coat | in the drawing room]\n\nMorning came grey and quiet. Jovan sat alone at the long table with his coffee going cold.',
+    { mutations: [], here: [{ name: 'Jovan Wessex', ending: { position: 'alone at the long table with his coffee', shown: 'Jovan sat alone at the long table' } }] });
+  const jovan = (after.present || []).find((p) => p && p.name === 'Jovan Wessex') || {};
+  eq(jovan.attire, 'a dark coat', 'he wears what his header says this morning');
 });
 
 await runAll();

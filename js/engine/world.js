@@ -98,12 +98,23 @@ function copyThreads(threads) {
     : [];
 }
 
-export function findThread(threads, title) {
+/* M769 (the final audit of the world): A THREAD FOUND BY SENSE IS STILL ITS OWNER'S, AND A CLOSE NAMES NO MORE THAN IT CLOSES.
+ * "Jovan wants his money from Marco" (Jovan's) took over "Marco wants his money" (Marco's) by the same words; closing
+ * "Vanessa hides the letter from the police", which was never opened, closed "Vanessa and the police". A thread answers by
+ * sense only when its owner is the one writing (or either has none), and a close only when it says no more than the thread. */
+export function findThread(threads, title, { owner = '', closing = false } = {}) {
   const wanted = keyOf(title);
   if (!wanted) return -1;
   const list = Array.isArray(threads) ? threads : [];
   const exact = list.findIndex((t) => t && typeof t.title === 'string' && keyOf(t.title) === wanted);
   if (exact !== -1) return exact;
+  const whose = String(owner || '').trim();
+  const asked = titleWords(title).all;
+  const fits = (t) => (!whose || !String(t.owner || '').trim() || samePersonName(whose, t.owner))
+    && (!closing || titleWords(t.title).all.size >= asked.size);
+  return findBySense(list.map((t) => (t && typeof t.title === 'string' && fits(t) ? t : null)), title);
+}
+function findBySense(list, title) {
   /* M259: A THREAD IS FOUND BY SENSE, as a loose end is (M241). A worker
    * closing "Chloe's clip of Jovan" when the ledger holds "Chloe's clip of
    * Jovan at the Wells house" was refused ("no thread called …"), the thread
@@ -203,7 +214,7 @@ export function setThread(threads, { title, owner, heat, next, with: other } = {
   const list = copyThreads(threads);
   const name = undoubled(cleanText(title, 300));
   if (!name) return list;
-  const at = findThread(list, name);
+  const at = findThread(list, name, { owner });
   const base = at === -1 ? { title: name } : list[at];
   const entry = { ...base };
   if (cleanText(owner)) entry.owner = cleanText(owner, 120);
@@ -226,7 +237,7 @@ export function setThread(threads, { title, owner, heat, next, with: other } = {
 
 export function closeThread(threads, title) {
   const list = copyThreads(threads);
-  const at = findThread(list, title);
+  const at = findThread(list, title, { closing: true });
   if (at !== -1) list.splice(at, 1);
   return list;
 }
@@ -393,7 +404,7 @@ export function addKnowledge(knowledge, name, fact, atTurn, provenance = {}) {
   const who = cleanText(name, 120);
   const what = cleanText(fact, 1000);
   if (!who || !what) return next;
-  const key = findKnowledgeKey(next, who) || who;
+  const key = provenance && provenance.keyed === true ? who : findKnowledgeKey(next, who) || who; /* M769: a caller that found the book itself (apply.js personBookKey, which knows the whole ledger) is taken at its word */
   const list = next[key] || [];
   /* M484: ONE WORDING FOR ONE FACT, HOUSE-WIDE. A fact someone else already holds is written for this person in
    * THOSE words — so the briefing can say "Everyone here but X knows: …" once instead of the same moment nine times
@@ -1005,14 +1016,20 @@ export function voicesBeyondTheRoom(voices, state) {
   if (!state || typeof state !== 'object') return list;
   const present = Array.isArray(state.present) ? state.present : [];
   const mc = mcName(state);
-  return list.filter((v) => {
-    const who = String((v && v.speaker) || '').replace(/^->\s*/, '').trim();
-    if (!who) return true;
-    if (present.some((p) => p && typeof p.name === 'string' && samePersonName(p.name, who))) return false;
+  /* M769 (the final audit of the world): who speaks is the speaker's label AND the person the world itself said it is
+   * ("The Sheriff", tied to Odell Cray, who stands in the room) */
+  const here = (who) => {
+    if (!who) return false;
+    if (present.some((p) => p && typeof p.name === 'string' && samePersonName(p.name, who))) return true;
     /* M680: and never from the dead (offscreen.js isDeadSeat) */
     const grave = findSeat(state.offscreen || {}, who);
-    if (grave && isDeadSeat(grave.entry)) return false;
-    return !(mc && mc !== 'the player' && samePersonName(mc, who));
+    if (grave && isDeadSeat(grave.entry)) return true;
+    return Boolean(mc && mc !== 'the player' && samePersonName(mc, who));
+  };
+  return list.filter((v) => {
+    const who = String((v && v.speaker) || '').replace(/^->\s*/, '').trim();
+    const tied = v && v.identity && v.identity.scope === 'tracked' ? String(v.identity.to || '').trim() : '';
+    return !here(who) && !here(tied);
   });
 }
 /* M162: pages when both stamps are there (see normalizeBrief); a brief written before this law still ages the old way, so
@@ -1142,12 +1159,13 @@ const overlap = (a, b) => { if (!a.size || !b.size) return 0; let n = 0; for (co
  * "aside", "under his breath", "in his ear", "privately", "only he", "alone"). A whisper stays a whisper. */
 const PUBLIC_MARK = /\b(?:in front of (?:the )?(?:whole |entire |full )?(?:courtyard|room|hall|crowd|assembly|table|court|company|everyone|them all)|aloud|out loud|shouted|bellowed|roared|announced|declared|proclaimed|before the (?:whole )?(?:assembly|court|crowd|room|hall|table)|in open (?:court|courtyard|assembly)|to the (?:whole )?(?:room|courtyard|crowd|hall)|for all to hear|everyone (?:heard|saw)|the whole (?:room|courtyard|hall|crowd) (?:heard|saw))\b/i;
 const SEEN_START = /^(?:saw|watched|witnessed|observed|looked on as|was there when)\b/i;
-const PRIVATE_MARK = /\b(?:whisper(?:ed|s|ing)?|close|quietly|softly|low(?:ered)?|under (?:his|her|their) breath|in (?:his|her|their) ear|privately|in private|aside|alone|only (?:he|she|they)|so (?:only|no one else)|out of earshot|behind (?:closed doors|the door)|between (?:them|the two)|in confidence|told (?:him|her) alone|when no one|no one else (?:heard|saw)|nobody else)\b/i;
+/* M769 (the final audit of the world): "close" as in drawing near, never "the gate would close at nine" */
+const PRIVATE_MARK = /\b(?:whisper(?:ed|s|ing)?|close(?=\s+(?:to|beside|by|enough|against|in)\b)|(?:leaned|leaning|stepped|stepping|drew|drawing|pulled|pulling|bent|bending)\s+close|quietly|softly|low(?:ered)?|under (?:his|her|their) breath|in (?:his|her|their) ear|privately|in private|aside|alone|only (?:he|she|they)|so (?:only|no one else)|out of earshot|behind (?:closed doors|the door)|between (?:them|the two)|in confidence|told (?:him|her) alone|when no one|no one else (?:heard|saw)|nobody else)\b/i;
 /* M520: A HIDDEN ACT IS NOT THE ROOM'S. "Watched the assassin slip a vial into the paladin's cup when no one was looking" was
  * public by its first word ("watched") and went into every book in the room — the paladin's own among them, blind to the
  * poison he just drank. What one witness caught done in secret stays that witness's. (A whisper SEEN is still seen: the
  * room saw him lean in — M509-15.) */
-const COVERT_MARK = /\b(?:secret(?:ly)?|covert(?:ly)?|furtive(?:ly)?|stealth(?:ily)?|surreptitious(?:ly)?|discreet(?:ly)?|slip(?:s|ped|ping)?|palm(?:s|ed|ing)?|pocket(?:s|ed|ing)?|hid(?:e|es|den|ing)?|conceal(?:s|ed|ing)?|sleight|unnoticed|unseen|undetected|when no one (?:was )?looking|while no one (?:was )?looking|behind (?:his|her|their|its) back|under the table|out of sight|no one else (?:saw|noticed))\b/i;
+const COVERT_MARK = /\b(?:secret(?:ly)?|covert(?:ly)?|furtive(?:ly)?|stealth(?:ily)?|surreptitious(?:ly)?|discreet(?:ly)?|slip(?:s|ped|ping)?(?!\s+(?:and|on|off|down|over|in|onto|from))(?=\s+\S)|palm(?:s|ed|ing)?|pocket(?:s|ed|ing)?|hid(?:e|es|den|ing)?|conceal(?:s|ed|ing)?|sleight|unnoticed|unseen|undetected|when no one (?:was )?looking|while no one (?:was )?looking|behind (?:his|her|their|its) back|under the table|out of sight|no one else (?:saw|noticed))\b/i;
 export function publicMoment(fact) {
   const t = String(fact || '').trim();
   if (!t) return false;

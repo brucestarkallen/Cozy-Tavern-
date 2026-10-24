@@ -58,7 +58,7 @@ import { applyMutations, clearsThatArrive, scenePartOf, walkInFromPage, seatAtSc
 import { renderOffscreen, seatLine, isDeadSeat, seatAgeWords } from '../engine/offscreen.js'; /* M684: freshness is an explicit review */
 import { renderClock } from '../engine/clock.js';
 import { mcName } from '../engine/duels.js';
-import { STANCES, normalizeVoices } from '../engine/world.js';
+import { STANCES, normalizeVoices, voicesBeyondTheRoom } from '../engine/world.js';
 import { askWithFetch, fetchLaw, windowOfPages, roomChars, viewBudget, leashFor } from './lookup.js'; /* M259/M261: it may look; the story so far, whole */
 import { renderAllThreads, renderAllKnowledge, renderAllFactions, wholePage, knowledgeRoomFor } from '../engine/whole.js'; /* M259: every thread, every line of who knows what, every faction; the page read to its end */
 
@@ -696,6 +696,21 @@ export function worldVoiceIdentities(state, brief, {allowCreate=true}={}) {
   return {mutations,problems,voices};
 }
 
+/* M769 (the final audit of the world): THE SECOND ASK ADDS TO THE FIRST. Asked again for a seat it owed or for who is speaking,
+ * the world answers in the same shape — often an empty brief, or only the voice it corrected — and that answer replaced the
+ * first one's whole: its pressure, its window and its other voices were lost, and the page was re-inked with none. What the
+ * second brief leaves empty, the first one's stands; a voice it gives again replaces that speaker's, the others stay. */
+export function joinedBrief(first, second) {
+  if (!second) return first || null;
+  if (!first) return second;
+  const said = (v) => (Array.isArray(v) ? v.length > 0 : v != null && v !== '');
+  const out = { ...first };
+  for (const [k, v] of Object.entries(second)) if (k !== 'voices' && said(v)) out[k] = v;
+  const again = Array.isArray(second.voices) ? second.voices : [];
+  const speaker = (v) => String((v && v.speaker) || '').trim().toLowerCase();
+  out.voices = [...(Array.isArray(first.voices) ? first.voices : []).filter((v) => !again.some((w) => speaker(w) === speaker(v))), ...again];
+  return out;
+}
 export async function worldTurn({ connection, storyId, userText, assistantText, before = [], brief = '', castNotes = '', castNames = [], voicesBefore = [], effort = 'off', signal, stale, jumpedMinutes = 0, record = '', renew, story = null, pageNumber = 0, canonRecord = '', pageAt = null, recoveryTargets = null } = {}) {
   if (!connection || typeof connection !== 'object') return null;
   if (!storyId) return null;
@@ -757,7 +772,7 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
     if (read.note !== 'unusable' && read.note !== 'cut short') {
       if (best) {
         const combined=[...best.mutations,...read.mutations];
-        read = {...read,mutations:identityContinuation?[...new Map(combined.map(m=>[JSON.stringify(m),m])).values()]:combined,brief:read.brief || best.brief};
+        read = {...read,mutations:identityContinuation?[...new Map(combined.map(m=>[JSON.stringify(m),m])).values()]:combined,brief:joinedBrief(best.brief,read.brief)};
       }
       best = read;
       const proposed = applyMutations(state, read.mutations.map((m) => ({ ...m, source: 'world' }))).state;
@@ -888,6 +903,9 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
    * world's word. M30's "a window opened is a window remembered" (the last
    * six) lives in the applier now. */
   const provisional=applyMutations(fresh,withPages.map(m=>({...m,source:'world'}))).state;
+  /* M769 (the final audit of the world): a voice from someone in the room is never kept (chat.js filtered it only after) — so
+   * it is never one whose speaker is owed, and never one more "voice heard" */
+  if (read.brief && Array.isArray(read.brief.voices)) read.brief={...read.brief,voices:voicesBeyondTheRoom(read.brief.voices,provisional)};
   const voicePlan=worldVoiceIdentities(provisional,read.brief);
   withPages.push(...voicePlan.mutations);
   if (read.brief) read.brief={...read.brief,voices:voicePlan.voices};
@@ -916,10 +934,13 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
  * is waiting and on whom now; and with the auditor switched off nobody would ever settle it, so the run is finished then
  * and the line says the speakers stay unnamed (M752's rule: owed only where someone will do it). */
 export function worldRunState(result, { auditor = true } = {}) {
-  const voicesOnly = Boolean(result?.identityPending?.length) && !result?.pending?.length && !result?.rejected?.some((r) => !r.same);
+  /* M769 (the final audit of the world): a write the house's own guards refused is done with (a seat for someone in the room
+   * is never written, asked again or not) — it is no open work of the world's, and the wait is the auditor's as before; with
+   * one refusal the run read "stopped partway" and was asked again, paid, while the light never cleared */
+  const lost = result?.note === 'unusable' || result?.note === 'cut short';
+  const voicesOnly = Boolean(result?.identityPending?.length) && !result?.pending?.length && !lost;
   /* M761: an answer it could not use (or one cut short) moved nothing — that run did not go well: it is unfinished, so the
    * light says so and the house's own bounded recovery asks again (chat.js recoverHealthWorker) */
-  const lost = result?.note === 'unusable' || result?.note === 'cut short';
   return {
     unfinished: Boolean(lost || result?.pending?.length || (result?.identityPending?.length && auditor)),
     resume: voicesOnly && auditor ? 'voice-identities' : '',

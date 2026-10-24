@@ -75,9 +75,12 @@ test('M368-1 A THREAD RUNS BETWEEN ANY TWO PEOPLE, THROUGH THE LEDGER: Caleb and
 test('M368-2 HIS OWN THREADS ARE THE LAST THE LEDGER LETS GO, and the storyteller sees this scene’s threads first — other people’s business away from the page never crowds it', async () => {
   const { setThread, renderThreads } = await import('../../js/engine/world.js');
   let list = [{ title: 'Jovan owes the Sixes', owner: 'Rook', heat: 'cold', atTurn: 1 }];
-  for (let i = 0; i < 45; i += 1) list = setThread(list, { title: 'Neighbours feud ' + i, owner: 'Neighbour ' + i, heat: 'cold' }, 10 + i, { mc: 'Jovan' });
+  for (let i = 0; i < 45; i += 1) list = setThread(list, { title: 'Neighbours feud ' + i, owner: 'Neighbour ' + (100 + i), heat: 'cold' }, 10 + i, { mc: 'Jovan' }); /* M769: owners of one length — “Neighbour 1” cut short is “Neighbour 10” to the name matcher */
   assert(list.some((x) => x.title === 'Jovan owes the Sixes'), 'forty-five of other people’s cold threads did not push out his oldest, coldest one');
-  eq(list.length <= 40, true, 'and the ledger still keeps its bound');
+  /* M769: each neighbour's feud is its own loose end (another owner, another thread — findThread's owner rule) and the ledger
+   * keeps them all: since M713 only a resolved thread closes (THREADS_MAX is Infinity). The bound of forty this line once
+   * asserted held only because the forty-five feuds were folded into one by their alike titles — the fault M769 mends. */
+  eq(list.length, 46, 'each of their loose ends is its own, and none is let go');
   const threads = [
     { title: 'The Carter sisters and the house', owner: 'Ana Carter', with: 'Bea Carter', heat: 'hot', atTurn: 30 },
     { title: 'Coach and the budget', owner: 'Coach', heat: 'hot', atTurn: 29 },

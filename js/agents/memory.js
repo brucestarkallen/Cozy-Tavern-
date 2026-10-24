@@ -43,6 +43,7 @@ import { asideAt } from '../commands.js'; /* M674: which pages are out of charac
 import { parseLenient } from './jsonutil.js'; /* M439 */
 import { writerText, BRIEF_ROOM } from '../engine/whole.js'; /* M283 */
 import { db } from '../store.js';
+import { fingerprint36 } from '../engine/fingerprint.js'; /* M769: a correction's name, kept when its line slides */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { callWorker as sharedCall } from './call.js'; /* M28: the one wire path for workers */
 import { loadState } from '../engine/state.js';
@@ -763,6 +764,12 @@ export function applyAuditFixes(lineText, fixes, sourceText) {
     if (!source.includes(fix.to.toLowerCase()) && ungroundedWords(fix.to, sourceText).length) continue;
     const mine = [];
     for (let at = original.indexOf(fix.from); at !== -1; at = original.indexOf(fix.from, at + fix.from.length)) mine.push({ start: at, end: at + fix.from.length, to: fix.to });
+    /* M769: A FIX NAMES ONE PLACE. Every place its words stood was rewritten — "she said" -> "Rias said" made every "she said"
+     * in the line Rias's, and "Ren" -> "Renji" reached into "Renewed"; the recovery's repair already refuses words that
+     * occur more than once (continuous.js, "Ambiguous record span"). The words must stand once in the line, as words. */
+    const wordy = (c) => /[\p{L}\p{N}]/u.test(c || '');
+    if (mine.length !== 1) continue;
+    if ((wordy(fix.from[0]) && wordy(original[mine[0].start - 1])) || (wordy(fix.from[fix.from.length - 1]) && wordy(original[mine[0].end]))) continue;
     if (mine.some((m) => places.some((p) => m.start < p.end && p.start < m.end))) continue;
     places.push(...mine);
     used.push(fix);
@@ -1218,7 +1225,7 @@ export function memoryAfterDeletion(mem, index, { keepCovering = lineIsHis } = {
       if (n.audited !== undefined) { const read = auditedOf(n); kept.audited = read && index < n.span[0] + read ? read - 1 : read; }
       return [findingsMoved(kept, ([a, b]) => (b < index ? [a, b] : a > index ? [a - 1, b - 1] : a <= b - 1 ? [a, b - 1] : null), n.span)];
     }
-    return [findingsMoved({ ...n, span: [n.span[0] - 1, n.span[1] - 1] }, ([a, b]) => [a - 1, b - 1])];
+    return [findingsMoved({ ...n, span: [n.span[0] - 1, n.span[1] - 1] }, ([a, b]) => [a - 1, b - 1], null, { slid: n.span })];
   });
   const next = { ...mem, nodes };
   if (mem && mem.stuck && Number.isInteger(mem.stuck.at)) {
@@ -1238,7 +1245,7 @@ export function memoryAfterInsertion(mem, index, { keepCovering = lineIsHis } = 
   const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).flatMap((n) => {
     if (!n || !Array.isArray(n.span)) return [];
     if (n.span[1] < index) return [n];
-    if (n.span[0] >= index) return [findingsMoved({ ...n, span: [n.span[0] + 1, n.span[1] + 1] }, ([a, b]) => [a + 1, b + 1])];
+    if (n.span[0] >= index) return [findingsMoved({ ...n, span: [n.span[0] + 1, n.span[1] + 1] }, ([a, b]) => [a + 1, b + 1], null, { slid: n.span })];
     if (!keepCovering(n)) return [];
     const kept = standsOnItsWords({ ...n, span: [n.span[0], n.span[1] + 1] }, n);
     if (n.audited !== undefined) kept.audited = Math.min(auditedOf(n), index - n.span[0]);
@@ -1309,7 +1316,12 @@ export async function putBackMistakenMends(storyId) {
 export function memoryWithoutPage(mem, index, { keepCovering = lineIsHis } = {}) {
   const nodes = (mem && Array.isArray(mem.nodes) ? mem.nodes : []).flatMap((n) => {
     if (!(n && Array.isArray(n.span) && n.span[0] <= index && index <= n.span[1])) return [n];
-    return keepCovering(n) ? [standsOnItsWords({ ...n }, n)] : [];
+    if (!keepCovering(n)) return [];
+    const kept = standsOnItsWords({ ...n }, n);
+    /* M769: the continuous audit reads a kept line again from the page whose words changed — its reading mark said the new
+     * words were read (an edit under a line that stays: its keeper off, or his own line), and nothing read them */
+    if (n.audited !== undefined) kept.audited = Math.min(auditedOf(n), index - n.span[0]);
+    return [kept];
   });
   const next = { ...mem, nodes };
   if (mem && mem.stuck && mem.stuck.at === index) delete next.stuck;
@@ -1345,7 +1357,7 @@ export async function settleRecordWithoutKeeper(storyId) {
   const nodes = cut.nodes.map((n) => {
     const issue = byId.get(n.id);
     if (!issue || !Array.isArray(n.sourcePages)) return n;
-    if (issue.kind === 'relocated') { const d = issue.target[0] - n.span[0]; return findingsMoved({ ...n, span: issue.target, sourcePages: sourceBindings(pages.slice(issue.target[0], issue.target[1] + 1)) }, ([a, b]) => [a + d, b + d]); }
+    if (issue.kind === 'relocated') { const d = issue.target[0] - n.span[0]; return findingsMoved({ ...n, span: issue.target, sourcePages: sourceBindings(pages.slice(issue.target[0], issue.target[1] + 1)) }, ([a, b]) => [a + d, b + d], null, { slid: n.span }); }
     return standsOnItsWords({ ...n }, n);
   });
   await saveMemory(storyId, { ...cut, nodes });
@@ -1369,12 +1381,23 @@ function standsOnItsWords(kept, node) {
  * of the line that now names all of what is left says so (narrowedFrom): the continuous audit took a record correction "not
  * read whole" over its whole line for one kept from a line with no words, and cleared it with no call (continuous.js
  * mootFinding). */
-function findingsMoved(kept, move, was = null) {
+/* M769: A CORRECTION KEEPS ITS NAME AND ITS RESERVATION WHEN ITS LINE ONLY MOVES. A correction with no id of its own is
+ * named by its line and the pages it stands on (continuous.js findingId), and a recovery set aside is reserved for the
+ * line's place and pages (recoveryInput, which reads the line's span). An older page let go — nothing of this line's —
+ * slid every later line down one, and every correction the audit had set aside past it ("No original gives or denies
+ * the surname") was due again and paid for again, three calls each (made to happen). A line that only slides (`slid`:
+ * its span before, the same pages under it) keeps the name its correction had and the span its reservation was made
+ * under; a line whose own pages changed is reconsidered, as before. */
+const FINDING_NAME = (lineId, f) => fingerprint36(JSON.stringify([lineId, f.from, f.to, f.issue?.what || f.why, f.issue?.record?.fixes || []]));
+function findingsMoved(kept, move, was = null, { slid = null } = {}) {
   if (!Array.isArray(kept.auditOpen) || !kept.auditOpen.length) return kept;
-  kept.auditOpen = kept.auditOpen.flatMap((f) => {
-    if (!f || !Number.isInteger(f.from) || !Number.isInteger(f.to)) return [f];
-    const to = move([f.from, f.to]);
+  kept.auditOpen = kept.auditOpen.flatMap((f0) => {
+    if (!f0 || !Number.isInteger(f0.from) || !Number.isInteger(f0.to)) return [f0];
+    const to = move([f0.from, f0.to]);
     if (!to) return [];
+    let f = f0;
+    if (!f.id && (to[0] !== f.from || to[1] !== f.to)) f = { ...f, id: FINDING_NAME(kept.id, f) };
+    if (Array.isArray(slid) && f.recovery && typeof f.recovery === 'object' && f.recovery.input && !Array.isArray(f.recovery.stampSpan)) f = { ...f, recovery: { ...f.recovery, stampSpan: [...slid] } };
     const narrowed = Array.isArray(was) && !(f.from === was[0] && f.to === was[1]) && to[0] === kept.span[0] && to[1] === kept.span[1] ? { narrowedFrom: [...was] } : {};
     const p = f.issue && typeof f.issue === 'object' && Number.isInteger(f.issue.page) ? f.issue.page - 1 : -1;
     if (p < f.from || p > f.to) return [{ ...f, from: to[0], to: to[1], ...narrowed }];
@@ -1882,10 +1905,15 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
       for (let pg = a.span[1] + 1; pg < b.span[0]; pg += 1) if (!filled.has(pg)) return false;
       return true;
     };
-    const at = layer.findIndex((n, i) => i + 1 < layer.length && !n.auditOpen?.length && !layer[i + 1].auditOpen?.length && meets(n, layer[i + 1]));
+    /* M769: A LINE IN HIS OWN WORDS IS NEVER SQUEEZED. His line ("Ilse is my sister, not my cousin") was merged with the
+     * next one into the keeper's words — "his cousin Ilse": his correction rewritten by the very model it corrected, and
+     * the line gone from the record as his (made to happen). It stands where it is, as no reader writes over his hand
+     * (lineIsHis); the lines around it squeeze as before. */
+    const held = (n) => Boolean(n.auditOpen?.length) || lineIsHis(n);
+    const at = layer.findIndex((n, i) => i + 1 < layer.length && !held(n) && !held(layer[i + 1]) && meets(n, layer[i + 1]));
     if (at === -1) continue;
     const candidates = layer.slice(at, at + NOTES_PER_PROMOTION);
-    const blocked = candidates.findIndex(node => node.auditOpen?.length);
+    const blocked = candidates.findIndex(held);
     const toMerge = blocked < 0 ? candidates : candidates.slice(0, blocked);
     if (toMerge.length < 2) continue; /* Keep unresolved edits attached to their line; other lines may still fold. */
     const takenIn = between(toMerge[0], toMerge[toMerge.length - 1]); /* empty marker lines the merge takes in */
@@ -1950,6 +1978,8 @@ export async function maybeSummarize({ connection, storyId, signal, onSourceIssu
   return changed ? mem : null;
 }
 
+/* a correction against a line's old words, once the line is written again (redoLine; correctionsCarried) */
+const RECONSIDER_WHY = 'The record line was written again from its pages; reconsider this correction against the new line.';
 /* M216: ONE LINE, AGAIN — Summaryception's per-snippet redo, which this house
  * never had. A single line that came out wrong, or a detail that came out as
  * nonsense, meant rebuilding the WHOLE record: minutes of work that throws
@@ -1999,6 +2029,14 @@ export async function redoLine({ connection, storyId, nodeId, detailOnly = false
      * M316's old worded marker), and the drawer went on saying the keeper had given that page no line */
     delete fresh.byHouse; delete fresh.healTries;
     delete fresh.sourceTries; /* M752: read again from its pages — the count of failed rereadings starts afresh */
+    /* M769: a correction against the old line's own words is reconsidered against the new line's, its recovery afresh — as a
+     * squeezed line read again does (correctionsCarried). Kept as it was, one the audit had set aside ("blocked") went on
+     * holding the lamp for words no longer in the line, and one still due was asked about the old words */
+    if (Array.isArray(fresh.auditOpen)) fresh.auditOpen = fresh.auditOpen.map((f) => {
+      if (!f || typeof f !== 'object' || !f.issue || f.issue.target !== 'record') return f;
+      const { recovery: _recovery, ...rest } = f;
+      return { ...rest, why: RECONSIDER_WHY };
+    });
     fresh.at = Date.now();
     await saveMemory(storyId, mem);
   }
@@ -2085,7 +2123,6 @@ export function partlyReadMerged(mem, messages) {
  * continuous.js historicalFindings), and an open finding of the same id with them (a dismissal reopened for review: apart
  * from its receipt it was reopened again on the receipt's line). Ties go to the earlier line. `pages`: the tale's visible
  * pages. Pure. */
-const RECONSIDER_WHY = 'The record line was written again from its pages; reconsider this correction against the new line.';
 function correctionsCarried(old, made, pages) {
   const open = Array.isArray(old && old.auditOpen) ? old.auditOpen.filter((f) => f && typeof f === 'object') : [];
   const settled = Array.isArray(old && old.auditRecovery) ? old.auditRecovery.filter((r) => r && typeof r === 'object') : [];
@@ -2170,7 +2207,7 @@ async function relocateSourceNode(storyId,node,target,pages,{signal,stale}={}) {
     if (!sameVisiblePages(current,pages) || !current.slice(target[0],target[1]+1).every((page,i)=>page.id===bindings[i]?.id && messageVersion(page)===bindings[i]?.version)) return false;
     const nodes=s.settings.memory?.nodes || [],at=nodes.findIndex(n=>n && n.id===node.id);
     if (at<0 || nodeSignature(nodes[at])!==signature) return false;
-    const moved=[...nodes],d=target[0]-nodes[at].span[0];moved[at]=findingsMoved({...nodes[at],span:target,sourcePages:sourceBindings(current.slice(target[0],target[1]+1))},([a,b])=>[a+d,b+d]); /* M752: its open corrections move with it */
+    const moved=[...nodes],d=target[0]-nodes[at].span[0];moved[at]=findingsMoved({...nodes[at],span:target,sourcePages:sourceBindings(current.slice(target[0],target[1]+1))},([a,b])=>[a+d,b+d],null,{slid:nodes[at].span}); /* M752: its open corrections move with it */
     s.settings.memory={...s.settings.memory,nodes:moved};return true;
   });
 }

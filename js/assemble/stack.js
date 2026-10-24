@@ -337,10 +337,26 @@ export function windowPlan({ pages, memory, budgetTokens, prefixTokens, cost: pa
    * assumption stands (the keeper has folded everything older). */
   let extended = 0;
   let uncovered = 0;
+  let unreached = 0; /* M769: of those, the run just before the window the room would not take */
   if (Array.isArray(memory.nodes)) {
-    const sourceReach = coveredUntil(memory.nodes);
-    const mappedReach = all.findIndex((m,i) => (Number.isInteger(m.sourceOrdinal) ? m.sourceOrdinal : i) >= sourceReach);
-    const reach = mappedReach < 0 ? all.length : mappedReach;
+    /* M769: THE WINDOW REACHES BACK OVER THE PAGES NO LINE HOLDS — the run of them just before it, never across pages a
+     * line already tells. It reached back to the first page with no line anywhere in the tale (coveredUntil): one old line
+     * let go (a page edited deep in the story, keeper on) and the window set out for it across a hundred pages whose lines
+     * stood — the room held three of them, and the record, cut at that old hole by the send path's own plan (made without
+     * the room), carried none of the lines past it: 118 pages of a 201-page tale were in neither the lines nor the pages
+     * (made to happen). The pages a line holds are told by it; a hole deeper in the tale is the keeper's to fill (it fills
+     * holes first) and is counted on the receipt until it does. The window and the record's cut now agree whatever the
+     * room: the stretch the window may take is pages without a line, so where it stops changes no line that rides. */
+    const held = new Set();
+    for (const n of memory.nodes) {
+      if (!n || !Array.isArray(n.span) || n.span.length !== 2) continue;
+      const a = Math.max(0, Number(n.span[0]) || 0); const b = Math.min(Number(n.span[1]) || 0, total + 1000000);
+      for (let o = a; o <= b; o += 1) held.add(o);
+    }
+    const ordinalOf = (i) => (all[i] && Number.isInteger(all[i].sourceOrdinal) ? all[i].sourceOrdinal : i);
+    const holds = (i) => held.has(ordinalOf(i));
+    let reach = start;
+    while (reach > 0 && !holds(reach - 1)) reach -= 1;
     if (reach < start) {
       /* M162: AS FAR BACK AS THE ROOM ALLOWS, NEVER FURTHER. M12 wrote this
        * law with no ceiling, and it had never once run (the nodes were never
@@ -363,9 +379,11 @@ export function windowPlan({ pages, memory, budgetTokens, prefixTokens, cost: pa
         at -= 1;
       }
       extended = start - at;
-      uncovered = at - reach;
+      unreached = at - reach;
       start = at;
     }
+    /* every page before the window that no line holds — the run the room would not take, and a hole deeper in the tale */
+    for (let i = 0; i < start; i += 1) if (!holds(i)) uncovered += 1;
   }
   const window = all.slice(start);
   return {
@@ -376,6 +394,7 @@ export function windowPlan({ pages, memory, budgetTokens, prefixTokens, cost: pa
     resting: start,
     extended,
     uncovered,
+    unreached,
   };
 }
 
@@ -1583,7 +1602,7 @@ export function buildRequest({
      * the receipt says so plainly. M162: and when the room would not stretch
      * far enough, it names the pages still standing with no line. */
     const held = win.uncovered > 0
-      ? ` — ${win.uncovered} older ${win.uncovered === 1 ? 'page has' : 'pages have'} no line yet and would not fit the room; the keeper fills those holes first`
+      ? ` — ${win.uncovered} older ${win.uncovered === 1 ? 'page has' : 'pages have'} no line yet${win.unreached >= win.uncovered ? ' and would not fit the room' : ''}; the keeper fills those holes first` /* M769: a hole deeper in the tale was never the room's to take */
       : '';
     if (win.extended > 0) {
       historySource = (win.resting > 0
@@ -1965,7 +1984,7 @@ export function buildRequest({
       const noLine = (keeperMode ? unfolded : 0) + waiting + untold;
       const gap = !noLine ? ''
         : keeperMode && noLine === unfolded
-          ? ' — ' + pl(noLine, 'older page has', 'older pages have') + ' no line yet and would not fit the room; the keeper fills those holes first' /* M162's words, where they are the whole truth */
+          ? ' — ' + pl(noLine, 'older page has', 'older pages have') + ' no line yet' + ((win.unreached || 0) >= (win.uncovered || 0) ? ' and would not fit the room' : '') + '; the keeper fills those holes first' /* M162's words, where they are the whole truth (M769: a hole deeper in the tale was never the room's to take) */
           : ' — ' + pl(noLine, 'older page has', 'older pages have') + ' no line riding in this request: ' + [keeperMode && unfolded ? unfolded + ' not folded yet (the keeper fills those holes first)' : '', waiting ? waiting + ' under ' + (withheld === 1 ? 'a line' : 'lines') + ' being written again after the pages changed' : '', untold ? untold + ' whose lines are not in it (see What remains)' : ''].filter(Boolean).join(', ');
       const fitWords = removed ? pl(removed, 'older page', 'older pages') + ' taken out to fit the whole request and its answer' : '';
       let words;

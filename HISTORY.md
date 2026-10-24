@@ -22266,3 +22266,69 @@ tales' words (+30 MB on this shelf).
 Law DOM-M768-1 (the second search reads no tale; a changed tale is read again, alone, and its new words are found) fails on
 m767-001. Browser test tests/m734_search.py passes. Suite 1744/1744; walk 328/328; lint 0 errors.
 Not measured: his own phone and library.
+
+## M769 (m769-001): the final audit of the scene, the people, the world and the book
+
+The owner, 24 October 2026: "Ok this is my last session before my next project make sure each ledger the scene the people the
+world the book and everything is working and not gimmick and intended according to best". Four readers who had not seen the
+code read one part each and made its faults happen with the real readers, appliers and keepers (scripts under the session's
+audit folders). Each fault confirmed is fixed at its cause; each has a law that runs the feature and fails on m768-001
+(tests/harness/m769.mjs: 28 laws, all 28 fail on m768-001; DOM-M769-1 and DOM-M769-2, both fail on m768-001).
+
+The scene. (S1) A death the page tells ("the light went out of them", "went still, and stayed still", "his heart stopped")
+was dropped from the reader's leaves: Old Hesk stood in Here now. (S2) Someone who walks out and is thought of after stayed in
+the room. (S3) A place carrying someone's name counted as naming them: "Ashford Manor" kept Claire Ashford in the drawing room
+the next morning (names.js nameOnPage reads one word of a name with such places taken out). (S4) A seat in a room of the
+house his header does not stand in walked her into the garden (extractor marks it notAtScene; apply honours it). (S5) "The
+library at/of Ashford Manor" was a new ground (withinGround ignores of/at/in/inside/within). (S6) Speech in single quotation
+marks was narration ('Vera will be down soon' walked Vera in). (S7, DOM-M769-1) He walks out of the room and the header's room
+overruled the reader's street — in chat.js pageWrites, and again after the page in the M409 header-ground door (found only by
+running it through the app: the auditors' mirror of pageWrites had not got that door). (S8, DOM-M769-2) After a long jump the
+house let his dress go after his header had set it; the letting go now comes first and his header's dress stands.
+
+The people. (P1) "Mrs. Arden" wrote her nature, now, loose end, standing, knowledge and truths onto Jovan Arden (no name
+that is not him lands on his page or in his books: people.js notHisPage, apply.js personBookKey). (P2) "Silas' brother" was
+Silas. (P3) "Lieutenant Kuchiki" wrote into the Captain of the Sixth's page and books; "Byakuya Kuchiki — Captain of the Sixth"
+was written onto the page "Lieutenant Kuchiki" (people.js pageGivesOtherRank, coreGivesOtherRank — only a title that opens a
+core counts). (P4) "Vanessa" beside Vanessa Langley and Vanessa Cole: addKnowledge looked the book up again, loosely, after the
+applier had found none — it takes the applier's key now. (P5) "Mrs. Sterling … His wife, a florist" was written onto John
+Sterling's page: a married-in title (Mrs., Ms., Miss, Madam, Lady, Dame, Aunt, Grandma) with the surname alone no longer finds
+a whole name with another given name; "Mr. Wells" still finds Tom Wells (M646-4 unchanged). (P6) A rename taken back put back
+everything it changed; an older write is not taken back over a later rename. (P7) Folding a stray "Kuchiki" into Rukia Kuchiki
+rewrote "Captain Byakuya Kuchiki" and "the Kuchiki clan" (ripple.js: a surname follows only where it stands alone). (P8) A
+forget taken back restored every thread of the time, a later one with it; "forget Kuchiki" forgot Rukia. (P9) A descriptor
+is its person at every door; a group is nobody's page; a ghost page's core is kept when it is healed.
+
+The world. (W1) Asked again for the people it owed, the world's brief was replaced by the second answer's empty one
+(joinedBrief). (W2) A voice the world tied to someone in the room ("The Sheriff" → Odell Cray) rode as a voice from beyond
+it, and a voice of someone in the room was waited on for its identity (filtered before the identities are asked; a run is not
+left unfinished by a rejection). (W3) Sheriff, deputy, marshal, constable, inspector, trooper, nurse, judge, mayor, senator,
+governor, reverend, pastor, bishop and the rest are titles. (W4) A worker's "Core" wrote over his hand-written core. (W5) A
+loose end was found by its words alone ("Jovan wants his money from Marco" overwrote Marco's) — by its owner now; a close
+must name a thread at least as fully. (W6) A fall on the stairs counted as a secret and "close" as privacy.
+DOM-273 asserted the continuous audit's mark stood at 4 over a line whose last page had just been told again; that page's new
+words were never read, so the mark is 3 now (K3's rule) and the law says so.
+M368-2's "the ledger keeps its bound of forty" held only because forty-five neighbours' feuds were folded into one by the
+W5 fault; since M713 only a resolved thread closes, and the law now asserts all forty-six are kept (its owners given names of
+one length: the name matcher reads "Neighbour 1" as "Neighbour 10" cut short).
+
+The book. (K1) One old line let go (a page edited deep in the tale) and the window reached back for it across pages whose
+lines stood; the room held three, and the record, cut at the hole by the send path's own plan, carried no line past it:
+measured on a 201-page tale, 118 pages were in neither the lines nor the pages. The window now reaches back only over the run
+of pages no line holds just before it (stack.js windowPlan); a deeper hole is named on the receipt and the keeper fills it
+first. Measured after: 10 pages missing — the hole's own — and every line past it rides; the same on a 601-page tale.
+(K2) An older page let go slid every later line down one and every correction the audit had set aside past it was asked again
+(three calls): a line that only slides keeps its corrections' names and the span their reservation was made under. (K3) An edit
+under a line that stays kept its reading mark. (K4) His own line was squeezed into the keeper's words ("his cousin Ilse").
+(K5) A line written again kept a correction set aside against its old words. (K6) A record fix rewrote every place its words
+stood, and inside words; it lands in one place, in whole words, as the recovery's repair already required. (K7) The
+continuous audit's looks were served pages after the line it was judging; they stop at the line's last page (the recovery's
+already did).
+
+Not changed, and why: another person's clothes still clear after a jump of four hours or more (M660 — the house cannot tell a
+long drive in one car from a night between, and an empty dress claims nothing; his own is now kept from his header). A bare
+surname still finds a whole name ("Kuchiki" → Rukia Kuchiki); "Mr. Blackwood" is still Marcus Blackwood (and so a seat for
+him over Marcus's death is still refused). A deep hole's pages are not sent word for word any more: until the keeper fills it
+(holes first), they are named, not carried.
+Checked: harness 1772/1772; the DOM walk 329/330 whole, then DOM-273 re-aimed and run again (330/330); lint 0 errors (247 warnings, the baseline). Not run: tests/m734_search.py (no
+search code changed), his own device and tales.

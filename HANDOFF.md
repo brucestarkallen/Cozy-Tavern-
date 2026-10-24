@@ -7,7 +7,25 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m768-001 on main, 23 October 2026: the search reads each tale once (M768). His: "The search function is very slow
+- Version m769-001 on main, 24 October 2026: the final audit of the scene, the people, the world and the book (M769). His:
+  "make sure each ledger the scene the people the world the book and everything is working and not gimmick and intended
+  according to best". Four fresh readers made about 35 faults happen; each is fixed with a law that fails on m768-001
+  (tests/harness/m769.mjs, 28 laws; DOM-M769-1, DOM-M769-2). Scene: a death or a walk-out the page tells is a leave; a place
+  carrying someone's name ("Ashford Manor") does not keep Claire Ashford in the room; a seat in a room of the house his header
+  does not stand in is no walk-in; "the library at Ashford Manor" is "Ashford Manor, the library"; single-quoted speech is
+  speech; he walks out and the ground goes with him (pageWrites AND the M409 header-ground door in chat.js); after a long jump
+  his header dresses him. People: "Mrs. Arden" never writes on Jovan Arden; "Silas' brother"; a rank on the page (or opening a
+  core) tells two people apart in every book; a name two people answer to writes into neither's book (addKnowledge takes the
+  applier's key); "Mrs. Sterling" is not John Sterling (married-in titles only — "Mr. Wells" still finds Tom Wells); rename
+  undo restores; no older undo past a rename; a stray surname fold rewrites only its own words; forget-undo brings back only
+  its own threads. World: the second ask keeps the first answer's brief; a voice tied to someone in the room is dropped before
+  identities are asked; sheriff/deputy/inspector/mayor/reverend… are titles; a worker's "Core" is "core"; a loose end is found
+  by its owner and a close names the one it closes. Book: the window reaches back only over pages no line holds (a deep hole
+  cost 118 of 201 pages; now its own 10, named); a correction set aside keeps its reservation when its line only slides; an
+  edit under a kept line lowers its reading mark; his own line is never squeezed; a line written again has its record
+  corrections reconsidered; a record fix lands in one place, in whole words; the continuous audit's looks stop at the line's
+  last page. Not changed: NPC clothes still clear after a jump of four hours (M660). Suite 1772/1772; walk 330/330; lint 0 errors.
+- Version m768-001, 23 October 2026: the search reads each tale once (M768). His: "The search function is very slow
   i can't search anything.. Especially all tales". Every search (every pause in his typing) read every tale's whole rows —
   versions and thinking — into the page cache and flattened and lower-cased every page again. Now (js/ui/search.js,
   js/engine/search.js, js/store.js): each tale's pages become an index once (lower-case words only), kept until that tale's

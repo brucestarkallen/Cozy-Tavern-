@@ -2389,7 +2389,8 @@ export function auditorRepairScope(issues, state, { sources = '', sceneSource = 
  * thread, the writer's hand, no place on his sheet or in the scene. Such a forget is the review's to make (journaled; undo
  * brings it back); a page with anything written on it is kept, as before. */
 export function nothingWrittenOn(state, name) {
-  const key = findPersonKey(state?.characters || {}, name);
+  const wantedName = String(name || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const key = Object.keys(state?.characters || {}).find((k) => k.trim().replace(/\s+/g, ' ').toLowerCase() === wantedName) || ''; /* M769: the page the forget door erases — that name's own */
   if (!key || isMc(state, key)) return '';
   const page = state.characters[key] || {};
   const said = (v) => Array.isArray(v) ? v.length > 0 : Boolean(String(v ?? '').trim());
@@ -2433,6 +2434,7 @@ export function finalAuditorScope(issues,state,{writerSources='',pageAt=null,rej
     && [x.name,x.from,x.to].some(n=>typeof n==='string' && n.trim() && samePersonName(n,f.name))));
   return (issues || []).map(issue=>({...issue,mutations:(issue.mutations || []).flatMap(m=>{
     if (m.type === 'people.forget' && ['place','organization','object','group'].includes(m.kind)) m.type='people.reclassify';
+    if (typeof m.field === 'string') m.field = m.field.trim().toLowerCase(); /* M769: "Core" is core to every guard */
     delete m.byHand;
     delete m.writerEstablished;
     delete m.auditorApproved;

@@ -39,7 +39,7 @@ import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning, foldName } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
 import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, jumpedFar, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, mcGoesOut, personBookKey, noOneSpot, deathToldOf, comesInAtTheEnd, readerTimeOverHeader, withoutGrantedFlags } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end; M755: the goings out, and a scene the clock left behind */
-import { headerMutations, closeBy, headerCells } from '../engine/state.js'; /* M446: did this page move the ground? */
+import { headerMutations, closeBy, headerCells, headerDress } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey, seatForPerson } from '../engine/people.js'; /* M681: the dead's seat */
 import { isDeadSeat, seatNowWords } from '../engine/offscreen.js'; /* M680: the dead, and a seat said as every reader says it */
 import { findRelationship } from '../engine/relationships.js'; /* M641: who has no standing yet */
@@ -1025,8 +1025,14 @@ export async function extractTurn(args = {}) {
       /* M644: …or the reader hands over the page's own words for it, and they hold (apply.js quotedGoing) */
       /* M680: …or it is a death the page tells ("to" begins "dead — "): the page goes on naming the body ("Roska knelt by
        * Hesk"), so no going is ever its last word — and the dead are nobody's company */
-      const death = isDeadSeat({ location: m.to }) && deathToldOf(args.state, turnScene, n);
-      return death || (moved ? !cameAlong(n) : (goneAtTheEnd(args.state, turnScene, n) || quotedGoing(args.state, turnScene, n, m.shown) || (mcGone && !cameAlong(n))));
+      /* M769 (the final audit of the scene): a death the page tells in its own words ("the light went out of them", "went
+       * still, and stayed still") — the reader hands them over as shown; the short list of death words missed them, and Hesk
+       * stood behind his counter */
+      const death = isDeadSeat({ location: m.to }) && (deathToldOf(args.state, turnScene, n) || toldOnPage(args.assistantText, m.shown).end !== -1);
+      /* M769: …and a going the page tells, with the reader's own room as the page ends leaving them out: "Marta walked out
+       * into the rain … Jovan thought about what Marta had said" — a later thought of her is no coming back */
+      const roomWithout = Array.isArray(read.here) && read.here.length > 0 && !cameAlong(n) && toldOnPage(args.assistantText, m.shown).end !== -1;
+      return death || (moved ? !cameAlong(n) : (goneAtTheEnd(args.state, turnScene, n) || quotedGoing(args.state, turnScene, n, m.shown) || roomWithout || (mcGone && !cameAlong(n))));
     });
     /* M509-12: THE CROWD DOES NOT RIDE TO THE NEW GROUND. When the page MOVES the ground and says who is in the new room
      * (its "here"), everyone else who was in the old room is left behind there — Jovan ran out of the Tenth's courtyard
@@ -1125,6 +1131,22 @@ export async function extractTurn(args = {}) {
           || (m.type === 'offscreen.set' && m.stance !== 'toward' && m.stance !== 'seeking' && Boolean(sceneGround) && seatAtScene(String(m.location || ''), sceneGround) && !isDeadSeat({ location: m.location, activity: m.activity }));
         return !walksIn || confirmedHere(m) || comesInAtTheEnd(args.state, args.assistantText, [m.name], m.shown);
       });
+    }
+    /* M769 (the final audit of the scene): A ROOM OF THE HOUSE IS NOT THE GARDEN. With the ground the whole house ("Ashford Manor")
+     * and his header putting him "in the garden", the reader's seat for Claire in "the drawing room of Ashford Manor" — what
+     * the far-off block tells it to write for someone seen through a window — was "where the scene is" and walked her into
+     * the garden. A seat that names a room of the ground his own header does not stand in is elsewhere. */
+    if (args.state) {
+      const groundNow = (moved ? ground : (was || ground)) || '';
+      const standsIn = String((headerDress(args.assistantText) || {}).position || '').toLowerCase();
+      const wordsOf = (t) => String(t || '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((w) => w.length >= 3 && !['the', 'and', 'of', 'at', 'in', 'inside', 'within', 'by', 'near', 'with'].includes(w));
+      const groundWords = new Set(wordsOf(groundNow));
+      for (const m of read.mutations) {
+        if (!m || m.type !== 'offscreen.set' || typeof m.location !== 'string' || !standsIn || !groundNow) continue;
+        if (!seatAtScene(m.location, groundNow)) continue;
+        const room = wordsOf(m.location).filter((w) => !groundWords.has(w));
+        if (room.length && !room.some((w) => standsIn.includes(w))) m.notAtScene = true;
+      }
     }
     /* M444: a note let go of someone the page shows is her walking in; and the room, restated, writes in whoever is missing */
     read.mutations = clearsThatArrive(args.state, read.mutations, scenePartOf(args.assistantText));

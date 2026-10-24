@@ -291,6 +291,7 @@ import './m761.mjs'; /* M761: a value that lost its closing quote is read; an an
 import './m762.mjs'; /* M762: the continuous audit's reading may look before it alleges, as the housekeeper does */
 import './m763.mjs'; /* M763: a forget that loses nothing (a name the ledger never held, an empty page) is the final review's to make */
 import './m764.mjs'; /* M764: someone the page only talks about is asked where they are */
+import './m769.mjs'; /* M769: the final audit — the scene, the people, the world and the book */
 
 console.log('Cozy Tavern — harness');
 await import('./m683.mjs');

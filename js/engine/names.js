@@ -77,6 +77,12 @@ const TITLE_KIND = {
   /* M573 (the audit): a school's own titles — "Headmaster Vane" found no page and became a second Aldric Vane. Kept to the
    * words that are never a first name (no "Dean", no "Warden"). Ranks among themselves: a headmaster is not an instructor. */
   headmaster: 'rank', headmistress: 'rank', principal: 'rank', instructor: 'rank', chancellor: 'rank', vice: 'rank',
+  /* M769 (the final audit of the world): the law's and the town's own titles — "Sheriff Odell Cray" was not "Odell Cray", and
+   * a seat for the one was written while the other stood in the room (a dead sheriff's seat stood beside a living one) */
+  sheriff: 'rank', deputy: 'rank', marshal: 'rank', constable: 'rank', inspector: 'rank', superintendent: 'rank', trooper: 'rank',
+  corporal: 'rank', private: 'rank', ensign: 'rank', commissioner: 'rank',
+  nurse: 'role', judge: 'office', mayor: 'office', senator: 'office', governor: 'office', councilman: 'office', councilwoman: 'office',
+  reverend: 'order', pastor: 'order', bishop: 'order', deacon: 'order',
 };
 const TITLE_SAME = { mister: 'mr', missus: 'mrs', madame: 'madam', mme: 'madam', mlle: 'miss', doctor: 'dr', professor: 'prof', auntie: 'aunt', granny: 'grandma' };
 /* own keys only: a word like "constructor" is a name, never Object.prototype's */
@@ -148,13 +154,14 @@ export function isTitleWord(word) {
 /* A possessive descriptor identifies somebody related to its owner, not the owner.
  * Do this before forgiving punctuation or using a recorded alias. */
 export function ownerAndDependent(a, b) {
-  const owner = name => /^(.+?)['’‘ʼ]s\s+\S/iu.exec(String(name || '').trim())?.[1] || '';
+  /* M769 (the final audit of the people): "Silas' brother" is Silas's brother too — the owner of a name that ends in s */
+  const owner = name => { const m = /^(.+?)(?:['’‘ʼ]s|(?<=s)['’‘ʼ])\s+\S/iu.exec(String(name || '').trim()); return m ? m[1] : ''; };
   const A = owner(a), B = owner(b);
   return Boolean((A && samePersonName(A, b)) || (B && samePersonName(B, a)));
 }
 
 export function sameOwnedDescriptor(a, b) {
-  const descriptor = name => /^(.+?)['’‘ʼ]s\s+(.+)$/iu.exec(String(name || '').trim());
+  const descriptor = name => /^(.+?)(?:['’‘ʼ]s|(?<=s)['’‘ʼ])\s+(.+)$/iu.exec(String(name || '').trim());
   const A = descriptor(a), B = descriptor(b);
   return Boolean(A && B && foldName(A[2]) === foldName(B[2]) && samePersonName(A[1], B[1]));
 }
@@ -174,6 +181,14 @@ export function isDescriptorName(name) {
 /* Is `a` the same person as `b`? The same name (folded, a rank or courtesy set aside), a first or last name of the
  * other, one cut short of the other, the same names in another order ("Kuchiki Rukia"), or two names the story's
  * canon knows as one person. Never a near miss: seating is a hard fact. Never two titles that disagree (M414). */
+/* M769: the titles a woman who married into a family, or a daughter of it, is called by with its surname alone */
+const MARRIED_IN = new Set(['mrs', 'ms', 'miss', 'madam', 'lady', 'dame', 'aunt', 'grandma']);
+const bySurname = (one, oneTitles, whole, wholeTitles) => whole[whole.length - 1] === one[0] && whole[0] !== one[0]
+  && [...oneTitles].some((t) => MARRIED_IN.has(t)) && ![...oneTitles].some((t) => wholeTitles.has(t));
+function familySurnameOnly(A, B) {
+  const wa = A.words; const wb = B.words;
+  return (wa.length === 1 && wb.length > 1 && bySurname(wa, A.titles, wb, B.titles)) || (wb.length === 1 && wa.length > 1 && bySurname(wb, B.titles, wa, A.titles));
+}
 export function samePersonName(a, b) {
   if (ownerAndDependent(a, b)) return false;
   if (sameOwnedDescriptor(a, b)) return true;
@@ -186,6 +201,14 @@ export function samePersonName(a, b) {
   if (fa === fb) return true;
   const wa = A.words;
   const wb = B.words;
+  /* M769 (the final audit of the people): THE WIFE IS NOT THE HUSBAND'S WHOLE NAME. "Mrs. Sterling" was John Sterling — the
+   * surname alone matched his whole name, and "His wife, a florist" was written into the banker's own page. The title a
+   * woman who married into a family (or a daughter of it) is called by — Mrs., Ms., Miss, Madam, Lady, Dame, Aunt, Grandma —
+   * with the surname alone names one of the family, not the one whose given name the page has; it finds a whole name only
+   * when that name carries the same title ("Mrs. Martha Sterling"). "Mr. Wells" still finds Tom Wells (M646), a rank or
+   * an office its person (M414). A missed merge is a second page the auditor folds; a wrong one wrote one person's life
+   * onto another's page (M490-3). */
+  if (familySurnameOnly(A, B)) return false;
   if (wa.length === 1 && wb.length > 1 && (wb[0] === wa[0] || wb[wb.length - 1] === wa[0])) return true;
   if (wb.length === 1 && wa.length > 1 && (wa[0] === wb[0] || wa[wa.length - 1] === wb[0])) return true;
   if (wa.length >= 2 && wa.length === wb.length && [...wa].sort().join(' ') === [...wb].sort().join(' ')) return true; /* M404: family name first */
@@ -227,6 +250,7 @@ function foldsOfText(text) {
  * and "Ed" or "Al" on none (no word long enough — never allowed to leave). Now: the whole name, or any word of it that
  * names someone — never a title, a courtesy, a joining word, or the owner in "Jovan's mother" (that is Jovan's word).
  * A word two people share (a family name) still counts for both: a maybe is safer than a miss here. */
+const PLACE_NAMED = /(?<![\p{L}'’])\p{Lu}[\p{L}'’-]*(?:\s+\p{Lu}[\p{L}'’-]*)*\s+(?:Manor|House|Hall|Estate|Street|Road|Lane|Avenue|Park|Farm|Castle|Tower|Inn|Hotel|Station|Building|Institute|College|University|Hospital|Church|Chapel|Bridge|Square|Gardens|Mansion|Lodge|Cottage|Academy|Asylum|Library|Museum|Motel|Diner|Tavern|Bar|Pub|Mill|Mine|Ranch|Plantation|Abbey|Cathedral|Palace|Keep|Fort|Bay|Harbor|Harbour|Heights|Hill|Woods|Forest|Valley|County|Township|Drive|Boulevard)(?![\p{L}])|(?<![\p{L}'’])\p{Lu}[\p{L}'’-]*\s+(?:house|estate|manor|place|farm|residence|home)(?![\p{L}])/gu;
 export function nameOnPage(text, name) {
   const raw = String(name || '');
   const { loose, tight, blank } = foldsOfText(text);
@@ -241,7 +265,14 @@ export function nameOnPage(text, name) {
   const words = P.words.filter((w) => !owners.has(w) && !NAME_STOP.has(w));
   let distinct = words.filter((w) => w.length >= 3);
   if (!distinct.length) distinct = words.filter((w) => w.length >= 2);
-  return distinct.some(has);
+  /* M769 (the final audit of the scene): a word of a name that stands in a PLACE's name is the place's — "Ashford Manor"
+   * is no Claire Ashford, "the Wells house" no Vera Wells. One word of the name is read from the text with such places
+   * taken out (the whole name, above, is read as written) */
+  const hisWords = new Set(P.words);
+  const unplaced = String(text || '').replace(PLACE_NAMED, (m) => (hisWords.has(nameFold(m.split(/\s+/).pop()).trim()) ? m : ' ')); /* "Mr. Hall" is Marcus Hall */
+  if (unplaced === String(text || '')) return distinct.some(has);
+  const rest = foldsOfText(unplaced);
+  return distinct.some((w) => rest.loose.includes(' ' + w + ' ') || rest.tight.includes(' ' + w + ' '));
 }
 
 /* Every name the ledger knows a person by — pages, the scene, the seats. */

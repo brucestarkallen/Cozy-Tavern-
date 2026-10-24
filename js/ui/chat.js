@@ -66,8 +66,8 @@ import { finalizeReceipt, estimateTokens, selectionForSent } from '../assemble/r
 import { roomChars } from '../engine/pagecut.js'; /* M265: one measure of a room */
 import { listModules, selectModules } from '../assemble/modules.js';
 import { renderClock } from '../engine/clock.js'; /* M493 */
-import { loadState, unreadPages, saveState, notify, snapshotState, withStoryWrites, restoreSnapshot, restoreNearestSnapshot, renderMasthead, headerWithGround, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture, shareCheckpoints } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
-import { applyMutations, scenePartOf, staleAfterJump, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart, noOneSpot, readerTimeOverHeader, handSetClockSince, clockReached, mcPageOnlyHis, mcSeatLetGo } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
+import { loadState, unreadPages, headerDress, saveState, notify, snapshotState, withStoryWrites, restoreSnapshot, restoreNearestSnapshot, renderMasthead, headerWithGround, loadSnapshots, saveSnapshots, emptyState, foldJournal, journalReaches, saveVersionStates, loadVersionStates as loadAllVersionStates, saveOneVersion, versionStateOf, timelineAhead, headerMutations, markPageRead, oldestUnread, readMark, dropTheFuture, shareCheckpoints } from '../engine/state.js'; /* M507-6: the version ledgers' rows */
+import { applyMutations, scenePartOf, staleAfterJump, mcGoesOut, samePlace, storyTurn, staleNows, duplicatePages, strayBookKeys, wrongWalkIns, hereByTheNewestPage, walkedBackOverTheWorld, lastingOnly, groundLooksStale, goneByTheirOwnPage, seatMadeCores, descriptorsThatAreNamed, descriptorsApart, noOneSpot, readerTimeOverHeader, handSetClockSince, clockReached, mcPageOnlyHis, mcSeatLetGo } from '../engine/apply.js'; /* M405/M406; M419; M444; M452; M453 */
 import { canonOn, canonBeforeSend, canonAfterPage, canonAction, canonSelfTest, canonSyncLedger, carryCanonMemory, canonMeta, canonRecordFor, canonWithdraw, withoutCanonTruths, canonSaveMeta, canonPremise, canonLensLedger } from '../canon/bridge.js'; /* M346/M386: canon verification */
 import { canonRepeats, canonTidyPeople, canonTidyWords } from '../agents/canontidy.js'; /* M388: old pages stop repeating canon */
 import { newSentId, keepSent, loadSent, loadSentOrPull, pushSentToDevice, giveSentToTale } from '../sent.js'; /* M347: the words each page was sent, kept beside it; M636: read back for the sensors; M675: a tale's carried pages are given to it on the device */
@@ -118,7 +118,7 @@ const SIDE_JOBS = new Set(['keeper', 'sensors', 'placer', 'startcheck', 'ground'
 const OWN_BOOKS = new Set([...SIDE_JOBS, 'planner']);
 const readersOut = (storyId) => workOut(storyId).some((name) => !OWN_BOOKS.has(name));
 import { renderStateFacts as planFacts, stateView as planStateView, closeBy } from '../engine/state.js'; /* M510: what the helper reads; M589: who is close by */
-import { renderPeopleTiers as planPeople, peopleView as planPeopleView, findPersonKey } from '../engine/people.js'; /* M510; M518: a canon block's person in the ledger */
+import { renderPeopleTiers as planPeople, peopleView as planPeopleView, findPersonKey, isMc } from '../engine/people.js'; /* M510; M518: a canon block's person in the ledger */
 import { worldTurn, worldRunWords, worldRunState, worldAgentOn, worldEffort, worldDecisionsMissing } from '../agents/world.js'; /* M29: the world beyond the page */
 import { continuousAuditOn, auditStretch, stretchWords, continuousRunStatus, auditProgress, auditWaits, beginReading, endReading, pauseContinuousAudit, openCorrections, withoutStop, branchAdvisories, branchRecoveries, freshTryForCorrections, forgetAuditTrouble, nextStretch } from '../agents/continuous.js'; /* M673: the continuous audit */
 import { auditLedger, auditRunWords, auditOn, auditEvery, rebuildStandings, rebuildRunWords, AUDIT_PAGES, ledgerUpkeep } from '../agents/auditor.js'; /* M41: the ledger auditor; M50: the rebuild */
@@ -3337,9 +3337,19 @@ export function initChat(ctx) {
      * exactly this (extractor.js spotBlock, held to the page there), written after the header's area */
     const headerPlace = timed.header.find((m) => m && m.type === 'place.set');
     const areaOnly = Boolean(headerPlace && noOneSpot(String(headerPlace.name || '')));
-    const overruled = (m) => Boolean(m && headerHas.has(m.type) && !(areaOnly && m.type === 'place.set' && !noOneSpot(String(m.name || m.place || ''))));
-    const list = [...timed.header, ...letGo, ...timed.reader.filter((m) => !overruled(m))].filter((m) => !(m && m.type === 'presence.enter' && onlyInWindow(m.name)));
-    return { list, headerOnly: [...fromHeader, ...staleAfterJump(ledgerBefore, fromHeader)] };
+    /* M769 (the final audit of the scene): THE HEADER IS WHERE THE PAGE OPENS. A page that ends on him walking out of the room
+     * ("…walked out into the rain. The street outside was black and shining") keeps the header's room as the ground — the
+     * one he left — and the one left behind was seated at the scene's own place. The reader's own ground for where the page
+     * ends stands then. */
+    const mcNow = mcName(ledgerBefore);
+    const wentOut = Boolean(mcNow && mcNow !== 'the player' && msg && msg.role === 'assistant' && mcGoesOut(pageWhole, mcNow));
+    const overruled = (m) => Boolean(m && headerHas.has(m.type) && !(areaOnly && m.type === 'place.set' && !noOneSpot(String(m.name || m.place || '')))
+      && !(wentOut && m.type === 'place.set' && headerPlace && String(m.name || m.place || '').trim() && !samePlace(String(m.name || m.place || ''), String(headerPlace.name || ''))));
+    /* M769: …and a long jump's letting go comes FIRST — after it the header's own dress for him stood erased */
+    const dress = letGo.length && mcNow && mcNow !== 'the player' ? (headerDress(pageWhole) || {}).attire : '';
+    const hisDress = dress && letGo.some((m) => m && m.attire === '' && isMc(ledgerBefore, m.name)) ? [{ type: 'presence.update', name: mcNow, attire: dress, cause: 'his own header gives his dress' }] : [];
+    const list = [...letGo, ...hisDress, ...timed.header, ...timed.reader.filter((m) => !overruled(m))].filter((m) => !(m && m.type === 'presence.enter' && onlyInWindow(m.name)));
+    return { list, headerOnly: [...staleAfterJump(ledgerBefore, fromHeader), ...fromHeader] };
   }
 
   /* M251/M276: one page the ledger missed, read and marked. A read that finds
@@ -5640,7 +5650,11 @@ export function initChat(ctx) {
       /* M409: THE PAGE'S HEADER IS THE GROUND. If the ledger's ground is not the one the latest page's header names (an
        * old audit moved it; a reader missed a move), it is put right here first — a journaled change — and every now is
        * judged against the page's ground. */
-      const headerGround = ((msg && msg.role === 'assistant' && !msg.ooc ? headerMutations(pageText(msg), { ground: (fresh.place || {}).name || '' }) : []).find((m) => m && m.type === 'place.set') || {}).name || ''; /* M627 */ /* this chain's own page */
+      let headerGround = ((msg && msg.role === 'assistant' && !msg.ooc ? headerMutations(pageText(msg), { ground: (fresh.place || {}).name || '' }) : []).find((m) => m && m.type === 'place.set') || {}).name || ''; /* M627 */ /* this chain's own page */
+      /* M769: …but where the page opens is not where it ends when he walks out of the room on it (pageWrites' own rule): the
+       * ground the reader moved him to stands — it was set back to the room he left, after the page, by this door */
+      { const mcHere = mcName(fresh); const groundNow = (fresh.place || {}).name || '';
+        if (headerGround && groundNow && !samePlace(groundNow, headerGround) && mcHere && mcHere !== 'the player' && mcGoesOut(pageText(msg), mcHere)) headerGround = groundNow; }
       if (headerGround) { const moved = applyMutations(fresh, [{ type: 'place.set', name: headerGround }]); if (moved.applied.length) fresh = moved.state; }
       /* M406: one person, two pages — joined first, so the nows below are read on the one page */
       const pageJoins = duplicatePages(fresh);

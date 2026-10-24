@@ -201,6 +201,30 @@ function nearName(a, b) {
   }
   return slips === 1;
 }
+/* M769: does the page under `key` give, in its own words or its other names, a title of the same kind as `name`'s that
+ * differs ("Captain of the Sixth" on Byakuya Kuchiki's page, "Lieutenant Kuchiki" asked)? Then the name is another
+ * person — for his page (findPersonKey) and for every book kept under a page's name (apply.js personBookKey) alike. */
+export function pageGivesOtherRank(state, key, name) {
+  const characters = state && state.characters && typeof state.characters === 'object' ? state.characters : {};
+  const page = characters[key] || {};
+  const words = [String(page.core || '').slice(0, 400), ...(Array.isArray(page.aliases) ? page.aliases : [])].join(' ').split(/[^\p{L}]+/u).filter(isTitleWord);
+  return words.some((w) => titlesConflict(name, w + ' ' + key));
+}
+/* M769: WHO SOMEONE IS, SAID IN A RANK, TELLS TWO PEOPLE APART TOO. "Byakuya Kuchiki" — "Captain of the Sixth; head of the
+ * clan" — was written onto the page "Lieutenant Kuchiki" (the surname matched; the name carried no rank to refuse it by),
+ * and the page read "Lieutenant of the Thirteenth … Captain of the Sixth". A core that OPENS with a rank of the same kind
+ * as the one the page's name or its own core opens with, and another, is another person's: a page of their own. Only the
+ * opening title of each counts — "serving under Captain Byakuya" in a lieutenant's core is about someone else. */
+const OPENING_TITLE = /^\s*(?:the\s+|a\s+|an\s+)?([\p{L}]+)/u;
+const openingTitle = (t) => { const m = OPENING_TITLE.exec(String(t || '')); return m && isTitleWord(m[1]) ? m[1] : ''; };
+export function coreGivesOtherRank(state, key, name, text) {
+  if (!key || String(key).trim().toLowerCase() === String(name || '').trim().toLowerCase()) return false;
+  const mine = openingTitle(text) || openingTitle(name);
+  if (!mine) return false;
+  const page = (state && state.characters && state.characters[key]) || {};
+  const theirs = [openingTitle(key), openingTitle(String(page.core || '').split(/\n/)[0]), ...(Array.isArray(page.aliases) ? page.aliases.map(openingTitle) : [])].filter(Boolean);
+  return theirs.some((v) => titlesConflict(mine + ' X', v + ' X'));
+}
 export function findPersonKey(characters, name) {
   const wanted = normalizeName(name).toLowerCase();
   if (!wanted) return '';
@@ -281,11 +305,16 @@ export function findPersonKey(characters, name) {
   /* and the other way: the scribe writes "Vanessa Reynolds" onto a page the
    * extractor opened as "Vanessa" */
   const wantWords = wanted.split(/\s+/).filter(Boolean);
+  /* M769 (the final audit of the people): A PAGE THAT ALREADY SAYS ANOTHER RANK IS ANOTHER PERSON. "Captain Kuchiki" landed on
+   * the page "Kuchiki" and wrote "Captain of the Sixth" there; "Lieutenant Kuchiki" landed on it too, and their standings
+   * cancelled. A titled name is not the page whose own words or other names give a title of the same kind that differs
+   * ("Captain …" on the page, "Lieutenant …" asked). */
+  const rankOfPage = (k) => pageGivesOtherRank({ characters }, k, name);
   /* M272: "Mrs. Sterling" is not whoever was written down as plain "Sterling" */
   if (wantWords.length > 1 && !nameTitle(wanted)) {
     const byWhole = keys.filter((k) => {
       const kk = k.toLowerCase();
-      return kk === wantWords[0] || kk === wantWords[wantWords.length - 1];
+      return (kk === wantWords[0] || kk === wantWords[wantWords.length - 1]) && !rankOfPage(k);
     });
     if (byWhole.length === 1) return byWhole[0];
   }
@@ -294,7 +323,7 @@ export function findPersonKey(characters, name) {
    * was "missing" and a second one was written. Any form the one matcher calls the same person, when exactly one page
    * answers — never two titles that disagree. */
   /* M272 stands: a name with a courtesy title ("Mrs. Sterling") is never whoever was written down as the bare surname */
-  const bySame = keys.filter((k) => samePersonName(k, name) && !titlesDiffer(k, wanted) && !(nameTitle(wanted) && keyLower(k).split(' ').length === 1));
+  const bySame = keys.filter((k) => samePersonName(k, name) && !titlesDiffer(k, wanted) && !(nameTitle(wanted) && keyLower(k).split(' ').length === 1) && !rankOfPage(k));
   if (bySame.length === 1) return bySame[0];
   return '';
 }
@@ -502,8 +531,12 @@ export function mergeDeltas(state, characters, deltas, turn) {
     if (field === 'core' && String(delta.text || '').trim().length > CORE_CAP) { why('the identity addition exceeds the field room; retain the original and reconcile smaller supported facts', true); continue; }
     if (!text) { why('the note came in empty'); continue; }
 
-    let key = findPersonKey(next, name);
+    /* M769 (the final audit of the people): one door's resolution for every writer's note — "Jovan's stepsister" is Vivi
+     * (resolveDescriptor, as people.set reads it), "several guards" are nobody's page, and no other name lands on his */
+    if (!forMc && isGroupName(name)) { why('“' + name + '” is a group, not a person'); continue; }
+    let key = forMc ? findPersonKey(next, name) : (notHisPage(state, findPersonKey(next, name), name) || resolveDescriptor(state, name));
     if (!key) key = name;
+    if (!forMc && field === 'core' && coreGivesOtherRank({ ...state, characters: next }, key, name, text)) key = name; /* M769 */
     /* M754: a close opens no page — the loose end is on one of theirs, or closed already */
     if (field === 'unthread') {
       const found = looseEndOn(state, next, asked, text);
@@ -968,6 +1001,10 @@ export function healGhosts(state) {
     if (ends.length) real.threads = ends.slice(-THREADS_MAX); /* M559: the same room as everywhere else */
     if (!real.state && ghost.state) real.state = ghost.state;
     if (!real.arc && ghost.arc) real.arc = ghost.arc;
+    /* M769 (the final audit of the people): and who the ghost page said they are — added to the real page, never thrown away
+     * ("plays the cello, terrified of thunder" was lost on load) */
+    const ghostCore = String(ghost.core || '').trim();
+    if (ghostCore && !String(real.core || '').includes(ghostCore)) real.core = [String(real.core || '').trim(), ghostCore].filter(Boolean).join('\n').slice(0, CORE_CAP);
     if (off[k] && !off[holder]) off[holder] = off[k];
     if (Array.isArray(know[k])) { const list = Array.isArray(know[holder]) ? know[holder] : []; for (const f of know[k]) if (f && !list.some((g) => g && g.fact === f.fact)) list.push(f); know[holder] = list; }
     if (rels[k] && !rels[holder]) rels[holder] = rels[k];
@@ -983,10 +1020,16 @@ const m_open = (clear, text, f) => clear === 'open' && f === 'core' && !String(t
  * the descriptor door (M482) — for the setter below and for anyone who must read that same page first (people.set's
  * addition read the old core under findPersonKey alone: a fact written under "you" found no old core, and the whole
  * writer biography was replaced by the one new fact). */
+/* M769 (the final audit of the people): A NAME THAT IS NOT HIM NEVER LANDS ON HIS PAGE. isMc says who the main character is
+ * (his story name and the persona names he gave); the page finders' looser matcher took "Mrs. Arden" — his mother — for
+ * "Jovan Arden" by the surname, and wrote her nature, her now, her loose end, a standing and what she knows onto him. */
+export function notHisPage(state, key, name) {
+  return key && isMc(state, key) && !isMc(state, name) ? '' : key;
+}
 export function personFieldKey(state, characters, name) {
   const cleanName = normalizeName(name);
   if (!cleanName) return '';
-  return isMc(state, cleanName) ? mcKey(state) : (findPersonKey(characters, cleanName) || resolveDescriptor(state, cleanName) || cleanName); /* M482 */
+  return isMc(state, cleanName) ? mcKey(state) : (notHisPage(state, findPersonKey(characters, cleanName), cleanName) || resolveDescriptor(state, cleanName) || cleanName); /* M482 */
 }
 export function setPersonField(state, characters, name, field, text, turn, { clear = false, writerCore = false, byHand = false } = {}) {
   const cleanName = normalizeName(name);
@@ -1002,7 +1045,8 @@ export function setPersonField(state, characters, name, field, text, turn, { cle
   if (isGroupName(cleanName)) return { why: '“' + cleanName + '” is a group, not a person — a faction, if anything' }; /* M484 */
   /* The persona redirect holds for the hand as it does for the scribe: a
    * page addressed to "you" is the main character's record. */
-  const key = personFieldKey(state, characters, cleanName); /* M482; M752: one answer with the addition's read */
+  let key = personFieldKey(state, characters, cleanName); /* M482; M752: one answer with the addition's read */
+  if (!forMc && f === 'core' && coreGivesOtherRank({ ...state, characters }, key, cleanName, text)) key = cleanName; /* M769 */
   const before = characters[key] ? { ...characters[key], threads: (characters[key].threads || []).slice() } : null;
   const entry = before ? { ...before, threads: before.threads.slice() } : emptyPerson();
   const atTurn = Number.isFinite(turn) ? turn : (Number.isFinite(state && state.turn) ? state.turn : 0);

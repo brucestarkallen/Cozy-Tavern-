@@ -48,7 +48,7 @@ import { shift as relShift, findRelationship, axisWords, AXES, MAX_DELTA, MAX_TO
 import { seat, findSeat, isDeadSeat } from './offscreen.js';
 import { lockFact, unlockFact, findCanonKey, findFact, lookKey } from './canon.js'; /* M681: one key for one look */
 import { engineSettings, startDuel, startBattle, startWar, teardownFight, mcName, joinFight, findActorKeySamePerson, safeKey, explicitMcPersona, groundedMcPersona } from './duels.js';
-import { withoutStandingNumbers, setPersonField, personFieldKey, findPersonKey, mergeDeltas, worldParticipation, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf, sourceIdentityTargetKey } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
+import { pageGivesOtherRank, withoutStandingNumbers, setPersonField, personFieldKey, findPersonKey, mergeDeltas, worldParticipation, sameLooseEnd, isMc, seatForPerson, resolveDescriptor, isGroupName, roleOwnersNamed, roleWordOf, sourceIdentityTargetKey } from './people.js'; /* M482: the descriptor door; M484: a group is not a person */
 import { ownerAndDependent, samePersonName, isHere, foldName, oneMeaning, nameCore, hasTitle, nameOnPage, isTitleWord } from './names.js'; /* M396: one answer to "the same person?"; M414: one meaning; M444: named on the page */
 import { normalizeBrief } from './world.js'; /* M72: the world's word is a journaled write */
 import { quotedSource } from './evidence.js';
@@ -239,13 +239,24 @@ export function findPresent(state, name, { strict = false } = {}) {
  * own finder first, then by the one matcher (engine/names.js) when exactly one entry answers and the name means one
  * person; a NEW entry is written under the name the person's page stands under. */
 export function personBookKey(state, book, name, finder) {
+  const key = personBookKeyOf(state, book, name, finder);
+  /* M769 (the final audit of the people): "Mrs. Arden" is not Jovan Arden — a name that is not the main character never
+   * writes into his books by a surname the matchers share */
+  return key && isMc(state, key) && !isMc(state, name) ? null : key;
+}
+function personBookKeyOf(state, book, name, finder) {
   const map = book && typeof book === 'object' ? book : {};
   const found = typeof finder === 'function' ? finder(map, name) : null;
-  if (found) return found;
+  /* M769: …and the entry found must mean one person, as the steps below ask ("Vanessa" beside Vanessa Langley and Vanessa
+   * Cole wrote into Langley's book) */
+  /* (and never an entry whose person's page gives another rank of the same kind — "Lieutenant Kuchiki" is not the Captain
+   * of the Sixth, Byakuya Kuchiki, whose book it found: people.js pageGivesOtherRank) */
+  if (found && (String(found).trim().toLowerCase() === String(name || '').trim().toLowerCase() || (oneMeaning(state, name) && !pageGivesOtherRank(state, found, name)))) return found;
+  if (found) return null;
   /* M681 (P4's fault at the applier, found by a search for it): an entry kept under a name that means two people in this
    * ledger ("Rias", beside Rias Wells and Rias Gremory) is neither one's — Rias Wells's beat landed in it, and every later
    * one with it. One person, one entry: the entry found must mean one person too. */
-  const only = (n) => { const same = Object.keys(map).filter((k) => samePersonName(k, n)); return same.length === 1 && oneMeaning(state, n) && oneMeaning(state, same[0]) ? same[0] : null; };
+  const only = (n) => { const same = Object.keys(map).filter((k) => samePersonName(k, n) && !pageGivesOtherRank(state, k, n)); return same.length === 1 && oneMeaning(state, n) && oneMeaning(state, same[0]) ? same[0] : null; };
   const who = resolveDescriptor(state, name); /* M482 */
   if (who) return (typeof finder === 'function' ? finder(map, who) : null) || only(who);
   /* "you", "I", "the player" and his story name are one person: the main character's own entry */
@@ -270,7 +281,7 @@ function strictPageKey(state, name) {
   const wanted = String(name || '').trim().toLowerCase();
   const exact = pages.find((k) => k.trim().toLowerCase() === wanted);
   if (exact) return exact;
-  const same = pages.filter((k) => samePersonName(k, name));
+  const same = pages.filter((k) => samePersonName(k, name) && !(isMc(state, k) && !isMc(state, name)) && !pageGivesOtherRank(state, k, name)); /* M769: never his page by a surname, nor a page that gives another rank */
   return same.length === 1 && oneMeaning(state, name) ? same[0] : '';
 }
 /* M444: the name a person's page stands under, found the way a seat is (the same letters, or the one matcher when exactly
@@ -335,11 +346,11 @@ export function storyTurn(state) {
 export function thingKeyOf(name) {
   return String(name == null ? '' : name).toLowerCase().normalize('NFC')
     .replace(/^\s*(?:the|a|an|his|her|their|its|my|our|your)\s+/, '')
-    .replace(/^\s*[\p{L}\p{N}.'-]+(?:\s+[\p{L}\p{N}.'-]+)?['’]s\s+/u, '')
+    .replace(/^\s*[\p{L}\p{N}.'-]+(?:\s+[\p{L}\p{N}.'-]+)?(?:['’]s|(?<=s)['’])\s+/u, '')
     .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 /* whose a name says a thing is ("Gordon's case file" → gordon) — "Gordon's case file" and "Barbara's case file" are two things */
-const possessorOf = (name) => { const m = /^\s*(?:the\s+)?([\p{L}\p{N}.'-]+(?:\s+[\p{L}\p{N}.'-]+)?)['’]s\s+/u.exec(String(name == null ? '' : name)); return m ? m[1].toLowerCase() : ''; };
+const possessorOf = (name) => { const m = /^\s*(?:the\s+)?([\p{L}\p{N}.'-]+(?:\s+[\p{L}\p{N}.'-]+)?)(?:['’]s|(?<=s)['’])\s+/u.exec(String(name == null ? '' : name)); return m ? m[1].toLowerCase() : ''; };
 export function findThingKey(things, name) {
   const map = things && typeof things === 'object' ? things : {};
   const want = thingKeyOf(name);
@@ -412,11 +423,14 @@ function describeDelta(minutes) {
  * finalAuditorScope, the founder's and the scribe's quote checks, the Housekeeper), never taken from a model's answer. A
  * page reader's answer carrying "byHand": true made any person the main character's persona and wrote an invented core
  * over his writer biography, marked as his own hand. Each worker's answer is read through this before anything is applied. */
-const GRANTED_FLAGS = ['byHand', 'writerEstablished', 'auditorApproved', 'spelling', 'coordinated', 'story', 'exactIdentity', 'sourceRecovery', 'entityReviewed', 'heal'];
+const GRANTED_FLAGS = ['byHand', 'writerEstablished', 'auditorApproved', 'spelling', 'coordinated', 'story', 'exactIdentity', 'sourceRecovery', 'entityReviewed', 'heal', 'notAtScene']; /* M769: the house's own "another room" */
 export function withoutGrantedFlags(m) {
   if (!m || typeof m !== 'object') return m;
   const out = { ...m };
   for (const k of GRANTED_FLAGS) delete out[k];
+  /* M769 (the final audit of the world): a field is the same field in any capitals — "Core" passed every guard that asks for
+   * "core" (his own hand on a core, the thinning check, the quiet-only now) and the applier wrote it as core */
+  if (typeof out.field === 'string') out.field = out.field.trim().toLowerCase();
   return out;
 }
 
@@ -1072,7 +1086,7 @@ const HANDLERS = {
      * asked to re-seat a grave whose note had aged ("where are they now?") and could raise the dead with a seat */
     { const grave = seatForPerson(state, pageKey || name) || seatForPerson(state, name);
       if (grave && isDeadSeat(grave.entry) && !dying && m.byHand !== true) return { why: grave.key + ' is dead — a seat for the living is not written over a death (a page that brings them back writes them into the scene)' }; }
-    if (!movingIn && !dying && seatAtScene(location, state.place && state.place.name)) {
+    if (!movingIn && !dying && m.notAtScene !== true && seatAtScene(location, state.place && state.place.name)) { /* M769: a room his header does not stand in */
       /* M402: SOMEONE THE WORLD PUTS WHERE THE SCENE IS, IS IN THE SCENE. Refusing the seat (M396) left them stuck: a
        * "last seen at <the scene's own ground>" note the world agent could never move on — Kyōraku "elsewhere" at the
        * courtyard the duel was in. They walk in instead (their note lets go on its own), and the quiet ones in the room
@@ -1273,7 +1287,7 @@ const HANDLERS = {
     if (/^(?:none|n\/?a|nil|null|nothing(?: new)?|no (?:thread|threads|new threads?)|untitled|title|tbd|todo)\.?$/i.test(title.trim())) return { why: '“' + title + '” is no thread' }; /* M653: "None" stood among the open threads */
     const heat = typeof m.heat === 'string' ? m.heat.trim().toLowerCase() : '';
     const before = Array.isArray(state.threads) ? state.threads.map((t) => (t && typeof t === 'object' ? { ...t } : t)) : [];
-    const at = findThread(before, title);
+    const at = findThread(before, title, { owner: capText(m.owner, 120) }); /* M769: never another owner's thread */
     /* M272: a next step that breaks off mid-phrase ("Vanessa means to") is not written — the old one stands */
     const nextRaw = capText(m.next, 1000);
     const nextStep = nextRaw && !brokenOff(nextRaw) ? nextRaw : '';
@@ -1291,7 +1305,7 @@ const HANDLERS = {
     const title = capText(m.title || m.name, 300);
     if (!title) return { why: 'a thread needs a title' };
     const before = Array.isArray(state.threads) ? state.threads.map((t) => (t && typeof t === 'object' ? { ...t } : t)) : [];
-    const at = findThread(before, title);
+    const at = findThread(before, title, { closing: true }); /* M769: a close says no more than the thread it closes */
     if (at === -1) return { why: 'no thread called ' + title + ' is open' };
     state.threads = closeThread(state.threads, title);
     /* M653: ITS COPIES CLOSE WITH IT. Before the door was mended one thread could stand as several ("Tom's promise…", "Tom
@@ -1357,7 +1371,7 @@ const HANDLERS = {
      * as one. A label is never a receipt. */
     const receipt = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : undefined);
     const provenance = receipt(m.provenance) || receipt(m.source);
-    const next = addKnowledge(state.knowledge, key, fact, storyTurn(state), { kind: m.kind, pathway: m.pathway, source: provenance });
+    const next = addKnowledge(state.knowledge, key, fact, storyTurn(state), { kind: m.kind, pathway: m.pathway, source: provenance, keyed: true }); /* M769: the book found here is the one written — addKnowledge's own loose look took "Vanessa" to Vanessa Langley's beside Vanessa Cole */
     const after = next[key] || [];
     /* M522: a line made fuller in place (the same fact, more of it) is a change that landed — not "already knows that",
      * which threw the fuller wording away */
@@ -1484,7 +1498,10 @@ const HANDLERS = {
     for (const k of keys) if (renamed[k] !== undefined) state[k] = renamed[k]; /* M607: whose a thing is — and where it is said to be — now follow inside renameInState, counted */
     const owner = Object.keys(state.characters || {}).find((k) => k.toLowerCase() === to.toLowerCase());
     if (owner && !m.spelling) state.characters[owner] = { ...state.characters[owner], aliases: [...new Set([...oldAliases, from])].filter((a) => a.toLowerCase() !== owner.toLowerCase()) };
-    return { words: from + ' is ' + to + ' now — ' + count + ' ' + (count === 1 ? 'place' : 'places') + ' in the ledger follow' + (m.cause ? ' (' + capText(m.cause, 1000) + ')' : '') + '.', undo: { kind: 'people.renamed', before, ...(m.spelling ? {coordinated:m.coordinated === true,after:Object.fromEntries(keys.map(k=>[k,structuredClone(state[k] ?? null)]))} : {}) } };
+    return { words: from + ' is ' + to + ' now — ' + count + ' ' + (count === 1 ? 'place' : 'places') + ' in the ledger follow' + (m.cause ? ' (' + capText(m.cause, 1000) + ')' : '') + '.', undo: { kind: 'people.renamed', from, to, before, after: Object.fromEntries(keys.map(k=>[k,structuredClone(state[k] ?? null)])), ...(m.spelling ? {coordinated:m.coordinated === true} : {}) } };
+    /* M769 (the final audit of the people): the take-back of a join is what the join changed, and only that (the three-way
+     * restore spelling corrections already use) — it restored every book whole, and every later page, standing and known
+     * fact of everyone else went with it */
   },
   // Restore two different people from the original journal, keeping the mixed
   // record as an archive and never rewinding unrelated ledger state.
@@ -1504,7 +1521,9 @@ const HANDLERS = {
     if (!name) return { why: 'no name to forget' };
     const lower = name.toLowerCase();
     const same = (k) => String(k || '').trim().toLowerCase() === lower;
-    const pageKey = m.exactIdentity ? Object.keys(state.characters || {}).find(same) : findPersonKey(state.characters, name);
+    /* M769 (the final audit of the people): the page forgotten is the page of that name — its books are found by that name too;
+     * a near match ("Kuchiki" → Rukia Kuchiki's page) erased her page and left her standing, knowledge and truths behind */
+    const pageKey = Object.keys(state.characters || {}).find(same);
     const seatKey = Object.keys(state.offscreen || {}).find(same);
     const relKey = Object.keys(state.relationships || {}).find(same);
     const knowKey = Object.keys(state.knowledge || {}).find(same);
@@ -1519,7 +1538,7 @@ const HANDLERS = {
     /* M763: already so — nothing of them is left to forget (a review's forget of a name the ledger never held is not a refusal) */
     if (!pageKey && !seatKey && !relKey && !knowKey && !canonKey && !bodyKey && !actorKey && presentAt === -1) return { why: 'nothing is written of ' + name, same: true };
     const before = {
-      threads: owned.length ? JSON.parse(JSON.stringify(state.threads)) : null,
+      threads: null, ownedThreads: owned.length ? JSON.parse(JSON.stringify(owned)) : null, /* M769: theirs only, never the whole book */
       actor: actorKey ? { key: actorKey, value: JSON.parse(JSON.stringify(actors[actorKey])) } : null,
       page: pageKey ? { key: pageKey, value: cloneMap({ [pageKey]: state.characters[pageKey] })[pageKey] } : null,
       seat: seatKey ? { key: seatKey, value: JSON.parse(JSON.stringify(state.offscreen[seatKey])) } : null,
@@ -2181,7 +2200,10 @@ export function withinGround(placeNamed, ground) {
   if (!held.size || !pieces.length) return false;
   let ofTheGround = 0;
   for (const piece of pieces) {
-    const words = placeWordsOf(sameNumbers(piece));
+    /* M769 (the final audit of the scene): "The library at Ashford Manor" is "Ashford Manor, the library" — the words that
+     * only join a room to its house (of, at, in) are no place of their own; read as one, the same room was a move and every
+     * quiet person in it lost their place */
+    const words = placeWordsOf(sameNumbers(piece)).filter((w) => !held.has(w) ? !['of', 'at', 'in', 'inside', 'within'].includes(w) : true);
     if (!words.length) continue;
     if (words.every((w) => held.has(w))) { ofTheGround += 1; continue; }
     if (noOneSpot(piece)) continue; /* an area round it — where the spot stands */
@@ -2321,8 +2343,11 @@ export function scenePartOf(pageText) {
 }
 /* M444: the telling without its spoken lines — someone only talked about ("Byakuya would never allow it") is not shown
  * there; the quote marks the auditor's departure reader sets aside (showsDeparture) */
+/* M769 (the final audit of the scene): …and in single quotes, curly or straight, as British pages write it — the apostrophe
+ * inside a word ("she's", "Jovan’s") is no end of the line, and one after a plural ("the boys' bikes") no start */
+const SINGLE_SAID = /‘(?:[^‘’\n]|’(?=\p{L}))*’(?!\p{L})|(?<=^|[\s(—–-])'(?=\S)(?:[^'\n]|'(?=\p{L}))*'(?!\p{L})/gu;
 export function narrationOf(text) {
-  return String(text || '').replace(/"[^"\n]*"|“[^”]*”|«[^»]*»|「[^」]*」|『[^』]*』/g, ' ');
+  return String(text || '').replace(/"[^"\n]*"|“[^”]*”|«[^»]*»|「[^」]*」|『[^』]*』/g, ' ').replace(SINGLE_SAID, ' ');
 }
 
 /* M414: DOES THIS SENTENCE SHOW SOMEONE GOING? M413's word list let a side pass for a going — "Rukia stood to his left",
@@ -3624,10 +3649,14 @@ export function undoEntry(state, index, { coordinated = false } = {}) {
   if (!entry || entry.undone || !entry.undo) return null;
   if (entry.undo.coordinated && !coordinated) return {refused:'Use the Housekeeper undo to take back the whole spelling correction together.'};
   const target = undoTarget(entry.undo);
+  /* M769 (the final audit of the people): a later join of this person is a later change to them — taken back before it, an
+   * old write restored its snapshot over the joined page (the whole page of "Vanessa Langley" went with "Vanessa"'s note) */
+  const whose = String(entry.undo.name || '').trim();
   for (let j = index + 1; j < next.log.length; j += 1) {
     const later = next.log[j];
     if (!later || later.undone || !later.undo) continue;
     if (undoTarget(later.undo) === target) return { refused: 'a later change touched the same thing — take that one back first: ' + later.words };
+    if (whose && later.undo.kind === 'people.renamed' && [later.undo.from, later.undo.to].some((n) => typeof n === 'string' && samePersonName(n, whose))) return { refused: 'a later change touched the same thing — take that one back first: ' + later.words };
   }
   const applied = applyUndo(next, entry.undo);
   if (!applied) return { refused: 'the world moved on; that change cannot be walked back' };
@@ -3846,7 +3875,14 @@ function applyUndo(next, undo) {
       if (b.canon) next.canon[b.canon.key] = JSON.parse(JSON.stringify(b.canon.value));
       if (b.body) next.bodies[b.body.key] = JSON.parse(JSON.stringify(b.body.value));
       if (b.present) next.present.splice(Math.min(b.present.at, next.present.length), 0, { ...b.present.value });
-      if (b.threads) next.threads = JSON.parse(JSON.stringify(b.threads)); /* M578: their threads come back */
+      if (b.threads) next.threads = JSON.parse(JSON.stringify(b.threads)); /* M578: their threads come back (a take-back written before M769) */
+      /* M769 (the final audit of the people): only theirs come back — the whole book restored took a thread opened since for
+       * someone else */
+      if (Array.isArray(b.ownedThreads)) {
+        const now = Array.isArray(next.threads) ? next.threads.slice() : [];
+        for (const t of b.ownedThreads) if (!now.some((x) => x && t && x.title === t.title && x.owner === t.owner)) now.push(JSON.parse(JSON.stringify(t)));
+        next.threads = now;
+      }
       if (b.actor) next.sheet = { ...(next.sheet || {}), actors: { ...((next.sheet && next.sheet.actors) || {}), [b.actor.key]: JSON.parse(JSON.stringify(b.actor.value)) } };
       if (undo.classification) {
         next.entityCorrections = {...(next.entityCorrections || {})};
