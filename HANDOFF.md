@@ -7,7 +7,14 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m771-001 on main, 24 October 2026: his persona and his own titled name, as before M769 (M771). His: "Nothing on your
+- Version m772-001 on main, 24 October 2026: a role the original writes as a common noun is a description (M772). His:
+  "Mistress is listed as an individual by the source reading in World voice after page 16 … still needs a working repair" —
+  the Butler's voice said "The mistress has returned"; the review, asked twice, gave no decision; the rule that keeps an
+  undecided description a person of its page only (M752 followup 21) read the reader's capital "Mistress" as a name, owed
+  for good, so the audit paused yellow. names.js writtenAsDescription: a label the original holds only in lower case or
+  after an article or possessive is a description (auditor.js setAside). A real name ("Tarn has returned") stays owed.
+  LEDGER_REPAIR_POLICY 16, so his paused audit resumes once by itself. Laws M772-1, M772-2. Suite 1783/1783; lint 0 errors.
+- Version m771-001, 24 October 2026: his persona and his own titled name, as before M769 (M771). His: "Nothing on your
   update broke my persona right?" Measured against m768-001: the persona he gives in plain words ("I am Batman", "My persona
   is Batman") is read exactly as before. Two regressions of M769 found and fixed: his own name with a title ("Mr. Wayne",
   "Master Bruce") opened pages of their own beside his (people.js notHisPage, apply.js personBookKey/strictPageKey keep a name

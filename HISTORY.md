@@ -22392,3 +22392,22 @@ titles name the woman herself as often as a daughter or a wife; the rule keeps M
 her own person and may walk in (on m768-001 she was refused as already in the scene — taken for him).
 Laws M771-1 (the persona in plain words; passes on both — a guard), M771-2 and M771-3 (fail on m770-001).
 Checked: harness 1781/1781; the DOM walk 332/332; lint 0 errors (247 warnings). Not run: his own tale.
+
+## M772 (m772-001): a role the original writes as a common noun is a description
+
+The owner, 24 October 2026, 10:16 Jakarta, with his ledger debug report: "Wtf is this are you trying to keep flex tape …
+still checking: Mistress is listed as an individual by the source reading in World voice after page 16; confirm its
+identity or correct its entity classification: identity or entity classification still needs a working repair."
+Cause, read in the report and made to happen with the real auditor: the Butler's world voice said "The mistress has returned
+with a guest. Prepare the guest wing." The source reading listed "Mistress" as a person. The final review, asked again in the
+same conversation, gave no decision for it (his auditor's reply reasoned in words that it was Emilia Vermaine and wrote no
+decision). The rule for exactly that ("send them back and if can't debate then it's resolve", M752 followup 21: a description
+is kept a person of its page only) takes a label as a name when it has a capital letter (M732's "Tarn"), and the reader had
+given the common noun a capital: owed for good, every pass, until the audit paused. The Butler, the Night Nurse and the
+Hunter Society Admin before it were settled only because the world had kept those speakers local.
+Now: names.js writtenAsDescription — a label the original holds only in lower case, or after an article or a possessive
+("the mistress", "her Mistress"), is a description; auditor.js sets it aside as one. A label the original holds as a name, or
+never holds, is decided as before. LEDGER_REPAIR_POLICY 15 → 16: the repair procedure changed, so his audit, paused over
+"Mistress", resumes once by itself. Law M772-1 (fails on m771-001: exactly his pending line), M772-2 ("Tarn has returned"
+stays owed — a guard). Checked: harness 1783/1783; lint 0 errors. Not run: the DOM walk (no page, thread or store path
+changed); his tale itself.

@@ -178,6 +178,23 @@ export function isDescriptorName(name) {
     || (/\p{Ll}/u.test(n) && !/\p{Lu}/u.test(n));
 }
 
+/* M772 — HIS: "Mistress is listed as an individual by the source reading … still needs a working repair". The Butler's voice
+ * said "The mistress has returned"; the reader listed "Mistress", with the capital a label takes, and the rule that keeps an
+ * undecided description a person of its page only (auditor.js) read the capital as a name. What the original itself writes
+ * decides: a label it holds only as a common noun — in lower case, or after an article or a possessive ("the mistress",
+ * "her Mistress") — is a description. A label the original never holds, or holds as a name, is not decided here. */
+export function writtenAsDescription(text, label) {
+  const want = String(label || '').trim();
+  if (!want || !/\p{L}/u.test(want)) return false;
+  const esc = want.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+  const hits = [...String(text || '').matchAll(new RegExp('(?<![\\p{L}\\p{N}])' + esc + '(?![\\p{L}\\p{N}])', 'giu'))];
+  if (!hits.length) return false;
+  const DETERMINER = /(?:^|[^\p{L}])(?:the|a|an|this|that|his|her|their|my|your|our|its)\s+$/iu;
+  return hits.every((m) => {
+    const before = String(text).slice(Math.max(0, m.index - 12), m.index);
+    return !/\p{Lu}/u.test(m[0][0]) || DETERMINER.test(before);
+  });
+}
 /* Is `a` the same person as `b`? The same name (folded, a rank or courtesy set aside), a first or last name of the
  * other, one cut short of the other, the same names in another order ("Kuchiki Rukia"), or two names the story's
  * canon knows as one person. Never a near miss: seating is a hard fact. Never two titles that disagree (M414). */

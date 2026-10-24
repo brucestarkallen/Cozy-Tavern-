@@ -26,7 +26,7 @@ import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
 import { samePlace, seatAtScene, handSetClockSince } from '../engine/apply.js'; /* M403; M681: a seat at the scene's own place */
 import { seatForPerson, sameLooseEnd, roleOwnersNamed, roleWordOf, looseEndOn, looseEndPages } from '../engine/people.js'; /* M398; M679: a loose end matched by sense, as the applier matches it */
-import { isHere, nameOnPage, samePersonName, oneMeaning, foldName, sameOwnedDescriptor, isDescriptorName } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
+import { isHere, nameOnPage, samePersonName, oneMeaning, foldName, sameOwnedDescriptor, isDescriptorName, writtenAsDescription } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
 import { shownOnPage, personBookKey, groundTheTellingStandsOn, narrationOf, sceneQuoteIn, personTellings, currentPersonTelling } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
 import { findRelationship } from '../engine/relationships.js';
 import { db } from '../store.js';
@@ -866,7 +866,9 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
           const d=documents.find(x=>x.id===i.sourceId)?.speakerIdentity;
           return d && d.scope==='local' && String(d.why || '').trim() && String(d.speaker || '').trim().toLowerCase()===String(i.sourceName || i.name || '').trim().toLowerCase() ? String(d.why).trim() : '';
         };
-        const setAside=sourceCandidates.filter(i=>!i.sourceFacts && (isDescriptorName(i.sourceName || i.name) || worldSaid(i))
+        /* M772: a label the original writes only as a common noun ("The mistress has returned") is a description too */
+        const describedThere=(i)=>writtenAsDescription(documents.find(x=>x.id===i.sourceId)?.text || '',i.sourceName || i.name);
+        const setAside=sourceCandidates.filter(i=>!i.sourceFacts && (isDescriptorName(i.sourceName || i.name) || describedThere(i) || worldSaid(i))
           && !findingSettled(i,result,asideResolved,documents) && (openWhy.get(auditFindingId(i)) || askedAgain || worldSaid(i)));
         if (setAside.length) {
           offered=[...offered,...setAside.map(i=>{
