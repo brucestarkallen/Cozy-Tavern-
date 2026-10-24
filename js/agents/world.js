@@ -53,7 +53,7 @@ import { withFictionFrame } from './voice.js';
 import { loadState, saveState, notify, renderStateFacts, ledgerTurn } from '../engine/state.js'; /* M753: one write of the ledger at a time */
 import { findPersonKey, thinsCore, worldParticipation, importanceOf, IMPORTANT_AT, placeWords, isMc, namedInText, seatForPerson } from '../engine/people.js'; /* M304: who matters, as the storyteller's own people block weighs it */
 import { isHere, samePersonName, nameOnPage } from '../engine/names.js'; /* M396/M401: one answer to "the same person?"; M414: one answer to "named on the page?" */
-import { storyTurn } from '../engine/apply.js';
+import { storyTurn, handHolds } from '../engine/apply.js';
 import { applyMutations, clearsThatArrive, scenePartOf, walkInFromPage, seatAtScene, withoutGrantedFlags } from '../engine/apply.js'; /* M444: cleared is never nowhere; M680: its walk-ins held to the page's ending and its reader */
 import { renderOffscreen, seatLine, isDeadSeat, seatAgeWords } from '../engine/offscreen.js'; /* M684: freshness is an explicit review */
 import { renderClock } from '../engine/clock.js';
@@ -881,7 +881,7 @@ export async function worldTurn({ connection, storyId, userText, assistantText, 
     if (!/^people\./.test(m.type)) return true;
     const key = findPersonKey(fresh.characters || {}, m.name);
     const field = ['thread', 'unthread'].includes(m.field) ? 'threads' : m.field;
-    return !key || !fresh.characters[key]?.hand?.[field];
+    return !key || !handHolds(fresh, fresh.characters[key], field); /* M777: a now of his yields to a later page */
   });
   const hasPage = (name) => Boolean(findPersonKey(fresh.characters || {}, name));
   const pagesInAnswer = new Set(read.mutations.filter((m) => m.type === 'people.set' && typeof m.name === 'string').map((m) => m.name.trim().toLowerCase()));

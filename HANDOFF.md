@@ -7,7 +7,20 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m776-001 on main, 24 October 2026: a finding his own hand holds the field of is settled by his words (M776). His
+- Version m777-001 on main, 24 October 2026: a now his hand wrote yields to the pages after it; a moment filed in a nature
+  is let go while they stand in the scene (M777). His second report (captured on m774-001 — M776 had not reached his app):
+  "5 proposed changes need a different repair … Céleste Vermaine's People core states 'Away from the manor tonight;
+  expected at dawn' and her state is 'Elsewhere, on the road toward the manor'; the pages show her arriving and standing in
+  the hall: the writer explicitly controls this field" (Odette the same; Marguerite "collects daughters"). M776 settles
+  such findings — but here the words his hand set had become FALSE: the story moved them. (1) apply.js handHolds: his
+  hand on a person's state (their now) holds for the page it was written on (nowTurn) and yields once a later page is
+  read — scribe, world keeper, auditor (manualRepairConflict, with the page it reads) and staleNows all ask it; his hand on
+  core, arc and loose ends holds for good. (2) apply.js staleWhereaboutsInCores: a clause of a nature that says where
+  someone is not or when they come ("away from the manor tonight", "expected at dawn"), while the ledger has them in the
+  scene, is let go from the nature — journaled, undoable, the rest of his words keep his mark; run in the page reader's
+  upkeep (chat.js) and by the audit itself (judgeAudit). (3) The housekeeper is told a core is never a whereabouts.
+  LEDGER_REPAIR_POLICY 18. Laws M777-1…3. Suite 1804/1804; walk 333/333; lint 0 errors.
+- Version m776-001, 24 October 2026: a finding his own hand holds the field of is settled by his words (M776). His
   debug report (m774-001, "An untitled tale — a branch 102"): the audit paused yellow, "presence:Emilia Vermaine: the auditor
   did not approve this entry; characters:Emilia Vermaine: …". The reading before proposed adding to Emilia's nature, a
   field he wrote by hand; the house refused it ("the writer explicitly controls this field") and kept the finding OWED with

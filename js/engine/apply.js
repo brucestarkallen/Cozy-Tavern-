@@ -1938,6 +1938,41 @@ export function placeholderIn(mutation) {
 }
 
 /* M263: the hand mark of a person's page, field by field */
+/* M777 — HIS: "Why it keeps being like this why there are no solutions that it's self healing" — "Céleste Vermaine's
+ * People core states 'Away from the manor tonight; expected at dawn' and her state is 'Elsewhere, on the road toward the
+ * manor'; the pages show her arriving and standing in the hall: the writer explicitly controls this field". A field his
+ * hand wrote stood against every reader for good — the right law for who someone is (their nature, their arc, their loose
+ * ends), the wrong one for what they are doing NOW: the story he goes on to write moves it. His hand on a person's now
+ * holds for the page it was written on; once a later page is read, it is the story's again, as anyone's is. */
+export function handHolds(state, entry, field, pageAt = null) {
+  const f = ['thread', 'unthread'].includes(field) ? 'threads' : field;
+  if (!entry || !entry.hand || !entry.hand[f]) return false;
+  if (f !== 'state') return true;
+  const now = Number.isInteger(pageAt) && pageAt >= 0 ? pageAt + 1 : storyTurn(state); /* the page being read, when told */
+  return !(Number.isFinite(entry.nowTurn) && Number.isFinite(now) && now > entry.nowTurn);
+}
+/* M777: A MOMENT FILED AS WHO SOMEONE IS. "Away from the manor tonight; expected at dawn" was written into Céleste's and
+ * Odette's natures — then they walked into the hall, and every page after told the storyteller they were away. A clause of
+ * a nature that says where someone is not, or when they come, is a moment; while the ledger has them in the scene it is
+ * false, and it is let go from the nature (journaled, undone like any change; the rest of the words, his, keep his mark).
+ * Only the clause: a nature is never rewritten. */
+const ABSENT_OR_COMING = /\b(?:away (?:from|at)|not (?:at home|home|in the house)|expected (?:at|by|back|home|before|to (?:arrive|return|come))|due (?:at|back|by|home|to (?:arrive|return))|on (?:the|her|his|their) way (?:to|toward|towards|back|home)|arriv(?:es|ing) (?:at|by|tonight|tomorrow|before|soon)|returns? (?:at|by|tonight|tomorrow|before))\b/i;
+export function staleWhereaboutsInCores(state) {
+  if (!state || !Array.isArray(state.present) || !state.characters) return [];
+  const out = [];
+  for (const p of state.present) {
+    const key = p && p.name ? findPersonKey(state.characters, p.name) : '';
+    const entry = key ? state.characters[key] : null;
+    if (!entry || isMc(state, key) || typeof entry.core !== 'string' || !entry.core.trim()) continue;
+    const parts = entry.core.split(/(?<=[.;])\s+|\n+/);
+    const kept = parts.filter((c) => !ABSENT_OR_COMING.test(c));
+    if (kept.length === parts.length || !kept.join('').trim()) continue; /* nothing of the moment, or nothing else left */
+    const text = kept.join(' ').replace(/\s*;\s*$/, '').replace(/\s+/g, ' ').trim();
+    out.push({ type: 'people.set', name: key, field: 'core', text, ...(entry.hand && entry.hand.core ? { byHand: true } : {}),
+      cause: 'a moment the story has moved past — they are here now: ' + parts.filter((c) => ABSENT_OR_COMING.test(c)).join(' ').trim() });
+  }
+  return out;
+}
 function markHand(hand, field, byHand) {
   const next = hand && typeof hand === 'object' ? { ...hand } : {};
   if (!field) return next;
@@ -1966,7 +2001,7 @@ export function staleNows(state, { ground = '' } = {}) {
   for (const p of state.present) {
     const k = p && p.name ? findPersonKey(state.characters, p.name) : '';
     const entry = k ? state.characters[k] : null;
-    if (!entry || isMc(state, k) || typeof entry.state !== 'string' || !entry.state.trim() || (entry.hand && entry.hand.state)) continue;
+    if (!entry || isMc(state, k) || typeof entry.state !== 'string' || !entry.state.trim() || handHolds(state, entry, 'state')) continue; /* M777 */
     /* M409: written on another ground (recorded when written) — stale by fact. M421: judged by the ledger's own ONE place
      * matcher (samePlace — the rule a place.set moves by), not by the place's first part: "10th Division HQ — training
      * courtyard" to "10th Division HQ — captain's office" is a move (it lets every position go), so a now written in the

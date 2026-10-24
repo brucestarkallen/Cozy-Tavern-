@@ -22547,3 +22547,37 @@ own refusal that stays owed, a page with records never let go: "Mira Vale" / "mi
 work that only takes turns still pauses). Checked: harness 1801/1801; the DOM walk 333/333; lint 0 errors (247 warnings).
 Not covered: what the 284-character reply said — it was not kept anywhere he could send; from now on it is. Whether the
 model completes the review when told exactly what is missing is its answer; the law proves it is told, with the ids.
+
+## M777 (m777-001): a now his hand wrote yields to the pages after it; a moment filed in a nature is let go
+
+The owner, 24 October 2026, 17:06 Jakarta, with a second ledger debug report of the same tale (captured 16:54, app
+m774-001 — M776 had not reached his app): "found 3 things, 5 proposed changes need a different repair, still checking:
+Céleste Vermaine's People core states 'Away from the manor tonight; expected at dawn' and her state is 'Elsewhere, on the
+road toward the manor'; the pages show her arriving and standing in the hall: the writer explicitly controls this field;
+Odette Vermaine's … the same; Marguerite Vermaine's People core lacks the explicit fact that she collects daughters …
+Why it keeps being like this why there are no solutions that it's self healing not flex tape".
+Read: five owed repairs, all "the writer explicitly controls this field"; the scribe's run also lost 4 notes to it. On
+M776 they settle as left as he wrote them — right for Marguerite (her nature is his; "collects daughters" is an omission
+his words may make), wrong for Céleste and Odette: their state ("Elsewhere, on the road toward the manor") and a clause of
+their core ("Away from the manor tonight; expected at dawn") were set by his hand (a housekeeper card he let land is his
+edit, M263/M752), and the story then walked them into the hall. The hand mark froze a NOW against every reader for good
+(scribe.js, world.js, auditor manualRepairConflict, apply.js staleNows all read entry.hand[field] alone), and the moment in
+the nature went on telling the storyteller, every page, that they were away.
+Now: (1) engine/apply.js handHolds(state, entry, field, pageAt): his hand on core, arc and loose ends holds as before; on
+state it holds for the page it was written on (the now's own nowTurn, M680) and yields once a later page is read — the
+same rule for the scribe, the world keeper, the auditor (told the page it reads) and the house's own stale-now heal. A
+reader's write of the later page makes it the story's again (markHand drops the mark, as for anyone's). (2)
+staleWhereaboutsInCores: for each person the ledger has in the scene, a clause of their nature saying where they are not
+or when they come (away from/at, not at home, expected at/by/back/before/to arrive, due back/at, on the way to/back,
+arrives at/by/tonight, returns at/by/tonight) is let go — only that clause, journaled and undoable, the words left keeping
+his mark; nothing when it is the whole nature. It runs in the page reader's upkeep (ui/chat.js, beside M405's stale nows)
+and in the audit's own writes (judgeAudit), so his paused audit mends Céleste and Odette when it resumes. (3) The
+housekeeper is told a core is who someone is, never where they are or when they come. LEDGER_REPAIR_POLICY 18.
+Laws M777-1 (his now holds on its own page, yields to a later one; his nature holds for good; a reader of the later page
+writes it and his mark on the now goes, on the nature stays), M777-2 (the real auditor: the state repair lands on the
+later page and is refused on his own; the audit lets the moment go from her nature while she is here), M777-3 (the clause
+goes, the rest stays his, Undo returns it; a nature that only speaks of her arrival or what is expected of her is
+untouched). M777-2 fails on m776-001 (M777-1/3 need the new door to exist). Checked: harness 1804/1804; the DOM walk 333/333; lint 0 errors.
+Not covered: a hand-written state of someone away whom no later page has shown — it yields to the readers, who write
+what the page says; the page reader's upkeep path in chat.js is run by the DOM walk only as part of every page, not by
+a law of its own.

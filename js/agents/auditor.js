@@ -24,7 +24,7 @@ import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sceneEndingFields } from './led
 
 import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M554; M677: what goes into who knows what — the reader's own rule; M679: what answers a loose end — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
-import { samePlace, seatAtScene, handSetClockSince } from '../engine/apply.js'; /* M403; M681: a seat at the scene's own place */
+import { samePlace, seatAtScene, handSetClockSince, handHolds, staleWhereaboutsInCores } from '../engine/apply.js'; /* M403; M681: a seat at the scene's own place */
 import { seatForPerson, sameLooseEnd, roleOwnersNamed, roleWordOf, looseEndOn, looseEndPages } from '../engine/people.js'; /* M398; M679: a loose end matched by sense, as the applier matches it */
 import { isHere, nameOnPage, samePersonName, oneMeaning, foldName, sameOwnedDescriptor, isDescriptorName, writtenAsDescription } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
 import { shownOnPage, personBookKey, groundTheTellingStandsOn, narrationOf, sceneQuoteIn, personTellings, currentPersonTelling } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
@@ -2033,7 +2033,9 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
   /* M680: its writes are the newest page's, stamped with its index even when the page reader's call failed */
   // Bindings consume the resulting People state in rehearsal AND final commit.
   // Preserve all other operation ordering and their existing ownership checks.
-  const { state: next, applied, rejected: rejectedByApplier } = applyMutations(newestAt !== -1 ? { ...fresh, page: newestAt } : fresh, [...guarded.filter(m=>m.type!=='source.resolve'),...guarded.filter(m=>m.type==='source.resolve')].filter(m => !manualRepairConflict(fresh, m, newestAt)));
+  const { state: next, applied, rejected: rejectedByApplier } = applyMutations(newestAt !== -1 ? { ...fresh, page: newestAt } : fresh, [...[...guarded.filter(m=>m.type!=='source.resolve'),...guarded.filter(m=>m.type==='source.resolve')].filter(m => !manualRepairConflict(fresh, m, newestAt)),
+    /* M777: the house's own heal of a moment filed in a nature (it keeps his mark on the words left: his hand's own door) */
+    ...staleWhereaboutsInCores(fresh).map((m) => ({ ...m, source: 'house' }))]);
   /* M679: a line of who knows what the ledger ALREADY holds is "already so", not a refusal — his turn-21 reading listed eight
    * "Seen; its change did not hold (Mirelia already knows that)" (M680: marked so at its source, apply.js knowledge.add,
    * for every worker's line) */
@@ -2315,7 +2317,7 @@ export function manualRepairConflict(state, m, pageAt) {
   const key = findPersonKey(state.characters || {}, m.name || m.from || '');
   const person = key ? state.characters[key] : null;
   const field = /^(unthread|thread|threads)$/.test(m.field || '') ? 'threads' : m.field;
-  if (/^people\./.test(m.type) && (person?.hand?.[field] || (['people.forget', 'people.rename', 'people.reclassify'].includes(m.type) && Object.keys(person?.hand || {}).length))) return true;
+  if (/^people\./.test(m.type) && (handHolds(state, person, field, pageAt) || (['people.forget', 'people.rename', 'people.reclassify'].includes(m.type) && Object.keys(person?.hand || {}).length))) return true; /* M777: a now of his yields to a later page */
   if (/^rel\./.test(m.type)) {
     const k = personBookKey(state, state.relationships || {}, m.name, (map, n) => findRelationship(map, n)?.key);
     if (k && state.relationships[k]?.hand) return true;

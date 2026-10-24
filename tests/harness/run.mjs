@@ -299,6 +299,7 @@ import './m773.mjs'; /* M773: the automatic brief knows the pages it was written
 import './m774.mjs'; /* M774: the housekeeper's changes to who someone is are held against the pages */
 import './m775.mjs'; /* M775: the housekeeper checks continuity on the first ask */
 import './m776.mjs'; /* M776: a finding his hand holds is settled by his words */
+import './m777.mjs'; /* M777: a now of his yields to the pages after it; a moment filed in a nature is let go */
 
 console.log('Cozy Tavern — harness');
 await import('./m683.mjs');

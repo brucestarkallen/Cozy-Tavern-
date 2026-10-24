@@ -29,7 +29,7 @@ import { lookKey } from '../engine/canon.js';
 import { wholePage, writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M259: the page read to its end; M283: the writer's own, to the room */
 import { loadState, saveState, notify, ledgerTurn } from '../engine/state.js'; /* M753: one write of the ledger at a time */
 import { mcKey, findPersonKey, thinsCore, isMc } from '../engine/people.js';
-import { applyMutations, placeholderIn } from '../engine/apply.js'; /* M72: the scribe writes through the journal */
+import { applyMutations, placeholderIn, handHolds } from '../engine/apply.js'; /* M72: the scribe writes through the journal */
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M679: what answers a loose end — one definition */
 import { askWithFetch, fetchLaw, viewBudget, roomChars, leashFor, windowOfPages } from './lookup.js';
@@ -412,7 +412,7 @@ export async function scribeTurn({ connection, storyId, userText, assistantText,
     }
     const owner = findPersonKey(fresh.characters || {}, d.name);
     const field = ['thread', 'unthread'].includes(d.field) ? 'threads' : d.field;
-    if (owner && fresh.characters[owner]?.hand?.[field]) { thinned.push({ delta: d, why: 'the writer explicitly controls this field' }); return false; }
+    if (owner && handHolds(fresh, fresh.characters[owner], field)) { thinned.push({ delta: d, why: 'the writer explicitly controls this field' }); return false; } /* M777: a now of his yields to a later page */
     if (isMc(fresh, d.name) && d.field === 'core' && !quotedSource(writerOriginals, d.shown)) {
       thinned.push({ delta: d, why: 'player biography needs original writer facts' }); return false;
     }
