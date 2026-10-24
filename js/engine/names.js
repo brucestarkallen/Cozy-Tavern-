@@ -73,7 +73,7 @@ const TITLE_KIND = {
   dr: 'civil', prof: 'civil', /* a doctor is addressed as Dr. in Mr.'s place (M272: Mr. and Dr. Sterling are two) */
   aunt: 'kin', uncle: 'kin', grandma: 'kin', grandpa: 'kin',
   father: 'order', mother: 'order', sister: 'order', brother: 'order',
-  coach: 'role', master: 'role', elder: 'role',
+  coach: 'role', master: 'role', mistress: 'role', elder: 'role', /* M775: a house's mistress, as its master */
   /* M573 (the audit): a school's own titles — "Headmaster Vane" found no page and became a second Aldric Vane. Kept to the
    * words that are never a first name (no "Dean", no "Warden"). Ranks among themselves: a headmaster is not an instructor. */
   headmaster: 'rank', headmistress: 'rank', principal: 'rank', instructor: 'rank', chancellor: 'rank', vice: 'rank',
@@ -88,6 +88,18 @@ const TITLE_SAME = { mister: 'mr', missus: 'mrs', madame: 'madam', mme: 'madam',
 /* own keys only: a word like "constructor" is a name, never Object.prototype's */
 const own = (table, key) => (Object.hasOwn(table, key) ? table[key] : undefined);
 const titleOf = (w) => { const t = own(TITLE_SAME, w) || w; return own(TITLE_KIND, t) ? t : ''; };
+/* M775 (found while reading his "add characters"): A MAN'S TITLE AND A WOMAN'S NEVER NAME ONE PERSON. Titles of different
+ * kinds may be one person's ("Lady Rukia" is "Lieutenant Rukia Kuchiki"), so "Mistress Vermaine" was "Lord Vermaine" — the
+ * kinds differ, the surname matched — and a new woman's page was written over her husband's. */
+const TITLE_GENDER = {
+  mr: 'm', sir: 'm', lord: 'm', king: 'm', prince: 'm', emperor: 'm', uncle: 'm', grandpa: 'm', father: 'm', brother: 'm', master: 'm', headmaster: 'm', councilman: 'm',
+  mrs: 'f', ms: 'f', miss: 'f', madam: 'f', dame: 'f', lady: 'f', queen: 'f', princess: 'f', empress: 'f', aunt: 'f', grandma: 'f', mother: 'f', sister: 'f', mistress: 'f', headmistress: 'f', councilwoman: 'f',
+};
+function titlesOfTwoSexes(a, b) {
+  const sexes = (set) => new Set([...set].map((t) => own(TITLE_GENDER, t)).filter(Boolean));
+  const sa = sexes(a); const sb = sexes(b);
+  return sa.size === 1 && sb.size === 1 && [...sa][0] !== [...sb][0];
+}
 /* a rank said after the name, the way his Bleach pages say it ("Hitsugaya-taichō", "Kuchiki-fukutaichō") */
 const TRAILING_RANK = { taicho: ['captain'], fukutaicho: ['lieutenant'], sotaicho: ['head', 'captain'] };
 /* words that join a name and name nobody ("the", "of" — "The bartender", "Lord of the Keep") */
@@ -218,6 +230,7 @@ export function samePersonName(a, b) {
   const fb = B.bare;
   if (!fa || !fb) return false;
   if (titlesConflict(A.titles, B.titles)) return false; /* M414: Captain Kuchiki is not Lieutenant Kuchiki */
+  if (titlesOfTwoSexes(A.titles, B.titles)) return false; /* M775: Mistress Vermaine is not Lord Vermaine */
   if (fa === fb) return true;
   const wa = A.words;
   const wb = B.words;

@@ -7,7 +7,22 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m774-001 on main, 24 October 2026: a change to who someone is is held against everything that still says the old
+- Version m775-001 on main, 24 October 2026: the housekeeper checks continuity on the first ask (M775). His: "why … i need
+  to send second message is there any continuity issues or not … it should always tackle and check the first time", "it
+  said it's already being put but in the end it's not", "must have brain of masterstoryteller", and its own pasted words
+  "last batch removed one and re-added one, netting no change". (1) An answer that changes the story is handed back once,
+  before he sees it, as [CONTINUITY]: hold every card against the brief and cast notes first, then the people, canon,
+  seats, record, lore, pages; fix in the same answer; end with a "Continuity: …" line. It carries what the house found
+  itself (the M774 ripple now rides inside it). A check answered in words alone keeps the cards. A fold, a pin, a
+  withdrawal or a spelling card is not checked (one call). (2) Names he asks for that the answer calls "already there" and
+  the ledger has no page for are said back with where they really stand (named in the brief is not a page; a waiting card
+  is not applied) — housekeeper.js namesAsked/claimedButNotHeld. (3) A ledger card whose entries undo each other is
+  handed back and staged refused (cardNetsNothing: each slice it touches read before and after, write times aside). (4)
+  The prompt: make what he asks for as a master storyteller, fitted to the world, with every card it needs (page, place,
+  look, bond). (5) Found on the way: "Mistress Vermaine" was the same person as "Lord Vermaine" (title kinds differ, the
+  surname matched) — a man's title and a woman's never name one person now (names.js TITLE_GENDER). Laws M775-1…6; seven
+  older laws re-aimed for the one more call (M61-5, M75-2, M77-1, M80-1, M397-2, M415-1, M774-1…4).
+- Version m774-001, 24 October 2026: a change to who someone is is held against everything that still says the old
   thing (M774). His: "I ask it to edit characters it doesn't think thoroughly and scan everything that contradict like the
   page still make the character tall instead of petite". The housekeeper's sweep for words a change takes away (rippleScan,
   M61) read page edits only. Now every change in its answer is swept (housekeeper.js rippleOps): the brief's and cast

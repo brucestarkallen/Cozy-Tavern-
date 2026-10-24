@@ -297,6 +297,7 @@ import './m771.mjs'; /* M771: his persona and his own titled name, as before M76
 import './m772.mjs'; /* M772: a role the original writes as a common noun is a description */
 import './m773.mjs'; /* M773: the automatic brief knows the pages it was written after */
 import './m774.mjs'; /* M774: the housekeeper's changes to who someone is are held against the pages */
+import './m775.mjs';
 
 console.log('Cozy Tavern — harness');
 await import('./m683.mjs');

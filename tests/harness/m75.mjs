@@ -32,8 +32,10 @@ test('M75-2 "change the brief: Alexia 20 → 19" answered as a statement is sent
   ]);
   const r = await h.run();
   assert(r.ok, r.error);
-  eq(h.sent.length, 2, 'asked twice');
+  /* M775: then the first-ask continuity check of the answer that changes the brief — one more call, by his order */
+  eq(h.sent.length, 3, 'asked for the brief block, then the continuity check');
   assert(/^\[THE BRIEF\]/.test(h.sent[1]), 'the second ask names the brief: ' + h.sent[1].slice(0, 60));
+  assert(/^\[CONTINUITY\]/.test(h.sent[2]), 'the third holds it against the house: ' + h.sent[2].slice(0, 60));
   eq(r.parsed.brief.length, 1); eq(r.parsed.brief[0].find, 'Alexia (20)');
 });
 

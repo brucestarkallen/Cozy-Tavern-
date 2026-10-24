@@ -72,6 +72,8 @@ const saidNo = (v) => v === false || v === 0 || (typeof v === 'string' && /^\s*(
 import { withFictionFrame } from './voice.js'; /* M21: the workers never break the fiction */
 import { fallbackFor, noteFallback, nameOfConnection } from './call.js'; /* M510-30: the fallback for every worker */
 import { withoutGrantedFlags } from '../engine/apply.js'; /* M752: a card's own answer never claims the auditor's stamp */
+/* M775: a ledger card whose entries undo each other (cardNetsNothing, below) */
+export const NETS_NOTHING = 'its entries undo each other — every line it touches would read exactly as it does now';
 
 const SESSION_PREFIX = 'hk:';
 const SESSION_TURNS_CAP = 60;
@@ -1098,6 +1100,28 @@ const SYSTEM_PROMPT = [
   'WITHDRAW WITH THE BLOCK. When a pending card is stale, moot, or you agree with the',
   'writer it is unneeded, name its label in <supersede> in that same answer; agreeing',
   'in prose removes nothing.',
+  /* M775 — HIS: "everytime i ask for something the housekeeper must have brain of masterstoryteller to create something good
+   * based on my idea and check there are no continuity issues" and "why … i need to send second message is there any
+   * continuity issues or not … it should always tackle and check the first time i ask something" */
+  'WHEN THE WRITER ASKS YOU TO MAKE SOMETHING — a person, a family, a faction, a place, a',
+  'history, a rule of the world — you are a master storyteller first. Build it whole from his',
+  'idea: specific and alive (a want, a voice, a texture, a reason to matter to the story),',
+  'and fitted to the world as it stands — it obeys the brief (its rules, its ranks, its',
+  'history, who made whom), sits among the families and people already there, and',
+  'contradicts no page. Then put it everywhere it must be to exist: a new person gets their',
+  'page (people.set core) and a place in the world (offscreen.set, or presence.enter when the',
+  'writer puts them in the scene); a look he gives is locked (canon.lock); a bond he states',
+  'toward the main character is set (rel.set); the brief or the cast notes take it only when',
+  'he asks for it there. One answer, every card it needs.',
+  'NOTHING IS "ALREADY THERE" UNLESS YOU CAN QUOTE WHERE IT STANDS. A person is in the',
+  'ledger when THE PAGES OF THE PEOPLE above hold their page; a name in the brief is not a',
+  'page, and a card still waiting for the writer is not applied. If it is not there, make it.',
+  'CONTINUITY ON THE FIRST ASK. The writer never has to ask twice whether a change breaks',
+  'the story. Before you answer, hold every card against the whole house — the brief and',
+  'cast notes first (they outrank every page), the pages of the people, the canon, the',
+  'seats and standings, the record, the lore, the pages — and fix in the SAME answer what',
+  'it contradicts or leaves contradicted. End the words with one line, "Continuity: …",',
+  'saying what you held it against and what you found, with numbers.',
 ].join('\n');
 
 /* ---------- fingerprints (staleness + drift) ---------- */
@@ -1800,6 +1824,7 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
        * would be refused — and it was staged "pending", he pressed Apply, it failed, and the housekeeper said "done"
        * again. Nothing in it lands: it is staged refused, with why. */
       if (!dry.applied.length && dry.rejected.some((r) => !r.same)) cannot = dry.rejected.filter((r) => !r.same).map((r) => r.why).join('; ');
+      else if (dry.applied.length && cardNetsNothing(mutations.filter((m) => m.type !== 'module.pin'), state, dry.state)) cannot = NETS_NOTHING; /* M775 */
     } catch (err) { preview = null; }
     proposals.push({
       id: uid(),
@@ -2136,9 +2161,36 @@ export function ledgerCardCannotLand(ledits, state) {
   if (!mutations.length) return '';
   try {
     const dry = applyMutations(state, mutations);
+    if (dry.applied.length && cardNetsNothing(mutations, state, dry.state)) return NETS_NOTHING; /* M775 */
     if (dry.applied.length || !dry.rejected.some((r) => !r.same)) return '';
     return dry.rejected.filter((r) => !r.same).map((r) => r.why).join('; ');
   } catch (err) { return ''; }
+}
+/* M775 — HIS (the housekeeper's own words, pasted): "the live ledger shows this fact twice on his line; last batch removed
+ * one and re-added one, netting no change". Every entry of that card landed, so it was a card that "landed" — and the ledger
+ * read exactly as before. A card whose entries undo each other changes nothing: what each slice it touches SAYS is held
+ * before and after (the page and the hour it was written on set aside — a line let go and written again is the same line). */
+const WHEN_KEYS = new Set(['atTurn', 'firstSeenTurn', 'updatedAtTurn', 'nowTurn', 'ts', 'at', 'atMinutes', 'source', 'provenance']);
+function sayPrint(value) {
+  if (Array.isArray(value)) return value.map(sayPrint);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).filter((k) => !WHEN_KEYS.has(k)).sort().map((k) => [k, sayPrint(value[k])]));
+  return value === undefined ? null : value;
+}
+export function cardNetsNothing(mutations, before, after) {
+  const keys = [...new Set((mutations || []).map(ledgerTargetKey))];
+  if (!keys.length || keys.includes('state')) return false;
+  const said = (st, key) => {
+    const at = key.indexOf(':'); const kind = at === -1 ? key : key.slice(0, at); const name = at === -1 ? '' : key.slice(at + 1);
+    const byName = (map) => { const k = personBookKey(st, map || {}, name); return k ? map[k] : null; };
+    const s = st || {};
+    const slice = { clock: s.clock, place: s.place, mc: s.sheet && s.sheet.playerName, mode: s.mode, threads: s.threads,
+      presence: (s.present || []).find((p) => p && samePersonName(String(p.name || ''), name)) || null,
+      body: byName(s.bodies), rel: byName(s.relationships), offscreen: byName(s.offscreen), canon: byName(s.canon), knowledge: byName(s.knowledge),
+      faction: byName(s.factions), people: byName(s.characters), combat: { duel: s.duel || null, battle: s.battle || null },
+      thing: (() => { const t = s.things || {}; const k = findThingKey(t, name); return k ? t[k] : null; })() }[kind];
+    return JSON.stringify(sayPrint(slice === undefined ? null : slice));
+  };
+  return keys.every((k) => said(before, k) === said(after, k));
 }
 /* Is an OLD pending card dead — its anchor gone from the text as it stands? */
 export function anchorIsDead(p, world = {}) {
@@ -3581,6 +3633,9 @@ export function roundWhy(content) {
   if (/^\[ANCHOR CHECK\]/.test(t)) return 'fixing where its changes land';
   if (/^\[UNREADABLE BLOCK\]/.test(t)) return 'rewriting a block it wrote unclearly';
   if (/^\[THE BRIEF\]/.test(t)) return 'adding the change to the brief';
+  if (/^\[CONTINUITY\]/.test(t)) return 'checking its changes against the whole story'; /* M775 */
+  if (/^\[RIPPLE\]/.test(t)) return 'sweeping what its changes leave contradicted';
+  if (/^\[CANNOT LAND\]/.test(t)) return 'fixing a change the ledger cannot take';
   if (/^Your <fetch> block could not be read/.test(t)) return 'asking for its pages again';
   return 'answering again';
 }
@@ -3598,6 +3653,65 @@ function personBlock(name, c, p) {
   return '[' + name + (c.retired ? ' \u2014 passed through' : '') + ']'
     + field('CORE', c.core, p.core) + field('STATE', c.state, p.state) + field('ARC', c.arc, p.arc)
     + '\n  THREADS: ' + threads + owns;
+}
+
+export function rippleWords(leftovers) {
+  return '[RIPPLE] The words your changes take away still stand elsewhere — where they say the same thing of the same person, they contradict your change:\n' + leftovers.map((l) => '- “' + l.removed + '”' + (l.person ? ' (of ' + l.person + ')' : '') + ' in ' + l.where.join(', ')).join('\n') + '\nSweep them in this answer — bulk_replace for pages (or one edit each), <record> for a record line, <ledits> people.set for a page of the people, <lore> for an entry — and say what you checked. Keep every proposal you already made.';
+}
+export function continuityReview({ leftovers = [], unheld = [] } = {}) {
+  return '[CONTINUITY] Before the writer sees this answer, hold every card in it against the whole house above — THE BRIEF and THE CAST NOTES first (they outrank every page), then the pages of the people (families, ranks, ages, who made whom, who is dead and where), the canon, the seats and standings, the record, the lore and the pages. For each card ask: does it contradict anything there? does it leave anything there contradicting it? does it need something that does not exist yet (a page for a new person, a place for them, a look or a bond the writer gave)? And is it the best this idea can be — specific, alive, fitted to the world?'
+    + (unheld.length ? '\nTHE HOUSE CHECKED what your words call already there — these the ledger does NOT hold:\n' + unheld.map((u) => '- ' + u.name + ': ' + u.where).join('\n') + '\nIf the writer asked for them, make them now, with every card they need.' : '')
+    + (leftovers.length ? '\nTHE HOUSE FOUND words your changes take away that still stand elsewhere (where they say the same of the same person, they contradict your change):\n' + leftovers.map((l) => '- “' + l.removed + '”' + (l.person ? ' (of ' + l.person + ')' : '') + ' in ' + l.where.join(', ')).join('\n') : '')
+    + '\nRe-send your WHOLE answer — every card you still stand by, with every fix in it (bulk_replace or one edit each for pages, <record> for a record line, <ledits> for the ledger and the pages of the people, <lore> for an entry, <brief> for the brief) — and end the words with one line, "Continuity: …", saying what you held the cards against and what you found, with numbers. If nothing needs fixing, re-send it as it is with that line.';
+}
+/* M775 — HIS: "i asked to add characters and it said it's already being put but in the end it's not being put". The names
+ * the writer's message gives that THE PAGES OF THE PEOPLE do not hold, which the answer speaks of as already there — said
+ * back to it with where each name really stands (the brief, the cast notes, a card still waiting, nowhere). Pure. */
+const NOT_A_NAME = new Set(('I A An The And But Or If So Then When Why What Who Whom Whose Where How Which Is Are Was Were Do Does Did Can Could '
+  + 'Should Would Will Please Add Make Put Create Give Write Change Fix Set Let Also Now Just Not No Yes Ok Okay Hey She He They '
+  + 'Her His Their It This That These Those My Our Your You We Me Him Them Brief Cast Notes Ledger Lore Record Page Pages '
+  + 'Housekeeper Continuity Character Characters Family Mr Mrs Ms Miss Lord Lady Sir').split(' '));
+export function namesAsked(text) {
+  const out = [];
+  for (const m of String(text || '').matchAll(/\p{Lu}[\p{Ll}\p{M}'’-]+(?:\s+\p{Lu}[\p{Ll}\p{M}'’-]+){0,2}/gu)) {
+    let words = m[0].split(/\s+/);
+    while (words.length && NOT_A_NAME.has(words[0].replace(/['’]s$/, ''))) words = words.slice(1);
+    const name = words.join(' ').replace(/['’]s$/, '');
+    if (name.length < 3 || out.some((n) => samePersonName(n, name))) continue;
+    out.push(name);
+  }
+  return out;
+}
+export function claimedButNotHeld(parsed, { writerText, state, story, session } = {}) {
+  const prose = String((parsed && parsed.text) || '');
+  if (!/\balready\b/i.test(prose)) return [];
+  const st = state || {};
+  const written = (Array.isArray(parsed && parsed.ledits) ? parsed.ledits : []).map((m) => String((m && (m.name || m.to)) || '')).filter(Boolean);
+  const waiting = [];
+  for (const turn of (session && Array.isArray(session.turns) ? session.turns : [])) {
+    for (const pr of (Array.isArray(turn.proposals) ? turn.proposals : [])) {
+      if (pr && pr.status === 'pending' && pr.op && Array.isArray(pr.op.mutations)) waiting.push(pr);
+    }
+  }
+  const out = [];
+  for (const name of namesAsked(writerText)) {
+    if (isMc(st, name) || findPersonKey(st.characters || {}, name)) continue;
+    if (written.some((w) => samePersonName(w, name))) continue;
+    if (!wordIn(prose, name) && !wordIn(prose, name.split(/\s+/)[0])) continue;
+    const card = waiting.find((pr) => pr.op.mutations.some((mu) => mu && samePersonName(String(mu.name || ''), name)));
+    const where = card ? 'only in the card “' + card.label + '”, still waiting for the writer to apply it'
+      : [story && wordIn(story.brief, name) ? 'the brief' : '', story && wordIn(story.castNotes, name) ? 'the cast notes' : ''].filter(Boolean).join(' and ');
+    out.push({ name, where: where ? (card ? where : 'named in ' + where + ' — a name there is not a page') : 'nowhere in the house' });
+  }
+  return out;
+}
+/* M775: the cards that change what the story holds — a fold, a pin, a withdrawal or a spelling correction (which sweeps
+ * every surface by itself) is no new fact to hold against the house */
+export function changesTheStory(parsed) {
+  if (!parsed) return false;
+  if ((parsed.edits || []).some((op) => op && (typeof op.replace === 'string' || typeof op.find === 'string'))) return true;
+  if ((parsed.ledits || []).some((m) => m && m.type !== 'module.pin')) return true;
+  return ['brief', 'lore', 'record', 'redits'].some((k) => Array.isArray(parsed[k]) && parsed[k].length > 0);
 }
 
 export async function runConversation({
@@ -3626,6 +3740,9 @@ export async function runConversation({
     let nudgedCannotLand = false; /* M397 */
     let nudgedClaim = false; /* M397 */
     let nudgedUnreadable = false;
+    let reviewed = false; /* M775: the continuity check of the first ask */
+    let preReview = ''; /* M775: the answer the check was asked of */
+    let toldUnheld = false; /* M775: "already there" said back, once */
     let pot = HK_MAX_TOKENS;
     let thinkRetries = 0;
     let recoveredCut = false;
@@ -3674,7 +3791,7 @@ export async function runConversation({
       });
       calls += 1;
       if (answer && answer.error) return { ok: false, error: answer.error };
-      const raw = answer && typeof answer.text === 'string' ? answer.text : '';
+      let raw = answer && typeof answer.text === 'string' ? answer.text : '';
       const thinking = answer && typeof answer.thinking === 'string' ? answer.thinking : '';
       if (thinking.trim()) thoughts.push(thinking.trim());
       const thinkingAll = thoughts.join('\n\n— asked again —\n\n');
@@ -3688,8 +3805,15 @@ export async function runConversation({
         wire.push({ role: 'user', content: '[ANSWER NOW] Your reasoning above used the whole room and no answer came. Do not reason again — write the answer itself: the blocks first, then a few plain words.' });
         continue;
       }
-      if (!raw.trim()) return { ok: false, error: 'the housekeeper went quiet — nothing came back' };
-      const parsed = parseProtocol(raw);
+      if (!raw.trim() && !preReview) return { ok: false, error: 'the housekeeper went quiet — nothing came back' };
+      let parsed = parseProtocol(raw);
+      /* M775: the check answered in words alone ("Continuity: clean") — its cards are the ones it was asked to hold, never
+       * lost for want of being sent twice */
+      if (preReview && !hasAnyBlock(parsed)) {
+        raw = preReview + (raw.trim() ? '\n\n' + raw : '');
+        parsed = parseProtocol(raw);
+      }
+      preReview = '';
       /* M75-002: cut short inside a block — the block is lost, the words survive;
        * ask once for the blocks first, with a bigger pot */
       if (cut && !recoveredCut && unclosedBlock(raw)) {
@@ -3771,6 +3895,16 @@ export async function runConversation({
         wire.push({ role: 'user', content: '[UNREADABLE BLOCK] ' + parsed.unreadable.map((u) => 'Your <' + u.tag + '> block could not be read as JSON — it began: “' + u.body.slice(0, 120) + '”.').join(' ') + ' Re-send your whole answer with each block holding a plain JSON array of objects and nothing else inside the tags — no fences, no comments, no trailing words — for example <brief>[{"field":"brief","find":"the exact words","replace":"the new words","reason":"why"}]</brief>. Keep every proposal you stand by.' });
         continue;
       }
+      /* M775: an answer with no card that calls what he asked for "already there" — the house looks before he is told so */
+      if (!toldUnheld && !hasAnyBlock(parsed)) {
+        const unheldNow = claimedButNotHeld(parsed, { writerText, state, story, session });
+        if (unheldNow.length) {
+          toldUnheld = true;
+          wire.push({ role: 'assistant', content: raw });
+          wire.push({ role: 'user', content: continuityReview({ unheld: unheldNow }) });
+          continue;
+        }
+      }
       /* M75: the writer asked THE BRIEF or THE CAST NOTES to change and no <brief>
        * block came — whatever else came (a canon lock, a lore entry, a "standing
        * rule"), the brief itself was not touched. Once. */
@@ -3795,7 +3929,7 @@ export async function runConversation({
         if (cannotLand) {
           nudgedCannotLand = true;
           wire.push({ role: 'assistant', content: raw });
-          wire.push({ role: 'user', content: '[CANNOT LAND] Your ledger card would change nothing — the ledger refuses every entry in it: ' + cannotLand + '. Re-send your whole answer with a card that CAN land (answer the reason — a different person, a different fact, the right name), or, if what the writer asked cannot be done in the ledger, say so plainly and name what can be done instead. Never say it is done.' });
+          wire.push({ role: 'user', content: '[CANNOT LAND] Your ledger card would change nothing — ' + (cannotLand === NETS_NOTHING ? NETS_NOTHING + ' (one entry takes away what another puts back). Look at the line as it stands and change only what is wrong: a fact written twice is let go with knowledge.forget and written ONCE with knowledge.add only if the forget takes every copy; a field is written whole with people.set' : 'the ledger refuses every entry in it: ' + cannotLand) + '. Re-send your whole answer with a card that CAN land (answer the reason — a different person, a different fact, the right name), or, if what the writer asked cannot be done in the ledger, say so plainly and name what can be done instead. Never say it is done.' });
           continue;
         }
       }
@@ -3813,14 +3947,26 @@ export async function runConversation({
       }
       /* M61 (v2.77): the ripple — the words an edit removes still sit on
        * other surfaces; they are found in code and handed back once */
-      if (!sweptRipple) {
-        const leftovers = rippleScan(rippleOps(parsed, { state, story }), { messages, memory, state, lore, story }); /* M774: every change the answer makes */
-        if (leftovers.length) {
-          sweptRipple = true;
-          wire.push({ role: 'assistant', content: raw });
-          wire.push({ role: 'user', content: '[RIPPLE] The words your changes take away still stand elsewhere — where they say the same thing of the same person, they contradict your change:\n' + leftovers.map((l) => '- “' + l.removed + '”' + (l.person ? ' (of ' + l.person + ')' : '') + ' in ' + l.where.join(', ')).join('\n') + '\nSweep them in this answer — bulk_replace for pages (or one edit each), <record> for a record line, <ledits> people.set for a page of the people, <lore> for an entry — and say what you checked. Keep every proposal you already made.' });
-          continue;
-        }
+      /* M775: THE CONTINUITY CHECK OF THE FIRST ASK. He had to send a second message — "is there any continuity issue?" —
+       * after every change, and only then was the answer held against the house. Now an answer that changes the story is
+       * handed back once, before he sees it, to be held against everything — with what the house itself found: the words
+       * a change takes away that still stand (the ripple, M61/M774) and the names it calls "already there" that the
+       * ledger does not hold. One more call, once per ask; an answer that changes nothing and claims nothing is not asked. */
+      const leftovers = sweptRipple ? [] : rippleScan(rippleOps(parsed, { state, story }), { messages, memory, state, lore, story }); /* M774: every change the answer makes */
+      const unheld = reviewed || toldUnheld ? [] : claimedButNotHeld(parsed, { writerText, state, story, session });
+      if (!reviewed && (changesTheStory(parsed) || unheld.length)) {
+        reviewed = true;
+        sweptRipple = true;
+        preReview = raw;
+        wire.push({ role: 'assistant', content: raw });
+        wire.push({ role: 'user', content: continuityReview({ leftovers, unheld }) });
+        continue;
+      }
+      if (leftovers.length) {
+        sweptRipple = true;
+        wire.push({ role: 'assistant', content: raw });
+        wire.push({ role: 'user', content: rippleWords(leftovers) });
+        continue;
       }
       return { ok: true, raw, parsed, fetchRounds: round, thinking: thinkingAll };
     }

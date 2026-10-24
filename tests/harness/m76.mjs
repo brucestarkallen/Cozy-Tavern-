@@ -79,7 +79,7 @@ test('M77-1 the thinking of every round is kept — a nudge’s follow-up no lon
   };
   const r = await runConversation({ story, messages: [], state: emptyState(), modules: [], lore: [], memory: { nodes: [] }, session: { turns: [] }, writerText: 'change the brief: Alexia is 19', contextPages: 8, call });
   assert(r.ok && r.parsed.brief.length === 1);
-  eq(sent.length, 2, 'one nudge');
+  eq(sent.length, 3, 'one nudge, then the first-ask continuity check (M775)');
   assert(/First I weigh/.test(r.thinking), 'the first round’s thinking rides: ' + JSON.stringify(r.thinking));
   const ui = readFileSync(new URL('../../js/ui/housekeeper.js', import.meta.url), 'utf8');
   assert(/id = 'hk-pop'/.test(ui) && /hk-pop-copy/.test(ui) && /if \(e\.key === 'Escape' && viewerOpen\(\)\)/.test(ui), 'the viewers open in a pop-up with Copy and Close; Esc closes it first');

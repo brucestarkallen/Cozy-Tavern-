@@ -22462,3 +22462,48 @@ Not covered: what the model then writes from the ranked brief cannot be run offl
 request, not the model's answer. Where "Progenitor" first came from in his tale (his own introduction or a storyteller page)
 was not seen: his tale is not here. A nature already written wrong stays until the auditor's people check or his word to
 the housekeeper, which now sweeps the pages for it.
+
+## M775 (m775-001): the housekeeper checks continuity on the first ask
+
+The owner, 24 October 2026, 15:52–16:00 Jakarta: "Why the housekeeper still stupid i asked to a[d]d characters and it said
+it's already being put but in the end it's not being put. And everytime i ask for something the housekeeper must have
+brain of masterstoryteller to create something good based on my idea and check there are no continuity issues"; "why …
+each something that i want i need to send second message is there any continuity issues or not … it should always tackle
+and check the first time i ask something"; and the housekeeper's own words he pasted: "the live ledger shows this fact
+twice on his line; last batch removed one and re-added one, netting no change — forget alone is the repair" — "You asked me
+four times to check for contradictions, so four times I went in and found a thing that was actually written wrong".
+Read: the housekeeper was held against the house only when he asked it to be — every gate in runConversation checks the
+SHAPE of an answer (anchors, blocks, a card the ledger refuses, the words a change takes away); none asked it to hold its
+own cards against the brief, the people and the pages. So each answer was as careful as his question, and the next
+question found the next thing. Three more faults in the same code: (a) "already there" was never checked — the answer's
+own word was taken, a name in the brief or a card still waiting for Apply passed for a page; (b) a ledger card whose
+entries undo each other (a line let go and written again) passed the dry run, because every entry "landed"; (c) found while
+probing how the ledger takes new people: "Mistress Vermaine" was "Lord Vermaine" — their titles are of different kinds
+(M414 lets those be one person: "Lady Rukia" is "Lieutenant Rukia Kuchiki"), the surname matched, and the woman's page
+was written over her husband's.
+Now: (1) an answer that changes the story is handed back once, before he sees it, as [CONTINUITY] — hold every card
+against the brief and cast notes first, then the people, canon, seats, standings, record, lore and pages; fix in the same
+answer; is it the best the idea can be; end with "Continuity: …" saying what was held against what, with numbers. What
+the house found itself rides in it (the M774 ripple, and the names below). A check answered in words alone keeps the
+cards it was asked to hold. A fold, a pin, a withdrawal or a spelling card changes no fact and is not checked. The live
+view names the round "checking its changes against the whole story". (2) housekeeper.js namesAsked/claimedButNotHeld:
+names in his message that the answer calls already there and THE PAGES OF THE PEOPLE do not hold are said back with where
+they stand — "named in the brief — a name there is not a page", "only in the card …, still waiting for the writer to apply
+it", "nowhere in the house" — before the no-card nudge, so the same ask makes them. (3) cardNetsNothing: each ledger slice
+a card touches is read before and after the dry run, write times and receipts aside; a card that changes nothing is
+handed back ([CANNOT LAND], with what to do instead) and staged refused. (4) The prompt: make what he asks for as a master
+storyteller, fitted to the brief and the people, with every card it needs to exist (page, place, look, bond); nothing is
+"already there" unless it can be quoted where it stands; continuity on the first ask. (5) names.js TITLE_GENDER: a man's
+title and a woman's never name one person; "mistress" is a title (a role, as "master").
+Laws M775-1 (the check comes, the checked answer is staged, the round is named), M775-2 (Celeste named in the brief and
+Aurel in a waiting card are said back; Marguerite, who has a page, is not), M775-3 (a words-only check keeps the cards),
+M775-4 (forget + add of the same line handed back and refused; forget alone is a change), M775-5 (mistress/lord, mrs/lord,
+lady/sir apart; Mistress Vermaine still Marguerite Vermaine, Mr. Wells still Tom Wells, Lady Rukia still Lieutenant Rukia
+Kuchiki; Lord Vermaine's page untouched), M775-6 (a fold is one call). M775-1…5 fail on m774-001; M775-6 is the guard.
+Re-aimed for the one more call, each because the old count was the count without the check: M61-5, M75-2, M77-1, M80-1,
+M397-2, M415-1 (whose "no second call" was cost-saving M415 chose; his order now asks for the call), M774-1…4, DOM-98
+(its scripted housekeeper held its second answer, which is now the check; it now holds only the second ask).
+Checked: harness 1797/1797; the DOM walk 333/333; lint 0 errors (247 warnings, the baseline).
+Not covered: what the model finds when it holds its cards against the house is the model's judgement — the laws prove the
+check is asked, carries what the house found, and that its answer is the one staged. The exact line he saw twice was not
+seen (his tale is not here); the card that undid itself is now refused whatever line it was.

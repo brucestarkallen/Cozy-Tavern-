@@ -34,7 +34,8 @@ test('M397-2 A CARD THAT CANNOT LAND IS HANDED BACK AT ONCE, AND "DONE" SAID OF 
   /* M415: the "done" hand-back is for cards that WAIT for his Apply (auto-apply off) — this run is that case */
   const r = await runConversation({ story: { id: 's', title: 't', brief: '' }, messages: [], state: scene(), modules: [], lore: [], memory: { nodes: [] }, session: { turns: [] }, writerText: 'Rukia is at the duel, fix where she is', contextPages: 8, call, cardsWait: true });
   assert(r.ok, r.error);
-  eq(sent.length, 3, 'two hand-backs, then the answer');
+  eq(sent.length, 4, 'two hand-backs, the first-ask continuity check (M775), then the answer');
+  assert(/^\[CONTINUITY\]/.test(sent[3]), 'the check: ' + sent[3].slice(0, 60));
   assert(/^\[CANNOT LAND\]/.test(sent[1]) && /is in the scene/.test(sent[1]), 'the first: the ledger’s own reason, at once: ' + sent[1].slice(0, 160));
   assert(/^\[NOT YET\]/.test(sent[2]), 'the second: "done" of a card only proposed');
   assert(!/done/i.test(r.parsed.text) && r.parsed.ledits.length === 1, 'the answer he sees says what the card will do');

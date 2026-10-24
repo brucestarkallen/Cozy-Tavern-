@@ -20,7 +20,9 @@ test('M415-1 CARDS THAT LAND ON ARRIVAL MAY SAY "DONE": one model call, the word
     const call = async ({ messages }) => { calls.push(messages[messages.length - 1].content); return { text: DONE }; };
     const landing = await housekeeperTurn({ storyId: st.id, writerText: 'Rukia is at the duel — fix her page', connection: { type: 'openai' }, call });
     assert(landing.ok, landing.error);
-    eq(calls.length, 1, 'cards that land on arrival: the answer is taken as it came — no second call');
+    /* M775: the one further call is the first-ask continuity check he ordered — never a hand-back of "done" */
+    eq(calls.length, 2, 'cards that land on arrival: the answer, and its continuity check — nothing more');
+    assert(/^\[CONTINUITY\]/.test(calls[1]), 'the second call is the check: ' + calls[1].slice(0, 60));
     assert(!calls.some((c) => /^\[NOT YET\]/.test(c)), 'and no "[NOT YET]" hand-back');
     calls = [];
     await db.settings.set('hkAutoApply', false);

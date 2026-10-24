@@ -54,7 +54,7 @@ test('M80-1 the thinking rides the turn end to end through housekeeperTurn (a nu
   let n = 0;
   const call = async () => { n += 1; return n === 1 ? { text: 'Alexia is 20.', thinking: 'I weigh the order: 20 → 19.' } : { text: '<brief>[{"field":"brief","find":"Alexia (20)","replace":"Alexia (19)","reason":"set"}]</brief>', thinking: '' }; };
   const t = await housekeeperTurn({ storyId: st.id, writerText: 'change the brief: Alexia is 19', connection: { type: 'openai' }, call });
-  assert(t.ok, t.error); eq(n, 2, 'one nudge');
+  assert(t.ok, t.error); eq(n, 3, 'one nudge, then the first-ask continuity check (M775)');
   const sess = await loadSession(st.id);
   const last = sess.turns[sess.turns.length - 1];
   assert(/I weigh the order/.test(last.thinking || ''), 'the first round’s thinking is on the turn: ' + JSON.stringify(last.thinking));

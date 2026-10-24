@@ -77,7 +77,7 @@ test('M61-5 (v2.77) the ripple: the words an edit removes are found on every sur
   const seen = [];
   const call = async ({ messages: wire }) => { seen.push(wire[wire.length - 1].content); return { text: answers.shift() || 'done' }; };
   const r = await runConversation({ story: { title: 't' }, messages, state, modules: [], lore, memory, session: { turns: [] }, writerText: 'fix', contextPages: 8, call });
-  assert(seen.some((c) => /\[RIPPLE\][\s\S]*“Kim”/.test(c)), 'the ripple was handed back');
+  assert(seen.some((c) => /\[(?:RIPPLE|CONTINUITY)\][\s\S]*“Kim”/.test(c)), 'the ripple was handed back (M775: inside the first-ask continuity check)');
   eq(r.parsed.edits.length, 2); eq(r.parsed.record.length, 1);
 });
 

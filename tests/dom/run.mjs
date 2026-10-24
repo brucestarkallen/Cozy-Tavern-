@@ -5515,11 +5515,13 @@ test('DOM-98 A CHANGE NEVER LANDS UNDER AN ANSWER STILL COMING: while the housek
   await db.stories.update(sid, { brief: 'Rias is his older sister.' });
   const prior = house.state.workerAnswer;
   let release; const held = new Promise((r) => { release = r; });
-  let asked = 0;
+  let asked = 0; let holding = false;
   house.state.workerAnswer = (body, sys) => {
     if (!/housekeeper of a cozy tavern/i.test(sys)) return prior(body, sys);
     asked += 1;
-    if (asked === 1) return 'Done.\n<brief>[{"field":"brief","find":"older sister","replace":"younger sister","reason":"asked"}]</brief>';
+    /* M775: every round of the first ask (its hand-backs and its first-ask continuity check) sends the same card again;
+     * only the second ask is held */
+    if (!holding) return 'Done.\n<brief>[{"field":"brief","find":"older sister","replace":"younger sister","reason":"asked"}]</brief>';
     return held.then(() => 'Nothing more to change.');
   };
   try {
@@ -5530,6 +5532,7 @@ test('DOM-98 A CHANGE NEVER LANDS UNDER AN ANSWER STILL COMING: while the housek
     if (apply) click(apply);
     await until(async () => /younger sister/.test((await db.stories.get(sid)).brief), 'the brief changed', 10000);
     await until(() => !q('#hk-send').disabled, 'free again', 10000);
+    holding = true;
     type(q('#hk-input'), 'anything else?'); submit(q('#hk-form'));
     await until(() => q('#hk-send').disabled, 'the housekeeper answering', 10000);
     click(q('#hk-undo')); await tick(600);

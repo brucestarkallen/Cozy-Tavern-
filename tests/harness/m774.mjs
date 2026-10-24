@@ -35,8 +35,8 @@ test('M774-1 A CHANGE TO WHO SOMEONE IS IS HELD AGAINST THE PAGES THAT TELL OF T
   const t = await housekeeperTurn({ storyId: st.id, writerText: 'Make Marguerite petite, not tall', connection: { type: 'openai' }, call });
   assert(t.ok, t.error);
   eq(asked.length, 2, 'handed back once');
-  const ripple = asked[1].slice(asked[1].lastIndexOf('[RIPPLE]'));
-  assert(/\[RIPPLE\]/.test(asked[1]) && /“tall” \(of Marguerite Vermaine\)/.test(ripple), 'the old height, hers: ' + ripple.slice(0, 300));
+  const ripple = asked[1].slice(asked[1].lastIndexOf('[CONTINUITY]'));
+  assert(/\[CONTINUITY\]/.test(asked[1]) && /“tall” \(of Marguerite Vermaine\)/.test(ripple), 'the old height, hers: ' + ripple.slice(0, 300));
   const pages = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant');
   assert(ripple.includes('#' + pages[0].id.slice(0, 6)) || /p2\b|page 2/.test(ripple), 'the page that has her tall: ' + ripple.slice(0, 300));
   assert(!ripple.includes('#' + pages[1].id.slice(0, 6)) && !/p4\b|page 4/.test(ripple), 'not the page where only the hall is tall');
@@ -44,10 +44,12 @@ test('M774-1 A CHANGE TO WHO SOMEONE IS IS HELD AGAINST THE PAGES THAT TELL OF T
 
 test('M774-2 A CHANGE THAT LEAVES NOTHING CONTRADICTED ASKS NOTHING MORE', async () => {
   const st = await tale('M774-2', [['user', 'I wait.'], ['assistant', 'The hall was tall and cold.']]);
-  let n = 0;
-  const call = async () => { n += 1; return { text: 'Marguerite will be petite.\n<ledits>[{"type":"canon.lock","name":"Marguerite Vermaine","key":"height","value":"petite","reason":"his correction"}]</ledits>' }; };
+  let n = 0; let last = '';
+  const call = async ({ messages }) => { n += 1; last = String(messages[messages.length - 1].content); return { text: 'Marguerite will be petite.\n<ledits>[{"type":"canon.lock","name":"Marguerite Vermaine","key":"height","value":"petite","reason":"his correction"}]</ledits>' }; };
   const t = await housekeeperTurn({ storyId: st.id, writerText: 'Make Marguerite petite', connection: { type: 'openai' }, call });
-  assert(t.ok, t.error); eq(n, 1, 'one call');
+  /* M775: the one further call is the first-ask continuity check — and it names nothing the house found */
+  assert(t.ok, t.error); eq(n, 2, 'the answer and its check');
+  assert(/^\[CONTINUITY\]/.test(last) && !/THE HOUSE FOUND|THE HOUSE CHECKED/.test(last), 'nothing found is named: ' + last.slice(0, 200));
 });
 
 test('M774-3 A NATURE REWRITTEN IN MORE THAN ONE PLACE: every word it takes away is looked for — “the Progenitor”, “four hundred years” — where the pages tell of her', async () => {
@@ -62,7 +64,7 @@ test('M774-3 A NATURE REWRITTEN IN MORE THAN ONE PLACE: every word it takes away
   const t = await housekeeperTurn({ storyId: st.id, writerText: 'Marguerite is an Elder, not the Progenitor, and two hundred years old', connection: { type: 'openai' }, call });
   assert(t.ok, t.error);
   eq(asked.length, 2, 'handed back once');
-  const ripple = asked[1].slice(asked[1].lastIndexOf('[RIPPLE]'));
+  const ripple = asked[1].slice(asked[1].lastIndexOf('[CONTINUITY]'));
   assert(/“Progenitor” \(of Marguerite Vermaine\)/.test(ripple), 'the Progenitor: ' + ripple.slice(0, 400));
   assert(/“four” \(of Marguerite Vermaine\)/i.test(ripple), 'the four hundred years: ' + ripple.slice(0, 400));
   assert(!/“tall”|“cold”|“Vermaine”/.test(ripple), 'never what the change keeps: ' + ripple.slice(0, 400));
@@ -80,7 +82,7 @@ test('M774-4 HER OWN OTHER TRUTHS ARE SWEPT TOO: height made petite leaves “bu
   const t = await housekeeperTurn({ storyId: st.id, writerText: 'Make Marguerite petite', connection: { type: 'openai' }, call });
   assert(t.ok, t.error);
   eq(asked.length, 2, 'handed back once');
-  const ripple = asked[1].slice(asked[1].lastIndexOf('[RIPPLE]'));
+  const ripple = asked[1].slice(asked[1].lastIndexOf('[CONTINUITY]'));
   assert(/“tall” \(of Marguerite Vermaine\) in the canon of Marguerite Vermaine/.test(ripple), 'her build: ' + ripple.slice(0, 300));
 });
 
