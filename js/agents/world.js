@@ -84,7 +84,7 @@ const VOCABULARY = [
   'faction.set {"type":"faction.set","name":"the studio","stance":"quietly furious","agenda":"bury the story before Monday","move":"sent a lawyer to the hotel"} — a faction moves only on cause; move = what it just did',
   'faction.clear {"type":"faction.clear","name":"the studio"} — only when the pages have ended it as a power for good: disbanded, destroyed, absorbed, gone from the story; a faction that is merely quiet stays',
   'people.set {"type":"people.set","name":"QUIET NAME","field":"state","text":"at the rail, hat low, weighing whether to step in"} — ONLY for someone listed IN THE SCENE, NOT ON THE PAGE: their now, this minute',
-  'people.set {"type":"people.set","name":"NEW NAME","field":"core","text":"the main character\'s manager; forty, sleepless, keeps three phones; loyal to the money first"} — ONLY for a NEW named person the world needs (a role that must be filled), their one-line core; then seat them with offscreen.set',
+  'people.set {"type":"people.set","name":"NEW NAME","field":"core","text":"the main character\'s manager; forty, sleepless, keeps three phones; loyal to the money first"} — ONLY for a NEW named person the world needs (a role that must be filled), their one-line core, agreeing with the brief (a rank, kind or age it settles is as it says); then seat them with offscreen.set',
 ].join('\n');
 
 /* M134: what the hour means, said plainly from the clock — a cheap model
@@ -528,7 +528,7 @@ export function buildWorldMessages({ state, userText, assistantText, before = []
     ...(recordSoFar ? ['THE STORY SO FAR, FOLDED — what the pages before these ones hold. A person\u2019s life',
       'beyond the scene is filled from THIS, never invented over it:',
       FENCE3, recordSoFar, FENCE3, ''] : []), /* M265: it was cut again to its first 12,000 — the newest lines lost */
-    ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words:', FENCE, writerText(brief, BRIEF_ROOM, 'brief', true), FENCE, ''] : []), /* M283 */
+    ...(brief && String(brief).trim() ? ['WHAT THIS STORY IS ABOUT, in the writer\'s words (it outranks every page — a person\'s rank, kind, age and maker are as it says):', FENCE, writerText(brief, BRIEF_ROOM, 'brief', true), FENCE, ''] : []), /* M283 */
     ...(castNotes && String(castNotes).trim() ? ['WHO IS IN IT, in the writer\'s words:', FENCE, writerText(castNotes, CAST_ROOM, 'cast notes', true), FENCE, ''] : []), /* M283 */
     ...(String(canonRecord || '').trim() ? ['WHAT THE SERIES ITSELF SAYS OF ITS PEOPLE HERE (their real record — a canon character\'s family, role and life are these, never invented):', FENCE, String(canonRecord).trim(), FENCE,
       /* M445: one home for a fact — the storyteller reads the series itself on every page such a person is in */

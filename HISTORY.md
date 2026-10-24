@@ -22432,3 +22432,33 @@ world whole and stamps it; his own world stands), DOM-M773-1 (through the app: a
 page it was written after writes it again — fails on m772-001). Checked: harness 1785/1785; the DOM walk 333/333; lint 0 errors.
 Not covered: new events between looks still reach the world only at the next look (24 folded pages) — the storyteller reads
 those pages and their record lines directly meanwhile, which is the design (M517: written once, rewritten where it changed).
+
+## M774 (m774-001): a change to who someone is is held against everything that still says the old thing
+
+The owner, 24 October 2026, 15:28 Jakarta: "why the housekeeper is stupid?? I ask it to edit characters it doesn't thing
+thoroughly and scan everything that contradict like the page still make the character tall instead of petite" — and "why
+during characters introduction that i made the ledger not adjust and think carefully based on brief if the brief was made"
+(the housekeeper had found Marguerite's nature saying "The Progenitor", the brief saying Progenitors are legend and the
+Elders made the families, and "four hundred years").
+Read: the house's own sweep for words a change takes away (housekeeper.js rippleScan, M61) was handed `parsed.edits` only —
+page edits. A truth relocked, a nature rewritten, the brief or cast notes changed: none of it was ever held against the
+pages, so the page that had her rise "tall and pale" was never named back. Now rippleOps hands it every change in the
+answer: the brief's and cast notes' find/replace (never swept in the surface it is made in); a canon.lock whose held value
+differs; a people.set core that is not an append. A change of a person is taken word by word (removedPersonWords — the
+words the old value has and the new one does not, small words aside, at most 12), and each is looked for as a whole word
+in the paragraphs that name that person — pages, record lines, lore, the brief, the cast notes, another's page — and in that
+person's own other truths and page fields, never the one being changed. "The hall was tall" is not her. One hand-back, as
+before; the message names whose words they are.
+The second question: the page reader (extractor.js), which writes a newcomer's nature from the page that introduces them,
+and the world keeper (world.js), which writes a new person's core, were handed the brief as "what this story is about" and
+never told it outranks the page — the scribe, the auditor and the tidy are. Both are now, and the reader's people rule says
+the core agrees with the brief and cast notes where they settle a rank, a lineage, an age, who made whom.
+Laws M774-1 (height tall → petite: the page that has her tall is handed back, the hall's page is not), M774-2 (nothing
+contradicted: one call), M774-3 (a nature rewritten in two places: "Progenitor" and "four" are each looked for; the words it
+keeps are not), M774-4 (her own "build: tall and willowy" is handed back; the height being changed is not), M774-5 and
+M774-6 (the reader's and the world keeper's requests carry the brief ranked and the rule). M774-1, -3, -4, -5, -6 fail on
+m773-001; M774-2 is the guard. Checked: harness 1791/1791; lint 0 errors.
+Not covered: what the model then writes from the ranked brief cannot be run offline — M774-5/6 prove the rule reaches the
+request, not the model's answer. Where "Progenitor" first came from in his tale (his own introduction or a storyteller page)
+was not seen: his tale is not here. A nature already written wrong stays until the auditor's people check or his word to
+the housekeeper, which now sweeps the pages for it.

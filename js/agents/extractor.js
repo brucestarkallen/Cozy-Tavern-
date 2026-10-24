@@ -304,7 +304,7 @@ function systemPrompt({ mc, founding }) {
      * witness: on a new scene the room it names is the room, and the quiet ones it does not name are not in it. */
     '"newScene": true only when this page opens a scene apart from the one the page before it ended in — another time,',
     'another place, or after a break; leave it out (or false) when the scene simply goes on from where it was.',
-    '"people" records each newly established individual identity from EITHER message: {"name":"the exact name or unique singular role used","core":"their stable role, rank, family and nature actually established here","shown":"an exact quote establishing these facts"}. Distinct ranked siblings and unique unnamed individuals get separate records under their stated role, never an invented personal name. Design comparisons are not additional people. Keep core separate from the quotation: an action is not an identity. Leave core empty if no stable fact is given. Include people the writer introduces even if they do not act or speak in the reply. Physical facts go in looks. Do not use a question or hypothetical as an introduction. Use here separately for physical presence.',
+    '"people" records each newly established individual identity from EITHER message: {"name":"the exact name or unique singular role used","core":"their stable role, rank, family and nature actually established here","shown":"an exact quote establishing these facts"}. Distinct ranked siblings and unique unnamed individuals get separate records under their stated role, never an invented personal name. Design comparisons are not additional people. Keep core separate from the quotation: an action is not an identity. Leave core empty if no stable fact is given. The core agrees with the writer\'s brief and cast notes: where they settle who this person is or what their kind is (a rank, a lineage, an age, who made whom — "the Progenitors are legend; the Elders made the families"), write it as they say, and a page\'s word against them is not this person\'s nature. Include people the writer introduces even if they do not act or speak in the reply. Physical facts go in looks. Do not use a question or hypothetical as an introduction. Use here separately for physical presence.',
     '"threads" decides EVERY open thread listed under the page, one entry each — {"title":"…","now":"resolved"} or',
     '{"title":"…","now":"open"} (a thread the story has only moved is still open). "healed", "things", "loose" and "spot"',
     'answer the lists under the page that ask for them; [] (or "" for "spot") when there is none.',
@@ -373,7 +373,7 @@ export function buildExtractorMessages({ state, userText, assistantText, before 
    * before, how things stand now, the new page. */
   const user = [
     ...(brief && String(brief).trim()
-      ? ['What this story is about, in the writer\'s words:', FENCE, writerText(brief, BRIEF_ROOM, 'brief', true), FENCE, ''] /* M283 */
+      ? ['What this story is about, in the writer\'s words (it outranks every page — who a person is, their rank, their kind, their age, who made whom, is as it says):', FENCE, writerText(brief, BRIEF_ROOM, 'brief', true), FENCE, ''] /* M283; M774: ranked, as the scribe, the auditor and the tidy are told */
       : []),
     ...(castNotes && String(castNotes).trim()
       ? ['Who is in it, in the writer\'s words:', FENCE, writerText(castNotes, CAST_ROOM, 'cast notes', true), FENCE, ''] /* M283 */

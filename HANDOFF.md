@@ -7,7 +7,19 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m773-001 on main, 24 October 2026: the automatic brief knows the pages it was written after (M773). His: "Does the
+- Version m774-001 on main, 24 October 2026: a change to who someone is is held against everything that still says the old
+  thing (M774). His: "I ask it to edit characters it doesn't think thoroughly and scan everything that contradict like the
+  page still make the character tall instead of petite". The housekeeper's sweep for words a change takes away (rippleScan,
+  M61) read page edits only. Now every change in its answer is swept (housekeeper.js rippleOps): the brief's and cast
+  notes' find/replace, a truth relocked ("height: tall" → "petite") and a nature rewritten — word by word
+  (removedPersonWords: "the Progenitor … four hundred years" → "an Elder … two hundred" takes away "Progenitor" and
+  "four"), looked for in the paragraphs of the pages, record, lore, brief and cast that name that person, and in their own
+  other truths and page fields (not the one being changed). One hand-back, as before. And his "why during characters
+  introduction … the ledger not adjust … based on brief": the page reader (extractor.js) and the world keeper (world.js),
+  which write a newcomer's nature, were handed the brief as "what this story is about", never ranked — the scribe, the
+  auditor and the tidy are told it outranks every page. Both now are, and the reader's people rule says a core agrees
+  with the brief and cast notes. Laws M774-1…6.
+- Version m773-001, 24 October 2026: the automatic brief knows the pages it was written after (M773). His: "Does the
   automatic brief always been checked in branch chat … foolproof … updated smartly if something happens". It is written from
   the record and from the ledger as it stands (scene, factions, the world's word) — and the ledger holds the pages not folded
   yet; it only watched the record's reach, so a page edited, told again or taken back inside the window left a world written

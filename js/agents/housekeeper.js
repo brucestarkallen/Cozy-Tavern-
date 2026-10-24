@@ -50,7 +50,7 @@ import { spellingContent, spellingState, spellingBooks, spellingSettings, remain
 
 import { shownTextPatch } from '../engine/pagepatch.js'; /* M576 */
 import { nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M288: the lean steps */
-import { samePersonName, isHere } from '../engine/names.js'; /* M398 */
+import { samePersonName, isHere, nameOnPage } from '../engine/names.js'; /* M398; M774: whose words a page's paragraph holds */
 import { findPersonKey, isMc, mcKey, seatForPerson } from '../engine/people.js';
 import { seatLine } from '../engine/offscreen.js'; /* M752: a person fetched is served with where they are */
 import { roomChars } from '../engine/pagecut.js'; /* M288: the housekeeper's room */
@@ -2270,25 +2270,79 @@ export function duplicateOnLine(text, located, find, replace) {
   /* the whole line, the find included — the fact being added may sit inside the find itself */
   return line.includes(added) ? addedWords(find, replace).replace(/^[\s,;:—–\-.]+|[\s,;:—–\-.]+$/g, '') : '';
 }
+/* M774 — HIS: "why the housekeeper is stupid?? I ask it to edit characters it doesn't think thoroughly and scan everything
+ * that contradict like the page still make the character tall instead of petite". The house's own sweep for words a change
+ * removes (rippleScan, M61) read the PAGE edits only: a change to who someone is — their truths ("height: tall" →
+ * "petite"), their nature, or the brief and cast notes — was never held against the rest, and the pages went on calling her
+ * tall. Every change the answer makes is a change to sweep for: the brief's and cast notes' find/replace, and a ledger
+ * card's truth or nature that takes words away. A change about one person is looked for where that person is: the
+ * paragraphs of the pages that name them (and the record, the lore, the brief and the cast notes). Pure. */
+export function rippleOps(parsed, { state, story } = {}) {
+  const ops = Array.isArray(parsed && parsed.edits) ? [...parsed.edits] : [];
+  for (const op of (Array.isArray(parsed && parsed.brief) ? parsed.brief : [])) {
+    if (!op || typeof op.find !== 'string' || typeof op.replace !== 'string') continue;
+    const cast = String(op.field || '').toLowerCase() === 'cast' || /cast/i.test(String(op.field || ''));
+    ops.push({ find: op.find, replace: op.replace, bulk_replace: true, surface: cast ? 'cast' : 'brief' });
+  }
+  for (const m of (Array.isArray(parsed && parsed.ledits) ? parsed.ledits : [])) {
+    if (!m || typeof m !== 'object' || typeof m.name !== 'string' || !m.name.trim()) continue;
+    if (m.type === 'canon.lock' && typeof m.value === 'string') {
+      const key = personBookKey(state, (state && state.canon) || {}, m.name, (map, n) => Object.keys(map).find((k) => samePersonName(k, n)) || null);
+      const facts = key && state.canon[key] && Array.isArray(state.canon[key].facts) ? state.canon[key].facts : [];
+      const held = facts.find((f) => f && String(f.key || '').trim().toLowerCase() === String(m.key || '').trim().toLowerCase());
+      if (held && typeof held.value === 'string' && held.value.trim() && held.value !== m.value) ops.push({ find: held.value, replace: m.value, bulk_replace: true, person: m.name, key: String(m.key || '') });
+    }
+    if ((m.type === 'people.set') && String(m.field || '').toLowerCase() === 'core' && typeof m.text === 'string' && m.append !== true) {
+      const key = findPersonKey((state && state.characters) || {}, m.name);
+      const was = key ? String(state.characters[key].core || '') : '';
+      if (was && was !== m.text) ops.push({ find: was, replace: m.text, bulk_replace: true, person: m.name, field: 'core' });
+    }
+  }
+  return ops;
+}
+/* M774: what a change about a person takes away, word by word — "a tall pale woman, the Progenitor" → "a petite pale woman, an
+ * Elder" takes away "tall" and "Progenitor", which no one span of the old words holds; the small words are no evidence */
+const SMALL_WORDS = new Set('the a an and or but of to in on at by for with from as is was are were be been her his him she he they them their its it this that who whom which not no'.split(' '));
+export function removedPersonWords(find, replace) {
+  const words = (t) => String(t || '').match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) || [];
+  const kept = new Set(words(replace).map((w) => w.toLowerCase()));
+  const out = [];
+  for (const w of words(find)) {
+    const k = w.toLowerCase();
+    if (k.length < 3 || SMALL_WORDS.has(k) || kept.has(k) || out.some((o) => o.toLowerCase() === k)) continue;
+    out.push(w);
+    if (out.length >= 12) break;
+  }
+  return out;
+}
+const wordIn = (text, words) => new RegExp('(?<![\\p{L}\\p{N}])' + words.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+') + '(?![\\p{L}\\p{N}])', 'iu').test(String(text || ''));
 export function rippleScan(edits, { messages, memory, state, lore, story } = {}) {
   const out = [];
   const pages = (Array.isArray(messages) ? messages : []).filter((m) => m && !m.hidden);
   for (const op of (Array.isArray(edits) ? edits : [])) {
     if (!op || typeof op !== 'object' || typeof op.find !== 'string' || typeof op.replace !== 'string') continue;
-    const removed = removedWords(op.find, op.replace);
+    for (const removed of (op.person ? removedPersonWords(op.find, op.replace) : [removedWords(op.find, op.replace)])) {
     if (removed.length < 3 || !/\p{L}|\d/u.test(removed)) continue; /* a name like "Kim" counts; bare punctuation does not */
     const where = [];
     const target = op.bulk_replace ? null : resolveMessageRef(pages, op.id);
+    /* M774: a change about one person is looked for in the paragraphs that name them, as words (never inside a word) */
+    const holds = (text) => (op.person
+      ? String(text || '').split(/\n\s*\n/).some((para) => wordIn(para, removed) && nameOnPage(para, op.person))
+      : String(text || '').includes(removed));
     for (const m of pages) {
       if (target && m.id === target.id) continue;
-      if (pageText(m).includes(removed)) where.push(refOf(m));
+      if (holds(pageText(m))) where.push(refOf(m));
       if (where.length >= 8) break;
     }
     for (const nd of (memory && Array.isArray(memory.nodes) ? memory.nodes : [])) {
-      if (nd && ((typeof nd.text === 'string' && nd.text.includes(removed)) || (typeof nd.detail === 'string' && nd.detail.includes(removed)))) where.push('the record line ' + recordHandle(nd)); /* M602: its detail is part of it */
+      if (nd && ((typeof nd.text === 'string' && holds(nd.text)) || (typeof nd.detail === 'string' && holds(nd.detail)))) where.push('the record line ' + recordHandle(nd)); /* M602: its detail is part of it */
     }
+    /* M774: of a person, their own page is swept for the old words everywhere but the field being changed; another's page
+     * only where it names them */
     for (const [name, c] of Object.entries((state && state.characters) || {})) {
-      if (c && (['core', 'state', 'arc'].some((k) => typeof c[k] === 'string' && c[k].includes(removed)) || (Array.isArray(c.threads) && c.threads.some((t) => String(t).includes(removed))))) where.push('the page of ' + name);
+      const own = !!op.person && samePersonName(name, op.person);
+      const has = (t) => (!op.person ? String(t).includes(removed) : own ? wordIn(t, removed) : holds(t));
+      if (c && (['core', 'state', 'arc'].some((k) => typeof c[k] === 'string' && !(own && op.field === k) && has(c[k])) || (Array.isArray(c.threads) && c.threads.some((t) => has(t))))) where.push('the page of ' + name);
     }
     /* M174: THE RIPPLE NEVER LOOKED AT THE LOCKED TRUTHS. A canon entry is
      * {facts:[{key, value, atMinutes}]}, so Object.values(entry) yielded the
@@ -2299,19 +2353,24 @@ export function rippleScan(edits, { messages, memory, state, lore, story } = {})
     for (const [name, entry] of Object.entries((state && state.canon) || {})) {
       if (!entry || typeof entry !== 'object') continue;
       const facts = Array.isArray(entry.facts) ? entry.facts : [];
-      const inFacts = facts.some((f) => f && ((typeof f.value === 'string' && f.value.includes(removed)) || (typeof f.key === 'string' && f.key.includes(removed))));
+      /* M774: of a person, their own truths are swept but the one being changed; another's only where it names them */
+      const own = !!op.person && samePersonName(name, op.person);
+      const has = (t) => (!op.person ? String(t).includes(removed) : own ? wordIn(t, removed) : holds(t));
+      const changing = (f) => own && op.key && String(f.key || '').trim().toLowerCase() === op.key.trim().toLowerCase();
+      const inFacts = facts.some((f) => f && !changing(f) && ((typeof f.value === 'string' && has(f.value)) || (!op.person && typeof f.key === 'string' && f.key.includes(removed))));
       /* a flat {key: value} shelf is tolerated too — nothing writes one, but
        * a hand-built or older ledger should not go unscanned */
-      const inFlat = !facts.length && Object.values(entry).some((v) => typeof v === 'string' && v.includes(removed));
+      const inFlat = !facts.length && Object.values(entry).some((v) => typeof v === 'string' && has(v));
       if (inFacts || inFlat) where.push('the canon of ' + name);
     }
     for (const e of (Array.isArray(lore) ? lore : [])) {
-      if (e && typeof e.content === 'string' && e.content.includes(removed)) where.push('the lore entry “' + (e.name || (e.keys || [])[0] || '?') + '”');
+      if (e && typeof e.content === 'string' && holds(e.content)) where.push('the lore entry “' + (e.name || (e.keys || [])[0] || '?') + '”');
     }
-    /* M74: the writer's standing words are surfaces too */
-    if (story && typeof story.brief === 'string' && story.brief.includes(removed)) where.push('the brief');
-    if (story && typeof story.castNotes === 'string' && story.castNotes.includes(removed)) where.push('the cast notes');
-    if (where.length) out.push({ removed: removed.slice(0, 80), where: [...new Set(where)] });
+    /* M74: the writer's standing words are surfaces too (M774: never the one the change is made in) */
+    if (op.surface !== 'brief' && story && typeof story.brief === 'string' && holds(story.brief)) where.push('the brief');
+    if (op.surface !== 'cast' && story && typeof story.castNotes === 'string' && holds(story.castNotes)) where.push('the cast notes');
+    if (where.length) out.push({ removed: removed.slice(0, 80), where: [...new Set(where)], ...(op.person ? { person: op.person } : {}) });
+    }
   }
   return out;
 }
@@ -3755,11 +3814,11 @@ export async function runConversation({
       /* M61 (v2.77): the ripple — the words an edit removes still sit on
        * other surfaces; they are found in code and handed back once */
       if (!sweptRipple) {
-        const leftovers = rippleScan(parsed.edits, { messages, memory, state, lore, story });
+        const leftovers = rippleScan(rippleOps(parsed, { state, story }), { messages, memory, state, lore, story }); /* M774: every change the answer makes */
         if (leftovers.length) {
           sweptRipple = true;
           wire.push({ role: 'assistant', content: raw });
-          wire.push({ role: 'user', content: '[RIPPLE] The words your edits remove still stand elsewhere:\n' + leftovers.map((l) => '- “' + l.removed + '” in ' + l.where.join(', ')).join('\n') + '\nSweep them in this answer — bulk_replace for pages (or one edit each), <record> for a record line, <ledits> people.set for a page of the people, <lore> for an entry — and say what you checked. Keep every proposal you already made.' });
+          wire.push({ role: 'user', content: '[RIPPLE] The words your changes take away still stand elsewhere — where they say the same thing of the same person, they contradict your change:\n' + leftovers.map((l) => '- “' + l.removed + '”' + (l.person ? ' (of ' + l.person + ')' : '') + ' in ' + l.where.join(', ')).join('\n') + '\nSweep them in this answer — bulk_replace for pages (or one edit each), <record> for a record line, <ledits> people.set for a page of the people, <lore> for an entry — and say what you checked. Keep every proposal you already made.' });
           continue;
         }
       }
