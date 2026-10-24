@@ -295,6 +295,7 @@ import './m769.mjs'; /* M769: the final audit — the scene, the people, the wor
 import './m770.mjs'; /* M770: the housekeeper retires its own replaced cards; an ending is where the page leaves someone */
 import './m771.mjs'; /* M771: his persona and his own titled name, as before M769 */
 import './m772.mjs'; /* M772: a role the original writes as a common noun is a description */
+import './m773.mjs'; /* M773: the automatic brief knows the pages it was written after */
 
 console.log('Cozy Tavern — harness');
 await import('./m683.mjs');

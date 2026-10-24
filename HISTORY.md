@@ -22411,3 +22411,24 @@ never holds, is decided as before. LEDGER_REPAIR_POLICY 15 → 16: the repair pr
 "Mistress", resumes once by itself. Law M772-1 (fails on m771-001: exactly his pending line), M772-2 ("Tarn has returned"
 stays owed — a guard). Checked: harness 1783/1783; lint 0 errors. Not run: the DOM walk (no page, thread or store path
 changed); his tale itself.
+
+## M773 (m773-001): the automatic brief knows the pages it was written after
+
+The owner, 24 October 2026, 14:41 Jakarta: "Does the automatic brief always been checked in branch chat or something
+Bassically foolproof and everything is always adjusted and updated smartly if something happens". Read: the world keeper
+(chat.js groundNext, agents/worldground.js) is looked at after every page and writes when the record has grown 24 pages,
+his brief changed, the canon arc or start moved, the wiki's lines changed, an older record line was rewritten, the record
+was rolled back (fewer pages covered) or it was written under old rules; a branch from an earlier page writes its world
+afresh from its own pages (M735), one from the newest page copies it; his own correction stands until he asks to rebuild;
+each world is checked against the wiki. The gap found: it is also written from the ledger as it stands (the scene, the
+factions, the world's word), and the ledger holds the pages not folded yet — a page edited, told again (a swipe) or taken
+back inside the window changed nothing it watched, and a world written from it stood until 24 more pages folded.
+Now: the world keeps which pages it was written after (their ids and shown versions, `pagesSeen`/`pagesPrint`); any change
+among them writes it again whole, from the story as it stands. A page only added asks nothing. A branch from the newest
+page re-stamps the copied world for its own copies of the pages, so it is not rewritten for nothing. A world written
+before M773 carries no stamp and keeps the old rule until its next write.
+Laws M773-1 (the decision over real page shapes: added, taken back, edited, told again), M773-2 (a changed page asks for the
+world whole and stamps it; his own world stands), DOM-M773-1 (through the app: a page added asks nothing; his edit of a
+page it was written after writes it again — fails on m772-001). Checked: harness 1785/1785; the DOM walk 333/333; lint 0 errors.
+Not covered: new events between looks still reach the world only at the next look (24 folded pages) — the storyteller reads
+those pages and their record lines directly meanwhile, which is the design (M517: written once, rewritten where it changed).

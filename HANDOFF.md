@@ -7,7 +7,16 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m772-001 on main, 24 October 2026: a role the original writes as a common noun is a description (M772). His:
+- Version m773-001 on main, 24 October 2026: the automatic brief knows the pages it was written after (M773). His: "Does the
+  automatic brief always been checked in branch chat … foolproof … updated smartly if something happens". It is written from
+  the record and from the ledger as it stands (scene, factions, the world's word) — and the ledger holds the pages not folded
+  yet; it only watched the record's reach, so a page edited, told again or taken back inside the window left a world written
+  from it standing for up to 24 folded pages. It now keeps the pages it was written after (ids and shown versions,
+  worldground.js groundPagesPrint/groundPagesChanged); any change among them writes it again whole from the story as it
+  stands; pages only added ask nothing; his own world stands. A branch from the newest page re-stamps the copy for its own
+  pages (no needless rewrite); a branch from an earlier page is written fresh as before (M735). Laws M773-1, M773-2,
+  DOM-M773-1. Suite 1785/1785; walk 333/333; lint 0 errors.
+- Version m772-001, 24 October 2026: a role the original writes as a common noun is a description (M772). His:
   "Mistress is listed as an individual by the source reading in World voice after page 16 … still needs a working repair" —
   the Butler's voice said "The mistress has returned"; the review, asked twice, gave no decision; the rule that keeps an
   undecided description a person of its page only (M752 followup 21) read the reader's capital "Mistress" as a name, owed

@@ -14,6 +14,25 @@
 import { callWorker } from './call.js';
 import { withFictionFrame } from './voice.js';
 import { parseFirstObject } from './jsonutil.js'; /* M608: the forgiving reader every other helper uses */
+import { sourceBindings } from '../assemble/selection.js'; /* M773: the pages the world was written from, by their versions */
+import { fingerprint36 } from '../engine/fingerprint.js';
+
+/* M773 — HIS: "Does the automatic brief always been checked in branch chat or something Bassically foolproof and everything
+ * is always adjusted and updated smartly if something happens". The world is written from the record AND from the ledger as
+ * it stands (the scene, the factions, the world's word) — and the ledger holds the pages not folded yet. The world knew only
+ * the record's reach: a page taken back, told again or edited inside the window (a rewind, a swipe, a delete, his edit) left
+ * a world written from it standing until twenty-four more pages had folded. The world now keeps which pages it was written
+ * after — their ids and the versions shown, `pagesSeen` of them — and any change among them is a story that went another
+ * way: the world is written again from the story as it stands (as a rollback of the record already was, M526). */
+export function groundPagesPrint(visible, count = Infinity) {
+  const list = Array.isArray(visible) ? visible : [];
+  return fingerprint36(JSON.stringify(sourceBindings(list.slice(0, Math.min(list.length, count)))));
+}
+export function groundPagesChanged(have, visible) {
+  if (!have || !have.parts || !Number.isInteger(have.pagesSeen) || !have.pagesPrint) return false; /* a world written before M773 keeps its old rule */
+  const list = Array.isArray(visible) ? visible : [];
+  return list.length < have.pagesSeen || groundPagesPrint(list, have.pagesSeen) !== have.pagesPrint;
+}
 
 export const GROUND_KEY = (storyId) => 'worldGround:' + storyId;
 export const GROUND_PART_CHARS = 700;      /* one part, at most */
@@ -158,6 +177,8 @@ export function groundWords(ground) {
 }
 
 /* build it, or look at it again when the record grew; his own correction is never overwritten unless he asked (force) */
+/* M773: the pages it was written after, as the caller saw them */
+const seenStamp = (input) => (Number.isInteger(input.pagesSeen) && input.pagesPrint ? { pagesSeen: input.pagesSeen, pagesPrint: input.pagesPrint } : {});
 export async function runGround({ connection, have = null, input = {}, recordLines = 0, force = false, signal } = {}) {
   if (!connection) return { wrote: false, why: 'no connection' };
   if (have && have.by === 'writer' && !force) return { wrote: false, why: 'his own words stand' };
@@ -167,7 +188,7 @@ export async function runGround({ connection, have = null, input = {}, recordLin
   const rolledBack = Boolean(have && have.parts && Number.isFinite(have.recordLines) && recordLines < have.recordLines);
   /* M549: a world written under the old rules (when a title could come from the keeper's memory) is written again, once */
   const oldRules = Boolean(have && have.parts && have.rules !== GROUND_RULES);
-  const fresh = !have || !have.parts || force || rolledBack || oldRules;
+  const fresh = !have || !have.parts || force || rolledBack || oldRules || input.pagesChanged === true; /* M773 */
   if (!fresh && recordLines - (Number(have.recordLines) || 0) < GROUND_EVERY && !input.arcChanged && !input.startChanged && !input.briefChanged && !input.recordChanged && !input.wikiChanged) return { wrote: false, why: 'the world has not moved' }; /* M528: or a page it was built from was rewritten */ /* M518-2: his brief changed — the world looks again, so it never repeats or contradicts what he just wrote */
   const ask = fresh ? groundAsk(input) : groundUpdateAsk({ ground: have, ...input });
   let text = '';
@@ -175,13 +196,13 @@ export async function runGround({ connection, have = null, input = {}, recordLin
   if (fresh) {
     const parts = readGround(text);
     if (!parts) return { wrote: false, why: 'its answer could not be used' };
-    return { wrote: true, ground: { parts, recordLines, arcTitle: (input.arc && input.arc.title) || '', start: input.startFingerprint || '', briefFp: input.briefFingerprint || '', recordPrint: input.recordPrint || '', by: 'helper', at: Date.now() } };
+    return { wrote: true, ground: { parts, recordLines, arcTitle: (input.arc && input.arc.title) || '', start: input.startFingerprint || '', briefFp: input.briefFingerprint || '', recordPrint: input.recordPrint || '', ...seenStamp(input), by: 'helper', at: Date.now() } };
   }
   const changed = readGroundPatch(text);
   if (!changed) return { wrote: false, why: 'its answer could not be used' };
   const parts = fit({ ...have.parts, ...changed });
   const moved = Object.keys(changed).some((k) => (have.parts[k] || '') !== (parts[k] || ''));
-  return { wrote: true, changed: moved, ground: { ...have, parts, recordLines, arcTitle: (input.arc && input.arc.title) || have.arcTitle || '', start: input.startFingerprint || have.start || '', briefFp: input.briefFingerprint || '', recordPrint: input.recordPrint || '', at: Date.now() } };
+  return { wrote: true, changed: moved, ground: { ...have, parts, recordLines, arcTitle: (input.arc && input.arc.title) || have.arcTitle || '', start: input.startFingerprint || have.start || '', briefFp: input.briefFingerprint || '', recordPrint: input.recordPrint || '', at: Date.now() , ...seenStamp(input) } };
 }
 
 /* M517: with the world in the brief's seat, canon's per-page note stops repeating the story's position in canon (its

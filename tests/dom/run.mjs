@@ -17293,5 +17293,59 @@ test('DOM-M770-2 “RESTART THE WHOLE LEDGER” BEGINS THE LEDGER AGAIN FROM THE
   }
 });
 
+/* M773 — HIS (24 October 2026): "Does the automatic brief always been checked in branch chat or something Bassically
+ * foolproof and everything is always adjusted and updated smartly if something happens" */
+test('DOM-M773-1 THE AUTOMATIC BRIEF IS WRITTEN AGAIN WHEN A PAGE IT WAS WRITTEN AFTER CHANGES (it read the ledger, which held those pages — a page edited, told again or taken back left the world written from it standing for twenty-four more pages); a page that only adds to the story asks nothing', async () => {
+  const before = errors.length;
+  const { saveState: saveLedger, emptyState: blankLedger } = await import('../../js/engine/state.js');
+  const { GROUND_KEY, GROUND_RULES } = await import('../../js/agents/worldground.js');
+  const { sourceBindings } = await import('../../js/assemble/selection.js');
+  const { fingerprint36 } = await import('../../js/engine/fingerprint.js');
+  const { visiblePages } = await import('../../js/agents/memory.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const st = await db.stories.create({ title: 'M773 the world' });
+  await db.stories.update(st.id, { briefMode: 'automatic', brief: '' });
+  for (let i = 0; i < 2; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'I wait. ' + i });
+    await db.messages.append(st.id, { role: 'assistant', text: '[The hall — Monday, March 3, 2025 | 1' + i + ':00 | clear | coat | by the door]\n\nThe envoys talked of the treaty. Page ' + i + '.' });
+  }
+  await saveLedger(st.id, { ...blankLedger(), sheet: { actors: {}, playerName: 'Jovan' }, page: 1, readTo: 1, tidiedGen: 999, healedGen: 999 });
+  const vis = visiblePages(await db.messages.list(st.id));
+  await db.settings.set(GROUND_KEY(st.id), { parts: { standing: 'The Vermaine treaty was signed tonight.' }, recordLines: 0, rules: GROUND_RULES, briefFp: fingerprint36(''), by: 'helper', at: Date.now(), pagesSeen: vis.length, pagesPrint: fingerprint36(JSON.stringify(sourceBindings(vis))) }); /* the world as written after these pages */
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.ctx.chat.refreshStories(true);
+  await env.ctx.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy() && queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the house settled', 60000);
+  const asked = [];
+  const prior = house.state.workerAnswer;
+  house.state.workerAnswer = (body, sys) => {
+    if (/You keep the world of a story/.test(sys)) {
+      const user = String((body.messages || []).map((m) => m.content).join('\n'));
+      asked.push(/Write the world of this story/.test(user) ? 'whole' : 'update');
+      return JSON.stringify(/Write the world of this story/.test(user) ? { world: 'A city of envoys.', where: '', powers: '', factions: '', places: '', standing: 'No treaty stands.' } : { changed: {} });
+    }
+    return walkDefaultWorker(body, sys);
+  };
+  const send = async (words) => {
+    const n = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length;
+    type(q('#composer-input'), words); submit(q('#composer'));
+    await until(async () => (await db.messages.list(st.id)).filter((m) => m.role === 'assistant').length === n + 1 && !env.ctx.chat.isBusy(), 'the page', 30000);
+    await until(() => queuedCount(st.id) === 0 && !workIsRunning(st.id), 'its readers', 60000);
+  };
+  try {
+    await send('I listen.');
+    eq(asked.length, 0, 'a page that only adds to the story asks nothing of the world');
+    /* a page the world was written after is told another way (his edit of the second page) */
+    const second = (await db.messages.list(st.id)).filter((m) => m.role === 'assistant')[1];
+    await db.messages.update(st.id, second.id, { text: second.text.replace('talked of the treaty', 'tore the treaty up') });
+    await send('I watch them.');
+    eq(asked.join(','), 'whole', 'the world is written again from the story as it stands');
+    const now = await db.settings.get(GROUND_KEY(st.id));
+    eq(now.parts.standing, 'No treaty stands.', 'and the new world is the one kept');
+    eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+  } finally { house.state.workerAnswer = prior; }
+});
+
 await runAll();
 process.exit(process.exitCode || 0);

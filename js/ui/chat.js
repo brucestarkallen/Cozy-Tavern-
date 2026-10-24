@@ -105,7 +105,7 @@ import { runPlans, loadPlansBook, pageRewritten, pageLeft, pageCameBack } from '
 import { lastPagesOf, SMALL_PAGES } from '../assemble/stack.js'; /* M510 */
 import { voiceSampleOf, pageTexture, tooLoud as tooLoudNow } from '../assemble/smallprose.js'; /* M512: how the story sounds at its best, for a small storyteller; M519: the brake on sounds and dashes */
 import { CANON_START_KEY, placeInCanon, canonStartWords, checkCanonStart, applyStartCheck, startCheckPrint } from '../agents/canonstart.js'; /* M516: where our story began in its canon; M550: checked against the wiki */
-import { GROUND_KEY, runGround, groundWords, canonWithoutWorld } from '../agents/worldground.js'; /* M517: the automatic brief — the world, written once */
+import { GROUND_KEY, runGround, groundWords, canonWithoutWorld, groundPagesPrint, groundPagesChanged } from '../agents/worldground.js'; /* M517: the automatic brief — the world, written once */
 import { canonBlocks, lastingLines } from '../assemble/canonpages.js'; /* M518: canon on their own page */
 const SIDE_JOBS = new Set(['keeper', 'sensors', 'placer', 'startcheck', 'ground', 'worldcheck', 'plans']); /* M529: the helpers that may run beside the ledger's readers */
 /* M675 (the second reading) — ARE THE LEDGER'S READERS OUT? The ledger's healing on open and the finishing of a chain cut
@@ -4562,6 +4562,10 @@ export function initChat(ctx) {
        * the world was last looked at no longer read the same — it looks again at what changed */
       recordPrint: fp(nodes.filter((n) => n.span[1] < covered).map((n) => n.text).join('\n')),
       recordChanged: Boolean(have && have.recordPrint && Number.isFinite(have.recordLines) && fp(nodes.filter((n) => n.span[1] < have.recordLines).map((n) => n.text).join('\n')) !== have.recordPrint && covered >= have.recordLines),
+      /* M773: a page it was written after taken back, told again or edited (the ledger it read held those pages) */
+      pagesChanged: groundPagesChanged(have, visiblePages(pages)),
+      pagesSeen: visiblePages(pages).length,
+      pagesPrint: groundPagesPrint(visiblePages(pages)),
     };
     if (stale()) return { silent: true };
     const out = await runGround({ connection, have, input, recordLines: covered, force, signal });
@@ -9380,7 +9384,12 @@ export function initChat(ctx) {
       if (story.briefMode === 'automatic' && (!fromTheTail || !kept)) {
         await db.settings.set(GROUND_KEY(branch.id), { pendingBranch: true });
         groundAnew = true;
-      } else if (kept && (fromTheTail || kept.by === 'writer')) await db.settings.set(GROUND_KEY(branch.id), kept);
+      } else if (kept && (fromTheTail || kept.by === 'writer')) {
+        /* M773: the pages it was written after are the branch's copies now — the same versions under new ids */
+        const parentVis = visiblePages(await db.messages.list(story.id));
+        const sameStamp = Number.isInteger(kept.pagesSeen) && kept.pagesPrint && groundPagesPrint(parentVis, kept.pagesSeen) === kept.pagesPrint;
+        await db.settings.set(GROUND_KEY(branch.id), sameStamp ? { ...kept, pagesPrint: groundPagesPrint(visiblePages(await db.messages.list(branch.id)), kept.pagesSeen) } : kept);
+      }
     }
     await db.stories.update(branch.id, { building: false }); /* M332: whole — from here it is a tale like any other (and this write sends it to the device) */
     } catch (err) {
