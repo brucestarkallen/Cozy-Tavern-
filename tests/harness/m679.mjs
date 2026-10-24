@@ -370,7 +370,10 @@ test('M679-8 HIS TURN 19’S LOOSE ENDS: one answers a loose end only by what co
   () => auditLedger({ connection: HOUSES[0].conn, storyId: handId, stale: () => false }));
   const hand = await loadState(handId);
   assert(hand.characters.Corven.threads.some((t) => /remain unnamed/.test(t)), 'the loose end he wrote by hand stays open: ' + JSON.stringify(hand.characters.Corven.threads));
-  assert(r2.issues.some((i) => /Corven’s loose end/.test(i.what) && !i.landed && i.refused.some((w) => /writer explicitly controls/.test(w))), 'the refused close remains visible, with why: ' + JSON.stringify(r2.issues.map((i) => [i.what, i.landed, i.refused])));
+  /* M776: his hand’s field stands as he wrote it — the close is said in the report ("left 1 as you wrote it"), never kept
+   * OWED: an owed finding no write can make held his entries and paused the audit for good (his Emilia Vermaine) */
+  assert(!r2.issues.some((i) => /Corven’s loose end/.test(i.what)) && r2.leftWriter === 1, 'the refused close is left as he wrote it, counted, not owed: ' + JSON.stringify([r2.leftWriter, r2.issues.map((i) => i.what)]));
+  assert(!((await loadState(handId)).audit?.unresolved || []).some((f) => /Corven’s loose end/.test(f.what)), 'and nothing of it is saved owed');
   assert(!hand.characters.Mirelia.threads.some((t) => /noon/.test(t)), 'and Mirelia’s, answered, is closed beside it');
 });
 

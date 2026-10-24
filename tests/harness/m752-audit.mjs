@@ -309,7 +309,7 @@ test('M752-A9 THE PEOPLE SOURCE INDEX IS BUILT ONCE PER AUDIT, NOT ONCE PER NAME
   assert(took < 1500, '300 pages and 60 people in ' + Math.round(took) + ' ms (it took 3,600 ms and more on a desktop)');
 });
 
-test('M752-A10 THE REPAIR LOOP PAUSES WHEN A REFUSED REPAIR IS ONLY SPELLED ANOTHER WAY: “hair”, “hair colour”, “Hair color” is one target; a model that respells it each pass no longer counts as progress, and two such passes pause the loop; a refusal for another person is still new work', async () => {
+test('M752-A10 THE REPAIR LOOP PAUSES WHEN A REFUSED REPAIR IS ONLY SPELLED ANOTHER WAY: “Mira Vale”, “mira vale”, “MIRA VALE” is one target (M776: “hair”, “hair colour”, “Hair color” on a lock his hand set is no longer owed at all); a model that respells it each pass no longer counts as progress, and two such passes pause the loop; a refusal for another person is still new work', async () => {
   const id = await tale('m752-a10', [['user', 'Keir asks Mira about the barge.'], ['assistant', 'Mira Vale shrugged and said nothing about the barge.']]);
   await saveState(id, applyMutations(keir({ characters: { 'Mira Vale': { ...emptyPerson(), core: 'A clerk.' }, 'Old Tomas': { ...emptyPerson(), core: 'A ferryman.' } } }),
     [{ type: 'canon.lock', name: 'Mira Vale', key: 'hair', value: 'black', byHand: true }, { type: 'canon.lock', name: 'Old Tomas', key: 'hair', value: 'white', byHand: true }]).state);
@@ -317,22 +317,25 @@ test('M752-A10 THE REPAIR LOOP PAUSES WHEN A REFUSED REPAIR IS ONLY SPELLED ANOT
   const pages = visiblePages(await db.messages.list(id));
   const pass = async (who, key) => {
     const before = await loadState(id);
-    await onWire({ source: () => [], review: () => ({ issues: [{ what: 'The ledger has the wrong hair for her', fix: 'red', mutations: [{ type: 'canon.lock', name: who, key, value: 'red', shown: 'Mira Vale shrugged' }] }] }) },
+    /* M776: a write his hand holds is no longer owed (it is left as he wrote it), so the refusal that stays owed here is
+     * the ledger's own — a page with records is never let go ("preserve established records") — its target the person,
+     * spelled another way each pass */
+    await onWire({ source: () => [], review: () => ({ issues: [{ what: 'The ledger keeps a page for her it should not', fix: 'let it go', mutations: [{ type: 'people.forget', name: who, cause: key, shown: 'Mira Vale shrugged' }] }] }) },
       () => auditLedger({ connection: CONN, storyId: id, reviewSources: 'all' }));
     const after = await loadState(id);
-    assert(ledgerRepairNeeded(after, {}, story, pages, 1), 'his hand refuses the write: repair is still owed');
+    assert(ledgerRepairNeeded(after, {}, story, pages, 1), 'the ledger refuses the write: repair is still owed');
     const cp = repairRetryCheckpoint(before, after, story, pages);
     await saveState(id, { ...after, audit: { ...after.audit, retryProgress: cp, pausedInput: cp.stalled >= 2 ? ledgerRepairInputKey(after, story, pages) : null, pausedPolicy: LEDGER_REPAIR_POLICY } });
     return cp;
   };
-  const first = await pass('Mira Vale', 'hair');
+  const first = await pass('Mira Vale', 'a passer-through');
   assert(first.progress, 'the first refusal is new work');
-  const second = await pass('Mira Vale', 'hair colour');
-  eq(second.progress, false, 'the same field spelled another way is not');
-  const third = await pass('Mira Vale', 'Hair color');
+  const second = await pass('mira vale', 'never the story’s');
+  eq(second.progress, false, 'the same person spelled another way is not');
+  const third = await pass('MIRA VALE', 'gone');
   eq(third.stalled, 2, 'two stalled passes');
   eq(ledgerRepairNeeded(await loadState(id), {}, story, pages, 1), false, 'and the loop pauses');
-  const other = await pass('Old Tomas', 'hair');
+  const other = await pass('Old Tomas', 'a passer-through');
   assert(other.progress, 'a refusal about someone else is new work (M743)');
 });
 
@@ -444,15 +447,16 @@ test('M752-A14 THE REPAIR LOOP PAUSES WHEN WORK ONLY TAKES TURNS: a refused repa
     [{ type: 'canon.lock', name: 'Mira Vale', key: 'hair', value: 'black', byHand: true }, { type: 'canon.lock', name: 'Old Tomas', key: 'hair', value: 'white', byHand: true }]).state);
   const story = await db.stories.get(id);
   const pages = visiblePages(await db.messages.list(id));
-  const red = { what: 'The ledger has the wrong hair for her', mutations: [{ type: 'canon.lock', name: 'Mira Vale', key: 'hair', value: 'red', shown: 'Mira Vale shrugged' }] };
-  const grey = { what: 'The ferryman’s hair is wrong', mutations: [{ type: 'canon.lock', name: 'Old Tomas', key: 'hair', value: 'grey', shown: 'Mira Vale shrugged' }] };
+  /* M776: owed by the ledger's own refusal (a page with records is never let go), as a write his hand holds no longer is */
+  const red = { what: 'The ledger keeps a page for her it should not', mutations: [{ type: 'people.forget', name: 'Mira Vale', cause: 'a passer-through', shown: 'Mira Vale shrugged' }] };
+  const grey = { what: 'The ferryman’s page should go', mutations: [{ type: 'people.forget', name: 'Old Tomas', cause: 'a passer-through', shown: 'Mira Vale shrugged' }] };
   const pass = async (withdraw) => {
     const before = await loadState(id);
     await onWire({ source: () => [], review: (user) => withdraw
       ? { issues: [grey], repairs: [{ id: historical(user).find((f) => f.what === red.what).id, status: 'correct', shown: 'Mira Vale shrugged and said nothing about the barge.', why: 'Nothing on the page is about her hair.' }] }
       : { issues: [red, grey] } }, () => auditLedger({ connection: CONN, storyId: id, reviewSources: 'all' }));
     const after = await loadState(id);
-    assert(ledgerRepairNeeded(after, {}, story, pages, 1), 'his hand refuses the ferryman’s write: repair is still owed');
+    assert(ledgerRepairNeeded(after, {}, story, pages, 1), 'the ledger refuses the ferryman’s write: repair is still owed');
     const cp = repairRetryCheckpoint(before, after, story, pages);
     await saveState(id, { ...after, audit: { ...after.audit, retryProgress: cp, pausedInput: cp.stalled >= 2 ? ledgerRepairInputKey(after, story, pages) : null, pausedPolicy: LEDGER_REPAIR_POLICY } });
     return { cp, after };

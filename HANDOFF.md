@@ -7,7 +7,20 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m775-001 on main, 24 October 2026: the housekeeper checks continuity on the first ask (M775). His: "why … i need
+- Version m776-001 on main, 24 October 2026: a finding his own hand holds the field of is settled by his words (M776). His
+  debug report (m774-001, "An untitled tale — a branch 102"): the audit paused yellow, "presence:Emilia Vermaine: the auditor
+  did not approve this entry; characters:Emilia Vermaine: …". The reading before proposed adding to Emilia's nature, a
+  field he wrote by hand; the house refused it ("the writer explicitly controls this field") and kept the finding OWED with
+  that reason, so the final review was handed a repair no write can make, answered without a verdict (284 characters,
+  twice) and the audit paused for good. Now (auditor.js): judgeAudit settles a finding whose only changes his hand holds
+  (WRITER_RESERVED: that field, and the main character's identity and arc) as it settles a standing left to the page
+  reader — counted ("left 1 as you wrote it"), never owed; settleWriterOwned clears one saved owed before when the audit
+  next reads; the final review is told his fields stand; a review reply with no verdict is handed back with exactly what
+  it lacks and the ids it must use (finalReviewDefects); its last reply is kept (state.audit.finalReview.reply) and his
+  debug report shows it ("Latest final review reply"). LEDGER_REPAIR_POLICY 17, so his paused audit resumes once. Laws
+  M776-1…4; M679-8, M752-A10 and M752-A14 re-aimed (they asserted, or were driven by, the owed finding). Suite 1801/1801;
+  walk 333/333; lint 0 errors.
+- Version m775-001, 24 October 2026: the housekeeper checks continuity on the first ask (M775). His: "why … i need
   to send second message is there any continuity issues or not … it should always tackle and check the first time", "it
   said it's already being put but in the end it's not", "must have brain of masterstoryteller", and its own pasted words
   "last batch removed one and re-added one, netting no change". (1) An answer that changes the story is handed back once,

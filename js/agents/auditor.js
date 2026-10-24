@@ -55,6 +55,9 @@ import { auditSources, reviewAuditSources, missingSourcePeople, missingSourceIde
 import { reconcileAppearance,reconcileIdentity,sourceAppearanceFacts,sourceIdentityFacts } from './appearanceinventory.js';
 import { lookKey } from '../engine/canon.js';
 import { auditEvidenceBook,auditEvidencePassages } from './auditevidence.js';
+export const WRITER_OWNS = 'the writer explicitly controls this field'; /* M776: one wording, read by judge */
+/* M776 (the same fault, searched for): every refusal that says a thing is HIS — no auditor write can ever make it */
+export const WRITER_RESERVED = new Set([WRITER_OWNS, 'the main character identity belongs to the writer', 'the player identity belongs to the writer', 'the player arc belongs to the writer']);
 
 const MAX_TOKENS = 6000;
 export const DEFAULT_AUDIT_EVERY = 1; /* turns — M94: every page, as Summaryception's continuity auditor runs on every line */
@@ -595,7 +598,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const restoredForReading = missingSourcePeople(state, sourcePeople);
   // Recover only a uniquely source-bound legacy complaint. Similar labels on
   // other pages do not establish that two people are the same individual.
-  state = {...state,audit:{...state.audit,unresolved:restoreSourceFactFindings(state.audit?.unresolved || [],state,documents)}};
+  state = settleWriterOwned({...state,audit:{...state.audit,unresolved:restoreSourceFactFindings(state.audit?.unresolved || [],state,documents)}}); /* M776 */
   const checkpoint=reusableAuditCheckpoint(state,readStory,documents);
   const profileIndex = peopleSourceIndex(state, documents, sourcePeople).filter(p=>!checkpoint.entries['characters:'+sourcePersonKey(state,p.name)]);
   if (mcName(state) !== 'the player' && !checkpoint.entries['characters:'+mcName(state)]) profileIndex.push({name:mcName(state),writerOnly:true,
@@ -649,7 +652,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
   const standingsSource=fingerprint36(JSON.stringify([brief,castNotes,mcName(state)]));
   const standingsCached=state.audit?.statedStandings?.source===standingsSource;
   let statedByModel=standingsCached?state.audit.statedStandings.rows:null;
-  const fresh = await loadState(storyId);
+  const fresh = settleWriterOwned(await loadState(storyId)); /* M776: the reading's own copy settles them too */
   let offered = [...personaIssues,...read.issues];
   const judge = (snapshot, proposals) => judgeAudit({ fresh: snapshot, offered: proposals, all, brief, castNotes, castNames, statedByModel, authoritative:true });
   let result = judge(sourceReview ? {...fresh,auditSources:currentSourceCache(sourceReview,fresh.auditSources,receiptsAtStart)} : fresh, offered);
@@ -698,7 +701,7 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     /* M752: THE REQUIRED ENTRIES FIT THE READING, HONESTLY. Each is sent lean (a text the request shows word for word
      * already is marked, not sent twice) and as many as the transport will take beside everything else, leaving the room
      * to look (LOOK_RESERVE); the rest wait for the next reading, open and never approved (verifyLedgerChecks below). */
-    const reviewSystem=follow.system+'\nINDEPENDENT FACTUAL REVIEW. Explicit writer facts and manual decisions govern; original evidence is read chronologically, including valid later developments. Preserve durable facts and legitimate worker judgments. You are the final independent consistency reviewer, not an authority over story meaning. Unknown optional biography is not a defect. Judge story meaning and profile completeness yourself using originals. Your explicit completed verdict is the approval. Do not echo a certificate for each source fact or repeat identity/appearance mappings. The FINAL REVIEW CONTRACT below replaces older per-entry output examples. Source IDs and quotations are useful optional provenance, never a second semantic approval. Preserve manual fields, valid worker judgments, earned scores, established identities and every valid alternate face.';
+    const reviewSystem=follow.system+'\nINDEPENDENT FACTUAL REVIEW. Explicit writer facts and manual decisions govern (a field the writer controls stands as he wrote it: a finding that would change it is closed by his words, and its entries are approved, never held open for it); original evidence is read chronologically, including valid later developments. Preserve durable facts and legitimate worker judgments. You are the final independent consistency reviewer, not an authority over story meaning. Unknown optional biography is not a defect. Judge story meaning and profile completeness yourself using originals. Your explicit completed verdict is the approval. Do not echo a certificate for each source fact or repeat identity/appearance mappings. The FINAL REVIEW CONTRACT below replaces older per-entry output examples. Source IDs and quotations are useful optional provenance, never a second semantic approval. Preserve manual fields, valid worker judgments, earned scores, established identities and every valid alternate face.';
     const beforeRows=follow.user + profileLookup
       + '\nFINAL REVIEW CONTRACT. Review ALL required entries together and their resulting repairs, then return JSON: {"scene":[{"name":"actual person","repair":false,"earlier":"optional completed movement","ending":{"position":"current place and pose","shown":"short original evidence"}}],"issues":[],"review":{"status":"complete","why":"brief verdict explaining actual review","open":[]},"standings":[]}. Derive scene FIRST from the completed narration: include the main character and people whose physical state this page establishes or changes. Put ONLY their final current position and attire in ending. Earlier movement may be recorded in earlier; its original past-tense quotation belongs in ending.shown. Never append an arrival fact to a superseded movement or copy a scene summary into position. A final position may paraphrase the source faithfully. Keep factual history in the story and scratchbook, not in current pose. Unknown clothes are omitted. It is your working ending read, not a second approval certificate. After deriving ending, YOU judge whether the actual saved physical state is wrong or missing a relevant established fact. Mark repair:true only for that factual correction; the app writes it even when issues is empty. Mark repair:false for an already-correct or equivalent state, keeping the ending read in the scratchbook without rewriting the ledger. Changed wording, reordered clothing, shorter descriptions and optional extra narrative detail are not discrepancies. Preserve valid specific details such as a seat count. Correct contradictory movement, not prose style. Quotations may be in ending.shown or the scene entry shown. Use ordinary issue mutations for arrivals, departures, bodies, factual People now corrections and other fields. Issues contain only real discrepancies with working mutations or page concerns. Complete means you reviewed every required entry against originals, including all established identity and physical facts, and the repairs you provide leave them correct. Never say complete if you did not finish. Put genuinely unresolved items in open:[{"id":"required entry id","why":"specific missing fact or evidence"}]. Use status:"open" if the entire reading is unfinished. You may supply detailed checks instead, but identityFacts inCore:true or an explicit complete profile verdict suffices; no second identity/appearance array is required.';
     const afterRowsFor=(tasks)=>'\nRETAINED SCRATCHBOOK CHECKS, already approved for these unchanged values and sources:\n'+JSON.stringify(Object.keys(previousVerification))
@@ -748,7 +751,10 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
     const checksWords=rowsWords(verificationRows.length,deferredRows.length)+JSON.stringify(lean.filter((row,at)=>picked.has(at)));
     const reviewProblems=text=>{
       const read=parseAuditorAnswer(text);
-      const problems=completeFinalAuditReply(read,[...verificationRows,...sourceTasks])?[]:[{why:'Return review:{status:"complete",why:"your completed verdict",open:[]} after reviewing all required entries and source mentions, or explicit entry checks. Use open for real unresolved facts.'}];
+      const problems=completeFinalAuditReply(read,[...verificationRows,...sourceTasks])?[]:[{why:'Return review:{status:"complete",why:"your completed verdict",open:[]} after reviewing all required entries and source mentions, or explicit entry checks. Use open for real unresolved facts.',
+        /* M776: what exactly is missing, and the ids it must use — the second turn was handed the contract again, and
+         * answered without a verdict again (284 characters, twice, his Emilia Vermaine's three entries) */
+        defects:finalReviewDefects(read,text,[...verificationRows,...sourceTasks])}];
       // Finish omitted source decisions in THIS conversation, not another
       // audit loop. This checks that a decision was saved, not its semantics.
       if (read.note==='ok' && sourceCandidates.length) {
@@ -814,6 +820,8 @@ export async function auditLedger({ connection, storyId, brief = '', castNotes =
       const corrected = bindHistoricalFindings(bindFinalAuditEvidence(reconcileAuditScene(parseAuditorAnswer(answerText),requestedState), registeredEvidence(), verificationRows,documents),originalFindings);
       finalReview = {...finalReview,status:finish === 'length' ? 'cut short' : reviewProblems(answerText).length?'incomplete decisions':corrected.note,
         received:finalAuditChecks(corrected,verificationRows).length,approval:corrected.review?'whole required ledger':'entry verdicts',replyCharacters:reply.text.length,finishReason:finish,
+        /* M776: what it said, kept with the review — a later reading that asks nothing (a paused audit) left the report "" */
+        reply:((completed && completed.text !== reply.text ? String(completed.text || '').slice(0,700)+'\n\n— completion —\n' : '')+String(reply.text || '')).slice(0,1500),
         calls:reply.calls || 1,fetches:reply.rounds || 0,formatContinuation:Boolean(reply.formatContinuation),sourceCalls:sourceReview?.calls || 0,
         ...(corrected.scene?{scene:{pageId:lastTold.id,people:corrected.scene}}:{})};
       if (reply.completionFailed) {followupFailed = 'its completion turn failed: ' + reply.error; finalReview = {...finalReview,error:reply.error};}
@@ -1301,6 +1309,28 @@ export function completeAuditCheckReply(text,rows) {
   });
 }
 
+/* M776: the exact parts of a final review reply that keep it from being a verdict, said back with the ids it may use. */
+export function finalReviewDefects(read,text,rows) {
+  const ids=rows.map(r=>r.id);
+  const out=[];
+  if (!read || read.note!=='ok') out.push('your answer was not one JSON object (it began: '+JSON.stringify(String(text || '').trim().slice(0,160))+') — answer with the JSON object only');
+  else if (read.review) {
+    if (!['complete','open'].includes(read.review.status)) out.push('review.status must be "complete" or "open", it was '+JSON.stringify(read.review.status ?? null));
+    if (!String(read.review.why || '').trim()) out.push('review.why is empty — say in one sentence what you checked');
+    if (!Array.isArray(read.review.open)) out.push('review.open must be a list ([] when nothing is open)');
+    else {
+      const foreign=read.review.open.filter(o=>!ids.includes(o?.id)).map(o=>o?.id ?? o);
+      if (foreign.length) out.push('review.open names '+JSON.stringify(foreign)+', which are not entries of this reading — use only these ids: '+JSON.stringify(ids)+(foreign.some(f=>/^canon:/.test(String(f)))?' (a person\'s appearance is decided under their characters: entry)':''));
+      const bare=read.review.open.filter(o=>ids.includes(o?.id) && !String(o?.why || '').trim()).map(o=>o.id);
+      if (bare.length) out.push('these open entries carry no why: '+JSON.stringify(bare));
+    }
+  } else {
+    const missing=ids.filter(id=>(read.checks || []).filter(c=>c.id===id).length!==1);
+    out.push('there is no review object and no verdict for '+JSON.stringify(missing.length?missing:ids)+' — add review:{"status":"complete","why":"…","open":[]} (an entry that is truly unresolved goes in open as {"id":"one of '+JSON.stringify(ids)+'","why":"…"})');
+  }
+  out.push('a field the writer controls stands as he wrote it: never hold an entry open because a repair to it was refused for that');
+  return out;
+}
 export function completeFinalAuditReply(read,rows) {
   if (read.note!=='ok') return false;
   if (read.review) return ['complete','open'].includes(read.review.status) && Boolean(read.review.why?.trim())
@@ -2021,11 +2051,20 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
    * ALREADY held (the scene already stands there, the standing already reads
    * so) was the auditor misreading, not a fix: it is not reported at all. */
   const landedSet = new Set(applied.map((a) => a.mutation));
+  /* M776 — HIS: "Why it's still like this … presence:Emilia Vermaine: the auditor did not approve this entry;
+   * characters:Emilia Vermaine: the auditor did not approve this entry". The reader proposed adding to Emilia's nature — a
+   * field his own hand wrote — and the house refused it ("the writer explicitly controls this field"); the finding was kept
+   * OWED with that reason, so every later review was handed a repair no write can make, held her entries, answered without
+   * a verdict, and the audit paused. His own words govern (the review's own law: "explicit writer facts and manual decisions
+   * govern"): a finding whose only changes his hand holds is settled by his words, as a standing left to the page reader
+   * is (M277) — counted in the report, never owed. */
+  const writerKept = new Set(rejected.filter((r) => r && r.mutation && !r.same && WRITER_RESERVED.has(r.why)).map((r) => r.mutation));
   const whyOf = new Map();
   for (const r of rejected) if (r && r.mutation) whyOf.set(r.mutation, r);
   const issues = [];
   const already = []; /* M763: findings whose every change the ledger already holds — an answer to a historical one by its id */
   let leftStandings = 0;
+  let leftWriter = 0; /* M776 */
   const reportIssues = read.issues.map((i) => ({ ...i, mutations: [...i.mutations] }));
   for (const r of scopeRejected) {
     let issue = reportIssues.find((i) => i.what === r.issue.what && i.fix === r.issue.fix);
@@ -2038,13 +2077,16 @@ function judgeAudit({ fresh, offered, all, brief, castNotes, castNames, statedBy
     const alreadySo = (m) => Boolean(whyOf.get(m) && whyOf.get(m).same);
     if (!landed && missed.length && missed.every(alreadySo) && !(i.pages && i.fix)) { already.push(i); continue; }
     /* M277: a finding whose every change was a standing move the auditor may not make is not reported */
-    if (!landed && missed.length && missed.every((m) => standingRefused.has(m) || alreadySo(m)) && !(i.pages && i.fix)) { leftStandings += 1; continue; }
-    const refused = [...new Set(missed.filter((m) => !alreadySo(m) && !standingRefused.has(m)).map((m) => (whyOf.get(m) && whyOf.get(m).why) || 'it did not hold'))].slice(0, 3); /* M752: one reason once */
+    if (!landed && missed.length && missed.every((m) => standingRefused.has(m) || alreadySo(m) || writerKept.has(m)) && !(i.pages && i.fix)) {
+      if (missed.some((m) => writerKept.has(m))) leftWriter += 1; else leftStandings += 1; /* M776 */
+      continue;
+    }
+    const refused = [...new Set(missed.filter((m) => !alreadySo(m) && !standingRefused.has(m) && !writerKept.has(m)).map((m) => (whyOf.get(m) && whyOf.get(m).why) || 'it did not hold'))].slice(0, 3); /* M752: one reason once */
     issues.push({ ...i, landed, refused });
   }
-  const report = { at: Date.now(), turn: storyTurn(next), leftStandings, issues: issues.map((i) => ({ what: i.what, fix: i.fix, pages: i.pages === true, fixable: i.mutations.length > 0 || (i.pages === true && Boolean(i.fix)), landed: i.landed, refused: i.refused })) };
+  const report = { at: Date.now(), turn: storyTurn(next), leftStandings, leftWriter, issues: issues.map((i) => ({ what: i.what, fix: i.fix, pages: i.pages === true, fixable: i.mutations.length > 0 || (i.pages === true && Boolean(i.fix)), landed: i.landed, refused: i.refused })) };
   const out = { ...next, audit: { ...fresh.audit, ...report }, ...(newestAt !== -1 ? { page: fresh.page } : {}) }; /* M680: its writes carry the newest page; the ledger's own stamp is not the auditor's to move */
-  return { out, applied, rejected, issues, already, note: 'ok', leftStandings, reportAt: report.at };
+  return { out, applied, rejected: rejected.map((r) => (r && writerKept.has(r.mutation) ? { ...r, writer: true } : r)), issues, already, note: 'ok', leftStandings, leftWriter, reportAt: report.at };
 }
 
 /* M261: THE LEDGER'S UPKEEP DOES NOT WAIT FOR THE AUDITOR. Retiring those who
@@ -2251,6 +2293,23 @@ function mcPersonaQuote(state, name, shown, source, reviewed = false) {
 
 /* M689: validate the repair contract, not the model's interpretation of prose.
  * Legacy auditorScope remains exported for old consumers; production uses this path. */
+export function writerOwnsFinding(f, state) {
+  const reasons = String((f && f.pendingReason) || '').split(/;\s*/).filter(Boolean);
+  const reserved = (m) => (m.type === 'mc.set' && mcName(state) !== 'the player' && !isMc(state, m.name))
+    || (['people.rename'].includes(m.type) && isMc(state, m.from)) || (m.type === 'people.reclassify' && isMc(state, m.name))
+    || (m.type === 'people.set' && m.field === 'arc' && isMc(state, m.name));
+  return Boolean(f && Array.isArray(f.mutations) && f.mutations.length && reasons.length && reasons.every((r) => WRITER_RESERVED.has(r))
+    && f.mutations.every((m) => m && (manualRepairConflict(state, m) || reserved(m))));
+}
+/* M776: a finding saved owed because his hand holds the field it would change is settled by his words when the audit next
+ * reads — never handed to the review again, its pending line gone with it (his Emilia Vermaine's nature) */
+export function settleWriterOwned(st) {
+  const owed = (st && st.audit && Array.isArray(st.audit.unresolved)) ? st.audit.unresolved : [];
+  const gone = owed.filter((f) => writerOwnsFinding(f, st));
+  if (!gone.length) return st;
+  return { ...st, audit: { ...st.audit, unresolved: owed.filter((f) => !gone.includes(f)),
+    pending: (st.audit.pending || []).filter((p) => !gone.some((f) => pendingOf(p, f.what))) } };
+}
 export function manualRepairConflict(state, m, pageAt) {
   if (m.type === 'clock.set' && handSetClockSince(state, pageAt)) return true;
   const key = findPersonKey(state.characters || {}, m.name || m.from || '');
@@ -2313,8 +2372,8 @@ export function auditorRepairScope(issues, state, { sources = '', sceneSource = 
     let why = '';
     if (m.evidenceError) why = m.evidenceError;
     else if (!AUDITOR_TYPES.has(m.type) && m.type !== 'presence.update') why = 'unsupported auditor operation';
-    else if (manualRepairConflict(state, m, pageAt)) why = 'the writer explicitly controls this field';
-    else if (m.type === 'mc.set' && mcName(state) !== 'the player' && !isMc(state, m.name)) why = 'the main character identity belongs to the writer';
+    else if (manualRepairConflict(state, m, pageAt)) why = WRITER_OWNS;
+    else if (m.type === 'mc.set' && mcName(state) !== 'the player' && !isMc(state, m.name)) why = 'the main character identity belongs to the writer'; /* WRITER_RESERVED */
     else if (m.type === 'mc.alias' && !mcPersonaQuote(state,m.name,m.shown || issue.shown,identitySources,true)) why = 'include an original identity quotation grounding the player and their own persona';
     else if (isMc(state, m.name) && /^people\./.test(m.type) && !['state', 'thread', 'unthread'].includes(m.field) && !writerCore) why = 'record the main character biography only from an original writer quotation; never invent their nature or arc';
     else if (!/^rel\./.test(m.type)) {
@@ -2397,7 +2456,7 @@ export function finalAuditorScope(issues,state,{writerSources='',pageAt=null,rej
     if (/^rel\./.test(m.type)) return [m];
     let why='';
     if (!AUDITOR_TYPES.has(m.type) && m.type!=='presence.update') why='unsupported ledger operation';
-    else if (manualRepairConflict(state,m,pageAt)) why='the writer explicitly controls this field';
+    else if (manualRepairConflict(state,m,pageAt)) why=WRITER_OWNS;
     else if (m.type==='people.forget' && !forgetLosesNothing(state,m.name)) why='preserve established records; correct identity with a rename'; /* M763 */
     /* …nor a page this same answer writes on (the final audit of M763: its state line went with the forget) */
     else if (m.type==='people.forget' && writesFor(m)) why='this answer also writes to their record; a record it writes on is not let go';
@@ -3043,11 +3102,12 @@ export function auditRunWords(result) {
   if (fixed) bits.push(`set ${fixed} right: ` + result.applied.slice(0, 4).map((a) => a.words.replace(/\.$/, '')).join(' · ') + (fixed > 4 ? ' · …' : ''));
   /* M277: standing moves it may not make, counted — not listed */
   if (result.leftStandings) bits.push(`left ${result.leftStandings} standing ${result.leftStandings === 1 ? 'change' : 'changes'} to the page reader`);
+  if (result.leftWriter) bits.push(`left ${result.leftWriter} as you wrote ${result.leftWriter === 1 ? 'it' : 'them'} (a field your own hand set)`); /* M776 */
   const briefWins = result.issues.filter((i) => i.pages && i.fix).length;
   if (briefWins) bits.push(`${briefWins} the brief wins — ${result.mendedPages || 0} ${result.mendedPages === 1 ? 'page' : 'pages'} mended, their record lines folded again`); /* M330: no note is written into the record any more */
   const seen = result.issues.filter((i) => !i.mutations.length && !(i.pages && i.fix)).length;
   if (seen) bits.push(`${seen} seen, nothing to change`);
-  const refusedN = result.rejected.filter((r) => !(r && r.same) && !(r && r.standing)).length; /* M259: "already so" is not a refusal; M278: a standing left to the page reader is counted once, below */
+  const refusedN = result.rejected.filter((r) => !(r && r.same) && !(r && r.standing) && !(r && r.writer)).length; /* M259: "already so" is not a refusal; M278: a standing left to the page reader is counted once, below */
   if (refusedN) bits.push(`${refusedN} proposed ${refusedN === 1 ? 'change needs' : 'changes need'} a different repair`);
   if (result.pending?.length) bits.push('still checking: ' + result.pending.slice(0, 3).join('; '));
   return bits.join(', ') + lookedWords(result.looked);

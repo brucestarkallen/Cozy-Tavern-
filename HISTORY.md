@@ -22507,3 +22507,43 @@ Checked: harness 1797/1797; the DOM walk 333/333; lint 0 errors (247 warnings, t
 Not covered: what the model finds when it holds its cards against the house is the model's judgement — the laws prove the
 check is asked, carries what the house found, and that its answer is the one staged. The exact line he saw twice was not
 seen (his tale is not here); the card that undid itself is now refused whatever line it was.
+
+## M776 (m776-001): a finding his own hand holds the field of is settled by his words
+
+The owner, 24 October 2026, 16:38 Jakarta, with his ledger debug report (m774-001, "An untitled tale — a branch 102", 26
+pages): "Why it's still like this wtf is this the auditor ran 2 minutes ago has unresolved findings; repeated attempts are
+paused until the story or ledger changes — still checking: the combined ledger review did not finish; ledger verification:
+checked 93 of 97 entries; presence:Emilia Vermaine: the auditor did not approve this entry; characters:Emilia Vermaine:
+the auditor did not approve this entry."
+Read from his report: the run before the pause "found 25 things, set 24 right … 1 proposed change needs a different
+repair: The ledger's character page for Emilia Vermaine is missing the fact that she is a maker watching her own blood
+finish its work: the writer explicitly controls this field". Her core is his (manualFields ["core"]) and already says
+"Jovan Wessex is the only vampire she has ever made". The refusal was right; what followed was not: judgeAudit kept the
+finding OWED with that reason (unresolvedFindings → state.audit.unresolved, pendingReason), every later final review was
+handed it as a repair to make — a repair no write can make — and her entries were held. The next two reviews answered
+without a verdict (finalReview "incomplete decisions", requested 3, received 0, 284 characters, two calls), the repair
+turn having been handed the contract again in general words; then "the outstanding work is not shrinking" paused it.
+The reply itself was not in his report: it is kept only on a run's raw, and the run after the pause asked nothing.
+Now (agents/auditor.js): (1) judgeAudit settles a finding whose every unlanded change is refused because it is his
+(WRITER_RESERVED: a field his hand set, the main character's identity, the main character's arc) as it settles a standing
+left to the page reader (M277): not reported as owed, counted — the run says "left 1 as you wrote it (a field your own
+hand set)" — and not counted as "needs a different repair". (2) settleWriterOwned: a finding saved owed that way before
+is cleared, with its pending line, where the audit loads its state (both its reading copy and its final copy) — his
+Emilia finding goes on the next audit. (3) The final review is told: a field the writer controls stands as he wrote it; a
+finding that would change it is closed by his words and its entries approved, never held open for it. (4) A review reply
+that is no verdict is handed back with exactly what it lacks (finalReviewDefects: not JSON; no review and no checks, with
+the ids; an open id that is not an entry of this reading — a canon: id is decided under characters:; an open entry with no
+why; a status that is neither complete nor open) and the ids it must use. (5) The final review's last reply (and its
+completion) is kept as state.audit.finalReview.reply (1,500 characters) and his debug report has a "Latest final review
+reply" line. LEDGER_REPAIR_POLICY 17: his paused audit resumes once by itself.
+Laws M776-1 (Emilia's nature by his hand: the reviewer's addition is refused, his core stands, counted as left, nothing
+owed), M776-2 (a finding saved owed before is not in the review's request and is not kept), M776-3 (a review with no
+verdict is asked again with "there is no review object and no verdict for" and the ids; the reply is kept and his report
+shows it; a canon: open id is named back as not an entry of this reading), M776-4 (the main character's arc, the same).
+All four fail on m775-001. Re-aimed: M679-8 (its "the refused close remains visible, with why" asserted the owed finding
+itself; the close is now counted as left as he wrote it and nothing of it is saved owed); M752-A10 and M752-A14 (their
+stall machinery was driven by a lock his hand set — now settled at once, never owed — so they are driven by the ledger's
+own refusal that stays owed, a page with records never let go: "Mira Vale" / "mira vale" / "MIRA VALE" is one target, and
+work that only takes turns still pauses). Checked: harness 1801/1801; the DOM walk 333/333; lint 0 errors (247 warnings).
+Not covered: what the 284-character reply said — it was not kept anywhere he could send; from now on it is. Whether the
+model completes the review when told exactly what is missing is its answer; the law proves it is told, with the ids.

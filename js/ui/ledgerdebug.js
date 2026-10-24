@@ -58,6 +58,8 @@ export async function ledgerDebugReport(storyId) {
   })),3000);
   add('Pending historical complaints',state.audit?.pending || [],1400);
   add('Latest auditor reply excerpt',String(workers.auditor?.raw || '').split(/\n\n(?:Repair followup|Combined review):/).at(-1),1200);
+  /* M776: the final review's own last words, kept with it — a paused reading asks nothing, and its raw was "" */
+  add('Latest final review reply',String(state.audit?.finalReview?.reply || ''),1500);
   add('Recent worker runs, newest first', (rawShelf?._debugHistory || []).slice(-12).reverse().map(slim), 4000);
   add('Latest worker results', Object.fromEntries(Object.entries(workers).sort(([a],[b]) => (b === 'auditor') - (a === 'auditor')).map(([name, row]) => [name, slim(row)])), 2500);
   add('Recent ledger changes, newest first', (state.log || []).slice(-6).reverse().map(({undo,...row}) => row), 800);
@@ -71,7 +73,7 @@ export async function ledgerDebugReport(storyId) {
       const receipt=state.audit?.verification?.entries?.['characters:'+f.name];
       return receipt?.reviewedBy!=='final auditor' && !receipt?.appearance?.some(a=>a.id===f.id);
     }).slice(0,8).map(({name,key,value,source})=>({name,key,value,source}))},850);
-  add('Entry verification', state.audit?.verification ? {read:state.audit.verification.read,total:state.audit.verification.total,finalReview:state.audit.finalReview,
+  add('Entry verification', state.audit?.verification ? {read:state.audit.verification.read,total:state.audit.verification.total,finalReview:state.audit.finalReview ? (({reply:_said,...rest}) => rest)(state.audit.finalReview) : state.audit.finalReview, /* M776: its reply has its own line */
     failureCounts:(state.audit.verification.pending || []).reduce((counts,p) => {const reason=p.split(': ').slice(1).join(': ') || p;counts[reason]=(counts[reason] || 0)+1;return counts;},{}),
     pending:state.audit.verification.pending?.slice(0,6),scene:Object.fromEntries(Object.entries(state.audit.verification.entries || {}).filter(([id]) => id.startsWith('presence:')))} : null, 2000);
   add('Current scene', {clock:state.clock,place:state.place,mode:state.mode,present:(state.present || []).map(p => ({name:p.name,position:String(p.position || '').slice(0,180),attire:String(p.attire || '').slice(0,100)}))},2500);
