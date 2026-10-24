@@ -59,10 +59,9 @@ test('M45-3 the house runs the founder first, once per material, and by hand', (
   assert(chat.indexOf("enqueue('founder'") < chat.indexOf("enqueue('extractor'"), 'before the extractor');
   /* M606: once per material — and once more, for its things alone, for a tale founded before the ledger kept things */
   assert(/if \(st\.founded && st\.founded\.print === print && !refound && !thingsOnly\) return \{ silent: true \};/.test(chat), 'once per material');
-  assert(/async function foundNow\(\)/.test(chat) && /foundNow,/.test(chat));
   assert(WORKER_NAMES[0] === 'founder' && WORKER_ROWS[0][0] === 'founder');
   const drawer = readFileSync(new URL('../../js/ui/drawer.js', import.meta.url), 'utf8');
-  assert(/Found the world from the brief/.test(drawer));
+  void drawer; /* M770: the founder's own button is gone at his word — “Restart the whole ledger” founds the world again (DOM-M770-2) */
   const sw = readFileSync(new URL('../../sw.js', import.meta.url), 'utf8');
   assert(sw.includes("'js/agents/founder.js'"));
 });

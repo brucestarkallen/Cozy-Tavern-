@@ -2911,38 +2911,94 @@ export function initChat(ctx) {
     }
   }
 
-  async function rescanLedger() {
-    const banner = beginWork('Reading the pages again', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
+  /* M770 — HIS (24 October 2026): "Restart the whole ledger from user input and first page and the whole brief and
+   * everything's and run the page one by one like normally it's done until the latest page … (which basically restart and
+   * look at even the brief again and everything to make sure it's coherent)". The ledger is begun again, empty: the founder
+   * reads the brief, the cast, the cards and the lore again, then every page of the story is read in its order by the same
+   * chain that reads a page the moment it lands (startBackgroundWork) — each page's readers finish before the next page is
+   * read, and the ledger as it stood before each page is kept as that page's checkpoint, as a page told now is. What he set
+   * by hand (the journal's own byHand lines) is written again at the page it was written at. The record (Our story so far)
+   * is not touched: its lines are bound to the pages' words, not to the ledger. Holds the rebuild gate the whole way, so
+   * nothing else rewinds or replays under it; his Stop stops it after the page in hand, the ledger read that far. The
+   * referee's own books (its sheet, a fight under way, its rulings) are not the readers' and stay as they are. */
+  async function restartLedgerNow() {
+    let stopped = false;
+    const banner = beginWork('Restarting the whole ledger', (tale) => { stopped = true; const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — the ledger is read as far as the page in hand; the pages after it are read by themselves when the house is idle'); });
     const story = await activeStory();
     if (!story) { banner.failed('Open a story first'); return false; }
-    const pages = (await db.messages.list(story.id)).filter((m) => !m.hidden);
-    const last = [...pages].reverse().find((m) => m.role === 'assistant');
-    if (!last) { banner.failed('No page to read yet'); return false; }
-    const before = pages.slice(0, pages.indexOf(last));
-    const lastUser = [...before].reverse().find((m) => m && m.role === 'user');
-    startBackgroundWork(story, last, lastUser ? pageText(lastUser) : '', { deep: true });
-    banner.say('the workers are reading');
-    bannerFollows(banner, story, 'The pages were read again');
-    return true;
+    if (story.extraction === false) { banner.failed('The ledger’s readers are off for this story (Settings → This story)'); return false; }
+    if (!(await resolveWorkerConnection(story, 'extractor'))) { banner.failed('The page reader needs a connection first'); return false; }
+    if (busy) { banner.failed('A page is being written — restart it when the page has landed'); return false; }
+    if (!(await waitForRebuild()) || !(await takeReplay())) { banner.failed('Another rebuild is still running — try again in a moment'); return false; }
+    try {
+      banner.say('waiting for the readers already at work');
+      await pendingWork(story.id, 300000);
+      const old = await loadState(story.id);
+      const hand = (Array.isArray(old.journal) ? old.journal : []).filter((e) => e && e.m && typeof e.m === 'object' && e.m.byHand === true && Number.isInteger(e.p));
+      const handAt = (st, pick) => {
+        const lines = hand.filter((e) => pick(e.p)).sort((a, b) => (a.p - b.p) || ((a.id || 0) - (b.id || 0)));
+        let out = st;
+        for (const e of lines) { out.page = e.p; out = applyMutations(out, [e.m]).state; }
+        return out;
+      };
+      /* the referee's own books stay — its sheet, a fight under way, its committed rulings: they are the referee's, read from
+       * no page by these readers, and a fight in progress is the present's */
+      const refereeBooks = Object.fromEntries(['sheet', 'duel', 'battle', 'composure', 'refHistory', 'pendingVerdict', 'lastVerdict', 'seedDueAfterFight'].filter((key) => old[key] !== undefined).map((key) => [key, old[key]]));
+      let fresh = { ...emptyState(), ...JSON.parse(JSON.stringify(refereeBooks)) };
+      fresh = handAt(fresh, (p) => p < 0);
+      fresh.page = -1;
+      bumpChain(story.id);
+      await saveState(story.id, fresh);
+      await saveSnapshots(story.id, []); /* the old checkpoints were the old ledger's */
+      await saveVersionStates(story.id, {}); /* each page's version is kept again as it is read (the checkpoint job) */
+      notify(story.id);
+      const vis = visiblePages(await db.messages.list(story.id));
+      const told = vis.filter((m) => m.role === 'assistant');
+      banner.step(0, told.length, 'page');
+      let read = 0;
+      for (let k = 0; k < told.length; k += 1) {
+        if (stopped || ctx.getActiveStoryId() !== story.id) break;
+        const msg = told[k];
+        const at = vis.indexOf(msg);
+        const lastUser = [...vis.slice(0, at)].reverse().find((m) => m && m.role === 'user');
+        if (msg.ooc || asideAt(vis, at) || !pageText(msg).trim()) {
+          /* an out-of-character answer teaches the ledger nothing (M9): counted as read, nobody asked */
+          const st = await loadState(story.id); markPageRead(st, k); await saveState(story.id, st);
+        } else {
+          if (lastUser) await snapshotState(story.id, lastUser.id, await loadState(story.id)); /* the ledger before this page, as a send keeps it */
+          startBackgroundWork(story, msg, lastUser ? pageText(lastUser) : '', { refound: k === 0, layoutRebased: true });
+          await pendingWork(story.id, 30 * 60000);
+        }
+        if (hand.some((e) => e.p === k)) { const st = handAt(await loadState(story.id), (p) => p === k); st.page = Math.max(st.page, k); await saveState(story.id, st); }
+        read += 1;
+        banner.step(read, told.length, 'page');
+      }
+      /* what he set by hand while a page was still being told (its stamp runs ahead of the pages) */
+      if (!stopped && read === told.length && hand.some((e) => e.p >= told.length)) { const st = handAt(await loadState(story.id), (p) => p >= told.length); st.page = Math.max(st.page, told.length - 1); await saveState(story.id, st); }
+      notify(story.id);
+      if (stopped) return false;
+      if (read < told.length) { banner.failed('Restarted ' + read + ' of ' + told.length + ' pages — another tale was opened; the rest are read by themselves'); return false; }
+      banner.done('The whole ledger was restarted — ' + told.length + (told.length === 1 ? ' page' : ' pages') + ' read again from the brief and the first page');
+      return true;
+    } catch (err) {
+      banner.failed('It stumbled — ' + String((err && err.message) || 'no answer').slice(0, 160));
+      return false;
+    } finally {
+      setReplaying(false);
+      markLedgerTrouble(story.id);
+    }
   }
-
-  /* M45: found the world, by hand — from the brief, the cast notes, the
-   * cards and the lore, regardless of the fingerprint. */
-  async function foundNow() {
-    const banner = beginWork('Founding the world from the brief', (tale) => { const s = tale || ctx.getActiveStoryId(); if (s) stoppedByHand(s); banner.failed('Stopped — what was folded is kept; Rebuild starts again from page one'); });
+  /* M770 — HIS: "another button re run restart the last ledger reading for the latest page". The newest page's ledger is
+   * put back to the moment before it and that page's readers run again — the per-page "read again" (rereadPage), for the
+   * newest page, from the workers' room. */
+  async function latestReadingAgainNow() {
     const story = await activeStory();
-    if (!story) { banner.failed('Open a story first'); return false; }
-    const connection = await resolveWorkerConnection(story, 'founder');
-    if (!connection) { banner.failed('The founder needs a connection first'); return false; }
-    const promise = enqueueWork(story.id, { name: 'founder', run: async ({ signal, stale }) => {
-      const cast = await castForStory(story);
-      const lore = await loadLore(story.id);
-      const result = await foundWorld({ connection, storyId: story.id, brief: story.brief || '', castNotes: story.castNotes || '', cast, lore, signal, stale, canonRecord: await canonRecordOf(story) }); /* M564: the real record it is told to write canon people from */
-      return { silent: false, detail: founderRunWords(result), raw: result && result.raw, ...(result?.note === 'unusable' || result?.note === 'cut short' ? { unfinished: true } : {}) }; /* M761: not "went well" */
-    } });
-    noteWork(story.id, promise);
-    banner.say('reading the brief, the cast, the cards and the lore');
-    bannerFollows(banner, story, 'The world was founded from the brief', promise);
+    if (!story) { toast('Open a story first'); return false; }
+    const newest = [...visiblePages(await db.messages.list(story.id))].reverse().find((m) => m && m.role === 'assistant' && !m.ooc);
+    if (!newest) { toast('No page to read yet'); return false; }
+    if (busy) { toast('A page is being written — run it again when the page has landed'); return false; }
+    await rereadPage(newest.id, { quiet: true });
+    toast('The latest page’s ledger reading runs again.');
     return true;
   }
 
@@ -10213,7 +10269,8 @@ export function initChat(ctx) {
     isReplaying,
     repairTimeline,
     taleOpened, /* M675 */
-    rescanLedger,
+    restartLedgerNow, /* M770: "Restart the whole ledger" */
+    latestReadingAgainNow, /* M770: "Re-run the latest page’s ledger reading" */
     auditNow,
     continuousAuditNow, /* M752 (followup 4): "Manual continuous audit" */
     yellowCheckNow, /* M752 (followup 10): "Manual yellow check" — every owner the light is yellow about, a fresh try now */
@@ -10231,7 +10288,6 @@ export function initChat(ctx) {
     resumeUnfinishedChain,
     showTopBar: () => setImmersed(false, false), /* M675: "Reset every setting" brings the top bar back (the setting itself is the reset's to delete) */
     healLedgerOnOpen, /* M452 */
-    foundNow,
     rebuildStandingsNow,
     redoRecordLine,
     summarizeNow,

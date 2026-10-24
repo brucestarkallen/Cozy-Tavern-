@@ -38,7 +38,7 @@ import { LEDGER_READER_RULES, SCENE_ENDING_TASK, sceneEndingFields, workerPeople
 import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'; /* M554: who is in the scene — one definition; M677: what goes into who knows what — one definition */
 import { writerText, BRIEF_ROOM, CAST_ROOM } from '../engine/whole.js'; /* M283 */
 import { nameOnPage, isHere, samePersonName, oneMeaning, foldName } from '../engine/names.js'; /* M402: silence is not leaving; M414: named by the one answer */
-import { clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, jumpedFar, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, mcGoesOut, personBookKey, noOneSpot, deathToldOf, comesInAtTheEnd, readerTimeOverHeader, withoutGrantedFlags } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end; M755: the goings out, and a scene the clock left behind */
+import { personTellings, currentPersonTelling, sceneQuoteIn, clearsThatArrive, scenePartOf, narrationOf, pageNameFor, shownOnPage, goneAtTheEnd, quotedGoing, toldOnPage, withinGround, numberOf, restatedPresence, staleAfterJump, jumpedFar, applyMutations, lockedLooks, movedThings, samePlace, seatAtScene, sameSpot, mcWalksOff, mcGoesOut, personBookKey, noOneSpot, deathToldOf, comesInAtTheEnd, readerTimeOverHeader, withoutGrantedFlags } from '../engine/apply.js'; /* M444: the room restated; cleared is never nowhere; M446: gone at the page's end; M755: the goings out, and a scene the clock left behind */
 import { headerMutations, closeBy, headerCells, headerDress } from '../engine/state.js'; /* M446: did this page move the ground? */
 import { isMc, findPersonKey, seatForPerson } from '../engine/people.js'; /* M681: the dead's seat */
 import { isDeadSeat, seatNowWords } from '../engine/offscreen.js'; /* M680: the dead, and a seat said as every reader says it */
@@ -1345,6 +1345,29 @@ export function broadcastPublicMoments(state, mutations, here) {
   return Array.isArray(mutations) ? mutations : [];
 }
 
+/* M770 — HIS: "Why the current scene is not at the last line of page instead of middle like Emilia close to Jovan not
+ * crouching". The reader gave Emilia "crouching in front of Jovan" from the middle of the page; its last lines have her
+ * leaning close, her cold cheek nearly touching his — and the house took any quote found anywhere on the page as the
+ * ending. The auditor holds a place or a dress to the person's LAST account on the page (M679/M687, apply.js
+ * personTellings); the reader now does too: an ending quoted from an earlier account of someone the page goes on with is
+ * handed back once, in the same reading, with the page's last words of them. */
+function endingsBehind(state, pageText, read) {
+  const out = [];
+  const seen = new Set();
+  const claims = [...(read.hereNotes || []).filter((n) => n && n.shown && (n.at || n.wears)),
+    ...(read.mutations || []).filter((m) => m && m.type === 'presence.update' && typeof m.shown === 'string' && m.shown.trim() && (m.position || m.attire))];
+  for (const c of claims) {
+    const name = String(c.name || '').trim();
+    if (!name || seen.has(name.toLowerCase())) continue;
+    const tellings = personTellings(state, pageText, name, true);
+    const last = tellings.at(-1);
+    if (!last || currentPersonTelling(last, c.shown)) continue;
+    if (!tellings.slice(0, -1).some((parts) => sceneQuoteIn(parts.join(' '), c.shown))) continue; /* a quote the reader made from no account of them is not this fault */
+    seen.add(name.toLowerCase());
+    out.push({ name, last: last.join(' ') });
+  }
+  return out;
+}
 async function extractTurnRead({ connection, state, userText, assistantText, before = [], founding, brief = '', castNotes = '', record = '', signal, renew, storyId = '', story = null, pageNumber = 0, moodOwed = true } = {}) {
   if (!connection || typeof connection !== 'object') return { mutations: [], failed: true };
   if (!assistantText || !String(assistantText).trim()) return { mutations: [], failed: true };
@@ -1417,8 +1440,14 @@ async function extractTurnRead({ connection, state, userText, assistantText, bef
      * writer saw exactly this on his auditor's report. One sharper ask. */
     /* M454: never for a page read out of turn — its mood is not the moment's (M453 drops it), and the second ask only
      * doubled the time every missed page took */
-    if (read.note === 'ok' && attempt === 0 && moodOwed !== false && !read.mutations.some((m) => m && m.type === 'mode.snapshot')) {
-      user = prompt.user + '\n\nYour answer named no mode.snapshot. The whole board is owed on every page: add ONE mode.snapshot listing every mood that holds at the END of this page (combat, intimate, travel, socialField, isolation, group — an empty list if none), and keep every other mutation you wrote. JSON only.';
+    const noMood = read.note === 'ok' && attempt === 0 && moodOwed !== false && !read.mutations.some((m) => m && m.type === 'mode.snapshot');
+    const behind = read.note === 'ok' && attempt === 0 && state ? endingsBehind(state, assistantText, read) : [];
+    if (noMood || behind.length) {
+      user = prompt.user
+        + (noMood ? '\n\nYour answer named no mode.snapshot. The whole board is owed on every page: add ONE mode.snapshot listing every mood that holds at the END of this page (combat, intimate, travel, socialField, isolation, group — an empty list if none), and keep every other mutation you wrote. JSON only.' : '')
+        + (behind.length ? '\n\nWhere you said ' + (behind.length === 1 ? behind[0].name + ' ends' : 'these people end') + ' is from earlier in the page — the page goes on with them after it. The page\'s last words of each:\n'
+          + behind.map((b) => '- ' + b.name + ': “' + b.last.slice(0, 700) + '”').join('\n')
+          + '\nGive each one\'s place and dress as those words LEAVE them (their "here" entry, its shown quoted from those words — the place you gave stands where those words do not change it), and keep every other mutation you wrote. JSON only.' : '');
       continue;
     }
     if (read.note === 'ok') return read;

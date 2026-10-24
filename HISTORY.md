@@ -22332,3 +22332,46 @@ him over Marcus's death is still refused). A deep hole's pages are not sent word
 (holes first), they are named, not carried.
 Checked: harness 1772/1772; the DOM walk 329/330 whole, then DOM-273 re-aimed and run again (330/330); lint 0 errors (247 warnings, the baseline). Not run: tests/m734_search.py (no
 search code changed), his own device and tales.
+
+## M770 (m770-001): the housekeeper retires its own replaced cards; an ending is where the page leaves someone; two buttons
+
+The owner, 24 October 2026, 08:52 Jakarta, with the housekeeper's thread pasted: (1) "Why the housekeeper is so stupid!!
+And always not doing the superseded command?? It should superseded when he updated something from the previous one."
+(2) "Why the current scene is not at the last line of page instead of middle like Emilia close to Jovan not crouching."
+(3) "The only thing that works are manual yellow check audit the ledger manual continuous Audit mend the page summarize now.
+The rest is stupid delete it and change it into something Restart the whole ledger from user input and first page and the
+whole brief … and run the page one by one like normally it's done until the latest page, then another button re run restart
+the last ledger reading for the latest page."
+
+(1) Cause, read in his thread and made to happen: the brief card's sameness (housekeeper.js supersededByNew) knew only two
+whole-text cards; two appends of "## Vampire Society & Hierarchy" were two cards (the second labelled "(4)" because the name
+was taken), and the house's own retiring (autoSupersede, M82 — never reliant on the model's <supersede>) never matched.
+The model's correction of its own waiting card ("No sanguine is the head…") was a find/replace on an empty brief: refused,
+"it is empty — there is nothing to find". Its "group: Vampire Society & Hierarchy" named no group (single cards carry none):
+nothing withdrawn. Its dismiss of a card already set aside said "Unmatched IDs", and it then told him that card still stood.
+Now: an append, a later append or whole text of the same field that adds the same section again (its opening line, or three
+in five of its words) supersedes the waiting append; a find/replace whose words are only in a card still waiting for that
+field becomes that card put right, replacing it; a group name no group answers to takes the waiting cards whose names hold
+it whole; a dismissed id already settled is said as settled, with its fate. The search for the same fault: two new lore
+entries of one name in two answers were two cards too — fixed. Laws M770-1, -2, -3, -6 (all fail on m769-001).
+(2) Cause: the page reader's "here" ending was applied wherever its quote stood on the page; the auditor already holds a
+place or dress to the person's last account (M679/M687). The reader now does too: an ending quoted from an earlier account
+of someone the page goes on with is handed back once, in the same reading, with the page's last words of them
+(extractor.js endingsBehind; personTellings, currentPersonTelling and sceneQuoteIn moved from auditor.js to engine/apply.js,
+one copy). An ending from the last account costs no second ask. Laws M770-4 (fails on m769-001), M770-5.
+Limit: the last account is the person's last named sentence and the pronoun sentences that follow it with no other name
+between; a final paragraph that only says "she" after someone else's sentence is not read as hers.
+(3) The four buttons are gone (and their now unreachable handlers foundNow and rescanLedger; the record rebuild's handlers
+stay for a run already under way to finish). "Restart the whole ledger" (chat.js restartLedgerNow): confirmed, holds the
+rebuild gate; the ledger begins empty but for the referee's own books (sheet, a fight under way, its rulings); his byHand
+journal lines are written again at their pages; the founder reads the brief, cast, cards and lore again; every page is read
+in order by the page chain (startBackgroundWork), each page's readers finished before the next, the ledger before each page
+kept as its checkpoint, each page's version state kept by the checkpoint job; out-of-character pages counted read; the
+banner counts pages; Stop stops after the page in hand. The record is not touched. "Re-run the latest page's ledger reading"
+runs rereadPage on the newest page. The in-app help says the same. Laws DOM-M770-1 (the room's buttons), DOM-M770-2 (a ledger
+with someone no page has and the wrong ground: after the restart the pages were read 0, 1, 2 in order, the founder asked,
+the ground the pages' header, the stranger gone, his hand-written core kept, checkpoints kept; the re-run reads page 2
+again) — both fail on m769-001. Text laws M40-4, M45-3, M52-3 and the beauty law named the removed buttons; their lines
+about them are gone, DOM-7b presses the re-run instead.
+Checked: harness 1778/1778 (a first whole run had 5 failures — M15's source scan read a backtick in the moved helper as a
+template's start, and four text laws still named the removed buttons; fixed, then the whole suite again); the DOM walk 332/332; lint 0 errors (247 warnings, the baseline). Not run: a live provider; his tale.

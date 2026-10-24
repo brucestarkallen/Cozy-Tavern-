@@ -7,7 +7,22 @@ older files sit beside it). Search them with
 
 ## Now
 
-- Version m769-001 on main, 24 October 2026: the final audit of the scene, the people, the world and the book (M769). His:
+- Version m770-001 on main, 24 October 2026: the housekeeper retires its own replaced cards; an ending is where the page
+  leaves someone; the workers' room holds the buttons he keeps and two new ones (M770). His three items: (1) "Why the
+  housekeeper is so stupid!! And always not doing the superseded command??" — a brief append and its corrected re-append were
+  two cards (supersededByNew compared whole-text cards only): an append, a later append or whole text that adds the same
+  section again (its opening line, or 3 in 5 of its words) is the same fix; a find/replace on words that are only in its own
+  waiting card is that card put right (a new card replacing it, never "it is empty — nothing to find"); "group: X" with no
+  such group takes the waiting cards whose names hold X; a dismissed id already settled is said "Already settled", not
+  "Unmatched IDs"; the same fault on lore adds of one name fixed too. (2) "Why the current scene is not at the last line of
+  page … Emilia close to Jovan not crouching" — the page reader's ending was taken from any quote on the page; one quoted from
+  an earlier account of someone the page goes on with is handed back once in the same reading with the page's last words of
+  them (extractor.js endingsBehind; apply.js personTellings, moved from the auditor). (3) "Found the world from the brief",
+  "Read the pages again", "Rebuild the record from the pages" and "Put the old record back" are gone; "Restart the whole
+  ledger" (empty ledger, the founder again, every page read in order by the page chain, checkpoints kept, his byHand writes
+  re-applied at their pages, the referee's books and the record left as they are) and "Re-run the latest page's ledger
+  reading" (rereadPage on the newest page) take their place. Laws M770-1..6, DOM-M770-1, DOM-M770-2. Suite 1778/1778; walk 332/332; lint 0 errors.
+- Version m769-001, 24 October 2026: the final audit of the scene, the people, the world and the book (M769). His:
   "make sure each ledger the scene the people the world the book and everything is working and not gimmick and intended
   according to best". Four fresh readers made about 35 faults happen; each is fixed with a law that fails on m768-001
   (tests/harness/m769.mjs, 28 laws; DOM-M769-1, DOM-M769-2). Scene: a death or a walk-out the page tells is a leave; a place

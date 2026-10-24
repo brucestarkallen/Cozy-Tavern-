@@ -1905,6 +1905,26 @@ export function stageProposals(parsed, { messages, state, modules, lore, memory,
       if (normalizeWords(current).includes(normalizeWords(op.append))) { refuse('it already says that — nothing to add'); continue; }
       staged = { field: key, append: op.append.trim() };
     } else if (typeof op.find === 'string' && typeof op.replace === 'string') {
+      /* M770 — HIS: "No sanguine is the head because they won duel… Please don't be stupid". The housekeeper put its own
+       * pending card right — a find/replace in the section it had proposed and he had not applied yet — and it was refused
+       * ("it is empty — there is nothing to find"): the words were in its card, not yet in the brief. Words found nowhere
+       * in the field and once in a card of its own still waiting for that field are that card, put right: a new card with
+       * the card's words changed, which takes the old one's place. */
+      const waiting = !locate(current, op.find).ok ? pendingCardHolding(session, key, op.find) : null;
+      if (waiting) {
+        const was = waiting.op;
+        const words = typeof was.append === 'string' ? was.append : was.text;
+        const loc = locate(words, op.find);
+        const changed = applyLocated(words, loc, op.replace);
+        if (changed === words) { refuse('the new words are the words already there'); continue; }
+        staged = typeof was.append === 'string' ? { field: key, append: changed } : { field: key, text: changed };
+        if (typeof was.append === 'string') staged.before = current.slice(-200); else staged.before = current;
+        proposals.push({
+          id: uid(), ts: Date.now(), kind: 'brief', label: waiting.label.replace(/\s*\(\d+\)$/, ''), reason, op: staged, revises: waiting.id,
+          status: 'pending', words: '', review: typeof staged.text === 'string' ? [{ target: 'story:' + key, hash: hashText(current) }] : [],
+        });
+        continue;
+      }
       if (!current.trim()) { refuse('it is empty — there is nothing to find; use "text" or "append"'); continue; }
       const located = locate(current, op.find);
       if (!located.ok) { refuse(located.reason); continue; }
@@ -2046,13 +2066,30 @@ export function cardSignature(p) {
 export function supersededByNew(oldP, newP) {
   if (!oldP || !newP || oldP.kind !== newP.kind) return false;
   if (cardSignature(oldP) === cardSignature(newP)) return true;
+  /* M770, the search for the same fault: two new lore entries of one name, proposed in two answers, were two cards too — the
+   * entry written twice. The newer entry of that name is the fix, refined. */
+  if (oldP.kind === 'lore' && oldP.op && newP.op && oldP.op.add && newP.op.add) {
+    const nameOf = (op) => labelKey(op.name || (Array.isArray(op.keys) ? op.keys[0] : ''));
+    return Boolean(nameOf(oldP.op)) && nameOf(oldP.op) === nameOf(newP.op);
+  }
   const t = cardTarget(oldP);
   if (!t || t !== cardTarget(newP)) return false;
   const o = oldP.op || {}; const n = newP.op || {};
   if (oldP.kind === 'edit' && (o.hide !== undefined || n.hide !== undefined)) return false;
   /* M397: the same passage quoted again — longer or shorter — is the same fix, refined */
   if (typeof o.find === 'string' && typeof n.find === 'string') return o.find === n.find || (o.find.length >= 12 && n.find.includes(o.find)) || (n.find.length >= 12 && o.find.includes(n.find));
-  if (oldP.kind === 'brief') return typeof o.text === 'string' && typeof n.text === 'string';
+  /* M770: a card the house made from an edit of this very card's words (stageProposals, a pending card revised) */
+  if (newP.revises && newP.revises === oldP.id) return true;
+  if (oldP.kind === 'brief') {
+    if (typeof o.text === 'string' && typeof n.text === 'string') return true;
+    /* M770 — HIS: "Why the housekeeper is so stupid!! And always not doing the superseded command??" Two appends of one
+     * section ("## Vampire Society & Hierarchy", then the same section with its leadership put right) were two cards: Apply
+     * all would have written the section twice, the wrong one first, and he dismissed them by hand. An append, a later
+     * append or whole text of the same field that carries the same addition again (its opening line, or most of its
+     * words) is the same fix, refined. */
+    if (typeof o.append === 'string' && (typeof n.append === 'string' || typeof n.text === 'string')) return sameAddition(o.append, typeof n.append === 'string' ? n.append : n.text);
+    return false;
+  }
   if (oldP.kind === 'lore') return Boolean(o.patch && n.patch && typeof o.patch.content === 'string' && typeof n.patch.content === 'string');
   /* M397: A NEWER LEDGER CARD THAT DECIDES THE SAME FACTS REPLACES THE OLDER. "Two ledger cards are two changes"
    * left a wrong proposal pending beside its correction — Apply all would have written both, the wrong one first.
@@ -2066,6 +2103,15 @@ export function supersededByNew(oldP, newP) {
   return false;
 }
 
+/* M770: does `later` add again what `earlier` added — its opening line (a section's heading), or three in five of its words? */
+export function sameAddition(earlier, later) {
+  const head = normalizeWords(String(earlier || '').trim().split('\n')[0].replace(/^[#>*\s-]+/, ''));
+  const whole = normalizeWords(later);
+  if (head.length >= 6 && (' ' + whole + ' ').includes(' ' + head + ' ')) return true;
+  const words = (t) => new Set(normalizeWords(t).split(' ').filter((w) => w.length >= 4));
+  const a = words(earlier); const b = words(later);
+  return a.size >= 4 && [...a].filter((w) => b.has(w)).length / a.size >= 0.6;
+}
 /* M397: the facts a ledger card decides — one key per thing it writes, whatever the words */
 export function ledgerFactKeys(mutations) {
   const who = (m) => String((m && (m.name || m.holder || m.person || m.to || m.from)) || '').trim().toLowerCase();
@@ -2328,6 +2374,12 @@ export function applySupersede(session, labels) {
       for (const p of all) {
         if (p.groupName && labelKey(p.groupName) === key && withdrawable(p)) { gone.add(p); groupsTaken.set(p.group, p.groupName); }
       }
+      /* M770: "group: Vampire Society & Hierarchy" named no group — the cards it meant carry it in their names ("the brief —
+       * adding ## Vampire Society & Hierarchy"), one card each, no group: nothing was withdrawn and both stood. A group name
+       * no group answers to takes the waiting cards whose names hold it whole. */
+      if (asGroup && gone.size === before && key.length >= 8 && !knownGroup.has(key)) {
+        for (const p of all) if (withdrawable(p) && (' ' + labelKey(p.label) + ' ').includes(' ' + key + ' ')) gone.add(p);
+      }
     }
     if (gone.size === before) unmatched.push(entry);
   }
@@ -2339,6 +2391,18 @@ export function applySupersede(session, labels) {
   return { count: gone.size, unmatched, groups: [...new Set([...groupsTaken.values()].filter(Boolean))] };
 }
 
+/* M770: the one card still waiting for this field of the story whose own words hold `find` once */
+function pendingCardHolding(session, key, find) {
+  const hits = [];
+  for (const turn of (session && Array.isArray(session.turns) ? session.turns : [])) {
+    for (const p of (Array.isArray(turn.proposals) ? turn.proposals : [])) {
+      if (!p || p.kind !== 'brief' || p.status !== 'pending' || !p.op || p.op.field !== key) continue;
+      const words = typeof p.op.append === 'string' ? p.op.append : typeof p.op.text === 'string' ? p.op.text : '';
+      if (words && locate(words, find).ok) hits.push(p);
+    }
+  }
+  return hits.length ? hits[hits.length - 1] : null;
+}
 export function findProposal(session, proposalId) {
   for (const turn of (session && Array.isArray(session.turns) ? session.turns : [])) {
     const list = Array.isArray(turn.proposals) ? turn.proposals : [];
@@ -3741,7 +3805,13 @@ export async function housekeeperTurn({
     let withdrawNote = '';
     for (const d of result.parsed.dismiss || []) {
       const settled = settleProposals(session,Array.isArray(d.ids) ? d.ids : [],{reason:'Dismissed by the Housekeeper: ' + String(d.reason || 'obsolete proposal')});
-      withdrawNote += '\n\nDismissed ' + settled.count + ' cards.' + (settled.unmatched.length ? ' Unmatched IDs: ' + settled.unmatched.join(', ') + '.' : '');
+      /* M770: an id of a card already set aside is not "unmatched" — it is said as settled, so neither he nor the next answer
+       * takes it for a card still standing */
+      const settledAlready = settled.unmatched.filter((id) => findProposal(session, id));
+      const unknown = settled.unmatched.filter((id) => !findProposal(session, id));
+      withdrawNote += '\n\nDismissed ' + settled.count + (settled.count === 1 ? ' card.' : ' cards.')
+        + (settledAlready.length ? ' Already settled: ' + settledAlready.map((id) => '“' + findProposal(session, id).label + '” (' + cardFate(findProposal(session, id), session) + ')').join('; ') + '.' : '')
+        + (unknown.length ? ' No card has the id ' + unknown.join(', ') + '.' : '');
     }
     /* M82: what was set aside by this answer's cards, said in the talk */
     if (proposals.setAside) withdrawNote += '\n\n(' + proposals.setAside + (proposals.setAside === 1 ? ' older card' : ' older cards') + ' set aside — replaced by this answer’s; Apply all applies only the newest version of each fix.)';

@@ -39,11 +39,11 @@ test('M40-3 the thinking clock is kept on the page and its versions', () => {
 test('M40-4 starters are off unless asked; the rescan exists; the people panel exists', () => {
   const c = chat();
   assert(/\(await db\.settings\.get\('showStarters'\)\) !== true\) \{ els\.promptChips\.hidden = true; return; \}/.test(c));
-  assert(/async function rescanLedger\(\)/.test(c) && /startBackgroundWork\(story, last, lastUser \? pageText\(lastUser\) : '', \{ deep: true \}\)/.test(c));
+  /* M770: "Read the pages again" is gone at his word — "Restart the whole ledger" and "Re-run the latest page’s ledger reading" took its place (DOM-M770-2 runs them) */
   const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
   assert(html.includes('id="show-starters"'));
   const drawer = readFileSync(new URL('../../js/ui/drawer.js', import.meta.url), 'utf8');
-  assert(/id: 'the-people'/.test(drawer) && /Read the pages again/.test(drawer));
+  assert(/id: 'the-people'/.test(drawer));
 });
 
 test('M40-5 everyone the world agent seats has a page', async () => {

@@ -26,8 +26,8 @@ import { HERE_MEANS, KNOWING_MEANS, LOOSE_ANSWERED_MEANS } from './herewords.js'
 import { writerText, BRIEF_ROOM, CAST_ROOM, nearNames, leanPage, LEAN_STEPS } from '../engine/whole.js'; /* M283; M288: the lean steps */
 import { samePlace, seatAtScene, handSetClockSince } from '../engine/apply.js'; /* M403; M681: a seat at the scene's own place */
 import { seatForPerson, sameLooseEnd, roleOwnersNamed, roleWordOf, looseEndOn, looseEndPages } from '../engine/people.js'; /* M398; M679: a loose end matched by sense, as the applier matches it */
-import { isHere, nameOnPage, samePersonName, oneMeaning, foldName, nameCore, sameOwnedDescriptor, isDescriptorName } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
-import { shownOnPage, personBookKey, groundTheTellingStandsOn, narrationOf } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
+import { isHere, nameOnPage, samePersonName, oneMeaning, foldName, sameOwnedDescriptor, isDescriptorName } from '../engine/names.js'; /* M398/M413; M414: named by the one answer; M679 */
+import { shownOnPage, personBookKey, groundTheTellingStandsOn, narrationOf, sceneQuoteIn, personTellings, currentPersonTelling } from '../engine/apply.js'; /* M446: named as themself, never by a family name another shares; M449: the standing the applier will write */
 import { findRelationship } from '../engine/relationships.js';
 import { db } from '../store.js';
 import { callWorker, workerRoom } from './call.js'; /* M752: workerRoom, the room a request leaves as the transport measures it */
@@ -2240,55 +2240,8 @@ const endingWords = (t) => new Set(String(t || '').toLowerCase().split(/[^\p{L}\
 /* do these words stand in that text, half of them at least? */
 const wordsIn = (words, text) => { const w = [...endingWords(words)]; const t = endingWords(text); return w.length > 0 && w.filter((x) => t.has(x)).length / w.length >= 0.5; };
 const journalOfPage = (state, at) => (Array.isArray(state && state.journal) ? state.journal : []).filter((j) => j && j.p === at && j.m && typeof j.m === 'object').map((j) => j.m);
-/* M687: the last account of a person can precede the final fight paragraph.
- * Follow that person's last named sentence and its pronoun continuation. */
-const sceneQuoteIn = (text, quote) => {
-  const tidy = (s) => String(s || '').replace(/[‘’ʼ`]/g, "'").replace(/[—–]/g, '-').replace(/\s+/g, ' ').trim();
-  const q = tidy(quote);
-  return q.length >= 4 && q.length <= 1200 && tidy(text).includes(q);
-};
-function personTellings(state, page, name, fields = false) {
-  if (typeof name !== 'string' || !name.trim()) return [];
-  const scene = narrationOf(scenePartOf(page).replace(/^\s*\[[^\n]*\][ \t]*/, ''));
-  const sentences = scene.split(/(?<=[.!?…])\s+|\n+/).map((s) => s.trim()).filter(Boolean);
-  const names = [...Object.keys(state.characters || {}), ...(state.present || []).map((p) => p.name), ...Object.keys(state.offscreen || {}), mcName(state)].filter((n) => n && !samePersonName(n, name));
-  /* Existing lower-case role seats can use a plural label for a single maid.
-   * This is field evidence only, and never resolves competing role holders. */
-  const role = fields && name === name.toLowerCase() ? (foldName(name).match(/\b(maid|guard|groom|servant|attendant)s\b/) || [])[1] : '';
-  const roleRe = role ? new RegExp('\\b' + role + 's?\\b') : null;
-  const ownRole = roleRe && !names.some((n) => roleRe.test(foldName(n)));
-  const shows = (sentence) => {
-    if (ownRole && roleRe.test(foldName(sentence))) return true;
-    if (!shownOnPage(state, sentence, name)) return false;
-    if (!fields) return true;
-    const core = foldName(nameCore(name));
-    const text = foldName(sentence); const at = core ? text.indexOf(core) : -1;
-    if (at >= 0 && /\b(?:to|toward|towards|beside|with|past|behind|near|at|for|from)\s+$/.test(text.slice(0, at))
-      && names.some((n) => shownOnPage(state, sentence.slice(0, sentence.toLowerCase().indexOf(nameCore(name).toLowerCase())), n))) return false;
-    return true;
-  };
-  const tellings = [];
-  for (let at = 0; at < sentences.length; at++) {
-    if (!shows(sentences[at])) continue;
-    const parts = [sentences[at]];
-    let through = at;
-    for (let i = at + 1; i < sentences.length; i++) {
-      if (names.some((n) => shownOnPage(state, sentences[i], n)) || !(shows(sentences[i]) || /^(?:\S+\s+){0,4}?(?:she|he|they|her|his|their)\b/i.test(sentences[i]))) break;
-      parts.push(sentences[i]);
-      through = i;
-    }
-    tellings.push(parts);
-    at = through;
-  }
-  return tellings;
-}
-function currentPersonTelling(parts, shown = '') {
-  if (!parts) return '';
-  const told = parts.join(' ');
-  if (shown && !sceneQuoteIn(told, shown)) return '';
-  if (shown && parts.length > 1 && !sceneQuoteIn(parts.at(-1), shown) && !sceneQuoteIn(shown, parts.at(-1))) return '';
-  return told;
-}
+/* M770: sceneQuoteIn, personTellings and currentPersonTelling live in engine/apply.js — the page reader holds an ending to
+ * the same last account of a person the auditor does */
 function mcPersonaQuote(state, name, shown, source, reviewed = false) {
   const quote = auditorSourceQuote(source, shown);
   return Boolean(quote && (explicitMcPersona(state,name,quote) || (reviewed && groundedMcPersona(state,name,quote))));

@@ -441,7 +441,7 @@ test('DOM-14 a refused house is said out loud, the words are kept, and the next 
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
 
-test('DOM-7b a version keeps its own ledger: walking back restores it; the people panel shows everyone seated; rescan works', async () => {
+test('DOM-7b a version keeps its own ledger: walking back restores it; the people panel shows everyone seated; the latest page’s re-run works', async () => {
   const before = errors.length;
   const sid = await storyId();
   { const { loadVersionStates } = await import('../../js/engine/state.js'); await until(async () => Object.keys(await loadVersionStates(sid)).length >= 1, 'a version checkpoint exists', 15000); } /* M507-6 */
@@ -457,9 +457,10 @@ test('DOM-7b a version keeps its own ledger: walking back restores it; the peopl
   click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'drawer'); await tick(400); await env.ctx.drawer.renderAllRooms(); await tick(350); /* M148 */
   assert(/The people/.test(q('#drawer-panels').textContent), 'the people panel is there');
   assert(/Kim/.test(q('#drawer-panels').textContent), 'Kim, seated by the world agent, has a page');
-  const rescan = qa('#drawer-panels button').find((b) => /Read the pages again/.test(b.textContent));
-  assert(rescan, 'the rescan button');
-  click(rescan); await tick(400);
+  /* M770: "Read the pages again" is gone at his word — "Re-run the latest page’s ledger reading" is the press for the newest page */
+  const rerun = qa('#drawer-panels button').find((b) => /Re-run the latest page’s ledger reading/.test(b.textContent));
+  assert(rerun, 'the latest page’s re-run');
+  click(rerun); await tick(400);
   click(q('#btn-ledger'));
   eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
 });
@@ -17209,6 +17210,87 @@ test('DOM-M769-2 AFTER A NIGHT, HIS OWN HEADER DRESSES HIM, THROUGH THE APP (the
     { mutations: [], here: [{ name: 'Jovan Wessex', ending: { position: 'alone at the long table with his coffee', shown: 'Jovan sat alone at the long table' } }] });
   const jovan = (after.present || []).find((p) => p && p.name === 'Jovan Wessex') || {};
   eq(jovan.attire, 'a dark coat', 'he wears what his header says this morning');
+});
+
+/* M770 — HIS (24 October 2026): "The only thing that works are manual yellow check audit the ledger manual continuous Audit
+ * mend the page summarize now. The rest is stupid delete it and change it into something Restart the whole ledger … then
+ * another button re run restart the last ledger reading for the latest page. Just these two is enough" */
+async function m770Workers() {
+  if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'the drawer put away'); }
+  click(q('#btn-ledger')); await until(() => !q('#drawer').hidden, 'the drawer'); await tick(300);
+  click(qa('#drawer-panels .nav-chip').find((c) => c.dataset.room === 'books')); await tick(400);
+  return qa('.workers-panel button').map((b) => b.textContent.trim());
+}
+test('DOM-M770-1 THE WORKERS’ ROOM HOLDS THE BUTTONS HE KEEPS AND THE TWO HE ASKED FOR — AND NOT THE FOUR HE CALLED STUPID', async () => {
+  const before = errors.length;
+  await storyId();
+  const names = await m770Workers();
+  for (const keep of ['Manual yellow check', 'Audit the ledger', 'Manual continuous audit', 'Mend the pages’ marks', 'Summarize now', 'Restart the whole ledger', 'Re-run the latest page’s ledger reading'])
+    assert(names.includes(keep), keep + ' is there: ' + names.join(' | '));
+  for (const gone of ['Found the world from the brief', 'Read the pages again', 'Rebuild the record from the pages', 'Put the old record back'])
+    assert(!names.includes(gone), gone + ' is gone');
+  click(q('#btn-drawer-close')); await tick(200);
+  eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+});
+
+test('DOM-M770-2 “RESTART THE WHOLE LEDGER” BEGINS THE LEDGER AGAIN FROM THE BRIEF AND READS EVERY PAGE IN ORDER; WHAT HE SET BY HAND STAYS; “RE-RUN THE LATEST PAGE’S LEDGER READING” READS THE NEWEST PAGE AGAIN', async () => {
+  const before = errors.length;
+  const { saveState: saveLedger, emptyState: blankLedger } = await import('../../js/engine/state.js');
+  const { applyMutations } = await import('../../js/engine/apply.js');
+  const { queuedCount, workIsRunning } = await import('../../js/agents/queue.js');
+  if (!(await db.connections.list()).length) await db.connections.add({ name: 'mock', type: 'openai', baseUrl: 'https://mock.example/v1', apiKey: 'k', model: 'm', maxTokens: 800 }); /* run alone */
+  const st = await db.stories.create({ title: 'M770 restart' });
+  await db.stories.update(st.id, { brief: 'Jovan and Kara keep the old hall.' });
+  for (let i = 0; i < 3; i += 1) {
+    await db.messages.append(st.id, { role: 'user', text: 'I wait. ' + i });
+    await db.messages.append(st.id, { role: 'assistant', text: '[The hall — Monday, March 3, 2025 | 1' + i + ':00 | clear | coat | by the door]\n\nKara crossed the hall. PAGE-MARK-' + i + '.' });
+  }
+  /* a ledger gone wrong (someone no page has, the wrong ground), and one thing he set by hand on the second page */
+  let led = applyMutations({ ...blankLedger(), sheet: { actors: {}, playerName: 'Jovan' } }, [{ type: 'mc.set', name: 'Jovan' }, { type: 'place.set', name: 'the moon' }, { type: 'presence.enter', name: 'Ghost Person' }]).state;
+  led.page = 1;
+  led = applyMutations(led, [{ type: 'people.note', name: 'Kara', field: 'core', text: 'Keeper of the old hall, by his hand.', byHand: true }]).state;
+  await saveLedger(st.id, { ...led, page: 2, readTo: 2, tidiedGen: 999, healedGen: 999, founded: { at: 1, print: 'old' } });
+  env.window.__cozy.setActiveStoryId(st.id);
+  await env.ctx.chat.refreshStories(true);
+  await env.ctx.chat.renderThread({ structural: true });
+  await until(() => !env.ctx.chat.isBusy() && !env.ctx.chat.isReplaying() && queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the house settled', 60000);
+  const read = []; let founded = 0;
+  const prior = house.state.workerAnswer;
+  house.state.workerAnswer = (body, sys) => {
+    if (/found the ledger/i.test(sys)) { founded += 1; return '{"mutations":[]}'; }
+    if (/keep the ledger/i.test(sys)) {
+      const user = String((body.messages || []).map((m) => m.content).join('\n'));
+      const marks = [...user.matchAll(/PAGE-MARK-(\d)/g)].map((m) => Number(m[1]));
+      const k = marks.length ? Math.max(...marks) : -1;
+      read.push(k);
+      return JSON.stringify({ mutations: [{ type: 'mode.snapshot', flags: [] }, ...(k === 0 ? [{ type: 'presence.enter', name: 'Kara', shown: 'Kara crossed the hall' }] : [])], here: ['Jovan', 'Kara'] });
+    }
+    return walkDefaultWorker(body, sys);
+  };
+  const priorConfirm = env.window.confirm; env.window.confirm = () => true;
+  try {
+    await m770Workers();
+    click(qa('.workers-panel button').find((b) => b.textContent === 'Restart the whole ledger'));
+    await until(() => read.length >= 3, 'every page read', 120000);
+    await until(() => !env.ctx.chat.isReplaying() && queuedCount(st.id) === 0 && !workIsRunning(st.id), 'the restart done', 120000);
+    eq(read.slice(0, 3).join(','), '0,1,2', 'the pages read one by one, in order');
+    assert(founded >= 1, 'the brief read again first');
+    const after = await db.settings.get('state:' + st.id);
+    eq((after.place || {}).name, 'The hall', 'the ground the pages give (their header), not “the moon”');
+    assert(!(after.present || []).some((p) => p.name === 'Ghost Person'), 'nobody the pages never had');
+    eq(((after.characters || {}).Kara || {}).core, 'Keeper of the old hall, by his hand.', 'what he set by hand stays');
+    { const { loadSnapshots } = await import('../../js/engine/state.js'); const snaps = await loadSnapshots(st.id); assert(snaps.length >= 3, 'each page’s checkpoint kept again, as a page told now keeps it: ' + snaps.length); }
+    const n = read.length;
+    click(qa('.workers-panel button').find((b) => b.textContent === 'Re-run the latest page’s ledger reading'));
+    await until(() => read.length > n, 'the newest page read again', 60000);
+    eq(read[read.length - 1], 2, 'it was the newest page');
+    await until(() => !env.ctx.chat.isReplaying() && queuedCount(st.id) === 0 && !workIsRunning(st.id), 'settled', 60000);
+    click(q('#btn-drawer-close')); await tick(200);
+    eq(errorsSince(before).length, 0, errorsSince(before).join(' | '));
+  } finally {
+    house.state.workerAnswer = prior; env.window.confirm = priorConfirm;
+    if (!q('#drawer').hidden) { click(q('#btn-drawer-close')); await until(() => q('#drawer').hidden, 'closed').catch(() => {}); }
+  }
 });
 
 await runAll();

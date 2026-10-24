@@ -2256,16 +2256,6 @@ function workersPanel(ctx) {
     }
   };
 
-  const rescan = document.createElement('button');
-  rescan.type = 'button';
-  rescan.className = 'text-btn';
-  rescan.textContent = 'Read the pages again';
-  rescan.title = 'The workers read the latest page again, with the eight before it in view, and write what they find.';
-  rescan.addEventListener('click', async () => {
-    await whileWorking(rescan, 'Reading the pages…', 'The pages were read')(async () => {
-      if (ctx.chat && typeof ctx.chat.rescanLedger === 'function') await ctx.chat.rescanLedger();
-    });
-  });
   /* M41: audit the ledger — the whole of it against the brief, the pages and the record */
   const audit = document.createElement('button');
   audit.type = 'button';
@@ -2277,18 +2267,6 @@ function workersPanel(ctx) {
       if (ctx.chat && typeof ctx.chat.auditNow === 'function') await ctx.chat.auditNow();
     });
   });
-  /* M45: found the world from the brief, the cast, the cards and the lore */
-  const found = document.createElement('button');
-  found.type = 'button';
-  found.className = 'text-btn';
-  found.textContent = 'Found the world from the brief';
-  found.title = 'The founder reads the brief, the cast notes, the invited cards and the lore, and writes every named person, bond, appearance, faction, seat and thread they establish into the ledger.';
-  found.addEventListener('click', async () => {
-    await whileWorking(found, 'Founding the world…', 'The world was founded')(async () => {
-      if (ctx.chat && typeof ctx.chat.foundNow === 'function') await ctx.chat.foundNow();
-    });
-  });
-
   /* M752 (followup 4) — HIS (14 October 2026): "Add manual continuous audit." Named as he named it. It reads what the
    * continuous audit has not read, now, and asks again about every historical correction still open — with its switch off
    * too. Its banner says how far it read and what is left; a run out by hand is the only one (chat.js continuousAuditNow). */
@@ -2328,30 +2306,27 @@ function workersPanel(ctx) {
     if (ctx.chat && typeof ctx.chat.summarizeNow === 'function') await ctx.chat.summarizeNow();
   });
 
-  /* M52: re-fold the record from the first page, six pages at a time */
-  const refold = document.createElement('button');
-  refold.type = 'button';
-  refold.className = 'text-btn';
-  refold.textContent = 'Rebuild the record from the pages';
-  refold.title = 'The record’s lines are backed up and let go; the keeper folds the pages again from the first, six at a time, holes first. The old record can be put back.';
-  refold.addEventListener('click', async () => {
-    /* M217: SAY WHAT IT UNDOES. "The old record is kept" did not tell the
-     * writer that every line they had rewritten by hand, and every line they
-     * had let go, would be written again from the pages — which is what a
-     * rebuild IS, and is why a line they thought deleted came back. */
-    if (!window.confirm('Rebuild the whole record from the first page?\n\nEvery line is folded again from the pages — including any you rewrote by hand or let go, which will come back. To redo just one line instead, use "Fold again" on that line.\n\nThe old record is kept and can be put back.')) return;
-    await whileWorking(refold, 'Rebuilding the record…', 'The record is rebuilt')(async () => {
-      if (ctx.chat && typeof ctx.chat.rebuildRecordNow === 'function') await ctx.chat.rebuildRecordNow();
-    });
+  /* M770 — HIS (24 October 2026): "The rest is stupid delete it and change it into something Restart the whole ledger from
+   * user input and first page and the whole brief … then another button re run restart the last ledger reading for the
+   * latest page. Just these two is enough". "Found the world from the brief", "Read the pages again", "Rebuild the record
+   * from the pages" and "Put the old record back" are gone; these two take their place (chat.js restartLedgerNow,
+   * latestReadingAgainNow). */
+  const restart = document.createElement('button');
+  restart.type = 'button';
+  restart.className = 'text-btn';
+  restart.textContent = 'Restart the whole ledger';
+  restart.title = 'The ledger begins again, empty: the brief, the cast notes, the cards and the lore are read again, then every page from the first, one by one in order, by the same readers that read a page when it lands — up to the latest page. What you set by hand is written again where you set it; the record (Our story so far) is not touched.';
+  restart.addEventListener('click', async () => {
+    if (!window.confirm('Restart the whole ledger?\n\nIt begins again, empty: the brief is read again, then every page from the first, one by one, up to the latest — the readers are asked about every page again. What you set by hand is kept.')) return;
+    if (ctx.chat && typeof ctx.chat.restartLedgerNow === 'function') await ctx.chat.restartLedgerNow();
   });
-  const unfold = document.createElement('button');
-  unfold.type = 'button';
-  unfold.className = 'text-btn';
-  unfold.textContent = 'Put the old record back';
-  unfold.addEventListener('click', async () => {
-    await whileWorking(unfold, 'Putting it back…', 'The old record is back')(async () => {
-      if (ctx.chat && typeof ctx.chat.restoreRecordNow === 'function') await ctx.chat.restoreRecordNow();
-    });
+  const latestAgain = document.createElement('button');
+  latestAgain.type = 'button';
+  latestAgain.className = 'text-btn';
+  latestAgain.textContent = 'Re-run the latest page’s ledger reading';
+  latestAgain.title = 'The ledger goes back to just before the latest page, and that page’s readers read it again.';
+  latestAgain.addEventListener('click', async () => {
+    if (ctx.chat && typeof ctx.chat.latestReadingAgainNow === 'function') await ctx.chat.latestReadingAgainNow();
   });
   const row = document.createElement('div');
   row.className = 'row';
@@ -2365,10 +2340,10 @@ function workersPanel(ctx) {
     mendMarksBtn.disabled = true;
     try { if (ctx.chat && typeof ctx.chat.mendAllPages === 'function') await ctx.chat.mendAllPages(); } finally { mendMarksBtn.disabled = false; }
   });
-  row.append(yellowNow, found, rescan, audit, continuousNow, mendMarksBtn);
+  row.append(yellowNow, audit, continuousNow, mendMarksBtn, catchUp);
   const row2 = document.createElement('div');
   row2.className = 'row';
-  row2.append(catchUp, refold, unfold);
+  row2.append(restart, latestAgain);
   wrap.append(auditScratchbookButton(()=>currentStory(ctx)),ledgerDebugSection(() => currentStory(ctx)), note, row, row2, list);
 
   const render = latestWins(async () => {
@@ -2391,10 +2366,8 @@ function workersPanel(ctx) {
       li.textContent = (WORKER_WORDS[name] || name) + ' is reading now…';
       list.appendChild(li);
     }
-    for (const b of [found, rescan, audit]) b.disabled = false;
-    if (live.includes('founder')) { found.disabled = true; found.textContent = 'Founding…'; } else found.textContent = 'Found the world from the brief';
+    audit.disabled = false;
     if (live.includes('auditor')) { audit.disabled = true; audit.textContent = 'Auditing…'; } else audit.textContent = 'Audit the ledger';
-    if (live.includes('extractor') || live.includes('world')) { rescan.disabled = true; rescan.textContent = 'Reading…'; } else rescan.textContent = 'Read the pages again';
     /* M252: NEWEST FIRST. The line was drawn in a FIXED worker order, so a run
      * from eighteen hours ago sat above one from a moment ago — the writer
      * pressed Rebuild, went looking for it, and found "18 hours ago" at the

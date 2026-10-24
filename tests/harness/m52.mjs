@@ -76,5 +76,5 @@ test('M52-3 the reader’s answers and the house wiring', () => {
   const chat = readFileSync(new URL('../../js/ui/chat.js', import.meta.url), 'utf8');
   assert(/async function rebuildRecordNow\(\)/.test(chat) && /async function rebuildPeopleNow\(\)/.test(chat) && /restoreRecordNow,/.test(chat));
   const drawer = readFileSync(new URL('../../js/ui/drawer.js', import.meta.url), 'utf8');
-  assert(/Rebuild the record from the pages/.test(drawer) && /Rebuild the people from the pages/.test(drawer) && /Put the old record back/.test(drawer));
+  assert(/Rebuild the people from the pages/.test(drawer)); /* M770: the record's rebuild and its put-back are no buttons any more, at his word */
 });

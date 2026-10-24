@@ -153,7 +153,7 @@ test('M175: every destructive tap in the house asks first', () => {
   for (const [file, needle] of [
     ['../../js/ui/settings.js', 'Rewrite every page'],
     ['../../js/ui/settings.js', 'Take the lore shelf down'],
-    ['../../js/ui/drawer.js', 'Rebuild the whole record from the first page?'],
+    ['../../js/ui/drawer.js', 'Restart the whole ledger?'], /* M770: the record's rebuild is no button any more; the ledger's restart asks first */
   ]) {
     const src = fs.readFileSync(path.join(here, file), 'utf8');
     const i = src.indexOf(needle);
@@ -212,11 +212,7 @@ test('M199: the ledger panel keeps its place, and every action says what it is d
   assert(/finally \{\s*\n\s*setTimeout\(\(\) => \{ button\.textContent = words; button\.disabled = false; \}/.test(src),
     'then goes back to its own words');
   for (const [label, working] of [
-    ['Read the pages again', 'Reading the pages…'],
-    ['Audit the ledger', 'Auditing the ledger…'],
-    ['Found the world from the brief', 'Founding the world…'],
-    ['Rebuild the record from the pages', 'Rebuilding the record…'],
-    ['Put the old record back', 'Putting it back…'],
+    ['Audit the ledger', 'Auditing the ledger…'], /* M770: the other four are gone at his word */
   ]) {
     assert(src.includes(label), label + ' is still there');
     assert(src.includes(working), label + ' says what it is doing: ' + working);
@@ -291,7 +287,7 @@ test('M203: every manual action has a banner, and always finishes it', () => {
   assert(/role="status" aria-live="polite"/.test(html), 'and a screen reader hears it change');
 
   /* every manual action begins one */
-  const actions = ['rescanLedger', 'foundNow', 'auditNow', 'rebuildRecordNow',
+  const actions = ['restartLedgerNow', 'auditNow', 'rebuildRecordNow', /* M770: “Read the pages again” and the founder's button are gone, the restart is the press */
     'rebuildPeopleNow', 'rebuildStandingsNow', 'restoreRecordNow', 'restorePeopleNow'];
   for (const fn of actions) {
     const at = chat.indexOf('async function ' + fn + '(');
@@ -370,7 +366,7 @@ test('M214: every action’s banner exists before it is touched, and never claim
   const raw = fs.readFileSync(path.join(here, '../../js/ui/chat.js'), 'utf8');
   const chat = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
-  const actions = ['rescanLedger', 'foundNow', 'auditNow', 'rebuildRecordNow',
+  const actions = ['restartLedgerNow', 'auditNow', 'rebuildRecordNow', /* M770: “Read the pages again” and the founder's button are gone, the restart is the press */
     'rebuildPeopleNow', 'rebuildStandingsNow', 'restoreRecordNow', 'restorePeopleNow'];
   for (const fn of actions) {
     const at = chat.indexOf('async function ' + fn + '(');

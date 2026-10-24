@@ -2394,6 +2394,56 @@ export function showsDeparture(sentence) {
  * else, by name or by rank ("Rukia glanced at Kuchiki-taichō. He left." is his going). A later sentence that names them
  * without going means they are here; a page that never names them as themself does not show them going. */
 const RANKED = /\b(?:captain|lieutenant|commander|general|sergeant|officer|detective|mr|mrs|ms|miss|dr|lady|lord|sir|madam|master|headmaster|headmistress|principal|instructor|chancellor)\.?\s+\p{Lu}|\p{L}+-(?:taich|fukutaich|s[oō]taich|san\b|sama\b|kun\b|chan\b|dono\b|sensei\b|senpai\b)/iu;
+/* M770: moved from agents/auditor.js — the page reader holds an ending to the same last account the auditor does */
+/* M687: the last account of a person can precede the final fight paragraph.
+ * Follow that person's last named sentence and its pronoun continuation. */
+export const sceneQuoteIn = (text, quote) => {
+  const tidy = (s) => String(s || '').replace(/[‘’ʼ\u0060]/g, "'").replace(/[—–]/g, '-').replace(/\s+/g, ' ').trim();
+  const q = tidy(quote);
+  return q.length >= 4 && q.length <= 1200 && tidy(text).includes(q);
+};
+export function personTellings(state, page, name, fields = false) {
+  if (typeof name !== 'string' || !name.trim()) return [];
+  const scene = narrationOf(scenePartOf(page).replace(/^\s*\[[^\n]*\][ \t]*/, ''));
+  const sentences = scene.split(/(?<=[.!?…])\s+|\n+/).map((s) => s.trim()).filter(Boolean);
+  const names = [...Object.keys(state.characters || {}), ...(state.present || []).map((p) => p.name), ...Object.keys(state.offscreen || {}), mcName(state)].filter((n) => n && !samePersonName(n, name));
+  /* Existing lower-case role seats can use a plural label for a single maid.
+   * This is field evidence only, and never resolves competing role holders. */
+  const role = fields && name === name.toLowerCase() ? (foldName(name).match(/\b(maid|guard|groom|servant|attendant)s\b/) || [])[1] : '';
+  const roleRe = role ? new RegExp('\\b' + role + 's?\\b') : null;
+  const ownRole = roleRe && !names.some((n) => roleRe.test(foldName(n)));
+  const shows = (sentence) => {
+    if (ownRole && roleRe.test(foldName(sentence))) return true;
+    if (!shownOnPage(state, sentence, name)) return false;
+    if (!fields) return true;
+    const core = foldName(nameCore(name));
+    const text = foldName(sentence); const at = core ? text.indexOf(core) : -1;
+    if (at >= 0 && /\b(?:to|toward|towards|beside|with|past|behind|near|at|for|from)\s+$/.test(text.slice(0, at))
+      && names.some((n) => shownOnPage(state, sentence.slice(0, sentence.toLowerCase().indexOf(nameCore(name).toLowerCase())), n))) return false;
+    return true;
+  };
+  const tellings = [];
+  for (let at = 0; at < sentences.length; at++) {
+    if (!shows(sentences[at])) continue;
+    const parts = [sentences[at]];
+    let through = at;
+    for (let i = at + 1; i < sentences.length; i++) {
+      if (names.some((n) => shownOnPage(state, sentences[i], n)) || !(shows(sentences[i]) || /^(?:\S+\s+){0,4}?(?:she|he|they|her|his|their)\b/i.test(sentences[i]))) break;
+      parts.push(sentences[i]);
+      through = i;
+    }
+    tellings.push(parts);
+    at = through;
+  }
+  return tellings;
+}
+export function currentPersonTelling(parts, shown = '') {
+  if (!parts) return '';
+  const told = parts.join(' ');
+  if (shown && !sceneQuoteIn(told, shown)) return '';
+  if (shown && parts.length > 1 && !sceneQuoteIn(parts.at(-1), shown) && !sceneQuoteIn(shown, parts.at(-1))) return '';
+  return told;
+}
 /* M679: HOW THE PAGE ENDS — its last paragraph, or the last two or three when they are short (the header line and the window
  * set aside). What the house writes of the scene from the newest page — the auditor's walk-ins, places and things, and the
  * heal of who is here — is held to it: a page that starts at the hall's threshold beside Corven and ends at the small
